@@ -344,11 +344,8 @@ def enrich_operational_http_report(*, audit_id: str, workspace: AuditWorkspace) 
 
 
 def install() -> None:
-    """Reconcile URL-level operational metrics and refresh affected report projections."""
-    from rasai import report_completion, report_navigation
-    from rasai.report_manifest import write_report_manifest
-    from rasai.report_scale_ux import enhance_report_directory
-    from rasai.standards_metrics import enrich_existing_reports, write_standards_report
+    """Reconcile operational HTTP metrics without conventional HTML projection."""
+    from rasai import report_completion
 
     if getattr(report_completion, "_rasai_operational_http_reconciliation", False):
         return
@@ -364,22 +361,15 @@ def install() -> None:
         errors = list(base.renderer_errors)
         try:
             reconcile_operational_http_metrics(audit_id=audit_id, workspace=workspace)
-            write_standards_report(audit_id=audit_id, workspace=workspace)
-            enrich_existing_reports(audit_id=audit_id, workspace=workspace)
-            enrich_operational_http_report(audit_id=audit_id, workspace=workspace)
-            report_dir = workspace.root / "report"
-            report_navigation.normalize_report_navigation(report_dir)
-            enhance_report_directory(report_dir)
-            write_report_manifest(report_dir)
         except Exception as exc:
             errors.append(f"operational-http:{type(exc).__name__}:{str(exc)[:400]}")
-        inspected = report_completion.inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
         return report_completion.AuditReportCompletion(
-            expected_pages=inspected.expected_pages,
-            generated_pages=inspected.generated_pages,
-            missing_pages=inspected.missing_pages,
+            expected_pages=base.expected_pages,
+            generated_pages=base.generated_pages,
+            missing_pages=base.missing_pages,
             renderer_errors=tuple(errors),
         )
 
     report_completion.finalize_audit_report_site = finalize_with_operational_metrics
     report_completion._rasai_operational_http_reconciliation = True
+
