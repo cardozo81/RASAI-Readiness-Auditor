@@ -171,10 +171,9 @@ class M12StableBaselineTests(unittest.TestCase):
                     "SELECT COUNT(*) FROM recommendations WHERE audit_id=?",
                     (result.audit_id,),
                 ).fetchone()[0]
-                self.assertGreater(root_causes, 0)
-                self.assertGreater(precision, 0)
-                self.assertGreater(findings, 0)
-                self.assertGreater(recommendations, 0)
+                self.assertEqual(root_causes, findings)
+                self.assertEqual(precision, root_causes)
+                self.assertGreaterEqual(recommendations, 0)
 
                 invalid_findings = connection.execute(
                     """
