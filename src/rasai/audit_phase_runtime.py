@@ -13,7 +13,7 @@ storage layers continue to persist the full raw datasets and observations.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 from rasai.ai_governance import (
     EvidenceSnapshot,
@@ -291,11 +291,29 @@ def run_registered_ai_phase(
     audit_id: str,
     workspace: Any,
     evidence_snapshot: EvidenceSnapshot,
+    purposes: Iterable[str] | None = None,
 ) -> dict[str, Mapping[str, Any]]:
-    """Run additive/post-derivation AI consumers before report materialization."""
+    """Run governed additive AI consumers before final data/report projection.
+
+    The optional purposes filter keeps normal audit execution unchanged while
+    selective reprocessing can execute only AI purposes whose dependencies changed
+    or whose required work item remains unresolved.
+    """
 
     outcomes: dict[str, Mapping[str, Any]] = {}
-    hooks = sorted(_AI_HOOKS.values(), key=lambda item: (item.order, item.name))
+    selected = (
+        None
+        if purposes is None
+        else {str(value).strip().upper() for value in purposes if str(value).strip()}
+    )
+    hooks = sorted(
+        (
+            hook
+            for hook in _AI_HOOKS.values()
+            if selected is None or hook.name in selected
+        ),
+        key=lambda item: (item.order, item.name),
+    )
     for hook in hooks:
         try_append_operational_event(
             workspace,
