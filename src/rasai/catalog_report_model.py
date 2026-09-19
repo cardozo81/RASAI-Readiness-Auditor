@@ -17,6 +17,7 @@ _COMPONENT_LABELS = {
     "RENDER_CAPTURE":"Captura renderizada",
     "CONTENT_EXTRACTION":"Extração de conteúdo",
     "IMPROVEMENT_INTELLIGENCE":"Análise profunda e melhorias",
+    "DIRECTED_ANALYSIS":"Análise Direcionada",
     "SEARCH_INTELLIGENCE":"Search Intelligence",
     "PASSIVE_SECURITY":"Segurança passiva",
 }
@@ -44,6 +45,7 @@ _AI_PURPOSE_LABELS = {
     "M20-CONTENT-REMEDIATION-V3":("Remediação de conteúdo","CAT-09"),
     "IMPROVEMENT-INTELLIGENCE-001":("Análise profunda e melhorias","CAT-08"),
     "COMPETITIVE-AI-001":("Inteligência competitiva por IA","CAT-05"),
+    "DIRECTED-ANALYSIS-001":("Análise Direcionada","Análise Direcionada"),
 }
 _AI_EXCHANGE_PURPOSES = {
     "SEMANTIC_ANALYSIS":"Análise semântica",
