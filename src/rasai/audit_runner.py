@@ -34,13 +34,12 @@ from rasai.m7 import execute_m7
 from rasai.m8 import execute_m8
 from rasai.m9 import execute_m9
 from rasai.m10 import execute_m10
-from rasai.m11 import execute_m11
 from rasai.m14_linking import link_findings_to_elements
 from rasai.m14_persistence import M14Persistence
+from rasai.m16_root_cause import materialize_root_causes
+from rasai.m17_precision import materialize_m17_precision
 from rasai.m18_persistence import persist_provider_runtime
-from rasai.m18_reporting import enrich_written_reports
 from rasai.m20 import execute_m20
-from rasai.m20_reporting import enrich_m20_report_site
 from rasai.m24_crawling_discovery import execute_m24, load_m24_result
 from rasai.m24_governed_ai import execute_m24_ai_phase
 from rasai.m24_scoring import persist_m24_scoring_assessments
@@ -48,7 +47,6 @@ from rasai.operational_log import try_append_operational_event
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.pre_scoring_rules import execute_pre_scoring_rules
 from rasai.recommendation_governance import evaluate_recommendations
-from rasai.report_site import materialize_report_site
 from rasai.semantic import NoneProvider, SemanticAnalysisProvider
 from rasai.source_quality import (
     assess_m2_result,
@@ -67,7 +65,7 @@ from rasai.url_utils import normalize_url, normalized_origin
 class AuditRunResult:
     audit_id: str
     audit_root: Path
-    report_path: Path
+    report_path: Path | None
     completion_status: CompletionStatus
     audited_pages: int
     finding_count: int
@@ -555,29 +553,12 @@ def run_audit(
             reconcile_before_reporting(workspace=workspace, audit_id=audit_id)
             persist_active_outcome_before_reporting(audit_id=audit_id, workspace=workspace)
 
-            # ------------------------------------------------------------------
-            # REPORT PROJECTION ONLY. Network/AI/business derivation work must not
-            # originate below here.
-            # ------------------------------------------------------------------
-            _set_status(persistence, audit_id, AuditStatus.REPORTING)
-            m11 = execute_m11(
-                audit_id=audit_id,
-                persistence=persistence,
-                workspace=workspace,
-            )
-            enrich_written_reports(audit_id=audit_id, workspace=workspace)
-            report_path = materialize_report_site(
-                audit_id=audit_id,
-                workspace=workspace,
-                report_id=m11.report_id,
-            )
-            enrich_m20_report_site(audit_id=audit_id, workspace=workspace)
-            try_append_operational_event(
-                workspace,
-                "REPORT_SITE_GENERATED",
-                audit_id=audit_id,
-                report_path=str(report_path.relative_to(workspace.root)),
-            )
+            # Root-cause and precision are durable audit derivations consumed by
+            # report-catalog and downstream analysis. They deliberately remain in the
+            # core flow after the legacy/non-catalog HTML projection was removed.
+            materialize_root_causes(audit_id=audit_id, workspace=workspace)
+            materialize_m17_precision(audit_id=audit_id, workspace=workspace)
+            report_path = None
 
             current = persistence.audits.get(audit_id)
             if current is None:
