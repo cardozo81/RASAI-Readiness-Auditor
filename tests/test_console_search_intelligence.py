@@ -140,6 +140,7 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             workspace = root / "AUD-TEST"
+            workspace.mkdir(parents=True)
             state = SearchConsoleState(
                 audits_root=str(root),
                 audit_id="AUD-TEST",
@@ -178,6 +179,7 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             workspace = root / "AUD-TEST"
+            workspace.mkdir(parents=True)
             state = SearchConsoleState(
                 audits_root=str(root),
                 audit_id="AUD-TEST",
