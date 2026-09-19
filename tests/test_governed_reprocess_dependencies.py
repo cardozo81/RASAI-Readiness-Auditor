@@ -461,3 +461,44 @@ def test_passive_security_rpr_refreshes_external_intelligence_only_when_componen
         if item.component == "PASSIVE_SECURITY"
     )
     assert item.status == SUCCESS
+
+
+def test_governed_dependency_invalidation_reopens_only_impacted_success(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    for component in ("PASSIVE_SECURITY", "WEB_PERFORMANCE"):
+        register_work_item(
+            workspace,
+            audit_id=AUDIT_ID,
+            component=component,
+            required=True,
+            temporal_mode=REPLAY_SAFE,
+            status=SUCCESS,
+            retryable=False,
+        )
+        set_work_item_status(
+            workspace,
+            audit_id=AUDIT_ID,
+            component=component,
+            status=SUCCESS,
+            result_ref=f"{component.casefold()}:effective",
+            retryable=False,
+        )
+
+    from rasai.governed_fulfillment_invalidation import invalidate_work_item
+
+    changed = invalidate_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="PASSIVE_SECURITY",
+        error_class="EVIDENCE_DEPENDENCY",
+        error_code="PASSIVE_SECURITY_INPUT_CHANGED",
+        error_message="core evidence changed",
+    )
+
+    assert changed is True
+    items = {item.component: item for item in list_work_items(workspace, AUDIT_ID)}
+    assert items["PASSIVE_SECURITY"].status == FAILED_RETRYABLE
+    assert items["PASSIVE_SECURITY"].retryable is True
+    assert items["PASSIVE_SECURITY"].effective_result_ref == "passive_security:effective"
+    assert items["WEB_PERFORMANCE"].status == SUCCESS
+    assert items["WEB_PERFORMANCE"].effective_result_ref == "web_performance:effective"
