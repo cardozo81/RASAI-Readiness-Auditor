@@ -259,8 +259,8 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         if not improvement_run:
             ai_notice=(
                 "<div class='notice warn'><strong>IA consultiva solicitada, mas sem resultado persistido:</strong> "
-                "o CAT-10 foi configurado para enriquecimento por IA, porém não existe execução consolidada de "
-                "Improvement Intelligence nesta AUD. Findings determinísticos permanecem válidos; a ausência de IA "
+                "o CAT-10 foi configurado para enriquecimento por IA, porém não existe execução consolidada da "
+                "Análise Profunda nesta AUD. Os achados determinísticos permanecem válidos; a ausência de IA "
                 "deve ser tratada como lacuna de execução, não como análise concluída.</div>"
             )
         else:
@@ -269,8 +269,8 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
             if not security_in_run:
                 ai_notice=(
                     "<div class='notice warn'><strong>IA executada sem o domínio SECURITY:</strong> "
-                    "há resultado de Improvement Intelligence, mas ele não declara Segurança passiva entre os domínios "
-                    "persistidos. O CAT-10 não atribui recomendações de outro domínio aos findings de segurança.</div>"
+                    "há resultado da Análise Profunda, mas ele não declara Segurança passiva entre os domínios "
+                    "persistidos. O CAT-10 não atribui recomendações de outro domínio aos achados de segurança.</div>"
                 )
             else:
                 ai_notice=(
@@ -282,7 +282,8 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
 
     finding_rows=[]; modals=[]
     for index,item in enumerate(findings,1):
-        mid=f"security-finding-{index}"
+        finding_token=re.sub(r"[^a-z0-9_-]+","-",str(item.get("finding_id") or index).casefold()).strip("-") or str(index)
+        mid=f"security-finding-{finding_token}"
         recommendation=ai_rec_by_finding.get(str(item.get("finding_id") or ""))
         ai_state=("Analisado pela IA" if recommendation else "Sem recomendação específica" if ai_requested else "Não solicitada")
         finding_type=_security_finding_type_label(item.get("finding_type"))
@@ -295,7 +296,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
             _level_label(item.get("severity")),
             finding_type,
             category,
-            item.get("title") or "Finding",
+            item.get("title") or "Achado",
             party,
             _confidence_label(item.get("confidence")),
             ai_state,
@@ -317,7 +318,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         ))
         if recommendation:
             body+=(
-                "<h3>Análise e sugestão advisory da IA</h3>"
+                "<h3>Análise e sugestão consultiva da IA</h3>"
                 +_kv((
                     ("Recomendação",recommendation.get("recommendation") or recommendation.get("title") or "-"),
                     ("Justificativa / análise",recommendation.get("rationale") or "-"),
@@ -418,7 +419,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         +_table(("Severidade","Classificação","Categoria","Problema","Contexto","Confiança","IA consultiva","Detalhe"),finding_rows,empty="Nenhum achado de segurança foi materializado para o escopo analisado.",sortable=bool(finding_rows),page_size=10 if len(finding_rows)>10 else None)
         +"".join(modals)+"</div>"
         +"<div class='subsection'><h3>Distribuição por classificação</h3>"
-        +_table(("Classificação","Findings"),type_rows,empty="Nenhuma classificação materializada.")
+        +_table(("Classificação","Achados"),type_rows,empty="Nenhuma classificação materializada.")
         +"</div>"
         +"<div class='subsection'><h3>Scripts, recursos e origem</h3>"
         +_table(("Tipo de recurso","Origem","Quantidade"),resource_rows,empty="Nenhum recurso HTML foi inventariado.")
