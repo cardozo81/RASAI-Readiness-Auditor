@@ -94,4 +94,4 @@ jobs:
           tests/test_catalog_report_search_trust.py::test_common_crawl_no_capture_404_is_presented_as_coverage_limitation
           tests/test_console_catalog_workflow.py::test_catalog_has_stable_unique_report_ready_ids
           tests/test_console_catalog_workflow.py::test_ai_usage_is_limited_to_actual_ai_consumers
-          tests/test_catalog_report_site.py::test_catalog_report_is_generated_beside_untouched_legacy_tree
+          tests/test_catalog_report_site.py::test_catalog_report_materializes_without_non_catalog_report_tree
