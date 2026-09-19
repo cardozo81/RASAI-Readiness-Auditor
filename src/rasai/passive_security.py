@@ -755,7 +755,7 @@ def collect_external_intelligence(*, audit_id: str, workspace: Any, source_block
             _integration_row(connection, audit_id=audit_id, integration_id="THREAT_REPUTATION", requested=False, state="NOT_REQUESTED", details={"reason": "URL_REPUTATION_REQUIRES_EXPLICIT_PRIVACY_AND_PROVIDER_POLICY"})
         return {
             "collection_state": (
-                "COMPLETED"
+                "SUCCESS"
                 if (not osv_requested or osv_successes or not [
                     item for item in components
                     if item.get("version") and item.get("ecosystem") and item.get("confidence") in {"HIGH", "MEDIUM"}
