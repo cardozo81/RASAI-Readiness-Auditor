@@ -33,7 +33,7 @@ Monitoring abre `AUD-*/audit.db` em SQLite somente leitura. Nenhuma operação d
 Dados externos associados à auditoria são persistidos em:
 
 ```text
-AUD-*/observability.db
+AUD-*/artifacts/observability/observability.db
 AUD-*/artifacts/observability/
 ```
 
@@ -153,7 +153,7 @@ Divergência observada não é automaticamente fator de ranking nem causalidade.
 
 Contrato detalhado: `28_AUDIT_QUALITY_VERIFICATION.md`.
 
-`report/quality.html`, Fix Verification e Evidence Timeline ficam fora do scoring e operam somente leitura. Estados resolvidos/fechados permanecem persistidos sem entrar na fila operacional ativa.
+Quality, Fix Verification e Evidence Timeline ficam fora do scoring e operam somente leitura. Estados resolvidos/fechados permanecem persistidos sem entrar na fila operacional ativa.
 
 ## 8. Relação com scoring
 
@@ -167,15 +167,7 @@ Ela inspeciona o contrato `SCORE-GEO-004` e não executa fitting.
 
 ## 9. Relatórios
 
-Por `AUD-*`:
-
-```text
-report/scoring.html
-report/observability.html
-report/quality.html
-```
-
-`observability.html` e `quality.html` pertencem ao conjunto canônico estável da auditoria e permanecem materializados mesmo quando a capacidade correspondente não foi executada ou não produziu dado utilizável. Nesses casos, a apresentação deve refletir estado neutro ou explicativo.
+Por `AUD-*`, a projeção HTML audit-owned pertence exclusivamente a `report-catalog/`. Search & AI Observability é projetado principalmente em `cat-05.html` e `metrics.html`; estados de execução e qualidade estrutural ficam nas superfícies de governança do catálogo. Ausência de dado utilizável permanece explícita e não cria uma página HTML paralela.
 
 Artefatos derivados independentes:
 
