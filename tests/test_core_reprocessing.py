@@ -5,12 +5,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
-from rasai.audit_fulfillment import BLOCKED, FAILED_RETRYABLE, SUCCESS, WAITING_FOR_DATA, list_work_items, start_reprocess_run
+from rasai.audit_fulfillment import BLOCKED, FAILED_RETRYABLE, REPLAY_SAFE, SUCCESS, WAITING_FOR_DATA, list_work_items, register_work_item, set_work_item_status, start_reprocess_run
 from rasai.core_reprocessing import (
     CONTENT_EXTRACTION,
     HTTP_ACQUISITION,
     RENDER_CAPTURE,
     _core_unresolved,
+    _invalidate_core_dependents,
     _recover_extraction,
     _recover_render,
     _retryable_core,
@@ -144,3 +145,35 @@ def test_failed_original_render_can_be_recovered_inside_same_aud() -> None:
         items = _by_component(workspace)
         assert items[RENDER_CAPTURE].status == SUCCESS
         assert items[CONTENT_EXTRACTION].status == SUCCESS
+
+
+def test_core_dependency_invalidation_reopens_only_passive_security() -> None:
+    with TemporaryDirectory() as directory:
+        workspace = _workspace(Path(directory), render_succeeded=True, rendered_exists=True)
+        synchronize_core_work_items(workspace, "AUD-CORE-RECOVERY")
+        for component in ("PASSIVE_SECURITY", "WEB_PERFORMANCE"):
+            register_work_item(
+                workspace,
+                audit_id="AUD-CORE-RECOVERY",
+                component=component,
+                required=True,
+                temporal_mode=REPLAY_SAFE,
+                status=SUCCESS,
+                retryable=False,
+            )
+            set_work_item_status(
+                workspace,
+                audit_id="AUD-CORE-RECOVERY",
+                component=component,
+                status=SUCCESS,
+                result_ref=f"{component.casefold()}:effective",
+                retryable=False,
+            )
+
+        assert _invalidate_core_dependents(workspace, "AUD-CORE-RECOVERY") is True
+
+        items = _by_component(workspace)
+        assert items["PASSIVE_SECURITY"].status == FAILED_RETRYABLE
+        assert items["PASSIVE_SECURITY"].effective_result_ref == "passive_security:effective"
+        assert items["WEB_PERFORMANCE"].status == SUCCESS
+        assert items["WEB_PERFORMANCE"].effective_result_ref == "web_performance:effective"
