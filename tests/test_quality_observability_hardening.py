@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+from rasai.observability.store import observability_database_path
+
+def _obs_path(workspace: Path) -> Path:
+    path = observability_database_path(workspace)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 import json
 from pathlib import Path
 import sqlite3
@@ -183,7 +191,7 @@ def test_obs001_migration_preserves_rows_and_allows_reused_local_record_id() -> 
         workspace = Path(directory) / "AUD-LEGACY"
         workspace.mkdir()
         (workspace / "audit.db").write_bytes(b"")
-        connection = sqlite3.connect(workspace / "observability.db")
+        connection = sqlite3.connect(_obs_path(workspace))
         try:
             connection.executescript(
                 """
