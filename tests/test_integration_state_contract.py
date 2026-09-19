@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+from rasai.observability.store import observability_database_path
+
+def _obs_path(workspace: Path) -> Path:
+    path = observability_database_path(workspace)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 from pathlib import Path
 import sqlite3
 import tempfile
@@ -35,7 +43,7 @@ def test_observability_attempt_ledger_persists_failure_reason_without_touching_a
             metadata={"exit_code": 2},
         )
         assert attempt_id and attempt_id.startswith("INT-")
-        sidecar = sqlite3.connect(workspace / "observability.db")
+        sidecar = sqlite3.connect(_obs_path(workspace))
         sidecar.row_factory = sqlite3.Row
         try:
             row = sidecar.execute("SELECT * FROM integration_attempts").fetchone()
