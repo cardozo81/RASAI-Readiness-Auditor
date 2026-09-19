@@ -29,6 +29,11 @@ _AI_USAGE_DETAILS: dict[str, tuple[str,str,str]] = {
         "SERP persistida, classificação competitiva, páginas públicas observadas, comparação determinística e lacunas vinculadas ao snapshot de evidências.",
         "Interpretar oportunidades competitivas somente sobre evidência selada. O resultado é advisory, não altera score e não declara causalidade de ranking.",
     ),
+    "DIRECTED-ANALYSIS-001": (
+        "Análise Direcionada · camada estratégica",
+        "Contexto estratégico estruturado derivado exclusivamente de catálogos, findings, métricas, recomendações, evidências, remediações e limitações já persistidos nesta auditoria.",
+        "Correlacionar ações existentes, impactos multidimensionais, esforço, confiança, dependências, ordem e validação. A IA não cria fatos técnicos, ações, evidências ou links de catálogo.",
+    ),
 }
 
 
