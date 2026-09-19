@@ -199,7 +199,7 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             configured_apdex(args_without_standard, {})
 
-    def test_execution_persists_population_tablet_errors_and_report(self) -> None:
+    def test_execution_persists_population_tablet_errors_without_html_side_effect(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace = _workspace(directory)
             gateway = _Gateway([
@@ -251,12 +251,8 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
             self.assertEqual(tablet, 1)
             self.assertNotIn("DYNATRACE_API_TOKEN", stored_config)
             self.assertIn("measurement_contract", stored_config)
-            report = workspace.root / "report" / "apdex-experience.html"
-            self.assertTrue(report.is_file())
-            html = report.read_text(encoding="utf-8")
-            self.assertIn("Synthetic User Experience Apdex", html)
-            self.assertIn("Não é RUM", html)
-            self.assertIn("TABLET", html)
+            self.assertIsNone(result.report_path)
+            self.assertFalse((workspace.root / "report").exists())
 
     def test_exported_dynatrace_json_does_not_persist_raw_payload(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
