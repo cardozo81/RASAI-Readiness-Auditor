@@ -163,6 +163,18 @@ def _dataset_errors(rows: Sequence[Mapping[str, Any]]) -> int:
     return total
 
 
+def _dataset_no_captures(rows: Sequence[Mapping[str, Any]]) -> int:
+    total = 0
+    for row in rows:
+        metadata = _safe_json(row.get("metadata"), {})
+        if isinstance(metadata, Mapping):
+            try:
+                total += int(metadata.get("no_captures") or 0)
+            except (TypeError, ValueError):
+                pass
+    return total
+
+
 def _dataset_artifact(rows: Sequence[Mapping[str, Any]]) -> str | None:
     refs = [str(row.get("artifact_path") or "").strip() for row in rows if row.get("artifact_path")]
     return refs[-1] if refs else None
@@ -440,6 +452,23 @@ def _artifact_json(database: Path, reference: Any) -> Mapping[str, Any]:
         return payload if isinstance(payload, Mapping) else {}
     except (OSError, ValueError, json.JSONDecodeError):
         return {}
+
+
+def _common_crawl_no_capture_rows(database: Path, dataset: Mapping[str, Any]) -> list[tuple[Any, ...]]:
+    payload = _artifact_json(database, dataset.get("artifact_path"))
+    raw_details = payload.get("no_capture_details") if isinstance(payload.get("no_capture_details"), list) else []
+    rows: list[tuple[Any, ...]] = []
+    for raw in raw_details:
+        if not isinstance(raw, Mapping):
+            continue
+        rows.append((
+            raw.get("collection") or "-",
+            raw.get("target_url") or "-",
+            raw.get("error_type") or "HTTP 404",
+            raw.get("message") or "No Captures found",
+            raw.get("endpoint") or "-",
+        ))
+    return rows
 
 
 def _common_crawl_error_rows(database: Path, dataset: Mapping[str, Any]) -> list[tuple[Any, ...]]:
@@ -1279,19 +1308,29 @@ def _external_html(database: Path, data: Any) -> str:
             ids=[str(row.get("dataset_id")) for row in rows]
             count=_dataset_rows(connection,table,ids)
             errors=_dataset_errors(rows)
+            no_captures=_dataset_no_captures(rows) if source==_COMMON_CRAWL_SOURCE else 0
             details=[]; source_modals=[]
             for index,row in enumerate(rows,1):
                 meta=_safe_json(row.get("metadata"),{})
                 detail_cell: Any = "-"
-                if source==_COMMON_CRAWL_SOURCE and int(meta.get("errors") or 0) > 0:
+                if source==_COMMON_CRAWL_SOURCE and (int(meta.get("errors") or 0) > 0 or int(meta.get("no_captures") or 0) > 0):
                     modal_id=f"common-crawl-error-{index}"
-                    error_rows=_common_crawl_error_rows(database,row)
-                    no_capture=_common_crawl_no_capture(error_rows)
+                    raw_error_rows=_common_crawl_error_rows(database,row)
+                    no_capture_rows=_common_crawl_no_capture_rows(database,row)
+                    # Legacy artifacts stored valid no-capture responses under errors.
+                    legacy_no_capture_rows=[item for item in raw_error_rows if _common_crawl_no_capture((item,))]
+                    error_rows=[item for item in raw_error_rows if item not in legacy_no_capture_rows]
+                    for item in legacy_no_capture_rows:
+                        if item not in no_capture_rows:
+                            no_capture_rows.append(item)
+                    no_capture=bool(no_capture_rows)
                     state_label=(
-                        "Execução parcial · coleção sem captura"
-                        if no_capture and count
-                        else "Sem captura nas coleções consultadas"
-                        if no_capture
+                        "Executado com dados · alguma coleção sem captura"
+                        if no_capture and count and not error_rows
+                        else "Executado sem dados · coleções sem captura"
+                        if no_capture and not count and not error_rows
+                        else "Execução parcial · sem captura e erro externo"
+                        if no_capture and error_rows
                         else "Falha reprocessável"
                         if not count
                         else "Execução parcial"
@@ -1301,26 +1340,32 @@ def _external_html(database: Path, data: Any) -> str:
                         ("Conjunto de dados",row.get("dataset_id") or "-"),
                         ("Tentativas de API",meta.get("requests") or "-"),
                         ("Registros obtidos",meta.get("rows") or 0),
-                        ("Erros",meta.get("errors") or len(error_rows)),
+                        ("Coleções sem captura",meta.get("no_captures") or len(no_capture_rows)),
+                        ("Erros reais",meta.get("errors") or len(error_rows)),
                         ("Artefato",row.get("artifact_path") or "-"),
                     ))
-                    display_error_rows=[
-                        (
-                            item[0],
-                            item[1],
-                            item[2],
-                            page._Html(escape(str(item[3] or "-"))),
-                            item[4],
+                    if no_capture_rows:
+                        display_no_capture_rows=[
+                            (item[0],item[1],item[2],page._Html(escape(str(item[3] or "-"))),item[4])
+                            for item in no_capture_rows
+                        ]
+                        body+="<h3>Coleções sem captura</h3>"+page._table(
+                            ("Coleção","URL auditada","Resposta","Mensagem","Endpoint"),
+                            display_no_capture_rows,
+                            sortable=bool(display_no_capture_rows),
+                            page_size=10 if len(display_no_capture_rows)>10 else None,
                         )
-                        for item in error_rows
-                    ]
-                    body+="<h3>Erros observados</h3>"+page._table(
-                        ("Coleção","URL auditada","Tipo","Mensagem","Endpoint"),
-                        display_error_rows,
-                        empty="O dataset informa erro, mas não há detalhe individual persistido.",
-                        sortable=bool(display_error_rows),
-                        page_size=10 if len(display_error_rows)>10 else None,
-                    )
+                    if error_rows:
+                        display_error_rows=[
+                            (item[0],item[1],item[2],page._Html(escape(str(item[3] or "-"))),item[4])
+                            for item in error_rows
+                        ]
+                        body+="<h3>Erros observados</h3>"+page._table(
+                            ("Coleção","URL auditada","Tipo","Mensagem","Endpoint"),
+                            display_error_rows,
+                            sortable=bool(display_error_rows),
+                            page_size=10 if len(display_error_rows)>10 else None,
+                        )
                     if no_capture:
                         body+=(
                             "<h3>Como interpretar e tratar</h3><ol>"
@@ -1330,10 +1375,9 @@ def _external_html(database: Path, data: Any) -> str:
                             "<li>Repetir imediatamente a mesma coleção pode retornar o mesmo resultado enquanto a cobertura do Common Crawl não mudar.</li>"
                             "</ol>"
                         )
-                        detail_label="Ver diagnóstico e orientação"
-                    else:
+                    if error_rows:
                         body+=(
-                            "<h3>Como resolver</h3><ol>"
+                            "<h3>Como resolver erros reais</h3><ol>"
                             "<li>Verifique conectividade HTTPS, proxy, firewall e resolução DNS para <code>index.commoncrawl.org</code> e para o endpoint CDX indicado acima.</li>"
                             "<li>Confirme se a coleção Common Crawl indicada ainda responde pelo endpoint público CDX. O RASAi consulta somente o índice; não baixa WARC.</li>"
                             "<li>Quando houver dependência realmente pendente/reprocessável no fulfillment, use o reprocessamento seletivo da mesma AUD.</li>"
@@ -1341,14 +1385,14 @@ def _external_html(database: Path, data: Any) -> str:
                             "</ol>"
                             "<div class='notice'>Falha do Common Crawl não implica erro no site e não comprova ausência de indexação em mecanismos de busca.</div>"
                         )
-                        detail_label="Ver erro e como corrigir"
+                    detail_label="Ver cobertura histórica" if no_capture and not error_rows else "Ver diagnóstico e orientação"
                     detail_cell=page._modal_button(modal_id,detail_label)
                     source_modals.append(page._modal(modal_id,"Common Crawl - diagnóstico de coleta",str(row.get("dataset_id") or "Dataset"),body))
-                details.append((row.get("dataset_id"),row.get("capture_method"),row.get("collected_at"),meta.get("requests") if isinstance(meta,Mapping) else "-",meta.get("rows") if isinstance(meta,Mapping) else count,meta.get("errors") if isinstance(meta,Mapping) else errors,row.get("artifact_path"),detail_cell))
-            lead=f"<div class='metric-grid'>{page._metric('Execuções/datasets',len(rows))}{page._metric('Resultados',count)}{page._metric('Erros',errors)}</div>"
+                details.append((row.get("dataset_id"),row.get("capture_method"),row.get("collected_at"),meta.get("requests") if isinstance(meta,Mapping) else "-",meta.get("rows") if isinstance(meta,Mapping) else count,meta.get("no_captures") if isinstance(meta,Mapping) else 0,meta.get("errors") if isinstance(meta,Mapping) else errors,row.get("artifact_path"),detail_cell))
+            lead=f"<div class='metric-grid'>{page._metric('Execuções/datasets',len(rows))}{page._metric('Resultados',count)}{page._metric('Sem captura',no_captures) if source==_COMMON_CRAWL_SOURCE else ''}{page._metric('Erros',errors)}</div>"
             if source==_COMMON_CRAWL_SOURCE:
                 lead+="<div class='notice'>Common Crawl representa histórico do arquivo público e não comprova indexação atual em Google/Bing. Não participa diretamente do score. Quando houver limitação ou erro, use o detalhe do dataset para distinguir ausência de captura, indisponibilidade do provider e falha de transporte.</div>"
-            blocks.append("<div class='subsection'><h3>"+escape(title)+"</h3>"+lead+page._table(("Conjunto de dados","Método","Coletado em","Requisições","Registros","Erros","Artefato","Diagnóstico"),details,empty=f"{title} não executado/não persistido nesta AUD.")+"".join(source_modals)+"</div>")
+            blocks.append("<div class='subsection'><h3>"+escape(title)+"</h3>"+lead+page._table(("Conjunto de dados","Método","Coletado em","Requisições","Registros","Sem captura","Erros","Artefato","Diagnóstico"),details,empty=f"{title} não executado/não persistido nesta AUD.")+"".join(source_modals)+"</div>")
         gsc=[row for row in datasets if str(row.get("source_type") or "").startswith(_GSC_PREFIX)]
         gsc_rows=[]
         for row in gsc:
