@@ -1049,59 +1049,8 @@ def project_report_validity(
     audit_id: str,
     workspace: AuditWorkspace,
 ) -> FulfillmentSummary:
-    summary = recalculate(workspace, audit_id)
-    report_dir = workspace.root / "report"
-    report_dir.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "audit_id": summary.audit_id,
-        "contract_version": CONTRACT_VERSION,
-        "processing_status": summary.processing_status,
-        "score_status": summary.score_status,
-        "report_status": summary.report_status,
-        "consolidation_eligible": summary.consolidation_eligible,
-        "temporal_status": summary.temporal_status,
-        "required_items": summary.required_items,
-        "successful_items": summary.successful_items,
-        "pending_items": summary.pending_items,
-        "blocked_items": summary.blocked_items,
-        "expired_items": summary.expired_items,
-        "total_attempts": summary.total_attempts,
-        "reprocess_count": summary.reprocess_count,
-        "last_reprocess_id": summary.last_reprocess_id,
-        "completed_at": summary.completed_at,
-    }
-    (report_dir / "processing-status.json").write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True),
-        encoding="utf-8",
-        newline="\n",
-    )
-    banner = _banner(summary)
-    for path in report_dir.glob("*.html"):
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeError):
-            continue
-        if _REPORT_MARKER in text:
-            text = re.sub(
-                re.escape(_REPORT_MARKER)
-                + r'<section class="rasai-fulfillment-banner.*?</section>',
-                banner,
-                text,
-                count=1,
-                flags=re.DOTALL,
-            )
-        else:
-            body = re.search(r"<body(?:\s[^>]*)?>", text, flags=re.IGNORECASE)
-            if body:
-                text = text[: body.end()] + banner + text[body.end() :]
-            else:
-                text = banner + text
-        try:
-            path.write_text(text, encoding="utf-8", newline="\n")
-        except OSError:
-            continue
-    return summary
-
+    """Recalculate/persist logical fulfillment without projecting conventional HTML."""
+    return recalculate(workspace, audit_id)
 
 def consolidation_eligible(
     database_or_workspace: Path | str,
