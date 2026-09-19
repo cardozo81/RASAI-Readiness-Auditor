@@ -1,6 +1,6 @@
 """Bounded Search Console collection composed into audit finalization.
 
-The external data is persisted in observability.db/artifacts, not promoted to SARI or
+The external data is persisted in artifacts/observability/observability.db and related artifacts, not promoted to SARI or
 SCORE-GEO evidence. audit.db stores standards-service execution state plus advisory
 metrics derived from already-persisted GSC observations.
 """
@@ -265,7 +265,7 @@ def _clear_metrics_without_current_success(
 ) -> None:
     """Hide GSC projections when their operation did not succeed this run.
 
-    Raw historical datasets remain untouched in observability.db. Only the advisory
+    Raw observational datasets remain in artifacts/observability/observability.db. Only the advisory
     audit.db projection for the current audit/report is removed.
     """
     successful = _successful_operation_names(result)
