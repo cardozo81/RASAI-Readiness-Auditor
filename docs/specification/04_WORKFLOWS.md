@@ -85,7 +85,7 @@ Entrada canônica:
 report-catalog/index.html
 ```
 
-O runtime não gera mais `report/`, `report.html` ou `remediation.html` para uma AUD. A retirada é somente de projeção HTML: recomendações, findings, evidências, causa raiz, precisão, scoring, integrações, IA e telemetria continuam sendo materializados/persistidos conforme seus contratos.
+O runtime de `rasai audit` gera `report-catalog/` como projeção HTML. `report/`, `report.html` e `remediation.html` não pertencem a esse output; recomendações, findings, evidências, causa raiz, precisão, scoring, integrações, IA e telemetria são materializados/persistidos por seus contratos funcionais.
 
 `report-catalog/` é gerado após a produção dos dados e não pode disparar coleta, provider, API externa ou IA apenas para preencher o HTML. `audit.db` + artifacts permanecem a evidência de origem.
 
