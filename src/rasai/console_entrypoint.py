@@ -102,9 +102,9 @@ def main() -> int:
         from rasai.remote_console import main as remote_main
         return remote_main()
 
-    # Install governance before any legacy finalizer captures collector functions.
-    # Re-assert the post boundary after every console adapter so no later wrapper can
-    # execute network/AI or mutate audit.db outside the canonical report projection.
+    # Install governance before runtime adapters capture collector functions.
+    # Re-assert the post boundary after console composition so no later wrapper can
+    # execute network/AI or mutate audit.db during catalog projection.
     install_governed_analysis_pre()
     install_standards_pre_context()
     install_external_observability_service_contract()
