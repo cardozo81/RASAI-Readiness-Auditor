@@ -214,11 +214,11 @@ Sem `--ai-competitive`, nenhuma chamada de Competitive AI é feita. Falha de IA 
 
 CI usa fixtures, HTML falso e transports/resolvers injetados. Não deve chamar Search/IA live nem depender de DNS/internet públicos.
 
-Os testes cobrem classificação, limites, extração, SSRF, gaps, evidence IDs, contrato de IA, provider registry, `AUTO`, persistência e projeção HTML.
+Os testes cobrem classificação, limites, extração, SSRF, gaps, evidence IDs, contrato de IA, provider registry, `AUTO`, persistência e projeção no CAT-05.
 
 ## 15. Relatório e histórico
 
-Relatório pontual: `report/search-intelligence.html`.
+Relatório pontual da AUD: `report-catalog/cat-05.html`.
 
 Comparação temporal determinística: `SEARCH-HISTORY-001`.
 
