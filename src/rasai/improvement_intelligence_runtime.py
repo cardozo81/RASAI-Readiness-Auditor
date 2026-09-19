@@ -1,14 +1,11 @@
-"""Governed runtime/report integration for Improvement Intelligence.
+"""Governed runtime integration for Improvement Intelligence.
 
-Deep analysis is additive and non-scoring, but it is still AI work.  It therefore runs
-inside the explicit governed AI phase, after evidence sealing and before reporting.
-The report finalizer is projection-only and never invokes a provider.
+Deep analysis is additive and non-scoring, but it is still AI work. It therefore runs
+inside the explicit governed AI phase after evidence sealing. HTML projection never
+invokes a provider.
 """
 from __future__ import annotations
 
-from decimal import Decimal
-from pathlib import Path
-import sqlite3
 from typing import Any
 
 from rasai.ai_governance import begin_round, complete_round, register_task
@@ -108,53 +105,6 @@ def _install_consolidated_boundary() -> None:
     render_executive._rasai_improvement_boundary = True
     render_executive._rasai_original = original
     reporting._render_executive = render_executive
-
-
-def _install_ai_cost_attribution() -> None:
-    try:
-        from rasai import documented_contract_reconciliation as reconciliation
-    except Exception:
-        return
-    original = reconciliation._db_ai_costs
-    if getattr(original, "_rasai_improvement_cost_attribution", False):
-        return
-
-    def db_ai_costs(database: Path) -> dict[str, dict[str, Decimal]]:
-        totals: dict[str, dict[str, Decimal]] = {}
-        if not database.is_file():
-            return totals
-        connection = sqlite3.connect(database)
-        try:
-            definitions = (
-                (
-                    "ai_provider_attempts",
-                    "CASE "
-                    f"WHEN semantic_contract_version='{CONTRACT_VERSION}' THEN 'Improvement Intelligence por IA' "
-                    "WHEN semantic_contract_version LIKE 'M24-%' THEN 'Remediação técnica por IA' "
-                    "ELSE 'Análise semântica por IA' END",
-                ),
-                ("content_remediation_attempts", "'Remediação textual por IA'"),
-            )
-            for table, label_sql in definitions:
-                exists = connection.execute(
-                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
-                ).fetchone()
-                if not exists:
-                    continue
-                rows = connection.execute(
-                    f"SELECT {label_sql},cost_currency,SUM(estimated_cost) FROM {table} "
-                    "WHERE estimated_cost IS NOT NULL AND cost_currency IS NOT NULL GROUP BY 1,cost_currency"
-                ).fetchall()
-                for label, currency, amount in rows:
-                    bucket = totals.setdefault(str(currency), {})
-                    bucket[str(label)] = bucket.get(str(label), Decimal("0")) + Decimal(str(amount))
-        finally:
-            connection.close()
-        return totals
-
-    db_ai_costs._rasai_improvement_cost_attribution = True
-    db_ai_costs._rasai_original = original
-    reconciliation._db_ai_costs = db_ai_costs
 
 
 def _governed_improvement_hook(*, audit_id: str, workspace: Any, evidence_snapshot: Any):
@@ -341,6 +291,5 @@ def install() -> None:
     if _INSTALLED:
         return
     _install_consolidated_boundary()
-    _install_ai_cost_attribution()
     _install_governed_ai_phase()
     _INSTALLED = True
