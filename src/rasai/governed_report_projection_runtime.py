@@ -1,15 +1,14 @@
-"""Read-only report projection for persisted fulfillment state.
+"""Governed report projection over persisted fulfillment state.
 
-The historical fulfillment/finalizer chain mixed three concerns:
+The runtime keeps three concerns explicitly separated:
 
 1. reconciling canonical fulfillment from persisted execution state;
 2. deciding when the AUD is logically complete; and
-3. projecting that state into HTML/JSON presentation.
+3. projecting that state into report-catalog presentation.
 
-Governed execution keeps (1) and (2) before the first report renderer. During report
-materialization, only filesystem presentation artifacts may change; ``audit.db`` is
-read-only. This module also removes the older AI-seal sync because AI sealing happens
-before final scoring/recommendation derivations.
+Reconciliation and completion occur before report projection. During projection,
+``audit.db`` is read-only. AI sealing remains upstream of final
+scoring/recommendation derivations.
 """
 from __future__ import annotations
 
@@ -112,9 +111,8 @@ def _install_reprocess_boundary() -> None:
         mark_and_reconcile._rasai_original = current_mark
         rpr.mark_ai_sealed = mark_and_reconcile
 
-    # RPR historically recalculated fulfillment again after the renderer. Once the
-    # governed pre-report reconciliation is complete, that late call must be a pure
-    # filesystem projection from the persisted summary.
+    # After governed pre-report reconciliation, the RPR projection reads the persisted
+    # summary and does not perform another durable fulfillment reconciliation.
     rpr.project_report_validity = project_persisted_fulfillment
 
 
@@ -123,9 +121,9 @@ def install() -> None:
     if _INSTALLED:
         return
 
-    # These adapters are execution governance, not report features. Installing them at
-    # this late bootstrap point guarantees that all legacy RPR/fulfillment wrappers are
-    # already composed before we add selective stale invalidation and M24 continuation.
+    # These adapters are execution governance, not report features. Install them after
+    # the RPR/fulfillment runtime composition so selective invalidation and M24
+    # continuation bind to the final runtime owners.
     from rasai.governed_fulfillment_invalidation import install as install_stale_invalidation
     from rasai.m24_partial_runtime import install as install_m24_partial
     from rasai.m24_reprocess_compat import install as install_m24_reprocess_compat
