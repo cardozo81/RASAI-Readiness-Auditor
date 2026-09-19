@@ -426,7 +426,7 @@ def _safe_error(label: str, exc: Exception) -> str:
 
 
 def install() -> None:
-    """Collect configured external observability without conventional HTML projection."""
+    """Collect configured external observability in the audit collection lifecycle."""
     from rasai import report_completion
 
     if getattr(report_completion, "_rasai_external_observability_runtime", False):
@@ -440,6 +440,11 @@ def install() -> None:
             context_interpretations=context_interpretations,
             routing_snapshot=routing_snapshot,
         )
+        from rasai.selective_reprocess_context import active as reprocess_active
+        if reprocess_active():
+            # Common Crawl, CrUX History and Clarity are not fulfillment-required RPR
+            # dependencies. A report/data finalizer must never refresh them implicitly.
+            return base
         try:
             outcomes = collect_configured_external_observability(
                 audit_id=audit_id,
