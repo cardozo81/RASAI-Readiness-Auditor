@@ -188,9 +188,9 @@ def test_passive_security_reuses_persisted_evidence_without_active_scanning(monk
         assert any("Mixed" in str(row["category"]) for row in rows)
         assert "Formulário com campo sensível utiliza GET" in titles
         assert "Nonce de script reutilizado entre snapshots" in titles
-        assert "Runtime aparenta expor detalhe interno" in titles
+        assert "Tempo de execução aparenta expor detalhe interno" in titles
         assert "Meta generator aparenta expor tecnologia/versionamento" in titles
-        assert "SRI de recurso third-party script sem hash suportado" in titles
+        assert "SRI de recurso externo script sem hash suportado" in titles
 
         persisted = "\n".join(
             str(row["details_json"]) + "\n" + str(row["description"])
@@ -579,7 +579,7 @@ def test_cat10_report_projects_ai_recommendation_on_matching_finding(monkeypatch
                 "MEDIUM",
                 "Correção assistida",
                 "Aplicar a correção defensiva observável.",
-                "A recomendação deriva do finding e de sua evidência persistida.",
+                "A recomendação deriva do achado e de sua evidência persistida.",
                 "Reexecutar a auditoria e confirmar o controle.",
                 "Exemplo seguro de configuração.",
                 None,
@@ -601,7 +601,7 @@ def test_cat10_report_projects_ai_recommendation_on_matching_finding(monkeypatch
     assert "Analisado pela IA" in html
     assert "Análise e sugestão consultiva da IA" in html
     assert "Aplicar a correção defensiva observável." in html
-    assert "A recomendação deriva do finding" in html
+    assert "A recomendação deriva do achado" in html
     assert "Orientação gerada por IA" in html
     finding_anchor = "security-finding-" + str(finding["finding_id"]).casefold()
     assert f"id='{finding_anchor}'" in html
