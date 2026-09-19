@@ -141,10 +141,10 @@ def _security_html(*, nonce: str = "same-nonce") -> str:
     return f"""
     <html><head>
       <meta name="generator" content="ExampleCMS 4.5.6">
-      <script nonce="{nonce}" src="http://cdn.third.example/jquery-3.5.1.min.js"
+      <script nonce="{nonce}" src="http://cdn.third.example/jquery-3.5.1.min.js?token=SIGNED-RESOURCE-SECRET"
               integrity="sha1-deadbeef"></script>
     </head><body>
-      <form action="http://collector.third.example/login" method="get">
+      <form action="/login?api_key=FORM-QUERY-SECRET" method="get">
         <input type="password" name="password">
       </form>
       <iframe src="https://frame.third.example/widget"></iframe>
@@ -196,6 +196,27 @@ def test_passive_security_reuses_persisted_evidence_without_active_scanning(monk
         assert "VERY-SECRET-COOKIE" not in persisted
         assert "same-nonce" not in persisted
 
+        inventory_text = "\n".join(
+            str(row["page_url"]) + "\n" + str(row["resource_url"]) + "\n" + str(row["attributes_json"])
+            for row in connection.execute(
+                "SELECT page_url,resource_url,attributes_json FROM passive_security_resources WHERE audit_id=?",
+                (AUDIT_ID,),
+            ).fetchall()
+        )
+        assert "SIGNED-RESOURCE-SECRET" not in inventory_text
+        assert "FORM-QUERY-SECRET" not in inventory_text
+        assert "%5BREDACTED%5D" in inventory_text or "[REDACTED]" in inventory_text
+
+        run = connection.execute(
+            "SELECT coverage_json FROM passive_security_runs WHERE audit_id=?",
+            (AUDIT_ID,),
+        ).fetchone()
+        coverage = json.loads(run["coverage_json"])
+        assert coverage["component_inventory"] is True
+        assert coverage["osv_intelligence"] is False
+        assert coverage["cisa_kev"] is False
+        assert coverage["vulnerability_intelligence"] is False
+
         projected = security.improvement_findings(connection, AUDIT_ID, PAGE_ID)
         assert projected is not None
         findings, summary = projected
@@ -215,6 +236,8 @@ def test_passive_security_reuses_persisted_evidence_without_active_scanning(monk
     assert "Correção definitiva" in report_html
     assert "VERY-SECRET-COOKIE" not in report_html
     assert "same-nonce" not in report_html
+    assert "SIGNED-RESOURCE-SECRET" not in report_html
+    assert "FORM-QUERY-SECRET" not in report_html
 
 
 def test_osv_and_kev_use_only_versioned_component_identifiers(monkeypatch, tmp_path: Path) -> None:
@@ -328,6 +351,15 @@ def test_external_security_failure_reduces_coverage_not_target_truth(monkeypatch
         ).fetchone()
         assert integration is not None
         assert integration["state"] == "UNAVAILABLE"
+
+        run = connection.execute(
+            "SELECT coverage_json FROM passive_security_runs WHERE audit_id=?",
+            (AUDIT_ID,),
+        ).fetchone()
+        coverage = json.loads(run["coverage_json"])
+        assert coverage["component_inventory"] is True
+        assert coverage["osv_intelligence"] is False
+        assert coverage["vulnerability_intelligence"] is False
 
         external_findings = connection.execute(
             """SELECT COUNT(*) FROM passive_security_findings
