@@ -13,6 +13,7 @@ It is intentionally idempotent and does not add network, AI or scoring work.
 from __future__ import annotations
 
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 import json
 import re
 import sqlite3
@@ -610,7 +611,7 @@ def _consistent_web_metric_rows(database: Path, audit_id: str):
     finally:
         connection.close()
 
-    obs = database.parent / "observability.db"
+    obs = observability_database_path(database.parent)
     if obs.is_file():
         connection = sqlite3.connect(obs)
         connection.row_factory = sqlite3.Row
