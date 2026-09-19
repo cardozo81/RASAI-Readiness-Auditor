@@ -570,30 +570,6 @@ def _install_crawling_capture_wording_fix() -> None:
     m24_reporting._captured_resources_block = captured_resources_block
 
 
-def _install_search_comparison_guidance() -> None:
-    from rasai.search_intelligence import reporting
-
-    original = reporting._competitive_section
-    if getattr(original, "_rasai_comparison_guidance", False):
-        return
-
-    def competitive_section(analysis, classified_results, pages):
-        html = original(analysis, classified_results, pages)
-        status = str((analysis or {}).get("comparison_status") or "")
-        if status != "CONTENT_COMPARISON_DISABLED":
-            return html
-        notice = (
-            "<div class='notice search-comparison-disabled'><strong>Por que as listas estão vazias:</strong> "
-            "esta execução fez apenas classificação determinística dos resultados SERP. Nenhuma página concorrente/cliente foi adquirida para comparação de conteúdo, portanto não existem gaps de título, headings, corpo ou structured data a materializar. "
-            "No console, habilite explicitamente a comparação de conteúdo para coletar esse universo limitado. A análise por IA continua uma etapa separada e opt-in e só pode recomendar sobre evidências consolidadas, sem afirmar causalidade de ranking.</div>"
-        )
-        return html.replace("</section>", notice + "</section>", 1)
-
-    competitive_section._rasai_comparison_guidance = True
-    competitive_section._rasai_original = original
-    reporting._competitive_section = competitive_section
-
-
 def _install_console_search_content_comparison() -> None:
     from rasai import console_search_intelligence, interactive_console
 
@@ -745,7 +721,6 @@ def install_documented_contract_reconciliation() -> None:
     _install_ai_usage_presentation_fix()
     _install_scoring_wording_fix()
     _install_crawling_capture_wording_fix()
-    _install_search_comparison_guidance()
     _install_m24_fallback_telemetry_fix()
     _INSTALLED = True
 
