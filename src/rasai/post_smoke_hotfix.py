@@ -7,6 +7,7 @@ and the canonical console preparation route remains bound after all presentation
 from __future__ import annotations
 
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 import os
 import sqlite3
 import sys
@@ -22,7 +23,7 @@ def _table_exists(connection: sqlite3.Connection, table: str) -> bool:
 
 
 def _latest_common_crawl_dataset(workspace_root: str | Path) -> str:
-    database = Path(workspace_root) / "observability.db"
+    database = observability_database_path(workspace_root)
     if not database.is_file():
         raise RuntimeError("COMMON_CRAWL_PRESEAL_DATASET_MISSING")
     connection = sqlite3.connect(database)
@@ -218,7 +219,7 @@ def _install_materialized_sidecar_counts() -> None:
 
     def sidecar_counts(database: Any) -> dict[str, int]:
         result: dict[str, int] = {}
-        sidecar = Path(database).parent / "observability.db"
+        sidecar = observability_database_path(Path(database).parent)
         if not sidecar.is_file():
             return result
         connection = sqlite3.connect(sidecar)
