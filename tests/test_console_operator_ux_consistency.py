@@ -72,7 +72,7 @@ def test_consolidated_result_actions_name_their_artifacts() -> None:
 def test_integration_validation_actions_warn_about_possible_quota_use() -> None:
     state = _state()
     individual = ux._rewrite_line(state, "T. Validar / retestar integração")
-    bulk = ux._rewrite_line(state, "T. Validar todas as integrações configuradas com probe seguro")
+    bulk = ux._rewrite_line(state, "T. Validar integrações e IAs configuradas — somente probes seguros")
     assert "pode consumir quota técnica" in individual
     assert "somente probes seguros" in bulk
     assert "pode consumir quota" in bulk
