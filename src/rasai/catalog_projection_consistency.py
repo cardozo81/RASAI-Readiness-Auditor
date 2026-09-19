@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 import sqlite3
 import sys
 from typing import Any, Mapping
@@ -39,7 +40,7 @@ def _safe_json(value: Any, default: Any) -> Any:
 
 
 def _observability(database: Any) -> tuple[list[dict[str, Any]], sqlite3.Connection | None]:
-    path = Path(database).parent / "observability.db"
+    path = observability_database_path(Path(database).parent)
     if not path.is_file():
         return [], None
     connection = sqlite3.connect(path)
