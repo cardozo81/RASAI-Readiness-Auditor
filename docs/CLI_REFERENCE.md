@@ -63,8 +63,8 @@ rasai scoring inspect
 Relatórios canônicos:
 
 ```text
-report/readiness.html
-report/scoring.html
+report-catalog/sari.html
+report-catalog/methodology.html
 ```
 
 ## IA no audit
@@ -126,7 +126,7 @@ Quando um campo está em `auto` e IA está ligada, a configuração persistida c
 
 ### Telemetria de IA
 
-Cada chamada externa pode ser auditada em `report/ai-usage.html`. O runtime registra request/response sanitizados, provider/modelo, finalidade, duração, status, hashes e truncamento. Secrets e raciocínio privado do provider não são persistidos.
+Cada chamada externa pode ser auditada em `report-catalog/ai-integrations.html`. O runtime registra request/response sanitizados, provider/modelo, finalidade, duração, status, hashes e truncamento. Secrets e raciocínio privado do provider não são persistidos.
 
 O report usa provider/modelo efetivamente persistidos; não existe allowlist HTML específica que precise ser atualizada para Copilot ou para futuros providers registrados.
 
@@ -379,7 +379,7 @@ rasai observability ...
 
 Subsuperfícies incluem `status`, `report`, `import`, `bing-import`, `google-ai-import`, `google-ai-control`, `gsc-sites`, `gsc-sitemaps`, `gsc-search`, `gsc-appearance`, `gsc-inspect` e `crux-history`.
 
-Dados externos ficam em `observability.db` + `artifacts/observability/`; o `audit.db` histórico não é reescrito por essa camada.
+Dados externos ficam em `artifacts/observability/observability.db` + artifacts observacionais; `audit.db` permanece a fonte de verdade da auditoria.
 
 ## Quality timeline / verification
 
