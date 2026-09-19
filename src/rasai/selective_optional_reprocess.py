@@ -616,13 +616,35 @@ def _passive_security_integrity(workspace: Any, audit_id: str) -> bool:
             if actual != int(run[column] or 0):
                 return False
 
-        evidence_ids = {
-            str(row[0])
-            for row in connection.execute(
-                "SELECT evidence_id FROM evidence WHERE audit_id=?",
-                (audit_id,),
-            ).fetchall()
-        } if _table_exists(connection, "evidence") else set()
+        known_trace_ids: set[str] = set()
+        for table, identifier in (
+            ("evidence", "evidence_id"),
+            ("page_snapshots", "snapshot_id"),
+            ("pages", "page_id"),
+            ("rule_executions", "rule_execution_id"),
+            ("standards_metric_observations", "observation_id"),
+            ("passive_security_resources", "resource_id"),
+            ("passive_security_components", "component_id"),
+            ("passive_security_advisories", "row_id"),
+        ):
+            if not _table_exists(connection, table):
+                continue
+            columns = {
+                str(row[1])
+                for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+            }
+            if identifier not in columns:
+                continue
+            where = " WHERE audit_id=?" if "audit_id" in columns else ""
+            params = (audit_id,) if where else ()
+            known_trace_ids.update(
+                str(row[0])
+                for row in connection.execute(
+                    f"SELECT {identifier} FROM {table}{where}",
+                    params,
+                ).fetchall()
+                if row[0]
+            )
         for table in ("passive_security_resources", "passive_security_components", "passive_security_findings"):
             if "evidence_ids_json" not in {
                 str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
@@ -636,7 +658,7 @@ def _passive_security_integrity(workspace: Any, audit_id: str) -> bool:
                     values = json.loads(str(row[0] or "[]"))
                 except (TypeError, ValueError, json.JSONDecodeError):
                     return False
-                if any(str(value) not in evidence_ids for value in values or ()):
+                if any(str(value) not in known_trace_ids for value in values or ()):
                     return False
 
         for row in connection.execute(
