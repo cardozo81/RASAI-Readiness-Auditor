@@ -602,30 +602,13 @@ def _install_phase_hooks() -> None:
     phase.register_deterministic_hook("FULFILLMENT_SYNC", _sync_fulfillment_preseal, order=90)
 
 
-def _install_scope_post_hook() -> None:
-    from rasai import report_scope_clarity
-
-    current = report_scope_clarity.install
-    if bool(getattr(current, "_rasai_governed_analysis_post", False)):
-        return
-
-    def install_scope_and_governed_post() -> None:
-        current()
-        install_post()
-
-    install_scope_and_governed_post._rasai_governed_analysis_post = True
-    install_scope_and_governed_post._rasai_original = current
-    report_scope_clarity.install = install_scope_and_governed_post
-
-
 def install_pre() -> None:
-    """Install before legacy finalizer wrappers capture collector/reconciler functions."""
+    """Install collection/deterministic governance before runtime wrappers compose."""
     global _PRE_INSTALLED
     if _PRE_INSTALLED:
         return
     _install_projection_guards()
     _install_phase_hooks()
-    _install_scope_post_hook()
     _PRE_INSTALLED = True
 
 
