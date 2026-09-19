@@ -4,7 +4,6 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 import os
 from pathlib import Path
-import sqlite3
 from typing import Iterable, Mapping
 
 from .budget import RequestBudget
@@ -107,17 +106,6 @@ def projected_http_request_ceiling(
     return sum(config.worst_case_http_requests(1, depth=depth) for depth in values)
 
 
-def _refresh_search_intelligence_report(workspace_root: Path | None) -> None:
-    """Best-effort projection of already-persisted Search Intelligence evidence."""
-    if workspace_root is None:
-        return
-    try:
-        from .reporting import write_search_intelligence_report
-        write_search_intelligence_report(workspace_root)
-    except (OSError, ValueError, sqlite3.Error):
-        return
-
-
 def execute_search(
     requests: Iterable[SerpQueryRequest],
     *,
@@ -129,9 +117,9 @@ def execute_search(
 ) -> SearchExecution:
     """Execute provider-neutral Search observation.
 
-    ``workspace_root`` retains the legacy per-audit persistence behavior. ``evidence_sink``
-    is an additive operational seam used by recurring monitoring so raw provider evidence
-    can be stored without mutating immutable ``AUD-*/audit.db`` workspaces.
+    ``workspace_root`` enables per-audit persistence. ``evidence_sink`` is an
+    operational seam used by recurring monitoring so raw provider evidence can be
+    stored without mutating immutable ``AUD-*/audit.db`` workspaces.
     """
     if fixture_path is not None:
         config = replace(config, fixture_path=fixture_path)
@@ -232,7 +220,6 @@ def execute_search(
     finally:
         if repository is not None:
             repository.close()
-    _refresh_search_intelligence_report(workspace_root)
     return SearchExecution(
         mode=config.mode,
         provider=provider_name,
