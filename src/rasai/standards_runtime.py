@@ -357,39 +357,6 @@ def install_collection_runtime() -> None:
     audit_cli._rasai_standards_collection_runtime = True
 
 
-def install_report_runtime() -> None:
-    """Materialize standards-derived data without the retired conventional HTML."""
-    from rasai import report_completion
-    from rasai.standards_metrics import execute_standards_metrics
-    from rasai.web_platform_baseline import materialize_web_platform_baseline
-
-    if getattr(report_completion, "_rasai_standards_runtime", False):
-        return
-    original = report_completion.finalize_audit_report_site
-
-    def finalize_with_standards(*, audit_id: str, workspace: Any, context_interpretations=(), routing_snapshot=None):
-        base = original(
-            audit_id=audit_id,
-            workspace=workspace,
-            context_interpretations=context_interpretations,
-            routing_snapshot=routing_snapshot,
-        )
-        errors = list(base.renderer_errors)
-        try:
-            execute_standards_metrics(audit_id=audit_id, workspace=workspace)
-            materialize_web_platform_baseline(audit_id=audit_id, workspace=workspace)
-        except Exception as exc:
-            errors.append(f"standards:{type(exc).__name__}:{str(exc)[:240]}")
-        return report_completion.AuditReportCompletion(
-            expected_pages=base.expected_pages,
-            generated_pages=base.generated_pages,
-            missing_pages=base.missing_pages,
-            renderer_errors=tuple(errors),
-        )
-
-    report_completion.finalize_audit_report_site = finalize_with_standards
-    report_completion._rasai_standards_runtime = True
-
 def install_pre_context() -> None:
     install_service_contract()
     install_console_service_catalog()
@@ -399,4 +366,3 @@ def install_pre_context() -> None:
 def install_post_context() -> None:
     install_service_contract()
     install_collection_runtime()
-    install_report_runtime()
