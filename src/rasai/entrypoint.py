@@ -41,8 +41,6 @@ from rasai.integration_state_refinements import install as install_integration_s
 from rasai.m3_render_deadline_runtime import install as install_m3_render_deadline_runtime
 from rasai.provider_presentation_alignment import install as install_provider_presentation_alignment
 from rasai.report_observation_reconciliation import install as install_report_observation_reconciliation
-from rasai.report_registry import install as install_report_registry
-from rasai.report_scope_clarity import install as install_report_scope_clarity
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 from rasai.runtime_contract_compatibility import install_runtime_contract_compatibility
@@ -98,15 +96,12 @@ def _blocking_catalog_report_errors(renderer_errors: Sequence[str]) -> tuple[str
 
 
 def _run_audit_and_finalize(effective: list[str]) -> int:
-    from rasai import m9
     from rasai.ai_execution_state import consume_all_ai_executions
     from rasai.m18_ai import provider_session_snapshot
     from rasai.persistence import AuditWorkspace
     from rasai.report_completion import finalize_audit_report_site
-    from rasai.score_geo_004_reporting import REPORT_FILE
 
     original_run_audit = cli_extensions._audit_cli.run_audit
-    original_score_writer = m9.write_score_geo_004_report
     captured: list[object] = []
 
     def capture_run(*args, **kwargs):
@@ -114,16 +109,11 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         captured.append(result)
         return result
 
-    def defer_score_report(*, audit_id: str, workspace: AuditWorkspace) -> Path:
-        return workspace.root / "report" / REPORT_FILE
-
     cli_extensions._audit_cli.run_audit = capture_run
-    m9.write_score_geo_004_report = defer_score_report
     try:
         code = cli_extensions.main(effective)
     finally:
         cli_extensions._audit_cli.run_audit = original_run_audit
-        m9.write_score_geo_004_report = original_score_writer
 
     executions = consume_all_ai_executions()
     if not captured:
@@ -155,9 +145,9 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
             routing_snapshot=routing_snapshot,
         )
     except Exception:
-        _LOGGER.exception("Final audit report materialization gate failed")
+        _LOGGER.exception("Final catalog report materialization gate failed")
         print(
-            "Relatórios HTML: INCOMPLETOS - falha ao validar/materializar o mini-site final. "
+            "Report-catalog: INCOMPLETO - falha ao validar/materializar a projeção final. "
             "O audit.db já persistido foi preservado; consulte logs/audit.log."
         )
         return _REPORT_PROJECTION_INCOMPLETE_EXIT
@@ -172,39 +162,27 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
             "; ".join(blocking_catalog_errors),
         )
         print(
-            "Relatórios HTML: INCOMPLETOS - o report-catalog final não pôde ser "
-            "materializado/validado contra o audit.db final. A árvore stale não foi "
+            "Report-catalog: INCOMPLETO - a projeção final não pôde ser "
+            "materializada/validada contra o audit.db final. A árvore stale não foi "
             "mantida como válida; o audit.db foi preservado."
         )
         return _REPORT_PROJECTION_INCOMPLETE_EXIT
 
-    if completion.missing_pages:
-        missing = ", ".join(completion.missing_pages)
-        _LOGGER.error("Expected audit report pages were not materialized: %s", missing)
-        print(
-            f"Relatórios HTML: INCOMPLETOS - páginas esperadas não foram materializadas: {missing}. "
-            "O audit.db foi preservado."
-        )
-        return _REPORT_PROJECTION_INCOMPLETE_EXIT
-    print(
-        f"Relatórios HTML: COMPLETOS ({len(completion.expected_pages)} página(s) esperada(s) para esta execução)."
-    )
+    print("Report-catalog: materializado e validado contra o audit.db final.")
     if completion.renderer_errors:
         print(
-            "Relatórios HTML: houve falha de enriquecimento reparável em um ou mais renderizadores; "
-            "as páginas canônicas esperadas existem e o detalhe foi registrado no log."
+            "Finalização: houve diagnóstico reparável em processamento derivado; "
+            "o detalhe foi registrado no log."
         )
     return code
 
 
 def _install_audit_runtime() -> None:
-    # Install governance before legacy finalizer wrappers capture collector/reconciler
-    # functions. The post boundary is installed last so report projection is the
-    # outermost, read-only layer for CLI and SaaS worker execution.
+    # Install governance before collector/reconciler wrappers capture runtime
+    # functions. The post boundary remains outermost for catalog projection safety.
     install_governed_analysis_pre()
     install_standards_pre_context()
     install_external_observability_service_contract()
-    install_report_registry()
     install_context_scope_runtime()
     install_m3_render_deadline_runtime()
     install_target_input_runtime()
@@ -237,7 +215,6 @@ def _install_audit_runtime() -> None:
     install_search_audit_runtime()
     install_governed_optional_runtime()
     install_worker_lease_runtime()
-    install_report_scope_clarity()
     # Reassert final owners after legacy/runtime installers that register by name.
     install_final_smoke_closure()
     install_governed_analysis_post()
