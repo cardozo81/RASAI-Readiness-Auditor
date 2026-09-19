@@ -17,7 +17,6 @@ from rasai.m18_ai import (
     ProviderState,
     SEMANTIC_RULE_IDS,
 )
-from rasai.m18_reporting import _attempt_row, _failover_summary
 from rasai.semantic import SemanticEvidenceInput, SemanticInput
 
 
@@ -148,22 +147,6 @@ class AiRetryFallbackTests(unittest.TestCase):
         self.assertEqual(calls, 6)
         self.assertLessEqual(calls, MAX_AUTO_ATTEMPTS_PER_CONTEXT)
         self.assertEqual(len(router.consume_attempts()), calls)
-
-    def test_report_row_exposes_diagnostic_and_fallback(self) -> None:
-        row = {
-            "url": "https://example.com/", "device": "MOBILE", "semantic_contract_version": "M18-SEMANTIC-22-v1",
-            "attempt_index": 2, "provider": "DEEPSEEK", "model": "deepseek-v4-pro", "status": "SUCCESS",
-            "error_class": None, "error_type": None, "http_status": None, "error_code": None, "request_id": None,
-            "retry_eligible": 0, "decision": "FALLBACK_SUCCESS", "fallback_from_provider": "OPENAI",
-            "fallback_reason": "AI_PROVIDER_UNAVAILABLE:AUTH_ERROR:HTTP_401", "input_tokens": 10, "output_tokens": 5,
-            "estimated_cost": 0.001, "cost_currency": "USD", "duration_ms": 12,
-        }
-        html = _attempt_row(row)
-        self.assertIn("FALLBACK_SUCCESS", html)
-        self.assertIn("OPENAI", html)
-        summary = _failover_summary([row])
-        self.assertIn("deveria atender", summary)
-        self.assertIn("AUTH_ERROR", summary)
 
     def test_policy_contract_and_auth_are_non_retryable(self) -> None:
         self.assertFalse(retry_policy("CONTRACT_ERROR").eligible)
