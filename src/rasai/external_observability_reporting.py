@@ -1,6 +1,6 @@
 """Report projections for external observational datasets.
 
-Detailed external data remains in observability.db/artifacts.  This module only adds
+Detailed external data remains in artifacts/observability/observability.db and related artifacts.  This module only adds
 clearly labelled, non-scoring panels to reports where the scope is semantically
 relevant.  Repeated enrichment is idempotent through explicit HTML markers.
 """
