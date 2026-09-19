@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 from dataclasses import replace
 from pathlib import Path
+import sqlite3
 from types import SimpleNamespace
 
 import pytest
@@ -337,3 +338,126 @@ def test_rpr_data_finalizers_do_not_recall_external_integrations(
         )
 
     assert result.complete is True
+
+
+def test_reprocess_material_fingerprint_ignores_volatile_timestamps_but_detects_result_change(
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    connection = sqlite3.connect(workspace.database)
+    try:
+        connection.execute(
+            """CREATE TABLE web_performance_observations(
+                observation_id TEXT PRIMARY KEY,
+                audit_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                captured_at TEXT NOT NULL
+            )"""
+        )
+        connection.execute(
+            "INSERT INTO web_performance_observations VALUES (?,?,?,?)",
+            ("OBS-1", AUDIT_ID, "PARTIAL", "2026-09-19T10:00:00Z"),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    original = runtime._material_state_fingerprint(workspace, AUDIT_ID)
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        connection.execute(
+            "UPDATE web_performance_observations SET captured_at=? WHERE observation_id='OBS-1'",
+            ("2026-09-19T10:05:00Z",),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+    assert runtime._material_state_fingerprint(workspace, AUDIT_ID) == original
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        connection.execute(
+            "UPDATE web_performance_observations SET status='SUCCESS' WHERE observation_id='OBS-1'"
+        )
+        connection.commit()
+    finally:
+        connection.close()
+    assert runtime._material_state_fingerprint(workspace, AUDIT_ID) != original
+
+
+def test_prepare_reprocess_reuses_evidence_snapshot_when_nothing_material_changed(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    from rasai.ai_governance import seal_evidence
+
+    prior = seal_evidence(
+        workspace=workspace,
+        audit_id=AUDIT_ID,
+        context={"phase": "INITIAL"},
+    )
+    monkeypatch.setattr(runtime, "_recover_live_measurements", lambda *_args: {})
+    monkeypatch.setattr(
+        runtime,
+        "_recover_optional_collectors",
+        lambda *_args: ({}, frozenset()),
+    )
+    monkeypatch.setattr(runtime, "_recover_impacted_deterministic", lambda *_args: {})
+
+    preparation = runtime._prepare_reprocess(workspace, AUDIT_ID)
+
+    assert preparation.snapshot.evidence_snapshot_id == prior.evidence_snapshot_id
+    assert preparation.sealed_new_evidence is False
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "expected_external"),
+    [
+        ((("CMP-1", "jquery", "3.7.1", "npm", "MEDIUM"),), (("CMP-1", "jquery", "3.7.1", "npm", "MEDIUM"),), 0),
+        ((("CMP-1", "jquery", "3.6.0", "npm", "MEDIUM"),), (("CMP-1", "jquery", "3.7.1", "npm", "MEDIUM"),), 1),
+    ],
+)
+def test_passive_security_rpr_refreshes_external_intelligence_only_when_components_change(
+    monkeypatch,
+    tmp_path: Path,
+    before,
+    after,
+    expected_external: int,
+) -> None:
+    workspace = _workspace(tmp_path)
+    _register_pending(workspace, "PASSIVE_SECURITY")
+    signatures = iter((before, after))
+    monkeypatch.setattr(
+        runtime,
+        "_passive_component_signature",
+        lambda *_args, **_kwargs: next(signatures),
+    )
+    monkeypatch.setattr(runtime, "_archive_passive_security", lambda *_args: None)
+
+    from rasai import passive_security as security
+    from rasai import selective_optional_reprocess as optional
+
+    monkeypatch.setattr(optional, "_original_optional_environment", lambda *_args: nullcontext())
+    external_calls: list[str] = []
+    monkeypatch.setattr(
+        security,
+        "collect_external_intelligence",
+        lambda **_kwargs: external_calls.append("external") or {"collection_state": "SUCCESS"},
+    )
+    monkeypatch.setattr(
+        security,
+        "analyze_passive_security",
+        lambda **_kwargs: {"status": "COMPLETED"},
+    )
+
+    states = runtime._recover_impacted_deterministic(workspace, AUDIT_ID)
+
+    assert states == {"PASSIVE_SECURITY": "SUCCESS"}
+    assert len(external_calls) == expected_external
+    item = next(
+        item for item in list_work_items(workspace, AUDIT_ID)
+        if item.component == "PASSIVE_SECURITY"
+    )
+    assert item.status == SUCCESS
