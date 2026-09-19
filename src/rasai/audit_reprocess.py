@@ -204,7 +204,7 @@ def reprocess_audit(
             score_status=summary.score_status,report_status=summary.report_status,
             consolidation_eligible=summary.consolidation_eligible,attempted_items=0,successful_items=0,
             skipped_success_items=skipped_success,remaining_items=summary.pending_items+summary.blocked_items,
-            temporal_expired_items=summary.expired_items,report_root=workspace.root / "report",
+            temporal_expired_items=summary.expired_items,report_root=workspace.root / "report-catalog",
         )
 
     reprocess_id = start_reprocess_run(workspace,audit_id,source=source)
