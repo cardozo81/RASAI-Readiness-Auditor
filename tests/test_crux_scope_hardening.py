@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from rasai.observability.store import observability_database_path
+
 import json
 from pathlib import Path
 import sqlite3
@@ -86,7 +88,7 @@ def test_direct_crux_rejects_outside_origin_before_network_call() -> None:
                 opener=opener,
             )
         assert called is False
-        assert not (workspace / "observability.db").exists()
+        assert not observability_database_path(workspace).exists()
 
 
 def test_direct_crux_origin_scope_rejects_path() -> None:
