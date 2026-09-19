@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+from rasai.observability.store import observability_database_path
+
+def _obs_path(workspace: Path) -> Path:
+    path = observability_database_path(workspace)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 import json
 from pathlib import Path
 import sqlite3
@@ -70,7 +78,7 @@ def test_gsc_configured_but_not_requested_remains_explicitly_not_requested(tmp_p
 def test_common_crawl_errors_without_rows_are_visible_in_state(tmp_path: Path) -> None:
     database = tmp_path / "audit.db"
     _audit_db(database)
-    obs = sqlite3.connect(tmp_path / "observability.db")
+    obs = sqlite3.connect(_obs_path(tmp_path))
     try:
         obs.executescript(
             """
@@ -285,7 +293,7 @@ def test_common_crawl_error_modal_exposes_exception_and_recovery_steps(tmp_path:
         }),
         encoding="utf-8",
     )
-    obs = sqlite3.connect(tmp_path / "observability.db")
+    obs = sqlite3.connect(_obs_path(tmp_path))
     try:
         obs.executescript(
             """
@@ -350,7 +358,7 @@ def test_common_crawl_no_capture_404_is_presented_as_coverage_limitation(tmp_pat
         }),
         encoding="utf-8",
     )
-    obs = sqlite3.connect(tmp_path / "observability.db")
+    obs = sqlite3.connect(_obs_path(tmp_path))
     try:
         obs.executescript(
             """
