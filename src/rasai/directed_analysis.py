@@ -614,14 +614,22 @@ def _provider_config(audit_id: str, workspace: AuditWorkspace, language: str) ->
             ).fetchone()
             if row:
                 provider, model, reasoning = str(row["provider"] or ""), str(row["model"] or ""), str(row["reasoning"] or "")
-        if not provider and _table_exists(connection, "ai_provider_attempts"):
+        if (not provider or provider.casefold() in {"auto","none"}) and _table_exists(connection, "ai_provider_attempts"):
             cols = _columns(connection, "ai_provider_attempts")
-            status_col = "status" if "status" in cols else None
             where = "audit_id=?"
             params: list[Any] = [audit_id]
-            if status_col:
+            if "status" in cols:
                 where += " AND status='SUCCESS'"
-            row = connection.execute(
+            if "operation" in cols:
+                preferred = connection.execute(
+                    f"""SELECT provider,model,reasoning_profile FROM ai_provider_attempts
+                        WHERE {where} AND operation='IMPROVEMENT_INTELLIGENCE'
+                        ORDER BY started_at DESC,rowid DESC LIMIT 1""",
+                    tuple(params),
+                ).fetchone()
+            else:
+                preferred = None
+            row = preferred or connection.execute(
                 f"""SELECT provider,model,reasoning_profile FROM ai_provider_attempts
                     WHERE {where} ORDER BY started_at DESC,rowid DESC LIMIT 1""",
                 tuple(params),
