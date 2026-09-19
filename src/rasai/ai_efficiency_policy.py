@@ -139,18 +139,14 @@ def install() -> None:
     install_execution_completion_reliability()
     install_execution_completion_regression()
 
-    from rasai.ai_attempt_diagnostic_reporting import install as install_ai_attempt_diagnostic_reporting
     from rasai.audit_fulfillment_runtime import install as install_audit_fulfillment
     from rasai.audit_fulfillment_saas import install as install_audit_fulfillment_saas
     from rasai.core_integrity_runtime import install as install_core_integrity
     from rasai.core_reprocessing import install as install_core_reprocessing
     from rasai.core_reprocessing_context import install as install_core_reprocessing_context
-    from rasai.execution_evidence_reporting import install as install_execution_evidence_reporting
-    from rasai.execution_profile_report_capabilities import install as install_execution_profile_report_capabilities
     from rasai.fulfillment_execution_contract import install as install_fulfillment_execution_contract
     from rasai.reprocess_failure_preservation import install as install_reprocess_failure_preservation
     from rasai.reprocess_runtime_safety import install as install_reprocess_runtime_safety
-    from rasai.report_public_ux_guard import install as install_report_public_ux_guard
     from rasai.semantic_recovery_runtime import install as install_semantic_recovery
     from rasai.technical_ai_eligibility import install as install_technical_ai_eligibility
 
@@ -164,10 +160,6 @@ def install() -> None:
     install_fulfillment_execution_contract()
     install_reprocess_failure_preservation()
     install_reprocess_runtime_safety()
-    install_ai_attempt_diagnostic_reporting()
-    install_execution_evidence_reporting()
-    install_execution_profile_report_capabilities()
-    install_report_public_ux_guard()
 
     from rasai.accepted_audit_refinements import install as install_accepted_audit_refinements
     from rasai.accepted_report_compat import install as install_accepted_report_compat
