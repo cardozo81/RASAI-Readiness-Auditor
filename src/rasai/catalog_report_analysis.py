@@ -176,6 +176,9 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         "mixed_content":"Mixed content",
         "forms_iframes":"Forms e iframes",
         "runtime":"Erros/runtime",
+        "component_inventory":"Inventário de componentes",
+        "osv_intelligence":"OSV / advisories",
+        "cisa_kev":"CISA KEV",
         "vulnerability_intelligence":"Vulnerability Intelligence",
         "active_scanning":"Active scanning",
     }
