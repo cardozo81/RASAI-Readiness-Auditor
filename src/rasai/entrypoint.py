@@ -98,7 +98,7 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
     from rasai.ai_execution_state import consume_all_ai_executions
     from rasai.m18_ai import provider_session_snapshot
     from rasai.persistence import AuditWorkspace
-    from rasai.report_completion import finalize_audit_report_site
+    from rasai.report_completion import finalize_audit_report_site, materialize_catalog_report_projection
 
     original_run_audit = cli_extensions._audit_cli.run_audit
     captured: list[object] = []
@@ -137,11 +137,19 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         routing_snapshot = (
             provider_session_snapshot(executions[0].provider) if executions else None
         )
-        completion = finalize_audit_report_site(
+        data_completion = finalize_audit_report_site(
             audit_id=result.audit_id,
             workspace=workspace,
             context_interpretations=context_interpretations,
             routing_snapshot=routing_snapshot,
+        )
+        catalog_completion = materialize_catalog_report_projection(
+            audit_id=result.audit_id,
+            workspace=workspace,
+        )
+        renderer_errors = (
+            *data_completion.renderer_errors,
+            *catalog_completion.renderer_errors,
         )
     except Exception:
         _LOGGER.exception("Final catalog report materialization gate failed")
@@ -151,10 +159,10 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         )
         return _REPORT_PROJECTION_INCOMPLETE_EXIT
 
-    for issue in completion.renderer_errors:
+    for issue in renderer_errors:
         _LOGGER.warning("Audit report renderer issue during final repair: %s", issue)
 
-    blocking_catalog_errors = _blocking_catalog_report_errors(completion.renderer_errors)
+    blocking_catalog_errors = _blocking_catalog_report_errors(renderer_errors)
     if blocking_catalog_errors:
         _LOGGER.error(
             "Final catalog report failed freshness/materialization gate: %s",
@@ -168,7 +176,7 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         return _REPORT_PROJECTION_INCOMPLETE_EXIT
 
     print("Report-catalog: materializado e validado contra o audit.db final.")
-    if completion.renderer_errors:
+    if renderer_errors:
         print(
             "Finalização: houve diagnóstico reparável em processamento derivado; "
             "o detalhe foi registrado no log."
