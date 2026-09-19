@@ -64,8 +64,6 @@ from rasai.m21_console_progress import install_m21_external_progress
 from rasai.m3_console_progress import install_m3_render_progress
 from rasai.m3_render_deadline_runtime import install as install_m3_render_deadline_runtime
 from rasai.report_observation_reconciliation import install as install_report_observation_reconciliation
-from rasai.report_registry import install as install_report_registry
-from rasai.report_scope_clarity import install as install_report_scope_clarity
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 from rasai.runtime_contract_compatibility import install_console_runtime_contract_compatibility
@@ -113,7 +111,6 @@ def main() -> int:
     install_external_observability_service_contract()
     install_standards_console_runtime()
     install_external_observability_console()
-    install_report_registry()
     install_context_scope_runtime()
     install_m3_render_deadline_runtime()
     install_target_input_runtime()
@@ -161,7 +158,6 @@ def main() -> int:
     install_search_intelligence(interactive_console)
     install_consolidation(interactive_console)
     install_console_runtime_contract_compatibility()
-    install_report_scope_clarity()
     install_console_progress_presentation()
     install_console_governed_progress()
     install_ai_provider_console_management()
@@ -187,7 +183,7 @@ def main() -> int:
     install_integration_network_diagnostics(interactive_console)
     install_console_detail_presentation()
     install_ai_execution_configuration(interactive_console)
-    # Final runtime/report bindings must win after all console adapters are composed.
+    # Final runtime/catalog bindings must win after all console adapters are composed.
     install_final_smoke_closure()
     install_governed_analysis_post()
     install_governed_report_projection()
