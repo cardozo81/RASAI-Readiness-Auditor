@@ -25,6 +25,11 @@ _SECRET_KEY_RE = re.compile(
     r"(?:api[_-]?key|authorization|bearer|token|secret|password|passwd|cookie|client[_-]?secret)",
     re.I,
 )
+_NON_SECRET_CONFIGURATION_KEYS = frozenset({
+    # Feature toggle: controls whether Set-Cookie attributes are analyzed. It never
+    # contains a cookie header/value and must not be classified as credential material.
+    "RASAI_SECURITY_COOKIES",
+})
 _BEARER_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}")
 _APIKEY_RE = re.compile(r"(?i)\b(?:sk|key|token)[-_][A-Za-z0-9._-]{12,}")
 _EXTERNAL_LINK_RE = re.compile(r"<a\b([^>]*?)href=['\"]https?://[^'\"]+['\"]([^>]*)>", re.I)
@@ -256,7 +261,8 @@ def _secret_free_configuration(data: Any) -> tuple[bool, str]:
         if isinstance(value, Mapping):
             for key, child in value.items():
                 child_path = f"{path}.{key}" if path else str(key)
-                if _SECRET_KEY_RE.search(str(key)):
+                normalized_key = str(key).strip().upper()
+                if normalized_key not in _NON_SECRET_CONFIGURATION_KEYS and _SECRET_KEY_RE.search(str(key)):
                     if child not in (None, "", "[REDACTED]", "***"):
                         failures.append(child_path)
                     continue
