@@ -18,6 +18,58 @@ from typing import Any
 _INSTALLED = False
 
 
+def invalidate_work_item(
+    workspace: Any,
+    *,
+    audit_id: str,
+    component: str,
+    scope_key: str = "AUDIT",
+    error_class: str = "EVIDENCE_VERSION",
+    error_code: str = "RESULT_STALE",
+    error_message: str = "resultado invalidado por mudança da evidência dependente",
+) -> bool:
+    """Invalidate one effective SUCCESS only for a governed evidence/integrity transition.
+
+    The prior success timestamp, effective result reference and attempt history remain
+    intact for auditability. Normal transient failures still cannot demote SUCCESS.
+    """
+    from rasai.audit_fulfillment import FAILED_RETRYABLE, SUCCESS, ensure_schema, recalculate
+
+    ensure_schema(workspace)
+    now = datetime.now(timezone.utc).isoformat()
+    connection = sqlite3.connect(workspace.database)
+    changed = False
+    try:
+        row = connection.execute(
+            """SELECT work_item_id,status FROM audit_fulfillment_work_items
+               WHERE audit_id=? AND component=? AND scope_key=?""",
+            (audit_id, str(component).upper(), scope_key),
+        ).fetchone()
+        if row is None or str(row[1]).upper() != SUCCESS:
+            return False
+        with connection:
+            connection.execute(
+                """UPDATE audit_fulfillment_work_items SET
+                   status=?,retryable=1,last_error_class=?,
+                   last_error_code=?,last_error_message=?,updated_at=?
+                   WHERE work_item_id=?""",
+                (
+                    FAILED_RETRYABLE,
+                    str(error_class)[:80],
+                    str(error_code)[:160],
+                    str(error_message)[:1000],
+                    now,
+                    str(row[0]),
+                ),
+            )
+        changed = True
+    finally:
+        connection.close()
+    if changed:
+        recalculate(workspace, audit_id)
+    return changed
+
+
 def invalidate_ai_work_item(
     workspace: Any,
     *,
@@ -27,36 +79,15 @@ def invalidate_ai_work_item(
     error_code: str = "AI_RESULT_STALE",
     error_message: str = "resultado de IA invalidado por mudança da evidência dependente",
 ) -> None:
-    from rasai.audit_fulfillment import FAILED_RETRYABLE, ensure_schema, recalculate
-
-    ensure_schema(workspace)
-    now = datetime.now(timezone.utc).isoformat()
-    connection = sqlite3.connect(workspace.database)
-    try:
-        row = connection.execute(
-            """SELECT work_item_id FROM audit_fulfillment_work_items
-               WHERE audit_id=? AND component=? AND scope_key=?""",
-            (audit_id, str(component).upper(), scope_key),
-        ).fetchone()
-        if row is None:
-            return
-        with connection:
-            connection.execute(
-                """UPDATE audit_fulfillment_work_items SET
-                   status=?,retryable=1,last_error_class='EVIDENCE_VERSION',
-                   last_error_code=?,last_error_message=?,updated_at=?
-                   WHERE work_item_id=?""",
-                (
-                    FAILED_RETRYABLE,
-                    error_code,
-                    str(error_message)[:1000],
-                    now,
-                    str(row[0]),
-                ),
-            )
-    finally:
-        connection.close()
-    recalculate(workspace, audit_id)
+    invalidate_work_item(
+        workspace,
+        audit_id=audit_id,
+        component=component,
+        scope_key=scope_key,
+        error_class="EVIDENCE_VERSION",
+        error_code=error_code,
+        error_message=error_message,
+    )
 
 
 def install() -> None:
@@ -92,4 +123,4 @@ def install() -> None:
     _INSTALLED = True
 
 
-__all__ = ["install", "invalidate_ai_work_item"]
+__all__ = ["install", "invalidate_ai_work_item", "invalidate_work_item"]
