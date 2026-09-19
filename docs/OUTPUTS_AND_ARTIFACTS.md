@@ -7,10 +7,10 @@ Cada execução de `rasai audit` persiste a evidência no workspace `audits/<AUD
 ```text
 audits/<AUD-ID>/
 ├─ audit.db
-├─ observability.db            # somente quando operações observacionais persistirem dados externos
 ├─ artifacts/
 │  ├─ web-performance/         # quando houver coleta externa
-│  ├─ observability/           # quando houver observabilidade
+│  ├─ observability/
+│  │  └─ observability.db      # quando operações observacionais persistirem dados externos
 │  └─ outros artifacts internos por capacidade, quando aplicável
 ├─ logs/
 │  └─ audit.log                # quando logging persistente estiver ativo
@@ -29,29 +29,16 @@ audits/<AUD-ID>/
 
 ### Caminhos fora do contrato de saída de `rasai audit`
 
-O runtime de `rasai audit` não materializa:
+Não fazem parte do workspace contratual de uma AUD:
 
 ```text
 <AUD>/report/
 <AUD>/report.html
 <AUD>/remediation.html
+<AUD>/observability.db
 ```
 
-A remoção é exclusivamente da projeção HTML convencional. Permanecem inalterados os dados e processamentos funcionais que alimentam outras capacidades, incluindo:
-
-```text
-findings
-evidence
-recommendations
-root_cause_analyses
-root_cause_precision
-scores
-score_contributions
-telemetria/custos de IA
-fulfillment e rastreabilidade
-```
-
-Nenhum collector, crawler, integração externa, scoring, análise determinística ou chamada de IA é eliminado por essa mudança.
+Os dados funcionais pertencem a `audit.db` e `artifacts/`, incluindo findings, evidências, recomendações, análises de causa, scoring, telemetria/custos de IA, fulfillment e rastreabilidade. Collectors, crawlers, integrações externas, scoring, análises determinísticas e chamadas de IA persistem seus resultados nessas superfícies contratuais.
 
 ### Relatório suportado por auditoria
 
@@ -75,7 +62,7 @@ RASAI-OBS-002  = contrato atual do sidecar observacional
 
 Nenhuma projeção recalcula silenciosamente uma auditoria para outra `scoring_version`. HTML e manifest podem ser regenerados, mas `audit.db` + artifacts originais permanecem a evidência fonte.
 
-`observability.db` é sidecar derivado/reconstruível para outcomes coletados ou importados após a auditoria. Ele não substitui nem migra `audit.db`.
+`artifacts/observability/observability.db` é o sidecar derivado/reconstruível para outcomes observacionais. Ele não substitui `audit.db`.
 
 ## Conteúdo relevante do `audit.db`
 
@@ -120,7 +107,7 @@ A chamada de IA usa a telemetria canônica `ai_provider_attempts` com `semantic_
 
 ### Crawling e descoberta
 
-A persistência inclui diagnósticos, evidências e, quando habilitada, análise técnica de IA vinculada a evidências. Robots, sitemap, feeds e `llms.txt` efetivamente capturados podem ser preservados como artifacts e projetados em `crawling-discovery.html` sem nova coleta.
+A persistência inclui diagnósticos, evidências e, quando habilitada, análise técnica de IA vinculada a evidências. Robots, sitemap, feeds e `llms.txt` efetivamente capturados podem ser preservados como artifacts e projetados no CAT-01 sem nova coleta.
 
 Diagnósticos auxiliares permanecem advisory. Quando uma avaliação técnica evidence-bound válida de robots/sitemap participa do scoring, ela usa somente o grupo e os fatores estáticos definidos pelo método; a IA não escolhe peso nem cria bônus duplicado.
 
@@ -199,47 +186,27 @@ artifacts/observability/
 
 Pode conter responses JSON oficiais, CSVs importados e fatos observacionais normalizados. Esses artifacts são input externo não confiável e não se tornam automaticamente evidência original da auditoria.
 
-## Relatórios por domínio
+## Superfícies do `report-catalog/`
 
-### `index.html`
+O relatório audit-owned é composto somente pelas superfícies do catálogo:
 
-Dashboard executivo; não agrega metodologias complementares em uma nota comum.
+- `index.html`: visão geral, estados dos CATs e Matriz de encerramento estrutural;
+- `sari.html`: leitura persistida do SARI;
+- `cat-01.html` a `cat-10.html`: resultados por catálogo, inclusive Segurança passiva no CAT-10;
+- `capture-context.html`: contexto e topologia da captura;
+- `execution-evidence.html`: estados de execução, fulfillment e evidências operacionais;
+- `ai-integrations.html`: uso de IA, integrações, tentativas, tokens, custos e falhas/retries persistidos;
+- `directed-analysis.html`: análise direcionada quando materializada;
+- `methodology.html`: contratos e metodologia aplicáveis;
+- `metrics.html`: inventário de métricas persistidas;
+- `manifest.json` e `integrity/`: integridade e verificação offline do pacote;
+- `css/site.css`: apresentação compartilhada.
 
-### `readiness.html`
+A existência de uma página do catálogo não dispara coleta, provider, IA ou scoring. Estados como `SEM RESULTADO`, `PARCIAL`, `NO_DATA` ou indisponibilidade externa são projetados a partir da evidência persistida.
 
-Página canônica do `SARI-001`, com Score, Coverage, Confidence, Consolidation e limitações persistidas.
+### CAT-10 — Segurança passiva
 
-### `scoring.html`
-
-Página canônica da metodologia vigente. Expõe `scoring_version`, pesos, grupos, gates e rastreabilidade. Para novas auditorias, o motor atual é `SCORE-GEO-004` com agregação hierárquica ponderada.
-
-### `context.html`
-
-Topologia de captura por URL/device e informações de runtime. É read-only e não recalcula score.
-
-### `mobile.html` / `desktop.html`
-
-Superfícies estáveis de evidências e findings por dispositivo. Quando não existe snapshot para o contexto correspondente, exibem estado neutro/não aplicável em vez de desaparecer do menu.
-
-### `crawling-discovery.html`
-
-Robots, sitemaps, crawler policies, feeds/`llms.txt`, conteúdo capturado disponível e remediação técnica opcional.
-
-### `accessibility.html`
-
-Diagnóstico automatizado ou estado explícito de ausência/desabilitação da fonte. Lighthouse accessibility não equivale a certificação WCAG integral.
-
-### `web-performance.html`
-
-Estado da integração e, quando coletados, Lighthouse/PageSpeed/CrUX. Permanece separado do SARI e do Apdex.
-
-### `standards.html`
-
-Superfície canônica de métricas e serviços de padrões. Pode conter W3C HTML/CSS, MDN Observatory, Web Platform Baseline/WebDX e métricas derivadas quando disponíveis. Sem coleta/dataset, mantém estado explícito e não dispara serviço apenas para preencher o HTML.
-
-### `report-catalog/cat-10.html`
-
-Página de **Segurança passiva**. Projeta somente dados já persistidos e não dispara coleta durante o HTML. Apresenta cobertura, findings, severidade/classificação, rastreabilidade, recursos first/third-party, componentes/versionamento identificáveis, MDN HTTP Observatory/Lighthouse já coletados, OSV/CISA KEV e remediação por finding.
+`report-catalog/cat-10.html` projeta somente dados já persistidos e não executa active scanning durante a renderização. Apresenta cobertura, findings, severidade/classificação, rastreabilidade, recursos first/third-party, componentes/versionamento identificáveis, MDN HTTP Observatory, OSV/CISA KEV e remediação por finding.
 
 Persistência própria:
 
@@ -254,50 +221,6 @@ passive_security_remediations
 ```
 
 Artifacts externos de vulnerability intelligence ficam em `artifacts/security/` quando a integração efetivamente produz resposta. Valores de cookies e nonces brutos não são copiados para as tabelas do CAT-10. Consulte [PASSIVE_SECURITY_CATALOG.md](PASSIVE_SECURITY_CATALOG.md).
-
-### `ai-usage.html`
-
-Estado de uso de IA, provider/modelo, tentativas, tokens e custo estimado quando aplicável. Não gera nova chamada de IA.
-
-### `improvement-intelligence.html`
-
-Análise profunda opcional de uma única URL. Correlaciona evidências persistidas, HTML/semântica, Lighthouse/PageSpeed, Search/SERP quando disponível, arquivos de descoberta e postura de segurança passiva. Materializa findings, backlog priorizado e sugestões evidence-bound sem alterar `SARI-001`/`SCORE-GEO-004`. HTML sugerido e recomendações continuam sujeitos a revisão humana e o ganho só é comprovado por nova auditoria/before-after.
-
-### `content-suggestions.html`
-
-Estado e sugestões textuais/JSON-LD advisory. Se IA estiver desabilitada, a página continua existindo e deixa esse estado explícito.
-
-### `remediation.html`
-
-Plano de correção evidence-bound derivado dos findings persistidos.
-
-### `references.html`
-
-Metodologia, natureza das fontes e referências públicas.
-
-### `report-catalog/cat-05.html`
-
-Superfície audit-owned de SERP Observation, classificação competitiva e análises associadas. Sem observações persistidas, projeta o estado correspondente. É observacional/advisory e não altera automaticamente `SARI-001`/`SCORE-GEO-004`.
-
-### `apdex.html`
-
-Superfície canônica de Synthetic Navigation Apdex. Exibe resultados quando executado e estado neutro quando não solicitado; a existência do HTML não inicia navegação sintética.
-
-### `apdex-experience.html`
-
-Superfície canônica de Synthetic User Experience Apdex calibrável. Não é RUM. Exibe estado neutro quando não executado.
-
-### `ai-visibility.html`
-
-Observed Generative Visibility import-first. Sem dataset/import, exibe estado neutro. Não produz score universal nem altera o scoring da auditoria.
-
-### `observability.html`
-
-Superfície canônica de datasets/proveniência e outcomes externos pós-auditoria, incluindo Search Console, URL Inspection, CrUX History e diagnósticos derivados. Sem sidecar/dado, exibe estado neutro. É non-scoring e não prova causalidade.
-
-### `quality.html`
-
-Superfície canônica de qualidade da evidência e apoio à decisão. Sem processamento especializado, exibe estado neutro. Não cria um segundo readiness score.
 
 ## Relatórios históricos e consolidados
 
@@ -331,30 +254,18 @@ rasai scoring inspect
 
 ## Navegação canônica
 
-A ordem do catálogo é estável e todos os itens abaixo fazem parte do menu de uma auditoria finalizada. A configuração controla o estado/conteúdo de cada domínio, não a existência do link:
+A navegação da AUD aponta exclusivamente para as páginas materializadas em `report-catalog/`:
 
 ```text
 Visão geral
 Readiness SARI
-Metodologia de scoring
+CAT-01 ... CAT-10
 Contexto de captura
-Domínio e descoberta
-Relatório Mobile
-Relatório Desktop
-Acessibilidade
-Web Performance
-Métricas e padrões
-Apdex de navegação
-Apdex de experiência
-Search Intelligence
-Visibilidade em IA
-Search & AI observados
-Uso de IA
-Análise profunda e melhorias
-Conteúdo e JSON-LD
-Remediações
-Quality & decisão
-Referências e metodologia
+Evidências de execução
+IA e integrações
+Análise direcionada
+Metodologia
+Métricas
 ```
 
 Apenas a página atual recebe estado ativo.
