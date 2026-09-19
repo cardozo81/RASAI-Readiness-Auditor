@@ -210,6 +210,32 @@ def test_top_level_information_architecture_routes_to_existing_actions(monkeypat
     assert ui._config_view(state) == "ai"
 
 
+def test_top_level_integrations_reaches_final_integrations_router(monkeypatch) -> None:
+    import rasai.console_navigation as navigation
+
+    console = ModuleType("test_console_ui_refactor_integrations_route")
+    console.render_header = lambda state: None
+    console._menu = lambda state: builtins.input("Escolha: ").strip().upper()
+    navigation.install(console)
+    ui._install_top_level_menu(console)
+    state = SimpleNamespace(project="Projeto", target="https://example.com/", audit_id="", audits_root="audits", error="")
+
+    monkeypatch.setattr(builtins, "input", lambda prompt="": "5")
+    assert console._menu(state) == "E"
+    assert ui._config_view(state) == "integrations"
+
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        ui,
+        "catalog_menu",
+        lambda current_console, current_state, *, view, title: calls.append((view, title)),
+    )
+    ui._install_environment_router(console)
+    console._environment_menu(state)
+
+    assert calls == [("integrations", "INTEGRAÇÕES E SERVIÇOS")]
+
+
 def test_post_edit_persistence_offers_session_or_immediate_save(monkeypatch) -> None:
     console = ModuleType("test_console_ui_refactor_persist")
     console._configure = lambda state, choice: setattr(state, "project", "Alterado")
