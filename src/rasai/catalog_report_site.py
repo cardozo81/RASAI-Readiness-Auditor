@@ -11,6 +11,7 @@ import uuid
 from typing import Any
 
 from rasai.catalog_report_integrations import *  # noqa: F401,F403
+from rasai.directed_analysis_reporting import directed_analysis_body
 from rasai.search_intelligence.freshness import require_valid_serp_freshness
 
 
@@ -265,6 +266,7 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             "capture-context.html":_capture_context_body(database,data),
             "execution-evidence.html":_execution_evidence_body(database,data),
             "ai-integrations.html":_ai_integrations_body(database,data),
+            "directed-analysis.html":directed_analysis_body(database,data),
             "methodology.html":_methodology_body(data),
             "metrics.html":_metrics_body(database,data),
         }
