@@ -87,6 +87,20 @@ def _gain_label(value: Any) -> str:
     return {"HIGH":"Alto","MEDIUM":"Médio","LOW":"Baixo"}.get(_norm(value),_level_label(value))
 
 
+def _directed_reason_label(value: Any) -> str:
+    raw=str(value or "").strip()
+    if not raw:
+        return "-"
+    mapped=_DIRECTED_REASON_LABELS.get(_norm(raw))
+    if mapped:
+        return mapped
+    if raw.startswith("DIRECTED_ANALYSIS_ERROR:"):
+        return "A síntese estratégica encontrou um erro técnico e foi concluída com limitações."
+    if re.fullmatch(r"[A-Z0-9_:-]+",raw):
+        return "Limitação técnica registrada para a síntese estratégica."
+    return raw
+
+
 def _directed_status(value: Any) -> str:
     raw=_norm(value)
     return {
@@ -339,9 +353,7 @@ def directed_analysis_body(database: Any, data: Any) -> str:
                 raw_scope=str(item.get("catalog_id") or item.get("scope") or "Auditoria")
                 scope="Análise direcionada" if _norm(raw_scope)=="DIRECTED_ANALYSIS" else raw_scope
                 raw_reason=str(item.get("reason") or "")
-                reason=_DIRECTED_REASON_LABELS.get(_norm(raw_reason), raw_reason)
-                if raw_reason.startswith("DIRECTED_ANALYSIS_ERROR:"):
-                    reason="A síntese estratégica encontrou um erro técnico e foi concluída com limitações."
+                reason=_directed_reason_label(raw_reason)
                 limitation_rows.append((
                     scope,
                     _status_label(item.get("status")) if item.get("status") else reason or "Limitação",
