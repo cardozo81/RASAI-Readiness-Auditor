@@ -327,7 +327,7 @@ Os resultados substituídos permanecem disponíveis na trilha de reprocessamento
 
 ## Status público
 
-O estado de processamento, score, elegibilidade para consolidação, quantidade de requisitos, tentativas e reprocessamentos permanece persistido no contrato de fulfillment. O runtime não cria mais `report/processing-status.json` apenas para projeção do relatório convencional.
+O estado de processamento, score, elegibilidade para consolidação, quantidade de requisitos, tentativas e reprocessamentos permanece persistido no contrato de fulfillment. `report/processing-status.json` não integra o contrato de saída de `rasai audit`.
 
 `report-catalog/` continua projetando o estado efetivo persistido, inclusive condição preliminar/final quando aplicável.
 
