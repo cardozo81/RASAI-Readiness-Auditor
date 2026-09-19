@@ -75,7 +75,6 @@ def _workspace(directory: str) -> AuditWorkspace:
             )
     finally:
         connection.close()
-    (workspace.root / "report").mkdir(exist_ok=True)
     return workspace
 
 
