@@ -10,13 +10,25 @@ O diagnóstico é **consultivo**. Ele ajuda a identificar problemas de configura
 INÍCIO > Integrações e serviços
 ```
 
-Na superfície de integrações:
+Fluxo público do console:
 
 ```text
-D. Diagnóstico técnico das integrações
+INÍCIO
+→ Integrações e serviços
+→ D. Diagnóstico / teste de integrações e IA
 ```
 
+A ação fica destacada antes da listagem de configurações para deixar explícito que o mesmo diagnóstico cobre providers de IA, SERP/Search Intelligence e serviços externos.
+
 A correção de parâmetros usa os mesmos IDs e editores canônicos do catálogo de configuração.
+
+Dentro do diagnóstico:
+
+```text
+T. Validar integrações e IAs configuradas — somente probes seguros
+```
+
+A validação em lote preserva `safe_for_bulk`, custo/quota e dependências configuradas. Integrações fora do lote continuam disponíveis para validação individual.
 
 ## O que o diagnóstico não altera
 
