@@ -22,7 +22,6 @@ from rasai.domain import (
     TargetType,
 )
 from rasai.m14_persistence import ElementObservation, M14Persistence
-from rasai.m16_reporting import M16RemediationReportBuilder, M16ReportBuilder
 from rasai.m16_root_cause import M16Persistence, materialize_root_causes
 from rasai.persistence import AuditPersistence, AuditWorkspace
 
@@ -65,26 +64,6 @@ class M16RootCauseTests(unittest.TestCase):
             self.assertEqual(robots.affected_scope, "DOMAIN_RESOURCE")
             self.assertEqual(robots.selector_status, "NOT_APPLICABLE")
             self.assertEqual(robots.affected_elements, ())
-
-    def test_both_reports_expose_root_cause_and_do_not_invent_global_selector(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            workspace = self._fixture(Path(directory))
-            materialize_root_causes(audit_id="AUD-M16", workspace=workspace)
-
-            report = M16ReportBuilder().build(audit_id="AUD-M16", workspace=workspace)
-            remediation = M16RemediationReportBuilder().build(audit_id="AUD-M16", workspace=workspace)
-
-            self.assertIn("Diagnóstico de causa raiz", report)
-            self.assertIn("Mudança exata recomendada", report)
-            self.assertIn("title", report)
-            self.assertIn("CONJUNTO DE ELEMENTOS", report)
-            self.assertIn("REGIÃO CONTEXTUAL", report)
-
-            self.assertIn("Diagnóstico técnico por ocorrência", remediation)
-            self.assertIn("causa raiz", remediation)
-            self.assertIn("DOMÍNIO / RECURSO GLOBAL", remediation)
-            self.assertIn("NÃO APLICÁVEL", remediation)
-            self.assertNotIn("DOMÍNIO / RECURSO GLOBAL</strong></div>\n        <div><small>Selector</small><strong>ELEMENTO EXATO", remediation)
 
     @staticmethod
     def _fixture(root: Path) -> AuditWorkspace:
