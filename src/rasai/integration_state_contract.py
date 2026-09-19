@@ -61,6 +61,7 @@ def _ensure_observability_attempt_table(workspace: Path) -> Path | None:
     if not (workspace / "audit.db").is_file():
         return None
     database = observability_database_path(workspace)
+    database.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(database)
     try:
         with connection:
