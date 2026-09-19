@@ -231,7 +231,7 @@ def _observability_health(workspace: Path) -> list[HealthCheck]:
     if not database.is_file():
         return [_health(
             "OBS-SIDECAR", "PASS", "INFO", "Sidecar observacional",
-            "observability.db não existe; observability é opcional e sua ausência não reduz readiness.", {"present": False},
+            "artifacts/observability/observability.db não existe; observabilidade é opcional e sua ausência não reduz readiness.", {"present": False},
         )]
     connection = _ro(database)
     try:
@@ -239,7 +239,7 @@ def _observability_health(workspace: Path) -> list[HealthCheck]:
         integrity = str(connection.execute("PRAGMA integrity_check").fetchone()[0])
         out = [_health(
             "OBS-SIDECAR-INTEGRITY", "PASS" if integrity.casefold() == "ok" else "FAIL", "HIGH",
-            "Integridade do observability.db", f"SQLite integrity_check={integrity}.", {"integrity_check": integrity},
+            "Integridade do sidecar observacional", f"SQLite integrity_check={integrity}.", {"integrity_check": integrity},
         )]
         if "search_performance" in tables:
             pk = [
