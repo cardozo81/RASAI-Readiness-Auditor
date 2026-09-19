@@ -797,40 +797,6 @@ def _install_improvement_runtime() -> None:
     improvement._build_provider = build_provider
     improvement._ai_analyze = ai_analyze
 
-    # Improvement finalization receives the already computed primary routing snapshot.
-    # Make it the sole source of provider selection for env-driven/SaaS execution.
-    from rasai import improvement_intelligence_runtime as runtime_module
-
-    original_install_completion = runtime_module._install_report_completion
-
-    def install_report_completion():
-        original_install_completion()
-        from rasai import report_completion
-
-        current = report_completion.finalize_audit_report_site
-        if getattr(current, "_rasai_primary_ai_context", False):
-            return
-
-        def finalize_with_primary_ai(
-            *, audit_id, workspace, context_interpretations=(), routing_snapshot=None
-        ):
-            primary = _selection_from_snapshot(routing_snapshot)
-            token = _PRIMARY_AI_CONTEXT.set(primary)
-            try:
-                return current(
-                    audit_id=audit_id,
-                    workspace=workspace,
-                    context_interpretations=context_interpretations,
-                    routing_snapshot=routing_snapshot,
-                )
-            finally:
-                _PRIMARY_AI_CONTEXT.reset(token)
-
-        finalize_with_primary_ai._rasai_primary_ai_context = True
-        finalize_with_primary_ai._rasai_original = current
-        report_completion.finalize_audit_report_site = finalize_with_primary_ai
-
-    runtime_module._install_report_completion = install_report_completion
 
 
 def _selection_from_snapshot(snapshot: Mapping[str, Any] | None) -> tuple[str, str, str]:
