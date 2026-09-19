@@ -22,7 +22,6 @@ from rasai.audit_fulfillment import (
 from rasai.audit_phase_runtime import register_ai_hook
 from rasai.improvement_intelligence import (
     CONTRACT_VERSION,
-    REPORT_FILE,
     ImprovementConfig,
     execute_improvement_intelligence,
 )
@@ -84,76 +83,6 @@ def _project_fulfillment_result(
         error_message=str(reason or normalized or "Improvement Intelligence não concluída")[:512],
         retryable=True,
     )
-
-
-def _install_report_contract() -> None:
-    from rasai import context_scope_runtime, report_contract, report_manifest, report_navigation, report_registry
-
-    if not any(surface.id == _SURFACE_ID for surface in report_contract.REPORT_SURFACES):
-        surface = report_contract.ReportSurface(
-            id=_SURFACE_ID,
-            filename=REPORT_FILE,
-            label="Análise profunda e melhorias",
-            optional=False,
-            inputs=(
-                "evidências persistidas da URL alvo",
-                "HTML bruto/renderizado e estrutura semântica",
-                "Findings/RuleExecutions",
-                "PageSpeed/Lighthouse quando coletado",
-                "SERP/Competitive Search Intelligence quando observado",
-                "robots.txt, sitemap, llms.txt e diagnósticos de descoberta",
-                "headers HTTP persistidos para postura de segurança passiva",
-            ),
-            outputs=(
-                "backlog priorizado evidence-bound",
-                "recomendações técnicas e de conteúdo",
-                "HTML original versus HTML sugerido pela IA",
-                "hipóteses de melhoria SEO/SERP sem causalidade de ranking",
-                "postura de segurança passiva e remediações",
-                "impacto potencial por Performance/SEO/Best Practices/Acessibilidade/AI Access/Security",
-            ),
-            required_dependencies=("audit.db",),
-            optional_dependencies=(
-                "exatamente uma URL de entrada",
-                "provider de IA explícito",
-                "Web Performance/Lighthouse",
-                "Search Intelligence",
-            ),
-            ai_usage=(
-                "Quando habilitada, executa na fase de IA governada, após o sealing de evidências, "
-                "reutilizando a orquestração canônica de provider. Cada tentativa permanece em ai_provider_attempts."
-            ),
-            score_impact="Nenhum; advisory/non-scoring. SARI/SCORE-GEO permanecem determinísticos e independentes da recomendação.",
-            source_of_truth="audit.db + artifacts persistidos; sugestões de IA são derivadas e identificadas separadamente",
-        )
-        surfaces = list(report_contract.REPORT_SURFACES)
-        insertion = next(
-            (index for index, item in enumerate(surfaces) if item.id == "content-suggestions"),
-            len(surfaces),
-        )
-        surfaces.insert(insertion, surface)
-        report_contract.REPORT_SURFACES = tuple(surfaces)
-        report_contract.CANONICAL_NAV_ITEMS = tuple(
-            (item.label, item.filename) for item in report_contract.REPORT_SURFACES
-        )
-        report_contract.CANONICAL_FILENAMES = tuple(
-            item.filename for item in report_contract.REPORT_SURFACES
-        )
-
-    report_navigation.CANONICAL_NAV_ITEMS = report_contract.CANONICAL_NAV_ITEMS
-    report_navigation.NAV_ITEMS = report_contract.CANONICAL_NAV_ITEMS
-    report_registry.CANONICAL_NAV_ITEMS = report_contract.CANONICAL_NAV_ITEMS
-    report_registry.REPORT_SURFACES = report_contract.REPORT_SURFACES
-    report_manifest.REPORT_SURFACES = report_contract.REPORT_SURFACES
-
-    groups: list[tuple[str, tuple[str, ...]]] = []
-    for label, filenames in context_scope_runtime._NAV_GROUPS:
-        values = list(filenames)
-        if label == "Ações e referência" and REPORT_FILE not in values:
-            anchor = values.index("content-suggestions.html") if "content-suggestions.html" in values else 0
-            values.insert(anchor, REPORT_FILE)
-        groups.append((label, tuple(values)))
-    context_scope_runtime._NAV_GROUPS = tuple(groups)
 
 
 def _install_consolidated_boundary() -> None:
@@ -406,50 +335,12 @@ def _install_governed_ai_phase() -> None:
     register_ai_hook(_COMPONENT, _governed_improvement_hook, order=300)
 
 
-def _install_report_completion() -> None:
-    """Keep only report-contract projection in finalization; never execute AI here."""
-    from rasai import report_completion
-
-    if getattr(report_completion, "_rasai_improvement_intelligence_completion", False):
-        return
-    if REPORT_FILE not in report_completion.AUDIT_ALWAYS_PAGES:
-        report_completion.AUDIT_ALWAYS_PAGES = (*report_completion.AUDIT_ALWAYS_PAGES, REPORT_FILE)
-
-    original = report_completion.finalize_audit_report_site
-
-    def finalize_with_improvement(
-        *,
-        audit_id: str,
-        workspace: Any,
-        context_interpretations=(),
-        routing_snapshot=None,
-    ):
-        # The renderer stack (including progress_completion_refinement) reads the
-        # already-persisted Improvement Intelligence state and writes HTML.  No
-        # collector/provider is called from this wrapper.
-        return original(
-            audit_id=audit_id,
-            workspace=workspace,
-            context_interpretations=context_interpretations,
-            routing_snapshot=routing_snapshot,
-        )
-
-    finalize_with_improvement._rasai_projection_only = True
-    finalize_with_improvement._rasai_original = original
-    report_completion.finalize_audit_report_site = finalize_with_improvement
-    report_completion._rasai_improvement_intelligence_completion = True
-
-
 def install() -> None:
+    """Install governed Improvement Intelligence without conventional AUD HTML hooks."""
     global _INSTALLED
     if _INSTALLED:
         return
-    from rasai.report_quality_reconciliation import install as install_report_quality_reconciliation
-
-    install_report_quality_reconciliation()
-    _install_report_contract()
     _install_consolidated_boundary()
     _install_ai_cost_attribution()
     _install_governed_ai_phase()
-    _install_report_completion()
     _INSTALLED = True
