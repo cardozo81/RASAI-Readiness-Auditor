@@ -406,27 +406,6 @@ def _runtime_serp_issues(workspace: Path) -> list[dict[str, str]]:
     return output
 
 
-def _install_search_runtime_visibility() -> None:
-    from rasai import runtime_adherence_extensions as runtime
-
-    if getattr(runtime, "_rasai_serp_runner_error_report_visibility", False):
-        return
-    original = runtime._enrich_serp_reports
-
-    def enrich(workspace: Path, issues: Sequence[Mapping[str, Any]], found: Sequence[Mapping[str, Any]]) -> None:
-        combined = [dict(item) for item in issues]
-        known = {(str(item.get("error_code") or ""), str(item.get("error_message") or "")) for item in combined}
-        for item in _runtime_serp_issues(Path(workspace)):
-            key = (item["error_code"], item["error_message"])
-            if key not in known:
-                combined.append(item)
-                known.add(key)
-        original(Path(workspace), combined, found)
-
-    runtime._enrich_serp_reports = enrich
-    runtime._rasai_serp_runner_error_report_visibility = True
-
-
 def _ensure_observability_attempt_table(workspace: Path) -> Path | None:
     workspace = Path(workspace)
     if not (workspace / "audit.db").is_file():
@@ -542,29 +521,6 @@ def _observability_state_section(attempts: Sequence[Mapping[str, Any]]) -> str:
     )
 
 
-def _install_observability_reporting() -> None:
-    from rasai.observability import reporting
-
-    if getattr(reporting, "_rasai_integration_attempt_state", False):
-        return
-    original_sidecar = reporting._sidecar
-    original_page = reporting._page
-
-    def sidecar(workspace: Path):
-        data = original_sidecar(workspace)
-        data["attempts"] = _observability_attempts(Path(workspace))
-        return data
-
-    def page(bundle: Any, data: dict[str, Any], report_dir: Path) -> str:
-        html = original_page(bundle, data, report_dir)
-        section = _observability_state_section(data.get("attempts") or [])
-        return html.replace("</header>", "</header>" + section, 1) if "</header>" in html else html
-
-    reporting._sidecar = sidecar
-    reporting._page = page
-    reporting._rasai_integration_attempt_state = True
-
-
 class _Tee(io.TextIOBase):
     def __init__(self, target: Any) -> None:
         self.target = target
@@ -587,7 +543,7 @@ def _observability_failure_reason(output: str) -> tuple[str, str]:
 
 
 def _install_observability_cli_attempt_ledger() -> None:
-    from rasai.observability import cli, reporting
+    from rasai.observability import cli
 
     if getattr(cli, "_rasai_integration_attempt_ledger", False):
         return
@@ -620,44 +576,14 @@ def _install_observability_cli_attempt_ledger() -> None:
             reason=reason,
             metadata={"exit_code": code},
         )
-        try:
-            reporting.enrich_observability_report(audit_workspace=workspace)
-        except (OSError, ValueError, RuntimeError, sqlite3.Error):
-            pass
         return code
 
     cli.main = main
     cli._rasai_integration_attempt_ledger = True
 
 
-def _install_m26_empty_state() -> None:
-    from rasai import m26_reporting
-
-    if getattr(m26_reporting, "_rasai_explicit_import_state", False):
-        return
-    original = m26_reporting._page
-
-    def page(data: dict[str, Any], report_dir: Path) -> str:
-        html = original(data, report_dir)
-        if data.get("imports"):
-            return html
-        old = "Nenhum dataset de visibilidade generativa foi importado para esta auditoria."
-        new = (
-            "Nenhum dataset de visibilidade generativa foi importado para esta auditoria. Esta superfície é import-first: "
-            "o RASAi não executou uma chamada direta a um provider de IA para preencher este dado. Portanto, ausência de dataset "
-            "significa não importado/não observado por este fluxo, e não falha presumida de API ou resultado zero."
-        )
-        return html.replace(old, new, 1)
-
-    m26_reporting._page = page
-    m26_reporting._rasai_explicit_import_state = True
-
-
 def install() -> None:
     """Install the cross-integration user-facing state contract idempotently."""
     _install_audit_coverage_contract()
     _install_m24_ai_state_notice()
-    _install_search_runtime_visibility()
-    _install_observability_reporting()
     _install_observability_cli_attempt_ledger()
-    _install_m26_empty_state()
