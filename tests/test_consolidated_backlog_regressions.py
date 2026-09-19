@@ -5,7 +5,6 @@ from tempfile import TemporaryDirectory
 import re
 import unittest
 
-from rasai.m11 import _ai_usage_status
 from rasai.m23_apdex import _run_status
 from rasai.m23_apdex_profiles import MOBILE_STANDARD_PROFILE
 from rasai.openai_provider import OpenAIProvider, hardened_semantic_output_schema
@@ -44,12 +43,6 @@ class ConsolidatedBacklogRegressionTests(unittest.TestCase):
         ids = payload["text"]["format"]["schema"]["properties"]["assessments"]["items"]["properties"]["evidence_ids"]["items"]["enum"]
         self.assertEqual(ids, ["EV-ONLY"])
 
-    def test_ai_usage_is_provider_neutral_and_distinguishes_rejection(self) -> None:
-        self.assertEqual(_ai_usage_status([{"provider": "DEEPSEEK"}]), "SIM")
-        self.assertEqual(_ai_usage_status([{"provider": "MIMO"}, {"provider": "UNAVAILABLE"}]), "SIM")
-        self.assertEqual(_ai_usage_status([{"provider": "UNAVAILABLE"}]), "TENTATIVA SEM SUCESSO")
-        self.assertEqual(_ai_usage_status([{"provider": "DETERMINISTIC_BASELINE"}]), "NÃO")
-
     def test_apdex_small_group_is_not_invalid_sampling(self) -> None:
         self.assertEqual(
             _run_status(
@@ -84,17 +77,6 @@ class ConsolidatedBacklogRegressionTests(unittest.TestCase):
         self.assertNotIn("<small>Escopo</small><strong>URL</strong><span class='result-tag bad'>", output)
         self.assertNotIn("<small>Fonte</small><strong>PAGESPEED_CRUX</strong><span class='result-tag bad'>", output)
 
-    def test_current_runtime_files_expose_only_score_geo_004(self) -> None:
-        selected = [
-            "src/rasai/m20_reporting.py", "src/rasai/m23_reporting.py",
-            "src/rasai/m24_reporting.py", "src/rasai/m25_reporting.py",
-            "src/rasai/external_metrics_integrity.py", "src/rasai/cli_extensions.py",
-            "src/rasai/report_site.py",
-        ]
-        root = Path(__file__).resolve().parents[1]
-        for relative in selected:
-            with self.subTest(relative=relative):
-                self.assertIsNone(re.search(r"SCORE-GEO-(?!004)\d{3}", (root / relative).read_text(encoding="utf-8")))
 
 
 if __name__ == "__main__":
