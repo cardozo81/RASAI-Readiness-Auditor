@@ -273,6 +273,7 @@ def collect_common_crawl_history(
     counter = 0
     errors: list[str] = []
     error_details: list[dict[str, Any]] = []
+    no_capture_details: list[dict[str, Any]] = []
     for collection in usable:
         collection_id = str(collection["id"])
         endpoint = str(collection["cdx-api"])
@@ -291,14 +292,20 @@ def collect_common_crawl_history(
             except (OSError, RuntimeError, ValueError) as exc:
                 error_type = type(exc).__name__
                 message = str(exc).strip()[:500]
-                errors.append(f"{collection_id}:{target_url}:{error_type}:{message}" if message else f"{collection_id}:{target_url}:{error_type}")
-                error_details.append({
+                detail = {
                     "collection": collection_id,
                     "target_url": target_url,
                     "endpoint": endpoint,
                     "error_type": error_type,
                     "message": message or None,
-                })
+                }
+                if _common_crawl_no_capture_message(message):
+                    # Common Crawl uses HTTP 404 for a valid "no capture in this index"
+                    # answer. It is coverage/no-data, not provider/transport failure.
+                    no_capture_details.append(detail)
+                    continue
+                errors.append(f"{collection_id}:{target_url}:{error_type}:{message}" if message else f"{collection_id}:{target_url}:{error_type}")
+                error_details.append(detail)
                 continue
             for raw_line in lines.splitlines()[:100]:
                 raw_line = raw_line.strip()
@@ -344,6 +351,7 @@ def collect_common_crawl_history(
         "requests": request_count,
         "errors": errors,
         "error_details": error_details,
+        "no_capture_details": no_capture_details,
         "observations": observations,
     }
     dates = [row["captured_at"] for row in observations if row["captured_at"]]
@@ -360,6 +368,7 @@ def collect_common_crawl_history(
             "requests": request_count,
             "rows": len(observations),
             "errors": len(errors),
+            "no_captures": len(no_capture_details),
             "scope": "URL",
             "device_dimension": False,
             "warc_content_fetched": False,
@@ -448,6 +457,13 @@ def _audit_origins(workspace: Path) -> set[str]:
         values = {_origin(url) for url in _audit_urls(workspace)}
     return values
 
+
+
+
+def _common_crawl_no_capture_message(value: Any) -> bool:
+    """Return True for Common Crawl's valid no-capture response, not transport failure."""
+    message = str(value or "").casefold()
+    return "404" in message and "no captures found" in message
 
 def _read_json(request: Request, *, timeout: float, opener: JsonOpener, provider: str) -> Any:
     text = _read_text(request, timeout=timeout, opener=opener, provider=provider)
