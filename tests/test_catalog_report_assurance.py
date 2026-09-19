@@ -481,3 +481,15 @@ def test_truthfully_persisted_provider_contract_failure_is_not_misclassified_as_
         "GOV_INTERNAL_EXECUTION": True,
         "REL_INTERNAL_EXECUTION": True,
     }
+
+
+def test_cat10_translated_configuration_markers_preserve_matrix_contract() -> None:
+    from rasai.catalog_report_assurance import _applicable_config_markers
+
+    data = _data()
+    markers = _applicable_config_markers(data, "CAT-10")
+
+    assert "Recursos de terceiros" in markers
+    assert "Correlação em tempo de execução" in markers
+    assert "Third-party" not in markers
+    assert "Correlação runtime" not in markers
