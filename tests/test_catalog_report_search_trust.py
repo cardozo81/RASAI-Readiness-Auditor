@@ -396,8 +396,8 @@ def test_common_crawl_no_capture_404_is_presented_as_coverage_limitation(tmp_pat
 
     html = _external_html(database, _data())
 
-    assert "Ver diagnóstico e orientação" in html
-    assert "Execução parcial · coleção sem captura" in html
+    assert "Ver cobertura histórica" in html
+    assert "Executado com dados · alguma coleção sem captura" in html
     assert "HTTP 404" in html
     assert "No Captures found for: https://example.test/" in html
     assert "não encontrou captura da URL na coleção consultada" in html
