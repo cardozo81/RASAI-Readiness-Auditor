@@ -1,4 +1,4 @@
-name: Reprocess Governance Point Tests
+name: Core Dependency Point Test
 
 on:
   push:
@@ -21,12 +21,5 @@ jobs:
           python-version: '3.13'
       - name: Install package and pytest
         run: python -m pip install -e . pytest
-      - name: Run only reprocess-governance point tests
-        run: >-
-          pytest -q
-          tests/test_selective_optional_reprocess.py::test_success_without_persisted_optional_evidence_is_blocked_by_integrity
-          tests/test_governed_reprocess_dependencies.py::test_reprocess_material_fingerprint_ignores_volatile_timestamps_but_detects_result_change
-          tests/test_governed_reprocess_dependencies.py::test_prepare_reprocess_reuses_evidence_snapshot_when_nothing_material_changed
-          tests/test_governed_reprocess_dependencies.py::test_passive_security_rpr_refreshes_external_intelligence_only_when_components_change
-          tests/test_governed_reprocess_dependencies.py::test_governed_dependency_invalidation_reopens_only_impacted_success
-          tests/test_passive_security_catalog.py::test_osv_and_kev_use_only_versioned_component_identifiers
+      - name: Run only core-dependent invalidation point test
+        run: pytest -q tests/test_core_reprocessing.py::test_core_dependency_invalidation_reopens_only_passive_security
