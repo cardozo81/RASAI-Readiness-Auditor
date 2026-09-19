@@ -68,7 +68,7 @@ def _install_projection_reconciliation_guard() -> None:
 
 
 def _remove_early_ai_seal_sync() -> None:
-    """Remove the legacy durable sync that ran before M9/M10 completed."""
+    """Ensure AI sealing does not trigger an extra durable sync before M9/M10."""
     from rasai import audit_phase_runtime as phase
 
     current = phase.mark_ai_sealed
@@ -89,27 +89,6 @@ def _remove_early_ai_seal_sync() -> None:
         rpr.mark_ai_sealed = base
     except ImportError:
         pass
-
-
-def _install_audit_pre_report_boundary() -> None:
-    """Run durable fulfillment reconciliation after final derivations, before M11."""
-    try:
-        from rasai import audit_runner
-    except ImportError:
-        return
-
-    current = audit_runner.execute_m11
-    if bool(getattr(current, "_rasai_pre_report_fulfillment", False)):
-        return
-
-    def execute_m11_after_fulfillment(*args: Any, **kwargs: Any):
-        # audit_runner owns durable reconciliation before it sets REPORTING.
-        # execute_m11 is already inside the read-only projection boundary.
-        return current(*args, **kwargs)
-
-    execute_m11_after_fulfillment._rasai_pre_report_fulfillment = True
-    execute_m11_after_fulfillment._rasai_original = current
-    audit_runner.execute_m11 = execute_m11_after_fulfillment
 
 
 def _install_reprocess_boundary() -> None:
@@ -156,7 +135,6 @@ def install() -> None:
     install_m24_partial()
     _install_projection_reconciliation_guard()
     _remove_early_ai_seal_sync()
-    _install_audit_pre_report_boundary()
     _install_reprocess_boundary()
     _INSTALLED = True
 
