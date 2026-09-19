@@ -143,9 +143,20 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
     else:
         rem_body=f"<p>Este catálogo é proprietário do diagnóstico do seu domínio. Correções são centralizadas em <a href='cat-09.html'>CAT-09 · Remediações</a>; quando uma análise profunda usa esta evidência, o vínculo aparece em <a href='cat-08.html'>CAT-08 · Análise profunda e melhorias</a>.</p>"
     remediation=_section("remediation","Remediações",rem_body)
-    tech_rows=[(label,table,count) for table,label,count in sources]
     item=data.catalog_items.get(catalog_id,{})
-    technical=_section("technical","Detalhes técnicos",f"<details><summary>Mostrar proveniência técnica</summary><div class='detail-body'>{_table(('Fonte funcional','Fonte interna','Registros'),tech_rows,empty='Nenhuma fonte interna específica identificada.')}<p><strong>Identificadores técnicos de capacidade:</strong> <code>{escape(', '.join(catalog.capability_ids))}</code></p><p><strong>Aptidão registrada no plano:</strong> {escape(str(item.get('status') or '-'))}</p></div></details>")
+    if catalog_id=="CAT-10":
+        tech_rows=[(label,count) for _table_name,label,count in sources]
+        technical=_section(
+            "technical",
+            "Detalhes técnicos",
+            "<details><summary>Mostrar proveniência técnica</summary><div class='detail-body'>"
+            +_table(("Fonte funcional","Registros"),tech_rows,empty="Nenhuma fonte funcional específica identificada.")
+            +"<p class='muted'>Identificadores físicos de persistência e controles internos do RASAi permanecem no audit.db e não são projetados nesta interface.</p>"
+            +"</div></details>",
+        )
+    else:
+        tech_rows=[(label,table,count) for table,label,count in sources]
+        technical=_section("technical","Detalhes técnicos",f"<details><summary>Mostrar proveniência técnica</summary><div class='detail-body'>{_table(('Fonte funcional','Fonte interna','Registros'),tech_rows,empty='Nenhuma fonte interna específica identificada.')}<p><strong>Identificadores técnicos de capacidade:</strong> <code>{escape(', '.join(catalog.capability_ids))}</code></p><p><strong>Aptidão registrada no plano:</strong> {escape(str(item.get('status') or '-'))}</p></div></details>")
     return _audit_hero(data,f"{catalog.id} · {catalog.label}",catalog.expected_result)+outline+summary+scope+config+execution+results+evidence+analysis+remediation+technical
 
 
