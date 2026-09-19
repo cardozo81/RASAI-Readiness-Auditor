@@ -589,7 +589,6 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
         code = 2
         output.write(f"{type(exc).__name__}: {exc}")
 
-    report = Path(workspace.root) / "report" / "search-intelligence.html"
     detail_lines = [line.strip() for line in output.getvalue().splitlines() if line.strip()]
     detail = detail_lines[-1][:512] if detail_lines else ""
     if code == 0:
@@ -622,7 +621,6 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
                     "requested": True,
                     "queries": len(queries),
                     "engine": engine,
-                    "report_materialized": report.is_file(),
                     "comparison": comparison,
                     "detail": detail,
                 }
@@ -631,11 +629,7 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
             audit_id=audit_id,
             component=_COMPONENT,
             status=SUCCESS,
-            result_ref=(
-                str(report.relative_to(workspace.root))
-                if report.is_file()
-                else "search-intelligence:observations"
-            ),
+            result_ref="search-intelligence:effective",
             retryable=False,
         )
         return {
@@ -643,7 +637,6 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
             "requested": True,
             "queries": len(queries),
             "engine": engine,
-            "report_materialized": report.is_file(),
         }
 
     set_work_item_status(
@@ -1026,11 +1019,6 @@ def _competitive_ai_hook(
     finally:
         repository.close()
 
-    try:
-        from rasai.search_intelligence.runtime import _refresh_search_intelligence_report
-        _refresh_search_intelligence_report(Path(workspace.root))
-    except Exception:
-        pass
     return {
         "status": "COMPLETE" if limitations == 0 else "COMPLETE_WITH_LIMITATIONS",
         "requested": True,
