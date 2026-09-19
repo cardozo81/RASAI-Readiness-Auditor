@@ -3,7 +3,7 @@
 **Contrato vigente:** VIGENTE  
 **Scoring:** `SCORE-GEO-004`  
 **Índice público:** `SARI-001`  
-**Contrato de relatório:** `REPORT-CONTRACT-002`  
+**Contrato de relatório:** `CATALOG-REPORT-002`  
 **Idioma normativo:** português do Brasil, preservando identificadores e termos técnicos quando necessário.
 
 ## 1. Objetivo
@@ -70,7 +70,7 @@ Protótipos em `../../prototypes/` não são fonte normativa. Eles podem represe
 Public index:        SARI-001
 Runtime scoring:     SCORE-GEO-004
 Overall aggregation: HIERARCHICAL_WEIGHTED_READINESS_V1
-Canonical HTML:      report/scoring.html
+Canonical HTML:      report-catalog/methodology.html
 ```
 
 Princípios:
@@ -90,44 +90,19 @@ Princípios:
 
 Detalhes: `05_SCORING_MODEL.md`, `../SCORE_GEO_004.md`, `../SCORING_GUIDE.md` e `../SARI_EXTERNAL_CRAWL_CORROBORATION.md`.
 
-## 5. REPORT-CONTRACT-002
+## 5. CATALOG-REPORT-002
 
-Toda auditoria concluída com sucesso deve materializar fisicamente todas as superfícies HTML canônicas. A propriedade `optional` de `ReportSurface` significa que os dados ou a capacidade daquele domínio podem ser opcionais. Ela não autoriza a remoção da página ou do item de navegação.
+A projeção HTML audit-owned suportada é `<AUD-ID>/report-catalog/`. O mini-site convencional `<AUD-ID>/report/` e os legados `<AUD-ID>/report.html` / `<AUD-ID>/remediation.html` não fazem mais parte do contrato de saída da auditoria.
 
-Quando uma capacidade não foi solicitada, não está configurada, não é aplicável ou não possui dados, sua página canônica permanece presente e apresenta o estado neutro correspondente. A materialização da página não dispara provider, API, coletor ou IA apenas para preencher a interface.
-
-Superfícies canônicas vigentes, na ordem de leitura definida pelo runtime:
+Entrada principal:
 
 ```text
-<AUD-ID>/report/index.html
-<AUD-ID>/report/readiness.html
-<AUD-ID>/report/scoring.html
-<AUD-ID>/report/context.html
-<AUD-ID>/report/crawling-discovery.html
-<AUD-ID>/report/mobile.html
-<AUD-ID>/report/desktop.html
-<AUD-ID>/report/accessibility.html
-<AUD-ID>/report/web-performance.html
-<AUD-ID>/report/standards.html
-<AUD-ID>/report/apdex.html
-<AUD-ID>/report/apdex-experience.html
-<AUD-ID>/report/search-intelligence.html
-<AUD-ID>/report/ai-visibility.html
-<AUD-ID>/report/observability.html
-<AUD-ID>/report/ai-usage.html
-<AUD-ID>/report/improvement-intelligence.html
-<AUD-ID>/report/content-suggestions.html
-<AUD-ID>/report/remediation.html
-<AUD-ID>/report/quality.html
-<AUD-ID>/report/references.html
-<AUD-ID>/report/css/site.css
+<AUD-ID>/report-catalog/index.html
 ```
 
-`readiness.html` é a página canônica do SARI. `scoring.html` é a página canônica da metodologia de scoring e deve exibir a versão efetivamente persistida.
+O contrato vigente inclui a visão geral, SARI, CAT-01 ... CAT-10 conforme o catálogo da auditoria e páginas próprias de governança, com manifest e assets do pacote. A fonte de verdade para filenames, ordem e labels é `src/rasai/catalog_report_contract.py`.
 
-Não existe filename público versionado alternativo para a metodologia. A versão pertence a `scoring_version`, manifests, banco, metadados e conteúdo do relatório.
-
-A fonte de verdade da lista, ordem, labels e completude é `src/rasai/report_contract.py`.
+A materialização do catálogo é projeção read-only sobre os dados persistidos. Ela não dispara collectors, APIs, providers, IA, scoring ou workloads sintéticos para preencher HTML. Dados como findings, evidences, recommendations, root cause, precisão, métricas e telemetria continuam sendo produzidos pelas etapas funcionais da auditoria e apenas projetados no catálogo.
 
 ## 6. Fronteiras metodológicas
 
