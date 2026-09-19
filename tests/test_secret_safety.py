@@ -124,6 +124,18 @@ def test_detector_allows_bracketed_human_placeholder_in_sensitive_header() -> No
     assert any(item.kind == "SECRET_ASSIGNMENT" for item in findings)
 
 
+def test_detector_allows_cookie_remediation_examples_but_rejects_real_cookie_values() -> None:
+    safe = (
+        "Exemplo: Set-Cookie: nome=valor; Secure; Path=/\n"
+        "Defina SameSite de acordo com a necessidade real do cookie: Lax para fluxos same-site."
+    )
+    assert detect_secret_exposures(safe, path="catalog-report.html", strict=True) == ()
+
+    unsafe = "Set-Cookie: session=live-cookie-value-93af; Secure"
+    findings = detect_secret_exposures(unsafe, path="catalog-report.html", strict=True)
+    assert any(item.kind == "SECRET_ASSIGNMENT" for item in findings)
+
+
 def test_versioned_property_configuration_uses_references_not_secret_values(tmp_path: Path) -> None:
     config = tmp_path / "client.toml"
     config.write_text(textwrap.dedent("""

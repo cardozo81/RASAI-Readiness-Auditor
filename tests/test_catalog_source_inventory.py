@@ -95,10 +95,10 @@ def test_cat03_configuration_rows_expose_frozen_editorial_controls() -> None:
     )
     rows=_configuration_rows(data,"CAT-03")
     values={str(row[0]):str(row[1]) for row in rows}
-    assert values["Perfil de risco"]=="YMYL"
-    assert values["Categoria YMYL"]=="Automático"
-    assert values["Propósito da página"]=="Produto ou serviço"
-    assert values["Público pretendido"]=="Público geral"
-    assert values["Requisito de experiência"]=="Experiência prévia não esperada"
-    assert values["Sensibilidade à atualização"]=="Baixa"
-    assert values["Origem do conteúdo"]=="Conteúdo próprio"
+    assert values["Perfil de risco"]=="YMYL (ymyl)"
+    assert values["Categoria YMYL"]=="Automático (auto)"
+    assert values["Propósito da página"]=="Produto ou serviço (product-service)"
+    assert values["Público pretendido"]=="Público geral (general)"
+    assert values["Requisito de experiência"]=="Não esperada (not-expected)"
+    assert values["Sensibilidade à atualização"]=="Baixa (low)"
+    assert values["Origem do conteúdo"]=="Conteúdo próprio (first-party)"

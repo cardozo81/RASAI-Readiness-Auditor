@@ -511,6 +511,14 @@ def _common_crawl_no_capture(error_rows: Sequence[Sequence[Any]]) -> bool:
     return False
 
 
+def _common_crawl_provider_5xx(error_rows: Sequence[Sequence[Any]]) -> bool:
+    for row in error_rows:
+        message = str(row[3] if len(row) > 3 else "")
+        if re.search(r"\bHTTP\s+5\d\d\b", message, re.I):
+            return True
+    return False
+
+
 def _overview_text(value: Any) -> str:
     strings=[]
     def visit(node: Any, key: str="") -> None:
@@ -1324,13 +1332,20 @@ def _external_html(database: Path, data: Any) -> str:
                         if item not in no_capture_rows:
                             no_capture_rows.append(item)
                     no_capture=bool(no_capture_rows)
+                    provider_5xx=_common_crawl_provider_5xx(error_rows)
                     state_label=(
                         "Executado com dados · alguma coleção sem captura"
                         if no_capture and count and not error_rows
                         else "Executado sem dados · coleções sem captura"
                         if no_capture and not count and not error_rows
+                        else "Execução parcial · sem captura e indisponibilidade do provider"
+                        if no_capture and error_rows and provider_5xx
                         else "Execução parcial · sem captura e erro externo"
                         if no_capture and error_rows
+                        else "Execução parcial · indisponibilidade do provider"
+                        if provider_5xx and count
+                        else "Provider temporariamente indisponível"
+                        if provider_5xx
                         else "Falha reprocessável"
                         if not count
                         else "Execução parcial"
@@ -1375,7 +1390,17 @@ def _external_html(database: Path, data: Any) -> str:
                             "<li>Repetir imediatamente a mesma coleção pode retornar o mesmo resultado enquanto a cobertura do Common Crawl não mudar.</li>"
                             "</ol>"
                         )
-                    if error_rows:
+                    if error_rows and provider_5xx:
+                        body+=(
+                            "<h3>Como interpretar e tratar a indisponibilidade externa</h3><ol>"
+                            "<li>O HTTP 5xx mostra que o endpoint do Common Crawl foi alcançado, mas o provider ou sua cadeia upstream não conseguiu concluir a requisição. Esse retorno, isoladamente, não indica falha de DNS, proxy ou firewall local.</li>"
+                            "<li>Resultados obtidos de outras coleções na mesma execução permanecem válidos; por isso a fonte pode ficar parcial em vez de sem dados.</li>"
+                            "<li>Não altere a URL auditada por causa desse 5xx. Se precisar ampliar a cobertura histórica, repita a coleta em outro momento e use reprocessamento seletivo somente quando o fulfillment expuser a dependência como pendente/reprocessável.</li>"
+                            "<li>Se respostas 5xx persistirem em coleções distintas e momentos diferentes, valide a disponibilidade pública do Common Crawl antes de investigar a rede local.</li>"
+                            "</ol>"
+                            "<div class='notice'>Indisponibilidade do Common Crawl não implica erro no site e não comprova ausência de indexação em mecanismos de busca.</div>"
+                        )
+                    elif error_rows:
                         body+=(
                             "<h3>Como resolver erros reais</h3><ol>"
                             "<li>Verifique conectividade HTTPS, proxy, firewall e resolução DNS para <code>index.commoncrawl.org</code> e para o endpoint CDX indicado acima.</li>"
@@ -1385,7 +1410,13 @@ def _external_html(database: Path, data: Any) -> str:
                             "</ol>"
                             "<div class='notice'>Falha do Common Crawl não implica erro no site e não comprova ausência de indexação em mecanismos de busca.</div>"
                         )
-                    detail_label="Ver cobertura histórica" if no_capture and not error_rows else "Ver diagnóstico e orientação"
+                    detail_label=(
+                        "Ver cobertura histórica"
+                        if no_capture and not error_rows
+                        else "Ver indisponibilidade externa"
+                        if provider_5xx
+                        else "Ver diagnóstico e orientação"
+                    )
                     detail_cell=page._modal_button(modal_id,detail_label)
                     source_modals.append(page._modal(modal_id,"Common Crawl - diagnóstico de coleta",str(row.get("dataset_id") or "Dataset"),body))
                 details.append((row.get("dataset_id"),row.get("capture_method"),row.get("collected_at"),meta.get("requests") if isinstance(meta,Mapping) else "-",meta.get("rows") if isinstance(meta,Mapping) else count,meta.get("no_captures") if isinstance(meta,Mapping) else 0,meta.get("errors") if isinstance(meta,Mapping) else errors,row.get("artifact_path"),detail_cell))

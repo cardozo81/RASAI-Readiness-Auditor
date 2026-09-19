@@ -9,6 +9,7 @@ from rasai.recommendation_governance import (
     ACCEPTED,
     AUDITOR_INTERNAL,
     EXTERNAL_PROVIDER,
+    INFORMATIONAL,
     REJECTED,
     TARGET_SITE,
     classify_candidate,
@@ -183,3 +184,129 @@ def test_auditor_internal_recommendation_is_not_a_client_action() -> None:
     assert decision == REJECTED
     assert reason == "AUDITOR_INTERNAL_NOT_CLIENT_ACTION"
     assert conflict == "TARGET_SCOPE"
+
+def test_grouped_neutral_robots_absence_is_informational_not_client_action() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        database = _database(Path(directory))
+        connection = sqlite3.connect(database)
+        try:
+            connection.executescript(
+                """
+                CREATE TABLE findings(
+                    finding_id TEXT PRIMARY KEY,
+                    audit_id TEXT NOT NULL,
+                    rule_id TEXT NOT NULL,
+                    observed_value TEXT,
+                    evidence_ids TEXT
+                );
+                CREATE TABLE root_cause_analyses(
+                    analysis_id TEXT PRIMARY KEY,
+                    audit_id TEXT NOT NULL,
+                    finding_id TEXT NOT NULL,
+                    rule_id TEXT NOT NULL,
+                    observed_value TEXT,
+                    evidence_basis TEXT
+                );
+                CREATE TABLE remediation_groups(
+                    group_id TEXT PRIMARY KEY,
+                    audit_id TEXT NOT NULL,
+                    rule_id TEXT NOT NULL,
+                    affected_findings TEXT NOT NULL
+                );
+                CREATE TABLE recommendations(
+                    recommendation_id TEXT PRIMARY KEY,
+                    audit_id TEXT NOT NULL,
+                    finding_id TEXT,
+                    remediation_group_id TEXT,
+                    title TEXT,
+                    description TEXT
+                );
+                """
+            )
+            connection.execute(
+                "INSERT INTO findings VALUES (?,?,?,?,?)",
+                (
+                    "F-ROBOTS",
+                    "AUD-1",
+                    "BR-GEO-017",
+                    json.dumps({"state": "ABSENT", "url": "https://example.test/robots.txt"}),
+                    json.dumps(["EV-ROBOTS"]),
+                ),
+            )
+            connection.execute(
+                "INSERT INTO root_cause_analyses VALUES (?,?,?,?,?,?)",
+                (
+                    "RCA-ROBOTS",
+                    "AUD-1",
+                    "F-ROBOTS",
+                    "BR-GEO-017",
+                    json.dumps({"state": "ABSENT", "url": "https://example.test/robots.txt"}),
+                    json.dumps(["EV-ROBOTS"]),
+                ),
+            )
+            connection.execute(
+                "INSERT INTO remediation_groups VALUES (?,?,?,?)",
+                ("G-ROBOTS", "AUD-1", "BR-GEO-017", json.dumps(["F-ROBOTS"])),
+            )
+            connection.execute(
+                "INSERT INTO recommendations VALUES (?,?,?,?,?,?)",
+                (
+                    "REC-ROBOTS",
+                    "AUD-1",
+                    None,
+                    "G-ROBOTS",
+                    "Corrigir robots.txt não interpretável",
+                    "Ausência válida não deve ser tratada como defeito.",
+                ),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        rows = evaluate_recommendations(database, "AUD-1")
+        row = next(item for item in rows if item["source_id"] == "REC-ROBOTS")
+
+        assert row["target_class"] == INFORMATIONAL
+        assert row["decision"] == REJECTED
+        assert row["rejection_reason"] == "DISCOVERY_NEUTRAL_STATE_HUMAN_DECISION"
+        assert row["conflict_group"] == "DISCOVERY_RESOURCE_STATE"
+        assert json.loads(row["source_evidence_json"]) == ["EV-ROBOTS"]
+
+
+def test_known_neutral_discovery_states_are_informational() -> None:
+    cases = (
+        ("BR-GEO-003", {"sitemaps": [{"state": "ABSENT", "error": None}]}),
+        ("BR-GEO-017", {"state": "ABSENT"}),
+        ("BR-GEO-055", {"ai_verdict": "NEUTRAL", "resource": "SITEMAP"}),
+        ("BR-GEO-056", {"ai_verdict": "NEUTRAL", "resource": "ROBOTS"}),
+    )
+    for rule_id, observed in cases:
+        target, decision, reason, conflict, _rationale = classify_candidate(
+            "DETERMINISTIC",
+            {
+                "rule_id": rule_id,
+                "observed_value": json.dumps(observed),
+                "title": f"Remediar {rule_id}",
+            },
+        )
+        assert target == INFORMATIONAL
+        assert decision == REJECTED
+        assert reason == "DISCOVERY_NEUTRAL_STATE_HUMAN_DECISION"
+        assert conflict == "DISCOVERY_RESOURCE_STATE"
+
+
+def test_invalid_robots_state_remains_actionable() -> None:
+    target, decision, reason, conflict, _rationale = classify_candidate(
+        "DETERMINISTIC",
+        {
+            "rule_id": "BR-GEO-017",
+            "observed_value": json.dumps({"state": "INVALID", "error": "syntax"}),
+            "title": "Corrigir robots.txt inválido",
+        },
+    )
+
+    assert target == TARGET_SITE
+    assert decision == ACCEPTED
+    assert reason is None
+    assert conflict is None
+
