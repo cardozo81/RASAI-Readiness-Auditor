@@ -18,64 +18,14 @@ _PHASE = "IMPROVEMENT_INTELLIGENCE"
 
 
 def _refresh_reports_local_only(*, audit_id: str, workspace: Any) -> tuple[str, ...]:
-    """Refresh projections affected by late AI persistence without network collection."""
+    """Refresh only report-catalog after late AI persistence."""
     from rasai.catalog_report_site import materialize_catalog_report_site
-    from rasai.improvement_intelligence import write_improvement_report
-    from rasai.report_ai_cost_attribution import enrich_ai_cost_attribution
-    from rasai.report_dashboard_final_polish import finalize_dashboard_presentation
-    from rasai.report_manifest import write_report_manifest
-    from rasai.report_presentation_finalizer import finalize_report_presentation
-    from rasai.report_quality_reconciliation import reconcile_public_report_quality
-    from rasai.report_scale_ux import enhance_report_directory
-    from rasai import report_navigation
 
-    errors: list[str] = []
-
-    def run(label: str, function: Callable[[], object]) -> None:
-        try:
-            function()
-        except Exception as exc:
-            errors.append(f"{label}:{type(exc).__name__}:{str(exc)[:240]}")
-
-    report_dir = workspace.root / "report"
-    run(
-        "improvement-intelligence",
-        lambda: write_improvement_report(audit_id=audit_id, workspace=workspace),
-    )
-    # Reconcile persisted AI attempts/costs, including ai-usage.html, without calling
-    # any provider. The implementation is read-only over audit.db and report HTML.
-    run(
-        "ai-cost-attribution",
-        lambda: enrich_ai_cost_attribution(audit_id=audit_id, workspace=workspace),
-    )
-    run("navigation", lambda: report_navigation.normalize_report_navigation(report_dir))
-    run("report-ux", lambda: enhance_report_directory(report_dir))
-    # The late Improvement Intelligence refresh must preserve the same public HTML
-    # contract as the normal finalizer. All passes are local/read-only; the dashboard
-    # semantic polish runs last so a refresh cannot reintroduce ambiguous disabled states.
-    run(
-        "public-report-quality",
-        lambda: reconcile_public_report_quality(audit_id=audit_id, workspace=workspace),
-    )
-    run(
-        "presentation-finalizer",
-        lambda: finalize_report_presentation(audit_id=audit_id, workspace=workspace),
-    )
-    run(
-        "dashboard-final-polish",
-        lambda: finalize_dashboard_presentation(audit_id=audit_id, workspace=workspace),
-    )
-    run("manifest", lambda: write_report_manifest(report_dir))
-    # report-catalog is a separate read-only projection. It must be rebuilt after the
-    # late Improvement Intelligence persistence as well; otherwise CAT-08/CAT-09 and
-    # AI/cost telemetry can remain frozen at the pre-analysis state even though audit.db
-    # already contains the final evidence.
-    run(
-        "catalog-report",
-        lambda: materialize_catalog_report_site(audit_id=audit_id, workspace=workspace),
-    )
-    return tuple(errors)
-
+    try:
+        materialize_catalog_report_site(audit_id=audit_id, workspace=workspace)
+    except Exception as exc:
+        return (f"catalog-report:{type(exc).__name__}:{str(exc)[:240]}",)
+    return ()
 
 def _install_progress_contract() -> None:
     from rasai import console_progress_model as model
@@ -183,7 +133,7 @@ def _install_local_refresh_guard() -> None:
             progress(
                 "REPORT_REFRESH",
                 98.0,
-                "atualizando projeções HTML locais; nenhum collector/API será chamado novamente",
+                "atualizando report-catalog a partir das evidências persistidas; nenhum collector/API será chamado novamente",
             )
 
         errors = _refresh_reports_local_only(audit_id=audit_id, workspace=workspace)
@@ -196,7 +146,7 @@ def _install_local_refresh_guard() -> None:
             progress(
                 "REPORT_REFRESH",
                 100.0,
-                "relatórios locais atualizados a partir das evidências já persistidas",
+                "report-catalog atualizado a partir das evidências já persistidas",
             )
 
         return report_completion.AuditReportCompletion(
