@@ -1,14 +1,14 @@
 """Governed collection/deterministic/report boundary composition.
 
-This module does not reimplement collectors.  It reuses the existing standards,
-observability and fulfillment implementations while enforcing one causal contract:
+This module reuses the standards, observability and fulfillment implementations while
+enforcing one causal contract:
 
     collection -> deterministic persistence -> evidence seal -> AI -> final sync
     -> report projection
 
-Legacy finalizer wrappers are kept for presentation compatibility, but their network and
-audit.db-mutating functions are guarded while the report projection context is active.
-The same original functions remain callable by collection/reprocessing phases.
+Runtime finalizers that participate in composition are guarded so network calls and
+``audit.db`` mutations cannot occur while report projection is active. Their
+underlying functions remain callable by collection/reprocessing phases.
 """
 from __future__ import annotations
 
