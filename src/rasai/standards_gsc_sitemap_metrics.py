@@ -10,6 +10,7 @@ from __future__ import annotations
 from html import escape
 import json
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 import sqlite3
 from typing import Any, Mapping
 
@@ -88,7 +89,7 @@ def _record_ratio(
 def reconcile_gsc_sitemap_metrics(*, audit_id: str, workspace: AuditWorkspace) -> None:
     """Project latest persisted Search Console sitemap metadata into advisory metrics."""
 
-    sidecar = Path(workspace.root) / "observability.db"
+    sidecar = observability_database_path(workspace.root)
     if not sidecar.is_file():
         return
 
