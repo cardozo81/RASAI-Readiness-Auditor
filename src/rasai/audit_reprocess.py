@@ -353,15 +353,16 @@ def reprocess_audit(
         ):
             successes += 1
 
-    # Late functional finalizers run first; report-catalog is then regenerated from
-    # the current effective persisted state. The retired <AUD>/report/ family is not
-    # recreated during reprocessing.
+    # Late functional finalizers run first; Directed Analysis and report-catalog are
+    # rebuilt from the current persisted AUD without starting a new collection.
     try:
         from rasai.report_completion import (
             finalize_audit_report_site,
             materialize_catalog_report_projection,
         )
+        from rasai.directed_analysis import reprocess_directed_analysis
         finalize_audit_report_site(audit_id=audit_id,workspace=workspace)
+        reprocess_directed_analysis(audit_id=audit_id,workspace=workspace)
         materialize_catalog_report_projection(audit_id=audit_id,workspace=workspace)
     except Exception as exc:
         try_append_operational_event(
