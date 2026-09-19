@@ -531,12 +531,13 @@ def _registered_ai_and_report(
                 )
             if "IMPROVEMENT_INTELLIGENCE" in purposes:
                 evaluated.add("IMPROVEMENT_INTELLIGENCE")
-        mark_ai_sealed(
-            audit_id=audit_id,
-            workspace=workspace,
-            evidence_snapshot=snapshot,
-            outcomes=outcomes,
-        )
+        if not _required_pending(workspace, audit_id):
+            mark_ai_sealed(
+                audit_id=audit_id,
+                workspace=workspace,
+                evidence_snapshot=snapshot,
+                outcomes=outcomes,
+            )
 
     data_finalizer(audit_id=audit_id, workspace=workspace)
     if evaluated:
@@ -570,10 +571,42 @@ def _install_core_composition() -> None:
             source: str = "CLI",
         ):
             workspace = AuditWorkspace.open(Path(audits_root) / audit_id)
-            prepare_reprocess_evidence(workspace, audit_id)
+            pending = _required_pending(workspace, audit_id)
+            if not pending:
+                # A complete AUD is a true no-op: no collector, provider or AI call is
+                # justified merely because the operator requested reprocessing.
+                return original(audit_id, audits_root=audits_root, source=source)
 
-            # These collectors were already attempted before the seal. Even when they
-            # remain retryable, they must not be called again after AI in this same RPR.
+            prior_snapshot = latest_evidence_snapshot(workspace, audit_id)
+            active_reprocess_id = _current_reprocess_id(workspace, audit_id)
+            owns_reprocess = active_reprocess_id is None
+            reprocess_id = active_reprocess_id or module.start_reprocess_run(
+                workspace,
+                audit_id,
+                source=source,
+                note="governed selective dependency recovery",
+            )
+            owned_finish = module.finish_reprocess_run
+
+            # Pure AI retries reuse the exact sealed evidence version. A new seal is
+            # created only when core evidence may have changed, no seal exists yet, or
+            # a pending non-AI prerequisite is actually evaluated in this RPR.
+            refresh_evidence = (
+                prior_snapshot is None
+                or active_reprocess_id is not None
+                or any(str(item.component) not in _AI_COMPONENTS for item in pending)
+            )
+            preparation = (
+                _prepare_reprocess(workspace, audit_id)
+                if refresh_evidence
+                else ReprocessPreparation(
+                    snapshot=prior_snapshot,
+                    recovered={},
+                    evaluated_optional=frozenset(),
+                    sealed_new_evidence=False,
+                )
+            )
+
             latest = module._latest_pending
 
             def ai_only_pending(active_workspace: Any, active_audit_id: str):
@@ -585,35 +618,98 @@ def _install_core_composition() -> None:
                 )
 
             module._latest_pending = ai_only_pending
+            result = None
             try:
-                with _suppress_mid_reprocess_reporting() as renderer:
-                    result = original(
-                        audit_id,
-                        audits_root=audits_root,
-                        source=source,
-                    )
-                    _registered_ai_and_report(
-                        workspace=workspace,
-                        audit_id=audit_id,
-                        renderer=renderer,
-                    )
+                with _defer_reprocess_finish(
+                    module,
+                    workspace=workspace,
+                    audit_id=audit_id,
+                    reprocess_id=reprocess_id,
+                ) as final_finish:
+                    with _defer_mid_reprocess_projection() as (
+                        data_finalizer,
+                        directed_finalizer,
+                        catalog_finalizer,
+                    ):
+                        result = original(
+                            audit_id,
+                            audits_root=audits_root,
+                            source=source,
+                        )
+                        _registered_ai_and_report(
+                            workspace=workspace,
+                            audit_id=audit_id,
+                            preparation=preparation,
+                            data_finalizer=data_finalizer,
+                            directed_finalizer=directed_finalizer,
+                            catalog_finalizer=catalog_finalizer,
+                        )
+
                     summary = recalculate(workspace, audit_id)
+                    live_attempted = sum(
+                        1 for name in preparation.recovered if name in _LIVE_COMPONENTS
+                    )
+                    live_successful = sum(
+                        1
+                        for name, state in preparation.recovered.items()
+                        if name in _LIVE_COMPONENTS and str(state).upper() == SUCCESS
+                    )
+                    attempted = int(getattr(result, "attempted_items", 0) or 0) + live_attempted
+                    successful = int(getattr(result, "successful_items", 0) or 0) + live_successful
+
+                    if owns_reprocess:
+                        summary = final_finish(
+                            workspace,
+                            reprocess_id,
+                            status=(
+                                SUCCESS
+                                if str(summary.processing_status).upper() == "COMPLETE"
+                                else FAILED_RETRYABLE
+                            ),
+                            attempted_items=attempted,
+                            successful_items=successful,
+                            note=(
+                                "all configured requirements satisfied"
+                                if str(summary.processing_status).upper() == "COMPLETE"
+                                else "one or more configured requirements remain unresolved"
+                            ),
+                        )
+
                     try:
                         result = replace(
                             result,
+                            reprocess_id=(
+                                getattr(result, "reprocess_id", None) or reprocess_id
+                            ),
                             processing_status=summary.processing_status,
                             score_status=summary.score_status,
                             report_status=summary.report_status,
                             consolidation_eligible=summary.consolidation_eligible,
+                            attempted_items=attempted,
+                            successful_items=successful,
                             remaining_items=summary.pending_items + summary.blocked_items,
                             temporal_expired_items=summary.expired_items,
                         )
                     except TypeError:
                         pass
                     return result
+            except Exception:
+                if owns_reprocess:
+                    try:
+                        summary = recalculate(workspace, audit_id)
+                        owned_finish(
+                            workspace,
+                            reprocess_id,
+                            status=FAILED_RETRYABLE,
+                            attempted_items=int(getattr(result, "attempted_items", 0) or 0),
+                            successful_items=int(getattr(result, "successful_items", 0) or 0),
+                            note="governed selective reprocessing failed before final projection",
+                        )
+                    except Exception:
+                        pass
+                raise
             finally:
                 module._latest_pending = latest
-
         downstream_after_core._rasai_governed_reprocess_downstream = True
         downstream_after_core._rasai_original = original
         return factory(downstream_after_core, module)
