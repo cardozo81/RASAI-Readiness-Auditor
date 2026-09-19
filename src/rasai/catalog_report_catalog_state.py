@@ -47,6 +47,11 @@ def _catalog_work(data: _ReportData, catalog_id: str) -> list[dict[str,Any]]:
         "CAT-09":{"CONTENT_REMEDIATION_AI","TECHNICAL_AI"},
         "CAT-10":{"PASSIVE_SECURITY"},
     }[catalog_id]
+    if catalog_id=="CAT-10" and bool(data.catalog_items.get("CAT-10",{}).get("ai_execution_enabled",False)):
+        # CAT-10 owns the deterministic passive-security run and, when explicitly
+        # requested, also depends on the canonical Improvement Intelligence SECURITY
+        # advisory. This keeps requested-but-not-executed AI visible to status/assurance.
+        ownership.add("IMPROVEMENT_INTELLIGENCE")
     out=[]
     for row in data.work_items:
         comp=_norm(row.get("component"))
@@ -251,6 +256,26 @@ def _catalog_status(database: Path, data: _ReportData, catalog_id: str) -> tuple
         if raw in _STATUS_PENDING:
             return "PARCIAL","warn","A execução específica deste catálogo foi persistida como parcial ou pendente."
     work=_catalog_work(data,catalog_id)
+    sources=_catalog_sources(database,data,catalog_id)
+
+    # CAT-10 has a canonical consolidated run. Preparatory inventory/integration rows
+    # are useful evidence, but they cannot by themselves mean that the catalog finished.
+    if catalog_id=="CAT-10" and not run:
+        states={_norm(r.get("status")) for r in work}
+        if states & _STATUS_FAILURE:
+            return (
+                ("PARCIAL" if sources or states & _STATUS_SUCCESS else "FALHA"),
+                ("warn" if sources or states & _STATUS_SUCCESS else "bad"),
+                "Há evidência preparatória do CAT-10, mas a execução consolidada não foi persistida e existe etapa dependente com falha."
+                if sources
+                else "A execução consolidada do CAT-10 não foi persistida e existe etapa dependente com falha.",
+            )
+        if states & _STATUS_PENDING:
+            return "PARCIAL","warn","O CAT-10 possui etapa dependente parcial/pendente, mas não possui execução consolidada persistida."
+        if sources:
+            return "PARCIAL","warn","O CAT-10 possui evidências preparatórias persistidas, mas não possui execução consolidada em passive_security_runs."
+        return "SEM RESULTADO","warn","O CAT-10 foi solicitado, mas não há execução consolidada nem evidência preparatória reconhecida."
+
     if work:
         states={_norm(r.get("status")) for r in work}
         if states & _STATUS_FAILURE:
@@ -259,7 +284,6 @@ def _catalog_status(database: Path, data: _ReportData, catalog_id: str) -> tuple
             return "PARCIAL","warn","Há etapa(s) do catálogo ainda parcial(is) ou pendente(s)."
         if states & _STATUS_SUCCESS:
             return "CONCLUÍDO","good","As etapas próprias deste catálogo foram concluídas."
-    sources=_catalog_sources(database,data,catalog_id)
     if sources:
         return "CONCLUÍDO","good","O catálogo possui evidências/resultados persistidos. Nem todo domínio funcional possui uma etapa de execução própria."
     return "SEM RESULTADO","warn","O catálogo foi solicitado, mas não há resultado reconhecido para esta projeção."
