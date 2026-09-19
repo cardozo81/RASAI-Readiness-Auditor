@@ -305,7 +305,7 @@ def _update_service_run(*, audit_id: str, workspace: Any, result: Mapping[str, A
 
 
 def install() -> None:
-    """Collect and reconcile GSC observability without conventional HTML projection."""
+    """Collect and reconcile GSC observability before catalog projection."""
     from rasai import report_completion
     from rasai.standards_gsc_crawl_freshness_metrics import reconcile_gsc_crawl_freshness_metrics
     from rasai.standards_gsc_metrics import reconcile_gsc_observational_metrics
