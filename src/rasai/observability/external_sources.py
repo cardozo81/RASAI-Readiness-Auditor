@@ -2,7 +2,7 @@
 
 The collectors in this module never write to ``audit.db`` and never affect
 SARI-001/SCORE-GEO-004.  They persist normalized observations only in the
-rebuildable ``observability.db`` sidecar plus sanitized source artifacts.
+rebuildable ``artifacts/observability/observability.db`` sidecar plus sanitized source artifacts.
 """
 from __future__ import annotations
 
