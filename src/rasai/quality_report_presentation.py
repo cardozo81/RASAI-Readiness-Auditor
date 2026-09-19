@@ -7,11 +7,36 @@ from typing import Any, Callable
 
 _INSTALLED = False
 
-_QUALITY_REPLACEMENTS = (
-    ("<th>Dimension</th>", "<th>Dimensão</th>"),
-    ("<th>Status</th>", "<th>Estado</th>"),
-    ("<th>Observed</th>", "<th>Observado</th>"),
-    ("<th>Expected</th>", "<th>Esperado</th>"),
+_QUALITY_REPLACEMENTS: tuple[tuple[str, str], ...] = (
+    ("RASAi Quality · derivado · non-scoring", "RASAi Quality · derivado · sem impacto na pontuação"),
+    ("Findings acionáveis", "Achados acionáveis"),
+    ("Audit health", "Saúde da auditoria"),
+    ("Findings", "Achados"),
+    ("Evidence HIGH", "Evidência com confiança alta"),
+    ("Quality não é um novo score de readiness.", "Quality não é uma nova pontuação de readiness."),
+    (
+        "Audit Health descreve a qualidade/completude da coleta; Evidence Confidence descreve a força da evidência de cada finding; Operational Priority é uma heurística de decisão independente; nenhum deles recalcula SARI.",
+        "Saúde da auditoria descreve a qualidade/completude da coleta; Confiança da evidência descreve a força da evidência de cada achado; Prioridade operacional é uma heurística de decisão independente; nenhum deles recalcula o SARI.",
+    ),
+    ("<div class='kicker'>Audit Health</div>", "<div class='kicker'>Saúde da auditoria</div>"),
+    ("<div class='kicker'>Executive decision</div>", "<div class='kicker'>Decisão executiva</div>"),
+    ("<div class='kicker'>Evidence Confidence</div>", "<div class='kicker'>Confiança da evidência</div>"),
+    ("<div class='kicker'>Coverage Map</div>", "<div class='kicker'>Mapa de cobertura</div>"),
+    (
+        "<div class='kicker'>Search & AI content controls</div>",
+        "<div class='kicker'>Controles de conteúdo para Search e IA</div>",
+    ),
+    (
+        "<div class='kicker'>Recommendation Validation</div>",
+        "<div class='kicker'>Validação das recomendações</div>",
+    ),
+    ("<th>Score</th>", "<th>Pontuação</th>"),
+    ("<th>Confidence</th>", "<th>Confiança</th>"),
+    ("<th>Device</th>", "<th>Dispositivo</th>"),
+    ("<th>Technical</th>", "<th>Técnico</th>"),
+    ("<th>Rendering</th>", "<th>Renderização</th>"),
+    ("<th>Semantic/entity</th>", "<th>Semântica/entidade</th>"),
+    ("<th>Answer/evidence/intent</th>", "<th>Resposta/evidência/intenção</th>"),
     ("<th>Governance</th>", "<th>Governança</th>"),
     ("Somente findings ", "Somente achados "),
     ("findings históricos/resolvidos", "achados históricos/resolvidos"),
