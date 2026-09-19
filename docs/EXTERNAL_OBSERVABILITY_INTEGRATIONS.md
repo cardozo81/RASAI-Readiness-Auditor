@@ -7,7 +7,7 @@ Este documento define as integrações externas do RASAi para ampliar análise h
 Princípios obrigatórios:
 
 - `audit.db` continua sendo a evidência imutável do audit;
-- datasets externos permanecem em `observability.db` e `artifacts/observability`;
+- datasets externos permanecem em `artifacts/observability/observability.db` e demais artifacts de `artifacts/observability/`;
 - falha, quota, indisponibilidade ou ausência de dados externos não transforma o website em falha e não deve invalidar uma auditoria já concluída;
 - integrações observacionais não entram automaticamente em `SARI-001`, `SCORE-GEO-004` ou Apdex;
 - a única exceção vigente é `BR-GEO-060`, uma corroboração positiva, bounded e de peso mínimo baseada em Common Crawl;
@@ -163,7 +163,7 @@ A regra é **positive-only**. Ela só é criada quando:
 
 Ausência de captura, erro da API, alvo inelegível ou amostra abaixo do threshold não cria `FAIL`, não cria zero, não reduz Coverage e não reduz Confidence.
 
-A RuleExecution e a Evidence ficam persistidas no `audit.db` exclusivamente para tornar o score reprodutível sem nova chamada externa. O dataset bruto/normalizado continua no sidecar `observability.db`.
+A RuleExecution e a Evidence ficam persistidas no `audit.db` exclusivamente para tornar o score reprodutível sem nova chamada externa. O dataset bruto/normalizado continua no sidecar `artifacts/observability/observability.db`.
 
 Contrato detalhado: [`SARI_EXTERNAL_CRAWL_CORROBORATION.md`](SARI_EXTERNAL_CRAWL_CORROBORATION.md).
 
@@ -207,7 +207,7 @@ A exceção metodológica é `BR-GEO-060`: quando Common Crawl qualifica para SA
 
 CrUX History e Clarity continuam fora do scoring e não materializam regras SARI.
 
-### `observability.db`
+### `artifacts/observability/observability.db`
 
 Mantém dados reconstruíveis:
 
