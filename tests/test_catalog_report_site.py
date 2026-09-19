@@ -177,7 +177,7 @@ def test_catalog_report_is_generated_beside_untouched_legacy_tree(tmp_path: Path
     assert (index.parent / "css" / "site.css").is_file()
 
 
-def test_catalog_report_materializes_without_conventional_report_tree(tmp_path: Path) -> None:
+def test_catalog_report_materializes_without_non_catalog_report_tree(tmp_path: Path) -> None:
     workspace, legacy = _workspace(tmp_path)
     shutil.rmtree(legacy)
 
