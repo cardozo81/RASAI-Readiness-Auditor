@@ -102,7 +102,7 @@ def _page(bundle: DiagnosticBundle, data: dict[str, list[dict[str, Any]]], repor
 <section class='panel'><div class='kicker'>Root cause</div><h2>Clusters de template/componente</h2><p>Findings repetidos são agrupados por regra + selector quando existe selector confiável; sem selector, o agrupamento por título é apenas um agrupamento de ocorrências, não uma afirmação de causa compartilhada.</p><div class='table-wrap'><table><thead><tr><th>Regra</th><th>Sev.</th><th>Ocorrências</th><th>URLs</th><th>Devices</th><th>Selector/assinatura</th><th>Causa compartilhada</th></tr></thead><tbody>{cluster_rows}</tbody></table></div></section>
 <section class='panel'><div class='kicker'>Field experience</div><h2>CrUX History</h2><div class='table-wrap'><table><thead><tr><th>Target</th><th>Scope</th><th>Form factor</th><th>Métrica</th><th>Período</th><th>p75</th><th>Good</th><th>Poor</th></tr></thead><tbody>{crux_rows}</tbody></table></div></section>
 <section class='panel'><div class='kicker'>Referências</div><h2>Documentação pública usada</h2><ul>{refs}</ul></section>
-<footer class='footer'>Search & AI Observability é complementar e reconstruível. Fonte primária do audit permanece audit.db; dados externos ficam em observability.db + artifacts/observability.</footer>
+<footer class='footer'>Search & AI Observability é complementar e reconstruível. Fonte primária do audit permanece audit.db; dados externos ficam em artifacts/observability/observability.db e demais artifacts observacionais.</footer>
 """
     return _shell(nav, body)
 
