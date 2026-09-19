@@ -1,8 +1,8 @@
-# Relatório HTML de Search Intelligence
+# Search Intelligence no catálogo da auditoria
 
 ## Objetivo
 
-`report/search-intelligence.html` é a superfície HTML canônica da auditoria para evidências persistidas de Search Intelligence.
+`report-catalog/cat-05.html` é a superfície HTML audit-owned para evidências persistidas de Search Intelligence.
 
 O relatório é intencionalmente observacional e consultivo. Ele consolida várias camadas de evidência sem fundir suas metodologias nem alterar a propriedade de cada dado.
 
@@ -23,14 +23,12 @@ A página não cria novo score e não altera `SARI-001` nem `SCORE-GEO-004`.
 Arquivo canônico:
 
 ```text
-report/search-intelligence.html
+report-catalog/cat-05.html
 ```
 
-A página é opcional. Ela só é gerada quando o workspace da auditoria contém pelo menos uma observação SERP persistida.
+A página CAT-05 pertence ao pacote `report-catalog/` e projeta o estado solicitado/persistido da auditoria, inclusive ausência de dados, limitações e evidência SERP quando disponível.
 
-Quando o arquivo existe, a navegação compartilhada dos relatórios inclui `Search Intelligence`. Se não houver evidência de Search Intelligence, a página e o item de navegação permanecem ausentes.
-
-Isso evita mostrar uma superfície de produto vazia em auditorias que não executaram Search Intelligence.
+A navegação do catálogo permanece governada pelo contrato de `report-catalog/`. A ausência de evidência não dispara coleta nem cria uma árvore HTML paralela.
 
 ## Modelo de proveniência
 
@@ -211,7 +209,7 @@ Qualquer tentativa futura de introduzir Search Intelligence no scoring exige nov
 
 ## Separação de Lighthouse e CrUX
 
-`search-intelligence.html` não deve apresentar métricas Lighthouse ou CrUX como indicadores de Search Intelligence.
+`cat-05.html` não deve apresentar métricas Lighthouse ou CrUX como indicadores de Search Intelligence.
 
 Os limites de propriedade são:
 
@@ -238,12 +236,12 @@ Isso mantém o HTML reproduzível a partir de suas fontes de verdade persistidas
 
 ## Resumo executivo
 
-Quando `report/index.html` já existe, Search Intelligence pode adicionar um painel idempotente com:
+No catálogo, a síntese Search Intelligence pode apresentar:
 
 - quantidade de observações persistidas;
 - quantidade de observações em que o domínio foi encontrado;
 - timestamp da observação mais recente;
-- link para `search-intelligence.html`.
+- acesso à seção correspondente do CAT-05.
 
 O resumo é apenas descritivo. Não deve ser apresentado como score médio de ranking nem como score de Search para o site inteiro.
 
@@ -275,11 +273,7 @@ Competitive AI recebe o contrato limitado de evidências, e não o HTML bruto de
 
 O relatório de Search Intelligence é aditivo.
 
-Sem observações SERP persistidas:
-
-- `search-intelligence.html` não é produzido;
-- relatórios de auditoria existentes permanecem inalterados;
-- o scoring existente permanece inalterado.
+Sem observações SERP persistidas, o CAT-05 apresenta o estado correspondente sem fabricar dados; o scoring permanece inalterado.
 
 Somente com SERP Observation:
 
