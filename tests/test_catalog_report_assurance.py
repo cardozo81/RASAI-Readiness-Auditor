@@ -261,11 +261,12 @@ def test_transversal_secret_output_blocks_global_closure(monkeypatch, tmp_path: 
     assert "ai-integrations.html" in result["global_output_security"]["failures"]
     assert result["closure_eligible"] is False
 
-def test_assurance_matrix_explains_each_axis_without_changing_columns() -> None:
+def test_assurance_matrix_separates_functional_state_from_structural_gate() -> None:
     result = {
         "catalogs": [{
             "catalog_id": "CAT-01",
             "selected": True,
+            "functional_status": "PARCIAL",
             "configurability": 100,
             "governance": 100,
             "exposure": 100,
@@ -293,6 +294,7 @@ def test_assurance_matrix_explains_each_axis_without_changing_columns() -> None:
     assert "Como ler os eixos" in html
     for label in (
         "CAT",
+        "Estado funcional",
         "Configurabilidade",
         "Governança",
         "Exposição",
@@ -300,9 +302,11 @@ def test_assurance_matrix_explains_each_axis_without_changing_columns() -> None:
         "Integridade",
         "Segurança",
         "Maturidade",
-        "Gate",
+        "Gate estrutural",
     ):
         assert f"<th>{label}</th>" in html
+    assert "PARCIAL" in html
+    assert "ATENDE ESTRUTURA" in html
     assert "cobertura de controles" in html
     assert "probabilidade estatística" in html
     coverage_start = html.index("data-assurance-summary='coverage'")
