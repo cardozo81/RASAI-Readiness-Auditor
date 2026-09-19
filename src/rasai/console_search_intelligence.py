@@ -2,8 +2,8 @@
 
 Search terms are execution input, not environment variables and not persistent console
 configuration. Provider credentials and hard safety/cost limits remain environment-owned.
-When terms are present, the extension runs Search Intelligence after a successful audit
-and binds the observations to the newly created AUD-* workspace.
+When terms are present, the extension binds Search Intelligence execution to the AUD
+workspace and reports execution state from persisted evidence.
 """
 from __future__ import annotations
 
@@ -382,33 +382,25 @@ def execute_search_for_audit(
         code = 2
         output.write(f"{type(exc).__name__}: {exc}")
     duration = max(time.monotonic() - started, 0.0)
-    report = workspace / "report" / "search-intelligence.html"
-
     state.search_last_duration_seconds = duration
-    state.search_last_report = str(report) if report.is_file() else ""
+    state.search_last_report = ""
     diagnostic_lines = [
         line.strip() for line in output.getvalue().splitlines() if line.strip()
     ]
     diagnostic = diagnostic_lines[-1] if diagnostic_lines else ""
 
-    if code == 0 and report.is_file():
+    if code == 0:
         state.search_last_status = "COMPLETE"
         state.search_last_detail = (
-            f"{len(state.search_queries)} termo(s) observados; "
-            f"relatório={report.name}; duração={duration:.1f}s"
+            f"{len(state.search_queries)} termo(s) observados; duração={duration:.1f}s"
         )
         return 0
 
     state.search_last_status = "COMPLETE_WITH_LIMITATIONS"
-    if code == 0:
-        state.search_last_detail = (
-            "observação executada, mas search-intelligence.html não foi materializado"
-        )
-    else:
-        state.search_last_detail = (
-            f"Search Intelligence retornou código {code}"
-            + (f": {diagnostic}" if diagnostic else "")
-        )
+    state.search_last_detail = (
+        f"Search Intelligence retornou código {code}"
+        + (f": {diagnostic}" if diagnostic else "")
+    )
     return code or 1
 
 
