@@ -711,6 +711,8 @@ def _validate_success_integrity(workspace: Any, audit_id: str) -> None:
                 f"{component} estava marcado como SUCCESS, mas o resultado persistido "
                 "não satisfaz mais o contrato de integridade"
             ),
+            status="BLOCKED",
+            retryable=False,
         )
 
 
