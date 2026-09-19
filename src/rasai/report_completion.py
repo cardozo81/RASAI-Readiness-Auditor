@@ -1,8 +1,9 @@
-"""Final materialization gate for audit-owned catalog HTML.
+"""Audit finalization compatibility and catalog projection boundary.
 
-The conventional <AUD>/report/ mini-site was retired. This module keeps the
-historical finalizer API so runtime composition and reprocessing can continue to
-materialize and verify report-catalog/ without creating any non-catalog HTML.
+The conventional <AUD>/report/ family is retired. Runtime wrappers may still compose
+around finalize_audit_report_site to persist late functional data; that function no
+longer renders HTML. The supported report-catalog/ projection is materialized only
+after those data finalizers complete.
 """
 from __future__ import annotations
 
@@ -67,15 +68,22 @@ def finalize_audit_report_site(
     context_interpretations: Sequence[Any] = (),
     routing_snapshot: Mapping[str, Any] | None = None,
 ) -> AuditReportCompletion:
-    """Materialize only the supported catalog report projection.
+    """Run composed late data finalizers without rendering conventional HTML.
 
-    context_interpretations and routing_snapshot remain accepted for runtime
-    compatibility; they belonged to the removed conventional HTML projection and are
-    intentionally ignored here. Catalog generation continues to read the canonical
-    persisted audit state exactly as before.
+    The base implementation is intentionally a no-op. Historical wrappers may still
+    persist required audit data; report-catalog is materialized afterwards through the
+    separate catalog projection boundary.
     """
-    del context_interpretations, routing_snapshot
+    del audit_id, workspace, context_interpretations, routing_snapshot
+    return AuditReportCompletion((), (), ())
 
+
+def materialize_catalog_report_projection(
+    *,
+    audit_id: str,
+    workspace: AuditWorkspace,
+) -> AuditReportCompletion:
+    """Materialize and verify only the supported report-catalog/ projection."""
     from rasai.catalog_report_site import catalog_report_is_fresh, materialize_catalog_report_site
 
     errors: list[str] = []
@@ -84,7 +92,7 @@ def finalize_audit_report_site(
     except Exception as exc:
         errors.append(f"catalog-report:{type(exc).__name__}:{str(exc)[:240]}")
 
-    if not any(error.startswith("catalog-report:") for error in errors):
+    if not errors:
         try:
             fresh = catalog_report_is_fresh(audit_id=audit_id, workspace=workspace)
         except Exception as exc:
