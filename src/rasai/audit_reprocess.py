@@ -353,11 +353,16 @@ def reprocess_audit(
         ):
             successes += 1
 
-    # Report projections are always regenerated from current effective persisted
-    # state, independent of how many recovery versions were required.
+    # Late functional finalizers run first; report-catalog is then regenerated from
+    # the current effective persisted state. The retired <AUD>/report/ family is not
+    # recreated during reprocessing.
     try:
-        from rasai.report_completion import finalize_audit_report_site
+        from rasai.report_completion import (
+            finalize_audit_report_site,
+            materialize_catalog_report_projection,
+        )
         finalize_audit_report_site(audit_id=audit_id,workspace=workspace)
+        materialize_catalog_report_projection(audit_id=audit_id,workspace=workspace)
     except Exception as exc:
         try_append_operational_event(
             workspace,"AUDIT_REPROCESS_REPORT_FAILURE",level="ERROR",audit_id=audit_id,reprocess_id=reprocess_id,
@@ -384,5 +389,5 @@ def reprocess_audit(
         consolidation_eligible=summary.consolidation_eligible,attempted_items=attempted,
         successful_items=successes,skipped_success_items=skipped_success,
         remaining_items=summary.pending_items+summary.blocked_items,
-        temporal_expired_items=summary.expired_items,report_root=workspace.root / "report",
+        temporal_expired_items=summary.expired_items,report_root=workspace.root / "report-catalog",
     )
