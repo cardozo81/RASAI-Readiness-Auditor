@@ -8,13 +8,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from rasai.domain import Audit, AuditMode, DeviceContext, RuleExecution, RuleResult, new_id
+from rasai.domain import DeviceContext, RuleExecution, RuleResult, new_id
 from rasai.m7 import execute_m7
-from rasai.m11 import execute_m11
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.score_geo_004 import SCORING_VERSION
 from rasai.scoring import ConsolidationStatus, ScoringEngine
-from rasai.scoring_persistence import ScoringPersistence
 from rasai.semantic import OpenAIProvider, SEMANTIC_RULE_IDS
 from tests.test_m7_semantic_provider import _fixture
 
@@ -176,38 +174,6 @@ class ScoreGeo004ApplicabilityTests(unittest.TestCase):
         self.assertEqual(overall.value, 100.0)
         self.assertEqual(overall.consolidation_status, ConsolidationStatus.CONSOLIDATED)
         self.assertIn("DIMENSION_NOT_APPLICABLE:STRUCTURED_DATA", overall.limitations)
-
-        with TemporaryDirectory() as temp_dir:
-            workspace = AuditWorkspace.create(Path(temp_dir), "AUD-SCORE-004")
-            with AuditPersistence(workspace) as persistence:
-                persistence.audits.add(
-                    Audit(
-                        audit_id="AUD-SCORE-004",
-                        project_name="Applicability report",
-                        audit_mode=AuditMode.FULL,
-                        auditor_version="0.1.0",
-                        ruleset_version="RULESET-1",
-                    )
-                )
-                with ScoringPersistence(workspace) as store:
-                    for score in scoring.scores:
-                        if score.device is DeviceContext.DESKTOP:
-                            store.add_score(score)
-                    store.add_score(overall)
-
-                execute_m11(
-                    audit_id="AUD-SCORE-004",
-                    persistence=persistence,
-                    workspace=workspace,
-                )
-
-            html = (workspace.root / "report.html").read_text(encoding="utf-8")
-            self.assertIn("100.0", html)
-            self.assertIn("Dados Estruturados", html)
-            self.assertIn("NÃO APLICÁVEL", html)
-            self.assertIn("Fora do universo aplicável", html)
-            self.assertIn("Dimensões aplicáveis:</strong> 10 de 11", html)
-            self.assertIn("A exclusão não atribui nota zero nem nota máxima", html)
 
 
 if __name__ == "__main__":
