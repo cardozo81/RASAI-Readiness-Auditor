@@ -8,9 +8,9 @@ O contrato funcional vigente usa:
 
 - índice público `SARI-001`;
 - método de scoring `SCORE-GEO-004`;
-- `report/readiness.html` como superfície canônica do índice;
-- `report/scoring.html` como superfície canônica da metodologia;
-- `report/index.html` como visão executiva;
+- `report-catalog/sari.html` como superfície canônica do índice;
+- `report-catalog/methodology.html` como superfície canônica da metodologia/scoring;
+- `report-catalog/index.html` como visão executiva;
 - UTC como referência temporal canônica de persistência/processamento e `America/Sao_Paulo` como timezone padrão de apresentação, conforme [`TIMEZONE_CONTRACT.md`](TIMEZONE_CONTRACT.md);
 - HTML e documentação contextual em português do Brasil, mantendo em inglês apenas nomes técnicos consolidados, identificadores, APIs, formatos, comandos, enums e termos cuja tradução reduziria precisão ou quebraria rastreabilidade.
 
@@ -163,4 +163,4 @@ As referências abaixo sustentam domínios específicos; nenhuma delas homologa 
 - Apdex: https://www.apdex.org/
 - proposta comunitária `llms.txt`: https://llmstxt.org/
 
-Consulte também `report/references.html` de cada auditoria: ele materializa a proveniência aplicável à execução, enquanto estes documentos descrevem o contrato do produto.
+Consulte também as páginas de governança de `report-catalog/`, especialmente metodologia, evidências da execução e IA/integrações; elas materializam a proveniência aplicável à execução, enquanto estes documentos descrevem o contrato do produto.
