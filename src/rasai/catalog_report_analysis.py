@@ -94,8 +94,8 @@ def _security_finding_type_label(value: Any) -> str:
         "EXPOSURE":"Exposição",
         "POTENTIAL_VULNERABILITY":"Vulnerabilidade potencial",
         "KNOWN_VULNERABILITY":"Vulnerabilidade conhecida",
-        "THREAT_REPUTATION":"Threat Intelligence / reputação",
-        "RUNTIME_FAILURE":"Falha de Runtime",
+        "THREAT_REPUTATION":"Inteligência de ameaças / reputação",
+        "RUNTIME_FAILURE":"Falha em tempo de execução",
         "INFORMATION_DISCLOSURE":"Exposição de informação",
     }.get(_norm(value),str(value or "-").replace("_"," ").title())
 
@@ -108,22 +108,22 @@ def _security_category_label(value: Any) -> str:
         "CORS":"CORS",
         "COOKIES":"Cookies",
         "PRIVACY_BROWSER":"Privacidade / navegador",
-        "CROSS_ORIGIN":"Cross-Origin",
+        "CROSS_ORIGIN":"Políticas entre origens",
         "INFORMATION_DISCLOSURE":"Exposição de informação",
-        "MIXED_CONTENT":"Mixed Content",
+        "MIXED_CONTENT":"Conteúdo misto",
         "RESOURCE_INTEGRITY":"Integridade de recursos",
         "FORMS":"Formulários",
         "IFRAMES":"Iframes",
-        "RUNTIME":"Runtime",
-        "VULNERABILITY_INTELLIGENCE":"Vulnerability Intelligence / CVE",
+        "RUNTIME":"Tempo de execução",
+        "VULNERABILITY_INTELLIGENCE":"Inteligência de vulnerabilidades / CVE",
     }.get(_norm(value),str(value or "-").replace("_"," ").title())
 
 
 def _security_party_label(value: Any) -> str:
     return {
-        "FIRST_PARTY":"First-party (próprio domínio)",
-        "THIRD_PARTY":"Third-party (domínio externo)",
-        "INLINE":"Inline",
+        "FIRST_PARTY":"Próprio domínio",
+        "THIRD_PARTY":"Domínio externo",
+        "INLINE":"Em linha",
         "UNKNOWN":"Não determinado",
     }.get(_norm(value),str(value or "-").replace("_"," ").title())
 
@@ -136,7 +136,7 @@ def _security_resource_kind_label(value: Any) -> str:
         "FORM":"Formulário",
         "IFRAME":"Iframe",
         "IMG":"Imagem",
-        "SOURCE":"Source",
+        "SOURCE":"Fonte",
         "VIDEO":"Vídeo",
         "AUDIO":"Áudio",
         "TRACK":"Track",
@@ -188,21 +188,21 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
     }
     ai_matches=sum(1 for item in findings if str(item.get("finding_id") or "") in ai_rec_by_finding)
     coverage_labels={
-        "transport":"HTTPS e redirects",
-        "headers":"Security headers",
-        "csp":"Content Security Policy",
+        "transport":"HTTPS e redirecionamentos",
+        "headers":"Cabeçalhos de segurança",
+        "csp":"Política de Segurança de Conteúdo (CSP)",
         "cookies":"Cookies",
-        "cors_cross_origin":"CORS e políticas cross-origin",
+        "cors_cross_origin":"CORS e políticas entre origens",
         "scripts_resources":"Scripts e recursos",
-        "third_party":"Third-party",
-        "mixed_content":"Mixed content",
-        "forms_iframes":"Forms e iframes",
-        "runtime":"Erros/runtime",
+        "third_party":"Recursos de terceiros",
+        "mixed_content":"Conteúdo misto",
+        "forms_iframes":"Formulários e iframes",
+        "runtime":"Erros em tempo de execução",
         "component_inventory":"Inventário de componentes",
-        "osv_intelligence":"OSV / advisories",
+        "osv_intelligence":"OSV / avisos de segurança",
         "cisa_kev":"CISA KEV",
-        "vulnerability_intelligence":"Vulnerability Intelligence",
-        "active_scanning":"Active scanning",
+        "vulnerability_intelligence":"Inteligência de vulnerabilidades",
+        "active_scanning":"Varredura ativa",
     }
     coverage_rows=[]
     if isinstance(coverage,Mapping):
@@ -223,18 +223,18 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
 
     summary=(
         "<div class='notice'><strong>Escopo de segurança:</strong> análise estritamente passiva. "
-        "O CAT-10 não faz pentest, exploração, fuzzing, brute force, bypass de autenticação, submissão de formulários "
-        "ou payloads ofensivos. Ele reutiliza HTTP, HTML/DOM, browser/runtime e integrações externas governadas.</div>"
+        "O CAT-10 não executa teste de invasão (pentest), exploração, fuzzing, força bruta, contorno de autenticação, submissão de formulários "
+        "ou cargas ofensivas. Ele reutiliza HTTP, HTML/DOM, navegador, telemetria de execução e integrações externas governadas.</div>"
         "<div class='metric-grid'>"
         +_metric("Estado",_status_label(run.get("status")))
         +_metric("Páginas analisadas",run.get("pages_analyzed",0))
         +_metric("Recursos inventariados",len(resources))
         +_metric("Componentes identificados",len(components))
-        +_metric("Findings",len(findings))
+        +_metric("Achados",len(findings))
         +_metric("Críticos",severities["CRITICAL"])
         +_metric("Altos",severities["HIGH"])
         +_metric("Médios",severities["MEDIUM"])
-        +_metric("Findings com análise IA",(f"{ai_matches}/{len(findings)}" if ai_requested else "Não solicitada"))
+        +_metric("Achados com análise por IA",(f"{ai_matches}/{len(findings)}" if ai_requested else "Não solicitada"))
         +"</div>"
     )
     best_practices=web.get("best_practices_score") if web else None
@@ -244,7 +244,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
             bp_label=f"{bp*100:.0f} / 100" if 0 <= bp <= 1 else f"{bp:.0f} / 100"
         except (TypeError,ValueError):
             bp_label=str(best_practices)
-        summary+="<div class='notice'><strong>Lighthouse Best Practices reutilizado:</strong> "+escape(bp_label)+". Este sinal já coletado é complementar; o CAT-10 não repete Lighthouse nem converte sua nota diretamente em finding.</div>"
+        summary+="<div class='notice'><strong>Lighthouse · Boas práticas reutilizado:</strong> "+escape(bp_label)+". Este sinal já coletado é complementar; o CAT-10 não repete Lighthouse nem converte sua nota diretamente em achado.</div>"
 
     limitation_html=""
     if isinstance(limitations,list) and limitations:
@@ -258,7 +258,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
     if ai_requested:
         if not improvement_run:
             ai_notice=(
-                "<div class='notice warn'><strong>IA advisory solicitada, mas sem resultado persistido:</strong> "
+                "<div class='notice warn'><strong>IA consultiva solicitada, mas sem resultado persistido:</strong> "
                 "o CAT-10 foi configurado para enriquecimento por IA, porém não existe execução consolidada de "
                 "Improvement Intelligence nesta AUD. Findings determinísticos permanecem válidos; a ausência de IA "
                 "deve ser tratada como lacuna de execução, não como análise concluída.</div>"
@@ -274,10 +274,10 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
                 )
             else:
                 ai_notice=(
-                    "<div class='notice'><strong>IA advisory do CAT-10:</strong> "
+                    "<div class='notice'><strong>IA consultiva do CAT-10:</strong> "
                     +escape(str(ai_matches))+" de "+escape(str(len(findings)))
-                    +" finding(s) possuem recomendação evidence-bound materializada pela Improvement Intelligence. "
-                    "A IA é advisory/non-scoring e não substitui validação humana ou a evidência determinística.</div>"
+                    +" achado(s) possuem recomendação vinculada às evidências materializada pela Análise Profunda. "
+                    "A IA é consultiva, não participa da pontuação e não substitui validação humana nem a evidência determinística.</div>"
                 )
 
     finding_rows=[]; modals=[]
@@ -299,7 +299,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
             party,
             _confidence_label(item.get("confidence")),
             ai_state,
-            _modal_button(mid,"Ver finding"),
+            _modal_button(mid,"Ver achado"),
         ))
         body=_kv((
             ("Problema observado",item.get("description") or "-"),
@@ -331,14 +331,14 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
                 body+="<h4>Texto/exemplo sugerido</h4><div class='pre'>"+escape(str(recommendation.get("suggested_text")))+"</div>"
             if recommendation.get("suggested_html"):
                 body+="<h4>Exemplo técnico sugerido</h4><div class='pre'>"+escape(str(recommendation.get("suggested_html")))+"</div>"
-            body+="<div class='notice'>Orientação gerada por IA a partir das evidências persistidas deste finding. É advisory/non-scoring, não confirma explorabilidade e exige revisão humana.</div>"
+            body+="<div class='notice'>Orientação gerada por IA a partir das evidências persistidas deste achado. É consultiva, não participa da pontuação, não confirma explorabilidade e exige revisão humana.</div>"
         elif ai_requested:
-            body+="<div class='notice warn'><strong>IA advisory sem recomendação específica para este finding.</strong> A configuração solicitava IA; consulte o estado da Improvement Intelligence e a cobertura N/M no resumo do CAT-10.</div>"
+            body+="<div class='notice warn'><strong>IA consultiva sem recomendação específica para este achado.</strong> A configuração solicitava IA; consulte o estado da Análise Profunda e a cobertura N/M no resumo do CAT-10.</div>"
         if isinstance(evidence_ids,list) and evidence_ids:
             body+="<h3>Rastreabilidade</h3><p class='mono'>"+escape(" · ".join(str(v) for v in evidence_ids))+"</p>"
         if isinstance(details,Mapping) and details:
             body+="<details><summary>Detalhes técnicos persistidos</summary><div class='detail-body'><div class='pre'>"+escape(json.dumps(details,ensure_ascii=False,indent=2,default=str))+"</div></div></details>"
-        modals.append(_modal(mid,item.get("title") or "Finding de segurança",f"{category} · {item.get('source') or 'RASAi'}",body))
+        modals.append(_modal(mid,item.get("title") or "Achado de segurança",f"{category} · {item.get('source') or 'RASAi'}",body))
 
     integration_rows=[]; integration_modals=[]
     for index,item in enumerate(integrations,1):
@@ -363,7 +363,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         ))
         if isinstance(details,Mapping) and details:
             body+="<h3>Detalhes persistidos</h3><div class='pre'>"+escape(json.dumps(details,ensure_ascii=False,indent=2,default=str))+"</div>"
-        body+="<div class='notice'>Estados NO_DATA, NOT_REQUESTED ou UNAVAILABLE descrevem cobertura da integração; não significam, por si sós, problema de segurança no site.</div>"
+        body+="<div class='notice'>Os estados técnicos <code>NO_DATA</code> (sem dados), <code>NOT_REQUESTED</code> (não solicitado) e <code>UNAVAILABLE</code> (indisponível) descrevem a cobertura da integração; não significam, por si sós, problema de segurança no site.</div>"
         integration_modals.append(_modal(mid,_friendly_service(item.get("integration_id")),"Integração externa/reutilizada do CAT-10",body))
 
     resource_groups={}
@@ -414,8 +414,8 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         +"<div class='subsection'><h3>O que foi analisado</h3>"
         +_table(("Cobertura","Estado"),coverage_rows,empty="Cobertura não persistida.")
         +"</div>"
-        +"<div class='subsection'><h3>Findings</h3>"
-        +_table(("Severidade","Classificação","Categoria","Problema","Contexto","Confiança","IA advisory","Detalhe"),finding_rows,empty="Nenhum finding de segurança foi materializado para o escopo analisado.",sortable=bool(finding_rows),page_size=10 if len(finding_rows)>10 else None)
+        +"<div class='subsection'><h3>Achados</h3>"
+        +_table(("Severidade","Classificação","Categoria","Problema","Contexto","Confiança","IA consultiva","Detalhe"),finding_rows,empty="Nenhum achado de segurança foi materializado para o escopo analisado.",sortable=bool(finding_rows),page_size=10 if len(finding_rows)>10 else None)
         +"".join(modals)+"</div>"
         +"<div class='subsection'><h3>Distribuição por classificação</h3>"
         +_table(("Classificação","Findings"),type_rows,empty="Nenhuma classificação materializada.")
@@ -424,12 +424,12 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         +_table(("Tipo de recurso","Origem","Quantidade"),resource_rows,empty="Nenhum recurso HTML foi inventariado.")
         +"</div>"
         +"<div class='subsection'><h3>Componentes/versionamento identificáveis</h3>"
-        +"<p class='section-lead'>Versão detectada por filename é evidência heurística moderada: pode habilitar correlação OSV, mas o finding permanece potencial até confirmação por inventário/build/SBOM.</p>"
+        +"<p class='section-lead'>Versão detectada pelo nome do arquivo é evidência heurística moderada: pode habilitar correlação OSV, mas o achado permanece potencial até confirmação por inventário, build ou SBOM.</p>"
         +_table(("Componente","Versão","Ecossistema","Método","Confiança"),component_rows,empty="Nenhum componente com identificação útil foi detectado.",sortable=bool(component_rows))
         +"</div>"
         +"<div class='subsection'><h3>MDN HTTP Observatory reutilizado</h3>"
         +"<p class='section-lead'>Resultado proveniente da coleta canônica de padrões web; o CAT-10 não dispara uma segunda consulta ao Observatory.</p>"
-        +_table(("Origem","Estado","Grade","Score","Testes aprovados","Testes falhos"),mdn_rows,empty="Nenhuma medição do MDN HTTP Observatory foi persistida nesta AUD.",sortable=bool(mdn_rows))
+        +_table(("Origem","Estado","Classificação","Pontuação","Testes aprovados","Testes falhos"),mdn_rows,empty="Nenhuma medição do MDN HTTP Observatory foi persistida nesta AUD.",sortable=bool(mdn_rows))
         +"</div>"
         +"<div class='subsection'><h3>Integrações de segurança</h3>"
         +_table(("Integração","Solicitada","Estado","Tentativas","Sucessos","Detalhe"),integration_rows,empty="Nenhuma integração própria do CAT-10 foi persistida.",sortable=bool(integration_rows))
