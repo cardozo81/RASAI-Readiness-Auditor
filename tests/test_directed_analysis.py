@@ -302,3 +302,42 @@ def test_report_renders_strategy_and_menu_contract_contains_page(tmp_path: Path)
     page=next(item for item in CATALOG_REPORT_PAGES if item.filename=="directed-analysis.html")
     assert page.group == "Estratégia"
     assert page.catalog_id is None
+
+
+def test_directed_report_hides_internal_control_domains(tmp_path: Path) -> None:
+    workspace=_workspace(tmp_path,ai_enabled=False)
+    execute_directed_analysis(audit_id=AUDIT_ID,workspace=workspace)
+
+    connection=sqlite3.connect(workspace.database)
+    try:
+        connection.execute(
+            """UPDATE directed_analysis_runs
+               SET limitations_json=?
+               WHERE audit_id=?""",
+            (
+                json.dumps([
+                    {
+                        "scope":"DIRECTED_ANALYSIS",
+                        "reason":"AI_PROVIDER_NOT_RESOLVED",
+                    }
+                ]),
+                AUDIT_ID,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    data=_load_data(AUDIT_ID,workspace.database)
+    html=directed_analysis_body(workspace.database,data)
+
+    assert "DIRECTED_ANALYSIS" not in html
+    assert "AI_PROVIDER_NOT_RESOLVED" not in html
+    assert "PERSISTED_SOURCE" not in html
+    assert "AI_ANALYZED" not in html
+    assert "ACT-" not in html
+    assert ">results<" not in html
+    assert ">evidence<" not in html
+    assert "Não foi possível resolver um provedor de IA elegível" in html
+    assert "Análise direcionada" in html
+    assert "Remediação" in html
