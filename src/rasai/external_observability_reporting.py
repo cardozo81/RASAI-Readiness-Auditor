@@ -10,6 +10,7 @@ from collections import defaultdict
 from html import escape
 import json
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 from typing import Any
 
 from rasai.observability.external_sources import archive_rows, behavioral_rows
@@ -51,7 +52,7 @@ def enrich_external_observability_reports(*, audit_workspace: str | Path) -> tup
 
 
 def _crux_rows(workspace: Path) -> list[dict[str, Any]]:
-    if not (workspace / "observability.db").is_file():
+    if not (observability_database_path(workspace)).is_file():
         return []
     with ObservabilityStore(workspace) as store:
         return [dict(row) for row in store.crux_rows()]
