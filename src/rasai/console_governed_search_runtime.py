@@ -1,9 +1,7 @@
-"""Move local-console Search Intelligence into the child AUD collection phase.
+"""Bind local-console Search Intelligence to the child AUD collection phase.
 
-The historical console wrapper executed SERP work after the audit subprocess had
-already completed. This adapter keeps the same transient user inputs but serializes
-them as explicit CLI execution arguments, suppresses the old post-AUD execution and
-projects the persisted in-AUD result back into the console state.
+Transient user inputs are serialized as explicit CLI execution arguments. The console
+projects the persisted in-AUD result back into state after the subprocess completes.
 """
 from __future__ import annotations
 
@@ -92,11 +90,8 @@ def _project_result(state: Any) -> None:
         "COMPLETE" if status == "SUCCESS" else "COMPLETE_WITH_LIMITATIONS"
     )
     state.search_last_detail = str(row["last_error_message"] or "")
-    result_ref = str(row["effective_result_ref"] or "")
-    if result_ref and ":" not in result_ref:
-        state.search_last_report = str(root / result_ref)
-    elif (root / "report" / "search-intelligence.html").is_file():
-        state.search_last_report = str(root / "report" / "search-intelligence.html")
+    catalog_page = root / "report-catalog" / "cat-05.html"
+    state.search_last_report = str(catalog_page) if catalog_page.is_file() else ""
 
 
 def install(console_module: Any) -> None:
@@ -125,11 +120,10 @@ def install(console_module: Any) -> None:
         governed_build._rasai_governed_search = True
         governed_build._rasai_original = original_build
 
-        # The inner historical Search wrapper checks search_queries after the subprocess
-        # and would otherwise execute duplicate SERP collection. Keep the terms in this
-        # execution closure for command construction while presenting an empty tuple to
-        # that obsolete post-AUD branch. Console state classes use slots=True, so runtime
-        # orchestration data must not be attached dynamically to the state object.
+        # Keep the terms in this execution closure for command construction while
+        # preventing a second console-side Search execution after the subprocess.
+        # Console state classes use slots=True, so orchestration data is not attached
+        # dynamically to the state object.
         state.search_queries = ()
         console_runtime.build_command = governed_build
         try:
