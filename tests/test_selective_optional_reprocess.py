@@ -227,11 +227,23 @@ def test_success_without_persisted_optional_evidence_is_blocked_by_integrity() -
         _success_item(workspace, "SEARCH_INTELLIGENCE", LIVE_RECOLLECTION)
         _success_item(workspace, "IMPROVEMENT_INTELLIGENCE")
         _success_item(workspace, "GOOGLE_SEARCH_CONSOLE", LIVE_RECOLLECTION)
+        _success_item(workspace, "WEB_PERFORMANCE", LIVE_RECOLLECTION)
+        _success_item(workspace, "SYNTHETIC_APDEX", LIVE_RECOLLECTION)
+        _success_item(workspace, "EXPERIENCE_APDEX", LIVE_RECOLLECTION)
+        _success_item(workspace, "PASSIVE_SECURITY")
 
         _validate_success_integrity(workspace, AUDIT_ID)
 
         items = {item.component: item for item in list_work_items(workspace, AUDIT_ID)}
-        for component in ("SEARCH_INTELLIGENCE", "IMPROVEMENT_INTELLIGENCE", "GOOGLE_SEARCH_CONSOLE"):
+        for component in (
+            "SEARCH_INTELLIGENCE",
+            "IMPROVEMENT_INTELLIGENCE",
+            "GOOGLE_SEARCH_CONSOLE",
+            "WEB_PERFORMANCE",
+            "SYNTHETIC_APDEX",
+            "EXPERIENCE_APDEX",
+            "PASSIVE_SECURITY",
+        ):
             assert items[component].status == BLOCKED
             assert items[component].retryable is False
             assert items[component].last_error_class == "INTEGRITY"
