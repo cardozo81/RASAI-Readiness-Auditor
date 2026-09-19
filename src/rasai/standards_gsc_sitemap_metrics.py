@@ -1,7 +1,7 @@
 """Advisory metrics from persisted Google Search Console Sitemap datasets.
 
 The module never calls Google. It reads the latest persisted
-``GOOGLE_SEARCH_CONSOLE_SITEMAPS`` dataset metadata from ``observability.db`` and
+``GOOGLE_SEARCH_CONSOLE_SITEMAPS`` dataset metadata from ``artifacts/observability/observability.db`` and
 projects source-labelled observations into ``audit.db``. Deprecated indexed counts
 are deliberately not used.
 """
