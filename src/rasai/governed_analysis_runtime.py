@@ -704,45 +704,6 @@ def _install_final_sync() -> None:
         pass
 
 
-def _install_readonly_finalizer() -> None:
-    from rasai import report_completion
-
-    current = report_completion.finalize_audit_report_site
-    if bool(getattr(current, "_rasai_readonly_projection_boundary", False)):
-        return
-
-    def finalize_readonly(*args: Any, **kwargs: Any):
-        workspace = kwargs.get("workspace")
-        audit_id = str(kwargs.get("audit_id") or (args[0] if args else ""))
-        if workspace is None:
-            return current(*args, **kwargs)
-        before = _logical_db_fingerprint(workspace.database)
-        token = _REPORT_PROJECTION.set(True)
-        try:
-            result = current(*args, **kwargs)
-        finally:
-            _REPORT_PROJECTION.reset(token)
-        after = _logical_db_fingerprint(workspace.database)
-        if after != before:
-            from rasai.operational_log import try_append_operational_event
-            try_append_operational_event(
-                workspace,
-                "REPORT_RENDERER_MUTATED_AUDIT_DB",
-                level="ERROR",
-                audit_id=audit_id,
-                before_fingerprint=before,
-                after_fingerprint=after,
-            )
-            raise RuntimeError(
-                "REPORT_RENDERER_MUTATED_AUDIT_DB: report materialization must be read-only"
-            )
-        return result
-
-    finalize_readonly._rasai_readonly_projection_boundary = True
-    finalize_readonly._rasai_original = current
-    report_completion.finalize_audit_report_site = finalize_readonly
-
-
 def install_post() -> None:
     """Install after provider/reprocess/finalizer composition is complete."""
     global _POST_INSTALLED
@@ -758,7 +719,6 @@ def install_post() -> None:
     install_semantic_partial()
     _install_seal_composition()
     _install_final_sync()
-    _install_readonly_finalizer()
     _POST_INSTALLED = True
 
 
