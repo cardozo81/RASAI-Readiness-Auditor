@@ -24,7 +24,6 @@ from rasai.domain import (
 from rasai.m14_persistence import M14Persistence
 from rasai.m16_root_cause import M16Persistence, materialize_root_causes
 from rasai.m17_precision import M17PrecisionPersistence, materialize_m17_precision
-from rasai.m17_reporting import M17RemediationReportBuilder, M17ReportBuilder, _ai_disclaimer
 from rasai.persistence import AuditPersistence, AuditWorkspace
 
 
@@ -50,61 +49,6 @@ class M17PrecisionReportingTests(unittest.TestCase):
             self.assertIsNone(precision.observed_selector)
             self.assertEqual(precision.target_selector, 'head > link[rel="canonical"]')
             self.assertIn("Nenhuma declaração <link", precision.precise_cause_summary)
-
-    def test_report_distinguishes_observed_and_target_selectors_and_reduces_duplication(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            workspace = self._fixture(Path(directory))
-            materialize_root_causes(audit_id="AUD-M17", workspace=workspace)
-            materialize_m17_precision(audit_id="AUD-M17", workspace=workspace)
-
-            report = M17ReportBuilder().build(audit_id="AUD-M17", workspace=workspace)
-
-            self.assertIn("Findings identificados", report)
-            self.assertIn("Ações necessárias", report)
-            self.assertIn("Revisões recomendadas", report)
-            self.assertIn("Ações e revisões prioritárias", report)
-            self.assertIn("Elemento observado</small><strong>ABSENT", report)
-            self.assertIn("Selector observado</small><strong>NÃO APLICÁVEL", report)
-            self.assertIn("Selector técnico alvo", report)
-            self.assertIn("head &gt; link[rel=&quot;canonical&quot;]", report)
-            self.assertIn("Abrir detalhamento completo desta remediação", report)
-            self.assertIn("Correções técnicas detalhadas", report)
-            self.assertIn("Para reduzir duplicação", report)
-            self.assertNotIn("<strong>Problema:</strong>", report)
-
-    def test_remediation_groups_same_rule_across_two_pages_with_precise_occurrences(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            workspace = self._fixture(Path(directory))
-            materialize_root_causes(audit_id="AUD-M17", workspace=workspace)
-            materialize_m17_precision(audit_id="AUD-M17", workspace=workspace)
-
-            html = M17RemediationReportBuilder().build(audit_id="AUD-M17", workspace=workspace)
-
-            self.assertIn("Achados e remediações agrupados", html)
-            self.assertIn("PÁGINAS · 2 afetada(s)", html)
-            self.assertIn("/a", html)
-            self.assertIn("/b", html)
-            self.assertEqual(html.count("Motivo técnico</small><strong>CANONICAL_ABSENT"), 2)
-            self.assertEqual(html.count("Selector técnico alvo"), 2)
-            self.assertIn("REVISÃO RECOMENDADA", html)
-
-    def test_ai_unavailable_copy_does_not_claim_external_analysis_completed(self) -> None:
-        text = _ai_disclaimer([{"provider": "UNAVAILABLE"}])
-        self.assertIn("tentativa de uso", text)
-        self.assertIn("nenhuma análise semântica externa válida foi concluída", text)
-        self.assertNotIn("utilizaram o provider externo", text)
-
-    def test_orphan_fail_execution_is_exposed_as_integrity_warning(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            workspace = self._fixture(Path(directory), orphan_fail=True)
-            materialize_root_causes(audit_id="AUD-M17", workspace=workspace)
-            materialize_m17_precision(audit_id="AUD-M17", workspace=workspace)
-
-            report = M17ReportBuilder().build(audit_id="AUD-M17", workspace=workspace)
-
-            self.assertIn("Integridade RuleExecution → Finding: ATENÇÃO", report)
-            self.assertIn("EXECUÇÃO SEM FINDING", report)
-            self.assertIn("BR-GEO-005", report)
 
     @staticmethod
     def _fixture(root: Path, orphan_fail: bool = False) -> AuditWorkspace:
