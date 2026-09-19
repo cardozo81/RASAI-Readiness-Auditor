@@ -356,6 +356,7 @@ def integration_menu(console_module: ModuleType, state: Any, original_environmen
         results = diagnostics.load_diagnostics(state.audits_root)
         _render_header(console_module, state)
         print("Diagnóstico operacional independente da auditoria.")
+        print("Inclui providers de IA, SERP/Search Intelligence e serviços externos configurados.")
         print("Não altera AUTO, quarentena, scoring, execução ou reprocessamento.")
         print("Uma chamada isolada comprova somente o estado no momento do teste; falha 5xx/timeout/rate-limit é classificada como temporária.\n")
 
@@ -375,7 +376,7 @@ def integration_menu(console_module: ModuleType, state: Any, original_environmen
             print()
 
         print("AÇÕES")
-        print("T. Validar todas as integrações configuradas com probe seguro")
+        print("T. Validar integrações e IAs configuradas — somente probes seguros")
         print("C. Configuração avançada / todas as variáveis")
         print("V. Voltar")
         raw = input("Escolha: ").strip().upper()
