@@ -127,6 +127,20 @@ def test_plan_requires_at_least_one_catalog() -> None:
     assert workflow.plan_status(state)[0] == "BLOQUEADO"
 
 
+def test_accessibility_readiness_exposes_lighthouse_dependency() -> None:
+    state = _state()
+    workflow.set_selected_catalog_ids(state, ["CAT-02"])
+    status, detail = workflow.catalog_status(state, audit_catalog.CATALOG_BY_ID["CAT-02"])
+    assert status == "APTO COM LIMITAÇÕES"
+    assert "Lighthouse/PageSpeed" in detail
+    assert "determin" not in detail.casefold()
+
+    state.web_performance = True
+    status, detail = workflow.catalog_status(state, audit_catalog.CATALOG_BY_ID["CAT-02"])
+    assert status == "APTO"
+    assert "Lighthouse/PageSpeed" in detail
+
+
 def test_web_performance_readiness_tracks_its_effective_configuration(monkeypatch) -> None:
     state = _state()
     workflow._select(state, audit_catalog.CATALOG_BY_ID["CAT-04"])
