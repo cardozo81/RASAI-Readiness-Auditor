@@ -358,12 +358,11 @@ def install_collection_runtime() -> None:
 
 
 def install_report_runtime() -> None:
-    """Materialize standards observations and enrich canonical report surfaces."""
-    from rasai import report_completion, report_navigation
-    from rasai.report_manifest import write_report_manifest
-    from rasai.report_scale_ux import enhance_report_directory
-    from rasai.standards_metrics import execute_standards_metrics, enrich_existing_reports, write_standards_report
+    """Materialize standards-derived data without the retired conventional HTML."""
+    from rasai import report_completion
+    from rasai.standards_metrics import execute_standards_metrics
     from rasai.web_platform_baseline import materialize_web_platform_baseline
+
     if getattr(report_completion, "_rasai_standards_runtime", False):
         return
     original = report_completion.finalize_audit_report_site
@@ -379,24 +378,17 @@ def install_report_runtime() -> None:
         try:
             execute_standards_metrics(audit_id=audit_id, workspace=workspace)
             materialize_web_platform_baseline(audit_id=audit_id, workspace=workspace)
-            write_standards_report(audit_id=audit_id, workspace=workspace)
-            enrich_existing_reports(audit_id=audit_id, workspace=workspace)
-            report_dir = workspace.root / "report"
-            report_navigation.normalize_report_navigation(report_dir)
-            enhance_report_directory(report_dir)
-            write_report_manifest(report_dir)
         except Exception as exc:
             errors.append(f"standards:{type(exc).__name__}:{str(exc)[:240]}")
-        inspected = report_completion.inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
         return report_completion.AuditReportCompletion(
-            expected_pages=inspected.expected_pages,
-            generated_pages=inspected.generated_pages,
-            missing_pages=inspected.missing_pages,
+            expected_pages=base.expected_pages,
+            generated_pages=base.generated_pages,
+            missing_pages=base.missing_pages,
             renderer_errors=tuple(errors),
         )
+
     report_completion.finalize_audit_report_site = finalize_with_standards
     report_completion._rasai_standards_runtime = True
-
 
 def install_pre_context() -> None:
     install_service_contract()
