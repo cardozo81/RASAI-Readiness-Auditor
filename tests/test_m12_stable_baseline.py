@@ -158,7 +158,9 @@ class M12StableBaselineTests(unittest.TestCase):
                     (result.audit_id,),
                 ).fetchone()[0]
                 precision = connection.execute(
-                    "SELECT COUNT(*) FROM root_cause_precision WHERE audit_id=?",
+                    """SELECT COUNT(*) FROM root_cause_precision rcp
+                       JOIN findings f ON f.finding_id=rcp.finding_id
+                       WHERE f.audit_id=?""",
                     (result.audit_id,),
                 ).fetchone()[0]
                 findings = connection.execute(
