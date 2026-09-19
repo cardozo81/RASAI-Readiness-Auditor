@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from html import escape
 import math
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 import sqlite3
 from typing import Any, Iterable
 
@@ -69,7 +70,7 @@ def _latest_dataset(connection: sqlite3.Connection) -> tuple[str, datetime | Non
 def reconcile_gsc_crawl_freshness_metrics(*, audit_id: str, workspace: AuditWorkspace) -> None:
     """Project latest persisted GSC lastCrawlTime observations into reproducible metrics."""
 
-    sidecar = Path(workspace.root) / "observability.db"
+    sidecar = observability_database_path(workspace.root)
     if not sidecar.is_file():
         return
 
