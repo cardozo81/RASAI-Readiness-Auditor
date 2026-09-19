@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .reporting import write_quality_report, write_timeline_report, write_verification_report
+from .reporting import write_timeline_report, write_verification_report
 from .timeline import build_timeline
 from .verification import verify_fixes
 
@@ -15,10 +15,6 @@ def build_parser() -> argparse.ArgumentParser:
         description="Audit Health, Evidence Confidence, Fix Verification e Evidence Timeline sem alterar SARI.",
     )
     sub = parser.add_subparsers(dest="quality_command", required=True)
-
-    report = sub.add_parser("report", help="gerar report/quality.html para um AUD existente")
-    report.add_argument("--audits-root", default="audits")
-    report.add_argument("--audit", required=True)
 
     verify = sub.add_parser("verify", help="validar correções entre baseline e AUD atual")
     verify.add_argument("--audits-root", default="audits")
@@ -44,11 +40,6 @@ def _workspace(root: str, value: str) -> Path:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        if args.quality_command == "report":
-            workspace = _workspace(args.audits_root, args.audit)
-            path = write_quality_report(workspace)
-            print(f"RASAi Quality: {path}")
-            return 0
         if args.quality_command == "verify":
             baseline = _workspace(args.audits_root, args.baseline)
             current = _workspace(args.audits_root, args.current)
