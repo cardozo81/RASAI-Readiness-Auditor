@@ -158,7 +158,7 @@ def test_optional_recovery_never_refreshes_nonblocking_observability(
     assert evaluated == frozenset({"GOOGLE_SEARCH_CONSOLE"})
 
 
-def test_registered_ai_filter_executes_only_selected_purpose(monkeypatch) -> None:
+def test_registered_ai_filter_executes_only_selected_purpose(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(audit_phase_runtime, "_AI_HOOKS", {})
     calls: list[str] = []
 
@@ -175,7 +175,7 @@ def test_registered_ai_filter_executes_only_selected_purpose(monkeypatch) -> Non
 
     outcomes = audit_phase_runtime.run_registered_ai_phase(
         audit_id=AUDIT_ID,
-        workspace=SimpleNamespace(),
+        workspace=SimpleNamespace(root=tmp_path),
         evidence_snapshot=SimpleNamespace(evidence_snapshot_id="AIE-1"),
         purposes={"A"},
     )
