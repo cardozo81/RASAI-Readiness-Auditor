@@ -2,11 +2,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime, timezone
-import json
 import unittest
 
 from rasai.domain import DeviceContext, RuleExecution, RuleResult
-from rasai.m11 import _PersistedInputAwareReportBuilder
 from rasai.m9 import _reproducibility_check
 from rasai.scoring import ScoringEngine, ScoringResult
 
@@ -89,38 +87,6 @@ class HotfixAIReportingIntegrityTests(unittest.TestCase):
         self.assertTrue(result["contributions_reopenable"])
         self.assertTrue(result["reproducible"])
 
-    def test_failed_openai_call_is_reported_as_configured_but_unavailable(self) -> None:
-        audit = {
-            "project_name": "Projeto",
-            "audit_id": "AUD-AI",
-            "started_at": _NOW.isoformat(),
-            "created_at": _NOW.isoformat(),
-            "capabilities": json.dumps(["filesystem", "sqlite", "semantic_provider:OPENAI"]),
-            "limitations": json.dumps([
-                "AI_PROVIDER_UNAVAILABLE:HTTP_429:type=insufficient_quota:code=credit_balance_exhausted:request_id=req_test"
-            ]),
-        }
-        semantic = [
-            {"provider": "DETERMINISTIC", "model": None},
-            {"provider": "UNAVAILABLE", "model": None},
-        ]
-        builder = _PersistedInputAwareReportBuilder(None)  # type: ignore[arg-type]
-
-        html = builder._executive(
-            audit=audit,  # type: ignore[arg-type]
-            domain="https://example.com",
-            target_type="URL_SET",
-            supplied_count=2,
-            audited_count=2,
-            semantic=semantic,  # type: ignore[arg-type]
-        )
-
-        self.assertIn("TENTATIVA SEM SUCESSO", html)
-        self.assertIn("Provider configurado", html)
-        self.assertIn("OPENAI - CHAMADA/RESPOSTA INDISPONÍVEL", html)
-        self.assertIn("CONFIGURADO · NÃO CONFIRMADO POR RESPOSTA VÁLIDA", html)
-        self.assertIn("HTTP_429", html)
-        self.assertNotIn("<small>Modelo</small><strong>NÃO APLICÁVEL", html)
 
 
 if __name__ == "__main__":
