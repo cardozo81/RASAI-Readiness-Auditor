@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 import sqlite3
 import time
 from typing import Any, Callable
@@ -64,7 +65,7 @@ def ensure_extension_schema(connection: sqlite3.Connection) -> None:
 
 
 def behavioral_rows(audit_workspace: str | Path) -> list[dict[str, Any]]:
-    path = Path(audit_workspace) / "observability.db"
+    path = observability_database_path(audit_workspace)
     if not path.is_file():
         return []
     connection = sqlite3.connect(path)
@@ -80,7 +81,7 @@ def behavioral_rows(audit_workspace: str | Path) -> list[dict[str, Any]]:
 
 
 def archive_rows(audit_workspace: str | Path) -> list[dict[str, Any]]:
-    path = Path(audit_workspace) / "observability.db"
+    path = observability_database_path(audit_workspace)
     if not path.is_file():
         return []
     connection = sqlite3.connect(path)
