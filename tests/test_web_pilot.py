@@ -210,3 +210,9 @@ def test_report_boundary_serves_only_authorized_catalog_report_tree() -> None:
 
             outsider = client.get(f"/api/v1/audits/{audit_id}/reports/index.html", headers=outsider_headers)
             assert outsider.status_code == 403
+
+
+def test_saas_report_contract_recognizes_directed_analysis_page() -> None:
+    from rasai.web import pilot
+
+    assert ("directed-analysis.html", "Análise Direcionada") in pilot._CANONICAL_REPORT_PAGES
