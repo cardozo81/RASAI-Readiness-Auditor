@@ -142,10 +142,10 @@ def _passive_security_metric_rows(database: Path, audit_id: str) -> list[Sequenc
         ("Páginas analisadas",run.get("pages_analyzed","-") if run else "-","Contagem"),
         ("Recursos inventariados",len(resources),"Contagem"),
         ("Componentes identificados",len(components),"Contagem"),
-        ("Findings de segurança",len(findings),"Contagem"),
+        ("Achados de segurança",len(findings),"Contagem"),
     ]
     for key,label in (("CRITICAL","Críticos"),("HIGH","Altos"),("MEDIUM","Médios"),("LOW","Baixos"),("INFO","Informativos")):
-        rows.append((f"Findings {label}",severities[key],"Contagem"))
+        rows.append((f"Achados {label}",severities[key],"Contagem"))
     if run:
         rows.append(("Estado da análise",_status_label(run.get("status")),"Estado"))
     return rows
