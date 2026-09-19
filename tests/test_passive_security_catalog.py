@@ -642,3 +642,17 @@ def test_cookie_sensitivity_hint_does_not_persist_cookie_name_or_value() -> None
     assert "session" not in serialized
     assert "dark" not in serialized
     assert "TOP-SECRET" not in serialized
+
+
+def test_cat10_integrity_accepts_mixed_trace_identifiers(monkeypatch, tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path, html=_security_html())
+    monkeypatch.setenv(security.ENABLED_ENV, "true")
+    monkeypatch.setenv(security.OSV_ENV, "false")
+    monkeypatch.setenv(security.KEV_ENV, "false")
+
+    result = security.analyze_passive_security(audit_id=AUDIT_ID, workspace=workspace)
+    assert result["status"] == "COMPLETED"
+
+    from rasai.selective_optional_reprocess import _passive_security_integrity
+
+    assert _passive_security_integrity(workspace, AUDIT_ID) is True
