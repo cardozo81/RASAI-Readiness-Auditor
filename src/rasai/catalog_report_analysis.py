@@ -153,6 +153,11 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         integrations=_audit_rows(con,"passive_security_integrations",data.audit_id)
         standards=_audit_rows(con,"standards_metric_observations",data.audit_id)
         web=_last(con,"web_performance_observations",data.audit_id)
+        improvement_run=_last(con,"improvement_intelligence_runs",data.audit_id)
+        ai_recommendations=[
+            row for row in _audit_rows(con,"improvement_intelligence_recommendations",data.audit_id)
+            if _norm(row.get("domain"))=="SECURITY"
+        ]
     finally:
         con.close()
 
@@ -165,6 +170,15 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
 
     coverage=_safe_json(run.get("coverage_json"),{})
     limitations=_safe_json(run.get("limitations_json"),[])
+    catalog_items=getattr(data,"catalog_items",{}) or {}
+    cat10_item=catalog_items.get("CAT-10",{}) if isinstance(catalog_items,Mapping) else {}
+    ai_requested=bool(cat10_item.get("ai_execution_enabled",False)) if isinstance(cat10_item,Mapping) else False
+    ai_rec_by_finding={
+        str(row.get("finding_id")): row
+        for row in ai_recommendations
+        if str(row.get("finding_id") or "").strip()
+    }
+    ai_matches=sum(1 for item in findings if str(item.get("finding_id") or "") in ai_rec_by_finding)
     coverage_labels={
         "transport":"HTTPS e redirects",
         "headers":"Security headers",
@@ -212,6 +226,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         +_metric("Críticos",severities["CRITICAL"])
         +_metric("Altos",severities["HIGH"])
         +_metric("Médios",severities["MEDIUM"])
+        +_metric("Findings com análise IA",(f"{ai_matches}/{len(findings)}" if ai_requested else "Não solicitada"))
         +"</div>"
     )
     best_practices=web.get("best_practices_score") if web else None
@@ -231,9 +246,37 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
             +". Falha/indisponibilidade de fonte externa reduz a cobertura do CAT-10; não é convertida automaticamente em vulnerabilidade do alvo.</div>"
         )
 
+    ai_notice=""
+    if ai_requested:
+        if not improvement_run:
+            ai_notice=(
+                "<div class='notice warn'><strong>IA advisory solicitada, mas sem resultado persistido:</strong> "
+                "o CAT-10 foi configurado para enriquecimento por IA, porém não existe execução consolidada de "
+                "Improvement Intelligence nesta AUD. Findings determinísticos permanecem válidos; a ausência de IA "
+                "deve ser tratada como lacuna de execução, não como análise concluída.</div>"
+            )
+        else:
+            ai_domains=_safe_json(improvement_run.get("domains_json"),[])
+            security_in_run=isinstance(ai_domains,list) and any(_norm(value)=="SECURITY" for value in ai_domains)
+            if not security_in_run:
+                ai_notice=(
+                    "<div class='notice warn'><strong>IA executada sem o domínio SECURITY:</strong> "
+                    "há resultado de Improvement Intelligence, mas ele não declara Segurança passiva entre os domínios "
+                    "persistidos. O CAT-10 não atribui recomendações de outro domínio aos findings de segurança.</div>"
+                )
+            else:
+                ai_notice=(
+                    "<div class='notice'><strong>IA advisory do CAT-10:</strong> "
+                    +escape(str(ai_matches))+" de "+escape(str(len(findings)))
+                    +" finding(s) possuem recomendação evidence-bound materializada pela Improvement Intelligence. "
+                    "A IA é advisory/non-scoring e não substitui validação humana ou a evidência determinística.</div>"
+                )
+
     finding_rows=[]; modals=[]
     for index,item in enumerate(findings,1):
         mid=f"security-finding-{index}"
+        recommendation=ai_rec_by_finding.get(str(item.get("finding_id") or ""))
+        ai_state=("Analisado pela IA" if recommendation else "Sem recomendação específica" if ai_requested else "Não solicitada")
         finding_type=_security_finding_type_label(item.get("finding_type"))
         category=_security_category_label(item.get("category"))
         party=_security_party_label(item.get("party_context"))
@@ -247,6 +290,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
             item.get("title") or "Finding",
             party,
             _confidence_label(item.get("confidence")),
+            ai_state,
             _modal_button(mid,"Ver finding"),
         ))
         body=_kv((
@@ -263,6 +307,25 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
             ("CWE",item.get("cwe") or "-"),
             ("CVE(s)",", ".join(str(v) for v in cves) if isinstance(cves,list) and cves else "-"),
         ))
+        if recommendation:
+            body+=(
+                "<h3>Análise e sugestão advisory da IA</h3>"
+                +_kv((
+                    ("Recomendação",recommendation.get("recommendation") or recommendation.get("title") or "-"),
+                    ("Justificativa / análise",recommendation.get("rationale") or "-"),
+                    ("Confiança da IA",_confidence_label(recommendation.get("confidence"))),
+                    ("Esforço estimado",_level_label(recommendation.get("effort"))),
+                    ("Prioridade",_level_label(recommendation.get("priority"))),
+                    ("Como validar",recommendation.get("verification") or "-"),
+                ))
+            )
+            if recommendation.get("suggested_text"):
+                body+="<h4>Texto/exemplo sugerido</h4><div class='pre'>"+escape(str(recommendation.get("suggested_text")))+"</div>"
+            if recommendation.get("suggested_html"):
+                body+="<h4>Exemplo técnico sugerido</h4><div class='pre'>"+escape(str(recommendation.get("suggested_html")))+"</div>"
+            body+="<div class='notice'>Orientação gerada por IA a partir das evidências persistidas deste finding. É advisory/non-scoring, não confirma explorabilidade e exige revisão humana.</div>"
+        elif ai_requested:
+            body+="<div class='notice warn'><strong>IA advisory sem recomendação específica para este finding.</strong> A configuração solicitava IA; consulte o estado da Improvement Intelligence e a cobertura N/M no resumo do CAT-10.</div>"
         if isinstance(evidence_ids,list) and evidence_ids:
             body+="<h3>Rastreabilidade</h3><p class='mono'>"+escape(" · ".join(str(v) for v in evidence_ids))+"</p>"
         if isinstance(details,Mapping) and details:
@@ -339,11 +402,12 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
     return (
         summary
         +limitation_html
+        +ai_notice
         +"<div class='subsection'><h3>O que foi analisado</h3>"
         +_table(("Cobertura","Estado"),coverage_rows,empty="Cobertura não persistida.")
         +"</div>"
         +"<div class='subsection'><h3>Findings</h3>"
-        +_table(("Severidade","Classificação","Categoria","Problema","Contexto","Confiança","Detalhe"),finding_rows,empty="Nenhum finding de segurança foi materializado para o escopo analisado.",sortable=bool(finding_rows),page_size=10 if len(finding_rows)>10 else None)
+        +_table(("Severidade","Classificação","Categoria","Problema","Contexto","Confiança","IA advisory","Detalhe"),finding_rows,empty="Nenhum finding de segurança foi materializado para o escopo analisado.",sortable=bool(finding_rows),page_size=10 if len(finding_rows)>10 else None)
         +"".join(modals)+"</div>"
         +"<div class='subsection'><h3>Distribuição por classificação</h3>"
         +_table(("Classificação","Findings"),type_rows,empty="Nenhuma classificação materializada.")
