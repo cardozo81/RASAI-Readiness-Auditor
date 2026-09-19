@@ -7,19 +7,13 @@ from typing import Sequence
 
 from rasai import cli as _audit_cli
 from rasai import m20 as _m20
-from rasai import report_navigation as _report_navigation
-from rasai.external_metrics_integrity import (
-    enrich_external_metrics_integrity_report_site,
-    reconcile_external_metrics_integrity,
-)
+from rasai.external_metrics_integrity import reconcile_external_metrics_integrity
 from rasai.m23_apdex import M23ExecutionResult, execute_m23_apdex
 from rasai.m23_cli import SyntheticApdexConfig, configured_apdex, register_apdex_arguments
 from rasai.m23_lighthouse_traceability import extract_lighthouse_execution_profiles
-from rasai.m23_reporting import enrich_m23_report_site
 from rasai.m24_cli import M24Config, configured_m24, register_m24_arguments
 from rasai.m24_crawling_discovery import M24ExecutionResult, execute_m24, load_m24_result
 from rasai.m24_discovery_extensions import install_discovery_extensions
-from rasai.m24_reporting import enrich_m24_report_site
 from rasai.operational_log import try_append_operational_event
 from rasai.provider_runtime_policy import (
     DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS,
@@ -28,15 +22,7 @@ from rasai.provider_runtime_policy import (
     build_semantic_provider,
 )
 from rasai.provider_registry import extension_cli_choices
-from rasai.report_consistency_v2 import reconcile_report_outputs
-from rasai.rasai_readiness_reporting import enrich_rasai_reporting
-from rasai.source_quality import (
-    enrich_source_quality_report_site,
-    load_assessment,
-    persist_m21_source_skip,
-    persist_m23_source_skip,
-)
-from rasai.source_quality_report_summary import enrich_source_quality_blocker_summary
+from rasai.source_quality import load_assessment, persist_m21_source_skip, persist_m23_source_skip
 
 _BASE_BUILD_PARSER = _audit_cli.build_parser
 
@@ -82,11 +68,6 @@ def _parse_extended_args(argv: list[str]):
     return parser, parser.parse_args(argv)
 
 
-def _m24_scoring_impact(*, audit_id: str, workspace) -> str:
-    result = load_m24_result(audit_id=audit_id, workspace=workspace)
-    return result.scoring_impact if result is not None else "NONE"
-
-
 def _resolve_m23_config(argv: list[str]) -> SyntheticApdexConfig | None:
     parsed = _parse_extended_args(argv)
     if parsed is None:
@@ -111,45 +92,6 @@ def _resolve_m24_config(argv: list[str]) -> M24Config | None:
     return None
 
 
-def _restore_canonical_device_navigation_labels() -> None:
-    """Prevent report-specific wording from leaking into later in-process reports/tests."""
-    restored: list[tuple[str, str]] = []
-    for label, filename in _report_navigation.NAV_ITEMS:
-        if filename == "mobile.html":
-            label = "Relatório Mobile"
-        elif filename == "desktop.html":
-            label = "Relatório Desktop"
-        restored.append((label, filename))
-    _report_navigation.NAV_ITEMS = tuple(restored)
-
-
-def _materialize_rasai_fail_open(*, audit_id, workspace, event_prefix: str) -> None:
-    """Best-effort SARI projection even when a later optional domain fails."""
-    if audit_id is None or workspace is None:
-        return
-    try:
-        rasai_path = enrich_rasai_reporting(audit_id=audit_id, workspace=workspace)
-        try_append_operational_event(
-            workspace,
-            f"{event_prefix}_RASAI_READINESS_REPORT_GENERATED",
-            audit_id=audit_id,
-            methodology="SARI-001",
-            compatible_scoring_engine="SCORE-GEO-004",
-            report_path=str(rasai_path.relative_to(workspace.root)),
-        )
-    except Exception as exc:
-        try_append_operational_event(
-            workspace,
-            f"{event_prefix}_RASAI_READINESS_REPORT_FAILURE",
-            level="WARNING",
-            audit_id=audit_id,
-            error_type=type(exc).__name__,
-            error_message=str(exc)[:512],
-        )
-    finally:
-        _restore_canonical_device_navigation_labels()
-
-
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the audit CLI with current provider and fail-open enrichment composition."""
     effective_argv = list(argv) if argv is not None else list(sys.argv[1:])
@@ -165,15 +107,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     original_provider_builder = _audit_cli.build_semantic_provider
     original_m20_router = _m20.build_content_remediation_router
     original_execute_m21 = _audit_cli.execute_m21
-    original_enrich_m21 = _audit_cli.enrich_m21_report_site
 
     configured_provider_for_m24 = None
     m23_result: M23ExecutionResult | None = None
-    m23_report_path = None
     m23_error: str | None = None
     m23_executed_for: set[str] = set()
     m24_result: M24ExecutionResult | None = None
-    m24_report_path = None
     m24_error: str | None = None
     m24_executed_for: set[str] = set()
     source_quality_skip: tuple[str, ...] = ()
@@ -342,11 +281,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if audit_id is not None and workspace is not None:
                     run_m23_once(audit_id=audit_id, workspace=workspace)
                     run_m24_once(audit_id=audit_id, workspace=workspace)
-                    _materialize_rasai_fail_open(
-                        audit_id=audit_id,
-                        workspace=workspace,
-                        event_prefix="M21_FAILURE",
-                    )
                 raise
 
         if audit_id is not None and workspace is not None:
@@ -354,160 +288,24 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_m24_once(audit_id=audit_id, workspace=workspace)
         return result
 
-    def enrich_m21_and_m23(*args, **kwargs):
-        nonlocal m23_report_path, m23_error, m24_report_path, m24_error
-        audit_id = kwargs.get("audit_id")
-        workspace = kwargs.get("workspace")
-        result = original_enrich_m21(*args, **kwargs)
-        if (
-            m23_config is not None
-            and m23_config.enabled
-            and m23_result is not None
-            and audit_id is not None
-            and workspace is not None
-        ):
-            try:
-                m23_report_path = enrich_m23_report_site(
-                    audit_id=audit_id,
-                    workspace=workspace,
-                )
-            except Exception as exc:
-                m23_error = f"{type(exc).__name__}: {str(exc)[:512]}"
-                try_append_operational_event(
-                    workspace,
-                    "M23_REPORT_FAILURE",
-                    level="ERROR",
-                    audit_id=audit_id,
-                    error_type=type(exc).__name__,
-                    error_message=str(exc)[:512],
-                )
-        if audit_id is not None and workspace is not None:
-            try:
-                reconcile_report_outputs(audit_id=audit_id, workspace=workspace)
-            except Exception as exc:
-                try_append_operational_event(
-                    workspace,
-                    "REPORT_CONSISTENCY_FAILURE",
-                    level="WARNING",
-                    audit_id=audit_id,
-                    error_type=type(exc).__name__,
-                    error_message=str(exc)[:512],
-                )
-            try:
-                enrich_external_metrics_integrity_report_site(
-                    audit_id=audit_id,
-                    workspace=workspace,
-                )
-            except Exception as exc:
-                try_append_operational_event(
-                    workspace,
-                    "EXTERNAL_METRICS_INTEGRITY_REPORT_FAILURE",
-                    level="WARNING",
-                    audit_id=audit_id,
-                    error_type=type(exc).__name__,
-                    error_message=str(exc)[:512],
-                )
-            try:
-                # Run before the final SARI/crawling projection so every already-created
-                # domain page receives the same deterministic origin/redirect/TLS context.
-                enrich_source_quality_report_site(
-                    audit_id=audit_id,
-                    workspace=workspace,
-                )
-                enrich_source_quality_blocker_summary(
-                    audit_id=audit_id,
-                    workspace=workspace,
-                )
-            except Exception as exc:
-                try_append_operational_event(
-                    workspace,
-                    "SOURCE_QUALITY_REPORT_FAILURE",
-                    level="WARNING",
-                    audit_id=audit_id,
-                    error_type=type(exc).__name__,
-                    error_message=str(exc)[:512],
-                )
-            try:
-                # Finalize SARI before the separate non-scoring crawling/discovery page.
-                rasai_path = enrich_rasai_reporting(
-                    audit_id=audit_id,
-                    workspace=workspace,
-                )
-                try_append_operational_event(
-                    workspace,
-                    "RASAI_READINESS_REPORT_GENERATED",
-                    audit_id=audit_id,
-                    methodology="SARI-001",
-                    compatible_scoring_engine="SCORE-GEO-004",
-                    report_path=str(rasai_path.relative_to(workspace.root)),
-                )
-            except Exception as exc:
-                try_append_operational_event(
-                    workspace,
-                    "RASAI_READINESS_REPORT_FAILURE",
-                    level="WARNING",
-                    audit_id=audit_id,
-                    error_type=type(exc).__name__,
-                    error_message=str(exc)[:512],
-                )
-            finally:
-                _restore_canonical_device_navigation_labels()
-
-            if m24_result is not None:
-                try:
-                    m24_report_path = enrich_m24_report_site(
-                        audit_id=audit_id,
-                        workspace=workspace,
-                    )
-                    try_append_operational_event(
-                        workspace,
-                        "M24_REPORT_GENERATED",
-                        audit_id=audit_id,
-                        report_path=str(m24_report_path.relative_to(workspace.root)),
-                        scoring_impact=_m24_scoring_impact(audit_id=audit_id, workspace=workspace),
-                    )
-                    # Re-run the SARI projection only to normalize every final page after
-                    # crawling/discovery has added its navigation item; persisted
-                    # measurements remain untouched.
-                    enrich_rasai_reporting(
-                        audit_id=audit_id,
-                        workspace=workspace,
-                    )
-                    _restore_canonical_device_navigation_labels()
-                except Exception as exc:
-                    m24_error = f"{type(exc).__name__}: {str(exc)[:512]}"
-                    try_append_operational_event(
-                        workspace,
-                        "M24_REPORT_FAILURE",
-                        level="WARNING",
-                        audit_id=audit_id,
-                        error_type=type(exc).__name__,
-                        error_message=str(exc)[:512],
-                        scoring_impact="NONE",
-                    )
-        return result
-
     try:
         _audit_cli.build_parser = build_parser
         _audit_cli.build_semantic_provider = capture_build_semantic_provider
         _m20.build_content_remediation_router = build_content_remediation_router
         _audit_cli.execute_m21 = execute_m21_and_m23
-        _audit_cli.enrich_m21_report_site = enrich_m21_and_m23
         code = _audit_cli.main(effective_argv)
     finally:
         _audit_cli.build_parser = original_build_parser
         _audit_cli.build_semantic_provider = original_provider_builder
         _m20.build_content_remediation_router = original_m20_router
         _audit_cli.execute_m21 = original_execute_m21
-        _audit_cli.enrich_m21_report_site = original_enrich_m21
 
     if source_quality_skip:
         print(
             "Qualidade da origem: BLOQUEIO TÉCNICO "
             f"({', '.join(source_quality_skip)}). "
             "Etapas externas/repetitivas dependentes da URL foram interrompidas; "
-            "consulte o bloco 'Auditoria limitada por bloqueio técnico da origem' no relatório "
-            "e o arquivo logs/audit.log para o diagnóstico completo."
+            "consulte o estado persistido da auditoria e o arquivo logs/audit.log para o diagnóstico completo."
         )
 
     if m23_config is not None:
@@ -530,8 +328,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "Synthetic Apdex aviso: há grupo(s) pequeno(s) com menos de 100 "
                     "amostras válidas; resultado é diagnóstico e recebe marcador *."
                 )
-            if m23_report_path is not None:
-                print(f"Relatório Apdex: {m23_report_path}")
         elif m23_error:
             print(
                 "Synthetic Apdex: INCOMPLETO por erro operacional; "
@@ -546,8 +342,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"llms.txt {m24_result.llms_state}; IA técnica {m24_result.ai_state}; "
                 f"impacto no score {m24_result.scoring_impact})"
             )
-            if m24_report_path is not None:
-                print(f"Relatório de rastreamento e descoberta: {m24_report_path}")
         elif m24_error:
             print(
                 "Rastreamento e descoberta: INCOMPLETO por erro operacional; "
