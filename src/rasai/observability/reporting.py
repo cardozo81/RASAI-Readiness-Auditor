@@ -5,6 +5,7 @@ from collections import Counter
 from html import escape
 import json
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 from typing import Any
 
 from rasai import report_navigation
@@ -43,7 +44,7 @@ def _register_navigation() -> None:
 
 
 def _sidecar(workspace: Path) -> dict[str, list[dict[str, Any]]]:
-    if not (workspace / "observability.db").is_file():
+    if not (observability_database_path(workspace)).is_file():
         return {"datasets": [], "search": [], "index": [], "crux": []}
     with ObservabilityStore(workspace) as store:
         return {
