@@ -281,7 +281,7 @@ def test_osv_and_kev_use_only_versioned_component_identifiers(monkeypatch, tmp_p
         audit_id=AUDIT_ID,
         workspace=workspace,
     )
-    assert collected["collection_state"] == "COMPLETED"
+    assert collected["collection_state"] == "SUCCESS"
     assert collected["osv_successes"] == 1
     assert collected["cves"] == 1
     assert all("audited.example" not in json.dumps(body or {}) for _url, body in calls)
