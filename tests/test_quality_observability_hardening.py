@@ -412,6 +412,21 @@ def test_quality_analysis_content_controls_and_freshness_use_persisted_audit_dat
         assert not (workspace / "report").exists()
 
 
+def test_quality_health_uses_catalog_report_entrypoint() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        workspace = _audit_workspace(Path(directory), "AUD-QUALITY-REPORT")
+        report = workspace / "report-catalog"
+        report.mkdir()
+        (report / "index.html").write_text("<html></html>", encoding="utf-8")
+
+        quality = analyze_quality(workspace)
+        check = next(item for item in quality.health_checks if item.code == "AUDIT-REPORT-ENTRYPOINT")
+
+        assert check.status == "PASS"
+        assert check.evidence["path"] == "report-catalog/index.html"
+        assert not (workspace / "report").exists()
+
+
 def test_fix_verification_requires_persisted_rule_transition() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
