@@ -3,7 +3,7 @@
 This runtime is installed only by the public audit entrypoints. It instruments the
 already-composed audit runner without changing scoring semantics or adding network
 requests. Long operations emit start/finish milestones so the interactive console can
-show the operation actually in flight.
+show the functional operation actually in flight.
 
 Provider-bearing analysis is guarded by persisted/observed upstream evidence: normal
 browser rendering must have completed before semantic AI, deterministic extraction
@@ -485,46 +485,6 @@ def install() -> None:
         detail="gerando sugestões de conteúdo somente com findings e evidências semânticas/contextuais já persistidos",
         completed_flag="CONTENT_REMEDIATION",
         readiness=_content_ai_ready,
-    )
-    runner.execute_m11 = _wrap_step(
-        runner.execute_m11,
-        phase="REPORTING",
-        step_key="REPORT_MODEL",
-        step_index=1,
-        step_total=4,
-        operation="LOCAL:REPORT_MODEL",
-        detail="montando o modelo persistido dos relatórios",
-        completed_flag="REPORT_MODEL",
-    )
-    runner.enrich_written_reports = _wrap_step(
-        runner.enrich_written_reports,
-        phase="REPORTING",
-        step_key="REPORT_ENRICHMENT",
-        step_index=2,
-        step_total=4,
-        operation="LOCAL:REPORT_ENRICHMENT",
-        detail="enriquecendo relatórios com dados já calculados",
-        completed_flag="REPORT_ENRICHMENT",
-    )
-    runner.materialize_report_site = _wrap_step(
-        runner.materialize_report_site,
-        phase="REPORTING",
-        step_key="HTML_MATERIALIZATION",
-        step_index=3,
-        step_total=4,
-        operation="LOCAL:HTML_MATERIALIZATION",
-        detail="materializando o mini-site HTML canônico",
-        completed_flag="HTML_MATERIALIZATION",
-    )
-    runner.enrich_m20_report_site = _wrap_step(
-        runner.enrich_m20_report_site,
-        phase="REPORTING",
-        step_key="FINAL_REPORT_ENRICHMENT",
-        step_index=4,
-        step_total=4,
-        operation="LOCAL:FINAL_REPORT_ENRICHMENT",
-        detail="aplicando enriquecimentos finais sem nova aquisição da página",
-        completed_flag="FINAL_REPORT_ENRICHMENT",
     )
 
     try:
