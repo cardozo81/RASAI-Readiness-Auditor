@@ -186,7 +186,15 @@ def catalog_status(state: Any, catalog: AuditCatalog) -> tuple[str, str]:
     if catalog.id == "CAT-01":
         return "APTO", "baseline técnico utiliza a configuração vigente do alvo"
     if catalog.id == "CAT-02":
-        return "APTO", "auditoria determinística de acessibilidade disponível"
+        if not bool(getattr(state, "web_performance", False)):
+            return (
+                "APTO COM LIMITAÇÕES",
+                "acessibilidade automatizada reutiliza o artifact Lighthouse/PageSpeed, mas Web Performance está desabilitado",
+            )
+        return (
+            "APTO",
+            "acessibilidade automatizada reutiliza o artifact Lighthouse/PageSpeed quando materializado; indisponibilidade externa pode resultar em sem resultado",
+        )
     if catalog.id == "CAT-03":
         try:
             from rasai.content_context import configured_content_analysis_context
