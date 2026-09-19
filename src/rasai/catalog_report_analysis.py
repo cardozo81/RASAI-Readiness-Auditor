@@ -143,6 +143,130 @@ def _security_resource_kind_label(value: Any) -> str:
     }.get(_norm(value),str(value or "-").replace("_"," ").title())
 
 
+_SECURITY_LIMITATION_LABELS = {
+    "NO_PERSISTED_PAGE_CONTEXT": "Não há contexto de página persistido suficiente para completar todas as verificações.",
+    "OSV_REDUCED_COVERAGE": "A cobertura do OSV ficou reduzida por indisponibilidade ou resposta parcial da fonte externa.",
+    "CISA_KEV_REDUCED_COVERAGE": "A cobertura da lista CISA KEV ficou reduzida por indisponibilidade da fonte externa.",
+}
+
+_SECURITY_DETAIL_KEY_LABELS = {
+    "reason": "Motivo",
+    "queryable_components": "Componentes com versão consultável",
+    "source_blocked": "Fonte bloqueada pela política",
+    "cves_checked": "CVEs verificados",
+    "matched": "Correspondências encontradas",
+    "reused_from": "Fonte reutilizada",
+    "redirect_chain": "Cadeia de redirecionamentos",
+    "script_sources": "Origens permitidas para scripts",
+    "cookie": "Atributos do cookie",
+    "runtime_type": "Tipo de ocorrência em execução",
+    "count": "Quantidade",
+    "sample_count": "Quantidade de amostras",
+    "samples": "Amostras",
+    "secure": "Atributo Secure",
+    "httponly": "Atributo HttpOnly",
+    "samesite": "Política SameSite",
+    "sensitive_name_hint": "Nome sugere dado sensível",
+    "advisory_id": "Identificador do aviso de segurança",
+    "aliases": "Identificadores relacionados",
+    "severity": "Severidade informada pela fonte",
+    "references": "Referências da fonte",
+    "kev_state": "Correspondência com CISA KEV",
+    "kev": "Detalhes CISA KEV",
+    "component_id": "Identificador do componente",
+    "resource_id": "Identificador do recurso",
+    "library": "Biblioteca",
+    "version": "Versão",
+    "ecosystem": "Ecossistema",
+    "identification_method": "Método de identificação",
+}
+
+_SECURITY_DETAIL_VALUE_LABELS = {
+    "NO_VERSIONED_COMPONENT_IDENTIFIED": "Nenhum componente com versão identificável foi encontrado.",
+    "NO_CVE_FROM_OSV": "Nenhum CVE foi retornado pelo OSV para os componentes consultados.",
+    "OPTIONAL_DEEP_TLS_NOT_ENABLED_IN_INITIAL_SCOPE": "Análise TLS externa aprofundada não habilitada neste escopo.",
+    "URL_REPUTATION_REQUIRES_EXPLICIT_PRIVACY_AND_PROVIDER_POLICY": "Consulta de reputação de URL não habilitada; exige política explícita de privacidade e de provedor.",
+    "STANDARDS_SERVICE_RUNS": "Medição de padrões web já persistida",
+    "MATCHED": "Correspondência encontrada",
+    "NOT_MATCHED": "Sem correspondência",
+    "NOT_CHECKED": "Não verificado",
+    "REQUESTFAILED": "Requisição com falha",
+    "CONSOLE.ERROR": "Erro de console",
+    "PAGEERROR": "Erro de página",
+    "HTTP_ERROR": "Resposta HTTP com erro",
+    "FILENAME": "Nome do arquivo",
+}
+
+
+def _security_limitation_label(value: Any) -> str:
+    raw=_norm(value)
+    return _SECURITY_LIMITATION_LABELS.get(
+        raw,
+        _status_label(value) if raw in {
+            "NO_DATA","NOT_REQUESTED","UNAVAILABLE","PARTIAL","FAILED_RETRYABLE",
+            "FAILED_TERMINAL","NOT_CONFIGURED","WAITING_FOR_DATA"
+        } else str(value or "-").replace("_"," ").title(),
+    )
+
+
+def _security_identification_method_label(value: Any) -> str:
+    raw=_norm(value)
+    return {
+        "FILENAME":"Nome do arquivo",
+        "URL":"URL do recurso",
+        "HEADER":"Cabeçalho HTTP",
+        "MANIFEST":"Manifesto",
+        "SBOM":"SBOM",
+    }.get(raw,str(value or "-").replace("_"," ").title())
+
+
+def _security_detail_key_label(value: Any) -> str:
+    raw=str(value or "").strip()
+    return _SECURITY_DETAIL_KEY_LABELS.get(
+        raw.casefold(),
+        raw.replace("_"," ").strip().capitalize() or "Detalhe",
+    )
+
+
+def _security_detail_scalar(value: Any) -> str:
+    if isinstance(value,bool):
+        return "Sim" if value else "Não"
+    if value is None:
+        return "-"
+    raw=_norm(value)
+    if raw in _SECURITY_DETAIL_VALUE_LABELS:
+        return _SECURITY_DETAIL_VALUE_LABELS[raw]
+    if raw in {"TRUE","FALSE"}:
+        return "Sim" if raw=="TRUE" else "Não"
+    if raw in {"FIRST_PARTY","THIRD_PARTY","INLINE","UNKNOWN"}:
+        return _security_party_label(value)
+    if raw in {
+        "SUCCESS","COMPLETE","COMPLETED","PARTIAL","FAILED_RETRYABLE","FAILED_TERMINAL",
+        "NOT_REQUESTED","UNAVAILABLE","NO_DATA","NOT_CONFIGURED","WAITING_FOR_DATA",
+    }:
+        return _status_label(value)
+    if raw in {"CRITICAL","HIGH","MEDIUM","LOW","INFO"}:
+        return _level_label(value)
+    return str(value)
+
+
+def _security_detail_html(value: Any) -> str:
+    if isinstance(value,Mapping):
+        rows=[]
+        for key,item in value.items():
+            rendered=_security_detail_html(item)
+            rows.append(
+                "<dt>"+escape(_security_detail_key_label(key))+"</dt>"
+                "<dd>"+rendered+"</dd>"
+            )
+        return "<dl class='kv'>"+"".join(rows)+"</dl>"
+    if isinstance(value,(list,tuple)):
+        if not value:
+            return "<span class='muted'>Nenhum valor informado.</span>"
+        return "<ul>"+"".join("<li>"+_security_detail_html(item)+"</li>" for item in value)+"</ul>"
+    return escape(_security_detail_scalar(value))
+
+
 def _passive_security_html(database: Path, data: _ReportData) -> str:
     con=sqlite3.connect(database); con.row_factory=sqlite3.Row
     try:
@@ -173,8 +297,8 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         )
         if ai_requested:
             message+=(
-                "<div class='notice warn'><strong>IA advisory solicitada, mas não executada de forma utilizável:</strong> "
-                "sem a execução consolidada do CAT-10 não há base final para materializar a análise SECURITY por IA. "
+                "<div class='notice warn'><strong>IA consultiva solicitada, mas não executada de forma utilizável:</strong> "
+                "sem a execução consolidada do CAT-10 não há base final para materializar a análise de Segurança passiva por IA. "
                 "Consulte Execução e IA e integrações; este estado não deve ser apresentado como análise concluída.</div>"
             )
         return message
@@ -250,7 +374,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
     if isinstance(limitations,list) and limitations:
         limitation_html=(
             "<div class='notice warn'><strong>Cobertura reduzida:</strong> "
-            +escape(" · ".join(str(v) for v in limitations))
+            +escape(" · ".join(_security_limitation_label(v) for v in limitations))
             +". Falha/indisponibilidade de fonte externa reduz a cobertura do CAT-10; não é convertida automaticamente em vulnerabilidade do alvo.</div>"
         )
 
@@ -268,8 +392,8 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
             security_in_run=isinstance(ai_domains,list) and any(_norm(value)=="SECURITY" for value in ai_domains)
             if not security_in_run:
                 ai_notice=(
-                    "<div class='notice warn'><strong>IA executada sem o domínio SECURITY:</strong> "
-                    "há resultado da Análise Profunda, mas ele não declara Segurança passiva entre os domínios "
+                    "<div class='notice warn'><strong>IA executada sem a dimensão Segurança passiva:</strong> "
+                    "há resultado da Análise Profunda, mas ele não declara Segurança passiva entre as dimensões "
                     "persistidos. O CAT-10 não atribui recomendações de outro domínio aos achados de segurança.</div>"
                 )
             else:
@@ -338,7 +462,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         if isinstance(evidence_ids,list) and evidence_ids:
             body+="<h3>Rastreabilidade</h3><p class='mono'>"+escape(" · ".join(str(v) for v in evidence_ids))+"</p>"
         if isinstance(details,Mapping) and details:
-            body+="<details><summary>Detalhes técnicos persistidos</summary><div class='detail-body'><div class='pre'>"+escape(json.dumps(details,ensure_ascii=False,indent=2,default=str))+"</div></div></details>"
+            body+="<details><summary>Detalhes técnicos persistidos</summary><div class='detail-body'>"+_security_detail_html(details)+"</div></details>"
         modals.append(_modal(mid,item.get("title") or "Achado de segurança",f"{category} · {item.get('source') or 'RASAi'}",body))
 
     integration_rows=[]; integration_modals=[]
@@ -363,8 +487,8 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
             ("Artefato",item.get("artifact_reference") or "-"),
         ))
         if isinstance(details,Mapping) and details:
-            body+="<h3>Detalhes persistidos</h3><div class='pre'>"+escape(json.dumps(details,ensure_ascii=False,indent=2,default=str))+"</div>"
-        body+="<div class='notice'>Os estados técnicos <code>NO_DATA</code> (sem dados), <code>NOT_REQUESTED</code> (não solicitado) e <code>UNAVAILABLE</code> (indisponível) descrevem a cobertura da integração; não significam, por si sós, problema de segurança no site.</div>"
+            body+="<h3>Detalhes persistidos</h3>"+_security_detail_html(details)
+        body+="<div class='notice'>Os estados apresentados descrevem a cobertura da integração — por exemplo, sem dados, não solicitado ou indisponível — e não significam, por si sós, problema de segurança no site.</div>"
         integration_modals.append(_modal(mid,_friendly_service(item.get("integration_id")),"Integração externa/reutilizada do CAT-10",body))
 
     resource_groups={}
@@ -382,7 +506,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
             item.get("library") or "-",
             item.get("version") or "Versão não determinada",
             item.get("ecosystem") or "-",
-            item.get("identification_method") or "-",
+            _security_identification_method_label(item.get("identification_method")),
             _confidence_label(item.get("confidence")),
         ))
 
