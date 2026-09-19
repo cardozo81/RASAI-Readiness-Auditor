@@ -331,7 +331,7 @@ class CapabilityUI:
 
 CAPABILITIES = (
     CapabilityUI("domain-discovery","Domínio e descoberta","robots.txt, sitemaps/feeds, crawler controls, descoberta e llms.txt.",automatic=True),
-    CapabilityUI("accessibility","Acessibilidade","Evidências de acessibilidade; Lighthouse pode enriquecer a análise.",automatic=True),
+    CapabilityUI("accessibility","Acessibilidade","Diagnóstico automatizado baseado no artifact Lighthouse/PageSpeed quando disponível.",automatic=True),
     CapabilityUI("web-performance","Web Performance","Coleta PageSpeed/Lighthouse/CrUX e limites relacionados.","6"),
     CapabilityUI("standards","Métricas e padrões","Serviços/métricas complementares baseados em padrões web."),
     CapabilityUI("search-intelligence","Search Intelligence","Observação SERP com provider, limites e compatibilidade validados antes da execução.","T"),
