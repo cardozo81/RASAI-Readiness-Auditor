@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import date
 from html import escape
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 import sqlite3
 from typing import Any
 
@@ -142,7 +143,7 @@ def write_impact_report(report_dir: str | Path, result: ComparisonResult, analys
 
 
 def _observed_snapshot(workspace: Path) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
-    database = workspace / "observability.db"
+    database = observability_database_path(workspace)
     if not database.is_file():
         return {}, {}
     connection = sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True)
