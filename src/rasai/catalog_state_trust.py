@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 from typing import Any
 
 _INSTALLED = False
@@ -61,7 +62,7 @@ def _browser_performance_count(database: Any, audit_id: str) -> int:
 
 
 def _crux_history_count(database: Any) -> int:
-    sidecar = Path(database).parent / "observability.db"
+    sidecar = observability_database_path(Path(database).parent)
     if not sidecar.is_file():
         return 0
     connection = sqlite3.connect(sidecar)
