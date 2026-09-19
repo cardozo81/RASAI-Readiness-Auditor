@@ -143,7 +143,7 @@ Consolidar recomendações repetitivas por causa raiz quando a evidência permit
 Gerar recomendações técnicas mesmo sem IA.
 
 ### FR-GEO-046
-Gerar a projeção HTML audit-owned em `report-catalog/`, com `report-catalog/index.html` como ponto de entrada, após a produção dos dados funcionais da auditoria. Não gerar `report/`, `report.html` ou `remediation.html` para a família convencional removida.
+Gerar a projeção HTML audit-owned em `report-catalog/`, com `report-catalog/index.html` como ponto de entrada, após a produção dos dados funcionais da auditoria. `report/`, `report.html` e `remediation.html` não fazem parte do output de `rasai audit`.
 
 ### FR-GEO-047
 Produzir `report-catalog/` local e navegável sem servidor Web, usando dependências relativas internas ao workspace.
@@ -230,7 +230,7 @@ Expor `--device-context mobile|desktop|both` e `RASAI_DEVICE_CONTEXT`, com prece
 O contexto de dispositivo selecionado deve controlar rendering e, por consequência, os contextos enviados ao provider semântico; nenhum provider deve ser chamado para dispositivo sem snapshot selecionado.
 
 ### FR-GEO-075
-Projetar o contexto Mobile/Desktop persistido nas superfícies responsáveis de `report-catalog/`, sem recriar as antigas páginas `report/mobile.html` e `report/desktop.html`. Contexto não executado deve permanecer explicitamente distinguível de contexto executado.
+Projetar o contexto Mobile/Desktop persistido nas superfícies responsáveis de `report-catalog/`. `report/mobile.html` e `report/desktop.html` não são superfícies do contrato atual. Contexto não executado deve permanecer explicitamente distinguível de contexto executado.
 
 ### FR-GEO-076
 Separar telemetria operacional de IA e fundamentação técnica nas superfícies de governança do `report-catalog/`, evitando confundir erro de provider com qualidade do website.
