@@ -7,7 +7,6 @@ Desktop snapshots cannot double-count the same physical request.
 """
 from __future__ import annotations
 
-from html import escape
 import json
 import math
 import sqlite3
@@ -15,7 +14,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from rasai.persistence import AuditWorkspace
-from rasai.standards_metrics import _fmt_metric, _insert_panel, _record, load_metrics
+from rasai.standards_metrics import _record
 from rasai.standards_service_registry import service
 
 _OPERATIONAL_METRIC_IDS = (
@@ -298,49 +297,6 @@ def reconcile_operational_http_metrics(*, audit_id: str, workspace: AuditWorkspa
                 )
     finally:
         connection.close()
-
-
-def enrich_operational_http_report(*, audit_id: str, workspace: AuditWorkspace) -> None:
-    metrics = {
-        str(row["metric_id"]): row
-        for row in load_metrics(audit_id, workspace)
-        if str(row["metric_id"]) in _OPERATIONAL_METRIC_IDS
-    }
-    if not metrics:
-        return
-    preferred = (
-        "http_physical_observation_coverage",
-        "http_2xx_success_rate",
-        "http_4xx_rate",
-        "http_5xx_rate",
-        "transport_error_rate",
-        "transport_timeout_rate",
-        "redirect_rate",
-        "redirect_completion_rate",
-        "cross_host_redirect_rate",
-        "http_acquisition_duration_p50",
-        "http_acquisition_duration_p75",
-        "http_acquisition_duration_p95",
-        "http_acquisition_duration_p99",
-    )
-    cards = []
-    for metric_id in preferred:
-        row = metrics.get(metric_id)
-        if row is None:
-            continue
-        cards.append(
-            "<div class='metric'><small>" + escape(str(row["label"])) + "</small><strong>"
-            + _fmt_metric(row) + "</strong><span>URL_SET - aquisição física M2 por URL</span></div>"
-        )
-    _insert_panel(
-        workspace.root / "report" / "crawling-discovery.html",
-        "RASAI_OPERATIONAL_HTTP_METRICS",
-        "<section class='panel'><h2>HTTP operacional por aquisição física</h2>"
-        "<p>Uma observação corresponde a uma aquisição M2 por URL. Snapshots Mobile/Desktop não multiplicam a mesma request. "
-        "Timeouts e erros de transporte permanecem no denominador da taxa de sucesso. Percentis de duração usam duration_ms do M2 e não representam TTFB de browser ou CrUX.</p>"
-        "<div class='metric-grid'>" + "".join(cards) + "</div>"
-        "<p><a href='standards.html'>Abrir metodologia, fontes e demais métricas</a></p></section>",
-    )
 
 
 def install() -> None:
