@@ -128,9 +128,7 @@ def install() -> None:
     facade.refresh_specs()
 
     # Interactive-console execution does not pass through the top-level CLI safety
-    # installer. Compose the same pre-M9 bounded SARI corroboration and its public
-    # report disclosure here. Both installers are idempotent.
+    # installer. Keep the same pre-M9 bounded SARI corroboration, but do not install
+    # the retired conventional HTML disclosure layer.
     from rasai.external_sari import install as install_external_sari
-    from rasai.external_sari_reporting import install as install_external_sari_reporting
     install_external_sari()
-    install_external_sari_reporting()
