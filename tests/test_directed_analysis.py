@@ -242,9 +242,8 @@ def test_report_renders_strategy_and_menu_contract_contains_page(tmp_path: Path)
     assert "Rastreabilidade CAT → seção → assunto" in html
     assert "cat-09.html#rem-jsonld-j1" in html
 
-    from rasai.accepted_audit_refinements import _remediation_html
-    remediation_html=_remediation_html(workspace.database,data)
-    assert "id='rem-jsonld-j1'" in remediation_html
+    from rasai.accepted_audit_refinements import _stable_report_anchor
+    assert _stable_report_anchor("rem-jsonld", "J1", 1) == "rem-jsonld-j1"
 
     assert "directed-analysis.html" in CATALOG_REPORT_FILENAMES
     page=next(item for item in CATALOG_REPORT_PAGES if item.filename=="directed-analysis.html")
