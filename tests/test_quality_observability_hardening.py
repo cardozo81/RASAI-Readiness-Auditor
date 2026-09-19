@@ -18,7 +18,6 @@ from rasai.observability.gsc_resources import collect_sites, collect_sitemaps
 from rasai.observability.store import Dataset, ObservabilityStore, new_dataset
 from rasai.quality.analysis import analyze_quality
 from rasai.quality.content_controls import analyze_content_controls
-from rasai.quality.reporting import write_quality_report
 from rasai.quality.verification import verify_fixes
 
 
@@ -391,7 +390,7 @@ def test_release_gate_excludes_non_deterministic_families_until_opt_in() -> None
     assert {item.domain for item in enabled.blocking_events} == {"PERFORMANCE", "FINDINGS"}
 
 
-def test_quality_report_content_controls_and_freshness_use_persisted_audit_date() -> None:
+def test_quality_analysis_content_controls_and_freshness_use_persisted_audit_date() -> None:
     with tempfile.TemporaryDirectory() as directory:
         workspace = _audit_workspace(
             Path(directory), "AUD-QUALITY", rule_result="FAIL", structured_future_date=True,
@@ -409,13 +408,7 @@ def test_quality_report_content_controls_and_freshness_use_persisted_audit_date(
         assert quality.finding_assessments
         assert quality.coverage_map
         assert any(item.code == "AUDIT-DB-INTEGRITY" and item.status == "PASS" for item in quality.health_checks)
-        path = write_quality_report(workspace)
-        html = path.read_text(encoding="utf-8")
-        assert "Saúde da auditoria" in html
-        assert "Confiança da evidência" in html
-        assert "Mapa de cobertura" in html
-        assert "Controles de conteúdo para Search e IA" in html
-        assert "quality.html" in (workspace / "report" / "index.html").read_text(encoding="utf-8")
+        assert not (workspace / "report").exists() or not (workspace / "report" / "quality.html").exists()
 
 
 def test_fix_verification_requires_persisted_rule_transition() -> None:
