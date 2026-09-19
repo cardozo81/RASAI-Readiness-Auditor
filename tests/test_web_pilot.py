@@ -66,10 +66,10 @@ def _seed(database: Path, root: Path) -> dict[str, object]:
         )
 
         workspace = root / "AUD-WEB-PILOT"
-        report = workspace / "report"
+        report = workspace / "report-catalog"
         (report / "css").mkdir(parents=True)
         (report / "index.html").write_text(
-            '<!doctype html><html><head><link rel="stylesheet" href="css/site.css"></head><body>Tenant A report</body></html>',
+            '<!doctype html><html><head><link rel="stylesheet" href="css/site.css"></head><body>Tenant A catalog report</body></html>',
             encoding="utf-8",
         )
         (report / "css" / "site.css").write_text("body{font-family:sans-serif}", encoding="utf-8")
@@ -179,7 +179,7 @@ def test_pilot_projections_preserve_tenant_scope() -> None:
             assert pair.json()["current_audit_id"] == seeded["audit"].audit_id
 
 
-def test_report_boundary_serves_only_authorized_public_report_tree() -> None:
+def test_report_boundary_serves_only_authorized_catalog_report_tree() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         database = root / "platform.db"
