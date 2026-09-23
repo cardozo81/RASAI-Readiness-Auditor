@@ -1,0 +1,114 @@
+# Capacidades de monitoramento, observabilidade e qualidade
+
+**Estado:** vigente.
+
+Este documento resume as capacidades presentes no contrato atual do RASAi para monitoramento longitudinal, observabilidade de Search & AI e verificação de qualidade.
+
+## Monitoramento longitudinal
+
+- comparação somente leitura de workspaces `AUD-*` persistidos;
+- semântica explícita para os estados técnicos `REGRESSED`, `IMPROVED`, `CHANGED`, `NEW`, `RESOLVED`, `DATA_UNAVAILABLE` e `NOT_COMPARABLE`;
+- nenhuma conversão silenciosa entre contratos de scoring;
+- limiares de materialidade por família de sinal;
+- Release Gate determinístico;
+- comportamento padrão *fail-closed* quando o par de auditorias não é comparável;
+- falhas materiais classificadas como `NEW` bloqueiam por padrão;
+- sobrescritas operacionais explícitas `--allow-noncomparable` e `--allow-new-failures`;
+- famílias opcionais - regras semânticas, performance, métricas sintéticas, agregados de findings e dimensões de score - somente entram mediante opção explícita;
+- Change Impact com validação da comparabilidade das janelas e uso de `TEMPORAL_ASSOCIATION_ONLY`, sem atribuição causal.
+
+## Observabilidade de Search & AI
+
+- sidecar `RASAI-OBS-002` com identidade composta de observação `(dataset_id, record_id)`;
+- persistência dos artefatos de origem e de seu SHA-256;
+- descoberta de propriedades do Search Console;
+- leitura somente leitura de Sitemaps do Search Console;
+- Search Analytics;
+- Search Appearance com proveniência distinta;
+- URL Inspection restrita a URLs persistidas no `AUD-*`;
+- falhas sistêmicas de URL Inspection interrompem o lote, em vez de repetir falhas de autenticação, quota ou rede para cada URL;
+- coleta direta de CrUX History;
+- Search Analytics/CrUX, em coleta direta ou importada, limitados à origem auditada;
+- linhas de Search Analytics fora de escopo não são persistidas nas linhas normalizadas nem nos artefatos;
+- Bing Search Performance em modelo *import-first*, com identidade do dataset sensível à superfície;
+- Google Generative AI Performance em modelo *import-first* para Search/Discover;
+- observação do controle Google GenAI `INCLUDE`/`EXCLUDE`/`INHERIT`;
+- importador genérico `RASAI-OBS-IMPORT-001` com validação de URL, origem e período.
+
+## Interpretação de resultados
+
+- métricas ausentes permanecem ausentes; `NULL` nunca é sintetizado como zero;
+- exportações de Google Generative AI Performance permanecem não direcionais no Change Impact quando os valores de origem não permitem concluir uma direção;
+- a seleção do dataset compatível mais recente evita somar duas vezes coletas sobrepostas;
+- associação temporal exige períodos alinhados ou parcialmente sobrepostos.
+
+## Diagnósticos
+
+- Indexability Reality Matrix;
+- Query × Intent Alignment;
+- candidatos conservadores a Potential Search Cannibalization;
+- verificações de documentação de dados estruturados;
+- verificações de `hreflang` e busca internacional;
+- consistência de entidades;
+- diagnósticos de atualização com base em datas persistidas;
+- diagnósticos de recuperação e *chunkability*;
+- agrupamento por template/causa raiz.
+
+Os nomes acima permanecem em inglês quando correspondem ao nome técnico da capacidade ou ao rótulo persistido/exibido pelo produto.
+
+## Qualidade e verificação da auditoria
+
+- saúde da auditoria e qualidade dos dados;
+- confiança da evidência;
+- mapa de cobertura;
+- validação de recomendações;
+- controles do publicador (`nosnippet`, `max-snippet`, `data-nosnippet`, `X-Robots-Tag`);
+- prioridade operacional acionável em P0-P3, excluindo `RESOLVED`/`CLOSED`/`DISMISSED` da fila executiva de trabalho e preservando as evidências necessárias à linha do tempo e às comparações;
+- verificação de correção;
+- linha do tempo de evidências;
+- leituras de artefatos confinadas ao workspace `AUD-*`;
+- gerenciador de dataset de calibração;
+- fingerprint/manifest determinísticos do dataset;
+- gates de suficiência anteriores ao ajuste de modelo;
+- acesso somente leitura aos `AUD-*` de origem;
+- correção da granularidade de feature/target para resultados sem especificidade por dispositivo;
+- distinção explícita `READY_FOR_MODEL_FIT != VALIDATED`.
+
+## Relatórios e navegação
+
+O comando `rasai audit` publica somente a árvore `report-catalog/`. Capacidades de monitoramento, observabilidade e qualidade podem possuir comandos e artefatos derivados próprios; esses artefatos não integram o mini-site da AUD.
+
+- `MON-*/report.html`, `manifest.json` e, opcionalmente, `impact.html` pertencem ao artefato derivado de monitoramento;
+- `VER-*/report.html` pertence ao artefato de verificação;
+- `TIMELINE-*/report.html` pertence ao artefato de linha do tempo;
+- comandos standalone de observabilidade ou qualidade podem materializar suas saídas técnicas próprias, sem transformar `report/` em contrato de saída de `rasai audit`;
+- a navegação do `report-catalog/` deve preservar ordenação, contexto e estado da página ativa sem sugerir que ausência de dado equivale a falha do website.
+
+## Gates de segurança
+
+A cobertura automatizada dedicada inclui:
+
+- identidade composta da observação `(dataset_id, record_id)`;
+- limites rígidos e escopo de origem para Search Analytics;
+- escopo de origem para CrUX direto/importado;
+- isolamento de falhas sistêmicas de URL Inspection;
+- identidade de superfície do Bing;
+- tratamento de métricas ausentes/ambíguas do Google GenAI;
+- comparabilidade do Release Gate e política de falhas `NEW`;
+- prioridades acionáveis de Quality;
+- confinamento de filesystem de Quality;
+- suítes de regressão de crawling/discovery, Synthetic User Experience Apdex, Observed Generative Visibility, qualidade de origem e relatório consolidado.
+
+## Limite metodológico
+
+- `SARI-001` é o índice público de readiness;
+- resultados observados não passam automaticamente a compor o SARI/scoring;
+- Quality oferece suporte à decisão e não constitui outro score de readiness;
+- Monitoring detecta mudança/associação e não infere causalidade.
+
+## Validação operacional
+
+Regressão automatizada é obrigatória para alterações nesses domínios. Smoke test humano sobre `AUD-*` persistidos representativos e integrações externas reais é usado quando há credenciais/acesso de rede e a mudança exige validação ambiental.
+
+Comandos operacionais e procedimento de smoke test: [`MONITORING_OBSERVABILITY.md`](MONITORING_OBSERVABILITY.md).
+Contratos normativos: [`specification/27_MONITORING_OBSERVABILITY.md`](specification/27_MONITORING_OBSERVABILITY.md) e [`specification/28_AUDIT_QUALITY_VERIFICATION.md`](specification/28_AUDIT_QUALITY_VERIFICATION.md).

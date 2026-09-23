@@ -1,0 +1,205 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+from unittest.mock import patch
+
+import pytest
+
+from rasai.m25_cli import DEFAULT_UX_FRUSTRATED_SECONDS, DEFAULT_UX_SATISFIED_SECONDS
+from rasai.platform.secure_store import SecurePlatformStore
+from rasai.worker import _audit_arguments, _run_report_refresh, execute_job
+from rasai.worker_cli import main as worker_main
+
+
+def _scope(store: SecurePlatformStore):
+    organization, workspace, project, prop, environment = store.ensure_local_hierarchy(
+        project_name="Worker",
+        origin="https://worker.example.test",
+    )
+    user = store.get_or_create_user("Operator", email="worker@example.test")
+    store.add_membership(
+        organization.organization_id,
+        user.user_id,
+        "OPERATOR",
+        workspace_id=workspace.workspace_id,
+        project_id=project.project_id,
+    )
+    return project, prop, environment, user
+
+
+def test_audit_job_builds_only_canonical_arguments() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        with SecurePlatformStore(Path(directory) / "platform.db") as store:
+            project, prop, environment, user = _scope(store)
+            job = store.enqueue_execution_job(
+                project_id=project.project_id,
+                property_id=prop.property_id,
+                environment_id=environment.environment_id,
+                job_type="AUDIT",
+                requested_by=user.user_id,
+                payload={
+                    "language": "pt-BR",
+                    "market": "BR",
+                    "max_pages": 25,
+                    "device_context": "mobile",
+                    "ai_provider": "none",
+                    "web_performance": False,
+                    "ai_content_remediation": False,
+                },
+            )
+            argv = _audit_arguments(store, job, Path(directory) / "audits")
+            assert argv[0:2] == ["audit", "https://worker.example.test"]
+            assert "--max-pages" in argv and "25" in argv
+            assert "--device-context" in argv and "mobile" in argv
+            assert "--no-web-performance" in argv
+            assert "--no-ai-content-remediation" in argv
+            assert not any(value in {"cmd", "powershell", "bash", "sh"} for value in argv)
+
+            with pytest.raises(ValueError, match="unsupported AUDIT execution payload"):
+                store.enqueue_execution_job(
+                    project_id=project.project_id,
+                    property_id=prop.property_id,
+                    environment_id=environment.environment_id,
+                    job_type="AUDIT",
+                    requested_by=user.user_id,
+                    payload={"language": "pt-BR", "argv": ["--unsafe"]},
+                )
+
+
+def test_experience_apdex_job_uses_same_default_thresholds_as_cli_runtime() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        with SecurePlatformStore(Path(directory) / "platform.db") as store:
+            project, prop, environment, user = _scope(store)
+            job = store.enqueue_execution_job(
+                project_id=project.project_id,
+                property_id=prop.property_id,
+                environment_id=environment.environment_id,
+                job_type="AUDIT",
+                requested_by=user.user_id,
+                payload={
+                    "synthetic_apdex": True,
+                    "apdex_threshold_seconds": 1.0,
+                    "apdex_experience": True,
+                },
+            )
+            argv = _audit_arguments(store, job, Path(directory) / "audits")
+            satisfied_index = argv.index("--apdex-experience-satisfied-seconds") + 1
+            frustrated_index = argv.index("--apdex-experience-frustrated-seconds") + 1
+            assert argv[satisfied_index] == f"{DEFAULT_UX_SATISFIED_SECONDS:g}"
+            assert argv[frustrated_index] == f"{DEFAULT_UX_FRUSTRATED_SECONDS:g}"
+            assert "--no-apdex-dynatrace-import" in argv
+
+
+def test_report_refresh_job_executes_outside_http_process() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        audits_root = root / "audits"
+        with SecurePlatformStore(root / "platform.db") as store:
+            project, prop, environment, user = _scope(store)
+            job = store.enqueue_execution_job(
+                project_id=project.project_id,
+                property_id=prop.property_id,
+                environment_id=environment.environment_id,
+                job_type="REPORT_REFRESH",
+                requested_by=user.user_id,
+                payload={"surface": "portfolio"},
+            )
+            result = execute_job(store, job, audits_root=audits_root)
+            assert result.result_ref is not None
+            assert not Path(result.result_ref).is_absolute()
+            assert (audits_root / result.result_ref).is_file()
+            assert result.metadata == {"surface": "portfolio"}
+
+
+def test_consolidated_report_worker_scopes_source_audits_to_authorized_environment() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        report = root / "audits" / "consolidated" / "CONS-TEST" / "report.html"
+        manifest = report.parent / "manifest.json"
+        report.parent.mkdir(parents=True)
+        report.write_text("<html>CONS</html>", encoding="utf-8")
+        manifest.write_text(
+            json.dumps({
+                "generation_mode": "DETERMINISTIC",
+                "specialist_ai": {"status": "NOT_REQUESTED"},
+                "consolidation_confidence": {"label": "Alta"},
+            }),
+            encoding="utf-8",
+        )
+
+        class Store:
+            def list_audits(self, *, property_id: str, environment_id: str):
+                assert property_id == "PROP-1"
+                assert environment_id == "ENV-1"
+                return (
+                    SimpleNamespace(audit_id="AUD-001"),
+                    SimpleNamespace(audit_id="AUD-002"),
+                )
+
+        job = SimpleNamespace(
+            job_id="JOB-1",
+            organization_id="ORG-1",
+            project_id="PRJ-1",
+            property_id="PROP-1",
+            environment_id="ENV-1",
+            requested_by="USR-1",
+            payload={
+                "surface": "consolidated",
+                "baseline_audit_id": "AUD-001",
+                "current_audit_id": "AUD-002",
+                "selection_mode": "ALL",
+                "use_ai": False,
+            },
+        )
+        captured = {}
+        selection = SimpleNamespace(
+            url="https://example.test/",
+            device="MOBILE",
+            baseline_audit_id="AUD-001",
+            current_audit_id="AUD-002",
+            audit_ids=("AUD-001", "AUD-002"),
+            selection_mode="ALL",
+        )
+
+        def fake_generate(audits_root, filters):
+            captured["audits_root"] = Path(audits_root)
+            captured["filters"] = filters
+            return SimpleNamespace(
+                report_path=report,
+                manifest_path=manifest,
+                report_dir=report.parent,
+                reused=False,
+            )
+
+        with patch("rasai.consolidation.index.ConsolidationIndex.refresh"), patch(
+            "rasai.consolidation.selection.resolve_selection",
+            return_value=selection,
+        ) as resolve, patch(
+            "rasai.consolidation.service.generate",
+            side_effect=fake_generate,
+        ):
+            result = _run_report_refresh(Store(), job, root / "audits")
+
+        resolve.assert_called_once()
+        assert captured["filters"].audit_ids == ("AUD-001", "AUD-002")
+        assert captured["filters"].urls == ("https://example.test/",)
+        assert captured["filters"].devices == ("MOBILE",)
+        assert captured["filters"].specialist_ai is False
+        assert captured["filters"].selection_mode == "ALL"
+        assert result.result_ref == "consolidated/CONS-TEST/report.html"
+        assert result.metadata["surface"] == "consolidated"
+        assert result.metadata["generation_mode"] == "DETERMINISTIC"
+        assert result.metadata["ai_status"] == "NOT_REQUESTED"
+        assert result.metadata["confidence"] == "Alta"
+
+
+
+
+def test_worker_cli_reports_idle_without_web_dependencies(capsys: pytest.CaptureFixture[str]) -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        code = worker_main(["run-once", "--worker-id", "test-worker", "--audits-root", directory])
+        assert code == 0
+        assert '"status": "IDLE"' in capsys.readouterr().out

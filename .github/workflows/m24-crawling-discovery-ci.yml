@@ -1,0 +1,92 @@
+name: M24 crawling discovery safety
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/m24_*.py'
+      - 'src/rasai/cli_extensions.py'
+      - 'src/rasai/discovery.py'
+      - 'src/rasai/report_navigation.py'
+      - 'src/rasai/public_report_safety.py'
+      - 'tests/test_m24_crawling_discovery.py'
+      - 'tests/test_public_crawling_report_contract.py'
+      - 'tests/test_m2_discovery_http.py'
+      - 'docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md'
+      - 'docs/specification/00_SPEC_INDEX.md'
+      - 'docs/specification/07_FUNCTIONAL_REQUIREMENTS.md'
+      - 'docs/specification/08_TECHNICAL_ARCHITECTURE.md'
+      - 'docs/specification/10_DECISIONS.md'
+      - 'docs/CLI_REFERENCE.md'
+      - 'docs/CONFIGURATION.md'
+      - 'docs/AI_GUIDE.md'
+      - 'docs/OUTPUTS_AND_ARTIFACTS.md'
+      - 'README.md'
+      - '.github/workflows/m24-crawling-discovery-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/m24_*.py'
+      - 'src/rasai/cli_extensions.py'
+      - 'src/rasai/discovery.py'
+      - 'src/rasai/report_navigation.py'
+      - 'src/rasai/public_report_safety.py'
+      - 'tests/test_m24_crawling_discovery.py'
+      - 'tests/test_public_crawling_report_contract.py'
+      - 'tests/test_m2_discovery_http.py'
+      - 'docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md'
+      - 'docs/specification/00_SPEC_INDEX.md'
+      - 'docs/specification/07_FUNCTIONAL_REQUIREMENTS.md'
+      - 'docs/specification/08_TECHNICAL_ARCHITECTURE.md'
+      - 'docs/specification/10_DECISIONS.md'
+      - 'docs/CLI_REFERENCE.md'
+      - 'docs/CONFIGURATION.md'
+      - 'docs/AI_GUIDE.md'
+      - 'docs/OUTPUTS_AND_ARTIFACTS.md'
+      - 'README.md'
+      - '.github/workflows/m24-crawling-discovery-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  m24-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - name: Install package and tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+      - name: Install Playwright Chromium for full regression suite
+        run: python -m playwright install chromium
+      - name: Compile M24 runtime surface
+        run: |
+          python -m compileall -q \
+            src/rasai/m24_ai.py \
+            src/rasai/m24_cli.py \
+            src/rasai/m24_crawling_discovery.py \
+            src/rasai/m24_discovery_extensions.py \
+            src/rasai/m24_reporting.py \
+            src/rasai/public_report_safety.py \
+            src/rasai/cli_extensions.py \
+            src/rasai/discovery.py \
+            src/rasai/report_navigation.py
+      - name: M24 and discovery regression tests
+        run: |
+          python -m pytest -q \
+            tests/test_m24_crawling_discovery.py \
+            tests/test_public_crawling_report_contract.py \
+            tests/test_m2_discovery_http.py
+      - name: Directly affected integration regressions
+        run: |
+          python -m pytest -q \
+            tests/test_m23_integration.py \
+            tests/test_m12_stable_baseline.py
+      - name: Full regression suite
+        run: python -m pytest -q

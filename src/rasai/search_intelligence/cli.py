@@ -1,0 +1,487 @@
+"""CLI surface for provider-neutral Search Intelligence."""
+from __future__ import annotations
+
+import argparse
+from dataclasses import replace
+import os
+from pathlib import Path
+from typing import Sequence
+
+from .competitive_ai import CompetitiveAiState, build_competitive_ai_provider
+from .competitive_ai_runtime import execute_competitive_ai
+from .competitive_runtime import execute_competitive_intelligence
+from .config import SerpRuntimeConfig
+from .content import ContentFetchStatus, PublicWebFetcher
+from .models import DomainMatchStatus, QueryOrigin, SerpQueryRequest, new_identifier
+from .runtime import (
+    execute_search,
+    live_provider_ids,
+    projected_http_request_ceiling,
+    validate_live_provider_engine,
+)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="rasai search",
+        description="Observe traditional Search SERPs without mixing AI-answer observation semantics.",
+    )
+    parser.add_argument("query", nargs="+", help="query/term to observe")
+    parser.add_argument("--domain", required=True, help="customer domain/URL to locate within the observed depth")
+    parser.add_argument("--engine", default="google", help="search engine identifier; live adapter support is provider-specific")
+    parser.add_argument("--country", default="BR", help="country/market code")
+    parser.add_argument("--region", help="optional locality/region passed when supported by the provider")
+    parser.add_argument("--language", default="pt-BR", help="language context")
+    parser.add_argument("--device", choices=("mobile", "desktop"), default="desktop")
+    parser.add_argument("--depth", type=int, default=20, help="requested result depth; bounded by RASAI_SERP_MAX_DEPTH")
+    parser.add_argument(
+        "--mode",
+        choices=("disabled", "live", "fixture"),
+        default=None,
+        help="override RASAI_SERP_MODE (default disabled)",
+    )
+    parser.add_argument(
+        "--provider",
+        choices=live_provider_ids(),
+        default=None,
+        help="live provider adapter; provider-specific details stay outside Search Intelligence core",
+    )
+    parser.add_argument("--fixture", type=Path, help="canonical fixture JSON; no network/quota is consumed")
+    parser.add_argument("--audit-workspace", type=Path, help="existing audit workspace; persists into its audit.db and artifacts/")
+    parser.add_argument(
+        "--query-origin",
+        choices=tuple(item.value for item in QueryOrigin),
+        default=QueryOrigin.MANUAL.value,
+        help="provenance of the query hypothesis/source",
+    )
+    parser.add_argument("--run-id", help="optional caller/session run identifier")
+    parser.add_argument("--dry-run", action="store_true", help="validate limits and show projected request ceiling without calling a provider")
+    parser.add_argument(
+        "--competitive",
+        action="store_true",
+        help="classify observed results ahead of the customer and select bounded Search competitor candidates; no extra network",
+    )
+    parser.add_argument(
+        "--compare-content",
+        action="store_true",
+        help="explicitly fetch selected public pages and produce deterministic customer-vs-leaders content context",
+    )
+    parser.add_argument(
+        "--customer-url",
+        help="explicit customer page for content comparison; useful when the customer is not found within observed SERP depth",
+    )
+    parser.add_argument(
+        "--customer-rendered-artifact",
+        type=Path,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--max-content-pages",
+        type=int,
+        default=3,
+        help="maximum unique competitor candidate pages per query to inspect (default 3)",
+    )
+    parser.add_argument(
+        "--content-timeout",
+        type=float,
+        default=10.0,
+        help="timeout per public content HTTP attempt in seconds (default 10)",
+    )
+    parser.add_argument(
+        "--content-max-bytes",
+        type=int,
+        default=2_000_000,
+        help="maximum HTML response bytes per content page (default 2000000)",
+    )
+    parser.add_argument(
+        "--content-max-redirects",
+        type=int,
+        default=5,
+        help="maximum redirects for explicit content inspection (default 5)",
+    )
+    parser.add_argument(
+        "--ai-competitive",
+        action="store_true",
+        help="run evidence-bound AI recommendations after deterministic content comparison; requires --compare-content",
+    )
+    parser.add_argument(
+        "--ai-provider",
+        choices=("none", "openai", "fixture"),
+        help="Competitive AI provider; defaults to RASAI_SEARCH_AI_PROVIDER or none",
+    )
+    parser.add_argument(
+        "--ai-fixture",
+        type=Path,
+        help="fixture JSON for Competitive AI contract validation; no AI network call",
+    )
+    parser.add_argument("--ai-model", help="optional provider model override for Competitive AI")
+    parser.add_argument(
+        "--ai-reasoning-effort",
+        choices=("none", "low", "medium", "high", "xhigh", "max"),
+        help="OpenAI reasoning effort override for Competitive AI",
+    )
+    parser.add_argument(
+        "--ai-timeout",
+        type=float,
+        default=45.0,
+        help="Competitive AI provider timeout in seconds (default 45)",
+    )
+    parser.add_argument(
+        "--ymyl-mode",
+        choices=("AUTO", "ON", "OFF"),
+        default="AUTO",
+        help="YMYL handling for Competitive AI: AUTO, ON or OFF",
+    )
+    return parser
+
+
+def _render_result(result) -> None:
+    request = result.request
+    observation = result.observation
+    print(f"Query: {request.query}")
+    print(f"Engine/market/device: {request.engine} / {request.country} / {request.device}")
+    print(f"Depth solicitada: {request.depth}")
+    print(f"Domínio de interesse: {request.domain_of_interest}")
+    print(f"Status: {result.domain_status.value}")
+    if observation is None:
+        print("SERP observation: desabilitada; nenhuma chamada externa e nenhum dado observado.")
+        return
+    print(f"Fonte/provider: {observation.provider}")
+    print(f"Data mode: {observation.data_mode.value}")
+    print(f"Coletado em: {observation.collected_at.isoformat()}")
+    print(f"Resultados normalizados: {observation.result_count}")
+    quality = observation.quality_metadata
+    if quality.get("pages_collected") is not None:
+        pages_collected = quality.get("pages_collected")
+        pages_ceiling = quality.get("pages_requested_ceiling")
+        if pages_ceiling is None:
+            print(f"Páginas provider coletadas: {pages_collected} (paginação variável)")
+        else:
+            print(f"Páginas provider coletadas: {pages_collected}/{pages_ceiling}")
+    if quality.get("pagination_ended_before_requested_depth"):
+        print("Observação: o provider encerrou a paginação antes da depth solicitada.")
+    if quality.get("request_budget_ended_before_requested_depth"):
+        print("Observação: o orçamento de requests encerrou a coleta antes da depth solicitada.")
+    if observation.raw_evidence_ref:
+        print(f"Evidência raw: {observation.raw_evidence_ref}")
+    if result.domain_status is DomainMatchStatus.FOUND:
+        print(f"Posição observada: {result.customer_position}")
+        print(f"Resultados acima: {len(result.results_ahead)}")
+        for item in result.results_ahead:
+            print(f"  #{item.position} {item.domain} - {item.url}")
+        if result.competitor_domains_ahead:
+            print("Domínios Search acima: " + ", ".join(result.competitor_domains_ahead))
+    elif result.domain_status is DomainMatchStatus.NOT_FOUND_WITHIN_DEPTH:
+        print(
+            "Interpretação: domínio não encontrado nos resultados coletados dentro da depth solicitada; "
+            "isso NÃO significa que o domínio não ranqueia."
+        )
+    elif result.error_message:
+        print(f"Erro: {result.error_code}: {result.error_message}")
+
+
+def _format_ratio(value: float | None) -> str:
+    return "n/a" if value is None else f"{value * 100:.1f}%"
+
+
+def _render_competitive(analysis) -> None:
+    selection = analysis.selection
+    print("Competitive Search Intelligence:")
+    if not selection.classified_results:
+        print("  Nenhum resultado elegível para classificação no conjunto observado.")
+    else:
+        for item in selection.classified_results:
+            marker = " [selecionado]" if item in selection.selected_candidates else ""
+            print(
+                f"  #{item.result.position} {item.result.domain}: "
+                f"{item.classification.value}{marker}"
+            )
+        print(
+            f"  Candidatos selecionados para conteúdo: {len(selection.selected_candidates)}"
+        )
+
+    print(f"  Comparação de conteúdo: {analysis.comparison_status}")
+    if analysis.comparison_status == "CONTENT_COMPARISON_DISABLED":
+        print("  Coleta adicional de páginas: não solicitada.")
+        return
+    if analysis.comparison_status == "CUSTOMER_URL_REQUIRED":
+        print(
+            "  Para comparar conteúdo quando o domínio não aparece na depth observada, "
+            "informe --customer-url para esta query."
+        )
+        return
+    pages = tuple(
+        page
+        for page in ((analysis.customer_page,) + analysis.competitor_pages)
+        if page is not None
+    )
+    for page in pages:
+        print(
+            f"  Página {page.role}: {page.domain} status={page.status.value} "
+            f"http={page.http_status if page.http_status is not None else 'n/a'}"
+        )
+        if page.status is ContentFetchStatus.OBSERVED:
+            print(
+                "    "
+                f"words={page.word_count} "
+                f"query_body={_format_ratio(page.query_body_coverage)} "
+                f"title_terms={len(page.query_terms_in_title)} "
+                f"heading_terms={len(page.query_terms_in_headings)} "
+                f"jsonld_types={len(page.jsonld_types)}"
+            )
+            if page.content_sha256:
+                print(f"    content_sha256={page.content_sha256}")
+        elif page.error_code:
+            print(f"    {page.error_code}: {page.error_message}")
+
+    if analysis.gaps:
+        print("  Diferenças observadas contra páginas à frente:")
+        for gap in analysis.gaps:
+            print(f"    - {gap.code}: {gap.message}")
+    elif analysis.comparison_status == "CONSOLIDATED":
+        print("  Nenhuma diferença determinística configurada foi sinalizada.")
+    if analysis.comparison_status == "CONSOLIDATED":
+        print(
+            "  Política de interpretação: diferenças são contexto correlacional; "
+            "não são apresentadas como causa do ranking."
+        )
+
+
+def _render_competitive_ai(result) -> None:
+    print(f"Competitive AI: {result.state.value}")
+    if result.reason:
+        print(f"  Motivo: {result.reason}")
+    assessment = result.assessment
+    if assessment is None:
+        return
+    print(f"  Provider/model: {assessment.provider} / {assessment.model or 'n/a'}")
+    print(f"  Intenção da query: {assessment.query_intent}")
+    print(f"  YMYL: {assessment.ymyl_assessment}")
+    print(f"  Resumo: {assessment.summary}")
+    if not assessment.opportunities:
+        print("  Nenhuma oportunidade adicional foi proposta pela IA.")
+        return
+    print("  Oportunidades evidenciadas:")
+    for item in assessment.opportunities:
+        evidence = ", ".join(item.evidence_ids)
+        print(
+            f"    - [{item.priority.value}] {item.category.value}: {item.title} "
+            f"(confiança={item.confidence:.2f}; evidências={evidence})"
+        )
+        print(f"      Recomendação: {item.recommendation}")
+        print(f"      Racional: {item.rationale}")
+        print(f"      Limite causal: {item.causality_note}")
+
+
+def _validate_args(parser: argparse.ArgumentParser, args, config: SerpRuntimeConfig) -> str:
+    del parser
+    if args.depth <= 0:
+        raise ValueError("--depth must be greater than zero")
+    if args.max_content_pages < 0:
+        raise ValueError("--max-content-pages must be >= 0")
+    if args.max_content_pages > config.max_competitors:
+        raise ValueError(
+            f"--max-content-pages {args.max_content_pages} exceeds configured "
+            f"max_competitors {config.max_competitors}"
+        )
+    if args.customer_url and not args.compare_content:
+        raise ValueError("--customer-url requires --compare-content")
+    if args.customer_rendered_artifact and not args.compare_content:
+        raise ValueError("--customer-rendered-artifact requires --compare-content")
+    if args.customer_rendered_artifact and not args.customer_rendered_artifact.is_file():
+        raise ValueError("--customer-rendered-artifact must reference an existing file")
+    if args.ai_competitive and not args.compare_content:
+        raise ValueError("--ai-competitive requires --compare-content")
+    if args.ai_timeout <= 0:
+        raise ValueError("--ai-timeout must be greater than zero")
+    if args.ai_fixture and not args.ai_competitive:
+        raise ValueError("--ai-fixture requires --ai-competitive")
+    if args.ai_provider and not args.ai_competitive:
+        raise ValueError("--ai-provider requires --ai-competitive")
+    if config.mode == "live":
+        validate_live_provider_engine(config.provider, args.engine)
+    provider_name = (
+        args.ai_provider
+        or os.environ.get("RASAI_SEARCH_AI_PROVIDER", "none")
+    ).strip().casefold()
+    if provider_name not in {"none", "openai", "fixture"}:
+        raise ValueError(
+            "RASAI_SEARCH_AI_PROVIDER must be one of: none, openai, fixture"
+        )
+    if provider_name == "fixture" and args.ai_competitive and args.ai_fixture is None:
+        raise ValueError("--ai-provider fixture requires --ai-fixture")
+    return provider_name
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(list(argv) if argv is not None else None)
+    try:
+        config = SerpRuntimeConfig.from_environment(validate=False)
+        if args.mode is not None:
+            config = replace(config, mode=args.mode)
+        if args.provider is not None:
+            config = replace(config, provider=args.provider)
+        if args.fixture is not None:
+            config = replace(config, fixture_path=args.fixture)
+        config = config.validate()
+        ai_provider_name = _validate_args(parser, args, config)
+
+        content_fetcher = PublicWebFetcher(
+            timeout_seconds=args.content_timeout,
+            max_redirects=args.content_max_redirects,
+            max_bytes=args.content_max_bytes,
+        )
+
+        run_id = args.run_id or new_identifier("SERP-RUN")
+        requests = tuple(
+            SerpQueryRequest(
+                query=query,
+                engine=args.engine,
+                country=args.country,
+                region=args.region,
+                language=args.language,
+                device=args.device,
+                depth=args.depth,
+                domain_of_interest=args.domain,
+                run_id=run_id,
+                query_origin=QueryOrigin(args.query_origin),
+                config_metadata={"surface": "cli"},
+            )
+            for query in args.query
+        )
+        if args.dry_run:
+            if len(requests) > config.max_queries:
+                raise ValueError(
+                    f"SERP query count {len(requests)} exceeds configured max_queries {config.max_queries}"
+                )
+            if any(item.depth > config.max_depth for item in requests):
+                raise ValueError(
+                    f"requested SERP depth exceeds configured max_depth {config.max_depth}"
+                )
+            projected = projected_http_request_ceiling(
+                config, depths=(item.depth for item in requests)
+            )
+            if config.provider != "serpapi-bing" and projected > config.max_requests:
+                raise ValueError(
+                    f"worst-case SERP HTTP requests {projected} exceed configured max_requests {config.max_requests}"
+                )
+            print(
+                f"SERP dry-run: mode={config.mode} provider={config.provider} "
+                f"queries={len(requests)} depth={args.depth}"
+            )
+            print(f"SERP HTTP request ceiling: {projected}/{config.max_requests}")
+            if args.compare_content:
+                documents = len(requests) * (1 + args.max_content_pages)
+                attempts = documents * (1 + args.content_max_redirects)
+                print(
+                    "Content HTTP attempt ceiling: "
+                    f"{attempts} ({documents} documents x "
+                    f"{1 + args.content_max_redirects} attempts including redirects)"
+                )
+                print(
+                    "Content comparison is direct public-web acquisition; "
+                    "it consumes no SERP provider quota."
+                )
+            if args.ai_competitive:
+                print(
+                    "Competitive AI call ceiling: "
+                    f"{len(requests)} provider={ai_provider_name}; "
+                    "actual calls require consolidated deterministic content evidence."
+                )
+            print("No provider, content or AI call executed.")
+            return 0
+
+        execution = execute_search(
+            requests,
+            config=config,
+            workspace_root=args.audit_workspace,
+            fixture_path=args.fixture,
+        )
+        competitive_execution = None
+        if args.competitive or args.compare_content:
+            customer_rendered_html = (
+                args.customer_rendered_artifact.read_bytes()
+                if args.compare_content and args.customer_rendered_artifact is not None
+                else None
+            )
+            competitive_execution = execute_competitive_intelligence(
+                execution,
+                content_enabled=args.compare_content,
+                customer_url=args.customer_url,
+                max_competitor_pages=args.max_content_pages,
+                workspace_root=args.audit_workspace,
+                fetcher=content_fetcher if args.compare_content else None,
+                customer_rendered_html=customer_rendered_html,
+                customer_rendered_final_url=args.customer_url,
+            )
+
+        ai_execution = None
+        if args.ai_competitive:
+            if competitive_execution is None:
+                raise ValueError("competitive execution is required for Competitive AI")
+            ai_provider = build_competitive_ai_provider(
+                ai_provider_name,
+                fixture_path=args.ai_fixture,
+                model=args.ai_model,
+                reasoning_effort=args.ai_reasoning_effort,
+                timeout=args.ai_timeout,
+            )
+            ai_execution = execute_competitive_ai(
+                execution,
+                competitive_execution,
+                provider=ai_provider,
+                market=args.country,
+                language=args.language,
+                ymyl_mode=args.ymyl_mode,
+                workspace_root=args.audit_workspace,
+            )
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
+
+    print(f"SERP mode: {execution.mode}")
+    print(f"Provider: {execution.provider}")
+    print(
+        f"HTTP requests: {execution.actual_http_requests} "
+        f"(teto projetado {execution.projected_http_request_ceiling})"
+    )
+    print(
+        f"Persistência: {'audit.db + artifacts' if execution.persisted else 'não solicitada'}"
+    )
+    for index, result in enumerate(execution.results, 1):
+        if index > 1:
+            print("-" * 72)
+        _render_result(result)
+        if competitive_execution is not None:
+            _render_competitive(competitive_execution.analyses[index - 1])
+        if ai_execution is not None:
+            _render_competitive_ai(ai_execution.results[index - 1])
+    if competitive_execution is not None and competitive_execution.content_enabled:
+        print(
+            "Content HTTP requests: "
+            f"{competitive_execution.content_http_requests}"
+        )
+    if ai_execution is not None:
+        print(
+            f"Competitive AI provider calls: {ai_execution.provider_calls}; "
+            f"eligible analyses: {ai_execution.eligible_analyses}"
+        )
+
+    if any(
+        result.domain_status in {DomainMatchStatus.ERROR, DomainMatchStatus.UNAVAILABLE}
+        for result in execution.results
+    ):
+        return 1
+    if ai_execution is not None and any(
+        result.state in {
+            CompetitiveAiState.UNAVAILABLE,
+            CompetitiveAiState.NOT_CONFIGURED,
+        }
+        for result in ai_execution.results
+    ):
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

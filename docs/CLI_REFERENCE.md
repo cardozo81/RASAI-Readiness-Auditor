@@ -1,0 +1,472 @@
+# Referência da CLI
+
+Referência operacional do **RASAi - Search & AI Readiness Auditor**.
+
+## Entradas públicas
+
+```text
+rasai audit ...
+rasai search ...
+rasai search-history ...
+rasai search-monitor ...
+rasai visibility import|report ...
+rasai scoring inspect
+rasai monitor compare|impact|gate ...
+rasai observe ...
+rasai observability ...
+rasai quality report|verify|timeline ...
+rasai platform ...
+rasai-console
+```
+
+## Opções globais
+
+- `-h`, `--help` - ajuda da superfície/comando.
+- `--version` - identificador técnico do pacote.
+- `--config PATH` - arquivo TOML quando suportado pela superfície.
+
+## `audit`
+
+Forma geral:
+
+```powershell
+rasai audit target [target ...] [opções]
+```
+
+### Entrada e contexto
+
+| Opção | Uso |
+|---|---|
+| `target` | domínio/URL HTTP(S) |
+| `--urls-file PATH` | TXT UTF-8 com URL/domínio por linha |
+| `--project TEXT` | nome humano do projeto |
+| `--language CODE` | idioma; default `pt-BR` |
+| `--market CODE` | mercado; default `BR` |
+| `--max-pages N` | máximo determinístico de páginas |
+| `--audits-root PATH` | raiz dos workspaces; default `audits` |
+| `--device-context` | `mobile`, `desktop` ou `both` |
+| `--ai-provider` | `none`, provider explícito/alias do registry ou `auto` |
+| `--ai-model MODEL_ID` | override de modelo para provider explícito |
+
+Default de dispositivo: `mobile`. Override: `RASAI_DEVICE_CONTEXT`.
+
+## Índice e Método de Pontuação de Prontidão
+
+**Search & AI Readiness Index - Índice de Prontidão Search & IA**, versão pública **001**, é o índice apresentado ao usuário; `SARI-001` é o identificador metodológico técnico. O **Método de Pontuação de Prontidão**, versão pública **001**, é a metodologia vigente; `SCORE-GEO-004` permanece como contrato técnico.
+
+Inspeção local do contrato:
+
+```powershell
+rasai scoring inspect
+```
+
+Relatórios canônicos:
+
+```text
+report-catalog/sari.html
+report-catalog/methodology.html
+```
+
+## IA no audit
+
+Providers do registry:
+
+```text
+none
+openai
+deepseek
+mimo
+xai / grok
+qwen
+gemini
+anthropic / claude
+copilot / github-copilot
+auto
+```
+
+`AI=auto` considera todos os providers registrados como `auto_eligible=true` que estejam aptos na execução. Aptidão exige credencial e configuração válidas. Antes de cada necessidade, o runtime remove candidatos em quarentena e estima o custo da requisição para os providers restantes usando modelo, reasoning, input/output esperado, cache observado e a tarifa vigente naquele instante. Providers precificados são tentados do menor para o maior custo estimado; providers sem preço conhecido ficam depois dos precificados e preservam entre si a ordem rotativa determinística do coordenador. Cada provider é tentado no máximo uma vez por necessidade. Condições terminais continuam removidas imediatamente e falhas temporárias continuam sujeitas ao mesmo circuit breaker.
+
+A presença de uma credencial não obriga o provider a participar do AUTO. `RASAI_AI_AUTO_EXCLUDE` aceita uma lista CSV de providers elegíveis a manter fora do pool AUTO daquela configuração, preservando suas chaves/modelos para seleção explícita posterior. Exemplo: `RASAI_AI_AUTO_EXCLUDE=gemini` mantém Gemini apto para uso explícito, mas fora do pool AUTO.
+
+A ordem econômica é recalculada por necessidade e pode mudar por horário, janela peak/off-peak, faixa de contexto, modelo, reasoning ou comportamento de tokens observado durante a execução. O AUTO não troca silenciosamente para Batch, Flex ou outro service tier assíncrono apenas para obter desconto. Preços e janelas considerados estão em [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md).
+
+GitHub Copilot é `explicit-only` e `auto_eligible=false`: mesmo com `COPILOT_GITHUB_TOKEN` configurado, nunca entra em `AI=auto`. O adapter usa o SDK oficial, modelo público `auto`, `use_logged_in_user=False` e sessão sem tools. No fluxo manual, instale o transporte com:
+
+```powershell
+python -m pip install -e ".[copilot]"
+```
+
+O timeout principal é `RASAI_AI_TIMEOUT_SECONDS`, default 180 segundos por tentativa.
+
+### Remediação textual
+
+```text
+--ai-content-remediation
+--no-ai-content-remediation
+RASAI_AI_CONTENT_REMEDIATION
+```
+
+Default OFF. A camada gera sugestões evidence-bound e não recalcula score.
+
+### Remediação técnica
+
+```text
+--ai-technical-remediation
+--no-ai-technical-remediation
+RASAI_AI_TECHNICAL_REMEDIATION
+```
+
+Default OFF. A IA técnica explica/remedia diagnósticos já determinados pelo runtime e permanece advisory.
+
+### Contexto editorial / YMYL / E-E-A-T
+
+Os campos `RASAI_CONTENT_*`, `RASAI_YMYL_CATEGORY`, `RASAI_PAGE_PURPOSE`, `RASAI_INTENDED_AUDIENCE`, `RASAI_EXPERIENCE_REQUIREMENT` e `RASAI_FRESHNESS_SENSITIVITY` aceitam configuração editorial contextual.
+
+Quando um campo está em `auto` e IA está ligada, a configuração persistida continua `AUTO`. A IA pode produzir interpretação transitória para o relatório, baseada apenas no conteúdo/evidências fornecidos. Essa leitura não sobrescreve banco, não vira evidência determinística e não altera diretamente o Índice de Prontidão Search & IA nem o Método de Pontuação de Prontidão.
+
+### Telemetria de IA
+
+Cada chamada externa pode ser auditada em `report-catalog/ai-integrations.html`. O runtime registra request/response sanitizados, provider/modelo, finalidade, duração, status, hashes e truncamento. Secrets e raciocínio privado do provider não são persistidos.
+
+O report usa provider/modelo efetivamente persistidos; não existe allowlist HTML específica que precise ser atualizada para Copilot ou para futuros providers registrados.
+
+Controle de tamanho:
+
+```text
+RASAI_AI_EXCHANGE_LOG_MAX_BYTES
+```
+
+Default: 524288 bytes por lado da comunicação; faixa aceita pelo runtime: 4096 a 4194304.
+
+Documentos:
+
+- [AI_GUIDE.md](AI_GUIDE.md)
+- [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
+- [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md)
+- [AI_RUNTIME_SECURITY.md](AI_RUNTIME_SECURITY.md)
+- [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md)
+- [PROVIDER_SETUP.md](PROVIDER_SETUP.md)
+- [CONTENT_CONTEXT_AI_INTERPRETATION.md](CONTENT_CONTEXT_AI_INTERPRETATION.md)
+
+## Web Performance
+
+```text
+--web-performance
+--no-web-performance
+--web-performance-max-pages N
+--web-performance-timeout-seconds SECONDS
+--web-performance-field-source auto|pagespeed|crux|none
+--lighthouse-categories performance,accessibility,best-practices,seo,agentic-browsing
+```
+
+O adapter PageSpeed vigente aceita e solicita por default no RASAi as categorias:
+
+```text
+performance
+accessibility
+best-practices
+seo
+agentic-browsing
+```
+
+A API PageSpeed Insights v5 expõe `AGENTIC_BROWSING` entre os valores aceitos para `category`. No RASAi, Agentic Browsing permanece uma categoria Lighthouse experimental e externa: sua ausência na resposta não é score zero, não invalida as demais categorias coletadas e seu valor não entra automaticamente no Índice de Prontidão Search & IA nem no Método de Pontuação de Prontidão.
+
+Variáveis principais:
+
+```text
+RASAI_WEB_PERFORMANCE
+RASAI_WEB_PERFORMANCE_MAX_PAGES
+RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS
+RASAI_WEB_PERFORMANCE_FIELD_SOURCE
+RASAI_LIGHTHOUSE_CATEGORIES
+RASAI_PAGESPEED_API_KEY
+RASAI_CRUX_API_KEY
+```
+
+Lab e field data permanecem separados e não entram automaticamente no Índice de Prontidão Search & IA nem no Método de Pontuação de Prontidão.
+
+## Synthetic Navigation Apdex
+
+```text
+--synthetic-apdex
+--no-synthetic-apdex
+--apdex-threshold-seconds SECONDS
+--apdex-samples-per-context N
+--apdex-max-attempts-per-context N
+--apdex-max-pages N
+--apdex-timeout-seconds SECONDS
+--apdex-delay-seconds SECONDS
+--apdex-concurrency 1|2
+
+--apdex-mobile-client-profile PRESET
+--apdex-mobile-hardware-profile PRESET
+--apdex-mobile-network-profile PRESET
+--apdex-desktop-client-profile PRESET
+--apdex-desktop-hardware-profile PRESET
+--apdex-desktop-network-profile PRESET
+--apdex-tablet-client-profile PRESET
+--apdex-tablet-hardware-profile PRESET
+--apdex-tablet-network-profile PRESET
+```
+
+Default OFF. O threshold `T` é obrigatório quando habilitado.
+
+Os nove argumentos de perfil usam a mesma precedência da configuração sintética: **CLI > variável de ambiente > default controlado**. Eles selecionam apenas o envelope de execução - cliente/viewport, slowdown relativo de CPU e rede - e não alteram a fórmula Apdex nem o Índice de Prontidão Search & IA ou o Método de Pontuação de Prontidão. Os equivalentes em ambiente são `RASAI_APDEX_MOBILE_*_PROFILE`, `RASAI_APDEX_DESKTOP_*_PROFILE` e `RASAI_APDEX_TABLET_*_PROFILE`; valores e defaults canônicos estão em [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) e [SYNTHETIC_RUNTIME_PROFILES.md](SYNTHETIC_RUNTIME_PROFILES.md).
+
+Os presets não emulam RAM, GPU, estado térmico ou scheduler físico. O engine executado continua Chromium; identidade/viewport não deve ser interpretada como emulação de Safari/Firefox reais.
+
+Aquisição física compartilhável entre Navigation e Experience Apdex é controlada por:
+
+```text
+RASAI_APDEX_ACQUISITION_MODE=auto|isolated
+```
+
+Default `auto`. O compartilhamento só ocorre quando URL, device, perfil, sessão e requisitos de coleta são compatíveis. Cada Apdex preserva targets, thresholds, classificação e população próprios; o device mix do Experience continua independente. `isolated` mantém as navegações físicas separadas.
+
+## Synthetic User Experience Apdex
+
+```text
+--apdex-experience
+--no-apdex-experience
+--apdex-experience-samples N
+--apdex-experience-max-attempts N
+--apdex-experience-max-pages N
+--apdex-experience-device-mix mobile=60,desktop=35,tablet=5
+--apdex-experience-session-mode cold|warm
+--apdex-experience-kpm KPM
+--apdex-experience-satisfied-seconds SECONDS
+--apdex-experience-frustrated-seconds SECONDS
+--apdex-experience-errors
+--no-apdex-experience-errors
+--apdex-experience-error-scope navigation|first-party|all
+--apdex-experience-settle-seconds SECONDS
+--apdex-experience-delay-seconds SECONDS
+--apdex-experience-concurrency 1|2
+```
+
+A superfície continua sintética, inclusive quando calibrada contra configuração Dynatrace.
+
+O mix acima descreve a população sintética do Synthetic User Experience Apdex e é um contrato de `PROFILE_MEASUREMENT`, separado dos snapshots core. Uma execução com `--device-context mobile` restringe a experiência a 100% MOBILE; `desktop`, a 100% DESKTOP. Com `--device-context both`, o core continua produzindo snapshots MOBILE e DESKTOP, mas o **mix Experience explicitamente configurado é preservado**, inclusive TABLET quando presente. TABLET não se torna um `DeviceContext` core e não é solicitado implicitamente por um audit mobile-only ou desktop-only.
+
+O default `mobile=60,desktop=35,tablet=5` é uma política sintética RASAi, não uma estatística oficial ou alegação de distribuição real. Para comparação com RUM ou com uma aplicação específica, prefira o mix observado da população real.
+
+## Search Intelligence
+
+### Observação pontual
+
+```powershell
+rasai search "termo" --domain cliente.example [opções]
+```
+
+Opções relevantes:
+
+```text
+--mode disabled|live|fixture
+--provider PROVIDER
+--depth N
+--country CODE
+--region TEXT
+--language CODE
+--device desktop|mobile
+--competitive
+--compare-content
+--customer-url URL
+--max-content-pages N
+--ai-competitive
+--ai-provider PROVIDER
+--ymyl-mode AUTO|ON|OFF
+--audit-workspace PATH
+--dry-run
+```
+
+Providers SERP live atuais:
+
+```text
+serpapi       -> RASAI_SERPAPI_API_KEY
+serpapi-bing  -> RASAI_SERPAPI_API_KEY
+zenserp       -> RASAI_ZENSERP_API_KEY
+scrapingdog   -> RASAI_SCRAPINGDOG_API_KEY
+```
+
+O console exibe a URL oficial de cadastro/login e a variável de credencial correspondente. Nenhum provider SERP externo atual é classificado pelo RASAi como gratuito e ilimitado; ofertas free tier conhecidas possuem limites próprios. `RASAI_SERP_MAX_REQUESTS` é teto de tentativas HTTP do RASAi, não garantia de equivalência 1:1 com créditos comerciais.
+
+`NOT_FOUND_WITHIN_DEPTH` significa apenas que o domínio não foi observado na profundidade solicitada. Search Intelligence é non-scoring.
+
+No `rasai-console`, quando termos SERP fazem parte da sessão, a etapa Search Intelligence integra o mesmo relógio de duração e o progresso global da auditoria. As consultas são acompanhadas por termo. Erros do provider permanecem fail-open para a auditoria principal: o diagnóstico original é persistido e categorizado como limitação técnica ou de conta/negócio quando identificável. O CAT-05 projeta a posição observada e o estado da capacidade a partir desses dados.
+
+A comparação de conteúdo competitivo é opt-in porque baixa páginas públicas adicionais. Quando não habilitada, a classificação SERP pode existir sem listas de diferenças de conteúdo; o CAT-05 deve explicar essa ausência em vez de apresentar listas vazias como se fossem uma conclusão analítica. Recomendações competitivas por IA exigem comparação determinística consolidada e permanecem evidence-bound e não causais.
+
+O CAT-05 projeta o campo `provider` persistido por observação; não mantém allowlist visual específica de SerpApi/Zenserp/ScrapingDog.
+
+### Histórico
+
+```powershell
+rasai search-history --baseline-workspace audits/AUD-BASELINE --current-workspace audits/AUD-CURRENT
+```
+
+Também pode operar por milestone e modos `AUTO`, `GOLDEN` ou `EXPLICIT`. Comparações só produzem delta numérico quando o contexto observado é compatível.
+
+### Monitoramento recorrente
+
+```text
+rasai search-monitor query add ...
+rasai search-monitor query list
+rasai search-monitor query enable --query-id ID
+rasai search-monitor query disable --query-id ID
+rasai search-monitor run --query-id ID
+rasai search-monitor run-due
+rasai search-monitor history --query-id ID
+rasai search-monitor report
+```
+
+O scheduler usa a Product Platform. Credenciais BYOK não são gravadas em schedules.
+
+Documentos:
+
+- [SERP_OBSERVATION.md](SERP_OBSERVATION.md)
+- [SEARCH_INTELLIGENCE_HISTORY.md](SEARCH_INTELLIGENCE_HISTORY.md)
+- [SEARCH_INTELLIGENCE_MONITORING.md](SEARCH_INTELLIGENCE_MONITORING.md)
+- [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md)
+- [PROVIDER_SETUP.md](PROVIDER_SETUP.md)
+
+## Observed Generative Visibility
+
+Import:
+
+```powershell
+rasai visibility import --audit-id AUD-... --audits-root audits --file observed-visibility.json
+```
+
+
+A importação preserva provenance/artifact e não recalcula scoring.
+
+## RASAi Monitor
+
+```text
+rasai monitor compare ...
+rasai monitor impact ...
+rasai monitor gate ...
+```
+
+`compare` compara dois AUDs; `impact` descreve mudanças observadas em janelas compatíveis sem afirmar causalidade; `gate` aplica critérios de regressão configuráveis.
+
+Exit codes do gate:
+
+```text
+0 PASS
+1 regressão bloqueante
+2 erro de execução/configuração
+```
+
+## Search & AI Observability
+
+Comando principal:
+
+```text
+rasai observe ...
+```
+
+Alias:
+
+```text
+rasai observability ...
+```
+
+Subsuperfícies incluem `status`, `report`, `import`, `bing-import`, `google-ai-import`, `google-ai-control`, `gsc-sites`, `gsc-sitemaps`, `gsc-search`, `gsc-appearance`, `gsc-inspect` e `crux-history`.
+
+Dados externos ficam em `artifacts/observability/observability.db` + artifacts observacionais; `audit.db` permanece a fonte de verdade da auditoria.
+
+## Quality timeline / verification
+
+```text
+rasai quality report ...
+rasai quality verify ...
+rasai quality timeline ...
+```
+
+Use as superfícies de quality para projeções e verificações que não devem modificar evidência histórica.
+
+## Product Platform / SaaS
+
+```text
+rasai platform ...
+```
+
+A Product Platform gerencia Organization, Workspace, Project, Property, Environment, memberships/RBAC, jobs, schedules, milestones e usage ledger conforme o backend configurado.
+
+SQLite continua disponível para operação local; PostgreSQL é o backend centralizado do control plane quando configurado.
+
+## Reprocessamento e consolidação reproduzíveis
+
+Reprocessamento seletivo:
+
+```text
+rasai reprocess AUD-... --audits-root audits
+rasai reprocess AUD-... --item COMPONENTE:ESCOPO --no-use-ai
+rasai reprocess AUD-... --item COMPONENTE:ESCOPO --use-ai --ai-provider openai --ai-model MODELO
+```
+
+Opções adicionais:
+
+```text
+--item CHAVE
+--use-ai | --no-use-ai
+--ai-provider PROVIDER
+--ai-model MODEL
+--ai-reasoning PROFILE
+```
+
+`--item` pode ser repetido. Provider/model/reasoning explícitos exigem `--use-ai`. Sem `--item` e sem política explícita de IA, o comando preserva o comportamento normal de reprocessamento da CLI.
+
+Relatório consolidado:
+
+```text
+rasai consolidate AUD-PRIMEIRO AUD-SEGUNDO --audits-root audits --selection-mode ALL
+rasai consolidate AUD-PRIMEIRO AUD-SEGUNDO --selection-mode SUCCESS_ONLY
+rasai consolidate AUD-PRIMEIRO AUD-SEGUNDO --selection-mode MANUAL --manual-audit-id AUD-INTERMEDIARIO
+rasai consolidate AUD-PRIMEIRO AUD-SEGUNDO --specialist-ai --ai-provider openai
+```
+
+Opções:
+
+```text
+--selection-mode ALL|SUCCESS_ONLY|MANUAL
+--manual-audit-id AUD-...
+--specialist-ai | --no-specialist-ai
+--ai-provider PROVIDER
+--ai-model MODEL
+--ai-reasoning PROFILE
+--ai-timeout-seconds SECONDS
+```
+
+A CLI de consolidação é um adapter fino sobre os mesmos contratos de seleção e geração usados pelo console. Ela não implementa um segundo motor de CONS.
+
+A geração, cópia e agendamento multiplataforma dos comandos está documentada em [EXECUTION_SCHEDULING.md](EXECUTION_SCHEDULING.md).
+
+## Console interativo
+
+```text
+rasai-console
+```
+
+O console monta os mesmos argumentos públicos da CLI, apresenta capacidade dos providers, exposição pré-execução, configuração editorial, Web Performance e demais opções suportadas. Secrets não são gravados no INI. Em `AI=auto`, o usuário pode excluir providers aptos/elegíveis do pool sem apagar ou alterar suas credenciais. Providers `explicit-only`, como Copilot, permanecem fora do pool automaticamente.
+
+## API / execução remota
+
+A Web/API e o console remoto possuem documentação própria porque autenticação, OIDC, control plane, jobs e workers são contratos de deployment diferentes da CLI local:
+
+- [WEB_API_CLI.md](WEB_API_CLI.md)
+- [WEB_API_FOUNDATION.md](WEB_API_FOUNDATION.md)
+- [PRODUCT_PLATFORM_ARCHITECTURE.md](PRODUCT_PLATFORM_ARCHITECTURE.md)
+- [SAAS_PILOT_WEB.md](SAAS_PILOT_WEB.md)
+
+O endpoint `GET /api/v1/audit-job-options` projeta o contrato canônico de opções não secretas. A UI Web deve derivar as opções de provider do `provider_registry`, evitando catálogo hardcoded divergente.
+
+## Princípios de segurança da CLI
+
+- não materializar API keys ou bearer tokens em argumentos/documentação/logs;
+- não transformar falha de provider externo em finding do website;
+- não recalcular evidência histórica para apresentar dado externo novo;
+- não misturar métricas externas com o **Índice de Prontidão Search & IA** sem contrato metodológico versionado;
+- manter retries/fallbacks limitados e observáveis;
+- exigir revisão humana para remediações de conteúdo ou crawling sugeridas por IA.

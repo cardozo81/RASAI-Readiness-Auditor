@@ -1,0 +1,206 @@
+"""Explicit schema administration for the PostgreSQL control plane.
+
+Normal application startup validates schema compatibility but never mutates hosted
+schema. Schema changes are an explicit deployment/development operation through this
+module and the public platform CLI.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+from .postgres_ai_catalog_migration import (
+    AI_CATALOG_SCHEMA_VERSION,
+    apply_ai_catalog_migrations,
+    current_ai_catalog_schema_version,
+    require_current_ai_catalog_schema,
+)
+from .postgres_compat import connect_postgres, redact_postgres_url
+from .postgres_execution_migration import (
+    EXECUTION_SCHEMA_VERSION,
+    apply_execution_migrations,
+    current_execution_schema_version,
+    require_current_execution_schema,
+)
+from .postgres_identity_migration import (
+    IDENTITY_SCHEMA_VERSION,
+    apply_identity_migrations,
+    current_identity_schema_version,
+    require_current_identity_schema,
+)
+from .postgres_migrations import POSTGRES_SCHEMA_VERSION, apply_postgres_migrations
+from .postgres_semantic_profile_migration import (
+    SEMANTIC_PROFILE_SCHEMA_VERSION,
+    apply_semantic_profile_migrations,
+    current_semantic_profile_schema_version,
+    require_current_semantic_profile_schema,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class PostgreSQLSchemaStatus:
+    database: str
+    current_version: int
+    supported_version: int
+    state: str
+    execution_current_version: int = 0
+    execution_supported_version: int = EXECUTION_SCHEMA_VERSION
+    identity_current_version: int = 0
+    identity_supported_version: int = IDENTITY_SCHEMA_VERSION
+    ai_catalog_current_version: int = 0
+    ai_catalog_supported_version: int = AI_CATALOG_SCHEMA_VERSION
+    semantic_profile_current_version: int = 0
+    semantic_profile_supported_version: int = SEMANTIC_PROFILE_SCHEMA_VERSION
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "database": self.database,
+            "current_version": self.current_version,
+            "supported_version": self.supported_version,
+            "execution_current_version": self.execution_current_version,
+            "execution_supported_version": self.execution_supported_version,
+            "identity_current_version": self.identity_current_version,
+            "identity_supported_version": self.identity_supported_version,
+            "ai_catalog_current_version": self.ai_catalog_current_version,
+            "ai_catalog_supported_version": self.ai_catalog_supported_version,
+            "semantic_profile_current_version": self.semantic_profile_current_version,
+            "semantic_profile_supported_version": self.semantic_profile_supported_version,
+            "state": self.state,
+        }
+
+
+def current_postgres_schema_version(connection: Any) -> int:
+    exists = connection.execute(
+        "SELECT to_regclass('public.platform_schema_migrations') AS table_name"
+    ).fetchone()
+    if exists is None or exists[0] is None:
+        return 0
+    row = connection.execute(
+        "SELECT COALESCE(MAX(version),0) AS version FROM platform_schema_migrations"
+    ).fetchone()
+    return int(row[0]) if row is not None else 0
+
+
+def schema_state(version: int) -> str:
+    if version == POSTGRES_SCHEMA_VERSION:
+        return "CURRENT"
+    if version == 0:
+        return "UNINITIALIZED"
+    if version < POSTGRES_SCHEMA_VERSION:
+        return "MIGRATION_REQUIRED"
+    return "NEWER_THAN_RUNTIME"
+
+
+def combined_schema_state(
+    core_version: int,
+    execution_version: int,
+    identity_version: int = IDENTITY_SCHEMA_VERSION,
+    ai_catalog_version: int = AI_CATALOG_SCHEMA_VERSION,
+    semantic_profile_version: int = SEMANTIC_PROFILE_SCHEMA_VERSION,
+) -> str:
+    core = schema_state(core_version)
+    if core != "CURRENT":
+        return core
+    if (
+        execution_version > EXECUTION_SCHEMA_VERSION
+        or identity_version > IDENTITY_SCHEMA_VERSION
+        or ai_catalog_version > AI_CATALOG_SCHEMA_VERSION
+        or semantic_profile_version > SEMANTIC_PROFILE_SCHEMA_VERSION
+    ):
+        return "NEWER_THAN_RUNTIME"
+    if (
+        execution_version < EXECUTION_SCHEMA_VERSION
+        or identity_version < IDENTITY_SCHEMA_VERSION
+        or ai_catalog_version < AI_CATALOG_SCHEMA_VERSION
+        or semantic_profile_version < SEMANTIC_PROFILE_SCHEMA_VERSION
+    ):
+        return "MIGRATION_REQUIRED"
+    return "CURRENT"
+
+
+def require_current_postgres_schema(connection: Any) -> int:
+    version = current_postgres_schema_version(connection)
+    state = schema_state(version)
+    if state == "NEWER_THAN_RUNTIME":
+        raise RuntimeError(
+            f"PostgreSQL control-plane schema {version} is newer than supported {POSTGRES_SCHEMA_VERSION}"
+        )
+    if state != "CURRENT":
+        raise RuntimeError(
+            "PostgreSQL control-plane schema is not current "
+            f"(current={version}, supported={POSTGRES_SCHEMA_VERSION}); "
+            "run 'rasai platform database migrate' before starting the PostgreSQL backend"
+        )
+    require_current_execution_schema(connection)
+    require_current_identity_schema(connection)
+    require_current_ai_catalog_schema(connection)
+    require_current_semantic_profile_schema(connection)
+    return version
+
+
+def postgres_schema_status(database_url: str) -> PostgreSQLSchemaStatus:
+    connection = connect_postgres(database_url)
+    try:
+        version = current_postgres_schema_version(connection)
+        execution_version = current_execution_schema_version(connection)
+        identity_version = current_identity_schema_version(connection)
+        ai_catalog_version = current_ai_catalog_schema_version(connection)
+        semantic_profile_version = current_semantic_profile_schema_version(connection)
+        return PostgreSQLSchemaStatus(
+            database=redact_postgres_url(database_url),
+            current_version=version,
+            supported_version=POSTGRES_SCHEMA_VERSION,
+            execution_current_version=execution_version,
+            execution_supported_version=EXECUTION_SCHEMA_VERSION,
+            identity_current_version=identity_version,
+            identity_supported_version=IDENTITY_SCHEMA_VERSION,
+            ai_catalog_current_version=ai_catalog_version,
+            ai_catalog_supported_version=AI_CATALOG_SCHEMA_VERSION,
+            semantic_profile_current_version=semantic_profile_version,
+            semantic_profile_supported_version=SEMANTIC_PROFILE_SCHEMA_VERSION,
+            state=combined_schema_state(
+                version,
+                execution_version,
+                identity_version,
+                ai_catalog_version,
+                semantic_profile_version,
+            ),
+        )
+    finally:
+        connection.close()
+
+
+def migrate_postgres(database_url: str) -> tuple[PostgreSQLSchemaStatus, tuple[int, ...]]:
+    """Apply pending schema changes explicitly and return the resulting schema state."""
+
+    connection = connect_postgres(database_url)
+    try:
+        applied = apply_postgres_migrations(connection)
+        apply_execution_migrations(connection)
+        apply_identity_migrations(connection)
+        apply_ai_catalog_migrations(connection)
+        apply_semantic_profile_migrations(connection)
+        version = require_current_postgres_schema(connection)
+        execution_version = current_execution_schema_version(connection)
+        identity_version = current_identity_schema_version(connection)
+        ai_catalog_version = current_ai_catalog_schema_version(connection)
+        semantic_profile_version = current_semantic_profile_schema_version(connection)
+        return (
+            PostgreSQLSchemaStatus(
+                database=redact_postgres_url(database_url),
+                current_version=version,
+                supported_version=POSTGRES_SCHEMA_VERSION,
+                execution_current_version=execution_version,
+                execution_supported_version=EXECUTION_SCHEMA_VERSION,
+                identity_current_version=identity_version,
+                identity_supported_version=IDENTITY_SCHEMA_VERSION,
+                ai_catalog_current_version=ai_catalog_version,
+                ai_catalog_supported_version=AI_CATALOG_SCHEMA_VERSION,
+                semantic_profile_current_version=semantic_profile_version,
+                semantic_profile_supported_version=SEMANTIC_PROFILE_SCHEMA_VERSION,
+                state="CURRENT",
+            ),
+            applied,
+        )
+    finally:
+        connection.close()

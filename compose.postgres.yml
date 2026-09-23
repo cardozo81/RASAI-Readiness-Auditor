@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: rasai-postgres-dev
+    restart: unless-stopped
+    env_file:
+      - path: .env.postgres.local
+        required: true
+    environment:
+      TZ: UTC
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - rasai_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rasai_app} -d ${POSTGRES_DB:-rasai_control_plane}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  rasai_postgres_data:
+    name: rasai_postgres_data

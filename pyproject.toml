@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rasai-readiness-auditor"
+version = "0.1.0"
+description = "RASAi - Search & AI Readiness Auditor. Python package namespace: rasai."
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "playwright>=1.57,<2",
+    "tzdata>=2026.1",
+]
+
+[project.optional-dependencies]
+postgresql = [
+    "psycopg[binary]>=3.2,<4",
+]
+web = [
+    "fastapi>=0.116,<1",
+    "uvicorn>=0.35,<1",
+    "httpx>=0.28,<1",
+    "PyJWT[crypto]>=2.10,<3",
+]
+copilot = [
+    "github-copilot-sdk>=1,<2",
+]
+
+[project.scripts]
+rasai = "rasai.entrypoint:main"
+rasai-console = "rasai.console_entrypoint:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+rasai = ["config/*.ini", "config/*.toml"]

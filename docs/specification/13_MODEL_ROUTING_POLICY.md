@@ -1,0 +1,143 @@
+# MODEL_ROUTING_POLICY.md
+
+**Estado:** BASELINE OPERACIONAL VIGENTE  
+**Escopo:** separar a IA usada para desenvolver o RASAi da IA consumida pelo runtime do produto.
+
+## 1. Dois usos distintos de IA
+
+### A. IA usada no desenvolvimento do RASAi
+
+É a ferramenta/agente utilizada para ler especificações, criar ou revisar código, executar testes, diagnosticar problemas e avaliar arquitetura. A escolha depende do ambiente de desenvolvimento e não integra o contrato funcional do runtime.
+
+Quando uma tarefa exigir criar ou editar arquivos em um repositório, a ferramenta utilizada precisa possuir acesso efetivo ao repositório/filesystem ou a um conector autorizado. Um chat sem esse acesso não deve afirmar que gravou arquivos localmente.
+
+### B. IA usada pelo RASAi em tempo de execução
+
+É o conjunto de adapters de IA registrado no `provider_registry` canônico e consumido pela análise semântica e pelas finalidades compatíveis que reutilizam o mesmo contrato de execução.
+
+Os dois usos não devem ser confundidos. O modelo que executa uma atividade de desenvolvimento não define o provider/modelo utilizado pela auditoria do produto.
+
+## 2. Roteamento de esforço no desenvolvimento
+
+A política de desenvolvimento é capability-based:
+
+- tarefa mecânica ou textual → configuração rápida suficiente;
+- implementação ou diagnóstico não trivial → modelo de raciocínio adequado;
+- alteração transversal, scoring, persistência ou segurança → maior capacidade de raciocínio disponível;
+- alteração de arquivos → agente/ferramenta com acesso real ao repositório;
+- ausência de acesso de escrita → não declarar alteração como executada.
+
+Nomes comerciais de modelos de desenvolvimento podem mudar e não constituem requisito normativo do RASAi.
+
+## 3. Tempo de execução multiprovedor vigente
+
+O ambiente de execução atual não está limitado à OpenAI. O registry canônico inclui:
+
+| Seleção canônica | Provider | Aliases CLI relevantes | Participação possível em `AUTO` |
+|---|---|---|---|
+| `openai` | OpenAI | - | sim, se configurado e apto |
+| `deepseek` | DeepSeek | - | sim, se configurado e apto |
+| `mimo` | Xiaomi MiMo | - | sim, se configurado e apto |
+| `xai` | xAI / Grok | `grok` | sim, se configurado e apto |
+| `qwen` | Alibaba Qwen | - | sim, se configurado e apto |
+| `gemini` | Google Gemini | - | sim, se configurado e apto |
+| `anthropic` | Anthropic Claude | `claude` | sim, se configurado e apto |
+| `copilot` | GitHub Copilot | `github-copilot` | **não; explicit-only** |
+| `none` | nenhum provider externo | - | não se aplica |
+| `auto` | coordenador dinâmico | - | usa o pool elegível |
+
+A propriedade `auto_eligible` pertence ao registry; participação efetiva exige também credencial/configuração válidas e ausência de exclusão explícita pelo usuário.
+
+GitHub Copilot é `explicit_only=true` e `auto_eligible=false`. Mesmo com `COPILOT_GITHUB_TOKEN` configurado, ele só é consumido quando selecionado explicitamente. Essa política evita uso involuntário de franquia/créditos da assinatura Copilot.
+
+## 4. Defaults públicos, valores permitidos e recomendação
+
+Os defaults públicos efetivos são definidos por `provider_runtime_policy` e são distintos dos modelos internos de referência e qualificação.
+
+| Provider | Modelo default público | Modelos permitidos pelo registry | Recomendado para operação padrão |
+|---|---|---|---|
+| OpenAI | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | default público, salvo necessidade técnica específica |
+| DeepSeek | `deepseek-v4-flash` | `deepseek-v4-pro`, `deepseek-v4-flash` | default público |
+| MiMo | `mimo-v2.5` | `mimo-v2.5-pro`, `mimo-v2.5` | default público |
+| xAI | `grok-4.6` | conforme registry vigente | default público |
+| Qwen | `qwen3.8-flash` | conforme registry vigente | default público |
+| Gemini | `gemini-3.8-flash` | conforme registry vigente | default público |
+| Anthropic | `claude-sonnet-5` | conforme registry vigente | default público |
+| GitHub Copilot | `auto` | `auto` | deixar SDK/assinatura resolver o modelo disponível; uso explícito |
+
+A referência operacional completa de modelos e variáveis é `../ENVIRONMENT_VARIABLES.md` e deve ser usada quando o conjunto permitido mudar.
+
+Defaults de reasoning do runtime:
+
+| Provider | Default efetivo | Valores permitidos pelo runtime | Recomendado padrão |
+|---|---|---|---|
+| OpenAI | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `NONE` |
+| DeepSeek | `NONE` | `NONE`, `LOW`, `HIGH`, `MAX` | `NONE` |
+| MiMo | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH` | `NONE` |
+| xAI | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH` | `LOW` |
+| Qwen | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` |
+| Gemini | `LOW` | `LOW`, `MEDIUM`, `HIGH` | `LOW` |
+| Anthropic | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `LOW` |
+| GitHub Copilot | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` |
+
+O default de timeout de IA é `180` segundos. Alterações desse valor devem respeitar a validação do runtime e a documentação canônica de ambiente.
+
+## 5. Seleção explícita e `AUTO`
+
+Seleção explícita mantém o provider solicitado e suas regras específicas de retry. Não existe failover cruzado automático para outro fornecedor apenas porque um provider explícito falhou.
+
+`AI=auto`:
+
+1. consulta todos os providers registrados como `auto_eligible`;
+2. exclui providers sem credencial/configuração válida;
+3. aplica `RASAI_AI_AUTO_EXCLUDE` sem apagar credenciais ou impedir seleção explícita posterior;
+4. exclui candidatos já inelegíveis pela saúde/quarentena da execução;
+5. estima, por necessidade, o custo do request usando modelo, reasoning, volume esperado de tokens, cache observado e regra tarifária vigente;
+6. ordena candidatos precificados do menor para o maior custo estimado, mantendo a ordem rotativa determinística do coordenador entre candidatos sem preço conhecido;
+7. tenta cada provider elegível no máximo uma vez por necessidade;
+8. aplica estado de saúde e circuit breaker durante a execução;
+9. encerra a necessidade no primeiro resultado válido.
+
+O ranking é recalculado a cada necessidade e pode mudar por horário, contexto, modelo, reasoning e usage observado. A política não troca silenciosamente para Batch/Flex/assíncrono para obter desconto.
+
+A exclusão de um provider do `AUTO` altera apenas participação no pool daquela política; não remove sua configuração. Providers `explicit-only`, como GitHub Copilot, não entram no pool e não aparecem como candidatos de inclusão/exclusão AUTO.
+
+Preços, janelas tarifárias e heurísticas vigentes: `../AUTO_COST_AWARE_AI_ROUTING.md`.
+
+## 6. Fallback e estado de falha
+
+Ausência de provider configurado ou uso de `none` não transforma limitação do auditor em defeito do website.
+
+Princípios:
+
+- análise determinística continua quando aplicável;
+- regras semânticas sem evidência suficiente podem permanecer `UNKNOWN`;
+- falha de autenticação, quota, crédito, modelo, contrato, rede ou serviço é estado operacional do provider;
+- resultado válido deve satisfazer schema e fechamento de `evidence_ids`;
+- HTTP 200 ou JSON parseável, isoladamente, não prova resposta semântica válida.
+
+## 7. Saúde do provider durante a execução
+
+Falhas terminais podem retirar imediatamente o provider do pool da execução. Falhas temporárias alimentam a janela de saúde; o circuit breaker vigente abre quando três falhas aparecem entre as últimas cinco observações daquele provider.
+
+A política econômica altera somente a ordem dos providers ainda elegíveis. Não reativa quarentena, não muda limiares e não altera configuração global.
+
+## 8. Separação do domínio
+
+Adicionar ou atualizar um adapter de provider não deve exigir redefinir Business Rules, Finding, Score, Report ou Domain Model. Todos os adapters convergem para o contrato semântico normalizado e permanecem sujeitos à validação local do RASAi.
+
+IA não calcula `SARI-001` nem escolhe pesos do `SCORE-GEO-004`.
+
+## 9. Segurança e telemetria
+
+Credenciais não são persistidas no `audit.db`, HTML ou logs. Telemetria deve ser sanitizada e pode registrar provider, modelo, finalidade, duração, status, usage e custo estimado quando houver base confiável.
+
+GitHub Copilot usa o SDK oficial com `use_logged_in_user=False`, token de usuário explicitamente configurado, sessão sem tools e política deny-by-default de permissões. O transporte não autoriza edição, shell ou browser agentic.
+
+O custo persistido é estimativa operacional e não invoice do provider.
+
+## 10. Regra documental
+
+Políticas de branch, PR e merge pertencem ao processo de desenvolvimento e não a este contrato de runtime. Esta especificação deve acompanhar o registry e a `provider_runtime_policy` vigentes em `main`.
+
+A lista operacional de URLs de cadastro/login e obtenção de credenciais fica em `../PROVIDER_SETUP.md`; duplicações documentais devem apontar para essa referência em vez de manter catálogos independentes.

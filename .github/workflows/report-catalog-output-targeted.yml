@@ -1,0 +1,257 @@
+name: Report Catalog Output Targeted
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/passive-security-catalog
+    paths:
+      - 'src/rasai/audit_runner.py'
+      - 'src/rasai/audit_progress_runtime.py'
+      - 'src/rasai/m9.py'
+      - 'src/rasai/cli.py'
+      - 'src/rasai/cli_extensions.py'
+      - 'src/rasai/report_completion.py'
+      - 'src/rasai/entrypoint.py'
+      - 'src/rasai/console_entrypoint.py'
+      - 'src/rasai/console_artifacts.py'
+      - 'src/rasai/context_scope_runtime.py'
+      - 'src/rasai/synthetic_apdex_shared_runtime.py'
+      - 'src/rasai/improvement_intelligence_runtime.py'
+      - 'src/rasai/ai_orchestration_unification.py'
+      - 'src/rasai/ai_orchestration_unification_cleanup.py'
+      - 'src/rasai/ai_efficiency_policy.py'
+      - 'src/rasai/public_contract_gate.py'
+      - 'src/rasai/branding.py'
+      - 'src/rasai/m25_runtime.py'
+      - 'src/rasai/m25_apdex_experience.py'
+      - 'src/rasai/final_smoke_closure.py'
+      - 'src/rasai/post_smoke_alignment.py'
+      - 'src/rasai/progress_completion_refinement.py'
+      - 'src/rasai/runtime_completion_extensions.py'
+      - 'src/rasai/audit_fulfillment.py'
+      - 'src/rasai/governed_report_projection_runtime.py'
+      - 'src/rasai/governed_analysis_runtime.py'
+      - 'src/rasai/runtime_adherence_extensions.py'
+      - 'src/rasai/integration_state_contract.py'
+      - 'src/rasai/standards_runtime.py'
+      - 'src/rasai/standards_structured_data_reconciliation.py'
+      - 'src/rasai/standards_ir_reconciliation.py'
+      - 'src/rasai/standards_operational_reconciliation.py'
+      - 'src/rasai/standards_css_validation.py'
+      - 'src/rasai/standards_gsc_observability_runtime.py'
+      - 'src/rasai/external_observability_runtime.py'
+      - 'src/rasai/external_observability_console.py'
+      - 'src/rasai/external_observability_safety.py'
+      - 'src/rasai/web/pilot.py'
+      - 'src/rasai/audit_reprocess.py'
+      - 'src/rasai/core_reprocessing.py'
+      - 'src/rasai/core_reprocessing_context.py'
+      - 'src/rasai/search_audit_runtime.py'
+      - 'src/rasai/console_search_intelligence.py'
+      - 'src/rasai/console_governed_search_runtime.py'
+      - 'src/rasai/documented_contract_reconciliation.py'
+      - 'src/rasai/runtime_contract_compatibility.py'
+      - 'src/rasai/search_intelligence/runtime.py'
+      - 'src/rasai/search_intelligence/competitive_runtime.py'
+      - 'src/rasai/search_intelligence/competitive_ai_runtime.py'
+      - 'src/rasai/search_intelligence/reporting.py'
+      - 'tests/test_serp.py'
+      - 'tests/test_console_search_intelligence.py'
+      - 'tests/test_documented_contract_reconciliation.py'
+      - 'tests/test_runtime_contract_compatibility.py'
+      - 'tests/test_report_catalog_output_contract.py'
+      - 'tests/test_m12_stable_baseline.py'
+      - 'tests/test_m16_root_cause.py'
+      - 'tests/test_m17_precision_reporting.py'
+      - 'tests/test_web_pilot.py'
+      - 'tests/test_catalog_report_site.py'
+      - 'tests/test_public_contract_gate_catalog.py'
+      - 'tests/test_m25_synthetic_user_experience.py'
+      - 'docs/**'
+      - 'README.md'
+      - '.github/workflows/report-catalog-output-targeted.yml'
+
+jobs:
+  targeted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install package, Web extras and pytest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[web]' pytest
+
+      - name: Compile affected runtime modules
+        run: |
+          python -m py_compile \
+            src/rasai/audit_runner.py \
+            src/rasai/audit_progress_runtime.py \
+            src/rasai/m9.py \
+            src/rasai/cli.py \
+            src/rasai/cli_extensions.py \
+            src/rasai/report_completion.py \
+            src/rasai/entrypoint.py \
+            src/rasai/console_entrypoint.py \
+            src/rasai/console_artifacts.py \
+            src/rasai/context_scope_runtime.py \
+            src/rasai/synthetic_apdex_shared_runtime.py \
+            src/rasai/improvement_intelligence_runtime.py \
+            src/rasai/ai_orchestration_unification.py \
+            src/rasai/ai_orchestration_unification_cleanup.py \
+            src/rasai/ai_efficiency_policy.py \
+            src/rasai/public_contract_gate.py \
+            src/rasai/m25_runtime.py \
+            src/rasai/m25_apdex_experience.py \
+            src/rasai/final_smoke_closure.py \
+            src/rasai/post_smoke_alignment.py \
+            src/rasai/progress_completion_refinement.py \
+            src/rasai/runtime_completion_extensions.py \
+            src/rasai/audit_fulfillment.py \
+            src/rasai/governed_report_projection_runtime.py \
+            src/rasai/governed_analysis_runtime.py \
+            src/rasai/runtime_adherence_extensions.py \
+            src/rasai/integration_state_contract.py \
+            src/rasai/standards_runtime.py \
+            src/rasai/standards_structured_data_reconciliation.py \
+            src/rasai/standards_ir_reconciliation.py \
+            src/rasai/standards_operational_reconciliation.py \
+            src/rasai/standards_css_validation.py \
+            src/rasai/standards_gsc_observability_runtime.py \
+            src/rasai/external_observability_runtime.py \
+            src/rasai/external_observability_console.py \
+            src/rasai/external_observability_safety.py \
+            src/rasai/web/pilot.py \
+            src/rasai/audit_reprocess.py \
+            src/rasai/core_reprocessing.py \
+            src/rasai/core_reprocessing_context.py \
+            src/rasai/search_audit_runtime.py \
+            src/rasai/console_search_intelligence.py \
+            src/rasai/console_governed_search_runtime.py \
+            src/rasai/documented_contract_reconciliation.py \
+            src/rasai/runtime_contract_compatibility.py \
+            src/rasai/search_intelligence/runtime.py \
+            src/rasai/search_intelligence/competitive_runtime.py \
+            src/rasai/search_intelligence/competitive_ai_runtime.py
+
+      - name: Reject non-catalog report generators in runtime imports
+        shell: bash
+        run: |
+          if git grep -n -E 'from rasai\.(m11|m14_reporting|m15_reporting|m16_reporting|m17_reporting|m18_reporting|m19_reporting|report_site|reporting|report_scope_clarity) import|import rasai\.(m11|m14_reporting|m15_reporting|m16_reporting|m17_reporting|m18_reporting|m19_reporting|report_site|reporting|report_scope_clarity)' -- src/rasai; then
+            echo "A non-catalog audit report generator is still imported by runtime source."
+            exit 1
+          fi
+
+      - name: Reject non-catalog report paths in primary audit flow
+        shell: bash
+        run: |
+          files=(
+            src/rasai/audit_runner.py
+            src/rasai/entrypoint.py
+            src/rasai/cli.py
+            src/rasai/cli_extensions.py
+            src/rasai/console_artifacts.py
+            src/rasai/audit_reprocess.py
+            src/rasai/core_reprocessing.py
+            src/rasai/core_reprocessing_context.py
+            src/rasai/web/pilot.py
+          )
+          if git grep -n -E 'report/index\.html|workspace\.root / "report"|workspace / "report"|/ "report\.html"|/ "remediation\.html"' -- "${files[@]}"; then
+            echo "A non-catalog audit report path remains in the primary operational flow."
+            exit 1
+          fi
+
+      - name: Reject Search Intelligence non-catalog HTML projection
+        shell: bash
+        run: |
+          if test -f src/rasai/search_intelligence/reporting.py; then
+            echo "Audit Search HTML renderer still exists."
+            exit 1
+          fi
+          files=(
+            src/rasai/search_audit_runtime.py
+            src/rasai/console_search_intelligence.py
+            src/rasai/console_governed_search_runtime.py
+            src/rasai/search_intelligence/runtime.py
+            src/rasai/search_intelligence/competitive_runtime.py
+            src/rasai/search_intelligence/competitive_ai_runtime.py
+          )
+          if git grep -n -E 'search-intelligence\.html|/ "report"|workspace[^[:space:]]* / "report"|_refresh_search_intelligence_report' -- "${files[@]}"; then
+            echo "Search Intelligence can still create or depend on non-catalog AUD HTML."
+            exit 1
+          fi
+
+      - name: Import affected composition roots
+        run: |
+          python - <<'PY'
+          import rasai.audit_runner
+          import rasai.entrypoint
+          import rasai.console_entrypoint
+          import rasai.report_completion
+          import rasai.audit_reprocess
+          import rasai.web.pilot_app
+          print("affected imports: OK")
+          PY
+
+      - name: Bootstrap AI efficiency policy
+        run: |
+          python - <<'PY'
+          from rasai.ai_efficiency_policy import install
+          install()
+          print("AI efficiency bootstrap: OK")
+          PY
+
+      - name: Bootstrap local console without entering interactive loop
+        run: |
+          python - <<'PY'
+          import rasai.console_entrypoint as console
+          console.interactive_console.main = lambda: 0
+          assert console.main() == 0
+          print("console bootstrap: OK")
+          PY
+
+      - name: Run catalog-only output contract tests
+        run: pytest -q tests/test_report_catalog_output_contract.py
+
+      - name: Validate current documentation contract
+        run: >-
+          pytest -q
+          tests/test_documentation_contract.py
+          tests/test_prepublication_documentation_contract.py
+          tests/test_rasai_sari_branding.py::test_public_documentation_uses_current_contract
+
+      - name: Run directly changed presentation/runtime contracts
+        run: >-
+          pytest -q
+          tests/test_public_contract_gate_catalog.py
+          tests/test_m25_synthetic_user_experience.py::M25SyntheticUserExperienceTests::test_execution_persists_population_tablet_errors_without_html_side_effect
+
+
+      - name: Run Search Intelligence output regressions
+        run: >-
+          pytest -q
+          tests/test_serp.py::RuntimeTests::test_fixture_persists_search_without_creating_report_tree
+          tests/test_console_search_intelligence.py::ConsoleSearchIntelligenceTests::test_execute_search_keeps_audit_binding_without_non_catalog_report
+          tests/test_console_search_intelligence.py::ConsoleSearchIntelligenceTests::test_search_failure_is_recorded_as_optional_limitation
+          tests/test_runtime_contract_compatibility.py::test_public_runtime_composition_skips_contracts_that_are_native
+
+      - name: Run persisted-data regressions
+        run: >-
+          pytest -q
+          tests/test_m12_stable_baseline.py::M12StableBaselineTests::test_end_to_end_pipeline_preserves_data_without_non_catalog_html
+          tests/test_m16_root_cause.py::M16RootCauseTests::test_materializes_exact_set_context_and_global_scopes
+          tests/test_m17_precision_reporting.py::M17PrecisionReportingTests::test_canonical_absence_becomes_precise_cause_and_target_selector
+
+      - name: Run catalog and SaaS boundary regressions
+        run: >-
+          pytest -q
+          tests/test_catalog_report_site.py::test_catalog_report_materializes_without_non_catalog_report_tree
+          tests/test_web_pilot.py::test_report_boundary_serves_only_authorized_catalog_report_tree

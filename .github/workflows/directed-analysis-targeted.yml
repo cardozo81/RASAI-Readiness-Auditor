@@ -1,0 +1,84 @@
+name: Directed Analysis Targeted
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/passive-security-catalog
+    paths:
+      - 'src/rasai/directed_analysis.py'
+      - 'src/rasai/directed_analysis_reporting.py'
+      - 'src/rasai/catalog_report_contract.py'
+      - 'src/rasai/catalog_report_site.py'
+      - 'src/rasai/catalog_report_analysis.py'
+      - 'src/rasai/catalog_report_catalog_state.py'
+      - 'src/rasai/catalog_report_assurance.py'
+      - 'src/rasai/catalog_report_model.py'
+      - 'src/rasai/catalog_report_integrations.py'
+      - 'src/rasai/catalog_report_style.py'
+      - 'src/rasai/accepted_audit_refinements.py'
+      - 'src/rasai/request_remediation_intelligence.py'
+      - 'src/rasai/ai_exchange_log.py'
+      - 'src/rasai/entrypoint.py'
+      - 'src/rasai/audit_reprocess.py'
+      - 'tests/test_directed_analysis.py'
+      - 'tests/test_passive_security_catalog.py'
+      - 'tests/test_catalog_report_assurance.py'
+      - 'tests/test_catalog_report_site.py'
+      - 'tests/test_web_pilot.py'
+      - 'docs/DIRECTED_ANALYSIS.md'
+      - '.github/workflows/directed-analysis-targeted.yml'
+
+jobs:
+  targeted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install package and focused test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[web]' pytest
+
+      - name: Compile only changed runtime modules
+        run: |
+          python -m py_compile \
+            src/rasai/directed_analysis.py \
+            src/rasai/directed_analysis_reporting.py \
+            src/rasai/catalog_report_contract.py \
+            src/rasai/catalog_report_site.py \
+            src/rasai/catalog_report_analysis.py \
+            src/rasai/catalog_report_catalog_state.py \
+            src/rasai/catalog_report_assurance.py \
+            src/rasai/catalog_report_model.py \
+            src/rasai/catalog_report_integrations.py \
+            src/rasai/catalog_report_style.py \
+            src/rasai/accepted_audit_refinements.py \
+            src/rasai/request_remediation_intelligence.py \
+            src/rasai/ai_exchange_log.py \
+            src/rasai/entrypoint.py \
+            src/rasai/audit_reprocess.py
+
+      - name: Run Directed Analysis isolated tests
+        run: pytest -q tests/test_directed_analysis.py
+
+      - name: Run CAT-10 presentation and structural matrix regressions
+        run: >-
+          pytest -q
+          tests/test_passive_security_catalog.py::test_cat10_report_projects_ai_recommendation_on_matching_finding
+          tests/test_catalog_report_assurance.py::test_cat10_translated_configuration_markers_preserve_matrix_contract
+          tests/test_catalog_report_assurance.py::test_nonsecret_cat10_cookie_toggle_is_not_treated_as_persisted_credential
+          tests/test_catalog_report_assurance.py::test_cat10_requested_ai_execution_gap_reduces_structural_assurance
+
+      - name: Run report menu and SaaS exposure regressions
+        run: >-
+          pytest -q
+          tests/test_catalog_report_site.py::test_catalog_report_materializes_without_non_catalog_report_tree
+          tests/test_web_pilot.py::test_saas_report_contract_recognizes_directed_analysis_page

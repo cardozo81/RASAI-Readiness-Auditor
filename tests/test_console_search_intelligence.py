@@ -1,0 +1,245 @@
+from __future__ import annotations
+
+import os
+from contextlib import redirect_stdout
+from io import StringIO
+from pathlib import Path
+import tempfile
+import unittest
+from types import ModuleType, SimpleNamespace
+from unittest.mock import patch
+
+from rasai.console_search_intelligence import (
+    SearchConsoleState,
+    install,
+    build_search_argv,
+    execute_search_for_audit,
+    parse_search_terms,
+    validate_search_readiness,
+)
+from rasai.console_settings import _state_values
+from rasai.search_intelligence.config import (
+    SCRAPINGDOG_KEY_ENV,
+    SERPAPI_KEY_ENV,
+    SERP_MAX_DEPTH_ENV,
+    SERP_MAX_QUERIES_ENV,
+    SERP_MAX_REQUESTS_ENV,
+    SERP_MODE_ENV,
+    SERP_PROVIDER_ENV,
+    ZENSERP_KEY_ENV,
+)
+
+
+class ConsoleSearchIntelligenceTests(unittest.TestCase):
+    def _live_env(self) -> dict[str, str]:
+        return {
+            SERP_MODE_ENV: "live",
+            SERP_PROVIDER_ENV: "serpapi",
+            SERPAPI_KEY_ENV: "opaque-serp-value",
+            SERP_MAX_QUERIES_ENV: "10",
+            SERP_MAX_REQUESTS_ENV: "10",
+            SERP_MAX_DEPTH_ENV: "20",
+        }
+
+    def test_terms_are_execution_input_and_are_deduplicated(self) -> None:
+        self.assertEqual(
+            parse_search_terms("seguro auto; seguro residencial\nSeguro Auto ;  "),
+            ("seguro auto", "seguro residencial"),
+        )
+
+    def test_search_terms_are_not_serialized_into_console_ini_state(self) -> None:
+        state = SearchConsoleState(
+            search_queries=("seguro auto", "seguro residencial"),
+            search_depth=20,
+        )
+        serialized = repr(_state_values(state))
+        self.assertNotIn("seguro auto", serialized)
+        self.assertNotIn("seguro residencial", serialized)
+        self.assertNotIn("search_queries", serialized)
+
+    def test_readiness_requires_selected_live_provider_key_when_terms_exist(self) -> None:
+        state = SimpleNamespace(
+            search_queries=("seguro auto",),
+            search_depth=20,
+            search_device="mobile",
+        )
+        env = self._live_env()
+        env.pop(SERPAPI_KEY_ENV)
+        ready, reason = validate_search_readiness(state, env)
+        self.assertTrue(ready, reason)
+        self.assertIn("Search Intelligence", reason)
+        self.assertNotIn(SERPAPI_KEY_ENV, reason)
+
+    def test_readiness_uses_zenserp_registry_key_without_compat_patch(self) -> None:
+        state = SimpleNamespace(
+            search_queries=("seguro auto",),
+            search_depth=10,
+            search_device="desktop",
+        )
+        env = self._live_env()
+        env[SERP_PROVIDER_ENV] = "zenserp"
+        env.pop(SERPAPI_KEY_ENV)
+        env[ZENSERP_KEY_ENV] = "opaque-zen-value"
+        ready, reason = validate_search_readiness(state, env)
+        self.assertTrue(ready, reason)
+        argv = build_search_argv(
+            state,
+            workspace=Path("audits/AUD-TEST"),
+            target_url="https://example.com/",
+            env=env,
+        )
+        self.assertEqual("google", argv[argv.index("--engine") + 1])
+
+    def test_readiness_uses_scrapingdog_registry_key_without_compat_patch(self) -> None:
+        state = SimpleNamespace(
+            search_queries=("seguro auto",),
+            search_depth=10,
+            search_device="mobile",
+        )
+        env = self._live_env()
+        env[SERP_PROVIDER_ENV] = "scrapingdog"
+        env.pop(SERPAPI_KEY_ENV)
+        env[SCRAPINGDOG_KEY_ENV] = "opaque-dog-value"
+        ready, reason = validate_search_readiness(state, env)
+        self.assertTrue(ready, reason)
+
+    def test_readiness_enforces_query_limit(self) -> None:
+        state = SimpleNamespace(
+            search_queries=("um", "dois"),
+            search_depth=10,
+            search_device="mobile",
+        )
+        env = self._live_env()
+        env[SERP_MAX_QUERIES_ENV] = "1"
+        ready, reason = validate_search_readiness(state, env)
+        self.assertFalse(ready)
+        self.assertIn("excedem", reason)
+
+    def test_build_argv_derives_domain_and_audit_context(self) -> None:
+        state = SimpleNamespace(
+            search_queries=("seguro auto", "seguro residencial"),
+            search_depth=20,
+            search_device="mobile",
+            search_region="Porto Alegre, RS, Brazil",
+            search_competitive=True,
+            market="BR",
+            language="pt-BR",
+        )
+        workspace = Path("audits/AUD-TEST")
+        argv = build_search_argv(
+            state,
+            workspace=workspace,
+            target_url="https://loja.example.com.br/produto",
+            env=self._live_env(),
+        )
+        self.assertEqual(argv[:2], ["seguro auto", "seguro residencial"])
+        self.assertEqual(argv[argv.index("--domain") + 1], "loja.example.com.br")
+        self.assertEqual(argv[argv.index("--engine") + 1], "google")
+        self.assertEqual(argv[argv.index("--audit-workspace") + 1], str(workspace))
+        self.assertEqual(argv[argv.index("--region") + 1], "Porto Alegre, RS, Brazil")
+        self.assertIn("--competitive", argv)
+
+    def test_execute_search_keeps_audit_binding_without_non_catalog_report(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "AUD-TEST"
+            workspace.mkdir(parents=True)
+            state = SearchConsoleState(
+                audits_root=str(root),
+                audit_id="AUD-TEST",
+                market="BR",
+                language="pt-BR",
+                search_queries=("seguro auto",),
+                search_depth=10,
+                search_device="mobile",
+                search_competitive=True,
+            )
+            captured: list[str] = []
+
+            def runner(argv):
+                captured.extend(argv or ())
+                return 0
+
+            with patch.dict(os.environ, self._live_env(), clear=False):
+                code = execute_search_for_audit(
+                    state,
+                    target_url="https://loja.example.com.br/",
+                    runner=runner,
+                )
+
+            self.assertEqual(code, 0)
+            self.assertEqual(state.search_last_status, "COMPLETE")
+            self.assertEqual(state.search_last_report, "")
+            self.assertFalse((workspace / "report").exists())
+            self.assertEqual(captured[captured.index("--domain") + 1], "loja.example.com.br")
+            captured_workspace = captured[captured.index("--audit-workspace") + 1]
+            self.assertEqual(
+                os.path.normcase(os.path.realpath(captured_workspace)),
+                os.path.normcase(os.path.realpath(workspace)),
+            )
+
+    def test_cumulative_usage_reprojects_persisted_search_success(self) -> None:
+        from rasai import console_governed_search_runtime as governed
+
+        module = ModuleType("search_usage_projection_console")
+        module._menu = lambda state: "V"
+        module._configure = lambda state, choice: None
+        module._execution_readiness = lambda state: (True, "ok")
+        module.run_audit_from_console = lambda state: 0
+        module._render_actual_usage = lambda state: print("BASE-USAGE")
+
+        original_installed = getattr(module, "_search_intelligence_console_installed", False)
+        with patch.object(
+            governed,
+            "_project_result",
+            side_effect=lambda state: setattr(state, "search_last_status", "COMPLETE"),
+        ):
+            install(module)
+            state = SearchConsoleState(
+                audit_id="AUD-TEST",
+                audits_root="audits",
+                search_queries=("seguro auto",),
+                search_last_status="NOT_REQUESTED",
+            )
+            with redirect_stdout(StringIO()) as output:
+                module._render_actual_usage(state)
+
+        rendered = output.getvalue()
+        self.assertIn("Search Intelligence   : COMPLETE | termos=1", rendered)
+        self.assertNotIn("NOT_REQUESTED | termos=1", rendered)
+        if not original_installed and hasattr(module, "_search_intelligence_console_installed"):
+            delattr(module, "_search_intelligence_console_installed")
+
+
+    def test_search_failure_is_recorded_as_optional_limitation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "AUD-TEST"
+            workspace.mkdir(parents=True)
+            state = SearchConsoleState(
+                audits_root=str(root),
+                audit_id="AUD-TEST",
+                search_queries=("seguro auto",),
+                search_depth=10,
+                search_device="mobile",
+            )
+
+            def runner(_argv):
+                print("provider unavailable")
+                return 1
+
+            with patch.dict(os.environ, self._live_env(), clear=False):
+                code = execute_search_for_audit(
+                    state,
+                    target_url="https://loja.example.com.br/",
+                    runner=runner,
+                )
+
+            self.assertEqual(code, 1)
+            self.assertEqual(state.search_last_status, "COMPLETE_WITH_LIMITATIONS")
+            self.assertIn("provider unavailable", state.search_last_detail)
+            self.assertEqual(state.search_last_report, "")
+
+
+if __name__ == "__main__":
+    unittest.main()

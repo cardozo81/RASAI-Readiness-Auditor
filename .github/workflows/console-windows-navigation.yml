@@ -1,0 +1,43 @@
+name: Windows Console Navigation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/audit_catalog.py'
+      - 'src/rasai/console_*.py'
+      - 'src/rasai/interactive_console.py'
+      - 'src/rasai/integration_diagnostics_console.py'
+      - 'tests/*console*.py'
+      - 'tests/test_interactive_console.py'
+      - 'tests/test_environment_surface_parity.py'
+      - 'tests/test_prepublication_configuration_contract.py'
+      - 'tests/test_m23_integration.py'
+      - 'tests/test_m25_console_integration.py'
+      - 'tests/test_integration_diagnostics.py'
+      - '.github/workflows/console-windows-navigation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  console-navigation:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package and test runner
+        shell: pwsh
+        run: python -m pip install -e . pytest
+      - name: Public contract gate
+        shell: pwsh
+        run: python -m rasai.public_contract_gate
+      - name: Complete console and navigation regression
+        shell: pwsh
+        run: |
+          $consoleTests = Get-ChildItem tests -Filter '*console*.py' | ForEach-Object { $_.FullName }
+          python -m pytest -q @consoleTests tests/test_interactive_console.py tests/test_environment_surface_parity.py tests/test_prepublication_configuration_contract.py tests/test_m23_integration.py tests/test_m25_console_integration.py tests/test_integration_diagnostics.py

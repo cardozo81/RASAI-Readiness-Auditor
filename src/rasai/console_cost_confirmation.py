@@ -1,0 +1,594 @@
+"""Pre-execution monetary confirmation and post-run cost adherence for the local console."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+import sqlite3
+from types import ModuleType
+from typing import Any
+
+from rasai.console_artifacts import artifact_status
+from rasai.console_cost import actual_usage
+from rasai.cost_forecast import CostForecast, forecast_local_cost
+from rasai.console_ui import CYAN, DIM, GREEN, RED, YELLOW, paint, title_text
+
+_DECLINED: set[int] = set()
+_FORECASTS: dict[int, CostForecast] = {}
+_OUTCOMES: dict[int, "_CostOutcome"] = {}
+_ACTIVE_RUN: tuple[Any, CostForecast] | None = None
+_ALERT_THRESHOLD_PERCENT = 5.0
+
+
+@dataclass(frozen=True, slots=True)
+class _CostOutcome:
+    comparable: bool
+    currency: str | None
+    expected: float | None
+    actual: float | None
+    deviation: float | None
+    deviation_percent: float | None
+    status: str
+    relation: str
+    forecast_pages: int
+    actual_pages: int | None
+    unpriced_ai_attempts: int
+    notes: tuple[str, ...] = ()
+
+
+def _money(value: float | None, currency: str | None) -> str:
+    if value is None or not currency:
+        return "-"
+    return f"{currency} {value:.6f}"
+
+
+def _signed_money(value: float | None, currency: str | None) -> str:
+    if value is None or not currency:
+        return "-"
+    return f"{currency} {value:+.6f}"
+
+
+def _render_forecast(forecast: CostForecast) -> None:
+    print("\n" + title_text("ESTIMATIVA FINANCEIRA ANTES DA EXECUÇÃO"))
+    print("-" * 100)
+    print(
+        "Base histórica      : "
+        f"{forecast.sample_runs} execução(ões), {forecast.sample_calls} chamada(s) com custo conhecido"
+    )
+    print(f"Volume estimado     : {forecast.target_pages} página(s)")
+    print(
+        "Custo só sucessos   : "
+        + paint(_money(forecast.success_baseline, forecast.currency), CYAN, bold=True)
+    )
+    print(
+        "Custo esperado      : "
+        + paint(_money(forecast.expected, forecast.currency), YELLOW, bold=True)
+    )
+    print(
+        "Faixa provável      : "
+        f"{_money(forecast.likely_low, forecast.currency)} - "
+        f"{_money(forecast.likely_high, forecast.currency)}"
+    )
+    print(
+        "Cenário potencial   : "
+        + paint(_money(forecast.potential, forecast.currency), YELLOW, bold=True)
+    )
+    print(f"Confiança            : {paint(forecast.confidence, GREEN if forecast.confidence in {'BOA', 'ALTA'} else YELLOW, bold=True)}")
+    print(f"Reprecificação atual : {forecast.repriced_share * 100:.0f}% das chamadas conhecidas")
+    for note in forecast.notes:
+        print(paint(f"Observação           : {note}", DIM))
+    print(
+        paint(
+            "A execução ainda não iniciou e nenhuma chamada tarifável foi disparada nesta etapa.",
+            GREEN,
+            bold=True,
+        )
+    )
+
+
+def _financial_execution_action(state: Any, console_module: ModuleType) -> str:
+    """The execution-mode choice is the final non-destructive authorization."""
+    print("")
+    print("1. Executar auditoria " + paint("com IA", YELLOW, bold=True))
+    print("2. Executar auditoria " + paint("sem IA", GREEN, bold=True))
+    print("A. Ajustar configuração de IA")
+    print("V. Voltar sem executar")
+    while True:
+        raw = input("Escolha: ").strip().upper()
+        if raw in {"1", "C"}:
+            return "C"
+        if raw in {"2", "N"}:
+            return "N"
+        if raw == "V":
+            return "V"
+        if raw == "A":
+            from rasai.ai_provider_console_management import configure_ai_from_shortcut
+
+            configure_ai_from_shortcut(state, console_module)
+            return "A"
+        print("Opção inválida. Use 1, 2, A ou V.")
+
+
+def _actual_page_count(workspace: Any) -> int | None:
+    if workspace is None:
+        return None
+    database = workspace / "audit.db"
+    if not database.is_file():
+        return None
+    try:
+        connection = sqlite3.connect(f"file:{database.as_posix()}?mode=ro", uri=True, timeout=0.5)
+        try:
+            row = connection.execute("SELECT COUNT(*) FROM pages").fetchone()
+            return int(row[0] or 0) if row else 0
+        finally:
+            connection.close()
+    except sqlite3.Error:
+        return None
+
+
+def _latest_ai_failure_context(workspace: Any) -> str:
+    if workspace is None:
+        return ""
+    database = workspace / "audit.db"
+    if not database.is_file():
+        return ""
+    try:
+        connection = sqlite3.connect(f"file:{database.as_posix()}?mode=ro", uri=True, timeout=0.5)
+        connection.row_factory = sqlite3.Row
+    except sqlite3.Error:
+        return ""
+    try:
+        candidates: list[sqlite3.Row] = []
+        for table in ("ai_provider_attempts", "content_remediation_attempts"):
+            try:
+                row = connection.execute(
+                    f"""
+                    SELECT provider,model,status,http_status,error_class,error_type,error_code,started_at
+                    FROM {table}
+                    WHERE UPPER(COALESCE(status,'')) <> 'SUCCESS'
+                    ORDER BY started_at DESC,rowid DESC
+                    LIMIT 1
+                    """
+                ).fetchone()
+            except sqlite3.Error:
+                continue
+            if row is not None:
+                candidates.append(row)
+        if not candidates:
+            return ""
+        row = max(candidates, key=lambda item: str(item["started_at"] or ""))
+    finally:
+        connection.close()
+
+    parts: list[str] = []
+    provider = str(row["provider"] or "").strip()
+    model = str(row["model"] or "").strip()
+    if provider:
+        parts.append(f"{provider}/{model}" if model else provider)
+    error_class = str(row["error_class"] or "").strip()
+    status = str(row["status"] or "").strip()
+    primary = error_class or status
+    if primary:
+        parts.append(primary)
+    error_code = str(row["error_code"] or "").strip()
+    error_type = str(row["error_type"] or "").strip()
+    code = error_code or error_type
+    if code and code != primary:
+        parts.append(f"code={code}")
+    if row["http_status"] is not None:
+        parts.append(f"HTTP {row['http_status']}")
+    return "; ".join(parts)
+
+
+def _historical_relation(forecast: CostForecast, actual: float) -> str:
+    low = forecast.likely_low
+    high = forecast.likely_high
+    potential = forecast.potential
+    if low is not None and actual < low:
+        return "abaixo da faixa provável histórica"
+    if high is not None and actual <= high:
+        return "dentro da faixa provável histórica"
+    if potential is not None and actual <= potential:
+        return "acima da faixa provável, mas ainda dentro do cenário potencial P90"
+    if potential is not None:
+        return "acima do cenário potencial P90"
+    return "sem faixa histórica suficiente para posicionamento"
+
+
+def _evaluate_cost_outcome(
+    forecast: CostForecast,
+    *,
+    costs: tuple[tuple[str, float], ...],
+    unpriced_ai_attempts: int,
+    actual_pages: int | None,
+    ai_attempts: int | None = None,
+    ai_successes: int | None = None,
+    ai_failure_context: str = "",
+) -> _CostOutcome:
+    expected = forecast.expected
+    currency = forecast.currency
+    notes: list[str] = []
+    observed: float | None = None
+
+    zero_priced_cost = not costs or all(abs(float(amount)) <= 1e-12 for _, amount in costs)
+    ai_requested_without_consumption = (
+        forecast.show_confirmation
+        and expected is not None
+        and expected > 0
+        and bool(currency)
+        and unpriced_ai_attempts <= 0
+        and ai_attempts is not None
+        and ai_successes is not None
+        and ai_successes == 0
+        and zero_priced_cost
+    )
+    if ai_requested_without_consumption:
+        attempts = max(int(ai_attempts or 0), 0)
+        if attempts:
+            notes.append(
+                f"IA foi solicitada e registrou {attempts} tentativa(s), mas nenhuma terminou com sucesso "
+                "ou consumo monetário materializado"
+            )
+        else:
+            notes.append(
+                "IA foi solicitada, mas nenhuma tentativa foi materializada pela telemetria da auditoria"
+            )
+        if ai_failure_context:
+            notes.append(f"Motivo técnico registrado: {ai_failure_context}")
+        else:
+            notes.append(
+                "a causa técnica detalhada não está disponível neste bloco; consulte as pendências do AUD"
+            )
+        notes.append(
+            "custo zero neste cenário não representa aderência à estimativa"
+        )
+        return _CostOutcome(
+            comparable=False,
+            currency=currency,
+            expected=expected,
+            actual=0.0,
+            deviation=None,
+            deviation_percent=None,
+            status="NÃO CONSUMIDO",
+            relation="IA solicitada sem sucesso e sem consumo monetário materializado",
+            forecast_pages=forecast.target_pages,
+            actual_pages=actual_pages,
+            unpriced_ai_attempts=0,
+            notes=tuple(notes),
+        )
+
+    if not forecast.show_confirmation or expected is None or expected <= 0 or not currency:
+        notes.append("estimativa prévia não possui custo esperado monetário comparável")
+    elif unpriced_ai_attempts > 0:
+        matching = [float(amount) for item_currency, amount in costs if item_currency == currency]
+        observed = sum(matching) if matching else 0.0
+        notes.append(
+            f"{unpriced_ai_attempts} tentativa(s) de IA não possuem preço monetário conhecido; "
+            "o custo observado é parcial e não recebe classificação de aderência"
+        )
+    elif len(costs) > 1:
+        notes.append("a execução materializou custos em múltiplas moedas; não há conversão cambial implícita")
+    elif costs and costs[0][0] != currency:
+        notes.append(
+            f"moeda observada ({costs[0][0]}) difere da moeda prevista ({currency}); comparação recusada"
+        )
+    else:
+        observed = float(costs[0][1]) if costs else 0.0
+
+    if observed is None or notes:
+        return _CostOutcome(
+            comparable=False,
+            currency=currency,
+            expected=expected,
+            actual=observed,
+            deviation=None,
+            deviation_percent=None,
+            status="NÃO COMPARÁVEL",
+            relation="cobertura monetária incompleta ou incompatível",
+            forecast_pages=forecast.target_pages,
+            actual_pages=actual_pages,
+            unpriced_ai_attempts=max(int(unpriced_ai_attempts), 0),
+            notes=tuple(notes),
+        )
+
+    deviation = observed - expected
+    deviation_percent = (deviation / expected) * 100.0
+    if deviation_percent <= 0:
+        status = "DENTRO DO ESPERADO"
+    elif round(deviation_percent, 10) <= _ALERT_THRESHOLD_PERCENT:
+        status = "ALERTA"
+    else:
+        status = "CRÍTICO"
+    return _CostOutcome(
+        comparable=True,
+        currency=currency,
+        expected=expected,
+        actual=observed,
+        deviation=deviation,
+        deviation_percent=deviation_percent,
+        status=status,
+        relation=_historical_relation(forecast, observed),
+        forecast_pages=forecast.target_pages,
+        actual_pages=actual_pages,
+        unpriced_ai_attempts=0,
+        notes=(
+            "classificação compara o custo monetário técnico observado com o custo esperado da prévia; "
+            "não representa invoice/fatura do provider",
+        ),
+    )
+
+
+def _build_outcome(state: Any, forecast: CostForecast) -> _CostOutcome | None:
+    if not str(getattr(state, "audit_id", "") or "").strip():
+        return None
+    workspace, _ = artifact_status(state)
+    usage = actual_usage(workspace)
+    if workspace is None or usage is None:
+        return None
+    return _evaluate_cost_outcome(
+        forecast,
+        costs=usage.costs,
+        unpriced_ai_attempts=usage.unpriced_ai_attempts,
+        actual_pages=_actual_page_count(workspace),
+        ai_attempts=usage.ai_attempts,
+        ai_successes=usage.ai_successes,
+        ai_failure_context=_latest_ai_failure_context(workspace),
+    )
+
+
+def _persist_outcome(state: Any, forecast: CostForecast, outcome: _CostOutcome) -> bool:
+    if not str(getattr(state, "audit_id", "") or "").strip():
+        return False
+    workspace, _ = artifact_status(state)
+    if workspace is None:
+        return False
+    database = workspace / "audit.db"
+    if not database.is_file():
+        return False
+    try:
+        connection = sqlite3.connect(database, timeout=1.0)
+        try:
+            with connection:
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS console_cost_forecast_outcomes (
+                        audit_id TEXT PRIMARY KEY REFERENCES audits(audit_id) ON DELETE CASCADE,
+                        evaluated_at TEXT NOT NULL,
+                        currency TEXT,
+                        expected_cost REAL,
+                        actual_cost REAL,
+                        deviation_amount REAL,
+                        deviation_percent REAL,
+                        status TEXT NOT NULL,
+                        relation TEXT NOT NULL,
+                        forecast_pages INTEGER NOT NULL,
+                        actual_pages INTEGER,
+                        likely_low REAL,
+                        likely_high REAL,
+                        potential REAL,
+                        sample_runs INTEGER NOT NULL,
+                        sample_calls INTEGER NOT NULL,
+                        confidence TEXT NOT NULL,
+                        unpriced_ai_attempts INTEGER NOT NULL,
+                        source TEXT NOT NULL,
+                        notes TEXT NOT NULL
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    INSERT OR REPLACE INTO console_cost_forecast_outcomes VALUES (
+                        ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
+                    )
+                    """,
+                    (
+                        state.audit_id,
+                        datetime.now(timezone.utc).isoformat(),
+                        outcome.currency,
+                        outcome.expected,
+                        outcome.actual,
+                        outcome.deviation,
+                        outcome.deviation_percent,
+                        outcome.status,
+                        outcome.relation,
+                        outcome.forecast_pages,
+                        outcome.actual_pages,
+                        forecast.likely_low,
+                        forecast.likely_high,
+                        forecast.potential,
+                        forecast.sample_runs,
+                        forecast.sample_calls,
+                        forecast.confidence,
+                        outcome.unpriced_ai_attempts,
+                        forecast.source,
+                        json.dumps(outcome.notes, ensure_ascii=False, separators=(",", ":")),
+                    ),
+                )
+        finally:
+            connection.close()
+    except sqlite3.Error:
+        return False
+    return True
+
+
+def persist_active_outcome_before_reporting(*, audit_id: str, workspace: Any) -> bool:
+    """Persist the confirmed console forecast only for its exact AUD workspace."""
+    if _ACTIVE_RUN is None:
+        return False
+    state, forecast = _ACTIVE_RUN
+
+    # A module-level console session must never affect a direct CLI/API audit running
+    # in the same Python process. Validate the console root before binding a blank
+    # state.audit_id to the audit currently being finalized.
+    audits_root = getattr(state, "audits_root", None)
+    actual_root = getattr(workspace, "root", workspace)
+    if not audits_root or actual_root is None:
+        return False
+    try:
+        expected_root = (Path(audits_root).expanduser() / audit_id).resolve()
+        resolved_root = Path(actual_root).expanduser().resolve()
+    except (TypeError, ValueError, OSError):
+        return False
+    if expected_root != resolved_root:
+        return False
+
+    current = str(getattr(state, "audit_id", "") or "")
+    if current not in {"", audit_id}:
+        return False
+    if not current:
+        try:
+            state.audit_id = audit_id
+        except Exception:
+            return False
+    outcome = _build_outcome(state, forecast)
+    if outcome is None:
+        return False
+    _OUTCOMES[id(state)] = outcome
+    return _persist_outcome(state, forecast, outcome)
+
+
+def _status_color(status: str) -> str:
+    if status == "CRÍTICO":
+        return RED
+    if status in {"ALERTA", "NÃO COMPARÁVEL", "NÃO CONSUMIDO"}:
+        return YELLOW
+    return GREEN
+
+
+def _render_outcome(forecast: CostForecast, outcome: _CostOutcome) -> None:
+    color = _status_color(outcome.status)
+    print("\n" + title_text("ADERÊNCIA DO CUSTO À ESTIMATIVA PRÉ-EXECUÇÃO"))
+    print("-" * 100)
+    print("Custo esperado      : " + paint(_money(outcome.expected, outcome.currency), CYAN, bold=True))
+    print("Custo observado     : " + paint(_money(outcome.actual, outcome.currency), color, bold=True))
+    if outcome.deviation is not None and outcome.deviation_percent is not None:
+        print(
+            "Desvio vs esperado   : "
+            + paint(
+                f"{_signed_money(outcome.deviation, outcome.currency)} ({outcome.deviation_percent:+.2f}%)",
+                color,
+                bold=True,
+            )
+        )
+    else:
+        print("Desvio vs esperado   : -")
+    print(
+        "Faixa provável      : "
+        f"{_money(forecast.likely_low, forecast.currency)} - {_money(forecast.likely_high, forecast.currency)}"
+    )
+    print("Cenário potencial   : " + _money(forecast.potential, forecast.currency) + " (P90)")
+    actual_pages = str(outcome.actual_pages) if outcome.actual_pages is not None else "-"
+    print(f"Volume previsto/real: {outcome.forecast_pages} / {actual_pages} página(s)")
+    print(f"Posição histórica   : {outcome.relation}")
+    if outcome.status == "ALERTA":
+        explanation = f"custo ficou até {_ALERT_THRESHOLD_PERCENT:.0f}% acima do esperado"
+    elif outcome.status == "CRÍTICO":
+        explanation = f"custo ultrapassou {_ALERT_THRESHOLD_PERCENT:.0f}% acima do esperado"
+    elif outcome.status == "DENTRO DO ESPERADO":
+        explanation = "custo igual ou abaixo do esperado"
+    elif outcome.status == "NÃO CONSUMIDO":
+        explanation = "IA solicitada sem sucesso e sem consumo monetário materializado"
+    else:
+        explanation = "telemetria monetária insuficiente para um veredito confiável"
+    print("Resultado            : " + paint(f"{outcome.status} - {explanation}", color, bold=True))
+    for note in outcome.notes:
+        print(paint(f"Observação           : {note}", DIM))
+    print(
+        paint(
+            "Escopo financeiro: apenas serviços cuja telemetria monetária é conhecida pelo RASAi; "
+            "serviços sem preço canônico permanecem fora desta comparação.",
+            DIM,
+        )
+    )
+
+
+def install(console_module: ModuleType) -> None:
+    """Wrap the final local run contract without changing the audit engine."""
+    if getattr(console_module, "_rasai_cost_confirmation", False):
+        return
+
+    original_run = console_module.run_audit_from_console
+    original_post_run = console_module._post_run_actions
+    original_usage = getattr(console_module, "_render_actual_usage", None)
+
+    def run(state: Any) -> int:
+        global _ACTIVE_RUN
+        forecast = forecast_local_cost(state)
+        if not forecast.show_confirmation:
+            return int(original_run(state) or 0)
+
+        while True:
+            state.operation = "LOCAL:COST_FORECAST"
+            state.error = ""
+            console_module.render_header(state)
+            _render_forecast(forecast)
+            action = _financial_execution_action(state, console_module)
+
+            if action == "A":
+                # Provider/model/credential changes can change the financial projection.
+                # Recompute before asking for execution authorization again.
+                forecast = forecast_local_cost(state)
+                continue
+            if action == "V":
+                _DECLINED.add(id(state))
+                _FORECASTS.pop(id(state), None)
+                _OUTCOMES.pop(id(state), None)
+                _ACTIVE_RUN = None
+                state.status = "READY"
+                state.operation = "LOCAL:COST_DECLINED"
+                state.error = ""
+                return 0
+
+            from rasai.console_catalog_plan import execution_ai_choice
+
+            use_ai = action == "C"
+            if use_ai and forecast.show_confirmation:
+                _FORECASTS[id(state)] = forecast
+                _ACTIVE_RUN = (state, forecast)
+                state.operation = "LOCAL:COST_CONFIRMED"
+            else:
+                _FORECASTS.pop(id(state), None)
+                _OUTCOMES.pop(id(state), None)
+                _ACTIVE_RUN = None
+                state.operation = (
+                    "LOCAL:COST_CONFIRMED"
+                    if use_ai
+                    else "LOCAL:COST_CONFIRMED_NO_AI"
+                )
+
+            with execution_ai_choice(state, use_ai):
+                code = int(original_run(state) or 0)
+
+            if use_ai and forecast.show_confirmation and id(state) not in _OUTCOMES:
+                outcome = _build_outcome(state, forecast)
+                if outcome is not None:
+                    _OUTCOMES[id(state)] = outcome
+            return code
+
+    def usage(state: Any) -> None:
+        if callable(original_usage):
+            original_usage(state)
+        forecast = _FORECASTS.get(id(state))
+        outcome = _OUTCOMES.get(id(state))
+        if forecast is not None and outcome is not None:
+            _render_outcome(forecast, outcome)
+
+    def post_run(state: Any) -> bool:
+        global _ACTIVE_RUN
+        if id(state) in _DECLINED:
+            _DECLINED.discard(id(state))
+            return False
+        try:
+            return bool(original_post_run(state))
+        finally:
+            _FORECASTS.pop(id(state), None)
+            _OUTCOMES.pop(id(state), None)
+            if _ACTIVE_RUN is not None and _ACTIVE_RUN[0] is state:
+                _ACTIVE_RUN = None
+
+    console_module.run_audit_from_console = run
+    if callable(original_usage):
+        console_module._render_actual_usage = usage
+    console_module._post_run_actions = post_run
+    console_module._rasai_cost_confirmation = True

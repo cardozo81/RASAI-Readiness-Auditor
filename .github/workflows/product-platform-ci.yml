@@ -1,0 +1,70 @@
+name: Product platform architecture
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/rasai/**'
+      - 'tests/**'
+      - 'docs/**'
+      - 'README.md'
+      - 'pyproject.toml'
+      - '.github/workflows/product-platform-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/rasai/**'
+      - 'tests/**'
+      - 'docs/**'
+      - 'README.md'
+      - 'pyproject.toml'
+      - '.github/workflows/product-platform-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  platform-linux:
+    name: Platform architecture tests (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - name: Install package and pytest
+        run: python -m pip install -e . pytest
+      - name: Compile product platform
+        run: python -m compileall -q src/rasai/platform src/rasai/entrypoint.py
+      - name: RASAi namespace contract
+        run: python -m pytest -q tests/test_rasai_namespace_contract.py
+      - name: Product platform tests
+        run: python -m pytest -q tests/test_product_platform_architecture.py
+      - name: Existing monitor/quality regressions
+        run: python -m pytest -q tests/test_monitoring_observability.py tests/test_quality_observability_hardening.py
+
+  platform-windows:
+    name: Platform architecture tests (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - name: Install package and pytest
+        run: python -m pip install -e . pytest
+      - name: Compile product platform
+        run: python -m compileall -q src/rasai/platform src/rasai/entrypoint.py
+      - name: Product-platform cross-platform regressions
+        run: >-
+          python -m pytest -q
+          tests/test_rasai_namespace_contract.py
+          tests/test_product_platform_architecture.py
+          tests/test_monitoring_observability.py
+          tests/test_quality_observability_hardening.py

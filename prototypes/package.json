@@ -1,0 +1,16 @@
+{
+  "name": "rasai-web-prototypes",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:rasai": "npm run dev -w @rasai/prototype-client",
+    "dev:backoffice": "npm run dev -w @rasai/prototype-backoffice",
+    "build": "npm run build -ws --if-present",
+    "typecheck": "npm run typecheck -ws --if-present"
+  },
+  "overrides": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  }
+}

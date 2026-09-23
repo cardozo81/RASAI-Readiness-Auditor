@@ -1,0 +1,17 @@
+{
+  "query_intent": "Comparar e contratar seguro automotivo.",
+  "ymyl_assessment": "AUTO: o tema pode envolver decisão financeira; recomendações devem preservar cautela e verificabilidade.",
+  "summary": "A evidência determinística permite priorizar melhoria de cobertura informacional sem inferir causa de ranking.",
+  "opportunities": [
+    {
+      "category": "TOPIC_COVERAGE",
+      "priority": "HIGH",
+      "title": "Ampliar cobertura informacional útil",
+      "recommendation": "Avaliar se a página deve explicar coberturas, exclusões e critérios relevantes à intenção da consulta.",
+      "rationale": "A comparação determinística registrou cobertura inferior da query no conteúdo do cliente.",
+      "evidence_ids": ["CE-GAP-001"],
+      "confidence": 0.88,
+      "causality_note": "A diferença é correlacional e não comprova que o conteúdo observado causou a posição SERP."
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+name: Reprocess Dependencies Targeted
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/passive-security-catalog
+    paths:
+      - 'src/rasai/governed_reprocess_runtime.py'
+      - 'src/rasai/audit_phase_runtime.py'
+      - 'src/rasai/directed_analysis.py'
+      - 'src/rasai/selective_optional_reprocess.py'
+      - 'src/rasai/standards_gsc_observability_runtime.py'
+      - 'src/rasai/external_observability_runtime.py'
+      - 'src/rasai/standards_css_validation.py'
+      - 'tests/test_governed_reprocess_dependencies.py'
+      - 'tests/test_directed_analysis.py'
+      - '.github/workflows/reprocess-dependencies-targeted.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  targeted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install package and pytest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+
+      - name: Compile only changed runtime modules
+        run: |
+          python -m py_compile \
+            src/rasai/governed_reprocess_runtime.py \
+            src/rasai/audit_phase_runtime.py \
+            src/rasai/directed_analysis.py \
+            src/rasai/selective_optional_reprocess.py \
+            src/rasai/standards_gsc_observability_runtime.py \
+            src/rasai/external_observability_runtime.py \
+            src/rasai/standards_css_validation.py
+
+      - name: Run selective dependency contract tests
+        run: pytest -q tests/test_governed_reprocess_dependencies.py
+
+      - name: Run directly affected regressions
+        run: >-
+          pytest -q
+          tests/test_directed_analysis.py::test_reprocess_reuses_unchanged_directed_analysis_without_ai_call
+          tests/test_selective_optional_reprocess.py::test_search_recovery_uses_persisted_contract_and_current_secret
+          tests/test_selective_optional_reprocess.py::test_successful_optional_services_are_reused_by_contextual_hooks
+          tests/test_report_catalog_output_contract.py::test_catalog_projection_is_separate_from_data_finalization

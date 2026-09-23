@@ -1,0 +1,467 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import sqlite3
+from types import SimpleNamespace
+
+import pytest
+
+from rasai.audit_configuration_reuse import configuration_hash
+from rasai.catalog_report_contract import CATALOG_REPORT_FILENAMES, CATALOG_REPORT_PAGES
+from rasai.catalog_report_model import _load_data
+from rasai.directed_analysis import (
+    _catalogs_for_candidate,
+    _provider_config,
+    _validate_ai_output,
+    _validate_references,
+    build_strategic_context,
+    execute_directed_analysis,
+)
+from rasai.directed_analysis_reporting import directed_analysis_body
+
+
+AUDIT_ID = "AUD-DIRECTED"
+
+
+def _workspace(tmp_path: Path, *, ai_enabled: bool = False):
+    root=tmp_path/AUDIT_ID
+    root.mkdir()
+    database=root/"audit.db"
+    configuration={
+        "targets":["https://example.test/"],
+        "audit_catalog":{
+            "version":"1",
+            "selected":["CAT-03","CAT-09"],
+            "ai_enabled":ai_enabled,
+            "items":[
+                {"id":"CAT-03","selected":True,"status":"APTO","ai_mode":"OPTIONAL","ai_execution_enabled":ai_enabled},
+                {"id":"CAT-09","selected":True,"status":"APTO","ai_mode":"OPTIONAL","ai_execution_enabled":ai_enabled},
+            ],
+        },
+    }
+    digest=configuration_hash(configuration)
+    connection=sqlite3.connect(database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE audits(
+                audit_id TEXT PRIMARY KEY,
+                project_name TEXT,
+                status TEXT,
+                completion_status TEXT,
+                primary_language TEXT,
+                market TEXT
+            );
+            CREATE TABLE audit_execution_configurations(
+                audit_id TEXT PRIMARY KEY,
+                configuration_json TEXT,
+                configuration_hash TEXT
+            );
+            CREATE TABLE jsonld_remediation_suggestions(
+                suggestion_id TEXT PRIMARY KEY,
+                audit_id TEXT NOT NULL,
+                page_id TEXT,
+                snapshot_id TEXT,
+                device TEXT,
+                status TEXT,
+                existing_types TEXT,
+                proposed_json TEXT,
+                improvements TEXT,
+                evidence_ids TEXT,
+                created_at TEXT
+            );
+            """
+        )
+        connection.execute(
+            "INSERT INTO audits VALUES (?,?,?,?,?,?)",
+            (AUDIT_ID,"Projeto dirigido","SUCCESS","COMPLETE","pt-BR","BR"),
+        )
+        connection.execute(
+            "INSERT INTO audit_execution_configurations VALUES (?,?,?)",
+            (AUDIT_ID,json.dumps(configuration,ensure_ascii=False),digest),
+        )
+        connection.execute(
+            "INSERT INTO jsonld_remediation_suggestions VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                "J1",AUDIT_ID,"P1","S1","MOBILE","SUGGESTED","[]",
+                json.dumps({"@context":"https://schema.org","@type":"Organization"}),
+                json.dumps(["Criar JSON-LD de organização"],ensure_ascii=False),
+                json.dumps(["EV-J1"]), "2026-09-19T10:00:00+00:00",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+    return SimpleNamespace(root=root,database=database)
+
+
+def test_context_builder_uses_persisted_actions_and_deterministic_catalog_links(tmp_path: Path) -> None:
+    workspace=_workspace(tmp_path)
+
+    context, actions, fingerprint=build_strategic_context(audit_id=AUDIT_ID,workspace=workspace)
+
+    assert fingerprint
+    assert context["audit"]["audit_id"] == AUDIT_ID
+    assert len(actions) == 1
+    action=actions[0]
+    assert action["source_kind"] == "JSONLD"
+    assert {item["dimension"] for item in action["affected_dimensions"]} >= {
+        "STRUCTURED_DATA","SEMANTICS","SEO","GEO_SEARCH_AI"
+    }
+    assert action["source_refs"][0]["catalog_id"] == "CAT-03"
+    assert action["evidence_refs"]
+    assert action["remediation_refs"][0]["href"] == "cat-09.html#rem-jsonld-j1"
+    _validate_references(actions)
+
+
+def test_request_action_can_be_supported_by_cat06_and_cat07() -> None:
+    catalogs=_catalogs_for_candidate({
+        "source_kind":"REQUEST_REMEDIATION",
+        "source_catalog":"CAT-06/CAT-07",
+        "row":{},
+    })
+    assert catalogs == ("CAT-06","CAT-07")
+
+
+def test_invalid_or_ai_invented_reference_is_rejected() -> None:
+    with pytest.raises(ValueError,match="unresolvable catalog reference"):
+        _validate_references([{
+            "action_id":"ACT-X",
+            "source_refs":[{"catalog_id":"CAT-99","section_id":"results","href":"cat-99.html#results"}],
+            "evidence_refs":[{"catalog_id":"CAT-03","section_id":"results","href":"cat-03.html#results"}],
+            "remediation_refs":[],
+        }])
+
+    actions=[{"action_id":"ACT-1"}]
+    payload={
+        "summary":{
+            "strengths":[],"fragilities":[],"risks":[],"opportunities":[],
+            "insufficient_evidence":[],"plan_overview":""
+        },
+        "actions":[{
+            "action_id":"ACT-INVENTED",
+            "reason":"x","primary_objective":"x",
+            "affected_dimensions":[{"dimension":"SEO","expected_gain":"MEDIUM"}],
+            "priority":"MEDIUM","effort":"LOW","confidence":"MEDIUM","confidence_reason":"x",
+            "dependencies":[],"implementation_guidance":[],"validation_steps":[],
+        }],
+        "roadmap":[],
+    }
+    with pytest.raises(ValueError,match="unknown action_id"):
+        _validate_ai_output(payload,actions)
+
+
+def test_identical_duplicate_ai_action_is_deduplicated_but_conflict_is_rejected() -> None:
+    actions=[{"action_id":"ACT-1"}]
+    base={
+        "action_id":"ACT-1",
+        "reason":"Evidência persistida.",
+        "primary_objective":"Corrigir a causa",
+        "affected_dimensions":[{"dimension":"SEO","expected_gain":"MEDIUM"}],
+        "priority":"MEDIUM",
+        "effort":"LOW",
+        "confidence":"HIGH",
+        "confidence_reason":"Evidência direta.",
+        "dependencies":[],
+        "implementation_guidance":["Aplicar a correção."],
+        "validation_steps":["Reexecutar o catálogo."],
+    }
+    payload={
+        "summary":{
+            "strengths":[],"fragilities":[],"risks":[],"opportunities":[],
+            "insufficient_evidence":[],"plan_overview":""
+        },
+        "actions":[dict(base),dict(base)],
+        "roadmap":[],
+    }
+
+    _summary,enriched,_roadmap=_validate_ai_output(payload,actions)
+    assert list(enriched) == ["ACT-1"]
+
+    conflicting=dict(base)
+    conflicting["priority"]="HIGH"
+    payload["actions"]=[dict(base),conflicting]
+    with pytest.raises(ValueError,match="conflicting duplicate action_id"):
+        _validate_ai_output(payload,actions)
+
+
+def test_ai_disabled_persists_technical_actions_without_inventing_strategy(tmp_path: Path) -> None:
+    workspace=_workspace(tmp_path,ai_enabled=False)
+
+    result=execute_directed_analysis(audit_id=AUDIT_ID,workspace=workspace)
+
+    assert result.status == "DISABLED"
+    assert result.actions_count == 1
+    assert result.ai_actions_count == 0
+    connection=sqlite3.connect(workspace.database)
+    connection.row_factory=sqlite3.Row
+    try:
+        run=connection.execute("SELECT * FROM directed_analysis_runs WHERE audit_id=?",(AUDIT_ID,)).fetchone()
+        action=connection.execute("SELECT * FROM directed_analysis_actions WHERE audit_id=?",(AUDIT_ID,)).fetchone()
+    finally:
+        connection.close()
+    assert run["status"] == "DISABLED"
+    assert run["provider"] is None
+    assert action["analysis_state"] == "PERSISTED_SOURCE"
+    assert action["priority"] is None
+    assert action["confidence"] is None
+
+
+def test_ai_enabled_enriches_only_existing_action_and_persists_strategy(monkeypatch, tmp_path: Path) -> None:
+    import rasai.directed_analysis as feature
+
+    workspace=_workspace(tmp_path,ai_enabled=True)
+    fake_config=SimpleNamespace(provider="openai",model="model-test",reasoning="HIGH",language="pt-BR")
+    monkeypatch.setattr(feature,"_provider_config",lambda *_args,**_kwargs: fake_config)
+    monkeypatch.setattr(feature,"_target_context",lambda *_args,**_kwargs: SimpleNamespace(snapshot_id="S1",url="https://example.test/"))
+
+    def fake_ai_analyze(*, actions, **_kwargs):
+        action_id=actions[0]["action_id"]
+        return (
+            {
+                "strengths":["Evidência técnica disponível"],
+                "fragilities":["Dados estruturados ausentes"],
+                "risks":[],"opportunities":["Criar marcação estruturada"],
+                "insufficient_evidence":[],"plan_overview":"Executar e revalidar.",
+            },
+            {action_id:{
+                "reason":"A evidência persistida sustenta a ação.",
+                "primary_objective":"Melhorar dados estruturados",
+                "affected_dimensions":[
+                    {"dimension":"STRUCTURED_DATA","expected_gain":"HIGH"},
+                    {"dimension":"SEO","expected_gain":"MEDIUM"},
+                    {"dimension":"GEO_SEARCH_AI","expected_gain":"MEDIUM"},
+                ],
+                "priority":"HIGH","effort":"LOW","confidence":"HIGH",
+                "confidence_rationale":"Evidência direta na auditoria.",
+                "dependencies":[],"implementation_guidance":["Aplicar a sugestão persistida."],
+                "validation_steps":["Reexecutar CAT-03 e confirmar o resultado."],
+                "analysis_state":"AI_ANALYZED",
+            }},
+            [{"phase":"Ganho rápido","objective":"Corrigir a base semântica","action_ids":[action_id]}],
+            {"synthetic":"validated"},
+            None,
+        )
+
+    monkeypatch.setattr(feature,"_ai_analyze",fake_ai_analyze)
+
+    result=execute_directed_analysis(audit_id=AUDIT_ID,workspace=workspace)
+
+    assert result.status == "COMPLETE"
+    assert result.ai_actions_count == 1
+    connection=sqlite3.connect(workspace.database); connection.row_factory=sqlite3.Row
+    try:
+        run=connection.execute("SELECT * FROM directed_analysis_runs WHERE audit_id=?",(AUDIT_ID,)).fetchone()
+        action=connection.execute("SELECT * FROM directed_analysis_actions WHERE audit_id=?",(AUDIT_ID,)).fetchone()
+    finally:
+        connection.close()
+    assert run["provider"] == "openai"
+    assert json.loads(run["roadmap_json"])[0]["phase"] == "Ganho rápido"
+    assert action["analysis_state"] == "AI_ANALYZED"
+    assert action["priority"] == "HIGH"
+    assert action["effort"] == "LOW"
+    assert action["confidence"] == "HIGH"
+
+
+def test_reprocess_reuses_unchanged_directed_analysis_without_ai_call(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    import rasai.directed_analysis as feature
+
+    workspace=_workspace(tmp_path,ai_enabled=True)
+    fake_config=SimpleNamespace(provider="openai",model="model-test",reasoning="HIGH",language="pt-BR")
+    monkeypatch.setattr(feature,"_provider_config",lambda *_args,**_kwargs: fake_config)
+    monkeypatch.setattr(
+        feature,
+        "_target_context",
+        lambda *_args,**_kwargs: SimpleNamespace(snapshot_id="S1",url="https://example.test/"),
+    )
+
+    def first_ai(*, actions, **_kwargs):
+        action_id=actions[0]["action_id"]
+        return (
+            {
+                "strengths":[],"fragilities":[],"risks":[],"opportunities":[],
+                "insufficient_evidence":[],"plan_overview":"Persistido.",
+            },
+            {action_id:{
+                "reason":"Persistido.","primary_objective":"Melhorar",
+                "affected_dimensions":[{"dimension":"SEO","expected_gain":"MEDIUM"}],
+                "priority":"MEDIUM","effort":"LOW","confidence":"HIGH",
+                "confidence_rationale":"Evidência persistida.","dependencies":[],
+                "implementation_guidance":["Aplicar."],"validation_steps":["Revalidar."],
+                "analysis_state":"AI_ANALYZED",
+            }},
+            [],
+            {"synthetic":"first"},
+            None,
+        )
+
+    monkeypatch.setattr(feature,"_ai_analyze",first_ai)
+    first=feature.execute_directed_analysis(audit_id=AUDIT_ID,workspace=workspace)
+    assert first.status == "COMPLETE"
+    assert first.reused is False
+
+    monkeypatch.setattr(
+        feature,
+        "_ai_analyze",
+        lambda **_kwargs: pytest.fail("unchanged Directed Analysis must not call AI on RPR"),
+    )
+
+    second=feature.reprocess_directed_analysis(audit_id=AUDIT_ID,workspace=workspace)
+
+    assert second.status == "COMPLETE"
+    assert second.reused is True
+    assert second.analysis_run_id == first.analysis_run_id
+
+
+def test_report_renders_strategy_and_menu_contract_contains_page(tmp_path: Path) -> None:
+    workspace=_workspace(tmp_path,ai_enabled=False)
+    execute_directed_analysis(audit_id=AUDIT_ID,workspace=workspace)
+    data=_load_data(AUDIT_ID,workspace.database)
+
+    html=directed_analysis_body(workspace.database,data)
+
+    assert "Análise Direcionada" in html
+    assert "Resumo estratégico" in html
+    assert "O que corrigir para obter maior ganho transversal" in html
+    assert "Rastreabilidade CAT → seção → assunto" in html
+    assert "cat-09.html#rem-jsonld-j1" in html
+
+    from rasai.accepted_audit_refinements import _stable_report_anchor
+    assert _stable_report_anchor("rem-jsonld", "J1", 1) == "rem-jsonld-j1"
+
+    assert "directed-analysis.html" in CATALOG_REPORT_FILENAMES
+    page=next(item for item in CATALOG_REPORT_PAGES if item.filename=="directed-analysis.html")
+    assert page.group == "Estratégia"
+    assert page.catalog_id is None
+
+
+def test_directed_report_translates_provider_contract_failure_reason(tmp_path: Path) -> None:
+    workspace=_workspace(tmp_path,ai_enabled=True)
+    import rasai.directed_analysis as feature
+
+    feature._ensure_schema(sqlite3.connect(workspace.database))
+    connection=sqlite3.connect(workspace.database)
+    try:
+        connection.execute(
+            """INSERT INTO directed_analysis_runs(
+                analysis_run_id,audit_id,contract_version,prompt_version,status,provider,model,reasoning,
+                analysis_language,input_context_hash,catalog_versions_json,source_evidence_json,
+                source_remediations_json,strategic_summary_json,dimensions_json,objectives_json,
+                roadmap_json,limitations_json,context_json,raw_ai_response_json,actions_count,
+                ai_actions_count,reason,created_at,updated_at
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                "DAN-FAIL",AUDIT_ID,feature.CONTRACT_VERSION,feature.PROMPT_VERSION,
+                "COMPLETE_WITH_LIMITATIONS","openai","model-test","NONE","pt-BR","hash",
+                "{}","[]","[]","{}","[]","[]","[]",
+                json.dumps([{
+                    "scope":"DIRECTED_ANALYSIS",
+                    "reason":"AI_PROVIDER_UNAVAILABLE:CONTRACT_ERROR:type=ValueError:code=DIRECTED_ANALYSIS_OUTPUT_INVALID",
+                }]),
+                "{}","{}",0,0,
+                "AI_PROVIDER_UNAVAILABLE:CONTRACT_ERROR:type=ValueError:code=DIRECTED_ANALYSIS_OUTPUT_INVALID",
+                "2026-09-19T10:00:00+00:00","2026-09-19T10:00:00+00:00",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    data=_load_data(AUDIT_ID,workspace.database)
+    html=directed_analysis_body(workspace.database,data)
+
+    assert "DIRECTED_ANALYSIS_OUTPUT_INVALID" not in html
+    assert "AI_PROVIDER_UNAVAILABLE" not in html
+    assert "resposta incompatível com o contrato esperado" in html
+
+
+def test_directed_report_hides_internal_control_domains(tmp_path: Path) -> None:
+    workspace=_workspace(tmp_path,ai_enabled=False)
+    execute_directed_analysis(audit_id=AUDIT_ID,workspace=workspace)
+
+    connection=sqlite3.connect(workspace.database)
+    try:
+        connection.execute(
+            """UPDATE directed_analysis_runs
+               SET limitations_json=?
+               WHERE audit_id=?""",
+            (
+                json.dumps([
+                    {
+                        "scope":"DIRECTED_ANALYSIS",
+                        "reason":"AI_PROVIDER_NOT_RESOLVED",
+                    }
+                ]),
+                AUDIT_ID,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    data=_load_data(AUDIT_ID,workspace.database)
+    html=directed_analysis_body(workspace.database,data)
+
+    assert "DIRECTED_ANALYSIS" not in html
+    assert "AI_PROVIDER_NOT_RESOLVED" not in html
+    assert "PERSISTED_SOURCE" not in html
+    assert "AI_ANALYZED" not in html
+    assert "ACT-" not in html
+    assert ">results<" not in html
+    assert ">evidence<" not in html
+    assert "Não foi possível resolver um provedor de IA elegível" in html
+    assert "Análise direcionada" in html
+    assert "Remediação" in html
+
+
+def test_provider_config_resolves_actual_success_when_improvement_run_used_auto(monkeypatch, tmp_path: Path) -> None:
+    workspace=_workspace(tmp_path,ai_enabled=True)
+    connection=sqlite3.connect(workspace.database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE improvement_intelligence_runs(
+                audit_id TEXT PRIMARY KEY,
+                provider TEXT,
+                model TEXT,
+                reasoning TEXT,
+                updated_at TEXT
+            );
+            CREATE TABLE ai_provider_attempts(
+                attempt_id TEXT PRIMARY KEY,
+                audit_id TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                model TEXT,
+                reasoning_profile TEXT NOT NULL,
+                status TEXT NOT NULL,
+                operation TEXT,
+                started_at TEXT NOT NULL
+            );
+            """
+        )
+        connection.execute(
+            "INSERT INTO improvement_intelligence_runs VALUES (?,?,?,?,?)",
+            (AUDIT_ID,"auto",None,None,"2026-09-19T17:35:21+00:00"),
+        )
+        connection.execute(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?)",
+            (
+                "AIP-1",AUDIT_ID,"OPENAI","gpt-5.6-luna","NONE","SUCCESS",
+                "IMPROVEMENT_INTELLIGENCE","2026-09-19T17:34:19+00:00",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    monkeypatch.setenv("OPENAI_API_KEY","test-key")
+    config=_provider_config(AUDIT_ID,workspace,"pt-BR")
+
+    assert config is not None
+    assert config.provider == "openai"
+    assert config.model == "gpt-5.6-luna"
+    assert config.reasoning == "NONE"

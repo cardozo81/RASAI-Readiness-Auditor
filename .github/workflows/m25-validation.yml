@@ -1,0 +1,48 @@
+name: M25 calibrated synthetic UX validation
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - name: Install package and tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+      - name: Install Playwright Chromium
+        run: python -m playwright install chromium
+      - name: Compile M23/M25 surface
+        run: |
+          python -m compileall -q \
+            src/rasai/m23_cli.py \
+            src/rasai/m23_lighthouse_traceability.py \
+            src/rasai/m25_apdex_experience.py \
+            src/rasai/m25_cli.py \
+            src/rasai/m25_dynatrace.py \
+            src/rasai/m25_persistence.py \
+            src/rasai/m25_runtime.py \
+            src/rasai/console_m23.py \
+            src/rasai/console_settings.py
+      - name: M25 directed tests
+        run: |
+          python -m pytest -q \
+            tests/test_m25_synthetic_user_experience.py \
+            tests/test_m25_browser_e2e.py \
+            tests/test_m25_console_integration.py \
+            tests/test_catalog_report_final_refinements.py::test_cat07_table_pages_sorts_and_explains_error_forced_frustration
+      - name: M23 regression
+        run: python -m pytest -q tests/test_m23_integration.py

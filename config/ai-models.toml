@@ -1,0 +1,250 @@
+# RASAi - catálogo operacional editável de modelos de IA
+#
+# ESTE é o arquivo destinado a ajustes humanos de modelos.
+# A baseline de fábrica permanece em src/rasai/config/ai-models-defaults.toml e não
+# deve ser alterada para customizações operacionais.
+#
+# Com RASAI_AI_MODELS_SOURCE=auto, este arquivo é usado quando presente. Alterações
+# salvas entram em vigor na próxima AUD do console; a AUD já iniciada usa um snapshot
+# imutável. Ao alterar materialmente o catálogo, atualize catalog_version e datas.
+
+[metadata]
+schema_version = 1
+catalog_version = "RASAI-MODELS-2026-09-14"
+reference_date = "2026-09-14"
+verified_on = "2026-09-14"
+review_recommended_on = "2026-10-14"
+
+[[models]]
+provider = "OPENAI"
+model = "gpt-5.6-sol"
+enabled = true
+selectable = true
+adapter_default = false
+public_default = false
+auto_eligible = true
+qualification = "QUALIFIED"
+rasai_class = "QUALIFIED-A+"
+rank = 1
+recommended_depth = "HIGH/XHIGH"
+recommended_use = "máxima qualidade"
+reasoning_values = ["NONE", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"]
+default_reasoning = "NONE"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+source_reference = "https://developers.openai.com/api/docs/models/gpt-5.6-sol"
+
+[[models]]
+provider = "OPENAI"
+model = "gpt-5.6-terra"
+enabled = true
+selectable = true
+adapter_default = true
+public_default = false
+auto_eligible = true
+qualification = "QUALIFIED"
+rasai_class = "QUALIFIED-A"
+rank = 2
+recommended_depth = "HIGH"
+recommended_use = "qualidade"
+reasoning_values = ["NONE", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"]
+default_reasoning = "NONE"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+source_reference = "https://developers.openai.com/api/docs/models/gpt-5.6-terra"
+
+[[models]]
+provider = "OPENAI"
+model = "gpt-5.6-luna"
+enabled = true
+selectable = true
+adapter_default = false
+public_default = true
+auto_eligible = true
+qualification = "QUALIFIED"
+rasai_class = "QUALIFIED-B+"
+rank = 5
+recommended_depth = "HIGH"
+recommended_use = "volume/custo"
+reasoning_values = ["NONE", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"]
+default_reasoning = "NONE"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+source_reference = "https://developers.openai.com/api/docs/models/gpt-5.6-luna"
+
+[[models]]
+provider = "DEEPSEEK"
+model = "deepseek-v4-pro"
+enabled = true
+selectable = true
+adapter_default = true
+public_default = false
+auto_eligible = true
+qualification = "PROVISIONAL"
+rasai_class = "PROVISIONAL-A-"
+rank = 3
+recommended_depth = "HIGH"
+recommended_use = "alternativa forte"
+reasoning_values = ["NONE", "LOW", "HIGH", "MAX"]
+default_reasoning = "NONE"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+source_reference = "https://api-docs.deepseek.com/"
+
+[[models]]
+provider = "DEEPSEEK"
+model = "deepseek-v4-flash"
+enabled = true
+selectable = true
+adapter_default = false
+public_default = true
+auto_eligible = true
+qualification = "PROVISIONAL"
+rasai_class = "PROVISIONAL-B"
+rank = 6
+recommended_depth = "HIGH"
+recommended_use = "volume/custo"
+reasoning_values = ["NONE", "LOW", "HIGH", "MAX"]
+default_reasoning = "NONE"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+source_reference = "https://api-docs.deepseek.com/"
+
+[[models]]
+provider = "MIMO"
+model = "mimo-v2.5-pro"
+enabled = true
+selectable = true
+adapter_default = true
+public_default = false
+auto_eligible = true
+qualification = "PROVISIONAL"
+rasai_class = "PROVISIONAL-B+"
+rank = 4
+recommended_depth = "THINKING_ENABLED"
+recommended_use = "alternativa forte"
+reasoning_values = ["NONE", "LOW", "MEDIUM", "HIGH"]
+default_reasoning = "NONE"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+source_reference = "https://mimo.mi.com/docs/en-US/quick-start/faq/api-integration"
+
+[[models]]
+provider = "MIMO"
+model = "mimo-v2.5"
+enabled = true
+selectable = true
+adapter_default = false
+public_default = true
+auto_eligible = true
+qualification = "PROVISIONAL"
+rasai_class = "PROVISIONAL-B"
+rank = 7
+recommended_depth = "THINKING_ENABLED"
+recommended_use = "volume/multimodal"
+reasoning_values = ["NONE", "LOW", "MEDIUM", "HIGH"]
+default_reasoning = "NONE"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+source_reference = "https://mimo.mi.com/docs/en-US/quick-start/faq/api-integration"
+
+[[models]]
+provider = "XAI"
+model = "grok-4.6"
+enabled = true
+selectable = true
+adapter_default = true
+public_default = true
+auto_eligible = true
+qualification = "PROVISIONAL"
+rasai_class = "PROVISIONAL-A"
+rank = 101
+recommended_depth = "HIGH"
+recommended_use = "provider integrado"
+reasoning_values = ["LOW", "MEDIUM", "HIGH", "XHIGH"]
+default_reasoning = "LOW"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+source_reference = "https://docs.x.ai/"
+
+[[models]]
+provider = "QWEN"
+model = "qwen3.8-max"
+enabled = true
+selectable = true
+adapter_default = true
+public_default = false
+auto_eligible = true
+qualification = "PROVISIONAL"
+rasai_class = "PROVISIONAL-A"
+rank = 102
+recommended_depth = "PROVIDER_DEFAULT"
+recommended_use = "qualidade"
+reasoning_values = ["PROVIDER_DEFAULT"]
+default_reasoning = "PROVIDER_DEFAULT"
+capabilities = ["STRUCTURED_OUTPUT", "CACHED_INPUT"]
+source_reference = "https://www.alibabacloud.com/help/en/model-studio/"
+
+[[models]]
+provider = "QWEN"
+model = "qwen3.8-flash"
+enabled = true
+selectable = true
+adapter_default = false
+public_default = true
+auto_eligible = true
+qualification = "PROVISIONAL"
+rasai_class = "PROVISIONAL-A-"
+rank = 103
+recommended_depth = "PROVIDER_DEFAULT"
+recommended_use = "volume/custo"
+reasoning_values = ["PROVIDER_DEFAULT"]
+default_reasoning = "PROVIDER_DEFAULT"
+capabilities = ["STRUCTURED_OUTPUT", "CACHED_INPUT"]
+source_reference = "https://www.alibabacloud.com/help/en/model-studio/"
+
+[[models]]
+provider = "GEMINI"
+model = "gemini-3.8-flash"
+enabled = true
+selectable = true
+adapter_default = true
+public_default = true
+auto_eligible = true
+qualification = "PROVISIONAL"
+rasai_class = "PROVISIONAL-A"
+rank = 104
+recommended_depth = "PROVIDER_DEFAULT"
+recommended_use = "provider integrado"
+reasoning_values = ["LOW", "MEDIUM", "HIGH"]
+default_reasoning = "LOW"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+source_reference = "https://ai.google.dev/gemini-api/docs/"
+
+[[models]]
+provider = "ANTHROPIC"
+model = "claude-sonnet-5"
+enabled = true
+selectable = true
+adapter_default = true
+public_default = true
+auto_eligible = true
+qualification = "PROVISIONAL"
+rasai_class = "PROVISIONAL-A"
+rank = 105
+recommended_depth = "ADAPTIVE"
+recommended_use = "provider integrado"
+reasoning_values = ["LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"]
+default_reasoning = "LOW"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+source_reference = "https://docs.anthropic.com/"
+
+[[models]]
+provider = "COPILOT"
+model = "auto"
+enabled = true
+selectable = true
+adapter_default = true
+public_default = true
+auto_eligible = false
+qualification = "PROVISIONAL"
+rasai_class = "PROVISIONAL"
+rank = 900
+recommended_depth = "PROVIDER_DEFAULT"
+recommended_use = "seleção explícita"
+reasoning_values = ["PROVIDER_DEFAULT"]
+default_reasoning = "PROVIDER_DEFAULT"
+capabilities = ["STRUCTURED_OUTPUT", "USER_SUBSCRIPTION"]
+source_reference = "https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth/authenticate"

@@ -1,0 +1,34 @@
+# RASAi - overrides editáveis de perfis de tarefa/personas de IA
+#
+# ESTE é o arquivo destinado a ajustes humanos.
+# O catálogo de fábrica permanece em src/rasai/config/ai-profiles-defaults.toml e
+# não deve ser alterado para customizações operacionais.
+#
+# O arquivo é carregado automaticamente quando RASAI_AI_TASK_PROFILES_SOURCE=auto
+# (padrão) ou obrigatoriamente quando SOURCE=file. Perfis omitidos continuam usando
+# o valor de fábrica. Por isso, mantenha aqui SOMENTE os perfis realmente customizados.
+# Alterações salvas entram em vigor na próxima AUD do console; uma AUD já iniciada usa
+# um snapshot imutável deste arquivo até terminar.
+#
+# Um override é parcial no nível do perfil, não no nível do campo: ao customizar um
+# profile_id, informe version, role, objective, competencies e guidance completos.
+# Regras normativas de evidência, schema, segurança, não-causalidade, scoring e revisão
+# humana permanecem protegidas no código e não são substituídas por este arquivo.
+
+[metadata]
+schema_version = 1
+catalog_version = "operator-overrides"
+reference_date = "2026-09-15"
+description = "Operator-owned AI task profile overrides. Empty by default so factory updates remain effective."
+
+# O catálogo começa deliberadamente sem overrides. Para customizar, adicione uma
+# seção [profiles.<PROFILE_ID>] completa. Exemplo:
+#
+# [profiles.SEMANTIC_READINESS]
+# version = "1.1-user"
+# role = "senior specialist in technical SEO and web semantics"
+# objective = "Evaluate semantic evidence with the operator-specific emphasis."
+# competencies = ["technical SEO", "semantic HTML", "entity analysis"]
+# guidance = "Keep recommendations evidence-bound and explicit about uncertainty."
+
+[profiles]

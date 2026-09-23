@@ -1,0 +1,106 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from rasai.indicator_provenance import (
+    INDICATORS,
+    PROVENANCE_MARKER,
+    enrich_indicator_provenance_html,
+)
+from rasai.report_semantics import enhance_report_html
+
+
+def _shell() -> str:
+    return "<html><body><header class='hero'><h1>Teste</h1></header><main></main></body></html>"
+
+
+def test_device_page_exposes_evidence_role_not_duplicate_score() -> None:
+    html = enrich_indicator_provenance_html(_shell(), page_name="mobile.html")
+    assert PROVENANCE_MARKER in html
+    assert "Evidências RASAi por dispositivo" in html
+    assert "a agregação do Índice de Prontidão fica na superfície de Search &amp; AI Readiness" in html
+    assert "references.html#indicator-provenance" in html
+
+
+def test_central_report_semantics_pipeline_applies_provenance() -> None:
+    html = enhance_report_html(_shell(), page_name="mobile.html", report_dir=Path("."))
+    assert PROVENANCE_MARKER in html
+    assert "Evidências RASAi por dispositivo" in html
+
+
+def test_readiness_page_has_explicit_internal_methodological_nature() -> None:
+    html = enrich_indicator_provenance_html(_shell(), page_name="readiness.html")
+    assert "Heurística RASAi evidence-based" in html
+    assert "SARI-001" in html
+    assert "SCORE-GEO-004" in html
+
+
+def test_readiness_normalization_removes_pre_recalibration_methodology() -> None:
+    legacy = (
+        "<html><body><header class='hero'><h1>Teste</h1></header><main>"
+        "<p>Média de igual peso das dimensões aplicáveis com medição suficiente. "
+        "Dimensão legitimamente NOT_APPLICABLE sai do denominador e não recebe zero.</p>"
+        "<p>O Overall usa a média dessa Coverage entre dimensões aplicáveis; ela não representa percentual de URLs do domínio rastreadas ou auditadas.</p>"
+        "<p>O Overall usa a menor Confidence entre as dimensões aplicáveis. Para consolidar, exige Coverage média de pelo menos 80% e Confidence mínima MEDIUM. "
+        "A presença de IA não é requisito: uma execução NO_AI pode atingir MEDIUM/HIGH quando Coverage, evidências e integridade da execução forem suficientes.</p>"
+        "<p>Grupo SITEMAP · peso máximo versionado 0,25.</p>"
+        "<p>Grupo ROBOTS · peso máximo versionado 0,60.</p>"
+        "<table><tr><td>DISCOVERY_ACCESS</td></tr><tr><td>CONTENT_VALUE</td></tr></table>"
+        "</main></body></html>"
+    )
+    html = enrich_indicator_provenance_html(legacy, page_name="readiness.html")
+    assert "Média de igual peso" not in html
+    assert "média dessa Coverage" not in html
+    assert "menor Confidence" not in html
+    assert "peso máximo versionado 0,25" not in html
+    assert "peso máximo versionado 0,60" not in html
+    assert "Média ponderada pelos pesos versionados" in html
+    assert "peso versionado 0,05 dentro de DISCOVERY_ACCESS" in html
+    assert "peso versionado 0,15 dentro de DISCOVERY_ACCESS" in html
+    assert ">Acesso e descoberta<" in html
+    assert ">Valor do conteúdo<" in html
+
+
+def test_external_metric_pages_are_not_presented_as_rasai_score() -> None:
+    html = enrich_indicator_provenance_html(_shell(), page_name="web-performance.html")
+    assert "Métricas externas definidas" in html
+    assert "Scores Lighthouse e Core Web Vitals permanecem independentes" in html
+    assert "Audit-level evidence só pode corroborar regra equivalente" in html
+
+    accessibility = enrich_indicator_provenance_html(_shell(), page_name="accessibility.html")
+    assert "Standard W3C + métrica Lighthouse" in accessibility
+    assert "WCAG 2.2 e Lighthouse Accessibility permanecem fora da aritmética do Índice de Prontidão Search &amp; IA" in accessibility
+
+
+def test_apdex_separates_external_method_from_operator_threshold() -> None:
+    html = enrich_indicator_provenance_html(_shell(), page_name="apdex.html")
+    assert "Método Apdex externo + T configurado" in html
+    assert "Apdex é complementar e não entra no Índice de Prontidão Search &amp; IA" in html
+
+
+def test_references_panel_contains_source_logic_and_internal_boundary() -> None:
+    html = enrich_indicator_provenance_html(_shell(), page_name="references.html")
+    assert "De onde vem cada indicador" in html
+    assert "Índice de Prontidão Search &amp; IA" in html
+    assert "Heurística Interna do RASAi" in html
+    assert "https://www.w3.org/TR/WCAG22/" in html
+    assert "https://web.dev/articles/vitals" in html
+    assert "https://www.rfc-editor.org/rfc/rfc9309.html" in html
+    assert "https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf" in html
+    assert "Não existe score GEO/AEO universal homologado" in html
+
+
+def test_enrichment_is_idempotent_and_unknown_pages_are_untouched() -> None:
+    once = enrich_indicator_provenance_html(_shell(), page_name="ai-usage.html")
+    twice = enrich_indicator_provenance_html(once, page_name="ai-usage.html")
+    assert once == twice
+    assert enrich_indicator_provenance_html(_shell(), page_name="other.html") == _shell()
+
+
+def test_inventory_has_explicit_classification_and_current_score_contract() -> None:
+    assert INDICATORS
+    score = next(item for item in INDICATORS if item.indicator.startswith("Search & AI Readiness Index"))
+    assert score.classification == "RASAI_HEURISTIC"
+    assert score.source_url is None
+    assert "SCORE-GEO-004" in score.rasai_logic
+    assert all(item.classification for item in INDICATORS)

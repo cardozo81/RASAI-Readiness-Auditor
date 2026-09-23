@@ -1,0 +1,31 @@
+# Local Python/runtime artifacts
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Local audit outputs
+audits/
+
+# Interactive console user configuration (machine/user-specific)
+rasai-console.ini
+rasai-console.ini.tmp
+searchgeo-console.ini
+searchgeo-console.ini.tmp
+
+# Local secrets and environment overlays. Secret-free examples remain versionable.
+.env
+.env.local
+.env.*
+!.env.example
+!.env.*.example
+
+# Common local secret material
+*.private.key
+*.private.pem
+secrets/
+.secret/
+
+# Common local tooling
+.pytest_cache/
+.coverage
