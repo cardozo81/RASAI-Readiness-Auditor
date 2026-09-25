@@ -364,7 +364,7 @@ def _apdex_samples_html(database: Any, data: Any, *, experience: bool) -> str:
         forced = int(summary.get("error_forced_frustrated_count") or 0)
         valid = int(summary.get("valid_samples") or 0)
         scope = a._error_scope_label(run.get("error_scope"))
-        lead = f"<div class='notice warn'><strong>Política de erro do Apdex:</strong> erros participam da classificação ({escape(scope)}). {forced} de {valid} amostra(s) válida(s) foram forçadas para Frustrada por essa regra. A duração, isoladamente, não explica essas classificações.</div>"
+        lead += f"<div class='notice warn'><strong>Política de erro do Apdex:</strong> erros participam da classificação ({escape(scope)}). {forced} de {valid} amostra(s) válida(s) foram forçadas para Frustrada por essa regra. A duração, isoladamente, não explica essas classificações.</div>"
     headers = ("Amostra", "Data/hora", "Dispositivo", "Classificação", "Duração", "LCP", "Falhas de requisição", "Medição", "Detalhe") if experience else ("Amostra", "Data/hora", "Dispositivo", "Classificação", "Duração", "Medição", "Detalhe")
     return lead + a._table(headers, rows, empty="Nenhuma amostra foi persistida para este Apdex.", sortable=bool(rows), page_size=10 if experience and len(rows) > 10 else None) + "".join(modals)
 
