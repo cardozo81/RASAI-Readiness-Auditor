@@ -109,6 +109,7 @@ def _blocking_catalog_report_errors(renderer_errors: Sequence[str]) -> tuple[str
 
 def _run_audit_and_finalize(effective: list[str]) -> int:
     from rasai.ai_execution_state import consume_all_ai_executions
+    from rasai.audit_resume_runtime import finish_execution_session, start_execution_session
     from rasai.m18_ai import provider_session_snapshot
     from rasai.persistence import AuditWorkspace
     from rasai.report_completion import finalize_audit_report_site, materialize_catalog_report_projection
@@ -116,18 +117,55 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
 
     original_run_audit = cli_extensions._audit_cli.run_audit
     captured: list[object] = []
+    mutable_workspace: AuditWorkspace | None = None
+    mutable_session = None
 
     def capture_run(*args, **kwargs):
+        nonlocal mutable_workspace, mutable_session
         result = original_run_audit(*args, **kwargs)
+        # audit_runner owns the lease while the core is running. The public CLI still
+        # performs mutable optional collectors after run_audit returns, so acquire a
+        # continuation lease before returning control to cli_extensions. If another
+        # process won the handoff race, this acquisition fails and the original
+        # process does not continue mutating the same audit.db concurrently.
+        mutable_workspace = AuditWorkspace.open(result.audit_root)
+        mutable_session = start_execution_session(
+            mutable_workspace,
+            result.audit_id,
+            kind="CONTINUATION",
+            source="CLI",
+            reject_active=True,
+        )
         captured.append(result)
         return result
 
     cli_extensions._audit_cli.run_audit = capture_run
     try:
-        code = cli_extensions.main(effective)
+        try:
+            code = cli_extensions.main(effective)
+        except BaseException as exc:
+            finish_execution_session(
+                mutable_workspace,
+                mutable_session,
+                state="INTERRUPTED" if isinstance(exc, KeyboardInterrupt) else "FAILED",
+                note=f"{type(exc).__name__}: {str(exc)[:512]}",
+            ) if mutable_workspace is not None else None
+            mutable_session = None
+            raise
+        else:
+            if mutable_workspace is not None:
+                finish_execution_session(
+                    mutable_workspace,
+                    mutable_session,
+                    state="COMPLETED" if code == 0 else "FAILED",
+                    note=None if code == 0 else f"CLI_RETURN_CODE:{code}",
+                )
+                mutable_session = None
     finally:
         cli_extensions._audit_cli.run_audit = original_run_audit
 
+    # The mutable lease is deliberately closed before report projection. Catalog
+    # finalization remains a read-only/fingerprint-validated surface.
     executions = consume_all_ai_executions()
     if not captured:
         return code
