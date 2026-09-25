@@ -18,6 +18,10 @@ from urllib.parse import urlsplit
 
 from playwright.sync_api import Error as PlaywrightError, TimeoutError as PlaywrightTimeoutError, sync_playwright
 
+from rasai.apdex_concurrency_policy import (
+    EXPERIENCE_MAX_CONCURRENCY,
+    validate_experience_concurrency,
+)
 from rasai.browser_identity_renderer import realistic_context_options
 from rasai.domain import new_id
 from rasai.m23_apdex_profiles import (
@@ -36,7 +40,7 @@ from rasai.persistence import AuditWorkspace
 TASK_SYNTHETIC_USER_ACTION = "SYNTHETIC_LOAD_ACTION"
 M25_PROFILE_VERSION = "M25-PROFILE-003"
 NORMAL_GROUP_MINIMUM = 100
-MAX_CONCURRENCY = 2
+MAX_CONCURRENCY = EXPERIENCE_MAX_CONCURRENCY
 _DEVICE_ORDER = ("MOBILE", "DESKTOP", "TABLET")
 
 
@@ -90,8 +94,7 @@ class ExperienceApdexConfig:
             raise ValueError("Synthetic User Experience Apdex: settle_seconds deve ser > 0")
         if not math.isfinite(self.delay_seconds) or self.delay_seconds < 0:
             raise ValueError("Synthetic User Experience Apdex: delay_seconds deve ser >= 0")
-        if self.concurrency < 1 or self.concurrency > MAX_CONCURRENCY:
-            raise ValueError(f"Synthetic User Experience Apdex: concurrency deve estar entre 1 e {MAX_CONCURRENCY}")
+        validate_experience_concurrency(self.concurrency, self.delay_seconds)
         if self.dynatrace_import and not self.dynatrace_config_json:
             if not self.dynatrace_base_url or not self.dynatrace_application_id:
                 raise ValueError("Synthetic User Experience Apdex: importação Dynatrace exige base URL e application ID")
@@ -864,23 +867,29 @@ def _measure_device(
     items: list[_Classified] = []
     next_index = 1
     futures: dict[Future[_Classified], int] = {}
+
+    def valid_count() -> int:
+        return sum(item.classification is not None for item in items)
+
+    def fill_futures(executor: ThreadPoolExecutor) -> None:
+        nonlocal next_index
+        remaining_valid = max(target - valid_count(), 0)
+        in_flight_limit = min(config.concurrency, remaining_valid)
+        while next_index <= max_attempts and len(futures) < in_flight_limit:
+            futures[executor.submit(task, next_index)] = next_index
+            next_index += 1
+
     try:
         with ThreadPoolExecutor(max_workers=config.concurrency, thread_name_prefix="rasai-ux") as executor:
-            while next_index <= max_attempts and len(futures) < config.concurrency:
-                futures[executor.submit(task, next_index)] = next_index
-                next_index += 1
+            fill_futures(executor)
             while futures:
                 done, _ = wait(tuple(futures), return_when=FIRST_COMPLETED)
                 for future in done:
                     futures.pop(future, None)
                     items.append(future.result())
-                if sum(item.classification is not None for item in items) >= target:
-                    for future in futures:
-                        future.cancel()
+                if valid_count() >= target:
                     break
-                while next_index <= max_attempts and len(futures) < config.concurrency:
-                    futures[executor.submit(task, next_index)] = next_index
-                    next_index += 1
+                fill_futures(executor)
     finally:
         for runner in runners:
             try:
