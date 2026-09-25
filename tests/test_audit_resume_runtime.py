@@ -53,6 +53,7 @@ from rasai.domain import (
 )
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.rendering import BrowserRenderResult
+from rasai.reprocess_measurements import recover_experience_apdex, recover_synthetic_apdex
 
 
 AUDIT_ID = "AUD-INTERRUPTED-RESUME"
@@ -614,5 +615,115 @@ def test_resume_plan_persists_effective_optional_intent_without_secrets(
     ):
         assert (component, "AUDIT") in items
         assert items[(component, "AUDIT")].status == "REQUESTED_NOT_EXECUTED"
+
+
+
+
+def test_planned_navigation_apdex_can_start_during_resume_without_prior_run_table(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = _workspace(tmp_path)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="SYNTHETIC_APDEX",
+        scope_key="AUDIT",
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        status=FAILED_RETRYABLE,
+        retryable=True,
+        configuration={
+            "enabled": True,
+            "threshold_seconds": 2.0,
+            "target_valid_samples": 10,
+            "max_attempts_per_context": 13,
+            "max_pages": 1,
+            "timeout_seconds": 45.0,
+            "delay_seconds": 1.0,
+            "concurrency": 1,
+        },
+    )
+    item = next(
+        item
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component == "SYNTHETIC_APDEX"
+    )
+    captured = {}
+
+    import rasai.m23_apdex as m23
+
+    def fake_execute(*, audit_id, workspace, config, **_kwargs):
+        captured["audit_id"] = audit_id
+        captured["config"] = config
+        return type("Result", (), {"status": "SUCCESS"})()
+
+    monkeypatch.setattr(m23, "execute_m23_apdex", fake_execute)
+
+    assert recover_synthetic_apdex(
+        workspace=workspace,
+        audit_id=AUDIT_ID,
+        item=item,
+    ) is True
+    assert captured["audit_id"] == AUDIT_ID
+    assert captured["config"].target_valid_samples == 10
+    assert captured["config"].threshold_seconds == 2.0
+
+
+def test_planned_experience_apdex_can_start_during_resume_without_prior_run_table(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = _workspace(tmp_path)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="EXPERIENCE_APDEX",
+        scope_key="AUDIT",
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        status=FAILED_RETRYABLE,
+        retryable=True,
+        configuration={
+            "enabled": True,
+            "target_samples_per_page": 10,
+            "max_attempts_per_page": 13,
+            "max_pages": 1,
+            "device_mix": {"MOBILE": 60.0, "DESKTOP": 40.0},
+            "session_mode": "cold",
+            "kpm": "USER_ACTION_DURATION",
+            "satisfied_threshold_seconds": 2.0,
+            "frustrated_threshold_seconds": 8.0,
+            "errors_affect_apdex": True,
+            "error_scope": "first-party",
+            "settle_seconds": 5.0,
+            "delay_seconds": 1.0,
+            "concurrency": 1,
+        },
+    )
+    item = next(
+        item
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component == "EXPERIENCE_APDEX"
+    )
+    captured = {}
+
+    import rasai.m25_apdex_experience as m25
+
+    def fake_execute(*, audit_id, workspace, config, **_kwargs):
+        captured["audit_id"] = audit_id
+        captured["config"] = config
+        return type("Result", (), {"status": "SUCCESS"})()
+
+    monkeypatch.setattr(m25, "execute_m25_experience", fake_execute)
+
+    assert recover_experience_apdex(
+        workspace=workspace,
+        audit_id=AUDIT_ID,
+        item=item,
+    ) is True
+    assert captured["audit_id"] == AUDIT_ID
+    assert captured["config"].target_samples_per_page == 10
+    assert captured["config"].device_mix_dict() == {"MOBILE": 60.0, "DESKTOP": 40.0}
 
 
