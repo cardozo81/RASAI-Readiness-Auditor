@@ -18,6 +18,8 @@ No scoring formula, provider policy or live-evidence validity rule is changed he
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import json
@@ -26,7 +28,7 @@ from pathlib import Path
 import socket
 import sqlite3
 import threading
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterator, Mapping, Sequence
 
 from rasai.audit_fulfillment import (
     BLOCKED,
@@ -65,7 +67,25 @@ _INTERRUPTABLE_AUDIT_STATUSES = frozenset(
 _RESOLVED = frozenset({SUCCESS, "DISABLED", "NOT_APPLICABLE"})
 _SESSION_THREADS: dict[str, tuple[threading.Event, threading.Thread]] = {}
 _SESSION_LOCK = threading.Lock()
+_PLAN_OPTIONS: ContextVar[dict[str, Any] | None] = ContextVar(
+    "rasai_audit_resume_plan_options",
+    default=None,
+)
 _INSTALLED = False
+
+
+@contextmanager
+def resume_plan_options(options: Mapping[str, Any]) -> Iterator[None]:
+    """Bind effective non-secret execution options before the AUD workspace exists."""
+    merged = dict(_PLAN_OPTIONS.get() or {})
+    for key, value in dict(options or {}).items():
+        if value is not None:
+            merged[str(key)] = value
+    token = _PLAN_OPTIONS.set(merged)
+    try:
+        yield
+    finally:
+        _PLAN_OPTIONS.reset(token)
 
 
 @dataclass(frozen=True, slots=True)
