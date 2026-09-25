@@ -137,9 +137,26 @@ def ensure_execution_schema(workspace: AuditWorkspace | Path | str) -> None:
         connection.close()
 
 
-def _pid_alive(pid: int) -> bool:
+def process_is_alive(pid: int) -> bool:
+    """Probe process liveness without sending a destructive signal on Windows."""
     if pid <= 0:
         return False
+    if os.name == "nt":
+        try:
+            import ctypes
+
+            process_query_limited_information = 0x1000
+            handle = ctypes.windll.kernel32.OpenProcess(  # type: ignore[attr-defined]
+                process_query_limited_information,
+                False,
+                int(pid),
+            )
+            if not handle:
+                return False
+            ctypes.windll.kernel32.CloseHandle(handle)  # type: ignore[attr-defined]
+            return True
+        except (AttributeError, OSError):
+            return False
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -157,7 +174,7 @@ def _session_active(row: sqlite3.Row) -> bool:
     host = str(row["host"] or "")
     pid = int(row["pid"] or 0)
     if host == socket.gethostname():
-        return _pid_alive(pid)
+        return process_is_alive(pid)
     heartbeat = _parse_time(str(row["heartbeat_at"] or ""))
     if heartbeat is None:
         return False
