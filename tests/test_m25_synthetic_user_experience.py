@@ -253,6 +253,77 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
             self.assertIsNone(result.report_path)
             self.assertFalse((workspace.root / "report").exists())
 
+
+    def test_experience_concurrency_guardrails_safe_inheritance_and_target_aware_parallelism(self) -> None:
+        with self.assertRaises(ValueError):
+            ExperienceApdexConfig(
+                enabled=True, target_samples_per_page=1, max_attempts_per_page=1,
+                device_mix=(("MOBILE", 100.0),), satisfied_threshold_seconds=1.0,
+                frustrated_threshold_seconds=4.0, delay_seconds=0.0, concurrency=3,
+            ).validate()
+        ExperienceApdexConfig(
+            enabled=True, target_samples_per_page=1, max_attempts_per_page=1,
+            device_mix=(("MOBILE", 100.0),), satisfied_threshold_seconds=1.0,
+            frustrated_threshold_seconds=4.0, delay_seconds=1.0, concurrency=3,
+        ).validate()
+        with self.assertRaises(ValueError):
+            ExperienceApdexConfig(
+                enabled=True, target_samples_per_page=1, max_attempts_per_page=1,
+                device_mix=(("MOBILE", 100.0),), satisfied_threshold_seconds=1.0,
+                frustrated_threshold_seconds=4.0, delay_seconds=1.0, concurrency=4,
+            ).validate()
+
+        parser = build_parser()
+        inherited_args = parser.parse_args([
+            "audit", "https://example.com", "--synthetic-apdex",
+            "--apdex-threshold-seconds", "1", "--apdex-concurrency", "4",
+            "--apdex-delay-seconds", "1", "--apdex-experience",
+            "--apdex-experience-device-mix", "mobile=100",
+        ])
+        configured_apdex(inherited_args, {})
+        self.assertEqual(peek_pending_config().concurrency, 2)
+        consume_pending_config()
+
+        explicit_args = parser.parse_args([
+            "audit", "https://example.com", "--synthetic-apdex",
+            "--apdex-threshold-seconds", "1", "--apdex-concurrency", "4",
+            "--apdex-delay-seconds", "1", "--apdex-experience",
+            "--apdex-experience-device-mix", "mobile=100",
+            "--apdex-experience-concurrency", "3",
+            "--apdex-experience-delay-seconds", "1",
+        ])
+        configured_apdex(explicit_args, {})
+        self.assertEqual(peek_pending_config().concurrency, 3)
+        consume_pending_config()
+
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = _workspace(directory)
+            calls = []
+
+            class _ParallelUxGateway:
+                def environment(self):
+                    return {"system": "TEST", "chromium_version": "test", "m25_profile_version": "test"}
+
+                def measure(self, **_kwargs):
+                    calls.append(1)
+                    return _ux(500)
+
+                def close(self):
+                    pass
+
+            result = execute_m25_experience(
+                audit_id="AUD-M25", workspace=workspace,
+                config=ExperienceApdexConfig(
+                    enabled=True, target_samples_per_page=1, max_attempts_per_page=3,
+                    max_pages=1, device_mix=(("MOBILE", 100.0),),
+                    satisfied_threshold_seconds=1.0, frustrated_threshold_seconds=4.0,
+                    settle_seconds=1.0, delay_seconds=1.0, concurrency=3,
+                ),
+                gateway_factory=_ParallelUxGateway,
+            )
+            self.assertEqual(result.attempted_samples, 1)
+            self.assertEqual(len(calls), 1)
+
     def test_exported_dynatrace_json_does_not_persist_raw_payload(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "dynatrace.json"

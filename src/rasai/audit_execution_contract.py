@@ -10,6 +10,10 @@ from dataclasses import dataclass
 import math
 from typing import Any, Mapping
 
+from rasai.apdex_concurrency_policy import (
+    ADVANCED_MIN_DELAY_SECONDS,
+    EXPERIENCE_MAX_CONCURRENCY,
+)
 from rasai.content_context import (
     CONTENT_ORIGIN_ENV,
     CONTENT_RISK_PROFILE_ENV,
@@ -282,6 +286,8 @@ def normalize_audit_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     normalized["apdex_timeout_seconds"] = _optional_positive_number(payload, "apdex_timeout_seconds")
     normalized["apdex_delay_seconds"] = _number(payload, "apdex_delay_seconds", DEFAULT_APDEX_DELAY_SECONDS, minimum=0)
     normalized["apdex_concurrency"] = _int(payload, "apdex_concurrency", DEFAULT_APDEX_CONCURRENCY, minimum=1, maximum=MAX_APDEX_CONCURRENCY)
+    if normalized["synthetic_apdex"] and normalized["apdex_concurrency"] >= 3 and normalized["apdex_delay_seconds"] < ADVANCED_MIN_DELAY_SECONDS:
+        raise ValueError("AUDIT payload apdex_concurrency >= 3 requires apdex_delay_seconds >= 1")
     if normalized["synthetic_apdex"] and normalized["apdex_threshold_seconds"] is None:
         raise ValueError("AUDIT payload apdex_threshold_seconds is required when synthetic_apdex=true")
     if normalized["synthetic_apdex"] and normalized["apdex_timeout_seconds"] is not None and normalized["apdex_timeout_seconds"] <= 4.0 * normalized["apdex_threshold_seconds"]:
@@ -315,7 +321,9 @@ def normalize_audit_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     normalized["apdex_experience_error_scope"] = _text(payload, "apdex_experience_error_scope", DEFAULT_UX_ERROR_SCOPE, choices=("navigation", "first-party", "all"))
     normalized["apdex_experience_settle_seconds"] = _number(payload, "apdex_experience_settle_seconds", DEFAULT_UX_SETTLE_SECONDS, minimum=0.000001)
     normalized["apdex_experience_delay_seconds"] = _number(payload, "apdex_experience_delay_seconds", DEFAULT_UX_DELAY_SECONDS, minimum=0)
-    normalized["apdex_experience_concurrency"] = _int(payload, "apdex_experience_concurrency", DEFAULT_UX_CONCURRENCY, minimum=1, maximum=2)
+    normalized["apdex_experience_concurrency"] = _int(payload, "apdex_experience_concurrency", DEFAULT_UX_CONCURRENCY, minimum=1, maximum=EXPERIENCE_MAX_CONCURRENCY)
+    if normalized["apdex_experience"] and normalized["apdex_experience_concurrency"] >= 3 and normalized["apdex_experience_delay_seconds"] < ADVANCED_MIN_DELAY_SECONDS:
+        raise ValueError("AUDIT payload apdex_experience_concurrency >= 3 requires apdex_experience_delay_seconds >= 1")
     if normalized["apdex_experience"] and not normalized["synthetic_apdex"]:
         raise ValueError("AUDIT payload apdex_experience requires synthetic_apdex=true")
     if normalized["apdex_experience"]:

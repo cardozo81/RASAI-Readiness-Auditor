@@ -17,6 +17,10 @@ import threading
 import time
 from typing import Any, Callable
 
+from rasai.apdex_concurrency_policy import (
+    NAVIGATION_MAX_CONCURRENCY,
+    validate_navigation_concurrency,
+)
 from rasai.domain import DeviceContext, new_id
 from rasai.m23_apdex_profiles import (
     DESKTOP_STANDARD_PROFILE,
@@ -39,7 +43,7 @@ from rasai.persistence import AuditWorkspace
 
 TASK_NAVIGATION_LOAD = "NAVIGATION_LOAD"
 NORMAL_GROUP_MINIMUM = 100
-MAX_CONCURRENCY = 2
+MAX_CONCURRENCY = NAVIGATION_MAX_CONCURRENCY
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,8 +75,7 @@ class SyntheticApdexConfig:
             raise ValueError("timeout_seconds deve ser maior que 4*T")
         if not math.isfinite(self.delay_seconds) or self.delay_seconds < 0:
             raise ValueError("delay_seconds deve ser finito e >= 0")
-        if self.concurrency < 1 or self.concurrency > MAX_CONCURRENCY:
-            raise ValueError(f"concurrency deve estar entre 1 e {MAX_CONCURRENCY}")
+        validate_navigation_concurrency(self.concurrency, self.delay_seconds)
         self.mobile_profile.validate()
         self.desktop_profile.validate()
         return self
@@ -446,13 +449,22 @@ def _measure_context_parallel(
     results: list[_MeasuredSample] = []
     next_index = 1
     futures: dict[Future[_MeasuredSample], int] = {}
+
+    def fill_futures(executor: ThreadPoolExecutor) -> None:
+        nonlocal next_index
+        remaining_valid = max(config.target_valid_samples - _valid_count(results), 0)
+        in_flight_limit = min(config.concurrency, remaining_valid)
+        while (
+            next_index <= config.max_attempts_per_context
+            and len(futures) < in_flight_limit
+        ):
+            future = executor.submit(run_one, next_index)
+            futures[future] = next_index
+            next_index += 1
+
     try:
         with ThreadPoolExecutor(max_workers=config.concurrency, thread_name_prefix="rasai-apdex") as executor:
-            while next_index <= config.max_attempts_per_context and len(futures) < config.concurrency:
-                future = executor.submit(run_one, next_index)
-                futures[future] = next_index
-                next_index += 1
-
+            fill_futures(executor)
             while futures:
                 done, _ = wait(tuple(futures), return_when=FIRST_COMPLETED)
                 for future in done:
@@ -471,13 +483,8 @@ def _measure_context_parallel(
                         item=item,
                     )
                 if _valid_count(results) >= config.target_valid_samples:
-                    for future in futures:
-                        future.cancel()
                     break
-                while next_index <= config.max_attempts_per_context and len(futures) < config.concurrency:
-                    future = executor.submit(run_one, next_index)
-                    futures[future] = next_index
-                    next_index += 1
+                fill_futures(executor)
     finally:
         # ThreadPool already joined; closing Chromium/Playwright after all worker
         # activity prevents context/session reuse while keeping worker browsers bounded.

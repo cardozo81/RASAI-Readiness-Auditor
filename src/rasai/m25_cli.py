@@ -6,6 +6,7 @@ import math
 import os
 from typing import Any, Mapping
 
+from rasai.apdex_concurrency_policy import EXPERIENCE_MAX_CONCURRENCY
 from rasai.m25_apdex_experience import ExperienceApdexConfig
 from rasai.m25_dynatrace import SUPPORTED_TIME_KPMS
 from rasai.m25_dynatrace_defaults import (
@@ -70,7 +71,7 @@ def register_experience_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--apdex-experience-error-scope", choices=("navigation", "first-party", "all"), default=None, help=f"which request/JS errors can force Frustrated; default {DEFAULT_UX_ERROR_SCOPE} or {UX_ERROR_SCOPE_ENV}")
     parser.add_argument("--apdex-experience-settle-seconds", type=float, default=None, help=f"bounded post-load observation window; default {DEFAULT_UX_SETTLE_SECONDS:g}s or {UX_SETTLE_ENV}")
     parser.add_argument("--apdex-experience-delay-seconds", type=float, default=None, help=f"minimum interval between sample starts; default {DEFAULT_UX_DELAY_SECONDS:g}s or {UX_DELAY_ENV}")
-    parser.add_argument("--apdex-experience-concurrency", type=int, default=None, help=f"parallel workers 1-2; default {DEFAULT_UX_CONCURRENCY} or {UX_CONCURRENCY_ENV}")
+    parser.add_argument("--apdex-experience-concurrency", type=int, default=None, help=f"parallel workers 1-{EXPERIENCE_MAX_CONCURRENCY}; default {DEFAULT_UX_CONCURRENCY} or {UX_CONCURRENCY_ENV}; concurrency 3 requires delay >=1s")
     parser.add_argument("--apdex-dynatrace-import", action=argparse.BooleanOptionalAction, default=None, help=f"import load-action KPM/thresholds from Dynatrace configuration; or {DYNATRACE_IMPORT_ENV}")
     parser.add_argument("--dynatrace-base-url", default=None, help=f"Dynatrace environment URL, HTTPS only; or {DYNATRACE_BASE_URL_ENV}")
     parser.add_argument("--dynatrace-application-id", default=None, help=f"Dynatrace web application ID; or {DYNATRACE_APPLICATION_ID_ENV}")
@@ -105,7 +106,9 @@ def configured_experience(
     error_scope = (_text(getattr(args, "apdex_experience_error_scope", None), UX_ERROR_SCOPE_ENV, environment) or DEFAULT_UX_ERROR_SCOPE).casefold()
     settle = _positive_float(getattr(args, "apdex_experience_settle_seconds", None), UX_SETTLE_ENV, DEFAULT_UX_SETTLE_SECONDS, environment)
     delay = _nonnegative_float(getattr(args, "apdex_experience_delay_seconds", None), UX_DELAY_ENV, standard_delay_seconds, environment)
-    concurrency = _positive_int(getattr(args, "apdex_experience_concurrency", None), UX_CONCURRENCY_ENV, standard_concurrency, environment)
+    explicit_concurrency = getattr(args, "apdex_experience_concurrency", None)
+    inherited_concurrency = min(int(standard_concurrency), 2)
+    concurrency = _positive_int(explicit_concurrency, UX_CONCURRENCY_ENV, inherited_concurrency, environment)
     dynatrace_import = _bool(getattr(args, "apdex_dynatrace_import", None), DYNATRACE_IMPORT_ENV, False, environment)
     base_url = _text(getattr(args, "dynatrace_base_url", None), DYNATRACE_BASE_URL_ENV, environment)
     app_id = _text(getattr(args, "dynatrace_application_id", None), DYNATRACE_APPLICATION_ID_ENV, environment)
@@ -165,7 +168,7 @@ def validate_m25_env_value(name: str, raw: str) -> str:
     if name in {UX_ENABLED_ENV, UX_ERRORS_ENV, DYNATRACE_IMPORT_ENV}: _parse_bool(value, name)
     elif name in {UX_SAMPLES_ENV, UX_MAX_ATTEMPTS_ENV, UX_CONCURRENCY_ENV}:
         parsed = int(value)
-        if parsed < 1 or (name == UX_CONCURRENCY_ENV and parsed > 2): raise ValueError("valor inteiro fora do domínio permitido")
+        if parsed < 1 or (name == UX_CONCURRENCY_ENV and parsed > EXPERIENCE_MAX_CONCURRENCY): raise ValueError("valor inteiro fora do domínio permitido")
     elif name == UX_MAX_PAGES_ENV and int(value) < 0: raise ValueError("valor deve ser inteiro >=0")
     elif name == UX_DEVICE_MIX_ENV: parse_device_mix(value)
     elif name == UX_SESSION_MODE_ENV and value.casefold() not in {"cold", "warm"}: raise ValueError("session mode deve ser cold ou warm")

@@ -47,8 +47,15 @@ def test_known_domains_and_effective_defaults_are_exposed() -> None:
     assert lighthouse.default == "performance,accessibility,best-practices,seo,agentic-browsing"
 
     concurrency = SPEC_BY_NAME["RASAI_APDEX_CONCURRENCY"]
-    assert concurrency.accepted == ("1", "2")
+    assert concurrency.accepted == ()
+    assert concurrency.value_type == "inteiro 1..4"
     assert concurrency.default == "1"
+    assert "delay >= 1 s" in concurrency.notes
+
+    experience_concurrency = SPEC_BY_NAME["RASAI_APDEX_EXPERIENCE_CONCURRENCY"]
+    assert experience_concurrency.accepted == ()
+    assert experience_concurrency.value_type == "inteiro 1..3"
+    assert experience_concurrency.default == "1"
 
     assert SPEC_BY_NAME["RASAI_APDEX_EXPERIENCE"].default == "false"
     assert SPEC_BY_NAME["RASAI_APDEX_EXPERIENCE_DEVICE_MIX"].default == DEFAULT_UX_DEVICE_MIX

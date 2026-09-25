@@ -14,6 +14,7 @@ import sqlite3
 from typing import Mapping
 
 from rasai.console_config import State as BaseState, validate_env_value as validate_base_env_value
+from rasai.apdex_concurrency_policy import NAVIGATION_MAX_CONCURRENCY
 from rasai.m23_apdex import SyntheticApdexConfig
 from rasai.m23_cli import (
     APDEX_CONCURRENCY_ENV,
@@ -218,8 +219,8 @@ def validate_env_value(name: str, value: str) -> str:
         return raw
     if name == APDEX_CONCURRENCY_ENV:
         value_int = int(raw)
-        if value_int < 1 or value_int > 2:
-            raise ValueError("concorrência deve estar entre 1 e 2")
+        if value_int < 1 or value_int > NAVIGATION_MAX_CONCURRENCY:
+            raise ValueError(f"concorrência deve estar entre 1 e {NAVIGATION_MAX_CONCURRENCY}")
         return raw
     if name in {APDEX_THRESHOLD_ENV, APDEX_TIMEOUT_ENV}:
         if float(raw) <= 0:

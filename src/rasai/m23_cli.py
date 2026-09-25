@@ -6,6 +6,7 @@ import math
 import os
 from typing import Any
 
+from rasai.apdex_concurrency_policy import NAVIGATION_MAX_CONCURRENCY
 from rasai.m23_apdex import SyntheticApdexConfig
 from rasai.m23_apdex_profiles import profile_from_presets
 from rasai.m25_apdex_experience import ExperienceApdexConfig
@@ -33,7 +34,7 @@ DEFAULT_APDEX_MAX_PAGES = 1
 DEFAULT_APDEX_TIMEOUT_SECONDS = 45.0
 DEFAULT_APDEX_DELAY_SECONDS = 1.0
 DEFAULT_APDEX_CONCURRENCY = 1
-MAX_APDEX_CONCURRENCY = 2
+MAX_APDEX_CONCURRENCY = NAVIGATION_MAX_CONCURRENCY
 
 
 def _profile_dest(device: str, kind: str) -> str:
@@ -88,7 +89,7 @@ def register_apdex_arguments(audit_parser: argparse.ArgumentParser) -> None:
     )
     audit_parser.add_argument(
         "--apdex-concurrency", type=int, default=None,
-        help=f"parallel synthetic workers 1-2; default {DEFAULT_APDEX_CONCURRENCY} or {APDEX_CONCURRENCY_ENV}",
+        help=f"parallel synthetic workers 1-{MAX_APDEX_CONCURRENCY}; default {DEFAULT_APDEX_CONCURRENCY} or {APDEX_CONCURRENCY_ENV}; concurrency 3+ requires delay >=1s",
     )
     _register_profile_arguments(audit_parser)
     register_experience_arguments(audit_parser)

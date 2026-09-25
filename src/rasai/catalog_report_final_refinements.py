@@ -292,6 +292,7 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
 
 def _apdex_samples_html(database: Any, data: Any, *, experience: bool) -> str:
     from rasai import catalog_report_analysis as a
+    from rasai.apdex_concurrency_policy import experience_risk, navigation_risk
 
     table = "synthetic_ux_apdex_samples" if experience else "synthetic_apdex_samples"
     con = sqlite3.connect(database)
@@ -303,6 +304,31 @@ def _apdex_samples_html(database: Any, data: Any, *, experience: bool) -> str:
         con.close()
     summary = a._apdex_summary(database, data.audit_id, experience=experience)
     samples = sorted(samples, key=lambda item: (str(item.get("captured_at") or ""), int(item.get("run_index") or 0)))
+    concurrency_notice = ""
+    if run:
+        if experience:
+            effective = a._safe_json(run.get("configuration"), {})
+            concurrency = int(effective.get("concurrency") or 1)
+            delay = float(effective.get("delay_seconds") or 0.0)
+            risk = experience_risk(concurrency)
+            settle = float(run.get("settle_seconds") or effective.get("settle_seconds") or 0.0)
+            concurrency_notice = (
+                "<div class='notice warn'><strong>Carga sintética efetiva:</strong> "
+                f"concorrência {concurrency} ({escape(risk)}), delay {delay:g} s, settle {settle:g} s e sessão "
+                f"{escape(str(run.get('session_mode') or '-'))}. "
+                "User actions concorrentes mantêm browser e observação pós-load ativos; valores altos podem aumentar "
+                "contenção local, carga HTTP no alvo, bloqueios/rate limit e interferência na representatividade.</div>"
+            )
+        else:
+            concurrency = int(run.get("concurrency") or 1)
+            delay = float(run.get("delay_seconds") or 0.0)
+            risk = navigation_risk(concurrency)
+            concurrency_notice = (
+                "<div class='notice warn'><strong>Carga sintética efetiva:</strong> "
+                f"concorrência {concurrency} ({escape(risk)}) e delay {delay:g} s. "
+                "Cada navegação pode gerar múltiplos subrequests; valores altos podem aumentar contenção local, "
+                "carga no alvo, bloqueios/rate limit e interferência na representatividade.</div>"
+            )
     rows: list[Sequence[Any]] = []
     modals: list[str] = []
     for index, sample in enumerate(samples, 1):
@@ -333,12 +359,12 @@ def _apdex_samples_html(database: Any, data: Any, *, experience: bool) -> str:
             note = "<h3>Diagnóstico de navegador</h3><div class='pre'>" + escape(json.dumps(diagnostics, ensure_ascii=False, indent=2)) + "</div>" if diagnostics else ""
         modals.append(a._modal(modal_id, f"Amostra {sample.get('run_index', index)}", f"{'Apdex de experiência' if experience else 'Apdex de navegação'} · {sample.get('url') or '-'}", a._kv(fields) + note))
 
-    lead = ""
+    lead = concurrency_notice
     if experience and run and bool(run.get("errors_affect_apdex")):
         forced = int(summary.get("error_forced_frustrated_count") or 0)
         valid = int(summary.get("valid_samples") or 0)
         scope = a._error_scope_label(run.get("error_scope"))
-        lead = f"<div class='notice warn'><strong>Política de erro do Apdex:</strong> erros participam da classificação ({escape(scope)}). {forced} de {valid} amostra(s) válida(s) foram forçadas para Frustrada por essa regra. A duração, isoladamente, não explica essas classificações.</div>"
+        lead += f"<div class='notice warn'><strong>Política de erro do Apdex:</strong> erros participam da classificação ({escape(scope)}). {forced} de {valid} amostra(s) válida(s) foram forçadas para Frustrada por essa regra. A duração, isoladamente, não explica essas classificações.</div>"
     headers = ("Amostra", "Data/hora", "Dispositivo", "Classificação", "Duração", "LCP", "Falhas de requisição", "Medição", "Detalhe") if experience else ("Amostra", "Data/hora", "Dispositivo", "Classificação", "Duração", "Medição", "Detalhe")
     return lead + a._table(headers, rows, empty="Nenhuma amostra foi persistida para este Apdex.", sortable=bool(rows), page_size=10 if experience and len(rows) > 10 else None) + "".join(modals)
 

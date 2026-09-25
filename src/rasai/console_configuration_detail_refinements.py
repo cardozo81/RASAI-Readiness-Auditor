@@ -8,6 +8,7 @@ from __future__ import annotations
 from rasai.configuration_value_labels import configuration_value_info
 
 from dataclasses import replace
+import os
 from typing import Any
 
 from rasai.console_ui import CYAN, paint
@@ -118,6 +119,7 @@ def _patch_dynatrace_metadata() -> None:
 
 def _render_enrichment(spec: Any) -> None:
     from rasai import console_configuration_guidance as guidance
+    from rasai.apdex_concurrency_policy import experience_risk, navigation_risk
 
     print(f"Contexto       : {paint(guidance.context_for(spec), CYAN, bold=True)}")
     if spec.accepted:
@@ -132,6 +134,24 @@ def _render_enrichment(spec: Any) -> None:
         print(f"Como preencher : entrada específica validada pelo runtime; formato aceito: {spec.value_type}.")
         if getattr(spec, "example", ""):
             print(f"Exemplo válido  : {spec.example}")
+    raw_effective = (os.environ.get(str(spec.name)) or str(getattr(spec, "default", "") or "")).strip()
+    if spec.name == "RASAI_APDEX_CONCURRENCY" and raw_effective:
+        try:
+            current_concurrency = int(raw_effective)
+        except ValueError:
+            pass
+        else:
+            print(f"Grau de risco    : {navigation_risk(current_concurrency)}")
+            print("Risco operacional: concorrência maior pode aumentar contenção local, carga no alvo e interferência na medição.")
+    elif spec.name == "RASAI_APDEX_EXPERIENCE_CONCURRENCY" and raw_effective:
+        try:
+            current_concurrency = int(raw_effective)
+        except ValueError:
+            pass
+        else:
+            print(f"Grau de risco    : {experience_risk(current_concurrency)}")
+            print("Risco operacional: user actions concorrentes mantêm browser/observação pós-load ativos por mais tempo.")
+
     criterion = str(getattr(spec, "required_when", "") or "").strip()
     if criterion:
         print(f"Critério de uso : {criterion}")

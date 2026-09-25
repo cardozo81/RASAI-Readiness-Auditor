@@ -5,7 +5,14 @@ import math
 import os
 from pathlib import Path
 
+from rasai.apdex_concurrency_policy import (
+    EXPERIENCE_MAX_CONCURRENCY,
+    NAVIGATION_MAX_CONCURRENCY,
+    experience_risk,
+    navigation_risk,
+)
 from rasai.configuration_value_labels import configuration_value_choice, configuration_value_info
+from rasai.console_confirmation_contract import confirm_sensitive
 from rasai.console_input_contract import EditCancelled, prompt_number, prompt_text, prompt_yes_no
 from rasai.console_m23 import State, config_from_state, experience_from_state, synthetic_load_summary
 from rasai.console_ui import DIM, YELLOW, paint
@@ -209,10 +216,20 @@ def _configure_navigation(state: State) -> None:
         "Delay mínimo entre inícios", state.apdex_delay, minimum=0.0,
         help_text="valores maiores reduzem a pressão sobre o alvo e aumentam a duração.",
     ))
-    state.apdex_concurrency = int(_number(
-        "Concorrência (1-2)", state.apdex_concurrency, minimum=1, integer=True,
-        help_text="1 é o default conservador; 2 aumenta a carga concorrente.",
+    selected_concurrency = int(_number(
+        f"Concorrência (1-{NAVIGATION_MAX_CONCURRENCY})", state.apdex_concurrency, minimum=1, integer=True,
+        help_text="1 é recomendado; 3-4 exigem delay >= 1 s e aumentam o risco de interferência na medição/alvo.",
     ))
+    if selected_concurrency > NAVIGATION_MAX_CONCURRENCY:
+        raise ValueError(f"Concorrência Navigation deve estar entre 1 e {NAVIGATION_MAX_CONCURRENCY}")
+    print(paint(f"  Grau de risco: {navigation_risk(selected_concurrency)}", YELLOW if selected_concurrency > 1 else DIM, bold=selected_concurrency > 1))
+    if selected_concurrency >= 4 and not confirm_sensitive(
+        "CONCORRÊNCIA",
+        action_label=f"Usar concorrência Navigation {selected_concurrency} - {navigation_risk(selected_concurrency)}",
+        back_label="Cancelar a edição do Synthetic Apdex",
+    ):
+        raise EditCancelled()
+    state.apdex_concurrency = selected_concurrency
     config_from_state(state)
 
 
@@ -281,10 +298,21 @@ def _configure_experience(state: State) -> None:
     state.apdex_experience_delay = float(_number(
         "Delay entre user actions (segundos)", state.apdex_experience_delay, minimum=0.0
     ))
-    state.apdex_experience_concurrency = int(_number(
-        "Concorrência Experience (1-2)", state.apdex_experience_concurrency,
+    selected_experience_concurrency = int(_number(
+        f"Concorrência Experience (1-{EXPERIENCE_MAX_CONCURRENCY})", state.apdex_experience_concurrency,
         minimum=1, integer=True,
+        help_text="1 é recomendado; 3 exige delay >= 1 s, é avançado e deve ser escolhido explicitamente.",
     ))
+    if selected_experience_concurrency > EXPERIENCE_MAX_CONCURRENCY:
+        raise ValueError(f"Concorrência Experience deve estar entre 1 e {EXPERIENCE_MAX_CONCURRENCY}")
+    print(paint(f"  Grau de risco: {experience_risk(selected_experience_concurrency)}", YELLOW if selected_experience_concurrency > 1 else DIM, bold=selected_experience_concurrency > 1))
+    if selected_experience_concurrency >= 3 and not confirm_sensitive(
+        "CONCORRÊNCIA",
+        action_label=f"Usar concorrência Experience {selected_experience_concurrency} - {experience_risk(selected_experience_concurrency)}",
+        back_label="Cancelar a edição do Synthetic Apdex",
+    ):
+        raise EditCancelled()
+    state.apdex_experience_concurrency = selected_experience_concurrency
 
     state.apdex_dynatrace_import = _yes_no(
         "Importar calibração Dynatrace", state.apdex_dynatrace_import

@@ -17,6 +17,10 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 
+from rasai.apdex_concurrency_policy import (
+    EXPERIENCE_MAX_CONCURRENCY,
+    NAVIGATION_MAX_CONCURRENCY,
+)
 from rasai.console_artifacts import open_external_path
 from rasai.console_config import (
     ENV_NAMES as BASE_ENV_NAMES,
@@ -343,7 +347,15 @@ def _apdex_specs() -> tuple[EnvironmentSpec, ...]:
         EnvironmentSpec(APDEX_MAX_PAGES_ENV, "Synthetic Apdex", "Máximo de páginas; 0=todas.", "inteiro >= 0", default="1"),
         EnvironmentSpec(APDEX_TIMEOUT_ENV, "Synthetic Apdex", "Timeout por navegação.", "número > 0 e > 4T", default="max(45, 4T + 5)"),
         EnvironmentSpec(APDEX_DELAY_ENV, "Synthetic Apdex", "Intervalo mínimo entre navegações.", "número >= 0", default="1"),
-        EnvironmentSpec(APDEX_CONCURRENCY_ENV, "Synthetic Apdex", "Workers Navigation Apdex simultâneos.", "enum inteiro", ("1", "2"), "1"),
+        EnvironmentSpec(
+            APDEX_CONCURRENCY_ENV,
+            "Synthetic Apdex",
+            "Workers Navigation Apdex simultâneos.",
+            f"inteiro 1..{NAVIGATION_MAX_CONCURRENCY}",
+            default="1",
+            impact="Aumenta CPU/RAM local e navegações HTTP reais sobrepostas; valores altos podem alterar a representatividade, acionar rate limit/WAF ou degradar o alvo.",
+            notes="1 é recomendado; 3-4 exigem delay >= 1 s. Cada navegação pode gerar múltiplos subrequests HTTP.",
+        ),
         EnvironmentSpec(UX_ENABLED_ENV, "Synthetic Apdex", "Habilita Synthetic User Experience Apdex e apdex-experience.html.", "booleano", ("true", "false"), "false", required_when="Exige Synthetic Navigation Apdex ativo."),
         EnvironmentSpec(UX_SAMPLES_ENV, "Synthetic Apdex", "Amostras válidas totais por página na população Experience.", "inteiro >= 1", default=str(DEFAULT_UX_SAMPLES)),
         EnvironmentSpec(UX_MAX_ATTEMPTS_ENV, "Synthetic Apdex", "Teto de tentativas por página Experience.", "inteiro >= samples", default="ceil(1.25 × samples)"),
@@ -381,7 +393,15 @@ def _apdex_specs() -> tuple[EnvironmentSpec, ...]:
         EnvironmentSpec(UX_ERROR_SCOPE_ENV, "Synthetic Apdex", "Escopo dos erros que afetam Experience Apdex.", "enum", ("navigation", "first-party", "all"), DEFAULT_UX_ERROR_SCOPE),
         EnvironmentSpec(UX_SETTLE_ENV, "Synthetic Apdex", "Janela pós-load para recursos tardios.", "número > 0", default=f"{DEFAULT_UX_SETTLE_SECONDS:g}"),
         EnvironmentSpec(UX_DELAY_ENV, "Synthetic Apdex", "Intervalo mínimo entre user actions.", "número >= 0", default=f"{DEFAULT_UX_DELAY_SECONDS:g}"),
-        EnvironmentSpec(UX_CONCURRENCY_ENV, "Synthetic Apdex", "Workers Experience simultâneos.", "enum inteiro", ("1", "2"), str(DEFAULT_UX_CONCURRENCY)),
+        EnvironmentSpec(
+            UX_CONCURRENCY_ENV,
+            "Synthetic Apdex",
+            "Workers Experience simultâneos.",
+            f"inteiro 1..{EXPERIENCE_MAX_CONCURRENCY}",
+            default=str(DEFAULT_UX_CONCURRENCY),
+            impact="Aumenta CPU/RAM local e user actions HTTP sobrepostas; a janela pós-load torna cada worker mais pesado e pode afetar a representatividade ou o alvo.",
+            notes="1 é recomendado; 3 exige delay >= 1 s e deve ser configurado explicitamente. Cada ação pode gerar múltiplos subrequests HTTP.",
+        ),
         EnvironmentSpec(DYNATRACE_IMPORT_ENV, "Synthetic Apdex", "Importa calibração Dynatrace.", "booleano", ("true", "false"), "false"),
         EnvironmentSpec(DYNATRACE_BASE_URL_ENV, "Synthetic Apdex", "URL HTTPS do ambiente Dynatrace.", "URL HTTPS", required_when="Importação Dynatrace live."),
         EnvironmentSpec(DYNATRACE_APPLICATION_ID_ENV, "Synthetic Apdex", "Application ID Dynatrace.", "texto", required_when="Importação Dynatrace live."),

@@ -172,6 +172,53 @@ class M23IntegrationTests(unittest.TestCase):
         self.assertEqual(attempts, 28)
         self.assertIn("múltiplos requests HTTP", message)
 
+
+    def test_navigation_concurrency_guardrails_and_target_aware_parallelism(self) -> None:
+        with self.assertRaises(ValueError):
+            SyntheticApdexConfig(
+                enabled=True, threshold_seconds=1.0, target_valid_samples=1,
+                max_attempts_per_context=1, timeout_seconds=5.0,
+                delay_seconds=0.0, concurrency=4,
+            ).validate()
+        SyntheticApdexConfig(
+            enabled=True, threshold_seconds=1.0, target_valid_samples=1,
+            max_attempts_per_context=1, timeout_seconds=5.0,
+            delay_seconds=1.0, concurrency=4,
+        ).validate()
+        with self.assertRaises(ValueError):
+            SyntheticApdexConfig(
+                enabled=True, threshold_seconds=1.0, target_valid_samples=1,
+                max_attempts_per_context=1, timeout_seconds=5.0,
+                delay_seconds=1.0, concurrency=5,
+            ).validate()
+
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = _workspace(directory)
+            calls = []
+
+            class _ParallelGateway:
+                def environment(self):
+                    return {"system": "TEST", "chromium_version": "test"}
+
+                def measure(self, **_kwargs):
+                    calls.append(1)
+                    return _measurement(500)
+
+                def close(self):
+                    pass
+
+            result = execute_m23_apdex(
+                audit_id="AUD-M23", workspace=workspace,
+                config=SyntheticApdexConfig(
+                    enabled=True, threshold_seconds=1.0, target_valid_samples=1,
+                    max_attempts_per_context=4, max_pages=1, timeout_seconds=5.0,
+                    delay_seconds=1.0, concurrency=4,
+                ),
+                gateway_factory=_ParallelGateway,
+            )
+            self.assertEqual(result.attempted_samples, 1)
+            self.assertEqual(len(calls), 1)
+
     def test_timeout_must_exceed_4t(self) -> None:
         state = State(synthetic_apdex=True, apdex_threshold=2.0, apdex_timeout=8.0)
         with self.assertRaises(ValueError):

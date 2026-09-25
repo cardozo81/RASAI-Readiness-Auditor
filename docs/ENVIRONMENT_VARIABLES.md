@@ -223,7 +223,7 @@ Depois da janela, uma nova observação live deve ocorrer em nova auditoria quan
 | `RASAI_APDEX_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` |
 | `RASAI_APDEX_TIMEOUT_SECONDS` | `max(45, 4T + 5)` | número `> 0` e `> 4T` | default derivado |
 | `RASAI_APDEX_DELAY_SECONDS` | `1` | número `>= 0` | `1` ou maior conforme sensibilidade do alvo |
-| `RASAI_APDEX_CONCURRENCY` | `1` | `1`, `2` | `1` |
+| `RASAI_APDEX_CONCURRENCY` | `1` | inteiro `1..4` | `1`; `3..4` exigem delay >= `1 s` |
 | `RASAI_APDEX_MOBILE_CLIENT_PROFILE` | `mobile-balanced-chromium` | `mobile-compact-chromium`, `mobile-balanced-chromium`, `mobile-large-chromium` | default |
 | `RASAI_APDEX_MOBILE_HARDWARE_PROFILE` | `mobile-balanced` | `mobile-entry`, `mobile-balanced`, `mobile-premium` | `mobile-balanced` |
 | `RASAI_APDEX_MOBILE_NETWORK_PROFILE` | `mobile-4g-balanced` | `mobile-3g-constrained`, `mobile-4g-balanced`, `mobile-4g-fast`, `mobile-5g` | `mobile-4g-balanced` |
@@ -235,6 +235,8 @@ Depois da janela, uma nova observação live deve ocorrer em nova auditoria quan
 | `RASAI_APDEX_TABLET_NETWORK_PROFILE` | `tablet-4g-balanced` | `tablet-4g-balanced`, `tablet-wifi` | `tablet-4g-balanced` |
 
 Os presets controlam cliente/viewport, slowdown relativo de CPU e envelope de rede. Não mudam a fórmula Apdex nem afirmam equivalência com hardware físico.
+
+Concorrência acima do recomendado aumenta CPU/RAM local e sobreposição de tráfego HTTP real. Navigation `3..4` e Experience `3` exigem pacing mínimo de `1 s`. O runtime não apresenta esses limites como garantia de segurança para qualquer servidor; capacidade, WAF/rate limit e autorização do alvo continuam sendo responsabilidade operacional.
 
 ## 9. Synthetic User Experience Apdex (`cat-07.html`)
 
@@ -254,7 +256,7 @@ Os presets controlam cliente/viewport, slowdown relativo de CPU e envelope de re
 | `RASAI_APDEX_EXPERIENCE_ERROR_SCOPE` | `first-party` | `navigation`, `first-party`, `all` | `first-party` | escopo dos erros |
 | `RASAI_APDEX_EXPERIENCE_SETTLE_SECONDS` | `5` | número `> 0` | `5` | janela pós-load |
 | `RASAI_APDEX_EXPERIENCE_DELAY_SECONDS` | `1` | número `>= 0` | `1` | intervalo entre ações |
-| `RASAI_APDEX_EXPERIENCE_CONCURRENCY` | `1` | `1`, `2` | `1` | workers simultâneos |
+| `RASAI_APDEX_EXPERIENCE_CONCURRENCY` | `1` | inteiro `1..3` | `1`; `3` exige delay >= `1 s` e configuração explícita | workers simultâneos |
 | `RASAI_APDEX_DYNATRACE_IMPORT` | `false` | booleano | `false` | habilita importação live Dynatrace |
 | `RASAI_DYNATRACE_BASE_URL` | sem default | URL HTTPS absoluta | configurar somente para importação live | URL do ambiente Dynatrace |
 | `RASAI_DYNATRACE_APPLICATION_ID` | sem default | texto não vazio | somente importação live | aplicação web consultada |

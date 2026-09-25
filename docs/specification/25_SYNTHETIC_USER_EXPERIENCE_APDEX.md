@@ -54,7 +54,7 @@ Os dois domínios possuem persistência, população, thresholds e relatórios i
 | `RASAI_APDEX_EXPERIENCE_SESSION_MODE` | `cold` | `cold`, `warm` | RASAi |
 | `RASAI_APDEX_EXPERIENCE_SETTLE_SECONDS` | `5.0` | número finito `> 0` | RASAi |
 | `RASAI_APDEX_EXPERIENCE_DELAY_SECONDS` | normalmente `1.0` | número finito `>= 0` | RASAi |
-| `RASAI_APDEX_EXPERIENCE_CONCURRENCY` | normalmente `1` | `1`, `2` | RASAi |
+| `RASAI_APDEX_EXPERIENCE_CONCURRENCY` | normalmente `1` | inteiro `1..3`; `3` exige delay >= `1 s` | RASAi |
 | `RASAI_APDEX_DYNATRACE_IMPORT` | `false` | booleano | RASAi |
 | `RASAI_DYNATRACE_BASE_URL` | sem default | URL HTTPS válida | integração Dynatrace |
 | `RASAI_DYNATRACE_APPLICATION_ID` | sem default | texto válido | integração Dynatrace |
@@ -209,6 +209,8 @@ max attempts = ceil(1.25 × samples)
 ```
 
 Grupos menores são diagnósticos. Uma amostra é uma navegação com múltiplos subrequests. Carga relevante contra produção exige autorização e avaliação de capacidade.
+
+A concorrência `3` é avançada e deve ser explícita; a herança implícita do Navigation permanece limitada a `2`. O scheduler reduz trabalhos em voo conforme faltam menos amostras válidas, evitando ações físicas excedentes que não fariam parte da população persistida.
 
 ## 11. Importação Dynatrace
 

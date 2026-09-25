@@ -64,7 +64,7 @@ Synthetic Navigation Apdex é desabilitado por padrão. `T` não possui default 
 | `RASAI_APDEX_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` como baseline seguro de carga |
 | `RASAI_APDEX_TIMEOUT_SECONDS` | `max(45, 4T + 5)` | número finito positivo e, no contrato efetivo, maior que `4T` | default derivado |
 | `RASAI_APDEX_DELAY_SECONDS` | `1.0` | número finito `>= 0` | `1.0` ou maior conforme sensibilidade do alvo |
-| `RASAI_APDEX_CONCURRENCY` | `1` | `1`, `2` | `1`; usar `2` apenas quando a carga paralela for aceitável |
+| `RASAI_APDEX_CONCURRENCY` | `1` | inteiro `1..4` | `1`; `3..4` exigem delay >= `1 s` e são configuração avançada |
 
 Precedência:
 
@@ -118,7 +118,8 @@ Defaults de carga:
 max_pages   = 1
 delay       = 1 s entre inícios
 concurrency = 1
-maximum     = 2 workers
+maximum     = 4 workers
+advanced    = 3..4 requer delay >= 1 s
 ```
 
 O pacer controla inícios de navegação. Uma navegação pode carregar HTML, CSS, JavaScript, imagens, fontes e terceiros; portanto, `N` amostras não equivale a `N` requests HTTP.
@@ -130,7 +131,7 @@ Synthetic Navigation Apdex:
 - não possui preço monetário de API próprio;
 - consome CPU/RAM/tempo local e tráfego HTTP real contra o alvo.
 
-Execução de grupo grande contra produção exige autorização e avaliação de capacidade do ambiente auditado.
+Execução de grupo grande contra produção exige autorização e avaliação de capacidade do ambiente auditado. O scheduler paralelo limita trabalhos em voo às amostras válidas ainda necessárias; quando o target se aproxima, reduz a fila para evitar navegações físicas excedentes não materializadas nas amostras persistidas.
 
 ## 8. Persistência
 
