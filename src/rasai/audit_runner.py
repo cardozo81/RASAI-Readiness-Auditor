@@ -197,6 +197,33 @@ def run_audit(
                 normalized_unique_count=len(normalized_targets),
             )
 
+        from rasai.audit_resume_runtime import (
+            finish_execution_session,
+            persist_resume_plan,
+            start_execution_session,
+        )
+        from rasai.device_context import configured_device_context
+
+        execution_session = start_execution_session(
+            workspace,
+            audit_id,
+            kind="INITIAL",
+            source="AUDIT",
+            reject_active=False,
+        )
+        persist_resume_plan(
+            workspace,
+            audit_id,
+            targets=normalized_targets,
+            target_type=target_type.value,
+            language=language,
+            market=market,
+            max_pages=max_pages,
+            device_context=configured_device_context(),
+            content_remediation=content_remediation,
+            technical_remediation=technical_remediation,
+        )
+
         try:
             # ------------------------------------------------------------------
             # CORE COLLECTION / EXTRACTION
@@ -581,7 +608,7 @@ def run_audit(
                 evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
             )
 
-            return AuditRunResult(
+            result = AuditRunResult(
                 audit_id=audit_id,
                 audit_root=workspace.root,
                 report_path=report_path,
@@ -590,6 +617,12 @@ def run_audit(
                 finding_count=len(all_finding_ids),
                 recommendation_count=len(m10.recommendation_ids),
             )
+            finish_execution_session(
+                workspace,
+                execution_session,
+                state="COMPLETED",
+            )
+            return result
         except Exception as exc:
             try:
                 from rasai.fulfillment_execution_contract import _reconcile_requested_improvement
@@ -612,6 +645,12 @@ def run_audit(
                 audit_id=audit_id,
                 error_type=type(exc).__name__,
                 error_message=str(exc)[:512],
+            )
+            finish_execution_session(
+                workspace,
+                execution_session,
+                state="FAILED",
+                note=f"{type(exc).__name__}: {str(exc)[:512]}",
             )
             raise
 
