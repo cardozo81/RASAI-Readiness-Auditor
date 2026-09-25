@@ -45,10 +45,11 @@ from rasai.evidence import EvidenceManager
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.reprocess_policy import blocking_dependencies, item_executable, selected_counts
 
+DISCOVERY_ACQUISITION = "DISCOVERY_ACQUISITION"
 HTTP_ACQUISITION = "HTTP_ACQUISITION"
 RENDER_CAPTURE = "RENDER_CAPTURE"
 CONTENT_EXTRACTION = "CONTENT_EXTRACTION"
-CORE_COMPONENTS = frozenset({HTTP_ACQUISITION, RENDER_CAPTURE, CONTENT_EXTRACTION})
+CORE_COMPONENTS = frozenset({DISCOVERY_ACQUISITION, HTTP_ACQUISITION, RENDER_CAPTURE, CONTENT_EXTRACTION})
 _AI_COMPONENTS = frozenset({"SEMANTIC_AI", "TECHNICAL_AI", "CONTENT_REMEDIATION_AI"})
 _RETRYABLE_STATES = frozenset({PENDING, RUNNING, WAITING_FOR_DATA, FAILED_RETRYABLE})
 _RESOLVED_STATES = frozenset({SUCCESS, DISABLED, NOT_APPLICABLE})
@@ -161,7 +162,7 @@ def synchronize_core_work_items(workspace: AuditWorkspace, audit_id: str) -> Non
     connection.row_factory = sqlite3.Row
     try:
         audit = connection.execute(
-            "SELECT started_at,created_at FROM audits WHERE audit_id=?", (audit_id,)
+            "SELECT status,started_at,created_at FROM audits WHERE audit_id=?", (audit_id,)
         ).fetchone()
         if audit is None:
             raise ValueError(f"audit_id not found in audit.db: {audit_id}")
@@ -212,6 +213,51 @@ def synchronize_core_work_items(workspace: AuditWorkspace, audit_id: str) -> Non
             })
     finally:
         connection.close()
+
+    existing_discovery = next(
+        (item for item in list_work_items(workspace, audit_id) if item.component == DISCOVERY_ACQUISITION),
+        None,
+    )
+    audit_status = str(audit["status"] or "").upper()
+    if existing_discovery is not None and existing_discovery.status == SUCCESS:
+        discovery_status = SUCCESS
+        discovery_retryable = True
+        discovery_code = None
+    elif audit_status == "COMPLETED":
+        discovery_status = SUCCESS
+        discovery_retryable = False
+        discovery_code = None
+    elif existing_discovery is None and pages and (
+        snapshots or audit_status in {"ACQUIRING", "ANALYZING", "COMPARING", "SCORING", "RECOMMENDING", "REPORTING"}
+    ):
+        # Conservative legacy backfill: persisted downstream evidence proves M2 had
+        # already returned. A FAILED/CANCELLED legacy AUD without this proof remains
+        # retryable rather than being silently declared complete.
+        discovery_status = SUCCESS
+        discovery_retryable = True
+        discovery_code = None
+    else:
+        discovery_status = FAILED_RETRYABLE
+        discovery_retryable = True
+        discovery_code = "DISCOVERY_ACQUISITION_INCOMPLETE"
+    _set_item(
+        workspace,
+        audit_id=audit_id,
+        component=DISCOVERY_ACQUISITION,
+        scope_key="AUDIT",
+        status=discovery_status,
+        temporal_mode=LIVE_RECOLLECTION,
+        retryable=discovery_retryable,
+        source_captured_at=audit_time,
+        configuration={"stage": "M2_DISCOVERY_ACQUISITION"},
+        result_ref=f"discovery:{audit_id}:effective" if discovery_status == SUCCESS else None,
+        error_code=discovery_code,
+        error_message=(
+            None
+            if discovery_status == SUCCESS
+            else "a descoberta/aquisição inicial não possui checkpoint final confirmado"
+        ),
+    )
 
     for page_id,url,http_ok in page_states:
         _set_item(
@@ -516,6 +562,143 @@ def _replace_http_rules(
             persistence.rule_executions.add(execution)
 
 
+def _archive_incomplete_discovery(
+    workspace: AuditWorkspace,
+    *,
+    audit_id: str,
+    reprocess_id: str,
+) -> tuple[bool, str]:
+    """Archive and clear only a partially persisted M2 stage before replaying it.
+
+    M3 cannot have started while the audit still owns an unfinished M2 attempt. If a
+    snapshot is present, recovery refuses destructive cleanup because downstream
+    evidence proves the boundary is no longer an isolated discovery stage.
+    """
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        snapshots = int(connection.execute(
+            """SELECT count(*) FROM page_snapshots ps
+               JOIN pages p ON p.page_id=ps.page_id WHERE p.audit_id=?""",
+            (audit_id,),
+        ).fetchone()[0])
+        if snapshots:
+            return False, "DISCOVERY_PARTIAL_WITH_DOWNSTREAM_EVIDENCE"
+
+        pages = tuple(dict(row) for row in connection.execute(
+            "SELECT * FROM pages WHERE audit_id=? ORDER BY rowid",
+            (audit_id,),
+        ).fetchall())
+        evidence = tuple(dict(row) for row in connection.execute(
+            "SELECT * FROM evidence WHERE audit_id=? ORDER BY rowid",
+            (audit_id,),
+        ).fetchall())
+        rules = tuple(dict(row) for row in connection.execute(
+            "SELECT * FROM rule_executions WHERE audit_id=? ORDER BY rowid",
+            (audit_id,),
+        ).fetchall())
+
+        if pages:
+            archive_rows(
+                workspace,
+                audit_id=audit_id,
+                reprocess_id=reprocess_id,
+                component=DISCOVERY_ACQUISITION,
+                entity_type="partial_m2_page",
+                id_field="page_id",
+                rows=pages,
+            )
+        if evidence:
+            archive_rows(
+                workspace,
+                audit_id=audit_id,
+                reprocess_id=reprocess_id,
+                component=DISCOVERY_ACQUISITION,
+                entity_type="partial_m2_evidence",
+                id_field="evidence_id",
+                rows=evidence,
+            )
+        if rules:
+            archive_rows(
+                workspace,
+                audit_id=audit_id,
+                reprocess_id=reprocess_id,
+                component=DISCOVERY_ACQUISITION,
+                entity_type="partial_m2_rule_execution",
+                id_field="rule_execution_id",
+                rows=rules,
+            )
+
+        with connection:
+            rule_ids = tuple(str(row["rule_execution_id"]) for row in rules)
+            if rule_ids:
+                marks = ",".join("?" for _ in rule_ids)
+                connection.execute(
+                    f"DELETE FROM findings WHERE rule_execution_id IN ({marks})",
+                    rule_ids,
+                )
+            connection.execute("DELETE FROM rule_executions WHERE audit_id=?", (audit_id,))
+            connection.execute("DELETE FROM evidence WHERE audit_id=?", (audit_id,))
+            connection.execute("DELETE FROM pages WHERE audit_id=?", (audit_id,))
+    finally:
+        connection.close()
+    return True, "PARTIAL_DISCOVERY_ARCHIVED"
+
+
+def _recover_discovery(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    item: WorkItem,
+    reprocess_id: str,
+) -> tuple[bool,str,set[str]]:
+    from rasai.audit_resume_runtime import load_resume_plan
+    from rasai.m2 import execute_m2
+
+    plan = load_resume_plan(workspace, audit_id)
+    targets = tuple(str(value) for value in plan.get("targets", ()) if str(value).strip())
+    if not targets:
+        return False, "AUDIT_RESUME_PLAN_UNAVAILABLE", set()
+
+    with AuditPersistence(workspace) as persistence:
+        audit = persistence.audits.get(audit_id)
+        if audit is None:
+            return False, "AUDIT_NOT_FOUND", set()
+        connection = sqlite3.connect(workspace.database)
+        connection.row_factory = sqlite3.Row
+        try:
+            target_row = connection.execute(
+                "SELECT target_id FROM audit_targets WHERE audit_id=? ORDER BY rowid LIMIT 1",
+                (audit_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+        if target_row is None:
+            return False, "AUDIT_TARGET_NOT_FOUND", set()
+        target = persistence.targets.get(str(target_row["target_id"]))
+        if target is None:
+            return False, "AUDIT_TARGET_NOT_FOUND", set()
+
+        cleared, code = _archive_incomplete_discovery(
+            workspace,
+            audit_id=audit_id,
+            reprocess_id=reprocess_id,
+        )
+        if not cleared:
+            return False, code, set()
+
+        explicit_urls = targets if str(plan.get("target_type") or "").upper() == "URL_SET" else None
+        result = execute_m2(
+            audit,
+            target,
+            persistence,
+            workspace,
+            explicit_urls=explicit_urls,
+        )
+    if not result.page_ids:
+        return False, "DISCOVERY_RETURNED_NO_PAGES", set()
+    return True, "DISCOVERY_ACQUISITION_RECOVERED", set()
+
+
 def _recover_http(workspace: AuditWorkspace, audit_id: str, item: WorkItem, reprocess_id: str) -> tuple[bool,str,set[str]]:
     page_id = item.scope_key
     url = str(item.configuration.get("url") or "").strip()
@@ -736,7 +919,9 @@ def _attempt(
         reprocess_id=reprocess_id,metadata={"temporal_mode":item.temporal_mode},
     )
     try:
-        if item.component == HTTP_ACQUISITION:
+        if item.component == DISCOVERY_ACQUISITION:
+            success,code,affected = _recover_discovery(workspace,audit_id,item,reprocess_id)
+        elif item.component == HTTP_ACQUISITION:
             success,code,affected = _recover_http(workspace,audit_id,item,reprocess_id)
         elif item.component == RENDER_CAPTURE:
             if renderer is None:
@@ -936,6 +1121,13 @@ def _wrap_reprocess(original: Any, module: Any):
         attempted = 0
         successful = 0
         affected: set[str] = set()
+
+        for item in tuple(value for value in _retryable_core(workspace,audit_id) if value.component == DISCOVERY_ACQUISITION):
+            attempted += 1
+            ok,changed = _attempt(workspace,audit_id,item,reprocess_id)
+            successful += int(ok)
+            affected.update(changed)
+        synchronize_core_work_items(workspace,audit_id)
 
         for item in tuple(value for value in _retryable_core(workspace,audit_id) if value.component == HTTP_ACQUISITION):
             attempted += 1
