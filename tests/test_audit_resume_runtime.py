@@ -19,6 +19,7 @@ from rasai.audit_fulfillment import (
 from rasai.audit_resume_runtime import (
     _all_other_required_resolved,
     expected_devices_for_audit,
+    finalize_resumed_audit,
     finish_execution_session,
     interrupted_core_projection,
     persist_resume_plan,
@@ -415,3 +416,56 @@ def test_partial_discovery_is_archived_before_replay(tmp_path: Path, monkeypatch
 
     assert pages == [("PGE-REPLAYED",)]
     assert ("partial_m2_page", "PGE-RESUME") in archived
+
+
+def test_resume_rebuilds_partial_final_derivations_before_core_completion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = _workspace(tmp_path)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="CORE_AUDIT",
+        scope_key="AUDIT",
+        required=True,
+        status=FAILED_RETRYABLE,
+        retryable=True,
+    )
+
+    # Simulate a process dying in M9 after one score row was persisted. Presence of a
+    # score must not be treated as proof that scoring + recommendations completed.
+    connection = sqlite3.connect(workspace.database)
+    try:
+        with connection:
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS scores(score_id TEXT PRIMARY KEY,audit_id TEXT)"
+            )
+            connection.execute(
+                "INSERT INTO scores(score_id,audit_id) VALUES(?,?)",
+                ("SCR-PARTIAL", AUDIT_ID),
+            )
+    finally:
+        connection.close()
+
+    calls: list[tuple[str, str]] = []
+
+    def recompute(*, workspace, audit_id, reprocess_id, semantic_changed):
+        calls.append((audit_id, reprocess_id))
+
+    import rasai.reprocess_ai as reprocess_ai
+
+    monkeypatch.setattr(reprocess_ai, "recompute_derived_after_ai", recompute)
+
+    assert finalize_resumed_audit(
+        workspace,
+        AUDIT_ID,
+        reprocess_id="RPR-PARTIAL-DERIVED",
+    ) is True
+    assert calls == [(AUDIT_ID, "RPR-PARTIAL-DERIVED")]
+    core = next(
+        item
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component == "CORE_AUDIT"
+    )
+    assert core.status == SUCCESS
