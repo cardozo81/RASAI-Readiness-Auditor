@@ -153,20 +153,13 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
                 )
                 mutable_session = None
             raise
-        else:
-            if mutable_workspace is not None:
-                finish_execution_session(
-                    mutable_workspace,
-                    mutable_session,
-                    state="COMPLETED" if code == 0 else "FAILED",
-                    note=None if code == 0 else f"CLI_RETURN_CODE:{code}",
-                )
-                mutable_session = None
     finally:
         cli_extensions._audit_cli.run_audit = original_run_audit
 
-    # The mutable lease is deliberately closed before report projection. Catalog
-    # finalization remains a read-only/fingerprint-validated surface.
+    # Keep the continuation lease across late data finalizers too. Those wrappers may
+    # persist derived audit state even though the base report finalizer is a no-op.
+    # The lease is closed immediately before the catalog-only projection so the report
+    # fingerprint observes the final, stable audit.db.
     executions = consume_all_ai_executions()
     if not captured:
         return code
@@ -179,6 +172,14 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         return code
 
     if code != 0:
+        if mutable_workspace is not None:
+            finish_execution_session(
+                mutable_workspace,
+                mutable_session,
+                state="FAILED",
+                note=f"CLI_RETURN_CODE:{code}",
+            )
+            mutable_session = None
         return code
 
     try:
@@ -212,6 +213,15 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
             # Directed Analysis is advisory. A failure in this strategic layer must not
             # invalidate the technical audit or the CAT-* source reports.
             _LOGGER.exception("Directed Analysis failed; catalog technical results remain valid")
+
+        if mutable_workspace is not None:
+            finish_execution_session(
+                mutable_workspace,
+                mutable_session,
+                state="COMPLETED",
+            )
+            mutable_session = None
+
         catalog_completion = materialize_catalog_report_projection(
             audit_id=result.audit_id,
             workspace=workspace,
@@ -220,7 +230,15 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
             *data_completion.renderer_errors,
             *catalog_completion.renderer_errors,
         )
-    except Exception:
+    except Exception as exc:
+        if mutable_workspace is not None and mutable_session is not None:
+            finish_execution_session(
+                mutable_workspace,
+                mutable_session,
+                state="FAILED",
+                note=f"{type(exc).__name__}: {str(exc)[:512]}",
+            )
+            mutable_session = None
         _LOGGER.exception("Final catalog report materialization gate failed")
         print(
             "Report-catalog: INCOMPLETO - falha ao validar/materializar a projeção final. "
