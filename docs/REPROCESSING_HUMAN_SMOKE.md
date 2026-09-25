@@ -117,7 +117,14 @@ Execute pelo menos os cenários abaixo em uma AUD descartável, sempre verifican
    - após expirar, tente retomar requisito `LIVE_RECOLLECTION`;
    - a AUD não pode ser promovida a final por uma coleta atual tratada como se pertencesse ao marco antigo.
 
-10. **Fechamento**:
+10. **Opcional configurado, mas nunca iniciado**:
+   - execute uma AUD descartável pelo CLI com pelo menos um opcional habilitado (por exemplo Web Performance ou Synthetic Navigation Apdex);
+   - interrompa ainda no core, antes de aparecer qualquer run desse opcional;
+   - retome a mesma AUD;
+   - confirme que o requisito aparece como previsto/não executado e entra na fila do RPR, em vez de desaparecer;
+   - confirme que nenhuma API key/token foi persistida no contrato de retomada.
+
+11. **Fechamento**:
    - depois de resolver todos os requisitos, confirme `processing_status=COMPLETE`, relatório final coerente e elegibilidade correspondente;
    - a auditoria continua sendo a mesma `AUD-*`, com a interrupção e o `RPR-*` preservados no histórico.
 
