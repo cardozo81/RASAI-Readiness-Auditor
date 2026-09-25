@@ -96,7 +96,7 @@ RASAI_APDEX_TABLET_NETWORK_PROFILE
 | máximo de páginas | `1` | `1` | `1` como baseline seguro; ampliar deliberadamente |
 | timeout por navegação | `max(45 s, 4T + 5 s)` | `45 s` para `T=3 s` | default derivado |
 | delay | `1 s` | `1 s` | `1 s` ou maior conforme sensibilidade do alvo |
-| concorrência | `1` | `1` | `1` |
+| concorrência | `1` | `1` | `1`; faixa permitida `1..4`, com `3..4` exigindo delay >= `1 s` |
 
 Os presets de cliente, hardware e rede são definidos no catálogo [`SYNTHETIC_RUNTIME_PROFILES.md`](SYNTHETIC_RUNTIME_PROFILES.md). A precedência operacional do console é **CLI/ação explícita > variável de ambiente/SO > `rasai-console.ini` > `rasai-defaults.ini` > fallback interno**. Mobile e Desktop alimentam diretamente o Synthetic Navigation Apdex; os presets Tablet são compartilhados com a população do Synthetic User Experience Apdex.
 
@@ -115,6 +115,8 @@ O timeout de Apdex é independente do timeout de IA e do timeout PageSpeed/Light
 Synthetic Apdex não possui API paga própria e não chama LLM/PageSpeed/CrUX, mas gera CPU/tempo local, Chromium, tráfego HTTP real contra o alvo e múltiplos requests de subrecursos por navegação.
 
 Não interprete `100 amostras` como `100 requests HTTP`. A baseline automática usa 1 amostra por contexto para conter carga. Em smoke manual controlado, 3-5 amostras podem fornecer mais observações sem pretensão de grupo final. Não execute volume relevante contra produção sem autorização.
+
+A concorrência do Navigation é limitada a `1..4`: `1` é o valor recomendado; `2` representa carga baixa a moderada; `3` é moderado; `4` é avançado/alto. Para `3..4`, o runtime exige `RASAI_APDEX_DELAY_SECONDS >= 1`. O scheduler reduz trabalhos em voo quando o grupo se aproxima do target para não iniciar navegações físicas excedentes que ficariam fora da amostra persistida. Valores altos podem aumentar contenção de CPU/RAM local, pressionar o alvo, acionar rate limit/WAF/antibot e alterar a representatividade da própria medição.
 
 ## Persistência
 
