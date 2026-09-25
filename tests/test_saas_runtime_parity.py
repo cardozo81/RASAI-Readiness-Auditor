@@ -42,6 +42,57 @@ def test_saas_experience_apdex_custom_thresholds_remain_supported() -> None:
         })
 
 
+
+def test_saas_apdex_concurrency_guardrails_match_runtime() -> None:
+    nav = normalize_audit_job_payload({
+        "synthetic_apdex": True,
+        "apdex_threshold_seconds": 1.0,
+        "apdex_concurrency": 4,
+        "apdex_delay_seconds": 1.0,
+    })
+    assert nav["apdex_concurrency"] == 4
+
+    with pytest.raises(ValueError, match="apdex_concurrency >= 3"):
+        normalize_audit_job_payload({
+            "synthetic_apdex": True,
+            "apdex_threshold_seconds": 1.0,
+            "apdex_concurrency": 3,
+            "apdex_delay_seconds": 0.0,
+        })
+    with pytest.raises(ValueError, match="between 1 and 4"):
+        normalize_audit_job_payload({
+            "synthetic_apdex": True,
+            "apdex_threshold_seconds": 1.0,
+            "apdex_concurrency": 5,
+            "apdex_delay_seconds": 1.0,
+        })
+
+    ux = normalize_audit_job_payload({
+        "synthetic_apdex": True,
+        "apdex_threshold_seconds": 1.0,
+        "apdex_experience": True,
+        "apdex_experience_concurrency": 3,
+        "apdex_experience_delay_seconds": 1.0,
+    })
+    assert ux["apdex_experience_concurrency"] == 3
+
+    with pytest.raises(ValueError, match="apdex_experience_concurrency >= 3"):
+        normalize_audit_job_payload({
+            "synthetic_apdex": True,
+            "apdex_threshold_seconds": 1.0,
+            "apdex_experience": True,
+            "apdex_experience_concurrency": 3,
+            "apdex_experience_delay_seconds": 0.0,
+        })
+    with pytest.raises(ValueError, match="between 1 and 3"):
+        normalize_audit_job_payload({
+            "synthetic_apdex": True,
+            "apdex_threshold_seconds": 1.0,
+            "apdex_experience": True,
+            "apdex_experience_concurrency": 4,
+            "apdex_experience_delay_seconds": 1.0,
+        })
+
 def test_durable_execution_contract_rejects_invalid_payload_shapes() -> None:
     validate_execution_job_payload("AUDIT", {})
     validate_execution_job_payload("SEARCH_MONITOR", {"query_id": "QRY-1"})
