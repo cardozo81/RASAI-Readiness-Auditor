@@ -17,6 +17,42 @@ Enquanto existir requisito pendente, recuperável, bloqueado ou fora da validade
 
 A existência física dos arquivos HTML não significa, por si só, que a auditoria atingiu o estado final.
 
+## Retomada após interrupção operacional
+
+Interrupção de processo não cria uma nova observação. Quando a execução original termina por `Ctrl+C`, fechamento do terminal, encerramento abrupto do processo, reboot, falha transitória de rede/provider ou situação equivalente, o RASAi retoma a partir do **último checkpoint durável e validado**.
+
+A semântica é:
+
+```text
+AUD-ABC
+  execução inicial interrompida
+  RPR-001 -> retomada seletiva da mesma observação
+```
+
+O runtime não tenta restaurar a pilha Python nem continuar uma instrução de memória. Antes da primeira coleta significativa, a execução grava no contrato de fulfillment um plano `AUDIT-RESUME-001` sem secrets, contendo o universo mínimo necessário para reconstruir a intenção original, como targets, tipo do alvo, idioma, mercado, limite de páginas, contexto de dispositivo e flags de remediação. A configuração reutilizável canônica também é persistida antecipadamente quando estiver disponível.
+
+Cada execução local de uma AUD mantém uma sessão durável em `audit_execution_sessions` com identidade de execução, PID, host, início e heartbeat. Uma retomada é recusada enquanto existir sessão comprovadamente ativa. Sessões cujo processo local não existe mais, ou cujo heartbeat remoto expirou, são registradas como `INTERRUPTED` antes do novo RPR. O lifecycle de negócio pode ter permanecido em `DISCOVERING`, `ANALYZING`, `SCORING` etc.; por isso esses rótulos, isoladamente, não provam que existe processo vivo.
+
+### Reconciliação de tentativa abandonada
+
+Um work-item que ficou `RUNNING` não é repetido automaticamente. Na abertura do RPR, a tentativa órfã é fechada como `INTERRUPTED` e o item volta a estado recuperável. Em seguida, os sincronizadores de cada componente confrontam o ledger com a evidência efetiva:
+
+- se o resultado completo já foi persistido antes da queda, o item é reconciliado para `SUCCESS` sem nova chamada;
+- se não existe resultado efetivo suficiente, somente o déficit é executado;
+- se havia sucesso declarado mas o artifact correspondente desapareceu, o item fica `BLOCKED`; uma coleta atual não substitui silenciosamente evidência histórica perdida.
+
+A descoberta/aquisição inicial possui checkpoint próprio `DISCOVERY_ACQUISITION`. Se a interrupção ocorrer antes de esse checkpoint concluir, o RPR trata essa etapa como live e respeita a mesma janela temporal das demais coletas. Persistência parcial de M2 é arquivada na trilha do RPR antes de qualquer replay; se já existir evidência downstream incompatível com essa limpeza isolada, a recuperação é bloqueada em vez de apagar dados relacionados.
+
+Para renderização, o plano antecipado permite detectar um contexto configurado que nunca chegou a materializar um `PageSnapshot`. O RPR cria somente o contexto ausente e, depois, a extração/derivados correspondentes. Contextos já concluídos permanecem intactos.
+
+A retomada conserva as regras já existentes para Web Performance, Synthetic Navigation Apdex, Synthetic User Experience Apdex e IA: amostras e chamadas válidas são preservadas, Apdex coleta apenas déficit e IA só volta à fila quando está pendente ou quando uma mudança material de evidência invalida especificamente sua dependência.
+
+### Finalização da mesma AUD
+
+`CORE_AUDIT` não é mais classificado como bloqueio permanente apenas porque `audits.status` não é `COMPLETED`. Uma AUD interrompida torna-se `FAILED_RETRYABLE` somente quando existe base durável suficiente para uma recuperação segura. Auditorias antigas sem plano explícito usam backfill conservador baseado em evidência persistida; quando o contrato original não pode ser provado, permanecem bloqueadas e o RASAi não inventa configuração ausente.
+
+Depois que todos os requisitos obrigatórios aplicáveis estão resolvidos, o RPR recompõe somente derivados faltantes/afetados, promove `CORE_AUDIT` e conclui **o mesmo `AUD-*`**. O fato histórico da interrupção e as tentativas anteriores continuam auditáveis. A projeção HTML é rematerializada depois do fechamento lógico do RPR.
+
 ## Reprocessamento pelo console interativo
 
 O caminho normal para um operador local é:
