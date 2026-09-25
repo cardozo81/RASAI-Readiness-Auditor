@@ -219,15 +219,11 @@ def _execution_active_state(connection: sqlite3.Connection, audit_id: str) -> bo
         host = str(row["host"] or "")
         pid = int(row["pid"] or 0)
         if host == local_host and pid > 0:
-            try:
-                os.kill(pid, 0)
-            except ProcessLookupError:
-                continue
-            except PermissionError:
+            from rasai.audit_resume_runtime import process_is_alive
+
+            if process_is_alive(pid):
                 return True
-            except OSError:
-                continue
-            return True
+            continue
         try:
             heartbeat = datetime.fromisoformat(str(row["heartbeat_at"] or "").replace("Z", "+00:00"))
             if heartbeat.tzinfo is None:
