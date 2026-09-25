@@ -209,12 +209,6 @@ def install() -> None:
     install_post_smoke_alignment()
     install_post_smoke_hotfix()
 
-    # Install interruption recovery last so the lease/reconciliation guard surrounds
-    # the fully composed RPR pipeline instead of protecting only one inner adapter.
-    from rasai.audit_resume_runtime import install as install_audit_resume_runtime
-
-    install_audit_resume_runtime()
-
     _INSTALLED = True
 
 
