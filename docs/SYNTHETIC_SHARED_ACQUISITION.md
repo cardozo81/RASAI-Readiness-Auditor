@@ -57,6 +57,12 @@ O Navigation Apdex ainda precisa completar 100 Mobile e 100 Desktop. Portanto, a
 
 O Experience Apdex continua consolidando exatamente sua população 60/35/5. Tablet permanece exclusivo da população `PROFILE_MEASUREMENT` e não vira um `DeviceContext` core.
 
+## Concorrência e ordem física
+
+Os dois estágios não somam suas concorrências: o Experience executa antes do Navigation e, quando elegível, publica aquisições reutilizáveis para o estágio seguinte. O teto operacional é `1..3` no Experience e `1..4` no Navigation, ambos com default/recomendado `1`. Experience `3` e Navigation `3..4` exigem delay mínimo de `1 s`. A reutilização reduz navegações físicas; não autoriza aumentar os caps nem representa garantia de que o alvo suporte a carga.
+
+Nos executores paralelos, a quantidade de trabalhos em voo deve ser limitada às amostras válidas ainda necessárias. Assim, atingir o target não deixa navegações adicionais já agendadas gerando carga sem representação na população persistida.
+
 ## Independência metodológica
 
 A mesma aquisição pode produzir duas classificações diferentes porque cada método aplica sua própria regra sobre a evidência bruta.
