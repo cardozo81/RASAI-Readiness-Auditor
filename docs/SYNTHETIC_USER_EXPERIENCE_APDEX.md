@@ -32,7 +32,7 @@ Quando `--apdex-experience` é habilitado e o usuário não fornece calibração
 | modo de sessão | `cold` | `cold`, `warm` | `cold` | política sintética RASAi |
 | settle | `5.0 s` | número `> 0` | `5.0 s` | janela de observação pós-load; não é somada automaticamente à duração |
 | delay | `1.0 s` | número `>= 0` | `1.0 s` ou maior conforme capacidade do alvo | política de carga RASAi |
-| concorrência | `1` | `1`, `2` | `1` | política de carga RASAi |
+| concorrência | `1` | inteiro `1..3` | `1`; `3` é avançado e exige delay >= `1 s` | política de carga RASAi |
 
 A classificação temporal segue:
 
@@ -223,6 +223,8 @@ Verificações mínimas:
 `cold` é o baseline reproduzível: novo BrowserContext, cache desabilitado e sem storage reaproveitado. `warm` reutiliza contexto por worker/perfil.
 
 O default é 100 amostras válidas totais por página. Valores maiores representam carga relevante: uma navegação gera múltiplos subrequests. Não execute carga relevante contra produção sem autorização e avaliação de capacidade.
+
+A concorrência do Experience é limitada a `1..3`: `1` é recomendado, `2` é moderado e `3` é avançado/alto. O valor `3` exige `RASAI_APDEX_EXPERIENCE_DELAY_SECONDS >= 1` e deve ser configurado explicitamente; quando não existe override próprio, a herança vinda do Navigation fica limitada a `2`. O scheduler limita os trabalhos em voo às amostras válidas ainda necessárias, evitando user actions físicas excedentes não representadas pela população persistida. Como cada worker inclui observação pós-load, concorrência elevada pode aumentar contenção local, pressão sobre o alvo, bloqueios e auto-interferência na medição.
 
 ## 12. Comparabilidade com Dynatrace RUM
 
