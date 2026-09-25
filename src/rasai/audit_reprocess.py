@@ -121,16 +121,43 @@ def _backfill_contract(workspace: AuditWorkspace, audit_id: str) -> None:
         audit = connection.execute("SELECT * FROM audits WHERE audit_id=?", (audit_id,)).fetchone()
         if audit is None:
             raise ValueError(f"audit_id not found in audit.db: {audit_id}")
-        core_status = SUCCESS if str(audit["status"]) == "COMPLETED" else BLOCKED
+        from rasai.audit_resume_runtime import interrupted_core_projection
+
+        core_status, core_retryable = interrupted_core_projection(
+            workspace,
+            audit_id,
+            str(audit["status"]),
+        )
         register_work_item(
             workspace,audit_id=audit_id,component="CORE_AUDIT",scope_key="AUDIT",required=True,
-            temporal_mode=REPLAY_SAFE,status=core_status,retryable=False,
-            configuration={"audit_status":str(audit["status"])},
+            temporal_mode=REPLAY_SAFE,status=core_status,retryable=core_retryable,
+            configuration={
+                "audit_status":str(audit["status"]),
+                "interruption_recovery":"SUPPORTED" if core_retryable else "NOT_REQUIRED_OR_UNPROVEN",
+            },
         )
         if core_status == SUCCESS:
             set_work_item_status(
                 workspace,audit_id=audit_id,component="CORE_AUDIT",scope_key="AUDIT",
                 status=SUCCESS,result_ref=f"audit:{audit_id}",retryable=False,
+            )
+        elif core_retryable:
+            set_work_item_status(
+                workspace,audit_id=audit_id,component="CORE_AUDIT",scope_key="AUDIT",
+                status=FAILED_RETRYABLE,
+                error_class="EXECUTION_INTERRUPTED",
+                error_code="AUDIT_INCOMPLETE_RECOVERABLE",
+                error_message="execução inicial não concluiu; o RPR deve preservar sucessos e completar apenas o déficit",
+                retryable=True,
+            )
+        else:
+            set_work_item_status(
+                workspace,audit_id=audit_id,component="CORE_AUDIT",scope_key="AUDIT",
+                status=BLOCKED,
+                error_class="RECOVERY_CONTRACT",
+                error_code="AUDIT_RESUME_PLAN_UNAVAILABLE",
+                error_message="não há contrato/evidência persistida suficiente para provar uma retomada integral segura",
+                retryable=False,
             )
 
         if _table_exists(connection,"ai_audit_sessions"):
