@@ -103,6 +103,66 @@ def main(argv: Sequence[str] | None = None) -> int:
     m23_config = _resolve_m23_config(effective_argv)
     m24_config = _resolve_m24_config(effective_argv)
 
+    parsed_resume = _parse_extended_args(effective_argv)
+    resume_args = parsed_resume[1] if parsed_resume is not None else None
+    from rasai.m25_runtime import peek_pending_config
+
+    experience_config = peek_pending_config()
+    resume_options: dict[str, object] = {
+        "synthetic_apdex": (
+            {
+                "enabled": bool(m23_config.enabled),
+                "threshold_seconds": m23_config.threshold_seconds,
+                "target_valid_samples": int(m23_config.target_valid_samples),
+                "max_attempts_per_context": int(m23_config.max_attempts_per_context),
+                "max_pages": int(m23_config.max_pages),
+                "timeout_seconds": float(m23_config.timeout_seconds),
+                "delay_seconds": float(m23_config.delay_seconds),
+                "concurrency": int(m23_config.concurrency),
+                "mobile_profile": m23_config.mobile_profile.as_dict(),
+                "desktop_profile": m23_config.desktop_profile.as_dict(),
+            }
+            if m23_config is not None
+            else {"enabled": False}
+        ),
+        "experience_apdex": experience_config.as_dict(),
+    }
+    if resume_args is not None:
+        queries = [
+            " ".join(str(value).split())
+            for value in (getattr(resume_args, "search_queries", ()) or ())
+            if str(value).strip()
+        ]
+        if queries:
+            from rasai.search_intelligence.config import SerpRuntimeConfig
+
+            search_runtime = SerpRuntimeConfig.from_environment(validate=False)
+            resume_options["search_intelligence"] = {
+                "enabled": True,
+                "queries": list(dict.fromkeys(queries)),
+                "depth": int(getattr(resume_args, "search_depth", 20) or 20),
+                "region": str(getattr(resume_args, "search_region", "") or ""),
+                "device": str(getattr(resume_args, "search_device", "mobile") or "mobile"),
+                "competitive": bool(getattr(resume_args, "search_competitive", True)),
+                "compare_content": bool(getattr(resume_args, "search_compare_content", False)),
+                "max_content_pages": int(getattr(resume_args, "search_max_content_pages", 3) or 3),
+                "content_timeout_seconds": float(getattr(resume_args, "search_content_timeout_seconds", 10.0) or 10.0),
+                "content_max_bytes": int(getattr(resume_args, "search_content_max_bytes", 2_000_000) or 2_000_000),
+                "content_max_redirects": int(getattr(resume_args, "search_content_max_redirects", 5) or 5),
+                "ai_competitive": bool(getattr(resume_args, "search_ai_competitive", False)),
+                "ymyl_mode": str(getattr(resume_args, "search_ymyl_mode", "AUTO") or "AUTO").upper(),
+                "mode": str(search_runtime.mode),
+                "provider": str(search_runtime.provider),
+                "fixture_path": str(search_runtime.fixture_path) if search_runtime.fixture_path else "",
+                "max_queries": int(search_runtime.max_queries),
+                "max_requests": int(search_runtime.max_requests),
+                "max_depth": int(search_runtime.max_depth),
+                "max_competitors": int(search_runtime.max_competitors),
+                "timeout_seconds": float(search_runtime.timeout_seconds),
+                "retries": int(search_runtime.retries),
+                "min_interval_seconds": float(search_runtime.min_interval_seconds),
+            }
+
     original_build_parser = _audit_cli.build_parser
     original_provider_builder = _audit_cli.build_semantic_provider
     original_m20_router = _m20.build_content_remediation_router
@@ -293,7 +353,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         _audit_cli.build_semantic_provider = capture_build_semantic_provider
         _m20.build_content_remediation_router = build_content_remediation_router
         _audit_cli.execute_m21 = execute_m21_and_m23
-        code = _audit_cli.main(effective_argv)
+        from rasai.audit_resume_runtime import resume_plan_options
+
+        with resume_plan_options(resume_options):
+            code = _audit_cli.main(effective_argv)
     finally:
         _audit_cli.build_parser = original_build_parser
         _audit_cli.build_semantic_provider = original_provider_builder
