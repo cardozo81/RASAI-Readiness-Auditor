@@ -45,7 +45,9 @@ A descoberta/aquisição inicial possui checkpoint próprio `DISCOVERY_ACQUISITI
 
 Para renderização, o plano antecipado permite detectar um contexto configurado que nunca chegou a materializar um `PageSnapshot`. O RPR cria somente o contexto ausente e, depois, a extração/derivados correspondentes. Contextos já concluídos permanecem intactos.
 
-A retomada conserva as regras já existentes para Web Performance, Synthetic Navigation Apdex, Synthetic User Experience Apdex e IA: amostras e chamadas válidas são preservadas, Apdex coleta apenas déficit e IA só volta à fila quando está pendente ou quando uma mudança material de evidência invalida especificamente sua dependência.
+O plano também preserva a intenção efetiva de componentes opcionais que podem executar depois do core. No CLI direto isso inclui, quando aplicável, Web Performance, Synthetic Navigation Apdex, Synthetic User Experience Apdex e Search Intelligence, além de um snapshot whitelist de parâmetros não secretos usados por Improvement Intelligence, Google Search Console e Segurança Passiva. API keys, tokens OAuth, senhas e demais secrets não entram nesse contrato. Se a queda ocorrer antes de o componente criar sua própria tabela/run/work-item, o backfill materializa o requisito como `REQUESTED_NOT_EXECUTED` e o RPR continua a fila a partir dessa intenção persistida.
+
+A retomada conserva as regras já existentes para Web Performance, Synthetic Navigation Apdex, Synthetic User Experience Apdex e IA: amostras e chamadas válidas são preservadas, Apdex coleta apenas déficit e IA só volta à fila quando está pendente ou quando uma mudança material de evidência invalida especificamente sua dependência. Quando Apdex/experiência estavam configurados mas ainda não possuíam run persistido, o primeiro RPR materializa a execução inicial desse requisito a partir do plano original; tentativas posteriores continuam usando apenas o déficit.
 
 ### Finalização da mesma AUD
 
