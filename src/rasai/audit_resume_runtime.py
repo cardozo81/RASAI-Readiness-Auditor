@@ -653,19 +653,13 @@ def reconcile_interrupted_attempts(workspace: AuditWorkspace, audit_id: str) -> 
     return reconciled
 
 
-def _scores_exist(workspace: AuditWorkspace, audit_id: str) -> bool:
-    connection = sqlite3.connect(workspace.database)
-    try:
-        return bool(
-            connection.execute(
-                "SELECT 1 FROM scores WHERE audit_id=? LIMIT 1",
-                (audit_id,),
-            ).fetchone()
-        )
-    except sqlite3.OperationalError:
-        return False
-    finally:
-        connection.close()
+def _core_was_finalized(workspace: AuditWorkspace, audit_id: str) -> bool:
+    return any(
+        item.component == "CORE_AUDIT"
+        and item.scope_key == "AUDIT"
+        and item.status == SUCCESS
+        for item in list_work_items(workspace, audit_id)
+    )
 
 
 def _all_other_required_resolved(workspace: AuditWorkspace, audit_id: str) -> bool:
@@ -687,7 +681,12 @@ def finalize_resumed_audit(
     if not _all_other_required_resolved(workspace, audit_id):
         return False
 
-    if reprocess_id and not _scores_exist(workspace, audit_id):
+    # CORE_AUDIT is the durable proof that scoring/recommendation finalization reached
+    # its checkpoint in the original execution. A process can die after persisting only
+    # part of M9/M10; the mere existence of one score is therefore insufficient proof.
+    # When CORE_AUDIT never finalized, rebuild these replay-safe derivations from the
+    # effective persisted finding/rule set before promoting the same AUD to COMPLETE.
+    if reprocess_id and not _core_was_finalized(workspace, audit_id):
         from rasai.reprocess_ai import recompute_derived_after_ai
 
         recompute_derived_after_ai(
