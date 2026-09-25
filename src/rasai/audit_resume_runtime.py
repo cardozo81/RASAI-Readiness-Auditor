@@ -33,11 +33,15 @@ from typing import Any, Iterator, Mapping, Sequence
 from rasai.audit_fulfillment import (
     BLOCKED,
     FAILED_RETRYABLE,
+    LIVE_RECOLLECTION,
+    REPLAY_SAFE,
+    REQUESTED_NOT_EXECUTED,
     SUCCESS,
     ensure_schema as ensure_fulfillment_schema,
     list_work_items,
     merge_contract_configuration,
     recalculate,
+    register_work_item,
     set_work_item_status,
 )
 from rasai.operational_log import try_append_operational_event
@@ -498,6 +502,8 @@ def persist_resume_plan(
     device_context: str,
     content_remediation: bool,
     technical_remediation: bool,
+    semantic_ai_requested: bool = False,
+    semantic_provider: str | None = None,
 ) -> dict[str, Any]:
     """Persist the minimum canonical, secret-free plan needed by recovery."""
     plan = {
@@ -510,6 +516,8 @@ def persist_resume_plan(
         "device_context": str(device_context),
         "content_remediation": bool(content_remediation),
         "technical_remediation": bool(technical_remediation),
+        "semantic_ai_requested": bool(semantic_ai_requested),
+        "semantic_provider": str(semantic_provider or "NONE"),
         "optional_environment": _safe_optional_environment_snapshot(),
     }
     bound_options = dict(_PLAN_OPTIONS.get() or {})
@@ -664,6 +672,214 @@ def has_recovery_basis(workspace: AuditWorkspace, audit_id: str) -> bool:
         return False
     finally:
         connection.close()
+
+
+def _truthy(value: Any) -> bool:
+    return str(value or "").strip().casefold() in {"1", "true", "yes", "on", "sim", "s"}
+
+
+def _mark_planned_not_executed(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    component: str,
+    *,
+    temporal_mode: str,
+    configuration: Mapping[str, Any],
+    scope_key: str = "AUDIT",
+) -> None:
+    existing = next(
+        (
+            item
+            for item in list_work_items(workspace, audit_id)
+            if item.component == component and item.scope_key == scope_key
+        ),
+        None,
+    )
+    if existing is not None:
+        return
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component=component,
+        scope_key=scope_key,
+        required=True,
+        temporal_mode=temporal_mode,
+        status=REQUESTED_NOT_EXECUTED,
+        retryable=True,
+        configuration=dict(configuration),
+    )
+    set_work_item_status(
+        workspace,
+        audit_id=audit_id,
+        component=component,
+        scope_key=scope_key,
+        status=REQUESTED_NOT_EXECUTED,
+        error_class="EXECUTION_INTERRUPTED",
+        error_code="PLANNED_WORK_NOT_EXECUTED",
+        error_message=(
+            "o requisito constava do contrato original, mas a execução terminou "
+            "antes de materializar uma tentativa efetiva"
+        ),
+        retryable=True,
+    )
+
+
+def materialize_planned_work_items(workspace: AuditWorkspace, audit_id: str) -> None:
+    """Materialize intended work that never reached its component runtime before a crash."""
+    plan = load_resume_plan(workspace, audit_id)
+    if not plan:
+        return
+    options = plan.get("execution_options")
+    options = dict(options) if isinstance(options, Mapping) else {}
+    environment = plan.get("optional_environment")
+    environment = dict(environment) if isinstance(environment, Mapping) else {}
+
+    web = options.get("web_performance")
+    if isinstance(web, Mapping) and bool(web.get("enabled")):
+        _mark_planned_not_executed(
+            workspace,
+            audit_id,
+            "WEB_PERFORMANCE",
+            temporal_mode=LIVE_RECOLLECTION,
+            configuration=web,
+        )
+
+    navigation = options.get("synthetic_apdex")
+    if isinstance(navigation, Mapping) and bool(navigation.get("enabled")):
+        _mark_planned_not_executed(
+            workspace,
+            audit_id,
+            "SYNTHETIC_APDEX",
+            temporal_mode=LIVE_RECOLLECTION,
+            configuration=navigation,
+        )
+
+    experience = options.get("experience_apdex")
+    if isinstance(experience, Mapping) and bool(experience.get("enabled")):
+        _mark_planned_not_executed(
+            workspace,
+            audit_id,
+            "EXPERIENCE_APDEX",
+            temporal_mode=LIVE_RECOLLECTION,
+            configuration=experience,
+        )
+
+    search = options.get("search_intelligence")
+    if isinstance(search, Mapping) and bool(search.get("enabled")) and search.get("queries"):
+        _mark_planned_not_executed(
+            workspace,
+            audit_id,
+            "SEARCH_INTELLIGENCE",
+            temporal_mode=LIVE_RECOLLECTION,
+            configuration=search,
+        )
+
+    if bool(plan.get("technical_remediation")):
+        _mark_planned_not_executed(
+            workspace,
+            audit_id,
+            "TECHNICAL_AI",
+            temporal_mode=REPLAY_SAFE,
+            configuration={"requested": True, "source": "resume_plan"},
+        )
+    if bool(plan.get("content_remediation")):
+        _mark_planned_not_executed(
+            workspace,
+            audit_id,
+            "CONTENT_REMEDIATION_AI",
+            temporal_mode=REPLAY_SAFE,
+            configuration={"requested": True, "source": "resume_plan"},
+        )
+
+    if bool(plan.get("semantic_ai_requested")):
+        connection = sqlite3.connect(workspace.database)
+        try:
+            snapshots = [
+                str(row[0])
+                for row in connection.execute(
+                    """SELECT ps.snapshot_id FROM page_snapshots ps
+                       JOIN pages p ON p.page_id=ps.page_id
+                       WHERE p.audit_id=? ORDER BY ps.captured_at,ps.snapshot_id""",
+                    (audit_id,),
+                ).fetchall()
+            ]
+        except sqlite3.OperationalError:
+            snapshots = []
+        finally:
+            connection.close()
+        for snapshot_id in snapshots:
+            _mark_planned_not_executed(
+                workspace,
+                audit_id,
+                "SEMANTIC_AI",
+                scope_key=snapshot_id,
+                temporal_mode=REPLAY_SAFE,
+                configuration={
+                    "requested": True,
+                    "provider": str(plan.get("semantic_provider") or "AUTO"),
+                    "source": "resume_plan",
+                },
+            )
+
+    if _truthy(environment.get("RASAI_IMPROVEMENT_INTELLIGENCE")):
+        _mark_planned_not_executed(
+            workspace,
+            audit_id,
+            "IMPROVEMENT_INTELLIGENCE",
+            temporal_mode=REPLAY_SAFE,
+            configuration={
+                "requested": True,
+                "provider": environment.get("RASAI_IMPROVEMENT_AI_PROVIDER", ""),
+                "model": environment.get("RASAI_IMPROVEMENT_AI_MODEL", ""),
+                "reasoning": environment.get("RASAI_IMPROVEMENT_AI_REASONING", ""),
+                "domains": [
+                    value.strip()
+                    for value in str(environment.get("RASAI_IMPROVEMENT_DOMAINS", "")).split(",")
+                    if value.strip()
+                ],
+                "max_recommendations": environment.get("RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS", ""),
+                "timeout_seconds": environment.get("RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS", ""),
+                "language": environment.get("RASAI_AI_ANALYSIS_LANGUAGE", ""),
+            },
+        )
+
+    if _truthy(environment.get("RASAI_GSC_ENABLED")):
+        _mark_planned_not_executed(
+            workspace,
+            audit_id,
+            "GOOGLE_SEARCH_CONSOLE",
+            temporal_mode=LIVE_RECOLLECTION,
+            configuration={
+                "requested": True,
+                "service_id": "google-search-console",
+                "site_url": environment.get("RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL", ""),
+                "max_urls": environment.get("RASAI_STANDARDS_MAX_URLS", ""),
+                "timeout_seconds": environment.get("RASAI_STANDARDS_TIMEOUT_SECONDS", ""),
+                "search_analytics_days": environment.get("RASAI_GSC_SEARCH_ANALYTICS_DAYS", ""),
+                "search_max_rows": environment.get("RASAI_GSC_SEARCH_MAX_ROWS", ""),
+                "final_data_lag_days": environment.get("RASAI_GSC_FINAL_DATA_LAG_DAYS", ""),
+            },
+        )
+
+    if _truthy(environment.get("RASAI_PASSIVE_SECURITY")):
+        _mark_planned_not_executed(
+            workspace,
+            audit_id,
+            "PASSIVE_SECURITY",
+            temporal_mode=REPLAY_SAFE,
+            configuration={
+                "requested": True,
+                "mode": "PASSIVE_ONLY",
+                "headers": environment.get("RASAI_SECURITY_HEADERS", "true"),
+                "cookies": environment.get("RASAI_SECURITY_COOKIES", "true"),
+                "resources": environment.get("RASAI_SECURITY_RESOURCES", "true"),
+                "third_party": environment.get("RASAI_SECURITY_THIRD_PARTY", "true"),
+                "runtime": environment.get("RASAI_SECURITY_RUNTIME_CORRELATION", "true"),
+                "osv": environment.get("RASAI_SECURITY_OSV", "true"),
+                "kev": environment.get("RASAI_SECURITY_CISA_KEV", "true"),
+                "external_timeout_seconds": environment.get("RASAI_SECURITY_EXTERNAL_TIMEOUT_SECONDS", "15"),
+            },
+        )
 
 
 def interrupted_core_projection(workspace: AuditWorkspace, audit_id: str, audit_status: str) -> tuple[str, bool]:
