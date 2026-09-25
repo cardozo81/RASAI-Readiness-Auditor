@@ -144,13 +144,14 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         try:
             code = cli_extensions.main(effective)
         except BaseException as exc:
-            finish_execution_session(
-                mutable_workspace,
-                mutable_session,
-                state="INTERRUPTED" if isinstance(exc, KeyboardInterrupt) else "FAILED",
-                note=f"{type(exc).__name__}: {str(exc)[:512]}",
-            ) if mutable_workspace is not None else None
-            mutable_session = None
+            if mutable_workspace is not None:
+                finish_execution_session(
+                    mutable_workspace,
+                    mutable_session,
+                    state="INTERRUPTED" if isinstance(exc, KeyboardInterrupt) else "FAILED",
+                    note=f"{type(exc).__name__}: {str(exc)[:512]}",
+                )
+                mutable_session = None
             raise
         else:
             if mutable_workspace is not None:
