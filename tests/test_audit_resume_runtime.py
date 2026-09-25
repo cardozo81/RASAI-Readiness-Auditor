@@ -510,3 +510,15 @@ def test_resume_rebuilds_partial_final_derivations_before_core_completion(
         if item.component == "CORE_AUDIT"
     )
     assert core.status == SUCCESS
+
+
+def test_resume_guard_closes_session_before_final_catalog_projection() -> None:
+    from rasai import audit_resume_runtime
+
+    source = Path(audit_resume_runtime.__file__).read_text(encoding="utf-8")
+    start = source.index("def install()")
+    block = source[start:]
+
+    finish = block.index('finish_execution_session(workspace, session, state="COMPLETED")')
+    projection = block.index("materialize_catalog_report_projection(", finish)
+    assert finish < projection
