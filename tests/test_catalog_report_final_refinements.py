@@ -244,7 +244,8 @@ def test_cat07_table_pages_sorts_and_explains_error_forced_frustration(tmp_path:
         con.executescript(
             """
             CREATE TABLE synthetic_ux_apdex_runs(
-                audit_id TEXT, status TEXT, errors_affect_apdex INTEGER, error_scope TEXT
+                audit_id TEXT, status TEXT, errors_affect_apdex INTEGER, error_scope TEXT,
+                configuration TEXT, settle_seconds REAL, session_mode TEXT
             );
             CREATE TABLE synthetic_ux_apdex_summaries(
                 audit_id TEXT, device TEXT, valid_samples INTEGER,
@@ -262,7 +263,10 @@ def test_cat07_table_pages_sorts_and_explains_error_forced_frustration(tmp_path:
             );
             """
         )
-        con.execute("INSERT INTO synthetic_ux_apdex_runs VALUES (?,?,?,?)", ("AUD", "SUCCESS", 1, "all"))
+        con.execute(
+            "INSERT INTO synthetic_ux_apdex_runs VALUES (?,?,?,?,?,?,?)",
+            ("AUD", "SUCCESS", 1, "all", json.dumps({"concurrency": 3, "delay_seconds": 1.0}), 5.0, "cold"),
+        )
         con.execute("INSERT INTO synthetic_ux_apdex_summaries VALUES (?,?,?,?)", ("AUD", "POPULATION", 11, 11))
         for index in range(1, 12):
             con.execute(
@@ -299,6 +303,9 @@ def test_cat07_table_pages_sorts_and_explains_error_forced_frustration(tmp_path:
     assert "LCP" in html
     assert "Falhas de requisição" in html
     assert "11 de 11 amostra(s) válida(s) foram forçadas" in html
+    assert "concorrência 3 (ALTO / AVANÇADO)" in html
+    assert "delay 1 s" in html
+    assert "settle 5 s" in html
     assert "momento persistido da captura da amostra" in html
     assert "Perfis executados" in profile_html
     assert "Tentativas persistidas" in profile_html
