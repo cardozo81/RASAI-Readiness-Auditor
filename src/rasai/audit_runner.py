@@ -709,6 +709,17 @@ def run_audit(
                 note=f"{type(exc).__name__}: {str(exc)[:512]}",
             )
             raise
+        except BaseException as exc:
+            # KeyboardInterrupt/SystemExit must release the in-process lease before
+            # outer console/CLI cancellation handling runs. Abrupt process death cannot
+            # execute this block and is reconciled later from PID/heartbeat state.
+            finish_execution_session(
+                workspace,
+                execution_session,
+                state="INTERRUPTED",
+                note=f"{type(exc).__name__}: {str(exc)[:512]}",
+            )
+            raise
 
 
 def _set_status(persistence: AuditPersistence, audit_id: str, status: AuditStatus) -> None:
