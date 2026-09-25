@@ -40,7 +40,7 @@ from rasai.audit_fulfillment import (
     set_work_item_status,
     start_reprocess_run,
 )
-from rasai.domain import DeviceContext, Evidence, EvidenceType, RuleExecution, RuleResult, new_id, utc_now
+from rasai.domain import DeviceContext, Evidence, EvidenceType, PageSnapshot, RuleExecution, RuleResult, new_id, utc_now
 from rasai.evidence import EvidenceManager
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.reprocess_policy import blocking_dependencies, item_executable, selected_counts
@@ -270,6 +270,65 @@ def synchronize_core_work_items(workspace: AuditWorkspace, audit_id: str) -> Non
                 if extraction_status == BLOCKED else "deterministic extraction is not yet complete"
             )),
         )
+
+    # An interrupted M3 can die before a PageSnapshot row is created. The original
+    # device universe is therefore read from the durable resume/configuration contract,
+    # not inferred from whatever snapshots happened to survive.
+    from rasai.audit_resume_runtime import expected_devices_for_audit
+
+    expected_devices = expected_devices_for_audit(workspace, audit_id)
+    effective_pairs = {
+        (str(state["page_id"]), str(state["device"]).upper()): str(state["snapshot_id"])
+        for state in snapshot_states
+    }
+
+    # Reconcile a previously planned context if its snapshot was persisted before the
+    # process died but the fulfillment item itself never reached SUCCESS.
+    for item in list_work_items(workspace, audit_id):
+        if item.component != RENDER_CAPTURE or not bool(item.configuration.get("planned")):
+            continue
+        page_id = str(item.configuration.get("page_id") or "")
+        device = str(item.configuration.get("device") or "").upper()
+        snapshot_id = effective_pairs.get((page_id, device))
+        if snapshot_id:
+            set_work_item_status(
+                workspace,
+                audit_id=audit_id,
+                component=RENDER_CAPTURE,
+                scope_key=item.scope_key,
+                status=SUCCESS,
+                result_ref=f"render:{snapshot_id}:effective",
+                retryable=False,
+            )
+
+    for page_id, url, http_ok in page_states:
+        for device in expected_devices:
+            normalized_device = str(device).upper()
+            if (page_id, normalized_device) in effective_pairs:
+                continue
+            planned_scope = f"PLANNED:{page_id}:{normalized_device}"
+            _set_item(
+                workspace,
+                audit_id=audit_id,
+                component=RENDER_CAPTURE,
+                scope_key=planned_scope,
+                status=PENDING if http_ok else WAITING_FOR_DATA,
+                temporal_mode=LIVE_RECOLLECTION,
+                retryable=True,
+                source_captured_at=audit_time,
+                configuration={
+                    "page_id": page_id,
+                    "device": normalized_device,
+                    "url": url,
+                    "planned": True,
+                },
+                error_code=None if http_ok else "HTTP_ACQUISITION_REQUIRED",
+                error_message=(
+                    "contexto de renderização previsto pela configuração original ainda não foi materializado"
+                    if http_ok
+                    else "contexto de renderização aguarda aquisição HTTP recuperável"
+                ),
+            )
     recalculate(workspace,audit_id)
 
 
@@ -536,6 +595,78 @@ def _recover_render(
 ) -> tuple[bool,str,set[str]]:
     snapshot_id = item.scope_key
     row = _snapshot_row(workspace,audit_id,snapshot_id)
+
+    # A planned item represents a device context that belonged to the original
+    # execution contract but never got a PageSnapshot row before interruption.
+    if row is None and bool(item.configuration.get("planned")):
+        page_id = str(item.configuration.get("page_id") or "")
+        url = str(item.configuration.get("url") or "")
+        raw_device = str(item.configuration.get("device") or "").upper()
+        if not page_id or not url or raw_device not in {"MOBILE", "DESKTOP"}:
+            return False,"PLANNED_RENDER_CONTEXT_INVALID",set()
+        device = DeviceContext(raw_device)
+        acquisition = _load_acquisition(workspace,page_id)
+        if acquisition is None:
+            return False,"HTTP_ACQUISITION_REQUIRED",set()
+        trace = [
+            {"url":hop.source_url,"status":hop.status,"location":hop.location}
+            for hop in acquisition.redirects
+        ]
+        try:
+            result = renderer.render(url,device,preflight_navigation_trace=trace)
+        except TypeError:
+            result = renderer.render(url,device)
+        if result.error_kind is not None or not result.rendered_html:
+            return False,getattr(result.error_kind,"value",None) or "RENDERED_DOCUMENT_UNAVAILABLE",set()
+
+        snapshot_id = new_id("SNP")
+        rendered_ref = _write_artifact(
+            workspace,reprocess_id,"rendered",f"{snapshot_id}.html",result.rendered_html.encode("utf-8")
+        )
+        visual_ref = _write_artifact(
+            workspace,reprocess_id,"visual",f"{snapshot_id}.png",result.screenshot_png or b""
+        )
+        connection = sqlite3.connect(workspace.database)
+        try:
+            raw = connection.execute(
+                """SELECT artifact_reference FROM evidence
+                   WHERE audit_id=? AND page_id=? AND evidence_type=? AND source='http'
+                   ORDER BY captured_at DESC,rowid DESC LIMIT 1""",
+                (audit_id,page_id,EvidenceType.HTTP_RESPONSE.value),
+            ).fetchone()
+        finally:
+            connection.close()
+        raw_ref = str(raw[0]) if raw is not None and raw[0] else None
+        metadata = dict(result.browser_metadata or {})
+        metadata["render_succeeded"] = True
+        metadata["visual_artifact_ref"] = visual_ref
+        metadata["audit_device_context"] = list(
+            __import__("rasai.audit_resume_runtime",fromlist=["expected_devices_for_audit"])
+            .expected_devices_for_audit(workspace,audit_id)
+        )
+        metadata["reprocess_capture"] = {
+            "reprocess_id":reprocess_id,
+            "captured_at":utc_now().isoformat(),
+            "planned_context_recovery":True,
+        }
+        snapshot = PageSnapshot(
+            snapshot_id=snapshot_id,
+            page_id=page_id,
+            device=device,
+            requested_url=url,
+            final_url=result.final_url or acquisition.final_url or url,
+            captured_at=utc_now(),
+            http_status=result.http_status if result.http_status is not None else acquisition.status,
+            content_type=result.content_type or acquisition.header("Content-Type"),
+            rendering_mode="PLAYWRIGHT_CHROMIUM",
+            raw_artifact_ref=raw_ref,
+            rendered_artifact_ref=rendered_ref,
+            browser_metadata=metadata,
+        )
+        with AuditPersistence(workspace) as persistence:
+            persistence.snapshots.add(snapshot)
+        return True,"PLANNED_RENDER_CAPTURE_RECOVERED",{snapshot_id}
+
     if row is None:
         return False,"SNAPSHOT_NOT_FOUND",set()
     metadata = _load(row["browser_metadata"],{})
