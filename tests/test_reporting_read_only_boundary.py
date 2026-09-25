@@ -24,10 +24,12 @@ def test_entrypoint_holds_execution_lease_through_mutable_cli_continuation_only(
     block = source[start:end]
 
     acquire = block.index("mutable_session = start_execution_session(")
-    release = block.index('state="COMPLETED" if code == 0 else "FAILED"')
-    report = block.index("data_completion = finalize_audit_report_site(")
+    late_finalize = block.index("data_completion = finalize_audit_report_site(")
+    directed = block.index("directed = execute_directed_analysis(")
+    release = block.index('state="COMPLETED"', directed)
+    projection = block.index("catalog_completion = materialize_catalog_report_projection(")
 
-    assert acquire < release < report
+    assert acquire < late_finalize < directed < release < projection
     assert 'kind="CONTINUATION"' in block
     assert 'reject_active=True' in block
     assert 'state="INTERRUPTED" if isinstance(exc, KeyboardInterrupt) else "FAILED"' in block
