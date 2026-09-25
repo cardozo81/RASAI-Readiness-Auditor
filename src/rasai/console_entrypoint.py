@@ -11,6 +11,7 @@ import os
 from rasai import console_provider_environment as console_environment
 from rasai import console_search_intelligence, interactive_console
 from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
+from rasai.audit_resume_runtime import install as install_audit_resume_runtime
 from rasai.ai_execution_configuration import install as install_ai_execution_configuration
 from rasai.ai_model_console import install as install_ai_model_console
 from rasai.ai_pricing_console import install as install_ai_pricing_console
@@ -185,6 +186,8 @@ def main() -> int:
     install_final_smoke_closure()
     install_governed_analysis_post()
     install_governed_report_projection()
+    # Keep active-AUD exclusion outside all console reprocess adapters.
+    install_audit_resume_runtime()
     return interactive_console.main()
 
 
