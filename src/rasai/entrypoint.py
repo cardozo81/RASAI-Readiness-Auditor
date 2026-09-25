@@ -14,6 +14,7 @@ from typing import Sequence
 from rasai import cli_extensions
 from rasai.ai_dependency_runtime import install as install_ai_dependency_runtime
 from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
+from rasai.audit_resume_runtime import install as install_audit_resume_runtime
 from rasai.context_scope_runtime import install as install_context_scope_runtime
 from rasai.external_measurement_runtime import install as install_external_measurement_runtime
 from rasai.external_observability_runtime import (
@@ -253,6 +254,9 @@ def _install_audit_runtime() -> None:
     install_final_smoke_closure()
     install_governed_analysis_post()
     install_governed_report_projection()
+    # This guard must be outermost: no reprocess adapter may mutate this AUD before
+    # active-session validation and orphan-attempt reconciliation.
+    install_audit_resume_runtime()
 
 
 def main(argv: Sequence[str] | None = None) -> int:
