@@ -4,7 +4,7 @@ Este roteiro valida a experiência final do operador depois dos testes automatiz
 
 ## Pré-condições
 
-- usar a branch de validação atualizada (`feat/canonical-processing-presentation`) antes do merge;
+- usar a branch de validação da alteração em teste antes do merge;
 - executar no Windows;
 - possuir ao menos um `AUD-*` em estado `Parcial - pode reprocessar` com uma pendência recuperável;
 - preferencialmente usar um AUD que tenha IA configurada e alguma tentativa/custo persistido, para validar a prévia monetária;
@@ -15,10 +15,10 @@ Antes do smoke:
 ```powershell
 cd C:\IA-PROJETOS\github\RASAI-Readiness-Auditor
 git fetch origin
-git switch feat/canonical-processing-presentation
-git pull --ff-only origin feat/canonical-processing-presentation
+git switch feat/issue-15-interrupted-audit-resume
+git pull --ff-only origin feat/issue-15-interrupted-audit-resume
 python -m pip install -e . pytest
-pytest -q tests/test_console_reprocess_parity.py tests/test_console_reprocess_final_refinements.py
+pytest -q tests/test_audit_resume_runtime.py tests/test_core_reprocessing.py tests/test_core_reprocessing_context.py tests/test_console_reprocess_parity.py tests/test_console_reprocess_final_refinements.py
 ```
 
 ## Roteiro
@@ -62,6 +62,58 @@ pytest -q tests/test_console_reprocess_parity.py tests/test_console_reprocess_fi
    - deve existir `R. Reprocessar pendências desta auditoria [APTO]` quando houver requisito obrigatório reprocessável;
    - ao pressionar `R`, o fluxo seletivo deve abrir já com o `Audit ID` dessa execução, sem pedir o ID novamente;
    - uma AUD integralmente concluída não deve oferecer esse atalho.
+
+## Cenários adicionais - interrupção e retomada
+
+Execute pelo menos os cenários abaixo em uma AUD descartável, sempre verificando que o `Audit ID` permanece o mesmo e que a retomada cria um `RPR-*`.
+
+1. **Ctrl+C durante descoberta/aquisição**:
+   - interrompa durante a primeira etapa;
+   - confirme que o workspace permanece disponível;
+   - reabra a AUD pelo histórico;
+   - a ação deve aparecer como `Retomar / reprocessar pendências desta auditoria`;
+   - o RPR deve concluir ou explicar explicitamente bloqueio/expiração, sem criar novo AUD.
+
+2. **Ctrl+C após pelo menos um contexto concluído**:
+   - interrompa durante renderização ou etapa posterior;
+   - anote os contextos já persistidos;
+   - retome;
+   - confirme que os sucessos existentes aparecem como preservados e não são renderizados/coletados novamente;
+   - apenas o contexto ausente deve ser materializado.
+
+3. **Processo morto sem cleanup**:
+   - encerre o PowerShell/processo enquanto a auditoria está em andamento;
+   - inicie novo console;
+   - a sessão anterior deve ser reconhecida como abandonada e não impedir permanentemente o RPR;
+   - o histórico de `audit_execution_sessions` deve conservar a sessão anterior como `INTERRUPTED`.
+
+4. **Proteção contra concorrência**:
+   - com uma execução ainda realmente ativa, tente reprocessar a mesma AUD em outro console;
+   - a retomada deve ser recusada com mensagem de execução ativa;
+   - nenhum segundo RPR mutante deve ser iniciado.
+
+5. **Attempt órfão com resultado persistido**:
+   - quando possível por fixture/injeção controlada, interrompa depois de persistir o resultado de um componente e antes do fechamento do fulfillment attempt;
+   - no RPR, o sincronizador deve reconhecer o resultado efetivo e promover o item sem repetir a chamada externa.
+
+6. **Apdex parcial**:
+   - interrompa após acumular parte das amostras válidas;
+   - retome e confirme que somente o déficit configurado é coletado.
+
+7. **IA já concluída**:
+   - interrompa depois de uma tarefa de IA bem-sucedida e antes da conclusão global;
+   - retome sem alterar a evidência consumida;
+   - confirme que não existe nova chamada/tokens/custo para essa tarefa;
+   - se uma recuperação upstream mudar materialmente a evidência, confirme que somente a dependência afetada fica stale e volta à fila.
+
+8. **Validade temporal expirada**:
+   - use fixture/configuração de teste com janela curta;
+   - após expirar, tente retomar requisito `LIVE_RECOLLECTION`;
+   - a AUD não pode ser promovida a final por uma coleta atual tratada como se pertencesse ao marco antigo.
+
+9. **Fechamento**:
+   - depois de resolver todos os requisitos, confirme `processing_status=COMPLETE`, relatório final coerente e elegibilidade correspondente;
+   - a auditoria continua sendo a mesma `AUD-*`, com a interrupção e o `RPR-*` preservados no histórico.
 
 ## Critério de aprovação
 
