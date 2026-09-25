@@ -172,6 +172,8 @@ Após alteração não sensível:
 2. aplicar na sessão e salvar no arquivo de configuração
 ```
 
+A aplicação pelo editor canônico é transacional: dependências que possuem regra derivada equivalente no configurador dedicado são reconciliadas antes da validação do runtime. Em particular, ao aumentar amostras do Synthetic Navigation Apdex ou do Synthetic User Experience Apdex, o teto de tentativas é elevado para `max(samples, ceil(1.25 x samples))` quando o valor atual ficaria abaixo das amostras. Falhas reais continuam provocando rollback integral de ambiente e estado.
+
 Para secrets, o destino persistente é Windows/User e o INI nunca recebe o conteúdo secreto. Limpar o override da sessão não apaga automaticamente arquivo/Windows; restauração ou gerenciamento de persistência possuem ações próprias e explícitas.
 
 O `rasai-console.ini` pode persistir explicitamente:
@@ -224,7 +226,7 @@ O editor canônico aplica alterações de configuração como uma unidade coeren
 - se a alteração produzir estado inválido, o ambiente e o estado do console retornam ao valor anterior;
 - uma edição rejeitada não deve aparecer como sucesso nem ser gravada no INI.
 
-Para Synthetic Navigation Apdex, aumentar `samples_per_context` pode exigir aumento conjunto de `max_attempts_per_context`. O editor usa o mesmo contrato derivado do configurador dedicado: quando o orçamento atual é insuficiente, reconcilia para pelo menos `ceil(1.25 × samples)`. Reduzir manualmente o orçamento de tentativas para uma combinação inválida é rejeitado e revertido.
+Para Synthetic Navigation Apdex e Synthetic User Experience Apdex, aumentar a meta de amostras pode exigir aumento conjunto do respectivo orçamento de tentativas. O editor usa o mesmo contrato derivado do configurador dedicado: quando o orçamento atual é insuficiente, reconcilia para pelo menos `ceil(1.25 × samples)`. No Navigation Apdex, aumentar `T` também reconcilia um timeout explícito que deixe de satisfazer `timeout > 4T`, usando `max(45 s, 4T + 5 s)`. Reduzir manualmente o orçamento de tentativas para uma combinação inválida continua sendo rejeitado e revertido. Pares sem derivação canônica, como thresholds Satisfied/Frustrated do Experience, permanecem sujeitos à validação explícita do runtime e não são alterados silenciosamente.
 
 ## Device e Apdex
 
