@@ -106,12 +106,18 @@ Execute pelo menos os cenários abaixo em uma AUD descartável, sempre verifican
    - confirme que não existe nova chamada/tokens/custo para essa tarefa;
    - se uma recuperação upstream mudar materialmente a evidência, confirme que somente a dependência afetada fica stale e volta à fila.
 
-8. **Validade temporal expirada**:
+8. **Interrupção em scoring/recomendações**:
+   - interrompa depois de iniciar a materialização de score ou recomendações, antes do checkpoint `CORE_AUDIT`;
+   - retome a mesma AUD;
+   - confirme que uma linha de score parcialmente persistida não é tratada como prova de fechamento;
+   - os derivados finais replay-safe devem ser reconstruídos de forma coerente antes de `COMPLETE`, sem nova coleta externa apenas para reparar essa etapa.
+
+9. **Validade temporal expirada**:
    - use fixture/configuração de teste com janela curta;
    - após expirar, tente retomar requisito `LIVE_RECOLLECTION`;
    - a AUD não pode ser promovida a final por uma coleta atual tratada como se pertencesse ao marco antigo.
 
-9. **Fechamento**:
+10. **Fechamento**:
    - depois de resolver todos os requisitos, confirme `processing_status=COMPLETE`, relatório final coerente e elegibilidade correspondente;
    - a auditoria continua sendo a mesma `AUD-*`, com a interrupção e o `RPR-*` preservados no histórico.
 
