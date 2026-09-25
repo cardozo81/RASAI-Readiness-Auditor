@@ -582,9 +582,6 @@ def _archive_incomplete_discovery(
                JOIN pages p ON p.page_id=ps.page_id WHERE p.audit_id=?""",
             (audit_id,),
         ).fetchone()[0])
-        if snapshots:
-            return False, "DISCOVERY_PARTIAL_WITH_DOWNSTREAM_EVIDENCE"
-
         pages = tuple(dict(row) for row in connection.execute(
             "SELECT * FROM pages WHERE audit_id=? ORDER BY rowid",
             (audit_id,),
@@ -597,38 +594,46 @@ def _archive_incomplete_discovery(
             "SELECT * FROM rule_executions WHERE audit_id=? ORDER BY rowid",
             (audit_id,),
         ).fetchall())
+    finally:
+        connection.close()
 
-        if pages:
-            archive_rows(
-                workspace,
-                audit_id=audit_id,
-                reprocess_id=reprocess_id,
-                component=DISCOVERY_ACQUISITION,
-                entity_type="partial_m2_page",
-                id_field="page_id",
-                rows=pages,
-            )
-        if evidence:
-            archive_rows(
-                workspace,
-                audit_id=audit_id,
-                reprocess_id=reprocess_id,
-                component=DISCOVERY_ACQUISITION,
-                entity_type="partial_m2_evidence",
-                id_field="evidence_id",
-                rows=evidence,
-            )
-        if rules:
-            archive_rows(
-                workspace,
-                audit_id=audit_id,
-                reprocess_id=reprocess_id,
-                component=DISCOVERY_ACQUISITION,
-                entity_type="partial_m2_rule_execution",
-                id_field="rule_execution_id",
-                rows=rules,
-            )
+    if snapshots:
+        return False, "DISCOVERY_PARTIAL_WITH_DOWNSTREAM_EVIDENCE"
 
+    if pages:
+        archive_rows(
+            workspace,
+            audit_id=audit_id,
+            reprocess_id=reprocess_id,
+            component=DISCOVERY_ACQUISITION,
+            entity_type="partial_m2_page",
+            id_field="page_id",
+            rows=pages,
+        )
+    if evidence:
+        archive_rows(
+            workspace,
+            audit_id=audit_id,
+            reprocess_id=reprocess_id,
+            component=DISCOVERY_ACQUISITION,
+            entity_type="partial_m2_evidence",
+            id_field="evidence_id",
+            rows=evidence,
+        )
+    if rules:
+        archive_rows(
+            workspace,
+            audit_id=audit_id,
+            reprocess_id=reprocess_id,
+            component=DISCOVERY_ACQUISITION,
+            entity_type="partial_m2_rule_execution",
+            id_field="rule_execution_id",
+            rows=rules,
+        )
+
+    connection = sqlite3.connect(workspace.database)
+    connection.execute("PRAGMA foreign_keys=ON")
+    try:
         with connection:
             rule_ids = tuple(str(row["rule_execution_id"]) for row in rules)
             if rule_ids:
