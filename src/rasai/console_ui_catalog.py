@@ -150,6 +150,31 @@ def _apply(state: Any, spec: Any, raw: str | None) -> None:
     env.refresh_specs()
 
 
+
+def _confirm_apdex_concurrency(spec: Any, raw: str) -> bool:
+    from rasai.apdex_concurrency_policy import experience_risk, navigation_risk
+    from rasai.console_confirmation_contract import confirm_sensitive
+
+    if spec.name == "RASAI_APDEX_CONCURRENCY":
+        value = int(raw)
+        risk = navigation_risk(value)
+        high = value >= 4
+    elif spec.name == "RASAI_APDEX_EXPERIENCE_CONCURRENCY":
+        value = int(raw)
+        risk = experience_risk(value)
+        high = value >= 3
+    else:
+        return True
+    print(paint(f"Risco operacional: {risk}", YELLOW if value > 1 else DIM, bold=value > 1))
+    print(paint("Concorrência maior pode aumentar CPU/RAM local, carga HTTP no alvo e interferir na representatividade do Apdex.", DIM))
+    if not high:
+        return True
+    return confirm_sensitive(
+        "CONCORRÊNCIA",
+        action_label=f"Aplicar concorrência avançada {value} ({risk})",
+        back_label="Voltar sem aplicar",
+    )
+
 def _destination(secret: bool) -> str:
     print("\nDESTINO DA ALTERAÇÃO")
     print("1. Aplicar somente nesta sessão")
@@ -219,6 +244,8 @@ def variable_editor(console_module: ModuleType, state: Any, spec: Any) -> None:
             validated = env._validate(spec.name, raw)
         except (ValueError, OverflowError) as exc:
             state.error = str(exc); continue
+        if not _confirm_apdex_concurrency(spec, validated):
+            continue
         destination = _destination(secret)
         if destination == "V": continue
         try:
