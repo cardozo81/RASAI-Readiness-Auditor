@@ -272,8 +272,6 @@ def start_execution_session(
 ) -> ExecutionSession:
     """Acquire one local AUD execution lease and start a lightweight heartbeat."""
     ensure_execution_schema(workspace)
-    if reject_active:
-        assert_no_active_execution(workspace, audit_id)
 
     from rasai.domain import new_id
 
@@ -286,31 +284,74 @@ def start_execution_session(
         host=socket.gethostname(),
     )
     now = _now()
-    connection = sqlite3.connect(workspace.database)
+    interrupted_sessions = 0
+    connection = sqlite3.connect(workspace.database, timeout=10)
+    connection.row_factory = sqlite3.Row
     try:
-        with connection:
+        # BEGIN IMMEDIATE serializes the check-and-acquire operation. Without this,
+        # two processes could both observe "no active session" and then insert leases.
+        connection.execute("BEGIN IMMEDIATE")
+        rows = connection.execute(
+            """SELECT * FROM audit_execution_sessions
+               WHERE audit_id=? AND state='RUNNING'
+               ORDER BY started_at DESC""",
+            (audit_id,),
+        ).fetchall()
+        if reject_active:
+            active = next((row for row in rows if _session_active(row)), None)
+            if active is not None:
+                connection.rollback()
+                raise RuntimeError(
+                    "a auditoria possui uma execução ativa; a retomada concorrente foi bloqueada "
+                    f"(execution_id={active['execution_id']}, pid={active['pid']}, host={active['host']})"
+                )
+        for row in rows:
+            if _session_active(row):
+                continue
             connection.execute(
-                """INSERT INTO audit_execution_sessions(
-                    execution_id,audit_id,schema_version,kind,source,state,pid,host,
-                    started_at,heartbeat_at,finished_at,note
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (
-                    session.execution_id,
-                    session.audit_id,
-                    SESSION_SCHEMA_VERSION,
-                    session.kind,
-                    session.source,
-                    _ACTIVE,
-                    session.pid,
-                    session.host,
-                    now,
-                    now,
-                    None,
-                    None,
-                ),
+                """UPDATE audit_execution_sessions
+                   SET state=?,finished_at=?,heartbeat_at=?,
+                       note=COALESCE(note,'processo anterior não estava mais ativo')
+                   WHERE execution_id=? AND state='RUNNING'""",
+                (INTERRUPTED, now, now, str(row["execution_id"])),
             )
+            interrupted_sessions += 1
+        connection.execute(
+            """INSERT INTO audit_execution_sessions(
+                execution_id,audit_id,schema_version,kind,source,state,pid,host,
+                started_at,heartbeat_at,finished_at,note
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                session.execution_id,
+                session.audit_id,
+                SESSION_SCHEMA_VERSION,
+                session.kind,
+                session.source,
+                _ACTIVE,
+                session.pid,
+                session.host,
+                now,
+                now,
+                None,
+                None,
+            ),
+        )
+        connection.commit()
+    except BaseException:
+        if connection.in_transaction:
+            connection.rollback()
+        raise
     finally:
         connection.close()
+
+    if interrupted_sessions:
+        try_append_operational_event(
+            workspace,
+            "AUDIT_EXECUTION_SESSION_RECONCILED",
+            level="WARNING",
+            audit_id=audit_id,
+            interrupted_sessions=interrupted_sessions,
+        )
 
     stop = threading.Event()
     thread = threading.Thread(
