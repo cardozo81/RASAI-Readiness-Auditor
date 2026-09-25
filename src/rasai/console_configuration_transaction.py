@@ -14,6 +14,7 @@ from types import ModuleType
 from typing import Any
 
 from rasai.m23_cli import APDEX_MAX_ATTEMPTS_ENV, APDEX_SAMPLES_ENV
+from rasai.m25_cli import UX_MAX_ATTEMPTS_ENV, UX_SAMPLES_ENV
 
 
 def _restore_environment(snapshot: dict[str, str | None]) -> None:
@@ -24,19 +25,27 @@ def _restore_environment(snapshot: dict[str, str | None]) -> None:
             os.environ[name] = value
 
 
-def _reconcile_apdex_dependencies(name: str, raw: str | None) -> None:
-    """Keep the Apdex attempt budget valid when the sample target is increased.
+_APDEX_SAMPLE_DEPENDENCIES = {
+    APDEX_SAMPLES_ENV: APDEX_MAX_ATTEMPTS_ENV,
+    UX_SAMPLES_ENV: UX_MAX_ATTEMPTS_ENV,
+}
 
-    The dedicated Synthetic Apdex configurator already derives an attempt budget of
-    ``ceil(1.25 * samples)`` when the current budget is insufficient.  The canonical
-    variable editor must preserve the same contract instead of producing an invalid
-    transient state that later gets overwritten during INI persistence.
+
+def _reconcile_apdex_dependencies(name: str, raw: str | None) -> None:
+    """Keep Apdex attempt budgets valid when a sample target is increased.
+
+    Both dedicated Apdex configurators derive an attempt budget of
+    ``ceil(1.25 * samples)`` when the current budget is insufficient. The canonical
+    variable editor must preserve the same contract for Navigation and User Experience
+    instead of producing an invalid transient state that is rolled back after runtime
+    validation.
     """
-    if name != APDEX_SAMPLES_ENV or raw is None:
+    attempts_name = _APDEX_SAMPLE_DEPENDENCIES.get(name)
+    if attempts_name is None or raw is None:
         return
 
     samples = int(raw)
-    attempts_raw = (os.environ.get(APDEX_MAX_ATTEMPTS_ENV) or "").strip()
+    attempts_raw = (os.environ.get(attempts_name) or "").strip()
     if not attempts_raw:
         return
 
@@ -44,7 +53,7 @@ def _reconcile_apdex_dependencies(name: str, raw: str | None) -> None:
     if attempts >= samples:
         return
 
-    os.environ[APDEX_MAX_ATTEMPTS_ENV] = str(max(samples, math.ceil(samples * 1.25)))
+    os.environ[attempts_name] = str(max(samples, math.ceil(samples * 1.25)))
 
 
 def install(ui_catalog: ModuleType) -> None:
@@ -58,8 +67,9 @@ def install(ui_catalog: ModuleType) -> None:
 
         name = str(spec.name)
         watched = {name}
-        if name == APDEX_SAMPLES_ENV:
-            watched.add(APDEX_MAX_ATTEMPTS_ENV)
+        dependent_attempts = _APDEX_SAMPLE_DEPENDENCIES.get(name)
+        if dependent_attempts is not None:
+            watched.add(dependent_attempts)
         snapshot = {item: os.environ.get(item) for item in watched}
         sensitive = env.base_environment._is_sensitive_spec(spec)
 
