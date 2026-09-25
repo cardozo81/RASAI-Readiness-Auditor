@@ -802,7 +802,6 @@ def install() -> None:
                 if reprocess_id:
                     from rasai.audit_fulfillment import finish_reprocess_run
 
-                    summary_before = recalculate(workspace, audit_id)
                     finish_reprocess_run(
                         workspace,
                         reprocess_id,
@@ -811,25 +810,28 @@ def install() -> None:
                         successful_items=int(getattr(result, "successful_items", 0) or 0),
                         note="RPR concluiu a retomada segura da auditoria interrompida",
                     )
-                    summary = recalculate(workspace, audit_id)
-                else:
-                    summary = recalculate(workspace, audit_id)
-
-                try:
-                    from rasai.report_completion import materialize_catalog_report_projection
-
-                    materialize_catalog_report_projection(audit_id=audit_id, workspace=workspace)
-                except Exception as exc:
-                    try_append_operational_event(
-                        workspace,
-                        "AUDIT_RESUME_REPORT_PROJECTION_WARNING",
-                        level="WARNING",
-                        audit_id=audit_id,
-                        error_type=type(exc).__name__,
-                        error_message=str(exc)[:512],
-                    )
+                summary = recalculate(workspace, audit_id)
                 result = _replace_result(result, summary)
+
+            # audit_execution_sessions belongs to audit.db and therefore participates
+            # in the report source fingerprint. Close the mutable execution session
+            # before the final catalog projection; otherwise the subsequent session
+            # UPDATE would make the just-generated report stale immediately.
             finish_execution_session(workspace, session, state="COMPLETED")
+            session = None
+            try:
+                from rasai.report_completion import materialize_catalog_report_projection
+
+                materialize_catalog_report_projection(audit_id=audit_id, workspace=workspace)
+            except Exception as exc:
+                try_append_operational_event(
+                    workspace,
+                    "AUDIT_RESUME_REPORT_PROJECTION_WARNING",
+                    level="WARNING",
+                    audit_id=audit_id,
+                    error_type=type(exc).__name__,
+                    error_message=str(exc)[:512],
+                )
             return result
         except BaseException as exc:
             state = "INTERRUPTED" if isinstance(exc, KeyboardInterrupt) else "FAILED"
