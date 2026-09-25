@@ -224,6 +224,8 @@ def run_audit(
                 device_context=configured_device_context(),
                 content_remediation=content_remediation,
                 technical_remediation=technical_remediation,
+                semantic_ai_requested=str(getattr(semantic_provider, "name", "NONE") or "NONE").upper() not in {"", "NONE"},
+                semantic_provider=str(getattr(semantic_provider, "name", "NONE") or "NONE"),
             )
 
             # ------------------------------------------------------------------
