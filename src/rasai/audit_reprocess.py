@@ -213,7 +213,10 @@ def _backfill_contract(workspace: AuditWorkspace, audit_id: str) -> None:
         connection.close()
 
     from rasai.audit_fulfillment_runtime import _sync_persisted_components
+    from rasai.audit_resume_runtime import materialize_planned_work_items
+
     _sync_persisted_components(audit_id=audit_id,workspace=workspace)
+    materialize_planned_work_items(workspace, audit_id)
     recalculate(workspace,audit_id)
 
 
