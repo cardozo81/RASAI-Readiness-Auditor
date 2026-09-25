@@ -22,8 +22,11 @@ from rasai.audit_resume_runtime import (
     finalize_resumed_audit,
     finish_execution_session,
     interrupted_core_projection,
+    load_resume_plan,
+    materialize_planned_work_items,
     persist_resume_plan,
     reconcile_interrupted_attempts,
+    resume_plan_options,
     start_execution_session,
 )
 from rasai.core_reprocessing import (
@@ -522,3 +525,94 @@ def test_resume_guard_closes_session_before_final_catalog_projection() -> None:
     finish = block.index('finish_execution_session(workspace, session, state="COMPLETED")')
     projection = block.index("materialize_catalog_report_projection(", finish)
     assert finish < projection
+
+
+def test_resume_plan_persists_effective_optional_intent_without_secrets(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = _workspace(tmp_path)
+    monkeypatch.setenv("RASAI_IMPROVEMENT_INTELLIGENCE", "true")
+    monkeypatch.setenv("RASAI_IMPROVEMENT_AI_PROVIDER", "openai")
+    monkeypatch.setenv("RASAI_SERPAPI_API_KEY", "secret-that-must-not-be-persisted")
+    monkeypatch.setenv("RASAI_GSC_ENABLED", "true")
+    monkeypatch.setenv("RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL", "sc-domain:example.test")
+
+    with resume_plan_options(
+        {
+            "web_performance": {
+                "enabled": True,
+                "max_pages": 3,
+                "timeout_seconds": 90.0,
+                "categories": ["performance", "seo"],
+                "field_source": "auto",
+                "pagespeed_key_configured": True,
+                "crux_key_configured": False,
+            },
+            "synthetic_apdex": {
+                "enabled": True,
+                "threshold_seconds": 2.0,
+                "target_valid_samples": 10,
+                "max_attempts_per_context": 13,
+                "max_pages": 1,
+                "timeout_seconds": 45.0,
+                "delay_seconds": 1.0,
+                "concurrency": 1,
+            },
+            "search_intelligence": {
+                "enabled": True,
+                "queries": ["rasai readiness"],
+                "mode": "live",
+                "provider": "serpapi",
+                "max_queries": 10,
+                "max_requests": 10,
+                "max_depth": 20,
+                "max_competitors": 10,
+                "timeout_seconds": 20.0,
+                "retries": 1,
+                "min_interval_seconds": 1.0,
+            },
+        }
+    ):
+        persist_resume_plan(
+            workspace,
+            AUDIT_ID,
+            targets=(URL,),
+            target_type="URL",
+            language="pt-BR",
+            market="BR",
+            max_pages=3,
+            device_context="mobile",
+            content_remediation=True,
+            technical_remediation=True,
+            semantic_ai_requested=True,
+            semantic_provider="AUTO",
+        )
+
+    plan = load_resume_plan(workspace, AUDIT_ID)
+    serialized = str(plan)
+    assert "secret-that-must-not-be-persisted" not in serialized
+    assert plan["semantic_ai_requested"] is True
+    assert plan["execution_options"]["web_performance"]["enabled"] is True
+    assert plan["execution_options"]["search_intelligence"]["queries"] == ["rasai readiness"]
+    assert plan["optional_environment"]["RASAI_GSC_ENABLED"] == "true"
+    assert "RASAI_SERPAPI_API_KEY" not in plan["optional_environment"]
+
+    materialize_planned_work_items(workspace, AUDIT_ID)
+    items = {
+        (item.component, item.scope_key): item
+        for item in list_work_items(workspace, AUDIT_ID)
+    }
+    for component in (
+        "WEB_PERFORMANCE",
+        "SYNTHETIC_APDEX",
+        "SEARCH_INTELLIGENCE",
+        "TECHNICAL_AI",
+        "CONTENT_REMEDIATION_AI",
+        "IMPROVEMENT_INTELLIGENCE",
+        "GOOGLE_SEARCH_CONSOLE",
+    ):
+        assert (component, "AUDIT") in items
+        assert items[(component, "AUDIT")].status == "REQUESTED_NOT_EXECUTED"
+
+
