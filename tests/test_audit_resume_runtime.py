@@ -17,6 +17,7 @@ from rasai.audit_fulfillment import (
     register_work_item,
 )
 from rasai.audit_resume_runtime import (
+    _all_other_required_resolved,
     expected_devices_for_audit,
     finish_execution_session,
     interrupted_core_projection,
@@ -25,7 +26,9 @@ from rasai.audit_resume_runtime import (
     start_execution_session,
 )
 from rasai.core_reprocessing import (
+    DISCOVERY_ACQUISITION,
     RENDER_CAPTURE,
+    _recover_discovery,
     _recover_render,
     synchronize_core_work_items,
 )
@@ -293,3 +296,122 @@ def test_missing_configured_render_context_is_materialized_and_recovered(tmp_pat
     )
     assert planned_after.status == SUCCESS
     assert actual.status == SUCCESS
+
+
+def test_empty_interrupted_audit_cannot_be_finalized_before_discovery(tmp_path: Path) -> None:
+    audit_id = "AUD-EMPTY-INTERRUPTED"
+    workspace = AuditWorkspace.create(tmp_path, audit_id)
+    audit = Audit(audit_id=audit_id, project_name="empty resume")
+    target = AuditTarget(
+        target_id="TGT-EMPTY",
+        audit_id=audit_id,
+        input_url=URL,
+        normalized_origin="https://example.test",
+        target_type=TargetType.URL,
+    )
+    with AuditPersistence(workspace) as persistence:
+        persistence.audits.add(audit)
+        persistence.targets.add(target)
+    persist_resume_plan(
+        workspace,
+        audit_id,
+        targets=(URL,),
+        target_type="URL",
+        language="pt-BR",
+        market="BR",
+        max_pages=3,
+        device_context="mobile",
+        content_remediation=False,
+        technical_remediation=False,
+    )
+
+    synchronize_core_work_items(workspace, audit_id)
+
+    discovery = next(
+        item
+        for item in list_work_items(workspace, audit_id)
+        if item.component == DISCOVERY_ACQUISITION
+    )
+    assert discovery.status == FAILED_RETRYABLE
+    assert _all_other_required_resolved(workspace, audit_id) is False
+
+
+def test_partial_discovery_is_archived_before_replay(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    workspace = _workspace(tmp_path)
+    persist_resume_plan(
+        workspace,
+        AUDIT_ID,
+        targets=(URL,),
+        target_type="URL",
+        language="pt-BR",
+        market="BR",
+        max_pages=3,
+        device_context="mobile",
+        content_remediation=False,
+        technical_remediation=False,
+    )
+
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component=DISCOVERY_ACQUISITION,
+        scope_key="AUDIT",
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        status=FAILED_RETRYABLE,
+        retryable=True,
+    )
+    item = next(
+        value
+        for value in list_work_items(workspace, AUDIT_ID)
+        if value.component == DISCOVERY_ACQUISITION
+    )
+
+    def fake_execute_m2(audit, target, persistence, workspace_arg, **kwargs):
+        assert audit.audit_id == AUDIT_ID
+        assert target.audit_id == AUDIT_ID
+        assert workspace_arg.root == workspace.root
+        assert kwargs.get("explicit_urls") is None
+        persistence.pages.add(
+            Page(
+                page_id="PGE-REPLAYED",
+                audit_id=AUDIT_ID,
+                normalized_url=URL,
+                discovered_url=URL,
+            )
+        )
+        return type("M2Result", (), {"page_ids": ("PGE-REPLAYED",)})()
+
+    import rasai.m2 as m2_module
+
+    monkeypatch.setattr(m2_module, "execute_m2", fake_execute_m2)
+    from rasai.audit_fulfillment import start_reprocess_run
+
+    reprocess_id = start_reprocess_run(workspace, AUDIT_ID, source="TEST")
+    success, code, affected = _recover_discovery(
+        workspace,
+        AUDIT_ID,
+        item,
+        reprocess_id,
+    )
+
+    assert success is True
+    assert code == "DISCOVERY_ACQUISITION_RECOVERED"
+    assert affected == set()
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        pages = connection.execute(
+            "SELECT page_id FROM pages WHERE audit_id=? ORDER BY page_id",
+            (AUDIT_ID,),
+        ).fetchall()
+        archived = connection.execute(
+            """SELECT entity_type,entity_id FROM audit_reprocess_evidence_archive
+               WHERE audit_id=? AND reprocess_id=? ORDER BY entity_type,entity_id""",
+            (AUDIT_ID, reprocess_id),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    assert pages == [("PGE-REPLAYED",)]
+    assert ("partial_m2_page", "PGE-RESUME") in archived
