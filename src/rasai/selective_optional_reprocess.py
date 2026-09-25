@@ -109,9 +109,15 @@ def _saved_console_configuration(workspace: Any, audit_id: str) -> dict[str, Any
 def _saved_environment(workspace: Any, audit_id: str) -> dict[str, str]:
     payload = _saved_console_configuration(workspace, audit_id)
     settings = payload.get("settings")
-    if not isinstance(settings, Mapping):
-        return {}
-    environment = settings.get("environment")
+    environment = settings.get("environment") if isinstance(settings, Mapping) else None
+    if not isinstance(environment, Mapping):
+        try:
+            from rasai.audit_resume_runtime import load_resume_plan
+
+            plan = load_resume_plan(workspace, audit_id)
+            environment = plan.get("optional_environment")
+        except Exception:
+            environment = None
     if not isinstance(environment, Mapping):
         return {}
     return {
@@ -127,6 +133,15 @@ def _backfill_console_search(workspace: Any, audit_id: str) -> None:
         return
     payload = _saved_console_configuration(workspace, audit_id)
     search = payload.get("search_intelligence")
+    if not isinstance(search, Mapping):
+        try:
+            from rasai.audit_resume_runtime import load_resume_plan
+
+            plan = load_resume_plan(workspace, audit_id)
+            options = plan.get("execution_options")
+            search = options.get("search_intelligence") if isinstance(options, Mapping) else None
+        except Exception:
+            search = None
     if not isinstance(search, Mapping) or not bool(search.get("enabled")):
         return
     queries = [str(value).strip() for value in (search.get("queries") or []) if str(value).strip()]
@@ -135,7 +150,7 @@ def _backfill_console_search(workspace: Any, audit_id: str) -> None:
     environment = _saved_environment(workspace, audit_id)
     config: dict[str, Any] = {
         "requested": True,
-        "surface": "console-audit",
+        "surface": str(search.get("surface") or "audit-resume"),
         "queries": queries,
         "depth": int(search.get("depth") or 20),
         "region": str(search.get("region") or ""),
