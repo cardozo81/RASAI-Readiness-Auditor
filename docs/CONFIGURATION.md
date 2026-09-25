@@ -245,7 +245,7 @@ Consulte [`MONITORING_OBSERVABILITY.md`](MONITORING_OBSERVABILITY.md) e [`ENVIRO
 | `RASAI_APDEX_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` como baseline de carga |
 | `RASAI_APDEX_TIMEOUT_SECONDS` | `max(45, 4T + 5)` | número `> 4T` | default derivado |
 | `RASAI_APDEX_DELAY_SECONDS` | `1` | número `>= 0` | `1` ou maior conforme sensibilidade do alvo |
-| `RASAI_APDEX_CONCURRENCY` | `1` | `1`, `2` | `1` |
+| `RASAI_APDEX_CONCURRENCY` | `1` | inteiro `1..4` | `1`; `3..4` exigem delay >= `1 s` |
 | `RASAI_APDEX_ACQUISITION_MODE` | `auto` | `auto`, `isolated` | `auto`; compartilha apenas aquisição física comprovadamente compatível |
 
 Synthetic Navigation Apdex só pode ser habilitado com `T` explícito. Consulte [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md).
@@ -254,7 +254,7 @@ Synthetic Navigation Apdex só pode ser habilitado com `T` explícito. Consulte 
 
 ## Synthetic User Experience Apdex
 
-Os defaults, valores permitidos e recomendados dessa camada estão consolidados em [`SYNTHETIC_USER_EXPERIENCE_APDEX.md`](SYNTHETIC_USER_EXPERIENCE_APDEX.md) e [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md). Ela permanece desabilitada por padrão e pode usar configuração Dynatrace importada quando explicitamente solicitada.
+Os defaults, valores permitidos e recomendados dessa camada estão consolidados em [`SYNTHETIC_USER_EXPERIENCE_APDEX.md`](SYNTHETIC_USER_EXPERIENCE_APDEX.md) e [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md). Ela permanece desabilitada por padrão e pode usar configuração Dynatrace importada quando explicitamente solicitada. A concorrência do Experience aceita `1..3`, mantém `1` como recomendado e exige delay >= `1 s` para o valor avançado `3`; sem override próprio, a herança de Navigation é limitada a `2`.
 
 ## Dispositivo
 
