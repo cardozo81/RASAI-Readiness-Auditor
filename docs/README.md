@@ -16,6 +16,8 @@ O contrato funcional vigente usa:
 
 A arquitetura de produto inclui Product Platform, SQLite local, PostgreSQL centralizado opt-in, Web API, workers, SaaS Pilot Web, Scheduling Management, Consumption Analytics, acesso remoto ao control plane e Identity & Access baseada em OIDC/JWT com vínculo explícito entre identidade externa e `USR-*`. Essas camadas preservam a separação entre control plane, scoring e evidência imutável de auditoria.
 
+A versão executável do pacote/auditor segue [`VERSIONING.md`](VERSIONING.md) e é independente das versões públicas/metodológicas de SARI, SCORE-GEO, agregação, pesos e regras. Alterações funcionais após um marco RC/release exigem nova versão do pacote para preservar o `auditor_version` persistido nas auditorias.
+
 ## Regra documental de pré-publicação
 
 A documentação normativa deve representar **o produto como ele existe agora**.
