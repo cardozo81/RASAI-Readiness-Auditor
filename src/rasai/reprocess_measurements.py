@@ -80,9 +80,12 @@ def recover_web_performance(
     connection = sqlite3.connect(workspace.database)
     connection.row_factory = sqlite3.Row
     try:
-        run = connection.execute(
-            "SELECT * FROM web_performance_runs WHERE audit_id=?", (audit_id,)
-        ).fetchone()
+        try:
+            run = connection.execute(
+                "SELECT * FROM web_performance_runs WHERE audit_id=?", (audit_id,)
+            ).fetchone()
+        except sqlite3.OperationalError:
+            run = None
         if run is not None:
             persisted_categories = tuple(_json_load(run["categories"], []))
             cfg_map.setdefault("max_pages", int(run["page_limit"]))
@@ -314,8 +317,36 @@ def recover_synthetic_apdex(
     connection = sqlite3.connect(workspace.database)
     connection.row_factory = sqlite3.Row
     try:
-        run = connection.execute("SELECT * FROM synthetic_apdex_runs WHERE audit_id=?", (audit_id,)).fetchone()
-        if run is None or not bool(run["enabled"]):
+        try:
+            run = connection.execute("SELECT * FROM synthetic_apdex_runs WHERE audit_id=?", (audit_id,)).fetchone()
+        except sqlite3.OperationalError:
+            run = None
+        if run is None:
+            cfg_map = dict(item.configuration or {})
+            if not bool(cfg_map.get("enabled", True)):
+                return False
+            mobile = _profile_from_persisted(cfg_map.get("mobile_profile"), device="MOBILE")
+            desktop = _profile_from_persisted(cfg_map.get("desktop_profile"), device="DESKTOP")
+            cfg = m23.SyntheticApdexConfig(
+                enabled=True,
+                threshold_seconds=float(cfg_map.get("threshold_seconds")),
+                target_valid_samples=int(cfg_map.get("target_valid_samples") or 100),
+                max_attempts_per_context=int(cfg_map.get("max_attempts_per_context") or 125),
+                max_pages=int(cfg_map.get("max_pages") or 0),
+                timeout_seconds=float(cfg_map.get("timeout_seconds") or 45.0),
+                delay_seconds=float(cfg_map.get("delay_seconds") or 1.0),
+                concurrency=int(cfg_map.get("concurrency") or 1),
+                mobile_profile=mobile,
+                desktop_profile=desktop,
+            ).validate()
+            connection.close()
+            result = m23.execute_m23_apdex(
+                audit_id=audit_id,
+                workspace=workspace,
+                config=cfg,
+            )
+            return str(result.status).upper() == "SUCCESS"
+        if not bool(run["enabled"]):
             return False
         persisted_cfg = _json_load(run["configuration"], {})
         mobile = _profile_from_persisted((persisted_cfg or {}).get("mobile_profile"), device="MOBILE")
@@ -441,8 +472,55 @@ def recover_experience_apdex(
     connection = sqlite3.connect(workspace.database)
     connection.row_factory = sqlite3.Row
     try:
-        run = connection.execute("SELECT * FROM synthetic_ux_apdex_runs WHERE audit_id=?", (audit_id,)).fetchone()
-        if run is None or not bool(run["enabled"]):
+        try:
+            run = connection.execute("SELECT * FROM synthetic_ux_apdex_runs WHERE audit_id=?", (audit_id,)).fetchone()
+        except sqlite3.OperationalError:
+            run = None
+        if run is None:
+            cfg_map = dict(item.configuration or {})
+            if not bool(cfg_map.get("enabled", True)):
+                return False
+            raw_mix = cfg_map.get("device_mix") or {}
+            if isinstance(raw_mix, dict):
+                mix = tuple((str(key), float(value)) for key, value in raw_mix.items())
+            else:
+                mix = tuple((str(key), float(value)) for key, value in raw_mix)
+            cfg = m25.ExperienceApdexConfig(
+                enabled=True,
+                target_samples_per_page=int(cfg_map.get("target_samples_per_page") or 100),
+                max_attempts_per_page=int(cfg_map.get("max_attempts_per_page") or 125),
+                max_pages=int(cfg_map.get("max_pages") or 0),
+                device_mix=mix,
+                session_mode=str(cfg_map.get("session_mode") or "cold"),
+                kpm=str(cfg_map.get("kpm") or "USER_ACTION_DURATION"),
+                satisfied_threshold_seconds=(
+                    float(cfg_map["satisfied_threshold_seconds"])
+                    if cfg_map.get("satisfied_threshold_seconds") is not None
+                    else None
+                ),
+                frustrated_threshold_seconds=(
+                    float(cfg_map["frustrated_threshold_seconds"])
+                    if cfg_map.get("frustrated_threshold_seconds") is not None
+                    else None
+                ),
+                errors_affect_apdex=bool(cfg_map.get("errors_affect_apdex", True)),
+                error_scope=str(cfg_map.get("error_scope") or "first-party"),
+                settle_seconds=float(cfg_map.get("settle_seconds") or 5.0),
+                delay_seconds=float(cfg_map.get("delay_seconds") or 1.0),
+                concurrency=int(cfg_map.get("concurrency") or 1),
+                dynatrace_import=bool(cfg_map.get("dynatrace_import", False)),
+                dynatrace_base_url=str(cfg_map.get("dynatrace_base_url") or "") or None,
+                dynatrace_application_id=str(cfg_map.get("dynatrace_application_id") or "") or None,
+                dynatrace_config_json=str(cfg_map.get("dynatrace_config_json") or "") or None,
+            ).validate()
+            connection.close()
+            result = m25.execute_m25_experience(
+                audit_id=audit_id,
+                workspace=workspace,
+                config=cfg,
+            )
+            return str(result.status).upper() == "SUCCESS"
+        if not bool(run["enabled"]):
             return False
         config_map = _json_load(run["configuration"], {})
         mix_map = _json_load(run["device_mix"], {})
