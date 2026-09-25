@@ -10,7 +10,7 @@ from rasai import console_settings
 from rasai import console_ui_catalog as ui_catalog
 from rasai.console_m23 import M23_ENV_NAMES, apply_m23_environment_defaults
 from rasai.console_search_intelligence import SearchConsoleState
-from rasai.m23_cli import APDEX_MAX_ATTEMPTS_ENV, APDEX_SAMPLES_ENV
+from rasai.m23_cli import APDEX_MAX_ATTEMPTS_ENV, APDEX_SAMPLES_ENV, APDEX_THRESHOLD_ENV, APDEX_TIMEOUT_ENV
 from rasai.m25_cli import M25_ENV_NAMES, UX_MAX_ATTEMPTS_ENV, UX_SAMPLES_ENV
 
 
@@ -195,3 +195,20 @@ def test_invalid_experience_attempt_budget_rolls_back_environment_and_state(
     assert environment.os.environ[UX_MAX_ATTEMPTS_ENV] == "150"
     assert state.apdex_experience_samples == 120
     assert state.apdex_experience_max_attempts == 150
+
+
+def test_threshold_increase_reconciles_navigation_timeout_before_runtime_validation(
+    monkeypatch: pytest.MonkeyPatch,
+    transactional_apply,
+) -> None:
+    state = _prepare_apdex(monkeypatch, samples=1, attempts=2)
+    monkeypatch.setenv(APDEX_TIMEOUT_ENV, "10")
+    assert apply_m23_environment_defaults(state, names={APDEX_TIMEOUT_ENV}) == ()
+
+    transactional_apply(state, _spec(APDEX_THRESHOLD_ENV), "20")
+
+    assert state.error == ""
+    assert state.apdex_threshold == 20.0
+    assert state.apdex_timeout == 85.0
+    assert environment.os.environ[APDEX_THRESHOLD_ENV] == "20"
+    assert environment.os.environ[APDEX_TIMEOUT_ENV] == "85"
