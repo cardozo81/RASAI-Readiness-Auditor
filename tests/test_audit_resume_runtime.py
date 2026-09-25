@@ -406,7 +406,7 @@ def test_partial_discovery_is_archived_before_replay(tmp_path: Path, monkeypatch
             (AUDIT_ID,),
         ).fetchall()
         archived = connection.execute(
-            """SELECT entity_type,entity_id FROM audit_reprocess_evidence_archive
+            """SELECT entity_type,entity_id FROM audit_reprocess_derived_archive
                WHERE audit_id=? AND reprocess_id=? ORDER BY entity_type,entity_id""",
             (AUDIT_ID, reprocess_id),
         ).fetchall()
