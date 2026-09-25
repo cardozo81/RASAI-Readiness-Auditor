@@ -436,6 +436,56 @@ def finish_execution_session(
     )
 
 
+_SAFE_OPTIONAL_ENV_NAMES = (
+    # Search Intelligence runtime contract (provider keys are intentionally excluded).
+    "RASAI_SERP_MODE",
+    "RASAI_SERP_PROVIDER",
+    "RASAI_SERP_FIXTURE_PATH",
+    "RASAI_SERP_MAX_QUERIES",
+    "RASAI_SERP_MAX_REQUESTS",
+    "RASAI_SERP_MAX_DEPTH",
+    "RASAI_SERP_MAX_COMPETITORS",
+    "RASAI_SERP_TIMEOUT_SECONDS",
+    "RASAI_SERP_RETRIES",
+    "RASAI_SERP_MIN_INTERVAL_SECONDS",
+    # Improvement Intelligence.
+    "RASAI_IMPROVEMENT_INTELLIGENCE",
+    "RASAI_IMPROVEMENT_AI_PROVIDER",
+    "RASAI_IMPROVEMENT_AI_MODEL",
+    "RASAI_IMPROVEMENT_AI_REASONING",
+    "RASAI_IMPROVEMENT_DOMAINS",
+    "RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS",
+    "RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS",
+    "RASAI_AI_ANALYSIS_LANGUAGE",
+    # Passive security.
+    "RASAI_PASSIVE_SECURITY",
+    "RASAI_SECURITY_HEADERS",
+    "RASAI_SECURITY_COOKIES",
+    "RASAI_SECURITY_RESOURCES",
+    "RASAI_SECURITY_THIRD_PARTY",
+    "RASAI_SECURITY_RUNTIME_CORRELATION",
+    "RASAI_SECURITY_OSV",
+    "RASAI_SECURITY_CISA_KEV",
+    "RASAI_SECURITY_EXTERNAL_TIMEOUT_SECONDS",
+    # Google Search Console; OAuth/access tokens remain excluded.
+    "RASAI_GSC_ENABLED",
+    "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL",
+    "RASAI_STANDARDS_MAX_URLS",
+    "RASAI_STANDARDS_TIMEOUT_SECONDS",
+    "RASAI_GSC_SEARCH_ANALYTICS_DAYS",
+    "RASAI_GSC_SEARCH_MAX_ROWS",
+    "RASAI_GSC_FINAL_DATA_LAG_DAYS",
+)
+
+
+def _safe_optional_environment_snapshot() -> dict[str, str]:
+    return {
+        name: str(os.environ[name])
+        for name in _SAFE_OPTIONAL_ENV_NAMES
+        if name in os.environ and str(os.environ[name]).strip()
+    }
+
+
 def persist_resume_plan(
     workspace: AuditWorkspace,
     audit_id: str,
@@ -460,7 +510,11 @@ def persist_resume_plan(
         "device_context": str(device_context),
         "content_remediation": bool(content_remediation),
         "technical_remediation": bool(technical_remediation),
+        "optional_environment": _safe_optional_environment_snapshot(),
     }
+    bound_options = dict(_PLAN_OPTIONS.get() or {})
+    if bound_options:
+        plan["execution_options"] = bound_options
     merge_contract_configuration(workspace, audit_id, resume_plan=plan)
     try:
         from rasai.audit_configuration_reuse_runtime import persist_current_configuration
