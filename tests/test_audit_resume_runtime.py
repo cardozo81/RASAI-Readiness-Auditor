@@ -28,9 +28,11 @@ from rasai.audit_resume_runtime import (
 )
 from rasai.core_reprocessing import (
     DISCOVERY_ACQUISITION,
+    HTTP_ACQUISITION,
     RENDER_CAPTURE,
     _recover_discovery,
     _recover_render,
+    _retryable_core,
     synchronize_core_work_items,
 )
 from rasai.domain import (
@@ -213,6 +215,45 @@ def test_orphan_running_attempt_is_closed_and_item_becomes_retryable(tmp_path: P
         assert row[2]
     finally:
         connection.close()
+
+
+def test_orphan_running_with_persisted_http_result_reconciles_without_retry(
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component=HTTP_ACQUISITION,
+        scope_key="PGE-RESUME",
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        retryable=True,
+        configuration={"page_id": "PGE-RESUME", "url": URL},
+    )
+    begin_attempt(
+        workspace,
+        audit_id=AUDIT_ID,
+        component=HTTP_ACQUISITION,
+        scope_key="PGE-RESUME",
+    )
+
+    assert reconcile_interrupted_attempts(workspace, AUDIT_ID) == 1
+    synchronize_core_work_items(workspace, AUDIT_ID)
+
+    http_item = next(
+        item
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component == HTTP_ACQUISITION and item.scope_key == "PGE-RESUME"
+    )
+    assert http_item.status == SUCCESS
+    assert all(
+        not (
+            item.component == HTTP_ACQUISITION
+            and item.scope_key == "PGE-RESUME"
+        )
+        for item in _retryable_core(workspace, AUDIT_ID)
+    )
 
 
 def test_cancelled_audit_with_durable_plan_is_retryable_core(tmp_path: Path) -> None:
