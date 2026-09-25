@@ -47,13 +47,13 @@ def _dependent_names(name: str) -> tuple[str, ...]:
 
 
 def _reconcile_apdex_dependencies(name: str, raw: str | None) -> None:
-    """Keep Apdex attempt budgets valid when a sample target is increased.
+    """Reconcile Apdex dependencies that have canonical derived values.
 
     Both dedicated Apdex configurators derive an attempt budget of
-    ``ceil(1.25 * samples)`` when the current budget is insufficient. The canonical
-    variable editor must preserve the same contract for Navigation and User Experience
-    instead of producing an invalid transient state that is rolled back after runtime
-    validation.
+    ``ceil(1.25 * samples)`` when the current budget is insufficient. Navigation Apdex
+    also derives a safe timeout when ``T`` increases past the current explicit timeout.
+    The canonical variable editor preserves those same contracts instead of producing
+    invalid transient states that are rolled back after runtime validation.
     """
     if raw is None:
         return
