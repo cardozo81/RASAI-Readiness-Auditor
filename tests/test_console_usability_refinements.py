@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 from rasai.console_usability_refinements import (
@@ -104,3 +105,58 @@ def test_completion_timestamp_uses_configured_presentation_timezone(monkeypatch)
     monkeypatch.setenv("RASAI_PRESENTATION_TIMEZONE", "America/Sao_Paulo")
 
     assert _local_timestamp("2026-09-15T10:00:00+00:00") == "15/09/2026 07:00"
+
+
+def test_selected_audit_detail_uses_physical_lifecycle_timestamps(
+    monkeypatch, tmp_path: Path, capsys
+):
+    import rasai.console_artifacts as artifacts
+    import rasai.console_history_presentation as history
+    import rasai.console_navigation as navigation
+    import rasai.console_usability_refinements as usability
+
+    audit_id = "AUD-PHYSICAL-TIME"
+    (tmp_path / audit_id).mkdir()
+
+    monkeypatch.setattr(
+        usability,
+        "_safe_summary",
+        lambda *_: {
+            "processing_status": "COMPLETE",
+            "score_status": "FINAL",
+            "consolidation_eligible": True,
+            "required_items": 1,
+            "successful_items": 1,
+            "pending_items": 0,
+            "blocked_items": 0,
+            "reprocess_count": 0,
+            "last_reprocess_id": None,
+            # Deliberately different: this logical timestamp must not be presented
+            # as the physical completion of the AUD.
+            "completed_at": "2026-09-15T12:59:00+00:00",
+        },
+    )
+    monkeypatch.setattr(navigation, "_configuration_reuse_status", lambda *_: (False, "teste"))
+    monkeypatch.setattr(artifacts, "report_entrypoint", lambda *_: None)
+    monkeypatch.setattr(
+        history,
+        "process_started_at",
+        lambda *_: "2026-09-15T10:00:00+00:00",
+    )
+    monkeypatch.setattr(
+        history,
+        "process_finished_at",
+        lambda *_: "2026-09-15T10:30:00+00:00",
+    )
+    monkeypatch.setattr("builtins.input", lambda *_: "V")
+    monkeypatch.setenv("RASAI_PRESENTATION_TIMEZONE", "UTC")
+
+    state = SimpleNamespace(audits_root=tmp_path, status="", operation="", error="")
+    console_module = SimpleNamespace(render_header=lambda *_: None)
+
+    assert usability._selected_audit_menu(console_module, state, audit_id) is False
+    rendered = capsys.readouterr().out
+
+    assert "Início local   : 15/09/2026 10:00" in rendered
+    assert "Conclusão local: 15/09/2026 10:30" in rendered
+    assert "12:59" not in rendered
