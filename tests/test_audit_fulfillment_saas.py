@@ -22,7 +22,7 @@ from rasai.audit_fulfillment_saas import (
     _install_web_projection,
     _install_worker_reprocess,
 )
-from rasai.domain import Audit
+from rasai.domain import Audit, CompletionStatus
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.platform.models import AuditIndexRecord
 from rasai.platform.secure_store import SecurePlatformStore
@@ -33,6 +33,7 @@ def _workspace(root: Path, audit_id: str = "AUD-SAAS-REPROCESS") -> AuditWorkspa
     workspace = AuditWorkspace.create(root, audit_id)
     with AuditPersistence(workspace) as persistence:
         persistence.audits.add(Audit(audit_id=audit_id, project_name="SaaS reprocess"))
+        persistence.audits.complete(audit_id, CompletionStatus.COMPLETE)
     initialize_contract(workspace, audit_id, {"semantic_ai_requested": True})
     register_work_item(
         workspace,

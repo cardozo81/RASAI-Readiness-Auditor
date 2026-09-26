@@ -769,6 +769,19 @@ def recalculate(
             "SELECT * FROM audit_fulfillment_work_items WHERE audit_id=? AND required=1",
             (audit_id,),
         ).fetchall()
+        audit_status = ""
+        try:
+            audit_row = connection.execute(
+                "SELECT status FROM audits WHERE audit_id=?",
+                (audit_id,),
+            ).fetchone()
+            if audit_row is not None:
+                audit_status = str(audit_row["status"] or "").upper()
+        except sqlite3.OperationalError:
+            # Fulfillment-only fixtures/legacy stores may not expose the audit table.
+            # They remain non-final unless the physical lifecycle can be proven.
+            audit_status = ""
+        physically_completed = audit_status == "COMPLETED"
         relevant = [row for row in rows if str(row["status"]) not in _EXCLUDED_REQUIRED]
         expired = [row for row in relevant if _expired(row, now)]
         successful = [row for row in relevant if str(row["status"]) == SUCCESS]
@@ -795,12 +808,20 @@ def recalculate(
             report_status = REPORT_PRELIMINARY
             temporal_status = TEMPORAL_EXPIRED
             eligible = False
-        elif relevant and len(successful) == len(relevant):
+        elif relevant and len(successful) == len(relevant) and physically_completed:
             processing_status = COMPLETE
             score_status = SCORE_FINAL
             report_status = REPORT_FINAL
             temporal_status = TEMPORAL_VALID
             eligible = True
+        elif relevant and len(successful) == len(relevant):
+            # All currently materialized requirements may be successful while the
+            # physical audit lifecycle is still running. That is not a final AUD.
+            processing_status = PROCESSING
+            score_status = SCORE_PENDING
+            report_status = REPORT_PRELIMINARY
+            temporal_status = TEMPORAL_VALID
+            eligible = False
         elif blocked:
             processing_status = PARTIAL_BLOCKED
             score_status = SCORE_UNAVAILABLE
