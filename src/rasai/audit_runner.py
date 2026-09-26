@@ -197,17 +197,102 @@ def run_audit(
                 normalized_unique_count=len(normalized_targets),
             )
 
+        from rasai.audit_resume_runtime import (
+            finish_execution_session,
+            persist_resume_plan,
+            start_execution_session,
+        )
+        from rasai.device_context import configured_device_context
+
+        execution_session = start_execution_session(
+            workspace,
+            audit_id,
+            kind="INITIAL",
+            source="AUDIT",
+            reject_active=False,
+        )
+
         try:
+            persist_resume_plan(
+                workspace,
+                audit_id,
+                targets=normalized_targets,
+                target_type=target_type.value,
+                language=language,
+                market=market,
+                max_pages=max_pages,
+                device_context=configured_device_context(),
+                content_remediation=content_remediation,
+                technical_remediation=technical_remediation,
+                semantic_ai_requested=str(getattr(semantic_provider, "name", "NONE") or "NONE").upper() not in {"", "NONE"},
+                semantic_provider=str(getattr(semantic_provider, "name", "NONE") or "NONE"),
+            )
+
             # ------------------------------------------------------------------
             # CORE COLLECTION / EXTRACTION
             # ------------------------------------------------------------------
-            m2 = execute_m2(
-                audit,
-                audit_target,
-                persistence,
+            # Discovery/acquisition is a durable checkpoint of its own. If the
+            # process dies inside M2, the attempt remains RUNNING and recovery can
+            # distinguish that incomplete stage from already-completed page evidence.
+            from rasai.audit_fulfillment import (
+                FAILED_RETRYABLE,
+                LIVE_RECOLLECTION,
+                SUCCESS,
+                begin_attempt,
+                finish_attempt,
+                register_work_item,
+            )
+            from rasai.core_reprocessing import DISCOVERY_ACQUISITION
+
+            register_work_item(
                 workspace,
-                engine=discovery_engine,
-                explicit_urls=(normalized_targets if target_type is TargetType.URL_SET else None),
+                audit_id=audit_id,
+                component=DISCOVERY_ACQUISITION,
+                scope_key="AUDIT",
+                required=True,
+                temporal_mode=LIVE_RECOLLECTION,
+                retryable=True,
+                configuration={
+                    "target_type": target_type.value,
+                    "targets": list(normalized_targets),
+                    "max_pages": max_pages,
+                },
+                source_captured_at=audit.started_at.isoformat() if audit.started_at else None,
+            )
+            discovery_attempt_id = begin_attempt(
+                workspace,
+                audit_id=audit_id,
+                component=DISCOVERY_ACQUISITION,
+                scope_key="AUDIT",
+                metadata={"stage": "M2_DISCOVERY_ACQUISITION"},
+            )
+            try:
+                m2 = execute_m2(
+                    audit,
+                    audit_target,
+                    persistence,
+                    workspace,
+                    engine=discovery_engine,
+                    explicit_urls=(normalized_targets if target_type is TargetType.URL_SET else None),
+                )
+            except Exception as exc:
+                finish_attempt(
+                    workspace,
+                    discovery_attempt_id,
+                    status=FAILED_RETRYABLE,
+                    error_class=type(exc).__name__,
+                    error_code="M2_DISCOVERY_ACQUISITION_FAILED",
+                    error_message=str(exc),
+                    retryable=True,
+                )
+                raise
+            finish_attempt(
+                workspace,
+                discovery_attempt_id,
+                status=SUCCESS,
+                result_ref=f"discovery:{audit_id}:effective",
+                retryable=True,
+                metadata={"pages": len(m2.page_ids)},
             )
 
             source_quality = assess_m2_result(m2)
@@ -581,7 +666,7 @@ def run_audit(
                 evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
             )
 
-            return AuditRunResult(
+            result = AuditRunResult(
                 audit_id=audit_id,
                 audit_root=workspace.root,
                 report_path=report_path,
@@ -590,6 +675,12 @@ def run_audit(
                 finding_count=len(all_finding_ids),
                 recommendation_count=len(m10.recommendation_ids),
             )
+            finish_execution_session(
+                workspace,
+                execution_session,
+                state="COMPLETED",
+            )
+            return result
         except Exception as exc:
             try:
                 from rasai.fulfillment_execution_contract import _reconcile_requested_improvement
@@ -612,6 +703,23 @@ def run_audit(
                 audit_id=audit_id,
                 error_type=type(exc).__name__,
                 error_message=str(exc)[:512],
+            )
+            finish_execution_session(
+                workspace,
+                execution_session,
+                state="FAILED",
+                note=f"{type(exc).__name__}: {str(exc)[:512]}",
+            )
+            raise
+        except BaseException as exc:
+            # KeyboardInterrupt/SystemExit must release the in-process lease before
+            # outer console/CLI cancellation handling runs. Abrupt process death cannot
+            # execute this block and is reconciled later from PID/heartbeat state.
+            finish_execution_session(
+                workspace,
+                execution_session,
+                state="INTERRUPTED",
+                note=f"{type(exc).__name__}: {str(exc)[:512]}",
             )
             raise
 

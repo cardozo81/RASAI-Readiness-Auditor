@@ -111,6 +111,17 @@ def _safe_core_wrapper(base: Any, module: Any, core: Any):
         for item in tuple(
             value
             for value in core._retryable_core(workspace, audit_id)
+            if value.component == core.DISCOVERY_ACQUISITION
+        ):
+            attempted += 1
+            ok, changed = core._attempt(workspace, audit_id, item, reprocess_id)
+            successful += int(ok)
+            affected.update(changed)
+        core.synchronize_core_work_items(workspace, audit_id)
+
+        for item in tuple(
+            value
+            for value in core._retryable_core(workspace, audit_id)
             if value.component == core.HTTP_ACQUISITION
         ):
             attempted += 1

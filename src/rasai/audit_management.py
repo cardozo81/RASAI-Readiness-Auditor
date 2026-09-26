@@ -19,7 +19,11 @@ from typing import Iterable
 import uuid
 
 
-ACTIVE_AUDIT_STATUSES = frozenset({"RUNNING", "PROCESSING", "IN_PROGRESS", "STARTED"})
+ACTIVE_AUDIT_STATUSES = frozenset({
+    "CREATED", "INITIALIZING", "DISCOVERING", "ACQUIRING", "ANALYZING",
+    "COMPARING", "SCORING", "RECOMMENDING", "REPORTING",
+    "RUNNING", "PROCESSING", "IN_PROGRESS", "STARTED",
+})
 ACTIVE_FULFILLMENT_STATUSES = frozenset({"PROCESSING"})
 DELETION_LEDGER = "audit-deletions.jsonl"
 
@@ -39,10 +43,16 @@ class AuditInventoryItem:
     consolidation_eligible: bool | None
     configuration_reusable: bool
     fulfillment_processing_status: str | None
+    execution_active: bool | None = None
     metadata_error: str | None = None
 
     @property
     def is_active(self) -> bool:
+        # New workspaces have an execution-session lease. It is authoritative because
+        # an interrupted process may leave the business lifecycle status in ANALYZING,
+        # SCORING, etc. indefinitely. Legacy workspaces fall back to status heuristics.
+        if self.execution_active is not None:
+            return self.execution_active
         return (
             self.status.upper() in ACTIVE_AUDIT_STATUSES
             or (self.fulfillment_processing_status or "").upper() in ACTIVE_FULFILLMENT_STATUSES
@@ -186,6 +196,45 @@ def _configuration_state(connection: sqlite3.Connection, audit_id: str) -> tuple
     return series_id or None, True
 
 
+def _execution_active_state(connection: sqlite3.Connection, audit_id: str) -> bool | None:
+    if not _table_exists(connection, "audit_execution_sessions"):
+        return None
+    cols = _columns(connection, "audit_execution_sessions")
+    required = {"audit_id", "state", "pid", "host", "heartbeat_at"}
+    if not required <= cols:
+        return None
+    rows = connection.execute(
+        """SELECT state,pid,host,heartbeat_at FROM audit_execution_sessions
+           WHERE audit_id=? AND state='RUNNING' ORDER BY started_at DESC""",
+        (audit_id,),
+    ).fetchall()
+    if not rows:
+        return False
+
+    import socket
+
+    local_host = socket.gethostname()
+    now = datetime.now(timezone.utc)
+    for row in rows:
+        host = str(row["host"] or "")
+        pid = int(row["pid"] or 0)
+        if host == local_host and pid > 0:
+            from rasai.audit_resume_runtime import process_is_alive
+
+            if process_is_alive(pid):
+                return True
+            continue
+        try:
+            heartbeat = datetime.fromisoformat(str(row["heartbeat_at"] or "").replace("Z", "+00:00"))
+            if heartbeat.tzinfo is None:
+                heartbeat = heartbeat.replace(tzinfo=timezone.utc)
+            if (now - heartbeat.astimezone(timezone.utc)).total_seconds() <= 45:
+                return True
+        except ValueError:
+            continue
+    return False
+
+
 def _fulfillment_state(connection: sqlite3.Connection, audit_id: str) -> tuple[str | None, bool | None]:
     if not _table_exists(connection, "audit_fulfillment_contracts"):
         return None, None
@@ -245,6 +294,7 @@ def _read_inventory_item(workspace: Path) -> AuditInventoryItem:
             completed_at = str(audit.get("completed_at") or "").strip() or None
             series_id, reusable = _configuration_state(connection, audit_id)
             fulfillment_processing, eligible = _fulfillment_state(connection, audit_id)
+            execution_active = _execution_active_state(connection, audit_id)
             return AuditInventoryItem(
                 audit_id=audit_id,
                 workspace=workspace,
@@ -259,6 +309,7 @@ def _read_inventory_item(workspace: Path) -> AuditInventoryItem:
                 consolidation_eligible=eligible,
                 configuration_reusable=reusable,
                 fulfillment_processing_status=fulfillment_processing,
+                execution_active=execution_active,
             )
         finally:
             connection.close()

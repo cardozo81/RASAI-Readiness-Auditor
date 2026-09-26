@@ -251,7 +251,17 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
             "I. Abrir relatório HTML"
             + ("" if report_path is not None else " [INDISPONÍVEL]")
         )
-        print("1. Reprocessar pendências desta auditoria")
+        processing_status = str(summary.get("processing_status") or "").upper()
+        required_items = int(summary.get("required_items") or 0)
+        successful_items = int(summary.get("successful_items") or 0)
+        resume_mode = processing_status != "COMPLETE" and (
+            required_items == 0 or successful_items < required_items
+        )
+        if resume_mode:
+            print("1. Retomar / reprocessar pendências desta auditoria")
+            print("   Sucessos íntegros serão preservados; somente o déficit recuperável será executado.")
+        else:
+            print("1. Reprocessar pendências desta auditoria")
         if reuse_available:
             print("2. Carregar esta configuração para uma nova auditoria")
         else:

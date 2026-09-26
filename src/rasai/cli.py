@@ -366,17 +366,34 @@ def main(argv: list[str] | None = None) -> int:
                     if args.urls_file or len(targets) > 1
                     else targets[0]
                 )
-                result = run_audit(
-                    audit_target,
-                    audits_root=Path(args.audits_root),
-                    project_name=args.project,
-                    language=args.language,
-                    market=args.market,
-                    max_pages=args.max_pages,
-                    semantic_provider=provider,
-                    content_remediation=content_remediation,
-                    technical_remediation=technical_remediation,
-                )
+                from rasai.audit_resume_runtime import resume_plan_options
+
+                with resume_plan_options(
+                    {
+                        "web_performance": {
+                            "enabled": bool(web_performance.enabled),
+                            "max_pages": int(web_performance.max_pages),
+                            "timeout_seconds": float(web_performance.timeout_seconds),
+                            "categories": list(web_performance.categories),
+                            "field_source": str(web_performance.field_source),
+                            # Only configuration presence is persisted; credentials remain
+                            # resolved from the environment during an explicit resume.
+                            "pagespeed_key_configured": bool(web_performance.pagespeed_api_key),
+                            "crux_key_configured": bool(web_performance.crux_api_key),
+                        }
+                    }
+                ):
+                    result = run_audit(
+                        audit_target,
+                        audits_root=Path(args.audits_root),
+                        project_name=args.project,
+                        language=args.language,
+                        market=args.market,
+                        max_pages=args.max_pages,
+                        semantic_provider=provider,
+                        content_remediation=content_remediation,
+                        technical_remediation=technical_remediation,
+                    )
                 # Real audit workspaces materialize the M21 state even when
                 # external collection is OFF, so the report can explain the
                 # opt-in status. Mocked/internal callers that return no actual

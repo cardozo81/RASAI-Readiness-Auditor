@@ -14,6 +14,7 @@ from typing import Sequence
 from rasai import cli_extensions
 from rasai.ai_dependency_runtime import install as install_ai_dependency_runtime
 from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
+from rasai.audit_resume_runtime import install as install_audit_resume_runtime
 from rasai.context_scope_runtime import install as install_context_scope_runtime
 from rasai.external_measurement_runtime import install as install_external_measurement_runtime
 from rasai.external_observability_runtime import (
@@ -108,6 +109,7 @@ def _blocking_catalog_report_errors(renderer_errors: Sequence[str]) -> tuple[str
 
 def _run_audit_and_finalize(effective: list[str]) -> int:
     from rasai.ai_execution_state import consume_all_ai_executions
+    from rasai.audit_resume_runtime import finish_execution_session, start_execution_session
     from rasai.m18_ai import provider_session_snapshot
     from rasai.persistence import AuditWorkspace
     from rasai.report_completion import finalize_audit_report_site, materialize_catalog_report_projection
@@ -115,18 +117,49 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
 
     original_run_audit = cli_extensions._audit_cli.run_audit
     captured: list[object] = []
+    mutable_workspace: AuditWorkspace | None = None
+    mutable_session = None
 
     def capture_run(*args, **kwargs):
+        nonlocal mutable_workspace, mutable_session
         result = original_run_audit(*args, **kwargs)
+        # audit_runner owns the lease while the core is running. The public CLI still
+        # performs mutable optional collectors after run_audit returns, so acquire a
+        # continuation lease before returning control to cli_extensions. If another
+        # process won the handoff race, this acquisition fails and the original
+        # process does not continue mutating the same audit.db concurrently.
+        mutable_workspace = AuditWorkspace.open(result.audit_root)
+        mutable_session = start_execution_session(
+            mutable_workspace,
+            result.audit_id,
+            kind="CONTINUATION",
+            source="CLI",
+            reject_active=True,
+        )
         captured.append(result)
         return result
 
     cli_extensions._audit_cli.run_audit = capture_run
     try:
-        code = cli_extensions.main(effective)
+        try:
+            code = cli_extensions.main(effective)
+        except BaseException as exc:
+            if mutable_workspace is not None:
+                finish_execution_session(
+                    mutable_workspace,
+                    mutable_session,
+                    state="INTERRUPTED" if isinstance(exc, KeyboardInterrupt) else "FAILED",
+                    note=f"{type(exc).__name__}: {str(exc)[:512]}",
+                )
+                mutable_session = None
+            raise
     finally:
         cli_extensions._audit_cli.run_audit = original_run_audit
 
+    # Keep the continuation lease across late data finalizers too. Those wrappers may
+    # persist derived audit state even though the base report finalizer is a no-op.
+    # The lease is closed immediately before the catalog-only projection so the report
+    # fingerprint observes the final, stable audit.db.
     executions = consume_all_ai_executions()
     if not captured:
         return code
@@ -139,6 +172,14 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         return code
 
     if code != 0:
+        if mutable_workspace is not None:
+            finish_execution_session(
+                mutable_workspace,
+                mutable_session,
+                state="FAILED",
+                note=f"CLI_RETURN_CODE:{code}",
+            )
+            mutable_session = None
         return code
 
     try:
@@ -172,6 +213,15 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
             # Directed Analysis is advisory. A failure in this strategic layer must not
             # invalidate the technical audit or the CAT-* source reports.
             _LOGGER.exception("Directed Analysis failed; catalog technical results remain valid")
+
+        if mutable_workspace is not None:
+            finish_execution_session(
+                mutable_workspace,
+                mutable_session,
+                state="COMPLETED",
+            )
+            mutable_session = None
+
         catalog_completion = materialize_catalog_report_projection(
             audit_id=result.audit_id,
             workspace=workspace,
@@ -180,7 +230,15 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
             *data_completion.renderer_errors,
             *catalog_completion.renderer_errors,
         )
-    except Exception:
+    except Exception as exc:
+        if mutable_workspace is not None and mutable_session is not None:
+            finish_execution_session(
+                mutable_workspace,
+                mutable_session,
+                state="FAILED",
+                note=f"{type(exc).__name__}: {str(exc)[:512]}",
+            )
+            mutable_session = None
         _LOGGER.exception("Final catalog report materialization gate failed")
         print(
             "Report-catalog: INCOMPLETO - falha ao validar/materializar a projeção final. "
@@ -253,6 +311,9 @@ def _install_audit_runtime() -> None:
     install_final_smoke_closure()
     install_governed_analysis_post()
     install_governed_report_projection()
+    # This guard must be outermost: no reprocess adapter may mutate this AUD before
+    # active-session validation and orphan-attempt reconciliation.
+    install_audit_resume_runtime()
 
 
 def main(argv: Sequence[str] | None = None) -> int:
