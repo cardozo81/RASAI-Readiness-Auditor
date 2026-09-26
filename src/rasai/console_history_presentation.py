@@ -53,6 +53,40 @@ def _timestamp_key(value: str) -> tuple[int, datetime | str]:
         return (0, raw)
 
 
+def process_started_at(audit_root: Path, audit_id: str) -> str | None:
+    """Return the persisted physical start of the AUD lifecycle."""
+    connection = _read_only(audit_root)
+    if connection is None:
+        return None
+    candidates: list[str] = []
+    try:
+        audit_cols = _table_columns(connection, "audits")
+        if {"audit_id", "started_at"} <= audit_cols:
+            row = connection.execute(
+                "SELECT started_at FROM audits WHERE audit_id=? LIMIT 1",
+                (audit_id,),
+            ).fetchone()
+            if row and str(row[0] or "").strip():
+                candidates.append(str(row[0]).strip())
+
+        session_cols = _table_columns(connection, "audit_execution_sessions")
+        if {"audit_id", "started_at"} <= session_cols:
+            rows = connection.execute(
+                "SELECT started_at FROM audit_execution_sessions "
+                "WHERE audit_id=? AND started_at IS NOT NULL",
+                (audit_id,),
+            ).fetchall()
+            candidates.extend(str(row[0]).strip() for row in rows if str(row[0] or "").strip())
+    except sqlite3.Error:
+        return None
+    finally:
+        connection.close()
+
+    if not candidates:
+        return None
+    return min(candidates, key=_timestamp_key)
+
+
 def process_finished_at(audit_root: Path, audit_id: str) -> str | None:
     """Return the latest persisted physical completion for this AUD lifecycle.
 
@@ -74,6 +108,15 @@ def process_finished_at(audit_root: Path, audit_id: str) -> str | None:
             ).fetchone()
             if row and str(row[0] or "").strip():
                 candidates.append(str(row[0]).strip())
+
+        session_cols = _table_columns(connection, "audit_execution_sessions")
+        if {"audit_id", "finished_at"} <= session_cols:
+            rows = connection.execute(
+                "SELECT finished_at FROM audit_execution_sessions "
+                "WHERE audit_id=? AND finished_at IS NOT NULL",
+                (audit_id,),
+            ).fetchall()
+            candidates.extend(str(row[0]).strip() for row in rows if str(row[0] or "").strip())
 
         reprocess_cols = _table_columns(connection, "audit_reprocess_runs")
         if {"audit_id", "completed_at"} <= reprocess_cols:
@@ -217,6 +260,7 @@ def _history_row(
     audit_id = audit_root.name
     summary = usability._safe_summary(audit_root, audit_id)
     status = usability._friendly_status(summary.get("processing_status") or "STATUS NÃO PROJETADO")
+    started = usability._local_timestamp(process_started_at(audit_root, audit_id))
     completed = usability._local_timestamp(process_finished_at(audit_root, audit_id))
     reprocess = usability._reprocess_label(summary)
     context = identity or audit_identity_context(audit_root, audit_id)
@@ -230,7 +274,7 @@ def _history_row(
     )
     reprocess_cell = paint(f"{reprocess:<16}", reprocess_color, bold="Disponível" in reprocess)
     print(
-        f"{index:>2}. {audit_id:<{audit_width}}  {completed:<16}  "
+        f"{index:>2}. {audit_id:<{audit_width}}  {started:<16}  {completed:<16}  "
         f"{status_cell}  {context['device']:<17}  {reprocess_cell}  {domain}"
     )
 
@@ -273,11 +317,11 @@ def _choose_audit_factory(console_module: ModuleType):
                 audit_width = max(36, min(44, max(len(item[0].name) for item in visible)))
                 print("\n" + title_text("Auditorias:"))
                 print(
-                    f"{'Nº':>3} {'AUDITORIA':<{audit_width}}  {'CONCLUSÃO LOCAL':<16}  "
+                    f"{'Nº':>3} {'AUDITORIA':<{audit_width}}  {'INÍCIO LOCAL':<16}  {'CONCLUSÃO LOCAL':<16}  "
                     f"{'SITUAÇÃO':<27}  {'DISPOSITIVO':<17}  {'REPROCESSAMENTO':<16}  DOMÍNIO"
                 )
                 print(
-                    f"{'---':>3} {'-' * audit_width}  {'-' * 16}  "
+                    f"{'---':>3} {'-' * audit_width}  {'-' * 16}  {'-' * 16}  "
                     f"{'-' * 27}  {'-' * 17}  {'-' * 16}  {'-' * 24}"
                 )
                 for position, (audit_root, identity) in enumerate(visible, start + 1):
