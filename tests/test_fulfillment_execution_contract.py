@@ -5,7 +5,7 @@ import sqlite3
 from tempfile import TemporaryDirectory
 
 from rasai.audit_fulfillment import REPLAY_SAFE, SUCCESS, list_work_items, register_work_item, set_work_item_status
-from rasai.domain import Audit
+from rasai.domain import Audit, CompletionStatus
 from rasai.fulfillment_execution_contract import (
     AI_CONTRACT,
     M24_CONTRACT_ERROR_CODE,
@@ -280,6 +280,8 @@ def test_complete_is_reported_only_when_all_required_items_succeed() -> None:
             result_ref="audit:ok",
             retryable=False,
         )
+        with AuditPersistence(workspace) as persistence:
+            persistence.audits.complete(AUDIT_ID, CompletionStatus.COMPLETE)
         text = "\n".join(audit_result_lines(workspace, AUDIT_ID))
         assert "Status do AUD   : COMPLETO" in text
         assert "Relatório       : FINAL" in text
