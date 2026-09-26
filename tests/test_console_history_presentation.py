@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from rasai.console_history_presentation import domain_context, process_finished_at
+from rasai.console_history_presentation import domain_context, process_finished_at, process_started_at
 
 
 def _database(root: Path) -> sqlite3.Connection:
@@ -13,7 +13,14 @@ def _database(root: Path) -> sqlite3.Connection:
         """
         CREATE TABLE audits (
             audit_id TEXT PRIMARY KEY,
+            started_at TEXT,
             completed_at TEXT
+        );
+        CREATE TABLE audit_execution_sessions (
+            execution_id TEXT PRIMARY KEY,
+            audit_id TEXT NOT NULL,
+            started_at TEXT NOT NULL,
+            finished_at TEXT
         );
         CREATE TABLE console_execution_projections (
             audit_id TEXT PRIMARY KEY,
@@ -45,7 +52,7 @@ def test_process_completion_is_independent_from_logical_final_status(tmp_path: P
     audit_root = tmp_path / "AUD-PARTIAL"
     connection = _database(audit_root)
     try:
-        connection.execute("INSERT INTO audits VALUES (?,?)", ("AUD-PARTIAL", None))
+        connection.execute("INSERT INTO audits VALUES (?,?,?)", ("AUD-PARTIAL", "2026-09-15T10:00:00+00:00", None))
         connection.execute(
             "INSERT INTO console_execution_projections VALUES (?,?)",
             ("AUD-PARTIAL", "2026-09-15T10:05:00+00:00"),
@@ -57,11 +64,54 @@ def test_process_completion_is_independent_from_logical_final_status(tmp_path: P
     assert process_finished_at(audit_root, "AUD-PARTIAL") == "2026-09-15T10:05:00+00:00"
 
 
+def test_process_start_uses_persisted_audit_start(tmp_path: Path) -> None:
+    audit_root = tmp_path / "AUD-START"
+    connection = _database(audit_root)
+    try:
+        connection.execute(
+            "INSERT INTO audits VALUES (?,?,?)",
+            ("AUD-START", "2026-09-15T09:45:00+00:00", None),
+        )
+        connection.execute(
+            "INSERT INTO audit_execution_sessions VALUES (?,?,?,?)",
+            ("EXE-START", "AUD-START", "2026-09-15T09:46:00+00:00", None),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    assert process_started_at(audit_root, "AUD-START") == "2026-09-15T09:45:00+00:00"
+
+
+def test_interrupted_session_finish_is_a_physical_completion_candidate(tmp_path: Path) -> None:
+    audit_root = tmp_path / "AUD-INTERRUPTED"
+    connection = _database(audit_root)
+    try:
+        connection.execute(
+            "INSERT INTO audits VALUES (?,?,?)",
+            ("AUD-INTERRUPTED", "2026-09-15T11:00:00+00:00", None),
+        )
+        connection.execute(
+            "INSERT INTO audit_execution_sessions VALUES (?,?,?,?)",
+            (
+                "EXE-INTERRUPTED",
+                "AUD-INTERRUPTED",
+                "2026-09-15T11:00:01+00:00",
+                "2026-09-15T11:02:30+00:00",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    assert process_finished_at(audit_root, "AUD-INTERRUPTED") == "2026-09-15T11:02:30+00:00"
+
+
 def test_latest_completed_reprocess_becomes_latest_process_completion(tmp_path: Path) -> None:
     audit_root = tmp_path / "AUD-RPR"
     connection = _database(audit_root)
     try:
-        connection.execute("INSERT INTO audits VALUES (?,?)", ("AUD-RPR", None))
+        connection.execute("INSERT INTO audits VALUES (?,?,?)", ("AUD-RPR", "2026-09-15T09:55:00+00:00", None))
         connection.execute(
             "INSERT INTO console_execution_projections VALUES (?,?)",
             ("AUD-RPR", "2026-09-15T10:05:00+00:00"),
@@ -81,7 +131,7 @@ def test_domain_context_shows_only_domain_for_single_audited_url(tmp_path: Path)
     audit_root = tmp_path / "AUD-ONE"
     connection = _database(audit_root)
     try:
-        connection.execute("INSERT INTO audits VALUES (?,?)", ("AUD-ONE", None))
+        connection.execute("INSERT INTO audits VALUES (?,?,?)", ("AUD-ONE", "2026-09-15T08:00:00+00:00", None))
         connection.execute(
             "INSERT INTO audit_targets VALUES (?,?,?,?,?)",
             ("T1", "AUD-ONE", "https://www.example.com/a", "https://www.example.com", "URL"),
@@ -101,7 +151,7 @@ def test_domain_context_shows_primary_domain_and_total_urls(tmp_path: Path) -> N
     audit_root = tmp_path / "AUD-MANY"
     connection = _database(audit_root)
     try:
-        connection.execute("INSERT INTO audits VALUES (?,?)", ("AUD-MANY", None))
+        connection.execute("INSERT INTO audits VALUES (?,?,?)", ("AUD-MANY", "2026-09-15T07:00:00+00:00", None))
         connection.execute(
             "INSERT INTO audit_targets VALUES (?,?,?,?,?)",
             ("T1", "AUD-MANY", "https://example.com/a", "https://example.com", "DOMAIN"),
