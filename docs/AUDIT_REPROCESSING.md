@@ -33,6 +33,11 @@ O runtime não tenta restaurar a pilha Python nem continuar uma instrução de m
 
 Cada execução local de uma AUD mantém uma sessão durável em `audit_execution_sessions` com identidade de execução, PID, host, início e heartbeat. Uma retomada é recusada enquanto existir sessão comprovadamente ativa. Sessões cujo processo local não existe mais, ou cujo heartbeat remoto expirou, são registradas como `INTERRUPTED` antes do novo RPR. O lifecycle de negócio pode ter permanecido em `DISCOVERING`, `ANALYZING`, `SCORING` etc.; por isso esses rótulos, isoladamente, não provam que existe processo vivo.
 
+
+O fulfillment também preserva uma fronteira explícita entre **execução física** e **conclusão lógica**. `CORE_AUDIT` é materializado como requisito pendente antes da primeira coleta significativa, e os requisitos opcionais determináveis pelo plano secret-free são materializados antecipadamente. Assim, o sucesso do primeiro collector não pode reduzir artificialmente o denominador e promover uma AUD ainda em execução para `COMPLETE`. Mesmo quando todos os work-items atualmente persistidos estão em `SUCCESS`, `score_status=FINAL`, `report_status=FINAL` e `consolidation_eligible=true` só podem ser projetados depois que o lifecycle físico da AUD estiver comprovadamente encerrado como `COMPLETED`. Após esse fechamento, o fulfillment é recalculado para publicar o estado final coerente.
+
+Na apresentação do histórico, `Início local` e `Conclusão local` são tempos físicos persistidos da AUD/sessão/RPR; o `completed_at` interno do fulfillment não substitui esses marcos de execução.
+
 ### Reconciliação de tentativa abandonada
 
 Um work-item que ficou `RUNNING` não é repetido automaticamente. Na abertura do RPR, a tentativa órfã é fechada como `INTERRUPTED` e o item volta a estado recuperável. Em seguida, os sincronizadores de cada componente confrontam o ledger com a evidência efetiva:
