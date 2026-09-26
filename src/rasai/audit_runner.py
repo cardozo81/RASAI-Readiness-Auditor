@@ -199,6 +199,7 @@ def run_audit(
 
         from rasai.audit_resume_runtime import (
             finish_execution_session,
+            initialize_execution_fulfillment,
             persist_resume_plan,
             start_execution_session,
         )
@@ -227,6 +228,7 @@ def run_audit(
                 semantic_ai_requested=str(getattr(semantic_provider, "name", "NONE") or "NONE").upper() not in {"", "NONE"},
                 semantic_provider=str(getattr(semantic_provider, "name", "NONE") or "NONE"),
             )
+            initialize_execution_fulfillment(workspace, audit_id)
 
             # ------------------------------------------------------------------
             # CORE COLLECTION / EXTRACTION
@@ -654,6 +656,8 @@ def run_audit(
                 else CompletionStatus.COMPLETE
             )
             persistence.audits.complete(audit_id, completion)
+            from rasai.audit_fulfillment import recalculate as recalculate_fulfillment
+            recalculate_fulfillment(workspace, audit_id)
             try_append_operational_event(
                 workspace,
                 "AUDIT_COMPLETED",
