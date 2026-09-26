@@ -34,6 +34,7 @@ from rasai.audit_fulfillment import (
     BLOCKED,
     FAILED_RETRYABLE,
     LIVE_RECOLLECTION,
+    PENDING,
     REPLAY_SAFE,
     REQUESTED_NOT_EXECUTED,
     SUCCESS,
@@ -722,6 +723,33 @@ def _mark_planned_not_executed(
         ),
         retryable=True,
     )
+
+
+def initialize_execution_fulfillment(workspace: AuditWorkspace, audit_id: str) -> Any:
+    """Materialize the non-final fulfillment universe before the first collection.
+
+    CORE_AUDIT is a lifecycle sentinel: while it is pending, a transient success in
+    the first materialized collector cannot promote the logical AUD to COMPLETE.
+    Planned secret-free optional requirements are also materialized from the durable
+    resume plan so the denominator does not depend on which runtime happened to start.
+    """
+    ensure_fulfillment_schema(workspace)
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component="CORE_AUDIT",
+        scope_key="AUDIT",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status=PENDING,
+        retryable=True,
+        configuration={
+            "lifecycle_checkpoint": "FINAL_DERIVATIONS",
+            "source": "initial_execution",
+        },
+    )
+    materialize_planned_work_items(workspace, audit_id)
+    return recalculate(workspace, audit_id)
 
 
 def materialize_planned_work_items(workspace: AuditWorkspace, audit_id: str) -> None:
