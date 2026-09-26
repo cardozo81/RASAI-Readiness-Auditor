@@ -526,6 +526,7 @@ def _reprocess_selected(console_module: ModuleType, state: Any, audit_id: str) -
 def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) -> bool:
     from rasai import console_navigation as navigation
     from rasai.console_artifacts import open_external_path, report_entrypoint
+    from rasai.console_history_presentation import process_finished_at, process_started_at
 
     while True:
         audit_root = Path(state.audits_root) / audit_id
@@ -536,8 +537,8 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
         print("AUDITORIA SELECIONADA\n")
         print(f"AUD            : {audit_id}")
         print(f"Situação       : {_friendly_status(summary.get('processing_status', 'STATUS NÃO PROJETADO'))}")
-        if str(summary.get("processing_status") or "").upper() == "COMPLETE":
-            print(f"Conclusão local: {_local_timestamp(summary.get('completed_at'))}")
+        print(f"Início local   : {_local_timestamp(process_started_at(audit_root, audit_id))}")
+        print(f"Conclusão local: {_local_timestamp(process_finished_at(audit_root, audit_id))}")
         print(f"Score          : {_friendly_score(summary.get('score_status', '-'))}")
         eligible = summary.get("consolidation_eligible")
         print(f"Consolidação   : {'ELEGÍVEL' if eligible is True else ('NÃO ELEGÍVEL' if eligible is False else '-')}")
