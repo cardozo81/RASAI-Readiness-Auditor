@@ -41,7 +41,7 @@ Um work-item que ficou `RUNNING` não é repetido automaticamente. Na abertura d
 - se não existe resultado efetivo suficiente, somente o déficit é executado;
 - se havia sucesso declarado mas o artifact correspondente desapareceu, o item fica `BLOCKED`; uma coleta atual não substitui silenciosamente evidência histórica perdida.
 
-A descoberta/aquisição inicial possui checkpoint próprio `DISCOVERY_ACQUISITION`. Se a interrupção ocorrer antes de esse checkpoint concluir, o RPR trata essa etapa como live e respeita a mesma janela temporal das demais coletas. Persistência parcial de M2 é arquivada na trilha do RPR antes de qualquer replay; se já existir evidência downstream incompatível com essa limpeza isolada, a recuperação é bloqueada em vez de apagar dados relacionados.
+A descoberta/aquisição inicial possui checkpoint próprio `DISCOVERY_ACQUISITION`. Se a interrupção ocorrer antes de esse checkpoint concluir, o RPR trata essa etapa como live e respeita a mesma janela temporal das demais coletas. Persistência parcial da descoberta/aquisição inicial é arquivada na trilha do RPR antes de qualquer replay; se já existir evidência downstream incompatível com essa limpeza isolada, a recuperação é bloqueada em vez de apagar dados relacionados.
 
 Para renderização, o plano antecipado permite detectar um contexto configurado que nunca chegou a materializar um `PageSnapshot`. O RPR cria somente o contexto ausente e, depois, a extração/derivados correspondentes. Contextos já concluídos permanecem intactos.
 
