@@ -196,12 +196,16 @@ def _install_worker_reprocess() -> None:
             if value is not None and not isinstance(value, str):
                 raise ValueError(f"AUDIT_REPROCESS {name} must be text when provided")
 
+        from rasai.persistence import AuditWorkspace
+        policy_workspace = AuditWorkspace.open(Path(indexed.workspace_path))
         with reprocess_policy(
             selected_items=raw_selected,
             use_ai=use_ai,
             ai_provider=(str(ai_provider or "none") if use_ai is True else None),
             ai_model=(str(ai_model or "") if use_ai is True else None),
             ai_reasoning=(str(ai_reasoning or "") if use_ai is True else None),
+            workspace=policy_workspace,
+            audit_id=audit_id,
         ):
             result = reprocess_audit(
                 audit_id,
