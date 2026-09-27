@@ -290,13 +290,13 @@ def test_governed_pre_finish_order_defers_catalog_projection(
     # Since #18, this boundary must remain non-final until the resume finalizer marks
     # the same AUD physically COMPLETED.
     assert recalculate(workspace, AUDIT_ID).processing_status == "PROCESSING"
+    # Directed analysis is a final derivation and must not run before the physical
+    # AUD close. The post-close handoff is covered separately by #22.
     assert events == [
         "archive-improvement",
         "registered-ai",
         "ai-sealed",
         "data-finalizer",
-        "archive-directed",
-        "directed-analysis",
         "report-validity",
     ]
 
