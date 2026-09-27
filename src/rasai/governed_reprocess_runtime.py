@@ -29,6 +29,7 @@ from rasai.audit_fulfillment import (
     FAILED_RETRYABLE,
     NOT_APPLICABLE,
     SUCCESS,
+    WAITING_FOR_DATA,
     archive_rows,
     list_work_items,
     project_report_validity,
@@ -41,6 +42,7 @@ from rasai.operational_log import try_append_operational_event
 from rasai.persistence import AuditWorkspace
 from rasai.reprocess_policy import (
     ai_execution_allowed,
+    blocking_dependencies,
     current_policy,
     item_executable,
     item_selected,
@@ -288,6 +290,33 @@ def _recover_live_measurements(workspace: Any, audit_id: str) -> dict[str, str]:
     for component in ("WEB_PERFORMANCE", "SYNTHETIC_APDEX", "EXPERIENCE_APDEX"):
         item = _pending_item(workspace, audit_id, component)
         if item is None:
+            continue
+        blockers = blocking_dependencies(workspace, item)
+        if blockers:
+            message = (
+                "pré-requisito(s) do reprocessamento ainda não satisfeitos: "
+                + ", ".join(blockers)
+            )
+            set_work_item_status(
+                workspace,
+                audit_id=audit_id,
+                component=component,
+                status=WAITING_FOR_DATA,
+                error_class="PREREQUISITE",
+                error_code="REPROCESS_PREREQUISITES_INCOMPLETE",
+                error_message=message,
+                retryable=True,
+            )
+            try_append_operational_event(
+                workspace,
+                "AUDIT_REPROCESS_DEPENDENCY_WAIT",
+                level="WARNING",
+                audit_id=audit_id,
+                reprocess_id=_current_reprocess_id(workspace, audit_id),
+                component=component,
+                blockers=blockers,
+            )
+            states[component] = WAITING_FOR_DATA
             continue
         if optional._expired(item):
             try_append_operational_event(
