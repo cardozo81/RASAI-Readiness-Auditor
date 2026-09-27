@@ -989,6 +989,58 @@ def _all_other_required_resolved(workspace: AuditWorkspace, audit_id: str) -> bo
     return True
 
 
+def _audit_physically_completed(workspace: AuditWorkspace, audit_id: str) -> bool:
+    from rasai.domain import AuditStatus
+
+    with AuditPersistence(workspace) as persistence:
+        current = persistence.audits.get(audit_id)
+    return current is not None and current.status is AuditStatus.COMPLETED
+
+
+def _refresh_final_directed_analysis_if_needed(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    *,
+    reprocess_id: str | None,
+    resumed_complete: bool,
+    was_physically_complete: bool,
+) -> Any | None:
+    """Refresh advisory strategy only for an AUD completed by this resume attempt."""
+    if not resumed_complete or was_physically_complete:
+        return None
+
+    try:
+        from rasai.governed_reprocess_runtime import refresh_final_directed_analysis
+
+        result = refresh_final_directed_analysis(
+            workspace,
+            audit_id,
+            reprocess_id=reprocess_id,
+        )
+        try_append_operational_event(
+            workspace,
+            "AUDIT_RESUME_DIRECTED_ANALYSIS_FINALIZED",
+            audit_id=audit_id,
+            reprocess_id=reprocess_id,
+            status=str(getattr(result, "status", "") or ""),
+            reused=bool(getattr(result, "reused", False)),
+        )
+        return result
+    except Exception as exc:
+        # Directed Analysis is advisory, matching the normal audit finalization
+        # contract. Its failure must not invalidate a technically complete AUD.
+        try_append_operational_event(
+            workspace,
+            "AUDIT_RESUME_DIRECTED_ANALYSIS_WARNING",
+            level="WARNING",
+            audit_id=audit_id,
+            reprocess_id=reprocess_id,
+            error_type=type(exc).__name__,
+            error_message=str(exc)[:512],
+        )
+        return None
+
+
 def finalize_resumed_audit(
     workspace: AuditWorkspace,
     audit_id: str,
@@ -1109,14 +1161,23 @@ def install() -> None:
             reject_active=True,
         )
         try:
+            was_physically_complete = _audit_physically_completed(workspace, audit_id)
             reconcile_interrupted_attempts(workspace, audit_id)
             result = current(audit_id, audits_root=audits_root, source=source)
             reprocess_id = str(getattr(result, "reprocess_id", "") or "") or None
-            if finalize_resumed_audit(
+            resumed_complete = finalize_resumed_audit(
                 workspace,
                 audit_id,
                 reprocess_id=reprocess_id,
-            ):
+            )
+            _refresh_final_directed_analysis_if_needed(
+                workspace,
+                audit_id,
+                reprocess_id=reprocess_id,
+                resumed_complete=resumed_complete,
+                was_physically_complete=was_physically_complete,
+            )
+            if resumed_complete:
                 if reprocess_id:
                     from rasai.audit_fulfillment import finish_reprocess_run
 
