@@ -561,6 +561,7 @@ def _reprocess_selected_once(console_module: ModuleType, state: Any, audit_id: s
         state.error = "não há requisito pendente selecionável para reprocessamento"
         return
     raw_selected = tuple(selected)
+    _RPR_PRESENTATION_CONTEXT.set((audit_id, len(successes), raw_selected))
     use_ai = _choose_reprocess_ai(state)
     if use_ai is None:
         return
