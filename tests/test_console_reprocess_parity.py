@@ -405,6 +405,27 @@ def test_live_reprocess_redraw_is_throttled_and_heartbeat_bounded() -> None:
 def test_fast_reprocess_renders_progress_before_result_surface(monkeypatch, tmp_path: Path) -> None:
     """A millisecond-fast local retry must still produce a perceivable live frame."""
     from rasai import audit_reprocess, console_cost, console_navigation, console_runtime
+    from rasai.audit_fulfillment import (
+        FAILED_RETRYABLE,
+        LIVE_RECOLLECTION,
+        initialize_contract,
+        register_work_item,
+    )
+    from rasai.persistence import AuditWorkspace
+
+    workspace = AuditWorkspace.create(tmp_path, "AUD-TEST")
+    initialize_contract(workspace, "AUD-TEST")
+    register_work_item(
+        workspace,
+        audit_id="AUD-TEST",
+        component="EXPERIENCE_APDEX",
+        scope_key="AUDIT",
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        status=FAILED_RETRYABLE,
+        retryable=True,
+        configuration={"test": True},
+    )
 
     pending = SimpleNamespace(
         component="EXPERIENCE_APDEX",
