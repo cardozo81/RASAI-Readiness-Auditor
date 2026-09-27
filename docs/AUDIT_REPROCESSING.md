@@ -442,6 +442,10 @@ Quando uma nova tentativa altera a evidência efetiva, o RASAi invalida somente 
 
 Os resultados substituídos permanecem disponíveis na trilha de reprocessamento. Relatórios públicos usam somente o estado efetivo atual.
 
+Quando uma AUD interrompida é efetivamente promovida a `COMPLETE` pela retomada, a **Análise Direcionada** é reconciliada somente depois do fechamento físico da AUD. Se o contexto estratégico persistido não mudou, o resultado existente é reutilizado sem nova chamada de IA; se mudou, as linhas efetivas anteriores são arquivadas sob o `RPR-*` antes da substituição. Uma AUD ainda parcial, ou uma AUD que já estava fisicamente concluída antes da tentativa, não dispara essa etapa por causa do resume guard.
+
+A Análise Direcionada continua sendo uma camada consultiva: falha excepcional nessa derivação é registrada como warning e não invalida a auditoria técnica já concluída. A sessão mutável é encerrada depois dessa reconciliação e antes da projeção final de `report-catalog/`, para que o fingerprint represente o estado persistido definitivo.
+
 ## Status público
 
 O estado de processamento, score, elegibilidade para consolidação, quantidade de requisitos, tentativas e reprocessamentos permanece persistido no contrato de fulfillment. `report/processing-status.json` não integra o contrato de saída de `rasai audit`.

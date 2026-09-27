@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import os
 from pathlib import Path
 import sqlite3
+from types import SimpleNamespace
 
 import pytest
 
@@ -18,6 +19,7 @@ from rasai.audit_fulfillment import (
 )
 from rasai.audit_resume_runtime import (
     _all_other_required_resolved,
+    _refresh_final_directed_analysis_if_needed,
     expected_devices_for_audit,
     finalize_resumed_audit,
     finish_execution_session,
@@ -516,16 +518,83 @@ def test_resume_rebuilds_partial_final_derivations_before_core_completion(
     assert core.status == SUCCESS
 
 
-def test_resume_guard_closes_session_before_final_catalog_projection() -> None:
+def test_resume_guard_finalizes_directed_analysis_before_session_close_and_catalog() -> None:
     from rasai import audit_resume_runtime
 
     source = Path(audit_resume_runtime.__file__).read_text(encoding="utf-8")
     start = source.index("def install()")
     block = source[start:]
 
-    finish = block.index('finish_execution_session(workspace, session, state="COMPLETED")')
+    physical = block.index("resumed_complete = finalize_resumed_audit(")
+    directed = block.index("_refresh_final_directed_analysis_if_needed(", physical)
+    finish = block.index('finish_execution_session(workspace, session, state="COMPLETED")', directed)
     projection = block.index("materialize_catalog_report_projection(", finish)
-    assert finish < projection
+    assert physical < directed < finish < projection
+
+
+def test_resume_directed_analysis_runs_only_for_new_physical_completion(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from rasai import governed_reprocess_runtime as governed
+
+    workspace = _workspace(tmp_path)
+    calls: list[tuple[str, str | None]] = []
+
+    def refresh(current_workspace, audit_id, *, reprocess_id=None):
+        assert current_workspace is workspace
+        calls.append((audit_id, reprocess_id))
+        return SimpleNamespace(status="COMPLETE", reused=False)
+
+    monkeypatch.setattr(governed, "refresh_final_directed_analysis", refresh)
+
+    result = _refresh_final_directed_analysis_if_needed(
+        workspace,
+        AUDIT_ID,
+        reprocess_id="RPR-NEW",
+        resumed_complete=True,
+        was_physically_complete=False,
+    )
+    assert result is not None
+    assert calls == [(AUDIT_ID, "RPR-NEW")]
+
+    assert _refresh_final_directed_analysis_if_needed(
+        workspace,
+        AUDIT_ID,
+        reprocess_id="RPR-PARTIAL",
+        resumed_complete=False,
+        was_physically_complete=False,
+    ) is None
+    assert _refresh_final_directed_analysis_if_needed(
+        workspace,
+        AUDIT_ID,
+        reprocess_id=None,
+        resumed_complete=True,
+        was_physically_complete=True,
+    ) is None
+    assert calls == [(AUDIT_ID, "RPR-NEW")]
+
+
+def test_resume_directed_analysis_failure_is_advisory(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from rasai import governed_reprocess_runtime as governed
+
+    workspace = _workspace(tmp_path)
+
+    def fail(*_args, **_kwargs):
+        raise RuntimeError("directed test failure")
+
+    monkeypatch.setattr(governed, "refresh_final_directed_analysis", fail)
+
+    assert _refresh_final_directed_analysis_if_needed(
+        workspace,
+        AUDIT_ID,
+        reprocess_id="RPR-DIRECTED-FAIL",
+        resumed_complete=True,
+        was_physically_complete=False,
+    ) is None
 
 
 def test_resume_plan_persists_effective_optional_intent_without_secrets(
