@@ -389,6 +389,22 @@ Os hooks instalados no processo permanecem estáveis; o contexto de cada execuç
 
 O console preserva o contexto corrente ao executar o motor seletivo em sua projeção de progresso. Um sucesso efetivo pertence exclusivamente ao respectivo `AUD-*` e ao seu histórico de `RPR-*`.
 
+## Fechamento de dependências no RPR seletivo
+
+A seleção feita pelo operador representa a **intenção** do reprocessamento, mas não pode produzir uma execução tecnicamente impossível. Antes de iniciar o RPR, o motor calcula o escopo efetivo e acrescenta somente os pré-requisitos obrigatórios ainda necessários para tornar os itens escolhidos executáveis.
+
+Exemplos atuais:
+
+- `WEB_PERFORMANCE` e `SYNTHETIC_APDEX` dependem do universo renderizado em `page_snapshots`; se `DISCOVERY_ACQUISITION`, `HTTP_ACQUISITION` ou `RENDER_CAPTURE` ainda estiverem pendentes, esses requisitos entram automaticamente no escopo efetivo;
+- `IMPROVEMENT_INTELLIGENCE`, quando IA está autorizada para o RPR, exige o contexto core persistido de aquisição/renderização/extração ainda não resolvido;
+- `EXPERIENCE_APDEX` não é artificialmente ligado a `RENDER_CAPTURE`, porque o runtime atual pode selecionar páginas diretamente da tabela `pages`.
+
+Sucessos já válidos não são repetidos: um componente pode constar do fechamento de dependências, mas os recovery loops executam apenas work-items ainda não resolvidos, retryable e temporalmente válidos.
+
+Se, depois da tentativa de recuperação do pré-requisito, Web Performance ou Synthetic Navigation Apdex ainda não tiverem contexto renderizado suficiente, o adapter downstream **não é chamado apenas para retornar `NO_RENDERED_CONTEXTS`**. O requisito permanece `WAITING_FOR_DATA`, com a causa de dependência persistida e sem consumo artificial de tentativa do adapter.
+
+No console, a preparação distingue a quantidade escolhida pelo operador, os pré-requisitos adicionados automaticamente e o escopo efetivo da tentativa. A linha de comando materializada pelo console registra esse escopo efetivo para que a reprodução por CLI preserve a mesma política.
+
 ## Dependências de IA
 
 Nenhuma IA é chamada antes de existirem os dados mínimos persistidos necessários para a análise solicitada. Quando conteúdo, evidência ou contexto obrigatório ainda não está disponível, o requisito permanece aguardando dados e a chamada externa não é realizada.

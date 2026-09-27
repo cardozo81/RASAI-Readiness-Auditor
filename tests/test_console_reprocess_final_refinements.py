@@ -247,7 +247,7 @@ def test_zero_ai_preview_is_explicit_zero_cost_forecast() -> None:
 
 
 def test_mode_choice_starts_reprocess_without_second_confirmation(monkeypatch, tmp_path: Path) -> None:
-    from rasai import console_runtime
+    from rasai import console_reprocess_parity as parity, console_runtime
 
     @dataclass(slots=True)
     class SlottedState:
@@ -266,10 +266,21 @@ def test_mode_choice_starts_reprocess_without_second_confirmation(monkeypatch, t
         lambda current_state, label, percent, **kwargs: calls.append((label, percent, kwargs)),
     )
     token = final._CURRENT_AUDIT_ID.set("AUD-TEST")
+    scope_token = parity._RPR_SCOPE_CONTEXT.set(
+        (
+            2,
+            4,
+            (
+                "HTTP_ACQUISITION/PGE-1",
+                "RENDER_CAPTURE/PLANNED:PGE-1:MOBILE",
+            ),
+        )
+    )
     try:
         with redirect_stdout(StringIO()) as output:
             started = final._confirm_reprocess_with_feedback(console, state)
     finally:
+        parity._RPR_SCOPE_CONTEXT.reset(scope_token)
         final._CURRENT_AUDIT_ID.reset(token)
 
     assert started is True
@@ -280,6 +291,11 @@ def test_mode_choice_starts_reprocess_without_second_confirmation(monkeypatch, t
     assert calls[0][0:2] == ("Preparando reprocessamento", 0.0)
     assert calls[0][2]["stage_index"] == 1
     assert calls[0][2]["stage_count"] == 3
+    assert "pré-requisitos incluídos automaticamente" in calls[0][2]["detail"]
+    rows = dict(calls[0][2]["detail_rows"])
+    assert rows["Escolhidos pelo operador"] == "2"
+    assert rows["Pré-requisitos automáticos"] == "2"
+    assert rows["Escopo efetivo"] == "4"
     rendered = output.getvalue()
     assert "CONFIRMAÇÃO DO REPROCESSAMENTO" not in rendered
     assert "Confirmar e iniciar reprocessamento" not in rendered

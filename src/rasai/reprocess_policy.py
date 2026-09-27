@@ -25,6 +25,29 @@ AI_COMPONENTS = frozenset(
 )
 _RESOLVED = frozenset({"SUCCESS", "DISABLED", "NOT_APPLICABLE"})
 
+# Audit-wide components that cannot produce a meaningful result until the canonical
+# core context exists. Component-level tokens are intentional: if discovery creates a
+# new page/work-item during the same RPR, it remains inside the already-authorized
+# dependency closure without requiring a second operator choice.
+_SELECTION_DEPENDENCIES: dict[str, tuple[str, ...]] = {
+    "WEB_PERFORMANCE": (
+        "DISCOVERY_ACQUISITION",
+        "HTTP_ACQUISITION",
+        "RENDER_CAPTURE",
+    ),
+    "SYNTHETIC_APDEX": (
+        "DISCOVERY_ACQUISITION",
+        "HTTP_ACQUISITION",
+        "RENDER_CAPTURE",
+    ),
+    "IMPROVEMENT_INTELLIGENCE": (
+        "DISCOVERY_ACQUISITION",
+        "HTTP_ACQUISITION",
+        "RENDER_CAPTURE",
+        "CONTENT_EXTRACTION",
+    ),
+}
+
 
 @dataclass(frozen=True, slots=True)
 class ReprocessPolicy:
@@ -85,6 +108,67 @@ def current_policy() -> ReprocessPolicy:
     return _POLICY.get()
 
 
+def _selection_contains(selected: frozenset[str] | set[str], item: Any) -> bool:
+    component = str(getattr(item, "component", "") or "").strip().upper()
+    key = item_key(component, getattr(item, "scope_key", "AUDIT"))
+    return key in selected or component in selected
+
+
+def expand_selected_items(
+    workspace: Any,
+    audit_id: str,
+    values: Sequence[Any] | None,
+    *,
+    use_ai: bool | None = None,
+) -> frozenset[str] | None:
+    """Return the effective selective-RPR scope including mandatory prerequisites.
+
+    The operator remains the source of intent. Dependency closure only adds work that
+    is required to make an already-selected item executable; it never adds an
+    unrelated optional capability. Successful requirements may match the effective
+    policy but are still preserved because recovery loops only execute unresolved,
+    retryable items.
+    """
+    normalized = normalize_selected_items(values)
+    if normalized is None:
+        return None
+
+    selected: set[str] = set(normalized)
+    from rasai.audit_fulfillment import list_work_items
+
+    work = tuple(list_work_items(workspace, audit_id))
+    changed = True
+    while changed:
+        changed = False
+
+        selected_components = {
+            (token.split("::", 1)[0] if "::" in token else token).strip().upper()
+            for token in selected
+        }
+        for component in tuple(selected_components):
+            if is_ai_component(component) and use_ai is False:
+                continue
+            for dependency in _SELECTION_DEPENDENCIES.get(component, ()):
+                if dependency not in selected:
+                    selected.add(dependency)
+                    changed = True
+
+        for item in work:
+            if not _selection_contains(selected, item):
+                continue
+            component = str(getattr(item, "component", "") or "").strip().upper()
+            if is_ai_component(component) and use_ai is False:
+                continue
+            for blocker in blocking_dependencies(workspace, item):
+                dep_component, sep, dep_scope = str(blocker).partition("/")
+                key = item_key(dep_component, dep_scope if sep else "AUDIT")
+                if key not in selected and dep_component.upper() not in selected:
+                    selected.add(key)
+                    changed = True
+
+    return frozenset(selected)
+
+
 def is_ai_component(component: Any) -> bool:
     return str(component or "").strip().upper() in AI_COMPONENTS
 
@@ -129,14 +213,22 @@ def selected_counts(items: Sequence[Any]) -> tuple[int, int]:
 
 
 def blocking_dependencies(workspace: Any, item: Any) -> tuple[str, ...]:
-    """Return only known hard prerequisites for the specific AI work item.
+    """Return unresolved hard prerequisites for one work item.
 
-    This is intentionally narrow.  It does not make every integration a dependency of
-    every AI task.  Registered governed AI tasks retain their own dependency graph.
+    The graph stays intentionally narrow: only dependencies required for the selected
+    component to produce a meaningful result are represented here. Optional supporting
+    integrations remain independent.
     """
     component = str(getattr(item, "component", "") or "").strip().upper()
     scope_key = str(getattr(item, "scope_key", "AUDIT") or "AUDIT")
-    if component not in {"SEMANTIC_AI", "TECHNICAL_AI", "IMPROVEMENT_INTELLIGENCE"}:
+    if component not in {
+        "SEMANTIC_AI",
+        "TECHNICAL_AI",
+        "IMPROVEMENT_INTELLIGENCE",
+        "WEB_PERFORMANCE",
+        "SYNTHETIC_APDEX",
+        "RENDER_CAPTURE",
+    }:
         return ()
 
     from rasai.audit_fulfillment import list_work_items
@@ -190,6 +282,46 @@ def blocking_dependencies(workspace: Any, item: Any) -> tuple[str, ...]:
                 "CONTENT_EXTRACTION",
             }
         )
+    elif component in {"WEB_PERFORMANCE", "SYNTHETIC_APDEX"}:
+        # Both collectors derive their execution universe from page_snapshots. Do not
+        # spend an external/local measurement attempt while the core rendered context
+        # is still incomplete.
+        wanted.extend(
+            candidate
+            for candidate in work
+            if str(candidate.component) in {
+                "DISCOVERY_ACQUISITION",
+                "HTTP_ACQUISITION",
+                "RENDER_CAPTURE",
+            }
+        )
+    elif component == "RENDER_CAPTURE":
+        page_id = ""
+        if scope_key.startswith("PLANNED:"):
+            parts = scope_key.split(":", 2)
+            page_id = parts[1] if len(parts) >= 2 else ""
+        else:
+            try:
+                import sqlite3
+
+                connection = sqlite3.connect(workspace.database)
+                try:
+                    row = connection.execute(
+                        "SELECT page_id FROM page_snapshots WHERE snapshot_id=?",
+                        (scope_key,),
+                    ).fetchone()
+                finally:
+                    connection.close()
+                page_id = str(row[0]) if row and row[0] else ""
+            except Exception:
+                page_id = ""
+        if page_id:
+            wanted.extend(
+                candidate
+                for candidate in work
+                if str(candidate.component) == "HTTP_ACQUISITION"
+                and str(candidate.scope_key) == page_id
+            )
 
     blockers = {
         f"{str(candidate.component)}/{str(candidate.scope_key)}"
@@ -207,9 +339,19 @@ def reprocess_policy(
     ai_provider: str | None = None,
     ai_model: str | None = None,
     ai_reasoning: str | None = None,
+    workspace: Any | None = None,
+    audit_id: str | None = None,
 ) -> Iterator[ReprocessPolicy]:
+    normalized = normalize_selected_items(selected_items)
+    if normalized is not None and workspace is not None and audit_id:
+        normalized = expand_selected_items(
+            workspace,
+            str(audit_id),
+            tuple(normalized),
+            use_ai=use_ai,
+        )
     policy = ReprocessPolicy(
-        selected_items=normalize_selected_items(selected_items),
+        selected_items=normalized,
         use_ai=use_ai,
         ai_provider=(str(ai_provider).strip().casefold() if ai_provider else None),
         ai_model=(str(ai_model).strip() if ai_model else None),
@@ -228,6 +370,7 @@ __all__ = [
     "ai_execution_allowed",
     "blocking_dependencies",
     "current_policy",
+    "expand_selected_items",
     "is_ai_component",
     "item_executable",
     "item_key",

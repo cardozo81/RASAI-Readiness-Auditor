@@ -24,6 +24,7 @@ from rasai.audit_fulfillment import (
 from rasai.audit_reprocess import ReprocessResult
 from rasai.domain import Audit
 from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.reprocess_policy import item_key, reprocess_policy
 from rasai.selective_reprocess_context import scope
 
 
@@ -111,6 +112,62 @@ def test_live_measurement_expiry_prevents_external_retry(monkeypatch, tmp_path: 
     )
 
     assert runtime._recover_live_measurements(workspace, AUDIT_ID) == {}
+
+
+def test_live_measurement_waits_for_pending_render_without_calling_adapter(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="RENDER_CAPTURE",
+        scope_key="PLANNED:PGE-1:MOBILE",
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        status="PENDING",
+        retryable=True,
+        configuration={"page_id": "PGE-1", "device": "MOBILE", "planned": True},
+    )
+    _register_pending(
+        workspace,
+        "WEB_PERFORMANCE",
+        temporal_mode=LIVE_RECOLLECTION,
+        valid_until="2099-01-01T00:00:00+00:00",
+    )
+
+    from rasai import reprocess_measurements
+
+    monkeypatch.setattr(
+        reprocess_measurements,
+        "recover_web_performance",
+        lambda **_kwargs: pytest.fail(
+            "Web Performance must not run before rendered context is available"
+        ),
+    )
+
+    with reprocess_policy(
+        selected_items=[
+            item_key("WEB_PERFORMANCE", "AUDIT"),
+            "RENDER_CAPTURE",
+        ],
+        use_ai=False,
+        workspace=workspace,
+        audit_id=AUDIT_ID,
+    ):
+        states = runtime._recover_live_measurements(workspace, AUDIT_ID)
+
+    assert states == {"WEB_PERFORMANCE": "WAITING_FOR_DATA"}
+    item = next(
+        value
+        for value in list_work_items(workspace, AUDIT_ID)
+        if value.component == "WEB_PERFORMANCE"
+    )
+    assert item.status == "WAITING_FOR_DATA"
+    assert item.last_error_code == "REPROCESS_PREREQUISITES_INCOMPLETE"
+    assert "RENDER_CAPTURE/PLANNED:PGE-1:MOBILE" in str(item.last_error_message)
+    assert item.attempt_count == 0
 
 
 def test_optional_recovery_never_refreshes_nonblocking_observability(
@@ -229,14 +286,17 @@ def test_governed_pre_finish_order_defers_catalog_projection(
         catalog_finalizer=lambda **_kwargs: events.append("report-catalog"),
     )
 
-    assert recalculate(workspace, AUDIT_ID).processing_status == "COMPLETE"
+    # Registered AI/report reconciliation occurs before the physical AUD close.
+    # Since #18, this boundary must remain non-final until the resume finalizer marks
+    # the same AUD physically COMPLETED.
+    assert recalculate(workspace, AUDIT_ID).processing_status == "PROCESSING"
+    # Directed analysis is a final derivation and must not run before the physical
+    # AUD close. The post-close handoff is covered separately by #22.
     assert events == [
         "archive-improvement",
         "registered-ai",
         "ai-sealed",
         "data-finalizer",
-        "archive-directed",
-        "directed-analysis",
         "report-validity",
     ]
 
