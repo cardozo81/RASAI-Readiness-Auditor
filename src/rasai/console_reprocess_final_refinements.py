@@ -499,6 +499,7 @@ def _confirm_reprocess_with_feedback(console_module: ModuleType, state: Any) -> 
     state.error = ""
     audit_id = _CURRENT_AUDIT_ID.get()
     context = parity.current_reprocess_command_context()
+    scope_context = parity.current_reprocess_scope_context()
     plan = None
     if (
         isinstance(context, tuple)
@@ -519,11 +520,17 @@ def _confirm_reprocess_with_feedback(console_module: ModuleType, state: Any) -> 
     state.status = "REPROCESSING"
     state.operation = "LOCAL:AUD_REPROCESS"
     state.error = ""
+    chosen_count, effective_count, auto_labels = scope_context
+    dependency_detail = (
+        "pré-requisitos incluídos automaticamente: " + ", ".join(auto_labels)
+        if auto_labels
+        else "nenhum pré-requisito adicional necessário"
+    )
     console_runtime.set_runtime_progress(
         state,
         "Preparando reprocessamento",
         0.0,
-        detail="modo escolhido; preparando somente os requisitos selecionados",
+        detail=dependency_detail,
         exact=False,
         stage_index=1,
         stage_count=3,
@@ -532,6 +539,9 @@ def _confirm_reprocess_with_feedback(console_module: ModuleType, state: Any) -> 
         detail_rows=(
             ("Status", "Preparando execução"),
             ("Modo", "Com IA" if isinstance(context, tuple) and len(context) == 3 and bool(context[2]) else "Sem IA"),
+            ("Escolhidos pelo operador", str(chosen_count)),
+            ("Pré-requisitos automáticos", str(len(auto_labels))),
+            ("Escopo efetivo", str(effective_count)),
         ),
     )
     return True
