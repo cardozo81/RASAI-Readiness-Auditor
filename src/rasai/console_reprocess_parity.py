@@ -267,6 +267,7 @@ def render_reprocess_preparation(
     print("-" * 100)
     print("- resultados já bem-sucedidos permanecem preservados e não são repetidos por padrão")
     print("- somente requisitos ainda não satisfeitos e elegíveis são avaliados pelo motor canônico")
+    print("- pré-requisitos obrigatórios podem ser incluídos automaticamente para tornar o item escolhido executável")
     print("- chamadas externas/IA ocorrem apenas quando o requisito realmente precisar ser recuperado")
     print("- consumo adicional desta tentativa e consumo acumulado do AUD aparecem ao final")
 
@@ -363,8 +364,8 @@ def _choose_reprocess_ai(state: Any) -> bool | None:
             print(
                 "INFO                 : "
                 + warning_text(
-                    "IA não se aplica ao escopo selecionado; pendências não selecionadas "
-                    "não serão incluídas nesta tentativa."
+                    "IA não se aplica ao escopo selecionado; somente pré-requisitos "
+                    "obrigatórios dos itens escolhidos poderão ser incluídos automaticamente."
                 )
             )
 
