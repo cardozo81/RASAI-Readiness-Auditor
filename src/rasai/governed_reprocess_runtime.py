@@ -870,10 +870,16 @@ def _archive_effective_rows(
     *,
     component: str,
     specs: tuple[tuple[str, str, str], ...],
+    reprocess_id: str | None = None,
 ) -> int:
-    """Archive effective derived rows before a governed RPR replaces them."""
-    reprocess_id = _current_reprocess_id(workspace, audit_id)
-    if not reprocess_id:
+    """Archive effective derived rows before a governed RPR replaces them.
+
+    A resume finalizer may reach this point after the inner RPR ledger has already
+    closed. In that case the caller supplies the durable RPR id explicitly so the
+    replacement remains traceable to the recovery attempt.
+    """
+    effective_reprocess_id = reprocess_id or _current_reprocess_id(workspace, audit_id)
+    if not effective_reprocess_id:
         return 0
     connection = sqlite3.connect(workspace.database)
     connection.row_factory = sqlite3.Row
@@ -911,7 +917,7 @@ def _archive_effective_rows(
         archived += archive_rows(
             workspace,
             audit_id=audit_id,
-            reprocess_id=reprocess_id,
+            reprocess_id=effective_reprocess_id,
             component=component,
             entity_type=entity_type,
             id_field=id_field,
@@ -960,7 +966,12 @@ def _directed_analysis_context_changed(workspace: Any, audit_id: str) -> bool:
     return str(row[0] or "") != str(current_hash or "")
 
 
-def _archive_directed_analysis(workspace: Any, audit_id: str) -> int:
+def _archive_directed_analysis(
+    workspace: Any,
+    audit_id: str,
+    *,
+    reprocess_id: str | None = None,
+) -> int:
     return _archive_effective_rows(
         workspace,
         audit_id,
@@ -969,7 +980,31 @@ def _archive_directed_analysis(workspace: Any, audit_id: str) -> int:
             ("directed_analysis_runs", "directed_analysis_run", "analysis_run_id"),
             ("directed_analysis_actions", "directed_analysis_action", "action_id"),
         ),
+        reprocess_id=reprocess_id,
     )
+
+
+def refresh_final_directed_analysis(
+    workspace: Any,
+    audit_id: str,
+    *,
+    reprocess_id: str | None = None,
+):
+    """Refresh the final strategic derivation after a resumed AUD physically closes.
+
+    The canonical Directed Analysis executor already fingerprints its persisted
+    strategic context and reuses an unchanged result. If the context changed, archive
+    the prior effective rows under the RPR before replacement.
+    """
+    from rasai.directed_analysis import reprocess_directed_analysis
+
+    if _directed_analysis_context_changed(workspace, audit_id):
+        _archive_directed_analysis(
+            workspace,
+            audit_id,
+            reprocess_id=reprocess_id,
+        )
+    return reprocess_directed_analysis(audit_id=audit_id, workspace=workspace)
 
 
 def _registered_ai_purposes(
