@@ -381,6 +381,74 @@ def test_reprocess_archives_effective_ai_outputs_before_replacement(tmp_path: Pa
     assert {row[3] for row in rows} == {reprocess_id}
 
 
+def test_directed_archive_can_use_explicit_completed_rpr_id(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    from rasai.audit_fulfillment import finish_reprocess_run, start_reprocess_run
+
+    reprocess_id = start_reprocess_run(
+        workspace,
+        AUDIT_ID,
+        source="TEST",
+        note="explicit directed archive after inner RPR close",
+    )
+    finish_reprocess_run(
+        workspace,
+        reprocess_id,
+        status=SUCCESS,
+        attempted_items=0,
+        successful_items=0,
+    )
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE directed_analysis_runs(
+                analysis_run_id TEXT PRIMARY KEY,
+                audit_id TEXT NOT NULL,
+                input_context_hash TEXT
+            );
+            CREATE TABLE directed_analysis_actions(
+                action_id TEXT PRIMARY KEY,
+                audit_id TEXT NOT NULL
+            );
+            """
+        )
+        connection.execute(
+            "INSERT INTO directed_analysis_runs VALUES (?,?,?)",
+            ("DAN-EXPLICIT", AUDIT_ID, "old-hash"),
+        )
+        connection.execute(
+            "INSERT INTO directed_analysis_actions VALUES (?,?)",
+            ("ACT-EXPLICIT", AUDIT_ID),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    assert runtime._archive_directed_analysis(
+        workspace,
+        AUDIT_ID,
+        reprocess_id=reprocess_id,
+    ) == 2
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        rows = connection.execute(
+            """SELECT reprocess_id,component,entity_id
+               FROM audit_reprocess_derived_archive
+               WHERE audit_id=? ORDER BY entity_id""",
+            (AUDIT_ID,),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    assert len(rows) == 2
+    assert {row[0] for row in rows} == {reprocess_id}
+    assert {row[1] for row in rows} == {"DIRECTED_ANALYSIS"}
+    assert {row[2] for row in rows} == {"DAN-EXPLICIT", "ACT-EXPLICIT"}
+
+
 def test_final_directed_refresh_archives_changed_context_under_explicit_rpr(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
