@@ -4,7 +4,7 @@ Este roteiro valida a experiência final do operador depois dos testes automatiz
 
 ## Pré-condições
 
-- usar a branch de validação da alteração em teste antes do merge;
+- para o smoke de fechamento da #15, usar `main` atualizada após as correções #20 e #22; a referência esperada é package `0.3.3`;
 - executar no Windows;
 - possuir ao menos um `AUD-*` em estado `Parcial - pode reprocessar` com uma pendência recuperável;
 - preferencialmente usar um AUD que tenha IA configurada e alguma tentativa/custo persistido, para validar a prévia monetária;
@@ -15,10 +15,11 @@ Antes do smoke:
 ```powershell
 cd C:\IA-PROJETOS\github\RASAI-Readiness-Auditor
 git fetch origin
-git switch feat/issue-15-interrupted-audit-resume
-git pull --ff-only origin feat/issue-15-interrupted-audit-resume
+git switch main
+git pull --ff-only origin main
 python -m pip install -e . pytest
-pytest -q tests/test_audit_resume_runtime.py tests/test_core_reprocessing.py tests/test_core_reprocessing_context.py tests/test_console_reprocess_parity.py tests/test_console_reprocess_final_refinements.py
+python -c "import rasai; print(rasai.__version__)"
+pytest -q tests/test_audit_resume_runtime.py tests/test_core_reprocessing.py tests/test_core_reprocessing_context.py tests/test_reprocess_dependency_closure.py tests/test_governed_reprocess_dependencies.py tests/test_console_reprocess_parity.py tests/test_console_reprocess_final_refinements.py
 ```
 
 ## Roteiro
@@ -39,6 +40,7 @@ pytest -q tests/test_audit_resume_runtime.py tests/test_core_reprocessing.py tes
    - `2` reprocessa os itens selecionados sem IA;
    - `V` volta sem executar.
    A prévia de custo deve refletir o escopo selecionado. Nenhum `ERRO` residual pode aparecer antes da entrada do operador.
+   Quando um item escolhido exigir pré-requisito ainda pendente, a preparação da execução deve distinguir `Escolhidos pelo operador`, `Pré-requisitos automáticos` e `Escopo efetivo`. O pré-requisito obrigatório pode ser incluído automaticamente sem exigir uma segunda seleção manual.
 6. Não deve existir uma segunda tela `CONFIRMAÇÃO DO REPROCESSAMENTO`. A escolha `1` ou `2` é a autorização final da tentativa não destrutiva e inicia o RPR.
 7. Use `V` para voltar, confirme que as escolhas anteriores válidas permanecem preservadas e então selecione `1` ou `2` para executar.
 8. Durante a execução, valide a superfície canônica: etapa anterior/atual/próxima, `X de Y`, andamento da etapa, pipeline total e atividade corrente. Sucessos preservados devem aparecer separados do trabalho desta tentativa. O console não deve permanecer visualmente congelado durante chamada longa ou durante consolidação/persistência/geração do relatório.
@@ -124,12 +126,28 @@ Execute pelo menos os cenários abaixo em uma AUD descartável, sempre verifican
    - confirme que o requisito aparece como previsto/não executado e entra na fila do RPR, em vez de desaparecer;
    - confirme que nenhuma API key/token foi persistida no contrato de retomada.
 
-11. **Fechamento**:
+11. **Fechamento automático de dependências do RPR (#20)**:
+   - interrompa uma AUD antes de materializar o contexto renderizado, deixando `RENDER_CAPTURE/PLANNED:...` pendente;
+   - na retomada, selecione `WEB_PERFORMANCE` e/ou `SYNTHETIC_APDEX` sem selecionar manualmente o render pendente;
+   - confirme que o console inclui o `RENDER_CAPTURE` necessário como pré-requisito automático no escopo efetivo;
+   - se o render for recuperável, ele deve ser executado antes dos dependentes; não é aceitável terminar com `NO_RENDERED_CONTEXTS` apenas porque o pré-requisito ficou fora da seleção;
+   - se o pré-requisito não puder ser satisfeito, o dependente deve permanecer aguardando dados com causa explícita, sem consumir artificialmente uma tentativa do adapter downstream;
+   - sucessos já válidos não podem ser repetidos.
+
+12. **Análise Direcionada após fechamento físico (#22)**:
+   - use uma AUD interrompida cujo RPR consiga resolver todas as pendências e promover a mesma AUD a `COMPLETE`;
+   - confirme que a Análise Direcionada final é reconciliada depois do fechamento físico da AUD e antes da projeção final do `report-catalog`;
+   - o log deve registrar `AUDIT_RESUME_DIRECTED_ANALYSIS_FINALIZED` quando essa reconciliação for executada;
+   - se o contexto estratégico não mudou, o resultado deve ser reutilizado sem duplicação nem nova chamada desnecessária de IA;
+   - se a AUD continuar parcial, essa derivação final não deve ser executada;
+   - uma AUD que já estava fisicamente concluída antes da tentativa não deve ganhar trabalho novo apenas por passar novamente pelo resume guard.
+
+13. **Fechamento**:
    - depois de resolver todos os requisitos, confirme `processing_status=COMPLETE`, relatório final coerente e elegibilidade correspondente;
    - a auditoria continua sendo a mesma `AUD-*`, com a interrupção e o `RPR-*` preservados no histórico.
 
 ## Critério de aprovação
 
-O smoke é aprovado somente se não houver divergência entre o que o console informa e o que efetivamente ocorre: escolha/cancelamento explícitos sem confirmação redundante, atividade visível durante o RPR, custo antes/depois quando estimável, erros restantes explicados e ações finais operáveis sem `ENTER` intermediário ocultando o menu.
+O smoke é aprovado somente se não houver divergência entre o que o console informa e o que efetivamente ocorre: escolha/cancelamento explícitos sem confirmação redundante, atividade visível durante o RPR, custo antes/depois quando estimável, erros restantes explicados e ações finais operáveis sem `ENTER` intermediário ocultando o menu. Para o fechamento da #15, também é obrigatório validar o fechamento automático de dependências da #20 e a Análise Direcionada pós-fechamento da #22.
 
 Se qualquer item falhar, registrar AUD, RPR, ação executada, texto exibido e `logs/audit.log` antes de abrir novo ajuste.
