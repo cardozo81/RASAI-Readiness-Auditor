@@ -291,6 +291,18 @@ def _recover_live_measurements(workspace: Any, audit_id: str) -> dict[str, str]:
         item = _pending_item(workspace, audit_id, component)
         if item is None:
             continue
+        if optional._expired(item):
+            try_append_operational_event(
+                workspace,
+                "AUDIT_REPROCESS_ITEM_EXPIRED",
+                level="WARNING",
+                audit_id=audit_id,
+                reprocess_id=_current_reprocess_id(workspace, audit_id),
+                component=component,
+                scope_key=str(getattr(item, "scope_key", "AUDIT")),
+                valid_until=getattr(item, "valid_until", None),
+            )
+            continue
         blockers = blocking_dependencies(workspace, item)
         if blockers:
             message = (
@@ -317,18 +329,6 @@ def _recover_live_measurements(workspace: Any, audit_id: str) -> dict[str, str]:
                 blockers=blockers,
             )
             states[component] = WAITING_FOR_DATA
-            continue
-        if optional._expired(item):
-            try_append_operational_event(
-                workspace,
-                "AUDIT_REPROCESS_ITEM_EXPIRED",
-                level="WARNING",
-                audit_id=audit_id,
-                reprocess_id=_current_reprocess_id(workspace, audit_id),
-                component=component,
-                scope_key=str(getattr(item, "scope_key", "AUDIT")),
-                valid_until=getattr(item, "valid_until", None),
-            )
             continue
         try:
             if component == "WEB_PERFORMANCE":
