@@ -411,9 +411,12 @@ def test_fast_reprocess_renders_progress_before_result_surface(monkeypatch, tmp_
         initialize_contract,
         register_work_item,
     )
-    from rasai.persistence import AuditWorkspace
+    from rasai.domain import Audit
+    from rasai.persistence import AuditPersistence, AuditWorkspace
 
     workspace = AuditWorkspace.create(tmp_path, "AUD-TEST")
+    with AuditPersistence(workspace) as persistence:
+        persistence.audits.add(Audit(audit_id="AUD-TEST", project_name="console RPR progress test"))
     initialize_contract(workspace, "AUD-TEST")
     register_work_item(
         workspace,
