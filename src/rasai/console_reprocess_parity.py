@@ -138,12 +138,20 @@ _RPR_COMMAND_CONTEXT: ContextVar[tuple[str, tuple[str, ...], bool] | None] = Con
     "rasai_reprocess_command_context",
     default=None,
 )
+_RPR_SCOPE_CONTEXT: ContextVar[tuple[int, int, tuple[str, ...]]] = ContextVar(
+    "rasai_reprocess_scope_context",
+    default=(0, 0, ()),
+)
 _RPR_COMMAND_PLAN: ContextVar[Any | None] = ContextVar("rasai_reprocess_command_plan", default=None)
 _RPR_LAST_COMMAND_PLAN: ContextVar[Any | None] = ContextVar("rasai_last_reprocess_command_plan", default=None)
 
 
 def current_reprocess_command_context() -> tuple[str, tuple[str, ...], bool] | None:
     return _RPR_COMMAND_CONTEXT.get()
+
+
+def current_reprocess_scope_context() -> tuple[int, int, tuple[str, ...]]:
+    return _RPR_SCOPE_CONTEXT.get()
 
 
 def set_reprocess_command_plan(plan: Any | None) -> None:
@@ -552,14 +560,56 @@ def _reprocess_selected_once(console_module: ModuleType, state: Any, audit_id: s
     if not selected:
         state.error = "não há requisito pendente selecionável para reprocessamento"
         return
-    _RPR_PRESENTATION_CONTEXT.set((audit_id, len(successes), tuple(selected)))
+    raw_selected = tuple(selected)
     use_ai = _choose_reprocess_ai(state)
     if use_ai is None:
         return
 
-    from rasai.reprocess_policy import item_key
+    from rasai.audit_fulfillment import list_work_items
+    from rasai.persistence import AuditWorkspace
+    from rasai.reprocess_policy import (
+        expand_selected_items,
+        is_ai_component,
+        item_key,
+    )
 
-    selected_keys = tuple(item_key(item.component, item.scope_key) for item in selected)
+    audit_root = Path(state.audits_root) / audit_id
+    policy_workspace = AuditWorkspace.open(audit_root)
+    raw_keys = tuple(item_key(item.component, item.scope_key) for item in raw_selected)
+    effective_keys_set = expand_selected_items(
+        policy_workspace,
+        audit_id,
+        raw_keys,
+        use_ai=use_ai,
+    ) or frozenset(raw_keys)
+
+    def _included(item: Any) -> bool:
+        component = str(getattr(item, "component", "") or "").strip().upper()
+        key = item_key(component, getattr(item, "scope_key", "AUDIT"))
+        if is_ai_component(component) and use_ai is False:
+            return False
+        return key in effective_keys_set or component in effective_keys_set
+
+    current_pending = tuple(
+        item
+        for item in list_work_items(policy_workspace, audit_id, pending_only=True)
+        if bool(getattr(item, "required", True))
+    )
+    selected = tuple(item for item in current_pending if _included(item))
+    raw_key_set = set(raw_keys)
+    auto_added = tuple(
+        item
+        for item in selected
+        if item_key(item.component, item.scope_key) not in raw_key_set
+        and str(item.component).upper() not in raw_key_set
+    )
+    auto_labels = tuple(
+        f"{item.component}/{item.scope_key}"
+        for item in auto_added
+    )
+    _RPR_PRESENTATION_CONTEXT.set((audit_id, len(successes), tuple(selected)))
+    _RPR_SCOPE_CONTEXT.set((len(raw_selected), len(selected), auto_labels))
+    selected_keys = tuple(sorted(effective_keys_set))
 
     # The mode choice above is the execution authorization. Do not stack another
     # confirmation screen for the same non-destructive intent.
@@ -571,7 +621,6 @@ def _reprocess_selected_once(console_module: ModuleType, state: Any, audit_id: s
         _RPR_COMMAND_CONTEXT.set(None)
 
     pending = selected
-    audit_root = Path(state.audits_root) / audit_id
     before_usage = actual_usage(audit_root)
     baseline_attempts = {
         (str(item.component), str(item.scope_key)): int(item.attempt_count)
@@ -599,7 +648,9 @@ def _reprocess_selected_once(console_module: ModuleType, state: Any, audit_id: s
         next_label="Gerando relatório",
         detail_rows=(
             ("Status", "Iniciando reprocessamento"),
-            ("Selecionados", str(len(pending))),
+            ("Escolhidos pelo operador", str(len(raw_selected))),
+            ("Pré-requisitos automáticos", str(len(auto_added))),
+            ("Escopo efetivo", str(len(pending))),
             ("Avaliados neste RPR", f"0 de {len(pending)}"),
             ("Sucessos preservados", str(len(successes))),
         ),
@@ -622,6 +673,8 @@ def _reprocess_selected_once(console_module: ModuleType, state: Any, audit_id: s
                 ai_provider=(str(getattr(state, "ai_provider", "none") or "none") if use_ai else None),
                 ai_model=(str(getattr(state, "ai_model", "") or "") if use_ai else None),
                 ai_reasoning=(str(getattr(state, "ai_reasoning", "") or "") if use_ai else None),
+                workspace=policy_workspace,
+                audit_id=audit_id,
             ):
                 outcome["result"] = reprocess_audit(
                     audit_id,
