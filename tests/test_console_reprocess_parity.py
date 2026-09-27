@@ -142,7 +142,8 @@ def test_ai_mode_warns_when_selected_scope_has_no_ai_item(monkeypatch) -> None:
     rendered = output.getvalue()
     assert "Itens selecionados com IA: 0" in rendered
     assert "IA não se aplica ao escopo selecionado" in rendered
-    assert "pendências não selecionadas não serão incluídas" in rendered
+    assert "pré-requisitos obrigatórios" in rendered
+    assert "incluídos automaticamente" in rendered
     assert "[sem efeito neste escopo]" in rendered
 
 
