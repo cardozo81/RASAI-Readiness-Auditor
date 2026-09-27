@@ -93,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
             ai_provider=(str(args.ai_provider or "none") if args.use_ai else None),
             ai_model=(str(args.ai_model or "") if args.use_ai else None),
             ai_reasoning=(str(args.ai_reasoning or "") if args.use_ai else None),
+            workspace=workspace,
+            audit_id=args.audit_id,
         ):
             result = reprocess_audit(args.audit_id,audits_root=args.audits_root,source="CLI")
     else:
