@@ -197,7 +197,10 @@ def _install_worker_reprocess() -> None:
                 raise ValueError(f"AUDIT_REPROCESS {name} must be text when provided")
 
         from rasai.persistence import AuditWorkspace
-        policy_workspace = AuditWorkspace.open(Path(indexed.workspace_path))
+        indexed_workspace = str(getattr(indexed, "workspace_path", "") or "").strip()
+        policy_workspace = AuditWorkspace.open(
+            Path(indexed_workspace) if indexed_workspace else Path(audits_root) / audit_id
+        )
         with reprocess_policy(
             selected_items=raw_selected,
             use_ai=use_ai,
