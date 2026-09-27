@@ -381,6 +381,83 @@ def test_reprocess_archives_effective_ai_outputs_before_replacement(tmp_path: Pa
     assert {row[3] for row in rows} == {reprocess_id}
 
 
+def test_final_directed_refresh_archives_changed_context_under_explicit_rpr(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    events: list[tuple[str, str | None]] = []
+
+    monkeypatch.setattr(
+        runtime,
+        "_directed_analysis_context_changed",
+        lambda *_args: True,
+    )
+
+    def archive(current_workspace, audit_id, *, reprocess_id=None):
+        assert current_workspace is workspace
+        events.append(("archive", reprocess_id))
+        return 2
+
+    monkeypatch.setattr(runtime, "_archive_directed_analysis", archive)
+
+    from rasai import directed_analysis
+
+    expected = SimpleNamespace(status="COMPLETE", reused=False)
+
+    def reprocess(*, audit_id, workspace):
+        events.append(("reprocess", audit_id))
+        return expected
+
+    monkeypatch.setattr(directed_analysis, "reprocess_directed_analysis", reprocess)
+
+    result = runtime.refresh_final_directed_analysis(
+        workspace,
+        AUDIT_ID,
+        reprocess_id="RPR-CLOSED-BUT-TRACEABLE",
+    )
+
+    assert result is expected
+    assert events == [
+        ("archive", "RPR-CLOSED-BUT-TRACEABLE"),
+        ("reprocess", AUDIT_ID),
+    ]
+
+
+def test_final_directed_refresh_reuses_unchanged_context_without_archive(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    monkeypatch.setattr(
+        runtime,
+        "_directed_analysis_context_changed",
+        lambda *_args: False,
+    )
+    monkeypatch.setattr(
+        runtime,
+        "_archive_directed_analysis",
+        lambda *_args, **_kwargs: pytest.fail(
+            "unchanged directed analysis must not archive effective rows"
+        ),
+    )
+
+    from rasai import directed_analysis
+
+    expected = SimpleNamespace(status="COMPLETE", reused=True)
+    monkeypatch.setattr(
+        directed_analysis,
+        "reprocess_directed_analysis",
+        lambda **_kwargs: expected,
+    )
+
+    assert runtime.refresh_final_directed_analysis(
+        workspace,
+        AUDIT_ID,
+        reprocess_id="RPR-UNCHANGED",
+    ) is expected
+
+
 def test_complete_aud_is_true_noop_before_any_rpr_integration(
     monkeypatch,
     tmp_path: Path,
