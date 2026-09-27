@@ -286,7 +286,10 @@ def test_governed_pre_finish_order_defers_catalog_projection(
         catalog_finalizer=lambda **_kwargs: events.append("report-catalog"),
     )
 
-    assert recalculate(workspace, AUDIT_ID).processing_status == "COMPLETE"
+    # Registered AI/report reconciliation occurs before the physical AUD close.
+    # Since #18, this boundary must remain non-final until the resume finalizer marks
+    # the same AUD physically COMPLETED.
+    assert recalculate(workspace, AUDIT_ID).processing_status == "PROCESSING"
     assert events == [
         "archive-improvement",
         "registered-ai",
