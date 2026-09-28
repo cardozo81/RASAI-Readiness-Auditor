@@ -2157,6 +2157,19 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
                 components,
                 preserve_advisories=True,
             )
+            script_observations, cookie_attribution, platform_observations, relationships = _runtime_intelligence_rows(
+                audit_id,
+                resources,
+                page_context,
+            )
+            _persist_runtime_intelligence(
+                connection,
+                audit_id,
+                script_observations,
+                cookie_attribution,
+                platform_observations,
+                relationships,
+            )
 
             findings: list[dict[str, Any]] = []
             for page in page_context.values():
@@ -2166,6 +2179,7 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
                 findings.extend(_analyze_resources(audit_id, resources))
             if _truthy(os.environ.get(RUNTIME_ENV), True):
                 findings.extend(_analyze_runtime(audit_id, page_context))
+                findings.extend(_analyze_script_intelligence(audit_id, script_observations))
             findings.extend(_advisory_findings(connection, audit_id))
 
             deduped = list({item["finding_id"]: item for item in findings}.values())
@@ -2192,6 +2206,17 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
                 "mixed_content": _truthy(os.environ.get(RESOURCES_ENV), True),
                 "forms_iframes": _truthy(os.environ.get(RESOURCES_ENV), True),
                 "runtime": _truthy(os.environ.get(RUNTIME_ENV), True),
+                "script_runtime": any(
+                    state in {"CAPTURED", "NO_SCRIPT_DATA"}
+                    for page in page_context.values()
+                    for state in page.get("script_capture_states", ())
+                ),
+                "cookie_runtime_attribution": any(
+                    state in {"CAPTURED", "CAPTURED_NO_WRITES"}
+                    for page in page_context.values()
+                    for state in page.get("cookie_capture_states", ())
+                ),
+                "platform_identification": bool(platform_observations),
                 "component_inventory": bool(components),
                 "osv_intelligence": osv_covered,
                 "cisa_kev": kev_covered,
@@ -2201,6 +2226,22 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
             limitations: list[str] = []
             if not page_context:
                 limitations.append("NO_PERSISTED_PAGE_CONTEXT")
+            script_states = {
+                str(state)
+                for page in page_context.values()
+                for state in page.get("script_capture_states", ())
+                if str(state)
+            }
+            cookie_states = {
+                str(state)
+                for page in page_context.values()
+                for state in page.get("cookie_capture_states", ())
+                if str(state)
+            }
+            if _truthy(os.environ.get(RESOURCES_ENV), True) and not script_states:
+                limitations.append("SCRIPT_RUNTIME_NOT_INSTRUMENTED")
+            if _truthy(os.environ.get(COOKIES_ENV), True) and not cookie_states:
+                limitations.append("COOKIE_RUNTIME_NOT_INSTRUMENTED")
             if integration_states.get("OSV") in {"UNAVAILABLE", "PARTIAL"}:
                 limitations.append("OSV_REDUCED_COVERAGE")
             if integration_states.get("CISA_KEV") == "UNAVAILABLE":
@@ -2237,6 +2278,10 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
             "pages": len(page_context),
             "resources": len(resources),
             "components": len(components),
+            "script_observations": len(script_observations),
+            "cookie_attribution": len(cookie_attribution),
+            "platforms": len(platform_observations),
+            "relationships": len(relationships),
             "findings": len(deduped),
             "limitations": limitations,
             "source_blocked": source_blocked,
