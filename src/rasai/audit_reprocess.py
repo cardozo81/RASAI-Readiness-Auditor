@@ -105,6 +105,47 @@ def _semantic_attempt_succeeded(
     ).fetchone() is not None
 
 
+def _repair_false_semantic_success(
+    workspace: AuditWorkspace,
+    *,
+    audit_id: str,
+    snapshot_id: str,
+) -> None:
+    now = _utc_now().isoformat()
+    connection = sqlite3.connect(workspace.database)
+    try:
+        with connection:
+            connection.execute(
+                """
+                UPDATE audit_fulfillment_work_items
+                   SET status=?,
+                       retryable=1,
+                       last_success_at=NULL,
+                       last_error_class=?,
+                       last_error_code=?,
+                       last_error_message=?,
+                       effective_result_ref=NULL,
+                       updated_at=?
+                 WHERE audit_id=?
+                   AND component='SEMANTIC_AI'
+                   AND scope_key=?
+                   AND status='SUCCESS'
+                """,
+                (
+                    FAILED_RETRYABLE,
+                    "AI_PROVIDER",
+                    "SEMANTIC_AI_NO_SUCCESSFUL_CAUSAL_ATTEMPT",
+                    "no successful SEMANTIC_M7 attempt exists for this snapshot",
+                    now,
+                    audit_id,
+                    snapshot_id,
+                ),
+            )
+    finally:
+        connection.close()
+    recalculate(workspace, audit_id)
+
+
 def _semantic_backfill_status(
     *,
     successful_attempt: bool,
@@ -240,8 +281,15 @@ def _backfill_contract(workspace: AuditWorkspace, audit_id: str) -> None:
                         )
                     else:
                         # Backfill is authoritative reconciliation of durable causal
-                        # state. Repair any prior false-positive SUCCESS caused by a
-                        # successful non-semantic AI purpose sharing this snapshot.
+                        # state. A prior bug could have promoted this work-item to
+                        # SUCCESS from another AI purpose sharing the same snapshot;
+                        # the public setter intentionally refuses SUCCESS demotion, so
+                        # repair only this proven false-positive condition here.
+                        _repair_false_semantic_success(
+                            workspace,
+                            audit_id=audit_id,
+                            snapshot_id=snapshot_id,
+                        )
                         set_work_item_status(
                             workspace,audit_id=audit_id,component="SEMANTIC_AI",scope_key=snapshot_id,
                             status=FAILED_RETRYABLE,
