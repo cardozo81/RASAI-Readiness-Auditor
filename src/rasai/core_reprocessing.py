@@ -660,6 +660,16 @@ def _recover_discovery(
             workspace,
             explicit_urls=explicit_urls,
         )
+        if result.page_ids:
+            from rasai.m5 import execute_m5_foundation_scope
+
+            execute_m5_foundation_scope(
+                audit=audit,
+                target=target,
+                m2_result=result,
+                persistence=persistence,
+                workspace=workspace,
+            )
     if not result.page_ids:
         return False, "DISCOVERY_RETURNED_NO_PAGES", set()
     return True, "DISCOVERY_ACQUISITION_RECOVERED", set()
