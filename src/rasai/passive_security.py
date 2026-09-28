@@ -1530,7 +1530,7 @@ def _cookie_attributes(raw: str, page_url: str = "") -> dict[str, Any]:
     parts = [part.strip() for part in str(raw).split(";") if part.strip()]
     cookie_name = parts[0].split("=", 1)[0].strip() if parts else ""
     attrs: dict[str, Any] = {
-        "name_display": _safe_cookie_name(raw),
+        "name_display": _safe_cookie_name(raw) if page_url else None,
         "name_hash": sha256(cookie_name.encode("utf-8")).hexdigest()[:12] if cookie_name else "",
         "sensitive_name_hint": bool(re.search(r"(?:session|sess|auth|token|jwt|sid|login|credential)", cookie_name, re.I)),
         "secure": False,
