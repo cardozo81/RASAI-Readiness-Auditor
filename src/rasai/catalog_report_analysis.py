@@ -759,6 +759,8 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
 
 
 def _passive_security_html(database: Path, data: _ReportData) -> str:
+    from rasai.improvement_intelligence import _safe_ai_suggested_text
+
     con=sqlite3.connect(database); con.row_factory=sqlite3.Row
     try:
         run=_last(con,"passive_security_runs",data.audit_id)
@@ -950,8 +952,12 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
                     ("Como validar",recommendation.get("verification") or "-"),
                 ))
             )
-            if recommendation.get("suggested_text"):
-                body+="<h4>Texto/exemplo sugerido</h4><div class='pre'>"+escape(str(recommendation.get("suggested_text")))+"</div>"
+            safe_suggested_text=_safe_ai_suggested_text(
+                recommendation.get("suggested_text"),
+                {"details": details},
+            )
+            if safe_suggested_text:
+                body+="<h4>Texto/exemplo sugerido</h4><div class='pre'>"+escape(str(safe_suggested_text))+"</div>"
             if recommendation.get("suggested_html"):
                 body+="<h4>Exemplo técnico sugerido</h4><div class='pre'>"+escape(str(recommendation.get("suggested_html")))+"</div>"
             body+="<div class='notice'>Orientação gerada por IA a partir das evidências persistidas deste achado. É consultiva, não participa da pontuação, não confirma explorabilidade e exige revisão humana.</div>"

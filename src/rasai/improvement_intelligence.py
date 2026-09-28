@@ -982,8 +982,15 @@ def _safe_ai_suggested_text(value: Any, finding: Mapping[str, Any]) -> str | Non
     if value is None:
         return None
     text = str(value)[:8000]
-    details = finding.get("details")
-    details = details if isinstance(details, Mapping) else {}
+    details_value = finding.get("details")
+    if not isinstance(details_value, Mapping):
+        details_value = finding.get("details_json")
+        if isinstance(details_value, str) and details_value.strip():
+            try:
+                details_value = json.loads(details_value)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                details_value = {}
+    details = details_value if isinstance(details_value, Mapping) else {}
     target = details.get("target")
     target = target if isinstance(target, Mapping) else {}
     is_cookie = (
@@ -1428,9 +1435,14 @@ def write_improvement_report(*, audit_id: str, workspace: AuditWorkspace) -> Pat
     if run is None: content = "<section class='panel'><h2>Improvement Intelligence não executado</h2><p>Nenhum estado persistido existe para esta auditoria.</p></section>"
     else:
         finding_cards = "".join(f"<article class='page-card'><div class='panel-head'><div><div class='kicker'>{escape(str(row['domain']))} · {escape(str(row['source']))}</div><h3>{escape(str(row['title']))}</h3></div><span class='badge'>{escape(str(row['severity']))}</span></div><p>{escape(str(row['observation']))}</p>{('<p><strong>Selector:</strong> <code>'+escape(str(row['selector']))+'</code></p>') if row['selector'] else ''}<div>{_impact_badges(row['impacts_json'])}</div></article>" for row in findings)
+        finding_by_id = {str(row["finding_id"]): row for row in findings}
         rec_cards = []
         for row in recs:
-            old, new = _html_diff(row["original_html"], row["suggested_html"]); code = f"<div class='code-compare'><div><h4>HTML original observado</h4><pre><code>{old}</code></pre></div><div><h4>HTML sugerido pela IA</h4><pre><code>{new}</code></pre></div></div>" if row["original_html"] or row["suggested_html"] else ""; text = f"<div class='notice'><strong>Texto sugerido:</strong> {escape(str(row['suggested_text']))}</div>" if row["suggested_text"] else ""
+            old, new = _html_diff(row["original_html"], row["suggested_html"])
+            code = f"<div class='code-compare'><div><h4>HTML original observado</h4><pre><code>{old}</code></pre></div><div><h4>HTML sugerido pela IA</h4><pre><code>{new}</code></pre></div></div>" if row["original_html"] or row["suggested_html"] else ""
+            finding = finding_by_id.get(str(row["finding_id"]), {})
+            safe_suggested_text = _safe_ai_suggested_text(row["suggested_text"], finding)
+            text = f"<div class='notice'><strong>Texto sugerido:</strong> {escape(str(safe_suggested_text))}</div>" if safe_suggested_text else ""
             rec_cards.append(f"<article class='page-card'><div class='panel-head'><div><div class='kicker'>{escape(str(row['domain']))} · prioridade {int(row['priority_score'])}/100</div><h3>{escape(str(row['title']))}</h3></div><span class='badge'>{escape(str(row['priority']))}</span></div><p>{escape(str(row['recommendation']))}</p><p><strong>Justificativa:</strong> {escape(str(row['rationale']))}</p><p><strong>Confiança:</strong> {float(row['confidence']):.2f} · <strong>Esforço:</strong> {escape(str(row['effort']))}</p><div>{_impact_badges(row['impacts_json'])}</div>{('<p><strong>Elemento:</strong> <code>'+escape(str(row['selector']))+'</code></p>') if row['selector'] else ''}{code}{text}<p><strong>Como validar:</strong> {escape(str(row['verification']))}</p><details><summary>Evidências usadas</summary><pre>{escape(str(row['evidence_ids_json']))}</pre></details></article>")
         usage_rows = "".join(f"<tr><td>{escape(str(row['provider']))}</td><td>{escape(str(row['model'] or '-'))}</td><td>{escape(str(row['reasoning_profile']))}</td><td>{escape(str(row['status']))}</td><td>{row['input_tokens'] if row['input_tokens'] is not None else '-'}</td><td>{row['output_tokens'] if row['output_tokens'] is not None else '-'}</td><td>{row['reasoning_tokens'] if row['reasoning_tokens'] is not None else '-'}</td><td>{row['total_tokens'] if row['total_tokens'] is not None else '-'}</td><td>{row['estimated_cost'] if row['estimated_cost'] is not None else '-'}</td><td>{escape(str(row['cost_currency'] or '-'))}</td></tr>" for row in attempts) or "<tr><td colspan='10'>Nenhuma tentativa de IA persistida para este contrato.</td></tr>"
         content = f"<section class='notice'><strong>Fronteira:</strong> esta superfície é advisory/non-scoring. Segurança é passiva e não executa exploração. Recomendações SERP não implicam causalidade de ranking. O ganho real deve ser comprovado por nova auditoria/before-after.</section><section class='panel'><div class='kicker'>Síntese</div><h2>Estudo profundo da URL</h2><p>{escape(summary or 'A IA não produziu síntese; findings determinísticos permanecem disponíveis.')}</p><div class='metric-grid'><div class='metric'><span>Status</span><strong>{escape(status)}</strong></div><div class='metric'><span>Findings</span><strong>{len(findings)}</strong></div><div class='metric'><span>Recomendações IA</span><strong>{len(recs)}</strong></div><div class='metric'><span>Provider</span><strong>{escape(str(run['provider'] or '-'))}</strong></div><div class='metric'><span>Modelo</span><strong>{escape(str(run['model'] or '-'))}</strong></div><div class='metric'><span>Esforço</span><strong>{escape(str(run['reasoning'] or '-'))}</strong></div></div></section><section class='panel'><div class='kicker'>Backlog priorizado</div><h2>O que corrigir primeiro</h2>{''.join(rec_cards) if rec_cards else '<p>Nenhuma recomendação por IA foi materializada. Consulte o estado/limitação e os findings observados.</p>'}</section><section class='panel'><div class='kicker'>Evidência determinística</div><h2>Problemas e oportunidades observados</h2>{finding_cards or '<p>Nenhum finding elegível nos domínios selecionados.</p>'}</section><section class='panel'><div class='kicker'>Consumo</div><h2>IA usada por esta análise</h2><div class='table-wrap'><table><thead><tr><th>Provider</th><th>Modelo</th><th>Esforço</th><th>Status</th><th>Input</th><th>Output</th><th>Reasoning</th><th>Total</th><th>Custo estimado</th><th>Moeda</th></tr></thead><tbody>{usage_rows}</tbody></table></div><p class='intro'>A mesma tentativa também integra a superfície canônica Uso de IA por meio de ai_provider_attempts.</p></section>"
