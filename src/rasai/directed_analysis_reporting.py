@@ -211,15 +211,29 @@ def _action_target_contexts(
         details=_json(finding.get("details_json"),{})
         target=details.get("target") if isinstance(details,Mapping) else None
         if isinstance(target,Mapping) and str(target.get("ref") or "").strip():
-            label=str(target.get("label") or target.get("ref") or "").strip()
+            target_ref=str(target.get("ref") or "").strip()
+            label=str(target.get("label") or target_ref).strip()
+            kind=_norm(target.get("kind"))
             scope=str(target.get("scope") or "").strip()
             occurrence=str(target.get("occurrence") or "").strip()
-            suffix=" · ".join(value for value in (scope,occurrence) if value)
+            owner_label=str(target.get("owner_label") or "").strip()
+            owner_class=str(target.get("owner_class") or "").strip()
+            identity=[label]
+            if kind=="COOKIE" and target_ref not in label:
+                identity.append(f"ID {target_ref}")
+            if owner_label:
+                owner_text=f"Responsável: {owner_label}"
+                if owner_class:
+                    owner_text+=f" ({owner_class})"
+                identity.append(owner_text)
+            identity.extend(value for value in (scope,occurrence) if value)
             contexts[action_id]={
-                "label":label+(f" · {suffix}" if suffix else ""),
+                "label":" · ".join(identity),
                 "note":(
-                    "Alvo determinístico persistido pelo CAT-10. A análise estratégica reutiliza "
-                    "esta identidade e não cria ou infere um alvo alternativo."
+                    "Alvo determinístico persistido pelo CAT-10. Para cookies, nome seguro, ID RASAi "
+                    "e responsabilidade técnica são projetados quando sustentados pela evidência; esta "
+                    "atribuição não representa titularidade jurídica. A análise estratégica não cria ou "
+                    "infere um alvo alternativo."
                 ),
             }
             continue
