@@ -269,17 +269,19 @@ def blocking_dependencies(workspace: Any, item: Any) -> tuple[str, ...]:
             if str(candidate.component) in {"RENDER_CAPTURE", "CONTENT_EXTRACTION"}
         )
     elif component == "IMPROVEMENT_INTELLIGENCE":
-        # CAT-08 is currently single-URL and consumes the persisted page/render/content
-        # context. External services such as GSC/CrUX/SERP are not hard dependencies:
-        # their absence is represented as missing supporting context, not a global gate.
+        # Use exactly the same fulfillment universe as the initial Deep Analysis gate.
+        # CORE_AUDIT is excluded because it is the aggregate/finalizer; Improvement
+        # itself is excluded to avoid self-dependency. Every other required applicable
+        # work-item must have reached a terminal state before the provider phase.
+        from rasai.ai_dependency_contract import deep_analysis_dependency_items
+
         wanted.extend(
             candidate
-            for candidate in work
-            if str(candidate.component) in {
-                "HTTP_ACQUISITION",
-                "RENDER_CAPTURE",
-                "CONTENT_EXTRACTION",
-            }
+            for candidate in deep_analysis_dependency_items(
+                workspace,
+                str(getattr(item, "audit_id", "") or ""),
+            )
+            if str(candidate.work_item_id) != str(getattr(item, "work_item_id", ""))
         )
     elif component in {"WEB_PERFORMANCE", "SYNTHETIC_APDEX"}:
         # Both collectors derive their execution universe from page_snapshots. Do not
