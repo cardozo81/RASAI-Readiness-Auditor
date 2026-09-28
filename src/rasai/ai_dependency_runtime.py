@@ -5,12 +5,14 @@ import json
 import sqlite3
 from typing import Any, Mapping
 
-from rasai.ai_dependency_contract import fulfillment_dependency_state, record_dependency_snapshot
+from rasai.ai_dependency_contract import (
+    deep_analysis_fulfillment_dependency_state,
+    record_dependency_snapshot,
+)
 from rasai.ai_governance import collection_state_is_terminal
 from rasai.audit_phase_runtime import require_sealed_evidence
 
 _INSTALLED = False
-_DEEP_ANALYSIS_EXCLUDED_COMPONENTS = ("IMPROVEMENT_INTELLIGENCE", "CORE_AUDIT")
 
 
 def _technical_evidence_ids(
@@ -121,10 +123,9 @@ def _install_deep_analysis_gate() -> None:
         # other required items, including Improvement Intelligence, are resolved.
         # Treating it as an input to Deep Analysis creates a circular dependency:
         # CORE_AUDIT -> IMPROVEMENT_INTELLIGENCE -> CORE_AUDIT.
-        expected, present, fulfillment_ready = fulfillment_dependency_state(
+        expected, present, fulfillment_ready = deep_analysis_fulfillment_dependency_state(
             workspace,
             audit_id,
-            exclude_components=_DEEP_ANALYSIS_EXCLUDED_COMPONENTS,
         )
         try:
             snapshot = require_sealed_evidence(audit_id=audit_id, workspace=workspace)
