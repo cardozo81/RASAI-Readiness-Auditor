@@ -27,7 +27,7 @@ def _item(component: str, status: str, *, retryable: bool = True, required: bool
 
 
 def test_work_item_preview_excludes_not_applicable_and_disabled(monkeypatch, tmp_path: Path) -> None:
-    from rasai import audit_fulfillment, persistence
+    from rasai import audit_fulfillment, audit_reprocess, persistence
 
     items = (
         _item("SEMANTIC_AI", "SUCCESS"),
@@ -36,6 +36,7 @@ def test_work_item_preview_excludes_not_applicable_and_disabled(monkeypatch, tmp
         _item("WEB_PERFORMANCE", "DISABLED"),
     )
     monkeypatch.setattr(persistence.AuditWorkspace, "open", staticmethod(lambda path: object()))
+    monkeypatch.setattr(audit_reprocess, "reconcile_reprocess_state", lambda workspace, audit_id: None)
     monkeypatch.setattr(audit_fulfillment, "list_work_items", lambda workspace, audit_id: items)
     state = SimpleNamespace(audits_root=str(tmp_path))
 

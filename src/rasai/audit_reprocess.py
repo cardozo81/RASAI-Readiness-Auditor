@@ -379,6 +379,23 @@ def _apply_result(
     return False
 
 
+def reconcile_reprocess_state(
+    workspace: AuditWorkspace,
+    audit_id: str,
+):
+    """Reconcile durable fulfillment before an RPR scope is previewed or frozen.
+
+    This boundary is intentionally deterministic: it may index/backfill persisted
+    state and project core work-items, but it must not perform browser, network,
+    PageSpeed or provider calls.
+    """
+    _backfill_contract(workspace, audit_id)
+    from rasai.core_reprocessing import synchronize_core_work_items
+
+    synchronize_core_work_items(workspace, audit_id)
+    return recalculate(workspace, audit_id)
+
+
 def reprocess_audit(
     audit_id: str,
     *,
@@ -391,7 +408,7 @@ def reprocess_audit(
     that returns the current final state; it never re-executes successful services.
     """
     workspace = AuditWorkspace.open(Path(audits_root) / audit_id)
-    _backfill_contract(workspace,audit_id)
+    reconcile_reprocess_state(workspace, audit_id)
     before = list_work_items(workspace,audit_id)
     skipped_success = sum(item.required and item.status == SUCCESS for item in before)
     unresolved_before = tuple(

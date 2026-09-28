@@ -343,6 +343,12 @@ def reprocess_policy(
 ) -> Iterator[ReprocessPolicy]:
     normalized = normalize_selected_items(selected_items)
     if normalized is not None and workspace is not None and audit_id:
+        # The execution scope must be expanded from the reconciled durable state.
+        # Otherwise a backfill repair performed later in the RPR can create a new
+        # required pending item after selected_items was already frozen.
+        from rasai.audit_reprocess import reconcile_reprocess_state
+
+        reconcile_reprocess_state(workspace, str(audit_id))
         normalized = expand_selected_items(
             workspace,
             str(audit_id),
