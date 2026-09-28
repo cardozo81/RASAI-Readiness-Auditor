@@ -249,7 +249,7 @@ def _correct_reprocess_diagnostics() -> None:
             ensure_m5_foundation_from_persisted_m2(
                 workspace,
                 audit_id,
-                str(kwargs.get("reprocess_id") or ""),
+                reprocess_id,
             )
         if not technical_evidence_ready(workspace, audit_id):
             _mark_waiting(workspace, audit_id)
