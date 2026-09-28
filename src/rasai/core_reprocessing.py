@@ -611,6 +611,154 @@ def _archive_incomplete_discovery(
     return True, "PARTIAL_DISCOVERY_ARCHIVED"
 
 
+def ensure_m5_foundation_from_persisted_m2(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    reprocess_id: str,
+) -> bool:
+    """Replay canonical M5 foundation from durable M2 evidence without recollection.
+
+    This closes the interruption boundary where M2 committed successfully but the
+    process stopped before M5 materialized BR-GEO-001/003/017/018 and the M2-derived
+    findings. The same M5 executor is used; only its input view is reconstructed from
+    persisted M2 evidence.
+    """
+    from rasai.discovery import RobotsState, SitemapState
+    from rasai.m5 import execute_m5_foundation_scope
+
+    foundation_rules = ("BR-GEO-001", "BR-GEO-003", "BR-GEO-017", "BR-GEO-018")
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        existing = {
+            str(row[0])
+            for row in connection.execute(
+                """SELECT DISTINCT rule_id FROM rule_executions
+                   WHERE audit_id=? AND rule_id IN (?,?,?,?)""",
+                (audit_id, *foundation_rules),
+            ).fetchall()
+        }
+        if existing == set(foundation_rules):
+            return True
+
+        robot_row = connection.execute(
+            """SELECT source,observed_value FROM evidence
+               WHERE audit_id=? AND page_id IS NULL AND evidence_type=?
+               ORDER BY captured_at DESC,rowid DESC LIMIT 1""",
+            (audit_id, EvidenceType.ROBOTS_RULE.value),
+        ).fetchone()
+        sitemap_rows = tuple(
+            connection.execute(
+                """SELECT source,observed_value FROM evidence
+                   WHERE audit_id=? AND page_id IS NULL AND evidence_type=?
+                   ORDER BY captured_at,rowid""",
+                (audit_id, EvidenceType.SITEMAP_ENTRY.value),
+            ).fetchall()
+        )
+        m2_rule_ids = tuple(
+            str(row[0])
+            for row in connection.execute(
+                """SELECT rule_execution_id FROM rule_executions
+                   WHERE audit_id=? AND rule_id IN ('BR-GEO-002','BR-GEO-004','BR-GEO-005','BR-GEO-007')
+                   ORDER BY executed_at,rowid""",
+                (audit_id,),
+            ).fetchall()
+        )
+        target_row = connection.execute(
+            "SELECT target_id FROM audit_targets WHERE audit_id=? ORDER BY rowid LIMIT 1",
+            (audit_id,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    if robot_row is None or not sitemap_rows or not m2_rule_ids or target_row is None:
+        return False
+
+    robot_observed = _load(robot_row["observed_value"], {})
+    try:
+        robot_state = RobotsState(str(robot_observed.get("state") or ""))
+    except ValueError:
+        return False
+    crawler_access = robot_observed.get("crawler_access")
+    if not isinstance(crawler_access, dict):
+        return False
+
+    sitemaps: list[Any] = []
+    for row in sitemap_rows:
+        observed = _load(row["observed_value"], {})
+        if "state" not in observed:
+            continue
+        try:
+            state = SitemapState(str(observed.get("state") or ""))
+        except ValueError:
+            return False
+        sitemaps.append(
+            SimpleNamespace(
+                url=str(row["source"] or ""),
+                state=state,
+                error=(str(observed.get("error")) if observed.get("error") is not None else None),
+            )
+        )
+    if not sitemaps:
+        return False
+
+    # Remove only a partially materialized foundation and its derived findings.
+    if existing:
+        _archive_rule_scope(
+            workspace,
+            audit_id=audit_id,
+            reprocess_id=reprocess_id,
+            rule_ids=foundation_rules,
+        )
+
+    marks = ",".join("?" for _ in m2_rule_ids)
+    prior_findings = _archive_rows_for_query(
+        workspace,
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        component="M5_FOUNDATION",
+        entity_type="m2_derived_finding",
+        id_field="finding_id",
+        sql=f"SELECT * FROM findings WHERE rule_execution_id IN ({marks})",
+        params=m2_rule_ids,
+    )
+    if prior_findings:
+        connection = sqlite3.connect(workspace.database)
+        try:
+            with connection:
+                connection.execute(
+                    f"DELETE FROM findings WHERE rule_execution_id IN ({marks})",
+                    m2_rule_ids,
+                )
+        finally:
+            connection.close()
+
+    with AuditPersistence(workspace) as persistence:
+        audit = persistence.audits.get(audit_id)
+        target = persistence.targets.get(str(target_row["target_id"]))
+        if audit is None or target is None:
+            return False
+        m2_view = SimpleNamespace(
+            discovery=SimpleNamespace(
+                sitemaps=tuple(sitemaps),
+                robots=SimpleNamespace(
+                    state=robot_state,
+                    url=str(robot_row["source"] or ""),
+                    crawler_access=crawler_access,
+                ),
+            ),
+            rule_execution_ids=m2_rule_ids,
+        )
+        execute_m5_foundation_scope(
+            audit=audit,
+            target=target,
+            m2_result=m2_view,
+            persistence=persistence,
+            workspace=workspace,
+        )
+    return True
+
+
 def _recover_discovery(
     workspace: AuditWorkspace,
     audit_id: str,
@@ -1264,6 +1412,15 @@ def _wrap_reprocess(original: Any, module: Any):
             successful += int(ok)
             affected.update(changed)
         synchronize_core_work_items(workspace,audit_id)
+
+        # M2 may have completed before a process interruption while M5 had not yet
+        # materialized its global deterministic foundation. Rebuild it from persisted
+        # M2 evidence before any downstream AI/score work in the same RPR.
+        ensure_m5_foundation_from_persisted_m2(
+            workspace,
+            audit_id,
+            reprocess_id,
+        )
 
         for snapshot_id in sorted(affected):
             _recompute_deterministic_snapshot(workspace,audit_id,snapshot_id,reprocess_id)
