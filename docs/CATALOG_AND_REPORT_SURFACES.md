@@ -113,7 +113,7 @@ Regras comuns:
 
 **Pergunta que responde:** qual desempenho foi observado e quais métricas técnicas explicam a experiência medida?
 
-**Entradas e fonte de verdade:** PageSpeed/Lighthouse, CrUX quando disponível, estado das integrações, artifacts e telemetria persistida de coleta.
+**Entradas e fonte de verdade:** PageSpeed/Lighthouse, CrUX quando disponível, estado das integrações, artifacts, Open Web Metrics e telemetria persistida da mesma navegação, incluindo Resource Timing individual de JavaScript quando disponível.
 
 **Processamento:** normalização de métricas de laboratório/campo, categorias solicitadas, diagnósticos e proveniência.
 
@@ -121,7 +121,7 @@ Regras comuns:
 
 **Impacto no Índice de Prontidão / Método de Pontuação:** **nenhum impacto automático no `SCORE-GEO-004`**.
 
-**Resultados apresentados:** métricas de performance, Core Web Vitals quando disponíveis, categorias Lighthouse contratadas, diagnósticos e estado das fontes.
+**Resultados apresentados:** métricas de performance, Core Web Vitals quando disponíveis, categorias Lighthouse contratadas, diagnósticos, estado das fontes e visão granular de JavaScript por recurso sem criar score paralelo nem atribuição causal indevida de INP.
 
 **Estados e limitações:** laboratório e campo são universos diferentes; indisponibilidade da API não é falha do website; ausência de CrUX pode refletir falta de amostragem pública.
 
@@ -257,7 +257,7 @@ Regras comuns:
 
 **Pergunta que responde:** quais riscos, controles e vulnerabilidades conhecidas podem ser sustentados pelas evidências passivamente observadas?
 
-**Entradas e fonte de verdade:** HTTP/TLS observável, headers, cookies sem valores sensíveis, recursos first/third-party, HTML/browser/runtime, componentes/versionamento identificáveis, MDN HTTP Observatory, OSV e CISA KEV quando aplicáveis.
+**Entradas e fonte de verdade:** HTTP/TLS observável, headers, cookies sem valores sensíveis, recursos first/third-party, HTML/browser/runtime, setters de cookie observáveis, scripts carregados/timing/hash/sinais bounded, plataformas e identificadores client-side classificados com segurança, componentes/versionamento identificáveis, MDN HTTP Observatory, OSV e CISA KEV quando aplicáveis.
 
 **Processamento:** análise determinística passiva, identificação governada de componentes/versões, correlação de vulnerabilidades e remediação por finding.
 
@@ -265,7 +265,7 @@ Regras comuns:
 
 **Impacto no Índice de Prontidão / Método de Pontuação:** **nenhum impacto automático no `SCORE-GEO-004`**.
 
-**Resultados apresentados:** cobertura, findings, severidade/classificação, componentes, correlações CVE/KEV, evidências, contenção/correção e validação.
+**Resultados apresentados:** cobertura, findings, cookies e atribuição, JavaScript/integridade/indicadores de risco, plataformas/identificadores seguros, relações entre recursos, componentes, correlações CVE/KEV, evidências, contenção/correção e validação.
 
 **Estados e limitações:** não executa pentest, exploit, brute force, fuzzing, bypass ou port scan; ausência de finding não significa certificação de segurança.
 
