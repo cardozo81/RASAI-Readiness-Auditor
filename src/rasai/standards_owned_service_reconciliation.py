@@ -123,6 +123,37 @@ def _field_contexts(
     return len(rows), sources
 
 
+def _open_web_metrics_outcome(
+    connection: sqlite3.Connection,
+    *,
+    audit_id: str,
+) -> tuple[int, int]:
+    if "standards_metric_observations" not in _tables(connection):
+        return 0, 0
+    columns = _columns(connection, "standards_metric_observations")
+    if not {"audit_id", "source", "value"}.issubset(columns):
+        return 0, 0
+    selected = ["value"]
+    if "target" in columns:
+        selected.append("target")
+    if "device" in columns:
+        selected.append("device")
+    rows = connection.execute(
+        "SELECT " + ",".join(selected)
+        + " FROM standards_metric_observations "
+          "WHERE audit_id=? AND source='OPEN-WEB-METRICS-001' AND value IS NOT NULL",
+        (audit_id,),
+    ).fetchall()
+    if not rows:
+        return 0, 0
+    contexts: set[tuple[str, str]] = set()
+    for row in rows:
+        target = str(row["target"] or "") if "target" in row.keys() else ""
+        device = str(row["device"] or "") if "device" in row.keys() else ""
+        contexts.add((target, device))
+    return len(rows), max(len(contexts), 1)
+
+
 def _legacy_pagespeed_successes(connection: sqlite3.Connection, *, audit_id: str) -> int:
     if "web_performance_runs" not in _tables(connection):
         return 0
@@ -236,30 +267,26 @@ def reconcile_owned_service_runs(
                 ):
                     output["crux"] = state
 
-            if "standards_metric_observations" in tables:
-                columns = _columns(connection, "standards_metric_observations")
-                if {"audit_id", "source", "value"}.issubset(columns):
-                    row = connection.execute(
-                        "SELECT COUNT(*) FROM standards_metric_observations "
-                        "WHERE audit_id=? AND source='OPEN-WEB-METRICS-001' AND value IS NOT NULL",
-                        (audit_id,),
-                    ).fetchone()
-                    observed = int(row[0] or 0) if row is not None else 0
-                    if observed and _update_service(
-                        connection,
-                        audit_id=audit_id,
-                        service_id="open-web-metrics",
-                        state="SUCCESS",
-                        attempted=observed,
-                        succeeded=observed,
-                        details={
-                            "owner": "OPEN_WEB_METRICS",
-                            "outcome_source": "standards_metric_observations",
-                            "observations": observed,
-                            "external_calls": 0,
-                        },
-                    ):
-                        output["open-web-metrics"] = "SUCCESS"
+            observed, contexts = _open_web_metrics_outcome(
+                connection,
+                audit_id=audit_id,
+            )
+            if observed and _update_service(
+                connection,
+                audit_id=audit_id,
+                service_id="open-web-metrics",
+                state="SUCCESS",
+                attempted=contexts,
+                succeeded=contexts,
+                details={
+                    "owner": "OPEN_WEB_METRICS",
+                    "outcome_source": "standards_metric_observations",
+                    "observations": observed,
+                    "observed_contexts": contexts,
+                    "external_calls": 0,
+                },
+            ):
+                output["open-web-metrics"] = "SUCCESS"
         return output
     finally:
         connection.close()
