@@ -17,6 +17,47 @@ Enquanto existir requisito pendente, recuperável, bloqueado ou fora da validade
 
 A existência física dos arquivos HTML não significa, por si só, que a auditoria atingiu o estado final.
 
+## Paridade canônica entre processamento e reprocessamento
+
+Processamento inicial e reprocessamento seletivo **não são dois motores analíticos**. Eles possuem orquestrações externas diferentes, mas qualquer requisito efetivamente executado usa a mesma primitiva canônica de coleta, persistência, regra, classificação ou derivação.
+
+A distinção é exclusivamente operacional:
+
+- a execução inicial cria o `AUD-*`, materializa o contrato completo e parte de zero;
+- o `RPR-*` abre o mesmo `AUD-*`, calcula o déficit e o fechamento de dependências, preserva resultados `SUCCESS` íntegros e executa apenas o que permanece necessário;
+- quando um resultado efetivo é substituído, a versão anterior é arquivada na trilha do `RPR-*`;
+- `LIVE_RECOLLECTION` respeita validade temporal e não transforma coleta atual em substituto silencioso de evidência histórica perdida;
+- `REPLAY_SAFE` reutiliza a evidência persistida sem nova coleta externa;
+- credenciais nunca são copiadas do AUD para o RPR; quando uma nova chamada é legitimamente necessária, o mesmo runtime resolve o secret vigente apenas em memória.
+
+A matriz canônica vigente é:
+
+| Domínio | Execução inicial | Reprocessamento seletivo | Diferença permitida no RPR |
+| --- | --- | --- | --- |
+| Descoberta/M2 | `execute_m2` | `execute_m2` para checkpoint M2 incompleto | executa somente se discovery não concluiu e a recuperação é segura |
+| HTTP | primitivas M2 de evidência + BR-GEO-004/005/007 | as mesmas primitivas M2 | novo artifact fica versionado no namespace do `RPR-*` |
+| Render/M3 | persistência canônica de `PageSnapshot`, screenshot, visual evidence e DOM observations | a mesma persistência M3 | somente contexto ausente/falho; captura anterior substituída é arquivada |
+| Extração/M4 | `execute_m4` | `execute_m4` | reutiliza RAW/DOM persistido quando `REPLAY_SAFE` |
+| Regras M5 | executor canônico por página/snapshot | o mesmo executor de escopo M5 | recalcula somente escopos cujo input efetivo mudou |
+| Regras M6 | executor canônico por snapshot | o mesmo executor de escopo M6 | recalcula somente snapshots afetados |
+| Web Performance/M21 | mesmos parsers Lighthouse/CrUX, classificação de contexto e consolidação do run | mesmos parsers/classificadores/consolidador | chamadas externas já bem-sucedidas são reutilizadas; somente déficit é tentado |
+| Synthetic Navigation Apdex/M23 | perfis, medição, classificação e summary M23 | os mesmos classificadores e summaries M23 | acrescenta apenas amostras válidas faltantes até o alvo original |
+| Synthetic User Experience Apdex/M25 | calibração/perfis, `classify_measurement` e summary M25 | os mesmos classificadores e summaries M25 | acrescenta somente o déficit da população configurada |
+| Semântica/M7 | `execute_m7` + provider runtime canônico | `execute_m7` | executa só snapshot pendente/stale e usa a política autorizada do RPR |
+| M20/M24 | executores canônicos | os mesmos executores | reexecutam apenas finalidade pendente/inválida |
+| Search Intelligence | executor competitivo canônico | o mesmo executor | usa configuração não secreta persistida e credencial atual em memória |
+| Google Search Console | collector registrado canônico | o mesmo collector | somente quando work-item está pendente e temporalmente válido |
+| Segurança passiva/CAT-10 | analyzer/collectors canônicos | os mesmos analyzers/collectors | recalcula apenas quando dependência efetiva mudou; OSV/KEV só refrescam se inventário mudou |
+| Integridade pré-score | BR-GEO-053 canônica | a mesma primitiva BR-GEO-053 | valida o universo efetivo depois da recuperação |
+| Score/M9 | `execute_m9` | `execute_m9` | score anterior é arquivado quando inputs derivados mudam |
+| Recomendações/M10 | `execute_m10` + governance canônica | os mesmos executores | somente após recomposição do estado efetivo |
+| Root cause / precision | materializadores M16/M17 | os mesmos materializadores | reexecutados quando derivados finais precisarem ser fechados |
+| Relatório | projeção read-only do estado final | a mesma projeção | materialização ocorre após o ledger do RPR fechar |
+
+Portanto, o RPR pode ter **menos trabalho**, mas não pode ter uma regra diferente. Seleção de escopo, preservação de sucesso, validade temporal, arquivamento e preenchimento de déficit são responsabilidades da orquestração de recuperação; coleta, cálculo e interpretação pertencem às mesmas primitivas de domínio usadas pela auditoria inicial.
+
+Essa paridade é coberta por regressões automatizadas. Uma nova implementação de recovery que replique fórmula, threshold, regra ou modelo de persistência em vez de reutilizar a primitiva canônica deve ser tratada como regressão arquitetural.
+
 ## Retomada após interrupção operacional
 
 Interrupção de processo não cria uma nova observação. Quando a execução original termina por `Ctrl+C`, fechamento do terminal, encerramento abrupto do processo, reboot, falha transitória de rede/provider ou situação equivalente, o RASAi retoma a partir do **último checkpoint durável e validado**.
