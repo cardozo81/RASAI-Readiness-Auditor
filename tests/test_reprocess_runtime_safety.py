@@ -23,6 +23,8 @@ from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.reprocess_runtime_safety import (
     _M20_CONTEXT,
     _M20RecoveryContext,
+    _RPR_CONTEXT,
+    _RprContext,
     _install_m20_factory_hook,
     record_reprocess_evaluation,
 )
@@ -53,6 +55,22 @@ def _item(workspace: AuditWorkspace):
         for item in list_work_items(workspace, AUDIT_ID)
         if item.component == "WEB_PERFORMANCE"
     )
+
+
+def test_new_physical_rpr_context_does_not_adopt_abandoned_open_run() -> None:
+    from rasai.governed_reprocess_runtime import _current_reprocess_id
+
+    with TemporaryDirectory() as directory:
+        workspace = _workspace(Path(directory))
+        abandoned = start_reprocess_run(workspace, AUDIT_ID)
+
+        token = _RPR_CONTEXT.set(_RprContext(AUDIT_ID, None))
+        try:
+            assert _current_reprocess_id(workspace, AUDIT_ID) is None
+        finally:
+            _RPR_CONTEXT.reset(token)
+
+        assert _current_reprocess_id(workspace, AUDIT_ID) == abandoned
 
 
 def test_generic_rpr_evaluations_are_append_only_and_linked_to_each_reprocess() -> None:
