@@ -751,6 +751,45 @@ def _archive_snapshot(workspace: AuditWorkspace, *, audit_id: str, snapshot_id: 
             entity_type="page_snapshot",id_field="snapshot_id",rows=(dict(row),),
         )
 
+    # M3-owned DOM observations are effective-state data. Archive and replace them
+    # when the same snapshot context is recovered so old and new render observations
+    # cannot be mixed by later finding linkage.
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        table = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='element_observations'"
+        ).fetchone()
+        observations = tuple(
+            dict(value)
+            for value in connection.execute(
+                "SELECT * FROM element_observations WHERE snapshot_id=? ORDER BY rowid",
+                (snapshot_id,),
+            ).fetchall()
+        ) if table else ()
+    finally:
+        connection.close()
+    if observations:
+        archive_rows(
+            workspace,
+            audit_id=audit_id,
+            reprocess_id=reprocess_id,
+            component=component,
+            entity_type="element_observation",
+            id_field="element_observation_id",
+            rows=observations,
+        )
+        connection = sqlite3.connect(workspace.database)
+        connection.execute("PRAGMA foreign_keys=ON")
+        try:
+            with connection:
+                connection.execute(
+                    "DELETE FROM element_observations WHERE snapshot_id=?",
+                    (snapshot_id,),
+                )
+        finally:
+            connection.close()
+
 
 def _recover_render(
     workspace: AuditWorkspace,
@@ -759,8 +798,16 @@ def _recover_render(
     reprocess_id: str,
     renderer: Any,
 ) -> tuple[bool,str,set[str]]:
+    from rasai import m3
+    from rasai.audit_resume_runtime import expected_devices_for_audit
+
     snapshot_id = item.scope_key
     row = _snapshot_row(workspace,audit_id,snapshot_id)
+    device_context = tuple(
+        DeviceContext(value)
+        for value in expected_devices_for_audit(workspace,audit_id)
+        if value in {"MOBILE","DESKTOP"}
+    )
 
     # A planned item represents a device context that belonged to the original
     # execution contract but never got a PageSnapshot row before interruption.
@@ -785,13 +832,6 @@ def _recover_render(
         if result.error_kind is not None or not result.rendered_html:
             return False,getattr(result.error_kind,"value",None) or "RENDERED_DOCUMENT_UNAVAILABLE",set()
 
-        snapshot_id = new_id("SNP")
-        rendered_ref = _write_artifact(
-            workspace,reprocess_id,"rendered",f"{snapshot_id}.html",result.rendered_html.encode("utf-8")
-        )
-        visual_ref = _write_artifact(
-            workspace,reprocess_id,"visual",f"{snapshot_id}.png",result.screenshot_png or b""
-        )
         connection = sqlite3.connect(workspace.database)
         try:
             raw = connection.execute(
@@ -803,71 +843,82 @@ def _recover_render(
         finally:
             connection.close()
         raw_ref = str(raw[0]) if raw is not None and raw[0] else None
-        metadata = dict(result.browser_metadata or {})
-        metadata["render_succeeded"] = True
-        metadata["visual_artifact_ref"] = visual_ref
-        metadata["audit_device_context"] = list(
-            __import__("rasai.audit_resume_runtime",fromlist=["expected_devices_for_audit"])
-            .expected_devices_for_audit(workspace,audit_id)
-        )
-        metadata["reprocess_capture"] = {
-            "reprocess_id":reprocess_id,
-            "captured_at":utc_now().isoformat(),
-            "planned_context_recovery":True,
-        }
-        snapshot = PageSnapshot(
-            snapshot_id=snapshot_id,
-            page_id=page_id,
-            device=device,
-            requested_url=url,
-            final_url=result.final_url or acquisition.final_url or url,
-            captured_at=utc_now(),
-            http_status=result.http_status if result.http_status is not None else acquisition.status,
-            content_type=result.content_type or acquisition.header("Content-Type"),
-            rendering_mode="PLAYWRIGHT_CHROMIUM",
-            raw_artifact_ref=raw_ref,
-            rendered_artifact_ref=rendered_ref,
-            browser_metadata=metadata,
-        )
+
         with AuditPersistence(workspace) as persistence:
-            persistence.snapshots.add(snapshot)
-        return True,"PLANNED_RENDER_CAPTURE_RECOVERED",{snapshot_id}
+            page = persistence.pages.get(page_id)
+            if page is None:
+                return False,"PAGE_NOT_FOUND",set()
+            snapshot, _visual_ref = m3.persist_render_capture(
+                page=page,
+                url=url,
+                acquisition=acquisition,
+                raw_artifact_ref=raw_ref,
+                device=device,
+                render_result=result,
+                persistence=persistence,
+                workspace=workspace,
+                audit_device_context=device_context or (device,),
+                artifact_namespace=("reprocess",reprocess_id),
+                reprocess_metadata={
+                    "reprocess_id":reprocess_id,
+                    "captured_at":utc_now().isoformat(),
+                    "planned_context_recovery":True,
+                },
+            )
+        return True,"PLANNED_RENDER_CAPTURE_RECOVERED",{snapshot.snapshot_id}
 
     if row is None:
         return False,"SNAPSHOT_NOT_FOUND",set()
     metadata = _load(row["browser_metadata"],{})
     if bool(metadata.get("render_succeeded")):
         return False,"PERSISTED_RENDER_ARTIFACT_MISSING",set()
+
     device = DeviceContext(str(row["device"]))
-    acquisition = _load_acquisition(workspace,str(row["page_id"]))
-    trace = ([{"url":hop.source_url,"status":hop.status,"location":hop.location} for hop in acquisition.redirects]
-             if acquisition is not None else [])
+    page_id = str(row["page_id"])
+    acquisition = _load_acquisition(workspace,page_id)
+    if acquisition is None:
+        return False,"HTTP_ACQUISITION_REQUIRED",set()
+    trace = [
+        {"url":hop.source_url,"status":hop.status,"location":hop.location}
+        for hop in acquisition.redirects
+    ]
     try:
         result = renderer.render(str(row["requested_url"]),device,preflight_navigation_trace=trace)
     except TypeError:
         result = renderer.render(str(row["requested_url"]),device)
     if result.error_kind is not None or not result.rendered_html:
         return False,getattr(result.error_kind,"value",None) or "RENDERED_DOCUMENT_UNAVAILABLE",set()
-    _archive_snapshot(workspace,audit_id=audit_id,snapshot_id=snapshot_id,reprocess_id=reprocess_id,component=RENDER_CAPTURE)
-    rendered_ref = _write_artifact(workspace,reprocess_id,"rendered",f"{snapshot_id}.html",result.rendered_html.encode("utf-8"))
-    visual_ref = _write_artifact(workspace,reprocess_id,"visual",f"{snapshot_id}.png",result.screenshot_png or b"")
-    metadata.update(dict(result.browser_metadata or {}))
-    metadata["render_succeeded"] = True
-    metadata["visual_artifact_ref"] = visual_ref
-    metadata["reprocess_capture"] = {"reprocess_id":reprocess_id,"captured_at":utc_now().isoformat()}
-    connection = sqlite3.connect(workspace.database)
-    try:
-        with connection:
-            connection.execute(
-                """UPDATE page_snapshots SET final_url=?,http_status=?,content_type=?,rendered_artifact_ref=?,browser_metadata=?
-                   WHERE snapshot_id=?""",
-                (result.final_url or row["final_url"],result.http_status if result.http_status is not None else row["http_status"],
-                 result.content_type or row["content_type"],rendered_ref,json.dumps(metadata,ensure_ascii=False,sort_keys=True),snapshot_id),
-            )
-    finally:
-        connection.close()
-    return True,"RENDER_CAPTURE_RECOVERED",{snapshot_id}
 
+    _archive_snapshot(
+        workspace,
+        audit_id=audit_id,
+        snapshot_id=snapshot_id,
+        reprocess_id=reprocess_id,
+        component=RENDER_CAPTURE,
+    )
+    with AuditPersistence(workspace) as persistence:
+        page = persistence.pages.get(page_id)
+        if page is None:
+            return False,"PAGE_NOT_FOUND",set()
+        m3.persist_render_capture(
+            page=page,
+            url=str(row["requested_url"]),
+            acquisition=acquisition,
+            raw_artifact_ref=str(row["raw_artifact_ref"]) if row["raw_artifact_ref"] else None,
+            device=device,
+            render_result=result,
+            persistence=persistence,
+            workspace=workspace,
+            audit_device_context=device_context or (device,),
+            snapshot_id=snapshot_id,
+            replace_existing=True,
+            artifact_namespace=("reprocess",reprocess_id),
+            reprocess_metadata={
+                "reprocess_id":reprocess_id,
+                "captured_at":utc_now().isoformat(),
+            },
+        )
+    return True,"RENDER_CAPTURE_RECOVERED",{snapshot_id}
 
 def _recover_extraction(workspace: AuditWorkspace, audit_id: str, item: WorkItem, reprocess_id: str) -> tuple[bool,str,set[str]]:
     from rasai.m3 import M3ExecutionResult
