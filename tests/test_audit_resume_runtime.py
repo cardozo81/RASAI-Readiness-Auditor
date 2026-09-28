@@ -514,8 +514,16 @@ def test_partial_discovery_is_archived_before_replay(tmp_path: Path, monkeypatch
         return type("M2Result", (), {"page_ids": ("PGE-REPLAYED",)})()
 
     import rasai.m2 as m2_module
+    import rasai.m5 as m5_module
+
+    foundation_calls: list[str] = []
+
+    def fake_foundation(**kwargs):
+        foundation_calls.append(str(kwargs["audit"].audit_id))
+        return object(), (), ()
 
     monkeypatch.setattr(m2_module, "execute_m2", fake_execute_m2)
+    monkeypatch.setattr(m5_module, "execute_m5_foundation_scope", fake_foundation)
     from rasai.audit_fulfillment import start_reprocess_run
 
     reprocess_id = start_reprocess_run(workspace, AUDIT_ID, source="TEST")
@@ -529,6 +537,7 @@ def test_partial_discovery_is_archived_before_replay(tmp_path: Path, monkeypatch
     assert success is True
     assert code == "DISCOVERY_ACQUISITION_RECOVERED"
     assert affected == set()
+    assert foundation_calls == [AUDIT_ID]
 
     connection = sqlite3.connect(workspace.database)
     try:
