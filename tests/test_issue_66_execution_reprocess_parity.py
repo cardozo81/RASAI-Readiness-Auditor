@@ -2,8 +2,19 @@ from __future__ import annotations
 
 import inspect
 
-from rasai import core_reprocessing, m2, m3, m5, m6, m21_web_performance, pre_scoring_rules
-from rasai import reprocess_ai, reprocess_measurements
+from rasai import (
+    ai_dependency_runtime,
+    core_reprocessing,
+    m2,
+    m3,
+    m5,
+    m6,
+    m21_web_performance,
+    pre_scoring_rules,
+    reprocess_ai,
+    reprocess_measurements,
+    reprocess_policy,
+)
 
 
 def _source(value: object) -> str:
@@ -24,6 +35,15 @@ def test_initial_and_rpr_share_canonical_core_stage_primitives() -> None:
 
     assert "execute_m6_snapshot_scope" in _source(m6.execute_m6)
     assert "execute_m6_snapshot_scope" in _source(core_reprocessing._recompute_deterministic_snapshot)
+
+
+
+
+def test_initial_and_rpr_share_deep_analysis_fulfillment_dependency_contract() -> None:
+    initial = _source(ai_dependency_runtime._install_deep_analysis_gate)
+    recovery = _source(reprocess_policy.blocking_dependencies)
+    assert "deep_analysis_fulfillment_dependency_state" in initial
+    assert "deep_analysis_dependency_items" in recovery
 
 
 def test_initial_and_rpr_share_canonical_pre_score_integrity_rule() -> None:
