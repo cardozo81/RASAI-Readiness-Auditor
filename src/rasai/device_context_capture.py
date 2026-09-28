@@ -589,6 +589,10 @@ def _install_browser_capture() -> None:
         try:
             assert self._browser is not None
             context = self._browser.new_context(**options)
+            try:
+                context.add_init_script(_COOKIE_RUNTIME_INIT_SCRIPT)
+            except Exception:
+                pass
             page = context.new_page()
             page.set_default_timeout(self.navigation_timeout_ms)
             page.set_default_navigation_timeout(self.navigation_timeout_ms)
@@ -658,6 +662,8 @@ def _install_browser_capture() -> None:
                 content_type=headers.get("content-type") if response is not None else None,
             )
             rendered_dom = _rendered_dom_metadata(rendered_html)
+            script_runtime = _script_runtime_metadata(cdp_session, cdp_capture, page)
+            cookie_runtime = _cookie_runtime_metadata(page)
 
             screenshot_png: bytes | None = None
             screenshot_state = "NOT_CAPTURED"
@@ -694,6 +700,8 @@ def _install_browser_capture() -> None:
             metadata["capture_scope"] = ContextScope.DEVICE_SNAPSHOT.value
             metadata["document_source"] = document_source
             metadata["rendered_dom"] = rendered_dom
+            metadata["script_runtime"] = script_runtime
+            metadata["cookie_runtime"] = cookie_runtime
             metadata["bounded_lazy_probe"] = lazy_probe
             metadata["runtime_diagnostics"] = {
                 "scope": ContextScope.DEVICE_SNAPSHOT.value,
@@ -773,6 +781,21 @@ def _install_browser_capture() -> None:
         metadata = dict(result.browser_metadata)
         metadata["context_scope_contract"] = CONTEXT_SCOPE_CONTRACT_VERSION
         metadata["capture_scope"] = ContextScope.DEVICE_SNAPSHOT.value
+        metadata["script_runtime"] = {
+            "state": "UNAVAILABLE_RENDER_FAILURE",
+            "capture_method": "CDP_BUFFERED_SCRIPT_BODY+PERFORMANCE_RESOURCE_TIMING",
+            "additional_network_requests": 0,
+            "items": [],
+            "limitations": ["RENDER_FAILURE"],
+            "cpu_attribution_state": "NOT_COLLECTED_TO_AVOID_PROFILER_OVERHEAD",
+        }
+        metadata["cookie_runtime"] = {
+            "state": "UNAVAILABLE_RENDER_FAILURE",
+            "capture_method": "EARLY_DOCUMENT_COOKIE+COOKIE_STORE_WRAPPER",
+            "additional_network_requests": 0,
+            "items": [],
+            "limitations": ["RENDER_FAILURE"],
+        }
         metadata["bounded_lazy_probe"] = {
             "scope": ContextScope.DEVICE_SNAPSHOT.value,
             "capture_method": "SAME_PAGE_BOUNDED_SCROLL",
