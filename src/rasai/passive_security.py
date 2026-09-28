@@ -556,6 +556,11 @@ def _resource_inventory(connection: sqlite3.Connection, workspace: Any, audit_id
             "http": _redact_urlish(http),
             "http_evidence": http_evidence,
             "runtime": [],
+            "script_runtime": [],
+            "cookie_runtime": [],
+            "script_capture_states": [],
+            "cookie_capture_states": [],
+            "verifications": [],
         })
         if snapshot_id:
             meta = _load(row["browser_metadata"], {})
@@ -564,6 +569,26 @@ def _resource_inventory(connection: sqlite3.Connection, workspace: Any, audit_id
             page_context[page_id]["runtime"].extend(
                 dict(item) for item in items if isinstance(item, Mapping)
             )
+            script_runtime = meta.get("script_runtime", {}) if isinstance(meta, Mapping) else {}
+            if isinstance(script_runtime, Mapping):
+                page_context[page_id]["script_capture_states"].append(str(script_runtime.get("state") or "UNKNOWN"))
+                for item in script_runtime.get("items", ()) or ():
+                    if isinstance(item, Mapping):
+                        page_context[page_id]["script_runtime"].append({
+                            **dict(item),
+                            "snapshot_id": snapshot_id,
+                            "device": row["device"],
+                        })
+            cookie_runtime = meta.get("cookie_runtime", {}) if isinstance(meta, Mapping) else {}
+            if isinstance(cookie_runtime, Mapping):
+                page_context[page_id]["cookie_capture_states"].append(str(cookie_runtime.get("state") or "UNKNOWN"))
+                for item in cookie_runtime.get("items", ()) or ():
+                    if isinstance(item, Mapping):
+                        page_context[page_id]["cookie_runtime"].append({
+                            **dict(item),
+                            "snapshot_id": snapshot_id,
+                            "device": row["device"],
+                        })
         if not snapshot_id or snapshot_id in seen_snapshots:
             continue
         seen_snapshots.add(snapshot_id)
@@ -577,6 +602,10 @@ def _resource_inventory(connection: sqlite3.Connection, workspace: Any, audit_id
             pass
         page_context[page_id]["generators"] = parser.generators
         page_context[page_id]["comments"] = parser.comments
+        page_context[page_id]["verifications"].extend(
+            {**item, "snapshot_id": snapshot_id, "device": row["device"]}
+            for item in parser.verifications
+        )
         for index, item in enumerate(parser.items):
             attrs = dict(item["attributes"])
             if item["kind"] == "FORM":
