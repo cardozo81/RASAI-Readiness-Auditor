@@ -971,6 +971,60 @@ def reconcile_interrupted_attempts(workspace: AuditWorkspace, audit_id: str) -> 
     return reconciled
 
 
+def reconcile_interrupted_reprocess_runs(
+    workspace: AuditWorkspace,
+    audit_id: str,
+) -> int:
+    """Close orphan RPR ledgers before starting a new physical retry.
+
+    Work-item state is intentionally left untouched: successful work remains effective
+    and unresolved work is the only work eligible for the next RPR.
+    """
+    ensure_fulfillment_schema(workspace)
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        rows = connection.execute(
+            """SELECT reprocess_id,attempted_items,successful_items
+               FROM audit_reprocess_runs
+               WHERE audit_id=? AND completed_at IS NULL
+               ORDER BY started_at,reprocess_id""",
+            (audit_id,),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    if not rows:
+        return 0
+
+    from rasai.audit_fulfillment import finish_reprocess_run
+
+    reconciled = 0
+    for row in rows:
+        finish_reprocess_run(
+            workspace,
+            str(row["reprocess_id"]),
+            status=FAILED_RETRYABLE,
+            attempted_items=int(row["attempted_items"] or 0),
+            successful_items=int(row["successful_items"] or 0),
+            note=(
+                "RPR interrompido/abandonado antes do fechamento; "
+                "nova tentativa preservará sucessos e retomará somente o déficit"
+            ),
+        )
+        reconciled += 1
+
+    try_append_operational_event(
+        workspace,
+        "AUDIT_INTERRUPTED_RPR_RUNS_RECONCILED",
+        level="WARNING",
+        audit_id=audit_id,
+        runs=reconciled,
+        reprocess_ids=[str(row["reprocess_id"]) for row in rows],
+    )
+    return reconciled
+
+
 def _core_was_finalized(workspace: AuditWorkspace, audit_id: str) -> bool:
     return any(
         item.component == "CORE_AUDIT"
@@ -1163,6 +1217,7 @@ def install() -> None:
         try:
             was_physically_complete = _audit_physically_completed(workspace, audit_id)
             reconcile_interrupted_attempts(workspace, audit_id)
+            reconcile_interrupted_reprocess_runs(workspace, audit_id)
             result = current(audit_id, audits_root=audits_root, source=source)
             reprocess_id = str(getattr(result, "reprocess_id", "") or "") or None
             resumed_complete = finalize_resumed_audit(
