@@ -2302,6 +2302,9 @@ def improvement_findings(connection: sqlite3.Connection, audit_id: str, page_id:
         return None
     findings: list[dict[str, Any]] = []
     for row in rows:
+        persisted_details = _load(row["details_json"], {})
+        if not isinstance(persisted_details, Mapping):
+            persisted_details = {}
         findings.append({
             "finding_id": str(row["finding_id"]),
             "domain": "SECURITY",
@@ -2312,6 +2315,7 @@ def improvement_findings(connection: sqlite3.Connection, audit_id: str, page_id:
             "evidence_ids": _load(row["evidence_ids_json"], []),
             "impacts": {"security": 3 if str(row["severity"]) in {"CRITICAL","HIGH"} else 2 if str(row["severity"]) == "MEDIUM" else 1},
             "details": {
+                **dict(persisted_details),
                 "finding_type": row["finding_type"],
                 "category": row["category"],
                 "confidence": row["confidence"],
@@ -2328,11 +2332,26 @@ def improvement_findings(connection: sqlite3.Connection, audit_id: str, page_id:
     run = connection.execute(
         "SELECT * FROM passive_security_runs WHERE audit_id=?", (audit_id,)
     ).fetchone() if _table_exists(connection, "passive_security_runs") else None
+    script_count = connection.execute(
+        "SELECT COUNT(*) FROM passive_security_script_observations WHERE audit_id=? AND page_id=?",
+        (audit_id, page_id),
+    ).fetchone()[0] if _table_exists(connection, "passive_security_script_observations") else 0
+    platform_count = connection.execute(
+        "SELECT COUNT(*) FROM passive_security_platforms WHERE audit_id=? AND page_id=?",
+        (audit_id, page_id),
+    ).fetchone()[0] if _table_exists(connection, "passive_security_platforms") else 0
+    cookie_attr_count = connection.execute(
+        "SELECT COUNT(*) FROM passive_security_cookie_attribution WHERE audit_id=? AND page_id=?",
+        (audit_id, page_id),
+    ).fetchone()[0] if _table_exists(connection, "passive_security_cookie_attribution") else 0
     summary = {
         "mode": "PASSIVE_ONLY",
         "active_exploitation": False,
         "shared_security_core": True,
         "catalog": "CAT-10",
+        "script_observations": int(script_count),
+        "platform_observations": int(platform_count),
+        "cookie_attribution_observations": int(cookie_attr_count),
         "status": str(run["status"]) if run else "UNKNOWN",
         "coverage": _load(run["coverage_json"], {}) if run else {},
         "limitations": _load(run["limitations_json"], []) if run else [],
