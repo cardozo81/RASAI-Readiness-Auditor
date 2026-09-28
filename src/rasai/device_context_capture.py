@@ -390,7 +390,8 @@ def _script_runtime_metadata(session: Any | None, capture: dict[str, Any], page:
         item["content_sha256"] = None
         item["content_bytes"] = None
         item["risk_signals"] = []
-        item["platforms"] = detect_platforms(item.get("url"), None)
+        detection_url = str(raw_item.get("raw_url") or item.get("url") or "")
+        item["platforms"] = detect_platforms(detection_url, None)
         encoded_length = float(finished.get(request_id) or 0.0)
         if request_id not in finished:
             item["body_analysis_state"] = "NOT_FINISHED"
@@ -419,7 +420,7 @@ def _script_runtime_metadata(session: Any | None, capture: dict[str, Any], page:
                     item["content_bytes"] = len(source_body)
                     item["risk_signals"] = analyze_script_source(source_body)
                     source_text = source_body.decode("utf-8", errors="ignore")
-                    item["platforms"] = detect_platforms(item.get("url"), source_text)
+                    item["platforms"] = detect_platforms(detection_url, source_text)
             except Exception as exc:
                 item["body_analysis_state"] = "BODY_UNAVAILABLE"
                 item["body_error"] = type(exc).__name__
