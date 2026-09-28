@@ -630,15 +630,19 @@ def ensure_m5_foundation_from_persisted_m2(
     connection = sqlite3.connect(workspace.database)
     connection.row_factory = sqlite3.Row
     try:
-        existing = {
-            str(row[0])
+        existing_counts = {
+            str(row[0]): int(row[1])
             for row in connection.execute(
-                """SELECT DISTINCT rule_id FROM rule_executions
-                   WHERE audit_id=? AND rule_id IN (?,?,?,?)""",
+                """SELECT rule_id,count(*) FROM rule_executions
+                   WHERE audit_id=? AND rule_id IN (?,?,?,?)
+                   GROUP BY rule_id""",
                 (audit_id, *foundation_rules),
             ).fetchall()
         }
-        if existing == set(foundation_rules):
+        existing = set(existing_counts)
+        if existing == set(foundation_rules) and all(
+            existing_counts.get(rule_id) == 1 for rule_id in foundation_rules
+        ):
             return True
 
         robot_row = connection.execute(
