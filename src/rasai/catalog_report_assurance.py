@@ -30,6 +30,9 @@ _NON_SECRET_CONFIGURATION_KEYS = frozenset({
     # contains a cookie header/value and must not be classified as credential material.
     "RASAI_SECURITY_COOKIES",
 })
+_BOOLEAN_LIKE_CONFIGURATION_VALUES = frozenset({
+    "true", "false", "1", "0", "yes", "no", "on", "off",
+})
 _BEARER_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}")
 _APIKEY_RE = re.compile(r"(?i)\b(?:sk|key|token)[-_][A-Za-z0-9._-]{12,}")
 _EXTERNAL_LINK_RE = re.compile(r"<a\b([^>]*?)href=['\"]https?://[^'\"]+['\"]([^>]*)>", re.I)
@@ -259,19 +262,46 @@ def _catalog_referential_integrity(
 def _secret_free_configuration(data: Any) -> tuple[bool, str]:
     failures: list[str] = []
 
-    def walk(value: Any, path: str) -> None:
+    def is_safe_boolean_toggle(key: str, child: Any, allowed_keys: frozenset[str]) -> bool:
+        normalized_key = str(key).strip().upper()
+        if normalized_key not in allowed_keys:
+            return False
+        if isinstance(child, bool):
+            return True
+        return str(child).strip().casefold() in _BOOLEAN_LIKE_CONFIGURATION_VALUES
+
+    def walk(
+        value: Any,
+        path: str,
+        *,
+        allowed_sensitive_boolean_keys: frozenset[str] = frozenset(),
+    ) -> None:
         if isinstance(value, Mapping):
             for key, child in value.items():
                 child_path = f"{path}.{key}" if path else str(key)
                 normalized_key = str(key).strip().upper()
                 if normalized_key not in _NON_SECRET_CONFIGURATION_KEYS and _SECRET_KEY_RE.search(str(key)):
+                    if is_safe_boolean_toggle(
+                        normalized_key,
+                        child,
+                        allowed_sensitive_boolean_keys,
+                    ):
+                        continue
                     if child not in (None, "", "[REDACTED]", "***"):
                         failures.append(child_path)
                     continue
-                walk(child, child_path)
+                walk(
+                    child,
+                    child_path,
+                    allowed_sensitive_boolean_keys=allowed_sensitive_boolean_keys,
+                )
         elif isinstance(value, (list, tuple)):
             for index, child in enumerate(value):
-                walk(child, f"{path}[{index}]")
+                walk(
+                    child,
+                    f"{path}[{index}]",
+                    allowed_sensitive_boolean_keys=allowed_sensitive_boolean_keys,
+                )
 
     walk(getattr(data, "configuration", {}), "configuration")
     for index, item in enumerate(getattr(data, "work_items", ())):
@@ -281,7 +311,17 @@ def _secret_free_configuration(data: Any) -> tuple[bool, str]:
         except (TypeError, ValueError, json.JSONDecodeError):
             parsed = None
         if parsed is not None:
-            walk(parsed, f"work_items[{index}].configuration")
+            component = str(item.get("component") or "").strip().upper()
+            safe_boolean_keys = (
+                frozenset({"COOKIES"})
+                if component == "PASSIVE_SECURITY"
+                else frozenset()
+            )
+            walk(
+                parsed,
+                f"work_items[{index}].configuration",
+                allowed_sensitive_boolean_keys=safe_boolean_keys,
+            )
     if failures:
         return False, "valor sensível persistido em: " + ", ".join(failures[:8])
     return True, "snapshot e itens de trabalho sem valores de credenciais em chaves sensíveis"
