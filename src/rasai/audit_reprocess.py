@@ -73,6 +73,81 @@ def _table_exists(connection: sqlite3.Connection, name: str) -> bool:
     ).fetchone() is not None
 
 
+def _semantic_attempt_succeeded(
+    connection: sqlite3.Connection,
+    *,
+    audit_id: str,
+    snapshot_id: str,
+) -> bool:
+    if not _table_exists(connection, "ai_provider_attempts"):
+        return False
+    columns = {
+        str(row[1])
+        for row in connection.execute("PRAGMA table_info(ai_provider_attempts)").fetchall()
+    }
+    filters = ["audit_id=?", "snapshot_id=?", "status='SUCCESS'"]
+    params: list[Any] = [audit_id, snapshot_id]
+    if "operation" in columns and "semantic_contract_version" in columns:
+        filters.append(
+            "(operation='SEMANTIC_M7' OR "
+            "(operation IS NULL AND semantic_contract_version LIKE 'M18-SEMANTIC-%'))"
+        )
+    elif "operation" in columns:
+        filters.append("operation='SEMANTIC_M7'")
+    elif "semantic_contract_version" in columns:
+        filters.append("semantic_contract_version LIKE 'M18-SEMANTIC-%'")
+    else:
+        # Pre-purpose schemas used ai_provider_attempts only for semantic M7.
+        # Preserve that legacy compatibility without allowing modern cross-purpose
+        # attempts to satisfy SEMANTIC_AI.
+        pass
+    return connection.execute(
+        "SELECT 1 FROM ai_provider_attempts WHERE " + " AND ".join(filters) + " LIMIT 1",
+        tuple(params),
+    ).fetchone() is not None
+
+
+def _repair_false_semantic_success(
+    workspace: AuditWorkspace,
+    *,
+    audit_id: str,
+    snapshot_id: str,
+) -> None:
+    now = _utc_now().isoformat()
+    connection = sqlite3.connect(workspace.database)
+    try:
+        with connection:
+            connection.execute(
+                """
+                UPDATE audit_fulfillment_work_items
+                   SET status=?,
+                       retryable=1,
+                       last_success_at=NULL,
+                       last_error_class=?,
+                       last_error_code=?,
+                       last_error_message=?,
+                       effective_result_ref=NULL,
+                       updated_at=?
+                 WHERE audit_id=?
+                   AND component='SEMANTIC_AI'
+                   AND scope_key=?
+                   AND status='SUCCESS'
+                """,
+                (
+                    FAILED_RETRYABLE,
+                    "AI_PROVIDER",
+                    "SEMANTIC_AI_NO_SUCCESSFUL_CAUSAL_ATTEMPT",
+                    "no successful SEMANTIC_M7 attempt exists for this snapshot",
+                    now,
+                    audit_id,
+                    snapshot_id,
+                ),
+            )
+    finally:
+        connection.close()
+    recalculate(workspace, audit_id)
+
+
 def _semantic_backfill_status(
     *,
     successful_attempt: bool,
@@ -172,11 +247,11 @@ def _backfill_contract(workspace: AuditWorkspace, audit_id: str) -> None:
                 ).fetchall()
                 for raw in snapshots:
                     snapshot_id = str(raw["snapshot_id"])
-                    attempts = connection.execute(
-                        "SELECT * FROM ai_provider_attempts WHERE audit_id=? AND snapshot_id=? ORDER BY finished_at,rowid",
-                        (audit_id,snapshot_id),
-                    ).fetchall() if _table_exists(connection,"ai_provider_attempts") else ()
-                    successful = any(str(row["status"]).upper() == "SUCCESS" for row in attempts)
+                    successful = _semantic_attempt_succeeded(
+                        connection,
+                        audit_id=audit_id,
+                        snapshot_id=snapshot_id,
+                    )
                     assessments = 0
                     if _table_exists(connection,"semantic_assessments"):
                         assessments = int(connection.execute(
@@ -205,6 +280,25 @@ def _backfill_contract(workspace: AuditWorkspace, audit_id: str) -> None:
                         set_work_item_status(
                             workspace,audit_id=audit_id,component="SEMANTIC_AI",scope_key=snapshot_id,
                             status=SUCCESS,result_ref=f"semantic:{snapshot_id}",
+                        )
+                    else:
+                        # Backfill is authoritative reconciliation of durable causal
+                        # state. A prior bug could have promoted this work-item to
+                        # SUCCESS from another AI purpose sharing the same snapshot;
+                        # the public setter intentionally refuses SUCCESS demotion, so
+                        # repair only this proven false-positive condition here.
+                        _repair_false_semantic_success(
+                            workspace,
+                            audit_id=audit_id,
+                            snapshot_id=snapshot_id,
+                        )
+                        set_work_item_status(
+                            workspace,audit_id=audit_id,component="SEMANTIC_AI",scope_key=snapshot_id,
+                            status=FAILED_RETRYABLE,
+                            error_class="AI_PROVIDER",
+                            error_code="SEMANTIC_AI_NO_SUCCESSFUL_CAUSAL_ATTEMPT",
+                            error_message="no successful SEMANTIC_M7 attempt exists for this snapshot",
+                            retryable=True,
                         )
 
         # Runtime-owned optional domains are indexed through one shared routine so
