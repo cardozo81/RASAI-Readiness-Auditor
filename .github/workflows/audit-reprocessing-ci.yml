@@ -69,6 +69,7 @@ on:
       - 'tests/test_console_execution_profile_readiness.py'
       - 'tests/test_console_configuration_guidance.py'
       - 'tests/test_improvement_intelligence.py'
+      - 'tests/test_issue_48_improvement_material_fingerprint.py'
       - 'tests/test_provider_runtime_policy.py'
       - 'tests/test_issue_43_reprocess_ai_timeout.py'
       - 'tests/test_issue_46_semantic_backfill_causality.py'
@@ -108,7 +109,7 @@ jobs:
       - name: Console navigation, configuration reuse and publication regressions
         run: pytest -q tests/test_console_navigation.py tests/test_console_history_presentation.py tests/test_console_usability_refinements.py tests/test_console_audit_workflow.py tests/test_console_reprocess_parity.py tests/test_console_reprocess_final_refinements.py tests/test_audit_configuration_reuse_console.py tests/test_console_configuration_guidance.py tests/test_console_catalog_workflow.py tests/test_prepublication_configuration_contract.py tests/test_environment_surface_parity.py
       - name: Canonical AI orchestration in interactive console
-        run: pytest -q tests/test_console_canonical_ai_orchestration.py tests/test_console_execution_profile_readiness.py tests/test_improvement_intelligence.py tests/test_fulfillment_execution_contract.py
+        run: pytest -q tests/test_console_canonical_ai_orchestration.py tests/test_console_execution_profile_readiness.py tests/test_improvement_intelligence.py tests/test_issue_48_improvement_material_fingerprint.py tests/test_fulfillment_execution_contract.py
       - name: CLI surface smoke tests
         shell: pwsh
         run: |
