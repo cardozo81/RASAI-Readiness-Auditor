@@ -125,6 +125,21 @@ def _archive_query(
     return rows
 
 
+def _existing_tables(workspace: AuditWorkspace, *names: str) -> frozenset[str]:
+    if not names:
+        return frozenset()
+    placeholders = ",".join("?" for _ in names)
+    connection = sqlite3.connect(workspace.database)
+    try:
+        rows = connection.execute(
+            f"SELECT name FROM sqlite_master WHERE type='table' AND name IN ({placeholders})",
+            names,
+        ).fetchall()
+    finally:
+        connection.close()
+    return frozenset(str(row[0]) for row in rows)
+
+
 def _semantic_ready(workspace: AuditWorkspace, snapshot_id: str) -> bool:
     connection = sqlite3.connect(workspace.database)
     try:
@@ -163,18 +178,25 @@ def _clear_semantic_snapshot(
             sql=f"SELECT * FROM findings WHERE audit_id=? AND rule_execution_id IN ({marks})",
             params=(audit_id,*execution_ids),
         )
-    _archive_query(
-        workspace,audit_id=audit_id,reprocess_id=reprocess_id,component="SEMANTIC_AI",
-        entity_type="semantic_assessment",id_field="assessment_id",
-        sql="SELECT * FROM semantic_assessments WHERE snapshot_id=?",
-        params=(snapshot_id,),
+    semantic_tables = _existing_tables(
+        workspace,
+        "semantic_assessments",
+        "entity_observations",
     )
-    _archive_query(
-        workspace,audit_id=audit_id,reprocess_id=reprocess_id,component="SEMANTIC_AI",
-        entity_type="entity_observation",id_field="entity_observation_id",
-        sql="SELECT * FROM entity_observations WHERE snapshot_id=?",
-        params=(snapshot_id,),
-    )
+    if "semantic_assessments" in semantic_tables:
+        _archive_query(
+            workspace,audit_id=audit_id,reprocess_id=reprocess_id,component="SEMANTIC_AI",
+            entity_type="semantic_assessment",id_field="assessment_id",
+            sql="SELECT * FROM semantic_assessments WHERE snapshot_id=?",
+            params=(snapshot_id,),
+        )
+    if "entity_observations" in semantic_tables:
+        _archive_query(
+            workspace,audit_id=audit_id,reprocess_id=reprocess_id,component="SEMANTIC_AI",
+            entity_type="entity_observation",id_field="entity_observation_id",
+            sql="SELECT * FROM entity_observations WHERE snapshot_id=?",
+            params=(snapshot_id,),
+        )
     connection = sqlite3.connect(workspace.database)
     connection.execute("PRAGMA foreign_keys = ON")
     try:
@@ -183,11 +205,10 @@ def _clear_semantic_snapshot(
                 marks = ",".join("?" for _ in execution_ids)
                 connection.execute(f"DELETE FROM findings WHERE rule_execution_id IN ({marks})", execution_ids)
                 connection.execute(f"DELETE FROM rule_executions WHERE rule_execution_id IN ({marks})", execution_ids)
-            try:
+            if "semantic_assessments" in semantic_tables:
                 connection.execute("DELETE FROM semantic_assessments WHERE snapshot_id=?", (snapshot_id,))
+            if "entity_observations" in semantic_tables:
                 connection.execute("DELETE FROM entity_observations WHERE snapshot_id=?", (snapshot_id,))
-            except sqlite3.OperationalError:
-                pass
     finally:
         connection.close()
 
