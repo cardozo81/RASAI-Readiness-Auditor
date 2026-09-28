@@ -754,6 +754,9 @@ def _terminalized_states(states: Mapping[str, str]) -> dict[str, str]:
         # A still-waiting prerequisite at the end of the bounded collection attempt is
         # represented as a terminal limitation in this evidence version. It remains
         # retryable in fulfillment, but must not leave the evidence seal racing forever.
+        if state == "READY":
+            output[str(key)] = "READY"
+            continue
         if not collection_state_is_terminal(state):
             state = "PARTIAL" if state in {"WAITING_FOR_DATA", "PENDING"} else "ERROR"
         output[str(key)] = state
