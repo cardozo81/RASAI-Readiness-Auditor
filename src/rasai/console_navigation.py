@@ -260,7 +260,9 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
         resume_mode = processing_status != "COMPLETE" and (
             required_items == 0 or successful_items < required_items
         )
-        if resume_mode:
+        if processing_status == "COMPLETE":
+            print("Reprocessamento: não necessário - auditoria concluída.")
+        elif resume_mode:
             print("1. Retomar / reprocessar pendências desta auditoria")
             print("   Sucessos íntegros serão preservados; somente o déficit recuperável será executado.")
         else:
@@ -288,6 +290,9 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
                 input("\nENTER para continuar...")
             continue
         if choice == "1":
+            if processing_status == "COMPLETE":
+                state.error = "Auditoria concluída; reprocessamento não está disponível."
+                continue
             _reprocess_selected(console_module, state, audit_id)
         elif choice == "2":
             if not reuse_available:
