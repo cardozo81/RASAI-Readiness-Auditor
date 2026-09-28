@@ -415,6 +415,9 @@ Se a extração falhou, mas o RAW ou DOM da observação está persistido, o rep
 
 A recuperação semântica não faz uma requisição ao website por conta própria. Quando a fonte ainda não existe porque a captura falhou, o work-item de captura deve ser recuperado primeiro dentro da janela de `LIVE_RECOLLECTION`.
 
+
+A invalidação de IA é **seletiva por finalidade**. Uma nova versão global de evidência não implica, sozinha, uma nova chamada de provider. Para Improvement Intelligence, o RASAi vincula a task ao mesmo fingerprint determinístico dos inputs evidence-bound usado pela própria lógica de reutilização de CAT-08. Evidência posterior que não compõe esse input — por exemplo, uma evidência de integridade pré-scoring criada depois da análise — pode versionar a AUD sem tornar o resultado de Improvement Intelligence obsoleto. Nova chamada, tokens e custo só são justificáveis quando o fingerprint dos inputs efetivamente consumidos muda.
+
 Se a captura havia sido registrada como sucesso e seu artifact persistido está ausente ou inconsistente, o RASAi não faz nova captura para substituir aquela evidência. Esse caso é perda de integridade, permanece bloqueado e exige uma nova auditoria para produzir outra observação válida.
 
 ## Consistência temporal
