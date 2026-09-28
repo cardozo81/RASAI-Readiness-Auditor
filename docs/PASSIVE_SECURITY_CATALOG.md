@@ -165,7 +165,7 @@ INFO
 
 ## Cookies, nonces e dados sensíveis
 
-O CAT-10 nunca copia o valor dos cookies para suas tabelas. O parser legado de atributos preserva somente hash do nome. A entidade dedicada de atribuição pode persistir/exibir **somente o nome sintaticamente seguro** do cookie para actionability; nomes inválidos/anômalos permanecem protegidos por referência/hash. Nenhum conteúdo após o primeiro `=` é materializado.
+O CAT-10 nunca copia o valor dos cookies para suas tabelas. O parser de compatibilidade de atributos preserva somente hash do nome. A entidade dedicada de atribuição pode persistir/exibir **somente o nome sintaticamente seguro** do cookie para actionability; nomes inválidos/anômalos permanecem protegidos por referência/hash. Nenhum conteúdo após o primeiro `=` é materializado.
 
 Nonce de script é persistido somente como SHA-256 e comprimento. O valor bruto não é materializado nos achados.
 
