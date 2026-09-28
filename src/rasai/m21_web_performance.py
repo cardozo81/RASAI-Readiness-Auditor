@@ -168,6 +168,107 @@ class M21ExecutionResult:
     observation_ids: tuple[str, ...]
 
 
+def build_web_performance_observation(
+    *,
+    observation_id: str,
+    audit_id: str,
+    page_id: str,
+    snapshot_id: str,
+    device: DeviceContext,
+    url: str,
+    strategy: str,
+    psi_payload: dict[str, Any] | None,
+    field_data: dict[str, Any] | None,
+    field_source: str | None,
+    field_scope: str | None,
+    errors: list[str] | tuple[str, ...],
+    psi_http_status: int | None,
+    crux_http_status: int | None,
+    psi_artifact: str | None,
+    crux_artifact: str | None,
+) -> tuple[WebPerformanceObservation, str]:
+    """Build the canonical M21 observation and context classification."""
+    lab = _parse_lighthouse(psi_payload)
+    cwv = _assess_cwv(field_data)
+    has_lab = any(
+        lab.get(key) is not None
+        for key in (
+            "performance_score",
+            "accessibility_score",
+            "best_practices_score",
+            "seo_score",
+            "agentic_browsing_score",
+            "fcp_lab_ms",
+            "lcp_lab_ms",
+            "tbt_lab_ms",
+            "cls_lab",
+        )
+    )
+    has_field = field_data is not None and any(
+        field_data.get(key) is not None
+        for key in ("lcp_p75_ms", "inp_p75_ms", "cls_p75")
+    )
+    if has_lab or has_field:
+        status = "SUCCESS" if not errors else "PARTIAL"
+    else:
+        status = "UNAVAILABLE"
+
+    observation = WebPerformanceObservation(
+        observation_id=observation_id,
+        audit_id=audit_id,
+        page_id=page_id,
+        snapshot_id=snapshot_id,
+        device=device.value,
+        url=url,
+        strategy=strategy,
+        status=status,
+        lighthouse_version=lab.get("lighthouse_version"),
+        lighthouse_fetch_time=lab.get("lighthouse_fetch_time"),
+        performance_score=lab.get("performance_score"),
+        accessibility_score=lab.get("accessibility_score"),
+        best_practices_score=lab.get("best_practices_score"),
+        seo_score=lab.get("seo_score"),
+        agentic_browsing_score=lab.get("agentic_browsing_score"),
+        fcp_lab_ms=lab.get("fcp_lab_ms"),
+        speed_index_lab_ms=lab.get("speed_index_lab_ms"),
+        lcp_lab_ms=lab.get("lcp_lab_ms"),
+        tbt_lab_ms=lab.get("tbt_lab_ms"),
+        cls_lab=lab.get("cls_lab"),
+        field_source=field_source,
+        field_scope=field_scope,
+        lcp_p75_ms=(field_data or {}).get("lcp_p75_ms"),
+        inp_p75_ms=(field_data or {}).get("inp_p75_ms"),
+        cls_p75=(field_data or {}).get("cls_p75"),
+        lcp_assessment=cwv.get("lcp_assessment"),
+        inp_assessment=cwv.get("inp_assessment"),
+        cls_assessment=cwv.get("cls_assessment"),
+        cwv_assessment=cwv.get("cwv_assessment") or "UNAVAILABLE",
+        pagespeed_http_status=psi_http_status,
+        crux_http_status=crux_http_status,
+        pagespeed_artifact_reference=psi_artifact,
+        crux_artifact_reference=crux_artifact,
+        error_summary=";".join(dict.fromkeys(errors)) if errors else None,
+        captured_at=_utc_now(),
+    )
+    return observation, status
+
+
+def summarize_web_performance_run(
+    *,
+    context_count: int,
+    usable_contexts: int,
+    partial_contexts: int,
+) -> tuple[str, str | None]:
+    """Resolve canonical M21 run status from effective context classifications."""
+    if context_count == 0:
+        return "NO_CONTEXTS", "NO_RENDERED_CONTEXTS"
+    if usable_contexts == 0:
+        return "UNAVAILABLE", "EXTERNAL_WEB_PERFORMANCE_UNAVAILABLE"
+    if partial_contexts > 0 or usable_contexts < context_count:
+        return "PARTIAL", "ONE_OR_MORE_EXTERNAL_COMPONENTS_UNAVAILABLE"
+    return "SUCCESS", None
+
+
 def execute_m21(
     *,
     audit_id: str,
@@ -388,52 +489,36 @@ def execute_m21(
                     device=device.value,
                 )
 
-            lab = _parse_lighthouse(psi_payload)
-            cwv = _assess_cwv(field_data)
-            has_lab = any(
-                lab.get(key) is not None
-                for key in (
-                    "performance_score", "accessibility_score", "best_practices_score", "seo_score",
-                    "agentic_browsing_score", "fcp_lab_ms", "lcp_lab_ms", "tbt_lab_ms", "cls_lab",
-                )
+            observation, status = build_web_performance_observation(
+                observation_id=observation_id,
+                audit_id=audit_id,
+                page_id=page_id,
+                snapshot_id=snapshot_id,
+                device=device,
+                url=url,
+                strategy=strategy,
+                psi_payload=psi_payload,
+                field_data=field_data,
+                field_source=field_source,
+                field_scope=field_scope,
+                errors=errors,
+                psi_http_status=psi_http_status,
+                crux_http_status=crux_http_status,
+                psi_artifact=psi_artifact,
+                crux_artifact=crux_artifact,
             )
-            has_field = field_data is not None and any(field_data.get(key) is not None for key in ("lcp_p75_ms", "inp_p75_ms", "cls_p75"))
-            if has_lab or has_field:
+            if status in {"SUCCESS", "PARTIAL"}:
                 successes += 1
-                status = "SUCCESS" if not errors else "PARTIAL"
-            else:
-                status = "UNAVAILABLE"
             if status == "PARTIAL":
                 partial_contexts += 1
-
-            store.add_observation(WebPerformanceObservation(
-                observation_id=observation_id, audit_id=audit_id, page_id=page_id, snapshot_id=snapshot_id,
-                device=device.value, url=url, strategy=strategy, status=status,
-                lighthouse_version=lab.get("lighthouse_version"), lighthouse_fetch_time=lab.get("lighthouse_fetch_time"),
-                performance_score=lab.get("performance_score"), accessibility_score=lab.get("accessibility_score"),
-                best_practices_score=lab.get("best_practices_score"), seo_score=lab.get("seo_score"),
-                agentic_browsing_score=lab.get("agentic_browsing_score"),
-                fcp_lab_ms=lab.get("fcp_lab_ms"), speed_index_lab_ms=lab.get("speed_index_lab_ms"),
-                lcp_lab_ms=lab.get("lcp_lab_ms"), tbt_lab_ms=lab.get("tbt_lab_ms"), cls_lab=lab.get("cls_lab"),
-                field_source=field_source, field_scope=field_scope,
-                lcp_p75_ms=(field_data or {}).get("lcp_p75_ms"), inp_p75_ms=(field_data or {}).get("inp_p75_ms"),
-                cls_p75=(field_data or {}).get("cls_p75"), lcp_assessment=cwv.get("lcp_assessment"),
-                inp_assessment=cwv.get("inp_assessment"), cls_assessment=cwv.get("cls_assessment"),
-                cwv_assessment=cwv.get("cwv_assessment") or "UNAVAILABLE",
-                pagespeed_http_status=psi_http_status, crux_http_status=crux_http_status,
-                pagespeed_artifact_reference=psi_artifact, crux_artifact_reference=crux_artifact,
-                error_summary=";".join(errors) if errors else None, captured_at=_utc_now(),
-            ))
+            store.add_observation(observation)
             observation_ids.append(observation_id)
 
-        if attempts == 0:
-            run_status, reason = "NO_CONTEXTS", "NO_RENDERED_CONTEXTS"
-        elif successes == 0:
-            run_status, reason = "UNAVAILABLE", "EXTERNAL_WEB_PERFORMANCE_UNAVAILABLE"
-        elif partial_contexts > 0 or successes < attempts:
-            run_status, reason = "PARTIAL", "ONE_OR_MORE_EXTERNAL_COMPONENTS_UNAVAILABLE"
-        else:
-            run_status, reason = "SUCCESS", None
+        run_status, reason = summarize_web_performance_run(
+            context_count=attempts,
+            usable_contexts=successes,
+            partial_contexts=partial_contexts,
+        )
 
         store.upsert_run(WebPerformanceRun(
             audit_id=audit_id, enabled=True, status=run_status, field_source=cfg.field_source,
