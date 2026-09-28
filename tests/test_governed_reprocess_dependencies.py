@@ -81,7 +81,15 @@ def _register_pending(
 
 def test_improvement_rpr_uses_same_required_fulfillment_gate_as_initial_audit(tmp_path: Path) -> None:
     workspace = _workspace(tmp_path)
-    _register_pending(workspace, "SEMANTIC_AI")
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="SEMANTIC_AI",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status="PENDING",
+        retryable=True,
+    )
     _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
 
     assert runtime._registered_ai_purposes(
@@ -105,6 +113,20 @@ def test_improvement_rpr_uses_same_required_fulfillment_gate_as_initial_audit(tm
         AUDIT_ID,
         {"SEARCH_INTELLIGENCE": "SUCCESS"},
     ) == frozenset({"COMPETITIVE_INTELLIGENCE"})
+
+
+def test_improvement_rpr_accepts_same_terminal_degraded_dependency_as_initial_gate(
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    _register_pending(workspace, "SEMANTIC_AI")  # FAILED_RETRYABLE is terminal for the AI snapshot.
+    _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
+
+    assert runtime._registered_ai_purposes(
+        workspace,
+        AUDIT_ID,
+        {},
+    ) == frozenset({"IMPROVEMENT_INTELLIGENCE"})
 
 
 def test_live_measurement_without_adapter_attempt_gets_generic_rpr_provenance(
