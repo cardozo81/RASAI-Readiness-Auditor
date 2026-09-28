@@ -87,6 +87,11 @@ def test_apdex_recovery_uses_canonical_measurement_classifiers_and_summaries() -
     assert "m25._summary" in experience
 
 
+def test_m21_recovery_closes_fulfillment_only_for_canonical_success() -> None:
+    recovery = _source(reprocess_measurements.recover_web_performance)
+    assert 'return run_status == "SUCCESS"' in recovery
+
+
 def test_m21_partial_context_semantics_are_identical_for_initial_and_rpr() -> None:
     assert m21_web_performance.summarize_web_performance_run(
         context_count=1,
