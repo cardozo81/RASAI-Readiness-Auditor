@@ -569,7 +569,7 @@ def _resource_inventory(connection: sqlite3.Connection, workspace: Any, audit_id
             page_context[page_id]["runtime"].extend(
                 dict(item) for item in items if isinstance(item, Mapping)
             )
-            script_runtime = meta.get("script_runtime", {}) if isinstance(meta, Mapping) else {}
+            script_runtime = meta.get("script_runtime") if isinstance(meta, Mapping) else None
             if isinstance(script_runtime, Mapping):
                 page_context[page_id]["script_capture_states"].append(str(script_runtime.get("state") or "UNKNOWN"))
                 for item in script_runtime.get("items", ()) or ():
@@ -579,7 +579,7 @@ def _resource_inventory(connection: sqlite3.Connection, workspace: Any, audit_id
                             "snapshot_id": snapshot_id,
                             "device": row["device"],
                         })
-            cookie_runtime = meta.get("cookie_runtime", {}) if isinstance(meta, Mapping) else {}
+            cookie_runtime = meta.get("cookie_runtime") if isinstance(meta, Mapping) else None
             if isinstance(cookie_runtime, Mapping):
                 page_context[page_id]["cookie_capture_states"].append(str(cookie_runtime.get("state") or "UNKNOWN"))
                 for item in cookie_runtime.get("items", ()) or ():
@@ -891,7 +891,7 @@ def _runtime_intelligence_rows(
                 "page_id": page_id,
                 "snapshot_id": None,
                 "cookie_ref": cookie_ref,
-                "cookie_name_display": attrs.get("name_display"),
+                "cookie_name_display": _safe_cookie_name(str(raw_cookie)),
                 "name_hash": attrs.get("name_hash") or "",
                 "creation_mechanism": "HTTP_SET_COOKIE",
                 "effective_domain": attrs.get("effective_domain"),
@@ -1505,6 +1505,12 @@ def _default_cookie_path(page_url: str) -> str:
 _COOKIE_DISPLAY_RE = re.compile(r"^[!#$%&'*+\-.^_\x60|~0-9A-Za-z]{1,128}$")
 
 
+def _safe_cookie_name(raw: str) -> str | None:
+    parts = [part.strip() for part in str(raw).split(";", 1) if part.strip()]
+    cookie_name = parts[0].split("=", 1)[0].strip() if parts else ""
+    return cookie_name if _COOKIE_DISPLAY_RE.fullmatch(cookie_name) else None
+
+
 def _cookie_purpose(cookie_name: str | None) -> tuple[str, str]:
     name = str(cookie_name or "").casefold()
     if name in {"_ga", "_gid", "_gat"} or name.startswith("_ga_"):
@@ -1523,9 +1529,7 @@ def _cookie_purpose(cookie_name: str | None) -> tuple[str, str]:
 def _cookie_attributes(raw: str, page_url: str = "") -> dict[str, Any]:
     parts = [part.strip() for part in str(raw).split(";") if part.strip()]
     cookie_name = parts[0].split("=", 1)[0].strip() if parts else ""
-    display_name = cookie_name if _COOKIE_DISPLAY_RE.fullmatch(cookie_name) else None
     attrs: dict[str, Any] = {
-        "name_display": display_name,
         "name_hash": sha256(cookie_name.encode("utf-8")).hexdigest()[:12] if cookie_name else "",
         "sensitive_name_hint": bool(re.search(r"(?:session|sess|auth|token|jwt|sid|login|credential)", cookie_name, re.I)),
         "secure": False,
@@ -1812,7 +1816,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
                 "target": {
                     "kind": "COOKIE",
                     "ref": attrs.get("cookie_ref"),
-                    "label": attrs.get("name_display") or (f"Cookie {attrs.get('cookie_ref')}" if attrs.get("cookie_ref") else f"Set-Cookie #{index}"),
+                    "label": f"Cookie {attrs.get('cookie_ref')}" if attrs.get("cookie_ref") else f"Set-Cookie #{index}",
                     "scope": f"{attrs.get('effective_domain') or '-'} {attrs.get('effective_path') or '/'}",
                     "occurrence": f"Set-Cookie #{index}",
                 },
