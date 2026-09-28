@@ -11,6 +11,7 @@ import pytest
 from rasai.audit_fulfillment import (
     FAILED_RETRYABLE,
     LIVE_RECOLLECTION,
+    REPLAY_SAFE,
     RUNNING,
     SUCCESS,
     begin_attempt,
