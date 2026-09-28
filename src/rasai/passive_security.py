@@ -1807,7 +1807,17 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
 
     if _truthy(os.environ.get(COOKIES_ENV), True):
         for index, raw_cookie in enumerate(headers.get("set-cookie", ())[:50], 1):
-            attrs = _cookie_attributes(raw_cookie)
+            attrs = _cookie_attributes(raw_cookie, url)
+            cookie_details = {
+                "target": {
+                    "kind": "COOKIE",
+                    "ref": attrs.get("cookie_ref"),
+                    "label": attrs.get("name_display") or (f"Cookie {attrs.get('cookie_ref')}" if attrs.get("cookie_ref") else f"Set-Cookie #{index}"),
+                    "scope": f"{attrs.get('effective_domain') or '-'} {attrs.get('effective_path') or '/'}",
+                    "occurrence": f"Set-Cookie #{index}",
+                },
+                "cookie": attrs,
+            }
             if scheme == "https" and not attrs["secure"]:
                 findings.append(_finding(
                     audit_id=audit_id,page_id=page_id,url=url,code=f"COOKIE_SECURE_{index}",category="Cookies",
@@ -1817,7 +1827,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
                     containment="Evitar uso do cookie para sessão/autorização até revisar seus atributos.",
                     remediation="Adicionar Secure quando o cookie for destinado a contexto HTTPS.",
                     validation="Reauditar Set-Cookie e fluxo de autenticação.",
-                    details={"cookie": attrs},
+                    details=cookie_details,
                 ))
             if not attrs["httponly"]:
                 findings.append(_finding(
@@ -1828,7 +1838,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
                     containment="Identificar se o cookie precisa ser acessível por JavaScript.",
                     remediation="Adicionar HttpOnly a cookies de sessão/autorização que não precisem de acesso por script.",
                     validation="Testar o fluxo funcional e reauditar os atributos.",
-                    details={"cookie": attrs},
+                    details=cookie_details,
                 ))
             same = str(attrs.get("samesite") or "")
             if not same:
@@ -1840,7 +1850,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
                     containment="Mapear fluxos cross-site legítimos antes da mudança.",
                     remediation="Definir SameSite=Lax/Strict ou None conforme necessidade real.",
                     validation="Testar login, redirects e integrações cross-site.",
-                    details={"cookie": attrs},
+                    details=cookie_details,
                 ))
             if same.casefold() == "none" and not attrs["secure"]:
                 findings.append(_finding(
@@ -1851,7 +1861,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
                     containment="Revisar imediatamente o fluxo cross-site que depende deste cookie.",
                     remediation="Adicionar Secure ou alterar SameSite conforme o fluxo pretendido.",
                     validation="Testar em navegadores suportados e reauditar.",
-                    details={"cookie": attrs},
+                    details=cookie_details,
                 ))
 
     server = "; ".join(headers.get("server", ()))
