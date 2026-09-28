@@ -396,7 +396,15 @@ def test_improvement_ai_waits_for_unresolved_prerequisite_before_provider_phase(
 ) -> None:
     workspace = _workspace(tmp_path)
     _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
-    _register_pending(workspace, "RENDER_CAPTURE", temporal_mode=LIVE_RECOLLECTION)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="RENDER_CAPTURE",
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        status="PENDING",
+        retryable=True,
+    )
 
     purposes = runtime._registered_ai_purposes(workspace, AUDIT_ID, {})
 
