@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import re
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -18,11 +19,90 @@ from playwright.sync_api import Error as PlaywrightError, TimeoutError as Playwr
 
 from rasai.context_scope import CONTEXT_SCOPE_CONTRACT_VERSION, ContextScope
 from rasai.rendering import BrowserProfile, BrowserRenderResult, RenderErrorKind
+from rasai.web_technology_signatures import analyze_script_source, detect_platforms
 
 
 _MAX_DIAGNOSTICS = 60
 _MAX_MESSAGE = 400
 _MAX_DOCUMENT_SOURCE_BYTES = 5 * 1024 * 1024
+
+_MAX_SCRIPT_BODY_BYTES = 512 * 1024
+_MAX_SCRIPT_BODY_TOTAL_BYTES = 4 * 1024 * 1024
+_MAX_SCRIPT_OBSERVATIONS = 80
+_MAX_COOKIE_RUNTIME_EVENTS = 80
+
+_COOKIE_RUNTIME_INIT_SCRIPT = r"""
+(() => {
+  const KEY = "__rasaiCookieRuntimeEvents";
+  const LIMIT = 120;
+  const events = globalThis[KEY] = Array.isArray(globalThis[KEY]) ? globalThis[KEY] : [];
+  const record = (value, mechanism) => {
+    try {
+      const raw = String(value ?? "");
+      const parts = raw.split(";").map(v => v.trim()).filter(Boolean);
+      const pair = parts.shift() || "";
+      const eq = pair.indexOf("=");
+      const name = (eq >= 0 ? pair.slice(0, eq) : pair).trim();
+      if (!name) return;
+      const attributes = {};
+      for (const part of parts) {
+        const i = part.indexOf("=");
+        const key = (i >= 0 ? part.slice(0, i) : part).trim().toLowerCase();
+        const attrValue = (i >= 0 ? part.slice(i + 1) : "").trim();
+        if (key === "domain") attributes.domain = attrValue;
+        else if (key === "path") attributes.path = attrValue;
+        else if (key === "samesite") attributes.samesite = attrValue;
+        else if (key === "secure") attributes.secure = true;
+      }
+      if (events.length < LIMIT) {
+        events.push({
+          mechanism,
+          name,
+          attributes,
+          at_ms: Number(performance.now() || 0),
+          stack: String((new Error()).stack || "")
+        });
+      }
+    } catch (_) {}
+  };
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(Document.prototype, "cookie");
+    if (descriptor && descriptor.get && descriptor.set && descriptor.configurable) {
+      Object.defineProperty(Document.prototype, "cookie", {
+        configurable: descriptor.configurable,
+        enumerable: descriptor.enumerable,
+        get() { return descriptor.get.call(this); },
+        set(value) {
+          record(value, "DOCUMENT_COOKIE");
+          return descriptor.set.call(this, value);
+        }
+      });
+    }
+  } catch (_) {}
+  try {
+    const store = globalThis.cookieStore;
+    if (store && typeof store.set === "function") {
+      const original = store.set.bind(store);
+      store.set = function(...args) {
+        try {
+          const first = args[0];
+          if (typeof first === "string") {
+            record(first + "=", "COOKIE_STORE");
+          } else if (first && typeof first === "object" && first.name) {
+            const attrs = [];
+            if (first.domain) attrs.push("Domain=" + first.domain);
+            if (first.path) attrs.push("Path=" + first.path);
+            if (first.sameSite) attrs.push("SameSite=" + first.sameSite);
+            if (first.secure) attrs.push("Secure");
+            record(String(first.name) + "=;" + attrs.join(";"), "COOKIE_STORE");
+          }
+        } catch (_) {}
+        return original(...args);
+      };
+    }
+  } catch (_) {}
+})();
+"""
 _LAZY_SCROLL_STEPS = 3
 _LAZY_SETTLE_MS = 250
 
@@ -54,6 +134,8 @@ def _setup_document_capture(context: Any, page: Any) -> tuple[Any | None, dict[s
         "failed": set(),
         "response_url": None,
         "setup_error": None,
+        "script_requests": {},
+        "script_responses": {},
     }
     try:
         session = context.new_cdp_session(page)
