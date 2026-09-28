@@ -158,7 +158,7 @@ def _action_target_contexts(
         findings={
             str(row["finding_id"]):dict(row)
             for row in connection.execute(
-                """SELECT finding_id,page_id,url_scope,category,title,description
+                """SELECT finding_id,page_id,url_scope,category,title,description,details_json
                    FROM passive_security_findings WHERE audit_id=?""",
                 (audit_id,),
             ).fetchall()
@@ -208,6 +208,21 @@ def _action_target_contexts(
         description=str(finding.get("description") or "")
         category=_norm(finding.get("category"))
         url_scope=str(finding.get("url_scope") or "").strip()
+        details=_json(finding.get("details_json"),{})
+        target=details.get("target") if isinstance(details,Mapping) else None
+        if isinstance(target,Mapping) and str(target.get("ref") or "").strip():
+            label=str(target.get("label") or target.get("ref") or "").strip()
+            scope=str(target.get("scope") or "").strip()
+            occurrence=str(target.get("occurrence") or "").strip()
+            suffix=" · ".join(value for value in (scope,occurrence) if value)
+            contexts[action_id]={
+                "label":label+(f" · {suffix}" if suffix else ""),
+                "note":(
+                    "Alvo determinístico persistido pelo CAT-10. A análise estratégica reutiliza "
+                    "esta identidade e não cria ou infere um alvo alternativo."
+                ),
+            }
+            continue
         cookie_match=re.search(r"\bSet-Cookie\s*#(\d+)",description,re.IGNORECASE)
         if category=="COOKIES" and cookie_match:
             occurrence=f"Set-Cookie #{cookie_match.group(1)}"
