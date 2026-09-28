@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 import json
+import re
 import sqlite3
 from typing import Any, Mapping, Sequence
 
