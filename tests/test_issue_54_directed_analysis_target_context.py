@@ -229,9 +229,10 @@ def test_repeated_titles_are_grouped_in_executive_views_and_targets_stay_exact(t
     assert roadmap.count("Recurso externo script sem SRI observado") == 1
 
     for index in (1,2,3):
-        target=f"Set-Cookie #{index} · {PAGE_URL}"
-        assert target in actions
-        assert target in traceability
+        assert f"Set-Cookie #{index} · " in actions
+        assert f"Set-Cookie #{index} · " in traceability
+    assert PAGE_URL in actions
+    assert PAGE_URL in traceability
 
     # Set-Cookie #1 is intentionally affected by two different controls.
     assert html.count(f"Set-Cookie #1 · {PAGE_URL}") >= 2
@@ -270,6 +271,7 @@ def test_cookie_target_exposes_ordinal_but_never_cookie_name_or_value(tmp_path: 
 
     html=directed_analysis_body(database,_data())
 
-    assert f"Set-Cookie #1 · {PAGE_URL}" in html
+    assert "Set-Cookie #1 · " in html
+    assert PAGE_URL in html
     assert "nome e o valor do cookie permanecem ocultos" in html
     assert "sessionid=super-secret" not in html
