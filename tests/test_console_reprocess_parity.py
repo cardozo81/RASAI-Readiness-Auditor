@@ -183,13 +183,72 @@ def test_ai_mode_explains_prerequisite_order_and_no_ai_partial_impact(
     assert "CADEIA DE EXECUÇÃO E CONCLUSÃO" in rendered
     assert "Pré-requisitos automáticos" in rendered
     assert "RENDER_CAPTURE/PLANNED:PGE-1:MOBILE" in rendered
-    assert "IA aguardando dados" in rendered
-    assert "CONDICIONAL AOS PRÉ-REQUISITOS" in rendered
+    assert "IA aguardando dados" not in rendered
+    assert "Pré-requisitos em estado terminal/degradado" in rendered
+    assert "NÃO BLOQUEADA PELO ESTADO TERMINAL/DEGRADADO" in rendered
     assert "1. recuperar/validar dados" in rendered
     assert "Modo sem IA" in rendered
     assert "chamadas/tokens/custo de IA nesta tentativa: 0" in rendered
     assert "AUD continuará parcial" in rendered
     assert "não altera a configuração/provenance original" in rendered
+
+
+def test_ai_mode_keeps_waiting_message_for_nonterminal_prerequisite(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from rasai.audit_fulfillment import PENDING, LIVE_RECOLLECTION, REPLAY_SAFE, list_work_items, register_work_item
+    from rasai.domain import Audit
+    from rasai.persistence import AuditPersistence, AuditWorkspace
+
+    audit_id = "AUD-TEST-PENDING"
+    workspace = AuditWorkspace.create(tmp_path, audit_id)
+    with AuditPersistence(workspace) as persistence:
+        persistence.audits.add(Audit(audit_id=audit_id, project_name="rpr pending ux"))
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component="RENDER_CAPTURE",
+        scope_key="PLANNED:PGE-1:MOBILE",
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        status=PENDING,
+        retryable=True,
+    )
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component="IMPROVEMENT_INTELLIGENCE",
+        scope_key="AUDIT",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status=PENDING,
+        retryable=True,
+    )
+    selected = tuple(
+        item for item in list_work_items(workspace, audit_id)
+        if item.component == "IMPROVEMENT_INTELLIGENCE"
+    )
+    state = SimpleNamespace(
+        audits_root=str(tmp_path),
+        operation="LOCAL:AUD_REPROCESS",
+        error="",
+        ai_provider="auto",
+        ai_model=None,
+    )
+    token = parity._RPR_PRESENTATION_CONTEXT.set((audit_id, 0, selected))
+    monkeypatch.setattr("builtins.input", lambda prompt="": "1")
+    try:
+        with redirect_stdout(StringIO()) as output:
+            assert parity._choose_reprocess_ai(state) is True
+    finally:
+        parity._RPR_PRESENTATION_CONTEXT.reset(token)
+
+    rendered = output.getvalue()
+    assert "IA aguardando dados" in rendered
+    assert "RENDER_CAPTURE/PLANNED:PGE-1:MOBILE" in rendered
+    assert "CONDICIONAL AOS PRÉ-REQUISITOS" in rendered
+    assert "Pré-requisitos em estado terminal/degradado" not in rendered
 
 
 def test_ai_mode_warns_when_selected_scope_has_no_ai_item(monkeypatch) -> None:
