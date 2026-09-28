@@ -991,10 +991,10 @@ def _recompute_deterministic_snapshot(
     snapshot_id: str,
     reprocess_id: str,
 ) -> None:
-    """Refresh deterministic page/snapshot rules from current effective evidence."""
+    """Refresh deterministic rules through the same M5/M6 scope executors as initial audit."""
     from rasai import m5, m6
     from rasai.javascript_spa import JavascriptSpaAnalyzer
-    from rasai.rules import DependencyResolver, RuleEvaluation, baseline_registry
+    from rasai.rules import DependencyResolver, baseline_registry
     from rasai.spa_persistence import SnapshotArchitectureWriter
 
     row = _snapshot_row(workspace,audit_id,snapshot_id)
@@ -1004,26 +1004,74 @@ def _recompute_deterministic_snapshot(
     acquisition = _load_acquisition(workspace,page_id)
     if acquisition is None:
         return
-    _archive_rule_scope(workspace,audit_id=audit_id,reprocess_id=reprocess_id,rule_ids=("BR-GEO-006","BR-GEO-008","BR-GEO-009"),page_id=page_id)
-    _archive_rule_scope(workspace,audit_id=audit_id,reprocess_id=reprocess_id,rule_ids=tuple(f"BR-GEO-{value:03d}" for value in range(10,17)),snapshot_id=snapshot_id)
-    _archive_rule_scope(workspace,audit_id=audit_id,reprocess_id=reprocess_id,rule_ids=tuple(f"BR-GEO-{value:03d}" for value in range(19,25)),snapshot_id=snapshot_id)
+
+    _archive_rule_scope(
+        workspace,
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        rule_ids=("BR-GEO-006","BR-GEO-008","BR-GEO-009"),
+        page_id=page_id,
+    )
+    _archive_rule_scope(
+        workspace,
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        rule_ids=tuple(f"BR-GEO-{value:03d}" for value in range(10,17)),
+        snapshot_id=snapshot_id,
+    )
+    _archive_rule_scope(
+        workspace,
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        rule_ids=tuple(f"BR-GEO-{value:03d}" for value in range(19,25)),
+        snapshot_id=snapshot_id,
+    )
 
     connection = sqlite3.connect(workspace.database)
     connection.row_factory = sqlite3.Row
     try:
-        pages = tuple(connection.execute("SELECT page_id,normalized_url FROM pages WHERE audit_id=?",(audit_id,)).fetchall())
-        target = connection.execute("SELECT normalized_origin FROM audit_targets WHERE audit_id=? ORDER BY rowid LIMIT 1",(audit_id,)).fetchone()
-        execution_ids = tuple(str(entry[0]) for entry in connection.execute(
-            "SELECT rule_execution_id FROM rule_executions WHERE audit_id=? ORDER BY executed_at,rowid",(audit_id,)
-        ).fetchall())
+        pages = tuple(
+            connection.execute(
+                "SELECT page_id,normalized_url FROM pages WHERE audit_id=? ORDER BY depth,page_id",
+                (audit_id,),
+            ).fetchall()
+        )
+        target = connection.execute(
+            "SELECT normalized_origin FROM audit_targets WHERE audit_id=? ORDER BY rowid LIMIT 1",
+            (audit_id,),
+        ).fetchone()
+        execution_ids = tuple(
+            str(entry[0])
+            for entry in connection.execute(
+                "SELECT rule_execution_id FROM rule_executions WHERE audit_id=? ORDER BY executed_at,rowid",
+                (audit_id,),
+            ).fetchall()
+        )
     finally:
         connection.close()
+
     acquisitions: dict[str,HttpAcquisitionResult] = {}
+    page_ids: dict[str,str] = {}
     for page in pages:
         loaded = _load_acquisition(workspace,str(page["page_id"]))
         if loaded is not None:
-            acquisitions[str(page["normalized_url"])] = loaded
-    m2_view = SimpleNamespace(discovery=SimpleNamespace(page_acquisitions=acquisitions,origin=str(target[0]) if target else ""))
+            normalized_url = str(page["normalized_url"])
+            acquisitions[normalized_url] = loaded
+            page_ids[normalized_url] = str(page["page_id"])
+    origin = str(target[0]) if target else ""
+    m2_view = SimpleNamespace(
+        discovery=SimpleNamespace(
+            page_acquisitions=acquisitions,
+            origin=origin,
+            pages=tuple(
+                SimpleNamespace(normalized_url=url)
+                for url in acquisitions
+            ),
+            limit_reached=False,
+        ),
+        page_ids=page_ids,
+    )
+
     registry = baseline_registry()
     resolver = DependencyResolver()
     with AuditPersistence(workspace) as persistence:
@@ -1033,86 +1081,75 @@ def _recompute_deterministic_snapshot(
             if execution is not None:
                 state.put(execution)
         manager = EvidenceManager(persistence)
-        for rule_id,evaluation in (
-            ("BR-GEO-006",m5._evaluate_final_response(acquisition)),
-            ("BR-GEO-008",m5._evaluate_redirect_materiality(acquisition)),
-            ("BR-GEO-009",m5._evaluate_analyzable_html(acquisition)),
-        ):
-            execution = m5._execute_new(
-                definition=registry.get(rule_id),evaluation=evaluation,audit_id=audit_id,page_id=page_id,
-                snapshot_id=None,device=None,manager=manager,persistence=persistence,resolver=resolver,state=state,
-            )
-            m5._persist_finding_if_needed(registry.get(rule_id),execution,persistence)
         snapshot = persistence.snapshots.get(snapshot_id)
         if snapshot is None:
             return
-        for rule_id,evaluation in (
-            ("BR-GEO-010",m5._evaluate_rendering(snapshot_id=snapshot_id,render_failed=False,extraction_failure=None,main_content_ref=snapshot.main_content_ref)),
-            ("BR-GEO-011",m5._evaluate_index_directives(acquisition,snapshot.meta_robots)),
-            ("BR-GEO-012",m5._evaluate_noindex(acquisition,snapshot.meta_robots)),
-            ("BR-GEO-013",m5._evaluate_canonical(snapshot,workspace)),
-            ("BR-GEO-014",m5._evaluate_canonical_target(snapshot,m2_view)),
-            ("BR-GEO-015",m5._evaluate_raw_rendered_indexability(snapshot,workspace)),
-            ("BR-GEO-016",m5._evaluate_soft404(snapshot,acquisition,workspace)),
-        ):
-            execution = m5._execute_new(
-                definition=registry.get(rule_id),evaluation=evaluation,audit_id=audit_id,page_id=page_id,
-                snapshot_id=snapshot_id,device=snapshot.device,manager=manager,persistence=persistence,resolver=resolver,state=state,
-            )
-            m5._persist_finding_if_needed(registry.get(rule_id),execution,persistence)
+        metadata = snapshot.browser_metadata if isinstance(snapshot.browser_metadata,dict) else {}
+        render_failed = not bool(metadata.get("render_succeeded"))
+        extraction_failure = None if snapshot.main_content_ref else "EXTRACTION_INPUT_UNAVAILABLE"
+        m5.execute_m5_page_scope(
+            audit_id=audit_id,
+            page_id=page_id,
+            acquisition=acquisition,
+            snapshot_ids={snapshot.device:snapshot_id},
+            m2_result=m2_view,
+            persistence=persistence,
+            workspace=workspace,
+            state=state,
+            registry=registry,
+            resolver=resolver,
+            manager=manager,
+            m3_failures={(page_id,snapshot.device)} if render_failed else frozenset(),
+            m4_failures={snapshot_id:extraction_failure} if extraction_failure else {},
+        )
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        prior_ids = tuple(
+            str(entry[0])
+            for entry in connection.execute(
+                "SELECT rule_execution_id FROM rule_executions WHERE audit_id=? ORDER BY executed_at,rowid",
+                (audit_id,),
+            ).fetchall()
+        )
+    finally:
+        connection.close()
 
     with AuditPersistence(workspace) as persistence:
         snapshot = persistence.snapshots.get(snapshot_id)
         if snapshot is None:
             return
-        raw_html = _read_bytes(workspace,snapshot.raw_artifact_ref).decode("utf-8",errors="replace") if _file_exists(workspace,snapshot.raw_artifact_ref) else None
-        rendered_html = _read_bytes(workspace,snapshot.rendered_artifact_ref).decode("utf-8",errors="replace") if _file_exists(workspace,snapshot.rendered_artifact_ref) else None
-        analyzer = JavascriptSpaAnalyzer()
-        comparison = analyzer.compare(raw_html,rendered_html) if raw_html is not None and rendered_html is not None else None
-        classification = comparison.architecture if comparison is not None else snapshot.architecture_classification
-        SnapshotArchitectureWriter(workspace).update(snapshot_id,classification)
-        evaluations: dict[str,Any] = {
-            "BR-GEO-019":m6._evaluate_019(comparison),
-            "BR-GEO-020":m6._evaluate_020(comparison),
-            "BR-GEO-021":m6._evaluate_021(classification,acquisition,rendered_html),
-            "BR-GEO-022":m6._evaluate_022(analyzer,rendered_html,snapshot.final_url or snapshot.requested_url,str(target[0]) if target else ""),
-            "BR-GEO-023":m6._evaluate_023(analyzer,rendered_html,acquisition.status),
-        }
-        if rendered_html is None:
-            evaluations["BR-GEO-024"] = m6._unknown("RENDERED_UNAVAILABLE","lazy-loaded essential content remains recoverable")
-        else:
-            preliminary = analyzer.lazy_loading(rendered_html,after_probe_html=None)
-            same_session = snapshot.browser_metadata.get("bounded_lazy_probe") if isinstance(snapshot.browser_metadata,dict) else None
-            if not preliminary.has_lazy_signals or preliminary.initial_content_recoverable:
-                evaluations["BR-GEO-024"] = m6._evaluate_024(analyzer,rendered_html,None)
-            elif isinstance(same_session,dict) and same_session.get("attempted"):
-                evaluations["BR-GEO-024"] = m6._evaluate_024_same_session(preliminary,same_session)
-            else:
-                evaluations["BR-GEO-024"] = m6._unknown("LAZY_PROBE_UNAVAILABLE_NO_REFETCH","lazy-loaded essential content remains recoverable")
-        connection = sqlite3.connect(workspace.database)
-        try:
-            prior_ids = tuple(str(entry[0]) for entry in connection.execute(
-                "SELECT rule_execution_id FROM rule_executions WHERE audit_id=? ORDER BY executed_at,rowid",(audit_id,)
-            ).fetchall())
-        finally:
-            connection.close()
         prior = m6._PriorState(persistence,prior_ids)
-        resolver = DependencyResolver()
-        manager = EvidenceManager(persistence)
-        for definition in m6._M6_DEFINITIONS:
-            dependency = resolver.resolve(definition,lambda dep,p=page_id,s=snapshot_id: prior.lookup(dep,page_id=p,snapshot_id=s))
-            evaluation = evaluations[definition.rule_id]
-            if not dependency.applicable:
-                evaluation = RuleEvaluation(
-                    result=dependency.result or RuleResult.UNKNOWN,observed_value={"dependency_reason":dependency.reason},
-                    expected_condition=evaluation.expected_condition,reason=dependency.reason,
-                )
-            execution = m6._persist_execution(
-                definition,evaluation,audit_id=audit_id,page_id=page_id,snapshot_id=snapshot_id,
-                device=snapshot.device,manager=manager,persistence=persistence,
+        scoped_ids, _finding_ids, _classification, rendered_outside = m6.execute_m6_snapshot_scope(
+            audit_id=audit_id,
+            page_id=page_id,
+            snapshot_id=snapshot_id,
+            device=snapshot.device,
+            acquisition=acquisition,
+            origin=origin,
+            audited_urls=set(acquisitions),
+            persistence=persistence,
+            workspace=workspace,
+            prior=prior,
+            resolver=DependencyResolver(),
+            manager=EvidenceManager(persistence),
+            writer=SnapshotArchitectureWriter(workspace),
+            analyzer=JavascriptSpaAnalyzer(),
+            lazy_probe=None,
+        )
+        _ = scoped_ids
+        if rendered_outside:
+            audit = persistence.audits.get(audit_id)
+            limit_reached = bool(
+                audit
+                and any(str(value).startswith("MAX_PAGES_REACHED:") for value in audit.limitations)
             )
-            m6._persist_finding(definition,execution,persistence)
-
+            m6.apply_rendered_discovery_limitation(
+                audit_id=audit_id,
+                persistence=persistence,
+                rendered_outside_audit=set(rendered_outside),
+                limit_reached=limit_reached,
+            )
 
 def _invalidate_core_dependents(workspace: AuditWorkspace, audit_id: str) -> bool:
     """Reopen only derived work whose effective inputs changed after core recovery."""
