@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+from rasai.audit_fulfillment import start_reprocess_run
 from rasai.domain import Audit
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.reprocess_ai import _reset_scores
@@ -87,7 +88,13 @@ def test_reset_scores_archives_and_removes_existing_scores(tmp_path: Path) -> No
     finally:
         connection.close()
 
-    _reset_scores(workspace, AUDIT_ID, RPR_ID)
+    reprocess_id = start_reprocess_run(
+        workspace,
+        AUDIT_ID,
+        source="TEST",
+        note="issue 25 archive regression",
+    )
+    _reset_scores(workspace, AUDIT_ID, reprocess_id)
 
     connection = sqlite3.connect(workspace.database)
     try:
@@ -102,7 +109,7 @@ def test_reset_scores_archives_and_removes_existing_scores(tmp_path: Path) -> No
             WHERE audit_id=? AND reprocess_id=?
             ORDER BY rowid
             """,
-            (AUDIT_ID, RPR_ID),
+            (AUDIT_ID, reprocess_id),
         ).fetchall()
     finally:
         connection.close()
