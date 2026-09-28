@@ -40,6 +40,9 @@ _SELECTION_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "HTTP_ACQUISITION",
         "RENDER_CAPTURE",
     ),
+    "TECHNICAL_AI": (
+        "DISCOVERY_ACQUISITION",
+    ),
     "IMPROVEMENT_INTELLIGENCE": (
         "DISCOVERY_ACQUISITION",
         "HTTP_ACQUISITION",
@@ -263,10 +266,13 @@ def blocking_dependencies(workspace: Any, item: Any) -> tuple[str, ...]:
         except Exception:
             pass
     elif component == "TECHNICAL_AI":
+        # The canonical technical-AI gate (used in initial execution and RPR) is
+        # evidence-based on robots/sitemap/crawler rules. Discovery is the only live
+        # prerequisite that can materialize that evidence; render/extraction are not.
         wanted.extend(
             candidate
             for candidate in work
-            if str(candidate.component) in {"RENDER_CAPTURE", "CONTENT_EXTRACTION"}
+            if str(candidate.component) == "DISCOVERY_ACQUISITION"
         )
     elif component == "IMPROVEMENT_INTELLIGENCE":
         # Use exactly the same fulfillment universe as the initial Deep Analysis gate.
