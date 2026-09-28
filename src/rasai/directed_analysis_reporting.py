@@ -130,7 +130,7 @@ def _passive_security_finding_id(
     title: str,
 ) -> str:
     """Reproduce the persisted passive-security stable key for legacy target lookup."""
-    raw="\\x1f".join(str(part or "") for part in (audit_id,page_id,code,title))
+    raw="\x1f".join(str(part or "") for part in (audit_id,page_id,code,title))
     return "SEC-"+sha256(raw.encode("utf-8")).hexdigest()[:24]
 
 
@@ -208,7 +208,7 @@ def _action_target_contexts(
         description=str(finding.get("description") or "")
         category=_norm(finding.get("category"))
         url_scope=str(finding.get("url_scope") or "").strip()
-        cookie_match=re.search(r"\\bSet-Cookie\\s*#(\\d+)",description,re.IGNORECASE)
+        cookie_match=re.search(r"\bSet-Cookie\s*#(\d+)",description,re.IGNORECASE)
         if category=="COOKIES" and cookie_match:
             occurrence=f"Set-Cookie #{cookie_match.group(1)}"
             label=occurrence+(f" · {url_scope}" if url_scope else "")
