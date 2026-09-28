@@ -212,6 +212,27 @@ def test_optional_recovery_never_refreshes_nonblocking_observability(
     assert evaluated == frozenset({"GOOGLE_SEARCH_CONSOLE"})
 
 
+def test_improvement_ai_waits_for_unresolved_prerequisite_before_provider_phase(
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
+    _register_pending(workspace, "RENDER_CAPTURE", temporal_mode=LIVE_RECOLLECTION)
+
+    purposes = runtime._registered_ai_purposes(workspace, AUDIT_ID, {})
+
+    assert purposes == frozenset()
+    item = next(
+        value
+        for value in list_work_items(workspace, AUDIT_ID)
+        if value.component == "IMPROVEMENT_INTELLIGENCE"
+    )
+    assert item.status == "WAITING_FOR_DATA"
+    assert item.last_error_class == "PREREQUISITE"
+    assert item.last_error_code == "AI_WAITING_FOR_PREREQUISITES"
+    assert "RENDER_CAPTURE" in str(item.last_error_message)
+
+
 def test_registered_ai_filter_executes_only_selected_purpose(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(audit_phase_runtime, "_AI_HOOKS", {})
     calls: list[str] = []
