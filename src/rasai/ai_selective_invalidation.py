@@ -173,6 +173,57 @@ def _snapshot_states(
     return {str(key): states.get(str(key)) for key in keys}
 
 
+def _improvement_input_fingerprint(workspace: Any, audit_id: str) -> str:
+    """Recompute the exact deterministic evidence fingerprint used by CAT-08 reuse.
+
+    The global evidence version may gain downstream/administrative evidence (for
+    example pre-scoring integrity) that Improvement Intelligence never consumes. Its
+    staleness key must therefore be the CAT-08 evidence-bound input, not raw evidence
+    identity.
+    """
+    from rasai.improvement_intelligence import (
+        DEFAULT_DOMAINS,
+        ImprovementConfig,
+        collect_improvement_evidence,
+        parse_domains,
+    )
+
+    domains = DEFAULT_DOMAINS
+    connection = _connect(workspace)
+    try:
+        if _table_exists(connection, "audit_fulfillment_work_items"):
+            row = connection.execute(
+                """SELECT configuration FROM audit_fulfillment_work_items
+                   WHERE audit_id=? AND component='IMPROVEMENT_INTELLIGENCE'
+                     AND scope_key='AUDIT'""",
+                (audit_id,),
+            ).fetchone()
+            if row is not None:
+                try:
+                    payload = json.loads(str(row[0] or "{}"))
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    payload = {}
+                if isinstance(payload, dict) and payload.get("domains"):
+                    try:
+                        domains = parse_domains(payload["domains"])
+                    except (TypeError, ValueError):
+                        domains = DEFAULT_DOMAINS
+    finally:
+        connection.close()
+
+    config = ImprovementConfig(
+        enabled=True,
+        provider="none",
+        domains=tuple(domains),
+    ).validate({})
+    _context, _findings, _supporting, fingerprint = collect_improvement_evidence(
+        audit_id=audit_id,
+        workspace=workspace,
+        config=config,
+    )
+    return str(fingerprint)
+
+
 def dependency_fingerprint(
     *,
     workspace: Any,
@@ -182,16 +233,29 @@ def dependency_fingerprint(
     scope_key: str | None = None,
     collection_keys: Iterable[str] = (),
 ) -> str:
+    kind = str(dependency_kind).upper()
+    if kind == "IMPROVEMENT_INTELLIGENCE":
+        return _hash(
+            {
+                "kind": kind,
+                "scope_key": scope_key,
+                "input_fingerprint": _improvement_input_fingerprint(
+                    workspace,
+                    audit_id,
+                ),
+            }
+        )
+
     connection = _connect(workspace)
     try:
         keys = tuple(dict.fromkeys(str(key) for key in collection_keys if str(key).strip()))
         payload = {
-            "kind": str(dependency_kind).upper(),
+            "kind": kind,
             "scope_key": scope_key,
             "evidence": _evidence_slice(
                 connection,
                 audit_id=audit_id,
-                dependency_kind=dependency_kind,
+                dependency_kind=kind,
                 scope_key=scope_key,
             ),
             "collection_states": _snapshot_states(
