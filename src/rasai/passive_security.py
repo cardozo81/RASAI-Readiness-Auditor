@@ -22,8 +22,9 @@ from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 from rasai.secret_safety import redact_url, redact_value
+from rasai.web_technology_signatures import CONTRACT_VERSION as SIGNATURE_CONTRACT_VERSION, detect_platforms
 
-CONTRACT_VERSION = "PASSIVE-SECURITY-001"
+CONTRACT_VERSION = "PASSIVE-SECURITY-002"
 
 ENABLED_ENV = "RASAI_PASSIVE_SECURITY"
 HEADERS_ENV = "RASAI_SECURITY_HEADERS"
@@ -98,6 +99,74 @@ CREATE TABLE IF NOT EXISTS passive_security_resources (
 );
 CREATE INDEX IF NOT EXISTS idx_passive_security_resources_audit
     ON passive_security_resources(audit_id,resource_kind,party);
+CREATE TABLE IF NOT EXISTS passive_security_script_observations (
+    script_ref TEXT PRIMARY KEY,
+    audit_id TEXT NOT NULL REFERENCES audits(audit_id) ON DELETE CASCADE,
+    page_id TEXT REFERENCES pages(page_id) ON DELETE CASCADE,
+    snapshot_id TEXT,
+    resource_url TEXT,
+    party TEXT NOT NULL,
+    domain TEXT,
+    timing_json TEXT NOT NULL DEFAULT '{}',
+    integrity_json TEXT NOT NULL DEFAULT '{}',
+    analysis_state TEXT NOT NULL,
+    risk_signals_json TEXT NOT NULL DEFAULT '[]',
+    platforms_json TEXT NOT NULL DEFAULT '[]',
+    evidence_ids_json TEXT NOT NULL DEFAULT '[]'
+);
+CREATE INDEX IF NOT EXISTS idx_passive_security_scripts_audit
+    ON passive_security_script_observations(audit_id,page_id,party);
+CREATE TABLE IF NOT EXISTS passive_security_cookie_attribution (
+    cookie_attribution_id TEXT PRIMARY KEY,
+    audit_id TEXT NOT NULL REFERENCES audits(audit_id) ON DELETE CASCADE,
+    page_id TEXT REFERENCES pages(page_id) ON DELETE CASCADE,
+    snapshot_id TEXT,
+    cookie_ref TEXT NOT NULL,
+    cookie_name_display TEXT,
+    name_hash TEXT NOT NULL,
+    creation_mechanism TEXT NOT NULL,
+    effective_domain TEXT,
+    effective_path TEXT,
+    host_only INTEGER NOT NULL DEFAULT 1,
+    setter_script_url TEXT,
+    setter_script_ref TEXT,
+    platform_ref TEXT,
+    party TEXT NOT NULL,
+    purpose TEXT NOT NULL,
+    purpose_confidence TEXT NOT NULL,
+    attribution_confidence TEXT NOT NULL,
+    details_json TEXT NOT NULL DEFAULT '{}',
+    evidence_ids_json TEXT NOT NULL DEFAULT '[]'
+);
+CREATE INDEX IF NOT EXISTS idx_passive_security_cookie_attr_audit
+    ON passive_security_cookie_attribution(audit_id,cookie_ref,creation_mechanism);
+CREATE TABLE IF NOT EXISTS passive_security_platforms (
+    platform_ref TEXT PRIMARY KEY,
+    audit_id TEXT NOT NULL REFERENCES audits(audit_id) ON DELETE CASCADE,
+    page_id TEXT REFERENCES pages(page_id) ON DELETE CASCADE,
+    snapshot_id TEXT,
+    platform_id TEXT NOT NULL,
+    platform_name TEXT NOT NULL,
+    confidence TEXT NOT NULL,
+    identifiers_json TEXT NOT NULL DEFAULT '[]',
+    details_json TEXT NOT NULL DEFAULT '{}',
+    evidence_ids_json TEXT NOT NULL DEFAULT '[]'
+);
+CREATE INDEX IF NOT EXISTS idx_passive_security_platforms_audit
+    ON passive_security_platforms(audit_id,platform_id);
+CREATE TABLE IF NOT EXISTS passive_security_relationships (
+    relation_id TEXT PRIMARY KEY,
+    audit_id TEXT NOT NULL REFERENCES audits(audit_id) ON DELETE CASCADE,
+    page_id TEXT REFERENCES pages(page_id) ON DELETE CASCADE,
+    snapshot_id TEXT,
+    from_ref TEXT NOT NULL,
+    to_ref TEXT NOT NULL,
+    relation_type TEXT NOT NULL,
+    confidence TEXT NOT NULL,
+    evidence_ids_json TEXT NOT NULL DEFAULT '[]'
+);
+CREATE INDEX IF NOT EXISTS idx_passive_security_relationships_audit
+    ON passive_security_relationships(audit_id,relation_type);
 CREATE TABLE IF NOT EXISTS passive_security_components (
     component_id TEXT PRIMARY KEY,
     audit_id TEXT NOT NULL REFERENCES audits(audit_id) ON DELETE CASCADE,
