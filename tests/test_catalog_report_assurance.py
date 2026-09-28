@@ -449,6 +449,109 @@ def test_cat10_requested_ai_execution_gap_reduces_structural_assurance(monkeypat
     assert "REL_CANONICAL_RUN" in failed
 
 
+def test_cat09_canonical_content_remediation_run_is_not_required_when_not_requested(
+    tmp_path: Path,
+) -> None:
+    from rasai.catalog_report_assurance import _canonical_run_materialized
+    import sqlite3
+
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            """CREATE TABLE audit_fulfillment_work_items(
+                audit_id TEXT,component TEXT,required INTEGER,status TEXT
+            )"""
+        )
+        connection.execute(
+            "INSERT INTO audit_fulfillment_work_items VALUES (?,?,?,?)",
+            ("AUD-ASSURANCE", "TECHNICAL_AI", 1, "SUCCESS"),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    passed, detail = _canonical_run_materialized(
+        database,
+        "AUD-ASSURANCE",
+        "CAT-09",
+    )
+
+    assert passed is True
+    assert "não aplicável" in detail
+
+
+def test_cat09_missing_content_remediation_run_fails_when_content_ai_is_required(
+    tmp_path: Path,
+) -> None:
+    from rasai.catalog_report_assurance import _canonical_run_materialized
+    import sqlite3
+
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            """CREATE TABLE audit_fulfillment_work_items(
+                audit_id TEXT,component TEXT,required INTEGER,status TEXT
+            )"""
+        )
+        connection.execute(
+            "INSERT INTO audit_fulfillment_work_items VALUES (?,?,?,?)",
+            ("AUD-ASSURANCE", "CONTENT_REMEDIATION_AI", 1, "PENDING"),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    passed, detail = _canonical_run_materialized(
+        database,
+        "AUD-ASSURANCE",
+        "CAT-09",
+    )
+
+    assert passed is False
+    assert "content_remediation_runs" in detail
+
+
+def test_cat09_content_remediation_run_passes_when_required_and_materialized(
+    tmp_path: Path,
+) -> None:
+    from rasai.catalog_report_assurance import _canonical_run_materialized
+    import sqlite3
+
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            """CREATE TABLE audit_fulfillment_work_items(
+                audit_id TEXT,component TEXT,required INTEGER,status TEXT
+            )"""
+        )
+        connection.execute(
+            "INSERT INTO audit_fulfillment_work_items VALUES (?,?,?,?)",
+            ("AUD-ASSURANCE", "CONTENT_REMEDIATION_AI", 1, "SUCCESS"),
+        )
+        connection.execute(
+            "CREATE TABLE content_remediation_runs(audit_id TEXT,status TEXT)"
+        )
+        connection.execute(
+            "INSERT INTO content_remediation_runs VALUES (?,?)",
+            ("AUD-ASSURANCE", "SUCCESS"),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    passed, detail = _canonical_run_materialized(
+        database,
+        "AUD-ASSURANCE",
+        "CAT-09",
+    )
+
+    assert passed is True
+    assert "content_remediation_runs" in detail
+
+
 def test_partial_canonical_run_is_structurally_materialized(tmp_path: Path) -> None:
     from rasai.catalog_report_assurance import _canonical_run_materialized
     import sqlite3
@@ -548,6 +651,8 @@ def test_cat10_translated_configuration_markers_preserve_matrix_contract() -> No
 
     assert "Recursos de terceiros" in markers
     assert "Correlação em tempo de execução" in markers
+    assert "Headers / CSP / Restrição CORS" in markers
+    assert "Headers / CSP / CORS" not in markers
     assert "Third-party" not in markers
     assert "Correlação runtime" not in markers
 
