@@ -240,6 +240,20 @@ def _governed_improvement_hook(*, audit_id: str, workspace: Any, evidence_snapsh
                 config=config,
                 progress=progress,
             )
+
+        # Bind the governed task to the same deterministic evidence fingerprint used
+        # by CAT-08's own reuse decision. A later global evidence version may contain
+        # downstream evidence that this task never consumed; that must not force a
+        # second provider call.
+        from rasai.ai_selective_invalidation import register_task_dependency
+
+        register_task_dependency(
+            workspace=workspace,
+            ai_task_id=task_id,
+            dependency_kind="IMPROVEMENT_INTELLIGENCE",
+            scope_key="AUDIT",
+        )
+
         _project_fulfillment_result(
             workspace,
             audit_id,
