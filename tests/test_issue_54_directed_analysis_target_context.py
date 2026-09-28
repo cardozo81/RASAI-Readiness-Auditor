@@ -234,8 +234,10 @@ def test_repeated_titles_are_grouped_in_executive_views_and_targets_stay_exact(t
     assert PAGE_URL in actions
     assert PAGE_URL in traceability
 
-    # Set-Cookie #1 is intentionally affected by two different controls.
-    assert html.count(f"Set-Cookie #1 · {PAGE_URL}") >= 2
+    # Set-Cookie #1 is intentionally affected by two different controls. The
+    # report auto-links URLs, so assert the occurrence label separately from href text.
+    assert html.count("Set-Cookie #1 · ") >= 2
+    assert html.count(PAGE_URL) >= 2
     assert "O mesmo Set-Cookie pode aparecer em mais de um tema" in html
 
     url_a="https://cdn.example.test/a.js?v=1"
