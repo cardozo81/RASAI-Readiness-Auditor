@@ -757,7 +757,7 @@ def _archive_snapshot(workspace: AuditWorkspace, *, audit_id: str, snapshot_id: 
     connection = sqlite3.connect(workspace.database)
     connection.row_factory = sqlite3.Row
     try:
-        table = connection.execute(
+        element_table = connection.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='element_observations'"
         ).fetchone()
         observations = tuple(
@@ -766,9 +766,20 @@ def _archive_snapshot(workspace: AuditWorkspace, *, audit_id: str, snapshot_id: 
                 "SELECT * FROM element_observations WHERE snapshot_id=? ORDER BY rowid",
                 (snapshot_id,),
             ).fetchall()
-        ) if table else ()
+        ) if element_table else ()
+        visual_evidence = tuple(
+            dict(value)
+            for value in connection.execute(
+                """SELECT * FROM evidence
+                   WHERE audit_id=? AND snapshot_id=?
+                     AND evidence_type=? AND source='chromium:viewport'
+                   ORDER BY rowid""",
+                (audit_id,snapshot_id,EvidenceType.VISUAL_SNAPSHOT.value),
+            ).fetchall()
+        )
     finally:
         connection.close()
+
     if observations:
         archive_rows(
             workspace,
@@ -779,14 +790,33 @@ def _archive_snapshot(workspace: AuditWorkspace, *, audit_id: str, snapshot_id: 
             id_field="element_observation_id",
             rows=observations,
         )
+    if visual_evidence:
+        archive_rows(
+            workspace,
+            audit_id=audit_id,
+            reprocess_id=reprocess_id,
+            component=component,
+            entity_type="visual_evidence",
+            id_field="evidence_id",
+            rows=visual_evidence,
+        )
+    if observations or visual_evidence:
         connection = sqlite3.connect(workspace.database)
         connection.execute("PRAGMA foreign_keys=ON")
         try:
             with connection:
-                connection.execute(
-                    "DELETE FROM element_observations WHERE snapshot_id=?",
-                    (snapshot_id,),
-                )
+                if observations:
+                    connection.execute(
+                        "DELETE FROM element_observations WHERE snapshot_id=?",
+                        (snapshot_id,),
+                    )
+                if visual_evidence:
+                    connection.execute(
+                        """DELETE FROM evidence
+                           WHERE audit_id=? AND snapshot_id=?
+                             AND evidence_type=? AND source='chromium:viewport'""",
+                        (audit_id,snapshot_id,EvidenceType.VISUAL_SNAPSHOT.value),
+                    )
         finally:
             connection.close()
 
