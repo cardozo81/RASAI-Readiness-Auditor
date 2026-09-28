@@ -160,3 +160,96 @@ def test_selected_audit_detail_uses_physical_lifecycle_timestamps(
     assert "Início local   : 15/09/2026 10:00" in rendered
     assert "Conclusão local: 15/09/2026 10:30" in rendered
     assert "12:59" not in rendered
+
+
+def test_completed_audit_detail_hides_reprocess_action_and_shortcut(
+    monkeypatch, tmp_path: Path, capsys
+) -> None:
+    import rasai.console_artifacts as artifacts
+    import rasai.console_navigation as navigation
+    import rasai.console_usability_refinements as usability
+
+    audit_id = "AUD-COMPLETE-NO-RPR"
+    (tmp_path / audit_id).mkdir()
+    summary = {
+        "processing_status": "COMPLETE",
+        "score_status": "FINAL",
+        "report_status": "FINAL",
+        "consolidation_eligible": True,
+        "required_items": 4,
+        "successful_items": 4,
+        "pending_items": 0,
+        "blocked_items": 0,
+        "expired_items": 0,
+        "reprocess_count": 0,
+        "last_reprocess_id": None,
+        "completed_at": "2026-09-28T18:00:00+00:00",
+    }
+    monkeypatch.setattr(usability, "_safe_summary", lambda *_: summary)
+    monkeypatch.setattr(
+        navigation,
+        "_configuration_reuse_status",
+        lambda *_: (True, "snapshot canônico íntegro"),
+    )
+    monkeypatch.setattr(artifacts, "report_entrypoint", lambda *_: None)
+    monkeypatch.setattr(
+        usability,
+        "_reprocess_selected",
+        lambda *_: (_ for _ in ()).throw(
+            AssertionError("completed AUD must not enter reprocess flow")
+        ),
+    )
+    answers = iter(("1", "V"))
+    monkeypatch.setattr("builtins.input", lambda *_: next(answers))
+
+    state = SimpleNamespace(audits_root=tmp_path, status="", operation="", error="")
+    console_module = SimpleNamespace(render_header=lambda *_: None)
+
+    assert usability._selected_audit_menu(console_module, state, audit_id) is False
+    rendered = capsys.readouterr().out
+
+    assert "1. Reprocessar" not in rendered
+    assert "Reprocessamento: não necessário - auditoria concluída." in rendered
+    assert state.error == "Auditoria concluída; reprocessamento não é necessário."
+
+
+def test_partial_retryable_audit_detail_keeps_reprocess_action(
+    monkeypatch, tmp_path: Path, capsys
+) -> None:
+    import rasai.console_artifacts as artifacts
+    import rasai.console_navigation as navigation
+    import rasai.console_usability_refinements as usability
+
+    audit_id = "AUD-PARTIAL-RPR"
+    (tmp_path / audit_id).mkdir()
+    summary = {
+        "processing_status": "PARTIAL_RETRYABLE",
+        "score_status": "PENDING",
+        "report_status": "PRELIMINARY",
+        "consolidation_eligible": False,
+        "required_items": 4,
+        "successful_items": 3,
+        "pending_items": 1,
+        "blocked_items": 0,
+        "expired_items": 0,
+        "reprocess_count": 0,
+        "last_reprocess_id": None,
+        "completed_at": None,
+    }
+    monkeypatch.setattr(usability, "_safe_summary", lambda *_: summary)
+    monkeypatch.setattr(
+        navigation,
+        "_configuration_reuse_status",
+        lambda *_: (True, "snapshot canônico íntegro"),
+    )
+    monkeypatch.setattr(artifacts, "report_entrypoint", lambda *_: None)
+    monkeypatch.setattr("builtins.input", lambda *_: "V")
+
+    state = SimpleNamespace(audits_root=tmp_path, status="", operation="", error="")
+    console_module = SimpleNamespace(render_header=lambda *_: None)
+
+    assert usability._selected_audit_menu(console_module, state, audit_id) is False
+    rendered = capsys.readouterr().out
+
+    assert "1. Reprocessar somente pendências desta auditoria" in rendered
+    assert "Reprocessamento: não necessário" not in rendered
