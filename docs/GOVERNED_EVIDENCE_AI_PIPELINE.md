@@ -84,6 +84,8 @@ pode liberar uma tarefa que não exige sucesso desses serviços. A mesma situaç
 
 Uma falha opcional e não relacionada não deve provocar rerun ou bloqueio de uma tarefa independente.
 
+Para a análise profunda do CAT-08, `CORE_AUDIT` não é dependência de entrada. Ele é o agregador/finalizador do fulfillment e só pode fechar depois que os demais requisitos obrigatórios, inclusive `IMPROVEMENT_INTELLIGENCE`, forem resolvidos. O gate da análise profunda exige as coletas/evidências reais e `EVIDENCE_SEALED`, nunca o próprio agregador final, evitando dependência circular.
+
 ## Versão imutável de evidência
 
 `ai_evidence_versions` registra uma fotografia lógica da AUD antes da IA, incluindo:
