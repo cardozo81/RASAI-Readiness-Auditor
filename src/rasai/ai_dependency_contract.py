@@ -19,6 +19,7 @@ from rasai.ai_governance import collection_state_is_terminal
 from rasai.audit_fulfillment import DISABLED, NOT_APPLICABLE, list_work_items
 
 CONTRACT_VERSION = "AI-DEPENDENCY-002"
+DEEP_ANALYSIS_EXCLUDED_COMPONENTS = frozenset({"IMPROVEMENT_INTELLIGENCE", "CORE_AUDIT"})
 
 
 def _canonical(value: Any) -> str:
@@ -129,6 +130,23 @@ def record_dependency_snapshot(
     return snapshot_id
 
 
+def fulfillment_dependency_items(
+    workspace: Any,
+    audit_id: str,
+    *,
+    exclude_components: Iterable[str] = (),
+) -> tuple[Any, ...]:
+    """Return the canonical required work-items considered by a dependency gate."""
+    excluded = {str(value).upper() for value in exclude_components}
+    return tuple(
+        item
+        for item in list_work_items(workspace, audit_id)
+        if item.required
+        and str(item.component).upper() not in excluded
+        and item.status not in {DISABLED, NOT_APPLICABLE}
+    )
+
+
 def fulfillment_dependency_state(
     workspace: Any,
     audit_id: str,
@@ -142,15 +160,32 @@ def fulfillment_dependency_state(
     NO_DATA, BLOCKED or a recorded provider failure from masquerading as work still in
     progress forever.
     """
-
-    excluded = {str(value).upper() for value in exclude_components}
-    items = tuple(
-        item
-        for item in list_work_items(workspace, audit_id)
-        if item.required
-        and item.component not in excluded
-        and item.status not in {DISABLED, NOT_APPLICABLE}
+    items = fulfillment_dependency_items(
+        workspace,
+        audit_id,
+        exclude_components=exclude_components,
     )
+    expected = tuple(dict.fromkeys(item.component for item in items))
+    present = {item.component: item.status for item in items}
+    ready = all(collection_state_is_terminal(item.status) for item in items)
+    return expected, present, ready
+
+
+def deep_analysis_dependency_items(workspace: Any, audit_id: str) -> tuple[Any, ...]:
+    """Return the exact fulfillment universe required before Deep Analysis may run."""
+    return fulfillment_dependency_items(
+        workspace,
+        audit_id,
+        exclude_components=DEEP_ANALYSIS_EXCLUDED_COMPONENTS,
+    )
+
+
+def deep_analysis_fulfillment_dependency_state(
+    workspace: Any,
+    audit_id: str,
+) -> tuple[tuple[str, ...], dict[str, str], bool]:
+    """Shared initial/RPR fulfillment gate for Improvement Intelligence."""
+    items = deep_analysis_dependency_items(workspace, audit_id)
     expected = tuple(dict.fromkeys(item.component for item in items))
     present = {item.component: item.status for item in items}
     ready = all(collection_state_is_terminal(item.status) for item in items)
@@ -183,7 +218,11 @@ def latest_dependency_snapshot(
 
 __all__ = [
     "CONTRACT_VERSION",
+    "DEEP_ANALYSIS_EXCLUDED_COMPONENTS",
     "record_dependency_snapshot",
+    "fulfillment_dependency_items",
     "fulfillment_dependency_state",
+    "deep_analysis_dependency_items",
+    "deep_analysis_fulfillment_dependency_state",
     "latest_dependency_snapshot",
 ]
