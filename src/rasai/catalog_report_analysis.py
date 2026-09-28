@@ -578,6 +578,12 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
     finally:
         connection.close()
 
+    platform_by_ref={
+        str(item.get("platform_ref") or ""): item
+        for item in platforms
+        if str(item.get("platform_ref") or "")
+    }
+
     cookie_rows=[]; cookie_modals=[]
     grouped: dict[str,list[Mapping[str,Any]]]={}
     for row in cookies:
@@ -588,9 +594,33 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
         mechanisms=sorted({str(item.get("creation_mechanism") or "UNKNOWN") for item in items})
         setters=sorted({str(item.get("setter_script_url") or "") for item in items if item.get("setter_script_url")})
         platform_refs=sorted({str(item.get("platform_ref") or "") for item in items if item.get("platform_ref")})
+        platform_names=sorted({
+            str(platform_by_ref[ref].get("platform_name") or platform_by_ref[ref].get("platform_id") or ref)
+            for ref in platform_refs
+            if ref in platform_by_ref
+        })
+        parties=sorted({str(item.get("party") or "UNKNOWN").upper() for item in items})
+        if platform_names:
+            owner_label=" · ".join(platform_names)
+            owner_class="EXTERNAL_PROVIDER" if "THIRD_PARTY" in parties else "TARGET_SITE"
+            owner_basis="Plataforma vinculada ao setter/recurso observado"
+        elif "FIRST_PARTY" in parties:
+            owner_label=f"Site auditado · {first.get('effective_domain') or '-'}"
+            owner_class="TARGET_SITE"
+            owner_basis="Cookie first-party no domínio efetivo observado"
+        elif "THIRD_PARTY" in parties:
+            owner_label=f"Terceiro · {first.get('effective_domain') or '-'}"
+            owner_class="EXTERNAL_PROVIDER"
+            owner_basis="Cookie third-party no domínio efetivo observado"
+        else:
+            owner_label="Não determinado"
+            owner_class="INFORMATIONAL"
+            owner_basis="Evidência insuficiente para atribuir responsabilidade técnica"
         mid=f"cookie-runtime-{index}"
         cookie_rows.append((
             name,
+            cookie_ref,
+            owner_label,
             f"{first.get('effective_domain') or '-'} {first.get('effective_path') or '/'}",
             " · ".join(mechanisms),
             first.get("purpose") or "UNKNOWN",
@@ -600,8 +630,12 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
             _modal_button(mid,"Ver atribuição"),
         ))
         body=_kv((
-            ("Cookie",name),
-            ("Referência RASAi",cookie_ref),
+            ("Nome do cookie",name),
+            ("ID RASAi",cookie_ref),
+            ("Proprietário / responsável técnico",owner_label),
+            ("Classe de responsabilidade",owner_class),
+            ("Base da atribuição",owner_basis),
+            ("Origem", " · ".join(_security_party_label(value) for value in parties)),
             ("Domínio efetivo",first.get("effective_domain") or "-"),
             ("Path efetivo",first.get("effective_path") or "/"),
             ("Host-only","Sim" if first.get("host_only") else "Não"),
@@ -610,7 +644,7 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
             ("Confiança da finalidade",_confidence_label(first.get("purpose_confidence"))),
             ("Confiança da atribuição",_confidence_label(first.get("attribution_confidence"))),
             ("Script setter"," · ".join(setters) or "Servidor / não atribuído a script"),
-            ("Plataforma vinculada"," · ".join(platform_refs) or "Não determinada"),
+            ("Plataforma vinculada"," · ".join(platform_names) or "Não determinada"),
         ))
         details=[_safe_json(item.get("details_json"),{}) for item in items]
         body+="<h3>Ocorrências</h3>"+_table(
@@ -622,7 +656,7 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
                 (detail.get("consent_state_at_creation") if isinstance(detail,Mapping) else None) or "Não observado",
             ) for item,detail in zip(items,details)],
         )
-        body+="<div class='notice'>Finalidade é classificação técnica/heurística; não representa conclusão jurídica de consentimento ou LGPD. Valores de cookies não são persistidos nesta camada.</div>"
+        body+="<div class='notice'>Proprietário / responsável técnico representa atribuição operacional baseada em domínio, party, setter e plataforma observados; não é declaração de titularidade jurídica. Finalidade é classificação técnica/heurística e não representa conclusão jurídica de consentimento ou LGPD. Valores de cookies não são persistidos nesta camada.</div>"
         cookie_modals.append(_modal(mid,name,"Cookie · provenance e escopo",body))
 
     script_rows=[]; script_modals=[]
@@ -705,7 +739,7 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
 
     return (
         "<div class='subsection'><h3>Cookies observados e atribuição</h3>"
-        +_table(("Cookie","Escopo","Criação","Finalidade provável","Conf. finalidade","Conf. atribuição","Ocorrências","Detalhe"),cookie_rows,empty="Nenhuma atribuição adicional de cookie foi persistida nesta AUD.",sortable=bool(cookie_rows),page_size=10 if len(cookie_rows)>10 else None)
+        +_table(("Cookie","ID RASAi","Proprietário / responsável técnico","Escopo","Criação","Finalidade provável","Conf. finalidade","Conf. atribuição","Ocorrências","Detalhe"),cookie_rows,empty="Nenhuma atribuição adicional de cookie foi persistida nesta AUD.",sortable=bool(cookie_rows),page_size=10 if len(cookie_rows)>10 else None)
         +"".join(cookie_modals)+"</div>"
         +"<div class='subsection'><h3>JavaScript · integridade, comportamento e custo observado</h3>"
         +_table(("Script","Origem","Transferência","Análise","Sinais","Plataforma","Detalhe"),script_rows,empty="Nenhum JavaScript com telemetria granular foi materializado pelo CAT-10.",sortable=bool(script_rows),page_size=10 if len(script_rows)>10 else None)
