@@ -327,6 +327,104 @@ def _select_reprocess_items(state: Any, pending: tuple[Any, ...]) -> tuple[Any, 
         return tuple(item for index, item in enumerate(pending, start=1) if index in indexes)
 
 
+def _mode_scope_preview(
+    state: Any,
+    audit_id: str,
+    selected: tuple[Any, ...],
+    *,
+    use_ai: bool,
+) -> dict[str, Any]:
+    """Project the effective RPR scope without executing collectors or providers."""
+    empty = {
+        "effective": (),
+        "automatic": (),
+        "ai_waiting": (),
+        "required_ai_pending": (),
+    }
+    if not audit_id or not selected or not getattr(state, "audits_root", None):
+        return empty
+    try:
+        from rasai.audit_fulfillment import list_work_items
+        from rasai.persistence import AuditWorkspace
+        from rasai.reprocess_policy import (
+            blocking_dependencies,
+            expand_selected_items,
+            is_ai_component,
+            item_key,
+        )
+
+        workspace = AuditWorkspace.open(Path(state.audits_root) / audit_id)
+        pending = tuple(
+            item
+            for item in list_work_items(workspace, audit_id, pending_only=True)
+            if bool(getattr(item, "required", True))
+        )
+        raw_keys = tuple(
+            item_key(item.component, item.scope_key)
+            for item in selected
+        )
+        raw_key_set = set(raw_keys)
+        raw_components = {
+            str(getattr(item, "component", "") or "").strip().upper()
+            for item in selected
+        }
+        effective_keys = expand_selected_items(
+            workspace,
+            audit_id,
+            raw_keys,
+            use_ai=use_ai,
+        ) or frozenset(raw_keys)
+
+        def included(item: Any) -> bool:
+            component = str(getattr(item, "component", "") or "").strip().upper()
+            key = item_key(component, getattr(item, "scope_key", "AUDIT"))
+            if is_ai_component(component) and use_ai is False:
+                return False
+            return key in effective_keys or component in effective_keys
+
+        effective = tuple(item for item in pending if included(item))
+        automatic = tuple(
+            f"{item.component}/{item.scope_key}"
+            for item in effective
+            if item_key(item.component, item.scope_key) not in raw_key_set
+            and str(item.component).upper() not in raw_components
+        )
+        required_ai_pending = tuple(
+            f"{item.component}/{item.scope_key}"
+            for item in pending
+            if is_ai_component(str(item.component))
+        )
+
+        waiting: list[str] = []
+        if use_ai:
+            for item in pending:
+                component = str(getattr(item, "component", "") or "").strip().upper()
+                key = item_key(component, getattr(item, "scope_key", "AUDIT"))
+                if not is_ai_component(component):
+                    continue
+                if key not in raw_key_set and component not in raw_components:
+                    continue
+                blockers = blocking_dependencies(workspace, item)
+                if blockers:
+                    waiting.append(
+                        f"{item.component}/{item.scope_key} <- " + ", ".join(blockers)
+                    )
+
+        return {
+            "effective": tuple(
+                f"{item.component}/{item.scope_key}"
+                for item in effective
+            ),
+            "automatic": automatic,
+            "ai_waiting": tuple(waiting),
+            "required_ai_pending": required_ai_pending,
+        }
+    except Exception:
+        # This is an explanatory projection. Canonical execution still validates the
+        # same dependencies and must remain available even if the preview cannot open.
+        return empty
+
+
 def _choose_reprocess_ai(state: Any) -> bool | None:
     """Choose the RPR mode; this choice is the final non-destructive authorization."""
     from rasai.console_ui import clear_screen
@@ -360,6 +458,18 @@ def _choose_reprocess_ai(state: Any) -> bool | None:
             in {"IMPROVEMENT_INTELLIGENCE", "SEMANTIC_AI", "TECHNICAL_AI", "CONTENT_REMEDIATION_AI"}
         )
         print(f"Itens selecionados com IA: {ai_selected}")
+        with_ai = _mode_scope_preview(
+            state,
+            audit_id,
+            tuple(selected),
+            use_ai=True,
+        )
+        without_ai = _mode_scope_preview(
+            state,
+            audit_id,
+            tuple(selected),
+            use_ai=False,
+        )
         if ai_selected == 0:
             print(
                 "INFO                 : "
@@ -368,6 +478,53 @@ def _choose_reprocess_ai(state: Any) -> bool | None:
                     "obrigatórios dos itens escolhidos poderão ser incluídos automaticamente."
                 )
             )
+        else:
+            print("\n" + title_text("CADEIA DE EXECUÇÃO E CONCLUSÃO"))
+            print("-" * 100)
+            automatic = tuple(with_ai.get("automatic") or ())
+            waiting = tuple(with_ai.get("ai_waiting") or ())
+            if automatic:
+                print("Pré-requisitos automáticos:")
+                for label in automatic:
+                    print(f"  - {label}")
+            else:
+                print("Pré-requisitos automáticos: nenhum requisito adicional pendente")
+            if waiting:
+                print("IA aguardando dados:")
+                for label in waiting:
+                    print(f"  - {label}")
+            print(
+                "Ordem prevista       : 1. recuperar/validar dados -> 2. confirmar pré-requisitos -> "
+                "3. chamar IA se apta -> 4. recalcular derivações e tentar fechar a AUD"
+            )
+            if waiting or automatic:
+                print(
+                    "Chamada de IA        : "
+                    + warning_text(
+                        "CONDICIONAL AOS PRÉ-REQUISITOS; se eles não concluírem, chamadas IA = 0 e custo IA = 0"
+                    )
+                )
+            else:
+                print("Chamada de IA        : autorizada somente após validação dos pré-requisitos persistidos")
+
+            remaining_ai = tuple(without_ai.get("required_ai_pending") or ())
+            print("\nModo sem IA:")
+            print("  - chamadas/tokens/custo de IA nesta tentativa: 0")
+            non_ai_effective = tuple(without_ai.get("effective") or ())
+            if non_ai_effective:
+                print("  - dados/pré-requisitos não-IA que podem ser recuperados:")
+                for label in non_ai_effective:
+                    print(f"    - {label}")
+            else:
+                print("  - nenhum item não-IA pendente foi identificado no escopo efetivo")
+            if remaining_ai:
+                print(
+                    "  - "
+                    + warning_text(
+                        f"a AUD continuará parcial enquanto {len(remaining_ai)} requisito(s) obrigatório(s) de IA permanecer(em) pendente(s)"
+                    )
+                )
+                print("  - escolher Sem IA não altera a configuração/provenance original da AUD")
 
         # Recalculate the forecast for exactly the selected scope. This is read-only and
         # does not start the RPR or call a provider.

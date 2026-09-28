@@ -133,7 +133,15 @@ def test_improvement_dependency_closure_respects_ai_authorization(tmp_path: Path
         [item_key("IMPROVEMENT_INTELLIGENCE", "AUDIT")],
         use_ai=False,
     )
-    assert disabled == frozenset({item_key("IMPROVEMENT_INTELLIGENCE", "AUDIT")})
+    assert disabled is not None
+    assert item_key("IMPROVEMENT_INTELLIGENCE", "AUDIT") in disabled
+    for dependency in (
+        "DISCOVERY_ACQUISITION",
+        "HTTP_ACQUISITION",
+        "RENDER_CAPTURE",
+        "CONTENT_EXTRACTION",
+    ):
+        assert dependency in disabled
 
     enabled = expand_selected_items(
         workspace,

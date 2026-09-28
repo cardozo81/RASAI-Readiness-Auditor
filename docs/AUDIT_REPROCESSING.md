@@ -405,6 +405,25 @@ Se, depois da tentativa de recuperação do pré-requisito, Web Performance ou S
 
 No console, a preparação distingue a quantidade escolhida pelo operador, os pré-requisitos adicionados automaticamente e o escopo efetivo da tentativa. A linha de comando materializada pelo console registra esse escopo efetivo para que a reprodução por CLI preserve a mesma política.
 
+### Modo com IA e modo sem IA
+
+A autorização de IA pertence à **tentativa de RPR**, não redefine o contrato original da AUD.
+
+- **Com IA**: um requisito de IA selecionado fecha automaticamente seu conjunto mínimo de pré-requisitos não resolvidos. O motor executa primeiro dados/coletas, valida o resultado persistido e só então autoriza o provider. Se um pré-requisito permanecer pendente, bloqueado ou expirado, a IA fica em `WAITING_FOR_DATA`; não há chamada, tokens ou custo de provider.
+- **Sem IA**: o motor pode recuperar os pré-requisitos **não-IA** de um requisito de IA explicitamente selecionado, mas não executa a finalidade de IA. O requisito de IA permanece pendente no contrato original. Se ele for obrigatório, `CORE_AUDIT` não fecha, score/relatório permanecem não finais e a AUD continua fora da consolidação até uma tentativa posterior resolver a IA.
+- Se a IA já havia concluído antes de uma interrupção e seu dependency fingerprint continua válido, o resultado é preservado; um RPR sem IA pode então concluir outros déficits sem repetir provider/custo.
+- Interromper o próprio RPR não reinicia a AUD: cada nova tentativa recebe outro `RPR-*`, preserva os `SUCCESS` já materializados e trabalha somente sobre o déficit persistido.
+
+A ordem causal de uma tentativa que inclui IA é:
+
+1. recuperar e validar os dados necessários;
+2. confirmar os pré-requisitos persistidos;
+3. chamar IA somente se a finalidade estiver elegível;
+4. recalcular derivações replay-safe;
+5. tentar fechar `CORE_AUDIT` e projetar o relatório final.
+
+Quando existirem pré-requisitos pendentes, a previsão de custo de IA é apresentada como **condicional aos pré-requisitos**. O valor histórico/de catálogo continua sendo apenas uma estimativa para o caso em que a chamada efetivamente ocorra; se a IA não for chamada, o consumo efetivo de provider é zero.
+
 ## Dependências de IA
 
 Nenhuma IA é chamada antes de existirem os dados mínimos persistidos necessários para a análise solicitada. Quando conteúdo, evidência ou contexto obrigatório ainda não está disponível, o requisito permanece aguardando dados e a chamada externa não é realizada.
