@@ -176,6 +176,17 @@ def _deterministic_discovery_is_informational(row: Mapping[str, Any]) -> bool:
     )
 
 
+def _deterministic_target_class(row: Mapping[str, Any]) -> str | None:
+    details = _load(row.get("details_json"), {})
+    if not isinstance(details, Mapping):
+        return None
+    target = details.get("target")
+    if not isinstance(target, Mapping):
+        return None
+    candidate = str(target.get("owner_class") or "").strip().upper()
+    return candidate if candidate in TARGET_CLASSES else None
+
+
 def classify_candidate(source_kind: str, row: Mapping[str, Any]) -> tuple[str, str, str | None, str | None, str]:
     """Return target_class, decision, rejection_reason, conflict_group and rationale."""
     source = str(source_kind).upper()
@@ -191,6 +202,14 @@ def classify_candidate(source_kind: str, row: Mapping[str, Any]) -> tuple[str, s
         decision, reason, conflict = _jsonld_decision(row)
         rationale = "A sugestão é compatível com a presença/ausência de JSON-LD observada." if decision == ACCEPTED else "A sugestão pressupõe estado de JSON-LD incompatível com a evidência persistida."
         return TARGET_SITE, decision, reason, conflict, rationale
+    if source == "DEEP_ANALYSIS":
+        target = _deterministic_target_class(row)
+        if target == AUDITOR_INTERNAL:
+            return target, REJECTED, "AUDITOR_INTERNAL_NOT_CLIENT_ACTION", "TARGET_SCOPE", "O finding de origem classifica deterministicamente o alvo como interno ao auditor."
+        if target == INFORMATIONAL:
+            return target, REJECTED, "UNKNOWN_OWNERSHIP_INFORMATIONAL_ONLY", "TARGET_SCOPE", "O finding de origem não sustenta ownership operacional suficiente para promover a recomendação ao plano."
+        if target in {TARGET_SITE, EXTERNAL_PROVIDER, ENVIRONMENTAL}:
+            return target, ACCEPTED, None, None, "Ownership reutilizado do target determinístico persistido no finding de origem; a governança não o reinfere por texto."
     if source == "M24_DISCOVERY":
         return INFORMATIONAL, ACCEPTED, None, None, "Orientação técnica contextual; requer decisão humana antes de implementação."
     if source == "DETERMINISTIC" and _deterministic_discovery_is_informational(row):
@@ -290,8 +309,29 @@ def collect_candidates(connection: sqlite3.Connection, audit_id: str) -> list[di
     for row in _rows(connection, "jsonld_remediation_suggestions", audit_id):
         candidates.append(_candidate("JSONLD", row.get("suggestion_id"), "Dados estruturados / JSON-LD", row, source_catalog="CAT-03", evidence=_evidence_values(row)))
 
+    deep_findings = {
+        str(row.get("finding_id")): row
+        for row in _rows(connection, "improvement_intelligence_findings", audit_id)
+    }
     for row in _rows(connection, "improvement_intelligence_recommendations", audit_id):
-        candidates.append(_candidate("DEEP_ANALYSIS", row.get("recommendation_id"), row.get("title"), row, source_catalog="CAT-08", evidence=_evidence_values(row)))
+        finding = deep_findings.get(str(row.get("finding_id") or ""), {})
+        merged = dict(row)
+        if finding.get("details_json") is not None:
+            merged["details_json"] = finding.get("details_json")
+        evidence = list(_evidence_values(row))
+        for item in _evidence_values(finding):
+            if item not in evidence:
+                evidence.append(item)
+        candidates.append(
+            _candidate(
+                "DEEP_ANALYSIS",
+                row.get("recommendation_id"),
+                row.get("title"),
+                merged,
+                source_catalog="CAT-08",
+                evidence=evidence,
+            )
+        )
 
     request_groups = {str(row.get("group_id")): row for row in _rows(connection, "request_remediation_groups", audit_id)}
     request_ai = {str(row.get("group_id")): row for row in _rows(connection, "request_remediation_ai", audit_id)}
