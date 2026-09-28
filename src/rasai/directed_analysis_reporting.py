@@ -474,24 +474,35 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         priority={"CRITICAL":4,"HIGH":3,"MEDIUM":2,"LOW":1}.get(_norm(action.get("priority")),0)
         return (dim_count,gain+effort,priority,str(action.get("action_id") or ""))
 
-    top=sorted(actions,key=transversal_score,reverse=True)[:8]
+    grouped_actions=_group_actions_by_title(actions)
+    top_groups=sorted(
+        grouped_actions,
+        key=lambda group:max(transversal_score(action) for action in group),
+        reverse=True,
+    )[:8]
     trans_rows=[]
-    for action in top:
-        dims=_json(action.get("affected_dimensions_json"),[])
-        labels=", ".join(
-            f"{_dimension_label(v.get('dimension'))} ({_gain_label(v.get('expected_gain'))})"
-            for v in dims if isinstance(v,Mapping)
-        )
+    for group in top_groups:
+        representative=group[0]
         trans_rows.append((
-            action.get("title") or "-",
-            _level_label(action.get("effort")) if action.get("effort") else "Não consolidado",
-            _confidence_label(action.get("confidence")) if action.get("confidence") else "Não consolidada",
-            _level_label(action.get("priority")) if action.get("priority") else "Não consolidada",
-            labels or "-",
+            representative.get("title") or "-",
+            _target_summary(group,target_by_id,limit=3),
+            _common_field_label(group,"effort",_level_label,"Não consolidado"),
+            _common_field_label(group,"confidence",_confidence_label,"Não consolidada"),
+            _common_field_label(group,"priority",_level_label,"Não consolidada"),
+            _merged_dimension_labels(group),
         ))
+    interpretation=(
+        "<div class='notice'><strong>Como interpretar ações repetidas:</strong> "
+        "títulos iguais podem representar ocorrências técnicas diferentes. As visões executivas agrupam o mesmo tema e mostram a quantidade/alvos; "
+        "em <strong>Ações estratégicas</strong>, cada ocorrência permanece individual. O mesmo Set-Cookie pode aparecer em mais de um tema quando diferentes atributos precisam de correção.</div>"
+    )
     body+=_section(
         "transversal","O que corrigir para obter maior ganho transversal",
-        _table(("Ação","Esforço","Confiança","Prioridade","Dimensões / ganho"),trans_rows,empty="Não há ações suficientes para uma visão transversal."),
+        interpretation+_table(
+            ("Ação","Ocorrências / alvos","Esforço","Confiança","Prioridade","Dimensões / ganho"),
+            trans_rows,
+            empty="Não há ações suficientes para uma visão transversal.",
+        ),
     )
 
     roadmap_html=""
@@ -500,8 +511,19 @@ def directed_analysis_body(database: Any, data: Any) -> str:
             if not isinstance(phase,Mapping):
                 continue
             ids=[str(v) for v in phase.get("action_ids",[]) if str(v) in by_id]
-            rows=[(by_id[action_id].get("title") or "-",) for action_id in ids]
-            roadmap_html+="<div class='card'><h3>"+escape(str(phase.get("phase") or "Fase"))+"</h3><p>"+escape(str(phase.get("objective") or ""))+"</p>"+_table(("Ação",),rows,empty="Nenhuma ação vinculada.")+"</div>"
+            phase_actions=[by_id[action_id] for action_id in ids]
+            rows=[]
+            for group in _group_actions_by_title(phase_actions):
+                rows.append((
+                    group[0].get("title") or "-",
+                    _target_summary(group,target_by_id,limit=2),
+                ))
+            roadmap_html+=(
+                "<div class='card'><h3>"+escape(str(phase.get("phase") or "Fase"))+"</h3><p>"
+                +escape(str(phase.get("objective") or ""))+"</p>"
+                +_table(("Ação","Ocorrências / alvos"),rows,empty="Nenhuma ação vinculada.")
+                +"</div>"
+            )
     if not roadmap_html:
         roadmap_html="<div class='notice'>Ordem estratégica não materializada. O relatório não fabrica uma sequência quando a IA estratégica não produziu uma resposta válida.</div>"
     body+=_section("roadmap","Plano geral de ação","<div class='grid'>"+roadmap_html+"</div>" if roadmap_html.startswith("<div class='card'>") else roadmap_html)
@@ -520,20 +542,26 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         for action,impact in items:
             rows.append((
                 action.get("title") or "-",
+                _action_target_label(action,target_by_id),
                 _gain_label(impact.get("expected_gain")),
                 _level_label(action.get("priority")) if action.get("priority") else "Não consolidada",
                 _level_label(action.get("effort")) if action.get("effort") else "Não consolidado",
                 _confidence_label(action.get("confidence")) if action.get("confidence") else "Não consolidada",
             ))
-        objective_blocks.append("<details><summary>"+escape(_dimension_label(key))+"</summary><div class='detail-body'>"+_table(("Ação","Ganho","Prioridade","Esforço","Confiança"),rows)+"</div></details>")
+        objective_blocks.append(
+            "<details><summary>"+escape(_dimension_label(key))+"</summary><div class='detail-body'>"
+            +_table(("Ação","Alvo / ocorrência","Ganho","Prioridade","Esforço","Confiança"),rows)
+            +"</div></details>"
+        )
     body+=_section("objectives","Visões por objetivo","".join(objective_blocks) or "<div class='notice'>Nenhuma dimensão estratégica foi materializada.</div>")
 
     action_rows=[];modals=[]
     for action in actions:
-        modal_id,modal=_action_modal(action,by_id)
+        modal_id,modal=_action_modal(action,by_id,target_by_id)
         dimensions_list=_json(action.get("affected_dimensions_json"),[])
         action_rows.append((
             action.get("title") or "-",
+            _action_target_label(action,target_by_id),
             _level_label(action.get("priority")) if action.get("priority") else "Não consolidada",
             _level_label(action.get("effort")) if action.get("effort") else "Não consolidado",
             _confidence_label(action.get("confidence")) if action.get("confidence") else "Não consolidada",
@@ -543,13 +571,21 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         modals.append(modal)
     body+=_section(
         "actions","Ações estratégicas",
-        _table(("Ação","Prioridade","Esforço","Confiança","Dimensões","Detalhe"),action_rows,empty="Nenhuma ação foi materializada.",sortable=bool(action_rows),page_size=10 if len(action_rows)>10 else None)+"".join(modals),
+        "<p class='section-lead'>Cada linha corresponde a uma ação persistida. Quando o título se repete, use <strong>Alvo / ocorrência</strong> para identificar exatamente qual cookie, recurso ou registro deve ser tratado.</p>"
+        +_table(
+            ("Ação","Alvo / ocorrência","Prioridade","Esforço","Confiança","Dimensões","Detalhe"),
+            action_rows,
+            empty="Nenhuma ação foi materializada.",
+            sortable=bool(action_rows),
+            page_size=10 if len(action_rows)>10 else None,
+        )+"".join(modals),
     )
 
     trace_rows=[]
     for action in actions:
         trace_rows.append((
             action.get("title") or "-",
+            _action_target_label(action,target_by_id),
             _links(action.get("source_refs_json"),label_prefix="Origem"),
             _links(action.get("evidence_refs_json"),label_prefix="Evidência"),
             _links(action.get("remediation_refs_json"),label_prefix="Correção"),
@@ -557,7 +593,7 @@ def directed_analysis_body(database: Any, data: Any) -> str:
     body+=_section(
         "traceability","Rastreabilidade CAT → seção → assunto",
         "<p class='section-lead'>Cada ação usa somente referências criadas e validadas pelo sistema. Alterações de título/idioma não são usadas para compor o destino do link.</p>"
-        +_table(("Ação","Origem","Evidência","Correção técnica"),trace_rows,empty="Nenhuma cadeia de rastreabilidade materializada."),
+        +_table(("Ação","Alvo / ocorrência","Origem","Evidência","Correção técnica"),trace_rows,empty="Nenhuma cadeia de rastreabilidade materializada."),
     )
 
     limitation_rows=[]
