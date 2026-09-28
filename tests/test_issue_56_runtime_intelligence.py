@@ -5,7 +5,7 @@ import sqlite3
 from types import SimpleNamespace
 
 from rasai.device_context_capture import _cookie_runtime_metadata, _script_runtime_metadata
-from rasai.catalog_report_analysis import _runtime_security_inventory_html
+from rasai.catalog_report_analysis import _runtime_security_inventory_html, _technical_target_label
 from rasai.passive_security import (
     _analyze_headers,
     _cookie_attributes,
@@ -187,6 +187,27 @@ def test_cat10_cookie_inventory_exposes_name_id_and_technical_owner(tmp_path):
     assert "Proprietário / responsável técnico" in html
     assert "Site auditado · example.test" in html
     assert "VERY_SECRET_VALUE" not in html
+
+
+def test_cookie_target_label_is_preserved_for_cat08_cat09_projection():
+    finding = {
+        "details_json": json.dumps({
+            "target": {
+                "kind": "COOKIE",
+                "ref": "CK-ABC123",
+                "label": "SessionId",
+                "owner_label": "Site auditado · example.test",
+                "scope": "example.test /app",
+                "occurrence": "Set-Cookie #1",
+            }
+        })
+    }
+    label = _technical_target_label(finding)
+    assert "SessionId" in label
+    assert "ID CK-ABC123" in label
+    assert "Responsável: Site auditado · example.test" in label
+    assert "example.test /app" in label
+    assert "Set-Cookie #1" in label
 
 
 def test_script_runtime_uses_buffered_body_without_persisting_source():
