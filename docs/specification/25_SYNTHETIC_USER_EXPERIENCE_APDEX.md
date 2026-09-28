@@ -45,8 +45,11 @@ Os dois domínios possuem persistência, população, thresholds e relatórios i
 | `RASAI_APDEX_EXPERIENCE_KPM` | `USER_ACTION_DURATION` | KPM temporal suportada | fallback executável compatível com referência Dynatrace |
 | `RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS` | `3.0` | número finito `> 0` | referência/fallback Load Action |
 | `RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS` | `12.0` | número finito `> satisfied` | referência/fallback Load Action |
-| `RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT` | `true` | booleano | RASAi |
-| `RASAI_APDEX_EXPERIENCE_ERROR_SCOPE` | `first-party` | `navigation`, `first-party`, `all` | política RASAi; sem enum Dynatrace 1:1 |
+| `RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT` | `true` | booleano | default Dynatrace: erros elegíveis participam do Apdex |
+| `RASAI_APDEX_EXPERIENCE_JAVASCRIPT_ERRORS_AFFECT` | `true` | booleano | default Dynatrace |
+| `RASAI_APDEX_EXPERIENCE_REQUEST_ERRORS_AFFECT` | `true` | booleano | default Dynatrace |
+| `RASAI_APDEX_EXPERIENCE_CONSOLE_ERRORS_AFFECT` | `false` | booleano | default RUM sem captura `console.error`; `cce=1` pode habilitar |
+| `RASAI_APDEX_EXPERIENCE_ERROR_SCOPE` | `all` | `navigation`, `first-party`, `all` | `all` aproxima cobertura default; enum é política RASAi |
 | `RASAI_APDEX_EXPERIENCE_SAMPLES` | `100` | inteiro `>= 1` | RASAi |
 | `RASAI_APDEX_EXPERIENCE_MAX_ATTEMPTS` | `ceil(1.25 × samples)` | inteiro `>= samples` | RASAi |
 | `RASAI_APDEX_EXPERIENCE_MAX_PAGES` | normalmente `1` | inteiro `>= 0`; `0=todas` | RASAi |
@@ -164,11 +167,19 @@ Valores importados em milissegundos são convertidos explicitamente para segundo
 
 `errors_affect_apdex=true` permite que uma ação rápida seja `FRUSTRATED` quando existe erro qualificável.
 
-Escopos:
+Política efetiva:
 
-- `navigation`: somente falha do documento/navegação qualifica por política;
-- `first-party`: JavaScript runtime errors e `console.error` são globais; request/HTTP errors qualificam apenas no host da aplicação;
-- `all`: JavaScript runtime errors e `console.error` continuam globais; request/HTTP errors de terceiros também podem qualificar.
+- `errors_affect_apdex=true` é a chave mestra;
+- JavaScript runtime errors afetam Apdex por default, em alinhamento ao Dynatrace;
+- request/HTTP/CSP errors afetam Apdex por default;
+- `console.error` é coletado, mas não afeta Apdex por default; pode ser habilitado explicitamente ou por importação equivalente a `cce=1`;
+- `error_scope` limita apenas request/HTTP/CSP errors.
+
+Escopos de request error:
+
+- `navigation`: somente falha do documento/navegação principal;
+- `first-party`: apenas recursos próprios;
+- `all`: recursos próprios e terceiros.
 
 Regras mínimas:
 

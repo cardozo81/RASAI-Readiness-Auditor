@@ -14,7 +14,7 @@ from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 
 
-_MAX_DETAILS_PER_SAMPLE = 100
+_DEFAULT_MAX_DETAILS_PER_SAMPLE = 10
 _CAPTURE = threading.local()
 _LOCK = threading.Lock()
 _BY_MEASUREMENT: dict[int, tuple[dict[str, Any], ...]] = {}
@@ -45,8 +45,9 @@ def _is_first_party(candidate: str | None, target_host: str) -> bool | None:
     return bool(host and target_host and host == target_host)
 
 
-def _begin_capture(target_url: str) -> None:
+def _begin_capture(target_url: str, *, limit: int = _DEFAULT_MAX_DETAILS_PER_SAMPLE) -> None:
     _CAPTURE.target_host = _host(urlsplit(target_url).hostname)
+    _CAPTURE.limit = max(0, min(int(limit), 50))
     _CAPTURE.details = []
 
 
@@ -59,7 +60,8 @@ def _append_detail(
     message: str | None = None,
 ) -> None:
     details = getattr(_CAPTURE, "details", None)
-    if not isinstance(details, list) or len(details) >= _MAX_DETAILS_PER_SAMPLE:
+    limit = int(getattr(_CAPTURE, "limit", _DEFAULT_MAX_DETAILS_PER_SAMPLE) or 0)
+    if not isinstance(details, list) or len(details) >= limit:
         return
     target_host = str(getattr(_CAPTURE, "target_host", "") or "")
     details.append(
@@ -76,7 +78,7 @@ def _append_detail(
 
 def _finish_capture() -> tuple[dict[str, Any], ...]:
     details = tuple(dict(item) for item in getattr(_CAPTURE, "details", []) if isinstance(item, Mapping))
-    for name in ("details", "target_host"):
+    for name in ("details", "target_host", "limit"):
         try:
             delattr(_CAPTURE, name)
         except AttributeError:
@@ -175,7 +177,7 @@ def _patch_m25_capture() -> None:
     current_measure = m25.PlaywrightSyntheticUxGateway.measure
     if not getattr(current_measure, "_rasai_error_evidence", False):
         def measure(self: Any, *, url: str, device: str, profile: Any, timeout_seconds: float, settle_seconds: float):
-            _begin_capture(url)
+            _begin_capture(url, limit=int(getattr(self, "max_error_details", _DEFAULT_MAX_DETAILS_PER_SAMPLE) or 0))
             try:
                 result = current_measure(
                     self,
@@ -185,6 +187,18 @@ def _patch_m25_capture() -> None:
                     timeout_seconds=timeout_seconds,
                     settle_seconds=settle_seconds,
                 )
+                for violation in getattr(result, "csp_violation_details", ()) or ():
+                    if not isinstance(violation, Mapping):
+                        continue
+                    directive = violation.get("effectiveDirective") or violation.get("violatedDirective")
+                    disposition = violation.get("disposition")
+                    message = " · ".join(str(value) for value in (directive, disposition) if value)
+                    _append_detail(
+                        "CSP_VIOLATION",
+                        source_url=str(violation.get("blockedURI") or ""),
+                        resource_type="csp",
+                        message=message or None,
+                    )
             finally:
                 details = _finish_capture()
             with _LOCK:
@@ -315,6 +329,7 @@ def _error_details_html(database: Any, audit_id: str) -> str:
         "HTTP_ERROR": "Resposta HTTP com erro",
         "CONSOLE_ERROR": "Erro de console",
         "JAVASCRIPT_ERROR": "Erro JavaScript",
+        "CSP_VIOLATION": "Violação de Política de Segurança de Conteúdo (CSP)",
     }
     for row in rows:
         first_party = "Sim" if row.get("first_party") == 1 else "Não" if row.get("first_party") == 0 else "Indeterminado"

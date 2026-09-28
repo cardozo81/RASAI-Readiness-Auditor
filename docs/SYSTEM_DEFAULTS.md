@@ -66,8 +66,18 @@ Na ausência de configuração projetada pela interface, override explícito ou 
 - Satisfied: `3 s`;
 - Frustrated: `12 s`;
 - erros qualificáveis afetam Apdex: `true`;
-- escopo de erro: `first-party`;
+- erros JavaScript afetam Apdex: `true` - default Dynatrace;
+- erros de requisição/HTTP/CSP afetam Apdex: `true` - default Dynatrace;
+- `console.error` afeta Apdex: `false` - default RUM sem captura explícita equivalente a `cce=1`;
+- captura de erros JavaScript: `true`;
+- captura de XMLHttpRequest: `true`;
+- captura de Fetch: `true`;
+- captura de `console.error`: `false`;
+- máximo de erros detalhados: `10` (faixa `0..50`);
+- escopo de erros de requisição: `all`;
 - concorrência: `1`.
+
+Os demais parâmetros operacionais - amostras, tentativas, páginas, device mix, sessão, settle, delay, concorrência, timeout e perfis sintéticos - são defaults de segurança/reprodutibilidade do RASAi e não devem ser apresentados como defaults Dynatrace.
 
 O mix `60/35/5` pertence ao contrato técnico do runtime/CLI e continua disponível quando nenhuma camada de maior precedência o substitui.
 

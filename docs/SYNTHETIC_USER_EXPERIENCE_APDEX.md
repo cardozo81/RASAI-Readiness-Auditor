@@ -23,8 +23,16 @@ Quando `--apdex-experience` é habilitado e o usuário não fornece calibração
 | KPM | `USER_ACTION_DURATION` | KPM temporal suportada pelo runtime | default quando não houver importação | fallback executável compatível com a regra pública Dynatrace; não é a KPM primária do fornecedor |
 | Satisfied | `3.0 s` | número `> 0` | `3.0 s` no baseline compatível | referência/fallback Load Action |
 | Frustrated | `12.0 s` | número `> Satisfied` | `12.0 s` no baseline compatível | referência/fallback Load Action |
-| erros afetam Apdex | `true` | booleano | `true`, salvo política deliberadamente diferente | alinhamento semântico; Dynatrace pode possuir regras mais granulares |
-| escopo de erro | `first-party` | `navigation`, `first-party`, `all` | `first-party` | escopo RASAi para request/HTTP errors; JavaScript runtime errors e `console.error` observados são globais quando a política de erros está ativa |
+| erros afetam Apdex | `true` | booleano | `true` | default Dynatrace: erros elegíveis podem tornar a ação Frustrated |
+| erros JavaScript afetam Apdex | `true` | booleano | `true` | default Dynatrace; exceções JavaScript são erros da ação, salvo exclusão |
+| erros de requisição afetam Apdex | `true` | booleano | `true` | default Dynatrace; inclui request failures, HTTP 4xx/5xx e CSP quando capturados |
+| erros de console afetam Apdex | `false` | booleano | `false` | Dynatrace não captura genericamente `console.error` por padrão; habilitar quando a aplicação usa política equivalente a `cce=1` |
+| captura de erros JavaScript | `true` | booleano | `true` | default Dynatrace WebApplicationConfig |
+| captura de XMLHttpRequest | `true` | booleano | `true` | default Dynatrace WebApplicationConfig |
+| captura de Fetch | `true` | booleano | `true` | default Dynatrace WebApplicationConfig |
+| captura de `console.error` | `false` | booleano | `false` | default Dynatrace; `cce=1` é opt-in |
+| máximo de erros detalhados | `10` | inteiro `0..50` | `10` | referência Dynatrace `maxErrorsToCapture=10`; limita evidência detalhada por amostra/página carregada, sem truncar contadores agregados |
+| escopo de erro de requisição | `all` | `navigation`, `first-party`, `all` | `all` | `all` aproxima a cobertura default Dynatrace; os demais escopos são políticas RASAi deliberadas |
 | amostras por página | `100` | inteiro `>= 1` | `100`; reduzir somente em smoke controlado | política operacional RASAi |
 | máximo de tentativas | `ceil(1.25 × samples)` | inteiro `>= 1` | default derivado | política operacional RASAi |
 | máximo de páginas | `1` | inteiro `>= 0`; `0=todas` | `1` | política operacional RASAi |
@@ -94,15 +102,25 @@ Não existe fallback silencioso.
 
 ## 5. Política de erros
 
-A política separa **runtime errors** de **request/HTTP errors**.
+A política separa **coleta** de **impacto no Apdex**. O limite `max_error_details` controla somente a quantidade de eventos detalhados persistidos por amostra/página carregada; contadores agregados de JavaScript/request/HTTP/CSP não são truncados por esse limite. O RASAi pode observar um evento e mantê-lo como evidência sem necessariamente torná-lo Frustrated.
 
-- `navigation`: somente falha do documento/navegação qualifica por política;
-- `first-party`: JavaScript runtime errors (`pageerror`) e `console.error` observados são globais; request/HTTP errors qualificam apenas quando pertencem ao host da aplicação;
-- `all`: runtime errors continuam globais e request/HTTP errors de terceiros também podem qualificar.
+Defaults efetivos alinhados ao Dynatrace RUM Web:
 
-Com `errors_affect_apdex=true`, JavaScript runtime error ou `console.error` pode forçar uma ação rápida para `FRUSTRATED` nos escopos `first-party` e `all`. `console.error` é uma **extensão de política RASAi**; não é apresentado como equivalência 1:1 ao Dynatrace.
+- `errors_affect_apdex=true`: chave mestra;
+- `javascript_errors_affect_apdex=true`: `pageerror`/exceção JavaScript da ação pode forçar `FRUSTRATED`;
+- `request_errors_affect_apdex=true`: request failures, HTTP `4xx/5xx` e CSP violations podem forçar `FRUSTRATED`;
+- `console_errors_affect_apdex=false`: `console.error` é capturado pelo RASAi quando a captura estiver habilitada; por default permanece desligado e só afeta o Apdex quando captura e impacto forem explicitamente habilitados;
+- `error_scope=all`: o escopo controla apenas a família de request/HTTP/CSP errors. JavaScript runtime errors não deixam de ser erros da ação por serem first/third-party.
 
-Dynatrace possui regras de request errors mais granulares, incluindo filtros e `impactApdex`. Portanto, `navigation/first-party/all` é uma política RASAi e não um enum do fornecedor.
+Escopos de request error:
+
+- `navigation`: somente erro do documento/navegação principal;
+- `first-party`: request/HTTP/CSP de recursos próprios;
+- `all`: recursos próprios e terceiros.
+
+Failed image requests são reconhecidos dentro de `requestfailed` e materializados como evidência. CSP violations são observadas via evento `securitypolicyviolation`.
+
+Ao importar configuração Dynatrace, o RASAi respeita, quando presentes e diretamente reproduzíveis, os switches de inclusão/exclusão de JavaScript e request/HTTP errors. `customConfigurationProperties` com `cce=1` é reconhecido como habilitação de impacto de `console.error`. Regras públicas de request/HTTP errors importadas são normalizadas e aplicadas em ordem (primeira correspondência), incluindo códigos/faixas HTTP, filtro de URL, CSP/blocked request, failed image quando presente, `capture` e `impactApdex`. Custom Errors acionados pela API da aplicação permanecem limitação explícita quando o RASAi não possui o evento equivalente.
 
 Além dos contadores, o runtime persiste evidência individual limitada dos eventos observados por amostra: falhas de request, respostas HTTP `>=400`, `console.error` e erros JavaScript. Quando disponíveis, são mantidos URL/fonte, first-party/third-party, tipo de recurso, status HTTP e mensagem técnica. Response bodies, cookies e secrets não são capturados por esta camada.
 
@@ -123,9 +141,12 @@ Fontes oficiais:
 | LCP, DOM Interactive, Load Event, Response Start/End | sim | KPMs temporais suportadas |
 | XHR Action autônoma | não | XHR/fetch é observado dentro da Load Action |
 | Custom Action | não | exige roteiro/clickpath explícito |
+| Custom Errors da API Dynatrace | parcial | configuração pode ser registrada; o evento só é classificável quando existir evidência equivalente observável no navegador/aplicação |
 | JavaScript runtime errors | sim | observados globalmente |
-| `console.error` | extensão RASAi | observado globalmente e pode afetar Apdex conforme policy |
-| request/HTTP errors | parcial | política sintética simplificada; fornecedor possui regras mais granulares |
+| `console.error` | extensão RASAi | observado globalmente; default não impacta Apdex; pode acompanhar `cce=1` importado/configuração explícita |
+| CSP violations | sim | observadas e tratadas como request error quando a política de request errors está ativa |
+| failed image requests | sim | reconhecidas dentro de request failures e persistidas como evidência |
+| request/HTTP errors | amplo | 4xx/5xx/requestfailed/CSP/failed-image cobertos; regras públicas ordenadas de captura/impacto e filtros HTTP/URL são aplicadas quando importadas |
 | população real de devices/redes/sessões | não | perfis sintéticos controlados |
 
 ## 7. Configuração e console interativo
@@ -143,6 +164,14 @@ RASAI_APDEX_EXPERIENCE_KPM
 RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS
 RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS
 RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT
+RASAI_APDEX_EXPERIENCE_JAVASCRIPT_ERRORS_AFFECT
+RASAI_APDEX_EXPERIENCE_REQUEST_ERRORS_AFFECT
+RASAI_APDEX_EXPERIENCE_CONSOLE_ERRORS_AFFECT
+RASAI_APDEX_EXPERIENCE_JAVASCRIPT_ERROR_CAPTURE
+RASAI_APDEX_EXPERIENCE_XHR_CAPTURE
+RASAI_APDEX_EXPERIENCE_FETCH_CAPTURE
+RASAI_APDEX_EXPERIENCE_CONSOLE_ERROR_CAPTURE
+RASAI_APDEX_EXPERIENCE_MAX_ERROR_DETAILS
 RASAI_APDEX_EXPERIENCE_ERROR_SCOPE
 RASAI_APDEX_EXPERIENCE_SETTLE_SECONDS
 RASAI_APDEX_EXPERIENCE_DELAY_SECONDS
@@ -209,9 +238,9 @@ Verificações mínimas:
 1. `cat-06.html` permanece independente e baseado em `T/4T`;
 2. `cat-07.html` é gerado quando Experience executa;
 3. KPM/thresholds efetivos correspondem à configuração;
-4. `console.error` força `FRUSTRATED` quando errors affect está ativo e o escopo não é `navigation`;
-5. JavaScript runtime error segue a mesma regra;
-6. request/HTTP error respeita o escopo configurado e mantém o detalhe técnico da ocorrência quando disponível;
+4. JavaScript runtime error força `FRUSTRATED` por default;
+5. request/HTTP/CSP error força `FRUSTRATED` por default e respeita o escopo de request configurado;
+6. `console.error` permanece diagnóstico por default e só força `FRUSTRATED` quando sua política específica está habilitada;
 7. o agrupamento de recorrência não altera classificação, score ou a evidência individual e a solução correspondente aparece no CAT-09 sem criar uma recomendação por ocorrência;
 8. request iniciado depois de `loadEventEnd` pode ser observado durante `settle`, mas não estende sozinho `USER_ACTION_DURATION`;
 9. igualdade com o limiar inferior é `TOLERATING` e igualdade com o limiar Frustrated também é `TOLERATING`;

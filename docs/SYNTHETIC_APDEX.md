@@ -16,7 +16,7 @@ Tolerating > T e <= 4T
 Frustrated > 4T
 ```
 
-Não existe `T` universal do padrão Apdex. No CLI bruto, `T` continua obrigatório quando o módulo é habilitado. No console, a baseline RASAi usa `T=3 s` como referência temporal compatível com a calibração Dynatrace adotada pelo produto; quando a organização possui SLO/KPM real, esse valor deve prevalecer.
+Não existe `T` universal do padrão Apdex. No CLI bruto, `T` continua obrigatório quando o módulo é habilitado. No console, a baseline RASAi usa `T=3 s` **como derivação operacional RASAi** da fronteira Satisfied de 3 s do Load Action Dynatrace; isso não transforma o Synthetic Navigation Apdex em RUM nem faz de `T` um default Dynatrace do padrão Apdex. Quando a organização possui SLO/KPM real, esse valor deve prevalecer.
 
 ## Task medida
 

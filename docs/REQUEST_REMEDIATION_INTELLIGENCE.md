@@ -31,7 +31,7 @@ A separação de propósito é intencional:
 A primeira versão possui adaptadores determinísticos para:
 
 - CAT-06 · Synthetic Navigation Apdex: `console.error`, `pageerror` e `requestfailed` persistidos por amostra;
-- CAT-07 · Synthetic User Experience Apdex: `requestfailed`, respostas HTTP `>=400`, erros de console e erros JavaScript, incluindo URL, status, tipo de recurso, first/third-party e relação com `error_forced_frustrated` quando observada.
+- CAT-07 · Synthetic User Experience Apdex: `requestfailed`, respostas HTTP `>=400`, CSP violations, falhas de imagem, erros de console e erros JavaScript, incluindo URL, status, tipo de recurso, first/third-party e relação com `error_forced_frustrated` quando observada.
 
 O agrupador é deliberadamente source-agnostic. Novos coletores determinísticos podem fornecer o mesmo contrato normalizado sem alterar a semântica do CAT-09. Uma nova fonte só deve ser conectada quando possuir evidência rastreável; o relatório não deve duplicar um mesmo evento apenas porque ele foi projetado por mais de uma página.
 
