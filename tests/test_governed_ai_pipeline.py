@@ -221,6 +221,146 @@ def test_selective_invalidation_stales_only_changed_dependency_slice(tmp_path) -
     assert validated is not None and validated[0] == second.evidence_snapshot_id
 
 
+def test_improvement_dependency_survives_global_snapshot_change_when_input_is_same(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    workspace, audit_id = _workspace(tmp_path, "AUD-IMPROVEMENT-STABLE")
+    monkeypatch.setattr(
+        ai_selective_invalidation,
+        "_improvement_input_fingerprint",
+        lambda *_args, **_kwargs: "CAT08-STABLE",
+    )
+    first = ai_governance.seal_evidence(
+        workspace=workspace,
+        audit_id=audit_id,
+        evidence_ids=(),
+        context={"phase": "AI"},
+    )
+    task_id = ai_governance.register_task(
+        workspace=workspace,
+        audit_id=audit_id,
+        purpose="IMPROVEMENT_INTELLIGENCE",
+        scope_type="AUDIT",
+        scope_key="AUDIT",
+        evidence_snapshot_id=first.evidence_snapshot_id,
+        requirements=("DOMAIN:CONTENT",),
+        status=ai_governance.TASK_COMPLETE,
+    )
+    ai_selective_invalidation.register_task_dependency(
+        workspace=workspace,
+        ai_task_id=task_id,
+        dependency_kind="IMPROVEMENT_INTELLIGENCE",
+        scope_key="AUDIT",
+    )
+    prior_tasks = ai_selective_invalidation._task_state_before_seal(
+        workspace,
+        audit_id,
+        first.evidence_snapshot_id,
+    )
+
+    # The global version changes (equivalent to adding downstream/pre-scoring
+    # evidence), but the CAT-08 input fingerprint does not.
+    second = ai_governance.seal_evidence(
+        workspace=workspace,
+        audit_id=audit_id,
+        evidence_ids=(),
+        context={"phase": "PRE_SCORING"},
+    )
+    ai_selective_invalidation._reconcile_staleness(
+        workspace=workspace,
+        audit_id=audit_id,
+        prior_snapshot=first,
+        new_snapshot=second,
+        prior_tasks=prior_tasks,
+    )
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        task = connection.execute(
+            "SELECT status,stale_reason FROM ai_tasks WHERE ai_task_id=?",
+            (task_id,),
+        ).fetchone()
+        dependency = connection.execute(
+            """SELECT dependency_kind,validated_snapshot_id
+               FROM ai_task_dependency_specs WHERE ai_task_id=?""",
+            (task_id,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert task == (ai_governance.TASK_COMPLETE, None)
+    assert dependency == ("IMPROVEMENT_INTELLIGENCE", second.evidence_snapshot_id)
+
+
+def test_improvement_dependency_becomes_stale_when_consumed_input_changes(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    workspace, audit_id = _workspace(tmp_path, "AUD-IMPROVEMENT-CHANGED")
+    current = {"fingerprint": "CAT08-V1"}
+    monkeypatch.setattr(
+        ai_selective_invalidation,
+        "_improvement_input_fingerprint",
+        lambda *_args, **_kwargs: current["fingerprint"],
+    )
+    first = ai_governance.seal_evidence(
+        workspace=workspace,
+        audit_id=audit_id,
+        evidence_ids=(),
+        context={"phase": "AI"},
+    )
+    task_id = ai_governance.register_task(
+        workspace=workspace,
+        audit_id=audit_id,
+        purpose="IMPROVEMENT_INTELLIGENCE",
+        scope_type="AUDIT",
+        scope_key="AUDIT",
+        evidence_snapshot_id=first.evidence_snapshot_id,
+        requirements=("DOMAIN:CONTENT",),
+        status=ai_governance.TASK_COMPLETE,
+    )
+    ai_selective_invalidation.register_task_dependency(
+        workspace=workspace,
+        ai_task_id=task_id,
+        dependency_kind="IMPROVEMENT_INTELLIGENCE",
+        scope_key="AUDIT",
+    )
+    prior_tasks = ai_selective_invalidation._task_state_before_seal(
+        workspace,
+        audit_id,
+        first.evidence_snapshot_id,
+    )
+
+    current["fingerprint"] = "CAT08-V2"
+    second = ai_governance.seal_evidence(
+        workspace=workspace,
+        audit_id=audit_id,
+        evidence_ids=(),
+        context={"phase": "RPR"},
+    )
+    ai_selective_invalidation._reconcile_staleness(
+        workspace=workspace,
+        audit_id=audit_id,
+        prior_snapshot=first,
+        new_snapshot=second,
+        prior_tasks=prior_tasks,
+    )
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        task = connection.execute(
+            "SELECT status,stale_reason FROM ai_tasks WHERE ai_task_id=?",
+            (task_id,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert task is not None
+    assert task[0] == ai_governance.TASK_STALE
+    assert str(task[1]).startswith("DEPENDENCY_CHANGED:")
+
+
 def test_audit_runner_keeps_ai_before_final_business_derivations() -> None:
     target = audit_runner.run_audit
     seen: set[int] = set()
