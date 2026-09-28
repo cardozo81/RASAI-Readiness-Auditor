@@ -283,6 +283,70 @@ def _apply_live_result(
     )
 
 
+def _link_live_reprocess_evaluation(
+    workspace: Any,
+    audit_id: str,
+    item: Any,
+    *,
+    baseline_attempt_count: int,
+) -> str | None:
+    """Attach the live evaluation to the causal RPR without duplicating attempts."""
+    reprocess_id = _current_reprocess_id(workspace, audit_id)
+    if not reprocess_id:
+        return None
+
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        row = connection.execute(
+            """SELECT work_item_id,attempt_count
+               FROM audit_fulfillment_work_items
+               WHERE audit_id=? AND component=? AND scope_key=?""",
+            (
+                audit_id,
+                str(getattr(item, "component", "") or "").upper(),
+                str(getattr(item, "scope_key", "AUDIT") or "AUDIT"),
+            ),
+        ).fetchone()
+        if row is None:
+            return None
+        attempt = connection.execute(
+            """SELECT attempt_id,reprocess_id,attempt_number
+               FROM audit_fulfillment_attempts
+               WHERE work_item_id=? AND attempt_number>?
+               ORDER BY attempt_number DESC,rowid DESC
+               LIMIT 1""",
+            (row["work_item_id"], int(baseline_attempt_count)),
+        ).fetchone()
+        if attempt is not None:
+            current_owner = str(attempt["reprocess_id"] or "")
+            if not current_owner:
+                with connection:
+                    connection.execute(
+                        """UPDATE audit_fulfillment_attempts
+                           SET reprocess_id=?
+                           WHERE attempt_id=? AND reprocess_id IS NULL""",
+                        (reprocess_id, attempt["attempt_id"]),
+                    )
+                return str(attempt["attempt_id"])
+            if current_owner == reprocess_id:
+                return str(attempt["attempt_id"])
+    finally:
+        connection.close()
+
+    from rasai.reprocess_runtime_safety import record_reprocess_evaluation
+
+    return record_reprocess_evaluation(
+        workspace,
+        item=item,
+        reprocess_id=reprocess_id,
+        metadata={
+            "component": str(getattr(item, "component", "") or ""),
+            "kind": "LIVE_COMPONENT_REPROCESS_EVALUATION",
+        },
+    )
+
+
 def _recover_live_measurements(workspace: Any, audit_id: str) -> dict[str, str]:
     from rasai import selective_optional_reprocess as optional
 
@@ -373,12 +437,19 @@ def _recover_live_measurements(workspace: Any, audit_id: str) -> dict[str, str]:
                 error_type=type(exc).__name__,
                 error_message=str(exc)[:512],
             )
+        baseline_attempt_count = int(getattr(item, "attempt_count", 0) or 0)
         _apply_live_result(
             workspace,
             audit_id,
             component,
             success=success,
             result_ref=ref,
+        )
+        _link_live_reprocess_evaluation(
+            workspace,
+            audit_id,
+            item,
+            baseline_attempt_count=baseline_attempt_count,
         )
         states[component] = "SUCCESS" if success else "FAILED_RETRYABLE"
     return states

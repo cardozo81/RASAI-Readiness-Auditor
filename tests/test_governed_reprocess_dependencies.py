@@ -15,11 +15,14 @@ from rasai.audit_fulfillment import (
     LIVE_RECOLLECTION,
     REPLAY_SAFE,
     SUCCESS,
+    begin_attempt,
+    finish_attempt,
     initialize_contract,
     list_work_items,
     recalculate,
     register_work_item,
     set_work_item_status,
+    start_reprocess_run,
 )
 from rasai.audit_reprocess import ReprocessResult
 from rasai.domain import Audit
@@ -92,6 +95,118 @@ def test_registered_ai_is_not_globally_blocked_by_unrelated_required_ai(tmp_path
         AUDIT_ID,
         {"SEARCH_INTELLIGENCE": "SUCCESS"},
     ) == frozenset({"IMPROVEMENT_INTELLIGENCE", "COMPETITIVE_INTELLIGENCE"})
+
+
+def test_live_measurement_without_adapter_attempt_gets_generic_rpr_provenance(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    _register_pending(
+        workspace,
+        "WEB_PERFORMANCE",
+        temporal_mode=LIVE_RECOLLECTION,
+        valid_until="2099-01-01T00:00:00+00:00",
+    )
+    reprocess_id = start_reprocess_run(workspace, AUDIT_ID, source="TEST")
+
+    from rasai import reprocess_measurements
+
+    monkeypatch.setattr(
+        reprocess_measurements,
+        "recover_web_performance",
+        lambda **_kwargs: True,
+    )
+
+    states = runtime._recover_live_measurements(workspace, AUDIT_ID)
+
+    assert states == {"WEB_PERFORMANCE": "SUCCESS"}
+    connection = sqlite3.connect(workspace.database)
+    try:
+        rows = connection.execute(
+            """SELECT a.reprocess_id,a.attempt_number,a.status
+               FROM audit_fulfillment_attempts a
+               JOIN audit_fulfillment_work_items w ON w.work_item_id=a.work_item_id
+               WHERE w.audit_id=? AND w.component='WEB_PERFORMANCE'""",
+            (AUDIT_ID,),
+        ).fetchall()
+        item = connection.execute(
+            """SELECT attempt_count,status
+               FROM audit_fulfillment_work_items
+               WHERE audit_id=? AND component='WEB_PERFORMANCE'""",
+            (AUDIT_ID,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert rows == [(reprocess_id, 1, "SUCCESS")]
+    assert item == (1, "SUCCESS")
+
+
+def test_live_measurement_adopts_adapter_attempt_without_double_counting(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    _register_pending(
+        workspace,
+        "SYNTHETIC_APDEX",
+        temporal_mode=LIVE_RECOLLECTION,
+        valid_until="2099-01-01T00:00:00+00:00",
+    )
+    reprocess_id = start_reprocess_run(workspace, AUDIT_ID, source="TEST")
+
+    from rasai import reprocess_measurements
+
+    def recover_with_internal_attempt(**_kwargs):
+        attempt_id = begin_attempt(
+            workspace,
+            audit_id=AUDIT_ID,
+            component="SYNTHETIC_APDEX",
+            reprocess_id=None,
+            metadata={"source": "adapter"},
+        )
+        finish_attempt(
+            workspace,
+            attempt_id,
+            status=SUCCESS,
+            result_ref="synthetic-apdex:adapter-success",
+        )
+        return True
+
+    monkeypatch.setattr(
+        reprocess_measurements,
+        "recover_synthetic_apdex",
+        recover_with_internal_attempt,
+    )
+
+    states = runtime._recover_live_measurements(workspace, AUDIT_ID)
+
+    assert states == {"SYNTHETIC_APDEX": "SUCCESS"}
+    connection = sqlite3.connect(workspace.database)
+    try:
+        rows = connection.execute(
+            """SELECT a.reprocess_id,a.attempt_number,a.status,a.metadata
+               FROM audit_fulfillment_attempts a
+               JOIN audit_fulfillment_work_items w ON w.work_item_id=a.work_item_id
+               WHERE w.audit_id=? AND w.component='SYNTHETIC_APDEX'
+               ORDER BY a.attempt_number""",
+            (AUDIT_ID,),
+        ).fetchall()
+        item = connection.execute(
+            """SELECT attempt_count,status
+               FROM audit_fulfillment_work_items
+               WHERE audit_id=? AND component='SYNTHETIC_APDEX'""",
+            (AUDIT_ID,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert len(rows) == 1
+    assert rows[0][0] == reprocess_id
+    assert rows[0][1] == 1
+    assert rows[0][2] == "SUCCESS"
+    assert item == (1, "SUCCESS")
 
 
 def test_live_measurement_expiry_prevents_external_retry(monkeypatch, tmp_path: Path) -> None:
