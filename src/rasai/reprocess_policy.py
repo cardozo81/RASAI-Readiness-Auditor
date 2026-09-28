@@ -324,11 +324,20 @@ def blocking_dependencies(workspace: Any, item: Any) -> tuple[str, ...]:
                 and str(candidate.scope_key) == page_id
             )
 
-    blockers = {
-        f"{str(candidate.component)}/{str(candidate.scope_key)}"
-        for candidate in wanted
-        if str(getattr(candidate, "status", "")).upper() not in _RESOLVED
-    }
+    if component == "IMPROVEMENT_INTELLIGENCE":
+        from rasai.ai_governance import collection_state_is_terminal
+
+        blockers = {
+            f"{str(candidate.component)}/{str(candidate.scope_key)}"
+            for candidate in wanted
+            if not collection_state_is_terminal(getattr(candidate, "status", None))
+        }
+    else:
+        blockers = {
+            f"{str(candidate.component)}/{str(candidate.scope_key)}"
+            for candidate in wanted
+            if str(getattr(candidate, "status", "")).upper() not in _RESOLVED
+        }
     return tuple(sorted(blockers))
 
 
