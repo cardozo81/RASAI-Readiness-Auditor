@@ -145,8 +145,54 @@ def _setup_document_capture(context: Any, page: Any) -> tuple[Any | None, dict[s
         if isinstance(frame, dict) and frame.get("id"):
             state["main_frame_id"] = str(frame["id"])
 
+        def request_will_be_sent(event: dict[str, Any]) -> None:
+            if str(event.get("type") or "") != "Script":
+                return
+            request_id = str(event.get("requestId") or "")
+            request = event.get("request")
+            if not request_id or not isinstance(request, dict):
+                return
+            raw_url = str(request.get("url") or "")
+            initiator = event.get("initiator")
+            initiator_type = str(initiator.get("type") or "") if isinstance(initiator, dict) else ""
+            initiator_url = None
+            stack = initiator.get("stack") if isinstance(initiator, dict) else None
+            frames = stack.get("callFrames") if isinstance(stack, dict) else None
+            if isinstance(frames, list):
+                for frame in frames:
+                    if isinstance(frame, dict) and frame.get("url"):
+                        initiator_url = _safe_url(frame.get("url"))
+                        if initiator_url:
+                            break
+            state["script_requests"][request_id] = {
+                "raw_url": raw_url,
+                "url": _safe_url(raw_url),
+                "url_hash": hashlib.sha256(raw_url.encode("utf-8")).hexdigest()[:16] if raw_url else "",
+                "initiator_type": initiator_type or None,
+                "initiator_url": initiator_url,
+            }
+
         def response_received(event: dict[str, Any]) -> None:
-            if str(event.get("type") or "") != "Document":
+            resource_type = str(event.get("type") or "")
+            if resource_type == "Script":
+                request_id = str(event.get("requestId") or "")
+                response = event.get("response")
+                request_info = state["script_requests"].get(request_id, {})
+                if request_id and isinstance(response, dict):
+                    raw_url = str(response.get("url") or request_info.get("raw_url") or "")
+                    state["script_responses"][request_id] = {
+                        **request_info,
+                        "raw_url": raw_url,
+                        "url": _safe_url(raw_url),
+                        "url_hash": hashlib.sha256(raw_url.encode("utf-8")).hexdigest()[:16] if raw_url else "",
+                        "status": int(response.get("status") or 0),
+                        "mime_type": str(response.get("mimeType") or "")[:160],
+                        "protocol": str(response.get("protocol") or "")[:40],
+                        "from_disk_cache": bool(response.get("fromDiskCache")),
+                        "from_service_worker": bool(response.get("fromServiceWorker")),
+                    }
+                return
+            if resource_type != "Document":
                 return
             frame_id = str(event.get("frameId") or "")
             main_frame_id = str(state.get("main_frame_id") or "")
@@ -175,6 +221,7 @@ def _setup_document_capture(context: Any, page: Any) -> tuple[Any | None, dict[s
             if request_id:
                 state["failed"].add(request_id)
 
+        session.on("Network.requestWillBeSent", request_will_be_sent)
         session.on("Network.responseReceived", response_received)
         session.on("Network.loadingFinished", loading_finished)
         session.on("Network.loadingFailed", loading_failed)
