@@ -234,8 +234,8 @@ def _current_reprocess_id(workspace: Any, audit_id: str) -> str | None:
         from rasai import reprocess_runtime_safety
 
         value = reprocess_runtime_safety._RPR_CONTEXT.get()
-        if value is not None and value.audit_id == audit_id and value.reprocess_id:
-            return str(value.reprocess_id)
+        if value is not None and value.audit_id == audit_id:
+            return str(value.reprocess_id) if value.reprocess_id else None
     except Exception:
         pass
     connection = sqlite3.connect(workspace.database)
