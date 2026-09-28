@@ -446,6 +446,12 @@ def _security_actions(connection: sqlite3.Connection, audit_id: str) -> list[dic
         source_id = str(row.get("remediation_id") or finding_id)
         title = str(finding.get("title") or "Correção de segurança")
         evidence_ids = _load(finding.get("evidence_ids_json"), [])
+        finding_details = _load(finding.get("details_json"), {})
+        target_context = (
+            dict(finding_details.get("target"))
+            if isinstance(finding_details, Mapping) and isinstance(finding_details.get("target"), Mapping)
+            else {}
+        )
         refs = _existing_evidence_refs(connection, audit_id, evidence_ids if isinstance(evidence_ids,list) else [], ("CAT-10",))
         refs.insert(0, {
             **_catalog_ref("CAT-10","results",topic=title,ref_id=finding_id or source_id),
@@ -472,6 +478,7 @@ def _security_actions(connection: sqlite3.Connection, audit_id: str) -> list[dic
             "dependencies": [],
             "implementation_guidance": [str(row.get("correction") or row.get("containment") or "")[:4000]] if row.get("correction") or row.get("containment") else [],
             "validation_steps": [str(row.get("validation") or "")[:2500]] if row.get("validation") else [],
+            "target_context": target_context,
             "source_refs": [_exact_ref("CAT-10","results",topic=title,ref_id=finding_id or source_id,anchor_id=finding_anchor)],
             "evidence_refs": refs,
             "remediation_refs": [_exact_ref("CAT-10","results",topic=title,ref_id=source_id,anchor_id=finding_anchor)],
