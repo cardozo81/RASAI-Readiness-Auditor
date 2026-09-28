@@ -10,6 +10,7 @@ from rasai.ai_governance import collection_state_is_terminal
 from rasai.audit_phase_runtime import require_sealed_evidence
 
 _INSTALLED = False
+_DEEP_ANALYSIS_EXCLUDED_COMPONENTS = ("IMPROVEMENT_INTELLIGENCE", "CORE_AUDIT")
 
 
 def _technical_evidence_ids(
@@ -116,10 +117,14 @@ def _install_deep_analysis_gate() -> None:
         language: str,
         progress=None,
     ):
+        # CORE_AUDIT is the aggregate/finalizer that closes only after the
+        # other required items, including Improvement Intelligence, are resolved.
+        # Treating it as an input to Deep Analysis creates a circular dependency:
+        # CORE_AUDIT -> IMPROVEMENT_INTELLIGENCE -> CORE_AUDIT.
         expected, present, fulfillment_ready = fulfillment_dependency_state(
             workspace,
             audit_id,
-            exclude_components=("IMPROVEMENT_INTELLIGENCE",),
+            exclude_components=_DEEP_ANALYSIS_EXCLUDED_COMPONENTS,
         )
         try:
             snapshot = require_sealed_evidence(audit_id=audit_id, workspace=workspace)
