@@ -650,6 +650,499 @@ def _resource_inventory(connection: sqlite3.Connection, workspace: Any, audit_id
     return resources, components, page_context
 
 
+
+def _cookie_scope_party(effective_domain: str | None, page_url: str) -> str:
+    try:
+        host = (urlsplit(page_url).hostname or "").casefold()
+    except ValueError:
+        return "UNKNOWN"
+    domain = str(effective_domain or "").casefold().lstrip(".")
+    if not host or not domain:
+        return "UNKNOWN"
+    return "FIRST_PARTY" if host == domain or host.endswith("." + domain) else "THIRD_PARTY"
+
+
+def _runtime_intelligence_rows(
+    audit_id: str,
+    resources: Iterable[Mapping[str, Any]],
+    page_context: Mapping[str, Mapping[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    scripts: list[dict[str, Any]] = []
+    cookies: list[dict[str, Any]] = []
+    platforms: dict[str, dict[str, Any]] = {}
+    relationships: dict[str, dict[str, Any]] = {}
+    script_by_snapshot_url: dict[tuple[str, str], str] = {}
+
+    def add_platform(
+        *,
+        page_id: str,
+        snapshot_id: str | None,
+        observation: Mapping[str, Any],
+        evidence_ids: Iterable[str],
+        details: Mapping[str, Any] | None = None,
+    ) -> str:
+        platform_id = str(observation.get("platform_id") or "").strip()
+        if not platform_id:
+            return ""
+        identifiers = [
+            dict(item) for item in (observation.get("identifiers") or ())
+            if isinstance(item, Mapping)
+        ]
+        identifier_material = ",".join(
+            sorted(str(item.get("identifier_hash") or "") for item in identifiers)
+        )
+        platform_ref = _stable("PSP", audit_id, page_id, snapshot_id or "", platform_id, identifier_material)
+        current = platforms.get(platform_ref)
+        if current is None:
+            platforms[platform_ref] = {
+                "platform_ref": platform_ref,
+                "audit_id": audit_id,
+                "page_id": page_id,
+                "snapshot_id": snapshot_id,
+                "platform_id": platform_id,
+                "platform_name": str(observation.get("platform_name") or platform_id),
+                "confidence": str(observation.get("confidence") or "MEDIUM"),
+                "identifiers": identifiers,
+                "details": dict(details or {}),
+                "evidence_ids": list(dict.fromkeys(str(v) for v in evidence_ids if str(v))),
+            }
+        else:
+            known = {
+                (str(item.get("identifier_type")), str(item.get("identifier_hash")))
+                for item in current["identifiers"]
+            }
+            for item in identifiers:
+                key = (str(item.get("identifier_type")), str(item.get("identifier_hash")))
+                if key not in known:
+                    current["identifiers"].append(item)
+                    known.add(key)
+            current["evidence_ids"] = list(dict.fromkeys([
+                *current["evidence_ids"],
+                *(str(v) for v in evidence_ids if str(v)),
+            ]))
+        return platform_ref
+
+    def add_relation(
+        *,
+        page_id: str,
+        snapshot_id: str | None,
+        from_ref: str,
+        to_ref: str,
+        relation_type: str,
+        confidence: str,
+        evidence_ids: Iterable[str],
+    ) -> None:
+        if not from_ref or not to_ref:
+            return
+        relation_id = _stable("PSREL", audit_id, snapshot_id or "", from_ref, to_ref, relation_type)
+        relationships[relation_id] = {
+            "relation_id": relation_id,
+            "audit_id": audit_id,
+            "page_id": page_id,
+            "snapshot_id": snapshot_id,
+            "from_ref": from_ref,
+            "to_ref": to_ref,
+            "relation_type": relation_type,
+            "confidence": confidence,
+            "evidence_ids": list(dict.fromkeys(str(v) for v in evidence_ids if str(v))),
+        }
+
+    for resource in resources:
+        if str(resource.get("resource_kind") or "") != "SCRIPT":
+            continue
+        resource_url = str(resource.get("resource_url") or "")
+        for observation in detect_platforms(resource_url, None):
+            platform_ref = add_platform(
+                page_id=str(resource.get("page_id") or ""),
+                snapshot_id=str(resource.get("snapshot_id") or "") or None,
+                observation=observation,
+                evidence_ids=resource.get("evidence_ids") or (),
+                details={
+                    "detection_method": observation.get("detection_method"),
+                    "source": "HTML_RESOURCE",
+                    "signature_contract": SIGNATURE_CONTRACT_VERSION,
+                },
+            )
+            add_relation(
+                page_id=str(resource.get("page_id") or ""),
+                snapshot_id=str(resource.get("snapshot_id") or "") or None,
+                from_ref=platform_ref,
+                to_ref=str(resource.get("resource_id") or ""),
+                relation_type="PLATFORM_DECLARES_RESOURCE",
+                confidence=str(observation.get("confidence") or "MEDIUM"),
+                evidence_ids=resource.get("evidence_ids") or (),
+            )
+
+    for page_id, page in page_context.items():
+        page_url = str(page.get("page_url") or "")
+        for raw_script in page.get("script_runtime", ()) or ():
+            if not isinstance(raw_script, Mapping):
+                continue
+            snapshot_id = str(raw_script.get("snapshot_id") or "")
+            resource_url = str(_redact_urlish(raw_script.get("url")) or "")
+            url_hash = str(raw_script.get("url_hash") or "")
+            script_ref = _stable("PSS", audit_id, page_id, snapshot_id, url_hash or resource_url)
+            parsed = urlsplit(resource_url) if resource_url else None
+            timing = {
+                key: raw_script.get(key)
+                for key in (
+                    "start_time_ms", "duration_ms", "transfer_size_bytes",
+                    "encoded_body_size_bytes", "decoded_body_size_bytes",
+                    "encoded_data_length", "next_hop_protocol",
+                )
+                if raw_script.get(key) is not None
+            }
+            integrity = {
+                "content_sha256": raw_script.get("content_sha256"),
+                "content_bytes": raw_script.get("content_bytes"),
+                "from_disk_cache": bool(raw_script.get("from_disk_cache")),
+                "from_service_worker": bool(raw_script.get("from_service_worker")),
+                "protocol": raw_script.get("protocol"),
+                "cpu_attribution_state": "NOT_COLLECTED_TO_AVOID_PROFILER_OVERHEAD",
+            }
+            platform_items = [
+                dict(item) for item in (raw_script.get("platforms") or ())
+                if isinstance(item, Mapping)
+            ]
+            script = {
+                "script_ref": script_ref,
+                "audit_id": audit_id,
+                "page_id": page_id,
+                "snapshot_id": snapshot_id or None,
+                "resource_url": resource_url or None,
+                "party": str(raw_script.get("party") or "UNKNOWN"),
+                "domain": parsed.hostname.casefold() if parsed and parsed.hostname else "",
+                "timing": timing,
+                "integrity": integrity,
+                "analysis_state": str(raw_script.get("body_analysis_state") or "NOT_AVAILABLE"),
+                "risk_signals": [
+                    dict(item) for item in (raw_script.get("risk_signals") or ())
+                    if isinstance(item, Mapping)
+                ],
+                "platforms": platform_items,
+                "evidence_ids": [snapshot_id] if snapshot_id else [],
+                "initiator": {
+                    "type": raw_script.get("initiator_type"),
+                    "url": _redact_urlish(raw_script.get("initiator_url")),
+                },
+            }
+            scripts.append(script)
+            if snapshot_id and resource_url:
+                script_by_snapshot_url[(snapshot_id, resource_url)] = script_ref
+            for observation in platform_items:
+                platform_ref = add_platform(
+                    page_id=page_id,
+                    snapshot_id=snapshot_id or None,
+                    observation=observation,
+                    evidence_ids=script["evidence_ids"],
+                    details={
+                        "detection_method": observation.get("detection_method"),
+                        "source": "RUNTIME_SCRIPT",
+                        "signature_contract": SIGNATURE_CONTRACT_VERSION,
+                    },
+                )
+                add_relation(
+                    page_id=page_id,
+                    snapshot_id=snapshot_id or None,
+                    from_ref=platform_ref,
+                    to_ref=script_ref,
+                    relation_type="PLATFORM_LOADS_SCRIPT",
+                    confidence=str(observation.get("confidence") or "MEDIUM"),
+                    evidence_ids=script["evidence_ids"],
+                )
+
+        for verification in page.get("verifications", ()) or ():
+            if not isinstance(verification, Mapping):
+                continue
+            snapshot_id = str(verification.get("snapshot_id") or "")
+            observation = {
+                "platform_id": verification.get("platform_id"),
+                "platform_name": verification.get("platform_name"),
+                "confidence": "HIGH",
+                "identifiers": [{
+                    "platform_id": verification.get("platform_id"),
+                    "identifier_type": verification.get("identifier_type"),
+                    "identifier_class": verification.get("identifier_class"),
+                    "identifier_display": verification.get("identifier_display"),
+                    "identifier_hash": verification.get("identifier_hash"),
+                }],
+            }
+            add_platform(
+                page_id=page_id,
+                snapshot_id=snapshot_id or None,
+                observation=observation,
+                evidence_ids=[snapshot_id] if snapshot_id else page.get("header_evidence") or (),
+                details={
+                    "detection_method": "META_VERIFICATION",
+                    "source": "HTML_META",
+                    "signature_contract": SIGNATURE_CONTRACT_VERSION,
+                },
+            )
+
+        for index, raw_cookie in enumerate(page.get("headers", {}).get("set-cookie", ())[:50], 1):
+            attrs = _cookie_attributes(str(raw_cookie), page_url)
+            cookie_ref = str(attrs.get("cookie_ref") or "")
+            if not cookie_ref:
+                continue
+            cookie_id = _stable("PCA", audit_id, page_id, cookie_ref, "HTTP_SET_COOKIE", index)
+            cookies.append({
+                "cookie_attribution_id": cookie_id,
+                "audit_id": audit_id,
+                "page_id": page_id,
+                "snapshot_id": None,
+                "cookie_ref": cookie_ref,
+                "cookie_name_display": attrs.get("name_display"),
+                "name_hash": attrs.get("name_hash") or "",
+                "creation_mechanism": "HTTP_SET_COOKIE",
+                "effective_domain": attrs.get("effective_domain"),
+                "effective_path": attrs.get("effective_path"),
+                "host_only": bool(attrs.get("host_only")),
+                "setter_script_url": None,
+                "setter_script_ref": None,
+                "platform_ref": None,
+                "party": _cookie_scope_party(attrs.get("effective_domain"), page_url),
+                "purpose": attrs.get("purpose") or "UNKNOWN",
+                "purpose_confidence": attrs.get("purpose_confidence") or "LOW",
+                "attribution_confidence": "HIGH",
+                "details": {
+                    "set_cookie_index": index,
+                    "secure": bool(attrs.get("secure")),
+                    "httponly": bool(attrs.get("httponly")),
+                    "samesite": attrs.get("samesite"),
+                    "attribution_basis": "HTTP_RESPONSE_HEADER",
+                },
+                "evidence_ids": list(page.get("header_evidence") or ()),
+            })
+
+        for index, raw_cookie in enumerate(page.get("cookie_runtime", ()) or (), 1):
+            if not isinstance(raw_cookie, Mapping):
+                continue
+            snapshot_id = str(raw_cookie.get("snapshot_id") or "")
+            name_display = raw_cookie.get("cookie_name")
+            name_hash = str(raw_cookie.get("name_hash") or "")
+            frame_url = str(raw_cookie.get("frame_url") or page_url)
+            try:
+                frame_host = (urlsplit(frame_url).hostname or "").casefold()
+            except ValueError:
+                frame_host = ""
+            domain_attribute = str(raw_cookie.get("domain_attribute") or "").casefold().lstrip(".")
+            effective_domain = domain_attribute or frame_host
+            host_only = not bool(domain_attribute)
+            declared_path = str(raw_cookie.get("path_attribute") or "")
+            effective_path = declared_path if declared_path.startswith("/") else _default_cookie_path(frame_url)
+            name_material = str(name_display or name_hash)
+            cookie_ref = _stable(
+                "CK", name_material, effective_domain, effective_path, "1" if host_only else "0"
+            )
+            purpose, purpose_confidence = _cookie_purpose(str(name_display or ""))
+            setter_url = str(_redact_urlish(raw_cookie.get("setter_script_url")) or "")
+            setter_ref = script_by_snapshot_url.get((snapshot_id, setter_url), "")
+            platform_ref = ""
+            platform_observations = detect_platforms(setter_url, None) if setter_url else []
+            if platform_observations:
+                platform_ref = add_platform(
+                    page_id=page_id,
+                    snapshot_id=snapshot_id or None,
+                    observation=platform_observations[0],
+                    evidence_ids=[snapshot_id] if snapshot_id else (),
+                    details={
+                        "detection_method": platform_observations[0].get("detection_method"),
+                        "source": "COOKIE_SETTER",
+                        "signature_contract": SIGNATURE_CONTRACT_VERSION,
+                    },
+                )
+            cookie_id = _stable(
+                "PCA", audit_id, page_id, snapshot_id, cookie_ref,
+                raw_cookie.get("mechanism"), index,
+            )
+            cookie_row = {
+                "cookie_attribution_id": cookie_id,
+                "audit_id": audit_id,
+                "page_id": page_id,
+                "snapshot_id": snapshot_id or None,
+                "cookie_ref": cookie_ref,
+                "cookie_name_display": name_display,
+                "name_hash": name_hash,
+                "creation_mechanism": str(raw_cookie.get("mechanism") or "UNKNOWN"),
+                "effective_domain": effective_domain or None,
+                "effective_path": effective_path,
+                "host_only": host_only,
+                "setter_script_url": setter_url or None,
+                "setter_script_ref": setter_ref or None,
+                "platform_ref": platform_ref or None,
+                "party": _cookie_scope_party(effective_domain, page_url),
+                "purpose": purpose,
+                "purpose_confidence": purpose_confidence,
+                "attribution_confidence": str(raw_cookie.get("attribution_confidence") or "LOW"),
+                "details": {
+                    "at_ms": raw_cookie.get("at_ms"),
+                    "samesite": raw_cookie.get("samesite"),
+                    "secure": bool(raw_cookie.get("secure")),
+                    "consent_state_at_creation": raw_cookie.get("consent_state_at_creation") or "NOT_OBSERVED",
+                    "created_before_consent": raw_cookie.get("created_before_consent"),
+                    "attribution_basis": "BROWSER_RUNTIME_INSTRUMENTATION",
+                },
+                "evidence_ids": [snapshot_id] if snapshot_id else [],
+            }
+            cookies.append(cookie_row)
+            add_relation(
+                page_id=page_id,
+                snapshot_id=snapshot_id or None,
+                from_ref=setter_ref,
+                to_ref=cookie_ref,
+                relation_type="SCRIPT_SETS_COOKIE",
+                confidence=cookie_row["attribution_confidence"],
+                evidence_ids=cookie_row["evidence_ids"],
+            )
+            add_relation(
+                page_id=page_id,
+                snapshot_id=snapshot_id or None,
+                from_ref=platform_ref,
+                to_ref=cookie_ref,
+                relation_type="PLATFORM_ASSOCIATED_WITH_COOKIE_SETTER",
+                confidence=cookie_row["attribution_confidence"],
+                evidence_ids=cookie_row["evidence_ids"],
+            )
+
+    return scripts, cookies, list(platforms.values()), list(relationships.values())
+
+
+def _persist_runtime_intelligence(
+    connection: sqlite3.Connection,
+    audit_id: str,
+    scripts: Iterable[Mapping[str, Any]],
+    cookies: Iterable[Mapping[str, Any]],
+    platforms: Iterable[Mapping[str, Any]],
+    relationships: Iterable[Mapping[str, Any]],
+) -> None:
+    script_rows = tuple(scripts)
+    cookie_rows = tuple(cookies)
+    platform_rows = tuple(platforms)
+    relation_rows = tuple(relationships)
+    connection.execute("DELETE FROM passive_security_relationships WHERE audit_id=?", (audit_id,))
+    connection.execute("DELETE FROM passive_security_cookie_attribution WHERE audit_id=?", (audit_id,))
+    connection.execute("DELETE FROM passive_security_platforms WHERE audit_id=?", (audit_id,))
+    connection.execute("DELETE FROM passive_security_script_observations WHERE audit_id=?", (audit_id,))
+    connection.executemany(
+        """INSERT INTO passive_security_script_observations
+           (script_ref,audit_id,page_id,snapshot_id,resource_url,party,domain,timing_json,
+            integrity_json,analysis_state,risk_signals_json,platforms_json,evidence_ids_json)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        [(
+            item["script_ref"], audit_id, item.get("page_id"), item.get("snapshot_id"),
+            item.get("resource_url"), item.get("party") or "UNKNOWN", item.get("domain") or "",
+            _dump(item.get("timing") or {}), _dump(item.get("integrity") or {}),
+            item.get("analysis_state") or "NOT_AVAILABLE", _dump(item.get("risk_signals") or []),
+            _dump(item.get("platforms") or []), _dump(item.get("evidence_ids") or []),
+        ) for item in script_rows],
+    )
+    connection.executemany(
+        """INSERT INTO passive_security_platforms
+           (platform_ref,audit_id,page_id,snapshot_id,platform_id,platform_name,confidence,
+            identifiers_json,details_json,evidence_ids_json)
+           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+        [(
+            item["platform_ref"], audit_id, item.get("page_id"), item.get("snapshot_id"),
+            item["platform_id"], item["platform_name"], item.get("confidence") or "MEDIUM",
+            _dump(item.get("identifiers") or []), _dump(item.get("details") or {}),
+            _dump(item.get("evidence_ids") or []),
+        ) for item in platform_rows],
+    )
+    connection.executemany(
+        """INSERT INTO passive_security_cookie_attribution
+           (cookie_attribution_id,audit_id,page_id,snapshot_id,cookie_ref,cookie_name_display,
+            name_hash,creation_mechanism,effective_domain,effective_path,host_only,
+            setter_script_url,setter_script_ref,platform_ref,party,purpose,purpose_confidence,
+            attribution_confidence,details_json,evidence_ids_json)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        [(
+            item["cookie_attribution_id"], audit_id, item.get("page_id"), item.get("snapshot_id"),
+            item["cookie_ref"], item.get("cookie_name_display"), item.get("name_hash") or "",
+            item.get("creation_mechanism") or "UNKNOWN", item.get("effective_domain"),
+            item.get("effective_path"), 1 if item.get("host_only") else 0,
+            item.get("setter_script_url"), item.get("setter_script_ref"), item.get("platform_ref"),
+            item.get("party") or "UNKNOWN", item.get("purpose") or "UNKNOWN",
+            item.get("purpose_confidence") or "LOW", item.get("attribution_confidence") or "LOW",
+            _dump(item.get("details") or {}), _dump(item.get("evidence_ids") or []),
+        ) for item in cookie_rows],
+    )
+    connection.executemany(
+        """INSERT INTO passive_security_relationships
+           (relation_id,audit_id,page_id,snapshot_id,from_ref,to_ref,relation_type,confidence,evidence_ids_json)
+           VALUES (?,?,?,?,?,?,?,?,?)""",
+        [(
+            item["relation_id"], audit_id, item.get("page_id"), item.get("snapshot_id"),
+            item["from_ref"], item["to_ref"], item["relation_type"],
+            item.get("confidence") or "MEDIUM", _dump(item.get("evidence_ids") or []),
+        ) for item in relation_rows],
+    )
+
+
+def _analyze_script_intelligence(audit_id: str, scripts: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    findings: list[dict[str, Any]] = []
+    material_ids = {
+        "DYNAMIC_EVAL", "DYNAMIC_FUNCTION", "DOCUMENT_WRITE",
+        "DYNAMIC_SCRIPT_INJECTION", "FINGERPRINTING_SURFACE",
+    }
+    for item in scripts:
+        signals = [
+            dict(signal) for signal in (item.get("risk_signals") or ())
+            if isinstance(signal, Mapping) and str(signal.get("signal_id") or "") in material_ids
+        ]
+        if not signals:
+            continue
+        ids = {str(signal.get("signal_id") or "") for signal in signals}
+        dynamic = bool(ids & {"DYNAMIC_EVAL", "DYNAMIC_FUNCTION"})
+        severity = "MEDIUM" if dynamic and str(item.get("party")) == "THIRD_PARTY" else "LOW"
+        label = str(item.get("resource_url") or item.get("script_ref") or "script observado")
+        findings.append(_finding(
+            audit_id=audit_id,
+            page_id=str(item.get("page_id") or "") or None,
+            url=label,
+            code=f"SCRIPT_SIGNAL_{item.get('script_ref')}",
+            category="JavaScript Integrity",
+            finding_type="OBSERVATION",
+            title="JavaScript apresenta indicadores de execução dinâmica ou superfície sensível",
+            description=(
+                "A análise estática bounded observou APIs/padrões que merecem revisão. "
+                "Esses sinais não classificam o arquivo como malicioso."
+            ),
+            severity=severity,
+            confidence="HIGH",
+            evidence_ids=item.get("evidence_ids") or (),
+            party=str(item.get("party") or "UNKNOWN"),
+            impact=(
+                "Execução dinâmica, injeção de scripts ou superfícies de fingerprinting podem ampliar "
+                "complexidade, dependências e impacto de uma eventual alteração indevida."
+            ),
+            containment="Revisar necessidade, origem e governança do recurso antes de bloqueá-lo ou removê-lo.",
+            remediation=(
+                "Eliminar padrões dinâmicos desnecessários, reduzir dependências de terceiros e aplicar "
+                "controles de integridade/CSP quando tecnicamente compatíveis."
+            ),
+            validation=(
+                "Reauditar o mesmo recurso e confirmar hash, sinais estáticos, funcionalidade e ausência "
+                "de regressão após a mudança."
+            ),
+            details={
+                "target": {
+                    "kind": "SCRIPT",
+                    "ref": item.get("script_ref"),
+                    "label": label,
+                    "scope": item.get("domain") or item.get("party"),
+                },
+                "script": {
+                    "analysis_state": item.get("analysis_state"),
+                    "timing": item.get("timing") or {},
+                    "integrity": item.get("integrity") or {},
+                    "risk_signals": signals,
+                    "platforms": item.get("platforms") or [],
+                },
+            },
+        ))
+    return findings
+
+
 def _persist_inventory(
     connection: sqlite3.Connection,
     audit_id: str,
