@@ -100,6 +100,8 @@ def test_preparation_shows_compact_ui_cost_preview_before_selection(monkeypatch,
 
     rendered = output.getvalue()
     assert "PENDÊNCIAS DESTA TENTATIVA" in rendered
+    assert "RESULTADOS PRESERVADOS" in rendered
+    assert "preservado; não será executado novamente por padrão" in rendered
     assert "Pendências a tentar" in rendered
     assert "Fora da fila" in rendered
     assert "CUSTO-SELETIVO" in rendered
@@ -140,6 +142,67 @@ def test_cost_preview_uses_canonical_catalog_fallback_without_history(monkeypatc
     assert "CATÁLOGO / BAIXA CONFIANÇA" in rendered
     assert "USD 0.012345" in rendered
     assert "entrada=14000" in rendered
+
+
+def test_ai_cost_preview_is_marked_conditional_when_prerequisites_are_pending(
+    monkeypatch,
+) -> None:
+    from rasai import console_reprocess_parity as parity, cost_forecast
+
+    state = SimpleNamespace(
+        audits_root="audits",
+        ai_provider="auto",
+        ai_model=None,
+        ai_reasoning=None,
+    )
+    pending = (_item("IMPROVEMENT_INTELLIGENCE", "FAILED_RETRYABLE"),)
+    source = SimpleNamespace(
+        ai_provider="auto",
+        ai_model=None,
+        ai_reasoning=None,
+        content_remediation=False,
+        technical_remediation=False,
+        improvement_enabled=True,
+        directed_ai_enabled=False,
+        device="mobile",
+        input_mode="url",
+        target="https://example.test/",
+        max_pages=1,
+        audits_root="audits",
+    )
+    monkeypatch.setattr(final, "_source_forecast_state", lambda *_args: source)
+    monkeypatch.setattr(final, "_all_applicable_ai_items", lambda *_args: pending)
+    monkeypatch.setattr(
+        parity,
+        "_mode_scope_preview",
+        lambda *_args, **_kwargs: {
+            "effective": ("RENDER_CAPTURE/PLANNED:PGE-1:MOBILE",),
+            "automatic": ("RENDER_CAPTURE/PLANNED:PGE-1:MOBILE",),
+            "ai_waiting": (
+                "IMPROVEMENT_INTELLIGENCE/AUDIT <- RENDER_CAPTURE/PLANNED:PGE-1:MOBILE",
+            ),
+            "required_ai_pending": ("IMPROVEMENT_INTELLIGENCE/AUDIT",),
+        },
+    )
+    monkeypatch.setattr(
+        cost_forecast,
+        "forecast_local_cost",
+        lambda *_args: unavailable_forecast("sem histórico", source="test"),
+    )
+    monkeypatch.setattr(
+        final,
+        "_catalog_fallback_estimate",
+        lambda *_args: (0.01, "USD", 1000, 500, "STANDARD"),
+    )
+
+    with redirect_stdout(StringIO()) as output:
+        final._render_reprocess_cost_preview(state, "AUD-TEST", pending)
+
+    rendered = output.getvalue()
+    assert "Condição da IA" in rendered
+    assert "CONDICIONAL AOS PRÉ-REQUISITOS" in rendered
+    assert "chamadas IA = 0 e custo IA = 0" in rendered
+    assert "CATÁLOGO / BAIXA CONFIANÇA / CONDICIONAL AOS PRÉ-REQUISITOS" in rendered
 
 
 def test_rpr_cost_preview_uses_current_session_ai_and_preserves_original_aud(monkeypatch) -> None:
