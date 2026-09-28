@@ -1064,6 +1064,29 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
     )
 
 
+def _technical_target_label(finding: Mapping[str,Any] | None) -> str:
+    if not isinstance(finding,Mapping):
+        return "-"
+    details=_safe_json(finding.get("details_json"),{})
+    target=details.get("target") if isinstance(details,Mapping) else None
+    if not isinstance(target,Mapping):
+        return "-"
+    ref=str(target.get("ref") or "").strip()
+    label=str(target.get("label") or ref or "").strip()
+    owner=str(target.get("owner_label") or "").strip()
+    scope=str(target.get("scope") or "").strip()
+    occurrence=str(target.get("occurrence") or "").strip()
+    parts=[]
+    if label:
+        parts.append(label)
+    if ref and ref not in label:
+        parts.append(f"ID {ref}")
+    if owner:
+        parts.append(f"Responsável: {owner}")
+    parts.extend(value for value in (scope,occurrence) if value)
+    return " · ".join(parts) or "-"
+
+
 def _improvement_html(database: Path, data: _ReportData) -> str:
     con=sqlite3.connect(database); con.row_factory=sqlite3.Row
     try:
@@ -1086,8 +1109,9 @@ def _improvement_html(database: Path, data: _ReportData) -> str:
         reference=_Html(f"<a class='ref' href='{CATALOG_PAGE_BY_ID[source_cat].filename}'>Origem: {source_cat}</a>") if source_cat in CATALOG_PAGE_BY_ID else "-"
         severity_display=_severity_text(f.get("severity"))
         priority_display=_priority_text(rec.get("priority")) if rec else "-"
-        rows.append((f.get("title") or "Problema identificado",severity_display,priority_display,reference,_modal_button(mid,"Ver análise")))
-        body=_kv((("Problema",f.get("observation") or f.get("title") or "-"),("Domínio",_domain_label(f.get("domain"))),("Severidade",severity_display),("Fonte",f.get("source") or "-"),("Catálogo de origem",source_cat or "-")))
+        target_label=_technical_target_label(f)
+        rows.append((f.get("title") or "Problema identificado",target_label,severity_display,priority_display,reference,_modal_button(mid,"Ver análise")))
+        body=_kv((("Problema",f.get("observation") or f.get("title") or "-"),("Alvo técnico",target_label),("Domínio",_domain_label(f.get("domain"))),("Severidade",severity_display),("Fonte",f.get("source") or "-"),("Catálogo de origem",source_cat or "-")))
         if rec:
             body+="<h3>Melhoria recomendada</h3><p>"+escape(str(rec.get("recommendation") or rec.get("title") or "-"))+"</p>"
             body+="<p><a href='cat-09.html'>Ver remediação e detalhes de implementação no CAT-09</a></p>"
@@ -1096,7 +1120,7 @@ def _improvement_html(database: Path, data: _ReportData) -> str:
     summary=run.get("ai_summary") or run.get("summary")
     if summary:
         intro+=f"<div class='notice'><strong>Síntese da análise:</strong> {escape(str(summary))}</div>"
-    return intro+_table(("Problema","Severidade","Prioridade","Referência","Detalhe"),rows,empty="A análise foi concluída sem materializar problemas correlacionados.",sortable=bool(rows),page_size=10 if len(rows)>10 else None)+"".join(modals)
+    return intro+_table(("Problema","Alvo técnico","Severidade","Prioridade","Referência","Detalhe"),rows,empty="A análise foi concluída sem materializar problemas correlacionados.",sortable=bool(rows),page_size=10 if len(rows)>10 else None)+"".join(modals)
 
 
 def _rationale_parts(value: Any) -> dict[str,str]:
@@ -1192,7 +1216,7 @@ def _remediation_html(database: Path, data: _ReportData) -> str:
         idx+=1;mid=f"rem-discovery-{idx}"
         code=str(action.get("diagnostic_code") or "")
         objective=action.get("objective_pt") or "Orientação técnica de descoberta"
-        rows.append((objective,"Informativa","CAT-01 → CAT-09 · IA técnica",_modal_button(mid,"Ver orientação")))
+        rows.append((objective,"-","Informativa","CAT-01 → CAT-09 · IA técnica",_modal_button(mid,"Ver orientação")))
         body=_kv((("Objetivo",objective),("Como proceder",action.get("recommended_change_pt") or "-"),("Validação humana necessária","Sim" if action.get("human_validation_required") else "Não"),("Evidências",", ".join(str(v) for v in action.get("evidence_ids",[]) if str(v)) or "-")))
         body+="<div class='notice'><strong>Importante:</strong> ausência de robots.txt ou sitemap no caminho convencional não é convertida automaticamente em erro. A recomendação respeita o contexto e exige decisão operacional quando aplicável.</div>"
         modals.append(_modal(mid,str(objective),f"Orientação assistida por IA · evidência de descoberta {code or 'persistida'}",body))
@@ -1202,7 +1226,7 @@ def _remediation_html(database: Path, data: _ReportData) -> str:
         if str(root.get("rule_id") or "") in suppressed_rules:continue
         idx+=1;mid=f"rem-det-{idx}"
         title=_friendly_deterministic_title(r,root)
-        rows.append((title,_priority_text(r.get("priority_class")),"Determinística",_modal_button(mid,"Ver correção")))
+        rows.append((title,"-",_priority_text(r.get("priority_class")),"Determinística",_modal_button(mid,"Ver correção")))
         body=_kv((("Problema / objetivo",r.get("description") or root.get("cause_summary") or "-"),("Impacto",_level_label(r.get("impact"))),("Esforço",_level_label(r.get("effort"))),("Confiança",_confidence_label(r.get("confidence"))),("Problema de origem",r.get("finding_id") or "-")))
         if root:
             body+="<h3>Implementação sugerida</h3>"+_kv((("Mudança exata",root.get("exact_change") or "-"),("Exemplo após correção",root.get("example_after") or "-"),("Decisão humana necessária",root.get("human_decision_required") or "Não indicada"),("Critério de aceite",root.get("acceptance_criteria") or "-"),("Como revalidar",root.get("revalidation_steps") or "-")))
@@ -1210,13 +1234,13 @@ def _remediation_html(database: Path, data: _ReportData) -> str:
 
     for r in content:
         idx+=1;mid=f"rem-content-{idx}"
-        rows.append((r.get("objective") or "Melhoria de conteúdo","-","IA · conteúdo",_modal_button(mid,"Ver sugestão")))
+        rows.append((r.get("objective") or "Melhoria de conteúdo",r.get("target_location") or "-","-","IA · conteúdo",_modal_button(mid,"Ver sugestão")))
         body=_kv((("Objetivo",r.get("objective")),("Onde aplicar",r.get("target_location")),("Texto proposto",r.get("proposed_text")),("Confiança",_confidence_label(r.get("confidence"))),("Problema de origem",r.get("finding_id"))))
         modals.append(_modal(mid,r.get("objective") or "Sugestão de conteúdo","Conteúdo assistido por IA",body))
 
     for r in jsonld:
         idx+=1;mid=f"rem-jsonld-{idx}"
-        rows.append(("Aprimorar dados estruturados","-","Dados estruturados",_modal_button(mid,"Ver JSON-LD")))
+        rows.append(("Aprimorar dados estruturados","Documento / dados estruturados","-","Dados estruturados",_modal_button(mid,"Ver JSON-LD")))
         proposed=_safe_json(r.get("proposed_json"),r.get("proposed_json"))
         body=_kv((("Situação",_status_label(r.get("status"))),("Tipos existentes",", ".join(_safe_json(r.get("existing_types"),[])) or "Nenhum"),("Melhorias",r.get("improvements") or "-")))
         body+="<h3>JSON-LD sugerido</h3><div class='pre'>"+escape(json.dumps(proposed,ensure_ascii=False,indent=2) if isinstance(proposed,(dict,list)) else str(proposed or "-"))+"</div>"
@@ -1229,10 +1253,12 @@ def _remediation_html(database: Path, data: _ReportData) -> str:
         finding=finding_by_id.get(str(r.get("finding_id")),{})
         priority_display=_priority_text(r.get("priority"))
         severity_display=_severity_text(r.get("severity"))
-        rows.append((title,priority_display,f"CAT-08 → {source_cat or 'evidência transversal'}",_modal_button(mid,"Ver implementação")))
+        target_label=_technical_target_label(finding)
+        rows.append((title,target_label,priority_display,f"CAT-08 → {source_cat or 'evidência transversal'}",_modal_button(mid,"Ver implementação")))
         rationale=_rationale_parts(r.get("rationale"))
         problem=finding.get("observation") or finding.get("title") or "-"
-        body=_kv((("Problema observado",problem),("Domínio",_domain_label(r.get("domain"))),("Severidade",severity_display),("Prioridade",priority_display),("Onde aplicar",r.get("selector") or "Não se aplica / não identificado"),("Como corrigir",r.get("recommendation") or "-"),("Risco de manter como está",rationale.get("risk") or r.get("rationale") or "-"),("Benefício esperado da correção",rationale.get("benefit") or "-"),("Justificativa técnica",rationale.get("technical") or "-"),("Impactos relacionados",_impact_summary(r.get("impacts_json"))),("Esforço",_level_label(r.get("effort"))),("Confiança",_confidence_label(r.get("confidence"))),("Problema de origem",r.get("finding_id") or "-")))
+        where_apply=target_label if target_label!="-" else (r.get("selector") or "Não se aplica / não identificado")
+        body=_kv((("Problema observado",problem),("Alvo técnico",target_label),("Domínio",_domain_label(r.get("domain"))),("Severidade",severity_display),("Prioridade",priority_display),("Onde aplicar",where_apply),("Como corrigir",r.get("recommendation") or "-"),("Risco de manter como está",rationale.get("risk") or r.get("rationale") or "-"),("Benefício esperado da correção",rationale.get("benefit") or "-"),("Justificativa técnica",rationale.get("technical") or "-"),("Impactos relacionados",_impact_summary(r.get("impacts_json"))),("Esforço",_level_label(r.get("effort"))),("Confiança",_confidence_label(r.get("confidence"))),("Problema de origem",r.get("finding_id") or "-")))
         if r.get("original_html"):
             body+="<h3>Trecho observado</h3><div class='pre'>"+escape(str(r.get("original_html")))+"</div>"
         if r.get("suggested_html"):
@@ -1251,7 +1277,7 @@ def _remediation_html(database: Path, data: _ReportData) -> str:
         lead="<div class='notice'><strong>Política para arquivos de descoberta:</strong> "+escape(policy_note)+"</div>"
     if rows:
         lead+=f"<div class='metric-grid'>{_metric('Correções e melhorias apresentadas',len(rows))}{_metric('Remediações da análise profunda',len(deep))}{_metric('Orientações técnicas de descoberta',len(ai_discovery))}</div>"
-    return lead+_table(("Correção / melhoria","Prioridade","Origem","Detalhe"),rows,empty="Nenhuma remediação persistida para esta auditoria.",sortable=bool(rows),page_size=10 if len(rows)>10 else None)+"".join(modals)
+    return lead+_table(("Correção / melhoria","Alvo técnico","Prioridade","Origem","Detalhe"),rows,empty="Nenhuma remediação persistida para esta auditoria.",sortable=bool(rows),page_size=10 if len(rows)>10 else None)+"".join(modals)
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]
