@@ -830,6 +830,12 @@ def _prepare_reprocess(workspace: Any, audit_id: str) -> ReprocessPreparation:
         audit_id=audit_id,
         reprocess_id=_current_reprocess_id(workspace, audit_id),
     )
+    from rasai.standards_owned_service_reconciliation import reconcile_owned_service_runs
+
+    owned_service_outcomes = reconcile_owned_service_runs(
+        audit_id=audit_id,
+        workspace=workspace,
+    )
     prior = latest_evidence_snapshot(workspace, audit_id)
     before_material = _material_state_fingerprint(workspace, audit_id)
     recovered: dict[str, str] = {}
@@ -869,6 +875,7 @@ def _prepare_reprocess(workspace: Any, audit_id: str) -> ReprocessPreparation:
         recovered_collectors=recovered,
         material_state_changed=material_changed,
         evidence_ids_changed=evidence_changed,
+        reconciled_owned_services=owned_service_outcomes,
     )
     return ReprocessPreparation(
         snapshot=snapshot,
