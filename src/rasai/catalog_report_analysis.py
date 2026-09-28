@@ -433,6 +433,294 @@ def _security_detail_html(value: Any) -> str:
     return str(_display_value(_security_detail_scalar(value)))
 
 
+
+def _snapshot_script_runtime_rows(database: Path, audit_id: str) -> list[dict[str, Any]]:
+    connection=sqlite3.connect(database); connection.row_factory=sqlite3.Row
+    try:
+        if not (_table_exists(connection,"pages") and _table_exists(connection,"page_snapshots")):
+            return []
+        rows=connection.execute(
+            """SELECT ps.snapshot_id,ps.device,ps.final_url,ps.requested_url,ps.browser_metadata
+               FROM page_snapshots ps
+               JOIN pages p ON p.page_id=ps.page_id
+               WHERE p.audit_id=?
+               ORDER BY ps.rowid""",
+            (audit_id,),
+        ).fetchall()
+    finally:
+        connection.close()
+    result=[]
+    for row in rows:
+        meta=_safe_json(row["browser_metadata"],{})
+        runtime=meta.get("script_runtime",{}) if isinstance(meta,Mapping) else {}
+        if not isinstance(runtime,Mapping):
+            continue
+        for item in runtime.get("items",()) or ():
+            if not isinstance(item,Mapping):
+                continue
+            result.append({
+                **dict(item),
+                "snapshot_id":row["snapshot_id"],
+                "device":row["device"],
+                "page_url":row["final_url"] or row["requested_url"],
+                "capture_state":runtime.get("state"),
+                "cpu_attribution_state":runtime.get("cpu_attribution_state"),
+                "limitations":runtime.get("limitations") or [],
+            })
+    return result
+
+
+def _script_performance_html(database: Path, data: _ReportData) -> str:
+    scripts=_snapshot_script_runtime_rows(database,data.audit_id)
+    if not scripts:
+        return (
+            "<div class='notice'><strong>Granularidade JavaScript:</strong> "
+            "esta AUD não possui telemetria individual de scripts persistida. "
+            "Isso não altera Lighthouse, CrUX, Apdex ou SARI.</div>"
+        )
+    rows=[]; modals=[]
+    sorted_scripts=sorted(
+        scripts,
+        key=lambda item:(
+            -(float(item.get("transfer_size_bytes") or 0)),
+            -(float(item.get("duration_ms") or 0)),
+            str(item.get("url") or ""),
+        ),
+    )
+    for index,item in enumerate(sorted_scripts[:100],1):
+        mid=f"js-performance-{index}"
+        url=item.get("url") or "Script sem URL pública"
+        transfer=item.get("transfer_size_bytes")
+        duration=item.get("duration_ms")
+        state=str(item.get("body_analysis_state") or "NOT_AVAILABLE")
+        platforms=[
+            str(p.get("platform_name") or p.get("platform_id"))
+            for p in (item.get("platforms") or [])
+            if isinstance(p,Mapping)
+        ]
+        rows.append((
+            url,
+            _device_label(item.get("device")),
+            _security_party_label(item.get("party")),
+            _fmt_number(transfer,"B") if transfer is not None else "Não visível",
+            _fmt_number(duration,"ms") if duration is not None else "-",
+            " · ".join(platforms) or "-",
+            _status_label(state),
+            _modal_button(mid,"Ver script"),
+        ))
+        timing=(
+            ("Transferido",_fmt_number(item.get("transfer_size_bytes"),"B") if item.get("transfer_size_bytes") is not None else "Não visível"),
+            ("Tamanho codificado",_fmt_number(item.get("encoded_body_size_bytes"),"B") if item.get("encoded_body_size_bytes") is not None else "Não visível"),
+            ("Tamanho decodificado",_fmt_number(item.get("decoded_body_size_bytes"),"B") if item.get("decoded_body_size_bytes") is not None else "Não visível"),
+            ("Duração do recurso",_fmt_number(item.get("duration_ms"),"ms")),
+            ("Protocolo",item.get("next_hop_protocol") or item.get("protocol") or "-"),
+            ("Cache em disco","Sim" if item.get("from_disk_cache") else "Não"),
+            ("Service Worker","Sim" if item.get("from_service_worker") else "Não"),
+            ("Estado da análise do corpo",_status_label(state)),
+            ("SHA-256 do conteúdo",item.get("content_sha256") or "Não disponível"),
+            ("Atribuição de CPU por script","Não coletada para evitar overhead do profiler"),
+        )
+        body=_kv((("Script",url),("Página",item.get("page_url") or "-"),("Dispositivo",_device_label(item.get("device"))),*timing))
+        risk=item.get("risk_signals") or []
+        if risk:
+            body+="<h3>Indicadores estáticos</h3>"+_table(
+                ("Sinal","Relevância","Ocorrências","Confiança"),
+                [(
+                    r.get("signal_id") or "-",
+                    _level_label(r.get("risk_relevance")),
+                    r.get("count") or 0,
+                    _confidence_label(r.get("confidence")),
+                ) for r in risk if isinstance(r,Mapping)],
+            )
+        body+=(
+            "<div class='notice'>Resource Timing e corpo CDP pertencem à mesma navegação já executada. "
+            "A página não usa estes valores para recalcular Lighthouse, CrUX, Apdex ou SARI. "
+            "Valores de tamanho podem ficar opacos em recursos cross-origin.</div>"
+        )
+        modals.append(_modal(mid,"JavaScript observado","Web Performance · recurso individual",body))
+    totals={
+        "transfer":sum(float(item.get("transfer_size_bytes") or 0) for item in scripts),
+        "encoded":sum(float(item.get("encoded_body_size_bytes") or 0) for item in scripts),
+        "decoded":sum(float(item.get("decoded_body_size_bytes") or 0) for item in scripts),
+        "third":sum(1 for item in scripts if str(item.get("party") or "").upper()=="THIRD_PARTY"),
+        "opaque":sum(
+            1 for item in scripts
+            if item.get("transfer_size_bytes") in (None,0)
+            and item.get("encoded_body_size_bytes") in (None,0)
+            and item.get("decoded_body_size_bytes") in (None,0)
+        ),
+    }
+    summary=(
+        "<div class='metric-grid'>"
+        +_metric("Scripts observados",len(scripts))
+        +_metric("Scripts de terceiros",totals["third"])
+        +_metric("Transferência JS observável",_fmt_number(totals["transfer"],"B"))
+        +_metric("Decodificado observável",_fmt_number(totals["decoded"],"B"))
+        +_metric("Entradas sem tamanho visível",totals["opaque"])
+        +"</div>"
+    )
+    return (
+        summary
+        +"<p class='section-lead'>A granularidade abaixo é diagnóstica e não cria um segundo score de performance. "
+        "Atribuição de CPU por arquivo permanece desligada nesta evolução para não introduzir overhead no runtime homologado.</p>"
+        +_table(("Script","Dispositivo","Origem","Transferência","Duração","Plataforma","Análise","Detalhe"),rows,sortable=bool(rows),page_size=10 if len(rows)>10 else None)
+        +"".join(modals)
+    )
+
+
+def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
+    connection=sqlite3.connect(database); connection.row_factory=sqlite3.Row
+    try:
+        scripts=_audit_rows(connection,"passive_security_script_observations",audit_id)
+        cookies=_audit_rows(connection,"passive_security_cookie_attribution",audit_id)
+        platforms=_audit_rows(connection,"passive_security_platforms",audit_id)
+        relations=_audit_rows(connection,"passive_security_relationships",audit_id)
+    finally:
+        connection.close()
+
+    cookie_rows=[]; cookie_modals=[]
+    grouped: dict[str,list[Mapping[str,Any]]]={}
+    for row in cookies:
+        grouped.setdefault(str(row.get("cookie_ref") or row.get("cookie_attribution_id")),[]).append(row)
+    for index,(cookie_ref,items) in enumerate(sorted(grouped.items()),1):
+        first=items[0]
+        name=first.get("cookie_name_display") or f"Cookie {cookie_ref}"
+        mechanisms=sorted({str(item.get("creation_mechanism") or "UNKNOWN") for item in items})
+        setters=sorted({str(item.get("setter_script_url") or "") for item in items if item.get("setter_script_url")})
+        platform_refs=sorted({str(item.get("platform_ref") or "") for item in items if item.get("platform_ref")})
+        mid=f"cookie-runtime-{index}"
+        cookie_rows.append((
+            name,
+            f"{first.get('effective_domain') or '-'} {first.get('effective_path') or '/'}",
+            " · ".join(mechanisms),
+            first.get("purpose") or "UNKNOWN",
+            _confidence_label(first.get("purpose_confidence")),
+            _confidence_label(first.get("attribution_confidence")),
+            len(items),
+            _modal_button(mid,"Ver atribuição"),
+        ))
+        body=_kv((
+            ("Cookie",name),
+            ("Referência RASAi",cookie_ref),
+            ("Domínio efetivo",first.get("effective_domain") or "-"),
+            ("Path efetivo",first.get("effective_path") or "/"),
+            ("Host-only","Sim" if first.get("host_only") else "Não"),
+            ("Mecanismo(s)"," · ".join(mechanisms)),
+            ("Finalidade provável",first.get("purpose") or "UNKNOWN"),
+            ("Confiança da finalidade",_confidence_label(first.get("purpose_confidence"))),
+            ("Confiança da atribuição",_confidence_label(first.get("attribution_confidence"))),
+            ("Script setter"," · ".join(setters) or "Servidor / não atribuído a script"),
+            ("Plataforma vinculada"," · ".join(platform_refs) or "Não determinada"),
+        ))
+        details=[_safe_json(item.get("details_json"),{}) for item in items]
+        body+="<h3>Ocorrências</h3>"+_table(
+            ("Mecanismo","Snapshot","Origem","Estado de consentimento observado"),
+            [(
+                item.get("creation_mechanism") or "-",
+                item.get("snapshot_id") or "HTTP",
+                item.get("setter_script_url") or "Resposta HTTP / não atribuída",
+                (detail.get("consent_state_at_creation") if isinstance(detail,Mapping) else None) or "Não observado",
+            ) for item,detail in zip(items,details)],
+        )
+        body+="<div class='notice'>Finalidade é classificação técnica/heurística; não representa conclusão jurídica de consentimento ou LGPD. Valores de cookies não são persistidos nesta camada.</div>"
+        cookie_modals.append(_modal(mid,name,"Cookie · provenance e escopo",body))
+
+    script_rows=[]; script_modals=[]
+    for index,item in enumerate(scripts[:100],1):
+        mid=f"security-script-{index}"
+        timing=_safe_json(item.get("timing_json"),{})
+        integrity=_safe_json(item.get("integrity_json"),{})
+        risks=_safe_json(item.get("risk_signals_json"),[])
+        platforms_json=_safe_json(item.get("platforms_json"),[])
+        names=[
+            str(p.get("platform_name") or p.get("platform_id"))
+            for p in platforms_json if isinstance(p,Mapping)
+        ] if isinstance(platforms_json,list) else []
+        script_rows.append((
+            item.get("resource_url") or item.get("script_ref"),
+            _security_party_label(item.get("party")),
+            _fmt_number(timing.get("transfer_size_bytes"),"B") if isinstance(timing,Mapping) and timing.get("transfer_size_bytes") is not None else "Não visível",
+            str(item.get("analysis_state") or "-"),
+            len(risks) if isinstance(risks,list) else 0,
+            " · ".join(names) or "-",
+            _modal_button(mid,"Ver integridade"),
+        ))
+        body=_kv((
+            ("Script",item.get("resource_url") or item.get("script_ref")),
+            ("Referência RASAi",item.get("script_ref")),
+            ("Origem",_security_party_label(item.get("party"))),
+            ("Domínio",item.get("domain") or "-"),
+            ("Estado da análise",item.get("analysis_state") or "-"),
+            ("SHA-256",integrity.get("content_sha256") if isinstance(integrity,Mapping) else "-"),
+            ("Duração",_fmt_number(timing.get("duration_ms"),"ms") if isinstance(timing,Mapping) else "-"),
+        ))
+        if isinstance(risks,list) and risks:
+            body+="<h3>Indicadores de integridade/comportamento</h3>"+_table(
+                ("Sinal","Relevância","Ocorrências","Confiança"),
+                [(
+                    r.get("signal_id") or "-",
+                    _level_label(r.get("risk_relevance")),
+                    r.get("count") or 0,
+                    _confidence_label(r.get("confidence")),
+                ) for r in risks if isinstance(r,Mapping)],
+            )
+        body+="<div class='notice'>Os indicadores acima não são verdict de malware. A análise é passiva, bounded e baseada no corpo já recebido pelo navegador quando disponível.</div>"
+        script_modals.append(_modal(mid,"JavaScript observado","CAT-10 · integridade e indicadores de risco",body))
+
+    platform_rows=[]; platform_modals=[]
+    for index,item in enumerate(platforms[:100],1):
+        mid=f"platform-{index}"
+        identifiers=_safe_json(item.get("identifiers_json"),[])
+        platform_rows.append((
+            item.get("platform_name") or item.get("platform_id"),
+            _confidence_label(item.get("confidence")),
+            len(identifiers) if isinstance(identifiers,list) else 0,
+            item.get("snapshot_id") or "-",
+            _modal_button(mid,"Ver plataforma"),
+        ))
+        id_rows=[]
+        if isinstance(identifiers,list):
+            for identifier in identifiers:
+                if not isinstance(identifier,Mapping):
+                    continue
+                id_rows.append((
+                    identifier.get("identifier_type") or "-",
+                    identifier.get("identifier_class") or "-",
+                    identifier.get("identifier_display") or "[PROTEGIDO]",
+                    identifier.get("identifier_hash") or "-",
+                ))
+        body=_kv((
+            ("Plataforma",item.get("platform_name") or item.get("platform_id")),
+            ("ID técnico",item.get("platform_id") or "-"),
+            ("Confiança",_confidence_label(item.get("confidence"))),
+            ("Snapshot",item.get("snapshot_id") or "-"),
+        ))
+        body+="<h3>Identificadores observados</h3>"+_table(
+            ("Tipo","Classe de segurança","Apresentação","Hash de correlação"),
+            id_rows,
+            empty="Nenhum identificador seguro foi materializado.",
+        )
+        body+="<div class='notice'>Identificadores desconhecidos ou potencialmente operacionais não são promovidos automaticamente a valores públicos. Segredos continuam sujeitos ao secret safety canônico.</div>"
+        platform_modals.append(_modal(mid,item.get("platform_name") or "Plataforma observada","Tecnologia detectada no website",body))
+
+    return (
+        "<div class='subsection'><h3>Cookies observados e atribuição</h3>"
+        +_table(("Cookie","Escopo","Criação","Finalidade provável","Conf. finalidade","Conf. atribuição","Ocorrências","Detalhe"),cookie_rows,empty="Nenhuma atribuição adicional de cookie foi persistida nesta AUD.",sortable=bool(cookie_rows),page_size=10 if len(cookie_rows)>10 else None)
+        +"".join(cookie_modals)+"</div>"
+        +"<div class='subsection'><h3>JavaScript · integridade, comportamento e custo observado</h3>"
+        +_table(("Script","Origem","Transferência","Análise","Sinais","Plataforma","Detalhe"),script_rows,empty="Nenhum JavaScript com telemetria granular foi materializado pelo CAT-10.",sortable=bool(script_rows),page_size=10 if len(script_rows)>10 else None)
+        +"".join(script_modals)+"</div>"
+        +"<div class='subsection'><h3>Plataformas, identificadores e recursos externos observados</h3>"
+        +"<p class='section-lead'>Esta é tecnologia observada no website, não a lista de integrações configuradas no RASAi. GA/GTM/Meta/Clarity e equivalentes permanecem distintos de integrações OAuth/API do auditor.</p>"
+        +_table(("Plataforma","Confiança","Identificadores seguros","Snapshot","Detalhe"),platform_rows,empty="Nenhuma plataforma foi identificada com confiança suficiente.",sortable=bool(platform_rows))
+        +"".join(platform_modals)
+        +_metric("Relações técnicas persistidas",len(relations))
+        +"</div>"
+    )
+
+
+
+
 def _passive_security_html(database: Path, data: _ReportData) -> str:
     con=sqlite3.connect(database); con.row_factory=sqlite3.Row
     try:
