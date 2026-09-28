@@ -120,6 +120,9 @@ def _work_item_preview(state: Any, audit_id: str) -> tuple[tuple[Any, ...], tupl
         from rasai.persistence import AuditWorkspace
 
         workspace = AuditWorkspace.open(Path(state.audits_root) / audit_id)
+        from rasai.audit_reprocess import reconcile_reprocess_state
+
+        reconcile_reprocess_state(workspace, audit_id)
         items = tuple(list_work_items(workspace, audit_id))
         successes = tuple(item for item in items if item.required and item.status == SUCCESS)
         pending = tuple(item for item in items if item.required and item.status != SUCCESS)
