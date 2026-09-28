@@ -2238,10 +2238,14 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
                 for state in page.get("cookie_capture_states", ())
                 if str(state)
             }
-            if _truthy(os.environ.get(RESOURCES_ENV), True) and not script_states:
-                limitations.append("SCRIPT_RUNTIME_NOT_INSTRUMENTED")
-            if _truthy(os.environ.get(COOKIES_ENV), True) and not cookie_states:
-                limitations.append("COOKIE_RUNTIME_NOT_INSTRUMENTED")
+            if _truthy(os.environ.get(RESOURCES_ENV), True) and script_states and not any(
+                state in {"CAPTURED", "NO_SCRIPT_DATA"} for state in script_states
+            ):
+                limitations.append("SCRIPT_RUNTIME_CAPTURE_UNAVAILABLE")
+            if _truthy(os.environ.get(COOKIES_ENV), True) and cookie_states and not any(
+                state in {"CAPTURED", "CAPTURED_NO_WRITES"} for state in cookie_states
+            ):
+                limitations.append("COOKIE_RUNTIME_CAPTURE_UNAVAILABLE")
             if integration_states.get("OSV") in {"UNAVAILABLE", "PARTIAL"}:
                 limitations.append("OSV_REDUCED_COVERAGE")
             if integration_states.get("CISA_KEV") == "UNAVAILABLE":
