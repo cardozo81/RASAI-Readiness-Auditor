@@ -16,6 +16,7 @@ from rasai.audit_fulfillment import (
     begin_attempt,
     list_work_items,
     register_work_item,
+    start_reprocess_run,
 )
 from rasai.audit_resume_runtime import (
     _all_other_required_resolved,
@@ -28,6 +29,7 @@ from rasai.audit_resume_runtime import (
     materialize_planned_work_items,
     persist_resume_plan,
     reconcile_interrupted_attempts,
+    reconcile_interrupted_reprocess_runs,
     resume_plan_options,
     start_execution_session,
 )
@@ -180,6 +182,78 @@ def test_active_execution_session_blocks_concurrent_resume(tmp_path: Path) -> No
         reject_active=True,
     )
     finish_execution_session(workspace, second, state="COMPLETED")
+
+
+def test_abandoned_rpr_is_closed_and_next_retry_gets_new_id_without_losing_success(
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="PRESERVED_COMPONENT",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status=SUCCESS,
+        retryable=False,
+        result_ref="persisted:success",
+    )
+
+    abandoned = start_reprocess_run(workspace, AUDIT_ID, source="TEST")
+    connection = sqlite3.connect(workspace.database)
+    try:
+        connection.execute(
+            """UPDATE audit_reprocess_runs
+               SET attempted_items=3,successful_items=2
+               WHERE reprocess_id=?""",
+            (abandoned,),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    assert reconcile_interrupted_reprocess_runs(workspace, AUDIT_ID) == 1
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        row = connection.execute(
+            """SELECT status,attempted_items,successful_items,completed_at,note
+               FROM audit_reprocess_runs WHERE reprocess_id=?""",
+            (abandoned,),
+        ).fetchone()
+    finally:
+        connection.close()
+    assert row is not None
+    assert row[0] == FAILED_RETRYABLE
+    assert row[1] == 3
+    assert row[2] == 2
+    assert row[3]
+    assert "interrompido" in str(row[4]).casefold()
+
+    preserved = next(
+        item
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component == "PRESERVED_COMPONENT"
+    )
+    assert preserved.status == SUCCESS
+    assert preserved.effective_result_ref == "persisted:success"
+
+    resumed = start_reprocess_run(workspace, AUDIT_ID, source="TEST")
+    assert resumed != abandoned
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        rows = connection.execute(
+            """SELECT reprocess_id,completed_at
+               FROM audit_reprocess_runs WHERE audit_id=?
+               ORDER BY started_at,reprocess_id""",
+            (AUDIT_ID,),
+        ).fetchall()
+    finally:
+        connection.close()
+    assert len(rows) == 2
+    assert rows[0][0] == abandoned and rows[0][1]
+    assert rows[1][0] == resumed and rows[1][1] is None
 
 
 def test_orphan_running_attempt_is_closed_and_item_becomes_retryable(tmp_path: Path) -> None:
