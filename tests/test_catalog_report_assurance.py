@@ -93,6 +93,58 @@ def test_nonsecret_cat10_cookie_toggle_is_not_treated_as_persisted_credential() 
     assert passed is False
     assert "RASAI_OPENAI_API_KEY" in detail
 
+def test_passive_security_cookie_toggle_in_work_item_is_not_a_secret() -> None:
+    data = _data()
+    data.work_items = [
+        {
+            "component": "PASSIVE_SECURITY",
+            "scope_key": "AUDIT",
+            "configuration": '{"cookies":"true","headers":"true"}',
+        }
+    ]
+
+    passed, detail = _secret_free_configuration(data)
+
+    assert passed is True
+    assert "sem valores de credenciais" in detail
+
+    data.work_items[0]["configuration"] = '{"cookies":"false"}'
+    passed, _detail = _secret_free_configuration(data)
+    assert passed is True
+
+
+def test_passive_security_cookie_toggle_does_not_allow_cookie_material() -> None:
+    data = _data()
+    data.work_items = [
+        {
+            "component": "PASSIVE_SECURITY",
+            "scope_key": "AUDIT",
+            "configuration": '{"cookies":"sessionid=abc123; Secure; HttpOnly"}',
+        }
+    ]
+
+    passed, detail = _secret_free_configuration(data)
+
+    assert passed is False
+    assert "configuration.cookies" in detail
+
+
+def test_cookie_named_configuration_outside_passive_security_remains_sensitive() -> None:
+    data = _data()
+    data.work_items = [
+        {
+            "component": "OTHER_COMPONENT",
+            "scope_key": "AUDIT",
+            "configuration": '{"cookies":"true"}',
+        }
+    ]
+
+    passed, detail = _secret_free_configuration(data)
+
+    assert passed is False
+    assert "configuration.cookies" in detail
+
+
 def test_catalog_assurance_reaches_closure_targets_when_all_controls_pass(monkeypatch, tmp_path: Path) -> None:
     database = tmp_path / "audit.db"
     database.write_bytes(b"")
