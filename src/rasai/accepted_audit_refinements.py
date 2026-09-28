@@ -984,6 +984,25 @@ def _ymyl_analysis_context_html(database: Any, audit_id: str, a: Any) -> str:
         "são obrigatórios no pedido de remediação da análise profunda e devem chegar ao CAT-09 quando acionáveis.</p></div>"
     )
 
+
+def _persisted_target(details_value: Any) -> dict[str, Any]:
+    details=_safe_json(details_value,{})
+    if not isinstance(details,Mapping):
+        return {}
+    target=details.get("target")
+    return dict(target) if isinstance(target,Mapping) else {}
+
+
+def _target_label(target: Mapping[str,Any]) -> str:
+    if not target:
+        return "Não se aplica / não identificado"
+    label=str(target.get("label") or target.get("ref") or "").strip()
+    scope=str(target.get("scope") or "").strip()
+    occurrence=str(target.get("occurrence") or "").strip()
+    parts=[value for value in (label,scope,occurrence) if value]
+    return " · ".join(parts) if parts else "Não se aplica / não identificado"
+
+
 def _improvement_html(database: Any, data: Any) -> str:
     from rasai import catalog_report_analysis as a
     con = sqlite3.connect(database); con.row_factory = sqlite3.Row
@@ -1013,9 +1032,11 @@ def _improvement_html(database: Any, data: Any) -> str:
         public_title = _finding_public_title(finding); severity = a._level_label(finding.get("severity")); severity_display=a._severity_text(finding.get("severity"))
         original_problem = str(finding.get("observation") or finding.get("title") or "-")
         original_title = str(finding.get("title") or original_problem)
+        target=_persisted_target(finding.get("details_json"))
+        target_label=_target_label(target)
         public_title_cell = a._translated_text(public_title, original_title) if public_title != original_title else public_title
         filter_rows.append(((public_title_cell, a._domain_label(domain), severity_display, coverage_label, reference, a._modal_button(modal_id, "Ver análise")), {"domain": a._domain_label(domain), "severity": severity, "remediation": "com" if labels else "sem"}))
-        body = a._kv((("Problema", public_title), ("Domínio", a._domain_label(domain)), ("Severidade", severity_display), ("Fonte", finding.get("source") or "-"), ("Catálogo de origem", source_cat or "-"), ("Seletor / path", finding.get("selector") or "Não se aplica / não identificado"), ("Cobertura de remediação", coverage_label)))
+        body = a._kv((("Problema", public_title), ("Alvo técnico",target_label), ("Referência do alvo",target.get("ref") or "-"), ("Domínio", a._domain_label(domain)), ("Severidade", severity_display), ("Fonte", finding.get("source") or "-"), ("Catálogo de origem", source_cat or "-"), ("Seletor / path", finding.get("selector") or "Não se aplica / não identificado"), ("Cobertura de remediação", coverage_label)))
         if public_title != original_problem:
             body += "<h3>Texto original da fonte</h3><div class='pre rich-text'>" + str(a._rich_text(original_problem)) + "</div>"
         if finding.get("original_html"):
@@ -1228,7 +1249,8 @@ def _remediation_html(database: Any, data: Any) -> str:
         severity_display=a._severity_text(rec.get("severity"))
         rows.append((title, a._domain_label(domain), priority_display, f"CAT-08 → {source_cat or 'evidência transversal'}", a._modal_button(modal_id, "Ver implementação")))
         rationale = a._rationale_parts(rec.get("rationale")); problem = finding.get("observation") or finding.get("title") or "-"
-        body = a._kv((("Problema observado", _finding_public_title(finding) if finding else problem), ("Catálogo de origem", source_cat or "-"), ("Domínio", a._domain_label(domain)), ("Severidade", severity_display), ("Prioridade", priority_display), ("Seletor / path", rec.get("selector") or finding.get("selector") or "Não se aplica / não identificado"), ("Como corrigir", rec.get("recommendation") or "-"), ("Risco de manter como está", rationale.get("risk") or rec.get("rationale") or "-"), ("Benefício esperado da correção", rationale.get("benefit") or "-"), ("Justificativa técnica", rationale.get("technical") or "-"), ("Impactos relacionados", a._impact_summary(rec.get("impacts_json"))), ("Esforço", a._level_label(rec.get("effort"))), ("Confiança", a._confidence_label(rec.get("confidence"))), ("Problema de origem", rec.get("finding_id") or "-")))
+        target=_persisted_target(finding.get("details_json"))
+        body = a._kv((("Problema observado", _finding_public_title(finding) if finding else problem), ("Alvo técnico",_target_label(target)), ("Referência do alvo",target.get("ref") or "-"), ("Catálogo de origem", source_cat or "-"), ("Domínio", a._domain_label(domain)), ("Severidade", severity_display), ("Prioridade", priority_display), ("Seletor / path", rec.get("selector") or finding.get("selector") or "Não se aplica / não identificado"), ("Como corrigir", rec.get("recommendation") or "-"), ("Risco de manter como está", rationale.get("risk") or rec.get("rationale") or "-"), ("Benefício esperado da correção", rationale.get("benefit") or "-"), ("Justificativa técnica", rationale.get("technical") or "-"), ("Impactos relacionados", a._impact_summary(rec.get("impacts_json"))), ("Esforço", a._level_label(rec.get("effort"))), ("Confiança", a._confidence_label(rec.get("confidence"))), ("Problema de origem", rec.get("finding_id") or "-")))
         original = rec.get("original_html") or finding.get("original_html")
         if original: body += "<h3>Situação atual</h3><div class='pre'>" + escape(str(original)) + "</div>"
         if rec.get("suggested_html"): body += "<h3>Proposta corrigida</h3><div class='pre'>" + escape(str(rec.get("suggested_html"))) + "</div>"
