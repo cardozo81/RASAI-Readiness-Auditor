@@ -146,8 +146,9 @@ def expand_selected_items(
             for token in selected
         }
         for component in tuple(selected_components):
-            if is_ai_component(component) and use_ai is False:
-                continue
+            # "Sem IA" blocks provider execution, not the non-AI data prerequisites
+            # required by an explicitly selected AI requirement. This lets one RPR
+            # recover evidence first while leaving the AI requirement pending.
             for dependency in _SELECTION_DEPENDENCIES.get(component, ()):
                 if dependency not in selected:
                     selected.add(dependency)
@@ -157,8 +158,6 @@ def expand_selected_items(
             if not _selection_contains(selected, item):
                 continue
             component = str(getattr(item, "component", "") or "").strip().upper()
-            if is_ai_component(component) and use_ai is False:
-                continue
             for blocker in blocking_dependencies(workspace, item):
                 dep_component, sep, dep_scope = str(blocker).partition("/")
                 key = item_key(dep_component, dep_scope if sep else "AUDIT")
