@@ -40,7 +40,7 @@ from rasai.m18_ai import (
 )
 from rasai.m18_persistence import M18Persistence
 from rasai.persistence import AuditWorkspace
-from rasai.secret_safety import redact_value
+from rasai.secret_safety import detect_secret_exposures, redact_value
 from rasai.provider_extensions import (
     AnthropicProvider,
     GeminiProvider,
@@ -977,6 +977,50 @@ def _provider_native_error(provider: Any, raw: Mapping[str, Any]) -> ProviderDia
     return _response_error(raw) if isinstance(provider, ResponsesSemanticProvider) else provider._native_error(raw)
 
 
+def _safe_ai_suggested_text(value: Any, finding: Mapping[str, Any]) -> str | None:
+    """Keep cookie guidance actionable without materializing cookie name=value data."""
+    if value is None:
+        return None
+    text = str(value)[:8000]
+    details = finding.get("details")
+    details = details if isinstance(details, Mapping) else {}
+    target = details.get("target")
+    target = target if isinstance(target, Mapping) else {}
+    is_cookie = (
+        str(target.get("kind") or "").strip().upper() == "COOKIE"
+        or str(details.get("category") or "").strip().casefold() == "cookies"
+    )
+    if not is_cookie:
+        return text
+    if not detect_secret_exposures(
+        text,
+        path="improvement-suggested-text",
+        strict=True,
+    ):
+        return text
+
+    label = str(target.get("label") or "").strip()
+    if label:
+        guidance = (
+            f"No ponto em que o cookie {label} é emitido, aplicar a correção "
+            "sem reproduzir seu valor no relatório."
+        )
+    else:
+        guidance = (
+            "No ponto em que o cookie observado é emitido, aplicar a correção "
+            "sem reproduzir seu valor no relatório."
+        )
+
+    remediation = str(details.get("deterministic_remediation") or "").strip()
+    if remediation and not detect_secret_exposures(
+        remediation,
+        path="improvement-cookie-remediation",
+        strict=True,
+    ):
+        guidance += " " + remediation
+    return guidance[:8000]
+
+
 def _validate_ai_payload(
     payload: Any,
     findings: list[dict[str, Any]],
@@ -1043,10 +1087,9 @@ def _validate_ai_payload(
                     if raw.get("suggested_html") is not None
                     else None
                 ),
-                "suggested_text": (
-                    str(raw["suggested_text"])[:8000]
-                    if raw.get("suggested_text") is not None
-                    else None
+                "suggested_text": _safe_ai_suggested_text(
+                    raw.get("suggested_text"),
+                    finding,
                 ),
                 "verification": str(raw.get("verification") or "")[:2500],
                 "impacts": dict(finding["impacts"]),
@@ -1253,7 +1296,10 @@ def build_improvement_request_context(
             "exploitation, payloads, bypasses, credential attacks or active scanning. For element-level accessibility "
             "findings, provide suggested_html when a concrete HTML/ARIA/CSS example can be safely derived from the "
             "observed element; otherwise provide suggested_text. Always provide verification. Examples are illustrative: "
-            "preserve existing business copy/data and use placeholders instead of inventing names, claims or facts."
+            "preserve existing business copy/data and use placeholders instead of inventing names, claims or facts. "
+            "For cookie findings, never include Cookie/Set-Cookie header assignments, document.cookie assignments, "
+            "or any cookie name=value material in suggested_text; describe attribute changes in prose and identify "
+            "only the safe target already present in finding.details.target."
             if required_actionable_finding_ids
             else ""
         )
