@@ -310,3 +310,44 @@ def test_invalid_robots_state_remains_actionable() -> None:
     assert reason is None
     assert conflict is None
 
+
+
+def test_deep_analysis_reuses_deterministic_external_provider_ownership() -> None:
+    target, decision, reason, conflict, rationale = classify_candidate(
+        "DEEP_ANALYSIS",
+        {
+            "title": "Revisar dependência externa",
+            "details_json": json.dumps({
+                "target": {
+                    "kind": "RESOURCE",
+                    "ref": "PSR-1",
+                    "owner_class": "EXTERNAL_PROVIDER",
+                }
+            }),
+        },
+    )
+    assert target == EXTERNAL_PROVIDER
+    assert decision == ACCEPTED
+    assert reason is None
+    assert conflict is None
+    assert "determinístico" in rationale
+
+
+def test_deep_analysis_does_not_promote_informational_target() -> None:
+    target, decision, reason, conflict, _rationale = classify_candidate(
+        "DEEP_ANALYSIS",
+        {
+            "title": "Revisar ownership",
+            "details_json": json.dumps({
+                "target": {
+                    "kind": "SCRIPT",
+                    "ref": "PSS-1",
+                    "owner_class": "INFORMATIONAL",
+                }
+            }),
+        },
+    )
+    assert target == INFORMATIONAL
+    assert decision == REJECTED
+    assert reason == "UNKNOWN_OWNERSHIP_INFORMATIONAL_ONLY"
+    assert conflict == "TARGET_SCOPE"

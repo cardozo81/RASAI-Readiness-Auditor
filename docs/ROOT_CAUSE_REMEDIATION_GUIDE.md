@@ -71,6 +71,7 @@ A página final agrupa remediation groups e permite abrir cada ocorrência. Quan
 - escopo;
 - selector observado;
 - alvo técnico;
+- identidade determinística do alvo (`cookie_ref`, `script_ref`, resource/platform ref) quando persistida pelo catálogo de origem;
 - local esperado;
 - precisão diagnóstica;
 - mudança recomendada;
@@ -108,3 +109,10 @@ A página HTML não recalcula a causa. Ela projeta:
 audit.db
 └─ findings / root_cause_analyses / root_cause_precision / recommendations
 ```
+
+
+## Alvos de segurança e runtime
+
+Quando CAT-08/CAT-10 materializam um target determinístico, o CAT-09 deve reutilizá-lo sem permitir que a IA crie outra identidade. Para cookies, scripts, recursos e plataformas, a remediação deve indicar o alvo seguro, o escopo e a forma de validação. Valores de cookies, tokens, chaves secretas e URLs assinadas permanecem proibidos.
+
+A classificação `third-party` não significa automaticamente ausência de controle pelo site: a governança continua distinguindo o fornecedor do ponto de configuração efetivamente controlado pela propriedade auditada.

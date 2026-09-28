@@ -22,8 +22,9 @@ from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 from rasai.secret_safety import redact_url, redact_value
+from rasai.web_technology_signatures import CONTRACT_VERSION as SIGNATURE_CONTRACT_VERSION, detect_platforms
 
-CONTRACT_VERSION = "PASSIVE-SECURITY-001"
+CONTRACT_VERSION = "PASSIVE-SECURITY-002"
 
 ENABLED_ENV = "RASAI_PASSIVE_SECURITY"
 HEADERS_ENV = "RASAI_SECURITY_HEADERS"
@@ -98,6 +99,74 @@ CREATE TABLE IF NOT EXISTS passive_security_resources (
 );
 CREATE INDEX IF NOT EXISTS idx_passive_security_resources_audit
     ON passive_security_resources(audit_id,resource_kind,party);
+CREATE TABLE IF NOT EXISTS passive_security_script_observations (
+    script_ref TEXT PRIMARY KEY,
+    audit_id TEXT NOT NULL REFERENCES audits(audit_id) ON DELETE CASCADE,
+    page_id TEXT REFERENCES pages(page_id) ON DELETE CASCADE,
+    snapshot_id TEXT,
+    resource_url TEXT,
+    party TEXT NOT NULL,
+    domain TEXT,
+    timing_json TEXT NOT NULL DEFAULT '{}',
+    integrity_json TEXT NOT NULL DEFAULT '{}',
+    analysis_state TEXT NOT NULL,
+    risk_signals_json TEXT NOT NULL DEFAULT '[]',
+    platforms_json TEXT NOT NULL DEFAULT '[]',
+    evidence_ids_json TEXT NOT NULL DEFAULT '[]'
+);
+CREATE INDEX IF NOT EXISTS idx_passive_security_scripts_audit
+    ON passive_security_script_observations(audit_id,page_id,party);
+CREATE TABLE IF NOT EXISTS passive_security_cookie_attribution (
+    cookie_attribution_id TEXT PRIMARY KEY,
+    audit_id TEXT NOT NULL REFERENCES audits(audit_id) ON DELETE CASCADE,
+    page_id TEXT REFERENCES pages(page_id) ON DELETE CASCADE,
+    snapshot_id TEXT,
+    cookie_ref TEXT NOT NULL,
+    cookie_name_display TEXT,
+    name_hash TEXT NOT NULL,
+    creation_mechanism TEXT NOT NULL,
+    effective_domain TEXT,
+    effective_path TEXT,
+    host_only INTEGER NOT NULL DEFAULT 1,
+    setter_script_url TEXT,
+    setter_script_ref TEXT,
+    platform_ref TEXT,
+    party TEXT NOT NULL,
+    purpose TEXT NOT NULL,
+    purpose_confidence TEXT NOT NULL,
+    attribution_confidence TEXT NOT NULL,
+    details_json TEXT NOT NULL DEFAULT '{}',
+    evidence_ids_json TEXT NOT NULL DEFAULT '[]'
+);
+CREATE INDEX IF NOT EXISTS idx_passive_security_cookie_attr_audit
+    ON passive_security_cookie_attribution(audit_id,cookie_ref,creation_mechanism);
+CREATE TABLE IF NOT EXISTS passive_security_platforms (
+    platform_ref TEXT PRIMARY KEY,
+    audit_id TEXT NOT NULL REFERENCES audits(audit_id) ON DELETE CASCADE,
+    page_id TEXT REFERENCES pages(page_id) ON DELETE CASCADE,
+    snapshot_id TEXT,
+    platform_id TEXT NOT NULL,
+    platform_name TEXT NOT NULL,
+    confidence TEXT NOT NULL,
+    identifiers_json TEXT NOT NULL DEFAULT '[]',
+    details_json TEXT NOT NULL DEFAULT '{}',
+    evidence_ids_json TEXT NOT NULL DEFAULT '[]'
+);
+CREATE INDEX IF NOT EXISTS idx_passive_security_platforms_audit
+    ON passive_security_platforms(audit_id,platform_id);
+CREATE TABLE IF NOT EXISTS passive_security_relationships (
+    relation_id TEXT PRIMARY KEY,
+    audit_id TEXT NOT NULL REFERENCES audits(audit_id) ON DELETE CASCADE,
+    page_id TEXT REFERENCES pages(page_id) ON DELETE CASCADE,
+    snapshot_id TEXT,
+    from_ref TEXT NOT NULL,
+    to_ref TEXT NOT NULL,
+    relation_type TEXT NOT NULL,
+    confidence TEXT NOT NULL,
+    evidence_ids_json TEXT NOT NULL DEFAULT '[]'
+);
+CREATE INDEX IF NOT EXISTS idx_passive_security_relationships_audit
+    ON passive_security_relationships(audit_id,relation_type);
 CREATE TABLE IF NOT EXISTS passive_security_components (
     component_id TEXT PRIMARY KEY,
     audit_id TEXT NOT NULL REFERENCES audits(audit_id) ON DELETE CASCADE,
@@ -315,6 +384,7 @@ class _PassiveHTMLParser(HTMLParser):
         self._form_stack: list[int] = []
         self.comments: list[str] = []
         self.generators: list[str] = []
+        self.verifications: list[dict[str, str]] = []
 
     def handle_comment(self, data: str) -> None:
         text = " ".join(str(data).split())
@@ -326,6 +396,24 @@ class _PassiveHTMLParser(HTMLParser):
         attrs = {str(k).casefold(): str(v or "") for k, v in attrs_list}
         if tag == "meta" and attrs.get("name", "").casefold() == "generator" and attrs.get("content"):
             self.generators.append(attrs["content"][:300])
+        if tag == "meta" and attrs.get("content"):
+            verification_name = attrs.get("name", "").casefold()
+            verification_platform = {
+                "google-site-verification": ("GOOGLE_SEARCH_CONSOLE", "Google Search Console"),
+                "msvalidate.01": ("MICROSOFT_BING", "Microsoft Bing"),
+                "facebook-domain-verification": ("META_DOMAIN_VERIFICATION", "Meta"),
+                "p:domain_verify": ("PINTEREST_DOMAIN_VERIFICATION", "Pinterest"),
+            }.get(verification_name)
+            if verification_platform:
+                raw = attrs["content"]
+                self.verifications.append({
+                    "platform_id": verification_platform[0],
+                    "platform_name": verification_platform[1],
+                    "identifier_type": verification_name.upper().replace("-", "_").replace(".", "_").replace(":", "_"),
+                    "identifier_hash": sha256(raw.encode("utf-8")).hexdigest()[:16],
+                    "identifier_display": "[VERIFICAÇÃO OBSERVADA]",
+                    "identifier_class": "PUBLIC_IDENTIFIER",
+                })
         if tag == "script":
             self._add("SCRIPT", attrs.get("src"), attrs, inline=not bool(attrs.get("src")))
         elif tag == "link":
@@ -468,6 +556,11 @@ def _resource_inventory(connection: sqlite3.Connection, workspace: Any, audit_id
             "http": _redact_urlish(http),
             "http_evidence": http_evidence,
             "runtime": [],
+            "script_runtime": [],
+            "cookie_runtime": [],
+            "script_capture_states": [],
+            "cookie_capture_states": [],
+            "verifications": [],
         })
         if snapshot_id:
             meta = _load(row["browser_metadata"], {})
@@ -476,6 +569,26 @@ def _resource_inventory(connection: sqlite3.Connection, workspace: Any, audit_id
             page_context[page_id]["runtime"].extend(
                 dict(item) for item in items if isinstance(item, Mapping)
             )
+            script_runtime = meta.get("script_runtime") if isinstance(meta, Mapping) else None
+            if isinstance(script_runtime, Mapping):
+                page_context[page_id]["script_capture_states"].append(str(script_runtime.get("state") or "UNKNOWN"))
+                for item in script_runtime.get("items", ()) or ():
+                    if isinstance(item, Mapping):
+                        page_context[page_id]["script_runtime"].append({
+                            **dict(item),
+                            "snapshot_id": snapshot_id,
+                            "device": row["device"],
+                        })
+            cookie_runtime = meta.get("cookie_runtime") if isinstance(meta, Mapping) else None
+            if isinstance(cookie_runtime, Mapping):
+                page_context[page_id]["cookie_capture_states"].append(str(cookie_runtime.get("state") or "UNKNOWN"))
+                for item in cookie_runtime.get("items", ()) or ():
+                    if isinstance(item, Mapping):
+                        page_context[page_id]["cookie_runtime"].append({
+                            **dict(item),
+                            "snapshot_id": snapshot_id,
+                            "device": row["device"],
+                        })
         if not snapshot_id or snapshot_id in seen_snapshots:
             continue
         seen_snapshots.add(snapshot_id)
@@ -489,6 +602,10 @@ def _resource_inventory(connection: sqlite3.Connection, workspace: Any, audit_id
             pass
         page_context[page_id]["generators"] = parser.generators
         page_context[page_id]["comments"] = parser.comments
+        page_context[page_id]["verifications"].extend(
+            {**item, "snapshot_id": snapshot_id, "device": row["device"]}
+            for item in parser.verifications
+        )
         for index, item in enumerate(parser.items):
             attrs = dict(item["attributes"])
             if item["kind"] == "FORM":
@@ -531,6 +648,499 @@ def _resource_inventory(connection: sqlite3.Connection, workspace: Any, audit_id
                         "evidence_ids": [resource_id],
                     })
     return resources, components, page_context
+
+
+
+def _cookie_scope_party(effective_domain: str | None, page_url: str) -> str:
+    try:
+        host = (urlsplit(page_url).hostname or "").casefold()
+    except ValueError:
+        return "UNKNOWN"
+    domain = str(effective_domain or "").casefold().lstrip(".")
+    if not host or not domain:
+        return "UNKNOWN"
+    return "FIRST_PARTY" if host == domain or host.endswith("." + domain) else "THIRD_PARTY"
+
+
+def _runtime_intelligence_rows(
+    audit_id: str,
+    resources: Iterable[Mapping[str, Any]],
+    page_context: Mapping[str, Mapping[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    scripts: list[dict[str, Any]] = []
+    cookies: list[dict[str, Any]] = []
+    platforms: dict[str, dict[str, Any]] = {}
+    relationships: dict[str, dict[str, Any]] = {}
+    script_by_snapshot_url: dict[tuple[str, str], str] = {}
+
+    def add_platform(
+        *,
+        page_id: str,
+        snapshot_id: str | None,
+        observation: Mapping[str, Any],
+        evidence_ids: Iterable[str],
+        details: Mapping[str, Any] | None = None,
+    ) -> str:
+        platform_id = str(observation.get("platform_id") or "").strip()
+        if not platform_id:
+            return ""
+        identifiers = [
+            dict(item) for item in (observation.get("identifiers") or ())
+            if isinstance(item, Mapping)
+        ]
+        identifier_material = ",".join(
+            sorted(str(item.get("identifier_hash") or "") for item in identifiers)
+        )
+        platform_ref = _stable("PSP", audit_id, page_id, snapshot_id or "", platform_id, identifier_material)
+        current = platforms.get(platform_ref)
+        if current is None:
+            platforms[platform_ref] = {
+                "platform_ref": platform_ref,
+                "audit_id": audit_id,
+                "page_id": page_id,
+                "snapshot_id": snapshot_id,
+                "platform_id": platform_id,
+                "platform_name": str(observation.get("platform_name") or platform_id),
+                "confidence": str(observation.get("confidence") or "MEDIUM"),
+                "identifiers": identifiers,
+                "details": dict(details or {}),
+                "evidence_ids": list(dict.fromkeys(str(v) for v in evidence_ids if str(v))),
+            }
+        else:
+            known = {
+                (str(item.get("identifier_type")), str(item.get("identifier_hash")))
+                for item in current["identifiers"]
+            }
+            for item in identifiers:
+                key = (str(item.get("identifier_type")), str(item.get("identifier_hash")))
+                if key not in known:
+                    current["identifiers"].append(item)
+                    known.add(key)
+            current["evidence_ids"] = list(dict.fromkeys([
+                *current["evidence_ids"],
+                *(str(v) for v in evidence_ids if str(v)),
+            ]))
+        return platform_ref
+
+    def add_relation(
+        *,
+        page_id: str,
+        snapshot_id: str | None,
+        from_ref: str,
+        to_ref: str,
+        relation_type: str,
+        confidence: str,
+        evidence_ids: Iterable[str],
+    ) -> None:
+        if not from_ref or not to_ref:
+            return
+        relation_id = _stable("PSREL", audit_id, snapshot_id or "", from_ref, to_ref, relation_type)
+        relationships[relation_id] = {
+            "relation_id": relation_id,
+            "audit_id": audit_id,
+            "page_id": page_id,
+            "snapshot_id": snapshot_id,
+            "from_ref": from_ref,
+            "to_ref": to_ref,
+            "relation_type": relation_type,
+            "confidence": confidence,
+            "evidence_ids": list(dict.fromkeys(str(v) for v in evidence_ids if str(v))),
+        }
+
+    for resource in resources:
+        if str(resource.get("resource_kind") or "") != "SCRIPT":
+            continue
+        resource_url = str(resource.get("resource_url") or "")
+        for observation in detect_platforms(resource_url, None):
+            platform_ref = add_platform(
+                page_id=str(resource.get("page_id") or ""),
+                snapshot_id=str(resource.get("snapshot_id") or "") or None,
+                observation=observation,
+                evidence_ids=resource.get("evidence_ids") or (),
+                details={
+                    "detection_method": observation.get("detection_method"),
+                    "source": "HTML_RESOURCE",
+                    "signature_contract": SIGNATURE_CONTRACT_VERSION,
+                },
+            )
+            add_relation(
+                page_id=str(resource.get("page_id") or ""),
+                snapshot_id=str(resource.get("snapshot_id") or "") or None,
+                from_ref=platform_ref,
+                to_ref=str(resource.get("resource_id") or ""),
+                relation_type="PLATFORM_DECLARES_RESOURCE",
+                confidence=str(observation.get("confidence") or "MEDIUM"),
+                evidence_ids=resource.get("evidence_ids") or (),
+            )
+
+    for page_id, page in page_context.items():
+        page_url = str(page.get("page_url") or "")
+        for raw_script in page.get("script_runtime", ()) or ():
+            if not isinstance(raw_script, Mapping):
+                continue
+            snapshot_id = str(raw_script.get("snapshot_id") or "")
+            resource_url = str(_redact_urlish(raw_script.get("url")) or "")
+            url_hash = str(raw_script.get("url_hash") or "")
+            script_ref = _stable("PSS", audit_id, page_id, snapshot_id, url_hash or resource_url)
+            parsed = urlsplit(resource_url) if resource_url else None
+            timing = {
+                key: raw_script.get(key)
+                for key in (
+                    "start_time_ms", "duration_ms", "transfer_size_bytes",
+                    "encoded_body_size_bytes", "decoded_body_size_bytes",
+                    "encoded_data_length", "next_hop_protocol",
+                )
+                if raw_script.get(key) is not None
+            }
+            integrity = {
+                "content_sha256": raw_script.get("content_sha256"),
+                "content_bytes": raw_script.get("content_bytes"),
+                "from_disk_cache": bool(raw_script.get("from_disk_cache")),
+                "from_service_worker": bool(raw_script.get("from_service_worker")),
+                "protocol": raw_script.get("protocol"),
+                "cpu_attribution_state": "NOT_COLLECTED_TO_AVOID_PROFILER_OVERHEAD",
+            }
+            platform_items = [
+                dict(item) for item in (raw_script.get("platforms") or ())
+                if isinstance(item, Mapping)
+            ]
+            script = {
+                "script_ref": script_ref,
+                "audit_id": audit_id,
+                "page_id": page_id,
+                "snapshot_id": snapshot_id or None,
+                "resource_url": resource_url or None,
+                "party": str(raw_script.get("party") or "UNKNOWN"),
+                "domain": parsed.hostname.casefold() if parsed and parsed.hostname else "",
+                "timing": timing,
+                "integrity": integrity,
+                "analysis_state": str(raw_script.get("body_analysis_state") or "NOT_AVAILABLE"),
+                "risk_signals": [
+                    dict(item) for item in (raw_script.get("risk_signals") or ())
+                    if isinstance(item, Mapping)
+                ],
+                "platforms": platform_items,
+                "evidence_ids": [snapshot_id] if snapshot_id else [],
+                "initiator": {
+                    "type": raw_script.get("initiator_type"),
+                    "url": _redact_urlish(raw_script.get("initiator_url")),
+                },
+            }
+            scripts.append(script)
+            if snapshot_id and resource_url:
+                script_by_snapshot_url[(snapshot_id, resource_url)] = script_ref
+            for observation in platform_items:
+                platform_ref = add_platform(
+                    page_id=page_id,
+                    snapshot_id=snapshot_id or None,
+                    observation=observation,
+                    evidence_ids=script["evidence_ids"],
+                    details={
+                        "detection_method": observation.get("detection_method"),
+                        "source": "RUNTIME_SCRIPT",
+                        "signature_contract": SIGNATURE_CONTRACT_VERSION,
+                    },
+                )
+                add_relation(
+                    page_id=page_id,
+                    snapshot_id=snapshot_id or None,
+                    from_ref=platform_ref,
+                    to_ref=script_ref,
+                    relation_type="PLATFORM_LOADS_SCRIPT",
+                    confidence=str(observation.get("confidence") or "MEDIUM"),
+                    evidence_ids=script["evidence_ids"],
+                )
+
+        for verification in page.get("verifications", ()) or ():
+            if not isinstance(verification, Mapping):
+                continue
+            snapshot_id = str(verification.get("snapshot_id") or "")
+            observation = {
+                "platform_id": verification.get("platform_id"),
+                "platform_name": verification.get("platform_name"),
+                "confidence": "HIGH",
+                "identifiers": [{
+                    "platform_id": verification.get("platform_id"),
+                    "identifier_type": verification.get("identifier_type"),
+                    "identifier_class": verification.get("identifier_class"),
+                    "identifier_display": verification.get("identifier_display"),
+                    "identifier_hash": verification.get("identifier_hash"),
+                }],
+            }
+            add_platform(
+                page_id=page_id,
+                snapshot_id=snapshot_id or None,
+                observation=observation,
+                evidence_ids=[snapshot_id] if snapshot_id else page.get("header_evidence") or (),
+                details={
+                    "detection_method": "META_VERIFICATION",
+                    "source": "HTML_META",
+                    "signature_contract": SIGNATURE_CONTRACT_VERSION,
+                },
+            )
+
+        for index, raw_cookie in enumerate(page.get("headers", {}).get("set-cookie", ())[:50], 1):
+            attrs = _cookie_attributes(str(raw_cookie), page_url)
+            cookie_ref = str(attrs.get("cookie_ref") or "")
+            if not cookie_ref:
+                continue
+            cookie_id = _stable("PCA", audit_id, page_id, cookie_ref, "HTTP_SET_COOKIE", index)
+            cookies.append({
+                "cookie_attribution_id": cookie_id,
+                "audit_id": audit_id,
+                "page_id": page_id,
+                "snapshot_id": None,
+                "cookie_ref": cookie_ref,
+                "cookie_name_display": _safe_cookie_name(str(raw_cookie)),
+                "name_hash": attrs.get("name_hash") or "",
+                "creation_mechanism": "HTTP_SET_COOKIE",
+                "effective_domain": attrs.get("effective_domain"),
+                "effective_path": attrs.get("effective_path"),
+                "host_only": bool(attrs.get("host_only")),
+                "setter_script_url": None,
+                "setter_script_ref": None,
+                "platform_ref": None,
+                "party": _cookie_scope_party(attrs.get("effective_domain"), page_url),
+                "purpose": attrs.get("purpose") or "UNKNOWN",
+                "purpose_confidence": attrs.get("purpose_confidence") or "LOW",
+                "attribution_confidence": "HIGH",
+                "details": {
+                    "set_cookie_index": index,
+                    "secure": bool(attrs.get("secure")),
+                    "httponly": bool(attrs.get("httponly")),
+                    "samesite": attrs.get("samesite"),
+                    "attribution_basis": "HTTP_RESPONSE_HEADER",
+                },
+                "evidence_ids": list(page.get("header_evidence") or ()),
+            })
+
+        for index, raw_cookie in enumerate(page.get("cookie_runtime", ()) or (), 1):
+            if not isinstance(raw_cookie, Mapping):
+                continue
+            snapshot_id = str(raw_cookie.get("snapshot_id") or "")
+            name_display = raw_cookie.get("cookie_name")
+            name_hash = str(raw_cookie.get("name_hash") or "")
+            frame_url = str(raw_cookie.get("frame_url") or page_url)
+            try:
+                frame_host = (urlsplit(frame_url).hostname or "").casefold()
+            except ValueError:
+                frame_host = ""
+            domain_attribute = str(raw_cookie.get("domain_attribute") or "").casefold().lstrip(".")
+            effective_domain = domain_attribute or frame_host
+            host_only = not bool(domain_attribute)
+            declared_path = str(raw_cookie.get("path_attribute") or "")
+            effective_path = declared_path if declared_path.startswith("/") else _default_cookie_path(frame_url)
+            name_material = str(name_display or name_hash)
+            cookie_ref = _stable(
+                "CK", name_material, effective_domain, effective_path, "1" if host_only else "0"
+            )
+            purpose, purpose_confidence = _cookie_purpose(str(name_display or ""))
+            setter_url = str(_redact_urlish(raw_cookie.get("setter_script_url")) or "")
+            setter_ref = script_by_snapshot_url.get((snapshot_id, setter_url), "")
+            platform_ref = ""
+            platform_observations = detect_platforms(setter_url, None) if setter_url else []
+            if platform_observations:
+                platform_ref = add_platform(
+                    page_id=page_id,
+                    snapshot_id=snapshot_id or None,
+                    observation=platform_observations[0],
+                    evidence_ids=[snapshot_id] if snapshot_id else (),
+                    details={
+                        "detection_method": platform_observations[0].get("detection_method"),
+                        "source": "COOKIE_SETTER",
+                        "signature_contract": SIGNATURE_CONTRACT_VERSION,
+                    },
+                )
+            cookie_id = _stable(
+                "PCA", audit_id, page_id, snapshot_id, cookie_ref,
+                raw_cookie.get("mechanism"), index,
+            )
+            cookie_row = {
+                "cookie_attribution_id": cookie_id,
+                "audit_id": audit_id,
+                "page_id": page_id,
+                "snapshot_id": snapshot_id or None,
+                "cookie_ref": cookie_ref,
+                "cookie_name_display": name_display,
+                "name_hash": name_hash,
+                "creation_mechanism": str(raw_cookie.get("mechanism") or "UNKNOWN"),
+                "effective_domain": effective_domain or None,
+                "effective_path": effective_path,
+                "host_only": host_only,
+                "setter_script_url": setter_url or None,
+                "setter_script_ref": setter_ref or None,
+                "platform_ref": platform_ref or None,
+                "party": _cookie_scope_party(effective_domain, page_url),
+                "purpose": purpose,
+                "purpose_confidence": purpose_confidence,
+                "attribution_confidence": str(raw_cookie.get("attribution_confidence") or "LOW"),
+                "details": {
+                    "at_ms": raw_cookie.get("at_ms"),
+                    "samesite": raw_cookie.get("samesite"),
+                    "secure": bool(raw_cookie.get("secure")),
+                    "consent_state_at_creation": raw_cookie.get("consent_state_at_creation") or "NOT_OBSERVED",
+                    "created_before_consent": raw_cookie.get("created_before_consent"),
+                    "attribution_basis": "BROWSER_RUNTIME_INSTRUMENTATION",
+                },
+                "evidence_ids": [snapshot_id] if snapshot_id else [],
+            }
+            cookies.append(cookie_row)
+            add_relation(
+                page_id=page_id,
+                snapshot_id=snapshot_id or None,
+                from_ref=setter_ref,
+                to_ref=cookie_ref,
+                relation_type="SCRIPT_SETS_COOKIE",
+                confidence=cookie_row["attribution_confidence"],
+                evidence_ids=cookie_row["evidence_ids"],
+            )
+            add_relation(
+                page_id=page_id,
+                snapshot_id=snapshot_id or None,
+                from_ref=platform_ref,
+                to_ref=cookie_ref,
+                relation_type="PLATFORM_ASSOCIATED_WITH_COOKIE_SETTER",
+                confidence=cookie_row["attribution_confidence"],
+                evidence_ids=cookie_row["evidence_ids"],
+            )
+
+    return scripts, cookies, list(platforms.values()), list(relationships.values())
+
+
+def _persist_runtime_intelligence(
+    connection: sqlite3.Connection,
+    audit_id: str,
+    scripts: Iterable[Mapping[str, Any]],
+    cookies: Iterable[Mapping[str, Any]],
+    platforms: Iterable[Mapping[str, Any]],
+    relationships: Iterable[Mapping[str, Any]],
+) -> None:
+    script_rows = tuple(scripts)
+    cookie_rows = tuple(cookies)
+    platform_rows = tuple(platforms)
+    relation_rows = tuple(relationships)
+    connection.execute("DELETE FROM passive_security_relationships WHERE audit_id=?", (audit_id,))
+    connection.execute("DELETE FROM passive_security_cookie_attribution WHERE audit_id=?", (audit_id,))
+    connection.execute("DELETE FROM passive_security_platforms WHERE audit_id=?", (audit_id,))
+    connection.execute("DELETE FROM passive_security_script_observations WHERE audit_id=?", (audit_id,))
+    connection.executemany(
+        """INSERT INTO passive_security_script_observations
+           (script_ref,audit_id,page_id,snapshot_id,resource_url,party,domain,timing_json,
+            integrity_json,analysis_state,risk_signals_json,platforms_json,evidence_ids_json)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        [(
+            item["script_ref"], audit_id, item.get("page_id"), item.get("snapshot_id"),
+            item.get("resource_url"), item.get("party") or "UNKNOWN", item.get("domain") or "",
+            _dump(item.get("timing") or {}), _dump(item.get("integrity") or {}),
+            item.get("analysis_state") or "NOT_AVAILABLE", _dump(item.get("risk_signals") or []),
+            _dump(item.get("platforms") or []), _dump(item.get("evidence_ids") or []),
+        ) for item in script_rows],
+    )
+    connection.executemany(
+        """INSERT INTO passive_security_platforms
+           (platform_ref,audit_id,page_id,snapshot_id,platform_id,platform_name,confidence,
+            identifiers_json,details_json,evidence_ids_json)
+           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+        [(
+            item["platform_ref"], audit_id, item.get("page_id"), item.get("snapshot_id"),
+            item["platform_id"], item["platform_name"], item.get("confidence") or "MEDIUM",
+            _dump(item.get("identifiers") or []), _dump(item.get("details") or {}),
+            _dump(item.get("evidence_ids") or []),
+        ) for item in platform_rows],
+    )
+    connection.executemany(
+        """INSERT INTO passive_security_cookie_attribution
+           (cookie_attribution_id,audit_id,page_id,snapshot_id,cookie_ref,cookie_name_display,
+            name_hash,creation_mechanism,effective_domain,effective_path,host_only,
+            setter_script_url,setter_script_ref,platform_ref,party,purpose,purpose_confidence,
+            attribution_confidence,details_json,evidence_ids_json)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        [(
+            item["cookie_attribution_id"], audit_id, item.get("page_id"), item.get("snapshot_id"),
+            item["cookie_ref"], item.get("cookie_name_display"), item.get("name_hash") or "",
+            item.get("creation_mechanism") or "UNKNOWN", item.get("effective_domain"),
+            item.get("effective_path"), 1 if item.get("host_only") else 0,
+            item.get("setter_script_url"), item.get("setter_script_ref"), item.get("platform_ref"),
+            item.get("party") or "UNKNOWN", item.get("purpose") or "UNKNOWN",
+            item.get("purpose_confidence") or "LOW", item.get("attribution_confidence") or "LOW",
+            _dump(item.get("details") or {}), _dump(item.get("evidence_ids") or []),
+        ) for item in cookie_rows],
+    )
+    connection.executemany(
+        """INSERT INTO passive_security_relationships
+           (relation_id,audit_id,page_id,snapshot_id,from_ref,to_ref,relation_type,confidence,evidence_ids_json)
+           VALUES (?,?,?,?,?,?,?,?,?)""",
+        [(
+            item["relation_id"], audit_id, item.get("page_id"), item.get("snapshot_id"),
+            item["from_ref"], item["to_ref"], item["relation_type"],
+            item.get("confidence") or "MEDIUM", _dump(item.get("evidence_ids") or []),
+        ) for item in relation_rows],
+    )
+
+
+def _analyze_script_intelligence(audit_id: str, scripts: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    findings: list[dict[str, Any]] = []
+    material_ids = {
+        "DYNAMIC_EVAL", "DYNAMIC_FUNCTION", "DOCUMENT_WRITE",
+        "DYNAMIC_SCRIPT_INJECTION", "FINGERPRINTING_SURFACE",
+    }
+    for item in scripts:
+        signals = [
+            dict(signal) for signal in (item.get("risk_signals") or ())
+            if isinstance(signal, Mapping) and str(signal.get("signal_id") or "") in material_ids
+        ]
+        if not signals:
+            continue
+        ids = {str(signal.get("signal_id") or "") for signal in signals}
+        dynamic = bool(ids & {"DYNAMIC_EVAL", "DYNAMIC_FUNCTION"})
+        severity = "MEDIUM" if dynamic and str(item.get("party")) == "THIRD_PARTY" else "LOW"
+        label = str(item.get("resource_url") or item.get("script_ref") or "script observado")
+        findings.append(_finding(
+            audit_id=audit_id,
+            page_id=str(item.get("page_id") or "") or None,
+            url=label,
+            code=f"SCRIPT_SIGNAL_{item.get('script_ref')}",
+            category="JavaScript Integrity",
+            finding_type="OBSERVATION",
+            title="JavaScript apresenta indicadores de execução dinâmica ou superfície sensível",
+            description=(
+                "A análise estática bounded observou APIs/padrões que merecem revisão. "
+                "Esses sinais não classificam o arquivo como malicioso."
+            ),
+            severity=severity,
+            confidence="HIGH",
+            evidence_ids=item.get("evidence_ids") or (),
+            party=str(item.get("party") or "UNKNOWN"),
+            impact=(
+                "Execução dinâmica, injeção de scripts ou superfícies de fingerprinting podem ampliar "
+                "complexidade, dependências e impacto de uma eventual alteração indevida."
+            ),
+            containment="Revisar necessidade, origem e governança do recurso antes de bloqueá-lo ou removê-lo.",
+            remediation=(
+                "Eliminar padrões dinâmicos desnecessários, reduzir dependências de terceiros e aplicar "
+                "controles de integridade/CSP quando tecnicamente compatíveis."
+            ),
+            validation=(
+                "Reauditar o mesmo recurso e confirmar hash, sinais estáticos, funcionalidade e ausência "
+                "de regressão após a mudança."
+            ),
+            details={
+                "target": {
+                    "kind": "SCRIPT",
+                    "ref": item.get("script_ref"),
+                    "label": label,
+                    "scope": item.get("domain") or item.get("party"),
+                },
+                "script": {
+                    "analysis_state": item.get("analysis_state"),
+                    "timing": item.get("timing") or {},
+                    "integrity": item.get("integrity") or {},
+                    "risk_signals": signals,
+                    "platforms": item.get("platforms") or [],
+                },
+            },
+        ))
+    return findings
 
 
 def _persist_inventory(
@@ -881,10 +1491,46 @@ def _safe_csp_sources(values: Iterable[str]) -> list[str]:
     return out
 
 
-def _cookie_attributes(raw: str) -> dict[str, Any]:
+def _default_cookie_path(page_url: str) -> str:
+    try:
+        path = urlsplit(page_url).path or "/"
+    except ValueError:
+        return "/"
+    if not path.startswith("/") or path == "/":
+        return "/"
+    right = path.rfind("/")
+    return "/" if right <= 0 else path[:right]
+
+
+_COOKIE_DISPLAY_RE = re.compile(r"^[!#$%&'*+\-.^_\x60|~0-9A-Za-z]{1,128}$")
+
+
+def _safe_cookie_name(raw: str) -> str | None:
+    parts = [part.strip() for part in str(raw).split(";", 1) if part.strip()]
+    cookie_name = parts[0].split("=", 1)[0].strip() if parts else ""
+    return cookie_name if _COOKIE_DISPLAY_RE.fullmatch(cookie_name) else None
+
+
+def _cookie_purpose(cookie_name: str | None) -> tuple[str, str]:
+    name = str(cookie_name or "").casefold()
+    if name in {"_ga", "_gid", "_gat"} or name.startswith("_ga_"):
+        return "ANALYTICS", "HIGH"
+    if name in {"_fbp", "_fbc"}:
+        return "ADVERTISING", "HIGH"
+    if name in {"_clck", "_clsk"}:
+        return "ANALYTICS", "HIGH"
+    if "consent" in name or "cookie" in name and "consent" in name:
+        return "NECESSARY", "MEDIUM"
+    if re.search(r"(?:session|sess|auth|jwt|sid|login)", name):
+        return "SECURITY", "MEDIUM"
+    return "UNKNOWN", "LOW"
+
+
+def _cookie_attributes(raw: str, page_url: str = "") -> dict[str, Any]:
     parts = [part.strip() for part in str(raw).split(";") if part.strip()]
     cookie_name = parts[0].split("=", 1)[0].strip() if parts else ""
     attrs: dict[str, Any] = {
+        "name_display": _safe_cookie_name(raw) if page_url else None,
         "name_hash": sha256(cookie_name.encode("utf-8")).hexdigest()[:12] if cookie_name else "",
         "sensitive_name_hint": bool(re.search(r"(?:session|sess|auth|token|jwt|sid|login|credential)", cookie_name, re.I)),
         "secure": False,
@@ -906,8 +1552,29 @@ def _cookie_attributes(raw: str) -> dict[str, Any]:
             attrs["domain"] = value.strip()
         elif lower == "path":
             attrs["path"] = value.strip()
+    try:
+        host = (urlsplit(page_url).hostname or "").casefold()
+    except ValueError:
+        host = ""
+    declared_domain = str(attrs.get("domain") or "").strip().casefold().lstrip(".")
+    effective_domain = declared_domain or host
+    host_only = not bool(declared_domain)
+    declared_path = str(attrs.get("path") or "")
+    effective_path = declared_path if declared_path.startswith("/") else _default_cookie_path(page_url)
+    attrs["effective_domain"] = effective_domain or None
+    attrs["effective_path"] = effective_path
+    attrs["host_only"] = host_only
+    attrs["cookie_ref"] = _stable(
+        "CK",
+        cookie_name,
+        effective_domain,
+        effective_path,
+        "1" if host_only else "0",
+    ) if cookie_name else ""
+    purpose, purpose_confidence = _cookie_purpose(cookie_name)
+    attrs["purpose"] = purpose
+    attrs["purpose_confidence"] = purpose_confidence
     return attrs
-
 
 def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
@@ -1145,7 +1812,32 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
 
     if _truthy(os.environ.get(COOKIES_ENV), True):
         for index, raw_cookie in enumerate(headers.get("set-cookie", ())[:50], 1):
-            attrs = _cookie_attributes(raw_cookie)
+            attrs = _cookie_attributes(raw_cookie, url)
+            cookie_party = _cookie_scope_party(attrs.get("effective_domain"), url)
+            cookie_owner_class = {
+                "FIRST_PARTY": "TARGET_SITE",
+                "THIRD_PARTY": "EXTERNAL_PROVIDER",
+            }.get(cookie_party, "INFORMATIONAL")
+            cookie_owner_label = (
+                f"Site auditado · {attrs.get('effective_domain')}"
+                if cookie_party == "FIRST_PARTY" and attrs.get("effective_domain")
+                else f"Terceiro · {attrs.get('effective_domain')}"
+                if cookie_party == "THIRD_PARTY" and attrs.get("effective_domain")
+                else "Não determinado"
+            )
+            cookie_details = {
+                "target": {
+                    "kind": "COOKIE",
+                    "ref": attrs.get("cookie_ref"),
+                    "label": attrs.get("name_display") or (f"Cookie {attrs.get('cookie_ref')}" if attrs.get("cookie_ref") else f"Set-Cookie #{index}"),
+                    "scope": f"{attrs.get('effective_domain') or '-'} {attrs.get('effective_path') or '/'}",
+                    "occurrence": f"Set-Cookie #{index}",
+                    "party": cookie_party,
+                    "owner_class": cookie_owner_class,
+                    "owner_label": cookie_owner_label,
+                },
+                "cookie": attrs,
+            }
             if scheme == "https" and not attrs["secure"]:
                 findings.append(_finding(
                     audit_id=audit_id,page_id=page_id,url=url,code=f"COOKIE_SECURE_{index}",category="Cookies",
@@ -1155,7 +1847,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
                     containment="Evitar uso do cookie para sessão/autorização até revisar seus atributos.",
                     remediation="Adicionar Secure quando o cookie for destinado a contexto HTTPS.",
                     validation="Reauditar Set-Cookie e fluxo de autenticação.",
-                    details={"cookie": attrs},
+                    details=cookie_details,
                 ))
             if not attrs["httponly"]:
                 findings.append(_finding(
@@ -1166,7 +1858,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
                     containment="Identificar se o cookie precisa ser acessível por JavaScript.",
                     remediation="Adicionar HttpOnly a cookies de sessão/autorização que não precisem de acesso por script.",
                     validation="Testar o fluxo funcional e reauditar os atributos.",
-                    details={"cookie": attrs},
+                    details=cookie_details,
                 ))
             same = str(attrs.get("samesite") or "")
             if not same:
@@ -1178,7 +1870,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
                     containment="Mapear fluxos cross-site legítimos antes da mudança.",
                     remediation="Definir SameSite=Lax/Strict ou None conforme necessidade real.",
                     validation="Testar login, redirects e integrações cross-site.",
-                    details={"cookie": attrs},
+                    details=cookie_details,
                 ))
             if same.casefold() == "none" and not attrs["secure"]:
                 findings.append(_finding(
@@ -1189,7 +1881,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
                     containment="Revisar imediatamente o fluxo cross-site que depende deste cookie.",
                     remediation="Adicionar Secure ou alterar SameSite conforme o fluxo pretendido.",
                     validation="Testar em navegadores suportados e reauditar.",
-                    details={"cookie": attrs},
+                    details=cookie_details,
                 ))
 
     server = "; ".join(headers.get("server", ()))
@@ -1485,6 +2177,19 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
                 components,
                 preserve_advisories=True,
             )
+            script_observations, cookie_attribution, platform_observations, relationships = _runtime_intelligence_rows(
+                audit_id,
+                resources,
+                page_context,
+            )
+            _persist_runtime_intelligence(
+                connection,
+                audit_id,
+                script_observations,
+                cookie_attribution,
+                platform_observations,
+                relationships,
+            )
 
             findings: list[dict[str, Any]] = []
             for page in page_context.values():
@@ -1494,6 +2199,7 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
                 findings.extend(_analyze_resources(audit_id, resources))
             if _truthy(os.environ.get(RUNTIME_ENV), True):
                 findings.extend(_analyze_runtime(audit_id, page_context))
+                findings.extend(_analyze_script_intelligence(audit_id, script_observations))
             findings.extend(_advisory_findings(connection, audit_id))
 
             deduped = list({item["finding_id"]: item for item in findings}.values())
@@ -1520,6 +2226,17 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
                 "mixed_content": _truthy(os.environ.get(RESOURCES_ENV), True),
                 "forms_iframes": _truthy(os.environ.get(RESOURCES_ENV), True),
                 "runtime": _truthy(os.environ.get(RUNTIME_ENV), True),
+                "script_runtime": any(
+                    state in {"CAPTURED", "NO_SCRIPT_DATA"}
+                    for page in page_context.values()
+                    for state in page.get("script_capture_states", ())
+                ),
+                "cookie_runtime_attribution": any(
+                    state in {"CAPTURED", "CAPTURED_NO_WRITES"}
+                    for page in page_context.values()
+                    for state in page.get("cookie_capture_states", ())
+                ),
+                "platform_identification": bool(platform_observations),
                 "component_inventory": bool(components),
                 "osv_intelligence": osv_covered,
                 "cisa_kev": kev_covered,
@@ -1529,6 +2246,26 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
             limitations: list[str] = []
             if not page_context:
                 limitations.append("NO_PERSISTED_PAGE_CONTEXT")
+            script_states = {
+                str(state)
+                for page in page_context.values()
+                for state in page.get("script_capture_states", ())
+                if str(state)
+            }
+            cookie_states = {
+                str(state)
+                for page in page_context.values()
+                for state in page.get("cookie_capture_states", ())
+                if str(state)
+            }
+            if _truthy(os.environ.get(RESOURCES_ENV), True) and script_states and not any(
+                state in {"CAPTURED", "NO_SCRIPT_DATA"} for state in script_states
+            ):
+                limitations.append("SCRIPT_RUNTIME_CAPTURE_UNAVAILABLE")
+            if _truthy(os.environ.get(COOKIES_ENV), True) and cookie_states and not any(
+                state in {"CAPTURED", "CAPTURED_NO_WRITES"} for state in cookie_states
+            ):
+                limitations.append("COOKIE_RUNTIME_CAPTURE_UNAVAILABLE")
             if integration_states.get("OSV") in {"UNAVAILABLE", "PARTIAL"}:
                 limitations.append("OSV_REDUCED_COVERAGE")
             if integration_states.get("CISA_KEV") == "UNAVAILABLE":
@@ -1565,6 +2302,10 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
             "pages": len(page_context),
             "resources": len(resources),
             "components": len(components),
+            "script_observations": len(script_observations),
+            "cookie_attribution": len(cookie_attribution),
+            "platforms": len(platform_observations),
+            "relationships": len(relationships),
             "findings": len(deduped),
             "limitations": limitations,
             "source_blocked": source_blocked,
@@ -1585,6 +2326,9 @@ def improvement_findings(connection: sqlite3.Connection, audit_id: str, page_id:
         return None
     findings: list[dict[str, Any]] = []
     for row in rows:
+        persisted_details = _load(row["details_json"], {})
+        if not isinstance(persisted_details, Mapping):
+            persisted_details = {}
         findings.append({
             "finding_id": str(row["finding_id"]),
             "domain": "SECURITY",
@@ -1595,6 +2339,7 @@ def improvement_findings(connection: sqlite3.Connection, audit_id: str, page_id:
             "evidence_ids": _load(row["evidence_ids_json"], []),
             "impacts": {"security": 3 if str(row["severity"]) in {"CRITICAL","HIGH"} else 2 if str(row["severity"]) == "MEDIUM" else 1},
             "details": {
+                **dict(persisted_details),
                 "finding_type": row["finding_type"],
                 "category": row["category"],
                 "confidence": row["confidence"],
@@ -1611,11 +2356,26 @@ def improvement_findings(connection: sqlite3.Connection, audit_id: str, page_id:
     run = connection.execute(
         "SELECT * FROM passive_security_runs WHERE audit_id=?", (audit_id,)
     ).fetchone() if _table_exists(connection, "passive_security_runs") else None
+    script_count = connection.execute(
+        "SELECT COUNT(*) FROM passive_security_script_observations WHERE audit_id=? AND page_id=?",
+        (audit_id, page_id),
+    ).fetchone()[0] if _table_exists(connection, "passive_security_script_observations") else 0
+    platform_count = connection.execute(
+        "SELECT COUNT(*) FROM passive_security_platforms WHERE audit_id=? AND page_id=?",
+        (audit_id, page_id),
+    ).fetchone()[0] if _table_exists(connection, "passive_security_platforms") else 0
+    cookie_attr_count = connection.execute(
+        "SELECT COUNT(*) FROM passive_security_cookie_attribution WHERE audit_id=? AND page_id=?",
+        (audit_id, page_id),
+    ).fetchone()[0] if _table_exists(connection, "passive_security_cookie_attribution") else 0
     summary = {
         "mode": "PASSIVE_ONLY",
         "active_exploitation": False,
         "shared_security_core": True,
         "catalog": "CAT-10",
+        "script_observations": int(script_count),
+        "platform_observations": int(platform_count),
+        "cookie_attribution_observations": int(cookie_attr_count),
         "status": str(run["status"]) if run else "UNKNOWN",
         "coverage": _load(run["coverage_json"], {}) if run else {},
         "limitations": _load(run["limitations_json"], []) if run else [],

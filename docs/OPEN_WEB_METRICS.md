@@ -107,6 +107,8 @@ O RASAi registra:
 
 Recursos cross-origin podem ocultar timing/tamanhos sem `Timing-Allow-Origin`. Por isso, tamanho zero/não observável **não é interpretado como recurso vazio**.
 
+Para JavaScript, a captura de dispositivo pode preservar adicionalmente uma visão **por recurso** com URL sanitizada, party, tamanhos/timing observáveis, SHA-256 e estado da análise bounded do body já recebido pelo browser. Essa granularidade é diagnóstica: não substitui os agregados `OPEN-WEB-METRICS-001`, não recalcula Lighthouse/CrUX/Apdex e não ativa profiler de CPU por script. A ausência dessa telemetria em AUDs anteriores permanece estado de cobertura, não falha do website.
+
 ### User Timing
 
 Para evitar exposição desnecessária de nomes internos de instrumentação da aplicação, o RASAi registra somente:

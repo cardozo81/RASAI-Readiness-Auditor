@@ -159,7 +159,8 @@ def _catalog_results_html(database: Path, data: _ReportData, catalog_id: str) ->
         assessments=("<div class='subsection'><h3>Avaliações persistidas</h3>"+_table(("Métrica","Avaliação"),notes)+"</div>" if notes else "")
         provenance=_crux_provenance_html(database,data)
         diagnostics="<div class='subsection'><h3>Diagnóstico das fontes externas</h3>"+_web_performance_diagnostics_html(database,data)+"</div>"
-        return base+provenance+assessments+diagnostics
+        javascript="<div class='subsection'><h3>JavaScript · custo por recurso</h3>"+_script_performance_html(database,data)+"</div>"
+        return base+provenance+assessments+javascript+diagnostics
     if catalog_id=="CAT-05":
         return base+"<div class='subsection'><h3>Observações de busca</h3>"+_search_intelligence_html(database,data)+"</div>"
     if catalog_id=="CAT-06":

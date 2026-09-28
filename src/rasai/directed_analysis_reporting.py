@@ -158,8 +158,7 @@ def _action_target_contexts(
         findings={
             str(row["finding_id"]):dict(row)
             for row in connection.execute(
-                """SELECT finding_id,page_id,url_scope,category,title,description
-                   FROM passive_security_findings WHERE audit_id=?""",
+                "SELECT * FROM passive_security_findings WHERE audit_id=?",
                 (audit_id,),
             ).fetchall()
         }
@@ -208,6 +207,41 @@ def _action_target_contexts(
         description=str(finding.get("description") or "")
         category=_norm(finding.get("category"))
         url_scope=str(finding.get("url_scope") or "").strip()
+        details=_json(finding.get("details_json"),{})
+        target=details.get("target") if isinstance(details,Mapping) else None
+        if isinstance(target,Mapping) and str(target.get("ref") or "").strip():
+            target_ref=str(target.get("ref") or "").strip()
+            label=str(target.get("label") or target_ref).strip()
+            kind=_norm(target.get("kind"))
+            scope=str(target.get("scope") or "").strip()
+            occurrence=str(target.get("occurrence") or "").strip()
+            owner_label=str(target.get("owner_label") or "").strip()
+            owner_class=str(target.get("owner_class") or "").strip()
+            identity=[]
+            if kind=="COOKIE" and occurrence:
+                identity.append(occurrence)
+            identity.append(label)
+            if kind=="COOKIE" and target_ref not in label:
+                identity.append(f"ID {target_ref}")
+            if owner_label:
+                owner_text=f"Responsável: {owner_label}"
+                if owner_class:
+                    owner_text+=f" ({owner_class})"
+                identity.append(owner_text)
+            identity.extend(
+                value for value in (scope, occurrence if kind!="COOKIE" else "")
+                if value
+            )
+            contexts[action_id]={
+                "label":" · ".join(identity),
+                "note":(
+                    "Alvo determinístico persistido pelo CAT-10. Para cookies, nome seguro, ID RASAi "
+                    "e responsabilidade técnica são projetados quando sustentados pela evidência; esta "
+                    "atribuição não representa titularidade jurídica. A análise estratégica não cria ou "
+                    "infere um alvo alternativo."
+                ),
+            }
+            continue
         cookie_match=re.search(r"\bSet-Cookie\s*#(\d+)",description,re.IGNORECASE)
         if category=="COOKIES" and cookie_match:
             occurrence=f"Set-Cookie #{cookie_match.group(1)}"

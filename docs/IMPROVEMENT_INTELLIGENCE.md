@@ -33,7 +33,8 @@ Quando disponíveis no mesmo `AUD-*/audit.db` e artifacts associados, a capacida
 - Core Web Vitals/CrUX persistidos;
 - `robots.txt`, sitemap/feed, `llms.txt` e diagnósticos de discovery;
 - Search Intelligence/SERP e Competitive Search & Content Intelligence, quando executados;
-- headers HTTP persistidos para postura de segurança passiva.
+- headers HTTP persistidos para postura de segurança passiva;
+- targets determinísticos do CAT-10, incluindo cookie/script/recurso/plataforma, provenance secret-safe e custo de JavaScript quando a coleta correspondente estiver disponível.
 
 A capacidade não amplia silenciosamente o escopo de rede e não cria um segundo crawler competitivo.
 
@@ -56,7 +57,7 @@ O usuário pode selecionar um subconjunto de:
 
 O domínio `SECURITY` é passivo.
 
-O RASAi pode interpretar evidências já capturadas, como HTTPS, CSP, HSTS, framing, `X-Content-Type-Options`, `Referrer-Policy`, atributos de cookies, exposição aparente de versão e achados Lighthouse relacionados.
+O RASAi pode interpretar evidências já capturadas, como HTTPS, CSP, HSTS, framing, `X-Content-Type-Options`, `Referrer-Policy`, atributos/provenance de cookies, integridade e sinais bounded de JavaScript, plataformas observadas, exposição aparente de versão e achados Lighthouse relacionados.
 
 Ausência de header é reportada como postura/configuração observada, não como prova de vulnerabilidade explorável. A capacidade não executa payloads, fuzzing, bypass de autenticação, exploração XSS/SQLi/SSRF ou pentest ativo.
 
@@ -222,7 +223,7 @@ A superfície canônica é:
 report-catalog/cat-08.html
 ```
 
-O HTML separa backlog priorizado derivado pela IA, findings/evidências determinísticos, HTML original/sugerido quando aplicável, consumo de IA e fronteiras metodológicas.
+O HTML separa backlog priorizado derivado pela IA, findings/evidências determinísticos, **alvo técnico persistido** quando disponível, HTML original/sugerido quando aplicável, consumo de IA e fronteiras metodológicas. A IA referencia o target recebido; não cria `cookie_ref`, `script_ref` ou `platform_ref`.
 
 A página existe no contrato de relatório mesmo quando a capacidade não foi executada, deixando o estado explícito.
 

@@ -1,6 +1,7 @@
 # CAT-10 · Segurança Passiva
 
-**Estado:** contrato de desenvolvimento/pré-produção.
+**Estado:** contrato de desenvolvimento/pré-produção.  
+**Contrato técnico:** `PASSIVE-SECURITY-002`.
 
 O CAT-10 mede **prontidão de segurança web de forma estritamente passiva**. Ele reutiliza evidências já coletadas pelo RASAi, adiciona análise determinística de segurança e, quando possível, cruza identificadores de componentes/versionamento com fontes externas de vulnerabilidade sem executar exploração.
 
@@ -74,7 +75,11 @@ A implementação cobre:
 - Permissions-Policy;
 - COOP, COEP e CORP;
 - CORS observável sem request ativo de Origin;
-- atributos de cookies (Secure, HttpOnly, SameSite, Domain, Path);
+- atributos de cookies (Secure, HttpOnly, SameSite, Domain, Path), identidade lógica secret-safe e mecanismo de criação quando observável;
+- correlação bounded de escritas `document.cookie`/Cookie Store com script setter quando o runtime fornece evidência suficiente;
+- inventário granular de JavaScript carregado na mesma navegação, com URL sanitizada, party, timing/tamanhos visíveis, SHA-256 e análise estática bounded quando o body permanece disponível no buffer do navegador;
+- identificação versionada de plataformas/identificadores client-side conhecidos, separando identificador público, chave operacional e segredo/identificador desconhecido;
+- relações evidence-bound plataforma → script → cookie quando sustentadas por initiator/runtime, sem inferir causalidade apenas por vendor ou proximidade temporal;
 - mixed content;
 - scripts/folhas de estilo externos e SRI;
 - nonce de script persistido apenas como SHA-256 e reutilização entre snapshots;
@@ -160,11 +165,11 @@ INFO
 
 ## Cookies, nonces e dados sensíveis
 
-O CAT-10 não copia o valor dos cookies para suas tabelas. O nome do cookie é persistido somente como hash curto para correlação local.
+O CAT-10 nunca copia o valor dos cookies para suas tabelas. O parser legado de atributos preserva somente hash do nome. A entidade dedicada de atribuição pode persistir/exibir **somente o nome sintaticamente seguro** do cookie para actionability; nomes inválidos/anômalos permanecem protegidos por referência/hash. Nenhum conteúdo após o primeiro `=` é materializado.
 
 Nonce de script é persistido somente como SHA-256 e comprimento. O valor bruto não é materializado nos achados.
 
-URLs duplicadas no inventário CAT-10 preservam esquema/host/path e estrutura útil, mas parâmetros de query reconhecidos como sensíveis são redigidos antes da persistência, inclusive quando o HTML usa URL relativa. A evidência canônica original permanece na fonte já coletada; o catálogo não cria uma segunda cópia de credenciais ou signed URLs.
+URLs duplicadas no inventário CAT-10 preservam esquema/host/path e estrutura útil, mas parâmetros de query reconhecidos como sensíveis são redigidos antes da persistência, inclusive quando o HTML usa URL relativa. Bodies JavaScript completos não são persistidos pela nova camada: quando o body já recebido pelo navegador está disponível, o RASAi calcula hash/sinais bounded em memória e guarda somente metadados/indicadores necessários. A evidência canônica original permanece na fonte já coletada; o catálogo não cria uma segunda cópia de credenciais ou signed URLs.
 
 Segredos do runtime continuam sujeitos ao secret_safety canônico.
 
@@ -191,10 +196,10 @@ Variáveis expostas:
 |---|---:|---|
 | RASAI_PASSIVE_SECURITY | false | ativa o CAT-10; a seleção do catálogo projeta true somente na execução |
 | RASAI_SECURITY_HEADERS | true | HTTPS, redirecionamentos, cabeçalhos, CSP, CORS e políticas entre origens |
-| RASAI_SECURITY_COOKIES | true | atributos de cookies |
-| RASAI_SECURITY_RESOURCES | true | scripts, recursos, formulários, iframes e conteúdo misto |
-| RASAI_SECURITY_THIRD_PARTY | true | classificação de próprio domínio/externo, SRI e destinos externos |
-| RASAI_SECURITY_RUNTIME_CORRELATION | true | correlação de tempo de execução persistido |
+| RASAI_SECURITY_COOKIES | true | cookies HTTP/runtime, atributos e provenance secret-safe |
+| RASAI_SECURITY_RESOURCES | true | scripts/recursos, integridade e telemetria bounded da navegação já executada |
+| RASAI_SECURITY_THIRD_PARTY | true | próprio/terceiro, SRI, plataformas/identificadores seguros e relações observadas |
+| RASAI_SECURITY_RUNTIME_CORRELATION | true | erros de runtime, setters de cookie e scripts persistidos; não altera Apdex/SARI |
 | RASAI_SECURITY_OSV | true | OSV para componente/versionamento elegível |
 | RASAI_SECURITY_CISA_KEV | true | cruza CVEs com KEV |
 | RASAI_SECURITY_EXTERNAL_TIMEOUT_SECONDS | 15 | tempo limite por chamada externa de inteligência de vulnerabilidades |
@@ -218,11 +223,11 @@ security_external_timeout_seconds
 passive_security_ai
 ~~~
 
-Nenhuma credencial é persistida no job. OSV e CISA KEV não exigem secret no contrato atual.
+Nenhuma credencial é persistida no job. OSV e CISA KEV não exigem secret no contrato atual. A evolução de cookies/scripts/plataformas reutiliza essas opções existentes e não adiciona campo SaaS obrigatório; o payload continua secret-free.
 
 ## HTML
 
-O report-catalog/cat-10.html apresenta resumo e estado, cobertura efetiva, achados por severidade/classificação, rastreabilidade por evidência, recursos próprios/externos, componentes/versionamento identificáveis, Lighthouse Melhores Práticas reutilizado, MDN HTTP Observatory reutilizado, estado de OSV/CISA KEV e demais integrações, e impacto/contenção/correção/validação de cada finding.
+O `report-catalog/cat-10.html` apresenta resumo e estado, cobertura efetiva, achados por severidade/classificação, cookies e provenance observável, JavaScript com integridade/indicadores de risco, plataformas/identificadores seguros, recursos próprios/externos, componentes/versionamento identificáveis, MDN HTTP Observatory reutilizado, estado de OSV/CISA KEV e demais integrações, além de impacto/contenção/correção/validação de cada finding. Indicador estático não é apresentado como verdict de malware.
 
 A página é projeção read-only. O HTML não executa coleta, IA ou cálculo de segurança.
 

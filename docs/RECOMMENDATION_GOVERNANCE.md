@@ -47,6 +47,8 @@ Ação cujo alvo é `AUDITOR_INTERNAL` é excluída do plano do cliente. Ela pod
 
 Remediação derivada de erro de requisição `THIRD_PARTY` é classificada como `EXTERNAL_PROVIDER`, não como alteração automática do site.
 
+Recomendação do CAT-08 que deriva de finding com target determinístico de CAT-10 reutiliza `target.owner_class` quando esse campo foi persistido pela análise determinística. A governança não reinfere ownership por texto da IA. `EXTERNAL_PROVIDER` continua externo; `INFORMATIONAL` e `AUDITOR_INTERNAL` não são promovidos ao plano aceito.
+
 Remediação `FIRST_PARTY` é classificada como `TARGET_SITE`.
 
 Quando ownership não puder ser determinado com segurança, a orientação fica `INFORMATIONAL`.
