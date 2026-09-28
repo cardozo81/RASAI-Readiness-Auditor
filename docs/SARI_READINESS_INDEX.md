@@ -397,7 +397,7 @@ Os **scores de categoria** permanecem independentes do SARI:
 
 Nenhum desses scores é multiplicado por um peso SARI.
 
-Da mesma forma, a telemetria granular de JavaScript, provenance de cookies, plataformas de terceiros, SRI, hashes e indicadores passivos de risco **não cria peso, dimensão ou penalidade própria no SARI**. Quando uma dessas evidências demonstra exatamente uma condição já coberta por uma Regra de Avaliação de Prontidão — por exemplo, conteúdo essencial que deixa de ser recuperável após JavaScript — ela pode sustentar/corroborar a BR-GEO correspondente pelo caminho normal de RuleExecution, sem dupla pontuação. Bytes, tempo de recurso, cookie ou indicador estático isolado permanecem fora do cálculo.
+Da mesma forma, a telemetria granular de JavaScript, provenance de cookies, plataformas de terceiros, SRI, hashes e indicadores passivos de risco **não cria peso, dimensão ou penalidade própria no SARI**. Quando uma dessas evidências demonstra exatamente uma condição já coberta por uma Regra de Avaliação de Prontidão - por exemplo, conteúdo essencial que deixa de ser recuperável após JavaScript - ela pode sustentar/corroborar a BR-GEO correspondente pelo caminho normal de RuleExecution, sem dupla pontuação. Bytes, tempo de recurso, cookie ou indicador estático isolado permanecem fora do cálculo.
 
 Um **audit individual do Lighthouse** ou outro finding técnico externo pode corroborar uma BR-GEO que avalie exatamente a mesma condição técnica, desde que exista mapeamento explícito e sem dupla pontuação. O category score nunca é usado como atalho para o SARI.
 
