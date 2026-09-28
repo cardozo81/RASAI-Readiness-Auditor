@@ -17,6 +17,7 @@ from rasai.audit_fulfillment import (
     begin_attempt,
     list_work_items,
     register_work_item,
+    set_work_item_status,
     start_reprocess_run,
 )
 from rasai.audit_resume_runtime import (
@@ -197,7 +198,14 @@ def test_abandoned_rpr_is_closed_and_next_retry_gets_new_id_without_losing_succe
         temporal_mode=REPLAY_SAFE,
         status=SUCCESS,
         retryable=False,
+    )
+    set_work_item_status(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="PRESERVED_COMPONENT",
+        status=SUCCESS,
         result_ref="persisted:success",
+        retryable=False,
     )
 
     abandoned = start_reprocess_run(workspace, AUDIT_ID, source="TEST")
