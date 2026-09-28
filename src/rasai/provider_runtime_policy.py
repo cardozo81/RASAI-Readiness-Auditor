@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from types import MethodType
 import json
+import math
 import os
 from typing import Any, Mapping, MutableMapping
 
@@ -140,6 +141,29 @@ def configured_simple_model(provider_name: str, env: Mapping[str, str] | None = 
     if definition is None or not definition.enabled or not definition.is_effective():
         raise ValueError(f"modelo indisponível para {name}: {raw}")
     return raw
+
+
+def configured_ai_timeout_seconds(env: Mapping[str, str] | None = None) -> float:
+    environment = env if env is not None else os.environ
+    raw = (environment.get(AI_TIMEOUT_ENV) or str(DEFAULT_AI_TIMEOUT_SECONDS)).strip()
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ValueError(f"{AI_TIMEOUT_ENV} must be a positive number of seconds") from exc
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{AI_TIMEOUT_ENV} must be a positive finite number of seconds")
+    return value
+
+
+def _apply_ai_timeout(provider: Any, timeout: float) -> Any:
+    routed = getattr(provider, "providers", None)
+    if isinstance(routed, tuple):
+        for item in routed:
+            if hasattr(item, "timeout"):
+                item.timeout = timeout
+    elif hasattr(provider, "timeout"):
+        provider.timeout = timeout
+    return provider
 
 
 def environment_with_public_defaults(env: Mapping[str, str] | None = None) -> dict[str, str]:
@@ -303,7 +327,10 @@ def build_semantic_provider(
             raise ValueError(
                 "AUTO does not accept one global model override; configure models per provider"
             )
-        return _build_auto_provider(effective_env=effective_env)
+        return _apply_ai_timeout(
+            _build_auto_provider(effective_env=effective_env),
+            configured_ai_timeout_seconds(effective_env),
+        )
 
     registration = get_provider_registration(selection)
     effective_model = model_override
@@ -326,6 +353,7 @@ def build_semantic_provider(
     if selected == "NONE":
         clear_current_ai_execution()
         return provider
+    _apply_ai_timeout(provider, configured_ai_timeout_seconds(effective_env))
     recorder = AiExchangeRecorder()
     _prepare_concrete_provider(
         provider,

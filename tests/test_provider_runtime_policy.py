@@ -6,6 +6,8 @@ from unittest.mock import patch
 
 from rasai.console_config import State
 from rasai.provider_runtime_policy import (
+    AI_TIMEOUT_ENV,
+    DEFAULT_AI_TIMEOUT_SECONDS,
     DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS,
     LOWEST_REASONING,
     SIMPLE_DEFAULT_MODELS,
@@ -36,6 +38,51 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
         })
         self.assertEqual(env["RASAI_OPENAI_MODEL"], "gpt-5.6-sol")
         self.assertEqual(env["RASAI_OPENAI_REASONING_EFFORT"], "HIGH")
+
+    def test_direct_runtime_builder_applies_public_ai_timeout_default(self) -> None:
+        provider = build_semantic_provider(
+            "openai",
+            env={"OPENAI_API_KEY": "test-key"},
+        )
+        self.assertEqual(DEFAULT_AI_TIMEOUT_SECONDS, 180.0)
+        self.assertEqual(provider.timeout, 180.0)
+
+    def test_direct_runtime_builder_applies_timeout_override_to_explicit_provider(self) -> None:
+        provider = build_semantic_provider(
+            "openai",
+            env={
+                "OPENAI_API_KEY": "test-key",
+                AI_TIMEOUT_ENV: "240",
+            },
+        )
+        self.assertEqual(provider.timeout, 240.0)
+
+    def test_direct_runtime_builder_applies_timeout_override_to_auto_candidates(self) -> None:
+        router = build_semantic_provider(
+            "auto",
+            env={
+                "OPENAI_API_KEY": "openai-key",
+                "DEEPSEEK_API_KEY": "deepseek-key",
+                "GEMINI_API_KEY": "gemini-key",
+                AI_TIMEOUT_ENV: "210",
+            },
+        )
+        self.assertGreaterEqual(len(router.providers), 2)
+        self.assertTrue(all(item.timeout == 210.0 for item in router.providers))
+
+    def test_direct_runtime_builder_rejects_invalid_ai_timeout_only_when_ai_enabled(self) -> None:
+        for raw in ("0", "-1", "nan", "inf", "invalid"):
+            with self.subTest(raw=raw):
+                with self.assertRaisesRegex(ValueError, AI_TIMEOUT_ENV):
+                    build_semantic_provider(
+                        "openai",
+                        env={"OPENAI_API_KEY": "test-key", AI_TIMEOUT_ENV: raw},
+                    )
+                none_provider = build_semantic_provider(
+                    "none",
+                    env={AI_TIMEOUT_ENV: raw},
+                )
+                self.assertEqual(none_provider.name, "NONE")
 
     def test_console_web_timeout_default_is_120_seconds(self) -> None:
         self.assertEqual(DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS, 120.0)
