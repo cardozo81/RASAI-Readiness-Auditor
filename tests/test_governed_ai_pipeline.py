@@ -15,6 +15,7 @@ from rasai.audit_fulfillment import (
     register_work_item,
 )
 from rasai.ai_dependency_contract import deep_analysis_fulfillment_dependency_state
+from rasai.persistence import AuditWorkspace
 
 
 def _workspace(tmp_path, audit_id: str = "AUD-GOV"):
@@ -39,7 +40,7 @@ def _workspace(tmp_path, audit_id: str = "AUD-GOV"):
         connection.commit()
     finally:
         connection.close()
-    return SimpleNamespace(root=root, database=database), audit_id
+    return AuditWorkspace(root), audit_id
 
 
 def test_collection_terminal_states_fail_closed_for_unknown_values() -> None:
