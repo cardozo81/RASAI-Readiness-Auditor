@@ -1530,6 +1530,7 @@ def _cookie_attributes(raw: str, page_url: str = "") -> dict[str, Any]:
     parts = [part.strip() for part in str(raw).split(";") if part.strip()]
     cookie_name = parts[0].split("=", 1)[0].strip() if parts else ""
     attrs: dict[str, Any] = {
+        "name_display": _safe_cookie_name(raw),
         "name_hash": sha256(cookie_name.encode("utf-8")).hexdigest()[:12] if cookie_name else "",
         "sensitive_name_hint": bool(re.search(r"(?:session|sess|auth|token|jwt|sid|login|credential)", cookie_name, re.I)),
         "secure": False,
@@ -1812,13 +1813,28 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
     if _truthy(os.environ.get(COOKIES_ENV), True):
         for index, raw_cookie in enumerate(headers.get("set-cookie", ())[:50], 1):
             attrs = _cookie_attributes(raw_cookie, url)
+            cookie_party = _cookie_scope_party(attrs.get("effective_domain"), url)
+            cookie_owner_class = {
+                "FIRST_PARTY": "TARGET_SITE",
+                "THIRD_PARTY": "EXTERNAL_PROVIDER",
+            }.get(cookie_party, "INFORMATIONAL")
+            cookie_owner_label = (
+                f"Site auditado · {attrs.get('effective_domain')}"
+                if cookie_party == "FIRST_PARTY" and attrs.get("effective_domain")
+                else f"Terceiro · {attrs.get('effective_domain')}"
+                if cookie_party == "THIRD_PARTY" and attrs.get("effective_domain")
+                else "Não determinado"
+            )
             cookie_details = {
                 "target": {
                     "kind": "COOKIE",
                     "ref": attrs.get("cookie_ref"),
-                    "label": f"Cookie {attrs.get('cookie_ref')}" if attrs.get("cookie_ref") else f"Set-Cookie #{index}",
+                    "label": attrs.get("name_display") or (f"Cookie {attrs.get('cookie_ref')}" if attrs.get("cookie_ref") else f"Set-Cookie #{index}"),
                     "scope": f"{attrs.get('effective_domain') or '-'} {attrs.get('effective_path') or '/'}",
                     "occurrence": f"Set-Cookie #{index}",
+                    "party": cookie_party,
+                    "owner_class": cookie_owner_class,
+                    "owner_label": cookie_owner_label,
                 },
                 "cookie": attrs,
             }
