@@ -57,6 +57,8 @@ def test_initial_and_rpr_share_technical_ai_evidence_gate() -> None:
     assert "technical_evidence_ready" in initial
     assert "technical_evidence_ready" in recovery
     assert "DISCOVERY_ACQUISITION" in _source(reprocess_policy.blocking_dependencies)
+    assert recovery.index("build_reprocess_provider") < recovery.index("technical_evidence_ready")
+    assert "provider=active_provider" in recovery
 
 
 def test_initial_and_rpr_share_canonical_pre_score_integrity_rule() -> None:
