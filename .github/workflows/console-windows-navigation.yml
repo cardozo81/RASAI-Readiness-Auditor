@@ -4,6 +4,22 @@ on:
   push:
     branches: [main]
     paths:
+      - 'docs/**/*.md'
+      - 'src/rasai/audit_catalog.py'
+      - 'src/rasai/console_*.py'
+      - 'src/rasai/interactive_console.py'
+      - 'src/rasai/integration_diagnostics_console.py'
+      - 'tests/*console*.py'
+      - 'tests/test_interactive_console.py'
+      - 'tests/test_environment_surface_parity.py'
+      - 'tests/test_prepublication_configuration_contract.py'
+      - 'tests/test_m23_integration.py'
+      - 'tests/test_m25_console_integration.py'
+      - 'tests/test_integration_diagnostics.py'
+      - '.github/workflows/console-windows-navigation.yml'
+  pull_request:
+    paths:
+      - 'docs/**/*.md'
       - 'src/rasai/audit_catalog.py'
       - 'src/rasai/console_*.py'
       - 'src/rasai/interactive_console.py'
