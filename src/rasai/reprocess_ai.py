@@ -509,24 +509,41 @@ def _refresh_integrity_rule(workspace: AuditWorkspace, audit_id: str, reprocess_
 
 
 def _reset_scores(workspace: AuditWorkspace, audit_id: str, reprocess_id: str) -> None:
-    _archive_query(
-        workspace,audit_id=audit_id,reprocess_id=reprocess_id,component="DERIVED_RECOMPUTE",
-        entity_type="score",id_field="score_id",sql="SELECT * FROM scores WHERE audit_id=?",params=(audit_id,),
-    )
-    _archive_query(
-        workspace,audit_id=audit_id,reprocess_id=reprocess_id,component="DERIVED_RECOMPUTE",
-        entity_type="score_contribution",id_field="contribution_id",
-        sql="""SELECT sc.* FROM score_contributions sc JOIN scores s ON s.score_id=sc.score_id WHERE s.audit_id=?""",params=(audit_id,),
-    )
-    connection=sqlite3.connect(workspace.database)
-    connection.execute("PRAGMA foreign_keys=ON")
+    # An interrupted AUD may legitimately never have reached M9. In that state the
+    # scoring schema does not exist yet, so there is nothing to archive/reset. M9's
+    # ScoringPersistence materializes the tables when replay-safe scoring runs.
+    connection = sqlite3.connect(workspace.database)
     try:
-        with connection:
-            connection.execute("DELETE FROM scores WHERE audit_id=?",(audit_id,))
-    except sqlite3.OperationalError:
-        pass
+        tables = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' "
+                "AND name IN ('scores','score_contributions')"
+            ).fetchall()
+        }
     finally:
         connection.close()
+
+    if "scores" in tables:
+        _archive_query(
+            workspace,audit_id=audit_id,reprocess_id=reprocess_id,component="DERIVED_RECOMPUTE",
+            entity_type="score",id_field="score_id",sql="SELECT * FROM scores WHERE audit_id=?",params=(audit_id,),
+        )
+    if {"scores", "score_contributions"} <= tables:
+        _archive_query(
+            workspace,audit_id=audit_id,reprocess_id=reprocess_id,component="DERIVED_RECOMPUTE",
+            entity_type="score_contribution",id_field="contribution_id",
+            sql="""SELECT sc.* FROM score_contributions sc JOIN scores s ON s.score_id=sc.score_id WHERE s.audit_id=?""",params=(audit_id,),
+        )
+
+    if "scores" in tables:
+        connection=sqlite3.connect(workspace.database)
+        connection.execute("PRAGMA foreign_keys=ON")
+        try:
+            with connection:
+                connection.execute("DELETE FROM scores WHERE audit_id=?",(audit_id,))
+        finally:
+            connection.close()
     _clear_rule(workspace,audit_id=audit_id,rule_id="BR-GEO-054",reprocess_id=reprocess_id,component="DERIVED_RECOMPUTE")
 
 
