@@ -197,6 +197,29 @@ def execute_m6_snapshot_scope(
     )
 
 
+def apply_rendered_discovery_limitation(
+    *,
+    audit_id: str,
+    persistence: AuditPersistence,
+    rendered_outside_audit: set[str] | frozenset[str],
+    limit_reached: bool,
+) -> None:
+    """Apply the canonical M6 rendered-discovery coverage limitation."""
+    if not rendered_outside_audit:
+        return
+    audit = persistence.audits.get(audit_id)
+    if audit is None:
+        return
+    reason = (
+        f"RENDERED_LINKS_OUTSIDE_AUDIT_UNIVERSE_MAX_PAGES:{len(rendered_outside_audit)}"
+        if limit_reached
+        else f"RENDERED_DISCOVERY_GAP:{len(rendered_outside_audit)}"
+    )
+    persistence.audits.update(
+        replace(audit, limitations=tuple(dict.fromkeys((*audit.limitations, reason))))
+    )
+
+
 def execute_m6(
     *,
     audit_id: str,
@@ -253,17 +276,12 @@ def execute_m6(
             architecture[snapshot_id] = classification
             rendered_outside_audit.update(scoped_outside)
 
-    if rendered_outside_audit:
-        audit = persistence.audits.get(audit_id)
-        if audit is not None:
-            reason = (
-                f"RENDERED_LINKS_OUTSIDE_AUDIT_UNIVERSE_MAX_PAGES:{len(rendered_outside_audit)}"
-                if m2_result.discovery.limit_reached
-                else f"RENDERED_DISCOVERY_GAP:{len(rendered_outside_audit)}"
-            )
-            persistence.audits.update(
-                replace(audit, limitations=tuple(dict.fromkeys((*audit.limitations, reason))))
-            )
+    apply_rendered_discovery_limitation(
+        audit_id=audit_id,
+        persistence=persistence,
+        rendered_outside_audit=rendered_outside_audit,
+        limit_reached=bool(m2_result.discovery.limit_reached),
+    )
 
     return M6ExecutionResult(tuple(execution_ids), tuple(finding_ids), architecture)
 
