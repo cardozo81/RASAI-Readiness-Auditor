@@ -383,7 +383,15 @@ def _reconcile_base_standards(*, audit_id: str, workspace: Any, **_: Any):
                     )
     finally:
         connection.close()
-    return {"status": "SUCCESS", "metrics": "base-readiness-reconciled"}
+
+    from rasai.standards_owned_service_reconciliation import reconcile_owned_service_runs
+
+    owned = reconcile_owned_service_runs(audit_id=audit_id, workspace=workspace)
+    return {
+        "status": "SUCCESS",
+        "metrics": "base-readiness-reconciled",
+        "owned_service_outcomes": owned,
+    }
 
 
 def _reconcile_ir(*, audit_id: str, workspace: Any, **_: Any):
