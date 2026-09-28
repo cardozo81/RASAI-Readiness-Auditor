@@ -1012,6 +1012,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         +"<div class='subsection'><h3>Scripts, recursos e origem</h3>"
         +_table(("Tipo de recurso","Origem","Quantidade"),resource_rows,empty="Nenhum recurso HTML foi inventariado.")
         +"</div>"
+        +_runtime_security_inventory_html(database,data.audit_id)
         +"<div class='subsection'><h3>Componentes/versionamento identificáveis</h3>"
         +"<p class='section-lead'>Versão detectada pelo nome do arquivo é evidência heurística moderada: pode habilitar correlação OSV, mas o achado permanece potencial até confirmação por inventário, build ou SBOM.</p>"
         +_table(("Componente","Versão","Ecossistema","Método","Confiança"),component_rows,empty="Nenhum componente com identificação útil foi detectado.",sortable=bool(component_rows))
