@@ -564,9 +564,9 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
         if _can_reprocess(summary):
             print("1. Reprocessar somente pendências desta auditoria")
         elif str(summary.get("processing_status") or "").upper() == "COMPLETE":
-            print("1. Reprocessar pendências [NÃO NECESSÁRIO — AUDITORIA CONCLUÍDA]")
+            print("Reprocessamento: não necessário - auditoria concluída.")
         else:
-            print("1. Reprocessar pendências [INDISPONÍVEL NESTE ESTADO]")
+            print("Reprocessamento: indisponível no estado atual.")
         if reuse_available:
             print("2. Carregar esta configuração para uma nova auditoria")
         else:
