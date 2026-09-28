@@ -158,8 +158,7 @@ def _action_target_contexts(
         findings={
             str(row["finding_id"]):dict(row)
             for row in connection.execute(
-                """SELECT finding_id,page_id,url_scope,category,title,description,details_json
-                   FROM passive_security_findings WHERE audit_id=?""",
+                "SELECT * FROM passive_security_findings WHERE audit_id=?",
                 (audit_id,),
             ).fetchall()
         }
@@ -218,7 +217,10 @@ def _action_target_contexts(
             occurrence=str(target.get("occurrence") or "").strip()
             owner_label=str(target.get("owner_label") or "").strip()
             owner_class=str(target.get("owner_class") or "").strip()
-            identity=[label]
+            identity=[]
+            if kind=="COOKIE" and occurrence:
+                identity.append(occurrence)
+            identity.append(label)
             if kind=="COOKIE" and target_ref not in label:
                 identity.append(f"ID {target_ref}")
             if owner_label:
@@ -226,7 +228,10 @@ def _action_target_contexts(
                 if owner_class:
                     owner_text+=f" ({owner_class})"
                 identity.append(owner_text)
-            identity.extend(value for value in (scope,occurrence) if value)
+            identity.extend(
+                value for value in (scope, occurrence if kind!="COOKIE" else "")
+                if value
+            )
             contexts[action_id]={
                 "label":" · ".join(identity),
                 "note":(
