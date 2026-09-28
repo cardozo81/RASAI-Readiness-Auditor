@@ -5,7 +5,9 @@ import sqlite3
 from types import SimpleNamespace
 
 from rasai.device_context_capture import _cookie_runtime_metadata, _script_runtime_metadata
+from rasai.catalog_report_analysis import _runtime_security_inventory_html
 from rasai.passive_security import (
+    _analyze_headers,
     _cookie_attributes,
     _runtime_intelligence_rows,
     ensure_schema,
@@ -114,6 +116,77 @@ def test_cookie_identity_is_stable_and_never_contains_value():
     serialized = json.dumps(first)
     assert "VERY_SECRET_VALUE" not in serialized
     assert "DIFFERENT_VALUE" not in serialized
+
+
+def test_http_cookie_finding_exposes_safe_name_id_and_technical_owner():
+    findings = _analyze_headers(
+        AUDIT_ID,
+        {
+            "page_id": PAGE_ID,
+            "page_url": "https://example.test/app/login",
+            "headers": {
+                "set-cookie": [
+                    "SessionId=VERY_SECRET_VALUE; Secure; SameSite=Lax; Path=/app",
+                ],
+            },
+            "header_evidence": ["EV-HEADERS"],
+            "http": {},
+        },
+    )
+
+    finding = next(item for item in findings if item["title"] == "Cookie sem HttpOnly observado")
+    target = finding["details"]["target"]
+    assert target["label"] == "SessionId"
+    assert str(target["ref"]).startswith("CK-")
+    assert target["party"] == "FIRST_PARTY"
+    assert target["owner_class"] == "TARGET_SITE"
+    assert target["owner_label"] == "Site auditado · example.test"
+    serialized = json.dumps(findings)
+    assert "VERY_SECRET_VALUE" not in serialized
+
+
+def test_cat10_cookie_inventory_exposes_name_id_and_technical_owner(tmp_path):
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE audits(audit_id TEXT PRIMARY KEY);
+            CREATE TABLE pages(page_id TEXT PRIMARY KEY, audit_id TEXT);
+            INSERT INTO audits VALUES ('AUD-ISSUE56');
+            INSERT INTO pages VALUES ('PAGE-1','AUD-ISSUE56');
+            """
+        )
+        ensure_schema(connection)
+        attrs = _cookie_attributes(
+            "SessionId=VERY_SECRET_VALUE; Secure; SameSite=Lax; Path=/app",
+            "https://example.test/app/login",
+        )
+        connection.execute(
+            """INSERT INTO passive_security_cookie_attribution(
+                 cookie_attribution_id,audit_id,page_id,snapshot_id,cookie_ref,cookie_name_display,
+                 name_hash,creation_mechanism,effective_domain,effective_path,host_only,
+                 setter_script_url,setter_script_ref,platform_ref,party,purpose,purpose_confidence,
+                 attribution_confidence,details_json,evidence_ids_json
+               ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                "PCA-1", AUDIT_ID, PAGE_ID, None, attrs["cookie_ref"], attrs["name_display"],
+                attrs["name_hash"], "HTTP_SET_COOKIE", attrs["effective_domain"], attrs["effective_path"], 1,
+                None, None, None, "FIRST_PARTY", attrs["purpose"], attrs["purpose_confidence"],
+                "HIGH", json.dumps({"set_cookie_index": 1}), json.dumps(["EV-HEADERS"]),
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    html = _runtime_security_inventory_html(database, AUDIT_ID)
+    assert "SessionId" in html
+    assert attrs["cookie_ref"] in html
+    assert "ID RASAi" in html
+    assert "Proprietário / responsável técnico" in html
+    assert "Site auditado · example.test" in html
+    assert "VERY_SECRET_VALUE" not in html
 
 
 def test_script_runtime_uses_buffered_body_without_persisting_source():
