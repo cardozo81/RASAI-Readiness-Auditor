@@ -206,53 +206,35 @@ def recover_web_performance(
                         field_data, field_source, field_scope = parsed, "CRUX_API", m21._crux_scope(crux_payload)
                         effective_crux_successes += 1
 
-            lab = m21._parse_lighthouse(psi_payload)
-            cwv = m21._assess_cwv(field_data)
-            has_lab = any(
-                lab.get(key) is not None
-                for key in (
-                    "performance_score","accessibility_score","best_practices_score","seo_score",
-                    "agentic_browsing_score","fcp_lab_ms","lcp_lab_ms","tbt_lab_ms","cls_lab",
-                )
+            observation, status = m21.build_web_performance_observation(
+                observation_id=observation_id,
+                audit_id=audit_id,
+                page_id=page_id,
+                snapshot_id=snapshot_id,
+                device=device,
+                url=url,
+                strategy=strategy,
+                psi_payload=psi_payload,
+                field_data=field_data,
+                field_source=field_source,
+                field_scope=field_scope,
+                errors=errors,
+                psi_http_status=psi_http_status,
+                crux_http_status=crux_http_status,
+                psi_artifact=psi_artifact,
+                crux_artifact=crux_artifact,
             )
-            has_field = field_data is not None and any(
-                field_data.get(key) is not None for key in ("lcp_p75_ms","inp_p75_ms","cls_p75")
-            )
-            if (has_lab or has_field) and not errors:
-                status = "SUCCESS"
+            if status in {"SUCCESS", "PARTIAL"}:
                 successful_contexts += 1
-            elif has_lab or has_field:
-                status = "PARTIAL"
+            if status == "PARTIAL":
                 partial_contexts += 1
-            else:
-                status = "UNAVAILABLE"
+            store.add_observation(observation)
 
-            store.add_observation(WebPerformanceObservation(
-                observation_id=observation_id,audit_id=audit_id,page_id=page_id,snapshot_id=snapshot_id,
-                device=device.value,url=url,strategy=strategy,status=status,
-                lighthouse_version=lab.get("lighthouse_version"),lighthouse_fetch_time=lab.get("lighthouse_fetch_time"),
-                performance_score=lab.get("performance_score"),accessibility_score=lab.get("accessibility_score"),
-                best_practices_score=lab.get("best_practices_score"),seo_score=lab.get("seo_score"),
-                agentic_browsing_score=lab.get("agentic_browsing_score"),fcp_lab_ms=lab.get("fcp_lab_ms"),
-                speed_index_lab_ms=lab.get("speed_index_lab_ms"),lcp_lab_ms=lab.get("lcp_lab_ms"),
-                tbt_lab_ms=lab.get("tbt_lab_ms"),cls_lab=lab.get("cls_lab"),field_source=field_source,
-                field_scope=field_scope,lcp_p75_ms=(field_data or {}).get("lcp_p75_ms"),
-                inp_p75_ms=(field_data or {}).get("inp_p75_ms"),cls_p75=(field_data or {}).get("cls_p75"),
-                lcp_assessment=cwv.get("lcp_assessment"),inp_assessment=cwv.get("inp_assessment"),
-                cls_assessment=cwv.get("cls_assessment"),cwv_assessment=cwv.get("cwv_assessment") or "UNAVAILABLE",
-                pagespeed_http_status=psi_http_status,crux_http_status=crux_http_status,
-                pagespeed_artifact_reference=psi_artifact,crux_artifact_reference=crux_artifact,
-                error_summary=";".join(dict.fromkeys(errors)) if errors else None,captured_at=m21._utc_now(),
-            ))
-
-        if not contexts:
-            run_status, reason = "NO_CONTEXTS", "NO_RENDERED_CONTEXTS"
-        elif successful_contexts == len(contexts):
-            run_status, reason = "SUCCESS", None
-        elif successful_contexts or partial_contexts:
-            run_status, reason = "PARTIAL", "ONE_OR_MORE_CONTEXTS_INCOMPLETE"
-        else:
-            run_status, reason = "UNAVAILABLE", "NO_SUCCESSFUL_WEB_PERFORMANCE_CONTEXTS"
+        run_status, reason = m21.summarize_web_performance_run(
+            context_count=len(contexts),
+            usable_contexts=successful_contexts,
+            partial_contexts=partial_contexts,
+        )
         store.upsert_run(WebPerformanceRun(
             audit_id=audit_id,enabled=True,status=run_status,field_source=cfg.field_source,page_limit=cfg.max_pages,
             pages_considered=len({str(row["page_id"]) for row in contexts}),context_attempts=len(contexts),
