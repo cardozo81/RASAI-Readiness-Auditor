@@ -235,13 +235,32 @@ def _correct_reprocess_diagnostics() -> None:
         return
 
     def recover_with_gate(*, workspace: Any, audit_id: str, item: Any, reprocess_id: str, provider: Any | None = None):
-        if not _configured_provider(provider):
+        active_provider = provider
+        if active_provider is None:
+            try:
+                active_provider = reprocess_ai.build_reprocess_provider(
+                    workspace,
+                    audit_id,
+                    item,
+                )
+            except ValueError:
+                # Preserve the original NOT_CONFIGURED/error semantics when the AUD
+                # has no eligible provider. Provider construction itself performs no
+                # analysis call and therefore does not spend AI tokens.
+                return original_recover(
+                    workspace=workspace,
+                    audit_id=audit_id,
+                    item=item,
+                    reprocess_id=reprocess_id,
+                    provider=provider,
+                )
+        if not _configured_provider(active_provider):
             return original_recover(
                 workspace=workspace,
                 audit_id=audit_id,
                 item=item,
                 reprocess_id=reprocess_id,
-                provider=provider,
+                provider=active_provider,
             )
         if not technical_evidence_ready(workspace, audit_id):
             from rasai.core_reprocessing import ensure_m5_foundation_from_persisted_m2
@@ -253,13 +272,13 @@ def _correct_reprocess_diagnostics() -> None:
             )
         if not technical_evidence_ready(workspace, audit_id):
             _mark_waiting(workspace, audit_id)
-            return False, provider
+            return False, active_provider
         return original_recover(
             workspace=workspace,
             audit_id=audit_id,
             item=item,
             reprocess_id=reprocess_id,
-            provider=provider,
+            provider=active_provider,
         )
 
     recover_with_gate._rasai_technical_evidence_gate = True
