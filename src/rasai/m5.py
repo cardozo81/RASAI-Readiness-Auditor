@@ -73,6 +73,64 @@ class _ExecutionState:
         return self.global_results.get(rule_id)
 
 
+def execute_m5_foundation_scope(
+    *,
+    audit: Audit,
+    target: AuditTarget,
+    m2_result: M2ExecutionResult,
+    persistence: AuditPersistence,
+    workspace: AuditWorkspace,
+    registry: RuleRegistry | None = None,
+) -> tuple[_ExecutionState, tuple[str, ...], tuple[str, ...]]:
+    """Persist canonical M2-derived and global M5 rules before page/snapshot rules."""
+    active_registry = registry or baseline_registry()
+    _validate_registry(active_registry)
+    resolver = DependencyResolver()
+    manager = EvidenceManager(persistence)
+    state = _ExecutionState.create()
+    execution_ids: list[str] = []
+    finding_ids: list[str] = []
+
+    for execution_id in m2_result.rule_execution_ids:
+        execution = persistence.rule_executions.get(execution_id)
+        if execution is None:
+            raise ValueError(f"M2 RuleExecution is not re-openable: {execution_id}")
+        if execution.rule_id not in active_registry.ids():
+            raise ValueError(f"M2 RuleExecution references unregistered rule: {execution.rule_id}")
+        state.put(execution)
+        execution_ids.append(execution.rule_execution_id)
+        finding = _persist_finding_if_needed(
+            active_registry.get(execution.rule_id), execution, persistence
+        )
+        if finding is not None:
+            finding_ids.append(finding.finding_id)
+
+    for rule_id, evaluation in (
+        ("BR-GEO-001", _evaluate_target(audit, target)),
+        ("BR-GEO-003", _evaluate_sitemaps(m2_result)),
+        ("BR-GEO-017", _evaluate_robots(m2_result)),
+        ("BR-GEO-018", _evaluate_crawlers(m2_result)),
+    ):
+        execution = _execute_new(
+            definition=active_registry.get(rule_id),
+            evaluation=evaluation,
+            audit_id=audit.audit_id,
+            page_id=None,
+            snapshot_id=None,
+            device=None,
+            manager=manager,
+            persistence=persistence,
+            resolver=resolver,
+            state=state,
+        )
+        execution_ids.append(execution.rule_execution_id)
+        finding = _persist_finding_if_needed(active_registry.get(rule_id), execution, persistence)
+        if finding is not None:
+            finding_ids.append(finding.finding_id)
+
+    return state, tuple(execution_ids), tuple(finding_ids)
+
+
 def execute_m5_page_scope(
     *,
     audit_id: str,
@@ -178,67 +236,18 @@ def execute_m5(
     """Execute the deterministic M5 rules while preserving M2 precomputed executions."""
 
     active_registry = registry or baseline_registry()
-    _validate_registry(active_registry)
+    state, foundation_execution_ids, foundation_finding_ids = execute_m5_foundation_scope(
+        audit=audit,
+        target=target,
+        m2_result=m2_result,
+        persistence=persistence,
+        workspace=workspace,
+        registry=active_registry,
+    )
     resolver = DependencyResolver()
     manager = EvidenceManager(persistence)
-    state = _ExecutionState.create()
-    execution_ids: list[str] = []
-    finding_ids: list[str] = []
-
-    # M2 legitimately introduced the first technical RuleExecutions before M5.
-    for execution_id in m2_result.rule_execution_ids:
-        execution = persistence.rule_executions.get(execution_id)
-        if execution is None:
-            raise ValueError(f"M2 RuleExecution is not re-openable: {execution_id}")
-        if execution.rule_id not in active_registry.ids():
-            raise ValueError(f"M2 RuleExecution references unregistered rule: {execution.rule_id}")
-        state.put(execution)
-        execution_ids.append(execution.rule_execution_id)
-        finding = _persist_finding_if_needed(
-            active_registry.get(execution.rule_id), execution, persistence
-        )
-        if finding is not None:
-            finding_ids.append(finding.finding_id)
-
-    global_specs = (
-        ("BR-GEO-001", _evaluate_target(audit, target)),
-        ("BR-GEO-003", _evaluate_sitemaps(m2_result)),
-        ("BR-GEO-017", _evaluate_robots(m2_result)),
-    )
-    for rule_id, evaluation in global_specs:
-        execution = _execute_new(
-            definition=active_registry.get(rule_id),
-            evaluation=evaluation,
-            audit_id=audit.audit_id,
-            page_id=None,
-            snapshot_id=None,
-            device=None,
-            manager=manager,
-            persistence=persistence,
-            resolver=resolver,
-            state=state,
-        )
-        execution_ids.append(execution.rule_execution_id)
-        finding = _persist_finding_if_needed(active_registry.get(rule_id), execution, persistence)
-        if finding is not None:
-            finding_ids.append(finding.finding_id)
-
-    execution = _execute_new(
-        definition=active_registry.get("BR-GEO-018"),
-        evaluation=_evaluate_crawlers(m2_result),
-        audit_id=audit.audit_id,
-        page_id=None,
-        snapshot_id=None,
-        device=None,
-        manager=manager,
-        persistence=persistence,
-        resolver=resolver,
-        state=state,
-    )
-    execution_ids.append(execution.rule_execution_id)
-    finding = _persist_finding_if_needed(active_registry.get("BR-GEO-018"), execution, persistence)
-    if finding is not None:
-        finding_ids.append(finding.finding_id)
+    execution_ids: list[str] = list(foundation_execution_ids)
+    finding_ids: list[str] = list(foundation_finding_ids)
 
     m3_failures = {(item.page_id, item.device) for item in m3_result.failures}
     m4_failures = {item.snapshot_id: item.error_kind for item in m4_result.failures}
