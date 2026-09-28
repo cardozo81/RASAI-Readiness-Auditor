@@ -12,6 +12,7 @@ from rasai.core_reprocessing import (
     RENDER_CAPTURE,
     _core_unresolved,
     _invalidate_core_dependents,
+    ensure_m5_foundation_from_persisted_m2,
     _recover_extraction,
     _recover_render,
     _retryable_core,
@@ -186,6 +187,104 @@ def test_failed_original_render_can_be_recovered_inside_same_aud() -> None:
         items = _by_component(workspace)
         assert items[RENDER_CAPTURE].status == SUCCESS
         assert items[CONTENT_EXTRACTION].status == SUCCESS
+
+
+def test_interrupted_after_m2_replays_m5_foundation_without_live_recollection() -> None:
+    with TemporaryDirectory() as directory:
+        workspace = _workspace(Path(directory), render_succeeded=True, rendered_exists=True)
+        audit_id = "AUD-CORE-RECOVERY"
+        page_id = "PGE-CORE"
+
+        with AuditPersistence(workspace) as persistence:
+            persistence.evidence.add(
+                Evidence(
+                    evidence_id=new_id("EV-GEO"),
+                    audit_id=audit_id,
+                    page_id=None,
+                    snapshot_id=None,
+                    device=None,
+                    evidence_type=EvidenceType.ROBOTS_RULE,
+                    source="https://example.test/robots.txt",
+                    observed_value={
+                        "state": "OBTAINED",
+                        "crawler_access": {
+                            "https://example.test/core": {
+                                "Googlebot": True,
+                                "Googlebot Smartphone": True,
+                                "Bingbot": True,
+                                "OAI-SearchBot": True,
+                                "GPTBot": True,
+                            }
+                        },
+                    },
+                    artifact_reference=None,
+                    captured_at=utc_now(),
+                )
+            )
+            persistence.evidence.add(
+                Evidence(
+                    evidence_id=new_id("EV-GEO"),
+                    audit_id=audit_id,
+                    page_id=None,
+                    snapshot_id=None,
+                    device=None,
+                    evidence_type=EvidenceType.SITEMAP_ENTRY,
+                    source="https://example.test/sitemap.xml",
+                    observed_value={"state": "ABSENT", "error": None},
+                    artifact_reference=None,
+                    captured_at=utc_now(),
+                )
+            )
+            for rule_id in ("BR-GEO-002", "BR-GEO-004", "BR-GEO-007"):
+                persistence.rule_executions.add(
+                    RuleExecution(
+                        rule_execution_id=new_id("REX"),
+                        audit_id=audit_id,
+                        rule_id=rule_id,
+                        rule_version="1",
+                        page_id=page_id,
+                        snapshot_id=None,
+                        device=None,
+                        result=RuleResult.PASS,
+                        observed_value={},
+                        expected_condition="persisted M2 prerequisite",
+                        evidence_ids=(),
+                        executed_at=utc_now(),
+                    )
+                )
+
+        assert ensure_m5_foundation_from_persisted_m2(
+            workspace,
+            audit_id,
+            "RPR-M2-M5-BOUNDARY",
+        ) is True
+
+        connection = __import__("sqlite3").connect(workspace.database)
+        try:
+            rows = connection.execute(
+                """SELECT rule_id,count(*) FROM rule_executions
+                   WHERE audit_id=? AND rule_id IN ('BR-GEO-001','BR-GEO-003','BR-GEO-017','BR-GEO-018')
+                   GROUP BY rule_id ORDER BY rule_id""",
+                (audit_id,),
+            ).fetchall()
+        finally:
+            connection.close()
+        assert rows == [
+            ("BR-GEO-001", 1),
+            ("BR-GEO-003", 1),
+            ("BR-GEO-017", 1),
+            ("BR-GEO-018", 1),
+        ]
+
+        from rasai.technical_ai_eligibility import technical_evidence_ready
+
+        assert technical_evidence_ready(workspace, audit_id) is True
+        # Idempotent on an already complete foundation.
+        assert ensure_m5_foundation_from_persisted_m2(
+            workspace,
+            audit_id,
+            "RPR-M2-M5-BOUNDARY",
+        ) is True
 
 
 def test_core_dependency_invalidation_reopens_only_passive_security() -> None:
