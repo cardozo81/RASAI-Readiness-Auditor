@@ -523,45 +523,6 @@ def _load_acquisition(workspace: AuditWorkspace, page_id: str) -> HttpAcquisitio
     )
 
 
-def _replace_http_rules(
-    workspace: AuditWorkspace,
-    *,
-    audit_id: str,
-    page_id: str,
-    acquisition: HttpAcquisitionResult,
-    evidence_ids: tuple[str, ...],
-    reprocess_id: str,
-) -> None:
-    _archive_rule_scope(
-        workspace,audit_id=audit_id,reprocess_id=reprocess_id,
-        rule_ids=("BR-GEO-004","BR-GEO-005","BR-GEO-007"),page_id=page_id,
-    )
-    error_kind = acquisition.network_error.kind.value if acquisition.network_error else None
-    retrievable = acquisition.network_error is None and acquisition.status is not None
-    if error_kind in _REDIRECT_FAILURES:
-        redirect_result = RuleResult.FAIL
-    elif acquisition.network_error is not None:
-        redirect_result = RuleResult.NOT_APPLICABLE
-    else:
-        redirect_result = RuleResult.PASS
-    executions = (
-        RuleExecution(new_id("REX"),audit_id,"BR-GEO-004","1",page_id,None,None,RuleResult.PASS,
-            {"requested_url":acquisition.requested_url,"final_url":acquisition.final_url,"status":acquisition.status,
-             "network_error":error_kind,"body_preserved":bool(acquisition.body)},
-            "HTTP acquisition result and body artifact are preserved when available",evidence_ids,utc_now()),
-        RuleExecution(new_id("REX"),audit_id,"BR-GEO-005","1",page_id,None,None,
-            RuleResult.PASS if retrievable else RuleResult.FAIL,
-            {"status":acquisition.status,"network_error":error_kind},
-            "page yields a technical HTTP response without DNS/TLS/connection/timeout failure",evidence_ids,utc_now()),
-        RuleExecution(new_id("REX"),audit_id,"BR-GEO-007","1",page_id,None,None,redirect_result,
-            {"redirects":[{"status":hop.status,"source_url":hop.source_url,"location":hop.location,"target_url":hop.target_url} for hop in acquisition.redirects],
-             "network_error":error_kind},"redirect chain resolves without loops or invalid hops",evidence_ids,utc_now()),
-    )
-    with AuditPersistence(workspace) as persistence:
-        for execution in executions:
-            persistence.rule_executions.add(execution)
-
-
 def _archive_incomplete_discovery(
     workspace: AuditWorkspace,
     *,
@@ -709,22 +670,42 @@ def _recover_http(workspace: AuditWorkspace, audit_id: str, item: WorkItem, repr
     url = str(item.configuration.get("url") or "").strip()
     if not url:
         return False,"PAGE_URL_UNAVAILABLE",set()
+
     acquisition = HttpClient().acquire(url)
-    artifact_ref = _write_artifact(workspace,reprocess_id,"http",f"{page_id}.response",acquisition.body)
-    from rasai import m2
-    response = Evidence(
-        new_id("EV-GEO"),audit_id,page_id,None,None,EvidenceType.HTTP_RESPONSE,"http",
-        m2._http_observed_value(acquisition),artifact_ref,utc_now(),
+    artifact_ref = _write_artifact(
+        workspace,
+        reprocess_id,
+        "http",
+        f"{page_id}.response",
+        acquisition.body,
     )
-    evidence_ids: list[str] = []
+    _archive_rule_scope(
+        workspace,
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        rule_ids=("BR-GEO-004","BR-GEO-005","BR-GEO-007"),
+        page_id=page_id,
+    )
+
+    # Persist exactly the same evidence shape and rule calculations as initial M2.
+    from rasai import m2
     with AuditPersistence(workspace) as persistence:
-        persistence.evidence.add(response)
-        evidence_ids.append(response.evidence_id)
-        if acquisition.headers:
-            header = Evidence(new_id("EV-GEO"),audit_id,page_id,None,None,EvidenceType.HTTP_HEADER,"http",
-                {"headers":[list(value) for value in acquisition.headers]},None,utc_now())
-            persistence.evidence.add(header)
-            evidence_ids.append(header.evidence_id)
+        artifact_ref, evidence_ids = m2.persist_http_observation(
+            audit_id=audit_id,
+            page_id=page_id,
+            acquisition=acquisition,
+            persistence=persistence,
+            workspace=workspace,
+            artifact_reference=artifact_ref,
+        )
+        for execution in m2.build_http_rule_executions(
+            audit_id=audit_id,
+            page_id=page_id,
+            acquisition=acquisition,
+            evidence_ids=evidence_ids,
+        ):
+            persistence.rule_executions.add(execution)
+
     if artifact_ref:
         connection = sqlite3.connect(workspace.database)
         try:
@@ -735,10 +716,7 @@ def _recover_http(workspace: AuditWorkspace, audit_id: str, item: WorkItem, repr
                 )
         finally:
             connection.close()
-    _replace_http_rules(
-        workspace,audit_id=audit_id,page_id=page_id,acquisition=acquisition,
-        evidence_ids=tuple(evidence_ids),reprocess_id=reprocess_id,
-    )
+
     connection = sqlite3.connect(workspace.database)
     try:
         snapshots = {str(row[0]) for row in connection.execute(
