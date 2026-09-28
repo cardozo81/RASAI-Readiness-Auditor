@@ -228,8 +228,23 @@ def _install_web_performance_recovery_alignment() -> None:
         except (ImportError, sqlite3.Error, TypeError, ValueError):
             pass
 
-        reconciled = _reconcile_recovery_crux_no_data(workspace, audit_id)
-        return original_success if reconciled is None else bool(reconciled)
+        _reconcile_recovery_crux_no_data(workspace, audit_id)
+
+        # Fulfillment closes only from the canonical persisted run state. The
+        # reconciliation above may adjust that state, but it must not establish
+        # a second success formula in the wrapper.
+        connection = sqlite3.connect(workspace.database)
+        try:
+            row = connection.execute(
+                "SELECT status FROM web_performance_runs WHERE audit_id=?",
+                (audit_id,),
+            ).fetchone()
+        except sqlite3.Error:
+            row = None
+        finally:
+            connection.close()
+        run_status = str(row[0] or "") if row is not None else ("SUCCESS" if original_success else "")
+        return run_status == "SUCCESS"
 
     recover_web_performance_aligned._rasai_crux_no_data_recovery_alignment = True  # type: ignore[attr-defined]
     recover_web_performance_aligned._rasai_original = original  # type: ignore[attr-defined]
