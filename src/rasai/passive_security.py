@@ -384,6 +384,7 @@ class _PassiveHTMLParser(HTMLParser):
         self._form_stack: list[int] = []
         self.comments: list[str] = []
         self.generators: list[str] = []
+        self.verifications: list[dict[str, str]] = []
 
     def handle_comment(self, data: str) -> None:
         text = " ".join(str(data).split())
@@ -395,6 +396,24 @@ class _PassiveHTMLParser(HTMLParser):
         attrs = {str(k).casefold(): str(v or "") for k, v in attrs_list}
         if tag == "meta" and attrs.get("name", "").casefold() == "generator" and attrs.get("content"):
             self.generators.append(attrs["content"][:300])
+        if tag == "meta" and attrs.get("content"):
+            verification_name = attrs.get("name", "").casefold()
+            verification_platform = {
+                "google-site-verification": ("GOOGLE_SEARCH_CONSOLE", "Google Search Console"),
+                "msvalidate.01": ("MICROSOFT_BING", "Microsoft Bing"),
+                "facebook-domain-verification": ("META_DOMAIN_VERIFICATION", "Meta"),
+                "p:domain_verify": ("PINTEREST_DOMAIN_VERIFICATION", "Pinterest"),
+            }.get(verification_name)
+            if verification_platform:
+                raw = attrs["content"]
+                self.verifications.append({
+                    "platform_id": verification_platform[0],
+                    "platform_name": verification_platform[1],
+                    "identifier_type": verification_name.upper().replace("-", "_").replace(".", "_").replace(":", "_"),
+                    "identifier_hash": sha256(raw.encode("utf-8")).hexdigest()[:16],
+                    "identifier_display": "[VERIFICAÇÃO OBSERVADA]",
+                    "identifier_class": "PUBLIC_IDENTIFIER",
+                })
         if tag == "script":
             self._add("SCRIPT", attrs.get("src"), attrs, inline=not bool(attrs.get("src")))
         elif tag == "link":
@@ -950,10 +969,41 @@ def _safe_csp_sources(values: Iterable[str]) -> list[str]:
     return out
 
 
-def _cookie_attributes(raw: str) -> dict[str, Any]:
+def _default_cookie_path(page_url: str) -> str:
+    try:
+        path = urlsplit(page_url).path or "/"
+    except ValueError:
+        return "/"
+    if not path.startswith("/") or path == "/":
+        return "/"
+    right = path.rfind("/")
+    return "/" if right <= 0 else path[:right]
+
+
+_COOKIE_DISPLAY_RE = re.compile(r"^[!#$%&'*+\-.^_\x60|~0-9A-Za-z]{1,128}$")
+
+
+def _cookie_purpose(cookie_name: str | None) -> tuple[str, str]:
+    name = str(cookie_name or "").casefold()
+    if name in {"_ga", "_gid", "_gat"} or name.startswith("_ga_"):
+        return "ANALYTICS", "HIGH"
+    if name in {"_fbp", "_fbc"}:
+        return "ADVERTISING", "HIGH"
+    if name in {"_clck", "_clsk"}:
+        return "ANALYTICS", "HIGH"
+    if "consent" in name or "cookie" in name and "consent" in name:
+        return "NECESSARY", "MEDIUM"
+    if re.search(r"(?:session|sess|auth|jwt|sid|login)", name):
+        return "SECURITY", "MEDIUM"
+    return "UNKNOWN", "LOW"
+
+
+def _cookie_attributes(raw: str, page_url: str = "") -> dict[str, Any]:
     parts = [part.strip() for part in str(raw).split(";") if part.strip()]
     cookie_name = parts[0].split("=", 1)[0].strip() if parts else ""
+    display_name = cookie_name if _COOKIE_DISPLAY_RE.fullmatch(cookie_name) else None
     attrs: dict[str, Any] = {
+        "name_display": display_name,
         "name_hash": sha256(cookie_name.encode("utf-8")).hexdigest()[:12] if cookie_name else "",
         "sensitive_name_hint": bool(re.search(r"(?:session|sess|auth|token|jwt|sid|login|credential)", cookie_name, re.I)),
         "secure": False,
@@ -975,8 +1025,29 @@ def _cookie_attributes(raw: str) -> dict[str, Any]:
             attrs["domain"] = value.strip()
         elif lower == "path":
             attrs["path"] = value.strip()
+    try:
+        host = (urlsplit(page_url).hostname or "").casefold()
+    except ValueError:
+        host = ""
+    declared_domain = str(attrs.get("domain") or "").strip().casefold().lstrip(".")
+    effective_domain = declared_domain or host
+    host_only = not bool(declared_domain)
+    declared_path = str(attrs.get("path") or "")
+    effective_path = declared_path if declared_path.startswith("/") else _default_cookie_path(page_url)
+    attrs["effective_domain"] = effective_domain or None
+    attrs["effective_path"] = effective_path
+    attrs["host_only"] = host_only
+    attrs["cookie_ref"] = _stable(
+        "CK",
+        cookie_name,
+        effective_domain,
+        effective_path,
+        "1" if host_only else "0",
+    ) if cookie_name else ""
+    purpose, purpose_confidence = _cookie_purpose(cookie_name)
+    attrs["purpose"] = purpose
+    attrs["purpose_confidence"] = purpose_confidence
     return attrs
-
 
 def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
