@@ -602,8 +602,11 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
         parties=sorted({str(item.get("party") or "UNKNOWN").upper() for item in items})
         if platform_names:
             owner_label=" · ".join(platform_names)
-            owner_class="EXTERNAL_PROVIDER" if "THIRD_PARTY" in parties else "TARGET_SITE"
-            owner_basis="Plataforma vinculada ao setter/recurso observado"
+            owner_class="EXTERNAL_PROVIDER" if "THIRD_PARTY" in parties else "INFORMATIONAL"
+            owner_basis=(
+                "Plataforma vinculada ao setter/recurso observado; quando o cookie permanece first-party, "
+                "a evidência não transfere automaticamente a responsabilidade de correção para o fornecedor."
+            )
         elif "FIRST_PARTY" in parties:
             owner_label=f"Site auditado · {first.get('effective_domain') or '-'}"
             owner_class="TARGET_SITE"
