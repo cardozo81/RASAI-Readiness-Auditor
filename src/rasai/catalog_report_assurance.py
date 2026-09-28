@@ -90,7 +90,7 @@ _SPECIFIC_CONFIG_MARKERS: dict[str, tuple[str, ...]] = {
     ),
     "CAT-10": (
         "Segurança passiva",
-        "Headers / CSP / CORS",
+        "Headers / CSP / Restrição CORS",
         "Cookies",
         "Scripts / recursos",
         "Recursos de terceiros",
@@ -439,13 +439,34 @@ def _canonical_run_materialized(
     audit_id: str,
     catalog_id: str,
 ) -> tuple[bool, str]:
-    """Verify that selected execution-owning catalogs materialized their canonical run."""
+    """Verify that applicable execution-owning catalogs materialized their canonical run."""
     table = _CANONICAL_RUN_TABLES.get(catalog_id)
     if table is None:
         return True, "catálogo não exige tabela canônica de execução"
+
     connection = sqlite3.connect(database)
     connection.row_factory = sqlite3.Row
     try:
+        if catalog_id == "CAT-09" and _table_exists(connection, "audit_fulfillment_work_items"):
+            columns = _columns(connection, "audit_fulfillment_work_items")
+            required = {"audit_id", "component", "required", "status"}
+            if required.issubset(columns):
+                applicable = connection.execute(
+                    """SELECT 1
+                       FROM audit_fulfillment_work_items
+                       WHERE audit_id=?
+                         AND component='CONTENT_REMEDIATION_AI'
+                         AND required=1
+                         AND UPPER(COALESCE(status,'')) NOT IN ('DISABLED','NOT_APPLICABLE')
+                       LIMIT 1""",
+                    (audit_id,),
+                ).fetchone()
+                if applicable is None:
+                    return (
+                        True,
+                        "execução canônica de remediação por IA não aplicável ao CAT-09 desta AUD",
+                    )
+
         rows = _audit_rows(connection, table, audit_id)
     finally:
         connection.close()
