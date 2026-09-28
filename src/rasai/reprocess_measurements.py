@@ -206,35 +206,53 @@ def recover_web_performance(
                         field_data, field_source, field_scope = parsed, "CRUX_API", m21._crux_scope(crux_payload)
                         effective_crux_successes += 1
 
-            observation, status = m21.build_web_performance_observation(
-                observation_id=observation_id,
-                audit_id=audit_id,
-                page_id=page_id,
-                snapshot_id=snapshot_id,
-                device=device,
-                url=url,
-                strategy=strategy,
-                psi_payload=psi_payload,
-                field_data=field_data,
-                field_source=field_source,
-                field_scope=field_scope,
-                errors=errors,
-                psi_http_status=psi_http_status,
-                crux_http_status=crux_http_status,
-                psi_artifact=psi_artifact,
-                crux_artifact=crux_artifact,
+            lab = m21._parse_lighthouse(psi_payload)
+            cwv = m21._assess_cwv(field_data)
+            has_lab = any(
+                lab.get(key) is not None
+                for key in (
+                    "performance_score","accessibility_score","best_practices_score","seo_score",
+                    "agentic_browsing_score","fcp_lab_ms","lcp_lab_ms","tbt_lab_ms","cls_lab",
+                )
             )
-            if status in {"SUCCESS", "PARTIAL"}:
+            has_field = field_data is not None and any(
+                field_data.get(key) is not None for key in ("lcp_p75_ms","inp_p75_ms","cls_p75")
+            )
+            if (has_lab or has_field) and not errors:
+                status = "SUCCESS"
                 successful_contexts += 1
-            if status == "PARTIAL":
+            elif has_lab or has_field:
+                status = "PARTIAL"
                 partial_contexts += 1
-            store.add_observation(observation)
+            else:
+                status = "UNAVAILABLE"
 
-        run_status, reason = m21.summarize_web_performance_run(
-            context_count=len(contexts),
-            usable_contexts=successful_contexts,
-            partial_contexts=partial_contexts,
-        )
+            store.add_observation(WebPerformanceObservation(
+                observation_id=observation_id,audit_id=audit_id,page_id=page_id,snapshot_id=snapshot_id,
+                device=device.value,url=url,strategy=strategy,status=status,
+                lighthouse_version=lab.get("lighthouse_version"),lighthouse_fetch_time=lab.get("lighthouse_fetch_time"),
+                performance_score=lab.get("performance_score"),accessibility_score=lab.get("accessibility_score"),
+                best_practices_score=lab.get("best_practices_score"),seo_score=lab.get("seo_score"),
+                agentic_browsing_score=lab.get("agentic_browsing_score"),fcp_lab_ms=lab.get("fcp_lab_ms"),
+                speed_index_lab_ms=lab.get("speed_index_lab_ms"),lcp_lab_ms=lab.get("lcp_lab_ms"),
+                tbt_lab_ms=lab.get("tbt_lab_ms"),cls_lab=lab.get("cls_lab"),field_source=field_source,
+                field_scope=field_scope,lcp_p75_ms=(field_data or {}).get("lcp_p75_ms"),
+                inp_p75_ms=(field_data or {}).get("inp_p75_ms"),cls_p75=(field_data or {}).get("cls_p75"),
+                lcp_assessment=cwv.get("lcp_assessment"),inp_assessment=cwv.get("inp_assessment"),
+                cls_assessment=cwv.get("cls_assessment"),cwv_assessment=cwv.get("cwv_assessment") or "UNAVAILABLE",
+                pagespeed_http_status=psi_http_status,crux_http_status=crux_http_status,
+                pagespeed_artifact_reference=psi_artifact,crux_artifact_reference=crux_artifact,
+                error_summary=";".join(dict.fromkeys(errors)) if errors else None,captured_at=m21._utc_now(),
+            ))
+
+        if not contexts:
+            run_status, reason = "NO_CONTEXTS", "NO_RENDERED_CONTEXTS"
+        elif successful_contexts == len(contexts):
+            run_status, reason = "SUCCESS", None
+        elif successful_contexts or partial_contexts:
+            run_status, reason = "PARTIAL", "ONE_OR_MORE_CONTEXTS_INCOMPLETE"
+        else:
+            run_status, reason = "UNAVAILABLE", "NO_SUCCESSFUL_WEB_PERFORMANCE_CONTEXTS"
         store.upsert_run(WebPerformanceRun(
             audit_id=audit_id,enabled=True,status=run_status,field_source=cfg.field_source,page_limit=cfg.max_pages,
             pages_considered=len({str(row["page_id"]) for row in contexts}),context_attempts=len(contexts),
@@ -247,7 +265,7 @@ def recover_web_performance(
     # describe different moments of the same AUD. This performs no network request.
     from rasai.external_metrics_integrity import refresh_external_metrics_integrity_artifact
     refresh_external_metrics_integrity_artifact(audit_id=audit_id, workspace=workspace)
-    return run_status == "SUCCESS"
+    return bool(contexts) and successful_contexts == len(contexts)
 
 
 def _profile_from_persisted(value: Any, *, device: str):
@@ -432,6 +450,10 @@ def _m25_item_from_row(row: sqlite3.Row):
         javascript_error_count=int(row["javascript_error_count"]),console_error_count=int(row["console_error_count"]),
         request_failed_count=int(row["request_failed_count"]),first_party_request_failed_count=int(row["first_party_request_failed_count"]),
         http_error_count=int(row["http_error_count"]),first_party_http_error_count=int(row["first_party_http_error_count"]),
+        csp_violation_count=int(row["csp_violation_count"]) if "csp_violation_count" in row.keys() else 0,
+        first_party_csp_violation_count=int(row["first_party_csp_violation_count"]) if "first_party_csp_violation_count" in row.keys() else 0,
+        failed_image_request_count=int(row["failed_image_request_count"]) if "failed_image_request_count" in row.keys() else 0,
+        first_party_failed_image_request_count=int(row["first_party_failed_image_request_count"]) if "first_party_failed_image_request_count" in row.keys() else 0,
         network_settled=bool(row["network_settled"]),profile_applied=bool(row["classification"] is not None),
         error_code=row["error_code"],error_message=row["error_message"],cpu_method=row["cpu_method"],network_method=row["network_method"],
     )
@@ -486,7 +508,15 @@ def recover_experience_apdex(
                     else None
                 ),
                 errors_affect_apdex=bool(cfg_map.get("errors_affect_apdex", True)),
-                error_scope=str(cfg_map.get("error_scope") or "first-party"),
+                javascript_errors_affect_apdex=bool(cfg_map.get("javascript_errors_affect_apdex", True)),
+                request_errors_affect_apdex=bool(cfg_map.get("request_errors_affect_apdex", True)),
+                console_errors_affect_apdex=bool(cfg_map.get("console_errors_affect_apdex", False)),
+                javascript_error_capture=bool(cfg_map.get("javascript_error_capture", True)),
+                xhr_capture=bool(cfg_map.get("xhr_capture", True)),
+                fetch_capture=bool(cfg_map.get("fetch_capture", True)),
+                console_error_capture=bool(cfg_map.get("console_error_capture", False)),
+                max_error_details=int(cfg_map.get("max_error_details", 10) if cfg_map.get("max_error_details") is not None else 10),
+                error_scope=str(cfg_map.get("error_scope") or "all"),
                 settle_seconds=float(cfg_map.get("settle_seconds") or 5.0),
                 delay_seconds=float(cfg_map.get("delay_seconds") or 1.0),
                 concurrency=int(cfg_map.get("concurrency") or 1),
@@ -505,7 +535,37 @@ def recover_experience_apdex(
         if not bool(run["enabled"]):
             return False
         config_map = _json_load(run["configuration"], {})
+        config_map = dict(config_map) if isinstance(config_map, dict) else {}
         mix_map = _json_load(run["device_mix"], {})
+        error_scope = str(run["error_scope"])
+        granular_keys = {
+            "javascript_errors_affect_apdex",
+            "request_errors_affect_apdex",
+            "console_errors_affect_apdex",
+            "javascript_error_capture",
+            "xhr_capture",
+            "fetch_capture",
+            "console_error_capture",
+            "max_error_details",
+        }
+        legacy_policy = not any(key in config_map for key in granular_keys)
+        # Audits created before #65 must preserve the policy that originally scored
+        # their samples. In the legacy runtime JS/console only forced frustration in
+        # scope=all, while both event families were still captured diagnostically.
+        javascript_errors_affect = bool(
+            config_map.get("javascript_errors_affect_apdex", error_scope == "all" if legacy_policy else True)
+        )
+        request_errors_affect = bool(config_map.get("request_errors_affect_apdex", True))
+        console_errors_affect = bool(
+            config_map.get("console_errors_affect_apdex", error_scope == "all" if legacy_policy else False)
+        )
+        javascript_capture = bool(config_map.get("javascript_error_capture", True))
+        xhr_capture = bool(config_map.get("xhr_capture", True))
+        fetch_capture = bool(config_map.get("fetch_capture", True))
+        console_capture = bool(config_map.get("console_error_capture", True if legacy_policy else False))
+        max_error_details = int(config_map.get("max_error_details", 50 if legacy_policy else 10) or 0)
+        max_error_details = max(0, min(max_error_details, 50))
+
         cfg = m25.ExperienceApdexConfig(
             enabled=True,target_samples_per_page=int(run["target_samples_per_page"]),
             max_attempts_per_page=int(run["max_attempts_per_page"]),max_pages=int(run["page_limit"]),
@@ -513,16 +573,63 @@ def recover_experience_apdex(
             session_mode=str(run["session_mode"]),kpm=str(run["kpm"]),
             satisfied_threshold_seconds=float(run["satisfied_threshold_seconds"]),
             frustrated_threshold_seconds=float(run["frustrated_threshold_seconds"]),
-            errors_affect_apdex=bool(run["errors_affect_apdex"]),error_scope=str(run["error_scope"]),
-            settle_seconds=float(run["settle_seconds"]),delay_seconds=float(config_map.get("delay_seconds",1.0) or 1.0),
+            errors_affect_apdex=bool(run["errors_affect_apdex"]),
+            javascript_errors_affect_apdex=javascript_errors_affect,
+            request_errors_affect_apdex=request_errors_affect,
+            console_errors_affect_apdex=console_errors_affect,
+            javascript_error_capture=javascript_capture,
+            xhr_capture=xhr_capture,
+            fetch_capture=fetch_capture,
+            console_error_capture=console_capture,
+            max_error_details=max_error_details,
+            error_scope=error_scope,
+            settle_seconds=float(run["settle_seconds"]),
+            delay_seconds=float(config_map.get("delay_seconds",1.0) or 1.0),
             concurrency=1,
+            dynatrace_import=bool(config_map.get("dynatrace_import", False)),
+            dynatrace_base_url=str(config_map.get("dynatrace_base_url") or "") or None,
+            dynatrace_application_id=str(config_map.get("dynatrace_application_id") or "") or None,
+            dynatrace_config_json=str(config_map.get("dynatrace_config_json") or "") or None,
         ).validate()
+
+        calibration_metadata = _json_load(run["calibration_metadata"], {})
+        calibration_metadata = dict(calibration_metadata) if isinstance(calibration_metadata, dict) else {}
+        imported_policy = calibration_metadata.get("error_policy")
+        imported_policy = dict(imported_policy) if isinstance(imported_policy, dict) else {}
+        capture = calibration_metadata.get("dynatrace_capture_contract")
+        capture = dict(capture) if isinstance(capture, dict) else {}
+
+        def _effective_bool(mapping: dict[str, Any], key: str, fallback: bool) -> bool:
+            value = mapping.get(key)
+            return bool(value) if isinstance(value, bool) else fallback
+
+        imported_max = capture.get("max_errors_to_capture")
+        try:
+            effective_max_details = int(imported_max) if imported_max is not None else cfg.max_error_details
+        except (TypeError, ValueError):
+            effective_max_details = cfg.max_error_details
+        effective_max_details = max(0, min(effective_max_details, 50))
+
         calibration = m25.Calibration(
             source=str(run["calibration_source"]),kpm=str(run["kpm"]),
             satisfied_threshold_seconds=float(run["satisfied_threshold_seconds"]),
             frustrated_threshold_seconds=float(run["frustrated_threshold_seconds"]),
             errors_affect_apdex=bool(run["errors_affect_apdex"]),
-            metadata=_json_load(run["calibration_metadata"], {}),
+            metadata=calibration_metadata,
+            javascript_errors_affect_apdex=_effective_bool(
+                imported_policy, "javascript_errors_affect_apdex", cfg.javascript_errors_affect_apdex
+            ),
+            request_errors_affect_apdex=_effective_bool(
+                imported_policy, "request_errors_affect_apdex", cfg.request_errors_affect_apdex
+            ),
+            console_errors_affect_apdex=_effective_bool(
+                imported_policy, "console_errors_affect_apdex", cfg.console_errors_affect_apdex
+            ),
+            javascript_error_capture=_effective_bool(capture, "javascript_errors", cfg.javascript_error_capture),
+            xhr_capture=_effective_bool(capture, "xhr_enabled", cfg.xhr_capture),
+            fetch_capture=_effective_bool(capture, "fetch_enabled", cfg.fetch_capture),
+            console_error_capture=_effective_bool(capture, "console_errors", cfg.console_error_capture),
+            max_error_details=effective_max_details,
         )
         pages = m25._selected_pages(workspace,audit_id,cfg.max_pages)
         targets = m25.allocate_samples(cfg.target_samples_per_page,cfg.device_mix_dict())
@@ -537,7 +644,10 @@ def recover_experience_apdex(
     finally:
         connection.close()
 
-    gateway = m25.PlaywrightSyntheticUxGateway(session_mode=cfg.session_mode)
+    gateway = m25._apply_gateway_capture_policy(
+        m25.PlaywrightSyntheticUxGateway(session_mode=cfg.session_mode),
+        calibration,
+    )
     pacer = m25._OriginPacer(cfg.delay_seconds)
     try:
         with M25Persistence(workspace) as store:

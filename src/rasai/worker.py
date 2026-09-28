@@ -150,6 +150,14 @@ def _audit_arguments(store: Any, job: Any, audits_root: Path) -> list[str]:
                 "--no-apdex-dynatrace-import",
             ))
             argv.append("--apdex-experience-errors" if payload["apdex_experience_errors"] else "--no-apdex-experience-errors")
+            argv.append("--apdex-experience-javascript-errors" if payload["apdex_experience_javascript_errors"] else "--no-apdex-experience-javascript-errors")
+            argv.append("--apdex-experience-request-errors" if payload["apdex_experience_request_errors"] else "--no-apdex-experience-request-errors")
+            argv.append("--apdex-experience-console-errors" if payload["apdex_experience_console_errors"] else "--no-apdex-experience-console-errors")
+            argv.append("--apdex-experience-javascript-error-capture" if payload["apdex_experience_javascript_error_capture"] else "--no-apdex-experience-javascript-error-capture")
+            argv.append("--apdex-experience-xhr-capture" if payload["apdex_experience_xhr_capture"] else "--no-apdex-experience-xhr-capture")
+            argv.append("--apdex-experience-fetch-capture" if payload["apdex_experience_fetch_capture"] else "--no-apdex-experience-fetch-capture")
+            argv.append("--apdex-experience-console-error-capture" if payload["apdex_experience_console_error_capture"] else "--no-apdex-experience-console-error-capture")
+            argv.extend(["--apdex-experience-max-error-details", str(payload["apdex_experience_max_error_details"])])
         else:
             argv.append("--no-apdex-experience")
     else:

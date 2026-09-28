@@ -56,7 +56,15 @@ class ExperienceApdexConfig:
     satisfied_threshold_seconds: float | None = None
     frustrated_threshold_seconds: float | None = None
     errors_affect_apdex: bool = True
-    error_scope: str = "first-party"
+    javascript_errors_affect_apdex: bool = True
+    request_errors_affect_apdex: bool = True
+    console_errors_affect_apdex: bool = False
+    javascript_error_capture: bool = True
+    xhr_capture: bool = True
+    fetch_capture: bool = True
+    console_error_capture: bool = False
+    max_error_details: int = 10
+    error_scope: str = "all"
     settle_seconds: float = 5.0
     delay_seconds: float = 1.0
     concurrency: int = 1
@@ -88,6 +96,10 @@ class ExperienceApdexConfig:
             if normalized_kpm not in SUPPORTED_TIME_KPMS:
                 raise ValueError(f"KPM não suportada para calibração temporal do Synthetic User Experience Apdex: {normalized_kpm}")
             _validate_thresholds(self.satisfied_threshold_seconds, self.frustrated_threshold_seconds)
+        if self.max_error_details < 0 or self.max_error_details > 50:
+            raise ValueError("Synthetic User Experience Apdex: max_error_details deve estar entre 0 e 50")
+        if self.console_errors_affect_apdex and not self.console_error_capture and not self.dynatrace_import and not self.dynatrace_config_json:
+            raise ValueError("Synthetic User Experience Apdex: console_errors_affect_apdex exige console_error_capture=true")
         if self.error_scope not in {"navigation", "first-party", "all"}:
             raise ValueError("Synthetic User Experience Apdex: error_scope deve ser navigation, first-party ou all")
         if not math.isfinite(self.settle_seconds) or self.settle_seconds <= 0:
@@ -115,6 +127,14 @@ class ExperienceApdexConfig:
             "satisfied_threshold_seconds": self.satisfied_threshold_seconds,
             "frustrated_threshold_seconds": self.frustrated_threshold_seconds,
             "errors_affect_apdex": self.errors_affect_apdex,
+            "javascript_errors_affect_apdex": self.javascript_errors_affect_apdex,
+            "request_errors_affect_apdex": self.request_errors_affect_apdex,
+            "console_errors_affect_apdex": self.console_errors_affect_apdex,
+            "javascript_error_capture": self.javascript_error_capture,
+            "xhr_capture": self.xhr_capture,
+            "fetch_capture": self.fetch_capture,
+            "console_error_capture": self.console_error_capture,
+            "max_error_details": self.max_error_details,
             "error_scope": self.error_scope,
             "settle_seconds": self.settle_seconds,
             "delay_seconds": self.delay_seconds,
@@ -127,7 +147,10 @@ class ExperienceApdexConfig:
             "measurement_contract": {
                 "user_action_duration": "navigationStart_to_loadEventEnd_or_last_xhr_fetch_started_before_loadEventEnd",
                 "settle_role": "observation_only_not_duration_extension",
-                "runtime_errors": "javascript_and_console_errors_all_scope_only",
+                "runtime_errors": "javascript_and_console_capture_are_explicit_and_independent_from_apdex_impact",
+                "xhr_fetch_capture": {"xhr": self.xhr_capture, "fetch": self.fetch_capture},
+                "max_error_details": self.max_error_details,
+                "request_errors": "http_4xx_5xx_requestfailed_failed_images_and_csp_when_enabled",
                 "request_error_scope": self.error_scope,
             },
         }
@@ -141,6 +164,14 @@ class Calibration:
     frustrated_threshold_seconds: float
     errors_affect_apdex: bool
     metadata: dict[str, Any]
+    javascript_errors_affect_apdex: bool = True
+    request_errors_affect_apdex: bool = True
+    console_errors_affect_apdex: bool = False
+    javascript_error_capture: bool = True
+    xhr_capture: bool = True
+    fetch_capture: bool = True
+    console_error_capture: bool = False
+    max_error_details: int = 10
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,6 +196,12 @@ class UxMeasurement:
     first_party_request_failed_count: int = 0
     http_error_count: int = 0
     first_party_http_error_count: int = 0
+    csp_violation_count: int = 0
+    first_party_csp_violation_count: int = 0
+    failed_image_request_count: int = 0
+    first_party_failed_image_request_count: int = 0
+    csp_violation_details: tuple[dict[str, Any], ...] = ()
+    request_error_events: tuple[dict[str, Any], ...] = ()
     network_settled: bool = True
     profile_applied: bool = True
     error_code: str | None = None
@@ -228,9 +265,24 @@ class _OriginPacer:
 class PlaywrightSyntheticUxGateway:
     """Chromium gateway that records a bounded synthetic load-action envelope."""
 
-    def __init__(self, *, session_mode: str = "cold", executable_path: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        session_mode: str = "cold",
+        executable_path: str | None = None,
+        javascript_error_capture: bool = True,
+        xhr_capture: bool = True,
+        fetch_capture: bool = True,
+        console_error_capture: bool = False,
+        max_error_details: int = 10,
+    ) -> None:
         self.session_mode = session_mode
         self.executable_path = executable_path
+        self.javascript_error_capture = bool(javascript_error_capture)
+        self.xhr_capture = bool(xhr_capture)
+        self.fetch_capture = bool(fetch_capture)
+        self.console_error_capture = bool(console_error_capture)
+        self.max_error_details = max(0, min(int(max_error_details), 50))
         self._playwright = None
         self._browser = None
         self._startup_error: str | None = None
@@ -255,6 +307,11 @@ class PlaywrightSyntheticUxGateway:
         value["chromium_version"] = getattr(self._browser, "version", None) if self._browser is not None else None
         value["m25_profile_version"] = M25_PROFILE_VERSION
         value["session_mode"] = self.session_mode
+        value["javascript_error_capture"] = self.javascript_error_capture
+        value["xhr_capture"] = self.xhr_capture
+        value["fetch_capture"] = self.fetch_capture
+        value["console_error_capture"] = self.console_error_capture
+        value["max_error_details"] = self.max_error_details
         value["startup_error"] = self._startup_error
         return value
 
@@ -327,11 +384,14 @@ class PlaywrightSyntheticUxGateway:
             "first_failed": 0,
             "http": 0,
             "first_http": 0,
+            "failed_image": 0,
+            "first_failed_image": 0,
         }
         started = time.monotonic()
         last_action_xhr_activity = started
         load_completed_at: float | None = None
         action_xhr_request_ids: set[int] = set()
+        request_error_events: list[dict[str, Any]] = []
         target_host = _normalize_host(urlsplit(url).hostname)
 
         def is_first_party(candidate: str) -> bool:
@@ -360,7 +420,7 @@ class PlaywrightSyntheticUxGateway:
             page.add_init_script(
                 """
                 (() => {
-                  window.__rasaiUx = {lcp: null, cls: 0};
+                  window.__rasaiUx = {lcp: null, cls: 0, cspViolations: []};
                   try {
                     new PerformanceObserver((list) => {
                       const entries = list.getEntries();
@@ -372,13 +432,29 @@ class PlaywrightSyntheticUxGateway:
                       for (const e of list.getEntries()) if (!e.hadRecentInput) window.__rasaiUx.cls += e.value || 0;
                     }).observe({type: 'layout-shift', buffered: true});
                   } catch (_) {}
+                  try {
+                    window.addEventListener('securitypolicyviolation', (e) => {
+                      const items = window.__rasaiUx.cspViolations;
+                      if (!Array.isArray(items) || items.length >= 100) return;
+                      items.push({
+                        blockedURI: String(e.blockedURI || ''),
+                        violatedDirective: String(e.violatedDirective || ''),
+                        effectiveDirective: String(e.effectiveDirective || ''),
+                        disposition: String(e.disposition || '')
+                      });
+                    });
+                  } catch (_) {}
                 })();
                 """
             )
 
             def on_request(request: Any) -> None:
                 resource_type = str(getattr(request, "resource_type", ""))
-                if resource_type in {"xhr", "fetch"}:
+                captured_async = (
+                    (resource_type == "xhr" and self.xhr_capture)
+                    or (resource_type == "fetch" and self.fetch_capture)
+                )
+                if captured_async:
                     counters["xhr_fetch"] += 1
                     if load_completed_at is None:
                         action_xhr_request_ids.add(id(request))
@@ -393,8 +469,25 @@ class PlaywrightSyntheticUxGateway:
 
             def on_request_failed(request: Any) -> None:
                 counters["failed"] += 1
-                if is_first_party(str(getattr(request, "url", ""))):
+                request_url = str(getattr(request, "url", ""))
+                first_party = is_first_party(request_url)
+                resource_type = str(getattr(request, "resource_type", ""))
+                if first_party:
                     counters["first_failed"] += 1
+                failed_image = resource_type == "image"
+                if failed_image:
+                    counters["failed_image"] += 1
+                    if first_party:
+                        counters["first_failed_image"] += 1
+                request_error_events.append({
+                    "error_type": "REQUEST_FAILED",
+                    "url": request_url,
+                    "http_status": None,
+                    "resource_type": resource_type,
+                    "first_party": first_party,
+                    "failed_image": failed_image,
+                    "csp": False,
+                })
                 request_id = id(request)
                 if request_id in action_xhr_request_ids:
                     action_xhr_request_ids.discard(request_id)
@@ -404,19 +497,38 @@ class PlaywrightSyntheticUxGateway:
                 try:
                     status = int(response.status)
                     response_url = str(response.url)
+                    request = getattr(response, "request", None)
+                    resource_type = str(getattr(request, "resource_type", "") or "")
                 except Exception:
                     return
                 if status >= 400:
+                    first_party = is_first_party(response_url)
                     counters["http"] += 1
-                    if is_first_party(response_url):
+                    if first_party:
                         counters["first_http"] += 1
+                    failed_image = resource_type == "image"
+                    if failed_image:
+                        counters["failed_image"] += 1
+                        if first_party:
+                            counters["first_failed_image"] += 1
+                    request_error_events.append({
+                        "error_type": "HTTP_ERROR",
+                        "url": response_url,
+                        "http_status": status,
+                        "resource_type": resource_type,
+                        "first_party": first_party,
+                        "failed_image": failed_image,
+                        "csp": False,
+                    })
 
             page.on("request", on_request)
             page.on("requestfinished", on_request_finished)
             page.on("requestfailed", on_request_failed)
             page.on("response", on_response)
-            page.on("pageerror", lambda _exc: counters.__setitem__("js", counters["js"] + 1))
-            page.on("console", lambda msg: counters.__setitem__("console", counters["console"] + (1 if msg.type == "error" else 0)))
+            if self.javascript_error_capture:
+                page.on("pageerror", lambda _exc: counters.__setitem__("js", counters["js"] + 1))
+            if self.console_error_capture:
+                page.on("console", lambda msg: counters.__setitem__("console", counters["console"] + (1 if msg.type == "error" else 0)))
 
             started = time.monotonic()
             last_action_xhr_activity = started
@@ -468,6 +580,25 @@ class PlaywrightSyntheticUxGateway:
                 pass
 
             navigation_duration_ms = _num(timing.get("duration"))
+            raw_csp = visual.get("cspViolations") if isinstance(visual, dict) else None
+            csp_details = tuple(
+                dict(item) for item in (raw_csp or ())
+                if isinstance(item, dict)
+            )[:100]
+            csp_events = tuple(
+                {
+                    "error_type": "CSP_VIOLATION",
+                    "url": str(item.get("blockedURI") or ""),
+                    "http_status": None,
+                    "resource_type": "csp",
+                    "first_party": is_first_party(str(item.get("blockedURI") or "")),
+                    "failed_image": False,
+                    "csp": True,
+                }
+                for item in csp_details
+            )
+            first_party_csp = sum(1 for item in csp_events if bool(item.get("first_party")))
+            all_request_error_events = tuple(request_error_events) + csp_events
             load_event_end_ms = _num(timing.get("loadEventEnd"))
             fallback_load_end_ms = max(((load_completed_at or started) - started) * 1000.0, 0.0)
             load_boundary_ms = (
@@ -501,6 +632,12 @@ class PlaywrightSyntheticUxGateway:
                 first_party_request_failed_count=counters["first_failed"],
                 http_error_count=counters["http"],
                 first_party_http_error_count=counters["first_http"],
+                csp_violation_count=len(csp_details),
+                first_party_csp_violation_count=first_party_csp,
+                failed_image_request_count=counters["failed_image"],
+                first_party_failed_image_request_count=counters["first_failed_image"],
+                csp_violation_details=csp_details,
+                request_error_events=all_request_error_events,
                 network_settled=network_settled,
                 profile_applied=True,
                 cpu_method=cpu_method,
@@ -548,6 +685,17 @@ def resolve_calibration(config: ExperienceApdexConfig) -> Calibration:
             errors = cfg.errors_affect_apdex
             source += "+MANUAL_ERROR_POLICY"
             metadata["error_policy_fallback"] = "manual M25 configuration"
+        imported_policy = metadata.get("error_policy") if isinstance(metadata.get("error_policy"), dict) else {}
+        capture = metadata.get("dynatrace_capture_contract") if isinstance(metadata.get("dynatrace_capture_contract"), dict) else {}
+        imported_max_errors = capture.get("max_errors_to_capture")
+        try:
+            max_error_details = int(imported_max_errors) if imported_max_errors is not None else cfg.max_error_details
+        except (TypeError, ValueError):
+            max_error_details = cfg.max_error_details
+        if max_error_details < 0 or max_error_details > 50:
+            max_error_details = cfg.max_error_details
+        console_impact = bool(imported_policy.get("console_errors_affect_apdex", cfg.console_errors_affect_apdex))
+        console_capture = bool(capture.get("console_errors", cfg.console_error_capture)) or console_impact
         return Calibration(
             source=source,
             kpm=imported.kpm,
@@ -555,6 +703,14 @@ def resolve_calibration(config: ExperienceApdexConfig) -> Calibration:
             frustrated_threshold_seconds=imported.frustrated_threshold_seconds,
             errors_affect_apdex=bool(errors),
             metadata=metadata,
+            javascript_errors_affect_apdex=bool(imported_policy.get("javascript_errors_affect_apdex", cfg.javascript_errors_affect_apdex)),
+            request_errors_affect_apdex=bool(imported_policy.get("request_errors_affect_apdex", cfg.request_errors_affect_apdex)),
+            console_errors_affect_apdex=console_impact,
+            javascript_error_capture=bool(capture.get("javascript_errors", cfg.javascript_error_capture)),
+            xhr_capture=bool(capture.get("xhr_enabled", cfg.xhr_capture)),
+            fetch_capture=bool(capture.get("fetch_enabled", cfg.fetch_capture)),
+            console_error_capture=console_capture,
+            max_error_details=max_error_details,
         )
 
     _validate_thresholds(cfg.satisfied_threshold_seconds, cfg.frustrated_threshold_seconds)
@@ -565,6 +721,14 @@ def resolve_calibration(config: ExperienceApdexConfig) -> Calibration:
         frustrated_threshold_seconds=float(cfg.frustrated_threshold_seconds),
         errors_affect_apdex=cfg.errors_affect_apdex,
         metadata={"threshold_unit": "seconds", "raw_configuration_persisted": False},
+        javascript_errors_affect_apdex=cfg.javascript_errors_affect_apdex,
+        request_errors_affect_apdex=cfg.request_errors_affect_apdex,
+        console_errors_affect_apdex=cfg.console_errors_affect_apdex,
+        javascript_error_capture=cfg.javascript_error_capture,
+        xhr_capture=cfg.xhr_capture,
+        fetch_capture=cfg.fetch_capture,
+        console_error_capture=cfg.console_error_capture,
+        max_error_details=cfg.max_error_details,
     )
 
 
@@ -581,7 +745,14 @@ def classify_measurement(
         return "FRUSTRATED", value, True
     if value is None:
         return None, None, False
-    forced = calibration.errors_affect_apdex and _qualifying_error(measurement, error_scope)
+    forced = calibration.errors_affect_apdex and _qualifying_error(
+        measurement,
+        error_scope,
+        javascript_errors_affect_apdex=calibration.javascript_errors_affect_apdex,
+        request_errors_affect_apdex=calibration.request_errors_affect_apdex,
+        console_errors_affect_apdex=calibration.console_errors_affect_apdex,
+        request_error_rules=calibration.metadata.get("http_error_rules"),
+    )
     if forced:
         return "FRUSTRATED", value, True
     seconds = value / 1000.0
@@ -606,6 +777,26 @@ def kpm_value_ms(item: UxMeasurement, kpm: str) -> float | None:
     return float(value) if value is not None and math.isfinite(float(value)) and float(value) >= 0 else None
 
 
+def _apply_gateway_capture_policy(runner: Any, calibration: Calibration) -> Any:
+    """Apply effective capture settings to canonical/shared Playwright gateways.
+
+    Custom injected gateways may ignore these attributes; the persisted calibration
+    still records the intended policy without requiring a custom gateway contract.
+    """
+    for name, value in (
+        ("javascript_error_capture", calibration.javascript_error_capture),
+        ("xhr_capture", calibration.xhr_capture),
+        ("fetch_capture", calibration.fetch_capture),
+        ("console_error_capture", calibration.console_error_capture),
+        ("max_error_details", calibration.max_error_details),
+    ):
+        try:
+            setattr(runner, name, value)
+        except Exception:
+            pass
+    return runner
+
+
 def execute_m25_experience(
     *,
     audit_id: str,
@@ -622,7 +813,8 @@ def execute_m25_experience(
     mix = cfg.device_mix_dict()
     targets = allocate_samples(cfg.target_samples_per_page, mix)
     attempt_targets = allocate_attempts(cfg.max_attempts_per_page, mix, targets)
-    factory = gateway_factory or (lambda: PlaywrightSyntheticUxGateway(session_mode=cfg.session_mode))
+    base_factory = gateway_factory or (lambda: PlaywrightSyntheticUxGateway(session_mode=cfg.session_mode))
+    factory = lambda: _apply_gateway_capture_policy(base_factory(), calibration)
     pacer = _OriginPacer(cfg.delay_seconds)
 
     try_append_operational_event(
@@ -642,10 +834,15 @@ def execute_m25_experience(
         calibration_source=calibration.source,
         m25_profile_version=M25_PROFILE_VERSION,
         user_action_duration_policy="LOAD_EVENT_END_OR_LAST_XHR_FETCH_STARTED_BEFORE_LOAD_EVENT_END",
-        runtime_error_policy="SCOPED_FIRST_PARTY_REQUEST_HTTP_ALL_SCOPE_JS_CONSOLE",
+        runtime_error_policy="JS_GLOBAL_WHEN_ENABLED_REQUEST_SCOPE_EXPLICIT_CONSOLE_OPT_IN",
+        javascript_error_capture=calibration.javascript_error_capture,
+        xhr_capture=calibration.xhr_capture,
+        fetch_capture=calibration.fetch_capture,
+        console_error_capture=calibration.console_error_capture,
+        max_error_details=calibration.max_error_details,
     )
 
-    shared_gateway = gateway
+    shared_gateway = _apply_gateway_capture_policy(gateway, calibration) if gateway is not None else None
     owned_shared = False
     if shared_gateway is not None and cfg.concurrency != 1:
         raise ValueError("Synthetic User Experience Apdex: gateway injetado exige concurrency=1")
@@ -923,6 +1120,10 @@ def _persisted_sample(
         console_error_count=m.console_error_count, request_failed_count=m.request_failed_count,
         first_party_request_failed_count=m.first_party_request_failed_count,
         http_error_count=m.http_error_count, first_party_http_error_count=m.first_party_http_error_count,
+        csp_violation_count=m.csp_violation_count,
+        first_party_csp_violation_count=m.first_party_csp_violation_count,
+        failed_image_request_count=m.failed_image_request_count,
+        first_party_failed_image_request_count=m.first_party_failed_image_request_count,
         network_settled=m.network_settled, error_forced_frustrated=item.error_forced,
         error_code=m.error_code, error_message=_bounded(m.error_message, 256),
         cpu_method=m.cpu_method, network_method=m.network_method, captured_at=item.captured_at,
@@ -960,26 +1161,140 @@ def _summary(
         p95_ms=_percentile(values, 0.95), p99_ms=_percentile(values, 0.99),
         javascript_error_samples=sum(item.measurement.javascript_error_count > 0 for item in valid),
         request_error_samples=sum(
-            (item.measurement.request_failed_count + item.measurement.http_error_count) > 0 for item in valid
+            (
+                item.measurement.request_failed_count
+                + item.measurement.http_error_count
+                + item.measurement.csp_violation_count
+            ) > 0
+            for item in valid
         ),
         network_unsettled_samples=sum(not item.measurement.network_settled for item in valid),
         calculated_at=_utc_now(),
     )
 
 
-def _qualifying_error(item: UxMeasurement, scope: str) -> bool:
-    if item.status == "APPLICATION_ERROR":
+def _status_matches_dynatrace_codes(status: int | None, raw: Any) -> bool:
+    if status is None:
+        return False
+    value = int(status)
+    for token in str(raw or "").replace(";", ",").split(","):
+        part = token.strip().casefold()
+        if not part:
+            continue
+        if len(part) == 3 and part[0].isdigit() and part[1:] == "xx":
+            if value // 100 == int(part[0]):
+                return True
+            continue
+        if "-" in part:
+            start_raw, end_raw = part.split("-", 1)
+            try:
+                if int(start_raw.strip()) <= value <= int(end_raw.strip()):
+                    return True
+            except ValueError:
+                continue
+            continue
+        try:
+            if value == int(part):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
+def _url_matches_dynatrace_rule(url: str, rule: dict[str, Any]) -> bool:
+    if not bool(rule.get("filter_by_url")):
         return True
+    expected = str(rule.get("url") or "")
+    if not expected:
+        return True
+    actual = str(url or "")
+    matcher = str(rule.get("url_matcher") or "").upper()
+    left, right = actual.casefold(), expected.casefold()
+    if matcher == "BEGINS_WITH":
+        return left.startswith(right)
+    if matcher == "ENDS_WITH":
+        return left.endswith(right)
+    if matcher == "EQUALS":
+        return left == right
+    return right in left
+
+
+def _request_event_matches_dynatrace_rule(event: dict[str, Any], rule: dict[str, Any]) -> bool:
+    if not _url_matches_dynatrace_rule(str(event.get("url") or ""), rule):
+        return False
+    kind = str(event.get("error_type") or "").upper()
+    if kind == "CSP_VIOLATION" or bool(event.get("csp")):
+        return bool(rule.get("consider_csp"))
+    if bool(event.get("failed_image")) and bool(rule.get("consider_failed_images")):
+        return True
+    status = event.get("http_status")
+    if status is None:
+        return bool(rule.get("consider_unknown"))
+    return _status_matches_dynatrace_codes(int(status), rule.get("error_codes"))
+
+
+def _request_event_impacts_apdex(event: dict[str, Any], rules: Any) -> bool:
+    if not isinstance(rules, list) or not rules:
+        return True
+    for raw_rule in rules:
+        if not isinstance(raw_rule, dict) or not _request_event_matches_dynatrace_rule(event, raw_rule):
+            continue
+        # Dynatrace evaluates ordered rules from top to bottom; first match wins.
+        return bool(raw_rule.get("capture", True)) and bool(raw_rule.get("impact_apdex", True))
+    return False
+
+
+def _qualifying_error(
+    item: UxMeasurement,
+    scope: str,
+    *,
+    javascript_errors_affect_apdex: bool = True,
+    request_errors_affect_apdex: bool = True,
+    console_errors_affect_apdex: bool = False,
+    request_error_rules: Any = None,
+) -> bool:
+    # Dynatrace treats JavaScript exceptions as action-level errors; request scope
+    # only limits network/request families. console.error remains diagnostic by
+    # default because RUM console capture itself is opt-in.
+    if javascript_errors_affect_apdex and int(getattr(item, "javascript_error_count", 0) or 0) > 0:
+        return True
+    if console_errors_affect_apdex and int(getattr(item, "console_error_count", 0) or 0) > 0:
+        return True
+    if not request_errors_affect_apdex:
+        return False
+
     normalized = str(scope or "").strip().casefold()
+    events = tuple(
+        event for event in (getattr(item, "request_error_events", ()) or ())
+        if isinstance(event, dict)
+    )
+    if events and isinstance(request_error_rules, list) and request_error_rules:
+        eligible: list[dict[str, Any]] = []
+        for event in events:
+            if normalized == "navigation" and str(event.get("resource_type") or "") != "document":
+                continue
+            if normalized == "first-party" and not bool(event.get("first_party")):
+                continue
+            eligible.append(event)
+        return any(_request_event_impacts_apdex(event, request_error_rules) for event in eligible)
+
+    # No imported ordered rules: use the default Dynatrace-compatible aggregate
+    # policy, preserving the lightweight contract for manual calibration and
+    # historical samples that do not carry per-request ephemeral events.
+    if str(getattr(item, "status", "") or "") == "APPLICATION_ERROR":
+        return True
     if normalized == "navigation":
         return False
     if normalized == "first-party":
-        return item.first_party_request_failed_count > 0 or item.first_party_http_error_count > 0
+        return (
+            int(getattr(item, "first_party_request_failed_count", 0) or 0) > 0
+            or int(getattr(item, "first_party_http_error_count", 0) or 0) > 0
+            or int(getattr(item, "first_party_csp_violation_count", 0) or 0) > 0
+        )
     return (
-        item.javascript_error_count > 0
-        or item.console_error_count > 0
-        or item.request_failed_count > 0
-        or item.http_error_count > 0
+        int(getattr(item, "request_failed_count", 0) or 0) > 0
+        or int(getattr(item, "http_error_count", 0) or 0) > 0
+        or int(getattr(item, "csp_violation_count", 0) or 0) > 0
     )
 
 

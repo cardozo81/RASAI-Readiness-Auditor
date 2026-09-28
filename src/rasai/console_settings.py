@@ -13,8 +13,17 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
+from rasai.apdex_concurrency_policy import EXPERIENCE_MAX_CONCURRENCY, NAVIGATION_MAX_CONCURRENCY
 from rasai.m25_cli import (
+    DEFAULT_UX_CONSOLE_ERROR_CAPTURE,
+    DEFAULT_UX_CONSOLE_ERRORS_AFFECT,
     DEFAULT_UX_DEVICE_MIX,
+    DEFAULT_UX_FETCH_CAPTURE,
+    DEFAULT_UX_JAVASCRIPT_ERROR_CAPTURE,
+    DEFAULT_UX_JAVASCRIPT_ERRORS_AFFECT,
+    DEFAULT_UX_MAX_ERROR_DETAILS,
+    DEFAULT_UX_REQUEST_ERRORS_AFFECT,
+    DEFAULT_UX_XHR_CAPTURE,
     DYNATRACE_APPLICATION_ID_ENV,
     DYNATRACE_BASE_URL_ENV,
     DYNATRACE_CONFIG_JSON_ENV,
@@ -24,6 +33,14 @@ from rasai.m25_cli import (
     UX_DEVICE_MIX_ENV,
     UX_ENABLED_ENV,
     UX_ERRORS_ENV,
+    UX_JAVASCRIPT_ERRORS_ENV,
+    UX_REQUEST_ERRORS_ENV,
+    UX_CONSOLE_ERRORS_ENV,
+    UX_JAVASCRIPT_CAPTURE_ENV,
+    UX_XHR_CAPTURE_ENV,
+    UX_FETCH_CAPTURE_ENV,
+    UX_CONSOLE_CAPTURE_ENV,
+    UX_MAX_ERROR_DETAILS_ENV,
     UX_ERROR_SCOPE_ENV,
     UX_FRUSTRATED_ENV,
     UX_KPM_ENV,
@@ -125,7 +142,15 @@ def _runtime_environment_projection(state: Any) -> dict[str, str]:
             UX_SESSION_MODE_ENV: str(getattr(state, "apdex_experience_session_mode", "cold")),
             UX_KPM_ENV: str(getattr(state, "apdex_experience_kpm", "USER_ACTION_DURATION")),
             UX_ERRORS_ENV: _bool_text(bool(getattr(state, "apdex_experience_errors", True))),
-            UX_ERROR_SCOPE_ENV: str(getattr(state, "apdex_experience_error_scope", "first-party")),
+            UX_JAVASCRIPT_ERRORS_ENV: _bool_text(bool(getattr(state, "apdex_experience_javascript_errors", DEFAULT_UX_JAVASCRIPT_ERRORS_AFFECT))),
+            UX_REQUEST_ERRORS_ENV: _bool_text(bool(getattr(state, "apdex_experience_request_errors", DEFAULT_UX_REQUEST_ERRORS_AFFECT))),
+            UX_CONSOLE_ERRORS_ENV: _bool_text(bool(getattr(state, "apdex_experience_console_errors", DEFAULT_UX_CONSOLE_ERRORS_AFFECT))),
+            UX_JAVASCRIPT_CAPTURE_ENV: _bool_text(bool(getattr(state, "apdex_experience_javascript_capture", DEFAULT_UX_JAVASCRIPT_ERROR_CAPTURE))),
+            UX_XHR_CAPTURE_ENV: _bool_text(bool(getattr(state, "apdex_experience_xhr_capture", DEFAULT_UX_XHR_CAPTURE))),
+            UX_FETCH_CAPTURE_ENV: _bool_text(bool(getattr(state, "apdex_experience_fetch_capture", DEFAULT_UX_FETCH_CAPTURE))),
+            UX_CONSOLE_CAPTURE_ENV: _bool_text(bool(getattr(state, "apdex_experience_console_capture", DEFAULT_UX_CONSOLE_ERROR_CAPTURE))),
+            UX_MAX_ERROR_DETAILS_ENV: str(int(getattr(state, "apdex_experience_max_error_details", DEFAULT_UX_MAX_ERROR_DETAILS))),
+            UX_ERROR_SCOPE_ENV: str(getattr(state, "apdex_experience_error_scope", "all")),
             UX_SETTLE_ENV: f"{float(getattr(state, 'apdex_experience_settle', 5.0)):g}",
             UX_DELAY_ENV: f"{float(getattr(state, 'apdex_experience_delay', 1.0)):g}",
             UX_CONCURRENCY_ENV: str(int(getattr(state, "apdex_experience_concurrency", 1))),
@@ -223,7 +248,15 @@ def _state_values(state: Any) -> dict[str, dict[str, str]]:
             "satisfied_seconds": _optional(getattr(state, "apdex_experience_satisfied", None)),
             "frustrated_seconds": _optional(getattr(state, "apdex_experience_frustrated", None)),
             "errors_affect_apdex": _bool_text(bool(getattr(state, "apdex_experience_errors", True))),
-            "error_scope": str(getattr(state, "apdex_experience_error_scope", "first-party")),
+            "javascript_errors_affect_apdex": _bool_text(bool(getattr(state, "apdex_experience_javascript_errors", DEFAULT_UX_JAVASCRIPT_ERRORS_AFFECT))),
+            "request_errors_affect_apdex": _bool_text(bool(getattr(state, "apdex_experience_request_errors", DEFAULT_UX_REQUEST_ERRORS_AFFECT))),
+            "console_errors_affect_apdex": _bool_text(bool(getattr(state, "apdex_experience_console_errors", DEFAULT_UX_CONSOLE_ERRORS_AFFECT))),
+            "javascript_error_capture": _bool_text(bool(getattr(state, "apdex_experience_javascript_capture", DEFAULT_UX_JAVASCRIPT_ERROR_CAPTURE))),
+            "xhr_capture": _bool_text(bool(getattr(state, "apdex_experience_xhr_capture", DEFAULT_UX_XHR_CAPTURE))),
+            "fetch_capture": _bool_text(bool(getattr(state, "apdex_experience_fetch_capture", DEFAULT_UX_FETCH_CAPTURE))),
+            "console_error_capture": _bool_text(bool(getattr(state, "apdex_experience_console_capture", DEFAULT_UX_CONSOLE_ERROR_CAPTURE))),
+            "max_error_details": str(int(getattr(state, "apdex_experience_max_error_details", DEFAULT_UX_MAX_ERROR_DETAILS))),
+            "error_scope": str(getattr(state, "apdex_experience_error_scope", "all")),
             "settle_seconds": f"{float(getattr(state, 'apdex_experience_settle', 5.0)):g}",
             "delay_seconds": f"{float(getattr(state, 'apdex_experience_delay', 1.0)):g}",
             "concurrency": str(int(getattr(state, "apdex_experience_concurrency", 1))),
@@ -344,7 +377,8 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
         state.apdex_delay = value
     elif key == ("synthetic_apdex", "concurrency"):
         value = int(raw)
-        if value not in {1, 2}: raise ValueError("use 1 ou 2")
+        if value < 1 or value > NAVIGATION_MAX_CONCURRENCY:
+            raise ValueError(f"use inteiro entre 1 e {NAVIGATION_MAX_CONCURRENCY}")
         state.apdex_concurrency = value
     elif key == ("synthetic_apdex_experience", "enabled"): state.apdex_experience = _parse_bool(raw)
     elif key == ("synthetic_apdex_experience", "samples_per_page"):
@@ -374,6 +408,17 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
     elif key == ("synthetic_apdex_experience", "satisfied_seconds"): state.apdex_experience_satisfied = None if not raw.strip() else _positive_float(raw, label="M25 satisfied_seconds")
     elif key == ("synthetic_apdex_experience", "frustrated_seconds"): state.apdex_experience_frustrated = None if not raw.strip() else _positive_float(raw, label="M25 frustrated_seconds")
     elif key == ("synthetic_apdex_experience", "errors_affect_apdex"): state.apdex_experience_errors = _parse_bool(raw)
+    elif key == ("synthetic_apdex_experience", "javascript_errors_affect_apdex"): state.apdex_experience_javascript_errors = _parse_bool(raw)
+    elif key == ("synthetic_apdex_experience", "request_errors_affect_apdex"): state.apdex_experience_request_errors = _parse_bool(raw)
+    elif key == ("synthetic_apdex_experience", "console_errors_affect_apdex"): state.apdex_experience_console_errors = _parse_bool(raw)
+    elif key == ("synthetic_apdex_experience", "javascript_error_capture"): state.apdex_experience_javascript_capture = _parse_bool(raw)
+    elif key == ("synthetic_apdex_experience", "xhr_capture"): state.apdex_experience_xhr_capture = _parse_bool(raw)
+    elif key == ("synthetic_apdex_experience", "fetch_capture"): state.apdex_experience_fetch_capture = _parse_bool(raw)
+    elif key == ("synthetic_apdex_experience", "console_error_capture"): state.apdex_experience_console_capture = _parse_bool(raw)
+    elif key == ("synthetic_apdex_experience", "max_error_details"):
+        value = int(raw)
+        if value < 0 or value > 50: raise ValueError("use inteiro entre 0 e 50")
+        state.apdex_experience_max_error_details = value
     elif key == ("synthetic_apdex_experience", "error_scope"):
         value = raw.strip().casefold()
         if value not in {"navigation", "first-party", "all"}: raise ValueError("use navigation, first-party ou all")
@@ -385,7 +430,8 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
         state.apdex_experience_delay = value
     elif key == ("synthetic_apdex_experience", "concurrency"):
         value = int(raw)
-        if value not in {1, 2}: raise ValueError("use 1 ou 2")
+        if value < 1 or value > EXPERIENCE_MAX_CONCURRENCY:
+            raise ValueError(f"use inteiro entre 1 e {EXPERIENCE_MAX_CONCURRENCY}")
         state.apdex_experience_concurrency = value
     elif key == ("synthetic_apdex_experience", "dynatrace_import"): state.apdex_dynatrace_import = _parse_bool(raw)
     elif key == ("synthetic_apdex_experience", "dynatrace_base_url"): state.dynatrace_base_url = raw.strip()
