@@ -73,6 +73,130 @@ class _PriorState:
         )
 
 
+def execute_m6_snapshot_scope(
+    *,
+    audit_id: str,
+    page_id: str,
+    snapshot_id: str,
+    device: DeviceContext,
+    acquisition: object,
+    origin: str,
+    audited_urls: set[str] | frozenset[str],
+    persistence: AuditPersistence,
+    workspace: AuditWorkspace,
+    prior: _PriorState,
+    resolver: DependencyResolver,
+    manager: EvidenceManager,
+    writer: SnapshotArchitectureWriter,
+    analyzer: JavascriptSpaAnalyzer,
+    lazy_probe: LazyProbe | None = None,
+) -> tuple[tuple[str, ...], tuple[str, ...], ArchitectureClassification, frozenset[str]]:
+    """Execute canonical BR-GEO-019..024 for one effective snapshot scope."""
+    snapshot = persistence.snapshots.get(snapshot_id)
+    if snapshot is None:
+        raise ValueError(f"snapshot not re-openable: {snapshot_id}")
+    raw_html = _read(workspace, snapshot.raw_artifact_ref)
+    rendered_html = _read(workspace, snapshot.rendered_artifact_ref)
+    comparison = analyzer.compare(raw_html, rendered_html) if raw_html is not None and rendered_html is not None else None
+    classification = comparison.architecture if comparison is not None else ArchitectureClassification.UNKNOWN
+    writer.update(snapshot_id, classification)
+
+    evaluations: dict[str, RuleEvaluation] = {
+        "BR-GEO-019": _evaluate_019(comparison),
+        "BR-GEO-020": _evaluate_020(comparison),
+        "BR-GEO-021": _evaluate_021(classification, acquisition, rendered_html),
+        "BR-GEO-022": _evaluate_022(
+            analyzer,
+            rendered_html,
+            snapshot.final_url or snapshot.requested_url,
+            origin,
+        ),
+        "BR-GEO-023": _evaluate_023(analyzer, rendered_html, acquisition.status),
+    }
+
+    rendered_outside_audit: set[str] = set()
+    nav_observed = evaluations["BR-GEO-022"].observed_value
+    if isinstance(nav_observed, dict):
+        for candidate in nav_observed.get("crawlable_internal_links", ()):
+            if not isinstance(candidate, str):
+                continue
+            try:
+                normalized_candidate = normalize_url(candidate)
+            except ValueError:
+                continue
+            if normalized_candidate not in audited_urls:
+                rendered_outside_audit.add(normalized_candidate)
+
+    if rendered_html is not None:
+        preliminary = analyzer.lazy_loading(rendered_html, after_probe_html=None)
+        if not preliminary.has_lazy_signals or preliminary.initial_content_recoverable:
+            evaluations["BR-GEO-024"] = _evaluate_024(analyzer, rendered_html, None)
+        else:
+            metadata = snapshot.browser_metadata if isinstance(snapshot.browser_metadata, dict) else {}
+            same_session = metadata.get("bounded_lazy_probe") if isinstance(metadata, dict) else None
+            if isinstance(same_session, dict) and same_session.get("attempted"):
+                evaluations["BR-GEO-024"] = _evaluate_024_same_session(preliminary, same_session)
+            elif lazy_probe is not None:
+                probe_result = lazy_probe(snapshot.final_url or snapshot.requested_url, device)
+                lazy_after = probe_result.rendered_html if probe_result.succeeded else None
+                evaluations["BR-GEO-024"] = _evaluate_024(analyzer, rendered_html, lazy_after)
+            else:
+                evaluations["BR-GEO-024"] = RuleEvaluation(
+                    RuleResult.UNKNOWN,
+                    {
+                        "has_lazy_signals": preliminary.has_lazy_signals,
+                        "initial_content_recoverable": preliminary.initial_content_recoverable,
+                        "after_probe_content_recoverable": None,
+                        "probe_state": "NOT_AVAILABLE_WITHOUT_REFETCH",
+                        "additional_navigation_requests": 0,
+                    },
+                    "lazy loading does not prevent recovery of essential content within bounded predictable interaction",
+                    reason="LAZY_PROBE_UNAVAILABLE_NO_REFETCH",
+                )
+    else:
+        evaluations["BR-GEO-024"] = _unknown(
+            "RENDERED_UNAVAILABLE",
+            "lazy-loaded essential content remains recoverable",
+        )
+
+    execution_ids: list[str] = []
+    finding_ids: list[str] = []
+    for definition in _M6_DEFINITIONS:
+        dependency = resolver.resolve(
+            definition,
+            lambda dep, p=page_id, s=snapshot_id: prior.lookup(dep, page_id=p, snapshot_id=s),
+        )
+        evaluation = evaluations[definition.rule_id]
+        if not dependency.applicable:
+            evaluation = RuleEvaluation(
+                result=dependency.result or RuleResult.UNKNOWN,
+                observed_value={"dependency_reason": dependency.reason},
+                expected_condition=evaluation.expected_condition,
+                reason=dependency.reason,
+            )
+        execution = _persist_execution(
+            definition,
+            evaluation,
+            audit_id=audit_id,
+            page_id=page_id,
+            snapshot_id=snapshot_id,
+            device=device,
+            manager=manager,
+            persistence=persistence,
+        )
+        execution_ids.append(execution.rule_execution_id)
+        finding = _persist_finding(definition, execution, persistence)
+        if finding is not None:
+            finding_ids.append(finding.finding_id)
+
+    return (
+        tuple(execution_ids),
+        tuple(finding_ids),
+        classification,
+        frozenset(rendered_outside_audit),
+    )
+
+
 def execute_m6(
     *,
     audit_id: str,
@@ -107,94 +231,27 @@ def execute_m6(
         page_id = m2_result.page_ids[discovered.normalized_url]
         acquisition = m2_result.discovery.page_acquisitions[discovered.normalized_url]
         for device, snapshot_id in m3_result.snapshot_ids.get(page_id, {}).items():
-            snapshot = persistence.snapshots.get(snapshot_id)
-            if snapshot is None:
-                raise ValueError(f"snapshot not re-openable: {snapshot_id}")
-            raw_html = _read(workspace, snapshot.raw_artifact_ref)
-            rendered_html = _read(workspace, snapshot.rendered_artifact_ref)
-            comparison = analyzer.compare(raw_html, rendered_html) if raw_html is not None and rendered_html is not None else None
-            classification = comparison.architecture if comparison is not None else ArchitectureClassification.UNKNOWN
-            writer.update(snapshot_id, classification)
+            scoped_execution_ids, scoped_finding_ids, classification, scoped_outside = execute_m6_snapshot_scope(
+                audit_id=audit_id,
+                page_id=page_id,
+                snapshot_id=snapshot_id,
+                device=device,
+                acquisition=acquisition,
+                origin=m2_result.discovery.origin,
+                audited_urls=audited_urls,
+                persistence=persistence,
+                workspace=workspace,
+                prior=prior,
+                resolver=resolver,
+                manager=manager,
+                writer=writer,
+                analyzer=analyzer,
+                lazy_probe=lazy_probe,
+            )
+            execution_ids.extend(scoped_execution_ids)
+            finding_ids.extend(scoped_finding_ids)
             architecture[snapshot_id] = classification
-
-            evaluations: dict[str, RuleEvaluation] = {
-                "BR-GEO-019": _evaluate_019(comparison),
-                "BR-GEO-020": _evaluate_020(comparison),
-                "BR-GEO-021": _evaluate_021(classification, acquisition, rendered_html),
-                "BR-GEO-022": _evaluate_022(analyzer, rendered_html, snapshot.final_url or snapshot.requested_url, m2_result.discovery.origin),
-                "BR-GEO-023": _evaluate_023(analyzer, rendered_html, acquisition.status),
-            }
-
-            nav_observed = evaluations["BR-GEO-022"].observed_value
-            if isinstance(nav_observed, dict):
-                for candidate in nav_observed.get("crawlable_internal_links", ()):
-                    if not isinstance(candidate, str):
-                        continue
-                    try:
-                        normalized_candidate = normalize_url(candidate)
-                    except ValueError:
-                        continue
-                    if normalized_candidate not in audited_urls:
-                        rendered_outside_audit.add(normalized_candidate)
-
-            if rendered_html is not None:
-                preliminary = analyzer.lazy_loading(rendered_html, after_probe_html=None)
-                if not preliminary.has_lazy_signals or preliminary.initial_content_recoverable:
-                    evaluations["BR-GEO-024"] = _evaluate_024(analyzer, rendered_html, None)
-                else:
-                    metadata = snapshot.browser_metadata if isinstance(snapshot.browser_metadata, dict) else {}
-                    same_session = metadata.get("bounded_lazy_probe") if isinstance(metadata, dict) else None
-                    if isinstance(same_session, dict) and same_session.get("attempted"):
-                        evaluations["BR-GEO-024"] = _evaluate_024_same_session(preliminary, same_session)
-                    elif lazy_probe is not None:
-                        # Explicit compatibility/test hook only. Production M3 captures
-                        # this interaction before closing the original page.
-                        probe_result = lazy_probe(snapshot.final_url or snapshot.requested_url, device)
-                        lazy_after = probe_result.rendered_html if probe_result.succeeded else None
-                        evaluations["BR-GEO-024"] = _evaluate_024(analyzer, rendered_html, lazy_after)
-                    else:
-                        evaluations["BR-GEO-024"] = RuleEvaluation(
-                            RuleResult.UNKNOWN,
-                            {
-                                "has_lazy_signals": preliminary.has_lazy_signals,
-                                "initial_content_recoverable": preliminary.initial_content_recoverable,
-                                "after_probe_content_recoverable": None,
-                                "probe_state": "NOT_AVAILABLE_WITHOUT_REFETCH",
-                                "additional_navigation_requests": 0,
-                            },
-                            "lazy loading does not prevent recovery of essential content within bounded predictable interaction",
-                            reason="LAZY_PROBE_UNAVAILABLE_NO_REFETCH",
-                        )
-            else:
-                evaluations["BR-GEO-024"] = _unknown("RENDERED_UNAVAILABLE", "lazy-loaded essential content remains recoverable")
-
-            for definition in _M6_DEFINITIONS:
-                dependency = resolver.resolve(
-                    definition,
-                    lambda dep, p=page_id, s=snapshot_id: prior.lookup(dep, page_id=p, snapshot_id=s),
-                )
-                evaluation = evaluations[definition.rule_id]
-                if not dependency.applicable:
-                    evaluation = RuleEvaluation(
-                        result=dependency.result or RuleResult.UNKNOWN,
-                        observed_value={"dependency_reason": dependency.reason},
-                        expected_condition=evaluation.expected_condition,
-                        reason=dependency.reason,
-                    )
-                execution = _persist_execution(
-                    definition,
-                    evaluation,
-                    audit_id=audit_id,
-                    page_id=page_id,
-                    snapshot_id=snapshot_id,
-                    device=device,
-                    manager=manager,
-                    persistence=persistence,
-                )
-                execution_ids.append(execution.rule_execution_id)
-                finding = _persist_finding(definition, execution, persistence)
-                if finding is not None:
-                    finding_ids.append(finding.finding_id)
+            rendered_outside_audit.update(scoped_outside)
 
     if rendered_outside_audit:
         audit = persistence.audits.get(audit_id)
