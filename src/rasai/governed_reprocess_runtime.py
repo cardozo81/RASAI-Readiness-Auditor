@@ -1033,8 +1033,34 @@ def _registered_ai_purposes(
         return frozenset()
 
     purposes: set[str] = set()
-    if _pending_item(workspace, audit_id, "IMPROVEMENT_INTELLIGENCE") is not None:
-        purposes.add("IMPROVEMENT_INTELLIGENCE")
+    improvement = _pending_item(workspace, audit_id, "IMPROVEMENT_INTELLIGENCE")
+    if improvement is not None:
+        blockers = blocking_dependencies(workspace, improvement)
+        if blockers:
+            set_work_item_status(
+                workspace,
+                audit_id=audit_id,
+                component="IMPROVEMENT_INTELLIGENCE",
+                scope_key=getattr(improvement, "scope_key", "AUDIT"),
+                status=WAITING_FOR_DATA,
+                error_class="PREREQUISITE",
+                error_code="AI_WAITING_FOR_PREREQUISITES",
+                error_message=(
+                    "IA aguardando pré-requisitos obrigatórios: "
+                    + ", ".join(blockers)
+                ),
+                retryable=True,
+            )
+            try_append_operational_event(
+                workspace,
+                "AUDIT_REPROCESS_AI_WAITING_FOR_PREREQUISITES",
+                level="INFO",
+                audit_id=audit_id,
+                component="IMPROVEMENT_INTELLIGENCE",
+                blockers=blockers,
+            )
+        else:
+            purposes.add("IMPROVEMENT_INTELLIGENCE")
     if str(recovered.get("SEARCH_INTELLIGENCE") or "").upper() == "SUCCESS":
         purposes.add("COMPETITIVE_INTELLIGENCE")
     return frozenset(purposes)
