@@ -339,6 +339,7 @@ def _mode_scope_preview(
         "effective": (),
         "automatic": (),
         "ai_waiting": (),
+        "automatic_terminal_degraded": (),
         "required_ai_pending": (),
     }
     if not audit_id or not selected or not getattr(state, "audits_root", None):
@@ -396,7 +397,10 @@ def _mode_scope_preview(
         )
 
         waiting: list[str] = []
+        automatic_terminal_degraded: list[str] = []
         if use_ai:
+            from rasai.ai_governance import collection_state_is_terminal
+
             for item in pending:
                 component = str(getattr(item, "component", "") or "").strip().upper()
                 key = item_key(component, getattr(item, "scope_key", "AUDIT"))
@@ -410,6 +414,18 @@ def _mode_scope_preview(
                         f"{item.component}/{item.scope_key} <- " + ", ".join(blockers)
                     )
 
+            for item in effective:
+                label = f"{item.component}/{item.scope_key}"
+                if label not in automatic:
+                    continue
+                status = str(getattr(item, "status", "") or "").strip().upper()
+                if status in {"SUCCESS", "DISABLED", "NOT_APPLICABLE"}:
+                    continue
+                if collection_state_is_terminal(status):
+                    automatic_terminal_degraded.append(
+                        f"{label} · {_friendly_status(status)}"
+                    )
+
         return {
             "effective": tuple(
                 f"{item.component}/{item.scope_key}"
@@ -417,6 +433,7 @@ def _mode_scope_preview(
             ),
             "automatic": automatic,
             "ai_waiting": tuple(waiting),
+            "automatic_terminal_degraded": tuple(automatic_terminal_degraded),
             "required_ai_pending": required_ai_pending,
         }
     except Exception:
@@ -483,6 +500,7 @@ def _choose_reprocess_ai(state: Any) -> bool | None:
             print("-" * 100)
             automatic = tuple(with_ai.get("automatic") or ())
             waiting = tuple(with_ai.get("ai_waiting") or ())
+            degraded = tuple(with_ai.get("automatic_terminal_degraded") or ())
             if automatic:
                 print("Pré-requisitos automáticos:")
                 for label in automatic:
@@ -493,15 +511,32 @@ def _choose_reprocess_ai(state: Any) -> bool | None:
                 print("IA aguardando dados:")
                 for label in waiting:
                     print(f"  - {label}")
+            if degraded:
+                print("Pré-requisitos em estado terminal/degradado:")
+                for label in degraded:
+                    print(f"  - {label}")
+                print(
+                    "  - esses itens podem ser tentados novamente, mas o estado terminal persistido "
+                    "não bloqueia por si só a Deep Analysis"
+                )
             print(
                 "Ordem prevista       : 1. recuperar/validar dados -> 2. confirmar pré-requisitos -> "
                 "3. chamar IA se apta -> 4. recalcular derivações e tentar fechar a AUD"
             )
-            if waiting or automatic:
+            if waiting:
                 print(
                     "Chamada de IA        : "
                     + warning_text(
-                        "CONDICIONAL AOS PRÉ-REQUISITOS; se eles não concluírem, chamadas IA = 0 e custo IA = 0"
+                        "CONDICIONAL AOS PRÉ-REQUISITOS; enquanto houver estado não terminal, "
+                        "chamadas IA = 0 e custo IA = 0"
+                    )
+                )
+            elif degraded:
+                print(
+                    "Chamada de IA        : "
+                    + warning_text(
+                        "NÃO BLOQUEADA PELO ESTADO TERMINAL/DEGRADADO; a tentativa pode recuperar "
+                        "esses itens sem exigir conversão para SUCCESS antes da IA"
                     )
                 )
             else:

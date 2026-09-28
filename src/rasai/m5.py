@@ -73,19 +73,16 @@ class _ExecutionState:
         return self.global_results.get(rule_id)
 
 
-def execute_m5(
+def execute_m5_foundation_scope(
+    *,
     audit: Audit,
     target: AuditTarget,
     m2_result: M2ExecutionResult,
-    m3_result: M3ExecutionResult,
-    m4_result: M4ExecutionResult,
     persistence: AuditPersistence,
     workspace: AuditWorkspace,
-    *,
     registry: RuleRegistry | None = None,
-) -> M5ExecutionResult:
-    """Execute the deterministic M5 rules while preserving M2 precomputed executions."""
-
+) -> tuple[_ExecutionState, tuple[str, ...], tuple[str, ...]]:
+    """Persist canonical M2-derived and global M5 rules before page/snapshot rules."""
     active_registry = registry or baseline_registry()
     _validate_registry(active_registry)
     resolver = DependencyResolver()
@@ -94,7 +91,6 @@ def execute_m5(
     execution_ids: list[str] = []
     finding_ids: list[str] = []
 
-    # M2 legitimately introduced the first technical RuleExecutions before M5.
     for execution_id in m2_result.rule_execution_ids:
         execution = persistence.rule_executions.get(execution_id)
         if execution is None:
@@ -109,12 +105,12 @@ def execute_m5(
         if finding is not None:
             finding_ids.append(finding.finding_id)
 
-    global_specs = (
+    for rule_id, evaluation in (
         ("BR-GEO-001", _evaluate_target(audit, target)),
         ("BR-GEO-003", _evaluate_sitemaps(m2_result)),
         ("BR-GEO-017", _evaluate_robots(m2_result)),
-    )
-    for rule_id, evaluation in global_specs:
+        ("BR-GEO-018", _evaluate_crawlers(m2_result)),
+    ):
         execution = _execute_new(
             definition=active_registry.get(rule_id),
             evaluation=evaluation,
@@ -132,22 +128,126 @@ def execute_m5(
         if finding is not None:
             finding_ids.append(finding.finding_id)
 
-    execution = _execute_new(
-        definition=active_registry.get("BR-GEO-018"),
-        evaluation=_evaluate_crawlers(m2_result),
-        audit_id=audit.audit_id,
-        page_id=None,
-        snapshot_id=None,
-        device=None,
-        manager=manager,
+    return state, tuple(execution_ids), tuple(finding_ids)
+
+
+def execute_m5_page_scope(
+    *,
+    audit_id: str,
+    page_id: str,
+    acquisition: object,
+    snapshot_ids: dict[DeviceContext, str],
+    m2_result: object,
+    persistence: AuditPersistence,
+    workspace: AuditWorkspace,
+    state: _ExecutionState,
+    registry: RuleRegistry,
+    resolver: DependencyResolver,
+    manager: EvidenceManager,
+    m3_failures: set[tuple[str, DeviceContext]] | frozenset[tuple[str, DeviceContext]] = frozenset(),
+    m4_failures: dict[str, str] | None = None,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Execute canonical M5 page/snapshot rules for one effective page scope.
+
+    Initial execution iterates every page through this function. RPR calls the same
+    function only for affected page/snapshot scopes after archiving the prior derived
+    rows, so rule calculations and dependency semantics cannot drift.
+    """
+    active_m4_failures = m4_failures or {}
+    execution_ids: list[str] = []
+    finding_ids: list[str] = []
+
+    for rule_id, evaluation in (
+        ("BR-GEO-006", _evaluate_final_response(acquisition)),
+        ("BR-GEO-008", _evaluate_redirect_materiality(acquisition)),
+        ("BR-GEO-009", _evaluate_analyzable_html(acquisition)),
+    ):
+        execution = _execute_new(
+            definition=registry.get(rule_id),
+            evaluation=evaluation,
+            audit_id=audit_id,
+            page_id=page_id,
+            snapshot_id=None,
+            device=None,
+            manager=manager,
+            persistence=persistence,
+            resolver=resolver,
+            state=state,
+        )
+        execution_ids.append(execution.rule_execution_id)
+        finding = _persist_finding_if_needed(registry.get(rule_id), execution, persistence)
+        if finding is not None:
+            finding_ids.append(finding.finding_id)
+
+    for device, snapshot_id in snapshot_ids.items():
+        snapshot = persistence.snapshots.get(snapshot_id)
+        if snapshot is None:
+            raise ValueError(f"snapshot not re-openable: {snapshot_id}")
+
+        snapshot_specs = (
+            (
+                "BR-GEO-010",
+                _evaluate_rendering(
+                    snapshot_id=snapshot_id,
+                    render_failed=(page_id, device) in m3_failures,
+                    extraction_failure=active_m4_failures.get(snapshot_id),
+                    main_content_ref=snapshot.main_content_ref,
+                ),
+            ),
+            ("BR-GEO-011", _evaluate_index_directives(acquisition, snapshot.meta_robots)),
+            ("BR-GEO-012", _evaluate_noindex(acquisition, snapshot.meta_robots)),
+            ("BR-GEO-013", _evaluate_canonical(snapshot, workspace)),
+            ("BR-GEO-014", _evaluate_canonical_target(snapshot, m2_result)),
+            ("BR-GEO-015", _evaluate_raw_rendered_indexability(snapshot, workspace)),
+            ("BR-GEO-016", _evaluate_soft404(snapshot, acquisition, workspace)),
+        )
+        for rule_id, evaluation in snapshot_specs:
+            execution = _execute_new(
+                definition=registry.get(rule_id),
+                evaluation=evaluation,
+                audit_id=audit_id,
+                page_id=page_id,
+                snapshot_id=snapshot_id,
+                device=device,
+                manager=manager,
+                persistence=persistence,
+                resolver=resolver,
+                state=state,
+            )
+            execution_ids.append(execution.rule_execution_id)
+            finding = _persist_finding_if_needed(registry.get(rule_id), execution, persistence)
+            if finding is not None:
+                finding_ids.append(finding.finding_id)
+
+    return tuple(execution_ids), tuple(finding_ids)
+
+
+def execute_m5(
+    audit: Audit,
+    target: AuditTarget,
+    m2_result: M2ExecutionResult,
+    m3_result: M3ExecutionResult,
+    m4_result: M4ExecutionResult,
+    persistence: AuditPersistence,
+    workspace: AuditWorkspace,
+    *,
+    registry: RuleRegistry | None = None,
+) -> M5ExecutionResult:
+    """Execute the deterministic M5 rules while preserving M2 precomputed executions."""
+
+    active_registry = registry or baseline_registry()
+    state, foundation_execution_ids, foundation_finding_ids = execute_m5_foundation_scope(
+        audit=audit,
+        target=target,
+        m2_result=m2_result,
         persistence=persistence,
-        resolver=resolver,
-        state=state,
+        workspace=workspace,
+        registry=active_registry,
     )
-    execution_ids.append(execution.rule_execution_id)
-    finding = _persist_finding_if_needed(active_registry.get("BR-GEO-018"), execution, persistence)
-    if finding is not None:
-        finding_ids.append(finding.finding_id)
+    resolver = DependencyResolver()
+    manager = EvidenceManager(persistence)
+    execution_ids: list[str] = list(foundation_execution_ids)
+    finding_ids: list[str] = list(foundation_finding_ids)
 
     m3_failures = {(item.page_id, item.device) for item in m3_result.failures}
     m4_failures = {item.snapshot_id: item.error_kind for item in m4_result.failures}
@@ -155,68 +255,23 @@ def execute_m5(
     for discovered in m2_result.discovery.pages:
         page_id = m2_result.page_ids[discovered.normalized_url]
         acquisition = m2_result.discovery.page_acquisitions[discovered.normalized_url]
-
-        for rule_id, evaluation in (
-            ("BR-GEO-006", _evaluate_final_response(acquisition)),
-            ("BR-GEO-008", _evaluate_redirect_materiality(acquisition)),
-            ("BR-GEO-009", _evaluate_analyzable_html(acquisition)),
-        ):
-            execution = _execute_new(
-                definition=active_registry.get(rule_id),
-                evaluation=evaluation,
-                audit_id=audit.audit_id,
-                page_id=page_id,
-                snapshot_id=None,
-                device=None,
-                manager=manager,
-                persistence=persistence,
-                resolver=resolver,
-                state=state,
-            )
-            execution_ids.append(execution.rule_execution_id)
-            finding = _persist_finding_if_needed(active_registry.get(rule_id), execution, persistence)
-            if finding is not None:
-                finding_ids.append(finding.finding_id)
-
-        for device, snapshot_id in m3_result.snapshot_ids.get(page_id, {}).items():
-            snapshot = persistence.snapshots.get(snapshot_id)
-            if snapshot is None:
-                raise ValueError(f"snapshot not re-openable: {snapshot_id}")
-
-            snapshot_specs = (
-                (
-                    "BR-GEO-010",
-                    _evaluate_rendering(
-                        snapshot_id=snapshot_id,
-                        render_failed=(page_id, device) in m3_failures,
-                        extraction_failure=m4_failures.get(snapshot_id),
-                        main_content_ref=snapshot.main_content_ref,
-                    ),
-                ),
-                ("BR-GEO-011", _evaluate_index_directives(acquisition, snapshot.meta_robots)),
-                ("BR-GEO-012", _evaluate_noindex(acquisition, snapshot.meta_robots)),
-                ("BR-GEO-013", _evaluate_canonical(snapshot, workspace)),
-                ("BR-GEO-014", _evaluate_canonical_target(snapshot, m2_result)),
-                ("BR-GEO-015", _evaluate_raw_rendered_indexability(snapshot, workspace)),
-                ("BR-GEO-016", _evaluate_soft404(snapshot, acquisition, workspace)),
-            )
-            for rule_id, evaluation in snapshot_specs:
-                execution = _execute_new(
-                    definition=active_registry.get(rule_id),
-                    evaluation=evaluation,
-                    audit_id=audit.audit_id,
-                    page_id=page_id,
-                    snapshot_id=snapshot_id,
-                    device=device,
-                    manager=manager,
-                    persistence=persistence,
-                    resolver=resolver,
-                    state=state,
-                )
-                execution_ids.append(execution.rule_execution_id)
-                finding = _persist_finding_if_needed(active_registry.get(rule_id), execution, persistence)
-                if finding is not None:
-                    finding_ids.append(finding.finding_id)
+        scoped_execution_ids, scoped_finding_ids = execute_m5_page_scope(
+            audit_id=audit.audit_id,
+            page_id=page_id,
+            acquisition=acquisition,
+            snapshot_ids=m3_result.snapshot_ids.get(page_id, {}),
+            m2_result=m2_result,
+            persistence=persistence,
+            workspace=workspace,
+            state=state,
+            registry=active_registry,
+            resolver=resolver,
+            manager=manager,
+            m3_failures=m3_failures,
+            m4_failures=m4_failures,
+        )
+        execution_ids.extend(scoped_execution_ids)
+        finding_ids.extend(scoped_finding_ids)
 
     return M5ExecutionResult(
         rule_execution_ids=tuple(execution_ids),

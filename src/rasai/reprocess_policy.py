@@ -40,6 +40,9 @@ _SELECTION_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "HTTP_ACQUISITION",
         "RENDER_CAPTURE",
     ),
+    "TECHNICAL_AI": (
+        "DISCOVERY_ACQUISITION",
+    ),
     "IMPROVEMENT_INTELLIGENCE": (
         "DISCOVERY_ACQUISITION",
         "HTTP_ACQUISITION",
@@ -263,23 +266,28 @@ def blocking_dependencies(workspace: Any, item: Any) -> tuple[str, ...]:
         except Exception:
             pass
     elif component == "TECHNICAL_AI":
+        # The canonical technical-AI gate (used in initial execution and RPR) is
+        # evidence-based on robots/sitemap/crawler rules. Discovery is the only live
+        # prerequisite that can materialize that evidence; render/extraction are not.
         wanted.extend(
             candidate
             for candidate in work
-            if str(candidate.component) in {"RENDER_CAPTURE", "CONTENT_EXTRACTION"}
+            if str(candidate.component) == "DISCOVERY_ACQUISITION"
         )
     elif component == "IMPROVEMENT_INTELLIGENCE":
-        # CAT-08 is currently single-URL and consumes the persisted page/render/content
-        # context. External services such as GSC/CrUX/SERP are not hard dependencies:
-        # their absence is represented as missing supporting context, not a global gate.
+        # Use exactly the same fulfillment universe as the initial Deep Analysis gate.
+        # CORE_AUDIT is excluded because it is the aggregate/finalizer; Improvement
+        # itself is excluded to avoid self-dependency. Every other required applicable
+        # work-item must have reached a terminal state before the provider phase.
+        from rasai.ai_dependency_contract import deep_analysis_dependency_items
+
         wanted.extend(
             candidate
-            for candidate in work
-            if str(candidate.component) in {
-                "HTTP_ACQUISITION",
-                "RENDER_CAPTURE",
-                "CONTENT_EXTRACTION",
-            }
+            for candidate in deep_analysis_dependency_items(
+                workspace,
+                str(getattr(item, "audit_id", "") or ""),
+            )
+            if str(candidate.work_item_id) != str(getattr(item, "work_item_id", ""))
         )
     elif component in {"WEB_PERFORMANCE", "SYNTHETIC_APDEX"}:
         # Both collectors derive their execution universe from page_snapshots. Do not
@@ -322,11 +330,20 @@ def blocking_dependencies(workspace: Any, item: Any) -> tuple[str, ...]:
                 and str(candidate.scope_key) == page_id
             )
 
-    blockers = {
-        f"{str(candidate.component)}/{str(candidate.scope_key)}"
-        for candidate in wanted
-        if str(getattr(candidate, "status", "")).upper() not in _RESOLVED
-    }
+    if component == "IMPROVEMENT_INTELLIGENCE":
+        from rasai.ai_governance import collection_state_is_terminal
+
+        blockers = {
+            f"{str(candidate.component)}/{str(candidate.scope_key)}"
+            for candidate in wanted
+            if not collection_state_is_terminal(getattr(candidate, "status", None))
+        }
+    else:
+        blockers = {
+            f"{str(candidate.component)}/{str(candidate.scope_key)}"
+            for candidate in wanted
+            if str(getattr(candidate, "status", "")).upper() not in _RESOLVED
+        }
     return tuple(sorted(blockers))
 
 

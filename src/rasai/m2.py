@@ -38,6 +38,143 @@ class M2ExecutionResult:
     rule_execution_ids: tuple[str, ...]
 
 
+def persist_http_observation(
+    *,
+    audit_id: str,
+    page_id: str,
+    acquisition: object,
+    persistence: AuditPersistence,
+    workspace: AuditWorkspace,
+    artifact_reference: str | None = None,
+) -> tuple[str | None, tuple[str, ...]]:
+    """Persist the canonical HTTP evidence shape used by initial execution and RPR.
+
+    RPR may supply a versioned artifact reference under its own archive namespace.
+    The evidence payload itself is intentionally identical to the initial M2 path.
+    """
+    if artifact_reference is None:
+        artifact_reference = _write_body_artifact(
+            workspace,
+            f"page-{page_id}",
+            acquisition.body,
+        )
+    evidence_ids: list[str] = []
+    response_evidence = Evidence(
+        evidence_id=new_id("EV-GEO"),
+        audit_id=audit_id,
+        page_id=page_id,
+        snapshot_id=None,
+        device=None,
+        evidence_type=EvidenceType.HTTP_RESPONSE,
+        source="http",
+        observed_value=_http_observed_value(acquisition),
+        artifact_reference=artifact_reference,
+        captured_at=utc_now(),
+    )
+    persistence.evidence.add(response_evidence)
+    evidence_ids.append(response_evidence.evidence_id)
+
+    if acquisition.headers:
+        header_evidence = Evidence(
+            evidence_id=new_id("EV-GEO"),
+            audit_id=audit_id,
+            page_id=page_id,
+            snapshot_id=None,
+            device=None,
+            evidence_type=EvidenceType.HTTP_HEADER,
+            source="http",
+            observed_value={"headers": [list(item) for item in acquisition.headers]},
+            artifact_reference=None,
+            captured_at=utc_now(),
+        )
+        persistence.evidence.add(header_evidence)
+        evidence_ids.append(header_evidence.evidence_id)
+    return artifact_reference, tuple(evidence_ids)
+
+
+def build_http_rule_executions(
+    *,
+    audit_id: str,
+    page_id: str,
+    acquisition: object,
+    evidence_ids: tuple[str, ...],
+) -> tuple[RuleExecution, RuleExecution, RuleExecution]:
+    """Build the canonical BR-GEO-004/005/007 executions for one HTTP capture."""
+    preserved_execution = RuleExecution(
+        rule_execution_id=new_id("REX"),
+        audit_id=audit_id,
+        rule_id="BR-GEO-004",
+        rule_version=_RULE_VERSION,
+        page_id=page_id,
+        snapshot_id=None,
+        device=None,
+        result=RuleResult.PASS,
+        observed_value={
+            "requested_url": acquisition.requested_url,
+            "final_url": acquisition.final_url,
+            "status": acquisition.status,
+            "network_error": acquisition.network_error.kind.value if acquisition.network_error else None,
+            "body_preserved": bool(acquisition.body),
+        },
+        expected_condition="HTTP acquisition result and body artifact are preserved when available",
+        evidence_ids=evidence_ids,
+        executed_at=utc_now(),
+    )
+
+    retrievable = acquisition.network_error is None and acquisition.status is not None
+    retrievable_execution = RuleExecution(
+        rule_execution_id=new_id("REX"),
+        audit_id=audit_id,
+        rule_id="BR-GEO-005",
+        rule_version=_RULE_VERSION,
+        page_id=page_id,
+        snapshot_id=None,
+        device=None,
+        result=RuleResult.PASS if retrievable else RuleResult.FAIL,
+        observed_value={
+            "status": acquisition.status,
+            "network_error": acquisition.network_error.kind.value if acquisition.network_error else None,
+        },
+        expected_condition="page yields a technical HTTP response without DNS/TLS/connection/timeout failure",
+        evidence_ids=evidence_ids,
+        executed_at=utc_now(),
+    )
+
+    error_kind = acquisition.network_error.kind.value if acquisition.network_error else None
+    if error_kind in _REDIRECT_FAILURES:
+        redirect_result = RuleResult.FAIL
+    elif acquisition.network_error is not None:
+        redirect_result = RuleResult.NOT_APPLICABLE
+    else:
+        redirect_result = RuleResult.PASS
+    redirect_execution = RuleExecution(
+        rule_execution_id=new_id("REX"),
+        audit_id=audit_id,
+        rule_id="BR-GEO-007",
+        rule_version=_RULE_VERSION,
+        page_id=page_id,
+        snapshot_id=None,
+        device=None,
+        result=redirect_result,
+        observed_value={
+            "redirects": [
+                {
+                    "status": hop.status,
+                    "source_url": hop.source_url,
+                    "location": hop.location,
+                    "target_url": hop.target_url,
+                }
+                for hop in acquisition.redirects
+            ],
+            "network_error": error_kind,
+        },
+        expected_condition="redirect chain resolves without loops or invalid hops",
+        evidence_ids=evidence_ids,
+        executed_at=utc_now(),
+    )
+    return preserved_execution, retrievable_execution, redirect_execution
+
+
 def execute_m2(
     audit: Audit,
     target: AuditTarget,
@@ -141,44 +278,16 @@ def execute_m2(
     raw_artifact_refs: dict[str, str | None] = {}
     for url, acquisition in discovery.page_acquisitions.items():
         page_id = page_ids[url]
-        artifact_reference = _write_body_artifact(
-            workspace,
-            f"page-{page_id}",
-            acquisition.body,
-        )
-        raw_artifact_refs[url] = artifact_reference
-        response_evidence = Evidence(
-            evidence_id=new_id("EV-GEO"),
+        artifact_reference, persisted_ids = persist_http_observation(
             audit_id=audit.audit_id,
             page_id=page_id,
-            snapshot_id=None,
-            device=None,
-            evidence_type=EvidenceType.HTTP_RESPONSE,
-            source="http",
-            observed_value=_http_observed_value(acquisition),
-            artifact_reference=artifact_reference,
-            captured_at=utc_now(),
+            acquisition=acquisition,
+            persistence=persistence,
+            workspace=workspace,
         )
-        persistence.evidence.add(response_evidence)
-        evidence_ids.append(response_evidence.evidence_id)
-        http_evidence.setdefault(url, []).append(response_evidence.evidence_id)
-
-        if acquisition.headers:
-            header_evidence = Evidence(
-                evidence_id=new_id("EV-GEO"),
-                audit_id=audit.audit_id,
-                page_id=page_id,
-                snapshot_id=None,
-                device=None,
-                evidence_type=EvidenceType.HTTP_HEADER,
-                source="http",
-                observed_value={"headers": [list(item) for item in acquisition.headers]},
-                artifact_reference=None,
-                captured_at=utc_now(),
-            )
-            persistence.evidence.add(header_evidence)
-            evidence_ids.append(header_evidence.evidence_id)
-            http_evidence[url].append(header_evidence.evidence_id)
+        raw_artifact_refs[url] = artifact_reference
+        evidence_ids.extend(persisted_ids)
+        http_evidence[url] = list(persisted_ids)
 
     robots_artifact = _write_body_artifact(
         workspace,
@@ -246,84 +355,14 @@ def execute_m2(
 
         acquisition = discovery.page_acquisitions[url]
         http_ids = tuple(http_evidence[url])
-        preserved_execution = RuleExecution(
-            rule_execution_id=new_id("REX"),
+        for execution in build_http_rule_executions(
             audit_id=audit.audit_id,
-            rule_id="BR-GEO-004",
-            rule_version=_RULE_VERSION,
             page_id=page.page_id,
-            snapshot_id=None,
-            device=None,
-            result=RuleResult.PASS,
-            observed_value={
-                "requested_url": acquisition.requested_url,
-                "final_url": acquisition.final_url,
-                "status": acquisition.status,
-                "network_error": acquisition.network_error.kind.value if acquisition.network_error else None,
-                "body_preserved": bool(acquisition.body),
-            },
-            expected_condition="HTTP acquisition result and body artifact are preserved when available",
+            acquisition=acquisition,
             evidence_ids=http_ids,
-            executed_at=utc_now(),
-        )
-        persistence.rule_executions.add(preserved_execution)
-        rule_execution_ids.append(preserved_execution.rule_execution_id)
-
-        retrievable = acquisition.network_error is None and acquisition.status is not None
-        retrievable_execution = RuleExecution(
-            rule_execution_id=new_id("REX"),
-            audit_id=audit.audit_id,
-            rule_id="BR-GEO-005",
-            rule_version=_RULE_VERSION,
-            page_id=page.page_id,
-            snapshot_id=None,
-            device=None,
-            result=RuleResult.PASS if retrievable else RuleResult.FAIL,
-            observed_value={
-                "status": acquisition.status,
-                "network_error": acquisition.network_error.kind.value if acquisition.network_error else None,
-            },
-            expected_condition="page yields a technical HTTP response without DNS/TLS/connection/timeout failure",
-            evidence_ids=http_ids,
-            executed_at=utc_now(),
-        )
-        persistence.rule_executions.add(retrievable_execution)
-        rule_execution_ids.append(retrievable_execution.rule_execution_id)
-
-        error_kind = acquisition.network_error.kind.value if acquisition.network_error else None
-        if error_kind in _REDIRECT_FAILURES:
-            redirect_result = RuleResult.FAIL
-        elif acquisition.network_error is not None:
-            redirect_result = RuleResult.NOT_APPLICABLE
-        else:
-            redirect_result = RuleResult.PASS
-        redirect_execution = RuleExecution(
-            rule_execution_id=new_id("REX"),
-            audit_id=audit.audit_id,
-            rule_id="BR-GEO-007",
-            rule_version=_RULE_VERSION,
-            page_id=page.page_id,
-            snapshot_id=None,
-            device=None,
-            result=redirect_result,
-            observed_value={
-                "redirects": [
-                    {
-                        "status": hop.status,
-                        "source_url": hop.source_url,
-                        "location": hop.location,
-                        "target_url": hop.target_url,
-                    }
-                    for hop in acquisition.redirects
-                ],
-                "network_error": error_kind,
-            },
-            expected_condition="redirect chain resolves without loops or invalid hops",
-            evidence_ids=http_ids,
-            executed_at=utc_now(),
-        )
-        persistence.rule_executions.add(redirect_execution)
-        rule_execution_ids.append(redirect_execution.rule_execution_id)
+        ):
+            persistence.rule_executions.add(execution)
+            rule_execution_ids.append(execution.rule_execution_id)
 
     limitations = list(discovering.limitations)
     if discovery.limit_reached:

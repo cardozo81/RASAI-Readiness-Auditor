@@ -495,39 +495,33 @@ def _refresh_m8(workspace: AuditWorkspace, audit_id: str, reprocess_id: str) -> 
 
 
 def _refresh_integrity_rule(workspace: AuditWorkspace, audit_id: str, reprocess_id: str) -> None:
-    from rasai.pre_scoring_rules import _persist
-    _clear_rule(workspace,audit_id=audit_id,rule_id="BR-GEO-053",reprocess_id=reprocess_id,component="DERIVED_RECOMPUTE")
+    from rasai.pre_scoring_rules import execute_finding_integrity_rule
+
+    _clear_rule(
+        workspace,
+        audit_id=audit_id,
+        rule_id="BR-GEO-053",
+        reprocess_id=reprocess_id,
+        component="DERIVED_RECOMPUTE",
+    )
     with AuditPersistence(workspace) as persistence:
-        connection=sqlite3.connect(workspace.database)
+        connection = sqlite3.connect(workspace.database)
         try:
-            ids=tuple(str(row[0]) for row in connection.execute(
-                "SELECT finding_id FROM findings WHERE audit_id=? AND rule_id<>'BR-GEO-053' ORDER BY finding_id",(audit_id,),
-            ).fetchall())
+            ids = tuple(
+                str(row[0])
+                for row in connection.execute(
+                    "SELECT finding_id FROM findings WHERE audit_id=? AND rule_id<>'BR-GEO-053' ORDER BY finding_id",
+                    (audit_id,),
+                ).fetchall()
+            )
         finally:
             connection.close()
-        invalid:list[dict[str,str]]=[]
-        checked=0
-        for finding_id in ids:
-            finding=persistence.findings.get(finding_id)
-            if finding is None:
-                invalid.append({"finding_id":finding_id,"reason":"FINDING_NOT_REOPENABLE"})
-                continue
-            checked += 1
-            execution=persistence.rule_executions.get(finding.rule_execution_id)
-            if execution is None:
-                invalid.append({"finding_id":finding_id,"reason":"RULE_EXECUTION_NOT_REOPENABLE"})
-                continue
-            for evidence_id in finding.evidence_ids:
-                if persistence.evidence.get(evidence_id) is None:
-                    invalid.append({"finding_id":finding_id,"reason":f"EVIDENCE_NOT_REOPENABLE:{evidence_id}"})
-        _persist(
-            audit_id=audit_id,page_id=None,snapshot_id=None,device=None,rule_id="BR-GEO-053",
-            title="Every finding must be fully traceable",category="AUDITOR_INTEGRITY",severity=Severity.CRITICAL,
-            result=RuleResult.FAIL if invalid else RuleResult.PASS,observed={"checked_findings":checked,"invalid":invalid},
-            expected="every supplied finding reopens its RuleExecution and every referenced Evidence",
-            manager=EvidenceManager(persistence),persistence=persistence,
+        execute_finding_integrity_rule(
+            audit_id=audit_id,
+            finding_ids_to_validate=ids,
+            manager=EvidenceManager(persistence),
+            persistence=persistence,
         )
-
 
 def _reset_scores(workspace: AuditWorkspace, audit_id: str, reprocess_id: str) -> None:
     # An interrupted AUD may legitimately never have reached M9. In that state the

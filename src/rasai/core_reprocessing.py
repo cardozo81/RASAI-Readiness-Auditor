@@ -523,45 +523,6 @@ def _load_acquisition(workspace: AuditWorkspace, page_id: str) -> HttpAcquisitio
     )
 
 
-def _replace_http_rules(
-    workspace: AuditWorkspace,
-    *,
-    audit_id: str,
-    page_id: str,
-    acquisition: HttpAcquisitionResult,
-    evidence_ids: tuple[str, ...],
-    reprocess_id: str,
-) -> None:
-    _archive_rule_scope(
-        workspace,audit_id=audit_id,reprocess_id=reprocess_id,
-        rule_ids=("BR-GEO-004","BR-GEO-005","BR-GEO-007"),page_id=page_id,
-    )
-    error_kind = acquisition.network_error.kind.value if acquisition.network_error else None
-    retrievable = acquisition.network_error is None and acquisition.status is not None
-    if error_kind in _REDIRECT_FAILURES:
-        redirect_result = RuleResult.FAIL
-    elif acquisition.network_error is not None:
-        redirect_result = RuleResult.NOT_APPLICABLE
-    else:
-        redirect_result = RuleResult.PASS
-    executions = (
-        RuleExecution(new_id("REX"),audit_id,"BR-GEO-004","1",page_id,None,None,RuleResult.PASS,
-            {"requested_url":acquisition.requested_url,"final_url":acquisition.final_url,"status":acquisition.status,
-             "network_error":error_kind,"body_preserved":bool(acquisition.body)},
-            "HTTP acquisition result and body artifact are preserved when available",evidence_ids,utc_now()),
-        RuleExecution(new_id("REX"),audit_id,"BR-GEO-005","1",page_id,None,None,
-            RuleResult.PASS if retrievable else RuleResult.FAIL,
-            {"status":acquisition.status,"network_error":error_kind},
-            "page yields a technical HTTP response without DNS/TLS/connection/timeout failure",evidence_ids,utc_now()),
-        RuleExecution(new_id("REX"),audit_id,"BR-GEO-007","1",page_id,None,None,redirect_result,
-            {"redirects":[{"status":hop.status,"source_url":hop.source_url,"location":hop.location,"target_url":hop.target_url} for hop in acquisition.redirects],
-             "network_error":error_kind},"redirect chain resolves without loops or invalid hops",evidence_ids,utc_now()),
-    )
-    with AuditPersistence(workspace) as persistence:
-        for execution in executions:
-            persistence.rule_executions.add(execution)
-
-
 def _archive_incomplete_discovery(
     workspace: AuditWorkspace,
     *,
@@ -650,6 +611,158 @@ def _archive_incomplete_discovery(
     return True, "PARTIAL_DISCOVERY_ARCHIVED"
 
 
+def ensure_m5_foundation_from_persisted_m2(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    reprocess_id: str,
+) -> bool:
+    """Replay canonical M5 foundation from durable M2 evidence without recollection.
+
+    This closes the interruption boundary where M2 committed successfully but the
+    process stopped before M5 materialized BR-GEO-001/003/017/018 and the M2-derived
+    findings. The same M5 executor is used; only its input view is reconstructed from
+    persisted M2 evidence.
+    """
+    from rasai.discovery import RobotsState, SitemapState
+    from rasai.m5 import execute_m5_foundation_scope
+
+    foundation_rules = ("BR-GEO-001", "BR-GEO-003", "BR-GEO-017", "BR-GEO-018")
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        existing_counts = {
+            str(row[0]): int(row[1])
+            for row in connection.execute(
+                """SELECT rule_id,count(*) FROM rule_executions
+                   WHERE audit_id=? AND rule_id IN (?,?,?,?)
+                   GROUP BY rule_id""",
+                (audit_id, *foundation_rules),
+            ).fetchall()
+        }
+        existing = set(existing_counts)
+        if existing == set(foundation_rules) and all(
+            existing_counts.get(rule_id) == 1 for rule_id in foundation_rules
+        ):
+            return True
+
+        robot_row = connection.execute(
+            """SELECT source,observed_value FROM evidence
+               WHERE audit_id=? AND page_id IS NULL AND evidence_type=?
+               ORDER BY captured_at DESC,rowid DESC LIMIT 1""",
+            (audit_id, EvidenceType.ROBOTS_RULE.value),
+        ).fetchone()
+        sitemap_rows = tuple(
+            connection.execute(
+                """SELECT source,observed_value FROM evidence
+                   WHERE audit_id=? AND page_id IS NULL AND evidence_type=?
+                   ORDER BY captured_at,rowid""",
+                (audit_id, EvidenceType.SITEMAP_ENTRY.value),
+            ).fetchall()
+        )
+        m2_rule_ids = tuple(
+            str(row[0])
+            for row in connection.execute(
+                """SELECT rule_execution_id FROM rule_executions
+                   WHERE audit_id=? AND rule_id IN ('BR-GEO-002','BR-GEO-004','BR-GEO-005','BR-GEO-007')
+                   ORDER BY executed_at,rowid""",
+                (audit_id,),
+            ).fetchall()
+        )
+        target_row = connection.execute(
+            "SELECT target_id FROM audit_targets WHERE audit_id=? ORDER BY rowid LIMIT 1",
+            (audit_id,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    if robot_row is None or not sitemap_rows or not m2_rule_ids or target_row is None:
+        return False
+
+    robot_observed = _load(robot_row["observed_value"], {})
+    try:
+        robot_state = RobotsState(str(robot_observed.get("state") or ""))
+    except ValueError:
+        return False
+    crawler_access = robot_observed.get("crawler_access")
+    if not isinstance(crawler_access, dict):
+        return False
+
+    sitemaps: list[Any] = []
+    for row in sitemap_rows:
+        observed = _load(row["observed_value"], {})
+        if "state" not in observed:
+            continue
+        try:
+            state = SitemapState(str(observed.get("state") or ""))
+        except ValueError:
+            return False
+        sitemaps.append(
+            SimpleNamespace(
+                url=str(row["source"] or ""),
+                state=state,
+                error=(str(observed.get("error")) if observed.get("error") is not None else None),
+            )
+        )
+    if not sitemaps:
+        return False
+
+    # Remove only a partially materialized foundation and its derived findings.
+    if existing:
+        _archive_rule_scope(
+            workspace,
+            audit_id=audit_id,
+            reprocess_id=reprocess_id,
+            rule_ids=foundation_rules,
+        )
+
+    marks = ",".join("?" for _ in m2_rule_ids)
+    prior_findings = _archive_rows_for_query(
+        workspace,
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        component="M5_FOUNDATION",
+        entity_type="m2_derived_finding",
+        id_field="finding_id",
+        sql=f"SELECT * FROM findings WHERE rule_execution_id IN ({marks})",
+        params=m2_rule_ids,
+    )
+    if prior_findings:
+        connection = sqlite3.connect(workspace.database)
+        try:
+            with connection:
+                connection.execute(
+                    f"DELETE FROM findings WHERE rule_execution_id IN ({marks})",
+                    m2_rule_ids,
+                )
+        finally:
+            connection.close()
+
+    with AuditPersistence(workspace) as persistence:
+        audit = persistence.audits.get(audit_id)
+        target = persistence.targets.get(str(target_row["target_id"]))
+        if audit is None or target is None:
+            return False
+        m2_view = SimpleNamespace(
+            discovery=SimpleNamespace(
+                sitemaps=tuple(sitemaps),
+                robots=SimpleNamespace(
+                    state=robot_state,
+                    url=str(robot_row["source"] or ""),
+                    crawler_access=crawler_access,
+                ),
+            ),
+            rule_execution_ids=m2_rule_ids,
+        )
+        execute_m5_foundation_scope(
+            audit=audit,
+            target=target,
+            m2_result=m2_view,
+            persistence=persistence,
+            workspace=workspace,
+        )
+    return True
+
+
 def _recover_discovery(
     workspace: AuditWorkspace,
     audit_id: str,
@@ -699,6 +812,16 @@ def _recover_discovery(
             workspace,
             explicit_urls=explicit_urls,
         )
+        if result.page_ids:
+            from rasai.m5 import execute_m5_foundation_scope
+
+            execute_m5_foundation_scope(
+                audit=audit,
+                target=target,
+                m2_result=result,
+                persistence=persistence,
+                workspace=workspace,
+            )
     if not result.page_ids:
         return False, "DISCOVERY_RETURNED_NO_PAGES", set()
     return True, "DISCOVERY_ACQUISITION_RECOVERED", set()
@@ -709,22 +832,42 @@ def _recover_http(workspace: AuditWorkspace, audit_id: str, item: WorkItem, repr
     url = str(item.configuration.get("url") or "").strip()
     if not url:
         return False,"PAGE_URL_UNAVAILABLE",set()
+
     acquisition = HttpClient().acquire(url)
-    artifact_ref = _write_artifact(workspace,reprocess_id,"http",f"{page_id}.response",acquisition.body)
-    from rasai import m2
-    response = Evidence(
-        new_id("EV-GEO"),audit_id,page_id,None,None,EvidenceType.HTTP_RESPONSE,"http",
-        m2._http_observed_value(acquisition),artifact_ref,utc_now(),
+    artifact_ref = _write_artifact(
+        workspace,
+        reprocess_id,
+        "http",
+        f"{page_id}.response",
+        acquisition.body,
     )
-    evidence_ids: list[str] = []
+    _archive_rule_scope(
+        workspace,
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        rule_ids=("BR-GEO-004","BR-GEO-005","BR-GEO-007"),
+        page_id=page_id,
+    )
+
+    # Persist exactly the same evidence shape and rule calculations as initial M2.
+    from rasai import m2
     with AuditPersistence(workspace) as persistence:
-        persistence.evidence.add(response)
-        evidence_ids.append(response.evidence_id)
-        if acquisition.headers:
-            header = Evidence(new_id("EV-GEO"),audit_id,page_id,None,None,EvidenceType.HTTP_HEADER,"http",
-                {"headers":[list(value) for value in acquisition.headers]},None,utc_now())
-            persistence.evidence.add(header)
-            evidence_ids.append(header.evidence_id)
+        artifact_ref, evidence_ids = m2.persist_http_observation(
+            audit_id=audit_id,
+            page_id=page_id,
+            acquisition=acquisition,
+            persistence=persistence,
+            workspace=workspace,
+            artifact_reference=artifact_ref,
+        )
+        for execution in m2.build_http_rule_executions(
+            audit_id=audit_id,
+            page_id=page_id,
+            acquisition=acquisition,
+            evidence_ids=evidence_ids,
+        ):
+            persistence.rule_executions.add(execution)
+
     if artifact_ref:
         connection = sqlite3.connect(workspace.database)
         try:
@@ -735,10 +878,7 @@ def _recover_http(workspace: AuditWorkspace, audit_id: str, item: WorkItem, repr
                 )
         finally:
             connection.close()
-    _replace_http_rules(
-        workspace,audit_id=audit_id,page_id=page_id,acquisition=acquisition,
-        evidence_ids=tuple(evidence_ids),reprocess_id=reprocess_id,
-    )
+
     connection = sqlite3.connect(workspace.database)
     try:
         snapshots = {str(row[0]) for row in connection.execute(
@@ -773,6 +913,75 @@ def _archive_snapshot(workspace: AuditWorkspace, *, audit_id: str, snapshot_id: 
             entity_type="page_snapshot",id_field="snapshot_id",rows=(dict(row),),
         )
 
+    # M3-owned DOM observations are effective-state data. Archive and replace them
+    # when the same snapshot context is recovered so old and new render observations
+    # cannot be mixed by later finding linkage.
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        element_table = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='element_observations'"
+        ).fetchone()
+        observations = tuple(
+            dict(value)
+            for value in connection.execute(
+                "SELECT * FROM element_observations WHERE snapshot_id=? ORDER BY rowid",
+                (snapshot_id,),
+            ).fetchall()
+        ) if element_table else ()
+        visual_evidence = tuple(
+            dict(value)
+            for value in connection.execute(
+                """SELECT * FROM evidence
+                   WHERE audit_id=? AND snapshot_id=?
+                     AND evidence_type=? AND source='chromium:viewport'
+                   ORDER BY rowid""",
+                (audit_id,snapshot_id,EvidenceType.VISUAL_SNAPSHOT.value),
+            ).fetchall()
+        )
+    finally:
+        connection.close()
+
+    if observations:
+        archive_rows(
+            workspace,
+            audit_id=audit_id,
+            reprocess_id=reprocess_id,
+            component=component,
+            entity_type="element_observation",
+            id_field="element_observation_id",
+            rows=observations,
+        )
+    if visual_evidence:
+        archive_rows(
+            workspace,
+            audit_id=audit_id,
+            reprocess_id=reprocess_id,
+            component=component,
+            entity_type="visual_evidence",
+            id_field="evidence_id",
+            rows=visual_evidence,
+        )
+    if observations or visual_evidence:
+        connection = sqlite3.connect(workspace.database)
+        connection.execute("PRAGMA foreign_keys=ON")
+        try:
+            with connection:
+                if observations:
+                    connection.execute(
+                        "DELETE FROM element_observations WHERE snapshot_id=?",
+                        (snapshot_id,),
+                    )
+                if visual_evidence:
+                    connection.execute(
+                        """DELETE FROM evidence
+                           WHERE audit_id=? AND snapshot_id=?
+                             AND evidence_type=? AND source='chromium:viewport'""",
+                        (audit_id,snapshot_id,EvidenceType.VISUAL_SNAPSHOT.value),
+                    )
+        finally:
+            connection.close()
+
 
 def _recover_render(
     workspace: AuditWorkspace,
@@ -781,8 +990,16 @@ def _recover_render(
     reprocess_id: str,
     renderer: Any,
 ) -> tuple[bool,str,set[str]]:
+    from rasai import m3
+    from rasai.audit_resume_runtime import expected_devices_for_audit
+
     snapshot_id = item.scope_key
     row = _snapshot_row(workspace,audit_id,snapshot_id)
+    device_context = tuple(
+        DeviceContext(value)
+        for value in expected_devices_for_audit(workspace,audit_id)
+        if value in {"MOBILE","DESKTOP"}
+    )
 
     # A planned item represents a device context that belonged to the original
     # execution contract but never got a PageSnapshot row before interruption.
@@ -807,13 +1024,6 @@ def _recover_render(
         if result.error_kind is not None or not result.rendered_html:
             return False,getattr(result.error_kind,"value",None) or "RENDERED_DOCUMENT_UNAVAILABLE",set()
 
-        snapshot_id = new_id("SNP")
-        rendered_ref = _write_artifact(
-            workspace,reprocess_id,"rendered",f"{snapshot_id}.html",result.rendered_html.encode("utf-8")
-        )
-        visual_ref = _write_artifact(
-            workspace,reprocess_id,"visual",f"{snapshot_id}.png",result.screenshot_png or b""
-        )
         connection = sqlite3.connect(workspace.database)
         try:
             raw = connection.execute(
@@ -825,71 +1035,82 @@ def _recover_render(
         finally:
             connection.close()
         raw_ref = str(raw[0]) if raw is not None and raw[0] else None
-        metadata = dict(result.browser_metadata or {})
-        metadata["render_succeeded"] = True
-        metadata["visual_artifact_ref"] = visual_ref
-        metadata["audit_device_context"] = list(
-            __import__("rasai.audit_resume_runtime",fromlist=["expected_devices_for_audit"])
-            .expected_devices_for_audit(workspace,audit_id)
-        )
-        metadata["reprocess_capture"] = {
-            "reprocess_id":reprocess_id,
-            "captured_at":utc_now().isoformat(),
-            "planned_context_recovery":True,
-        }
-        snapshot = PageSnapshot(
-            snapshot_id=snapshot_id,
-            page_id=page_id,
-            device=device,
-            requested_url=url,
-            final_url=result.final_url or acquisition.final_url or url,
-            captured_at=utc_now(),
-            http_status=result.http_status if result.http_status is not None else acquisition.status,
-            content_type=result.content_type or acquisition.header("Content-Type"),
-            rendering_mode="PLAYWRIGHT_CHROMIUM",
-            raw_artifact_ref=raw_ref,
-            rendered_artifact_ref=rendered_ref,
-            browser_metadata=metadata,
-        )
+
         with AuditPersistence(workspace) as persistence:
-            persistence.snapshots.add(snapshot)
-        return True,"PLANNED_RENDER_CAPTURE_RECOVERED",{snapshot_id}
+            page = persistence.pages.get(page_id)
+            if page is None:
+                return False,"PAGE_NOT_FOUND",set()
+            snapshot, _visual_ref = m3.persist_render_capture(
+                page=page,
+                url=url,
+                acquisition=acquisition,
+                raw_artifact_ref=raw_ref,
+                device=device,
+                render_result=result,
+                persistence=persistence,
+                workspace=workspace,
+                audit_device_context=device_context or (device,),
+                artifact_namespace=("reprocess",reprocess_id),
+                reprocess_metadata={
+                    "reprocess_id":reprocess_id,
+                    "captured_at":utc_now().isoformat(),
+                    "planned_context_recovery":True,
+                },
+            )
+        return True,"PLANNED_RENDER_CAPTURE_RECOVERED",{snapshot.snapshot_id}
 
     if row is None:
         return False,"SNAPSHOT_NOT_FOUND",set()
     metadata = _load(row["browser_metadata"],{})
     if bool(metadata.get("render_succeeded")):
         return False,"PERSISTED_RENDER_ARTIFACT_MISSING",set()
+
     device = DeviceContext(str(row["device"]))
-    acquisition = _load_acquisition(workspace,str(row["page_id"]))
-    trace = ([{"url":hop.source_url,"status":hop.status,"location":hop.location} for hop in acquisition.redirects]
-             if acquisition is not None else [])
+    page_id = str(row["page_id"])
+    acquisition = _load_acquisition(workspace,page_id)
+    if acquisition is None:
+        return False,"HTTP_ACQUISITION_REQUIRED",set()
+    trace = [
+        {"url":hop.source_url,"status":hop.status,"location":hop.location}
+        for hop in acquisition.redirects
+    ]
     try:
         result = renderer.render(str(row["requested_url"]),device,preflight_navigation_trace=trace)
     except TypeError:
         result = renderer.render(str(row["requested_url"]),device)
     if result.error_kind is not None or not result.rendered_html:
         return False,getattr(result.error_kind,"value",None) or "RENDERED_DOCUMENT_UNAVAILABLE",set()
-    _archive_snapshot(workspace,audit_id=audit_id,snapshot_id=snapshot_id,reprocess_id=reprocess_id,component=RENDER_CAPTURE)
-    rendered_ref = _write_artifact(workspace,reprocess_id,"rendered",f"{snapshot_id}.html",result.rendered_html.encode("utf-8"))
-    visual_ref = _write_artifact(workspace,reprocess_id,"visual",f"{snapshot_id}.png",result.screenshot_png or b"")
-    metadata.update(dict(result.browser_metadata or {}))
-    metadata["render_succeeded"] = True
-    metadata["visual_artifact_ref"] = visual_ref
-    metadata["reprocess_capture"] = {"reprocess_id":reprocess_id,"captured_at":utc_now().isoformat()}
-    connection = sqlite3.connect(workspace.database)
-    try:
-        with connection:
-            connection.execute(
-                """UPDATE page_snapshots SET final_url=?,http_status=?,content_type=?,rendered_artifact_ref=?,browser_metadata=?
-                   WHERE snapshot_id=?""",
-                (result.final_url or row["final_url"],result.http_status if result.http_status is not None else row["http_status"],
-                 result.content_type or row["content_type"],rendered_ref,json.dumps(metadata,ensure_ascii=False,sort_keys=True),snapshot_id),
-            )
-    finally:
-        connection.close()
-    return True,"RENDER_CAPTURE_RECOVERED",{snapshot_id}
 
+    _archive_snapshot(
+        workspace,
+        audit_id=audit_id,
+        snapshot_id=snapshot_id,
+        reprocess_id=reprocess_id,
+        component=RENDER_CAPTURE,
+    )
+    with AuditPersistence(workspace) as persistence:
+        page = persistence.pages.get(page_id)
+        if page is None:
+            return False,"PAGE_NOT_FOUND",set()
+        m3.persist_render_capture(
+            page=page,
+            url=str(row["requested_url"]),
+            acquisition=acquisition,
+            raw_artifact_ref=str(row["raw_artifact_ref"]) if row["raw_artifact_ref"] else None,
+            device=device,
+            render_result=result,
+            persistence=persistence,
+            workspace=workspace,
+            audit_device_context=device_context or (device,),
+            snapshot_id=snapshot_id,
+            replace_existing=True,
+            artifact_namespace=("reprocess",reprocess_id),
+            reprocess_metadata={
+                "reprocess_id":reprocess_id,
+                "captured_at":utc_now().isoformat(),
+            },
+        )
+    return True,"RENDER_CAPTURE_RECOVERED",{snapshot_id}
 
 def _recover_extraction(workspace: AuditWorkspace, audit_id: str, item: WorkItem, reprocess_id: str) -> tuple[bool,str,set[str]]:
     from rasai.m3 import M3ExecutionResult
@@ -962,10 +1183,10 @@ def _recompute_deterministic_snapshot(
     snapshot_id: str,
     reprocess_id: str,
 ) -> None:
-    """Refresh deterministic page/snapshot rules from current effective evidence."""
+    """Refresh deterministic rules through the same M5/M6 scope executors as initial audit."""
     from rasai import m5, m6
     from rasai.javascript_spa import JavascriptSpaAnalyzer
-    from rasai.rules import DependencyResolver, RuleEvaluation, baseline_registry
+    from rasai.rules import DependencyResolver, baseline_registry
     from rasai.spa_persistence import SnapshotArchitectureWriter
 
     row = _snapshot_row(workspace,audit_id,snapshot_id)
@@ -975,26 +1196,74 @@ def _recompute_deterministic_snapshot(
     acquisition = _load_acquisition(workspace,page_id)
     if acquisition is None:
         return
-    _archive_rule_scope(workspace,audit_id=audit_id,reprocess_id=reprocess_id,rule_ids=("BR-GEO-006","BR-GEO-008","BR-GEO-009"),page_id=page_id)
-    _archive_rule_scope(workspace,audit_id=audit_id,reprocess_id=reprocess_id,rule_ids=tuple(f"BR-GEO-{value:03d}" for value in range(10,17)),snapshot_id=snapshot_id)
-    _archive_rule_scope(workspace,audit_id=audit_id,reprocess_id=reprocess_id,rule_ids=tuple(f"BR-GEO-{value:03d}" for value in range(19,25)),snapshot_id=snapshot_id)
+
+    _archive_rule_scope(
+        workspace,
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        rule_ids=("BR-GEO-006","BR-GEO-008","BR-GEO-009"),
+        page_id=page_id,
+    )
+    _archive_rule_scope(
+        workspace,
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        rule_ids=tuple(f"BR-GEO-{value:03d}" for value in range(10,17)),
+        snapshot_id=snapshot_id,
+    )
+    _archive_rule_scope(
+        workspace,
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        rule_ids=tuple(f"BR-GEO-{value:03d}" for value in range(19,25)),
+        snapshot_id=snapshot_id,
+    )
 
     connection = sqlite3.connect(workspace.database)
     connection.row_factory = sqlite3.Row
     try:
-        pages = tuple(connection.execute("SELECT page_id,normalized_url FROM pages WHERE audit_id=?",(audit_id,)).fetchall())
-        target = connection.execute("SELECT normalized_origin FROM audit_targets WHERE audit_id=? ORDER BY rowid LIMIT 1",(audit_id,)).fetchone()
-        execution_ids = tuple(str(entry[0]) for entry in connection.execute(
-            "SELECT rule_execution_id FROM rule_executions WHERE audit_id=? ORDER BY executed_at,rowid",(audit_id,)
-        ).fetchall())
+        pages = tuple(
+            connection.execute(
+                "SELECT page_id,normalized_url FROM pages WHERE audit_id=? ORDER BY depth,page_id",
+                (audit_id,),
+            ).fetchall()
+        )
+        target = connection.execute(
+            "SELECT normalized_origin FROM audit_targets WHERE audit_id=? ORDER BY rowid LIMIT 1",
+            (audit_id,),
+        ).fetchone()
+        execution_ids = tuple(
+            str(entry[0])
+            for entry in connection.execute(
+                "SELECT rule_execution_id FROM rule_executions WHERE audit_id=? ORDER BY executed_at,rowid",
+                (audit_id,),
+            ).fetchall()
+        )
     finally:
         connection.close()
+
     acquisitions: dict[str,HttpAcquisitionResult] = {}
+    page_ids: dict[str,str] = {}
     for page in pages:
         loaded = _load_acquisition(workspace,str(page["page_id"]))
         if loaded is not None:
-            acquisitions[str(page["normalized_url"])] = loaded
-    m2_view = SimpleNamespace(discovery=SimpleNamespace(page_acquisitions=acquisitions,origin=str(target[0]) if target else ""))
+            normalized_url = str(page["normalized_url"])
+            acquisitions[normalized_url] = loaded
+            page_ids[normalized_url] = str(page["page_id"])
+    origin = str(target[0]) if target else ""
+    m2_view = SimpleNamespace(
+        discovery=SimpleNamespace(
+            page_acquisitions=acquisitions,
+            origin=origin,
+            pages=tuple(
+                SimpleNamespace(normalized_url=url)
+                for url in acquisitions
+            ),
+            limit_reached=False,
+        ),
+        page_ids=page_ids,
+    )
+
     registry = baseline_registry()
     resolver = DependencyResolver()
     with AuditPersistence(workspace) as persistence:
@@ -1004,86 +1273,75 @@ def _recompute_deterministic_snapshot(
             if execution is not None:
                 state.put(execution)
         manager = EvidenceManager(persistence)
-        for rule_id,evaluation in (
-            ("BR-GEO-006",m5._evaluate_final_response(acquisition)),
-            ("BR-GEO-008",m5._evaluate_redirect_materiality(acquisition)),
-            ("BR-GEO-009",m5._evaluate_analyzable_html(acquisition)),
-        ):
-            execution = m5._execute_new(
-                definition=registry.get(rule_id),evaluation=evaluation,audit_id=audit_id,page_id=page_id,
-                snapshot_id=None,device=None,manager=manager,persistence=persistence,resolver=resolver,state=state,
-            )
-            m5._persist_finding_if_needed(registry.get(rule_id),execution,persistence)
         snapshot = persistence.snapshots.get(snapshot_id)
         if snapshot is None:
             return
-        for rule_id,evaluation in (
-            ("BR-GEO-010",m5._evaluate_rendering(snapshot_id=snapshot_id,render_failed=False,extraction_failure=None,main_content_ref=snapshot.main_content_ref)),
-            ("BR-GEO-011",m5._evaluate_index_directives(acquisition,snapshot.meta_robots)),
-            ("BR-GEO-012",m5._evaluate_noindex(acquisition,snapshot.meta_robots)),
-            ("BR-GEO-013",m5._evaluate_canonical(snapshot,workspace)),
-            ("BR-GEO-014",m5._evaluate_canonical_target(snapshot,m2_view)),
-            ("BR-GEO-015",m5._evaluate_raw_rendered_indexability(snapshot,workspace)),
-            ("BR-GEO-016",m5._evaluate_soft404(snapshot,acquisition,workspace)),
-        ):
-            execution = m5._execute_new(
-                definition=registry.get(rule_id),evaluation=evaluation,audit_id=audit_id,page_id=page_id,
-                snapshot_id=snapshot_id,device=snapshot.device,manager=manager,persistence=persistence,resolver=resolver,state=state,
-            )
-            m5._persist_finding_if_needed(registry.get(rule_id),execution,persistence)
+        metadata = snapshot.browser_metadata if isinstance(snapshot.browser_metadata,dict) else {}
+        render_failed = not bool(metadata.get("render_succeeded"))
+        extraction_failure = None if snapshot.main_content_ref else "EXTRACTION_INPUT_UNAVAILABLE"
+        m5.execute_m5_page_scope(
+            audit_id=audit_id,
+            page_id=page_id,
+            acquisition=acquisition,
+            snapshot_ids={snapshot.device:snapshot_id},
+            m2_result=m2_view,
+            persistence=persistence,
+            workspace=workspace,
+            state=state,
+            registry=registry,
+            resolver=resolver,
+            manager=manager,
+            m3_failures={(page_id,snapshot.device)} if render_failed else frozenset(),
+            m4_failures={snapshot_id:extraction_failure} if extraction_failure else {},
+        )
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        prior_ids = tuple(
+            str(entry[0])
+            for entry in connection.execute(
+                "SELECT rule_execution_id FROM rule_executions WHERE audit_id=? ORDER BY executed_at,rowid",
+                (audit_id,),
+            ).fetchall()
+        )
+    finally:
+        connection.close()
 
     with AuditPersistence(workspace) as persistence:
         snapshot = persistence.snapshots.get(snapshot_id)
         if snapshot is None:
             return
-        raw_html = _read_bytes(workspace,snapshot.raw_artifact_ref).decode("utf-8",errors="replace") if _file_exists(workspace,snapshot.raw_artifact_ref) else None
-        rendered_html = _read_bytes(workspace,snapshot.rendered_artifact_ref).decode("utf-8",errors="replace") if _file_exists(workspace,snapshot.rendered_artifact_ref) else None
-        analyzer = JavascriptSpaAnalyzer()
-        comparison = analyzer.compare(raw_html,rendered_html) if raw_html is not None and rendered_html is not None else None
-        classification = comparison.architecture if comparison is not None else snapshot.architecture_classification
-        SnapshotArchitectureWriter(workspace).update(snapshot_id,classification)
-        evaluations: dict[str,Any] = {
-            "BR-GEO-019":m6._evaluate_019(comparison),
-            "BR-GEO-020":m6._evaluate_020(comparison),
-            "BR-GEO-021":m6._evaluate_021(classification,acquisition,rendered_html),
-            "BR-GEO-022":m6._evaluate_022(analyzer,rendered_html,snapshot.final_url or snapshot.requested_url,str(target[0]) if target else ""),
-            "BR-GEO-023":m6._evaluate_023(analyzer,rendered_html,acquisition.status),
-        }
-        if rendered_html is None:
-            evaluations["BR-GEO-024"] = m6._unknown("RENDERED_UNAVAILABLE","lazy-loaded essential content remains recoverable")
-        else:
-            preliminary = analyzer.lazy_loading(rendered_html,after_probe_html=None)
-            same_session = snapshot.browser_metadata.get("bounded_lazy_probe") if isinstance(snapshot.browser_metadata,dict) else None
-            if not preliminary.has_lazy_signals or preliminary.initial_content_recoverable:
-                evaluations["BR-GEO-024"] = m6._evaluate_024(analyzer,rendered_html,None)
-            elif isinstance(same_session,dict) and same_session.get("attempted"):
-                evaluations["BR-GEO-024"] = m6._evaluate_024_same_session(preliminary,same_session)
-            else:
-                evaluations["BR-GEO-024"] = m6._unknown("LAZY_PROBE_UNAVAILABLE_NO_REFETCH","lazy-loaded essential content remains recoverable")
-        connection = sqlite3.connect(workspace.database)
-        try:
-            prior_ids = tuple(str(entry[0]) for entry in connection.execute(
-                "SELECT rule_execution_id FROM rule_executions WHERE audit_id=? ORDER BY executed_at,rowid",(audit_id,)
-            ).fetchall())
-        finally:
-            connection.close()
         prior = m6._PriorState(persistence,prior_ids)
-        resolver = DependencyResolver()
-        manager = EvidenceManager(persistence)
-        for definition in m6._M6_DEFINITIONS:
-            dependency = resolver.resolve(definition,lambda dep,p=page_id,s=snapshot_id: prior.lookup(dep,page_id=p,snapshot_id=s))
-            evaluation = evaluations[definition.rule_id]
-            if not dependency.applicable:
-                evaluation = RuleEvaluation(
-                    result=dependency.result or RuleResult.UNKNOWN,observed_value={"dependency_reason":dependency.reason},
-                    expected_condition=evaluation.expected_condition,reason=dependency.reason,
-                )
-            execution = m6._persist_execution(
-                definition,evaluation,audit_id=audit_id,page_id=page_id,snapshot_id=snapshot_id,
-                device=snapshot.device,manager=manager,persistence=persistence,
+        scoped_ids, _finding_ids, _classification, rendered_outside = m6.execute_m6_snapshot_scope(
+            audit_id=audit_id,
+            page_id=page_id,
+            snapshot_id=snapshot_id,
+            device=snapshot.device,
+            acquisition=acquisition,
+            origin=origin,
+            audited_urls=set(acquisitions),
+            persistence=persistence,
+            workspace=workspace,
+            prior=prior,
+            resolver=DependencyResolver(),
+            manager=EvidenceManager(persistence),
+            writer=SnapshotArchitectureWriter(workspace),
+            analyzer=JavascriptSpaAnalyzer(),
+            lazy_probe=None,
+        )
+        _ = scoped_ids
+        if rendered_outside:
+            audit = persistence.audits.get(audit_id)
+            limit_reached = bool(
+                audit
+                and any(str(value).startswith("MAX_PAGES_REACHED:") for value in audit.limitations)
             )
-            m6._persist_finding(definition,execution,persistence)
-
+            m6.apply_rendered_discovery_limitation(
+                audit_id=audit_id,
+                persistence=persistence,
+                rendered_outside_audit=set(rendered_outside),
+                limit_reached=limit_reached,
+            )
 
 def _invalidate_core_dependents(workspace: AuditWorkspace, audit_id: str) -> bool:
     """Reopen only derived work whose effective inputs changed after core recovery."""
@@ -1158,6 +1416,15 @@ def _wrap_reprocess(original: Any, module: Any):
             successful += int(ok)
             affected.update(changed)
         synchronize_core_work_items(workspace,audit_id)
+
+        # M2 may have completed before a process interruption while M5 had not yet
+        # materialized its global deterministic foundation. Rebuild it from persisted
+        # M2 evidence before any downstream AI/score work in the same RPR.
+        ensure_m5_foundation_from_persisted_m2(
+            workspace,
+            audit_id,
+            reprocess_id,
+        )
 
         for snapshot_id in sorted(affected):
             _recompute_deterministic_snapshot(workspace,audit_id,snapshot_id,reprocess_id)

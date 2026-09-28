@@ -36,6 +36,47 @@ class PreScoringRulesResult:
     finding_ids: tuple[str, ...]
 
 
+def execute_finding_integrity_rule(
+    *,
+    audit_id: str,
+    finding_ids_to_validate: tuple[str, ...],
+    manager: EvidenceManager,
+    persistence: AuditPersistence,
+) -> tuple[RuleExecution, Finding | None]:
+    """Execute canonical BR-GEO-053 over the supplied effective finding universe."""
+    invalid: list[dict[str, str]] = []
+    checked = 0
+    for finding_id in finding_ids_to_validate:
+        finding = persistence.findings.get(finding_id)
+        if finding is None:
+            invalid.append({"finding_id": finding_id, "reason": "FINDING_NOT_REOPENABLE"})
+            continue
+        checked += 1
+        execution = persistence.rule_executions.get(finding.rule_execution_id)
+        if execution is None:
+            invalid.append({"finding_id": finding_id, "reason": "RULE_EXECUTION_NOT_REOPENABLE"})
+            continue
+        for evidence_id in finding.evidence_ids:
+            if persistence.evidence.get(evidence_id) is None:
+                invalid.append({"finding_id": finding_id, "reason": f"EVIDENCE_NOT_REOPENABLE:{evidence_id}"})
+    result = RuleResult.FAIL if invalid else RuleResult.PASS
+    return _persist(
+        audit_id=audit_id,
+        page_id=None,
+        snapshot_id=None,
+        device=None,
+        rule_id="BR-GEO-053",
+        title="Every finding must be fully traceable",
+        category="AUDITOR_INTEGRITY",
+        severity=Severity.CRITICAL,
+        result=result,
+        observed={"checked_findings": checked, "invalid": invalid},
+        expected="every supplied finding reopens its RuleExecution and every referenced Evidence",
+        manager=manager,
+        persistence=persistence,
+    )
+
+
 def execute_pre_scoring_rules(
     *,
     audit_id: str,
@@ -152,35 +193,10 @@ def execute_pre_scoring_rules(
             if finding:
                 findings.append(finding.finding_id)
 
-    # BR-GEO-053 - explicit auditor-integrity rule over findings supplied by the pipeline.
-    invalid: list[dict[str, str]] = []
-    checked = 0
-    for finding_id in finding_ids_to_validate:
-        finding = persistence.findings.get(finding_id)
-        if finding is None:
-            invalid.append({"finding_id": finding_id, "reason": "FINDING_NOT_REOPENABLE"})
-            continue
-        checked += 1
-        execution = persistence.rule_executions.get(finding.rule_execution_id)
-        if execution is None:
-            invalid.append({"finding_id": finding_id, "reason": "RULE_EXECUTION_NOT_REOPENABLE"})
-            continue
-        for evidence_id in finding.evidence_ids:
-            if persistence.evidence.get(evidence_id) is None:
-                invalid.append({"finding_id": finding_id, "reason": f"EVIDENCE_NOT_REOPENABLE:{evidence_id}"})
-    result = RuleResult.FAIL if invalid else RuleResult.PASS
-    execution, finding = _persist(
+    # BR-GEO-053 - same integrity primitive is reused by selective reprocessing.
+    execution, finding = execute_finding_integrity_rule(
         audit_id=audit_id,
-        page_id=None,
-        snapshot_id=None,
-        device=None,
-        rule_id="BR-GEO-053",
-        title="Every finding must be fully traceable",
-        category="AUDITOR_INTEGRITY",
-        severity=Severity.CRITICAL,
-        result=result,
-        observed={"checked_findings": checked, "invalid": invalid},
-        expected="every supplied finding reopens its RuleExecution and every referenced Evidence",
+        finding_ids_to_validate=finding_ids_to_validate,
         manager=manager,
         persistence=persistence,
     )

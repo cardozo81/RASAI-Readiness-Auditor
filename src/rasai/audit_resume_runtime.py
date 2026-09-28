@@ -1102,6 +1102,14 @@ def finalize_resumed_audit(
     reprocess_id: str | None,
 ) -> bool:
     """Finish missing replay-safe derivations and promote CORE_AUDIT only when safe."""
+    if reprocess_id:
+        from rasai.core_reprocessing import ensure_m5_foundation_from_persisted_m2
+
+        ensure_m5_foundation_from_persisted_m2(
+            workspace,
+            audit_id,
+            reprocess_id,
+        )
     if not _all_other_required_resolved(workspace, audit_id):
         return False
 
