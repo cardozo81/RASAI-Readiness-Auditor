@@ -79,7 +79,7 @@ def _register_pending(
     )
 
 
-def test_registered_ai_is_not_globally_blocked_by_unrelated_required_ai(tmp_path: Path) -> None:
+def test_improvement_rpr_uses_same_required_fulfillment_gate_as_initial_audit(tmp_path: Path) -> None:
     workspace = _workspace(tmp_path)
     _register_pending(workspace, "SEMANTIC_AI")
     _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
@@ -88,13 +88,23 @@ def test_registered_ai_is_not_globally_blocked_by_unrelated_required_ai(tmp_path
         workspace,
         AUDIT_ID,
         {},
-    ) == frozenset({"IMPROVEMENT_INTELLIGENCE"})
+    ) == frozenset()
 
+    improvement = next(
+        item
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component == "IMPROVEMENT_INTELLIGENCE"
+    )
+    assert improvement.status == "WAITING_FOR_DATA"
+    assert "SEMANTIC_AI" in str(improvement.last_error_message)
+
+    # Competitive analysis remains independent; only Improvement shares the full
+    # Deep Analysis fulfillment gate from the initial AUD.
     assert runtime._registered_ai_purposes(
         workspace,
         AUDIT_ID,
         {"SEARCH_INTELLIGENCE": "SUCCESS"},
-    ) == frozenset({"IMPROVEMENT_INTELLIGENCE", "COMPETITIVE_INTELLIGENCE"})
+    ) == frozenset({"COMPETITIVE_INTELLIGENCE"})
 
 
 def test_live_measurement_without_adapter_attempt_gets_generic_rpr_provenance(
