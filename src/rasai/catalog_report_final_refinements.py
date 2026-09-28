@@ -345,7 +345,7 @@ def _apdex_samples_html(database: Any, data: Any, *, experience: bool) -> str:
                 ("Navegação", a._fmt_number(sample.get("navigation_duration_ms"), "ms")), ("LCP", a._fmt_number(sample.get("lcp_ms"), "ms")), ("CLS", sample.get("cls")),
                 ("Requisições XHR/fetch", sample.get("xhr_fetch_count")), ("Recursos dinâmicos", sample.get("dynamic_resource_count")), ("Erros JavaScript", sample.get("javascript_error_count")),
                 ("Erros de console", sample.get("console_error_count")), ("Requisições com falha", sample.get("request_failed_count")), ("Falhas em recursos próprios", sample.get("first_party_request_failed_count")),
-                ("Respostas HTTP com erro", sample.get("http_error_count")), ("Rede estabilizada", "Sim" if sample.get("network_settled") else "Não"), ("Frustração forçada por erro", "Sim" if sample.get("error_forced_frustrated") else "Não"),
+                ("Respostas HTTP com erro", sample.get("http_error_count")), ("Violações CSP", sample.get("csp_violation_count")), ("Falhas de imagem", sample.get("failed_image_request_count")), ("Rede estabilizada", "Sim" if sample.get("network_settled") else "Não"), ("Frustração forçada por erro", "Sim" if sample.get("error_forced_frustrated") else "Não"),
                 ("Erro", sample.get("error_message") or sample.get("error_code") or "-"),
             )
             note = "<div class='notice'>O horário representa o <strong>momento persistido da captura da amostra</strong>; não é apresentado como horário de início da navegação. A amostra persiste contagens de falhas por requisição; quando a lista individual de URLs não foi persistida, o relatório não a inventa.</div>"

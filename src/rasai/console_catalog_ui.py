@@ -141,11 +141,19 @@ def _render_context(state: Any, catalog: AuditCatalog) -> None:
                 getattr(state, "apdex_experience_kpm", "USER_ACTION_DURATION"),
             ),
         )
+        info("Erros JavaScript afetam Apdex", "SIM" if bool(getattr(state, "apdex_experience_javascript_errors", True)) else "NÃO")
+        info("Erros de requisição afetam Apdex", "SIM" if bool(getattr(state, "apdex_experience_request_errors", True)) else "NÃO")
+        info("Erros de console afetam Apdex", "SIM" if bool(getattr(state, "apdex_experience_console_errors", False)) else "NÃO")
+        info("Captura de erros JavaScript", "ATIVA" if bool(getattr(state, "apdex_experience_javascript_capture", True)) else "INATIVA")
+        info("Captura de XMLHttpRequest", "ATIVA" if bool(getattr(state, "apdex_experience_xhr_capture", True)) else "INATIVA")
+        info("Captura de Fetch", "ATIVA" if bool(getattr(state, "apdex_experience_fetch_capture", True)) else "INATIVA")
+        info("Captura de console.error", "ATIVA" if bool(getattr(state, "apdex_experience_console_capture", False)) else "INATIVA")
+        info("Máximo de erros detalhados", getattr(state, "apdex_experience_max_error_details", 10))
         info(
-            "Escopo de erros",
+            "Escopo dos erros de requisição",
             configuration_value_info(
                 "RASAI_APDEX_EXPERIENCE_ERROR_SCOPE",
-                getattr(state, "apdex_experience_error_scope", "first-party"),
+                getattr(state, "apdex_experience_error_scope", "all"),
             ),
         )
     elif catalog.id == "CAT-08":

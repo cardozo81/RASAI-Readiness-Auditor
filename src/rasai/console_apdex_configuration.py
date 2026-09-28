@@ -18,13 +18,21 @@ from rasai.console_m23 import State, config_from_state, experience_from_state, s
 from rasai.console_ui import DIM, YELLOW, paint
 from rasai.m25_cli import (
     DEFAULT_UX_CONCURRENCY,
+    DEFAULT_UX_CONSOLE_ERROR_CAPTURE,
+    DEFAULT_UX_CONSOLE_ERRORS_AFFECT,
     DEFAULT_UX_DELAY_SECONDS,
+    DEFAULT_UX_FETCH_CAPTURE,
+    DEFAULT_UX_JAVASCRIPT_ERROR_CAPTURE,
+    DEFAULT_UX_JAVASCRIPT_ERRORS_AFFECT,
+    DEFAULT_UX_MAX_ERROR_DETAILS,
     DEFAULT_UX_DEVICE_MIX,
     DEFAULT_UX_ERROR_SCOPE,
     DEFAULT_UX_FRUSTRATED_SECONDS,
     DEFAULT_UX_KPM,
     DEFAULT_UX_MAX_PAGES,
+    DEFAULT_UX_REQUEST_ERRORS_AFFECT,
     DEFAULT_UX_SAMPLES,
+    DEFAULT_UX_XHR_CAPTURE,
     DEFAULT_UX_SATISFIED_SECONDS,
     DEFAULT_UX_SESSION_MODE,
     DEFAULT_UX_SETTLE_SECONDS,
@@ -37,6 +45,14 @@ from rasai.m25_cli import (
     UX_DEVICE_MIX_ENV,
     UX_ENABLED_ENV,
     UX_ERRORS_ENV,
+    UX_JAVASCRIPT_ERRORS_ENV,
+    UX_REQUEST_ERRORS_ENV,
+    UX_CONSOLE_ERRORS_ENV,
+    UX_JAVASCRIPT_CAPTURE_ENV,
+    UX_XHR_CAPTURE_ENV,
+    UX_FETCH_CAPTURE_ENV,
+    UX_CONSOLE_CAPTURE_ENV,
+    UX_MAX_ERROR_DETAILS_ENV,
     UX_ERROR_SCOPE_ENV,
     UX_FRUSTRATED_ENV,
     UX_KPM_ENV,
@@ -136,8 +152,16 @@ def _show_experience_defaults() -> None:
         (UX_KPM_ENV, DEFAULT_UX_KPM, f"fallback compatível; Dynatrace Load prefere {DYNATRACE_LOAD_PRIMARY_KPM}"),
         (UX_SATISFIED_ENV, f"{DEFAULT_UX_SATISFIED_SECONDS:g}s", "Dynatrace Load fallback/reference"),
         (UX_FRUSTRATED_ENV, f"{DEFAULT_UX_FRUSTRATED_SECONDS:g}s", "Dynatrace Load fallback/reference"),
-        (UX_ERRORS_ENV, "true", "alinhado à semântica Dynatrace de erros frustrantes"),
-        (UX_ERROR_SCOPE_ENV, DEFAULT_UX_ERROR_SCOPE, "RASAi conservador; Dynatrace usa regras por erro"),
+        (UX_ERRORS_ENV, "true", "Dynatrace: erros elegíveis podem tornar a ação Frustrated"),
+        (UX_JAVASCRIPT_ERRORS_ENV, str(DEFAULT_UX_JAVASCRIPT_ERRORS_AFFECT).lower(), "Dynatrace default: JavaScript errors afetam Apdex"),
+        (UX_REQUEST_ERRORS_ENV, str(DEFAULT_UX_REQUEST_ERRORS_AFFECT).lower(), "Dynatrace default: request/HTTP/CSP errors afetam Apdex"),
+        (UX_CONSOLE_ERRORS_ENV, str(DEFAULT_UX_CONSOLE_ERRORS_AFFECT).lower(), "Dynatrace: console.error só participa quando captura é habilitada"),
+        (UX_JAVASCRIPT_CAPTURE_ENV, str(DEFAULT_UX_JAVASCRIPT_ERROR_CAPTURE).lower(), "Dynatrace WebApplicationConfig"),
+        (UX_XHR_CAPTURE_ENV, str(DEFAULT_UX_XHR_CAPTURE).lower(), "Dynatrace WebApplicationConfig"),
+        (UX_FETCH_CAPTURE_ENV, str(DEFAULT_UX_FETCH_CAPTURE).lower(), "Dynatrace WebApplicationConfig"),
+        (UX_CONSOLE_CAPTURE_ENV, str(DEFAULT_UX_CONSOLE_ERROR_CAPTURE).lower(), "Dynatrace: cce=1 é opt-in"),
+        (UX_MAX_ERROR_DETAILS_ENV, DEFAULT_UX_MAX_ERROR_DETAILS, "Dynatrace maxErrorsToCapture"),
+        (UX_ERROR_SCOPE_ENV, DEFAULT_UX_ERROR_SCOPE, "default all aproxima a cobertura padrão Dynatrace; demais escopos são RASAi"),
         (UX_SETTLE_ENV, f"{DEFAULT_UX_SETTLE_SECONDS:g}s", "RASAi"),
         (UX_DELAY_ENV, f"{DEFAULT_UX_DELAY_SECONDS:g}s", "RASAi"),
         (UX_CONCURRENCY_ENV, DEFAULT_UX_CONCURRENCY, "RASAi"),
@@ -165,8 +189,16 @@ def _show_effective_experience(state: State) -> None:
         ("KPM executável", state.apdex_experience_kpm, DEFAULT_UX_KPM),
         ("Satisfied", state.apdex_experience_satisfied, DEFAULT_UX_SATISFIED_SECONDS),
         ("Frustrated", state.apdex_experience_frustrated, DEFAULT_UX_FRUSTRATED_SECONDS),
-        ("Erros afetam", state.apdex_experience_errors, True),
-        ("Escopo erro", state.apdex_experience_error_scope, DEFAULT_UX_ERROR_SCOPE),
+        ("Erros afetam o Apdex", state.apdex_experience_errors, True),
+        ("Erros JavaScript afetam o Apdex", state.apdex_experience_javascript_errors, DEFAULT_UX_JAVASCRIPT_ERRORS_AFFECT),
+        ("Erros de requisição afetam o Apdex", state.apdex_experience_request_errors, DEFAULT_UX_REQUEST_ERRORS_AFFECT),
+        ("Erros de console afetam o Apdex", state.apdex_experience_console_errors, DEFAULT_UX_CONSOLE_ERRORS_AFFECT),
+        ("Captura erros JavaScript", state.apdex_experience_javascript_capture, DEFAULT_UX_JAVASCRIPT_ERROR_CAPTURE),
+        ("Captura XMLHttpRequest", state.apdex_experience_xhr_capture, DEFAULT_UX_XHR_CAPTURE),
+        ("Captura Fetch", state.apdex_experience_fetch_capture, DEFAULT_UX_FETCH_CAPTURE),
+        ("Captura console.error", state.apdex_experience_console_capture, DEFAULT_UX_CONSOLE_ERROR_CAPTURE),
+        ("Máximo de erros detalhados", state.apdex_experience_max_error_details, DEFAULT_UX_MAX_ERROR_DETAILS),
+        ("Escopo dos erros de requisição", state.apdex_experience_error_scope, DEFAULT_UX_ERROR_SCOPE),
         ("Settle", state.apdex_experience_settle, DEFAULT_UX_SETTLE_SECONDS),
         ("Delay", state.apdex_experience_delay, DEFAULT_UX_DELAY_SECONDS),
         ("Concorrência", state.apdex_experience_concurrency, DEFAULT_UX_CONCURRENCY),
@@ -283,10 +315,47 @@ def _configure_experience(state: State) -> None:
         UX_KPM_ENV,
     )
     state.apdex_experience_errors = _yes_no(
-        "Erros qualificáveis forçam Frustrated", state.apdex_experience_errors
+        "Erros qualificáveis podem forçar Frustrated", state.apdex_experience_errors
     )
+    state.apdex_experience_javascript_errors = _yes_no(
+        "Erros JavaScript afetam o Apdex", state.apdex_experience_javascript_errors
+    )
+    state.apdex_experience_request_errors = _yes_no(
+        "Erros de requisição/HTTP/CSP afetam o Apdex", state.apdex_experience_request_errors
+    )
+    state.apdex_experience_console_errors = _yes_no(
+        "Erros de console (console.error) afetam o Apdex", state.apdex_experience_console_errors
+    )
+    print(paint("  Captura e impacto no Apdex são controles independentes.", DIM))
+    state.apdex_experience_javascript_capture = _yes_no(
+        "Capturar erros JavaScript", state.apdex_experience_javascript_capture
+    )
+    state.apdex_experience_xhr_capture = _yes_no(
+        "Capturar XMLHttpRequest (XHR)", state.apdex_experience_xhr_capture
+    )
+    state.apdex_experience_fetch_capture = _yes_no(
+        "Capturar requisições Fetch", state.apdex_experience_fetch_capture
+    )
+    state.apdex_experience_console_capture = _yes_no(
+        "Capturar console.error", state.apdex_experience_console_capture
+    )
+    state.apdex_experience_max_error_details = int(_number(
+        "Máximo de erros detalhados por amostra",
+        state.apdex_experience_max_error_details,
+        minimum=0,
+        integer=True,
+        help_text="default Dynatrace 10; faixa 0..50 por amostra/página carregada. Não trunca os contadores agregados do RASAi.",
+    ))
+    if state.apdex_experience_max_error_details > 50:
+        raise ValueError("Máximo de erros detalhados por amostra deve estar entre 0 e 50")
+    if state.apdex_experience_console_errors and not state.apdex_experience_console_capture:
+        raise ValueError("Para erros de console afetarem o Apdex, habilite também a captura de console.error")
+    print(paint(
+        "  Padrão Dynatrace: JavaScript, XHR e Fetch capturados; console.error desligado salvo cce=1; máximo de 10 erros por página.",
+        DIM,
+    ))
     state.apdex_experience_error_scope = _choice(
-        "Escopo de erros",
+        "Escopo dos erros de requisição",
         state.apdex_experience_error_scope,
         ("navigation", "first-party", "all"),
         UX_ERROR_SCOPE_ENV,
