@@ -212,6 +212,38 @@ def test_optional_recovery_never_refreshes_nonblocking_observability(
     assert evaluated == frozenset({"GOOGLE_SEARCH_CONSOLE"})
 
 
+def test_no_ai_mode_authorizes_data_recovery_but_no_registered_ai_purpose(
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
+    _register_pending(workspace, "RENDER_CAPTURE", temporal_mode=LIVE_RECOLLECTION)
+
+    with reprocess_policy(
+        selected_items=[item_key("IMPROVEMENT_INTELLIGENCE", "AUDIT")],
+        use_ai=False,
+        workspace=workspace,
+        audit_id=AUDIT_ID,
+    ):
+        assert runtime._registered_ai_purposes(workspace, AUDIT_ID, {}) == frozenset()
+        render = next(
+            item
+            for item in list_work_items(workspace, AUDIT_ID)
+            if item.component == "RENDER_CAPTURE"
+        )
+        from rasai.reprocess_policy import item_selected, item_executable
+
+        assert item_selected(render) is True
+        assert item_executable(render) is True
+        improvement = next(
+            item
+            for item in list_work_items(workspace, AUDIT_ID)
+            if item.component == "IMPROVEMENT_INTELLIGENCE"
+        )
+        assert item_selected(improvement) is True
+        assert item_executable(improvement) is False
+
+
 def test_improvement_ai_waits_for_unresolved_prerequisite_before_provider_phase(
     tmp_path: Path,
 ) -> None:
