@@ -19,6 +19,7 @@ on:
       - 'src/rasai/config/rasai-defaults.ini'
       - 'tests/test_passive_security_catalog.py'
       - 'tests/test_issue_56_runtime_intelligence.py'
+      - 'tests/test_issue_58_cookie_assurance.py'
       - 'tests/test_catalog_report_assurance.py'
       - 'tests/test_console_catalog_workflow.py'
       - 'tests/test_catalog_report_site.py'
@@ -41,6 +42,7 @@ on:
       - 'src/rasai/config/rasai-defaults.ini'
       - 'tests/test_passive_security_catalog.py'
       - 'tests/test_issue_56_runtime_intelligence.py'
+      - 'tests/test_issue_58_cookie_assurance.py'
       - 'tests/test_catalog_report_assurance.py'
       - 'tests/test_console_catalog_workflow.py'
       - 'tests/test_catalog_report_site.py'
@@ -92,6 +94,7 @@ jobs:
           pytest -q
           tests/test_passive_security_catalog.py
           tests/test_issue_56_runtime_intelligence.py
+          tests/test_issue_58_cookie_assurance.py
       - name: Run directly affected contract regressions
         run: >-
           pytest -q
