@@ -247,7 +247,7 @@ def recover_web_performance(
     # describe different moments of the same AUD. This performs no network request.
     from rasai.external_metrics_integrity import refresh_external_metrics_integrity_artifact
     refresh_external_metrics_integrity_artifact(audit_id=audit_id, workspace=workspace)
-    return bool(contexts) and successful_contexts == len(contexts)
+    return run_status == "SUCCESS"
 
 
 def _profile_from_persisted(value: Any, *, device: str):
