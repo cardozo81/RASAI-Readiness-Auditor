@@ -1005,6 +1005,7 @@ def _target_label(target: Mapping[str,Any]) -> str:
 
 def _improvement_html(database: Any, data: Any) -> str:
     from rasai import catalog_report_analysis as a
+    from rasai.improvement_intelligence import _safe_ai_suggested_text
     con = sqlite3.connect(database); con.row_factory = sqlite3.Row
     try:
         run = a._last(con, "improvement_intelligence_runs", data.audit_id)
@@ -1050,8 +1051,9 @@ def _improvement_html(database: Any, data: Any) -> str:
                 body += "<h3>Por que esta correção é recomendada</h3><p>" + str(a._rich_text(rec.get("rationale"))) + "</p>"
             if rec.get("suggested_html"):
                 body += "<h3>Exemplo técnico sugerido pela IA</h3><div class='pre'>" + escape(str(rec.get("suggested_html"))) + "</div>"
-            if rec.get("suggested_text"):
-                body += "<h3>Texto / exemplo sugerido pela IA</h3><div class='pre rich-text'>" + str(a._rich_text(rec.get("suggested_text"))) + "</div>"
+            safe_suggested_text = _safe_ai_suggested_text(rec.get("suggested_text"), finding)
+            if safe_suggested_text:
+                body += "<h3>Texto / exemplo sugerido pela IA</h3><div class='pre rich-text'>" + str(a._rich_text(safe_suggested_text)) + "</div>"
             if rec.get("verification"):
                 body += "<h3>Como validar a correção</h3><p>" + str(a._rich_text(rec.get("verification"))) + "</p>"
             body += "<p><a href='cat-09.html'>Ver implementação no CAT-09</a></p>"
@@ -1209,6 +1211,7 @@ def _w3c_remediation_html(database: Any, audit_id: str, a: Any) -> tuple[list[Se
 
 def _remediation_html(database: Any, data: Any) -> str:
     from rasai import catalog_report_analysis as a
+    from rasai.improvement_intelligence import _safe_ai_suggested_text
     con = sqlite3.connect(database); con.row_factory = sqlite3.Row
     try:
         roots = a._audit_rows(con, "root_cause_analyses", data.audit_id)
@@ -1254,7 +1257,8 @@ def _remediation_html(database: Any, data: Any) -> str:
         original = rec.get("original_html") or finding.get("original_html")
         if original: body += "<h3>Situação atual</h3><div class='pre'>" + escape(str(original)) + "</div>"
         if rec.get("suggested_html"): body += "<h3>Proposta corrigida</h3><div class='pre'>" + escape(str(rec.get("suggested_html"))) + "</div>"
-        if rec.get("suggested_text"): body += "<h3>Texto sugerido</h3><div class='pre'>" + escape(str(rec.get("suggested_text"))) + "</div>"
+        safe_suggested_text = _safe_ai_suggested_text(rec.get("suggested_text"), finding)
+        if safe_suggested_text: body += "<h3>Texto sugerido</h3><div class='pre'>" + escape(str(safe_suggested_text)) + "</div>"
         if rec.get("verification"): body += "<h3>Critério de validação / como revalidar</h3><p>" + escape(str(rec.get("verification"))) + "</p>"
         evidence = a._safe_json(rec.get("evidence_ids_json"), [])
         if isinstance(evidence, list) and evidence: body += "<details><summary>Ver referências de evidência</summary><div class='detail-body'><p>" + escape(" · ".join(str(v) for v in evidence)) + "</p></div></details>"
