@@ -87,13 +87,15 @@ def _semantic_attempt_succeeded(
     }
     filters = ["audit_id=?", "snapshot_id=?", "status='SUCCESS'"]
     params: list[Any] = [audit_id, snapshot_id]
-    causal_filters: list[str] = []
-    if "operation" in columns:
-        causal_filters.append("operation='SEMANTIC_M7'")
-    if "semantic_contract_version" in columns:
-        causal_filters.append("semantic_contract_version LIKE 'M18-SEMANTIC-%'")
-    if causal_filters:
-        filters.append("(" + " OR ".join(causal_filters) + ")")
+    if "operation" in columns and "semantic_contract_version" in columns:
+        filters.append(
+            "(operation='SEMANTIC_M7' OR "
+            "(operation IS NULL AND semantic_contract_version LIKE 'M18-SEMANTIC-%'))"
+        )
+    elif "operation" in columns:
+        filters.append("operation='SEMANTIC_M7'")
+    elif "semantic_contract_version" in columns:
+        filters.append("semantic_contract_version LIKE 'M18-SEMANTIC-%'")
     else:
         # Pre-purpose schemas used ai_provider_attempts only for semantic M7.
         # Preserve that legacy compatibility without allowing modern cross-purpose
