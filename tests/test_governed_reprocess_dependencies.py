@@ -238,6 +238,53 @@ def test_registered_ai_filter_executes_only_selected_purpose(monkeypatch, tmp_pa
     assert set(outcomes) == {"A"}
 
 
+def test_deferred_catalog_projection_returns_completion_contract_without_rendering(
+    monkeypatch,
+) -> None:
+    from rasai import directed_analysis, report_completion
+
+    calls: list[str] = []
+    original_catalog = report_completion.materialize_catalog_report_projection
+    monkeypatch.setattr(
+        report_completion,
+        "materialize_catalog_report_projection",
+        lambda **_kwargs: calls.append("catalog") or report_completion.AuditReportCompletion(
+            expected_pages=("index.html",),
+            generated_pages=("index.html",),
+            missing_pages=(),
+            renderer_errors=(),
+        ),
+    )
+    monkeypatch.setattr(
+        report_completion,
+        "finalize_audit_report_site",
+        lambda **_kwargs: calls.append("data-finalizer"),
+    )
+    monkeypatch.setattr(
+        directed_analysis,
+        "reprocess_directed_analysis",
+        lambda **_kwargs: calls.append("directed"),
+    )
+
+    with runtime._defer_mid_reprocess_projection():
+        completion = report_completion.materialize_catalog_report_projection(
+            audit_id=AUDIT_ID,
+            workspace=SimpleNamespace(),
+        )
+        assert completion.renderer_errors == ()
+        assert completion.generated_pages == ()
+        assert calls == []
+
+    # The real callables are restored after the boundary. The exact catalog callable
+    # is the test replacement captured by the context manager, not the module original.
+    assert report_completion.materialize_catalog_report_projection is not original_catalog
+    report_completion.materialize_catalog_report_projection(
+        audit_id=AUDIT_ID,
+        workspace=SimpleNamespace(),
+    )
+    assert calls == ["catalog"]
+
+
 def test_governed_pre_finish_order_defers_catalog_projection(
     monkeypatch,
     tmp_path: Path,

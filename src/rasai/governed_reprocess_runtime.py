@@ -824,9 +824,21 @@ def _defer_mid_reprocess_projection() -> Iterator[tuple[Any, Any, Any]]:
         del args, kwargs
         return None
 
+    def deferred_catalog(*args: Any, **kwargs: Any):
+        # audit_reprocess inspects renderer_errors even while the governed wrapper
+        # intentionally postpones catalog I/O. Preserve that return contract so an
+        # intentional deferral is not logged as a renderer failure.
+        del args, kwargs
+        return report_completion.AuditReportCompletion(
+            expected_pages=(),
+            generated_pages=(),
+            missing_pages=(),
+            renderer_errors=(),
+        )
+
     report_completion.finalize_audit_report_site = deferred
     directed_analysis.reprocess_directed_analysis = deferred
-    report_completion.materialize_catalog_report_projection = deferred
+    report_completion.materialize_catalog_report_projection = deferred_catalog
     try:
         yield data_finalizer, directed_finalizer, catalog_finalizer
     finally:
