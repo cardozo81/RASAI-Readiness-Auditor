@@ -90,6 +90,17 @@ def test_experience_apdex_job_uses_same_default_thresholds_as_cli_runtime() -> N
             frustrated_index = argv.index("--apdex-experience-frustrated-seconds") + 1
             assert argv[satisfied_index] == f"{DEFAULT_UX_SATISFIED_SECONDS:g}"
             assert argv[frustrated_index] == f"{DEFAULT_UX_FRUSTRATED_SECONDS:g}"
+            assert "--apdex-experience-javascript-errors" in argv
+            assert "--apdex-experience-request-errors" in argv
+            assert "--no-apdex-experience-console-errors" in argv
+            assert "--apdex-experience-javascript-error-capture" in argv
+            assert "--apdex-experience-xhr-capture" in argv
+            assert "--apdex-experience-fetch-capture" in argv
+            assert "--no-apdex-experience-console-error-capture" in argv
+            max_error_index = argv.index("--apdex-experience-max-error-details") + 1
+            assert argv[max_error_index] == "10"
+            scope_index = argv.index("--apdex-experience-error-scope") + 1
+            assert argv[scope_index] == "all"
             assert "--no-apdex-dynatrace-import" in argv
 
 

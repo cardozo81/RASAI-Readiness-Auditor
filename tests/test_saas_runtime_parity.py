@@ -4,7 +4,18 @@ import pytest
 
 from rasai.audit_execution_contract import audit_job_defaults, normalize_audit_job_payload
 from rasai.execution_contract import validate_execution_job_payload
-from rasai.m25_cli import DEFAULT_UX_FRUSTRATED_SECONDS, DEFAULT_UX_SATISFIED_SECONDS
+from rasai.m25_cli import (
+    DEFAULT_UX_CONSOLE_ERROR_CAPTURE,
+    DEFAULT_UX_CONSOLE_ERRORS_AFFECT,
+    DEFAULT_UX_FETCH_CAPTURE,
+    DEFAULT_UX_FRUSTRATED_SECONDS,
+    DEFAULT_UX_JAVASCRIPT_ERROR_CAPTURE,
+    DEFAULT_UX_JAVASCRIPT_ERRORS_AFFECT,
+    DEFAULT_UX_MAX_ERROR_DETAILS,
+    DEFAULT_UX_REQUEST_ERRORS_AFFECT,
+    DEFAULT_UX_SATISFIED_SECONDS,
+    DEFAULT_UX_XHR_CAPTURE,
+)
 
 
 def test_saas_experience_apdex_defaults_match_cli_runtime() -> None:
@@ -19,6 +30,26 @@ def test_saas_experience_apdex_defaults_match_cli_runtime() -> None:
     })
     assert normalized["apdex_experience_satisfied_seconds"] == DEFAULT_UX_SATISFIED_SECONDS
     assert normalized["apdex_experience_frustrated_seconds"] == DEFAULT_UX_FRUSTRATED_SECONDS
+    assert normalized["apdex_experience_javascript_errors"] is DEFAULT_UX_JAVASCRIPT_ERRORS_AFFECT
+    assert normalized["apdex_experience_request_errors"] is DEFAULT_UX_REQUEST_ERRORS_AFFECT
+    assert normalized["apdex_experience_console_errors"] is DEFAULT_UX_CONSOLE_ERRORS_AFFECT
+    assert normalized["apdex_experience_javascript_error_capture"] is DEFAULT_UX_JAVASCRIPT_ERROR_CAPTURE
+    assert normalized["apdex_experience_xhr_capture"] is DEFAULT_UX_XHR_CAPTURE
+    assert normalized["apdex_experience_fetch_capture"] is DEFAULT_UX_FETCH_CAPTURE
+    assert normalized["apdex_experience_console_error_capture"] is DEFAULT_UX_CONSOLE_ERROR_CAPTURE
+    assert normalized["apdex_experience_max_error_details"] == DEFAULT_UX_MAX_ERROR_DETAILS
+    assert normalized["apdex_experience_error_scope"] == "all"
+
+
+def test_saas_experience_apdex_console_impact_requires_capture() -> None:
+    with pytest.raises(ValueError, match="console errors can affect Apdex"):
+        normalize_audit_job_payload({
+            "synthetic_apdex": True,
+            "apdex_threshold_seconds": 1.0,
+            "apdex_experience": True,
+            "apdex_experience_console_errors": True,
+            "apdex_experience_console_error_capture": False,
+        })
 
 
 def test_saas_experience_apdex_custom_thresholds_remain_supported() -> None:

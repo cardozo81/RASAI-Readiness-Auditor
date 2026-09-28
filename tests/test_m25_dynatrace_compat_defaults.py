@@ -36,7 +36,10 @@ class M25DynatraceCompatibilityDefaultsTests(unittest.TestCase):
         self.assertEqual(cfg.frustrated_threshold_seconds, 12.0)
         self.assertTrue(cfg.errors_affect_apdex)
         self.assertEqual(cfg.error_scope, DEFAULT_UX_ERROR_SCOPE)
-        self.assertEqual(cfg.error_scope, "first-party")
+        self.assertEqual(cfg.error_scope, "all")
+        self.assertTrue(cfg.javascript_errors_affect_apdex)
+        self.assertTrue(cfg.request_errors_affect_apdex)
+        self.assertFalse(cfg.console_errors_affect_apdex)
 
     def test_console_catalog_matches_runtime_threshold_defaults(self) -> None:
         satisfied = SPEC_BY_NAME[UX_SATISFIED_ENV]
@@ -105,6 +108,72 @@ class M25DynatraceCompatibilityDefaultsTests(unittest.TestCase):
             parsed.metadata["standalone_action_support"]["custom"],
             "NOT_EXECUTABLE_WITHOUT_SCRIPTED_ACTION",
         )
+
+    def test_dynatrace_error_policy_imports_ignore_flags_and_cce(self) -> None:
+        parsed = parse_dynatrace_configuration(
+            {
+                "loadActionKeyPerformanceMetric": "ACTION_DURATION",
+                "loadActionApdexSettings": {
+                    "toleratedThreshold": 3000,
+                    "frustratingThreshold": 12000,
+                },
+                "monitoringSettings": {
+                    "contentCapture": {"javaScriptErrors": True},
+                    "customConfigurationProperties": "foo=bar|cce=1",
+                },
+                "errorRules": {
+                    "ignoreJavaScriptErrorsInApdexCalculation": True,
+                    "ignoreHttpErrorsInApdexCalculation": False,
+                },
+            },
+            source="TEST_DYNATRACE",
+        )
+        policy = parsed.metadata["error_policy"]
+        self.assertFalse(policy["javascript_errors_affect_apdex"])
+        self.assertTrue(policy["request_errors_affect_apdex"])
+        self.assertTrue(policy["console_errors_affect_apdex"])
+
+    def test_dynatrace_http_error_rules_are_sanitized_for_runtime_matching(self) -> None:
+        parsed = parse_dynatrace_configuration(
+            {
+                "loadActionKeyPerformanceMetric": "ACTION_DURATION",
+                "loadActionApdexSettings": {
+                    "toleratedThreshold": 3000,
+                    "frustratingThreshold": 12000,
+                },
+                "errorRules": {
+                    "ignoreHttpErrorsInApdexCalculation": False,
+                    "httpErrorRules": [
+                        {
+                            "capture": True,
+                            "impactApdex": False,
+                            "considerBlockedRequests": False,
+                            "considerUnknownErrorCode": False,
+                            "errorCodes": "404,410",
+                            "filterByUrl": True,
+                            "filter": "CONTAINS",
+                            "url": "/optional/",
+                        },
+                        {
+                            "capture": True,
+                            "impactApdex": True,
+                            "considerBlockedRequests": True,
+                            "considerUnknownErrorCode": True,
+                            "errorCodes": "5xx",
+                            "filterByUrl": False,
+                        },
+                    ],
+                },
+            },
+            source="TEST_DYNATRACE",
+        )
+        rules = parsed.metadata["http_error_rules"]
+        self.assertEqual(len(rules), 2)
+        self.assertEqual(rules[0]["error_codes"], "404,410")
+        self.assertEqual(rules[0]["url_matcher"], "CONTAINS")
+        self.assertFalse(rules[0]["impact_apdex"])
+        self.assertTrue(rules[1]["consider_csp"])
+        self.assertTrue(rules[1]["impact_apdex"])
 
     def test_unsupported_primary_kpm_without_fallback_still_fails(self) -> None:
         with self.assertRaisesRegex(ValueError, "fallback"):
