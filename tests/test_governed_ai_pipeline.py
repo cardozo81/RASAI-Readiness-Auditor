@@ -7,6 +7,15 @@ from types import SimpleNamespace
 
 from rasai import ai_governance, ai_selective_invalidation, audit_runner
 from rasai.audit_phase_runtime import require_sealed_evidence
+from rasai.audit_fulfillment import (
+    PENDING,
+    REPLAY_SAFE,
+    SUCCESS,
+    initialize_contract,
+    register_work_item,
+)
+from rasai.ai_dependency_contract import fulfillment_dependency_state
+from rasai.ai_dependency_runtime import _DEEP_ANALYSIS_EXCLUDED_COMPONENTS
 
 
 def _workspace(tmp_path, audit_id: str = "AUD-GOV"):
@@ -420,3 +429,95 @@ def test_audit_failure_reconciles_requested_improvement_before_failed_event() ->
 
     assert "_reconcile_requested_improvement(workspace, audit_id)" in source
     assert source.index("_reconcile_requested_improvement(workspace, audit_id)") < source.index('"AUDIT_FAILED"')
+
+
+def test_deep_analysis_does_not_wait_for_core_audit_aggregate(tmp_path) -> None:
+    workspace, audit_id = _workspace(tmp_path)
+    initialize_contract(workspace, audit_id, {})
+
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component="CORE_AUDIT",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status=PENDING,
+        retryable=False,
+    )
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component="IMPROVEMENT_INTELLIGENCE",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status=PENDING,
+        retryable=True,
+    )
+    for component in ("HTTP_ACQUISITION", "RENDER_CAPTURE", "CONTENT_EXTRACTION"):
+        register_work_item(
+            workspace,
+            audit_id=audit_id,
+            component=component,
+            required=True,
+            temporal_mode=REPLAY_SAFE,
+            status=SUCCESS,
+            retryable=True,
+        )
+
+    expected, present, ready = fulfillment_dependency_state(
+        workspace,
+        audit_id,
+        exclude_components=_DEEP_ANALYSIS_EXCLUDED_COMPONENTS,
+    )
+
+    assert "CORE_AUDIT" not in expected
+    assert "IMPROVEMENT_INTELLIGENCE" not in expected
+    assert present == {
+        "HTTP_ACQUISITION": "SUCCESS",
+        "RENDER_CAPTURE": "SUCCESS",
+        "CONTENT_EXTRACTION": "SUCCESS",
+    }
+    assert ready is True
+
+
+def test_deep_analysis_still_waits_for_real_pending_dependency(tmp_path) -> None:
+    workspace, audit_id = _workspace(tmp_path)
+    initialize_contract(workspace, audit_id, {})
+
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component="CORE_AUDIT",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status=PENDING,
+        retryable=False,
+    )
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component="IMPROVEMENT_INTELLIGENCE",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status=PENDING,
+        retryable=True,
+    )
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component="CONTENT_EXTRACTION",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status=PENDING,
+        retryable=True,
+    )
+
+    expected, present, ready = fulfillment_dependency_state(
+        workspace,
+        audit_id,
+        exclude_components=_DEEP_ANALYSIS_EXCLUDED_COMPONENTS,
+    )
+
+    assert expected == ("CONTENT_EXTRACTION",)
+    assert present == {"CONTENT_EXTRACTION": "PENDING"}
+    assert ready is False
