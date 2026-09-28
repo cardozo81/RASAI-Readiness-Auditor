@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from html import escape
+import json
 
 from rasai.catalog_report_assurance import _credential_output_failures
-from rasai.improvement_intelligence import _validate_ai_payload
+from rasai.improvement_intelligence import _safe_ai_suggested_text, _validate_ai_payload
 from rasai.secret_safety import detect_secret_exposures
 
 
@@ -78,6 +79,26 @@ def test_cookie_assurance_still_rejects_raw_set_cookie_assignment() -> None:
         "<div>Set-Cookie: AWSALB=[valor]; Secure; Path=/</div>"
     )
     assert failures == ["padrão de credencial detectado no HTML"]
+
+
+
+def test_legacy_persisted_cookie_details_json_is_sanitized_for_read_only_projection() -> None:
+    legacy_finding = {
+        "finding_id": "PSF-COOKIE-AWSALB",
+        "details_json": json.dumps(_cookie_finding()["details"], ensure_ascii=False),
+    }
+    raw = "Set-Cookie: AWSALB=[valor]; Secure; Path=/"
+
+    suggested = _safe_ai_suggested_text(raw, legacy_finding)
+
+    assert suggested is not None
+    assert "Set-Cookie:" not in suggested
+    assert "AWSALB=" not in suggested
+    assert "cookie AWSALB" in suggested
+    assert "Adicionar Secure" in suggested
+    assert _credential_output_failures(
+        "<div>" + escape(str(suggested)) + "</div>"
+    ) == []
 
 
 def test_non_cookie_suggested_text_is_unchanged() -> None:
