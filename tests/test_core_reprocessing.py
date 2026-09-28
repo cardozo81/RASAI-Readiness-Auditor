@@ -17,7 +17,7 @@ from rasai.core_reprocessing import (
     _retryable_core,
     synchronize_core_work_items,
 )
-from rasai.domain import Audit, AuditTarget, DeviceContext, Page, PageSnapshot, RuleExecution, RuleResult, TargetType, new_id, utc_now
+from rasai.domain import Audit, AuditTarget, DeviceContext, Evidence, EvidenceType, Page, PageSnapshot, RuleExecution, RuleResult, TargetType, new_id, utc_now
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.rendering import BrowserRenderResult
 
@@ -47,17 +47,38 @@ def _workspace(root: Path, *, render_succeeded: bool, rendered_exists: bool, ren
         content_type="text/html",rendered_artifact_ref=rendered_ref,
         browser_metadata={"render_succeeded":render_succeeded},
     )
+    http_evidence = Evidence(
+        evidence_id=new_id("EV-GEO"),
+        audit_id=audit.audit_id,
+        page_id=page.page_id,
+        snapshot_id=None,
+        device=None,
+        evidence_type=EvidenceType.HTTP_RESPONSE,
+        source="http",
+        observed_value={
+            "requested_url": page.normalized_url,
+            "final_url": page.normalized_url,
+            "status": 200,
+            "headers": [["Content-Type", "text/html"]],
+            "redirect_chain": [],
+            "network_error": None,
+            "elapsed_ms": 5,
+        },
+        artifact_reference=None,
+        captured_at=utc_now(),
+    )
     http_rule = RuleExecution(
         rule_execution_id=new_id("REX"),audit_id=audit.audit_id,rule_id="BR-GEO-005",rule_version="1",
         page_id=page.page_id,snapshot_id=None,device=None,result=RuleResult.PASS,
         observed_value={"status":200,"network_error":None},
-        expected_condition="retrievable",evidence_ids=(),executed_at=utc_now(),
+        expected_condition="retrievable",evidence_ids=(http_evidence.evidence_id,),executed_at=utc_now(),
     )
     with AuditPersistence(workspace) as persistence:
         persistence.audits.add(audit)
         persistence.targets.add(target)
         persistence.pages.add(page)
         persistence.snapshots.add(snapshot)
+        persistence.evidence.add(http_evidence)
         persistence.rule_executions.add(http_rule)
     return workspace
 
@@ -116,7 +137,10 @@ def test_failed_original_render_can_be_recovered_inside_same_aud() -> None:
         def render(self, url, device, **kwargs):
             return BrowserRenderResult(
                 requested_url=url,final_url=url,http_status=200,content_type="text/html",
-                rendered_html=_HTML,browser_metadata={"render_succeeded":True},error_kind=None,
+                rendered_html=_HTML,
+                screenshot_png=b"\x89PNG\r\n\x1a\nfixture",
+                browser_metadata={"render_succeeded":True},
+                error_kind=None,
             )
 
     with TemporaryDirectory() as directory:
@@ -134,6 +158,23 @@ def test_failed_original_render_can_be_recovered_inside_same_aud() -> None:
         assert success is True
         assert code == "RENDER_CAPTURE_RECOVERED"
         assert affected == {"SNP-CORE"}
+
+        connection = __import__("sqlite3").connect(workspace.database)
+        connection.row_factory = __import__("sqlite3").Row
+        try:
+            snap = connection.execute(
+                "SELECT rendered_artifact_ref,browser_metadata FROM page_snapshots WHERE snapshot_id='SNP-CORE'"
+            ).fetchone()
+            assert snap is not None
+            assert f"artifacts/reprocess/{reprocess_id}/rendered/" in str(snap["rendered_artifact_ref"])
+            assert connection.execute(
+                "SELECT count(*) FROM evidence WHERE snapshot_id='SNP-CORE' AND evidence_type='VISUAL_SNAPSHOT'"
+            ).fetchone()[0] == 1
+            assert connection.execute(
+                "SELECT count(*) FROM element_observations WHERE snapshot_id='SNP-CORE' AND tag_name='title'"
+            ).fetchone()[0] == 1
+        finally:
+            connection.close()
 
         synchronize_core_work_items(workspace,"AUD-CORE-RECOVERY")
         extraction = next(value for value in list_work_items(workspace,"AUD-CORE-RECOVERY") if value.component == CONTENT_EXTRACTION)
