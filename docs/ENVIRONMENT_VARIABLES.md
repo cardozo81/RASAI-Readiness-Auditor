@@ -275,10 +275,10 @@ O CAT-10 é opt-in no plano da auditoria. Quando selecionado, reutiliza evidênc
 |---|---|---|---|---|
 | `RASAI_PASSIVE_SECURITY` | `false` | booleano | `false`; a seleção CAT-10 projeta `true` somente na execução | ativa o runtime do catálogo sem varredura ativa |
 | `RASAI_SECURITY_HEADERS` | `true` | booleano | `true` | HTTPS/redirecionamentos, cabeçalhos, CSP, CORS e políticas entre origens persistidas |
-| `RASAI_SECURITY_COOKIES` | `true` | booleano | `true` | avalia atributos de Set-Cookie; valores não são copiados para o CAT-10 |
-| `RASAI_SECURITY_RESOURCES` | `true` | booleano | `true` | scripts, recursos, conteúdo misto, formulários e iframes do HTML já persistido |
-| `RASAI_SECURITY_THIRD_PARTY` | `true` | booleano | `true` | classificação de próprio domínio/externo, SRI e destinos externos |
-| `RASAI_SECURITY_RUNTIME_CORRELATION` | `true` | booleano | `true` | reutiliza `requestfailed`/`pageerror`/`console.error` e diagnósticos persistidos; não altera Apdex |
+| `RASAI_SECURITY_COOKIES` | `true` | booleano | `true` | cookies HTTP/runtime, atributos, identidade/provenance secret-safe; valores não são copiados para o CAT-10 |
+| `RASAI_SECURITY_RESOURCES` | `true` | booleano | `true` | scripts/recursos, integridade e telemetria bounded da mesma navegação; sem refetch obrigatório |
+| `RASAI_SECURITY_THIRD_PARTY` | `true` | booleano | `true` | próprio/terceiro, SRI, plataformas/identificadores seguros e relações observadas |
+| `RASAI_SECURITY_RUNTIME_CORRELATION` | `true` | booleano | `true` | reutiliza erros de runtime, setters de cookie e scripts persistidos; não altera Apdex/SARI |
 | `RASAI_SECURITY_OSV` | `true` | booleano | `true` salvo política de egress | consulta OSV somente com componente + ecossistema + versão identificáveis |
 | `RASAI_SECURITY_CISA_KEV` | `true` | booleano | `true` salvo política de egress | cruza CVEs obtidos via OSV com CISA KEV |
 | `RASAI_SECURITY_EXTERNAL_TIMEOUT_SECONDS` | `15` | número `> 0` e `<= 300` | `15` | tempo limite por chamada de inteligência de vulnerabilidades |
