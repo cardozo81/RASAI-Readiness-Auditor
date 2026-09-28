@@ -345,6 +345,20 @@ def _render_reprocess_cost_preview(state: Any, audit_id: str, pending: tuple[Any
         and str(getattr(item, "status", "")).upper() not in _EXCLUDED_STATUSES
     )
     _section("PREVISÃO DE CUSTO DE IA")
+    conditional_blockers: tuple[str, ...] = ()
+    try:
+        from rasai import console_reprocess_parity as parity
+
+        preview = parity._mode_scope_preview(
+            state,
+            audit_id,
+            tuple(pending),
+            use_ai=True,
+        )
+        conditional_blockers = tuple(preview.get("ai_waiting") or ())
+    except Exception:
+        conditional_blockers = ()
+
     if not pending_ai_items:
         _field("Requisitos IA", "0")
         _field("Previsão", "NÃO APLICÁVEL")
@@ -364,6 +378,16 @@ def _render_reprocess_cost_preview(state: Any, audit_id: str, pending: tuple[Any
 
     _field("Configuração original", _ai_configuration_text(original_state))
     _field("IA atual da sessão", _ai_configuration_text(forecast_state))
+    if conditional_blockers:
+        _field("Condição da IA", "CONDICIONAL AOS PRÉ-REQUISITOS")
+        _wrapped_field(
+            "Pré-requisitos",
+            "; ".join(conditional_blockers),
+        )
+        _wrapped_field(
+            "Custo efetivo",
+            "a estimativa abaixo só se materializa se os pré-requisitos concluírem e a chamada de IA ocorrer; caso contrário, chamadas IA = 0 e custo IA = 0",
+        )
     if str(forecast_state.ai_provider).casefold() != str(original_state.ai_provider).casefold():
         _wrapped_field(
             "Política deste RPR",
@@ -379,7 +403,12 @@ def _render_reprocess_cost_preview(state: Any, audit_id: str, pending: tuple[Any
         total_ai=total_ai,
     )
     if forecast.show_confirmation and forecast.expected is not None and forecast.currency:
-        _field("Previsão", "HISTÓRICA")
+        _field(
+            "Previsão",
+            "HISTÓRICA / CONDICIONAL AOS PRÉ-REQUISITOS"
+            if conditional_blockers
+            else "HISTÓRICA",
+        )
         _field("Base histórica", f"{forecast.sample_runs} execução(ões) / {forecast.sample_calls} chamada(s)")
         _field("Custo só sucessos", _money(forecast.success_baseline, forecast.currency))
         _field("Custo esperado", _money(forecast.expected, forecast.currency))
@@ -398,7 +427,12 @@ def _render_reprocess_cost_preview(state: Any, audit_id: str, pending: tuple[Any
     catalog = _catalog_fallback_estimate(forecast_state, pending_ai_items)
     if catalog is not None:
         amount, currency, input_tokens, output_tokens, context = catalog
-        _field("Previsão", "CATÁLOGO / BAIXA CONFIANÇA")
+        _field(
+            "Previsão",
+            "CATÁLOGO / BAIXA CONFIANÇA / CONDICIONAL AOS PRÉ-REQUISITOS"
+            if conditional_blockers
+            else "CATÁLOGO / BAIXA CONFIANÇA",
+        )
         _field("Custo estimado", _money(amount, currency))
         _field("Tokens estimados", f"entrada={input_tokens} | saída={output_tokens}")
         _field("Contexto de preço", context)
@@ -477,10 +511,26 @@ def render_reprocess_preparation(
     else:
         print("Nenhum requisito aplicável está pendente para nova tentativa.")
 
+    _section("RESULTADOS PRESERVADOS")
+    if successes:
+        visible = successes[:12]
+        for item in visible:
+            component = str(getattr(item, "component", "") or "requisito concluído")
+            scope_key = str(getattr(item, "scope_key", "") or "")
+            label = f"{component}/{scope_key}" if scope_key else component
+            print(f"- {label}: preservado; não será executado novamente por padrão")
+        remaining = len(successes) - len(visible)
+        if remaining > 0:
+            print(f"- ... e mais {remaining} resultado(s) já concluído(s)")
+    else:
+        print("Nenhum resultado anterior marcado como SUCCESS para preservar.")
+
     _section("REGRAS DESTA TENTATIVA")
     print("- sucessos anteriores são preservados e não são executados novamente por padrão")
+    print("- se um RPR anterior foi interrompido, a nova tentativa trata somente o déficit persistido")
     print("- itens DISABLED/NOT_APPLICABLE ficam fora da fila")
-    print("- chamadas externas/IA só ocorrem para requisitos que realmente precisarem de recuperação")
+    print("- modo Sem IA pode recuperar pré-requisitos não-IA, mas não remove requisitos de IA do contrato original")
+    print("- chamadas de IA só ocorrem depois que os pré-requisitos obrigatórios estiverem satisfeitos")
     print("- consumo adicional e consumo acumulado do AUD aparecem ao final")
 
     _render_reprocess_cost_preview(state, audit_id, pending)
