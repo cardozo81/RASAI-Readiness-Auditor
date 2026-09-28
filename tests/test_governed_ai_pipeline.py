@@ -14,8 +14,7 @@ from rasai.audit_fulfillment import (
     initialize_contract,
     register_work_item,
 )
-from rasai.ai_dependency_contract import fulfillment_dependency_state
-from rasai.ai_dependency_runtime import _DEEP_ANALYSIS_EXCLUDED_COMPONENTS
+from rasai.ai_dependency_contract import deep_analysis_fulfillment_dependency_state
 
 
 def _workspace(tmp_path, audit_id: str = "AUD-GOV"):
@@ -464,10 +463,9 @@ def test_deep_analysis_does_not_wait_for_core_audit_aggregate(tmp_path) -> None:
             retryable=True,
         )
 
-    expected, present, ready = fulfillment_dependency_state(
+    expected, present, ready = deep_analysis_fulfillment_dependency_state(
         workspace,
         audit_id,
-        exclude_components=_DEEP_ANALYSIS_EXCLUDED_COMPONENTS,
     )
 
     assert "CORE_AUDIT" not in expected
@@ -512,10 +510,9 @@ def test_deep_analysis_still_waits_for_real_pending_dependency(tmp_path) -> None
         retryable=True,
     )
 
-    expected, present, ready = fulfillment_dependency_state(
+    expected, present, ready = deep_analysis_fulfillment_dependency_state(
         workspace,
         audit_id,
-        exclude_components=_DEEP_ANALYSIS_EXCLUDED_COMPONENTS,
     )
 
     assert expected == ("CONTENT_EXTRACTION",)
