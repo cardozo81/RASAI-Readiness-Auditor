@@ -14,6 +14,7 @@ from rasai import (
     reprocess_ai,
     reprocess_measurements,
     reprocess_policy,
+    technical_ai_eligibility,
 )
 
 
@@ -30,6 +31,8 @@ def test_initial_and_rpr_share_canonical_core_stage_primitives() -> None:
     assert "persist_render_capture" in _source(m3.execute_m3)
     assert "persist_render_capture" in _source(core_reprocessing._recover_render)
 
+    assert "execute_m5_foundation_scope" in _source(m5.execute_m5)
+    assert "execute_m5_foundation_scope" in _source(core_reprocessing._recover_discovery)
     assert "execute_m5_page_scope" in _source(m5.execute_m5)
     assert "execute_m5_page_scope" in _source(core_reprocessing._recompute_deterministic_snapshot)
 
@@ -44,6 +47,16 @@ def test_initial_and_rpr_share_deep_analysis_fulfillment_dependency_contract() -
     recovery = _source(reprocess_policy.blocking_dependencies)
     assert "deep_analysis_fulfillment_dependency_state" in initial
     assert "deep_analysis_dependency_items" in recovery
+
+
+
+
+def test_initial_and_rpr_share_technical_ai_evidence_gate() -> None:
+    initial = _source(technical_ai_eligibility._wrap_m24)
+    recovery = _source(technical_ai_eligibility._correct_reprocess_diagnostics)
+    assert "technical_evidence_ready" in initial
+    assert "technical_evidence_ready" in recovery
+    assert "DISCOVERY_ACQUISITION" in _source(reprocess_policy.blocking_dependencies)
 
 
 def test_initial_and_rpr_share_canonical_pre_score_integrity_rule() -> None:
