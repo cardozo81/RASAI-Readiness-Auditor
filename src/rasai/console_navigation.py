@@ -15,6 +15,7 @@ from typing import Any, Callable
 
 from rasai.console_confirmation_contract import confirm_continue
 from rasai.console_ui import GREEN, GRAY, YELLOW, paint, semantic_text, title_text
+from rasai.public_language import component_label, console_status_label, scope_label
 
 
 def _audit_directories(audits_root: str | Path) -> tuple[Path, ...]:
@@ -73,8 +74,8 @@ def _configuration_reuse_status(state: Any, audit_id: str) -> tuple[bool, str]:
 def _render_audit_row(index: int, audit_root: Path) -> None:
     audit_id = audit_root.name
     summary = _safe_summary(audit_root, audit_id)
-    status = str(summary.get("processing_status") or "STATUS NÃO PROJETADO")
-    report = str(summary.get("report_status") or "-")
+    status = console_status_label(summary.get("processing_status") or "STATUS NÃO PROJETADO")
+    report = console_status_label(summary.get("report_status") or "-")
     print(f"{index:2d}. {audit_id:<30} {status:<24} relatório={report}")
 
 
@@ -144,7 +145,7 @@ def _reprocess_selected(console_module: ModuleType, state: Any, audit_id: str) -
         if pending:
             print("\nItens que ainda precisam de resolução:")
             for item in pending[:30]:
-                print(f"- {item.component}/{item.scope_key}: {item.status}")
+                print(f"- {component_label(item.component)}/{scope_label(item.scope_key)}: {console_status_label(item.status)}")
     else:
         print("O estado será reavaliado pelo motor de reprocessamento antes de qualquer nova tentativa.")
     print("\nItens já bem-sucedidos não são repetidos por padrão.")
@@ -173,9 +174,9 @@ def _reprocess_selected(console_module: ModuleType, state: Any, audit_id: str) -
     print(title_text("REPROCESSAMENTO CONCLUÍDO") + "\n")
     print(f"AUD                  : {result.audit_id}")
     print(f"RPR                  : {result.reprocess_id or '<nenhum; sem trabalho pendente>'}")
-    print("Processamento        : " + semantic_text(result.processing_status, bold=True))
-    print("Score                : " + semantic_text(result.score_status))
-    print("Relatório            : " + semantic_text(result.report_status))
+    print("Processamento        : " + semantic_text(console_status_label(result.processing_status), bold=True))
+    print("Score                : " + semantic_text(console_status_label(result.score_status)))
+    print("Relatório            : " + semantic_text(console_status_label(result.report_status)))
     print(
         "Consolidação elegível: "
         + paint("SIM", GREEN, bold=True)
@@ -225,9 +226,9 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
         console_module.render_header(state)
         print(title_text("AUDITORIA SELECIONADA") + "\n")
         print(f"AUD            : {audit_id}")
-        print("Processamento  : " + semantic_text(summary.get('processing_status', 'STATUS NÃO PROJETADO'), bold=True))
-        print("Score          : " + semantic_text(summary.get('score_status', '-')))
-        print("Relatório      : " + semantic_text(summary.get('report_status', '-')))
+        print("Processamento  : " + semantic_text(console_status_label(summary.get('processing_status', 'STATUS NÃO PROJETADO')), bold=True))
+        print("Score          : " + semantic_text(console_status_label(summary.get('score_status', '-'))))
+        print("Relatório      : " + semantic_text(console_status_label(summary.get('report_status', '-'))))
         eligible = summary.get("consolidation_eligible")
         consolidation_label = "ELEGÍVEL" if eligible is True else ("NÃO ELEGÍVEL" if eligible is False else "-")
         print("Consolidação   : " + semantic_text(consolidation_label, bold=True))
