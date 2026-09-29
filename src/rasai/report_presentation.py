@@ -357,6 +357,33 @@ _PUBLIC_LABELS: dict[str, str] = {
     "INVALID_RESPONSE": "Resposta inválida",
     "UNKNOWN_PROVIDER_ERROR": "Erro não classificado do provedor",
     "AI_PROVIDER_UNAVAILABLE": "Provedor de IA indisponível",
+    "AI_NOT_AUTHORIZED_FOR_EXECUTION": "IA não autorizada para execução nesta auditoria",
+    "AI_PREREQUISITES_INCOMPLETE": "Pré-requisitos da IA ainda não concluídos",
+    "AI_PROVIDER_NOT_CONFIGURED": "Provedor de IA não configurado",
+    "AI_NOT_CONFIGURED": "IA não configurada",
+    "EXECUTION_POLICY": "Política de execução",
+    "PREREQUISITE": "Pré-requisito",
+    "ORCHESTRATION": "Orquestração",
+    "EXTERNAL_SERVICE": "Serviço externo",
+    "CONFIGURATION": "Configuração",
+    "CONFIGURATION_REQUIRED": "Configuração necessária",
+    "SERVICE_INCOMPLETE": "Serviço incompleto",
+    "TECHNICAL_AI": "IA técnica",
+    "TECHNICAL_AI_CONTRACT_VALIDATION_ERROR": "Erro de validação do contrato da IA técnica",
+    "TECHNICAL_AI_UNAVAILABLE": "IA técnica indisponível",
+    "AI_CONTRACT": "Contrato de IA",
+    "AI_PROVIDER": "Provedor de IA",
+    "IMPROVEMENT_CONFIGURATION_INVALID": "Configuração da análise profunda inválida",
+    "IMPROVEMENT_INCOMPLETE": "Análise profunda incompleta",
+    "REPROCESS_ELIGIBLE": "Elegível para reprocessamento",
+    "SITE_URL_REQUIRED": "URL do site necessária",
+    "SYNTHETIC_APDEX": "Apdex sintético",
+    "EXPERIENCE_APDEX": "Apdex de experiência",
+    "AUDIT": "Auditoria",
+    "TARGET_SITE": "Site / propriedade auditada",
+    "AUDITOR_INTERNAL": "Auditor RASAi",
+    "EXTERNAL_PROVIDER": "Fornecedor / dependência externa",
+    "ENVIRONMENTAL": "Ambiente / infraestrutura",
     # Crawling/discovery and content-remediation machine values.
     "ABSENT": "Ausente",
     "PRESENT": "Presente",
@@ -515,6 +542,7 @@ def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
             output.append(part)
             continue
         visible = localize_visible_timestamps(part)
+        visible = visible.replace("\u2014", "-")
         visible = _standalone_concept_label(visible, page_name=page_name)
         output.append(_PUBLIC_TOKEN_RE.sub(_public_token_replacement, visible))
     return _VISIBLE_VALUE_RE.sub(isolated, "".join(output))
