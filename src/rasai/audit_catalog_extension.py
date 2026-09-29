@@ -735,8 +735,6 @@ def apply_catalog_extension(
             )
             from rasai.report_completion import materialize_catalog_report_projection
             materialize_catalog_report_projection(audit_id=audit_id, workspace=workspace)
-            from rasai.audit_fulfillment import project_report_validity
-            summary = project_report_validity(audit_id=audit_id,workspace=workspace)
             result = ReprocessResult(
                 audit_id=audit_id,reprocess_id=rpr,
                 processing_status=summary.processing_status,
