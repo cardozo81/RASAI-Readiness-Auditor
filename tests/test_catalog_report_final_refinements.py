@@ -539,7 +539,7 @@ def test_ai_integration_final_renderer_exposes_persisted_failure_diagnostics(tmp
     assert "Erro temporário do servidor · HTTP 503 · service_unavailable" in html
     assert "SERVER_ERROR" in html
     assert "service_unavailable" in html
-    assert "<dt>Request ID</dt><dd>req-123</dd>" in html
+    assert "<dt>Request ID</dt><dd><code>req-123</code></dd>" in html
     assert "<dt>Request ID</dt><dd>-</dd>" not in html
 
 
