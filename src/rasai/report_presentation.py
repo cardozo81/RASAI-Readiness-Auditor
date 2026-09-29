@@ -1,9 +1,9 @@
 """Presentation-only labels for generated RASAi HTML reports.
 
 Persisted enums remain unchanged. This module translates machine states when they
-are rendered as user-facing values. Established conceptual/industry terms remain
-in English; operational states and messages are presented in pt-BR. Technical
-identifiers inside code/pre blocks and diagnostic prose are not rewritten.
+are rendered as user-facing values. Public concepts, operational states and messages
+are presented in pt-BR. Legitimate traceability identifiers and technical payloads
+inside code/pre blocks remain canonical.
 """
 from __future__ import annotations
 
@@ -13,71 +13,70 @@ from rasai.public_language import SUPPLEMENTAL_PUBLIC_LABELS, safe_visible_fallb
 from rasai.time_contract import localize_visible_timestamps
 
 
-# Public conceptual vocabulary for the current SARI/SCORE-GEO contract. These are
-# concepts, not operational messages, so established English terminology is kept.
-# Every scoring dimension/group should have an entry here; tests enforce coverage.
+# Vocabulário conceitual público do contrato SARI/SCORE-GEO. Cada dimensão/grupo
+# deve possuir rótulo pt-BR explícito; os testes impõem cobertura.
 SCORING_CONCEPT_LABELS: dict[str, str] = {
-    # Dimensions. TECHNICAL_ACCESSIBILITY is read compatibility only and resolves
-    # to the same current concept as DISCOVERY_ACCESS.
-    "TECHNICAL_ACCESSIBILITY": "Discovery & Crawler Access",
-    "DISCOVERY_ACCESS": "Discovery & Crawler Access",
-    "INDEXABILITY": "Indexability",
-    "CONTENT_EXTRACTABILITY": "Rendering & Extractability",
-    "SEMANTIC_STRUCTURE": "Semantic Structure",
-    "ENTITY_CLARITY": "Entity Clarity",
-    "STRUCTURED_DATA": "Structured Data",
-    "ANSWERABILITY": "Answerability",
-    "CITATION_READINESS": "Citation Readiness",
-    "EVIDENCE_TRUST": "Evidence & Trust",
-    "INTENT_COVERAGE": "Intent Coverage",
-    "CONTENT_VALUE": "Content Value",
-    "OVERALL_READINESS": "Overall Readiness",
-    # Macrocomponents.
-    "DISCOVERY_AND_CRAWLER_ACCESS": "Discovery & Crawler Access",
-    "INDEXABILITY_AND_CANONICALIZATION": "Indexability & Canonicalization",
-    "RENDERING_AND_EXTRACTABILITY": "Rendering & Extractability",
-    "SEMANTIC_UNDERSTANDABILITY": "Semantic Understandability",
-    "CONTENT_UTILITY_AND_INTENT": "Content Utility & Intent",
-    "EVIDENCE_TRUST_AND_CITATION": "Evidence, Trust & Citation",
-    # Scoring groups.
-    "PAGE_ACCESS": "Page Access",
+    # Dimensões. TECHNICAL_ACCESSIBILITY é compatibilidade de leitura e converge
+    # para o mesmo conceito público de DISCOVERY_ACCESS.
+    "TECHNICAL_ACCESSIBILITY": "Acesso e descoberta",
+    "DISCOVERY_ACCESS": "Acesso e descoberta",
+    "INDEXABILITY": "Indexabilidade e canonicalização",
+    "CONTENT_EXTRACTABILITY": "Renderização e extração",
+    "SEMANTIC_STRUCTURE": "Estrutura semântica",
+    "ENTITY_CLARITY": "Clareza de entidades",
+    "STRUCTURED_DATA": "Dados estruturados",
+    "ANSWERABILITY": "Capacidade de resposta",
+    "CITATION_READINESS": "Preparação para citação",
+    "EVIDENCE_TRUST": "Evidências e confiabilidade",
+    "INTENT_COVERAGE": "Cobertura de intenções",
+    "CONTENT_VALUE": "Valor do conteúdo",
+    "OVERALL_READINESS": "Prontidão geral",
+    # Macrocomponentes.
+    "DISCOVERY_AND_CRAWLER_ACCESS": "Descoberta e acesso de crawlers",
+    "INDEXABILITY_AND_CANONICALIZATION": "Indexabilidade e canonicalização",
+    "RENDERING_AND_EXTRACTABILITY": "Renderização e extração",
+    "SEMANTIC_UNDERSTANDABILITY": "Compreensão semântica",
+    "CONTENT_UTILITY_AND_INTENT": "Utilidade do conteúdo e intenção",
+    "EVIDENCE_TRUST_AND_CITATION": "Evidências, confiança e citação",
+    # Grupos de scoring.
+    "PAGE_ACCESS": "Acesso à página",
     "ROBOTS": "robots.txt",
     "SITEMAP": "Sitemap",
-    "REDIRECT": "Redirects",
-    "SPA_ROUTE": "SPA Route",
-    "SPA_NAVIGATION": "SPA Navigation",
-    "INTERNAL_LINKS": "Internal Links",
-    "INDEX_DIRECTIVES": "Index Directives",
+    "REDIRECT": "Redirecionamentos",
+    "SPA_ROUTE": "Rota SPA",
+    "SPA_NAVIGATION": "Navegação SPA",
+    "INTERNAL_LINKS": "Links internos",
+    "INDEX_DIRECTIVES": "Diretivas de indexação",
     "CANONICAL": "Canonical",
-    "SOFT_ERROR": "Soft Error",
-    "RENDER_ACCESS": "Render Access",
-    "JS_CONTENT": "JavaScript Content",
-    "CONTENT_EXTRACTION": "Content Extraction",
-    "DUPLICATE_CONTENT": "Duplicate Content",
-    "SEMANTIC_TITLE": "Semantic Title",
-    "SEMANTIC_HIERARCHY": "Semantic Hierarchy",
-    "SEMANTIC_TOPIC": "Semantic Topic",
-    "ENTITY_PRIMARY": "Primary Entity",
-    "ENTITY_CONTEXT": "Entity Context",
-    "ENTITY_AMBIGUITY": "Entity Ambiguity",
-    "STRUCTURED_DATA_SYNTAX": "Structured Data Syntax",
-    "STRUCTURED_DATA_CONSISTENCY": "Structured Data Consistency",
-    "PRIMARY_INTENT": "Primary Intent",
-    "PRIMARY_ANSWERS": "Primary Answers",
-    "FACTUAL_CLAIMS": "Factual Claims",
-    "FACTUAL_CONTEXT": "Factual Context",
-    "INFERENCE_LOAD": "Inference Load",
-    "ATTRIBUTION": "Attribution",
-    "RESPONSIBILITY": "Responsibility",
-    "FRESHNESS": "Freshness",
-    "INTENT_SET": "Intent Set",
-    "INTENT_GAPS": "Intent Gaps",
-    "CONTENT_USEFULNESS": "Content Usefulness",
-    "CONTENT_DIFFERENTIATION": "Content Differentiation",
-    "CONTENT_DEPTH": "Content Depth",
-    # Critical readiness gate concepts.
-    "DISCOVERY": "Discovery",
-    "EXTRACTION": "Extraction",
+    "SOFT_ERROR": "Erro suave (soft error)",
+    "RENDER_ACCESS": "Acesso à renderização",
+    "JS_CONTENT": "Conteúdo via JavaScript",
+    "CONTENT_EXTRACTION": "Extração de conteúdo",
+    "DUPLICATE_CONTENT": "Conteúdo duplicado",
+    "SEMANTIC_TITLE": "Título semântico",
+    "SEMANTIC_HIERARCHY": "Hierarquia semântica",
+    "SEMANTIC_TOPIC": "Tópico semântico",
+    "ENTITY_PRIMARY": "Entidade principal",
+    "ENTITY_CONTEXT": "Contexto da entidade",
+    "ENTITY_AMBIGUITY": "Ambiguidade de entidade",
+    "STRUCTURED_DATA_SYNTAX": "Sintaxe dos dados estruturados",
+    "STRUCTURED_DATA_CONSISTENCY": "Consistência dos dados estruturados",
+    "PRIMARY_INTENT": "Intenção principal",
+    "PRIMARY_ANSWERS": "Respostas principais",
+    "FACTUAL_CLAIMS": "Afirmações factuais",
+    "FACTUAL_CONTEXT": "Contexto factual",
+    "INFERENCE_LOAD": "Carga de inferência",
+    "ATTRIBUTION": "Atribuição",
+    "RESPONSIBILITY": "Responsabilidade",
+    "FRESHNESS": "Atualidade",
+    "INTENT_SET": "Conjunto de intenções",
+    "INTENT_GAPS": "Lacunas de intenção",
+    "CONTENT_USEFULNESS": "Utilidade do conteúdo",
+    "CONTENT_DIFFERENTIATION": "Diferenciação do conteúdo",
+    "CONTENT_DEPTH": "Profundidade do conteúdo",
+    # Conceitos dos gates críticos de prontidão.
+    "DISCOVERY": "Descoberta",
+    "EXTRACTION": "Extração",
 }
 
 # Some renderers may already have converted machine identifiers into Portuguese
@@ -88,23 +87,34 @@ SCORING_CONCEPT_LABELS: dict[str, str] = {
 _STANDALONE_CONCEPT_LABELS: dict[str, str] = {
     key.casefold(): value
     for key, value in {
-        "Acesso e descoberta": "Discovery & Crawler Access",
-        "Acessibilidade técnica": "Discovery & Crawler Access",
-        "Capacidade de indexação": "Indexability",
-        "Extração de conteúdo": "Rendering & Extractability",
-        "Estrutura semântica": "Semantic Structure",
-        "Clareza de entidades": "Entity Clarity",
-        "Dados estruturados": "Structured Data",
-        "Capacidade de resposta": "Answerability",
-        "Preparação para citação": "Citation Readiness",
-        "Evidências e confiabilidade": "Evidence & Trust",
-        "Confiança da evidência": "Evidence & Trust",
-        "Cobertura de intenções": "Intent Coverage",
-        "Cobertura de intenção": "Intent Coverage",
-        "Valor do conteúdo": "Content Value",
-        "Discovery Access": "Discovery & Crawler Access",
-        "Content Extractability": "Rendering & Extractability",
-        "Evidence Trust": "Evidence & Trust",
+        "Acesso e descoberta": "Acesso e descoberta",
+        "Acessibilidade técnica": "Acesso e descoberta",
+        "Capacidade de indexação": "Indexabilidade e canonicalização",
+        "Extração de conteúdo": "Renderização e extração",
+        "Estrutura semântica": "Estrutura semântica",
+        "Clareza de entidades": "Clareza de entidades",
+        "Dados estruturados": "Dados estruturados",
+        "Capacidade de resposta": "Capacidade de resposta",
+        "Preparação para citação": "Preparação para citação",
+        "Evidências e confiabilidade": "Evidências e confiabilidade",
+        "Confiança da evidência": "Evidências e confiabilidade",
+        "Cobertura de intenções": "Cobertura de intenções",
+        "Cobertura de intenção": "Cobertura de intenções",
+        "Valor do conteúdo": "Valor do conteúdo",
+        "Discovery Access": "Acesso e descoberta",
+        "Discovery & Crawler Access": "Acesso e descoberta",
+        "Indexability": "Indexabilidade e canonicalização",
+        "Rendering & Extractability": "Renderização e extração",
+        "Content Extractability": "Renderização e extração",
+        "Semantic Structure": "Estrutura semântica",
+        "Entity Clarity": "Clareza de entidades",
+        "Structured Data": "Dados estruturados",
+        "Answerability": "Capacidade de resposta",
+        "Citation Readiness": "Preparação para citação",
+        "Evidence Trust": "Evidências e confiabilidade",
+        "Evidence & Trust": "Evidências e confiabilidade",
+        "Intent Coverage": "Cobertura de intenções",
+        "Content Value": "Valor do conteúdo",
     }.items()
 }
 
