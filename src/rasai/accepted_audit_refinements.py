@@ -601,14 +601,22 @@ def _serp_completion_reason(observation: Mapping[str, Any], result_count: int) -
         requested = int(observation.get("requested_depth") or 0)
     except (TypeError, ValueError):
         requested = 0
-    if requested and result_count >= requested:
-        return "Profundidade solicitada atingida"
     quality = _safe_json(observation.get("quality_metadata"), {})
     if isinstance(quality, Mapping):
-        if quality.get("pagination_ended_before_requested_depth"):
-            return "Provider encerrou a paginação antes da profundidade solicitada"
-        if quality.get("request_budget_ended_before_requested_depth"):
-            return "Limite de requisições encerrou a coleta antes da profundidade solicitada"
+        complete = quality.get("requested_depth_complete")
+        if complete is True:
+            return "Profundidade solicitada integralmente observada"
+        if complete is False:
+            if quality.get("request_budget_ended_before_requested_depth"):
+                return "Limite de requisições encerrou a coleta antes da profundidade solicitada"
+            if quality.get("normalization_incomplete_for_requested_depth"):
+                return "Resultados descartados na normalização impedem comprovar a profundidade solicitada"
+            if quality.get("pagination_ended_before_requested_depth"):
+                return "Provider encerrou a paginação antes da profundidade solicitada"
+            return "Profundidade solicitada não foi integralmente observada"
+    # Legacy observations may not carry the explicit completeness flag.
+    if requested and result_count >= requested:
+        return "Profundidade solicitada atingida"
     if observation.get("error_code") or observation.get("error_message"):
         return "Coleta encerrada com diagnóstico do provider"
     if requested and result_count < requested:

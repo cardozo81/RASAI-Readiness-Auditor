@@ -582,8 +582,24 @@ def _serp_html(database: Path, data: Any) -> str:
             captured=prov.get("captured_at") or obs.get("collected_at")
             reused=mode=="REUSED_EVIDENCE"
             modal_id=f"cat05-serp-{index}"
-            rows.append((obs.get("query") or "-",obs.get("engine") or "-",obs.get("country") or obs.get("region") or "-",obs.get("language") or "-",page._device_label(obs.get("device")),obs.get("requested_depth") or "-",len(results),obs.get("provider") or "-",mode,captured or "-",page._modal_button(modal_id,"Ver proveniência")))
-            body=page._kv((("Consulta",obs.get("query")),("Engine",obs.get("engine") or "-"),("Provedor",obs.get("provider")),("Modo de dados",obs.get("data_mode")),("Estado da observação",page._status_label(obs.get("observation_status"))),("Capturado em",captured),("Atualidade dos dados",page._temporal_mode_label(mode)),("Reutilizada","Sim" if reused else "Não"),("AUD de origem",prov.get("source_audit_id") or data.audit_id),("Observação de origem",prov.get("source_observation_id") or oid),("Idade no reuso",_age(captured,prov.get("reused_at")) if reused else "Não aplicável"),("Motivo do reuso",prov.get("reuse_reason") or "Não aplicável"),("Artefato bruto",obs.get("raw_evidence_ref") or "-"),("SHA-256",obs.get("raw_evidence_sha256") or "-"),("ID da requisição",obs.get("provider_request_id") or "-")))
+            quality=_safe_json(obs.get("quality_metadata"), {})
+            quality=quality if isinstance(quality, Mapping) else {}
+            depth_complete=quality.get("requested_depth_complete")
+            observed_ceiling=quality.get("observed_position_ceiling")
+            if depth_complete is True:
+                depth_coverage="Completa"
+            elif depth_complete is False:
+                depth_coverage=(
+                    f"Incompleta · até posição {observed_ceiling}"
+                    if observed_ceiling not in (None, "")
+                    else f"Incompleta · {len(results)} resultado(s) persistido(s)"
+                )
+            else:
+                depth_coverage="Não determinada (observação legada)"
+            rows.append((obs.get("query") or "-",obs.get("engine") or "-",obs.get("country") or obs.get("region") or "-",obs.get("language") or "-",page._device_label(obs.get("device")),obs.get("requested_depth") or "-",len(results),depth_coverage,obs.get("provider") or "-",mode,captured or "-",page._modal_button(modal_id,"Ver proveniência")))
+            body=page._kv((("Consulta",obs.get("query")),("Engine",obs.get("engine") or "-"),("Provedor",obs.get("provider")),("Modo de dados",obs.get("data_mode")),("Estado da observação",page._status_label(obs.get("observation_status"))),("Profundidade solicitada",obs.get("requested_depth") or "-"),("Resultados persistidos",len(results)),("Cobertura da profundidade",depth_coverage),("Maior posição orgânica observada",observed_ceiling if observed_ceiling not in (None, "") else "-"),("Capturado em",captured),("Atualidade dos dados",page._temporal_mode_label(mode)),("Reutilizada","Sim" if reused else "Não"),("AUD de origem",prov.get("source_audit_id") or data.audit_id),("Observação de origem",prov.get("source_observation_id") or oid),("Idade no reuso",_age(captured,prov.get("reused_at")) if reused else "Não aplicável"),("Motivo do reuso",prov.get("reuse_reason") or "Não aplicável"),("Artefato bruto",obs.get("raw_evidence_ref") or "-"),("SHA-256",obs.get("raw_evidence_sha256") or "-"),("ID da requisição",obs.get("provider_request_id") or "-")))
+            if depth_complete is False:
+                body+="<div class='notice'>A profundidade solicitada não foi integralmente observada. A ausência do domínio auditado não deve ser interpretada como ausência em toda a profundidade solicitada.</div>"
             result_rows=[(r.get("position"),r.get("domain"),r.get("url"),r.get("result_type")) for r in results]
             body+="<h3>Resultados persistidos</h3>"+page._table(("Posição","Domínio","URL","Tipo"),result_rows,empty="Nenhum resultado individual persistido.",sortable=bool(result_rows),page_size=10 if len(result_rows)>10 else None)
             modals.append(page._modal(modal_id,"SERP · proveniência",str(obs.get("query") or "Consulta"),body))
@@ -615,7 +631,7 @@ def _serp_html(database: Path, data: Any) -> str:
             overview_modals.append(page._modal(overview_id,"AI Overview",str(obs.get("query") or "Consulta"),overview_body))
     finally:
         connection.close()
-    serp_table=page._table(("Consulta","Engine","País/região","Idioma","Dispositivo","Profundidade","Resultados","Provedor","Atualidade dos dados","Capturado em","Detalhe"),rows,empty="Nenhuma observação SERP persistida.",sortable=bool(rows),page_size=10 if len(rows)>10 else None)+"".join(modals)
+    serp_table=page._table(("Consulta","Engine","País/região","Idioma","Dispositivo","Profundidade","Resultados","Cobertura","Provedor","Atualidade dos dados","Capturado em","Detalhe"),rows,empty="Nenhuma observação SERP persistida.",sortable=bool(rows),page_size=10 if len(rows)>10 else None)+"".join(modals)
     aio_table=page._table(("Consulta","AI Overview detectado","Site citado","Referências","Capturado em","Detalhe"),overview_rows,empty="Nenhuma SERP disponível para verificar AI Overview.",sortable=bool(overview_rows))+"".join(overview_modals)
     return "<div class='subsection'><h3>SERP</h3>"+serp_table+"</div><div class='subsection'><h3>AI Overview / recursos de busca por IA</h3>"+aio_table+"</div>"
 

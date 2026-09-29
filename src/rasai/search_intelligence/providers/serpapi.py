@@ -280,13 +280,30 @@ class SerpApiProvider(SerpProvider):
                 break
 
         results.sort(key=lambda result: result.position)
+        observed_positions = {int(item.position) for item in results}
+        expected_positions = set(range(1, request.depth + 1))
+        observed_ceiling = max(observed_positions, default=0)
+        requested_depth_complete = (
+            expected_positions.issubset(observed_positions)
+            and dropped_results == 0
+        )
         quality: dict[str, Any] = {
             "page_size": _GOOGLE_PAGE_SIZE,
             "pages_requested_ceiling": len(page_offsets),
             "pages_collected": len(pages),
             "raw_organic_result_count": raw_organic_count,
             "dropped_results": dropped_results,
-            "pagination_ended_before_requested_depth": pagination_ended,
+            "observed_position_ceiling": observed_ceiling,
+            "observed_position_count": len(observed_positions),
+            "requested_depth_complete": requested_depth_complete,
+            "pagination_ended_before_requested_depth": (
+                not requested_depth_complete
+                and observed_ceiling < request.depth
+            ),
+            "normalization_incomplete_for_requested_depth": (
+                not requested_depth_complete
+                and dropped_results > 0
+            ),
         }
         if request_ids:
             quality["provider_request_ids"] = tuple(request_ids)

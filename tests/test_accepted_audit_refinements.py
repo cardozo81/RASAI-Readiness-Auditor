@@ -53,11 +53,28 @@ def test_partial_recommendations_preserve_valid_and_isolate_rejected() -> None:
 def test_serp_reason_reports_provider_pagination_limit() -> None:
     observation = {
         "requested_depth": 20,
-        "quality_metadata": '{"pagination_ended_before_requested_depth": true}',
+        "quality_metadata": (
+            '{"requested_depth_complete": false,'
+            '"pagination_ended_before_requested_depth": true}'
+        ),
     }
     assert _serp_completion_reason(observation, 8) == (
         "Provider encerrou a paginação antes da profundidade solicitada"
     )
+    assert _serp_completion_reason(
+        {
+            "requested_depth": 20,
+            "quality_metadata": '{"requested_depth_complete": true}',
+        },
+        20,
+    ) == "Profundidade solicitada integralmente observada"
+    assert _serp_completion_reason(
+        {
+            "requested_depth": 20,
+            "quality_metadata": '{"requested_depth_complete": false}',
+        },
+        20,
+    ) == "Profundidade solicitada não foi integralmente observada"
     assert _serp_completion_reason({"requested_depth": 8, "quality_metadata": "{}"}, 8) == (
         "Profundidade solicitada atingida"
     )

@@ -85,6 +85,10 @@ Os dois adapters usam a mesma variável BYOK `RASAI_SERPAPI_API_KEY`. IDs distin
 
 A paginação Google usa `start` em incrementos de 10 posições. Para profundidade solicitada acima de 10, o RASAi solicita páginas adicionais respeitando o orçamento de requests configurado e a disponibilidade de paginação do provider.
 
+A completude é persistida explicitamente. O adapter não considera uma janela completa apenas porque o provider deixou de anunciar uma próxima página. Para `requested_depth_complete=true`, todas as posições orgânicas esperadas de `1..depth` precisam ter sido normalizadas sem descarte de resultados. Também são persistidos `observed_position_ceiling` e `observed_position_count`.
+
+Se a paginação encerrar com menos posições observadas que a profundidade solicitada, o estado permanece incompleto. Nesse caso, ausência do domínio de interesse não pode ser projetada como `NOT_FOUND_WITHIN_DEPTH`.
+
 O adapter rejeita mecanismos não suportados antes do acesso à rede.
 
 ## 5. Adapter Bing
@@ -107,7 +111,7 @@ O cursor deve ser positivo e avançar estritamente. Cursores inválidos ou repet
 
 `NOT_FOUND_WITHIN_DEPTH` só é válido quando o RASAi possui evidência suficiente para tratar a janela Search solicitada como completa.
 
-Em paginação variável dirigida pelo provider, uma execução pode terminar porque o orçamento configurado foi esgotado antes de a profundidade solicitada ser totalmente observada. Nesse estado:
+Uma execução pode terminar antes de a profundidade solicitada ser totalmente observada por encerramento da paginação, limitação do provider, orçamento configurado ou perda de resultados durante normalização. Esse contrato vale tanto para paginação fixa quanto variável. Nesse estado:
 
 ```text
 requested_depth_complete = false
@@ -124,14 +128,17 @@ Ele **não** retorna `NOT_FOUND_WITHIN_DEPTH`, pois isso declararia mais evidên
 
 Se o domínio do cliente já tiver sido observado em uma coleta parcial, a posição observada continua sendo um fato válido e ainda pode ser retornada como `FOUND`.
 
-Metadados de qualidade do Bing incluem, quando aplicável:
+Metadados de qualidade de completude incluem, quando aplicável:
 
-- `pagination_strategy=serpapi_next_first`;
 - `observed_position_ceiling`;
+- `observed_position_count`;
 - `requested_depth_complete`;
 - `request_budget_ended_before_requested_depth`;
 - `pagination_ended_before_requested_depth`;
+- `normalization_incomplete_for_requested_depth`;
 - request IDs do provider e timestamps da janela de coleta.
+
+Bing mantém adicionalmente `pagination_strategy=serpapi_next_first`.
 
 ## 7. Contratos canônicos de request e observação
 

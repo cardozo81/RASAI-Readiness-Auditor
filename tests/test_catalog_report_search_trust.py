@@ -869,3 +869,61 @@ def test_competitive_validation_exposes_customer_content_source() -> None:
     assert source[3] == "Captura renderizada da própria AUD"
     assert source[5] == "artifact.acquisition_policy.customer_source"
     assert source[-1] == "OK"
+
+
+def test_serp_projection_exposes_incomplete_requested_depth(tmp_path: Path) -> None:
+    database = tmp_path / "audit.db"
+    _audit_db(database)
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            """CREATE TABLE serp_observations(
+                observation_id TEXT PRIMARY KEY,
+                audit_id TEXT,
+                query TEXT,
+                engine TEXT,
+                provider TEXT,
+                country TEXT,
+                language TEXT,
+                device TEXT,
+                requested_depth INTEGER,
+                collected_at TEXT,
+                quality_metadata TEXT,
+                observation_status TEXT,
+                data_mode TEXT
+            )"""
+        )
+        connection.execute(
+            """INSERT INTO serp_observations
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                "SERP-INCOMPLETE",
+                AUDIT_ID,
+                "seguro auto",
+                "google",
+                "serpapi",
+                "BR",
+                "pt-BR",
+                "mobile",
+                20,
+                "2026-09-29T10:05:00+00:00",
+                json.dumps({
+                    "requested_depth_complete": False,
+                    "observed_position_ceiling": 9,
+                    "observed_position_count": 9,
+                    "pagination_ended_before_requested_depth": True,
+                }),
+                "OBSERVED",
+                "OBSERVED_API",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    html = _serp_html(database, _data())
+
+    assert ">Cobertura<" in html
+    assert "Incompleta · até posição 9" in html
+    assert "A profundidade solicitada não foi integralmente observada" in html
+    assert "não deve ser interpretada como ausência em toda a profundidade solicitada" in html
