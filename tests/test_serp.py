@@ -216,9 +216,42 @@ class SerpApiTests(unittest.TestCase):
         def opener(req, timeout): calls.append(1); return FakeResponse(json.dumps(payload).encode())
         provider = SerpApiProvider(api_key='x', retries=0, min_interval_seconds=0, opener=opener)
         result = SearchIntelligenceService(provider=provider, max_depth=20).observe(request(depth=20))
-        self.assertEqual(DomainMatchStatus.NOT_FOUND_WITHIN_DEPTH, result.domain_status)
+        self.assertEqual(DomainMatchStatus.UNAVAILABLE, result.domain_status)
+        self.assertEqual('SERP_REQUESTED_DEPTH_INCOMPLETE', result.error_code)
         self.assertEqual(1, len(calls))
-        self.assertTrue(result.observation.quality_metadata['pagination_ended_before_requested_depth'])
+        quality = result.observation.quality_metadata
+        self.assertFalse(quality['requested_depth_complete'])
+        self.assertTrue(quality['pagination_ended_before_requested_depth'])
+        self.assertEqual(1, quality['observed_position_ceiling'])
+        self.assertEqual(1, quality['observed_position_count'])
+
+    def test_complete_requested_depth_allows_not_found_within_depth(self):
+        first = {
+            'organic_results': [
+                {'position':index,'link':f'https://leader-{index}.example/'}
+                for index in range(1, 11)
+            ],
+            'serpapi_pagination': {'next':'https://serpapi.com/search?start=10'},
+        }
+        second = {
+            'organic_results': [
+                {'position':index,'link':f'https://leader-{index + 10}.example/'}
+                for index in range(1, 11)
+            ],
+        }
+        def opener(req, timeout):
+            params = parse_qs(urlsplit(req.full_url).query)
+            payload = second if params.get('start') == ['10'] else first
+            return FakeResponse(json.dumps(payload).encode())
+        provider = SerpApiProvider(api_key='x', retries=0, min_interval_seconds=0, opener=opener)
+        result = SearchIntelligenceService(provider=provider, max_depth=20).observe(request(depth=20))
+        self.assertEqual(DomainMatchStatus.NOT_FOUND_WITHIN_DEPTH, result.domain_status)
+        self.assertIsNone(result.error_code)
+        quality = result.observation.quality_metadata
+        self.assertTrue(quality['requested_depth_complete'])
+        self.assertFalse(quality['pagination_ended_before_requested_depth'])
+        self.assertEqual(20, quality['observed_position_ceiling'])
+        self.assertEqual(20, quality['observed_position_count'])
 
     def test_timeout_or_network_error_becomes_unavailable(self):
         def opener(req, timeout): raise URLError('offline')
