@@ -70,6 +70,12 @@ SUPPLEMENTAL_PUBLIC_LABELS: dict[str, str] = {
     "REPORT_REFRESH": "Atualização do relatório",
     "DEFAULT_OFF": "Desabilitado por padrão",
     "SMALL_GROUP_BELOW_NORMAL_MINIMUM": "Grupo amostral abaixo do mínimo normal",
+    "QUERY_BODY_COVERAGE_LOWER": "Cobertura da consulta no conteúdo abaixo da referência observada",
+    "QUERY_BODY_COVERAGE_LOWER_THAN_OBSERVED_LEADERS": "Cobertura da consulta no conteúdo abaixo das páginas observadas à frente",
+    "TITLE_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS": "Alinhamento da consulta no título abaixo das páginas observadas à frente",
+    "HEADING_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS": "Alinhamento da consulta nos títulos hierárquicos abaixo das páginas observadas à frente",
+    "CONTENT_WORD_COUNT_LOWER_THAN_OBSERVED_LEADERS": "Volume textual abaixo das páginas observadas à frente",
+    "STRUCTURED_DATA_TYPES_DIFFER_FROM_OBSERVED_LEADERS": "Tipos de dados estruturados diferem das páginas observadas à frente",
     "M2_DISCOVERY_ACQUISITION": "Aquisição para descoberta",
     "M23_COMPLETED": "Medição Apdex concluída",
     # Console status values.
