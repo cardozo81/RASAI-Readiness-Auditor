@@ -13,6 +13,7 @@ from rasai.console_artifacts import artifact_status
 from rasai.console_cost import actual_usage
 from rasai.cost_forecast import CostForecast, forecast_local_cost
 from rasai.console_ui import CYAN, DIM, GREEN, RED, YELLOW, paint, title_text
+from rasai.public_language import console_status_label, diagnostic_label
 
 _DECLINED: set[int] = set()
 _FORECASTS: dict[int, CostForecast] = {}
@@ -170,12 +171,12 @@ def _latest_ai_failure_context(workspace: Any) -> str:
     status = str(row["status"] or "").strip()
     primary = error_class or status
     if primary:
-        parts.append(primary)
+        parts.append(diagnostic_label(primary) if error_class else console_status_label(primary))
     error_code = str(row["error_code"] or "").strip()
     error_type = str(row["error_type"] or "").strip()
     code = error_code or error_type
     if code and code != primary:
-        parts.append(f"code={code}")
+        parts.append(f"motivo={diagnostic_label(code)}")
     if row["http_status"] is not None:
         parts.append(f"HTTP {row['http_status']}")
     return "; ".join(parts)
