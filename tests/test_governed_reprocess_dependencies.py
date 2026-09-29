@@ -1090,17 +1090,34 @@ def test_prepare_reprocess_reuses_evidence_snapshot_when_nothing_material_change
 
 
 @pytest.mark.parametrize(
-    ("before", "after", "expected_external"),
+    ("before", "after", "external_materialized", "expected_external"),
     [
-        ((("CMP-1", "jquery", "3.7.1", "npm", "MEDIUM"),), (("CMP-1", "jquery", "3.7.1", "npm", "MEDIUM"),), 0),
-        ((("CMP-1", "jquery", "3.6.0", "npm", "MEDIUM"),), (("CMP-1", "jquery", "3.7.1", "npm", "MEDIUM"),), 1),
+        (
+            (("CMP-1", "jquery", "3.7.1", "npm", "MEDIUM"),),
+            (("CMP-1", "jquery", "3.7.1", "npm", "MEDIUM"),),
+            True,
+            0,
+        ),
+        (
+            (("CMP-1", "jquery", "3.6.0", "npm", "MEDIUM"),),
+            (("CMP-1", "jquery", "3.7.1", "npm", "MEDIUM"),),
+            True,
+            1,
+        ),
+        (
+            (),
+            (),
+            False,
+            1,
+        ),
     ],
 )
-def test_passive_security_rpr_refreshes_external_intelligence_only_when_components_change(
+def test_passive_security_rpr_refreshes_external_intelligence_when_needed(
     monkeypatch,
     tmp_path: Path,
     before,
     after,
+    external_materialized: bool,
     expected_external: int,
 ) -> None:
     workspace = _workspace(tmp_path)
@@ -1110,6 +1127,11 @@ def test_passive_security_rpr_refreshes_external_intelligence_only_when_componen
         runtime,
         "_passive_component_signature",
         lambda *_args, **_kwargs: next(signatures),
+    )
+    monkeypatch.setattr(
+        runtime,
+        "_passive_external_intelligence_materialized",
+        lambda *_args: external_materialized,
     )
     monkeypatch.setattr(runtime, "_archive_passive_security", lambda *_args: None)
 
@@ -1138,6 +1160,51 @@ def test_passive_security_rpr_refreshes_external_intelligence_only_when_componen
         if item.component == "PASSIVE_SECURITY"
     )
     assert item.status == SUCCESS
+
+
+def test_passive_security_deterministic_hook_reuses_selected_governed_success(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from rasai import passive_security_runtime as passive_runtime
+    from rasai import passive_security as security
+
+    workspace = _workspace(tmp_path)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="PASSIVE_SECURITY",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status=SUCCESS,
+        retryable=True,
+    )
+    set_work_item_status(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="PASSIVE_SECURITY",
+        status=SUCCESS,
+        result_ref=f"passive_security_runs:{AUDIT_ID}",
+        retryable=True,
+    )
+    monkeypatch.setenv(security.ENABLED_ENV, "false")
+
+    with reprocess_policy(
+        selected_items=["PASSIVE_SECURITY"],
+        use_ai=False,
+        workspace=workspace,
+        audit_id=AUDIT_ID,
+    ):
+        result = passive_runtime._deterministic_hook(
+            audit_id=AUDIT_ID,
+            workspace=workspace,
+            source_blocked=False,
+        )
+
+    assert result == {
+        "status": "COMPLETED",
+        "reason": "RPR_GOVERNED_RESULT_REUSED",
+    }
 
 
 def test_governed_dependency_invalidation_reopens_only_impacted_success(tmp_path: Path) -> None:
