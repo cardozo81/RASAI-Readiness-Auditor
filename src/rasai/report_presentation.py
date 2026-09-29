@@ -87,22 +87,9 @@ SCORING_CONCEPT_LABELS: dict[str, str] = {
 _STANDALONE_CONCEPT_LABELS: dict[str, str] = {
     key.casefold(): value
     for key, value in {
-        "Acesso e descoberta": "Acesso e descoberta",
-        "Acessibilidade técnica": "Acesso e descoberta",
-        "Capacidade de indexação": "Indexabilidade e canonicalização",
-        "Extração de conteúdo": "Renderização e extração",
-        "Estrutura semântica": "Estrutura semântica",
-        "Clareza de entidades": "Clareza de entidades",
-        "Dados estruturados": "Dados estruturados",
-        "Capacidade de resposta": "Capacidade de resposta",
-        "Preparação para citação": "Preparação para citação",
-        "Evidências e confiabilidade": "Evidências e confiabilidade",
-        "Confiança da evidência": "Evidências e confiabilidade",
-        "Cobertura de intenções": "Cobertura de intenções",
-        "Cobertura de intenção": "Cobertura de intenções",
-        "Valor do conteúdo": "Valor do conteúdo",
-        "Discovery Access": "Acesso e descoberta",
+        # Normalize legacy English presentation vocabulary to the current pt-BR contract.
         "Discovery & Crawler Access": "Acesso e descoberta",
+        "Discovery Access": "Acesso e descoberta",
         "Indexability": "Indexabilidade e canonicalização",
         "Rendering & Extractability": "Renderização e extração",
         "Content Extractability": "Renderização e extração",
@@ -111,10 +98,13 @@ _STANDALONE_CONCEPT_LABELS: dict[str, str] = {
         "Structured Data": "Dados estruturados",
         "Answerability": "Capacidade de resposta",
         "Citation Readiness": "Preparação para citação",
-        "Evidence Trust": "Evidências e confiabilidade",
         "Evidence & Trust": "Evidências e confiabilidade",
+        "Evidence Trust": "Evidências e confiabilidade",
         "Intent Coverage": "Cobertura de intenções",
         "Content Value": "Valor do conteúdo",
+        # Normalize older Portuguese wording to the current public terminology.
+        "Capacidade de indexação": "Indexabilidade e canonicalização",
+        "Extração de conteúdo": "Renderização e extração",
     }.items()
 }
 
@@ -579,6 +569,12 @@ _PUBLIC_TOKEN_RE = re.compile(
 
 def _public_token_replacement(match: re.Match[str]) -> str:
     value = match.group(1)
+    # Unknown limitation codes are intentionally retained only inside an explicit
+    # technical/auditable wrapper. The surrounding prose tells the reader that
+    # this is a canonical code, not user-facing business vocabulary.
+    prefix = match.string[max(0, match.start() - 40):match.start()]
+    if prefix.endswith("Limitação técnica registrada ("):
+        return value
     # Priority labels intentionally retain the canonical Pn token in parentheses.
     # Keep repeated report-normalization passes idempotent instead of recursively
     # expanding e.g. P2 -> Alta (P2) -> Alta (Alta (P2)).
