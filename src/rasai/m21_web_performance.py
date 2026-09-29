@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
+from hashlib import sha256
 from pathlib import Path
 import time
 from typing import Any, Protocol
@@ -186,6 +187,8 @@ def build_web_performance_observation(
     crux_http_status: int | None,
     psi_artifact: str | None,
     crux_artifact: str | None,
+    psi_artifact_sha256: str | None = None,
+    crux_artifact_sha256: str | None = None,
 ) -> tuple[WebPerformanceObservation, str]:
     """Build the canonical M21 observation and context classification."""
     lab = _parse_lighthouse(psi_payload)
@@ -247,6 +250,8 @@ def build_web_performance_observation(
         crux_http_status=crux_http_status,
         pagespeed_artifact_reference=psi_artifact,
         crux_artifact_reference=crux_artifact,
+        pagespeed_artifact_sha256=psi_artifact_sha256,
+        crux_artifact_sha256=crux_artifact_sha256,
         error_summary=";".join(dict.fromkeys(errors)) if errors else None,
         captured_at=_utc_now(),
     )
@@ -364,6 +369,8 @@ def execute_m21(
             psi_payload: dict[str, Any] | None = None
             psi_artifact: str | None = None
             crux_artifact: str | None = None
+            psi_artifact_sha256: str | None = None
+            crux_artifact_sha256: str | None = None
             errors: list[str] = []
             psi_http_status: int | None = None
             crux_http_status: int | None = None
@@ -374,12 +381,14 @@ def execute_m21(
                 psi_payload = response.payload
                 psi_http_status = response.http_status
                 psi_successes += 1
-                psi_artifact = _write_json_artifact(workspace, observation_id, "pagespeed", psi_payload)
+                psi_artifact, psi_artifact_sha256 = _write_json_artifact(
+                    workspace, observation_id, "pagespeed", psi_payload
+                )
                 store.add_attempt(WebPerformanceAttempt(
                     attempt_id=new_id("WPA"), audit_id=audit_id, page_id=page_id, snapshot_id=snapshot_id,
                     device=device.value, url=url, service="PAGESPEED_INSIGHTS", status="SUCCESS",
                     http_status=response.http_status, duration_ms=response.duration_ms, error_code=None,
-                    error_message=None, artifact_reference=psi_artifact, created_at=_utc_now(),
+                    error_message=None, artifact_reference=psi_artifact, artifact_sha256=psi_artifact_sha256, created_at=_utc_now(),
                 ))
                 try_append_operational_event(
                     workspace,
@@ -431,12 +440,14 @@ def execute_m21(
                     crux_payload = response.payload
                     crux_http_status = response.http_status
                     crux_successes += 1
-                    crux_artifact = _write_json_artifact(workspace, observation_id, "crux", crux_payload)
+                    crux_artifact, crux_artifact_sha256 = _write_json_artifact(
+                        workspace, observation_id, "crux", crux_payload
+                    )
                     store.add_attempt(WebPerformanceAttempt(
                         attempt_id=new_id("WPA"), audit_id=audit_id, page_id=page_id, snapshot_id=snapshot_id,
                         device=device.value, url=url, service="CRUX_API", status="SUCCESS",
                         http_status=response.http_status, duration_ms=response.duration_ms, error_code=None,
-                        error_message=None, artifact_reference=crux_artifact, created_at=_utc_now(),
+                        error_message=None, artifact_reference=crux_artifact, artifact_sha256=crux_artifact_sha256, created_at=_utc_now(),
                     ))
                     try_append_operational_event(
                         workspace,
@@ -506,6 +517,8 @@ def execute_m21(
                 crux_http_status=crux_http_status,
                 psi_artifact=psi_artifact,
                 crux_artifact=crux_artifact,
+                psi_artifact_sha256=psi_artifact_sha256,
+                crux_artifact_sha256=crux_artifact_sha256,
             )
             if status in {"SUCCESS", "PARTIAL"}:
                 successes += 1
@@ -604,12 +617,22 @@ def _request_json(*, service: str, request: Request, timeout_seconds: float) -> 
     return HttpJsonResult(payload=payload, http_status=status, duration_ms=duration)
 
 
-def _write_json_artifact(workspace: AuditWorkspace, observation_id: str, source: str, payload: dict[str, Any]) -> str:
+def _write_json_artifact(
+    workspace: AuditWorkspace,
+    observation_id: str,
+    source: str,
+    payload: dict[str, Any],
+) -> tuple[str, str]:
     relative = Path("artifacts") / "web-performance" / f"{observation_id}.{source}.json"
     path = workspace.root / relative
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8", newline="\n")
-    return relative.as_posix()
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True),
+        encoding="utf-8",
+        newline="\n",
+    )
+    digest = sha256(path.read_bytes()).hexdigest()
+    return relative.as_posix(), digest
 
 
 def _parse_lighthouse(payload: dict[str, Any] | None) -> dict[str, Any]:
