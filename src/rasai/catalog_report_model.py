@@ -265,6 +265,29 @@ def _load_data(
             key=str(item.get("id") or item.get("catalog_id") or "").strip().upper()
             if key:
                 items[key]=dict(item)
+
+        # Keep the immutable execution snapshot/hash as the provenance of the initial
+        # AUD, while projecting later additive catalog extensions as the effective
+        # report scope.  The overlay is intentionally in-memory: report rendering must
+        # never rewrite audit_execution_configurations.
+        try:
+            from rasai.audit_catalog_extension import effective_catalog_projection
+
+            effective_selected,effective_items,extension_history=effective_catalog_projection(
+                con,audit_id
+            )
+        except (ImportError,sqlite3.Error,TypeError,ValueError):
+            effective_selected,effective_items,extension_history=selected,items,()
+        if extension_history:
+            configuration=dict(configuration)
+            effective_block=dict(block) if isinstance(block,Mapping) else {}
+            effective_block["initial_selected"]=list(block.get("selected",[])) if isinstance(block,Mapping) else []
+            effective_block["selected"]=sorted(effective_selected)
+            effective_block["items"]=list(effective_items.values())
+            effective_block["extensions"]=list(extension_history)
+            configuration["audit_catalog"]=effective_block
+            selected=set(effective_selected)
+            items=dict(effective_items)
         audit_rows=_audit_rows(con,"audits",audit_id)
         scores=_audit_rows(con,"scores",audit_id)
         work=_audit_rows(con,"audit_fulfillment_work_items",audit_id)
