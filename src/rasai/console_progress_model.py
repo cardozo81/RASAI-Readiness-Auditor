@@ -52,7 +52,7 @@ _PHASE_LABELS = {
     "GSC": "Google Search Console",
     "EXTERNAL_OBSERVABILITY": "Observabilidade externa",
     "FINALIZING": "Validação e conclusão",
-    "SEARCH_INTELLIGENCE": "Search Intelligence / SERP",
+    "SEARCH_INTELLIGENCE": "Inteligência de busca / SERP",
     "IMPROVEMENT_INTELLIGENCE": "Análise profunda e melhorias",
 }
 
