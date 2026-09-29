@@ -429,6 +429,77 @@ def test_result_explains_why_item_remained_unresolved() -> None:
     assert "pré-requisito" in rendered
 
 
+def test_semantic_ai_result_keeps_fulfillment_reason_and_adds_provider_diagnostics(tmp_path: Path) -> None:
+    import sqlite3
+
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            """CREATE TABLE ai_provider_attempts(
+                audit_id TEXT,
+                snapshot_id TEXT,
+                status TEXT,
+                operation TEXT,
+                semantic_contract_version TEXT,
+                started_at TEXT,
+                ai_task_id TEXT,
+                provider TEXT,
+                error_class TEXT,
+                http_status INTEGER,
+                error_code TEXT,
+                request_id TEXT
+            )"""
+        )
+        connection.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                (
+                    "AUD-TEST", "SNP-1", "ERROR", "SEMANTIC_M7", "M18-SEMANTIC-22-v1",
+                    "2026-09-29T12:00:00+00:00", "TASK-1", "OPENAI",
+                    "TIMEOUT_ERROR", None, None, None,
+                ),
+                (
+                    "AUD-TEST", "SNP-1", "ERROR", "SEMANTIC_M7", "M18-SEMANTIC-22-v1",
+                    "2026-09-29T12:00:01+00:00", "TASK-1", "GEMINI",
+                    "SERVER_ERROR", 503, "service_unavailable", "req-123",
+                ),
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    item = SimpleNamespace(
+        component="SEMANTIC_AI",
+        scope_key="SNP-1",
+        status="FAILED_RETRYABLE",
+        last_error_code="SEMANTIC_AI_RETRY_INCOMPLETE",
+        last_error_message="selective reprocessing did not satisfy SEMANTIC_AI/SNP-1",
+        attempt_count=2,
+        retryable=True,
+        temporal_mode="REPLAY_SAFE",
+        valid_until=None,
+    )
+    result = _result()
+    result.report_root = tmp_path / "report-catalog"
+    result.audit_id = "AUD-TEST"
+
+    token = parity._RPR_PRESENTATION_CONTEXT.set(("AUD-TEST", 8, (item,)))
+    try:
+        with redirect_stdout(StringIO()) as output:
+            parity.render_reprocess_result(result, (item,))
+    finally:
+        parity._RPR_PRESENTATION_CONTEXT.reset(token)
+
+    rendered = output.getvalue()
+    assert "SEMANTIC_AI_RETRY_INCOMPLETE" in rendered
+    assert "Última causa IA" in rendered
+    assert "OPENAI: Tempo limite excedido" in rendered
+    assert "GEMINI: Erro temporário do servidor · HTTP 503 · service_unavailable · request_id=req-123" in rendered
+    assert "nova tentativa é possível" in rendered
+
+
 def test_result_marks_selected_unresolved_item_as_selected() -> None:
     item = SimpleNamespace(
         component="IMPROVEMENT_INTELLIGENCE",
