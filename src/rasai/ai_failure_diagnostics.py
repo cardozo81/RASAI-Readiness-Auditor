@@ -138,6 +138,16 @@ def latest_semantic_failure_attempts(
         connection.close()
 
 
+def format_ai_attempt_line(attempt: Mapping[str, Any]) -> str:
+    """Format one persisted provider failure without exposing payloads or headers."""
+    provider = str(attempt.get("provider") or "IA").upper().strip() or "IA"
+    diagnostic = format_ai_attempt_diagnostic(attempt)
+    request_id = str(attempt.get("request_id") or "").strip()
+    if request_id:
+        diagnostic = f"{diagnostic} · request_id={request_id}"
+    return f"{provider}: {diagnostic}"
+
+
 def semantic_retry_action(attempts: tuple[Mapping[str, Any], ...]) -> str | None:
     """Suggest an operator action only from persisted structured failure classes."""
     classes = {
@@ -163,6 +173,7 @@ def semantic_retry_action(attempts: tuple[Mapping[str, Any], ...]) -> str | None
 
 __all__ = [
     "format_ai_attempt_diagnostic",
+    "format_ai_attempt_line",
     "latest_semantic_failure_attempts",
     "semantic_retry_action",
 ]
