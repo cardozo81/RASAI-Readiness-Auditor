@@ -509,6 +509,15 @@ def render_reprocess_preparation(
             reason = parity._reason_text(item)
             if reason != "motivo específico não persistido":
                 _wrapped_field("    Motivo", reason)
+            diagnostic_lines, _diagnostic_action = parity._semantic_ai_failure_diagnostics(
+                audit_root / "audit.db",
+                audit_id,
+                item,
+            )
+            if diagnostic_lines:
+                _wrapped_field("    Última causa IA", diagnostic_lines[0])
+                for diagnostic_line in diagnostic_lines[1:]:
+                    _wrapped_field("    Continuação", diagnostic_line)
             if index != len(pending):
                 print()
     else:
