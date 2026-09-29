@@ -272,7 +272,9 @@ def test_latest_ai_failure_context_reuses_persisted_diagnostic(tmp_path) -> None
         connection.close()
 
     context = console_cost_confirmation._latest_ai_failure_context(tmp_path)
-    assert context == "OPENAI/gpt-test; NETWORK; code=CONNECT_ERROR; HTTP 503"
+    assert context == "OPENAI/gpt-test; Erro de rede; motivo=Erro de conexão; HTTP 503"
+    assert "NETWORK" not in context
+    assert "CONNECT_ERROR" not in context
 
 
 
