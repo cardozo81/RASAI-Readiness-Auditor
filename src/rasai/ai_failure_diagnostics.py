@@ -129,7 +129,11 @@ def latest_semantic_failure_attempts(
         else:
             rows = rows[-8:]
 
-        return tuple(dict(row) for row in rows)
+        return tuple(
+            dict(row)
+            for row in rows
+            if str(row["status"] or "").upper() not in _SUCCESS
+        )
     finally:
         connection.close()
 
