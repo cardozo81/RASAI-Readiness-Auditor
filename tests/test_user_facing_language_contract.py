@@ -167,3 +167,157 @@ def test_legacy_report_error_summaries_use_human_labels() -> None:
     assert "SERVICE_UNAVAILABLE" not in reason
     assert "—" not in reason
 
+def test_shared_public_language_covers_known_gap_codes_and_dynamic_prerequisites() -> None:
+    from rasai.catalog_report_public_labels import public_label
+    from rasai.public_language import supplemental_public_label
+
+    assert public_label("HTTP_ACQUISITION_INCOMPLETE") == "Aquisição HTTP incompleta"
+    assert public_label("TECHNICAL_EVIDENCE_INSUFFICIENT") == "Evidência técnica insuficiente"
+    assert (
+        supplemental_public_label("TECHNICAL_PREREQUISITE_BR_GEO_009_NOT_APPLICABLE")
+        == "Pré-requisito técnico BR-GEO-009: não aplicável"
+    )
+    assert (
+        supplemental_public_label("TECHNICAL_PREREQUISITE_BR_GEO_020_UNKNOWN")
+        == "Pré-requisito técnico BR-GEO-020: não determinado"
+    )
+
+
+def test_report_humanizer_blocks_unknown_machine_copy_but_preserves_traceability() -> None:
+    from rasai.report_presentation import humanize_report_html
+
+    html = (
+        "<p>HTTP_ACQUISITION_INCOMPLETE "
+        "TECHNICAL_PREREQUISITE_BR_GEO_009_NOT_APPLICABLE "
+        "BRAND_NEW_RUNTIME_ENUM</p>"
+        "<span>BR-GEO-009</span>"
+        "<strong>RASAI_TABLET_CONTROLLED4G_V1</strong>"
+    )
+    rendered = humanize_report_html(html)
+    assert "Aquisição HTTP incompleta" in rendered
+    assert "Pré-requisito técnico BR-GEO-009: não aplicável" in rendered
+    assert "Condição técnica não catalogada" in rendered
+    assert "HTTP_ACQUISITION_INCOMPLETE" not in rendered
+    assert "TECHNICAL_PREREQUISITE_BR_GEO_009_NOT_APPLICABLE" not in rendered
+    assert "BRAND_NEW_RUNTIME_ENUM" not in rendered
+    assert "BR-GEO-009" in rendered
+    assert "RASAI_TABLET_CONTROLLED4G_V1" in rendered
+
+
+def test_console_header_never_exposes_raw_status_or_operation(monkeypatch, capsys) -> None:
+    from types import SimpleNamespace
+    from rasai import console_runtime
+
+    monkeypatch.setattr(console_runtime, "clear_screen", lambda: None)
+    monkeypatch.setattr(console_runtime, "environment_summary", lambda: {})
+    monkeypatch.setattr(console_runtime, "_log_environment_snapshot", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(console_runtime, "timing_summary", lambda _state: None)
+    monkeypatch.setattr(console_runtime, "runtime_progress_summary", lambda _state: None)
+
+    state = SimpleNamespace(
+        status="FINALIZING",
+        current_url="https://example.test/",
+        current_device="MOBILE",
+        operation="LOCAL:DONE",
+        error="",
+    )
+    console_runtime.render_header(state)
+    rendered = capsys.readouterr().out
+    assert "Finalizando auditoria" in rendered
+    assert "Auditoria concluída" in rendered
+    assert "FINALIZING" not in rendered
+    assert "LOCAL:DONE" not in rendered
+
+
+def test_reprocess_reason_uses_human_diagnostic_code() -> None:
+    from types import SimpleNamespace
+    from rasai.console_reprocess_parity import _reason_text
+
+    item = SimpleNamespace(
+        last_error_code="HTTP_ACQUISITION_INCOMPLETE",
+        last_error_message="no effective retrievable HTTP acquisition is persisted for this page",
+    )
+    rendered = _reason_text(item)
+    assert rendered.startswith("Aquisição HTTP incompleta - ")
+    assert "HTTP_ACQUISITION_INCOMPLETE" not in rendered
+
+
+def test_console_operation_literals_have_explicit_public_labels() -> None:
+    from rasai.public_language import CONSOLE_OPERATION_LABELS
+
+    root = ROOT / "src" / "rasai"
+    literal = re.compile(r"""[\"']((?:LOCAL|API|BROWSER|INTEGRATION):[^\"']+)[\"']""")
+    missing: list[str] = []
+    for path in sorted(root.rglob("*.py")):
+        if "console" not in path.name and path.name not in {
+            "m3_console_progress.py",
+            "m21_console_progress.py",
+            "standards_gsc_console_progress.py",
+            "runtime_adherence_extensions.py",
+            "execution_adherence_refinement.py",
+            "audit_progress_runtime.py",
+        }:
+            continue
+        for value in literal.findall(path.read_text(encoding="utf-8")):
+            if "{" in value:
+                continue
+            if value not in CONSOLE_OPERATION_LABELS:
+                missing.append(f"{path.relative_to(ROOT)}: {value}")
+    assert not missing, "\n".join(sorted(set(missing)))
+
+
+def test_semantic_machine_literals_have_a_public_language_contract() -> None:
+    import ast
+
+    from rasai.catalog_report_public_labels import public_label
+    from rasai.public_language import is_traceability_identifier
+
+    semantic_fields = {
+        "error_code",
+        "error_class",
+        "last_error_code",
+        "last_error_class",
+        "reason",
+        "status",
+        "scope_key",
+        "component",
+        "temporal_mode",
+    }
+    machine = re.compile(r"^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$")
+    root = ROOT / "src" / "rasai"
+    missing: list[str] = []
+
+    def verify(path: Path, field: str, value: object) -> None:
+        if not isinstance(value, str) or not machine.fullmatch(value):
+            return
+        if is_traceability_identifier(value):
+            return
+        if public_label(value) is None:
+            missing.append(f"{path.relative_to(ROOT)}: {field}={value}")
+
+    for path in sorted(root.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.keyword) and node.arg in semantic_fields:
+                if isinstance(node.value, ast.Constant):
+                    verify(path, node.arg, node.value.value)
+            elif isinstance(node, ast.Dict):
+                for key, value in zip(node.keys, node.values):
+                    if (
+                        isinstance(key, ast.Constant)
+                        and isinstance(key.value, str)
+                        and key.value in semantic_fields
+                        and isinstance(value, ast.Constant)
+                    ):
+                        verify(path, key.value, value.value)
+            elif isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant):
+                for target in node.targets:
+                    field = None
+                    if isinstance(target, ast.Name):
+                        field = target.id
+                    elif isinstance(target, ast.Attribute):
+                        field = target.attr
+                    if field in semantic_fields:
+                        verify(path, field, node.value.value)
+    assert not missing, "\n".join(sorted(set(missing)))
+
