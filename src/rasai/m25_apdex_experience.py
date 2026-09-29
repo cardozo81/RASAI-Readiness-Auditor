@@ -150,7 +150,7 @@ class ExperienceApdexConfig:
                 "runtime_errors": "javascript_and_console_capture_are_explicit_and_independent_from_apdex_impact",
                 "xhr_fetch_capture": {"xhr": self.xhr_capture, "fetch": self.fetch_capture},
                 "max_error_details": self.max_error_details,
-                "request_errors": "http_4xx_5xx_requestfailed_failed_images_and_csp_when_enabled",
+                "request_errors": "http_4xx_5xx_transport_failures_failed_images_and_csp_when_enabled; generic net::ERR_ABORTED subresources remain diagnostic by default",
                 "request_error_scope": self.error_scope,
             },
         }
@@ -472,6 +472,10 @@ class PlaywrightSyntheticUxGateway:
                 request_url = str(getattr(request, "url", ""))
                 first_party = is_first_party(request_url)
                 resource_type = str(getattr(request, "resource_type", ""))
+                failure_reason = getattr(request, "failure", None)
+                if callable(failure_reason):
+                    failure_reason = failure_reason()
+                failure_reason = _bounded(str(failure_reason or ""), 256) or None
                 if first_party:
                     counters["first_failed"] += 1
                 failed_image = resource_type == "image"
@@ -487,6 +491,7 @@ class PlaywrightSyntheticUxGateway:
                     "first_party": first_party,
                     "failed_image": failed_image,
                     "csp": False,
+                    "failure_reason": failure_reason,
                 })
                 request_id = id(request)
                 if request_id in action_xhr_request_ids:
@@ -1244,6 +1249,24 @@ def _request_event_impacts_apdex(event: dict[str, Any], rules: Any) -> bool:
     return False
 
 
+def _default_request_event_impacts_apdex(event: dict[str, Any]) -> bool:
+    """Conservative manual/default request-error policy.
+
+    Playwright requestfailed is a browser transport signal, not a one-to-one Dynatrace
+    request-error status. In particular, net::ERR_ABORTED is commonly emitted for
+    canceled analytics/beacon/subresource activity and must remain diagnostic unless a
+    vendor-imported rule explicitly classifies the event. Main navigation failures are
+    already handled earlier as NAVIGATION_ERROR/TIMEOUT.
+    """
+    kind = str(event.get("error_type") or "").upper()
+    if kind != "REQUEST_FAILED":
+        return True
+    reason = str(event.get("failure_reason") or "").strip().casefold()
+    if reason == "net::err_aborted":
+        return False
+    return True
+
+
 def _qualifying_error(
     item: UxMeasurement,
     scope: str,
@@ -1268,7 +1291,7 @@ def _qualifying_error(
         event for event in (getattr(item, "request_error_events", ()) or ())
         if isinstance(event, dict)
     )
-    if events and isinstance(request_error_rules, list) and request_error_rules:
+    if events:
         eligible: list[dict[str, Any]] = []
         for event in events:
             if normalized == "navigation" and str(event.get("resource_type") or "") != "document":
@@ -1276,11 +1299,12 @@ def _qualifying_error(
             if normalized == "first-party" and not bool(event.get("first_party")):
                 continue
             eligible.append(event)
-        return any(_request_event_impacts_apdex(event, request_error_rules) for event in eligible)
+        if isinstance(request_error_rules, list) and request_error_rules:
+            return any(_request_event_impacts_apdex(event, request_error_rules) for event in eligible)
+        return any(_default_request_event_impacts_apdex(event) for event in eligible)
 
-    # No imported ordered rules: use the default Dynatrace-compatible aggregate
-    # policy, preserving the lightweight contract for manual calibration and
-    # historical samples that do not carry per-request ephemeral events.
+    # Historical/injected samples may not carry per-request events. Preserve their
+    # aggregate fallback contract rather than silently inventing event semantics.
     if str(getattr(item, "status", "") or "") == "APPLICATION_ERROR":
         return True
     if normalized == "navigation":

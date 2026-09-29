@@ -6,6 +6,7 @@ report can explain *which* external or first-party resources participated in the
 """
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from html import escape
 import sqlite3
@@ -84,6 +85,57 @@ def _finish_capture() -> tuple[dict[str, Any], ...]:
         except AttributeError:
             pass
     return details
+
+
+_REQUEST_DETAIL_TYPES = frozenset({"REQUEST_FAILED", "HTTP_ERROR", "CSP_VIOLATION"})
+
+
+def _request_detail_key(item: Mapping[str, Any]) -> tuple[Any, ...]:
+    return (
+        str(item.get("error_type") or "").upper(),
+        str(item.get("source_url") or item.get("url") or ""),
+        str(item.get("resource_type") or ""),
+        item.get("http_status"),
+    )
+
+
+def _canonicalize_captured_details(
+    result: Any,
+    captured: Sequence[Mapping[str, Any]],
+) -> tuple[dict[str, Any], ...]:
+    """Drop request details emitted after the canonical measurement was frozen.
+
+    Closing a Playwright page may emit requestfailed/ERR_ABORTED events. Those events
+    are useful browser lifecycle diagnostics but they did not participate in the
+    UxMeasurement counters/classification and therefore cannot be persisted as if they
+    belonged to the measured sample.
+    """
+    canonical_events = tuple(
+        item for item in (getattr(result, "request_error_events", ()) or ())
+        if isinstance(item, Mapping)
+    )
+    quota: Counter[tuple[Any, ...]] = Counter(
+        (
+            str(item.get("error_type") or "").upper(),
+            str(item.get("url") or ""),
+            str(item.get("resource_type") or ""),
+            item.get("http_status"),
+        )
+        for item in canonical_events
+    )
+    output: list[dict[str, Any]] = []
+    for raw in captured:
+        item = dict(raw)
+        error_type = str(item.get("error_type") or "").upper()
+        if error_type not in _REQUEST_DETAIL_TYPES:
+            output.append(item)
+            continue
+        key = _request_detail_key(item)
+        if quota[key] <= 0:
+            continue
+        quota[key] -= 1
+        output.append(item)
+    return tuple(output)
 
 
 class _PageProxy:
@@ -201,6 +253,7 @@ def _patch_m25_capture() -> None:
                     )
             finally:
                 details = _finish_capture()
+            details = _canonicalize_captured_details(result, details)
             with _LOCK:
                 _BY_MEASUREMENT[id(result)] = details
             return result

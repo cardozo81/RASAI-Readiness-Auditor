@@ -138,6 +138,68 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
         self.assertEqual(classification, "FRUSTRATED")
         self.assertTrue(forced)
 
+    def test_generic_aborted_subresource_is_diagnostic_but_transport_failure_can_affect_apdex(self) -> None:
+        calibration = Calibration(
+            source="TEST", kpm="USER_ACTION_DURATION",
+            satisfied_threshold_seconds=3.0, frustrated_threshold_seconds=12.0,
+            errors_affect_apdex=True, metadata={},
+        )
+        aborted = _ux(
+            2000,
+            request_events=({
+                "error_type": "REQUEST_FAILED",
+                "url": "https://analytics.example/collect",
+                "resource_type": "fetch",
+                "first_party": False,
+                "http_status": None,
+                "failed_image": False,
+                "csp": False,
+                "failure_reason": "net::ERR_ABORTED",
+            },),
+        )
+        classification, value, forced = classify_measurement(
+            aborted, calibration, error_scope="all"
+        )
+        self.assertEqual(value, 2000.0)
+        self.assertEqual(classification, "SATISFIED")
+        self.assertFalse(forced)
+
+        reset = _ux(
+            2000,
+            request_events=({
+                "error_type": "REQUEST_FAILED",
+                "url": "https://cdn.example/asset.js",
+                "resource_type": "script",
+                "first_party": False,
+                "http_status": None,
+                "failed_image": False,
+                "csp": False,
+                "failure_reason": "net::ERR_CONNECTION_RESET",
+            },),
+        )
+        classification, _, forced = classify_measurement(
+            reset, calibration, error_scope="all"
+        )
+        self.assertEqual(classification, "FRUSTRATED")
+        self.assertTrue(forced)
+
+        main_navigation = UxMeasurement(
+            status="NAVIGATION_ERROR",
+            user_action_duration_ms=2000.0,
+            request_error_events=({
+                "error_type": "REQUEST_FAILED",
+                "url": "https://example.com/",
+                "resource_type": "document",
+                "first_party": True,
+                "failure_reason": "net::ERR_ABORTED",
+            },),
+        )
+        classification, _, forced = classify_measurement(
+            main_navigation, calibration, error_scope="all"
+        )
+        self.assertEqual(classification, "FRUSTRATED")
+        self.assertTrue(forced)
+
     def test_console_error_is_diagnostic_by_default_and_can_be_enabled(self) -> None:
         calibration = Calibration(
             source="TEST", kpm="USER_ACTION_DURATION",

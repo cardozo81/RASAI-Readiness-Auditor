@@ -254,7 +254,7 @@ Concorrência acima do recomendado aumenta CPU/RAM local e sobreposição de tr�
 | `RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS` | `12` | número `> satisfied` | `12` | threshold frustrado |
 | `RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT` | `true` | booleano | `true` | chave mestra; default Dynatrace: erros elegíveis participam do Apdex |
 | `RASAI_APDEX_EXPERIENCE_JAVASCRIPT_ERRORS_AFFECT` | `true` | booleano | `true` | default Dynatrace: JavaScript errors podem tornar a ação Frustrated |
-| `RASAI_APDEX_EXPERIENCE_REQUEST_ERRORS_AFFECT` | `true` | booleano | `true` | default Dynatrace: request/HTTP/CSP errors podem impactar Apdex |
+| `RASAI_APDEX_EXPERIENCE_REQUEST_ERRORS_AFFECT` | `true` | booleano | `true` | request/HTTP/CSP errors qualificáveis podem impactar Apdex; `net::ERR_ABORTED` genérico de subrecurso permanece diagnóstico por default |
 | `RASAI_APDEX_EXPERIENCE_CONSOLE_ERRORS_AFFECT` | `false` | booleano | `false` | `console.error` só afeta Apdex quando habilitado explicitamente ou via configuração equivalente a `cce=1` |
 | `RASAI_APDEX_EXPERIENCE_JAVASCRIPT_ERROR_CAPTURE` | `true` | booleano | `true` | default Dynatrace: captura exceções JavaScript |
 | `RASAI_APDEX_EXPERIENCE_XHR_CAPTURE` | `true` | booleano | `true` | default Dynatrace: captura/correlaciona XMLHttpRequest |

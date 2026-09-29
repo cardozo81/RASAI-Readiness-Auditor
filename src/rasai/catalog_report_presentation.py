@@ -452,7 +452,7 @@ def _session_label(value: Any) -> str:
 def _error_scope_label(value: Any) -> str:
     raw=_norm(value)
     return {
-        "ALL":"Todos os erros observados",
+        "ALL":"Todos os erros de requisição qualificáveis observados",
         "FIRST_PARTY":"Somente falhas atribuídas a recursos do próprio domínio; erros de console/JavaScript sem origem confiável permanecem diagnósticos",
         "OWNER":"Somente falhas atribuídas a recursos do próprio domínio",
         "NAVIGATION":"Somente erro da ação/navegação principal",
