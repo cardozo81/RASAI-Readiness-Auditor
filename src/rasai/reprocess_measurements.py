@@ -271,6 +271,65 @@ def _profile_from_persisted(value: Any, *, device: str):
     return MOBILE_STANDARD_PROFILE if device.upper() == "MOBILE" else DESKTOP_STANDARD_PROFILE
 
 
+def _m25_persisted_profile_selection(
+    config_map: dict[str, Any],
+    sample_rows: tuple[sqlite3.Row, ...] | list[sqlite3.Row] = (),
+) -> tuple[dict[str, dict[str, str]], dict[str, str]]:
+    """Resolve frozen M25 profile IDs without consulting the current environment."""
+    from rasai.synthetic_runtime_profiles import default_preset, validate_preset
+
+    raw_profiles = config_map.get("runtime_profiles")
+    raw_profiles = dict(raw_profiles) if isinstance(raw_profiles, dict) else {}
+    resolved: dict[str, dict[str, str]] = {}
+    provenance: dict[str, str] = {}
+
+    for device in ("MOBILE", "DESKTOP", "TABLET"):
+        raw = raw_profiles.get(device)
+        if isinstance(raw, dict):
+            try:
+                resolved[device] = {
+                    kind: validate_preset(kind, device, str(raw[kind]))
+                    for kind in ("client", "hardware", "network")
+                }
+                provenance[device] = "AUD_CONFIGURATION"
+                continue
+            except (KeyError, TypeError, ValueError):
+                pass
+
+        # Modern samples persist a composite profile_id.  This is an evidence-backed
+        # fallback for AUDs created before runtime_profiles was added to the run config.
+        for row in sample_rows:
+            try:
+                row_device = str(row["device"] or "").upper()
+                profile_id = str(row["profile_id"] or "")
+            except (IndexError, KeyError, TypeError):
+                continue
+            if row_device != device or not profile_id.startswith(f"RASAI_{device}_"):
+                continue
+            parts = profile_id.split("_", 4)
+            if len(parts) != 5:
+                continue
+            try:
+                resolved[device] = {
+                    "client": validate_preset("client", device, parts[2]),
+                    "hardware": validate_preset("hardware", device, parts[3]),
+                    "network": validate_preset("network", device, parts[4]),
+                }
+                provenance[device] = "PERSISTED_SAMPLE_PROFILE_ID"
+                break
+            except ValueError:
+                continue
+
+        if device not in resolved:
+            resolved[device] = {
+                kind: default_preset(kind, device)
+                for kind in ("client", "hardware", "network")
+            }
+            provenance[device] = "LEGACY_DEFAULT_FALLBACK"
+
+    return resolved, provenance
+
+
 def _m23_item_from_row(row: sqlite3.Row):
     from rasai.m23_apdex import _MeasuredSample
     from rasai.m23_apdex_profiles import NavigationMeasurement
@@ -416,7 +475,8 @@ def recover_synthetic_apdex(
                 reason=reason,updated_at=m23._utc_now(),
             ))
     finally:
-        gateway.close()
+        if shared_gateway is not None:
+            shared_gateway.close()
     return effective_success
 
 
@@ -507,12 +567,24 @@ def recover_experience_apdex(
                 dynatrace_application_id=str(cfg_map.get("dynatrace_application_id") or "") or None,
                 dynatrace_config_json=str(cfg_map.get("dynatrace_config_json") or "") or None,
             ).validate()
+            profile_selection, profile_provenance = _m25_persisted_profile_selection(cfg_map)
             connection.close()
-            result = m25.execute_m25_experience(
+            from rasai.operational_log import try_append_operational_event
+            from rasai.synthetic_profile_runtime import profile_selection_scope
+
+            try_append_operational_event(
+                workspace,
+                "M25_RPR_PROFILE_SELECTION",
                 audit_id=audit_id,
-                workspace=workspace,
-                config=cfg,
+                provenance=profile_provenance,
+                runtime_profiles=profile_selection,
             )
+            with profile_selection_scope(profile_selection):
+                result = m25.execute_m25_experience(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                    config=cfg,
+                )
             return str(result.status).upper() == "SUCCESS"
         if not bool(run["enabled"]):
             return False
@@ -567,7 +639,7 @@ def recover_experience_apdex(
             error_scope=error_scope,
             settle_seconds=float(run["settle_seconds"]),
             delay_seconds=float(config_map.get("delay_seconds",1.0) or 1.0),
-            concurrency=1,
+            concurrency=int(config_map.get("concurrency",1) or 1),
             dynatrace_import=bool(config_map.get("dynatrace_import", False)),
             dynatrace_base_url=str(config_map.get("dynatrace_base_url") or "") or None,
             dynatrace_application_id=str(config_map.get("dynatrace_application_id") or "") or None,
@@ -616,58 +688,87 @@ def recover_experience_apdex(
         pages = m25._selected_pages(workspace,audit_id,cfg.max_pages)
         targets = m25.allocate_samples(cfg.target_samples_per_page,cfg.device_mix_dict())
         attempt_targets = m25.allocate_attempts(cfg.max_attempts_per_page,cfg.device_mix_dict(),targets)
-        rows = connection.execute(
+        rows = tuple(connection.execute(
             "SELECT * FROM synthetic_ux_apdex_samples WHERE audit_id=? ORDER BY page_id,device,run_index", (audit_id,)
-        ).fetchall()
+        ).fetchall())
         existing_by_context: dict[tuple[str,str],list[Any]] = {}
         for row in rows:
             existing_by_context.setdefault((str(row["page_id"]),str(row["device"])),[]).append(_m25_item_from_row(row))
+        profile_selection, profile_provenance = _m25_persisted_profile_selection(config_map, rows)
         host_environment = _json_load(run["host_environment"], {})
     finally:
         connection.close()
 
-    gateway = m25._apply_gateway_capture_policy(
-        m25.PlaywrightSyntheticUxGateway(session_mode=cfg.session_mode),
-        calibration,
+    from rasai.operational_log import try_append_operational_event
+    from rasai.synthetic_profile_runtime import profile_selection_scope
+
+    try_append_operational_event(
+        workspace,
+        "M25_RPR_PROFILE_SELECTION",
+        audit_id=audit_id,
+        provenance=profile_provenance,
+        runtime_profiles=profile_selection,
+        concurrency=cfg.concurrency,
+        delay_seconds=cfg.delay_seconds,
     )
+
+    base_factory = lambda: m25.PlaywrightSyntheticUxGateway(session_mode=cfg.session_mode)
+    factory = lambda: m25._apply_gateway_capture_policy(base_factory(), calibration)
+    shared_gateway = factory() if cfg.concurrency == 1 else None
     pacer = m25._OriginPacer(cfg.delay_seconds)
     try:
-        with M25Persistence(workspace) as store:
-            for page in pages:
-                page_id = str(page["page_id"])
-                url = str(page["url"])
-                page_items: list[Any] = []
-                for device in m25._DEVICE_ORDER:
-                    target = targets.get(device,0)
-                    if target <= 0:
-                        continue
-                    profile = m25._profile_for_device(device)
-                    items = list(existing_by_context.get((page_id,device),[]))
-                    next_index = max((value.run_index for value in items),default=0)+1
-                    new_attempts = 0
-                    while sum(value.classification is not None for value in items) < target and new_attempts < attempt_targets[device]:
-                        pacer.wait_for_slot()
-                        measurement = gateway.measure(
-                            url=url,device=device,profile=profile,
-                            timeout_seconds=max(cfg.settle_seconds+calibration.frustrated_threshold_seconds+5.0,15.0),
-                            settle_seconds=cfg.settle_seconds,
+        with profile_selection_scope(profile_selection):
+            with M25Persistence(workspace) as store:
+                for page_index, page in enumerate(pages, 1):
+                    page_id = str(page["page_id"])
+                    url = str(page["url"])
+                    page_items: list[Any] = []
+                    for device in m25._DEVICE_ORDER:
+                        target = targets.get(device,0)
+                        if target <= 0:
+                            continue
+                        profile = m25._profile_for_device(device)
+                        items = list(existing_by_context.get((page_id,device),[]))
+                        next_index = max((value.run_index for value in items),default=0)+1
+                        missing_valid = max(
+                            target - sum(value.classification is not None for value in items),
+                            0,
                         )
-                        classification,value,forced = m25.classify_measurement(measurement,calibration,error_scope=cfg.error_scope)
-                        classified = m25._Classified(next_index,device,measurement,classification,value,forced,m25._utc_now())
-                        items.append(classified)
-                        store.add_sample(m25._persisted_sample(audit_id,page_id,url,profile,cfg,calibration,classified))
-                        next_index += 1
-                        new_attempts += 1
-                    existing_by_context[(page_id,device)] = items
-                    page_items.extend(items)
+                        if missing_valid:
+                            new_items = m25._measure_device(
+                                audit_id=audit_id,
+                                workspace=workspace,
+                                url=url,
+                                device=device,
+                                target=missing_valid,
+                                max_attempts=attempt_targets[device],
+                                page_index=page_index,
+                                page_total=len(pages),
+                                calibration=calibration,
+                                config=cfg,
+                                pacer=pacer,
+                                shared_gateway=shared_gateway,
+                                factory=factory,
+                                profile=profile,
+                                start_index=next_index,
+                            )
+                            for classified in new_items:
+                                store.add_sample(
+                                    m25._persisted_sample(
+                                        audit_id,page_id,url,profile,cfg,calibration,classified
+                                    )
+                                )
+                            items.extend(new_items)
+                        existing_by_context[(page_id,device)] = items
+                        page_items.extend(items)
+                        store.upsert_summary(m25._summary(
+                            audit_id=audit_id,page_id=page_id,url=url,device=device,profile_id=profile.profile_id,
+                            target=target,items=sorted(items,key=lambda value:value.run_index),
+                        ))
                     store.upsert_summary(m25._summary(
-                        audit_id=audit_id,page_id=page_id,url=url,device=device,profile_id=profile.profile_id,
-                        target=target,items=sorted(items,key=lambda value:value.run_index),
+                        audit_id=audit_id,page_id=page_id,url=url,device="POPULATION",profile_id="MIXED_DEVICE_POPULATION",
+                        target=cfg.target_samples_per_page,items=sorted(page_items,key=lambda value:(value.run_index,value.device)),
                     ))
-                store.upsert_summary(m25._summary(
-                    audit_id=audit_id,page_id=page_id,url=url,device="POPULATION",profile_id="MIXED_DEVICE_POPULATION",
-                    target=cfg.target_samples_per_page,items=sorted(page_items,key=lambda value:(value.run_index,value.device)),
-                ))
 
             connection = sqlite3.connect(workspace.database)
             connection.row_factory = sqlite3.Row
