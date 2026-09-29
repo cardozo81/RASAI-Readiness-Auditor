@@ -121,6 +121,7 @@ def _ai_totals(attempts: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 def _ai_integrations_body(database: Any, data: Any) -> str:
     from rasai import catalog_report_integrations as i
     from rasai.ai_failure_diagnostics import format_ai_attempt_diagnostic
+    from rasai.catalog_report_presentation import _Html
 
     attempts = i._ai_attempts(database, data.audit_id)
     exchanges = i._ai_exchange_rows(database, data.audit_id)
@@ -175,17 +176,29 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
             ("Erro", format_ai_attempt_diagnostic(attempt)),
         ]
         if attempt.get("error_class") not in (None, ""):
-            attempt_details.append(("Classe técnica do erro", attempt.get("error_class")))
+            attempt_details.append((
+                "Classe técnica do erro",
+                _Html("<code>" + escape(str(attempt.get("error_class"))) + "</code>"),
+            ))
         if attempt.get("http_status") not in (None, ""):
             attempt_details.append(("HTTP", attempt.get("http_status")))
         if attempt.get("error_code") not in (None, ""):
-            attempt_details.append(("Código técnico do erro", attempt.get("error_code")))
+            attempt_details.append((
+                "Código técnico do erro",
+                _Html("<code>" + escape(str(attempt.get("error_code"))) + "</code>"),
+            ))
         if attempt.get("error_type") not in (None, ""):
-            attempt_details.append(("Tipo técnico do erro", attempt.get("error_type")))
+            attempt_details.append((
+                "Tipo técnico do erro",
+                _Html("<code>" + escape(str(attempt.get("error_type"))) + "</code>"),
+            ))
         if attempt.get("error_detail") not in (None, ""):
             attempt_details.append(("Detalhe persistido", attempt.get("error_detail")))
         if attempt.get("request_id") not in (None, ""):
-            attempt_details.append(("Request ID", attempt.get("request_id")))
+            attempt_details.append((
+                "Request ID",
+                _Html("<code>" + escape(str(attempt.get("request_id"))) + "</code>"),
+            ))
         body = i._kv(tuple(attempt_details))
         body += "<h3>Entrada utilizada</h3><p>" + escape(_attempt_input_detail(attempt)) + "</p>"
         body += "<h3>Dados envolvidos</h3><p>" + escape(inputs) + "</p>"
