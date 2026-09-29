@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import traceback
 from typing import Any
 
 from rasai.audit_catalog import AI_NONE, CATALOGS
@@ -136,6 +137,35 @@ def _choose_ai_mode(state: Any, added: tuple[str, ...]) -> bool | None:
         state.error = "Opção inválida."
 
 
+def _record_extension_console_failure(state: Any, audit_id: str, exc: BaseException) -> str:
+    """Persist an unexpected extension failure and return a redacted UI message."""
+    try:
+        from rasai.secret_safety import redact_text
+
+        message = redact_text(f"{type(exc).__name__}: {exc}")[:1000]
+        stack = redact_text(traceback.format_exc(limit=12))[:4000]
+    except Exception:
+        message = f"{type(exc).__name__}: {str(exc)[:900]}"
+        stack = traceback.format_exc(limit=12)[:4000]
+    try:
+        workspace = AuditWorkspace.open(Path(state.audits_root) / audit_id)
+        from rasai.operational_log import try_append_operational_event
+
+        try_append_operational_event(
+            workspace,
+            "AUDIT_CATALOG_EXTENSION_CONSOLE_FAILURE",
+            level="ERROR",
+            audit_id=audit_id,
+            error_type=type(exc).__name__,
+            error_message=message,
+            traceback=stack,
+        )
+    except Exception:
+        # UI containment must not fail because the diagnostic sink is unavailable.
+        pass
+    return message
+
+
 def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
     """Add CAT-* scope to the same AUD without rewriting its initial plan.
 
@@ -216,30 +246,47 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
             set_selected_catalog_ids(state, tuple(item.id for item in CATALOGS if item.id in current))
             continue
         if raw == "R" and added:
-            blockers = []
-            for catalog_id in added:
-                catalog = next(item for item in CATALOGS if item.id == catalog_id)
-                status, detail = catalog_status(state, catalog)
-                if status == "BLOQUEADO":
-                    blockers.append(f"{catalog_id}: {detail}")
-            if blockers:
-                state.error = "Complementação bloqueada: " + "; ".join(blockers)
-                continue
-
-            use_ai = _choose_ai_mode(state, added)
-            if use_ai is None:
-                continue
-            set_ai_execution_enabled(state, use_ai)
-            if not confirm_continue(
-                "Aplicar os novos catálogos na mesma AUD preservando todos os resultados já concluídos",
-                default=False,
-            ):
-                state.error = "Complementação cancelada; nenhum dado da AUD foi alterado."
-                continue
             try:
+                blockers = []
+                for catalog_id in added:
+                    catalog = next(item for item in CATALOGS if item.id == catalog_id)
+                    status, detail = catalog_status(state, catalog)
+                    if status == "BLOQUEADO":
+                        blockers.append(f"{catalog_id}: {detail}")
+                if blockers:
+                    state.error = "Complementação bloqueada: " + "; ".join(blockers)
+                    continue
+
+                use_ai = _choose_ai_mode(state, added)
+                if use_ai is None:
+                    continue
+                set_ai_execution_enabled(state, use_ai)
+                if not confirm_continue(
+                    "Aplicar os novos catálogos na mesma AUD preservando todos os resultados já concluídos",
+                    back_label="Voltar sem complementar a AUD",
+                ):
+                    state.error = "Complementação cancelada; nenhum dado da AUD foi alterado."
+                    continue
                 result = apply_catalog_extension(state=state, audit_id=audit_id)
-            except (OSError, RuntimeError, TypeError, ValueError) as exc:
-                state.error = f"Complementação não concluída: {exc}"
+            except SystemExit as exc:
+                # Catalog readiness/configuration helpers can also invoke nested CLI
+                # surfaces. Any SystemExit in the entire apply action is recoverable
+                # here and must never terminate the interactive host.
+                diagnostic = _record_extension_console_failure(state, audit_id, exc)
+                state.error = (
+                    "Complementação interrompida por saída inesperada do runtime; "
+                    "a sessão foi preservada. "
+                    f"Diagnóstico registrado: {diagnostic}"
+                )
+                continue
+            except Exception as exc:
+                # Keep the interactive shell alive, but do not hide the defect:
+                # type/message/traceback are persisted in the operational log.
+                diagnostic = _record_extension_console_failure(state, audit_id, exc)
+                state.error = (
+                    "Complementação não concluída; a sessão foi preservada. "
+                    f"Diagnóstico registrado: {diagnostic}"
+                )
                 continue
             state.audit_id = audit_id
             state.status = str(result.processing_status)

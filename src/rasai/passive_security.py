@@ -21,6 +21,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
 
+from rasai.execution_environment import resolve_environment
 from rasai.secret_safety import redact_url, redact_value
 from rasai.web_technology_signatures import CONTRACT_VERSION as SIGNATURE_CONTRACT_VERSION, detect_platforms
 
@@ -263,12 +264,12 @@ def _truthy(raw: Any, default: bool = False) -> bool:
 
 
 def enabled(env: Mapping[str, str] | None = None) -> bool:
-    environment = os.environ if env is None else env
+    environment = resolve_environment(env)
     return _truthy(environment.get(ENABLED_ENV), False)
 
 
 def external_timeout(env: Mapping[str, str] | None = None) -> float:
-    environment = os.environ if env is None else env
+    environment = resolve_environment(env)
     raw = str(environment.get(EXTERNAL_TIMEOUT_ENV) or DEFAULT_EXTERNAL_TIMEOUT_SECONDS).strip()
     value = float(raw)
     if value <= 0:
@@ -1243,7 +1244,7 @@ def collect_external_intelligence(*, audit_id: str, workspace: Any, source_block
     This function never contacts the audited target. The source_blocked value is recorded
     but does not block package/CVE intelligence because those calls contain no target URL.
     """
-    environment = os.environ
+    environment = resolve_environment()
     if not enabled(environment):
         return {"collection_state": "DISABLED", "reason": "PASSIVE_SECURITY_NOT_SELECTED"}
     timeout = external_timeout(environment)
@@ -1810,7 +1811,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
             validation="Revalidar com casos de uso cross-origin esperados.",
         ))
 
-    if _truthy(os.environ.get(COOKIES_ENV), True):
+    if _truthy(resolve_environment().get(COOKIES_ENV), True):
         for index, raw_cookie in enumerate(headers.get("set-cookie", ())[:50], 1):
             attrs = _cookie_attributes(raw_cookie, url)
             cookie_party = _cookie_scope_party(attrs.get("effective_domain"), url)
@@ -1923,7 +1924,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
 
 def _analyze_resources(audit_id: str, resources: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
-    third_party_analysis = _truthy(os.environ.get(THIRD_PARTY_ENV), True)
+    third_party_analysis = _truthy(resolve_environment().get(THIRD_PARTY_ENV), True)
     items = list(resources)
     nonce_uses: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
     for item in items:
@@ -2193,11 +2194,11 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
 
             findings: list[dict[str, Any]] = []
             for page in page_context.values():
-                if _truthy(os.environ.get(HEADERS_ENV), True):
+                if _truthy(resolve_environment().get(HEADERS_ENV), True):
                     findings.extend(_analyze_headers(audit_id, page))
-            if _truthy(os.environ.get(RESOURCES_ENV), True):
+            if _truthy(resolve_environment().get(RESOURCES_ENV), True):
                 findings.extend(_analyze_resources(audit_id, resources))
-            if _truthy(os.environ.get(RUNTIME_ENV), True):
+            if _truthy(resolve_environment().get(RUNTIME_ENV), True):
                 findings.extend(_analyze_runtime(audit_id, page_context))
                 findings.extend(_analyze_script_intelligence(audit_id, script_observations))
             findings.extend(_advisory_findings(connection, audit_id))
@@ -2217,15 +2218,15 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
             kev_covered = kev_state in {"COMPLETED", "NO_DATA"}
             coverage = {
                 "transport": True,
-                "headers": _truthy(os.environ.get(HEADERS_ENV), True),
-                "csp": _truthy(os.environ.get(HEADERS_ENV), True),
-                "cookies": _truthy(os.environ.get(COOKIES_ENV), True),
-                "cors_cross_origin": _truthy(os.environ.get(HEADERS_ENV), True),
-                "scripts_resources": _truthy(os.environ.get(RESOURCES_ENV), True),
-                "third_party": _truthy(os.environ.get(THIRD_PARTY_ENV), True),
-                "mixed_content": _truthy(os.environ.get(RESOURCES_ENV), True),
-                "forms_iframes": _truthy(os.environ.get(RESOURCES_ENV), True),
-                "runtime": _truthy(os.environ.get(RUNTIME_ENV), True),
+                "headers": _truthy(resolve_environment().get(HEADERS_ENV), True),
+                "csp": _truthy(resolve_environment().get(HEADERS_ENV), True),
+                "cookies": _truthy(resolve_environment().get(COOKIES_ENV), True),
+                "cors_cross_origin": _truthy(resolve_environment().get(HEADERS_ENV), True),
+                "scripts_resources": _truthy(resolve_environment().get(RESOURCES_ENV), True),
+                "third_party": _truthy(resolve_environment().get(THIRD_PARTY_ENV), True),
+                "mixed_content": _truthy(resolve_environment().get(RESOURCES_ENV), True),
+                "forms_iframes": _truthy(resolve_environment().get(RESOURCES_ENV), True),
+                "runtime": _truthy(resolve_environment().get(RUNTIME_ENV), True),
                 "script_runtime": any(
                     state in {"CAPTURED", "NO_SCRIPT_DATA"}
                     for page in page_context.values()
@@ -2258,11 +2259,11 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
                 for state in page.get("cookie_capture_states", ())
                 if str(state)
             }
-            if _truthy(os.environ.get(RESOURCES_ENV), True) and script_states and not any(
+            if _truthy(resolve_environment().get(RESOURCES_ENV), True) and script_states and not any(
                 state in {"CAPTURED", "NO_SCRIPT_DATA"} for state in script_states
             ):
                 limitations.append("SCRIPT_RUNTIME_CAPTURE_UNAVAILABLE")
-            if _truthy(os.environ.get(COOKIES_ENV), True) and cookie_states and not any(
+            if _truthy(resolve_environment().get(COOKIES_ENV), True) and cookie_states and not any(
                 state in {"CAPTURED", "CAPTURED_NO_WRITES"} for state in cookie_states
             ):
                 limitations.append("COOKIE_RUNTIME_CAPTURE_UNAVAILABLE")

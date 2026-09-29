@@ -150,18 +150,26 @@ def effective_catalog_projection(
             for value in _json(row["added_catalogs_json"], [])
             if str(value).strip()
         ]
-        selected.update(added)
-        for raw in _json(row["catalog_items_json"], []):
-            if not isinstance(raw, Mapping):
-                continue
-            key = str(raw.get("id") or raw.get("catalog_id") or "").strip().upper()
-            if key:
-                items[key] = dict(raw)
         extension_id = str(row["extension_id"])
         linked = rpr_by_extension.get(extension_id, {})
+        row_status = str(row["status"] or "").strip().upper()
+        # A persisted request becomes part of the effective AUD only after a causal
+        # RPR exists (or a future explicit committed status is written before sealing).
+        # This prevents a crash between INSERT and RPR creation from silently changing
+        # the logical audit contract.
+        is_effective = bool(linked) or row_status in {"SUCCESS", "COMPLETED"}
+        if is_effective:
+            selected.update(added)
+            for raw in _json(row["catalog_items_json"], []):
+                if not isinstance(raw, Mapping):
+                    continue
+                key = str(raw.get("id") or raw.get("catalog_id") or "").strip().upper()
+                if key:
+                    items[key] = dict(raw)
         history.append({
             "extension_id": extension_id,
             "status": str(linked.get("rpr_status") or row["status"]),
+            "effective": is_effective,
             "added": added,
             "reprocess_id": linked.get("reprocess_id") or row["reprocess_id"],
             "requested_at": row["requested_at"],
@@ -172,7 +180,10 @@ def effective_catalog_projection(
 
 
 def effective_catalog_ids(workspace: AuditWorkspace, audit_id: str) -> tuple[str, ...]:
-    con = _connect(workspace)
+    # Reading/navigation must not mutate a sealed AUD. The extension schema is created
+    # only by write paths after the operator confirms an additive extension.
+    con = sqlite3.connect(workspace.database)
+    con.row_factory = sqlite3.Row
     try:
         selected, _items, _history = effective_catalog_projection(con, audit_id)
     finally:
@@ -412,6 +423,7 @@ def _materialize_added_work(
     added: set[str],
     *,
     live_valid_until: str | None,
+    use_ai: bool,
 ) -> set[str]:
     components: set[str] = set()
     if added & {"CAT-02", "CAT-04"} and bool(getattr(state, "web_performance", False)):
@@ -464,7 +476,7 @@ def _materialize_added_work(
         ):
             components.add("EXPERIENCE_APDEX")
 
-    if "CAT-03" in added and bool(getattr(state, "_rasai_catalog_extension_use_ai", False)):
+    if "CAT-03" in added and use_ai:
         provider = str(getattr(state, "ai_provider", "none") or "none").casefold()
         for snapshot_id in _snapshot_ids(workspace, audit_id):
             if _request_scoped_item(
@@ -543,7 +555,7 @@ def _materialize_added_work(
         # Improvement engine, materialize the SECURITY-only analysis as required for
         # this chosen extension attempt, exactly as the initial catalog projection does.
         if (
-            bool(getattr(state, "_rasai_catalog_extension_use_ai", False))
+            use_ai
             and "CAT-08" not in added
             and _request_item(
                 workspace,
@@ -604,23 +616,185 @@ def _insert_extension(
     return extension_id
 
 
-def _finish_extension(
+def _work_item_ids(
     workspace: AuditWorkspace,
+    audit_id: str,
+) -> frozenset[str] | None:
+    """Snapshot fulfillment identities before extension planning starts.
+
+    None means the snapshot could not be proven and therefore disables cleanup;
+    rollback must fail closed rather than risk removing a pre-existing work-item.
+    """
+    con = sqlite3.connect(workspace.database)
+    try:
+        table = con.execute(
+            """SELECT 1 FROM sqlite_master
+               WHERE type='table' AND name='audit_fulfillment_work_items'"""
+        ).fetchone()
+        if table is None:
+            return frozenset()
+        columns = {
+            str(row[1])
+            for row in con.execute(
+                "PRAGMA table_info(audit_fulfillment_work_items)"
+            ).fetchall()
+        }
+        if not {"work_item_id", "audit_id"}.issubset(columns):
+            return None
+        return frozenset(
+            str(row[0])
+            for row in con.execute(
+                """SELECT work_item_id FROM audit_fulfillment_work_items
+                   WHERE audit_id=?""",
+                (audit_id,),
+            ).fetchall()
+            if row[0]
+        )
+    except sqlite3.Error:
+        return None
+    finally:
+        con.close()
+
+
+def _extension_work_components(added: set[str]) -> frozenset[str]:
+    """Bound pre-RPR cleanup to components owned by the requested catalog delta."""
+    ownership = {
+        "CAT-01": (),
+        "CAT-02": ("WEB_PERFORMANCE",),
+        "CAT-03": ("SEMANTIC_AI",),
+        "CAT-04": ("WEB_PERFORMANCE",),
+        "CAT-05": ("SEARCH_INTELLIGENCE", "GOOGLE_SEARCH_CONSOLE"),
+        "CAT-06": ("SYNTHETIC_APDEX",),
+        "CAT-07": ("EXPERIENCE_APDEX",),
+        "CAT-08": ("IMPROVEMENT_INTELLIGENCE",),
+        "CAT-09": ("CONTENT_REMEDIATION_AI", "TECHNICAL_AI"),
+        "CAT-10": ("PASSIVE_SECURITY", "IMPROVEMENT_INTELLIGENCE"),
+    }
+    return frozenset(
+        component
+        for catalog_id in added
+        for component in ownership.get(str(catalog_id).upper(), ())
+    )
+
+def _rollback_unlinked_extension_work(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    *,
+    preexisting_work_item_ids: frozenset[str] | None,
+    candidate_components: frozenset[str],
+) -> tuple[str, ...]:
+    """Remove only zero-attempt planning rows created before any causal RPR exists.
+
+    This is not an evidence rollback: collectors/providers have not run yet. Rows with
+    an attempt, or rows that existed before the extension request, are always preserved.
+    The failed audit_catalog_extensions row remains as the durable diagnostic trail.
+    """
+    if preexisting_work_item_ids is None:
+        return ()
+    con = sqlite3.connect(workspace.database)
+    con.row_factory = sqlite3.Row
+    try:
+        tables = {
+            str(row[0])
+            for row in con.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        if "audit_fulfillment_work_items" not in tables:
+            return ()
+        columns = {
+            str(row[1])
+            for row in con.execute(
+                "PRAGMA table_info(audit_fulfillment_work_items)"
+            ).fetchall()
+        }
+        required = {"work_item_id", "audit_id", "attempt_count"}
+        if not required.issubset(columns):
+            return ()
+        rows = con.execute(
+            """SELECT work_item_id,attempt_count,component
+               FROM audit_fulfillment_work_items WHERE audit_id=?""",
+            (audit_id,),
+        ).fetchall()
+        removable: list[str] = []
+        attempts_available = "audit_fulfillment_attempts" in tables
+        for row in rows:
+            work_item_id = str(row["work_item_id"] or "")
+            if not work_item_id or work_item_id in preexisting_work_item_ids:
+                continue
+            if str(row["component"] or "").strip().upper() not in candidate_components:
+                continue
+            if int(row["attempt_count"] or 0) != 0:
+                continue
+            if attempts_available:
+                attempts = int(
+                    con.execute(
+                        """SELECT COUNT(*) FROM audit_fulfillment_attempts
+                           WHERE work_item_id=?""",
+                        (work_item_id,),
+                    ).fetchone()[0]
+                )
+                if attempts:
+                    continue
+            removable.append(work_item_id)
+        if removable:
+            con.executemany(
+                "DELETE FROM audit_fulfillment_work_items WHERE work_item_id=?",
+                ((work_item_id,) for work_item_id in removable),
+            )
+            con.commit()
+        return tuple(removable)
+    finally:
+        con.close()
+
+
+def _mark_unlinked_extension_failed(
+    workspace: AuditWorkspace,
+    audit_id: str,
     extension_id: str,
     *,
-    status: str,
-    reprocess_id: str | None,
-    note: str | None = None,
-) -> None:
+    note: str,
+) -> bool:
+    """Persist a retryable pre-RPR failure without mutating a sealed extension.
+
+    Once a causal RPR exists, its ledger is authoritative and may already have been
+    included in the report fingerprint. In that case this function deliberately does
+    not mutate audit_catalog_extensions after the fact.
+    """
     con = _connect(workspace)
     try:
+        linked = False
+        try:
+            rows = con.execute(
+                """SELECT configuration FROM audit_reprocess_runs
+                   WHERE audit_id=? ORDER BY started_at,reprocess_id""",
+                (audit_id,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            rows = ()
+        for row in rows:
+            configuration = _json(row[0], {})
+            context = (
+                configuration.get("execution_context")
+                if isinstance(configuration, Mapping)
+                else None
+            )
+            if (
+                isinstance(context, Mapping)
+                and str(context.get("catalog_extension_id") or "") == extension_id
+            ):
+                linked = True
+                break
+        if linked:
+            return False
         con.execute(
             """UPDATE audit_catalog_extensions
-               SET status=?,reprocess_id=?,completed_at=?,note=?
-               WHERE extension_id=?""",
-            (status,reprocess_id,_now(),note,extension_id),
+               SET status='FAILED_RETRYABLE',completed_at=?,note=?
+               WHERE audit_id=? AND extension_id=? AND status='REQUESTED'""",
+            (_now(), note, audit_id, extension_id),
         )
         con.commit()
+        return True
     finally:
         con.close()
 
@@ -641,6 +815,7 @@ def apply_catalog_extension(
     from rasai.reprocess_policy import reprocess_policy
 
     workspace = AuditWorkspace.open(Path(state.audits_root) / audit_id)
+    preexisting_work_item_ids = _work_item_ids(workspace, audit_id)
     current = set(effective_catalog_ids(workspace, audit_id))
     requested = set(selected_catalog_ids(state))
     removed = current - requested
@@ -652,52 +827,68 @@ def apply_catalog_extension(
     added = requested - current
     if not added:
         raise ValueError("nenhum catálogo novo foi selecionado para complementar esta AUD")
+    extension_work_components = _extension_work_components(added)
 
     use_ai = bool(ai_execution_enabled(state))
-    setattr(state, "_rasai_catalog_extension_use_ai", use_ai)
-
-    extra_live: set[str] = set()
-    if "CAT-02" in added and bool(getattr(state, "web_performance", False)):
-        extra_live.add("CAT-02")
-    ready, detail, deadline = extension_readiness(
-        workspace,
-        audit_id,
-        added,
-        extra_live_catalogs=extra_live,
-    )
-    if not ready:
-        raise ValueError(detail)
-
-    order = [item.id for item in CATALOGS]
-    base = tuple(value for value in order if value in current)
-    added_ordered = tuple(value for value in order if value in added)
-    effective = tuple(value for value in order if value in requested)
-    rows = tuple(
-        dict(row)
-        for row in catalog_snapshot(state)
-        if row.get("selected") and str(row.get("catalog_id") or row.get("id") or "").upper() in added
-    )
-    extension_contract = {
-        "schema_version": SCHEMA_VERSION,
-        "base": list(base),
-        "added": list(added_ordered),
-        "effective": list(effective),
-        "ai_enabled": bool(ai_execution_enabled(state)),
-    }
-    extension_id = _insert_extension(
-        workspace,audit_id,base=base,added=added_ordered,effective=effective,
-        catalog_items=rows,configuration={"catalog_extension": extension_contract},live_valid_until=deadline,
-    )
-    execution_context = {
-        "catalog_extension_id": extension_id,
-        "catalog_extension": extension_contract,
-    }
-    components = _materialize_added_work(
-        workspace,audit_id,state,added,live_valid_until=deadline,
-    )
-    recalculate(workspace, audit_id)
+    extension_id: str | None = None
 
     try:
+        extra_live: set[str] = set()
+        if "CAT-02" in added and bool(getattr(state, "web_performance", False)):
+            extra_live.add("CAT-02")
+        ready, detail, deadline = extension_readiness(
+            workspace,
+            audit_id,
+            added,
+            extra_live_catalogs=extra_live,
+        )
+        if not ready:
+            raise ValueError(detail)
+
+        order = [item.id for item in CATALOGS]
+        base = tuple(value for value in order if value in current)
+        added_ordered = tuple(value for value in order if value in added)
+        effective = tuple(value for value in order if value in requested)
+        rows = tuple(
+            dict(row)
+            for row in catalog_snapshot(state)
+            if row.get("selected")
+            and str(row.get("catalog_id") or row.get("id") or "").upper() in added
+        )
+        extension_contract = {
+            "schema_version": SCHEMA_VERSION,
+            "base": list(base),
+            "added": list(added_ordered),
+            "effective": list(effective),
+            "ai_enabled": bool(ai_execution_enabled(state)),
+        }
+        extension_id = _insert_extension(
+            workspace,
+            audit_id,
+            base=base,
+            added=added_ordered,
+            effective=effective,
+            catalog_items=rows,
+            configuration={"catalog_extension": extension_contract},
+            live_valid_until=deadline,
+        )
+        execution_context = {
+            "catalog_extension_id": extension_id,
+            "catalog_extension": extension_contract,
+        }
+
+        # Everything after the durable request INSERT stays inside this guarded
+        # lifecycle. Any pre-RPR failure is marked retryable and remains non-effective.
+        components = _materialize_added_work(
+            workspace,
+            audit_id,
+            state,
+            added,
+            live_valid_until=deadline,
+            use_ai=use_ai,
+        )
+        recalculate(workspace, audit_id)
+
         with reprocess_policy(
             selected_items=tuple(sorted(components)),
             use_ai=use_ai,
@@ -718,50 +909,113 @@ def apply_catalog_extension(
             # Projection-only extension, or a selected AI catalog intentionally kept
             # pending without provider authorization. Still create an auditable RPR.
             rpr = start_reprocess_run(
-                workspace,audit_id,source="CONSOLE_CATALOG_EXTENSION",
+                workspace,
+                audit_id,
+                source="CONSOLE_CATALOG_EXTENSION",
                 note="additive catalog extension without executable new collector",
                 configuration={
                     "selected_items": [],
                     "use_ai": use_ai,
-                    "ai_provider": str(getattr(state, "ai_provider", "none") or "none") if use_ai else None,
-                    "ai_model": str(getattr(state, "ai_model", "") or "") or None if use_ai else None,
-                    "ai_reasoning": str(getattr(state, "ai_reasoning", "") or "") or None if use_ai else None,
+                    "ai_provider": (
+                        str(getattr(state, "ai_provider", "none") or "none")
+                        if use_ai
+                        else None
+                    ),
+                    "ai_model": (
+                        str(getattr(state, "ai_model", "") or "") or None
+                        if use_ai
+                        else None
+                    ),
+                    "ai_reasoning": (
+                        str(getattr(state, "ai_reasoning", "") or "") or None
+                        if use_ai
+                        else None
+                    ),
                     "execution_context": execution_context,
                 },
             )
             summary = finish_reprocess_run(
-                workspace,rpr,status=SUCCESS,attempted_items=0,successful_items=0,
+                workspace,
+                rpr,
+                status=SUCCESS,
+                attempted_items=0,
+                successful_items=0,
                 note="catálogo(s) adicionados; nenhum coletor novo executável nesta tentativa",
             )
             from rasai.report_completion import materialize_catalog_report_projection
+
             materialize_catalog_report_projection(audit_id=audit_id, workspace=workspace)
             result = ReprocessResult(
-                audit_id=audit_id,reprocess_id=rpr,
+                audit_id=audit_id,
+                reprocess_id=rpr,
                 processing_status=summary.processing_status,
                 score_status=summary.score_status,
                 report_status=summary.report_status,
                 consolidation_eligible=summary.consolidation_eligible,
-                attempted_items=0,successful_items=0,
+                attempted_items=0,
+                successful_items=0,
                 skipped_success_items=summary.successful_items,
-                remaining_items=summary.pending_items+summary.blocked_items,
+                remaining_items=summary.pending_items + summary.blocked_items,
                 temporal_expired_items=summary.expired_items,
-                report_root=workspace.root/"report-catalog",
-                selected_items=0,unselected_items=0,ai_used=False,
+                report_root=workspace.root / "report-catalog",
+                selected_items=0,
+                unselected_items=0,
+                ai_used=False,
             )
-        # Do not mutate audit.db after the canonical RPR/report finalizer.  The RPR
-        # already persists execution_context with catalog_extension_id before sealing;
-        # audit_catalog_extensions remains the immutable request record.
+
+        # Do not mutate audit.db after the canonical RPR/report finalizer. The causal
+        # RPR configuration makes the extension effective and keeps the sealed
+        # fingerprint aligned with the final database state.
         return replace(result)
-    except Exception:
-        # Once the extension request is persisted it remains part of the audit trail.
-        # Failure state belongs to fulfillment/RPR records; avoid a post-report mutation
-        # that could invalidate a previously sealed report fingerprint.
+    except BaseException as exc:
+        # Lifecycle cleanup must also run for SystemExit/KeyboardInterrupt. The
+        # exception is re-raised after durable pre-RPR cleanup; the interactive
+        # console decides which termination signals are safe to contain.
+        if extension_id is not None:
+            try:
+                from rasai.secret_safety import redact_text
+
+                diagnostic = redact_text(f"{type(exc).__name__}: {exc}")[:1000]
+            except Exception:
+                diagnostic = f"{type(exc).__name__}: {str(exc)[:900]}"
+            rolled_back_work_items: tuple[str, ...] = ()
+            try:
+                unlinked = _mark_unlinked_extension_failed(
+                    workspace,
+                    audit_id,
+                    extension_id,
+                    note=diagnostic,
+                )
+                if unlinked:
+                    rolled_back_work_items = _rollback_unlinked_extension_work(
+                        workspace,
+                        audit_id,
+                        preexisting_work_item_ids=preexisting_work_item_ids,
+                        candidate_components=extension_work_components,
+                    )
+                    try:
+                        recalculate(workspace, audit_id)
+                    except (OSError, sqlite3.Error):
+                        pass
+            except Exception:
+                unlinked = False
+            try:
+                from rasai.operational_log import try_append_operational_event
+
+                try_append_operational_event(
+                    workspace,
+                    "AUDIT_CATALOG_EXTENSION_FAILURE",
+                    level="ERROR",
+                    audit_id=audit_id,
+                    catalog_extension_id=extension_id,
+                    error_type=type(exc).__name__,
+                    error_message=diagnostic,
+                    pre_rpr_failure=bool(unlinked),
+                    rolled_back_planning_work_items=list(rolled_back_work_items),
+                )
+            except Exception:
+                pass
         raise
-    finally:
-        try:
-            delattr(state, "_rasai_catalog_extension_use_ai")
-        except AttributeError:
-            pass
 
 
 __all__ = [

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sqlite3
+
 from rasai.audit_fulfillment import (
     COMPLETE,
     LIVE_RECOLLECTION,
@@ -140,3 +142,82 @@ def test_core_success_only_becomes_final_after_physical_audit_completion(tmp_pat
     assert after.score_status == SCORE_FINAL
     assert after.report_status == REPORT_FINAL
     assert after.consolidation_eligible is True
+
+
+def test_repeated_success_reconciliation_preserves_original_success_timestamps(tmp_path) -> None:
+    workspace = _workspace(tmp_path)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="SYNTHETIC_APDEX",
+        scope_key="AUDIT",
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        status=SUCCESS,
+        retryable=True,
+        configuration={"target_valid_samples": 10},
+    )
+    set_work_item_status(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="SYNTHETIC_APDEX",
+        scope_key="AUDIT",
+        status=SUCCESS,
+        result_ref="synthetic-apdex:effective",
+        retryable=True,
+    )
+
+    original_success = "2026-09-29T12:13:39.594600+00:00"
+    original_updated = "2026-09-29T12:13:39.594600+00:00"
+    connection = sqlite3.connect(workspace.database)
+    try:
+        connection.execute(
+            """UPDATE audit_fulfillment_work_items
+               SET last_success_at=?,updated_at=?
+               WHERE audit_id=? AND component='SYNTHETIC_APDEX' AND scope_key='AUDIT'""",
+            (original_success, original_updated, AUDIT_ID),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    # This mirrors FULFILLMENT_SYNC observing the same persisted successful result
+    # during an unrelated catalog-extension RPR.
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="SYNTHETIC_APDEX",
+        scope_key="AUDIT",
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        status=PENDING,
+        retryable=True,
+        configuration={"target_valid_samples": 10},
+    )
+    set_work_item_status(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="SYNTHETIC_APDEX",
+        scope_key="AUDIT",
+        status=SUCCESS,
+        result_ref="synthetic-apdex:effective",
+        retryable=True,
+    )
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        row = connection.execute(
+            """SELECT status,last_success_at,updated_at,effective_result_ref
+               FROM audit_fulfillment_work_items
+               WHERE audit_id=? AND component='SYNTHETIC_APDEX' AND scope_key='AUDIT'""",
+            (AUDIT_ID,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert row == (
+        SUCCESS,
+        original_success,
+        original_updated,
+        "synthetic-apdex:effective",
+    )
