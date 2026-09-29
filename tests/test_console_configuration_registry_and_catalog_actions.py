@@ -34,3 +34,35 @@ def test_runtime_enriched_nonsecret_specs_are_in_the_ini_allowlist() -> None:
     _install_configuration_surface()
     allowed = set(console_settings._known_nonsecret_environment_names())
     assert set(PROFILE_ENV_NAMES) <= allowed
+
+
+from rasai import console_catalog_plan as catalog_plan
+from rasai.audit_catalog import CATALOGS
+from rasai.console_search_intelligence import SearchConsoleState
+
+
+def test_bulk_selection_marks_every_catalog_without_reselecting_existing_items() -> None:
+    state = SearchConsoleState()
+    catalog_plan._PLANS.clear()
+    catalog_plan.set_selected_catalog_ids(state, ["CAT-01"])
+
+    added = catalog_plan.select_all_unselected_catalogs(state)
+
+    assert catalog_plan.selected_catalog_ids(state) == tuple(item.id for item in CATALOGS)
+    assert "CAT-01" not in added
+    assert set(added) == {item.id for item in CATALOGS if item.id != "CAT-01"}
+
+
+def test_bulk_selection_can_exclude_immutable_catalogs_for_audit_extension() -> None:
+    state = SearchConsoleState()
+    catalog_plan._PLANS.clear()
+    catalog_plan.set_selected_catalog_ids(state, ["CAT-06"])
+
+    added = catalog_plan.select_all_unselected_catalogs(
+        state,
+        excluded_catalog_ids={"CAT-06"},
+    )
+
+    assert "CAT-06" not in added
+    assert "CAT-07" in added
+    assert "CAT-06" in catalog_plan.selected_catalog_ids(state)

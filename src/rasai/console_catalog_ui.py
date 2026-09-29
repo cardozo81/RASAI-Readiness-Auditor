@@ -21,6 +21,7 @@ from rasai.console_catalog_plan import (
     is_selected,
     raw_capability_status,
     select_catalog,
+    select_all_unselected_catalogs,
     set_ai_execution_enabled,
 )
 
@@ -271,6 +272,7 @@ def catalog_menu(console_module: ModuleType, state: Any, catalog: AuditCatalog) 
 
 def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any = None) -> str:
     del detailed
+    bulk_notice = ""
     while True:
         console_module.render_header(state)
         print(paint("INÍCIO > PREPARAR AUDITORIA", CYAN, bold=True))
@@ -314,6 +316,9 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
         section("EXECUÇÃO / ARMAZENAMENTO")
         print(f"16. {CORE_IDS['audits_root']}  Raiz das auditorias        : {getattr(state, 'audits_root', 'audits')}")
         section("AÇÕES")
+        if bulk_notice:
+            print(paint(bulk_notice, DIM))
+        print("T. Marcar todos os catálogos ainda não selecionados")
         print(f"R. Executar auditoria        [{badge(plan_state)}]")
         if ai_optional(state) and not ai_required(state) and ai_provider_readiness(state)[0]:
             toggle = "Executar sem IA (recomendado)" if ai_execution_enabled(state) else "Executar com IA"
@@ -323,6 +328,11 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
         raw = input("Escolha: ").strip().upper()
         if raw == "V":
             return "V"
+        if raw == "T":
+            added = select_all_unselected_catalogs(state)
+            bulk_notice = f"{len(added)} catálogo(s) marcado(s) em uma única ação."
+            state.error = ""
+            continue
         if raw == "R":
             if plan_state == "BLOQUEADO":
                 state.error = plan_detail
