@@ -136,3 +136,25 @@ def test_execution_local_profile_scope_overrides_current_environment_without_mut
         assert profile.network_profile_id == "mobile-3g-constrained"
 
     assert _profile_for("MOBILE").network_profile_id == "mobile-5g"
+
+
+
+def test_saas_profile_payload_keeps_effective_profile_ids() -> None:
+    from rasai import audit_execution_contract as contract
+    from rasai.synthetic_profile_saas_runtime import install as install_saas_profiles
+
+    install_saas_profiles()
+    payload = {
+        "apdex_mobile_network_profile": "mobile-5g",
+        "apdex_desktop_hardware_profile": "desktop-constrained",
+        "apdex_tablet_client_profile": "tablet-compact-chromium",
+    }
+    normalized = contract.normalize_audit_job_payload(payload)
+    overrides = contract.audit_job_environment_overrides(normalized)
+
+    assert normalized["apdex_mobile_network_profile"] == "mobile-5g"
+    assert normalized["apdex_desktop_hardware_profile"] == "desktop-constrained"
+    assert normalized["apdex_tablet_client_profile"] == "tablet-compact-chromium"
+    assert overrides["RASAI_APDEX_MOBILE_NETWORK_PROFILE"] == "mobile-5g"
+    assert overrides["RASAI_APDEX_DESKTOP_HARDWARE_PROFILE"] == "desktop-constrained"
+    assert overrides["RASAI_APDEX_TABLET_CLIENT_PROFILE"] == "tablet-compact-chromium"
