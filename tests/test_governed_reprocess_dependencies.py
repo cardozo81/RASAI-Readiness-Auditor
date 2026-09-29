@@ -1187,6 +1187,25 @@ def test_passive_security_deterministic_hook_reuses_selected_governed_success(
         result_ref=f"passive_security_runs:{AUDIT_ID}",
         retryable=True,
     )
+    connection = sqlite3.connect(workspace.database)
+    try:
+        connection.executescript(
+            """CREATE TABLE passive_security_integrations(
+                   audit_id TEXT NOT NULL,
+                   integration_id TEXT NOT NULL,
+                   state TEXT NOT NULL
+               );"""
+        )
+        connection.executemany(
+            "INSERT INTO passive_security_integrations VALUES (?,?,?)",
+            (
+                (AUDIT_ID, "OSV", "NO_DATA"),
+                (AUDIT_ID, "CISA_KEV", "NO_DATA"),
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
     monkeypatch.setenv(security.ENABLED_ENV, "false")
 
     with reprocess_policy(
