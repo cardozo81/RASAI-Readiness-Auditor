@@ -7,6 +7,7 @@ from rasai.audit_fulfillment import (
     FAILED_RETRYABLE,
     REPLAY_SAFE,
     SUCCESS,
+    list_work_items,
     register_work_item,
     set_work_item_status,
 )
@@ -43,8 +44,41 @@ def _collection_hook(*, audit_id: str, workspace: Any, source_blocked: bool = Fa
     return result
 
 
+def _selected_reprocess_item(workspace: Any, audit_id: str):
+    """Return PASSIVE_SECURITY only when explicitly inside the current RPR scope."""
+    try:
+        from rasai.reprocess_policy import current_policy, item_selected
+
+        policy = current_policy()
+        if policy.selected_items is None:
+            return None
+        return next(
+            (
+                item
+                for item in list_work_items(workspace, audit_id)
+                if str(item.component) == _COMPONENT and item_selected(item)
+            ),
+            None,
+        )
+    except Exception:
+        return None
+
+
 def _deterministic_hook(*, audit_id: str, workspace: Any, source_blocked: bool = False):
     if not enabled():
+        item = _selected_reprocess_item(workspace, audit_id)
+        if item is not None:
+            current = str(getattr(item, "status", "") or "").upper()
+            if current == SUCCESS:
+                return {
+                    "status": "COMPLETED",
+                    "reason": "RPR_GOVERNED_RESULT_REUSED",
+                }
+            if current:
+                return {
+                    "status": current,
+                    "reason": "RPR_GOVERNED_RESULT_REUSED",
+                }
         return {"status": "DISABLED", "reason": "PASSIVE_SECURITY_NOT_SELECTED"}
     register_work_item(
         workspace,
