@@ -104,6 +104,7 @@ def test_restore_cat07_preserves_shared_profiles_and_other_catalogs(monkeypatch,
     destination = tmp_path / "rasai-console.ini"
     result = restore_catalog_defaults(state, "CAT-07", path=destination)
 
+    assert not result.warnings, result.warnings
     assert UX_SAMPLES_ENV in result.restored_names
     assert shared_profile in result.shared_preserved
     assert state.apdex_experience_samples == 20
