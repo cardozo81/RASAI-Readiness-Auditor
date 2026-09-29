@@ -82,3 +82,51 @@ def test_context_proxy_unwraps_page_for_cdp_session() -> None:
 
     assert proxy.new_cdp_session(page_proxy) == "session"
     assert context.cdp_page is context.page
+
+
+
+def test_canonicalization_drops_requestfailed_emitted_after_measurement_freeze() -> None:
+    result = SimpleNamespace(
+        request_error_events=(
+            {
+                "error_type": "REQUEST_FAILED",
+                "url": "https://analytics.example/collect",
+                "resource_type": "fetch",
+                "http_status": None,
+                "first_party": False,
+                "failure_reason": "net::ERR_ABORTED",
+            },
+        )
+    )
+    captured = (
+        {
+            "error_type": "REQUEST_FAILED",
+            "source_url": "https://analytics.example/collect",
+            "resource_type": "fetch",
+            "http_status": None,
+            "message": "net::ERR_ABORTED",
+        },
+        {
+            "error_type": "REQUEST_FAILED",
+            "source_url": "https://analytics.example/late",
+            "resource_type": "fetch",
+            "http_status": None,
+            "message": "net::ERR_ABORTED",
+        },
+        {
+            "error_type": "JAVASCRIPT_ERROR",
+            "source_url": None,
+            "resource_type": None,
+            "http_status": None,
+            "message": "boom",
+        },
+    )
+
+    details = evidence._canonicalize_captured_details(result, captured)
+
+    assert [item["error_type"] for item in details] == [
+        "REQUEST_FAILED",
+        "JAVASCRIPT_ERROR",
+    ]
+    assert details[0]["source_url"] == "https://analytics.example/collect"
+    assert all(item.get("source_url") != "https://analytics.example/late" for item in details)
