@@ -27,7 +27,7 @@ from rasai.console_ui import (
     title_text,
     warning_text,
 )
-from rasai.public_language import component_label, console_status_label, diagnostic_label, normalize_visible_text, scope_label
+from rasai.public_language import component_label, console_status_label, diagnostic_label, diagnostic_text, scope_label
 from rasai.console_audit_workflow import (
     _audit_primary_url,
     _render_reprocess_usage_delta,
@@ -193,9 +193,11 @@ def _dependency_public_label(value: Any) -> str:
 
 def _reason_text(item: Any) -> str:
     code = str(getattr(item, "last_error_code", "") or "").strip()
-    message = normalize_visible_text(getattr(item, "last_error_message", "") or "")
+    message = diagnostic_text(getattr(item, "last_error_message", "") or "")
     public_code = diagnostic_label(code) if code else ""
     if code and message and message != code:
+        if public_code and public_code in message:
+            return message
         return f"{public_code} - {message}"
     return public_code or message or "motivo específico não persistido"
 
