@@ -427,7 +427,7 @@ def test_result_explains_why_item_remained_unresolved() -> None:
     assert "Análise semântica por IA/SNAP-1" in rendered
     assert "NÃO SELECIONADO" in rendered
     assert "Motivo persistido" in rendered
-    assert "Aguardando pré-requisitos" in rendered
+    assert "Aguardando dados" in rendered
     assert "Conteúdo principal indisponível" in rendered
     assert "pré-requisito" in rendered
     assert "SEMANTIC_AI/SNAP-1" not in rendered
