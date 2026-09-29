@@ -501,3 +501,77 @@ def test_security_and_observability_public_labels_are_pt_br() -> None:
     }
     for raw, label in expected.items():
         assert public_label(raw) == label
+
+def test_reader_transparency_humanizes_operational_codes() -> None:
+    from rasai.report_reader_experience import _render_work_items
+
+    rendered = _render_work_items(
+        (
+            {
+                "component": "TECHNICAL_AI",
+                "scope_key": "AUDIT",
+                "status": "WAITING_FOR_DATA",
+                "attempt_count": 1,
+                "last_error_code": "AI_NOT_AUTHORIZED_FOR_EXECUTION",
+            },
+        )
+    )
+    assert "Análise técnica por IA" in rendered
+    assert "escopo Auditoria" in rendered
+    assert "IA não autorizada para execução nesta auditoria" in rendered
+    assert "TECHNICAL_AI" not in rendered
+    assert "AI_NOT_AUTHORIZED_FOR_EXECUTION" not in rendered
+
+
+def test_serp_runtime_notice_humanizes_category_and_error_code() -> None:
+    from rasai.runtime_adherence_extensions import _issue_notice
+
+    rendered = _issue_notice(
+        (
+            {
+                "query": "seguro auto",
+                "provider": "SerpApi",
+                "error_code": "SERP_PROVIDER_ERROR",
+                "error_message": "HTTP 503 unavailable",
+            },
+        ),
+        title="Limitação de busca",
+    )
+    assert "Falha transitória do provedor" in rendered
+    assert "Erro do provedor de SERP" in rendered
+    assert "TECHNICAL_TRANSIENT_PROVIDER" not in rendered
+    assert "SERP_PROVIDER_ERROR" not in rendered
+
+
+def test_legacy_report_error_helpers_humanize_codes_and_long_dash() -> None:
+    from rasai.m20_reporting import _attempt_error_summary
+    from rasai.report_consistency_v2 import _attempt_reason
+
+    summary = _attempt_error_summary(
+        [
+            {
+                "error_class": "SERVER_ERROR",
+                "error_type": "TimeoutError",
+                "error_code": "SERVICE_UNAVAILABLE",
+            }
+        ]
+    )
+    assert "Erro do servidor" in summary
+    assert "Tempo limite excedido" in summary
+    assert "Serviço indisponível" in summary
+    assert "SERVER_ERROR" not in summary
+    assert "TimeoutError" not in summary
+    assert "SERVICE_UNAVAILABLE" not in summary
+
+    reason = _attempt_reason(
+        {
+            "http_status": 503,
+            "error_code": "SERVICE_UNAVAILABLE",
+            "error_message": "indisponível — tente novamente",
+            "status": "FAILED",
+        }
+    )
+    assert reason == "HTTP 503 - Serviço indisponível - indisponível - tente novamente"
+    assert "SERVICE_UNAVAILABLE" not in reason
+    assert "—" not in reason
+
