@@ -137,7 +137,7 @@ def _choose_ai_mode(state: Any, added: tuple[str, ...]) -> bool | None:
         state.error = "Opção inválida."
 
 
-def _record_extension_console_failure(state: Any, audit_id: str, exc: Exception) -> str:
+def _record_extension_console_failure(state: Any, audit_id: str, exc: BaseException) -> str:
     """Persist an unexpected extension failure and return a redacted UI message."""
     try:
         from rasai.secret_safety import redact_text
@@ -268,6 +268,16 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
                 continue
             try:
                 result = apply_catalog_extension(state=state, audit_id=audit_id)
+            except SystemExit as exc:
+                # A nested runtime/CLI must never terminate the interactive host while
+                # applying an additive extension. Persist the exit and return to the UI.
+                diagnostic = _record_extension_console_failure(state, audit_id, exc)
+                state.error = (
+                    "Complementação interrompida por saída inesperada do runtime; "
+                    "a sessão foi preservada. "
+                    f"Diagnóstico registrado: {diagnostic}"
+                )
+                continue
             except Exception as exc:
                 # Keep the interactive shell alive, but do not hide the defect:
                 # type/message/traceback are persisted in the operational log.
