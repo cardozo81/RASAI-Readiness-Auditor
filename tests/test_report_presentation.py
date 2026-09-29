@@ -101,7 +101,7 @@ class ReportPresentationTests(unittest.TestCase):
 
     def test_public_label_is_conservative_for_unknown_values(self) -> None:
         self.assertEqual(public_label("NOT_CONFIGURED"), "Não configurado")
-        self.assertEqual(public_label("LIGHTHOUSE_ARTIFACT"), "LIGHTHOUSE_ARTIFACT")
+        self.assertEqual(public_label("LIGHTHOUSE_ARTIFACT"), "Artefato Lighthouse")
         self.assertEqual(public_label("BR-GEO-001"), "BR-GEO-001")
 
     def test_scoring_contract_has_human_labels_for_every_dimension_and_group(self) -> None:
