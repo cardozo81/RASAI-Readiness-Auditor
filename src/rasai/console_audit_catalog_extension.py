@@ -246,31 +246,32 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
             set_selected_catalog_ids(state, tuple(item.id for item in CATALOGS if item.id in current))
             continue
         if raw == "R" and added:
-            blockers = []
-            for catalog_id in added:
-                catalog = next(item for item in CATALOGS if item.id == catalog_id)
-                status, detail = catalog_status(state, catalog)
-                if status == "BLOQUEADO":
-                    blockers.append(f"{catalog_id}: {detail}")
-            if blockers:
-                state.error = "Complementação bloqueada: " + "; ".join(blockers)
-                continue
-
-            use_ai = _choose_ai_mode(state, added)
-            if use_ai is None:
-                continue
-            set_ai_execution_enabled(state, use_ai)
-            if not confirm_continue(
-                "Aplicar os novos catálogos na mesma AUD preservando todos os resultados já concluídos",
-                default=False,
-            ):
-                state.error = "Complementação cancelada; nenhum dado da AUD foi alterado."
-                continue
             try:
+                blockers = []
+                for catalog_id in added:
+                    catalog = next(item for item in CATALOGS if item.id == catalog_id)
+                    status, detail = catalog_status(state, catalog)
+                    if status == "BLOQUEADO":
+                        blockers.append(f"{catalog_id}: {detail}")
+                if blockers:
+                    state.error = "Complementação bloqueada: " + "; ".join(blockers)
+                    continue
+
+                use_ai = _choose_ai_mode(state, added)
+                if use_ai is None:
+                    continue
+                set_ai_execution_enabled(state, use_ai)
+                if not confirm_continue(
+                    "Aplicar os novos catálogos na mesma AUD preservando todos os resultados já concluídos",
+                    default=False,
+                ):
+                    state.error = "Complementação cancelada; nenhum dado da AUD foi alterado."
+                    continue
                 result = apply_catalog_extension(state=state, audit_id=audit_id)
             except SystemExit as exc:
-                # A nested runtime/CLI must never terminate the interactive host while
-                # applying an additive extension. Persist the exit and return to the UI.
+                # Catalog readiness/configuration helpers can also invoke nested CLI
+                # surfaces. Any SystemExit in the entire apply action is recoverable
+                # here and must never terminate the interactive host.
                 diagnostic = _record_extension_console_failure(state, audit_id, exc)
                 state.error = (
                     "Complementação interrompida por saída inesperada do runtime; "
