@@ -171,7 +171,7 @@ Política efetiva:
 
 - `errors_affect_apdex=true` é a chave mestra;
 - JavaScript runtime errors afetam Apdex por default, em alinhamento ao Dynatrace;
-- request/HTTP/CSP errors afetam Apdex por default;
+- request/HTTP/CSP errors qualificáveis afetam Apdex por default; cancelamentos genéricos `net::ERR_ABORTED` de subrecursos são capturados como diagnóstico, mas não são presumidos como equivalentes a request error Dynatrace que impacta Apdex;
 - `console.error` é coletado, mas não afeta Apdex por default; pode ser habilitado explicitamente ou por importação equivalente a `cce=1`;
 - `error_scope` limita apenas request/HTTP/CSP errors.
 
