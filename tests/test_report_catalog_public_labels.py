@@ -87,6 +87,29 @@ def test_internal_contract_values_have_human_labels_without_internal_tooltips() 
     assert "DIRECT_OFFICIAL_API" not in html
 
 
+def test_execution_and_governance_internal_values_are_never_exposed_raw() -> None:
+    expected = {
+        "AI_NOT_AUTHORIZED_FOR_EXECUTION": "IA não autorizada para execução nesta auditoria",
+        "AI_PREREQUISITES_INCOMPLETE": "Pré-requisitos da IA ainda não concluídos",
+        "EXECUTION_POLICY": "Política de execução",
+        "PREREQUISITE": "Pré-requisito",
+        "ORCHESTRATION": "Orquestração",
+        "EXTERNAL_SERVICE": "Serviço externo",
+        "AUDIT": "Auditoria",
+        "TARGET_SITE": "Site / propriedade auditada",
+        "AUDITOR_INTERNAL": "Auditor RASAi",
+        "EXTERNAL_PROVIDER": "Fornecedor / dependência externa",
+        "ENVIRONMENTAL": "Ambiente / infraestrutura",
+    }
+    for raw, label in expected.items():
+        assert public_label(raw) == label
+
+    rendered = str(_rich_text("AI_NOT_AUTHORIZED_FOR_EXECUTION em TARGET_SITE — EXECUTION_POLICY"))
+    assert "IA não autorizada para execução nesta auditoria em Site / propriedade auditada - Política de execução" in rendered
+    for raw in ("AI_NOT_AUTHORIZED_FOR_EXECUTION", "TARGET_SITE", "EXECUTION_POLICY"):
+        assert raw not in rendered
+
+
 def test_compound_sari_contracts_are_humanized() -> None:
     expected = {
         "DIMENSION_NOT_APPLICABLE:STRUCTURED_DATA": "Dimensão Dados estruturados não aplicável",
