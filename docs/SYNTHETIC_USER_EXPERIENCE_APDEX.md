@@ -210,7 +210,7 @@ Apdex = (Satisfied + 0.5 * Tolerating) / N_valid
 
 A execução persiste configuração efetiva, contrato de medição, ambiente de browser e versão metodológica interna suficientes para rastreabilidade. Isso inclui concorrência, delay, device mix, sessão e os IDs efetivos de cliente/hardware/rede por device.
 
-No reprocessamento, os perfis e a concorrência vêm da configuração congelada da própria AUD. O RPR não pode adotar silenciosamente presets atuais do INI, ambiente do operador ou worker. Para AUD legado sem `runtime_profiles`, o runtime tenta recuperar a identidade pelo `profile_id` já persistido nas amostras; somente na ausência dessa evidência usa o default histórico do catálogo e registra provenance operacional explícita. Synthetic Navigation Apdex permanece em persistência separada.
+No reprocessamento, os perfis e a concorrência vêm da configuração congelada da própria AUD. O RPR não pode adotar silenciosamente presets atuais do INI, ambiente do operador ou worker. Para AUD anterior sem `runtime_profiles`, o runtime tenta recuperar a identidade pelo `profile_id` já persistido nas amostras; somente na ausência dessa evidência usa o default histórico do catálogo e registra provenance operacional explícita. Synthetic Navigation Apdex permanece em persistência separada.
 
 ## 9. Relatório HTML
 
