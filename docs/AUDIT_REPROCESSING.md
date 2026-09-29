@@ -34,23 +34,23 @@ A matriz canônica vigente é:
 
 | Domínio | Execução inicial | Reprocessamento seletivo | Diferença permitida no RPR |
 | --- | --- | --- | --- |
-| Descoberta | `execute_m2` | `execute_m2` para checkpoint de descoberta incompleto | executa somente se discovery não concluiu e a recuperação é segura |
+| Descoberta | executor canônico de descoberta | executor canônico de descoberta para checkpoint incompleto | executa somente se discovery não concluiu e a recuperação é segura |
 | HTTP | primitivas canônicas de descoberta/HTTP de evidência + BR-GEO-004/005/007 | as mesmas primitivas canônicas de descoberta/HTTP | novo artifact fica versionado no namespace do `RPR-*` |
 | Renderização | persistência canônica de `PageSnapshot`, screenshot, visual evidence e DOM observations | a mesma persistência canônica de renderização | somente contexto ausente/falho; captura anterior substituída é arquivada |
-| Extração | `execute_m4` | `execute_m4` | reutiliza RAW/DOM persistido quando `REPLAY_SAFE` |
+| Extração | executor canônico de extração | executor canônico de extração | reutiliza RAW/DOM persistido quando `REPLAY_SAFE` |
 | Regras de fundação e página | executor canônico por página/snapshot | o mesmo executor de fundação/página | recalcula somente escopos cujo input efetivo mudou |
 | Regras por snapshot | executor canônico por snapshot | o mesmo executor de snapshot | recalcula somente snapshots afetados |
 | Web Performance | mesmos parsers Lighthouse/CrUX, classificação de contexto e consolidação do run | mesmos parsers/classificadores/consolidador | chamadas externas já bem-sucedidas são reutilizadas; somente déficit é tentado |
 | Synthetic Navigation Apdex | perfis, medição, classificação e sumário canônico do Navigation Apdex | os mesmos classificadores e sumários canônicos do Navigation Apdex | acrescenta apenas amostras válidas faltantes até o alvo original |
 | Synthetic User Experience Apdex | calibração/perfis, `classify_measurement` e sumário canônico do Experience Apdex | os mesmos classificadores e sumários canônicos do Experience Apdex | acrescenta somente o déficit da população configurada |
-| Semântica | `execute_m7` + provider runtime canônico | `execute_m7` | executa só snapshot pendente/stale e usa a política autorizada do RPR |
+| Semântica | executor semântico + provider runtime canônico | executor semântico canônico | executa só snapshot pendente/stale e usa a política autorizada do RPR |
 | Dados estruturados / descoberta técnica | executores canônicos | os mesmos executores | reexecutam apenas finalidade pendente/inválida |
 | Search Intelligence | executor competitivo canônico | o mesmo executor | usa configuração não secreta persistida e credencial atual em memória |
 | Google Search Console | collector registrado canônico | o mesmo collector | somente quando work-item está pendente e temporalmente válido |
 | Segurança passiva/CAT-10 | analyzer/collectors canônicos | os mesmos analyzers/collectors | recalcula apenas quando dependência efetiva mudou; OSV/KEV só refrescam se inventário mudou |
 | Integridade pré-score | BR-GEO-053 canônica | a mesma primitiva BR-GEO-053 | valida o universo efetivo depois da recuperação |
-| Score | `execute_m9` | `execute_m9` | score anterior é arquivado quando inputs derivados mudam |
-| Recomendações | `execute_m10` + governance canônica | os mesmos executores | somente após recomposição do estado efetivo |
+| Score | executor canônico de score | executor canônico de score | score anterior é arquivado quando inputs derivados mudam |
+| Recomendações | executor canônico de recomendações + governance | os mesmos executores | somente após recomposição do estado efetivo |
 | Root cause / precision | materializadores canônicos de causa raiz e precisão | os mesmos materializadores | reexecutados quando derivados finais precisarem ser fechados |
 | Relatório | projeção read-only do estado final | a mesma projeção | materialização ocorre após o ledger do RPR fechar |
 
