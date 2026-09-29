@@ -20,6 +20,9 @@ def test_windows_console_launcher_is_the_single_current_cmd_entrypoint() -> None
     assert ".venv\\scripts\\rasai-console.exe" in text
     assert "pip install" in text
     assert "playwright install chromium" in text
+    assert 'if "!exit_code!"=="0"' in text
+    assert "[erro] o console rasai foi encerrado com codigo" in text
+    assert "pause" in text
 
 
 def test_product_documentation_references_only_current_launcher_and_no_history_labels() -> None:
