@@ -77,6 +77,7 @@ A implementação cobre:
 - CORS observável sem request ativo de Origin;
 - atributos de cookies (Secure, HttpOnly, SameSite, Domain, Path), identidade lógica secret-safe e mecanismo de criação quando observável;
 - correlação bounded de escritas `document.cookie`/Cookie Store com script setter quando o runtime fornece evidência suficiente;
+- distinção obrigatória entre **tentativa de escrita** e **presença confirmada no browser store**: uma chamada ao setter não prova que o navegador aceitou o cookie; domínio/path efetivos só são projetados como confirmados quando existe correspondência secret-safe no cookie jar após a navegação;
 - inventário granular de JavaScript carregado na mesma navegação, com URL sanitizada, party, timing/tamanhos visíveis, SHA-256 e análise estática bounded quando o body permanece disponível no buffer do navegador;
 - identificação versionada de plataformas/identificadores client-side conhecidos, separando identificador público, chave operacional e segredo/identificador desconhecido;
 - relações evidence-bound plataforma → script → cookie quando sustentadas por initiator/runtime, sem inferir causalidade apenas por vendor ou proximidade temporal;
@@ -166,6 +167,16 @@ INFO
 ## Cookies, nonces e dados sensíveis
 
 O CAT-10 nunca copia o valor dos cookies para suas tabelas. O parser de compatibilidade de atributos preserva somente hash do nome. A entidade dedicada de atribuição pode persistir/exibir **somente o nome sintaticamente seguro** do cookie para actionability; nomes inválidos/anômalos permanecem protegidos por referência/hash. Nenhum conteúdo após o primeiro `=` é materializado.
+
+Para instrumentação runtime, o RASAi consulta o cookie store apenas para reconciliar **nome + domínio + path**. Valores retornados pelo browser são descartados imediatamente e não entram em metadata, banco, log ou HTML. A projeção diferencia:
+
+~~~text
+HTTP_SET_COOKIE_OBSERVED
+CONFIRMED_IN_BROWSER_STORE
+WRITE_ATTEMPT_NOT_CONFIRMED
+~~~
+
+`domain_attribute` e `path_attribute` de uma tentativa são atributos **declarados**, não domínio/path efetivos. Uma tentativa não confirmada recebe identidade própria de tentativa e não participa como fato de cookie efetivamente armazenado. A presença correspondente no store corrobora armazenamento naquele escopo, mas não prova, isoladamente, que aquela chamada criou um cookie que não existia antes.
 
 Nonce de script é persistido somente como SHA-256 e comprimento. O valor bruto não é materializado nos achados.
 

@@ -448,14 +448,72 @@ def _cookie_stack_source(stack: Any) -> str | None:
     return None
 
 
-def _cookie_runtime_metadata(page: Any) -> dict[str, Any]:
+def _cookie_runtime_metadata(page: Any, context: Any | None = None) -> dict[str, Any]:
     result: dict[str, Any] = {
         "state": "NOT_INSTRUMENTED",
         "capture_method": "EARLY_DOCUMENT_COOKIE+COOKIE_STORE_WRAPPER",
         "additional_network_requests": 0,
         "items": [],
         "limitations": [],
+        "browser_store_state": "NOT_QUERIED",
     }
+
+    # Cookie values are deliberately discarded. The browser store is consulted only
+    # to distinguish an observed setter call from a cookie that is actually present
+    # after navigation. Presence after the call corroborates storage; it does not
+    # prove that the observed call created a previously absent cookie.
+    store_items: list[dict[str, Any]] = []
+    if context is not None:
+        try:
+            raw_store = context.cookies()
+        except Exception:
+            result["browser_store_state"] = "UNAVAILABLE"
+            result["limitations"].append("COOKIE_STORE_QUERY_UNAVAILABLE")
+        else:
+            result["browser_store_state"] = "CAPTURED"
+            for raw_cookie in raw_store if isinstance(raw_store, list) else []:
+                if not isinstance(raw_cookie, dict):
+                    continue
+                raw_name = str(raw_cookie.get("name") or "").strip()
+                if not raw_name:
+                    continue
+                raw_domain = str(raw_cookie.get("domain") or "").strip().casefold()
+                domain = raw_domain.lstrip(".")
+                path = str(raw_cookie.get("path") or "/")
+                store_items.append({
+                    "name": raw_name,
+                    "name_hash": hashlib.sha256(raw_name.encode("utf-8")).hexdigest()[:12],
+                    "domain": domain or None,
+                    "path": path if path.startswith("/") else "/",
+                    "host_only": bool(raw_domain and not raw_domain.startswith(".")),
+                    "secure": bool(raw_cookie.get("secure")),
+                    "httponly": bool(raw_cookie.get("httpOnly")),
+                    "samesite": str(raw_cookie.get("sameSite") or "")[:40] or None,
+                })
+
+    def confirmed_store_item(
+        *,
+        name: str,
+        frame_url: str,
+        domain_attribute: str | None,
+        path_attribute: str | None,
+    ) -> dict[str, Any] | None:
+        try:
+            frame_host = (urlsplit(frame_url).hostname or "").casefold()
+        except ValueError:
+            frame_host = ""
+        declared_domain = str(domain_attribute or "").strip().casefold().lstrip(".")
+        declared_path = str(path_attribute or "")
+        effective_path = declared_path if declared_path.startswith("/") else _default_cookie_path(frame_url)
+        wanted_domain = declared_domain or frame_host
+        matches = [
+            item
+            for item in store_items
+            if item.get("name") == name
+            and str(item.get("domain") or "").casefold() == wanted_domain
+            and str(item.get("path") or "/") == effective_path
+        ]
+        return matches[0] if len(matches) == 1 else None
     frames = list(getattr(page, "frames", ()) or ())
     for frame in frames:
         if len(result["items"]) >= _MAX_COOKIE_RUNTIME_EVENTS:
@@ -480,20 +538,40 @@ def _cookie_runtime_metadata(page: Any) -> dict[str, Any]:
             display_name = raw_name if _COOKIE_NAME_RE.fullmatch(raw_name) else None
             attrs = event.get("attributes") if isinstance(event.get("attributes"), dict) else {}
             setter_script_url = _cookie_stack_source(event.get("stack"))
+            frame_url = _safe_url(getattr(frame, "url", None))
+            declared_domain = str(attrs.get("domain") or "")[:255] or None
+            declared_path = str(attrs.get("path") or "")[:255] or None
+            confirmed = confirmed_store_item(
+                name=raw_name,
+                frame_url=str(frame_url or ""),
+                domain_attribute=declared_domain,
+                path_attribute=declared_path,
+            )
             result["items"].append({
                 "mechanism": str(event.get("mechanism") or "UNKNOWN")[:40],
                 "cookie_name": display_name,
                 "name_hash": name_hash,
-                "domain_attribute": str(attrs.get("domain") or "")[:255] or None,
-                "path_attribute": str(attrs.get("path") or "")[:255] or None,
+                "domain_attribute": declared_domain,
+                "path_attribute": declared_path,
                 "samesite": str(attrs.get("samesite") or "")[:40] or None,
                 "secure": bool(attrs.get("secure")),
                 "at_ms": float(event.get("at_ms") or 0.0),
-                "frame_url": _safe_url(getattr(frame, "url", None)),
+                "frame_url": frame_url,
                 "setter_script_url": setter_script_url,
                 "attribution_confidence": "MEDIUM" if setter_script_url else "LOW",
                 "consent_state_at_creation": "NOT_OBSERVED",
                 "created_before_consent": None,
+                "store_state": (
+                    "CONFIRMED_IN_BROWSER_STORE"
+                    if confirmed is not None
+                    else "WRITE_ATTEMPT_NOT_CONFIRMED"
+                ),
+                "confirmed_domain": confirmed.get("domain") if confirmed else None,
+                "confirmed_path": confirmed.get("path") if confirmed else None,
+                "confirmed_host_only": confirmed.get("host_only") if confirmed else None,
+                "confirmed_secure": confirmed.get("secure") if confirmed else None,
+                "confirmed_httponly": confirmed.get("httponly") if confirmed else None,
+                "confirmed_samesite": confirmed.get("samesite") if confirmed else None,
             })
     result["state"] = "CAPTURED" if result["items"] else "CAPTURED_NO_WRITES"
     result["count"] = len(result["items"])
@@ -664,7 +742,7 @@ def _install_browser_capture() -> None:
             )
             rendered_dom = _rendered_dom_metadata(rendered_html)
             script_runtime = _script_runtime_metadata(cdp_session, cdp_capture, page)
-            cookie_runtime = _cookie_runtime_metadata(page)
+            cookie_runtime = _cookie_runtime_metadata(page, context)
 
             screenshot_png: bytes | None = None
             screenshot_state = "NOT_CAPTURED"

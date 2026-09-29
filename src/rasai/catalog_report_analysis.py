@@ -591,6 +591,21 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
     for index,(cookie_ref,items) in enumerate(sorted(grouped.items()),1):
         first=items[0]
         name=first.get("cookie_name_display") or f"Cookie {cookie_ref}"
+        details=[_safe_json(item.get("details_json"),{}) for item in items]
+        state_labels={
+            "HTTP_SET_COOKIE_OBSERVED":"Set-Cookie observado",
+            "CONFIRMED_IN_BROWSER_STORE":"Confirmado no navegador",
+            "WRITE_ATTEMPT_NOT_CONFIRMED":"Tentativa de escrita não confirmada",
+        }
+        observation_states=[
+            str(detail.get("observation_state") or "")
+            if isinstance(detail,Mapping) else ""
+            for detail in details
+        ]
+        state_display=" · ".join(dict.fromkeys(
+            state_labels.get(state,"Legado / estado não registrado")
+            for state in observation_states
+        ))
         mechanisms=sorted({str(item.get("creation_mechanism") or "UNKNOWN") for item in items})
         setters=sorted({str(item.get("setter_script_url") or "") for item in items if item.get("setter_script_url")})
         platform_refs=sorted({str(item.get("platform_ref") or "") for item in items if item.get("platform_ref")})
@@ -600,7 +615,17 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
             if ref in platform_by_ref
         })
         parties=sorted({str(item.get("party") or "UNKNOWN").upper() for item in items})
-        if platform_names:
+        only_unconfirmed_runtime=bool(observation_states) and all(
+            state=="WRITE_ATTEMPT_NOT_CONFIRMED" for state in observation_states
+        )
+        if platform_names and only_unconfirmed_runtime:
+            owner_label="Setter observado · "+" · ".join(platform_names)
+            owner_class="INFORMATIONAL"
+            owner_basis=(
+                "Plataforma vinculada à tentativa de escrita; o browser store não confirmou "
+                "o cookie para este escopo."
+            )
+        elif platform_names:
             owner_label=" · ".join(platform_names)
             owner_class="EXTERNAL_PROVIDER" if "THIRD_PARTY" in parties else "INFORMATIONAL"
             owner_basis=(
@@ -619,13 +644,27 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
             owner_label="Não determinado"
             owner_class="INFORMATIONAL"
             owner_basis="Evidência insuficiente para atribuir responsabilidade técnica"
+        first_detail=details[0] if details and isinstance(details[0],Mapping) else {}
+        effective_scope=(
+            f"{first.get('effective_domain')} {first.get('effective_path') or '/'}"
+            if first.get("effective_domain")
+            else (
+                "Declarado: "
+                + str(first_detail.get("declared_domain") or "domínio não informado")
+                + " "
+                + str(first_detail.get("declared_path") or first_detail.get("declared_effective_path") or "/")
+                if first_detail.get("declared_domain") or first_detail.get("declared_path")
+                else "Não confirmado"
+            )
+        )
         mid=f"cookie-runtime-{index}"
         cookie_rows.append((
             name,
             cookie_ref,
             owner_label,
-            f"{first.get('effective_domain') or '-'} {first.get('effective_path') or '/'}",
+            effective_scope,
             " · ".join(mechanisms),
+            state_display,
             first.get("purpose") or "UNKNOWN",
             _confidence_label(first.get("purpose_confidence")),
             _confidence_label(first.get("attribution_confidence")),
@@ -639,9 +678,12 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
             ("Classe de responsabilidade",owner_class),
             ("Base da atribuição",owner_basis),
             ("Origem", " · ".join(_security_party_label(value) for value in parties)),
-            ("Domínio efetivo",first.get("effective_domain") or "-"),
-            ("Path efetivo",first.get("effective_path") or "/"),
-            ("Host-only","Sim" if first.get("host_only") else "Não"),
+            ("Estado da observação",state_display),
+            ("Domínio efetivo / confirmado",first.get("effective_domain") or "Não confirmado"),
+            ("Path efetivo / confirmado",first.get("effective_path") or "Não confirmado"),
+            ("Domínio declarado na tentativa",first_detail.get("declared_domain") or "Não informado"),
+            ("Path declarado na tentativa",first_detail.get("declared_path") or "Não informado"),
+            ("Host-only","Sim" if first.get("effective_domain") and first.get("host_only") else "Não determinado"),
             ("Mecanismo(s)"," · ".join(mechanisms)),
             ("Finalidade provável",first.get("purpose") or "UNKNOWN"),
             ("Confiança da finalidade",_confidence_label(first.get("purpose_confidence"))),
@@ -649,17 +691,22 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
             ("Script setter"," · ".join(setters) or "Servidor / não atribuído a script"),
             ("Plataforma vinculada"," · ".join(platform_names) or "Não determinada"),
         ))
-        details=[_safe_json(item.get("details_json"),{}) for item in items]
         body+="<h3>Ocorrências</h3>"+_table(
-            ("Mecanismo","Snapshot","Origem","Estado de consentimento observado"),
+            ("Estado","Mecanismo","Snapshot","Domínio declarado","Domínio confirmado","Origem","Estado de consentimento observado"),
             [(
+                state_labels.get(
+                    str(detail.get("observation_state") or "") if isinstance(detail,Mapping) else "",
+                    "Legado / estado não registrado",
+                ),
                 item.get("creation_mechanism") or "-",
                 item.get("snapshot_id") or "HTTP",
+                (detail.get("declared_domain") if isinstance(detail,Mapping) else None) or "-",
+                item.get("effective_domain") or "Não confirmado",
                 item.get("setter_script_url") or "Resposta HTTP / não atribuída",
                 (detail.get("consent_state_at_creation") if isinstance(detail,Mapping) else None) or "Não observado",
             ) for item,detail in zip(items,details)],
         )
-        body+="<div class='notice'>Proprietário / responsável técnico representa atribuição operacional baseada em domínio, party, setter e plataforma observados; não é declaração de titularidade jurídica. Finalidade é classificação técnica/heurística e não representa conclusão jurídica de consentimento ou LGPD. Valores de cookies não são persistidos nesta camada.</div>"
+        body+="<div class='notice'>Chamadas a document.cookie/Cookie Store são registradas como tentativas. Somente presença correspondente no browser store pode preencher domínio/path confirmado; tentativa não confirmada não é apresentada como cookie efetivamente armazenado. Proprietário / responsável técnico representa atribuição operacional e não titularidade jurídica. Finalidade é classificação técnica/heurística. Valores de cookies não são persistidos nesta camada.</div>"
         cookie_modals.append(_modal(mid,name,"Cookie · provenance e escopo",body))
 
     script_rows=[]; script_modals=[]
@@ -742,7 +789,7 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
 
     return (
         "<div class='subsection'><h3>Cookies observados e atribuição</h3>"
-        +_table(("Cookie","ID RASAi","Proprietário / responsável técnico","Escopo","Criação","Finalidade provável","Conf. finalidade","Conf. atribuição","Ocorrências","Detalhe"),cookie_rows,empty="Nenhuma atribuição adicional de cookie foi persistida nesta AUD.",sortable=bool(cookie_rows),page_size=10 if len(cookie_rows)>10 else None)
+        +_table(("Cookie / tentativa","ID RASAi","Proprietário / responsável técnico","Escopo","Criação","Estado","Finalidade provável","Conf. finalidade","Conf. atribuição","Ocorrências","Detalhe"),cookie_rows,empty="Nenhum cookie ou tentativa de escrita com identidade/provenance enriquecida foi materializado nesta AUD.",sortable=bool(cookie_rows),page_size=10 if len(cookie_rows)>10 else None)
         +"".join(cookie_modals)+"</div>"
         +"<div class='subsection'><h3>JavaScript · integridade, comportamento e custo observado</h3>"
         +_table(("Script","Origem","Transferência","Análise","Sinais","Plataforma","Detalhe"),script_rows,empty="Nenhum JavaScript com telemetria granular foi materializado pelo CAT-10.",sortable=bool(script_rows),page_size=10 if len(script_rows)>10 else None)
