@@ -10,6 +10,11 @@ def test_catalog_menu_hides_technical_catalog_prefix() -> None:
     assert ">Índice de Prontidão Search &amp; IA</a>" in html
 
 
+def test_reference_label_has_no_border_radius() -> None:
+    ref_rule = _CSS.split(".ref{", 1)[1].split("}", 1)[0]
+    assert "border-radius" not in ref_rule
+
+
 def test_state_text_changes_only_semantic_color_contract() -> None:
     approved = str(_state_text("PASS"))
     attention = str(_state_text("WARNING"))
