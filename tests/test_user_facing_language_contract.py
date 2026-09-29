@@ -67,10 +67,10 @@ def test_common_report_machine_values_are_humanized() -> None:
         "<td>AUTH_ERROR</td><td>NAVIGATION_TIMEOUT</td></tr></table>"
     )
     rendered = humanize_report_html(html)
-    assert "Internal Links" in rendered
-    assert "Page Access" in rendered
-    assert "SPA Navigation" in rendered
-    assert "SPA Route" in rendered
+    assert "Links internos" in rendered
+    assert "Acesso à página" in rendered
+    assert "Navegação SPA" in rendered
+    assert "Rota SPA" in rendered
     assert "Execução com limitações" in rendered
     assert "Revisão do JSON-LD existente" in rendered
     assert "Erro de autenticação" in rendered
