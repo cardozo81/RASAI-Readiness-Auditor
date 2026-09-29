@@ -108,7 +108,7 @@ Defaults efetivos alinhados ao Dynatrace RUM Web:
 
 - `errors_affect_apdex=true`: chave mestra;
 - `javascript_errors_affect_apdex=true`: `pageerror`/exceção JavaScript da ação pode forçar `FRUSTRATED`;
-- `request_errors_affect_apdex=true`: request failures, HTTP `4xx/5xx` e CSP violations podem forçar `FRUSTRATED`;
+- `request_errors_affect_apdex=true`: erros de requisição qualificáveis, HTTP `4xx/5xx`, failed images e CSP violations podem forçar `FRUSTRATED`; `net::ERR_ABORTED` genérico de subrecurso permanece evidência diagnóstica por default porque não é equivalência automática de um request error Dynatrace;
 - `console_errors_affect_apdex=false`: `console.error` é capturado pelo RASAi quando a captura estiver habilitada; por default permanece desligado e só afeta o Apdex quando captura e impacto forem explicitamente habilitados;
 - `error_scope=all`: o escopo controla apenas a família de request/HTTP/CSP errors. JavaScript runtime errors não deixam de ser erros da ação por serem first/third-party.
 
