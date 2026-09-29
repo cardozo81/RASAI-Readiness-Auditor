@@ -177,20 +177,20 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
         ]
         if attempt.get("error_class") not in (None, ""):
             attempt_details.append((
-                "Classe técnica do erro",
-                _Html("<code>" + escape(str(attempt.get("error_class"))) + "</code>"),
+                "Classificação do erro",
+                i._status_label(attempt.get("error_class")),
             ))
         if attempt.get("http_status") not in (None, ""):
             attempt_details.append(("HTTP", attempt.get("http_status")))
         if attempt.get("error_code") not in (None, ""):
             attempt_details.append((
-                "Código técnico do erro",
-                _Html("<code>" + escape(str(attempt.get("error_code"))) + "</code>"),
+                "Motivo do erro",
+                i._status_label(attempt.get("error_code")),
             ))
         if attempt.get("error_type") not in (None, ""):
             attempt_details.append((
-                "Tipo técnico do erro",
-                _Html("<code>" + escape(str(attempt.get("error_type"))) + "</code>"),
+                "Tipo do erro",
+                i._status_label(attempt.get("error_type")),
             ))
         if attempt.get("error_detail") not in (None, ""):
             attempt_details.append(("Detalhe persistido", attempt.get("error_detail")))

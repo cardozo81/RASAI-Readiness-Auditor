@@ -12,6 +12,7 @@ import re
 import sqlite3
 from typing import Any, Mapping, Sequence
 
+from rasai.catalog_report_public_labels import public_label
 from rasai.report_contract import ReportSurface, surface_by_filename
 
 _STYLE_ID = "rasai-reader-experience-v1"
@@ -542,9 +543,11 @@ def _render_work_items(items: Sequence[Mapping[str, Any]]) -> str:
         component = str(item.get("component") or "UNKNOWN")
         scope = str(item.get("scope_key") or "AUDIT")
         code = str(item.get("last_error_code") or "").strip()
-        technical = f"<br><small>Referência técnica: <code>{escape(component)}</code> · escopo <code>{escape(scope)}</code>"
+        scope_label = "Auditoria" if scope.upper() == "AUDIT" else scope
+        code_label = public_label(code) or code.replace("_", " ").title()
+        technical = f"<br><small>Contexto da execução: escopo {escape(scope_label)}"
         if code:
-            technical += f" · código <code>{escape(code)}</code>"
+            technical += f"; motivo {escape(code_label)}"
         technical += "</small>"
         rows.append(
             "<tr>"

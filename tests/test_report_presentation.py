@@ -47,6 +47,23 @@ class ReportPresentationTests(unittest.TestCase):
         self.assertIn("<td>HTTP_429</td>", rendered)
         self.assertIn("<td>SCORE-GEO-004</td>", rendered)
 
+    def test_humanizes_internal_execution_codes_and_visible_em_dash(self) -> None:
+        html = (
+            "<p>Motivo: AI_NOT_AUTHORIZED_FOR_EXECUTION — escopo TARGET_SITE.</p>"
+            "<td>EXECUTION_POLICY</td><td>AUDIT</td>"
+            "<code>AI_NOT_AUTHORIZED_FOR_EXECUTION — TARGET_SITE</code>"
+            "<pre>EXECUTION_POLICY — AUDIT</pre>"
+        )
+
+        rendered = humanize_report_html(html)
+
+        self.assertIn("Motivo: IA não autorizada para execução nesta auditoria - escopo Site / propriedade auditada.", rendered)
+        self.assertIn("<td>Política de execução</td>", rendered)
+        self.assertIn("<td>Auditoria</td>", rendered)
+        self.assertIn("<code>AI_NOT_AUTHORIZED_FOR_EXECUTION — TARGET_SITE</code>", rendered)
+        self.assertIn("<pre>EXECUTION_POLICY — AUDIT</pre>", rendered)
+        self.assertNotIn("AI_NOT_AUTHORIZED_FOR_EXECUTION - escopo TARGET_SITE", rendered)
+
     def test_humanizes_monitoring_and_quality_states_without_losing_priority_code(self) -> None:
         html = (
             "<td>REGRESSED</td><td>DATA_UNAVAILABLE</td><td>PARTIAL_OVERLAP</td>"

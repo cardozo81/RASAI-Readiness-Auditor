@@ -2,7 +2,7 @@
 from rasai.catalog_report_model import *  # noqa: F401,F403
 from rasai.time_contract import localize_html_timestamps
 from rasai.catalog_report_public_labels import public_label, public_text
-from rasai.report_presentation import public_label as common_public_label
+from rasai.report_presentation import humanize_report_html, public_label as common_public_label
 
 _EMPTY = "-"
 _RICH_TOKEN_RE = re.compile(
@@ -666,7 +666,7 @@ def _navigation(current: str) -> str:
 
 def _shell(page: CatalogReportPage, audit_id: str, body: str) -> str:
     html=f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>{escape(page.label)} · RASAi</title><link rel='stylesheet' href='css/site.css'></head><body data-report-contract='{CATALOG_REPORT_CONTRACT_VERSION}' data-page='{escape(page.id)}'><aside class='app-nav' data-shared-report-menu='{CATALOG_REPORT_CONTRACT_VERSION}'><div class='brand'><small>RASAi · relatório por catálogos</small><strong>{escape(audit_id)}</strong></div><nav aria-label='Relatórios'>{_navigation(page.filename)}</nav></aside><main class='app-main'>{body}<footer class='footer'>Projeção somente para leitura de dados persistidos · {CATALOG_REPORT_CONTRACT_VERSION} · nenhuma coleta, integração, IA ou cálculo de pontuação é executado pelo HTML.</footer></main><script>{_JS}</script></body></html>"""
-    return localize_html_timestamps(html)
+    return humanize_report_html(localize_html_timestamps(html), page_name=page.filename)
 
 
 def _audit_state(data: _ReportData) -> str:
