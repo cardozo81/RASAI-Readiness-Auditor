@@ -107,6 +107,8 @@ _ARTIFACT_PAIRS = (
     ("raw_evidence_ref", "raw_evidence_sha256"),
     ("artifact_ref", "artifact_sha256"),
     ("artifact_reference", "artifact_sha256"),
+    ("pagespeed_artifact_reference", "pagespeed_artifact_sha256"),
+    ("crux_artifact_reference", "crux_artifact_sha256"),
     ("response_artifact_ref", "response_artifact_sha256"),
     ("report_artifact_ref", "report_artifact_sha256"),
 )
@@ -179,7 +181,15 @@ def _artifact_integrity(database: Path, audit_id: str, catalog_id: str) -> tuple
                 continue
             rows = _audit_rows(connection, table, audit_id)
             for ref_col, hash_col in _ARTIFACT_PAIRS:
-                if ref_col not in cols or hash_col not in cols:
+                if ref_col not in cols:
+                    continue
+                if hash_col not in cols:
+                    for row in rows:
+                        if row.get(ref_col):
+                            failures.append(
+                                f"{table}.{ref_col}: referência persistida sem coluna "
+                                f"{hash_col}; artefato legado/não verificável"
+                            )
                     continue
                 for row in rows:
                     ref = row.get(ref_col)
