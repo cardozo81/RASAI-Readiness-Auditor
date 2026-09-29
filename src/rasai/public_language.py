@@ -215,7 +215,27 @@ def normalize_visible_text(value: Any) -> str:
 
 def is_traceability_identifier(value: Any) -> bool:
     raw = _raw(value)
-    return bool(raw and _TRACEABILITY_RE.fullmatch(raw))
+    if not raw:
+        return False
+    if _TRACEABILITY_RE.fullmatch(raw):
+        return True
+    if raw.startswith("RASAI_"):
+        return True
+    if re.fullmatch(r"[A-Z][A-Z0-9_]+_V\d+", raw):
+        return True
+    return False
+
+
+def safe_visible_fallback(value: Any) -> str:
+    """Prevent an unmapped machine enum from becoming primary public copy."""
+    raw = _raw(value)
+    if not raw:
+        return "-"
+    if is_traceability_identifier(raw):
+        return raw
+    if _MACHINE_VALUE_RE.fullmatch(raw):
+        return "Condição técnica não catalogada"
+    return normalize_visible_text(raw)
 
 
 def supplemental_public_label(value: Any) -> str | None:
@@ -322,6 +342,7 @@ __all__ = [
     "diagnostic_label",
     "is_traceability_identifier",
     "normalize_visible_text",
+    "safe_visible_fallback",
     "scope_label",
     "supplemental_public_label",
     "temporal_mode_label",
