@@ -248,3 +248,14 @@ Além da tabela, `ai-integrations.html` deve mostrar `Findings elegíveis`, `Con
 ## Fonte de verdade
 
 As superfícies audit-owned são projeções de `audit.db`. Integrações pós-auditoria podem usar sidecars explícitos, como `observability.db`, preservando a separação da evidência imutável do AUD. A renderização dos relatórios não dispara novas requisições ao website nem novas chamadas de IA para preencher a interface.
+
+## Contrato transversal de linguagem pública
+
+Relatórios HTML e o console interativo compartilham o contrato de apresentação humana de valores operacionais. Estados, operações, componentes, escopos, classes de erro, códigos de erro, razões e modos de recuperação permanecem canônicos no runtime e na persistência, mas a superfície primária usa rótulos pt-BR.
+
+Identificadores de rastreabilidade como `AUD-*`, `RPR-*`, `BR-GEO-*`, hashes, IDs de contratos/versionamento e referências explicitamente técnicas permanecem canônicos quando sua função é permitir auditoria e suporte. Um enum operacional não se torna apropriado para a superfície humana apenas por estar em `code`/`pre`; renderizadores devem usar o rótulo público quando o campo representa estado, motivo ou diagnóstico.
+
+Famílias compostas, como `TECHNICAL_PREREQUISITE_BR_GEO_<NNN>_<STATE>`, são interpretadas semanticamente e preservam somente o identificador canônico `BR-GEO-NNN`.
+
+O pipeline possui fallback defensivo para impedir que um novo enum em formato de máquina seja apresentado cru antes de ganhar rótulo específico. Testes de contrato inventariam literais semânticos produzidos pelo código e operações do console; valores novos devem receber rótulo público ou ser classificados explicitamente como rastreabilidade.
+
