@@ -47,6 +47,20 @@ class ReportPresentationTests(unittest.TestCase):
         self.assertIn("<td>HTTP 429 - limite de requisições</td>", rendered)
         self.assertIn("<td>SCORE-GEO-004</td>", rendered)
 
+    def test_preserves_canonical_hyphenated_contract_identifiers(self) -> None:
+        html = (
+            "<strong>CRAWLING-DISCOVERY-001</strong>"
+            "<p>Contrato CRAWLING-DISCOVERY-001 permanece rastreável.</p>"
+            "<td>SCORE-GEO-004</td>"
+        )
+
+        rendered = humanize_report_html(html)
+
+        self.assertIn("<strong>CRAWLING-DISCOVERY-001</strong>", rendered)
+        self.assertIn("Contrato CRAWLING-DISCOVERY-001 permanece rastreável.", rendered)
+        self.assertIn("<td>SCORE-GEO-004</td>", rendered)
+        self.assertNotIn("CRAWLING-DESCOBERTA-001", rendered)
+
     def test_humanizes_internal_execution_codes_and_visible_em_dash(self) -> None:
         html = (
             "<p>Motivo: AI_NOT_AUTHORIZED_FOR_EXECUTION — escopo TARGET_SITE.</p>"
