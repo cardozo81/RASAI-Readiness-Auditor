@@ -17,6 +17,7 @@ from typing import Any, Callable, Mapping
 
 from rasai.console_confirmation_contract import confirm_continue
 from rasai.console_input_contract import EditCancelled, prompt_text
+from rasai.public_language import component_label, console_status_label, scope_label
 
 _LOAD_WARNINGS: dict[int, tuple[str, ...]] = {}
 
@@ -538,7 +539,7 @@ def _reprocess_selected(
         if pending:
             print("\nItens que ainda precisam de resolução:")
             for item in pending[:30]:
-                print(f"- {item.component}/{item.scope_key}: {item.status}")
+                print(f"- {component_label(item.component)}/{scope_label(item.scope_key)}: {console_status_label(item.status)}")
     else:
         print(
             "O estado será reavaliado pelo motor de reprocessamento antes de "
@@ -671,9 +672,9 @@ def _reprocess_selected(
     print("REPROCESSAMENTO CONCLUÍDO\n")
     print(f"AUD                  : {result.audit_id}")
     print(f"RPR                  : {result.reprocess_id or '<nenhum; sem trabalho pendente>'}")
-    print(f"Processamento        : {result.processing_status}")
-    print(f"Score                : {result.score_status}")
-    print(f"Relatório            : {result.report_status}")
+    print(f"Processamento        : {console_status_label(result.processing_status)}")
+    print(f"Score                : {console_status_label(result.score_status)}")
+    print(f"Relatório            : {console_status_label(result.report_status)}")
     print(f"Consolidação elegível: {'SIM' if result.consolidation_eligible else 'NÃO'}")
     print(f"Itens tentados       : {result.attempted_items}")
     print(f"Itens resolvidos     : {result.successful_items}")
