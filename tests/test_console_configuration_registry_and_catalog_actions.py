@@ -92,10 +92,12 @@ def test_restore_cat07_preserves_shared_profiles_and_other_catalogs(monkeypatch,
     state = SearchConsoleState()
 
     shared_profile = PROFILE_ENV[("MOBILE", "client")]
+    monkeypatch.setenv("RASAI_SYNTHETIC_APDEX", "true")
     monkeypatch.setenv(UX_SAMPLES_ENV, "77")
     monkeypatch.setenv(shared_profile, "mobile-compact-chromium")
     monkeypatch.setenv("RASAI_WEB_PERFORMANCE_MAX_PAGES", "99")
 
+    facade.base_environment._apply_change(state, "RASAI_SYNTHETIC_APDEX")
     facade.base_environment._apply_change(state, UX_SAMPLES_ENV)
     facade.base_environment._apply_change(state, "RASAI_WEB_PERFORMANCE_MAX_PAGES")
     assert state.apdex_experience_samples == 77
