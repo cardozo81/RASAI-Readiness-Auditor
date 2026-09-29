@@ -434,10 +434,12 @@ def test_console_lists_required_incomplete_components_with_error_code() -> None:
         text = output.getvalue()
 
         assert "REQUISITOS OBRIGATÓRIOS INCOMPLETOS" in text
-        assert "WEB_PERFORMANCE" in text
-        assert "FAILED_RETRYABLE" in text
-        assert "código=PARTIAL" in text
+        assert "Web Performance" in text
+        assert "Falha reprocessável" in text
+        assert "motivo=Parcial" in text
         assert "PageSpeed incomplete" in text
+        assert "WEB_PERFORMANCE" not in text
+        assert "FAILED_RETRYABLE" not in text
 
 
 def test_console_expands_web_performance_failure_from_persisted_attempts() -> None:
@@ -498,7 +500,8 @@ def test_console_expands_web_performance_failure_from_persisted_attempts() -> No
         assert "Lighthouse returned error: Something went wrong." in text
         assert "CrUX API" in text
         assert "SEM DADOS · HTTP 404" in text
-        assert "Classificação do fulfillment: EXTERNAL_SERVICE · reprocessável=SIM" in text
+        assert "Classificação do fulfillment: Serviço externo · reprocessável=SIM" in text
+        assert "EXTERNAL_SERVICE" not in text
 
 def test_partial_post_run_offers_reprocess_for_current_audit_id(monkeypatch) -> None:
     from rasai import console_navigation
