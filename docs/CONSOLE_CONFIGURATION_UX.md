@@ -324,4 +324,4 @@ exclusivas serão restauradas e quantas configurações compartilhadas serão pr
 A operação remove somente overrides exclusivos não secretos do catálogo, preserva outros
 CAT-*, secrets e `Windows/Machine`, reaplica a baseline empacotada e salva pelo writer
 canônico. Parâmetros compartilhados entre CAT-06 e CAT-07 - incluindo os nove perfis
-físicos sintéticos — permanecem intactos.
+físicos sintéticos - permanecem intactos.
