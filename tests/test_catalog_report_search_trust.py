@@ -661,7 +661,8 @@ def test_competitive_report_exposes_effective_contract_http_evidence_and_ai_gove
     assert "Candidato orgânico" in html
     assert "Autoridade pública" in html
     assert "URL solicitada" in html
-    assert "QUERY_BODY_COVERAGE_LOWER" in html
+    assert "Cobertura da consulta no conteúdo abaixo da referência observada" in html
+    assert "QUERY_BODY_COVERAGE_LOWER" not in html
     assert "Diferença correlacional; não implica causa de ranking." in html
     assert "Governança da IA competitiva" in html
     assert "EVIDENCE-1" in html
