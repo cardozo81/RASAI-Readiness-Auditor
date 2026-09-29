@@ -81,7 +81,7 @@ def test_canonical_environment_defaults_accept_runtime_configuration_extensions(
 
     assert defaults["RASAI_SYNTHETIC_APDEX"] == "true"
     assert defaults["RASAI_APDEX_SAMPLES_PER_CONTEXT"] == "1"
-    assert defaults["RASAI_SYNTHETIC_EXPERIENCE"] == "true"
+    assert defaults["RASAI_APDEX_EXPERIENCE"] == "true"
 
 
 def test_structured_defaults_apply_low_load_apdex_and_dynatrace_compatible_thresholds() -> None:
