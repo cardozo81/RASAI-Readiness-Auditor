@@ -148,3 +148,16 @@ Documentos relacionados:
 - [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
 - [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md)
 - [SYNTHETIC_USER_EXPERIENCE_APDEX.md](SYNTHETIC_USER_EXPERIENCE_APDEX.md)
+
+
+## Registry canônico de configuração
+
+A superfície configurável do console é inventariada em tempo de execução a partir dos
+`EnvironmentSpec` efetivamente instalados e do mesmo mapa de capacidades usado pelos
+catálogos. O registry classifica, para cada chave, sensibilidade, persistência, default e
+ownership por `CAT-*`; não existe uma segunda lista manual por catálogo.
+
+Os nove perfis físicos sintéticos `RASAI_APDEX_*_{CLIENT|HARDWARE|NETWORK}_PROFILE`
+fazem parte da baseline empacotada e do contrato Save -> Reload -> Restore. Eles são
+configuração compartilhada entre CAT-06 e CAT-07, portanto não pertencem exclusivamente
+a nenhum dos dois catálogos.

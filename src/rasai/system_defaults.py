@@ -113,6 +113,24 @@ def apply_structured_defaults(state: Any, *, include_presentation: bool = True) 
     return tuple(warnings)
 
 
+def canonical_environment_defaults() -> dict[str, str]:
+    """Project every packaged non-secret default onto its technical environment key."""
+    from rasai import console_settings as settings
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    baseline = SearchConsoleState()
+    warnings = apply_structured_defaults(baseline, include_presentation=False)
+    if warnings:
+        raise ValueError("system defaults inválidos: " + "; ".join(warnings))
+    projected = {
+        name: str(value).strip()
+        for name, value in settings._runtime_environment_projection(baseline).items()
+        if str(value).strip()
+    }
+    projected.update(_system_environment_defaults())
+    return projected
+
+
 def _apply_system_environment_defaults(
     *,
     external: Mapping[str, str] | None = None,
@@ -355,16 +373,7 @@ def _patch_environment_catalog() -> None:
         return
     original_refresh = facade.refresh_specs
 
-    explicit = {
-        "RASAI_SYNTHETIC_APDEX": "true",
-        "RASAI_APDEX_THRESHOLD_SECONDS": "3",
-        "RASAI_APDEX_SAMPLES_PER_CONTEXT": "1",
-        "RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT": "2",
-        "RASAI_APDEX_EXPERIENCE": "true",
-        "RASAI_APDEX_EXPERIENCE_SAMPLES": "20",
-        "RASAI_APDEX_EXPERIENCE_MAX_ATTEMPTS": "25",
-    }
-    explicit.update(_system_environment_defaults())
+    explicit = canonical_environment_defaults()
 
     def apply_current() -> None:
         facade.SPECS = tuple(

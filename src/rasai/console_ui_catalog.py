@@ -328,14 +328,17 @@ def catalog_menu(console_module: ModuleType, state: Any, *, view: str, title: st
 
 
 def _matches(spec: Any, capability: str) -> bool:
+    from rasai.synthetic_runtime_profiles import PROFILE_ENV_NAMES
+
     name, category, owner = str(spec.name).upper(), str(spec.category).casefold(), owner_for(spec).casefold()
+    shared_apdex_profile = name in set(PROFILE_ENV_NAMES)
     if capability == "domain-discovery": return name == "RASAI_AI_TECHNICAL_REMEDIATION"
     if capability == "accessibility": return "LIGHTHOUSE" in name or "PAGESPEED" in name or "ACCESS" in name
     if capability == "web-performance": return any(x in name for x in ("WEB_PERFORMANCE","PAGESPEED","CRUX","LIGHTHOUSE"))
     if capability == "standards": return "métricas" in category or any(x in name for x in ("W3C","MDN","WEB_PLATFORM","WEB_FEATURES","RETRIEVAL"))
     if capability == "search-intelligence": return any(x in name for x in ("SERP","SEARCH_CONSOLE","GSC_","GOOGLE_SEARCH_CONSOLE"))
-    if capability == "apdex-navigation": return ("APDEX" in name and "EXPERIENCE" not in name and "DYNATRACE" not in name) or "synthetic navigation" in owner
-    if capability == "apdex-experience": return any(x in name for x in ("EXPERIENCE","DYNATRACE")) or "user experience" in owner
+    if capability == "apdex-navigation": return shared_apdex_profile or ("APDEX" in name and "EXPERIENCE" not in name and "DYNATRACE" not in name) or "synthetic navigation" in owner
+    if capability == "apdex-experience": return shared_apdex_profile or any(x in name for x in ("EXPERIENCE","DYNATRACE")) or "user experience" in owner
     if capability == "ai-visibility": return "AI_VISIBILITY" in name or "visibility" in owner
     if capability == "observability": return "observ" in category or any(x in name for x in ("CLARITY","DYNATRACE","GSC_","SEARCH_CONSOLE"))
     if capability == "deep-analysis": return name.startswith("RASAI_IMPROVEMENT_") or name == "RASAI_AI_ANALYSIS_LANGUAGE"
