@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 
+from rasai.public_language import SUPPLEMENTAL_PUBLIC_LABELS, supplemental_public_label
 from rasai.time_contract import localize_visible_timestamps
 
 
@@ -551,14 +552,17 @@ _VISIBLE_VALUE_RE = re.compile(
 
 def public_label(value: str) -> str:
     """Return a user-facing label for a known machine value."""
-    return _PUBLIC_LABELS.get(value, value)
+    return _PUBLIC_LABELS.get(value) or supplemental_public_label(value) or value
 
 
 _TAG_SPLIT_RE = re.compile(r"(<[^>]+>)", flags=re.DOTALL)
+_PUBLIC_TOKEN_VALUES = tuple(
+    sorted(set(_PUBLIC_LABELS) | set(SUPPLEMENTAL_PUBLIC_LABELS), key=len, reverse=True)
+)
 _PUBLIC_TOKEN_RE = re.compile(
-    r"(?<![A-Z0-9_])(" + "|".join(
-        re.escape(value) for value in sorted(_PUBLIC_LABELS, key=len, reverse=True)
-    ) + r")(?![A-Z0-9_])"
+    r"(?<![A-Z0-9_])("
+    + "|".join(re.escape(value) for value in _PUBLIC_TOKEN_VALUES)
+    + r"|TECHNICAL_PREREQUISITE_BR_GEO_\d{3}_[A-Z0-9_]+)(?![A-Z0-9_])"
 )
 
 
@@ -569,7 +573,7 @@ def _public_token_replacement(match: re.Match[str]) -> str:
     # expanding e.g. P2 -> Alta (P2) -> Alta (Alta (P2)).
     if value in {"P0", "P1", "P2", "P3", "P4"} and match.start() > 0 and match.string[match.start() - 1] == "(":
         return value
-    return _PUBLIC_LABELS[value]
+    return public_label(value)
 
 
 def _standalone_concept_label(text: str, *, page_name: str | None) -> str:
@@ -598,8 +602,8 @@ def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
 
     def isolated(match: re.Match[str]) -> str:
         value = match.group("value")
-        label = _PUBLIC_LABELS.get(value)
-        if label is None:
+        label = public_label(value)
+        if label == value:
             return match.group(0)
         return f"{match.group(1)}{label}{match.group(4)}"
 
