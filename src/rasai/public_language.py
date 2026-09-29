@@ -138,7 +138,7 @@ SUPPLEMENTAL_PUBLIC_LABELS: dict[str, str] = {
     "WEB_PERFORMANCE": "Coletando Web Performance",
     "SOURCE_BLOCKED": "Origem bloqueada",
     "PENDING": "Pendente",
-    "WAITING_FOR_DATA": "Aguardando dados",
+    "WAITING_FOR_DATA": "Aguardando pré-requisitos",
     "NOT_CONFIGURED": "Não configurado",
     "REQUESTED_NOT_EXECUTED": "Solicitado, não executado",
     "FAILED_RETRYABLE": "Falha reprocessável",
