@@ -10,6 +10,7 @@ from __future__ import annotations
 from contextvars import ContextVar, copy_context
 from pathlib import Path
 import json
+import sqlite3
 import sys
 import threading
 import time
