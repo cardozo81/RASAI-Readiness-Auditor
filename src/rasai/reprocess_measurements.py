@@ -475,8 +475,7 @@ def recover_synthetic_apdex(
                 reason=reason,updated_at=m23._utc_now(),
             ))
     finally:
-        if shared_gateway is not None:
-            shared_gateway.close()
+        gateway.close()
     return effective_success
 
 
@@ -799,5 +798,6 @@ def recover_experience_apdex(
                 host_environment=host_environment,reason=None if effective_success else "RECOVERY_TARGET_NOT_YET_MET",updated_at=m25._utc_now(),
             ))
     finally:
-        gateway.close()
+        if shared_gateway is not None:
+            shared_gateway.close()
     return effective_success
