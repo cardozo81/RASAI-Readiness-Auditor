@@ -11,6 +11,7 @@ import sqlite3
 from typing import Any
 
 from rasai.content_context import configured_content_analysis_context
+from rasai.catalog_report_public_labels import public_label as catalog_public_label
 from rasai.configuration_value_labels import configuration_value_report
 from rasai.content_context_persistence import (
     load_content_analysis_context,
@@ -207,7 +208,7 @@ def _content_page(data: dict[str, Any], report_dir: Path) -> str:
     elif run_status == "NOT_CONFIGURED":
         ai_notice = "<div class='notice warn'><strong>IA de conteúdo foi habilitada, mas não havia provider saudável/configurado.</strong> A variável <code>RASAI_AI_CONTENT_REMEDIATION</code> controla esta finalidade; ela é independente da IA técnica de crawling.</div>"
     elif run_status == "DEGRADED":
-        suffix = f" Motivo persistido: <code>{escape(attempt_error)}</code>." if attempt_error else ""
+        suffix = f" Motivo persistido: {escape(attempt_error)}." if attempt_error else ""
         ai_notice = "<div class='notice warn'><strong>IA de conteúdo habilitada e chamada, mas a etapa terminou com limitações ou teve respostas rejeitadas.</strong> Isso não significa que a IA estava desabilitada." + suffix + " Consulte a telemetria abaixo; nenhuma sugestão rejeitada altera score ou finding.</div>"
     else:
         ai_notice = "<div class='notice warn'><strong>Conteúdo sugerido é advisory.</strong> Esta finalidade é controlada por <code>RASAI_AI_CONTENT_REMEDIATION</code>, não por <code>RASAI_AI_TECHNICAL_REMEDIATION</code>. Não altera score/findings e requer validação humana.</div>"
@@ -272,9 +273,10 @@ def _attempt_error_summary(attempts: list[sqlite3.Row]) -> str:
             except (IndexError, KeyError):
                 value = None
             if value not in (None, ""):
-                values.append(str(value))
+                raw = str(value)
+                values.append(catalog_public_label(raw) or public_label(raw).replace("_", " "))
         if values:
-            return ":".join(values)
+            return " - ".join(values)
     return ""
 
 
