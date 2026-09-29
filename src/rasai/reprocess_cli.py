@@ -7,6 +7,7 @@ from pathlib import Path
 from rasai.audit_fulfillment import list_work_items, read_summary
 from rasai.audit_reprocess import reprocess_audit
 from rasai.persistence import AuditWorkspace
+from rasai.public_language import component_label, console_status_label, diagnostic_label, scope_label, temporal_mode_label
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -47,9 +48,9 @@ def _print_status(workspace: AuditWorkspace, audit_id: str) -> None:
     if summary is None:
         print("Contrato de processamento: ainda não materializado; execute o reprocessamento para indexar o AUD atual.")
     else:
-        print(f"Processamento: {summary.processing_status}")
-        print(f"Score: {summary.score_status}")
-        print(f"Relatório: {summary.report_status}")
+        print(f"Processamento: {console_status_label(summary.processing_status)}")
+        print(f"Score: {console_status_label(summary.score_status)}")
+        print(f"Relatório: {console_status_label(summary.report_status)}")
         print(f"Consolidação: {'ELEGÍVEL' if summary.consolidation_eligible else 'NÃO ELEGÍVEL'}")
         print(f"Requisitos atendidos: {summary.successful_items}/{summary.required_items}")
         print(f"Tentativas registradas: {summary.total_attempts}")
@@ -65,11 +66,12 @@ def _print_status(workspace: AuditWorkspace, audit_id: str) -> None:
         for item in items:
             required = "obrigatório" if item.required else "opcional"
             print(
-                f"  - {item.component}/{item.scope_key}: {item.status} ({required}; "
-                f"tentativas={item.attempt_count}; modo={item.temporal_mode})"
+                f"  - {component_label(item.component)}/{scope_label(item.scope_key)}: "
+                f"{console_status_label(item.status)} ({required}; "
+                f"tentativas={item.attempt_count}; modo={temporal_mode_label(item.temporal_mode)})"
             )
             if item.last_error_code:
-                print(f"    último erro: {item.last_error_code}")
+                print(f"    último erro: {diagnostic_label(item.last_error_code)}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -101,9 +103,9 @@ def main(argv: list[str] | None = None) -> int:
         result = reprocess_audit(args.audit_id,audits_root=args.audits_root,source="CLI")
     print(f"AUD: {result.audit_id}")
     print(f"Reprocessamento: {result.reprocess_id or 'NENHUM - AUD já integralmente atendido'}")
-    print(f"Processamento: {result.processing_status}")
-    print(f"Score: {result.score_status}")
-    print(f"Relatório: {result.report_status}")
+    print(f"Processamento: {console_status_label(result.processing_status)}")
+    print(f"Score: {console_status_label(result.score_status)}")
+    print(f"Relatório: {console_status_label(result.report_status)}")
     print(f"Consolidação: {'ELEGÍVEL' if result.consolidation_eligible else 'NÃO ELEGÍVEL'}")
     print(f"Itens tentados nesta execução: {result.attempted_items}")
     print(f"Itens resolvidos nesta execução: {result.successful_items}")
