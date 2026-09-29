@@ -66,6 +66,12 @@ from rasai.m25_cli import (
 )
 from rasai.m25_dynatrace import SUPPORTED_TIME_KPMS
 from rasai.m25_dynatrace_defaults import DYNATRACE_LOAD_PRIMARY_KPM
+from rasai.synthetic_runtime_profiles import (
+    configured_preset,
+    describe_preset,
+    env_name,
+    preset_ids,
+)
 
 
 def _number(
@@ -120,6 +126,52 @@ def _device_mix(current: str) -> str:
     raw = f"mobile={mobile:g},desktop={desktop:g},tablet={tablet:g}"
     parse_device_mix(raw)
     return raw
+
+
+def _configure_experience_runtime_profiles(device_mix_raw: str) -> None:
+    """Expose the shared synthetic envelopes inside the Experience configuration."""
+    mix = dict(parse_device_mix(device_mix_raw or DEFAULT_UX_DEVICE_MIX))
+    labels = {
+        "client": "Cliente/browser",
+        "hardware": "Hardware/CPU",
+        "network": "Rede",
+    }
+    print(paint("\n  Perfis sintéticos efetivos · compartilhados com Navigation:", DIM))
+    for device in ("MOBILE", "DESKTOP", "TABLET"):
+        share = float(mix.get(device, 0.0))
+        state_label = f"ATIVO · {share:g}%" if share > 0 else "fora do mix atual"
+        print(paint(f"    {device.title()} [{state_label}]", DIM))
+        for kind in ("client", "hardware", "network"):
+            name = env_name(kind, device)
+            current = configured_preset(kind, device, os.environ)
+            print(
+                paint(
+                    f"      {labels[kind]}: {describe_preset(kind, current)} "
+                    f"· {name}={current}",
+                    DIM,
+                )
+            )
+    print(paint(
+        "  Esses perfis alteram a condição de laboratório e podem mudar o Apdex medido; "
+        "não alteram a fórmula. CPU é slowdown relativo CDP; RAM/GPU/thermal/scheduler "
+        "físicos não são emulados.",
+        DIM,
+    ))
+    if not _yes_no("Alterar os perfis sintéticos compartilhados nesta sessão", False):
+        return
+
+    for device in ("MOBILE", "DESKTOP", "TABLET"):
+        print(paint(f"\n  {device.title()}", DIM))
+        for kind in ("client", "hardware", "network"):
+            name = env_name(kind, device)
+            current = configured_preset(kind, device, os.environ)
+            selected = _choice(
+                labels[kind],
+                current,
+                preset_ids(kind, device),
+                name,
+            )
+            os.environ[name] = selected
 
 
 def _required_positive(prompt: str, current: float | None) -> float:
@@ -302,6 +354,7 @@ def _configure_experience(state: State) -> None:
         minimum=0, integer=True,
     ))
     state.apdex_experience_device_mix = _device_mix(state.apdex_experience_device_mix)
+    _configure_experience_runtime_profiles(state.apdex_experience_device_mix)
     state.apdex_experience_session_mode = _choice(
         "Modo de sessão",
         state.apdex_experience_session_mode,
