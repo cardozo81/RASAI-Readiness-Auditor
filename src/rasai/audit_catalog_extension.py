@@ -652,11 +652,32 @@ def _work_item_ids(
         con.close()
 
 
+def _extension_work_components(added: set[str]) -> frozenset[str]:
+    """Bound pre-RPR cleanup to components owned by the requested catalog delta."""
+    ownership = {
+        "CAT-01": (),
+        "CAT-02": ("WEB_PERFORMANCE",),
+        "CAT-03": ("SEMANTIC_AI",),
+        "CAT-04": ("WEB_PERFORMANCE",),
+        "CAT-05": ("SEARCH_INTELLIGENCE", "GOOGLE_SEARCH_CONSOLE"),
+        "CAT-06": ("SYNTHETIC_APDEX",),
+        "CAT-07": ("EXPERIENCE_APDEX",),
+        "CAT-08": ("IMPROVEMENT_INTELLIGENCE",),
+        "CAT-09": ("CONTENT_REMEDIATION_AI", "TECHNICAL_AI"),
+        "CAT-10": ("PASSIVE_SECURITY", "IMPROVEMENT_INTELLIGENCE"),
+    }
+    return frozenset(
+        component
+        for catalog_id in added
+        for component in ownership.get(str(catalog_id).upper(), ())
+    )
+
 def _rollback_unlinked_extension_work(
     workspace: AuditWorkspace,
     audit_id: str,
     *,
     preexisting_work_item_ids: frozenset[str] | None,
+    candidate_components: frozenset[str],
 ) -> tuple[str, ...]:
     """Remove only zero-attempt planning rows created before any causal RPR exists.
 
@@ -687,8 +708,8 @@ def _rollback_unlinked_extension_work(
         if not required.issubset(columns):
             return ()
         rows = con.execute(
-            """SELECT work_item_id,attempt_count FROM audit_fulfillment_work_items
-               WHERE audit_id=?""",
+            """SELECT work_item_id,attempt_count,component
+               FROM audit_fulfillment_work_items WHERE audit_id=?""",
             (audit_id,),
         ).fetchall()
         removable: list[str] = []
@@ -696,6 +717,8 @@ def _rollback_unlinked_extension_work(
         for row in rows:
             work_item_id = str(row["work_item_id"] or "")
             if not work_item_id or work_item_id in preexisting_work_item_ids:
+                continue
+            if str(row["component"] or "").strip().upper() not in candidate_components:
                 continue
             if int(row["attempt_count"] or 0) != 0:
                 continue
@@ -800,6 +823,7 @@ def apply_catalog_extension(
     added = requested - current
     if not added:
         raise ValueError("nenhum catálogo novo foi selecionado para complementar esta AUD")
+    extension_work_components = _extension_work_components(added)
 
     use_ai = bool(ai_execution_enabled(state))
     setattr(state, "_rasai_catalog_extension_use_ai", use_ai)
@@ -960,6 +984,7 @@ def apply_catalog_extension(
                         workspace,
                         audit_id,
                         preexisting_work_item_ids=preexisting_work_item_ids,
+                        candidate_components=extension_work_components,
                     )
                     try:
                         recalculate(workspace, audit_id)
