@@ -262,7 +262,21 @@ Exemplos:
 - Synthetic User Experience Apdex coleta somente o déficit necessário da população configurada;
 - remediações por IA são reavaliadas quando uma nova resposta semântica efetiva altera os achados que servem de entrada.
 
-Uma chamada sobre um `AUD-*` já completo é um no-op analítico: o estado atual é devolvido sem repetir serviços bem-sucedidos.
+Uma chamada de **reprocessamento de pendências** sobre um `AUD-*` já completo continua sendo um no-op analítico: o estado atual é devolvido sem repetir serviços bem-sucedidos.
+
+### Complementação aditiva de uma AUD concluída
+
+`COMPLETE` significa que o contrato efetivamente solicitado naquela AUD foi integralmente atendido. Não significa que todos os CAT-* possíveis tenham sido executados. Por isso o console distingue:
+
+- **Reprocessar pendências**: recupera somente requisitos já pertencentes ao contrato da AUD e continua indisponível quando esse contrato está `COMPLETE`;
+- **Complementar auditoria**: acrescenta CAT-* ainda não solicitados à mesma observação, sem remover ou reconfigurar catálogos já concluídos.
+
+A complementação é registrada como extensão aditiva vinculada a um `RPR-*`. O snapshot original em `audit_execution_configurations` permanece imutável e continua provando o plano inicial. O report-catalog projeta o escopo efetivo como **plano inicial + extensões**, mantendo a proveniência de cada extensão e seu RPR.
+
+Catálogos que exigem nova coleta live só podem ser acrescentados enquanto a janela temporal de recuperação da AUD estiver válida. Quando essa janela expira, o operador deve criar um novo AUD para esses catálogos. Catálogos replay-safe ou puramente derivados podem ser acrescentados a partir da evidência persistida quando seus pré-requisitos continuarem íntegros.
+
+A regra de IA também é aditiva e explícita: executar uma AUD original sem IA não cria pendência de IA se nenhum catálogo que a exija foi solicitado. Se CAT-08 for acrescentado posteriormente sem autorização de IA, somente então o novo requisito passa a permanecer pendente para fechamento. Catálogos com IA opcional continuam completos sem esse enriquecimento quando o operador escolhe a complementação sem IA.
+
 
 ### Mudança material e invalidação de dependências
 
