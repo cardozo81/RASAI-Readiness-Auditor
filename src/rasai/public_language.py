@@ -250,6 +250,21 @@ CONSOLE_STATUS_LABELS: dict[str, str] = {
     "PARTIAL_BLOCKED": "Parcial - há bloqueios",
     "FAILED": "Falhou",
     "ERROR": "Erro",
+    "WAITING_FOR_DATA": "Aguardando pré-requisitos",
+    "NOT_CONFIGURED": "Não configurado",
+    "REQUESTED_NOT_EXECUTED": "Solicitado, não executado",
+    "FAILED_RETRYABLE": "Falha reprocessável",
+    "FAILED_PERMANENT": "Falha permanente",
+    "FAILED_FATAL": "Falha fatal",
+    "BLOCKED": "Bloqueado",
+    "DISABLED": "Desabilitado",
+    "NOT_APPLICABLE": "Não aplicável",
+    "SUCCESS": "Concluído",
+    "FINAL": "Final",
+    "PRELIMINARY": "Preliminar",
+    "INCOMPLETE": "Incompleto",
+    "UNAVAILABLE": "Indisponível",
+    "UNKNOWN": "Não determinado",
 }
 
 _STATE_LABELS_LOWER: dict[str, str] = {
