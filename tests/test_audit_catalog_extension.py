@@ -15,10 +15,25 @@ from rasai.audit_catalog_extension import (
     effective_catalog_projection,
     extension_readiness,
 )
-from rasai.audit_configuration_reuse import configuration_hash
+from rasai.audit_configuration_reuse import KIND_CONSOLE, configuration_hash, persist_audit_configuration
 from rasai.catalog_report_model import _load_data
 from rasai.console_catalog_plan import set_selected_catalog_ids
-from rasai.persistence import AuditWorkspace
+from rasai.domain import Audit, CompletionStatus
+from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.audit_fulfillment import (
+    COMPLETE,
+    REPLAY_SAFE,
+    SUCCESS,
+    begin_attempt,
+    finish_attempt,
+    finish_reprocess_run,
+    initialize_contract,
+    list_work_items,
+    recalculate,
+    register_work_item,
+    start_reprocess_run,
+)
+from rasai.audit_reprocess import ReprocessResult
 from rasai.reprocess_policy import reprocess_policy
 
 
@@ -442,3 +457,210 @@ def test_pre_rpr_rollback_never_removes_existing_or_attempted_work(
     assert "WKI-EXISTING" in remaining
     assert "WKI-ATTEMPTED" in remaining
     assert "WKI-NEW-ZERO" not in remaining
+
+
+def test_complete_audit_extension_delegates_only_delta_to_canonical_reprocess(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Regression for the human smoke: COMPLETE CAT-06/CAT-07 -> additive CAT-10."""
+    import rasai.audit_reprocess as audit_reprocess
+
+    workspace = AuditWorkspace.create(tmp_path, AUDIT_ID)
+    with AuditPersistence(workspace) as persistence:
+        persistence.audits.add(Audit(audit_id=AUDIT_ID, project_name="catalog extension e2e"))
+        persistence.audits.complete(
+            AUDIT_ID,
+            completion_status=CompletionStatus.COMPLETE,
+        )
+
+    initial_configuration = {
+        "targets": ["https://example.test/"],
+        "audit_mode": "NO_AI",
+        "semantic_provider": "NONE",
+        "audit_catalog": {
+            "version": "2",
+            "selected": ["CAT-06", "CAT-07"],
+            "ai_enabled": False,
+            "items": [
+                {
+                    "id": "CAT-06",
+                    "catalog_id": "CAT-06",
+                    "selected": True,
+                    "ai_mode": "NONE",
+                },
+                {
+                    "id": "CAT-07",
+                    "catalog_id": "CAT-07",
+                    "selected": True,
+                    "ai_mode": "NONE",
+                },
+            ],
+        },
+    }
+    snapshot = persist_audit_configuration(
+        workspace.database,
+        audit_id=AUDIT_ID,
+        kind=KIND_CONSOLE,
+        configuration=initial_configuration,
+    )
+    initialize_contract(workspace, AUDIT_ID)
+    for component in ("SYNTHETIC_APDEX", "EXPERIENCE_APDEX"):
+        register_work_item(
+            workspace,
+            audit_id=AUDIT_ID,
+            component=component,
+            required=True,
+            temporal_mode=REPLAY_SAFE,
+            status=SUCCESS,
+            retryable=False,
+        )
+        set_result = f"{component.casefold()}:original-success"
+        from rasai.audit_fulfillment import set_work_item_status
+
+        set_work_item_status(
+            workspace,
+            audit_id=AUDIT_ID,
+            component=component,
+            status=SUCCESS,
+            result_ref=set_result,
+            retryable=False,
+        )
+    assert recalculate(workspace, AUDIT_ID).processing_status == COMPLETE
+    before = {
+        item.component: (item.status, item.attempt_count, item.effective_result_ref)
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component in {"SYNTHETIC_APDEX", "EXPERIENCE_APDEX"}
+    }
+
+    state = SimpleNamespace(
+        audits_root=tmp_path,
+        target="https://example.test/",
+        web_performance=False,
+        search_queries=(),
+        synthetic_apdex=True,
+        apdex_experience=True,
+        improvement_enabled=False,
+        content_remediation=False,
+        technical_remediation=False,
+        ai_provider="none",
+        ai_model=None,
+        ai_reasoning=None,
+        runtime_blocks={},
+    )
+    set_selected_catalog_ids(state, ["CAT-06", "CAT-07", "CAT-10"])
+
+    calls: list[tuple[str, str]] = []
+
+    def canonical_reprocess(
+        audit_id: str,
+        *,
+        audits_root: str | Path = "audits",
+        source: str = "CLI",
+    ) -> ReprocessResult:
+        calls.append((audit_id, source))
+        active = AuditWorkspace.open(Path(audits_root) / audit_id)
+        pending = [
+            item for item in list_work_items(active, audit_id, pending_only=True)
+            if item.required
+        ]
+        assert [(item.component, item.scope_key) for item in pending] == [
+            ("PASSIVE_SECURITY", "AUDIT")
+        ]
+        reprocess_id = start_reprocess_run(
+            active,
+            audit_id,
+            source=source,
+        )
+        attempt_id = begin_attempt(
+            active,
+            audit_id=audit_id,
+            component="PASSIVE_SECURITY",
+            reprocess_id=reprocess_id,
+            metadata={"test": "canonical-delta"},
+        )
+        finish_attempt(
+            active,
+            attempt_id,
+            status=SUCCESS,
+            result_ref="passive-security:effective",
+        )
+        summary = finish_reprocess_run(
+            active,
+            reprocess_id,
+            status=SUCCESS,
+            attempted_items=1,
+            successful_items=1,
+            note="isolated canonical reprocess regression",
+        )
+        return ReprocessResult(
+            audit_id=audit_id,
+            reprocess_id=reprocess_id,
+            processing_status=summary.processing_status,
+            score_status=summary.score_status,
+            report_status=summary.report_status,
+            consolidation_eligible=summary.consolidation_eligible,
+            attempted_items=1,
+            successful_items=1,
+            skipped_success_items=summary.successful_items - 1,
+            remaining_items=summary.pending_items + summary.blocked_items,
+            temporal_expired_items=summary.expired_items,
+            report_root=active.root / "report-catalog",
+            selected_items=1,
+            unselected_items=0,
+            ai_used=False,
+        )
+
+    monkeypatch.setattr(audit_reprocess, "reprocess_audit", canonical_reprocess)
+
+    result = apply_catalog_extension(state=state, audit_id=AUDIT_ID)
+
+    assert calls == [(AUDIT_ID, "CONSOLE_CATALOG_EXTENSION")]
+    assert result.reprocess_id is not None
+    assert result.processing_status == COMPLETE
+    assert result.consolidation_eligible is True
+
+    after = {
+        item.component: (item.status, item.attempt_count, item.effective_result_ref)
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component in {"SYNTHETIC_APDEX", "EXPERIENCE_APDEX"}
+    }
+    assert after == before
+    passive = next(
+        item
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component == "PASSIVE_SECURITY"
+    )
+    assert passive.status == SUCCESS
+    assert passive.attempt_count == 1
+
+    con = sqlite3.connect(workspace.database)
+    con.row_factory = sqlite3.Row
+    try:
+        persisted_hash = con.execute(
+            """SELECT configuration_hash FROM audit_execution_configurations
+               WHERE audit_id=?""",
+            (AUDIT_ID,),
+        ).fetchone()[0]
+        rpr = con.execute(
+            """SELECT status,completed_at,configuration FROM audit_reprocess_runs
+               WHERE reprocess_id=?""",
+            (result.reprocess_id,),
+        ).fetchone()
+    finally:
+        con.close()
+    assert persisted_hash == snapshot.configuration_hash
+    assert rpr is not None
+    assert rpr["status"] == SUCCESS
+    assert rpr["completed_at"] is not None
+    rpr_config = json.loads(str(rpr["configuration"] or "{}"))
+    assert rpr_config["execution_context"]["catalog_extension"]["added"] == ["CAT-10"]
+
+    report_data = _load_data(AUDIT_ID, workspace.database)
+    assert report_data.selected == {"CAT-06", "CAT-07", "CAT-10"}
+    assert report_data.configuration["audit_catalog"]["initial_selected"] == [
+        "CAT-06",
+        "CAT-07",
+    ]
+    assert report_data.config_hash == snapshot.configuration_hash
+    assert report_data.computed_hash == snapshot.configuration_hash
