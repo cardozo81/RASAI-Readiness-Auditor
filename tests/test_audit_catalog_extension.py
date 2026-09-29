@@ -426,7 +426,20 @@ def test_console_contains_unexpected_extension_failure_and_returns_to_menu(
     monkeypatch.setattr(console_extension, "_load_audit_configuration", lambda *_: ())
     monkeypatch.setattr(console_extension, "_render_catalogs", lambda *_: None)
     monkeypatch.setattr(console_extension, "_choose_ai_mode", lambda *_: False)
-    monkeypatch.setattr(console_extension, "confirm_continue", lambda *_args, **_kwargs: True)
+    def confirm_extension(
+        action_label: str,
+        *,
+        back_label: str = "Voltar sem continuar",
+        input_fn=None,
+        show_options: bool = True,
+    ) -> bool:
+        assert "Aplicar os novos catálogos" in action_label
+        assert back_label == "Voltar sem complementar a AUD"
+        assert input_fn is None
+        assert show_options is True
+        return True
+
+    monkeypatch.setattr(console_extension, "confirm_continue", confirm_extension)
     monkeypatch.setattr(catalog_plan, "catalog_status", lambda *_: ("APTO", "ok"))
     monkeypatch.setattr(catalog_ui, "catalog_menu", lambda *_: None)
 
