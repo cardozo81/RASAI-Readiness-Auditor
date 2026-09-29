@@ -25,7 +25,7 @@ PUBLIC_VALUE_LABELS: dict[str, str] = {
     "PROCESSING": "Em processamento",
     "RUNNING": "Em execução",
     "PENDING": "Pendente",
-    "WAITING_FOR_DATA": "Aguardando dados",
+    "WAITING_FOR_DATA": "Aguardando pré-requisitos",
     "READY": "Disponível",
     "AVAILABLE": "Disponível",
     "GENERATED": "Gerado",
