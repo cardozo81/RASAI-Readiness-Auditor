@@ -18,6 +18,7 @@ from rasai.audit_catalog_extension import (
 from rasai.audit_configuration_reuse import KIND_CONSOLE, configuration_hash, persist_audit_configuration
 from rasai.catalog_report_model import _load_data
 from rasai.console_catalog_plan import set_selected_catalog_ids
+from rasai.console_m23 import State as ConsoleState
 from rasai.domain import Audit, CompletionStatus
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.audit_fulfillment import (
@@ -286,16 +287,10 @@ def test_apply_extension_failure_before_rpr_is_retryable_and_preserves_original_
     finally:
         con.close()
 
-    state = SimpleNamespace(
-        audits_root=tmp_path,
+    state = ConsoleState(
+        audits_root=str(tmp_path),
         target="https://example.test/",
-        web_performance=False,
-        synthetic_apdex=True,
-        apdex_experience=True,
         ai_provider="none",
-        ai_model=None,
-        ai_reasoning=None,
-        runtime_blocks={},
     )
     set_selected_catalog_ids(state, ["CAT-06", "CAT-07", "CAT-10"])
 
@@ -533,20 +528,24 @@ def test_complete_audit_extension_delegates_only_delta_to_canonical_reprocess(
         if item.component in {"SYNTHETIC_APDEX", "EXPERIENCE_APDEX"}
     }
 
-    state = SimpleNamespace(
-        audits_root=tmp_path,
+    state = ConsoleState(
+        audits_root=str(tmp_path),
         target="https://example.test/",
-        web_performance=False,
-        search_queries=(),
         synthetic_apdex=True,
+        apdex_threshold=1.0,
+        apdex_samples=1,
+        apdex_max_attempts=1,
+        apdex_max_pages=1,
+        apdex_timeout=30.0,
+        apdex_delay=0.0,
+        apdex_concurrency=1,
         apdex_experience=True,
-        improvement_enabled=False,
-        content_remediation=False,
-        technical_remediation=False,
+        apdex_experience_samples=1,
+        apdex_experience_max_attempts=1,
+        apdex_experience_max_pages=1,
+        apdex_experience_satisfied=2.0,
+        apdex_experience_frustrated=6.0,
         ai_provider="none",
-        ai_model=None,
-        ai_reasoning=None,
-        runtime_blocks={},
     )
     set_selected_catalog_ids(state, ["CAT-06", "CAT-07", "CAT-10"])
 
