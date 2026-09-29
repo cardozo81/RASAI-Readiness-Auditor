@@ -568,6 +568,33 @@ def _passive_component_signature(workspace: Any, audit_id: str, *, persisted: bo
         connection.close()
 
 
+def _passive_external_intelligence_materialized(
+    workspace: Any,
+    audit_id: str,
+) -> bool:
+    """Return whether OSV and CISA KEV have a durable evaluated state.
+
+    An empty component inventory is still an evaluated outcome: collect_external_intelligence
+    records NO_DATA without calling external services when there is nothing queryable.
+    """
+    connection = sqlite3.connect(workspace.database)
+    try:
+        if not _table_exists(connection, "passive_security_integrations"):
+            return False
+        rows = connection.execute(
+            """SELECT integration_id,state FROM passive_security_integrations
+               WHERE audit_id=? AND integration_id IN ('OSV','CISA_KEV')""",
+            (audit_id,),
+        ).fetchall()
+    finally:
+        connection.close()
+    states = {
+        str(row[0]).upper(): str(row[1] or "").upper()
+        for row in rows
+    }
+    return "OSV" in states and "CISA_KEV" in states
+
+
 def _archive_passive_security(workspace: Any, audit_id: str) -> None:
     reprocess_id = _current_reprocess_id(workspace, audit_id)
     if not reprocess_id:
@@ -636,7 +663,10 @@ def _recover_impacted_deterministic(workspace: Any, audit_id: str) -> dict[str, 
     external_refreshed = False
     try:
         with optional._original_optional_environment(workspace, audit_id):
-            if components_changed:
+            if components_changed or not _passive_external_intelligence_materialized(
+                workspace,
+                audit_id,
+            ):
                 security.collect_external_intelligence(
                     audit_id=audit_id,
                     workspace=workspace,
