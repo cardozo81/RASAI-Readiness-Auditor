@@ -206,6 +206,15 @@ def _install_web_performance_recovery_alignment() -> None:
         return
 
     def recover_web_performance_aligned(*, workspace: Any, audit_id: str, item: Any) -> bool:
+        from rasai import m21_web_performance as m21
+
+        # Recovery delegates collection/classification to the canonical M21 path.
+        # Validate the shared primitives explicitly so runtime drift fails closed.
+        if not callable(m21.build_web_performance_observation):
+            raise RuntimeError("M21 canonical observation builder unavailable")
+        if not callable(m21.summarize_web_performance_run):
+            raise RuntimeError("M21 canonical run summarizer unavailable")
+
         original_success = bool(original(workspace=workspace, audit_id=audit_id, item=item))
         if original_success:
             return True
