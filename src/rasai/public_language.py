@@ -104,6 +104,25 @@ SUPPLEMENTAL_PUBLIC_LABELS: dict[str, str] = {
     "BOUNDED_STATIC_FACTORS": "Fatores estáticos limitados ao recurso",
     "NENHUM": "Nenhum",
     "CAPTURADO": "Capturado",
+    # Shared diagnostic classes/codes used by report and console surfaces.
+    "NETWORK": "Erro de rede",
+    "NETWORK_ERROR": "Erro de rede",
+    "CONNECT_ERROR": "Erro de conexão",
+    "TLS_ERROR": "Erro TLS",
+    "SERVER_ERROR": "Erro do servidor",
+    "EXTERNAL_SERVICE": "Serviço externo",
+    "SERVICE_UNAVAILABLE": "Serviço indisponível",
+    "TIMEOUT_ERROR": "Tempo limite excedido",
+    "AUTH_ERROR": "Erro de autenticação",
+    "INTERNAL": "Erro interno",
+    "PARTIAL": "Parcial",
+    "MAIN_CONTENT_UNAVAILABLE": "Conteúdo principal indisponível",
+    "SEMANTIC_AI_RETRY_INCOMPLETE": "Nova tentativa da análise semântica por IA ficou incompleta",
+    "AI_CONTRACT": "Contrato de IA",
+    "AI_PROVIDER": "Provedor de IA",
+    "SEARCH_PROVIDER": "Provedor de busca",
+    "ORCHESTRATION": "Orquestração",
+    "PREREQUISITE": "Pré-requisito",
     # Console status values.
     "STARTING": "Iniciando",
     "FINALIZING": "Finalizando auditoria",
@@ -188,6 +207,24 @@ CONSOLE_OPERATION_LABELS: dict[str, str] = {
     "INTEGRATION:SEARCH_INTELLIGENCE_LIMITATION": "Registrando limitação da inteligência de busca",
 }
 
+COMPONENT_LABELS: dict[str, str] = {
+    "CORE_AUDIT": "Auditoria principal",
+    "HTTP_ACQUISITION": "Aquisição HTTP",
+    "RENDER_CAPTURE": "Captura renderizada",
+    "CONTENT_EXTRACTION": "Extração de conteúdo",
+    "SEMANTIC_AI": "Análise semântica por IA",
+    "TECHNICAL_AI": "Análise técnica por IA",
+    "CONTENT_REMEDIATION_AI": "Remediação de conteúdo por IA",
+    "ACCESSIBILITY_DATA": "Dados de acessibilidade",
+    "STANDARDS_EXTERNAL": "Validação externa de padrões",
+    "DIRECTED_ANALYSIS": "Análise direcionada",
+    "SEARCH_INTELLIGENCE": "Inteligência de busca / SERP",
+    "WEB_PERFORMANCE": "Web Performance",
+    "SYNTHETIC_APDEX": "Apdex de navegação",
+    "EXPERIENCE_APDEX": "Apdex de experiência",
+    "IMPROVEMENT_INTELLIGENCE": "Análise profunda por IA",
+}
+
 CONSOLE_STATUS_LABELS: dict[str, str] = {
     **{key: value for key, value in SUPPLEMENTAL_PUBLIC_LABELS.items() if key in {
         "STARTING", "FINALIZING", "REPROCESSING", "REPROCESS_FAILED", "PRECHECK_FAILED",
@@ -235,7 +272,10 @@ _TECHNICAL_PREREQUISITE_RE = re.compile(
 )
 _MACHINE_VALUE_RE = re.compile(r"^[A-Z][A-Z0-9]*(?:(?:[_:][A-Z0-9][A-Z0-9_./:-]*))?$")
 _TRACEABILITY_RE = re.compile(
-    r"^(?:AUD|RPR|CONS|CONRUN)-[A-Z0-9-]+$|^BR-GEO-\d{3}$|^SCORE-GEO-\d+$|^[a-fA-F0-9]{40,64}$"
+    r"^(?:AUD|RPR|CONS|CONRUN)-[A-Z0-9-]+$"
+    r"|^BR-GEO-\d{3}$|^SCORE-GEO-\d+$"
+    r"|^[A-Z]{2,12}(?:-[A-Z0-9]+)+$"
+    r"|^[a-fA-F0-9]{40,64}$"
 )
 
 
@@ -321,7 +361,8 @@ def component_label(value: Any) -> str:
     raw = _raw(value)
     if not raw:
         return "Etapa da auditoria"
-    return supplemental_public_label(raw) or (
+    key = re.sub(r"[^A-Z0-9]+", "_", raw.upper()).strip("_")
+    return COMPONENT_LABELS.get(key) or supplemental_public_label(raw) or (
         "Etapa técnica da auditoria" if _MACHINE_VALUE_RE.fullmatch(raw) else normalize_visible_text(raw)
     )
 
@@ -330,11 +371,27 @@ def scope_label(value: Any) -> str:
     raw = _raw(value)
     if not raw:
         return "Auditoria"
+    if raw.upper() == "AUDIT":
+        return "Auditoria"
+    if raw.upper().startswith("PLANNED:"):
+        parts = raw.split(":")
+        details: list[str] = ["Planejado"]
+        for part in parts[1:]:
+            upper = part.upper()
+            if upper == "MOBILE":
+                details.append("Mobile")
+            elif upper == "DESKTOP":
+                details.append("Desktop")
+            elif upper == "TABLET":
+                details.append("Tablet")
+            else:
+                details.append(part)
+        return " - ".join(details)
+    if is_traceability_identifier(raw):
+        return raw
     label = supplemental_public_label(raw)
     if label is not None:
         return label
-    if is_traceability_identifier(raw):
-        return raw
     if _MACHINE_VALUE_RE.fullmatch(raw):
         return "Escopo técnico"
     return normalize_visible_text(raw)
@@ -367,6 +424,7 @@ def temporal_mode_label(value: Any) -> str:
 
 
 __all__ = [
+    "COMPONENT_LABELS",
     "CONSOLE_OPERATION_LABELS",
     "CONSOLE_STATUS_LABELS",
     "SUPPLEMENTAL_PUBLIC_LABELS",
