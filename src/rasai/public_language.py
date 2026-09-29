@@ -85,6 +85,22 @@ SUPPLEMENTAL_PUBLIC_LABELS: dict[str, str] = {
     "SYNTHETIC_UX_APDEX": "Medindo Apdex de experiência",
     "WEB_PERFORMANCE": "Coletando Web Performance",
     "SOURCE_BLOCKED": "Origem bloqueada",
+    "PENDING": "Pendente",
+    "WAITING_FOR_DATA": "Aguardando dados",
+    "NOT_CONFIGURED": "Não configurado",
+    "REQUESTED_NOT_EXECUTED": "Solicitado, não executado",
+    "FAILED_RETRYABLE": "Falha reprocessável",
+    "FAILED_PERMANENT": "Falha permanente",
+    "FAILED_FATAL": "Falha fatal",
+    "BLOCKED": "Bloqueado",
+    "DISABLED": "Desabilitado",
+    "NOT_APPLICABLE": "Não aplicável",
+    "SUCCESS": "Concluído",
+    "FINAL": "Final",
+    "PRELIMINARY": "Preliminar",
+    "INCOMPLETE": "Incompleto",
+    "UNAVAILABLE": "Indisponível",
+    "UNKNOWN": "Não determinado",
 }
 
 CONSOLE_OPERATION_LABELS: dict[str, str] = {
@@ -183,7 +199,7 @@ _TECHNICAL_PREREQUISITE_RE = re.compile(
     r"^TECHNICAL_PREREQUISITE_BR_GEO_(\d{3})_([A-Z0-9_]+)$",
     re.IGNORECASE,
 )
-_MACHINE_VALUE_RE = re.compile(r"^[A-Z][A-Z0-9]*(?:[_:][A-Z0-9][A-Z0-9_./:-]*)+$")
+_MACHINE_VALUE_RE = re.compile(r"^[A-Z][A-Z0-9]*(?:(?:[_:][A-Z0-9][A-Z0-9_./:-]*))?$")
 _TRACEABILITY_RE = re.compile(
     r"^(?:AUD|RPR|CONS|CONRUN)-[A-Z0-9-]+$|^BR-GEO-\d{3}$|^SCORE-GEO-\d+$|^[a-fA-F0-9]{40,64}$"
 )
