@@ -15,7 +15,7 @@ from importlib.resources import files
 import math
 import os
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Any, Mapping
 
 from rasai.console_confirmation_contract import confirm_sensitive
@@ -128,7 +128,17 @@ def canonical_environment_defaults() -> dict[str, str]:
     from rasai import console_settings as settings
     from rasai.console_search_intelligence import SearchConsoleState
 
-    baseline = SearchConsoleState()
+    source = SearchConsoleState()
+    # Configuration adapters extend console_settings._state_values/_assign at runtime.
+    # Use a writable namespace seeded from the canonical slotted state so those adapters
+    # can materialize their own structured defaults without requiring every extension
+    # field to be declared on SearchConsoleState itself.
+    baseline = SimpleNamespace(
+        **{
+            name: getattr(source, name)
+            for name in source.__dataclass_fields__
+        }
+    )
     warnings = apply_structured_defaults(baseline, include_presentation=False)
     if warnings:
         raise ValueError("system defaults inválidos: " + "; ".join(warnings))

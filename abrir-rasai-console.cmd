@@ -75,6 +75,14 @@ if errorlevel 1 (
 cls
 "%CONSOLE_EXE%"
 set "EXIT_CODE=%ERRORLEVEL%"
+if "!EXIT_CODE!"=="0" (
+    endlocal & exit /b 0
+)
+
+echo.
+echo [ERRO] O console RASAi foi encerrado com codigo !EXIT_CODE!.
+echo A mensagem acima foi preservada para diagnostico.
+pause
 endlocal & exit /b %EXIT_CODE%
 
 :find_python
