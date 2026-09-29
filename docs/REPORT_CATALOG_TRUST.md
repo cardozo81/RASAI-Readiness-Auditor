@@ -142,7 +142,7 @@ No eixo de integridade, qualquer artefato-fonte local persistido por referência
 
 - **sem referência local a artefato-fonte**: verificação de hash não aplicável;
 - **referência + SHA-256**: arquivo é verificado e qualquer divergência reprova o controle;
-- **referência sem coluna/campo de SHA-256 ou com SHA vazio**: artefato legado/não verificável; o controle de integridade não passa;
+- **referência sem coluna/campo de SHA-256 ou com SHA vazio**: artefato sem hash verificável persistido; o controle de integridade não passa;
 - **AUD histórica**: permanece legível, mas o RASAi não fabrica checksum retroativo para elevar assurance.
 
 Assim, 100% de integridade estrutural não pode significar que uma referência raw conhecida foi ignorada por falta de selo. Novas aquisições que materializam raw local devem persistir o hash no mesmo contrato da referência.
