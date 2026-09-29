@@ -180,7 +180,10 @@ def effective_catalog_projection(
 
 
 def effective_catalog_ids(workspace: AuditWorkspace, audit_id: str) -> tuple[str, ...]:
-    con = _connect(workspace)
+    # Reading/navigation must not mutate a sealed AUD. The extension schema is created
+    # only by write paths after the operator confirms an additive extension.
+    con = sqlite3.connect(workspace.database)
+    con.row_factory = sqlite3.Row
     try:
         selected, _items, _history = effective_catalog_projection(con, audit_id)
     finally:
