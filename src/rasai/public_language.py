@@ -101,6 +101,8 @@ SUPPLEMENTAL_PUBLIC_LABELS: dict[str, str] = {
     "INCOMPLETE": "Incompleto",
     "UNAVAILABLE": "Indisponível",
     "UNKNOWN": "Não determinado",
+    "OK": "Disponível",
+    "NOT_TESTED": "Não testado",
 }
 
 CONSOLE_OPERATION_LABELS: dict[str, str] = {
