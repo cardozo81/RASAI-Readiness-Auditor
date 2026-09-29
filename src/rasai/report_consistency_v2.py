@@ -13,6 +13,7 @@ import json
 import re
 import sqlite3
 
+from rasai.catalog_report_public_labels import public_label
 from rasai.persistence import AuditWorkspace
 from rasai.report_navigation import normalize_report_navigation
 
@@ -364,10 +365,13 @@ def _attempt_reason(row: sqlite3.Row | None) -> str:
     if row["http_status"] is not None:
         parts.append(f"HTTP {row['http_status']}")
     if row["error_code"]:
-        parts.append(str(row["error_code"]))
+        code = str(row["error_code"])
+        parts.append(public_label(code) or code.replace("_", " ").title())
     if row["error_message"]:
-        parts.append(str(row["error_message"]))
-    return "sucesso" if not parts and str(row["status"]) == "SUCCESS" else (" · ".join(parts) or str(row["status"]))
+        parts.append(str(row["error_message"]).replace("\u2014", "-"))
+    status = str(row["status"] or "")
+    status_label = public_label(status) or status.replace("_", " ").title()
+    return "sucesso" if not parts and status == "SUCCESS" else (" - ".join(parts) or status_label)
 
 
 def _coverage_html(rows: tuple[Coverage, ...]) -> str:
