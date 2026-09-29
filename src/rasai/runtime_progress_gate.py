@@ -49,7 +49,7 @@ def install_search_progress_gate() -> None:
         progress_store = getattr(console_runtime, "_RUN_PROGRESS", None)
         if progress_type is not None and isinstance(progress_store, dict):
             progress_store[id(state)] = progress_type(
-                label="Search Intelligence / SERP",
+                label="Inteligência de busca / SERP",
                 percent=0.0,
                 detail=(
                     f"auditoria principal concluída; iniciando {len(queries)} termo(s) SERP "
