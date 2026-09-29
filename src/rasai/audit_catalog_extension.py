@@ -118,6 +118,31 @@ def effective_catalog_projection(
         ).fetchall()
     except sqlite3.OperationalError:
         rows = ()
+    rpr_by_extension: dict[str, dict[str, Any]] = {}
+    try:
+        rpr_rows = con.execute(
+            """SELECT reprocess_id,status,configuration,started_at,completed_at
+               FROM audit_reprocess_runs WHERE audit_id=?
+               ORDER BY started_at,reprocess_id""",
+            (audit_id,),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        rpr_rows = ()
+    for rpr in rpr_rows:
+        configuration = _json(rpr["configuration"], {})
+        context = configuration.get("execution_context") if isinstance(configuration, Mapping) else None
+        extension_id = str(
+            (context.get("catalog_extension_id") if isinstance(context, Mapping) else "")
+            or ""
+        )
+        if extension_id:
+            rpr_by_extension[extension_id] = {
+                "reprocess_id": str(rpr["reprocess_id"]),
+                "rpr_status": str(rpr["status"] or ""),
+                "rpr_started_at": rpr["started_at"],
+                "rpr_completed_at": rpr["completed_at"],
+            }
+
     history: list[dict[str, Any]] = []
     for row in rows:
         added = [
@@ -132,13 +157,15 @@ def effective_catalog_projection(
             key = str(raw.get("id") or raw.get("catalog_id") or "").strip().upper()
             if key:
                 items[key] = dict(raw)
+        extension_id = str(row["extension_id"])
+        linked = rpr_by_extension.get(extension_id, {})
         history.append({
-            "extension_id": str(row["extension_id"]),
-            "status": str(row["status"]),
+            "extension_id": extension_id,
+            "status": str(linked.get("rpr_status") or row["status"]),
             "added": added,
-            "reprocess_id": row["reprocess_id"],
+            "reprocess_id": linked.get("reprocess_id") or row["reprocess_id"],
             "requested_at": row["requested_at"],
-            "completed_at": row["completed_at"],
+            "completed_at": linked.get("rpr_completed_at") or row["completed_at"],
             "live_valid_until": row["live_valid_until"],
         })
     return selected, items, tuple(history)
