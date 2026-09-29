@@ -58,7 +58,6 @@ from rasai.console_settings import (
 )
 from rasai.configuration_value_labels import configuration_value_choice
 from rasai.console_ui import (
-from rasai.public_language import component_label, console_status_label, diagnostic_label, scope_label
     CYAN,
     DIM,
     GREEN,
@@ -72,6 +71,7 @@ from rasai.public_language import component_label, console_status_label, diagnos
     title_text,
     warning_text,
 )
+from rasai.public_language import component_label, console_status_label, diagnostic_label, scope_label
 from rasai.provider_runtime_policy import (
     AI_TIMEOUT_ENV,
     LOWEST_REASONING,
