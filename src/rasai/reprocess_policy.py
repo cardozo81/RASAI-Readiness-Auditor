@@ -59,9 +59,10 @@ class ReprocessPolicy:
     ai_provider: str | None = None
     ai_model: str | None = None
     ai_reasoning: str | None = None
+    execution_context: Mapping[str, Any] | None = None
 
     def as_configuration(self) -> dict[str, Any]:
-        return {
+        value = {
             "selected_items": (
                 sorted(self.selected_items) if self.selected_items is not None else None
             ),
@@ -70,6 +71,9 @@ class ReprocessPolicy:
             "ai_model": self.ai_model,
             "ai_reasoning": self.ai_reasoning,
         }
+        if self.execution_context:
+            value["execution_context"] = dict(self.execution_context)
+        return value
 
 
 _POLICY: ContextVar[ReprocessPolicy] = ContextVar(
@@ -355,6 +359,7 @@ def reprocess_policy(
     ai_provider: str | None = None,
     ai_model: str | None = None,
     ai_reasoning: str | None = None,
+    execution_context: Mapping[str, Any] | None = None,
     workspace: Any | None = None,
     audit_id: str | None = None,
 ) -> Iterator[ReprocessPolicy]:
@@ -378,6 +383,7 @@ def reprocess_policy(
         ai_provider=(str(ai_provider).strip().casefold() if ai_provider else None),
         ai_model=(str(ai_model).strip() if ai_model else None),
         ai_reasoning=(str(ai_reasoning).strip().upper() if ai_reasoning else None),
+        execution_context=(dict(execution_context) if execution_context else None),
     )
     token = _POLICY.set(policy)
     try:
