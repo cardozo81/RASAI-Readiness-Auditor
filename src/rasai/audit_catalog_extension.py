@@ -650,19 +650,21 @@ def apply_catalog_extension(
         for row in catalog_snapshot(state)
         if row.get("selected") and str(row.get("catalog_id") or row.get("id") or "").upper() in added
     )
-    configuration = {
-        "catalog_extension": {
-            "schema_version": SCHEMA_VERSION,
-            "base": list(base),
-            "added": list(added_ordered),
-            "effective": list(effective),
-            "ai_enabled": bool(ai_execution_enabled(state)),
-        }
+    extension_contract = {
+        "schema_version": SCHEMA_VERSION,
+        "base": list(base),
+        "added": list(added_ordered),
+        "effective": list(effective),
+        "ai_enabled": bool(ai_execution_enabled(state)),
     }
     extension_id = _insert_extension(
         workspace,audit_id,base=base,added=added_ordered,effective=effective,
-        catalog_items=rows,configuration=configuration,live_valid_until=deadline,
+        catalog_items=rows,configuration={"catalog_extension": extension_contract},live_valid_until=deadline,
     )
+    execution_context = {
+        "catalog_extension_id": extension_id,
+        "catalog_extension": extension_contract,
+    }
     components = _materialize_added_work(
         workspace,audit_id,state,added,live_valid_until=deadline,
     )
@@ -675,6 +677,7 @@ def apply_catalog_extension(
             ai_provider=str(getattr(state, "ai_provider", "none") or "none"),
             ai_model=str(getattr(state, "ai_model", "") or "") or None,
             ai_reasoning=str(getattr(state, "ai_reasoning", "") or "") or None,
+            execution_context=execution_context,
             workspace=workspace,
             audit_id=audit_id,
         ):
@@ -690,10 +693,14 @@ def apply_catalog_extension(
             rpr = start_reprocess_run(
                 workspace,audit_id,source="CONSOLE_CATALOG_EXTENSION",
                 note="additive catalog extension without executable new collector",
-            )
-            update_reprocess_run_configuration(
-                workspace,rpr,
-                {"catalog_extension_id": extension_id, **configuration},
+                configuration={
+                    "selected_items": [],
+                    "use_ai": use_ai,
+                    "ai_provider": str(getattr(state, "ai_provider", "none") or "none") if use_ai else None,
+                    "ai_model": str(getattr(state, "ai_model", "") or "") or None if use_ai else None,
+                    "ai_reasoning": str(getattr(state, "ai_reasoning", "") or "") or None if use_ai else None,
+                    "execution_context": execution_context,
+                },
             )
             summary = finish_reprocess_run(
                 workspace,rpr,status=SUCCESS,attempted_items=0,successful_items=0,
@@ -716,23 +723,14 @@ def apply_catalog_extension(
                 report_root=workspace.root/"report-catalog",
                 selected_items=0,unselected_items=0,ai_used=False,
             )
-        else:
-            update_reprocess_run_configuration(
-                workspace,result.reprocess_id,
-                {"catalog_extension_id": extension_id, **configuration},
-            )
-        _finish_extension(
-            workspace,extension_id,
-            status="COMPLETE" if result.processing_status == "COMPLETE" else "PARTIAL",
-            reprocess_id=result.reprocess_id,
-            note=f"componentes materializados: {', '.join(sorted(components)) or 'nenhum'}",
-        )
+        # Do not mutate audit.db after the canonical RPR/report finalizer.  The RPR
+        # already persists execution_context with catalog_extension_id before sealing;
+        # audit_catalog_extensions remains the immutable request record.
         return replace(result)
-    except Exception as exc:
-        _finish_extension(
-            workspace,extension_id,status="ERROR",reprocess_id=None,
-            note=f"{type(exc).__name__}: {str(exc)[:500]}",
-        )
+    except Exception:
+        # Once the extension request is persisted it remains part of the audit trail.
+        # Failure state belongs to fulfillment/RPR records; avoid a post-report mutation
+        # that could invalidate a previously sealed report fingerprint.
         raise
     finally:
         try:
