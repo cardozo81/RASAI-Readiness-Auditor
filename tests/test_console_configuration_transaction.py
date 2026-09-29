@@ -12,6 +12,8 @@ from rasai.console_m23 import M23_ENV_NAMES, apply_m23_environment_defaults
 from rasai.console_search_intelligence import SearchConsoleState
 from rasai.m23_cli import APDEX_MAX_ATTEMPTS_ENV, APDEX_SAMPLES_ENV, APDEX_THRESHOLD_ENV, APDEX_TIMEOUT_ENV
 from rasai.m25_cli import M25_ENV_NAMES, UX_MAX_ATTEMPTS_ENV, UX_SAMPLES_ENV
+from rasai.synthetic_profile_console_runtime import install as install_synthetic_profile_console_runtime
+from rasai.synthetic_runtime_profiles import PROFILE_ENV_NAMES
 
 
 def _prepare_apdex(monkeypatch: pytest.MonkeyPatch, *, samples: int, attempts: int) -> SearchConsoleState:
@@ -215,3 +217,41 @@ def test_threshold_increase_reconciles_navigation_timeout_before_runtime_validat
     assert state.apdex_timeout == 85.0
     assert environment.os.environ[APDEX_THRESHOLD_ENV] == "20"
     assert environment.os.environ[APDEX_TIMEOUT_ENV] == "85"
+
+
+
+def test_shared_experience_profiles_survive_ini_save_and_reload(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    install_synthetic_profile_console_runtime()
+    state = _prepare_experience_apdex(monkeypatch, samples=10, attempts=13)
+    selected = {
+        "RASAI_APDEX_MOBILE_CLIENT_PROFILE": "mobile-compact-chromium",
+        "RASAI_APDEX_MOBILE_HARDWARE_PROFILE": "mobile-entry",
+        "RASAI_APDEX_MOBILE_NETWORK_PROFILE": "mobile-3g-constrained",
+        "RASAI_APDEX_DESKTOP_CLIENT_PROFILE": "desktop-wide-chromium",
+        "RASAI_APDEX_DESKTOP_HARDWARE_PROFILE": "desktop-constrained",
+        "RASAI_APDEX_DESKTOP_NETWORK_PROFILE": "desktop-fiber",
+        "RASAI_APDEX_TABLET_CLIENT_PROFILE": "tablet-compact-chromium",
+        "RASAI_APDEX_TABLET_HARDWARE_PROFILE": "tablet-premium",
+        "RASAI_APDEX_TABLET_NETWORK_PROFILE": "tablet-wifi",
+    }
+    for name, value in selected.items():
+        monkeypatch.setenv(name, value)
+
+    destination = tmp_path / "rasai-console.ini"
+    console_settings.save_console_config(state, destination)
+
+    parser = ConfigParser(interpolation=None)
+    parser.optionxform = str
+    parser.read(destination, encoding="utf-8")
+    for name, value in selected.items():
+        assert parser.get("environment", name) == value
+        monkeypatch.delenv(name, raising=False)
+
+    restored = SearchConsoleState()
+    console_settings.load_console_config(restored, destination)
+    assert set(PROFILE_ENV_NAMES).issuperset(selected)
+    for name, value in selected.items():
+        assert environment.os.environ[name] == value
