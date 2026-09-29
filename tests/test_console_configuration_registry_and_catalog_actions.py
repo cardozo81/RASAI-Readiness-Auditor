@@ -98,10 +98,13 @@ def test_restore_cat07_preserves_shared_profiles_and_other_catalogs(monkeypatch,
     monkeypatch.setenv(shared_profile, "mobile-compact-chromium")
     monkeypatch.setenv("RASAI_WEB_PERFORMANCE_MAX_PAGES", "99")
 
-    facade.base_environment._apply_change(state, "RASAI_SYNTHETIC_APDEX")
-    facade.base_environment._apply_change(state, "RASAI_APDEX_EXPERIENCE")
-    facade.base_environment._apply_change(state, UX_SAMPLES_ENV)
-    facade.base_environment._apply_change(state, "RASAI_WEB_PERFORMANCE_MAX_PAGES")
+    apdex_issues = facade.base_environment.apply_m23_environment_defaults(state)
+    web_issues = facade.base_environment.apply_environment_defaults(
+        state,
+        names={"RASAI_WEB_PERFORMANCE_MAX_PAGES"},
+    )
+    assert not apdex_issues, apdex_issues
+    assert not web_issues, web_issues
     assert state.apdex_experience_samples == 77
     assert state.web_max_pages == 99
 
