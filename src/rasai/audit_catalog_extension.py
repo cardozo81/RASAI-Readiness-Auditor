@@ -1,0 +1,623 @@
+"""Additive CAT-* expansion for an already-complete logical AUD.
+
+The initial audit configuration is immutable evidence.  A later catalog expansion is
+recorded separately and materializes only the new fulfillment work.  Collection and
+analysis continue through the canonical RPR runtimes.
+"""
+from __future__ import annotations
+
+from dataclasses import replace
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import sqlite3
+from typing import Any, Mapping
+
+from rasai.audit_fulfillment import (
+    LIVE_RECOLLECTION,
+    REPLAY_SAFE,
+    REQUESTED_NOT_EXECUTED,
+    SUCCESS,
+    finish_reprocess_run,
+    recalculate,
+    register_work_item,
+    set_work_item_status,
+    start_reprocess_run,
+    update_reprocess_run_configuration,
+)
+from rasai.domain import new_id
+from rasai.persistence import AuditWorkspace
+
+SCHEMA_VERSION = "AUDIT-CATALOG-EXTENSION-001"
+_LIVE_CATALOGS = frozenset({"CAT-02", "CAT-04", "CAT-05", "CAT-06", "CAT-07"})
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS audit_catalog_extensions(
+    extension_id TEXT PRIMARY KEY,
+    audit_id TEXT NOT NULL,
+    schema_version TEXT NOT NULL,
+    status TEXT NOT NULL,
+    base_catalogs_json TEXT NOT NULL,
+    added_catalogs_json TEXT NOT NULL,
+    effective_catalogs_json TEXT NOT NULL,
+    catalog_items_json TEXT NOT NULL,
+    configuration_json TEXT NOT NULL,
+    live_valid_until TEXT,
+    reprocess_id TEXT,
+    requested_at TEXT NOT NULL,
+    completed_at TEXT,
+    note TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_audit_catalog_extensions_audit
+ON audit_catalog_extensions(audit_id,requested_at);
+"""
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _json(raw: Any, default: Any) -> Any:
+    if raw in (None, ""):
+        return default
+    if isinstance(raw, (dict, list, tuple)):
+        return raw
+    try:
+        return json.loads(str(raw))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return default
+
+
+def _connect(workspace: AuditWorkspace) -> sqlite3.Connection:
+    con = sqlite3.connect(workspace.database)
+    con.row_factory = sqlite3.Row
+    con.executescript(_SCHEMA)
+    con.commit()
+    return con
+
+
+def _original_catalog_block(con: sqlite3.Connection, audit_id: str) -> dict[str, Any]:
+    try:
+        row = con.execute(
+            "SELECT configuration_json FROM audit_execution_configurations WHERE audit_id=?",
+            (audit_id,),
+        ).fetchone()
+    except sqlite3.OperationalError:
+        row = None
+    payload = _json(row[0], {}) if row else {}
+    block = payload.get("audit_catalog") if isinstance(payload, Mapping) else None
+    return dict(block) if isinstance(block, Mapping) else {}
+
+
+def effective_catalog_projection(
+    con: sqlite3.Connection,
+    audit_id: str,
+) -> tuple[set[str], dict[str, dict[str, Any]], tuple[dict[str, Any], ...]]:
+    """Return initial selection plus every committed/requested additive extension."""
+    block = _original_catalog_block(con, audit_id)
+    selected = {
+        str(value).strip().upper()
+        for value in block.get("selected", ())
+        if str(value).strip()
+    }
+    items: dict[str, dict[str, Any]] = {}
+    for raw in block.get("items", ()) if isinstance(block.get("items"), list) else ():
+        if not isinstance(raw, Mapping):
+            continue
+        key = str(raw.get("id") or raw.get("catalog_id") or "").strip().upper()
+        if key:
+            items[key] = dict(raw)
+
+    try:
+        rows = con.execute(
+            """SELECT * FROM audit_catalog_extensions
+               WHERE audit_id=? AND status NOT IN ('CANCELLED','ROLLED_BACK')
+               ORDER BY requested_at,extension_id""",
+            (audit_id,),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        rows = ()
+    history: list[dict[str, Any]] = []
+    for row in rows:
+        added = [
+            str(value).strip().upper()
+            for value in _json(row["added_catalogs_json"], [])
+            if str(value).strip()
+        ]
+        selected.update(added)
+        for raw in _json(row["catalog_items_json"], []):
+            if not isinstance(raw, Mapping):
+                continue
+            key = str(raw.get("id") or raw.get("catalog_id") or "").strip().upper()
+            if key:
+                items[key] = dict(raw)
+        history.append({
+            "extension_id": str(row["extension_id"]),
+            "status": str(row["status"]),
+            "added": added,
+            "reprocess_id": row["reprocess_id"],
+            "requested_at": row["requested_at"],
+            "completed_at": row["completed_at"],
+            "live_valid_until": row["live_valid_until"],
+        })
+    return selected, items, tuple(history)
+
+
+def effective_catalog_ids(workspace: AuditWorkspace, audit_id: str) -> tuple[str, ...]:
+    con = _connect(workspace)
+    try:
+        selected, _items, _history = effective_catalog_projection(con, audit_id)
+    finally:
+        con.close()
+    from rasai.audit_catalog import CATALOGS
+    return tuple(item.id for item in CATALOGS if item.id in selected)
+
+
+def _live_deadline(workspace: AuditWorkspace, audit_id: str) -> str | None:
+    con = sqlite3.connect(workspace.database)
+    try:
+        rows = con.execute(
+            """SELECT valid_until FROM audit_fulfillment_work_items
+               WHERE audit_id=? AND temporal_mode='LIVE_RECOLLECTION'
+                 AND component IN ('DISCOVERY_ACQUISITION','HTTP_ACQUISITION','RENDER_CAPTURE')
+                 AND valid_until IS NOT NULL
+               ORDER BY valid_until""",
+            (audit_id,),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        rows = ()
+    finally:
+        con.close()
+    return str(rows[0][0]) if rows and rows[0][0] else None
+
+
+def _deadline_active(value: str | None) -> bool:
+    if not value:
+        return False
+    try:
+        instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if instant.tzinfo is None:
+        instant = instant.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) <= instant.astimezone(timezone.utc)
+
+
+def extension_readiness(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    added_catalogs: set[str],
+) -> tuple[bool, str, str | None]:
+    deadline = _live_deadline(workspace, audit_id)
+    live = sorted(added_catalogs & _LIVE_CATALOGS)
+    if live and not _deadline_active(deadline):
+        return (
+            False,
+            "A janela temporal desta AUD expirou para novas coletas live ("
+            + ", ".join(live)
+            + "); crie um novo AUD para esses catálogos.",
+            deadline,
+        )
+    return True, "extensão aditiva elegível", deadline
+
+
+def _request_item(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    component: str,
+    configuration: Mapping[str, Any],
+    *,
+    temporal_mode: str,
+    valid_until: str | None = None,
+) -> bool:
+    from rasai.audit_fulfillment import list_work_items
+    if any(
+        item.component == component and item.scope_key == "AUDIT"
+        for item in list_work_items(workspace, audit_id)
+    ):
+        return False
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component=component,
+        scope_key="AUDIT",
+        required=True,
+        temporal_mode=temporal_mode,
+        status=REQUESTED_NOT_EXECUTED,
+        retryable=True,
+        configuration=dict(configuration),
+        valid_until=valid_until,
+    )
+    set_work_item_status(
+        workspace,
+        audit_id=audit_id,
+        component=component,
+        scope_key="AUDIT",
+        status=REQUESTED_NOT_EXECUTED,
+        error_class="CATALOG_EXTENSION",
+        error_code="CATALOG_ADDED_AFTER_INITIAL_COMPLETION",
+        error_message="catálogo acrescentado após o fechamento do contrato inicial da AUD",
+        retryable=True,
+    )
+    return True
+
+
+def _web_configuration(state: Any) -> dict[str, Any]:
+    categories = tuple(
+        value.strip()
+        for value in str(getattr(state, "lighthouse_categories", "") or "").split(",")
+        if value.strip()
+    )
+    return {
+        "enabled": True,
+        "max_pages": int(getattr(state, "web_max_pages", 10) or 0),
+        "timeout_seconds": float(getattr(state, "web_timeout", 120.0) or 120.0),
+        "categories": list(categories),
+        "field_source": str(getattr(state, "field_source", "auto") or "auto"),
+        "pagespeed_key_configured": bool((os.environ.get("RASAI_PAGESPEED_API_KEY") or "").strip()),
+        "crux_key_configured": bool((os.environ.get("RASAI_CRUX_API_KEY") or "").strip()),
+    }
+
+
+def _search_configuration(state: Any) -> dict[str, Any]:
+    from rasai.search_intelligence.config import SerpRuntimeConfig
+    runtime = SerpRuntimeConfig.from_environment(validate=False)
+    queries = [
+        str(value).strip()
+        for value in tuple(getattr(state, "search_queries", ()) or ())
+        if str(value).strip()
+    ]
+    return {
+        "enabled": bool(queries),
+        "queries": list(dict.fromkeys(queries)),
+        "depth": int(getattr(state, "search_depth", 20) or 20),
+        "region": str(getattr(state, "search_region", "") or ""),
+        "device": str(getattr(state, "search_device", "mobile") or "mobile"),
+        "competitive": bool(getattr(state, "search_competitive", True)),
+        "compare_content": bool(getattr(state, "search_compare_content", False)),
+        "max_content_pages": int(getattr(state, "search_max_content_pages", 3) or 3),
+        "content_timeout_seconds": float(getattr(state, "search_content_timeout_seconds", 10.0) or 10.0),
+        "content_max_bytes": int(getattr(state, "search_content_max_bytes", 2_000_000) or 2_000_000),
+        "content_max_redirects": int(getattr(state, "search_content_max_redirects", 5) or 5),
+        "ai_competitive": bool(getattr(state, "search_ai_competitive", False)),
+        "ymyl_mode": str(getattr(state, "search_ymyl_mode", "AUTO") or "AUTO").upper(),
+        "mode": str(runtime.mode),
+        "provider": str(runtime.provider),
+        "fixture_path": str(runtime.fixture_path) if runtime.fixture_path else "",
+        "max_queries": int(runtime.max_queries),
+        "max_requests": int(runtime.max_requests),
+        "max_depth": int(runtime.max_depth),
+        "max_competitors": int(runtime.max_competitors),
+        "timeout_seconds": float(runtime.timeout_seconds),
+        "retries": int(runtime.retries),
+        "min_interval_seconds": float(runtime.min_interval_seconds),
+    }
+
+
+def _gsc_configuration() -> dict[str, Any]:
+    return {
+        "requested": True,
+        "service_id": "google-search-console",
+        "site_url": os.environ.get("RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL", ""),
+        "max_urls": os.environ.get("RASAI_STANDARDS_MAX_URLS", ""),
+        "timeout_seconds": os.environ.get("RASAI_STANDARDS_TIMEOUT_SECONDS", ""),
+        "search_analytics_days": os.environ.get("RASAI_GSC_SEARCH_ANALYTICS_DAYS", ""),
+        "search_max_rows": os.environ.get("RASAI_GSC_SEARCH_MAX_ROWS", ""),
+        "final_data_lag_days": os.environ.get("RASAI_GSC_FINAL_DATA_LAG_DAYS", ""),
+    }
+
+
+def _truthy(value: Any) -> bool:
+    return str(value or "").strip().casefold() in {"1", "true", "yes", "on", "sim", "s"}
+
+
+def _materialize_added_work(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    state: Any,
+    added: set[str],
+    *,
+    live_valid_until: str | None,
+) -> set[str]:
+    components: set[str] = set()
+    if added & {"CAT-02", "CAT-04"} and bool(getattr(state, "web_performance", False)):
+        if _request_item(
+            workspace, audit_id, "WEB_PERFORMANCE", _web_configuration(state),
+            temporal_mode=LIVE_RECOLLECTION, valid_until=live_valid_until,
+        ):
+            components.add("WEB_PERFORMANCE")
+
+    if "CAT-05" in added:
+        search = _search_configuration(state)
+        if search["enabled"] and _request_item(
+            workspace, audit_id, "SEARCH_INTELLIGENCE", search,
+            temporal_mode=LIVE_RECOLLECTION, valid_until=live_valid_until,
+        ):
+            components.add("SEARCH_INTELLIGENCE")
+        if _truthy(os.environ.get("RASAI_GSC_ENABLED")) and _request_item(
+            workspace, audit_id, "GOOGLE_SEARCH_CONSOLE", _gsc_configuration(),
+            temporal_mode=LIVE_RECOLLECTION, valid_until=live_valid_until,
+        ):
+            components.add("GOOGLE_SEARCH_CONSOLE")
+
+    if "CAT-06" in added:
+        from rasai.console_m23 import config_from_state
+        cfg = config_from_state(state)
+        nav = {
+            "enabled": True,
+            "threshold_seconds": cfg.threshold_seconds,
+            "target_valid_samples": cfg.target_valid_samples,
+            "max_attempts_per_context": cfg.max_attempts_per_context,
+            "max_pages": cfg.max_pages,
+            "timeout_seconds": cfg.timeout_seconds,
+            "delay_seconds": cfg.delay_seconds,
+            "concurrency": cfg.concurrency,
+            "mobile_profile": cfg.mobile_profile.as_dict(),
+            "desktop_profile": cfg.desktop_profile.as_dict(),
+        }
+        if _request_item(
+            workspace, audit_id, "SYNTHETIC_APDEX", nav,
+            temporal_mode=LIVE_RECOLLECTION, valid_until=live_valid_until,
+        ):
+            components.add("SYNTHETIC_APDEX")
+
+    if "CAT-07" in added:
+        from rasai.console_m23 import experience_from_state
+        ux = experience_from_state(state).as_dict()
+        if _request_item(
+            workspace, audit_id, "EXPERIENCE_APDEX", ux,
+            temporal_mode=LIVE_RECOLLECTION, valid_until=live_valid_until,
+        ):
+            components.add("EXPERIENCE_APDEX")
+
+    if "CAT-08" in added:
+        provider = str(getattr(state, "ai_provider", "none") or "none").casefold()
+        config = {
+            "requested": True,
+            "provider": provider,
+            "model": str(getattr(state, "ai_model", "") or ""),
+            "reasoning": str(getattr(state, "ai_reasoning", "") or ""),
+            "domains": [
+                value.strip()
+                for value in str(os.environ.get("RASAI_IMPROVEMENT_DOMAINS", "")).split(",")
+                if value.strip()
+            ],
+            "max_recommendations": os.environ.get("RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS", "50"),
+            "timeout_seconds": os.environ.get("RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS", "240"),
+            "language": os.environ.get("RASAI_AI_ANALYSIS_LANGUAGE", "auto"),
+        }
+        if _request_item(
+            workspace, audit_id, "IMPROVEMENT_INTELLIGENCE", config,
+            temporal_mode=REPLAY_SAFE,
+        ):
+            components.add("IMPROVEMENT_INTELLIGENCE")
+
+    if "CAT-09" in added:
+        if bool(getattr(state, "content_remediation", False)) and _request_item(
+            workspace, audit_id, "CONTENT_REMEDIATION_AI",
+            {"requested": True, "source": "catalog_extension"},
+            temporal_mode=REPLAY_SAFE,
+        ):
+            components.add("CONTENT_REMEDIATION_AI")
+        if bool(getattr(state, "technical_remediation", False)) and _request_item(
+            workspace, audit_id, "TECHNICAL_AI",
+            {"requested": True, "source": "catalog_extension"},
+            temporal_mode=REPLAY_SAFE,
+        ):
+            components.add("TECHNICAL_AI")
+
+    if "CAT-10" in added:
+        security = {
+            "requested": True,
+            "mode": "PASSIVE_ONLY",
+            "headers": os.environ.get("RASAI_SECURITY_HEADERS", "true"),
+            "cookies": os.environ.get("RASAI_SECURITY_COOKIES", "true"),
+            "resources": os.environ.get("RASAI_SECURITY_RESOURCES", "true"),
+            "third_party": os.environ.get("RASAI_SECURITY_THIRD_PARTY", "true"),
+            "runtime": os.environ.get("RASAI_SECURITY_RUNTIME_CORRELATION", "true"),
+            "osv": os.environ.get("RASAI_SECURITY_OSV", "true"),
+            "kev": os.environ.get("RASAI_SECURITY_CISA_KEV", "true"),
+            "external_timeout_seconds": os.environ.get("RASAI_SECURITY_EXTERNAL_TIMEOUT_SECONDS", "15"),
+        }
+        if _request_item(
+            workspace, audit_id, "PASSIVE_SECURITY", security,
+            temporal_mode=REPLAY_SAFE,
+        ):
+            components.add("PASSIVE_SECURITY")
+    return components
+
+
+def _insert_extension(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    *,
+    base: tuple[str, ...],
+    added: tuple[str, ...],
+    effective: tuple[str, ...],
+    catalog_items: tuple[dict[str, Any], ...],
+    configuration: Mapping[str, Any],
+    live_valid_until: str | None,
+) -> str:
+    extension_id = new_id("CEX")
+    con = _connect(workspace)
+    try:
+        con.execute(
+            """INSERT INTO audit_catalog_extensions(
+                extension_id,audit_id,schema_version,status,base_catalogs_json,
+                added_catalogs_json,effective_catalogs_json,catalog_items_json,
+                configuration_json,live_valid_until,reprocess_id,requested_at,
+                completed_at,note
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                extension_id,audit_id,SCHEMA_VERSION,"REQUESTED",
+                json.dumps(list(base), ensure_ascii=False),
+                json.dumps(list(added), ensure_ascii=False),
+                json.dumps(list(effective), ensure_ascii=False),
+                json.dumps(list(catalog_items), ensure_ascii=False),
+                json.dumps(dict(configuration), ensure_ascii=False, default=str),
+                live_valid_until,None,_now(),None,None,
+            ),
+        )
+        con.commit()
+    finally:
+        con.close()
+    return extension_id
+
+
+def _finish_extension(
+    workspace: AuditWorkspace,
+    extension_id: str,
+    *,
+    status: str,
+    reprocess_id: str | None,
+    note: str | None = None,
+) -> None:
+    con = _connect(workspace)
+    try:
+        con.execute(
+            """UPDATE audit_catalog_extensions
+               SET status=?,reprocess_id=?,completed_at=?,note=?
+               WHERE extension_id=?""",
+            (status,reprocess_id,_now(),note,extension_id),
+        )
+        con.commit()
+    finally:
+        con.close()
+
+
+def apply_catalog_extension(
+    *,
+    state: Any,
+    audit_id: str,
+) -> Any:
+    """Commit the additive catalog delta and execute only newly required work."""
+    from rasai.audit_catalog import CATALOGS
+    from rasai.audit_reprocess import ReprocessResult, reprocess_audit
+    from rasai.console_catalog_plan import (
+        ai_execution_enabled,
+        catalog_snapshot,
+        selected_catalog_ids,
+    )
+    from rasai.reprocess_policy import reprocess_policy
+
+    workspace = AuditWorkspace.open(Path(state.audits_root) / audit_id)
+    current = set(effective_catalog_ids(workspace, audit_id))
+    requested = set(selected_catalog_ids(state))
+    removed = current - requested
+    if removed:
+        raise ValueError(
+            "Complementação é somente aditiva; não remova catálogo(s) já pertencentes à AUD: "
+            + ", ".join(sorted(removed))
+        )
+    added = requested - current
+    if not added:
+        raise ValueError("nenhum catálogo novo foi selecionado para complementar esta AUD")
+
+    ready, detail, deadline = extension_readiness(workspace, audit_id, added)
+    if not ready:
+        raise ValueError(detail)
+
+    order = [item.id for item in CATALOGS]
+    base = tuple(value for value in order if value in current)
+    added_ordered = tuple(value for value in order if value in added)
+    effective = tuple(value for value in order if value in requested)
+    rows = tuple(
+        dict(row)
+        for row in catalog_snapshot(state)
+        if row.get("selected") and str(row.get("catalog_id") or row.get("id") or "").upper() in added
+    )
+    configuration = {
+        "catalog_extension": {
+            "schema_version": SCHEMA_VERSION,
+            "base": list(base),
+            "added": list(added_ordered),
+            "effective": list(effective),
+            "ai_enabled": bool(ai_execution_enabled(state)),
+        }
+    }
+    extension_id = _insert_extension(
+        workspace,audit_id,base=base,added=added_ordered,effective=effective,
+        catalog_items=rows,configuration=configuration,live_valid_until=deadline,
+    )
+    components = _materialize_added_work(
+        workspace,audit_id,state,added,live_valid_until=deadline,
+    )
+    recalculate(workspace, audit_id)
+
+    use_ai = bool(ai_execution_enabled(state))
+    try:
+        with reprocess_policy(
+            selected_items=tuple(sorted(components)),
+            use_ai=use_ai,
+            ai_provider=str(getattr(state, "ai_provider", "none") or "none"),
+            ai_model=str(getattr(state, "ai_model", "") or "") or None,
+            ai_reasoning=str(getattr(state, "ai_reasoning", "") or "") or None,
+            workspace=workspace,
+            audit_id=audit_id,
+        ):
+            result = reprocess_audit(
+                audit_id,
+                audits_root=state.audits_root,
+                source="CONSOLE_CATALOG_EXTENSION",
+            )
+
+        if result.reprocess_id is None:
+            # Projection-only extension, or a selected AI catalog intentionally kept
+            # pending without provider authorization. Still create an auditable RPR.
+            rpr = start_reprocess_run(
+                workspace,audit_id,source="CONSOLE_CATALOG_EXTENSION",
+                note="additive catalog extension without executable new collector",
+            )
+            update_reprocess_run_configuration(
+                workspace,rpr,
+                {"catalog_extension_id": extension_id, **configuration},
+            )
+            from rasai.report_completion import finalize_audit_report_site
+            finalize_audit_report_site(audit_id=audit_id, workspace=workspace)
+            summary = finish_reprocess_run(
+                workspace,rpr,status=SUCCESS,attempted_items=0,successful_items=0,
+                note="catálogo(s) adicionados; nenhum coletor novo executável nesta tentativa",
+            )
+            from rasai.audit_fulfillment import project_report_validity
+            summary = project_report_validity(audit_id=audit_id,workspace=workspace)
+            result = ReprocessResult(
+                audit_id=audit_id,reprocess_id=rpr,
+                processing_status=summary.processing_status,
+                score_status=summary.score_status,
+                report_status=summary.report_status,
+                consolidation_eligible=summary.consolidation_eligible,
+                attempted_items=0,successful_items=0,
+                skipped_success_items=summary.successful_items,
+                remaining_items=summary.pending_items+summary.blocked_items,
+                temporal_expired_items=summary.expired_items,
+                report_root=workspace.root/"report-catalog",
+                selected_items=0,unselected_items=0,ai_used=False,
+            )
+        else:
+            update_reprocess_run_configuration(
+                workspace,result.reprocess_id,
+                {"catalog_extension_id": extension_id, **configuration},
+            )
+        _finish_extension(
+            workspace,extension_id,
+            status="COMPLETE" if result.processing_status == "COMPLETE" else "PARTIAL",
+            reprocess_id=result.reprocess_id,
+            note=f"componentes materializados: {', '.join(sorted(components)) or 'nenhum'}",
+        )
+        return replace(result)
+    except Exception as exc:
+        _finish_extension(
+            workspace,extension_id,status="ERROR",reprocess_id=None,
+            note=f"{type(exc).__name__}: {str(exc)[:500]}",
+        )
+        raise
+
+
+__all__ = [
+    "SCHEMA_VERSION",
+    "apply_catalog_extension",
+    "effective_catalog_ids",
+    "effective_catalog_projection",
+    "extension_readiness",
+]
