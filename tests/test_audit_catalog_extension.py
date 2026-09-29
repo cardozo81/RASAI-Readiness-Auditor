@@ -271,9 +271,22 @@ def test_reprocess_policy_persists_extension_context_without_changing_default_co
     assert value["execution_context"]["catalog_extension"]["added"] == ["CAT-10"]
 
 
+@pytest.mark.parametrize(
+    ("failure", "failure_type"),
+    [
+        (
+            sqlite3.OperationalError("forced catalog extension materialization failure"),
+            sqlite3.OperationalError,
+        ),
+        (SystemExit(23), SystemExit),
+    ],
+    ids=("exception", "system-exit"),
+)
 def test_apply_extension_failure_before_rpr_is_retryable_and_preserves_original_contract(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    failure,
+    failure_type,
 ) -> None:
     import rasai.audit_catalog_extension as extension
 
@@ -306,11 +319,11 @@ def test_apply_extension_failure_before_rpr_is_retryable_and_preserves_original_
             con.commit()
         finally:
             con.close()
-        raise sqlite3.OperationalError("forced catalog extension materialization failure")
+        raise failure
 
     monkeypatch.setattr(extension, "_materialize_added_work", fail_materialization)
 
-    with pytest.raises(sqlite3.OperationalError):
+    with pytest.raises(failure_type):
         apply_catalog_extension(state=state, audit_id=AUDIT_ID)
 
     assert effective_catalog_ids(workspace, AUDIT_ID) == ("CAT-06", "CAT-07")
@@ -342,16 +355,29 @@ def test_apply_extension_failure_before_rpr_is_retryable_and_preserves_original_
     assert row is not None
     assert row["status"] == "FAILED_RETRYABLE"
     assert row["reprocess_id"] is None
-    assert "OperationalError" in str(row["note"])
+    assert failure_type.__name__ in str(row["note"])
     assert rpr_count == 0
     assert orphan_count == 0
     assert persisted_hash == original_hash
 
 
+@pytest.mark.parametrize(
+    ("failure", "failure_name"),
+    [
+        (
+            sqlite3.OperationalError("forced console extension failure"),
+            "OperationalError",
+        ),
+        (SystemExit(31), "SystemExit"),
+    ],
+    ids=("exception", "system-exit"),
+)
 def test_console_contains_unexpected_extension_failure_and_returns_to_menu(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     capsys,
+    failure,
+    failure_name: str,
 ) -> None:
     import rasai.console_audit_catalog_extension as console_extension
     import rasai.console_catalog_plan as catalog_plan
@@ -382,7 +408,7 @@ def test_console_contains_unexpected_extension_failure_and_returns_to_menu(
     monkeypatch.setattr(catalog_ui, "catalog_menu", lambda *_: None)
 
     def fail_apply(*_args, **_kwargs):
-        raise sqlite3.OperationalError("forced console extension failure")
+        raise failure
 
     monkeypatch.setattr(console_extension, "apply_catalog_extension", fail_apply)
     answers = iter(("10", "R", "V"))
@@ -391,7 +417,7 @@ def test_console_contains_unexpected_extension_failure_and_returns_to_menu(
     assert console_extension.complement_audit(console_module, state, AUDIT_ID) is False
     output = capsys.readouterr().out
     assert "sessão foi preservada" in output
-    assert "OperationalError" in output
+    assert failure_name in output
 
 
 def test_pre_rpr_rollback_never_removes_existing_or_attempted_work(
