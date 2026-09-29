@@ -254,14 +254,14 @@ def _friendly_status(value: Any) -> str:
     raw = str(value or "").strip()
     labels = {
         "COMPLETE": "Concluída",
-        "PARTIAL_RETRYABLE": "Parcial — pode reprocessar",
-        "PARTIAL_BLOCKED": "Parcial — há bloqueios",
+        "PARTIAL_RETRYABLE": "Parcial - pode reprocessar",
+        "PARTIAL_BLOCKED": "Parcial - há bloqueios",
         "FAILED_FATAL": "Falha definitiva",
         "EXPIRED_FOR_COMPLETION": "Expirada para conclusão",
         "WAITING_FOR_DATA": "Aguardando pré-requisitos",
         "NOT_CONFIGURED": "Não configurada - requer configuração/reprocessamento",
         "REQUESTED_NOT_EXECUTED": "Solicitada - não executada",
-        "FAILED_RETRYABLE": "Falha temporária — nova tentativa possível",
+        "FAILED_RETRYABLE": "Falha temporária - nova tentativa possível",
         "FAILED_PERMANENT": "Falha definitiva",
         "BLOCKED": "Bloqueado",
         "PENDING": "Pendente",
