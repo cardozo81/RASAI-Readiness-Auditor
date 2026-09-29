@@ -612,25 +612,51 @@ def _insert_extension(
     return extension_id
 
 
-def _work_item_ids(workspace: AuditWorkspace, audit_id: str) -> frozenset[str]:
-    """Snapshot fulfillment identities before extension planning starts."""
-    try:
-        from rasai.audit_fulfillment import list_work_items
+def _work_item_ids(
+    workspace: AuditWorkspace,
+    audit_id: str,
+) -> frozenset[str] | None:
+    """Snapshot fulfillment identities before extension planning starts.
 
+    None means the snapshot could not be proven and therefore disables cleanup;
+    rollback must fail closed rather than risk removing a pre-existing work-item.
+    """
+    con = sqlite3.connect(workspace.database)
+    try:
+        table = con.execute(
+            """SELECT 1 FROM sqlite_master
+               WHERE type='table' AND name='audit_fulfillment_work_items'"""
+        ).fetchone()
+        if table is None:
+            return frozenset()
+        columns = {
+            str(row[1])
+            for row in con.execute(
+                "PRAGMA table_info(audit_fulfillment_work_items)"
+            ).fetchall()
+        }
+        if not {"work_item_id", "audit_id"}.issubset(columns):
+            return None
         return frozenset(
-            str(item.work_item_id)
-            for item in list_work_items(workspace, audit_id)
-            if str(getattr(item, "work_item_id", "") or "")
+            str(row[0])
+            for row in con.execute(
+                """SELECT work_item_id FROM audit_fulfillment_work_items
+                   WHERE audit_id=?""",
+                (audit_id,),
+            ).fetchall()
+            if row[0]
         )
-    except (OSError, sqlite3.Error):
-        return frozenset()
+    except sqlite3.Error:
+        return None
+    finally:
+        con.close()
 
 
 def _rollback_unlinked_extension_work(
     workspace: AuditWorkspace,
     audit_id: str,
     *,
-    preexisting_work_item_ids: frozenset[str],
+    preexisting_work_item_ids: frozenset[str] | None,
 ) -> tuple[str, ...]:
     """Remove only zero-attempt planning rows created before any causal RPR exists.
 
@@ -638,6 +664,8 @@ def _rollback_unlinked_extension_work(
     an attempt, or rows that existed before the extension request, are always preserved.
     The failed audit_catalog_extensions row remains as the durable diagnostic trail.
     """
+    if preexisting_work_item_ids is None:
+        return ()
     con = sqlite3.connect(workspace.database)
     con.row_factory = sqlite3.Row
     try:
