@@ -79,6 +79,47 @@ def test_effective_cli_selection_is_reused_by_experience_including_tablet() -> N
     assert tablet.network_profile_id == "tablet-wifi"
 
 
+def test_later_explicit_environment_overrides_process_local_captured_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    environment: dict[str, str] = {}
+    args = _args(apdex_mobile_network_profile="mobile-4g-fast")
+    config = configured_apdex(args, environment)
+    _capture_cli_profiles(args, config, environment)
+
+    assert _profile_for("MOBILE").network_profile_id == "mobile-4g-fast"
+
+    monkeypatch.setenv("RASAI_APDEX_MOBILE_NETWORK_PROFILE", "mobile-5g")
+    current = _profile_for("MOBILE")
+
+    assert current.network_profile_id == "mobile-5g"
+    # Unchanged dimensions still reuse the captured effective execution identity.
+    assert current.client_profile_id == config.mobile_profile.client_profile_id
+    assert current.hardware_profile_id == config.mobile_profile.hardware_profile_id
+
+
+def test_execution_local_scope_still_precedes_later_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    environment: dict[str, str] = {}
+    args = _args(apdex_mobile_network_profile="mobile-4g-fast")
+    config = configured_apdex(args, environment)
+    _capture_cli_profiles(args, config, environment)
+    monkeypatch.setenv("RASAI_APDEX_MOBILE_NETWORK_PROFILE", "mobile-5g")
+
+    frozen = {
+        "MOBILE": {
+            "client": "mobile-compact-chromium",
+            "hardware": "mobile-entry",
+            "network": "mobile-3g-constrained",
+        }
+    }
+    with profile_selection_scope(frozen):
+        assert _profile_for("MOBILE").network_profile_id == "mobile-3g-constrained"
+
+    assert _profile_for("MOBILE").network_profile_id == "mobile-5g"
+
+
 def test_saas_profile_payload_uses_same_catalog_and_rejects_cross_device_preset() -> None:
     payload = {
         "apdex_mobile_network_profile": "mobile-5g",
