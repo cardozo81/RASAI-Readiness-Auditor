@@ -320,9 +320,21 @@ def restore_catalog_defaults(
                 warnings.append(f"{name}: {type(exc).__name__}: {exc}")
 
     defaults = canonical_environment_defaults()
+    effective_environment = settings._runtime_environment_projection(state)
+    effective_environment.update(
+        {
+            name: str(value)
+            for name, value in os.environ.items()
+            if str(value).strip()
+        }
+    )
     for item in restorable:
         value = defaults.get(item.name)
-        if value is not None:
+        if value is None:
+            effective_environment.pop(item.name, None)
+            os.environ.pop(item.name, None)
+        else:
+            effective_environment[item.name] = value
             os.environ[item.name] = value
 
     facade.refresh_specs()
@@ -331,6 +343,22 @@ def restore_catalog_defaults(
             facade.base_environment._apply_change(state, item.name)
         except (TypeError, ValueError, OverflowError) as exc:
             warnings.append(f"{item.name}: {type(exc).__name__}: {exc}")
+
+    # Reconcile the structured state from one coherent environment snapshot. The
+    # projection above preserves current values owned by other catalogs even when an
+    # older INI did not materialize a duplicate environment key.
+    warnings.extend(
+        facade.base_environment.apply_environment_defaults(
+            state,
+            env=effective_environment,
+        )
+    )
+    warnings.extend(
+        facade.base_environment.apply_m23_environment_defaults(
+            state,
+            env=effective_environment,
+        )
+    )
 
     try:
         saved = settings.save_console_config(state, destination)
