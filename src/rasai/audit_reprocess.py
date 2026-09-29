@@ -391,8 +391,10 @@ def reconcile_reprocess_state(
     """
     _backfill_contract(workspace, audit_id)
     from rasai.core_reprocessing import synchronize_core_work_items
+    from rasai.passive_security_runtime import reconcile_persisted_coverage
 
     synchronize_core_work_items(workspace, audit_id)
+    reconcile_persisted_coverage(workspace, audit_id)
     return recalculate(workspace, audit_id)
 
 
