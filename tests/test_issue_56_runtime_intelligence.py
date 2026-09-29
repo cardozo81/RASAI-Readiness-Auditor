@@ -69,6 +69,19 @@ class _FakeCookiePage:
     frames = [_FakeFrame()]
 
 
+class _FakeCookieContext:
+    def cookies(self):
+        return [{
+            "name": "session_id",
+            "value": "SHOULD_NOT_PERSIST_COOKIE_VALUE",
+            "domain": "example.test",
+            "path": "/",
+            "secure": True,
+            "httpOnly": False,
+            "sameSite": "Lax",
+        }]
+
+
 def test_platform_identifiers_are_allowlisted_and_operational_keys_are_masked():
     source = (
         "https://www.googletagmanager.com/gtm.js?id=GTM-ABC123 "
@@ -189,6 +202,54 @@ def test_cat10_cookie_inventory_exposes_name_id_and_technical_owner(tmp_path):
     assert "VERY_SECRET_VALUE" not in html
 
 
+def test_cat10_unconfirmed_cookie_write_is_not_presented_as_effective_cookie(tmp_path):
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE audits(audit_id TEXT PRIMARY KEY);
+            CREATE TABLE pages(page_id TEXT PRIMARY KEY, audit_id TEXT);
+            INSERT INTO audits VALUES ('AUD-ISSUE56');
+            INSERT INTO pages VALUES ('PAGE-1','AUD-ISSUE56');
+            """
+        )
+        ensure_schema(connection)
+        connection.execute(
+            """INSERT INTO passive_security_cookie_attribution(
+                 cookie_attribution_id,audit_id,page_id,snapshot_id,cookie_ref,cookie_name_display,
+                 name_hash,creation_mechanism,effective_domain,effective_path,host_only,
+                 setter_script_url,setter_script_ref,platform_ref,party,purpose,purpose_confidence,
+                 attribution_confidence,details_json,evidence_ids_json
+               ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                "PCA-ATTEMPT", AUDIT_ID, PAGE_ID, SNAPSHOT_ID, "CKA-TEST", "domain_probe",
+                "probehash", "DOCUMENT_COOKIE", None, None, 0,
+                "https://cdn.example.test/probe.js", None, None, "UNKNOWN", "UNKNOWN", "LOW",
+                "MEDIUM", json.dumps({
+                    "observation_state": "WRITE_ATTEMPT_NOT_CONFIRMED",
+                    "declared_domain": "com.br",
+                    "declared_path": "/",
+                    "attribution_basis": "BROWSER_RUNTIME_INSTRUMENTATION",
+                }), json.dumps([SNAPSHOT_ID]),
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    html = _runtime_security_inventory_html(database, AUDIT_ID)
+
+    assert "domain_probe" in html
+    assert "CKA-TEST" in html
+    assert "Tentativa de escrita não confirmada" in html
+    assert "Domínio efetivo / confirmado" in html
+    assert "Não confirmado" in html
+    assert "Domínio declarado na tentativa" in html
+    assert "com.br" in html
+    assert "Site auditado · com.br" not in html
+
+
 def test_cookie_target_label_is_preserved_for_cat08_cat09_projection():
     finding = {
         "details_json": json.dumps({
@@ -248,16 +309,55 @@ def test_script_runtime_uses_buffered_body_without_persisting_source():
 
 
 def test_cookie_runtime_persists_only_name_attributes_and_sanitized_setter():
-    result = _cookie_runtime_metadata(_FakeCookiePage())
+    result = _cookie_runtime_metadata(_FakeCookiePage(), _FakeCookieContext())
     assert result["additional_network_requests"] == 0
     assert result["state"] == "CAPTURED"
+    assert result["browser_store_state"] == "CAPTURED"
     item = result["items"][0]
     assert item["cookie_name"] == "session_id"
     assert item["setter_script_url"] == "https://cdn.example.test/app.js"
     assert item["consent_state_at_creation"] == "NOT_OBSERVED"
+    assert item["store_state"] == "CONFIRMED_IN_BROWSER_STORE"
+    assert item["confirmed_domain"] == "example.test"
+    assert item["confirmed_path"] == "/"
     serialized = json.dumps(result)
     assert "auth=secret" not in serialized
     assert "SHOULD_NOT_PERSIST" not in serialized
+    assert "SHOULD_NOT_PERSIST_COOKIE_VALUE" not in serialized
+
+
+def test_cookie_runtime_keeps_invalid_domain_write_as_unconfirmed_attempt():
+    class InvalidDomainFrame:
+        url = "https://example.com.br/"
+
+        def evaluate(self, _script):
+            return [{
+                "mechanism": "DOCUMENT_COOKIE",
+                "name": "probe_cookie",
+                "attributes": {"domain": "com.br", "path": "/"},
+                "at_ms": 10.0,
+                "stack": "Error\n at probe (https://cdn.example.test/probe.js:1:1)",
+            }]
+
+    class Page:
+        frames = [InvalidDomainFrame()]
+
+    class Context:
+        def cookies(self):
+            return [{
+                "name": "other_cookie",
+                "value": "SECRET",
+                "domain": "example.com.br",
+                "path": "/",
+            }]
+
+    result = _cookie_runtime_metadata(Page(), Context())
+    item = result["items"][0]
+
+    assert item["store_state"] == "WRITE_ATTEMPT_NOT_CONFIRMED"
+    assert item["domain_attribute"] == "com.br"
+    assert item["confirmed_domain"] is None
+    assert "SECRET" not in json.dumps(result)
 
 
 def test_runtime_normalization_links_script_platform_and_cookie_without_value():
@@ -288,6 +388,13 @@ def test_runtime_normalization_links_script_platform_and_cookie_without_value():
                 "path_attribute": "/",
                 "setter_script_url": script_url,
                 "attribution_confidence": "MEDIUM",
+                "store_state": "CONFIRMED_IN_BROWSER_STORE",
+                "confirmed_domain": "example.test",
+                "confirmed_path": "/",
+                "confirmed_host_only": True,
+                "confirmed_secure": False,
+                "confirmed_httponly": False,
+                "confirmed_samesite": "Lax",
             }],
             "verifications": [],
         }
@@ -303,10 +410,64 @@ def test_runtime_normalization_links_script_platform_and_cookie_without_value():
     runtime_cookie = next(item for item in cookies if item["creation_mechanism"] == "DOCUMENT_COOKIE")
     assert runtime_cookie["purpose"] == "ANALYTICS"
     assert runtime_cookie["setter_script_ref"] == scripts[0]["script_ref"]
+    assert runtime_cookie["effective_domain"] == "example.test"
+    assert runtime_cookie["party"] == "FIRST_PARTY"
+    assert runtime_cookie["details"]["observation_state"] == "CONFIRMED_IN_BROWSER_STORE"
     assert any(item["platform_id"] == "GOOGLE_TAG_MANAGER" for item in platforms)
     assert "SCRIPT_SETS_COOKIE" in {item["relation_type"] for item in relationships}
     serialized = json.dumps([scripts, cookies, platforms, relationships])
     assert "SERVER_SECRET" not in serialized
+
+
+def test_runtime_normalization_does_not_promote_unconfirmed_write_to_effective_cookie():
+    page_context = {
+        PAGE_ID: {
+            "page_url": "https://example.com.br/",
+            "headers": {"set-cookie": []},
+            "header_evidence": [],
+            "script_runtime": [{
+                "snapshot_id": SNAPSHOT_ID,
+                "url": "https://cdn.example.test/probe.js",
+                "url_hash": "probe-script",
+                "party": "THIRD_PARTY",
+                "body_analysis_state": "ANALYZED",
+                "content_sha256": "abc",
+                "risk_signals": [],
+                "platforms": [],
+            }],
+            "cookie_runtime": [{
+                "snapshot_id": SNAPSHOT_ID,
+                "mechanism": "DOCUMENT_COOKIE",
+                "cookie_name": "domain_probe",
+                "name_hash": "hash-probe",
+                "frame_url": "https://example.com.br/",
+                "domain_attribute": "com.br",
+                "path_attribute": "/",
+                "setter_script_url": "https://cdn.example.test/probe.js",
+                "attribution_confidence": "MEDIUM",
+                "store_state": "WRITE_ATTEMPT_NOT_CONFIRMED",
+                "confirmed_domain": None,
+                "confirmed_path": None,
+            }],
+            "verifications": [],
+        }
+    }
+
+    _scripts, cookies, _platforms, relationships = _runtime_intelligence_rows(
+        AUDIT_ID,
+        [],
+        page_context,
+    )
+
+    attempt = cookies[0]
+    assert attempt["effective_domain"] is None
+    assert attempt["effective_path"] is None
+    assert attempt["party"] == "UNKNOWN"
+    assert attempt["details"]["declared_domain"] == "com.br"
+    assert attempt["details"]["observation_state"] == "WRITE_ATTEMPT_NOT_CONFIRMED"
+    relation_types = {item["relation_type"] for item in relationships}
+    assert "SCRIPT_SETS_COOKIE" not in relation_types
+    assert "SCRIPT_ATTEMPTS_COOKIE_WRITE" in relation_types
 
 
 def test_improvement_projection_preserves_deterministic_target_details():
