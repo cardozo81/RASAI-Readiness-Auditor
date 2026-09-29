@@ -420,6 +420,7 @@ def _materialize_added_work(
     added: set[str],
     *,
     live_valid_until: str | None,
+    use_ai: bool,
 ) -> set[str]:
     components: set[str] = set()
     if added & {"CAT-02", "CAT-04"} and bool(getattr(state, "web_performance", False)):
@@ -472,7 +473,7 @@ def _materialize_added_work(
         ):
             components.add("EXPERIENCE_APDEX")
 
-    if "CAT-03" in added and bool(getattr(state, "_rasai_catalog_extension_use_ai", False)):
+    if "CAT-03" in added and use_ai:
         provider = str(getattr(state, "ai_provider", "none") or "none").casefold()
         for snapshot_id in _snapshot_ids(workspace, audit_id):
             if _request_scoped_item(
@@ -551,7 +552,7 @@ def _materialize_added_work(
         # Improvement engine, materialize the SECURITY-only analysis as required for
         # this chosen extension attempt, exactly as the initial catalog projection does.
         if (
-            bool(getattr(state, "_rasai_catalog_extension_use_ai", False))
+            use_ai
             and "CAT-08" not in added
             and _request_item(
                 workspace,
@@ -826,7 +827,6 @@ def apply_catalog_extension(
     extension_work_components = _extension_work_components(added)
 
     use_ai = bool(ai_execution_enabled(state))
-    setattr(state, "_rasai_catalog_extension_use_ai", use_ai)
     extension_id: str | None = None
 
     try:
@@ -882,6 +882,7 @@ def apply_catalog_extension(
             state,
             added,
             live_valid_until=deadline,
+            use_ai=use_ai,
         )
         recalculate(workspace, audit_id)
 
@@ -1009,11 +1010,6 @@ def apply_catalog_extension(
             except Exception:
                 pass
         raise
-    finally:
-        try:
-            delattr(state, "_rasai_catalog_extension_use_ai")
-        except AttributeError:
-            pass
 
 
 __all__ = [
