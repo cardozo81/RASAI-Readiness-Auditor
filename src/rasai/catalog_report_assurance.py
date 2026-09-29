@@ -77,7 +77,7 @@ _SPECIFIC_CONFIG_MARKERS: dict[str, tuple[str, ...]] = {
         "Limite satisfatório",
         "Limite frustrado",
         "Erros afetam o Apdex",
-        "Escopo de erros",
+        "Escopo dos erros de requisição",
         "Sessão",
     ),
     "CAT-08": (

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sqlite3
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from rasai.audit_fulfillment import (
@@ -296,3 +297,147 @@ def test_m20_exception_does_not_leave_required_work_item_pending() -> None:
         assert item.status == FAILED_RETRYABLE
         assert item.last_error_class == "ORCHESTRATION"
         assert item.last_error_code == "CONTENT_REMEDIATION_EXECUTION_FAILURE"
+
+
+def _experience_config_for_fulfillment_test() -> SimpleNamespace:
+    return SimpleNamespace(
+        enabled=True,
+        target_samples_per_page=100,
+        max_attempts_per_page=125,
+        max_pages=1,
+        device_mix=(("MOBILE", 60.0), ("DESKTOP", 40.0)),
+        session_mode="cold",
+        kpm="USER_ACTION_DURATION",
+        satisfied_threshold_seconds=3.0,
+        frustrated_threshold_seconds=12.0,
+        errors_affect_apdex=True,
+        error_scope="all",
+        settle_seconds=5.0,
+        delay_seconds=1.0,
+        concurrency=1,
+    )
+
+
+def test_m25_initial_execution_records_one_physical_fulfillment_attempt(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from rasai.audit_fulfillment_runtime import _wrap_m25
+
+    workspace = _workspace(tmp_path)
+    config = _experience_config_for_fulfillment_test()
+    observed_calls: list[str] = []
+
+    def execute_m25(**_kwargs):
+        observed_calls.append("physical")
+        return SimpleNamespace(
+            status="SUCCESS",
+            attempted_samples=100,
+            valid_samples=100,
+        )
+
+    monkeypatch.setattr(
+        "rasai.audit_fulfillment_runtime._m25_effective_success",
+        lambda *_args: True,
+    )
+
+    result = _wrap_m25(execute_m25)(
+        audit_id="AUD-TEST",
+        workspace=workspace,
+        config=config,
+    )
+
+    assert result.status == "SUCCESS"
+    assert observed_calls == ["physical"]
+    item = next(
+        item
+        for item in list_work_items(workspace, "AUD-TEST")
+        if item.component == "EXPERIENCE_APDEX"
+    )
+    assert item.status == SUCCESS
+    assert item.attempt_count == 1
+    assert item.effective_result_ref == "experience-apdex:effective"
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        attempts = connection.execute(
+            """SELECT a.status,a.reprocess_id,a.attempt_number
+               FROM audit_fulfillment_attempts a
+               JOIN audit_fulfillment_work_items w ON w.work_item_id=a.work_item_id
+               WHERE a.audit_id=? AND w.component='EXPERIENCE_APDEX'""",
+            ("AUD-TEST",),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    assert attempts == [(SUCCESS, None, 1)]
+
+
+def test_m25_initial_exception_finishes_attempt_as_retryable_failure(
+    tmp_path: Path,
+) -> None:
+    from rasai.audit_fulfillment_runtime import _wrap_m25
+
+    workspace = _workspace(tmp_path)
+    config = _experience_config_for_fulfillment_test()
+
+    def fail_m25(**_kwargs):
+        raise RuntimeError("synthetic M25 failure")
+
+    wrapped = _wrap_m25(fail_m25)
+    try:
+        wrapped(audit_id="AUD-TEST", workspace=workspace, config=config)
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("expected M25 failure")
+
+    item = next(
+        item
+        for item in list_work_items(workspace, "AUD-TEST")
+        if item.component == "EXPERIENCE_APDEX"
+    )
+    assert item.status == FAILED_RETRYABLE
+    assert item.attempt_count == 1
+    assert item.last_error_code == "M25_RUNTIME_FAILURE"
+
+
+def test_m25_effective_success_uses_population_target_not_per_device_target(
+    tmp_path: Path,
+) -> None:
+    from rasai.audit_fulfillment_runtime import _m25_effective_success
+
+    workspace = _workspace(tmp_path)
+    connection = sqlite3.connect(workspace.database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE synthetic_ux_apdex_runs(
+                audit_id TEXT PRIMARY KEY,
+                status TEXT,
+                pages_considered INTEGER
+            );
+            CREATE TABLE synthetic_ux_apdex_summaries(
+                audit_id TEXT,
+                device TEXT,
+                valid_samples INTEGER
+            );
+            """
+        )
+        connection.execute(
+            "INSERT INTO synthetic_ux_apdex_runs VALUES (?,?,?)",
+            ("AUD-TEST", "SUCCESS", 1),
+        )
+        connection.executemany(
+            "INSERT INTO synthetic_ux_apdex_summaries VALUES (?,?,?)",
+            (
+                ("AUD-TEST", "MOBILE", 60),
+                ("AUD-TEST", "DESKTOP", 40),
+                ("AUD-TEST", "POPULATION", 100),
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    assert _m25_effective_success(workspace, "AUD-TEST", 100) is True

@@ -866,3 +866,56 @@ def test_catalog_configuration_rows_preserves_two_argument_wrapper_contract(monk
     assert rows == [("Configuração", "Valor", "Origem")]
     assert calls == [(marker, "CAT-01")]
 
+
+
+def test_cat07_assurance_accepts_canonical_error_scope_label(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "audit.db"
+    database.write_bytes(b"")
+    _patch_catalog(monkeypatch)
+
+    body = _body(
+        "<p>Amostras por página</p>"
+        "<p>Limite satisfatório</p>"
+        "<p>Limite frustrado</p>"
+        "<p>Erros afetam o Apdex</p>"
+        "<p>Escopo dos erros de requisição</p>"
+        "<p>Sessão</p>"
+    )
+
+    result = assess_catalog(database, _data(), "CAT-07", body)
+    check = next(
+        item for item in result["checks"]
+        if item["code"] == "CFG_APPLICABLE_CONTROLS"
+    )
+
+    assert check["passed"] is True
+    assert check["detail"] == "controles aplicáveis expostos"
+
+
+def test_cat07_assurance_still_rejects_real_missing_error_scope_control(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "audit.db"
+    database.write_bytes(b"")
+    _patch_catalog(monkeypatch)
+
+    body = _body(
+        "<p>Amostras por página</p>"
+        "<p>Limite satisfatório</p>"
+        "<p>Limite frustrado</p>"
+        "<p>Erros afetam o Apdex</p>"
+        "<p>Sessão</p>"
+    )
+
+    result = assess_catalog(database, _data(), "CAT-07", body)
+    check = next(
+        item for item in result["checks"]
+        if item["code"] == "CFG_APPLICABLE_CONTROLS"
+    )
+
+    assert check["passed"] is False
+    assert "Escopo dos erros de requisição" in check["detail"]
