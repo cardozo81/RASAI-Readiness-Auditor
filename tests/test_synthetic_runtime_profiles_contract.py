@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from rasai import synthetic_profile_runtime as profile_runtime
 from rasai.m23_cli import configured_apdex
 from rasai.synthetic_profile_runtime import (
     _capture_cli_profiles,
@@ -17,6 +18,22 @@ from rasai.synthetic_runtime_profiles import (
     preset_ids,
     selected_profile_ids,
 )
+
+
+
+@pytest.fixture(autouse=True)
+def _isolate_process_local_profile_selection():
+    """Avoid cross-test leakage from the intentional process-local M23->M25 handoff."""
+    previous = {
+        device: dict(values)
+        for device, values in profile_runtime._EFFECTIVE_PROFILE_IDS.items()
+    }
+    profile_runtime._EFFECTIVE_PROFILE_IDS.clear()
+    try:
+        yield
+    finally:
+        profile_runtime._EFFECTIVE_PROFILE_IDS.clear()
+        profile_runtime._EFFECTIVE_PROFILE_IDS.update(previous)
 
 
 def _args(**overrides):
