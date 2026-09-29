@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from rasai.public_language import supplemental_public_label
+from rasai.public_language import safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
     # Ciclo de vida da auditoria e estados operacionais públicos.
@@ -543,7 +543,7 @@ def public_text(value: Any) -> str:
     if not raw:
         return raw
     return _PUBLIC_TOKEN_RE.sub(
-        lambda match: public_label(match.group(0)) or match.group(0),
+        lambda match: public_label(match.group(0)) or safe_visible_fallback(match.group(0)),
         raw,
     )
 
