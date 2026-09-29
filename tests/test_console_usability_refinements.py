@@ -209,8 +209,8 @@ def test_completed_audit_detail_hides_reprocess_action_and_shortcut(
     rendered = capsys.readouterr().out
 
     assert "1. Reprocessar" not in rendered
-    assert "Reprocessamento: não necessário - auditoria concluída." in rendered
-    assert state.error == "Auditoria concluída; reprocessamento não é necessário."
+    assert "Reprocessamento: não necessário - contrato atual concluído." in rendered
+    assert state.error == "Contrato atual concluído; não existem pendências para reprocessar."
 
 
 def test_partial_retryable_audit_detail_keeps_reprocess_action(
@@ -253,3 +253,61 @@ def test_partial_retryable_audit_detail_keeps_reprocess_action(
 
     assert "1. Reprocessar somente pendências desta auditoria" in rendered
     assert "Reprocessamento: não necessário" not in rendered
+
+
+
+def test_completed_audit_offers_distinct_catalog_complement_without_reprocess(
+    monkeypatch, tmp_path: Path, capsys
+) -> None:
+    import rasai.console_artifacts as artifacts
+    import rasai.console_audit_catalog_extension as extension
+    import rasai.console_navigation as navigation
+    import rasai.console_usability_refinements as usability
+
+    audit_id = "AUD-COMPLETE-EXTEND"
+    (tmp_path / audit_id).mkdir()
+    summary = {
+        "processing_status": "COMPLETE",
+        "score_status": "FINAL",
+        "report_status": "FINAL",
+        "consolidation_eligible": True,
+        "required_items": 7,
+        "successful_items": 7,
+        "pending_items": 0,
+        "blocked_items": 0,
+        "expired_items": 0,
+        "reprocess_count": 0,
+        "last_reprocess_id": None,
+        "completed_at": "2026-09-29T12:00:00+00:00",
+    }
+    monkeypatch.setattr(usability, "_safe_summary", lambda *_: summary)
+    monkeypatch.setattr(
+        navigation,
+        "_configuration_reuse_status",
+        lambda *_: (True, "snapshot canônico íntegro"),
+    )
+    monkeypatch.setattr(
+        extension,
+        "availability",
+        lambda *_: (True, "8 catálogo(s) ainda podem ser acrescentados"),
+    )
+    called: list[str] = []
+    monkeypatch.setattr(
+        extension,
+        "complement_audit",
+        lambda _console, _state, selected: called.append(selected) or True,
+    )
+    monkeypatch.setattr(artifacts, "report_entrypoint", lambda *_: None)
+    answers = iter(("C", "V"))
+    monkeypatch.setattr("builtins.input", lambda *_: next(answers))
+
+    state = SimpleNamespace(audits_root=tmp_path, status="", operation="", error="")
+    console_module = SimpleNamespace(render_header=lambda *_: None)
+
+    assert usability._selected_audit_menu(console_module, state, audit_id) is False
+    rendered = capsys.readouterr().out
+
+    assert "1. Reprocessar" not in rendered
+    assert "C. Complementar esta AUD com catálogos ainda não solicitados" in rendered
+    assert "contrato atual concluído" in rendered
+    assert called == [audit_id]

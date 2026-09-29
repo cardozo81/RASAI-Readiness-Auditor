@@ -1085,18 +1085,27 @@ def _optional_environment_values(workspace: Any, audit_id: str) -> dict[str, Any
             THIRD_PARTY_ENV,
         )
         saved = _saved_environment(workspace, audit_id)
+        cfg = dict(passive.configuration or {})
         overrides[SECURITY_ENABLED_ENV] = "true"
-        for name, default in (
-            (HEADERS_ENV, "true"),
-            (COOKIES_ENV, "true"),
-            (RESOURCES_ENV, "true"),
-            (THIRD_PARTY_ENV, "true"),
-            (RUNTIME_ENV, "true"),
-            (OSV_ENV, "true"),
-            (KEV_ENV, "true"),
-            (EXTERNAL_TIMEOUT_ENV, "15"),
+        for name, key, default in (
+            (HEADERS_ENV, "headers", "true"),
+            (COOKIES_ENV, "cookies", "true"),
+            (RESOURCES_ENV, "resources", "true"),
+            (THIRD_PARTY_ENV, "third_party", "true"),
+            (RUNTIME_ENV, "runtime", "true"),
+            (OSV_ENV, "osv", "true"),
+            (KEV_ENV, "kev", "true"),
+            (EXTERNAL_TIMEOUT_ENV, "external_timeout_seconds", "15"),
         ):
-            overrides[name] = saved.get(name, default)
+            # A catalog added in a later RPR owns its current non-secret execution
+            # contract.  The immutable initial AUD snapshot remains only a fallback
+            # for items that originated in the initial execution.
+            value = cfg.get(key)
+            overrides[name] = (
+                str(value)
+                if value not in (None, "")
+                else saved.get(name, default)
+            )
 
     gsc = _item(workspace, audit_id, "GOOGLE_SEARCH_CONSOLE")
     if gsc is not None:

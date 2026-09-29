@@ -533,6 +533,15 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
         summary = _safe_summary(audit_root, audit_id)
         reuse_available, reuse_detail = navigation._configuration_reuse_status(state, audit_id)
         report_path = report_entrypoint(audit_root)
+        processing_status = str(summary.get("processing_status") or "").upper()
+        complement_available = False
+        complement_detail = ""
+        if processing_status == "COMPLETE" and reuse_available:
+            try:
+                from rasai.console_audit_catalog_extension import availability as catalog_extension_availability
+                complement_available, complement_detail = catalog_extension_availability(state, audit_id)
+            except (ImportError, OSError, ValueError):
+                complement_available = False
         console_module.render_header(state)
         print("AUDITORIA SELECIONADA\n")
         print(f"AUD            : {audit_id}")
@@ -563,10 +572,14 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
         )
         if _can_reprocess(summary):
             print("1. Reprocessar somente pendências desta auditoria")
-        elif str(summary.get("processing_status") or "").upper() == "COMPLETE":
-            print("Reprocessamento: não necessário - auditoria concluída.")
+        elif processing_status == "COMPLETE":
+            print("Reprocessamento: não necessário - contrato atual concluído.")
         else:
             print("Reprocessamento: indisponível no estado atual.")
+        if complement_available:
+            print("C. Complementar esta AUD com catálogos ainda não solicitados")
+            if complement_detail:
+                print(f"   {complement_detail}")
         if reuse_available:
             print("2. Carregar esta configuração para uma nova auditoria")
         else:
@@ -599,10 +612,17 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
                 print(detail)
                 input("\nENTER para continuar...")
             continue
+        if choice == "C":
+            if not complement_available:
+                state.error = complement_detail or "Complementação de catálogo indisponível para esta AUD."
+                continue
+            from rasai.console_audit_catalog_extension import complement_audit
+            complement_audit(console_module, state, audit_id)
+            continue
         if choice == "1":
             if not _can_reprocess(summary):
-                if str(summary.get("processing_status") or "").upper() == "COMPLETE":
-                    state.error = "Auditoria concluída; reprocessamento não é necessário."
+                if processing_status == "COMPLETE":
+                    state.error = "Contrato atual concluído; não existem pendências para reprocessar."
                 elif str(summary.get("processing_status") or "").upper() == "EXPIRED_FOR_COMPLETION":
                     state.error = "A janela de conclusão expirou; crie uma nova auditoria."
                 else:
