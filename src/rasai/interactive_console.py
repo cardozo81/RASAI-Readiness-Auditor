@@ -58,6 +58,7 @@ from rasai.console_settings import (
 )
 from rasai.configuration_value_labels import configuration_value_choice
 from rasai.console_ui import (
+from rasai.public_language import component_label, console_status_label, diagnostic_label, scope_label
     CYAN,
     DIM,
     GREEN,
@@ -771,14 +772,14 @@ def _render_web_performance_failure_detail(
         print("  Diagnóstico persistido da coleta:")
         for attempt in attempts:
             http = f" · HTTP {attempt.http_status}" if attempt.http_status is not None else ""
-            code = f" · código={attempt.error_code}" if attempt.error_code else ""
+            code = f" · motivo={diagnostic_label(attempt.error_code)}" if attempt.error_code else ""
             print(
                 f"    {_web_performance_service_label(attempt.service):<20} "
                 f"{_web_performance_attempt_status_label(attempt.status)}{http}{code}"
             )
             if attempt.error_message:
                 print(f"      Motivo: {attempt.error_message}")
-    error_class = str(getattr(item, "last_error_class", None) or "-")
+    error_class = diagnostic_label(getattr(item, "last_error_class", None))
     retryable = "SIM" if bool(getattr(item, "retryable", False)) else "NÃO"
     print(f"  Classificação do fulfillment: {error_class} · reprocessável={retryable}")
 
@@ -805,9 +806,11 @@ def _render_incomplete_requirements(state: State, workspace: Path | None) -> Non
     print("\n" + warning_text("REQUISITOS OBRIGATÓRIOS INCOMPLETOS", bold=True))
     print("-" * 100)
     for item in sorted(items, key=lambda value: (value.component, value.scope_key)):
-        code = item.last_error_code or "-"
-        scope = "" if item.scope_key == "AUDIT" else f" · escopo={item.scope_key}"
-        print(f"{item.component:<28} " + semantic_text(item.status, bold=True) + f"{scope} · código={code}")
+        code = diagnostic_label(item.last_error_code)
+        scope = "" if item.scope_key == "AUDIT" else f" · escopo={scope_label(item.scope_key)}"
+        component = component_label(item.component)
+        status = console_status_label(item.status)
+        print(f"{component:<28} " + semantic_text(status, bold=True) + f"{scope} · motivo={code}")
         if item.last_error_message:
             print(f"  Motivo: {item.last_error_message}")
         if str(item.component).upper() == "WEB_PERFORMANCE":
