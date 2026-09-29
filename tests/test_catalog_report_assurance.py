@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from hashlib import sha256
 from pathlib import Path
+import sqlite3
 from types import SimpleNamespace
 
 from rasai.catalog_report_assurance import (
     CATALOG_MATURITY_MIN,
     HIGH_ASSURANCE_MIN,
+    _artifact_integrity,
     _catalog_referential_integrity,
     _read_only_guard_present,
     _safe_output,
@@ -72,6 +75,127 @@ def _patch_catalog(monkeypatch) -> None:
     monkeypatch.setattr(state, "_catalog_source_specs", lambda _catalog_id: ())
 
 
+
+
+def test_artifact_integrity_verifies_pagespeed_reference_with_persisted_sha(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from rasai import catalog_report_catalog_state as state
+
+    database = tmp_path / "audit.db"
+    artifact = tmp_path / "artifacts" / "web-performance" / "psi.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text('{"ok":true}\n', encoding="utf-8")
+    digest = sha256(artifact.read_bytes()).hexdigest()
+
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            """CREATE TABLE web_performance_observations(
+                audit_id TEXT,
+                pagespeed_artifact_reference TEXT,
+                pagespeed_artifact_sha256 TEXT
+            )"""
+        )
+        connection.execute(
+            "INSERT INTO web_performance_observations VALUES (?,?,?)",
+            ("AUD-ASSURANCE", "artifacts/web-performance/psi.json", digest),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    monkeypatch.setattr(
+        state,
+        "_catalog_source_specs",
+        lambda _catalog_id: (("web_performance_observations", "PageSpeed"),),
+    )
+
+    passed, detail = _artifact_integrity(database, "AUD-ASSURANCE", "CAT-04")
+
+    assert passed is True
+    assert "1 artefato(s) com hash verificável" in detail
+
+
+def test_artifact_integrity_rejects_legacy_reference_without_hash_column(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from rasai import catalog_report_catalog_state as state
+
+    database = tmp_path / "audit.db"
+    artifact = tmp_path / "artifacts" / "web-performance" / "legacy.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text('{"legacy":true}\n', encoding="utf-8")
+
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            """CREATE TABLE web_performance_observations(
+                audit_id TEXT,
+                pagespeed_artifact_reference TEXT
+            )"""
+        )
+        connection.execute(
+            "INSERT INTO web_performance_observations VALUES (?,?)",
+            ("AUD-ASSURANCE", "artifacts/web-performance/legacy.json"),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    monkeypatch.setattr(
+        state,
+        "_catalog_source_specs",
+        lambda _catalog_id: (("web_performance_observations", "PageSpeed"),),
+    )
+
+    passed, detail = _artifact_integrity(database, "AUD-ASSURANCE", "CAT-04")
+
+    assert passed is False
+    assert "artefato legado/não verificável" in detail
+    assert "pagespeed_artifact_sha256" in detail
+
+
+def test_artifact_integrity_rejects_reference_with_empty_sha(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from rasai import catalog_report_catalog_state as state
+
+    database = tmp_path / "audit.db"
+    artifact = tmp_path / "artifacts" / "web-performance" / "unsealed.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text('{"unsealed":true}\n', encoding="utf-8")
+
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            """CREATE TABLE web_performance_observations(
+                audit_id TEXT,
+                pagespeed_artifact_reference TEXT,
+                pagespeed_artifact_sha256 TEXT
+            )"""
+        )
+        connection.execute(
+            "INSERT INTO web_performance_observations VALUES (?,?,?)",
+            ("AUD-ASSURANCE", "artifacts/web-performance/unsealed.json", None),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    monkeypatch.setattr(
+        state,
+        "_catalog_source_specs",
+        lambda _catalog_id: (("web_performance_observations", "PageSpeed"),),
+    )
+
+    passed, detail = _artifact_integrity(database, "AUD-ASSURANCE", "CAT-04")
+
+    assert passed is False
+    assert "SHA-256 não persistido" in detail
 
 
 def test_nonsecret_cat10_cookie_toggle_is_not_treated_as_persisted_credential() -> None:
@@ -865,7 +989,6 @@ def test_catalog_configuration_rows_preserves_two_argument_wrapper_contract(monk
 
     assert rows == [("Configuração", "Valor", "Origem")]
     assert calls == [(marker, "CAT-01")]
-
 
 
 def test_cat07_assurance_accepts_canonical_error_scope_label(

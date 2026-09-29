@@ -68,6 +68,8 @@ class WebPerformanceObservation:
     crux_artifact_reference: str | None
     error_summary: str | None
     captured_at: str
+    pagespeed_artifact_sha256: str | None = None
+    crux_artifact_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +88,7 @@ class WebPerformanceAttempt:
     error_message: str | None
     artifact_reference: str | None
     created_at: str
+    artifact_sha256: str | None = None
 
 
 class M21Persistence:
@@ -158,6 +161,8 @@ class M21Persistence:
                     crux_http_status INTEGER,
                     pagespeed_artifact_reference TEXT,
                     crux_artifact_reference TEXT,
+                    pagespeed_artifact_sha256 TEXT,
+                    crux_artifact_sha256 TEXT,
                     error_summary TEXT,
                     captured_at TEXT NOT NULL,
                     UNIQUE(audit_id,snapshot_id)
@@ -177,6 +182,7 @@ class M21Persistence:
                     error_code TEXT,
                     error_message TEXT,
                     artifact_reference TEXT,
+                    artifact_sha256 TEXT,
                     created_at TEXT NOT NULL
                 );
 
@@ -195,6 +201,21 @@ class M21Persistence:
             if "agentic_browsing_score" not in observation_columns:
                 self._connection.execute(
                     "ALTER TABLE web_performance_observations ADD COLUMN agentic_browsing_score REAL"
+                )
+            for column in ("pagespeed_artifact_sha256", "crux_artifact_sha256"):
+                if column not in observation_columns:
+                    self._connection.execute(
+                        f"ALTER TABLE web_performance_observations ADD COLUMN {column} TEXT"
+                    )
+            attempt_columns = {
+                str(row["name"])
+                for row in self._connection.execute(
+                    "PRAGMA table_info(web_performance_attempts)"
+                ).fetchall()
+            }
+            if "artifact_sha256" not in attempt_columns:
+                self._connection.execute(
+                    "ALTER TABLE web_performance_attempts ADD COLUMN artifact_sha256 TEXT"
                 )
 
     def upsert_run(self, run: WebPerformanceRun) -> None:
@@ -241,7 +262,7 @@ class M21Persistence:
             "lcp_lab_ms", "tbt_lab_ms", "cls_lab", "field_source", "field_scope", "lcp_p75_ms", "inp_p75_ms",
             "cls_p75", "lcp_assessment", "inp_assessment", "cls_assessment", "cwv_assessment",
             "pagespeed_http_status", "crux_http_status", "pagespeed_artifact_reference", "crux_artifact_reference",
-            "error_summary", "captured_at",
+            "pagespeed_artifact_sha256", "crux_artifact_sha256", "error_summary", "captured_at",
         )
         values = (
             item.observation_id,
@@ -277,6 +298,8 @@ class M21Persistence:
             item.crux_http_status,
             item.pagespeed_artifact_reference,
             item.crux_artifact_reference,
+            item.pagespeed_artifact_sha256,
+            item.crux_artifact_sha256,
             item.error_summary,
             item.captured_at,
         )
@@ -291,7 +314,11 @@ class M21Persistence:
         with self._connection:
             self._connection.execute(
                 """
-                INSERT INTO web_performance_attempts VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                INSERT INTO web_performance_attempts(
+                    attempt_id,audit_id,page_id,snapshot_id,device,url,service,status,
+                    http_status,duration_ms,error_code,error_message,artifact_reference,
+                    artifact_sha256,created_at
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     item.attempt_id,
@@ -307,6 +334,7 @@ class M21Persistence:
                     item.error_code,
                     item.error_message,
                     item.artifact_reference,
+                    item.artifact_sha256,
                     item.created_at,
                 ),
             )
