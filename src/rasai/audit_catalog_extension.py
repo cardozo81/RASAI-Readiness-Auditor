@@ -964,7 +964,10 @@ def apply_catalog_extension(
         # RPR configuration makes the extension effective and keeps the sealed
         # fingerprint aligned with the final database state.
         return replace(result)
-    except Exception as exc:
+    except BaseException as exc:
+        # Lifecycle cleanup must also run for SystemExit/KeyboardInterrupt. The
+        # exception is re-raised after durable pre-RPR cleanup; the interactive
+        # console decides which termination signals are safe to contain.
         if extension_id is not None:
             try:
                 from rasai.secret_safety import redact_text
