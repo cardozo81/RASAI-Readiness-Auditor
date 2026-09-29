@@ -1,5 +1,6 @@
 """Shared CAT page assembly preserving the stable section order."""
 from rasai.catalog_report_analysis import *  # noqa: F401,F403
+from rasai.catalog_report_public_labels import public_label, public_text
 from rasai.secret_safety import redact_text
 
 
@@ -105,12 +106,13 @@ def _web_performance_diagnostics_html(database: Path, data: _ReportData) -> str:
     finally:con.close()
     rows=[]
     for item in attempts:
-        message=redact_text(str(item.get("error_message") or "-"))
+        message=public_text(redact_text(str(item.get("error_message") or "-")))
+        error_code=item.get("error_code") or "-"
         rows.append((
             _friendly_service(item.get("service")),
             _state_text(item.get("status"),_status_label(item.get("status"))),
             f"HTTP {item.get('http_status')}" if item.get("http_status") is not None else "-",
-            item.get("error_code") or "-",
+            public_label(error_code) or public_text(error_code),
             message,
         ))
     attempt_table=_table(
@@ -127,11 +129,13 @@ def _web_performance_diagnostics_html(database: Path, data: _ReportData) -> str:
         return attempt_table
     work_status=_status_label(work.get("status"))
     retryable="Sim" if bool(work.get("retryable")) else "Não"
-    message=redact_text(str(work.get("last_error_message") or "-"))
+    message=public_text(redact_text(str(work.get("last_error_message") or "-")))
+    error_class=work.get("last_error_class") or "-"
+    error_code=work.get("last_error_code") or "-"
     fulfillment=_kv((
         ("Estado do requisito",_state_text(work.get("status"),work_status)),
-        ("Classe técnica",work.get("last_error_class") or "-"),
-        ("Código técnico",work.get("last_error_code") or "-"),
+        ("Classificação do erro",public_label(error_class) or public_text(error_class)),
+        ("Motivo do erro",public_label(error_code) or public_text(error_code)),
         ("Reprocessável",retryable),
         ("Motivo consolidado",message),
     ))
