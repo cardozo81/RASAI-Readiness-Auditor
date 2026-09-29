@@ -69,25 +69,84 @@ def _workspace(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any | None:
     return None
 
 
-def _rendering_completed(workspace: Any) -> bool:
+def _rendering_completed(workspace: Any, audit_id: str) -> bool:
+    """Resolve render-phase completion from durable evidence before operational logs.
+
+    The provider gate must not depend on how large audit.log became after rendering.
+    M3 persists one PageSnapshot per attempted page/device context, including failed
+    render attempts, and each snapshot carries the configured device universe.  That
+    persisted state is the canonical checkpoint.  The log remains only a compatibility
+    fallback for older/minimal workspaces.
+    """
+    if audit_id:
+        try:
+            connection = sqlite3.connect(workspace.database)
+            connection.row_factory = sqlite3.Row
+            try:
+                rows = connection.execute(
+                    """SELECT p.page_id,ps.device,ps.browser_metadata
+                       FROM pages p
+                       LEFT JOIN page_snapshots ps ON ps.page_id=p.page_id
+                       WHERE p.audit_id=?
+                       ORDER BY p.page_id,ps.device,ps.captured_at""",
+                    (audit_id,),
+                ).fetchall()
+            finally:
+                connection.close()
+        except (sqlite3.Error, OSError, TypeError, ValueError):
+            rows = ()
+
+        if rows:
+            page_ids = {str(row["page_id"]) for row in rows if row["page_id"]}
+            observed = {
+                (str(row["page_id"]), str(row["device"] or "").upper())
+                for row in rows
+                if row["page_id"] and row["device"]
+            }
+            expected_devices: set[str] = set()
+            for row in rows:
+                raw = row["browser_metadata"]
+                if raw in (None, ""):
+                    continue
+                try:
+                    metadata = raw if isinstance(raw, dict) else json.loads(str(raw))
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    continue
+                if not isinstance(metadata, dict):
+                    continue
+                configured = metadata.get("audit_device_context")
+                if not isinstance(configured, list):
+                    continue
+                for value in configured:
+                    normalized = str(value or "").upper()
+                    if normalized in {"MOBILE", "DESKTOP"}:
+                        expected_devices.add(normalized)
+            if page_ids and expected_devices:
+                required = {
+                    (page_id, device)
+                    for page_id in page_ids
+                    for device in expected_devices
+                }
+                if required.issubset(observed):
+                    return True
+
     path = Path(workspace.root) / "logs" / "audit.log"
     if not path.is_file():
         return False
     try:
-        with path.open("rb") as stream:
-            stream.seek(0, 2)
-            size = stream.tell()
-            stream.seek(max(size - 131072, 0))
-            lines = stream.read().decode("utf-8", errors="replace").splitlines()
+        with path.open("r", encoding="utf-8", errors="replace") as stream:
+            for line in stream:
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(event, dict) or event.get("event") != "RENDERING_COMPLETED":
+                    continue
+                event_audit_id = str(event.get("audit_id") or "")
+                if not audit_id or not event_audit_id or event_audit_id == audit_id:
+                    return True
     except OSError:
         return False
-    for line in reversed(lines):
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(event, dict) and event.get("event") == "RENDERING_COMPLETED":
-            return True
     return False
 
 
@@ -128,7 +187,7 @@ def _assert_ready(
     required_flags: tuple[str, ...],
 ) -> None:
     missing = [flag for flag in required_flags if flag not in _flags(workspace)]
-    if "RENDERING_COMPLETED" in missing and _rendering_completed(workspace):
+    if "RENDERING_COMPLETED" in missing and _rendering_completed(workspace, audit_id):
         _flags(workspace).add("RENDERING_COMPLETED")
         missing.remove("RENDERING_COMPLETED")
     if "SEMANTIC_ANALYSIS" in missing and _semantic_analysis_completed(workspace, audit_id):

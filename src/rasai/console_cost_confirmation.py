@@ -570,8 +570,18 @@ def install(console_module: ModuleType) -> None:
         if callable(original_usage):
             original_usage(state)
         forecast = _FORECASTS.get(id(state))
+        if forecast is None:
+            return
+
+        # Reprocessing can materially change accumulated provider usage and fulfillment
+        # while the same console state remains alive inside the post-run actions loop.
+        # Never render the pre-RPR cached outcome against a newer audit.db.
+        refreshed = _build_outcome(state, forecast)
+        if refreshed is not None:
+            _OUTCOMES[id(state)] = refreshed
+            _persist_outcome(state, forecast, refreshed)
         outcome = _OUTCOMES.get(id(state))
-        if forecast is not None and outcome is not None:
+        if outcome is not None:
             _render_outcome(forecast, outcome)
 
     def post_run(state: Any) -> bool:

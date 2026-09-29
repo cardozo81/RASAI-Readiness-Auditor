@@ -455,9 +455,6 @@ _SAFE_OPTIONAL_ENV_NAMES = (
     "RASAI_SERP_MIN_INTERVAL_SECONDS",
     # Improvement Intelligence.
     "RASAI_IMPROVEMENT_INTELLIGENCE",
-    "RASAI_IMPROVEMENT_AI_PROVIDER",
-    "RASAI_IMPROVEMENT_AI_MODEL",
-    "RASAI_IMPROVEMENT_AI_REASONING",
     "RASAI_IMPROVEMENT_DOMAINS",
     "RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS",
     "RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS",
@@ -505,6 +502,8 @@ def persist_resume_plan(
     technical_remediation: bool,
     semantic_ai_requested: bool = False,
     semantic_provider: str | None = None,
+    semantic_model: str | None = None,
+    semantic_reasoning: str | None = None,
 ) -> dict[str, Any]:
     """Persist the minimum canonical, secret-free plan needed by recovery."""
     plan = {
@@ -519,6 +518,11 @@ def persist_resume_plan(
         "technical_remediation": bool(technical_remediation),
         "semantic_ai_requested": bool(semantic_ai_requested),
         "semantic_provider": str(semantic_provider or "NONE"),
+        "primary_ai": {
+            "provider": str(semantic_provider or "NONE"),
+            "model": str(semantic_model or ""),
+            "reasoning": str(semantic_reasoning or ""),
+        },
         "optional_environment": _safe_optional_environment_snapshot(),
     }
     bound_options = dict(_PLAN_OPTIONS.get() or {})
@@ -850,6 +854,18 @@ def materialize_planned_work_items(workspace: AuditWorkspace, audit_id: str) -> 
             )
 
     if _truthy(environment.get("RASAI_IMPROVEMENT_INTELLIGENCE")):
+        primary_ai = plan.get("primary_ai")
+        primary_ai = dict(primary_ai) if isinstance(primary_ai, Mapping) else {}
+        provider = str(
+            primary_ai.get("provider")
+            or plan.get("semantic_provider")
+            or "NONE"
+        ).strip().casefold()
+        model = str(primary_ai.get("model") or "").strip()
+        reasoning = str(primary_ai.get("reasoning") or "").strip()
+        if provider == "auto":
+            model = ""
+            reasoning = ""
         _mark_planned_not_executed(
             workspace,
             audit_id,
@@ -857,9 +873,9 @@ def materialize_planned_work_items(workspace: AuditWorkspace, audit_id: str) -> 
             temporal_mode=REPLAY_SAFE,
             configuration={
                 "requested": True,
-                "provider": environment.get("RASAI_IMPROVEMENT_AI_PROVIDER", ""),
-                "model": environment.get("RASAI_IMPROVEMENT_AI_MODEL", ""),
-                "reasoning": environment.get("RASAI_IMPROVEMENT_AI_REASONING", ""),
+                "provider": provider,
+                "model": model,
+                "reasoning": reasoning,
                 "domains": [
                     value.strip()
                     for value in str(environment.get("RASAI_IMPROVEMENT_DOMAINS", "")).split(",")

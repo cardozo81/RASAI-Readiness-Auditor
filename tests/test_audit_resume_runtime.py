@@ -695,7 +695,9 @@ def test_resume_plan_persists_effective_optional_intent_without_secrets(
 ) -> None:
     workspace = _workspace(tmp_path)
     monkeypatch.setenv("RASAI_IMPROVEMENT_INTELLIGENCE", "true")
-    monkeypatch.setenv("RASAI_IMPROVEMENT_AI_PROVIDER", "openai")
+    monkeypatch.delenv("RASAI_IMPROVEMENT_AI_PROVIDER", raising=False)
+    monkeypatch.delenv("RASAI_IMPROVEMENT_AI_MODEL", raising=False)
+    monkeypatch.delenv("RASAI_IMPROVEMENT_AI_REASONING", raising=False)
     monkeypatch.setenv("RASAI_SERPAPI_API_KEY", "secret-that-must-not-be-persisted")
     monkeypatch.setenv("RASAI_GSC_ENABLED", "true")
     monkeypatch.setenv("RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL", "sc-domain:example.test")
@@ -749,16 +751,22 @@ def test_resume_plan_persists_effective_optional_intent_without_secrets(
             technical_remediation=True,
             semantic_ai_requested=True,
             semantic_provider="AUTO",
+            semantic_model="",
+            semantic_reasoning="",
         )
 
     plan = load_resume_plan(workspace, AUDIT_ID)
     serialized = str(plan)
     assert "secret-that-must-not-be-persisted" not in serialized
     assert plan["semantic_ai_requested"] is True
+    assert plan["primary_ai"] == {"provider": "AUTO", "model": "", "reasoning": ""}
     assert plan["execution_options"]["web_performance"]["enabled"] is True
     assert plan["execution_options"]["search_intelligence"]["queries"] == ["rasai readiness"]
     assert plan["optional_environment"]["RASAI_GSC_ENABLED"] == "true"
     assert "RASAI_SERPAPI_API_KEY" not in plan["optional_environment"]
+    assert "RASAI_IMPROVEMENT_AI_PROVIDER" not in plan["optional_environment"]
+    assert "RASAI_IMPROVEMENT_AI_MODEL" not in plan["optional_environment"]
+    assert "RASAI_IMPROVEMENT_AI_REASONING" not in plan["optional_environment"]
 
     materialize_planned_work_items(workspace, AUDIT_ID)
     items = {
@@ -776,6 +784,11 @@ def test_resume_plan_persists_effective_optional_intent_without_secrets(
     ):
         assert (component, "AUDIT") in items
         assert items[(component, "AUDIT")].status == "REQUESTED_NOT_EXECUTED"
+
+    improvement = items[("IMPROVEMENT_INTELLIGENCE", "AUDIT")]
+    assert improvement.configuration["provider"] == "auto"
+    assert improvement.configuration["model"] == ""
+    assert improvement.configuration["reasoning"] == ""
 
 
 

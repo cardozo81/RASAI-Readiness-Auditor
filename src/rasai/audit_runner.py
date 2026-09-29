@@ -227,6 +227,15 @@ def run_audit(
                 technical_remediation=technical_remediation,
                 semantic_ai_requested=str(getattr(semantic_provider, "name", "NONE") or "NONE").upper() not in {"", "NONE"},
                 semantic_provider=str(getattr(semantic_provider, "name", "NONE") or "NONE"),
+                semantic_model=str(getattr(semantic_provider, "model", "") or ""),
+                semantic_reasoning=str(
+                    getattr(
+                        semantic_provider,
+                        "reasoning_profile",
+                        getattr(semantic_provider, "requested_reasoning_effort", ""),
+                    )
+                    or ""
+                ),
             )
             initialize_execution_fulfillment(workspace, audit_id)
 
