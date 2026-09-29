@@ -432,6 +432,10 @@ def _m25_item_from_row(row: sqlite3.Row):
         javascript_error_count=int(row["javascript_error_count"]),console_error_count=int(row["console_error_count"]),
         request_failed_count=int(row["request_failed_count"]),first_party_request_failed_count=int(row["first_party_request_failed_count"]),
         http_error_count=int(row["http_error_count"]),first_party_http_error_count=int(row["first_party_http_error_count"]),
+        csp_violation_count=int(row["csp_violation_count"]) if "csp_violation_count" in row.keys() else 0,
+        first_party_csp_violation_count=int(row["first_party_csp_violation_count"]) if "first_party_csp_violation_count" in row.keys() else 0,
+        failed_image_request_count=int(row["failed_image_request_count"]) if "failed_image_request_count" in row.keys() else 0,
+        first_party_failed_image_request_count=int(row["first_party_failed_image_request_count"]) if "first_party_failed_image_request_count" in row.keys() else 0,
         network_settled=bool(row["network_settled"]),profile_applied=bool(row["classification"] is not None),
         error_code=row["error_code"],error_message=row["error_message"],cpu_method=row["cpu_method"],network_method=row["network_method"],
     )
@@ -486,7 +490,15 @@ def recover_experience_apdex(
                     else None
                 ),
                 errors_affect_apdex=bool(cfg_map.get("errors_affect_apdex", True)),
-                error_scope=str(cfg_map.get("error_scope") or "first-party"),
+                javascript_errors_affect_apdex=bool(cfg_map.get("javascript_errors_affect_apdex", True)),
+                request_errors_affect_apdex=bool(cfg_map.get("request_errors_affect_apdex", True)),
+                console_errors_affect_apdex=bool(cfg_map.get("console_errors_affect_apdex", False)),
+                javascript_error_capture=bool(cfg_map.get("javascript_error_capture", True)),
+                xhr_capture=bool(cfg_map.get("xhr_capture", True)),
+                fetch_capture=bool(cfg_map.get("fetch_capture", True)),
+                console_error_capture=bool(cfg_map.get("console_error_capture", False)),
+                max_error_details=int(cfg_map.get("max_error_details", 10) if cfg_map.get("max_error_details") is not None else 10),
+                error_scope=str(cfg_map.get("error_scope") or "all"),
                 settle_seconds=float(cfg_map.get("settle_seconds") or 5.0),
                 delay_seconds=float(cfg_map.get("delay_seconds") or 1.0),
                 concurrency=int(cfg_map.get("concurrency") or 1),
@@ -505,7 +517,37 @@ def recover_experience_apdex(
         if not bool(run["enabled"]):
             return False
         config_map = _json_load(run["configuration"], {})
+        config_map = dict(config_map) if isinstance(config_map, dict) else {}
         mix_map = _json_load(run["device_mix"], {})
+        error_scope = str(run["error_scope"])
+        granular_keys = {
+            "javascript_errors_affect_apdex",
+            "request_errors_affect_apdex",
+            "console_errors_affect_apdex",
+            "javascript_error_capture",
+            "xhr_capture",
+            "fetch_capture",
+            "console_error_capture",
+            "max_error_details",
+        }
+        legacy_policy = not any(key in config_map for key in granular_keys)
+        # Audits created before #65 must preserve the policy that originally scored
+        # their samples. In the legacy runtime JS/console only forced frustration in
+        # scope=all, while both event families were still captured diagnostically.
+        javascript_errors_affect = bool(
+            config_map.get("javascript_errors_affect_apdex", error_scope == "all" if legacy_policy else True)
+        )
+        request_errors_affect = bool(config_map.get("request_errors_affect_apdex", True))
+        console_errors_affect = bool(
+            config_map.get("console_errors_affect_apdex", error_scope == "all" if legacy_policy else False)
+        )
+        javascript_capture = bool(config_map.get("javascript_error_capture", True))
+        xhr_capture = bool(config_map.get("xhr_capture", True))
+        fetch_capture = bool(config_map.get("fetch_capture", True))
+        console_capture = bool(config_map.get("console_error_capture", True if legacy_policy else False))
+        max_error_details = int(config_map.get("max_error_details", 50 if legacy_policy else 10) or 0)
+        max_error_details = max(0, min(max_error_details, 50))
+
         cfg = m25.ExperienceApdexConfig(
             enabled=True,target_samples_per_page=int(run["target_samples_per_page"]),
             max_attempts_per_page=int(run["max_attempts_per_page"]),max_pages=int(run["page_limit"]),
@@ -513,16 +555,63 @@ def recover_experience_apdex(
             session_mode=str(run["session_mode"]),kpm=str(run["kpm"]),
             satisfied_threshold_seconds=float(run["satisfied_threshold_seconds"]),
             frustrated_threshold_seconds=float(run["frustrated_threshold_seconds"]),
-            errors_affect_apdex=bool(run["errors_affect_apdex"]),error_scope=str(run["error_scope"]),
-            settle_seconds=float(run["settle_seconds"]),delay_seconds=float(config_map.get("delay_seconds",1.0) or 1.0),
+            errors_affect_apdex=bool(run["errors_affect_apdex"]),
+            javascript_errors_affect_apdex=javascript_errors_affect,
+            request_errors_affect_apdex=request_errors_affect,
+            console_errors_affect_apdex=console_errors_affect,
+            javascript_error_capture=javascript_capture,
+            xhr_capture=xhr_capture,
+            fetch_capture=fetch_capture,
+            console_error_capture=console_capture,
+            max_error_details=max_error_details,
+            error_scope=error_scope,
+            settle_seconds=float(run["settle_seconds"]),
+            delay_seconds=float(config_map.get("delay_seconds",1.0) or 1.0),
             concurrency=1,
+            dynatrace_import=bool(config_map.get("dynatrace_import", False)),
+            dynatrace_base_url=str(config_map.get("dynatrace_base_url") or "") or None,
+            dynatrace_application_id=str(config_map.get("dynatrace_application_id") or "") or None,
+            dynatrace_config_json=str(config_map.get("dynatrace_config_json") or "") or None,
         ).validate()
+
+        calibration_metadata = _json_load(run["calibration_metadata"], {})
+        calibration_metadata = dict(calibration_metadata) if isinstance(calibration_metadata, dict) else {}
+        imported_policy = calibration_metadata.get("error_policy")
+        imported_policy = dict(imported_policy) if isinstance(imported_policy, dict) else {}
+        capture = calibration_metadata.get("dynatrace_capture_contract")
+        capture = dict(capture) if isinstance(capture, dict) else {}
+
+        def _effective_bool(mapping: dict[str, Any], key: str, fallback: bool) -> bool:
+            value = mapping.get(key)
+            return bool(value) if isinstance(value, bool) else fallback
+
+        imported_max = capture.get("max_errors_to_capture")
+        try:
+            effective_max_details = int(imported_max) if imported_max is not None else cfg.max_error_details
+        except (TypeError, ValueError):
+            effective_max_details = cfg.max_error_details
+        effective_max_details = max(0, min(effective_max_details, 50))
+
         calibration = m25.Calibration(
             source=str(run["calibration_source"]),kpm=str(run["kpm"]),
             satisfied_threshold_seconds=float(run["satisfied_threshold_seconds"]),
             frustrated_threshold_seconds=float(run["frustrated_threshold_seconds"]),
             errors_affect_apdex=bool(run["errors_affect_apdex"]),
-            metadata=_json_load(run["calibration_metadata"], {}),
+            metadata=calibration_metadata,
+            javascript_errors_affect_apdex=_effective_bool(
+                imported_policy, "javascript_errors_affect_apdex", cfg.javascript_errors_affect_apdex
+            ),
+            request_errors_affect_apdex=_effective_bool(
+                imported_policy, "request_errors_affect_apdex", cfg.request_errors_affect_apdex
+            ),
+            console_errors_affect_apdex=_effective_bool(
+                imported_policy, "console_errors_affect_apdex", cfg.console_errors_affect_apdex
+            ),
+            javascript_error_capture=_effective_bool(capture, "javascript_errors", cfg.javascript_error_capture),
+            xhr_capture=_effective_bool(capture, "xhr_enabled", cfg.xhr_capture),
+            fetch_capture=_effective_bool(capture, "fetch_enabled", cfg.fetch_capture),
+            console_error_capture=_effective_bool(capture, "console_errors", cfg.console_error_capture),
+            max_error_details=effective_max_details,
         )
         pages = m25._selected_pages(workspace,audit_id,cfg.max_pages)
         targets = m25.allocate_samples(cfg.target_samples_per_page,cfg.device_mix_dict())
@@ -537,7 +626,10 @@ def recover_experience_apdex(
     finally:
         connection.close()
 
-    gateway = m25.PlaywrightSyntheticUxGateway(session_mode=cfg.session_mode)
+    gateway = m25._apply_gateway_capture_policy(
+        m25.PlaywrightSyntheticUxGateway(session_mode=cfg.session_mode),
+        calibration,
+    )
     pacer = m25._OriginPacer(cfg.delay_seconds)
     try:
         with M25Persistence(workspace) as store:

@@ -206,6 +206,15 @@ def _install_web_performance_recovery_alignment() -> None:
         return
 
     def recover_web_performance_aligned(*, workspace: Any, audit_id: str, item: Any) -> bool:
+        from rasai import m21_web_performance as m21
+
+        # Recovery delegates collection/classification to the canonical M21 path.
+        # Validate the shared primitives explicitly so runtime drift fails closed.
+        if not callable(m21.build_web_performance_observation):
+            raise RuntimeError("M21 canonical observation builder unavailable")
+        if not callable(m21.summarize_web_performance_run):
+            raise RuntimeError("M21 canonical run summarizer unavailable")
+
         original_success = bool(original(workspace=workspace, audit_id=audit_id, item=item))
         if original_success:
             return True
@@ -228,8 +237,23 @@ def _install_web_performance_recovery_alignment() -> None:
         except (ImportError, sqlite3.Error, TypeError, ValueError):
             pass
 
-        reconciled = _reconcile_recovery_crux_no_data(workspace, audit_id)
-        return original_success if reconciled is None else bool(reconciled)
+        _reconcile_recovery_crux_no_data(workspace, audit_id)
+
+        # Fulfillment closes only from the canonical persisted run state. The
+        # reconciliation above may adjust that state, but it must not establish
+        # a second success formula in the wrapper.
+        connection = sqlite3.connect(workspace.database)
+        try:
+            row = connection.execute(
+                "SELECT status FROM web_performance_runs WHERE audit_id=?",
+                (audit_id,),
+            ).fetchone()
+        except sqlite3.Error:
+            row = None
+        finally:
+            connection.close()
+        run_status = str(row[0] or "") if row is not None else ("SUCCESS" if original_success else "")
+        return run_status == "SUCCESS"
 
     recover_web_performance_aligned._rasai_crux_no_data_recovery_alignment = True  # type: ignore[attr-defined]
     recover_web_performance_aligned._rasai_original = original  # type: ignore[attr-defined]

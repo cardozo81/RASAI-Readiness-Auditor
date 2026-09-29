@@ -37,7 +37,15 @@ class _Gateway:
         self.closed = True
 
 
-def _ux(duration: float, *, js: int = 0, console: int = 0, first_http: int = 0) -> UxMeasurement:
+def _ux(
+    duration: float,
+    *,
+    js: int = 0,
+    console: int = 0,
+    first_http: int = 0,
+    csp: int = 0,
+    request_events: tuple[dict[str, object], ...] = (),
+) -> UxMeasurement:
     return UxMeasurement(
         status="SUCCESS",
         user_action_duration_ms=duration,
@@ -55,6 +63,9 @@ def _ux(duration: float, *, js: int = 0, console: int = 0, first_http: int = 0) 
         console_error_count=console,
         first_party_http_error_count=first_http,
         http_error_count=first_http,
+        csp_violation_count=csp,
+        first_party_csp_violation_count=csp,
+        request_error_events=request_events,
     )
 
 
@@ -107,7 +118,7 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
         self.assertEqual(classify_measurement(_ux(2500), calibration, error_scope="first-party")[0], "TOLERATING")
         self.assertEqual(classify_measurement(_ux(2501), calibration, error_scope="first-party")[0], "FRUSTRATED")
 
-    def test_first_party_runtime_error_without_origin_remains_diagnostic(self) -> None:
+    def test_javascript_runtime_error_forces_frustrated_independent_of_request_scope(self) -> None:
         calibration = Calibration(
             source="TEST", kpm="USER_ACTION_DURATION",
             satisfied_threshold_seconds=1.0, frustrated_threshold_seconds=4.0,
@@ -117,8 +128,8 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
             _ux(300, js=1), calibration, error_scope="first-party"
         )
         self.assertEqual(value, 300.0)
-        self.assertEqual(classification, "SATISFIED")
-        self.assertFalse(forced)
+        self.assertEqual(classification, "FRUSTRATED")
+        self.assertTrue(forced)
 
         classification, value, forced = classify_measurement(
             _ux(300, first_http=1), calibration, error_scope="first-party"
@@ -127,32 +138,111 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
         self.assertEqual(classification, "FRUSTRATED")
         self.assertTrue(forced)
 
-    def test_console_error_only_forces_under_all_error_scope(self) -> None:
+    def test_console_error_is_diagnostic_by_default_and_can_be_enabled(self) -> None:
         calibration = Calibration(
             source="TEST", kpm="USER_ACTION_DURATION",
             satisfied_threshold_seconds=1.0, frustrated_threshold_seconds=4.0,
             errors_affect_apdex=True, metadata={},
         )
         classification, value, forced = classify_measurement(
-            _ux(300, console=1), calibration, error_scope="first-party"
+            _ux(300, console=1), calibration, error_scope="all"
         )
         self.assertEqual(value, 300.0)
         self.assertEqual(classification, "SATISFIED")
         self.assertFalse(forced)
 
+        enabled = Calibration(
+            source="TEST", kpm="USER_ACTION_DURATION",
+            satisfied_threshold_seconds=1.0, frustrated_threshold_seconds=4.0,
+            errors_affect_apdex=True, metadata={},
+            console_errors_affect_apdex=True,
+        )
         classification, value, forced = classify_measurement(
-            _ux(300, console=1), calibration, error_scope="all"
+            _ux(300, console=1), enabled, error_scope="first-party"
         )
         self.assertEqual(value, 300.0)
         self.assertEqual(classification, "FRUSTRATED")
         self.assertTrue(forced)
 
-        classification, value, forced = classify_measurement(
-            _ux(300, console=1), calibration, error_scope="navigation"
+    def test_csp_violation_is_request_error_by_default(self) -> None:
+        calibration = Calibration(
+            source="TEST", kpm="USER_ACTION_DURATION",
+            satisfied_threshold_seconds=1.0, frustrated_threshold_seconds=4.0,
+            errors_affect_apdex=True, metadata={},
         )
-        self.assertEqual(value, 300.0)
+        classification, _, forced = classify_measurement(
+            _ux(300, csp=1), calibration, error_scope="first-party"
+        )
+        self.assertEqual(classification, "FRUSTRATED")
+        self.assertTrue(forced)
+
+    def test_imported_dynatrace_http_rules_apply_first_match_impact_apdex(self) -> None:
+        calibration = Calibration(
+            source="TEST",
+            kpm="USER_ACTION_DURATION",
+            satisfied_threshold_seconds=1.0,
+            frustrated_threshold_seconds=4.0,
+            errors_affect_apdex=True,
+            metadata={
+                "http_error_rules": [
+                    {
+                        "capture": True,
+                        "impact_apdex": False,
+                        "error_codes": "404",
+                        "consider_csp": False,
+                        "consider_failed_images": False,
+                        "consider_unknown": False,
+                        "filter_by_url": False,
+                        "url_matcher": "",
+                        "url": "",
+                    },
+                    {
+                        "capture": True,
+                        "impact_apdex": True,
+                        "error_codes": "5xx",
+                        "consider_csp": True,
+                        "consider_failed_images": True,
+                        "consider_unknown": True,
+                        "filter_by_url": False,
+                        "url_matcher": "",
+                        "url": "",
+                    },
+                ]
+            },
+        )
+        ignored_404 = _ux(
+            300,
+            first_http=1,
+            request_events=({
+                "error_type": "HTTP_ERROR",
+                "url": "https://example.com/missing.png",
+                "http_status": 404,
+                "resource_type": "image",
+                "first_party": True,
+                "failed_image": True,
+                "csp": False,
+            },),
+        )
+        classification, _, forced = classify_measurement(ignored_404, calibration, error_scope="all")
         self.assertEqual(classification, "SATISFIED")
         self.assertFalse(forced)
+
+        impacting_500 = _ux(
+            300,
+            first_http=1,
+            request_events=({
+                "error_type": "HTTP_ERROR",
+                "url": "https://example.com/api",
+                "http_status": 503,
+                "resource_type": "xhr",
+                "first_party": True,
+                "failed_image": False,
+                "csp": False,
+            },),
+        )
+        classification, _, forced = classify_measurement(impacting_500, calibration, error_scope="all")
+        self.assertEqual(classification, "FRUSTRATED")
+        self.assertTrue(forced)
 
     def test_dynatrace_configuration_parser_converts_old_millisecond_thresholds(self) -> None:
         parsed = parse_dynatrace_configuration(
@@ -245,8 +335,8 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
                 ).fetchone()[0]
             finally:
                 connection.close()
-            # first-party: 500ms S, 2000ms+JS diagnostic T, 700ms S, 3000ms F => Apdex 0.625.
-            self.assertEqual(population, (0.625, 2, 1, 1, 0))
+            # JavaScript error follows Dynatrace semantics and forces the 2000ms action to Frustrated.
+            self.assertEqual(population, (0.5, 2, 0, 2, 1))
             self.assertEqual(tablet, 1)
             self.assertNotIn("DYNATRACE_API_TOKEN", stored_config)
             self.assertIn("measurement_contract", stored_config)

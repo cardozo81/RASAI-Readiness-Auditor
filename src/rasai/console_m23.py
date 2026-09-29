@@ -37,11 +37,19 @@ from rasai.m25_cli import (
     DEFAULT_UX_CONCURRENCY,
     DEFAULT_UX_DELAY_SECONDS,
     DEFAULT_UX_DEVICE_MIX,
+    DEFAULT_UX_CONSOLE_ERROR_CAPTURE,
+    DEFAULT_UX_CONSOLE_ERRORS_AFFECT,
     DEFAULT_UX_ERROR_SCOPE,
+    DEFAULT_UX_FETCH_CAPTURE,
+    DEFAULT_UX_JAVASCRIPT_ERROR_CAPTURE,
+    DEFAULT_UX_JAVASCRIPT_ERRORS_AFFECT,
+    DEFAULT_UX_MAX_ERROR_DETAILS,
     DEFAULT_UX_KPM,
+    DEFAULT_UX_REQUEST_ERRORS_AFFECT,
     DEFAULT_UX_MAX_PAGES,
     DEFAULT_UX_SAMPLES,
     DEFAULT_UX_SESSION_MODE,
+    DEFAULT_UX_XHR_CAPTURE,
     DEFAULT_UX_SETTLE_SECONDS,
     M25_ENV_NAMES,
     configured_experience,
@@ -86,6 +94,14 @@ class State(BaseState):
     apdex_experience_satisfied: float | None = None
     apdex_experience_frustrated: float | None = None
     apdex_experience_errors: bool = True
+    apdex_experience_javascript_errors: bool = DEFAULT_UX_JAVASCRIPT_ERRORS_AFFECT
+    apdex_experience_request_errors: bool = DEFAULT_UX_REQUEST_ERRORS_AFFECT
+    apdex_experience_console_errors: bool = DEFAULT_UX_CONSOLE_ERRORS_AFFECT
+    apdex_experience_javascript_capture: bool = DEFAULT_UX_JAVASCRIPT_ERROR_CAPTURE
+    apdex_experience_xhr_capture: bool = DEFAULT_UX_XHR_CAPTURE
+    apdex_experience_fetch_capture: bool = DEFAULT_UX_FETCH_CAPTURE
+    apdex_experience_console_capture: bool = DEFAULT_UX_CONSOLE_ERROR_CAPTURE
+    apdex_experience_max_error_details: int = DEFAULT_UX_MAX_ERROR_DETAILS
     apdex_experience_error_scope: str = DEFAULT_UX_ERROR_SCOPE
     apdex_experience_settle: float = DEFAULT_UX_SETTLE_SECONDS
     apdex_experience_delay: float = DEFAULT_UX_DELAY_SECONDS
@@ -127,6 +143,14 @@ def _blank_args() -> SimpleNamespace:
         apdex_experience_satisfied_seconds=None,
         apdex_experience_frustrated_seconds=None,
         apdex_experience_errors=None,
+        apdex_experience_javascript_errors=None,
+        apdex_experience_request_errors=None,
+        apdex_experience_console_errors=None,
+        apdex_experience_javascript_error_capture=None,
+        apdex_experience_xhr_capture=None,
+        apdex_experience_fetch_capture=None,
+        apdex_experience_console_error_capture=None,
+        apdex_experience_max_error_details=None,
         apdex_experience_error_scope=None,
         apdex_experience_settle_seconds=None,
         apdex_experience_delay_seconds=None,
@@ -149,6 +173,14 @@ def _apply_experience_state(state: State, cfg: ExperienceApdexConfig) -> None:
     state.apdex_experience_satisfied = cfg.satisfied_threshold_seconds
     state.apdex_experience_frustrated = cfg.frustrated_threshold_seconds
     state.apdex_experience_errors = cfg.errors_affect_apdex
+    state.apdex_experience_javascript_errors = cfg.javascript_errors_affect_apdex
+    state.apdex_experience_request_errors = cfg.request_errors_affect_apdex
+    state.apdex_experience_console_errors = cfg.console_errors_affect_apdex
+    state.apdex_experience_javascript_capture = cfg.javascript_error_capture
+    state.apdex_experience_xhr_capture = cfg.xhr_capture
+    state.apdex_experience_fetch_capture = cfg.fetch_capture
+    state.apdex_experience_console_capture = cfg.console_error_capture
+    state.apdex_experience_max_error_details = cfg.max_error_details
     state.apdex_experience_error_scope = cfg.error_scope
     state.apdex_experience_settle = cfg.settle_seconds
     state.apdex_experience_delay = cfg.delay_seconds
@@ -264,6 +296,14 @@ def experience_from_state(state: State) -> ExperienceApdexConfig:
         satisfied_threshold_seconds=state.apdex_experience_satisfied,
         frustrated_threshold_seconds=state.apdex_experience_frustrated,
         errors_affect_apdex=state.apdex_experience_errors,
+        javascript_errors_affect_apdex=state.apdex_experience_javascript_errors,
+        request_errors_affect_apdex=state.apdex_experience_request_errors,
+        console_errors_affect_apdex=state.apdex_experience_console_errors,
+        javascript_error_capture=state.apdex_experience_javascript_capture,
+        xhr_capture=state.apdex_experience_xhr_capture,
+        fetch_capture=state.apdex_experience_fetch_capture,
+        console_error_capture=state.apdex_experience_console_capture,
+        max_error_details=state.apdex_experience_max_error_details,
         error_scope=state.apdex_experience_error_scope,
         settle_seconds=state.apdex_experience_settle,
         delay_seconds=state.apdex_experience_delay,
@@ -313,6 +353,14 @@ def append_m23_command(command: list[str], state: State) -> list[str]:
         "--apdex-experience-delay-seconds", str(ux.delay_seconds),
         "--apdex-experience-concurrency", str(ux.concurrency),
         "--apdex-experience-errors" if ux.errors_affect_apdex else "--no-apdex-experience-errors",
+        "--apdex-experience-javascript-errors" if ux.javascript_errors_affect_apdex else "--no-apdex-experience-javascript-errors",
+        "--apdex-experience-request-errors" if ux.request_errors_affect_apdex else "--no-apdex-experience-request-errors",
+        "--apdex-experience-console-errors" if ux.console_errors_affect_apdex else "--no-apdex-experience-console-errors",
+        "--apdex-experience-javascript-error-capture" if ux.javascript_error_capture else "--no-apdex-experience-javascript-error-capture",
+        "--apdex-experience-xhr-capture" if ux.xhr_capture else "--no-apdex-experience-xhr-capture",
+        "--apdex-experience-fetch-capture" if ux.fetch_capture else "--no-apdex-experience-fetch-capture",
+        "--apdex-experience-console-error-capture" if ux.console_error_capture else "--no-apdex-experience-console-error-capture",
+        "--apdex-experience-max-error-details", str(ux.max_error_details),
     ])
     if ux.satisfied_threshold_seconds is not None:
         result.extend(["--apdex-experience-satisfied-seconds", str(ux.satisfied_threshold_seconds)])

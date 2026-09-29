@@ -277,6 +277,12 @@ def _install_m21_policy() -> None:
             raise
 
     def execute_m21_bounded(*args: Any, **kwargs: Any) -> Any:
+        # Keep the bounded transport wrapper coupled to the same canonical
+        # observation/run classifiers used by the underlying execution.
+        if not callable(m21.build_web_performance_observation):
+            raise RuntimeError("M21 canonical observation builder unavailable")
+        if not callable(m21.summarize_web_performance_run):
+            raise RuntimeError("M21 canonical run summarizer unavailable")
         config = kwargs.get("config")
         workspace = kwargs.get("workspace")
         audit_id = kwargs.get("audit_id")

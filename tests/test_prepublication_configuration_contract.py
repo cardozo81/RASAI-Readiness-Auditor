@@ -33,7 +33,10 @@ def test_disabled_experience_keeps_complete_coherent_defaults() -> None:
     assert cfg.session_mode == "cold"
     assert cfg.kpm == "USER_ACTION_DURATION"
     assert cfg.errors_affect_apdex is True
-    assert cfg.error_scope == "first-party"
+    assert cfg.error_scope == "all"
+    assert cfg.javascript_errors_affect_apdex is True
+    assert cfg.request_errors_affect_apdex is True
+    assert cfg.console_errors_affect_apdex is False
     assert cfg.settle_seconds == 5.0
     assert cfg.delay_seconds == 1.0
     assert cfg.concurrency == 1

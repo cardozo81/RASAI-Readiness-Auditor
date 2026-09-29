@@ -106,6 +106,12 @@ def load_dynatrace_calibration(
     metadata = dict(calibration.metadata)
     metadata["application_id"] = application_id
     metadata["error_rules"] = error_rules_summary
+    metadata["error_policy"] = _error_policy_from_summary(
+        error_rules_summary,
+        fallback=metadata.get("error_policy"),
+    )
+    if isinstance(error_rules_summary.get("http_error_rules"), list):
+        metadata["http_error_rules"] = error_rules_summary["http_error_rules"]
     metadata["token_persisted"] = False
     return DynatraceCalibration(
         source=calibration.source,
@@ -150,6 +156,17 @@ def parse_dynatrace_configuration(payload: dict[str, Any], *, source: str) -> Dy
         "fallback_satisfied_threshold_source": load.get("fallback_satisfied_threshold_source"),
         "fallback_frustrated_threshold_source": load.get("fallback_frustrated_threshold_source"),
         "errors_affect_apdex_observed": False,
+        "error_policy": _error_policy_from_payload(payload),
+        "http_error_rules": _extract_http_error_rules(payload),
+        "custom_error_rules_observed": bool(_find_value(payload, "customErrorRules")),
+        "dynatrace_capture_contract": {
+            "javascript_errors": _find_value(payload, "javaScriptErrors"),
+            "max_errors_to_capture": _find_value(payload, "maxErrorsToCapture"),
+            "xhr_enabled": _find_value(payload, "xmlHttpRequest"),
+            "fetch_enabled": _find_value(payload, "fetchRequests"),
+            "console_errors": _custom_configuration_properties(payload).get("cce") in {"1", "true", "yes", "on"},
+            "custom_configuration_properties_observed": bool(_find_value(payload, "customConfigurationProperties")),
+        },
         "raw_configuration_persisted": False,
         "standalone_action_support": {
             "load": "EXECUTABLE",
@@ -300,15 +317,155 @@ def _threshold(
     return result, f"{milliseconds_name}:milliseconds"
 
 
+def _custom_configuration_properties(payload: dict[str, Any]) -> dict[str, str]:
+    raw = _find_value(payload, "customConfigurationProperties")
+    if not isinstance(raw, str):
+        return {}
+    pairs: dict[str, str] = {}
+    for item in raw.replace(";", "|").split("|"):
+        if "=" not in item:
+            continue
+        key, value = item.split("=", 1)
+        pairs[key.strip().casefold()] = value.strip().casefold()
+    return pairs
+
+
+def _error_policy_from_payload(payload: dict[str, Any]) -> dict[str, bool]:
+    """Translate only Dynatrace error/capture switches that have direct M25 semantics."""
+    summary: dict[str, Any] = {}
+    for key in (
+        "ignoreJavaScriptErrorsInApdexCalculation",
+        "ignoreHttpErrorsInApdexCalculation",
+        "ignoreRequestErrorsInApdexCalculation",
+    ):
+        value = _find_value(payload, key)
+        if isinstance(value, bool):
+            summary[key] = value
+
+    policy = _error_policy_from_summary(summary)
+    javascript_capture = _find_value(payload, "javaScriptErrors")
+    if isinstance(javascript_capture, bool) and not javascript_capture:
+        policy["javascript_errors_affect_apdex"] = False
+
+    custom_properties = _custom_configuration_properties(payload)
+    if custom_properties.get("cce") in {"1", "true", "yes", "on"}:
+        policy["console_errors_affect_apdex"] = True
+
+    return policy
+
+
+def _error_policy_from_summary(
+    summary: dict[str, Any],
+    *,
+    fallback: Any = None,
+) -> dict[str, bool]:
+    base = dict(fallback) if isinstance(fallback, dict) else {}
+    javascript = bool(base.get("javascript_errors_affect_apdex", True))
+    request = bool(base.get("request_errors_affect_apdex", True))
+    console = bool(base.get("console_errors_affect_apdex", False))
+
+    if isinstance(summary.get("ignoreJavaScriptErrorsInApdexCalculation"), bool):
+        javascript = not bool(summary["ignoreJavaScriptErrorsInApdexCalculation"])
+    request_ignores = [
+        summary.get("ignoreHttpErrorsInApdexCalculation"),
+        summary.get("ignoreRequestErrorsInApdexCalculation"),
+    ]
+    explicit_request = [value for value in request_ignores if isinstance(value, bool)]
+    if explicit_request:
+        request = not all(explicit_request)
+
+    return {
+        "javascript_errors_affect_apdex": javascript,
+        "request_errors_affect_apdex": request,
+        "console_errors_affect_apdex": console,
+    }
+
+
+def _normalize_matcher(value: Any) -> str:
+    matcher = str(value or "").strip().upper()
+    return matcher if matcher in {"BEGINS_WITH", "ENDS_WITH", "CONTAINS", "EQUALS"} else ""
+
+
+def _sanitize_http_error_rule(rule: Any) -> dict[str, Any] | None:
+    if not isinstance(rule, dict):
+        return None
+
+    # Configuration API (legacy/current compatibility surface).
+    if "captureSettings" not in rule:
+        return {
+            "capture": bool(rule.get("capture", True)),
+            "impact_apdex": bool(rule.get("impactApdex", True)),
+            "error_codes": str(rule.get("errorCodes") or "").strip()[:256],
+            "consider_csp": bool(rule.get("considerBlockedRequests", False)),
+            "consider_failed_images": bool(rule.get("considerFailedImages", False)),
+            "consider_unknown": bool(rule.get("considerUnknownErrorCode", False)),
+            "filter_by_url": bool(rule.get("filterByUrl", False)),
+            "url_matcher": _normalize_matcher(rule.get("filter")),
+            "url": str(rule.get("url") or "").strip()[:2048],
+        }
+
+    # Settings API / exported settings representation.
+    capture = rule.get("captureSettings")
+    capture = capture if isinstance(capture, dict) else {}
+    filter_settings = rule.get("filterSettings")
+    filter_settings = filter_settings if isinstance(filter_settings, dict) else {}
+    url = str(filter_settings.get("url") or "").strip()[:2048]
+    matcher = _normalize_matcher(filter_settings.get("filter"))
+    return {
+        "capture": bool(capture.get("capture", True)),
+        "impact_apdex": bool(capture.get("impactApdex", True)),
+        "error_codes": str(rule.get("errorCodes") or "").strip()[:256],
+        "consider_csp": bool(rule.get("considerCspViolations", False)),
+        "consider_failed_images": bool(rule.get("considerFailedImages", False)),
+        "consider_unknown": bool(rule.get("considerUnknownErrorCode", False)),
+        "filter_by_url": bool(url),
+        "url_matcher": matcher,
+        "url": url,
+    }
+
+
+def _extract_http_error_rules(payload: Any) -> list[dict[str, Any]]:
+    if not isinstance(payload, (dict, list)):
+        return []
+
+    candidates: Any = _find_value(payload, "httpErrorRules")
+    if not isinstance(candidates, list):
+        generic = _find_value(payload, "errorRules")
+        if isinstance(generic, list) and any(
+            isinstance(item, dict) and (
+                "captureSettings" in item
+                or "considerCspViolations" in item
+                or "considerFailedImages" in item
+            )
+            for item in generic
+        ):
+            candidates = generic
+
+    if not isinstance(candidates, list):
+        return []
+    result: list[dict[str, Any]] = []
+    for raw in candidates[:100]:
+        item = _sanitize_http_error_rule(raw)
+        if item is not None:
+            result.append(item)
+    return result
+
+
 def _summarize_error_rules(rules: Any) -> dict[str, Any]:
     if isinstance(rules, list):
         return {"retrieved": True, "rule_count": len(rules)}
     if not isinstance(rules, dict):
         return {"retrieved": True, "rule_count": None}
     values = rules.get("values") or rules.get("rules") or []
+    http_rules = _extract_http_error_rules(rules)
     summary: dict[str, Any] = {
         "retrieved": True,
-        "rule_count": len(values) if isinstance(values, list) else None,
+        "rule_count": len(values) if isinstance(values, list) else (
+            len(rules.get("httpErrorRules", [])) if isinstance(rules.get("httpErrorRules"), list) else None
+        ),
+        "http_error_rules": http_rules,
+        "custom_error_rule_count": len(rules.get("customErrorRules", []))
+        if isinstance(rules.get("customErrorRules"), list) else 0,
     }
     for key in (
         "ignoreCustomErrorsInApdexCalculation",

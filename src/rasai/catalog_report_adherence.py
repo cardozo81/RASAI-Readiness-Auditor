@@ -678,6 +678,8 @@ def _install_apdex_projection() -> None:
                     ("Requisições XHR/fetch", sample.get("xhr_fetch_count")), ("Recursos dinâmicos", sample.get("dynamic_resource_count")), ("Erros JavaScript", sample.get("javascript_error_count")),
                     ("Erros de console", sample.get("console_error_count")), ("Requisições com falha", sample.get("request_failed_count")), ("Falhas em recursos próprios", sample.get("first_party_request_failed_count")),
                     ("Respostas HTTP com erro", sample.get("http_error_count")), ("Erros HTTP em recursos próprios", sample.get("first_party_http_error_count")),
+                    ("Violações CSP", sample.get("csp_violation_count")), ("CSP em recursos próprios", sample.get("first_party_csp_violation_count")),
+                    ("Falhas de imagem", sample.get("failed_image_request_count")), ("Falhas de imagem em recursos próprios", sample.get("first_party_failed_image_request_count")),
                     ("Rede estabilizada", "Sim" if sample.get("network_settled") else "Não"), ("Frustração forçada por erro", "Sim" if sample.get("error_forced_frustrated") else "Não"),
                     ("Erro", sample.get("error_message") or sample.get("error_code") or "-"),
                 )
@@ -716,7 +718,33 @@ def _install_apdex_projection() -> None:
             lead += "</div>"
             if bool(run.get("errors_affect_apdex")):
                 scope = analysis._error_scope_label(run.get("error_scope"))
-                lead += f"<div class='notice warn'><strong>Política de erro do Apdex:</strong> {escape(scope)}. A leitura por duração resultou em {duration_satisfied} satisfatória(s), {duration_tolerating} tolerável(is) e {duration_frustrated} frustrada(s); após a política de erro, {forced} amostra(s) foram forçadas para Frustrada. Isso permite distinguir lentidão de falhas funcionais.</div>"
+                cfg = analysis._safe_json(run.get("configuration"), {})
+                if not isinstance(cfg, dict):
+                    cfg = {}
+                legacy_policy = not any(
+                    key in cfg
+                    for key in (
+                        "javascript_errors_affect_apdex",
+                        "request_errors_affect_apdex",
+                        "console_errors_affect_apdex",
+                    )
+                )
+                js_affects = bool(cfg.get("javascript_errors_affect_apdex", str(run.get("error_scope") or "").casefold() == "all" if legacy_policy else True))
+                request_affects = bool(cfg.get("request_errors_affect_apdex", True))
+                console_affects = bool(cfg.get("console_errors_affect_apdex", str(run.get("error_scope") or "").casefold() == "all" if legacy_policy else False))
+                families = (
+                    f"JavaScript: {'afeta' if js_affects else 'não afeta'}; "
+                    f"requisição/HTTP/CSP: {'afeta' if request_affects else 'não afeta'}; "
+                    f"console.error: {'afeta' if console_affects else 'não afeta'}"
+                )
+                lead += (
+                    "<div class='notice warn'><strong>Política de erro do Apdex:</strong> "
+                    + escape(f"{families}; escopo de requisição: {scope}")
+                    + f". A leitura por duração resultou em {duration_satisfied} satisfatória(s), "
+                    f"{duration_tolerating} tolerável(is) e {duration_frustrated} frustrada(s); "
+                    f"após a política de erro, {forced} amostra(s) foram forçadas para Frustrada. "
+                    "Isso permite distinguir lentidão de falhas funcionais.</div>"
+                )
         if fallback_count:
             lead += f"<div class='notice'><strong>Proveniência temporal:</strong> {len(samples)-fallback_count} amostra(s) usam o horário da aquisição física e {fallback_count} usam somente o horário de persistência, explicitamente identificado.</div>"
 

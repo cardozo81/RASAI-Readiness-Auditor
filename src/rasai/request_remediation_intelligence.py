@@ -163,6 +163,8 @@ def _normalized_message(value: Any) -> str:
 def _family(error_type: str, http_status: int | None, message: str) -> str:
     kind = str(error_type or "").upper()
     msg = str(message or "").casefold()
+    if kind == "CSP_VIOLATION":
+        return "CSP"
     status = int(http_status) if http_status is not None else None
     if status in {404, 410}:
         return "RESOURCE_NOT_FOUND"

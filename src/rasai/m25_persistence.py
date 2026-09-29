@@ -82,6 +82,10 @@ class SyntheticUxSample:
     first_party_request_failed_count: int
     http_error_count: int
     first_party_http_error_count: int
+    csp_violation_count: int
+    first_party_csp_violation_count: int
+    failed_image_request_count: int
+    first_party_failed_image_request_count: int
     network_settled: bool
     error_forced_frustrated: bool
     error_code: str | None
@@ -204,6 +208,10 @@ class M25Persistence:
                     first_party_request_failed_count INTEGER NOT NULL,
                     http_error_count INTEGER NOT NULL,
                     first_party_http_error_count INTEGER NOT NULL,
+                    csp_violation_count INTEGER NOT NULL DEFAULT 0,
+                    first_party_csp_violation_count INTEGER NOT NULL DEFAULT 0,
+                    failed_image_request_count INTEGER NOT NULL DEFAULT 0,
+                    first_party_failed_image_request_count INTEGER NOT NULL DEFAULT 0,
                     network_settled INTEGER NOT NULL,
                     error_forced_frustrated INTEGER NOT NULL,
                     error_code TEXT,
@@ -251,6 +259,20 @@ class M25Persistence:
                     ON synthetic_ux_apdex_summaries(audit_id,page_id,device);
                 """
             )
+            sample_columns = {
+                str(row[1])
+                for row in self.connection.execute("PRAGMA table_info(synthetic_ux_apdex_samples)").fetchall()
+            }
+            for column in (
+                "csp_violation_count",
+                "first_party_csp_violation_count",
+                "failed_image_request_count",
+                "first_party_failed_image_request_count",
+            ):
+                if column not in sample_columns:
+                    self.connection.execute(
+                        f"ALTER TABLE synthetic_ux_apdex_samples ADD COLUMN {column} INTEGER NOT NULL DEFAULT 0"
+                    )
 
     def clear_audit(self, audit_id: str) -> None:
         with self.connection:
@@ -294,9 +316,11 @@ class M25Persistence:
                     lcp_ms,cls,http_status,final_url,xhr_fetch_count,dynamic_resource_count,
                     javascript_error_count,console_error_count,request_failed_count,
                     first_party_request_failed_count,http_error_count,first_party_http_error_count,
+                    csp_violation_count,first_party_csp_violation_count,
+                    failed_image_request_count,first_party_failed_image_request_count,
                     network_settled,error_forced_frustrated,error_code,error_message,cpu_method,
                     network_method,captured_at
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     item.sample_id, item.audit_id, item.page_id, item.url, item.device,
@@ -309,7 +333,9 @@ class M25Persistence:
                     item.dynamic_resource_count, item.javascript_error_count,
                     item.console_error_count, item.request_failed_count,
                     item.first_party_request_failed_count, item.http_error_count,
-                    item.first_party_http_error_count, int(item.network_settled),
+                    item.first_party_http_error_count, item.csp_violation_count,
+                    item.first_party_csp_violation_count, item.failed_image_request_count,
+                    item.first_party_failed_image_request_count, int(item.network_settled),
                     int(item.error_forced_frustrated), item.error_code, item.error_message,
                     item.cpu_method, item.network_method, item.captured_at,
                 ),

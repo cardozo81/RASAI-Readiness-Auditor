@@ -34,13 +34,21 @@ from rasai.m23_cli import (
 )
 from rasai.m25_cli import (
     DEFAULT_UX_CONCURRENCY,
+    DEFAULT_UX_CONSOLE_ERROR_CAPTURE,
+    DEFAULT_UX_CONSOLE_ERRORS_AFFECT,
     DEFAULT_UX_DELAY_SECONDS,
+    DEFAULT_UX_FETCH_CAPTURE,
+    DEFAULT_UX_JAVASCRIPT_ERROR_CAPTURE,
+    DEFAULT_UX_JAVASCRIPT_ERRORS_AFFECT,
+    DEFAULT_UX_MAX_ERROR_DETAILS,
     DEFAULT_UX_DEVICE_MIX,
     DEFAULT_UX_ERROR_SCOPE,
     DEFAULT_UX_FRUSTRATED_SECONDS,
     DEFAULT_UX_KPM,
     DEFAULT_UX_MAX_PAGES,
+    DEFAULT_UX_REQUEST_ERRORS_AFFECT,
     DEFAULT_UX_SAMPLES,
+    DEFAULT_UX_XHR_CAPTURE,
     DEFAULT_UX_SATISFIED_SECONDS,
     DEFAULT_UX_SESSION_MODE,
     DEFAULT_UX_SETTLE_SECONDS,
@@ -101,7 +109,11 @@ AUDIT_JOB_FIELDS = frozenset({
     "apdex_experience_max_pages", "apdex_experience_device_mix",
     "apdex_experience_session_mode", "apdex_experience_kpm",
     "apdex_experience_satisfied_seconds", "apdex_experience_frustrated_seconds",
-    "apdex_experience_errors", "apdex_experience_error_scope",
+    "apdex_experience_errors", "apdex_experience_javascript_errors",
+    "apdex_experience_request_errors", "apdex_experience_console_errors",
+    "apdex_experience_javascript_error_capture", "apdex_experience_xhr_capture",
+    "apdex_experience_fetch_capture", "apdex_experience_console_error_capture",
+    "apdex_experience_max_error_details", "apdex_experience_error_scope",
     "apdex_experience_settle_seconds", "apdex_experience_delay_seconds",
     "apdex_experience_concurrency",
     *_CONTENT_PAYLOAD_TO_ENV.keys(),
@@ -165,6 +177,14 @@ def audit_job_options() -> tuple[AuditJobOption, ...]:
             description="Threshold Frustrated padrão compatível com a referência Dynatrace; pode ser customizado e deve ser maior que Satisfied.",
         ),
         AuditJobOption("apdex_experience_errors", True, "boolean"),
+        AuditJobOption("apdex_experience_javascript_errors", DEFAULT_UX_JAVASCRIPT_ERRORS_AFFECT, "boolean"),
+        AuditJobOption("apdex_experience_request_errors", DEFAULT_UX_REQUEST_ERRORS_AFFECT, "boolean"),
+        AuditJobOption("apdex_experience_console_errors", DEFAULT_UX_CONSOLE_ERRORS_AFFECT, "boolean"),
+        AuditJobOption("apdex_experience_javascript_error_capture", DEFAULT_UX_JAVASCRIPT_ERROR_CAPTURE, "boolean"),
+        AuditJobOption("apdex_experience_xhr_capture", DEFAULT_UX_XHR_CAPTURE, "boolean"),
+        AuditJobOption("apdex_experience_fetch_capture", DEFAULT_UX_FETCH_CAPTURE, "boolean"),
+        AuditJobOption("apdex_experience_console_error_capture", DEFAULT_UX_CONSOLE_ERROR_CAPTURE, "boolean"),
+        AuditJobOption("apdex_experience_max_error_details", DEFAULT_UX_MAX_ERROR_DETAILS, "integer"),
         AuditJobOption("apdex_experience_error_scope", DEFAULT_UX_ERROR_SCOPE, "enum", ("navigation", "first-party", "all")),
         AuditJobOption("apdex_experience_settle_seconds", DEFAULT_UX_SETTLE_SECONDS, "number"),
         AuditJobOption("apdex_experience_delay_seconds", DEFAULT_UX_DELAY_SECONDS, "number"),
@@ -318,6 +338,30 @@ def normalize_audit_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         minimum=0.000001,
     )
     normalized["apdex_experience_errors"] = _bool(payload, "apdex_experience_errors", True)
+    normalized["apdex_experience_javascript_errors"] = _bool(
+        payload, "apdex_experience_javascript_errors", DEFAULT_UX_JAVASCRIPT_ERRORS_AFFECT
+    )
+    normalized["apdex_experience_request_errors"] = _bool(
+        payload, "apdex_experience_request_errors", DEFAULT_UX_REQUEST_ERRORS_AFFECT
+    )
+    normalized["apdex_experience_console_errors"] = _bool(
+        payload, "apdex_experience_console_errors", DEFAULT_UX_CONSOLE_ERRORS_AFFECT
+    )
+    normalized["apdex_experience_javascript_error_capture"] = _bool(
+        payload, "apdex_experience_javascript_error_capture", DEFAULT_UX_JAVASCRIPT_ERROR_CAPTURE
+    )
+    normalized["apdex_experience_xhr_capture"] = _bool(
+        payload, "apdex_experience_xhr_capture", DEFAULT_UX_XHR_CAPTURE
+    )
+    normalized["apdex_experience_fetch_capture"] = _bool(
+        payload, "apdex_experience_fetch_capture", DEFAULT_UX_FETCH_CAPTURE
+    )
+    normalized["apdex_experience_console_error_capture"] = _bool(
+        payload, "apdex_experience_console_error_capture", DEFAULT_UX_CONSOLE_ERROR_CAPTURE
+    )
+    normalized["apdex_experience_max_error_details"] = _int(
+        payload, "apdex_experience_max_error_details", DEFAULT_UX_MAX_ERROR_DETAILS, minimum=0, maximum=50
+    )
     normalized["apdex_experience_error_scope"] = _text(payload, "apdex_experience_error_scope", DEFAULT_UX_ERROR_SCOPE, choices=("navigation", "first-party", "all"))
     normalized["apdex_experience_settle_seconds"] = _number(payload, "apdex_experience_settle_seconds", DEFAULT_UX_SETTLE_SECONDS, minimum=0.000001)
     normalized["apdex_experience_delay_seconds"] = _number(payload, "apdex_experience_delay_seconds", DEFAULT_UX_DELAY_SECONDS, minimum=0)
@@ -326,6 +370,14 @@ def normalize_audit_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("AUDIT payload apdex_experience_concurrency >= 3 requires apdex_experience_delay_seconds >= 1")
     if normalized["apdex_experience"] and not normalized["synthetic_apdex"]:
         raise ValueError("AUDIT payload apdex_experience requires synthetic_apdex=true")
+    if (
+        normalized["apdex_experience"]
+        and normalized["apdex_experience_console_errors"]
+        and not normalized["apdex_experience_console_error_capture"]
+    ):
+        raise ValueError(
+            "AUDIT payload console errors can affect Apdex only when console.error capture is enabled"
+        )
     if normalized["apdex_experience"]:
         satisfied = normalized["apdex_experience_satisfied_seconds"]
         frustrated = normalized["apdex_experience_frustrated_seconds"]

@@ -10,6 +10,15 @@ from rasai.apdex_concurrency_policy import EXPERIENCE_MAX_CONCURRENCY
 from rasai.m25_apdex_experience import ExperienceApdexConfig
 from rasai.m25_dynatrace import SUPPORTED_TIME_KPMS
 from rasai.m25_dynatrace_defaults import (
+    DYNATRACE_CONSOLE_ERROR_CAPTURE,
+    DYNATRACE_CONSOLE_ERRORS_AFFECT_APDEX,
+    DYNATRACE_FETCH_CAPTURE,
+    DYNATRACE_JAVASCRIPT_ERROR_CAPTURE,
+    DYNATRACE_JAVASCRIPT_ERRORS_AFFECT_APDEX,
+    DYNATRACE_MAX_ERRORS_TO_CAPTURE,
+    DYNATRACE_REQUEST_ERRORS_AFFECT_APDEX,
+    DYNATRACE_REQUEST_ERROR_SCOPE,
+    DYNATRACE_XHR_CAPTURE,
     RASAI_DYNATRACE_COMPAT_FRUSTRATED_SECONDS,
     RASAI_DYNATRACE_COMPAT_KPM,
     RASAI_DYNATRACE_COMPAT_SATISFIED_SECONDS,
@@ -26,6 +35,14 @@ UX_KPM_ENV = "RASAI_APDEX_EXPERIENCE_KPM"
 UX_SATISFIED_ENV = "RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS"
 UX_FRUSTRATED_ENV = "RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS"
 UX_ERRORS_ENV = "RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT"
+UX_JAVASCRIPT_ERRORS_ENV = "RASAI_APDEX_EXPERIENCE_JAVASCRIPT_ERRORS_AFFECT"
+UX_REQUEST_ERRORS_ENV = "RASAI_APDEX_EXPERIENCE_REQUEST_ERRORS_AFFECT"
+UX_CONSOLE_ERRORS_ENV = "RASAI_APDEX_EXPERIENCE_CONSOLE_ERRORS_AFFECT"
+UX_JAVASCRIPT_CAPTURE_ENV = "RASAI_APDEX_EXPERIENCE_JAVASCRIPT_ERROR_CAPTURE"
+UX_XHR_CAPTURE_ENV = "RASAI_APDEX_EXPERIENCE_XHR_CAPTURE"
+UX_FETCH_CAPTURE_ENV = "RASAI_APDEX_EXPERIENCE_FETCH_CAPTURE"
+UX_CONSOLE_CAPTURE_ENV = "RASAI_APDEX_EXPERIENCE_CONSOLE_ERROR_CAPTURE"
+UX_MAX_ERROR_DETAILS_ENV = "RASAI_APDEX_EXPERIENCE_MAX_ERROR_DETAILS"
 UX_ERROR_SCOPE_ENV = "RASAI_APDEX_EXPERIENCE_ERROR_SCOPE"
 UX_SETTLE_ENV = "RASAI_APDEX_EXPERIENCE_SETTLE_SECONDS"
 UX_DELAY_ENV = "RASAI_APDEX_EXPERIENCE_DELAY_SECONDS"
@@ -39,7 +56,10 @@ DYNATRACE_CONFIG_JSON_ENV = "RASAI_DYNATRACE_CONFIG_JSON"
 M25_ENV_NAMES = (
     UX_ENABLED_ENV, UX_SAMPLES_ENV, UX_MAX_ATTEMPTS_ENV, UX_MAX_PAGES_ENV,
     UX_DEVICE_MIX_ENV, UX_SESSION_MODE_ENV, UX_KPM_ENV, UX_SATISFIED_ENV,
-    UX_FRUSTRATED_ENV, UX_ERRORS_ENV, UX_ERROR_SCOPE_ENV, UX_SETTLE_ENV,
+    UX_FRUSTRATED_ENV, UX_ERRORS_ENV, UX_JAVASCRIPT_ERRORS_ENV, UX_REQUEST_ERRORS_ENV,
+    UX_CONSOLE_ERRORS_ENV, UX_JAVASCRIPT_CAPTURE_ENV, UX_XHR_CAPTURE_ENV,
+    UX_FETCH_CAPTURE_ENV, UX_CONSOLE_CAPTURE_ENV, UX_MAX_ERROR_DETAILS_ENV,
+    UX_ERROR_SCOPE_ENV, UX_SETTLE_ENV,
     UX_DELAY_ENV, UX_CONCURRENCY_ENV, APDEX_ACQUISITION_MODE_ENV, DYNATRACE_IMPORT_ENV,
     DYNATRACE_BASE_URL_ENV, DYNATRACE_APPLICATION_ID_ENV, DYNATRACE_CONFIG_JSON_ENV,
 )
@@ -51,7 +71,15 @@ DEFAULT_UX_SESSION_MODE = "cold"
 DEFAULT_UX_KPM = RASAI_DYNATRACE_COMPAT_KPM
 DEFAULT_UX_SATISFIED_SECONDS = RASAI_DYNATRACE_COMPAT_SATISFIED_SECONDS
 DEFAULT_UX_FRUSTRATED_SECONDS = RASAI_DYNATRACE_COMPAT_FRUSTRATED_SECONDS
-DEFAULT_UX_ERROR_SCOPE = "first-party"
+DEFAULT_UX_JAVASCRIPT_ERRORS_AFFECT = DYNATRACE_JAVASCRIPT_ERRORS_AFFECT_APDEX
+DEFAULT_UX_REQUEST_ERRORS_AFFECT = DYNATRACE_REQUEST_ERRORS_AFFECT_APDEX
+DEFAULT_UX_CONSOLE_ERRORS_AFFECT = DYNATRACE_CONSOLE_ERRORS_AFFECT_APDEX
+DEFAULT_UX_JAVASCRIPT_ERROR_CAPTURE = DYNATRACE_JAVASCRIPT_ERROR_CAPTURE
+DEFAULT_UX_XHR_CAPTURE = DYNATRACE_XHR_CAPTURE
+DEFAULT_UX_FETCH_CAPTURE = DYNATRACE_FETCH_CAPTURE
+DEFAULT_UX_CONSOLE_ERROR_CAPTURE = DYNATRACE_CONSOLE_ERROR_CAPTURE
+DEFAULT_UX_MAX_ERROR_DETAILS = DYNATRACE_MAX_ERRORS_TO_CAPTURE
+DEFAULT_UX_ERROR_SCOPE = DYNATRACE_REQUEST_ERROR_SCOPE
 DEFAULT_UX_SETTLE_SECONDS = 5.0
 DEFAULT_UX_DELAY_SECONDS = 1.0
 DEFAULT_UX_CONCURRENCY = 1
@@ -67,8 +95,16 @@ def register_experience_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--apdex-experience-kpm", choices=tuple(sorted(SUPPORTED_TIME_KPMS)), default=None, help=f"executable time KPM; default {DEFAULT_UX_KPM} or {UX_KPM_ENV}")
     parser.add_argument("--apdex-experience-satisfied-seconds", type=float, default=None, help=f"Satisfied/Tolerating threshold; default {DEFAULT_UX_SATISFIED_SECONDS:g}s or {UX_SATISFIED_ENV}")
     parser.add_argument("--apdex-experience-frustrated-seconds", type=float, default=None, help=f"Frustrated threshold; default {DEFAULT_UX_FRUSTRATED_SECONDS:g}s or {UX_FRUSTRATED_ENV}")
-    parser.add_argument("--apdex-experience-errors", action=argparse.BooleanOptionalAction, default=None, help=f"make qualifying errors Frustrated; default true or {UX_ERRORS_ENV}")
-    parser.add_argument("--apdex-experience-error-scope", choices=("navigation", "first-party", "all"), default=None, help=f"which request/JS errors can force Frustrated; default {DEFAULT_UX_ERROR_SCOPE} or {UX_ERROR_SCOPE_ENV}")
+    parser.add_argument("--apdex-experience-errors", action=argparse.BooleanOptionalAction, default=None, help=f"master switch for qualifying errors to force Frustrated; default true or {UX_ERRORS_ENV}")
+    parser.add_argument("--apdex-experience-javascript-errors", action=argparse.BooleanOptionalAction, default=None, help=f"JavaScript runtime errors affect Apdex; Dynatrace-aligned default true or {UX_JAVASCRIPT_ERRORS_ENV}")
+    parser.add_argument("--apdex-experience-request-errors", action=argparse.BooleanOptionalAction, default=None, help=f"request/HTTP/CSP errors affect Apdex; Dynatrace-aligned default true or {UX_REQUEST_ERRORS_ENV}")
+    parser.add_argument("--apdex-experience-console-errors", action=argparse.BooleanOptionalAction, default=None, help=f"console.error affects Apdex; default false because Dynatrace RUM console capture is opt-in or {UX_CONSOLE_ERRORS_ENV}")
+    parser.add_argument("--apdex-experience-javascript-error-capture", action=argparse.BooleanOptionalAction, default=None, help=f"capture JavaScript runtime errors; Dynatrace default true or {UX_JAVASCRIPT_CAPTURE_ENV}")
+    parser.add_argument("--apdex-experience-xhr-capture", action=argparse.BooleanOptionalAction, default=None, help=f"capture/correlate XMLHttpRequest activity; Dynatrace default true or {UX_XHR_CAPTURE_ENV}")
+    parser.add_argument("--apdex-experience-fetch-capture", action=argparse.BooleanOptionalAction, default=None, help=f"capture/correlate fetch activity; Dynatrace default true or {UX_FETCH_CAPTURE_ENV}")
+    parser.add_argument("--apdex-experience-console-error-capture", action=argparse.BooleanOptionalAction, default=None, help=f"capture console.error; Dynatrace default false unless cce=1 or {UX_CONSOLE_CAPTURE_ENV}")
+    parser.add_argument("--apdex-experience-max-error-details", type=int, default=None, help=f"maximum detailed error events persisted per synthetic page; Dynatrace reference default {DEFAULT_UX_MAX_ERROR_DETAILS} or {UX_MAX_ERROR_DETAILS_ENV}")
+    parser.add_argument("--apdex-experience-error-scope", choices=("navigation", "first-party", "all"), default=None, help=f"request-error scope; Dynatrace-aligned default {DEFAULT_UX_ERROR_SCOPE} or {UX_ERROR_SCOPE_ENV}")
     parser.add_argument("--apdex-experience-settle-seconds", type=float, default=None, help=f"bounded post-load observation window; default {DEFAULT_UX_SETTLE_SECONDS:g}s or {UX_SETTLE_ENV}")
     parser.add_argument("--apdex-experience-delay-seconds", type=float, default=None, help=f"minimum interval between sample starts; default {DEFAULT_UX_DELAY_SECONDS:g}s or {UX_DELAY_ENV}")
     parser.add_argument("--apdex-experience-concurrency", type=int, default=None, help=f"parallel workers 1-{EXPERIENCE_MAX_CONCURRENCY}; default {DEFAULT_UX_CONCURRENCY} or {UX_CONCURRENCY_ENV}; concurrency 3 requires delay >=1s")
@@ -103,6 +139,16 @@ def configured_experience(
     satisfied = _positive_float(getattr(args, "apdex_experience_satisfied_seconds", None), UX_SATISFIED_ENV, DEFAULT_UX_SATISFIED_SECONDS, environment)
     frustrated = _positive_float(getattr(args, "apdex_experience_frustrated_seconds", None), UX_FRUSTRATED_ENV, DEFAULT_UX_FRUSTRATED_SECONDS, environment)
     errors = _bool(getattr(args, "apdex_experience_errors", None), UX_ERRORS_ENV, True, environment)
+    javascript_errors = _bool(getattr(args, "apdex_experience_javascript_errors", None), UX_JAVASCRIPT_ERRORS_ENV, DEFAULT_UX_JAVASCRIPT_ERRORS_AFFECT, environment)
+    request_errors = _bool(getattr(args, "apdex_experience_request_errors", None), UX_REQUEST_ERRORS_ENV, DEFAULT_UX_REQUEST_ERRORS_AFFECT, environment)
+    console_errors = _bool(getattr(args, "apdex_experience_console_errors", None), UX_CONSOLE_ERRORS_ENV, DEFAULT_UX_CONSOLE_ERRORS_AFFECT, environment)
+    javascript_capture = _bool(getattr(args, "apdex_experience_javascript_error_capture", None), UX_JAVASCRIPT_CAPTURE_ENV, DEFAULT_UX_JAVASCRIPT_ERROR_CAPTURE, environment)
+    xhr_capture = _bool(getattr(args, "apdex_experience_xhr_capture", None), UX_XHR_CAPTURE_ENV, DEFAULT_UX_XHR_CAPTURE, environment)
+    fetch_capture = _bool(getattr(args, "apdex_experience_fetch_capture", None), UX_FETCH_CAPTURE_ENV, DEFAULT_UX_FETCH_CAPTURE, environment)
+    console_capture = _bool(getattr(args, "apdex_experience_console_error_capture", None), UX_CONSOLE_CAPTURE_ENV, DEFAULT_UX_CONSOLE_ERROR_CAPTURE, environment)
+    max_error_details = _nonnegative_int(getattr(args, "apdex_experience_max_error_details", None), UX_MAX_ERROR_DETAILS_ENV, DEFAULT_UX_MAX_ERROR_DETAILS, environment)
+    if max_error_details > 50:
+        raise ValueError(f"{UX_MAX_ERROR_DETAILS_ENV} deve estar entre 0 e 50")
     error_scope = (_text(getattr(args, "apdex_experience_error_scope", None), UX_ERROR_SCOPE_ENV, environment) or DEFAULT_UX_ERROR_SCOPE).casefold()
     settle = _positive_float(getattr(args, "apdex_experience_settle_seconds", None), UX_SETTLE_ENV, DEFAULT_UX_SETTLE_SECONDS, environment)
     delay = _nonnegative_float(getattr(args, "apdex_experience_delay_seconds", None), UX_DELAY_ENV, standard_delay_seconds, environment)
@@ -134,6 +180,14 @@ def configured_experience(
         satisfied_threshold_seconds=satisfied,
         frustrated_threshold_seconds=frustrated,
         errors_affect_apdex=errors,
+        javascript_errors_affect_apdex=javascript_errors,
+        request_errors_affect_apdex=request_errors,
+        console_errors_affect_apdex=console_errors,
+        javascript_error_capture=javascript_capture,
+        xhr_capture=xhr_capture,
+        fetch_capture=fetch_capture,
+        console_error_capture=console_capture,
+        max_error_details=max_error_details,
         error_scope=error_scope,
         settle_seconds=settle,
         delay_seconds=delay,
@@ -165,10 +219,13 @@ def parse_device_mix(raw: str | None) -> tuple[tuple[str, float], ...]:
 def validate_m25_env_value(name: str, raw: str) -> str:
     value = raw.strip()
     if not value: raise ValueError("valor vazio")
-    if name in {UX_ENABLED_ENV, UX_ERRORS_ENV, DYNATRACE_IMPORT_ENV}: _parse_bool(value, name)
+    if name in {UX_ENABLED_ENV, UX_ERRORS_ENV, UX_JAVASCRIPT_ERRORS_ENV, UX_REQUEST_ERRORS_ENV, UX_CONSOLE_ERRORS_ENV, UX_JAVASCRIPT_CAPTURE_ENV, UX_XHR_CAPTURE_ENV, UX_FETCH_CAPTURE_ENV, UX_CONSOLE_CAPTURE_ENV, DYNATRACE_IMPORT_ENV}: _parse_bool(value, name)
     elif name in {UX_SAMPLES_ENV, UX_MAX_ATTEMPTS_ENV, UX_CONCURRENCY_ENV}:
         parsed = int(value)
         if parsed < 1 or (name == UX_CONCURRENCY_ENV and parsed > EXPERIENCE_MAX_CONCURRENCY): raise ValueError("valor inteiro fora do domínio permitido")
+    elif name == UX_MAX_ERROR_DETAILS_ENV:
+        parsed = int(value)
+        if parsed < 0 or parsed > 50: raise ValueError("valor deve estar entre 0 e 50")
     elif name == UX_MAX_PAGES_ENV and int(value) < 0: raise ValueError("valor deve ser inteiro >=0")
     elif name == UX_DEVICE_MIX_ENV: parse_device_mix(value)
     elif name == UX_SESSION_MODE_ENV and value.casefold() not in {"cold", "warm"}: raise ValueError("session mode deve ser cold ou warm")

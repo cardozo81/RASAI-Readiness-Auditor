@@ -96,7 +96,7 @@ def _apdex_samples_html(database: Path, data: _ReportData, *, experience: bool) 
                 ("Requisições XHR/fetch",s.get("xhr_fetch_count")),("Recursos dinâmicos",s.get("dynamic_resource_count")),
                 ("Erros JavaScript",s.get("javascript_error_count")),("Erros de console",s.get("console_error_count")),
                 ("Requisições com falha",s.get("request_failed_count")),("Falhas em recursos próprios",s.get("first_party_request_failed_count")),
-                ("Respostas HTTP com erro",s.get("http_error_count")),("Rede estabilizada","Sim" if s.get("network_settled") else "Não"),
+                ("Respostas HTTP com erro",s.get("http_error_count")),("Violações CSP",s.get("csp_violation_count")),("Falhas de imagem",s.get("failed_image_request_count")),("Rede estabilizada","Sim" if s.get("network_settled") else "Não"),
                 ("Frustração forçada por erro","Sim" if s.get("error_forced_frustrated") else "Não"),("Erro",s.get("error_message") or s.get("error_code") or "-"),
             )
             note="<div class='notice'>Esta amostra persiste contagens de falhas por requisição. Quando a lista individual de URLs não faz parte do contrato da amostra, o relatório não inventa esse detalhe.</div>"

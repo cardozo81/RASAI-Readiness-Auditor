@@ -487,7 +487,15 @@ def _configuration_rows(data: _ReportData, catalog_id: str) -> list[Sequence[Any
                 ("Limite satisfatório",f"{cfg.get('satisfied_seconds','-')} s","Configuração da execução"),
                 ("Limite frustrado",f"{cfg.get('frustrated_seconds','-')} s","Configuração da execução"),
                 ("Erros afetam o Apdex","Sim" if str(cfg.get("errors_affect_apdex","")).lower()=="true" else "Não","Configuração da execução"),
-                ("Escopo de erros",_error_scope_label(cfg.get("error_scope")),"Configuração da execução"),
+                ("Erros JavaScript afetam o Apdex","Sim" if str(cfg.get("javascript_errors_affect_apdex","true")).lower()=="true" else "Não","Configuração da execução"),
+                ("Erros de requisição afetam o Apdex","Sim" if str(cfg.get("request_errors_affect_apdex","true")).lower()=="true" else "Não","Configuração da execução"),
+                ("Erros de console afetam o Apdex","Sim" if str(cfg.get("console_errors_affect_apdex","false")).lower()=="true" else "Não","Configuração da execução"),
+                ("Captura de erros JavaScript","Ativa" if str(cfg.get("javascript_error_capture","true")).lower()=="true" else "Inativa","Configuração da execução"),
+                ("Captura de XMLHttpRequest","Ativa" if str(cfg.get("xhr_capture","true")).lower()=="true" else "Inativa","Configuração da execução"),
+                ("Captura de Fetch","Ativa" if str(cfg.get("fetch_capture","true")).lower()=="true" else "Inativa","Configuração da execução"),
+                ("Captura de console.error","Ativa" if str(cfg.get("console_error_capture","false")).lower()=="true" else "Inativa","Configuração da execução"),
+                ("Máximo de erros detalhados",cfg.get("max_error_details",10),"Configuração da execução"),
+                ("Escopo dos erros de requisição",_error_scope_label(cfg.get("error_scope")),"Configuração da execução"),
                 ("Sessão",_session_label(cfg.get("session_mode")),"Configuração da execução"),
             ])
     elif catalog_id=="CAT-08":

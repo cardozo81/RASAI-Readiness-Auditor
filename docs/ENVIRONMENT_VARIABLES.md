@@ -252,8 +252,16 @@ Concorrência acima do recomendado aumenta CPU/RAM local e sobreposição de tr�
 | `RASAI_APDEX_EXPERIENCE_KPM` | `USER_ACTION_DURATION` | `USER_ACTION_DURATION`, `DOM_INTERACTIVE`, `LOAD_EVENT_START`, `LOAD_EVENT_END`, `RESPONSE_START`, `RESPONSE_END`, `LARGEST_CONTENTFUL_PAINT` | `USER_ACTION_DURATION` | KPM sintético |
 | `RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS` | `3` | número `> 0` | `3` | threshold satisfeito |
 | `RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS` | `12` | número `> satisfied` | `12` | threshold frustrado |
-| `RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT` | `true` | booleano | `true` | erros qualificáveis podem forçar Frustrated |
-| `RASAI_APDEX_EXPERIENCE_ERROR_SCOPE` | `first-party` | `navigation`, `first-party`, `all` | `first-party` | escopo dos erros |
+| `RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT` | `true` | booleano | `true` | chave mestra; default Dynatrace: erros elegíveis participam do Apdex |
+| `RASAI_APDEX_EXPERIENCE_JAVASCRIPT_ERRORS_AFFECT` | `true` | booleano | `true` | default Dynatrace: JavaScript errors podem tornar a ação Frustrated |
+| `RASAI_APDEX_EXPERIENCE_REQUEST_ERRORS_AFFECT` | `true` | booleano | `true` | default Dynatrace: request/HTTP/CSP errors podem impactar Apdex |
+| `RASAI_APDEX_EXPERIENCE_CONSOLE_ERRORS_AFFECT` | `false` | booleano | `false` | `console.error` só afeta Apdex quando habilitado explicitamente ou via configuração equivalente a `cce=1` |
+| `RASAI_APDEX_EXPERIENCE_JAVASCRIPT_ERROR_CAPTURE` | `true` | booleano | `true` | default Dynatrace: captura exceções JavaScript |
+| `RASAI_APDEX_EXPERIENCE_XHR_CAPTURE` | `true` | booleano | `true` | default Dynatrace: captura/correlaciona XMLHttpRequest |
+| `RASAI_APDEX_EXPERIENCE_FETCH_CAPTURE` | `true` | booleano | `true` | default Dynatrace: captura/correlaciona Fetch |
+| `RASAI_APDEX_EXPERIENCE_CONSOLE_ERROR_CAPTURE` | `false` | booleano | `false` | default Dynatrace; `cce=1` habilita a captura de `console.error` |
+| `RASAI_APDEX_EXPERIENCE_MAX_ERROR_DETAILS` | `10` | inteiro `0..50` | `10` | alinhado a `maxErrorsToCapture=10`; limita detalhes persistidos, não contadores agregados |
+| `RASAI_APDEX_EXPERIENCE_ERROR_SCOPE` | `all` | `navigation`, `first-party`, `all` | `all` | escopo apenas da família request/HTTP/CSP; demais valores são políticas RASAi |
 | `RASAI_APDEX_EXPERIENCE_SETTLE_SECONDS` | `5` | número `> 0` | `5` | janela pós-load |
 | `RASAI_APDEX_EXPERIENCE_DELAY_SECONDS` | `1` | número `>= 0` | `1` | intervalo entre ações |
 | `RASAI_APDEX_EXPERIENCE_CONCURRENCY` | `1` | inteiro `1..3` | `1`; `3` exige delay >= `1 s` e configuração explícita | workers simultâneos |
@@ -262,6 +270,16 @@ Concorrência acima do recomendado aumenta CPU/RAM local e sobreposição de tr�
 | `RASAI_DYNATRACE_APPLICATION_ID` | sem default | texto não vazio | somente importação live | aplicação web consultada |
 | `RASAI_DYNATRACE_CONFIG_JSON` | sem default | caminho para JSON existente | preferível à importação live quando possível | configuração offline/reproduzível |
 | `DYNATRACE_API_TOKEN` | sem default | token API válido com permissões mínimas necessárias | secret/env | obrigatório na importação live |
+
+### Proveniência dos defaults Apdex
+
+A classificação de origem é obrigatória:
+
+- **Dynatrace reproduzível:** Experience thresholds 3/12, erros JavaScript = `true`, request errors = `true`, console errors = `false` e escopo default `all`;
+- **fallback RASAi derivado do Dynatrace:** `USER_ACTION_DURATION` 3/12 no lugar de `VISUALLY_COMPLETE`, porque o algoritmo proprietário de Visually Complete não é reimplementado;
+- **operacional RASAi sem default Dynatrace:** habilitação, número de amostras, tentativas, páginas, device mix, session mode, settle, delay, concorrência, timeout e perfis de cliente/hardware/rede.
+
+Parâmetros operacionais RASAi nunca devem ser rotulados como “default Dynatrace”.
 
 O valor `mobile=60,desktop=35,tablet=5` acima é o default técnico do runtime/variável. Na preparação pelo console, quando o mix está **HERDADO**, a interface projeta a próxima execução a partir de `Device`: `mobile` -> `100/0/0`, `desktop` -> `0/100/0` e `both` -> `60/40/0`. Essa projeção não altera o default da variável; Tablet permanece disponível por override avançado do mix.
 

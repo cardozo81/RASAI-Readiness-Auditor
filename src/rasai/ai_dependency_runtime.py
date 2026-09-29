@@ -62,7 +62,7 @@ def _install_technical_gate_provenance() -> None:
             snapshot = None
             sealed = False
         resource_ready = bool(current(workspace, audit_id))
-        result = sealed and resource_ready
+        dependency_ready = sealed and resource_ready
         evidence_ids = _technical_evidence_ids(
             workspace,
             audit_id,
@@ -82,9 +82,12 @@ def _install_technical_gate_provenance() -> None:
                 "rules": list(technical._RESOURCE_RULE_IDS),
                 "evidence_snapshot_id": getattr(snapshot, "evidence_snapshot_id", None),
             },
-            ready=result,
+            ready=dependency_ready,
         )
-        return result
+        # Preserve the predicate contract: this function answers whether the
+        # technical robots/sitemap evidence exists. Evidence sealing is enforced
+        # independently by the governed AI execution layer before provider calls.
+        return resource_ready
 
     ready._rasai_dependency_snapshot = True
     ready._rasai_original = current
