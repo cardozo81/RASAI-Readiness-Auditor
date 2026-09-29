@@ -743,7 +743,8 @@ def _install_apdex_projection() -> None:
                     + f". A leitura por duração resultou em {duration_satisfied} satisfatória(s), "
                     f"{duration_tolerating} tolerável(is) e {duration_frustrated} frustrada(s); "
                     f"após a política de erro, {forced} amostra(s) foram forçadas para Frustrada. "
-                    "Isso permite distinguir lentidão de falhas funcionais.</div>"
+                    "A comparação separa a classificação temporal da classificação por política de erro; "
+                    "um evento observado não é, por si só, evidência de falha funcional do site.</div>"
                 )
         if fallback_count:
             lead += f"<div class='notice'><strong>Proveniência temporal:</strong> {len(samples)-fallback_count} amostra(s) usam o horário da aquisição física e {fallback_count} usam somente o horário de persistência, explicitamente identificado.</div>"
