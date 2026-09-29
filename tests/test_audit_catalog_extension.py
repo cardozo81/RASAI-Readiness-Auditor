@@ -26,9 +26,7 @@ AUDIT_ID = "AUD-CATALOG-EXTENSION"
 
 
 def _workspace(tmp_path: Path, *, valid_until: str | None = None) -> AuditWorkspace:
-    root = tmp_path / AUDIT_ID
-    root.mkdir()
-    workspace = AuditWorkspace.open(root)
+    workspace = AuditWorkspace.create(tmp_path, AUDIT_ID)
     configuration = {
         "targets": ["https://example.test/"],
         "audit_catalog": {
@@ -349,9 +347,8 @@ def test_console_contains_unexpected_extension_failure_and_returns_to_menu(
     import rasai.console_catalog_plan as catalog_plan
     import rasai.console_catalog_ui as catalog_ui
 
-    root = tmp_path / AUDIT_ID
-    root.mkdir()
-    AuditWorkspace.open(root)
+    workspace = AuditWorkspace.create(tmp_path, AUDIT_ID)
+    sqlite3.connect(workspace.database).close()
 
     state = SimpleNamespace(
         audits_root=tmp_path,
