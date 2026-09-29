@@ -10,7 +10,7 @@ from rasai.console_detail_presentation import detail_text, install
 def test_detail_text_does_not_emit_leading_colon_without_code() -> None:
     assert detail_text("", "o host respondeu") == "o host respondeu"
     assert detail_text(None, ": o host respondeu") == "o host respondeu"
-    assert detail_text("TLS_ERROR", "falha de certificado") == "TLS_ERROR: falha de certificado"
+    assert detail_text("TLS_ERROR", "falha de certificado") == "Erro TLS: falha de certificado"
 
 
 def test_network_detail_row_has_only_the_label_separator() -> None:
