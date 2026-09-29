@@ -16,6 +16,7 @@ from types import ModuleType, SimpleNamespace
 from typing import Any
 
 from rasai.console_confirmation_contract import confirm_continue
+from rasai.public_language import component_label, scope_label
 
 _AI_COMPONENTS = frozenset(
     {
@@ -503,7 +504,7 @@ def render_reprocess_preparation(
     _section("PENDÊNCIAS DESTA TENTATIVA")
     if pending:
         for index, item in enumerate(pending, start=1):
-            component = f"{item.component} / {item.scope_key}"
+            component = f"{component_label(item.component)} / {scope_label(item.scope_key)}"
             print(f"{index:>2}. {component}")
             _wrapped_field("    Status", parity._friendly_status(getattr(item, "status", "")))
             reason = parity._reason_text(item)
@@ -527,9 +528,9 @@ def render_reprocess_preparation(
     if successes:
         visible = successes[:12]
         for item in visible:
-            component = str(getattr(item, "component", "") or "requisito concluído")
+            component = component_label(getattr(item, "component", "") or "requisito concluído")
             scope_key = str(getattr(item, "scope_key", "") or "")
-            label = f"{component}/{scope_key}" if scope_key else component
+            label = f"{component}/{scope_label(scope_key)}" if scope_key else component
             print(f"- {label}: preservado; não será executado novamente por padrão")
         remaining = len(successes) - len(visible)
         if remaining > 0:
