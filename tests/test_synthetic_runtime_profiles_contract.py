@@ -5,7 +5,11 @@ from types import SimpleNamespace
 import pytest
 
 from rasai.m23_cli import configured_apdex
-from rasai.synthetic_profile_runtime import _capture_cli_profiles, _profile_for
+from rasai.synthetic_profile_runtime import (
+    _capture_cli_profiles,
+    _profile_for,
+    profile_selection_scope,
+)
 from rasai.synthetic_profile_saas_runtime import normalized_runtime_profiles
 from rasai.synthetic_runtime_profiles import (
     PROFILE_ENV_NAMES,
@@ -110,3 +114,25 @@ def test_environment_defaults_remain_explicit_and_reproducible() -> None:
         "hardware": "tablet-balanced",
         "network": "tablet-4g-balanced",
     }
+
+
+
+def test_execution_local_profile_scope_overrides_current_environment_without_mutating_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RASAI_APDEX_MOBILE_NETWORK_PROFILE", "mobile-5g")
+    frozen = {
+        "MOBILE": {
+            "client": "mobile-compact-chromium",
+            "hardware": "mobile-entry",
+            "network": "mobile-3g-constrained",
+        }
+    }
+
+    with profile_selection_scope(frozen):
+        profile = _profile_for("MOBILE")
+        assert profile.client_profile_id == "mobile-compact-chromium"
+        assert profile.hardware_profile_id == "mobile-entry"
+        assert profile.network_profile_id == "mobile-3g-constrained"
+
+    assert _profile_for("MOBILE").network_profile_id == "mobile-5g"
