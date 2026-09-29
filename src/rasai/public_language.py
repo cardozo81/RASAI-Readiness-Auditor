@@ -117,6 +117,7 @@ SUPPLEMENTAL_PUBLIC_LABELS: dict[str, str] = {
     "INTERNAL": "Erro interno",
     "PARTIAL": "Parcial",
     "MAIN_CONTENT_UNAVAILABLE": "Conteúdo principal indisponível",
+    "AI_WAITING_FOR_DATA": "IA aguardando pré-requisitos",
     "SEMANTIC_AI_RETRY_INCOMPLETE": "Nova tentativa da análise semântica por IA ficou incompleta",
     "AI_CONTRACT": "Contrato de IA",
     "AI_PROVIDER": "Provedor de IA",
@@ -426,6 +427,33 @@ def diagnostic_label(value: Any) -> str:
     return normalize_visible_text(raw)
 
 
+def diagnostic_text(value: Any) -> str:
+    """Humanize known machine tokens embedded in a persisted diagnostic message."""
+    raw = normalize_visible_text(value)
+    if not raw:
+        return ""
+    if re.fullmatch(r"[A-Z][A-Z0-9_]+(?::[A-Z][A-Z0-9_]+)+", raw):
+        labels: list[str] = []
+        for token in raw.split(":"):
+            label = supplemental_public_label(token)
+            if label is None:
+                key = re.sub(r"[^A-Z0-9]+", "_", token.upper()).strip("_")
+                label = CONSOLE_STATUS_LABELS.get(key)
+            labels.append(label or safe_visible_fallback(token))
+        return " - ".join(labels)
+
+    token_re = re.compile(r"(?<![A-Za-z0-9_])([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)(?![A-Za-z0-9_])")
+    def replace(match: re.Match[str]) -> str:
+        token = match.group(1)
+        label = supplemental_public_label(token)
+        if label is None:
+            key = re.sub(r"[^A-Z0-9]+", "_", token.upper()).strip("_")
+            label = CONSOLE_STATUS_LABELS.get(key)
+        return label or token
+
+    return token_re.sub(replace, raw)
+
+
 def temporal_mode_label(value: Any) -> str:
     raw = _raw(value)
     labels = {
@@ -447,6 +475,7 @@ __all__ = [
     "console_operation_label",
     "console_status_label",
     "diagnostic_label",
+    "diagnostic_text",
     "is_traceability_identifier",
     "normalize_visible_text",
     "safe_visible_fallback",
