@@ -560,10 +560,10 @@ _PUBLIC_TOKEN_VALUES = tuple(
     sorted(set(_PUBLIC_LABELS) | set(SUPPLEMENTAL_PUBLIC_LABELS), key=len, reverse=True)
 )
 _PUBLIC_TOKEN_RE = re.compile(
-    r"(?<![A-Z0-9_])("
+    r"(?<![A-Za-z0-9_])("
     + "|".join(re.escape(value) for value in _PUBLIC_TOKEN_VALUES)
     + r"|TECHNICAL_PREREQUISITE_BR_GEO_\d{3}_[A-Z0-9_]+"
-    + r"|[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)(?![A-Z0-9_])"
+    + r"|[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)(?![A-Za-z0-9_])"
 )
 
 
@@ -574,8 +574,10 @@ def _public_token_replacement(match: re.Match[str]) -> str:
     # expanding e.g. P2 -> Alta (P2) -> Alta (Alta (P2)).
     if value in {"P0", "P1", "P2", "P3", "P4"} and match.start() > 0 and match.string[match.start() - 1] == "(":
         return value
-    label = public_label(value)
-    return label if label != value else safe_visible_fallback(value)
+    if value in _PUBLIC_LABELS:
+        return _PUBLIC_LABELS[value]
+    label = supplemental_public_label(value)
+    return label if label is not None else safe_visible_fallback(value)
 
 
 def _standalone_concept_label(text: str, *, page_name: str | None) -> str:
@@ -604,11 +606,10 @@ def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
 
     def isolated(match: re.Match[str]) -> str:
         value = match.group("value")
-        label = public_label(value)
-        if label == value:
-            label = safe_visible_fallback(value)
-        if label == value:
-            return match.group(0)
+        if value in _PUBLIC_LABELS:
+            label = _PUBLIC_LABELS[value]
+        else:
+            label = supplemental_public_label(value) or safe_visible_fallback(value)
         return f"{match.group(1)}{label}{match.group(4)}"
 
     parts = _TAG_SPLIT_RE.split(html)
