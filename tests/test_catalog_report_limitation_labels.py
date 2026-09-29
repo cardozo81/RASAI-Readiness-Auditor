@@ -36,7 +36,7 @@ def test_ai_limitations_translate_known_codes_but_preserve_technical_rule_ids() 
 
 def test_future_unknown_limitation_remains_auditable_instead_of_being_invented() -> None:
     raw = "CUSTOM_FUTURE_LIMITATION"
-    assert _human_limitation(raw) == f"Limitação técnica registrada ({raw})"
+    assert _human_limitation(raw) == "Limitação técnica registrada (Condição técnica não catalogada)"
 
 
 def test_related_public_diagnostic_labels_are_available_for_future_projection() -> None:
