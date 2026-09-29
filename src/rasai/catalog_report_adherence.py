@@ -725,7 +725,15 @@ def _install_apdex_projection() -> None:
                 from rasai.synthetic_runtime_profiles import describe_preset
 
                 profile_rows: list[str] = []
+                device_mix = analysis._safe_json(run.get("device_mix"), {})
+                device_mix = dict(device_mix) if isinstance(device_mix, dict) else {}
                 for device in ("MOBILE", "DESKTOP", "TABLET"):
+                    try:
+                        active_share = float(device_mix.get(device) or 0.0)
+                    except (TypeError, ValueError):
+                        active_share = 0.0
+                    if active_share <= 0:
+                        continue
                     profile = runtime_profiles.get(device)
                     if not isinstance(profile, dict):
                         continue
