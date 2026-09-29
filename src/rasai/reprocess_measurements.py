@@ -135,18 +135,28 @@ def recover_web_performance(
             )
             psi_payload = _read_artifact(workspace, psi_row["artifact_reference"] if psi_row else None)
             psi_artifact = str(psi_row["artifact_reference"]) if psi_row and psi_payload is not None else None
+            psi_artifact_sha256 = (
+                str(psi_row["artifact_sha256"])
+                if psi_row
+                and "artifact_sha256" in psi_row.keys()
+                and psi_row["artifact_sha256"]
+                and psi_payload is not None
+                else None
+            )
             psi_http_status = int(psi_row["http_status"]) if psi_row and psi_row["http_status"] is not None and psi_payload is not None else None
             if psi_payload is None:
                 try:
                     response = psi.run(url=url,strategy=strategy,categories=cfg.categories,timeout_seconds=cfg.timeout_seconds)
                     psi_payload = response.payload
                     psi_http_status = response.http_status
-                    psi_artifact = m21._write_json_artifact(workspace, observation_id, "pagespeed", psi_payload)
+                    psi_artifact, psi_artifact_sha256 = m21._write_json_artifact(
+                        workspace, observation_id, "pagespeed", psi_payload
+                    )
                     store.add_attempt(WebPerformanceAttempt(
                         attempt_id=new_id("WPA"),audit_id=audit_id,page_id=page_id,snapshot_id=snapshot_id,
                         device=device.value,url=url,service="PAGESPEED_INSIGHTS",status="SUCCESS",
                         http_status=response.http_status,duration_ms=response.duration_ms,error_code=None,
-                        error_message=None,artifact_reference=psi_artifact,created_at=m21._utc_now(),
+                        error_message=None,artifact_reference=psi_artifact,artifact_sha256=psi_artifact_sha256,created_at=m21._utc_now(),
                     ))
                 except m21.ExternalServiceError as exc:
                     errors.append(f"PAGESPEED:{exc.error_code or exc.http_status or 'ERROR'}")
@@ -176,6 +186,14 @@ def recover_web_performance(
                 or (cfg.field_source == "auto" and field_data is None and (crux is not None or prior_crux_success or was_crux_configured))
             )
             crux_artifact = str(crux_row["artifact_reference"]) if crux_row and prior_crux_success else None
+            crux_artifact_sha256 = (
+                str(crux_row["artifact_sha256"])
+                if crux_row
+                and "artifact_sha256" in crux_row.keys()
+                and crux_row["artifact_sha256"]
+                and prior_crux_success
+                else None
+            )
             crux_http_status = int(crux_row["http_status"]) if crux_row and crux_row["http_status"] is not None and prior_crux_success else None
             if direct_crux_required:
                 if crux_payload is None and crux is not None:
@@ -183,12 +201,14 @@ def recover_web_performance(
                         response = crux.query(url=url,form_factor=form_factor,timeout_seconds=cfg.timeout_seconds)
                         crux_payload = response.payload
                         crux_http_status = response.http_status
-                        crux_artifact = m21._write_json_artifact(workspace, observation_id, "crux", crux_payload)
+                        crux_artifact, crux_artifact_sha256 = m21._write_json_artifact(
+                            workspace, observation_id, "crux", crux_payload
+                        )
                         store.add_attempt(WebPerformanceAttempt(
                             attempt_id=new_id("WPA"),audit_id=audit_id,page_id=page_id,snapshot_id=snapshot_id,
                             device=device.value,url=url,service="CRUX_API",status="SUCCESS",
                             http_status=response.http_status,duration_ms=response.duration_ms,error_code=None,
-                            error_message=None,artifact_reference=crux_artifact,created_at=m21._utc_now(),
+                            error_message=None,artifact_reference=crux_artifact,artifact_sha256=crux_artifact_sha256,created_at=m21._utc_now(),
                         ))
                     except m21.ExternalServiceError as exc:
                         errors.append(f"CRUX:{exc.error_code or exc.http_status or 'ERROR'}")
@@ -223,6 +243,8 @@ def recover_web_performance(
                 crux_http_status=crux_http_status,
                 psi_artifact=psi_artifact,
                 crux_artifact=crux_artifact,
+                psi_artifact_sha256=psi_artifact_sha256,
+                crux_artifact_sha256=crux_artifact_sha256,
             )
             if status in {"SUCCESS", "PARTIAL"}:
                 successful_contexts += 1
