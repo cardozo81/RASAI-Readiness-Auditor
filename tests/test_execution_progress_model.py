@@ -5,7 +5,12 @@ import sqlite3
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from rasai.audit_progress_runtime import _audit_id, _content_ai_ready, _flags
+from rasai.audit_progress_runtime import (
+    _audit_id,
+    _content_ai_ready,
+    _flags,
+    _rendering_completed,
+)
 from rasai.console_progress_model import phase_bounds, projected_overall, workload_weights
 from rasai.external_observability_progress_runtime import _evidence_ready
 
@@ -121,3 +126,45 @@ def test_progress_audit_id_falls_back_to_audit_workspace_name(tmp_path: Path) ->
     )
 
     assert _audit_id((), {"workspace": workspace}) == "AUD-TRACE"
+
+
+
+def test_rendering_completion_uses_persisted_page_device_universe(tmp_path: Path) -> None:
+    workspace = _Workspace(tmp_path)
+    connection = sqlite3.connect(workspace.database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE pages(page_id TEXT PRIMARY KEY,audit_id TEXT);
+            CREATE TABLE page_snapshots(
+                snapshot_id TEXT PRIMARY KEY,
+                page_id TEXT,
+                device TEXT,
+                browser_metadata TEXT,
+                captured_at TEXT
+            );
+            INSERT INTO pages VALUES('P1','AUD-RENDER');
+            INSERT INTO page_snapshots VALUES(
+                'S1','P1','MOBILE',
+                '{"audit_device_context":["MOBILE"]}',
+                '2026-09-29T10:00:00+00:00'
+            );
+            """
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    assert _rendering_completed(workspace, "AUD-RENDER") is True
+
+
+def test_rendering_completion_log_fallback_is_not_limited_to_last_128k(tmp_path: Path) -> None:
+    workspace = _Workspace(tmp_path)
+    log = tmp_path / "logs" / "audit.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    event = '{"event":"RENDERING_COMPLETED","audit_id":"AUD-LONG-LOG"}\n'
+    filler = '{"event":"SYNTHETIC_SAMPLE","detail":"' + ("x" * 2048) + '"}\n'
+    log.write_text(event + filler * 80, encoding="utf-8")
+
+    assert log.stat().st_size > 131072
+    assert _rendering_completed(workspace, "AUD-LONG-LOG") is True
