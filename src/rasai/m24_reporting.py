@@ -197,9 +197,14 @@ def _group(category: str, rows: list[sqlite3.Row]) -> str:
     return f"<section class='panel'><div class='kicker'>{escape(category)}</div><h2>{escape(labels.get(category,category))}</h2>{cards}</section>"
 
 
-def _public_diagnostic_code(code: str) -> str:
-    """Project an internal diagnostic code without its development milestone prefix."""
-    return code[4:] if code.upper().startswith("M24-") else code
+def _public_diagnostic_label(category: str) -> str:
+    """Use a public category label instead of exposing internal M24 diagnostic codes."""
+    return {
+        "ROBOTS": "Diagnóstico de robots.txt",
+        "SITEMAP": "Diagnóstico de sitemap",
+        "DISCOVERY": "Diagnóstico de descoberta",
+        "AI_ACCESS": "Diagnóstico de acesso por sistemas de IA",
+    }.get(category.upper(), "Diagnóstico técnico")
 
 
 def _diagnostic(row: sqlite3.Row) -> str:
@@ -209,9 +214,9 @@ def _diagnostic(row: sqlite3.Row) -> str:
     evidence = _json_list(row["evidence_ids"])
     scope = str(row["scope_url"] or "Escopo da auditoria")
     remediation = str(row["remediation"] or "Nenhuma ação determinística adicional.")
-    public_code = _public_diagnostic_code(str(row["code"]))
+    public_label = _public_diagnostic_label(str(row["category"]))
     return f"""<article class='page-card'>
-<div class='panel-head'><div><div class='kicker'>{escape(public_code)}</div><h3>{escape(str(row["title"]))}</h3></div><span class='badge {badge}'>{escape(severity)}</span></div>
+<div class='panel-head'><div><div class='kicker'>{escape(public_label)}</div><h3>{escape(str(row["title"]))}</h3></div><span class='badge {badge}'>{escape(severity)}</span></div>
 <p class='page-url'>{escape(scope)}</p>
 <div class='notice'><strong>Impacto em scoring:</strong> o diagnóstico determinístico isolado é advisory; BR-GEO-003/017/018 são os inputs técnicos de base. Se IA técnica estiver habilitada e produzir classificação válida, somente a avaliação bounded do mesmo recurso pode compartilhar o grupo de scoring correspondente, sem bônus duplicado.</div>
 <details><summary>Evidência observada</summary><div class='detail-body'><pre>{escape(observed)}</pre><p><strong>Evidence IDs:</strong> {escape(", ".join(evidence) or "-")}</p></div></details>
