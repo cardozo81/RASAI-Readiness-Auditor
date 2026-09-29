@@ -425,6 +425,9 @@ def test_pre_rpr_rollback_never_removes_existing_or_attempted_work(
         workspace,
         AUDIT_ID,
         preexisting_work_item_ids=frozenset({"WKI-EXISTING"}),
+        candidate_components=frozenset(
+            {"PASSIVE_SECURITY", "IMPROVEMENT_INTELLIGENCE"}
+        ),
     )
 
     assert removed == ("WKI-NEW-ZERO",)
