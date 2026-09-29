@@ -263,7 +263,7 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
                 set_ai_execution_enabled(state, use_ai)
                 if not confirm_continue(
                     "Aplicar os novos catálogos na mesma AUD preservando todos os resultados já concluídos",
-                    default=False,
+                    back_label="Voltar sem complementar a AUD",
                 ):
                     state.error = "Complementação cancelada; nenhum dado da AUD foi alterado."
                     continue
