@@ -47,13 +47,14 @@ class RuntimeProgressGateTests(unittest.TestCase):
             self.assertIsNone(timing.finished_at)
             self.assertIsNone(timing.duration_seconds)
             progress = console_runtime._RUN_PROGRESS[id(state)]
-            self.assertEqual(progress.label, "Search Intelligence / SERP")
+            self.assertEqual(progress.label, "Inteligência de busca / SERP")
             self.assertEqual(progress.stage_percent, 0.0)
             self.assertEqual(progress.overall_percent, 97.0)
             self.assertEqual(state.status, "COMPLETE")
             self.assertEqual(state.operation, "LOCAL:DONE")
             rendered = captured.getvalue()
-            self.assertIn("SEARCH_INTELLIGENCE", rendered)
+            self.assertIn("Inteligência de busca / SERP", rendered)
+            self.assertNotIn("SEARCH_INTELLIGENCE", rendered)
             self.assertIn("97%", rendered)
             self.assertNotIn("Progresso   : 100%", rendered)
         finally:

@@ -7,11 +7,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from rasai.public_language import console_status_label, diagnostic_label, normalize_visible_text
+
 
 def detail_text(code: Any, detail: Any) -> str:
     """Join an optional technical code and detail without producing a leading colon."""
-    normalized_code = str(code or "").strip().strip(":")
-    normalized_detail = str(detail or "").strip()
+    normalized_code = diagnostic_label(str(code or "").strip().strip(":")) if code else ""
+    normalized_detail = normalize_visible_text(detail)
     while normalized_detail.startswith(":"):
         normalized_detail = normalized_detail[1:].lstrip()
     if normalized_code and normalized_detail:
@@ -35,9 +37,9 @@ def _render_network_assessment(assessment: Any) -> None:
     color = GREEN if ok else YELLOW if inconclusive else RED
     print("\n" + title_text("REDE / CONECTIVIDADE"))
     print(f"Endpoint     : {assessment.host or '<não aplicável>'}:{assessment.port}")
-    print("DNS          : " + semantic_text(assessment.dns_status, bold=True))
-    print(f"TCP {assessment.port:<5} : " + semantic_text(assessment.tcp_status, bold=True))
-    print("TLS          : " + semantic_text(assessment.tls_status, bold=True))
+    print("DNS          : " + semantic_text(console_status_label(assessment.dns_status), bold=True))
+    print(f"TCP {assessment.port:<5} : " + semantic_text(console_status_label(assessment.tcp_status), bold=True))
+    print("TLS          : " + semantic_text(console_status_label(assessment.tls_status), bold=True))
     if assessment.http_status is not None:
         print(f"HTTP         : {assessment.http_status}")
     print(f"Tentativas   : {assessment.attempt_count}")
@@ -45,7 +47,7 @@ def _render_network_assessment(assessment: Any) -> None:
         print("Latências    : " + " / ".join(f"{value} ms" for value in assessment.latencies_ms))
     print("Classificação: " + paint(network._network_label(assessment.classification), color, bold=True))
     if assessment.control_host:
-        print(f"Controle     : {assessment.control_host} = {assessment.control_status}")
+        print(f"Controle     : {assessment.control_host} = {console_status_label(assessment.control_status)}")
     if assessment.proxy_configured:
         print(paint("Proxy detectado no ambiente; uma VPN/proxy pode alterar a rota e limitar a certeza do diagnóstico direto.", YELLOW))
     if assessment.error_detail:

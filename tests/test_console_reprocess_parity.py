@@ -182,7 +182,8 @@ def test_ai_mode_explains_prerequisite_order_and_no_ai_partial_impact(
     rendered = output.getvalue()
     assert "CADEIA DE EXECUÇÃO E CONCLUSÃO" in rendered
     assert "Pré-requisitos automáticos" in rendered
-    assert "RENDER_CAPTURE/PLANNED:PGE-1:MOBILE" in rendered
+    assert "Captura renderizada/Planejado - PGE-1 - Mobile" in rendered
+    assert "RENDER_CAPTURE/PLANNED:PGE-1:MOBILE" not in rendered
     assert "IA aguardando dados" not in rendered
     assert "Pré-requisitos em estado terminal/degradado" in rendered
     assert "NÃO BLOQUEADA PELO ESTADO TERMINAL/DEGRADADO" in rendered
@@ -246,7 +247,8 @@ def test_ai_mode_keeps_waiting_message_for_nonterminal_prerequisite(
 
     rendered = output.getvalue()
     assert "IA aguardando dados" in rendered
-    assert "RENDER_CAPTURE/PLANNED:PGE-1:MOBILE" in rendered
+    assert "Captura renderizada/Planejado - PGE-1 - Mobile" in rendered
+    assert "RENDER_CAPTURE/PLANNED:PGE-1:MOBILE" not in rendered
     assert "CONDICIONAL AOS PRÉ-REQUISITOS" in rendered
     assert "Pré-requisitos em estado terminal/degradado" not in rendered
 
@@ -333,7 +335,8 @@ def test_ai_mode_choice_is_final_action_and_preserves_summary(monkeypatch) -> No
     rendered = output.getvalue()
     assert "RESUMO DAS ESCOLHAS" in rendered
     assert "AUD-TEST" in rendered
-    assert "SEMANTIC_AI/AUDIT" in rendered
+    assert "Análise semântica por IA/Auditoria" in rendered
+    assert "SEMANTIC_AI/AUDIT" not in rendered
     assert "Sucessos preservados" in rendered
     assert "1. Reprocessar itens selecionados com IA" in rendered
     assert "Confirmar e iniciar reprocessamento" not in rendered
@@ -421,12 +424,15 @@ def test_result_explains_why_item_remained_unresolved() -> None:
 
     rendered = output.getvalue()
     assert "PENDÊNCIAS APÓS O REPROCESSAMENTO" in rendered
-    assert "SEMANTIC_AI/SNAP-1" in rendered
+    assert "Análise semântica por IA/SNAP-1" in rendered
     assert "NÃO SELECIONADO" in rendered
     assert "Motivo persistido" in rendered
-    assert "WAITING_FOR_DATA" in rendered
-    assert "MAIN_CONTENT_UNAVAILABLE" in rendered
+    assert "Aguardando pré-requisitos" in rendered
+    assert "Conteúdo principal indisponível" in rendered
     assert "pré-requisito" in rendered
+    assert "SEMANTIC_AI/SNAP-1" not in rendered
+    assert "WAITING_FOR_DATA" not in rendered
+    assert "MAIN_CONTENT_UNAVAILABLE" not in rendered
 
 
 def test_semantic_ai_result_keeps_fulfillment_reason_and_adds_provider_diagnostics(tmp_path: Path) -> None:
@@ -493,10 +499,13 @@ def test_semantic_ai_result_keeps_fulfillment_reason_and_adds_provider_diagnosti
         parity._RPR_PRESENTATION_CONTEXT.reset(token)
 
     rendered = output.getvalue()
-    assert "SEMANTIC_AI_RETRY_INCOMPLETE" in rendered
+    assert "Nova tentativa da análise semântica por IA ficou incompleta" in rendered
+    assert "SEMANTIC_AI_RETRY_INCOMPLETE" not in rendered
     assert "Última causa IA" in rendered
     assert "OPENAI: Tempo limite excedido" in rendered
-    assert "GEMINI: Erro temporário do servidor · HTTP 503 · service_unavailable · request_id=req-123" in rendered
+    assert "GEMINI: Erro temporário do servidor - HTTP 503 - Serviço indisponível - ID da requisição: req-123" in rendered
+    assert "service_unavailable" not in rendered
+    assert "request_id=" not in rendered
     assert "nova tentativa é possível" in rendered
 
 

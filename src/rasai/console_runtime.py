@@ -16,6 +16,7 @@ from rasai.branding import PRODUCT_DISPLAY_NAME
 from rasai.console_config import State, build_command, environment_summary, preflight, PROVIDERS
 from rasai.console_cost import estimate_exposure, persist_execution_projection
 from rasai.console_ui import BLUE, CYAN, DIM, GREEN, MAGENTA, RED, YELLOW, clear_screen, paint, status_color
+from rasai.public_language import console_operation_label, console_status_label, diagnostic_label
 from rasai.runtime_paths import runtime_directory
 from rasai.secret_safety import redact_text
 
@@ -320,10 +321,10 @@ def render_header(state: State) -> None:
     clear_screen()
     print("=" * 100)
     print(PRODUCT_DISPLAY_NAME)
-    print(f"Status      : {paint(state.status, status_color(state.status), bold=True)}")
+    print(f"Status      : {paint(console_status_label(state.status), status_color(state.status), bold=True)}")
     print(f"URL         : {state.current_url}")
     print(f"Dispositivo : {paint(state.current_device, CYAN)}")
-    print(f"Operação    : {paint(state.operation, _operation_color(state.operation), bold=True)}")
+    print(f"Operação    : {paint(console_operation_label(state.operation), _operation_color(state.operation), bold=True)}")
     variables = environment_summary()
     _log_environment_snapshot(state, variables)
     timing = timing_summary(state)
@@ -595,11 +596,11 @@ def apply_runtime_provider_blocks(workspace: Path, state: State) -> None:
                 if not attempt:
                     state.runtime_blocks[selection] = "provider quarantined"
                     continue
-                parts = [str(attempt["error_class"] or attempt["status"] or "UNAVAILABLE")]
+                parts = [diagnostic_label(attempt["error_class"] or attempt["status"] or "UNAVAILABLE")]
                 if attempt["http_status"] is not None:
                     parts.append(f"HTTP {attempt['http_status']}")
                 if attempt["error_code"]:
-                    parts.append(str(attempt["error_code"]))
+                    parts.append(diagnostic_label(attempt["error_code"]))
                 elif attempt["error_type"]:
                     parts.append(str(attempt["error_type"]))
                 state.runtime_blocks[selection] = "/".join(parts)

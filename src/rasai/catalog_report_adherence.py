@@ -205,7 +205,7 @@ def _human_limitation(value: Any) -> str:
         translated_detail = _human_limitation_detail(detail) if separator else ""
         return f"{label}: {translated_detail}" if translated_detail else label
 
-    return f"Limitação técnica registrada ({public_text(raw)})"
+    return f"Limitação técnica registrada ({raw})"
 
 
 def _audit_limitations(data: Any) -> tuple[str, ...]:

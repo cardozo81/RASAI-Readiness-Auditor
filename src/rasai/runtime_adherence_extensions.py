@@ -231,7 +231,7 @@ def _serp_progress(state: Any, *, completed: int, total: int, detail: str, rende
         progress_store = getattr(console_runtime, "_RUN_PROGRESS", None)
         if progress_type is not None and isinstance(progress_store, dict):
             progress_store[id(state)] = progress_type(
-                label="Search Intelligence / SERP",
+                label="Inteligência de busca / SERP",
                 percent=stage,
                 detail=detail,
                 exact=True,
@@ -243,7 +243,7 @@ def _serp_progress(state: Any, *, completed: int, total: int, detail: str, rende
         else:
             console_runtime.set_runtime_progress(
                 state,
-                "Search Intelligence / SERP",
+                "Inteligência de busca / SERP",
                 overall,
                 detail=detail,
                 exact=False,

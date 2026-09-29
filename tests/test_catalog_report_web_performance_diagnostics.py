@@ -61,7 +61,8 @@ def test_cat04_exposes_persisted_external_failure_diagnostics(tmp_path: Path) ->
     assert "Concluído" in rendered
     assert "HTTP 200" in rendered
     assert "Falha reprocessável" in rendered
-    assert "EXTERNAL_SERVICE" in rendered
+    assert "Serviço externo" in rendered
+    assert "EXTERNAL_SERVICE" not in rendered
     assert "Parcial" in rendered
     assert "web performance state=Parcial" in rendered
     assert "Reprocessável" in rendered

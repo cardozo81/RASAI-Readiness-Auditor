@@ -575,3 +575,16 @@ def test_legacy_report_error_helpers_humanize_codes_and_long_dash() -> None:
     assert "SERVICE_UNAVAILABLE" not in reason
     assert "—" not in reason
 
+def test_catalog_public_text_humanizes_recovery_gap_codes_and_dynamic_prerequisites() -> None:
+    assert public_label("HTTP_ACQUISITION_INCOMPLETE") == "Aquisição HTTP incompleta"
+    assert (
+        public_text("Falha HTTP_ACQUISITION_INCOMPLETE após TECHNICAL_PREREQUISITE_BR_GEO_009_NOT_APPLICABLE")
+        == "Falha Aquisição HTTP incompleta após Pré-requisito técnico BR-GEO-009: não aplicável"
+    )
+
+
+def test_catalog_public_text_uses_safe_fallback_for_unknown_machine_enum() -> None:
+    rendered = public_text("estado BRAND_NEW_RUNTIME_ENUM")
+    assert rendered == "estado Condição técnica não catalogada"
+    assert "BRAND_NEW_RUNTIME_ENUM" not in rendered
+

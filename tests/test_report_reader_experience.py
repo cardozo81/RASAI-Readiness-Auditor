@@ -117,7 +117,8 @@ def test_accessibility_state_follows_requested_lighthouse_category() -> None:
     html = "<html><head></head><body><main><header><h1>Acessibilidade</h1></header></main></body></html>"
     rendered = enhance_report_experience(html, filename="accessibility.html", context=context)
     assert "Dados não solicitados" in rendered
-    assert "ACCESSIBILITY_CATEGORY_NOT_REQUESTED" in rendered
+    assert "Categoria de acessibilidade não solicitada" in rendered
+    assert "ACCESSIBILITY_CATEGORY_NOT_REQUESTED" not in rendered
 
 
 def test_standards_can_be_complete_with_external_service_limitation() -> None:

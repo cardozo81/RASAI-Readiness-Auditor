@@ -15,6 +15,7 @@ import re
 from zoneinfo import ZoneInfo
 
 from rasai.report_contract import CANONICAL_NAV_ITEMS, REPORT_ALIASES
+from rasai.report_presentation import humanize_report_html
 from rasai.report_semantics import SEMANTIC_CSS, enhance_report_html
 
 
@@ -314,6 +315,7 @@ def normalize_report_navigation(
         normalized = _enhance_rule_tooltips(normalized)
         normalized = _move_footer_to_end_of_main(normalized)
         normalized = normalized.replace("—", "-").replace("–", "-")
+        normalized = humanize_report_html(normalized, page_name=html_path.name)
         html_path.write_text(normalized, encoding="utf-8", newline="\n")
 
 

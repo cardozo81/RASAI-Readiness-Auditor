@@ -27,6 +27,7 @@ from rasai.console_ui import (
     title_text,
     warning_text,
 )
+from rasai.public_language import component_label, console_status_label, diagnostic_label, diagnostic_text, scope_label
 from rasai.console_audit_workflow import (
     _audit_primary_url,
     _render_reprocess_usage_delta,
@@ -178,12 +179,27 @@ def _pending_items(state: Any, audit_id: str) -> tuple[Any, ...]:
         return ()
 
 
+def _item_public_label(item: Any) -> str:
+    return f"{component_label(getattr(item, 'component', ''))}/{scope_label(getattr(item, 'scope_key', 'AUDIT'))}"
+
+
+def _dependency_public_label(value: Any) -> str:
+    raw = str(value or "").strip()
+    if "/" in raw:
+        component, scope = raw.split("/", 1)
+        return f"{component_label(component)}/{scope_label(scope)}"
+    return component_label(raw)
+
+
 def _reason_text(item: Any) -> str:
     code = str(getattr(item, "last_error_code", "") or "").strip()
-    message = str(getattr(item, "last_error_message", "") or "").strip()
+    message = diagnostic_text(getattr(item, "last_error_message", "") or "")
+    public_code = diagnostic_label(code) if code else ""
     if code and message and message != code:
-        return f"{code} - {message}"
-    return code or message or "motivo específico não persistido"
+        if public_code and public_code in message:
+            return message
+        return f"{public_code} - {message}"
+    return public_code or message or "motivo específico não persistido"
 
 
 def _semantic_ai_failure_diagnostics(
@@ -240,19 +256,19 @@ def _friendly_status(value: Any) -> str:
     raw = str(value or "").strip()
     labels = {
         "COMPLETE": "Concluída",
-        "PARTIAL_RETRYABLE": "Parcial — pode reprocessar",
-        "PARTIAL_BLOCKED": "Parcial — há bloqueios",
+        "PARTIAL_RETRYABLE": "Parcial - pode reprocessar",
+        "PARTIAL_BLOCKED": "Parcial - há bloqueios",
         "FAILED_FATAL": "Falha definitiva",
         "EXPIRED_FOR_COMPLETION": "Expirada para conclusão",
         "WAITING_FOR_DATA": "Aguardando pré-requisitos",
         "NOT_CONFIGURED": "Não configurada - requer configuração/reprocessamento",
         "REQUESTED_NOT_EXECUTED": "Solicitada - não executada",
-        "FAILED_RETRYABLE": "Falha temporária — nova tentativa possível",
+        "FAILED_RETRYABLE": "Falha temporária - nova tentativa possível",
         "FAILED_PERMANENT": "Falha definitiva",
         "BLOCKED": "Bloqueado",
         "PENDING": "Pendente",
     }
-    return labels.get(raw.upper(), raw.replace("_", " ").strip().capitalize() or "-")
+    return labels.get(raw.upper(), console_status_label(raw) if raw else "-")
 
 
 def render_reprocess_preparation(
@@ -287,7 +303,7 @@ def render_reprocess_preparation(
     if pending:
         for index, item in enumerate(pending, start=1):
             print(
-                f"[{index}] {item.component}/{item.scope_key}: "
+                f"[{index}] {_item_public_label(item)}: "
                 f"{semantic_text(_friendly_status(getattr(item, 'status', '')), bold=True)}"
             )
             reason = _reason_text(item)
@@ -338,7 +354,7 @@ def _select_reprocess_items(state: Any, pending: tuple[Any, ...]) -> tuple[Any, 
         print("\n" + title_text("SELEÇÃO DE ITENS PARA REPROCESSAMENTO"))
         print("-" * 100)
         for index, item in enumerate(pending, 1):
-            print(f"{index:>2}. {item.component}/{item.scope_key} · " + semantic_text(_friendly_status(getattr(item, 'status', '')), bold=True))
+            print(f"{index:>2}. {_item_public_label(item)} - " + semantic_text(_friendly_status(getattr(item, 'status', '')), bold=True))
         print("\nT. Reprocessar todos os itens listados")
         print("   Ou informe números separados por vírgula, por exemplo: 1,3")
         print("V. Voltar")
@@ -430,13 +446,13 @@ def _mode_scope_preview(
 
         effective = tuple(item for item in pending if included(item))
         automatic = tuple(
-            f"{item.component}/{item.scope_key}"
+            _item_public_label(item)
             for item in effective
             if item_key(item.component, item.scope_key) not in raw_key_set
             and str(item.component).upper() not in raw_components
         )
         required_ai_pending = tuple(
-            f"{item.component}/{item.scope_key}"
+            _item_public_label(item)
             for item in pending
             if is_ai_component(str(item.component))
         )
@@ -456,11 +472,11 @@ def _mode_scope_preview(
                 blockers = blocking_dependencies(workspace, item)
                 if blockers:
                     waiting.append(
-                        f"{item.component}/{item.scope_key} <- " + ", ".join(blockers)
+                        f"{_item_public_label(item)} <- " + ", ".join(_dependency_public_label(blocker) for blocker in blockers)
                     )
 
             for item in effective:
-                label = f"{item.component}/{item.scope_key}"
+                label = _item_public_label(item)
                 if label not in automatic:
                     continue
                 status = str(getattr(item, "status", "") or "").strip().upper()
@@ -473,7 +489,7 @@ def _mode_scope_preview(
 
         return {
             "effective": tuple(
-                f"{item.component}/{item.scope_key}"
+                _item_public_label(item)
                 for item in effective
             ),
             "automatic": automatic,
@@ -510,7 +526,7 @@ def _choose_reprocess_ai(state: Any) -> bool | None:
         print(f"AUD                  : {audit_id or '-'}")
         print(f"Itens selecionados   : {len(selected)}")
         if selected:
-            print("Reprocessar           : " + ", ".join(f"{item.component}/{item.scope_key}" for item in selected))
+            print("Reprocessar           : " + ", ".join(_item_public_label(item) for item in selected))
         print(f"Sucessos preservados : {preserved}")
         print(f"Configuração de IA   : {current_ai}")
         ai_selected = sum(
@@ -658,9 +674,9 @@ def render_reprocess_result(result: Any, unresolved: tuple[Any, ...]) -> None:
     print("-" * 100)
     print(f"RPR                  : {result.reprocess_id or '<nenhum; sem trabalho pendente>'}")
     print("Execução do RPR      : " + paint("CONCLUÍDA", GREEN, bold=True))
-    print("Estado diagnóstico   : " + semantic_text(result.processing_status, bold=True))
-    print("Score                : " + semantic_text(result.score_status))
-    print("Relatório            : " + semantic_text(result.report_status))
+    print("Estado diagnóstico   : " + semantic_text(console_status_label(result.processing_status), bold=True))
+    print("Score                : " + semantic_text(console_status_label(result.score_status)))
+    print("Relatório            : " + semantic_text(console_status_label(result.report_status)))
     print(
         "Consolidação elegível: "
         + (paint("SIM", GREEN, bold=True) if result.consolidation_eligible else paint("NÃO", YELLOW, bold=True))
@@ -687,7 +703,7 @@ def render_reprocess_result(result: Any, unresolved: tuple[Any, ...]) -> None:
     for item in unresolved:
         current_key = (str(item.component), str(item.scope_key))
         selected_now = current_key in selected_keys
-        print(f"{item.component}/{item.scope_key}")
+        print(_item_public_label(item))
         print(
             "  Nesta tentativa     : "
             + (
@@ -696,7 +712,7 @@ def render_reprocess_result(result: Any, unresolved: tuple[Any, ...]) -> None:
                 else paint("NÃO SELECIONADO", YELLOW, bold=True)
             )
         )
-        print("  Status              : " + semantic_text(item.status, bold=True))
+        print("  Status              : " + semantic_text(console_status_label(item.status), bold=True))
         reason_label = "Motivo" if selected_now else "Motivo persistido"
         print(f"  {reason_label:<20}: {_reason_text(item)}")
         report_root = getattr(result, "report_root", None)
@@ -856,7 +872,7 @@ def _reprocess_selected_once(console_module: ModuleType, state: Any, audit_id: s
         and str(item.component).upper() not in raw_key_set
     )
     auto_labels = tuple(
-        f"{item.component}/{item.scope_key}"
+        _item_public_label(item)
         for item in auto_added
     )
     _RPR_PRESENTATION_CONTEXT.set((audit_id, len(successes), tuple(selected)))

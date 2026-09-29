@@ -135,7 +135,8 @@ class ExternalMetricsIntegrityTests(unittest.TestCase):
             html = (report / "accessibility.html").read_text(encoding="utf-8")
             self.assertIn("Acessibilidade válida", html)
             self.assertIn("0/1", html)
-            self.assertIn("LIGHTHOUSE", html)
+            self.assertIn("<span class='badge info'>Lighthouse</span>", html)
+            self.assertNotIn("<span class='badge info'>LIGHTHOUSE</span>", html)
             self.assertIn("Esta observação só deve ser interpretada", html)
             self.assertNotIn(
                 "<strong>Nenhuma falha automatizada persistida.</strong> Isso não elimina",
