@@ -313,3 +313,15 @@ Na complementação, catálogos que já pertencem ao contrato efetivo da AUD sã
 não entram no conjunto novo. No reprocessamento, `T. Reprocessar todos os itens listados`
 mantém sua semântica existente de work-items pendentes; selecionar todos nunca significa
 refazer itens `SUCCESS`.
+
+
+## Restaurar somente o catálogo atual
+
+Dentro de um CAT-* configurável, `P. Restaurar padrões deste catálogo` calcula o escopo
+pelo registry canônico. Antes da confirmação, o console informa quantas configurações
+exclusivas serão restauradas e quantas configurações compartilhadas serão preservadas.
+
+A operação remove somente overrides exclusivos não secretos do catálogo, preserva outros
+CAT-*, secrets e `Windows/Machine`, reaplica a baseline empacotada e salva pelo writer
+canônico. Parâmetros compartilhados entre CAT-06 e CAT-07 — incluindo os nove perfis
+físicos sintéticos — permanecem intactos.

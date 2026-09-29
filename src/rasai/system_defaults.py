@@ -47,6 +47,16 @@ class RestoreDefaultsResult:
     path: Path
 
 
+@dataclass(frozen=True, slots=True)
+class CatalogRestoreResult:
+    catalog_id: str
+    restored_names: tuple[str, ...]
+    shared_preserved: tuple[str, ...]
+    machine_preserved: tuple[str, ...]
+    warnings: tuple[str, ...]
+    path: Path
+
+
 def load_system_defaults() -> ConfigParser:
     parser = ConfigParser(interpolation=None)
     parser.optionxform = str
@@ -270,6 +280,73 @@ def restore_program_defaults(
         nonsecret_user_removed,
         credentials_session_removed,
         credentials_user_removed,
+        tuple(sorted(set(machine))),
+        tuple(dict.fromkeys(warnings)),
+        saved,
+    )
+
+
+def restore_catalog_defaults(
+    state: Any,
+    catalog_id: str,
+    *,
+    path: Path | None = None,
+) -> CatalogRestoreResult:
+    """Restore only non-secret configuration exclusively owned by one audit catalog."""
+    from rasai import console_provider_environment as facade
+    from rasai import console_settings as settings
+    from rasai.configuration_registry import catalog_configuration_partition
+
+    target = str(catalog_id).strip().upper()
+    exclusive, shared = catalog_configuration_partition(target)
+    restorable = tuple(
+        item
+        for item in exclusive
+        if item.persist_ini and not item.sensitive and item.name not in BOOTSTRAP_ENV_NAMES
+    )
+    destination = path or settings.resolve_config_path()
+    warnings: list[str] = []
+    machine: list[str] = []
+
+    for item in restorable:
+        name = item.name
+        if machine_environment_value(name) is not None:
+            machine.append(name)
+        os.environ.pop(name, None)
+        if os.name == "nt" and user_environment_value(name) is not None:
+            try:
+                remove_user_environment(name)
+            except (OSError, ValueError) as exc:
+                warnings.append(f"{name}: {type(exc).__name__}: {exc}")
+
+    defaults = canonical_environment_defaults()
+    for item in restorable:
+        value = defaults.get(item.name)
+        if value is not None:
+            os.environ[item.name] = value
+
+    facade.refresh_specs()
+    for item in restorable:
+        try:
+            facade.base_environment._apply_change(state, item.name)
+        except (TypeError, ValueError, OverflowError) as exc:
+            warnings.append(f"{item.name}: {type(exc).__name__}: {exc}")
+
+    try:
+        saved = settings.save_console_config(state, destination)
+    except (OSError, UnicodeError, ValueError) as exc:
+        warnings.append(f"rasai-console.ini: {type(exc).__name__}: {exc}")
+        saved = destination
+
+    set_config_path(state, saved)
+    mark_dirty(state, False)
+    facade.refresh_specs()
+    state.operation = f"LOCAL:RESTORE_CATALOG_DEFAULTS:{target}"
+    state.error = "; ".join(tuple(dict.fromkeys(warnings)))
+    return CatalogRestoreResult(
+        target,
+        tuple(item.name for item in restorable),
+        tuple(item.name for item in shared),
         tuple(sorted(set(machine))),
         tuple(dict.fromkeys(warnings)),
         saved,

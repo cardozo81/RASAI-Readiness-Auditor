@@ -66,3 +66,53 @@ def test_bulk_selection_can_exclude_immutable_catalogs_for_audit_extension() -> 
     assert "CAT-06" not in added
     assert "CAT-07" in added
     assert "CAT-06" in catalog_plan.selected_catalog_ids(state)
+
+
+from configparser import ConfigParser
+
+from rasai.configuration_registry import catalog_configuration_partition
+from rasai.m25_cli import UX_SAMPLES_ENV
+from rasai.synthetic_runtime_profiles import PROFILE_ENV
+from rasai.system_defaults import restore_catalog_defaults
+
+
+def test_cat07_registry_separates_exclusive_and_shared_configuration() -> None:
+    _install_configuration_surface()
+    exclusive, shared = catalog_configuration_partition("CAT-07")
+    exclusive_names = {item.name for item in exclusive}
+    shared_names = {item.name for item in shared}
+
+    assert UX_SAMPLES_ENV in exclusive_names
+    assert set(PROFILE_ENV_NAMES) <= shared_names
+    assert set(PROFILE_ENV_NAMES).isdisjoint(exclusive_names)
+
+
+def test_restore_cat07_preserves_shared_profiles_and_other_catalogs(monkeypatch, tmp_path) -> None:
+    _install_configuration_surface()
+    state = SearchConsoleState()
+
+    shared_profile = PROFILE_ENV[("MOBILE", "client")]
+    monkeypatch.setenv(UX_SAMPLES_ENV, "77")
+    monkeypatch.setenv(shared_profile, "mobile-compact-chromium")
+    monkeypatch.setenv("RASAI_WEB_PERFORMANCE_MAX_PAGES", "99")
+
+    facade.base_environment._apply_change(state, UX_SAMPLES_ENV)
+    facade.base_environment._apply_change(state, "RASAI_WEB_PERFORMANCE_MAX_PAGES")
+    assert state.apdex_experience_samples == 77
+    assert state.web_max_pages == 99
+
+    destination = tmp_path / "rasai-console.ini"
+    result = restore_catalog_defaults(state, "CAT-07", path=destination)
+
+    assert UX_SAMPLES_ENV in result.restored_names
+    assert shared_profile in result.shared_preserved
+    assert state.apdex_experience_samples == 20
+    assert state.web_max_pages == 99
+    assert facade.base_environment.os.environ[shared_profile] == "mobile-compact-chromium"
+
+    parser = ConfigParser(interpolation=None)
+    parser.optionxform = str
+    parser.read(destination, encoding="utf-8")
+    assert parser.get("environment", UX_SAMPLES_ENV) == "20"
+    assert parser.get("environment", shared_profile) == "mobile-compact-chromium"
+    assert parser.get("environment", "RASAI_WEB_PERFORMANCE_MAX_PAGES") == "99"
