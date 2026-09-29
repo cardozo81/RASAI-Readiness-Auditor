@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from rasai.public_language import supplemental_public_label
+
 PUBLIC_VALUE_LABELS: dict[str, str] = {
     # Ciclo de vida da auditoria e estados operacionais públicos.
     "CREATED": "Criado",
@@ -521,7 +523,7 @@ def public_label(value: Any) -> str | None:
     if not raw:
         return None
     phrase = PUBLIC_PHRASE_LABELS.get(raw.casefold())
-    return phrase or PUBLIC_VALUE_LABELS.get(_key(raw))
+    return phrase or PUBLIC_VALUE_LABELS.get(_key(raw)) or supplemental_public_label(raw)
 
 _PUBLIC_SINGLE_TOKEN_PATTERN = "|".join(
     re.escape(key)
