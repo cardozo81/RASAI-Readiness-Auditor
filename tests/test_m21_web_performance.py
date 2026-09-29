@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from hashlib import sha256
 import os
 from pathlib import Path
 import sqlite3
@@ -154,9 +155,19 @@ class M21WebPerformanceTests(unittest.TestCase):
                     ).fetchone()
                 )
                 artifact = row["pagespeed_artifact_reference"]
+                artifact_sha = row["pagespeed_artifact_sha256"]
+                attempt = connection.execute(
+                    """SELECT artifact_reference,artifact_sha256
+                       FROM web_performance_attempts
+                       WHERE service='PAGESPEED_INSIGHTS' AND status='SUCCESS'"""
+                ).fetchone()
             finally:
                 connection.close()
-            self.assertTrue((workspace.root / artifact).is_file())
+            artifact_path = workspace.root / artifact
+            self.assertTrue(artifact_path.is_file())
+            self.assertEqual(artifact_sha, sha256(artifact_path.read_bytes()).hexdigest())
+            self.assertEqual(attempt[0], artifact)
+            self.assertEqual(attempt[1], artifact_sha)
 
     def test_auto_uses_direct_crux_when_pagespeed_field_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
