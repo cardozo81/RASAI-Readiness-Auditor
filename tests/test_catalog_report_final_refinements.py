@@ -467,6 +467,82 @@ def test_ai_integration_list_shows_timestamp_origin_and_zero_cost_emphasis(tmp_p
     assert "120 / 42" in html
 
 
+def test_ai_integration_final_renderer_exposes_persisted_failure_diagnostics(tmp_path: Path) -> None:
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            """CREATE TABLE ai_provider_attempts(
+                audit_id TEXT,
+                semantic_contract_version TEXT,
+                provider TEXT,
+                model TEXT,
+                status TEXT,
+                input_tokens INTEGER,
+                cached_input_tokens INTEGER,
+                output_tokens INTEGER,
+                reasoning_tokens INTEGER,
+                total_tokens INTEGER,
+                estimated_cost REAL,
+                cost_currency TEXT,
+                attempt_index INTEGER,
+                started_at TEXT,
+                finished_at TEXT,
+                duration_ms INTEGER,
+                decision TEXT,
+                fallback_reason TEXT,
+                error_detail TEXT,
+                error_class TEXT,
+                http_status INTEGER,
+                error_type TEXT,
+                error_code TEXT,
+                request_id TEXT,
+                request_message_summary TEXT,
+                request_payload_hash TEXT
+            )"""
+        )
+        connection.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                (
+                    "AUD", "M18-SEMANTIC-22-v1", "OPENAI", "gpt-test", "ERROR",
+                    0, 0, 0, 0, 0, None, "USD", 1,
+                    "2026-09-29T12:00:00+00:00", "2026-09-29T12:00:30+00:00", 30000,
+                    None, None, None, "TIMEOUT_ERROR", None, None, None, None,
+                    "semantic_contract=M18-SEMANTIC-22-v1;snapshot=SNP-1", "hash-1",
+                ),
+                (
+                    "AUD", "M18-SEMANTIC-22-v1", "GEMINI", "gemini-test", "ERROR",
+                    0, 0, 0, 0, 0, None, "USD", 2,
+                    "2026-09-29T12:00:31+00:00", "2026-09-29T12:00:32+00:00", 1000,
+                    "fallback", "OPENAI timeout", None, "SERVER_ERROR", 503, None,
+                    "service_unavailable", "req-123",
+                    "semantic_contract=M18-SEMANTIC-22-v1;snapshot=SNP-1", "hash-2",
+                ),
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    data = SimpleNamespace(
+        audit_id="AUD",
+        targets=("https://example.test/",),
+        selected={"CAT-03"},
+        audit={"project_name": "Projeto", "status": "COMPLETED"},
+        fulfillment={"processing_status": "PARTIAL_RETRYABLE"},
+    )
+    html = _ai_integrations_body(database, data)
+
+    assert "Tempo limite excedido" in html
+    assert "TIMEOUT_ERROR" in html
+    assert "Erro temporário do servidor · HTTP 503 · service_unavailable" in html
+    assert "SERVER_ERROR" in html
+    assert "service_unavailable" in html
+    assert "<dt>Request ID</dt><dd><code>req-123</code></dd>" in html
+    assert "<dt>Request ID</dt><dd>-</dd>" not in html
+
+
 def test_ai_integration_timestamp_uses_report_timezone_in_final_shell(monkeypatch: pytest.MonkeyPatch) -> None:
     from rasai.catalog_report_contract import page_by_filename
     from rasai.catalog_report_presentation import _shell

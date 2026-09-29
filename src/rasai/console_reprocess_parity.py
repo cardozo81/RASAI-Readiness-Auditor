@@ -10,6 +10,7 @@ from __future__ import annotations
 from contextvars import ContextVar, copy_context
 from pathlib import Path
 import json
+import sqlite3
 import sys
 import threading
 import time
@@ -185,6 +186,41 @@ def _reason_text(item: Any) -> str:
     return code or message or "motivo específico não persistido"
 
 
+def _semantic_ai_failure_diagnostics(
+    database: str | Path,
+    audit_id: str,
+    item: Any,
+) -> tuple[tuple[str, ...], str | None]:
+    """Read causal SEMANTIC_AI provider failures without changing fulfillment state."""
+    if str(getattr(item, "component", "") or "").strip().upper() != "SEMANTIC_AI":
+        return (), None
+    snapshot_id = str(getattr(item, "scope_key", "") or "").strip()
+    if not snapshot_id or snapshot_id.upper() == "AUDIT":
+        return (), None
+    path = Path(database)
+    if not path.is_file():
+        return (), None
+    from rasai.ai_failure_diagnostics import (
+        format_ai_attempt_line,
+        latest_semantic_failure_attempts,
+        semantic_retry_action,
+    )
+    try:
+        attempts = latest_semantic_failure_attempts(
+            path,
+            audit_id=audit_id,
+            snapshot_id=snapshot_id,
+        )
+    except (OSError, sqlite3.Error, ValueError):
+        return (), None
+    if not attempts:
+        return (), None
+    return (
+        tuple(format_ai_attempt_line(attempt) for attempt in attempts),
+        semantic_retry_action(attempts),
+    )
+
+
 def _next_action(item: Any) -> str:
     status = str(getattr(item, "status", "") or "")
     temporal = str(getattr(item, "temporal_mode", "") or "")
@@ -257,6 +293,15 @@ def render_reprocess_preparation(
             reason = _reason_text(item)
             if reason != "motivo específico não persistido":
                 print(f"    Motivo            : {reason}")
+            diagnostic_lines, _diagnostic_action = _semantic_ai_failure_diagnostics(
+                audit_root / "audit.db",
+                audit_id,
+                item,
+            )
+            if diagnostic_lines:
+                print(f"    Última causa IA   : {diagnostic_lines[0]}")
+                for diagnostic_line in diagnostic_lines[1:]:
+                    print(f"                        {diagnostic_line}")
     else:
         print(
             "O estado será reavaliado pelo motor de reprocessamento antes de qualquer "
@@ -654,8 +699,21 @@ def render_reprocess_result(result: Any, unresolved: tuple[Any, ...]) -> None:
         print("  Status              : " + semantic_text(item.status, bold=True))
         reason_label = "Motivo" if selected_now else "Motivo persistido"
         print(f"  {reason_label:<20}: {_reason_text(item)}")
+        report_root = getattr(result, "report_root", None)
+        diagnostic_lines: tuple[str, ...] = ()
+        diagnostic_action: str | None = None
+        if report_root:
+            diagnostic_lines, diagnostic_action = _semantic_ai_failure_diagnostics(
+                Path(report_root).parent / "audit.db",
+                str(getattr(result, "audit_id", "") or _audit_id),
+                item,
+            )
+        if diagnostic_lines:
+            print(f"  Última causa IA     : {diagnostic_lines[0]}")
+            for diagnostic_line in diagnostic_lines[1:]:
+                print(f"                        {diagnostic_line}")
         print(f"  Tentativas          : {item.attempt_count}")
-        print(f"  Próxima ação        : {_next_action(item)}")
+        print(f"  Próxima ação        : {diagnostic_action or _next_action(item)}")
         valid_until = str(getattr(item, "valid_until", "") or "").strip()
         if valid_until and str(getattr(item, "temporal_mode", "")) == "LIVE_RECOLLECTION":
             print(f"  Janela válida até   : {valid_until}")
