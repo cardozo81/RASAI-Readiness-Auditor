@@ -16,6 +16,8 @@ import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from rasai.catalog_report_public_labels import public_label
+
 
 _INSTALLED = False
 
@@ -132,10 +134,12 @@ def _issue_notice(issues: Sequence[Mapping[str, Any]], *, title: str) -> str:
         category = _serp_issue_category(code, message)
         query = str(item.get("query") or "-")
         provider = str(item.get("provider") or "-")
+        category_label = public_label(category) or category.replace("_", " ").title()
+        code_label = public_label(code) or code.replace("_", " ").title()
         rows.append(
             "<li>"
             f"<strong>{escape(query)}</strong> · {escape(provider)} · "
-            f"<code>{escape(category)}</code> · <code>{escape(code)}</code>: "
+            f"{escape(category_label)} - {escape(code_label)}: "
             f"{escape(message)}"
             "</li>"
         )
