@@ -911,6 +911,11 @@ def _runtime_intelligence_rows(
                     "httponly": bool(attrs.get("httponly")),
                     "samesite": attrs.get("samesite"),
                     "attribution_basis": "HTTP_RESPONSE_HEADER",
+                    "observation_state": "HTTP_SET_COOKIE_OBSERVED",
+                    "declared_domain": attrs.get("domain_attribute"),
+                    "declared_path": attrs.get("path_attribute"),
+                    "confirmed_domain": None,
+                    "confirmed_path": None,
                 },
                 "evidence_ids": list(page.get("header_evidence") or ()),
             })
@@ -927,13 +932,28 @@ def _runtime_intelligence_rows(
             except ValueError:
                 frame_host = ""
             domain_attribute = str(raw_cookie.get("domain_attribute") or "").casefold().lstrip(".")
-            effective_domain = domain_attribute or frame_host
-            host_only = not bool(domain_attribute)
             declared_path = str(raw_cookie.get("path_attribute") or "")
-            effective_path = declared_path if declared_path.startswith("/") else _default_cookie_path(frame_url)
+            declared_effective_path = declared_path if declared_path.startswith("/") else _default_cookie_path(frame_url)
+            store_state = str(raw_cookie.get("store_state") or "WRITE_ATTEMPT_NOT_CONFIRMED")
+            confirmed = store_state == "CONFIRMED_IN_BROWSER_STORE"
+            confirmed_domain = str(raw_cookie.get("confirmed_domain") or "").casefold().lstrip(".")
+            confirmed_path = str(raw_cookie.get("confirmed_path") or "")
+            effective_domain = confirmed_domain if confirmed else ""
+            effective_path = confirmed_path if confirmed and confirmed_path.startswith("/") else ""
+            host_only = bool(raw_cookie.get("confirmed_host_only")) if confirmed else False
             name_material = str(name_display or name_hash)
-            cookie_ref = _stable(
-                "CK", name_material, effective_domain, effective_path, "1" if host_only else "0"
+            identity_domain = effective_domain or domain_attribute or frame_host
+            identity_path = effective_path or declared_effective_path
+            cookie_ref = (
+                _stable(
+                    "CK", name_material, effective_domain, effective_path,
+                    "1" if host_only else "0",
+                )
+                if confirmed
+                else _stable(
+                    "CKA", name_material, identity_domain, identity_path,
+                    str(raw_cookie.get("mechanism") or "UNKNOWN"),
+                )
             )
             purpose, purpose_confidence = _cookie_purpose(str(name_display or ""))
             setter_url = str(_redact_urlish(raw_cookie.get("setter_script_url")) or "")
@@ -966,12 +986,16 @@ def _runtime_intelligence_rows(
                 "name_hash": name_hash,
                 "creation_mechanism": str(raw_cookie.get("mechanism") or "UNKNOWN"),
                 "effective_domain": effective_domain or None,
-                "effective_path": effective_path,
+                "effective_path": effective_path or None,
                 "host_only": host_only,
                 "setter_script_url": setter_url or None,
                 "setter_script_ref": setter_ref or None,
                 "platform_ref": platform_ref or None,
-                "party": _cookie_scope_party(effective_domain, page_url),
+                "party": (
+                    _cookie_scope_party(effective_domain, page_url)
+                    if confirmed and effective_domain
+                    else "UNKNOWN"
+                ),
                 "purpose": purpose,
                 "purpose_confidence": purpose_confidence,
                 "attribution_confidence": str(raw_cookie.get("attribution_confidence") or "LOW"),
@@ -982,6 +1006,24 @@ def _runtime_intelligence_rows(
                     "consent_state_at_creation": raw_cookie.get("consent_state_at_creation") or "NOT_OBSERVED",
                     "created_before_consent": raw_cookie.get("created_before_consent"),
                     "attribution_basis": "BROWSER_RUNTIME_INSTRUMENTATION",
+                    "observation_state": store_state,
+                    "declared_domain": domain_attribute or None,
+                    "declared_path": declared_path or None,
+                    "declared_effective_path": declared_effective_path,
+                    "confirmed_domain": effective_domain or None,
+                    "confirmed_path": effective_path or None,
+                    "confirmed_host_only": (
+                        bool(raw_cookie.get("confirmed_host_only")) if confirmed else None
+                    ),
+                    "confirmed_secure": (
+                        bool(raw_cookie.get("confirmed_secure")) if confirmed else None
+                    ),
+                    "confirmed_httponly": (
+                        bool(raw_cookie.get("confirmed_httponly")) if confirmed else None
+                    ),
+                    "confirmed_samesite": (
+                        raw_cookie.get("confirmed_samesite") if confirmed else None
+                    ),
                 },
                 "evidence_ids": [snapshot_id] if snapshot_id else [],
             }
@@ -991,7 +1033,11 @@ def _runtime_intelligence_rows(
                 snapshot_id=snapshot_id or None,
                 from_ref=setter_ref,
                 to_ref=cookie_ref,
-                relation_type="SCRIPT_SETS_COOKIE",
+                relation_type=(
+                    "SCRIPT_SETS_COOKIE"
+                    if confirmed
+                    else "SCRIPT_ATTEMPTS_COOKIE_WRITE"
+                ),
                 confidence=cookie_row["attribution_confidence"],
                 evidence_ids=cookie_row["evidence_ids"],
             )
@@ -1000,7 +1046,11 @@ def _runtime_intelligence_rows(
                 snapshot_id=snapshot_id or None,
                 from_ref=platform_ref,
                 to_ref=cookie_ref,
-                relation_type="PLATFORM_ASSOCIATED_WITH_COOKIE_SETTER",
+                relation_type=(
+                    "PLATFORM_ASSOCIATED_WITH_COOKIE_SETTER"
+                    if confirmed
+                    else "PLATFORM_ASSOCIATED_WITH_COOKIE_WRITE_ATTEMPT"
+                ),
                 confidence=cookie_row["attribution_confidence"],
                 evidence_ids=cookie_row["evidence_ids"],
             )
