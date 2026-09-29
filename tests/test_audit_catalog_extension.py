@@ -52,10 +52,16 @@ def _workspace(tmp_path: Path, *, valid_until: str | None = None) -> AuditWorksp
                 configuration_hash TEXT
             );
             CREATE TABLE audit_fulfillment_work_items(
+                work_item_id TEXT PRIMARY KEY,
                 audit_id TEXT,
                 component TEXT,
+                scope_key TEXT,
                 temporal_mode TEXT,
-                valid_until TEXT
+                valid_until TEXT,
+                attempt_count INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE audit_fulfillment_attempts(
+                work_item_id TEXT
             );
             CREATE TABLE audit_reprocess_runs(
                 reprocess_id TEXT PRIMARY KEY,
@@ -74,8 +80,10 @@ def _workspace(tmp_path: Path, *, valid_until: str | None = None) -> AuditWorksp
         if valid_until:
             for component in ("DISCOVERY_ACQUISITION", "HTTP_ACQUISITION", "RENDER_CAPTURE"):
                 con.execute(
-                    "INSERT INTO audit_fulfillment_work_items VALUES(?,?,?,?)",
-                    (AUDIT_ID, component, "LIVE_RECOLLECTION", valid_until),
+                    """INSERT INTO audit_fulfillment_work_items(
+                           work_item_id,audit_id,component,scope_key,temporal_mode,valid_until,attempt_count
+                       ) VALUES(?,?,?,?,?,?,0)""",
+                    (f"WKI-{component}", AUDIT_ID, component, "AUDIT", "LIVE_RECOLLECTION", valid_until),
                 )
         con.commit()
     finally:
@@ -279,6 +287,17 @@ def test_apply_extension_failure_before_rpr_is_retryable_and_preserves_original_
     set_selected_catalog_ids(state, ["CAT-06", "CAT-07", "CAT-10"])
 
     def fail_materialization(*_args, **_kwargs):
+        con = sqlite3.connect(workspace.database)
+        try:
+            con.execute(
+                """INSERT INTO audit_fulfillment_work_items(
+                       work_item_id,audit_id,component,scope_key,temporal_mode,valid_until,attempt_count
+                   ) VALUES(?,?,?,?,?,?,0)""",
+                ("WKI-ORPHAN-CAT10", AUDIT_ID, "PASSIVE_SECURITY", "AUDIT", "REPLAY_SAFE", None),
+            )
+            con.commit()
+        finally:
+            con.close()
         raise sqlite3.OperationalError("forced catalog extension materialization failure")
 
     monkeypatch.setattr(extension, "_materialize_added_work", fail_materialization)
@@ -305,6 +324,10 @@ def test_apply_extension_failure_before_rpr_is_retryable_and_preserves_original_
             "SELECT COUNT(*) FROM audit_reprocess_runs WHERE audit_id=?",
             (AUDIT_ID,),
         ).fetchone()[0]
+        orphan_count = con.execute(
+            """SELECT COUNT(*) FROM audit_fulfillment_work_items
+               WHERE work_item_id='WKI-ORPHAN-CAT10'""",
+        ).fetchone()[0]
     finally:
         con.close()
 
@@ -313,6 +336,7 @@ def test_apply_extension_failure_before_rpr_is_retryable_and_preserves_original_
     assert row["reprocess_id"] is None
     assert "OperationalError" in str(row["note"])
     assert rpr_count == 0
+    assert orphan_count == 0
     assert persisted_hash == original_hash
 
 
@@ -361,3 +385,60 @@ def test_console_contains_unexpected_extension_failure_and_returns_to_menu(
     output = capsys.readouterr().out
     assert "sessão foi preservada" in output
     assert "OperationalError" in output
+
+
+def test_pre_rpr_rollback_never_removes_existing_or_attempted_work(
+    tmp_path: Path,
+) -> None:
+    import rasai.audit_catalog_extension as extension
+
+    workspace = _workspace(tmp_path)
+    con = sqlite3.connect(workspace.database)
+    try:
+        con.execute(
+            """INSERT INTO audit_fulfillment_work_items(
+                   work_item_id,audit_id,component,scope_key,temporal_mode,valid_until,attempt_count
+               ) VALUES(?,?,?,?,?,?,0)""",
+            ("WKI-EXISTING", AUDIT_ID, "CORE_AUDIT", "AUDIT", "REPLAY_SAFE", None),
+        )
+        con.execute(
+            """INSERT INTO audit_fulfillment_work_items(
+                   work_item_id,audit_id,component,scope_key,temporal_mode,valid_until,attempt_count
+               ) VALUES(?,?,?,?,?,?,1)""",
+            ("WKI-ATTEMPTED", AUDIT_ID, "PASSIVE_SECURITY", "AUDIT", "REPLAY_SAFE", None),
+        )
+        con.execute(
+            "INSERT INTO audit_fulfillment_attempts(work_item_id) VALUES(?)",
+            ("WKI-ATTEMPTED",),
+        )
+        con.execute(
+            """INSERT INTO audit_fulfillment_work_items(
+                   work_item_id,audit_id,component,scope_key,temporal_mode,valid_until,attempt_count
+               ) VALUES(?,?,?,?,?,?,0)""",
+            ("WKI-NEW-ZERO", AUDIT_ID, "IMPROVEMENT_INTELLIGENCE", "AUDIT", "REPLAY_SAFE", None),
+        )
+        con.commit()
+    finally:
+        con.close()
+
+    removed = extension._rollback_unlinked_extension_work(
+        workspace,
+        AUDIT_ID,
+        preexisting_work_item_ids=frozenset({"WKI-EXISTING"}),
+    )
+
+    assert removed == ("WKI-NEW-ZERO",)
+    con = sqlite3.connect(workspace.database)
+    try:
+        remaining = {
+            row[0]
+            for row in con.execute(
+                "SELECT work_item_id FROM audit_fulfillment_work_items WHERE audit_id=?",
+                (AUDIT_ID,),
+            ).fetchall()
+        }
+    finally:
+        con.close()
+    assert "WKI-EXISTING" in remaining
+    assert "WKI-ATTEMPTED" in remaining
+    assert "WKI-NEW-ZERO" not in remaining
