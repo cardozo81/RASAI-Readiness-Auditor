@@ -23,8 +23,8 @@ class ReportPresentationTests(unittest.TestCase):
         self.assertIn("<td>Não consolidado</td>", rendered)
         self.assertIn("<td>Alta</td>", rendered)
         self.assertIn("<td>Muito alta (P1)</td>", rendered)
-        self.assertIn("<td>Semantic Structure</td>", rendered)
-        self.assertIn("<td>Evidence & Trust</td>", rendered)
+        self.assertIn("<td>Estrutura semântica</td>", rendered)
+        self.assertIn("<td>Evidências e confiabilidade</td>", rendered)
         self.assertIn("<strong>Indisponível</strong>", rendered)
         self.assertIn("<span class='badge'>Concluído</span>", rendered)
 
@@ -44,7 +44,7 @@ class ReportPresentationTests(unittest.TestCase):
         self.assertIn("<code>NOT_CONSOLIDATED</code>", rendered)
         self.assertIn('<pre>{"status": "FAILED", "reason_code": "HTTP_429"}</pre>', rendered)
         self.assertIn("<td>BR-GEO-054</td>", rendered)
-        self.assertIn("<td>HTTP_429</td>", rendered)
+        self.assertIn("<td>HTTP 429 - limite de requisições</td>", rendered)
         self.assertIn("<td>SCORE-GEO-004</td>", rendered)
 
     def test_humanizes_internal_execution_codes_and_visible_em_dash(self) -> None:
@@ -119,11 +119,11 @@ class ReportPresentationTests(unittest.TestCase):
             self.assertNotEqual(label, item)
             self.assertNotIn("_", label)
 
-    def test_conceptual_scoring_terms_stay_in_established_english(self) -> None:
-        self.assertEqual(public_label("INDEXABILITY"), "Indexability")
-        self.assertEqual(public_label("STRUCTURED_DATA"), "Structured Data")
-        self.assertEqual(public_label("CONTENT_VALUE"), "Content Value")
-        self.assertEqual(public_label("CITATION_READINESS"), "Citation Readiness")
+    def test_conceptual_scoring_terms_are_presented_in_pt_br(self) -> None:
+        self.assertEqual(public_label("INDEXABILITY"), "Indexabilidade e canonicalização")
+        self.assertEqual(public_label("STRUCTURED_DATA"), "Dados estruturados")
+        self.assertEqual(public_label("CONTENT_VALUE"), "Valor do conteúdo")
+        self.assertEqual(public_label("CITATION_READINESS"), "Preparação para citação")
         self.assertEqual(public_label("BLOCKED"), "Bloqueado")
         self.assertEqual(public_label("UNKNOWN"), "Não determinado")
 
@@ -136,10 +136,10 @@ class ReportPresentationTests(unittest.TestCase):
             "<p>Capacidade de indexação continua explicada nesta frase.</p>"
         )
         rendered = humanize_report_html(html, page_name="readiness.html")
-        self.assertIn("<h4>Indexability</h4>", rendered)
-        self.assertIn("<td>Rendering & Extractability</td>", rendered)
-        self.assertIn("<span>Semantic Structure</span>", rendered)
-        self.assertIn("<strong>Structured Data</strong>", rendered)
+        self.assertIn("<h4>Indexabilidade e canonicalização</h4>", rendered)
+        self.assertIn("<td>Renderização e extração</td>", rendered)
+        self.assertIn("<span>Estrutura semântica</span>", rendered)
+        self.assertIn("<strong>Dados estruturados</strong>", rendered)
         self.assertIn("Capacidade de indexação continua explicada nesta frase.</p>", rendered)
 
     def test_humanization_remains_idempotent_after_concept_normalization(self) -> None:
@@ -147,7 +147,7 @@ class ReportPresentationTests(unittest.TestCase):
         once = humanize_report_html(html, page_name="scoring.html")
         twice = humanize_report_html(once, page_name="scoring.html")
         self.assertEqual(once, twice)
-        self.assertIn("<td>Content Value</td>", once)
+        self.assertIn("<td>Valor do conteúdo</td>", once)
         self.assertIn("<td>Bloqueado</td>", once)
 
 
