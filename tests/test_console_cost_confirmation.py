@@ -273,3 +273,66 @@ def test_latest_ai_failure_context_reuses_persisted_diagnostic(tmp_path) -> None
 
     context = console_cost_confirmation._latest_ai_failure_context(tmp_path)
     assert context == "OPENAI/gpt-test; NETWORK; code=CONNECT_ERROR; HTTP 503"
+
+
+
+def test_usage_refreshes_cached_cost_outcome_after_reprocess(monkeypatch) -> None:
+    calls: list[str] = []
+    module = ModuleType("cost_confirmation_refresh_after_rpr")
+    module.render_header = lambda state: None
+    module.run_audit_from_console = lambda state: 0
+    module._post_run_actions = lambda state: True
+    module._render_actual_usage = lambda state: calls.append("base-usage")
+
+    install(module)
+    state = SimpleNamespace(audit_id="AUD-RPR", audits_root="audits")
+    forecast = _forecast()
+    stale = console_cost_confirmation._CostOutcome(
+        comparable=False,
+        currency="USD",
+        expected=forecast.expected,
+        actual=0.0,
+        deviation=None,
+        deviation_percent=None,
+        status="NÃO COMPARÁVEL",
+        relation="execução obrigatória incompleta; custo observado é apenas parcial",
+        forecast_pages=forecast.target_pages,
+        actual_pages=1,
+        unpriced_ai_attempts=0,
+        notes=("3 requisito(s) obrigatório(s) permanece(m) incompleto(s)",),
+    )
+    refreshed = console_cost_confirmation._CostOutcome(
+        comparable=True,
+        currency="USD",
+        expected=forecast.expected,
+        actual=0.04263060,
+        deviation=0.04263060 - float(forecast.expected or 0.0),
+        deviation_percent=-64.4745,
+        status="DENTRO DO ESPERADO",
+        relation="dentro da faixa provável histórica",
+        forecast_pages=forecast.target_pages,
+        actual_pages=1,
+        unpriced_ai_attempts=0,
+        notes=("fulfillment finalizado após RPR",),
+    )
+
+    console_cost_confirmation._FORECASTS[id(state)] = forecast
+    console_cost_confirmation._OUTCOMES[id(state)] = stale
+    rendered: list[console_cost_confirmation._CostOutcome] = []
+    monkeypatch.setattr(console_cost_confirmation, "_build_outcome", lambda *_args: refreshed)
+    monkeypatch.setattr(console_cost_confirmation, "_persist_outcome", lambda *_args: True)
+    monkeypatch.setattr(
+        console_cost_confirmation,
+        "_render_outcome",
+        lambda _forecast_value, outcome: rendered.append(outcome),
+    )
+    try:
+        module._render_actual_usage(state)
+    finally:
+        console_cost_confirmation._FORECASTS.pop(id(state), None)
+        console_cost_confirmation._OUTCOMES.pop(id(state), None)
+
+    assert calls == ["base-usage"]
+    assert rendered == [refreshed]
+    assert rendered[0].actual == 0.04263060
+    assert "incompleto" not in " ".join(rendered[0].notes).casefold()
