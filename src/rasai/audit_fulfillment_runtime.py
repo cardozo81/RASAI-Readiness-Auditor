@@ -556,6 +556,139 @@ def _m23_effective_success(workspace: Any, audit_id: str, target: int) -> bool:
         connection.close()
 
 
+def _m25_effective_success(workspace: Any, audit_id: str, target: int) -> bool:
+    """Return durable M25 completeness from population summaries only."""
+    if target <= 0:
+        return False
+    connection = sqlite3.connect(workspace.database)
+    try:
+        run = connection.execute(
+            """SELECT status,pages_considered
+               FROM synthetic_ux_apdex_runs
+               WHERE audit_id=?""",
+            (audit_id,),
+        ).fetchone()
+        if not run or str(run[0]) != "SUCCESS" or int(run[1] or 0) <= 0:
+            return False
+        row = connection.execute(
+            """SELECT count(*),min(valid_samples)
+               FROM synthetic_ux_apdex_summaries
+               WHERE audit_id=? AND device='POPULATION'""",
+            (audit_id,),
+        ).fetchone()
+        return bool(
+            row
+            and int(row[0] or 0) == int(run[1] or 0)
+            and row[1] is not None
+            and int(row[1]) >= int(target)
+        )
+    except sqlite3.OperationalError:
+        return False
+    finally:
+        connection.close()
+
+
+def _wrap_m25(original):
+    if getattr(original, "_rasai_fulfillment", False):
+        return original
+
+    def execute_m25_with_fulfillment(*args: Any, **kwargs: Any):
+        audit_id = str(kwargs.get("audit_id") or "")
+        workspace = kwargs.get("workspace")
+        config = kwargs.get("config")
+        enabled = bool(getattr(config, "enabled", False)) if config is not None else False
+        if not audit_id or workspace is None or not enabled:
+            return original(*args, **kwargs)
+
+        cfg = config.validate() if hasattr(config, "validate") else config
+        target = int(getattr(cfg, "target_samples_per_page", 0) or 0)
+        register_work_item(
+            workspace,
+            audit_id=audit_id,
+            component="EXPERIENCE_APDEX",
+            scope_key="AUDIT",
+            required=True,
+            temporal_mode=LIVE_RECOLLECTION,
+            configuration={
+                "target_samples_per_page": target,
+                "max_attempts_per_page": getattr(cfg, "max_attempts_per_page", None),
+                "max_pages": getattr(cfg, "max_pages", None),
+                "device_mix": (
+                    dict(cfg.device_mix_dict())
+                    if hasattr(cfg, "device_mix_dict")
+                    else getattr(cfg, "device_mix", None)
+                ),
+                "session_mode": getattr(cfg, "session_mode", None),
+                "kpm": getattr(cfg, "kpm", None),
+                "satisfied_threshold_seconds": getattr(cfg, "satisfied_threshold_seconds", None),
+                "frustrated_threshold_seconds": getattr(cfg, "frustrated_threshold_seconds", None),
+                "errors_affect_apdex": getattr(cfg, "errors_affect_apdex", None),
+                "error_scope": getattr(cfg, "error_scope", None),
+                "settle_seconds": getattr(cfg, "settle_seconds", None),
+                "delay_seconds": getattr(cfg, "delay_seconds", None),
+                "concurrency": getattr(cfg, "concurrency", None),
+            },
+        )
+        attempt_id = begin_attempt(
+            workspace,
+            audit_id=audit_id,
+            component="EXPERIENCE_APDEX",
+            metadata={"collector": "M25_SYNTHETIC_USER_EXPERIENCE"},
+        )
+        try:
+            result = original(*args, **kwargs)
+        except Exception as exc:
+            finish_attempt(
+                workspace,
+                attempt_id,
+                status=FAILED_RETRYABLE,
+                error_class=type(exc).__name__,
+                error_code="M25_RUNTIME_FAILURE",
+                error_message=str(exc),
+            )
+            raise
+
+        status = str(getattr(result, "status", "") or "")
+        if _m25_effective_success(workspace, audit_id, target):
+            finish_attempt(
+                workspace,
+                attempt_id,
+                status=SUCCESS,
+                result_ref="experience-apdex:effective",
+                metadata={
+                    "m25_status": status,
+                    "attempted_samples": int(getattr(result, "attempted_samples", 0) or 0),
+                    "valid_samples": int(getattr(result, "valid_samples", 0) or 0),
+                },
+            )
+        elif status == "NO_PAGES":
+            finish_attempt(
+                workspace,
+                attempt_id,
+                status=WAITING_FOR_DATA,
+                error_class="PREREQUISITE",
+                error_code="NO_AUDITED_PAGES",
+                error_message="Experience Apdex has no eligible audited page",
+            )
+        else:
+            finish_attempt(
+                workspace,
+                attempt_id,
+                status=FAILED_RETRYABLE,
+                error_class="SYNTHETIC_MEASUREMENT",
+                error_code=status or "M25_INCOMPLETE",
+                error_message=(
+                    "Experience Apdex did not reach the configured population sample "
+                    "target for every selected page"
+                ),
+            )
+        return result
+
+    execute_m25_with_fulfillment._rasai_fulfillment = True
+    execute_m25_with_fulfillment._rasai_original = original
+    return execute_m25_with_fulfillment
+
+
 def _wrap_m23(original):
     if getattr(original, "_rasai_fulfillment", False):
         return original
@@ -649,15 +782,14 @@ def _sync_persisted_components(*, audit_id: str, workspace: Any) -> None:
                         "page_limit": row["page_limit"],"session_mode": row["session_mode"],"kpm": row["kpm"],
                     },
                 )
-                stats = connection.execute(
-                    "SELECT count(*),min(valid_samples) FROM synthetic_ux_apdex_summaries WHERE audit_id=?",
-                    (audit_id,),
-                ).fetchone()
-                # Experience distributions can create several device summaries per page.
-                # A persisted SUCCESS remains the authoritative completeness assertion,
-                # while the valid-sample guard prevents a stale/empty run from passing.
-                if str(row["status"]) == "SUCCESS" and stats and int(stats[0]) > 0 and stats[1] is not None and int(stats[1]) >= target:
-                    set_work_item_status(workspace,audit_id=audit_id,component="EXPERIENCE_APDEX",status=SUCCESS,result_ref="experience-apdex:effective")
+                if _m25_effective_success(workspace, audit_id, target):
+                    set_work_item_status(
+                        workspace,
+                        audit_id=audit_id,
+                        component="EXPERIENCE_APDEX",
+                        status=SUCCESS,
+                        result_ref="experience-apdex:effective",
+                    )
                 elif str(row["status"]) in {"NO_CONTEXTS", "NO_PAGES"}:
                     set_work_item_status(
                         workspace,audit_id=audit_id,component="EXPERIENCE_APDEX",status=WAITING_FOR_DATA,
@@ -764,7 +896,17 @@ def install() -> None:
     if _INSTALLED:
         return
 
-    from rasai import audit_runner, cli, cli_extensions, m20, m21_web_performance, m23_apdex, m24_crawling_discovery, report_completion
+    from rasai import (
+        audit_runner,
+        cli,
+        cli_extensions,
+        m20,
+        m21_web_performance,
+        m23_apdex,
+        m24_crawling_discovery,
+        m25_runtime,
+        report_completion,
+    )
 
     wrapped_run = _wrap_run_audit(audit_runner.run_audit)
     audit_runner.run_audit = wrapped_run
@@ -781,6 +923,14 @@ def install() -> None:
     wrapped_m23 = _wrap_m23(m23_apdex.execute_m23_apdex)
     m23_apdex.execute_m23_apdex = wrapped_m23
     cli_extensions.execute_m23_apdex = wrapped_m23
+
+    # Context-scope/shared-acquisition is installed before fulfillment in public
+    # entrypoints. Wrap the m25_runtime binding so the attempt ledger encloses the
+    # actual shared/isolated physical M25 execution without affecting RPR recovery,
+    # which has its own provenance contract.
+    m25_runtime.execute_m25_experience = _wrap_m25(
+        m25_runtime.execute_m25_experience
+    )
 
     wrapped_m24 = _wrap_m24(m24_crawling_discovery.execute_m24)
     m24_crawling_discovery.execute_m24 = wrapped_m24
