@@ -612,13 +612,94 @@ def _insert_extension(
     return extension_id
 
 
+def _work_item_ids(workspace: AuditWorkspace, audit_id: str) -> frozenset[str]:
+    """Snapshot fulfillment identities before extension planning starts."""
+    try:
+        from rasai.audit_fulfillment import list_work_items
+
+        return frozenset(
+            str(item.work_item_id)
+            for item in list_work_items(workspace, audit_id)
+            if str(getattr(item, "work_item_id", "") or "")
+        )
+    except (OSError, sqlite3.Error):
+        return frozenset()
+
+
+def _rollback_unlinked_extension_work(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    *,
+    preexisting_work_item_ids: frozenset[str],
+) -> tuple[str, ...]:
+    """Remove only zero-attempt planning rows created before any causal RPR exists.
+
+    This is not an evidence rollback: collectors/providers have not run yet. Rows with
+    an attempt, or rows that existed before the extension request, are always preserved.
+    The failed audit_catalog_extensions row remains as the durable diagnostic trail.
+    """
+    con = sqlite3.connect(workspace.database)
+    con.row_factory = sqlite3.Row
+    try:
+        tables = {
+            str(row[0])
+            for row in con.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        if "audit_fulfillment_work_items" not in tables:
+            return ()
+        columns = {
+            str(row[1])
+            for row in con.execute(
+                "PRAGMA table_info(audit_fulfillment_work_items)"
+            ).fetchall()
+        }
+        required = {"work_item_id", "audit_id", "attempt_count"}
+        if not required.issubset(columns):
+            return ()
+        rows = con.execute(
+            """SELECT work_item_id,attempt_count FROM audit_fulfillment_work_items
+               WHERE audit_id=?""",
+            (audit_id,),
+        ).fetchall()
+        removable: list[str] = []
+        attempts_available = "audit_fulfillment_attempts" in tables
+        for row in rows:
+            work_item_id = str(row["work_item_id"] or "")
+            if not work_item_id or work_item_id in preexisting_work_item_ids:
+                continue
+            if int(row["attempt_count"] or 0) != 0:
+                continue
+            if attempts_available:
+                attempts = int(
+                    con.execute(
+                        """SELECT COUNT(*) FROM audit_fulfillment_attempts
+                           WHERE work_item_id=?""",
+                        (work_item_id,),
+                    ).fetchone()[0]
+                )
+                if attempts:
+                    continue
+            removable.append(work_item_id)
+        if removable:
+            con.executemany(
+                "DELETE FROM audit_fulfillment_work_items WHERE work_item_id=?",
+                ((work_item_id,) for work_item_id in removable),
+            )
+            con.commit()
+        return tuple(removable)
+    finally:
+        con.close()
+
+
 def _mark_unlinked_extension_failed(
     workspace: AuditWorkspace,
     audit_id: str,
     extension_id: str,
     *,
     note: str,
-) -> None:
+) -> bool:
     """Persist a retryable pre-RPR failure without mutating a sealed extension.
 
     Once a causal RPR exists, its ledger is authoritative and may already have been
@@ -650,7 +731,7 @@ def _mark_unlinked_extension_failed(
                 linked = True
                 break
         if linked:
-            return
+            return False
         con.execute(
             """UPDATE audit_catalog_extensions
                SET status='FAILED_RETRYABLE',completed_at=?,note=?
@@ -658,6 +739,7 @@ def _mark_unlinked_extension_failed(
             (_now(), note, audit_id, extension_id),
         )
         con.commit()
+        return True
     finally:
         con.close()
 
@@ -678,6 +760,7 @@ def apply_catalog_extension(
     from rasai.reprocess_policy import reprocess_policy
 
     workspace = AuditWorkspace.open(Path(state.audits_root) / audit_id)
+    preexisting_work_item_ids = _work_item_ids(workspace, audit_id)
     current = set(effective_catalog_ids(workspace, audit_id))
     requested = set(selected_catalog_ids(state))
     removed = current - requested
@@ -836,15 +919,26 @@ def apply_catalog_extension(
                 diagnostic = redact_text(f"{type(exc).__name__}: {exc}")[:1000]
             except Exception:
                 diagnostic = f"{type(exc).__name__}: {str(exc)[:900]}"
+            rolled_back_work_items: tuple[str, ...] = ()
             try:
-                _mark_unlinked_extension_failed(
+                unlinked = _mark_unlinked_extension_failed(
                     workspace,
                     audit_id,
                     extension_id,
                     note=diagnostic,
                 )
+                if unlinked:
+                    rolled_back_work_items = _rollback_unlinked_extension_work(
+                        workspace,
+                        audit_id,
+                        preexisting_work_item_ids=preexisting_work_item_ids,
+                    )
+                    try:
+                        recalculate(workspace, audit_id)
+                    except (OSError, sqlite3.Error):
+                        pass
             except Exception:
-                pass
+                unlinked = False
             try:
                 from rasai.operational_log import try_append_operational_event
 
@@ -856,6 +950,8 @@ def apply_catalog_extension(
                     catalog_extension_id=extension_id,
                     error_type=type(exc).__name__,
                     error_message=diagnostic,
+                    pre_rpr_failure=bool(unlinked),
+                    rolled_back_planning_work_items=list(rolled_back_work_items),
                 )
             except Exception:
                 pass
