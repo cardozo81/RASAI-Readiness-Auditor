@@ -105,6 +105,29 @@ def _workspace(tmp_path: Path, *, valid_until: str | None = None) -> AuditWorksp
     return workspace
 
 
+def test_effective_catalog_ids_is_read_only_when_extension_schema_is_absent(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    con = sqlite3.connect(workspace.database)
+    try:
+        before = con.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='audit_catalog_extensions'"
+        ).fetchone()[0]
+    finally:
+        con.close()
+
+    assert before == 0
+    assert effective_catalog_ids(workspace, AUDIT_ID) == ("CAT-06", "CAT-07")
+
+    con = sqlite3.connect(workspace.database)
+    try:
+        after = con.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='audit_catalog_extensions'"
+        ).fetchone()[0]
+    finally:
+        con.close()
+    assert after == 0
+
+
 def test_effective_projection_keeps_initial_catalogs_and_links_extension_to_rpr(tmp_path: Path) -> None:
     future = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
     workspace = _workspace(tmp_path, valid_until=future)
@@ -418,6 +441,59 @@ def test_console_contains_unexpected_extension_failure_and_returns_to_menu(
     output = capsys.readouterr().out
     assert "sessão foi preservada" in output
     assert failure_name in output
+
+
+def test_console_contains_system_exit_during_pre_apply_catalog_validation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    import rasai.console_audit_catalog_extension as console_extension
+    import rasai.console_catalog_plan as catalog_plan
+    import rasai.console_catalog_ui as catalog_ui
+
+    workspace = AuditWorkspace.create(tmp_path, AUDIT_ID)
+    sqlite3.connect(workspace.database).close()
+
+    state = SimpleNamespace(
+        audits_root=tmp_path,
+        target="https://example.test/",
+        status="",
+        operation="",
+        error="",
+        ai_provider="none",
+        ai_model=None,
+        ai_reasoning=None,
+        runtime_blocks={},
+    )
+    console_module = SimpleNamespace(render_header=lambda *_: None)
+
+    monkeypatch.setattr(console_extension, "effective_catalog_ids", lambda *_: ("CAT-06", "CAT-07"))
+    monkeypatch.setattr(console_extension, "_load_audit_configuration", lambda *_: ())
+    monkeypatch.setattr(console_extension, "_render_catalogs", lambda *_: None)
+    monkeypatch.setattr(console_extension, "_choose_ai_mode", lambda *_: False)
+    monkeypatch.setattr(console_extension, "confirm_continue", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(catalog_ui, "catalog_menu", lambda *_: None)
+
+    validation_calls = {"count": 0}
+    def fail_during_apply_validation(*_args):
+        validation_calls["count"] += 1
+        raise SystemExit(41)
+
+    monkeypatch.setattr(catalog_plan, "catalog_status", fail_during_apply_validation)
+    monkeypatch.setattr(
+        console_extension,
+        "apply_catalog_extension",
+        lambda **_kwargs: pytest.fail("apply_catalog_extension must not run after pre-apply SystemExit"),
+    )
+    answers = iter(("10", "R", "V"))
+    monkeypatch.setattr("builtins.input", lambda *_: next(answers))
+
+    assert console_extension.complement_audit(console_module, state, AUDIT_ID) is False
+    output = capsys.readouterr().out
+    assert validation_calls["count"] == 1
+    assert "sessão foi preservada" in output
+    assert "SystemExit" in output
 
 
 def test_pre_rpr_rollback_never_removes_existing_or_attempted_work(
