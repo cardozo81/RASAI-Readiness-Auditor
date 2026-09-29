@@ -181,7 +181,9 @@ perfil do dispositivo
 = condição de cliente + CPU + rede usada para executar cada ação daquele grupo
 ```
 
-O relatório `cat-07.html` mantém essa distinção e mostra os presets efetivos da população sintética.
+O relatório `cat-07.html` mantém essa distinção e mostra os presets efetivos da população sintética, junto com concorrência, delay e sessão.
+
+Os mesmos IDs são usados localmente e no SaaS. Em uma nova AUD, o perfil efetivo é congelado na configuração persistida. Em um RPR da mesma AUD, o runtime reutiliza esse perfil congelado mesmo que o operador, INI ou worker tenham sido alterados depois; a configuração corrente vale para novas AUDs, não para reinterpretar uma medição histórica.
 
 ## Lighthouse / PageSpeed Insights
 

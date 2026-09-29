@@ -5,7 +5,11 @@ from types import SimpleNamespace
 import pytest
 
 from rasai.m23_cli import configured_apdex
-from rasai.synthetic_profile_runtime import _capture_cli_profiles, _profile_for
+from rasai.synthetic_profile_runtime import (
+    _capture_cli_profiles,
+    _profile_for,
+    profile_selection_scope,
+)
 from rasai.synthetic_profile_saas_runtime import normalized_runtime_profiles
 from rasai.synthetic_runtime_profiles import (
     PROFILE_ENV_NAMES,
@@ -110,3 +114,47 @@ def test_environment_defaults_remain_explicit_and_reproducible() -> None:
         "hardware": "tablet-balanced",
         "network": "tablet-4g-balanced",
     }
+
+
+
+def test_execution_local_profile_scope_overrides_current_environment_without_mutating_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RASAI_APDEX_MOBILE_NETWORK_PROFILE", "mobile-5g")
+    frozen = {
+        "MOBILE": {
+            "client": "mobile-compact-chromium",
+            "hardware": "mobile-entry",
+            "network": "mobile-3g-constrained",
+        }
+    }
+
+    with profile_selection_scope(frozen):
+        profile = _profile_for("MOBILE")
+        assert profile.client_profile_id == "mobile-compact-chromium"
+        assert profile.hardware_profile_id == "mobile-entry"
+        assert profile.network_profile_id == "mobile-3g-constrained"
+
+    assert _profile_for("MOBILE").network_profile_id == "mobile-5g"
+
+
+
+def test_saas_profile_payload_keeps_effective_profile_ids() -> None:
+    from rasai import audit_execution_contract as contract
+    from rasai.synthetic_profile_saas_runtime import install as install_saas_profiles
+
+    install_saas_profiles()
+    payload = {
+        "apdex_mobile_network_profile": "mobile-5g",
+        "apdex_desktop_hardware_profile": "desktop-constrained",
+        "apdex_tablet_client_profile": "tablet-compact-chromium",
+    }
+    normalized = contract.normalize_audit_job_payload(payload)
+    overrides = contract.audit_job_environment_overrides(normalized)
+
+    assert normalized["apdex_mobile_network_profile"] == "mobile-5g"
+    assert normalized["apdex_desktop_hardware_profile"] == "desktop-constrained"
+    assert normalized["apdex_tablet_client_profile"] == "tablet-compact-chromium"
+    assert overrides["RASAI_APDEX_MOBILE_NETWORK_PROFILE"] == "mobile-5g"
+    assert overrides["RASAI_APDEX_DESKTOP_HARDWARE_PROFILE"] == "desktop-constrained"
+    assert overrides["RASAI_APDEX_TABLET_CLIENT_PROFILE"] == "tablet-compact-chromium"

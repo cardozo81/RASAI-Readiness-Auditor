@@ -872,7 +872,24 @@ def test_planned_experience_apdex_can_start_during_resume_without_prior_run_tabl
             "error_scope": "first-party",
             "settle_seconds": 5.0,
             "delay_seconds": 1.0,
-            "concurrency": 1,
+            "concurrency": 2,
+            "runtime_profiles": {
+                "MOBILE": {
+                    "client": "mobile-compact-chromium",
+                    "hardware": "mobile-entry",
+                    "network": "mobile-3g-constrained",
+                },
+                "DESKTOP": {
+                    "client": "desktop-wide-chromium",
+                    "hardware": "desktop-constrained",
+                    "network": "desktop-fiber",
+                },
+                "TABLET": {
+                    "client": "tablet-compact-chromium",
+                    "hardware": "tablet-premium",
+                    "network": "tablet-wifi",
+                },
+            },
         },
     )
     item = next(
@@ -883,10 +900,14 @@ def test_planned_experience_apdex_can_start_during_resume_without_prior_run_tabl
     captured = {}
 
     import rasai.m25_apdex_experience as m25
+    from rasai.synthetic_profile_runtime import _profile_for
+
+    monkeypatch.setenv("RASAI_APDEX_MOBILE_NETWORK_PROFILE", "mobile-5g")
 
     def fake_execute(*, audit_id, workspace, config, **_kwargs):
         captured["audit_id"] = audit_id
         captured["config"] = config
+        captured["mobile_profile"] = _profile_for("MOBILE")
         return type("Result", (), {"status": "SUCCESS"})()
 
     monkeypatch.setattr(m25, "execute_m25_experience", fake_execute)
@@ -899,5 +920,9 @@ def test_planned_experience_apdex_can_start_during_resume_without_prior_run_tabl
     assert captured["audit_id"] == AUDIT_ID
     assert captured["config"].target_samples_per_page == 10
     assert captured["config"].device_mix_dict() == {"MOBILE": 60.0, "DESKTOP": 40.0}
+    assert captured["config"].concurrency == 2
+    assert captured["mobile_profile"].client_profile_id == "mobile-compact-chromium"
+    assert captured["mobile_profile"].hardware_profile_id == "mobile-entry"
+    assert captured["mobile_profile"].network_profile_id == "mobile-3g-constrained"
 
 

@@ -13,6 +13,7 @@ from rasai.ai_governance import collection_state_is_terminal
 from rasai.catalog_report_analysis import _passive_security_html
 from rasai.catalog_report_catalog_state import _catalog_status, _catalog_work, _configuration_rows
 from rasai.improvement_intelligence import _required_actionable_recommendation_finding_ids
+from rasai.execution_environment import override_environment
 from rasai import console_catalog_plan as catalog_plan
 
 
@@ -153,6 +154,32 @@ def _security_html(*, nonce: str = "same-nonce") -> str:
       <iframe src="https://frame.third.example/widget"></iframe>
     </body></html>
     """
+
+
+def test_passive_security_honors_contextual_extension_environment(monkeypatch, tmp_path: Path) -> None:
+    workspace = _workspace(
+        tmp_path,
+        html=_security_html(),
+    )
+    monkeypatch.setenv(security.ENABLED_ENV, "false")
+    monkeypatch.setenv(security.OSV_ENV, "true")
+    monkeypatch.setenv(security.KEV_ENV, "true")
+
+    with override_environment(
+        {
+            security.ENABLED_ENV: "true",
+            security.OSV_ENV: "false",
+            security.KEV_ENV: "false",
+        }
+    ):
+        result = security.analyze_passive_security(
+            audit_id=AUDIT_ID,
+            workspace=workspace,
+        )
+
+    assert result["status"] == "COMPLETED"
+    # The RPR override is execution-local and must not rewrite the process environment.
+    assert security.enabled() is False
 
 
 def test_passive_security_reuses_persisted_evidence_without_active_scanning(monkeypatch, tmp_path: Path) -> None:

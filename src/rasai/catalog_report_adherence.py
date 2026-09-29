@@ -716,11 +716,60 @@ def _install_apdex_projection() -> None:
             lead += analysis._metric_result("Apdex efetivo", effective_value, effective_tone, "classificação final persistida")
             lead += analysis._metric("Forçadas por erro", forced, f"de {effective_valid} amostra(s) válida(s)")
             lead += "</div>"
+
+            cfg = analysis._safe_json(run.get("configuration"), {})
+            if not isinstance(cfg, dict):
+                cfg = {}
+            runtime_profiles = cfg.get("runtime_profiles")
+            if isinstance(runtime_profiles, dict):
+                from rasai.synthetic_runtime_profiles import describe_preset
+
+                profile_rows: list[str] = []
+                device_mix = analysis._safe_json(run.get("device_mix"), {})
+                device_mix = dict(device_mix) if isinstance(device_mix, dict) else {}
+                for device in ("MOBILE", "DESKTOP", "TABLET"):
+                    try:
+                        active_share = float(device_mix.get(device) or 0.0)
+                    except (TypeError, ValueError):
+                        active_share = 0.0
+                    if active_share <= 0:
+                        continue
+                    profile = runtime_profiles.get(device)
+                    if not isinstance(profile, dict):
+                        continue
+                    parts: list[str] = []
+                    for kind, label in (
+                        ("client", "cliente"),
+                        ("hardware", "hardware"),
+                        ("network", "rede"),
+                    ):
+                        value = str(profile.get(kind) or "")
+                        if not value:
+                            continue
+                        try:
+                            friendly = describe_preset(kind, value)
+                        except (KeyError, ValueError):
+                            friendly = value
+                        parts.append(f"{label}: {friendly} [{value}]")
+                    if parts:
+                        profile_rows.append(f"{analysis._device_label(device)} — " + "; ".join(parts))
+                if profile_rows:
+                    concurrency = int(cfg.get("concurrency") or 1)
+                    delay = cfg.get("delay_seconds", 1.0)
+                    session_mode = analysis._session_label(run.get("session_mode"))
+                    lead += (
+                        "<div class='notice'><strong>Condição sintética efetiva:</strong> "
+                        + escape(
+                            f"concorrência {concurrency}; delay {delay}s; sessão {session_mode}. "
+                            + " | ".join(profile_rows)
+                        )
+                        + ". Os perfis são compartilhados com o Synthetic Navigation Apdex e "
+                        "alteram a condição de laboratório, não a fórmula Apdex. CPU representa "
+                        "slowdown relativo CDP; RAM, GPU, estado térmico e scheduler físicos não "
+                        "são emulados.</div>"
+                    )
             if bool(run.get("errors_affect_apdex")):
                 scope = analysis._error_scope_label(run.get("error_scope"))
-                cfg = analysis._safe_json(run.get("configuration"), {})
-                if not isinstance(cfg, dict):
-                    cfg = {}
                 legacy_policy = not any(
                     key in cfg
                     for key in (

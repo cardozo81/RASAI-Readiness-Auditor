@@ -1026,8 +1026,11 @@ def _measure_device(
     pacer: _OriginPacer,
     shared_gateway: SyntheticUxGateway | None,
     factory: Callable[[], SyntheticUxGateway],
+    profile: SyntheticProfile | None = None,
+    start_index: int = 1,
 ) -> list[_Classified]:
-    profile = _profile_for_device(device)
+    profile = profile or _profile_for_device(device)
+    start_index = max(int(start_index), 1)
 
     def one(run_index: int, runner: SyntheticUxGateway) -> _Classified:
         pacer.wait_for_slot()
@@ -1044,10 +1047,10 @@ def _measure_device(
     if config.concurrency == 1:
         assert shared_gateway is not None
         items: list[_Classified] = []
-        for index in range(1, max_attempts + 1):
+        for offset in range(max_attempts):
             if sum(item.classification is not None for item in items) >= target:
                 break
-            items.append(one(index, shared_gateway))
+            items.append(one(start_index + offset, shared_gateway))
         return items
 
     thread_state = threading.local()
@@ -1067,7 +1070,8 @@ def _measure_device(
         return one(index, runner_for_thread())
 
     items: list[_Classified] = []
-    next_index = 1
+    next_index = start_index
+    last_index = start_index + max_attempts - 1
     futures: dict[Future[_Classified], int] = {}
 
     def valid_count() -> int:
@@ -1077,7 +1081,7 @@ def _measure_device(
         nonlocal next_index
         remaining_valid = max(target - valid_count(), 0)
         in_flight_limit = min(config.concurrency, remaining_valid)
-        while next_index <= max_attempts and len(futures) < in_flight_limit:
+        while next_index <= last_index and len(futures) < in_flight_limit:
             futures[executor.submit(task, next_index)] = next_index
             next_index += 1
 

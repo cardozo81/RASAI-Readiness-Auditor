@@ -112,7 +112,7 @@ def test_selected_audit_menu_marks_missing_snapshot_as_unavailable(monkeypatch, 
     rendered = output.getvalue()
     assert "Configuração   : INDISPONÍVEL" in rendered
     assert "1. Reprocessar" not in rendered
-    assert "Reprocessamento: não necessário - auditoria concluída." in rendered
+    assert "Reprocessamento: não necessário - contrato atual concluído." in rendered
     assert "Carregar esta configuração para uma nova auditoria [INDISPONÍVEL]" in rendered
     assert reason in rendered
     assert state.error == reason

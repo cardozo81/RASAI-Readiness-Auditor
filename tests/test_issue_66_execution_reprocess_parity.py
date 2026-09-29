@@ -85,8 +85,10 @@ def test_apdex_recovery_uses_canonical_measurement_classifiers_and_summaries() -
 
     experience = _source(reprocess_measurements.recover_experience_apdex)
     assert "m25.execute_m25_experience" in experience
-    assert "m25.classify_measurement" in experience
+    assert "m25._measure_device" in experience
     assert "m25._summary" in experience
+    assert "profile_selection_scope" in experience
+    assert "concurrency=int(config_map.get" in experience
 
 
 def test_m21_recovery_closes_fulfillment_only_for_canonical_success() -> None:

@@ -456,24 +456,38 @@ def register_work_item(
             effective_status = str(existing["status"])
             if effective_status != SUCCESS and status in {DISABLED, NOT_APPLICABLE}:
                 effective_status = status
-            connection.execute(
-                """UPDATE audit_fulfillment_work_items SET
-                    required=?,temporal_mode=?,status=?,retryable=?,
-                    source_captured_at=COALESCE(source_captured_at,?),
-                    valid_until=COALESCE(valid_until,?),configuration=?,updated_at=?
-                   WHERE work_item_id=?""",
+            effective_source = existing["source_captured_at"] or source_captured_at
+            effective_valid_until = existing["valid_until"] or valid_until
+            serialized_config = _dump(old_config)
+            changed = any(
                 (
-                    int(required),
-                    temporal_mode,
-                    effective_status,
-                    int(retryable),
-                    source_captured_at,
-                    valid_until,
-                    _dump(old_config),
-                    now,
-                    work_item_id,
-                ),
+                    int(existing["required"]) != int(required),
+                    str(existing["temporal_mode"]) != temporal_mode,
+                    str(existing["status"]) != effective_status,
+                    int(existing["retryable"]) != int(retryable),
+                    existing["source_captured_at"] != effective_source,
+                    existing["valid_until"] != effective_valid_until,
+                    str(existing["configuration"] or "{}") != serialized_config,
+                )
             )
+            if changed:
+                connection.execute(
+                    """UPDATE audit_fulfillment_work_items SET
+                        required=?,temporal_mode=?,status=?,retryable=?,
+                        source_captured_at=?,valid_until=?,configuration=?,updated_at=?
+                       WHERE work_item_id=?""",
+                    (
+                        int(required),
+                        temporal_mode,
+                        effective_status,
+                        int(retryable),
+                        effective_source,
+                        effective_valid_until,
+                        serialized_config,
+                        now,
+                        work_item_id,
+                    ),
+                )
         connection.commit()
     recalculate(workspace, audit_id)
     return work_item_id
@@ -633,8 +647,14 @@ def set_work_item_status(
     now = _utc_now()
     with _connect(workspace) as connection:
         row = _work_item_row(connection, audit_id, component, scope_key)
-        if str(row["status"]) == SUCCESS and status != SUCCESS:
-            return
+        if str(row["status"]) == SUCCESS:
+            if status != SUCCESS:
+                return
+            if result_ref is None or result_ref == row["effective_result_ref"]:
+                # Reconciliation of already-proven SUCCESS must be metadata-idempotent.
+                # A later RPR may observe the same persisted result, but it did not
+                # create a new success event and therefore must not rewrite timestamps.
+                return
         connection.execute(
             """UPDATE audit_fulfillment_work_items SET
                status=?,retryable=?,last_success_at=?,last_error_class=?,last_error_code=?,

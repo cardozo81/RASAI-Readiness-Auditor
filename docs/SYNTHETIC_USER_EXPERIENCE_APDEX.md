@@ -185,6 +185,10 @@ DYNATRACE_API_TOKEN
 
 O console deve mostrar default, valor efetivo, origem e domínio permitido. Secrets aparecem somente como estado de configuração. `DYNATRACE_API_TOKEN` nunca é persistido em INI, SQLite, HTML, logs ou argumentos serializados.
 
+Os perfis de cliente/hardware/rede são compartilhados com Synthetic Navigation Apdex e usam as mesmas nove variáveis `RASAI_APDEX_{MOBILE|DESKTOP|TABLET}_{CLIENT|HARDWARE|NETWORK}_PROFILE`. O fluxo de configuração do Experience mostra os perfis efetivos por device, permite editá-los com o mesmo catálogo e mantém a precedência **ação/CLI > ambiente > rasai-console.ini > defaults controlados**. Alterar perfil muda a condição de laboratório das medições futuras de Navigation e Experience; não muda a fórmula Apdex.
+
+A concorrência do Experience permanece própria em `RASAI_APDEX_EXPERIENCE_CONCURRENCY`. Concorrência e perfis podem alterar os valores medidos por contenção local, carga simultânea, viewport, CPU relativa e envelope de rede, portanto fazem parte do contexto metodológico da execução.
+
 ## 8. Persistência e rastreabilidade
 
 Tabelas principais:
@@ -204,7 +208,9 @@ A fórmula permanece:
 Apdex = (Satisfied + 0.5 * Tolerating) / N_valid
 ```
 
-A execução persiste configuração efetiva, contrato de medição, ambiente de browser e versão metodológica interna suficientes para rastreabilidade. Synthetic Navigation Apdex permanece em persistência separada.
+A execução persiste configuração efetiva, contrato de medição, ambiente de browser e versão metodológica interna suficientes para rastreabilidade. Isso inclui concorrência, delay, device mix, sessão e os IDs efetivos de cliente/hardware/rede por device.
+
+No reprocessamento, os perfis e a concorrência vêm da configuração congelada da própria AUD. O RPR não pode adotar silenciosamente presets atuais do INI, ambiente do operador ou worker. Para AUD anterior sem `runtime_profiles`, o runtime tenta recuperar a identidade pelo `profile_id` já persistido nas amostras; somente na ausência dessa evidência usa o default histórico do catálogo e registra provenance operacional explícita. Synthetic Navigation Apdex permanece em persistência separada.
 
 ## 9. Relatório HTML
 

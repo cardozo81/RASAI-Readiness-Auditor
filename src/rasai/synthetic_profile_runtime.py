@@ -6,15 +6,21 @@ SaaS workers execute and report the same selected conditions.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import replace
 import os
-from typing import Any, Mapping
+from typing import Any, Iterator, Mapping
 
 from rasai.m23_apdex_profiles import profile_from_presets
 from rasai.synthetic_runtime_profiles import configured_preset, selected_profile_ids
 
 _INSTALLED = False
 _EFFECTIVE_PROFILE_IDS: dict[str, dict[str, str]] = {}
+_PROFILE_SELECTION_OVERRIDE: ContextVar[dict[str, dict[str, str]] | None] = ContextVar(
+    "rasai_synthetic_profile_selection_override",
+    default=None,
+)
 
 
 def _ids_from_profile(profile: Any) -> dict[str, str]:
@@ -27,10 +33,47 @@ def _ids_from_profile(profile: Any) -> dict[str, str]:
 
 def _profile_ids_for(device: str, env: Mapping[str, str] | None = None) -> dict[str, str]:
     normalized = device.strip().upper()
-    if env is None and normalized in _EFFECTIVE_PROFILE_IDS:
-        return dict(_EFFECTIVE_PROFILE_IDS[normalized])
+    if env is None:
+        override = _PROFILE_SELECTION_OVERRIDE.get()
+        if override is not None and normalized in override:
+            return dict(override[normalized])
+        if normalized in _EFFECTIVE_PROFILE_IDS:
+            return dict(_EFFECTIVE_PROFILE_IDS[normalized])
     environment = env if env is not None else os.environ
     return selected_profile_ids(normalized, environment)
+
+
+@contextmanager
+def profile_selection_scope(
+    profiles: Mapping[str, Mapping[str, str]] | None,
+) -> Iterator[None]:
+    """Freeze synthetic profile IDs for one execution/recovery scope.
+
+    This is intentionally execution-local.  It lets an RPR reuse the profile identity
+    persisted by the original AUD even when the current console/worker environment has
+    since changed, without mutating process-wide profile variables.
+    """
+    if not profiles:
+        yield
+        return
+
+    from rasai.synthetic_runtime_profiles import validate_preset
+
+    normalized: dict[str, dict[str, str]] = {}
+    for device, values in profiles.items():
+        device_name = str(device).strip().upper()
+        if device_name not in {"MOBILE", "DESKTOP", "TABLET"}:
+            continue
+        mapping = dict(values)
+        normalized[device_name] = {
+            kind: validate_preset(kind, device_name, str(mapping[kind]))
+            for kind in ("client", "hardware", "network")
+        }
+    token = _PROFILE_SELECTION_OVERRIDE.set(normalized)
+    try:
+        yield
+    finally:
+        _PROFILE_SELECTION_OVERRIDE.reset(token)
 
 
 def _profile_for(device: str, env: Mapping[str, str] | None = None):
