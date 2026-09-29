@@ -13,7 +13,7 @@ import os
 from typing import Any, Iterator, Mapping
 
 from rasai.m23_apdex_profiles import profile_from_presets
-from rasai.synthetic_runtime_profiles import configured_preset, selected_profile_ids
+from rasai.synthetic_runtime_profiles import configured_preset, env_name, selected_profile_ids
 
 _INSTALLED = False
 _EFFECTIVE_PROFILE_IDS: dict[str, dict[str, str]] = {}
@@ -33,14 +33,28 @@ def _ids_from_profile(profile: Any) -> dict[str, str]:
 
 def _profile_ids_for(device: str, env: Mapping[str, str] | None = None) -> dict[str, str]:
     normalized = device.strip().upper()
-    if env is None:
-        override = _PROFILE_SELECTION_OVERRIDE.get()
-        if override is not None and normalized in override:
-            return dict(override[normalized])
-        if normalized in _EFFECTIVE_PROFILE_IDS:
-            return dict(_EFFECTIVE_PROFILE_IDS[normalized])
-    environment = env if env is not None else os.environ
-    return selected_profile_ids(normalized, environment)
+    if env is not None:
+        # An explicit environment mapping belongs to the current execution and is
+        # therefore authoritative, including its defaults for unspecified keys.
+        return selected_profile_ids(normalized, env)
+
+    override = _PROFILE_SELECTION_OVERRIDE.get()
+    if override is not None and normalized in override:
+        return dict(override[normalized])
+
+    environment = os.environ
+    captured = _EFFECTIVE_PROFILE_IDS.get(normalized, {})
+    result: dict[str, str] = {}
+    for kind in ("client", "hardware", "network"):
+        name = env_name(kind, normalized)
+        explicit = str(environment.get(name) or "").strip()
+        if explicit:
+            result[kind] = configured_preset(kind, normalized, environment)
+        elif kind in captured:
+            result[kind] = str(captured[kind])
+        else:
+            result[kind] = configured_preset(kind, normalized, environment)
+    return result
 
 
 @contextmanager
