@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 
-from rasai.public_language import SUPPLEMENTAL_PUBLIC_LABELS, supplemental_public_label
+from rasai.public_language import SUPPLEMENTAL_PUBLIC_LABELS, safe_visible_fallback, supplemental_public_label
 from rasai.time_contract import localize_visible_timestamps
 
 
@@ -562,7 +562,8 @@ _PUBLIC_TOKEN_VALUES = tuple(
 _PUBLIC_TOKEN_RE = re.compile(
     r"(?<![A-Z0-9_])("
     + "|".join(re.escape(value) for value in _PUBLIC_TOKEN_VALUES)
-    + r"|TECHNICAL_PREREQUISITE_BR_GEO_\d{3}_[A-Z0-9_]+)(?![A-Z0-9_])"
+    + r"|TECHNICAL_PREREQUISITE_BR_GEO_\d{3}_[A-Z0-9_]+"
+    + r"|[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)(?![A-Z0-9_])"
 )
 
 
@@ -573,7 +574,8 @@ def _public_token_replacement(match: re.Match[str]) -> str:
     # expanding e.g. P2 -> Alta (P2) -> Alta (Alta (P2)).
     if value in {"P0", "P1", "P2", "P3", "P4"} and match.start() > 0 and match.string[match.start() - 1] == "(":
         return value
-    return public_label(value)
+    label = public_label(value)
+    return label if label != value else safe_visible_fallback(value)
 
 
 def _standalone_concept_label(text: str, *, page_name: str | None) -> str:
@@ -603,6 +605,8 @@ def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
     def isolated(match: re.Match[str]) -> str:
         value = match.group("value")
         label = public_label(value)
+        if label == value:
+            label = safe_visible_fallback(value)
         if label == value:
             return match.group(0)
         return f"{match.group(1)}{label}{match.group(4)}"
