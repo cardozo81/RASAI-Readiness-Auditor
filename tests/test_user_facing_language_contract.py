@@ -321,3 +321,11 @@ def test_semantic_machine_literals_have_a_public_language_contract() -> None:
                         verify(path, field, node.value.value)
     assert not missing, "\n".join(sorted(set(missing)))
 
+def test_diagnostic_text_humanizes_composed_machine_reason() -> None:
+    from rasai.public_language import diagnostic_text
+
+    rendered = diagnostic_text("AI_WAITING_FOR_DATA:MAIN_CONTENT_UNAVAILABLE")
+    assert rendered == "IA aguardando pré-requisitos - Conteúdo principal indisponível"
+    assert "WAITING_FOR_DATA" not in rendered
+    assert "MAIN_CONTENT_UNAVAILABLE" not in rendered
+
