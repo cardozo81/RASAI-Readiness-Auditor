@@ -53,7 +53,7 @@ class RuntimeProgressGateTests(unittest.TestCase):
             self.assertEqual(state.status, "COMPLETE")
             self.assertEqual(state.operation, "LOCAL:DONE")
             rendered = captured.getvalue()
-            self.assertIn("SEARCH_INTELLIGENCE", rendered)
+            self.assertIn("Search Intelligence / SERP", rendered)\n            self.assertNotIn("SEARCH_INTELLIGENCE", rendered)
             self.assertIn("97%", rendered)
             self.assertNotIn("Progresso   : 100%", rendered)
         finally:
