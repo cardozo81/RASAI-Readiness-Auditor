@@ -21,6 +21,7 @@ from rasai.console_catalog_plan import (
     is_selected,
     raw_capability_status,
     select_catalog,
+    select_all_unselected_catalogs,
     set_ai_execution_enabled,
 )
 
@@ -41,6 +42,45 @@ def _related_specs(catalog: AuditCatalog) -> tuple[Any, ...]:
         for spec in capability_specs(key):
             by_name[str(spec.name)] = spec
     return tuple(sorted(by_name.values(), key=lambda spec: str(spec.name).casefold()))
+
+
+def _restore_catalog_action(console_module: ModuleType, state: Any, catalog: AuditCatalog) -> None:
+    from rasai.configuration_registry import catalog_configuration_partition
+    from rasai.console_confirmation_contract import confirm_continue
+    from rasai.system_defaults import restore_catalog_defaults
+
+    exclusive, shared = catalog_configuration_partition(catalog.id)
+    restorable = tuple(item for item in exclusive if item.persist_ini and not item.sensitive)
+    if not restorable:
+        state.error = f"{catalog.id} não possui configuração exclusiva restaurável."
+        return
+
+    console_module.render_header(state)
+    print(paint(f"INÍCIO > PREPARAR AUDITORIA > {catalog.id} > RESTAURAR PADRÕES", CYAN, bold=True))
+    section("ESCOPO DA RESTAURAÇÃO")
+    info("Catálogo", f"{catalog.id} · {catalog.label}")
+    info("Configurações exclusivas", len(restorable))
+    info("Configurações compartilhadas", len(shared))
+    if shared:
+        print(paint("Compartilhadas preservadas: " + ", ".join(item.name for item in shared), DIM))
+    print(paint("Outros catálogos, secrets, Windows/Machine e snapshots de AUD/RPR serão preservados.", DIM))
+
+    if not confirm_continue(
+        f"Restaurar padrões de {catalog.id}",
+        back_label="Voltar sem restaurar este catálogo",
+    ):
+        return
+
+    result = restore_catalog_defaults(state, catalog.id)
+    print("\nRestauração concluída.")
+    print(f"Catálogo               : {result.catalog_id}")
+    print(f"Exclusivas restauradas : {len(result.restored_names)}")
+    print(f"Compartilhadas mantidas: {len(result.shared_preserved)}")
+    if result.machine_preserved:
+        print(paint("Windows/Machine preservado: " + ", ".join(result.machine_preserved), YELLOW))
+    if result.warnings:
+        print(paint("Ressalvas: " + "; ".join(result.warnings), YELLOW))
+    input("ENTER para continuar...")
 
 
 def _ai_summary(state: Any, selected: tuple[AuditCatalog, ...]) -> tuple[str, tuple[str, ...]]:
@@ -242,6 +282,10 @@ def catalog_menu(console_module: ModuleType, state: Any, catalog: AuditCatalog) 
         section("AÇÕES")
         if _HANDLER_CHOICES.get(catalog.id):
             print("1. Configurar parâmetros próprios deste catálogo")
+        from rasai.configuration_registry import catalog_configuration_partition
+        exclusive_config, _shared_config = catalog_configuration_partition(catalog.id)
+        if any(item.persist_ini and not item.sensitive for item in exclusive_config):
+            print("P. Restaurar padrões deste catálogo")
         if catalog.ai_mode == AI_OPTIONAL and ai_provider_readiness(state)[0] and not ai_required(state):
             toggle = "Executar sem IA (recomendado)" if ai_execution_enabled(state) else "Executar com IA"
             print(f"U. {toggle}")
@@ -254,6 +298,9 @@ def catalog_menu(console_module: ModuleType, state: Any, catalog: AuditCatalog) 
             if deselect_catalog(state, catalog):
                 state.error = ""
                 return
+            continue
+        if raw == "P" and any(item.persist_ini and not item.sensitive for item in exclusive_config):
+            _restore_catalog_action(console_module, state, catalog)
             continue
         if raw == "U" and catalog.ai_mode == AI_OPTIONAL and ai_provider_readiness(state)[0] and not ai_required(state):
             set_ai_execution_enabled(state, not ai_execution_enabled(state))
@@ -271,6 +318,7 @@ def catalog_menu(console_module: ModuleType, state: Any, catalog: AuditCatalog) 
 
 def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any = None) -> str:
     del detailed
+    bulk_notice = ""
     while True:
         console_module.render_header(state)
         print(paint("INÍCIO > PREPARAR AUDITORIA", CYAN, bold=True))
@@ -314,6 +362,9 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
         section("EXECUÇÃO / ARMAZENAMENTO")
         print(f"16. {CORE_IDS['audits_root']}  Raiz das auditorias        : {getattr(state, 'audits_root', 'audits')}")
         section("AÇÕES")
+        if bulk_notice:
+            print(paint(bulk_notice, DIM))
+        print("T. Marcar todos os catálogos ainda não selecionados")
         print(f"R. Executar auditoria        [{badge(plan_state)}]")
         if ai_optional(state) and not ai_required(state) and ai_provider_readiness(state)[0]:
             toggle = "Executar sem IA (recomendado)" if ai_execution_enabled(state) else "Executar com IA"
@@ -323,6 +374,11 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
         raw = input("Escolha: ").strip().upper()
         if raw == "V":
             return "V"
+        if raw == "T":
+            added = select_all_unselected_catalogs(state)
+            bulk_notice = f"{len(added)} catálogo(s) marcado(s) em uma única ação."
+            state.error = ""
+            continue
         if raw == "R":
             if plan_state == "BLOQUEADO":
                 state.error = plan_detail

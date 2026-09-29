@@ -176,6 +176,7 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
         deselect_catalog,
         is_selected,
         select_catalog,
+        select_all_unselected_catalogs,
         set_ai_execution_enabled,
         set_selected_catalog_ids,
     )
@@ -195,6 +196,7 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
     # Effective selection may include prior extensions that are not part of the
     # immutable initial snapshot loaded above.
     set_selected_catalog_ids(state, tuple(item.id for item in CATALOGS if item.id in base))
+    bulk_notice = ""
 
     while True:
         console_module.render_header(state)
@@ -213,9 +215,12 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
         print("\nSELEÇÃO NOVA")
         print("-" * 100)
         print(", ".join(added) if added else "<nenhum catálogo novo>")
+        if bulk_notice:
+            print(paint(bulk_notice, DIM))
         print("\nAÇÕES")
         print("-" * 100)
         print("1-10. Adicionar/configurar catálogo ainda não pertencente à AUD")
+        print("T. Marcar todos os catálogos ainda não pertencentes à AUD")
         if added:
             print("R. Aplicar complementação nesta AUD")
             print("X. Remover um catálogo NOVO da seleção")
@@ -228,6 +233,15 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
             return False
         if raw == "A":
             _configure_ai(console_module, state)
+            continue
+        if raw == "T":
+            newly = select_all_unselected_catalogs(state, excluded_catalog_ids=base)
+            current = set(_added_catalogs(state, base)) | base
+            set_selected_catalog_ids(
+                state,
+                tuple(item.id for item in CATALOGS if item.id in current),
+            )
+            bulk_notice = f"{len(tuple(item for item in newly if item not in base))} catálogo(s) novo(s) marcado(s)."
             continue
         if raw == "X" and added:
             print("Novos selecionados: " + ", ".join(f"{i+1}={value}" for i,value in enumerate(added)))

@@ -47,6 +47,16 @@ class RestoreDefaultsResult:
     path: Path
 
 
+@dataclass(frozen=True, slots=True)
+class CatalogRestoreResult:
+    catalog_id: str
+    restored_names: tuple[str, ...]
+    shared_preserved: tuple[str, ...]
+    machine_preserved: tuple[str, ...]
+    warnings: tuple[str, ...]
+    path: Path
+
+
 def load_system_defaults() -> ConfigParser:
     parser = ConfigParser(interpolation=None)
     parser.optionxform = str
@@ -111,6 +121,24 @@ def apply_structured_defaults(state: Any, *, include_presentation: bool = True) 
             except (TypeError, ValueError, OverflowError) as exc:
                 warnings.append(f"system-default {section}.{option}: {exc}")
     return tuple(warnings)
+
+
+def canonical_environment_defaults() -> dict[str, str]:
+    """Project every packaged non-secret default onto its technical environment key."""
+    from rasai import console_settings as settings
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    baseline = SearchConsoleState()
+    warnings = apply_structured_defaults(baseline, include_presentation=False)
+    if warnings:
+        raise ValueError("system defaults inválidos: " + "; ".join(warnings))
+    projected = {
+        name: str(value).strip()
+        for name, value in settings._runtime_environment_projection(baseline).items()
+        if str(value).strip()
+    }
+    projected.update(_system_environment_defaults())
+    return projected
 
 
 def _apply_system_environment_defaults(
@@ -258,6 +286,101 @@ def restore_program_defaults(
     )
 
 
+def restore_catalog_defaults(
+    state: Any,
+    catalog_id: str,
+    *,
+    path: Path | None = None,
+) -> CatalogRestoreResult:
+    """Restore only non-secret configuration exclusively owned by one audit catalog."""
+    from rasai import console_provider_environment as facade
+    from rasai import console_settings as settings
+    from rasai.configuration_registry import catalog_configuration_partition
+
+    target = str(catalog_id).strip().upper()
+    exclusive, shared = catalog_configuration_partition(target)
+    restorable = tuple(
+        item
+        for item in exclusive
+        if item.persist_ini and not item.sensitive and item.name not in BOOTSTRAP_ENV_NAMES
+    )
+    destination = path or settings.resolve_config_path()
+    warnings: list[str] = []
+    machine: list[str] = []
+
+    for item in restorable:
+        name = item.name
+        if machine_environment_value(name) is not None:
+            machine.append(name)
+        os.environ.pop(name, None)
+        if os.name == "nt" and user_environment_value(name) is not None:
+            try:
+                remove_user_environment(name)
+            except (OSError, ValueError) as exc:
+                warnings.append(f"{name}: {type(exc).__name__}: {exc}")
+
+    defaults = canonical_environment_defaults()
+    effective_environment = settings._runtime_environment_projection(state)
+    effective_environment.update(
+        {
+            name: str(value)
+            for name, value in os.environ.items()
+            if str(value).strip()
+        }
+    )
+    for item in restorable:
+        value = defaults.get(item.name)
+        if value is None:
+            effective_environment.pop(item.name, None)
+            os.environ.pop(item.name, None)
+        else:
+            effective_environment[item.name] = value
+            os.environ[item.name] = value
+
+    facade.refresh_specs()
+    for item in restorable:
+        try:
+            facade.base_environment._apply_change(state, item.name)
+        except (TypeError, ValueError, OverflowError) as exc:
+            warnings.append(f"{item.name}: {type(exc).__name__}: {exc}")
+
+    # Reconcile the structured state from one coherent environment snapshot. The
+    # projection above preserves current values owned by other catalogs even when an
+    # older INI did not materialize a duplicate environment key.
+    warnings.extend(
+        facade.base_environment.apply_environment_defaults(
+            state,
+            env=effective_environment,
+        )
+    )
+    warnings.extend(
+        facade.base_environment.apply_m23_environment_defaults(
+            state,
+            env=effective_environment,
+        )
+    )
+
+    try:
+        saved = settings.save_console_config(state, destination)
+    except (OSError, UnicodeError, ValueError) as exc:
+        warnings.append(f"rasai-console.ini: {type(exc).__name__}: {exc}")
+        saved = destination
+
+    set_config_path(state, saved)
+    mark_dirty(state, False)
+    facade.refresh_specs()
+    state.operation = f"LOCAL:RESTORE_CATALOG_DEFAULTS:{target}"
+    state.error = "; ".join(tuple(dict.fromkeys(warnings)))
+    return CatalogRestoreResult(
+        target,
+        tuple(item.name for item in restorable),
+        tuple(item.name for item in shared),
+        tuple(sorted(set(machine))),
+        tuple(dict.fromkeys(warnings)),
+        saved,
+    )
+
+
 def _restore_menu(console_module: ModuleType, state: Any) -> None:
     from rasai import console_provider_environment as facade
     from rasai import console_settings as settings
@@ -355,16 +478,7 @@ def _patch_environment_catalog() -> None:
         return
     original_refresh = facade.refresh_specs
 
-    explicit = {
-        "RASAI_SYNTHETIC_APDEX": "true",
-        "RASAI_APDEX_THRESHOLD_SECONDS": "3",
-        "RASAI_APDEX_SAMPLES_PER_CONTEXT": "1",
-        "RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT": "2",
-        "RASAI_APDEX_EXPERIENCE": "true",
-        "RASAI_APDEX_EXPERIENCE_SAMPLES": "20",
-        "RASAI_APDEX_EXPERIENCE_MAX_ATTEMPTS": "25",
-    }
-    explicit.update(_system_environment_defaults())
+    explicit = canonical_environment_defaults()
 
     def apply_current() -> None:
         facade.SPECS = tuple(

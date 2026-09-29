@@ -138,6 +138,22 @@ def select_catalog(state: Any, catalog: AuditCatalog) -> None:
     # Selecting a required-AI catalog does not silently force provider execution.
 
 
+def select_all_unselected_catalogs(
+    state: Any,
+    *,
+    excluded_catalog_ids: set[str] | frozenset[str] | tuple[str, ...] = (),
+) -> tuple[str, ...]:
+    """Select every catalog not already selected, preserving canonical dependency closure."""
+    excluded = {str(value).strip().upper() for value in excluded_catalog_ids}
+    before = set(_plan(state).selected)
+    for catalog in CATALOGS:
+        if catalog.id in excluded or catalog.id in before:
+            continue
+        select_catalog(state, catalog)
+    after = set(_plan(state).selected)
+    return tuple(item.id for item in CATALOGS if item.id in after - before and item.id not in excluded)
+
+
 def deselect_catalog(state: Any, catalog: AuditCatalog) -> bool:
     if catalog.id == "CAT-06" and "CAT-07" in _plan(state).selected:
         state.error = "Apdex de navegação é dependência do Apdex de experiência; remova CAT-07 primeiro."

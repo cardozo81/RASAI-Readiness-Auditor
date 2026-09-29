@@ -103,11 +103,12 @@ def _known_nonsecret_environment_names() -> tuple[str, ...]:
     # single persistence allowlist. EnvironmentSpec.sensitive also protects DSNs and
     # other credentials whose names do not contain API_KEY/TOKEN/PASSWORD.
     from rasai.console_config import is_secret
-    from rasai.console_environment import SPECS
+    from rasai import console_provider_environment as facade
 
+    specs = facade.refresh_specs()
     return tuple(
         spec.name
-        for spec in SPECS
+        for spec in specs
         if not spec.sensitive and not is_secret(spec.name)
     )
 

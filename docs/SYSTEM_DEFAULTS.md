@@ -148,3 +148,29 @@ Documentos relacionados:
 - [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
 - [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md)
 - [SYNTHETIC_USER_EXPERIENCE_APDEX.md](SYNTHETIC_USER_EXPERIENCE_APDEX.md)
+
+
+## Registry canônico de configuração
+
+A superfície configurável do console é inventariada em tempo de execução a partir dos
+`EnvironmentSpec` efetivamente instalados e do mesmo mapa de capacidades usado pelos
+catálogos. O registry classifica, para cada chave, sensibilidade, persistência, default e
+ownership por `CAT-*`; não existe uma segunda lista manual por catálogo.
+
+Os nove perfis físicos sintéticos `RASAI_APDEX_*_{CLIENT|HARDWARE|NETWORK}_PROFILE`
+fazem parte da baseline empacotada e do contrato Save -> Reload -> Restore. Eles são
+configuração compartilhada entre CAT-06 e CAT-07, portanto não pertencem exclusivamente
+a nenhum dos dois catálogos.
+
+
+## Restaurar padrões de um único catálogo
+
+A tela de cada CAT-* oferece restauração local somente quando existem configurações
+exclusivas não secretas. O escopo é calculado pelo registry canônico, não por uma lista
+manual. Overrides exclusivos são removidos da sessão e de Windows/User quando aplicável,
+a baseline empacotada volta a prevalecer e o resultado é persistido pelo writer normal.
+
+Configurações compartilhadas são preservadas. Em especial, os nove perfis físicos
+sintéticos continuam intactos ao restaurar CAT-06 ou CAT-07; uma restauração exclusiva de
+um desses catálogos não pode alterar silenciosamente a medição futura do outro.
+`Windows/Machine`, secrets e snapshots já congelados em AUD/RPR nunca são modificados.

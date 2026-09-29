@@ -300,3 +300,28 @@ A padronização final de mensagens e rótulos é exclusivamente de **apresenta�
 O contrato de rótulo/valor/origem é de **apresentação**: nomes técnicos continuam sendo as chaves canônicas usadas internamente, portanto não há alteração das regras do core ou do formato aceito pelos runtimes.
 
 Documentos relacionados: [AUDIT_CATALOG_WORKFLOW.md](AUDIT_CATALOG_WORKFLOW.md), [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md), [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md), [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md), [CONSOLE_VARIABLE_RESET.md](CONSOLE_VARIABLE_RESET.md), [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) e [PROVIDER_SETUP.md](PROVIDER_SETUP.md).
+
+
+## Seleção em massa de catálogos
+
+Em `Preparar auditoria` e em `Complementar auditoria`, a ação `T` marca em uma única
+operação todos os CAT-* ainda não selecionados/aplicáveis àquela superfície. A ação só
+altera a seleção: readiness, blockers, dependências e limitações continuam sendo avaliados
+pelas mesmas funções usadas na seleção individual.
+
+Na complementação, catálogos que já pertencem ao contrato efetivo da AUD são imutáveis e
+não entram no conjunto novo. No reprocessamento, `T. Reprocessar todos os itens listados`
+mantém sua semântica existente de work-items pendentes; selecionar todos nunca significa
+refazer itens `SUCCESS`.
+
+
+## Restaurar somente o catálogo atual
+
+Dentro de um CAT-* configurável, `P. Restaurar padrões deste catálogo` calcula o escopo
+pelo registry canônico. Antes da confirmação, o console informa quantas configurações
+exclusivas serão restauradas e quantas configurações compartilhadas serão preservadas.
+
+A operação remove somente overrides exclusivos não secretos do catálogo, preserva outros
+CAT-*, secrets e `Windows/Machine`, reaplica a baseline empacotada e salva pelo writer
+canônico. Parâmetros compartilhados entre CAT-06 e CAT-07 - incluindo os nove perfis
+físicos sintéticos - permanecem intactos.
