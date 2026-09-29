@@ -15,6 +15,7 @@ from rasai.system_defaults import (
     LOW_LOAD_NAVIGATION_SAMPLES,
     REPRESENTATIVE_APDEX_SAMPLES,
     apply_structured_defaults,
+    canonical_environment_defaults,
     load_console_config_with_system_defaults,
     load_system_defaults,
     restore_program_defaults,
@@ -52,6 +53,35 @@ def test_packaged_defaults_enable_maximum_credential_free_baseline() -> None:
     assert not parser.has_option("environment", "RASAI_PAGESPEED_ENABLED")
     assert not parser.has_option("environment", "RASAI_CRUX_ENABLED")
     assert not parser.has_option("environment", "RASAI_GSC_ENABLED")
+
+
+def test_canonical_environment_defaults_accept_runtime_configuration_extensions(monkeypatch) -> None:
+    from rasai import console_settings as settings
+
+    original_values = settings._state_values
+    original_assign = settings._assign
+
+    def extended_values(state):
+        values = dict(original_values(state))
+        values["improvement_intelligence"] = {
+            "enabled": "false",
+        }
+        return values
+
+    def extended_assign(state, section: str, option: str, raw: str) -> None:
+        if (section, option) == ("improvement_intelligence", "enabled"):
+            state.improvement_enabled = settings._parse_bool(raw)
+            return
+        original_assign(state, section, option, raw)
+
+    monkeypatch.setattr(settings, "_state_values", extended_values)
+    monkeypatch.setattr(settings, "_assign", extended_assign)
+
+    defaults = canonical_environment_defaults()
+
+    assert defaults["RASAI_SYNTHETIC_APDEX"] == "true"
+    assert defaults["RASAI_APDEX_SAMPLES_PER_CONTEXT"] == "1"
+    assert defaults["RASAI_SYNTHETIC_EXPERIENCE"] == "true"
 
 
 def test_structured_defaults_apply_low_load_apdex_and_dynatrace_compatible_thresholds() -> None:
