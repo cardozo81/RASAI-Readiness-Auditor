@@ -188,3 +188,12 @@ def test_audit_base_all_lifecycle_states_use_pt_br_labels() -> None:
         assert label in html
         if status.value != label:
             assert f">{status.value}<" not in html
+
+
+
+def test_cat07_all_scope_label_is_limited_to_qualifying_request_errors() -> None:
+    from rasai.catalog_report_presentation import _error_scope_label
+
+    label = _error_scope_label("all")
+    assert label == "Todos os erros de requisição qualificáveis observados"
+    assert label != "Todos os erros observados"
