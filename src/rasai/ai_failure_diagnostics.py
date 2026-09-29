@@ -9,6 +9,8 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Mapping
 
+from rasai.catalog_report_public_labels import public_label
+
 
 _ERROR_LABELS = {
     "TIMEOUT_ERROR": "Tempo limite excedido",
@@ -50,9 +52,13 @@ def format_ai_attempt_diagnostic(attempt: Mapping[str, Any]) -> str:
 
     parts: list[str] = []
     if error_class:
-        parts.append(_ERROR_LABELS.get(error_class, error_class.replace("_", " ").capitalize()))
+        parts.append(
+            _ERROR_LABELS.get(error_class)
+            or public_label(error_class)
+            or error_class.replace("_", " ").title()
+        )
     elif error_type:
-        parts.append(error_type)
+        parts.append(public_label(error_type) or error_type.replace("_", " ").title())
 
     if http_status not in (None, ""):
         try:
@@ -61,11 +67,11 @@ def format_ai_attempt_diagnostic(attempt: Mapping[str, Any]) -> str:
             parts.append(f"HTTP {http_status}")
 
     if error_code:
-        parts.append(error_code)
+        parts.append(public_label(error_code) or error_code.replace("_", " ").title())
     elif error_type and not parts:
-        parts.append(error_type)
+        parts.append(public_label(error_type) or error_type.replace("_", " ").title())
 
-    return " · ".join(dict.fromkeys(parts)) or "Erro técnico sem detalhe persistido"
+    return " - ".join(dict.fromkeys(parts)) or "Erro técnico sem detalhe persistido"
 
 
 def _table_exists(connection: sqlite3.Connection, table: str) -> bool:
@@ -144,7 +150,7 @@ def format_ai_attempt_line(attempt: Mapping[str, Any]) -> str:
     diagnostic = format_ai_attempt_diagnostic(attempt)
     request_id = str(attempt.get("request_id") or "").strip()
     if request_id:
-        diagnostic = f"{diagnostic} · request_id={request_id}"
+        diagnostic = f"{diagnostic} - ID da requisição: {request_id}"
     return f"{provider}: {diagnostic}"
 
 
