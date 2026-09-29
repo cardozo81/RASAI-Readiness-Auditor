@@ -138,7 +138,14 @@ Critérios de encerramento definidos para a estruturação/exposição:
 
 Como os checks são discretos, um catálogo normalmente atinge 100% quando todos os controles aplicáveis passam. A meta de 99,50% funciona como limite mínimo, não como estimativa probabilística.
 
-No eixo de integridade, verificações de SHA-256 são aplicadas quando existe um par referência + checksum persistido para o artefato. Um catálogo pode atingir 100% estrutural sem que todo artefato-fonte possua checksum próprio, desde que os controles aplicáveis daquele catálogo passem. Quando não existe checksum aplicável, o controle deve ser apresentado como não aplicável à verificação de hash, e não como se zero artefatos tivessem sido efetivamente verificados.
+No eixo de integridade, qualquer artefato-fonte local persistido por referência precisa possuir o checksum SHA-256 correspondente para que o controle de artefatos seja aprovado. A semântica é:
+
+- **sem referência local a artefato-fonte**: verificação de hash não aplicável;
+- **referência + SHA-256**: arquivo é verificado e qualquer divergência reprova o controle;
+- **referência sem coluna/campo de SHA-256 ou com SHA vazio**: artefato legado/não verificável; o controle de integridade não passa;
+- **AUD histórica**: permanece legível, mas o RASAi não fabrica checksum retroativo para elevar assurance.
+
+Assim, 100% de integridade estrutural não pode significar que uma referência raw conhecida foi ignorada por falta de selo. Novas aquisições que materializam raw local devem persistir o hash no mesmo contrato da referência.
 
 Falhas externas legítimas, `NO_DATA`, `PARTIAL`, indisponibilidade de API ou limitação amostral não reduzem automaticamente o assurance estrutural. O que reduz o assurance é ocultar, classificar incorretamente, perder provenance, quebrar integridade, omitir configuração aplicável ou não tornar a limitação auditável.
 
