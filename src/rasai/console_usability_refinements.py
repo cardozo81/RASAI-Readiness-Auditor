@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo
 from rasai.console_confirmation_contract import confirm_continue
 from rasai.console_ui import DIM, GREEN, paint
 from rasai.configuration_value_labels import configuration_value_choice
+from rasai.public_language import component_label, console_status_label, scope_label
 
 _CONFIGURATION_ID_MODULUS = 1_000_000
 
@@ -317,21 +318,21 @@ def _friendly_status(value: Any) -> str:
     raw = str(value or "").strip()
     if not raw:
         return "-"
-    return _PROCESSING_LABELS.get(raw.upper(), raw.replace("_", " ").strip().capitalize())
+    return _PROCESSING_LABELS.get(raw.upper(), console_status_label(raw))
 
 
 def _friendly_score(value: Any) -> str:
     raw = str(value or "").strip()
     if not raw:
         return "-"
-    return _SCORE_LABELS.get(raw.upper(), raw.replace("_", " ").strip().capitalize())
+    return _SCORE_LABELS.get(raw.upper(), console_status_label(raw))
 
 
 def _friendly_work_item(value: Any) -> str:
     raw = str(value or "").strip()
     if not raw:
         return "-"
-    return _WORK_ITEM_LABELS.get(raw.upper(), raw.replace("_", " ").strip().capitalize())
+    return _WORK_ITEM_LABELS.get(raw.upper(), console_status_label(raw))
 
 
 def _local_timestamp(value: str | None) -> str:
@@ -482,7 +483,7 @@ def _reprocess_selected(console_module: ModuleType, state: Any, audit_id: str) -
         if pending:
             print("\nItens que ainda precisam de resolução:")
             for item in pending[:30]:
-                print(f"- {item.component}/{item.scope_key}: {_friendly_work_item(item.status)}")
+                print(f"- {component_label(item.component)}/{scope_label(item.scope_key)}: {_friendly_work_item(item.status)}")
     else:
         print("O estado será reavaliado pelo motor de reprocessamento antes de qualquer nova tentativa.")
     print("\nItens já bem-sucedidos não são repetidos por padrão.")
