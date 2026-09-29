@@ -30,7 +30,7 @@ from rasai.domain import new_id
 from rasai.persistence import AuditWorkspace
 
 SCHEMA_VERSION = "AUDIT-CATALOG-EXTENSION-001"
-_LIVE_CATALOGS = frozenset({"CAT-02", "CAT-04", "CAT-05", "CAT-06", "CAT-07"})
+_LIVE_CATALOGS = frozenset({"CAT-04", "CAT-05", "CAT-06", "CAT-07"})
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS audit_catalog_extensions(
@@ -188,9 +188,14 @@ def extension_readiness(
     workspace: AuditWorkspace,
     audit_id: str,
     added_catalogs: set[str],
+    *,
+    extra_live_catalogs: set[str] | None = None,
 ) -> tuple[bool, str, str | None]:
     deadline = _live_deadline(workspace, audit_id)
-    live = sorted(added_catalogs & _LIVE_CATALOGS)
+    live = sorted(
+        (added_catalogs & _LIVE_CATALOGS)
+        | set(extra_live_catalogs or ())
+    )
     if live and not _deadline_active(deadline):
         return (
             False,
@@ -241,6 +246,67 @@ def _request_item(
         retryable=True,
     )
     return True
+
+
+def _request_scoped_item(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    component: str,
+    scope_key: str,
+    configuration: Mapping[str, Any],
+    *,
+    temporal_mode: str,
+    required: bool = True,
+    valid_until: str | None = None,
+) -> bool:
+    from rasai.audit_fulfillment import list_work_items
+    if any(
+        item.component == component and item.scope_key == scope_key
+        for item in list_work_items(workspace, audit_id)
+    ):
+        return False
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component=component,
+        scope_key=scope_key,
+        required=required,
+        temporal_mode=temporal_mode,
+        status=REQUESTED_NOT_EXECUTED,
+        retryable=True,
+        configuration=dict(configuration),
+        valid_until=valid_until,
+    )
+    set_work_item_status(
+        workspace,
+        audit_id=audit_id,
+        component=component,
+        scope_key=scope_key,
+        status=REQUESTED_NOT_EXECUTED,
+        error_class="CATALOG_EXTENSION",
+        error_code="CATALOG_ADDED_AFTER_INITIAL_COMPLETION",
+        error_message="catálogo acrescentado após o fechamento do contrato inicial da AUD",
+        retryable=True,
+    )
+    return True
+
+
+def _snapshot_ids(workspace: AuditWorkspace, audit_id: str) -> tuple[str, ...]:
+    con = sqlite3.connect(workspace.database)
+    try:
+        rows = con.execute(
+            """SELECT ps.snapshot_id
+               FROM page_snapshots ps
+               JOIN pages p ON p.page_id=ps.page_id
+               WHERE p.audit_id=?
+               ORDER BY ps.captured_at,ps.snapshot_id""",
+            (audit_id,),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        rows = ()
+    finally:
+        con.close()
+    return tuple(str(row[0]) for row in rows if row[0])
 
 
 def _web_configuration(state: Any) -> dict[str, Any]:
@@ -371,6 +437,25 @@ def _materialize_added_work(
         ):
             components.add("EXPERIENCE_APDEX")
 
+    if "CAT-03" in added and bool(getattr(state, "_rasai_catalog_extension_use_ai", False)):
+        provider = str(getattr(state, "ai_provider", "none") or "none").casefold()
+        for snapshot_id in _snapshot_ids(workspace, audit_id):
+            if _request_scoped_item(
+                workspace,
+                audit_id,
+                "SEMANTIC_AI",
+                snapshot_id,
+                {
+                    "requested": True,
+                    "provider": provider,
+                    "model": str(getattr(state, "ai_model", "") or ""),
+                    "reasoning": str(getattr(state, "ai_reasoning", "") or ""),
+                    "source": "catalog_extension",
+                },
+                temporal_mode=REPLAY_SAFE,
+            ):
+                components.add("SEMANTIC_AI")
+
     if "CAT-08" in added:
         provider = str(getattr(state, "ai_provider", "none") or "none").casefold()
         config = {
@@ -425,6 +510,33 @@ def _materialize_added_work(
             temporal_mode=REPLAY_SAFE,
         ):
             components.add("PASSIVE_SECURITY")
+
+        # CAT-10 AI is optional in the catalog contract. If the operator explicitly
+        # authorizes AI for this extension and CAT-08 is not the owner of the same
+        # Improvement engine, materialize the SECURITY-only analysis as required for
+        # this chosen extension attempt, exactly as the initial catalog projection does.
+        if (
+            bool(getattr(state, "_rasai_catalog_extension_use_ai", False))
+            and "CAT-08" not in added
+            and _request_item(
+                workspace,
+                audit_id,
+                "IMPROVEMENT_INTELLIGENCE",
+                {
+                    "requested": True,
+                    "provider": str(getattr(state, "ai_provider", "none") or "none").casefold(),
+                    "model": str(getattr(state, "ai_model", "") or ""),
+                    "reasoning": str(getattr(state, "ai_reasoning", "") or ""),
+                    "domains": ["SECURITY"],
+                    "max_recommendations": os.environ.get("RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS", "30"),
+                    "timeout_seconds": os.environ.get("RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS", "240"),
+                    "language": os.environ.get("RASAI_AI_ANALYSIS_LANGUAGE", "auto"),
+                    "source": "catalog_extension:CAT-10",
+                },
+                temporal_mode=REPLAY_SAFE,
+            )
+        ):
+            components.add("IMPROVEMENT_INTELLIGENCE")
     return components
 
 
@@ -514,7 +626,18 @@ def apply_catalog_extension(
     if not added:
         raise ValueError("nenhum catálogo novo foi selecionado para complementar esta AUD")
 
-    ready, detail, deadline = extension_readiness(workspace, audit_id, added)
+    use_ai = bool(ai_execution_enabled(state))
+    setattr(state, "_rasai_catalog_extension_use_ai", use_ai)
+
+    extra_live: set[str] = set()
+    if "CAT-02" in added and bool(getattr(state, "web_performance", False)):
+        extra_live.add("CAT-02")
+    ready, detail, deadline = extension_readiness(
+        workspace,
+        audit_id,
+        added,
+        extra_live_catalogs=extra_live,
+    )
     if not ready:
         raise ValueError(detail)
 
@@ -545,7 +668,6 @@ def apply_catalog_extension(
     )
     recalculate(workspace, audit_id)
 
-    use_ai = bool(ai_execution_enabled(state))
     try:
         with reprocess_policy(
             selected_items=tuple(sorted(components)),
@@ -573,12 +695,12 @@ def apply_catalog_extension(
                 workspace,rpr,
                 {"catalog_extension_id": extension_id, **configuration},
             )
-            from rasai.report_completion import finalize_audit_report_site
-            finalize_audit_report_site(audit_id=audit_id, workspace=workspace)
             summary = finish_reprocess_run(
                 workspace,rpr,status=SUCCESS,attempted_items=0,successful_items=0,
                 note="catálogo(s) adicionados; nenhum coletor novo executável nesta tentativa",
             )
+            from rasai.report_completion import materialize_catalog_report_projection
+            materialize_catalog_report_projection(audit_id=audit_id, workspace=workspace)
             from rasai.audit_fulfillment import project_report_validity
             summary = project_report_validity(audit_id=audit_id,workspace=workspace)
             result = ReprocessResult(
@@ -612,6 +734,11 @@ def apply_catalog_extension(
             note=f"{type(exc).__name__}: {str(exc)[:500]}",
         )
         raise
+    finally:
+        try:
+            delattr(state, "_rasai_catalog_extension_use_ai")
+        except AttributeError:
+            pass
 
 
 __all__ = [
