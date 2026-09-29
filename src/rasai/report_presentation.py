@@ -9,7 +9,12 @@ from __future__ import annotations
 
 import re
 
-from rasai.public_language import SUPPLEMENTAL_PUBLIC_LABELS, safe_visible_fallback, supplemental_public_label
+from rasai.public_language import (
+    SUPPLEMENTAL_PUBLIC_LABELS,
+    is_traceability_identifier,
+    safe_visible_fallback,
+    supplemental_public_label,
+)
 from rasai.time_contract import localize_visible_timestamps
 
 
@@ -569,6 +574,18 @@ _PUBLIC_TOKEN_RE = re.compile(
 
 def _public_token_replacement(match: re.Match[str]) -> str:
     value = match.group(1)
+    # Do not translate a known word when it appears inside a canonical hyphenated
+    # identifier such as CRAWLING-DISCOVERY-001 or SCORE-GEO-004.
+    text = match.string
+    left = match.start()
+    right = match.end()
+    while left > 0 and text[left - 1] in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-":
+        left -= 1
+    while right < len(text) and text[right] in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-":
+        right += 1
+    containing_token = text[left:right]
+    if containing_token != value and is_traceability_identifier(containing_token):
+        return value
     # Unknown limitation codes are intentionally retained only inside an explicit
     # technical/auditable wrapper. The surrounding prose tells the reader that
     # this is a canonical code, not user-facing business vocabulary.
@@ -612,6 +629,8 @@ def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
 
     def isolated(match: re.Match[str]) -> str:
         value = match.group("value")
+        if is_traceability_identifier(value):
+            return match.group(0)
         if value in _PUBLIC_LABELS:
             label = _PUBLIC_LABELS[value]
         else:
