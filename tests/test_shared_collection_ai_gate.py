@@ -99,6 +99,18 @@ def test_selected_collector_without_runtime_attempt_is_projected_and_blocks_ai(t
     assert evaluate_collection_readiness(workspace, AUDIT_ID) == state
 
 
+def test_gate_event_never_includes_private_url_scope(tmp_path):
+    workspace = _workspace(tmp_path)
+    _item(
+        workspace, "RENDER_CAPTURE", FAILED_RETRYABLE,
+        scope_key="https://private.example/?token=not-for-logs",
+    )
+    state = evaluate_collection_readiness(workspace, AUDIT_ID)
+    assert not state.ready
+    assert state.blockers == ("RENDER_CAPTURE/SCOPE_REDACTED:FAILED_RETRYABLE",)
+    assert "private.example" not in repr(state)
+
+
 def test_pending_render_and_navigation_block_ai_despite_two_prior_successes(tmp_path):
     workspace = _workspace(tmp_path)
     _item(workspace, "WEB_PERFORMANCE", SUCCESS)
