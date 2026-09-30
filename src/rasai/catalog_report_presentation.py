@@ -16,7 +16,7 @@ def _ui_text(value: Any) -> str:
 
 # Cookie names are evidence identifiers, not enum values. Escape them and only
 # bypass final machine-token rewriting after validating the documented name grammar.
-_COOKIE_NAME_DISPLAY_RE = re.compile(r"^[!#$%&'*+\\-.^_`|~0-9A-Za-z]{1,128}$")
+_COOKIE_NAME_DISPLAY_RE = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,128}$")
 
 
 def _cookie_public_identifier(name: Any, fallback_ref: Any) -> _Html:
