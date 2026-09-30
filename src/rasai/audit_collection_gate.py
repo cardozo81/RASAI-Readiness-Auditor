@@ -57,7 +57,9 @@ def reconcile_collection_plan(workspace: Any, audit_id: str) -> bool:
     )
 
     plan = load_resume_plan(workspace, audit_id)
-    if not plan:
+    if not plan or str(plan.get("schema_version") or "") == "LEGACY-CONFIG-FALLBACK":
+        # A recovered configuration fragment cannot establish the complete
+        # original universe of selected collectors. Do not infer readiness.
         return False
     materialize_planned_work_items(workspace, audit_id)
     return True
