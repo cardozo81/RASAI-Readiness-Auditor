@@ -260,6 +260,41 @@ SUPPLEMENTAL_PUBLIC_LABELS: dict[str, str] = {
     "NOT_TESTED": "Não testado",
 }
 
+# Finite vocabularies observed in typed CAT-04/CAT-10 evidence. Never whitelist
+# unknown uppercase strings or arbitrary cookie identifiers globally.
+SUPPLEMENTAL_PUBLIC_LABELS.update({
+    "HTTP_SET_COOKIE": "Cabeçalho HTTP Set-Cookie",
+    "DOCUMENT_COOKIE": "JavaScript (document.cookie)",
+    "COOKIE_STORE": "API Cookie Store",
+    "ANALYTICS": "Análise estatística",
+    "NECESSARY": "Necessário para funcionamento",
+    "ANALYZED": "Analisado",
+    "SKIPPED_SIZE_LIMIT": "Corpo não analisado: limite de tamanho",
+    "SKIPPED_TOTAL_BUDGET": "Corpo não analisado: orçamento de coleta atingido",
+    "BODY_UNAVAILABLE": "Corpo do recurso indisponível",
+    "NOT_FINISHED": "Carregamento ainda não concluído",
+    "DYNAMIC_EVAL": "Execução dinâmica por eval()",
+    "DYNAMIC_FUNCTION": "Criação dinâmica de função JavaScript",
+    "DOCUMENT_WRITE": "Escrita de HTML via document.write()",
+    "DYNAMIC_SCRIPT_INJECTION": "Inserção dinâmica de script",
+    "COOKIE_API": "Acesso às APIs de cookies",
+    "WEB_STORAGE": "Acesso ao armazenamento do navegador",
+    "WEBSOCKET": "Uso de conexão WebSocket",
+    "SERVICE_WORKER": "Registro de Service Worker",
+    "WORKER": "Criação de Web Worker",
+    "GEOLOCATION": "Acesso à API de geolocalização",
+    "CLIPBOARD": "Acesso à área de transferência",
+    "DYNAMIC_IMPORT": "Importação dinâmica JavaScript",
+    "FINGERPRINTING_SURFACE": "Acesso a recursos potencialmente usados em identificação do navegador",
+    "PUBLIC_IDENTIFIER": "Identificador público documentado",
+    "PUBLIC_OPERATIONAL_KEY": "Chave operacional de exposição restrita",
+    "SECRET_OR_CREDENTIAL": "Potencial segredo ou credencial (protegido)",
+    "UNKNOWN_IDENTIFIER": "Identificador sem classificação pública",
+    "GTM_CONTAINER_ID": "Identificador público de contêiner GTM",
+    "GA_MEASUREMENT_ID": "Identificador público de medição Google Analytics",
+    "OSV": "Base OSV de vulnerabilidades",
+})
+
 CONSOLE_OPERATION_LABELS: dict[str, str] = {
     "LOCAL:MENU": "Navegação no console",
     "LOCAL:DONE": "Auditoria concluída",

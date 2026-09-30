@@ -659,6 +659,14 @@ def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
             continue
         visible = localize_visible_timestamps(part)
         visible = visible.replace("\u2014", "-").replace("\u2013", "-")
+        # Translate the complete known Chromium diagnostic, not only ERR_ABORTED:
+        # otherwise the final pass produces the invalid prefix "net::" plus prose.
+        visible = re.sub(
+            r"\bnet::ERR_ABORTED\b",
+            "Requisição interrompida pelo navegador",
+            visible,
+            flags=re.IGNORECASE,
+        )
         visible = _standalone_concept_label(visible, page_name=page_name)
         output.append(_PUBLIC_TOKEN_RE.sub(_public_token_replacement, visible))
     return _VISIBLE_VALUE_RE.sub(isolated, "".join(output))

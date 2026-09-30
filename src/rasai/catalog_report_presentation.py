@@ -14,6 +14,18 @@ def _ui_text(value: Any) -> str:
     return str(value or "").replace("\u2014", "-")
 
 
+# Cookie names are evidence identifiers, not enum values. Escape them and only
+# bypass final machine-token rewriting after validating the documented name grammar.
+_COOKIE_NAME_DISPLAY_RE = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,128}$")
+
+
+def _cookie_public_identifier(name: Any, fallback_ref: Any) -> _Html:
+    raw = str(name or "").strip()
+    if _COOKIE_NAME_DISPLAY_RE.fullmatch(raw):
+        return _Html("<code class='cookie-name'>" + escape(raw) + "</code>")
+    return _Html("Identificador protegido: " + escape(str(fallback_ref or "-")))
+
+
 def _translated_text(pt_br: Any, original: Any) -> _Html:
     translated = _ui_text(pt_br or _EMPTY)
     source = str(original or "").strip()
