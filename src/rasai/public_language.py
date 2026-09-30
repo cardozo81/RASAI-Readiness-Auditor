@@ -29,6 +29,8 @@ SUPPLEMENTAL_PUBLIC_LABELS: dict[str, str] = {
     "HTTP_ACQUISITION_INCOMPLETE": "Aquisição HTTP incompleta",
     "TECHNICAL_EVIDENCE_INSUFFICIENT": "Evidência técnica insuficiente",
     "EXTRACTION_SOURCE_UNAVAILABLE": "Fonte de extração indisponível",
+    "RENDERED_SOURCE_UPGRADE_REQUIRED": "Extração deve ser atualizada com a captura renderizada recuperada",
+    "EXTRACTION_RENDERED_EVIDENCE_MISSING": "Extração renderizada não materializou a evidência esperada",
     "IMPROVEMENT_INTELLIGENCE_DISABLED": "Análise profunda por IA desabilitada",
     "IMPROVEMENT_INTELLIGENCE_UNAVAILABLE": "Análise profunda por IA indisponível",
     "EXTERNAL_WEB_PERFORMANCE_DISABLED": "Web Performance externo desabilitado",
