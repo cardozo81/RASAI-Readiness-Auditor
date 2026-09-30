@@ -1217,7 +1217,11 @@ def _recover_extraction(workspace: AuditWorkspace, audit_id: str, item: WorkItem
     page_id = str(row["page_id"])
     device = DeviceContext(str(row["device"]))
     with AuditPersistence(workspace) as persistence:
-        result = execute_m4(M3ExecutionResult(snapshot_ids={page_id:{device:snapshot_id}},failures=()),persistence,workspace)
+        result = execute_m4(
+            M3ExecutionResult(snapshot_ids={page_id:{device:snapshot_id}},failures=()),
+            persistence,workspace,
+            artifact_namespace=("reprocess",reprocess_id),
+        )
     failure = next((entry for entry in result.failures if entry.snapshot_id == snapshot_id),None)
     if failure is not None:
         return False,failure.error_kind,set()
@@ -1490,6 +1494,28 @@ def _invalidate_core_dependents(workspace: AuditWorkspace, audit_id: str) -> boo
     )
 
 
+def _extraction_recovery_candidates(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    render_recovered_ids: set[str],
+) -> tuple[WorkItem, ...]:
+    """Selected M4 deficits plus mandatory derivatives of selected recovered M3."""
+    return tuple(
+        item for item in _core_items(workspace, audit_id)
+        if item.component == CONTENT_EXTRACTION
+        and item.retryable
+        and item.status in _RETRYABLE_STATES
+        and not _expired(item)
+        and (
+            item_executable(item)
+            or (
+                item.scope_key in render_recovered_ids
+                and item.last_error_code == "RENDERED_SOURCE_UPGRADE_REQUIRED"
+            )
+        )
+    )
+
+
 def _wrap_reprocess(original: Any, module: Any):
     if getattr(original,"_rasai_core_reprocessing",False):
         return original
@@ -1543,20 +1569,8 @@ def _wrap_reprocess(original: Any, module: Any):
                         render_recovered_ids.update(changed)
         synchronize_core_work_items(workspace,audit_id)
 
-        extraction_candidates = tuple(
-            value
-            for value in _core_items(workspace,audit_id)
-            if value.component == CONTENT_EXTRACTION
-            and value.retryable
-            and value.status in _RETRYABLE_STATES
-            and not _expired(value)
-            and (
-                item_executable(value)
-                or (
-                    value.scope_key in render_recovered_ids
-                    and value.last_error_code == "RENDERED_SOURCE_UPGRADE_REQUIRED"
-                )
-            )
+        extraction_candidates = _extraction_recovery_candidates(
+            workspace,audit_id,render_recovered_ids,
         )
         for item in extraction_candidates:
             attempted += 1
