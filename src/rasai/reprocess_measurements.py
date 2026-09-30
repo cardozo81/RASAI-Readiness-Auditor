@@ -445,7 +445,10 @@ def recover_synthetic_apdex(
                 items = [_m23_item_from_row(row) for row in rows]
                 next_index = max((item.run_index for item in items), default=0) + 1
                 new_attempts = 0
-                while m23._valid_count(items) < cfg.target_valid_samples and new_attempts < cfg.max_attempts_per_context:
+                # The original attempt ceiling is cumulative across AUD and all
+                # RPRs, not a fresh budget for every recovery attempt.
+                remaining_budget = max(cfg.max_attempts_per_context - len(items), 0)
+                while m23._valid_count(items) < cfg.target_valid_samples and new_attempts < remaining_budget:
                     pacer.wait_for_slot()
                     measurement = gateway.measure(url=url,profile=profile,timeout_seconds=cfg.timeout_seconds)
                     measured = m23._sample(next_index,measurement,float(cfg.threshold_seconds))
@@ -483,9 +486,19 @@ def recover_synthetic_apdex(
             valid_total = sum(row["classification"] is not None for row in sample_rows)
             invalid_total = len(sample_rows) - valid_total
             target_met = sum(int(row["valid_samples"]) >= cfg.target_valid_samples for row in summaries)
-            effective_success = bool(contexts) and len(summaries) == len(contexts) and target_met == len(contexts)
-            status = "SUCCESS" if effective_success else ("UNAVAILABLE" if valid_total == 0 else "PARTIAL")
-            reason = None if effective_success else "RECOVERY_TARGET_NOT_YET_MET"
+            final_contexts = sum(bool(row["final_group"]) for row in summaries)
+            small_groups = sum(bool(row["small_group"]) and bool(row["valid_samples"]) for row in summaries)
+            # The same M23 status contract governs the initial AUD and the RPR;
+            # reaching a small-group target does not silently become SUCCESS.
+            status, reason = m23._run_status(
+                context_count=len(contexts),
+                final_contexts=final_contexts if len(summaries) == len(contexts) else 0,
+                target_met_contexts=target_met,
+                small_groups=small_groups,
+                valid_total=valid_total,
+                invalid_total=invalid_total,
+            )
+            effective_success = status == "SUCCESS"
             store.upsert_run(SyntheticApdexRun(
                 audit_id=audit_id,enabled=True,status=status,task_id=m23.TASK_NAVIGATION_LOAD,
                 threshold_seconds=float(cfg.threshold_seconds),frustration_seconds=4.0*float(cfg.threshold_seconds),
