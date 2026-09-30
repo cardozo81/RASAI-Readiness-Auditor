@@ -1,7 +1,7 @@
 # Gate canônico de coleta e encerramento da IA - AUD/RPR
 
 Contrato incremental rastreado por #110 e implementado inicialmente em #111. Os
-executores físicos M3, M21, M23, M25 e os adaptadores de serviços continuam sendo
+executores físicos de captura renderizada, desempenho web e Apdex e os adaptadores de serviços continuam sendo
 as referências de coleta tanto na auditoria inicial quanto na recuperação seletiva.
 O RPR é um plano de execução e provenance sobre o contrato original, não uma
 metodologia independente de cálculo ou aquisição.
@@ -33,8 +33,8 @@ a reconciliação do contrato precisa materializar o planejamento antes.
 
 A auditoria inicial e o RPR mantêm funções físicas e fórmulas compartilhadas.
 O RPR preserva `SUCCESS`, respeita janelas temporais, cria `RPR-*` e
-registra somente as tentativas efetivamente executadas. A fase M24 de coleta
-não pode chamar provedor de IA; a análise técnica M24 pertence à janela
+registra somente as tentativas efetivamente executadas. A fase de coleta e diagnóstico de descoberta
+não pode chamar provedor de IA; a análise técnica assistida por IA pertence à janela
 governada posterior.
 
 A implementação inicial do gate não conclui, sozinha, a refatoração integral
