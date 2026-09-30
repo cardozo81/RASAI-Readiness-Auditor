@@ -925,5 +925,57 @@ def test_serp_projection_exposes_incomplete_requested_depth(tmp_path: Path) -> N
 
     assert ">Cobertura<" in html
     assert "Incompleta · até posição 9" in html
-    assert "A profundidade solicitada não foi integralmente observada" in html
+    assert "Paginação encerrada pelo provedor" in html
+    assert "O provedor encerrou a paginação após 0 resultado(s)" in html
     assert "não deve ser interpretada como ausência em toda a profundidade solicitada" in html
+
+
+def test_active_cat05_serp_renderer_displays_provider_times_opt_in_and_repeat_evidence(tmp_path: Path) -> None:
+    """Regression: the final trust layer must project #129, not an overwritten renderer."""
+    from rasai import catalog_report_page as page
+    from rasai import catalog_report_search_trust as trust
+
+    database = tmp_path / "audit.db"
+    _audit_db(database)
+    with sqlite3.connect(database) as con:
+        con.execute(
+            """CREATE TABLE serp_observations(
+                observation_id TEXT PRIMARY KEY, audit_id TEXT, query TEXT, engine TEXT,
+                provider TEXT, country TEXT, language TEXT, device TEXT,
+                requested_depth INTEGER, collected_at TEXT, quality_metadata TEXT,
+                observation_status TEXT, data_mode TEXT, provider_request_id TEXT,
+                raw_evidence_sha256 TEXT
+            )"""
+        )
+        for observation_id, quality in (
+            ("SERP-LEGACY", {"requested_depth_complete": False, "observed_position_ceiling": 9,
+                             "pagination_ended_before_requested_depth": True}),
+            ("SERP-REFRESH", {"requested_depth_complete": False, "observed_position_ceiling": 9,
+                              "observed_position_count": 9, "pagination_ended_before_requested_depth": True,
+                              "normalization_incomplete_for_requested_depth": False,
+                              "provider_created_at": "2026-09-30T15:38:25+00:00",
+                              "rasai_response_received_at": "2026-09-30T15:38:26+00:00",
+                              "rasai_persisted_at": "2026-09-30T15:38:27+00:00",
+                              "provider_cache_policy": "FORCE_REFRESH",
+                              "provider_response_repeat_status": "SAME_PROVIDER_ID_AND_RAW_SHA"}),
+        ):
+            con.execute(
+                "INSERT INTO serp_observations VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (observation_id, AUDIT_ID, "seguro de vida", "google", "serpapi",
+                 "BR", "pt-BR", "mobile", 20, "2026-09-30T15:38:25+00:00",
+                 json.dumps(quality), "OBSERVED", "OBSERVED_API", observation_id, None),
+            )
+    trust.install()
+    assert page._search_intelligence_html is trust._search_intelligence_html
+    html = page._search_intelligence_html(database, _data())
+    assert "Paginação encerrada pelo provedor" in html
+    assert "Motivo da limitação" in html
+    assert "não foi possível comprovar os 20 solicitados" in html
+    assert "Observação original do provedor" in html
+    assert "Resposta recebida pelo RASAi" in html
+    assert "Observação persistida pelo RASAi" in html
+    assert "Atualização sem cache explicitamente solicitada" in html
+    assert "possível cache do provedor" in html
+    # Legacy observations are not retrospectively labelled as force-refreshed.
+    assert html.count("Atualização sem cache explicitamente solicitada") == 1
+    assert "SERP_REQUESTED_DEPTH_INCOMPLETE" not in html
