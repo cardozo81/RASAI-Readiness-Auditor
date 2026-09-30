@@ -999,7 +999,12 @@ def _capture_render_diagnostic(
     # The initial renderer already normalizes these fields. Reject arbitrary
     # diagnostics from injected/custom renderer implementations.
     from rasai.browser_render_failure import STAGE_LABELS
-    if raw_stage not in STAGE_LABELS or not raw_class.isidentifier() or len(raw_class) > 64:
+    if (
+        raw_stage not in STAGE_LABELS
+        or not raw_class.isascii()
+        or not raw_class.isidentifier()
+        or len(raw_class) > 64
+    ):
         return
     output["render_failure_context"] = {
         "stage": str(raw_stage),
