@@ -335,6 +335,21 @@ def _catalog_status(
             return "CONCLUÍDO","good","As etapas próprias deste catálogo foram concluídas."
     if effective_sources:
         return "CONCLUÍDO","good","O catálogo possui evidências/resultados persistidos. Nem todo domínio funcional possui uma etapa de execução própria."
+    # CAT-08 was explicitly selected, but its mandatory AI was not authorized
+    # in this immutable execution plan. The lack of a result is not a failed
+    # collector or an unrequested catalog. Actual persisted run/work/source
+    # evidence above always takes precedence, including later RPR additions.
+    if catalog_id == "CAT-08":
+        cat08 = data.catalog_items.get("CAT-08", {})
+        if (_norm(cat08.get("ai_mode")) == "REQUIRED"
+                and cat08.get("ai_execution_enabled") is False):
+            return (
+                "NÃO EXECUTADO - IA NÃO AUTORIZADA",
+                "warn",
+                "O CAT-08 foi selecionado, mas a IA obrigatória não foi autorizada "
+                "no plano desta execução. Não há resultado consolidado; "
+                "uma execução posterior deve ser comprovada por evidência persistida.",
+            )
     return "SEM RESULTADO","warn","O catálogo foi solicitado, mas não há resultado reconhecido para esta projeção."
 
 

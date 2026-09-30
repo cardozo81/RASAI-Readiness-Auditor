@@ -120,6 +120,13 @@ _PUBLIC_LABELS: dict[str, str] = {
     **SCORING_CONCEPT_LABELS,
     # Execution and availability.
     "SUCCESS": "Concluído",
+    # Public catalog/assurance statuses confirmed by the persisted AUD smoke.
+    # Do not whitelist unknown enums or one-letter external grades globally.
+    "FALHA": "Falha",
+    "PARCIAL": "Parcial",
+    "ATENDE": "Atende",
+    "CAT": "Catálogo",
+    "SERP": "SERP",
     "COMPLETED": "Concluído",
     "COMPLETE": "Concluído",
     "COMPLETE_WITH_LIMITATIONS": "Concluído com limitações",

@@ -1,5 +1,6 @@
 """Per-catalog external-use indicators, samples, analysis and remediation."""
 from rasai.catalog_report_evidence import *  # noqa: F401,F403
+import re
 
 
 def _integration_indicator(database: Path, data: _ReportData, catalog_id: str) -> str:
@@ -835,6 +836,16 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
 
 
 
+def _mdn_grade_label(value: Any) -> str:
+    """Grade from the MDN typed observation, not a global one-letter enum."""
+    grade = str(value or "").strip().upper()
+    if not grade:
+        return "-"
+    if re.fullmatch(r"[A-F][+-]?", grade):
+        return f"Nota {grade} (MDN)"
+    return "Classificação MDN não reconhecida"
+
+
 def _passive_security_html(database: Path, data: _ReportData) -> str:
     from rasai.improvement_intelligence import _safe_ai_suggested_text
 
@@ -1105,7 +1116,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         mdn_rows.append((
             item.get("target") or "-",
             _status_label(item.get("state")),
-            grade or "-",
+            _mdn_grade_label(grade),
             item.get("value") if item.get("value") is not None else "-",
             tests_passed if tests_passed is not None else "-",
             tests_failed if tests_failed is not None else "-",
