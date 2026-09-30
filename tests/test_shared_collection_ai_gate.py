@@ -29,7 +29,11 @@ def _workspace(tmp_path):
         persistence.audits.add(
             Audit(audit_id=AUDIT_ID, project_name="Shared AI collection gate")
         )
-    initialize_contract(workspace, AUDIT_ID)
+    initialize_contract(
+        workspace,
+        AUDIT_ID,
+        {"resume_plan": {"schema_version": "TEST", "targets": ["https://example.test/"]}},
+    )
     return workspace
 
 
@@ -56,6 +60,43 @@ def test_no_registered_collection_contract_fails_closed(tmp_path):
     state = evaluate_collection_readiness(workspace, AUDIT_ID)
     assert not state.ready
     assert state.blockers == ("COLLECTION_CONTRACT/AUDIT:NO_REQUIRED_WORK_ITEMS",)
+
+
+def test_successful_collector_without_durable_plan_cannot_release_ai(tmp_path):
+    workspace = AuditWorkspace.create(tmp_path, AUDIT_ID)
+    with AuditPersistence(workspace) as persistence:
+        persistence.audits.add(Audit(audit_id=AUDIT_ID, project_name="Missing plan"))
+    initialize_contract(workspace, AUDIT_ID)
+    _item(workspace, "DISCOVERY_ACQUISITION", SUCCESS)
+
+    state = evaluate_collection_readiness(workspace, AUDIT_ID)
+    assert not state.ready
+    assert state.blockers == ("COLLECTION_CONTRACT/AUDIT:NO_DURABLE_COLLECTION_PLAN",)
+
+
+def test_selected_collector_without_runtime_attempt_is_projected_and_blocks_ai(tmp_path):
+    from rasai.audit_fulfillment import merge_contract_configuration
+
+    workspace = _workspace(tmp_path)
+    merge_contract_configuration(
+        workspace,
+        AUDIT_ID,
+        resume_plan={
+            "schema_version": "TEST",
+            "targets": ["https://example.test/"],
+            "execution_options": {
+                "synthetic_apdex": {"enabled": True, "target_valid_samples": 150},
+            },
+        },
+    )
+    _item(workspace, "DISCOVERY_ACQUISITION", SUCCESS)
+    state = evaluate_collection_readiness(workspace, AUDIT_ID)
+    assert not state.ready
+    assert state.required_count == 2
+    assert state.blockers == (
+        "SYNTHETIC_APDEX/AUDIT:REQUESTED_NOT_EXECUTED",
+    )
+    assert evaluate_collection_readiness(workspace, AUDIT_ID) == state
 
 
 def test_pending_render_and_navigation_block_ai_despite_two_prior_successes(tmp_path):
