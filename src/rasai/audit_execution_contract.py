@@ -368,8 +368,6 @@ def normalize_audit_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     normalized["apdex_experience_concurrency"] = _int(payload, "apdex_experience_concurrency", DEFAULT_UX_CONCURRENCY, minimum=1, maximum=EXPERIENCE_MAX_CONCURRENCY)
     if normalized["apdex_experience"] and normalized["apdex_experience_concurrency"] >= 3 and normalized["apdex_experience_delay_seconds"] < ADVANCED_MIN_DELAY_SECONDS:
         raise ValueError("AUDIT payload apdex_experience_concurrency >= 3 requires apdex_experience_delay_seconds >= 1")
-    if normalized["apdex_experience"] and not normalized["synthetic_apdex"]:
-        raise ValueError("AUDIT payload apdex_experience requires synthetic_apdex=true")
     if (
         normalized["apdex_experience"]
         and normalized["apdex_experience_console_errors"]
