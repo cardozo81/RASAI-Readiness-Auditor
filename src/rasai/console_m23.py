@@ -385,23 +385,41 @@ def _mix_text(cfg: ExperienceApdexConfig) -> str:
 
 
 def synthetic_load_summary(state: State) -> tuple[int, str]:
-    """Return a conservative navigation-attempt ceiling, not an HTTP request count."""
-    if not state.synthetic_apdex:
-        return 0, "Synthetic Apdex desabilitado"
-    pages = state.max_pages if state.apdex_max_pages == 0 else min(state.max_pages, state.apdex_max_pages)
-    devices = 2 if state.device == "both" else 1
-    contexts = max(pages, 0) * devices
-    m23_attempts = contexts * max(state.apdex_max_attempts, 0)
+    """Return a conservative synthetic-attempt ceiling, not an HTTP request count."""
+    m23_attempts = 0
+    nav_detail = "Navigation Apdex não solicitado"
+    if state.synthetic_apdex:
+        pages = state.max_pages if state.apdex_max_pages == 0 else min(state.max_pages, state.apdex_max_pages)
+        devices = 2 if state.device == "both" else 1
+        contexts = max(pages, 0) * devices
+        m23_attempts = contexts * max(state.apdex_max_attempts, 0)
+        nav_detail = (
+            f"até {m23_attempts} navegação(ões) Synthetic Navigation Apdex "
+            f"({pages} página(s) × {devices} device(s) × "
+            f"{state.apdex_max_attempts} tentativas/contexto)"
+        )
+
     m25_attempts = 0
+    ux_detail = "Experience Apdex não solicitado"
     if state.apdex_experience:
-        ux_pages = state.max_pages if state.apdex_experience_max_pages == 0 else min(state.max_pages, state.apdex_experience_max_pages)
+        ux_pages = (
+            state.max_pages
+            if state.apdex_experience_max_pages == 0
+            else min(state.max_pages, state.apdex_experience_max_pages)
+        )
         m25_attempts = max(ux_pages, 0) * max(state.apdex_experience_max_attempts, 0)
+        ux_detail = (
+            f"até {m25_attempts} ação(ões) Synthetic User Experience Apdex "
+            f"({ux_pages} página(s) × {state.apdex_experience_max_attempts} tentativas/página)"
+        )
+
     total = m23_attempts + m25_attempts
-    extra = f" + experiência sintética até {m25_attempts} ação(ões) de usuário" if m25_attempts else ""
+    if not total:
+        return 0, "Navigation e Experience Apdex não solicitados"
     return total, (
-        f"até {m23_attempts} navegação(ões) Synthetic Navigation Apdex "
-        f"({pages} página(s) × {devices} device(s) × {state.apdex_max_attempts} tentativas/contexto){extra}. "
-        "Cada navegação/user action pode gerar múltiplos requests HTTP de subrecursos; isso é carga no site, não custo de API estimado."
+        f"{nav_detail}; {ux_detail}. "
+        "Cada navegação/user action pode gerar múltiplos requests HTTP de subrecursos; "
+        "isso é carga no site, não custo de API estimado."
     )
 
 
