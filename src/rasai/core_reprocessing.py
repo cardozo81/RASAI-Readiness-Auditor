@@ -1160,6 +1160,50 @@ def _recover_render(
         )
     return True,"RENDER_CAPTURE_RECOVERED",{snapshot_id}
 
+def _retire_superseded_raw_extraction(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    snapshot_id: str,
+    reprocess_id: str,
+) -> int:
+    """Archive RAW M4 evidence only after a replacement RENDERED_DOM M4 succeeded."""
+    rows = _archive_rows_for_query(
+        workspace,
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        component=CONTENT_EXTRACTION,
+        entity_type="superseded_raw_extraction_evidence",
+        id_field="evidence_id",
+        sql="""SELECT * FROM evidence
+               WHERE audit_id=? AND snapshot_id=? AND source='RAW_HTML_FALLBACK'
+               ORDER BY rowid""",
+        params=(audit_id, snapshot_id),
+    )
+    ids = tuple(str(row["evidence_id"]) for row in rows)
+    if not ids:
+        return 0
+    marks = ",".join("?" for _ in ids)
+    connection = sqlite3.connect(workspace.database)
+    try:
+        with connection:
+            connection.execute(
+                f"DELETE FROM evidence WHERE evidence_id IN ({marks})",
+                ids,
+            )
+    finally:
+        connection.close()
+    try_append_operational_event(
+        workspace,
+        "EXTRACTION_SOURCE_UPGRADED",
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        snapshot_id=snapshot_id,
+        retired_raw_evidence=len(ids),
+        effective_source="RENDERED_DOM",
+    )
+    return len(ids)
+
+
 def _recover_extraction(workspace: AuditWorkspace, audit_id: str, item: WorkItem, reprocess_id: str) -> tuple[bool,str,set[str]]:
     from rasai.m3 import M3ExecutionResult
     from rasai.m4 import execute_m4
@@ -1177,6 +1221,23 @@ def _recover_extraction(workspace: AuditWorkspace, audit_id: str, item: WorkItem
     failure = next((entry for entry in result.failures if entry.snapshot_id == snapshot_id),None)
     if failure is not None:
         return False,failure.error_kind,set()
+    new_ids = tuple(result.evidence_ids.get(snapshot_id, ()))
+    if _file_exists(workspace, row["rendered_artifact_ref"]):
+        connection = sqlite3.connect(workspace.database)
+        try:
+            rendered_count = int(connection.execute(
+                f"""SELECT count(*) FROM evidence
+                    WHERE evidence_id IN ({",".join("?" for _ in new_ids) or "NULL"})
+                      AND source='RENDERED_DOM'""",
+                new_ids,
+            ).fetchone()[0]) if new_ids else 0
+        finally:
+            connection.close()
+        if rendered_count <= 0:
+            return False,"EXTRACTION_RENDERED_EVIDENCE_MISSING",set()
+        _retire_superseded_raw_extraction(
+            workspace,audit_id,snapshot_id,reprocess_id,
+        )
     return True,"EXTRACTION_RECOVERED",{snapshot_id}
 
 
@@ -1468,6 +1529,7 @@ def _wrap_reprocess(original: Any, module: Any):
             affected.update(changed)
         synchronize_core_work_items(workspace,audit_id)
 
+        render_recovered_ids: set[str] = set()
         render_items = tuple(value for value in _retryable_core(workspace,audit_id) if value.component == RENDER_CAPTURE)
         if render_items:
             from rasai import m3
@@ -1477,9 +1539,26 @@ def _wrap_reprocess(original: Any, module: Any):
                     ok,changed = _attempt(workspace,audit_id,item,reprocess_id,renderer=renderer)
                     successful += int(ok)
                     affected.update(changed)
+                    if ok:
+                        render_recovered_ids.update(changed)
         synchronize_core_work_items(workspace,audit_id)
 
-        for item in tuple(value for value in _retryable_core(workspace,audit_id) if value.component == CONTENT_EXTRACTION):
+        extraction_candidates = tuple(
+            value
+            for value in _core_items(workspace,audit_id)
+            if value.component == CONTENT_EXTRACTION
+            and value.retryable
+            and value.status in _RETRYABLE_STATES
+            and not _expired(value)
+            and (
+                item_executable(value)
+                or (
+                    value.scope_key in render_recovered_ids
+                    and value.last_error_code == "RENDERED_SOURCE_UPGRADE_REQUIRED"
+                )
+            )
+        )
+        for item in extraction_candidates:
             attempted += 1
             ok,changed = _attempt(workspace,audit_id,item,reprocess_id)
             successful += int(ok)
