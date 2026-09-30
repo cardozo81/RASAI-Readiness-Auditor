@@ -74,6 +74,8 @@ def test_interrupted_m23_preserves_each_sample_and_rpr_uses_original_budget(tmp_
         ).fetchall()
 
     assert first_run == ("RUNNING", 3, 3)
+    from rasai.m23_apdex import persisted_target_fulfilled
+    assert not persisted_target_fulfilled(workspace, "AUD-M23", 3)
     assert [row[1] for row in first_samples] == [1, 2]
     assert [row[2] for row in first_samples] == ["SATISFIED", "SATISFIED"]
 
@@ -90,7 +92,7 @@ def test_interrupted_m23_preserves_each_sample_and_rpr_uses_original_budget(tmp_
     )
     # Both AUD and RPR classify a group below 100 samples as PARTIAL,
     # despite reaching the explicitly configured lower target.
-    assert completed is False
+    assert completed is True
     assert recovery.calls == 1
     assert recovery.closed
 
@@ -104,6 +106,12 @@ def test_interrupted_m23_preserves_each_sample_and_rpr_uses_original_budget(tmp_
             "FROM synthetic_apdex_samples WHERE audit_id='AUD-M23' ORDER BY run_index"
         ).fetchall()
     assert final_run == ("PARTIAL", 3, 3)
+    # Methodological PARTIAL (<100) and operational fulfillment SUCCESS differ.
+    from rasai.audit_fulfillment_runtime import _m23_effective_success
+    from rasai.m23_apdex import persisted_target_fulfilled
+    assert persisted_target_fulfilled(workspace, "AUD-M23", 3)
+    assert _m23_effective_success(workspace, "AUD-M23", 3)
+    assert not persisted_target_fulfilled(workspace, "AUD-M23", 4)
     assert final_samples[:2] == first_samples
     assert [row[1] for row in final_samples] == [1, 2, 3]
 
@@ -114,7 +122,7 @@ def test_interrupted_m23_preserves_each_sample_and_rpr_uses_original_budget(tmp_
     assert recover_synthetic_apdex(
         workspace=workspace, audit_id="AUD-M23",
         item=SimpleNamespace(configuration={"timeout_seconds": 5.0}),
-    ) is False
+    ) is True
     assert no_budget.calls == 0
     with sqlite3.connect(workspace.database) as db:
         assert db.execute(
