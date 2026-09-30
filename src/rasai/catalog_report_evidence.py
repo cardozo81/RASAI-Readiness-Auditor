@@ -296,6 +296,39 @@ def _structured_data_html(database: Path, data: _ReportData) -> str:
     return _table(("Validação","Resultado","Leitura","Detalhe"),rows,empty="Nenhuma validação de JSON-LD/dados estruturados foi persistida.",sortable=bool(rows))+"".join(modals)
 
 
+def _semantic_provenance_notice(assessments: Sequence[Mapping[str, Any]]) -> str:
+    """Describe persisted semantic origins without implying AI was executed."""
+    deterministic = 0
+    with_provider = 0
+    unspecified = 0
+    providers: set[str] = set()
+    for item in assessments:
+        raw = str(item.get("provider") or "").strip()
+        provider = _norm(raw)
+        if provider in {"DETERMINISTIC", "DETERMINISTIC_BASELINE"}:
+            deterministic += 1
+        elif provider in {"", "NONE"}:
+            unspecified += 1
+        else:
+            with_provider += 1
+            model = str(item.get("model") or "").strip()
+            providers.add(raw + ((" / " + model) if model else ""))
+    note = (
+        "<div class='notice'><strong>Avaliações semânticas persistidas:</strong> "
+        f"{len(assessments)}. Origem registrada: {deterministic} determinística(s), "
+        f"{with_provider} com provedor informado e {unspecified} sem provedor identificado."
+    )
+    if with_provider:
+        note += " Provedores/modelos declarados: " + escape(", ".join(sorted(providers))) + "."
+        note += (
+            " A execução efetiva, a proveniência das requisições e o consumo "
+            "devem ser conferidos em <a href='ai-integrations.html'>IA e integrações</a>."
+        )
+    else:
+        note += " Não há execução de IA inferível a partir destas avaliações."
+    return note + "</div>"
+
+
 def _semantic_html(database: Path, data: _ReportData) -> str:
     con=sqlite3.connect(database); con.row_factory=sqlite3.Row
     try:
@@ -309,8 +342,7 @@ def _semantic_html(database: Path, data: _ReportData) -> str:
         blocks.append("<div class='subsection'><h3>Entidades identificadas</h3>"+_table(("Entidade","Tipo","Confiança"),rows,sortable=True,page_size=10 if len(rows)>10 else None)+"</div>")
     blocks.append("<div class='subsection'><h3>Dados estruturados / JSON-LD</h3>"+_structured_data_html(database,data)+"</div>")
     if assessments:
-        providers=sorted({f"{r.get('provider')}/{r.get('model')}" for r in assessments if r.get("provider")})
-        blocks.append(f"<div class='notice'><strong>Análise semântica assistida por IA:</strong> {len(assessments)} avaliação(ões) persistida(s). Provedor/modelo: {escape(', '.join(providers) or '-')}. <a href='ai-integrations.html'>Ver requisições, dados envolvidos e consumo em IA e integrações</a>.</div>")
+        blocks.append(_semantic_provenance_notice(assessments))
     return "".join(blocks)
 
 
