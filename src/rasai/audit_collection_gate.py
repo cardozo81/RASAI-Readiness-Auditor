@@ -55,6 +55,8 @@ def evaluate_collection_readiness(workspace: Any, audit_id: str) -> CollectionRe
         state = str(item.status).upper()
         if state not in SATISFIED_COLLECTION_STATES:
             blockers.append(f"{component}/{scope_key}:{state}")
+    if required_count == 0:
+        blockers.append("COLLECTION_CONTRACT/AUDIT:NO_REQUIRED_WORK_ITEMS")
     return CollectionReadiness(
         ready=not blockers,
         required_count=required_count,
