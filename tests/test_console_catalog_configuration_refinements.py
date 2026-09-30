@@ -53,7 +53,7 @@ def test_catalog_selection_round_trips_through_console_ini(tmp_path) -> None:
 
         parser = ConfigParser(interpolation=None)
         parser.read(destination, encoding="utf-8")
-        assert parser.get("audit_catalog", "selected") == "CAT-01, CAT-05, CAT-06, CAT-07"
+        assert parser.get("audit_catalog", "selected") == "CAT-01, CAT-05, CAT-07"
         assert parser.getboolean("audit_catalog", "ai_enabled") is False
 
         plan._PLANS.clear()
@@ -62,7 +62,6 @@ def test_catalog_selection_round_trips_through_console_ini(tmp_path) -> None:
         assert plan.selected_catalog_ids(restored) == (
             "CAT-01",
             "CAT-05",
-            "CAT-06",
             "CAT-07",
         )
         assert plan.ai_execution_enabled(restored) is False
@@ -225,8 +224,8 @@ def test_remove_action_returns_to_origin_and_unselects_every_catalog(monkeypatch
 
 
 
-def test_remove_navigation_apdex_cascades_experience_and_returns(monkeypatch) -> None:
-    """Regression #148: CAT-06 removal must honor D even when CAT-07 depends on it."""
+def test_remove_navigation_apdex_preserves_independent_experience_and_returns(monkeypatch) -> None:
+    """#150: D on CAT-06 must not remove independent CAT-07."""
     original_menu = console_catalog_ui.catalog_menu
     original_related = console_catalog_ui._related_specs
     original_workflow_menu = workflow.catalog_menu
@@ -250,7 +249,7 @@ def test_remove_navigation_apdex_cascades_experience_and_returns(monkeypatch) ->
             audit_catalog.CATALOG_BY_ID["CAT-06"],
         )
 
-        assert plan.selected_catalog_ids(state) == ()
+        assert plan.selected_catalog_ids(state) == ("CAT-07",)
         assert observed[-1] == ("CAT-06", "V")
         assert state.error == ""
     finally:
@@ -260,7 +259,7 @@ def test_remove_navigation_apdex_cascades_experience_and_returns(monkeypatch) ->
         workflow._catalog_menu = original_workflow_alias
 
 
-def test_remove_experience_apdex_preserves_navigation_dependency() -> None:
+def test_remove_experience_apdex_preserves_navigation_catalog() -> None:
     state = SearchConsoleState()
     plan.set_selected_catalog_ids(state, ["CAT-06", "CAT-07"])
 
@@ -275,13 +274,39 @@ def test_removed_apdex_catalogs_are_not_projected_into_next_audit() -> None:
     plan.set_selected_catalog_ids(state, ["CAT-06", "CAT-07"])
 
     assert plan.deselect_catalog(state, audit_catalog.CATALOG_BY_ID["CAT-06"]) is True
+    assert plan.selected_catalog_ids(state) == ("CAT-07",)
+    assert plan.deselect_catalog(state, audit_catalog.CATALOG_BY_ID["CAT-07"]) is True
     assert plan.selected_catalog_ids(state) == ()
 
     with plan.project_plan(state):
         assert state.synthetic_apdex is False
         assert state.apdex_experience is False
+        assert os.environ["RASAI_SYNTHETIC_APDEX"] == "false"
+        assert os.environ["RASAI_APDEX_EXPERIENCE"] == "false"
 
     # Configuration values are preserved outside the execution projection. Only the
     # next-audit catalog plan was changed by D.
     assert state.synthetic_apdex is True
     assert state.apdex_experience is True
+
+
+def test_cat07_can_be_selected_and_projected_without_cat06() -> None:
+    state = SearchConsoleState()
+    state.synthetic_apdex = True
+    state.apdex_experience = True
+    plan.set_selected_catalog_ids(state, ["CAT-07"])
+
+    assert plan.selected_catalog_ids(state) == ("CAT-07",)
+
+    before_nav = os.environ.get("RASAI_SYNTHETIC_APDEX")
+    before_ux = os.environ.get("RASAI_APDEX_EXPERIENCE")
+    with plan.project_plan(state):
+        assert state.synthetic_apdex is False
+        assert state.apdex_experience is True
+        assert os.environ["RASAI_SYNTHETIC_APDEX"] == "false"
+        assert os.environ["RASAI_APDEX_EXPERIENCE"] == "true"
+
+    assert state.synthetic_apdex is True
+    assert state.apdex_experience is True
+    assert os.environ.get("RASAI_SYNTHETIC_APDEX") == before_nav
+    assert os.environ.get("RASAI_APDEX_EXPERIENCE") == before_ux
