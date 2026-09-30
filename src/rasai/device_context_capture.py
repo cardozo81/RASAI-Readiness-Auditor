@@ -739,8 +739,9 @@ def _install_browser_capture() -> None:
             try:
                 page.wait_for_load_state("networkidle", timeout=self.settle_timeout_ms)
                 settle_outcome = "NETWORKIDLE"
-            except PlaywrightTimeoutError as exc:
-            failure_context = render_failure_context(stage, exc)
+            except PlaywrightTimeoutError:
+                # Bounded settle timeout is an expected diagnostic, not a
+                # fatal browser failure. Rendering continues from the DOM.
                 settle_outcome = "BOUNDED_TIMEOUT"
 
             stage = "DOM_CAPTURE"
