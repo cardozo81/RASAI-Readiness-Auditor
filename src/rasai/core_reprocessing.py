@@ -310,6 +310,20 @@ def synchronize_core_work_items(workspace: AuditWorkspace, audit_id: str) -> Non
             and not state["rendered_extraction_evidence"]
         )
         if rendered_upgrade:
+            # Monotonic SUCCESS cannot be demoted by ordinary status projection.
+            # A material source transition is an explicit governed invalidation:
+            # retain the old success timestamp and reference for provenance.
+            from rasai.governed_fulfillment_invalidation import invalidate_work_item
+
+            invalidate_work_item(
+                workspace,
+                audit_id=audit_id,
+                component=CONTENT_EXTRACTION,
+                scope_key=snapshot_id,
+                error_class="EVIDENCE_DEPENDENCY",
+                error_code="RENDERED_SOURCE_UPGRADE_REQUIRED",
+                error_message="A new rendered document supersedes RAW-only extraction",
+            )
             extraction_status,extraction_retryable,extraction_code = (
                 FAILED_RETRYABLE,True,"RENDERED_SOURCE_UPGRADE_REQUIRED"
             )
