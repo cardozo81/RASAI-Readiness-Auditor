@@ -188,15 +188,30 @@ def main(argv: Sequence[str] | None = None) -> int:
             return
         m23_executed_for.add(audit_id)
 
+        assessment = load_assessment(workspace)
+
         # M25/CAT-07 is independent from M23/CAT-06. When Navigation Apdex is
         # not requested, execute only the pending experience collector and do not
         # materialize a disabled M23 run/event (which used to surface as APDEX_REPORT 0/0).
+        # Preserve the existing source-quality fail-fast boundary: a hard-blocked
+        # origin must not receive synthetic user actions merely because CAT-07 is standalone.
         if not m23_config.enabled:
-            if experience_config.enabled:
+            if experience_config.enabled and not (
+                assessment is not None and assessment.all_pages_hard_blocked
+            ):
                 execute_pending_m25(audit_id=audit_id, workspace=workspace)
+            elif experience_config.enabled and assessment is not None and assessment.all_pages_hard_blocked:
+                try_append_operational_event(
+                    workspace,
+                    "SOURCE_QUALITY_DOWNSTREAM_SKIPPED",
+                    level="WARNING",
+                    audit_id=audit_id,
+                    component="EXPERIENCE_APDEX",
+                    blockers=assessment.hard_blocker_kinds,
+                    attempted_samples=0,
+                )
             return
 
-        assessment = load_assessment(workspace)
         if (
             m23_config.enabled
             and assessment is not None
