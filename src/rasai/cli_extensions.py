@@ -12,6 +12,8 @@ from rasai.m23_apdex import M23ExecutionResult, execute_m23_apdex
 from rasai.m23_cli import SyntheticApdexConfig, configured_apdex, register_apdex_arguments
 from rasai.m23_lighthouse_traceability import extract_lighthouse_execution_profiles
 from rasai.m24_cli import M24Config, configured_m24, register_m24_arguments
+from rasai.m25_apdex_experience import ExperienceApdexConfig
+from rasai.m25_runtime import execute_pending_m25, peek_pending_config
 from rasai.m24_crawling_discovery import M24ExecutionResult, execute_m24, load_m24_result
 from rasai.m24_discovery_extensions import install_discovery_extensions
 from rasai.operational_log import try_append_operational_event
@@ -92,6 +94,32 @@ def _resolve_m24_config(argv: list[str]) -> M24Config | None:
     return None
 
 
+def _execute_standalone_experience(
+    *,
+    m23_config: SyntheticApdexConfig,
+    experience_config: ExperienceApdexConfig,
+    audit_id: str,
+    workspace: object,
+    assessment: object | None,
+) -> bool:
+    """Execute CAT-07 when CAT-06 is off, preserving source-quality fail-fast."""
+    if m23_config.enabled or not experience_config.enabled:
+        return False
+    if assessment is not None and bool(getattr(assessment, "all_pages_hard_blocked", False)):
+        try_append_operational_event(
+            workspace,
+            "SOURCE_QUALITY_DOWNSTREAM_SKIPPED",
+            level="WARNING",
+            audit_id=audit_id,
+            component="EXPERIENCE_APDEX",
+            blockers=getattr(assessment, "hard_blocker_kinds", ()),
+            attempted_samples=0,
+        )
+        return False
+    execute_pending_m25(audit_id=audit_id, workspace=workspace)
+    return True
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the audit CLI with current provider and fail-open enrichment composition."""
     effective_argv = list(argv) if argv is not None else list(sys.argv[1:])
@@ -105,8 +133,6 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     parsed_resume = _parse_extended_args(effective_argv)
     resume_args = parsed_resume[1] if parsed_resume is not None else None
-    from rasai.m25_runtime import execute_pending_m25, peek_pending_config
-
     experience_config = peek_pending_config()
     resume_options: dict[str, object] = {
         "synthetic_apdex": (
@@ -190,26 +216,16 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         assessment = load_assessment(workspace)
 
-        # M25/CAT-07 is independent from M23/CAT-06. When Navigation Apdex is
-        # not requested, execute only the pending experience collector and do not
-        # materialize a disabled M23 run/event (which used to surface as APDEX_REPORT 0/0).
-        # Preserve the existing source-quality fail-fast boundary: a hard-blocked
-        # origin must not receive synthetic user actions merely because CAT-07 is standalone.
+        # CAT-07 has its own collector/persistence. If CAT-06 is off, run only
+        # M25 after core pages exist; never materialize a disabled M23 run/event.
         if not m23_config.enabled:
-            if experience_config.enabled and not (
-                assessment is not None and assessment.all_pages_hard_blocked
-            ):
-                execute_pending_m25(audit_id=audit_id, workspace=workspace)
-            elif experience_config.enabled and assessment is not None and assessment.all_pages_hard_blocked:
-                try_append_operational_event(
-                    workspace,
-                    "SOURCE_QUALITY_DOWNSTREAM_SKIPPED",
-                    level="WARNING",
-                    audit_id=audit_id,
-                    component="EXPERIENCE_APDEX",
-                    blockers=assessment.hard_blocker_kinds,
-                    attempted_samples=0,
-                )
+            _execute_standalone_experience(
+                m23_config=m23_config,
+                experience_config=experience_config,
+                audit_id=audit_id,
+                workspace=workspace,
+                assessment=assessment,
+            )
             return
 
         if (
