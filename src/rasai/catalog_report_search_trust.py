@@ -25,6 +25,28 @@ _COMMON_CRAWL_SOURCE = "COMMON_CRAWL_CDX_HISTORY"
 _CLARITY_SOURCE = "MICROSOFT_CLARITY_LIVE_INSIGHTS"
 _GSC_PREFIX = "GOOGLE_SEARCH_CONSOLE_"
 
+def _serp_geo_label(country: Any, region: Any) -> str:
+    """Localize a typed SERP location without changing the underlying observation."""
+    code = str(country or "").strip().upper()
+    region_text = str(region or "").strip()
+    names = {
+        "BR": "Brasil",
+        "US": "Estados Unidos",
+        "PT": "Portugal",
+        "GB": "Reino Unido",
+    }
+    name = names.get(code)
+    if name:
+        if region_text and region_text.casefold() not in {name.casefold(), code.casefold()}:
+            return f"{name} ({region_text})"
+        return name
+    if region_text:
+        return region_text
+    if re.fullmatch(r"[A-Z]{2}", code):
+        return f"País (código ISO: {code})"
+    return "-"
+
+
 
 def _safe_json(value: Any, default: Any) -> Any:
     if value in (None, ""):
@@ -596,7 +618,7 @@ def _serp_html(database: Path, data: Any) -> str:
                 )
             else:
                 depth_coverage="Não determinada (observação legada)"
-            rows.append((obs.get("query") or "-",obs.get("engine") or "-",obs.get("country") or obs.get("region") or "-",obs.get("language") or "-",page._device_label(obs.get("device")),obs.get("requested_depth") or "-",len(results),depth_coverage,obs.get("provider") or "-",mode,captured or "-",page._modal_button(modal_id,"Ver proveniência")))
+            rows.append((obs.get("query") or "-",obs.get("engine") or "-",_serp_geo_label(obs.get("country"), obs.get("region")),obs.get("language") or "-",page._device_label(obs.get("device")),obs.get("requested_depth") or "-",len(results),depth_coverage,obs.get("provider") or "-",mode,captured or "-",page._modal_button(modal_id,"Ver proveniência")))
             body=page._kv((("Consulta",obs.get("query")),("Engine",obs.get("engine") or "-"),("Provedor",obs.get("provider")),("Modo de dados",obs.get("data_mode")),("Estado da observação",page._status_label(obs.get("observation_status"))),("Profundidade solicitada",obs.get("requested_depth") or "-"),("Resultados persistidos",len(results)),("Cobertura da profundidade",depth_coverage),("Maior posição orgânica observada",observed_ceiling if observed_ceiling not in (None, "") else "-"),("Capturado em",captured),("Atualidade dos dados",page._temporal_mode_label(mode)),("Reutilizada","Sim" if reused else "Não"),("AUD de origem",prov.get("source_audit_id") or data.audit_id),("Observação de origem",prov.get("source_observation_id") or oid),("Idade no reuso",_age(captured,prov.get("reused_at")) if reused else "Não aplicável"),("Motivo do reuso",prov.get("reuse_reason") or "Não aplicável"),("Artefato bruto",obs.get("raw_evidence_ref") or "-"),("SHA-256",obs.get("raw_evidence_sha256") or "-"),("ID da requisição",obs.get("provider_request_id") or "-")))
             if depth_complete is False:
                 body+="<div class='notice'>A profundidade solicitada não foi integralmente observada. A ausência do domínio auditado não deve ser interpretada como ausência em toda a profundidade solicitada.</div>"
