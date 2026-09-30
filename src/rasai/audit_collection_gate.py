@@ -7,6 +7,7 @@ then checks the same scope-aware readiness predicate for AUD and RPR.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Any
 
 from rasai.audit_fulfillment import DISABLED, NOT_APPLICABLE, SUCCESS, list_work_items
@@ -24,6 +25,15 @@ POST_COLLECTION_COMPONENTS = frozenset({
     "COMPETITIVE_INTELLIGENCE",
 })
 SATISFIED_COLLECTION_STATES = frozenset({SUCCESS, NOT_APPLICABLE, DISABLED})
+
+
+_SAFE_SCOPE = re.compile(r"^(?:AUDIT|(?:SNP|CTX|PAGE|URL|RPR)-[A-Z0-9]{1,64})$")
+
+
+def _safe_scope_key(scope_key: Any) -> str:
+    """Never copy arbitrary scope keys (possibly URLs) into operational logs."""
+    candidate = str(scope_key or "").upper()
+    return candidate if _SAFE_SCOPE.fullmatch(candidate) else "SCOPE_REDACTED"
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,7 +82,7 @@ def evaluate_collection_readiness(workspace: Any, audit_id: str) -> CollectionRe
     for item in items:
         required_count += 1
         component = str(item.component).upper()
-        scope_key = str(item.scope_key)
+        scope_key = _safe_scope_key(item.scope_key)
         state = str(item.status).upper()
         if state not in SATISFIED_COLLECTION_STATES:
             blockers.append(f"{component}/{scope_key}:{state}")
