@@ -1,6 +1,7 @@
 """Additive SERP persistence using the existing per-audit SQLite database."""
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -142,10 +143,10 @@ class SerpObservationRepository:
             return SERP_TEMPORAL_LIVE
         return SERP_TEMPORAL_NON_LIVE
 
-    def save(self, result: SearchIntelligenceResult) -> None:
+    def save(self, result: SearchIntelligenceResult) -> SearchIntelligenceResult:
         observation = result.observation
         if observation is None:
-            return
+            return result
         temporal_mode = self._temporal_mode(observation.data_mode)
         persisted_at = _now()
         # ``observation.collected_at`` is the provider/search timestamp and is retained
@@ -155,6 +156,44 @@ class SerpObservationRepository:
         provenance_captured_at = (
             persisted_at if temporal_mode == SERP_TEMPORAL_LIVE else _dt(observation.collected_at)
         )
+        quality = dict(observation.quality_metadata)
+        quality["rasai_persisted_at"] = persisted_at
+        if temporal_mode == SERP_TEMPORAL_LIVE:
+            previous = self.connection.execute(
+                """SELECT observation_id,provider_request_id,raw_evidence_sha256,collected_at
+                   FROM serp_observations
+                   WHERE audit_id=? AND provider=? AND query=? AND engine=? AND country=?
+                     AND COALESCE(region,'')=COALESCE(?,'') AND language=? AND device=?
+                     AND requested_depth=? AND COALESCE(domain_of_interest,'')=COALESCE(?,'')
+                   ORDER BY rowid DESC LIMIT 1""",
+                (
+                    self.audit_id, observation.provider, observation.query, observation.engine,
+                    observation.country, observation.region, observation.language,
+                    observation.device, observation.requested_depth, result.request.domain_of_interest,
+                ),
+            ).fetchone()
+            if previous is not None:
+                same_id = bool(
+                    observation.provider_request_id
+                    and previous["provider_request_id"]
+                    and str(observation.provider_request_id) == str(previous["provider_request_id"])
+                )
+                same_sha = bool(
+                    observation.raw_evidence_sha256
+                    and previous["raw_evidence_sha256"]
+                    and str(observation.raw_evidence_sha256) == str(previous["raw_evidence_sha256"])
+                )
+                if same_id or same_sha:
+                    quality["provider_response_repeat_status"] = (
+                        "SAME_PROVIDER_ID_AND_RAW_SHA"
+                        if same_id and same_sha
+                        else ("SAME_PROVIDER_ID" if same_id else "SAME_RAW_SHA")
+                    )
+                    quality["provider_cache_assessment"] = "POSSIBLE_PROVIDER_CACHE"
+                    quality["previous_observation_id"] = str(previous["observation_id"])
+                    quality["previous_provider_created_at"] = str(previous["collected_at"])
+        observation = replace(observation, quality_metadata=quality)
+        result = replace(result, observation=observation)
         with self.connection:
             self.connection.execute(
                 """
@@ -190,7 +229,7 @@ class SerpObservationRepository:
                     observation.raw_evidence_ref,
                     observation.raw_evidence_sha256,
                     _dump(dict(observation.config_metadata)),
-                    _dump(dict(observation.quality_metadata)),
+                    _dump(quality),
                     result.error_code,
                     result.error_message,
                 ),
@@ -234,6 +273,7 @@ class SerpObservationRepository:
                     persisted_at,
                 ),
             )
+        return result
 
     def mark_reused(
         self,
