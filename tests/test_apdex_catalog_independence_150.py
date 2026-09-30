@@ -5,6 +5,9 @@ from types import SimpleNamespace
 
 from rasai import audit_catalog
 from rasai import cli_extensions
+from rasai import console_apdex_configuration
+from rasai import console_profile_capability_architecture
+from rasai import console_ui_catalog
 from rasai import console_catalog_plan as plan
 from rasai.audit_execution_contract import normalize_audit_job_payload
 from rasai.audit_fulfillment import (
@@ -140,3 +143,34 @@ def test_saas_audit_contract_accepts_experience_without_navigation() -> None:
     )
     assert normalized["synthetic_apdex"] is False
     assert normalized["apdex_experience"] is True
+
+
+def test_navigation_configuration_off_does_not_disable_experience(monkeypatch) -> None:
+    state = State(synthetic_apdex=True, apdex_experience=True)
+    monkeypatch.setattr(console_apdex_configuration, "_yes_no", lambda *args, **kwargs: False)
+
+    console_apdex_configuration._configure_navigation(state)
+
+    assert state.synthetic_apdex is False
+    assert state.apdex_experience is True
+
+
+def test_experience_capability_is_ready_without_navigation() -> None:
+    state = State(
+        synthetic_apdex=False,
+        apdex_experience=True,
+        apdex_experience_device_mix="mobile=60,desktop=35,tablet=5",
+    )
+    capability = next(
+        item for item in console_ui_catalog.CAPABILITIES
+        if item.key == "apdex-experience"
+    )
+    status, detail = console_ui_catalog.capability_status(state, capability)
+    assert status == "APTO"
+    assert "60" in detail
+
+
+def test_experience_execution_profile_contains_only_its_own_apdex_capability() -> None:
+    assert console_profile_capability_architecture.CAPS["apdex-experience"] == (
+        "apdex-experience",
+    )
