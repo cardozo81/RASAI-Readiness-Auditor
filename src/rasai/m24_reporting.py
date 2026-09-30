@@ -198,7 +198,7 @@ def _group(category: str, rows: list[sqlite3.Row]) -> str:
 
 
 def _public_diagnostic_label(category: str) -> str:
-    """Use a public category label instead of exposing internal M24 diagnostic codes."""
+    """Use a public category label instead of exposing internal milestone codes."""
     return {
         "ROBOTS": "Diagnóstico de robots.txt",
         "SITEMAP": "Diagnóstico de sitemap",
