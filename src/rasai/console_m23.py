@@ -628,7 +628,7 @@ def render_m23_help(state: State) -> None:
     print("  Experiência      : opcional; user action sintética enriquecida, thresholds independentes, mix Mobile/Desktop/Tablet e política de erros.")
     print("  Custo monetário : sem API paga própria e sem LLM; importação Dynatrace consulta apenas configuração.")
     print("  Carga            : " + load)
-    print("  Governança       : ambos default OFF; Synthetic User Experience Apdex exige Synthetic Navigation Apdex; concorrência máxima 2; grupos grandes exigem autorização do alvo.")
+    print("  Governança       : Navigation e Experience são domínios independentes; ambos default OFF; grupos grandes exigem autorização do alvo.")
     print(f"  Mix Experience   : {state.apdex_experience_device_mix} (default {DEFAULT_UX_DEVICE_MIX}; soma obrigatória 100%).")
     if state.apdex_experience:
         print(f"  Experiência atual: samples={state.apdex_experience_samples}; sessão={state.apdex_experience_session_mode}; KPM={state.apdex_experience_kpm}.")
