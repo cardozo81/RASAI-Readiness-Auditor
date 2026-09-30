@@ -1122,6 +1122,33 @@ def _root_for_recommendation(rec: Mapping[str, Any], root_by_find: Mapping[str, 
     return {}, finding_ids, group
 
 
+_EXACT_CHANGE_ACTION_LABELS = {
+    "CORRECT_RESOURCE": "Revisar ou corrigir o recurso",
+    "REVIEW_AND_CORRECT": "Revisar e corrigir somente após confirmar a condição",
+    "CORRECT_STRUCTURED_DATA": "Corrigir dados estruturados existentes",
+    "ADD_OR_CORRECT": "Adicionar ou corrigir após validar a estratégia",
+}
+
+
+def _public_exact_change(value: Any) -> str:
+    """Translate only the typed action marker, preserving the complete remedy.
+
+    The canonical exact_change is retained in SQLite and remains independently
+    verifiable; never use a blanket replacement across arbitrary recommendation text.
+    """
+    text = str(value or "").strip()
+    if not text:
+        return "-"
+    return re.sub(
+        r"(Ação:\\s*)([A-Z][A-Z_]+)",
+        lambda found: found.group(1) + _EXACT_CHANGE_ACTION_LABELS.get(
+            found.group(2), "Ação técnica não classificada"
+        ),
+        text,
+        count=1,
+    )
+
+
 def _render_observed_value(value: Any) -> str:
     if value in (None, ""):
         return ""
@@ -1303,7 +1330,7 @@ def _remediation_html(database: Any, data: Any) -> str:
         rows.append((title, "Técnico / determinístico", a._priority_text(rec.get("priority_class")), "Diagnóstico persistido", a._modal_button(modal_id, "Ver correção")))
         body = a._kv((("Problema / objetivo", rec.get("description") or root.get("cause_summary") or (group or {}).get("root_cause") or "-"), ("Regra", rule_id or "-"), ("Impacto", a._level_label(rec.get("impact") or (group or {}).get("impact"))), ("Esforço", a._level_label(rec.get("effort") or (group or {}).get("effort"))), ("Confiança", a._confidence_label(rec.get("confidence") or (group or {}).get("confidence"))), ("Problemas de origem", ", ".join(affected_ids) or rec.get("finding_id") or "-"))) + _render_observed_value(root.get("observed_value"))
         if root:
-            body += "<h3>Implementação sugerida</h3>" + a._kv((("Mudança exata", root.get("exact_change") or "-"), ("Exemplo após correção", root.get("example_after") or "-"), ("Decisão humana necessária", root.get("human_decision_required") or "Não indicada"), ("Critério de aceite", root.get("acceptance_criteria") or "-"), ("Como revalidar", root.get("revalidation_steps") or "-")))
+            body += "<h3>Implementação sugerida</h3>" + a._kv((("Mudança exata", _public_exact_change(root.get("exact_change"))), ("Exemplo após correção", root.get("example_after") or "-"), ("Decisão humana necessária", root.get("human_decision_required") or "Não indicada"), ("Critério de aceite", root.get("acceptance_criteria") or "-"), ("Como revalidar", root.get("revalidation_steps") or "-")))
         if group:
             affected_pages = _safe_json(group.get("affected_pages"), []); affected_elements = _safe_json(root.get("affected_elements"), [])
             body += "<details><summary>Escopo técnico relacionado</summary><div class='detail-body'>" + a._kv((("Grupo de remediação", group.get("group_id") or "-"), ("Páginas afetadas", ", ".join(str(v) for v in affected_pages) if isinstance(affected_pages, list) else affected_pages), ("Elementos afetados", ", ".join(str(v) for v in affected_elements) if isinstance(affected_elements, list) else affected_elements))) + "</div></details>"
