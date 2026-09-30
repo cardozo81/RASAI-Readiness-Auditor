@@ -75,7 +75,7 @@ CAPABILITIES: tuple[AuditCapability, ...] = (
         "Apdex de experiência e distribuição da população sintética conforme configuração vigente.",
         profile_selectable=True,
         workload="browser",
-        cost_note="Depende da medição sintética e pode ampliar volume de navegações/carga.",
+        cost_note="Executa user actions sintéticas próprias e pode ampliar volume de navegações/carga, independentemente do Navigation Apdex.",
     ),
     AuditCapability(
         "ai-visibility",
