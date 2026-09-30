@@ -909,19 +909,22 @@ def recover_experience_apdex(
             invalid_total = len(sample_rows)-valid_total
             effective_success = bool(pages) and len(population)==len(pages) and all(int(row["valid_samples"])>=cfg.target_samples_per_page for row in population)
             status = "SUCCESS" if effective_success else ("UNAVAILABLE" if valid_total==0 else "PARTIAL")
-            store.upsert_run(SyntheticUxRun(
-                audit_id=audit_id,enabled=True,status=status,task_id=m25.TASK_SYNTHETIC_USER_ACTION,
-                target_samples_per_page=cfg.target_samples_per_page,max_attempts_per_page=cfg.max_attempts_per_page,
-                page_limit=cfg.max_pages,pages_considered=len(pages),attempted_samples=len(sample_rows),
-                valid_samples=valid_total,invalid_samples=invalid_total,device_mix=cfg.device_mix_dict(),
-                session_mode=cfg.session_mode,kpm=calibration.kpm,
-                satisfied_threshold_seconds=calibration.satisfied_threshold_seconds,
-                frustrated_threshold_seconds=calibration.frustrated_threshold_seconds,
-                errors_affect_apdex=calibration.errors_affect_apdex,error_scope=cfg.error_scope,
-                settle_seconds=cfg.settle_seconds,calibration_source=calibration.source,dynatrace_application_id=run["dynatrace_application_id"],
-                calibration_metadata=calibration.metadata,configuration=config_map if isinstance(config_map,dict) else {},
-                host_environment=host_environment,reason=None if effective_success else "RECOVERY_TARGET_NOT_YET_MET",updated_at=m25._utc_now(),
-            ))
+            # The sample writer was closed above; run finalization needs its
+            # own live transaction (also on a zero-deficit repeated recovery).
+            with M25Persistence(workspace) as run_store:
+                run_store.upsert_run(SyntheticUxRun(
+                    audit_id=audit_id,enabled=True,status=status,task_id=m25.TASK_SYNTHETIC_USER_ACTION,
+                    target_samples_per_page=cfg.target_samples_per_page,max_attempts_per_page=cfg.max_attempts_per_page,
+                    page_limit=cfg.max_pages,pages_considered=len(pages),attempted_samples=len(sample_rows),
+                    valid_samples=valid_total,invalid_samples=invalid_total,device_mix=cfg.device_mix_dict(),
+                    session_mode=cfg.session_mode,kpm=calibration.kpm,
+                    satisfied_threshold_seconds=calibration.satisfied_threshold_seconds,
+                    frustrated_threshold_seconds=calibration.frustrated_threshold_seconds,
+                    errors_affect_apdex=calibration.errors_affect_apdex,error_scope=cfg.error_scope,
+                    settle_seconds=cfg.settle_seconds,calibration_source=calibration.source,dynatrace_application_id=run["dynatrace_application_id"],
+                    calibration_metadata=calibration.metadata,configuration=config_map if isinstance(config_map,dict) else {},
+                    host_environment=host_environment,reason=None if effective_success else "RECOVERY_TARGET_NOT_YET_MET",updated_at=m25._utc_now(),
+                ))
     finally:
         if shared_gateway is not None:
             shared_gateway.close()
