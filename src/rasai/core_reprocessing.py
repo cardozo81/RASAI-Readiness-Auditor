@@ -43,6 +43,7 @@ from rasai.audit_fulfillment import (
 from rasai.domain import DeviceContext, Evidence, EvidenceType, PageSnapshot, RuleExecution, RuleResult, new_id, utc_now
 from rasai.evidence import EvidenceManager
 from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.operational_log import try_append_operational_event
 from rasai.reprocess_policy import blocking_dependencies, item_executable, selected_counts
 
 DISCOVERY_ACQUISITION = "DISCOVERY_ACQUISITION"
