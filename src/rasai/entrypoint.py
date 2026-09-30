@@ -331,6 +331,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.provider_cli import main as provider_main
         return provider_main(effective[1:])
 
+    if effective and effective[0] == "rematerialize-report":
+        # The dedicated reporting command installs the SAME canonical runtime hooks
+        # itself, and never invokes collectors, AI, audit or reprocess entrypoints.
+        from rasai.report_rematerialization import main as rematerialize_main
+        return rematerialize_main(effective[1:])
+
     _install_audit_runtime()
 
     if effective and effective[0] in {"search", "serp"}:

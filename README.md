@@ -110,6 +110,28 @@ Os nomes acima refletem o contrato atualmente materializado pelo programa. Termo
 
 A materialização continua pela rotina canônica `materialize_catalog_report_site(...)` e preserva as regras CAT-*, a Matriz de encerramento estrutural e o conteúdo funcional definido pelo contrato vigente.
 
+### Rematerializar relatório de AUD persistida (sem coletar)
+
+A função Python de renderização `materialize_catalog_report_site(...)` é interna: **não**
+execute a função isoladamente como ferramenta de recuperação, pois instaladores tardios
+dos renderizadores e o estado de publicação são vinculados pela composição completa
+da CLI. Utilize exclusivamente o comando suportado:
+
+```powershell
+rasai rematerialize-report --audit-dir ".\\audits\\AUD-EXEMPLO" --output-root "$env:TEMP\\RASAI-REPORTS-SMOKE"
+```
+
+O comando instala os mesmos bindings da execução normal, copia integralmente a AUD
+para uma pasta de saída nova e **regenera apenas os HTMLs na cópia**. Recusa sobrescrever
+uma pasta de saída existente, acessar rede durante a projeção, alterar qualquer arquivo
+fonte persistido ou publicar um estado de relatório que divirja do fulfillment.
+A AUD original é mantida intacta. O pacote produzido preserva
+`PRELIMINARY` quando a AUD possui pendências, mesmo que sua integridade estrutural
+seja elegível. Não executa `audit`, `reprocess`, derivação ou provider.
+Use uma pasta de saída diferente a cada execução. Detalhes: 
+[docs/REPORT_REMATERIALIZATION_141.md](docs/REPORT_REMATERIALIZATION_141.md).
+
+
 ### Relatório consolidado longitudinal
 
 O **Relatório Consolidado Longitudinal**, formato público **001**, compara auditorias `AUD-*` compatíveis sem reexecutar coleta, crawl, pontuação ou integrações. O identificador técnico do formato permanece `CONS-5`. A entrada HTML materializada é:
