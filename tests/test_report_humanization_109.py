@@ -5,7 +5,7 @@ from rasai.catalog_report_search_trust import _serp_geo_label
 import json
 import sqlite3
 
-from rasai.catalog_report_analysis import _runtime_security_inventory_html
+from rasai.catalog_report_analysis import _cookie_consent_state_label, _runtime_security_inventory_html
 from rasai.passive_security import ensure_schema
 from rasai.report_presentation import humanize_report_html
 
@@ -90,6 +90,14 @@ def test_cat10_real_schema_preserves_safe_cookie_identifiers_and_human_creation(
                             else "WRITE_ATTEMPT_NOT_CONFIRMED",
                             "consent_state_at_creation": "NOT_OBSERVED"}), "[]",
             ))
+        # The platform enum is not a unique technical ID. Display its verified
+        # public name while preserving real identifiers in their own table.
+        connection.execute("""
+            INSERT INTO passive_security_platforms
+                (platform_ref,audit_id,page_id,platform_id,platform_name,confidence)
+            VALUES (?,?,?,?,?,?)
+        """, ("PSP-1", "AUD-COOKIES-109", "PG-1",
+              "GOOGLE_TAG_MANAGER", "Google Tag Manager", "HIGH"))
         connection.commit()
     finally:
         connection.close()
@@ -106,6 +114,15 @@ def test_cat10_real_schema_preserves_safe_cookie_identifiers_and_human_creation(
     assert "Análise estatística" in html
     assert "Muito secreto" not in html
     assert "net::Condição técnica não catalogada" not in html
+    # NOT_OBSERVED is a real typed source value, not an unknown condition;
+    # absence of observed consent is not proof of consent or its rejection.
+    assert _cookie_consent_state_label("NOT_OBSERVED") == "Não observado"
+    assert _cookie_consent_state_label(None) == "Não observado"
+    assert html.count("<td>Não observado</td>") == 2
+    assert "Estado de consentimento observado" in html
+    assert "Tipo de plataforma" in html
+    assert "Google Tag Manager" in html
+    assert "GOOGLE_TAG_MANAGER" not in html
 
 
 def test_typed_js_signals_survive_both_html_presentation_passes() -> None:
