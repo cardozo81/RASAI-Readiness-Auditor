@@ -34,6 +34,7 @@ def execute_m4(
     workspace: AuditWorkspace,
     *,
     extractor: ContentExtractor | None = None,
+    artifact_namespace: tuple[str, ...] = (),
 ) -> M4ExecutionResult:
     """Extract each M3 snapshot independently and persist evidence-backed outputs."""
 
@@ -69,8 +70,8 @@ def execute_m4(
 
             try:
                 extracted = active_extractor.extract(html)
-                main_content_ref = _write_main_content(workspace, snapshot, extracted.main_content)
-                structured_data_ref = _write_structured_data(workspace, snapshot, extracted.structured_data)
+                main_content_ref = _write_main_content(workspace, snapshot, extracted.main_content, artifact_namespace=artifact_namespace)
+                structured_data_ref = _write_structured_data(workspace, snapshot, extracted.structured_data, artifact_namespace=artifact_namespace)
                 enriched = replace(
                     snapshot,
                     title=extracted.title,
@@ -122,9 +123,14 @@ def _load_extraction_input(
     return None
 
 
-def _artifact_directory(workspace: AuditWorkspace, snapshot: PageSnapshot) -> Path:
+def _artifact_directory(
+    workspace: AuditWorkspace,
+    snapshot: PageSnapshot,
+    *,
+    artifact_namespace: tuple[str, ...] = (),
+) -> Path:
     directory = (
-        workspace.artifacts
+        workspace.artifacts.joinpath(*artifact_namespace)
         / "extraction"
         / snapshot.page_id
         / snapshot.device.value.lower()
@@ -142,10 +148,12 @@ def _write_main_content(
     workspace: AuditWorkspace,
     snapshot: PageSnapshot,
     main_content: str,
+    *,
+    artifact_namespace: tuple[str, ...] = (),
 ) -> str | None:
     if not main_content:
         return None
-    path = _artifact_directory(workspace, snapshot) / "main_content.txt"
+    path = _artifact_directory(workspace, snapshot, artifact_namespace=artifact_namespace) / "main_content.txt"
     path.write_text(main_content, encoding="utf-8", newline="\n")
     return _relative(workspace, path)
 
@@ -164,10 +172,12 @@ def _write_structured_data(
     workspace: AuditWorkspace,
     snapshot: PageSnapshot,
     blocks: tuple[StructuredDataBlock, ...],
+    *,
+    artifact_namespace: tuple[str, ...] = (),
 ) -> str | None:
     if not blocks:
         return None
-    path = _artifact_directory(workspace, snapshot) / "structured_data.json"
+    path = _artifact_directory(workspace, snapshot, artifact_namespace=artifact_namespace) / "structured_data.json"
     payload = {"blocks": [_structured_payload(block) for block in blocks]}
     path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True),
