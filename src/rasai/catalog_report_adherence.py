@@ -694,7 +694,7 @@ def _install_apdex_projection() -> None:
                 measurement=analysis._state_text(sample.get("status"),analysis._status_label(sample.get("status")))
                 rows.append((sample.get("run_index", index), displayed_at, analysis._device_label(sample.get("device")), classification, analysis._fmt_number(duration, "ms"), measurement, analysis._modal_button(modal_id, "Ver amostra")))
                 fields = (("Amostra", sample.get("sample_id")), (timestamp_label, displayed_at), ("URL", sample.get("url")), ("URL final", sample.get("final_url")), ("Classificação", classification), ("Duração", analysis._fmt_number(duration, "ms")), ("HTTP", sample.get("http_status")), ("Perfil técnico", sample.get("profile_id")), ("Política de cache", analysis._session_label(sample.get("cache_policy"))), ("Erro", sample.get("error_message") or sample.get("error_code") or "-"))
-                diagnostics = analysis._safe_json(sample.get("browser_diagnostics"), {})
+                diagnostics = analysis._browser_diagnostics_public(sample.get("browser_diagnostics"))
                 note = "<h3>Diagnóstico de navegador</h3><div class='pre'>" + escape(json.dumps(diagnostics, ensure_ascii=False, indent=2)) + "</div>" if diagnostics else ""
                 if not measured_at:
                     note += "<div class='notice'>Não existe aquisição reutilizada vinculável a esta amostra; por isso o horário permanece explicitamente identificado como persistência.</div>"
