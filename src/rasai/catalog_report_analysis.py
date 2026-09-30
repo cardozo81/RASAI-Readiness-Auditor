@@ -568,6 +568,27 @@ def _script_performance_html(database: Path, data: _ReportData) -> str:
     )
 
 
+def _cookie_creation_label(value: Any) -> str:
+    labels = {
+        "HTTP_SET_COOKIE": "Cabeçalho HTTP Set-Cookie",
+        "DOCUMENT_COOKIE": "JavaScript (document.cookie)",
+        "COOKIE_STORE": "API Cookie Store",
+    }
+    return labels.get(str(value or "").upper(), "Mecanismo não determinado")
+
+
+def _cookie_purpose_label(value: Any) -> str:
+    labels = {
+        "ANALYTICS": "Análise estatística",
+        "NECESSARY": "Necessário para funcionamento",
+        "SECURITY": "Segurança",
+        "MARKETING": "Publicidade e marketing",
+        "FUNCTIONAL": "Funcionalidade",
+        "UNKNOWN": "Finalidade não determinada",
+    }
+    return labels.get(str(value or "").upper(), "Finalidade não determinada")
+
+
 def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
     connection=sqlite3.connect(database); connection.row_factory=sqlite3.Row
     try:
@@ -590,7 +611,7 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
         grouped.setdefault(str(row.get("cookie_ref") or row.get("cookie_attribution_id")),[]).append(row)
     for index,(cookie_ref,items) in enumerate(sorted(grouped.items()),1):
         first=items[0]
-        name=first.get("cookie_name_display") or f"Cookie {cookie_ref}"
+        name=_cookie_public_identifier(first.get("cookie_name_display"), cookie_ref)
         details=[_safe_json(item.get("details_json"),{}) for item in items]
         state_labels={
             "HTTP_SET_COOKIE_OBSERVED":"Set-Cookie observado",
@@ -663,9 +684,9 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
             cookie_ref,
             owner_label,
             effective_scope,
-            " · ".join(mechanisms),
+            " · ".join(_cookie_creation_label(value) for value in mechanisms),
             state_display,
-            first.get("purpose") or "UNKNOWN",
+            _cookie_purpose_label(first.get("purpose")),
             _confidence_label(first.get("purpose_confidence")),
             _confidence_label(first.get("attribution_confidence")),
             len(items),
@@ -684,8 +705,8 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
             ("Domínio declarado na tentativa",first_detail.get("declared_domain") or "Não informado"),
             ("Path declarado na tentativa",first_detail.get("declared_path") or "Não informado"),
             ("Host-only","Sim" if first.get("effective_domain") and first.get("host_only") else "Não determinado"),
-            ("Mecanismo(s)"," · ".join(mechanisms)),
-            ("Finalidade provável",first.get("purpose") or "UNKNOWN"),
+            ("Mecanismo(s)"," · ".join(_cookie_creation_label(value) for value in mechanisms)),
+            ("Finalidade provável",_cookie_purpose_label(first.get("purpose"))),
             ("Confiança da finalidade",_confidence_label(first.get("purpose_confidence"))),
             ("Confiança da atribuição",_confidence_label(first.get("attribution_confidence"))),
             ("Script setter"," · ".join(setters) or "Servidor / não atribuído a script"),
@@ -698,8 +719,8 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
                     str(detail.get("observation_state") or "") if isinstance(detail,Mapping) else "",
                     "Legado / estado não registrado",
                 ),
-                item.get("creation_mechanism") or "-",
-                item.get("snapshot_id") or "HTTP",
+                _cookie_creation_label(item.get("creation_mechanism")),
+                item.get("snapshot_id") or "Resposta HTTP",
                 (detail.get("declared_domain") if isinstance(detail,Mapping) else None) or "-",
                 item.get("effective_domain") or "Não confirmado",
                 item.get("setter_script_url") or "Resposta HTTP / não atribuída",
@@ -707,7 +728,7 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
             ) for item,detail in zip(items,details)],
         )
         body+="<div class='notice'>Chamadas a document.cookie/Cookie Store são registradas como tentativas. Somente presença correspondente no browser store pode preencher domínio/path confirmado; tentativa não confirmada não é apresentada como cookie efetivamente armazenado. Proprietário / responsável técnico representa atribuição operacional e não titularidade jurídica. Finalidade é classificação técnica/heurística. Valores de cookies não são persistidos nesta camada.</div>"
-        cookie_modals.append(_modal(mid,name,"Cookie · provenance e escopo",body))
+        cookie_modals.append(_modal(mid,"Identificação do cookie","Cookie · provenance e escopo",body))
 
     script_rows=[]; script_modals=[]
     for index,item in enumerate(scripts[:100],1):
