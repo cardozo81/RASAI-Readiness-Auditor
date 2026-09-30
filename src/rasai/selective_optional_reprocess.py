@@ -1007,11 +1007,12 @@ def _recover_search(workspace: Any, audit_id: str, item: Any) -> bool:
         )
         return True
     first = failed[0] if failed else None
+    # Error code remains in the dedicated technical field. The console/report
+    # diagnostic must present the specific human message, not a machine enum.
     detail = (
-        f"{getattr(first, 'error_code', None) or getattr(first, 'domain_status', 'UNKNOWN')}: "
-        f"{getattr(first, 'error_message', None) or 'observação Search não concluída'}"
+        str(getattr(first, "error_message", None) or "A observação da busca não foi concluída.")
         if first is not None
-        else "Search Intelligence não produziu observações"
+        else "A inteligência de busca não produziu observações."
     )
     if first is not None:
         observation = getattr(first, "observation", None)
