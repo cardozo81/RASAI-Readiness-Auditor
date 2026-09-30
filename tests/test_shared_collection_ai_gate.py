@@ -111,3 +111,51 @@ def test_both_orchestrators_use_gate_and_m24_cli_does_not_run_preseal_ai():
     assert "if gate.ready else frozenset()" in registered
     assert "technical_ai=False," in cli
     assert "semantic_provider=None," in cli
+
+
+def test_rpr_finishes_diagnostic_projection_without_any_ai_provider_when_not_ready(
+    monkeypatch, tmp_path
+):
+    from types import SimpleNamespace
+    from rasai import governed_reprocess_runtime as runtime
+    from rasai.audit_collection_gate import CollectionReadiness
+
+    workspace = _workspace(tmp_path)
+    _item(workspace, "RENDER_CAPTURE", FAILED_RETRYABLE, scope_key="SNP-1")
+    _item(workspace, "SYNTHETIC_APDEX", WAITING_FOR_DATA)
+    calls = []
+
+    monkeypatch.setattr(
+        runtime, "_registered_ai_purposes",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("AI purpose evaluated")),
+    )
+    monkeypatch.setattr(
+        runtime, "run_registered_ai_phase",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("AI provider called")),
+    )
+    monkeypatch.setattr(
+        runtime, "record_collection_gate",
+        lambda *_args, **_kwargs: calls.append("gate-recorded"),
+    )
+    monkeypatch.setattr(
+        runtime, "recalculate",
+        lambda *_args: SimpleNamespace(processing_status="PARTIAL_RETRYABLE"),
+    )
+    monkeypatch.setattr(runtime, "project_report_validity", lambda **_kwargs: None)
+
+    preparation = runtime.ReprocessPreparation(
+        snapshot=SimpleNamespace(evidence_snapshot_id="AIE-SEALED"),
+        recovered={},
+        evaluated_optional=frozenset(),
+        sealed_new_evidence=True,
+    )
+    used_ai = runtime._registered_ai_and_report(
+        workspace=workspace,
+        audit_id=AUDIT_ID,
+        preparation=preparation,
+        data_finalizer=lambda **_kwargs: calls.append("derived"),
+        directed_finalizer=lambda **_kwargs: calls.append("directed"),
+        catalog_finalizer=lambda **_kwargs: calls.append("catalog"),
+    )
+    assert used_ai is False
+    assert calls == ["gate-recorded", "derived"]
