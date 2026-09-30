@@ -72,7 +72,7 @@ _CONFIG_GUIDANCE = {
     "WEB_PERFORMANCE": "Habilite Web Performance e configure as credenciais necessárias às fontes externas que desejar usar, como PageSpeed/CrUX.",
     "STANDARDS_EXTERNAL": "Habilite e configure somente os serviços de padrões externos que desejar usar; serviços desabilitados não representam erro do website.",
     "SYNTHETIC_APDEX": "Habilite Synthetic Navigation Apdex e informe os parâmetros mínimos da medição, incluindo threshold e amostragem.",
-    "EXPERIENCE_APDEX": "Habilite Synthetic User Experience Apdex e seus parâmetros de população; a execução depende da medição sintética base aplicável.",
+    "EXPERIENCE_APDEX": "Habilite Synthetic User Experience Apdex e seus parâmetros de população; esta medição pode executar independentemente do Navigation Apdex.",
     "SEARCH_INTELLIGENCE": "Habilite Search Intelligence, configure um provedor de busca compatível e informe as consultas necessárias.",
     "GOOGLE_SEARCH_CONSOLE": "Configure a integração com Search Console e a propriedade/site correspondente quando essa observação for desejada.",
 }
