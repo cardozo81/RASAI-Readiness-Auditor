@@ -1,0 +1,32 @@
+name: M23 interrupted AUD/RPR checkpoints - targeted
+
+on:
+  pull_request:
+    paths:
+      - 'src/rasai/m23_apdex.py'
+      - 'src/rasai/reprocess_measurements.py'
+      - 'tests/test_m23_interrupted_resume.py'
+      - 'tests/test_m23_integration.py'
+      - '.github/workflows/m23-interruption-targeted.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  m23-checkpoint-and-resume:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install only affected runtime and test tool
+        run: python -m pip install -e . pytest
+      - name: Test only interrupted M23, existing M23 and RPR dependencies
+        run: >-
+          python -m pytest -q
+          tests/test_m23_interrupted_resume.py
+          tests/test_m23_integration.py
+          tests/test_governed_reprocess_dependencies.py
