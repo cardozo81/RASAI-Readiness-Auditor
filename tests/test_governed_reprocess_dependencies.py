@@ -509,6 +509,11 @@ def test_governed_pre_finish_order_defers_catalog_projection(
         status=SUCCESS,
         retryable=False,
     )
+    from rasai.audit_fulfillment import merge_contract_configuration
+    merge_contract_configuration(
+        workspace, AUDIT_ID,
+        resume_plan={"schema_version": "TEST", "targets": ["https://example.test/"]},
+    )
     _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
     events: list[str] = []
 
