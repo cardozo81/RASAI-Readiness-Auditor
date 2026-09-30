@@ -251,11 +251,13 @@ def test_initial_gate_uses_completed_passive_security_state_and_still_blocks_rea
     assert effective.ready
     assert not effective.blockers
 
-    # A genuine provider deficit remains a blocker even after passive success.
-    set_work_item_status(
-        workspace, audit_id=AUDIT_ID,
-        component="SEARCH_INTELLIGENCE", status=FAILED_RETRYABLE,
-    )
-    blocked = evaluate_collection_readiness(workspace, AUDIT_ID)
+    # In a DIFFERENT audit where the provider failed from the outset, a
+    # genuine deficit still blocks. Successful evidence cannot be downgraded
+    # by set_work_item_status, so never fake failure on the successful AUD.
+    failed_workspace = _workspace(tmp_path / "serp-deficit")
+    _item(failed_workspace, "DISCOVERY_ACQUISITION", SUCCESS)
+    _item(failed_workspace, "SEARCH_INTELLIGENCE", FAILED_RETRYABLE)
+    _item(failed_workspace, "PASSIVE_SECURITY", SUCCESS)
+    blocked = evaluate_collection_readiness(failed_workspace, AUDIT_ID)
     assert not blocked.ready
     assert blocked.blockers == ("SEARCH_INTELLIGENCE/AUDIT:FAILED_RETRYABLE",)
