@@ -1,8 +1,8 @@
 """One AUD/RPR collection-readiness contract at the AI execution boundary.
 
-This module does not collect, call providers, mutate evidence, or infer missing
-work from a best-effort diagnostic. Callers reconcile the original fulfillment
-contract and complete the collection phase before evaluating this gate.
+This module does not collect, call providers, or mutate source evidence. It
+materializes missing planned work-items from the original durable contract,
+then checks the same scope-aware readiness predicate for AUD and RPR.
 """
 from __future__ import annotations
 
@@ -33,6 +33,26 @@ class CollectionReadiness:
     blockers: tuple[str, ...]
 
 
+def reconcile_collection_plan(workspace: Any, audit_id: str) -> bool:
+    """Project every explicitly selected collector before evaluating the gate.
+
+    A resumed AUD may contain valid successes but lack work-item rows for
+    collectors it never reached. Only the durable original plan establishes
+    this universe. An absent/unreadable plan fails closed instead of assuming
+    the existing successful rows represent the entire requested collection.
+    """
+    from rasai.audit_resume_runtime import (
+        load_resume_plan,
+        materialize_planned_work_items,
+    )
+
+    plan = load_resume_plan(workspace, audit_id)
+    if not plan:
+        return False
+    materialize_planned_work_items(workspace, audit_id)
+    return True
+
+
 def evaluate_collection_readiness(workspace: Any, audit_id: str) -> CollectionReadiness:
     """Conservative, scope-aware AI gate shared by initial AUD and selective RPR.
 
@@ -41,6 +61,7 @@ def evaluate_collection_readiness(workspace: Any, audit_id: str) -> CollectionRe
     collected evidence. Missing work items must be projected by the caller's
     contract reconciler before this function is invoked.
     """
+    plan_ready = reconcile_collection_plan(workspace, audit_id)
     items = (
         item for item in list_work_items(workspace, audit_id)
         if bool(item.required)
@@ -55,6 +76,8 @@ def evaluate_collection_readiness(workspace: Any, audit_id: str) -> CollectionRe
         state = str(item.status).upper()
         if state not in SATISFIED_COLLECTION_STATES:
             blockers.append(f"{component}/{scope_key}:{state}")
+    if not plan_ready:
+        blockers.append("COLLECTION_CONTRACT/AUDIT:NO_DURABLE_COLLECTION_PLAN")
     if required_count == 0:
         blockers.append("COLLECTION_CONTRACT/AUDIT:NO_REQUIRED_WORK_ITEMS")
     return CollectionReadiness(
@@ -88,6 +111,7 @@ __all__ = [
     "CollectionReadiness",
     "POST_COLLECTION_COMPONENTS",
     "SATISFIED_COLLECTION_STATES",
+    "reconcile_collection_plan",
     "evaluate_collection_readiness",
     "record_collection_gate",
 ]
