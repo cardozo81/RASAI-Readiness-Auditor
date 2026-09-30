@@ -478,6 +478,13 @@ def reconcile_reprocess_state(
     return recalculate(workspace, audit_id)
 
 
+def _preserved_success_count(before: Any) -> int:
+    """Pre-RPR SUCCESS population, never including work finished during this RPR."""
+    observed = sum(bool(item.required) and str(item.status) == SUCCESS for item in before)
+    frozen = _RPR_BASELINE_SUCCESSES.get()
+    return observed if frozen is None else frozen
+
+
 def reprocess_audit(
     audit_id: str,
     *,
@@ -492,9 +499,7 @@ def reprocess_audit(
     workspace = AuditWorkspace.open(Path(audits_root) / audit_id)
     reconcile_reprocess_state(workspace, audit_id)
     before = list_work_items(workspace,audit_id)
-    observed_before = sum(item.required and item.status == SUCCESS for item in before)
-    baseline_override = _RPR_BASELINE_SUCCESSES.get()
-    skipped_success = observed_before if baseline_override is None else baseline_override
+    skipped_success = _preserved_success_count(before)
     unresolved_before = tuple(
         item
         for item in before
