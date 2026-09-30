@@ -1,12 +1,48 @@
 """Capture context, overview, SARI and execution governance pages."""
 from rasai.catalog_report_page import *  # noqa: F401,F403
 
+import sqlite3
+
+from rasai.browser_render_failure import render_failure_public_detail
+
+
+def _rpr_render_diagnostics(database: Path, audit_id: str) -> dict[str, dict]:
+    """Latest causal RPR render diagnosis per snapshot, if the ledger exists."""
+    output: dict[str, dict] = {}
+    connection = sqlite3.connect(database)
+    try:
+        try:
+            rows = connection.execute(
+                """SELECT w.scope_key,a.metadata
+                   FROM audit_fulfillment_attempts a
+                   JOIN audit_fulfillment_work_items w ON w.work_item_id=a.work_item_id
+                   WHERE a.audit_id=? AND w.component='RENDER_CAPTURE'
+                   ORDER BY a.started_at DESC,a.rowid DESC""",
+                (audit_id,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return output
+        for scope, raw in rows:
+            key = str(scope or "")
+            if key in output:
+                continue
+            payload = _safe_json(raw, {})
+            context = payload.get("render_failure_context") if isinstance(payload, Mapping) else None
+            if isinstance(context, Mapping):
+                output[key] = dict(context)
+    finally:
+        connection.close()
+    return output
+
 
 def _capture_context_body(database: Path, data: _ReportData) -> str:
     snaps=_capture_snapshots(database,data.audit_id)
+    rpr_render_failures=_rpr_render_diagnostics(database,data.audit_id)
     rows=[];modals=[]
     for i,s in enumerate(snaps,1):
         meta=_safe_json(s.get("browser_metadata"),{})
+        initial_failure=meta.get("render_failure_context") if isinstance(meta,Mapping) else None
+        rpr_failure=rpr_render_failures.get(str(s.get("snapshot_id") or ""))
         profile=meta.get("profile") if isinstance(meta,Mapping) and isinstance(meta.get("profile"),Mapping) else {}
         browser=meta.get("browser_identity") if isinstance(meta,Mapping) and isinstance(meta.get("browser_identity"),Mapping) else {}
         viewport=profile.get("viewport") if isinstance(profile,Mapping) and isinstance(profile.get("viewport"),Mapping) else {}
@@ -21,6 +57,12 @@ def _capture_context_body(database: Path, data: _ReportData) -> str:
             ("Captura visual",visual_ref or "-"),
         ]
         body=_kv((("Identificador da página",s.get("page_id")),("Identificador da captura",s.get("snapshot_id")),("URL solicitada",s.get("requested_url") or s.get("page_url")),("URL final",s.get("final_url")),("Capturado em",s.get("captured_at")),("HTTP",s.get("http_status")),("Tipo de conteúdo",s.get("content_type")),("Renderização",s.get("rendering_mode")),("Arquitetura",_architecture_label(s.get("architecture_classification"))),("Dispositivo",_device_label(s.get("device"))),("Perfil",browser.get("descriptor") or profile.get("device") or "-"),("Área visível (viewport)",f"{viewport.get('width','-')} × {viewport.get('height','-')}"),("Escala de pixels (DPR)",profile.get("device_scale_factor") or "-"),("Navegador",f"{browser.get('channel','Chrome')} {browser.get('browser_version') or meta.get('browser_version','-')}"),("Idioma",browser.get("locale") or profile.get("locale") or "-"),("Diagnósticos da execução do navegador",len(runtime))))
+        if initial_failure:
+            body+="<h3>Diagnóstico da captura inicial</h3>"
+            body+=f"<div class='notice warn'>{escape(render_failure_public_detail(dict(initial_failure)))}</div>"
+        if rpr_failure:
+            body+="<h3>Diagnóstico da última tentativa de recuperação</h3>"
+            body+=f"<div class='notice warn'>{escape(render_failure_public_detail(rpr_failure))}</div>"
         body+="<h3>Arquivos e evidências</h3>"+_table(("Arquivo / evidência","Referência"),artifact_rows)
         if visual_path is not None and visual_ref:
             href="../"+str(visual_ref).replace("\\","/")

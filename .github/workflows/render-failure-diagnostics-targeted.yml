@@ -1,0 +1,33 @@
+name: Causal render failure diagnostics - targeted
+
+on:
+  pull_request:
+    paths:
+      - 'src/rasai/browser_render_failure.py'
+      - 'src/rasai/device_context_capture.py'
+      - 'src/rasai/core_reprocessing.py'
+      - 'src/rasai/catalog_report_governance.py'
+      - 'tests/test_render_failure_diagnostics.py'
+      - '.github/workflows/render-failure-diagnostics-targeted.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render-diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install app and isolated test tool
+        run: python -m pip install -e . pytest
+      - name: Focused renderer and core RPR persistence tests
+        run: >-
+          python -m pytest -q
+          tests/test_render_failure_diagnostics.py
+          tests/test_core_reprocessing.py
+          tests/test_catalog_report_contract_002.py

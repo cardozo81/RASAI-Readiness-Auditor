@@ -635,6 +635,7 @@ def _same_session_lazy_probe(page: Any, rendered_html: str) -> dict[str, Any]:
 
 def _install_browser_capture() -> None:
     from rasai.browser_identity_renderer import BrowserIdentityRenderer
+    from rasai.browser_render_failure import render_failure_context
 
     if getattr(BrowserIdentityRenderer, "_rasai_context_scope_capture", False):
         return
@@ -655,6 +656,8 @@ def _install_browser_capture() -> None:
         navigation_trace: list[dict[str, Any]] = []
         request_headers: dict[str, str] = {}
         runtime_diagnostics: list[dict[str, Any]] = []
+        stage = "CONTEXT_CREATE"
+        failure_context: dict[str, str] | None = None
 
         def record(kind: str, message: Any, observed_url: Any = None) -> None:
             if len(runtime_diagnostics) >= _MAX_DIAGNOSTICS:
@@ -668,13 +671,16 @@ def _install_browser_capture() -> None:
         try:
             assert self._browser is not None
             context = self._browser.new_context(**options)
+            stage = "INIT_SCRIPT"
             try:
                 context.add_init_script(_COOKIE_RUNTIME_INIT_SCRIPT)
             except Exception:
                 pass
+            stage = "NEW_PAGE"
             page = context.new_page()
             page.set_default_timeout(self.navigation_timeout_ms)
             page.set_default_navigation_timeout(self.navigation_timeout_ms)
+            stage = "CDP_SETUP"
             cdp_session, cdp_capture = _setup_document_capture(context, page)
 
             def on_response(response: Any) -> None:
@@ -709,6 +715,7 @@ def _install_browser_capture() -> None:
                 except Exception:
                     return
 
+            stage = "EVENT_HANDLERS"
             page.on("response", on_response)
             page.on(
                 "console",
@@ -726,26 +733,36 @@ def _install_browser_capture() -> None:
                 ),
             )
 
+            stage = "NAVIGATION"
             response = page.goto(url, wait_until="domcontentloaded", timeout=self.navigation_timeout_ms)
+            stage = "SETTLE"
             try:
                 page.wait_for_load_state("networkidle", timeout=self.settle_timeout_ms)
                 settle_outcome = "NETWORKIDLE"
             except PlaywrightTimeoutError:
+                # Bounded settle timeout is an expected diagnostic, not a
+                # fatal browser failure. Rendering continues from the DOM.
                 settle_outcome = "BOUNDED_TIMEOUT"
 
+            stage = "DOM_CAPTURE"
             rendered_html = page.content()
             headers = response.headers if response is not None else {}
+            stage = "DOCUMENT_SOURCE"
             document_source = _document_source_metadata(
                 cdp_session,
                 cdp_capture,
                 content_type=headers.get("content-type") if response is not None else None,
             )
+            stage = "RENDERED_DOM"
             rendered_dom = _rendered_dom_metadata(rendered_html)
+            stage = "SCRIPT_RUNTIME"
             script_runtime = _script_runtime_metadata(cdp_session, cdp_capture, page)
+            stage = "COOKIE_RUNTIME"
             cookie_runtime = _cookie_runtime_metadata(page, context)
 
             screenshot_png: bytes | None = None
             screenshot_state = "NOT_CAPTURED"
+            stage = "SCREENSHOT"
             try:
                 screenshot_png = page.screenshot(
                     type="png",
@@ -754,10 +771,13 @@ def _install_browser_capture() -> None:
                 )
                 screenshot_state = "CAPTURED"
             except PlaywrightError:
+                # Screenshot is optional: a visual failure must not invalidate
+                # otherwise captured/rendered HTML.
                 screenshot_state = "CAPTURE_FAILED"
 
             observations = ()
             observation_state = "NOT_CAPTURED"
+            stage = "DOM_OBSERVATIONS"
             try:
                 observations = self._capture_element_observations(page)
                 observation_state = "CAPTURED"
@@ -767,8 +787,10 @@ def _install_browser_capture() -> None:
             # Primary snapshot evidence above is frozen before any diagnostic interaction.
             # If lazy content needs bounded scrolling, reuse this same page/context instead
             # of closing it and later navigating the URL again in M6.
+            stage = "LAZY_PROBE"
             lazy_probe = _same_session_lazy_probe(page, rendered_html)
 
+            stage = "METADATA"
             metadata = self._metadata(profile, settle_outcome=settle_outcome)
             metadata["profile"]["user_agent"] = identity.get("user_agent")
             metadata["profile"]["locale"] = identity.get("locale")
@@ -807,7 +829,8 @@ def _install_browser_capture() -> None:
                 screenshot_png=screenshot_png,
                 element_observations=observations,
             )
-        except PlaywrightTimeoutError:
+        except PlaywrightTimeoutError as exc:
+            failure_context = render_failure_context(stage, exc)
             result = self._navigation_failure(
                 url=url,
                 profile=profile,
@@ -817,7 +840,8 @@ def _install_browser_capture() -> None:
                 navigation_trace=navigation_trace,
                 request_headers=request_headers,
             )
-        except PlaywrightError:
+        except PlaywrightError as exc:
+            failure_context = render_failure_context(stage, exc)
             result = self._navigation_failure(
                 url=url,
                 profile=profile,
@@ -827,7 +851,8 @@ def _install_browser_capture() -> None:
                 navigation_trace=navigation_trace,
                 request_headers=request_headers,
             )
-        except Exception:
+        except Exception as exc:
+            failure_context = render_failure_context(stage, exc)
             result = self._navigation_failure(
                 url=url,
                 profile=profile,
@@ -858,6 +883,8 @@ def _install_browser_capture() -> None:
 
         assert result is not None
         metadata = dict(result.browser_metadata)
+        if failure_context is not None:
+            metadata["render_failure_context"] = failure_context
         metadata["context_scope_contract"] = CONTEXT_SCOPE_CONTRACT_VERSION
         metadata["capture_scope"] = ContextScope.DEVICE_SNAPSHOT.value
         metadata["script_runtime"] = {
