@@ -36,6 +36,9 @@ class _RecoveryGateway:
         self.calls = 0
         self.closed = False
 
+    def environment(self):
+        return {"system": "TEST"}
+
     def measure(self, **_kwargs):
         self.calls += 1
         if not self.measurements:
