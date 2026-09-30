@@ -281,6 +281,24 @@ class M23Persistence:
             if "browser_diagnostics" not in columns:
                 self.connection.execute("ALTER TABLE synthetic_apdex_samples ADD COLUMN browser_diagnostics TEXT NOT NULL DEFAULT '{}'")
 
+    def clear_audit(self, audit_id: str) -> None:
+        """Reset only the effective M23 stage after its partial rows were archived.
+
+        This is deliberately not called for a completed run or normal RPR
+        deficit recovery. Historical attempts and archived evidence are not
+        stored in these three effective-projection tables.
+        """
+        with self.connection:
+            self.connection.execute(
+                "DELETE FROM synthetic_apdex_samples WHERE audit_id=?", (audit_id,)
+            )
+            self.connection.execute(
+                "DELETE FROM synthetic_apdex_summaries WHERE audit_id=?", (audit_id,)
+            )
+            self.connection.execute(
+                "DELETE FROM synthetic_apdex_runs WHERE audit_id=?", (audit_id,)
+            )
+
     def upsert_run(self, item: SyntheticApdexRun) -> None:
         with self.connection:
             self.connection.execute(
