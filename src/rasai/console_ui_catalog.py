@@ -394,7 +394,6 @@ def capability_status(state: Any, capability: CapabilityUI) -> tuple[str, str]:
         except (ValueError, OSError) as exc: return "CONFIGURAR", str(exc)
     if capability.key == "apdex-experience":
         if not bool(getattr(state,"apdex_experience",False)): return "DESABILITADO", "Experience Apdex não solicitado"
-        if not bool(getattr(state,"synthetic_apdex",False)): return "CONFIGURAR", "Experience Apdex exige Navigation Apdex"
         return "APTO", f"mix={getattr(state,'apdex_experience_device_mix','-')}"
     if capability.key == "deep-analysis":
         if not bool(getattr(state,"improvement_enabled",False)): return "DESABILITADO", "análise profunda não solicitada"
