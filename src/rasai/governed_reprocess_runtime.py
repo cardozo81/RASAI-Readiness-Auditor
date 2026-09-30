@@ -1275,6 +1275,44 @@ def _registered_ai_and_report(
     # not count as AI usage, while provider/runtime failures after an attempted handoff do.
     return _outcomes_used_ai(outcomes)
 
+def _additional_reprocess_counts(
+    preparation: ReprocessPreparation, audit_id: str,
+) -> tuple[int, int]:
+    """Count evaluated recovery work, never blockers without an executor attempt.
+
+    Optional collectors record their causal ledger entries while the selective
+    reprocess scope is still active. Consume that scope's counts here, before
+    the RPR ledger is closed, rather than incrementing a closed run afterward.
+    """
+    attempted_states = {"SUCCESS", "FAILED_RETRYABLE", "FAILED_PERMANENT"}
+    eligible = _LIVE_COMPONENTS | _DERIVED_RECOVERY_COMPONENTS
+    attempted = sum(
+        1 for component, status in preparation.recovered.items()
+        if component in eligible and str(status).upper() in attempted_states
+    )
+    successful = sum(
+        1 for component, status in preparation.recovered.items()
+        if component in eligible and str(status).upper() == SUCCESS
+    )
+    from rasai.selective_reprocess_context import current
+
+    active = current()
+    if active is not None and active.audit_id == audit_id:
+        attempted += active.extra_attempted
+        successful += active.extra_successful
+        active.extra_attempted = 0
+        active.extra_successful = 0
+    else:
+        # Programmatic execution without the optional facade still needs to
+        # account for optional evaluations that have durable RPR provenance.
+        attempted += len(preparation.evaluated_optional)
+        successful += sum(
+            str(preparation.recovered.get(component, "")).upper() == SUCCESS
+            for component in preparation.evaluated_optional
+        )
+    return attempted, successful
+
+
 def _install_core_composition() -> None:
     """Inject pre-AI collection into the core-reprocessing wrapper factory.
 
@@ -1384,17 +1422,11 @@ def _install_core_composition() -> None:
                         )
 
                     summary = recalculate(workspace, audit_id)
-                    live_or_derived = _LIVE_COMPONENTS | _DERIVED_RECOVERY_COMPONENTS
-                    live_attempted = sum(
-                        1 for name in preparation.recovered if name in live_or_derived
+                    extra_attempted, extra_successful = _additional_reprocess_counts(
+                        preparation, audit_id
                     )
-                    live_successful = sum(
-                        1
-                        for name, state in preparation.recovered.items()
-                        if name in live_or_derived and str(state).upper() == SUCCESS
-                    )
-                    attempted = int(getattr(result, "attempted_items", 0) or 0) + live_attempted
-                    successful = int(getattr(result, "successful_items", 0) or 0) + live_successful
+                    attempted = int(getattr(result, "attempted_items", 0) or 0) + extra_attempted
+                    successful = int(getattr(result, "successful_items", 0) or 0) + extra_successful
 
                     if owns_reprocess:
                         summary = final_finish(
