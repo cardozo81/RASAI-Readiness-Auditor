@@ -662,7 +662,7 @@ def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
         # Translate the complete known Chromium diagnostic, not only ERR_ABORTED:
         # otherwise the final pass produces the invalid prefix "net::" plus prose.
         visible = re.sub(
-            r"\\bnet::ERR_ABORTED\\b",
+            r"\bnet::ERR_ABORTED\b",
             "Requisição interrompida pelo navegador",
             visible,
             flags=re.IGNORECASE,
