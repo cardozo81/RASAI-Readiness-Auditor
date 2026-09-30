@@ -76,7 +76,7 @@ class _BrowserFailureRenderer:
 
 
 class SourceQualityAiTests(unittest.TestCase):
-    def test_ai_receives_facts_once_and_cannot_replace_deterministic_tls_classification(self) -> None:
+    def test_incomplete_source_capture_defers_ai_and_preserves_deterministic_tls_classification(self) -> None:
         calls: list[dict] = []
 
         def transport(_url, _headers, body, _timeout):
@@ -119,11 +119,11 @@ class SourceQualityAiTests(unittest.TestCase):
                 discovery_engine=_BlockedDiscovery(),
                 renderer=_BrowserFailureRenderer(),
             )
-            self.assertEqual(len(calls), 1)
+            # The model must not receive partial mandatory acquisition evidence.
+            # Source classification remains deterministic even while AI is deferred.
+            self.assertEqual(calls, [])
             artifact = result.audit_root / "artifacts" / "source-quality-ai.json"
-            payload = json.loads(artifact.read_text(encoding="utf-8"))
-            self.assertEqual(payload["state"], "AVAILABLE")
-            self.assertEqual(payload["provider"], "OPENAI")
+            self.assertFalse(artifact.exists())
 
             deterministic = json.loads(
                 (result.audit_root / "artifacts" / "source-quality.json").read_text(encoding="utf-8")
@@ -139,11 +139,7 @@ class SourceQualityAiTests(unittest.TestCase):
                 ).fetchall()
             finally:
                 connection.close()
-            self.assertEqual(len(attempts), 1)
-            self.assertEqual(attempts[0]["status"], "SUCCESS")
-            self.assertEqual(attempts[0]["semantic_contract_version"], "SOURCE-QUALITY-AI-v1")
-            self.assertEqual(attempts[0]["input_tokens"], 120)
-            self.assertEqual(attempts[0]["output_tokens"], 60)
+            self.assertEqual(len(attempts), 0)
 
 
 if __name__ == "__main__":
