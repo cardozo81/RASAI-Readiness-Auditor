@@ -252,3 +252,31 @@ def test_rpr_keeps_serp_machine_code_internal_and_exposes_repeat_warning(tmp_pat
     assert "encerrou a paginação" in message
     assert "indício de cache externo" in message
     assert "RASAI_SERP_NO_CACHE_RPR=true" in message
+
+
+def test_cat05_shows_human_cause_and_cache_freshness(tmp_path):
+    from rasai.accepted_audit_refinements import _search_intelligence_html
+
+    root, repo = _workspace(tmp_path)
+    provider = SerpApiProvider(
+        api_key="SECRET", retries=0, min_interval_seconds=0,
+        opener=lambda req, timeout: FakeResponse(_serp_response()),
+    )
+    service = SearchIntelligenceService(
+        provider=provider, max_depth=20,
+        evidence_sink=FilesystemSerpEvidenceSink(root, root / "artifacts"),
+        repository=repo,
+    )
+    try:
+        service.observe(request(depth=20))
+        service.observe(request(depth=20))
+    finally:
+        repo.close()
+    html = _search_intelligence_html(
+        root / "audit.db", SimpleNamespace(audit_id="AUD-CACHE")
+    )
+    assert "O provedor encerrou a paginação" in html
+    assert "possível cache do provedor" in html
+    assert "Observação original do provedor" in html
+    assert "Resposta recebida pelo RASAi" in html
+    assert "SERP_REQUESTED_DEPTH_INCOMPLETE" not in html
