@@ -323,7 +323,7 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
         self.assertEqual(parsed.frustrated_threshold_seconds, 6.0)
         self.assertTrue(parsed.errors_affect_apdex)
 
-    def test_cli_handoff_requires_standard_m23_and_keeps_m25_separate(self) -> None:
+    def test_cli_handoff_keeps_m23_m25_separate_and_allows_m25_standalone(self) -> None:
         parser = build_parser()
         args = parser.parse_args([
             "audit", "https://example.com",
@@ -342,13 +342,18 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
         self.assertEqual(pending.device_mix_dict()["TABLET"], 5.0)
 
         args_without_standard = parser.parse_args([
-            "audit", "https://example.com", "--apdex-experience",
+            "audit", "https://example.com",
+            "--no-synthetic-apdex",
+            "--apdex-experience",
             "--apdex-experience-device-mix", "mobile=100",
             "--apdex-experience-satisfied-seconds", "2",
             "--apdex-experience-frustrated-seconds", "6",
         ])
-        with self.assertRaises(ValueError):
-            configured_apdex(args_without_standard, {})
+        standalone = configured_apdex(args_without_standard, {})
+        pending = peek_pending_config()
+        self.assertFalse(standalone.enabled)
+        self.assertTrue(pending.enabled)
+        self.assertEqual(pending.device_mix_dict()["MOBILE"], 100.0)
 
     def test_execution_persists_population_tablet_errors_without_html_side_effect(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
