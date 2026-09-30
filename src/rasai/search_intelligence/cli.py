@@ -57,6 +57,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run-id", help="optional caller/session run identifier")
     parser.add_argument("--dry-run", action="store_true", help="validate limits and show projected request ceiling without calling a provider")
     parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="forçar nova coleta Google SerpApi; opt-in explícito que pode consumir quota e não garante mais resultados",
+    )
+    parser.add_argument(
         "--competitive",
         action="store_true",
         help="classify observed results ahead of the customer and select bounded Search competitor candidates; no extra network",
@@ -158,6 +163,17 @@ def _render_result(result) -> None:
             print(f"Páginas provider coletadas: {pages_collected} (paginação variável)")
         else:
             print(f"Páginas provider coletadas: {pages_collected}/{pages_ceiling}")
+    if quality.get("provider_created_at"):
+        print(f"Observação original do fornecedor: {quality['provider_created_at']}")
+    if quality.get("rasai_response_received_at"):
+        print(f"Resposta recebida pelo RASAi: {quality['rasai_response_received_at']}")
+    if quality.get("provider_response_repeat_status"):
+        print(
+            "Aviso: resposta com mesmo identificador e/ou conteúdo de observação anterior; "
+            "possível cache externo. Repetir sem necessidade pode não acrescentar evidência."
+        )
+    if quality.get("provider_cache_policy") == "FORCE_REFRESH":
+        print("Política: atualização sem cache autorizada; pode consumir quota.")
     if quality.get("pagination_ended_before_requested_depth"):
         print("Observação: o provider encerrou a paginação antes da depth solicitada.")
     if quality.get("request_budget_ended_before_requested_depth"):
@@ -324,6 +340,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = replace(config, provider=args.provider)
         if args.fixture is not None:
             config = replace(config, fixture_path=args.fixture)
+        if args.no_cache:
+            config = replace(config, force_refresh=True)
         config = config.validate()
         ai_provider_name = _validate_args(parser, args, config)
 
@@ -392,6 +410,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             print("No provider, content or AI call executed.")
             return 0
 
+        if config.force_refresh:
+            print("ATENÇÃO: a atualização sem cache foi solicitada e pode consumir quota da SerpApi.")
         execution = execute_search(
             requests,
             config=config,

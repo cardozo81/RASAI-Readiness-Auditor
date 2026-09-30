@@ -193,19 +193,23 @@ def execute_search(
         api_key = (env.get(key_env) or "").strip()
         if not api_key:
             raise ValueError(f"{key_env} is required for live SERP provider {provider_id}")
-        provider = builder(
+        builder_options = dict(
             api_key=api_key,
             timeout_seconds=config.timeout_seconds,
             retries=config.retries,
             min_interval_seconds=config.min_interval_seconds,
             budget=budget,
         )
+        if provider_id == "serpapi":
+            builder_options["no_cache"] = config.force_refresh
+        provider = builder(**builder_options)
         provider_name = provider_id
 
     class _BoundRepository:
-        def save(self, result: SearchIntelligenceResult) -> None:
+        def save(self, result: SearchIntelligenceResult) -> SearchIntelligenceResult:
             if repository is not None and audit_id is not None:
-                repository.save(result)
+                return repository.save(result)
+            return result
 
     service = SearchIntelligenceService(
         provider=provider,

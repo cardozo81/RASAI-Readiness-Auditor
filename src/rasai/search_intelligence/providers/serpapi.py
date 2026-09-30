@@ -50,6 +50,7 @@ class SerpApiProvider(SerpProvider):
         retries: int = 1,
         min_interval_seconds: float = 1.0,
         budget: RequestBudget | None = None,
+        no_cache: bool = False,
         opener: _OpenUrl = urlopen,
         sleeper: Callable[[float], None] = time.sleep,
         monotonic: Callable[[], float] = time.monotonic,
@@ -67,6 +68,7 @@ class SerpApiProvider(SerpProvider):
         self._retries = int(retries)
         self._min_interval = float(min_interval_seconds)
         self._budget = budget
+        self._no_cache = bool(no_cache)
         self._opener = opener
         self._sleep = sleeper
         self._monotonic = monotonic
@@ -105,6 +107,8 @@ class SerpApiProvider(SerpProvider):
             "hl": language,
             "device": device,
         }
+        if self._no_cache:
+            params["no_cache"] = "true"
         if start:
             params["start"] = start
         if request.region and request.region.strip():
@@ -252,6 +256,8 @@ class SerpApiProvider(SerpProvider):
         results: list[SerpResult] = []
         request_ids: list[str] = []
         collected_at_values: list[datetime] = []
+        received_at_values: list[datetime] = []
+        provider_created_values: list[str] = []
         raw_organic_count = 0
         dropped_results = 0
         pagination_ended = False
@@ -259,6 +265,7 @@ class SerpApiProvider(SerpProvider):
 
         for page_number, start in enumerate(page_offsets, 1):
             raw = self._fetch(request, start=start)
+            received_at_values.append(utc_now())
             payload = self._decode_payload(raw)
             pages.append(payload)
             page_results, page_quality = self._normalize_results(
@@ -274,6 +281,8 @@ class SerpApiProvider(SerpProvider):
             if isinstance(metadata, dict) and metadata.get("id"):
                 request_ids.append(str(metadata["id"]))
             collected_at_values.append(self._parse_collected_at(payload))
+            if isinstance(metadata, dict) and metadata.get("created_at"):
+                provider_created_values.append(collected_at_values[-1].isoformat())
 
             if page_number < len(page_offsets) and not self._has_next_page(payload):
                 pagination_ended = True
@@ -296,8 +305,10 @@ class SerpApiProvider(SerpProvider):
             "observed_position_ceiling": observed_ceiling,
             "observed_position_count": len(observed_positions),
             "requested_depth_complete": requested_depth_complete,
+            "provider_cache_policy": "FORCE_REFRESH" if self._no_cache else "ALLOW_CACHE",
             "pagination_ended_before_requested_depth": (
-                not requested_depth_complete
+                pagination_ended
+                and not requested_depth_complete
                 and observed_ceiling < request.depth
             ),
             "normalization_incomplete_for_requested_depth": (
@@ -307,6 +318,10 @@ class SerpApiProvider(SerpProvider):
         }
         if request_ids:
             quality["provider_request_ids"] = tuple(request_ids)
+        if received_at_values:
+            quality["rasai_response_received_at"] = max(received_at_values).isoformat()
+        if provider_created_values:
+            quality["provider_created_at"] = min(provider_created_values)
         if collected_at_values:
             quality["collection_window_start"] = min(collected_at_values).isoformat()
             quality["collection_window_end"] = max(collected_at_values).isoformat()

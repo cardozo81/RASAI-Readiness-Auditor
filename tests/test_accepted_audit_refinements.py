@@ -59,7 +59,7 @@ def test_serp_reason_reports_provider_pagination_limit() -> None:
         ),
     }
     assert _serp_completion_reason(observation, 8) == (
-        "Provider encerrou a paginação antes da profundidade solicitada"
+        "O provedor encerrou a paginação após 8 resultado(s); não foi possível comprovar os 20 solicitados"
     )
     assert _serp_completion_reason(
         {

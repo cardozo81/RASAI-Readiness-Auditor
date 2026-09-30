@@ -612,7 +612,10 @@ def _serp_completion_reason(observation: Mapping[str, Any], result_count: int) -
             if quality.get("normalization_incomplete_for_requested_depth"):
                 return "Resultados descartados na normalização impedem comprovar a profundidade solicitada"
             if quality.get("pagination_ended_before_requested_depth"):
-                return "Provider encerrou a paginação antes da profundidade solicitada"
+                return (
+                    f"O provedor encerrou a paginação após {result_count} resultado(s); "
+                    f"não foi possível comprovar os {requested} solicitados"
+                )
             return "Profundidade solicitada não foi integralmente observada"
     # Legacy observations may not carry the explicit completeness flag.
     if requested and result_count >= requested:
@@ -651,6 +654,10 @@ def _search_intelligence_html(database: Any, data: Any) -> str:
             device = m._device_label(obs.get("device")) if obs.get("device") else "-"
             position = f"{min(positions)} a {max(positions)}" if positions else "-"
             reason = _serp_completion_reason(obs, len(results))
+            quality = _safe_json(obs.get("quality_metadata"), {})
+            quality = dict(quality) if isinstance(quality, Mapping) else {}
+            if quality.get("provider_response_repeat_status"):
+                reason += " (resposta repetida: possível cache do provedor)"
             rows.append((
                 obs.get("query") or "-", obs.get("region") or "-", device,
                 len(results), position, reason, m._modal_button(modal_id, "Ver observação")
@@ -659,13 +666,28 @@ def _search_intelligence_html(database: Any, data: Any) -> str:
                 (r.get("position") or "-", r.get("title") or "-", r.get("url") or "-")
                 for r in results[:50]
             ]
-            body = m._kv((
+            provenance_fields = [
                 ("Consulta", obs.get("query") or "-"),
                 ("Região", obs.get("region") or "-"),
                 ("Dispositivo", device),
                 ("Profundidade solicitada", obs.get("requested_depth") or "-"),
                 ("Resultados persistidos", len(results)),
-            ))
+            ]
+            if quality.get("provider_created_at"):
+                provenance_fields.append(("Observação original do provedor", quality["provider_created_at"]))
+            if quality.get("rasai_response_received_at"):
+                provenance_fields.append(("Resposta recebida pelo RASAi", quality["rasai_response_received_at"]))
+            if quality.get("provider_response_repeat_status"):
+                provenance_fields.append((
+                    "Repetição observada",
+                    "Mesmo identificador e/ou conteúdo de resposta anterior; possível cache do provedor",
+                ))
+            if quality.get("provider_cache_policy") == "FORCE_REFRESH":
+                provenance_fields.append((
+                    "Política de cache",
+                    "Atualização sem cache explicitamente solicitada; pode consumir quota",
+                ))
+            body = m._kv(tuple(provenance_fields))
             body += "<h3>Resultados persistidos</h3>" + m._table(
                 ("Posição", "Título", "URL"), result_rows,
                 empty="Nenhum resultado individual persistido para esta observação."

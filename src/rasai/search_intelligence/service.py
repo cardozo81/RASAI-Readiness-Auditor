@@ -23,7 +23,33 @@ from .provider import (
 
 
 class SerpResultRepository(Protocol):
-    def save(self, result: SearchIntelligenceResult) -> None: ...
+    def save(self, result: SearchIntelligenceResult) -> SearchIntelligenceResult | None: ...
+
+
+def incomplete_depth_message(observation: SerpObservation) -> str:
+    """Explain observed bounds without guessing why Google omitted positions."""
+    quality = observation.quality_metadata
+    observed = int(quality.get("observed_position_count", observation.result_count) or 0)
+    target = int(observation.requested_depth)
+    if quality.get("pagination_ended_before_requested_depth"):
+        return (
+            f"O provedor encerrou a paginação após {observed} resultado(s) observados; "
+            f"não foi possível comprovar os {target} solicitados."
+        )
+    if quality.get("request_budget_ended_before_requested_depth"):
+        return (
+            f"O limite de requisições foi atingido após {observed} resultado(s); "
+            f"não foi possível comprovar os {target} solicitados."
+        )
+    if quality.get("normalization_incomplete_for_requested_depth"):
+        return (
+            f"A normalização descartou resultados; {observed} de {target} "
+            "posições solicitadas foram comprovadas."
+        )
+    return (
+        f"A observação comprovou {observed} de {target} posições; "
+        "não há evidência suficiente para declarar a profundidade completa."
+    )
 
 
 def analyze_observation(
@@ -77,9 +103,7 @@ def analyze_observation(
                 domain_status=DomainMatchStatus.UNAVAILABLE,
                 customer_position=None,
                 error_code="SERP_REQUESTED_DEPTH_INCOMPLETE",
-                error_message=(
-                    "requested SERP depth was not fully observed within the bounded provider request budget"
-                ),
+                error_message=incomplete_depth_message(observation),
             )
         return SearchIntelligenceResult(
             request=request,
@@ -226,7 +250,9 @@ class SearchIntelligenceService:
             max_competitors=self._max_competitors,
         )
         if self._repository is not None:
-            self._repository.save(result)
+            saved = self._repository.save(result)
+            if isinstance(saved, SearchIntelligenceResult):
+                result = saved
         return result
 
     def observe_many(self, requests: Iterable[SerpQueryRequest]) -> tuple[SearchIntelligenceResult, ...]:

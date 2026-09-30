@@ -99,6 +99,8 @@ class SerpRuntimeConfig:
     timeout_seconds: float = 20.0
     retries: int = 1
     min_interval_seconds: float = 1.0
+    # Explicit, potentially billable SerpApi freshness override. Never default on.
+    force_refresh: bool = False
 
     def validate(self) -> "SerpRuntimeConfig":
         mode = self.mode.strip().casefold()
@@ -121,6 +123,8 @@ class SerpRuntimeConfig:
             raise ValueError("SERP retries must be >= 0")
         if self.min_interval_seconds < 0 or not math.isfinite(self.min_interval_seconds):
             raise ValueError("SERP min_interval_seconds must be a finite value >= 0")
+        if self.force_refresh and (mode != "live" or provider != "serpapi"):
+            raise ValueError("force_refresh exige modo live e provedor Google SerpApi")
         if mode == "fixture" and self.fixture_path is None:
             raise ValueError("SERP fixture mode requires a fixture path")
         return replace(self, mode=mode, provider=provider)
