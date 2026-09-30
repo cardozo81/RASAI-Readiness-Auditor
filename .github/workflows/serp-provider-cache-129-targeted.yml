@@ -1,0 +1,41 @@
+name: SERP provider cache and provenance 129 - targeted
+
+on:
+  pull_request:
+    paths:
+      - 'src/rasai/search_intelligence/config.py'
+      - 'src/rasai/search_intelligence/providers/serpapi.py'
+      - 'src/rasai/search_intelligence/runtime.py'
+      - 'src/rasai/search_intelligence/persistence.py'
+      - 'src/rasai/search_intelligence/service.py'
+      - 'src/rasai/search_intelligence/cli.py'
+      - 'src/rasai/selective_optional_reprocess.py'
+      - 'src/rasai/accepted_audit_refinements.py'
+      - 'tests/test_serp_cache_provenance_129.py'
+      - 'tests/test_accepted_audit_refinements.py'
+      - 'docs/SERP_CACHE_FRESHNESS_129.md'
+      - '.github/workflows/serp-provider-cache-129-targeted.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  serp-cache-provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install only affected runtime and pytest
+        run: python -m pip install -e . pytest
+      - name: Run isolated SERP #129 tests and directly affected contracts
+        run: >-
+          python -m pytest -q
+          tests/test_serp_cache_provenance_129.py
+          tests/test_serp.py::SerpApiTests
+          tests/test_serp.py::PersistenceTests
+          tests/test_selective_optional_reprocess.py::test_search_recovery_uses_persisted_contract_and_current_secret
+          tests/test_accepted_audit_refinements.py::test_serp_reason_reports_provider_pagination_limit
