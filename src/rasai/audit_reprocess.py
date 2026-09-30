@@ -9,6 +9,7 @@ read by CONS only as an explicitly non-conclusive source with its limitations ex
 from __future__ import annotations
 
 from dataclasses import dataclass
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
@@ -65,6 +66,79 @@ class ReprocessResult:
     selected_items: int = 0
     unselected_items: int = 0
     ai_used: bool | None = None
+
+
+# The production resume guard owns the *final* event, after the last
+# fulfillment update, session closure and catalog projection. Inner wrappers
+# may expose a diagnostic stage, but never another final event.
+_RPR_FINAL_EVENT_DEFERRED: ContextVar[bool] = ContextVar(
+    "rasai_rpr_final_event_deferred", default=False
+)
+
+
+def emit_reprocess_completion_event(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    reprocess_id: str,
+    *,
+    selected_items: int,
+    unselected_items: int,
+    skipped_success_items: int,
+    use_ai: bool,
+    ai_used: bool,
+    final_owner: bool = False,
+    report_projection_ok: bool | None = None,
+) -> bool:
+    """Emit one canonical final RPR event from its committed ledger state.
+
+    Returns whether a final event was emitted. Under an outer execution guard,
+    intermediate callers emit an unambiguous stage event instead.
+    """
+    connection = sqlite3.connect(workspace.database)
+    try:
+        row = connection.execute(
+            """SELECT completed_at,attempted_items,successful_items
+               FROM audit_reprocess_runs WHERE reprocess_id=? AND audit_id=?""",
+            (reprocess_id, audit_id),
+        ).fetchone()
+    finally:
+        connection.close()
+    if row is None:
+        return False
+    closed = bool(row[0])
+    if not closed or (_RPR_FINAL_EVENT_DEFERRED.get() and not final_owner):
+        try_append_operational_event(
+            workspace,
+            "AUDIT_REPROCESS_STAGE_COMPLETED",
+            audit_id=audit_id,
+            reprocess_id=reprocess_id,
+            ledger_closed=closed,
+        )
+        return False
+    summary = read_summary(workspace, audit_id)
+    if summary is None:
+        summary = recalculate(workspace, audit_id)
+    details = {
+        "audit_id": audit_id,
+        "reprocess_id": reprocess_id,
+        "processing_status": summary.processing_status,
+        "score_status": summary.score_status,
+        "report_status": summary.report_status,
+        "consolidation_eligible": summary.consolidation_eligible,
+        "attempted_items": int(row[1] or 0),
+        "successful_items": int(row[2] or 0),
+        "remaining_items": summary.pending_items + summary.blocked_items,
+        "temporal_expired_items": summary.expired_items,
+        "selected_items": int(selected_items),
+        "unselected_items": int(unselected_items),
+        "skipped_success_items": int(skipped_success_items),
+        "use_ai": bool(use_ai),
+        "ai_used": bool(ai_used),
+    }
+    if report_projection_ok is not None:
+        details["report_projection_ok"] = bool(report_projection_ok)
+    try_append_operational_event(workspace, "AUDIT_REPROCESS_COMPLETED", **details)
+    return True
 
 
 def _table_exists(connection: sqlite3.Connection, name: str) -> bool:
@@ -639,13 +713,15 @@ def reprocess_audit(
             workspace,"AUDIT_REPROCESS_REPORT_FAILURE",level="ERROR",audit_id=audit_id,reprocess_id=reprocess_id,
             error_type=type(exc).__name__,error_message=str(exc)[:512],
         )
-    try_append_operational_event(
-        workspace,"AUDIT_REPROCESS_COMPLETED",audit_id=audit_id,reprocess_id=reprocess_id,
-        processing_status=summary.processing_status,score_status=summary.score_status,
-        report_status=summary.report_status,consolidation_eligible=summary.consolidation_eligible,
-        attempted_items=attempted,successful_items=successes,remaining_items=summary.pending_items+summary.blocked_items,
-        temporal_expired_items=summary.expired_items,selected_items=selected_count,
-        unselected_items=unselected_count,use_ai=policy.use_ai,ai_used=ai_used,
+    emit_reprocess_completion_event(
+        workspace,
+        audit_id,
+        reprocess_id,
+        selected_items=selected_count,
+        unselected_items=unselected_count,
+        skipped_success_items=skipped_success,
+        use_ai=policy.use_ai,
+        ai_used=ai_used,
     )
     return ReprocessResult(
         audit_id=audit_id,reprocess_id=reprocess_id,processing_status=summary.processing_status,
