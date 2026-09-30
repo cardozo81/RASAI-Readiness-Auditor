@@ -202,6 +202,32 @@ def execute_m23_apdex(
     complete_contexts = target_met_contexts = small_groups = 0
     try:
         with M23Persistence(workspace) as store:
+            # Materialize the original contract before measuring. An interrupted
+            # AUD must expose the same durable plan and samples to the RPR.
+            store.upsert_run(
+                SyntheticApdexRun(
+                    audit_id=audit_id,
+                    enabled=True,
+                    status="RUNNING",
+                    task_id=TASK_NAVIGATION_LOAD,
+                    threshold_seconds=threshold,
+                    frustration_seconds=4.0 * threshold,
+                    target_valid_samples=cfg.target_valid_samples,
+                    max_attempts_per_context=cfg.max_attempts_per_context,
+                    page_limit=cfg.max_pages,
+                    pages_considered=len({str(row["page_id"]) for row in contexts}),
+                    contexts_considered=len(contexts),
+                    attempted_samples=0,
+                    valid_samples=0,
+                    invalid_samples=0,
+                    delay_seconds=cfg.delay_seconds,
+                    concurrency=cfg.concurrency,
+                    configuration=configuration,
+                    host_environment=host_environment,
+                    reason="MEASUREMENT_IN_PROGRESS",
+                    updated_at=_utc_now(),
+                )
+            )
             for context_index, row in enumerate(contexts, start=1):
                 outcome = _measure_context(
                     audit_id=audit_id,
@@ -214,9 +240,8 @@ def execute_m23_apdex(
                     pacer=pacer,
                     shared_gateway=shared_gateway,
                     factory=factory,
+                    store_sample=store.add_sample,
                 )
-                for sample in outcome["samples"]:
-                    store.add_sample(sample)
                 summary = outcome["summary"]
                 store.upsert_summary(summary)
                 attempted_total += int(outcome["attempted"])
@@ -323,11 +348,44 @@ def _measure_context(
     pacer: _OriginPacer,
     shared_gateway: SyntheticNavigationGateway | None,
     factory: Callable[[], SyntheticNavigationGateway],
+    store_sample: Callable[[SyntheticApdexSample], None] | None = None,
 ) -> dict[str, Any]:
     device = DeviceContext(str(row["device"]))
     profile = config.mobile_profile if device is DeviceContext.MOBILE else config.desktop_profile
     url = str(row["final_url"] or row["normalized_url"])
     samples: list[_MeasuredSample] = []
+    persisted_samples: list[SyntheticApdexSample] = []
+
+    def persist_measured(item: _MeasuredSample) -> None:
+        # Called on the coordinating thread, including in parallel mode, before
+        # emitting progress. Each event therefore describes a committed sample.
+        row_sample = SyntheticApdexSample(
+            sample_id=new_id("APX"),
+            audit_id=audit_id,
+            page_id=str(row["page_id"]),
+            snapshot_id=str(row["snapshot_id"]),
+            device=device.value,
+            url=url,
+            run_index=item.run_index,
+            task_id=TASK_NAVIGATION_LOAD,
+            profile_id=profile.profile_id,
+            profile_version=PROFILE_VERSION,
+            status=item.measurement.status,
+            classification=item.classification,
+            duration_ms=item.measurement.duration_ms,
+            http_status=item.measurement.http_status,
+            final_url=item.measurement.final_url,
+            error_code=item.measurement.error_code,
+            error_message=_bounded(item.measurement.error_message, 256),
+            cpu_method=item.measurement.cpu_method,
+            network_method=item.measurement.network_method,
+            browser_diagnostics={"events": list(item.measurement.browser_diagnostics)},
+            cache_policy="COLD_CONTEXT",
+            captured_at=_utc_now(),
+        )
+        if store_sample is not None:
+            store_sample(row_sample)
+        persisted_samples.append(row_sample)
 
     if config.concurrency == 1:
         assert shared_gateway is not None
@@ -338,6 +396,7 @@ def _measure_context(
             measurement = shared_gateway.measure(url=url, profile=profile, timeout_seconds=config.timeout_seconds)
             item = _sample(run_index, measurement, threshold)
             samples.append(item)
+            persist_measured(item)
             _log_progress(
                 workspace=workspace,
                 audit_id=audit_id,
@@ -362,35 +421,10 @@ def _measure_context(
             config=config,
             pacer=pacer,
             factory=factory,
+            on_sample=persist_measured,
         )
 
-    persisted = tuple(
-        SyntheticApdexSample(
-            sample_id=new_id("APX"),
-            audit_id=audit_id,
-            page_id=str(row["page_id"]),
-            snapshot_id=str(row["snapshot_id"]),
-            device=device.value,
-            url=url,
-            run_index=item.run_index,
-            task_id=TASK_NAVIGATION_LOAD,
-            profile_id=profile.profile_id,
-            profile_version=PROFILE_VERSION,
-            status=item.measurement.status,
-            classification=item.classification,
-            duration_ms=item.measurement.duration_ms,
-            http_status=item.measurement.http_status,
-            final_url=item.measurement.final_url,
-            error_code=item.measurement.error_code,
-            error_message=_bounded(item.measurement.error_message, 256),
-            cpu_method=item.measurement.cpu_method,
-            network_method=item.measurement.network_method,
-            browser_diagnostics={"events": list(item.measurement.browser_diagnostics)},
-            cache_policy="COLD_CONTEXT",
-            captured_at=_utc_now(),
-        )
-        for item in sorted(samples, key=lambda value: value.run_index)
-    )
+    persisted = tuple(sorted(persisted_samples, key=lambda item: item.run_index))
     summary = _summary(
         audit_id=audit_id,
         page_id=str(row["page_id"]),
@@ -423,6 +457,7 @@ def _measure_context_parallel(
     config: SyntheticApdexConfig,
     pacer: _OriginPacer,
     factory: Callable[[], SyntheticNavigationGateway],
+    on_sample: Callable[[_MeasuredSample], None] | None = None,
 ) -> list[_MeasuredSample]:
     thread_state = threading.local()
     created_gateways: list[SyntheticNavigationGateway] = []
@@ -471,6 +506,8 @@ def _measure_context_parallel(
                     futures.pop(future, None)
                     item = future.result()
                     results.append(item)
+                    if on_sample is not None:
+                        on_sample(item)
                     _log_progress(
                         workspace=workspace,
                         audit_id=audit_id,
