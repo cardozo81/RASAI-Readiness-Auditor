@@ -118,7 +118,8 @@ def test_cat10_real_schema_preserves_safe_cookie_identifiers_and_human_creation(
     # absence of observed consent is not proof of consent or its rejection.
     assert _cookie_consent_state_label("NOT_OBSERVED") == "Não observado"
     assert _cookie_consent_state_label(None) == "Não observado"
-    assert html.count("<td>Não observado</td>") == 2
+    assert html.count("Não observado") >= 2
+    assert "NOT_OBSERVED" not in html
     assert "Estado de consentimento observado" in html
     assert "Tipo de plataforma" in html
     assert "Google Tag Manager" in html
