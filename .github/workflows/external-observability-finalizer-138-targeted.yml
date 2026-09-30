@@ -1,0 +1,28 @@
+name: External observability pre-seal ownership 138 (targeted)
+
+on:
+  pull_request:
+    paths:
+      - "src/rasai/external_observability_runtime.py"
+      - "tests/test_external_observability_finalizer_138.py"
+      - ".github/workflows/external-observability-finalizer-138-targeted.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  external-preseal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install only runtime and pytest
+        run: python -m pip install -e . pytest
+      - name: Run isolated external collection and finalizer tests only
+        run: >-
+          python -m pytest -q
+          tests/test_external_observability_finalizer_138.py
