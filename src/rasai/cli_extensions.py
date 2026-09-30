@@ -268,8 +268,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 m24_result = execute_m24(
                     audit_id=audit_id,
                     workspace=workspace,
-                    technical_ai=m24_config.technical_ai,
-                    semantic_provider=configured_provider_for_m24,
+                    # M24 data collection is deterministic only. The requested
+                    # technical AI runs later through audit_runner's AI phase,
+                    # after the common AUD/RPR collection-readiness gate.
+                    technical_ai=False,
+                    semantic_provider=None,
                     allow_network=allow_network,
                 )
             try_append_operational_event(

@@ -453,6 +453,23 @@ def run_audit(
                 "ai_deferred": technical_remediation,
             }
 
+            # Reconcile durable collection requirements before entering the only
+            # provider-capable phase. Both initial AUD and RPR evaluate the same
+            # scope-aware gate. CORE_AUDIT is a final aggregate, not a collector.
+            from rasai.audit_collection_gate import (
+                evaluate_collection_readiness,
+                record_collection_gate,
+            )
+            from rasai.audit_fulfillment_runtime import _sync_persisted_components
+            from rasai.core_reprocessing import synchronize_core_work_items
+
+            _sync_persisted_components(audit_id=audit_id, workspace=workspace)
+            synchronize_core_work_items(workspace, audit_id)
+            collection_gate = evaluate_collection_readiness(workspace, audit_id)
+            record_collection_gate(
+                workspace, audit_id, path="AUD", readiness=collection_gate
+            )
+
             evidence_snapshot = seal_collection_evidence(
                 audit_id=audit_id,
                 workspace=workspace,
@@ -461,13 +478,21 @@ def run_audit(
             )
 
             configured_provider = semantic_provider or NoneProvider()
-            analysis_provider = NoneProvider() if source_blocked else configured_provider
+            # A requested AI provider never receives a partial set of required
+            # collection evidence. NoneProvider preserves deterministic M7 output
+            # without making external calls while the AUD remains retryable.
+            analysis_provider = (
+                configured_provider
+                if collection_gate.ready and not source_blocked
+                else NoneProvider()
+            )
             try_append_operational_event(
                 workspace,
-                "AI_PHASE_STARTED",
+                "AI_PHASE_STARTED" if collection_gate.ready else "AI_PHASE_DEFERRED",
                 audit_id=audit_id,
                 evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
                 evidence_fingerprint=evidence_snapshot.fingerprint,
+                missing_collection_requirements=collection_gate.blockers,
             )
 
             # ------------------------------------------------------------------
@@ -476,7 +501,7 @@ def run_audit(
             explain_source_quality = source_blocked or (
                 browser_reconciliation is not None and browser_reconciliation.recovered_any
             )
-            if explain_source_quality:
+            if explain_source_quality and collection_gate.ready:
                 try:
                     ai_diagnosis = maybe_explain_source_quality(
                         audit_id=audit_id,
@@ -533,8 +558,8 @@ def run_audit(
             m24 = execute_m24_ai_phase(
                 audit_id=audit_id,
                 workspace=workspace,
-                provider=configured_provider,
-                enabled=(technical_remediation and not source_blocked),
+                provider=analysis_provider,
+                enabled=(collection_gate.ready and technical_remediation and not source_blocked),
             )
             m24_scoring = persist_m24_scoring_assessments(
                 audit_id=audit_id,
@@ -558,22 +583,26 @@ def run_audit(
             # the same governed AI window so no provider boundary remains after AI_SEALED.
             execute_m20(
                 audit_id=audit_id,
-                enabled=(content_remediation and not source_blocked),
+                enabled=(collection_gate.ready and content_remediation and not source_blocked),
                 semantic_provider=analysis_provider,
                 workspace=workspace,
             )
 
-            registered_ai_outcomes = run_registered_ai_phase(
-                audit_id=audit_id,
-                workspace=workspace,
-                evidence_snapshot=evidence_snapshot,
+            registered_ai_outcomes = (
+                run_registered_ai_phase(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                    evidence_snapshot=evidence_snapshot,
+                )
+                if collection_gate.ready else {}
             )
-            mark_ai_sealed(
-                audit_id=audit_id,
-                workspace=workspace,
-                evidence_snapshot=evidence_snapshot,
-                outcomes=registered_ai_outcomes,
-            )
+            if collection_gate.ready:
+                mark_ai_sealed(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                    evidence_snapshot=evidence_snapshot,
+                    outcomes=registered_ai_outcomes,
+                )
 
             # ------------------------------------------------------------------
             # FINAL BUSINESS DERIVATIONS. No provider/collector work is allowed here.

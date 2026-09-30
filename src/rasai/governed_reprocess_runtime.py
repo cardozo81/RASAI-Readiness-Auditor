@@ -19,6 +19,10 @@ import json
 import sqlite3
 from typing import Any, Iterator, Mapping
 
+from rasai.audit_collection_gate import (
+    evaluate_collection_readiness,
+    record_collection_gate,
+)
 from rasai.ai_governance import (
     TASK_STALE,
     collection_state_is_terminal,
@@ -1221,7 +1225,15 @@ def _registered_ai_and_report(
     if snapshot is None:
         raise RuntimeError("RPR cannot run AI without a sealed evidence version")
 
-    purposes = _registered_ai_purposes(workspace, audit_id, preparation.recovered)
+    # Re-evaluate after downstream core/optional recovery: no registered
+    # provider may consume partial required evidence, even if its local
+    # purpose-specific prerequisites are individually satisfied.
+    gate = evaluate_collection_readiness(workspace, audit_id)
+    record_collection_gate(workspace, audit_id, path="RPR_FINAL", readiness=gate)
+    purposes = (
+        _registered_ai_purposes(workspace, audit_id, preparation.recovered)
+        if gate.ready else frozenset()
+    )
     evaluated = set(preparation.evaluated_optional)
     outcomes: dict[str, Mapping[str, Any]] = {}
     if purposes:
@@ -1236,7 +1248,7 @@ def _registered_ai_and_report(
             )
         if "IMPROVEMENT_INTELLIGENCE" in purposes:
             evaluated.add("IMPROVEMENT_INTELLIGENCE")
-    if not _required_pending(workspace, audit_id):
+    if gate.ready and not _required_pending(workspace, audit_id):
         mark_ai_sealed(
             audit_id=audit_id,
             workspace=workspace,
@@ -1323,9 +1335,18 @@ def _install_core_composition() -> None:
                 )
             )
 
+            # audit_reprocess.reprocess_audit also owns legacy M7/M24/M20
+            # recoveries. Gate *before* calling it, not only before the later
+            # registered AI hook phase.
+            collection_gate = evaluate_collection_readiness(workspace, audit_id)
+            record_collection_gate(
+                workspace, audit_id, path="RPR", readiness=collection_gate
+            )
             latest = module._latest_pending
 
             def ai_only_pending(active_workspace: Any, active_audit_id: str):
+                if not collection_gate.ready:
+                    return ()
                 return tuple(
                     item
                     for item in latest(active_workspace, active_audit_id)
