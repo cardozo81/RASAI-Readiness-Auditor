@@ -11,6 +11,9 @@ import os
 from types import ModuleType
 from typing import Any, Iterator
 
+from rasai.m23_cli import APDEX_ENABLED_ENV
+from rasai.m25_cli import UX_ENABLED_ENV
+
 from rasai.audit_catalog import (
     AI_NONE,
     AI_OPTIONAL,
@@ -47,7 +50,7 @@ def _plan(state: Any) -> _Plan:
     if bool(getattr(state, "synthetic_apdex", False)):
         selected.add("CAT-06")
     if bool(getattr(state, "apdex_experience", False)):
-        selected.update(("CAT-06", "CAT-07"))
+        selected.add("CAT-07")
     if bool(getattr(state, "improvement_enabled", False)):
         selected.add("CAT-08")
     if bool(getattr(state, "content_remediation", False) or getattr(state, "technical_remediation", False)):
@@ -76,8 +79,6 @@ def set_selected_catalog_ids(state: Any, catalog_ids: tuple[str, ...] | list[str
     unknown = selected - allowed
     if unknown:
         raise ValueError("catálogo(s) desconhecido(s): " + ", ".join(sorted(unknown)))
-    if "CAT-07" in selected:
-        selected.add("CAT-06")
     plan = _plan(state)
     plan.selected = selected
     # Required AI means required for full diagnostic closure, not required to start the
@@ -133,8 +134,6 @@ def execution_ai_choice(state: Any, enabled: bool) -> Iterator[None]:
 def select_catalog(state: Any, catalog: AuditCatalog) -> None:
     plan = _plan(state)
     plan.selected.add(catalog.id)
-    if catalog.id == "CAT-07":
-        plan.selected.add("CAT-06")
     # Selecting a required-AI catalog does not silently force provider execution.
 
 
@@ -154,23 +153,13 @@ def select_all_unselected_catalogs(
     return tuple(item.id for item in CATALOGS if item.id in after - before and item.id not in excluded)
 
 
-_CATALOG_DEPENDENTS: dict[str, tuple[str, ...]] = {
-    "CAT-06": ("CAT-07",),
-}
-
-
 def deselect_catalog(state: Any, catalog: AuditCatalog) -> bool:
-    """Remove a catalog and any selected catalog that cannot exist without it.
+    """Remove only the requested catalog from the next-audit plan.
 
-    The public action is "remove this catalog from the next audit plan". Keeping a
-    dependent selected would make that action impossible to honor. CAT-07 depends on
-    CAT-06, so removing CAT-06 removes CAT-07 in the same plan operation. Removing the
-    dependent itself remains non-cascading.
+    CAT-06 (navigation) and CAT-07 (experience) are independent collectors. Each
+    selection therefore has independent lifecycle semantics.
     """
-    plan = _plan(state)
-    plan.selected.discard(catalog.id)
-    for dependent in _CATALOG_DEPENDENTS.get(catalog.id, ()):
-        plan.selected.discard(dependent)
+    _plan(state).selected.discard(catalog.id)
     return True
 
 
@@ -270,8 +259,6 @@ def catalog_status(state: Any, catalog: AuditCatalog) -> tuple[str, str]:
             return "BLOQUEADO", "Apdex de navegação ainda não foi habilitado/configurado"
         return _single_status(state, "apdex-navigation")
     if catalog.id == "CAT-07":
-        if "CAT-06" not in _plan(state).selected:
-            return "BLOQUEADO", "CAT-07 exige CAT-06 como dependência técnica"
         if not bool(getattr(state, "apdex_experience", False)):
             return "BLOQUEADO", "Apdex de experiência ainda não foi habilitado/configurado"
         return _single_status(state, "apdex-experience")
@@ -417,6 +404,8 @@ def project_plan(state: Any) -> Iterator[None]:
     environment_switches = (
         "RASAI_GSC_ENABLED",
         "RASAI_PASSIVE_SECURITY",
+        APDEX_ENABLED_ENV,
+        UX_ENABLED_ENV,
         *_optional_environment_switches(),
         *deep_analysis_switches,
     )
@@ -436,6 +425,11 @@ def project_plan(state: Any) -> Iterator[None]:
             state.synthetic_apdex = False
         if "CAT-07" not in selected and hasattr(state, "apdex_experience"):
             state.apdex_experience = False
+        # The child/final fulfillment layer also reads these canonical environment
+        # switches. Project them from the CAT plan so stale persisted configuration
+        # cannot recreate work that the operator removed from this audit.
+        os.environ[APDEX_ENABLED_ENV] = "true" if "CAT-06" in selected else "false"
+        os.environ[UX_ENABLED_ENV] = "true" if "CAT-07" in selected else "false"
         if "CAT-08" not in selected:
             if hasattr(state, "improvement_enabled"):
                 # CAT-10 optional AI reuses the same evidence-bound Improvement engine
