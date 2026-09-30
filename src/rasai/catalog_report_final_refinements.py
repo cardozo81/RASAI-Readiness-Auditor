@@ -242,7 +242,7 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
             ("Artefato", row["reference"] or "-"),
         ))
         if details:
-            detail_body += "<h3>Detalhes persistidos</h3><div class='pre'>" + escape(i._safe_payload_text(details)) + "</div>"
+            detail_body += "<h3>Detalhes persistidos</h3><div class='pre'>" + escape(i._external_details_public_text(details)) + "</div>"
         int_modals.append(i._modal(modal_id, row["name"], "Comunicação/serviço externo persistido", detail_body))
 
     forecast = i._cost_forecast(database, data.audit_id)
