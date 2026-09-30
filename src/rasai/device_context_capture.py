@@ -770,8 +770,9 @@ def _install_browser_capture() -> None:
                     timeout=self.navigation_timeout_ms,
                 )
                 screenshot_state = "CAPTURED"
-            except PlaywrightError as exc:
-            failure_context = render_failure_context(stage, exc)
+            except PlaywrightError:
+                # Screenshot is optional: a visual failure must not invalidate
+                # otherwise captured/rendered HTML.
                 screenshot_state = "CAPTURE_FAILED"
 
             observations = ()
@@ -828,7 +829,8 @@ def _install_browser_capture() -> None:
                 screenshot_png=screenshot_png,
                 element_observations=observations,
             )
-        except PlaywrightTimeoutError:
+        except PlaywrightTimeoutError as exc:
+            failure_context = render_failure_context(stage, exc)
             result = self._navigation_failure(
                 url=url,
                 profile=profile,
@@ -838,7 +840,8 @@ def _install_browser_capture() -> None:
                 navigation_trace=navigation_trace,
                 request_headers=request_headers,
             )
-        except PlaywrightError:
+        except PlaywrightError as exc:
+            failure_context = render_failure_context(stage, exc)
             result = self._navigation_failure(
                 url=url,
                 profile=profile,
