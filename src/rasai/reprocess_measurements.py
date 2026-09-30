@@ -366,6 +366,87 @@ def _m23_item_from_row(row: sqlite3.Row):
     return _MeasuredSample(int(row["run_index"]), measurement, row["classification"])
 
 
+def _restart_interrupted_m23_stage(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    run: sqlite3.Row,
+    connection: sqlite3.Connection,
+    item: WorkItem,
+) -> bool:
+    """Restart only an unfinished M23 stage after preserving its partial history."""
+    if str(run["status"]).upper() != "RUNNING":
+        return False
+    from rasai import m23_apdex as m23
+    from rasai.audit_fulfillment import archive_rows
+    from rasai.governed_reprocess_runtime import _current_reprocess_id
+    from rasai.m23_persistence import M23Persistence
+    from rasai.operational_log import try_append_operational_event
+
+    reprocess_id = _current_reprocess_id(workspace, audit_id)
+    if not reprocess_id:
+        # Fail closed: clearing a stage without a durable archive loses evidence.
+        raise RuntimeError("interrupted M23 stage requires an active RPR archive")
+    persisted = _json_load(run["configuration"], {})
+    persisted = dict(persisted) if isinstance(persisted, dict) else {}
+    cfg = m23.SyntheticApdexConfig(
+        enabled=True,
+        threshold_seconds=float(run["threshold_seconds"]),
+        target_valid_samples=int(run["target_valid_samples"]),
+        max_attempts_per_context=int(run["max_attempts_per_context"]),
+        max_pages=int(run["page_limit"]),
+        timeout_seconds=float(
+            persisted.get("timeout_seconds")
+            or item.configuration.get("timeout_seconds")
+            or 45.0
+        ),
+        delay_seconds=float(run["delay_seconds"]),
+        concurrency=int(run["concurrency"]),
+        mobile_profile=_profile_from_persisted(
+            persisted.get("mobile_profile"), device="MOBILE"
+        ),
+        desktop_profile=_profile_from_persisted(
+            persisted.get("desktop_profile"), device="DESKTOP"
+        ),
+    ).validate()
+
+    # Old rows are facts of the abandoned attempt, not the new population.
+    for table, identifier in (
+        ("synthetic_apdex_runs", "audit_id"),
+        ("synthetic_apdex_samples", "sample_id"),
+        ("synthetic_apdex_summaries", "summary_id"),
+    ):
+        rows = [
+            dict(row)
+            for row in connection.execute(
+                f"SELECT * FROM {table} WHERE audit_id=?", (audit_id,)
+            ).fetchall()
+        ]
+        if rows:
+            archive_rows(
+                workspace,
+                audit_id=audit_id,
+                reprocess_id=reprocess_id,
+                component="SYNTHETIC_APDEX",
+                entity_type=table,
+                id_field=identifier,
+                rows=rows,
+            )
+    with M23Persistence(workspace) as store:
+        store.clear_audit(audit_id)
+    try_append_operational_event(
+        workspace,
+        "M23_INTERRUPTED_STAGE_RESTARTED",
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        policy="RESTART_UNFINISHED_STAGE",
+        target_valid_samples=cfg.target_valid_samples,
+    )
+    m23.execute_m23_apdex(audit_id=audit_id, workspace=workspace, config=cfg)
+    return m23.persisted_target_fulfilled(
+        workspace, audit_id, cfg.target_valid_samples
+    )
+
+
 def recover_synthetic_apdex(
     *,
     workspace: AuditWorkspace,
@@ -384,6 +465,10 @@ def recover_synthetic_apdex(
             run = connection.execute("SELECT * FROM synthetic_apdex_runs WHERE audit_id=?", (audit_id,)).fetchone()
         except sqlite3.OperationalError:
             run = None
+        if run is not None and str(run["status"]).upper() == "RUNNING":
+            return _restart_interrupted_m23_stage(
+                workspace, audit_id, run, connection, item
+            )
         if run is None:
             cfg_map = dict(item.configuration or {})
             if not bool(cfg_map.get("enabled", True)):
@@ -824,19 +909,22 @@ def recover_experience_apdex(
             invalid_total = len(sample_rows)-valid_total
             effective_success = bool(pages) and len(population)==len(pages) and all(int(row["valid_samples"])>=cfg.target_samples_per_page for row in population)
             status = "SUCCESS" if effective_success else ("UNAVAILABLE" if valid_total==0 else "PARTIAL")
-            store.upsert_run(SyntheticUxRun(
-                audit_id=audit_id,enabled=True,status=status,task_id=m25.TASK_SYNTHETIC_USER_ACTION,
-                target_samples_per_page=cfg.target_samples_per_page,max_attempts_per_page=cfg.max_attempts_per_page,
-                page_limit=cfg.max_pages,pages_considered=len(pages),attempted_samples=len(sample_rows),
-                valid_samples=valid_total,invalid_samples=invalid_total,device_mix=cfg.device_mix_dict(),
-                session_mode=cfg.session_mode,kpm=calibration.kpm,
-                satisfied_threshold_seconds=calibration.satisfied_threshold_seconds,
-                frustrated_threshold_seconds=calibration.frustrated_threshold_seconds,
-                errors_affect_apdex=calibration.errors_affect_apdex,error_scope=cfg.error_scope,
-                settle_seconds=cfg.settle_seconds,calibration_source=calibration.source,dynatrace_application_id=run["dynatrace_application_id"],
-                calibration_metadata=calibration.metadata,configuration=config_map if isinstance(config_map,dict) else {},
-                host_environment=host_environment,reason=None if effective_success else "RECOVERY_TARGET_NOT_YET_MET",updated_at=m25._utc_now(),
-            ))
+            # The sample writer was closed above; run finalization needs its
+            # own live transaction (also on a zero-deficit repeated recovery).
+            with M25Persistence(workspace) as run_store:
+                run_store.upsert_run(SyntheticUxRun(
+                    audit_id=audit_id,enabled=True,status=status,task_id=m25.TASK_SYNTHETIC_USER_ACTION,
+                    target_samples_per_page=cfg.target_samples_per_page,max_attempts_per_page=cfg.max_attempts_per_page,
+                    page_limit=cfg.max_pages,pages_considered=len(pages),attempted_samples=len(sample_rows),
+                    valid_samples=valid_total,invalid_samples=invalid_total,device_mix=cfg.device_mix_dict(),
+                    session_mode=cfg.session_mode,kpm=calibration.kpm,
+                    satisfied_threshold_seconds=calibration.satisfied_threshold_seconds,
+                    frustrated_threshold_seconds=calibration.frustrated_threshold_seconds,
+                    errors_affect_apdex=calibration.errors_affect_apdex,error_scope=cfg.error_scope,
+                    settle_seconds=cfg.settle_seconds,calibration_source=calibration.source,dynatrace_application_id=run["dynatrace_application_id"],
+                    calibration_metadata=calibration.metadata,configuration=config_map if isinstance(config_map,dict) else {},
+                    host_environment=host_environment,reason=None if effective_success else "RECOVERY_TARGET_NOT_YET_MET",updated_at=m25._utc_now(),
+                ))
     finally:
         if shared_gateway is not None:
             shared_gateway.close()
