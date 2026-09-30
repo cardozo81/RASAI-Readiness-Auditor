@@ -983,12 +983,37 @@ def _archive_snapshot(workspace: AuditWorkspace, *, audit_id: str, snapshot_id: 
             connection.close()
 
 
+def _capture_render_diagnostic(
+    result: Any,
+    output: dict[str, Any] | None,
+) -> None:
+    if output is None:
+        return
+    metadata = getattr(result, "browser_metadata", None)
+    raw = metadata.get("render_failure_context") if isinstance(metadata, dict) else None
+    if not isinstance(raw, dict):
+        return
+    # Revalidate the keys against the same closed stage/class allowlist.
+    raw_stage = raw.get("stage")
+    raw_class = str(raw.get("exception_class") or "Exception")
+    # The initial renderer already normalizes these fields. Reject arbitrary
+    # diagnostics from injected/custom renderer implementations.
+    from rasai.browser_render_failure import STAGE_LABELS
+    if raw_stage not in STAGE_LABELS or not raw_class.isidentifier() or len(raw_class) > 64:
+        return
+    output["render_failure_context"] = {
+        "stage": str(raw_stage),
+        "exception_class": raw_class,
+    }
+
+
 def _recover_render(
     workspace: AuditWorkspace,
     audit_id: str,
     item: WorkItem,
     reprocess_id: str,
     renderer: Any,
+    failure_diagnostics: dict[str, Any] | None = None,
 ) -> tuple[bool,str,set[str]]:
     from rasai import m3
     from rasai.audit_resume_runtime import expected_devices_for_audit
@@ -1022,6 +1047,7 @@ def _recover_render(
         except TypeError:
             result = renderer.render(url,device)
         if result.error_kind is not None or not result.rendered_html:
+            _capture_render_diagnostic(result, failure_diagnostics)
             return False,getattr(result.error_kind,"value",None) or "RENDERED_DOCUMENT_UNAVAILABLE",set()
 
         connection = sqlite3.connect(workspace.database)
@@ -1079,6 +1105,7 @@ def _recover_render(
     except TypeError:
         result = renderer.render(str(row["requested_url"]),device)
     if result.error_kind is not None or not result.rendered_html:
+        _capture_render_diagnostic(result, failure_diagnostics)
         return False,getattr(result.error_kind,"value",None) or "RENDERED_DOCUMENT_UNAVAILABLE",set()
 
     _archive_snapshot(
@@ -1144,6 +1171,7 @@ def _attempt(
         workspace,audit_id=audit_id,component=item.component,scope_key=item.scope_key,
         reprocess_id=reprocess_id,metadata={"temporal_mode":item.temporal_mode},
     )
+    failure_diagnostics: dict[str, Any] = {}
     try:
         if item.component == DISCOVERY_ACQUISITION:
             success,code,affected = _recover_discovery(workspace,audit_id,item,reprocess_id)
@@ -1152,7 +1180,10 @@ def _attempt(
         elif item.component == RENDER_CAPTURE:
             if renderer is None:
                 raise RuntimeError("renderer session is required")
-            success,code,affected = _recover_render(workspace,audit_id,item,reprocess_id,renderer)
+            success,code,affected = _recover_render(
+                workspace, audit_id, item, reprocess_id, renderer,
+                failure_diagnostics=failure_diagnostics,
+            )
         elif item.component == CONTENT_EXTRACTION:
             success,code,affected = _recover_extraction(workspace,audit_id,item,reprocess_id)
         else:
@@ -1169,10 +1200,27 @@ def _attempt(
             metadata={"result_code":code},retryable=True,
         )
         return True,affected
+    from rasai.browser_render_failure import render_failure_public_detail
+    render_context = failure_diagnostics.get("render_failure_context")
+    detail = (
+        render_failure_public_detail(render_context)
+        if render_context
+        else f"selective recovery did not satisfy {item.component}/{item.scope_key}"
+    )
+    if render_context:
+        try_append_operational_event(
+            workspace,
+            "RENDER_CAPTURE_RECOVERY_DIAGNOSTIC",
+            level="WARNING",
+            audit_id=audit_id,
+            reprocess_id=reprocess_id,
+            scope_key=item.scope_key,
+            diagnostic=render_context,
+        )
     finish_attempt(
         workspace,attempt_id,status=WAITING_FOR_DATA if code == "EXTRACTION_SOURCE_UNAVAILABLE" else FAILED_RETRYABLE,
         error_class="CORE_RECOVERY",error_code=code,
-        error_message=f"selective recovery did not satisfy {item.component}/{item.scope_key}",retryable=True,
+        error_message=detail,retryable=True,metadata=failure_diagnostics,
     )
     return False,set()
 
