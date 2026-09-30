@@ -843,7 +843,7 @@ def _mdn_grade_label(value: Any) -> str:
         return "-"
     if re.fullmatch(r"[A-F][+-]?", grade):
         return f"Nota {grade} (MDN)"
-    return "Classificacao MDN nao reconhecida"
+    return "Classificação MDN não reconhecida"
 
 
 def _passive_security_html(database: Path, data: _ReportData) -> str:
