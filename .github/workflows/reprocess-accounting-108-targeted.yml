@@ -1,0 +1,32 @@
+name: RPR contadores e fechamento - testes isolados
+
+on:
+  pull_request:
+    paths:
+      - 'src/rasai/audit_reprocess.py'
+      - 'src/rasai/governed_reprocess_runtime.py'
+      - 'src/rasai/audit_resume_runtime.py'
+      - 'tests/test_reprocess_accounting_108.py'
+      - '.github/workflows/reprocess-accounting-108-targeted.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canonical-rpr-accounting:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -e . pytest
+      - name: Only affected RPR and resume tests
+        run: >-
+          python -m pytest -q
+          tests/test_reprocess_accounting_108.py
+          tests/test_governed_reprocess_dependencies.py
+          tests/test_optional_reprocess_accounting.py
+          tests/test_audit_resume_runtime.py
