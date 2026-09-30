@@ -589,6 +589,15 @@ def _cookie_purpose_label(value: Any) -> str:
     return labels.get(str(value or "").upper(), "Finalidade não determinada")
 
 
+def _cookie_consent_state_label(value: Any) -> str:
+    """Render the typed consent observation without inventing a consent decision."""
+    raw = str(value or "").strip()
+    if not raw or raw.upper() == "NOT_OBSERVED":
+        return "Não observado"
+    # Preserve the existing final public-language sanitizer for unknown states.
+    return raw
+
+
 def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
     connection=sqlite3.connect(database); connection.row_factory=sqlite3.Row
     try:
@@ -724,7 +733,7 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
                 (detail.get("declared_domain") if isinstance(detail,Mapping) else None) or "-",
                 item.get("effective_domain") or "Não confirmado",
                 item.get("setter_script_url") or "Resposta HTTP / não atribuída",
-                (detail.get("consent_state_at_creation") if isinstance(detail,Mapping) else None) or "Não observado",
+                _cookie_consent_state_label(detail.get("consent_state_at_creation") if isinstance(detail,Mapping) else None),
             ) for item,detail in zip(items,details)],
         )
         body+="<div class='notice'>Chamadas a document.cookie/Cookie Store são registradas como tentativas. Somente presença correspondente no browser store pode preencher domínio/path confirmado; tentativa não confirmada não é apresentada como cookie efetivamente armazenado. Proprietário / responsável técnico representa atribuição operacional e não titularidade jurídica. Finalidade é classificação técnica/heurística. Valores de cookies não são persistidos nesta camada.</div>"
@@ -796,7 +805,7 @@ def _runtime_security_inventory_html(database: Path, audit_id: str) -> str:
                 ))
         body=_kv((
             ("Plataforma",item.get("platform_name") or item.get("platform_id")),
-            ("ID técnico",item.get("platform_id") or "-"),
+            ("Tipo de plataforma",item.get("platform_name") or public_label(item.get("platform_id")) or "Não determinado"),
             ("Confiança",_confidence_label(item.get("confidence"))),
             ("Snapshot",item.get("snapshot_id") or "-"),
         ))
