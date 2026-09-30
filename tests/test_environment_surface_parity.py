@@ -44,6 +44,9 @@ _NON_PUBLIC_FEATURE_LOCAL_AI_ENV = frozenset(
 _NON_PUBLIC_EXECUTION_ENV = frozenset(
     {
         "RASAI_EXECUTION_GSC_POLICY",
+        # One-RPR operator opt-in, never canonical/persistable configuration:
+        # forcing a paid SerpApi refresh must be set for that session explicitly.
+        "RASAI_SERP_NO_CACHE_RPR",
         # Compatibility fallbacks consumed by directed analysis. The public console
         # owns provider/model/reasoning through execution state and provider-specific
         # catalog settings rather than these generic environment aliases.
