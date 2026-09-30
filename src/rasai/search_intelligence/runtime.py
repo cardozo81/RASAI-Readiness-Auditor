@@ -206,9 +206,10 @@ def execute_search(
         provider_name = provider_id
 
     class _BoundRepository:
-        def save(self, result: SearchIntelligenceResult) -> None:
+        def save(self, result: SearchIntelligenceResult) -> SearchIntelligenceResult:
             if repository is not None and audit_id is not None:
-                repository.save(result)
+                return repository.save(result)
+            return result
 
     service = SearchIntelligenceService(
         provider=provider,
