@@ -1,4 +1,4 @@
-"""Regression: interrupted M23 must checkpoint samples and RPR must reuse them."""
+"""Regression: interrupted M23 restarts its stage and archives partial history."""
 from __future__ import annotations
 
 import sqlite3
@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from rasai.m23_apdex import SyntheticApdexConfig, execute_m23_apdex
+from rasai.audit_fulfillment import start_reprocess_run
 from rasai.reprocess_measurements import recover_synthetic_apdex
 from tests.test_m23_integration import _measurement, _workspace
 
@@ -45,7 +46,7 @@ class _RecoveryGateway:
         self.closed = True
 
 
-def test_interrupted_m23_preserves_each_sample_and_rpr_uses_original_budget(tmp_path, monkeypatch):
+def test_interrupted_m23_archives_partial_samples_and_restarts_whole_stage(tmp_path, monkeypatch):
     workspace = _workspace(str(tmp_path))
     original = _InterruptedGateway()
     cfg = SyntheticApdexConfig(
@@ -79,8 +80,12 @@ def test_interrupted_m23_preserves_each_sample_and_rpr_uses_original_budget(tmp_
     assert [row[1] for row in first_samples] == [1, 2]
     assert [row[2] for row in first_samples] == ["SATISFIED", "SATISFIED"]
 
-    recovery = _RecoveryGateway([_measurement(500)])
-    from rasai import m23_apdex_profiles
+    # A completed stage (not an individual measurement) is the checkpoint.
+    # The previous two events remain archived and the RPR measures three anew.
+    reprocess_id = start_reprocess_run(workspace, "AUD-M23", source="TEST")
+    recovery = _RecoveryGateway([_measurement(500)] * 3)
+    from rasai import m23_apdex, m23_apdex_profiles
+    monkeypatch.setattr(m23_apdex, "PlaywrightSyntheticNavigationGateway", lambda: recovery)
     monkeypatch.setattr(
         m23_apdex_profiles,
         "PlaywrightSyntheticNavigationGateway",
@@ -93,7 +98,7 @@ def test_interrupted_m23_preserves_each_sample_and_rpr_uses_original_budget(tmp_
     # Both AUD and RPR classify a group below 100 samples as PARTIAL,
     # despite reaching the explicitly configured lower target.
     assert completed is True
-    assert recovery.calls == 1
+    assert recovery.calls == 3
     assert recovery.closed
 
     with sqlite3.connect(workspace.database) as db:
@@ -112,11 +117,18 @@ def test_interrupted_m23_preserves_each_sample_and_rpr_uses_original_budget(tmp_
     assert persisted_target_fulfilled(workspace, "AUD-M23", 3)
     assert _m23_effective_success(workspace, "AUD-M23", 3)
     assert not persisted_target_fulfilled(workspace, "AUD-M23", 4)
-    assert final_samples[:2] == first_samples
+    assert not {row[0] for row in final_samples} & {row[0] for row in first_samples}
+    with sqlite3.connect(workspace.database) as db:
+        archived = db.execute(
+            "SELECT entity_id FROM audit_reprocess_derived_archive "
+            "WHERE reprocess_id=? AND component='SYNTHETIC_APDEX' "
+            "AND entity_type='synthetic_apdex_samples' ORDER BY entity_id",
+            (reprocess_id,),
+        ).fetchall()
+    assert {row[0] for row in archived} == {row[0] for row in first_samples}
     assert [row[1] for row in final_samples] == [1, 2, 3]
 
-    # With the original three-attempt ceiling exhausted, repeated RPR must
-    # preserve all samples and make zero further calls.
+    # A completed stage is preserved on a repeated RPR; no further measurements.
     no_budget = _RecoveryGateway([])
     monkeypatch.setattr(m23_apdex_profiles, "PlaywrightSyntheticNavigationGateway", lambda: no_budget)
     assert recover_synthetic_apdex(
