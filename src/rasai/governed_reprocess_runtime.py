@@ -1338,6 +1338,12 @@ def _install_core_composition() -> None:
             all_pending = _required_pending(workspace, audit_id)
             pending = _selected_required_pending(workspace, audit_id)
             selected_count, unselected_count = selected_counts(all_pending)
+            # Freeze pre-recovery successes before _prepare_reprocess can finish
+            # additional collectors and change the work-item success population.
+            baseline_preserved = sum(
+                bool(item.required) and str(item.status).upper() == SUCCESS
+                for item in list_work_items(workspace, audit_id)
+            )
             if not pending:
                 # A complete AUD is a true no-op: no collector, provider or AI call is
                 # justified merely because the operator requested reprocessing.
@@ -1407,11 +1413,17 @@ def _install_core_composition() -> None:
                         directed_finalizer,
                         catalog_finalizer,
                     ):
-                        result = original(
-                            audit_id,
-                            audits_root=audits_root,
-                            source=source,
+                        baseline_token = module._RPR_BASELINE_SUCCESSES.set(
+                            baseline_preserved
                         )
+                        try:
+                            result = original(
+                                audit_id,
+                                audits_root=audits_root,
+                                source=source,
+                            )
+                        finally:
+                            module._RPR_BASELINE_SUCCESSES.reset(baseline_token)
                         governed_ai_used = _registered_ai_and_report(
                             workspace=workspace,
                             audit_id=audit_id,
@@ -1462,6 +1474,7 @@ def _install_core_composition() -> None:
                             temporal_expired_items=summary.expired_items,
                             selected_items=selected_count,
                             unselected_items=unselected_count,
+                            skipped_success_items=baseline_preserved,
                             ai_used=effective_ai_used,
                         )
                     except TypeError:
