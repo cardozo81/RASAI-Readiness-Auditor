@@ -1140,7 +1140,7 @@ def _public_exact_change(value: Any) -> str:
     if not text:
         return "-"
     return re.sub(
-        r"(Ação:\\s*)([A-Z][A-Z_]+)",
+        r"(Ação:\s*)([A-Z][A-Z_]+)",
         lambda found: found.group(1) + _EXACT_CHANGE_ACTION_LABELS.get(
             found.group(2), "Ação técnica não classificada"
         ),
