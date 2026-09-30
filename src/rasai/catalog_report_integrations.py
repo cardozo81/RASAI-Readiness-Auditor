@@ -51,6 +51,43 @@ def _safe_payload_text(value: Any) -> str:
     return str(sanitized)
 
 
+def _external_details_public_text(value: Any) -> str:
+    """Display only recognized external-source metadata after secret redaction.
+
+    Source JSON is immutable: this creates a separate, valid JSON projection,
+    keeping keys distinct and leaving arbitrary vendor payloads untouched.
+    """
+    safe = _safe_payload_text(value)
+    payload = _safe_json(safe, None)
+    if not isinstance(payload, Mapping):
+        return safe
+    displayed = dict(payload)
+    dataset = displayed.get("dataset")
+    if isinstance(dataset, Mapping) and dataset.get("source") == "NPM_WEB_FEATURES":
+        dataset = dict(dataset)
+        dataset["source"] = "Pacote npm web-features"
+        displayed["dataset"] = dataset
+        boundary = str(displayed.get("boundary") or "")
+        if boundary.startswith("SUCCESS means deterministic classification of directly observable"):
+            displayed["boundary"] = (
+                "Concluído significa que o detector determinístico classificou "
+                "somente sinais diretamente observáveis dentro do escopo delimitado; "
+                "não representa inventário exaustivo de código oculto em recursos "
+                "externos nem dos caminhos dinâmicos não executados."
+            )
+    if displayed.get("source_type") == "CHROME_UX_REPORT_HISTORY":
+        displayed["source_type"] = "Histórico do Chrome UX Report"
+        if displayed.get("capture_method") == "DIRECT_OFFICIAL_API":
+            displayed["capture_method"] = "Consulta direta à API oficial"
+        metadata = displayed.get("metadata")
+        if isinstance(metadata, Mapping):
+            metadata = dict(metadata)
+            if metadata.get("scope_policy") == "AUDITED_ORIGIN_ONLY":
+                metadata["scope_policy"] = "Somente a origem auditada"
+            displayed["metadata"] = metadata
+    return json.dumps(displayed, ensure_ascii=False, indent=2)
+
+
 def _ai_attempts(database: Path, audit_id: str) -> list[dict[str,Any]]:
     con=sqlite3.connect(database);con.row_factory=sqlite3.Row
     try:
@@ -365,7 +402,7 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
             ("Artefato",r["reference"] or "-"),
         ))
         if details:
-            body+="<h3>Detalhes persistidos</h3><div class='pre'>"+escape(_safe_payload_text(details))+"</div>"
+            body+="<h3>Detalhes persistidos</h3><div class='pre'>"+escape(_external_details_public_text(details))+"</div>"
         int_modals.append(_modal(mid,r["name"],"Comunicação/serviço externo persistido",body))
 
     forecast=_cost_forecast(database,data.audit_id)
