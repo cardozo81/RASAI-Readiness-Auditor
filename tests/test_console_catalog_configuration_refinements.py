@@ -223,3 +223,65 @@ def test_remove_action_returns_to_origin_and_unselects_every_catalog(monkeypatch
         workflow.catalog_menu = original_workflow_menu
         workflow._catalog_menu = original_workflow_alias
 
+
+
+def test_remove_navigation_apdex_cascades_experience_and_returns(monkeypatch) -> None:
+    """Regression #148: CAT-06 removal must honor D even when CAT-07 depends on it."""
+    original_menu = console_catalog_ui.catalog_menu
+    original_related = console_catalog_ui._related_specs
+    original_workflow_menu = workflow.catalog_menu
+    original_workflow_alias = workflow._catalog_menu
+    try:
+        console_catalog_ui._related_specs = lambda catalog: ()
+        observed: list[tuple[str, str]] = []
+
+        def inner(console, state, catalog):
+            observed.append((catalog.id, input("Número/ID ou ação: ").strip().upper()))
+
+        console_catalog_ui.catalog_menu = inner
+        monkeypatch.setattr("builtins.input", lambda prompt="": "D")
+        refinements._install_catalog_copy()
+
+        state = SearchConsoleState()
+        plan.set_selected_catalog_ids(state, ["CAT-06", "CAT-07"])
+        console_catalog_ui.catalog_menu(
+            SimpleNamespace(),
+            state,
+            audit_catalog.CATALOG_BY_ID["CAT-06"],
+        )
+
+        assert plan.selected_catalog_ids(state) == ()
+        assert observed[-1] == ("CAT-06", "V")
+        assert state.error == ""
+    finally:
+        console_catalog_ui.catalog_menu = original_menu
+        console_catalog_ui._related_specs = original_related
+        workflow.catalog_menu = original_workflow_menu
+        workflow._catalog_menu = original_workflow_alias
+
+
+def test_remove_experience_apdex_preserves_navigation_dependency() -> None:
+    state = SearchConsoleState()
+    plan.set_selected_catalog_ids(state, ["CAT-06", "CAT-07"])
+
+    assert plan.deselect_catalog(state, audit_catalog.CATALOG_BY_ID["CAT-07"]) is True
+    assert plan.selected_catalog_ids(state) == ("CAT-06",)
+
+
+def test_removed_apdex_catalogs_are_not_projected_into_next_audit() -> None:
+    state = SearchConsoleState()
+    state.synthetic_apdex = True
+    state.apdex_experience = True
+    plan.set_selected_catalog_ids(state, ["CAT-06", "CAT-07"])
+
+    assert plan.deselect_catalog(state, audit_catalog.CATALOG_BY_ID["CAT-06"]) is True
+    assert plan.selected_catalog_ids(state) == ()
+
+    with plan.project_plan(state):
+        assert state.synthetic_apdex is False
+        assert state.apdex_experience is False
+
+    # Configuration values are preserved outside the execution projection. Only the
+    # next-audit catalog plan was changed by D.
+    assert state.synthetic_apdex is True
+    assert state.apdex_experience is True
