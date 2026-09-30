@@ -153,3 +153,79 @@ def test_final_html_humanizes_whole_chromium_aborted_resource_message() -> None:
     )
     assert html == "<div>Falha: Requisição interrompida pelo navegador</div>"
     assert "net::" not in html
+
+
+def test_known_structural_gates_and_functional_states_keep_meaning_in_final_html() -> None:
+    # Values observed in the original AUD-6BB4... final report; unknown enums
+    # still fail closed. Hyphenated IDs such as CAT-05 remain traceable.
+    raw = (
+        "<div><strong>CAT</strong><strong>ATENDE</strong></div>"
+        "<table><tbody><tr>"
+        "<td>SERP</td><td><span class='badge bad'>FALHA</span></td>"
+        "<td><span class='badge warn'>PARCIAL</span></td>"
+        "<td>CAT-05</td><td>NEW_INTERNAL_CONDITION_2099</td>"
+        "</tr></tbody></table>"
+    )
+    final = humanize_report_html(raw, page_name="index.html")
+    assert "<strong>Catálogo</strong>" in final
+    assert "<strong>Atende</strong>" in final
+    assert "<td>SERP</td>" in final
+    assert "<span class='badge bad'>Falha</span>" in final
+    assert "<span class='badge warn'>Parcial</span>" in final
+    assert "<td>CAT-05</td>" in final
+    assert "Condição técnica não catalogada" in final
+    assert "NEW_INTERNAL_CONDITION_2099" not in final
+    assert humanize_report_html(final, page_name="index.html") == final
+
+
+def test_mdn_grade_is_contextual_and_cannot_publish_arbitrary_enum() -> None:
+    from rasai.catalog_report_analysis import _mdn_grade_label
+
+    assert _mdn_grade_label("B") == "Nota B (MDN)"
+    assert _mdn_grade_label("A+") == "Nota A+ (MDN)"
+    assert _mdn_grade_label(None) == "-"
+    assert _mdn_grade_label("UNKNOWN_GRADE_WITH_SECRET") == (
+        "Classificação MDN não reconhecida"
+    )
+    final = humanize_report_html(
+        _table(("Classificação",), [(_mdn_grade_label("B"),)]),
+        page_name="cat-10.html",
+    )
+    assert "Nota B (MDN)" in final
+    assert "Condição técnica não catalogada" not in final
+
+
+def test_cat08_selected_but_ai_not_authorized_is_not_fake_success(tmp_path) -> None:
+    from types import SimpleNamespace
+    from rasai.catalog_report_catalog_state import _catalog_status
+
+    database = tmp_path / "audit.db"
+    sqlite3.connect(database).close()
+    data = SimpleNamespace(
+        audit_id="AUD-CAT08-NOAI", configuration={"persisted_plan": True},
+        config_hash="same", computed_hash="same", selected={"CAT-08"},
+        catalog_items={"CAT-08": {
+            "ai_mode": "REQUIRED", "ai_execution_enabled": False,
+        }},
+        work_items=[],
+    )
+    status, tone, detail = _catalog_status(database, data, "CAT-08")
+    assert (status, tone) == ("NÃO EXECUTADO - IA NÃO AUTORIZADA", "warn")
+    assert "selecionado" in detail
+    assert "não foi autorizada" in detail
+    assert "SEM RESULTADO" != status
+
+    # A later real execution with persisted data takes precedence over the
+    # initial plan; the renderer must not invent a permanent NO_AI lockout.
+    connection = sqlite3.connect(database)
+    connection.execute(
+        "CREATE TABLE improvement_intelligence_runs (audit_id TEXT, status TEXT)"
+    )
+    connection.execute(
+        "INSERT INTO improvement_intelligence_runs VALUES (?,?)",
+        ("AUD-CAT08-NOAI", "COMPLETED"),
+    )
+    connection.commit()
+    connection.close()
+    status, tone, _ = _catalog_status(database, data, "CAT-08")
+    assert (status, tone) == ("CONCLUÍDO", "good")
