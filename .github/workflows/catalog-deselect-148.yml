@@ -30,4 +30,4 @@ jobs:
         run: python -m pip install -e . pytest
       - name: Run only the #148 regressions
         run: |
-          python -m pytest -q             tests/test_console_catalog_configuration_refinements.py::test_remove_navigation_apdex_cascades_experience_and_returns             tests/test_console_catalog_configuration_refinements.py::test_remove_experience_apdex_preserves_navigation_dependency             tests/test_console_catalog_configuration_refinements.py::test_removed_apdex_catalogs_are_not_projected_into_next_audit
+          python -m pytest -q             tests/test_console_catalog_configuration_refinements.py::test_remove_navigation_apdex_preserves_independent_experience_and_returns             tests/test_console_catalog_configuration_refinements.py::test_remove_experience_apdex_preserves_navigation_catalog             tests/test_console_catalog_configuration_refinements.py::test_removed_apdex_catalogs_are_not_projected_into_next_audit
