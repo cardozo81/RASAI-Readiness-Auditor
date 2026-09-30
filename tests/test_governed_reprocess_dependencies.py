@@ -498,6 +498,17 @@ def test_governed_pre_finish_order_defers_catalog_projection(
     tmp_path: Path,
 ) -> None:
     workspace = _workspace(tmp_path)
+    # This test validates the post-collection AI/report ordering: represent
+    # an actually completed acquisition contract, not a zero-collector AUD.
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="DISCOVERY_ACQUISITION",
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        status=SUCCESS,
+        retryable=False,
+    )
     _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
     events: list[str] = []
 
