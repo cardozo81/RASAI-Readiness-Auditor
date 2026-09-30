@@ -132,36 +132,37 @@ def _audit_arguments(store: Any, job: Any, audits_root: Path) -> list[str]:
         ))
         if payload["apdex_timeout_seconds"] is not None:
             argv.extend(("--apdex-timeout-seconds", f"{payload['apdex_timeout_seconds']:g}"))
-        if payload["apdex_experience"]:
-            argv.extend((
-                "--apdex-experience",
-                "--apdex-experience-samples", str(payload["apdex_experience_samples"]),
-                "--apdex-experience-max-attempts", str(payload["apdex_experience_max_attempts"]),
-                "--apdex-experience-max-pages", str(payload["apdex_experience_max_pages"]),
-                "--apdex-experience-device-mix", payload["apdex_experience_device_mix"],
-                "--apdex-experience-session-mode", payload["apdex_experience_session_mode"],
-                "--apdex-experience-kpm", payload["apdex_experience_kpm"],
-                "--apdex-experience-satisfied-seconds", f"{payload['apdex_experience_satisfied_seconds']:g}",
-                "--apdex-experience-frustrated-seconds", f"{payload['apdex_experience_frustrated_seconds']:g}",
-                "--apdex-experience-error-scope", payload["apdex_experience_error_scope"],
-                "--apdex-experience-settle-seconds", f"{payload['apdex_experience_settle_seconds']:g}",
-                "--apdex-experience-delay-seconds", f"{payload['apdex_experience_delay_seconds']:g}",
-                "--apdex-experience-concurrency", str(payload["apdex_experience_concurrency"]),
-                "--no-apdex-dynatrace-import",
-            ))
-            argv.append("--apdex-experience-errors" if payload["apdex_experience_errors"] else "--no-apdex-experience-errors")
-            argv.append("--apdex-experience-javascript-errors" if payload["apdex_experience_javascript_errors"] else "--no-apdex-experience-javascript-errors")
-            argv.append("--apdex-experience-request-errors" if payload["apdex_experience_request_errors"] else "--no-apdex-experience-request-errors")
-            argv.append("--apdex-experience-console-errors" if payload["apdex_experience_console_errors"] else "--no-apdex-experience-console-errors")
-            argv.append("--apdex-experience-javascript-error-capture" if payload["apdex_experience_javascript_error_capture"] else "--no-apdex-experience-javascript-error-capture")
-            argv.append("--apdex-experience-xhr-capture" if payload["apdex_experience_xhr_capture"] else "--no-apdex-experience-xhr-capture")
-            argv.append("--apdex-experience-fetch-capture" if payload["apdex_experience_fetch_capture"] else "--no-apdex-experience-fetch-capture")
-            argv.append("--apdex-experience-console-error-capture" if payload["apdex_experience_console_error_capture"] else "--no-apdex-experience-console-error-capture")
-            argv.extend(["--apdex-experience-max-error-details", str(payload["apdex_experience_max_error_details"])])
-        else:
-            argv.append("--no-apdex-experience")
     else:
-        argv.extend(("--no-synthetic-apdex", "--no-apdex-experience"))
+        argv.append("--no-synthetic-apdex")
+
+    if payload["apdex_experience"]:
+        argv.extend((
+            "--apdex-experience",
+            "--apdex-experience-samples", str(payload["apdex_experience_samples"]),
+            "--apdex-experience-max-attempts", str(payload["apdex_experience_max_attempts"]),
+            "--apdex-experience-max-pages", str(payload["apdex_experience_max_pages"]),
+            "--apdex-experience-device-mix", payload["apdex_experience_device_mix"],
+            "--apdex-experience-session-mode", payload["apdex_experience_session_mode"],
+            "--apdex-experience-kpm", payload["apdex_experience_kpm"],
+            "--apdex-experience-satisfied-seconds", f"{payload['apdex_experience_satisfied_seconds']:g}",
+            "--apdex-experience-frustrated-seconds", f"{payload['apdex_experience_frustrated_seconds']:g}",
+            "--apdex-experience-error-scope", payload["apdex_experience_error_scope"],
+            "--apdex-experience-settle-seconds", f"{payload['apdex_experience_settle_seconds']:g}",
+            "--apdex-experience-delay-seconds", f"{payload['apdex_experience_delay_seconds']:g}",
+            "--apdex-experience-concurrency", str(payload["apdex_experience_concurrency"]),
+            "--no-apdex-dynatrace-import",
+        ))
+        argv.append("--apdex-experience-errors" if payload["apdex_experience_errors"] else "--no-apdex-experience-errors")
+        argv.append("--apdex-experience-javascript-errors" if payload["apdex_experience_javascript_errors"] else "--no-apdex-experience-javascript-errors")
+        argv.append("--apdex-experience-request-errors" if payload["apdex_experience_request_errors"] else "--no-apdex-experience-request-errors")
+        argv.append("--apdex-experience-console-errors" if payload["apdex_experience_console_errors"] else "--no-apdex-experience-console-errors")
+        argv.append("--apdex-experience-javascript-error-capture" if payload["apdex_experience_javascript_error_capture"] else "--no-apdex-experience-javascript-error-capture")
+        argv.append("--apdex-experience-xhr-capture" if payload["apdex_experience_xhr_capture"] else "--no-apdex-experience-xhr-capture")
+        argv.append("--apdex-experience-fetch-capture" if payload["apdex_experience_fetch_capture"] else "--no-apdex-experience-fetch-capture")
+        argv.append("--apdex-experience-console-error-capture" if payload["apdex_experience_console_error_capture"] else "--no-apdex-experience-console-error-capture")
+        argv.extend(["--apdex-experience-max-error-details", str(payload["apdex_experience_max_error_details"])])
+    else:
+        argv.append("--no-apdex-experience")
     return argv
 
 

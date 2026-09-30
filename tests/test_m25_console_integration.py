@@ -83,11 +83,17 @@ class M25ConsoleIntegrationTests(unittest.TestCase):
             self.assertTrue(restored.apdex_dynatrace_import)
             self.assertEqual(restored.dynatrace_application_id, "APPLICATION-123")
 
-    def test_m25_requires_standard_m23_in_console_state(self) -> None:
+    def test_m25_can_run_without_standard_m23_in_console_state(self) -> None:
         state = self._state()
         state.synthetic_apdex = False
-        with self.assertRaises(ValueError):
-            experience_from_state(state)
+
+        cfg = experience_from_state(state)
+        self.assertTrue(cfg.enabled)
+
+        command = append_m23_command(["python", "-m", "rasai", "audit", state.target], state)
+        self.assertIn("--no-synthetic-apdex", command)
+        self.assertIn("--apdex-experience", command)
+        self.assertNotIn("--no-apdex-experience", command)
 
 
 if __name__ == "__main__":

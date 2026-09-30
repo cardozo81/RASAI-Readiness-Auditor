@@ -561,7 +561,6 @@ def _patch_apdex_guidance() -> None:
         )
         state.synthetic_apdex = enabled
         if not enabled:
-            state.apdex_experience = False
             return
 
         state.apdex_threshold = apdex_ui._required_positive(

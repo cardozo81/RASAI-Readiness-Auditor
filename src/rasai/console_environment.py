@@ -364,7 +364,7 @@ def _apdex_specs() -> tuple[EnvironmentSpec, ...]:
             impact="Aumenta CPU/RAM local e navegações HTTP reais sobrepostas; valores altos podem alterar a representatividade, acionar rate limit/WAF ou degradar o alvo.",
             notes="1 é recomendado; 3-4 exigem delay >= 1 s. Cada navegação pode gerar múltiplos subrequests HTTP.",
         ),
-        EnvironmentSpec(UX_ENABLED_ENV, "Synthetic Apdex", "Habilita Synthetic User Experience Apdex e apdex-experience.html.", "booleano", ("true", "false"), "false", required_when="Exige Synthetic Navigation Apdex ativo."),
+        EnvironmentSpec(UX_ENABLED_ENV, "Synthetic Apdex", "Habilita Synthetic User Experience Apdex e apdex-experience.html.", "booleano", ("true", "false"), "false", required_when="Quando o CAT-07 estiver selecionado; independente do CAT-06."),
         EnvironmentSpec(UX_SAMPLES_ENV, "Synthetic Apdex", "Amostras válidas totais por página na população Experience.", "inteiro >= 1", default=str(DEFAULT_UX_SAMPLES)),
         EnvironmentSpec(UX_MAX_ATTEMPTS_ENV, "Synthetic Apdex", "Teto de tentativas por página Experience.", "inteiro >= samples", default="ceil(1.25 × samples)"),
         EnvironmentSpec(UX_MAX_PAGES_ENV, "Synthetic Apdex", "Máximo de páginas Experience; 0=todas.", "inteiro >= 0", default=str(DEFAULT_UX_MAX_PAGES)),

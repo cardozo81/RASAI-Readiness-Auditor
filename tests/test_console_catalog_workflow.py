@@ -119,10 +119,10 @@ def test_optional_ai_unavailable_registry_readiness_does_not_block_audit(monkeyp
     assert "limitação" in detail.casefold()
 
 
-def test_selecting_experience_apdex_adds_navigation_dependency() -> None:
+def test_selecting_experience_apdex_keeps_navigation_independent() -> None:
     state = _state()
     workflow._select(state, audit_catalog.CATALOG_BY_ID["CAT-07"])
-    assert workflow.selected_catalog_ids(state) == ("CAT-06", "CAT-07")
+    assert workflow.selected_catalog_ids(state) == ("CAT-07",)
 
 
 def test_plan_requires_at_least_one_catalog() -> None:

@@ -10,7 +10,7 @@ from rasai.apdex_concurrency_policy import NAVIGATION_MAX_CONCURRENCY
 from rasai.m23_apdex import SyntheticApdexConfig
 from rasai.m23_apdex_profiles import profile_from_presets
 from rasai.m25_apdex_experience import ExperienceApdexConfig
-from rasai.m25_cli import UX_ENABLED_ENV, configured_experience, register_experience_arguments
+from rasai.m25_cli import configured_experience, register_experience_arguments
 from rasai.m25_runtime import set_pending_config
 from rasai.synthetic_runtime_profiles import (
     PROFILE_ENV_NAMES,
@@ -113,14 +113,13 @@ def configured_apdex(args: Any, env: dict[str, str] | os._Environ[str] | None = 
     environment = env if env is not None else os.environ
     set_pending_config(ExperienceApdexConfig(enabled=False))
     enabled = _configured_bool(getattr(args, "synthetic_apdex", None), APDEX_ENABLED_ENV, False, environment)
-    ux_requested = _configured_bool(getattr(args, "apdex_experience", None), UX_ENABLED_ENV, False, environment)
-
     mobile_profile = _resolved_profile(args, environment, "MOBILE")
     desktop_profile = _resolved_profile(args, environment, "DESKTOP")
 
     if not enabled:
-        if ux_requested:
-            raise ValueError("Synthetic User Experience Apdex exige Synthetic Navigation Apdex habilitado (--synthetic-apdex)")
+        # M25/CAT-07 is an independent collector. Resolve and hand it off even when
+        # M23/CAT-06 is disabled; its own defaults/configuration remain authoritative.
+        set_pending_config(configured_experience(args, environment))
         return SyntheticApdexConfig(
             enabled=False,
             mobile_profile=mobile_profile,

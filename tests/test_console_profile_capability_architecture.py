@@ -120,7 +120,7 @@ def test_gsc_profile_policy_is_projected_and_parent_environment_restored() -> No
 def test_presets_use_only_canonical_capability_ids() -> None:
     assert CAPS["search-intelligence"] == ("search-intelligence",)
     assert CAPS["apdex-navigation"] == ("apdex-navigation",)
-    assert CAPS["apdex-experience"] == ("apdex-navigation", "apdex-experience")
+    assert CAPS["apdex-experience"] == ("apdex-experience",)
     assert "deep-analysis" in CAPS["complete-maximum"]
     assert all(
         capability_id in CAPABILITY_BY_ID

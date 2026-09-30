@@ -16,7 +16,7 @@ A configuração efetiva do console local segue:
 
 O `rasai-console.ini` é salvo pelo writer canônico. API keys, bearer tokens, passwords, DSNs com credencial e demais secrets não são escritos nele.
 
-Uma configuração explícita de maior precedência também governa dependências do baseline. Como Synthetic User Experience Apdex depende de Synthetic Navigation Apdex, `RASAI_SYNTHETIC_APDEX=false` torna Experience efetivamente `false`, inclusive quando um valor `true` de camada inferior foi materializado pelo baseline/INI. Para executar Experience, Navigation precisa estar habilitado.
+Uma configuração explícita de maior precedência governa cada domínio do baseline de forma independente. `RASAI_SYNTHETIC_APDEX=false` desabilita somente Navigation Apdex; `RASAI_APDEX_EXPERIENCE=true` pode manter Experience habilitado na mesma execução. A seleção CAT-* continua sendo a autoridade para projetar os dois flags no processo filho.
 
 ## Política da baseline
 

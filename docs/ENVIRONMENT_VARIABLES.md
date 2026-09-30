@@ -242,7 +242,7 @@ Concorrência acima do recomendado aumenta CPU/RAM local e sobreposição de tr�
 
 | Variável | Default efetivo | Valores permitidos | Recomendado | Dependência / finalidade |
 |---|---|---|---|---|
-| `RASAI_APDEX_EXPERIENCE` | `false` | booleano | `false` | exige Synthetic Navigation Apdex ativo |
+| `RASAI_APDEX_EXPERIENCE` | `false` | booleano | `false` | habilita CAT-07 de forma independente do Synthetic Navigation Apdex |
 | `RASAI_APDEX_EXPERIENCE_SAMPLES` | `100` | inteiro `>= 1` | `100` | população sintética |
 | `RASAI_APDEX_EXPERIENCE_MAX_ATTEMPTS` | `ceil(1.25 x samples)` | inteiro `>= samples` | default derivado | orçamento de tentativas |
 | `RASAI_APDEX_EXPERIENCE_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` | teto de páginas |

@@ -128,7 +128,7 @@ def test_first_run_preserves_explicit_environment_precedence() -> None:
     _install_standards_catalog()
     with TemporaryDirectory() as directory, patch.dict(
         os.environ,
-        {"RASAI_SYNTHETIC_APDEX": "false"},
+        {"RASAI_SYNTHETIC_APDEX": "false", "RASAI_APDEX_EXPERIENCE": "true"},
         clear=True,
     ):
         path = Path(directory) / "rasai-console.ini"
@@ -140,9 +140,8 @@ def test_first_run_preserves_explicit_environment_precedence() -> None:
         assert state.synthetic_apdex is True
         assert os.environ["RASAI_SYNTHETIC_APDEX"] == "false"
 
-        # Exercise the same final adapter installed by console_entrypoint. Navigation
-        # is the parent capability, so OFF must suppress the lower-layer Experience
-        # baseline rather than generate a false dependency error.
+        # CAT-06 and CAT-07 are independent. An explicit Navigation=OFF must not
+        # suppress an explicit Experience=ON supplied at the same precedence.
         adapter = SimpleNamespace(
             apply_m23_environment_defaults=apply_m23_environment_defaults,
         )
@@ -153,7 +152,7 @@ def test_first_run_preserves_explicit_environment_precedence() -> None:
         )
         assert issues == ()
         assert state.synthetic_apdex is False
-        assert state.apdex_experience is False
+        assert state.apdex_experience is True
 
 
 def test_user_ini_still_overrides_system_defaults() -> None:

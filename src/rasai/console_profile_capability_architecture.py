@@ -71,7 +71,7 @@ UX = {
     ),
     "apdex-experience": ProfileUX(
         "Medir experiência sintética por distribuição de dispositivos.",
-        "Navigation + Experience Apdex com distribuição/calibração vigentes.",
+        "Experience Apdex com distribuição/calibração próprias, independente do Navigation Apdex.",
     ),
     "deep-analysis": ProfileUX(
         "Obter análise evidence-bound adicional com priorização corretiva.",
@@ -111,7 +111,7 @@ CAPS = {
     ),
     "search-intelligence": ("search-intelligence",),
     "apdex-navigation": ("apdex-navigation",),
-    "apdex-experience": ("apdex-navigation", "apdex-experience"),
+    "apdex-experience": ("apdex-experience",),
     "deep-analysis": ("deep-analysis",),
     "complete-safe": (
         "domain-discovery",

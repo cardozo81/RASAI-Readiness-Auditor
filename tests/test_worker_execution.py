@@ -104,6 +104,28 @@ def test_experience_apdex_job_uses_same_default_thresholds_as_cli_runtime() -> N
             assert "--no-apdex-dynatrace-import" in argv
 
 
+
+def test_experience_apdex_job_can_run_without_navigation_apdex() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        with SecurePlatformStore(Path(directory) / "platform.db") as store:
+            project, prop, environment, user = _scope(store)
+            job = store.enqueue_execution_job(
+                project_id=project.project_id,
+                property_id=prop.property_id,
+                environment_id=environment.environment_id,
+                job_type="AUDIT",
+                requested_by=user.user_id,
+                payload={
+                    "synthetic_apdex": False,
+                    "apdex_experience": True,
+                },
+            )
+            argv = _audit_arguments(store, job, Path(directory) / "audits")
+            assert "--no-synthetic-apdex" in argv
+            assert "--apdex-experience" in argv
+            assert "--no-apdex-experience" not in argv
+
+
 def test_report_refresh_job_executes_outside_http_process() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)

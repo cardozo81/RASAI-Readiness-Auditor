@@ -179,7 +179,7 @@ Ausência de field data ou resposta externa é limitação/indisponibilidade; n�
 
 ## Apdex de experiência
 
-`CAT-07` depende de `CAT-06`. Selecioná-lo inclui Navigation Apdex no plano.
+`CAT-07` é independente de `CAT-06`. É possível executar apenas Experience Apdex, apenas Navigation Apdex ou ambos; selecionar um deles não inclui o outro automaticamente.
 
 Enquanto o mix estiver herdado:
 
