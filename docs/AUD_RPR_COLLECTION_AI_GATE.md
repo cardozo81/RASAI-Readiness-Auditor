@@ -1,4 +1,4 @@
-# Gate canônico de coleta e encerramento da IA — AUD/RPR
+# Gate canônico de coleta e encerramento da IA - AUD/RPR
 
 Contrato incremental rastreado por #110 e implementado inicialmente em #111. Os
 executores físicos M3, M21, M23, M25 e os adaptadores de serviços continuam sendo
