@@ -13,6 +13,7 @@ on:
       - 'src/rasai/accepted_audit_refinements.py'
       - 'tests/test_serp_cache_provenance_129.py'
       - 'tests/test_accepted_audit_refinements.py'
+      - 'tests/test_environment_surface_parity.py'
       - 'docs/SERP_CACHE_FRESHNESS_129.md'
       - '.github/workflows/serp-provider-cache-129-targeted.yml'
   workflow_dispatch:
@@ -39,3 +40,5 @@ jobs:
           tests/test_serp.py::PersistenceTests
           tests/test_selective_optional_reprocess.py::test_search_recovery_uses_persisted_contract_and_current_secret
           tests/test_accepted_audit_refinements.py::test_serp_reason_reports_provider_pagination_limit
+          tests/test_environment_surface_parity.py::test_every_builtin_public_runtime_environment_variable_is_exposed_in_console
+          tests/test_environment_surface_parity.py::test_execution_only_markers_are_not_public_console_settings
