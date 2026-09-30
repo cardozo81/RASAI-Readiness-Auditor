@@ -162,6 +162,15 @@ def test_both_orchestrators_use_gate_and_m24_cli_does_not_run_preseal_ai():
     registered = inspect.getsource(governed_reprocess_runtime._registered_ai_and_report)
     cli = inspect.getsource(cli_extensions.main)
 
+    assert (
+        initial.index("reconcile_collection_plan(workspace, audit_id)")
+        < initial.index("evidence_snapshot = seal_collection_evidence(")
+        < initial.index("collection_gate = evaluate_collection_readiness(")
+        < initial.index("configured_provider = semantic_provider or NoneProvider()")
+    )
+    from rasai import governed_analysis_runtime
+    seal_source = inspect.getsource(governed_analysis_runtime._install_seal_composition)
+    assert seal_source.index("phase.run_deterministic_phase(") < seal_source.index("return current(*args, **patched)")
     assert initial.index("evaluate_collection_readiness(") < initial.index("maybe_explain_source_quality(")
     assert "if explain_source_quality and collection_gate.ready:" in initial
     assert "if collection_gate.ready else {}" in initial
@@ -219,3 +228,36 @@ def test_rpr_finishes_diagnostic_projection_without_any_ai_provider_when_not_rea
     )
     assert used_ai is False
     assert calls == ["gate-recorded", "derived"]
+
+
+def test_initial_gate_uses_completed_passive_security_state_and_still_blocks_real_serp_deficit(tmp_path):
+    """#136: finalize passive security before the effective shared gate, never weaken Search."""
+    from rasai.audit_fulfillment import REQUESTED_NOT_EXECUTED
+
+    workspace = _workspace(tmp_path)
+    _item(workspace, "DISCOVERY_ACQUISITION", SUCCESS)
+    _item(workspace, "SEARCH_INTELLIGENCE", SUCCESS)
+    _item(workspace, "PASSIVE_SECURITY", REQUESTED_NOT_EXECUTED)
+    premature = evaluate_collection_readiness(workspace, AUDIT_ID)
+    assert not premature.ready
+    assert premature.blockers == ("PASSIVE_SECURITY/AUDIT:REQUESTED_NOT_EXECUTED",)
+
+    # Pre-seal deterministic PASSIVE_SECURITY finishes and is durably synced.
+    set_work_item_status(
+        workspace, audit_id=AUDIT_ID,
+        component="PASSIVE_SECURITY", status=SUCCESS,
+    )
+    effective = evaluate_collection_readiness(workspace, AUDIT_ID)
+    assert effective.ready
+    assert not effective.blockers
+
+    # In a DIFFERENT audit where the provider failed from the outset, a
+    # genuine deficit still blocks. Successful evidence cannot be downgraded
+    # by set_work_item_status, so never fake failure on the successful AUD.
+    failed_workspace = _workspace(tmp_path / "serp-deficit")
+    _item(failed_workspace, "DISCOVERY_ACQUISITION", SUCCESS)
+    _item(failed_workspace, "SEARCH_INTELLIGENCE", FAILED_RETRYABLE)
+    _item(failed_workspace, "PASSIVE_SECURITY", SUCCESS)
+    blocked = evaluate_collection_readiness(failed_workspace, AUDIT_ID)
+    assert not blocked.ready
+    assert blocked.blockers == ("SEARCH_INTELLIGENCE/AUDIT:FAILED_RETRYABLE",)

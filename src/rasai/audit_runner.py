@@ -453,28 +453,37 @@ def run_audit(
                 "ai_deferred": technical_remediation,
             }
 
-            # Reconcile durable collection requirements before entering the only
-            # provider-capable phase. Both initial AUD and RPR evaluate the same
-            # scope-aware gate. CORE_AUDIT is a final aggregate, not a collector.
+            # Materialize the entire original collection contract BEFORE sealing.
+            # The seal wrapper itself runs the remaining pre-seal deterministic hooks,
+            # including PASSIVE_SECURITY and FULFILLMENT_SYNC. Evaluating readiness
+            # earlier would incorrectly block AI on work items these hooks finish.
             from rasai.audit_collection_gate import (
+                reconcile_collection_plan,
                 evaluate_collection_readiness,
                 record_collection_gate,
             )
             from rasai.audit_fulfillment_runtime import _sync_persisted_components
             from rasai.core_reprocessing import synchronize_core_work_items
 
+            reconcile_collection_plan(workspace, audit_id)
             _sync_persisted_components(audit_id=audit_id, workspace=workspace)
             synchronize_core_work_items(workspace, audit_id)
-            collection_gate = evaluate_collection_readiness(workspace, audit_id)
-            record_collection_gate(
-                workspace, audit_id, path="AUD", readiness=collection_gate
-            )
 
             evidence_snapshot = seal_collection_evidence(
                 audit_id=audit_id,
                 workspace=workspace,
                 collection_states=collection_states,
                 collection_details=collection_details,
+            )
+
+            # Effective gate: only after all pre-seal deterministic collectors
+            # finish, and strictly before any possible external AI provider call.
+            # A genuine remaining deficit (e.g. SERP depth) still fails closed.
+            _sync_persisted_components(audit_id=audit_id, workspace=workspace)
+            synchronize_core_work_items(workspace, audit_id)
+            collection_gate = evaluate_collection_readiness(workspace, audit_id)
+            record_collection_gate(
+                workspace, audit_id, path="AUD", readiness=collection_gate
             )
 
             configured_provider = semantic_provider or NoneProvider()
