@@ -102,7 +102,9 @@ def test_selected_serp_incomplete_blocks_ai_but_nonrequired_error_does_not(tmp_p
 
 def test_both_orchestrators_use_gate_and_m24_cli_does_not_run_preseal_ai():
     from rasai import audit_runner, cli_extensions, governed_reprocess_runtime
-    initial = inspect.getsource(audit_runner.run_audit)
+    # Inspect the source declaration, not the runtime-installed wrappers.
+    from pathlib import Path
+    initial = (Path(audit_runner.__file__)).read_text(encoding="utf-8")
     rpr = inspect.getsource(governed_reprocess_runtime._install_core_composition)
     registered = inspect.getsource(governed_reprocess_runtime._registered_ai_and_report)
     cli = inspect.getsource(cli_extensions.main)
