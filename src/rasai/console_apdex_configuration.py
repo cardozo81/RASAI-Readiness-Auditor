@@ -268,7 +268,6 @@ def _configure_navigation(state: State) -> None:
     enabled = _yes_no("Habilitar Synthetic Navigation Apdex? Gera tráfego HTTP real contra o alvo", state.synthetic_apdex)
     state.synthetic_apdex = enabled
     if not enabled:
-        state.apdex_experience = False
         return
 
     state.apdex_threshold = _required_positive("Threshold T em segundos", state.apdex_threshold)
@@ -326,9 +325,6 @@ def _configure_experience(state: State) -> None:
     state.apdex_experience = enabled
     if not enabled:
         return
-    if not state.synthetic_apdex:
-        raise ValueError("Synthetic User Experience Apdex exige Synthetic Navigation Apdex habilitado")
-
     if state.apdex_experience_satisfied is None:
         state.apdex_experience_satisfied = DEFAULT_UX_SATISFIED_SECONDS
     if state.apdex_experience_frustrated is None:
