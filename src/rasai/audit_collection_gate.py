@@ -1,0 +1,129 @@
+"""One AUD/RPR collection-readiness contract at the AI execution boundary.
+
+This module does not collect, call providers, or mutate source evidence. It
+materializes missing planned work-items from the original durable contract,
+then checks the same scope-aware readiness predicate for AUD and RPR.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+import re
+from typing import Any
+
+from rasai.audit_fulfillment import DISABLED, NOT_APPLICABLE, SUCCESS, list_work_items
+from rasai.operational_log import try_append_operational_event
+
+
+# These components are computed *after* evidence collection, not dependencies
+# of the collection itself. CORE_AUDIT closes after AI/final derivations.
+POST_COLLECTION_COMPONENTS = frozenset({
+    "CORE_AUDIT",
+    "SEMANTIC_AI",
+    "TECHNICAL_AI",
+    "CONTENT_REMEDIATION_AI",
+    "IMPROVEMENT_INTELLIGENCE",
+    "COMPETITIVE_INTELLIGENCE",
+})
+SATISFIED_COLLECTION_STATES = frozenset({SUCCESS, NOT_APPLICABLE, DISABLED})
+
+
+_SAFE_SCOPE = re.compile(r"^(?:AUDIT|(?:SNP|CTX|PAGE|URL|RPR)-[A-Z0-9]{1,64})$")
+
+
+def _safe_scope_key(scope_key: Any) -> str:
+    """Never copy arbitrary scope keys (possibly URLs) into operational logs."""
+    candidate = str(scope_key or "").upper()
+    return candidate if _SAFE_SCOPE.fullmatch(candidate) else "SCOPE_REDACTED"
+
+
+@dataclass(frozen=True, slots=True)
+class CollectionReadiness:
+    ready: bool
+    required_count: int
+    blockers: tuple[str, ...]
+
+
+def reconcile_collection_plan(workspace: Any, audit_id: str) -> bool:
+    """Project every explicitly selected collector before evaluating the gate.
+
+    A resumed AUD may contain valid successes but lack work-item rows for
+    collectors it never reached. Only the durable original plan establishes
+    this universe. An absent/unreadable plan fails closed instead of assuming
+    the existing successful rows represent the entire requested collection.
+    """
+    from rasai.audit_resume_runtime import (
+        load_resume_plan,
+        materialize_planned_work_items,
+    )
+
+    plan = load_resume_plan(workspace, audit_id)
+    if not plan or str(plan.get("schema_version") or "") == "LEGACY-CONFIG-FALLBACK":
+        # A recovered configuration fragment cannot establish the complete
+        # original universe of selected collectors. Do not infer readiness.
+        return False
+    materialize_planned_work_items(workspace, audit_id)
+    return True
+
+
+def evaluate_collection_readiness(workspace: Any, audit_id: str) -> CollectionReadiness:
+    """Conservative, scope-aware AI gate shared by initial AUD and selective RPR.
+
+    Required optional collectors remain in the denominator. Merely terminal
+    errors (e.g. FAILED_RETRYABLE or blocked render) do *not* constitute
+    collected evidence. Missing work items must be projected by the caller's
+    contract reconciler before this function is invoked.
+    """
+    plan_ready = reconcile_collection_plan(workspace, audit_id)
+    items = (
+        item for item in list_work_items(workspace, audit_id)
+        if bool(item.required)
+        and str(item.component).upper() not in POST_COLLECTION_COMPONENTS
+    )
+    required_count = 0
+    blockers: list[str] = []
+    for item in items:
+        required_count += 1
+        component = str(item.component).upper()
+        scope_key = _safe_scope_key(item.scope_key)
+        state = str(item.status).upper()
+        if state not in SATISFIED_COLLECTION_STATES:
+            blockers.append(f"{component}/{scope_key}:{state}")
+    if not plan_ready:
+        blockers.append("COLLECTION_CONTRACT/AUDIT:NO_DURABLE_COLLECTION_PLAN")
+    if required_count == 0:
+        blockers.append("COLLECTION_CONTRACT/AUDIT:NO_REQUIRED_WORK_ITEMS")
+    return CollectionReadiness(
+        ready=not blockers,
+        required_count=required_count,
+        blockers=tuple(sorted(blockers)),
+    )
+
+
+def record_collection_gate(
+    workspace: Any,
+    audit_id: str,
+    *,
+    path: str,
+    readiness: CollectionReadiness,
+) -> None:
+    """Log a safe causal decision without URL, evidence body or credentials."""
+    try_append_operational_event(
+        workspace,
+        "AI_COLLECTION_GATE_READY" if readiness.ready else "AI_COLLECTION_GATE_DEFERRED",
+        level="INFO" if readiness.ready else "WARNING",
+        audit_id=audit_id,
+        execution_path=str(path).upper(),
+        required_collectors=readiness.required_count,
+        blockers=readiness.blockers,
+        gate_version="AUD_RPR_COLLECTION_GATE_V1",
+    )
+
+
+__all__ = [
+    "CollectionReadiness",
+    "POST_COLLECTION_COMPONENTS",
+    "SATISFIED_COLLECTION_STATES",
+    "reconcile_collection_plan",
+    "evaluate_collection_readiness",
+    "record_collection_gate",
+]
