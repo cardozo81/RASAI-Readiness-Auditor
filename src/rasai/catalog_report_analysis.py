@@ -1,6 +1,7 @@
 """Per-catalog external-use indicators, samples, analysis and remediation."""
 from rasai.catalog_report_evidence import *  # noqa: F401,F403
 import re
+from rasai.public_language import safe_visible_fallback
 
 
 def _integration_indicator(database: Path, data: _ReportData, catalog_id: str) -> str:
@@ -75,6 +76,31 @@ def _work_execution_html(data: _ReportData, catalog_id: str) -> str:
     return _table(("Etapa","Conclusão técnica","Tentativas","Detalhe"),rows,empty="Este domínio não possui uma etapa de execução funcional própria; o estado é derivado de seu resultado persistido.")+"".join(modals)
 
 
+def _browser_diagnostics_public(value: Any) -> Any:
+    """Humanize typed browser event names only; preserve evidence IDs and URLs.
+
+    This projection never alters persisted JSON and never translates unknown
+    diagnostic keys or payload fields without a known, typed mapping.
+    """
+    parsed = _safe_json(value, {})
+    if not isinstance(parsed, Mapping):
+        return parsed
+    output = dict(parsed)
+    events = parsed.get("events")
+    if isinstance(events, list):
+        output["events"] = []
+        for event in events:
+            if not isinstance(event, Mapping):
+                output["events"].append(event)
+                continue
+            entry = dict(event)
+            raw = entry.get("type")
+            if raw not in (None, ""):
+                entry["type"] = public_label(raw) or safe_visible_fallback(raw)
+            output["events"].append(entry)
+    return output
+
+
 def _apdex_samples_html(database: Path, data: _ReportData, *, experience: bool) -> str:
     table="synthetic_ux_apdex_samples" if experience else "synthetic_apdex_samples"
     con=sqlite3.connect(database); con.row_factory=sqlite3.Row
@@ -103,7 +129,7 @@ def _apdex_samples_html(database: Path, data: _ReportData, *, experience: bool) 
             note="<div class='notice'>Esta amostra persiste contagens de falhas por requisição. Quando a lista individual de URLs não faz parte do contrato da amostra, o relatório não inventa esse detalhe.</div>"
         else:
             fields=(("Amostra",s.get("sample_id")),("Data/hora da medição",captured),("URL",s.get("url")),("URL final",s.get("final_url")),("Classificação",classification),("Duração",_fmt_number(s.get("duration_ms"),"ms")),("HTTP",s.get("http_status")),("Perfil técnico",s.get("profile_id")),("Política de cache",_session_label(s.get("cache_policy"))),("Erro",s.get("error_message") or s.get("error_code") or "-"))
-            diagnostics=_safe_json(s.get("browser_diagnostics"),{})
+            diagnostics=_browser_diagnostics_public(s.get("browser_diagnostics"))
             note="<h3>Diagnóstico de navegador</h3><div class='pre'>"+escape(json.dumps(diagnostics,ensure_ascii=False,indent=2))+"</div>" if diagnostics else ""
         modals.append(_modal(mid,f"Amostra {s.get('run_index',i)}",f"{'Apdex de experiência' if experience else 'Apdex de navegação'} · {s.get('url') or '-'}",_kv(fields)+note))
     return _table(("Amostra","Data/hora","Dispositivo","Classificação","Duração","Medição","Detalhe"),rows,empty="Nenhuma amostra foi persistida para este Apdex.",sortable=bool(rows),page_size=10 if experience and len(rows)>10 else None)+"".join(modals)
