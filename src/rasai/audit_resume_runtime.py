@@ -1238,6 +1238,8 @@ def install() -> None:
             source=source,
             reject_active=True,
         )
+        from rasai import audit_reprocess as completion_events
+        completion_token = completion_events._RPR_FINAL_EVENT_DEFERRED.set(True)
         try:
             was_physically_complete = _audit_physically_completed(workspace, audit_id)
             reconcile_interrupted_attempts(workspace, audit_id)
@@ -1277,11 +1279,14 @@ def install() -> None:
             # UPDATE would make the just-generated report stale immediately.
             finish_execution_session(workspace, session, state="COMPLETED")
             session = None
+            report_projection_ok = True
             try:
                 from rasai.report_completion import materialize_catalog_report_projection
 
-                materialize_catalog_report_projection(audit_id=audit_id, workspace=workspace)
+                completion = materialize_catalog_report_projection(audit_id=audit_id, workspace=workspace)
+                report_projection_ok = not bool(getattr(completion, "renderer_errors", ()))
             except Exception as exc:
+                report_projection_ok = False
                 try_append_operational_event(
                     workspace,
                     "AUDIT_RESUME_REPORT_PROJECTION_WARNING",
@@ -1289,6 +1294,21 @@ def install() -> None:
                     audit_id=audit_id,
                     error_type=type(exc).__name__,
                     error_message=str(exc)[:512],
+                )
+            if reprocess_id:
+                from rasai.reprocess_policy import current_policy
+
+                completion_events.emit_reprocess_completion_event(
+                    workspace,
+                    audit_id,
+                    reprocess_id,
+                    selected_items=int(getattr(result, "selected_items", 0) or 0),
+                    unselected_items=int(getattr(result, "unselected_items", 0) or 0),
+                    skipped_success_items=int(getattr(result, "skipped_success_items", 0) or 0),
+                    use_ai=bool(current_policy().use_ai),
+                    ai_used=bool(getattr(result, "ai_used", False)),
+                    final_owner=True,
+                    report_projection_ok=report_projection_ok,
                 )
             return result
         except BaseException as exc:
@@ -1300,6 +1320,8 @@ def install() -> None:
                 note=f"{type(exc).__name__}: {str(exc)[:512]}",
             )
             raise
+        finally:
+            completion_events._RPR_FINAL_EVENT_DEFERRED.reset(completion_token)
 
     reprocess_with_resume_guard._rasai_interrupted_audit_resume = True
     reprocess_with_resume_guard._rasai_original = current
