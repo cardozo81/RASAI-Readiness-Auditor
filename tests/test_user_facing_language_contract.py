@@ -356,5 +356,6 @@ def test_diagnostic_text_humanizes_composed_machine_reason() -> None:
 def test_known_experience_apdex_error_codes_have_public_diagnostic_labels() -> None:
     from rasai.catalog_report_public_labels import public_label
 
+    assert public_label("MEASUREMENT_IN_PROGRESS") == "Medição em andamento; conclusão ainda não registrada"
     assert public_label("M25_RUNTIME_FAILURE") == "Falha durante a execução do Apdex de experiência"
     assert public_label("NO_AUDITED_PAGES") == "Nenhuma página auditada elegível para o Apdex de experiência"
