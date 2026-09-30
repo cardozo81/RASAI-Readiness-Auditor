@@ -88,5 +88,5 @@ jobs:
           python -m pytest -q \
             tests/test_m23_integration.py \
             tests/test_m12_stable_baseline.py
-      - name: Full regression suite
-        run: python -m pytest -q
+      # Regressão integral permanece disponível apenas no workflow manual
+      # full-regression.yml. O gate M24 valida somente áreas impactadas.
