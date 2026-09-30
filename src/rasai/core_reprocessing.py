@@ -194,11 +194,13 @@ def synchronize_core_work_items(workspace: AuditWorkspace, audit_id: str) -> Non
             rendered_exists = _file_exists(workspace,rendered_ref)
             raw_exists = _file_exists(workspace,raw_ref)
             render_declared_success = bool(metadata.get("render_succeeded"))
-            extraction_evidence = bool(connection.execute(
-                """SELECT 1 FROM evidence WHERE audit_id=? AND snapshot_id=?
-                   AND source IN ('RENDERED_DOM','RAW_HTML_FALLBACK') LIMIT 1""",
-                (audit_id,snapshot_id),
-            ).fetchone())
+            extraction_sources = {
+                str(row[0]) for row in connection.execute(
+                    """SELECT DISTINCT source FROM evidence WHERE audit_id=? AND snapshot_id=?
+                       AND source IN ('RENDERED_DOM','RAW_HTML_FALLBACK')""",
+                    (audit_id,snapshot_id),
+                ).fetchall()
+            }
             snapshot_states.append({
                 "snapshot_id": snapshot_id,
                 "page_id": str(snapshot["page_id"]),
@@ -210,7 +212,9 @@ def synchronize_core_work_items(workspace: AuditWorkspace, audit_id: str) -> Non
                 "rendered_exists": rendered_exists,
                 "raw_exists": raw_exists,
                 "render_declared_success": render_declared_success,
-                "extraction_evidence": extraction_evidence,
+                "extraction_evidence": bool(extraction_sources),
+                "rendered_extraction_evidence": "RENDERED_DOM" in extraction_sources,
+                "raw_extraction_evidence": "RAW_HTML_FALLBACK" in extraction_sources,
             })
     finally:
         connection.close()
@@ -298,7 +302,18 @@ def synchronize_core_work_items(workspace: AuditWorkspace, audit_id: str) -> Non
 
         source_available = bool(state["rendered_exists"] or state["raw_exists"])
         source_was_declared = bool(state["rendered_ref"] or state["raw_ref"])
-        if state["extraction_evidence"]:
+        # A recovered rendered DOM supersedes a previously effective RAW-only
+        # M4 extraction. Do not keep projecting its stale SUCCESS after M3 changes.
+        rendered_upgrade = (
+            state["rendered_exists"]
+            and state["raw_extraction_evidence"]
+            and not state["rendered_extraction_evidence"]
+        )
+        if rendered_upgrade:
+            extraction_status,extraction_retryable,extraction_code = (
+                FAILED_RETRYABLE,True,"RENDERED_SOURCE_UPGRADE_REQUIRED"
+            )
+        elif state["extraction_evidence"]:
             extraction_status,extraction_retryable,extraction_code = SUCCESS,True,None
         elif source_available:
             extraction_status,extraction_retryable,extraction_code = FAILED_RETRYABLE,True,"EXTRACTION_INCOMPLETE"
