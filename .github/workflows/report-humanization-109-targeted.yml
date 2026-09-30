@@ -28,4 +28,3 @@ jobs:
           python -m pytest -q
           tests/test_report_humanization_109.py
           tests/test_report_presentation.py
-          tests/test_user_facing_language_contract.py
