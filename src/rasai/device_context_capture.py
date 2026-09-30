@@ -17,6 +17,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from playwright.sync_api import Error as PlaywrightError, TimeoutError as PlaywrightTimeoutError
 
+from rasai.cookie_path import _default_cookie_path
 from rasai.context_scope import CONTEXT_SCOPE_CONTRACT_VERSION, ContextScope
 from rasai.rendering import BrowserProfile, BrowserRenderResult, RenderErrorKind
 from rasai.web_technology_signatures import analyze_script_source, detect_platforms
@@ -578,6 +579,22 @@ def _cookie_runtime_metadata(page: Any, context: Any | None = None) -> dict[str,
     return result
 
 
+
+def _safe_cookie_runtime_metadata(page: Any, context: Any) -> dict[str, Any]:
+    """Cookie instrumentation is supplementary; never discard captured HTML on failure."""
+    try:
+        return _cookie_runtime_metadata(page, context)
+    except Exception as exc:
+        # Exception messages may contain cookie values, URLs or browser secrets.
+        return {
+            "state": "UNAVAILABLE_CAPTURE_ERROR",
+            "capture_method": "EARLY_DOCUMENT_COOKIE+COOKIE_STORE_WRAPPER",
+            "additional_network_requests": 0,
+            "items": [],
+            "limitations": ["COOKIE_RUNTIME_CAPTURE_ERROR"],
+            "error_class": type(exc).__name__,
+        }
+
 def _rendered_dom_metadata(rendered_html: str) -> dict[str, Any]:
     payload = rendered_html.encode("utf-8")
     return {
@@ -758,7 +775,7 @@ def _install_browser_capture() -> None:
             stage = "SCRIPT_RUNTIME"
             script_runtime = _script_runtime_metadata(cdp_session, cdp_capture, page)
             stage = "COOKIE_RUNTIME"
-            cookie_runtime = _cookie_runtime_metadata(page, context)
+            cookie_runtime = _safe_cookie_runtime_metadata(page, context)
 
             screenshot_png: bytes | None = None
             screenshot_state = "NOT_CAPTURED"

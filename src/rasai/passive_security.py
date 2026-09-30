@@ -21,6 +21,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
 
+from rasai.cookie_path import _default_cookie_path
 from rasai.execution_environment import resolve_environment
 from rasai.secret_safety import redact_url, redact_value
 from rasai.web_technology_signatures import CONTRACT_VERSION as SIGNATURE_CONTRACT_VERSION, detect_platforms
@@ -1540,17 +1541,6 @@ def _safe_csp_sources(values: Iterable[str]) -> list[str]:
         else:
             out.append(raw)
     return out
-
-
-def _default_cookie_path(page_url: str) -> str:
-    try:
-        path = urlsplit(page_url).path or "/"
-    except ValueError:
-        return "/"
-    if not path.startswith("/") or path == "/":
-        return "/"
-    right = path.rfind("/")
-    return "/" if right <= 0 else path[:right]
 
 
 _COOKIE_DISPLAY_RE = re.compile(r"^[!#$%&'*+\-.^_\x60|~0-9A-Za-z]{1,128}$")
