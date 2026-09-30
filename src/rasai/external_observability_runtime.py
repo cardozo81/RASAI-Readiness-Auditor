@@ -426,7 +426,12 @@ def _safe_error(label: str, exc: Exception) -> str:
 
 
 def install() -> None:
-    """Collect configured external observability in the audit collection lifecycle."""
+    """Keep legacy report-finalization binding projection-only.
+
+    The governed EXTERNAL_OBSERVABILITY collection hook owns CrUX History,
+    Clarity and Common Crawl acquisition before the evidence seal. A data/report
+    finalizer must not repeat requests or replace the frozen evidence sidecar.
+    """
     from rasai import report_completion
 
     if getattr(report_completion, "_rasai_external_observability_runtime", False):
@@ -440,35 +445,10 @@ def install() -> None:
             context_interpretations=context_interpretations,
             routing_snapshot=routing_snapshot,
         )
-        from rasai.selective_reprocess_context import active as reprocess_active
-        if reprocess_active():
-            # Common Crawl, CrUX History and Clarity are not fulfillment-required RPR
-            # dependencies. A report/data finalizer must never refresh them implicitly.
-            return base
-        try:
-            outcomes = collect_configured_external_observability(
-                audit_id=audit_id,
-                workspace=workspace,
-            )
-            for service_id, result in outcomes.items():
-                if result.get("collection_state") in {"ERROR", "PARTIAL"}:
-                    _LOGGER.warning(
-                        "External observability %s completed as %s: %s",
-                        service_id,
-                        result.get("collection_state"),
-                        "; ".join(str(item) for item in result.get("errors") or ()),
-                    )
-        except Exception:
-            _LOGGER.exception(
-                "External observability finalization failed; canonical audit data preserved"
-            )
-
-        return report_completion.AuditReportCompletion(
-            expected_pages=base.expected_pages,
-            generated_pages=base.generated_pages,
-            missing_pages=base.missing_pages,
-            renderer_errors=base.renderer_errors,
-        )
+        # Both initial AUD and selective RPR report materializations are
+        # strictly projection-only. The pre-seal collection hook alone may
+        # perform authorized external acquisitions.
+        return base
 
     report_completion.finalize_audit_report_site = finalize_with_external_observability
     report_completion._rasai_external_observability_runtime = True
