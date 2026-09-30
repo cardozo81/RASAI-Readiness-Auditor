@@ -281,8 +281,6 @@ def config_from_state(state: State) -> SyntheticApdexConfig:
 def experience_from_state(state: State) -> ExperienceApdexConfig:
     if not state.apdex_experience:
         return ExperienceApdexConfig(enabled=False)
-    if not state.synthetic_apdex:
-        raise ValueError("Synthetic User Experience Apdex exige Synthetic Navigation Apdex habilitado")
     from rasai.m25_cli import parse_device_mix
 
     return ExperienceApdexConfig(
@@ -320,23 +318,7 @@ def validate_m23_state(state: State) -> None:
     experience_from_state(state)
 
 
-def append_m23_command(command: list[str], state: State) -> list[str]:
-    result = list(command)
-    if not state.synthetic_apdex:
-        result.extend(["--no-synthetic-apdex", "--no-apdex-experience"])
-        return result
-    cfg = config_from_state(state)
-    result.extend([
-        "--synthetic-apdex",
-        "--apdex-threshold-seconds", str(cfg.threshold_seconds),
-        "--apdex-samples-per-context", str(cfg.target_valid_samples),
-        "--apdex-max-attempts-per-context", str(cfg.max_attempts_per_context),
-        "--apdex-max-pages", str(cfg.max_pages),
-        "--apdex-timeout-seconds", str(cfg.timeout_seconds),
-        "--apdex-delay-seconds", str(cfg.delay_seconds),
-        "--apdex-concurrency", str(cfg.concurrency),
-    ])
-    ux = experience_from_state(state)
+def _append_experience_command(result: list[str], ux: ExperienceApdexConfig) -> list[str]:
     if not ux.enabled:
         result.append("--no-apdex-experience")
         return result
@@ -375,6 +357,27 @@ def append_m23_command(command: list[str], state: State) -> list[str]:
     if ux.dynatrace_config_json:
         result.extend(["--apdex-dynatrace-config-json", ux.dynatrace_config_json])
     return result
+
+
+def append_m23_command(command: list[str], state: State) -> list[str]:
+    result = list(command)
+    ux = experience_from_state(state)
+    if not state.synthetic_apdex:
+        result.append("--no-synthetic-apdex")
+        return _append_experience_command(result, ux)
+
+    cfg = config_from_state(state)
+    result.extend([
+        "--synthetic-apdex",
+        "--apdex-threshold-seconds", str(cfg.threshold_seconds),
+        "--apdex-samples-per-context", str(cfg.target_valid_samples),
+        "--apdex-max-attempts-per-context", str(cfg.max_attempts_per_context),
+        "--apdex-max-pages", str(cfg.max_pages),
+        "--apdex-timeout-seconds", str(cfg.timeout_seconds),
+        "--apdex-delay-seconds", str(cfg.delay_seconds),
+        "--apdex-concurrency", str(cfg.concurrency),
+    ])
+    return _append_experience_command(result, ux)
 
 
 def _mix_text(cfg: ExperienceApdexConfig) -> str:
