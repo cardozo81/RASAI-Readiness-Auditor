@@ -608,6 +608,10 @@ def _serp_html(database: Path, data: Any) -> str:
             quality=quality if isinstance(quality, Mapping) else {}
             depth_complete=quality.get("requested_depth_complete")
             observed_ceiling=quality.get("observed_position_ceiling")
+            # This is the final trust-layer CAT-05 renderer. Earlier metrics
+            # overrides are intentionally superseded during report composition.
+            from rasai.accepted_audit_refinements import _serp_completion_reason
+            completion_reason=_serp_completion_reason(obs,len(results))
             if depth_complete is True:
                 depth_coverage="Completa"
             elif depth_complete is False:
@@ -618,10 +622,58 @@ def _serp_html(database: Path, data: Any) -> str:
                 )
             else:
                 depth_coverage="Não determinada (observação legada)"
-            rows.append((obs.get("query") or "-",obs.get("engine") or "-",_serp_geo_label(obs.get("country"), obs.get("region")),obs.get("language") or "-",page._device_label(obs.get("device")),obs.get("requested_depth") or "-",len(results),depth_coverage,obs.get("provider") or "-",mode,captured or "-",page._modal_button(modal_id,"Ver proveniência")))
-            body=page._kv((("Consulta",obs.get("query")),("Engine",obs.get("engine") or "-"),("Provedor",obs.get("provider")),("Modo de dados",obs.get("data_mode")),("Estado da observação",page._status_label(obs.get("observation_status"))),("Profundidade solicitada",obs.get("requested_depth") or "-"),("Resultados persistidos",len(results)),("Cobertura da profundidade",depth_coverage),("Maior posição orgânica observada",observed_ceiling if observed_ceiling not in (None, "") else "-"),("Capturado em",captured),("Atualidade dos dados",page._temporal_mode_label(mode)),("Reutilizada","Sim" if reused else "Não"),("AUD de origem",prov.get("source_audit_id") or data.audit_id),("Observação de origem",prov.get("source_observation_id") or oid),("Idade no reuso",_age(captured,prov.get("reused_at")) if reused else "Não aplicável"),("Motivo do reuso",prov.get("reuse_reason") or "Não aplicável"),("Artefato bruto",obs.get("raw_evidence_ref") or "-"),("SHA-256",obs.get("raw_evidence_sha256") or "-"),("ID da requisição",obs.get("provider_request_id") or "-")))
+            coverage_display=depth_coverage
             if depth_complete is False:
-                body+="<div class='notice'>A profundidade solicitada não foi integralmente observada. A ausência do domínio auditado não deve ser interpretada como ausência em toda a profundidade solicitada.</div>"
+                if quality.get("request_budget_ended_before_requested_depth"):
+                    coverage_display+=" · Limite de requisições"
+                elif quality.get("normalization_incomplete_for_requested_depth"):
+                    coverage_display+=" · Resultados descartados na normalização"
+                elif quality.get("pagination_ended_before_requested_depth"):
+                    coverage_display+=" · Paginação encerrada pelo provedor"
+            rows.append((obs.get("query") or "-",obs.get("engine") or "-",_serp_geo_label(obs.get("country"), obs.get("region")),obs.get("language") or "-",page._device_label(obs.get("device")),obs.get("requested_depth") or "-",len(results),coverage_display,obs.get("provider") or "-",mode,captured or "-",page._modal_button(modal_id,"Ver proveniência")))
+            provenance_rows=[
+                ("Consulta",obs.get("query")),
+                ("Engine",obs.get("engine") or "-"),
+                ("Provedor",obs.get("provider")),
+                ("Modo de dados",obs.get("data_mode")),
+                ("Estado da observação",page._status_label(obs.get("observation_status"))),
+                ("Profundidade solicitada",obs.get("requested_depth") or "-"),
+                ("Resultados persistidos",len(results)),
+                ("Cobertura da profundidade",depth_coverage),
+                ("Maior posição orgânica observada",observed_ceiling if observed_ceiling not in (None, "") else "-"),
+                ("Capturado em",captured),
+                ("Atualidade dos dados",page._temporal_mode_label(mode)),
+                ("Reutilizada","Sim" if reused else "Não"),
+                ("AUD de origem",prov.get("source_audit_id") or data.audit_id),
+                ("Observação de origem",prov.get("source_observation_id") or oid),
+                ("Idade no reuso",_age(captured,prov.get("reused_at")) if reused else "Não aplicável"),
+                ("Motivo do reuso",prov.get("reuse_reason") or "Não aplicável"),
+                ("Artefato bruto",obs.get("raw_evidence_ref") or "-"),
+                ("SHA-256",obs.get("raw_evidence_sha256") or "-"),
+                ("ID da requisição",obs.get("provider_request_id") or "-"),
+            ]
+            if quality.get("provider_created_at"):
+                provenance_rows.append(("Observação original do provedor",quality.get("provider_created_at")))
+            if quality.get("rasai_response_received_at"):
+                provenance_rows.append(("Resposta recebida pelo RASAi",quality.get("rasai_response_received_at")))
+            if quality.get("rasai_persisted_at"):
+                provenance_rows.append(("Observação persistida pelo RASAi",quality.get("rasai_persisted_at")))
+            if quality.get("provider_cache_policy")=="FORCE_REFRESH":
+                provenance_rows.append(("Política de cache","Atualização sem cache explicitamente solicitada; pode consumir quota do provedor"))
+            elif quality.get("provider_cache_policy")=="ALLOW_CACHE":
+                provenance_rows.append(("Política de cache","Cache do provedor permitido"))
+            if quality.get("provider_response_repeat_status"):
+                provenance_rows.append((
+                    "Resposta repetida",
+                    "Mesmo identificador e/ou conteúdo bruto observado anteriormente nesta auditoria; possível cache do provedor",
+                ))
+            body=page._kv(tuple(provenance_rows))
+            if depth_complete is False:
+                body+=(
+                    "<div class='notice'><strong>Motivo da limitação:</strong> "
+                    +escape(completion_reason)
+                    +". A ausência do domínio auditado não deve ser interpretada como ausência em toda a profundidade solicitada.</div>"
+                )
             result_rows=[(r.get("position"),r.get("domain"),r.get("url"),r.get("result_type")) for r in results]
             body+="<h3>Resultados persistidos</h3>"+page._table(("Posição","Domínio","URL","Tipo"),result_rows,empty="Nenhum resultado individual persistido.",sortable=bool(result_rows),page_size=10 if len(result_rows)>10 else None)
             modals.append(page._modal(modal_id,"SERP · proveniência",str(obs.get("query") or "Consulta"),body))
