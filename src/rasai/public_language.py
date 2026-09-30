@@ -45,6 +45,8 @@ SUPPLEMENTAL_PUBLIC_LABELS: dict[str, str] = {
     "COMPETITIVE_AI_DISABLED": "Análise competitiva por IA desabilitada",
     "COMPETITIVE_AI_REQUIRES_SERP_OBSERVATION": "Análise competitiva por IA aguarda uma observação de SERP",
     "SYNTHETIC_APDEX_DISABLED": "Apdex de navegação desabilitado",
+    "M25_RUNTIME_FAILURE": "Falha durante a execução do Apdex de experiência",
+    "NO_AUDITED_PAGES": "Nenhuma página auditada elegível para o Apdex de experiência",
     "SERVICE_NOT_ENABLED": "Serviço não habilitado",
     "NO_RESULT": "Execução sem resultado utilizável",
     "DEPENDENCY_CHANGED": "Dependência alterada",
