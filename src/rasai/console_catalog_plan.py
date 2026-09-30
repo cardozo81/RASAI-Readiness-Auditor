@@ -154,11 +154,23 @@ def select_all_unselected_catalogs(
     return tuple(item.id for item in CATALOGS if item.id in after - before and item.id not in excluded)
 
 
+_CATALOG_DEPENDENTS: dict[str, tuple[str, ...]] = {
+    "CAT-06": ("CAT-07",),
+}
+
+
 def deselect_catalog(state: Any, catalog: AuditCatalog) -> bool:
-    if catalog.id == "CAT-06" and "CAT-07" in _plan(state).selected:
-        state.error = "Apdex de navegação é dependência do Apdex de experiência; remova CAT-07 primeiro."
-        return False
-    _plan(state).selected.discard(catalog.id)
+    """Remove a catalog and any selected catalog that cannot exist without it.
+
+    The public action is "remove this catalog from the next audit plan". Keeping a
+    dependent selected would make that action impossible to honor. CAT-07 depends on
+    CAT-06, so removing CAT-06 removes CAT-07 in the same plan operation. Removing the
+    dependent itself remains non-cascading.
+    """
+    plan = _plan(state)
+    plan.selected.discard(catalog.id)
+    for dependent in _CATALOG_DEPENDENTS.get(catalog.id, ()):
+        plan.selected.discard(dependent)
     return True
 
 
