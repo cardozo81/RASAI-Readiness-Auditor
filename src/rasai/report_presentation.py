@@ -148,6 +148,11 @@ _PUBLIC_LABELS: dict[str, str] = {
     "FAILED_PERMANENT": "Falha permanente",
     "FAILED_FATAL": "Falha fatal",
     "REQUESTED_NOT_EXECUTED": "Solicitado, não executado",
+    # Stable Core Web Vitals identifiers must survive the final HTML humanizer.
+    # Do not whitelist ambiguous ISO country codes globally.
+    "LCP": "LCP",
+    "INP": "INP",
+    "CLS": "CLS",
     "NO_DATA": "Sem dados",
     "INCOMPLETE": "Incompleto",
     "PRELIMINARY": "Preliminar",
