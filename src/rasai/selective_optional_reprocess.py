@@ -847,6 +847,10 @@ def _search_runtime_config(item: Any):
 
     values = dict(getattr(item, "configuration", {}) or {})
     fixture = str(_configured_value(values, "fixture_path", "")).strip()
+    raw_force_refresh = str(os.environ.get("RASAI_SERP_NO_CACHE_RPR") or "").strip().casefold()
+    if raw_force_refresh not in {"", "0", "false", "no", "off", "1", "true", "yes", "on"}:
+        raise ValueError("RASAI_SERP_NO_CACHE_RPR deve ser true/false")
+    force_refresh = raw_force_refresh in {"1", "true", "yes", "on"}
     return SerpRuntimeConfig(
         mode=str(_configured_value(values, "mode", "disabled")),
         provider=str(_configured_value(values, "provider", "serpapi")),
@@ -858,6 +862,7 @@ def _search_runtime_config(item: Any):
         timeout_seconds=float(_configured_value(values, "timeout_seconds", 20.0)),
         retries=int(_configured_value(values, "retries", 1)),
         min_interval_seconds=float(_configured_value(values, "min_interval_seconds", 1.0)),
+        force_refresh=force_refresh,
     ).validate()
 
 
@@ -901,7 +906,12 @@ def _recover_search(workspace: Any, audit_id: str, item: Any) -> bool:
                 domain_of_interest=domain,
                 run_id=run_id,
                 query_origin=QueryOrigin.MANUAL,
-                config_metadata={"surface": "audit-reprocess"},
+                config_metadata={
+                    "surface": "audit-reprocess",
+                    "provider_cache_policy": (
+                        "FORCE_REFRESH" if runtime.force_refresh else "ALLOW_CACHE"
+                    ),
+                },
             )
             for query in queries
         )
@@ -912,6 +922,23 @@ def _recover_search(workspace: Any, audit_id: str, item: Any) -> bool:
             workspace_root=workspace.root,
             fixture_path=runtime.fixture_path,
         )
+        from rasai.operational_log import try_append_operational_event
+        for result in execution.results:
+            observation = getattr(result, "observation", None)
+            quality = dict(getattr(observation, "quality_metadata", {}) or {})
+            if quality.get("provider_response_repeat_status"):
+                try_append_operational_event(
+                    workspace,
+                    "SERP_PROVIDER_RESPONSE_REPEATED",
+                    level="WARNING",
+                    audit_id=audit_id,
+                    provider=str(getattr(observation, "provider", "") or ""),
+                    repeat_status=str(quality.get("provider_response_repeat_status")),
+                    cache_assessment=str(quality.get("provider_cache_assessment") or ""),
+                    provider_created_at=str(quality.get("provider_created_at") or ""),
+                    rasai_response_received_at=str(quality.get("rasai_response_received_at") or ""),
+                    force_refresh=bool(runtime.force_refresh),
+                )
         compare_content = bool(values.get("compare_content", False))
         if bool(values.get("competitive", True)) or compare_content:
             max_content_pages = min(
@@ -986,6 +1013,16 @@ def _recover_search(workspace: Any, audit_id: str, item: Any) -> bool:
         if first is not None
         else "Search Intelligence não produziu observações"
     )
+    if first is not None:
+        observation = getattr(first, "observation", None)
+        quality = dict(getattr(observation, "quality_metadata", {}) or {})
+        if quality.get("provider_response_repeat_status"):
+            detail += (
+                " O fornecedor retornou o mesmo identificador e/ou conteúdo bruto de uma "
+                "observação anterior; há indício de cache externo. Evite repetir imediatamente. "
+                "Para exigir atualização na próxima tentativa, defina explicitamente "
+                "RASAI_SERP_NO_CACHE_RPR=true; essa opção pode consumir quota do provedor."
+            )
     set_work_item_status(
         workspace,
         audit_id=audit_id,
