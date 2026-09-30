@@ -13,9 +13,11 @@ metodologia independente de cálculo ou aquisição.
    medições live. Um requisito opcional só vira obrigatório quando selecionado.
 3. Persistir e reconciliar estados por componente **e escopo**, sem tomar HTTP
    200 como prova de renderização ou falha de sub-recurso como falha do documento.
-4. Avaliar `audit_collection_gate.evaluate_collection_readiness` após a
-   reconciliação. O mesmo avaliador é chamado tanto por `audit_runner` quanto
-   por `governed_reprocess_runtime`.
+4. Reprojetar todos os itens selecionados a partir do plano durável
+   da execução, inclusive os que ainda não chegaram ao seu coletor; em
+   seguida, avaliar `audit_collection_gate.evaluate_collection_readiness`.
+   O mesmo avaliador é chamado tanto por `audit_runner` quanto por
+   `governed_reprocess_runtime`. Sem plano durável, a IA permanece bloqueada.
 5. Selar a evidência. Só entrar na fase de IA quando o gate permitir e houver
    autorização específica do usuário. Quando faltar coleta, manter evidência
    parcial para diagnóstico/reprocessamento, sem chamada de provedor de IA.
