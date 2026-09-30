@@ -34,7 +34,7 @@ Os IDs `CAT-*` são estáveis e independem da ordem visual ou do texto exibido.
 | `CAT-04` | Web Performance | PageSpeed/Lighthouse/CrUX conforme configuração | não usa IA diretamente |
 | `CAT-05` | Search & AI Intelligence | SERP, GSC, visibilidade observada em IA, observabilidade aplicável | IA competitiva opcional sobre comparação determinística; visibilidade observada continua independente da IA principal |
 | `CAT-06` | Apdex de navegação | Synthetic Navigation Apdex | nenhuma para cálculo |
-| `CAT-07` | Apdex de experiência | Synthetic User Experience Apdex | não usa IA no cálculo; depende de `CAT-06` |
+| `CAT-07` | Apdex de experiência | Synthetic User Experience Apdex | não usa IA no cálculo; execução independente de `CAT-06` |
 | `CAT-08` | Análise profunda e melhorias | análise evidence-bound | **obrigatória para fechamento integral; execução determinística pode ocorrer sem IA** |
 | `CAT-09` | Remediações | ações determinísticas e advisory | opcional; IA não altera scoring |
 | `CAT-10` | Segurança passiva | HTTP/browser/runtime, cookies, recursos, third-party e vulnerability intelligence sem exploração | opcional para interpretação/remediação; fatos técnicos permanecem determinísticos |
@@ -116,7 +116,7 @@ Exemplos:
 - GSC explicitamente obrigatório e incompatível: a auditoria pode prosseguir com `CAT-05` em `APTO COM LIMITAÇÕES`, mantendo o fechamento pendente;
 - `CAT-08` sem nenhum catálogo produtor de evidência: `BLOQUEADO`;
 - `CAT-08` sem IA principal apta ou sem autorização de IA nesta AUD: `APTO COM LIMITAÇÕES`; a parte determinística continua e o fechamento permanece pendente;
-- `CAT-07` inclui `CAT-06` como dependência técnica;
+- `CAT-06` e `CAT-07` são coletores sintéticos independentes e podem ser selecionados separadamente;
 - `CAT-10` é executável sem IA; OSV/KEV são enriquecimentos externos fail-open e sua indisponibilidade reduz cobertura sem virar falha do alvo.
 
 Readiness local não promete disponibilidade futura de um serviço externo. Timeout/rate limit/provider indisponível durante a execução continuam sendo fatos runtime.
@@ -140,7 +140,7 @@ selected = CAT-01, CAT-05, ...
 ai_enabled = true|false
 ```
 
-Ao carregar o INI, o plano é restaurado e as dependências canônicas são reaplicadas. Exemplo: restaurar `CAT-07` mantém `CAT-06` no plano.
+Ao carregar o INI, a seleção CAT-* é restaurada exatamente como persistida. `CAT-06` e `CAT-07` não se adicionam mutuamente.
 
 Essa persistência é reutilização explícita da configuração da próxima execução; não cria uma política global separada do catálogo.
 
@@ -271,7 +271,7 @@ A regressão do console deve rodar em `windows-latest`, incluindo:
 
 - IDs estáveis `CAT-01..CAT-10`;
 - seleção imediata e abertura do submenu;
-- dependência `CAT-07 -> CAT-06`;
+- independência de seleção e execução entre `CAT-06` e `CAT-07`;
 - bloqueio de `CAT-08` sem evidência/IA;
 - projeção/restauração da sessão;
 - persistência e restauração de `[audit_catalog]` no INI;
