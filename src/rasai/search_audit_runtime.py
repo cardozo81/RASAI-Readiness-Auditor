@@ -410,6 +410,51 @@ def _competitive_comparison_summary(
     }
 
 
+
+def _persisted_failure_for_run(
+    workspace: Any, audit_id: str, run_id: str,
+) -> tuple[str, str] | None:
+    """Read only this execution's persisted Search diagnostics, never CLI footer.
+
+    A provider may return a cached observation timestamp predating this AUD,
+    so collected_at is not a safe discriminator. The explicit CLI run ID is.
+    """
+    connection = sqlite3.connect(workspace.database)
+    try:
+        rows = connection.execute(
+            """SELECT error_code,error_message
+               FROM serp_observations
+               WHERE audit_id=? AND run_id=? AND error_code IS NOT NULL
+               ORDER BY rowid""",
+            (audit_id, run_id),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return None
+    finally:
+        connection.close()
+    diagnostics = [
+        (str(code or "").strip(), str(message or "").strip())
+        for code, message in rows
+        if str(code or "").strip()
+    ]
+    if not diagnostics:
+        return None
+    # A single work item may include multiple queries: never hide a different
+    # provider failure behind the first query's code.
+    codes = {code for code, _ in diagnostics}
+    code = next(iter(codes)) if len(codes) == 1 else "SEARCH_INTELLIGENCE_INCOMPLETE"
+    if not all(
+        code_value.isascii() and code_value.replace("_", "").isalnum()
+        and code_value[0].isalpha() and code_value.upper() == code_value
+        and len(code_value) <= 80
+        for code_value in codes
+    ):
+        code = "SEARCH_INTELLIGENCE_INCOMPLETE"
+    message = " | ".join(dict.fromkeys(message or "Coleta de busca incompleta" for _, message in diagnostics))
+    from rasai.secret_safety import redact_text
+    return code, redact_text(message)[:512]
+
+
 def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
     args = _parsed_args()
     queries = tuple(
@@ -538,9 +583,12 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
         }
 
     from rasai.search_intelligence.cli import main as search_main
+    from rasai.search_intelligence.models import new_identifier
 
+    run_id = new_identifier("SERP-AUD")
     command = [
         *queries,
+        "--run-id", run_id,
         "--domain", host,
         "--engine", engine,
         "--country", str(getattr(args, "market", "BR")),
@@ -590,7 +638,14 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
         output.write(f"{type(exc).__name__}: {exc}")
 
     detail_lines = [line.strip() for line in output.getvalue().splitlines() if line.strip()]
-    detail = detail_lines[-1][:512] if detail_lines else ""
+    # CLI output is descriptive; the final line may be a usage counter,
+    # especially when competitive content comparison is enabled.
+    technical_failure = _persisted_failure_for_run(workspace, audit_id, run_id) if code else None
+    detail = ""
+    if code:
+        from rasai.secret_safety import redact_text
+        diagnostics = [line.partition("Erro:")[2].strip() for line in detail_lines if line.startswith("Erro:")]
+        detail = redact_text(diagnostics[-1])[:512] if diagnostics else ""
     if code == 0:
         if bool(getattr(args, "search_compare_content", False)):
             comparison = _competitive_comparison_summary(
@@ -622,6 +677,7 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
                     "queries": len(queries),
                     "engine": engine,
                     "comparison": comparison,
+                    "reason": "COMPETITIVE_CONTENT_PARTIAL",
                     "detail": detail,
                 }
         set_work_item_status(
@@ -639,14 +695,22 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
             "engine": engine,
         }
 
+    error_code, error_message = (
+        technical_failure
+        if technical_failure is not None
+        else (
+            f"SEARCH_EXIT_{code}",
+            detail or f"Não foi possível concluir a coleta de busca (execução {code}); consulte o log técnico.",
+        )
+    )
     set_work_item_status(
         workspace,
         audit_id=audit_id,
         component=_COMPONENT,
         status=FAILED_RETRYABLE,
-        error_class="EXTERNAL_API",
-        error_code=f"SEARCH_EXIT_{code}",
-        error_message=detail or f"Search Intelligence retornou código {code}",
+        error_class="SEARCH_PROVIDER" if technical_failure is not None else "EXTERNAL_API",
+        error_code=error_code,
+        error_message=error_message,
         retryable=True,
     )
     return {
@@ -655,7 +719,8 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
         "queries": len(queries),
         "engine": engine,
         "exit_code": code,
-        "detail": detail,
+        "reason": error_code,
+        "detail": error_message,
     }
 
 
