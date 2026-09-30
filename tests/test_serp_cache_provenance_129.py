@@ -176,3 +176,79 @@ def test_provider_completeness_does_not_confuse_normalization_with_early_paginat
     assert quality["dropped_results"] == 1
     assert quality["pagination_ended_before_requested_depth"] is False
     assert quality["normalization_incomplete_for_requested_depth"] is True
+
+
+def test_rpr_keeps_serp_machine_code_internal_and_exposes_repeat_warning(tmp_path, monkeypatch):
+    from rasai import selective_optional_reprocess as selective
+    from rasai.audit_fulfillment import LIVE_RECOLLECTION, list_work_items, register_work_item
+    from rasai.search_intelligence import runtime as search_runtime
+    from rasai.search_intelligence.models import DomainMatchStatus
+    from tests.test_selective_optional_reprocess import AUDIT_ID, _workspace as optional_workspace
+
+    workspace = optional_workspace(tmp_path)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="SEARCH_INTELLIGENCE",
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        retryable=True,
+        configuration={
+            "queries": ["seguro de vida"],
+            "depth": 20,
+            "market": "BR",
+            "language": "pt-BR",
+            "device": "mobile",
+            "mode": "live",
+            "provider": "serpapi",
+            "engine": "google",
+            "competitive": False,
+            "compare_content": False,
+            "max_requests": 10,
+            "max_depth": 20,
+            "retries": 0,
+            "min_interval_seconds": 0,
+        },
+    )
+    item = next(x for x in list_work_items(workspace, AUDIT_ID) if x.component == "SEARCH_INTELLIGENCE")
+    monkeypatch.setattr(selective, "_audit_domain", lambda *_: "example.com")
+    monkeypatch.setattr(selective, "_audit_target_url", lambda *_: "https://example.com/")
+    fake_observation = SimpleNamespace(
+        provider="serpapi",
+        quality_metadata={
+            "provider_response_repeat_status": "SAME_PROVIDER_ID_AND_RAW_SHA",
+            "provider_cache_assessment": "POSSIBLE_PROVIDER_CACHE",
+            "provider_created_at": "2026-09-30T14:48:24+00:00",
+            "rasai_response_received_at": "2026-09-30T14:56:00+00:00",
+        },
+    )
+    monkeypatch.setattr(
+        search_runtime,
+        "execute_search",
+        lambda *args, **kwargs: SimpleNamespace(
+            results=(
+                SimpleNamespace(
+                    domain_status=DomainMatchStatus.UNAVAILABLE,
+                    error_code="SERP_REQUESTED_DEPTH_INCOMPLETE",
+                    error_message=(
+                        "O provedor encerrou a paginação após 9 resultado(s) observados; "
+                        "não foi possível comprovar os 20 solicitados."
+                    ),
+                    observation=fake_observation,
+                ),
+            )
+        ),
+    )
+
+    assert selective._recover_search(workspace, AUDIT_ID, item) is False
+    with sqlite3.connect(workspace.database) as db:
+        code, message = db.execute(
+            "SELECT last_error_code,last_error_message FROM audit_fulfillment_work_items "
+            "WHERE audit_id=? AND component='SEARCH_INTELLIGENCE'",
+            (AUDIT_ID,),
+        ).fetchone()
+    assert code == "SERP_REQUESTED_DEPTH_INCOMPLETE"
+    assert "SERP_REQUESTED_DEPTH_INCOMPLETE" not in message
+    assert "encerrou a paginação" in message
+    assert "indício de cache externo" in message
+    assert "RASAI_SERP_NO_CACHE_RPR=true" in message
