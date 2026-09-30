@@ -622,6 +622,15 @@ PUBLIC_VALUE_LABELS.update({
     "URL_REPUTATION_REQUIRES_EXPLICIT_PRIVACY_AND_PROVIDER_POLICY": "Consulta de reputação de URL exige política explícita de privacidade e provedor",
 })
 
+# Known metric identifiers and Chromium network diagnostics only. Do not
+# register ISO country abbreviations globally: that would change pt-BR tags.
+PUBLIC_VALUE_LABELS.update({
+    "LCP": "LCP",
+    "INP": "INP",
+    "CLS": "CLS",
+    "ERR_ABORTED": "Requisição interrompida pelo navegador",
+})
+
 PUBLIC_PHRASE_LABELS: dict[str, str] = {
     "external organic result; business equivalence is not inferred": "Resultado orgânico externo; equivalência comercial não é inferida",
     "public-authority domain heuristic": "Heurística de domínio de autoridade pública",
@@ -655,6 +664,14 @@ def public_text(value: Any) -> str:
     raw = str(value or "")
     if not raw:
         return raw
+    # Replace the whole known browser event; otherwise the obsolete net::
+    # namespace would prefix a human-readable sentence in the HTML.
+    raw = re.sub(
+        r"\bnet::ERR_ABORTED\b",
+        "Requisição interrompida pelo navegador",
+        raw,
+        flags=re.IGNORECASE,
+    )
     return _PUBLIC_TOKEN_RE.sub(
         lambda match: public_label(match.group(0)) or safe_visible_fallback(match.group(0)),
         raw,
