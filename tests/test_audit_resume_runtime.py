@@ -833,6 +833,9 @@ def test_planned_navigation_apdex_can_start_during_resume_without_prior_run_tabl
         return type("Result", (), {"status": "SUCCESS"})()
 
     monkeypatch.setattr(m23, "execute_m23_apdex", fake_execute)
+    # This fake deliberately omits persistence. The durable M23 predicate is
+    # separately tested using actual SQLite samples in test_m23_interrupted_resume.
+    monkeypatch.setattr(m23, "persisted_target_fulfilled", lambda *_args: True)
 
     assert recover_synthetic_apdex(
         workspace=workspace,
