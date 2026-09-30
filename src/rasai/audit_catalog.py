@@ -105,7 +105,7 @@ CATALOGS: tuple[AuditCatalog, ...] = (
     AuditCatalog(
         "CAT-07",
         "Apdex de experiência",
-        "Mensurar experiência sintética e distribuição populacional sobre a base de navegação.",
+        "Mensurar experiência sintética por user actions próprias e distribuição populacional independente do Apdex de navegação.",
         "Apdex de experiência e distribuição da população sintética conforme configuração vigente.",
         ("apdex-experience",),
     ),
