@@ -408,7 +408,9 @@ def recover_synthetic_apdex(
                 workspace=workspace,
                 config=cfg,
             )
-            return str(result.status).upper() == "SUCCESS"
+            return m23.persisted_target_fulfilled(
+                workspace, audit_id, cfg.target_valid_samples
+            )
         if not bool(run["enabled"]):
             return False
         persisted_cfg = _json_load(run["configuration"], {})
@@ -498,7 +500,8 @@ def recover_synthetic_apdex(
                 valid_total=valid_total,
                 invalid_total=invalid_total,
             )
-            effective_success = status == "SUCCESS"
+            # The statistical PARTIAL warning does not invalidate a fulfilled
+            # configured sample target; decide only from committed evidence.
             store.upsert_run(SyntheticApdexRun(
                 audit_id=audit_id,enabled=True,status=status,task_id=m23.TASK_NAVIGATION_LOAD,
                 threshold_seconds=float(cfg.threshold_seconds),frustration_seconds=4.0*float(cfg.threshold_seconds),
@@ -511,7 +514,9 @@ def recover_synthetic_apdex(
             ))
     finally:
         gateway.close()
-    return effective_success
+    return m23.persisted_target_fulfilled(
+        workspace, audit_id, cfg.target_valid_samples
+    )
 
 
 def _m25_item_from_row(row: sqlite3.Row):
