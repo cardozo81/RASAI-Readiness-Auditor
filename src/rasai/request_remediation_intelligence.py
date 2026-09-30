@@ -100,6 +100,31 @@ _FAMILY_META: dict[str, tuple[str, tuple[str, ...], tuple[str, str]]] = {
 }
 
 
+_FAMILY_PUBLIC_LABELS = {
+    "RESOURCE_NOT_FOUND": "Recurso não encontrado (HTTP 404/410)",
+    "ACCESS_DENIED": "Acesso negado",
+    "SERVER_ERROR": "Erro do servidor",
+    "RATE_LIMIT": "Limite de requisições",
+    "TIMEOUT": "Tempo limite excedido",
+    "DNS": "Falha de resolução DNS",
+    "CONNECTION": "Falha de conexão",
+    "CORS": "Restrição de origem cruzada (CORS)",
+    "CSP": "Restrição da política de segurança (CSP)",
+    "MIME": "Tipo de conteúdo MIME",
+    "CLIENT_BLOCK": "Bloqueio no navegador cliente",
+    "JAVASCRIPT_RUNTIME": "Erro de execução JavaScript",
+    "CONSOLE_RUNTIME": "Erro de console",
+    "HTTP_OTHER": "Outro erro de resposta HTTP",
+    "REQUEST_OTHER": "Outra falha de requisição",
+}
+
+
+def _public_request_family(value: Any) -> str:
+    """Human family name only in the typed request-remediation field."""
+    raw = str(value or "").strip()
+    return _FAMILY_PUBLIC_LABELS.get(raw, "Família técnica não classificada") if raw else "Não registrada"
+
+
 def _table_exists(connection: sqlite3.Connection, table: str) -> bool:
     return connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
@@ -974,7 +999,7 @@ def request_remediation_report_html(database: Any, audit_id: str, analysis: Any)
         ))
         body = analysis._kv((
             ("Grupo determinístico", group_id),
-            ("Família técnica", group.get("family") or "—"),
+            ("Família técnica", _public_request_family(group.get("family"))),
             ("Escopo da origem", str(group.get("party_scope") or "—").replace("FIRST_PARTY", "Primeira parte").replace("THIRD_PARTY", "Terceiro").replace("UNKNOWN", "Indeterminado")),
             ("Problemas distintos", group.get("problem_count") or 0),
             ("Ocorrências", group.get("occurrence_count") or 0),

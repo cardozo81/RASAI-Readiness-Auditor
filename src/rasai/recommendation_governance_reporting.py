@@ -16,6 +16,17 @@ _TARGET_LABELS = {
     "ENVIRONMENTAL": "Ambiente / infraestrutura",
     "INFORMATIONAL": "Informativa / ownership não determinável",
 }
+_CONFLICT_GROUP_LABELS = {
+    "DISCOVERY_RESOURCE_STATE": "Conflito de estado dos recursos de descoberta",
+}
+
+
+def _conflict_group_label(value: Any) -> str:
+    """Only the typed governance conflict group is translated."""
+    raw = str(value or "").strip()
+    return _CONFLICT_GROUP_LABELS.get(raw, "Grupo de conflito não classificado") if raw else "Não registrado"
+
+
 _SOURCE_LABELS = {
     "DETERMINISTIC": "Remediação determinística",
     "CONTENT_AI": "Conteúdo assistido por IA",
@@ -95,7 +106,7 @@ def governed_plan_html(database: Any, data: Any) -> str:
         body = a._kv((
             ("Decisão", "Rejeitada do plano do cliente"),
             ("Motivo", reason),
-            ("Grupo de conflito", row.get("conflict_group") or "—"),
+            ("Grupo de conflito", _conflict_group_label(row.get("conflict_group"))),
             ("Origem", _SOURCE_LABELS.get(str(row.get("source_kind")), row.get("source_kind"))),
             ("Racional", row.get("rationale") or "—"),
             ("Evidências relacionadas", ", ".join(str(item) for item in evidence) if isinstance(evidence, list) and evidence else "—"),

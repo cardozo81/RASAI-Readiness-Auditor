@@ -30,6 +30,28 @@ def _purpose_label(value: Any) -> str:
     return _PURPOSE_LABELS.get(raw, public_label(raw) or raw.replace("_", " ").title())
 
 
+_DEPENDENCY_PUBLIC_LABELS = {
+    "EVIDENCE_SEALED": "Evidências determinísticas seladas",
+    "SEMANTIC_EVIDENCE_CONTEXT": "Contexto semântico baseado nas evidências",
+}
+
+
+def _dependency_label(value: Any) -> str:
+    """Only known prerequisites receive semantic names, without key collisions."""
+    raw = str(value or "").strip()
+    return _DEPENDENCY_PUBLIC_LABELS.get(raw, "Dependência não classificada")
+
+
+def _dependency_state_label(value: Any) -> str:
+    state = str(value or "").strip().upper()
+    return {
+        "SUCCESS": "Concluída",
+        "PENDING": "Pendente",
+        "FAILED": "Falhou",
+        "BLOCKED": "Bloqueada",
+    }.get(state, "Estado não classificado")
+
+
 def _load(value: Any, default: Any) -> Any:
     if value in (None, ""):
         return default
@@ -94,17 +116,29 @@ def dependency_html(database: Any, data: Any) -> str:
             ("Finalidade", _purpose_label(purpose)),
             ("Estado antes da chamada", "Pronto" if ready else "Bloqueado"),
             ("Escopo", row.get("scope_key") or "AUDIT"),
-            ("Dependências esperadas", ", ".join(str(v) for v in expected) if isinstance(expected, list) else str(expected)),
-            ("Dependências ausentes/não prontas", ", ".join(str(v) for v in missing) if isinstance(missing, list) and missing else "Nenhuma"),
+            ("Dependências esperadas", ", ".join(_dependency_label(v) for v in expected) if isinstance(expected, list) else "Não determinadas"),
+            ("Dependências ausentes/não prontas", ", ".join(_dependency_label(v) for v in missing) if isinstance(missing, list) and missing else "Nenhuma"),
             ("Evidências relacionadas", ", ".join(str(v) for v in evidence) if isinstance(evidence, list) and evidence else "—"),
             ("Fingerprint do contexto", row.get("context_fingerprint") or "—"),
             ("Contrato", row.get("contract_version") or "—"),
             ("Registrado em", row.get("created_at") or "—"),
         ))
         if isinstance(present, dict):
-            body += "<h3>Estado efetivo das dependências</h3><div class='pre'>" + escape(
-                json.dumps(present, ensure_ascii=False, indent=2, sort_keys=True)
-            ) + "</div>"
+            # Table rows retain one-to-one correspondence, including multiple
+            # future unknown dependencies; never collapse distinct JSON keys
+            # into the same human-facing placeholder.
+            states = [
+                (_dependency_label(code), _dependency_state_label(value))
+                for code, value in present.items()
+            ]
+            body += "<h3>Estado efetivo das dependências</h3>" + i._table(
+                ("Dependência", "Estado persistido"), states,
+                empty="Nenhuma dependência foi registrada.",
+            )
+            body += (
+                "<p class='muted'>Identidades canônicas e valores originais "
+                "permanecem no snapshot persistido para rastreabilidade.</p>"
+            )
         if not ready:
             body += (
                 "<div class='notice warn'><strong>Provider não elegível neste ponto:</strong> o gate registrou contexto "

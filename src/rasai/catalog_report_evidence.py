@@ -82,6 +82,48 @@ def _discovery_title(row: Mapping[str,Any], observed: Any) -> str:
     return public_text(title)
 
 
+_DISCOVERY_SOURCE_LABELS = {
+    "ROOT_CONVENTION": "Verificação do caminho convencional na raiz",
+}
+_DISCOVERY_STRATEGY_LABELS = {
+    "ROOT_PLUS_EXPLICIT_DISCOVERY": "Caminho convencional na raiz e indicações explícitas de descoberta",
+}
+_LLMS_ROBOTS_ROLE_EN = (
+    "Sitemap directives are standard; LLMS/LLMS-TXT is accepted only as an explicitly "
+    "labelled non-standard same-origin hint"
+)
+_LLMS_ROBOTS_ROLE_PT = (
+    "As diretivas de sitemap são padronizadas. llms.txt é apenas uma indicação "
+    "não padronizada, explícita e restrita à mesma origem."
+)
+
+
+def _discovery_observed_public(observed: Any) -> Any:
+    """Typed, copy-only presentation of M24 discovery diagnostics.
+
+    Never mutate evidence or rewrite arbitrary text, URL, JSON keys, or unknown
+    future states using a global replacement.
+    """
+    if not isinstance(observed, Mapping):
+        return observed
+    result = dict(observed)
+    sources = result.get("discovery_sources")
+    if isinstance(sources, list):
+        result["discovery_sources"] = [
+            _DISCOVERY_SOURCE_LABELS.get(v, "Origem de descoberta não classificada")
+            if isinstance(v, str) else v
+            for v in sources
+        ]
+    strategy = result.get("strategy")
+    if isinstance(strategy, str):
+        result["strategy"] = _DISCOVERY_STRATEGY_LABELS.get(
+            strategy, "Estratégia de descoberta não classificada"
+        )
+    if result.get("robots_role") == _LLMS_ROBOTS_ROLE_EN:
+        result["robots_role"] = _LLMS_ROBOTS_ROLE_PT
+    return result
+
+
 def _discovery_html(database: Path, data: _ReportData) -> str:
     con=sqlite3.connect(database); con.row_factory=sqlite3.Row
     try:items=_audit_rows(con,"m24_diagnostics",data.audit_id)
@@ -103,7 +145,7 @@ def _discovery_html(database: Path, data: _ReportData) -> str:
         if row.get("remediation"):
             modal_body+="<h3>Orientação registrada</h3><p>"+escape(str(row.get("remediation")))+"</p><p class='muted'>A orientação técnica consolidada e, quando disponível, enriquecida por IA fica em <a href='cat-09.html'>CAT-09 · Remediações</a>.</p>"
         if isinstance(observed,(dict,list)):
-            modal_body+="<details><summary>Ver dados técnicos observados</summary><div class='detail-body'><div class='pre'>"+escape(json.dumps(observed,ensure_ascii=False,indent=2))+"</div></div></details>"
+            modal_body+="<details><summary>Ver dados técnicos observados</summary><div class='detail-body'><div class='pre'>"+escape(json.dumps(_discovery_observed_public(observed),ensure_ascii=False,indent=2))+"</div></div></details>"
         modals.append(_modal(mid,title,row.get("scope_url") or "Recurso de descoberta",modal_body))
     return _table(("Recurso","Resultado observado","Endereço","Detalhe"),rows,empty="Nenhum diagnóstico de robots, sitemap ou arquivo de descoberta foi persistido.",sortable=bool(rows))+"".join(modals)
 
