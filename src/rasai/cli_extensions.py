@@ -105,7 +105,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     parsed_resume = _parse_extended_args(effective_argv)
     resume_args = parsed_resume[1] if parsed_resume is not None else None
-    from rasai.m25_runtime import peek_pending_config
+    from rasai.m25_runtime import execute_pending_m25, peek_pending_config
 
     experience_config = peek_pending_config()
     resume_options: dict[str, object] = {
@@ -187,6 +187,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         if m23_config is None or audit_id in m23_executed_for:
             return
         m23_executed_for.add(audit_id)
+
+        # M25/CAT-07 is independent from M23/CAT-06. When Navigation Apdex is
+        # not requested, execute only the pending experience collector and do not
+        # materialize a disabled M23 run/event (which used to surface as APDEX_REPORT 0/0).
+        if not m23_config.enabled:
+            if experience_config.enabled:
+                execute_pending_m25(audit_id=audit_id, workspace=workspace)
+            return
 
         assessment = load_assessment(workspace)
         if (
