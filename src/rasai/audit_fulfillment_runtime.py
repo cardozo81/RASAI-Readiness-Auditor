@@ -538,22 +538,10 @@ def _wrap_m21(original):
 
 
 def _m23_effective_success(workspace: Any, audit_id: str, target: int) -> bool:
-    connection = sqlite3.connect(workspace.database)
-    try:
-        run = connection.execute(
-            "SELECT contexts_considered FROM synthetic_apdex_runs WHERE audit_id=?", (audit_id,)
-        ).fetchone()
-        if not run or int(run[0]) <= 0:
-            return False
-        row = connection.execute(
-            """SELECT count(*),min(valid_samples) FROM synthetic_apdex_summaries WHERE audit_id=?""",
-            (audit_id,),
-        ).fetchone()
-        return bool(row and int(row[0]) == int(run[0]) and row[1] is not None and int(row[1]) >= int(target))
-    except sqlite3.OperationalError:
-        return False
-    finally:
-        connection.close()
+    # AUD and RPR share a durable predicate, separate from statistical quality.
+    from rasai.m23_apdex import persisted_target_fulfilled
+
+    return persisted_target_fulfilled(workspace, audit_id, target)
 
 
 def _m25_effective_success(workspace: Any, audit_id: str, target: int) -> bool:

@@ -316,6 +316,41 @@ def execute_m23_apdex(
     )
 
 
+
+def persisted_target_fulfilled(workspace: AuditWorkspace, audit_id: str, target: int) -> bool:
+    """Operational M23 completion for AUD and RPR, independent of statistical quality.
+
+    A valid small group may meet an explicitly configured target while its
+    statistical run remains PARTIAL. The run must have finished; never turn a
+    checkpoint marked RUNNING into an effective fulfillment success.
+    """
+    if target <= 0:
+        return False
+    connection = sqlite3.connect(workspace.database)
+    try:
+        run = connection.execute(
+            "SELECT enabled,status,contexts_considered FROM synthetic_apdex_runs WHERE audit_id=?",
+            (audit_id,),
+        ).fetchone()
+        if not run or not bool(run[0]) or str(run[1]) not in {"SUCCESS", "PARTIAL"}:
+            return False
+        expected = int(run[2] or 0)
+        if expected <= 0:
+            return False
+        row = connection.execute(
+            "SELECT COUNT(*), MIN(valid_samples) FROM synthetic_apdex_summaries WHERE audit_id=?",
+            (audit_id,),
+        ).fetchone()
+        return bool(
+            row and int(row[0] or 0) == expected
+            and row[1] is not None and int(row[1]) >= target
+        )
+    except sqlite3.OperationalError:
+        return False
+    finally:
+        connection.close()
+
+
 def _run_status(
     *,
     context_count: int,

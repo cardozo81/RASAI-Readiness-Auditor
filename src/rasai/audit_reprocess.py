@@ -71,6 +71,12 @@ class ReprocessResult:
 # The production resume guard owns the *final* event, after the last
 # fulfillment update, session closure and catalog projection. Inner wrappers
 # may expose a diagnostic stage, but never another final event.
+# Capture baseline SUCCESS at RPR entry. A collector successfully recovered in this
+# RPR must never be mislabeled as a SUCCESS preserved from the preceding AUD.
+_RPR_BASELINE_SUCCESSES: ContextVar[int | None] = ContextVar(
+    "rasai_rpr_baseline_successes", default=None
+)
+
 _RPR_FINAL_EVENT_DEFERRED: ContextVar[bool] = ContextVar(
     "rasai_rpr_final_event_deferred", default=False
 )
@@ -472,6 +478,13 @@ def reconcile_reprocess_state(
     return recalculate(workspace, audit_id)
 
 
+def _preserved_success_count(before: Any) -> int:
+    """Pre-RPR SUCCESS population, never including work finished during this RPR."""
+    observed = sum(bool(item.required) and str(item.status) == SUCCESS for item in before)
+    frozen = _RPR_BASELINE_SUCCESSES.get()
+    return observed if frozen is None else frozen
+
+
 def reprocess_audit(
     audit_id: str,
     *,
@@ -486,7 +499,7 @@ def reprocess_audit(
     workspace = AuditWorkspace.open(Path(audits_root) / audit_id)
     reconcile_reprocess_state(workspace, audit_id)
     before = list_work_items(workspace,audit_id)
-    skipped_success = sum(item.required and item.status == SUCCESS for item in before)
+    skipped_success = _preserved_success_count(before)
     unresolved_before = tuple(
         item
         for item in before

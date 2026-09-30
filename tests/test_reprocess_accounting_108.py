@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from types import SimpleNamespace
 
 from rasai import audit_reprocess, governed_reprocess_runtime as governed
 from rasai.audit_fulfillment import (
@@ -127,3 +128,31 @@ def test_incomplete_ledger_never_emits_a_final_event(tmp_path) -> None:
     events = operational_log_path(workspace).read_text(encoding="utf-8")
     assert "AUDIT_REPROCESS_COMPLETED" not in events
     assert "AUDIT_REPROCESS_STAGE_COMPLETED" in events
+
+
+
+def test_baseline_successes_do_not_include_work_completed_within_current_rpr() -> None:
+    from rasai.audit_fulfillment import SUCCESS
+    items_after_preparation = [
+        SimpleNamespace(required=True, status=SUCCESS),
+        SimpleNamespace(required=True, status=SUCCESS),
+        SimpleNamespace(required=True, status=SUCCESS),
+    ]
+    assert audit_reprocess._preserved_success_count(items_after_preparation) == 3
+    token = audit_reprocess._RPR_BASELINE_SUCCESSES.set(2)
+    try:
+        # The third SUCCESS was acquired by this RPR, not preserved from AUD.
+        assert audit_reprocess._preserved_success_count(items_after_preparation) == 2
+    finally:
+        audit_reprocess._RPR_BASELINE_SUCCESSES.reset(token)
+    assert audit_reprocess._preserved_success_count(items_after_preparation) == 3
+
+
+def test_small_group_m23_operational_success_counts_once_in_rpr() -> None:
+    preparation = governed.ReprocessPreparation(
+        snapshot=None,
+        recovered={"SYNTHETIC_APDEX": "SUCCESS", "WEB_PERFORMANCE": "WAITING_FOR_DATA"},
+        evaluated_optional=frozenset(),
+        sealed_new_evidence=True,
+    )
+    assert governed._additional_reprocess_counts(preparation, AUDIT_ID) == (1, 1)
