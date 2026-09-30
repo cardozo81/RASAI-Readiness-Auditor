@@ -1,4 +1,4 @@
-# Rematerialização canônica e isolada — #141
+# Rematerialização canônica e isolada - #141
 
 ## Contrato e limite de uso
 
