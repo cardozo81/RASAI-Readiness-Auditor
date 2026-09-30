@@ -5,6 +5,7 @@ on:
     paths:
       - 'src/rasai/catalog_report_public_labels.py'
       - 'src/rasai/catalog_report_search_trust.py'
+      - 'src/rasai/report_presentation.py'
       - 'tests/test_report_humanization_109.py'
       - '.github/workflows/report-humanization-109-targeted.yml'
   workflow_dispatch:
@@ -23,4 +24,8 @@ jobs:
           python-version: '3.13'
       - run: python -m pip install -e . pytest
       - name: Only changed report presentation surfaces
-        run: python -m pytest -q tests/test_report_humanization_109.py
+        run: >-
+          python -m pytest -q
+          tests/test_report_humanization_109.py
+          tests/test_report_presentation.py
+          tests/test_user_facing_language_contract.py
