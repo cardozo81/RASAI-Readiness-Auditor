@@ -1,0 +1,23 @@
+name: Initial AUD Search diagnostic 132 (isolated)
+on:
+  pull_request:
+    paths:
+      - 'src/rasai/search_audit_runtime.py'
+      - 'tests/test_search_aud_diagnostic_132.py'
+      - '.github/workflows/search-aud-diagnostic-132-targeted.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  search-initial-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install affected runtime and pytest
+        run: python -m pip install -e . pytest
+      - name: Only #132 collector and ledger regressions
+        run: python -m pytest -q tests/test_search_aud_diagnostic_132.py
