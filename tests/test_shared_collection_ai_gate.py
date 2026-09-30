@@ -16,7 +16,8 @@ from rasai.audit_fulfillment import (
     register_work_item,
     set_work_item_status,
 )
-from rasai.persistence import AuditWorkspace
+from rasai.domain import Audit
+from rasai.persistence import AuditPersistence, AuditWorkspace
 
 
 AUDIT_ID = "AUD-SHARED-COLLECTION-GATE"
@@ -24,6 +25,10 @@ AUDIT_ID = "AUD-SHARED-COLLECTION-GATE"
 
 def _workspace(tmp_path):
     workspace = AuditWorkspace.create(tmp_path, AUDIT_ID)
+    with AuditPersistence(workspace) as persistence:
+        persistence.audits.add(
+            Audit(audit_id=AUDIT_ID, project_name="Shared AI collection gate")
+        )
     initialize_contract(workspace, AUDIT_ID)
     return workspace
 
