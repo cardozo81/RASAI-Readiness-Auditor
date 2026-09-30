@@ -457,6 +457,46 @@ def _canonical_run_materialized(
     connection = sqlite3.connect(database)
     connection.row_factory = sqlite3.Row
     try:
+        if catalog_id == "CAT-08":
+            # CAT-08 may be selected for reporting even when its optional AI
+            # execution was explicitly disabled. Missing runs are not a
+            # structural failure in that case, but missing/legacy contracts
+            # must NEVER imply disabled (fail closed for requested AI).
+            explicitly_disabled = False
+            if _table_exists(connection, "audit_fulfillment_contracts"):
+                columns = _columns(connection, "audit_fulfillment_contracts")
+                if {"audit_id", "configuration"}.issubset(columns):
+                    row = connection.execute(
+                        "SELECT configuration FROM audit_fulfillment_contracts WHERE audit_id=?",
+                        (audit_id,),
+                    ).fetchone()
+                    if row is not None:
+                        try:
+                            configuration = json.loads(str(row["configuration"] or "{}"))
+                        except (TypeError, ValueError, json.JSONDecodeError):
+                            configuration = {}
+                        plan = configuration.get("resume_plan") if isinstance(configuration, dict) else None
+                        optional_env = plan.get("optional_environment") if isinstance(plan, dict) else None
+                        if isinstance(optional_env, dict):
+                            configured = optional_env.get("RASAI_IMPROVEMENT_INTELLIGENCE")
+                            explicitly_disabled = (
+                                configured is False
+                                or isinstance(configured, str)
+                                and configured.strip().casefold() in {"false", "0", "off", "no"}
+                            )
+            if explicitly_disabled and _table_exists(connection, "audit_fulfillment_work_items"):
+                columns = _columns(connection, "audit_fulfillment_work_items")
+                if {"audit_id", "component", "required", "status"}.issubset(columns):
+                    requested = connection.execute(
+                        """SELECT 1 FROM audit_fulfillment_work_items
+                           WHERE audit_id=? AND component='IMPROVEMENT_INTELLIGENCE'
+                             AND required=1
+                             AND UPPER(COALESCE(status,'')) NOT IN ('DISABLED','NOT_APPLICABLE')
+                           LIMIT 1""",
+                        (audit_id,),
+                    ).fetchone()
+                    if requested is None:
+                        return True, "execução de IA de melhoria explicitamente desabilitada no contrato desta AUD"
         if catalog_id == "CAT-09" and _table_exists(connection, "audit_fulfillment_work_items"):
             columns = _columns(connection, "audit_fulfillment_work_items")
             required = {"audit_id", "component", "required", "status"}
