@@ -814,7 +814,7 @@ def _contract_rows(configuration: Mapping[str, Any]) -> list[tuple[Any, ...]]:
         ("Retries SERP", configuration.get("retries") if configuration.get("retries") is not None else "-"),
         ("Timeout SERP", f"{configuration.get('timeout_seconds')} s" if configuration.get("timeout_seconds") is not None else "-"),
         ("Intervalo mínimo", f"{configuration.get('min_interval_seconds')} s" if configuration.get("min_interval_seconds") is not None else "-"),
-        ("Market", configuration.get("market") or "-"),
+        ("País/mercado", _serp_geo_label(configuration.get("market"), None)),
         ("Idioma", configuration.get("language") or "-"),
         ("IA principal solicitada", configuration_value_report("RASAI_AI_PROVIDER", configuration.get("ai_provider") or "-")),
         ("Modelo solicitado", configuration.get("ai_model") or "Automático"),

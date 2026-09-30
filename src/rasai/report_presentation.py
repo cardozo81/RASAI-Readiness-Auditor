@@ -79,6 +79,7 @@ SCORING_CONCEPT_LABELS: dict[str, str] = {
     "CONTENT_USEFULNESS": "Utilidade do conteúdo",
     "CONTENT_DIFFERENTIATION": "Diferenciação do conteúdo",
     "CONTENT_DEPTH": "Profundidade do conteúdo",
+    "EXTERNAL_CRAWL_CORROBORATION": "Corroboração externa de rastreamento",
     # Conceitos dos gates críticos de prontidão.
     "DISCOVERY": "Descoberta",
     "EXTRACTION": "Extração",

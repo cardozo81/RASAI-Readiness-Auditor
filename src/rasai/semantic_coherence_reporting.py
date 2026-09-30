@@ -10,6 +10,7 @@ from typing import Any
 from rasai.score_geo_004 import DIMENSION_WEIGHTS, RULE_SCORING_CONTRACT
 from rasai.semantic_coherence import PAGE_COHERENCE_CRITERIA, PROPERTY_COHERENCE_CRITERIA
 from rasai.catalog_report_public_labels import public_label
+from rasai.report_presentation import SCORING_CONCEPT_LABELS
 from rasai.configuration_value_labels import configuration_value_report
 
 _INSTALLED = False
@@ -369,14 +370,33 @@ def _semantic_assessment_rows(database: Any, audit_id: str) -> list[dict[str,Any
     finally:connection.close()
 
 
+def _semantic_scoring_group_label(value: Any) -> str:
+    """Humanize only the scoring group supplied by the canonical scoring contract."""
+    code = str(value or "").strip().upper()
+    return SCORING_CONCEPT_LABELS.get(code, "Grupo de pontuação não classificado")
+
+
+def _semantic_provider_origin(value: Any) -> str:
+    """Avoid interpreting persisted deterministic provider IDs as AI execution."""
+    provider = str(value or "").strip().upper()
+    if provider == "DETERMINISTIC_BASELINE":
+        return "Baseline determinístico"
+    if provider == "DETERMINISTIC":
+        return "Validação determinística"
+    if provider in {"", "NONE"}:
+        return "Determinístico/sem IA"
+    return "Avaliação assistida por IA"
+
+
 def _semantic_assessments_html(evidence: Any,database: Any,audit_id: str) -> str:
     rows=_semantic_assessment_rows(database,audit_id)
     if not rows:return "<div class='subsection'><h3>Avaliações semânticas</h3><div class='notice'>Nenhum assessment semântico persistido para esta AUD.</div></div>"
     table_rows=[];modals=[]
     for index,row in enumerate(rows,1):
         rule=str(row.get("assessment_type") or "");contract=RULE_SCORING_CONTRACT.get(rule);modal_id=f"semantic-assessment-{index}"
-        dimension=contract.dimension if contract else "NON_SCORING";group=contract.scoring_group if contract else "-"
-        origin="Baseline determinístico" if str(row.get("provider") or "").upper()=="DETERMINISTIC_BASELINE" else "IA" if str(row.get("provider") or "").upper() not in {"","NONE"} else "Determinístico/sem IA"
+        dimension=contract.dimension if contract else "NON_SCORING"
+        group=_semantic_scoring_group_label(contract.scoring_group) if contract else "-"
+        origin=_semantic_provider_origin(row.get("provider"))
         result_display=_status_display(evidence,row.get("result"))
         table_rows.append((row.get("page_url") or "-",rule,_dimension_label(dimension),result_display,_confidence(row.get("confidence")),origin,evidence._modal_button(modal_id,"Ver proveniência")))
         source_ids=_json_list(row.get("evidence_ids"));execution_ids=_json_list(row.get("execution_evidence_ids"));all_ids=list(dict.fromkeys([*source_ids,*execution_ids]))
