@@ -872,6 +872,7 @@ def _recover_search(workspace: Any, audit_id: str, item: Any) -> bool:
     from rasai.search_intelligence.models import DomainMatchStatus, QueryOrigin, SerpQueryRequest, new_identifier
     from rasai.search_intelligence.provider_catalog import serp_provider_registration
     from rasai.search_intelligence.runtime import execute_search
+    from rasai.search_intelligence.service import is_terminal_limited_result
 
     values = dict(getattr(item, "configuration", {}) or {})
     queries = tuple(str(value).strip() for value in values.get("queries", ()) if str(value).strip())
@@ -994,7 +995,11 @@ def _recover_search(workspace: Any, audit_id: str, item: Any) -> bool:
     failed = tuple(
         result
         for result in execution.results
-        if result.domain_status in {DomainMatchStatus.ERROR, DomainMatchStatus.UNAVAILABLE, DomainMatchStatus.DISABLED}
+        if (
+            result.domain_status
+            in {DomainMatchStatus.ERROR, DomainMatchStatus.UNAVAILABLE, DomainMatchStatus.DISABLED}
+            and not is_terminal_limited_result(result)
+        )
     )
     if not failed and execution.results:
         set_work_item_status(
