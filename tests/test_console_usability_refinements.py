@@ -213,6 +213,67 @@ def test_completed_audit_detail_hides_reprocess_action_and_shortcut(
     assert state.error == "Contrato atual concluído; não existem pendências para reprocessar."
 
 
+def test_completed_audit_detail_exposes_reprocess_after_deterministic_reconciliation(
+    monkeypatch, tmp_path: Path, capsys
+) -> None:
+    import rasai.console_artifacts as artifacts
+    import rasai.console_navigation as navigation
+    import rasai.console_usability_refinements as usability
+
+    audit_id = "AUD-COMPLETE-BUT-STALE-M4"
+    (tmp_path / audit_id).mkdir()
+
+    stale_complete = {
+        "processing_status": "COMPLETE",
+        "score_status": "FINAL",
+        "report_status": "FINAL",
+        "consolidation_eligible": True,
+        "required_items": 4,
+        "successful_items": 4,
+        "pending_items": 0,
+        "blocked_items": 0,
+        "expired_items": 0,
+        "reprocess_count": 1,
+        "last_reprocess_id": "RPR-OLD",
+        "completed_at": "2026-09-28T18:00:00+00:00",
+    }
+    reconciled = {
+        **stale_complete,
+        "processing_status": "PARTIAL_RETRYABLE",
+        "score_status": "PENDING",
+        "report_status": "PRELIMINARY",
+        "consolidation_eligible": False,
+        "successful_items": 3,
+        "pending_items": 1,
+    }
+
+    monkeypatch.setattr(usability, "_safe_summary", lambda *_: stale_complete)
+
+    def reconciled_summary(audit_root, current_audit_id, *, summary_reader=None):
+        assert current_audit_id == audit_id
+        assert summary_reader is usability._safe_summary
+        return reconciled
+
+    monkeypatch.setattr(navigation, "_reconciled_summary", reconciled_summary)
+    monkeypatch.setattr(
+        navigation,
+        "_configuration_reuse_status",
+        lambda *_: (True, "snapshot canônico íntegro"),
+    )
+    monkeypatch.setattr(artifacts, "report_entrypoint", lambda *_: None)
+    monkeypatch.setattr("builtins.input", lambda *_: "V")
+
+    state = SimpleNamespace(audits_root=tmp_path, status="", operation="", error="")
+    console_module = SimpleNamespace(render_header=lambda *_: None)
+
+    assert usability._selected_audit_menu(console_module, state, audit_id) is False
+    rendered = capsys.readouterr().out
+
+    assert "Situação       : Parcial" in rendered
+    assert "1. Reprocessar somente pendências desta auditoria" in rendered
+    assert "Reprocessamento: não necessário" not in rendered
+
+
 def test_partial_retryable_audit_detail_keeps_reprocess_action(
     monkeypatch, tmp_path: Path, capsys
 ) -> None:

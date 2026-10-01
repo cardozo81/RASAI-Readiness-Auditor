@@ -56,6 +56,27 @@ def _safe_summary(audit_root: Path, audit_id: str) -> dict[str, Any]:
         return {}
 
 
+def _reconciled_summary(
+    audit_root: Path,
+    audit_id: str,
+    *,
+    summary_reader: Callable[[Path, str], dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Refresh deterministic fulfillment truth before deciding whether RPR is needed."""
+    try:
+        from rasai.audit_reprocess import reconcile_reprocess_state
+        from rasai.persistence import AuditWorkspace
+
+        workspace = AuditWorkspace.open(audit_root)
+        reconcile_reprocess_state(workspace, audit_id)
+    except (FileNotFoundError, OSError, ValueError, RuntimeError):
+        # Keep history/detail navigation available even when an older workspace cannot
+        # be reconciled; the ordinary summary remains the conservative fallback.
+        pass
+    reader = summary_reader or _safe_summary
+    return reader(audit_root, audit_id)
+
+
 def _configuration_reuse_status(state: Any, audit_id: str) -> tuple[bool, str]:
     """Return whether the selected AUD has a valid console snapshot and why not."""
     from rasai.audit_configuration_reuse import KIND_CONSOLE, load_reusable_audit_configuration
@@ -220,7 +241,7 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
 
     while True:
         audit_root = Path(state.audits_root) / audit_id
-        summary = _safe_summary(audit_root, audit_id)
+        summary = _reconciled_summary(audit_root, audit_id)
         reuse_available, reuse_detail = _configuration_reuse_status(state, audit_id)
         report_path = report_entrypoint(audit_root)
         console_module.render_header(state)

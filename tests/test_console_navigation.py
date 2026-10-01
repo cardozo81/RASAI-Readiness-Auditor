@@ -78,6 +78,45 @@ def test_history_configuration_reuse_hands_off_to_preparation(monkeypatch) -> No
     assert "V. Voltar ao início" in output.getvalue()
 
 
+def test_reconciled_summary_reconciles_before_reading_status(monkeypatch, tmp_path: Path) -> None:
+    from rasai import audit_reprocess
+    from rasai import persistence
+
+    audit_id = "AUD-RECONCILE-BEFORE-DETAIL"
+    audit_root = tmp_path / audit_id
+    audit_root.mkdir()
+    reconciled = {"done": False}
+    workspace = object()
+
+    monkeypatch.setattr(persistence.AuditWorkspace, "open", staticmethod(lambda path: workspace))
+
+    def reconcile(current_workspace, current_audit_id):
+        assert current_workspace is workspace
+        assert current_audit_id == audit_id
+        reconciled["done"] = True
+
+    monkeypatch.setattr(audit_reprocess, "reconcile_reprocess_state", reconcile)
+
+    def read_summary(current_root, current_audit_id):
+        assert current_root == audit_root
+        assert current_audit_id == audit_id
+        assert reconciled["done"] is True
+        return {
+            "processing_status": "PARTIAL_RETRYABLE",
+            "pending_items": 1,
+            "blocked_items": 0,
+        }
+
+    summary = navigation._reconciled_summary(
+        audit_root,
+        audit_id,
+        summary_reader=read_summary,
+    )
+
+    assert summary["processing_status"] == "PARTIAL_RETRYABLE"
+    assert summary["pending_items"] == 1
+
+
 def test_selected_audit_menu_marks_missing_snapshot_as_unavailable(monkeypatch, tmp_path: Path) -> None:
     console = _console()
     state = _state(tmp_path)
