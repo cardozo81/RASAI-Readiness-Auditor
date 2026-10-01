@@ -116,13 +116,18 @@ def _evidence_slice(
         }
         if "source" in columns:
             # SEMANTIC_M7 is currently the owner of SNAPSHOT_EVIDENCE. Its provider
-            # input is built only from rendered/raw content evidence; AI-derived or
-            # downstream evidence added later to the same snapshot must not make the
-            # semantic result stale.
+            # input is built from rendered/raw extraction evidence plus the deterministic
+            # semantic-input-builder context materialized before the governed seal.
+            # AI-derived or downstream evidence added later to the same snapshot must
+            # not make the semantic result stale.
             rows = connection.execute(
                 """SELECT * FROM evidence
                    WHERE audit_id=? AND snapshot_id=?
-                     AND source IN ('RENDERED_DOM','RAW_HTML_FALLBACK')
+                     AND source IN (
+                         'RENDERED_DOM',
+                         'RAW_HTML_FALLBACK',
+                         'semantic-input-builder'
+                     )
                    ORDER BY evidence_id""",
                 (audit_id, str(scope_key or "")),
             ).fetchall()
