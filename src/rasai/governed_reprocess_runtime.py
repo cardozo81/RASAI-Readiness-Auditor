@@ -1344,13 +1344,17 @@ def _install_core_composition() -> None:
                 bool(item.required) and str(item.status).upper() == SUCCESS
                 for item in list_work_items(workspace, audit_id)
             )
-            if not pending:
-                # A complete AUD is a true no-op: no collector, provider or AI call is
-                # justified merely because the operator requested reprocessing.
+            active_reprocess_id = _current_reprocess_id(workspace, audit_id)
+            if not pending and active_reprocess_id is None:
+                # A complete AUD with no active causal RPR is a true no-op: no
+                # collector, provider or AI call is justified merely because the
+                # operator requested reprocessing. When core recovery already opened
+                # an RPR, however, it may have changed evidence before reaching this
+                # downstream boundary. Continue so _prepare_reprocess can version that
+                # material change even when no work-item remains pending.
                 return original(audit_id, audits_root=audits_root, source=source)
 
             prior_snapshot = latest_evidence_snapshot(workspace, audit_id)
-            active_reprocess_id = _current_reprocess_id(workspace, audit_id)
             owns_reprocess = active_reprocess_id is None
             reprocess_id = active_reprocess_id or module.start_reprocess_run(
                 workspace,
