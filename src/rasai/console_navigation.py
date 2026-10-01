@@ -70,7 +70,7 @@ def _reconciled_summary(
         workspace = AuditWorkspace.open(audit_root)
         reconcile_reprocess_state(workspace, audit_id)
     except (FileNotFoundError, OSError, ValueError, RuntimeError):
-        # Keep history/detail navigation available even when a legacy workspace cannot
+        # Keep history/detail navigation available even when an older workspace cannot
         # be reconciled; the ordinary summary remains the conservative fallback.
         pass
     reader = summary_reader or _safe_summary
