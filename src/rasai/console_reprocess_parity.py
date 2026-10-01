@@ -146,6 +146,7 @@ _RPR_SCOPE_CONTEXT: ContextVar[tuple[int, int, tuple[str, ...]]] = ContextVar(
 )
 _RPR_COMMAND_PLAN: ContextVar[Any | None] = ContextVar("rasai_reprocess_command_plan", default=None)
 _RPR_LAST_COMMAND_PLAN: ContextVar[Any | None] = ContextVar("rasai_last_reprocess_command_plan", default=None)
+_RPR_AUDITS_ROOT: ContextVar[str] = ContextVar("rasai_reprocess_audits_root", default="")
 
 
 def current_reprocess_command_context() -> tuple[str, tuple[str, ...], bool] | None:
@@ -154,6 +155,14 @@ def current_reprocess_command_context() -> tuple[str, tuple[str, ...], bool] | N
 
 def current_reprocess_scope_context() -> tuple[int, int, tuple[str, ...]]:
     return _RPR_SCOPE_CONTEXT.get()
+
+
+def current_reprocess_audits_root(state: Any) -> str:
+    """Return the root frozen for this RPR, falling back only outside an active RPR."""
+    frozen = str(_RPR_AUDITS_ROOT.get() or "").strip()
+    if frozen:
+        return frozen
+    return str(getattr(state, "audits_root", "audits") or "audits")
 
 
 def set_reprocess_command_plan(plan: Any | None) -> None:
@@ -169,7 +178,7 @@ def _pending_items(state: Any, audit_id: str) -> tuple[Any, ...]:
         from rasai.audit_fulfillment import list_work_items
         from rasai.persistence import AuditWorkspace
 
-        workspace = AuditWorkspace.open(Path(state.audits_root) / audit_id)
+        workspace = AuditWorkspace.open(Path(current_reprocess_audits_root(state)) / audit_id)
         return tuple(
             item
             for item in list_work_items(workspace, audit_id, pending_only=True)
@@ -281,7 +290,7 @@ def render_reprocess_preparation(
     """Render reprocessing as the same preparation/action pattern used by processing."""
     from rasai import console_navigation
 
-    audit_root = Path(state.audits_root) / audit_id
+    audit_root = Path(current_reprocess_audits_root(state)) / audit_id
     summary = console_navigation._safe_summary(audit_root, audit_id)
 
     console_module.render_header(state)
@@ -415,7 +424,7 @@ def _mode_scope_preview(
             item_key,
         )
 
-        workspace = AuditWorkspace.open(Path(state.audits_root) / audit_id)
+        workspace = AuditWorkspace.open(Path(current_reprocess_audits_root(state)) / audit_id)
         pending = tuple(
             item
             for item in list_work_items(workspace, audit_id, pending_only=True)
@@ -803,10 +812,19 @@ def reprocess_selected(console_module: ModuleType, state: Any, audit_id: str) ->
     if _ACTIVE_REPROCESS_AUDIT.get() == audit_id:
         # Defensive guard against accidental recursive composition of console wrappers.
         return
+    frozen_root = str(getattr(state, "audits_root", "audits") or "audits")
+    expected_database = Path(frozen_root) / audit_id / "audit.db"
+    if not expected_database.is_file():
+        state.status = "REPROCESS_FAILED"
+        state.operation = "LOCAL:AUD_REPROCESS"
+        state.error = f"AUD não encontrado na raiz congelada do reprocessamento: {expected_database}"
+        return
     active_token = _ACTIVE_REPROCESS_AUDIT.set(audit_id)
+    root_token = _RPR_AUDITS_ROOT.set(frozen_root)
     try:
         _reprocess_selected_once(console_module, state, audit_id)
     finally:
+        _RPR_AUDITS_ROOT.reset(root_token)
         _ACTIVE_REPROCESS_AUDIT.reset(active_token)
 
 
@@ -841,7 +859,7 @@ def _reprocess_selected_once(console_module: ModuleType, state: Any, audit_id: s
         item_key,
     )
 
-    audit_root = Path(state.audits_root) / audit_id
+    audit_root = Path(current_reprocess_audits_root(state)) / audit_id
     policy_workspace = AuditWorkspace.open(audit_root)
     raw_keys = tuple(item_key(item.component, item.scope_key) for item in raw_selected)
     effective_keys_set = expand_selected_items(
@@ -946,7 +964,7 @@ def _reprocess_selected_once(console_module: ModuleType, state: Any, audit_id: s
             ):
                 outcome["result"] = reprocess_audit(
                     audit_id,
-                    audits_root=state.audits_root,
+                    audits_root=current_reprocess_audits_root(state),
                     source="CONSOLE",
                 )
         except Exception as exc:  # console boundary: expose engine failures to the operator
@@ -1113,7 +1131,7 @@ def _reprocess_selected_once(console_module: ModuleType, state: Any, audit_id: s
 
             command_plan = executed(command_plan)
             _RPR_LAST_COMMAND_PLAN.set(command_plan)
-            record(command_plan, state.audits_root, audit_id, append=True)
+            record(command_plan, current_reprocess_audits_root(state), audit_id, append=True)
         except Exception:
             # Command logging is observability only and cannot alter the RPR result.
             pass

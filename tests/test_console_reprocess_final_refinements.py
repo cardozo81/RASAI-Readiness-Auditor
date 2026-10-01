@@ -365,6 +365,48 @@ def test_mode_choice_starts_reprocess_without_second_confirmation(monkeypatch, t
     assert "Confirmar e iniciar reprocessamento" not in rendered
 
 
+def test_confirmation_command_uses_frozen_root_not_mutated_session_root(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from rasai import console_reprocess_parity as parity, console_runtime
+
+    root_a = tmp_path / "root-a"
+    root_b = tmp_path / "root-b"
+    state = SimpleNamespace(
+        audits_root=str(root_b),
+        audit_id="",
+        ai_provider="none",
+        ai_model=None,
+        ai_reasoning=None,
+        status="READY",
+        operation="LOCAL:MENU",
+        error="",
+    )
+    console = ModuleType("fake_console")
+    monkeypatch.setattr(console_runtime, "set_runtime_progress", lambda *args, **kwargs: None)
+
+    audit_token = final._CURRENT_AUDIT_ID.set("AUD-TEST")
+    scope_token = parity._RPR_SCOPE_CONTEXT.set((1, 1, ()))
+    command_token = parity._RPR_COMMAND_CONTEXT.set(
+        ("AUD-TEST", ("CONTENT_EXTRACTION::SNP-1",), False)
+    )
+    root_token = parity._RPR_AUDITS_ROOT.set(str(root_a))
+    try:
+        assert final._confirm_reprocess_with_feedback(console, state) is True
+        plan = parity._RPR_COMMAND_PLAN.get()
+        assert plan is not None
+        argv = tuple(plan.argv)
+        index = argv.index("--audits-root")
+        assert argv[index + 1] == str(root_a)
+        assert str(root_b) not in argv
+    finally:
+        parity._RPR_COMMAND_PLAN.set(None)
+        parity._RPR_AUDITS_ROOT.reset(root_token)
+        parity._RPR_COMMAND_CONTEXT.reset(command_token)
+        parity._RPR_SCOPE_CONTEXT.reset(scope_token)
+        final._CURRENT_AUDIT_ID.reset(audit_token)
+
+
 def test_post_actions_offer_direct_retry_with_slotted_state(monkeypatch, tmp_path: Path) -> None:
     from rasai import console_artifacts, console_reprocess_parity as parity
 
@@ -426,8 +468,8 @@ def test_post_actions_clear_live_progress_when_returning_to_menu(monkeypatch, tm
     state = SimpleNamespace(
         audits_root=str(tmp_path),
         audit_id="AUD-TEST",
-        error="",
-        status="PARTIAL_RETRYABLE",
+        error="opção inválida; use R, M, P, I, V ou Q",
+        status="COMPLETE",
         operation="LOCAL:DONE",
     )
     console = ModuleType("fake_console")
@@ -471,6 +513,7 @@ def test_post_actions_clear_live_progress_when_returning_to_menu(monkeypatch, tm
 
     assert console_runtime.runtime_progress_summary(state) is None
     assert state.operation == "LOCAL:MENU"
+    assert state.error == ""
 
 
 def test_reprocess_wrapper_repeats_only_after_explicit_result_action(monkeypatch) -> None:

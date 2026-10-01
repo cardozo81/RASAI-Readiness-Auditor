@@ -34,6 +34,21 @@ _LABEL_WIDTH = 22
 _VALUE_WIDTH = _WIDTH - _LABEL_WIDTH - 3
 
 
+def _effective_root(state: Any) -> str:
+    from rasai import console_reprocess_parity as parity
+
+    return parity.current_reprocess_audits_root(state)
+
+
+def _call_with_effective_root(state: Any, callback: Any, *args: Any, **kwargs: Any) -> Any:
+    original_root = getattr(state, "audits_root", "audits")
+    state.audits_root = _effective_root(state)
+    try:
+        return callback(state, *args, **kwargs)
+    finally:
+        state.audits_root = original_root
+
+
 def _as_bool(value: Any) -> bool:
     if isinstance(value, bool):
         return value
@@ -64,7 +79,7 @@ def _work_item_preview(state: Any, audit_id: str) -> tuple[tuple[Any, ...], tupl
         from rasai.audit_fulfillment import DISABLED, NOT_APPLICABLE, SUCCESS, list_work_items
         from rasai.persistence import AuditWorkspace
 
-        workspace = AuditWorkspace.open(Path(state.audits_root) / audit_id)
+        workspace = AuditWorkspace.open(Path(_effective_root(state)) / audit_id)
         from rasai.audit_reprocess import reconcile_reprocess_state
 
         reconcile_reprocess_state(workspace, audit_id)
@@ -85,7 +100,7 @@ def _all_applicable_ai_items(state: Any, audit_id: str) -> tuple[Any, ...]:
         from rasai.audit_fulfillment import DISABLED, NOT_APPLICABLE, list_work_items
         from rasai.persistence import AuditWorkspace
 
-        workspace = AuditWorkspace.open(Path(state.audits_root) / audit_id)
+        workspace = AuditWorkspace.open(Path(_effective_root(state)) / audit_id)
         return tuple(
             item
             for item in list_work_items(workspace, audit_id)
@@ -103,7 +118,7 @@ def _source_forecast_state(state: Any, audit_id: str) -> Any | None:
         from rasai.audit_configuration_reuse import KIND_CONSOLE, load_reusable_audit_configuration
 
         source = load_reusable_audit_configuration(
-            state.audits_root,
+            _effective_root(state),
             audit_id,
             expected_kind=KIND_CONSOLE,
         )
@@ -148,7 +163,7 @@ def _source_forecast_state(state: Any, audit_id: str) -> Any | None:
         input_mode="url",
         target=clean_targets[0],
         max_pages=max_pages,
-        audits_root=str(state.audits_root),
+        audits_root=_effective_root(state),
     )
 
 
@@ -469,7 +484,7 @@ def render_reprocess_preparation(
     from rasai.persistence import AuditWorkspace
 
     _CURRENT_AUDIT_ID.set(audit_id)
-    audit_root = Path(state.audits_root) / audit_id
+    audit_root = Path(_effective_root(state)) / audit_id
     summary = console_navigation._safe_summary(audit_root, audit_id)
     excluded = 0
     try:
@@ -482,13 +497,14 @@ def render_reprocess_preparation(
     except (OSError, ValueError, RuntimeError):
         excluded = 0
 
-    console_module.render_header(state)
+    _call_with_effective_root(state, console_module.render_header)
     print("INÍCIO > AUDITORIAS / HISTÓRICO > REPROCESSAR AUDITORIA")
     print("\nPREPARAR REPROCESSAMENTO")
     print("=" * _WIDTH)
     from rasai.console_history_presentation import audit_identity_context
     identity = audit_identity_context(audit_root, audit_id)
     _field("AUD", audit_id)
+    _field("Raiz efetiva", _effective_root(state))
     _field("URL", identity.get("url") or "-")
     _field("Dispositivo", identity.get("device") or "-")
     _field("Situação", parity._friendly_status(summary.get("processing_status")))
@@ -569,8 +585,14 @@ def _confirm_reprocess_with_feedback(console_module: ModuleType, state: Any) -> 
         and len(context) == 3
         and str(context[0]) == audit_id
     ):
+        plan_state = SimpleNamespace(
+            audits_root=_effective_root(state),
+            ai_provider=getattr(state, "ai_provider", "none"),
+            ai_model=getattr(state, "ai_model", None),
+            ai_reasoning=getattr(state, "ai_reasoning", None),
+        )
         plan = reprocess_plan(
-            state,
+            plan_state,
             audit_id,
             selected_items=context[1],
             use_ai=bool(context[2]),
@@ -648,20 +670,26 @@ def _run_post_actions(
     confirm_exit = getattr(console_module, "_confirm_exit", None)
 
     while True:
-        console_module.render_header(state)
-        workspace, report = artifact_status(state)
+        effective_root = _effective_root(state)
+        _call_with_effective_root(state, console_module.render_header)
+        artifact_state = SimpleNamespace(
+            audit_id=str(getattr(state, "audit_id", "") or ""),
+            audits_root=effective_root,
+        )
+        workspace, report = artifact_status(artifact_state)
         if getattr(state, "audit_id", ""):
             from rasai.console_history_presentation import audit_identity_context
-            audit_root = Path(state.audits_root) / state.audit_id
+            audit_root = Path(_effective_root(state)) / state.audit_id
             identity = audit_identity_context(audit_root, state.audit_id)
             print(f"Audit ID    : {state.audit_id}")
+            print(f"Raiz efetiva: {effective_root}")
             print(f"URL         : {identity.get('url') or '-'}")
             print(f"Dispositivo : {identity.get('device') or '-'}")
         parity.render_reprocess_result(result, unresolved)
         parity._render_reprocess_usage_delta(before_usage, after_usage)
         if callable(normal_usage):
             print("\nCONSUMO ACUMULADO DO AUD APÓS O REPROCESSAMENTO")
-            normal_usage(state)
+            _call_with_effective_root(state, normal_usage)
 
         repeatable = _can_repeat(unresolved)
         print("\n" + title_text("AÇÕES DO REPROCESSAMENTO"))
@@ -690,6 +718,7 @@ def _run_post_actions(
 
             clear_runtime_progress(state)
             state.operation = "LOCAL:MENU"
+            state.error = ""
             return
         if choice == "Q":
             if callable(confirm_exit) and confirm_exit(state):
@@ -702,29 +731,29 @@ def _run_post_actions(
             if plan is not None:
                 show(
                     plan,
-                    state.audits_root,
-                    artifact_root=workspace or Path(state.audits_root) / str(getattr(state, "audit_id", "")),
+                    effective_root,
+                    artifact_root=workspace or Path(effective_root) / str(getattr(state, "audit_id", "")),
                     execution_id=str(getattr(state, "audit_id", "") or "") or None,
                 )
             elif not (
                 getattr(state, "audit_id", "")
                 and show_logged(
-                    state.audits_root,
+                    effective_root,
                     state.audit_id,
-                    artifact_root=workspace or Path(state.audits_root) / state.audit_id,
+                    artifact_root=workspace or Path(effective_root) / state.audit_id,
                 )
             ):
                 state.error = "linha de comando não disponível para este reprocessamento"
             continue
         if choice == "P":
             if workspace and callable(artifact_action):
-                artifact_action(state, "P")
+                _call_with_effective_root(state, artifact_action, "P")
             else:
                 state.error = "pasta da auditoria ainda não disponível"
             continue
         if choice == "I":
             if report and callable(artifact_action):
-                artifact_action(state, "I")
+                _call_with_effective_root(state, artifact_action, "I")
             else:
                 state.error = "relatório HTML ainda não disponível"
             continue
