@@ -25,7 +25,7 @@ from rasai.audit_fulfillment import (
     start_reprocess_run,
 )
 from rasai.audit_reprocess import ReprocessResult
-from rasai.domain import Audit
+from rasai.domain import Audit, Evidence, EvidenceType, utc_now
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.reprocess_policy import item_key, reprocess_policy
 from rasai.selective_reprocess_context import scope
@@ -844,6 +844,139 @@ def test_complete_aud_is_true_noop_before_any_rpr_integration(
 
     assert calls == ["base-noop"]
     assert result.attempted_items == 0
+
+
+def test_core_only_active_rpr_versions_evidence_even_when_no_pending_remain(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    from rasai import ai_governance, core_reprocessing
+
+    first = ai_governance.seal_evidence(
+        workspace=workspace,
+        audit_id=AUDIT_ID,
+        context={"phase": "PRE_CORE_RPR"},
+    )
+    reprocess_id = start_reprocess_run(
+        workspace,
+        AUDIT_ID,
+        source="TEST",
+        note="core-only recovery already active",
+    )
+
+    with AuditPersistence(workspace) as persistence:
+        persistence.evidence.add(
+            Evidence(
+                evidence_id="EV-CORE-RPR-NEW",
+                audit_id=AUDIT_ID,
+                page_id=None,
+                snapshot_id=None,
+                device=None,
+                evidence_type=EvidenceType.TEXT_EXCERPT,
+                source="core-recovery-test",
+                observed_value={"material_changed": True},
+                artifact_reference=None,
+                captured_at=utc_now(),
+            )
+        )
+
+    # Capture the governed factory without installing the real outer core wrapper.
+    monkeypatch.setattr(
+        core_reprocessing,
+        "_wrap_reprocess",
+        lambda original, _module: original,
+    )
+    runtime._install_core_composition()
+    wrapped_factory = core_reprocessing._wrap_reprocess
+
+    starts: list[str] = []
+    preparations: list[runtime.ReprocessPreparation] = []
+    calls: list[str] = []
+
+    def fail_start(*_args, **_kwargs):
+        starts.append("unexpected")
+        pytest.fail("active core RPR must be reused, never duplicated")
+
+    fake_module = SimpleNamespace(
+        _latest_pending=lambda *_args, **_kwargs: (),
+        start_reprocess_run=fail_start,
+        finish_reprocess_run=lambda *_args, **_kwargs: recalculate(workspace, AUDIT_ID),
+        _RPR_BASELINE_SUCCESSES=SimpleNamespace(
+            set=lambda _value: None,
+            reset=lambda _token: None,
+        ),
+    )
+
+    monkeypatch.setattr(
+        runtime,
+        "evaluate_collection_readiness",
+        lambda *_args, **_kwargs: SimpleNamespace(ready=True),
+    )
+    monkeypatch.setattr(runtime, "record_collection_gate", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(runtime, "try_append_operational_event", lambda *_args, **_kwargs: None)
+
+    def registered_ai_and_report(**kwargs):
+        preparations.append(kwargs["preparation"])
+        return False
+
+    monkeypatch.setattr(
+        runtime,
+        "_registered_ai_and_report",
+        registered_ai_and_report,
+    )
+
+    def base(audit_id: str, *, audits_root: str | Path, source: str):
+        calls.append("base")
+        summary = recalculate(workspace, audit_id)
+        return ReprocessResult(
+            audit_id=audit_id,
+            reprocess_id=None,
+            processing_status=summary.processing_status,
+            score_status=summary.score_status,
+            report_status=summary.report_status,
+            consolidation_eligible=summary.consolidation_eligible,
+            attempted_items=0,
+            successful_items=0,
+            skipped_success_items=1,
+            remaining_items=summary.pending_items + summary.blocked_items,
+            temporal_expired_items=summary.expired_items,
+            report_root=workspace.root / "report-catalog",
+        )
+
+    downstream = wrapped_factory(base, fake_module)
+    result = downstream(AUDIT_ID, audits_root=tmp_path, source="TEST")
+
+    assert calls == ["base"]
+    assert starts == []
+    assert result.reprocess_id == reprocess_id
+    assert len(preparations) == 1
+    preparation = preparations[0]
+    assert preparation.sealed_new_evidence is True
+    assert preparation.snapshot.version_number == 2
+    assert preparation.snapshot.evidence_snapshot_id != first.evidence_snapshot_id
+    assert "EV-CORE-RPR-NEW" in preparation.snapshot.evidence_ids
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        versions = connection.execute(
+            """SELECT evidence_snapshot_id,version_number,supersedes_snapshot_id,evidence_ids_json
+               FROM ai_evidence_versions
+               WHERE audit_id=? ORDER BY version_number""",
+            (AUDIT_ID,),
+        ).fetchall()
+        rpr_count = connection.execute(
+            "SELECT COUNT(*) FROM audit_reprocess_runs WHERE audit_id=?",
+            (AUDIT_ID,),
+        ).fetchone()[0]
+    finally:
+        connection.close()
+
+    assert len(versions) == 2
+    assert versions[1][1] == 2
+    assert versions[1][2] == first.evidence_snapshot_id
+    assert "EV-CORE-RPR-NEW" in versions[1][3]
+    assert rpr_count == 1
 
 
 def test_rpr_data_finalizers_do_not_recall_external_integrations(
