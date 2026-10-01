@@ -569,6 +569,34 @@ def test_pre_rpr_rollback_never_removes_existing_or_attempted_work(
     assert "WKI-NEW-ZERO" not in remaining
 
 
+def test_cat08_extension_uses_canonical_default_recommendation_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import rasai.audit_catalog_extension as extension
+
+    monkeypatch.delenv("RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS", raising=False)
+    captured: dict[str, object] = {}
+
+    def capture_request(*args, **kwargs):
+        captured.update(args[3])
+        return True
+
+    monkeypatch.setattr(extension, "_request_item", capture_request)
+    state = SimpleNamespace(ai_provider="none", ai_model=None, ai_reasoning=None)
+
+    components = extension._materialize_added_work(
+        object(),
+        AUDIT_ID,
+        state,
+        {"CAT-08"},
+        live_valid_until=None,
+        use_ai=False,
+    )
+
+    assert components == {"IMPROVEMENT_INTELLIGENCE"}
+    assert captured["max_recommendations"] == "30"
+
+
 def test_complete_audit_extension_delegates_only_delta_to_canonical_reprocess(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
