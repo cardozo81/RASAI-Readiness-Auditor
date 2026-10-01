@@ -22,7 +22,9 @@ from rasai.search_intelligence.persistence import SerpObservationRepository
 from rasai.search_intelligence.providers.fixture import FixtureSerpProvider
 from rasai.search_intelligence.providers.serpapi import SerpApiProvider
 from rasai.search_intelligence.runtime import execute_search
-from rasai.search_intelligence.service import SearchIntelligenceService, analyze_observation
+from rasai.search_intelligence.service import (
+    SearchIntelligenceService, analyze_observation, is_terminal_limited_result,
+)
 
 
 class FakeResponse:
@@ -224,6 +226,7 @@ class SerpApiTests(unittest.TestCase):
         self.assertTrue(quality['pagination_ended_before_requested_depth'])
         self.assertEqual(1, quality['observed_position_ceiling'])
         self.assertEqual(1, quality['observed_position_count'])
+        self.assertTrue(is_terminal_limited_result(result))
 
     def test_complete_requested_depth_allows_not_found_within_depth(self):
         first = {
@@ -258,6 +261,7 @@ class SerpApiTests(unittest.TestCase):
         provider = SerpApiProvider(api_key='x', retries=0, min_interval_seconds=0, opener=opener)
         result = SearchIntelligenceService(provider=provider).observe(request())
         self.assertEqual(DomainMatchStatus.UNAVAILABLE, result.domain_status)
+        self.assertFalse(is_terminal_limited_result(result))
 
     def test_malformed_live_json_becomes_error(self):
         def opener(req, timeout): return FakeResponse(b'{bad json')
@@ -291,6 +295,7 @@ class SerpApiTests(unittest.TestCase):
         self.assertEqual(DomainMatchStatus.ERROR, result.domain_status)
         self.assertEqual('SERP_CONSUMPTION_LIMIT', result.error_code)
         self.assertEqual(1,budget.used)
+        self.assertFalse(is_terminal_limited_result(result))
 
     def test_invalid_domain_is_rejected_before_provider_call(self):
         class CountingFixture(FixtureSerpProvider):
