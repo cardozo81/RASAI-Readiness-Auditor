@@ -569,20 +569,29 @@ def test_pre_rpr_rollback_never_removes_existing_or_attempted_work(
     assert "WKI-NEW-ZERO" not in remaining
 
 
-def test_cat08_extension_uses_canonical_default_recommendation_limit(
+def test_extension_improvement_uses_effective_console_state_not_ambient_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import rasai.audit_catalog_extension as extension
 
-    monkeypatch.delenv("RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS", raising=False)
-    captured: dict[str, object] = {}
+    monkeypatch.setenv("RASAI_IMPROVEMENT_DOMAINS", "PERFORMANCE")
+    monkeypatch.setenv("RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS", "50")
+    monkeypatch.setenv("RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS", "999")
+    captured: dict[str, dict[str, object]] = {}
 
     def capture_request(*args, **kwargs):
-        captured.update(args[3])
+        captured[str(args[2])] = dict(args[3])
         return True
 
     monkeypatch.setattr(extension, "_request_item", capture_request)
-    state = SimpleNamespace(ai_provider="none", ai_model=None, ai_reasoning=None)
+    state = SimpleNamespace(
+        ai_provider="auto",
+        ai_model="must-not-leak",
+        ai_reasoning="HIGH",
+        improvement_domains=("CONTENT", "SEMANTICS_STRUCTURE"),
+        improvement_max_recommendations=17,
+        improvement_timeout=77.0,
+    )
 
     components = extension._materialize_added_work(
         object(),
@@ -594,7 +603,30 @@ def test_cat08_extension_uses_canonical_default_recommendation_limit(
     )
 
     assert components == {"IMPROVEMENT_INTELLIGENCE"}
-    assert captured["max_recommendations"] == "30"
+    deep = captured["IMPROVEMENT_INTELLIGENCE"]
+    assert deep["domains"] == ["CONTENT", "SEMANTICS_STRUCTURE"]
+    assert deep["max_recommendations"] == "17"
+    assert deep["timeout_seconds"] == "77"
+    assert deep["model"] == ""
+    assert deep["reasoning"] == ""
+
+    captured.clear()
+    components = extension._materialize_added_work(
+        object(),
+        AUDIT_ID,
+        state,
+        {"CAT-10"},
+        live_valid_until=None,
+        use_ai=True,
+    )
+
+    assert components == {"PASSIVE_SECURITY", "IMPROVEMENT_INTELLIGENCE"}
+    security_ai = captured["IMPROVEMENT_INTELLIGENCE"]
+    assert security_ai["domains"] == ["SECURITY"]
+    assert security_ai["max_recommendations"] == "17"
+    assert security_ai["timeout_seconds"] == "77"
+    assert security_ai["model"] == ""
+    assert security_ai["reasoning"] == ""
 
 
 def test_complete_audit_extension_delegates_only_delta_to_canonical_reprocess(
