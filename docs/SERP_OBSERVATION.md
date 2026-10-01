@@ -128,6 +128,8 @@ Ele **não** retorna `NOT_FOUND_WITHIN_DEPTH`, pois isso declararia mais evidên
 
 Se o domínio do cliente já tiver sido observado em uma coleta parcial, a posição observada continua sendo um fato válido e ainda pode ser retornada como `FOUND`.
 
+No fulfillment, uma observação parcial é considerada **terminalmente atendida** somente quando o provider respondeu sem erro, a paginação terminou naturalmente e não houve esgotamento do orçamento de requests nem perda por normalização. A limitação permanece persistida e visível, mas não é promovida a `FAILED_RETRYABLE`. Timeout, erro HTTP/provider, orçamento esgotado, normalização incompleta ou evidência inválida continuam bloqueadores retryable/fail-closed.
+
 Metadados de qualidade de completude incluem, quando aplicável:
 
 - `observed_position_ceiling`;
