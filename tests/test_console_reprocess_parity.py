@@ -701,6 +701,102 @@ def test_fast_reprocess_renders_progress_before_result_surface(monkeypatch, tmp_
     assert rendered_labels[-1] == "Validação e conclusão"
 
 
+def test_reprocess_freezes_root_even_if_session_root_changes_after_selection(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from rasai import audit_reprocess, console_cost, console_navigation
+    from rasai.audit_fulfillment import FAILED_RETRYABLE, REPLAY_SAFE, initialize_contract, register_work_item
+    from rasai.domain import Audit
+    from rasai.persistence import AuditPersistence, AuditWorkspace
+
+    audit_id = "AUD-SAME-ID"
+    root_a = tmp_path / "root-a"
+    root_b = tmp_path / "root-b"
+    workspace_a = AuditWorkspace.create(root_a, audit_id)
+    workspace_b = AuditWorkspace.create(root_b, audit_id)
+    with AuditPersistence(workspace_a) as persistence:
+        persistence.audits.add(Audit(audit_id=audit_id, project_name="root A"))
+    with AuditPersistence(workspace_b) as persistence:
+        persistence.audits.add(Audit(audit_id=audit_id, project_name="root B"))
+    initialize_contract(workspace_a, audit_id)
+    register_work_item(
+        workspace_a,
+        audit_id=audit_id,
+        component="EXPERIENCE_APDEX",
+        scope_key="AUDIT",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status=FAILED_RETRYABLE,
+        retryable=True,
+        configuration={"test": True},
+    )
+
+    pending = next(
+        item
+        for item in __import__("rasai.audit_fulfillment", fromlist=["list_work_items"]).list_work_items(
+            workspace_a, audit_id
+        )
+        if item.component == "EXPERIENCE_APDEX"
+    )
+    state = SimpleNamespace(
+        audits_root=str(root_a),
+        audit_id="",
+        status="READY",
+        operation="LOCAL:MENU",
+        error="",
+        current_url="-",
+    )
+    console = ModuleType("fake_console")
+    observed_roots: list[Path] = []
+
+    monkeypatch.setattr(console_navigation, "_work_item_preview", lambda current_state, current_audit_id: ((pending,), ()))
+    monkeypatch.setattr(parity, "render_reprocess_preparation", lambda *args, **kwargs: None)
+    monkeypatch.setattr(parity, "_select_reprocess_items", lambda current_state, items: items)
+
+    def choose_and_drift(current_state):
+        current_state.audits_root = str(root_b)
+        return False
+
+    monkeypatch.setattr(parity, "_choose_reprocess_ai", choose_and_drift)
+    monkeypatch.setattr(parity, "_confirm_reprocess", lambda current_state: True)
+
+    def usage(audit_root):
+        observed_roots.append(Path(audit_root))
+        return _usage(attempts=0, tokens=0, cost=0.0)
+
+    monkeypatch.setattr(console_cost, "actual_usage", usage)
+
+    def execute(current_audit_id, *, audits_root, source):
+        assert current_audit_id == audit_id
+        assert source == "CONSOLE"
+        observed_roots.append(Path(audits_root))
+        return _result()
+
+    monkeypatch.setattr(audit_reprocess, "reprocess_audit", execute)
+    monkeypatch.setattr(parity, "_audit_primary_url", lambda audit_root: None)
+    monkeypatch.setattr(parity, "_pending_items", lambda current_state, current_audit_id: ())
+    monkeypatch.setattr(parity, "_run_post_actions", lambda *args, **kwargs: None)
+    monkeypatch.setattr(parity.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(
+        parity,
+        "_reprocess_live_snapshot",
+        lambda audit_root, current_audit_id, baseline: {"total": 1, "evaluated": 1, "running": ()},
+    )
+    monkeypatch.setattr(parity, "_reprocess_activity", lambda snapshot: "finalizando")
+    monkeypatch.setattr(
+        parity,
+        "_render_live_frame",
+        lambda console_module, current_state, audit_root: observed_roots.append(Path(audit_root)),
+    )
+
+    parity.reprocess_selected(console, state, audit_id)
+
+    assert state.audits_root == str(root_b)
+    assert observed_roots
+    assert all(path == root_a / audit_id or path == root_a for path in observed_roots)
+    assert not any(path == root_b or path == root_b / audit_id for path in observed_roots)
+
+
 def test_post_reprocess_uses_standard_post_run_usage_surface() -> None:
     console = ModuleType("fake_console")
     state = SimpleNamespace()
