@@ -294,6 +294,22 @@ def _install_m7_continuation() -> None:
             return original_safe(provider, semantic_input)
 
         audit_id, workspace, evidence_snapshot = context
+        sealed_ids = frozenset(
+            str(value)
+            for value in (getattr(evidence_snapshot, "evidence_ids", ()) or ())
+            if str(value).strip()
+        )
+        input_ids = frozenset(
+            str(value)
+            for value in (getattr(semantic_input, "allowed_evidence_ids", ()) or ())
+            if str(value).strip()
+        )
+        if input_ids - sealed_ids:
+            return semantic.ProviderCallResult(
+                semantic.ProviderState.UNAVAILABLE,
+                reason="AI_EVIDENCE_SNAPSHOT_MISMATCH",
+            )
+
         task_id = register_task(
             workspace=workspace,
             audit_id=audit_id,
