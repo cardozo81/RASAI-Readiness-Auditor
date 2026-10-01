@@ -321,8 +321,26 @@ def test_usage_refreshes_cached_cost_outcome_after_reprocess(monkeypatch) -> Non
     console_cost_confirmation._FORECASTS[id(state)] = forecast
     console_cost_confirmation._OUTCOMES[id(state)] = stale
     rendered: list[console_cost_confirmation._CostOutcome] = []
+    persisted: list[console_cost_confirmation._CostOutcome] = []
+    finalized: list[str] = []
+    from rasai import execution_adherence_refinement
+
     monkeypatch.setattr(console_cost_confirmation, "_build_outcome", lambda *_args: refreshed)
-    monkeypatch.setattr(console_cost_confirmation, "_persist_outcome", lambda *_args: True)
+    monkeypatch.setattr(
+        console_cost_confirmation,
+        "_persisted_outcome_matches",
+        lambda *_args: False,
+    )
+    monkeypatch.setattr(
+        console_cost_confirmation,
+        "_persist_outcome",
+        lambda _state, _forecast_value, outcome: persisted.append(outcome) or True,
+    )
+    monkeypatch.setattr(
+        execution_adherence_refinement,
+        "finalize_catalog_projection",
+        lambda current_state: finalized.append(current_state.audit_id),
+    )
     monkeypatch.setattr(
         console_cost_confirmation,
         "_render_outcome",
@@ -335,6 +353,105 @@ def test_usage_refreshes_cached_cost_outcome_after_reprocess(monkeypatch) -> Non
         console_cost_confirmation._OUTCOMES.pop(id(state), None)
 
     assert calls == ["base-usage"]
+    assert persisted == [refreshed]
+    assert finalized == ["AUD-RPR"]
     assert rendered == [refreshed]
     assert rendered[0].actual == 0.04263060
     assert "incompleto" not in " ".join(rendered[0].notes).casefold()
+
+
+def test_persisted_cost_match_ignores_evaluated_at_only(monkeypatch, tmp_path) -> None:
+    state = SimpleNamespace(audit_id="AUD-152")
+    forecast = _forecast()
+    outcome = console_cost_confirmation._evaluate_cost_outcome(
+        forecast,
+        costs=(("USD", 0.11),),
+        unpriced_ai_attempts=0,
+        actual_pages=3,
+    )
+    database = tmp_path / "audit.db"
+    sqlite3.connect(database).close()
+    monkeypatch.setattr(
+        console_cost_confirmation,
+        "artifact_status",
+        lambda _state: (tmp_path, None),
+    )
+
+    assert console_cost_confirmation._persist_outcome(state, forecast, outcome) is True
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            """
+            UPDATE console_cost_forecast_outcomes
+            SET evaluated_at=?
+            WHERE audit_id=?
+            """,
+            ("2099-01-01T00:00:00+00:00", state.audit_id),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    assert console_cost_confirmation._persisted_outcome_matches(
+        state,
+        forecast,
+        outcome,
+    ) is True
+
+
+def test_usage_does_not_rewrite_matching_persisted_cost_outcome(monkeypatch) -> None:
+    calls: list[str] = []
+    module = ModuleType("cost_confirmation_noop_after_final_report")
+    module.render_header = lambda state: None
+    module.run_audit_from_console = lambda state: 0
+    module._post_run_actions = lambda state: True
+    module._render_actual_usage = lambda state: calls.append("base-usage")
+
+    install(module)
+    state = SimpleNamespace(audit_id="AUD-152", audits_root="audits")
+    forecast = _forecast()
+    refreshed = console_cost_confirmation._evaluate_cost_outcome(
+        forecast,
+        costs=(("USD", 0.11),),
+        unpriced_ai_attempts=0,
+        actual_pages=3,
+    )
+    console_cost_confirmation._FORECASTS[id(state)] = forecast
+    console_cost_confirmation._OUTCOMES[id(state)] = refreshed
+
+    persisted: list[str] = []
+    finalized: list[str] = []
+    rendered: list[console_cost_confirmation._CostOutcome] = []
+    from rasai import execution_adherence_refinement
+
+    monkeypatch.setattr(console_cost_confirmation, "_build_outcome", lambda *_args: refreshed)
+    monkeypatch.setattr(
+        console_cost_confirmation,
+        "_persisted_outcome_matches",
+        lambda *_args: True,
+    )
+    monkeypatch.setattr(
+        console_cost_confirmation,
+        "_persist_outcome",
+        lambda *_args: persisted.append("persist") or True,
+    )
+    monkeypatch.setattr(
+        execution_adherence_refinement,
+        "finalize_catalog_projection",
+        lambda current_state: finalized.append(current_state.audit_id),
+    )
+    monkeypatch.setattr(
+        console_cost_confirmation,
+        "_render_outcome",
+        lambda _forecast_value, outcome: rendered.append(outcome),
+    )
+    try:
+        module._render_actual_usage(state)
+    finally:
+        console_cost_confirmation._FORECASTS.pop(id(state), None)
+        console_cost_confirmation._OUTCOMES.pop(id(state), None)
+
+    assert calls == ["base-usage"]
+    assert persisted == []
+    assert finalized == []
+    assert rendered == [refreshed]
