@@ -496,19 +496,17 @@ def _materialize_added_work(
                 components.add("SEMANTIC_AI")
 
     if "CAT-08" in added:
+        from rasai.improvement_intelligence import DEFAULT_DOMAINS
         provider = str(getattr(state, "ai_provider", "none") or "none").casefold()
+        auto_provider = provider == "auto"
         config = {
             "requested": True,
             "provider": provider,
-            "model": str(getattr(state, "ai_model", "") or ""),
-            "reasoning": str(getattr(state, "ai_reasoning", "") or ""),
-            "domains": [
-                value.strip()
-                for value in str(os.environ.get("RASAI_IMPROVEMENT_DOMAINS", "")).split(",")
-                if value.strip()
-            ],
-            "max_recommendations": os.environ.get("RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS", "30"),
-            "timeout_seconds": os.environ.get("RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS", "240"),
+            "model": "" if auto_provider else str(getattr(state, "ai_model", "") or ""),
+            "reasoning": "" if auto_provider else str(getattr(state, "ai_reasoning", "") or ""),
+            "domains": list(getattr(state, "improvement_domains", DEFAULT_DOMAINS)),
+            "max_recommendations": str(int(getattr(state, "improvement_max_recommendations", 30))),
+            "timeout_seconds": f"{float(getattr(state, 'improvement_timeout', 240.0)):g}",
             "language": os.environ.get("RASAI_AI_ANALYSIS_LANGUAGE", "auto"),
         }
         if _request_item(
@@ -564,11 +562,19 @@ def _materialize_added_work(
                 {
                     "requested": True,
                     "provider": str(getattr(state, "ai_provider", "none") or "none").casefold(),
-                    "model": str(getattr(state, "ai_model", "") or ""),
-                    "reasoning": str(getattr(state, "ai_reasoning", "") or ""),
+                    "model": (
+                        ""
+                        if str(getattr(state, "ai_provider", "none") or "none").casefold() == "auto"
+                        else str(getattr(state, "ai_model", "") or "")
+                    ),
+                    "reasoning": (
+                        ""
+                        if str(getattr(state, "ai_provider", "none") or "none").casefold() == "auto"
+                        else str(getattr(state, "ai_reasoning", "") or "")
+                    ),
                     "domains": ["SECURITY"],
-                    "max_recommendations": os.environ.get("RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS", "30"),
-                    "timeout_seconds": os.environ.get("RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS", "240"),
+                    "max_recommendations": str(int(getattr(state, "improvement_max_recommendations", 30))),
+                    "timeout_seconds": f"{float(getattr(state, 'improvement_timeout', 240.0)):g}",
                     "language": os.environ.get("RASAI_AI_ANALYSIS_LANGUAGE", "auto"),
                     "source": "catalog_extension:CAT-10",
                 },
