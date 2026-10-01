@@ -52,6 +52,28 @@ def incomplete_depth_message(observation: SerpObservation) -> str:
     )
 
 
+def is_terminal_limited_result(result: SearchIntelligenceResult) -> bool:
+    """Return True only for a valid terminal partial SERP observation.
+
+    This is intentionally narrower than SERP_REQUESTED_DEPTH_INCOMPLETE:
+    provider/transport failures, request-budget exhaustion and normalization loss
+    remain unresolved and retryable.
+    """
+    observation = result.observation
+    if observation is None or observation.status is not SerpObservationStatus.OBSERVED:
+        return False
+    quality = dict(observation.quality_metadata or {})
+    return bool(
+        result.domain_status is DomainMatchStatus.UNAVAILABLE
+        and result.error_code == "SERP_REQUESTED_DEPTH_INCOMPLETE"
+        and quality.get("requested_depth_complete") is False
+        and quality.get("pagination_ended_before_requested_depth") is True
+        and quality.get("request_budget_ended_before_requested_depth") is not True
+        and quality.get("normalization_incomplete_for_requested_depth") is not True
+        and not quality.get("error_code")
+        and not quality.get("error_message")
+    )
+
 def analyze_observation(
     request: SerpQueryRequest,
     observation: SerpObservation,
