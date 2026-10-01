@@ -6,6 +6,7 @@ from pathlib import Path
 from rasai.audit_fulfillment import (
     REPLAY_SAFE,
     SUCCESS,
+    initialize_contract,
     register_work_item,
     set_work_item_status,
 )
@@ -109,6 +110,9 @@ def test_semantic_backfill_preserves_existing_success_provenance(tmp_path: Path)
 
 def test_semantic_backfill_keeps_canonical_fallback_for_new_work_item(tmp_path: Path) -> None:
     workspace = _workspace(tmp_path)
+    # _backfill_contract() always materializes the fulfillment schema first. Keep the
+    # SEMANTIC_AI row absent, but reproduce that real precondition.
+    initialize_contract(workspace, AUDIT_ID)
 
     connection = sqlite3.connect(workspace.database)
     connection.row_factory = sqlite3.Row
