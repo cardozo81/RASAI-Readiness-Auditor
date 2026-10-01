@@ -341,8 +341,11 @@ def test_ai_mode_choice_is_final_action_and_preserves_summary(monkeypatch) -> No
     assert "1. Reprocessar itens selecionados com IA" in rendered
     assert "Confirmar e iniciar reprocessamento" not in rendered
 
-def test_recursive_rpr_composition_does_not_prompt_scope_twice(monkeypatch) -> None:
-    state = SimpleNamespace()
+def test_recursive_rpr_composition_does_not_prompt_scope_twice(monkeypatch, tmp_path: Path) -> None:
+    audit_root = tmp_path / "AUD-TEST"
+    audit_root.mkdir()
+    (audit_root / "audit.db").touch()
+    state = SimpleNamespace(audits_root=str(tmp_path))
     calls: list[str] = []
 
     def nested(console_module, current_state, audit_id):
