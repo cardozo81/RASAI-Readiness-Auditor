@@ -42,6 +42,23 @@ _MAX_CONTINUATION_ROUNDS = 4
 _INSTALLED = False
 
 
+def _semantic_input_snapshot_gap(
+    semantic_input: Any,
+    evidence_snapshot: Any,
+) -> tuple[str, ...]:
+    sealed_ids = frozenset(
+        str(value)
+        for value in (getattr(evidence_snapshot, "evidence_ids", ()) or ())
+        if str(value).strip()
+    )
+    input_ids = frozenset(
+        str(value)
+        for value in (getattr(semantic_input, "allowed_evidence_ids", ()) or ())
+        if str(value).strip()
+    )
+    return tuple(sorted(input_ids - sealed_ids))
+
+
 @contextmanager
 def governed_execution_context(*, audit_id: str, workspace: Any) -> Iterator[Any | None]:
     """Bind the existing audit-runner wrapper stack to the latest sealed evidence."""
@@ -294,17 +311,7 @@ def _install_m7_continuation() -> None:
             return original_safe(provider, semantic_input)
 
         audit_id, workspace, evidence_snapshot = context
-        sealed_ids = frozenset(
-            str(value)
-            for value in (getattr(evidence_snapshot, "evidence_ids", ()) or ())
-            if str(value).strip()
-        )
-        input_ids = frozenset(
-            str(value)
-            for value in (getattr(semantic_input, "allowed_evidence_ids", ()) or ())
-            if str(value).strip()
-        )
-        if input_ids - sealed_ids:
+        if _semantic_input_snapshot_gap(semantic_input, evidence_snapshot):
             return semantic.ProviderCallResult(
                 semantic.ProviderState.UNAVAILABLE,
                 reason="AI_EVIDENCE_SNAPSHOT_MISMATCH",
