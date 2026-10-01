@@ -60,7 +60,7 @@ def is_terminal_limited_result(result: SearchIntelligenceResult) -> bool:
     remain unresolved and retryable.
     """
     observation = result.observation
-    if observation is None or observation.status is not SerpObservationStatus.OBSERVED:
+    if observation is None or getattr(observation, "status", None) is not SerpObservationStatus.OBSERVED:
         return False
     quality = dict(observation.quality_metadata or {})
     return bool(
@@ -73,6 +73,32 @@ def is_terminal_limited_result(result: SearchIntelligenceResult) -> bool:
         and not quality.get("error_code")
         and not quality.get("error_message")
     )
+
+def requires_search_retry(result: SearchIntelligenceResult) -> bool:
+    """Classify only genuine Search collection deficits as retryable.
+
+    A naturally exhausted provider pagination may be terminally limited and valid.
+    Budget exhaustion, normalization loss and provider/transport failures remain
+    fail-closed even when some useful positions (including the customer) were observed.
+    """
+    observation = result.observation
+    if result.domain_status in {DomainMatchStatus.ERROR, DomainMatchStatus.DISABLED}:
+        return True
+    if observation is None:
+        return result.domain_status is DomainMatchStatus.UNAVAILABLE
+    if getattr(observation, "status", None) in {
+        SerpObservationStatus.ERROR,
+        SerpObservationStatus.UNAVAILABLE,
+    }:
+        return True
+    quality = dict(getattr(observation, "quality_metadata", {}) or {})
+    if quality.get("request_budget_ended_before_requested_depth") is True:
+        return True
+    if quality.get("normalization_incomplete_for_requested_depth") is True:
+        return True
+    if result.domain_status is DomainMatchStatus.UNAVAILABLE:
+        return not is_terminal_limited_result(result)
+    return False
 
 def analyze_observation(
     request: SerpQueryRequest,
