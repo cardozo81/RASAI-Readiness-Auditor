@@ -851,7 +851,7 @@ def test_core_only_active_rpr_versions_evidence_even_when_no_pending_remain(
     tmp_path: Path,
 ) -> None:
     workspace = _workspace(tmp_path)
-    from rasai import ai_governance, core_reprocessing
+    from rasai import ai_governance, core_reprocessing, reprocess_runtime_safety
 
     first = ai_governance.seal_evidence(
         workspace=workspace,
@@ -945,7 +945,19 @@ def test_core_only_active_rpr_versions_evidence_even_when_no_pending_remain(
         )
 
     downstream = wrapped_factory(base, fake_module)
-    result = downstream(AUDIT_ID, audits_root=tmp_path, source="TEST")
+
+    # Reproduce the official runtime-safety wrapper exactly: it establishes an
+    # execution-local placeholder before the outer core wrapper opens the durable
+    # RPR.  The governed lookup must not treat reprocess_id=None as proof that no
+    # active RPR exists; it must fall back to audit_reprocess_runs.
+    context_token = reprocess_runtime_safety._RPR_CONTEXT.set(
+        reprocess_runtime_safety._RprContext(AUDIT_ID, None)
+    )
+    try:
+        assert runtime._current_reprocess_id(workspace, AUDIT_ID) == reprocess_id
+        result = downstream(AUDIT_ID, audits_root=tmp_path, source="TEST")
+    finally:
+        reprocess_runtime_safety._RPR_CONTEXT.reset(context_token)
 
     assert calls == ["base"]
     assert starts == []
