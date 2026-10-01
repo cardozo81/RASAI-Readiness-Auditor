@@ -238,8 +238,12 @@ def _current_reprocess_id(workspace: Any, audit_id: str) -> str | None:
         from rasai import reprocess_runtime_safety
 
         value = reprocess_runtime_safety._RPR_CONTEXT.get()
-        if value is not None and value.audit_id == audit_id:
-            return str(value.reprocess_id) if value.reprocess_id else None
+        if value is not None and value.audit_id == audit_id and value.reprocess_id:
+            return str(value.reprocess_id)
+        # A runtime-safety placeholder may exist before the outer core wrapper opens
+        # the durable RPR.  A context with reprocess_id=None is therefore not evidence
+        # that no RPR exists; fall through to the append-only audit_reprocess_runs
+        # ledger so core-only recovery remains visible to the governed boundary.
     except Exception:
         pass
     connection = sqlite3.connect(workspace.database)
