@@ -192,12 +192,16 @@ def clear_runtime_progress(state: State) -> None:
 
 
 def runtime_progress_summary(state: State) -> _RunProgress | None:
-    if str(getattr(state, "operation", "") or "").strip().upper() == "LOCAL:MENU":
-        return None
     progress = _RUN_PROGRESS.get(id(state))
     if progress is not None:
         return progress
-    phase = _PHASE_PROGRESS.get(state.status.upper())
+    status = state.status.upper()
+    if (
+        str(getattr(state, "operation", "") or "").strip().upper() == "LOCAL:MENU"
+        and status in _TERMINAL_PROGRESS_STATES
+    ):
+        return None
+    phase = _PHASE_PROGRESS.get(status)
     if phase is None:
         return None
     label, percent = phase
