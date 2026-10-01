@@ -729,6 +729,60 @@ def _mark_planned_not_executed(
     )
 
 
+def _remove_false_ambient_apdex_projection(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    *,
+    component: str,
+    env_name: str,
+) -> bool:
+    """Remove only a zero-attempt Apdex row created from ambient post-plan state."""
+    item = next(
+        (
+            candidate
+            for candidate in list_work_items(workspace, audit_id)
+            if candidate.component == component and candidate.scope_key == "AUDIT"
+        ),
+        None,
+    )
+    if item is None or int(item.attempt_count or 0) != 0:
+        return False
+
+    configuration = item.configuration if isinstance(item.configuration, Mapping) else {}
+    if not bool(configuration.get("requested")) or str(configuration.get("source") or "") != env_name:
+        return False
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        if _table_exists(connection, "audit_fulfillment_attempts"):
+            attempts = int(
+                connection.execute(
+                    "SELECT COUNT(*) FROM audit_fulfillment_attempts WHERE work_item_id=?",
+                    (item.work_item_id,),
+                ).fetchone()[0]
+            )
+            if attempts:
+                return False
+        with connection:
+            connection.execute(
+                "DELETE FROM audit_fulfillment_work_items WHERE work_item_id=?",
+                (item.work_item_id,),
+            )
+    finally:
+        connection.close()
+
+    try_append_operational_event(
+        workspace,
+        "AUDIT_FALSE_AMBIENT_APDEX_PROJECTION_REMOVED",
+        level="WARNING",
+        audit_id=audit_id,
+        component=component,
+        source=env_name,
+        work_item_id=item.work_item_id,
+    )
+    return True
+
+
 def initialize_execution_fulfillment(workspace: AuditWorkspace, audit_id: str) -> Any:
     """Materialize the non-final fulfillment universe before the first collection.
 
@@ -777,24 +831,40 @@ def materialize_planned_work_items(workspace: AuditWorkspace, audit_id: str) -> 
         )
 
     navigation = options.get("synthetic_apdex")
-    if isinstance(navigation, Mapping) and bool(navigation.get("enabled")):
-        _mark_planned_not_executed(
-            workspace,
-            audit_id,
-            "SYNTHETIC_APDEX",
-            temporal_mode=LIVE_RECOLLECTION,
-            configuration=navigation,
-        )
+    if isinstance(navigation, Mapping):
+        if bool(navigation.get("enabled")):
+            _mark_planned_not_executed(
+                workspace,
+                audit_id,
+                "SYNTHETIC_APDEX",
+                temporal_mode=LIVE_RECOLLECTION,
+                configuration=navigation,
+            )
+        else:
+            _remove_false_ambient_apdex_projection(
+                workspace,
+                audit_id,
+                component="SYNTHETIC_APDEX",
+                env_name="RASAI_SYNTHETIC_APDEX",
+            )
 
     experience = options.get("experience_apdex")
-    if isinstance(experience, Mapping) and bool(experience.get("enabled")):
-        _mark_planned_not_executed(
-            workspace,
-            audit_id,
-            "EXPERIENCE_APDEX",
-            temporal_mode=LIVE_RECOLLECTION,
-            configuration=experience,
-        )
+    if isinstance(experience, Mapping):
+        if bool(experience.get("enabled")):
+            _mark_planned_not_executed(
+                workspace,
+                audit_id,
+                "EXPERIENCE_APDEX",
+                temporal_mode=LIVE_RECOLLECTION,
+                configuration=experience,
+            )
+        else:
+            _remove_false_ambient_apdex_projection(
+                workspace,
+                audit_id,
+                component="EXPERIENCE_APDEX",
+                env_name="RASAI_APDEX_EXPERIENCE",
+            )
 
     search = options.get("search_intelligence")
     if isinstance(search, Mapping) and bool(search.get("enabled")) and search.get("queries"):

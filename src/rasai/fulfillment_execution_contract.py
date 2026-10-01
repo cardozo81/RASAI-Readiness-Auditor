@@ -565,20 +565,52 @@ def _reconcile_requested_improvement(workspace: Any, audit_id: str) -> None:
 
 
 def _reconcile_requested_apdex(workspace: Any, audit_id: str) -> None:
+    """Reconcile Apdex intent from the durable AUD plan, not restored ambient config."""
+    plan: Mapping[str, Any] = {}
+    explicit_plan = False
+    options: Mapping[str, Any] = {}
+    try:
+        from rasai.audit_resume_runtime import RESUME_PLAN_VERSION, load_resume_plan
+
+        loaded = load_resume_plan(workspace, audit_id)
+        if isinstance(loaded, Mapping):
+            plan = loaded
+            raw_options = plan.get("execution_options")
+            if (
+                str(plan.get("schema_version") or "") == RESUME_PLAN_VERSION
+                and isinstance(raw_options, Mapping)
+            ):
+                explicit_plan = True
+                options = raw_options
+    except Exception:
+        # Legacy audits without a durable resume plan retain the historical
+        # environment fallback below.
+        explicit_plan = False
+
     requested = (
-        ("RASAI_SYNTHETIC_APDEX", "SYNTHETIC_APDEX"),
-        ("RASAI_APDEX_EXPERIENCE", "EXPERIENCE_APDEX"),
+        ("RASAI_SYNTHETIC_APDEX", "SYNTHETIC_APDEX", "synthetic_apdex"),
+        ("RASAI_APDEX_EXPERIENCE", "EXPERIENCE_APDEX", "experience_apdex"),
     )
-    for env_name, component in requested:
-        if not _truthy(os.environ.get(env_name)):
-            continue
+    for env_name, component, option_key in requested:
+        configuration: dict[str, Any]
+        if explicit_plan:
+            planned = options.get(option_key)
+            if not (isinstance(planned, Mapping) and bool(planned.get("enabled"))):
+                continue
+            configuration = dict(planned)
+            configuration.update({"requested": True, "source": "resume_plan"})
+        else:
+            if not _truthy(os.environ.get(env_name)):
+                continue
+            configuration = {"requested": True, "source": env_name}
+
         if _work_item(workspace, audit_id, component) is None:
             _mark_requested_not_executed(
                 workspace,
                 audit_id,
                 component,
                 temporal_mode=LIVE_RECOLLECTION,
-                configuration={"requested": True, "source": env_name},
+                configuration=configuration,
             )
 
 

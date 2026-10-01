@@ -1,6 +1,7 @@
 """Focused regressions for #150: effective Apdex plan and independent CAT-07."""
 from __future__ import annotations
 
+import sqlite3
 from types import SimpleNamespace
 
 from rasai import audit_catalog
@@ -11,10 +12,17 @@ from rasai import console_ui_catalog
 from rasai import console_catalog_plan as plan
 from rasai.audit_execution_contract import normalize_audit_job_payload
 from rasai.audit_fulfillment import (
+    LIVE_RECOLLECTION,
     REPLAY_SAFE,
+    REQUESTED_NOT_EXECUTED,
     SUCCESS,
     list_work_items,
     register_work_item,
+)
+from rasai.audit_resume_runtime import (
+    materialize_planned_work_items,
+    persist_resume_plan,
+    resume_plan_options,
 )
 from rasai.console_m23 import State, synthetic_load_summary
 from rasai.console_search_intelligence import SearchConsoleState
@@ -47,6 +55,32 @@ def _workspace(tmp_path) -> AuditWorkspace:
     return workspace
 
 
+def _persist_apdex_resume_plan(
+    workspace: AuditWorkspace,
+    *,
+    navigation: bool,
+    experience: bool,
+) -> None:
+    with resume_plan_options(
+        {
+            "synthetic_apdex": {"enabled": navigation},
+            "experience_apdex": {"enabled": experience},
+        }
+    ):
+        persist_resume_plan(
+            workspace,
+            AUDIT_ID,
+            targets=("https://example.test/",),
+            target_type="URL",
+            language="pt-BR",
+            market="BR",
+            max_pages=1,
+            device_context="mobile",
+            content_remediation=False,
+            technical_remediation=False,
+        )
+
+
 def test_effective_catalog_plan_masks_stale_apdex_environment_for_fulfillment(
     tmp_path, monkeypatch,
 ) -> None:
@@ -76,6 +110,84 @@ def test_effective_catalog_plan_masks_stale_apdex_environment_for_fulfillment(
     assert state.apdex_experience is True
     assert __import__("os").environ["RASAI_SYNTHETIC_APDEX"] == "true"
     assert __import__("os").environ["RASAI_APDEX_EXPERIENCE"] == "true"
+
+
+
+
+def test_frozen_apdex_plan_wins_after_global_environment_is_restored(
+    tmp_path, monkeypatch,
+) -> None:
+    """#154: final report reconciliation must not resurrect disabled CAT-07."""
+    workspace = _workspace(tmp_path)
+    _persist_apdex_resume_plan(workspace, navigation=True, experience=False)
+
+    monkeypatch.setenv("RASAI_SYNTHETIC_APDEX", "true")
+    monkeypatch.setenv("RASAI_APDEX_EXPERIENCE", "true")
+
+    _reconcile_requested_apdex(workspace, AUDIT_ID)
+
+    items = {item.component: item for item in list_work_items(workspace, AUDIT_ID)}
+    assert items["SYNTHETIC_APDEX"].configuration["source"] == "resume_plan"
+    assert "EXPERIENCE_APDEX" not in items
+
+
+def test_materialize_plan_removes_zero_attempt_false_ambient_experience(tmp_path) -> None:
+    """#154: an already-persisted ambient CAT-07 ghost is safe to repair."""
+    workspace = _workspace(tmp_path)
+    _persist_apdex_resume_plan(workspace, navigation=True, experience=False)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="EXPERIENCE_APDEX",
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        status=REQUESTED_NOT_EXECUTED,
+        retryable=True,
+        configuration={"requested": True, "source": "RASAI_APDEX_EXPERIENCE"},
+    )
+
+    materialize_planned_work_items(workspace, AUDIT_ID)
+
+    components = {item.component for item in list_work_items(workspace, AUDIT_ID)}
+    assert "SYNTHETIC_APDEX" in components
+    assert "EXPERIENCE_APDEX" not in components
+
+
+def test_materialize_plan_preserves_attempted_experience_even_if_disabled(tmp_path) -> None:
+    """#154: durable attempts/evidence always win over cleanup of a false projection."""
+    workspace = _workspace(tmp_path)
+    _persist_apdex_resume_plan(workspace, navigation=True, experience=False)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="EXPERIENCE_APDEX",
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        status=REQUESTED_NOT_EXECUTED,
+        retryable=True,
+        configuration={"requested": True, "source": "RASAI_APDEX_EXPERIENCE"},
+    )
+    connection = sqlite3.connect(workspace.database)
+    try:
+        with connection:
+            connection.execute(
+                """UPDATE audit_fulfillment_work_items
+                   SET attempt_count=1
+                   WHERE audit_id=? AND component='EXPERIENCE_APDEX' AND scope_key='AUDIT'""",
+                (AUDIT_ID,),
+            )
+    finally:
+        connection.close()
+
+    materialize_planned_work_items(workspace, AUDIT_ID)
+
+    experience = next(
+        item
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component == "EXPERIENCE_APDEX"
+    )
+    assert experience.attempt_count == 1
+    assert experience.configuration["source"] == "RASAI_APDEX_EXPERIENCE"
 
 
 def test_cat07_selection_and_removal_are_independent_from_cat06() -> None:
