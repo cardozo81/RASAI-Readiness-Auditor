@@ -400,7 +400,7 @@ def _existing_semantic_context_evidence(
         """SELECT evidence_id
            FROM evidence
            WHERE audit_id=? AND snapshot_id=? AND source='semantic-input-builder'
-           ORDER BY captured_at,evidence_id
+           ORDER BY captured_at DESC,evidence_id DESC
            LIMIT 1""",
         (audit_id, snapshot_id),
     ).fetchone()
@@ -419,14 +419,6 @@ def _ensure_semantic_context_evidence(
     main_content: str | None = None,
     structured_data: Any = None,
 ):
-    existing = _existing_semantic_context_evidence(
-        persistence,
-        audit_id=audit_id,
-        snapshot_id=str(snapshot.snapshot_id),
-    )
-    if existing is not None:
-        return existing
-
     effective_main = (
         main_content
         if main_content is not None
@@ -437,6 +429,25 @@ def _ensure_semantic_context_evidence(
         if structured_data is not None
         else _read_json(workspace, snapshot.structured_data_ref)
     )
+    observed_value = {
+        "title": snapshot.title,
+        "main_content_excerpt": effective_main[:2000],
+        "main_content_available": bool(effective_main),
+        "structured_data_available": effective_structured is not None,
+    }
+
+    existing = _existing_semantic_context_evidence(
+        persistence,
+        audit_id=audit_id,
+        snapshot_id=str(snapshot.snapshot_id),
+    )
+    if (
+        existing is not None
+        and existing.observed_value == observed_value
+        and existing.artifact_reference == snapshot.main_content_ref
+    ):
+        return existing
+
     return manager.record(
         audit_id=audit_id,
         page_id=snapshot.page_id,
@@ -444,12 +455,7 @@ def _ensure_semantic_context_evidence(
         device=snapshot.device,
         evidence_type=EvidenceType.TEXT_EXCERPT,
         source="semantic-input-builder",
-        observed_value={
-            "title": snapshot.title,
-            "main_content_excerpt": effective_main[:2000],
-            "main_content_available": bool(effective_main),
-            "structured_data_available": effective_structured is not None,
-        },
+        observed_value=observed_value,
         artifact_reference=snapshot.main_content_ref,
     )
 
