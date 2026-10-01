@@ -658,7 +658,13 @@ def _backfill_semantic_task(workspace: Any, audit_id: str) -> None:
     groups: dict[str, list[sqlite3.Row]] = {}
     for row in rows:
         provider = str(row["provider"] or "").upper()
-        if provider in {"", "NONE", "FALLBACK", "DETERMINISTIC"}:
+        if provider in {
+            "",
+            "NONE",
+            "FALLBACK",
+            "DETERMINISTIC",
+            "DETERMINISTIC_BASELINE",
+        }:
             continue
         groups.setdefault(str(row["snapshot_id"]), []).append(row)
     for scope_key, items in groups.items():
