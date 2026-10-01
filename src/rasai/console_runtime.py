@@ -192,6 +192,8 @@ def clear_runtime_progress(state: State) -> None:
 
 
 def runtime_progress_summary(state: State) -> _RunProgress | None:
+    if str(getattr(state, "operation", "") or "").strip().upper() == "LOCAL:MENU":
+        return None
     progress = _RUN_PROGRESS.get(id(state))
     if progress is not None:
         return progress
