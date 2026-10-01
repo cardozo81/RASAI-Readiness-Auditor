@@ -240,6 +240,30 @@ def _semantic_backfill_status(
     return SUCCESS if successful_attempt and int(assessments) > 0 else FAILED_RETRYABLE
 
 
+def _semantic_backfill_result_ref(
+    connection: sqlite3.Connection,
+    *,
+    audit_id: str,
+    snapshot_id: str,
+) -> str | None:
+    """Preserve provenance metadata when reconciling an already-proven SUCCESS.
+
+    Backfill may discover durable semantic success without executing a new provider
+    attempt. In that case it must not replace the causal result reference or make the
+    reconciliation look like a new success event. Missing/non-success work-items keep
+    the legacy canonical fallback used when the fulfillment row is first materialized.
+    """
+    row = connection.execute(
+        """SELECT status,effective_result_ref
+           FROM audit_fulfillment_work_items
+           WHERE audit_id=? AND component='SEMANTIC_AI' AND scope_key=?""",
+        (audit_id, snapshot_id),
+    ).fetchone()
+    if row is not None and str(row["status"] or "").upper() == SUCCESS:
+        return row["effective_result_ref"]
+    return f"semantic:{snapshot_id}"
+
+
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -351,6 +375,11 @@ def _backfill_contract(workspace: AuditWorkspace, audit_id: str) -> None:
                         assessments=assessments,
                         latest_task_status=latest_task_status,
                     )
+                    result_ref = _semantic_backfill_result_ref(
+                        connection,
+                        audit_id=audit_id,
+                        snapshot_id=snapshot_id,
+                    )
                     register_work_item(
                         workspace,audit_id=audit_id,component="SEMANTIC_AI",scope_key=snapshot_id,
                         required=True,temporal_mode=REPLAY_SAFE,status=status,retryable=True,
@@ -359,7 +388,7 @@ def _backfill_contract(workspace: AuditWorkspace, audit_id: str) -> None:
                     if status == SUCCESS:
                         set_work_item_status(
                             workspace,audit_id=audit_id,component="SEMANTIC_AI",scope_key=snapshot_id,
-                            status=SUCCESS,result_ref=f"semantic:{snapshot_id}",
+                            status=SUCCESS,result_ref=result_ref,
                         )
                     else:
                         # Backfill is authoritative reconciliation of durable causal

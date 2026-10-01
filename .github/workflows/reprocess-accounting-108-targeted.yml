@@ -11,6 +11,7 @@ on:
       - 'src/rasai/reprocess_measurements.py'
       - 'tests/test_m23_interrupted_resume.py'
       - 'tests/test_reprocess_accounting_108.py'
+      - 'tests/test_issue_166_rpr_semantic_success_idempotency.py'
       - '.github/workflows/reprocess-accounting-108-targeted.yml'
   workflow_dispatch:
 
@@ -36,3 +37,4 @@ jobs:
           tests/test_governed_reprocess_dependencies.py
           tests/test_optional_reprocess_accounting.py
           tests/test_audit_resume_runtime.py
+          tests/test_issue_166_rpr_semantic_success_idempotency.py
