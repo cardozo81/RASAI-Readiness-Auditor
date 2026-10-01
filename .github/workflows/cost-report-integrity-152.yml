@@ -1,0 +1,45 @@
+name: Cost/report post-run integrity
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/rasai/console_cost_confirmation.py'
+      - 'tests/test_console_cost_confirmation.py'
+      - '.github/workflows/cost-report-integrity-152.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/rasai/console_cost_confirmation.py'
+      - 'tests/test_console_cost_confirmation.py'
+      - '.github/workflows/cost-report-integrity-152.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  targeted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - name: Install package and tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+      - name: Compile changed cost surface
+        run: |
+          python -m compileall -q src/rasai/console_cost_confirmation.py
+      - name: Run isolated #152 regressions
+        run: |
+          python -m pytest -q \
+            tests/test_console_cost_confirmation.py::test_persisted_cost_match_ignores_evaluated_at_only \
+            tests/test_console_cost_confirmation.py::test_usage_does_not_rewrite_matching_persisted_cost_outcome \
+            tests/test_console_cost_confirmation.py::test_usage_refreshes_cached_cost_outcome_after_reprocess
