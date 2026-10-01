@@ -384,6 +384,64 @@ def test_apply_extension_failure_before_rpr_is_retryable_and_preserves_original_
     assert persisted_hash == original_hash
 
 
+def test_console_successful_extension_returns_to_clean_menu_state(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    import rasai.console_audit_catalog_extension as console_extension
+    import rasai.console_catalog_plan as catalog_plan
+    import rasai.console_catalog_ui as catalog_ui
+    from rasai.console_runtime import runtime_progress_summary, set_runtime_progress
+
+    workspace = AuditWorkspace.create(tmp_path, AUDIT_ID)
+    sqlite3.connect(workspace.database).close()
+
+    state = SimpleNamespace(
+        audits_root=tmp_path,
+        target="https://example.test/",
+        status="COMPLETE",
+        operation="LOCAL:AUD_CATALOG_EXTENSION",
+        error="estado residual",
+        ai_provider="none",
+        ai_model=None,
+        ai_reasoning=None,
+        runtime_blocks={},
+    )
+    console_module = SimpleNamespace(render_header=lambda *_: None)
+
+    monkeypatch.setattr(console_extension, "effective_catalog_ids", lambda *_: ("CAT-06", "CAT-07"))
+    monkeypatch.setattr(console_extension, "_load_audit_configuration", lambda *_: ())
+    monkeypatch.setattr(console_extension, "_render_catalogs", lambda *_: None)
+    monkeypatch.setattr(console_extension, "_choose_ai_mode", lambda *_: False)
+    monkeypatch.setattr(console_extension, "confirm_continue", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(catalog_plan, "catalog_status", lambda *_: ("APTO", "ok"))
+    monkeypatch.setattr(catalog_ui, "catalog_menu", lambda *_: None)
+    monkeypatch.setattr(
+        console_extension,
+        "apply_catalog_extension",
+        lambda **_kwargs: SimpleNamespace(
+            processing_status="COMPLETE",
+            reprocess_id="RPR-SUCCESS",
+            attempted_items=1,
+            successful_items=1,
+            remaining_items=0,
+        ),
+    )
+
+    set_runtime_progress(state, "Concluído", 100.0, exact=True)
+    assert runtime_progress_summary(state) is not None
+
+    answers = iter(("10", "R"))
+    monkeypatch.setattr("builtins.input", lambda *_: next(answers))
+
+    assert console_extension.complement_audit(console_module, state, AUDIT_ID) is True
+    assert state.audit_id == AUDIT_ID
+    assert state.status == "COMPLETE"
+    assert state.operation == "LOCAL:MENU"
+    assert state.error == ""
+    assert runtime_progress_summary(state) is None
+
+
 @pytest.mark.parametrize(
     ("failure", "failure_name"),
     [

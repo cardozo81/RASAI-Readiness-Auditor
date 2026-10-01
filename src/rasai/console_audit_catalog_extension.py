@@ -302,14 +302,13 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
                     f"Diagnóstico registrado: {diagnostic}"
                 )
                 continue
+            from rasai.console_runtime import clear_runtime_progress
+
             state.audit_id = audit_id
             state.status = str(result.processing_status)
-            state.operation = "LOCAL:AUD_CATALOG_EXTENSION"
-            state.error = (
-                f"Complementação materializada em {result.reprocess_id or 'RPR não identificado'}; "
-                f"tentados={result.attempted_items}; resolvidos={result.successful_items}; "
-                f"restantes={result.remaining_items}."
-            )
+            clear_runtime_progress(state)
+            state.operation = "LOCAL:MENU"
+            state.error = ""
             return True
 
         try:
