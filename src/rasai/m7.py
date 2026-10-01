@@ -390,6 +390,115 @@ def _safe_provider_call(
     return result
 
 
+def _existing_semantic_context_evidence(
+    persistence: AuditPersistence,
+    *,
+    audit_id: str,
+    snapshot_id: str,
+):
+    row = persistence._connection.execute(
+        """SELECT evidence_id
+           FROM evidence
+           WHERE audit_id=? AND snapshot_id=? AND source='semantic-input-builder'
+           ORDER BY captured_at DESC,evidence_id DESC
+           LIMIT 1""",
+        (audit_id, snapshot_id),
+    ).fetchone()
+    if row is None:
+        return None
+    return persistence.evidence.get(str(row["evidence_id"]))
+
+
+def _ensure_semantic_context_evidence(
+    *,
+    audit_id: str,
+    snapshot: Any,
+    persistence: AuditPersistence,
+    workspace: AuditWorkspace,
+    manager: EvidenceManager,
+    main_content: str | None = None,
+    structured_data: Any = None,
+):
+    effective_main = (
+        main_content
+        if main_content is not None
+        else (_read_text(workspace, snapshot.main_content_ref) or "")
+    )
+    effective_structured = (
+        structured_data
+        if structured_data is not None
+        else _read_json(workspace, snapshot.structured_data_ref)
+    )
+    observed_value = {
+        "title": snapshot.title,
+        "main_content_excerpt": effective_main[:2000],
+        "main_content_available": bool(effective_main),
+        "structured_data_available": effective_structured is not None,
+    }
+
+    existing = _existing_semantic_context_evidence(
+        persistence,
+        audit_id=audit_id,
+        snapshot_id=str(snapshot.snapshot_id),
+    )
+    if (
+        existing is not None
+        and existing.observed_value == observed_value
+        and existing.artifact_reference == snapshot.main_content_ref
+    ):
+        return existing
+
+    return manager.record(
+        audit_id=audit_id,
+        page_id=snapshot.page_id,
+        snapshot_id=snapshot.snapshot_id,
+        device=snapshot.device,
+        evidence_type=EvidenceType.TEXT_EXCERPT,
+        source="semantic-input-builder",
+        observed_value=observed_value,
+        artifact_reference=snapshot.main_content_ref,
+    )
+
+
+def materialize_semantic_context_evidence(
+    *,
+    audit_id: str,
+    workspace: AuditWorkspace,
+) -> tuple[str, ...]:
+    """Persist M7's deterministic context before the governed evidence seal.
+
+    This is idempotent. Initial AUD and RPR sealing may call it repeatedly without
+    creating duplicate evidence for the same snapshot.
+    """
+    ids: list[str] = []
+    with AuditPersistence(workspace) as persistence:
+        audit = persistence.audits.get(audit_id)
+        if audit is None:
+            raise ValueError(f"audit not found: {audit_id}")
+        rows = persistence._connection.execute(
+            """SELECT ps.snapshot_id
+               FROM page_snapshots ps
+               JOIN pages p ON p.page_id=ps.page_id
+               WHERE p.audit_id=?
+               ORDER BY ps.snapshot_id""",
+            (audit_id,),
+        ).fetchall()
+        manager = EvidenceManager(persistence)
+        for row in rows:
+            snapshot = persistence.snapshots.get(str(row["snapshot_id"]))
+            if snapshot is None:
+                continue
+            evidence = _ensure_semantic_context_evidence(
+                audit_id=audit_id,
+                snapshot=snapshot,
+                persistence=persistence,
+                workspace=workspace,
+                manager=manager,
+            )
+            ids.append(evidence.evidence_id)
+    return tuple(ids)
+
+
 def _build_semantic_input(
     audit: Any,
     page_url: str,
@@ -401,20 +510,14 @@ def _build_semantic_input(
 ) -> tuple[SemanticInput, str]:
     main_content = _read_text(workspace, snapshot.main_content_ref) or ""
     structured_data = _read_json(workspace, snapshot.structured_data_ref)
-    context = manager.record(
+    context = _ensure_semantic_context_evidence(
         audit_id=audit.audit_id,
-        page_id=snapshot.page_id,
-        snapshot_id=snapshot.snapshot_id,
-        device=snapshot.device,
-        evidence_type=EvidenceType.TEXT_EXCERPT,
-        source="semantic-input-builder",
-        observed_value={
-            "title": snapshot.title,
-            "main_content_excerpt": main_content[:2000],
-            "main_content_available": bool(main_content),
-            "structured_data_available": structured_data is not None,
-        },
-        artifact_reference=snapshot.main_content_ref,
+        snapshot=snapshot,
+        persistence=persistence,
+        workspace=workspace,
+        manager=manager,
+        main_content=main_content,
+        structured_data=structured_data,
     )
 
     evidence_ids = list(m4_result.evidence_ids.get(snapshot.snapshot_id, ()))

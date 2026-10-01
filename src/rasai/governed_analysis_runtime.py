@@ -437,6 +437,24 @@ def _reconcile_gsc(*, audit_id: str, workspace: Any, **_: Any):
     }
 
 
+def _materialize_semantic_context_preseal(
+    *,
+    audit_id: str,
+    workspace: Any,
+    **_: Any,
+):
+    from rasai.m7 import materialize_semantic_context_evidence
+
+    evidence_ids = materialize_semantic_context_evidence(
+        audit_id=audit_id,
+        workspace=workspace,
+    )
+    return {
+        "status": "SUCCESS",
+        "evidence_count": len(evidence_ids),
+    }
+
+
 def _sync_fulfillment_preseal(*, audit_id: str, workspace: Any, **_: Any):
     _ORIGINALS["fulfillment.sync"](audit_id=audit_id, workspace=workspace)
     _ORIGINALS["core.sync"](workspace, audit_id)
@@ -607,6 +625,11 @@ def _install_phase_hooks() -> None:
     phase.register_deterministic_hook("OPERATIONAL_HTTP", _reconcile_operational, order=30)
     phase.register_deterministic_hook("STRUCTURED_DATA", _reconcile_structured, order=40)
     phase.register_deterministic_hook("GSC_METRICS", _reconcile_gsc, order=50)
+    phase.register_deterministic_hook(
+        "SEMANTIC_CONTEXT",
+        _materialize_semantic_context_preseal,
+        order=85,
+    )
     phase.register_deterministic_hook("FULFILLMENT_SYNC", _sync_fulfillment_preseal, order=90)
 
 
