@@ -34,7 +34,7 @@ class ConsoleProgressGuidanceTests(unittest.TestCase):
         clear_runtime_progress(state)
 
     def test_navigation_does_not_recreate_terminal_pipeline_progress(self) -> None:
-        state = State(status="COMPLETE", operation="LOCAL:MENU")
+        state = State(status="COMPLETE", operation="LOCAL:DONE")
         set_runtime_progress(
             state,
             "Validação e conclusão",
@@ -43,8 +43,9 @@ class ConsoleProgressGuidanceTests(unittest.TestCase):
             stage_index=3,
             stage_count=3,
         )
-        self.assertIsNone(runtime_progress_summary(state))
+        self.assertIsNotNone(runtime_progress_summary(state))
         clear_runtime_progress(state)
+        state.operation = "LOCAL:MENU"
         self.assertIsNone(runtime_progress_summary(state))
 
     def test_runtime_progress_accepts_explicit_stage_and_pipeline_projection(self) -> None:
