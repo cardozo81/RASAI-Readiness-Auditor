@@ -531,7 +531,11 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
 
     while True:
         audit_root = Path(state.audits_root) / audit_id
-        summary = _safe_summary(audit_root, audit_id)
+        summary = navigation._reconciled_summary(
+            audit_root,
+            audit_id,
+            summary_reader=_safe_summary,
+        )
         reuse_available, reuse_detail = navigation._configuration_reuse_status(state, audit_id)
         report_path = report_entrypoint(audit_root)
         processing_status = str(summary.get("processing_status") or "").upper()
