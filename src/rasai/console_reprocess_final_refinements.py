@@ -497,7 +497,7 @@ def render_reprocess_preparation(
     except (OSError, ValueError, RuntimeError):
         excluded = 0
 
-    console_module.render_header(state)
+    _call_with_effective_root(state, console_module.render_header)
     print("INÍCIO > AUDITORIAS / HISTÓRICO > REPROCESSAR AUDITORIA")
     print("\nPREPARAR REPROCESSAMENTO")
     print("=" * _WIDTH)
@@ -670,8 +670,8 @@ def _run_post_actions(
     confirm_exit = getattr(console_module, "_confirm_exit", None)
 
     while True:
-        console_module.render_header(state)
         effective_root = _effective_root(state)
+        _call_with_effective_root(state, console_module.render_header)
         artifact_state = SimpleNamespace(
             audit_id=str(getattr(state, "audit_id", "") or ""),
             audits_root=effective_root,
@@ -689,7 +689,7 @@ def _run_post_actions(
         parity._render_reprocess_usage_delta(before_usage, after_usage)
         if callable(normal_usage):
             print("\nCONSUMO ACUMULADO DO AUD APÓS O REPROCESSAMENTO")
-            normal_usage(state)
+            _call_with_effective_root(state, normal_usage)
 
         repeatable = _can_repeat(unresolved)
         print("\n" + title_text("AÇÕES DO REPROCESSAMENTO"))
