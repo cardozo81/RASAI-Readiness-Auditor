@@ -338,6 +338,71 @@ def _build_outcome(state: Any, forecast: CostForecast) -> _CostOutcome | None:
     )
 
 
+def _outcome_payload(forecast: CostForecast, outcome: _CostOutcome) -> tuple[Any, ...]:
+    """Return the persisted semantic fields, excluding audit id and evaluation time."""
+    return (
+        outcome.currency,
+        outcome.expected,
+        outcome.actual,
+        outcome.deviation,
+        outcome.deviation_percent,
+        outcome.status,
+        outcome.relation,
+        outcome.forecast_pages,
+        outcome.actual_pages,
+        forecast.likely_low,
+        forecast.likely_high,
+        forecast.potential,
+        forecast.sample_runs,
+        forecast.sample_calls,
+        forecast.confidence,
+        outcome.unpriced_ai_attempts,
+        forecast.source,
+        json.dumps(outcome.notes, ensure_ascii=False, separators=(",", ":")),
+    )
+
+
+def _persisted_outcome_matches(
+    state: Any,
+    forecast: CostForecast,
+    outcome: _CostOutcome,
+) -> bool:
+    """Detect a semantic no-op without letting evaluated_at stale a final report."""
+    audit_id = str(getattr(state, "audit_id", "") or "").strip()
+    if not audit_id:
+        return False
+    workspace, _ = artifact_status(state)
+    if workspace is None:
+        return False
+    database = workspace / "audit.db"
+    if not database.is_file():
+        return False
+    try:
+        connection = sqlite3.connect(
+            f"file:{database.as_posix()}?mode=ro",
+            uri=True,
+            timeout=0.5,
+        )
+        try:
+            row = connection.execute(
+                """
+                SELECT
+                    currency,expected_cost,actual_cost,deviation_amount,deviation_percent,
+                    status,relation,forecast_pages,actual_pages,likely_low,likely_high,
+                    potential,sample_runs,sample_calls,confidence,unpriced_ai_attempts,
+                    source,notes
+                FROM console_cost_forecast_outcomes
+                WHERE audit_id=?
+                """,
+                (audit_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+    except sqlite3.Error:
+        return False
+    return row is not None and tuple(row) == _outcome_payload(forecast, outcome)
+
+
 def _persist_outcome(state: Any, forecast: CostForecast, outcome: _CostOutcome) -> bool:
     if not str(getattr(state, "audit_id", "") or "").strip():
         return False
@@ -386,24 +451,7 @@ def _persist_outcome(state: Any, forecast: CostForecast, outcome: _CostOutcome) 
                     (
                         state.audit_id,
                         datetime.now(timezone.utc).isoformat(),
-                        outcome.currency,
-                        outcome.expected,
-                        outcome.actual,
-                        outcome.deviation,
-                        outcome.deviation_percent,
-                        outcome.status,
-                        outcome.relation,
-                        outcome.forecast_pages,
-                        outcome.actual_pages,
-                        forecast.likely_low,
-                        forecast.likely_high,
-                        forecast.potential,
-                        forecast.sample_runs,
-                        forecast.sample_calls,
-                        forecast.confidence,
-                        outcome.unpriced_ai_attempts,
-                        forecast.source,
-                        json.dumps(outcome.notes, ensure_ascii=False, separators=(",", ":")),
+                        *_outcome_payload(forecast, outcome),
                     ),
                 )
         finally:
@@ -580,7 +628,13 @@ def install(console_module: ModuleType) -> None:
         refreshed = _build_outcome(state, forecast)
         if refreshed is not None:
             _OUTCOMES[id(state)] = refreshed
-            _persist_outcome(state, forecast, refreshed)
+            if not _persisted_outcome_matches(state, forecast, refreshed):
+                if _persist_outcome(state, forecast, refreshed):
+                    # A materially newer post-run outcome becomes report-owned data.
+                    # Rebuild immediately so a UI refresh can never stale a FINAL package.
+                    from rasai.execution_adherence_refinement import finalize_catalog_projection
+
+                    finalize_catalog_projection(state)
         outcome = _OUTCOMES.get(id(state))
         if outcome is not None:
             _render_outcome(forecast, outcome)
