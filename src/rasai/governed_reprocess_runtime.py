@@ -234,18 +234,42 @@ def _pending_item(workspace: Any, audit_id: str, component: str):
 
 
 def _current_reprocess_id(workspace: Any, audit_id: str) -> str | None:
+    safety_context = None
     try:
         from rasai import reprocess_runtime_safety
 
-        value = reprocess_runtime_safety._RPR_CONTEXT.get()
-        if value is not None and value.audit_id == audit_id and value.reprocess_id:
-            return str(value.reprocess_id)
-        # A runtime-safety placeholder may exist before the outer core wrapper opens
-        # the durable RPR.  A context with reprocess_id=None is therefore not evidence
-        # that no RPR exists; fall through to the append-only audit_reprocess_runs
-        # ledger so core-only recovery remains visible to the governed boundary.
+        safety_context = reprocess_runtime_safety._RPR_CONTEXT.get()
+        if (
+            safety_context is not None
+            and safety_context.audit_id == audit_id
+            and safety_context.reprocess_id
+        ):
+            return str(safety_context.reprocess_id)
+    except Exception:
+        safety_context = None
+
+    # Core selective recovery has its own concurrency-safe context containing the
+    # exact RPR it opened. Prefer that causal identity over any ledger scan. This is
+    # the official core-only path: runtime-safety may still carry a placeholder
+    # reprocess_id=None while the inner core context already owns the real RPR.
+    try:
+        from rasai import core_reprocessing_context
+
+        core_context = core_reprocessing_context._CONTEXT.get()
+        if (
+            core_context is not None
+            and core_context.audit_id == audit_id
+            and core_context.reprocess_id
+        ):
+            return str(core_context.reprocess_id)
     except Exception:
         pass
+
+    # A runtime-safety placeholder for this same AUD marks a new physical execution.
+    # Do not adopt an unrelated abandoned RUNNING row from a previous execution.
+    if safety_context is not None and safety_context.audit_id == audit_id:
+        return None
+
     connection = sqlite3.connect(workspace.database)
     try:
         row = connection.execute(
