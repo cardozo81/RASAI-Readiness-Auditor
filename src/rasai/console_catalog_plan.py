@@ -414,7 +414,10 @@ def project_plan(state: Any) -> Iterator[None]:
         for name in environment_switches
     }
     try:
-        if "CAT-04" not in selected and hasattr(state, "web_performance"):
+        # CAT-02 consumes Lighthouse Accessibility from the same Web Performance
+        # acquisition used by CAT-04. Keep the collector enabled when either catalog
+        # owns that evidence; suppress it only when neither catalog is selected.
+        if not (selected & {"CAT-02", "CAT-04"}) and hasattr(state, "web_performance"):
             state.web_performance = False
         if "CAT-05" not in selected:
             if hasattr(state, "search_queries"):

@@ -144,6 +144,16 @@ def test_accessibility_readiness_exposes_lighthouse_dependency() -> None:
     assert "Lighthouse/PageSpeed" in detail
 
 
+def test_cat02_execution_projection_preserves_web_performance_for_accessibility() -> None:
+    state = _state(web_performance=True)
+    workflow.set_selected_catalog_ids(state, ["CAT-02"])
+
+    with workflow._project_execution_plan(state):
+        assert state.web_performance is True
+
+    assert state.web_performance is True
+
+
 def test_web_performance_readiness_tracks_its_effective_configuration(monkeypatch) -> None:
     state = _state()
     workflow._select(state, audit_catalog.CATALOG_BY_ID["CAT-04"])
