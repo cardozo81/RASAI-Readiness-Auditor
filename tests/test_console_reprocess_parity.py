@@ -705,7 +705,13 @@ def test_reprocess_freezes_root_even_if_session_root_changes_after_selection(
     monkeypatch, tmp_path: Path
 ) -> None:
     from rasai import audit_reprocess, console_cost, console_navigation
-    from rasai.audit_fulfillment import FAILED_RETRYABLE, REPLAY_SAFE, initialize_contract, register_work_item
+    from rasai.audit_fulfillment import (
+        FAILED_RETRYABLE,
+        REPLAY_SAFE,
+        initialize_contract,
+        list_work_items,
+        register_work_item,
+    )
     from rasai.domain import Audit
     from rasai.persistence import AuditPersistence, AuditWorkspace
 
@@ -733,9 +739,7 @@ def test_reprocess_freezes_root_even_if_session_root_changes_after_selection(
 
     pending = next(
         item
-        for item in __import__("rasai.audit_fulfillment", fromlist=["list_work_items"]).list_work_items(
-            workspace_a, audit_id
-        )
+        for item in list_work_items(workspace_a, audit_id)
         if item.component == "EXPERIENCE_APDEX"
     )
     state = SimpleNamespace(
