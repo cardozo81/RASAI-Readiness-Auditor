@@ -507,7 +507,7 @@ def _materialize_added_work(
                 for value in str(os.environ.get("RASAI_IMPROVEMENT_DOMAINS", "")).split(",")
                 if value.strip()
             ],
-            "max_recommendations": os.environ.get("RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS", "50"),
+            "max_recommendations": os.environ.get("RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS", "30"),
             "timeout_seconds": os.environ.get("RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS", "240"),
             "language": os.environ.get("RASAI_AI_ANALYSIS_LANGUAGE", "auto"),
         }
