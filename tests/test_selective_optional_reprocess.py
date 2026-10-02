@@ -54,7 +54,7 @@ def _success_item(workspace: AuditWorkspace, component: str, temporal_mode: str 
 def test_search_recovery_uses_persisted_contract_and_current_secret(monkeypatch) -> None:
     from rasai import selective_optional_reprocess as runtime
     from rasai.search_intelligence import runtime as search_runtime
-    from rasai.search_intelligence.models import DomainMatchStatus
+    from rasai.search_intelligence.models import DomainMatchStatus, SerpObservationStatus
 
     with TemporaryDirectory() as directory:
         workspace = _workspace(Path(directory))
@@ -108,9 +108,19 @@ def test_search_recovery_uses_persisted_contract_and_current_secret(monkeypatch)
                 provider="serpapi",
                 results=tuple(
                     SimpleNamespace(
-                        domain_status=DomainMatchStatus.NOT_FOUND_WITHIN_DEPTH,
-                        error_code=None,
-                        error_message=None,
+                        domain_status=DomainMatchStatus.UNAVAILABLE,
+                        error_code="SERP_REQUESTED_DEPTH_INCOMPLETE",
+                        error_message="O provedor encerrou a paginação após 7 de 20 posições.",
+                        observation=SimpleNamespace(
+                            status=SerpObservationStatus.OBSERVED,
+                            quality_metadata={
+                                "requested_depth_complete": False,
+                                "pagination_ended_before_requested_depth": True,
+                                "request_budget_ended_before_requested_depth": False,
+                                "normalization_incomplete_for_requested_depth": False,
+                                "observed_position_count": 7,
+                            },
+                        ),
                     )
                     for _ in items
                 ),

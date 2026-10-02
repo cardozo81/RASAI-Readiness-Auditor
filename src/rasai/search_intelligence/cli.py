@@ -13,6 +13,7 @@ from .competitive_runtime import execute_competitive_intelligence
 from .config import SerpRuntimeConfig
 from .content import ContentFetchStatus, PublicWebFetcher
 from .models import DomainMatchStatus, QueryOrigin, SerpQueryRequest, new_identifier
+from .service import requires_search_retry
 from .runtime import (
     execute_search,
     live_provider_ids,
@@ -488,7 +489,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
 
     if any(
-        result.domain_status in {DomainMatchStatus.ERROR, DomainMatchStatus.UNAVAILABLE}
+        requires_search_retry(result)
         for result in execution.results
     ):
         return 1
