@@ -49,7 +49,7 @@ A lista de reasoning exibida pelo comando é o domínio aceito pelo runtime para
 |---|---|---|---|---|---|
 | `openai` | OpenAI | `OPENAI_API_KEY` | `gpt-5.6-luna` | <https://platform.openai.com/api-keys> | API é contratada separadamente de planos do ChatGPT. |
 | `deepseek` | DeepSeek | `DEEPSEEK_API_KEY` | `deepseek-v4-flash` | <https://platform.deepseek.com/api_keys> | chave da plataforma/API DeepSeek |
-| `mimo` | Xiaomi MiMo | `MIMO_API_KEY` | `mimo-v2.5` | <https://mimo.mi.com/> | adapter exige chave PAYG `sk-...`; `tp-...` não é aceita |
+| `mimo` | Xiaomi MiMo | `MIMO_API_KEY` | `mimo-v2.5` | <https://mimo.mi.com/> | contrato atual aceita somente PAYG `sk-...`; formatos alternativos não são suportados |
 | `xai` / `grok` | xAI / Grok | `XAI_API_KEY` | `grok-4.6` | <https://console.x.ai/> | API key xAI |
 | `qwen` | Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | `qwen3.8-flash` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | região da key e endpoint devem ser coerentes |
 | `gemini` | Google Gemini | `GEMINI_API_KEY` | `gemini-3.8-flash` | <https://aistudio.google.com/apikey> | Gemini API key |
@@ -73,6 +73,8 @@ A tabela acima é a referência rápida. O procedimento canônico, com pré-requ
 
 Regra de segurança: a documentação mostra nomes de variáveis e placeholders, nunca valores reais. `Test-Path Env:<VAR>` confirma apenas presença; validade/autorização deve ser verificada pelo diagnóstico seguro do RASAi antes de um smoke que possa consumir quota/custo.
 
+**Escopo:** este guia descreve somente modalidades efetivamente consumidas pelo RASAi. Capacidades, planos, endpoints, tiers ou métodos de autenticação oferecidos pelos fornecedores mas ainda não implementados/homologados não são opções do produto. A análise dessas variantes está rastreada na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
+
 ### Mistral AI
 
 Configuração mínima:
@@ -92,7 +94,7 @@ Contrato inicial:
 - sem `RASAI_MISTRAL_ENDPOINT` nesta etapa;
 - sem participação em `AI=auto` até homologação humana posterior.
 
-A integração não habilita tools/search da Mistral nesta entrega. Ela reutiliza o mesmo boundary evidence-bound, retry, telemetria e secret-safety dos providers semânticos existentes.
+A integração não habilita tools, web search, agents ou connectors da Mistral nesta entrega. Essas capacidades não fazem parte do contrato atual do RASAi; eventual avaliação futura está rastreada na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180). O adapter reutiliza o mesmo boundary evidence-bound, retry, telemetria e secret-safety dos providers semânticos existentes.
 
 Documentação oficial:
 
