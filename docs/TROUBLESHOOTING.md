@@ -32,6 +32,7 @@ Test-Path Env:XAI_API_KEY
 Test-Path Env:DASHSCOPE_API_KEY
 Test-Path Env:GEMINI_API_KEY
 Test-Path Env:ANTHROPIC_API_KEY
+Test-Path Env:MISTRAL_API_KEY
 Test-Path Env:COPILOT_GITHUB_TOKEN
 ```
 
@@ -47,6 +48,8 @@ Também verifique:
 - bloqueio/quarantine depois de erro operacional.
 
 MiMo PAYG exige chave `sk-...` no adapter atual; `tp-...` não é equivalente.
+
+Mistral exige `MISTRAL_API_KEY`, seleção explícita e acesso ao modelo `mistral-small-2603`; o adapter inicial usa endpoint global Standard fixo e não possui endpoint override. Mistral permanece fora de `AI=auto` nesta entrega.
 
 GitHub Copilot exige o extra Python `copilot`, `COPILOT_GITHUB_TOKEN` compatível e assinatura Copilot elegível. No fluxo manual, instale com:
 
