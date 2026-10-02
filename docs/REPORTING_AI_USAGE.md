@@ -32,6 +32,8 @@ A página de IA e integrações apresenta, a partir da telemetria persistida:
 - estado da tentativa;
 - tokens de entrada, cache, saída e raciocínio quando fornecidos;
 - custo individual e moeda quando houver preço persistido;
+- pricing rule aplicada (`pricing_rule_id`), contexto, versão e fonte oficial quando houver custo resolvido;
+- condições runtime usadas no matching da tarifa (tier/modalidade/operação/região), sem segredo;
 - roteamento, fallback e motivo técnico;
 - request e response sanitizados quando disponíveis;
 - custo observado total;
@@ -50,7 +52,7 @@ Mapeamentos públicos vigentes incluem:
 - Análise Direcionada -> página `directed-analysis.html`;
 - demais finalidades -> contexto funcional explicitado na própria linha da tentativa.
 
-Quando uma tentativa não possui telemetria suficiente para custo, o relatório mantém a tentativa e exibe **Não precificado**; ausência de preço não é convertida em custo zero. Quando o custo persistido é explicitamente `0`, moeda e valor são exibidos em cinza claro e, na mesma tentativa, tokens de entrada/saída recebem o mesmo tratamento visual secundário. `reasoning_tokens`, quando presentes, são subconjunto dos tokens de saída e não são somados novamente ao total.
+Quando uma tentativa não possui telemetria suficiente ou nenhuma regra corresponde às condições runtime efetivas, o relatório mantém a tentativa e exibe **Não precificado**; ausência de preço não é convertida em custo zero. A persistência conserva a regra, fonte e condições aplicadas quando a tarifa foi resolvida, permitindo reconstrução posterior sem reinterpretar a execução por preços correntes. Quando o custo persistido é explicitamente `0`, moeda e valor são exibidos em cinza claro e, na mesma tentativa, tokens de entrada/saída recebem o mesmo tratamento visual secundário. `reasoning_tokens`, quando presentes, são subconjunto dos tokens de saída e não são somados novamente ao total.
 
 A regeneração do `report-catalog/` apenas reprojeta os dados persistidos. Ela não cria chamadas de IA adicionais para preencher a página.
 
