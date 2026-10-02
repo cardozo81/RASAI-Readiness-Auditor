@@ -193,7 +193,7 @@ A credencial PAYG não muda com a migração de modelo. O RASAi usa o mesmo endp
 
 - default público: `mimo-v2.6-flash`;
 - default do adapter: `mimo-v2.6-pro`;
-- `mimo-v2.5` e `mimo-v2.5-pro`: somente legados até **21/10/2026 02:00 UTC**;
+- `mimo-v2.5` e `mimo-v2.5-pro`: somente para compatibilidade até **21/10/2026 02:00 UTC**;
 - reasoning default: `NONE`.
 
 A retirada da família v2.5 e a migração para v2.6 estão rastreadas na [issue #183](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/183). Esta mudança não habilita Token Plan, Batch, UltraSpeed, web search, tools ou multimodal.
