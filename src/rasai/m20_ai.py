@@ -272,6 +272,7 @@ class ContentRemediationProvider:
     """Structured M20 client cloned from one configured M18 provider."""
 
     def __init__(self, base: ResponsesSemanticProvider) -> None:
+        self.base = base
         self.name = base.name
         self.model = base.model
         self.reasoning_profile = base.reasoning_profile
