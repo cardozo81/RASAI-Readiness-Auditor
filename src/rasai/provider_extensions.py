@@ -35,6 +35,7 @@ from rasai.m18_ai import (
     build_semantic_provider as _legacy_build_semantic_provider,
 )
 from rasai.openai_provider import SEMANTIC_RULE_CRITERIA, hardened_semantic_output_schema
+from rasai.provider_wire_schema import cohere_wire_schema
 from rasai.semantic import (
     ProviderState,
     SEMANTIC_RULE_IDS,
@@ -56,6 +57,7 @@ EXTENDED_SUPPORTED_MODELS: dict[str, tuple[str, ...]] = {
     "GEMINI": ("gemini-3.8-flash",),
     "ANTHROPIC": ("claude-sonnet-5",),
     "MISTRAL": ("mistral-small-2603",),
+    "COHERE": ("command-a-03-2025",),
 }
 EXTENDED_DEFAULT_MODELS = {
     "XAI": "grok-4.6",
@@ -63,6 +65,7 @@ EXTENDED_DEFAULT_MODELS = {
     "GEMINI": "gemini-3.8-flash",
     "ANTHROPIC": "claude-sonnet-5",
     "MISTRAL": "mistral-small-2603",
+    "COHERE": "command-a-03-2025",
 }
 EXTENDED_KEY_ENV = {
     "XAI": "XAI_API_KEY",
@@ -70,6 +73,7 @@ EXTENDED_KEY_ENV = {
     "GEMINI": "GEMINI_API_KEY",
     "ANTHROPIC": "ANTHROPIC_API_KEY",
     "MISTRAL": "MISTRAL_API_KEY",
+    "COHERE": "COHERE_API_KEY",
 }
 EXTENDED_MODEL_ENV = {
     "XAI": "RASAI_XAI_MODEL",
@@ -77,6 +81,7 @@ EXTENDED_MODEL_ENV = {
     "GEMINI": "RASAI_GEMINI_MODEL",
     "ANTHROPIC": "RASAI_ANTHROPIC_MODEL",
     "MISTRAL": "RASAI_MISTRAL_MODEL",
+    "COHERE": "RASAI_COHERE_MODEL",
 }
 EXTENDED_ENDPOINT_ENV = {
     "XAI": "RASAI_XAI_ENDPOINT",
@@ -110,6 +115,10 @@ EXTENSION_POLICIES: dict[tuple[str, str], ProviderPolicy] = {
         106, "MISTRAL", "mistral-small-2603", "PROVIDER_DEFAULT", "PROVISIONAL",
         "PROVISIONAL", "explicit qualification only",
     ),
+    ("COHERE", "command-a-03-2025"): ProviderPolicy(
+        107, "COHERE", "command-a-03-2025", "PROVIDER_DEFAULT", "PROVISIONAL",
+        "PROVISIONAL", "explicit qualification only",
+    ),
 }
 
 _PROVIDER_ALIASES = {
@@ -120,6 +129,7 @@ _PROVIDER_ALIASES = {
     "ANTHROPIC": "ANTHROPIC",
     "CLAUDE": "ANTHROPIC",
     "MISTRAL": "MISTRAL",
+    "COHERE": "COHERE",
 }
 
 Transport = Callable[[str, dict[str, str], bytes, float], dict[str, Any]]
@@ -820,6 +830,94 @@ class MistralProvider(QwenProvider):
         return payload
 
 
+class CohereProvider(IsolatedStructuredSemanticProvider):
+    """Cohere Chat V2 adapter for evidence-bound Structured Outputs."""
+
+    name = "COHERE"
+    endpoint = "https://api.cohere.com/v2/chat"
+    reasoning_profile = "PROVIDER_DEFAULT"
+    capabilities = IsolatedStructuredSemanticProvider.capabilities + (
+        "COHERE_CHAT_V2",
+    )
+
+    def pricing_runtime_conditions(self) -> dict[str, str]:
+        endpoint = str(self.endpoint).casefold()
+        region = "GLOBAL" if endpoint.startswith("https://api.cohere.com/") else "UNKNOWN"
+        return {"operation_mode": "REALTIME", "region": region}
+
+    def _headers(self) -> dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self.api_key or ''}",
+            "Content-Type": "application/json",
+        }
+
+    def _request_payload(self, semantic_input: SemanticInput) -> dict[str, Any]:
+        schema = cohere_wire_schema(
+            hardened_semantic_output_schema(semantic_input.allowed_evidence_ids)
+        )
+        return {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": _semantic_instructions(semantic_input)},
+                {
+                    "role": "user",
+                    "content": "Generate the requested JSON from only this page evidence:\n"
+                    + json.dumps(semantic_input.provider_payload(), ensure_ascii=False),
+                },
+            ],
+            "response_format": {
+                "type": "json_object",
+                "schema": schema,
+            },
+        }
+
+    def _extract_payload(self, raw: Mapping[str, Any]) -> Any:
+        message = raw.get("message")
+        content = message.get("content") if isinstance(message, Mapping) else None
+        if isinstance(content, list):
+            for item in content:
+                if (
+                    isinstance(item, Mapping)
+                    and str(item.get("type") or "").casefold() == "text"
+                    and isinstance(item.get("text"), str)
+                ):
+                    return json.loads(item["text"])
+        raise SemanticProviderError("Cohere response contained no textual output")
+
+    def _usage(self, raw: Mapping[str, Any]) -> ProviderUsage | None:
+        usage = raw.get("usage")
+        if not isinstance(usage, Mapping):
+            return None
+        billed = usage.get("billed_units")
+        tokens = usage.get("tokens")
+        effective = billed if isinstance(billed, Mapping) else tokens
+        if not isinstance(effective, Mapping):
+            return None
+        input_tokens = _int_or_none(effective.get("input_tokens"))
+        output_tokens = _int_or_none(effective.get("output_tokens"))
+        return ProviderUsage(
+            input_tokens=input_tokens,
+            cached_input_tokens=None,
+            output_tokens=output_tokens,
+            reasoning_tokens=None,
+            total_tokens=(
+                input_tokens + output_tokens
+                if input_tokens is not None and output_tokens is not None
+                else None
+            ),
+        )
+
+    def _native_error(self, raw: Mapping[str, Any]) -> ProviderDiagnostic | None:
+        finish_reason = str(raw.get("finish_reason") or "").strip().upper()
+        if finish_reason == "TIMEOUT":
+            return ProviderDiagnostic(ProviderErrorClass.TIMEOUT_ERROR, error_code="TIMEOUT")
+        if finish_reason == "ERROR":
+            return ProviderDiagnostic(ProviderErrorClass.SERVER_ERROR, error_code="ERROR")
+        if finish_reason == "TOOL_CALL":
+            return ProviderDiagnostic(ProviderErrorClass.INVALID_RESPONSE, error_code="TOOL_CALL")
+        return None
+
+
 _GEMINI_SCHEMA_KEYWORDS = frozenset({
     "$id", "$defs", "$ref", "$anchor", "type", "format", "title", "description",
     "enum", "items", "prefixItems", "minItems", "maxItems", "minimum", "maximum",
@@ -1060,6 +1158,8 @@ def _extension_provider_instance(
         provider_type = AnthropicProvider
     elif provider_name == "MISTRAL":
         provider_type = MistralProvider
+    elif provider_name == "COHERE":
+        provider_type = CohereProvider
     else:
         raise ValueError(provider_name)
     return provider_type(model=model, api_key=key, endpoint=endpoint)
