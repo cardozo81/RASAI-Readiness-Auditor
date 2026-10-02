@@ -203,8 +203,8 @@ Valores em USD por 1 milhão de tokens.
 | DeepSeek `deepseek-v4-pro` off-peak | `TOKEN_TIME_WINDOW` | 0,66 | 0,022 | 1,98 | peak: 1,32 / 0,044 / 3,96 |
 | Xiaomi MiMo `mimo-v2.6-flash` | `TOKEN_STANDARD` | 0,14 | 0,0028 | 0,28 | PAYG real-time; default público |
 | Xiaomi MiMo `mimo-v2.6-pro` | `TOKEN_STANDARD` | 0,435 | 0,0036 | 0,87 | PAYG real-time; default adapter |
-| Xiaomi MiMo `mimo-v2.5` | `TOKEN_STANDARD` | 0,14 | 0,0028 | 0,28 | legado; expira 21/10/2026 02:00 UTC |
-| Xiaomi MiMo `mimo-v2.5-pro` | `TOKEN_STANDARD` | 0,435 | 0,0036 | 0,87 | legado; expira 21/10/2026 02:00 UTC |
+| Xiaomi MiMo `mimo-v2.5` | `TOKEN_STANDARD` | 0,14 | 0,0028 | 0,28 | compatibilidade temporária; expira 21/10/2026 02:00 UTC |
+| Xiaomi MiMo `mimo-v2.5-pro` | `TOKEN_STANDARD` | 0,435 | 0,0036 | 0,87 | compatibilidade temporária; expira 21/10/2026 02:00 UTC |
 | xAI `grok-4.6` <200k | `TOKEN_CONTEXT_TIERED` | 2,00 | 0,50 | 6,00 | >=200k: 4,00 / 1,00 / 12,00 |
 | Qwen `qwen3.8-flash` | `TOKEN_STANDARD` | 0,113 | 0,014 | 0,382 | região US/Virginia |
 | Qwen `qwen3.8-max` | `TOKEN_STANDARD` | 1,65 | 0,206 | 4,951 | região US/Virginia |
