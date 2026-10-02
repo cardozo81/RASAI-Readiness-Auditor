@@ -70,7 +70,7 @@ def test_deepseek_flash_is_unpriced_before_current_contract_effective_time() -> 
 
 
 def test_every_public_auto_default_model_has_a_current_price() -> None:
-    at = datetime(2026, 9, 12, 18, 0, tzinfo=UTC)
+    at = datetime(2026, 10, 2, 18, 0, tzinfo=UTC)
     pairs = (
         ("OPENAI", "gpt-5.6-luna"),
         ("DEEPSEEK", "deepseek-v4-flash"),
