@@ -65,7 +65,7 @@ O RASAi continua usando o mesmo serviço PAYG e o mesmo endpoint Responses. A mu
 - default do adapter: `mimo-v2.6-pro`;
 - `mimo-v2.5` e `mimo-v2.5-pro`: somente compatibilidade temporária até 21/10/2026 02:00 UTC;
 - reasoning default RASAi: `NONE`;
-- Token Plan, Batch, UltraSpeed, tools, web search e multimodal não são opções do contrato atual.
+- Token Plan (`tp-...`/`ttp-...`) é uma modalidade separada válida do fornecedor, com Base URL própria, mas não é opção do contrato atual do RASAi. Batch, UltraSpeed, tools, web search e multimodal também permanecem fora do contrato atual.
 
 A migração é rastreada na [issue #183](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/183).
 
