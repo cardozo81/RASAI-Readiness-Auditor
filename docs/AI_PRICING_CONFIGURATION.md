@@ -205,6 +205,22 @@ Toda regra exige `effective_from` e pode ter `effective_until`. Sem regra vigent
 
 O RASAi não deve inventar preço, manter silenciosamente preço expirado, extrapolar promoção vencida, assumir preço de outra região ou usar valor fora da vigência apenas para evitar UNPRICED.
 
+## 8.1 Condições efetivas de execução
+
+Além de vigência, horário e faixa de contexto, uma regra pode declarar `conditions` provider-neutral. Nesta baseline são usadas as chaves `service_tier`, `commercial_mode`, `region` e `operation_mode`.
+
+O adapter expõe as condições efetivas da chamada e o resolver exige correspondência exata. Regra condicionada sem contexto, com contexto desconhecido ou divergente não se aplica e o par provider/modelo fica **UNPRICED** para aquela execução. O AUTO não interpreta UNPRICED como custo zero.
+
+Exemplos vigentes:
+- OpenAI: `service_tier=DEFAULT`, `operation_mode=REALTIME`, `region=GLOBAL`; o adapter envia `service_tier=default`;
+- MiMo: `commercial_mode=PAYG`, `operation_mode=REALTIME`, `region=GLOBAL`;
+- xAI: `service_tier=DEFAULT`, `operation_mode=REALTIME`, com tarifa própria para `GLOBAL` e `US`;
+- Qwen: `operation_mode=REALTIME`, `region=US_VIRGINIA`; endpoint desconhecido produz região `UNKNOWN` e fica UNPRICED;
+- Gemini e Anthropic: `service_tier=STANDARD`, `operation_mode=REALTIME`, `region=GLOBAL`;
+- Mistral: `service_tier=STANDARD_ONLY`, `operation_mode=REALTIME`, `region=GLOBAL`.
+
+Essas condições descrevem somente modalidades já implementadas. Não autorizam Batch, Flex, Priority, Token Plan ou outro tier externo.
+
 ## 9. Prioridade de regras
 
 Quando mais de uma regra é válida, a seleção é:
@@ -228,7 +244,8 @@ Valores em USD por 1 milhão de tokens.
 | Xiaomi MiMo `mimo-v2.6-pro` | `TOKEN_STANDARD` | 0,435 | 0,0036 | 0,87 | PAYG real-time; default adapter |
 | Xiaomi MiMo `mimo-v2.5` | `TOKEN_STANDARD` | 0,14 | 0,0028 | 0,28 | compatibilidade temporária; expira 21/10/2026 02:00 UTC |
 | Xiaomi MiMo `mimo-v2.5-pro` | `TOKEN_STANDARD` | 0,435 | 0,0036 | 0,87 | compatibilidade temporária; expira 21/10/2026 02:00 UTC |
-| xAI `grok-4.6` <200k | `TOKEN_CONTEXT_TIERED` | 2,00 | 0,50 | 6,00 | >=200k: 4,00 / 1,00 / 12,00 |
+| xAI `grok-4.6` global <200k | `TOKEN_CONTEXT_TIERED` | 2,00 | 0,50 | 6,00 | >=200k: 4,00 / 1,00 / 12,00 |
+| xAI `grok-4.6` US <200k | `TOKEN_CONTEXT_TIERED` | 2,20 | 0,55 | 6,60 | >=200k: 4,40 / 1,10 / 13,20; endpoint US regional |
 | Qwen `qwen3.8-flash` | `TOKEN_STANDARD` | 0,113 | 0,014 | 0,382 | região US/Virginia |
 | Qwen `qwen3.8-max` | `TOKEN_STANDARD` | 1,65 | 0,206 | 4,951 | região US/Virginia |
 | Gemini `gemini-3.8-flash` | `TOKEN_STANDARD` | 0,75 | 0,075 | 3,75 | thinking/reasoning soma no output; regra até 01/01/2027 UTC |
@@ -253,7 +270,7 @@ A faixa longa usa `input_tokens_gt=272000`; os valores finais já estão na regr
 
 ### 10.3 xAI
 
-A faixa longa usa `input_tokens_gte=200000`. O endpoint global usa as tarifas globais. O endpoint regional US, quando explicitamente configurado e reconhecido, usa regras próprias com acréscimo regional documentado; endpoint não reconhecido fica UNPRICED.
+A faixa longa usa `input_tokens_gte=200000`. O endpoint global `api.x.ai` usa a tarifa global; o endpoint regional `us.api.x.ai` usa tarifa 10% maior conforme documentação oficial do provider. Endpoint/região não reconhecido fica UNPRICED. Priority não é selecionado silenciosamente pelo RASAi. O endpoint global usa as tarifas globais. O endpoint regional US, quando explicitamente configurado e reconhecido, usa regras próprias com acréscimo regional documentado; endpoint não reconhecido fica UNPRICED.
 
 ### 10.4 MiMo
 
