@@ -2,7 +2,7 @@
 
 **Estado:** vigente.  
 **Data de referência desta configuração:** 02/10/2026  
-**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-10-02.1`  
+**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-10-02.2`  
 **Schema do catálogo:** `1`  
 **Revisão ordinária recomendada:** 02/11/2026
 
@@ -104,7 +104,7 @@ Metadados obrigatórios:
 ```toml
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-PRICING-2026-10-02.1"
+catalog_version = "RASAI-PRICING-2026-10-02.2"
 reference_date = "2026-10-02"
 verified_on = "2026-10-02"
 review_recommended_on = "2026-11-02"
@@ -130,6 +130,7 @@ rule_id = "provider-model-standard"
 context = "STANDARD"
 priority = 0
 effective_from = "2026-09-13T00:00:00Z"
+conditions = { service_tier = "STANDARD", operation_mode = "REALTIME", region = "GLOBAL" }
 input_price_per_million = 0.50
 cached_input_price_per_million = 0.05
 output_price_per_million = 2.00
@@ -166,6 +167,28 @@ time_windows_utc
 ```
 
 As janelas são declaradas em UTC. O motor converte o instante da chamada para UTC antes da resolução. A aplicação atual é DeepSeek V4 Pro/Flash peak e off-peak.
+
+## 6.4 Condições runtime
+
+Uma regra pode declarar `conditions` como mapa declarativo. Na versão atual, o RASAi usa as chaves necessárias ao contrato implementado:
+
+- `service_tier`;
+- `commercial_mode`;
+- `operation_mode`;
+- `region`.
+
+Essas condições são comparadas com o **contrato efetivo do adapter em runtime**. A regra só pode ser aplicada quando todas as condições declaradas coincidem. Condição ausente, endpoint/região desconhecido ou valor divergente torna a regra **UNPRICED**; o motor não presume que uma tarifa Standard, PAYG ou regional se aplica.
+
+Exemplos vigentes:
+
+- OpenAI: `service_tier=DEFAULT`, `REALTIME`, `GLOBAL`; o adapter envia `service_tier=default`;
+- MiMo: `commercial_mode=PAYG`, `REALTIME`, `GLOBAL`;
+- xAI: `service_tier=DEFAULT`, `REALTIME`, região `GLOBAL` ou `US`, com tarifa regional própria;
+- Qwen: `REALTIME`, `US_VIRGINIA`; override de endpoint não reconhecido fica UNPRICED;
+- Gemini e Anthropic: `service_tier=STANDARD`, `REALTIME`, `GLOBAL` no contrato atual;
+- Mistral: `service_tier=STANDARD_ONLY`, `REALTIME`, `GLOBAL`.
+
+A existência de outro tier/plano no fornecedor não o habilita no RASAi. Capacidades fora do contrato continuam sob análise na issue #180.
 
 ## 7. Reasoning faturável
 
@@ -230,7 +253,7 @@ A faixa longa usa `input_tokens_gt=272000`; os valores finais já estão na regr
 
 ### 10.3 xAI
 
-A faixa longa usa `input_tokens_gte=200000`.
+A faixa longa usa `input_tokens_gte=200000`. O endpoint global usa as tarifas globais. O endpoint regional US, quando explicitamente configurado e reconhecido, usa regras próprias com acréscimo regional documentado; endpoint não reconhecido fica UNPRICED.
 
 ### 10.4 MiMo
 
@@ -316,7 +339,7 @@ Não usar hot reload global em processo que execute organizações diferentes co
 
 ## 16. Reprodutibilidade de pricing
 
-Preço corrente não deve reinterpretar o custo persistido de execução concluída. Cada execução deve manter provider/modelo, versão do pricing, contexto resolvido, preço efetivo, instante e usage observado quando disponível. Para jobs centralizados, versão/hash do snapshot deve permitir reconstruir a política aplicada.
+Preço corrente não deve reinterpretar o custo persistido de execução concluída. Cada execução deve manter provider/modelo, versão do pricing, contexto resolvido, `pricing_rule_id`, `pricing_source_reference`, condições runtime efetivas, preço estimado, instante e usage observado quando disponível. Para jobs centralizados, versão/hash do snapshot deve permitir reconstruir a política aplicada.
 
 ## 17. AUTO e modelos sem preço
 
