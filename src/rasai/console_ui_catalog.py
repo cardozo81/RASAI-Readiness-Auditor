@@ -306,6 +306,13 @@ def catalog_menu(console_module: ModuleType, state: Any, *, view: str, title: st
                 f"{configuration_value_info('RASAI_AI_PROVIDER', getattr(state, 'ai_provider', 'none'))}"
             )
             print(paint("   AUTO e seleção explícita continuam sob a orquestração canônica do runtime.", DIM))
+        if view == "all":
+            section("CONFIGURAÇÕES ESTRUTURAIS DO CONSOLE")
+            print(
+                f"{CORE_IDS['audits_root']}  Raiz das auditorias        : "
+                f"{getattr(state, 'audits_root', 'audits')}"
+            )
+            print(paint("   Usa o mesmo editor e a mesma persistência da preparação da auditoria.", DIM))
         _rows(state, rows, mode == "owner" and search_rows is None)
         if not rows: print(paint("\nNenhuma configuração corresponde ao filtro atual.", DIM))
         section("AÇÕES")
@@ -313,6 +320,8 @@ def catalog_menu(console_module: ModuleType, state: Any, *, view: str, title: st
         print("V. Voltar")
         raw = input("ID ou ação: ").strip().upper()
         if raw == "V": return
+        if raw == CORE_IDS["audits_root"] and view == "all":
+            console_module._configure(state, "10"); search_rows = None; continue
         if raw == "1" and view == "ai": console_module._configure(state, "4"); search_rows = None; continue
         if raw in {"O", "A", "E", "M", "P"}: mode = {"O":"owner","A":"alpha","E":"state","M":"modified","P":"pending"}[raw]; search_rows = None; continue
         if raw == "F":
