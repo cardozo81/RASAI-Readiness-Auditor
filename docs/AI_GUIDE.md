@@ -26,6 +26,7 @@ xai
 qwen
 gemini
 anthropic
+mistral
 copilot
 ```
 
@@ -39,7 +40,7 @@ github-copilot -> copilot
 
 `none` desabilita IA. `auto` aciona a orquestração econômica entre providers elegíveis.
 
-GitHub Copilot permanece explicit-only: a presença de uma credencial não o inclui automaticamente no `AUTO`.
+Mistral permanece explicit-only durante a homologação inicial, e GitHub Copilot também é explicit-only: a presença dessas credenciais não os inclui automaticamente no `AUTO`.
 
 ## Arquivos administráveis pelo operador
 
@@ -87,6 +88,7 @@ Detalhamento e exemplos: [AI_MODEL_CONFIGURATION.md](AI_MODEL_CONFIGURATION.md).
 | Qwen | `qwen3.8-flash` | `PROVIDER_DEFAULT` |
 | Gemini | `gemini-3.8-flash` | `LOW` |
 | Anthropic | `claude-sonnet-5` | `LOW` |
+| Mistral | `mistral-small-2603` | `PROVIDER_DEFAULT` |
 | GitHub Copilot | `auto` | `PROVIDER_DEFAULT` |
 
 Essa tabela é somente a fotografia de fábrica. O catálogo efetivamente snapshotado para a execução é a autoridade da AUD.
@@ -112,6 +114,7 @@ XAI_API_KEY
 DASHSCOPE_API_KEY
 GEMINI_API_KEY
 ANTHROPIC_API_KEY
+MISTRAL_API_KEY
 COPILOT_GITHUB_TOKEN
 ```
 
@@ -191,6 +194,10 @@ AUTO central
 ```
 
 Em `AUTO`, isso reutiliza a mesma política de custo, qualification, pricing, quarentena, circuit breaker e fallback. A finalidade pode alterar o tamanho estimado de input/output, mas não cria outro mecanismo de roteamento.
+
+## Mistral AI
+
+A integração inicial usa `mistral-small-2603`, `MISTRAL_API_KEY` e Chat Completions no endpoint global com `service_tier=standard_only`. Structured Outputs continuam sujeitos à validação local evidence-bound. O provider é selecionável explicitamente, mas permanece fora de `AUTO` até a homologação humana desta entrega.
 
 ## GitHub Copilot
 
