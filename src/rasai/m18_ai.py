@@ -18,6 +18,7 @@ from rasai.ai_cost_policy import (
     PRICING_VERSION,
     estimate_observed_cost,
     resolve_observed_cost,
+    runtime_pricing_conditions,
 )
 from rasai.ai_resilience import (
     DECISION_FALLBACK,
@@ -265,6 +266,17 @@ def estimate_cost(
         usage,
         at,
         runtime_conditions=runtime_conditions,
+    )
+
+
+def resolve_provider_cost(provider: Any, usage: ProviderUsage | None, at: datetime):
+    """Resolve one provider object's observed cost with its effective runtime contract."""
+    return resolve_observed_cost(
+        str(getattr(provider, "name", "") or ""),
+        str(getattr(provider, "model", "") or ""),
+        usage,
+        at,
+        runtime_conditions=runtime_pricing_conditions(provider),
     )
 
 
