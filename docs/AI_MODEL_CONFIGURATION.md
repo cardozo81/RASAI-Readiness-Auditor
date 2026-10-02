@@ -1,7 +1,7 @@
 # Catálogo configurável de modelos de IA
 
 **Estado:** contrato atual do RASAi em desenvolvimento.  
-**Data de referência do catálogo de fábrica:** 14/09/2026  
+**Data de referência do catálogo de fábrica:** 02/10/2026  
 **Schema do catálogo:** `1`
 
 ## 1. Objetivo
@@ -145,6 +145,7 @@ O catálogo define quais modelos são válidos e qual é o default. As variávei
 RASAI_OPENAI_MODEL = gpt-5.6-luna
 RASAI_GEMINI_MODEL = gemini-3.8-flash
 RASAI_ANTHROPIC_MODEL = claude-sonnet-5
+RASAI_MISTRAL_MODEL = mistral-small-2603
 ```
 
 Se o valor configurado não existir no catálogo efetivo, estiver desabilitado ou estiver fora da vigência, o RASAi rejeita a configuração em vez de trocar silenciosamente de modelo.
@@ -160,6 +161,10 @@ RASAI_OPENAI_REASONING_EFFORT = MEDIUM
 O valor precisa estar em `reasoning_values` do modelo efetivamente selecionado. Isso permite que dois modelos do mesmo provider tenham políticas de esforço diferentes sem alterar código.
 
 Quando o provider não expõe níveis configuráveis, o catálogo usa `PROVIDER_DEFAULT`.
+
+### Mistral na baseline de 02/10/2026
+
+A primeira integração Mistral mantém somente `mistral-small-2603` no catálogo de fábrica. O registro é selecionável explicitamente, mas `auto_eligible=false` enquanto a homologação humana do provider não estiver concluída. O adapter continua sendo definido em código; o catálogo não cria um provider novo nem altera `AI=auto`.
 
 ## 8. Exemplo: adicionar um novo modelo de um provider existente
 
