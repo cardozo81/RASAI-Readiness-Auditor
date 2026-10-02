@@ -24,6 +24,7 @@ Referência operacional de cadastro/login e geração de credenciais: [PROVIDER_
 | `gemini` | Google Gemini | - | `GEMINI_API_KEY` | <https://aistudio.google.com/apikey> | permitido quando o modelo efetivo é elegível e precificado |
 | `anthropic` | Anthropic Claude | `claude` | `ANTHROPIC_API_KEY` | <https://console.anthropic.com/> | permitido quando o modelo efetivo é elegível e precificado |
 | `mistral` | Mistral AI | - | `MISTRAL_API_KEY` | <https://console.mistral.ai/api-keys/> | **não; explicit-only durante a homologação inicial** |
+| `cohere` | Cohere | - | `COHERE_API_KEY` | <https://dashboard.cohere.com/api-keys> | **não; explicit-only durante a homologação inicial** |
 | `copilot` | GitHub Copilot | `github-copilot` | `COPILOT_GITHUB_TOKEN` | <https://github.com/settings/personal-access-tokens/new> | **não; explicit-only** |
 
 `none` representa ausência deliberada de provider externo. `auto` representa a política de composição/orquestração e não um provider físico.
@@ -63,6 +64,12 @@ O provider não expõe `RASAI_MISTRAL_ENDPOINT` nesta etapa. O adapter fixa o en
 
 Mistral permanece `explicit_only=true` e `auto_eligible=false` até a conclusão da homologação humana de execução, telemetria/custo, structured output e evidence-bound. Sua presença não altera a semântica de `AI=auto`.
 
+## Cohere
+
+A integração inicial usa `POST https://api.cohere.com/v2/chat` com `COHERE_API_KEY` e o modelo `command-a-03-2025`. Structured Outputs são enviados em `response_format`; constraints que o wire Cohere não aceita são removidas apenas da projeção externa e continuam obrigatórias na validação local do RASAi.
+
+Não há `RASAI_COHERE_ENDPOINT` nem controle de reasoning nesta fase. Tools, documents, RAG e Rerank não fazem parte do adapter. Cohere permanece `explicit_only=true` e `auto_eligible=false` até smoke positivo de API/schema/usage/pricing/evidence-bound e decisão posterior específica sobre AUTO.
+
 ## GitHub Copilot
 
 A integração usa o **GitHub Copilot SDK oficial** e a assinatura Copilot elegível do usuário. Não existe uma `COPILOT_API_KEY` separada de modelo.
@@ -98,7 +105,7 @@ Para cada provider tecnicamente integrado, `AI=auto`:
 
 Um modelo habilitado para seleção explícita, mas sem pricing vigente, continua tecnicamente selecionável quando permitido pelo catálogo. Ele **não participa do `AUTO` econômico**. O RASAi não inventa tarifa e não interpreta ausência de preço como custo zero.
 
-Providers explicit-only, atualmente Mistral durante a homologação inicial e GitHub Copilot, não entram no pool `AUTO` mesmo quando a credencial existe.
+Providers explicit-only, atualmente Mistral e Cohere durante a homologação inicial e GitHub Copilot, não entram no pool `AUTO` mesmo quando a credencial existe.
 
 A política de custo está em [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md) e o schema de preços em [AI_PRICING_CONFIGURATION.md](AI_PRICING_CONFIGURATION.md).
 
@@ -136,6 +143,7 @@ A tabela abaixo é apenas a fotografia do catálogo distribuído com o produto. 
 | Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | `LOW` |
 | Anthropic | `claude-sonnet-5` | `claude-sonnet-5` | `LOW` |
 | Mistral | `mistral-small-2603` | `mistral-small-2603` | `PROVIDER_DEFAULT` |
+| Cohere | `command-a-03-2025` | `command-a-03-2025` | `PROVIDER_DEFAULT` |
 | GitHub Copilot | `auto` | `auto` | `PROVIDER_DEFAULT` |
 
 A fonte de verdade para a execução é o catálogo efetivamente carregado, não esta fotografia documental.
