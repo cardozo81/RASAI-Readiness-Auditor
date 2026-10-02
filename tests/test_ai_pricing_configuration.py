@@ -43,7 +43,7 @@ def _conditions(provider: str) -> dict[str, str]:
 def test_factory_catalog_is_versioned_and_referenced_to_2026_10_02() -> None:
     catalog = load_factory_pricing_catalog()
     assert catalog.metadata.schema_version == 1
-    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-02.2"
+    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-02.3"
     assert catalog.metadata.reference_date == "2026-10-02"
     assert catalog.metadata.verified_on == "2026-10-02"
     assert catalog.metadata.review_recommended_on == "2026-11-02"
@@ -65,6 +65,12 @@ def test_factory_catalog_declares_current_commercial_models() -> None:
     assert mistral_rule.input_price_per_million == pytest.approx(0.15)
     assert mistral_rule.cached_input_price_per_million == pytest.approx(0.015)
     assert mistral_rule.output_price_per_million == pytest.approx(0.60)
+    assert by_key[("COHERE", "command-a-03-2025")].pricing_model == "TOKEN_STANDARD"
+    cohere_rule = by_key[("COHERE", "command-a-03-2025")].rules[0]
+    assert cohere_rule.input_price_per_million == pytest.approx(2.50)
+    assert cohere_rule.cached_input_price_per_million == pytest.approx(2.50)
+    assert cohere_rule.output_price_per_million == pytest.approx(10.00)
+    assert dict(cohere_rule.conditions) == {"operation_mode": "REALTIME", "region": "GLOBAL"}
 
 
 def test_time_window_and_context_thresholds_are_catalog_data() -> None:
@@ -184,7 +190,7 @@ def test_restore_factory_helper_reconstructs_editable_catalog(tmp_path: Path) ->
     target.write_text("invalid = true\n", encoding="utf-8")
     restored = restore_factory_pricing_catalog(target)
     catalog = load_pricing_catalog(path=restored)
-    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-02.2"
+    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-02.3"
     assert catalog.source == str(target.resolve())
 
 
