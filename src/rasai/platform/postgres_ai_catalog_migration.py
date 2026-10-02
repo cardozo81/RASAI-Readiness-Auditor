@@ -9,7 +9,7 @@ from typing import Any
 
 from .postgres_compat import PostgresConnectionAdapter
 
-AI_CATALOG_SCHEMA_VERSION = 1
+AI_CATALOG_SCHEMA_VERSION = 2
 
 
 _STATEMENTS: tuple[str, ...] = (
@@ -101,11 +101,13 @@ _STATEMENTS: tuple[str, ...] = (
         input_tokens_lt INTEGER,
         weekdays_utc_json TEXT NOT NULL DEFAULT '[]',
         time_windows_utc_json TEXT NOT NULL DEFAULT '[]',
+        conditions_json TEXT NOT NULL DEFAULT '{}',
         input_price_per_million DOUBLE PRECISION NOT NULL,
         cached_input_price_per_million DOUBLE PRECISION NOT NULL,
         output_price_per_million DOUBLE PRECISION NOT NULL,
         PRIMARY KEY(catalog_version, rule_id)
     )""",
+    "ALTER TABLE ai_pricing_rules ADD COLUMN IF NOT EXISTS conditions_json TEXT NOT NULL DEFAULT '{}'",
     "CREATE INDEX IF NOT EXISTS idx_ai_pricing_model ON ai_pricing_rules(provider_code,model_code,catalog_version)",
     """CREATE TABLE IF NOT EXISTS ai_job_catalog_snapshots (
         job_id TEXT PRIMARY KEY,
