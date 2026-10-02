@@ -47,13 +47,22 @@ def validate_catalog_alignment(
     for item in enabled:
         if not item.auto_eligible:
             continue
-        if resolve_catalog_rule(
-            pricing_catalog,
-            item.provider,
-            item.model,
-            at=instant,
-            input_tokens=0,
-        ) is None:
+        policy = pricing_catalog.model_policy(item.provider, item.model)
+        has_effective_rule = False
+        if policy is not None:
+            for rule in policy.rules:
+                resolved = resolve_catalog_rule(
+                    pricing_catalog,
+                    item.provider,
+                    item.model,
+                    at=instant,
+                    input_tokens=0,
+                    runtime_conditions=dict(rule.conditions),
+                )
+                if resolved is not None:
+                    has_effective_rule = True
+                    break
+        if not has_effective_rule:
             auto_unpriced.append(f"{item.provider}/{item.model}")
 
     return AiCatalogAlignment(
