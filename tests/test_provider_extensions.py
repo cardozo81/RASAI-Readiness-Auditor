@@ -178,6 +178,14 @@ class ProviderExtensionTests(unittest.TestCase):
         self.assertIn("schema", request["response_format"]["json_schema"])
         self.assertEqual(calls[0]["url"], "https://api.mistral.ai/v1/chat/completions")
         self.assertEqual(calls[0]["headers"]["Authorization"], "Bearer x")
+        attempt = provider.attempt_history()[0]
+        self.assertIsNotNone(attempt.estimated_cost)
+        self.assertEqual(attempt.pricing_context, "STANDARD")
+        self.assertEqual(attempt.pricing_rule_id, "mistral-small-2603-standard")
+        self.assertEqual(
+            dict(attempt.pricing_runtime_conditions),
+            {"operation_mode": "REALTIME", "region": "GLOBAL", "service_tier": "STANDARD_ONLY"},
+        )
 
     def test_extension_pricing_runtime_conditions_are_endpoint_and_tier_aware(self) -> None:
         xai_global = XAIProvider(model="grok-4.6", api_key="x")
