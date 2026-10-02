@@ -162,6 +162,27 @@ O valor precisa estar em `reasoning_values` do modelo efetivamente selecionado. 
 
 Quando o provider não expõe níveis configuráveis, o catálogo usa `PROVIDER_DEFAULT`.
 
+### Política RASAi: menor reasoning válido por default
+
+`default_reasoning` não copia automaticamente o default nativo do fabricante. O RASAi adota como baseline o **menor nível que a API aceita e que o adapter consegue serializar corretamente**:
+
+- `NONE` quando reasoning pode ser desligado;
+- `LOW` quando o modelo exige reasoning e esse é o menor effort;
+- `PROVIDER_DEFAULT` somente quando o modelo/adapter não expõe um controle determinístico homologado.
+
+Overrides humanos continuam permitidos apenas dentro de `reasoning_values`. A finalidade é reduzir custo/latência por default sem remover a opção de aprofundamento deliberado.
+
+### MiMo V2.6 e ciclo de vida v2.5
+
+Em 02/10/2026 a baseline passa a usar:
+- `mimo-v2.6-pro` como `adapter_default`;
+- `mimo-v2.6-flash` como `public_default`;
+- `NONE` como menor reasoning default.
+
+`mimo-v2.5` e `mimo-v2.5-pro` permanecem registrados apenas para compatibilidade explícita até `2026-10-21T02:00:00Z`, instante oficial de retirada. Depois disso `is_effective()` deve rejeitá-los. Uma AUD já snapshotada não pode trocar silenciosamente de modelo durante a execução.
+
+A migração é de model ID dentro do mesmo adapter Responses/PAYG; não habilita Token Plan, Batch, UltraSpeed, multimodal, web search ou tools. Rastreabilidade: issue #183.
+
 ### Mistral na baseline de 02/10/2026
 
 A primeira integração Mistral mantém somente `mistral-small-2603` no catálogo de fábrica. O registro é selecionável explicitamente, mas `auto_eligible=false` enquanto a homologação humana do provider não estiver concluída. O adapter continua sendo definido em código; o catálogo não cria um provider novo nem altera `AI=auto`.
