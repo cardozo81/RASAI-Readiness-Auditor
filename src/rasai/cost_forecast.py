@@ -142,6 +142,33 @@ def _number(value: Any) -> float | None:
         return None
 
 
+def _pricing_runtime_conditions_from_mapping(row: Mapping[str, Any]) -> dict[str, str]:
+    raw = _value(row, "pricing_runtime_conditions")
+    if raw is not None:
+        if isinstance(raw, Mapping):
+            parsed = raw
+        else:
+            try:
+                candidate = json.loads(str(raw or "{}"))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                candidate = {}
+            parsed = candidate if isinstance(candidate, Mapping) else {}
+        result = {
+            str(key).strip().casefold(): str(value).strip().upper()
+            for key, value in parsed.items()
+            if str(key).strip() and str(value).strip()
+        }
+        if result:
+            return result
+
+    result: dict[str, str] = {}
+    for key in ("service_tier", "commercial_mode", "operation_mode", "region"):
+        value = _value(row, f"pricing_{key}")
+        if value is not None and str(value).strip():
+            result[key] = str(value).strip().upper()
+    return result
+
+
 def _current_cost(row: Mapping[str, Any]) -> tuple[float | None, str | None, bool]:
     provider, model = str(_value(row, "provider") or "").upper(), str(_value(row, "model") or "")
     if provider and model:
@@ -150,7 +177,14 @@ def _current_cost(row: Mapping[str, Any]) -> tuple[float | None, str | None, boo
             _integer(_value(row, "output_tokens")), _integer(_value(row, "reasoning_tokens")),
             _integer(_value(row, "total_tokens")),
         )
-        amount, currency, _ = estimate_cost(provider, model, usage, datetime.now(timezone.utc))
+        runtime_conditions = _pricing_runtime_conditions_from_mapping(row)
+        amount, currency, _ = estimate_cost(
+            provider,
+            model,
+            usage,
+            datetime.now(timezone.utc),
+            runtime_conditions=runtime_conditions or None,
+        )
         if amount is not None and currency:
             return float(amount), str(currency), True
     amount = _number(_value(row, "estimated_cost"))
@@ -361,7 +395,14 @@ def _group_cost(group: Mapping[str, Any]) -> tuple[float | None, str | None, boo
             _integer(group.get("output_tokens")), _integer(group.get("reasoning_tokens")),
             _integer(group.get("total_tokens")),
         )
-        amount, currency, _ = estimate_cost(provider, model, usage, datetime.now(timezone.utc))
+        runtime_conditions = _pricing_runtime_conditions_from_mapping(dimensions)
+        amount, currency, _ = estimate_cost(
+            provider,
+            model,
+            usage,
+            datetime.now(timezone.utc),
+            runtime_conditions=runtime_conditions or None,
+        )
         if amount is not None and currency:
             return float(amount), str(currency), True
     costs = dict(group.get("cost_by_currency") or {})
@@ -406,7 +447,12 @@ def forecast_saas_cost(
     common = dict(project_id=project_id, property_id=property_id, environment_id=environment_id, limit=50000)
     ai = store.usage_analytics(
         organization_id, category="AI_PROVIDER_CALL",
-        group_by=("audit", "job", "provider", "model", "status", "operation"), **common,
+        group_by=(
+            "audit", "job", "provider", "model", "status", "operation",
+            "pricing_version", "pricing_context", "pricing_rule",
+            "pricing_service_tier", "pricing_commercial_mode",
+            "pricing_operation_mode", "pricing_region",
+        ), **common,
     )
     urls = store.usage_analytics(
         organization_id, category="URL_PROCESSED", group_by=("audit", "job"), **common,
