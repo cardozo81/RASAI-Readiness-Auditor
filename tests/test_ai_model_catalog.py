@@ -38,12 +38,14 @@ def _new_openai_model():
 def test_factory_model_catalog_covers_current_integrated_providers() -> None:
     catalog = load_factory_model_catalog()
     assert catalog.metadata.schema_version == 1
-    assert catalog.metadata.catalog_version == "RASAI-MODELS-2026-09-14"
+    assert catalog.metadata.catalog_version == "RASAI-MODELS-2026-10-02"
     assert {
-        "OPENAI", "DEEPSEEK", "MIMO", "XAI", "QWEN", "GEMINI", "ANTHROPIC", "COPILOT"
+        "OPENAI", "DEEPSEEK", "MIMO", "XAI", "QWEN", "GEMINI", "ANTHROPIC", "MISTRAL", "COPILOT"
     }.issubset(set(catalog.provider_names()))
     assert catalog.public_default("OPENAI").model == "gpt-5.6-luna"
     assert catalog.adapter_default("OPENAI").model == "gpt-5.6-terra"
+    assert catalog.public_default("MISTRAL").model == "mistral-small-2603"
+    assert catalog.public_default("MISTRAL").auto_eligible is False
 
 
 def test_local_model_catalog_can_be_selected_without_code_change(tmp_path: Path) -> None:
