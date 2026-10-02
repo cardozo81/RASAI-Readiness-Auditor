@@ -726,6 +726,13 @@ class QwenProvider(IsolatedStructuredSemanticProvider):
         "OPENAI_COMPATIBLE_CHAT_COMPLETIONS",
     )
 
+    def pricing_runtime_conditions(self) -> dict[str, str]:
+        endpoint = str(self.endpoint).strip().rstrip("/")
+        region = "US_VIRGINIA" if endpoint.startswith(
+            "https://dashscope-us.aliyuncs.com/compatible-mode/v1"
+        ) else "UNKNOWN"
+        return {"operation_mode": "REALTIME", "region": region}
+
     def _headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Bearer {self.api_key or ''}",
