@@ -129,6 +129,7 @@ class ProviderExtensionTests(unittest.TestCase):
         self.assertEqual(request["text"]["format"]["type"], "json_schema")
         self.assertTrue(request["text"]["format"]["strict"])
         self.assertEqual(request["reasoning"]["effort"], "high")
+        self.assertEqual(request["service_tier"], "default")
         self.assertEqual(calls[0]["url"], "https://api.x.ai/v1/responses")
 
     def test_qwen_chat_completions_contract(self) -> None:
@@ -177,6 +178,49 @@ class ProviderExtensionTests(unittest.TestCase):
         self.assertIn("schema", request["response_format"]["json_schema"])
         self.assertEqual(calls[0]["url"], "https://api.mistral.ai/v1/chat/completions")
         self.assertEqual(calls[0]["headers"]["Authorization"], "Bearer x")
+
+    def test_extension_pricing_runtime_conditions_are_endpoint_and_tier_aware(self) -> None:
+        xai_global = XAIProvider(model="grok-4.6", api_key="x")
+        self.assertEqual(
+            xai_global.pricing_runtime_conditions(),
+            {"service_tier": "DEFAULT", "operation_mode": "REALTIME", "region": "GLOBAL"},
+        )
+        xai_us = XAIProvider(
+            model="grok-4.6",
+            api_key="x",
+            endpoint="https://us.api.x.ai/v1/responses",
+        )
+        self.assertEqual(xai_us.pricing_runtime_conditions()["region"], "US")
+
+        qwen = QwenProvider(model="qwen3.8-flash", api_key="x")
+        self.assertEqual(
+            qwen.pricing_runtime_conditions(),
+            {"operation_mode": "REALTIME", "region": "US_VIRGINIA"},
+        )
+        qwen_unknown = QwenProvider(
+            model="qwen3.8-flash",
+            api_key="x",
+            endpoint="https://workspace.example/v1/chat/completions",
+        )
+        self.assertEqual(qwen_unknown.pricing_runtime_conditions()["region"], "UNKNOWN")
+
+        mistral = MistralProvider(model="mistral-small-2603", api_key="x")
+        self.assertEqual(
+            mistral.pricing_runtime_conditions(),
+            {"service_tier": "STANDARD_ONLY", "operation_mode": "REALTIME", "region": "GLOBAL"},
+        )
+
+        gemini = GeminiProvider(model="gemini-3.8-flash", api_key="x")
+        self.assertEqual(
+            gemini.pricing_runtime_conditions(),
+            {"service_tier": "STANDARD", "operation_mode": "REALTIME", "region": "GLOBAL"},
+        )
+
+        anthropic = AnthropicProvider(model="claude-sonnet-5", api_key="x")
+        self.assertEqual(
+            anthropic.pricing_runtime_conditions(),
+            {"service_tier": "STANDARD", "operation_mode": "REALTIME", "region": "GLOBAL"},
+        )
 
     def test_gemini_interactions_contract_and_new_schema_response(self) -> None:
         calls: list[dict[str, object]] = []
