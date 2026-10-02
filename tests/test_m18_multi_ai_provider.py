@@ -313,7 +313,7 @@ class M18ProviderTests(unittest.TestCase):
             connection.row_factory = sqlite3.Row
             try:
                 attempts = connection.execute(
-                    "SELECT provider,model,status,input_tokens,output_tokens,estimated_cost FROM ai_provider_attempts WHERE audit_id=? ORDER BY started_at",
+                    "SELECT provider,model,status,input_tokens,output_tokens,estimated_cost,pricing_version,pricing_context,pricing_rule_id,pricing_source_reference,pricing_runtime_conditions FROM ai_provider_attempts WHERE audit_id=? ORDER BY started_at",
                     (result.audit_id,),
                 ).fetchall()
                 self.assertEqual(len(attempts), 2)
@@ -323,6 +323,15 @@ class M18ProviderTests(unittest.TestCase):
                 self.assertTrue(all(row["input_tokens"] == 100 for row in attempts))
                 self.assertTrue(all(row["output_tokens"] == 50 for row in attempts))
                 self.assertTrue(all(row["estimated_cost"] is not None for row in attempts))
+                self.assertTrue(all(str(row["pricing_version"]).startswith("RASAI-PRICING-") for row in attempts))
+                self.assertTrue(all(row["pricing_context"] == "STANDARD" for row in attempts))
+                self.assertTrue(all(row["pricing_rule_id"] == "openai-gpt-5.6-terra-standard" for row in attempts))
+                self.assertTrue(all("developers.openai.com" in str(row["pricing_source_reference"]) for row in attempts))
+                for row in attempts:
+                    pricing_conditions = json.loads(row["pricing_runtime_conditions"])
+                    self.assertEqual(pricing_conditions["service_tier"], "DEFAULT")
+                    self.assertEqual(pricing_conditions["operation_mode"], "REALTIME")
+                    self.assertEqual(pricing_conditions["region"], "GLOBAL")
                 session = connection.execute(
                     "SELECT strategy,effective_provider,effective_model,status FROM ai_audit_sessions WHERE audit_id=?",
                     (result.audit_id,),
