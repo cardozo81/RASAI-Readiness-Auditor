@@ -254,6 +254,10 @@ class M18Persistence:
                     estimated_cost REAL,
                     cost_currency TEXT,
                     pricing_version TEXT,
+                    pricing_context TEXT,
+                    pricing_rule_id TEXT,
+                    pricing_source_reference TEXT,
+                    pricing_runtime_conditions TEXT NOT NULL DEFAULT '{}',
                     request_message_summary TEXT NOT NULL,
                     request_payload_hash TEXT,
                     semantic_contract_version TEXT NOT NULL,
@@ -283,6 +287,8 @@ class M18Persistence:
                     currency TEXT NOT NULL,
                     source_reference TEXT NOT NULL,
                     pricing_version TEXT NOT NULL,
+                    pricing_rule_id TEXT,
+                    conditions_json TEXT NOT NULL DEFAULT '{}',
                     PRIMARY KEY(provider, model, pricing_version, pricing_context)
                 );
                 """
@@ -299,17 +305,31 @@ class M18Persistence:
                 ('operation', 'TEXT'),
                 ('ai_task_id', 'TEXT'),
                 ('ai_round_id', 'TEXT'),
+                ('pricing_context', 'TEXT'),
+                ('pricing_rule_id', 'TEXT'),
+                ('pricing_source_reference', 'TEXT'),
+                ('pricing_runtime_conditions', "TEXT NOT NULL DEFAULT '{}'"),
             ):
                 if column not in existing_attempt_columns:
                     self._connection.execute(f'ALTER TABLE ai_provider_attempts ADD COLUMN {column} {ddl}')
+            existing_pricing_columns = {
+                str(row['name']) for row in self._connection.execute('PRAGMA table_info(provider_pricing_catalog)').fetchall()
+            }
+            for column, ddl in (
+                ('pricing_rule_id', 'TEXT'),
+                ('conditions_json', "TEXT NOT NULL DEFAULT '{}'"),
+            ):
+                if column not in existing_pricing_columns:
+                    self._connection.execute(f'ALTER TABLE provider_pricing_catalog ADD COLUMN {column} {ddl}')
             for item in PRICING_CATALOG:
                 self._connection.execute(
                     """
                     INSERT OR REPLACE INTO provider_pricing_catalog (
                         provider, model, effective_from, pricing_context,
                         input_price_per_million, cached_input_price_per_million,
-                        output_price_per_million, currency, source_reference, pricing_version
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        output_price_per_million, currency, source_reference, pricing_version,
+                        pricing_rule_id, conditions_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         item.provider,
@@ -322,6 +342,8 @@ class M18Persistence:
                         item.currency,
                         item.source_reference,
                         item.pricing_version,
+                        item.rule_id,
+                        _dump(dict(item.conditions)),
                     ),
                 )
 
@@ -400,7 +422,8 @@ class M18Persistence:
             "status", "http_status", "error_class", "error_type", "error_code", "request_id",
             "retry_eligible", "retry_after_seconds", "decision", "fallback_from_provider", "fallback_reason",
             "input_tokens", "cached_input_tokens", "output_tokens", "reasoning_tokens", "total_tokens",
-            "estimated_cost", "cost_currency", "pricing_version", "request_message_summary", "request_payload_hash",
+            "estimated_cost", "cost_currency", "pricing_version", "pricing_context", "pricing_rule_id",
+            "pricing_source_reference", "pricing_runtime_conditions", "request_message_summary", "request_payload_hash",
             "semantic_contract_version", "operation", "ai_task_id", "ai_round_id",
             "provider_qualification", "provider_reliability_score", "qualification_version",
         )
@@ -426,6 +449,10 @@ class M18Persistence:
             attempt.estimated_cost,
             attempt.cost_currency,
             attempt.pricing_version,
+            attempt.pricing_context,
+            attempt.pricing_rule_id,
+            attempt.pricing_source_reference,
+            _dump(dict(attempt.pricing_runtime_conditions)),
             attempt.request_message_summary[:512],
             attempt.request_payload_hash,
             attempt.semantic_contract_version,
