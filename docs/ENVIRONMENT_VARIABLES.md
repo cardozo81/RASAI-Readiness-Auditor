@@ -44,7 +44,7 @@ No console local, configure o timezone pelo item **Timezone apresentação**, pe
 |---|---|---|---|---|
 | `OPENAI_API_KEY` | sem default | credencial OpenAI não vazia | secret/env | necessária ao selecionar OpenAI |
 | `DEEPSEEK_API_KEY` | sem default | credencial DeepSeek não vazia | secret/env | necessária ao selecionar DeepSeek |
-| `MIMO_API_KEY` | sem default | chave PAYG `sk-...`; `tp-...` não é aceita pelo adapter | `sk-...` em secret/env | necessária ao selecionar MiMo |
+| `MIMO_API_KEY` | sem default | chave PAYG `sk-...`; outros formatos não são suportados pelo adapter atual | `sk-...` em secret/env | necessária ao selecionar MiMo; variantes futuras: issue #180 |
 | `XAI_API_KEY` | sem default | credencial xAI não vazia | secret/env | necessária ao selecionar xAI/Grok |
 | `DASHSCOPE_API_KEY` | sem default | credencial Alibaba Model Studio não vazia | secret/env | necessária ao selecionar Qwen |
 | `GEMINI_API_KEY` | sem default | credencial Gemini não vazia | secret/env | necessária ao selecionar Gemini |
