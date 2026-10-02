@@ -1,10 +1,10 @@
 # Configuração de preços de IA do RASAi
 
 **Estado:** vigente.  
-**Data de referência desta configuração:** 13/09/2026  
-**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-09-13`  
+**Data de referência desta configuração:** 02/10/2026  
+**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-10-02`  
 **Schema do catálogo:** `1`  
-**Revisão ordinária recomendada:** 13/10/2026
+**Revisão ordinária recomendada:** 02/11/2026
 
 Os preços deste documento e de `src/rasai/config/ai-pricing-defaults.toml` representam a política conhecida e validada na data de referência. Eles são usados para estimativa operacional e roteamento econômico. Não substituem a fatura do fornecedor.
 
@@ -104,10 +104,10 @@ Metadados obrigatórios:
 ```toml
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-PRICING-2026-09-13"
-reference_date = "2026-09-13"
-verified_on = "2026-09-13"
-review_recommended_on = "2026-10-13"
+catalog_version = "RASAI-PRICING-2026-10-02"
+reference_date = "2026-10-02"
+verified_on = "2026-10-02"
+review_recommended_on = "2026-11-02"
 ```
 
 Cada provider/modelo declara:
@@ -141,7 +141,7 @@ A unidade usada pelo runtime é preço por 1.000.000 tokens para input sem cache
 
 ### 6.1 `TOKEN_STANDARD`
 
-Use quando o preço é estável durante a vigência e não depende de horário ou tamanho de contexto. Aplicações atuais incluem MiMo, Qwen, Gemini e Anthropic.
+Use quando o preço é estável durante a vigência e não depende de horário ou tamanho de contexto. Aplicações atuais incluem MiMo, Qwen, Gemini, Anthropic e Mistral.
 
 ### 6.2 `TOKEN_CONTEXT_TIERED`
 
@@ -190,7 +190,7 @@ Quando mais de uma regra é válida, a seleção é:
 2. `effective_from` mais recente;
 3. `rule_id` como desempate determinístico.
 
-## 10. Política por IA - referência 13/09/2026
+## 10. Política por IA - referência 02/10/2026
 
 Valores em USD por 1 milhão de tokens.
 
@@ -208,6 +208,7 @@ Valores em USD por 1 milhão de tokens.
 | Qwen `qwen3.8-max` | `TOKEN_STANDARD` | 1,65 | 0,206 | 4,951 | região US/Virginia |
 | Gemini `gemini-3.8-flash` | `TOKEN_STANDARD` | 0,75 | 0,075 | 3,75 | thinking/reasoning soma no output; regra até 01/01/2027 UTC |
 | Anthropic `claude-sonnet-5` | `TOKEN_STANDARD` | 2,00 | 0,20 | 10,00 | 0,20 representa cache read no modelo vigente |
+| Mistral `mistral-small-2603` | `TOKEN_STANDARD` | 0,15 | 0,015 | 0,60 | endpoint global; `service_tier=standard_only`; provider ainda explicit-only |
 | GitHub Copilot `auto` | **UNPRICED** | - | - | - | explicit-only e `auto_eligible=false`; não participa do ranking AUTO |
 
 A tabela é uma fotografia operacional da data de referência. O TOML efetivamente snapshotado para a execução é a autoridade de cálculo daquela AUD.
@@ -237,9 +238,13 @@ O catálogo registra `region="US_VIRGINIA"`. Endpoint/região e pricing precisam
 
 A regra atual possui `effective_until = "2027-01-01T00:00:00Z"`. Sem regra vigente após esse instante, o modelo fica UNPRICED.
 
-### 10.6 GitHub Copilot
+### 10.6 Mistral
 
-Na referência de 13/09/2026 não existe tarifa unitária de API cadastrada no RASAi. O provider é explicit-only e não é elegível ao AUTO.
+O catálogo inicial usa a tarifa Standard global de `mistral-small-2603`: USD 0,15/M input, USD 0,015/M cached input e USD 0,60/M output. O adapter envia `service_tier=standard_only` e não expõe endpoint regional/priority/batch nesta entrega. A existência de pricing não torna o provider elegível ao AUTO: Mistral permanece `explicit_only=true` e `auto_eligible=false` até homologação humana posterior.
+
+### 10.7 GitHub Copilot
+
+Na referência de 02/10/2026 não existe tarifa unitária de API cadastrada no RASAi. O provider é explicit-only e não é elegível ao AUTO.
 
 ## 11. Como atualizar um preço localmente
 
@@ -315,7 +320,7 @@ A ordem permanece:
 4. empates determinísticos;
 5. candidatos UNPRICED depois dos precificados.
 
-Pricing não habilita provider sem credencial, ignora falhas, remove quarentena, reduz circuit breaker nem torna Copilot elegível ao AUTO.
+Pricing não habilita provider sem credencial, ignora falhas, remove quarentena, reduz circuit breaker nem torna Mistral ou Copilot elegíveis ao AUTO nesta entrega.
 
 ## 18. Batch, Flex, Priority e service tiers
 
@@ -339,7 +344,7 @@ Erro de catálogo não é convertido silenciosamente em preço presumido.
 
 ## 20. Política de revisão
 
-Data de referência desta versão: **13/09/2026**. Revisão ordinária recomendada: **13/10/2026**.
+Data de referência desta versão: **02/10/2026**. Revisão ordinária recomendada: **02/11/2026**.
 
 Revisar antes disso em caso de aviso de preço, troca de modelo default, mudança de endpoint/região, cache, peak/off-peak, threshold de contexto, promoção, nova modalidade de cobrança ou divergência material entre estimativa e cobrança observada. Toda revisão efetiva deve atualizar `reference_date` e `verified_on`.
 
@@ -354,6 +359,7 @@ Revisar antes disso em caso de aviso de preço, troca de modelo default, mudanç
 | Alibaba Qwen / Model Studio | <https://www.alibabacloud.com/help/en/model-studio/model-pricing> | região, modelo, contexto e cache |
 | Google Gemini | <https://ai.google.dev/gemini-api/docs/pricing> | input, cached input, output/thinking e vigência |
 | Anthropic Claude | <https://platform.claude.com/docs/en/about-claude/pricing> | input, output e cache |
+| Mistral AI | <https://docs.mistral.ai/inference/pricing> | Standard input, cached input, output e service tier |
 
 Cada entrada do TOML mantém `source_reference` próprio.
 
@@ -366,6 +372,7 @@ A suíte deve cobrir, no mínimo:
 - xAI >=200k;
 - expiração fail-closed do Gemini;
 - reasoning do Gemini incluído no output faturável;
+- Mistral Small 4 com input/cache/output Standard e permanência fora do AUTO;
 - defaults elegíveis do pool AUTO com preço vigente;
 - arquivo configurado inexistente falhando fechado;
 - `config/ai-pricing.toml` como superfície humana padrão do console;
