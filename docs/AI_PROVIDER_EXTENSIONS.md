@@ -19,6 +19,10 @@ O contrato semântico exige o conjunto de regras previsto pela implementação, 
 
 A lista canônica de providers, aliases, credenciais e onboarding está em [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md) e [PROVIDER_SETUP.md](PROVIDER_SETUP.md).
 
+## Limite de escopo dos providers externos
+
+Este documento descreve apenas o wire contract e as capabilities realmente implementadas pelos adapters RASAi. Capacidades adicionais oferecidas pelos fabricantes não são herdadas automaticamente. Planos, formatos de credencial, autenticações, endpoints, tiers, tools, search, agents ou connectors não implementados/homologados permanecem fora do contrato e são avaliados separadamente na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
+
 ## AUTO
 
 AUTO não usa uma cadeia fixa limitada a um subconjunto de providers. O runtime consulta o registry e inclui todos os providers com `auto_eligible=true` que estejam aptos naquela execução.
