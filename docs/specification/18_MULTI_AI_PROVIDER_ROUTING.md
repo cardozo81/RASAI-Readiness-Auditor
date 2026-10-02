@@ -37,7 +37,7 @@ Os defaults públicos efetivamente aplicados pelo runtime são:
 |---|---|---|---|
 | OpenAI | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `gpt-5.6-luna` para custo/volume; `gpt-5.6-sol` quando a prioridade for máxima qualidade |
 | DeepSeek | `deepseek-v4-flash` | `deepseek-v4-pro`, `deepseek-v4-flash` | `deepseek-v4-flash` no uso normal |
-| MiMo | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro legados até 21/10/2026 02:00 UTC | `mimo-v2.6-flash` no uso normal |
+| MiMo | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro mantidos temporariamente por compatibilidade até 21/10/2026 02:00 UTC | `mimo-v2.6-flash` no uso normal |
 | xAI | `grok-4.6` | `grok-4.6` | default |
 | Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `qwen3.8-flash`, reasoning default `NONE` |
 | Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | default |
