@@ -105,7 +105,7 @@ class M18ProviderTests(unittest.TestCase):
         mimo = build_semantic_provider("mimo", env={"MIMO_API_KEY": "x"})
         self.assertEqual((openai.name, openai.model), ("OPENAI", "gpt-5.6-terra"))
         self.assertEqual((deepseek.name, deepseek.model), ("DEEPSEEK", "deepseek-v4-pro"))
-        self.assertEqual((mimo.name, mimo.model, mimo.reasoning_profile), ("MIMO", "mimo-v2.5-pro", "THINKING_ENABLED"))
+        self.assertEqual((mimo.name, mimo.model, mimo.reasoning_profile), ("MIMO", "mimo-v2.6-pro", "NONE"))
 
         auto = build_semantic_provider("auto", env={
             "OPENAI_API_KEY": "x", "DEEPSEEK_API_KEY": "x", "MIMO_API_KEY": "x",
@@ -136,7 +136,7 @@ class M18ProviderTests(unittest.TestCase):
         self.assertEqual(calls[1]["body"]["text"]["format"]["type"], "json_schema")
         self.assertNotIn("strict", calls[1]["body"]["text"]["format"])
         self.assertEqual(calls[2]["body"]["text"]["format"]["type"], "json_object")
-        self.assertEqual(calls[2]["body"]["reasoning"]["effort"], "high")
+        self.assertEqual(calls[2]["body"]["reasoning"]["effort"], "none")
 
     def test_usage_and_estimated_cost_are_normalized(self) -> None:
         provider = OpenAIProvider(api_key="x", transport=_success_transport())
