@@ -1,0 +1,94 @@
+name: Mistral provider targeted
+
+on:
+  push:
+    branches:
+      - feat/mistral-ai-provider
+    paths:
+      - 'src/rasai/provider_extensions.py'
+      - 'src/rasai/provider_extensions_m20.py'
+      - 'src/rasai/provider_registry.py'
+      - 'src/rasai/provider_runtime_policy.py'
+      - 'src/rasai/ai_orchestration_unification.py'
+      - 'src/rasai/improvement_intelligence.py'
+      - 'src/rasai/ai_catalog_control_plane.py'
+      - 'src/rasai/config/ai-models-defaults.toml'
+      - 'src/rasai/config/ai-pricing-defaults.toml'
+      - 'config/ai-models.toml'
+      - 'config/ai-pricing.toml'
+      - 'tests/test_provider_extensions.py'
+      - 'tests/test_provider_extensions_m20.py'
+      - 'tests/test_provider_registry.py'
+      - 'tests/test_provider_runtime_policy.py'
+      - 'tests/test_console_provider_registry.py'
+      - 'tests/test_ai_model_catalog.py'
+      - 'tests/test_ai_model_saas.py'
+      - 'tests/test_ai_pricing_configuration.py'
+      - 'tests/test_ai_pricing_saas.py'
+      - '.github/workflows/mistral-provider-targeted.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/rasai/provider_extensions.py'
+      - 'src/rasai/provider_extensions_m20.py'
+      - 'src/rasai/provider_registry.py'
+      - 'src/rasai/provider_runtime_policy.py'
+      - 'src/rasai/ai_orchestration_unification.py'
+      - 'src/rasai/improvement_intelligence.py'
+      - 'src/rasai/ai_catalog_control_plane.py'
+      - 'src/rasai/config/ai-models-defaults.toml'
+      - 'src/rasai/config/ai-pricing-defaults.toml'
+      - 'config/ai-models.toml'
+      - 'config/ai-pricing.toml'
+      - 'tests/test_provider_extensions.py'
+      - 'tests/test_provider_extensions_m20.py'
+      - 'tests/test_provider_registry.py'
+      - 'tests/test_provider_runtime_policy.py'
+      - 'tests/test_console_provider_registry.py'
+      - 'tests/test_ai_model_catalog.py'
+      - 'tests/test_ai_model_saas.py'
+      - 'tests/test_ai_pricing_configuration.py'
+      - 'tests/test_ai_pricing_saas.py'
+      - '.github/workflows/mistral-provider-targeted.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mistral-provider:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - name: Install package and pytest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+      - name: Compile directly changed AI surfaces
+        run: |
+          python -m compileall -q \
+            src/rasai/provider_extensions.py \
+            src/rasai/provider_extensions_m20.py \
+            src/rasai/provider_registry.py \
+            src/rasai/provider_runtime_policy.py \
+            src/rasai/ai_orchestration_unification.py \
+            src/rasai/improvement_intelligence.py \
+            src/rasai/ai_catalog_control_plane.py
+      - name: Targeted Mistral and shared-boundary tests
+        run: |
+          python -m pytest -q \
+            tests/test_provider_extensions.py \
+            tests/test_provider_extensions_m20.py \
+            tests/test_provider_registry.py \
+            tests/test_provider_runtime_policy.py \
+            tests/test_console_provider_registry.py \
+            tests/test_ai_model_catalog.py \
+            tests/test_ai_model_saas.py \
+            tests/test_ai_pricing_configuration.py \
+            tests/test_ai_pricing_saas.py
