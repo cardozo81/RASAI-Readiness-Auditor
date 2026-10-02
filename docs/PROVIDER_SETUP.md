@@ -49,13 +49,25 @@ A lista de reasoning exibida pelo comando é o domínio aceito pelo runtime para
 |---|---|---|---|---|---|
 | `openai` | OpenAI | `OPENAI_API_KEY` | `gpt-5.6-luna` | <https://platform.openai.com/api-keys> | API é contratada separadamente de planos do ChatGPT. |
 | `deepseek` | DeepSeek | `DEEPSEEK_API_KEY` | `deepseek-v4-flash` | <https://platform.deepseek.com/api_keys> | chave da plataforma/API DeepSeek |
-| `mimo` | Xiaomi MiMo | `MIMO_API_KEY` | `mimo-v2.5` | <https://mimo.mi.com/> | contrato atual aceita somente PAYG `sk-...`; formatos alternativos não são suportados |
+| `mimo` | Xiaomi MiMo | `MIMO_API_KEY` | `mimo-v2.6-flash` | <https://mimo.mi.com/> | PAYG `sk-...`; v2.5/pro legados até 21/10/2026 02:00 UTC |
 | `xai` / `grok` | xAI / Grok | `XAI_API_KEY` | `grok-4.6` | <https://console.x.ai/> | API key xAI |
 | `qwen` | Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | `qwen3.8-flash` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | região da key e endpoint devem ser coerentes |
 | `gemini` | Google Gemini | `GEMINI_API_KEY` | `gemini-3.8-flash` | <https://aistudio.google.com/apikey> | Gemini API key |
 | `anthropic` / `claude` | Anthropic Claude | `ANTHROPIC_API_KEY` | `claude-sonnet-5` | <https://console.anthropic.com/> | Anthropic API key |
 | `mistral` | Mistral AI | `MISTRAL_API_KEY` | `mistral-small-2603` | <https://console.mistral.ai/api-keys/> | explicit-only durante a homologação inicial; endpoint global Standard fixo |
 | `copilot` / `github-copilot` | GitHub Copilot | `COPILOT_GITHUB_TOKEN` | `auto` | <https://github.com/settings/personal-access-tokens/new> | usa assinatura Copilot elegível; não entra em `AI=auto` |
+
+### Xiaomi MiMo - migração V2.6
+
+O RASAi continua usando o mesmo serviço PAYG e o mesmo endpoint Responses. A mudança oficial é de **modelo**, não de adapter:
+
+- default público: `mimo-v2.6-flash`;
+- default do adapter: `mimo-v2.6-pro`;
+- `mimo-v2.5` e `mimo-v2.5-pro`: somente legado até 21/10/2026 02:00 UTC;
+- reasoning default RASAi: `NONE`;
+- Token Plan, Batch, UltraSpeed, tools, web search e multimodal não são opções do contrato atual.
+
+A migração é rastreada na [issue #183](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/183).
 
 ### Passo a passo detalhado para obtenção das credenciais
 
