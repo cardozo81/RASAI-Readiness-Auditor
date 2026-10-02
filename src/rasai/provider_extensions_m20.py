@@ -44,6 +44,7 @@ from rasai.provider_extensions import (
     AnthropicProvider,
     GeminiProvider,
     IsolatedStructuredSemanticProvider,
+    MistralProvider,
     QwenProvider,
     XAIProvider,
     _diagnostic_from_http,
@@ -107,8 +108,8 @@ class ExtensionContentRemediationProvider:
                 },
             }
 
-        if isinstance(self.base, QwenProvider):
-            return {
+        if isinstance(self.base, (QwenProvider, MistralProvider)):
+            payload = {
                 "model": self.model,
                 "messages": [
                     {"role": "system", "content": instructions},
@@ -123,6 +124,9 @@ class ExtensionContentRemediationProvider:
                     },
                 },
             }
+            if isinstance(self.base, MistralProvider):
+                payload["service_tier"] = "standard_only"
+            return payload
 
         if isinstance(self.base, GeminiProvider):
             return {
