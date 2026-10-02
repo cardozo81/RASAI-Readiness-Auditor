@@ -20,6 +20,26 @@ ROOT = Path(__file__).resolve().parents[1]
 UTC = timezone.utc
 
 
+def _conditions(provider: str) -> dict[str, str]:
+    name = provider.upper()
+    if name == "OPENAI":
+        return {"service_tier": "DEFAULT", "operation_mode": "REALTIME", "region": "GLOBAL"}
+    if name == "DEEPSEEK":
+        return {"operation_mode": "REALTIME", "region": "GLOBAL"}
+    if name == "MIMO":
+        return {"commercial_mode": "PAYG", "operation_mode": "REALTIME", "region": "GLOBAL"}
+    if name == "XAI":
+        return {"service_tier": "DEFAULT", "operation_mode": "REALTIME", "region": "GLOBAL"}
+    if name == "QWEN":
+        return {"operation_mode": "REALTIME", "region": "US_VIRGINIA"}
+    if name in {"GEMINI", "ANTHROPIC"}:
+        return {"service_tier": "STANDARD", "operation_mode": "REALTIME", "region": "GLOBAL"}
+    if name == "MISTRAL":
+        return {"service_tier": "STANDARD_ONLY", "operation_mode": "REALTIME", "region": "GLOBAL"}
+    return {}
+
+
+
 def test_factory_catalog_is_versioned_and_referenced_to_2026_10_02() -> None:
     catalog = load_factory_pricing_catalog()
     assert catalog.metadata.schema_version == 1
@@ -55,6 +75,7 @@ def test_time_window_and_context_thresholds_are_catalog_data() -> None:
         "deepseek-v4-pro",
         at=datetime(2026, 9, 14, 1, 30, tzinfo=UTC),
         input_tokens=10_000,
+        runtime_conditions=_conditions("DEEPSEEK"),
     )
     off_peak = resolve_catalog_rule(
         catalog,
@@ -62,6 +83,7 @@ def test_time_window_and_context_thresholds_are_catalog_data() -> None:
         "deepseek-v4-pro",
         at=datetime(2026, 9, 12, 1, 30, tzinfo=UTC),
         input_tokens=10_000,
+        runtime_conditions=_conditions("DEEPSEEK"),
     )
     openai_long = resolve_catalog_rule(
         catalog,
@@ -69,6 +91,7 @@ def test_time_window_and_context_thresholds_are_catalog_data() -> None:
         "gpt-5.6-sol",
         at=datetime(2026, 9, 14, tzinfo=UTC),
         input_tokens=272_001,
+        runtime_conditions=_conditions("OPENAI"),
     )
     xai_long = resolve_catalog_rule(
         catalog,
@@ -76,11 +99,12 @@ def test_time_window_and_context_thresholds_are_catalog_data() -> None:
         "grok-4.6",
         at=datetime(2026, 9, 14, tzinfo=UTC),
         input_tokens=200_000,
+        runtime_conditions=_conditions("XAI"),
     )
     assert peak is not None and peak[1].context == "PEAK"
     assert off_peak is not None and off_peak[1].context == "OFF_PEAK"
     assert openai_long is not None and openai_long[1].context == "LONG_CONTEXT_GT_272K"
-    assert xai_long is not None and xai_long[1].context == "LONG_CONTEXT"
+    assert xai_long is not None and xai_long[1].context == "LONG_CONTEXT_GLOBAL"
 
 
 def test_local_user_catalog_can_change_price_without_code_change(tmp_path: Path) -> None:
@@ -98,6 +122,7 @@ def test_local_user_catalog_can_change_price_without_code_change(tmp_path: Path)
         "mimo-v2.6-flash",
         at=datetime(2026, 10, 2, tzinfo=UTC),
         input_tokens=1_000,
+        runtime_conditions=_conditions("MIMO"),
     )
     assert resolved is not None
     assert resolved[1].input_price_per_million == pytest.approx(9.99)
