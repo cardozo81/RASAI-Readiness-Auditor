@@ -20,7 +20,7 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
     def test_public_defaults_use_simplest_models(self) -> None:
         self.assertEqual(SIMPLE_DEFAULT_MODELS["OPENAI"], "gpt-5.6-luna")
         self.assertEqual(SIMPLE_DEFAULT_MODELS["DEEPSEEK"], "deepseek-v4-flash")
-        self.assertEqual(SIMPLE_DEFAULT_MODELS["MIMO"], "mimo-v2.5")
+        self.assertEqual(SIMPLE_DEFAULT_MODELS["MIMO"], "mimo-v2.6-flash")
         self.assertEqual(SIMPLE_DEFAULT_MODELS["QWEN"], "qwen3.8-flash")
         self.assertEqual(SIMPLE_DEFAULT_MODELS["MISTRAL"], "mistral-small-2603")
 
@@ -31,6 +31,7 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
         self.assertEqual(LOWEST_REASONING["XAI"], "LOW")
         self.assertEqual(LOWEST_REASONING["GEMINI"], "LOW")
         self.assertEqual(LOWEST_REASONING["ANTHROPIC"], "LOW")
+        self.assertEqual(LOWEST_REASONING["QWEN"], "NONE")
         self.assertEqual(LOWEST_REASONING["MISTRAL"], "PROVIDER_DEFAULT")
 
     def test_explicit_environment_override_is_preserved(self) -> None:
@@ -108,6 +109,37 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
         self.assertEqual(provider.model, "mistral-small-2603")
         self.assertEqual(provider.endpoint, "https://api.mistral.ai/v1/chat/completions")
         self.assertEqual(provider.reasoning_profile, "PROVIDER_DEFAULT")
+
+    def test_qwen_default_reasoning_is_none_and_override_is_supported(self) -> None:
+        qwen = build_semantic_provider(
+            "qwen",
+            env={"DASHSCOPE_API_KEY": "x", "RASAI_QWEN_MODEL": "qwen3.8-flash"},
+        )
+        self.assertEqual(qwen.reasoning_profile, "NONE")
+        payload = qwen._request_payload(type("Req", (), {
+            "allowed_evidence_ids": frozenset(),
+            "provider_payload": lambda self: {},
+            "primary_language": "pt-BR",
+            "market": "BR",
+        })())
+        self.assertEqual(payload["reasoning_effort"], "none")
+
+        qwen_high = build_semantic_provider(
+            "qwen",
+            env={
+                "DASHSCOPE_API_KEY": "x",
+                "RASAI_QWEN_MODEL": "qwen3.8-flash",
+                "RASAI_QWEN_REASONING_EFFORT": "HIGH",
+            },
+        )
+        self.assertEqual(qwen_high.reasoning_profile, "HIGH")
+        payload_high = qwen_high._request_payload(type("Req", (), {
+            "allowed_evidence_ids": frozenset(),
+            "provider_payload": lambda self: {},
+            "primary_language": "pt-BR",
+            "market": "BR",
+        })())
+        self.assertEqual(payload_high["reasoning_effort"], "high")
 
     def test_xai_and_gemini_payloads_are_lowered(self) -> None:
         xai = build_semantic_provider("xai", env={"XAI_API_KEY": "x", "RASAI_XAI_MODEL": "grok-4.6"})
