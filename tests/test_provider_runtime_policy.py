@@ -89,6 +89,30 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
                 )
                 self.assertEqual(none_provider.name, "NONE")
 
+    def test_explicit_model_override_rejects_model_that_is_no_longer_effective(self) -> None:
+        import rasai.provider_runtime_policy as runtime_policy
+
+        original = runtime_policy.model_definition
+
+        class _ExpiredDefinition:
+            enabled = True
+
+            def is_effective(self) -> bool:
+                return False
+
+        def lookup(provider_name: str, model: str):
+            if provider_name == "MIMO" and model == "mimo-v2.5":
+                return _ExpiredDefinition()
+            return original(provider_name, model)
+
+        with patch.object(runtime_policy, "model_definition", side_effect=lookup):
+            with self.assertRaisesRegex(ValueError, "modelo indisponível para MIMO: mimo-v2.5"):
+                build_semantic_provider(
+                    "mimo",
+                    model_override="mimo-v2.5",
+                    env={"MIMO_API_KEY": "x"},
+                )
+
     def test_ai_none_ignores_configured_mistral(self) -> None:
         provider = build_semantic_provider(
             "none",
