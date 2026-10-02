@@ -315,3 +315,11 @@ def test_mistral_price_requires_standard_only_global_runtime_contract() -> None:
     )
     assert matching is not None
     assert mismatched is None
+
+
+def test_auto_places_unpriced_after_priced_even_when_unpriced_rank_is_lower() -> None:
+    unpriced = _PricedProvider("UNKNOWN", "unknown-1", 1)
+    mimo = _PricedProvider("MIMO", "mimo-v2.6-flash", 99)
+    session = DynamicProviderRoutingSession((unpriced, mimo))
+    ordered = session.ordered_candidates_for_need(SimpleNamespace(evidence=()), scope="SEMANTIC")
+    assert [item.name for item in ordered] == ["MIMO", "UNKNOWN"]
