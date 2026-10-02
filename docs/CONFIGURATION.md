@@ -26,6 +26,8 @@ Quando este guia resumido e `ENVIRONMENT_VARIABLES.md` divergirem, a referência
 
 O console organiza a configuração por fronteira funcional. A composição vigente inclui configuração geral, IA, Search Intelligence/SERP, Web Performance/Google APIs, Synthetic Apdex e Browser/Playwright, além da visão de todas as variáveis e do atalho para documentação detalhada.
 
+Em **Todas as configurações**, a seção **Configurações estruturais do console** também expõe **Raiz das auditorias**. Esse acesso reutiliza o mesmo `state.audits_root`, o mesmo editor e a mesma persistência já usados em **Preparar auditoria > Execução / armazenamento**; não existe segundo valor nem segundo mecanismo de gravação.
+
 Secrets continuam fora do INI, independentemente do grupo em que aparecem.
 
 ## Arquivo INI do console
