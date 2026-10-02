@@ -87,6 +87,11 @@ def pricing_catalog_to_toml(catalog: PricingCatalog) -> str:
             ])
             if rule.effective_until is not None:
                 lines.append(f"  effective_until = {_quoted(rule.effective_until)}")
+            if rule.conditions:
+                rendered_conditions = ", ".join(
+                    f"{key} = {_quoted(value)}" for key, value in rule.conditions
+                )
+                lines.append(f"  conditions = {{ {rendered_conditions} }}")
             for field in ("input_tokens_gte", "input_tokens_gt", "input_tokens_lte", "input_tokens_lt"):
                 value = getattr(rule, field)
                 if value is not None:
