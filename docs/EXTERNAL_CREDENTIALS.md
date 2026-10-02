@@ -487,7 +487,7 @@ Confirme provider/modelo efetivos, Structured Output validado localmente, usage/
 **Seleção:** `cohere`  
 **Criar/gerenciar API key:** <https://dashboard.cohere.com/api-keys>  
 **Chat V2:** <https://docs.cohere.com/v2/reference/chat>  
-**Structured Outputs:** <https://docs.cohere.com/docs/structured-outputs-json>
+**Structured Outputs:** <https://docs.cohere.com/v2/docs/structured-outputs>
 
 #### Configurar no PowerShell
 
