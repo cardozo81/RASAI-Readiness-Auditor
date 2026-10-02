@@ -189,12 +189,16 @@ def pricing_context(provider: str, at: datetime, *, input_tokens: int = 0) -> st
     policies = [item for item in _EFFECTIVE_CATALOG.models if item.provider == provider_name]
     if not policies:
         return "STANDARD"
+    representative_conditions = (
+        dict(policies[0].rules[0].conditions) if policies[0].rules else {}
+    )
     resolved = resolve_catalog_rule(
         _EFFECTIVE_CATALOG,
         provider_name,
         policies[0].model,
         at=at,
         input_tokens=input_tokens,
+        runtime_conditions=representative_conditions,
     )
     return resolved[1].context if resolved is not None else "STANDARD"
 
