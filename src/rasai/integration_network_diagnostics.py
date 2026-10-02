@@ -207,6 +207,7 @@ def endpoint_for_spec(spec: diagnostics.IntegrationSpec, env: Mapping[str, str] 
             "qwen": "https://dashscope-us.aliyuncs.com/compatible-mode/v1/models",
             "gemini": "https://generativelanguage.googleapis.com/v1beta/models",
             "anthropic": "https://api.anthropic.com/v1/models",
+            "mistral": "https://api.mistral.ai/v1/models",
         }.get(provider, "")
     if spec.id.startswith("serp:"):
         return {
