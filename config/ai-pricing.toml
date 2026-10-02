@@ -11,10 +11,10 @@
 
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-PRICING-2026-09-13"
-reference_date = "2026-09-13"
-verified_on = "2026-09-13"
-review_recommended_on = "2026-10-13"
+catalog_version = "RASAI-PRICING-2026-10-02"
+reference_date = "2026-10-02"
+verified_on = "2026-10-02"
+review_recommended_on = "2026-11-02"
 
 [[models]]
 provider = "OPENAI"
@@ -282,3 +282,21 @@ source_reference = "https://platform.claude.com/docs/en/about-claude/pricing"
   input_price_per_million = 2.00
   cached_input_price_per_million = 0.20
   output_price_per_million = 10.00
+
+[[models]]
+provider = "MISTRAL"
+model = "mistral-small-2603"
+pricing_model = "TOKEN_STANDARD"
+reasoning_billing = "IN_OUTPUT"
+region = "GLOBAL"
+source_reference = "https://docs.mistral.ai/inference/pricing"
+
+  [[models.rules]]
+  rule_id = "mistral-small-2603-standard"
+  context = "STANDARD"
+  priority = 0
+  effective_from = "2026-10-02T00:00:00Z"
+  input_price_per_million = 0.15
+  cached_input_price_per_million = 0.015
+  output_price_per_million = 0.60
+
