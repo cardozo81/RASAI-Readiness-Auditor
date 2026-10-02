@@ -156,17 +156,23 @@ Peak atual em UTC, segunda a sexta:
 
 Essa lógica é declarada em `weekdays_utc` e `time_windows_utc` no TOML.
 
+## 5.1 Condições runtime obrigatórias
+
+O custo econômico é resolvido com o contexto efetivo do adapter, não apenas por provider/modelo. Regras condicionadas exigem correspondência em `service_tier`, `commercial_mode`, `region` e/ou `operation_mode`, conforme o TOML. Contexto ausente, `UNKNOWN` ou divergente torna o candidato **UNPRICED**; ele permanece depois dos candidatos precificados e nunca recebe custo zero.
+
+O AUTO não muda endpoint, tier, modalidade comercial ou modo de operação para obter uma tarifa menor. Essas escolhas pertencem à configuração/adapter já autorizado.
+
 ### OpenAI
 
 A faixa >272k é uma regra de maior prioridade com `input_tokens_gt=272000`. Os preços finais estão no catálogo; não há multiplicador hardcoded por provider.
 
 ### xAI
 
-A faixa longa é uma regra de maior prioridade com `input_tokens_gte=200000`.
+A faixa longa é uma regra de maior prioridade com `input_tokens_gte=200000`. O endpoint global usa `region=GLOBAL`; o endpoint `us.api.x.ai` usa `region=US` e a tarifa regional 10% maior. Endpoint não reconhecido fica UNPRICED.
 
 ### Qwen
 
-As regras atuais são associadas à região `US_VIRGINIA`. Uma mudança de endpoint/região exige regra apropriada antes de considerar custos comparáveis.
+As regras atuais são associadas à região `US_VIRGINIA`. O adapter deriva essa região apenas do endpoint conhecido `dashscope-us.aliyuncs.com`; endpoint alternativo/desconhecido produz `UNKNOWN` e fica UNPRICED até existir regra explicitamente qualificada.
 
 ### Gemini
 
