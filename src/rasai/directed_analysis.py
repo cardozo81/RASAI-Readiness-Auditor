@@ -43,7 +43,7 @@ from rasai.m18_ai import (
     ProviderErrorClass,
     ResponsesSemanticProvider,
     _diagnostic_from_http as _core_diagnostic_from_http,
-    estimate_cost,
+    resolve_provider_cost,
 )
 from rasai.persistence import AuditWorkspace
 from rasai.provider_extensions import _diagnostic_from_http as _extension_diagnostic_from_http
@@ -853,7 +853,7 @@ def _ai_analyze(
                 diagnostic=ProviderDiagnostic(ProviderErrorClass.UNKNOWN_PROVIDER_ERROR,error_type=type(exc).__name__)
             finished_at=datetime.now(timezone.utc)
             duration_ms=max(0,int((time.perf_counter()-started_perf)*1000))
-            estimated,currency,pricing_version=estimate_cost(str(provider.name),str(provider.model),usage,finished_at)
+            pricing=resolve_provider_cost(provider,usage,finished_at)
             if status is AttemptStatus.SUCCESS and raw is not None:
                 try:
                     raw_payload=_provider_extract(provider,raw)
@@ -868,8 +868,9 @@ def _ai_analyze(
                         provider_rank=int(getattr(provider.policy,"rank",999)),attempt_index=ordinal,
                         snapshot_id=target_context.snapshot_id,url=target_context.url,
                         started_at=started_at,finished_at=finished_at,duration_ms=duration_ms,
-                        status=AttemptStatus.SUCCESS,usage=usage,estimated_cost=estimated,cost_currency=currency,
-                        pricing_version=pricing_version,request_message_summary=summary_text,
+                        status=AttemptStatus.SUCCESS,usage=usage,estimated_cost=pricing.estimated_cost,cost_currency=pricing.currency,
+                        pricing_version=pricing.pricing_version,pricing_context=pricing.pricing_context,pricing_rule_id=pricing.pricing_rule_id,
+                        pricing_source_reference=pricing.pricing_source_reference,pricing_runtime_conditions=pricing.runtime_conditions,request_message_summary=summary_text,
                         request_payload_hash=payload_hash,provider_qualification=str(getattr(provider.policy,"qualification","PROVISIONAL")),
                         provider_reliability_score=getattr(provider.policy,"reliability_score",None),
                         semantic_contract_version=CONTRACT_VERSION,retry_eligible=False,
@@ -885,8 +886,9 @@ def _ai_analyze(
                 provider_rank=int(getattr(provider.policy,"rank",999)),attempt_index=ordinal,
                 snapshot_id=target_context.snapshot_id,url=target_context.url,
                 started_at=started_at,finished_at=finished_at,duration_ms=duration_ms,status=status,
-                diagnostic=diagnostic,usage=usage,estimated_cost=estimated,cost_currency=currency,
-                pricing_version=pricing_version,request_message_summary=summary_text,request_payload_hash=payload_hash,
+                diagnostic=diagnostic,usage=usage,estimated_cost=pricing.estimated_cost,cost_currency=pricing.currency,
+                pricing_version=pricing.pricing_version,pricing_context=pricing.pricing_context,pricing_rule_id=pricing.pricing_rule_id,
+                pricing_source_reference=pricing.pricing_source_reference,pricing_runtime_conditions=pricing.runtime_conditions,request_message_summary=summary_text,request_payload_hash=payload_hash,
                 provider_qualification=str(getattr(provider.policy,"qualification","PROVISIONAL")),
                 provider_reliability_score=getattr(provider.policy,"reliability_score",None),
                 semantic_contract_version=CONTRACT_VERSION,retry_eligible=policy.eligible,decision=decision,
