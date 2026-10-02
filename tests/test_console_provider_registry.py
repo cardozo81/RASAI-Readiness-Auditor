@@ -37,6 +37,7 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
                 "qwen",
                 "gemini",
                 "anthropic",
+                "mistral",
                 "copilot",
                 "auto",
             ),
@@ -49,11 +50,13 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
             "DASHSCOPE_API_KEY",
             "GEMINI_API_KEY",
             "ANTHROPIC_API_KEY",
+            "MISTRAL_API_KEY",
             "COPILOT_GITHUB_TOKEN",
             "RASAI_XAI_MODEL",
             "RASAI_QWEN_MODEL",
             "RASAI_GEMINI_MODEL",
             "RASAI_ANTHROPIC_MODEL",
+            "RASAI_MISTRAL_MODEL",
             "RASAI_COPILOT_MODEL",
             "RASAI_XAI_ENDPOINT",
             "RASAI_QWEN_ENDPOINT",
@@ -69,6 +72,16 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
                 self.assertFalse(capabilities[provider_id].available)
                 self.assertIn("não configurada", capabilities[provider_id].reason)
                 self.assertNotIn("explicit-only", capabilities[provider_id].reason)
+
+    def test_mistral_is_explicit_only_and_never_auto_eligible(self) -> None:
+        without_key = provider_capabilities({})
+        self.assertFalse(without_key["mistral"].available)
+        self.assertIn("explicit-only", without_key["mistral"].reason)
+
+        configured = provider_capabilities({"MISTRAL_API_KEY": "test-key"})
+        self.assertTrue(configured["mistral"].available)
+        self.assertIn("explicit-only", configured["mistral"].reason)
+        self.assertNotIn("mistral", auto_provider_ids())
 
     def test_copilot_is_explicit_only_and_never_auto_eligible(self) -> None:
         without_key = provider_capabilities({})
@@ -121,6 +134,7 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
                 "DASHSCOPE_API_KEY",
                 "GEMINI_API_KEY",
                 "ANTHROPIC_API_KEY",
+                "MISTRAL_API_KEY",
                 "COPILOT_GITHUB_TOKEN",
             )
         }
