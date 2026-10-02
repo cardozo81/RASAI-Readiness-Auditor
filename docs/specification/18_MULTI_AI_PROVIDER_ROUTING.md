@@ -18,6 +18,7 @@ Providers reconhecidos pela superfície atual de IA:
 - `QWEN`;
 - `GEMINI`;
 - `ANTHROPIC` / alias `claude`;
+- `MISTRAL`;
 - `COPILOT` / alias `github-copilot`;
 - `NONE`;
 - `AUTO`.
@@ -26,7 +27,7 @@ A qualificação de um provider (`QUALIFIED`, `PROVISIONAL` etc.) é informaçã
 
 Providers de extensão podem permanecer `PROVISIONAL` e, ainda assim, participar de `AUTO` quando o registry vigente os marcar como `auto_eligible=true` e a configuração da execução estiver apta. Qualificação e elegibilidade AUTO não são sinônimos.
 
-GitHub Copilot é a exceção deliberada: `explicit_only=true` e `auto_eligible=false`. Mesmo configurado, nunca entra em `AI=auto`; o usuário precisa selecioná-lo explicitamente.
+Mistral é `explicit_only=true` e `auto_eligible=false` durante sua homologação inicial. GitHub Copilot também é deliberadamente `explicit_only=true` e `auto_eligible=false`. Mesmo configurados, não entram em `AI=auto`; o usuário precisa selecioná-los explicitamente.
 
 ## 2. Defaults públicos de modelo
 
@@ -41,6 +42,7 @@ Os defaults públicos efetivamente aplicados pelo runtime são:
 | Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `qwen3.8-flash` |
 | Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | default |
 | Anthropic | `claude-sonnet-5` | `claude-sonnet-5` | default |
+| Mistral | `mistral-small-2603` | `mistral-small-2603` | seleção explícita / piloto |
 | GitHub Copilot | `auto` | `auto` | deixar o SDK/assinatura resolver o modelo disponível; seleção explícita |
 
 Esses são os defaults públicos de `provider_runtime_policy`. Parâmetros internos de classes e qualificação não devem ser apresentados como defaults efetivos da CLI/console.
@@ -72,7 +74,7 @@ O AUTO não troca silenciosamente o service tier para Batch/Flex/assíncrono. A 
 
 Excluir um provider de `AUTO` não apaga sua credencial e não impede seleção explícita.
 
-Providers `explicit-only`, atualmente GitHub Copilot, não são candidatos ao pool AUTO nem à lista operacional de inclusão/exclusão desse pool.
+Providers `explicit-only`, atualmente Mistral durante a homologação inicial e GitHub Copilot, não são candidatos ao pool AUTO nem à lista operacional de inclusão/exclusão desse pool.
 
 ## 4. Provider explícito
 
@@ -82,7 +84,7 @@ Credenciais ausentes de providers não selecionados não podem invalidar um prov
 
 Selecionar explicitamente um provider sem configuração/credencial suficiente resulta em estado operacional correspondente, com zero chamada externa para aquele provider; não existe fallback automático para usar a chave de outro fornecedor.
 
-GitHub Copilot usa `COPILOT_GITHUB_TOKEN`, o SDK oficial e `use_logged_in_user=False`, evitando fallback silencioso para sessão GitHub/Copilot já autenticada na máquina.
+Mistral usa `MISTRAL_API_KEY`, endpoint global Chat Completions e `service_tier=standard_only`, sem endpoint override nesta entrega. GitHub Copilot usa `COPILOT_GITHUB_TOKEN`, o SDK oficial e `use_logged_in_user=False`, evitando fallback silencioso para sessão GitHub/Copilot já autenticada na máquina.
 
 ## 5. Falhas, retry e circuit breaker
 
@@ -137,6 +139,7 @@ Defaults públicos:
 | Qwen | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` na superfície vigente | não criar variável de reasoning inexistente |
 | Gemini | `LOW` | `LOW`, `MEDIUM`, `HIGH` | `LOW` |
 | Anthropic | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `LOW` |
+| Mistral | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` | não criar variável de reasoning inexistente |
 | GitHub Copilot | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` via SDK | não criar variável de reasoning inexistente |
 
 Aumentar reasoning pode elevar latência, tokens e custo. Esses valores não participam do scoring. Em AUTO, o reasoning efetivamente configurado participa da estimativa pré-chamada por meio de um envelope conservador de output; os multiplicadores são heurística de roteamento documentada e não representam preços do provider.
