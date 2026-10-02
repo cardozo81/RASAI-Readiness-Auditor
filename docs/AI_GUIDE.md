@@ -87,15 +87,17 @@ Detalhamento e exemplos: [AI_MODEL_CONFIGURATION.md](AI_MODEL_CONFIGURATION.md).
 |---|---|---|
 | OpenAI | `gpt-5.6-luna` | `NONE` |
 | DeepSeek | `deepseek-v4-flash` | `NONE` |
-| MiMo | `mimo-v2.5` | `NONE` |
+| MiMo | `mimo-v2.6-flash` | `NONE` |
 | xAI | `grok-4.6` | `LOW` |
-| Qwen | `qwen3.8-flash` | `PROVIDER_DEFAULT` |
+| Qwen | `qwen3.8-flash` | `NONE` |
 | Gemini | `gemini-3.8-flash` | `LOW` |
 | Anthropic | `claude-sonnet-5` | `LOW` |
 | Mistral | `mistral-small-2603` | `PROVIDER_DEFAULT` |
 | GitHub Copilot | `auto` | `PROVIDER_DEFAULT` |
 
 Essa tabela é somente a fotografia de fábrica. O catálogo efetivamente snapshotado para a execução é a autoridade da AUD.
+
+MiMo V2.6 é a família vigente para o contrato PAYG do RASAi. `mimo-v2.5` e `mimo-v2.5-pro` permanecem apenas como legados até 21/10/2026 02:00 UTC e não são mais defaults. A troca preserva o mesmo adapter Responses e a mesma variável `MIMO_API_KEY`; detalhes e rastreabilidade estão na issue #183.
 
 ## Seleção do modelo e reasoning
 
@@ -107,6 +109,8 @@ RASAI_OPENAI_REASONING_EFFORT = NONE
 ```
 
 O modelo precisa existir, estar habilitado/selecionável e vigente no catálogo. O reasoning precisa pertencer a `reasoning_values` **daquele modelo**. Configuração inválida é rejeitada; não existe troca silenciosa para outro modelo.
+
+O default RASAi de reasoning é sempre o **menor nível válido suportado pelo modelo e pelo wire contract implementado**. Por isso OpenAI, DeepSeek, MiMo e Qwen usam `NONE`; xAI, Gemini e Anthropic usam `LOW`; Mistral Small 4 e Copilot `auto` permanecem em `PROVIDER_DEFAULT` enquanto não houver controle determinístico implementado.
 
 ## Credenciais
 
