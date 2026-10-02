@@ -40,14 +40,14 @@ A lista canônica, aliases, variável de credencial e URL oficial de cadastro/lo
 
 Também verifique:
 
-- produto/plano correto;
+- credencial/modalidade compatível com o contrato implementado pelo adapter;
 - saldo/quota;
 - modelo permitido;
 - endpoint compatível;
 - esforço/reasoning aceito;
 - bloqueio/quarantine depois de erro operacional.
 
-MiMo PAYG exige chave `sk-...` no adapter atual; `tp-...` não é equivalente.
+MiMo exige chave PAYG `sk-...` no adapter atual; `tp-...` não é suportada. Modalidades alternativas dos providers não devem ser tentadas por inferência da documentação externa; consulte a [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 Mistral exige `MISTRAL_API_KEY`, seleção explícita e acesso ao modelo `mistral-small-2603`; o adapter inicial usa endpoint global Standard fixo e não possui endpoint override. Mistral permanece fora de `AI=auto` nesta entrega.
 
