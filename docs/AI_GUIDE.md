@@ -14,6 +14,10 @@ A composição atual usa IA para finalidades como:
 
 Nenhuma finalidade autoriza inventar fatos, credenciais, preços, datas, estatísticas, URLs, políticas de crawler ou evidências.
 
+## Escopo das integrações documentadas
+
+O guia descreve somente capacidades efetivamente expostas pelo RASAi. A existência, no fornecedor, de outro plano, tipo de credencial, autenticação, endpoint, tier, tool, search, agent ou connector não amplia automaticamente o contrato do produto. Variantes não implementadas/homologadas identificadas durante a revisão estão rastreadas na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
+
 ## Providers integrados
 
 Providers concretos no registry:
