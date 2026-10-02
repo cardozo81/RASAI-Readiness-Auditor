@@ -132,8 +132,10 @@ Valores em USD por 1 milhão de tokens.
 | OpenAI `gpt-5.6-sol` | 4,00 | 0,40 | 20,00 | >272k: 8,00 / 0,80 / 30,00 |
 | DeepSeek `deepseek-v4-flash` off-peak | 0,22 | 0,007 | 0,66 | peak: 0,44 / 0,014 / 1,32 |
 | DeepSeek `deepseek-v4-pro` off-peak | 0,66 | 0,022 | 1,98 | peak: 1,32 / 0,044 / 3,96 |
-| MiMo `mimo-v2.5` | 0,14 | 0,0028 | 0,28 | standard |
-| MiMo `mimo-v2.5-pro` | 0,435 | 0,0036 | 0,87 | standard |
+| MiMo `mimo-v2.6-flash` | 0,14 | 0,0028 | 0,28 | PAYG real-time; default público |
+| MiMo `mimo-v2.6-pro` | 0,435 | 0,0036 | 0,87 | PAYG real-time; default adapter |
+| MiMo `mimo-v2.5` | 0,14 | 0,0028 | 0,28 | legado até 21/10/2026 02:00 UTC |
+| MiMo `mimo-v2.5-pro` | 0,435 | 0,0036 | 0,87 | legado até 21/10/2026 02:00 UTC |
 | xAI `grok-4.6` <200k | 2,00 | 0,50 | 6,00 | >=200k: 4,00 / 1,00 / 12,00 |
 | Qwen `qwen3.8-flash` | 0,113 | 0,014 | 0,382 | US/Virginia |
 | Qwen `qwen3.8-max` | 1,65 | 0,206 | 4,951 | US/Virginia |
@@ -263,3 +265,10 @@ A suíte deve preservar:
 - billing de reasoning do Gemini;
 - quarantine/circuit breaker inalterados;
 - snapshots SaaS imutáveis para modelo e pricing.
+
+
+### MiMo V2.6
+
+A família V2.6 substitui os defaults v2.5 sem alterar o protocolo PAYG Responses do RASAi. O AUTO usa `mimo-v2.6-flash` como default econômico e só o considera quando modelo e pricing estão vigentes. Os modelos v2.5 deixam de ser efetivos no instante oficial de retirada.
+
+A eventual seleção de Token Plan, Batch ou UltraSpeed não é permitida pelo AUTO atual. Essas modalidades possuem contrato/custo distinto e não podem ser escolhidas silenciosamente para reduzir preço. Issue de migração: #183; condicionamento runtime de pricing: #181.
