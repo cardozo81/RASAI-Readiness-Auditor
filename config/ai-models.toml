@@ -10,7 +10,7 @@
 
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-MODELS-2026-10-02.1"
+catalog_version = "RASAI-MODELS-2026-10-02.2"
 reference_date = "2026-10-02"
 verified_on = "2026-10-02"
 review_recommended_on = "2026-11-02"
@@ -287,6 +287,24 @@ reasoning_values = ["PROVIDER_DEFAULT"]
 default_reasoning = "PROVIDER_DEFAULT"
 capabilities = ["STRUCTURED_OUTPUT", "CACHED_INPUT"]
 source_reference = "https://docs.mistral.ai/models/mistral-small-4-0-26-03"
+
+[[models]]
+provider = "COHERE"
+model = "command-a-03-2025"
+enabled = true
+selectable = true
+adapter_default = true
+public_default = true
+auto_eligible = false
+qualification = "PROVISIONAL"
+rasai_class = "PROVISIONAL"
+rank = 107
+recommended_depth = "PROVIDER_DEFAULT"
+recommended_use = "seleção explícita / piloto"
+reasoning_values = ["PROVIDER_DEFAULT"]
+default_reasoning = "PROVIDER_DEFAULT"
+capabilities = ["STRUCTURED_OUTPUT"]
+source_reference = "https://docs.cohere.com/docs/command-a"
 
 [[models]]
 provider = "COPILOT"
