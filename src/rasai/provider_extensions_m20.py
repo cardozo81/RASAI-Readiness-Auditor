@@ -43,6 +43,7 @@ from rasai.m20_ai import (
 )
 from rasai.provider_extensions import (
     AnthropicProvider,
+    CohereProvider,
     GeminiProvider,
     IsolatedStructuredSemanticProvider,
     MistralProvider,
@@ -50,6 +51,7 @@ from rasai.provider_extensions import (
     XAIProvider,
     _diagnostic_from_http,
 )
+from rasai.provider_wire_schema import cohere_wire_schema
 
 
 def _instructions() -> str:
@@ -107,6 +109,19 @@ class ExtensionContentRemediationProvider:
                         "schema": schema,
                         "strict": True,
                     }
+                },
+            }
+
+        if isinstance(self.base, CohereProvider):
+            return {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": instructions},
+                    {"role": "user", "content": "Generate the requested JSON.\n\n" + user_text},
+                ],
+                "response_format": {
+                    "type": "json_object",
+                    "schema": cohere_wire_schema(schema),
                 },
             }
 
