@@ -242,7 +242,7 @@ recommended_use = "seleção explícita / piloto"
 reasoning_values = ["PROVIDER_DEFAULT"]
 default_reasoning = "PROVIDER_DEFAULT"
 capabilities = ["STRUCTURED_OUTPUT", "CACHED_INPUT"]
-source_reference = "https://docs.mistral.ai/models/mistral-small-4"
+source_reference = "https://docs.mistral.ai/models/mistral-small-4-0-26-03"
 
 [[models]]
 provider = "COPILOT"

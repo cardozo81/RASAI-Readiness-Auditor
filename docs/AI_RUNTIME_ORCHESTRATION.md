@@ -35,6 +35,27 @@ Providers sem credencial, com configuração inválida ou excluídos pelo usuár
 
 A elegibilidade é específica da execução. Uma exclusão causada por falha não altera a configuração global nem impede o uso em auditorias futuras.
 
+### 2.1 Mistral durante a homologação inicial
+
+A integração Mistral desta entrega é deliberadamente **explicit-only**. Mesmo com `MISTRAL_API_KEY` configurada e pricing vigente, `mistral` não entra no pool de `AI=auto` enquanto a homologação humana não for concluída.
+
+Contrato operacional vigente:
+
+- seleção explícita: `--ai-provider mistral`;
+- modelo de fábrica: `mistral-small-2603`;
+- endpoint fixo: `https://api.mistral.ai/v1/chat/completions`;
+- autenticação: Bearer via `MISTRAL_API_KEY`;
+- `service_tier=standard_only`, sem promoção silenciosa para Priority;
+- Structured Outputs por JSON Schema no wire, seguidos pela validação canônica/local do RASAi;
+- sem tools, web search, agents ou connectors no fluxo evidence-bound;
+- usage observado preserva `prompt_tokens`, `completion_tokens`, `total_tokens` e `prompt_tokens_details.cached_tokens` quando retornados;
+- pricing Standard permanece declarativo no catálogo; existência de preço não altera `auto_eligible=false`;
+- `AI=none` e os providers já existentes não dependem de Mistral.
+
+O adapter Mistral reutiliza o mesmo boundary de retry, quarantine/circuit breaker, telemetria e sanitização das extensões síncronas. A integração não altera coleta, AUD/RPR, evidence seal, SARI, SCORE-GEO, Apdex, fórmulas determinísticas nem critérios de CAT.
+
+No reprocessamento, Mistral segue a mesma orquestração compartilhada da execução normal: somente trabalho de IA realmente invalidado por dependências de evidência pode ser reexecutado. O provider não cria um caminho paralelo de processamento.
+
 ## 3. Seleção por custo por necessidade de IA
 
 O coordenador mantém a saúde de todos os providers durante a auditoria. Antes de cada necessidade de IA, os providers ainda elegíveis são avaliados pelo custo estimado da requisição atual.

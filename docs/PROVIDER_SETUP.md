@@ -81,7 +81,7 @@ A integração não habilita tools/search da Mistral nesta entrega. Ela reutiliz
 Documentação oficial:
 
 - quickstart: <https://docs.mistral.ai/getting-started/quickstart/>
-- modelo Mistral Small 4: <https://docs.mistral.ai/models/mistral-small-4>
+- modelo Mistral Small 4: <https://docs.mistral.ai/models/mistral-small-4-0-26-03>
 - pricing: <https://docs.mistral.ai/inference/pricing>
 
 ### GitHub Copilot
