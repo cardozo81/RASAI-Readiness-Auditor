@@ -25,7 +25,7 @@ from rasai.m18_ai import (
     _diagnostic_from_http,
     _response_error,
     _usage_from_native,
-    estimate_cost,
+    resolve_provider_cost,
 )
 from rasai.m18_persistence import M18Persistence
 from rasai.persistence import AuditWorkspace
@@ -239,12 +239,7 @@ def _call(
 
     finished_at = datetime.now(timezone.utc)
     duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
-    estimated, currency, pricing_version = estimate_cost(
-        candidate.name,
-        candidate.model,
-        usage,
-        finished_at,
-    )
+    pricing = resolve_provider_cost(candidate, usage, finished_at)
     attempt = ProviderAttempt(
         provider=candidate.name,
         model=candidate.model,
@@ -259,9 +254,13 @@ def _call(
         status=status,
         diagnostic=diagnostic,
         usage=usage,
-        estimated_cost=estimated,
-        cost_currency=currency,
-        pricing_version=pricing_version,
+        estimated_cost=pricing.estimated_cost,
+        cost_currency=pricing.currency,
+        pricing_version=pricing.pricing_version,
+        pricing_context=pricing.pricing_context,
+        pricing_rule_id=pricing.pricing_rule_id,
+        pricing_source_reference=pricing.pricing_source_reference,
+        pricing_runtime_conditions=pricing.runtime_conditions,
         request_message_summary=(
             f"contract={CONTRACT_VERSION};issues={len(assessment.issues)};"
             f"hard_blocked={assessment.all_pages_hard_blocked}"
