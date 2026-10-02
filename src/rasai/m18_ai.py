@@ -197,24 +197,24 @@ ROUTING_POLICY: tuple[ProviderPolicy, ...] = (
     ProviderPolicy(1, "OPENAI", "gpt-5.6-sol", "HIGH/XHIGH", "QUALIFIED-A+", "QUALIFIED", "máxima qualidade"),
     ProviderPolicy(2, "OPENAI", "gpt-5.6-terra", "HIGH", "QUALIFIED-A", "QUALIFIED", "default"),
     ProviderPolicy(3, "DEEPSEEK", "deepseek-v4-pro", "HIGH", "PROVISIONAL-A-", "PROVISIONAL", "alternativa forte"),
-    ProviderPolicy(4, "MIMO", "mimo-v2.5-pro", "THINKING_ENABLED", "PROVISIONAL-B+", "PROVISIONAL", "alternativa forte"),
+    ProviderPolicy(4, "MIMO", "mimo-v2.6-pro", "THINKING_ENABLED", "PROVISIONAL-B+", "PROVISIONAL", "alternativa forte"),
     ProviderPolicy(5, "OPENAI", "gpt-5.6-luna", "HIGH", "QUALIFIED-B+", "QUALIFIED", "volume/custo"),
     ProviderPolicy(6, "DEEPSEEK", "deepseek-v4-flash", "HIGH", "PROVISIONAL-B", "PROVISIONAL", "volume/custo"),
-    ProviderPolicy(7, "MIMO", "mimo-v2.5", "THINKING_ENABLED", "PROVISIONAL-B", "PROVISIONAL", "volume/multimodal"),
+    ProviderPolicy(7, "MIMO", "mimo-v2.6-flash", "THINKING_ENABLED", "PROVISIONAL-B", "PROVISIONAL", "volume/multimodal"),
 )
 _POLICY_BY_KEY = {(item.provider, item.model): item for item in ROUTING_POLICY}
 
 SUPPORTED_MODELS: dict[str, tuple[str, ...]] = {
     "OPENAI": ("gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"),
     "DEEPSEEK": ("deepseek-v4-pro", "deepseek-v4-flash"),
-    "MIMO": ("mimo-v2.5-pro", "mimo-v2.5"),
+    "MIMO": ("mimo-v2.6-pro", "mimo-v2.6-flash", "mimo-v2.5-pro", "mimo-v2.5"),
 }
 DEFAULT_MODELS = {
     "OPENAI": "gpt-5.6-terra",
     "DEEPSEEK": "deepseek-v4-pro",
-    "MIMO": "mimo-v2.5-pro",
+    "MIMO": "mimo-v2.6-pro",
 }
-DEFAULT_REASONING = {"OPENAI": "HIGH", "DEEPSEEK": "HIGH", "MIMO": "HIGH"}
+DEFAULT_REASONING = {"OPENAI": "NONE", "DEEPSEEK": "NONE", "MIMO": "NONE"}
 MODEL_ENV = {
     "OPENAI": "RASAI_OPENAI_MODEL",
     "DEEPSEEK": "RASAI_DEEPSEEK_MODEL",
@@ -787,7 +787,7 @@ class MiMoProvider(ResponsesSemanticProvider):
 
     def _validate_reasoning(self, value: str) -> str:
         normalized = value.strip().upper()
-        if normalized not in {"NONE", "LOW", "MEDIUM", "HIGH"}:
+        if normalized not in {"NONE", "MINIMAL", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX", "ULTRA"}:
             raise ValueError(f"unsupported reasoning effort for MIMO: {value}")
         return normalized
 
