@@ -372,7 +372,7 @@ Princípios:
 - [docs/CONSOLIDATED_REPORTING.md](docs/CONSOLIDATED_REPORTING.md)
 - [docs/CONSOLIDATED_REPORTING_VALIDATION.md](docs/CONSOLIDATED_REPORTING_VALIDATION.md)
 - [docs/PRODUCT_PLATFORM_ARCHITECTURE.md](docs/PRODUCT_PLATFORM_ARCHITECTURE.md)
-- [docs/SAAS_RUNNER_ARTIFACTS_FUTURE_ASSESSMENT.md](docs/SAAS_RUNNER_ARTIFACTS_FUTURE_ASSESSMENT.md) - avaliação arquitetural futura; não integra o contrato funcional vigente. Rastreabilidade: Issue #163.
+- [docs/SAAS_RUNNER_ARTIFACTS_FUTURE_ASSESSMENT.md](docs/SAAS_RUNNER_ARTIFACTS_FUTURE_ASSESSMENT.md) - avaliação arquitetural futura; não integra o contrato funcional vigente. Rastreabilidade: Issue #1.
 - [docs/specification/00_SPEC_INDEX.md](docs/specification/00_SPEC_INDEX.md)
 
 ## Limite de validade
@@ -382,4 +382,4 @@ RASAi fornece auditoria técnica/semântica, evidência, heurísticas proprietá
 <!-- rasai-doc-index-20260908 -->
 ## Contrato da documentação
 
-A documentação está organizada em [`docs/README.md`](docs/README.md). O projeto está em desenvolvimento e validação; o **Método de Pontuação de Prontidão**, versão pública **001**, é a única metodologia vigente nesta fase; `SCORE-GEO-004` permanece como contrato técnico.
+A documentação está organizada em [`docs/README.md`](docs/README.md). A release pública atual é `v0.5.0`, e o desenvolvimento contínuo ocorre na linha pós-release; o **Método de Pontuação de Prontidão**, versão pública **001**, permanece como a metodologia vigente; `SCORE-GEO-004` permanece como contrato técnico.

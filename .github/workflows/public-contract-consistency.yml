@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install package
-        run: python -m pip install -e .
+        run: python -m pip install -e . pytest
       - name: Validate public contract
         run: python -m rasai.public_contract_gate
       - name: Contract-focused tests
@@ -28,3 +28,9 @@ jobs:
           tests.test_rasai_runtime_branding_and_reports
           tests.test_public_runtime_language
           tests.test_version_contract
+      - name: Documentation contract tests
+        run: >-
+          pytest -q
+          tests/test_documentation_contract.py
+          tests/test_prepublication_documentation_contract.py
+          tests/test_rasai_sari_branding.py::test_public_documentation_uses_current_contract

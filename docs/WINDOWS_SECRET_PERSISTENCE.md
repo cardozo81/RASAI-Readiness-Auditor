@@ -1,6 +1,6 @@
 # Persistência de credenciais no Windows
 
-**Estado:** contrato vigente do RASAi. O produto ainda não foi publicado.
+**Estado:** contrato vigente do RASAi na linha pós-`v0.5.0`.
 
 O console local nunca grava API keys, tokens, senhas ou outros secrets no `rasai-console.ini`.
 
