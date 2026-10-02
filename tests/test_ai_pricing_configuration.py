@@ -169,3 +169,58 @@ def test_rasai_defaults_use_operator_pricing_catalog_with_factory_fallback() -> 
     parser.read(ROOT / "src" / "rasai" / "config" / "rasai-defaults.ini", encoding="utf-8")
     assert parser.get("environment", "RASAI_AI_PRICING_SOURCE") == "auto"
     assert parser.get("environment", "RASAI_AI_PRICING_FILE") == "config/ai-pricing.toml"
+
+
+def test_pricing_rule_conditions_require_matching_runtime_context() -> None:
+    document = {
+        "metadata": {
+            "schema_version": 1,
+            "catalog_version": "TEST-CONDITIONS",
+            "reference_date": "2026-10-02",
+            "verified_on": "2026-10-02",
+            "review_recommended_on": "2026-11-02",
+        },
+        "models": [{
+            "provider": "TESTAI",
+            "model": "test-1",
+            "pricing_model": "TOKEN_STANDARD",
+            "reasoning_billing": "IN_OUTPUT",
+            "region": "GLOBAL",
+            "source_reference": "https://example.com/pricing",
+            "rules": [{
+                "rule_id": "testai-standard-live",
+                "context": "STANDARD_LIVE",
+                "priority": 0,
+                "effective_from": "2026-10-02T00:00:00Z",
+                "conditions": {"service_tier": "STANDARD", "operation_mode": "REALTIME"},
+                "input_price_per_million": 1.0,
+                "cached_input_price_per_million": 0.1,
+                "output_price_per_million": 2.0,
+            }],
+        }],
+    }
+    catalog = pricing_catalog_from_mapping(document)
+    at = datetime(2026, 10, 2, 12, 0, tzinfo=UTC)
+
+    assert resolve_catalog_rule(
+        catalog, "TESTAI", "test-1", at=at, input_tokens=1_000
+    ) is None
+    assert resolve_catalog_rule(
+        catalog,
+        "TESTAI",
+        "test-1",
+        at=at,
+        input_tokens=1_000,
+        runtime_conditions={"service_tier": "OTHER", "operation_mode": "REALTIME"},
+    ) is None
+
+    resolved = resolve_catalog_rule(
+        catalog,
+        "TESTAI",
+        "test-1",
+        at=at,
+        input_tokens=1_000,
+        runtime_conditions={"service_tier": "standard", "operation_mode": "realtime"},
+    )
+    assert resolved is not None
+    assert resolved[1].rule_id == "testai-standard-live"
