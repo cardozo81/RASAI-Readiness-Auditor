@@ -94,7 +94,9 @@ Referências: [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md), [PROVIDER_SETUP.md](
 
 ## MiMo
 
-O adapter atual aceita a credencial PAYG `sk-...`. `tp-...` não é uma configuração suportada pelo RASAi; eventual suporte a modalidade alternativa está registrado para análise na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
+O adapter atual continua compatível com o endpoint OpenAI Responses da Xiaomi e com a credencial PAYG `sk-...`. A família vigente no RASAi é `mimo-v2.6-pro` / `mimo-v2.6-flash`; `mimo-v2.5` e `mimo-v2.5-pro` permanecem legados somente até 21/10/2026 02:00 UTC.
+
+A migração V2.6 não exige novo adapter nem nova credencial. Token Plan `tp-...`, Batch, UltraSpeed, web search, tools e multimodal não são configurações suportadas pelo contrato atual. A migração é rastreada na [issue #183](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/183); modalidades adicionais permanecem na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 ## Web Performance
 
