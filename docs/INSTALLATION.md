@@ -36,7 +36,7 @@ O marcador usado para a verificação de dependências fica dentro de `.venv` e 
 
 ### Dependências das integrações externas
 
-OpenAI, DeepSeek, MiMo, xAI, Qwen, Gemini, Anthropic, PageSpeed Insights, CrUX e os adapters SERP HTTP usam transporte da biblioteca padrão do Python (`urllib`) e não exigem SDK Python adicional.
+OpenAI, DeepSeek, MiMo, xAI, Qwen, Gemini, Anthropic, Mistral, PageSpeed Insights, CrUX e os adapters SERP HTTP usam transporte da biblioteca padrão do Python (`urllib`) e não exigem SDK Python adicional.
 
 **GitHub Copilot é a exceção atual.** A integração usa o SDK oficial e está declarada no extra `copilot` de `pyproject.toml`. No fluxo recomendado, `abrir-rasai-console.cmd` descobre os grupos de `[project.optional-dependencies]` e instala os extras automaticamente. Na instalação manual, instale explicitamente:
 
@@ -44,7 +44,7 @@ OpenAI, DeepSeek, MiMo, xAI, Qwen, Gemini, Anthropic, PageSpeed Insights, CrUX e
 python -m pip install -e ".[copilot]"
 ```
 
-A presença da biblioteca não habilita o provider por si só. Para Copilot também são necessários `COPILOT_GITHUB_TOKEN`, uma assinatura Copilot elegível e permissões compatíveis. O provider permanece `explicit-only` e não entra em `AI=auto`.
+A presença da biblioteca não habilita o provider por si só. Mistral não exige SDK adicional, mas requer `MISTRAL_API_KEY` e permanece `explicit-only` nesta entrega. Para Copilot também são necessários `COPILOT_GITHUB_TOKEN`, uma assinatura Copilot elegível e permissões compatíveis. Ambos permanecem fora de `AI=auto` pelos respectivos contratos atuais.
 
 Depois de o `abrir-rasai-console.cmd` concluir o bootstrap, o software fica preparado do ponto de vista de dependências para utilizar as integrações declaradas no projeto. O que continua sendo necessário, quando cada integração for habilitada, é sua respectiva credencial e disponibilidade externa: key/token compatível, modelo/plano, saldo/quota, permissões e conectividade de rede.
 
