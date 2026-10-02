@@ -47,7 +47,7 @@ Também verifique:
 - esforço/reasoning aceito;
 - bloqueio/quarantine depois de erro operacional.
 
-MiMo exige chave PAYG `sk-...` no adapter atual; `tp-...` não é suportada. Modalidades alternativas dos providers não devem ser tentadas por inferência da documentação externa; consulte a [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
+MiMo exige chave PAYG `sk-...` no adapter atual; `tp-...` não é suportada. O default vigente é `mimo-v2.6-flash`; `mimo-v2.5` e `mimo-v2.5-pro` deixam de ser efetivos em **21/10/2026 02:00 UTC**. Se uma configuração persistida ainda apontar para v2.5 depois desse instante, atualize `RASAI_MIMO_MODEL` ou restaure o catálogo/default vigente; o RASAi não deve substituir silenciosamente o modelo dentro de uma AUD. Migração: issue #183. Modalidades alternativas dos providers não devem ser tentadas por inferência da documentação externa; consulte a [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 Mistral exige `MISTRAL_API_KEY`, seleção explícita e acesso ao modelo `mistral-small-2603`; o adapter inicial usa endpoint global Standard fixo e não possui endpoint override. Mistral permanece fora de `AI=auto` nesta entrega.
 
