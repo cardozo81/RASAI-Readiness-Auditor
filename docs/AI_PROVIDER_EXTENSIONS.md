@@ -181,6 +181,30 @@ O adapter fixa `https://api.mistral.ai/v1/chat/completions` e `service_tier=stan
 
 Mistral é `explicit_only=true` e `auto_eligible=false` até a homologação humana prevista para provider atual, Mistral e `AI=none`.
 
+## Cohere
+
+```powershell
+$env:COHERE_API_KEY = "<cohere-api-key>"
+rasai audit https://example.com --ai-provider cohere --ai-model command-a-03-2025
+```
+
+Modelo inicial:
+
+```text
+command-a-03-2025
+```
+
+Configuração pública:
+
+```text
+COHERE_API_KEY
+RASAI_COHERE_MODEL
+```
+
+O adapter usa `https://api.cohere.com/v2/chat` e `response_format.type=json_object` com JSON Schema. `minItems`, `maxItems`, `uniqueItems`, `allOf`, `oneOf`, `not` e demais constraints incompatíveis são removidos somente da projeção enviada ao fornecedor; a validação canônica local continua integral.
+
+O contrato atual não envia `tools` nem `documents`, não ativa RAG/Rerank, não expõe endpoint override e não controla reasoning. Cohere é `explicit_only=true` e `auto_eligible=false`.
+
 ## GitHub Copilot
 
 O adapter usa o **GitHub Copilot SDK oficial** e a assinatura Copilot elegível do usuário.
@@ -210,13 +234,13 @@ Copilot é `explicit_only=true` e `auto_eligible=false`. Selecionar `AI=auto` nu
 
 Selecionar explicitamente um provider sem sua key/token resulta em `NOT_CONFIGURED`, zero chamada externa e zero custo daquela integração. Não existe fallback para credencial de outro provider.
 
-Em AUTO, ausência de credencial apenas impede a entrada daquele provider elegível no pool; os demais aptos continuam disponíveis. Mistral e Copilot continuam fora do AUTO nesta entrega independentemente da presença da credencial.
+Em AUTO, ausência de credencial apenas impede a entrada daquele provider elegível no pool; os demais aptos continuam disponíveis. Mistral, Cohere e Copilot continuam fora do AUTO nesta entrega independentemente da presença da credencial.
 
 ## Structured output e diferenças de wire
 
 A validação local completa do RASAi continua sendo a fonte de verdade. Schemas podem ser projetados no limite do transport quando uma API aceita apenas um subconjunto do JSON Schema.
 
-Gemini mantém sua projeção específica. OpenAI também recebe projeção de constraints incompatíveis nos payloads estruturados, sem remover a validação local mais estrita. Mistral reutiliza o contrato Chat Completions estruturado e fixa o tier Standard. Copilot encapsula o contrato provider-neutral no prompt do SDK e a resposta continua submetida à validação local integral.
+Gemini mantém sua projeção específica. OpenAI também recebe projeção de constraints incompatíveis nos payloads estruturados, sem remover a validação local mais estrita. Mistral reutiliza o contrato Chat Completions estruturado e fixa o tier Standard. Cohere usa Chat V2 e projeção própria do schema wire, preservando a validação local; nenhuma tool/document é adicionada ao request. Copilot encapsula o contrato provider-neutral no prompt do SDK e a resposta continua submetida à validação local integral.
 
 Falha `invalid_json_schema`/`invalid_request` é erro técnico de integração, não finding do website.
 
