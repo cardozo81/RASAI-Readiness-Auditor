@@ -59,9 +59,9 @@ Os defaults públicos efetivos são definidos por `provider_runtime_policy` e s�
 |---|---|---|---|
 | OpenAI | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | default público, salvo necessidade técnica específica |
 | DeepSeek | `deepseek-v4-flash` | `deepseek-v4-pro`, `deepseek-v4-flash` | default público |
-| MiMo | `mimo-v2.5` | `mimo-v2.5-pro`, `mimo-v2.5` | default público |
+| MiMo | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro legados até 21/10/2026 02:00 UTC | default público eficiente |
 | xAI | `grok-4.6` | conforme registry vigente | default público |
-| Qwen | `qwen3.8-flash` | conforme registry vigente | default público |
+| Qwen | `qwen3.8-flash` | conforme registry vigente | default público com reasoning `NONE` |
 | Gemini | `gemini-3.8-flash` | conforme registry vigente | default público |
 | Anthropic | `claude-sonnet-5` | conforme registry vigente | default público |
 | Mistral | `mistral-small-2603` | `mistral-small-2603` | seleção explícita / piloto |
