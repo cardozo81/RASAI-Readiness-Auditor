@@ -147,6 +147,7 @@ class ProviderRegistryTests(unittest.TestCase):
             "RASAI_XAI_REASONING_EFFORT",
             "RASAI_GEMINI_REASONING_EFFORT",
             "RASAI_ANTHROPIC_REASONING_EFFORT",
+            "RASAI_QWEN_REASONING_EFFORT",
             "RASAI_MISTRAL_MODEL",
         ):
             self.assertIn(required, names)
