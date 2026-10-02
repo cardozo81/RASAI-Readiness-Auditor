@@ -17,6 +17,7 @@ from typing import Any, Callable, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from rasai.ai_cost_policy import resolve_observed_cost
 from rasai.ai_resilience import (
     DECISION_RETRY, DECISION_STOP, DECISION_SUCCESS, DECISION_SUCCESS_AFTER_RETRY,
     MAX_PROVIDER_ATTEMPTS_PER_CONTEXT, parse_retry_after, retry_policy,
@@ -294,6 +295,9 @@ class IsolatedStructuredSemanticProvider:
     def _native_error(self, raw: Mapping[str, Any]) -> ProviderDiagnostic | None:
         return None
 
+    def pricing_runtime_conditions(self) -> dict[str, str]:
+        return {"operation_mode": "REALTIME", "region": "UNKNOWN"}
+
     def analyze(
         self,
         semantic_input: SemanticInput,
@@ -321,7 +325,11 @@ class IsolatedStructuredSemanticProvider:
                 pricing_version = attempt.pricing_version
                 if attempt.usage is not None and estimated is None:
                     estimated, currency, pricing_version = estimate_cost(
-                        attempt.provider, attempt.model or "", attempt.usage, attempt.finished_at
+                        attempt.provider,
+                        attempt.model or "",
+                        attempt.usage,
+                        attempt.finished_at,
+                        runtime_conditions=dict(attempt.pricing_runtime_conditions),
                     )
                 decision = (
                     DECISION_SUCCESS_AFTER_RETRY if result.status is ProviderState.AVAILABLE and ordinal > 1
@@ -487,6 +495,13 @@ class IsolatedStructuredSemanticProvider:
 
         finished_at = datetime.now(timezone.utc)
         duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
+        pricing = resolve_observed_cost(
+            self.name,
+            self.model,
+            usage,
+            finished_at,
+            runtime_conditions=self.pricing_runtime_conditions(),
+        )
         self._last_attempt = ProviderAttempt(
             provider=self.name,
             model=self.model,
@@ -500,9 +515,13 @@ class IsolatedStructuredSemanticProvider:
             duration_ms=duration_ms,
             status=AttemptStatus.SUCCESS,
             usage=usage,
-            estimated_cost=None,
-            cost_currency=None,
-            pricing_version=None,
+            estimated_cost=pricing.estimated_cost,
+            cost_currency=pricing.currency,
+            pricing_version=pricing.pricing_version,
+            pricing_context=pricing.pricing_context,
+            pricing_rule_id=pricing.pricing_rule_id,
+            pricing_source_reference=pricing.pricing_source_reference,
+            pricing_runtime_conditions=pricing.runtime_conditions,
             request_message_summary=summary,
             request_payload_hash=payload_hash,
             provider_qualification=self.policy.qualification,
@@ -536,6 +555,13 @@ class IsolatedStructuredSemanticProvider:
     ) -> SemanticProviderResult:
         finished_at = datetime.now(timezone.utc)
         duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
+        pricing = resolve_observed_cost(
+            self.name,
+            self.model,
+            usage,
+            finished_at,
+            runtime_conditions=self.pricing_runtime_conditions(),
+        )
         self._last_attempt = ProviderAttempt(
             provider=self.name,
             model=self.model,
@@ -550,6 +576,13 @@ class IsolatedStructuredSemanticProvider:
             status=status,
             diagnostic=diagnostic,
             usage=usage,
+            estimated_cost=pricing.estimated_cost,
+            cost_currency=pricing.currency,
+            pricing_version=pricing.pricing_version,
+            pricing_context=pricing.pricing_context,
+            pricing_rule_id=pricing.pricing_rule_id,
+            pricing_source_reference=pricing.pricing_source_reference,
+            pricing_runtime_conditions=pricing.runtime_conditions,
             request_message_summary=summary,
             request_payload_hash=payload_hash,
             provider_qualification=self.policy.qualification,
@@ -611,6 +644,15 @@ class XAIProvider(IsolatedStructuredSemanticProvider):
         "REASONING",
     )
 
+    def pricing_runtime_conditions(self) -> dict[str, str]:
+        endpoint = str(self.endpoint).casefold()
+        region = (
+            "GLOBAL" if endpoint.startswith("https://api.x.ai/")
+            else "US" if endpoint.startswith("https://us.api.x.ai/")
+            else "UNKNOWN"
+        )
+        return {"service_tier": "DEFAULT", "operation_mode": "REALTIME", "region": region}
+
     def _headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Bearer {self.api_key or ''}",
@@ -620,6 +662,7 @@ class XAIProvider(IsolatedStructuredSemanticProvider):
     def _request_payload(self, semantic_input: SemanticInput) -> dict[str, Any]:
         return {
             "model": self.model,
+            "service_tier": "default",
             "instructions": _semantic_instructions(semantic_input),
             "input": [{
                 "role": "user",
@@ -757,6 +800,13 @@ class MistralProvider(QwenProvider):
         "STANDARD_SERVICE_TIER",
     )
 
+    def pricing_runtime_conditions(self) -> dict[str, str]:
+        return {
+            "service_tier": "STANDARD_ONLY",
+            "operation_mode": "REALTIME",
+            "region": "GLOBAL",
+        }
+
     def _request_payload(self, semantic_input: SemanticInput) -> dict[str, Any]:
         payload = super()._request_payload(semantic_input)
         payload["service_tier"] = "standard_only"
@@ -802,6 +852,11 @@ class GeminiProvider(IsolatedStructuredSemanticProvider):
     capabilities = IsolatedStructuredSemanticProvider.capabilities + (
         "GEMINI_INTERACTIONS_API",
     )
+
+    def pricing_runtime_conditions(self) -> dict[str, str]:
+        endpoint = str(self.endpoint).casefold()
+        region = "GLOBAL" if endpoint.startswith("https://generativelanguage.googleapis.com/") else "UNKNOWN"
+        return {"operation_mode": "REALTIME", "region": region}
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -888,6 +943,11 @@ class AnthropicProvider(IsolatedStructuredSemanticProvider):
         "ANTHROPIC_MESSAGES_API",
         "ADAPTIVE_THINKING_MODEL",
     )
+
+    def pricing_runtime_conditions(self) -> dict[str, str]:
+        endpoint = str(self.endpoint).casefold()
+        region = "GLOBAL" if endpoint.startswith("https://api.anthropic.com/") else "UNKNOWN"
+        return {"operation_mode": "REALTIME", "region": region}
 
     def _headers(self) -> dict[str, str]:
         return {
