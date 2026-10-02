@@ -33,6 +33,7 @@ from rasai.m18_ai import (
     _response_error,
     _usage_from_native,
     estimate_cost,
+    resolve_provider_cost,
     provider_session_snapshot,
 )
 from rasai.semantic import _extract_json_payload
@@ -306,7 +307,7 @@ class ContentRemediationProvider:
                 currency = attempt.cost_currency
                 pricing_version = attempt.pricing_version
                 if attempt.usage is not None and estimated is None:
-                    estimated, currency, pricing_version = estimate_cost(attempt.provider, attempt.model or '', attempt.usage, attempt.finished_at)
+                    estimated, currency, pricing_version = estimate_cost(attempt.provider, attempt.model or '', attempt.usage, attempt.finished_at, runtime_conditions=dict(attempt.pricing_runtime_conditions))
                 decision = (DECISION_SUCCESS_AFTER_RETRY if result.state is ProviderState.AVAILABLE and ordinal > 1 else DECISION_SUCCESS if result.state is ProviderState.AVAILABLE else DECISION_RETRY if policy.eligible and ordinal < bounded else DECISION_STOP)
                 collected.append(replace(attempt, attempt_index=ordinal, retry_eligible=policy.eligible, decision=decision, estimated_cost=estimated, cost_currency=currency, pricing_version=pricing_version))
             if result.state is ProviderState.AVAILABLE:
@@ -404,13 +405,15 @@ class ContentRemediationProvider:
 
         finished_at = datetime.now(timezone.utc)
         duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
-        estimated, currency, pricing_version = estimate_cost(self.name, self.model, usage, finished_at)
+        pricing = resolve_provider_cost(self, usage, finished_at)
         self._last_attempt = ProviderAttempt(
             provider=self.name, model=self.model, reasoning_profile=self.reasoning_profile,
             provider_rank=self.policy.rank, attempt_index=1, snapshot_id=request.snapshot_id,
             url=request.page_url, started_at=started_at, finished_at=finished_at,
             duration_ms=duration_ms, status=AttemptStatus.SUCCESS, usage=usage,
-            estimated_cost=estimated, cost_currency=currency, pricing_version=pricing_version,
+            estimated_cost=pricing.estimated_cost, cost_currency=pricing.currency, pricing_version=pricing.pricing_version,
+            pricing_context=pricing.pricing_context, pricing_rule_id=pricing.pricing_rule_id,
+            pricing_source_reference=pricing.pricing_source_reference, pricing_runtime_conditions=pricing.runtime_conditions,
             request_message_summary=summary, request_payload_hash=payload_hash,
             provider_qualification=self.policy.qualification,
             provider_reliability_score=self.policy.reliability_score,
@@ -420,12 +423,16 @@ class ContentRemediationProvider:
 
     def _failure(self, request, started_at, started_perf, summary, payload_hash, diagnostic, status, *, usage=None):
         finished_at = datetime.now(timezone.utc)
+        pricing = resolve_provider_cost(self, usage, finished_at)
         self._last_attempt = ProviderAttempt(
             provider=self.name, model=self.model, reasoning_profile=self.reasoning_profile,
             provider_rank=self.policy.rank, attempt_index=1, snapshot_id=request.snapshot_id,
             url=request.page_url, started_at=started_at, finished_at=finished_at,
             duration_ms=max(0, int((time.perf_counter() - started_perf) * 1000)),
             status=status, diagnostic=diagnostic, usage=usage,
+            estimated_cost=pricing.estimated_cost, cost_currency=pricing.currency, pricing_version=pricing.pricing_version,
+            pricing_context=pricing.pricing_context, pricing_rule_id=pricing.pricing_rule_id,
+            pricing_source_reference=pricing.pricing_source_reference, pricing_runtime_conditions=pricing.runtime_conditions,
             request_message_summary=summary, request_payload_hash=payload_hash,
             provider_qualification=self.policy.qualification,
             provider_reliability_score=self.policy.reliability_score,
