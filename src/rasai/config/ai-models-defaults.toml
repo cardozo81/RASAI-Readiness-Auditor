@@ -112,7 +112,7 @@ rasai_class = "PROVISIONAL-B+"
 rank = 4
 recommended_depth = "THINKING_ENABLED"
 recommended_use = "alternativa forte"
-reasoning_values = ["NONE", "LOW", "MEDIUM", "HIGH"]
+reasoning_values = ["NONE", "MINIMAL", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX", "ULTRA"]
 default_reasoning = "NONE"
 capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
 source_reference = "https://mimo.mi.com/models/en-US/mimo-v2.6-pro"
@@ -130,7 +130,7 @@ rasai_class = "PROVISIONAL-B"
 rank = 7
 recommended_depth = "THINKING_ENABLED"
 recommended_use = "volume/multimodal"
-reasoning_values = ["NONE", "LOW", "MEDIUM", "HIGH"]
+reasoning_values = ["NONE", "MINIMAL", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX", "ULTRA"]
 default_reasoning = "NONE"
 capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
 source_reference = "https://mimo.mi.com/models/en-US/mimo-v2.6-flash"
@@ -206,8 +206,8 @@ recommended_depth = "XHIGH"
 recommended_use = "qualidade"
 reasoning_values = ["NONE", "MINIMAL", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"]
 default_reasoning = "NONE"
-capabilities = ["STRUCTURED_OUTPUT", "CACHED_INPUT"]
-source_reference = "https://www.alibabacloud.com/help/en/model-studio/"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+source_reference = "https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-responses"
 
 [[models]]
 provider = "QWEN"
@@ -224,8 +224,8 @@ recommended_depth = "XHIGH"
 recommended_use = "volume/custo"
 reasoning_values = ["NONE", "MINIMAL", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"]
 default_reasoning = "NONE"
-capabilities = ["STRUCTURED_OUTPUT", "CACHED_INPUT"]
-source_reference = "https://www.alibabacloud.com/help/en/model-studio/"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+source_reference = "https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-responses"
 
 [[models]]
 provider = "GEMINI"
