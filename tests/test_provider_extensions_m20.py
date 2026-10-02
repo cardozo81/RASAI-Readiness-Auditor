@@ -5,7 +5,7 @@ import unittest
 
 from rasai.m18_ai import ProviderState, RuntimeProviderState
 from rasai.m20_ai import ContentEvidenceInput, ContentFindingInput, ContentRemediationRequest
-from rasai.provider_extensions import AnthropicProvider, GeminiProvider, QwenProvider, XAIProvider
+from rasai.provider_extensions import AnthropicProvider, GeminiProvider, MistralProvider, QwenProvider, XAIProvider
 from rasai.provider_extensions_m20 import build_content_remediation_router
 
 
@@ -91,6 +91,14 @@ class ProviderExtensionM20Tests(unittest.TestCase):
             provider,
             {"choices": [{"message": {"content": json.dumps(_suggestions())}}]},
             "response_format",
+        )
+
+    def test_mistral_m20_uses_chat_completions_schema_and_standard_tier(self) -> None:
+        provider = MistralProvider(model="mistral-small-2603", api_key="x")
+        self._assert_success(
+            provider,
+            {"choices": [{"message": {"content": json.dumps(_suggestions())}}]},
+            "standard_only",
         )
 
     def test_gemini_m20_uses_interactions_schema(self) -> None:
