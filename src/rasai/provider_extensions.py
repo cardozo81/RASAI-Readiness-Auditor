@@ -863,7 +863,7 @@ class GeminiProvider(IsolatedStructuredSemanticProvider):
     def pricing_runtime_conditions(self) -> dict[str, str]:
         endpoint = str(self.endpoint).casefold()
         region = "GLOBAL" if endpoint.startswith("https://generativelanguage.googleapis.com/") else "UNKNOWN"
-        return {"operation_mode": "REALTIME", "region": region}
+        return {"service_tier": "STANDARD", "operation_mode": "REALTIME", "region": region}
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -954,7 +954,7 @@ class AnthropicProvider(IsolatedStructuredSemanticProvider):
     def pricing_runtime_conditions(self) -> dict[str, str]:
         endpoint = str(self.endpoint).casefold()
         region = "GLOBAL" if endpoint.startswith("https://api.anthropic.com/") else "UNKNOWN"
-        return {"operation_mode": "REALTIME", "region": region}
+        return {"service_tier": "STANDARD", "operation_mode": "REALTIME", "region": region}
 
     def _headers(self) -> dict[str, str]:
         return {
