@@ -96,7 +96,7 @@ def test_local_user_catalog_can_change_price_without_code_change(tmp_path: Path)
         catalog,
         "MIMO",
         "mimo-v2.6-flash",
-        at=datetime(2026, 9, 14, tzinfo=UTC),
+        at=datetime(2026, 10, 2, tzinfo=UTC),
         input_tokens=1_000,
     )
     assert resolved is not None
@@ -159,7 +159,7 @@ def test_restore_factory_helper_reconstructs_editable_catalog(tmp_path: Path) ->
     target.write_text("invalid = true\n", encoding="utf-8")
     restored = restore_factory_pricing_catalog(target)
     catalog = load_pricing_catalog(path=restored)
-    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-02"
+    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-02.1"
     assert catalog.source == str(target.resolve())
 
 
