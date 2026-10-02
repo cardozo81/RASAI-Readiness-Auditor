@@ -133,6 +133,7 @@ class M18ProviderTests(unittest.TestCase):
             self.assertEqual(result.state, ProviderState.AVAILABLE)
         self.assertEqual(calls[0]["body"]["text"]["format"]["type"], "json_schema")
         self.assertTrue(calls[0]["body"]["text"]["format"]["strict"])
+        self.assertEqual(calls[0]["body"]["service_tier"], "default")
         self.assertEqual(calls[1]["body"]["text"]["format"]["type"], "json_schema")
         self.assertNotIn("strict", calls[1]["body"]["text"]["format"])
         self.assertEqual(calls[2]["body"]["text"]["format"]["type"], "json_object")
@@ -146,13 +147,24 @@ class M18ProviderTests(unittest.TestCase):
         self.assertEqual(len(attempts), 1)
         self.assertIsNotNone(attempts[0].estimated_cost)
         self.assertEqual(attempts[0].cost_currency, "USD")
+        openai_conditions = {"service_tier": "DEFAULT", "operation_mode": "REALTIME", "region": "GLOBAL"}
         amount, currency, version = estimate_cost(
-            "OPENAI", "gpt-5.6-terra", ProviderUsage(100, 20, 50, 10, 150), datetime.now(timezone.utc)
+            "OPENAI",
+            "gpt-5.6-terra",
+            ProviderUsage(100, 20, 50, 10, 150),
+            datetime.now(timezone.utc),
+            runtime_conditions=openai_conditions,
         )
         self.assertIsNotNone(amount)
         self.assertEqual(currency, "USD")
         self.assertTrue(version)
-        missing, _, _ = estimate_cost("OPENAI", "gpt-5.6-terra", ProviderUsage(100, None, 50, None, 150), datetime.now(timezone.utc))
+        missing, _, _ = estimate_cost(
+            "OPENAI",
+            "gpt-5.6-terra",
+            ProviderUsage(100, None, 50, None, 150),
+            datetime.now(timezone.utc),
+            runtime_conditions=openai_conditions,
+        )
         self.assertIsNone(missing)
 
     def test_contract_rejects_partial_invalid_evidence_and_empty_output(self) -> None:
