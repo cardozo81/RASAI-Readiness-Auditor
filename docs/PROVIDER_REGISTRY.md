@@ -28,6 +28,10 @@ Referência operacional de cadastro/login e geração de credenciais: [PROVIDER_
 
 `none` representa ausência deliberada de provider externo. `auto` representa a política de composição/orquestração e não um provider físico.
 
+## Regra de escopo de capabilities externas
+
+O registry descreve capacidades efetivamente conectadas ao RASAi. Uma capability presente na documentação do fornecedor não deve ser adicionada ao registry, à documentação operacional ou ao console apenas porque existe externamente. Novos métodos de autenticação, planos, tiers, endpoints, tools, search, agents ou connectors exigem decisão própria, adapter/contrato verificável e teste. Variantes já identificadas estão rastreadas na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
+
 ## Separação provider x modelo
 
 O provider registry responde **como** o RASAi integra uma IA:
@@ -138,7 +142,7 @@ A fonte de verdade para a execução é o catálogo efetivamente carregado, não
 
 ## MiMo
 
-O registry expõe a restrição da credencial PAYG `sk-...` para impedir que Token Plan `tp-...` seja tratado como credencial compatível pelo adapter atual.
+O registry expõe a restrição da credencial PAYG `sk-...` para impedir que `tp-...` seja tratado como credencial compatível pelo adapter atual. Modalidades alternativas não são opções vigentes do RASAi e estão centralizadas para análise na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 ## Fonte de verdade
 
