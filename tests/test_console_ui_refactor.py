@@ -305,3 +305,28 @@ def test_post_edit_persistence_offers_session_or_immediate_save(monkeypatch) -> 
     console._configure(state, "2")
     assert state.project == "Alterado"
     assert saves == ["Alterado"]
+
+
+def test_all_configuration_surface_exposes_structural_audits_root_through_canonical_editor(monkeypatch) -> None:
+    from rasai import console_provider_environment as environment
+    from rasai import console_ui_catalog as catalog
+
+    console = ModuleType("test_console_ui_refactor_structural_audits_root")
+    calls: list[tuple[str, str]] = []
+    console._configure = lambda current_state, choice: calls.append((current_state.audits_root, choice))
+    state = SimpleNamespace(audits_root="audits", error="")
+
+    monkeypatch.setattr(environment, "refresh_specs", lambda: ())
+    monkeypatch.setattr(environment.base_environment, "render_header", lambda current: None)
+    answers = iter([catalog.CORE_IDS["audits_root"], "V"])
+    monkeypatch.setattr(builtins, "input", lambda prompt="": next(answers))
+
+    output = StringIO()
+    with redirect_stdout(output):
+        catalog.catalog_menu(console, state, view="all", title="TODAS AS CONFIGURAÇÕES")
+
+    rendered = output.getvalue()
+    assert "CONFIGURAÇÕES ESTRUTURAIS DO CONSOLE" in rendered
+    assert f"{catalog.CORE_IDS['audits_root']}  Raiz das auditorias" in rendered
+    assert "audits" in rendered
+    assert calls == [("audits", "10")]
