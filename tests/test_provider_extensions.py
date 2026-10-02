@@ -7,6 +7,7 @@ from rasai.m18_ai import ProviderState, ProviderUsage
 from rasai.provider_extensions import (
     AnthropicProvider,
     GeminiProvider,
+    MistralProvider,
     QwenProvider,
     XAIProvider,
     build_semantic_provider,
@@ -64,6 +65,7 @@ class ProviderExtensionTests(unittest.TestCase):
             "DASHSCOPE_API_KEY": "qwen",
             "GEMINI_API_KEY": "gemini",
             "ANTHROPIC_API_KEY": "anthropic",
+            "MISTRAL_API_KEY": "mistral",
         }
         auto = build_semantic_provider("auto", env=env)
         self.assertEqual([provider.name for provider in auto.providers], ["OPENAI", "DEEPSEEK", "MIMO"])
@@ -83,6 +85,7 @@ class ProviderExtensionTests(unittest.TestCase):
             ("qwen", {"DASHSCOPE_API_KEY": "x"}, "QWEN", "qwen3.8-max"),
             ("gemini", {"GEMINI_API_KEY": "x"}, "GEMINI", "gemini-3.8-flash"),
             ("anthropic", {"ANTHROPIC_API_KEY": "x"}, "ANTHROPIC", "claude-sonnet-5"),
+            ("mistral", {"MISTRAL_API_KEY": "x"}, "MISTRAL", "mistral-small-2603"),
             ("claude", {"ANTHROPIC_API_KEY": "x"}, "ANTHROPIC", "claude-sonnet-5"),
         )
         for selection, env, expected_name, expected_model in cases:
@@ -147,6 +150,33 @@ class ProviderExtensionTests(unittest.TestCase):
         self.assertEqual(response_format["type"], "json_schema")
         self.assertTrue(response_format["json_schema"]["strict"])
         self.assertIn("/chat/completions", calls[0]["url"])
+
+    def test_mistral_chat_completions_contract_usage_and_standard_tier(self) -> None:
+        calls: list[dict[str, object]] = []
+
+        def transport(url, headers, body, timeout):
+            calls.append({"url": url, "headers": headers, "body": json.loads(body), "timeout": timeout})
+            return {
+                "choices": [{"message": {"content": json.dumps(_payload())}}],
+                "usage": {
+                    "prompt_tokens": 120,
+                    "prompt_tokens_details": {"cached_tokens": 30},
+                    "completion_tokens": 40,
+                    "total_tokens": 160,
+                },
+            }
+
+        provider = MistralProvider(model="mistral-small-2603", api_key="x", transport=transport)
+        result = provider.analyze(_input())
+        self.assertEqual(result.state, ProviderState.AVAILABLE)
+        self.assertEqual(result.usage, ProviderUsage(120, 30, 40, None, 160))
+        request = calls[0]["body"]
+        self.assertEqual(request["service_tier"], "standard_only")
+        self.assertEqual(request["response_format"]["type"], "json_schema")
+        self.assertTrue(request["response_format"]["json_schema"]["strict"])
+        self.assertIn("schema", request["response_format"]["json_schema"])
+        self.assertEqual(calls[0]["url"], "https://api.mistral.ai/v1/chat/completions")
+        self.assertEqual(calls[0]["headers"]["Authorization"], "Bearer x")
 
     def test_gemini_interactions_contract_and_new_schema_response(self) -> None:
         calls: list[dict[str, object]] = []
