@@ -297,16 +297,17 @@ class M18ProviderTests(unittest.TestCase):
 </head><body><main><h1>Guia M18</h1><h2>Visão geral</h2><p>Conteúdo técnico verificável para integração M18.</p></main></body></html>"""
             secret = "M18-INTEGRATION-SECRET"
             provider = OpenAIProvider(api_key=secret, transport=_success_transport())
-            result = run_audit(
-                f"{origin}/",
-                audits_root=Path(directory),
-                project_name="Integração M18",
-                max_pages=1,
-                semantic_provider=provider,
-                discovery_engine=DiscoveryEngine(HttpClient(timeout=1)),
-                renderer=_FixtureRenderer(html),
-                lazy_probe=lambda url, device: None,
-            )
+            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "both"}, clear=False):
+                result = run_audit(
+                    f"{origin}/",
+                    audits_root=Path(directory),
+                    project_name="Integração M18",
+                    max_pages=1,
+                    semantic_provider=provider,
+                    discovery_engine=DiscoveryEngine(HttpClient(timeout=1)),
+                    renderer=_FixtureRenderer(html),
+                    lazy_probe=lambda url, device: None,
+                )
 
             connection = sqlite3.connect(result.audit_root / "audit.db")
             connection.row_factory = sqlite3.Row
