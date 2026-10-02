@@ -22,6 +22,31 @@ UTC = timezone.utc
 BRT = timezone(timedelta(hours=-3))
 
 
+def _runtime_conditions(provider: str, *, region: str | None = None) -> dict[str, str]:
+    name = provider.upper()
+    conditions: dict[str, str] = {"operation_mode": "REALTIME"}
+    if name == "OPENAI":
+        conditions["service_tier"] = "DEFAULT"
+        conditions["region"] = region or "GLOBAL"
+    elif name == "DEEPSEEK":
+        conditions["region"] = region or "GLOBAL"
+    elif name == "MIMO":
+        conditions["commercial_mode"] = "PAYG"
+        conditions["region"] = region or "GLOBAL"
+    elif name == "XAI":
+        conditions["service_tier"] = "DEFAULT"
+        conditions["region"] = region or "GLOBAL"
+    elif name == "QWEN":
+        conditions["region"] = region or "US_VIRGINIA"
+    elif name in {"GEMINI", "ANTHROPIC"}:
+        conditions["service_tier"] = "STANDARD"
+        conditions["region"] = region or "GLOBAL"
+    elif name == "MISTRAL":
+        conditions["service_tier"] = "STANDARD_ONLY"
+        conditions["region"] = region or "GLOBAL"
+    return conditions
+
+
 def test_deepseek_peak_uses_utc_weekday_and_not_consumer_weekday() -> None:
     # Sunday 22:30 in GMT-3 is Monday 01:30 UTC, therefore peak.
     local_sunday = datetime(2026, 9, 13, 22, 30, tzinfo=BRT)
@@ -46,12 +71,14 @@ def test_deepseek_flash_current_prices_apply_from_2026_08_16_change() -> None:
         "deepseek-v4-flash",
         at=datetime(2026, 9, 14, 1, 30, tzinfo=UTC),
         input_tokens=10_000,
+        runtime_conditions=_runtime_conditions("DEEPSEEK"),
     )
     off_peak = resolve_price(
         "DEEPSEEK",
         "deepseek-v4-flash",
         at=datetime(2026, 9, 14, 12, 0, tzinfo=UTC),
         input_tokens=10_000,
+        runtime_conditions=_runtime_conditions("DEEPSEEK"),
     )
     assert peak is not None
     assert off_peak is not None
@@ -65,6 +92,7 @@ def test_deepseek_flash_is_unpriced_before_current_contract_effective_time() -> 
         "deepseek-v4-flash",
         at=datetime(2026, 8, 16, 15, 59, tzinfo=UTC),
         input_tokens=10_000,
+        runtime_conditions=_runtime_conditions("DEEPSEEK"),
     )
     assert before_current_contract is None
 
@@ -81,7 +109,13 @@ def test_every_public_auto_default_model_has_a_current_price() -> None:
         ("ANTHROPIC", "claude-sonnet-5"),
     )
     for provider, model in pairs:
-        assert resolve_price(provider, model, at=at, input_tokens=10_000) is not None
+        assert resolve_price(
+            provider,
+            model,
+            at=at,
+            input_tokens=10_000,
+            runtime_conditions=_runtime_conditions(provider),
+        ) is not None
 
 
 def test_m18_and_auto_share_the_exact_same_pricing_catalog() -> None:
@@ -90,13 +124,22 @@ def test_m18_and_auto_share_the_exact_same_pricing_catalog() -> None:
 
 def test_openai_long_context_and_xai_thresholds_are_applied() -> None:
     at = datetime(2026, 9, 12, 18, 0, tzinfo=UTC)
-    openai = resolve_price("OPENAI", "gpt-5.6-luna", at=at, input_tokens=272_001)
-    xai_short = resolve_price("XAI", "grok-4.6", at=at, input_tokens=199_999)
-    xai_long = resolve_price("XAI", "grok-4.6", at=at, input_tokens=200_000)
+    openai = resolve_price(
+        "OPENAI", "gpt-5.6-luna", at=at, input_tokens=272_001,
+        runtime_conditions=_runtime_conditions("OPENAI"),
+    )
+    xai_short = resolve_price(
+        "XAI", "grok-4.6", at=at, input_tokens=199_999,
+        runtime_conditions=_runtime_conditions("XAI"),
+    )
+    xai_long = resolve_price(
+        "XAI", "grok-4.6", at=at, input_tokens=200_000,
+        runtime_conditions=_runtime_conditions("XAI"),
+    )
     assert openai is not None and openai.pricing_context == "LONG_CONTEXT_GT_272K"
     assert (openai.input_price_per_million, openai.cached_input_price_per_million, openai.output_price_per_million) == pytest.approx((0.40, 0.04, 1.80))
-    assert xai_short is not None and xai_short.pricing_context == "SHORT_CONTEXT"
-    assert xai_long is not None and xai_long.pricing_context == "LONG_CONTEXT"
+    assert xai_short is not None and xai_short.pricing_context == "SHORT_CONTEXT_GLOBAL"
+    assert xai_long is not None and xai_long.pricing_context == "LONG_CONTEXT_GLOBAL"
     assert xai_short.input_price_per_million == pytest.approx(2.0)
     assert xai_long.input_price_per_million == pytest.approx(4.0)
 
@@ -105,10 +148,12 @@ def test_gemini_promotion_expiry_fails_closed_until_catalog_review() -> None:
     current = resolve_price(
         "GEMINI", "gemini-3.8-flash",
         at=datetime(2026, 12, 31, 23, 59, tzinfo=UTC), input_tokens=20_000,
+        runtime_conditions=_runtime_conditions("GEMINI"),
     )
     expired = resolve_price(
         "GEMINI", "gemini-3.8-flash",
         at=datetime(2027, 1, 1, 0, 0, tzinfo=UTC), input_tokens=20_000,
+        runtime_conditions=_runtime_conditions("GEMINI"),
     )
     assert current is not None
     assert current.input_price_per_million == pytest.approx(0.75)
@@ -135,6 +180,7 @@ def test_gemini_observed_cost_bills_reported_thought_tokens_as_output() -> None:
         "gemini-3.8-flash",
         usage,
         datetime(2026, 9, 12, 18, 0, tzinfo=UTC),
+        runtime_conditions=_runtime_conditions("GEMINI"),
     )
     assert cost == pytest.approx(8.25)
     assert currency == "USD"
@@ -150,6 +196,9 @@ class _PricedProvider:
 
     def _request_payload(self, request):
         return {"model": self.model, "input": "x" * 8_000}
+
+    def pricing_runtime_conditions(self):
+        return _runtime_conditions(self.name)
 
 
 def test_auto_orders_priced_active_candidates_by_estimated_request_cost() -> None:
@@ -179,14 +228,54 @@ def test_review_date_is_explicit_and_machine_readable() -> None:
 
 def test_mimo_v26_prices_and_v25_cutoff_are_machine_readable() -> None:
     current = datetime(2026, 10, 2, 18, 0, tzinfo=UTC)
-    pro = resolve_price("MIMO", "mimo-v2.6-pro", at=current, input_tokens=10_000)
-    flash = resolve_price("MIMO", "mimo-v2.6-flash", at=current, input_tokens=10_000)
+    pro = resolve_price(
+        "MIMO", "mimo-v2.6-pro", at=current, input_tokens=10_000,
+        runtime_conditions=_runtime_conditions("MIMO"),
+    )
+    flash = resolve_price(
+        "MIMO", "mimo-v2.6-flash", at=current, input_tokens=10_000,
+        runtime_conditions=_runtime_conditions("MIMO"),
+    )
     assert pro is not None
     assert flash is not None
     assert (pro.input_price_per_million, pro.cached_input_price_per_million, pro.output_price_per_million) == pytest.approx((0.435, 0.0036, 0.87))
     assert (flash.input_price_per_million, flash.cached_input_price_per_million, flash.output_price_per_million) == pytest.approx((0.14, 0.0028, 0.28))
 
-    before = resolve_price("MIMO", "mimo-v2.5", at=datetime(2026, 10, 21, 1, 59, 59, tzinfo=UTC), input_tokens=10_000)
-    expired = resolve_price("MIMO", "mimo-v2.5", at=datetime(2026, 10, 21, 2, 0, 0, tzinfo=UTC), input_tokens=10_000)
+    before = resolve_price(
+        "MIMO", "mimo-v2.5",
+        at=datetime(2026, 10, 21, 1, 59, 59, tzinfo=UTC),
+        input_tokens=10_000,
+        runtime_conditions=_runtime_conditions("MIMO"),
+    )
+    expired = resolve_price(
+        "MIMO", "mimo-v2.5",
+        at=datetime(2026, 10, 21, 2, 0, 0, tzinfo=UTC),
+        input_tokens=10_000,
+        runtime_conditions=_runtime_conditions("MIMO"),
+    )
     assert before is not None
     assert expired is None
+
+
+def test_conditioned_price_is_unpriced_without_runtime_context() -> None:
+    at = datetime(2026, 10, 2, 18, 0, tzinfo=UTC)
+    assert resolve_price("OPENAI", "gpt-5.6-luna", at=at, input_tokens=10_000) is None
+    assert resolve_price("MIMO", "mimo-v2.6-flash", at=at, input_tokens=10_000) is None
+
+
+def test_xai_us_region_uses_documented_regional_premium() -> None:
+    at = datetime(2026, 10, 2, 18, 0, tzinfo=UTC)
+    global_price = resolve_price(
+        "XAI", "grok-4.6", at=at, input_tokens=10_000,
+        runtime_conditions=_runtime_conditions("XAI", region="GLOBAL"),
+    )
+    us_price = resolve_price(
+        "XAI", "grok-4.6", at=at, input_tokens=10_000,
+        runtime_conditions=_runtime_conditions("XAI", region="US"),
+    )
+    assert global_price is not None and us_price is not None
+    assert global_price.pricing_context == "SHORT_CONTEXT_GLOBAL"
+    assert us_price.pricing_context == "SHORT_CONTEXT_US"
+    assert us_price.input_price_per_million == pytest.approx(global_price.input_price_per_million * 1.10)
+    assert us_price.cached_input_price_per_million == pytest.approx(global_price.cached_input_price_per_million * 1.10)
+    assert us_price.output_price_per_million == pytest.approx(global_price.output_price_per_million * 1.10)
