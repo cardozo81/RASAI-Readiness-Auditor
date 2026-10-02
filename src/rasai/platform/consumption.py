@@ -11,6 +11,8 @@ _ALLOWED_GROUPS = {
     "workspace", "project", "property", "environment", "domain", "url", "user",
     "job_type", "provider", "integration", "category", "operation", "status", "model",
     "job", "audit", "resource",
+    "pricing_version", "pricing_context", "pricing_rule", "pricing_source",
+    "pricing_service_tier", "pricing_commercial_mode", "pricing_operation_mode", "pricing_region",
 }
 _ALLOWED_PERIODS = {"TODAY", "YESTERDAY", "LAST_7_DAYS", "LAST_30_DAYS", "CURRENT_MONTH", "PREVIOUS_MONTH"}
 
@@ -166,6 +168,14 @@ def usage_analytics(
             "job": metadata.get("job_id"),
             "audit": item.get("audit_id"),
             "resource": metadata.get("resource_type"),
+            "pricing_version": metadata.get("pricing_version"),
+            "pricing_context": metadata.get("pricing_context"),
+            "pricing_rule": metadata.get("pricing_rule_id"),
+            "pricing_source": metadata.get("pricing_source_reference"),
+            "pricing_service_tier": metadata.get("pricing_service_tier"),
+            "pricing_commercial_mode": metadata.get("pricing_commercial_mode"),
+            "pricing_operation_mode": metadata.get("pricing_operation_mode"),
+            "pricing_region": metadata.get("pricing_region"),
         }
         checks = (
             (workspace_id, dimensions["workspace"]),
