@@ -8,7 +8,7 @@ import math
 import os
 from typing import Any, Mapping, MutableMapping
 
-from rasai.ai_cost_policy import resolve_price, runtime_pricing_conditions
+from rasai.ai_cost_policy import catalog_models, resolve_price, runtime_pricing_conditions
 from rasai.ai_exchange_log import AiExchangeRecorder
 from rasai.ai_execution_state import clear_current_ai_execution, set_current_ai_execution
 from rasai.ai_model_runtime import model_definition
@@ -259,6 +259,8 @@ def _auto_model_reason(registration: Any, model: str) -> str | None:
     definition = model_definition(registration.provider_name, model)
     if definition is None or not definition.auto_eligible:
         return "MODEL_NOT_AUTO_ELIGIBLE"
+    if (registration.provider_name, model) not in catalog_models():
+        return "MODEL_UNPRICED_FOR_AUTO"
     return None
 
 
