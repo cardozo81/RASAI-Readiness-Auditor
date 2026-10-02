@@ -39,7 +39,7 @@ Quando for necessário citar uma modalidade externa apenas para impedir configur
 |---|---|---|---|---|
 | OpenAI | `OPENAI_API_KEY` | `openai` | <https://platform.openai.com/api-keys> | API Platform e ChatGPT têm faturamentos separados. |
 | DeepSeek | `DEEPSEEK_API_KEY` | `deepseek` | <https://platform.deepseek.com/api_keys> | autenticação Bearer; saldo/quota pertencem à plataforma DeepSeek. |
-| Xiaomi MiMo | `MIMO_API_KEY` | `mimo` | <https://mimo.mi.com/> | o contrato atual aceita somente chave Pay-as-you-go `sk-...`; formatos alternativos não são suportados. |
+| Xiaomi MiMo | `MIMO_API_KEY` | `mimo` | <https://mimo.mi.com/> | o contrato atual do RASAi aceita somente PAYG `sk-...`; Token Plan `tp-...`/`ttp-...` é uma modalidade válida do fornecedor, mas exige credencial/Base URL próprias e não é suportada pelo adapter atual. |
 | xAI / Grok | `XAI_API_KEY` | `xai` ou `grok` | <https://console.x.ai/> | usar a API key consumida pelo adapter de inferência; operações administrativas xAI estão fora do escopo atual. |
 | Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | `qwen` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | key, endpoint e modelo devem ser coerentes com a região; planos/credenciais alternativos não estão homologados. |
 | Google Gemini | `GEMINI_API_KEY` | `gemini` | <https://aistudio.google.com/apikey> | o adapter atual usa API key em `x-goog-api-key`; métodos alternativos de autenticação não fazem parte do contrato atual. |
@@ -185,7 +185,7 @@ Use primeiro o diagnóstico seguro do console. O smoke acima pode consumir saldo
 
 O RASAi aceita, neste adapter, a credencial Pay-as-you-go `sk-...` em `MIMO_API_KEY`.
 
-Credenciais `tp-...` e demais modalidades que exijam contrato/Base URL diferente **não são uma configuração suportada pelo RASAi hoje**. Não tente compensar isso alterando manualmente endpoint ou variável. A eventual adoção de modalidades adicionais deve ser decidida e qualificada separadamente na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
+Credenciais Token Plan `tp-...`/`ttp-...` são modalidades válidas do Xiaomi MiMo, mas usam contrato comercial e Base URL próprios. Elas **não são uma configuração suportada pelo RASAi hoje**. Não tente compensar isso alterando manualmente endpoint ou variável do adapter PAYG. A eventual adoção dessa modalidade deve ser decidida e qualificada separadamente na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 #### Modelos vigentes no contrato RASAi
 
@@ -223,7 +223,7 @@ rasai audit https://example.com --ai-provider mimo
 
 #### Falhas típicas
 
-- credencial que não seja `sk-...`: fora do contrato atual do adapter RASAi; modalidades alternativas estão registradas para análise na issue #180;
+- `tp-...`/`ttp-...`: credenciais Token Plan válidas no fornecedor, porém fora do contrato atual do adapter RASAi; não misturar com o endpoint PAYG; evolução registrada na issue #180;
 - chave incompatível com o endpoint efetivo: autenticação pode falhar mesmo com valor sintaticamente válido;
 - saldo insuficiente ou limite comercial: tratar como condição do provider, não finding do alvo auditado.
 
