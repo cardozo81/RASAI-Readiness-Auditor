@@ -9,6 +9,9 @@ on:
       - 'src/rasai/provider_extensions_m20.py'
       - 'src/rasai/provider_registry.py'
       - 'src/rasai/provider_runtime_policy.py'
+      - 'src/rasai/m18_ai.py'
+      - 'src/rasai/ai_pricing_catalog.py'
+      - 'src/rasai/ai_cost_policy.py'
       - 'src/rasai/ai_orchestration_unification.py'
       - 'src/rasai/improvement_intelligence.py'
       - 'src/rasai/ai_catalog_control_plane.py'
@@ -23,6 +26,9 @@ on:
       - 'tests/test_provider_extensions_m20.py'
       - 'tests/test_provider_registry.py'
       - 'tests/test_provider_runtime_policy.py'
+      - 'tests/test_ai_cost_policy.py'
+      - 'tests/test_console_environment_guidance.py'
+      - 'tests/test_m18_multi_ai_provider.py'
       - 'tests/test_mistral_provider_consumers.py'
       - 'tests/test_integration_diagnostics.py'
       - 'tests/test_integration_network_diagnostics.py'
@@ -41,6 +47,9 @@ on:
       - 'src/rasai/provider_extensions_m20.py'
       - 'src/rasai/provider_registry.py'
       - 'src/rasai/provider_runtime_policy.py'
+      - 'src/rasai/m18_ai.py'
+      - 'src/rasai/ai_pricing_catalog.py'
+      - 'src/rasai/ai_cost_policy.py'
       - 'src/rasai/ai_orchestration_unification.py'
       - 'src/rasai/improvement_intelligence.py'
       - 'src/rasai/ai_catalog_control_plane.py'
@@ -55,6 +64,9 @@ on:
       - 'tests/test_provider_extensions_m20.py'
       - 'tests/test_provider_registry.py'
       - 'tests/test_provider_runtime_policy.py'
+      - 'tests/test_ai_cost_policy.py'
+      - 'tests/test_console_environment_guidance.py'
+      - 'tests/test_m18_multi_ai_provider.py'
       - 'tests/test_mistral_provider_consumers.py'
       - 'tests/test_integration_diagnostics.py'
       - 'tests/test_integration_network_diagnostics.py'
@@ -90,6 +102,9 @@ jobs:
             src/rasai/provider_extensions_m20.py \
             src/rasai/provider_registry.py \
             src/rasai/provider_runtime_policy.py \
+            src/rasai/m18_ai.py \
+            src/rasai/ai_pricing_catalog.py \
+            src/rasai/ai_cost_policy.py \
             src/rasai/ai_orchestration_unification.py \
             src/rasai/improvement_intelligence.py \
             src/rasai/ai_catalog_control_plane.py \
@@ -102,6 +117,9 @@ jobs:
             tests/test_provider_extensions_m20.py \
             tests/test_provider_registry.py \
             tests/test_provider_runtime_policy.py \
+            tests/test_ai_cost_policy.py \
+            tests/test_console_environment_guidance.py \
+            tests/test_m18_multi_ai_provider.py \
             tests/test_mistral_provider_consumers.py \
             tests/test_integration_diagnostics.py \
             tests/test_integration_network_diagnostics.py \
