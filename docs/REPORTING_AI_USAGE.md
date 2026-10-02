@@ -89,9 +89,9 @@ O enriquecimento é idempotente: regerar/finalizar o mini-site substitui o bloco
 
 ## Provider-neutral
 
-O renderer não mantém uma allowlist visual de providers. Provider e modelo são projetados a partir da telemetria persistida. Assim, OpenAI, DeepSeek, MiMo, xAI, Qwen, Gemini, Anthropic, GitHub Copilot e futuros providers compatíveis com o registry usam a mesma superfície sem exigir uma variante específica do HTML.
+O renderer não mantém uma allowlist visual de providers. Provider e modelo são projetados a partir da telemetria persistida. Assim, OpenAI, DeepSeek, MiMo, xAI, Qwen, Gemini, Anthropic, Mistral, GitHub Copilot e futuros providers compatíveis com o registry usam a mesma superfície sem exigir uma variante específica do HTML.
 
-GitHub Copilot é `explicit-only`; quando aparece no report, isso representa seleção explícita. Ele não deve aparecer como candidato/tentativa do pool `AI=auto`.
+Mistral é `explicit-only` nesta entrega; quando aparece no report, isso representa seleção explícita e não uma escolha do pool `AI=auto`. GitHub Copilot também é `explicit-only` e segue a mesma regra de não aparecer como candidato/tentativa do AUTO.
 
 ## Log de exchanges
 
@@ -105,6 +105,6 @@ O conteúdo dessa tabela pertence à telemetria técnica. Ele não altera regras
 
 Quando `AI=auto`, o relatório também apresenta o estado de saúde observado de cada provider elegível durante a execução: tentativas, sucessos, falhas temporárias, falhas terminais, elegibilidade final e motivo de exclusão quando aplicável.
 
-O conjunto AUTO é derivado do `provider_registry`; não existe cadeia fixa documentada pelo report. Providers `explicit-only`, atualmente GitHub Copilot, permanecem fora desse pool.
+O conjunto AUTO é derivado do `provider_registry`; não existe cadeia fixa documentada pelo report. Providers `explicit-only`, atualmente Mistral durante a homologação inicial e GitHub Copilot, permanecem fora desse pool.
 
 A política completa está em [`AI_RUNTIME_ORCHESTRATION.md`](AI_RUNTIME_ORCHESTRATION.md) e o catálogo canônico em [`PROVIDER_REGISTRY.md`](PROVIDER_REGISTRY.md).
