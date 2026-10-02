@@ -37,7 +37,7 @@ from rasai.provider_wire_schema import project_provider_request_body
 SIMPLE_DEFAULT_MODELS: dict[str, str] = {
     "OPENAI": "gpt-5.6-luna",
     "DEEPSEEK": "deepseek-v4-flash",
-    "MIMO": "mimo-v2.5",
+    "MIMO": "mimo-v2.6-flash",
     "XAI": "grok-4.6",
     "QWEN": "qwen3.8-flash",
     "GEMINI": "gemini-3.8-flash",
@@ -47,20 +47,21 @@ SIMPLE_DEFAULT_MODELS: dict[str, str] = {
 }
 LOWEST_REASONING: dict[str, str] = {
     "OPENAI": "NONE", "DEEPSEEK": "NONE", "MIMO": "NONE", "XAI": "LOW",
-    "QWEN": "PROVIDER_DEFAULT", "GEMINI": "LOW", "ANTHROPIC": "LOW",
+    "QWEN": "NONE", "GEMINI": "LOW", "ANTHROPIC": "LOW",
     "MISTRAL": "PROVIDER_DEFAULT", "COPILOT": "PROVIDER_DEFAULT",
 }
 EXTENSION_REASONING_ENV: dict[str, str] = {
     "XAI": "RASAI_XAI_REASONING_EFFORT",
     "GEMINI": "RASAI_GEMINI_REASONING_EFFORT",
     "ANTHROPIC": "RASAI_ANTHROPIC_REASONING_EFFORT",
+    "QWEN": "RASAI_QWEN_REASONING_EFFORT",
 }
 REASONING_OPTIONS: dict[str, tuple[str, ...]] = {
     "OPENAI": ("NONE", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"),
     "DEEPSEEK": ("NONE", "LOW", "HIGH", "MAX"),
-    "MIMO": ("NONE", "LOW", "MEDIUM", "HIGH"),
+    "MIMO": ("NONE", "MINIMAL", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX", "ULTRA"),
     "XAI": ("LOW", "MEDIUM", "HIGH", "XHIGH"),
-    "QWEN": ("PROVIDER_DEFAULT",),
+    "QWEN": ("NONE", "MINIMAL", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"),
     "GEMINI": ("LOW", "MEDIUM", "HIGH"),
     "ANTHROPIC": ("LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"),
     "MISTRAL": ("PROVIDER_DEFAULT",),
@@ -185,7 +186,7 @@ def environment_with_public_defaults(env: Mapping[str, str] | None = None) -> di
 
 def _patch_extension_semantic_reasoning(provider: IsolatedStructuredSemanticProvider, effort: str) -> None:
     name = provider.name
-    if name in {"QWEN", "MISTRAL", "COPILOT"}:
+    if name in {"MISTRAL", "COPILOT"}:
         provider.reasoning_profile = "PROVIDER_DEFAULT"
         return
     provider.reasoning_profile = effort
@@ -195,6 +196,8 @@ def _patch_extension_semantic_reasoning(provider: IsolatedStructuredSemanticProv
         payload = original(semantic_input)
         if isinstance(provider, XAIProvider):
             payload.setdefault("reasoning", {})["effort"] = effort.casefold()
+        elif isinstance(provider, QwenProvider):
+            payload["reasoning_effort"] = effort.casefold()
         elif isinstance(provider, GeminiProvider):
             payload["generation_config"] = {"thinking_level": effort.casefold()}
         elif isinstance(provider, AnthropicProvider):
@@ -400,7 +403,7 @@ def _patch_content_provider_reasoning(provider: Any) -> None:
 
         provider._request_payload = MethodType(copilot_request_payload, provider)
         return
-    if name in {"QWEN", "MISTRAL"}:
+    if name == "MISTRAL":
         provider.reasoning_profile = "PROVIDER_DEFAULT"
         return
     provider.reasoning_profile = str(effort).upper()
@@ -411,6 +414,8 @@ def _patch_content_provider_reasoning(provider: Any) -> None:
         effective = provider.reasoning_profile.casefold()
         if isinstance(provider.base, XAIProvider):
             payload.setdefault("reasoning", {})["effort"] = effective
+        elif isinstance(provider.base, QwenProvider):
+            payload["reasoning_effort"] = effective
         elif isinstance(provider.base, GeminiProvider):
             payload["generation_config"] = {"thinking_level": effective}
         elif isinstance(provider.base, AnthropicProvider):
