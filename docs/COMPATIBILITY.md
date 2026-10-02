@@ -88,13 +88,13 @@ GitHub Copilot
 
 Mistral é `explicit-only` nesta entrega e não participa de `AI=auto` antes da homologação humana; o adapter usa `mistral-small-2603`, Chat Completions no endpoint global e `service_tier=standard_only`. GitHub Copilot também é deliberadamente `explicit-only` e não participa de `AI=auto`, mesmo quando `COPILOT_GITHUB_TOKEN` está configurado. A integração Copilot usa o SDK oficial e exige uma assinatura Copilot elegível; o extra Python é declarado em `pyproject.toml` e pode ser instalado com `python -m pip install -e ".[copilot]"` quando o bootstrap automático não for usado.
 
-Cada provider pode ter diferenças de plano, modelo, endpoint, structured output, reasoning e cobrança. Uma chave/token válida para um produto não deve ser presumida válida para outro endpoint/plano.
+O RASAi documenta somente as combinações de credencial, modelo, endpoint, structured output e reasoning que pertencem ao contrato atual de cada adapter. A existência de outros planos ou modalidades no fornecedor não implica compatibilidade; variantes não implementadas/homologadas são rastreadas na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 Referências: [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md), [PROVIDER_SETUP.md](PROVIDER_SETUP.md) e [AI_GUIDE.md](AI_GUIDE.md).
 
 ## MiMo
 
-O adapter PAYG atual exige chave compatível `sk-...`. Token Plan `tp-...` não é intercambiável com o endpoint PAYG.
+O adapter atual aceita a credencial PAYG `sk-...`. `tp-...` não é uma configuração suportada pelo RASAi; eventual suporte a modalidade alternativa está registrado para análise na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 ## Web Performance
 
