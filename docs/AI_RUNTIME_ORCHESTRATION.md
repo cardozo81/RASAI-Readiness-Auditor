@@ -261,13 +261,13 @@ Custos em `ai-integrations.html` são somados a partir de `estimated_cost` e `co
 
 ## 8. Projeção de JSON Schema no wire
 
-O schema canônico/local continua sendo a fonte de verdade para validação do RASAi. Antes de uma chamada OpenAI estruturada, o runtime projeta o schema para o subconjunto aceito pelo wire format vigente do adapter.
+O schema canônico/local continua sendo a fonte de verdade para validação do RASAi. Antes de chamadas estruturadas que exigem adaptação, o runtime projeta o schema para o subconjunto aceito pelo wire format vigente do adapter. OpenAI mantém sua projeção própria; Cohere Chat V2 recebe uma projeção que remove constraints não suportadas no wire, como `minItems`, `maxItems`, `uniqueItems`, `allOf`, `oneOf` e `not`.
 
 A projeção pode retirar constraints de valor/comprimento/cardinalidade incompatíveis no wire, preservando estrutura, tipos, propriedades obrigatórias, `additionalProperties`, arrays, enums e nulabilidade. As constraints retiradas do wire continuam validadas localmente depois da resposta.
 
 A projeção ocorre imediatamente antes do transport. Por isso, o exchange log registra o corpo efetivamente enviado, não uma versão anterior do request.
 
-Essa separação evita enfraquecer o contrato local apenas para satisfazer diferenças entre APIs de providers.
+Essa separação evita enfraquecer o contrato local apenas para satisfazer diferenças entre APIs de providers. No caso Cohere, o request também permanece sem `tools` e `documents`; RAG/Rerank não são habilitados pelo adapter generativo atual.
 
 ## 9. Contexto editorial `auto`: YMYL e E-E-A-T
 
