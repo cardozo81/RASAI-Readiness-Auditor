@@ -54,24 +54,28 @@ EXTENDED_SUPPORTED_MODELS: dict[str, tuple[str, ...]] = {
     "QWEN": ("qwen3.8-max", "qwen3.8-flash"),
     "GEMINI": ("gemini-3.8-flash",),
     "ANTHROPIC": ("claude-sonnet-5",),
+    "MISTRAL": ("mistral-small-2603",),
 }
 EXTENDED_DEFAULT_MODELS = {
     "XAI": "grok-4.6",
     "QWEN": "qwen3.8-max",
     "GEMINI": "gemini-3.8-flash",
     "ANTHROPIC": "claude-sonnet-5",
+    "MISTRAL": "mistral-small-2603",
 }
 EXTENDED_KEY_ENV = {
     "XAI": "XAI_API_KEY",
     "QWEN": "DASHSCOPE_API_KEY",
     "GEMINI": "GEMINI_API_KEY",
     "ANTHROPIC": "ANTHROPIC_API_KEY",
+    "MISTRAL": "MISTRAL_API_KEY",
 }
 EXTENDED_MODEL_ENV = {
     "XAI": "RASAI_XAI_MODEL",
     "QWEN": "RASAI_QWEN_MODEL",
     "GEMINI": "RASAI_GEMINI_MODEL",
     "ANTHROPIC": "RASAI_ANTHROPIC_MODEL",
+    "MISTRAL": "RASAI_MISTRAL_MODEL",
 }
 EXTENDED_ENDPOINT_ENV = {
     "XAI": "RASAI_XAI_ENDPOINT",
@@ -101,6 +105,10 @@ EXTENSION_POLICIES: dict[tuple[str, str], ProviderPolicy] = {
         105, "ANTHROPIC", "claude-sonnet-5", "ADAPTIVE", "PROVISIONAL-A",
         "PROVISIONAL", "explicit qualification only",
     ),
+    ("MISTRAL", "mistral-small-2603"): ProviderPolicy(
+        106, "MISTRAL", "mistral-small-2603", "PROVIDER_DEFAULT", "PROVISIONAL",
+        "PROVISIONAL", "explicit qualification only",
+    ),
 }
 
 _PROVIDER_ALIASES = {
@@ -110,6 +118,7 @@ _PROVIDER_ALIASES = {
     "GEMINI": "GEMINI",
     "ANTHROPIC": "ANTHROPIC",
     "CLAUDE": "ANTHROPIC",
+    "MISTRAL": "MISTRAL",
 }
 
 Transport = Callable[[str, dict[str, str], bytes, float], dict[str, Any]]
@@ -704,7 +713,7 @@ class QwenProvider(IsolatedStructuredSemanticProvider):
     def _extract_payload(self, raw: Mapping[str, Any]) -> Any:
         choices = raw.get("choices")
         if not isinstance(choices, list) or not choices:
-            raise SemanticProviderError("Qwen response contained no textual output")
+            raise SemanticProviderError(f"{self.name} response contained no textual output")
         message = choices[0].get("message") if isinstance(choices[0], Mapping) else None
         content = message.get("content") if isinstance(message, Mapping) else None
         if not isinstance(content, str):
@@ -735,6 +744,23 @@ class QwenProvider(IsolatedStructuredSemanticProvider):
             reasoning_tokens=None,
             total_tokens=_int_or_none(usage.get("total_tokens")),
         )
+
+
+class MistralProvider(QwenProvider):
+    """Mistral Chat Completions adapter constrained to the Standard service tier."""
+
+    name = "MISTRAL"
+    endpoint = "https://api.mistral.ai/v1/chat/completions"
+    capabilities = IsolatedStructuredSemanticProvider.capabilities + (
+        "MISTRAL_CHAT_COMPLETIONS",
+        "CACHED_INPUT",
+        "STANDARD_SERVICE_TIER",
+    )
+
+    def _request_payload(self, semantic_input: SemanticInput) -> dict[str, Any]:
+        payload = super()._request_payload(semantic_input)
+        payload["service_tier"] = "standard_only"
+        return payload
 
 
 _GEMINI_SCHEMA_KEYWORDS = frozenset({
@@ -944,7 +970,8 @@ def _resolve_extension_config(
             + ", ".join(EXTENDED_SUPPORTED_MODELS[provider_name])
         )
     key = environment.get(EXTENDED_KEY_ENV[provider_name])
-    endpoint = environment.get(EXTENDED_ENDPOINT_ENV[provider_name])
+    endpoint_env = EXTENDED_ENDPOINT_ENV.get(provider_name)
+    endpoint = environment.get(endpoint_env) if endpoint_env else None
     return model, key, endpoint
 
 
@@ -964,6 +991,8 @@ def _extension_provider_instance(
         provider_type = GeminiProvider
     elif provider_name == "ANTHROPIC":
         provider_type = AnthropicProvider
+    elif provider_name == "MISTRAL":
+        provider_type = MistralProvider
     else:
         raise ValueError(provider_name)
     return provider_type(model=model, api_key=key, endpoint=endpoint)
