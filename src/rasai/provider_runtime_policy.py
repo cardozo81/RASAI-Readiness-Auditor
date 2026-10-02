@@ -350,6 +350,12 @@ def build_semantic_provider(
                 f"modelo inválido para {registration.provider_name}: {effective_model}; use "
                 + ", ".join(registration.supported_models)
             )
+        else:
+            definition = model_definition(registration.provider_name, effective_model)
+            if definition is None or not definition.enabled or not definition.is_effective():
+                raise ValueError(
+                    f"modelo indisponível para {registration.provider_name}: {effective_model}"
+                )
     provider = _build_registered_provider(
         selection,
         model=effective_model,
