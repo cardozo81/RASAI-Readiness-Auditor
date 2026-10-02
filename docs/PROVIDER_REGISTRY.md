@@ -130,7 +130,7 @@ A tabela abaixo é apenas a fotografia do catálogo distribuído com o produto. 
 |---|---|---|---|
 | OpenAI | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `NONE` |
 | DeepSeek | `deepseek-v4-flash` | `deepseek-v4-pro`, `deepseek-v4-flash` | `NONE` |
-| MiMo | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro legados até 21/10/2026 02:00 UTC | `NONE` |
+| MiMo | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro mantidos temporariamente por compatibilidade até 21/10/2026 02:00 UTC | `NONE` |
 | xAI | `grok-4.6` | `grok-4.6` | `LOW` |
 | Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `NONE` |
 | Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | `LOW` |
@@ -142,7 +142,7 @@ A fonte de verdade para a execução é o catálogo efetivamente carregado, não
 
 ## MiMo
 
-O contrato atual usa PAYG `sk-...` e o mesmo endpoint Responses `https://api.xiaomimimo.com/v1/responses`. Em 02/10/2026 os defaults foram migrados para `mimo-v2.6-pro` (adapter) e `mimo-v2.6-flash` (público/eficiente). `mimo-v2.5` e `mimo-v2.5-pro` permanecem somente como modelos legados selecionáveis até **21/10/2026 02:00 UTC**, horário oficial de retirada; depois disso deixam de ser efetivos pelo catálogo.
+O contrato atual usa PAYG `sk-...` e o mesmo endpoint Responses `https://api.xiaomimimo.com/v1/responses`. Em 02/10/2026 os defaults foram migrados para `mimo-v2.6-pro` (adapter) e `mimo-v2.6-flash` (público/eficiente). `mimo-v2.5` e `mimo-v2.5-pro` permanecem somente como modelos mantidos temporariamente por compatibilidade selecionáveis até **21/10/2026 02:00 UTC**, horário oficial de retirada; depois disso deixam de ser efetivos pelo catálogo.
 
 O reasoning default RASAi é `NONE`, o menor valor aceito pela Responses API MiMo. Outros valores permitidos ativam thinking, mas a documentação atual informa que a intensidade não é diferenciada no backend. Token Plan `tp-...`, Batch, UltraSpeed, web search, tools e capacidades multimodais não são herdados por essa migração. Modalidades externas continuam na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180); a migração v2.6 é rastreada na [issue #183](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/183).
 
