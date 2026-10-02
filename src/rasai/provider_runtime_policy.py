@@ -43,12 +43,14 @@ SIMPLE_DEFAULT_MODELS: dict[str, str] = {
     "GEMINI": "gemini-3.8-flash",
     "ANTHROPIC": "claude-sonnet-5",
     "MISTRAL": "mistral-small-2603",
+    "COHERE": "command-a-03-2025",
     "COPILOT": "auto",
 }
 LOWEST_REASONING: dict[str, str] = {
     "OPENAI": "NONE", "DEEPSEEK": "NONE", "MIMO": "NONE", "XAI": "LOW",
     "QWEN": "NONE", "GEMINI": "LOW", "ANTHROPIC": "LOW",
-    "MISTRAL": "PROVIDER_DEFAULT", "COPILOT": "PROVIDER_DEFAULT",
+    "MISTRAL": "PROVIDER_DEFAULT", "COHERE": "PROVIDER_DEFAULT",
+    "COPILOT": "PROVIDER_DEFAULT",
 }
 EXTENSION_REASONING_ENV: dict[str, str] = {
     "XAI": "RASAI_XAI_REASONING_EFFORT",
@@ -65,6 +67,7 @@ REASONING_OPTIONS: dict[str, tuple[str, ...]] = {
     "GEMINI": ("LOW", "MEDIUM", "HIGH"),
     "ANTHROPIC": ("LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"),
     "MISTRAL": ("PROVIDER_DEFAULT",),
+    "COHERE": ("PROVIDER_DEFAULT",),
     "COPILOT": ("PROVIDER_DEFAULT",),
 }
 DEFAULT_AI_TIMEOUT_SECONDS = 180.0
@@ -186,7 +189,7 @@ def environment_with_public_defaults(env: Mapping[str, str] | None = None) -> di
 
 def _patch_extension_semantic_reasoning(provider: IsolatedStructuredSemanticProvider, effort: str) -> None:
     name = provider.name
-    if name in {"MISTRAL", "COPILOT"}:
+    if name in {"MISTRAL", "COHERE", "COPILOT"}:
         provider.reasoning_profile = "PROVIDER_DEFAULT"
         return
     provider.reasoning_profile = effort
@@ -420,7 +423,7 @@ def _patch_content_provider_reasoning(provider: Any) -> None:
 
         provider._request_payload = MethodType(copilot_request_payload, provider)
         return
-    if name == "MISTRAL":
+    if name in {"MISTRAL", "COHERE"}:
         provider.reasoning_profile = "PROVIDER_DEFAULT"
         return
     provider.reasoning_profile = str(effort).upper()
