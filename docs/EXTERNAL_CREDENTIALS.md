@@ -25,18 +25,26 @@ Para execução externa/agendada, `M. Ver linha de comando` materializa nomes de
 
 As credenciais desta seção são usadas apenas quando o provider correspondente é selecionado ou quando participa de uma política `AUTO` para a qual seja elegível. A API de cada provider é independente de assinaturas de produtos de chat, salvo quando explicitamente indicado.
 
+### Escopo desta referência
+
+Esta seção documenta **somente o contrato consumido pelo RASAi hoje**. Ela não é um catálogo das capacidades comerciais ou técnicas completas de cada fornecedor.
+
+Uma modalidade externa só pode aparecer como opção operacional quando houver, no RASAi, adapter/contrato verificável, configuração correspondente e teste que a sustente. Formatos de credencial, planos, endpoints, tiers, métodos de autenticação, tools, search, agents ou connectors que existam no fornecedor mas não estejam implementados/homologados no RASAi **não devem ser interpretados como suportados**.
+
+Quando for necessário citar uma modalidade externa apenas para impedir configuração incorreta, a documentação deve marcá-la expressamente como **não suportada/não homologada**. A avaliação dessas extensões está centralizada na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180), sem autorização automática de implementação.
+
 ### Visão rápida
 
 | Provider | Variável | Uso no RASAi | Onde criar ou gerenciar | Observação essencial |
 |---|---|---|---|---|
 | OpenAI | `OPENAI_API_KEY` | `openai` | <https://platform.openai.com/api-keys> | API Platform e ChatGPT têm faturamentos separados. |
 | DeepSeek | `DEEPSEEK_API_KEY` | `deepseek` | <https://platform.deepseek.com/api_keys> | autenticação Bearer; saldo/quota pertencem à plataforma DeepSeek. |
-| Xiaomi MiMo | `MIMO_API_KEY` | `mimo` | <https://mimo.mi.com/> | o adapter atual do RASAi exige chave Pay-as-you-go `sk-...`; Token Plan `tp-...` não é aceito. |
-| xAI / Grok | `XAI_API_KEY` | `xai` ou `grok` | <https://console.x.ai/> | usar API key de inferência, não Management API key. |
-| Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | `qwen` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | key, endpoint e modelos são regionais e devem ser coerentes. |
-| Google Gemini | `GEMINI_API_KEY` | `gemini` | <https://aistudio.google.com/apikey> | usar Auth key; a documentação vigente do Google informa que Standard keys deixaram de ser aceitas pela Gemini API em setembro de 2026. |
-| Anthropic Claude | `ANTHROPIC_API_KEY` | `anthropic` ou `claude` | <https://console.anthropic.com/> | API Console e assinatura Claude.ai são produtos/faturamentos separados. |
-| Mistral AI | `MISTRAL_API_KEY` | `mistral` | <https://console.mistral.ai/api-keys/> | explicit-only nesta etapa; chave do Studio/Workspace. |
+| Xiaomi MiMo | `MIMO_API_KEY` | `mimo` | <https://mimo.mi.com/> | o contrato atual aceita somente chave Pay-as-you-go `sk-...`; formatos alternativos não são suportados. |
+| xAI / Grok | `XAI_API_KEY` | `xai` ou `grok` | <https://console.x.ai/> | usar a API key consumida pelo adapter de inferência; operações administrativas xAI estão fora do escopo atual. |
+| Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | `qwen` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | key, endpoint e modelo devem ser coerentes com a região; planos/credenciais alternativos não estão homologados. |
+| Google Gemini | `GEMINI_API_KEY` | `gemini` | <https://aistudio.google.com/apikey> | o adapter atual usa API key em `x-goog-api-key`; métodos alternativos de autenticação não fazem parte do contrato atual. |
+| Anthropic Claude | `ANTHROPIC_API_KEY` | `anthropic` ou `claude` | <https://console.anthropic.com/> | o adapter atual usa API key do Console/Workspace em `x-api-key`; outros métodos de autenticação não fazem parte do contrato atual. |
+| Mistral AI | `MISTRAL_API_KEY` | `mistral` | <https://console.mistral.ai/api-keys/> | explicit-only; endpoint global e Standard tier fixos; sem endpoint alternativo, tools/search/agents/connectors. |
 | GitHub Copilot | `COPILOT_GITHUB_TOKEN` | `copilot` ou `github-copilot` | <https://github.com/settings/personal-access-tokens/new> | fine-grained PAT de conta pessoal com `Copilot Requests`; explicit-only. |
 
 ### Procedimento padrão depois de criar qualquer credencial
@@ -173,22 +181,19 @@ Use primeiro o diagnóstico seguro do console. O smoke acima pode consumir saldo
 **Portal:** <https://mimo.mi.com/>  
 **Documentação oficial de API Key:** <https://mimo.mi.com/docs/en-US/quick-start/faq/api-integration>
 
-#### Escolher o tipo correto de chave
+#### Credencial aceita pelo contrato atual
 
-O fornecedor mantém pelo menos dois contratos de credencial distintos:
+O RASAi aceita, neste adapter, a credencial Pay-as-you-go `sk-...` em `MIMO_API_KEY`.
 
-- Pay-as-you-go: chave `sk-...`, usada para chamadas cobradas por uso;
-- Token Plan: chave `tp-...`, vinculada ao plano e ao Base URL específico do pacote.
-
-**Contrato atual do RASAi:** usar Pay-as-you-go `sk-...`. O adapter vigente rejeita `tp-...`; não tente trocar apenas a variável mantendo uma chave de Token Plan.
+Credenciais `tp-...` e demais modalidades que exijam contrato/Base URL diferente **não são uma configuração suportada pelo RASAi hoje**. Não tente compensar isso alterando manualmente endpoint ou variável. A eventual adoção de modalidades adicionais deve ser decidida e qualificada separadamente na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 #### Criar a chave Pay-as-you-go
 
 1. Entre no Xiaomi MiMo API Open Platform em <https://mimo.mi.com/>.
 2. Abra `Console` > `API Keys`.
-3. Solicite/crie uma API Key para chamadas Pay-as-you-go.
-4. Confirme que a credencial resultante corresponde ao contrato Pay-as-you-go e usa o formato esperado `sk-...`.
-5. Copie a chave quando for criada e armazene-a em secret store. O fornecedor alerta que chaves podem ser exibidas para cópia apenas no momento de criação.
+3. Solicite/crie a API Key Pay-as-you-go usada pelo contrato atual do RASAi.
+4. Confirme que a credencial resultante usa o formato esperado `sk-...`.
+5. Copie a chave quando for criada e armazene-a em secret store.
 6. Confira saldo, créditos ou limites da conta antes do smoke.
 
 #### Configurar no PowerShell
@@ -207,8 +212,8 @@ rasai audit https://example.com --ai-provider mimo
 
 #### Falhas típicas
 
-- credencial `tp-...`: incompatível com o contrato atual do adapter RASAi;
-- chave criada para um contrato/host diferente: autenticação pode falhar mesmo com valor sintaticamente válido;
+- credencial que não seja `sk-...`: fora do contrato atual do adapter RASAi; modalidades alternativas estão registradas para análise na issue #180;
+- chave incompatível com o endpoint efetivo: autenticação pode falhar mesmo com valor sintaticamente válido;
 - saldo insuficiente ou limite comercial: tratar como condição do provider, não finding do alvo auditado.
 
 ### xAI / Grok
@@ -223,7 +228,7 @@ rasai audit https://example.com --ai-provider mimo
 
 - conta no xAI Console;
 - créditos/billing suficientes para o uso pretendido;
-- API key de **inferência**. A xAI também possui Management API keys para APIs administrativas; elas não substituem a chave de inferência usada pelo adapter.
+- API key válida para o endpoint de inferência consumido pelo adapter RASAi. Operações administrativas da conta xAI não fazem parte do produto atual.
 
 #### Criar a chave
 
@@ -231,9 +236,9 @@ rasai audit https://example.com --ai-provider mimo
 2. Confirme a equipe/conta correta.
 3. Configure créditos ou billing conforme necessário para a API.
 4. Abra a página `API Keys` do console.
-5. Crie uma API key para inferência.
+5. Crie a API key destinada ao uso da API de inferência.
 6. Copie-a e armazene-a como segredo.
-7. Não use uma `Management API key` no lugar de `XAI_API_KEY`; a documentação xAI separa os endpoints e credenciais de inferência e management.
+7. Não configure em `XAI_API_KEY` uma credencial destinada exclusivamente a APIs administrativas. Esse tipo de integração está fora do contrato atual e só pode ser avaliado futuramente pela issue #180.
 
 #### Configurar no PowerShell
 
@@ -253,7 +258,7 @@ Também é possível selecionar o alias `grok`; o provider canônico permanece x
 
 #### Falhas típicas
 
-- chave de management usada como chave de inferência;
+- credencial não compatível com o endpoint de inferência do adapter;
 - conta/equipe sem créditos suficientes;
 - `401` por chave inválida/revogada;
 - `429` por limites de uso.
@@ -280,7 +285,7 @@ O Model Studio trata região como parte do contrato. API key, endpoint e lista d
 6. Confirme que o modelo pretendido existe na mesma região.
 7. Confirme que o endpoint efetivo do RASAi pertence à mesma região.
 
-A documentação atual do Model Studio diferencia Pay-as-you-go de Token Plan/Coding Plan e informa que esses planos podem usar chaves dedicadas. Não presuma intercambiabilidade: use uma credencial compatível com o endpoint e o plano efetivos.
+O contrato atual do RASAi não declara suporte genérico a modalidades de credencial específicas de planos comerciais. Use uma API key compatível com a região, endpoint e modelo efetivamente configurados. Modalidades adicionais de plano/credencial são objeto da [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 #### Configurar no PowerShell
 
@@ -302,8 +307,8 @@ rasai audit https://example.com --ai-provider qwen
 
 - API key de uma região usada contra endpoint de outra região;
 - modelo não disponível na região escolhida;
-- combinação de chave de plano e Base URL incompatíveis;
-- `401` decorrente de key/endpoint/plan mismatch.
+- credencial incompatível com a região/endpoint configurados;
+- `401` decorrente de key/endpoint incompatíveis.
 
 ### Google Gemini
 
@@ -312,16 +317,18 @@ rasai audit https://example.com --ai-provider qwen
 **Gerenciar chaves:** <https://aistudio.google.com/apikey>  
 **Documentação oficial:** <https://ai.google.dev/gemini-api/docs/api-key>
 
-#### Tipo de chave vigente
+#### Método de autenticação do adapter atual
 
-A documentação atual da Gemini API informa que novas chaves criadas no Google AI Studio são **Auth keys**. Ela também informa que, desde setembro de 2026, Standard keys não são mais aceitas pela Gemini API. Para uma nova configuração do RASAi, crie uma Auth key; não reutilize uma Standard key antiga.
+O adapter RASAi envia `GEMINI_API_KEY` no header `x-goog-api-key`. O onboarding recomendado é criar a chave no Google AI Studio e usar somente esse método para este provider.
+
+OAuth, service account e outros métodos que possam existir no ecossistema Google **não são métodos alternativos implementados por este adapter**; eventual necessidade deve ser analisada separadamente na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 #### Criar a Auth key
 
 1. Entre no Google AI Studio: <https://aistudio.google.com/apikey>.
 2. Selecione o projeto Google Cloud que deve suportar o consumo ou importe/crie o projeto quando necessário.
 3. Clique para criar uma nova API key.
-4. Confirme que o tipo criado é uma **Auth key** apropriada para a Gemini API.
+4. Confirme que a chave criada é válida para a Gemini API e para o projeto escolhido.
 5. Copie a chave e armazene-a como segredo.
 6. Confirme billing/quota e acesso ao modelo efetivo conforme o projeto.
 7. Não compartilhe a chave com outras APIs/serviços apenas por conveniência; mantenha credenciais segregadas quando possível.
@@ -342,7 +349,7 @@ rasai audit https://example.com --ai-provider gemini
 
 #### Falhas típicas
 
-- Standard key antiga em vez de Auth key;
+- chave não válida para o endpoint Gemini usado pelo adapter;
 - projeto correto não importado/selecionado no AI Studio;
 - chave válida, mas projeto sem quota/billing ou sem acesso ao modelo;
 - chave bloqueada/revogada pelo Google.
@@ -355,6 +362,8 @@ rasai audit https://example.com --ai-provider gemini
 **Acesso à API:** <https://support.anthropic.com/en/articles/8114521-how-can-i-access-the-anthropic-api>  
 **Workspaces/API keys:** <https://support.anthropic.com/en/articles/9796807-creating-and-managing-workspaces>  
 **Segurança de API keys:** <https://support.anthropic.com/en/articles/9767949-api-key-best-practices-keeping-your-keys-safe-and-secure>
+
+O adapter RASAi autentica esta integração exclusivamente com `ANTHROPIC_API_KEY` enviado em `x-api-key`. Workspaces são relevantes porque determinam onde a chave é criada/gerenciada no Console; isso não implica suporte a métodos alternativos de autenticação. Outros métodos permanecem fora do contrato atual e são rastreados na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 #### Pré-requisitos
 
@@ -418,10 +427,11 @@ O Studio permite criar API keys no modo Free, sujeito a limites de uso/rate limi
 3. Clique em `Create new key`.
 4. Informe um nome descritivo, por exemplo `rasai-local`.
 5. Defina data de expiração quando apropriado; rotação periódica é recomendada.
-6. Se o console solicitar `Connector access scope`, prefira o menor escopo necessário. O RASAi não habilita Connectors/tools da Mistral nesta integração.
-7. Crie a chave.
-8. **Copie imediatamente.** A documentação Mistral informa que o valor completo aparece apenas uma vez.
-9. Armazene a chave em secret store.
+6. Crie a chave para o Workspace que executará as chamadas de inferência do RASAi.
+7. **Copie imediatamente.** A documentação Mistral informa que o valor completo aparece apenas uma vez.
+8. Armazene a chave em secret store.
+
+O RASAi não solicita nem utiliza tools, web search, agents ou connectors da Mistral neste contrato. Essas capacidades não devem ser habilitadas ou descritas como requisito do produto; eventual avaliação futura está registrada na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 #### Configurar no PowerShell
 
