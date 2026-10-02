@@ -74,7 +74,7 @@ def test_every_public_auto_default_model_has_a_current_price() -> None:
     pairs = (
         ("OPENAI", "gpt-5.6-luna"),
         ("DEEPSEEK", "deepseek-v4-flash"),
-        ("MIMO", "mimo-v2.5"),
+        ("MIMO", "mimo-v2.6-flash"),
         ("XAI", "grok-4.6"),
         ("QWEN", "qwen3.8-flash"),
         ("GEMINI", "gemini-3.8-flash"),
@@ -153,12 +153,12 @@ class _PricedProvider:
 
 
 def test_auto_orders_priced_active_candidates_by_estimated_request_cost() -> None:
-    # With the same request envelope/reasoning, MiMo V2.5 has the lowest output tariff
+    # With the same request envelope/reasoning, MiMo V2.6 Flash has the lowest output tariff
     # among this set and is expected to be first. This tests the cost router itself,
     # independently of provider transport behavior.
     openai = _PricedProvider("OPENAI", "gpt-5.6-luna", 1)
     deepseek = _PricedProvider("DEEPSEEK", "deepseek-v4-flash", 2)
-    mimo = _PricedProvider("MIMO", "mimo-v2.5", 3)
+    mimo = _PricedProvider("MIMO", "mimo-v2.6-flash", 3)
     session = DynamicProviderRoutingSession((openai, deepseek, mimo))
     ordered = session.ordered_candidates_for_need(SimpleNamespace(evidence=()), scope="SEMANTIC")
     assert ordered[0].name == "MIMO"
@@ -175,4 +175,18 @@ def test_unpriced_candidates_keep_deterministic_rotating_order() -> None:
 
 
 def test_review_date_is_explicit_and_machine_readable() -> None:
-    assert PRICING_REVIEW_RECOMMENDED_ON == "2026-10-13"
+    assert PRICING_REVIEW_RECOMMENDED_ON == "2026-11-02"
+
+def test_mimo_v26_prices_and_v25_cutoff_are_machine_readable() -> None:
+    current = datetime(2026, 10, 2, 18, 0, tzinfo=UTC)
+    pro = resolve_price("MIMO", "mimo-v2.6-pro", at=current, input_tokens=10_000)
+    flash = resolve_price("MIMO", "mimo-v2.6-flash", at=current, input_tokens=10_000)
+    assert pro is not None
+    assert flash is not None
+    assert (pro.input_price_per_million, pro.cached_input_price_per_million, pro.output_price_per_million) == pytest.approx((0.435, 0.0036, 0.87))
+    assert (flash.input_price_per_million, flash.cached_input_price_per_million, flash.output_price_per_million) == pytest.approx((0.14, 0.0028, 0.28))
+
+    before = resolve_price("MIMO", "mimo-v2.5", at=datetime(2026, 10, 21, 1, 59, 59, tzinfo=UTC), input_tokens=10_000)
+    expired = resolve_price("MIMO", "mimo-v2.5", at=datetime(2026, 10, 21, 2, 0, 0, tzinfo=UTC), input_tokens=10_000)
+    assert before is not None
+    assert expired is None
