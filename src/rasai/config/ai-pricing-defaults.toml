@@ -5,7 +5,7 @@
 
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-PRICING-2026-10-02"
+catalog_version = "RASAI-PRICING-2026-10-02.1"
 reference_date = "2026-10-02"
 verified_on = "2026-10-02"
 review_recommended_on = "2026-11-02"
@@ -149,6 +149,40 @@ source_reference = "https://api-docs.deepseek.com/quick_start/pricing/"
 
 [[models]]
 provider = "MIMO"
+model = "mimo-v2.6-pro"
+pricing_model = "TOKEN_STANDARD"
+reasoning_billing = "IN_OUTPUT"
+region = "GLOBAL"
+source_reference = "https://mimo.mi.com/models/en-US/mimo-v2.6-pro"
+
+  [[models.rules]]
+  rule_id = "mimo-v2.6-pro-payg-realtime"
+  context = "PAYG_REALTIME"
+  priority = 0
+  effective_from = "2026-09-20T00:00:00Z"
+  input_price_per_million = 0.435
+  cached_input_price_per_million = 0.0036
+  output_price_per_million = 0.87
+
+[[models]]
+provider = "MIMO"
+model = "mimo-v2.6-flash"
+pricing_model = "TOKEN_STANDARD"
+reasoning_billing = "IN_OUTPUT"
+region = "GLOBAL"
+source_reference = "https://mimo.mi.com/models/en-US/mimo-v2.6-flash"
+
+  [[models.rules]]
+  rule_id = "mimo-v2.6-flash-payg-realtime"
+  context = "PAYG_REALTIME"
+  priority = 0
+  effective_from = "2026-09-20T00:00:00Z"
+  input_price_per_million = 0.14
+  cached_input_price_per_million = 0.0028
+  output_price_per_million = 0.28
+
+[[models]]
+provider = "MIMO"
 model = "mimo-v2.5-pro"
 pricing_model = "TOKEN_STANDARD"
 reasoning_billing = "IN_OUTPUT"
@@ -157,9 +191,10 @@ source_reference = "https://mimo.mi.com/docs/en-US/price/pay-as-you-go"
 
   [[models.rules]]
   rule_id = "mimo-v2.5-pro-standard"
-  context = "STANDARD"
+  context = "LEGACY_PAYG_REALTIME"
   priority = 0
   effective_from = "2026-08-06T00:00:00Z"
+  effective_until = "2026-10-21T02:00:00Z"
   input_price_per_million = 0.435
   cached_input_price_per_million = 0.0036
   output_price_per_million = 0.87
@@ -174,9 +209,10 @@ source_reference = "https://mimo.mi.com/docs/en-US/price/pay-as-you-go"
 
   [[models.rules]]
   rule_id = "mimo-v2.5-standard"
-  context = "STANDARD"
+  context = "LEGACY_PAYG_REALTIME"
   priority = 0
   effective_from = "2026-08-06T00:00:00Z"
+  effective_until = "2026-10-21T02:00:00Z"
   input_price_per_million = 0.14
   cached_input_price_per_million = 0.0028
   output_price_per_million = 0.28
