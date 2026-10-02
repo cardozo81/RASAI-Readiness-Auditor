@@ -29,9 +29,19 @@ def test_saas_snapshot_round_trip_uses_same_catalog_contract(tmp_path: Path) -> 
 
     assert loaded.metadata.catalog_version == snapshot.catalog_version
     assert loaded.metadata.reference_date == snapshot.reference_date
-    assert loaded.catalog_models() == load_pricing_catalog(
+    factory = load_pricing_catalog(
         path=ROOT / "src" / "rasai" / "config" / "ai-pricing-defaults.toml"
-    ).catalog_models()
+    )
+    assert loaded.catalog_models() == factory.catalog_models()
+    loaded_mimo = loaded.model_policy("MIMO", "mimo-v2.6-flash")
+    factory_mimo = factory.model_policy("MIMO", "mimo-v2.6-flash")
+    assert loaded_mimo is not None and factory_mimo is not None
+    assert loaded_mimo.rules[0].conditions == factory_mimo.rules[0].conditions
+    assert dict(loaded_mimo.rules[0].conditions) == {
+        "commercial_mode": "PAYG",
+        "operation_mode": "REALTIME",
+        "region": "GLOBAL",
+    }
 
     env = pricing_worker_environment(path)
     assert env["RASAI_AI_PRICING_SOURCE"] == "file"
