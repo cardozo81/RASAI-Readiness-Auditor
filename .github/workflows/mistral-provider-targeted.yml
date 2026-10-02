@@ -12,6 +12,9 @@ on:
       - 'src/rasai/ai_orchestration_unification.py'
       - 'src/rasai/improvement_intelligence.py'
       - 'src/rasai/ai_catalog_control_plane.py'
+      - 'src/rasai/integration_diagnostics.py'
+      - 'src/rasai/integration_network_diagnostics.py'
+      - 'src/rasai/config/rasai-defaults.ini'
       - 'src/rasai/config/ai-models-defaults.toml'
       - 'src/rasai/config/ai-pricing-defaults.toml'
       - 'config/ai-models.toml'
@@ -21,6 +24,8 @@ on:
       - 'tests/test_provider_registry.py'
       - 'tests/test_provider_runtime_policy.py'
       - 'tests/test_mistral_provider_consumers.py'
+      - 'tests/test_integration_diagnostics.py'
+      - 'tests/test_integration_network_diagnostics.py'
       - 'tests/test_console_provider_registry.py'
       - 'tests/test_ai_model_catalog.py'
       - 'tests/test_ai_model_saas.py'
@@ -81,6 +86,9 @@ jobs:
             src/rasai/ai_orchestration_unification.py \
             src/rasai/improvement_intelligence.py \
             src/rasai/ai_catalog_control_plane.py
+            src/rasai/ai_catalog_control_plane.py \
+            src/rasai/integration_diagnostics.py \
+            src/rasai/integration_network_diagnostics.py
       - name: Targeted Mistral and shared-boundary tests
         run: |
           python -m pytest -q \
@@ -89,6 +97,9 @@ jobs:
             tests/test_provider_registry.py \
             tests/test_provider_runtime_policy.py \
             tests/test_mistral_provider_consumers.py \
+            tests/test_mistral_provider_consumers.py \
+            tests/test_integration_diagnostics.py \
+            tests/test_integration_network_diagnostics.py \
             tests/test_console_provider_registry.py \
             tests/test_ai_model_catalog.py \
             tests/test_ai_model_saas.py \
