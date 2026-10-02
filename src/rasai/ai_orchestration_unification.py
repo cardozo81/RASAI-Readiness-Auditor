@@ -246,12 +246,10 @@ def _attempt(
     snapshot_id: str | None = None,
     decision: str | None = None,
 ):
-    from rasai.m18_ai import ProviderAttempt, estimate_cost
+    from rasai.m18_ai import ProviderAttempt, resolve_provider_cost
 
     finished = datetime.now(timezone.utc)
-    estimated, currency, pricing_version = estimate_cost(
-        str(provider.name), str(provider.model), usage, finished
-    )
+    pricing = resolve_provider_cost(provider, usage, finished)
     return ProviderAttempt(
         provider=str(provider.name),
         model=str(provider.model),
@@ -266,9 +264,13 @@ def _attempt(
         status=status,
         diagnostic=diagnostic,
         usage=usage,
-        estimated_cost=estimated,
-        cost_currency=currency,
-        pricing_version=pricing_version,
+        estimated_cost=pricing.estimated_cost,
+        cost_currency=pricing.currency,
+        pricing_version=pricing.pricing_version,
+        pricing_context=pricing.pricing_context,
+        pricing_rule_id=pricing.pricing_rule_id,
+        pricing_source_reference=pricing.pricing_source_reference,
+        pricing_runtime_conditions=pricing.runtime_conditions,
         request_message_summary=f"contract={contract}",
         request_payload_hash=request_hash,
         provider_qualification=str(
