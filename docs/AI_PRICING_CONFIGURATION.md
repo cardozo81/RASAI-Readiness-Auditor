@@ -2,7 +2,7 @@
 
 **Estado:** vigente.  
 **Data de referência desta configuração:** 02/10/2026  
-**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-10-02`  
+**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-10-02.1`  
 **Schema do catálogo:** `1`  
 **Revisão ordinária recomendada:** 02/11/2026
 
@@ -104,7 +104,7 @@ Metadados obrigatórios:
 ```toml
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-PRICING-2026-10-02"
+catalog_version = "RASAI-PRICING-2026-10-02.1"
 reference_date = "2026-10-02"
 verified_on = "2026-10-02"
 review_recommended_on = "2026-11-02"
