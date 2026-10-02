@@ -195,7 +195,6 @@ def pricing_context(provider: str, at: datetime, *, input_tokens: int = 0) -> st
         policies[0].model,
         at=at,
         input_tokens=input_tokens,
-        runtime_conditions=runtime_conditions,
     )
     return resolved[1].context if resolved is not None else "STANDARD"
 
@@ -215,6 +214,7 @@ def resolve_price(
         model,
         at=at,
         input_tokens=input_tokens,
+        runtime_conditions=runtime_conditions,
     )
     if resolved is None:
         return None
