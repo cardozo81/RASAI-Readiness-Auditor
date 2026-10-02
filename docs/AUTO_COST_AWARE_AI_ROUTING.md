@@ -13,7 +13,7 @@ A política econômica:
 - somente ordena providers/modelos já configurados, elegíveis, precificados e saudáveis;
 - não habilita credenciais;
 - não altera quarantine/circuit breaker;
-- não torna GitHub Copilot elegível ao AUTO;
+- não torna Mistral durante sua homologação inicial nem GitHub Copilot elegíveis ao AUTO;
 - não troca silenciosamente service tier para Batch/Flex/Priority;
 - não interpreta ausência de preço como preço zero;
 - trata preço como estimativa operacional, não como fatura do fornecedor.
@@ -139,6 +139,7 @@ Valores em USD por 1 milhão de tokens.
 | Qwen `qwen3.8-max` | 1,65 | 0,206 | 4,951 | US/Virginia |
 | Gemini `gemini-3.8-flash` | 0,75 | 0,075 | 3,75 | reasoning soma no output; regra até 01/01/2027 UTC |
 | Anthropic `claude-sonnet-5` | 2,00 | 0,20 | 10,00 | standard/cache read |
+| Mistral `mistral-small-2603` | 0,15 | 0,015 | 0,60 | Standard global; precificado, porém explicit-only nesta entrega |
 | GitHub Copilot | - | - | - | explicit-only; não precificado e fora do AUTO |
 
 ### DeepSeek
