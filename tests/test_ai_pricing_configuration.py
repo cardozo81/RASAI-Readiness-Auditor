@@ -23,7 +23,7 @@ UTC = timezone.utc
 def test_factory_catalog_is_versioned_and_referenced_to_2026_10_02() -> None:
     catalog = load_factory_pricing_catalog()
     assert catalog.metadata.schema_version == 1
-    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-02"
+    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-02.1"
     assert catalog.metadata.reference_date == "2026-10-02"
     assert catalog.metadata.verified_on == "2026-10-02"
     assert catalog.metadata.review_recommended_on == "2026-11-02"
@@ -34,7 +34,8 @@ def test_factory_catalog_declares_current_commercial_models() -> None:
     by_key = {(item.provider, item.model): item for item in catalog.models}
     assert by_key[("OPENAI", "gpt-5.6-luna")].pricing_model == "TOKEN_CONTEXT_TIERED"
     assert by_key[("DEEPSEEK", "deepseek-v4-flash")].pricing_model == "TOKEN_TIME_WINDOW"
-    assert by_key[("MIMO", "mimo-v2.5")].pricing_model == "TOKEN_STANDARD"
+    assert by_key[("MIMO", "mimo-v2.6-flash")].pricing_model == "TOKEN_STANDARD"
+    assert by_key[("MIMO", "mimo-v2.6-pro")].pricing_model == "TOKEN_STANDARD"
     assert by_key[("XAI", "grok-4.6")].pricing_model == "TOKEN_CONTEXT_TIERED"
     assert by_key[("QWEN", "qwen3.8-flash")].region == "US_VIRGINIA"
     assert by_key[("GEMINI", "gemini-3.8-flash")].reasoning_billing == "ADD_REASONING_TO_OUTPUT"
@@ -85,7 +86,7 @@ def test_time_window_and_context_thresholds_are_catalog_data() -> None:
 def test_local_user_catalog_can_change_price_without_code_change(tmp_path: Path) -> None:
     source = ROOT / "src" / "rasai" / "config" / "ai-pricing-defaults.toml"
     document = tomllib.loads(source.read_text(encoding="utf-8"))
-    target = next(item for item in document["models"] if item["provider"] == "MIMO" and item["model"] == "mimo-v2.5")
+    target = next(item for item in document["models"] if item["provider"] == "MIMO" and item["model"] == "mimo-v2.6-flash")
     target["rules"][0]["input_price_per_million"] = 9.99
 
     # tomllib has no writer; use a minimal complete SaaS-equivalent mapping to prove the
@@ -94,7 +95,7 @@ def test_local_user_catalog_can_change_price_without_code_change(tmp_path: Path)
     resolved = resolve_catalog_rule(
         catalog,
         "MIMO",
-        "mimo-v2.5",
+        "mimo-v2.6-flash",
         at=datetime(2026, 9, 14, tzinfo=UTC),
         input_tokens=1_000,
     )
