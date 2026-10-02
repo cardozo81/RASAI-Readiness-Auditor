@@ -76,7 +76,7 @@ class ProviderExtensionTests(unittest.TestCase):
         mimo = build_semantic_provider("mimo", env={"MIMO_API_KEY": "x"})
         self.assertEqual((openai.name, openai.model), ("OPENAI", "gpt-5.6-terra"))
         self.assertEqual((deepseek.name, deepseek.model), ("DEEPSEEK", "deepseek-v4-pro"))
-        self.assertEqual((mimo.name, mimo.model), ("MIMO", "mimo-v2.5-pro"))
+        self.assertEqual((mimo.name, mimo.model), ("MIMO", "mimo-v2.6-pro"))
 
     def test_extension_defaults_aliases_and_provisional_status(self) -> None:
         cases = (
