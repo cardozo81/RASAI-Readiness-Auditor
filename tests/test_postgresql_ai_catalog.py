@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 
 import pytest
@@ -46,5 +47,16 @@ def test_postgresql_ai_catalog_schema_and_factory_publication() -> None:
         assert providers is not None and int(providers[0]) >= 8
         assert models is not None and int(models[0]) == len(model_catalog.models)
         assert prices is not None and int(prices[0]) >= len(pricing_catalog.models)
+
+        mimo_rule = connection.execute(
+            "SELECT conditions_json FROM ai_pricing_rules WHERE catalog_version=? AND rule_id=?",
+            (pricing_catalog.metadata.catalog_version, "mimo-v2.6-flash-payg-realtime"),
+        ).fetchone()
+        assert mimo_rule is not None
+        assert json.loads(str(mimo_rule[0])) == {
+            "commercial_mode": "PAYG",
+            "operation_mode": "REALTIME",
+            "region": "GLOBAL",
+        }
     finally:
         connection.close()
