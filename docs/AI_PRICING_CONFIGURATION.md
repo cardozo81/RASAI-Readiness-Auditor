@@ -201,8 +201,10 @@ Valores em USD por 1 milhão de tokens.
 | OpenAI `gpt-5.6-sol` | `TOKEN_CONTEXT_TIERED` | 4,00 | 0,40 | 20,00 | >272k input: 8,00 / 0,80 / 30,00 |
 | DeepSeek `deepseek-v4-flash` off-peak | `TOKEN_TIME_WINDOW` | 0,22 | 0,007 | 0,66 | peak: 0,44 / 0,014 / 1,32 |
 | DeepSeek `deepseek-v4-pro` off-peak | `TOKEN_TIME_WINDOW` | 0,66 | 0,022 | 1,98 | peak: 1,32 / 0,044 / 3,96 |
-| Xiaomi MiMo `mimo-v2.5` | `TOKEN_STANDARD` | 0,14 | 0,0028 | 0,28 | PAYG |
-| Xiaomi MiMo `mimo-v2.5-pro` | `TOKEN_STANDARD` | 0,435 | 0,0036 | 0,87 | PAYG |
+| Xiaomi MiMo `mimo-v2.6-flash` | `TOKEN_STANDARD` | 0,14 | 0,0028 | 0,28 | PAYG real-time; default público |
+| Xiaomi MiMo `mimo-v2.6-pro` | `TOKEN_STANDARD` | 0,435 | 0,0036 | 0,87 | PAYG real-time; default adapter |
+| Xiaomi MiMo `mimo-v2.5` | `TOKEN_STANDARD` | 0,14 | 0,0028 | 0,28 | legado; expira 21/10/2026 02:00 UTC |
+| Xiaomi MiMo `mimo-v2.5-pro` | `TOKEN_STANDARD` | 0,435 | 0,0036 | 0,87 | legado; expira 21/10/2026 02:00 UTC |
 | xAI `grok-4.6` <200k | `TOKEN_CONTEXT_TIERED` | 2,00 | 0,50 | 6,00 | >=200k: 4,00 / 1,00 / 12,00 |
 | Qwen `qwen3.8-flash` | `TOKEN_STANDARD` | 0,113 | 0,014 | 0,382 | região US/Virginia |
 | Qwen `qwen3.8-max` | `TOKEN_STANDARD` | 1,65 | 0,206 | 4,951 | região US/Virginia |
@@ -230,15 +232,21 @@ A faixa longa usa `input_tokens_gt=272000`; os valores finais já estão na regr
 
 A faixa longa usa `input_tokens_gte=200000`.
 
-### 10.4 Qwen
+### 10.4 MiMo
+
+O contrato RASAi usa somente **PAYG real-time** no endpoint Responses. `mimo-v2.6-pro` e `mimo-v2.6-flash` mantêm as tarifas oficiais correspondentes da geração anterior. As regras de `mimo-v2.5` e `mimo-v2.5-pro` possuem `effective_until = "2026-10-21T02:00:00Z"`, alinhado à retirada oficial.
+
+Token Plan, Batch e UltraSpeed possuem contratos/preços próprios e **não são usados** para calcular custo do RASAi atual. Eles permanecem fora do escopo operacional (#180). A migração V2.6 é rastreada em #183; condicionamento genérico de preço por modalidade/tier/região runtime é rastreado em #181.
+
+### 10.5 Qwen
 
 O catálogo registra `region="US_VIRGINIA"`. Endpoint/região e pricing precisam continuar coerentes.
 
-### 10.5 Gemini
+### 10.6 Gemini
 
 A regra atual possui `effective_until = "2027-01-01T00:00:00Z"`. Sem regra vigente após esse instante, o modelo fica UNPRICED.
 
-### 10.6 Mistral
+### 10.7 Mistral
 
 O catálogo inicial usa a tarifa Standard global de `mistral-small-2603`: USD 0,15/M input, USD 0,015/M cached input e USD 0,60/M output. O adapter envia `service_tier=standard_only` e não expõe endpoint regional/priority/batch nesta entrega. A existência de pricing não torna o provider elegível ao AUTO: Mistral permanece `explicit_only=true` e `auto_eligible=false` até homologação humana posterior.
 
