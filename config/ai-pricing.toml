@@ -337,7 +337,7 @@ source_reference = "https://ai.google.dev/gemini-api/docs/pricing"
   priority = 0
   effective_from = "2026-09-02T00:00:00Z"
   effective_until = "2027-01-01T00:00:00Z"
-  conditions = { operation_mode = "REALTIME", region = "GLOBAL" }
+  conditions = { service_tier = "STANDARD", operation_mode = "REALTIME", region = "GLOBAL" }
   input_price_per_million = 0.75
   cached_input_price_per_million = 0.075
   output_price_per_million = 3.75
@@ -355,7 +355,7 @@ source_reference = "https://platform.claude.com/docs/en/about-claude/pricing"
   context = "STANDARD"
   priority = 0
   effective_from = "2026-09-01T00:00:00Z"
-  conditions = { operation_mode = "REALTIME", region = "GLOBAL" }
+  conditions = { service_tier = "STANDARD", operation_mode = "REALTIME", region = "GLOBAL" }
   input_price_per_million = 2.00
   cached_input_price_per_million = 0.20
   output_price_per_million = 10.00
