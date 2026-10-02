@@ -200,9 +200,6 @@ class _PricedProvider:
     def _request_payload(self, request):
         return {"model": self.model, "input": "x" * 8_000}
 
-    def pricing_runtime_conditions(self):
-        return _runtime_conditions(self.name)
-
 
 def test_auto_orders_priced_active_candidates_by_estimated_request_cost() -> None:
     # With the same request envelope/reasoning, MiMo V2.6 Flash has the lowest output tariff
