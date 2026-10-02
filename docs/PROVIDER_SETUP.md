@@ -54,7 +54,35 @@ A lista de reasoning exibida pelo comando é o domínio aceito pelo runtime para
 | `qwen` | Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | `qwen3.8-flash` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | região da key e endpoint devem ser coerentes |
 | `gemini` | Google Gemini | `GEMINI_API_KEY` | `gemini-3.8-flash` | <https://aistudio.google.com/apikey> | Gemini API key |
 | `anthropic` / `claude` | Anthropic Claude | `ANTHROPIC_API_KEY` | `claude-sonnet-5` | <https://console.anthropic.com/> | Anthropic API key |
+| `mistral` | Mistral AI | `MISTRAL_API_KEY` | `mistral-small-2603` | <https://console.mistral.ai/api-keys/> | explicit-only durante a homologação inicial; endpoint global Standard fixo |
 | `copilot` / `github-copilot` | GitHub Copilot | `COPILOT_GITHUB_TOKEN` | `auto` | <https://github.com/settings/personal-access-tokens/new> | usa assinatura Copilot elegível; não entra em `AI=auto` |
+
+### Mistral AI
+
+Configuração mínima:
+
+```powershell
+$env:MISTRAL_API_KEY="<mistral-api-key>"
+rasai audit https://example.com --ai-provider mistral --ai-model mistral-small-2603
+```
+
+Contrato inicial:
+
+- modelo de fábrica: `mistral-small-2603`;
+- endpoint fixo: `https://api.mistral.ai/v1/chat/completions`;
+- autenticação Bearer com `MISTRAL_API_KEY`;
+- Structured Outputs por JSON Schema, seguidos da validação local do RASAi;
+- `service_tier=standard_only`;
+- sem `RASAI_MISTRAL_ENDPOINT` nesta etapa;
+- sem participação em `AI=auto` até homologação humana posterior.
+
+A integração não habilita tools/search da Mistral nesta entrega. Ela reutiliza o mesmo boundary evidence-bound, retry, telemetria e secret-safety dos providers semânticos existentes.
+
+Documentação oficial:
+
+- quickstart: <https://docs.mistral.ai/getting-started/quickstart/>
+- modelo Mistral Small 4: <https://docs.mistral.ai/models/mistral-small-4>
+- pricing: <https://docs.mistral.ai/inference/pricing>
 
 ### GitHub Copilot
 
@@ -194,10 +222,11 @@ Composição SERP:
 src/rasai/search_intelligence/runtime.py
 ```
 
-Integração Copilot:
+Integrações de IA adicionais:
 
 ```text
-src/rasai/copilot_provider.py
+src/rasai/provider_extensions.py   # inclui Mistral
+src/rasai/copilot_provider.py      # Copilot
 ```
 
 Documentos relacionados:
