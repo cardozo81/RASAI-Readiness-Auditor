@@ -126,3 +126,45 @@ def test_restore_cat07_preserves_shared_profiles_and_other_catalogs(monkeypatch,
     assert parser.get("environment", UX_SAMPLES_ENV) == "20"
     assert parser.get("environment", shared_profile) == "mobile-compact-chromium"
     assert parser.get("environment", "RASAI_WEB_PERFORMANCE_MAX_PAGES") == "99"
+
+
+def test_all_settings_routes_structural_audits_root_to_canonical_editor(monkeypatch) -> None:
+    import builtins
+    from contextlib import redirect_stdout
+    from io import StringIO
+    from types import ModuleType, SimpleNamespace
+
+    from rasai import console_ui_catalog as ui_catalog
+
+    console = ModuleType("test_issue_160_structural_audits_root")
+    calls: list[tuple[str, str]] = []
+    console._configure = lambda current_state, choice: calls.append((current_state.audits_root, choice))
+    state = SimpleNamespace(audits_root="audits", error="")
+
+    monkeypatch.setattr(facade, "refresh_specs", lambda: ())
+    monkeypatch.setattr(facade.base_environment, "render_header", lambda current: None)
+    answers = iter([ui_catalog.CORE_IDS["audits_root"], "V"])
+    monkeypatch.setattr(builtins, "input", lambda prompt="": next(answers))
+
+    output = StringIO()
+    with redirect_stdout(output):
+        ui_catalog.catalog_menu(console, state, view="all", title="TODAS AS CONFIGURAÇÕES")
+
+    rendered = output.getvalue()
+    assert "CONFIGURAÇÕES ESTRUTURAIS DO CONSOLE" in rendered
+    assert f"{ui_catalog.CORE_IDS['audits_root']}  Raiz das auditorias" in rendered
+    assert "audits" in rendered
+    assert calls == [("audits", "10")]
+
+
+def test_audits_root_round_trips_through_existing_console_persistence(tmp_path) -> None:
+    state = SearchConsoleState()
+    state.audits_root = str(tmp_path / "custom-audits")
+    destination = tmp_path / "rasai-console.ini"
+
+    console_settings.save_console_config(state, destination)
+
+    restored = SearchConsoleState()
+    console_settings.load_console_config(restored, destination)
+
+    assert restored.audits_root == state.audits_root
