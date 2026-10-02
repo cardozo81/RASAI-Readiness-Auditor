@@ -60,7 +60,7 @@ A presença de uma credencial não comprova validade, saldo, quota, plano ou ace
 |---|---|---|---|
 | `RASAI_OPENAI_MODEL` | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `gpt-5.6-luna`; usar Sol quando qualidade justificar maior custo/latência |
 | `RASAI_DEEPSEEK_MODEL` | `deepseek-v4-flash` | `deepseek-v4-pro`, `deepseek-v4-flash` | `deepseek-v4-flash` |
-| `RASAI_MIMO_MODEL` | `mimo-v2.5` | `mimo-v2.5-pro`, `mimo-v2.5` | `mimo-v2.5` |
+| `RASAI_MIMO_MODEL` | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro apenas até 21/10/2026 02:00 UTC | `mimo-v2.6-flash` |
 | `RASAI_XAI_MODEL` | `grok-4.6` | `grok-4.6` | default |
 | `RASAI_QWEN_MODEL` | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `qwen3.8-flash` |
 | `RASAI_GEMINI_MODEL` | `gemini-3.8-flash` | `gemini-3.8-flash` | default |
@@ -74,15 +74,15 @@ A presença de uma credencial não comprova validade, saldo, quota, plano ou ace
 |---|---|---|---|
 | `RASAI_OPENAI_REASONING_EFFORT` | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `NONE` |
 | `RASAI_DEEPSEEK_REASONING_EFFORT` | `NONE` | `NONE`, `LOW`, `HIGH`, `MAX` | `NONE` |
-| `RASAI_MIMO_REASONING_EFFORT` | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH` | `NONE` |
+| `RASAI_MIMO_REASONING_EFFORT` | `NONE` | `NONE`, `MINIMAL`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX`, `ULTRA` | `NONE`; valores > NONE ativam thinking sem gradação efetiva garantida pelo backend atual |
 | `RASAI_XAI_REASONING_EFFORT` | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH` | `LOW` |
-| `RASAI_QWEN_REASONING_EFFORT` | variável inexistente | Qwen usa `PROVIDER_DEFAULT` internamente | não criar variável inexistente |
+| `RASAI_QWEN_REASONING_EFFORT` | `NONE` | `NONE`, `MINIMAL`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `NONE`; menor nível aceito |
 | `RASAI_GEMINI_REASONING_EFFORT` | `LOW` | `LOW`, `MEDIUM`, `HIGH` | `LOW` |
 | `RASAI_ANTHROPIC_REASONING_EFFORT` | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `LOW` |
 | `RASAI_MISTRAL_REASONING_EFFORT` | variável inexistente | Mistral usa `PROVIDER_DEFAULT` internamente | não criar variável inexistente |
 | `RASAI_COPILOT_REASONING_EFFORT` | variável inexistente | Copilot usa `PROVIDER_DEFAULT` via SDK | não criar variável inexistente |
 
-Aumentar reasoning pode elevar latência, tokens e custo. `AI=auto` consulta o registry, considera somente providers elegíveis/configurados e aplica a política de roteamento vigente. Consulte [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
+Aumentar reasoning pode elevar latência, tokens e custo. O default RASAi de reasoning é uma política de eficiência: usa o menor nível válido aceito pelo modelo/API; `PROVIDER_DEFAULT` é reservado a integrações em que o RASAi não possui controle determinístico homologado. `AI=auto` consulta o registry, considera somente providers elegíveis/configurados e aplica a política de roteamento vigente. Consulte [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
 
 ## 5. IA - endpoints avançados
 
