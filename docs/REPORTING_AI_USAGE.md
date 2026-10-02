@@ -110,3 +110,17 @@ Quando `AI=auto`, o relatório também apresenta o estado de saúde observado de
 O conjunto AUTO é derivado do `provider_registry`; não existe cadeia fixa documentada pelo report. Providers `explicit-only`, atualmente Mistral durante a homologação inicial e GitHub Copilot, permanecem fora desse pool.
 
 A política completa está em [`AI_RUNTIME_ORCHESTRATION.md`](AI_RUNTIME_ORCHESTRATION.md) e o catálogo canônico em [`PROVIDER_REGISTRY.md`](PROVIDER_REGISTRY.md).
+
+
+### Trilha de pricing por tentativa
+
+Quando uma tarifa é resolvida, cada tentativa preserva no SQLite:
+- `pricing_version`;
+- `pricing_context`;
+- `pricing_rule_id`;
+- `pricing_source_reference`;
+- `pricing_runtime_conditions` em JSON canônico;
+- `estimated_cost` e `cost_currency`.
+
+Esses campos permitem reconstruir por que uma tarifa foi aplicada. Se as condições efetivas do provider não corresponderem a nenhuma regra vigente, o custo permanece ausente/UNPRICED; o relatório não deve inferir preço de outra região, tier ou modalidade.
+
