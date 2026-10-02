@@ -45,6 +45,8 @@ def _runtime_conditions(provider: str, *, region: str | None = None) -> dict[str
     elif name == "MISTRAL":
         conditions["service_tier"] = "STANDARD_ONLY"
         conditions["region"] = region or "GLOBAL"
+    elif name == "COHERE":
+        conditions["region"] = region or "GLOBAL"
     return conditions
 
 
@@ -314,6 +316,25 @@ def test_mistral_price_requires_standard_only_global_runtime_contract() -> None:
         },
     )
     assert matching is not None
+    assert mismatched is None
+
+
+def test_cohere_price_requires_realtime_global_runtime_contract() -> None:
+    at = datetime(2026, 10, 2, 18, 0, tzinfo=UTC)
+    matching = resolve_price(
+        "COHERE", "command-a-03-2025", at=at, input_tokens=10_000,
+        runtime_conditions=_runtime_conditions("COHERE"),
+    )
+    mismatched = resolve_price(
+        "COHERE", "command-a-03-2025", at=at, input_tokens=10_000,
+        runtime_conditions={"operation_mode": "BATCH", "region": "GLOBAL"},
+    )
+    assert matching is not None
+    assert (
+        matching.input_price_per_million,
+        matching.cached_input_price_per_million,
+        matching.output_price_per_million,
+    ) == pytest.approx((2.50, 2.50, 10.00))
     assert mismatched is None
 
 
