@@ -330,3 +330,16 @@ def test_all_configuration_surface_exposes_structural_audits_root_through_canoni
     assert f"{catalog.CORE_IDS['audits_root']}  Raiz das auditorias" in rendered
     assert "audits" in rendered
     assert calls == [("audits", "10")]
+
+
+def test_audits_root_round_trips_through_existing_console_persistence(tmp_path) -> None:
+    state = SearchConsoleState()
+    state.audits_root = str(tmp_path / "custom-audits")
+    destination = tmp_path / "rasai-console.ini"
+
+    console_settings.save_console_config(state, destination)
+
+    restored = SearchConsoleState()
+    console_settings.load_console_config(restored, destination)
+
+    assert restored.audits_root == state.audits_root
