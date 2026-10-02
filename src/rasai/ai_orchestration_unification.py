@@ -73,6 +73,7 @@ def _structured_payload(
     from rasai.provider_extensions import (
         AnthropicProvider,
         GeminiProvider,
+        MistralProvider,
         QwenProvider,
         XAIProvider,
         gemini_wire_schema,
@@ -131,8 +132,8 @@ def _structured_payload(
                 }
             },
         }
-    if isinstance(provider, QwenProvider):
-        return {
+    if isinstance(provider, (QwenProvider, MistralProvider)):
+        payload = {
             "model": model,
             "messages": [
                 {"role": "system", "content": instructions},
@@ -143,6 +144,9 @@ def _structured_payload(
                 "json_schema": {"name": schema_name, "schema": schema, "strict": True},
             },
         }
+        if isinstance(provider, MistralProvider):
+            payload["service_tier"] = "standard_only"
+        return payload
     if isinstance(provider, GeminiProvider):
         return {
             "model": model,
