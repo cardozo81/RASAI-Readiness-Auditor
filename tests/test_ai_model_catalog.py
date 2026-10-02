@@ -38,12 +38,15 @@ def _new_openai_model():
 def test_factory_model_catalog_covers_current_integrated_providers() -> None:
     catalog = load_factory_model_catalog()
     assert catalog.metadata.schema_version == 1
-    assert catalog.metadata.catalog_version == "RASAI-MODELS-2026-10-02"
+    assert catalog.metadata.catalog_version == "RASAI-MODELS-2026-10-02.1"
     assert {
         "OPENAI", "DEEPSEEK", "MIMO", "XAI", "QWEN", "GEMINI", "ANTHROPIC", "MISTRAL", "COPILOT"
     }.issubset(set(catalog.provider_names()))
     assert catalog.public_default("OPENAI").model == "gpt-5.6-luna"
     assert catalog.adapter_default("OPENAI").model == "gpt-5.6-terra"
+    assert catalog.public_default("MIMO").model == "mimo-v2.6-flash"
+    assert catalog.adapter_default("MIMO").model == "mimo-v2.6-pro"
+    assert catalog.public_default("QWEN").default_reasoning == "NONE"
     assert catalog.public_default("MISTRAL").model == "mistral-small-2603"
     assert catalog.public_default("MISTRAL").auto_eligible is False
 
@@ -129,3 +132,18 @@ def test_factory_model_and_pricing_catalogs_are_aligned_for_auto() -> None:
     assert alignment.auto_unpriced == ()
     assert alignment.auto_eligible_models > 0
     assert alignment.priced_models >= alignment.auto_eligible_models
+
+
+def test_mimo_v25_models_expire_at_official_cutoff() -> None:
+    from datetime import datetime, timezone
+
+    catalog = load_factory_model_catalog()
+    legacy = catalog.model_definition("MIMO", "mimo-v2.5")
+    legacy_pro = catalog.model_definition("MIMO", "mimo-v2.5-pro")
+    assert legacy is not None and legacy_pro is not None
+    before = datetime(2026, 10, 21, 1, 59, 59, tzinfo=timezone.utc)
+    cutoff = datetime(2026, 10, 21, 2, 0, 0, tzinfo=timezone.utc)
+    assert legacy.is_effective(before)
+    assert legacy_pro.is_effective(before)
+    assert not legacy.is_effective(cutoff)
+    assert not legacy_pro.is_effective(cutoff)
