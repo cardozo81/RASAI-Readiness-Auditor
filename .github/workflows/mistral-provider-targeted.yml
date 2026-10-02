@@ -26,6 +26,7 @@ on:
       - 'tests/test_mistral_provider_consumers.py'
       - 'tests/test_integration_diagnostics.py'
       - 'tests/test_integration_network_diagnostics.py'
+      - 'tests/test_system_defaults.py'
       - 'tests/test_console_provider_registry.py'
       - 'tests/test_ai_model_catalog.py'
       - 'tests/test_ai_model_saas.py'
@@ -104,6 +105,7 @@ jobs:
             tests/test_mistral_provider_consumers.py \
             tests/test_integration_diagnostics.py \
             tests/test_integration_network_diagnostics.py \
+            tests/test_system_defaults.py \
             tests/test_console_provider_registry.py \
             tests/test_ai_model_catalog.py \
             tests/test_ai_model_saas.py \
