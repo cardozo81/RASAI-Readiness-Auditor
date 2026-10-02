@@ -22,6 +22,7 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
         self.assertEqual(SIMPLE_DEFAULT_MODELS["DEEPSEEK"], "deepseek-v4-flash")
         self.assertEqual(SIMPLE_DEFAULT_MODELS["MIMO"], "mimo-v2.5")
         self.assertEqual(SIMPLE_DEFAULT_MODELS["QWEN"], "qwen3.8-flash")
+        self.assertEqual(SIMPLE_DEFAULT_MODELS["MISTRAL"], "mistral-small-2603")
 
     def test_public_defaults_use_lowest_supported_effort(self) -> None:
         self.assertEqual(LOWEST_REASONING["OPENAI"], "NONE")
@@ -30,6 +31,7 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
         self.assertEqual(LOWEST_REASONING["XAI"], "LOW")
         self.assertEqual(LOWEST_REASONING["GEMINI"], "LOW")
         self.assertEqual(LOWEST_REASONING["ANTHROPIC"], "LOW")
+        self.assertEqual(LOWEST_REASONING["MISTRAL"], "PROVIDER_DEFAULT")
 
     def test_explicit_environment_override_is_preserved(self) -> None:
         env = environment_with_public_defaults({
@@ -64,11 +66,13 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
                 "OPENAI_API_KEY": "openai-key",
                 "DEEPSEEK_API_KEY": "deepseek-key",
                 "GEMINI_API_KEY": "gemini-key",
+                "MISTRAL_API_KEY": "mistral-key",
                 AI_TIMEOUT_ENV: "210",
             },
         )
         self.assertGreaterEqual(len(router.providers), 2)
         self.assertTrue(all(item.timeout == 210.0 for item in router.providers))
+        self.assertNotIn("MISTRAL", {item.name for item in router.providers})
 
     def test_direct_runtime_builder_rejects_invalid_ai_timeout_only_when_ai_enabled(self) -> None:
         for raw in ("0", "-1", "nan", "inf", "invalid"):
@@ -87,6 +91,13 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
     def test_console_web_timeout_default_is_120_seconds(self) -> None:
         self.assertEqual(DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS, 120.0)
         self.assertEqual(State().web_timeout, 120.0)
+
+    def test_mistral_explicit_builder_uses_fixed_global_endpoint(self) -> None:
+        provider = build_semantic_provider("mistral", env={"MISTRAL_API_KEY": "x"})
+        self.assertEqual(provider.name, "MISTRAL")
+        self.assertEqual(provider.model, "mistral-small-2603")
+        self.assertEqual(provider.endpoint, "https://api.mistral.ai/v1/chat/completions")
+        self.assertEqual(provider.reasoning_profile, "PROVIDER_DEFAULT")
 
     def test_xai_and_gemini_payloads_are_lowered(self) -> None:
         xai = build_semantic_provider("xai", env={"XAI_API_KEY": "x", "RASAI_XAI_MODEL": "grok-4.6"})
