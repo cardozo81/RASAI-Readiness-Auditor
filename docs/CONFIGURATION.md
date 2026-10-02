@@ -122,7 +122,7 @@ Preços, janelas tarifárias, timezone, heurísticas de tokens e política de re
 |---|---|---|---|---|
 | OpenAI | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `NONE` | default público; elevar capacidade deliberadamente |
 | DeepSeek | `deepseek-v4-flash` | `deepseek-v4-pro`, `deepseek-v4-flash` | `NONE` | default público |
-| MiMo | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro legados até 21/10/2026 02:00 UTC | `NONE` | default público eficiente |
+| MiMo | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro disponíveis temporariamente até 21/10/2026 02:00 UTC | `NONE` | default público eficiente |
 | xAI | `grok-4.6` | `grok-4.6` | `LOW` | default público |
 | Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `NONE` | menor effort aceito; elevar deliberadamente |
 | Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | `LOW` | default público |
