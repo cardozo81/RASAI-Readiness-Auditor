@@ -25,7 +25,7 @@ def test_model_snapshot_is_deterministic_and_reloads_same_catalog() -> None:
     assert first.sha256 == second.sha256
     assert first.toml == second.toml
     rendered = tomllib.loads(first.toml)
-    assert rendered["metadata"]["catalog_version"] == "RASAI-MODELS-2026-10-02"
+    assert rendered["metadata"]["catalog_version"] == "RASAI-MODELS-2026-10-02.1"
     assert len(rendered["models"]) == len(load_factory_model_catalog().models)
 
 
