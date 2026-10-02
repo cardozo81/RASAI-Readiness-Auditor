@@ -207,6 +207,12 @@ Em `AUTO`, isso reutiliza a mesma política de custo, qualification, pricing, qu
 
 A integração inicial usa `mistral-small-2603`, `MISTRAL_API_KEY` e Chat Completions no endpoint global com `service_tier=standard_only`. Structured Outputs continuam sujeitos à validação local evidence-bound. O provider é selecionável explicitamente, mas permanece fora de `AUTO` até a homologação humana desta entrega.
 
+## Cohere
+
+A integração inicial usa `COHERE_API_KEY`, `command-a-03-2025` e `POST https://api.cohere.com/v2/chat`. Structured Outputs são projetados para o subconjunto JSON Schema aceito pelo wire da Cohere, mas o schema local do RASAi continua normativo e é validado integralmente após a resposta.
+
+O adapter não envia `tools` nem `documents`, e não habilita RAG/Rerank. Reasoning permanece `PROVIDER_DEFAULT`. Cohere é selecionável explicitamente e fica fora de `AUTO` até homologação humana positiva e eventual decisão posterior de promoção.
+
 ## GitHub Copilot
 
 O adapter usa o SDK oficial `github-copilot-sdk` e o modelo de fábrica `auto`:
