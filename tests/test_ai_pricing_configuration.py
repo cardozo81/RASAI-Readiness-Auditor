@@ -20,13 +20,13 @@ ROOT = Path(__file__).resolve().parents[1]
 UTC = timezone.utc
 
 
-def test_factory_catalog_is_versioned_and_referenced_to_2026_09_13() -> None:
+def test_factory_catalog_is_versioned_and_referenced_to_2026_10_02() -> None:
     catalog = load_factory_pricing_catalog()
     assert catalog.metadata.schema_version == 1
-    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-09-13"
-    assert catalog.metadata.reference_date == "2026-09-13"
-    assert catalog.metadata.verified_on == "2026-09-13"
-    assert catalog.metadata.review_recommended_on == "2026-10-13"
+    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-02"
+    assert catalog.metadata.reference_date == "2026-10-02"
+    assert catalog.metadata.verified_on == "2026-10-02"
+    assert catalog.metadata.review_recommended_on == "2026-11-02"
 
 
 def test_factory_catalog_declares_current_commercial_models() -> None:
@@ -39,6 +39,11 @@ def test_factory_catalog_declares_current_commercial_models() -> None:
     assert by_key[("QWEN", "qwen3.8-flash")].region == "US_VIRGINIA"
     assert by_key[("GEMINI", "gemini-3.8-flash")].reasoning_billing == "ADD_REASONING_TO_OUTPUT"
     assert by_key[("ANTHROPIC", "claude-sonnet-5")].pricing_model == "TOKEN_STANDARD"
+    assert by_key[("MISTRAL", "mistral-small-2603")].pricing_model == "TOKEN_STANDARD"
+    mistral_rule = by_key[("MISTRAL", "mistral-small-2603")].rules[0]
+    assert mistral_rule.input_price_per_million == pytest.approx(0.15)
+    assert mistral_rule.cached_input_price_per_million == pytest.approx(0.015)
+    assert mistral_rule.output_price_per_million == pytest.approx(0.60)
 
 
 def test_time_window_and_context_thresholds_are_catalog_data() -> None:
@@ -153,7 +158,7 @@ def test_restore_factory_helper_reconstructs_editable_catalog(tmp_path: Path) ->
     target.write_text("invalid = true\n", encoding="utf-8")
     restored = restore_factory_pricing_catalog(target)
     catalog = load_pricing_catalog(path=restored)
-    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-09-13"
+    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-02"
     assert catalog.source == str(target.resolve())
 
 
