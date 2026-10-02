@@ -97,7 +97,7 @@ Detalhamento e exemplos: [AI_MODEL_CONFIGURATION.md](AI_MODEL_CONFIGURATION.md).
 
 Essa tabela é somente a fotografia de fábrica. O catálogo efetivamente snapshotado para a execução é a autoridade da AUD.
 
-MiMo V2.6 é a família vigente para o contrato PAYG do RASAi. `mimo-v2.5` e `mimo-v2.5-pro` permanecem apenas como legados até 21/10/2026 02:00 UTC e não são mais defaults. A troca preserva o mesmo adapter Responses e a mesma variável `MIMO_API_KEY`; detalhes e rastreabilidade estão na issue #183.
+MiMo V2.6 é a família vigente para o contrato PAYG do RASAi. `mimo-v2.5` e `mimo-v2.5-pro` permanecem selecionáveis somente até 21/10/2026 02:00 UTC e não são mais defaults. A troca preserva o mesmo adapter Responses e a mesma variável `MIMO_API_KEY`; detalhes e rastreabilidade estão na issue #183.
 
 ## Seleção do modelo e reasoning
 
