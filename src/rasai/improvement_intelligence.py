@@ -45,6 +45,7 @@ from rasai.provider_extensions import (
     AnthropicProvider,
     GeminiProvider,
     IsolatedStructuredSemanticProvider,
+    MistralProvider,
     QwenProvider,
     XAIProvider,
     _diagnostic_from_http as _extension_diagnostic_from_http,
@@ -956,8 +957,11 @@ def _provider_payload(provider: Any, *, instructions: str, user_text: str, schem
         return {"model": model, "prompt": instructions + "\n\nJSON Schema:\n" + json.dumps(schema, ensure_ascii=False) + "\n\n" + user_text}
     if isinstance(provider, XAIProvider):
         return {"model": model, "instructions": instructions, "input": [{"role": "user", "content": [{"type": "input_text", "text": user_text}]}], "reasoning": {"effort": str(getattr(provider, "reasoning_profile", "HIGH")).casefold()}, "text": {"format": {"type": "json_schema", "name": "rasai_improvement_intelligence", "schema": schema, "strict": True}}}
-    if isinstance(provider, QwenProvider):
-        return {"model": model, "messages": [{"role": "system", "content": instructions}, {"role": "user", "content": user_text}], "response_format": {"type": "json_schema", "json_schema": {"name": "rasai_improvement_intelligence", "schema": schema, "strict": True}}}
+    if isinstance(provider, (QwenProvider, MistralProvider)):
+        payload = {"model": model, "messages": [{"role": "system", "content": instructions}, {"role": "user", "content": user_text}], "response_format": {"type": "json_schema", "json_schema": {"name": "rasai_improvement_intelligence", "schema": schema, "strict": True}}}
+        if isinstance(provider, MistralProvider):
+            payload["service_tier"] = "standard_only"
+        return payload
     if isinstance(provider, GeminiProvider):
         return {"model": model, "input": instructions + "\n\n" + user_text, "response_format": {"type": "text", "mime_type": "application/json", "schema": gemini_wire_schema(schema)}}
     if isinstance(provider, AnthropicProvider):
