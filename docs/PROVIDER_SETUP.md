@@ -136,7 +136,7 @@ Contrato inicial:
 - sem tools, documents, RAG ou Rerank nesta primeira fase;
 - `explicit-only`; não participa de `AI=auto` antes da homologação humana.
 
-Documentação oficial: <https://docs.cohere.com/v2/reference/chat>, <https://docs.cohere.com/docs/structured-outputs-json> e <https://docs.cohere.com/docs/command-a>.
+Documentação oficial: <https://docs.cohere.com/v2/reference/chat>, <https://docs.cohere.com/v2/docs/structured-outputs> e <https://docs.cohere.com/docs/command-a>.
 
 ### GitHub Copilot
 
