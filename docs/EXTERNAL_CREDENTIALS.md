@@ -25,61 +25,453 @@ Para execução externa/agendada, `M. Ver linha de comando` materializa nomes de
 
 As credenciais desta seção são usadas apenas quando o provider correspondente é selecionado ou quando participa de uma política `AUTO` para a qual seja elegível. A API de cada provider é independente de assinaturas de produtos de chat, salvo quando explicitamente indicado.
 
-| Provider | Variável | Uso no RASAi | Onde criar ou gerenciar | Orientação |
+### Visão rápida
+
+| Provider | Variável | Uso no RASAi | Onde criar ou gerenciar | Observação essencial |
 |---|---|---|---|---|
-| OpenAI | `OPENAI_API_KEY` | análise semântica, remediação e demais finalidades de IA que selecionem `openai` | <https://platform.openai.com/api-keys> | criar uma API key da plataforma OpenAI. A cobrança da API é separada de planos do ChatGPT. |
-| DeepSeek | `DEEPSEEK_API_KEY` | finalidades de IA que selecionem `deepseek` | <https://platform.deepseek.com/api_keys> | criar uma chave da plataforma/API DeepSeek e manter saldo/quota adequados. |
-| Xiaomi MiMo | `MIMO_API_KEY` | finalidades de IA que selecionem `mimo` | <https://mimo.mi.com/> | usar a credencial aceita pelo adapter. O runtime valida chave PAYG com prefixo `sk-`; Token Plan `tp-` não faz parte do contrato do adapter. |
-| xAI / Grok | `XAI_API_KEY` | finalidades de IA que selecionem `xai` ou alias `grok` | <https://console.x.ai/> | criar uma API key no console xAI. |
-| Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | finalidades de IA que selecionem `qwen` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | criar a API key no Model Studio na mesma região do endpoint usado pelo RASAi. Chaves, endpoints e modelos disponíveis são regionais. |
-| Google Gemini | `GEMINI_API_KEY` | finalidades de IA que selecionem `gemini` | <https://aistudio.google.com/apikey> | criar uma Auth key no Google AI Studio. Novas chaves são Auth keys; não usar Standard key irrestrita para Gemini API. |
-| Anthropic Claude | `ANTHROPIC_API_KEY` | finalidades de IA que selecionem `anthropic` ou alias `claude` | <https://console.anthropic.com/> | criar e gerenciar a API key no console Anthropic. |
-| Mistral AI | `MISTRAL_API_KEY` | provider `mistral`, explicitamente selecionado nesta etapa | <https://console.mistral.ai/api-keys/> | criar/gerenciar a API key Mistral; presença da key não habilita AUTO nem comprova saldo/quota/modelo. |
-| GitHub Copilot | `COPILOT_GITHUB_TOKEN` | provider `copilot`, explicitamente selecionado | <https://github.com/settings/personal-access-tokens/new> | criar um fine-grained personal access token da conta pessoal com `Copilot Requests`; o adapter vigente não usa automaticamente a sessão Copilot já autenticada. |
+| OpenAI | `OPENAI_API_KEY` | `openai` | <https://platform.openai.com/api-keys> | API Platform e ChatGPT têm faturamentos separados. |
+| DeepSeek | `DEEPSEEK_API_KEY` | `deepseek` | <https://platform.deepseek.com/api_keys> | autenticação Bearer; saldo/quota pertencem à plataforma DeepSeek. |
+| Xiaomi MiMo | `MIMO_API_KEY` | `mimo` | <https://mimo.mi.com/> | o adapter atual do RASAi exige chave Pay-as-you-go `sk-...`; Token Plan `tp-...` não é aceito. |
+| xAI / Grok | `XAI_API_KEY` | `xai` ou `grok` | <https://console.x.ai/> | usar API key de inferência, não Management API key. |
+| Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | `qwen` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | key, endpoint e modelos são regionais e devem ser coerentes. |
+| Google Gemini | `GEMINI_API_KEY` | `gemini` | <https://aistudio.google.com/apikey> | usar Auth key; a documentação vigente do Google informa que Standard keys deixaram de ser aceitas pela Gemini API em setembro de 2026. |
+| Anthropic Claude | `ANTHROPIC_API_KEY` | `anthropic` ou `claude` | <https://console.anthropic.com/> | API Console e assinatura Claude.ai são produtos/faturamentos separados. |
+| Mistral AI | `MISTRAL_API_KEY` | `mistral` | <https://console.mistral.ai/api-keys/> | explicit-only nesta etapa; chave do Studio/Workspace. |
+| GitHub Copilot | `COPILOT_GITHUB_TOKEN` | `copilot` ou `github-copilot` | <https://github.com/settings/personal-access-tokens/new> | fine-grained PAT de conta pessoal com `Copilot Requests`; explicit-only. |
+
+### Procedimento padrão depois de criar qualquer credencial
+
+Use este fluxo para todos os providers. As subseções seguintes informam os passos específicos de criação.
+
+1. Crie a credencial somente no console oficial do fornecedor.
+2. Copie o segredo no momento em que o fornecedor o exibir. Alguns consoles não mostram novamente o valor completo.
+3. Armazene-o em secret store ou variável de ambiente. Não grave o valor em `rasai-console.ini`, `rasai.toml`, issue, commit, relatório ou script versionado.
+4. Configure a variável exigida pelo provider na sessão do PowerShell.
+5. Valide apenas a **presença** da variável com `Test-Path`; não imprima seu conteúdo.
+6. Consulte `rasai providers --provider <id>` para confirmar que o RASAi reconhece a configuração sem expor o segredo.
+7. Execute o diagnóstico seguro do console antes de uma auditoria real: `INÍCIO > 5. Integrações e serviços > T. Validar integrações e IAs configuradas`.
+8. Faça um smoke funcional mínimo somente quando aceitar eventual consumo de quota/custo do provider.
+9. Se houver suspeita de exposição, revogue/rotacione a credencial no fornecedor e atualize o secret boundary antes de nova execução.
+
+Exemplo genérico de presença segura:
+
+```powershell
+Test-Path Env:NOME_DA_VARIAVEL
+```
+
+Retorno `True` comprova somente que a variável existe na sessão. Não comprova que a chave é válida, que há saldo/quota, que o modelo está liberado ou que o endpoint está acessível.
+
+Nunca faça:
+
+```powershell
+# NÃO FAZER: imprime o segredo no terminal/histórico/captura de tela.
+Write-Host $env:OPENAI_API_KEY
+```
+
+O diagnóstico seguro é consultivo e não altera scoring, `AI=auto`, SARI, SCORE-GEO, Apdex, retry funcional, evidência do website ou consolidação. Consulte [INTEGRATION_DIAGNOSTICS.md](INTEGRATION_DIAGNOSTICS.md).
+
+### OpenAI
+
+**Variável usada pelo RASAi:** `OPENAI_API_KEY`  
+**Seleção:** `openai`  
+**Página de chaves:** <https://platform.openai.com/api-keys>  
+**Quickstart oficial:** <https://platform.openai.com/docs/quickstart/make-your-first-api-request>  
+**Ajuda sobre chaves:** <https://help.openai.com/articles/4936850-where-do-i-find-my-openai-api-key>
+
+#### Pré-requisitos
+
+- conta com acesso à OpenAI API Platform;
+- projeto/organização da API em que a chave será criada;
+- billing/créditos da API quando o uso pretendido exigir. Uma assinatura ChatGPT não fornece automaticamente créditos da API; os sistemas de faturamento são separados.
+
+#### Criar a chave
+
+1. Entre na OpenAI API Platform com a conta que deve possuir a credencial.
+2. Abra <https://platform.openai.com/api-keys>.
+3. Confirme que está no projeto/organização de API correto antes de criar a credencial.
+4. Escolha a opção de criar uma nova secret key.
+5. Dê um nome que identifique finalidade e ambiente, por exemplo `rasai-local-dev` ou `rasai-prod`.
+6. Se o console oferecer controles de projeto/permissão, aplique o menor escopo compatível com as chamadas de inferência necessárias.
+7. Crie a chave e copie o valor imediatamente para um secret store. A chave completa não deve ser tratada como informação recuperável posteriormente.
+8. Confirme na área de billing da API que a organização/projeto tem a forma de cobrança, créditos ou limites adequados ao uso pretendido.
+
+#### Configurar no PowerShell
+
+```powershell
+$env:OPENAI_API_KEY="<openai-api-key>"
+Test-Path Env:OPENAI_API_KEY
+rasai providers --provider openai
+```
+
+Para persistência suportada pelo RASAi no Windows, use a superfície própria de secrets descrita em [WINDOWS_SECRET_PERSISTENCE.md](WINDOWS_SECRET_PERSISTENCE.md); não coloque a chave no INI.
+
+#### Validar
+
+Primeiro execute o diagnóstico seguro pelo console. Para smoke funcional real, somente se houver autorização para consumo de API:
+
+```powershell
+rasai audit https://example.com --ai-provider openai
+```
+
+#### Falhas típicas
+
+- `401`: chave inválida, revogada, associada ao contexto incorreto ou não disponível para o processo;
+- erro de quota/billing: presença da chave não implica créditos ou autorização de consumo;
+- `429`: rate limit/quota do fornecedor;
+- assinatura ChatGPT existente sem billing de API: esperado, pois ChatGPT e API Platform são produtos cobrados separadamente.
+
+### DeepSeek
+
+**Variável usada pelo RASAi:** `DEEPSEEK_API_KEY`  
+**Seleção:** `deepseek`  
+**Página de chaves:** <https://platform.deepseek.com/api_keys>  
+**Documentação da API:** <https://api-docs.deepseek.com/api/deepseek-api/>  
+**Erros oficiais:** <https://api-docs.deepseek.com/quick_start/error_codes/>
+
+#### Pré-requisitos
+
+- conta na DeepSeek Platform;
+- API key criada na plataforma;
+- saldo suficiente quando o modelo/uso não estiver coberto por crédito disponível.
+
+#### Criar a chave
+
+1. Entre em <https://platform.deepseek.com/>.
+2. Abra a área de API Keys: <https://platform.deepseek.com/api_keys>.
+3. Crie uma nova API key para a finalidade do RASAi.
+4. Use um nome que permita identificar ambiente/finalidade quando o console oferecer esse campo.
+5. Copie a chave e armazene-a fora do repositório.
+6. Verifique saldo/quota da conta antes do smoke. A documentação oficial diferencia erro `401` de autenticação, `402` de saldo insuficiente e `429` de limite de requisições.
+
+#### Configurar no PowerShell
+
+```powershell
+$env:DEEPSEEK_API_KEY="<deepseek-api-key>"
+Test-Path Env:DEEPSEEK_API_KEY
+rasai providers --provider deepseek
+```
+
+#### Validar
+
+```powershell
+rasai audit https://example.com --ai-provider deepseek
+```
+
+Use primeiro o diagnóstico seguro do console. O smoke acima pode consumir saldo.
+
+#### Falhas típicas
+
+- `401 Authentication Fails`: conferir/recriar a API key;
+- `402 Insufficient Balance`: adicionar saldo ou corrigir a conta usada;
+- `429 Rate Limit Reached`: reduzir cadência e respeitar a política de concorrência;
+- `5xx`: indisponibilidade do serviço, não evidência de problema no website auditado.
+
+### Xiaomi MiMo
+
+**Variável usada pelo RASAi:** `MIMO_API_KEY`  
+**Seleção:** `mimo`  
+**Portal:** <https://mimo.mi.com/>  
+**Documentação oficial de API Key:** <https://mimo.mi.com/docs/en-US/quick-start/faq/api-integration>
+
+#### Escolher o tipo correto de chave
+
+O fornecedor mantém pelo menos dois contratos de credencial distintos:
+
+- Pay-as-you-go: chave `sk-...`, usada para chamadas cobradas por uso;
+- Token Plan: chave `tp-...`, vinculada ao plano e ao Base URL específico do pacote.
+
+**Contrato atual do RASAi:** usar Pay-as-you-go `sk-...`. O adapter vigente rejeita `tp-...`; não tente trocar apenas a variável mantendo uma chave de Token Plan.
+
+#### Criar a chave Pay-as-you-go
+
+1. Entre no Xiaomi MiMo API Open Platform em <https://mimo.mi.com/>.
+2. Abra `Console` > `API Keys`.
+3. Solicite/crie uma API Key para chamadas Pay-as-you-go.
+4. Confirme que a credencial resultante corresponde ao contrato Pay-as-you-go e usa o formato esperado `sk-...`.
+5. Copie a chave quando for criada e armazene-a em secret store. O fornecedor alerta que chaves podem ser exibidas para cópia apenas no momento de criação.
+6. Confira saldo, créditos ou limites da conta antes do smoke.
+
+#### Configurar no PowerShell
+
+```powershell
+$env:MIMO_API_KEY="<mimo-payg-sk-key>"
+Test-Path Env:MIMO_API_KEY
+rasai providers --provider mimo
+```
+
+#### Validar
+
+```powershell
+rasai audit https://example.com --ai-provider mimo
+```
+
+#### Falhas típicas
+
+- credencial `tp-...`: incompatível com o contrato atual do adapter RASAi;
+- chave criada para um contrato/host diferente: autenticação pode falhar mesmo com valor sintaticamente válido;
+- saldo insuficiente ou limite comercial: tratar como condição do provider, não finding do alvo auditado.
+
+### xAI / Grok
+
+**Variável usada pelo RASAi:** `XAI_API_KEY`  
+**Seleção:** `xai` ou alias `grok`  
+**Console:** <https://console.x.ai/>  
+**Quickstart oficial:** <https://docs.x.ai/developers/quickstart>  
+**Referência de autenticação:** <https://docs.x.ai/developers/rest-api-reference/inference>
+
+#### Pré-requisitos
+
+- conta no xAI Console;
+- créditos/billing suficientes para o uso pretendido;
+- API key de **inferência**. A xAI também possui Management API keys para APIs administrativas; elas não substituem a chave de inferência usada pelo adapter.
+
+#### Criar a chave
+
+1. Entre em <https://console.x.ai/>.
+2. Confirme a equipe/conta correta.
+3. Configure créditos ou billing conforme necessário para a API.
+4. Abra a página `API Keys` do console.
+5. Crie uma API key para inferência.
+6. Copie-a e armazene-a como segredo.
+7. Não use uma `Management API key` no lugar de `XAI_API_KEY`; a documentação xAI separa os endpoints e credenciais de inferência e management.
+
+#### Configurar no PowerShell
+
+```powershell
+$env:XAI_API_KEY="<xai-api-key>"
+Test-Path Env:XAI_API_KEY
+rasai providers --provider xai
+```
+
+#### Validar
+
+```powershell
+rasai audit https://example.com --ai-provider xai
+```
+
+Também é possível selecionar o alias `grok`; o provider canônico permanece xAI.
+
+#### Falhas típicas
+
+- chave de management usada como chave de inferência;
+- conta/equipe sem créditos suficientes;
+- `401` por chave inválida/revogada;
+- `429` por limites de uso.
 
 ### Alibaba Qwen / Model Studio
 
-O Model Studio separa chaves por região. Uma chave criada para uma região não deve ser presumida válida em outro endpoint/região. A documentação oficial de obtenção de API key é <https://www.alibabacloud.com/help/en/model-studio/get-api-key>.
+**Variável usada pelo RASAi:** `DASHSCOPE_API_KEY`  
+**Seleção:** `qwen`  
+**Como obter a API key:** <https://www.alibabacloud.com/help/en/model-studio/get-api-key>  
+**Regiões e endpoints:** <https://www.alibabacloud.com/help/en/model-studio/regions>  
+**Base URLs:** <https://www.alibabacloud.com/help/en/model-studio/base-url>
 
-Para a configuração atual do RASAi, mantenha `DASHSCOPE_API_KEY`, modelo e `RASAI_QWEN_ENDPOINT` coerentes com a mesma região. O formato de chave pode variar conforme região e política atual do Model Studio; o RASAi não deve documentar um prefixo universal que o fornecedor não garanta para todas as regiões.
+#### Regra obrigatória: região coerente
+
+O Model Studio trata região como parte do contrato. API key, endpoint e lista de modelos são regionais e não devem ser combinados entre regiões. Antes de criar a credencial, determine a região que será usada pelo RASAi.
+
+#### Criar a chave
+
+1. Entre na Alibaba Cloud com uma conta ou RAM user que tenha permissão para a página de API Keys.
+2. Abra a documentação/atalho de criação em <https://www.alibabacloud.com/help/en/model-studio/get-api-key>.
+3. Na página de API Keys do Model Studio, selecione a **região** no canto superior direito.
+4. Crie a API key nessa região.
+5. Copie a chave e registre, fora do segredo, qual região ela utiliza.
+6. Confirme que o modelo pretendido existe na mesma região.
+7. Confirme que o endpoint efetivo do RASAi pertence à mesma região.
+
+A documentação atual do Model Studio diferencia Pay-as-you-go de Token Plan/Coding Plan e informa que esses planos podem usar chaves dedicadas. Não presuma intercambiabilidade: use uma credencial compatível com o endpoint e o plano efetivos.
+
+#### Configurar no PowerShell
+
+```powershell
+$env:DASHSCOPE_API_KEY="<qwen-api-key>"
+Test-Path Env:DASHSCOPE_API_KEY
+rasai providers --provider qwen
+```
+
+Se houver override de `RASAI_QWEN_ENDPOINT`, revise-o junto com a região da chave e do modelo antes do smoke.
+
+#### Validar
+
+```powershell
+rasai audit https://example.com --ai-provider qwen
+```
+
+#### Falhas típicas
+
+- API key de uma região usada contra endpoint de outra região;
+- modelo não disponível na região escolhida;
+- combinação de chave de plano e Base URL incompatíveis;
+- `401` decorrente de key/endpoint/plan mismatch.
 
 ### Google Gemini
 
-A documentação oficial de autenticação é <https://ai.google.dev/gemini-api/docs/api-key>.
+**Variável usada pelo RASAi:** `GEMINI_API_KEY`  
+**Seleção:** `gemini`  
+**Gerenciar chaves:** <https://aistudio.google.com/apikey>  
+**Documentação oficial:** <https://ai.google.dev/gemini-api/docs/api-key>
 
-O Google AI Studio cria novas chaves Gemini como **Auth keys**. A orientação vigente do Google é migrar Standard keys e não depender de Standard keys irrestritas. Para configurar o RASAi:
+#### Tipo de chave vigente
 
-1. abra <https://aistudio.google.com/apikey>;
-2. selecione ou crie o projeto correspondente;
-3. crie uma nova API key;
-4. confirme que a chave é apropriada para Gemini API e aplique as restrições recomendadas pelo Google;
-5. armazene a chave somente no boundary de secrets;
-6. configure `GEMINI_API_KEY`;
-7. teste a integração antes de depender dela em uma auditoria.
+A documentação atual da Gemini API informa que novas chaves criadas no Google AI Studio são **Auth keys**. Ela também informa que, desde setembro de 2026, Standard keys não são mais aceitas pela Gemini API. Para uma nova configuração do RASAi, crie uma Auth key; não reutilize uma Standard key antiga.
 
-Uma chave existente não comprova quota, billing ou acesso ao modelo configurado.
+#### Criar a Auth key
+
+1. Entre no Google AI Studio: <https://aistudio.google.com/apikey>.
+2. Selecione o projeto Google Cloud que deve suportar o consumo ou importe/crie o projeto quando necessário.
+3. Clique para criar uma nova API key.
+4. Confirme que o tipo criado é uma **Auth key** apropriada para a Gemini API.
+5. Copie a chave e armazene-a como segredo.
+6. Confirme billing/quota e acesso ao modelo efetivo conforme o projeto.
+7. Não compartilhe a chave com outras APIs/serviços apenas por conveniência; mantenha credenciais segregadas quando possível.
+
+#### Configurar no PowerShell
+
+```powershell
+$env:GEMINI_API_KEY="<gemini-auth-key>"
+Test-Path Env:GEMINI_API_KEY
+rasai providers --provider gemini
+```
+
+#### Validar
+
+```powershell
+rasai audit https://example.com --ai-provider gemini
+```
+
+#### Falhas típicas
+
+- Standard key antiga em vez de Auth key;
+- projeto correto não importado/selecionado no AI Studio;
+- chave válida, mas projeto sem quota/billing ou sem acesso ao modelo;
+- chave bloqueada/revogada pelo Google.
+
+### Anthropic Claude
+
+**Variável usada pelo RASAi:** `ANTHROPIC_API_KEY`  
+**Seleção:** `anthropic` ou alias `claude`  
+**Console:** <https://console.anthropic.com/>  
+**Acesso à API:** <https://support.anthropic.com/en/articles/8114521-how-can-i-access-the-anthropic-api>  
+**Workspaces/API keys:** <https://support.anthropic.com/en/articles/9796807-creating-and-managing-workspaces>  
+**Segurança de API keys:** <https://support.anthropic.com/en/articles/9767949-api-key-best-practices-keeping-your-keys-safe-and-secure>
+
+#### Pré-requisitos
+
+- conta no Anthropic API Console;
+- acesso à organização/workspace apropriado;
+- função com permissão para gerenciar API keys. A documentação do Console indica que papel `Developer` pode gerenciar keys; administradores também possuem capacidades ampliadas;
+- créditos/billing da API Console. Planos pagos do Claude.ai não incluem uso da API Console.
+
+#### Criar a chave
+
+1. Entre no Anthropic Console: <https://console.anthropic.com/>.
+2. Confirme a organização correta.
+3. Se a organização utilizar Workspaces, abra `Settings` > `Workspaces` e selecione o Workspace que deverá possuir a credencial.
+4. Confirme que seu papel permite gerenciar API keys.
+5. No Workspace, abra a aba `API Keys`.
+6. Clique em `Create Key`.
+7. Dê um nome descritivo à credencial.
+8. Crie e copie a chave para um secret store.
+9. Confirme créditos/limites do Workspace e da organização. A chave permanece vinculada ao Workspace em que foi criada.
+
+#### Configurar no PowerShell
+
+```powershell
+$env:ANTHROPIC_API_KEY="<anthropic-api-key>"
+Test-Path Env:ANTHROPIC_API_KEY
+rasai providers --provider anthropic
+```
+
+#### Validar
+
+```powershell
+rasai audit https://example.com --ai-provider anthropic
+```
+
+O alias `claude` resolve para o mesmo provider canônico.
+
+#### Falhas típicas
+
+- usuário sem papel que permita criar/gerenciar API keys;
+- chave de Workspace diferente do contexto operacional esperado;
+- assinatura Claude.ai existente, porém API Console sem créditos;
+- chave exposta: revogue imediatamente no Console, crie outra e atualize o secret boundary.
 
 ### Mistral AI
 
-A autenticação do adapter usa Bearer com `MISTRAL_API_KEY` no endpoint global `https://api.mistral.ai/v1/chat/completions`. O RASAi não persiste a chave e não expõe override de endpoint para Mistral nesta entrega.
+**Variável usada pelo RASAi:** `MISTRAL_API_KEY`  
+**Seleção:** `mistral`  
+**API Keys:** <https://console.mistral.ai/api-keys/>  
+**Quickstart de criação:** <https://docs.mistral.ai/getting-started/quickstarts/studio/activate-and-generate-api-key>  
+**Gestão de API keys:** <https://docs.mistral.ai/admin/identity-access/api-keys>  
+**Primeira chamada:** <https://docs.mistral.ai/getting-started/quickstarts/developer/first-api-request>
 
-Fluxo operacional:
+#### Estado comercial e escopo
 
-1. abra <https://console.mistral.ai/api-keys/>;
-2. crie ou selecione uma API key da conta/projeto aplicável;
-3. mantenha billing/quota compatíveis com o uso pretendido;
-4. armazene a chave somente no boundary de secrets;
-5. configure `MISTRAL_API_KEY`;
-6. selecione `mistral` explicitamente no RASAi;
-7. valide o smoke antes de considerar o provider homologado.
+O Studio permite criar API keys no modo Free, sujeito a limites de uso/rate limit; cartão não é requisito para a criação no modo Free. A key pertence ao Workspace em que foi criada e usa quota/limites desse Workspace. Pay-as-you-go pode ampliar consumo, mas não transforma a key em um tipo diferente.
 
-Documentação oficial: <https://docs.mistral.ai/getting-started/quickstart/>.
+#### Criar a chave
+
+1. Entre no Mistral Studio.
+2. Abra `API Keys` na barra lateral ou <https://console.mistral.ai/api-keys/>.
+3. Clique em `Create new key`.
+4. Informe um nome descritivo, por exemplo `rasai-local`.
+5. Defina data de expiração quando apropriado; rotação periódica é recomendada.
+6. Se o console solicitar `Connector access scope`, prefira o menor escopo necessário. O RASAi não habilita Connectors/tools da Mistral nesta integração.
+7. Crie a chave.
+8. **Copie imediatamente.** A documentação Mistral informa que o valor completo aparece apenas uma vez.
+9. Armazene a chave em secret store.
+
+#### Configurar no PowerShell
+
+```powershell
+$env:MISTRAL_API_KEY="<mistral-api-key>"
+Test-Path Env:MISTRAL_API_KEY
+rasai providers --provider mistral
+```
+
+#### Contrato específico do RASAi
+
+- modelo piloto de fábrica: `mistral-small-2603`;
+- endpoint fixo: `https://api.mistral.ai/v1/chat/completions`;
+- autenticação Bearer;
+- `service_tier=standard_only`;
+- Structured Output por JSON Schema seguido de validação local;
+- sem override `RASAI_MISTRAL_ENDPOINT` nesta etapa;
+- sem tools/search/connectors;
+- `explicit-only=true` e `auto_eligible=false` até homologação humana posterior.
+
+#### Validar
+
+Depois do diagnóstico seguro, o smoke funcional exigido para homologação é:
+
+```powershell
+rasai audit https://example.com --ai-provider mistral --ai-model mistral-small-2603
+```
+
+Confirme provider/modelo efetivos, Structured Output validado localmente, usage/custo materializados e ausência de tools/search externos.
+
+#### Falhas típicas
+
+- `401`: key incorreta, ausente, revogada ou de contexto inadequado;
+- `402`: o fornecedor pode exigir habilitação de consumo/billing para o volume/recurso solicitado;
+- `429`: limite do plano/Workspace;
+- key configurada, mas expectativa de participação em `AI=auto`: não ocorre nesta etapa por decisão de homologação.
 
 ### GitHub Copilot
 
-O adapter vigente usa autenticação de usuário do GitHub Copilot SDK com `use_logged_in_user=False`. O token é fornecido explicitamente ao RASAi.
+**Variável usada pelo RASAi:** `COPILOT_GITHUB_TOKEN`  
+**Seleção:** `copilot` ou alias `github-copilot`  
+**Criar fine-grained PAT:** <https://github.com/settings/personal-access-tokens/new>  
+**Autenticação do Copilot SDK:** <https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth/authenticate>  
+**Autenticação da Copilot CLI com PAT:** <https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli>
 
-Tipos aceitos pelo contrato atual do adapter:
+#### Contrato de autenticação do RASAi
+
+O adapter atual usa o GitHub Copilot SDK com `use_logged_in_user=False`. Isso impede fallback silencioso para a sessão da Copilot CLI ou para credenciais do `gh`. O RASAi recebe explicitamente `COPILOT_GITHUB_TOKEN`.
+
+Tipos de token aceitos pelo contrato atual:
 
 ```text
 github_pat_  fine-grained personal access token
@@ -87,25 +479,68 @@ gho_         OAuth user access token
 ghu_         GitHub App user access token
 ```
 
-Classic PAT `ghp_` não é aceito nesse fluxo. A documentação oficial do SDK descreve os tipos suportados na autenticação de usuário: <https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth/authenticate>.
+Classic PAT `ghp_` não é aceito nesse fluxo.
 
-Para o caminho local suportado pelo RASAi:
+#### Criar o fine-grained PAT recomendado para uso local
 
-1. confirme que a conta possui Copilot elegível;
-2. abra <https://github.com/settings/personal-access-tokens/new>;
-3. selecione a própria conta como resource owner;
-4. em permissões de conta, adicione `Copilot Requests`;
-5. gere o token e armazene-o com segurança;
-6. configure o valor em `COPILOT_GITHUB_TOKEN`;
-7. selecione `copilot` no RASAi.
+1. Confirme que a conta pessoal possui uma assinatura Copilot elegível para autenticação como usuário.
+2. Abra <https://github.com/settings/personal-access-tokens/new>.
+3. Em `Resource owner`, selecione **sua conta pessoal**. Não selecione uma organização; a documentação do GitHub informa que `Copilot Requests` para esse fluxo está disponível em PAT fine-grained de propriedade do usuário.
+4. Defina nome e expiração apropriados para a credencial.
+5. Em `Repository access`, selecione somente o nível necessário ao seu caso: repositórios públicos, todos ou apenas repositórios escolhidos.
+6. Em `Permissions`, abra a guia `Account`.
+7. Clique em `Add permissions`.
+8. Adicione `Copilot Requests`.
+9. Gere o token.
+10. Copie e armazene o token como segredo.
+11. Confirme que o token começa com `github_pat_` quando usar o fluxo fine-grained PAT recomendado.
 
-O GitHub documenta outras formas de autenticação do Copilot SDK, incluindo OAuth e server-to-server. O adapter atual do RASAi não deve ser descrito como compatível com um método adicional apenas porque o SDK externo o suporta; a documentação do produto segue o contrato efetivamente implementado.
+#### Configurar no PowerShell
 
-Referências oficiais complementares:
+```powershell
+$env:COPILOT_GITHUB_TOKEN="<github-fine-grained-pat>"
+Test-Path Env:COPILOT_GITHUB_TOKEN
+rasai providers --provider copilot
+```
 
-- autenticação do Copilot SDK: <https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth>;
-- autenticação detalhada e tipos de token: <https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth/authenticate>;
-- criação/gestão de fine-grained PAT e permissão `copilot_requests`: <https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens>.
+Instalação manual do SDK opcional, quando o bootstrap não tiver instalado o extra:
+
+```powershell
+python -m pip install -e ".[copilot]"
+```
+
+#### Validar
+
+Use primeiro o diagnóstico seguro. Para smoke funcional:
+
+```powershell
+rasai audit https://example.com --ai-provider copilot
+```
+
+#### Falhas típicas
+
+- classic PAT `ghp_`: não suportado pelo adapter;
+- token fine-grained criado com organização como `Resource owner`: `Copilot Requests` pode não estar disponível para o fluxo documentado;
+- ausência da permissão de conta `Copilot Requests`;
+- conta sem assinatura Copilot elegível para autenticação de usuário;
+- extra Python `copilot` ausente;
+- expectativa de fallback para sessão já logada: o adapter deliberadamente usa `use_logged_in_user=False`;
+- expectativa de participação em `AI=auto`: Copilot permanece `explicit-only`.
+
+### Rotação, revogação e incidente de credencial
+
+Para qualquer provider:
+
+1. crie uma nova credencial no console oficial;
+2. atualize o secret boundary do ambiente;
+3. valide presença sem imprimir o valor;
+4. execute o diagnóstico seguro;
+5. faça smoke mínimo quando aplicável;
+6. somente depois revogue a credencial antiga, salvo incidente de segurança;
+7. em caso de vazamento suspeito, **revogue primeiro** e trate qualquer indisponibilidade temporária como contenção necessária;
+8. revise logs, histórico de commits, issues e artefatos para confirmar que o valor não ficou persistido.
+
+Uma credencial real nunca deve ser enviada em comentários de issue/PR nem colada em logs de validação compartilhados. Ao solicitar suporte, forneça somente nome da variável, provider, status HTTP/classificação, timestamp, modelo e identificadores não secretos.
 
 ## Providers SERP
 
