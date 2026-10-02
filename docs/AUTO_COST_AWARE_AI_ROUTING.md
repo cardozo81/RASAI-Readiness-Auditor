@@ -1,8 +1,8 @@
 # AUTO cost-aware AI routing
 
-**Data de referência da política de preços: 13/09/2026**  
-**Versão do catálogo de pricing de fábrica: `RASAI-PRICING-2026-09-13`**  
-**Data de referência do catálogo de modelos: 14/09/2026**
+**Data de referência da política de preços: 02/10/2026**  
+**Versão do catálogo de pricing de fábrica: `RASAI-PRICING-2026-10-02.2`**  
+**Data de referência do catálogo de modelos: 02/10/2026**
 
 Este documento define a seleção econômica usada pelo RASAi quando `AI=auto` está selecionado. O cadastro de modelos está em [`AI_MODEL_CONFIGURATION.md`](AI_MODEL_CONFIGURATION.md) e o schema comercial em [`AI_PRICING_CONFIGURATION.md`](AI_PRICING_CONFIGURATION.md).
 
@@ -47,6 +47,7 @@ O catálogo de modelos determina:
 O catálogo de pricing determina:
 
 - preço de input/cache/output;
+- condições runtime obrigatórias da tarifa, como tier, modalidade, operação e região;
 - vigência;
 - região;
 - faixas de contexto;
@@ -83,7 +84,7 @@ Para cada necessidade de IA:
 2. resolve **um modelo efetivo por provider** a partir de `RASAI_<PROVIDER>_MODEL` ou do `public_default` do catálogo;
 3. exige modelo habilitado, selecionável, vigente e `auto_eligible=true`;
 4. exige credencial/configuração válida e aplica `RASAI_AI_AUTO_EXCLUDE`;
-5. exige uma regra de pricing vigente para o modelo efetivo;
+5. deriva do adapter as condições efetivas de pricing (tier/modalidade/região/operação) e exige uma regra vigente que corresponda integralmente;
 6. remove candidatos inelegíveis pela política de saúde/quarentena;
 7. resolve reasoning efetivo e estima input/output da necessidade;
 8. calcula o custo estimado da chamada atual;
@@ -102,11 +103,11 @@ estimated_cost =
   / 1_000_000
 ```
 
-Após a chamada, quando usage nativo é suficiente, o custo observado é calculado usando a regra vigente e os tokens reportados.
+Após a chamada, quando usage nativo é suficiente, o custo observado é calculado usando a mesma regra compatível com as condições efetivas e os tokens reportados. Se o adapter estiver em endpoint/tier/modalidade não reconhecido pelo catálogo, a tentativa permanece UNPRICED; não é custo zero.
 
 ## 4. Estruturas comerciais interpretadas pelo motor
 
-O schema `1` suporta as estruturas necessárias às políticas conhecidas em 13/09/2026:
+O schema `1` suporta as estruturas necessárias às políticas conhecidas em 02/10/2026:
 
 | Estrutura | Uso |
 |---|---|
@@ -121,7 +122,7 @@ Reasoning pode ser declarado como:
 
 Toda regra possui `effective_from`; `effective_until` é opcional. Sem regra vigente, o modelo é não precificado e fica fora do AUTO econômico.
 
-## 5. Estado de pricing de fábrica - referência 13/09/2026
+## 5. Estado de pricing de fábrica - referência 02/10/2026
 
 Valores em USD por 1 milhão de tokens.
 
@@ -136,7 +137,7 @@ Valores em USD por 1 milhão de tokens.
 | MiMo `mimo-v2.6-pro` | 0,435 | 0,0036 | 0,87 | PAYG real-time; default adapter |
 | MiMo `mimo-v2.5` | 0,14 | 0,0028 | 0,28 | compatibilidade temporária até 21/10/2026 02:00 UTC |
 | MiMo `mimo-v2.5-pro` | 0,435 | 0,0036 | 0,87 | compatibilidade temporária até 21/10/2026 02:00 UTC |
-| xAI `grok-4.6` <200k | 2,00 | 0,50 | 6,00 | >=200k: 4,00 / 1,00 / 12,00 |
+| xAI `grok-4.6` global <200k | 2,00 | 0,50 | 6,00 | >=200k: 4,00 / 1,00 / 12,00; US regional usa regras próprias |
 | Qwen `qwen3.8-flash` | 0,113 | 0,014 | 0,382 | US/Virginia |
 | Qwen `qwen3.8-max` | 1,65 | 0,206 | 4,951 | US/Virginia |
 | Gemini `gemini-3.8-flash` | 0,75 | 0,075 | 3,75 | reasoning soma no output; regra até 01/01/2027 UTC |
@@ -170,6 +171,10 @@ As regras atuais são associadas à região `US_VIRGINIA`. Uma mudança de endpo
 ### Gemini
 
 A regra atual expira em `2027-01-01T00:00:00Z`. Sem regra posterior, o modelo fica não precificado e sai do AUTO econômico. `reasoning_billing=ADD_REASONING_TO_OUTPUT` informa ao motor como compor o output faturável.
+
+### Condicionamento runtime
+
+O custo só participa do ranking quando o adapter expõe condições compatíveis com uma regra do catálogo. O AUTO usa o mesmo mecanismo de matching empregado na telemetria observada. Exemplos: OpenAI fixa `service_tier=default`; MiMo declara PAYG real-time; Qwen só usa a tarifa US/Virginia no endpoint correspondente; Mistral declara `standard_only`. Endpoint/tier não reconhecido => candidato UNPRICED, preservado depois dos candidatos precificados quando ainda for elegível.
 
 ## 6. Estimativas por finalidade
 
@@ -239,7 +244,7 @@ Não existe hot reload global de catálogos dentro de um worker que execute orga
 
 ## 9. Política de revisão
 
-O pricing de fábrica tem data de referência **13/09/2026** e revisão ordinária recomendada em **13/10/2026**. O catálogo de modelos de fábrica tem data de referência **14/09/2026**.
+O pricing e o catálogo de modelos de fábrica têm data de referência **02/10/2026**. A revisão ordinária de pricing é recomendada em **02/11/2026**.
 
 Revisar imediatamente se houver mudança de preço, modelo default, disponibilidade de modelo, reasoning, região, endpoint, cache, janela horária, threshold de contexto, promoção, service tier ou divergência material entre estimativa e cobrança.
 
