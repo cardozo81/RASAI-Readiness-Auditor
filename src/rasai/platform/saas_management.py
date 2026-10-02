@@ -27,6 +27,8 @@ _ALLOWED_SCHEDULE_STATES = {"ACTIVE", "PAUSED", "DISABLED", "COMPLETED", "ERROR"
 _ALLOWED_GROUPS = {
     "project", "property", "environment", "domain", "url", "user", "provider",
     "integration", "category", "operation", "status", "model", "job", "audit", "resource",
+    "pricing_version", "pricing_context", "pricing_rule", "pricing_source",
+    "pricing_service_tier", "pricing_commercial_mode", "pricing_operation_mode", "pricing_region",
 }
 
 
@@ -665,6 +667,14 @@ class SaaSManagementMixin:
                 "job": metadata.get("job_id"),
                 "audit": item.get("audit_id"),
                 "resource": metadata.get("resource_type"),
+                "pricing_version": metadata.get("pricing_version"),
+                "pricing_context": metadata.get("pricing_context"),
+                "pricing_rule": metadata.get("pricing_rule_id"),
+                "pricing_source": metadata.get("pricing_source_reference"),
+                "pricing_service_tier": metadata.get("pricing_service_tier"),
+                "pricing_commercial_mode": metadata.get("pricing_commercial_mode"),
+                "pricing_operation_mode": metadata.get("pricing_operation_mode"),
+                "pricing_region": metadata.get("pricing_region"),
             }
             if environment_id and dimensions["environment"] != environment_id:
                 continue
@@ -687,6 +697,7 @@ class SaaSManagementMixin:
                 "cost_known_events": 0,
                 "cost_unknown_events": 0,
                 "input_tokens": 0,
+                "cached_input_tokens": 0,
                 "output_tokens": 0,
                 "reasoning_tokens": 0,
                 "total_tokens": 0,
@@ -709,7 +720,7 @@ class SaaSManagementMixin:
                 key = str(currency or "UNSPECIFIED")
                 bucket["cost_by_currency"][key] = bucket["cost_by_currency"].get(key, 0.0) + float(cost)
             metadata = event["metadata"]
-            for key in ("input_tokens", "output_tokens", "reasoning_tokens", "total_tokens", "duration_ms"):
+            for key in ("input_tokens", "cached_input_tokens", "output_tokens", "reasoning_tokens", "total_tokens", "duration_ms"):
                 value = metadata.get(key)
                 if isinstance(value, (int, float)) and not isinstance(value, bool):
                     bucket[key] += value
