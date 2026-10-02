@@ -15,8 +15,8 @@ from rasai.ai_cost_policy import (
     reasoning_output_multiplier,
     resolve_price,
 )
-from rasai.dynamic_ai_routing import DynamicProviderRoutingSession
-from rasai.m18_ai import ProviderUsage
+from rasai.dynamic_ai_routing import DynamicProviderRoutingSession, _price_auto_attempt
+from rasai.m18_ai import AttemptStatus, ProviderAttempt, ProviderUsage
 from rasai.provider_extensions import QwenProvider
 
 UTC = timezone.utc
@@ -323,3 +323,42 @@ def test_auto_places_unpriced_after_priced_even_when_unpriced_rank_is_lower() ->
     session = DynamicProviderRoutingSession((unpriced, mimo))
     ordered = session.ordered_candidates_for_need(SimpleNamespace(evidence=()), scope="SEMANTIC")
     assert [item.name for item in ordered] == ["MIMO", "UNKNOWN"]
+
+
+def test_auto_repricing_preserves_conditioned_pricing_trace() -> None:
+    at = datetime(2026, 10, 2, 18, 0, tzinfo=UTC)
+    conditions = _runtime_conditions("MISTRAL")
+    attempt = ProviderAttempt(
+        provider="MISTRAL",
+        model="mistral-small-2603",
+        reasoning_profile="PROVIDER_DEFAULT",
+        provider_rank=1,
+        attempt_index=1,
+        snapshot_id="SNP-PRICE",
+        url="https://example.com/",
+        started_at=at,
+        finished_at=at,
+        duration_ms=10,
+        status=AttemptStatus.SUCCESS,
+        usage=ProviderUsage(
+            input_tokens=1_000_000,
+            cached_input_tokens=0,
+            output_tokens=1_000_000,
+            reasoning_tokens=None,
+            total_tokens=2_000_000,
+        ),
+        pricing_runtime_conditions=tuple(sorted((key.casefold(), value.upper()) for key, value in conditions.items())),
+    )
+
+    priced = _price_auto_attempt(attempt)
+
+    assert priced.estimated_cost == pytest.approx(0.75)
+    assert priced.cost_currency == "USD"
+    assert priced.pricing_context == "STANDARD"
+    assert priced.pricing_rule_id == "mistral-small-2603-standard"
+    assert priced.pricing_source_reference
+    assert dict(priced.pricing_runtime_conditions) == {
+        "operation_mode": "REALTIME",
+        "region": "GLOBAL",
+        "service_tier": "STANDARD_ONLY",
+    }
