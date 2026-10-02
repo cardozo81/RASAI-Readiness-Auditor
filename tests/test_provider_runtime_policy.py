@@ -88,6 +88,16 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
                 )
                 self.assertEqual(none_provider.name, "NONE")
 
+    def test_ai_none_ignores_configured_mistral(self) -> None:
+        provider = build_semantic_provider(
+            "none",
+            env={
+                "MISTRAL_API_KEY": "test-key",
+                "RASAI_MISTRAL_MODEL": "mistral-small-2603",
+            },
+        )
+        self.assertEqual(provider.name, "NONE")
+
     def test_console_web_timeout_default_is_120_seconds(self) -> None:
         self.assertEqual(DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS, 120.0)
         self.assertEqual(State().web_timeout, 120.0)
