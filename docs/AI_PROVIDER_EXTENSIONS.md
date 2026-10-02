@@ -43,14 +43,14 @@ Sem override explícito, a política pública usa o menor esforço suportado pel
 
 ```text
 xAI       LOW
-Qwen      PROVIDER_DEFAULT
+Qwen      NONE
 Gemini    LOW
 Anthropic LOW
 Mistral   PROVIDER_DEFAULT
 Copilot   PROVIDER_DEFAULT
 ```
 
-Qwen, Mistral e Copilot permanecem `PROVIDER_DEFAULT` porque suas integrações atuais não expõem um controle de reasoning público equivalente aos demais adapters.
+Qwen expõe `reasoning_effort` no contrato OpenAI-compatible e o RASAi usa `NONE` como menor valor válido. Mistral e Copilot permanecem `PROVIDER_DEFAULT` porque suas integrações atuais não expõem um controle de reasoning determinístico homologado pelo RASAi.
 
 ## Evidência de smoke e qualificação
 
@@ -104,11 +104,12 @@ Variáveis:
 DASHSCOPE_API_KEY
 RASAI_QWEN_MODEL
 RASAI_QWEN_ENDPOINT
+RASAI_QWEN_REASONING_EFFORT
 ```
 
 Endpoint default: `https://dashscope-us.aliyuncs.com/compatible-mode/v1/chat/completions`.
 
-A API key precisa pertencer à região/workspace do endpoint usado.
+A API key precisa pertencer à região/workspace do endpoint usado. O default de reasoning do RASAi é `NONE`; overrides válidos são `NONE`, `MINIMAL`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH` e `MAX`, mapeados pelo contrato OpenAI-compatible do Qwen.
 
 ## Google Gemini
 
