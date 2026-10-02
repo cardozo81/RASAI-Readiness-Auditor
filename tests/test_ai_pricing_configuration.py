@@ -20,13 +20,33 @@ ROOT = Path(__file__).resolve().parents[1]
 UTC = timezone.utc
 
 
-def test_factory_catalog_is_versioned_and_referenced_to_2026_09_13() -> None:
+def _conditions(provider: str) -> dict[str, str]:
+    name = provider.upper()
+    if name == "OPENAI":
+        return {"service_tier": "DEFAULT", "operation_mode": "REALTIME", "region": "GLOBAL"}
+    if name == "DEEPSEEK":
+        return {"operation_mode": "REALTIME", "region": "GLOBAL"}
+    if name == "MIMO":
+        return {"commercial_mode": "PAYG", "operation_mode": "REALTIME", "region": "GLOBAL"}
+    if name == "XAI":
+        return {"service_tier": "DEFAULT", "operation_mode": "REALTIME", "region": "GLOBAL"}
+    if name == "QWEN":
+        return {"operation_mode": "REALTIME", "region": "US_VIRGINIA"}
+    if name in {"GEMINI", "ANTHROPIC"}:
+        return {"service_tier": "STANDARD", "operation_mode": "REALTIME", "region": "GLOBAL"}
+    if name == "MISTRAL":
+        return {"service_tier": "STANDARD_ONLY", "operation_mode": "REALTIME", "region": "GLOBAL"}
+    return {}
+
+
+
+def test_factory_catalog_is_versioned_and_referenced_to_2026_10_02() -> None:
     catalog = load_factory_pricing_catalog()
     assert catalog.metadata.schema_version == 1
-    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-09-13"
-    assert catalog.metadata.reference_date == "2026-09-13"
-    assert catalog.metadata.verified_on == "2026-09-13"
-    assert catalog.metadata.review_recommended_on == "2026-10-13"
+    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-02.2"
+    assert catalog.metadata.reference_date == "2026-10-02"
+    assert catalog.metadata.verified_on == "2026-10-02"
+    assert catalog.metadata.review_recommended_on == "2026-11-02"
 
 
 def test_factory_catalog_declares_current_commercial_models() -> None:
@@ -34,11 +54,17 @@ def test_factory_catalog_declares_current_commercial_models() -> None:
     by_key = {(item.provider, item.model): item for item in catalog.models}
     assert by_key[("OPENAI", "gpt-5.6-luna")].pricing_model == "TOKEN_CONTEXT_TIERED"
     assert by_key[("DEEPSEEK", "deepseek-v4-flash")].pricing_model == "TOKEN_TIME_WINDOW"
-    assert by_key[("MIMO", "mimo-v2.5")].pricing_model == "TOKEN_STANDARD"
+    assert by_key[("MIMO", "mimo-v2.6-flash")].pricing_model == "TOKEN_STANDARD"
+    assert by_key[("MIMO", "mimo-v2.6-pro")].pricing_model == "TOKEN_STANDARD"
     assert by_key[("XAI", "grok-4.6")].pricing_model == "TOKEN_CONTEXT_TIERED"
     assert by_key[("QWEN", "qwen3.8-flash")].region == "US_VIRGINIA"
     assert by_key[("GEMINI", "gemini-3.8-flash")].reasoning_billing == "ADD_REASONING_TO_OUTPUT"
     assert by_key[("ANTHROPIC", "claude-sonnet-5")].pricing_model == "TOKEN_STANDARD"
+    assert by_key[("MISTRAL", "mistral-small-2603")].pricing_model == "TOKEN_STANDARD"
+    mistral_rule = by_key[("MISTRAL", "mistral-small-2603")].rules[0]
+    assert mistral_rule.input_price_per_million == pytest.approx(0.15)
+    assert mistral_rule.cached_input_price_per_million == pytest.approx(0.015)
+    assert mistral_rule.output_price_per_million == pytest.approx(0.60)
 
 
 def test_time_window_and_context_thresholds_are_catalog_data() -> None:
@@ -49,6 +75,7 @@ def test_time_window_and_context_thresholds_are_catalog_data() -> None:
         "deepseek-v4-pro",
         at=datetime(2026, 9, 14, 1, 30, tzinfo=UTC),
         input_tokens=10_000,
+        runtime_conditions=_conditions("DEEPSEEK"),
     )
     off_peak = resolve_catalog_rule(
         catalog,
@@ -56,6 +83,7 @@ def test_time_window_and_context_thresholds_are_catalog_data() -> None:
         "deepseek-v4-pro",
         at=datetime(2026, 9, 12, 1, 30, tzinfo=UTC),
         input_tokens=10_000,
+        runtime_conditions=_conditions("DEEPSEEK"),
     )
     openai_long = resolve_catalog_rule(
         catalog,
@@ -63,6 +91,7 @@ def test_time_window_and_context_thresholds_are_catalog_data() -> None:
         "gpt-5.6-sol",
         at=datetime(2026, 9, 14, tzinfo=UTC),
         input_tokens=272_001,
+        runtime_conditions=_conditions("OPENAI"),
     )
     xai_long = resolve_catalog_rule(
         catalog,
@@ -70,17 +99,18 @@ def test_time_window_and_context_thresholds_are_catalog_data() -> None:
         "grok-4.6",
         at=datetime(2026, 9, 14, tzinfo=UTC),
         input_tokens=200_000,
+        runtime_conditions=_conditions("XAI"),
     )
     assert peak is not None and peak[1].context == "PEAK"
     assert off_peak is not None and off_peak[1].context == "OFF_PEAK"
     assert openai_long is not None and openai_long[1].context == "LONG_CONTEXT_GT_272K"
-    assert xai_long is not None and xai_long[1].context == "LONG_CONTEXT"
+    assert xai_long is not None and xai_long[1].context == "LONG_CONTEXT_GLOBAL"
 
 
 def test_local_user_catalog_can_change_price_without_code_change(tmp_path: Path) -> None:
     source = ROOT / "src" / "rasai" / "config" / "ai-pricing-defaults.toml"
     document = tomllib.loads(source.read_text(encoding="utf-8"))
-    target = next(item for item in document["models"] if item["provider"] == "MIMO" and item["model"] == "mimo-v2.5")
+    target = next(item for item in document["models"] if item["provider"] == "MIMO" and item["model"] == "mimo-v2.6-flash")
     target["rules"][0]["input_price_per_million"] = 9.99
 
     # tomllib has no writer; use a minimal complete SaaS-equivalent mapping to prove the
@@ -89,9 +119,10 @@ def test_local_user_catalog_can_change_price_without_code_change(tmp_path: Path)
     resolved = resolve_catalog_rule(
         catalog,
         "MIMO",
-        "mimo-v2.5",
-        at=datetime(2026, 9, 14, tzinfo=UTC),
+        "mimo-v2.6-flash",
+        at=datetime(2026, 10, 2, tzinfo=UTC),
         input_tokens=1_000,
+        runtime_conditions=_conditions("MIMO"),
     )
     assert resolved is not None
     assert resolved[1].input_price_per_million == pytest.approx(9.99)
@@ -153,7 +184,7 @@ def test_restore_factory_helper_reconstructs_editable_catalog(tmp_path: Path) ->
     target.write_text("invalid = true\n", encoding="utf-8")
     restored = restore_factory_pricing_catalog(target)
     catalog = load_pricing_catalog(path=restored)
-    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-09-13"
+    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-02.2"
     assert catalog.source == str(target.resolve())
 
 
@@ -163,3 +194,58 @@ def test_rasai_defaults_use_operator_pricing_catalog_with_factory_fallback() -> 
     parser.read(ROOT / "src" / "rasai" / "config" / "rasai-defaults.ini", encoding="utf-8")
     assert parser.get("environment", "RASAI_AI_PRICING_SOURCE") == "auto"
     assert parser.get("environment", "RASAI_AI_PRICING_FILE") == "config/ai-pricing.toml"
+
+
+def test_pricing_rule_conditions_require_matching_runtime_context() -> None:
+    document = {
+        "metadata": {
+            "schema_version": 1,
+            "catalog_version": "TEST-CONDITIONS",
+            "reference_date": "2026-10-02",
+            "verified_on": "2026-10-02",
+            "review_recommended_on": "2026-11-02",
+        },
+        "models": [{
+            "provider": "TESTAI",
+            "model": "test-1",
+            "pricing_model": "TOKEN_STANDARD",
+            "reasoning_billing": "IN_OUTPUT",
+            "region": "GLOBAL",
+            "source_reference": "https://example.com/pricing",
+            "rules": [{
+                "rule_id": "testai-standard-live",
+                "context": "STANDARD_LIVE",
+                "priority": 0,
+                "effective_from": "2026-10-02T00:00:00Z",
+                "conditions": {"service_tier": "STANDARD", "operation_mode": "REALTIME"},
+                "input_price_per_million": 1.0,
+                "cached_input_price_per_million": 0.1,
+                "output_price_per_million": 2.0,
+            }],
+        }],
+    }
+    catalog = pricing_catalog_from_mapping(document)
+    at = datetime(2026, 10, 2, 12, 0, tzinfo=UTC)
+
+    assert resolve_catalog_rule(
+        catalog, "TESTAI", "test-1", at=at, input_tokens=1_000
+    ) is None
+    assert resolve_catalog_rule(
+        catalog,
+        "TESTAI",
+        "test-1",
+        at=at,
+        input_tokens=1_000,
+        runtime_conditions={"service_tier": "OTHER", "operation_mode": "REALTIME"},
+    ) is None
+
+    resolved = resolve_catalog_rule(
+        catalog,
+        "TESTAI",
+        "test-1",
+        at=at,
+        input_tokens=1_000,
+        runtime_conditions={"service_tier": "standard", "operation_mode": "realtime"},
+    )
+    assert resolved is not None
+    assert resolved[1].rule_id == "testai-standard-live"

@@ -44,11 +44,12 @@ No console local, configure o timezone pelo item **Timezone apresentação**, pe
 |---|---|---|---|---|
 | `OPENAI_API_KEY` | sem default | credencial OpenAI não vazia | secret/env | necessária ao selecionar OpenAI |
 | `DEEPSEEK_API_KEY` | sem default | credencial DeepSeek não vazia | secret/env | necessária ao selecionar DeepSeek |
-| `MIMO_API_KEY` | sem default | chave PAYG `sk-...`; `tp-...` não é aceita pelo adapter | `sk-...` em secret/env | necessária ao selecionar MiMo |
+| `MIMO_API_KEY` | sem default | chave PAYG `sk-...`; Token Plan `tp-...`/`ttp-...` é modalidade separada do fornecedor e não é aceita pelo adapter PAYG atual | `sk-...` em secret/env | necessária ao selecionar MiMo; Token Plan requer contrato/Base URL próprios e permanece em análise na issue #180 |
 | `XAI_API_KEY` | sem default | credencial xAI não vazia | secret/env | necessária ao selecionar xAI/Grok |
 | `DASHSCOPE_API_KEY` | sem default | credencial Alibaba Model Studio não vazia | secret/env | necessária ao selecionar Qwen |
 | `GEMINI_API_KEY` | sem default | credencial Gemini não vazia | secret/env | necessária ao selecionar Gemini |
 | `ANTHROPIC_API_KEY` | sem default | credencial Anthropic não vazia | secret/env | necessária ao selecionar Anthropic/Claude |
+| `MISTRAL_API_KEY` | sem default | credencial Mistral não vazia | secret/env | necessária ao selecionar Mistral; provider explicit-only nesta entrega |
 | `COPILOT_GITHUB_TOKEN` | sem default | token de usuário `github_pat_`, `gho_` ou `ghu_`; `ghp_` não é aceito | fine-grained PAT com `Copilot Requests` | necessária ao selecionar `copilot`; provider explicit-only |
 
 A presença de uma credencial não comprova validade, saldo, quota, plano ou acesso ao modelo. Instruções de criação e links oficiais: [EXTERNAL_CREDENTIALS.md](EXTERNAL_CREDENTIALS.md).
@@ -59,11 +60,12 @@ A presença de uma credencial não comprova validade, saldo, quota, plano ou ace
 |---|---|---|---|
 | `RASAI_OPENAI_MODEL` | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `gpt-5.6-luna`; usar Sol quando qualidade justificar maior custo/latência |
 | `RASAI_DEEPSEEK_MODEL` | `deepseek-v4-flash` | `deepseek-v4-pro`, `deepseek-v4-flash` | `deepseek-v4-flash` |
-| `RASAI_MIMO_MODEL` | `mimo-v2.5` | `mimo-v2.5-pro`, `mimo-v2.5` | `mimo-v2.5` |
+| `RASAI_MIMO_MODEL` | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro apenas até 21/10/2026 02:00 UTC | `mimo-v2.6-flash` |
 | `RASAI_XAI_MODEL` | `grok-4.6` | `grok-4.6` | default |
 | `RASAI_QWEN_MODEL` | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `qwen3.8-flash` |
 | `RASAI_GEMINI_MODEL` | `gemini-3.8-flash` | `gemini-3.8-flash` | default |
 | `RASAI_ANTHROPIC_MODEL` | `claude-sonnet-5` | `claude-sonnet-5` | default |
+| `RASAI_MISTRAL_MODEL` | `mistral-small-2603` | `mistral-small-2603` | default; seleção explícita |
 | `RASAI_COPILOT_MODEL` | `auto` | `auto` | `auto` |
 
 ## 4. IA - reasoning
@@ -72,14 +74,15 @@ A presença de uma credencial não comprova validade, saldo, quota, plano ou ace
 |---|---|---|---|
 | `RASAI_OPENAI_REASONING_EFFORT` | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `NONE` |
 | `RASAI_DEEPSEEK_REASONING_EFFORT` | `NONE` | `NONE`, `LOW`, `HIGH`, `MAX` | `NONE` |
-| `RASAI_MIMO_REASONING_EFFORT` | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH` | `NONE` |
+| `RASAI_MIMO_REASONING_EFFORT` | `NONE` | `NONE`, `MINIMAL`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX`, `ULTRA` | `NONE`; valores > NONE ativam thinking sem gradação efetiva garantida pelo backend atual |
 | `RASAI_XAI_REASONING_EFFORT` | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH` | `LOW` |
-| `RASAI_QWEN_REASONING_EFFORT` | variável inexistente | Qwen usa `PROVIDER_DEFAULT` internamente | não criar variável inexistente |
+| `RASAI_QWEN_REASONING_EFFORT` | `NONE` | `NONE`, `MINIMAL`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `NONE`; menor nível aceito |
 | `RASAI_GEMINI_REASONING_EFFORT` | `LOW` | `LOW`, `MEDIUM`, `HIGH` | `LOW` |
 | `RASAI_ANTHROPIC_REASONING_EFFORT` | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `LOW` |
+| `RASAI_MISTRAL_REASONING_EFFORT` | variável inexistente | Mistral usa `PROVIDER_DEFAULT` internamente | não criar variável inexistente |
 | `RASAI_COPILOT_REASONING_EFFORT` | variável inexistente | Copilot usa `PROVIDER_DEFAULT` via SDK | não criar variável inexistente |
 
-Aumentar reasoning pode elevar latência, tokens e custo. `AI=auto` consulta o registry, considera somente providers elegíveis/configurados e aplica a política de roteamento vigente. Consulte [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
+Aumentar reasoning pode elevar latência, tokens e custo. O default RASAi de reasoning é uma política de eficiência: usa o menor nível válido aceito pelo modelo/API; `PROVIDER_DEFAULT` é reservado a integrações em que o RASAi não possui controle determinístico homologado. `AI=auto` consulta o registry, considera somente providers elegíveis/configurados e aplica a política de roteamento vigente. Consulte [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
 
 ## 5. IA - endpoints avançados
 
@@ -90,7 +93,7 @@ Aumentar reasoning pode elevar latência, tokens e custo. `AI=auto` consulta o r
 | `RASAI_GEMINI_ENDPOINT` | `https://generativelanguage.googleapis.com/v1beta/interactions` | URL absoluta HTTP(S) | manter HTTPS default | endpoint do adapter Gemini |
 | `RASAI_ANTHROPIC_ENDPOINT` | `https://api.anthropic.com/v1/messages` | URL absoluta HTTP(S) | manter HTTPS default | endpoint do adapter Anthropic |
 
-Não altere endpoints no uso normal. Override incorreto pode causar falha, cobrança inesperada ou envio de dados a destino errado. Não use HTTP para providers externos. GitHub Copilot usa o SDK oficial e não possui endpoint override no contrato atual.
+Não altere endpoints no uso normal. Override incorreto pode causar falha, cobrança inesperada ou envio de dados a destino errado. Não use HTTP para providers externos. Mistral usa endpoint global fixo `https://api.mistral.ai/v1/chat/completions` com `service_tier=standard_only` e não possui `RASAI_MISTRAL_ENDPOINT` nesta entrega. GitHub Copilot usa o SDK oficial e também não possui endpoint override no contrato atual.
 
 ## 6. IA - contexto editorial / YMYL
 
@@ -386,6 +389,7 @@ XAI_API_KEY
 DASHSCOPE_API_KEY
 GEMINI_API_KEY
 ANTHROPIC_API_KEY
+MISTRAL_API_KEY
 COPILOT_GITHUB_TOKEN
 RASAI_PAGESPEED_API_KEY
 RASAI_CRUX_API_KEY

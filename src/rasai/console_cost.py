@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import sqlite3
 
-from rasai.ai_cost_policy import PRICING_VERSION, resolve_price
+from rasai.ai_cost_policy import PRICING_VERSION, resolve_price, runtime_pricing_conditions
 from rasai.ai_resilience import MAX_PROVIDER_ATTEMPTS_PER_CONTEXT, max_attempts_for_auto
 from rasai.cli import validate_target
 from rasai.console_config import State, provider_capabilities
@@ -102,11 +102,37 @@ def _selected_provider_models(state: State) -> tuple[tuple[str, str], ...]:
 
 
 def _current_price(provider: str, model: str):
+    registration = get_provider_registration(provider)
+    if registration is None or registration.provider_name == "COPILOT":
+        return None
+
+    # The console preview must use the same endpoint/tier/mode contract as the
+    # concrete adapter. Building the adapter is side-effect free; no network call
+    # occurs and a placeholder credential is never persisted or displayed.
+    try:
+        from rasai.provider_runtime_policy import _build_registered_provider
+
+        effective_env = dict(os.environ)
+        effective_env[registration.model_env] = model
+        effective_env.setdefault(
+            registration.key_env,
+            "sk-pricing-preview" if registration.provider_name == "MIMO" else "pricing-preview",
+        )
+        concrete = _build_registered_provider(
+            registration.id,
+            model=model,
+            effective_env=effective_env,
+        )
+        conditions = runtime_pricing_conditions(concrete)
+    except (TypeError, ValueError):
+        return None
+
     return resolve_price(
         provider,
         model,
         at=datetime.now(timezone.utc),
         input_tokens=10_000,
+        runtime_conditions=conditions,
     )
 
 

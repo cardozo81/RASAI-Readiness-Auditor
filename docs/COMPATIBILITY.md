@@ -80,20 +80,23 @@ xAI/Grok
 Qwen
 Gemini
 Anthropic/Claude
+Mistral AI
 GitHub Copilot
 ```
 
 `AI=auto` não usa uma cadeia fixa. O pool é derivado do `provider_registry`: entram somente providers com `auto_eligible=true`, credencial/configuração válidas e não excluídos por `RASAI_AI_AUTO_EXCLUDE`.
 
-GitHub Copilot é deliberadamente `explicit-only` e não participa de `AI=auto`, mesmo quando `COPILOT_GITHUB_TOKEN` está configurado. A integração Copilot usa o SDK oficial e exige uma assinatura Copilot elegível; o extra Python é declarado em `pyproject.toml` e pode ser instalado com `python -m pip install -e ".[copilot]"` quando o bootstrap automático não for usado.
+Mistral é `explicit-only` nesta entrega e não participa de `AI=auto` antes da homologação humana; o adapter usa `mistral-small-2603`, Chat Completions no endpoint global e `service_tier=standard_only`. GitHub Copilot também é deliberadamente `explicit-only` e não participa de `AI=auto`, mesmo quando `COPILOT_GITHUB_TOKEN` está configurado. A integração Copilot usa o SDK oficial e exige uma assinatura Copilot elegível; o extra Python é declarado em `pyproject.toml` e pode ser instalado com `python -m pip install -e ".[copilot]"` quando o bootstrap automático não for usado.
 
-Cada provider pode ter diferenças de plano, modelo, endpoint, structured output, reasoning e cobrança. Uma chave/token válida para um produto não deve ser presumida válida para outro endpoint/plano.
+O RASAi documenta somente as combinações de credencial, modelo, endpoint, structured output e reasoning que pertencem ao contrato atual de cada adapter. A existência de outros planos ou modalidades no fornecedor não implica compatibilidade; variantes não implementadas/homologadas são rastreadas na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 Referências: [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md), [PROVIDER_SETUP.md](PROVIDER_SETUP.md) e [AI_GUIDE.md](AI_GUIDE.md).
 
 ## MiMo
 
-O adapter PAYG atual exige chave compatível `sk-...`. Token Plan `tp-...` não é intercambiável com o endpoint PAYG.
+O adapter atual continua compatível com o endpoint OpenAI Responses da Xiaomi e com a credencial PAYG `sk-...`. A família vigente no RASAi é `mimo-v2.6-pro` / `mimo-v2.6-flash`; `mimo-v2.5` e `mimo-v2.5-pro` permanecem selecionáveis somente até 21/10/2026 02:00 UTC.
+
+A migração V2.6 não exige novo adapter nem nova credencial. Token Plan `tp-...`, Batch, UltraSpeed, web search, tools e multimodal não são configurações suportadas pelo contrato atual. A migração é rastreada na [issue #183](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/183); modalidades adicionais permanecem na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 ## Web Performance
 

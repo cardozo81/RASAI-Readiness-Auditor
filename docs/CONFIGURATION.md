@@ -75,6 +75,7 @@ xai
 qwen
 gemini
 anthropic
+mistral
 copilot
 ```
 
@@ -88,7 +89,9 @@ github-copilot -> copilot
 
 A lista normativa vem do `provider_registry`; documentação e UIs devem projetar esse catálogo em vez de manter allowlists independentes.
 
-GitHub Copilot usa o SDK oficial, `COPILOT_GITHUB_TOKEN` e modelo público `auto`. É deliberadamente `explicit-only`: estar configurado não o inclui em `AI=auto`. Instalação manual do transporte: `python -m pip install -e ".[copilot]"`.
+Mistral usa `MISTRAL_API_KEY`, modelo público `mistral-small-2603` e endpoint global Standard fixo. Nesta entrega é `explicit-only`: estar configurado não o inclui em `AI=auto`.
+
+GitHub Copilot usa o SDK oficial, `COPILOT_GITHUB_TOKEN` e modelo público `auto`. Também é deliberadamente `explicit-only`: estar configurado não o inclui em `AI=auto`. Instalação manual do transporte: `python -m pip install -e ".[copilot]"`.
 
 ### `AUTO`
 
@@ -109,7 +112,7 @@ O coordenador:
 
 A ordem é recalculada a cada necessidade e pode mudar por horário, tamanho do request, modelo, reasoning, cache observado ou faixa de contexto. O runtime não troca silenciosamente para Batch, Flex ou outro service tier assíncrono somente para obter desconto.
 
-Excluir um provider de `AUTO` não remove sua credencial nem impede seleção explícita posterior. Providers `explicit-only`, atualmente GitHub Copilot, ficam fora do pool por contrato e não precisam ser excluídos manualmente.
+Excluir um provider de `AUTO` não remove sua credencial nem impede seleção explícita posterior. Providers `explicit-only`, atualmente Mistral durante a homologação inicial e GitHub Copilot, ficam fora do pool por contrato e não precisam ser excluídos manualmente.
 
 Preços, janelas tarifárias, timezone, heurísticas de tokens e política de revisão do catálogo estão em [`AUTO_COST_AWARE_AI_ROUTING.md`](AUTO_COST_AWARE_AI_ROUTING.md).
 
@@ -119,14 +122,17 @@ Preços, janelas tarifárias, timezone, heurísticas de tokens e política de re
 |---|---|---|---|---|
 | OpenAI | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `NONE` | default público; elevar capacidade deliberadamente |
 | DeepSeek | `deepseek-v4-flash` | `deepseek-v4-pro`, `deepseek-v4-flash` | `NONE` | default público |
-| MiMo | `mimo-v2.5` | `mimo-v2.5-pro`, `mimo-v2.5` | `NONE` | default público |
+| MiMo | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro disponíveis temporariamente até 21/10/2026 02:00 UTC | `NONE` | default público eficiente |
 | xAI | `grok-4.6` | `grok-4.6` | `LOW` | default público |
-| Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `PROVIDER_DEFAULT` | default público |
+| Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `NONE` | menor effort aceito; elevar deliberadamente |
 | Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | `LOW` | default público |
 | Anthropic | `claude-sonnet-5` | `claude-sonnet-5` | `LOW` | default público |
+| Mistral | `mistral-small-2603` | `mistral-small-2603` | `PROVIDER_DEFAULT` | seleção explícita / piloto; fora do AUTO |
 | GitHub Copilot | `auto` | `auto` | `PROVIDER_DEFAULT` | deixar SDK/assinatura resolver o modelo; seleção explícita |
 
 Os valores permitidos de reasoning são publicados em `ENVIRONMENT_VARIABLES.md` e `PROVIDER_REGISTRY.md`.
+
+Política de default de reasoning: o RASAi usa o **menor nível válido que o modelo/API aceita**. Quando o provider permite desligar reasoning, o default é `NONE`; quando não permite, usa-se o menor effort disponível, como `LOW`; quando o adapter/modelo não expõe controle determinístico, permanece `PROVIDER_DEFAULT`. Isso é uma política RASAi de custo/eficiência e não uma afirmação sobre o default nativo do fornecedor.
 
 ### Timeout de IA
 

@@ -22,6 +22,7 @@ _ADAPTER_TYPES = {
     "QWEN": "OPENAI_COMPATIBLE_CHAT",
     "GEMINI": "GEMINI_INTERACTIONS",
     "ANTHROPIC": "ANTHROPIC_MESSAGES",
+    "MISTRAL": "MISTRAL_CHAT_COMPLETIONS",
     "COPILOT": "GITHUB_COPILOT_SDK",
 }
 
@@ -264,9 +265,9 @@ def publish_pricing_catalog(
                            catalog_version,provider_code,model_code,pricing_model,reasoning_billing,
                            region,currency,source_reference,rule_id,context,priority,effective_from,
                            effective_until,input_tokens_gte,input_tokens_gt,input_tokens_lte,input_tokens_lt,
-                           weekdays_utc_json,time_windows_utc_json,input_price_per_million,
+                           weekdays_utc_json,time_windows_utc_json,conditions_json,input_price_per_million,
                            cached_input_price_per_million,output_price_per_million
-                       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (
                         version,
                         policy.provider,
@@ -287,6 +288,7 @@ def publish_pricing_catalog(
                         rule.input_tokens_lt,
                         json.dumps(rule.weekdays_utc),
                         json.dumps(rule.time_windows_utc),
+                        json.dumps(dict(rule.conditions), sort_keys=True, separators=(",", ":")),
                         rule.input_price_per_million,
                         rule.cached_input_price_per_million,
                         rule.output_price_per_million,

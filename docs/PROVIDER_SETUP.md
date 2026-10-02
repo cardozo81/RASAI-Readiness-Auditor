@@ -49,12 +49,71 @@ A lista de reasoning exibida pelo comando é o domínio aceito pelo runtime para
 |---|---|---|---|---|---|
 | `openai` | OpenAI | `OPENAI_API_KEY` | `gpt-5.6-luna` | <https://platform.openai.com/api-keys> | API é contratada separadamente de planos do ChatGPT. |
 | `deepseek` | DeepSeek | `DEEPSEEK_API_KEY` | `deepseek-v4-flash` | <https://platform.deepseek.com/api_keys> | chave da plataforma/API DeepSeek |
-| `mimo` | Xiaomi MiMo | `MIMO_API_KEY` | `mimo-v2.5` | <https://mimo.mi.com/> | adapter exige chave PAYG `sk-...`; `tp-...` não é aceita |
+| `mimo` | Xiaomi MiMo | `MIMO_API_KEY` | `mimo-v2.6-flash` | <https://mimo.mi.com/> | PAYG `sk-...`; v2.5/pro mantidos temporariamente por compatibilidade até 21/10/2026 02:00 UTC |
 | `xai` / `grok` | xAI / Grok | `XAI_API_KEY` | `grok-4.6` | <https://console.x.ai/> | API key xAI |
 | `qwen` | Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | `qwen3.8-flash` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | região da key e endpoint devem ser coerentes |
 | `gemini` | Google Gemini | `GEMINI_API_KEY` | `gemini-3.8-flash` | <https://aistudio.google.com/apikey> | Gemini API key |
 | `anthropic` / `claude` | Anthropic Claude | `ANTHROPIC_API_KEY` | `claude-sonnet-5` | <https://console.anthropic.com/> | Anthropic API key |
+| `mistral` | Mistral AI | `MISTRAL_API_KEY` | `mistral-small-2603` | <https://console.mistral.ai/api-keys/> | explicit-only durante a homologação inicial; endpoint global Standard fixo |
 | `copilot` / `github-copilot` | GitHub Copilot | `COPILOT_GITHUB_TOKEN` | `auto` | <https://github.com/settings/personal-access-tokens/new> | usa assinatura Copilot elegível; não entra em `AI=auto` |
+
+### Xiaomi MiMo - migração V2.6
+
+O RASAi continua usando o mesmo serviço PAYG e o mesmo endpoint Responses. A mudança oficial é de **modelo**, não de adapter:
+
+- default público: `mimo-v2.6-flash`;
+- default do adapter: `mimo-v2.6-pro`;
+- `mimo-v2.5` e `mimo-v2.5-pro`: somente compatibilidade temporária até 21/10/2026 02:00 UTC;
+- reasoning default RASAi: `NONE`;
+- Token Plan (`tp-...`/`ttp-...`) é uma modalidade separada válida do fornecedor, com Base URL própria, mas não é opção do contrato atual do RASAi. Batch, UltraSpeed, tools, web search e multimodal também permanecem fora do contrato atual.
+
+A migração é rastreada na [issue #183](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/183).
+
+### Passo a passo detalhado para obtenção das credenciais
+
+A tabela acima é a referência rápida. O procedimento canônico, com pré-requisitos, criação da credencial, permissões, configuração segura, validação sem exposição do segredo, smoke e falhas comuns, está centralizado em [EXTERNAL_CREDENTIALS.md](EXTERNAL_CREDENTIALS.md):
+
+- [OpenAI](EXTERNAL_CREDENTIALS.md#openai);
+- [DeepSeek](EXTERNAL_CREDENTIALS.md#deepseek);
+- [Xiaomi MiMo](EXTERNAL_CREDENTIALS.md#xiaomi-mimo);
+- [xAI / Grok](EXTERNAL_CREDENTIALS.md#xai--grok);
+- [Alibaba Qwen / Model Studio](EXTERNAL_CREDENTIALS.md#alibaba-qwen--model-studio);
+- [Google Gemini](EXTERNAL_CREDENTIALS.md#google-gemini);
+- [Anthropic Claude](EXTERNAL_CREDENTIALS.md#anthropic-claude);
+- [Mistral AI](EXTERNAL_CREDENTIALS.md#mistral-ai);
+- [GitHub Copilot](EXTERNAL_CREDENTIALS.md#github-copilot).
+
+Regra de segurança: a documentação mostra nomes de variáveis e placeholders, nunca valores reais. `Test-Path Env:<VAR>` confirma apenas presença; validade/autorização deve ser verificada pelo diagnóstico seguro do RASAi antes de um smoke que possa consumir quota/custo.
+
+**Escopo:** este guia descreve somente modalidades efetivamente consumidas pelo RASAi. Capacidades, planos, endpoints, tiers ou métodos de autenticação oferecidos pelos fornecedores mas ainda não implementados/homologados não são opções do produto. A análise dessas variantes está rastreada na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
+
+### Mistral AI
+
+Configuração mínima:
+
+```powershell
+$env:MISTRAL_API_KEY="<mistral-api-key>"
+rasai audit https://example.com --ai-provider mistral --ai-model mistral-small-2603
+```
+
+Contrato inicial:
+
+- modelo de fábrica: `mistral-small-2603`;
+- endpoint fixo: `https://api.mistral.ai/v1/chat/completions`;
+- autenticação Bearer com `MISTRAL_API_KEY`;
+- Structured Outputs por JSON Schema, seguidos da validação local do RASAi;
+- `service_tier=standard_only`;
+- sem `RASAI_MISTRAL_ENDPOINT` nesta etapa;
+- sem participação em `AI=auto` até homologação humana posterior.
+
+A integração não habilita tools, web search, agents ou connectors da Mistral nesta entrega. Essas capacidades não fazem parte do contrato atual do RASAi; eventual avaliação futura está rastreada na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180). O adapter reutiliza o mesmo boundary evidence-bound, retry, telemetria e secret-safety dos providers semânticos existentes.
+
+Documentação oficial:
+
+- criação da API key: <https://docs.mistral.ai/getting-started/quickstarts/studio/activate-and-generate-api-key>
+- primeira chamada: <https://docs.mistral.ai/getting-started/quickstarts/developer/first-api-request>
+- modelo Mistral Small 4: <https://docs.mistral.ai/models/mistral-small-4-0-26-03>
+- pricing: <https://docs.mistral.ai/inference/pricing>
 
 ### GitHub Copilot
 
@@ -194,10 +253,11 @@ Composição SERP:
 src/rasai/search_intelligence/runtime.py
 ```
 
-Integração Copilot:
+Integrações de IA adicionais:
 
 ```text
-src/rasai/copilot_provider.py
+src/rasai/provider_extensions.py   # inclui Mistral
+src/rasai/copilot_provider.py      # Copilot
 ```
 
 Documentos relacionados:

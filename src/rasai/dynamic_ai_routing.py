@@ -21,8 +21,8 @@ from rasai.ai_cost_policy import (
     PRICING_REVIEW_RECOMMENDED_ON,
     PRICING_VERSION,
     estimate_candidate_cost,
-    estimate_observed_cost,
     pricing_review_due,
+    resolve_observed_cost,
 )
 from rasai.ai_exchange_log import AiExchangeRecorder, instrument_provider_transport
 from rasai.content_context import ContentAnalysisContext
@@ -591,19 +591,28 @@ def _reactivate(provider: Any) -> None:
 
 
 def _price_auto_attempt(attempt: ProviderAttempt) -> ProviderAttempt:
-    estimated, currency, version = estimate_observed_cost(
+    application = resolve_observed_cost(
         attempt.provider,
         attempt.model or "",
         attempt.usage,
         attempt.finished_at,
+        runtime_conditions=dict(attempt.pricing_runtime_conditions),
     )
-    if estimated is None:
-        return attempt
+    if application.estimated_cost is None:
+        return replace(
+            attempt,
+            pricing_version=application.pricing_version,
+            pricing_runtime_conditions=application.runtime_conditions,
+        )
     return replace(
         attempt,
-        estimated_cost=estimated,
-        cost_currency=currency,
-        pricing_version=version,
+        estimated_cost=application.estimated_cost,
+        cost_currency=application.currency,
+        pricing_version=application.pricing_version,
+        pricing_context=application.pricing_context,
+        pricing_rule_id=application.pricing_rule_id,
+        pricing_source_reference=application.pricing_source_reference,
+        pricing_runtime_conditions=application.runtime_conditions,
     )
 
 
@@ -620,6 +629,9 @@ def _cost_estimate_dict(item: CandidateCostEstimate) -> dict[str, Any]:
         "currency": item.currency,
         "pricing_context": item.pricing_context,
         "pricing_version": item.pricing_version,
+        "pricing_rule_id": item.pricing_rule_id,
+        "pricing_source_reference": item.pricing_source_reference,
+        "pricing_runtime_conditions": dict(item.pricing_runtime_conditions),
         "basis": item.basis,
     }
 

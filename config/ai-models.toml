@@ -10,10 +10,10 @@
 
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-MODELS-2026-09-14"
-reference_date = "2026-09-14"
-verified_on = "2026-09-14"
-review_recommended_on = "2026-10-14"
+catalog_version = "RASAI-MODELS-2026-10-02.1"
+reference_date = "2026-10-02"
+verified_on = "2026-10-02"
+review_recommended_on = "2026-11-02"
 
 [[models]]
 provider = "OPENAI"
@@ -107,7 +107,7 @@ source_reference = "https://api-docs.deepseek.com/"
 
 [[models]]
 provider = "MIMO"
-model = "mimo-v2.5-pro"
+model = "mimo-v2.6-pro"
 enabled = true
 selectable = true
 adapter_default = true
@@ -118,14 +118,14 @@ rasai_class = "PROVISIONAL-B+"
 rank = 4
 recommended_depth = "THINKING_ENABLED"
 recommended_use = "alternativa forte"
-reasoning_values = ["NONE", "LOW", "MEDIUM", "HIGH"]
+reasoning_values = ["NONE", "MINIMAL", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX", "ULTRA"]
 default_reasoning = "NONE"
 capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
-source_reference = "https://mimo.mi.com/docs/en-US/quick-start/faq/api-integration"
+source_reference = "https://mimo.mi.com/models/en-US/mimo-v2.6-pro"
 
 [[models]]
 provider = "MIMO"
-model = "mimo-v2.5"
+model = "mimo-v2.6-flash"
 enabled = true
 selectable = true
 adapter_default = false
@@ -136,10 +136,48 @@ rasai_class = "PROVISIONAL-B"
 rank = 7
 recommended_depth = "THINKING_ENABLED"
 recommended_use = "volume/multimodal"
+reasoning_values = ["NONE", "MINIMAL", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX", "ULTRA"]
+default_reasoning = "NONE"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+source_reference = "https://mimo.mi.com/models/en-US/mimo-v2.6-flash"
+
+[[models]]
+provider = "MIMO"
+model = "mimo-v2.5-pro"
+enabled = true
+selectable = true
+adapter_default = false
+public_default = false
+auto_eligible = false
+qualification = "PROVISIONAL"
+rasai_class = "PROVISIONAL-B+"
+rank = 4
+recommended_depth = "THINKING_ENABLED"
+recommended_use = "compatibilidade temporária até retirada oficial"
 reasoning_values = ["NONE", "LOW", "MEDIUM", "HIGH"]
 default_reasoning = "NONE"
 capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
-source_reference = "https://mimo.mi.com/docs/en-US/quick-start/faq/api-integration"
+effective_until = "2026-10-21T02:00:00Z"
+source_reference = "https://mimo.mi.com/docs/en-US/updates/deprecate"
+
+[[models]]
+provider = "MIMO"
+model = "mimo-v2.5"
+enabled = true
+selectable = true
+adapter_default = false
+public_default = false
+auto_eligible = false
+qualification = "PROVISIONAL"
+rasai_class = "PROVISIONAL-B"
+rank = 7
+recommended_depth = "THINKING_ENABLED"
+recommended_use = "compatibilidade temporária até retirada oficial"
+reasoning_values = ["NONE", "LOW", "MEDIUM", "HIGH"]
+default_reasoning = "NONE"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+effective_until = "2026-10-21T02:00:00Z"
+source_reference = "https://mimo.mi.com/docs/en-US/updates/deprecate"
 
 [[models]]
 provider = "XAI"
@@ -170,12 +208,12 @@ auto_eligible = true
 qualification = "PROVISIONAL"
 rasai_class = "PROVISIONAL-A"
 rank = 102
-recommended_depth = "PROVIDER_DEFAULT"
+recommended_depth = "XHIGH"
 recommended_use = "qualidade"
-reasoning_values = ["PROVIDER_DEFAULT"]
-default_reasoning = "PROVIDER_DEFAULT"
-capabilities = ["STRUCTURED_OUTPUT", "CACHED_INPUT"]
-source_reference = "https://www.alibabacloud.com/help/en/model-studio/"
+reasoning_values = ["NONE", "MINIMAL", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"]
+default_reasoning = "NONE"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+source_reference = "https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-responses"
 
 [[models]]
 provider = "QWEN"
@@ -188,12 +226,12 @@ auto_eligible = true
 qualification = "PROVISIONAL"
 rasai_class = "PROVISIONAL-A-"
 rank = 103
-recommended_depth = "PROVIDER_DEFAULT"
+recommended_depth = "XHIGH"
 recommended_use = "volume/custo"
-reasoning_values = ["PROVIDER_DEFAULT"]
-default_reasoning = "PROVIDER_DEFAULT"
-capabilities = ["STRUCTURED_OUTPUT", "CACHED_INPUT"]
-source_reference = "https://www.alibabacloud.com/help/en/model-studio/"
+reasoning_values = ["NONE", "MINIMAL", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"]
+default_reasoning = "NONE"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+source_reference = "https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-responses"
 
 [[models]]
 provider = "GEMINI"
@@ -230,6 +268,25 @@ reasoning_values = ["LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"]
 default_reasoning = "LOW"
 capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
 source_reference = "https://docs.anthropic.com/"
+
+
+[[models]]
+provider = "MISTRAL"
+model = "mistral-small-2603"
+enabled = true
+selectable = true
+adapter_default = true
+public_default = true
+auto_eligible = false
+qualification = "PROVISIONAL"
+rasai_class = "PROVISIONAL"
+rank = 106
+recommended_depth = "PROVIDER_DEFAULT"
+recommended_use = "seleção explícita / piloto"
+reasoning_values = ["PROVIDER_DEFAULT"]
+default_reasoning = "PROVIDER_DEFAULT"
+capabilities = ["STRUCTURED_OUTPUT", "CACHED_INPUT"]
+source_reference = "https://docs.mistral.ai/models/mistral-small-4-0-26-03"
 
 [[models]]
 provider = "COPILOT"

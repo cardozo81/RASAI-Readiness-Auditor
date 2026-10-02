@@ -32,6 +32,8 @@ A página de IA e integrações apresenta, a partir da telemetria persistida:
 - estado da tentativa;
 - tokens de entrada, cache, saída e raciocínio quando fornecidos;
 - custo individual e moeda quando houver preço persistido;
+- pricing rule aplicada (`pricing_rule_id`), contexto, versão e fonte oficial quando houver custo resolvido;
+- condições runtime usadas no matching da tarifa (tier/modalidade/operação/região), sem segredo;
 - roteamento, fallback e motivo técnico;
 - request e response sanitizados quando disponíveis;
 - custo observado total;
@@ -50,7 +52,7 @@ Mapeamentos públicos vigentes incluem:
 - Análise Direcionada -> página `directed-analysis.html`;
 - demais finalidades -> contexto funcional explicitado na própria linha da tentativa.
 
-Quando uma tentativa não possui telemetria suficiente para custo, o relatório mantém a tentativa e exibe **Não precificado**; ausência de preço não é convertida em custo zero. Quando o custo persistido é explicitamente `0`, moeda e valor são exibidos em cinza claro e, na mesma tentativa, tokens de entrada/saída recebem o mesmo tratamento visual secundário. `reasoning_tokens`, quando presentes, são subconjunto dos tokens de saída e não são somados novamente ao total.
+Quando uma tentativa não possui telemetria suficiente ou nenhuma regra corresponde às condições runtime efetivas, o relatório mantém a tentativa e exibe **Não precificado**; ausência de preço não é convertida em custo zero. A persistência conserva a regra, fonte e condições aplicadas quando a tarifa foi resolvida, permitindo reconstrução posterior sem reinterpretar a execução por preços correntes. Quando o custo persistido é explicitamente `0`, moeda e valor são exibidos em cinza claro e, na mesma tentativa, tokens de entrada/saída recebem o mesmo tratamento visual secundário. `reasoning_tokens`, quando presentes, são subconjunto dos tokens de saída e não são somados novamente ao total.
 
 A regeneração do `report-catalog/` apenas reprojeta os dados persistidos. Ela não cria chamadas de IA adicionais para preencher a página.
 
@@ -89,9 +91,9 @@ O enriquecimento é idempotente: regerar/finalizar o mini-site substitui o bloco
 
 ## Provider-neutral
 
-O renderer não mantém uma allowlist visual de providers. Provider e modelo são projetados a partir da telemetria persistida. Assim, OpenAI, DeepSeek, MiMo, xAI, Qwen, Gemini, Anthropic, GitHub Copilot e futuros providers compatíveis com o registry usam a mesma superfície sem exigir uma variante específica do HTML.
+O renderer não mantém uma allowlist visual de providers. Provider e modelo são projetados a partir da telemetria persistida. Assim, OpenAI, DeepSeek, MiMo, xAI, Qwen, Gemini, Anthropic, Mistral, GitHub Copilot e futuros providers compatíveis com o registry usam a mesma superfície sem exigir uma variante específica do HTML.
 
-GitHub Copilot é `explicit-only`; quando aparece no report, isso representa seleção explícita. Ele não deve aparecer como candidato/tentativa do pool `AI=auto`.
+Mistral é `explicit-only` nesta entrega; quando aparece no report, isso representa seleção explícita e não uma escolha do pool `AI=auto`. GitHub Copilot também é `explicit-only` e segue a mesma regra de não aparecer como candidato/tentativa do AUTO.
 
 ## Log de exchanges
 
@@ -105,6 +107,20 @@ O conteúdo dessa tabela pertence à telemetria técnica. Ele não altera regras
 
 Quando `AI=auto`, o relatório também apresenta o estado de saúde observado de cada provider elegível durante a execução: tentativas, sucessos, falhas temporárias, falhas terminais, elegibilidade final e motivo de exclusão quando aplicável.
 
-O conjunto AUTO é derivado do `provider_registry`; não existe cadeia fixa documentada pelo report. Providers `explicit-only`, atualmente GitHub Copilot, permanecem fora desse pool.
+O conjunto AUTO é derivado do `provider_registry`; não existe cadeia fixa documentada pelo report. Providers `explicit-only`, atualmente Mistral durante a homologação inicial e GitHub Copilot, permanecem fora desse pool.
 
 A política completa está em [`AI_RUNTIME_ORCHESTRATION.md`](AI_RUNTIME_ORCHESTRATION.md) e o catálogo canônico em [`PROVIDER_REGISTRY.md`](PROVIDER_REGISTRY.md).
+
+
+### Trilha de pricing por tentativa
+
+Quando uma tarifa é resolvida, cada tentativa preserva no SQLite:
+- `pricing_version`;
+- `pricing_context`;
+- `pricing_rule_id`;
+- `pricing_source_reference`;
+- `pricing_runtime_conditions` em JSON canônico;
+- `estimated_cost` e `cost_currency`.
+
+Esses campos permitem reconstruir por que uma tarifa foi aplicada. Se as condições efetivas do provider não corresponderem a nenhuma regra vigente, o custo permanece ausente/UNPRICED; o relatório não deve inferir preço de outra região, tier ou modalidade.
+

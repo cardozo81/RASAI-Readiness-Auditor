@@ -52,6 +52,7 @@ _REASONING_OUTPUT_MULTIPLIER: dict[str, float] = {
 class PricingRule:
     provider: str
     model: str
+    rule_id: str
     input_price_per_million: float
     cached_input_price_per_million: float
     output_price_per_million: float
@@ -60,6 +61,7 @@ class PricingRule:
     effective_from: str
     effective_until: str | None = None
     pricing_context: str = "STANDARD"
+    conditions: tuple[tuple[str, str], ...] = ()
     pricing_version: str = PRICING_VERSION
 
 
@@ -67,12 +69,14 @@ class PricingRule:
 class ResolvedPrice:
     provider: str
     model: str
+    rule_id: str
     input_price_per_million: float
     cached_input_price_per_million: float
     output_price_per_million: float
     currency: str
     source_reference: str
     pricing_context: str
+    runtime_conditions: tuple[tuple[str, str], ...] = ()
     pricing_version: str = PRICING_VERSION
 
 
@@ -90,6 +94,48 @@ class CandidateCostEstimate:
     pricing_context: str | None
     pricing_version: str = PRICING_VERSION
     basis: str = "STATIC_SCOPE"
+    pricing_rule_id: str | None = None
+    pricing_source_reference: str | None = None
+    pricing_runtime_conditions: tuple[tuple[str, str], ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class PricingApplication:
+    estimated_cost: float | None
+    currency: str | None
+    pricing_version: str
+    pricing_context: str | None = None
+    pricing_rule_id: str | None = None
+    pricing_source_reference: str | None = None
+    runtime_conditions: tuple[tuple[str, str], ...] = ()
+
+
+def _normalize_runtime_conditions(
+    conditions: Mapping[str, Any] | None,
+) -> tuple[tuple[str, str], ...]:
+    if not conditions:
+        return ()
+    normalized = []
+    for raw_key, raw_value in conditions.items():
+        key = str(raw_key or "").strip().casefold()
+        value = str(raw_value or "").strip().upper()
+        if key and value:
+            normalized.append((key, value))
+    return tuple(sorted(normalized))
+
+
+def runtime_pricing_conditions(provider: Any) -> dict[str, str]:
+    target = provider
+    seen: set[int] = set()
+    while target is not None and id(target) not in seen:
+        seen.add(id(target))
+        resolver = getattr(target, "pricing_runtime_conditions", None)
+        if callable(resolver):
+            raw = resolver()
+            if isinstance(raw, Mapping):
+                return dict(_normalize_runtime_conditions(raw))
+        target = getattr(target, "base", None)
+    return {}
 
 
 def _flatten_catalog(catalog: PricingCatalog) -> tuple[PricingRule, ...]:
@@ -99,6 +145,7 @@ def _flatten_catalog(catalog: PricingCatalog) -> tuple[PricingRule, ...]:
             rows.append(PricingRule(
                 provider=policy.provider,
                 model=policy.model,
+                rule_id=rule.rule_id,
                 input_price_per_million=rule.input_price_per_million,
                 cached_input_price_per_million=rule.cached_input_price_per_million,
                 output_price_per_million=rule.output_price_per_million,
@@ -107,6 +154,7 @@ def _flatten_catalog(catalog: PricingCatalog) -> tuple[PricingRule, ...]:
                 effective_from=rule.effective_from,
                 effective_until=rule.effective_until,
                 pricing_context=rule.context,
+                conditions=rule.conditions,
                 pricing_version=catalog.metadata.catalog_version,
             ))
     return tuple(rows)
@@ -141,17 +189,28 @@ def pricing_context(provider: str, at: datetime, *, input_tokens: int = 0) -> st
     policies = [item for item in _EFFECTIVE_CATALOG.models if item.provider == provider_name]
     if not policies:
         return "STANDARD"
+    representative_conditions = (
+        dict(policies[0].rules[0].conditions) if policies[0].rules else {}
+    )
     resolved = resolve_catalog_rule(
         _EFFECTIVE_CATALOG,
         provider_name,
         policies[0].model,
         at=at,
         input_tokens=input_tokens,
+        runtime_conditions=representative_conditions,
     )
     return resolved[1].context if resolved is not None else "STANDARD"
 
 
-def resolve_price(provider: str, model: str, *, at: datetime, input_tokens: int) -> ResolvedPrice | None:
+def resolve_price(
+    provider: str,
+    model: str,
+    *,
+    at: datetime,
+    input_tokens: int,
+    runtime_conditions: Mapping[str, str] | None = None,
+) -> ResolvedPrice | None:
     provider_name = provider.strip().upper()
     resolved = resolve_catalog_rule(
         _EFFECTIVE_CATALOG,
@@ -159,19 +218,23 @@ def resolve_price(provider: str, model: str, *, at: datetime, input_tokens: int)
         model,
         at=at,
         input_tokens=input_tokens,
+        runtime_conditions=runtime_conditions,
     )
     if resolved is None:
         return None
     policy, rule = resolved
+    normalized_conditions = _normalize_runtime_conditions(runtime_conditions)
     return ResolvedPrice(
         provider=provider_name,
         model=model,
+        rule_id=rule.rule_id,
         input_price_per_million=rule.input_price_per_million,
         cached_input_price_per_million=rule.cached_input_price_per_million,
         output_price_per_million=rule.output_price_per_million,
         currency=policy.currency,
         source_reference=policy.source_reference,
         pricing_context=rule.context,
+        runtime_conditions=normalized_conditions,
         pricing_version=_EFFECTIVE_CATALOG.metadata.catalog_version,
     )
 
@@ -189,26 +252,66 @@ def _billable_output_tokens(provider: str, model: str, usage: Any) -> int | None
     return billed
 
 
-def estimate_observed_cost(provider: str, model: str, usage: Any, at: datetime) -> tuple[float | None, str | None, str]:
+def resolve_observed_cost(
+    provider: str,
+    model: str,
+    usage: Any,
+    at: datetime,
+    *,
+    runtime_conditions: Mapping[str, str] | None = None,
+) -> PricingApplication:
+    normalized_conditions = _normalize_runtime_conditions(runtime_conditions)
     if usage is None:
-        return None, None, PRICING_VERSION
+        return PricingApplication(None, None, PRICING_VERSION, runtime_conditions=normalized_conditions)
     input_tokens = getattr(usage, "input_tokens", None)
     cached_raw = getattr(usage, "cached_input_tokens", None)
     output_tokens = _billable_output_tokens(provider, model, usage)
     if input_tokens is None or cached_raw is None or output_tokens is None:
-        return None, None, PRICING_VERSION
+        return PricingApplication(None, None, PRICING_VERSION, runtime_conditions=normalized_conditions)
     input_tokens = max(int(input_tokens), 0)
     cached_tokens = max(min(int(cached_raw), input_tokens), 0)
-    price = resolve_price(provider, model, at=at, input_tokens=input_tokens)
+    price = resolve_price(
+        provider,
+        model,
+        at=at,
+        input_tokens=input_tokens,
+        runtime_conditions=runtime_conditions,
+    )
     if price is None:
-        return None, None, PRICING_VERSION
+        return PricingApplication(None, None, PRICING_VERSION, runtime_conditions=normalized_conditions)
     uncached = max(input_tokens - cached_tokens, 0)
     amount = (
         uncached * price.input_price_per_million
         + cached_tokens * price.cached_input_price_per_million
         + output_tokens * price.output_price_per_million
     ) / 1_000_000
-    return round(amount, 10), price.currency, PRICING_VERSION
+    return PricingApplication(
+        estimated_cost=round(amount, 10),
+        currency=price.currency,
+        pricing_version=price.pricing_version,
+        pricing_context=price.pricing_context,
+        pricing_rule_id=price.rule_id,
+        pricing_source_reference=price.source_reference,
+        runtime_conditions=price.runtime_conditions,
+    )
+
+
+def estimate_observed_cost(
+    provider: str,
+    model: str,
+    usage: Any,
+    at: datetime,
+    *,
+    runtime_conditions: Mapping[str, str] | None = None,
+) -> tuple[float | None, str | None, str]:
+    application = resolve_observed_cost(
+        provider,
+        model,
+        usage,
+        at,
+        runtime_conditions=runtime_conditions,
+    )
+    return application.estimated_cost, application.currency, application.pricing_version
 
 
 def _request_token_hint(request: Any, field: str) -> int | None:
@@ -296,7 +399,14 @@ def estimate_candidate_cost(
         if cache_ratio > 0:
             cached_tokens = max(0, min(input_tokens, int(round(input_tokens * min(cache_ratio, 1.0)))))
             basis += "+HISTORY_CACHE"
-    price = resolve_price(provider_name, model, at=at, input_tokens=input_tokens)
+    conditions = runtime_pricing_conditions(provider)
+    price = resolve_price(
+        provider_name,
+        model,
+        at=at,
+        input_tokens=input_tokens,
+        runtime_conditions=conditions,
+    )
     if price is None:
         return CandidateCostEstimate(
             provider=provider_name,
@@ -310,6 +420,7 @@ def estimate_candidate_cost(
             currency=None,
             pricing_context=None,
             basis=basis,
+            pricing_runtime_conditions=_normalize_runtime_conditions(conditions),
         )
     uncached = max(input_tokens - cached_tokens, 0)
     amount = (
@@ -329,6 +440,9 @@ def estimate_candidate_cost(
         currency=price.currency,
         pricing_context=price.pricing_context,
         basis=basis,
+        pricing_rule_id=price.rule_id,
+        pricing_source_reference=price.source_reference,
+        pricing_runtime_conditions=price.runtime_conditions,
     )
 
 

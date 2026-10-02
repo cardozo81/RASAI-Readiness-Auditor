@@ -36,7 +36,7 @@ from rasai.m18_ai import (
     _diagnostic_from_http as _core_diagnostic_from_http,
     _response_error,
     _usage_from_native,
-    estimate_cost,
+    resolve_provider_cost,
 )
 from rasai.m18_persistence import M18Persistence
 from rasai.persistence import AuditWorkspace
@@ -45,6 +45,7 @@ from rasai.provider_extensions import (
     AnthropicProvider,
     GeminiProvider,
     IsolatedStructuredSemanticProvider,
+    MistralProvider,
     QwenProvider,
     XAIProvider,
     _diagnostic_from_http as _extension_diagnostic_from_http,
@@ -956,8 +957,11 @@ def _provider_payload(provider: Any, *, instructions: str, user_text: str, schem
         return {"model": model, "prompt": instructions + "\n\nJSON Schema:\n" + json.dumps(schema, ensure_ascii=False) + "\n\n" + user_text}
     if isinstance(provider, XAIProvider):
         return {"model": model, "instructions": instructions, "input": [{"role": "user", "content": [{"type": "input_text", "text": user_text}]}], "reasoning": {"effort": str(getattr(provider, "reasoning_profile", "HIGH")).casefold()}, "text": {"format": {"type": "json_schema", "name": "rasai_improvement_intelligence", "schema": schema, "strict": True}}}
-    if isinstance(provider, QwenProvider):
-        return {"model": model, "messages": [{"role": "system", "content": instructions}, {"role": "user", "content": user_text}], "response_format": {"type": "json_schema", "json_schema": {"name": "rasai_improvement_intelligence", "schema": schema, "strict": True}}}
+    if isinstance(provider, (QwenProvider, MistralProvider)):
+        payload = {"model": model, "messages": [{"role": "system", "content": instructions}, {"role": "user", "content": user_text}], "response_format": {"type": "json_schema", "json_schema": {"name": "rasai_improvement_intelligence", "schema": schema, "strict": True}}}
+        if isinstance(provider, MistralProvider):
+            payload["service_tier"] = "standard_only"
+        return payload
     if isinstance(provider, GeminiProvider):
         return {"model": model, "input": instructions + "\n\n" + user_text, "response_format": {"type": "text", "mime_type": "application/json", "schema": gemini_wire_schema(schema)}}
     if isinstance(provider, AnthropicProvider):
@@ -1344,15 +1348,15 @@ def _ai_analyze(*, audit_id: str, workspace: AuditWorkspace, context: _TargetCon
         except TimeoutError: diagnostic = ProviderDiagnostic(ProviderErrorClass.TIMEOUT_ERROR)
         except (URLError, OSError): diagnostic = ProviderDiagnostic(ProviderErrorClass.NETWORK_ERROR)
         except Exception as exc: diagnostic = ProviderDiagnostic(ProviderErrorClass.UNKNOWN_PROVIDER_ERROR, error_type=type(exc).__name__)
-        finished_at = datetime.now(timezone.utc); duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000)); estimated, currency, pricing_version = estimate_cost(str(provider.name), str(provider.model), usage, finished_at)
+        finished_at = datetime.now(timezone.utc); duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000)); pricing = resolve_provider_cost(provider, usage, finished_at)
         if status is AttemptStatus.SUCCESS and raw is not None:
             try: ai_summary, recommendations = _validate_ai_payload(_provider_extract(provider, raw), findings, config.max_recommendations)
             except Exception as exc: status = AttemptStatus.CONTRACT_ERROR; diagnostic = ProviderDiagnostic(ProviderErrorClass.CONTRACT_ERROR, error_type=type(exc).__name__, error_code="IMPROVEMENT_OUTPUT_INVALID")
             else:
-                attempt = ProviderAttempt(provider=str(provider.name), model=str(provider.model), reasoning_profile=str(getattr(provider, "reasoning_profile", config.reasoning)), provider_rank=int(getattr(provider.policy, "rank", 999)), attempt_index=ordinal, snapshot_id=context.snapshot_id, url=context.url, started_at=started_at, finished_at=finished_at, duration_ms=duration_ms, status=AttemptStatus.SUCCESS, usage=usage, estimated_cost=estimated, cost_currency=currency, pricing_version=pricing_version, request_message_summary=summary_text, request_payload_hash=payload_hash, provider_qualification=str(getattr(provider.policy, "qualification", "PROVISIONAL")), provider_reliability_score=getattr(provider.policy, "reliability_score", None), semantic_contract_version=CONTRACT_VERSION, retry_eligible=False, decision=DECISION_SUCCESS_AFTER_RETRY if ordinal > 1 else DECISION_SUCCESS)
+                attempt = ProviderAttempt(provider=str(provider.name), model=str(provider.model), reasoning_profile=str(getattr(provider, "reasoning_profile", config.reasoning)), provider_rank=int(getattr(provider.policy, "rank", 999)), attempt_index=ordinal, snapshot_id=context.snapshot_id, url=context.url, started_at=started_at, finished_at=finished_at, duration_ms=duration_ms, status=AttemptStatus.SUCCESS, usage=usage, estimated_cost=pricing.estimated_cost, cost_currency=pricing.currency, pricing_version=pricing.pricing_version, pricing_context=pricing.pricing_context, pricing_rule_id=pricing.pricing_rule_id, pricing_source_reference=pricing.pricing_source_reference, pricing_runtime_conditions=pricing.runtime_conditions, request_message_summary=summary_text, request_payload_hash=payload_hash, provider_qualification=str(getattr(provider.policy, "qualification", "PROVISIONAL")), provider_reliability_score=getattr(provider.policy, "reliability_score", None), semantic_contract_version=CONTRACT_VERSION, retry_eligible=False, decision=DECISION_SUCCESS_AFTER_RETRY if ordinal > 1 else DECISION_SUCCESS)
                 _persist_attempt(workspace, audit_id, context, attempt); return ai_summary, recommendations, None
         policy = retry_policy(diagnostic.error_class if diagnostic else None, diagnostic.retry_after_seconds if diagnostic else None); decision = DECISION_RETRY if policy.eligible and ordinal < 2 else DECISION_STOP
-        attempt = ProviderAttempt(provider=str(provider.name), model=str(provider.model), reasoning_profile=str(getattr(provider, "reasoning_profile", config.reasoning)), provider_rank=int(getattr(provider.policy, "rank", 999)), attempt_index=ordinal, snapshot_id=context.snapshot_id, url=context.url, started_at=started_at, finished_at=finished_at, duration_ms=duration_ms, status=status, diagnostic=diagnostic, usage=usage, estimated_cost=estimated, cost_currency=currency, pricing_version=pricing_version, request_message_summary=summary_text, request_payload_hash=payload_hash, provider_qualification=str(getattr(provider.policy, "qualification", "PROVISIONAL")), provider_reliability_score=getattr(provider.policy, "reliability_score", None), semantic_contract_version=CONTRACT_VERSION, retry_eligible=policy.eligible, decision=decision)
+        attempt = ProviderAttempt(provider=str(provider.name), model=str(provider.model), reasoning_profile=str(getattr(provider, "reasoning_profile", config.reasoning)), provider_rank=int(getattr(provider.policy, "rank", 999)), attempt_index=ordinal, snapshot_id=context.snapshot_id, url=context.url, started_at=started_at, finished_at=finished_at, duration_ms=duration_ms, status=status, diagnostic=diagnostic, usage=usage, estimated_cost=pricing.estimated_cost, cost_currency=pricing.currency, pricing_version=pricing.pricing_version, pricing_context=pricing.pricing_context, pricing_rule_id=pricing.pricing_rule_id, pricing_source_reference=pricing.pricing_source_reference, pricing_runtime_conditions=pricing.runtime_conditions, request_message_summary=summary_text, request_payload_hash=payload_hash, provider_qualification=str(getattr(provider.policy, "qualification", "PROVISIONAL")), provider_reliability_score=getattr(provider.policy, "reliability_score", None), semantic_contract_version=CONTRACT_VERSION, retry_eligible=policy.eligible, decision=decision)
         _persist_attempt(workspace, audit_id, context, attempt); last_reason = diagnostic.reason if diagnostic else "AI_PROVIDER_UNAVAILABLE"
         if decision == DECISION_RETRY:
             if policy.delay_seconds > 0: time.sleep(policy.delay_seconds)

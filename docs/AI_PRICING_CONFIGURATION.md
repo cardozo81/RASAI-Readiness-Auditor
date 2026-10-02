@@ -1,10 +1,10 @@
 # Configuração de preços de IA do RASAi
 
 **Estado:** vigente.  
-**Data de referência desta configuração:** 13/09/2026  
-**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-09-13`  
+**Data de referência desta configuração:** 02/10/2026  
+**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-10-02.2`  
 **Schema do catálogo:** `1`  
-**Revisão ordinária recomendada:** 13/10/2026
+**Revisão ordinária recomendada:** 02/11/2026
 
 Os preços deste documento e de `src/rasai/config/ai-pricing-defaults.toml` representam a política conhecida e validada na data de referência. Eles são usados para estimativa operacional e roteamento econômico. Não substituem a fatura do fornecedor.
 
@@ -104,10 +104,10 @@ Metadados obrigatórios:
 ```toml
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-PRICING-2026-09-13"
-reference_date = "2026-09-13"
-verified_on = "2026-09-13"
-review_recommended_on = "2026-10-13"
+catalog_version = "RASAI-PRICING-2026-10-02.2"
+reference_date = "2026-10-02"
+verified_on = "2026-10-02"
+review_recommended_on = "2026-11-02"
 ```
 
 Cada provider/modelo declara:
@@ -130,6 +130,7 @@ rule_id = "provider-model-standard"
 context = "STANDARD"
 priority = 0
 effective_from = "2026-09-13T00:00:00Z"
+conditions = { service_tier = "STANDARD", operation_mode = "REALTIME", region = "GLOBAL" }
 input_price_per_million = 0.50
 cached_input_price_per_million = 0.05
 output_price_per_million = 2.00
@@ -141,7 +142,7 @@ A unidade usada pelo runtime é preço por 1.000.000 tokens para input sem cache
 
 ### 6.1 `TOKEN_STANDARD`
 
-Use quando o preço é estável durante a vigência e não depende de horário ou tamanho de contexto. Aplicações atuais incluem MiMo, Qwen, Gemini e Anthropic.
+Use quando o preço é estável durante a vigência e não depende de horário ou tamanho de contexto. Aplicações atuais incluem MiMo, Qwen, Gemini, Anthropic e Mistral.
 
 ### 6.2 `TOKEN_CONTEXT_TIERED`
 
@@ -167,6 +168,28 @@ time_windows_utc
 
 As janelas são declaradas em UTC. O motor converte o instante da chamada para UTC antes da resolução. A aplicação atual é DeepSeek V4 Pro/Flash peak e off-peak.
 
+## 6.4 Condições runtime
+
+Uma regra pode declarar `conditions` como mapa declarativo. Na versão atual, o RASAi usa as chaves necessárias ao contrato implementado:
+
+- `service_tier`;
+- `commercial_mode`;
+- `operation_mode`;
+- `region`.
+
+Essas condições são comparadas com o **contrato efetivo do adapter em runtime**. A regra só pode ser aplicada quando todas as condições declaradas coincidem. Condição ausente, endpoint/região desconhecido ou valor divergente torna a regra **UNPRICED**; o motor não presume que uma tarifa Standard, PAYG ou regional se aplica.
+
+Exemplos vigentes:
+
+- OpenAI: `service_tier=DEFAULT`, `REALTIME`, `GLOBAL`; o adapter envia `service_tier=default`;
+- MiMo: `commercial_mode=PAYG`, `REALTIME`, `GLOBAL`;
+- xAI: `service_tier=DEFAULT`, `REALTIME`, região `GLOBAL` ou `US`, com tarifa regional própria;
+- Qwen: `REALTIME`, `US_VIRGINIA`; override de endpoint não reconhecido fica UNPRICED;
+- Gemini e Anthropic: `service_tier=STANDARD`, `REALTIME`, `GLOBAL` no contrato atual;
+- Mistral: `service_tier=STANDARD_ONLY`, `REALTIME`, `GLOBAL`.
+
+A existência de outro tier/plano no fornecedor não o habilita no RASAi. Capacidades fora do contrato continuam sob análise na issue #180.
+
 ## 7. Reasoning faturável
 
 | Valor | Significado |
@@ -182,6 +205,22 @@ Toda regra exige `effective_from` e pode ter `effective_until`. Sem regra vigent
 
 O RASAi não deve inventar preço, manter silenciosamente preço expirado, extrapolar promoção vencida, assumir preço de outra região ou usar valor fora da vigência apenas para evitar UNPRICED.
 
+## 8.1 Condições efetivas de execução
+
+Além de vigência, horário e faixa de contexto, uma regra pode declarar `conditions` provider-neutral. Nesta baseline são usadas as chaves `service_tier`, `commercial_mode`, `region` e `operation_mode`.
+
+O adapter expõe as condições efetivas da chamada e o resolver exige correspondência exata. Regra condicionada sem contexto, com contexto desconhecido ou divergente não se aplica e o par provider/modelo fica **UNPRICED** para aquela execução. O AUTO não interpreta UNPRICED como custo zero.
+
+Exemplos vigentes:
+- OpenAI: `service_tier=DEFAULT`, `operation_mode=REALTIME`, `region=GLOBAL`; o adapter envia `service_tier=default`;
+- MiMo: `commercial_mode=PAYG`, `operation_mode=REALTIME`, `region=GLOBAL`;
+- xAI: `service_tier=DEFAULT`, `operation_mode=REALTIME`, com tarifa própria para `GLOBAL` e `US`;
+- Qwen: `operation_mode=REALTIME`, `region=US_VIRGINIA`; endpoint desconhecido produz região `UNKNOWN` e fica UNPRICED;
+- Gemini e Anthropic: `service_tier=STANDARD`, `operation_mode=REALTIME`, `region=GLOBAL`;
+- Mistral: `service_tier=STANDARD_ONLY`, `operation_mode=REALTIME`, `region=GLOBAL`.
+
+Essas condições descrevem somente modalidades já implementadas. Não autorizam Batch, Flex, Priority, Token Plan ou outro tier externo.
+
 ## 9. Prioridade de regras
 
 Quando mais de uma regra é válida, a seleção é:
@@ -190,7 +229,7 @@ Quando mais de uma regra é válida, a seleção é:
 2. `effective_from` mais recente;
 3. `rule_id` como desempate determinístico.
 
-## 10. Política por IA - referência 13/09/2026
+## 10. Política por IA - referência 02/10/2026
 
 Valores em USD por 1 milhão de tokens.
 
@@ -201,13 +240,17 @@ Valores em USD por 1 milhão de tokens.
 | OpenAI `gpt-5.6-sol` | `TOKEN_CONTEXT_TIERED` | 4,00 | 0,40 | 20,00 | >272k input: 8,00 / 0,80 / 30,00 |
 | DeepSeek `deepseek-v4-flash` off-peak | `TOKEN_TIME_WINDOW` | 0,22 | 0,007 | 0,66 | peak: 0,44 / 0,014 / 1,32 |
 | DeepSeek `deepseek-v4-pro` off-peak | `TOKEN_TIME_WINDOW` | 0,66 | 0,022 | 1,98 | peak: 1,32 / 0,044 / 3,96 |
-| Xiaomi MiMo `mimo-v2.5` | `TOKEN_STANDARD` | 0,14 | 0,0028 | 0,28 | PAYG |
-| Xiaomi MiMo `mimo-v2.5-pro` | `TOKEN_STANDARD` | 0,435 | 0,0036 | 0,87 | PAYG |
-| xAI `grok-4.6` <200k | `TOKEN_CONTEXT_TIERED` | 2,00 | 0,50 | 6,00 | >=200k: 4,00 / 1,00 / 12,00 |
+| Xiaomi MiMo `mimo-v2.6-flash` | `TOKEN_STANDARD` | 0,14 | 0,0028 | 0,28 | PAYG real-time; default público |
+| Xiaomi MiMo `mimo-v2.6-pro` | `TOKEN_STANDARD` | 0,435 | 0,0036 | 0,87 | PAYG real-time; default adapter |
+| Xiaomi MiMo `mimo-v2.5` | `TOKEN_STANDARD` | 0,14 | 0,0028 | 0,28 | compatibilidade temporária; expira 21/10/2026 02:00 UTC |
+| Xiaomi MiMo `mimo-v2.5-pro` | `TOKEN_STANDARD` | 0,435 | 0,0036 | 0,87 | compatibilidade temporária; expira 21/10/2026 02:00 UTC |
+| xAI `grok-4.6` global <200k | `TOKEN_CONTEXT_TIERED` | 2,00 | 0,50 | 6,00 | >=200k: 4,00 / 1,00 / 12,00 |
+| xAI `grok-4.6` US <200k | `TOKEN_CONTEXT_TIERED` | 2,20 | 0,55 | 6,60 | >=200k: 4,40 / 1,10 / 13,20; endpoint US regional |
 | Qwen `qwen3.8-flash` | `TOKEN_STANDARD` | 0,113 | 0,014 | 0,382 | região US/Virginia |
 | Qwen `qwen3.8-max` | `TOKEN_STANDARD` | 1,65 | 0,206 | 4,951 | região US/Virginia |
 | Gemini `gemini-3.8-flash` | `TOKEN_STANDARD` | 0,75 | 0,075 | 3,75 | thinking/reasoning soma no output; regra até 01/01/2027 UTC |
 | Anthropic `claude-sonnet-5` | `TOKEN_STANDARD` | 2,00 | 0,20 | 10,00 | 0,20 representa cache read no modelo vigente |
+| Mistral `mistral-small-2603` | `TOKEN_STANDARD` | 0,15 | 0,015 | 0,60 | endpoint global; `service_tier=standard_only`; provider ainda explicit-only |
 | GitHub Copilot `auto` | **UNPRICED** | - | - | - | explicit-only e `auto_eligible=false`; não participa do ranking AUTO |
 
 A tabela é uma fotografia operacional da data de referência. O TOML efetivamente snapshotado para a execução é a autoridade de cálculo daquela AUD.
@@ -227,19 +270,29 @@ A faixa longa usa `input_tokens_gt=272000`; os valores finais já estão na regr
 
 ### 10.3 xAI
 
-A faixa longa usa `input_tokens_gte=200000`.
+A faixa longa usa `input_tokens_gte=200000`. O endpoint global `api.x.ai` usa a tarifa global; o endpoint regional `us.api.x.ai` usa tarifa 10% maior conforme documentação oficial do provider. Endpoint/região não reconhecido fica UNPRICED. Priority não é selecionado silenciosamente pelo RASAi. O endpoint global usa as tarifas globais. O endpoint regional US, quando explicitamente configurado e reconhecido, usa regras próprias com acréscimo regional documentado; endpoint não reconhecido fica UNPRICED.
 
-### 10.4 Qwen
+### 10.4 MiMo
+
+O contrato RASAi usa somente **PAYG real-time** no endpoint Responses. `mimo-v2.6-pro` e `mimo-v2.6-flash` mantêm as tarifas oficiais correspondentes da geração anterior. As regras de `mimo-v2.5` e `mimo-v2.5-pro` possuem `effective_until = "2026-10-21T02:00:00Z"`, alinhado à retirada oficial.
+
+Token Plan, Batch e UltraSpeed possuem contratos/preços próprios e **não são usados** para calcular custo do RASAi atual. Eles permanecem fora do escopo operacional (#180). A migração V2.6 é rastreada em #183; condicionamento genérico de preço por modalidade/tier/região runtime é rastreado em #181.
+
+### 10.5 Qwen
 
 O catálogo registra `region="US_VIRGINIA"`. Endpoint/região e pricing precisam continuar coerentes.
 
-### 10.5 Gemini
+### 10.6 Gemini
 
 A regra atual possui `effective_until = "2027-01-01T00:00:00Z"`. Sem regra vigente após esse instante, o modelo fica UNPRICED.
 
-### 10.6 GitHub Copilot
+### 10.7 Mistral
 
-Na referência de 13/09/2026 não existe tarifa unitária de API cadastrada no RASAi. O provider é explicit-only e não é elegível ao AUTO.
+O catálogo inicial usa a tarifa Standard global de `mistral-small-2603`: USD 0,15/M input, USD 0,015/M cached input e USD 0,60/M output. O adapter envia `service_tier=standard_only` e não expõe endpoint regional/priority/batch nesta entrega. A existência de pricing não torna o provider elegível ao AUTO: Mistral permanece `explicit_only=true` e `auto_eligible=false` até homologação humana posterior.
+
+### 10.7 GitHub Copilot
+
+Na referência de 02/10/2026 não existe tarifa unitária de API cadastrada no RASAi. O provider é explicit-only e não é elegível ao AUTO.
 
 ## 11. Como atualizar um preço localmente
 
@@ -303,7 +356,7 @@ Não usar hot reload global em processo que execute organizações diferentes co
 
 ## 16. Reprodutibilidade de pricing
 
-Preço corrente não deve reinterpretar o custo persistido de execução concluída. Cada execução deve manter provider/modelo, versão do pricing, contexto resolvido, preço efetivo, instante e usage observado quando disponível. Para jobs centralizados, versão/hash do snapshot deve permitir reconstruir a política aplicada.
+Preço corrente não deve reinterpretar o custo persistido de execução concluída. Cada execução deve manter provider/modelo, versão do pricing, contexto resolvido, `pricing_rule_id`, `pricing_source_reference`, condições runtime efetivas, preço estimado, instante e usage observado quando disponível. Para jobs centralizados, versão/hash do snapshot deve permitir reconstruir a política aplicada.
 
 ## 17. AUTO e modelos sem preço
 
@@ -315,7 +368,7 @@ A ordem permanece:
 4. empates determinísticos;
 5. candidatos UNPRICED depois dos precificados.
 
-Pricing não habilita provider sem credencial, ignora falhas, remove quarentena, reduz circuit breaker nem torna Copilot elegível ao AUTO.
+Pricing não habilita provider sem credencial, ignora falhas, remove quarentena, reduz circuit breaker nem torna Mistral ou Copilot elegíveis ao AUTO nesta entrega.
 
 ## 18. Batch, Flex, Priority e service tiers
 
@@ -339,7 +392,7 @@ Erro de catálogo não é convertido silenciosamente em preço presumido.
 
 ## 20. Política de revisão
 
-Data de referência desta versão: **13/09/2026**. Revisão ordinária recomendada: **13/10/2026**.
+Data de referência desta versão: **02/10/2026**. Revisão ordinária recomendada: **02/11/2026**.
 
 Revisar antes disso em caso de aviso de preço, troca de modelo default, mudança de endpoint/região, cache, peak/off-peak, threshold de contexto, promoção, nova modalidade de cobrança ou divergência material entre estimativa e cobrança observada. Toda revisão efetiva deve atualizar `reference_date` e `verified_on`.
 
@@ -354,6 +407,7 @@ Revisar antes disso em caso de aviso de preço, troca de modelo default, mudanç
 | Alibaba Qwen / Model Studio | <https://www.alibabacloud.com/help/en/model-studio/model-pricing> | região, modelo, contexto e cache |
 | Google Gemini | <https://ai.google.dev/gemini-api/docs/pricing> | input, cached input, output/thinking e vigência |
 | Anthropic Claude | <https://platform.claude.com/docs/en/about-claude/pricing> | input, output e cache |
+| Mistral AI | <https://docs.mistral.ai/inference/pricing> | Standard input, cached input, output e service tier |
 
 Cada entrada do TOML mantém `source_reference` próprio.
 
@@ -366,6 +420,7 @@ A suíte deve cobrir, no mínimo:
 - xAI >=200k;
 - expiração fail-closed do Gemini;
 - reasoning do Gemini incluído no output faturável;
+- Mistral Small 4 com input/cache/output Standard e permanência fora do AUTO;
 - defaults elegíveis do pool AUTO com preço vigente;
 - arquivo configurado inexistente falhando fechado;
 - `config/ai-pricing.toml` como superfície humana padrão do console;

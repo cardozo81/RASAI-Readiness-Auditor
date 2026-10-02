@@ -56,7 +56,8 @@ class ProviderRegistration:
 _DISPLAY_NAMES = {
     "OPENAI": "OpenAI", "DEEPSEEK": "DeepSeek", "MIMO": "Xiaomi MiMo",
     "XAI": "xAI / Grok", "QWEN": "Alibaba Qwen", "GEMINI": "Google Gemini",
-    "ANTHROPIC": "Anthropic Claude", "COPILOT": "GitHub Copilot",
+    "ANTHROPIC": "Anthropic Claude", "MISTRAL": "Mistral AI",
+    "COPILOT": "GitHub Copilot",
 }
 _CREDENTIAL_URLS = {
     "OPENAI": "https://platform.openai.com/api-keys",
@@ -66,6 +67,7 @@ _CREDENTIAL_URLS = {
     "QWEN": "https://www.alibabacloud.com/help/en/model-studio/get-api-key",
     "GEMINI": "https://aistudio.google.com/apikey",
     "ANTHROPIC": "https://console.anthropic.com/",
+    "MISTRAL": "https://console.mistral.ai/api-keys/",
 }
 _DOCUMENTATION_URLS = {
     "OPENAI": "https://platform.openai.com/docs/",
@@ -75,12 +77,14 @@ _DOCUMENTATION_URLS = {
     "QWEN": "https://www.alibabacloud.com/help/en/model-studio/get-api-key",
     "GEMINI": "https://ai.google.dev/gemini-api/docs/api-key",
     "ANTHROPIC": "https://docs.anthropic.com/",
+    "MISTRAL": "https://docs.mistral.ai/getting-started/quickstart/",
 }
 _CORE_PROVIDER_ORDER = ("OPENAI", "DEEPSEEK", "MIMO")
 _EXTENSION_REASONING_ENV = {
     "XAI": "RASAI_XAI_REASONING_EFFORT",
     "GEMINI": "RASAI_GEMINI_REASONING_EFFORT",
     "ANTHROPIC": "RASAI_ANTHROPIC_REASONING_EFFORT",
+    "QWEN": "RASAI_QWEN_REASONING_EFFORT",
 }
 _TECHNICAL_PROVIDER_ORDER = (*_CORE_PROVIDER_ORDER, *tuple(dict.fromkeys(_PROVIDER_ALIASES.values())), "COPILOT")
 
@@ -118,7 +122,7 @@ def _registration(provider_name: str, catalog: AiModelCatalog) -> ProviderRegist
         return None
     adapter_default = _one_default(items, "adapter_default", provider_name)
     public_default = _one_default(items, "public_default", provider_name)
-    explicit_only = provider_name == "COPILOT"
+    explicit_only = provider_name in {"MISTRAL", "COPILOT"}
 
     if provider_name in _CORE_PROVIDER_ORDER:
         aliases: tuple[str, ...] = ()

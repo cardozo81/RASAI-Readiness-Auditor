@@ -29,6 +29,7 @@ from rasai.m18_ai import (
     ProviderState,
     RuntimeProviderState,
     estimate_cost,
+    resolve_provider_cost,
 )
 from rasai.m20_ai import (
     CONTENT_REMEDIATION_CONTRACT_VERSION,
@@ -44,6 +45,7 @@ from rasai.provider_extensions import (
     AnthropicProvider,
     GeminiProvider,
     IsolatedStructuredSemanticProvider,
+    MistralProvider,
     QwenProvider,
     XAIProvider,
     _diagnostic_from_http,
@@ -91,6 +93,7 @@ class ExtensionContentRemediationProvider:
         if isinstance(self.base, XAIProvider):
             return {
                 "model": self.model,
+                "service_tier": "default",
                 "instructions": instructions,
                 "input": [{
                     "role": "user",
@@ -107,8 +110,8 @@ class ExtensionContentRemediationProvider:
                 },
             }
 
-        if isinstance(self.base, QwenProvider):
-            return {
+        if isinstance(self.base, (QwenProvider, MistralProvider)):
+            payload = {
                 "model": self.model,
                 "messages": [
                     {"role": "system", "content": instructions},
@@ -123,6 +126,9 @@ class ExtensionContentRemediationProvider:
                     },
                 },
             }
+            if isinstance(self.base, MistralProvider):
+                payload["service_tier"] = "standard_only"
+            return payload
 
         if isinstance(self.base, GeminiProvider):
             return {
@@ -183,6 +189,7 @@ class ExtensionContentRemediationProvider:
                         attempt.model or "",
                         attempt.usage,
                         attempt.finished_at,
+                        runtime_conditions=dict(attempt.pricing_runtime_conditions),
                     )
                 if result.state is ProviderState.AVAILABLE:
                     decision = DECISION_SUCCESS_AFTER_RETRY if ordinal > 1 else DECISION_SUCCESS
@@ -323,6 +330,7 @@ class ExtensionContentRemediationProvider:
             )
 
         finished_at = datetime.now(timezone.utc)
+        pricing = resolve_provider_cost(self, usage, finished_at)
         self._last_attempt = ProviderAttempt(
             provider=self.name,
             model=self.model,
@@ -336,9 +344,13 @@ class ExtensionContentRemediationProvider:
             duration_ms=max(0, int((time.perf_counter() - started_perf) * 1000)),
             status=AttemptStatus.SUCCESS,
             usage=usage,
-            estimated_cost=None,
-            cost_currency=None,
-            pricing_version=None,
+            estimated_cost=pricing.estimated_cost,
+            cost_currency=pricing.currency,
+            pricing_version=pricing.pricing_version,
+            pricing_context=pricing.pricing_context,
+            pricing_rule_id=pricing.pricing_rule_id,
+            pricing_source_reference=pricing.pricing_source_reference,
+            pricing_runtime_conditions=pricing.runtime_conditions,
             request_message_summary=summary,
             request_payload_hash=payload_hash,
             provider_qualification=self.policy.qualification,
@@ -366,6 +378,7 @@ class ExtensionContentRemediationProvider:
         usage=None,
     ) -> ContentRemediationResult:
         finished_at = datetime.now(timezone.utc)
+        pricing = resolve_provider_cost(self, usage, finished_at)
         self._last_attempt = ProviderAttempt(
             provider=self.name,
             model=self.model,
@@ -380,6 +393,13 @@ class ExtensionContentRemediationProvider:
             status=status,
             diagnostic=diagnostic,
             usage=usage,
+            estimated_cost=pricing.estimated_cost,
+            cost_currency=pricing.currency,
+            pricing_version=pricing.pricing_version,
+            pricing_context=pricing.pricing_context,
+            pricing_rule_id=pricing.pricing_rule_id,
+            pricing_source_reference=pricing.pricing_source_reference,
+            pricing_runtime_conditions=pricing.runtime_conditions,
             request_message_summary=summary,
             request_payload_hash=payload_hash,
             provider_qualification=self.policy.qualification,

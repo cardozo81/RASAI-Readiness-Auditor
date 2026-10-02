@@ -54,6 +54,7 @@ class PricingCatalogRule:
     input_tokens_lt: int | None = None
     weekdays_utc: tuple[int, ...] = ()
     time_windows_utc: tuple[tuple[int, int], ...] = ()
+    conditions: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +158,21 @@ def _parse_weekdays(values: Any) -> tuple[int, ...]:
     return tuple(result)
 
 
+def _parse_conditions(value: Any, *, field: str) -> tuple[tuple[str, str], ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, Mapping):
+        raise ValueError(f"AI pricing: {field} deve ser objeto")
+    result: list[tuple[str, str]] = []
+    for raw_key, raw_value in value.items():
+        key = str(raw_key or "").strip().casefold()
+        condition_value = str(raw_value or "").strip().upper()
+        if not key or not condition_value:
+            raise ValueError(f"AI pricing: {field} não pode conter chave/valor vazio")
+        result.append((key, condition_value))
+    return tuple(sorted(result))
+
+
 def _parse_rule(raw: Mapping[str, Any], *, provider: str, model: str) -> PricingCatalogRule:
     rule_id = _text(raw.get("rule_id"), f"{provider}/{model}.rule_id")
     effective_from = _text(raw.get("effective_from"), f"{rule_id}.effective_from")
@@ -187,6 +203,7 @@ def _parse_rule(raw: Mapping[str, Any], *, provider: str, model: str) -> Pricing
         output_price_per_million=_nonnegative_float(raw.get("output_price_per_million"), f"{rule_id}.output_price_per_million"),
         weekdays_utc=_parse_weekdays(raw.get("weekdays_utc")),
         time_windows_utc=_parse_windows(raw.get("time_windows_utc")),
+        conditions=_parse_conditions(raw.get("conditions"), field=f"{rule_id}.conditions"),
         **bounds,
     )
 
@@ -333,7 +350,13 @@ def _utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
-def rule_matches(rule: PricingCatalogRule, *, at: datetime, input_tokens: int) -> bool:
+def rule_matches(
+    rule: PricingCatalogRule,
+    *,
+    at: datetime,
+    input_tokens: int,
+    runtime_conditions: Mapping[str, str] | None = None,
+) -> bool:
     instant = _utc(at)
     if instant < _parse_instant(rule.effective_from, f"{rule.rule_id}.effective_from"):
         return False
@@ -354,6 +377,17 @@ def rule_matches(rule: PricingCatalogRule, *, at: datetime, input_tokens: int) -
         minute = instant.hour * 60 + instant.minute
         if not any(start <= minute < end for start, end in rule.time_windows_utc):
             return False
+    if rule.conditions:
+        if runtime_conditions is None:
+            return False
+        effective = {
+            str(key).strip().casefold(): str(value).strip().upper()
+            for key, value in runtime_conditions.items()
+            if str(key).strip() and str(value).strip()
+        }
+        for key, expected in rule.conditions:
+            if effective.get(key) != expected:
+                return False
     return True
 
 
@@ -364,11 +398,21 @@ def resolve_catalog_rule(
     *,
     at: datetime,
     input_tokens: int,
+    runtime_conditions: Mapping[str, str] | None = None,
 ) -> tuple[PricingModelPolicy, PricingCatalogRule] | None:
     policy = catalog.model_policy(provider, model)
     if policy is None:
         return None
-    matches = [rule for rule in policy.rules if rule_matches(rule, at=at, input_tokens=input_tokens)]
+    matches = [
+        rule
+        for rule in policy.rules
+        if rule_matches(
+            rule,
+            at=at,
+            input_tokens=input_tokens,
+            runtime_conditions=runtime_conditions,
+        )
+    ]
     if not matches:
         return None
     selected = max(matches, key=lambda rule: (rule.priority, _parse_instant(rule.effective_from, f"{rule.rule_id}.effective_from"), rule.rule_id))

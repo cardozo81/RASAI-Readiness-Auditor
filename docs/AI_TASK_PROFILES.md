@@ -7,7 +7,7 @@ O RASAi separa duas responsabilidades que não devem ser confundidas:
 1. **orquestração de provider/modelo**: escolhe provider, modelo, reasoning, custo, fallback, retry, quarentena e circuit breaker;
 2. **especialização da tarefa**: define qual papel técnico a IA deve assumir para interpretar um conjunto específico de evidências.
 
-A escolha do provider não altera a persona. Uma mesma tarefa recebe o mesmo perfil funcional quando executada por OpenAI, DeepSeek, MiMo, xAI, Qwen, Gemini, Anthropic, GitHub Copilot ou outro provider integrado ao mesmo contrato.
+A escolha do provider não altera a persona. Uma mesma tarefa recebe o mesmo perfil funcional quando executada por OpenAI, DeepSeek, MiMo, xAI, Qwen, Gemini, Anthropic, Mistral, GitHub Copilot ou outro provider integrado ao mesmo contrato.
 
 Os perfis são versionados e configuráveis porque a redação da persona pode exigir ajuste fino ao longo do tempo. Essa flexibilidade não permite alterar contratos normativos de evidência, schema, scoring, causalidade, segurança ou revisão humana.
 

@@ -23,9 +23,14 @@ Referência operacional de cadastro/login e geração de credenciais: [PROVIDER_
 | `qwen` | Alibaba Qwen | - | `DASHSCOPE_API_KEY` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | permitido quando o modelo efetivo é elegível e precificado |
 | `gemini` | Google Gemini | - | `GEMINI_API_KEY` | <https://aistudio.google.com/apikey> | permitido quando o modelo efetivo é elegível e precificado |
 | `anthropic` | Anthropic Claude | `claude` | `ANTHROPIC_API_KEY` | <https://console.anthropic.com/> | permitido quando o modelo efetivo é elegível e precificado |
+| `mistral` | Mistral AI | - | `MISTRAL_API_KEY` | <https://console.mistral.ai/api-keys/> | **não; explicit-only durante a homologação inicial** |
 | `copilot` | GitHub Copilot | `github-copilot` | `COPILOT_GITHUB_TOKEN` | <https://github.com/settings/personal-access-tokens/new> | **não; explicit-only** |
 
 `none` representa ausência deliberada de provider externo. `auto` representa a política de composição/orquestração e não um provider físico.
+
+## Regra de escopo de capabilities externas
+
+O registry descreve capacidades efetivamente conectadas ao RASAi. Uma capability presente na documentação do fornecedor não deve ser adicionada ao registry, à documentação operacional ou ao console apenas porque existe externamente. Novos métodos de autenticação, planos, tiers, endpoints, tools, search, agents ou connectors exigem decisão própria, adapter/contrato verificável e teste. Variantes já identificadas estão rastreadas na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 ## Separação provider x modelo
 
@@ -49,6 +54,14 @@ O catálogo de modelos responde **qual modelo daquele provider pode ser usado**:
 - capacidades e vigência.
 
 Por isso, adicionar `[[models]]` para um provider já integrado pode disponibilizar um novo modelo sem alterar código, desde que o novo modelo continue compatível com o adapter existente. Um `provider` inexistente no conjunto de adapters é rejeitado pelo runtime.
+
+## Mistral AI
+
+A integração inicial usa `POST https://api.mistral.ai/v1/chat/completions` com `MISTRAL_API_KEY`, Structured Outputs por JSON Schema e validação local integral pelo contrato já existente do RASAi.
+
+O provider não expõe `RASAI_MISTRAL_ENDPOINT` nesta etapa. O adapter fixa o endpoint global e `service_tier=standard_only` para manter o contexto comercial coerente com o pricing catalogado. O único modelo de fábrica inicialmente habilitado é `mistral-small-2603`.
+
+Mistral permanece `explicit_only=true` e `auto_eligible=false` até a conclusão da homologação humana de execução, telemetria/custo, structured output e evidence-bound. Sua presença não altera a semântica de `AI=auto`.
 
 ## GitHub Copilot
 
@@ -85,7 +98,7 @@ Para cada provider tecnicamente integrado, `AI=auto`:
 
 Um modelo habilitado para seleção explícita, mas sem pricing vigente, continua tecnicamente selecionável quando permitido pelo catálogo. Ele **não participa do `AUTO` econômico**. O RASAi não inventa tarifa e não interpreta ausência de preço como custo zero.
 
-Providers explicit-only, atualmente GitHub Copilot, não entram no pool `AUTO` mesmo quando a credencial existe.
+Providers explicit-only, atualmente Mistral durante a homologação inicial e GitHub Copilot, não entram no pool `AUTO` mesmo quando a credencial existe.
 
 A política de custo está em [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md) e o schema de preços em [AI_PRICING_CONFIGURATION.md](AI_PRICING_CONFIGURATION.md).
 
@@ -109,7 +122,7 @@ Cada registro público deriva do adapter e do catálogo efetivo e expõe:
 
 Qualificação e elegibilidade ao `AUTO` são conceitos diferentes. O modelo efetivo ainda precisa cumprir pricing e saúde operacional antes de entrar na decisão econômica.
 
-## Catálogo de fábrica em 14/09/2026
+## Catálogo de fábrica em 02/10/2026
 
 A tabela abaixo é apenas a fotografia do catálogo distribuído com o produto. Um catálogo `file` pode modificar a lista sem alterar o adapter.
 
@@ -117,18 +130,21 @@ A tabela abaixo é apenas a fotografia do catálogo distribuído com o produto. 
 |---|---|---|---|
 | OpenAI | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `NONE` |
 | DeepSeek | `deepseek-v4-flash` | `deepseek-v4-pro`, `deepseek-v4-flash` | `NONE` |
-| MiMo | `mimo-v2.5` | `mimo-v2.5-pro`, `mimo-v2.5` | `NONE` |
+| MiMo | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro mantidos temporariamente por compatibilidade até 21/10/2026 02:00 UTC | `NONE` |
 | xAI | `grok-4.6` | `grok-4.6` | `LOW` |
-| Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `PROVIDER_DEFAULT` |
+| Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `NONE` |
 | Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | `LOW` |
 | Anthropic | `claude-sonnet-5` | `claude-sonnet-5` | `LOW` |
+| Mistral | `mistral-small-2603` | `mistral-small-2603` | `PROVIDER_DEFAULT` |
 | GitHub Copilot | `auto` | `auto` | `PROVIDER_DEFAULT` |
 
 A fonte de verdade para a execução é o catálogo efetivamente carregado, não esta fotografia documental.
 
 ## MiMo
 
-O registry expõe a restrição da credencial PAYG `sk-...` para impedir que Token Plan `tp-...` seja tratado como credencial compatível pelo adapter atual.
+O contrato atual usa PAYG `sk-...` e o mesmo endpoint Responses `https://api.xiaomimimo.com/v1/responses`. Em 02/10/2026 os defaults foram migrados para `mimo-v2.6-pro` (adapter) e `mimo-v2.6-flash` (público/eficiente). `mimo-v2.5` e `mimo-v2.5-pro` permanecem somente como modelos mantidos temporariamente por compatibilidade selecionáveis até **21/10/2026 02:00 UTC**, horário oficial de retirada; depois disso deixam de ser efetivos pelo catálogo.
+
+O reasoning default RASAi é `NONE`, o menor valor aceito pela Responses API MiMo. Outros valores permitidos ativam thinking, mas a documentação atual informa que a intensidade não é diferenciada no backend. Token Plan `tp-...`, Batch, UltraSpeed, web search, tools e capacidades multimodais não são herdados por essa migração. Modalidades externas continuam na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180); a migração v2.6 é rastreada na [issue #183](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/183).
 
 ## Fonte de verdade
 

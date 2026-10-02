@@ -80,6 +80,7 @@ xai / grok
 qwen
 gemini
 anthropic / claude
+mistral
 copilot / github-copilot
 auto
 ```
@@ -90,7 +91,9 @@ A presença de uma credencial não obriga o provider a participar do AUTO. `RASA
 
 A ordem econômica é recalculada por necessidade e pode mudar por horário, janela peak/off-peak, faixa de contexto, modelo, reasoning ou comportamento de tokens observado durante a execução. O AUTO não troca silenciosamente para Batch, Flex ou outro service tier assíncrono apenas para obter desconto. Preços e janelas considerados estão em [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md).
 
-GitHub Copilot é `explicit-only` e `auto_eligible=false`: mesmo com `COPILOT_GITHUB_TOKEN` configurado, nunca entra em `AI=auto`. O adapter usa o SDK oficial, modelo público `auto`, `use_logged_in_user=False` e sessão sem tools. No fluxo manual, instale o transporte com:
+Mistral é `explicit-only` e `auto_eligible=false` nesta entrega: mesmo com `MISTRAL_API_KEY` configurada, não entra em `AI=auto` antes da homologação humana. O uso explícito aceita `--ai-provider mistral --ai-model mistral-small-2603` e fixa o endpoint global no tier Standard.
+
+GitHub Copilot também é `explicit-only` e `auto_eligible=false`: mesmo com `COPILOT_GITHUB_TOKEN` configurado, nunca entra em `AI=auto`. O adapter usa o SDK oficial, modelo público `auto`, `use_logged_in_user=False` e sessão sem tools. No fluxo manual, instale o transporte com:
 
 ```powershell
 python -m pip install -e ".[copilot]"
@@ -449,7 +452,7 @@ A geração, cópia e agendamento multiplataforma dos comandos está documentada
 rasai-console
 ```
 
-O console monta os mesmos argumentos públicos da CLI, apresenta capacidade dos providers, exposição pré-execução, configuração editorial, Web Performance e demais opções suportadas. Secrets não são gravados no INI. Em `AI=auto`, o usuário pode excluir providers aptos/elegíveis do pool sem apagar ou alterar suas credenciais. Providers `explicit-only`, como Copilot, permanecem fora do pool automaticamente.
+O console monta os mesmos argumentos públicos da CLI, apresenta capacidade dos providers, exposição pré-execução, configuração editorial, Web Performance e demais opções suportadas. Secrets não são gravados no INI. Em `AI=auto`, o usuário pode excluir providers aptos/elegíveis do pool sem apagar ou alterar suas credenciais. Providers `explicit-only`, atualmente Mistral durante sua homologação inicial e Copilot, permanecem fora do pool automaticamente.
 
 ## API / execução remota
 

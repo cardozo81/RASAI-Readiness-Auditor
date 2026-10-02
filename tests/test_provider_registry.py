@@ -27,7 +27,7 @@ class ProviderRegistryTests(unittest.TestCase):
         registrations = provider_registrations()
         self.assertEqual(
             tuple(item.id for item in registrations),
-            ("openai", "deepseek", "mimo", "xai", "qwen", "gemini", "anthropic", "copilot"),
+            ("openai", "deepseek", "mimo", "xai", "qwen", "gemini", "anthropic", "mistral", "copilot"),
         )
         self.assertEqual(len(registrations), len({item.id for item in registrations}))
 
@@ -51,11 +51,15 @@ class ProviderRegistryTests(unittest.TestCase):
             assert registration is not None
             self.assertEqual(registration.key_env, EXTENDED_KEY_ENV[provider_name])
             self.assertEqual(registration.model_env, EXTENDED_MODEL_ENV[provider_name])
-            self.assertEqual(registration.endpoint_env, EXTENDED_ENDPOINT_ENV[provider_name])
+            self.assertEqual(registration.endpoint_env, EXTENDED_ENDPOINT_ENV.get(provider_name))
             self.assertEqual(registration.supported_models, EXTENDED_SUPPORTED_MODELS[provider_name])
             self.assertEqual(registration.default_model, EXTENDED_DEFAULT_MODELS[provider_name])
-            self.assertTrue(registration.auto_eligible)
-            self.assertFalse(registration.explicit_only)
+            if provider_name == "MISTRAL":
+                self.assertFalse(registration.auto_eligible)
+                self.assertTrue(registration.explicit_only)
+            else:
+                self.assertTrue(registration.auto_eligible)
+                self.assertFalse(registration.explicit_only)
 
     def test_registry_public_defaults_reasoning_and_reasoning_env_match_runtime_exactly(self) -> None:
         for registration in provider_registrations():
@@ -68,6 +72,18 @@ class ProviderRegistryTests(unittest.TestCase):
             get_provider_registration("deepseek").reasoning_values,
             ("NONE", "LOW", "HIGH", "MAX"),
         )
+
+    def test_mistral_metadata_is_explicit_only(self) -> None:
+        registration = get_provider_registration("mistral")
+        self.assertIsNotNone(registration)
+        assert registration is not None
+        self.assertEqual(registration.provider_name, "MISTRAL")
+        self.assertEqual(registration.key_env, "MISTRAL_API_KEY")
+        self.assertEqual(registration.model_env, "RASAI_MISTRAL_MODEL")
+        self.assertIsNone(registration.endpoint_env)
+        self.assertEqual(registration.public_default_model, "mistral-small-2603")
+        self.assertTrue(registration.explicit_only)
+        self.assertFalse(registration.auto_eligible)
 
     def test_copilot_metadata_is_explicit_only(self) -> None:
         registration = get_provider_registration("copilot")
@@ -86,7 +102,7 @@ class ProviderRegistryTests(unittest.TestCase):
         self.assertEqual(
             extension_cli_choices(),
             (
-                "xai", "grok", "qwen", "gemini", "anthropic", "claude",
+                "xai", "grok", "qwen", "gemini", "anthropic", "claude", "mistral",
                 "copilot", "github-copilot",
             ),
         )
@@ -97,7 +113,7 @@ class ProviderRegistryTests(unittest.TestCase):
             cli_provider_choices(),
             (
                 "none", "openai", "deepseek", "mimo", "xai", "qwen", "gemini",
-                "anthropic", "copilot", "auto", "grok", "claude", "github-copilot",
+                "anthropic", "mistral", "copilot", "auto", "grok", "claude", "github-copilot",
             ),
         )
 
@@ -106,6 +122,7 @@ class ProviderRegistryTests(unittest.TestCase):
             auto_provider_ids(),
             ("openai", "deepseek", "mimo", "xai", "qwen", "gemini", "anthropic"),
         )
+        self.assertNotIn("mistral", auto_provider_ids())
         self.assertNotIn("copilot", auto_provider_ids())
 
     def test_mimo_payg_key_constraint_is_exposed_to_consumers(self) -> None:
@@ -125,10 +142,13 @@ class ProviderRegistryTests(unittest.TestCase):
             "DASHSCOPE_API_KEY",
             "GEMINI_API_KEY",
             "ANTHROPIC_API_KEY",
+            "MISTRAL_API_KEY",
             "COPILOT_GITHUB_TOKEN",
             "RASAI_XAI_REASONING_EFFORT",
             "RASAI_GEMINI_REASONING_EFFORT",
             "RASAI_ANTHROPIC_REASONING_EFFORT",
+            "RASAI_QWEN_REASONING_EFFORT",
+            "RASAI_MISTRAL_MODEL",
         ):
             self.assertIn(required, names)
 

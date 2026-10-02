@@ -37,7 +37,7 @@ from rasai.m18_ai import (
     ProviderErrorClass,
     ResponsesSemanticProvider,
     _diagnostic_from_http as _core_diagnostic_from_http,
-    estimate_cost,
+    resolve_provider_cost,
 )
 from rasai.monitoring.compare import compare_audits
 from rasai.monitoring.models import AuditSnapshot, ChangeEvent, ComparisonResult
@@ -431,8 +431,8 @@ def _instructions() -> str:
 
 
 def _attempt_record(provider: Any, *, status: AttemptStatus, started: datetime, duration_ms: int, usage: Any, diagnostic: ProviderDiagnostic | None, request_hash: str, index: int) -> ProviderAttempt:
-    amount, currency, pricing_version = estimate_cost(str(provider.name), str(provider.model), usage, datetime.now(timezone.utc))
     finished = datetime.now(timezone.utc)
+    pricing = resolve_provider_cost(provider, usage, finished)
     return ProviderAttempt(
         provider=str(provider.name),
         model=str(provider.model),
@@ -447,9 +447,13 @@ def _attempt_record(provider: Any, *, status: AttemptStatus, started: datetime, 
         status=status,
         diagnostic=diagnostic,
         usage=usage,
-        estimated_cost=amount,
-        cost_currency=currency,
-        pricing_version=pricing_version,
+        estimated_cost=pricing.estimated_cost,
+        cost_currency=pricing.currency,
+        pricing_version=pricing.pricing_version,
+        pricing_context=pricing.pricing_context,
+        pricing_rule_id=pricing.pricing_rule_id,
+        pricing_source_reference=pricing.pricing_source_reference,
+        pricing_runtime_conditions=pricing.runtime_conditions,
         request_message_summary=f"contract={SPECIALIST_CONTRACT}",
         request_payload_hash=request_hash,
         provider_qualification=str(getattr(getattr(provider, "policy", None), "qualification", "PROVISIONAL")),

@@ -89,7 +89,7 @@ def test_known_domains_and_effective_defaults_are_exposed() -> None:
     assert SPEC_BY_NAME["DYNATRACE_API_TOKEN"].sensitive is True
     assert SPEC_BY_NAME["RASAI_OPENAI_MODEL"].default == "gpt-5.6-luna"
     assert SPEC_BY_NAME["RASAI_OPENAI_REASONING_EFFORT"].default == "NONE"
-    assert "RASAI_QWEN_REASONING_EFFORT" not in SPEC_BY_NAME
+    assert SPEC_BY_NAME["RASAI_QWEN_REASONING_EFFORT"].default == "NONE"
     assert "RASAI_AI_EXCHANGE_LOG_MAX_BYTES" in SPEC_BY_NAME
     assert "RASAI_AI_AUTO_EXCLUDE" in SPEC_BY_NAME
 

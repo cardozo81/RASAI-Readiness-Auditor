@@ -14,6 +14,10 @@ A composição atual usa IA para finalidades como:
 
 Nenhuma finalidade autoriza inventar fatos, credenciais, preços, datas, estatísticas, URLs, políticas de crawler ou evidências.
 
+## Escopo das integrações documentadas
+
+O guia descreve somente capacidades efetivamente expostas pelo RASAi. A existência, no fornecedor, de outro plano, tipo de credencial, autenticação, endpoint, tier, tool, search, agent ou connector não amplia automaticamente o contrato do produto. Variantes não implementadas/homologadas identificadas durante a revisão estão rastreadas na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
+
 ## Providers integrados
 
 Providers concretos no registry:
@@ -26,6 +30,7 @@ xai
 qwen
 gemini
 anthropic
+mistral
 copilot
 ```
 
@@ -39,7 +44,7 @@ github-copilot -> copilot
 
 `none` desabilita IA. `auto` aciona a orquestração econômica entre providers elegíveis.
 
-GitHub Copilot permanece explicit-only: a presença de uma credencial não o inclui automaticamente no `AUTO`.
+Mistral permanece explicit-only durante a homologação inicial, e GitHub Copilot também é explicit-only: a presença dessas credenciais não os inclui automaticamente no `AUTO`.
 
 ## Arquivos administráveis pelo operador
 
@@ -82,14 +87,17 @@ Detalhamento e exemplos: [AI_MODEL_CONFIGURATION.md](AI_MODEL_CONFIGURATION.md).
 |---|---|---|
 | OpenAI | `gpt-5.6-luna` | `NONE` |
 | DeepSeek | `deepseek-v4-flash` | `NONE` |
-| MiMo | `mimo-v2.5` | `NONE` |
+| MiMo | `mimo-v2.6-flash` | `NONE` |
 | xAI | `grok-4.6` | `LOW` |
-| Qwen | `qwen3.8-flash` | `PROVIDER_DEFAULT` |
+| Qwen | `qwen3.8-flash` | `NONE` |
 | Gemini | `gemini-3.8-flash` | `LOW` |
 | Anthropic | `claude-sonnet-5` | `LOW` |
+| Mistral | `mistral-small-2603` | `PROVIDER_DEFAULT` |
 | GitHub Copilot | `auto` | `PROVIDER_DEFAULT` |
 
 Essa tabela é somente a fotografia de fábrica. O catálogo efetivamente snapshotado para a execução é a autoridade da AUD.
+
+MiMo V2.6 é a família vigente para o contrato PAYG do RASAi. `mimo-v2.5` e `mimo-v2.5-pro` permanecem selecionáveis somente até 21/10/2026 02:00 UTC e não são mais defaults. A troca preserva o mesmo adapter Responses e a mesma variável `MIMO_API_KEY`; detalhes e rastreabilidade estão na issue #183.
 
 ## Seleção do modelo e reasoning
 
@@ -102,6 +110,8 @@ RASAI_OPENAI_REASONING_EFFORT = NONE
 
 O modelo precisa existir, estar habilitado/selecionável e vigente no catálogo. O reasoning precisa pertencer a `reasoning_values` **daquele modelo**. Configuração inválida é rejeitada; não existe troca silenciosa para outro modelo.
 
+O default RASAi de reasoning é sempre o **menor nível válido suportado pelo modelo e pelo wire contract implementado**. Por isso OpenAI, DeepSeek, MiMo e Qwen usam `NONE`; xAI, Gemini e Anthropic usam `LOW`; Mistral Small 4 e Copilot `auto` permanecem em `PROVIDER_DEFAULT` enquanto não houver controle determinístico implementado.
+
 ## Credenciais
 
 ```text
@@ -112,6 +122,7 @@ XAI_API_KEY
 DASHSCOPE_API_KEY
 GEMINI_API_KEY
 ANTHROPIC_API_KEY
+MISTRAL_API_KEY
 COPILOT_GITHUB_TOKEN
 ```
 
@@ -191,6 +202,10 @@ AUTO central
 ```
 
 Em `AUTO`, isso reutiliza a mesma política de custo, qualification, pricing, quarentena, circuit breaker e fallback. A finalidade pode alterar o tamanho estimado de input/output, mas não cria outro mecanismo de roteamento.
+
+## Mistral AI
+
+A integração inicial usa `mistral-small-2603`, `MISTRAL_API_KEY` e Chat Completions no endpoint global com `service_tier=standard_only`. Structured Outputs continuam sujeitos à validação local evidence-bound. O provider é selecionável explicitamente, mas permanece fora de `AUTO` até a homologação humana desta entrega.
 
 ## GitHub Copilot
 

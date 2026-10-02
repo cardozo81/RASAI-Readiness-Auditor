@@ -29,6 +29,24 @@ def _host(url: str | None) -> str | None:
     return (urlsplit(str(url)).hostname or "").lower() or None
 
 
+def _pricing_conditions(value: Any) -> dict[str, str]:
+    if isinstance(value, Mapping):
+        parsed = value
+    else:
+        try:
+            candidate = json.loads(str(value or "{}"))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            candidate = {}
+        parsed = candidate if isinstance(candidate, Mapping) else {}
+    result: dict[str, str] = {}
+    for raw_key, raw_value in parsed.items():
+        key = str(raw_key or "").strip().casefold()
+        condition = str(raw_value or "").strip().upper()
+        if key and condition:
+            result[key] = condition
+    return result
+
+
 def _metadata(
     row: dict[str, Any],
     *,
@@ -40,6 +58,7 @@ def _metadata(
     url: str | None = None,
 ) -> dict[str, Any]:
     resolved_url = url or row.get("url") or row.get("normalized_url")
+    pricing_conditions = _pricing_conditions(row.get("pricing_runtime_conditions"))
     result: dict[str, Any] = {
         "user_id": user_id,
         "environment_id": environment_id,
@@ -62,6 +81,14 @@ def _metadata(
         "error_code": row.get("error_code"),
         "http_status": row.get("http_status"),
         "device": row.get("device"),
+        "pricing_version": row.get("pricing_version"),
+        "pricing_context": row.get("pricing_context"),
+        "pricing_rule_id": row.get("pricing_rule_id"),
+        "pricing_source_reference": row.get("pricing_source_reference"),
+        "pricing_service_tier": pricing_conditions.get("service_tier"),
+        "pricing_commercial_mode": pricing_conditions.get("commercial_mode"),
+        "pricing_operation_mode": pricing_conditions.get("operation_mode"),
+        "pricing_region": pricing_conditions.get("region"),
     }
     return {key: value for key, value in result.items() if value is not None}
 

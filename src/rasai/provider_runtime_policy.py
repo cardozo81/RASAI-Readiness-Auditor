@@ -8,7 +8,7 @@ import math
 import os
 from typing import Any, Mapping, MutableMapping
 
-from rasai.ai_cost_policy import resolve_price
+from rasai.ai_cost_policy import catalog_models, resolve_price, runtime_pricing_conditions
 from rasai.ai_exchange_log import AiExchangeRecorder
 from rasai.ai_execution_state import clear_current_ai_execution, set_current_ai_execution
 from rasai.ai_model_runtime import model_definition
@@ -37,31 +37,34 @@ from rasai.provider_wire_schema import project_provider_request_body
 SIMPLE_DEFAULT_MODELS: dict[str, str] = {
     "OPENAI": "gpt-5.6-luna",
     "DEEPSEEK": "deepseek-v4-flash",
-    "MIMO": "mimo-v2.5",
+    "MIMO": "mimo-v2.6-flash",
     "XAI": "grok-4.6",
     "QWEN": "qwen3.8-flash",
     "GEMINI": "gemini-3.8-flash",
     "ANTHROPIC": "claude-sonnet-5",
+    "MISTRAL": "mistral-small-2603",
     "COPILOT": "auto",
 }
 LOWEST_REASONING: dict[str, str] = {
     "OPENAI": "NONE", "DEEPSEEK": "NONE", "MIMO": "NONE", "XAI": "LOW",
-    "QWEN": "PROVIDER_DEFAULT", "GEMINI": "LOW", "ANTHROPIC": "LOW",
-    "COPILOT": "PROVIDER_DEFAULT",
+    "QWEN": "NONE", "GEMINI": "LOW", "ANTHROPIC": "LOW",
+    "MISTRAL": "PROVIDER_DEFAULT", "COPILOT": "PROVIDER_DEFAULT",
 }
 EXTENSION_REASONING_ENV: dict[str, str] = {
     "XAI": "RASAI_XAI_REASONING_EFFORT",
     "GEMINI": "RASAI_GEMINI_REASONING_EFFORT",
     "ANTHROPIC": "RASAI_ANTHROPIC_REASONING_EFFORT",
+    "QWEN": "RASAI_QWEN_REASONING_EFFORT",
 }
 REASONING_OPTIONS: dict[str, tuple[str, ...]] = {
     "OPENAI": ("NONE", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"),
     "DEEPSEEK": ("NONE", "LOW", "HIGH", "MAX"),
-    "MIMO": ("NONE", "LOW", "MEDIUM", "HIGH"),
+    "MIMO": ("NONE", "MINIMAL", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX", "ULTRA"),
     "XAI": ("LOW", "MEDIUM", "HIGH", "XHIGH"),
-    "QWEN": ("PROVIDER_DEFAULT",),
+    "QWEN": ("NONE", "MINIMAL", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"),
     "GEMINI": ("LOW", "MEDIUM", "HIGH"),
     "ANTHROPIC": ("LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"),
+    "MISTRAL": ("PROVIDER_DEFAULT",),
     "COPILOT": ("PROVIDER_DEFAULT",),
 }
 DEFAULT_AI_TIMEOUT_SECONDS = 180.0
@@ -183,7 +186,7 @@ def environment_with_public_defaults(env: Mapping[str, str] | None = None) -> di
 
 def _patch_extension_semantic_reasoning(provider: IsolatedStructuredSemanticProvider, effort: str) -> None:
     name = provider.name
-    if name in {"QWEN", "COPILOT"}:
+    if name in {"MISTRAL", "COPILOT"}:
         provider.reasoning_profile = "PROVIDER_DEFAULT"
         return
     provider.reasoning_profile = effort
@@ -193,6 +196,8 @@ def _patch_extension_semantic_reasoning(provider: IsolatedStructuredSemanticProv
         payload = original(semantic_input)
         if isinstance(provider, XAIProvider):
             payload.setdefault("reasoning", {})["effort"] = effort.casefold()
+        elif isinstance(provider, QwenProvider):
+            payload["reasoning_effort"] = effort.casefold()
         elif isinstance(provider, GeminiProvider):
             payload["generation_config"] = {"thinking_level": effort.casefold()}
         elif isinstance(provider, AnthropicProvider):
@@ -254,13 +259,20 @@ def _auto_model_reason(registration: Any, model: str) -> str | None:
     definition = model_definition(registration.provider_name, model)
     if definition is None or not definition.auto_eligible:
         return "MODEL_NOT_AUTO_ELIGIBLE"
-    # AUTO is explicitly economic. An enabled model without a currently applicable
-    # pricing rule remains usable by explicit selection but cannot enter AUTO ranking.
+    if (registration.provider_name, model) not in catalog_models():
+        return "MODEL_UNPRICED_FOR_AUTO"
+    return None
+
+
+def _auto_pricing_reason(provider: Any, model: str) -> str | None:
+    # AUTO is explicitly economic. Pricing must be resolved against the same
+    # effective endpoint/tier/mode contract that the concrete adapter will use.
     if resolve_price(
-        registration.provider_name,
+        str(getattr(provider, "name", "") or ""),
         model,
         at=datetime.now(timezone.utc),
         input_tokens=0,
+        runtime_conditions=runtime_pricing_conditions(provider),
     ) is None:
         return "MODEL_UNPRICED_FOR_AUTO"
     return None
@@ -292,6 +304,10 @@ def _build_auto_provider(*, effective_env: Mapping[str, str]) -> DynamicProvider
                 model=model,
                 effective_env=effective_env,
             )
+            pricing_reason = _auto_pricing_reason(provider, model)
+            if pricing_reason is not None:
+                excluded.append(f"{registration.provider_name}:{pricing_reason}:{model}")
+                continue
             _prepare_concrete_provider(
                 provider,
                 effective_env=effective_env,
@@ -345,6 +361,12 @@ def build_semantic_provider(
                 f"modelo inválido para {registration.provider_name}: {effective_model}; use "
                 + ", ".join(registration.supported_models)
             )
+        else:
+            definition = model_definition(registration.provider_name, effective_model)
+            if definition is None or not definition.enabled or not definition.is_effective():
+                raise ValueError(
+                    f"modelo indisponível para {registration.provider_name}: {effective_model}"
+                )
     provider = _build_registered_provider(
         selection,
         model=effective_model,
@@ -398,7 +420,7 @@ def _patch_content_provider_reasoning(provider: Any) -> None:
 
         provider._request_payload = MethodType(copilot_request_payload, provider)
         return
-    if name == "QWEN":
+    if name == "MISTRAL":
         provider.reasoning_profile = "PROVIDER_DEFAULT"
         return
     provider.reasoning_profile = str(effort).upper()
@@ -409,6 +431,8 @@ def _patch_content_provider_reasoning(provider: Any) -> None:
         effective = provider.reasoning_profile.casefold()
         if isinstance(provider.base, XAIProvider):
             payload.setdefault("reasoning", {})["effort"] = effective
+        elif isinstance(provider.base, QwenProvider):
+            payload["reasoning_effort"] = effective
         elif isinstance(provider.base, GeminiProvider):
             payload["generation_config"] = {"thinking_level": effective}
         elif isinstance(provider.base, AnthropicProvider):

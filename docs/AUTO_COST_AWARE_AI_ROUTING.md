@@ -1,8 +1,8 @@
 # AUTO cost-aware AI routing
 
-**Data de referência da política de preços: 13/09/2026**  
-**Versão do catálogo de pricing de fábrica: `RASAI-PRICING-2026-09-13`**  
-**Data de referência do catálogo de modelos: 14/09/2026**
+**Data de referência da política de preços: 02/10/2026**  
+**Versão do catálogo de pricing de fábrica: `RASAI-PRICING-2026-10-02.2`**  
+**Data de referência do catálogo de modelos: 02/10/2026**
 
 Este documento define a seleção econômica usada pelo RASAi quando `AI=auto` está selecionado. O cadastro de modelos está em [`AI_MODEL_CONFIGURATION.md`](AI_MODEL_CONFIGURATION.md) e o schema comercial em [`AI_PRICING_CONFIGURATION.md`](AI_PRICING_CONFIGURATION.md).
 
@@ -13,7 +13,7 @@ A política econômica:
 - somente ordena providers/modelos já configurados, elegíveis, precificados e saudáveis;
 - não habilita credenciais;
 - não altera quarantine/circuit breaker;
-- não torna GitHub Copilot elegível ao AUTO;
+- não torna Mistral durante sua homologação inicial nem GitHub Copilot elegíveis ao AUTO;
 - não troca silenciosamente service tier para Batch/Flex/Priority;
 - não interpreta ausência de preço como preço zero;
 - trata preço como estimativa operacional, não como fatura do fornecedor.
@@ -47,6 +47,7 @@ O catálogo de modelos determina:
 O catálogo de pricing determina:
 
 - preço de input/cache/output;
+- condições runtime obrigatórias da tarifa, como tier, modalidade, operação e região;
 - vigência;
 - região;
 - faixas de contexto;
@@ -83,7 +84,7 @@ Para cada necessidade de IA:
 2. resolve **um modelo efetivo por provider** a partir de `RASAI_<PROVIDER>_MODEL` ou do `public_default` do catálogo;
 3. exige modelo habilitado, selecionável, vigente e `auto_eligible=true`;
 4. exige credencial/configuração válida e aplica `RASAI_AI_AUTO_EXCLUDE`;
-5. exige uma regra de pricing vigente para o modelo efetivo;
+5. deriva do adapter as condições efetivas de pricing (tier/modalidade/região/operação) e exige uma regra vigente que corresponda integralmente;
 6. remove candidatos inelegíveis pela política de saúde/quarentena;
 7. resolve reasoning efetivo e estima input/output da necessidade;
 8. calcula o custo estimado da chamada atual;
@@ -102,11 +103,11 @@ estimated_cost =
   / 1_000_000
 ```
 
-Após a chamada, quando usage nativo é suficiente, o custo observado é calculado usando a regra vigente e os tokens reportados.
+Após a chamada, quando usage nativo é suficiente, o custo observado é calculado usando a mesma regra compatível com as condições efetivas e os tokens reportados. Se o adapter estiver em endpoint/tier/modalidade não reconhecido pelo catálogo, a tentativa permanece UNPRICED; não é custo zero.
 
 ## 4. Estruturas comerciais interpretadas pelo motor
 
-O schema `1` suporta as estruturas necessárias às políticas conhecidas em 13/09/2026:
+O schema `1` suporta as estruturas necessárias às políticas conhecidas em 02/10/2026:
 
 | Estrutura | Uso |
 |---|---|
@@ -121,7 +122,7 @@ Reasoning pode ser declarado como:
 
 Toda regra possui `effective_from`; `effective_until` é opcional. Sem regra vigente, o modelo é não precificado e fica fora do AUTO econômico.
 
-## 5. Estado de pricing de fábrica - referência 13/09/2026
+## 5. Estado de pricing de fábrica - referência 02/10/2026
 
 Valores em USD por 1 milhão de tokens.
 
@@ -132,13 +133,16 @@ Valores em USD por 1 milhão de tokens.
 | OpenAI `gpt-5.6-sol` | 4,00 | 0,40 | 20,00 | >272k: 8,00 / 0,80 / 30,00 |
 | DeepSeek `deepseek-v4-flash` off-peak | 0,22 | 0,007 | 0,66 | peak: 0,44 / 0,014 / 1,32 |
 | DeepSeek `deepseek-v4-pro` off-peak | 0,66 | 0,022 | 1,98 | peak: 1,32 / 0,044 / 3,96 |
-| MiMo `mimo-v2.5` | 0,14 | 0,0028 | 0,28 | standard |
-| MiMo `mimo-v2.5-pro` | 0,435 | 0,0036 | 0,87 | standard |
-| xAI `grok-4.6` <200k | 2,00 | 0,50 | 6,00 | >=200k: 4,00 / 1,00 / 12,00 |
+| MiMo `mimo-v2.6-flash` | 0,14 | 0,0028 | 0,28 | PAYG real-time; default público |
+| MiMo `mimo-v2.6-pro` | 0,435 | 0,0036 | 0,87 | PAYG real-time; default adapter |
+| MiMo `mimo-v2.5` | 0,14 | 0,0028 | 0,28 | compatibilidade temporária até 21/10/2026 02:00 UTC |
+| MiMo `mimo-v2.5-pro` | 0,435 | 0,0036 | 0,87 | compatibilidade temporária até 21/10/2026 02:00 UTC |
+| xAI `grok-4.6` global <200k | 2,00 | 0,50 | 6,00 | >=200k: 4,00 / 1,00 / 12,00; US regional usa regras próprias |
 | Qwen `qwen3.8-flash` | 0,113 | 0,014 | 0,382 | US/Virginia |
 | Qwen `qwen3.8-max` | 1,65 | 0,206 | 4,951 | US/Virginia |
 | Gemini `gemini-3.8-flash` | 0,75 | 0,075 | 3,75 | reasoning soma no output; regra até 01/01/2027 UTC |
 | Anthropic `claude-sonnet-5` | 2,00 | 0,20 | 10,00 | standard/cache read |
+| Mistral `mistral-small-2603` | 0,15 | 0,015 | 0,60 | Standard global; precificado, porém explicit-only nesta entrega |
 | GitHub Copilot | - | - | - | explicit-only; não precificado e fora do AUTO |
 
 ### DeepSeek
@@ -152,21 +156,31 @@ Peak atual em UTC, segunda a sexta:
 
 Essa lógica é declarada em `weekdays_utc` e `time_windows_utc` no TOML.
 
+## 5.1 Condições runtime obrigatórias
+
+O custo econômico é resolvido com o contexto efetivo do adapter, não apenas por provider/modelo. Regras condicionadas exigem correspondência em `service_tier`, `commercial_mode`, `region` e/ou `operation_mode`, conforme o TOML. Contexto ausente, `UNKNOWN` ou divergente torna o candidato **UNPRICED**; ele permanece depois dos candidatos precificados e nunca recebe custo zero.
+
+O AUTO não muda endpoint, tier, modalidade comercial ou modo de operação para obter uma tarifa menor. Essas escolhas pertencem à configuração/adapter já autorizado.
+
 ### OpenAI
 
 A faixa >272k é uma regra de maior prioridade com `input_tokens_gt=272000`. Os preços finais estão no catálogo; não há multiplicador hardcoded por provider.
 
 ### xAI
 
-A faixa longa é uma regra de maior prioridade com `input_tokens_gte=200000`.
+A faixa longa é uma regra de maior prioridade com `input_tokens_gte=200000`. O endpoint global usa `region=GLOBAL`; o endpoint `us.api.x.ai` usa `region=US` e a tarifa regional 10% maior. Endpoint não reconhecido fica UNPRICED.
 
 ### Qwen
 
-As regras atuais são associadas à região `US_VIRGINIA`. Uma mudança de endpoint/região exige regra apropriada antes de considerar custos comparáveis.
+As regras atuais são associadas à região `US_VIRGINIA`. O adapter deriva essa região apenas do endpoint conhecido `dashscope-us.aliyuncs.com`; endpoint alternativo/desconhecido produz `UNKNOWN` e fica UNPRICED até existir regra explicitamente qualificada.
 
 ### Gemini
 
 A regra atual expira em `2027-01-01T00:00:00Z`. Sem regra posterior, o modelo fica não precificado e sai do AUTO econômico. `reasoning_billing=ADD_REASONING_TO_OUTPUT` informa ao motor como compor o output faturável.
+
+### Condicionamento runtime
+
+O custo só participa do ranking quando o adapter expõe condições compatíveis com uma regra do catálogo. O AUTO usa o mesmo mecanismo de matching empregado na telemetria observada. Exemplos: OpenAI fixa `service_tier=default`; MiMo declara PAYG real-time; Qwen só usa a tarifa US/Virginia no endpoint correspondente; Mistral declara `standard_only`. Endpoint/tier não reconhecido => candidato UNPRICED, preservado depois dos candidatos precificados quando ainda for elegível.
 
 ## 6. Estimativas por finalidade
 
@@ -236,7 +250,7 @@ Não existe hot reload global de catálogos dentro de um worker que execute orga
 
 ## 9. Política de revisão
 
-O pricing de fábrica tem data de referência **13/09/2026** e revisão ordinária recomendada em **13/10/2026**. O catálogo de modelos de fábrica tem data de referência **14/09/2026**.
+O pricing e o catálogo de modelos de fábrica têm data de referência **02/10/2026**. A revisão ordinária de pricing é recomendada em **02/11/2026**.
 
 Revisar imediatamente se houver mudança de preço, modelo default, disponibilidade de modelo, reasoning, região, endpoint, cache, janela horária, threshold de contexto, promoção, service tier ou divergência material entre estimativa e cobrança.
 
@@ -262,3 +276,10 @@ A suíte deve preservar:
 - billing de reasoning do Gemini;
 - quarantine/circuit breaker inalterados;
 - snapshots SaaS imutáveis para modelo e pricing.
+
+
+### MiMo V2.6
+
+A família V2.6 substitui os defaults v2.5 sem alterar o protocolo PAYG Responses do RASAi. O AUTO usa `mimo-v2.6-flash` como default econômico e só o considera quando modelo e pricing estão vigentes. Os modelos v2.5 deixam de ser efetivos no instante oficial de retirada.
+
+A eventual seleção de Token Plan, Batch ou UltraSpeed não é permitida pelo AUTO atual. Essas modalidades possuem contrato/custo distinto e não podem ser escolhidas silenciosamente para reduzir preço. Issue de migração: #183; condicionamento runtime de pricing: #181.

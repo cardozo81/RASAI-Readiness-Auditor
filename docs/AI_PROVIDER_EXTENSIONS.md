@@ -12,11 +12,16 @@ Os providers adicionais abaixo estão implementados e mantêm sua qualificação
 | `qwen` | Alibaba Cloud Model Studio / Qwen | `qwen3.8-flash` | OpenAI-compatible Chat Completions | `PROVISIONAL` | elegível se apto |
 | `gemini` | Google Gemini | `gemini-3.8-flash` | Gemini Interactions API | `PROVISIONAL` | elegível se apto |
 | `anthropic` / `claude` | Anthropic Claude | `claude-sonnet-5` | Messages API | `PROVISIONAL` | elegível se apto |
+| `mistral` | Mistral AI | `mistral-small-2603` | Chat Completions | `PROVISIONAL` | **não; explicit-only durante homologação** |
 | `copilot` / `github-copilot` | GitHub Copilot | `auto` | GitHub Copilot SDK oficial | `PROVISIONAL` | **não; explicit-only** |
 
 O contrato semântico exige o conjunto de regras previsto pela implementação, validação local de schema, proibição de `evidence_id` inventado e fail-closed em saída incompleta ou inválida.
 
 A lista canônica de providers, aliases, credenciais e onboarding está em [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md) e [PROVIDER_SETUP.md](PROVIDER_SETUP.md).
+
+## Limite de escopo dos providers externos
+
+Este documento descreve apenas o wire contract e as capabilities realmente implementadas pelos adapters RASAi. Capacidades adicionais oferecidas pelos fabricantes não são herdadas automaticamente. Planos, formatos de credencial, autenticações, endpoints, tiers, tools, search, agents ou connectors não implementados/homologados permanecem fora do contrato e são avaliados separadamente na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 ## AUTO
 
@@ -28,7 +33,7 @@ A seleção é recalculada por necessidade de IA. Entre os candidatos ainda eleg
 
 A política econômica não troca silenciosamente para Batch/Flex/assíncrono e não altera quarentena, classificação de erro ou limiares de circuit breaker.
 
-GitHub Copilot é deliberadamente `explicit-only` e nunca entra no pool AUTO, mesmo quando seu token está configurado. Isso evita consumo involuntário da assinatura pessoal.
+Mistral e GitHub Copilot são `explicit-only` nesta entrega e não entram no pool AUTO mesmo quando suas credenciais estão configuradas. Para Mistral, a restrição permanece até homologação humana posterior; para Copilot, evita consumo involuntário da assinatura pessoal.
 
 Contratos completos: [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md) e [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md).
 
@@ -38,13 +43,14 @@ Sem override explícito, a política pública usa o menor esforço suportado pel
 
 ```text
 xAI       LOW
-Qwen      PROVIDER_DEFAULT
+Qwen      NONE
 Gemini    LOW
 Anthropic LOW
+Mistral   PROVIDER_DEFAULT
 Copilot   PROVIDER_DEFAULT
 ```
 
-Qwen e Copilot permanecem `PROVIDER_DEFAULT` porque suas integrações atuais não expõem um controle de reasoning público equivalente aos demais adapters.
+Qwen expõe `reasoning_effort` no contrato OpenAI-compatible e o RASAi usa `NONE` como menor valor válido. Mistral e Copilot permanecem `PROVIDER_DEFAULT` porque suas integrações atuais não expõem um controle de reasoning determinístico homologado pelo RASAi.
 
 ## Evidência de smoke e qualificação
 
@@ -98,11 +104,12 @@ Variáveis:
 DASHSCOPE_API_KEY
 RASAI_QWEN_MODEL
 RASAI_QWEN_ENDPOINT
+RASAI_QWEN_REASONING_EFFORT
 ```
 
 Endpoint default: `https://dashscope-us.aliyuncs.com/compatible-mode/v1/chat/completions`.
 
-A API key precisa pertencer à região/workspace do endpoint usado.
+A API key precisa pertencer à região/workspace do endpoint usado. O default de reasoning do RASAi é `NONE`; overrides válidos são `NONE`, `MINIMAL`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH` e `MAX`, mapeados pelo contrato OpenAI-compatible do Qwen.
 
 ## Google Gemini
 
@@ -150,6 +157,30 @@ Endpoint default: `https://api.anthropic.com/v1/messages`.
 
 `stop_reason=refusal` em HTTP 200 representa indisponibilidade/rejeição da tentativa, não avaliação negativa do website.
 
+## Mistral AI
+
+```powershell
+$env:MISTRAL_API_KEY = "<mistral-api-key>"
+rasai audit https://example.com --ai-provider mistral --ai-model mistral-small-2603
+```
+
+Modelo inicial:
+
+```text
+mistral-small-2603
+```
+
+Configuração pública:
+
+```text
+MISTRAL_API_KEY
+RASAI_MISTRAL_MODEL
+```
+
+O adapter fixa `https://api.mistral.ai/v1/chat/completions` e `service_tier=standard_only`. Não existe `RASAI_MISTRAL_ENDPOINT` no contrato inicial. Structured Outputs usam JSON Schema no wire e continuam sujeitos à validação local integral do RASAi. Tools/search da Mistral não são habilitados nesta entrega.
+
+Mistral é `explicit_only=true` e `auto_eligible=false` até a homologação humana prevista para provider atual, Mistral e `AI=none`.
+
 ## GitHub Copilot
 
 O adapter usa o **GitHub Copilot SDK oficial** e a assinatura Copilot elegível do usuário.
@@ -179,13 +210,13 @@ Copilot é `explicit_only=true` e `auto_eligible=false`. Selecionar `AI=auto` nu
 
 Selecionar explicitamente um provider sem sua key/token resulta em `NOT_CONFIGURED`, zero chamada externa e zero custo daquela integração. Não existe fallback para credencial de outro provider.
 
-Em AUTO, ausência de credencial apenas impede a entrada daquele provider elegível no pool; os demais aptos continuam disponíveis. Copilot continua fora do AUTO independentemente da presença da credencial.
+Em AUTO, ausência de credencial apenas impede a entrada daquele provider elegível no pool; os demais aptos continuam disponíveis. Mistral e Copilot continuam fora do AUTO nesta entrega independentemente da presença da credencial.
 
 ## Structured output e diferenças de wire
 
 A validação local completa do RASAi continua sendo a fonte de verdade. Schemas podem ser projetados no limite do transport quando uma API aceita apenas um subconjunto do JSON Schema.
 
-Gemini mantém sua projeção específica. OpenAI também recebe projeção de constraints incompatíveis nos payloads estruturados, sem remover a validação local mais estrita. Copilot encapsula o contrato provider-neutral no prompt do SDK e a resposta continua submetida à validação local integral.
+Gemini mantém sua projeção específica. OpenAI também recebe projeção de constraints incompatíveis nos payloads estruturados, sem remover a validação local mais estrita. Mistral reutiliza o contrato Chat Completions estruturado e fixa o tier Standard. Copilot encapsula o contrato provider-neutral no prompt do SDK e a resposta continua submetida à validação local integral.
 
 Falha `invalid_json_schema`/`invalid_request` é erro técnico de integração, não finding do website.
 

@@ -7,6 +7,7 @@ from rasai.m18_ai import ProviderState, ProviderUsage
 from rasai.provider_extensions import (
     AnthropicProvider,
     GeminiProvider,
+    MistralProvider,
     QwenProvider,
     XAIProvider,
     build_semantic_provider,
@@ -64,6 +65,7 @@ class ProviderExtensionTests(unittest.TestCase):
             "DASHSCOPE_API_KEY": "qwen",
             "GEMINI_API_KEY": "gemini",
             "ANTHROPIC_API_KEY": "anthropic",
+            "MISTRAL_API_KEY": "mistral",
         }
         auto = build_semantic_provider("auto", env=env)
         self.assertEqual([provider.name for provider in auto.providers], ["OPENAI", "DEEPSEEK", "MIMO"])
@@ -74,7 +76,7 @@ class ProviderExtensionTests(unittest.TestCase):
         mimo = build_semantic_provider("mimo", env={"MIMO_API_KEY": "x"})
         self.assertEqual((openai.name, openai.model), ("OPENAI", "gpt-5.6-terra"))
         self.assertEqual((deepseek.name, deepseek.model), ("DEEPSEEK", "deepseek-v4-pro"))
-        self.assertEqual((mimo.name, mimo.model), ("MIMO", "mimo-v2.5-pro"))
+        self.assertEqual((mimo.name, mimo.model), ("MIMO", "mimo-v2.6-pro"))
 
     def test_extension_defaults_aliases_and_provisional_status(self) -> None:
         cases = (
@@ -83,6 +85,7 @@ class ProviderExtensionTests(unittest.TestCase):
             ("qwen", {"DASHSCOPE_API_KEY": "x"}, "QWEN", "qwen3.8-max"),
             ("gemini", {"GEMINI_API_KEY": "x"}, "GEMINI", "gemini-3.8-flash"),
             ("anthropic", {"ANTHROPIC_API_KEY": "x"}, "ANTHROPIC", "claude-sonnet-5"),
+            ("mistral", {"MISTRAL_API_KEY": "x"}, "MISTRAL", "mistral-small-2603"),
             ("claude", {"ANTHROPIC_API_KEY": "x"}, "ANTHROPIC", "claude-sonnet-5"),
         )
         for selection, env, expected_name, expected_model in cases:
@@ -126,6 +129,7 @@ class ProviderExtensionTests(unittest.TestCase):
         self.assertEqual(request["text"]["format"]["type"], "json_schema")
         self.assertTrue(request["text"]["format"]["strict"])
         self.assertEqual(request["reasoning"]["effort"], "high")
+        self.assertEqual(request["service_tier"], "default")
         self.assertEqual(calls[0]["url"], "https://api.x.ai/v1/responses")
 
     def test_qwen_chat_completions_contract(self) -> None:
@@ -147,6 +151,84 @@ class ProviderExtensionTests(unittest.TestCase):
         self.assertEqual(response_format["type"], "json_schema")
         self.assertTrue(response_format["json_schema"]["strict"])
         self.assertIn("/chat/completions", calls[0]["url"])
+
+    def test_mistral_chat_completions_contract_usage_and_standard_tier(self) -> None:
+        calls: list[dict[str, object]] = []
+
+        def transport(url, headers, body, timeout):
+            calls.append({"url": url, "headers": headers, "body": json.loads(body), "timeout": timeout})
+            return {
+                "choices": [{"message": {"content": json.dumps(_payload())}}],
+                "usage": {
+                    "prompt_tokens": 120,
+                    "prompt_tokens_details": {"cached_tokens": 30},
+                    "completion_tokens": 40,
+                    "total_tokens": 160,
+                },
+            }
+
+        provider = MistralProvider(model="mistral-small-2603", api_key="x", transport=transport)
+        result = provider.analyze(_input())
+        self.assertEqual(result.state, ProviderState.AVAILABLE)
+        self.assertEqual(result.usage, ProviderUsage(120, 30, 40, None, 160))
+        request = calls[0]["body"]
+        self.assertEqual(request["service_tier"], "standard_only")
+        self.assertEqual(request["response_format"]["type"], "json_schema")
+        self.assertTrue(request["response_format"]["json_schema"]["strict"])
+        self.assertIn("schema", request["response_format"]["json_schema"])
+        self.assertEqual(calls[0]["url"], "https://api.mistral.ai/v1/chat/completions")
+        self.assertEqual(calls[0]["headers"]["Authorization"], "Bearer x")
+        attempt = provider.attempt_history()[0]
+        self.assertIsNotNone(attempt.estimated_cost)
+        self.assertEqual(attempt.pricing_context, "STANDARD")
+        self.assertEqual(attempt.pricing_rule_id, "mistral-small-2603-standard")
+        self.assertEqual(
+            dict(attempt.pricing_runtime_conditions),
+            {"operation_mode": "REALTIME", "region": "GLOBAL", "service_tier": "STANDARD_ONLY"},
+        )
+
+    def test_extension_pricing_runtime_conditions_are_endpoint_and_tier_aware(self) -> None:
+        xai_global = XAIProvider(model="grok-4.6", api_key="x")
+        self.assertEqual(
+            xai_global.pricing_runtime_conditions(),
+            {"service_tier": "DEFAULT", "operation_mode": "REALTIME", "region": "GLOBAL"},
+        )
+        xai_us = XAIProvider(
+            model="grok-4.6",
+            api_key="x",
+            endpoint="https://us.api.x.ai/v1/responses",
+        )
+        self.assertEqual(xai_us.pricing_runtime_conditions()["region"], "US")
+
+        qwen = QwenProvider(model="qwen3.8-flash", api_key="x")
+        self.assertEqual(
+            qwen.pricing_runtime_conditions(),
+            {"operation_mode": "REALTIME", "region": "US_VIRGINIA"},
+        )
+        qwen_unknown = QwenProvider(
+            model="qwen3.8-flash",
+            api_key="x",
+            endpoint="https://workspace.example/v1/chat/completions",
+        )
+        self.assertEqual(qwen_unknown.pricing_runtime_conditions()["region"], "UNKNOWN")
+
+        mistral = MistralProvider(model="mistral-small-2603", api_key="x")
+        self.assertEqual(
+            mistral.pricing_runtime_conditions(),
+            {"service_tier": "STANDARD_ONLY", "operation_mode": "REALTIME", "region": "GLOBAL"},
+        )
+
+        gemini = GeminiProvider(model="gemini-3.8-flash", api_key="x")
+        self.assertEqual(
+            gemini.pricing_runtime_conditions(),
+            {"service_tier": "STANDARD", "operation_mode": "REALTIME", "region": "GLOBAL"},
+        )
+
+        anthropic = AnthropicProvider(model="claude-sonnet-5", api_key="x")
+        self.assertEqual(
+            anthropic.pricing_runtime_conditions(),
+            {"service_tier": "STANDARD", "operation_mode": "REALTIME", "region": "GLOBAL"},
+        )
 
     def test_gemini_interactions_contract_and_new_schema_response(self) -> None:
         calls: list[dict[str, object]] = []

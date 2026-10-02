@@ -17,6 +17,8 @@ from rasai.ai_cost_policy import (
     PRICING_CATALOG,
     PRICING_VERSION,
     estimate_observed_cost,
+    resolve_observed_cost,
+    runtime_pricing_conditions,
 )
 from rasai.ai_resilience import (
     DECISION_FALLBACK,
@@ -138,6 +140,10 @@ class ProviderAttempt:
     estimated_cost: float | None = None
     cost_currency: str | None = None
     pricing_version: str | None = None
+    pricing_context: str | None = None
+    pricing_rule_id: str | None = None
+    pricing_source_reference: str | None = None
+    pricing_runtime_conditions: tuple[tuple[str, str], ...] = ()
     request_message_summary: str = ""
     request_payload_hash: str | None = None
     provider_qualification: str | None = None
@@ -197,24 +203,24 @@ ROUTING_POLICY: tuple[ProviderPolicy, ...] = (
     ProviderPolicy(1, "OPENAI", "gpt-5.6-sol", "HIGH/XHIGH", "QUALIFIED-A+", "QUALIFIED", "máxima qualidade"),
     ProviderPolicy(2, "OPENAI", "gpt-5.6-terra", "HIGH", "QUALIFIED-A", "QUALIFIED", "default"),
     ProviderPolicy(3, "DEEPSEEK", "deepseek-v4-pro", "HIGH", "PROVISIONAL-A-", "PROVISIONAL", "alternativa forte"),
-    ProviderPolicy(4, "MIMO", "mimo-v2.5-pro", "THINKING_ENABLED", "PROVISIONAL-B+", "PROVISIONAL", "alternativa forte"),
+    ProviderPolicy(4, "MIMO", "mimo-v2.6-pro", "THINKING_ENABLED", "PROVISIONAL-B+", "PROVISIONAL", "alternativa forte"),
     ProviderPolicy(5, "OPENAI", "gpt-5.6-luna", "HIGH", "QUALIFIED-B+", "QUALIFIED", "volume/custo"),
     ProviderPolicy(6, "DEEPSEEK", "deepseek-v4-flash", "HIGH", "PROVISIONAL-B", "PROVISIONAL", "volume/custo"),
-    ProviderPolicy(7, "MIMO", "mimo-v2.5", "THINKING_ENABLED", "PROVISIONAL-B", "PROVISIONAL", "volume/multimodal"),
+    ProviderPolicy(7, "MIMO", "mimo-v2.6-flash", "THINKING_ENABLED", "PROVISIONAL-B", "PROVISIONAL", "volume/multimodal"),
 )
 _POLICY_BY_KEY = {(item.provider, item.model): item for item in ROUTING_POLICY}
 
 SUPPORTED_MODELS: dict[str, tuple[str, ...]] = {
     "OPENAI": ("gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"),
     "DEEPSEEK": ("deepseek-v4-pro", "deepseek-v4-flash"),
-    "MIMO": ("mimo-v2.5-pro", "mimo-v2.5"),
+    "MIMO": ("mimo-v2.6-pro", "mimo-v2.6-flash", "mimo-v2.5-pro", "mimo-v2.5"),
 }
 DEFAULT_MODELS = {
     "OPENAI": "gpt-5.6-terra",
     "DEEPSEEK": "deepseek-v4-pro",
-    "MIMO": "mimo-v2.5-pro",
+    "MIMO": "mimo-v2.6-pro",
 }
-DEFAULT_REASONING = {"OPENAI": "HIGH", "DEEPSEEK": "HIGH", "MIMO": "HIGH"}
+DEFAULT_REASONING = {"OPENAI": "NONE", "DEEPSEEK": "NONE", "MIMO": "NONE"}
 MODEL_ENV = {
     "OPENAI": "RASAI_OPENAI_MODEL",
     "DEEPSEEK": "RASAI_DEEPSEEK_MODEL",
@@ -245,9 +251,33 @@ def _policy(provider: str, model: str) -> ProviderPolicy:
         raise ValueError(f"unsupported RASAi model for {provider}: {model}") from exc
 
 
-def estimate_cost(provider: str, model: str, usage: ProviderUsage | None, at: datetime) -> tuple[float | None, str | None, str | None]:
+def estimate_cost(
+    provider: str,
+    model: str,
+    usage: ProviderUsage | None,
+    at: datetime,
+    *,
+    runtime_conditions: Mapping[str, str] | None = None,
+) -> tuple[float | None, str | None, str | None]:
     """Use the single canonical pricing resolver for explicit and AUTO telemetry."""
-    return estimate_observed_cost(provider, model, usage, at)
+    return estimate_observed_cost(
+        provider,
+        model,
+        usage,
+        at,
+        runtime_conditions=runtime_conditions,
+    )
+
+
+def resolve_provider_cost(provider: Any, usage: ProviderUsage | None, at: datetime):
+    """Resolve one provider object's observed cost with its effective runtime contract."""
+    return resolve_observed_cost(
+        str(getattr(provider, "name", "") or ""),
+        str(getattr(provider, "model", "") or ""),
+        usage,
+        at,
+        runtime_conditions=runtime_pricing_conditions(provider),
+    )
 
 
 def _usage_from_native(raw: Mapping[str, Any]) -> ProviderUsage | None:
@@ -440,6 +470,9 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
     def _reasoning_profile(self, value: str) -> str:
         return value
 
+    def pricing_runtime_conditions(self) -> dict[str, str]:
+        return {"operation_mode": "REALTIME", "region": "UNKNOWN"}
+
     def _headers(self) -> dict[str, str]:
         if self.auth_mode == "api-key":
             return {"api-key": self.api_key or "", "Content-Type": "application/json"}
@@ -477,13 +510,16 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
             }
             if self.name == "OPENAI":
                 format_payload["strict"] = True
-        return {
+        payload = {
             "model": self.model,
             "instructions": instructions,
             "input": [{"role": "user", "content": [{"type": "input_text", "text": "JSON page evidence:\n" + json.dumps(semantic_input.provider_payload(), ensure_ascii=False)}]}],
             "reasoning": {"effort": self.requested_reasoning_effort.casefold()},
             "text": {"format": format_payload},
         }
+        if self.name == "OPENAI":
+            payload["service_tier"] = "default"
+        return payload
 
     def analyze(
         self,
@@ -513,7 +549,11 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
                 pricing_version = attempt.pricing_version
                 if attempt.usage is not None and estimated is None:
                     estimated, currency, pricing_version = estimate_cost(
-                        attempt.provider, attempt.model or "", attempt.usage, attempt.finished_at
+                        attempt.provider,
+                        attempt.model or "",
+                        attempt.usage,
+                        attempt.finished_at,
+                        runtime_conditions=dict(attempt.pricing_runtime_conditions),
                     )
                 if result.status is ProviderState.AVAILABLE:
                     decision = DECISION_SUCCESS_AFTER_RETRY if ordinal > 1 else DECISION_SUCCESS
@@ -645,7 +685,13 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
 
         finished_at = datetime.now(timezone.utc)
         duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
-        estimated, currency, pricing_version = estimate_cost(self.name, self.model, usage, finished_at)
+        pricing = resolve_observed_cost(
+            self.name,
+            self.model,
+            usage,
+            finished_at,
+            runtime_conditions=self.pricing_runtime_conditions(),
+        )
         self._last_attempt = ProviderAttempt(
             provider=self.name,
             model=self.model,
@@ -659,9 +705,13 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
             duration_ms=duration_ms,
             status=AttemptStatus.SUCCESS,
             usage=usage,
-            estimated_cost=estimated,
-            cost_currency=currency,
-            pricing_version=pricing_version,
+            estimated_cost=pricing.estimated_cost,
+            cost_currency=pricing.currency,
+            pricing_version=pricing.pricing_version,
+            pricing_context=pricing.pricing_context,
+            pricing_rule_id=pricing.pricing_rule_id,
+            pricing_source_reference=pricing.pricing_source_reference,
+            pricing_runtime_conditions=pricing.runtime_conditions,
             request_message_summary=summary,
             request_payload_hash=payload_hash,
             provider_qualification=self.policy.qualification,
@@ -693,6 +743,13 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
     ) -> SemanticProviderResult:
         finished_at = datetime.now(timezone.utc)
         duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
+        pricing = resolve_observed_cost(
+            self.name,
+            self.model,
+            usage,
+            finished_at,
+            runtime_conditions=self.pricing_runtime_conditions(),
+        )
         self._last_attempt = ProviderAttempt(
             provider=self.name,
             model=self.model,
@@ -707,6 +764,13 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
             status=status,
             diagnostic=diagnostic,
             usage=usage,
+            estimated_cost=pricing.estimated_cost,
+            cost_currency=pricing.currency,
+            pricing_version=pricing.pricing_version,
+            pricing_context=pricing.pricing_context,
+            pricing_rule_id=pricing.pricing_rule_id,
+            pricing_source_reference=pricing.pricing_source_reference,
+            pricing_runtime_conditions=pricing.runtime_conditions,
             request_message_summary=summary,
             request_payload_hash=payload_hash,
             provider_qualification=self.policy.qualification,
@@ -763,6 +827,10 @@ class OpenAIProvider(ResponsesSemanticProvider):
     auth_mode = "bearer"
     structured_mode = "json_schema"
 
+    def pricing_runtime_conditions(self) -> dict[str, str]:
+        region = "GLOBAL" if str(self.endpoint).startswith("https://api.openai.com/") else "UNKNOWN"
+        return {"service_tier": "DEFAULT", "operation_mode": "REALTIME", "region": region}
+
     def __init__(self, *, model: str = DEFAULT_MODELS["OPENAI"], reasoning_effort: str = DEFAULT_REASONING["OPENAI"], api_key: str | None = None, endpoint: str | None = None, timeout: float = 45.0, transport: Transport | None = None) -> None:
         super().__init__(model=model, reasoning_effort=reasoning_effort, api_key=api_key if api_key is not None else os.environ.get("OPENAI_API_KEY"), endpoint=endpoint, timeout=timeout, transport=transport)
 
@@ -772,6 +840,10 @@ class DeepSeekProvider(ResponsesSemanticProvider):
     endpoint = "https://api.deepseek.com/responses"
     auth_mode = "bearer"
     structured_mode = "json_schema"
+
+    def pricing_runtime_conditions(self) -> dict[str, str]:
+        region = "GLOBAL" if str(self.endpoint).startswith("https://api.deepseek.com/") else "UNKNOWN"
+        return {"operation_mode": "REALTIME", "region": region}
 
     def __init__(self, *, model: str = DEFAULT_MODELS["DEEPSEEK"], reasoning_effort: str = DEFAULT_REASONING["DEEPSEEK"], api_key: str | None = None, endpoint: str | None = None, timeout: float = 45.0, transport: Transport | None = None) -> None:
         super().__init__(model=model, reasoning_effort=reasoning_effort, api_key=api_key if api_key is not None else os.environ.get("DEEPSEEK_API_KEY"), endpoint=endpoint, timeout=timeout, transport=transport)
@@ -787,12 +859,20 @@ class MiMoProvider(ResponsesSemanticProvider):
 
     def _validate_reasoning(self, value: str) -> str:
         normalized = value.strip().upper()
-        if normalized not in {"NONE", "LOW", "MEDIUM", "HIGH"}:
+        if normalized not in {"NONE", "MINIMAL", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX", "ULTRA"}:
             raise ValueError(f"unsupported reasoning effort for MIMO: {value}")
         return normalized
 
     def _reasoning_profile(self, value: str) -> str:
         return "NONE" if value == "NONE" else "THINKING_ENABLED"
+
+    def pricing_runtime_conditions(self) -> dict[str, str]:
+        region = "GLOBAL" if str(self.endpoint).startswith("https://api.xiaomimimo.com/") else "UNKNOWN"
+        return {
+            "commercial_mode": "PAYG",
+            "operation_mode": "REALTIME",
+            "region": region,
+        }
 
     def __init__(self, *, model: str = DEFAULT_MODELS["MIMO"], reasoning_effort: str = DEFAULT_REASONING["MIMO"], api_key: str | None = None, endpoint: str | None = None, timeout: float = 45.0, transport: Transport | None = None) -> None:
         super().__init__(model=model, reasoning_effort=reasoning_effort, api_key=api_key if api_key is not None else os.environ.get("MIMO_API_KEY"), endpoint=endpoint, timeout=timeout, transport=transport)

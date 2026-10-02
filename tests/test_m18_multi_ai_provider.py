@@ -105,7 +105,7 @@ class M18ProviderTests(unittest.TestCase):
         mimo = build_semantic_provider("mimo", env={"MIMO_API_KEY": "x"})
         self.assertEqual((openai.name, openai.model), ("OPENAI", "gpt-5.6-terra"))
         self.assertEqual((deepseek.name, deepseek.model), ("DEEPSEEK", "deepseek-v4-pro"))
-        self.assertEqual((mimo.name, mimo.model, mimo.reasoning_profile), ("MIMO", "mimo-v2.5-pro", "THINKING_ENABLED"))
+        self.assertEqual((mimo.name, mimo.model, mimo.reasoning_profile), ("MIMO", "mimo-v2.6-pro", "NONE"))
 
         auto = build_semantic_provider("auto", env={
             "OPENAI_API_KEY": "x", "DEEPSEEK_API_KEY": "x", "MIMO_API_KEY": "x",
@@ -133,10 +133,11 @@ class M18ProviderTests(unittest.TestCase):
             self.assertEqual(result.state, ProviderState.AVAILABLE)
         self.assertEqual(calls[0]["body"]["text"]["format"]["type"], "json_schema")
         self.assertTrue(calls[0]["body"]["text"]["format"]["strict"])
+        self.assertEqual(calls[0]["body"]["service_tier"], "default")
         self.assertEqual(calls[1]["body"]["text"]["format"]["type"], "json_schema")
         self.assertNotIn("strict", calls[1]["body"]["text"]["format"])
         self.assertEqual(calls[2]["body"]["text"]["format"]["type"], "json_object")
-        self.assertEqual(calls[2]["body"]["reasoning"]["effort"], "high")
+        self.assertEqual(calls[2]["body"]["reasoning"]["effort"], "none")
 
     def test_usage_and_estimated_cost_are_normalized(self) -> None:
         provider = OpenAIProvider(api_key="x", transport=_success_transport())
@@ -146,13 +147,24 @@ class M18ProviderTests(unittest.TestCase):
         self.assertEqual(len(attempts), 1)
         self.assertIsNotNone(attempts[0].estimated_cost)
         self.assertEqual(attempts[0].cost_currency, "USD")
+        openai_conditions = {"service_tier": "DEFAULT", "operation_mode": "REALTIME", "region": "GLOBAL"}
         amount, currency, version = estimate_cost(
-            "OPENAI", "gpt-5.6-terra", ProviderUsage(100, 20, 50, 10, 150), datetime.now(timezone.utc)
+            "OPENAI",
+            "gpt-5.6-terra",
+            ProviderUsage(100, 20, 50, 10, 150),
+            datetime.now(timezone.utc),
+            runtime_conditions=openai_conditions,
         )
         self.assertIsNotNone(amount)
         self.assertEqual(currency, "USD")
         self.assertTrue(version)
-        missing, _, _ = estimate_cost("OPENAI", "gpt-5.6-terra", ProviderUsage(100, None, 50, None, 150), datetime.now(timezone.utc))
+        missing, _, _ = estimate_cost(
+            "OPENAI",
+            "gpt-5.6-terra",
+            ProviderUsage(100, None, 50, None, 150),
+            datetime.now(timezone.utc),
+            runtime_conditions=openai_conditions,
+        )
         self.assertIsNone(missing)
 
     def test_contract_rejects_partial_invalid_evidence_and_empty_output(self) -> None:
@@ -297,22 +309,23 @@ class M18ProviderTests(unittest.TestCase):
 </head><body><main><h1>Guia M18</h1><h2>Visão geral</h2><p>Conteúdo técnico verificável para integração M18.</p></main></body></html>"""
             secret = "M18-INTEGRATION-SECRET"
             provider = OpenAIProvider(api_key=secret, transport=_success_transport())
-            result = run_audit(
-                f"{origin}/",
-                audits_root=Path(directory),
-                project_name="Integração M18",
-                max_pages=1,
-                semantic_provider=provider,
-                discovery_engine=DiscoveryEngine(HttpClient(timeout=1)),
-                renderer=_FixtureRenderer(html),
-                lazy_probe=lambda url, device: None,
-            )
+            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "both"}, clear=False):
+                result = run_audit(
+                    f"{origin}/",
+                    audits_root=Path(directory),
+                    project_name="Integração M18",
+                    max_pages=1,
+                    semantic_provider=provider,
+                    discovery_engine=DiscoveryEngine(HttpClient(timeout=1)),
+                    renderer=_FixtureRenderer(html),
+                    lazy_probe=lambda url, device: None,
+                )
 
             connection = sqlite3.connect(result.audit_root / "audit.db")
             connection.row_factory = sqlite3.Row
             try:
                 attempts = connection.execute(
-                    "SELECT provider,model,status,input_tokens,output_tokens,estimated_cost FROM ai_provider_attempts WHERE audit_id=? ORDER BY started_at",
+                    "SELECT provider,model,status,input_tokens,output_tokens,estimated_cost,pricing_version,pricing_context,pricing_rule_id,pricing_source_reference,pricing_runtime_conditions FROM ai_provider_attempts WHERE audit_id=? ORDER BY started_at",
                     (result.audit_id,),
                 ).fetchall()
                 self.assertEqual(len(attempts), 2)
@@ -322,6 +335,15 @@ class M18ProviderTests(unittest.TestCase):
                 self.assertTrue(all(row["input_tokens"] == 100 for row in attempts))
                 self.assertTrue(all(row["output_tokens"] == 50 for row in attempts))
                 self.assertTrue(all(row["estimated_cost"] is not None for row in attempts))
+                self.assertTrue(all(str(row["pricing_version"]).startswith("RASAI-PRICING-") for row in attempts))
+                self.assertTrue(all(row["pricing_context"] == "STANDARD" for row in attempts))
+                self.assertTrue(all(row["pricing_rule_id"] == "openai-gpt-5.6-terra-standard" for row in attempts))
+                self.assertTrue(all("developers.openai.com" in str(row["pricing_source_reference"]) for row in attempts))
+                for row in attempts:
+                    pricing_conditions = json.loads(row["pricing_runtime_conditions"])
+                    self.assertEqual(pricing_conditions["service_tier"], "DEFAULT")
+                    self.assertEqual(pricing_conditions["operation_mode"], "REALTIME")
+                    self.assertEqual(pricing_conditions["region"], "GLOBAL")
                 session = connection.execute(
                     "SELECT strategy,effective_provider,effective_model,status FROM ai_audit_sessions WHERE audit_id=?",
                     (result.audit_id,),
