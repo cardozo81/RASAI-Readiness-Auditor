@@ -17,6 +17,7 @@ from rasai.ai_cost_policy import (
 )
 from rasai.dynamic_ai_routing import DynamicProviderRoutingSession
 from rasai.m18_ai import ProviderUsage
+from rasai.provider_extensions import QwenProvider
 
 UTC = timezone.utc
 BRT = timezone(timedelta(hours=-3))
@@ -279,3 +280,38 @@ def test_xai_us_region_uses_documented_regional_premium() -> None:
     assert us_price.input_price_per_million == pytest.approx(global_price.input_price_per_million * 1.10)
     assert us_price.cached_input_price_per_million == pytest.approx(global_price.cached_input_price_per_million * 1.10)
     assert us_price.output_price_per_million == pytest.approx(global_price.output_price_per_million * 1.10)
+
+
+def test_qwen_unknown_endpoint_is_unpriced_fail_closed() -> None:
+    at = datetime(2026, 10, 2, 18, 0, tzinfo=UTC)
+    request = SimpleNamespace(evidence=())
+    known = QwenProvider(model="qwen3.8-flash", api_key="x")
+    unknown = QwenProvider(
+        model="qwen3.8-flash",
+        api_key="x",
+        endpoint="https://workspace.example/v1/chat/completions",
+    )
+    known_estimate = estimate_candidate_cost(known, request, scope="SEMANTIC", at=at)
+    unknown_estimate = estimate_candidate_cost(unknown, request, scope="SEMANTIC", at=at)
+    assert known_estimate.estimated_cost is not None
+    assert dict(known_estimate.pricing_runtime_conditions)["region"] == "US_VIRGINIA"
+    assert unknown_estimate.estimated_cost is None
+    assert dict(unknown_estimate.pricing_runtime_conditions)["region"] == "UNKNOWN"
+
+
+def test_mistral_price_requires_standard_only_global_runtime_contract() -> None:
+    at = datetime(2026, 10, 2, 18, 0, tzinfo=UTC)
+    matching = resolve_price(
+        "MISTRAL", "mistral-small-2603", at=at, input_tokens=10_000,
+        runtime_conditions=_runtime_conditions("MISTRAL"),
+    )
+    mismatched = resolve_price(
+        "MISTRAL", "mistral-small-2603", at=at, input_tokens=10_000,
+        runtime_conditions={
+            "service_tier": "PRIORITY",
+            "operation_mode": "REALTIME",
+            "region": "GLOBAL",
+        },
+    )
+    assert matching is not None
+    assert mismatched is None
