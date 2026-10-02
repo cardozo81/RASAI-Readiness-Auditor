@@ -194,6 +194,9 @@ class _PricedProvider:
         self.reasoning_profile = reasoning
         self.policy = SimpleNamespace(rank=rank, qualification="TEST")
 
+    def pricing_runtime_conditions(self):
+        return _runtime_conditions(self.name)
+
     def _request_payload(self, request):
         return {"model": self.model, "input": "x" * 8_000}
 
