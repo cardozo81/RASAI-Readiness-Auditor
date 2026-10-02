@@ -34,6 +34,7 @@ As credenciais desta seção são usadas apenas quando o provider correspondente
 | Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | finalidades de IA que selecionem `qwen` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | criar a API key no Model Studio na mesma região do endpoint usado pelo RASAi. Chaves, endpoints e modelos disponíveis são regionais. |
 | Google Gemini | `GEMINI_API_KEY` | finalidades de IA que selecionem `gemini` | <https://aistudio.google.com/apikey> | criar uma Auth key no Google AI Studio. Novas chaves são Auth keys; não usar Standard key irrestrita para Gemini API. |
 | Anthropic Claude | `ANTHROPIC_API_KEY` | finalidades de IA que selecionem `anthropic` ou alias `claude` | <https://console.anthropic.com/> | criar e gerenciar a API key no console Anthropic. |
+| Mistral AI | `MISTRAL_API_KEY` | provider `mistral`, explicitamente selecionado nesta etapa | <https://console.mistral.ai/api-keys/> | criar/gerenciar a API key Mistral; presença da key não habilita AUTO nem comprova saldo/quota/modelo. |
 | GitHub Copilot | `COPILOT_GITHUB_TOKEN` | provider `copilot`, explicitamente selecionado | <https://github.com/settings/personal-access-tokens/new> | criar um fine-grained personal access token da conta pessoal com `Copilot Requests`; o adapter vigente não usa automaticamente a sessão Copilot já autenticada. |
 
 ### Alibaba Qwen / Model Studio
@@ -57,6 +58,22 @@ O Google AI Studio cria novas chaves Gemini como **Auth keys**. A orientação v
 7. teste a integração antes de depender dela em uma auditoria.
 
 Uma chave existente não comprova quota, billing ou acesso ao modelo configurado.
+
+### Mistral AI
+
+A autenticação do adapter usa Bearer com `MISTRAL_API_KEY` no endpoint global `https://api.mistral.ai/v1/chat/completions`. O RASAi não persiste a chave e não expõe override de endpoint para Mistral nesta entrega.
+
+Fluxo operacional:
+
+1. abra <https://console.mistral.ai/api-keys/>;
+2. crie ou selecione uma API key da conta/projeto aplicável;
+3. mantenha billing/quota compatíveis com o uso pretendido;
+4. armazene a chave somente no boundary de secrets;
+5. configure `MISTRAL_API_KEY`;
+6. selecione `mistral` explicitamente no RASAi;
+7. valide o smoke antes de considerar o provider homologado.
+
+Documentação oficial: <https://docs.mistral.ai/getting-started/quickstart/>.
 
 ### GitHub Copilot
 
