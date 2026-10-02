@@ -1,7 +1,7 @@
 # Avaliação futura - Runner gerenciado, persistência SaaS e relatórios dinâmicos
 
 **Estado:** pendência arquitetural para revisão futura.
-**Rastreabilidade:** GitHub Issue #163 - https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/163
+**Rastreabilidade:** GitHub Issue #1 - https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/1
 **Natureza:** levantamento de premissas, estado atual, gaps, requisitos candidatos e decisões em aberto.
 **Efeito no produto atual:** nenhum. Este documento não cria endpoint, contrato público, licença, entitlement, storage remoto ou obrigação de implementação.
 
@@ -377,5 +377,5 @@ Quando houver conflito, prevalece o contrato implementado e documentado como vig
 
 ## 19. Rastreabilidade
 
-- Issue de acompanhamento: https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/163
+- Issue de acompanhamento: https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/1
 - O encerramento da issue deve registrar a decisão arquitetural final e, quando aplicável, apontar para os documentos que substituírem esta avaliação.

@@ -181,9 +181,9 @@ Documentação de credenciais externas deve informar finalidade, dependências, 
 
 O usage ledger é separado de findings/scoring e registra consumo operacional necessário para analytics, limites, custo e futura medição SaaS, preservando proveniência de provider/source e sem transformar consumo em indicador de qualidade do website.
 
-## D-023 - Regra documental de pré-publicação
+## D-023 - Regra documental de contrato vigente
 
-O RASAi está em desenvolvimento e validação pré-publicação. A documentação normativa descreve somente o contrato vigente do produto.
+O RASAi possui release pública `v0.5.0`. A documentação normativa descreve o contrato vigente da linha atual e deve separar claramente release publicada, evolução pós-release, histórico, protótipos, superfícies piloto/pré-produção e backlog futuro.
 
 Não devem ser tratados como contrato do produto branch, PR, etapa de entrega, caminho removido, alias sem uso vigente ou decisão que não tenha efeito atual no runtime. Git é a fonte apropriada para rastreabilidade de implementação.
 

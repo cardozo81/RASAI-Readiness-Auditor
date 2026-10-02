@@ -339,7 +339,7 @@ trocar autoridade da aplicação
 manter origem somente leitura até encerrar janela de rollback
 ```
 
-No estado atual de desenvolvimento pré-publicação, PostgreSQL pode iniciar limpo porque dados locais são de teste/piloto, e não autoridade de produção.
+Na superfície hospedada/piloto ainda em evolução, PostgreSQL pode iniciar limpo quando os dados locais pertencem explicitamente a teste/piloto e não constituem autoridade de produção.
 
 ## Topologia de deployment hospedado
 

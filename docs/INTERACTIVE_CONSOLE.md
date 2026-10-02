@@ -1,6 +1,6 @@
 # Console interativo
 
-**Estado:** contrato vigente de desenvolvimento. O RASAi ainda não foi publicado.
+**Estado:** contrato vigente do runtime local; `v0.5.0` é a baseline pública atual.
 
 ## Inicialização
 

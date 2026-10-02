@@ -1,7 +1,7 @@
 # RASAi - Search & AI Readiness Auditor - visão e escopo do produto
 
 **Estado:** APROVADO / VIGENTE  
-**Fase do produto:** desenvolvimento e validação pré-publicação, com operação local e fundação SaaS disponíveis no código atual.
+**Fase do produto:** `v0.5.0` publicada, com operação local suportada e fundação SaaS/Pilot disponível no código atual; a evolução continua na linha pós-release.
 
 ## 1. Visão do produto
 

@@ -1,11 +1,10 @@
 # Matriz de paridade e convergência AUD/RPR - issue #110
 
-Revisão estática do código em 30/09/2026, após #107, #111 e #109.
-**Não equivale a homologação ponta a ponta.** A issue #110 permanece aberta
-até a convergência dos desvios abaixo e o smoke controlado #15/#92.
-O processamento e o RPR compartilham regras apenas quando isso é comprovado
-por funções chamadas, contratos persistidos e testes direcionados; não basta
-que dois caminhos produzam o mesmo estado nominal.
+**Classificação:** registro histórico da revisão estática de 30/09/2026; não é gate vigente.
+
+**Estado pós-v0.5.0:** #15, #92, #109 e #110 estão fechadas/completed. A convergência AUD/RPR foi homologada durante a estabilização da `v0.5.0`, incluindo smoke controlado de reprocessamento, evidence version/provenance e preservação de sucessos. O contrato vigente deve ser lido no runtime/testes atuais e em `AUDIT_REPROCESSING.md`.
+
+A matriz abaixo preserva o diagnóstico de 30/09/2026 como histórico técnico. Termos como "gap", "pendente" e critérios de aceite nas linhas seguintes descrevem o estado daquela revisão e não representam pendências atuais de release.
 
 ## Matriz verificável
 
@@ -39,7 +38,9 @@ de integridade dos arquivos e do banco por item `SUCCESS`. A composição dos
 wrappers ainda exige convergência de coordenação; não refatorar o executor
 físico de M3/M4 já compartilhado para criar superficialmente uma nova API.
 
-## Ordem segura para concluir a Fase B de #110
+## Registro histórico da ordem proposta para a Fase B de #110
+
+> Histórico: sequência planejada antes da homologação. Não é backlog vigente nem gate da linha pós-`v0.5.0`.
 
 1. Congelar fixtures de evidência inicial e de interrupção para M21/M23/M25,
    preservando contrato original, perfis, hashes, timestamps e os resultados
@@ -61,10 +62,14 @@ físico de M3/M4 já compartilhado para criar superficialmente uma nova API.
    Só após integração sem conflitos executar smoke humano da #15 e avaliar
    homologação global #92.
 
-## Critério impeditivo de homologação
+## Critério histórico usado antes da homologação
 
-Não afirmar que AUD e RPR usam integralmente um motor canônico enquanto a
-orquestração de **M21/M23/M25 parcial** continuar duplicada ou enquanto o
-teste ponta a ponta de `SUCCESS` materializado e gate de IA não estiver
-reconciliado. Os testes dirigidos de #107/#111/#108/#109 demonstram superfícies
-específicas; não substituem a auditoria real interrompida/retomada.
+Na revisão de 30/09/2026, não era aceitável afirmar que AUD e RPR usavam
+integralmente um motor canônico enquanto a orquestração de **M21/M23/M25
+parcial** permanecesse duplicada ou enquanto o teste ponta a ponta de
+`SUCCESS` materializado e gate de IA não estivesse reconciliado. Os testes
+dirigidos de #107/#111/#108/#109 demonstravam superfícies específicas e não
+substituíam a auditoria real interrompida/retomada. Esses critérios foram
+posteriormente satisfeitos/absorvidos pela estabilização e homologação da
+`v0.5.0`; este trecho permanece apenas como registro da decisão de gate usada
+naquele ciclo.

@@ -2,7 +2,7 @@
 
 ## Estado do produto
 
-O RASAi está em **desenvolvimento e validação pré-publicação**. A documentação descreve exclusivamente o contrato vigente do produto e deve ser lida como definição do estado atual, sem pressupor versões públicas anteriores.
+O RASAi possui release pública final `v0.5.0`. A documentação normativa descreve o contrato vigente da linha atual e deve distinguir explicitamente a baseline publicada, a evolução pós-release, registros históricos, protótipos e backlog futuro.
 
 O contrato funcional vigente usa:
 
@@ -18,7 +18,7 @@ A arquitetura de produto inclui Product Platform, SQLite local, PostgreSQL centr
 
 A versão executável do pacote/auditor segue [`VERSIONING.md`](VERSIONING.md) e é independente das versões públicas/metodológicas de SARI, SCORE-GEO, agregação, pesos e regras. Alterações funcionais após um marco RC/release exigem nova versão do pacote para preservar o `auditor_version` persistido nas auditorias.
 
-## Regra documental de pré-publicação
+## Regra documental de contrato vigente
 
 A documentação normativa deve representar **o produto como ele existe agora**.
 
@@ -36,7 +36,7 @@ Séries temporais, Evidence Timeline, Search Intelligence History e comparaçõe
 
 Documentos desta seção **não representam contrato funcional vigente nem compromisso de implementação**. Eles registram gaps e decisões ainda abertas para revisão futura.
 
-- [`SAAS_RUNNER_ARTIFACTS_FUTURE_ASSESSMENT.md`](SAAS_RUNNER_ARTIFACTS_FUTURE_ASSESSMENT.md) - consolida o estado atual, gaps e requisitos candidatos para Runner gerenciado pelo SaaS, persistência central de evidências/artefatos e possível renderização dinâmica de relatórios. Rastreabilidade: [GitHub Issue #163](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/163).
+- [`SAAS_RUNNER_ARTIFACTS_FUTURE_ASSESSMENT.md`](SAAS_RUNNER_ARTIFACTS_FUTURE_ASSESSMENT.md) - consolida o estado atual, gaps e requisitos candidatos para Runner gerenciado pelo SaaS, persistência central de evidências/artefatos e possível renderização dinâmica de relatórios. Rastreabilidade: [GitHub Issue #1](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/1).
 
 Cada avaliação futura deve ser encerrada por decisão explícita de implementar, substituir, manter pendente ou descontinuar; até essa decisão, o contrato implementado e a documentação vigente prevalecem.
 

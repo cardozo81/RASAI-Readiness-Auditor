@@ -1,7 +1,7 @@
 # Execução parcial, disponibilidade externa e fechamento diagnóstico
 
-**Estado do produto:** pré-publicação.  
-**Data de referência:** 21/09/2026.
+**Estado do contrato:** vigente na linha pós-`v0.5.0`.  
+**Data de referência original:** 21/09/2026.
 
 Este documento define o contrato canônico para auditorias, reprocessamentos e consolidações quando IA, APIs ou integrações externas estão indisponíveis, não configuradas, com credencial inválida, sem crédito, com timeout, erro de rede ou outra falha operacional.
 

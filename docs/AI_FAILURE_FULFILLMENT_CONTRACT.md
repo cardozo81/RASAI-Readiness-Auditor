@@ -1,7 +1,7 @@
 # Contrato de falhas de IA, fulfillment e conclusão do AUD
 
-**Estado do produto:** pré-publicação.  
-**Data de referência desta documentação:** 14/09/2026.  
+**Estado do contrato:** vigente na linha pós-`v0.5.0`.  
+**Data de referência original desta documentação:** 14/09/2026.  
 **Contrato de pricing de referência:** `RASAI-PRICING-2026-09-13`.
 
 Este documento define a relação entre configuração efetiva, trabalho esperado, tentativas externas, consumo, fulfillment, resultado lógico do `AUD-*`, reprocessamento e apresentação no console/SaaS.

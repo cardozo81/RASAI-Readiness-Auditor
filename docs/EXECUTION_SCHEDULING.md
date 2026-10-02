@@ -1,6 +1,6 @@
 # Execução externa e agendamento
 
-**Estado:** contrato vigente de desenvolvimento. O RASAi ainda não foi publicado.
+**Estado:** contrato vigente de execução local e agendamento; `v0.5.0` é a baseline pública atual.
 
 Este documento descreve como transformar a configuração resolvida no console em um comando reproduzível para execução manual ou agendada, sem alterar o motor de auditoria, reprocessamento ou consolidação.
 
