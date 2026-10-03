@@ -185,6 +185,7 @@ Mistral é `explicit_only=true` e `auto_eligible=false` até a homologação hum
 
 ```powershell
 $env:COHERE_API_KEY = "<cohere-api-key>"
+$env:RASAI_COHERE_COMMERCIAL_MODE = "<TRIAL-ou-PRODUCTION>"
 rasai audit https://example.com --ai-provider cohere --ai-model command-a-03-2025
 ```
 
@@ -199,11 +200,12 @@ Configuração pública:
 ```text
 COHERE_API_KEY
 RASAI_COHERE_MODEL
+RASAI_COHERE_COMMERCIAL_MODE=UNKNOWN|TRIAL|PRODUCTION
 ```
 
 O adapter usa `https://api.cohere.com/v2/chat` e `response_format.type=json_object` com JSON Schema. `minItems`, `maxItems`, `uniqueItems`, `allOf`, `oneOf`, `not` e demais constraints incompatíveis são removidos somente da projeção enviada ao fornecedor; a validação canônica local continua integral.
 
-O contrato atual não envia `tools` nem `documents`, não ativa RAG/Rerank, não expõe endpoint override e não controla reasoning. Cohere é `explicit_only=true` e `auto_eligible=false`.
+O contrato atual não envia `tools` nem `documents`, não ativa RAG/Rerank, não expõe endpoint override e não controla reasoning. Pricing exige modalidade comercial explícita: `UNKNOWN` é fail-closed, `TRIAL` usa custo monetário zero segundo a política oficial de trial e `PRODUCTION` usa a tarifa token-based pública. O adapter não infere o tipo da chave. Cohere é `explicit_only=true` e `auto_eligible=false`.
 
 ## GitHub Copilot
 
