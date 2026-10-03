@@ -2,7 +2,7 @@
 
 **Estado:** vigente.  
 **Data de referência desta configuração:** 03/10/2026  
-**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-10-03.6`  
+**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-10-03.7`  
 **Schema do catálogo:** `1`  
 **Revisão ordinária recomendada:** 03/11/2026
 
@@ -104,7 +104,7 @@ Metadados obrigatórios:
 ```toml
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-PRICING-2026-10-03.6"
+catalog_version = "RASAI-PRICING-2026-10-03.7"
 reference_date = "2026-10-03"
 verified_on = "2026-10-03"
 review_recommended_on = "2026-11-03"
@@ -168,7 +168,54 @@ time_windows_utc
 
 As janelas são declaradas em UTC. O motor converte o instante da chamada para UTC antes da resolução. A aplicação atual é DeepSeek V4 Pro/Flash peak e off-peak.
 
-## 6.4 Condições runtime
+### 6.4 `PER_REQUEST` e uso nativo
+
+O catálogo também aceita políticas em `[[native_usage]]`, separadas de `[[models]]`. Elas não reutilizam `input_tokens`, `output_tokens` ou `total_tokens`.
+
+Contrato materializado nesta versão:
+
+```toml
+[[native_usage]]
+provider = "PERPLEXITY"
+surface = "SEARCH_API"
+unit = "PERPLEXITY_SEARCH_REQUEST"
+pricing_model = "PER_REQUEST"
+currency = "USD"
+source_reference = "https://docs.perplexity.ai/docs/getting-started/pricing?calc=search"
+```
+
+As regras `PER_REQUEST` declaram `unit_price`, vigência e condições runtime. O catálogo de fábrica contém:
+
+- Search API `WEB`: USD 0,005 por requisição;
+- Fast Search `FAST`: USD 0,001 por requisição;
+- `operation_mode=REALTIME`.
+
+Uma observação marcada explicitamente como não faturável preserva a requisição observada, mas recebe custo monetário efetivo zero somente porque a não faturabilidade é conhecida. Ausência de regra, preço ou billability continua `UNPRICED`/NULL e nunca é convertida em zero.
+
+### 6.5 `PROVIDER_CREDITS`
+
+`PROVIDER_CREDITS` representa unidade comercial do fornecedor sem pressupor moeda:
+
+```toml
+[[native_usage]]
+provider = "MANUS"
+surface = "API_V2"
+unit = "MANUS_CREDIT"
+pricing_model = "PROVIDER_CREDITS"
+source_reference = "https://open.manus.ai/docs/v2/task.detail"
+```
+
+Na versão atual não há conversão oficial reproduzível de `MANUS_CREDIT` para moeda no catálogo. Portanto:
+
+- créditos não são tokens;
+- créditos não são currency;
+- custo monetário permanece NULL/`UNPRICED`;
+- `task.detail.task.credit_usage` é compatível com consumo primário futuro;
+- observações de reconciliação, refund e grant são semanticamente separadas e não entram novamente no consumo primário.
+
+A existência dessas políticas é habilitadora. Ela **não integra Perplexity ou Manus como providers do runtime** e não declara as issues consumidoras como concluídas.
+
+## 6.6 Condições runtime
 
 Uma regra pode declarar `conditions` como mapa declarativo. Na versão atual, o RASAi usa as chaves necessárias ao contrato implementado:
 
