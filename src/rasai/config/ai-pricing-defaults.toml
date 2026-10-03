@@ -360,7 +360,7 @@ model = "mistral-small-2603"
 pricing_model = "TOKEN_STANDARD"
 reasoning_billing = "IN_OUTPUT"
 region = "GLOBAL"
-source_reference = "https://docs.mistral.ai/inference/pricing"
+source_reference = "https://mistral.ai/pricing/api/"
 
   [[models.rules]]
   rule_id = "mistral-small-2603-standard"
