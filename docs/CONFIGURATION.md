@@ -92,13 +92,13 @@ github-copilot -> copilot
 
 A lista normativa vem do `provider_registry`; documentação e UIs devem projetar esse catálogo em vez de manter allowlists independentes.
 
-Mistral usa `MISTRAL_API_KEY`, modelo público `mistral-small-2603` e endpoint global Standard fixo. Nesta entrega é `explicit-only`: estar configurado não o inclui em `AI=auto`.
+Mistral usa `MISTRAL_API_KEY`, modelo público `mistral-small-2603` e endpoint global Standard fixo. Quando configurado e apto, participa de `AI=auto`.
 
-Cohere usa `COHERE_API_KEY`, modelo `command-a-03-2025` e também permanece `explicit-only`.
+Cohere usa `COHERE_API_KEY`, modelo `command-a-03-2025` e participa de `AI=auto` quando configurado e apto.
 
-Kimi/Moonshot usa `MOONSHOT_API_KEY`, modelo `kimi-k3`, endpoint internacional fixo e reasoning `LOW|HIGH|MAX` com default `LOW`. Também é `explicit-only`, portanto a presença da credencial não o inclui em `AI=auto`.
+Kimi/Moonshot usa `MOONSHOT_API_KEY`, modelo `kimi-k3`, endpoint internacional fixo e reasoning `LOW|HIGH|MAX` com default `LOW`. Quando configurado e apto, participa de `AI=auto`.
 
-GitHub Copilot usa o SDK oficial, `COPILOT_GITHUB_TOKEN` e modelo público `auto`. Também é deliberadamente `explicit-only`: estar configurado não o inclui em `AI=auto`. Instalação manual do transporte: `python -m pip install -e ".[copilot]"`.
+GitHub Copilot usa o SDK oficial, `COPILOT_GITHUB_TOKEN` e modelo público `auto`. Quando configurado e apto, participa de `AI=auto`; use `RASAI_AI_AUTO_EXCLUDE=copilot` para excluí-lo sem remover a credencial. Instalação manual do transporte: `python -m pip install -e ".[copilot]"`.
 
 ### `AUTO`
 
@@ -119,7 +119,7 @@ O coordenador:
 
 A ordem é recalculada a cada necessidade e pode mudar por horário, tamanho do request, modelo, reasoning, cache observado ou faixa de contexto. O runtime não troca silenciosamente para Batch, Flex ou outro service tier assíncrono somente para obter desconto.
 
-Excluir um provider de `AUTO` não remove sua credencial nem impede seleção explícita posterior. Providers `explicit-only`, atualmente Mistral, Cohere e Kimi durante a homologação inicial e GitHub Copilot, ficam fora do pool por contrato e não precisam ser excluídos manualmente.
+Excluir um provider de `AUTO` não remove sua credencial nem impede seleção explícita posterior. Todos os providers integrados atuais podem entrar no pool quando configurados/aptos; exclusão operacional é feita por `RASAI_AI_AUTO_EXCLUDE`.
 
 Preços, janelas tarifárias, timezone, heurísticas de tokens e política de revisão do catálogo estão em [`AUTO_COST_AWARE_AI_ROUTING.md`](AUTO_COST_AWARE_AI_ROUTING.md).
 
@@ -134,14 +134,14 @@ Preços, janelas tarifárias, timezone, heurísticas de tokens e política de re
 | Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `NONE` | menor effort aceito; elevar deliberadamente |
 | Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | `LOW` | default público |
 | Anthropic | `claude-sonnet-5` | `claude-sonnet-5` | `LOW` | default público |
-| Mistral | `mistral-small-2603` | `mistral-small-2603` | `PROVIDER_DEFAULT` | seleção explícita / piloto; fora do AUTO |
-| Cohere | `command-a-03-2025` | `command-a-03-2025` | `PROVIDER_DEFAULT` | seleção explícita / piloto; fora do AUTO |
-| Kimi / Moonshot | `kimi-k3` | `kimi-k3` | `LOW` | seleção explícita / piloto; fora do AUTO |
-| GitHub Copilot | `auto` | `auto` | `PROVIDER_DEFAULT` | deixar SDK/assinatura resolver o modelo; seleção explícita |
+| Mistral | `mistral-small-2603` | `mistral-small-2603` | `PROVIDER_DEFAULT` | elegível ao AUTO |
+| Cohere | `command-a-03-2025` | `command-a-03-2025` | `PROVIDER_DEFAULT` | elegível ao AUTO |
+| Kimi / Moonshot | `kimi-k3` | `kimi-k3` | `LOW` | elegível ao AUTO |
+| GitHub Copilot | `auto` | `auto` | `PROVIDER_DEFAULT` | deixar SDK/assinatura resolver o modelo; elegível ao AUTO |
 
 Os valores permitidos de reasoning são publicados em `ENVIRONMENT_VARIABLES.md` e `PROVIDER_REGISTRY.md`.
 
-Para Cohere, pricing possui uma configuração adicional não secreta: `RASAI_COHERE_COMMERCIAL_MODE=UNKNOWN|TRIAL|PRODUCTION`. O default `UNKNOWN` preserva fail-closed; o operador deve escolher TRIAL ou PRODUCTION somente quando conhecer o tipo da key. Isso não altera modelo, reasoning, evidence-bound ou elegibilidade AUTO.
+Para Cohere, pricing possui uma configuração adicional não secreta: `RASAI_COHERE_COMMERCIAL_MODE=UNKNOWN|TRIAL|PRODUCTION`. O default `UNKNOWN` preserva fail-closed; o operador deve escolher TRIAL ou PRODUCTION somente quando conhecer o tipo da key. Isso não altera modelo, reasoning ou evidence-bound; `UNKNOWN` mantém apenas o custo UNPRICED.
 
 Política de default de reasoning: o RASAi usa o **menor nível válido que o modelo/API aceita**. Quando o provider permite desligar reasoning, o default é `NONE`; quando não permite, usa-se o menor effort disponível, como `LOW`; quando o adapter/modelo não expõe controle determinístico, permanece `PROVIDER_DEFAULT`. Isso é uma política RASAi de custo/eficiência e não uma afirmação sobre o default nativo do fornecedor.
 
