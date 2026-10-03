@@ -13,6 +13,7 @@ Os providers adicionais abaixo estão implementados e mantêm sua qualificação
 | `gemini` | Google Gemini | `gemini-3.8-flash` | Gemini Interactions API | `PROVISIONAL` | elegível se apto |
 | `anthropic` / `claude` | Anthropic Claude | `claude-sonnet-5` | Messages API | `PROVISIONAL` | elegível se apto |
 | `mistral` | Mistral AI | `mistral-small-2603` | Chat Completions | `PROVISIONAL` | **não; explicit-only durante homologação** |
+| `cohere` | Cohere | `command-a-03-2025` | Chat V2 | `PROVISIONAL` | **não; explicit-only durante homologação** |
 | `kimi` / `moonshot` | Kimi / Moonshot | `kimi-k3` | Chat Completions | `PROVISIONAL` | **não; explicit-only durante homologação** |
 | `copilot` / `github-copilot` | GitHub Copilot | `auto` | GitHub Copilot SDK oficial | `PROVISIONAL` | **não; explicit-only** |
 
@@ -34,7 +35,7 @@ A seleção é recalculada por necessidade de IA. Entre os candidatos ainda eleg
 
 A política econômica não troca silenciosamente para Batch/Flex/assíncrono e não altera quarentena, classificação de erro ou limiares de circuit breaker.
 
-Mistral, Kimi e GitHub Copilot são `explicit-only` nesta entrega e não entram no pool AUTO mesmo quando suas credenciais estão configuradas. Para Mistral, a restrição permanece até homologação humana posterior; para Copilot, evita consumo involuntário da assinatura pessoal.
+Mistral, Cohere, Kimi e GitHub Copilot são `explicit-only` nesta entrega e não entram no pool AUTO mesmo quando suas credenciais estão configuradas. Para Mistral, a restrição permanece até homologação humana posterior; para Copilot, evita consumo involuntário da assinatura pessoal.
 
 Contratos completos: [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md) e [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md).
 
