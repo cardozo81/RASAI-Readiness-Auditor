@@ -1,11 +1,11 @@
 # RASAi AI pricing factory catalog
-# Reference date: 2026-09-13.
+# Reference date: 2026-10-03.
 # All monetary values are USD per 1,000,000 tokens unless explicitly documented.
 # This is a product policy baseline, not an invoice and not a secret store.
 
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-PRICING-2026-10-03.5"
+catalog_version = "RASAI-PRICING-2026-10-03.6"
 reference_date = "2026-10-03"
 verified_on = "2026-10-03"
 review_recommended_on = "2026-11-03"
@@ -16,7 +16,7 @@ model = "gpt-5.6-sol"
 pricing_model = "TOKEN_CONTEXT_TIERED"
 reasoning_billing = "IN_OUTPUT"
 region = "GLOBAL"
-source_reference = "https://developers.openai.com/api/docs/models/gpt-5.6-sol"
+source_reference = "https://developers.openai.com/api/docs/pricing"
 
   [[models.rules]]
   rule_id = "openai-gpt-5.6-sol-standard"
@@ -45,7 +45,7 @@ model = "gpt-5.6-terra"
 pricing_model = "TOKEN_CONTEXT_TIERED"
 reasoning_billing = "IN_OUTPUT"
 region = "GLOBAL"
-source_reference = "https://developers.openai.com/api/docs/models/gpt-5.6-terra"
+source_reference = "https://developers.openai.com/api/docs/pricing"
 
   [[models.rules]]
   rule_id = "openai-gpt-5.6-terra-standard"
@@ -74,7 +74,7 @@ model = "gpt-5.6-luna"
 pricing_model = "TOKEN_CONTEXT_TIERED"
 reasoning_billing = "IN_OUTPUT"
 region = "GLOBAL"
-source_reference = "https://developers.openai.com/api/docs/models/gpt-5.6-luna"
+source_reference = "https://developers.openai.com/api/docs/pricing"
 
   [[models.rules]]
   rule_id = "openai-gpt-5.6-luna-standard"
@@ -163,7 +163,7 @@ model = "mimo-v2.6-pro"
 pricing_model = "TOKEN_STANDARD"
 reasoning_billing = "IN_OUTPUT"
 region = "GLOBAL"
-source_reference = "https://mimo.mi.com/models/en-US/mimo-v2.6-pro"
+source_reference = "https://mimo.mi.com/docs/en-US/price/pay-as-you-go"
 
   [[models.rules]]
   rule_id = "mimo-v2.6-pro-payg-realtime"
@@ -181,7 +181,7 @@ model = "mimo-v2.6-flash"
 pricing_model = "TOKEN_STANDARD"
 reasoning_billing = "IN_OUTPUT"
 region = "GLOBAL"
-source_reference = "https://mimo.mi.com/models/en-US/mimo-v2.6-flash"
+source_reference = "https://mimo.mi.com/docs/en-US/price/pay-as-you-go"
 
   [[models.rules]]
   rule_id = "mimo-v2.6-flash-payg-realtime"
@@ -287,7 +287,7 @@ model = "qwen3.8-flash"
 pricing_model = "TOKEN_STANDARD"
 reasoning_billing = "IN_OUTPUT"
 region = "US_VIRGINIA"
-source_reference = "https://www.alibabacloud.com/help/en/model-studio/qwen3-8-flash"
+source_reference = "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
 
   [[models.rules]]
   rule_id = "qwen3.8-flash-us-virginia"
@@ -305,7 +305,7 @@ model = "qwen3.8-max"
 pricing_model = "TOKEN_STANDARD"
 reasoning_billing = "IN_OUTPUT"
 region = "US_VIRGINIA"
-source_reference = "https://www.alibabacloud.com/help/en/model-studio/qwen3-8-max"
+source_reference = "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
 
   [[models.rules]]
   rule_id = "qwen3.8-max-us-virginia"
