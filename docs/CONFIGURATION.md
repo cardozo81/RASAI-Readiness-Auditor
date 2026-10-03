@@ -133,6 +133,8 @@ Preços, janelas tarifárias, timezone, heurísticas de tokens e política de re
 
 Os valores permitidos de reasoning são publicados em `ENVIRONMENT_VARIABLES.md` e `PROVIDER_REGISTRY.md`.
 
+Para Cohere, pricing possui uma configuração adicional não secreta: `RASAI_COHERE_COMMERCIAL_MODE=UNKNOWN|TRIAL|PRODUCTION`. O default `UNKNOWN` preserva fail-closed; o operador deve escolher TRIAL ou PRODUCTION somente quando conhecer o tipo da key. Isso não altera modelo, reasoning, evidence-bound ou elegibilidade AUTO.
+
 Política de default de reasoning: o RASAi usa o **menor nível válido que o modelo/API aceita**. Quando o provider permite desligar reasoning, o default é `NONE`; quando não permite, usa-se o menor effort disponível, como `LOW`; quando o adapter/modelo não expõe controle determinístico, permanece `PROVIDER_DEFAULT`. Isso é uma política RASAi de custo/eficiência e não uma afirmação sobre o default nativo do fornecedor.
 
 ### Timeout de IA
