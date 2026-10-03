@@ -5,10 +5,10 @@
 
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-PRICING-2026-10-02.3"
-reference_date = "2026-10-02"
-verified_on = "2026-10-02"
-review_recommended_on = "2026-11-02"
+catalog_version = "RASAI-PRICING-2026-10-03.4"
+reference_date = "2026-10-03"
+verified_on = "2026-10-03"
+review_recommended_on = "2026-11-03"
 
 [[models]]
 provider = "OPENAI"
@@ -381,11 +381,21 @@ region = "GLOBAL"
 source_reference = "https://docs.cohere.com/docs/command-a"
 
   [[models.rules]]
-  rule_id = "cohere-command-a-03-2025-standard"
-  context = "STANDARD"
-  priority = 0
-  effective_from = "2026-10-02T00:00:00Z"
-  conditions = { operation_mode = "REALTIME", region = "GLOBAL" }
+  rule_id = "cohere-command-a-03-2025-trial"
+  context = "TRIAL"
+  priority = 100
+  effective_from = "2026-10-03T00:00:00Z"
+  conditions = { commercial_mode = "TRIAL", operation_mode = "REALTIME", region = "GLOBAL" }
+  input_price_per_million = 0.00
+  cached_input_price_per_million = 0.00
+  output_price_per_million = 0.00
+
+  [[models.rules]]
+  rule_id = "cohere-command-a-03-2025-production"
+  context = "PRODUCTION"
+  priority = 100
+  effective_from = "2026-10-03T00:00:00Z"
+  conditions = { commercial_mode = "PRODUCTION", operation_mode = "REALTIME", region = "GLOBAL" }
   input_price_per_million = 2.50
   cached_input_price_per_million = 2.50
   output_price_per_million = 10.00
