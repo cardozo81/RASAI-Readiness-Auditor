@@ -32,9 +32,9 @@ def install() -> None:
         ai_action = next(action for action in audit_parser._actions if action.dest == "ai_provider")
         ai_action.help = (
             "semantic analysis provider; AUTO derives its eligible pool from the canonical "
-            "provider registry and current configuration; providers marked explicit-only, "
-            "such as GitHub Copilot, never enter AUTO; explicit providers keep their own "
-            "model/reasoning policy"
+            "provider registry and current configuration; every integrated provider may enter "
+            "AUTO when configured, model-eligible and healthy; provider-specific model/reasoning "
+            "policy remains enforced"
         )
         return parser
 
