@@ -5,7 +5,7 @@
 
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-PRICING-2026-10-03.4"
+catalog_version = "RASAI-PRICING-2026-10-03.5"
 reference_date = "2026-10-03"
 verified_on = "2026-10-03"
 review_recommended_on = "2026-11-03"
@@ -399,4 +399,22 @@ source_reference = "https://docs.cohere.com/docs/command-a"
   input_price_per_million = 2.50
   cached_input_price_per_million = 2.50
   output_price_per_million = 10.00
+
+[[models]]
+provider = "KIMI"
+model = "kimi-k3"
+pricing_model = "TOKEN_STANDARD"
+reasoning_billing = "IN_OUTPUT"
+region = "INTERNATIONAL"
+source_reference = "https://platform.kimi.ai/docs/pricing/chat"
+
+  [[models.rules]]
+  rule_id = "kimi-k3-international-realtime-5m"
+  context = "PAYG_REALTIME_5M_CACHE"
+  priority = 100
+  effective_from = "2026-10-03T00:00:00Z"
+  conditions = { cache_ttl = "5M", operation_mode = "REALTIME", region = "INTERNATIONAL" }
+  input_price_per_million = 3.00
+  cached_input_price_per_million = 0.30
+  output_price_per_million = 15.00
 
