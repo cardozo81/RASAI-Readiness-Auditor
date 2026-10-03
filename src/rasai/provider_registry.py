@@ -127,7 +127,9 @@ def _registration(provider_name: str, catalog: AiModelCatalog) -> ProviderRegist
         return None
     adapter_default = _one_default(items, "adapter_default", provider_name)
     public_default = _one_default(items, "public_default", provider_name)
-    explicit_only = provider_name in {"MISTRAL", "COHERE", "KIMI", "COPILOT"}
+    # Every integrated AI provider may participate in AUTO when its effective model is eligible.
+    # Runtime configuration, explicit exclusions and health still gate actual participation.
+    explicit_only = False
 
     if provider_name in _CORE_PROVIDER_ORDER:
         aliases: tuple[str, ...] = ()
