@@ -729,7 +729,7 @@ def test_ai_integrations_renders_persisted_pricing_trace(tmp_path: Path) -> None
                 }),
                 1,
                 "2026-10-03T18:40:00+00:00", "2026-10-03T18:41:00+00:00",
-                60000, "STOP", None, None, None, None, None, None, None, None,
+                60000, "STOP", None, None, None, None, None, None, None,
                 "rules=22;evidence=8", "hash",
             ),
         )
