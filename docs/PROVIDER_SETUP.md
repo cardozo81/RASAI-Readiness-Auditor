@@ -123,6 +123,7 @@ Configuração mínima:
 
 ```powershell
 $env:COHERE_API_KEY="<cohere-api-key>"
+$env:RASAI_COHERE_COMMERCIAL_MODE="<TRIAL-ou-PRODUCTION>"
 rasai audit https://example.com --ai-provider cohere --ai-model command-a-03-2025
 ```
 
@@ -132,6 +133,9 @@ Contrato inicial:
 - endpoint fixo: `https://api.cohere.com/v2/chat`;
 - Structured Outputs via `response_format`, com projeção do JSON Schema somente no wire e validação local integral;
 - usage faturável lido de `usage.billed_units` quando retornado;
+- `RASAI_COHERE_COMMERCIAL_MODE=UNKNOWN|TRIAL|PRODUCTION`; default `UNKNOWN` mantém pricing fail-closed;
+- `TRIAL` representa a chave trial gratuita/limitada; `PRODUCTION` aplica a tarifa token-based pública;
+- o tipo da chave não é inferido pela API nem pelo valor do segredo;
 - sem `RASAI_COHERE_ENDPOINT` e sem variável de reasoning;
 - sem tools, documents, RAG ou Rerank nesta primeira fase;
 - `explicit-only`; não participa de `AI=auto` antes da homologação humana.
