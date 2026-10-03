@@ -46,13 +46,14 @@ from rasai.provider_extensions import (
     CohereProvider,
     GeminiProvider,
     IsolatedStructuredSemanticProvider,
+    KimiProvider,
     MistralProvider,
     QwenProvider,
     XAIProvider,
     _diagnostic_from_http as _extension_diagnostic_from_http,
     gemini_wire_schema,
 )
-from rasai.provider_wire_schema import cohere_wire_schema
+from rasai.provider_wire_schema import cohere_wire_schema, kimi_wire_schema
 from rasai.provider_registry import get_provider_registration
 from rasai.provider_runtime_policy import build_semantic_provider, provider_reasoning_env
 from rasai.semantic import _extract_json_payload
@@ -962,9 +963,12 @@ def _provider_payload(provider: Any, *, instructions: str, user_text: str, schem
     if isinstance(provider, CohereProvider):
         return {"model": model, "messages": [{"role": "system", "content": instructions}, {"role": "user", "content": "Generate the requested JSON.\n\n" + user_text}], "response_format": {"type": "json_object", "schema": cohere_wire_schema(schema)}}
     if isinstance(provider, (QwenProvider, MistralProvider)):
-        payload = {"model": model, "messages": [{"role": "system", "content": instructions}, {"role": "user", "content": user_text}], "response_format": {"type": "json_schema", "json_schema": {"name": "rasai_improvement_intelligence", "schema": schema, "strict": True}}}
+        wire_schema = kimi_wire_schema(schema) if isinstance(provider, KimiProvider) else schema
+        payload = {"model": model, "messages": [{"role": "system", "content": instructions}, {"role": "user", "content": user_text}], "response_format": {"type": "json_schema", "json_schema": {"name": "rasai_improvement_intelligence", "schema": wire_schema, "strict": True}}}
         if isinstance(provider, MistralProvider):
             payload["service_tier"] = "standard_only"
+        if isinstance(provider, KimiProvider):
+            payload["reasoning_effort"] = provider.reasoning_profile.casefold()
         return payload
     if isinstance(provider, GeminiProvider):
         return {"model": model, "input": instructions + "\n\n" + user_text, "response_format": {"type": "text", "mime_type": "application/json", "schema": gemini_wire_schema(schema)}}

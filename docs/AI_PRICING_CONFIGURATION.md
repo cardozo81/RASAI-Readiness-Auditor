@@ -2,7 +2,7 @@
 
 **Estado:** vigente.  
 **Data de referência desta configuração:** 03/10/2026  
-**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-10-03.4`  
+**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-10-03.5`  
 **Schema do catálogo:** `1`  
 **Revisão ordinária recomendada:** 03/11/2026
 
@@ -104,7 +104,7 @@ Metadados obrigatórios:
 ```toml
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-PRICING-2026-10-03.4"
+catalog_version = "RASAI-PRICING-2026-10-03.5"
 reference_date = "2026-10-03"
 verified_on = "2026-10-03"
 review_recommended_on = "2026-11-03"
@@ -142,7 +142,7 @@ A unidade usada pelo runtime é preço por 1.000.000 tokens para input sem cache
 
 ### 6.1 `TOKEN_STANDARD`
 
-Use quando o preço é estável durante a vigência e não depende de horário ou tamanho de contexto. Aplicações atuais incluem MiMo, Qwen, Gemini, Anthropic e Mistral.
+Use quando o preço é estável durante a vigência e não depende de horário ou tamanho de contexto. Aplicações atuais incluem MiMo, Qwen, Gemini, Anthropic, Mistral e Kimi.
 
 ### 6.2 `TOKEN_CONTEXT_TIERED`
 
@@ -186,7 +186,8 @@ Exemplos vigentes:
 - xAI: `service_tier=DEFAULT`, `REALTIME`, região `GLOBAL` ou `US`, com tarifa regional própria;
 - Qwen: `REALTIME`, `US_VIRGINIA`; override de endpoint não reconhecido fica UNPRICED;
 - Gemini e Anthropic: `service_tier=STANDARD`, `REALTIME`, `GLOBAL` no contrato atual;
-- Mistral: `service_tier=STANDARD_ONLY`, `REALTIME`, `GLOBAL`.
+- Mistral: `service_tier=STANDARD_ONLY`, `REALTIME`, `GLOBAL`;
+- Kimi: `cache_ttl=5M`, `operation_mode=REALTIME`, `region=INTERNATIONAL`.
 
 A existência de outro tier/plano no fornecedor não o habilita no RASAi. Capacidades fora do contrato continuam sob análise na issue #180.
 
@@ -217,7 +218,8 @@ Exemplos vigentes:
 - xAI: `service_tier=DEFAULT`, `operation_mode=REALTIME`, com tarifa própria para `GLOBAL` e `US`;
 - Qwen: `operation_mode=REALTIME`, `region=US_VIRGINIA`; endpoint desconhecido produz região `UNKNOWN` e fica UNPRICED;
 - Gemini e Anthropic: `service_tier=STANDARD`, `operation_mode=REALTIME`, `region=GLOBAL`;
-- Mistral: `service_tier=STANDARD_ONLY`, `operation_mode=REALTIME`, `region=GLOBAL`.
+- Mistral: `service_tier=STANDARD_ONLY`, `operation_mode=REALTIME`, `region=GLOBAL`;
+- Kimi: `cache_ttl=5M`, `operation_mode=REALTIME`, `region=INTERNATIONAL`.
 
 Essas condições descrevem somente modalidades já implementadas. Não autorizam Batch, Flex, Priority, Token Plan ou outro tier externo.
 
@@ -251,6 +253,7 @@ Valores em USD por 1 milhão de tokens.
 | Gemini `gemini-3.8-flash` | `TOKEN_STANDARD` | 0,75 | 0,075 | 3,75 | thinking/reasoning soma no output; regra até 01/01/2027 UTC |
 | Anthropic `claude-sonnet-5` | `TOKEN_STANDARD` | 2,00 | 0,20 | 10,00 | 0,20 representa cache read no modelo vigente |
 | Mistral `mistral-small-2603` | `TOKEN_STANDARD` | 0,15 | 0,015 | 0,60 | endpoint global; `service_tier=standard_only`; provider ainda explicit-only |
+| Kimi `kimi-k3` | `TOKEN_STANDARD` | 3,00 | 0,30 | 15,00 | plataforma internacional; realtime; cache implícito TTL 5m; cache-write 5m custa 3,00/M e está contido no input total |
 | GitHub Copilot `auto` | **UNPRICED** | - | - | - | explicit-only e `auto_eligible=false`; não participa do ranking AUTO |
 
 A tabela é uma fotografia operacional da data de referência. O TOML efetivamente snapshotado para a execução é a autoridade de cálculo daquela AUD.
@@ -298,7 +301,15 @@ O adapter usa `usage.billed_units` como tokens faturáveis e preserva `cached_in
 
 A existência das regras não autoriza `AI=auto`: Cohere permanece `explicit_only=true` e `auto_eligible=false` até homologação humana positiva.
 
-### 10.9 GitHub Copilot
+### 10.9 Kimi / Moonshot
+
+A regra inicial cobre somente `kimi-k3` na plataforma internacional, operação realtime e cache implícito com TTL 5m. Preços documentados: USD 3,00/M input/cache miss, USD 3,00/M cache write 5m, USD 0,30/M cache hit e USD 15,00/M output. Como cache write 5m e input/cache miss têm a mesma tarifa e `usage.prompt_tokens` já inclui cache read, cache write e restante uncached como partições mutuamente exclusivas, o RASAi calcula o input não-cached a USD 3,00/M e nunca soma `cache_write_tokens` novamente.
+
+TTL 1h custa USD 6,00/M cache write e não cabe no contrato token-based atual sem uma dimensão adicional ou condição observável suficiente; por isso `prompt_cache_options`/1h não é exposto nesta entrega. Isso mantém a issue #8 condicional e evita custo incorreto.
+
+Pricing não altera governança: Kimi permanece `explicit_only=true` e `auto_eligible=false`.
+
+### 10.10 GitHub Copilot
 
 Na referência de 02/10/2026 não existe tarifa unitária de API cadastrada no RASAi. O provider é explicit-only e não é elegível ao AUTO.
 
@@ -376,7 +387,7 @@ A ordem permanece:
 4. empates determinísticos;
 5. candidatos UNPRICED depois dos precificados.
 
-Pricing não habilita provider sem credencial, ignora falhas, remove quarentena, reduz circuit breaker nem torna Mistral, Cohere ou Copilot elegíveis ao AUTO nesta entrega.
+Pricing não habilita provider sem credencial, ignora falhas, remove quarentena, reduz circuit breaker nem torna Mistral, Cohere, Kimi ou Copilot elegíveis ao AUTO nesta entrega.
 
 ## 18. Batch, Flex, Priority e service tiers
 
@@ -417,6 +428,7 @@ Revisar antes disso em caso de aviso de preço, troca de modelo default, mudanç
 | Anthropic Claude | <https://platform.claude.com/docs/en/about-claude/pricing> | input, output e cache |
 | Mistral AI | <https://docs.mistral.ai/inference/pricing> | Standard input, cached input, output e service tier |
 | Cohere | <https://docs.cohere.com/docs/command-a> e <https://docs.cohere.com/docs/how-does-cohere-pricing-work> | input/output do `command-a-03-2025`, trial vs production e eventuais mudanças de política comercial |
+| Kimi / Moonshot | <https://platform.kimi.ai/docs/pricing/chat> e <https://platform.kimi.ai/docs/guide/context-caching> | input, output, cache hit e cache write 5m/1h do K3; contrato RASAi atual fixa 5m |
 
 Cada entrada do TOML mantém `source_reference` próprio.
 
@@ -431,6 +443,7 @@ A suíte deve cobrir, no mínimo:
 - reasoning do Gemini incluído no output faturável;
 - Mistral Small 4 com input/cache/output Standard e permanência fora do AUTO;
 - Cohere Command A com `billed_units`, `TRIAL|PRODUCTION|UNKNOWN`, cache não separado, condições REALTIME/GLOBAL e permanência fora do AUTO;
+- Kimi K3 com input/cache hit/output, cache-write 5m contido em `prompt_tokens`, condições REALTIME/INTERNATIONAL/5M e permanência fora do AUTO;
 - defaults elegíveis do pool AUTO com preço vigente;
 - arquivo configurado inexistente falhando fechado;
 - `config/ai-pricing.toml` como superfície humana padrão do console;

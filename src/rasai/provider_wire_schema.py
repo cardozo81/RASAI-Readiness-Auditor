@@ -109,6 +109,16 @@ def cohere_wire_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
     return projected
 
 
+def kimi_wire_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """Project canonical RASAi schema to a conservative Kimi strict wire subset.
+
+    Kimi K3 supports strict JSON Schema structured output. RASAi sends the same
+    conservative structural subset used for strict OpenAI-style schemas and keeps
+    every omitted value/cardinality constraint authoritative in local validation.
+    """
+    return openai_wire_schema(schema)
+
+
 def project_provider_request_payload(provider_name: str, payload: Mapping[str, Any]) -> dict[str, Any]:
     """Project structured-output schemas in one outbound provider payload.
 
@@ -118,13 +128,21 @@ def project_provider_request_payload(provider_name: str, payload: Mapping[str, A
     """
     output = deepcopy(dict(payload))
     provider = provider_name.strip().upper()
-    if provider not in {"OPENAI", "COHERE"}:
+    if provider not in {"OPENAI", "COHERE", "KIMI"}:
         return output
 
     if provider == "COHERE":
         response_format = output.get("response_format")
         if isinstance(response_format, dict) and isinstance(response_format.get("schema"), Mapping):
             response_format["schema"] = cohere_wire_schema(response_format["schema"])
+        return output
+
+    if provider == "KIMI":
+        response_format = output.get("response_format")
+        if isinstance(response_format, dict):
+            json_schema = response_format.get("json_schema")
+            if isinstance(json_schema, dict) and isinstance(json_schema.get("schema"), Mapping):
+                json_schema["schema"] = kimi_wire_schema(json_schema["schema"])
         return output
 
     text = output.get("text")
@@ -153,7 +171,7 @@ def project_provider_request_payload(provider_name: str, payload: Mapping[str, A
 
 def project_provider_request_body(provider_name: str, body: bytes) -> bytes:
     """Return the exact body that should be sent to a provider transport."""
-    if provider_name.strip().upper() not in {"OPENAI", "COHERE"}:
+    if provider_name.strip().upper() not in {"OPENAI", "COHERE", "KIMI"}:
         return body
     try:
         decoded = json.loads(body.decode("utf-8"))

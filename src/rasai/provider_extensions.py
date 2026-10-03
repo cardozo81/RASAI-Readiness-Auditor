@@ -35,7 +35,7 @@ from rasai.m18_ai import (
     build_semantic_provider as _legacy_build_semantic_provider,
 )
 from rasai.openai_provider import SEMANTIC_RULE_CRITERIA, hardened_semantic_output_schema
-from rasai.provider_wire_schema import cohere_wire_schema
+from rasai.provider_wire_schema import cohere_wire_schema, kimi_wire_schema
 from rasai.semantic import (
     ProviderState,
     SEMANTIC_RULE_IDS,
@@ -58,6 +58,7 @@ EXTENDED_SUPPORTED_MODELS: dict[str, tuple[str, ...]] = {
     "ANTHROPIC": ("claude-sonnet-5",),
     "MISTRAL": ("mistral-small-2603",),
     "COHERE": ("command-a-03-2025",),
+    "KIMI": ("kimi-k3",),
 }
 EXTENDED_DEFAULT_MODELS = {
     "XAI": "grok-4.6",
@@ -66,6 +67,7 @@ EXTENDED_DEFAULT_MODELS = {
     "ANTHROPIC": "claude-sonnet-5",
     "MISTRAL": "mistral-small-2603",
     "COHERE": "command-a-03-2025",
+    "KIMI": "kimi-k3",
 }
 EXTENDED_KEY_ENV = {
     "XAI": "XAI_API_KEY",
@@ -74,6 +76,7 @@ EXTENDED_KEY_ENV = {
     "ANTHROPIC": "ANTHROPIC_API_KEY",
     "MISTRAL": "MISTRAL_API_KEY",
     "COHERE": "COHERE_API_KEY",
+    "KIMI": "MOONSHOT_API_KEY",
 }
 EXTENDED_MODEL_ENV = {
     "XAI": "RASAI_XAI_MODEL",
@@ -82,6 +85,7 @@ EXTENDED_MODEL_ENV = {
     "ANTHROPIC": "RASAI_ANTHROPIC_MODEL",
     "MISTRAL": "RASAI_MISTRAL_MODEL",
     "COHERE": "RASAI_COHERE_MODEL",
+    "KIMI": "RASAI_KIMI_MODEL",
 }
 COHERE_COMMERCIAL_MODE_ENV = "RASAI_COHERE_COMMERCIAL_MODE"
 COHERE_COMMERCIAL_MODES = ("UNKNOWN", "TRIAL", "PRODUCTION")
@@ -121,6 +125,10 @@ EXTENSION_POLICIES: dict[tuple[str, str], ProviderPolicy] = {
         107, "COHERE", "command-a-03-2025", "PROVIDER_DEFAULT", "PROVISIONAL",
         "PROVISIONAL", "explicit qualification only",
     ),
+    ("KIMI", "kimi-k3"): ProviderPolicy(
+        108, "KIMI", "kimi-k3", "LOW", "PROVISIONAL",
+        "PROVISIONAL", "explicit qualification only",
+    ),
 }
 
 _PROVIDER_ALIASES = {
@@ -132,6 +140,8 @@ _PROVIDER_ALIASES = {
     "CLAUDE": "ANTHROPIC",
     "MISTRAL": "MISTRAL",
     "COHERE": "COHERE",
+    "KIMI": "KIMI",
+    "MOONSHOT": "KIMI",
 }
 
 Transport = Callable[[str, dict[str, str], bytes, float], dict[str, Any]]
@@ -779,7 +789,7 @@ class QwenProvider(IsolatedStructuredSemanticProvider):
         message = choices[0].get("message") if isinstance(choices[0], Mapping) else None
         content = message.get("content") if isinstance(message, Mapping) else None
         if not isinstance(content, str):
-            raise SemanticProviderError("Qwen response contained no textual output")
+            raise SemanticProviderError(f"{self.name} response contained no textual output")
         return json.loads(content)
 
     def _usage(self, raw: Mapping[str, Any]) -> ProviderUsage | None:
@@ -829,6 +839,35 @@ class MistralProvider(QwenProvider):
     def _request_payload(self, semantic_input: SemanticInput) -> dict[str, Any]:
         payload = super()._request_payload(semantic_input)
         payload["service_tier"] = "standard_only"
+        return payload
+
+
+class KimiProvider(QwenProvider):
+    """Kimi K3 adapter for the international Moonshot Chat Completions API."""
+
+    name = "KIMI"
+    endpoint = "https://api.moonshot.ai/v1/chat/completions"
+    reasoning_profile = "LOW"
+    capabilities = IsolatedStructuredSemanticProvider.capabilities + (
+        "KIMI_CHAT_COMPLETIONS",
+        "STRICT_STRUCTURED_OUTPUT",
+        "REASONING",
+        "CACHED_INPUT",
+        "LONG_CONTEXT",
+    )
+
+    def pricing_runtime_conditions(self) -> dict[str, str]:
+        return {
+            "cache_ttl": "5M",
+            "operation_mode": "REALTIME",
+            "region": "INTERNATIONAL",
+        }
+
+    def _request_payload(self, semantic_input: SemanticInput) -> dict[str, Any]:
+        payload = super()._request_payload(semantic_input)
+        json_schema = payload["response_format"]["json_schema"]
+        json_schema["schema"] = kimi_wire_schema(json_schema["schema"])
+        payload["reasoning_effort"] = self.reasoning_profile.casefold()
         return payload
 
 
@@ -1197,6 +1236,8 @@ def _extension_provider_instance(
             endpoint=endpoint,
             commercial_mode=commercial_mode or "UNKNOWN",
         )
+    elif provider_name == "KIMI":
+        provider_type = KimiProvider
     else:
         raise ValueError(provider_name)
     return provider_type(model=model, api_key=key, endpoint=endpoint)

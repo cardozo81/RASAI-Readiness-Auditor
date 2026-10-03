@@ -13,6 +13,8 @@ Os providers adicionais abaixo estão implementados e mantêm sua qualificação
 | `gemini` | Google Gemini | `gemini-3.8-flash` | Gemini Interactions API | `PROVISIONAL` | elegível se apto |
 | `anthropic` / `claude` | Anthropic Claude | `claude-sonnet-5` | Messages API | `PROVISIONAL` | elegível se apto |
 | `mistral` | Mistral AI | `mistral-small-2603` | Chat Completions | `PROVISIONAL` | **não; explicit-only durante homologação** |
+| `cohere` | Cohere | `command-a-03-2025` | Chat V2 | `PROVISIONAL` | **não; explicit-only durante homologação** |
+| `kimi` / `moonshot` | Kimi / Moonshot | `kimi-k3` | Chat Completions | `PROVISIONAL` | **não; explicit-only durante homologação** |
 | `copilot` / `github-copilot` | GitHub Copilot | `auto` | GitHub Copilot SDK oficial | `PROVISIONAL` | **não; explicit-only** |
 
 O contrato semântico exige o conjunto de regras previsto pela implementação, validação local de schema, proibição de `evidence_id` inventado e fail-closed em saída incompleta ou inválida.
@@ -33,7 +35,7 @@ A seleção é recalculada por necessidade de IA. Entre os candidatos ainda eleg
 
 A política econômica não troca silenciosamente para Batch/Flex/assíncrono e não altera quarentena, classificação de erro ou limiares de circuit breaker.
 
-Mistral e GitHub Copilot são `explicit-only` nesta entrega e não entram no pool AUTO mesmo quando suas credenciais estão configuradas. Para Mistral, a restrição permanece até homologação humana posterior; para Copilot, evita consumo involuntário da assinatura pessoal.
+Mistral, Cohere, Kimi e GitHub Copilot são `explicit-only` nesta entrega e não entram no pool AUTO mesmo quando suas credenciais estão configuradas. Para Mistral, a restrição permanece até homologação humana posterior; para Copilot, evita consumo involuntário da assinatura pessoal.
 
 Contratos completos: [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md) e [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md).
 
@@ -47,10 +49,11 @@ Qwen      NONE
 Gemini    LOW
 Anthropic LOW
 Mistral   PROVIDER_DEFAULT
+Kimi      LOW
 Copilot   PROVIDER_DEFAULT
 ```
 
-Qwen expõe `reasoning_effort` no contrato OpenAI-compatible e o RASAi usa `NONE` como menor valor válido. Mistral e Copilot permanecem `PROVIDER_DEFAULT` porque suas integrações atuais não expõem um controle de reasoning determinístico homologado pelo RASAi.
+Qwen expõe `reasoning_effort` no contrato OpenAI-compatible e o RASAi usa `NONE` como menor valor válido. Kimi K3 aceita `LOW|HIGH|MAX` e o RASAi usa `LOW`. Mistral e Copilot permanecem `PROVIDER_DEFAULT` porque suas integrações atuais não expõem um controle de reasoning determinístico homologado pelo RASAi.
 
 ## Evidência de smoke e qualificação
 
@@ -207,6 +210,32 @@ O adapter usa `https://api.cohere.com/v2/chat` e `response_format.type=json_obje
 
 O contrato atual não envia `tools` nem `documents`, não ativa RAG/Rerank, não expõe endpoint override e não controla reasoning. Pricing exige modalidade comercial explícita: `UNKNOWN` é fail-closed, `TRIAL` usa custo monetário zero segundo a política oficial de trial e `PRODUCTION` usa a tarifa token-based pública. O adapter não infere o tipo da chave. Cohere é `explicit_only=true` e `auto_eligible=false`.
 
+## Kimi / Moonshot
+
+```powershell
+$env:MOONSHOT_API_KEY = "<kimi-api-key>"
+$env:RASAI_KIMI_REASONING_EFFORT = "LOW"
+rasai audit https://example.com --ai-provider kimi --ai-model kimi-k3
+```
+
+Modelo inicial:
+
+```text
+kimi-k3
+```
+
+Configuração:
+
+```text
+MOONSHOT_API_KEY
+RASAI_KIMI_MODEL
+RASAI_KIMI_REASONING_EFFORT=LOW|HIGH|MAX
+```
+
+O adapter usa somente a plataforma internacional, `https://api.moonshot.ai/v1/chat/completions`. K3 sempre raciocina; o default RASAi é `LOW`. Structured Output usa `response_format.type=json_schema` com `strict=true`; a projeção no wire não substitui a validação local canônica.
+
+O contrato evidence-bound não envia tools, Formula, web search, documents nem `prompt_cache_options`. O cache implícito permanece no TTL 5m padrão; 1h não é exposto. Usage usa `prompt_tokens`, `prompt_tokens_details.cached_tokens`, `completion_tokens` e `total_tokens`; cache-write permanece dentro de `prompt_tokens` e não é somado novamente. Kimi é `explicit_only=true` e `auto_eligible=false`.
+
 ## GitHub Copilot
 
 O adapter usa o **GitHub Copilot SDK oficial** e a assinatura Copilot elegível do usuário.
@@ -236,13 +265,13 @@ Copilot é `explicit_only=true` e `auto_eligible=false`. Selecionar `AI=auto` nu
 
 Selecionar explicitamente um provider sem sua key/token resulta em `NOT_CONFIGURED`, zero chamada externa e zero custo daquela integração. Não existe fallback para credencial de outro provider.
 
-Em AUTO, ausência de credencial apenas impede a entrada daquele provider elegível no pool; os demais aptos continuam disponíveis. Mistral, Cohere e Copilot continuam fora do AUTO nesta entrega independentemente da presença da credencial.
+Em AUTO, ausência de credencial apenas impede a entrada daquele provider elegível no pool; os demais aptos continuam disponíveis. Mistral, Cohere, Kimi e Copilot continuam fora do AUTO nesta entrega independentemente da presença da credencial.
 
 ## Structured output e diferenças de wire
 
 A validação local completa do RASAi continua sendo a fonte de verdade. Schemas podem ser projetados no limite do transport quando uma API aceita apenas um subconjunto do JSON Schema.
 
-Gemini mantém sua projeção específica. OpenAI também recebe projeção de constraints incompatíveis nos payloads estruturados, sem remover a validação local mais estrita. Mistral reutiliza o contrato Chat Completions estruturado e fixa o tier Standard. Cohere usa Chat V2 e projeção própria do schema wire, preservando a validação local; nenhuma tool/document é adicionada ao request. Copilot encapsula o contrato provider-neutral no prompt do SDK e a resposta continua submetida à validação local integral.
+Gemini mantém sua projeção específica. OpenAI também recebe projeção de constraints incompatíveis nos payloads estruturados, sem remover a validação local mais estrita. Mistral reutiliza o contrato Chat Completions estruturado e fixa o tier Standard. Kimi reutiliza Chat Completions com Structured Output estrito, reasoning explícito e validação local integral. Cohere usa Chat V2 e projeção própria do schema wire, preservando a validação local; nenhuma tool/document é adicionada ao request. Copilot encapsula o contrato provider-neutral no prompt do SDK e a resposta continua submetida à validação local integral.
 
 Falha `invalid_json_schema`/`invalid_request` é erro técnico de integração, não finding do website.
 

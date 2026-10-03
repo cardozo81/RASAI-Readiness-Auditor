@@ -82,12 +82,13 @@ Gemini
 Anthropic/Claude
 Mistral AI
 Cohere
+Kimi / Moonshot
 GitHub Copilot
 ```
 
 `AI=auto` não usa uma cadeia fixa. O pool é derivado do `provider_registry`: entram somente providers com `auto_eligible=true`, credencial/configuração válidas e não excluídos por `RASAI_AI_AUTO_EXCLUDE`.
 
-Mistral é `explicit-only` nesta entrega e não participa de `AI=auto` antes da homologação humana; o adapter usa `mistral-small-2603`, Chat Completions no endpoint global e `service_tier=standard_only`. Cohere também é `explicit-only`: o contrato atual usa Chat V2, `command-a-03-2025`, Structured Outputs com projeção de schema no wire e validação local, sem tools/documents/RAG/Rerank. GitHub Copilot também é deliberadamente `explicit-only` e não participa de `AI=auto`, mesmo quando `COPILOT_GITHUB_TOKEN` está configurado. A integração Copilot usa o SDK oficial e exige uma assinatura Copilot elegível; o extra Python é declarado em `pyproject.toml` e pode ser instalado com `python -m pip install -e ".[copilot]"` quando o bootstrap automático não for usado.
+Mistral é `explicit-only` nesta entrega e não participa de `AI=auto` antes da homologação humana; o adapter usa `mistral-small-2603`, Chat Completions no endpoint global e `service_tier=standard_only`. Cohere também é `explicit-only`: o contrato atual usa Chat V2, `command-a-03-2025`, Structured Outputs com projeção de schema no wire e validação local, sem tools/documents/RAG/Rerank. Kimi/Moonshot também é `explicit-only`: usa `kimi-k3` na plataforma internacional, Chat Completions, Structured Output estrito, reasoning default `LOW`, contexto de 1M e cache implícito 5m; endpoint China, tools/web search/Formula e TTL 1h ficam fora desta entrega. GitHub Copilot também é deliberadamente `explicit-only` e não participa de `AI=auto`, mesmo quando `COPILOT_GITHUB_TOKEN` está configurado. A integração Copilot usa o SDK oficial e exige uma assinatura Copilot elegível; o extra Python é declarado em `pyproject.toml` e pode ser instalado com `python -m pip install -e ".[copilot]"` quando o bootstrap automático não for usado.
 
 O RASAi documenta somente as combinações de credencial, modelo, endpoint, structured output e reasoning que pertencem ao contrato atual de cada adapter. A existência de outros planos ou modalidades no fornecedor não implica compatibilidade; variantes não implementadas/homologadas são rastreadas na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 

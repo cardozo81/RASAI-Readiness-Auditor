@@ -1,8 +1,8 @@
 # AUTO cost-aware AI routing
 
 **Data de referência da política de preços: 03/10/2026**  
-**Versão do catálogo de pricing de fábrica: `RASAI-PRICING-2026-10-03.4`**  
-**Data de referência do catálogo de modelos: 02/10/2026**
+**Versão do catálogo de pricing de fábrica: `RASAI-PRICING-2026-10-03.5`**  
+**Data de referência do catálogo de modelos: 03/10/2026**
 
 Este documento define a seleção econômica usada pelo RASAi quando `AI=auto` está selecionado. O cadastro de modelos está em [`AI_MODEL_CONFIGURATION.md`](AI_MODEL_CONFIGURATION.md) e o schema comercial em [`AI_PRICING_CONFIGURATION.md`](AI_PRICING_CONFIGURATION.md).
 
@@ -13,7 +13,7 @@ A política econômica:
 - somente ordena providers/modelos já configurados, elegíveis, precificados e saudáveis;
 - não habilita credenciais;
 - não altera quarantine/circuit breaker;
-- não torna Mistral ou Cohere durante sua homologação inicial nem GitHub Copilot elegíveis ao AUTO;
+- não torna Mistral, Cohere ou Kimi durante sua homologação inicial nem GitHub Copilot elegíveis ao AUTO;
 - não troca silenciosamente service tier para Batch/Flex/Priority;
 - não interpreta ausência de preço como preço zero;
 - trata preço como estimativa operacional, não como fatura do fornecedor.
@@ -145,6 +145,7 @@ Valores em USD por 1 milhão de tokens.
 | Mistral `mistral-small-2603` | 0,15 | 0,015 | 0,60 | Standard global; precificado, porém explicit-only nesta entrega |
 | Cohere `command-a-03-2025` TRIAL | 0,00 | 0,00 | 0,00 | trial gratuito/limitado; `commercial_mode=TRIAL`; explicit-only |
 | Cohere `command-a-03-2025` PRODUCTION | 2,50 | 2,50* | 10,00 | real-time global; *sem cache separado observado; `commercial_mode=PRODUCTION`; explicit-only |
+| Kimi `kimi-k3` | 3,00 | 0,30 | 15,00 | international realtime; cache implícito 5m; cache write 5m também 3,00/M; explicit-only |
 | GitHub Copilot | - | - | - | explicit-only; não precificado e fora do AUTO |
 
 ### DeepSeek
@@ -166,6 +167,8 @@ O AUTO não muda endpoint, tier, modalidade comercial ou modo de operação para
 
 Para Cohere, `RASAI_COHERE_COMMERCIAL_MODE` aceita `UNKNOWN`, `TRIAL` ou `PRODUCTION`. `UNKNOWN` é o default seguro e mantém o provider UNPRICED; o runtime não tenta deduzir o tipo da chave. Cohere permanece fora do AUTO nesta entrega independentemente do modo.
 
+Para Kimi, o adapter fixa a modalidade internacional realtime e não envia `prompt_cache_options`, portanto o TTL efetivo é 5m. `prompt_tokens_details.cached_tokens` representa cache read; cache write e restante uncached permanecem no total de input e, no TTL 5m, têm a mesma tarifa de USD 3/M. Kimi permanece fora do AUTO mesmo com pricing resolvível.
+
 ### OpenAI
 
 A faixa >272k é uma regra de maior prioridade com `input_tokens_gt=272000`. Os preços finais estão no catálogo; não há multiplicador hardcoded por provider.
@@ -184,7 +187,7 @@ A regra atual expira em `2027-01-01T00:00:00Z`. Sem regra posterior, o modelo fi
 
 ### Condicionamento runtime
 
-O custo só participa do ranking quando o adapter expõe condições compatíveis com uma regra do catálogo. O AUTO usa o mesmo mecanismo de matching empregado na telemetria observada. Exemplos: OpenAI fixa `service_tier=default`; MiMo declara PAYG real-time; Qwen só usa a tarifa US/Virginia no endpoint correspondente; Mistral declara `standard_only`. Endpoint/tier não reconhecido => candidato UNPRICED, preservado depois dos candidatos precificados quando ainda for elegível.
+O custo só participa do ranking quando o adapter expõe condições compatíveis com uma regra do catálogo. O AUTO usa o mesmo mecanismo de matching empregado na telemetria observada. Exemplos: OpenAI fixa `service_tier=default`; MiMo declara PAYG real-time; Qwen só usa a tarifa US/Virginia no endpoint correspondente; Mistral declara `standard_only`; Kimi declara `INTERNATIONAL` + `REALTIME` + `5M`. Endpoint/tier não reconhecido => candidato UNPRICED, preservado depois dos candidatos precificados quando ainda for elegível.
 
 ## 6. Estimativas por finalidade
 

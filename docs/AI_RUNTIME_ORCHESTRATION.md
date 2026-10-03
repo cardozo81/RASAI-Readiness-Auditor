@@ -56,6 +56,26 @@ O adapter Mistral reutiliza o mesmo boundary de retry, quarantine/circuit breake
 
 No reprocessamento, Mistral segue a mesma orquestração compartilhada da execução normal: somente trabalho de IA realmente invalidado por dependências de evidência pode ser reexecutado. O provider não cria um caminho paralelo de processamento.
 
+### 2.2 Kimi/Moonshot durante a homologação inicial
+
+Kimi é deliberadamente **explicit-only** nesta entrega. Mesmo com `MOONSHOT_API_KEY` configurada e pricing vigente, `kimi`/`moonshot` não entra no pool de `AI=auto`.
+
+Contrato operacional vigente:
+
+- seleção explícita: `--ai-provider kimi` ou alias `moonshot`;
+- modelo de fábrica: `kimi-k3`;
+- endpoint internacional fixo: `https://api.moonshot.ai/v1/chat/completions`;
+- autenticação Bearer via `MOONSHOT_API_KEY`;
+- reasoning `LOW|HIGH|MAX`, default RASAi `LOW`;
+- Structured Output `json_schema` + `strict=true`, seguido de validação canônica/local;
+- somente `choices[0].message.content` é parseado como JSON; `reasoning_content` não é evidência nem finding;
+- sem tools, Formula, web search, documents, multimodalidade ou fonte externa automática no fluxo evidence-bound;
+- cache implícito 5m por default; o adapter não envia `prompt_cache_options` nem expõe TTL 1h;
+- usage preserva input total, cached input, output e total sem somar cache-write duas vezes;
+- pricing declarativo não altera `auto_eligible=false`.
+
+A integração Kimi reutiliza retry, quarantine/circuit breaker, telemetria, secret-safety e consumers compartilhados de IA. Não altera crawling, AUD/RPR, checkpoints, evidence seal, CATs, SARI, SCORE-GEO, Apdex, fórmulas, scoring ou consolidação determinística.
+
 ## 3. Seleção por custo por necessidade de IA
 
 O coordenador mantém a saúde de todos os providers durante a auditoria. Antes de cada necessidade de IA, os providers ainda elegíveis são avaliados pelo custo estimado da requisição atual.
@@ -261,15 +281,17 @@ Custos em `ai-integrations.html` são somados a partir de `estimated_cost` e `co
 
 Quando o provider retorna usage faturável sem uma dimensão de cache separada, o RASAi só resolve custo observado se a regra vigente cobrar cached input e input normal pela mesma tarifa; caso contrário permanece UNPRICED. Para Cohere, a modalidade comercial também precisa estar explícita em `RASAI_COHERE_COMMERCIAL_MODE`; `UNKNOWN` nunca é convertido em TRIAL ou PRODUCTION por inferência.
 
+Kimi K3 informa `usage.prompt_tokens` como input total e `usage.prompt_tokens_details.cached_tokens` como cache read; cache read, cache write e restante uncached são partições do mesmo total. Como o adapter fixa o TTL implícito 5m, cache write e cache miss usam a mesma tarifa de input. O RASAi não soma `cache_write_tokens` novamente e não expõe TTL 1h nesta fase.
+
 ## 8. Projeção de JSON Schema no wire
 
-O schema canônico/local continua sendo a fonte de verdade para validação do RASAi. Antes de chamadas estruturadas que exigem adaptação, o runtime projeta o schema para o subconjunto aceito pelo wire format vigente do adapter. OpenAI mantém sua projeção própria; Cohere Chat V2 recebe uma projeção que remove constraints não suportadas no wire, como `minItems`, `maxItems`, `uniqueItems`, `allOf`, `oneOf` e `not`.
+O schema canônico/local continua sendo a fonte de verdade para validação do RASAi. Antes de chamadas estruturadas que exigem adaptação, o runtime projeta o schema para o subconjunto aceito pelo wire format vigente do adapter. OpenAI mantém sua projeção própria; Cohere Chat V2 recebe uma projeção que remove constraints não suportadas no wire, como `minItems`, `maxItems`, `uniqueItems`, `allOf`, `oneOf` e `not`. Kimi K3 recebe uma projeção conservadora no formato `json_schema` estrito; constraints omitidas no wire continuam obrigatórias na validação local.
 
 A projeção pode retirar constraints de valor/comprimento/cardinalidade incompatíveis no wire, preservando estrutura, tipos, propriedades obrigatórias, `additionalProperties`, arrays, enums e nulabilidade. As constraints retiradas do wire continuam validadas localmente depois da resposta.
 
 A projeção ocorre imediatamente antes do transport. Por isso, o exchange log registra o corpo efetivamente enviado, não uma versão anterior do request.
 
-Essa separação evita enfraquecer o contrato local apenas para satisfazer diferenças entre APIs de providers. No caso Cohere, o request também permanece sem `tools` e `documents`; RAG/Rerank não são habilitados pelo adapter generativo atual.
+Essa separação evita enfraquecer o contrato local apenas para satisfazer diferenças entre APIs de providers. No caso Cohere, o request também permanece sem `tools` e `documents`; RAG/Rerank não são habilitados pelo adapter generativo atual. No caso Kimi, o request permanece sem tools/web search/Formula/documents e somente o conteúdo final estruturado é aceito como resposta.
 
 ## 9. Contexto editorial `auto`: YMYL e E-E-A-T
 

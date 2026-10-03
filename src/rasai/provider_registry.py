@@ -57,7 +57,7 @@ _DISPLAY_NAMES = {
     "OPENAI": "OpenAI", "DEEPSEEK": "DeepSeek", "MIMO": "Xiaomi MiMo",
     "XAI": "xAI / Grok", "QWEN": "Alibaba Qwen", "GEMINI": "Google Gemini",
     "ANTHROPIC": "Anthropic Claude", "MISTRAL": "Mistral AI",
-    "COHERE": "Cohere", "COPILOT": "GitHub Copilot",
+    "COHERE": "Cohere", "KIMI": "Kimi / Moonshot", "COPILOT": "GitHub Copilot",
 }
 _CREDENTIAL_URLS = {
     "OPENAI": "https://platform.openai.com/api-keys",
@@ -69,6 +69,7 @@ _CREDENTIAL_URLS = {
     "ANTHROPIC": "https://console.anthropic.com/",
     "MISTRAL": "https://console.mistral.ai/api-keys/",
     "COHERE": "https://dashboard.cohere.com/api-keys",
+    "KIMI": "https://platform.kimi.ai/console/api-keys",
 }
 _DOCUMENTATION_URLS = {
     "OPENAI": "https://platform.openai.com/docs/",
@@ -80,6 +81,7 @@ _DOCUMENTATION_URLS = {
     "ANTHROPIC": "https://docs.anthropic.com/",
     "MISTRAL": "https://docs.mistral.ai/getting-started/quickstart/",
     "COHERE": "https://docs.cohere.com/v2/reference/chat",
+    "KIMI": "https://platform.kimi.ai/docs/overview",
 }
 _CORE_PROVIDER_ORDER = ("OPENAI", "DEEPSEEK", "MIMO")
 _EXTENSION_REASONING_ENV = {
@@ -87,6 +89,7 @@ _EXTENSION_REASONING_ENV = {
     "GEMINI": "RASAI_GEMINI_REASONING_EFFORT",
     "ANTHROPIC": "RASAI_ANTHROPIC_REASONING_EFFORT",
     "QWEN": "RASAI_QWEN_REASONING_EFFORT",
+    "KIMI": "RASAI_KIMI_REASONING_EFFORT",
 }
 _TECHNICAL_PROVIDER_ORDER = (*_CORE_PROVIDER_ORDER, *tuple(dict.fromkeys(_PROVIDER_ALIASES.values())), "COPILOT")
 
@@ -124,7 +127,7 @@ def _registration(provider_name: str, catalog: AiModelCatalog) -> ProviderRegist
         return None
     adapter_default = _one_default(items, "adapter_default", provider_name)
     public_default = _one_default(items, "public_default", provider_name)
-    explicit_only = provider_name in {"MISTRAL", "COHERE", "COPILOT"}
+    explicit_only = provider_name in {"MISTRAL", "COHERE", "KIMI", "COPILOT"}
 
     if provider_name in _CORE_PROVIDER_ORDER:
         aliases: tuple[str, ...] = ()

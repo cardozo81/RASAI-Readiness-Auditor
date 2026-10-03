@@ -1,7 +1,7 @@
 # Catálogo configurável de modelos de IA
 
 **Estado:** contrato atual do RASAi em desenvolvimento.  
-**Data de referência do catálogo de fábrica:** 02/10/2026  
+**Data de referência do catálogo de fábrica:** 03/10/2026  
 **Schema do catálogo:** `1`
 
 ## 1. Objetivo
@@ -147,6 +147,8 @@ RASAI_GEMINI_MODEL = gemini-3.8-flash
 RASAI_ANTHROPIC_MODEL = claude-sonnet-5
 RASAI_MISTRAL_MODEL = mistral-small-2603
 RASAI_COHERE_MODEL = command-a-03-2025
+RASAI_KIMI_MODEL = kimi-k3
+RASAI_KIMI_REASONING_EFFORT = LOW
 ```
 
 Se o valor configurado não existir no catálogo efetivo, estiver desabilitado ou estiver fora da vigência, o RASAi rejeita a configuração em vez de trocar silenciosamente de modelo.
@@ -191,6 +193,10 @@ A primeira integração Mistral mantém somente `mistral-small-2603` no catálog
 ### Cohere na baseline de 02/10/2026
 
 A integração Cohere mantém somente `command-a-03-2025` no catálogo de fábrica, com `default_reasoning=PROVIDER_DEFAULT` e `auto_eligible=false`. O objetivo desta fase é homologar o adapter Chat V2 generativo e seu contrato Structured Outputs. Command A+, Rerank, RAG, tools e documents não são modelos/capabilities operacionais desta entrega.
+
+### Kimi/Moonshot na baseline de 03/10/2026
+
+A integração inicial expõe somente `kimi-k3` na plataforma internacional, com `context_window=1000000`, `reasoning_values=[LOW,HIGH,MAX]`, `default_reasoning=LOW` e `auto_eligible=false`. O default `LOW` é o menor effort oficialmente aceito pelo K3; o default do fornecedor (`max`) não é herdado pelo RASAi. O catálogo não habilita endpoint China, tools, web search, Formula, multimodalidade, Responses API ou cache TTL 1h.
 
 ## 8. Exemplo: adicionar um novo modelo de um provider existente
 

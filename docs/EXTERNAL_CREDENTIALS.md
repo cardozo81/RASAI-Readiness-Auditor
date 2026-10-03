@@ -46,6 +46,7 @@ Quando for necessário citar uma modalidade externa apenas para impedir configur
 | Anthropic Claude | `ANTHROPIC_API_KEY` | `anthropic` ou `claude` | <https://console.anthropic.com/> | o adapter atual usa API key do Console/Workspace em `x-api-key`; outros métodos de autenticação não fazem parte do contrato atual. |
 | Mistral AI | `MISTRAL_API_KEY` | `mistral` | <https://console.mistral.ai/api-keys/> | explicit-only; endpoint global e Standard tier fixos; sem endpoint alternativo, tools/search/agents/connectors. |
 | Cohere | `COHERE_API_KEY` | `cohere` | <https://dashboard.cohere.com/api-keys> | explicit-only; Chat V2 generativo com `command-a-03-2025`; sem tools, documents, RAG ou Rerank no contrato atual. |
+| Kimi / Moonshot | `MOONSHOT_API_KEY` | `kimi` ou `moonshot` | <https://platform.kimi.ai/console/api-keys> | explicit-only; somente plataforma internacional; `kimi-k3`; sem tools/web search/Formula e sem endpoint China no contrato atual. |
 | GitHub Copilot | `COPILOT_GITHUB_TOKEN` | `copilot` ou `github-copilot` | <https://github.com/settings/personal-access-tokens/new> | fine-grained PAT de conta pessoal com `Copilot Requests`; explicit-only. |
 
 ### Procedimento padrão depois de criar qualquer credencial
@@ -518,6 +519,35 @@ rasai audit https://example.com --ai-provider cohere --ai-model command-a-03-202
 ```
 
 Confirme resposta estruturada aceita, usage em `billed_units`, pricing/telemetria e ausência de capacidades externas não autorizadas. A existência de Rerank/RAG na plataforma Cohere não os torna funcionalidades do RASAi.
+
+### Kimi / Moonshot
+
+**Variável usada pelo RASAi:** `MOONSHOT_API_KEY`  
+**Seleção:** `kimi` ou alias `moonshot`  
+**API keys:** <https://platform.kimi.ai/console/api-keys>  
+**K3:** <https://platform.kimi.ai/docs/guide/kimi-k3-quickstart>  
+**Structured Output:** <https://platform.kimi.ai/docs/guide/response_format>
+
+#### Configurar no PowerShell
+
+```powershell
+$env:MOONSHOT_API_KEY="<kimi-api-key>"
+Test-Path Env:MOONSHOT_API_KEY
+rasai providers --provider kimi
+```
+
+#### Contrato específico do RASAi
+
+- a credencial deve pertencer à plataforma internacional Kimi API usada por `api.moonshot.ai`; chaves de outra plataforma/região não recebem fallback ou conversão;
+- endpoint fixo `https://api.moonshot.ai/v1/chat/completions`;
+- modelo `kimi-k3`;
+- reasoning configurável por `RASAI_KIMI_REASONING_EFFORT=LOW|HIGH|MAX`, com `LOW` default;
+- Structured Output com `json_schema` e `strict=true`, seguido de validação local integral;
+- sem tools, web search, Formula, documents, multimodalidade ou endpoint alternativo nesta fase;
+- cache implícito padrão 5m; TTL 1h não é exposto pelo adapter;
+- `explicit-only=true` e `auto_eligible=false`.
+
+Nunca grave a key em TOML, INI, logs, relatórios, banco ou linha de comando.
 
 ### GitHub Copilot
 

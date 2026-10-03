@@ -32,6 +32,7 @@ gemini
 anthropic
 mistral
 cohere
+kimi
 copilot
 ```
 
@@ -40,12 +41,13 @@ Aliases:
 ```text
 grok           -> xai
 claude         -> anthropic
+moonshot       -> kimi
 github-copilot -> copilot
 ```
 
 `none` desabilita IA. `auto` aciona a orquestração econômica entre providers elegíveis.
 
-Mistral e Cohere permanecem explicit-only durante a homologação inicial, e GitHub Copilot também é explicit-only: a presença dessas credenciais não os inclui automaticamente no `AUTO`.
+Mistral, Cohere e Kimi permanecem explicit-only durante a homologação inicial, e GitHub Copilot também é explicit-only: a presença dessas credenciais não os inclui automaticamente no `AUTO`.
 
 ## Arquivos administráveis pelo operador
 
@@ -82,7 +84,7 @@ Isso permite adicionar ou desativar modelos de providers já integrados, alterar
 
 Detalhamento e exemplos: [AI_MODEL_CONFIGURATION.md](AI_MODEL_CONFIGURATION.md).
 
-### Catálogo de fábrica em 14/09/2026
+### Catálogo de fábrica em 03/10/2026
 
 | Provider | Default público | Reasoning default |
 |---|---|---|
@@ -95,6 +97,7 @@ Detalhamento e exemplos: [AI_MODEL_CONFIGURATION.md](AI_MODEL_CONFIGURATION.md).
 | Anthropic | `claude-sonnet-5` | `LOW` |
 | Mistral | `mistral-small-2603` | `PROVIDER_DEFAULT` |
 | Cohere | `command-a-03-2025` | `PROVIDER_DEFAULT` |
+| Kimi / Moonshot | `kimi-k3` | `LOW` |
 | GitHub Copilot | `auto` | `PROVIDER_DEFAULT` |
 
 Essa tabela é somente a fotografia de fábrica. O catálogo efetivamente snapshotado para a execução é a autoridade da AUD.

@@ -4,10 +4,10 @@
 
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-MODELS-2026-10-02.2"
-reference_date = "2026-10-02"
-verified_on = "2026-10-02"
-review_recommended_on = "2026-11-02"
+catalog_version = "RASAI-MODELS-2026-10-03.3"
+reference_date = "2026-10-03"
+verified_on = "2026-10-03"
+review_recommended_on = "2026-11-03"
 
 [[models]]
 provider = "OPENAI"
@@ -299,6 +299,25 @@ reasoning_values = ["PROVIDER_DEFAULT"]
 default_reasoning = "PROVIDER_DEFAULT"
 capabilities = ["STRUCTURED_OUTPUT"]
 source_reference = "https://docs.cohere.com/docs/command-a"
+
+[[models]]
+provider = "KIMI"
+model = "kimi-k3"
+enabled = true
+selectable = true
+adapter_default = true
+public_default = true
+auto_eligible = false
+qualification = "PROVISIONAL"
+rasai_class = "PROVISIONAL"
+rank = 108
+recommended_depth = "LOW"
+recommended_use = "seleção explícita / piloto"
+reasoning_values = ["LOW", "HIGH", "MAX"]
+default_reasoning = "LOW"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT", "LONG_CONTEXT"]
+context_window = 1000000
+source_reference = "https://platform.kimi.ai/docs/guide/kimi-k3-quickstart"
 
 [[models]]
 provider = "COPILOT"

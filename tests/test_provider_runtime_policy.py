@@ -23,6 +23,7 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
         self.assertEqual(SIMPLE_DEFAULT_MODELS["MIMO"], "mimo-v2.6-flash")
         self.assertEqual(SIMPLE_DEFAULT_MODELS["QWEN"], "qwen3.8-flash")
         self.assertEqual(SIMPLE_DEFAULT_MODELS["MISTRAL"], "mistral-small-2603")
+        self.assertEqual(SIMPLE_DEFAULT_MODELS["KIMI"], "kimi-k3")
 
     def test_public_defaults_use_lowest_supported_effort(self) -> None:
         self.assertEqual(LOWEST_REASONING["OPENAI"], "NONE")
@@ -33,6 +34,7 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
         self.assertEqual(LOWEST_REASONING["ANTHROPIC"], "LOW")
         self.assertEqual(LOWEST_REASONING["QWEN"], "NONE")
         self.assertEqual(LOWEST_REASONING["MISTRAL"], "PROVIDER_DEFAULT")
+        self.assertEqual(LOWEST_REASONING["KIMI"], "LOW")
 
     def test_explicit_environment_override_is_preserved(self) -> None:
         env = environment_with_public_defaults({
@@ -133,6 +135,26 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
         self.assertEqual(provider.model, "mistral-small-2603")
         self.assertEqual(provider.endpoint, "https://api.mistral.ai/v1/chat/completions")
         self.assertEqual(provider.reasoning_profile, "PROVIDER_DEFAULT")
+
+    def test_kimi_explicit_builder_uses_international_endpoint_and_low_reasoning(self) -> None:
+        kimi = build_semantic_provider("kimi", env={"MOONSHOT_API_KEY": "x"})
+        self.assertEqual(kimi.name, "KIMI")
+        self.assertEqual(kimi.model, "kimi-k3")
+        self.assertEqual(kimi.endpoint, "https://api.moonshot.ai/v1/chat/completions")
+        self.assertEqual(kimi.reasoning_profile, "LOW")
+
+        high = build_semantic_provider(
+            "moonshot",
+            env={"MOONSHOT_API_KEY": "x", "RASAI_KIMI_REASONING_EFFORT": "HIGH"},
+        )
+        payload = high._request_payload(type("Req", (), {
+            "allowed_evidence_ids": frozenset(),
+            "provider_payload": lambda self: {},
+            "primary_language": "pt-BR",
+            "market": "BR",
+        })())
+        self.assertEqual(high.reasoning_profile, "HIGH")
+        self.assertEqual(payload["reasoning_effort"], "high")
 
     def test_qwen_default_reasoning_is_none_and_override_is_supported(self) -> None:
         qwen = build_semantic_provider(

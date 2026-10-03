@@ -44,12 +44,13 @@ SIMPLE_DEFAULT_MODELS: dict[str, str] = {
     "ANTHROPIC": "claude-sonnet-5",
     "MISTRAL": "mistral-small-2603",
     "COHERE": "command-a-03-2025",
+    "KIMI": "kimi-k3",
     "COPILOT": "auto",
 }
 LOWEST_REASONING: dict[str, str] = {
     "OPENAI": "NONE", "DEEPSEEK": "NONE", "MIMO": "NONE", "XAI": "LOW",
     "QWEN": "NONE", "GEMINI": "LOW", "ANTHROPIC": "LOW",
-    "MISTRAL": "PROVIDER_DEFAULT", "COHERE": "PROVIDER_DEFAULT",
+    "MISTRAL": "PROVIDER_DEFAULT", "COHERE": "PROVIDER_DEFAULT", "KIMI": "LOW",
     "COPILOT": "PROVIDER_DEFAULT",
 }
 EXTENSION_REASONING_ENV: dict[str, str] = {
@@ -57,6 +58,7 @@ EXTENSION_REASONING_ENV: dict[str, str] = {
     "GEMINI": "RASAI_GEMINI_REASONING_EFFORT",
     "ANTHROPIC": "RASAI_ANTHROPIC_REASONING_EFFORT",
     "QWEN": "RASAI_QWEN_REASONING_EFFORT",
+    "KIMI": "RASAI_KIMI_REASONING_EFFORT",
 }
 REASONING_OPTIONS: dict[str, tuple[str, ...]] = {
     "OPENAI": ("NONE", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"),
@@ -68,6 +70,7 @@ REASONING_OPTIONS: dict[str, tuple[str, ...]] = {
     "ANTHROPIC": ("LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"),
     "MISTRAL": ("PROVIDER_DEFAULT",),
     "COHERE": ("PROVIDER_DEFAULT",),
+    "KIMI": ("LOW", "HIGH", "MAX"),
     "COPILOT": ("PROVIDER_DEFAULT",),
 }
 DEFAULT_AI_TIMEOUT_SECONDS = 180.0

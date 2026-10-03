@@ -56,6 +56,7 @@ A lista de reasoning exibida pelo comando é o domínio aceito pelo runtime para
 | `anthropic` / `claude` | Anthropic Claude | `ANTHROPIC_API_KEY` | `claude-sonnet-5` | <https://console.anthropic.com/> | Anthropic API key |
 | `mistral` | Mistral AI | `MISTRAL_API_KEY` | `mistral-small-2603` | <https://console.mistral.ai/api-keys/> | explicit-only durante a homologação inicial; endpoint global Standard fixo |
 | `cohere` | Cohere | `COHERE_API_KEY` | `command-a-03-2025` | <https://dashboard.cohere.com/api-keys> | explicit-only; Chat V2 generativo; sem RAG/Rerank/tools/documents nesta entrega |
+| `kimi` / `moonshot` | Kimi / Moonshot | `MOONSHOT_API_KEY` | `kimi-k3` | <https://platform.kimi.ai/console/api-keys> | explicit-only; plataforma internacional; Chat Completions; 1M context; Structured Output estrito; reasoning default RASAi `LOW` |
 | `copilot` / `github-copilot` | GitHub Copilot | `COPILOT_GITHUB_TOKEN` | `auto` | <https://github.com/settings/personal-access-tokens/new> | usa assinatura Copilot elegível; não entra em `AI=auto` |
 
 ### Xiaomi MiMo - migração V2.6
@@ -83,6 +84,7 @@ A tabela acima é a referência rápida. O procedimento canônico, com pré-requ
 - [Anthropic Claude](EXTERNAL_CREDENTIALS.md#anthropic-claude);
 - [Mistral AI](EXTERNAL_CREDENTIALS.md#mistral-ai);
 - [Cohere](EXTERNAL_CREDENTIALS.md#cohere);
+- [Kimi / Moonshot](EXTERNAL_CREDENTIALS.md#kimi--moonshot);
 - [GitHub Copilot](EXTERNAL_CREDENTIALS.md#github-copilot).
 
 Regra de segurança: a documentação mostra nomes de variáveis e placeholders, nunca valores reais. `Test-Path Env:<VAR>` confirma apenas presença; validade/autorização deve ser verificada pelo diagnóstico seguro do RASAi antes de um smoke que possa consumir quota/custo.
@@ -141,6 +143,33 @@ Contrato inicial:
 - `explicit-only`; não participa de `AI=auto` antes da homologação humana.
 
 Documentação oficial: <https://docs.cohere.com/v2/reference/chat>, <https://docs.cohere.com/v2/docs/structured-outputs> e <https://docs.cohere.com/docs/command-a>.
+
+### Kimi / Moonshot
+
+Configuração mínima:
+
+```powershell
+$env:MOONSHOT_API_KEY="<kimi-api-key>"
+rasai audit https://example.com --ai-provider kimi --ai-model kimi-k3
+```
+
+Contrato inicial:
+
+- plataforma internacional Kimi API; endpoint fixo `https://api.moonshot.ai/v1/chat/completions`;
+- autenticação Bearer por `MOONSHOT_API_KEY`; não há fallback para credencial da plataforma China;
+- modelo de fábrica `kimi-k3`, contexto documentado de 1.000.000 tokens;
+- K3 sempre raciocina; o RASAi aceita `LOW|HIGH|MAX` e aplica `LOW` como menor valor oficialmente válido;
+- `response_format.type=json_schema` com `strict=true`; o schema canônico continua validado localmente e saída incompleta falha fechado;
+- evidence-bound: sem tools, Formula, web search, documents ou fonte externa automática;
+- cache implícito usa TTL 5m por default. O RASAi não expõe `prompt_cache_options`/TTL 1h nesta entrega;
+- `explicit_only=true` e `auto_eligible=false` até smoke humano e decisão posterior específica sobre AUTO.
+
+Documentação oficial:
+
+- K3: <https://platform.kimi.ai/docs/guide/kimi-k3-quickstart>
+- Structured Output: <https://platform.kimi.ai/docs/guide/response_format>
+- cache: <https://platform.kimi.ai/docs/guide/context-caching>
+- pricing: <https://platform.kimi.ai/docs/pricing/chat>
 
 ### GitHub Copilot
 
