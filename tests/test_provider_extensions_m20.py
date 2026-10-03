@@ -5,7 +5,7 @@ import unittest
 
 from rasai.m18_ai import ProviderState, RuntimeProviderState
 from rasai.m20_ai import ContentEvidenceInput, ContentFindingInput, ContentRemediationRequest
-from rasai.provider_extensions import AnthropicProvider, CohereProvider, GeminiProvider, MistralProvider, QwenProvider, XAIProvider
+from rasai.provider_extensions import AnthropicProvider, CohereProvider, GeminiProvider, KimiProvider, MistralProvider, QwenProvider, XAIProvider
 from rasai.provider_extensions_m20 import build_content_remediation_router
 
 
@@ -100,6 +100,27 @@ class ProviderExtensionM20Tests(unittest.TestCase):
             {"choices": [{"message": {"content": json.dumps(_suggestions())}}]},
             "standard_only",
         )
+
+    def test_kimi_m20_uses_strict_schema_and_low_reasoning(self) -> None:
+        provider = KimiProvider(model="kimi-k3", api_key="x")
+        calls: list[dict[str, object]] = []
+
+        def transport(url, headers, body, timeout):
+            calls.append({"url": url, "body": json.loads(body)})
+            return {
+                "choices": [{"message": {"reasoning_content": "private", "content": json.dumps(_suggestions())}}],
+                "usage": {"prompt_tokens": 30, "completion_tokens": 10, "total_tokens": 40},
+            }
+
+        provider._transport = transport
+        router = build_content_remediation_router(provider)
+        result = router.analyze(_request())
+        self.assertEqual(result.state, ProviderState.AVAILABLE)
+        payload = calls[0]["body"]
+        self.assertEqual(payload["reasoning_effort"], "low")
+        self.assertTrue(payload["response_format"]["json_schema"]["strict"])
+        self.assertNotIn("tools", payload)
+        self.assertNotIn("prompt_cache_options", payload)
 
     def test_cohere_m20_uses_chat_v2_structured_output(self) -> None:
         provider = CohereProvider(model="command-a-03-2025", api_key="x")
