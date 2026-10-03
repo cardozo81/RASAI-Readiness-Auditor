@@ -38,9 +38,9 @@ def _new_openai_model():
 def test_factory_model_catalog_covers_current_integrated_providers() -> None:
     catalog = load_factory_model_catalog()
     assert catalog.metadata.schema_version == 1
-    assert catalog.metadata.catalog_version == "RASAI-MODELS-2026-10-02.2"
+    assert catalog.metadata.catalog_version == "RASAI-MODELS-2026-10-03.3"
     assert {
-        "OPENAI", "DEEPSEEK", "MIMO", "XAI", "QWEN", "GEMINI", "ANTHROPIC", "MISTRAL", "COHERE", "COPILOT"
+        "OPENAI", "DEEPSEEK", "MIMO", "XAI", "QWEN", "GEMINI", "ANTHROPIC", "MISTRAL", "COHERE", "KIMI", "COPILOT"
     }.issubset(set(catalog.provider_names()))
     assert catalog.public_default("OPENAI").model == "gpt-5.6-luna"
     assert catalog.adapter_default("OPENAI").model == "gpt-5.6-terra"
@@ -52,6 +52,11 @@ def test_factory_model_catalog_covers_current_integrated_providers() -> None:
     assert catalog.public_default("COHERE").model == "command-a-03-2025"
     assert catalog.public_default("COHERE").default_reasoning == "PROVIDER_DEFAULT"
     assert catalog.public_default("COHERE").auto_eligible is False
+    assert catalog.public_default("KIMI").model == "kimi-k3"
+    assert catalog.public_default("KIMI").default_reasoning == "LOW"
+    assert catalog.public_default("KIMI").reasoning_values == ("LOW", "HIGH", "MAX")
+    assert catalog.public_default("KIMI").context_window == 1_000_000
+    assert catalog.public_default("KIMI").auto_eligible is False
 
 
 def test_local_model_catalog_can_be_selected_without_code_change(tmp_path: Path) -> None:

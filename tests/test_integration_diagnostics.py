@@ -116,6 +116,28 @@ def test_mistral_probe_uses_non_generative_models_endpoint() -> None:
     assert "secret-test" not in result.detail
 
 
+def test_kimi_probe_uses_non_generative_models_endpoint() -> None:
+    spec = get_integration_spec("ai:kimi")
+    assert spec is not None
+    seen: dict[str, object] = {}
+
+    def opener(request, timeout=0):
+        seen["url"] = request.full_url
+        seen["authorization"] = request.headers.get("Authorization")
+        return _Response({"data": [{"id": "kimi-k3"}]})
+
+    result = run_diagnostic(
+        spec,
+        env={"MOONSHOT_API_KEY": "secret-test", "RASAI_KIMI_MODEL": "kimi-k3"},
+        opener=opener,
+    )
+    assert result.status == STATUS_OPERATIONAL
+    assert result.category == "OK"
+    assert seen["url"] == "https://api.moonshot.ai/v1/models"
+    assert seen["authorization"] == "Bearer secret-test"
+    assert "secret-test" not in result.detail
+
+
 def test_gsc_valid_oauth_without_configured_property_is_authorization_error() -> None:
     spec = get_integration_spec("service:google-search-console")
     assert spec is not None
@@ -212,6 +234,7 @@ def test_catalog_covers_current_ai_serp_and_key_external_services() -> None:
         "ai:gemini",
         "ai:anthropic",
         "ai:mistral",
+        "ai:kimi",
         "ai:copilot",
         "serp:serpapi",
         "serp:serpapi-bing",

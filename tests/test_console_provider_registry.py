@@ -39,6 +39,7 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
                 "anthropic",
                 "mistral",
                 "cohere",
+                "kimi",
                 "copilot",
                 "auto",
             ),
@@ -53,6 +54,7 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
             "ANTHROPIC_API_KEY",
             "MISTRAL_API_KEY",
             "COHERE_API_KEY",
+            "MOONSHOT_API_KEY",
             "COPILOT_GITHUB_TOKEN",
             "RASAI_XAI_MODEL",
             "RASAI_QWEN_MODEL",
@@ -61,6 +63,8 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
             "RASAI_MISTRAL_MODEL",
             "RASAI_COHERE_MODEL",
             "RASAI_COHERE_COMMERCIAL_MODE",
+            "RASAI_KIMI_MODEL",
+            "RASAI_KIMI_REASONING_EFFORT",
             "RASAI_COPILOT_MODEL",
             "RASAI_XAI_ENDPOINT",
             "RASAI_QWEN_ENDPOINT",
@@ -96,6 +100,16 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
         self.assertTrue(configured["cohere"].available)
         self.assertIn("explicit-only", configured["cohere"].reason)
         self.assertNotIn("cohere", auto_provider_ids())
+
+    def test_kimi_is_explicit_only_and_never_auto_eligible(self) -> None:
+        without_key = provider_capabilities({})
+        self.assertFalse(without_key["kimi"].available)
+        self.assertIn("explicit-only", without_key["kimi"].reason)
+
+        configured = provider_capabilities({"MOONSHOT_API_KEY": "test-key"})
+        self.assertTrue(configured["kimi"].available)
+        self.assertIn("explicit-only", configured["kimi"].reason)
+        self.assertNotIn("kimi", auto_provider_ids())
 
     def test_copilot_is_explicit_only_and_never_auto_eligible(self) -> None:
         without_key = provider_capabilities({})
@@ -150,6 +164,7 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
                 "ANTHROPIC_API_KEY",
                 "MISTRAL_API_KEY",
                 "COHERE_API_KEY",
+                "MOONSHOT_API_KEY",
                 "COPILOT_GITHUB_TOKEN",
             )
         }

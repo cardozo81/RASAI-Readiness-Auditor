@@ -86,6 +86,8 @@ class ProviderExtensionTests(unittest.TestCase):
             ("gemini", {"GEMINI_API_KEY": "x"}, "GEMINI", "gemini-3.8-flash"),
             ("anthropic", {"ANTHROPIC_API_KEY": "x"}, "ANTHROPIC", "claude-sonnet-5"),
             ("mistral", {"MISTRAL_API_KEY": "x"}, "MISTRAL", "mistral-small-2603"),
+            ("kimi", {"MOONSHOT_API_KEY": "x"}, "KIMI", "kimi-k3"),
+            ("moonshot", {"MOONSHOT_API_KEY": "x"}, "KIMI", "kimi-k3"),
             ("claude", {"ANTHROPIC_API_KEY": "x"}, "ANTHROPIC", "claude-sonnet-5"),
         )
         for selection, env, expected_name, expected_model in cases:

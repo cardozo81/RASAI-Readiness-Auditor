@@ -49,6 +49,9 @@ def _runtime_conditions(provider: str, *, region: str | None = None) -> dict[str
     elif name == "COHERE":
         conditions["commercial_mode"] = "PRODUCTION"
         conditions["region"] = region or "GLOBAL"
+    elif name == "KIMI":
+        conditions["cache_ttl"] = "5M"
+        conditions["region"] = region or "INTERNATIONAL"
     return conditions
 
 

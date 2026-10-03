@@ -36,6 +36,8 @@ def _conditions(provider: str) -> dict[str, str]:
         return {"service_tier": "STANDARD", "operation_mode": "REALTIME", "region": "GLOBAL"}
     if name == "MISTRAL":
         return {"service_tier": "STANDARD_ONLY", "operation_mode": "REALTIME", "region": "GLOBAL"}
+    if name == "KIMI":
+        return {"cache_ttl": "5M", "operation_mode": "REALTIME", "region": "INTERNATIONAL"}
     return {}
 
 
@@ -43,7 +45,7 @@ def _conditions(provider: str) -> dict[str, str]:
 def test_factory_catalog_is_versioned_and_referenced_to_2026_10_02() -> None:
     catalog = load_factory_pricing_catalog()
     assert catalog.metadata.schema_version == 1
-    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-03.4"
+    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-03.5"
     assert catalog.metadata.reference_date == "2026-10-03"
     assert catalog.metadata.verified_on == "2026-10-03"
     assert catalog.metadata.review_recommended_on == "2026-11-03"
@@ -91,6 +93,21 @@ def test_factory_catalog_declares_current_commercial_models() -> None:
         "commercial_mode": "TRIAL",
         "operation_mode": "REALTIME",
         "region": "GLOBAL",
+    }
+    kimi = by_key[("KIMI", "kimi-k3")]
+    assert kimi.pricing_model == "TOKEN_STANDARD"
+    assert kimi.reasoning_billing == "IN_OUTPUT"
+    assert kimi.region == "INTERNATIONAL"
+    kimi_rule = kimi.rules[0]
+    assert (
+        kimi_rule.input_price_per_million,
+        kimi_rule.cached_input_price_per_million,
+        kimi_rule.output_price_per_million,
+    ) == pytest.approx((3.00, 0.30, 15.00))
+    assert dict(kimi_rule.conditions) == {
+        "cache_ttl": "5M",
+        "operation_mode": "REALTIME",
+        "region": "INTERNATIONAL",
     }
 
 
@@ -211,7 +228,7 @@ def test_restore_factory_helper_reconstructs_editable_catalog(tmp_path: Path) ->
     target.write_text("invalid = true\n", encoding="utf-8")
     restored = restore_factory_pricing_catalog(target)
     catalog = load_pricing_catalog(path=restored)
-    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-03.4"
+    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-03.5"
     assert catalog.source == str(target.resolve())
 
 

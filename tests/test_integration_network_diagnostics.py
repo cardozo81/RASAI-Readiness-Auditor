@@ -49,6 +49,12 @@ def test_mistral_network_target_is_non_generative_models_endpoint() -> None:
     assert network.endpoint_for_spec(spec) == "https://api.mistral.ai/v1/models"
 
 
+def test_kimi_network_target_is_non_generative_models_endpoint() -> None:
+    spec = get_integration_spec("ai:kimi")
+    assert spec is not None
+    assert network.endpoint_for_spec(spec) == "https://api.moonshot.ai/v1/models"
+
+
 def test_copilot_network_target_is_runtime_host_not_generic_github_api() -> None:
     spec = get_integration_spec("ai:copilot")
     assert spec is not None
