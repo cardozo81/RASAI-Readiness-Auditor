@@ -394,3 +394,21 @@ A suíte deve cobrir no mínimo:
 - projeção de schema OpenAI sem alterar o validador local;
 - aceitação/transporte de `agentic-browsing` no PageSpeed v5 atual;
 - Search content comparison desabilitada por default e explícita quando ativada.
+
+
+## Uso nativo não-token
+
+A telemetria de provider pode coexistir com componentes de uso nativo por meio de `ProviderUsage.native_usage`. Cada componente preserva:
+
+- `unit`;
+- `quantity`;
+- `source_metric`;
+- `component_type`;
+- `billable`;
+- `observed_at`.
+
+Esses componentes não reutilizam campos de tokens. A versão atual materializa apenas as unidades necessárias a consumidores reais já identificados: `PERPLEXITY_SEARCH_REQUEST` e `MANUS_CREDIT`.
+
+O runtime de pricing aceita `PER_REQUEST` para requisições faturáveis e `PROVIDER_CREDITS` para créditos sem conversão monetária. Uma tentativa que apresente simultaneamente tokens e unidades nativas não recebe preço composto especulativo: as observações são preservadas, mas o custo combinado falha fechado até existir um contrato comercial concreto.
+
+Essa extensão é exclusivamente de telemetria/pricing. Não altera crawling, aquisição, AUD/RPR, resume/checkpoints, evidence seal, SARI, CATs, SCORE-GEO, Apdex, fórmulas, pesos, scoring ou consolidação determinística. Também não adiciona Perplexity/Manus ao registry principal de IA.
