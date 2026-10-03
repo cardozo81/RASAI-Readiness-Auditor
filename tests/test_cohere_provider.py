@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from rasai.ai_orchestration_unification import _structured_payload
 from rasai.improvement_intelligence import _provider_payload
 from rasai.provider_extensions import CohereProvider, build_semantic_provider
@@ -147,6 +149,35 @@ def test_cohere_factory_uses_public_default_and_is_explicit_selection() -> None:
     assert provider.api_key == "test-key"
     assert provider.reasoning_profile == "PROVIDER_DEFAULT"
     assert provider.pricing_runtime_conditions() == {
+        "commercial_mode": "UNKNOWN",
         "operation_mode": "REALTIME",
         "region": "GLOBAL",
     }
+
+
+def test_cohere_commercial_mode_is_explicit_and_validated() -> None:
+    trial = build_semantic_provider(
+        "cohere",
+        env={
+            "COHERE_API_KEY": "test-key",
+            "RASAI_COHERE_COMMERCIAL_MODE": "trial",
+        },
+    )
+    production = build_semantic_provider(
+        "cohere",
+        env={
+            "COHERE_API_KEY": "test-key",
+            "RASAI_COHERE_COMMERCIAL_MODE": "PRODUCTION",
+        },
+    )
+    assert trial.pricing_runtime_conditions()["commercial_mode"] == "TRIAL"
+    assert production.pricing_runtime_conditions()["commercial_mode"] == "PRODUCTION"
+
+    with pytest.raises(ValueError, match="RASAI_COHERE_COMMERCIAL_MODE"):
+        build_semantic_provider(
+            "cohere",
+            env={
+                "COHERE_API_KEY": "test-key",
+                "RASAI_COHERE_COMMERCIAL_MODE": "guessed",
+            },
+        )
