@@ -11,7 +11,7 @@ from rasai.ai_exchange_log import MAX_CAPTURE_BYTES_ENV
 from rasai.cli import validate_target
 from rasai.content_context import CONTENT_CONTEXT_ENV_NAMES, configured_content_analysis_context
 from rasai.property_semantic_profile import PROPERTY_SEMANTIC_PROFILE_ENV_NAMES
-from rasai.provider_extensions import COHERE_COMMERCIAL_MODE_ENV
+from rasai.provider_extensions import COHERE_COMMERCIAL_MODE_ENV, COHERE_COMMERCIAL_MODES
 from rasai.provider_registry import auto_provider_ids, get_provider_registration, provider_environment_names, provider_registrations
 from rasai.provider_runtime_policy import (
     AI_TIMEOUT_ENV,
@@ -277,6 +277,11 @@ def validate_env_value(name: str, value: str) -> str:
     value = value.strip()
     if not value:
         raise ValueError("valor vazio; remova a variável em vez de gravar vazio")
+    if name == COHERE_COMMERCIAL_MODE_ENV:
+        normalized_mode = value.upper()
+        if normalized_mode not in COHERE_COMMERCIAL_MODES:
+            raise ValueError("use " + ", ".join(COHERE_COMMERCIAL_MODES))
+        return normalized_mode
     if name == AUTO_EXCLUDE_ENV:
         normalized: list[str] = []
         for raw in value.replace(";", ",").split(","):
