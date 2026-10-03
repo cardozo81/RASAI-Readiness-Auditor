@@ -83,6 +83,8 @@ EXTENDED_MODEL_ENV = {
     "MISTRAL": "RASAI_MISTRAL_MODEL",
     "COHERE": "RASAI_COHERE_MODEL",
 }
+COHERE_COMMERCIAL_MODE_ENV = "RASAI_COHERE_COMMERCIAL_MODE"
+COHERE_COMMERCIAL_MODES = ("UNKNOWN", "TRIAL", "PRODUCTION")
 EXTENDED_ENDPOINT_ENV = {
     "XAI": "RASAI_XAI_ENDPOINT",
     "QWEN": "RASAI_QWEN_ENDPOINT",
@@ -840,10 +842,39 @@ class CohereProvider(IsolatedStructuredSemanticProvider):
         "COHERE_CHAT_V2",
     )
 
+    def __init__(
+        self,
+        *,
+        model: str,
+        api_key: str | None,
+        endpoint: str | None = None,
+        timeout: float = 45.0,
+        transport: Transport | None = None,
+        commercial_mode: str = "UNKNOWN",
+    ) -> None:
+        super().__init__(
+            model=model,
+            api_key=api_key,
+            endpoint=endpoint,
+            timeout=timeout,
+            transport=transport,
+        )
+        normalized = str(commercial_mode or "UNKNOWN").strip().upper()
+        if normalized not in COHERE_COMMERCIAL_MODES:
+            raise ValueError(
+                f"{COHERE_COMMERCIAL_MODE_ENV}: use "
+                + ", ".join(COHERE_COMMERCIAL_MODES)
+            )
+        self.commercial_mode = normalized
+
     def pricing_runtime_conditions(self) -> dict[str, str]:
         endpoint = str(self.endpoint).casefold()
         region = "GLOBAL" if endpoint.startswith("https://api.cohere.com/") else "UNKNOWN"
-        return {"operation_mode": "REALTIME", "region": region}
+        return {
+            "commercial_mode": self.commercial_mode,
+            "operation_mode": "REALTIME",
+            "region": region,
+        }
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -1146,6 +1177,7 @@ def _extension_provider_instance(
     model: str,
     key: str | None,
     endpoint: str | None,
+    commercial_mode: str | None = None,
 ) -> IsolatedStructuredSemanticProvider:
     provider_type: type[IsolatedStructuredSemanticProvider]
     if provider_name == "XAI":
@@ -1159,7 +1191,12 @@ def _extension_provider_instance(
     elif provider_name == "MISTRAL":
         provider_type = MistralProvider
     elif provider_name == "COHERE":
-        provider_type = CohereProvider
+        return CohereProvider(
+            model=model,
+            api_key=key,
+            endpoint=endpoint,
+            commercial_mode=commercial_mode or "UNKNOWN",
+        )
     else:
         raise ValueError(provider_name)
     return provider_type(model=model, api_key=key, endpoint=endpoint)
@@ -1187,14 +1224,21 @@ def build_semantic_provider(
             env=env,
         )
 
+    environment = env if env is not None else os.environ
     model, key, endpoint = _resolve_extension_config(
         provider_name,
         model_override=model_override,
-        env=env,
+        env=environment,
+    )
+    commercial_mode = (
+        environment.get(COHERE_COMMERCIAL_MODE_ENV, "UNKNOWN")
+        if provider_name == "COHERE"
+        else None
     )
     return _extension_provider_instance(
         provider_name,
         model=model,
         key=key,
         endpoint=endpoint,
+        commercial_mode=commercial_mode,
     )
