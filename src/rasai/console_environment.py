@@ -203,6 +203,7 @@ CATEGORIES = (
     "Aplicação e execução",
     "IA - credenciais",
     "IA - modelos e reasoning",
+    "IA - pricing",
     "IA - endpoints avançados",
     "IA - contexto editorial / YMYL",
     "Web Performance / Google APIs",
