@@ -54,12 +54,8 @@ class ProviderRegistryTests(unittest.TestCase):
             self.assertEqual(registration.endpoint_env, EXTENDED_ENDPOINT_ENV.get(provider_name))
             self.assertEqual(registration.supported_models, EXTENDED_SUPPORTED_MODELS[provider_name])
             self.assertEqual(registration.default_model, EXTENDED_DEFAULT_MODELS[provider_name])
-            if provider_name in {"MISTRAL", "COHERE", "KIMI"}:
-                self.assertFalse(registration.auto_eligible)
-                self.assertTrue(registration.explicit_only)
-            else:
-                self.assertTrue(registration.auto_eligible)
-                self.assertFalse(registration.explicit_only)
+            self.assertTrue(registration.auto_eligible)
+            self.assertFalse(registration.explicit_only)
 
     def test_registry_public_defaults_reasoning_and_reasoning_env_match_runtime_exactly(self) -> None:
         for registration in provider_registrations():
@@ -73,7 +69,7 @@ class ProviderRegistryTests(unittest.TestCase):
             ("NONE", "LOW", "HIGH", "MAX"),
         )
 
-    def test_mistral_metadata_is_explicit_only(self) -> None:
+    def test_mistral_metadata_is_auto_eligible(self) -> None:
         registration = get_provider_registration("mistral")
         self.assertIsNotNone(registration)
         assert registration is not None
@@ -82,10 +78,10 @@ class ProviderRegistryTests(unittest.TestCase):
         self.assertEqual(registration.model_env, "RASAI_MISTRAL_MODEL")
         self.assertIsNone(registration.endpoint_env)
         self.assertEqual(registration.public_default_model, "mistral-small-2603")
-        self.assertTrue(registration.explicit_only)
-        self.assertFalse(registration.auto_eligible)
+        self.assertFalse(registration.explicit_only)
+        self.assertTrue(registration.auto_eligible)
 
-    def test_cohere_metadata_is_explicit_only(self) -> None:
+    def test_cohere_metadata_is_auto_eligible(self) -> None:
         registration = get_provider_registration("cohere")
         self.assertIsNotNone(registration)
         assert registration is not None
@@ -95,10 +91,10 @@ class ProviderRegistryTests(unittest.TestCase):
         self.assertIsNone(registration.endpoint_env)
         self.assertEqual(registration.public_default_model, "command-a-03-2025")
         self.assertEqual(registration.reasoning_values, ("PROVIDER_DEFAULT",))
-        self.assertTrue(registration.explicit_only)
-        self.assertFalse(registration.auto_eligible)
+        self.assertFalse(registration.explicit_only)
+        self.assertTrue(registration.auto_eligible)
 
-    def test_kimi_metadata_is_explicit_only(self) -> None:
+    def test_kimi_metadata_is_auto_eligible(self) -> None:
         registration = get_provider_registration("kimi")
         self.assertIsNotNone(registration)
         assert registration is not None
@@ -110,10 +106,10 @@ class ProviderRegistryTests(unittest.TestCase):
         self.assertEqual(registration.public_default_model, "kimi-k3")
         self.assertEqual(registration.reasoning_values, ("LOW", "HIGH", "MAX"))
         self.assertEqual(registration.reasoning_env, "RASAI_KIMI_REASONING_EFFORT")
-        self.assertTrue(registration.explicit_only)
-        self.assertFalse(registration.auto_eligible)
+        self.assertFalse(registration.explicit_only)
+        self.assertTrue(registration.auto_eligible)
 
-    def test_copilot_metadata_is_explicit_only(self) -> None:
+    def test_copilot_metadata_is_auto_eligible(self) -> None:
         registration = get_provider_registration("copilot")
         self.assertIsNotNone(registration)
         assert registration is not None
@@ -123,8 +119,8 @@ class ProviderRegistryTests(unittest.TestCase):
         self.assertEqual(registration.model_env, "RASAI_COPILOT_MODEL")
         self.assertEqual(registration.default_model, "auto")
         self.assertEqual(registration.public_default_model, "auto")
-        self.assertTrue(registration.explicit_only)
-        self.assertFalse(registration.auto_eligible)
+        self.assertFalse(registration.explicit_only)
+        self.assertTrue(registration.auto_eligible)
 
     def test_extension_aliases_and_cli_choices_are_registry_driven(self) -> None:
         self.assertEqual(
@@ -148,12 +144,8 @@ class ProviderRegistryTests(unittest.TestCase):
     def test_auto_pool_is_registry_driven(self) -> None:
         self.assertEqual(
             auto_provider_ids(),
-            ("openai", "deepseek", "mimo", "xai", "qwen", "gemini", "anthropic"),
+            ("openai", "deepseek", "mimo", "xai", "qwen", "gemini", "anthropic", "mistral", "cohere", "kimi", "copilot"),
         )
-        self.assertNotIn("mistral", auto_provider_ids())
-        self.assertNotIn("cohere", auto_provider_ids())
-        self.assertNotIn("kimi", auto_provider_ids())
-        self.assertNotIn("copilot", auto_provider_ids())
 
     def test_mimo_payg_key_constraint_is_exposed_to_consumers(self) -> None:
         registration = get_provider_registration("mimo")
