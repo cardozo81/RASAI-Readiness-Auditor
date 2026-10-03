@@ -493,6 +493,7 @@ Confirme provider/modelo efetivos, Structured Output validado localmente, usage/
 
 ```powershell
 $env:COHERE_API_KEY="<cohere-api-key>"
+$env:RASAI_COHERE_COMMERCIAL_MODE="<TRIAL-ou-PRODUCTION>"
 Test-Path Env:COHERE_API_KEY
 rasai providers --provider cohere
 ```
@@ -502,6 +503,8 @@ rasai providers --provider cohere
 - modelo de fábrica: `command-a-03-2025`;
 - endpoint fixo: `https://api.cohere.com/v2/chat`;
 - autenticação Bearer;
+- `RASAI_COHERE_COMMERCIAL_MODE=UNKNOWN|TRIAL|PRODUCTION`; `UNKNOWN` é o default e mantém pricing UNPRICED;
+- o endpoint `check-api-key` valida atividade da key, mas não informa ao RASAi se ela é trial ou production; essa modalidade é configuração humana não secreta;
 - Structured Outputs por JSON Schema projetado para o subconjunto aceito no wire, seguido da validação local integral;
 - `PROVIDER_DEFAULT` para reasoning; não existe variável de effort Cohere no contrato atual;
 - sem override de endpoint;
