@@ -625,6 +625,7 @@ def _probe_ai(spec: IntegrationSpec, env: Mapping[str, str], *, timeout: float, 
         "gemini": ("https://generativelanguage.googleapis.com/v1beta/models", {"x-goog-api-key": key}, False),
         "anthropic": ("https://api.anthropic.com/v1/models", {"x-api-key": key, "anthropic-version": "2023-06-01"}, False),
         "mistral": ("https://api.mistral.ai/v1/models", {"Authorization": f"Bearer {key}"}, False),
+        "kimi": ("https://api.moonshot.ai/v1/models", {"Authorization": f"Bearer {key}"}, False),
     }
     if registration.id not in defaults:
         return _rasai_error(spec, "Provider sem probe seguro registrado.")

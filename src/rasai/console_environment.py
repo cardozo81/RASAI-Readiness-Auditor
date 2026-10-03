@@ -246,6 +246,9 @@ KEY_SOURCES = {
     "QWEN": "Alibaba Cloud Model Studio > API Key - docs/ENVIRONMENT_VARIABLES.md",
     "GEMINI": "Google AI Studio > API Keys - https://aistudio.google.com/apikey",
     "ANTHROPIC": "Anthropic Console > API Keys - https://console.anthropic.com/",
+    "MISTRAL": "Mistral Console > API Keys - https://console.mistral.ai/api-keys/",
+    "COHERE": "Cohere Dashboard > API Keys - https://dashboard.cohere.com/api-keys",
+    "KIMI": "Kimi API Platform > API Keys - https://platform.kimi.ai/console/api-keys",
 }
 
 
