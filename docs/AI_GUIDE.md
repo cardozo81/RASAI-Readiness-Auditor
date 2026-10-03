@@ -214,7 +214,7 @@ A integração inicial usa `mistral-small-2603`, `MISTRAL_API_KEY` e Chat Comple
 
 A integração inicial usa `COHERE_API_KEY`, `command-a-03-2025` e `POST https://api.cohere.com/v2/chat`. Structured Outputs são projetados para o subconjunto JSON Schema aceito pelo wire da Cohere, mas o schema local do RASAi continua normativo e é validado integralmente após a resposta.
 
-O adapter não envia `tools` nem `documents`, e não habilita RAG/Rerank. Reasoning permanece `PROVIDER_DEFAULT`. Cohere é selecionável explicitamente e fica fora de `AUTO` até homologação humana positiva e eventual decisão posterior de promoção.
+O adapter não envia `tools` nem `documents`, e não habilita RAG/Rerank. Reasoning permanece `PROVIDER_DEFAULT`. Para pricing, `RASAI_COHERE_COMMERCIAL_MODE` aceita `UNKNOWN`, `TRIAL` ou `PRODUCTION`; `UNKNOWN` é o default fail-closed, pois a API não informa ao adapter o tipo comercial da chave. `TRIAL` resolve custo zero conforme a política de trial gratuita/limitada e `PRODUCTION` aplica a tarifa pública token-based. Cohere é selecionável explicitamente e fica fora de `AUTO` até homologação humana positiva e eventual decisão posterior de promoção.
 
 ## GitHub Copilot
 
