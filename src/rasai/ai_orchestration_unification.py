@@ -72,12 +72,14 @@ def _structured_payload(
     from rasai.m18_ai import ResponsesSemanticProvider
     from rasai.provider_extensions import (
         AnthropicProvider,
+        CohereProvider,
         GeminiProvider,
         MistralProvider,
         QwenProvider,
         XAIProvider,
         gemini_wire_schema,
     )
+    from rasai.provider_wire_schema import cohere_wire_schema
 
     name = str(getattr(provider, "name", "")).upper()
     model = str(getattr(provider, "model", ""))
@@ -130,6 +132,18 @@ def _structured_payload(
                     "schema": schema,
                     "strict": True,
                 }
+            },
+        }
+    if isinstance(provider, CohereProvider):
+        return {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": instructions},
+                {"role": "user", "content": "Generate the requested JSON.\n\n" + user_text},
+            ],
+            "response_format": {
+                "type": "json_object",
+                "schema": cohere_wire_schema(schema),
             },
         }
     if isinstance(provider, (QwenProvider, MistralProvider)):

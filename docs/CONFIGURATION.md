@@ -112,7 +112,7 @@ O coordenador:
 
 A ordem é recalculada a cada necessidade e pode mudar por horário, tamanho do request, modelo, reasoning, cache observado ou faixa de contexto. O runtime não troca silenciosamente para Batch, Flex ou outro service tier assíncrono somente para obter desconto.
 
-Excluir um provider de `AUTO` não remove sua credencial nem impede seleção explícita posterior. Providers `explicit-only`, atualmente Mistral durante a homologação inicial e GitHub Copilot, ficam fora do pool por contrato e não precisam ser excluídos manualmente.
+Excluir um provider de `AUTO` não remove sua credencial nem impede seleção explícita posterior. Providers `explicit-only`, atualmente Mistral e Cohere durante a homologação inicial e GitHub Copilot, ficam fora do pool por contrato e não precisam ser excluídos manualmente.
 
 Preços, janelas tarifárias, timezone, heurísticas de tokens e política de revisão do catálogo estão em [`AUTO_COST_AWARE_AI_ROUTING.md`](AUTO_COST_AWARE_AI_ROUTING.md).
 
@@ -128,9 +128,12 @@ Preços, janelas tarifárias, timezone, heurísticas de tokens e política de re
 | Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | `LOW` | default público |
 | Anthropic | `claude-sonnet-5` | `claude-sonnet-5` | `LOW` | default público |
 | Mistral | `mistral-small-2603` | `mistral-small-2603` | `PROVIDER_DEFAULT` | seleção explícita / piloto; fora do AUTO |
+| Cohere | `command-a-03-2025` | `command-a-03-2025` | `PROVIDER_DEFAULT` | seleção explícita / piloto; fora do AUTO |
 | GitHub Copilot | `auto` | `auto` | `PROVIDER_DEFAULT` | deixar SDK/assinatura resolver o modelo; seleção explícita |
 
 Os valores permitidos de reasoning são publicados em `ENVIRONMENT_VARIABLES.md` e `PROVIDER_REGISTRY.md`.
+
+Para Cohere, pricing possui uma configuração adicional não secreta: `RASAI_COHERE_COMMERCIAL_MODE=UNKNOWN|TRIAL|PRODUCTION`. O default `UNKNOWN` preserva fail-closed; o operador deve escolher TRIAL ou PRODUCTION somente quando conhecer o tipo da key. Isso não altera modelo, reasoning, evidence-bound ou elegibilidade AUTO.
 
 Política de default de reasoning: o RASAi usa o **menor nível válido que o modelo/API aceita**. Quando o provider permite desligar reasoning, o default é `NONE`; quando não permite, usa-se o menor effort disponível, como `LOW`; quando o adapter/modelo não expõe controle determinístico, permanece `PROVIDER_DEFAULT`. Isso é uma política RASAi de custo/eficiência e não uma afirmação sobre o default nativo do fornecedor.
 

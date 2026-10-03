@@ -102,6 +102,7 @@ from rasai.m25_cli import (
     UX_SETTLE_ENV,
 )
 from rasai.m25_dynatrace import DYNATRACE_API_TOKEN_ENV, SUPPORTED_TIME_KPMS
+from rasai.provider_extensions import COHERE_COMMERCIAL_MODE_ENV, COHERE_COMMERCIAL_MODES
 from rasai.provider_registry import provider_registrations
 from rasai.provider_runtime_policy import (
     AI_TIMEOUT_ENV,
@@ -202,6 +203,7 @@ CATEGORIES = (
     "Aplicação e execução",
     "IA - credenciais",
     "IA - modelos e reasoning",
+    "IA - pricing",
     "IA - endpoints avançados",
     "IA - contexto editorial / YMYL",
     "Web Performance / Google APIs",
@@ -477,6 +479,16 @@ def _fixed_specs() -> tuple[EnvironmentSpec, ...]:
         *_search_specs(),
         *_platform_specs(),
         EnvironmentSpec(
+            COHERE_COMMERCIAL_MODE_ENV,
+            "IA - pricing",
+            "Modalidade comercial da chave Cohere usada para resolver preço sem inferir o plano pelo segredo.",
+            "enum",
+            COHERE_COMMERCIAL_MODES,
+            "UNKNOWN",
+            required_when="Defina TRIAL ou PRODUCTION somente quando o tipo da chave for conhecido.",
+            impact="UNKNOWN mantém Cohere UNPRICED; TRIAL aplica custo monetário zero; PRODUCTION aplica a tarifa pública token-based.",
+        ),
+        EnvironmentSpec(
             "RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE",
             "Browser / Playwright",
             "Caminho opcional para um executável Chromium específico.",
@@ -658,6 +670,10 @@ def _validate(name: str, raw: str) -> str:
         if not path.is_file():
             raise ValueError("arquivo TOML configurado não existe")
         value = str(path)
+    elif name == COHERE_COMMERCIAL_MODE_ENV:
+        value = value.upper()
+        if value not in COHERE_COMMERCIAL_MODES:
+            raise ValueError("use " + ", ".join(COHERE_COMMERCIAL_MODES))
     elif name == "RASAI_LIGHTHOUSE_CATEGORIES":
         allowed = ("performance", "accessibility", "best-practices", "seo", "agentic-browsing")
         items = [item.strip().casefold() for item in value.split(",") if item.strip()]

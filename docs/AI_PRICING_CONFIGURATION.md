@@ -1,10 +1,10 @@
 # Configuração de preços de IA do RASAi
 
 **Estado:** vigente.  
-**Data de referência desta configuração:** 02/10/2026  
-**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-10-02.2`  
+**Data de referência desta configuração:** 03/10/2026  
+**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-10-03.4`  
 **Schema do catálogo:** `1`  
-**Revisão ordinária recomendada:** 02/11/2026
+**Revisão ordinária recomendada:** 03/11/2026
 
 Os preços deste documento e de `src/rasai/config/ai-pricing-defaults.toml` representam a política conhecida e validada na data de referência. Eles são usados para estimativa operacional e roteamento econômico. Não substituem a fatura do fornecedor.
 
@@ -104,10 +104,10 @@ Metadados obrigatórios:
 ```toml
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-PRICING-2026-10-02.2"
-reference_date = "2026-10-02"
-verified_on = "2026-10-02"
-review_recommended_on = "2026-11-02"
+catalog_version = "RASAI-PRICING-2026-10-03.4"
+reference_date = "2026-10-03"
+verified_on = "2026-10-03"
+review_recommended_on = "2026-11-03"
 ```
 
 Cada provider/modelo declara:
@@ -290,7 +290,15 @@ A regra atual possui `effective_until = "2027-01-01T00:00:00Z"`. Sem regra vigen
 
 O catálogo inicial usa a tarifa Standard global de `mistral-small-2603`: USD 0,15/M input, USD 0,015/M cached input e USD 0,60/M output. O adapter envia `service_tier=standard_only` e não expõe endpoint regional/priority/batch nesta entrega. A existência de pricing não torna o provider elegível ao AUTO: Mistral permanece `explicit_only=true` e `auto_eligible=false` até homologação humana posterior.
 
-### 10.7 GitHub Copilot
+### 10.8 Cohere
+
+Cohere distingue chaves `TRIAL` e `PRODUCTION`. O RASAi exige `RASAI_COHERE_COMMERCIAL_MODE=TRIAL|PRODUCTION` para resolver preço; o default `UNKNOWN` permanece **UNPRICED** e nunca tenta inferir o plano pelo segredo. Em `TRIAL`, o catálogo aplica custo monetário zero conforme a política oficial de trial gratuito e limitado. Em `PRODUCTION`, `command-a-03-2025` usa USD 2,50/M input e USD 10,00/M output em operação real-time global.
+
+O adapter usa `usage.billed_units` como tokens faturáveis e preserva `cached_input_tokens=None`, pois a resposta não fornece uma dimensão separada de cache. O motor só calcula custo com cache desconhecido quando `cached_input_price_per_million == input_price_per_million`; assim a divisão ausente é matematicamente irrelevante. Se as tarifas divergirem, o custo permanece UNPRICED em vez de inventar cache.
+
+A existência das regras não autoriza `AI=auto`: Cohere permanece `explicit_only=true` e `auto_eligible=false` até homologação humana positiva.
+
+### 10.9 GitHub Copilot
 
 Na referência de 02/10/2026 não existe tarifa unitária de API cadastrada no RASAi. O provider é explicit-only e não é elegível ao AUTO.
 
@@ -368,7 +376,7 @@ A ordem permanece:
 4. empates determinísticos;
 5. candidatos UNPRICED depois dos precificados.
 
-Pricing não habilita provider sem credencial, ignora falhas, remove quarentena, reduz circuit breaker nem torna Mistral ou Copilot elegíveis ao AUTO nesta entrega.
+Pricing não habilita provider sem credencial, ignora falhas, remove quarentena, reduz circuit breaker nem torna Mistral, Cohere ou Copilot elegíveis ao AUTO nesta entrega.
 
 ## 18. Batch, Flex, Priority e service tiers
 
@@ -392,7 +400,7 @@ Erro de catálogo não é convertido silenciosamente em preço presumido.
 
 ## 20. Política de revisão
 
-Data de referência desta versão: **02/10/2026**. Revisão ordinária recomendada: **02/11/2026**.
+Data de referência desta versão: **03/10/2026**. Revisão ordinária recomendada: **03/11/2026**.
 
 Revisar antes disso em caso de aviso de preço, troca de modelo default, mudança de endpoint/região, cache, peak/off-peak, threshold de contexto, promoção, nova modalidade de cobrança ou divergência material entre estimativa e cobrança observada. Toda revisão efetiva deve atualizar `reference_date` e `verified_on`.
 
@@ -408,6 +416,7 @@ Revisar antes disso em caso de aviso de preço, troca de modelo default, mudanç
 | Google Gemini | <https://ai.google.dev/gemini-api/docs/pricing> | input, cached input, output/thinking e vigência |
 | Anthropic Claude | <https://platform.claude.com/docs/en/about-claude/pricing> | input, output e cache |
 | Mistral AI | <https://docs.mistral.ai/inference/pricing> | Standard input, cached input, output e service tier |
+| Cohere | <https://docs.cohere.com/docs/command-a> e <https://docs.cohere.com/docs/how-does-cohere-pricing-work> | input/output do `command-a-03-2025`, trial vs production e eventuais mudanças de política comercial |
 
 Cada entrada do TOML mantém `source_reference` próprio.
 
@@ -421,6 +430,7 @@ A suíte deve cobrir, no mínimo:
 - expiração fail-closed do Gemini;
 - reasoning do Gemini incluído no output faturável;
 - Mistral Small 4 com input/cache/output Standard e permanência fora do AUTO;
+- Cohere Command A com `billed_units`, `TRIAL|PRODUCTION|UNKNOWN`, cache não separado, condições REALTIME/GLOBAL e permanência fora do AUTO;
 - defaults elegíveis do pool AUTO com preço vigente;
 - arquivo configurado inexistente falhando fechado;
 - `config/ai-pricing.toml` como superfície humana padrão do console;

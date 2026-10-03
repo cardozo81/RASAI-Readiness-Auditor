@@ -5,7 +5,7 @@ import unittest
 
 from rasai.m18_ai import ProviderState, RuntimeProviderState
 from rasai.m20_ai import ContentEvidenceInput, ContentFindingInput, ContentRemediationRequest
-from rasai.provider_extensions import AnthropicProvider, GeminiProvider, MistralProvider, QwenProvider, XAIProvider
+from rasai.provider_extensions import AnthropicProvider, CohereProvider, GeminiProvider, MistralProvider, QwenProvider, XAIProvider
 from rasai.provider_extensions_m20 import build_content_remediation_router
 
 
@@ -99,6 +99,16 @@ class ProviderExtensionM20Tests(unittest.TestCase):
             provider,
             {"choices": [{"message": {"content": json.dumps(_suggestions())}}]},
             "standard_only",
+        )
+
+    def test_cohere_m20_uses_chat_v2_structured_output(self) -> None:
+        provider = CohereProvider(model="command-a-03-2025", api_key="x")
+        self._assert_success(
+            provider,
+            {"message": {"content": [{"type": "text", "text": json.dumps(_suggestions())}]},
+             "finish_reason": "COMPLETE",
+             "usage": {"billed_units": {"input_tokens": 10, "output_tokens": 20}}},
+            "response_format",
         )
 
     def test_gemini_m20_uses_interactions_schema(self) -> None:

@@ -55,6 +55,7 @@ A lista de reasoning exibida pelo comando é o domínio aceito pelo runtime para
 | `gemini` | Google Gemini | `GEMINI_API_KEY` | `gemini-3.8-flash` | <https://aistudio.google.com/apikey> | Gemini API key |
 | `anthropic` / `claude` | Anthropic Claude | `ANTHROPIC_API_KEY` | `claude-sonnet-5` | <https://console.anthropic.com/> | Anthropic API key |
 | `mistral` | Mistral AI | `MISTRAL_API_KEY` | `mistral-small-2603` | <https://console.mistral.ai/api-keys/> | explicit-only durante a homologação inicial; endpoint global Standard fixo |
+| `cohere` | Cohere | `COHERE_API_KEY` | `command-a-03-2025` | <https://dashboard.cohere.com/api-keys> | explicit-only; Chat V2 generativo; sem RAG/Rerank/tools/documents nesta entrega |
 | `copilot` / `github-copilot` | GitHub Copilot | `COPILOT_GITHUB_TOKEN` | `auto` | <https://github.com/settings/personal-access-tokens/new> | usa assinatura Copilot elegível; não entra em `AI=auto` |
 
 ### Xiaomi MiMo - migração V2.6
@@ -81,6 +82,7 @@ A tabela acima é a referência rápida. O procedimento canônico, com pré-requ
 - [Google Gemini](EXTERNAL_CREDENTIALS.md#google-gemini);
 - [Anthropic Claude](EXTERNAL_CREDENTIALS.md#anthropic-claude);
 - [Mistral AI](EXTERNAL_CREDENTIALS.md#mistral-ai);
+- [Cohere](EXTERNAL_CREDENTIALS.md#cohere);
 - [GitHub Copilot](EXTERNAL_CREDENTIALS.md#github-copilot).
 
 Regra de segurança: a documentação mostra nomes de variáveis e placeholders, nunca valores reais. `Test-Path Env:<VAR>` confirma apenas presença; validade/autorização deve ser verificada pelo diagnóstico seguro do RASAi antes de um smoke que possa consumir quota/custo.
@@ -114,6 +116,31 @@ Documentação oficial:
 - primeira chamada: <https://docs.mistral.ai/getting-started/quickstarts/developer/first-api-request>
 - modelo Mistral Small 4: <https://docs.mistral.ai/models/mistral-small-4-0-26-03>
 - pricing: <https://docs.mistral.ai/inference/pricing>
+
+### Cohere
+
+Configuração mínima:
+
+```powershell
+$env:COHERE_API_KEY="<cohere-api-key>"
+$env:RASAI_COHERE_COMMERCIAL_MODE="<TRIAL-ou-PRODUCTION>"
+rasai audit https://example.com --ai-provider cohere --ai-model command-a-03-2025
+```
+
+Contrato inicial:
+
+- modelo de fábrica: `command-a-03-2025`;
+- endpoint fixo: `https://api.cohere.com/v2/chat`;
+- Structured Outputs via `response_format`, com projeção do JSON Schema somente no wire e validação local integral;
+- usage faturável lido de `usage.billed_units` quando retornado;
+- `RASAI_COHERE_COMMERCIAL_MODE=UNKNOWN|TRIAL|PRODUCTION`; default `UNKNOWN` mantém pricing fail-closed;
+- `TRIAL` representa a chave trial gratuita/limitada; `PRODUCTION` aplica a tarifa token-based pública;
+- o tipo da chave não é inferido pela API nem pelo valor do segredo;
+- sem `RASAI_COHERE_ENDPOINT` e sem variável de reasoning;
+- sem tools, documents, RAG ou Rerank nesta primeira fase;
+- `explicit-only`; não participa de `AI=auto` antes da homologação humana.
+
+Documentação oficial: <https://docs.cohere.com/v2/reference/chat>, <https://docs.cohere.com/v2/docs/structured-outputs> e <https://docs.cohere.com/docs/command-a>.
 
 ### GitHub Copilot
 

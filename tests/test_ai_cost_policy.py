@@ -13,6 +13,7 @@ from rasai.ai_cost_policy import (
     estimate_observed_cost,
     pricing_context,
     reasoning_output_multiplier,
+    resolve_observed_cost,
     resolve_price,
 )
 from rasai.dynamic_ai_routing import DynamicProviderRoutingSession, _price_auto_attempt
@@ -44,6 +45,9 @@ def _runtime_conditions(provider: str, *, region: str | None = None) -> dict[str
         conditions["region"] = region or "GLOBAL"
     elif name == "MISTRAL":
         conditions["service_tier"] = "STANDARD_ONLY"
+        conditions["region"] = region or "GLOBAL"
+    elif name == "COHERE":
+        conditions["commercial_mode"] = "PRODUCTION"
         conditions["region"] = region or "GLOBAL"
     return conditions
 
@@ -225,7 +229,7 @@ def test_unpriced_candidates_keep_deterministic_rotating_order() -> None:
 
 
 def test_review_date_is_explicit_and_machine_readable() -> None:
-    assert PRICING_REVIEW_RECOMMENDED_ON == "2026-11-02"
+    assert PRICING_REVIEW_RECOMMENDED_ON == "2026-11-03"
 
 def test_mimo_v26_prices_and_v25_cutoff_are_machine_readable() -> None:
     current = datetime(2026, 10, 2, 18, 0, tzinfo=UTC)
@@ -315,6 +319,109 @@ def test_mistral_price_requires_standard_only_global_runtime_contract() -> None:
     )
     assert matching is not None
     assert mismatched is None
+
+
+def test_cohere_price_requires_explicit_commercial_mode_and_runtime_contract() -> None:
+    at = datetime(2026, 10, 3, 18, 0, tzinfo=UTC)
+    production = resolve_price(
+        "COHERE", "command-a-03-2025", at=at, input_tokens=10_000,
+        runtime_conditions=_runtime_conditions("COHERE"),
+    )
+    trial = resolve_price(
+        "COHERE", "command-a-03-2025", at=at, input_tokens=10_000,
+        runtime_conditions={
+            "commercial_mode": "TRIAL",
+            "operation_mode": "REALTIME",
+            "region": "GLOBAL",
+        },
+    )
+    unknown = resolve_price(
+        "COHERE", "command-a-03-2025", at=at, input_tokens=10_000,
+        runtime_conditions={
+            "commercial_mode": "UNKNOWN",
+            "operation_mode": "REALTIME",
+            "region": "GLOBAL",
+        },
+    )
+    mismatched = resolve_price(
+        "COHERE", "command-a-03-2025", at=at, input_tokens=10_000,
+        runtime_conditions={
+            "commercial_mode": "PRODUCTION",
+            "operation_mode": "BATCH",
+            "region": "GLOBAL",
+        },
+    )
+    assert production is not None
+    assert (
+        production.input_price_per_million,
+        production.cached_input_price_per_million,
+        production.output_price_per_million,
+    ) == pytest.approx((2.50, 2.50, 10.00))
+    assert production.rule_id == "cohere-command-a-03-2025-production"
+    assert trial is not None
+    assert (
+        trial.input_price_per_million,
+        trial.cached_input_price_per_million,
+        trial.output_price_per_million,
+    ) == pytest.approx((0.0, 0.0, 0.0))
+    assert trial.rule_id == "cohere-command-a-03-2025-trial"
+    assert unknown is None
+    assert mismatched is None
+
+
+def test_cohere_observed_smoke_usage_prices_without_inventing_cache_split() -> None:
+    at = datetime(2026, 10, 3, 18, 0, tzinfo=UTC)
+    usage = ProviderUsage(
+        input_tokens=1661,
+        cached_input_tokens=None,
+        output_tokens=2688,
+        reasoning_tokens=None,
+        total_tokens=4349,
+    )
+    production = resolve_observed_cost(
+        "COHERE",
+        "command-a-03-2025",
+        usage,
+        at,
+        runtime_conditions=_runtime_conditions("COHERE"),
+    )
+    trial = resolve_observed_cost(
+        "COHERE",
+        "command-a-03-2025",
+        usage,
+        at,
+        runtime_conditions={
+            "commercial_mode": "TRIAL",
+            "operation_mode": "REALTIME",
+            "region": "GLOBAL",
+        },
+    )
+    assert production.estimated_cost == pytest.approx(0.0310325)
+    assert production.currency == "USD"
+    assert production.pricing_rule_id == "cohere-command-a-03-2025-production"
+    assert trial.estimated_cost == pytest.approx(0.0)
+    assert trial.currency == "USD"
+    assert trial.pricing_rule_id == "cohere-command-a-03-2025-trial"
+
+
+def test_unknown_cache_split_remains_unpriced_when_cached_rate_differs() -> None:
+    usage = ProviderUsage(
+        input_tokens=1_000,
+        cached_input_tokens=None,
+        output_tokens=1_000,
+        reasoning_tokens=None,
+        total_tokens=2_000,
+    )
+    result = resolve_observed_cost(
+        "MISTRAL",
+        "mistral-small-2603",
+        usage,
+        datetime(2026, 10, 3, 18, 0, tzinfo=UTC),
+        runtime_conditions=_runtime_conditions("MISTRAL"),
+    )
+    assert result.estimated_cost is None
+    assert result.currency is None
+    assert result.pricing_rule_id is None
 
 
 def test_auto_places_unpriced_after_priced_even_when_unpriced_rank_is_lower() -> None:

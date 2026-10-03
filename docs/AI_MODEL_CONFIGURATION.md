@@ -146,6 +146,7 @@ RASAI_OPENAI_MODEL = gpt-5.6-luna
 RASAI_GEMINI_MODEL = gemini-3.8-flash
 RASAI_ANTHROPIC_MODEL = claude-sonnet-5
 RASAI_MISTRAL_MODEL = mistral-small-2603
+RASAI_COHERE_MODEL = command-a-03-2025
 ```
 
 Se o valor configurado não existir no catálogo efetivo, estiver desabilitado ou estiver fora da vigência, o RASAi rejeita a configuração em vez de trocar silenciosamente de modelo.
@@ -186,6 +187,10 @@ A migração é de model ID dentro do mesmo adapter Responses/PAYG; não habilit
 ### Mistral na baseline de 02/10/2026
 
 A primeira integração Mistral mantém somente `mistral-small-2603` no catálogo de fábrica. O registro é selecionável explicitamente, mas `auto_eligible=false` enquanto a homologação humana do provider não estiver concluída. O adapter continua sendo definido em código; o catálogo não cria um provider novo nem altera `AI=auto`.
+
+### Cohere na baseline de 02/10/2026
+
+A integração Cohere mantém somente `command-a-03-2025` no catálogo de fábrica, com `default_reasoning=PROVIDER_DEFAULT` e `auto_eligible=false`. O objetivo desta fase é homologar o adapter Chat V2 generativo e seu contrato Structured Outputs. Command A+, Rerank, RAG, tools e documents não são modelos/capabilities operacionais desta entrega.
 
 ## 8. Exemplo: adicionar um novo modelo de um provider existente
 

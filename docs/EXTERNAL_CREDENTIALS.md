@@ -45,6 +45,7 @@ Quando for necessário citar uma modalidade externa apenas para impedir configur
 | Google Gemini | `GEMINI_API_KEY` | `gemini` | <https://aistudio.google.com/apikey> | o adapter atual usa API key em `x-goog-api-key`; métodos alternativos de autenticação não fazem parte do contrato atual. |
 | Anthropic Claude | `ANTHROPIC_API_KEY` | `anthropic` ou `claude` | <https://console.anthropic.com/> | o adapter atual usa API key do Console/Workspace em `x-api-key`; outros métodos de autenticação não fazem parte do contrato atual. |
 | Mistral AI | `MISTRAL_API_KEY` | `mistral` | <https://console.mistral.ai/api-keys/> | explicit-only; endpoint global e Standard tier fixos; sem endpoint alternativo, tools/search/agents/connectors. |
+| Cohere | `COHERE_API_KEY` | `cohere` | <https://dashboard.cohere.com/api-keys> | explicit-only; Chat V2 generativo com `command-a-03-2025`; sem tools, documents, RAG ou Rerank no contrato atual. |
 | GitHub Copilot | `COPILOT_GITHUB_TOKEN` | `copilot` ou `github-copilot` | <https://github.com/settings/personal-access-tokens/new> | fine-grained PAT de conta pessoal com `Copilot Requests`; explicit-only. |
 
 ### Procedimento padrão depois de criar qualquer credencial
@@ -479,6 +480,44 @@ Confirme provider/modelo efetivos, Structured Output validado localmente, usage/
 - `402`: o fornecedor pode exigir habilitação de consumo/billing para o volume/recurso solicitado;
 - `429`: limite do plano/Workspace;
 - key configurada, mas expectativa de participação em `AI=auto`: não ocorre nesta etapa por decisão de homologação.
+
+### Cohere
+
+**Variável usada pelo RASAi:** `COHERE_API_KEY`  
+**Seleção:** `cohere`  
+**Criar/gerenciar API key:** <https://dashboard.cohere.com/api-keys>  
+**Chat V2:** <https://docs.cohere.com/v2/reference/chat>  
+**Structured Outputs:** <https://docs.cohere.com/v2/docs/structured-outputs>
+
+#### Configurar no PowerShell
+
+```powershell
+$env:COHERE_API_KEY="<cohere-api-key>"
+$env:RASAI_COHERE_COMMERCIAL_MODE="<TRIAL-ou-PRODUCTION>"
+Test-Path Env:COHERE_API_KEY
+rasai providers --provider cohere
+```
+
+#### Contrato específico do RASAi
+
+- modelo de fábrica: `command-a-03-2025`;
+- endpoint fixo: `https://api.cohere.com/v2/chat`;
+- autenticação Bearer;
+- `RASAI_COHERE_COMMERCIAL_MODE=UNKNOWN|TRIAL|PRODUCTION`; `UNKNOWN` é o default e mantém pricing UNPRICED;
+- o endpoint `check-api-key` valida atividade da key, mas não informa ao RASAi se ela é trial ou production; essa modalidade é configuração humana não secreta;
+- Structured Outputs por JSON Schema projetado para o subconjunto aceito no wire, seguido da validação local integral;
+- `PROVIDER_DEFAULT` para reasoning; não existe variável de effort Cohere no contrato atual;
+- sem override de endpoint;
+- sem `tools`, `documents`, RAG ou Rerank nesta primeira entrega;
+- `explicit-only=true` e `auto_eligible=false` até smoke humano positivo e qualificação deliberada posterior.
+
+#### Validar
+
+```powershell
+rasai audit https://example.com --ai-provider cohere --ai-model command-a-03-2025
+```
+
+Confirme resposta estruturada aceita, usage em `billed_units`, pricing/telemetria e ausência de capacidades externas não autorizadas. A existência de Rerank/RAG na plataforma Cohere não os torna funcionalidades do RASAi.
 
 ### GitHub Copilot
 

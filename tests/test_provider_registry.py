@@ -27,7 +27,7 @@ class ProviderRegistryTests(unittest.TestCase):
         registrations = provider_registrations()
         self.assertEqual(
             tuple(item.id for item in registrations),
-            ("openai", "deepseek", "mimo", "xai", "qwen", "gemini", "anthropic", "mistral", "copilot"),
+            ("openai", "deepseek", "mimo", "xai", "qwen", "gemini", "anthropic", "mistral", "cohere", "copilot"),
         )
         self.assertEqual(len(registrations), len({item.id for item in registrations}))
 
@@ -54,7 +54,7 @@ class ProviderRegistryTests(unittest.TestCase):
             self.assertEqual(registration.endpoint_env, EXTENDED_ENDPOINT_ENV.get(provider_name))
             self.assertEqual(registration.supported_models, EXTENDED_SUPPORTED_MODELS[provider_name])
             self.assertEqual(registration.default_model, EXTENDED_DEFAULT_MODELS[provider_name])
-            if provider_name == "MISTRAL":
+            if provider_name in {"MISTRAL", "COHERE"}:
                 self.assertFalse(registration.auto_eligible)
                 self.assertTrue(registration.explicit_only)
             else:
@@ -85,6 +85,19 @@ class ProviderRegistryTests(unittest.TestCase):
         self.assertTrue(registration.explicit_only)
         self.assertFalse(registration.auto_eligible)
 
+    def test_cohere_metadata_is_explicit_only(self) -> None:
+        registration = get_provider_registration("cohere")
+        self.assertIsNotNone(registration)
+        assert registration is not None
+        self.assertEqual(registration.provider_name, "COHERE")
+        self.assertEqual(registration.key_env, "COHERE_API_KEY")
+        self.assertEqual(registration.model_env, "RASAI_COHERE_MODEL")
+        self.assertIsNone(registration.endpoint_env)
+        self.assertEqual(registration.public_default_model, "command-a-03-2025")
+        self.assertEqual(registration.reasoning_values, ("PROVIDER_DEFAULT",))
+        self.assertTrue(registration.explicit_only)
+        self.assertFalse(registration.auto_eligible)
+
     def test_copilot_metadata_is_explicit_only(self) -> None:
         registration = get_provider_registration("copilot")
         self.assertIsNotNone(registration)
@@ -103,7 +116,7 @@ class ProviderRegistryTests(unittest.TestCase):
             extension_cli_choices(),
             (
                 "xai", "grok", "qwen", "gemini", "anthropic", "claude", "mistral",
-                "copilot", "github-copilot",
+                "cohere", "copilot", "github-copilot",
             ),
         )
         self.assertEqual(get_provider_registration("grok").id, "xai")
@@ -113,7 +126,7 @@ class ProviderRegistryTests(unittest.TestCase):
             cli_provider_choices(),
             (
                 "none", "openai", "deepseek", "mimo", "xai", "qwen", "gemini",
-                "anthropic", "mistral", "copilot", "auto", "grok", "claude", "github-copilot",
+                "anthropic", "mistral", "cohere", "copilot", "auto", "grok", "claude", "github-copilot",
             ),
         )
 
@@ -123,6 +136,7 @@ class ProviderRegistryTests(unittest.TestCase):
             ("openai", "deepseek", "mimo", "xai", "qwen", "gemini", "anthropic"),
         )
         self.assertNotIn("mistral", auto_provider_ids())
+        self.assertNotIn("cohere", auto_provider_ids())
         self.assertNotIn("copilot", auto_provider_ids())
 
     def test_mimo_payg_key_constraint_is_exposed_to_consumers(self) -> None:
@@ -143,12 +157,14 @@ class ProviderRegistryTests(unittest.TestCase):
             "GEMINI_API_KEY",
             "ANTHROPIC_API_KEY",
             "MISTRAL_API_KEY",
+            "COHERE_API_KEY",
             "COPILOT_GITHUB_TOKEN",
             "RASAI_XAI_REASONING_EFFORT",
             "RASAI_GEMINI_REASONING_EFFORT",
             "RASAI_ANTHROPIC_REASONING_EFFORT",
             "RASAI_QWEN_REASONING_EFFORT",
             "RASAI_MISTRAL_MODEL",
+            "RASAI_COHERE_MODEL",
         ):
             self.assertIn(required, names)
 

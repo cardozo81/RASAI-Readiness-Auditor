@@ -1,7 +1,7 @@
 # AUTO cost-aware AI routing
 
-**Data de referência da política de preços: 02/10/2026**  
-**Versão do catálogo de pricing de fábrica: `RASAI-PRICING-2026-10-02.2`**  
+**Data de referência da política de preços: 03/10/2026**  
+**Versão do catálogo de pricing de fábrica: `RASAI-PRICING-2026-10-03.4`**  
 **Data de referência do catálogo de modelos: 02/10/2026**
 
 Este documento define a seleção econômica usada pelo RASAi quando `AI=auto` está selecionado. O cadastro de modelos está em [`AI_MODEL_CONFIGURATION.md`](AI_MODEL_CONFIGURATION.md) e o schema comercial em [`AI_PRICING_CONFIGURATION.md`](AI_PRICING_CONFIGURATION.md).
@@ -13,7 +13,7 @@ A política econômica:
 - somente ordena providers/modelos já configurados, elegíveis, precificados e saudáveis;
 - não habilita credenciais;
 - não altera quarantine/circuit breaker;
-- não torna Mistral durante sua homologação inicial nem GitHub Copilot elegíveis ao AUTO;
+- não torna Mistral ou Cohere durante sua homologação inicial nem GitHub Copilot elegíveis ao AUTO;
 - não troca silenciosamente service tier para Batch/Flex/Priority;
 - não interpreta ausência de preço como preço zero;
 - trata preço como estimativa operacional, não como fatura do fornecedor.
@@ -143,6 +143,8 @@ Valores em USD por 1 milhão de tokens.
 | Gemini `gemini-3.8-flash` | 0,75 | 0,075 | 3,75 | reasoning soma no output; regra até 01/01/2027 UTC |
 | Anthropic `claude-sonnet-5` | 2,00 | 0,20 | 10,00 | standard/cache read |
 | Mistral `mistral-small-2603` | 0,15 | 0,015 | 0,60 | Standard global; precificado, porém explicit-only nesta entrega |
+| Cohere `command-a-03-2025` TRIAL | 0,00 | 0,00 | 0,00 | trial gratuito/limitado; `commercial_mode=TRIAL`; explicit-only |
+| Cohere `command-a-03-2025` PRODUCTION | 2,50 | 2,50* | 10,00 | real-time global; *sem cache separado observado; `commercial_mode=PRODUCTION`; explicit-only |
 | GitHub Copilot | - | - | - | explicit-only; não precificado e fora do AUTO |
 
 ### DeepSeek
@@ -161,6 +163,8 @@ Essa lógica é declarada em `weekdays_utc` e `time_windows_utc` no TOML.
 O custo econômico é resolvido com o contexto efetivo do adapter, não apenas por provider/modelo. Regras condicionadas exigem correspondência em `service_tier`, `commercial_mode`, `region` e/ou `operation_mode`, conforme o TOML. Contexto ausente, `UNKNOWN` ou divergente torna o candidato **UNPRICED**; ele permanece depois dos candidatos precificados e nunca recebe custo zero.
 
 O AUTO não muda endpoint, tier, modalidade comercial ou modo de operação para obter uma tarifa menor. Essas escolhas pertencem à configuração/adapter já autorizado.
+
+Para Cohere, `RASAI_COHERE_COMMERCIAL_MODE` aceita `UNKNOWN`, `TRIAL` ou `PRODUCTION`. `UNKNOWN` é o default seguro e mantém o provider UNPRICED; o runtime não tenta deduzir o tipo da chave. Cohere permanece fora do AUTO nesta entrega independentemente do modo.
 
 ### OpenAI
 

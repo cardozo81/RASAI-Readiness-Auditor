@@ -671,3 +671,95 @@ def test_unpriced_ai_attempt_is_not_rendered_as_zero_cost(tmp_path: Path) -> Non
     assert "Não precificado" in html
     assert "USD 0.00000000" not in html
     assert "120 / 42" in html
+
+
+def test_ai_integrations_renders_persisted_pricing_trace(tmp_path: Path) -> None:
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE ai_provider_attempts(
+                audit_id TEXT,
+                semantic_contract_version TEXT,
+                provider TEXT,
+                model TEXT,
+                status TEXT,
+                input_tokens INTEGER,
+                cached_input_tokens INTEGER,
+                output_tokens INTEGER,
+                reasoning_tokens INTEGER,
+                total_tokens INTEGER,
+                estimated_cost REAL,
+                cost_currency TEXT,
+                pricing_version TEXT,
+                pricing_context TEXT,
+                pricing_rule_id TEXT,
+                pricing_source_reference TEXT,
+                pricing_runtime_conditions TEXT,
+                attempt_index INTEGER,
+                started_at TEXT,
+                finished_at TEXT,
+                duration_ms INTEGER,
+                decision TEXT,
+                fallback_reason TEXT,
+                fallback_from_provider TEXT,
+                error_class TEXT,
+                error_type TEXT,
+                error_code TEXT,
+                error_detail TEXT,
+                request_id TEXT,
+                request_message_summary TEXT,
+                request_payload_hash TEXT
+            );
+            """
+        )
+        connection.execute(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                "AUD", "M18-SEMANTIC-22-v1", "COHERE", "command-a-03-2025", "SUCCESS",
+                4656, None, 4853, None, 9509, 0.0, "USD",
+                "RASAI-PRICING-2026-10-03.4", "TRIAL",
+                "cohere-command-a-03-2025-trial",
+                "https://docs.cohere.com/docs/command-a",
+                json.dumps({
+                    "commercial_mode": "TRIAL",
+                    "operation_mode": "REALTIME",
+                    "region": "GLOBAL",
+                }),
+                1,
+                "2026-10-03T18:40:00+00:00", "2026-10-03T18:41:00+00:00",
+                60000, "STOP", None, None, None, None, None, None, None,
+                "rules=22;evidence=8", "hash",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    data = SimpleNamespace(
+        audit_id="AUD",
+        targets=("https://example.test/",),
+        selected={"CAT-03"},
+        audit={"project_name": "Projeto", "status": "COMPLETED"},
+        fulfillment={"processing_status": "COMPLETE"},
+    )
+
+    html = _ai_integrations_body(database, data)
+
+    assert "COHERE" in html
+    assert "command-a-03-2025" in html
+    assert "Regra de preço" in html
+    assert "cohere-command-a-03-2025-trial" in html
+    assert "Contexto tarifário" in html
+    assert "TRIAL" in html
+    assert "Versão do catálogo de preços" in html
+    assert "RASAI-PRICING-2026-10-03.4" in html
+    assert "Fonte oficial de preço" in html
+    assert "https://docs.cohere.com/docs/command-a" in html
+    assert "Condições tarifárias efetivas" in html
+    assert "Avaliação gratuita (TRIAL)" in html
+    assert "Tempo real (REALTIME)" in html
+    assert "Região" in html
+    assert "Global" in html
+

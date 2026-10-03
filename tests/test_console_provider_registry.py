@@ -38,6 +38,7 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
                 "gemini",
                 "anthropic",
                 "mistral",
+                "cohere",
                 "copilot",
                 "auto",
             ),
@@ -51,12 +52,15 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
             "GEMINI_API_KEY",
             "ANTHROPIC_API_KEY",
             "MISTRAL_API_KEY",
+            "COHERE_API_KEY",
             "COPILOT_GITHUB_TOKEN",
             "RASAI_XAI_MODEL",
             "RASAI_QWEN_MODEL",
             "RASAI_GEMINI_MODEL",
             "RASAI_ANTHROPIC_MODEL",
             "RASAI_MISTRAL_MODEL",
+            "RASAI_COHERE_MODEL",
+            "RASAI_COHERE_COMMERCIAL_MODE",
             "RASAI_COPILOT_MODEL",
             "RASAI_XAI_ENDPOINT",
             "RASAI_QWEN_ENDPOINT",
@@ -82,6 +86,16 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
         self.assertTrue(configured["mistral"].available)
         self.assertIn("explicit-only", configured["mistral"].reason)
         self.assertNotIn("mistral", auto_provider_ids())
+
+    def test_cohere_is_explicit_only_and_never_auto_eligible(self) -> None:
+        without_key = provider_capabilities({})
+        self.assertFalse(without_key["cohere"].available)
+        self.assertIn("explicit-only", without_key["cohere"].reason)
+
+        configured = provider_capabilities({"COHERE_API_KEY": "test-key"})
+        self.assertTrue(configured["cohere"].available)
+        self.assertIn("explicit-only", configured["cohere"].reason)
+        self.assertNotIn("cohere", auto_provider_ids())
 
     def test_copilot_is_explicit_only_and_never_auto_eligible(self) -> None:
         without_key = provider_capabilities({})
@@ -135,6 +149,7 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
                 "GEMINI_API_KEY",
                 "ANTHROPIC_API_KEY",
                 "MISTRAL_API_KEY",
+                "COHERE_API_KEY",
                 "COPILOT_GITHUB_TOKEN",
             )
         }
@@ -185,6 +200,12 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_env_value("MIMO_API_KEY", "tp-test")
         self.assertEqual(validate_env_value("MIMO_API_KEY", "sk-test"), "sk-test")
+        self.assertEqual(
+            validate_env_value("RASAI_COHERE_COMMERCIAL_MODE", "trial"),
+            "TRIAL",
+        )
+        with self.assertRaises(ValueError):
+            validate_env_value("RASAI_COHERE_COMMERCIAL_MODE", "guessed")
         self.assertEqual(
             validate_env_value("COPILOT_GITHUB_TOKEN", "github_pat_test"),
             "github_pat_test",

@@ -308,6 +308,45 @@ def _attempt_total_tokens(attempt: Mapping[str,Any]) -> int:
     return int(attempt.get("input_tokens") or 0)+int(attempt.get("output_tokens") or 0)
 
 
+def _pricing_trace_rows(attempt: Mapping[str,Any]) -> tuple[tuple[str,Any], ...]:
+    """Human-facing pricing trace for a persisted AI attempt.
+
+    Technical identifiers remain secondary traceability fields. Runtime matching
+    conditions are rendered as readable key/value text and never include credentials.
+    """
+    raw_conditions = _safe_json(attempt.get("pricing_runtime_conditions"), {})
+    conditions = raw_conditions if isinstance(raw_conditions, Mapping) else {}
+    condition_labels = {
+        "commercial_mode": "Modalidade comercial",
+        "operation_mode": "Modo de operação",
+        "region": "Região",
+        "service_tier": "Nível de serviço",
+    }
+    condition_values = {
+        "TRIAL": "Avaliação gratuita (TRIAL)",
+        "PRODUCTION": "Produção (PRODUCTION)",
+        "REALTIME": "Tempo real (REALTIME)",
+        "GLOBAL": "Global (GLOBAL)",
+        "STANDARD": "Padrão (STANDARD)",
+        "STANDARD_ONLY": "Somente padrão (STANDARD_ONLY)",
+        "DEFAULT": "Padrão do provedor (DEFAULT)",
+        "PAYG": "Pagamento por uso (PAYG)",
+    }
+    rendered_conditions = "; ".join(
+        f"{condition_labels.get(str(key), str(key))}: "
+        f"{condition_values.get(str(value).upper(), str(value))}"
+        for key, value in sorted(conditions.items())
+    ) or "Não determinadas"
+
+    return (
+        ("Regra de preço", attempt.get("pricing_rule_id") or "Não determinada"),
+        ("Contexto tarifário", attempt.get("pricing_context") or "Não determinado"),
+        ("Versão do catálogo de preços", attempt.get("pricing_version") or "Não determinada"),
+        ("Fonte oficial de preço", attempt.get("pricing_source_reference") or "Não determinada"),
+        ("Condições tarifárias efetivas", rendered_conditions),
+    )
+
+
 def _ai_integrations_body(database: Path, data: _ReportData) -> str:
     attempts=_ai_attempts(database,data.audit_id)
     exchanges=_ai_exchange_rows(database,data.audit_id)
@@ -360,6 +399,7 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
             ("Tokens de raciocínio",a.get("reasoning_tokens") or 0),
             ("Tokens totais",_attempt_total_tokens(a)),
             ("Custo individual",_money_display(raw_cost,currency_code)),
+            *_pricing_trace_rows(a),
             ("Roteamento / contingência",a.get("decision") or a.get("fallback_reason") or "-"),
             ("Erro",a.get("error_detail") or a.get("error_code") or "-"),
         ))

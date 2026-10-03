@@ -31,6 +31,29 @@ _OPENAI_WIRE_DROPPED_KEYWORDS = frozenset({
     "maxProperties",
 })
 
+# Cohere Chat V2 Structured Outputs supports structural object/array types, enum,
+# anyOf and additionalProperties, but documents these validation/composition keywords
+# as unsupported or only partially supported. RASAi therefore keeps them local.
+_COHERE_WIRE_DROPPED_KEYWORDS = frozenset({
+    "allOf",
+    "oneOf",
+    "not",
+    "minLength",
+    "maxLength",
+    "pattern",
+    "format",
+    "minimum",
+    "maximum",
+    "exclusiveMinimum",
+    "exclusiveMaximum",
+    "multipleOf",
+    "minItems",
+    "maxItems",
+    "uniqueItems",
+    "minProperties",
+    "maxProperties",
+})
+
 
 def openai_wire_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
     """Project a canonical schema to the strict OpenAI wire subset used by RASAi.
@@ -60,6 +83,32 @@ def openai_wire_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
     return projected
 
 
+def cohere_wire_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """Project a canonical schema to Cohere Chat V2 Structured Outputs.
+
+    The provider receives only the documented wire subset. The canonical RASAi
+    validators still enforce all omitted constraints after the response arrives.
+    """
+
+    def project(value: Any) -> Any:
+        if isinstance(value, Mapping):
+            return {
+                str(key): project(item)
+                for key, item in value.items()
+                if str(key) not in _COHERE_WIRE_DROPPED_KEYWORDS
+            }
+        if isinstance(value, list):
+            return [project(item) for item in value]
+        if isinstance(value, tuple):
+            return [project(item) for item in value]
+        return deepcopy(value)
+
+    projected = project(schema)
+    if not isinstance(projected, dict):
+        raise TypeError("projected Cohere schema must remain an object")
+    return projected
+
+
 def project_provider_request_payload(provider_name: str, payload: Mapping[str, Any]) -> dict[str, Any]:
     """Project structured-output schemas in one outbound provider payload.
 
@@ -68,7 +117,14 @@ def project_provider_request_payload(provider_name: str, payload: Mapping[str, A
     ``schema``.
     """
     output = deepcopy(dict(payload))
-    if provider_name.strip().upper() != "OPENAI":
+    provider = provider_name.strip().upper()
+    if provider not in {"OPENAI", "COHERE"}:
+        return output
+
+    if provider == "COHERE":
+        response_format = output.get("response_format")
+        if isinstance(response_format, dict) and isinstance(response_format.get("schema"), Mapping):
+            response_format["schema"] = cohere_wire_schema(response_format["schema"])
         return output
 
     text = output.get("text")
@@ -97,7 +153,7 @@ def project_provider_request_payload(provider_name: str, payload: Mapping[str, A
 
 def project_provider_request_body(provider_name: str, body: bytes) -> bytes:
     """Return the exact body that should be sent to a provider transport."""
-    if provider_name.strip().upper() != "OPENAI":
+    if provider_name.strip().upper() not in {"OPENAI", "COHERE"}:
         return body
     try:
         decoded = json.loads(body.decode("utf-8"))

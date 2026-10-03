@@ -38,9 +38,9 @@ def _new_openai_model():
 def test_factory_model_catalog_covers_current_integrated_providers() -> None:
     catalog = load_factory_model_catalog()
     assert catalog.metadata.schema_version == 1
-    assert catalog.metadata.catalog_version == "RASAI-MODELS-2026-10-02.1"
+    assert catalog.metadata.catalog_version == "RASAI-MODELS-2026-10-02.2"
     assert {
-        "OPENAI", "DEEPSEEK", "MIMO", "XAI", "QWEN", "GEMINI", "ANTHROPIC", "MISTRAL", "COPILOT"
+        "OPENAI", "DEEPSEEK", "MIMO", "XAI", "QWEN", "GEMINI", "ANTHROPIC", "MISTRAL", "COHERE", "COPILOT"
     }.issubset(set(catalog.provider_names()))
     assert catalog.public_default("OPENAI").model == "gpt-5.6-luna"
     assert catalog.adapter_default("OPENAI").model == "gpt-5.6-terra"
@@ -49,6 +49,9 @@ def test_factory_model_catalog_covers_current_integrated_providers() -> None:
     assert catalog.public_default("QWEN").default_reasoning == "NONE"
     assert catalog.public_default("MISTRAL").model == "mistral-small-2603"
     assert catalog.public_default("MISTRAL").auto_eligible is False
+    assert catalog.public_default("COHERE").model == "command-a-03-2025"
+    assert catalog.public_default("COHERE").default_reasoning == "PROVIDER_DEFAULT"
+    assert catalog.public_default("COHERE").auto_eligible is False
 
 
 def test_local_model_catalog_can_be_selected_without_code_change(tmp_path: Path) -> None:

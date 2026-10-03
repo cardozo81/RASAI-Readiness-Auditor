@@ -31,6 +31,7 @@ qwen
 gemini
 anthropic
 mistral
+cohere
 copilot
 ```
 
@@ -44,7 +45,7 @@ github-copilot -> copilot
 
 `none` desabilita IA. `auto` aciona a orquestração econômica entre providers elegíveis.
 
-Mistral permanece explicit-only durante a homologação inicial, e GitHub Copilot também é explicit-only: a presença dessas credenciais não os inclui automaticamente no `AUTO`.
+Mistral e Cohere permanecem explicit-only durante a homologação inicial, e GitHub Copilot também é explicit-only: a presença dessas credenciais não os inclui automaticamente no `AUTO`.
 
 ## Arquivos administráveis pelo operador
 
@@ -93,6 +94,7 @@ Detalhamento e exemplos: [AI_MODEL_CONFIGURATION.md](AI_MODEL_CONFIGURATION.md).
 | Gemini | `gemini-3.8-flash` | `LOW` |
 | Anthropic | `claude-sonnet-5` | `LOW` |
 | Mistral | `mistral-small-2603` | `PROVIDER_DEFAULT` |
+| Cohere | `command-a-03-2025` | `PROVIDER_DEFAULT` |
 | GitHub Copilot | `auto` | `PROVIDER_DEFAULT` |
 
 Essa tabela é somente a fotografia de fábrica. O catálogo efetivamente snapshotado para a execução é a autoridade da AUD.
@@ -123,6 +125,7 @@ DASHSCOPE_API_KEY
 GEMINI_API_KEY
 ANTHROPIC_API_KEY
 MISTRAL_API_KEY
+COHERE_API_KEY
 COPILOT_GITHUB_TOKEN
 ```
 
@@ -206,6 +209,12 @@ Em `AUTO`, isso reutiliza a mesma política de custo, qualification, pricing, qu
 ## Mistral AI
 
 A integração inicial usa `mistral-small-2603`, `MISTRAL_API_KEY` e Chat Completions no endpoint global com `service_tier=standard_only`. Structured Outputs continuam sujeitos à validação local evidence-bound. O provider é selecionável explicitamente, mas permanece fora de `AUTO` até a homologação humana desta entrega.
+
+## Cohere
+
+A integração inicial usa `COHERE_API_KEY`, `command-a-03-2025` e `POST https://api.cohere.com/v2/chat`. Structured Outputs são projetados para o subconjunto JSON Schema aceito pelo wire da Cohere, mas o schema local do RASAi continua normativo e é validado integralmente após a resposta.
+
+O adapter não envia `tools` nem `documents`, e não habilita RAG/Rerank. Reasoning permanece `PROVIDER_DEFAULT`. Para pricing, `RASAI_COHERE_COMMERCIAL_MODE` aceita `UNKNOWN`, `TRIAL` ou `PRODUCTION`; `UNKNOWN` é o default fail-closed, pois a API não informa ao adapter o tipo comercial da chave. `TRIAL` resolve custo zero conforme a política de trial gratuita/limitada e `PRODUCTION` aplica a tarifa pública token-based. Cohere é selecionável explicitamente e fica fora de `AUTO` até homologação humana positiva e eventual decisão posterior de promoção.
 
 ## GitHub Copilot
 
