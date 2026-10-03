@@ -132,8 +132,8 @@ jobs:
             tests/test_console_environment_guidance.py \
             tests/test_m18_multi_ai_provider.py \
             tests/test_mistral_provider_consumers.py \
-            tests/test_cohere_provider.py
-          tests/test_kimi_provider.py \
+            tests/test_cohere_provider.py \
+            tests/test_kimi_provider.py \
             tests/test_integration_diagnostics.py \
             tests/test_integration_network_diagnostics.py \
             tests/test_system_defaults.py \
