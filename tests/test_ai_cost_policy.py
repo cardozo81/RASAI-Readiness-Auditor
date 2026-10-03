@@ -229,7 +229,7 @@ def test_unpriced_candidates_keep_deterministic_rotating_order() -> None:
 
 
 def test_review_date_is_explicit_and_machine_readable() -> None:
-    assert PRICING_REVIEW_RECOMMENDED_ON == "2026-11-02"
+    assert PRICING_REVIEW_RECOMMENDED_ON == "2026-11-03"
 
 def test_mimo_v26_prices_and_v25_cutoff_are_machine_readable() -> None:
     current = datetime(2026, 10, 2, 18, 0, tzinfo=UTC)
