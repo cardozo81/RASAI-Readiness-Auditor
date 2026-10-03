@@ -46,12 +46,13 @@ from rasai.provider_extensions import (
     CohereProvider,
     GeminiProvider,
     IsolatedStructuredSemanticProvider,
+    KimiProvider,
     MistralProvider,
     QwenProvider,
     XAIProvider,
     _diagnostic_from_http,
 )
-from rasai.provider_wire_schema import cohere_wire_schema
+from rasai.provider_wire_schema import cohere_wire_schema, kimi_wire_schema
 
 
 def _instructions() -> str:
@@ -126,6 +127,7 @@ class ExtensionContentRemediationProvider:
             }
 
         if isinstance(self.base, (QwenProvider, MistralProvider)):
+            wire_schema = kimi_wire_schema(schema) if isinstance(self.base, KimiProvider) else schema
             payload = {
                 "model": self.model,
                 "messages": [
@@ -136,13 +138,15 @@ class ExtensionContentRemediationProvider:
                     "type": "json_schema",
                     "json_schema": {
                         "name": "rasai_content_remediation",
-                        "schema": schema,
+                        "schema": wire_schema,
                         "strict": True,
                     },
                 },
             }
             if isinstance(self.base, MistralProvider):
                 payload["service_tier"] = "standard_only"
+            if isinstance(self.base, KimiProvider):
+                payload["reasoning_effort"] = self.base.reasoning_profile.casefold()
             return payload
 
         if isinstance(self.base, GeminiProvider):

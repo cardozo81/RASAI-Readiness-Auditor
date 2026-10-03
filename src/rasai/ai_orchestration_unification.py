@@ -74,12 +74,13 @@ def _structured_payload(
         AnthropicProvider,
         CohereProvider,
         GeminiProvider,
+        KimiProvider,
         MistralProvider,
         QwenProvider,
         XAIProvider,
         gemini_wire_schema,
     )
-    from rasai.provider_wire_schema import cohere_wire_schema
+    from rasai.provider_wire_schema import cohere_wire_schema, kimi_wire_schema
 
     name = str(getattr(provider, "name", "")).upper()
     model = str(getattr(provider, "model", ""))
@@ -147,6 +148,7 @@ def _structured_payload(
             },
         }
     if isinstance(provider, (QwenProvider, MistralProvider)):
+        wire_schema = kimi_wire_schema(schema) if isinstance(provider, KimiProvider) else schema
         payload = {
             "model": model,
             "messages": [
@@ -155,11 +157,13 @@ def _structured_payload(
             ],
             "response_format": {
                 "type": "json_schema",
-                "json_schema": {"name": schema_name, "schema": schema, "strict": True},
+                "json_schema": {"name": schema_name, "schema": wire_schema, "strict": True},
             },
         }
         if isinstance(provider, MistralProvider):
             payload["service_tier"] = "standard_only"
+        if isinstance(provider, KimiProvider):
+            payload["reasoning_effort"] = provider.reasoning_profile.casefold()
         return payload
     if isinstance(provider, GeminiProvider):
         return {
