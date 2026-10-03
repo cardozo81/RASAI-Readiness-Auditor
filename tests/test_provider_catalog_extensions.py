@@ -64,13 +64,13 @@ class ProviderCatalogTests(unittest.TestCase):
             self.assertTrue(registration.free_tier_note)
             self.assertEqual(registration.key_env, provider_key_env(provider_id))
 
-    def test_copilot_is_explicit_only_with_onboarding_metadata(self):
+    def test_copilot_is_auto_eligible_with_onboarding_metadata(self):
         registration = get_provider_registration("copilot")
         self.assertIsNotNone(registration)
         self.assertEqual("COPILOT", registration.provider_name)
         self.assertEqual("COPILOT_GITHUB_TOKEN", registration.key_env)
-        self.assertTrue(registration.explicit_only)
-        self.assertFalse(registration.auto_eligible)
+        self.assertFalse(registration.explicit_only)
+        self.assertTrue(registration.auto_eligible)
         self.assertIn("github.com/settings/personal-access-tokens", registration.credential_url)
         provider = build_semantic_provider("copilot", env={})
         self.assertEqual("COPILOT", provider.name)
