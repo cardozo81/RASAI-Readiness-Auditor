@@ -84,7 +84,7 @@ Isso permite adicionar ou desativar modelos de providers já integrados, alterar
 
 Detalhamento e exemplos: [AI_MODEL_CONFIGURATION.md](AI_MODEL_CONFIGURATION.md).
 
-### Catálogo de fábrica em 14/09/2026
+### Catálogo de fábrica em 03/10/2026
 
 | Provider | Default público | Reasoning default |
 |---|---|---|
