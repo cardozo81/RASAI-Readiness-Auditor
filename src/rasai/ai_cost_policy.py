@@ -266,10 +266,9 @@ def resolve_observed_cost(
     input_tokens = getattr(usage, "input_tokens", None)
     cached_raw = getattr(usage, "cached_input_tokens", None)
     output_tokens = _billable_output_tokens(provider, model, usage)
-    if input_tokens is None or cached_raw is None or output_tokens is None:
+    if input_tokens is None or output_tokens is None:
         return PricingApplication(None, None, PRICING_VERSION, runtime_conditions=normalized_conditions)
     input_tokens = max(int(input_tokens), 0)
-    cached_tokens = max(min(int(cached_raw), input_tokens), 0)
     price = resolve_price(
         provider,
         model,
@@ -279,6 +278,21 @@ def resolve_observed_cost(
     )
     if price is None:
         return PricingApplication(None, None, PRICING_VERSION, runtime_conditions=normalized_conditions)
+    if cached_raw is None:
+        # Some providers expose billable input/output totals without a distinct cache
+        # dimension.  Missing cache usage is safe to price only when the resolved
+        # catalog charges cached and uncached input at the same rate; otherwise keep
+        # the observation UNPRICED rather than inventing a cache split.
+        if not math.isclose(
+            price.cached_input_price_per_million,
+            price.input_price_per_million,
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        ):
+            return PricingApplication(None, None, PRICING_VERSION, runtime_conditions=normalized_conditions)
+        cached_tokens = 0
+    else:
+        cached_tokens = max(min(int(cached_raw), input_tokens), 0)
     uncached = max(input_tokens - cached_tokens, 0)
     amount = (
         uncached * price.input_price_per_million
