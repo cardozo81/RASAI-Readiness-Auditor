@@ -1,7 +1,7 @@
 # Catálogo configurável de modelos de IA
 
 **Estado:** contrato atual do RASAi em desenvolvimento.  
-**Data de referência do catálogo de fábrica:** 02/10/2026  
+**Data de referência do catálogo de fábrica:** 03/10/2026  
 **Schema do catálogo:** `1`
 
 ## 1. Objetivo
