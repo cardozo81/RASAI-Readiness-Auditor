@@ -366,6 +366,12 @@ class M18ProviderTests(unittest.TestCase):
             self.assertIn("IA e integrações", ai)
             self.assertIn("OPENAI", ai)
             self.assertIn("gpt-5.6-terra", ai)
+            self.assertIn("Regra de preço", ai)
+            self.assertIn("openai-gpt-5.6-terra-standard", ai)
+            self.assertIn("Contexto tarifário", ai)
+            self.assertIn("Versão do catálogo de preços", ai)
+            self.assertIn("Fonte oficial de preço", ai)
+            self.assertIn("Condições tarifárias efetivas", ai)
             self.assertNotIn(secret, ai)
             self.assertFalse((result.audit_root / "report").exists())
 
