@@ -760,5 +760,6 @@ def test_ai_integrations_renders_persisted_pricing_trace(tmp_path: Path) -> None
     assert "Condições tarifárias efetivas" in html
     assert "Avaliação gratuita (TRIAL)" in html
     assert "Tempo real (REALTIME)" in html
-    assert "Global (GLOBAL)" in html
+    assert "Região" in html
+    assert "Global" in html
 
