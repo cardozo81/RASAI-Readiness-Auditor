@@ -51,6 +51,7 @@ No console local, configure o timezone pelo item **Timezone apresentação**, pe
 | `ANTHROPIC_API_KEY` | sem default | credencial Anthropic não vazia | secret/env | necessária ao selecionar Anthropic/Claude |
 | `MISTRAL_API_KEY` | sem default | credencial Mistral não vazia | secret/env | necessária ao selecionar Mistral; provider explicit-only nesta entrega |
 | `COHERE_API_KEY` | sem default | credencial Cohere não vazia | secret/env | necessária ao selecionar Cohere; provider explicit-only nesta entrega |
+| `MOONSHOT_API_KEY` | sem default | credencial da plataforma internacional Kimi API não vazia | secret/env | necessária ao selecionar Kimi/Moonshot; provider explicit-only; não usar key da plataforma China por fallback |
 | `COPILOT_GITHUB_TOKEN` | sem default | token de usuário `github_pat_`, `gho_` ou `ghu_`; `ghp_` não é aceito | fine-grained PAT com `Copilot Requests` | necessária ao selecionar `copilot`; provider explicit-only |
 
 A presença de uma credencial não comprova validade, saldo, quota, plano ou acesso ao modelo. Instruções de criação e links oficiais: [EXTERNAL_CREDENTIALS.md](EXTERNAL_CREDENTIALS.md).
@@ -69,6 +70,7 @@ A presença de uma credencial não comprova validade, saldo, quota, plano ou ace
 | `RASAI_MISTRAL_MODEL` | `mistral-small-2603` | `mistral-small-2603` | default; seleção explícita |
 | `RASAI_COHERE_MODEL` | `command-a-03-2025` | `command-a-03-2025` | default; seleção explícita |
 | `RASAI_COHERE_COMMERCIAL_MODE` | `UNKNOWN` | `UNKNOWN`, `TRIAL`, `PRODUCTION` | `UNKNOWN` até o operador confirmar o tipo da chave; controla somente pricing Cohere |
+| `RASAI_KIMI_MODEL` | `kimi-k3` | `kimi-k3` | default; seleção explícita |
 | `RASAI_COPILOT_MODEL` | `auto` | `auto` | `auto` |
 
 ## 4. IA - reasoning
@@ -84,6 +86,7 @@ A presença de uma credencial não comprova validade, saldo, quota, plano ou ace
 | `RASAI_ANTHROPIC_REASONING_EFFORT` | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `LOW` |
 | `RASAI_MISTRAL_REASONING_EFFORT` | variável inexistente | Mistral usa `PROVIDER_DEFAULT` internamente | não criar variável inexistente |
 | `RASAI_COHERE_REASONING_EFFORT` | variável inexistente | Cohere usa `PROVIDER_DEFAULT` internamente | não criar variável inexistente |
+| `RASAI_KIMI_REASONING_EFFORT` | `LOW` | `LOW`, `HIGH`, `MAX` | `LOW`; menor nível oficialmente válido do K3 |
 | `RASAI_COPILOT_REASONING_EFFORT` | variável inexistente | Copilot usa `PROVIDER_DEFAULT` via SDK | não criar variável inexistente |
 
 Aumentar reasoning pode elevar latência, tokens e custo. O default RASAi de reasoning é uma política de eficiência: usa o menor nível válido aceito pelo modelo/API; `PROVIDER_DEFAULT` é reservado a integrações em que o RASAi não possui controle determinístico homologado. `AI=auto` consulta o registry, considera somente providers elegíveis/configurados e aplica a política de roteamento vigente.
@@ -99,7 +102,7 @@ Aumentar reasoning pode elevar latência, tokens e custo. O default RASAi de rea
 | `RASAI_GEMINI_ENDPOINT` | `https://generativelanguage.googleapis.com/v1beta/interactions` | URL absoluta HTTP(S) | manter HTTPS default | endpoint do adapter Gemini |
 | `RASAI_ANTHROPIC_ENDPOINT` | `https://api.anthropic.com/v1/messages` | URL absoluta HTTP(S) | manter HTTPS default | endpoint do adapter Anthropic |
 
-Não altere endpoints no uso normal. Override incorreto pode causar falha, cobrança inesperada ou envio de dados a destino errado. Não use HTTP para providers externos. Mistral usa endpoint global fixo `https://api.mistral.ai/v1/chat/completions` com `service_tier=standard_only` e não possui `RASAI_MISTRAL_ENDPOINT` nesta entrega. Cohere usa endpoint fixo `https://api.cohere.com/v2/chat` e não possui `RASAI_COHERE_ENDPOINT`; endpoint alternativo não é selecionado silenciosamente. GitHub Copilot usa o SDK oficial e também não possui endpoint override no contrato atual.
+Não altere endpoints no uso normal. Override incorreto pode causar falha, cobrança inesperada ou envio de dados a destino errado. Não use HTTP para providers externos. Mistral usa endpoint global fixo `https://api.mistral.ai/v1/chat/completions` com `service_tier=standard_only` e não possui `RASAI_MISTRAL_ENDPOINT` nesta entrega. Cohere usa endpoint fixo `https://api.cohere.com/v2/chat` e não possui `RASAI_COHERE_ENDPOINT`; endpoint alternativo não é selecionado silenciosamente. Kimi usa o endpoint internacional fixo `https://api.moonshot.ai/v1/chat/completions` e não possui `RASAI_KIMI_ENDPOINT`; não há fallback para endpoint/plataforma China. GitHub Copilot usa o SDK oficial e também não possui endpoint override no contrato atual.
 
 ## 6. IA - contexto editorial / YMYL
 
@@ -397,6 +400,7 @@ GEMINI_API_KEY
 ANTHROPIC_API_KEY
 MISTRAL_API_KEY
 COHERE_API_KEY
+MOONSHOT_API_KEY
 COPILOT_GITHUB_TOKEN
 RASAI_PAGESPEED_API_KEY
 RASAI_CRUX_API_KEY
