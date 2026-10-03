@@ -81,6 +81,7 @@ qwen
 gemini
 anthropic / claude
 mistral
+cohere
 copilot / github-copilot
 auto
 ```
