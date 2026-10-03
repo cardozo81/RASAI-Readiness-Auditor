@@ -68,6 +68,7 @@ A presença de uma credencial não comprova validade, saldo, quota, plano ou ace
 | `RASAI_ANTHROPIC_MODEL` | `claude-sonnet-5` | `claude-sonnet-5` | default |
 | `RASAI_MISTRAL_MODEL` | `mistral-small-2603` | `mistral-small-2603` | default; seleção explícita |
 | `RASAI_COHERE_MODEL` | `command-a-03-2025` | `command-a-03-2025` | default; seleção explícita |
+| `RASAI_COHERE_COMMERCIAL_MODE` | `UNKNOWN` | `UNKNOWN`, `TRIAL`, `PRODUCTION` | `UNKNOWN` até o operador confirmar o tipo da chave; controla somente pricing Cohere |
 | `RASAI_COPILOT_MODEL` | `auto` | `auto` | `auto` |
 
 ## 4. IA - reasoning
@@ -85,7 +86,9 @@ A presença de uma credencial não comprova validade, saldo, quota, plano ou ace
 | `RASAI_COHERE_REASONING_EFFORT` | variável inexistente | Cohere usa `PROVIDER_DEFAULT` internamente | não criar variável inexistente |
 | `RASAI_COPILOT_REASONING_EFFORT` | variável inexistente | Copilot usa `PROVIDER_DEFAULT` via SDK | não criar variável inexistente |
 
-Aumentar reasoning pode elevar latência, tokens e custo. O default RASAi de reasoning é uma política de eficiência: usa o menor nível válido aceito pelo modelo/API; `PROVIDER_DEFAULT` é reservado a integrações em que o RASAi não possui controle determinístico homologado. `AI=auto` consulta o registry, considera somente providers elegíveis/configurados e aplica a política de roteamento vigente. Consulte [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
+Aumentar reasoning pode elevar latência, tokens e custo. O default RASAi de reasoning é uma política de eficiência: usa o menor nível válido aceito pelo modelo/API; `PROVIDER_DEFAULT` é reservado a integrações em que o RASAi não possui controle determinístico homologado. `AI=auto` consulta o registry, considera somente providers elegíveis/configurados e aplica a política de roteamento vigente.
+
+`RASAI_COHERE_COMMERCIAL_MODE` não contém segredo. `UNKNOWN` é fail-closed para custo; `TRIAL` aplica a política oficial de uso gratuito e limitado; `PRODUCTION` aplica a tarifa pública token-based. O RASAi não infere essa modalidade pelo conteúdo da key. Consulte [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
 
 ## 5. IA - endpoints avançados
 
