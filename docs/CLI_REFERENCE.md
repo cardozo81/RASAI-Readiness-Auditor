@@ -82,6 +82,7 @@ gemini
 anthropic / claude
 mistral
 cohere
+kimi / moonshot
 copilot / github-copilot
 auto
 ```
@@ -95,6 +96,8 @@ A ordem econômica é recalculada por necessidade e pode mudar por horário, jan
 Mistral é `explicit-only` e `auto_eligible=false` nesta entrega: mesmo com `MISTRAL_API_KEY` configurada, não entra em `AI=auto` antes da homologação humana. O uso explícito aceita `--ai-provider mistral --ai-model mistral-small-2603` e fixa o endpoint global no tier Standard.
 
 Cohere também é `explicit-only` e `auto_eligible=false`: `--ai-provider cohere --ai-model command-a-03-2025` usa Chat V2 no endpoint fixo, Structured Outputs com validação local e não habilita tools, documents, RAG ou Rerank. `RASAI_COHERE_COMMERCIAL_MODE=UNKNOWN|TRIAL|PRODUCTION` condiciona somente pricing; `UNKNOWN` é fail-closed. Mesmo com `COHERE_API_KEY` configurada, não participa de `AI=auto` nesta fase.
+
+Kimi/Moonshot é `explicit-only` e `auto_eligible=false`: `--ai-provider kimi --ai-model kimi-k3` ou alias `moonshot` usa o endpoint internacional fixo `https://api.moonshot.ai/v1/chat/completions`. `RASAI_KIMI_REASONING_EFFORT=LOW|HIGH|MAX` usa `LOW` por default. Structured Output é `json_schema` estrito e continua sujeito à validação local; tools, web search, Formula, documents, endpoint China e cache TTL 1h não são habilitados nesta entrega.
 
 GitHub Copilot também é `explicit-only` e `auto_eligible=false`: mesmo com `COPILOT_GITHUB_TOKEN` configurado, nunca entra em `AI=auto`. O adapter usa o SDK oficial, modelo público `auto`, `use_logged_in_user=False` e sessão sem tools. No fluxo manual, instale o transporte com:
 
