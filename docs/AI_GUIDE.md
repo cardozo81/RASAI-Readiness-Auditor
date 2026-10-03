@@ -31,6 +31,7 @@ qwen
 gemini
 anthropic
 mistral
+cohere
 copilot
 ```
 
@@ -44,7 +45,7 @@ github-copilot -> copilot
 
 `none` desabilita IA. `auto` aciona a orquestração econômica entre providers elegíveis.
 
-Mistral permanece explicit-only durante a homologação inicial, e GitHub Copilot também é explicit-only: a presença dessas credenciais não os inclui automaticamente no `AUTO`.
+Mistral e Cohere permanecem explicit-only durante a homologação inicial, e GitHub Copilot também é explicit-only: a presença dessas credenciais não os inclui automaticamente no `AUTO`.
 
 ## Arquivos administráveis pelo operador
 
@@ -93,6 +94,7 @@ Detalhamento e exemplos: [AI_MODEL_CONFIGURATION.md](AI_MODEL_CONFIGURATION.md).
 | Gemini | `gemini-3.8-flash` | `LOW` |
 | Anthropic | `claude-sonnet-5` | `LOW` |
 | Mistral | `mistral-small-2603` | `PROVIDER_DEFAULT` |
+| Cohere | `command-a-03-2025` | `PROVIDER_DEFAULT` |
 | GitHub Copilot | `auto` | `PROVIDER_DEFAULT` |
 
 Essa tabela é somente a fotografia de fábrica. O catálogo efetivamente snapshotado para a execução é a autoridade da AUD.
@@ -123,6 +125,7 @@ DASHSCOPE_API_KEY
 GEMINI_API_KEY
 ANTHROPIC_API_KEY
 MISTRAL_API_KEY
+COHERE_API_KEY
 COPILOT_GITHUB_TOKEN
 ```
 
