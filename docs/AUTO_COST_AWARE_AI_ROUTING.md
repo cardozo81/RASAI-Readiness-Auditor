@@ -1,8 +1,8 @@
 # AUTO cost-aware AI routing
 
 **Data de referência da política de preços: 03/10/2026**  
-**Versão do catálogo de pricing de fábrica: `RASAI-PRICING-2026-10-03.4`**  
-**Data de referência do catálogo de modelos: 02/10/2026**
+**Versão do catálogo de pricing de fábrica: `RASAI-PRICING-2026-10-03.5`**  
+**Data de referência do catálogo de modelos: 03/10/2026**
 
 Este documento define a seleção econômica usada pelo RASAi quando `AI=auto` está selecionado. O cadastro de modelos está em [`AI_MODEL_CONFIGURATION.md`](AI_MODEL_CONFIGURATION.md) e o schema comercial em [`AI_PRICING_CONFIGURATION.md`](AI_PRICING_CONFIGURATION.md).
 
