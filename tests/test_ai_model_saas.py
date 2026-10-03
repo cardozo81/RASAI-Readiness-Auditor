@@ -25,7 +25,7 @@ def test_model_snapshot_is_deterministic_and_reloads_same_catalog() -> None:
     assert first.sha256 == second.sha256
     assert first.toml == second.toml
     rendered = tomllib.loads(first.toml)
-    assert rendered["metadata"]["catalog_version"] == "RASAI-MODELS-2026-10-03.3"
+    assert rendered["metadata"]["catalog_version"] == "RASAI-MODELS-2026-10-03.4"
     assert len(rendered["models"]) == len(load_factory_model_catalog().models)
 
 
@@ -48,4 +48,4 @@ def test_factory_catalog_round_trips_through_snapshot_toml() -> None:
     assert document["metadata"]["schema_version"] == 1
     by_key = {(item["provider"], item["model"]): item for item in document["models"]}
     assert by_key[("OPENAI", "gpt-5.6-luna")]["public_default"] is True
-    assert by_key[("COPILOT", "auto")]["auto_eligible"] is False
+    assert by_key[("COPILOT", "auto")]["auto_eligible"] is True
