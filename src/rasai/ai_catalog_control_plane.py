@@ -210,11 +210,7 @@ def publish_model_catalog(
             version=version,
             action=state,
             actor_user_id=actor_user_id,
-            details={
-                "sha256": digest,
-                "models": len(catalog.models),
-                "native_usage_policies": len(catalog.native_usage),
-            },
+            details={"sha256": digest, "models": len(catalog.models)},
             at=at,
         )
     return digest
@@ -341,7 +337,11 @@ def publish_pricing_catalog(
             version=version,
             action=state,
             actor_user_id=actor_user_id,
-            details={"sha256": digest, "models": len(catalog.models)},
+            details={
+                "sha256": digest,
+                "models": len(catalog.models),
+                "native_usage_policies": len(catalog.native_usage),
+            },
             at=at,
         )
     return digest
