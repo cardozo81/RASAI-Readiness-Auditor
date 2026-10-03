@@ -27,7 +27,7 @@ A qualificação de um provider (`QUALIFIED`, `PROVISIONAL` etc.) é informaçã
 
 Providers de extensão podem permanecer `PROVISIONAL` e, ainda assim, participar de `AUTO` quando o registry vigente os marcar como `auto_eligible=true` e a configuração da execução estiver apta. Qualificação e elegibilidade AUTO não são sinônimos.
 
-Mistral é `explicit_only=true` e `auto_eligible=false` durante sua homologação inicial. GitHub Copilot também é deliberadamente `explicit_only=true` e `auto_eligible=false`. Mesmo configurados, não entram em `AI=auto`; o usuário precisa selecioná-los explicitamente.
+Mistral e GitHub Copilot estão elegíveis ao AUTO quando configurados e com modelo vigente. Qualificação `PROVISIONAL` continua visível como governança, mas não é gate de admissão; ausência de pricing produz UNPRICED, não custo zero.
 
 ## 2. Defaults públicos de modelo
 
@@ -42,8 +42,8 @@ Os defaults públicos efetivamente aplicados pelo runtime são:
 | Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `qwen3.8-flash`, reasoning default `NONE` |
 | Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | default |
 | Anthropic | `claude-sonnet-5` | `claude-sonnet-5` | default |
-| Mistral | `mistral-small-2603` | `mistral-small-2603` | seleção explícita / piloto |
-| GitHub Copilot | `auto` | `auto` | deixar o SDK/assinatura resolver o modelo disponível; seleção explícita |
+| Mistral | `mistral-small-2603` | `mistral-small-2603` | default público; elegível ao AUTO |
+| GitHub Copilot | `auto` | `auto` | deixar o SDK/assinatura resolver o modelo disponível; elegível ao AUTO |
 
 Esses são os defaults públicos de `provider_runtime_policy`. Parâmetros internos de classes e qualificação não devem ser apresentados como defaults efetivos da CLI/console.
 
@@ -70,11 +70,11 @@ A ordenação é recalculada a cada necessidade. Ela pode mudar por horário, ja
 
 O AUTO não troca silenciosamente o service tier para Batch/Flex/assíncrono. A comparação usa o modo síncrono já compatível com cada adapter.
 
-`RASAI_AI_AUTO_EXCLUDE` tem default vazio. Os valores permitidos são lista CSV ou separada por `;` de IDs/aliases elegíveis. O recomendado é manter vazio e excluir somente providers que devam continuar configurados para seleção explícita, mas não participar do pool AUTO.
+`RASAI_AI_AUTO_EXCLUDE` tem default vazio. Os valores permitidos são lista CSV ou separada por `;` de IDs/aliases elegíveis. O recomendado é manter vazio e excluir somente providers que devam continuar configurados, mas não participar do pool AUTO.
 
 Excluir um provider de `AUTO` não apaga sua credencial e não impede seleção explícita.
 
-Providers `explicit-only`, atualmente Mistral durante a homologação inicial e GitHub Copilot, não são candidatos ao pool AUTO nem à lista operacional de inclusão/exclusão desse pool.
+Não há exceção `explicit-only` entre os providers integrados atuais. Participação no pool depende de configuração, elegibilidade do modelo, exclusão explícita e saúde operacional.
 
 ## 4. Provider explícito
 
