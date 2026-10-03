@@ -60,6 +60,7 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
             "RASAI_ANTHROPIC_MODEL",
             "RASAI_MISTRAL_MODEL",
             "RASAI_COHERE_MODEL",
+            "RASAI_COHERE_COMMERCIAL_MODE",
             "RASAI_COPILOT_MODEL",
             "RASAI_XAI_ENDPOINT",
             "RASAI_QWEN_ENDPOINT",
@@ -199,6 +200,12 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_env_value("MIMO_API_KEY", "tp-test")
         self.assertEqual(validate_env_value("MIMO_API_KEY", "sk-test"), "sk-test")
+        self.assertEqual(
+            validate_env_value("RASAI_COHERE_COMMERCIAL_MODE", "trial"),
+            "TRIAL",
+        )
+        with self.assertRaises(ValueError):
+            validate_env_value("RASAI_COHERE_COMMERCIAL_MODE", "guessed")
         self.assertEqual(
             validate_env_value("COPILOT_GITHUB_TOKEN", "github_pat_test"),
             "github_pat_test",
