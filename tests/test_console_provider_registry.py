@@ -75,52 +75,26 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
 
     def test_extensions_are_fail_closed_without_credentials(self) -> None:
         capabilities = provider_capabilities({})
-        for provider_id in ("xai", "qwen", "gemini", "anthropic"):
+        for provider_id in ("xai", "qwen", "gemini", "anthropic", "mistral", "cohere", "kimi", "copilot"):
             with self.subTest(provider=provider_id):
                 self.assertFalse(capabilities[provider_id].available)
                 self.assertIn("não configurada", capabilities[provider_id].reason)
                 self.assertNotIn("explicit-only", capabilities[provider_id].reason)
 
-    def test_mistral_is_explicit_only_and_never_auto_eligible(self) -> None:
-        without_key = provider_capabilities({})
-        self.assertFalse(without_key["mistral"].available)
-        self.assertIn("explicit-only", without_key["mistral"].reason)
-
-        configured = provider_capabilities({"MISTRAL_API_KEY": "test-key"})
-        self.assertTrue(configured["mistral"].available)
-        self.assertIn("explicit-only", configured["mistral"].reason)
-        self.assertNotIn("mistral", auto_provider_ids())
-
-    def test_cohere_is_explicit_only_and_never_auto_eligible(self) -> None:
-        without_key = provider_capabilities({})
-        self.assertFalse(without_key["cohere"].available)
-        self.assertIn("explicit-only", without_key["cohere"].reason)
-
-        configured = provider_capabilities({"COHERE_API_KEY": "test-key"})
-        self.assertTrue(configured["cohere"].available)
-        self.assertIn("explicit-only", configured["cohere"].reason)
-        self.assertNotIn("cohere", auto_provider_ids())
-
-    def test_kimi_is_explicit_only_and_never_auto_eligible(self) -> None:
-        without_key = provider_capabilities({})
-        self.assertFalse(without_key["kimi"].available)
-        self.assertIn("explicit-only", without_key["kimi"].reason)
-
-        configured = provider_capabilities({"MOONSHOT_API_KEY": "test-key"})
-        self.assertTrue(configured["kimi"].available)
-        self.assertIn("explicit-only", configured["kimi"].reason)
-        self.assertNotIn("kimi", auto_provider_ids())
-
-    def test_copilot_is_explicit_only_and_never_auto_eligible(self) -> None:
-        without_key = provider_capabilities({})
-        self.assertFalse(without_key["copilot"].available)
-        self.assertIn("explicit-only", without_key["copilot"].reason)
-
-        configured = provider_capabilities({"COPILOT_GITHUB_TOKEN": "github_pat_test"})
-        self.assertTrue(configured["copilot"].available)
-        self.assertIn("explicit-only", configured["copilot"].reason)
-        self.assertFalse(configured["auto"].available)
-        self.assertNotIn("copilot", auto_provider_ids())
+    def test_previously_explicit_extensions_are_auto_eligible_when_configured(self) -> None:
+        environment = {
+            "MISTRAL_API_KEY": "test-key",
+            "COHERE_API_KEY": "test-key",
+            "MOONSHOT_API_KEY": "test-key",
+            "COPILOT_GITHUB_TOKEN": "github_pat_test",
+        }
+        capabilities = provider_capabilities(environment)
+        for provider_id in ("mistral", "cohere", "kimi", "copilot"):
+            with self.subTest(provider=provider_id):
+                self.assertTrue(capabilities[provider_id].available)
+                self.assertNotIn("explicit-only", capabilities[provider_id].reason)
+                self.assertIn(provider_id, auto_provider_ids())
+        self.assertTrue(capabilities["auto"].available)
 
     def test_extensions_become_auto_eligible_with_credentials(self) -> None:
         environment = {
@@ -128,9 +102,13 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
             "DASHSCOPE_API_KEY": "x",
             "GEMINI_API_KEY": "x",
             "ANTHROPIC_API_KEY": "x",
+            "MISTRAL_API_KEY": "x",
+            "COHERE_API_KEY": "x",
+            "MOONSHOT_API_KEY": "x",
+            "COPILOT_GITHUB_TOKEN": "github_pat_test",
         }
         capabilities = provider_capabilities(environment)
-        for provider_id in ("xai", "qwen", "gemini", "anthropic"):
+        for provider_id in ("xai", "qwen", "gemini", "anthropic", "mistral", "cohere", "kimi", "copilot"):
             with self.subTest(provider=provider_id):
                 self.assertTrue(capabilities[provider_id].available)
                 self.assertIn("PROVISIONAL", capabilities[provider_id].reason)
@@ -140,13 +118,17 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
     def test_auto_pool_includes_every_registry_provider_marked_eligible(self) -> None:
         self.assertEqual(
             auto_provider_ids(),
-            ("openai", "deepseek", "mimo", "xai", "qwen", "gemini", "anthropic"),
+            ("openai", "deepseek", "mimo", "xai", "qwen", "gemini", "anthropic", "mistral", "cohere", "kimi", "copilot"),
         )
         extension_only = {
             "XAI_API_KEY": "x",
             "DASHSCOPE_API_KEY": "x",
             "GEMINI_API_KEY": "x",
             "ANTHROPIC_API_KEY": "x",
+            "MISTRAL_API_KEY": "x",
+            "COHERE_API_KEY": "x",
+            "MOONSHOT_API_KEY": "x",
+            "COPILOT_GITHUB_TOKEN": "github_pat_test",
         }
         self.assertTrue(provider_capabilities(extension_only)["auto"].available)
 
@@ -183,8 +165,8 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
                 ai_provider="auto",
             )
             estimate = estimate_exposure(state)
-            self.assertEqual((estimate.min_ai_attempts, estimate.max_ai_attempts), (1, 10))
-            self.assertTrue(any("5 provider" in reason for reason in estimate.reasons))
+            self.assertEqual((estimate.min_ai_attempts, estimate.max_ai_attempts), (1, 12))
+            self.assertTrue(any("6 provider" in reason for reason in estimate.reasons))
             self.assertFalse(any("OpenAI -> DeepSeek -> MiMo" in reason for reason in estimate.reasons))
         finally:
             for key, value in previous.items():
