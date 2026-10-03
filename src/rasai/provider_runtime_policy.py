@@ -1,14 +1,12 @@
 """Public runtime defaults and execution-wide AI provider selection policy."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from types import MethodType
 import json
 import math
 import os
 from typing import Any, Mapping, MutableMapping
 
-from rasai.ai_cost_policy import catalog_models, resolve_price, runtime_pricing_conditions
 from rasai.ai_exchange_log import AiExchangeRecorder
 from rasai.ai_execution_state import clear_current_ai_execution, set_current_ai_execution
 from rasai.ai_model_runtime import model_definition
@@ -265,22 +263,6 @@ def _auto_model_reason(registration: Any, model: str) -> str | None:
     definition = model_definition(registration.provider_name, model)
     if definition is None or not definition.auto_eligible:
         return "MODEL_NOT_AUTO_ELIGIBLE"
-    if (registration.provider_name, model) not in catalog_models():
-        return "MODEL_UNPRICED_FOR_AUTO"
-    return None
-
-
-def _auto_pricing_reason(provider: Any, model: str) -> str | None:
-    # AUTO is explicitly economic. Pricing must be resolved against the same
-    # effective endpoint/tier/mode contract that the concrete adapter will use.
-    if resolve_price(
-        str(getattr(provider, "name", "") or ""),
-        model,
-        at=datetime.now(timezone.utc),
-        input_tokens=0,
-        runtime_conditions=runtime_pricing_conditions(provider),
-    ) is None:
-        return "MODEL_UNPRICED_FOR_AUTO"
     return None
 
 
@@ -310,10 +292,6 @@ def _build_auto_provider(*, effective_env: Mapping[str, str]) -> DynamicProvider
                 model=model,
                 effective_env=effective_env,
             )
-            pricing_reason = _auto_pricing_reason(provider, model)
-            if pricing_reason is not None:
-                excluded.append(f"{registration.provider_name}:{pricing_reason}:{model}")
-                continue
             _prepare_concrete_provider(
                 provider,
                 effective_env=effective_env,
