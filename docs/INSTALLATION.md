@@ -44,7 +44,7 @@ OpenAI, DeepSeek, MiMo, xAI, Qwen, Gemini, Anthropic, Mistral, PageSpeed Insight
 python -m pip install -e ".[copilot]"
 ```
 
-A presença da biblioteca não habilita o provider por si só. Mistral não exige SDK adicional, mas requer `MISTRAL_API_KEY` e permanece `explicit-only` nesta entrega. Para Copilot também são necessários `COPILOT_GITHUB_TOKEN`, uma assinatura Copilot elegível e permissões compatíveis. Ambos permanecem fora de `AI=auto` pelos respectivos contratos atuais.
+A presença da biblioteca não habilita o provider por si só. Mistral não exige SDK adicional, mas requer `MISTRAL_API_KEY`. Para Copilot também são necessários `COPILOT_GITHUB_TOKEN`, uma assinatura Copilot elegível e permissões compatíveis. Quando configurados e aptos, ambos podem participar de `AI=auto`; `RASAI_AI_AUTO_EXCLUDE` permite exclusão operacional.
 
 Depois de o `abrir-rasai-console.cmd` concluir o bootstrap, o software fica preparado do ponto de vista de dependências para utilizar as integrações declaradas no projeto. O que continua sendo necessário, quando cada integração for habilitada, é sua respectiva credencial e disponibilidade externa: key/token compatível, modelo/plano, saldo/quota, permissões e conectividade de rede.
 
