@@ -67,8 +67,8 @@ class ProviderOnboardingTests(unittest.TestCase):
         records = find_provider_onboarding("github-copilot", {}, kind="ai")
         self.assertEqual(1, len(records))
         self.assertEqual("copilot", records[0].id)
-        self.assertTrue(records[0].explicit_only)
-        self.assertFalse(records[0].auto_eligible)
+        self.assertFalse(records[0].explicit_only)
+        self.assertTrue(records[0].auto_eligible)
         self.assertEqual("auto", records[0].default_model)
         self.assertEqual(("PROVIDER_DEFAULT",), records[0].reasoning_values)
 
@@ -113,7 +113,8 @@ class ProviderCliTests(unittest.TestCase):
         self.assertIn("personal-access-tokens", output)
         self.assertIn("Modelo público  : auto", output)
         self.assertIn("Reasoning       : PROVIDER_DEFAULT", output)
-        self.assertIn("Explicit-only   : sim", output)
+        self.assertIn("AUTO elegível   : sim", output)
+        self.assertIn("Explicit-only   : não", output)
 
     def test_configured_only_filters_without_exposing_values(self) -> None:
         ai_value = "opaque-configured-value-a"
