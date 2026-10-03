@@ -44,10 +44,10 @@ Quando for necessário citar uma modalidade externa apenas para impedir configur
 | Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | `qwen` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | key, endpoint e modelo devem ser coerentes com a região; planos/credenciais alternativos não estão homologados. |
 | Google Gemini | `GEMINI_API_KEY` | `gemini` | <https://aistudio.google.com/apikey> | o adapter atual usa API key em `x-goog-api-key`; métodos alternativos de autenticação não fazem parte do contrato atual. |
 | Anthropic Claude | `ANTHROPIC_API_KEY` | `anthropic` ou `claude` | <https://console.anthropic.com/> | o adapter atual usa API key do Console/Workspace em `x-api-key`; outros métodos de autenticação não fazem parte do contrato atual. |
-| Mistral AI | `MISTRAL_API_KEY` | `mistral` | <https://console.mistral.ai/api-keys/> | explicit-only; endpoint global e Standard tier fixos; sem endpoint alternativo, tools/search/agents/connectors. |
-| Cohere | `COHERE_API_KEY` | `cohere` | <https://dashboard.cohere.com/api-keys> | explicit-only; Chat V2 generativo com `command-a-03-2025`; sem tools, documents, RAG ou Rerank no contrato atual. |
-| Kimi / Moonshot | `MOONSHOT_API_KEY` | `kimi` ou `moonshot` | <https://platform.kimi.ai/console/api-keys> | explicit-only; somente plataforma internacional; `kimi-k3`; sem tools/web search/Formula e sem endpoint China no contrato atual. |
-| GitHub Copilot | `COPILOT_GITHUB_TOKEN` | `copilot` ou `github-copilot` | <https://github.com/settings/personal-access-tokens/new> | fine-grained PAT de conta pessoal com `Copilot Requests`; explicit-only. |
+| Mistral AI | `MISTRAL_API_KEY` | `mistral` | <https://console.mistral.ai/api-keys/> | AUTO quando configurado/apto; endpoint global/Standard fixos; sem tools/search/agents/connectors. |
+| Cohere | `COHERE_API_KEY` | `cohere` | <https://dashboard.cohere.com/api-keys> | AUTO quando configurado/apto; Chat V2 com `command-a-03-2025`; sem tools/documents/RAG/Rerank. |
+| Kimi / Moonshot | `MOONSHOT_API_KEY` | `kimi` ou `moonshot` | <https://platform.kimi.ai/console/api-keys> | AUTO quando configurado/apto; plataforma internacional; `kimi-k3`; sem tools/web search/Formula e sem endpoint China. |
+| GitHub Copilot | `COPILOT_GITHUB_TOKEN` | `copilot` ou `github-copilot` | <https://github.com/settings/personal-access-tokens/new> | fine-grained PAT de conta pessoal com `Copilot Requests`; AUTO quando configurado/apto. |
 
 ### Procedimento padrão depois de criar qualquer credencial
 
@@ -463,7 +463,7 @@ rasai providers --provider mistral
 - Structured Output por JSON Schema seguido de validação local;
 - sem override `RASAI_MISTRAL_ENDPOINT` nesta etapa;
 - sem tools/search/connectors;
-- `explicit-only=true` e `auto_eligible=false` até homologação humana posterior.
+- `explicit_only=false` e `auto_eligible=true`; participa do AUTO quando configurado/apto.
 
 #### Validar
 
@@ -510,7 +510,7 @@ rasai providers --provider cohere
 - `PROVIDER_DEFAULT` para reasoning; não existe variável de effort Cohere no contrato atual;
 - sem override de endpoint;
 - sem `tools`, `documents`, RAG ou Rerank nesta primeira entrega;
-- `explicit-only=true` e `auto_eligible=false` até smoke humano positivo e qualificação deliberada posterior.
+- `explicit_only=false` e `auto_eligible=true`; pricing UNKNOWN mantém apenas o custo UNPRICED.
 
 #### Validar
 
@@ -545,7 +545,7 @@ rasai providers --provider kimi
 - Structured Output com `json_schema` e `strict=true`, seguido de validação local integral;
 - sem tools, web search, Formula, documents, multimodalidade ou endpoint alternativo nesta fase;
 - cache implícito padrão 5m; TTL 1h não é exposto pelo adapter;
-- `explicit-only=true` e `auto_eligible=false`.
+- `explicit_only=false` e `auto_eligible=true`.
 
 Nunca grave a key em TOML, INI, logs, relatórios, banco ou linha de comando.
 
@@ -615,7 +615,7 @@ rasai audit https://example.com --ai-provider copilot
 - conta sem assinatura Copilot elegível para autenticação de usuário;
 - extra Python `copilot` ausente;
 - expectativa de fallback para sessão já logada: o adapter deliberadamente usa `use_logged_in_user=False`;
-- expectativa de participação em `AI=auto`: Copilot permanece `explicit-only`.
+- expectativa de participação em `AI=auto`: Copilot participa quando configurado/apto; use `RASAI_AI_AUTO_EXCLUDE=copilot` para exclusão operacional.
 
 ### Rotação, revogação e incidente de credencial
 
