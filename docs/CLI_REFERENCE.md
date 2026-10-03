@@ -94,7 +94,7 @@ A ordem econômica é recalculada por necessidade e pode mudar por horário, jan
 
 Mistral é `explicit-only` e `auto_eligible=false` nesta entrega: mesmo com `MISTRAL_API_KEY` configurada, não entra em `AI=auto` antes da homologação humana. O uso explícito aceita `--ai-provider mistral --ai-model mistral-small-2603` e fixa o endpoint global no tier Standard.
 
-Cohere também é `explicit-only` e `auto_eligible=false`: `--ai-provider cohere --ai-model command-a-03-2025` usa Chat V2 no endpoint fixo, Structured Outputs com validação local e não habilita tools, documents, RAG ou Rerank. Mesmo com `COHERE_API_KEY` configurada, não participa de `AI=auto` nesta fase.
+Cohere também é `explicit-only` e `auto_eligible=false`: `--ai-provider cohere --ai-model command-a-03-2025` usa Chat V2 no endpoint fixo, Structured Outputs com validação local e não habilita tools, documents, RAG ou Rerank. `RASAI_COHERE_COMMERCIAL_MODE=UNKNOWN|TRIAL|PRODUCTION` condiciona somente pricing; `UNKNOWN` é fail-closed. Mesmo com `COHERE_API_KEY` configurada, não participa de `AI=auto` nesta fase.
 
 GitHub Copilot também é `explicit-only` e `auto_eligible=false`: mesmo com `COPILOT_GITHUB_TOKEN` configurado, nunca entra em `AI=auto`. O adapter usa o SDK oficial, modelo público `auto`, `use_logged_in_user=False` e sessão sem tools. No fluxo manual, instale o transporte com:
 
