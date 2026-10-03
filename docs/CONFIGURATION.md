@@ -123,6 +123,8 @@ Excluir um provider de `AUTO` não remove sua credencial nem impede seleção ex
 
 Preços, janelas tarifárias, timezone, heurísticas de tokens e política de revisão do catálogo estão em [`AUTO_COST_AWARE_AI_ROUTING.md`](AUTO_COST_AWARE_AI_ROUTING.md).
 
+O mesmo catálogo de pricing também suporta políticas de **uso nativo não-token** em `[[native_usage]]`. Nesta versão, a baseline declara `PERPLEXITY_SEARCH_REQUEST`/`PER_REQUEST` e `MANUS_CREDIT`/`PROVIDER_CREDITS`. Isso é um contrato de pricing/telemetria: não adiciona `perplexity` nem `manus` à lista de providers selecionáveis acima. Operadores que customizam `config/ai-pricing.toml` devem manter unidade, superfície, fonte oficial, vigência e condições runtime coerentes; ausência de conversão monetária deve permanecer sem `currency`/regra em vez de receber valor zero.
+
 ### Modelos e reasoning
 
 | Provider | Default público de modelo | Modelos permitidos | Default de reasoning | Recomendado |
