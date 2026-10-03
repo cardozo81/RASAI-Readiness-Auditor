@@ -32,7 +32,7 @@ A saída informa:
 - URL de documentação;
 - modelo público efetivo, quando IA;
 - valores de reasoning aceitos pelo runtime;
-- qualificação, elegibilidade em `AUTO` e `explicit-only`;
+- qualificação e elegibilidade em `AUTO`;
 - engine e metadados de quota, quando SERP.
 
 Nenhum valor de token ou API key é retornado, inclusive em `--json`. A saída estruturada contém somente o estado de configuração.
@@ -54,10 +54,10 @@ A lista de reasoning exibida pelo comando é o domínio aceito pelo runtime para
 | `qwen` | Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | `qwen3.8-flash` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | região da key e endpoint devem ser coerentes |
 | `gemini` | Google Gemini | `GEMINI_API_KEY` | `gemini-3.8-flash` | <https://aistudio.google.com/apikey> | Gemini API key |
 | `anthropic` / `claude` | Anthropic Claude | `ANTHROPIC_API_KEY` | `claude-sonnet-5` | <https://console.anthropic.com/> | Anthropic API key |
-| `mistral` | Mistral AI | `MISTRAL_API_KEY` | `mistral-small-2603` | <https://console.mistral.ai/api-keys/> | explicit-only durante a homologação inicial; endpoint global Standard fixo |
-| `cohere` | Cohere | `COHERE_API_KEY` | `command-a-03-2025` | <https://dashboard.cohere.com/api-keys> | explicit-only; Chat V2 generativo; sem RAG/Rerank/tools/documents nesta entrega |
-| `kimi` / `moonshot` | Kimi / Moonshot | `MOONSHOT_API_KEY` | `kimi-k3` | <https://platform.kimi.ai/console/api-keys> | explicit-only; plataforma internacional; Chat Completions; 1M context; Structured Output estrito; reasoning default RASAi `LOW` |
-| `copilot` / `github-copilot` | GitHub Copilot | `COPILOT_GITHUB_TOKEN` | `auto` | <https://github.com/settings/personal-access-tokens/new> | usa assinatura Copilot elegível; não entra em `AI=auto` |
+| `mistral` | Mistral AI | `MISTRAL_API_KEY` | `mistral-small-2603` | <https://console.mistral.ai/api-keys/> | AUTO quando configurado/apto; endpoint global Standard fixo |
+| `cohere` | Cohere | `COHERE_API_KEY` | `command-a-03-2025` | <https://dashboard.cohere.com/api-keys> | AUTO quando configurado/apto; Chat V2 generativo; sem RAG/Rerank/tools/documents |
+| `kimi` / `moonshot` | Kimi / Moonshot | `MOONSHOT_API_KEY` | `kimi-k3` | <https://platform.kimi.ai/console/api-keys> | AUTO quando configurado/apto; plataforma internacional; Structured Output estrito; reasoning default `LOW` |
+| `copilot` / `github-copilot` | GitHub Copilot | `COPILOT_GITHUB_TOKEN` | `auto` | <https://github.com/settings/personal-access-tokens/new> | usa assinatura Copilot elegível; AUTO quando configurado/apto |
 
 ### Xiaomi MiMo - migração V2.6
 
@@ -117,7 +117,7 @@ Documentação oficial:
 - criação da API key: <https://docs.mistral.ai/getting-started/quickstarts/studio/activate-and-generate-api-key>
 - primeira chamada: <https://docs.mistral.ai/getting-started/quickstarts/developer/first-api-request>
 - modelo Mistral Small 4: <https://docs.mistral.ai/models/mistral-small-4-0-26-03>
-- pricing: <https://docs.mistral.ai/inference/pricing>
+- pricing: <https://mistral.ai/pricing/api/>
 
 ### Cohere
 
@@ -140,7 +140,7 @@ Contrato inicial:
 - o tipo da chave não é inferido pela API nem pelo valor do segredo;
 - sem `RASAI_COHERE_ENDPOINT` e sem variável de reasoning;
 - sem tools, documents, RAG ou Rerank nesta primeira fase;
-- `explicit-only`; não participa de `AI=auto` antes da homologação humana.
+- `auto_eligible=true`; participa de `AI=auto` quando configurado/apto.
 
 Documentação oficial: <https://docs.cohere.com/v2/reference/chat>, <https://docs.cohere.com/v2/docs/structured-outputs> e <https://docs.cohere.com/docs/command-a>.
 
@@ -162,7 +162,7 @@ Contrato inicial:
 - `response_format.type=json_schema` com `strict=true`; o schema canônico continua validado localmente e saída incompleta falha fechado;
 - evidence-bound: sem tools, Formula, web search, documents ou fonte externa automática;
 - cache implícito usa TTL 5m por default. O RASAi não expõe `prompt_cache_options`/TTL 1h nesta entrega;
-- `explicit_only=true` e `auto_eligible=false` até smoke humano e decisão posterior específica sobre AUTO.
+- `explicit_only=false` e `auto_eligible=true`; bloqueios externos de crédito/quota são tratados operacionalmente e eventuais defeitos posteriores como bugs.
 
 Documentação oficial:
 
@@ -202,7 +202,7 @@ python -m pip install -e ".[copilot]"
 
 O adapter usa `use_logged_in_user=False`, portanto uma sessão GitHub já autenticada na máquina não é consumida silenciosamente.
 
-O provider Copilot é `explicit-only` e não participa do pool `AI=auto`.
+O provider Copilot participa do pool `AI=auto` quando configurado/apto; use `RASAI_AI_AUTO_EXCLUDE=copilot` para mantê-lo fora do roteamento automático.
 
 Documentação oficial:
 
