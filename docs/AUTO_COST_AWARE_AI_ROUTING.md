@@ -13,7 +13,7 @@ A política econômica:
 - somente ordena providers/modelos já configurados, elegíveis, precificados e saudáveis;
 - não habilita credenciais;
 - não altera quarantine/circuit breaker;
-- não torna Mistral, Cohere ou Kimi durante sua homologação inicial nem GitHub Copilot elegíveis ao AUTO;
+- não cria elegibilidade por preço: a elegibilidade vem do registry/model/configuração; todos os providers integrados atuais podem participar quando configurados e aptos;
 - não troca silenciosamente service tier para Batch/Flex/Priority;
 - não interpreta ausência de preço como preço zero;
 - trata preço como estimativa operacional, não como fatura do fornecedor.
@@ -91,7 +91,7 @@ Para cada necessidade de IA:
 9. ordena os candidatos elegíveis do menor para o maior custo estimado, preservando desempate determinístico;
 10. fallback e circuit breaker continuam com suas regras próprias.
 
-Um modelo sem pricing vigente pode continuar disponível para **seleção explícita**, se permitido pelo catálogo. Ele é excluído do `AUTO` econômico e o motivo é registrado como modelo sem preço vigente para AUTO.
+Um modelo `auto_eligible=true` sem pricing vigente pode permanecer no `AUTO` como **UNPRICED**. Ele é ordenado depois dos candidatos precificados e nunca recebe custo zero.
 
 Fórmula atual:
 
@@ -120,7 +120,7 @@ Reasoning pode ser declarado como:
 - `IN_OUTPUT`;
 - `ADD_REASONING_TO_OUTPUT`.
 
-Toda regra possui `effective_from`; `effective_until` é opcional. Sem regra vigente, o modelo é não precificado e fica fora do AUTO econômico.
+Toda regra possui `effective_from`; `effective_until` é opcional. Sem regra vigente, o modelo fica UNPRICED; se continuar elegível por registry/model/configuração, permanece como fallback após os candidatos precificados.
 
 ## 5. Estado de pricing de fábrica - referência 02/10/2026
 
@@ -142,11 +142,11 @@ Valores em USD por 1 milhão de tokens.
 | Qwen `qwen3.8-max` | 1,65 | 0,206 | 4,951 | US/Virginia |
 | Gemini `gemini-3.8-flash` | 0,75 | 0,075 | 3,75 | reasoning soma no output; regra até 01/01/2027 UTC |
 | Anthropic `claude-sonnet-5` | 2,00 | 0,20 | 10,00 | standard/cache read |
-| Mistral `mistral-small-2603` | 0,15 | 0,015 | 0,60 | Standard global; precificado, porém explicit-only nesta entrega |
-| Cohere `command-a-03-2025` TRIAL | 0,00 | 0,00 | 0,00 | trial gratuito/limitado; `commercial_mode=TRIAL`; explicit-only |
-| Cohere `command-a-03-2025` PRODUCTION | 2,50 | 2,50* | 10,00 | real-time global; *sem cache separado observado; `commercial_mode=PRODUCTION`; explicit-only |
-| Kimi `kimi-k3` | 3,00 | 0,30 | 15,00 | international realtime; cache implícito 5m; cache write 5m também 3,00/M; explicit-only |
-| GitHub Copilot | - | - | - | explicit-only; não precificado e fora do AUTO |
+| Mistral `mistral-small-2603` | 0,15 | 0,015 | 0,60 | Standard global; elegível ao AUTO quando configurado |
+| Cohere `command-a-03-2025` TRIAL | 0,00 | 0,00 | 0,00 | trial gratuito/limitado; `commercial_mode=TRIAL`; elegível quando configurado |
+| Cohere `command-a-03-2025` PRODUCTION | 2,50 | 2,50* | 10,00 | real-time global; *sem cache separado observado; `commercial_mode=PRODUCTION`; elegível quando configurado |
+| Kimi `kimi-k3` | 3,00 | 0,30 | 15,00 | international realtime; cache implícito 5m; cache write 5m também 3,00/M; elegível quando configurado |
+| GitHub Copilot | - | - | - | UNPRICED; pode participar do AUTO quando configurado e fica depois dos precificados |
 
 ### DeepSeek
 
@@ -165,9 +165,9 @@ O custo econômico é resolvido com o contexto efetivo do adapter, não apenas p
 
 O AUTO não muda endpoint, tier, modalidade comercial ou modo de operação para obter uma tarifa menor. Essas escolhas pertencem à configuração/adapter já autorizado.
 
-Para Cohere, `RASAI_COHERE_COMMERCIAL_MODE` aceita `UNKNOWN`, `TRIAL` ou `PRODUCTION`. `UNKNOWN` é o default seguro e mantém o provider UNPRICED; o runtime não tenta deduzir o tipo da chave. Cohere permanece fora do AUTO nesta entrega independentemente do modo.
+Para Cohere, `RASAI_COHERE_COMMERCIAL_MODE` aceita `UNKNOWN`, `TRIAL` ou `PRODUCTION`. `UNKNOWN` é o default seguro e mantém o provider UNPRICED; o runtime não tenta deduzir o tipo da chave. Cohere pode participar do AUTO quando configurado; `UNKNOWN` mantém apenas o custo UNPRICED.
 
-Para Kimi, o adapter fixa a modalidade internacional realtime e não envia `prompt_cache_options`, portanto o TTL efetivo é 5m. `prompt_tokens_details.cached_tokens` representa cache read; cache write e restante uncached permanecem no total de input e, no TTL 5m, têm a mesma tarifa de USD 3/M. Kimi permanece fora do AUTO mesmo com pricing resolvível.
+Para Kimi, o adapter fixa a modalidade internacional realtime e não envia `prompt_cache_options`, portanto o TTL efetivo é 5m. `prompt_tokens_details.cached_tokens` representa cache read; cache write e restante uncached permanecem no total de input e, no TTL 5m, têm a mesma tarifa de USD 3/M. Kimi pode participar do AUTO quando configurado e apto.
 
 ### OpenAI
 
@@ -272,7 +272,7 @@ A suíte deve preservar:
 - novo modelo de provider existente projetado no mesmo adapter sem código específico do modelo;
 - provider desconhecido rejeitado pelo catálogo de modelos;
 - reasoning validado por modelo;
-- modelo `auto_eligible` sem pricing vigente excluído do AUTO econômico;
+- modelo `auto_eligible` sem pricing vigente preservado como candidato UNPRICED após os precificados;
 - DeepSeek peak/off-peak e weekday UTC;
 - domingo 22:xx GMT-3 convertido para segunda UTC peak;
 - sábado off-peak;
