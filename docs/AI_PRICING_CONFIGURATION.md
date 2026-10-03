@@ -2,7 +2,7 @@
 
 **Estado:** vigente.  
 **Data de referência desta configuração:** 03/10/2026  
-**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-10-03.5`  
+**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-10-03.6`  
 **Schema do catálogo:** `1`  
 **Revisão ordinária recomendada:** 03/11/2026
 
@@ -104,7 +104,7 @@ Metadados obrigatórios:
 ```toml
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-PRICING-2026-10-03.5"
+catalog_version = "RASAI-PRICING-2026-10-03.6"
 reference_date = "2026-10-03"
 verified_on = "2026-10-03"
 review_recommended_on = "2026-11-03"
@@ -252,9 +252,9 @@ Valores em USD por 1 milhão de tokens.
 | Qwen `qwen3.8-max` | `TOKEN_STANDARD` | 1,65 | 0,206 | 4,951 | região US/Virginia |
 | Gemini `gemini-3.8-flash` | `TOKEN_STANDARD` | 0,75 | 0,075 | 3,75 | thinking/reasoning soma no output; regra até 01/01/2027 UTC |
 | Anthropic `claude-sonnet-5` | `TOKEN_STANDARD` | 2,00 | 0,20 | 10,00 | 0,20 representa cache read no modelo vigente |
-| Mistral `mistral-small-2603` | `TOKEN_STANDARD` | 0,15 | 0,015 | 0,60 | endpoint global; `service_tier=standard_only`; provider ainda explicit-only |
+| Mistral `mistral-small-2603` | `TOKEN_STANDARD` | 0,15 | 0,015 | 0,60 | endpoint global; `service_tier=standard_only`; elegível ao AUTO quando configurado |
 | Kimi `kimi-k3` | `TOKEN_STANDARD` | 3,00 | 0,30 | 15,00 | plataforma internacional; realtime; cache implícito TTL 5m; cache-write 5m custa 3,00/M e está contido no input total |
-| GitHub Copilot `auto` | **UNPRICED** | - | - | - | explicit-only e `auto_eligible=false`; não participa do ranking AUTO |
+| GitHub Copilot `auto` | **UNPRICED** | - | - | - | elegível ao AUTO quando configurado; candidato UNPRICED após os precificados |
 
 A tabela é uma fotografia operacional da data de referência. O TOML efetivamente snapshotado para a execução é a autoridade de cálculo daquela AUD.
 
@@ -291,7 +291,7 @@ A regra atual possui `effective_until = "2027-01-01T00:00:00Z"`. Sem regra vigen
 
 ### 10.7 Mistral
 
-O catálogo inicial usa a tarifa Standard global de `mistral-small-2603`: USD 0,15/M input, USD 0,015/M cached input e USD 0,60/M output. O adapter envia `service_tier=standard_only` e não expõe endpoint regional/priority/batch nesta entrega. A existência de pricing não torna o provider elegível ao AUTO: Mistral permanece `explicit_only=true` e `auto_eligible=false` até homologação humana posterior.
+O catálogo usa a tarifa Standard global de `mistral-small-2603`: USD 0,15/M input, USD 0,015/M cached input e USD 0,60/M output. O adapter envia `service_tier=standard_only` e não expõe endpoint regional/priority/batch nesta entrega. Mistral está `auto_eligible=true` quando configurada e apta; a fonte comercial canônica é `https://mistral.ai/pricing/api/`.
 
 ### 10.8 Cohere
 
@@ -299,7 +299,7 @@ Cohere distingue chaves `TRIAL` e `PRODUCTION`. O RASAi exige `RASAI_COHERE_COMM
 
 O adapter usa `usage.billed_units` como tokens faturáveis e preserva `cached_input_tokens=None`, pois a resposta não fornece uma dimensão separada de cache. O motor só calcula custo com cache desconhecido quando `cached_input_price_per_million == input_price_per_million`; assim a divisão ausente é matematicamente irrelevante. Se as tarifas divergirem, o custo permanece UNPRICED em vez de inventar cache.
 
-A existência das regras não autoriza `AI=auto`: Cohere permanece `explicit_only=true` e `auto_eligible=false` até homologação humana positiva.
+Cohere está `auto_eligible=true` quando configurada e apta. `RASAI_COHERE_COMMERCIAL_MODE=UNKNOWN` apenas mantém o custo UNPRICED; não remove o provider do pool.
 
 ### 10.9 Kimi / Moonshot
 
@@ -307,11 +307,11 @@ A regra inicial cobre somente `kimi-k3` na plataforma internacional, operação 
 
 TTL 1h custa USD 6,00/M cache write e não cabe no contrato token-based atual sem uma dimensão adicional ou condição observável suficiente; por isso `prompt_cache_options`/1h não é exposto nesta entrega. Isso mantém a issue #8 condicional e evita custo incorreto.
 
-Pricing não altera governança: Kimi permanece `explicit_only=true` e `auto_eligible=false`.
+Kimi está `auto_eligible=true` quando configurada e apta; pricing continua servindo à ordenação econômica e telemetria.
 
 ### 10.10 GitHub Copilot
 
-Na referência de 02/10/2026 não existe tarifa unitária de API cadastrada no RASAi. O provider é explicit-only e não é elegível ao AUTO.
+Não existe tarifa unitária de API cadastrada no RASAi para GitHub Copilot. O provider pode participar do AUTO quando configurado, permanecendo UNPRICED e ordenado depois dos candidatos precificados.
 
 ## 11. Como atualizar um preço localmente
 
@@ -387,7 +387,7 @@ A ordem permanece:
 4. empates determinísticos;
 5. candidatos UNPRICED depois dos precificados.
 
-Pricing não habilita provider sem credencial, ignora falhas, remove quarentena, reduz circuit breaker nem torna Mistral, Cohere, Kimi ou Copilot elegíveis ao AUTO nesta entrega.
+Pricing não habilita provider sem credencial, ignora falhas, remove quarentena nem reduz circuit breaker. Elegibilidade ao AUTO vem do registry/model/configuração; pricing conhecido apenas melhora a ordenação econômica e a telemetria.
 
 ## 18. Batch, Flex, Priority e service tiers
 
@@ -426,7 +426,7 @@ Revisar antes disso em caso de aviso de preço, troca de modelo default, mudanç
 | Alibaba Qwen / Model Studio | <https://www.alibabacloud.com/help/en/model-studio/model-pricing> | região, modelo, contexto e cache |
 | Google Gemini | <https://ai.google.dev/gemini-api/docs/pricing> | input, cached input, output/thinking e vigência |
 | Anthropic Claude | <https://platform.claude.com/docs/en/about-claude/pricing> | input, output e cache |
-| Mistral AI | <https://docs.mistral.ai/inference/pricing> | Standard input, cached input, output e service tier |
+| Mistral AI | <https://mistral.ai/pricing/api/> | Standard input, cached input, output e service tier |
 | Cohere | <https://docs.cohere.com/docs/command-a> e <https://docs.cohere.com/docs/how-does-cohere-pricing-work> | input/output do `command-a-03-2025`, trial vs production e eventuais mudanças de política comercial |
 | Kimi / Moonshot | <https://platform.kimi.ai/docs/pricing/chat> e <https://platform.kimi.ai/docs/guide/context-caching> | input, output, cache hit e cache write 5m/1h do K3; contrato RASAi atual fixa 5m |
 
@@ -441,9 +441,9 @@ A suíte deve cobrir, no mínimo:
 - xAI >=200k;
 - expiração fail-closed do Gemini;
 - reasoning do Gemini incluído no output faturável;
-- Mistral Small 4 com input/cache/output Standard e permanência fora do AUTO;
-- Cohere Command A com `billed_units`, `TRIAL|PRODUCTION|UNKNOWN`, cache não separado, condições REALTIME/GLOBAL e permanência fora do AUTO;
-- Kimi K3 com input/cache hit/output, cache-write 5m contido em `prompt_tokens`, condições REALTIME/INTERNATIONAL/5M e permanência fora do AUTO;
+- Mistral Small 4 com input/cache/output Standard e política AUTO aderente ao registry/model catalog;
+- Cohere Command A com `billed_units`, `TRIAL|PRODUCTION|UNKNOWN`, cache não separado e condições REALTIME/GLOBAL;
+- Kimi K3 com input/cache hit/output, cache-write 5m contido em `prompt_tokens` e condições REALTIME/INTERNATIONAL/5M;
 - defaults elegíveis do pool AUTO com preço vigente;
 - arquivo configurado inexistente falhando fechado;
 - `config/ai-pricing.toml` como superfície humana padrão do console;

@@ -49,10 +49,10 @@ No console local, configure o timezone pelo item **Timezone apresentação**, pe
 | `DASHSCOPE_API_KEY` | sem default | credencial Alibaba Model Studio não vazia | secret/env | necessária ao selecionar Qwen |
 | `GEMINI_API_KEY` | sem default | credencial Gemini não vazia | secret/env | necessária ao selecionar Gemini |
 | `ANTHROPIC_API_KEY` | sem default | credencial Anthropic não vazia | secret/env | necessária ao selecionar Anthropic/Claude |
-| `MISTRAL_API_KEY` | sem default | credencial Mistral não vazia | secret/env | necessária ao selecionar Mistral; provider explicit-only nesta entrega |
-| `COHERE_API_KEY` | sem default | credencial Cohere não vazia | secret/env | necessária ao selecionar Cohere; provider explicit-only nesta entrega |
-| `MOONSHOT_API_KEY` | sem default | credencial da plataforma internacional Kimi API não vazia | secret/env | necessária ao selecionar Kimi/Moonshot; provider explicit-only; não usar key da plataforma China por fallback |
-| `COPILOT_GITHUB_TOKEN` | sem default | token de usuário `github_pat_`, `gho_` ou `ghu_`; `ghp_` não é aceito | fine-grained PAT com `Copilot Requests` | necessária ao selecionar `copilot`; provider explicit-only |
+| `MISTRAL_API_KEY` | sem default | credencial Mistral não vazia | secret/env | habilita Mistral para seleção explícita e AUTO quando modelo/apto |
+| `COHERE_API_KEY` | sem default | credencial Cohere não vazia | secret/env | habilita Cohere para seleção explícita e AUTO quando modelo/apto |
+| `MOONSHOT_API_KEY` | sem default | credencial da plataforma internacional Kimi API não vazia | secret/env | habilita Kimi/Moonshot para seleção explícita e AUTO; sem fallback para key/plataforma China |
+| `COPILOT_GITHUB_TOKEN` | sem default | token de usuário `github_pat_`, `gho_` ou `ghu_`; `ghp_` não é aceito | fine-grained PAT com `Copilot Requests` | habilita Copilot para seleção explícita e AUTO quando apto |
 
 A presença de uma credencial não comprova validade, saldo, quota, plano ou acesso ao modelo. Instruções de criação e links oficiais: [EXTERNAL_CREDENTIALS.md](EXTERNAL_CREDENTIALS.md).
 

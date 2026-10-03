@@ -22,8 +22,8 @@ def test_effective_audit_help_describes_dynamic_auto_registry() -> None:
     action = next(item for item in audit_parser._actions if item.dest == "ai_provider")
 
     assert "canonical provider registry" in action.help
-    assert "explicit-only" in action.help
-    assert "GitHub Copilot" in action.help
+    assert "every integrated provider" in action.help
+    assert "configured" in action.help
     assert "OpenAI/DeepSeek/MiMo chain" not in action.help
 
 

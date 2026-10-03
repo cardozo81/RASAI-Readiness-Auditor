@@ -1,8 +1,8 @@
 """Additive semantic-provider extensions kept outside the M18 homologated core.
 
 The legacy M18 implementation remains the source of truth for NONE, OPENAI,
-DEEPSEEK, MIMO and AUTO.  This module only intercepts explicitly selected
-extension providers and delegates every legacy selection unchanged.
+DEEPSEEK and MIMO. This module implements additional provider adapters consumed
+both by explicit selection and by the canonical AUTO orchestration layer.
 """
 
 from __future__ import annotations
@@ -99,35 +99,35 @@ EXTENDED_ENDPOINT_ENV = {
 EXTENSION_POLICIES: dict[tuple[str, str], ProviderPolicy] = {
     ("XAI", "grok-4.6"): ProviderPolicy(
         101, "XAI", "grok-4.6", "HIGH", "PROVISIONAL-A", "PROVISIONAL",
-        "explicit qualification only",
+        "provisional provider qualification",
     ),
     ("QWEN", "qwen3.8-max"): ProviderPolicy(
         102, "QWEN", "qwen3.8-max", "PROVIDER_DEFAULT", "PROVISIONAL-A",
-        "PROVISIONAL", "explicit qualification only",
+        "PROVISIONAL", "provisional provider qualification",
     ),
     ("QWEN", "qwen3.8-flash"): ProviderPolicy(
         103, "QWEN", "qwen3.8-flash", "PROVIDER_DEFAULT", "PROVISIONAL-A-",
-        "PROVISIONAL", "explicit qualification only",
+        "PROVISIONAL", "provisional provider qualification",
     ),
     ("GEMINI", "gemini-3.8-flash"): ProviderPolicy(
         104, "GEMINI", "gemini-3.8-flash", "PROVIDER_DEFAULT", "PROVISIONAL-A",
-        "PROVISIONAL", "explicit qualification only",
+        "PROVISIONAL", "provisional provider qualification",
     ),
     ("ANTHROPIC", "claude-sonnet-5"): ProviderPolicy(
         105, "ANTHROPIC", "claude-sonnet-5", "ADAPTIVE", "PROVISIONAL-A",
-        "PROVISIONAL", "explicit qualification only",
+        "PROVISIONAL", "provisional provider qualification",
     ),
     ("MISTRAL", "mistral-small-2603"): ProviderPolicy(
         106, "MISTRAL", "mistral-small-2603", "PROVIDER_DEFAULT", "PROVISIONAL",
-        "PROVISIONAL", "explicit qualification only",
+        "PROVISIONAL", "provisional provider qualification",
     ),
     ("COHERE", "command-a-03-2025"): ProviderPolicy(
         107, "COHERE", "command-a-03-2025", "PROVIDER_DEFAULT", "PROVISIONAL",
-        "PROVISIONAL", "explicit qualification only",
+        "PROVISIONAL", "provisional provider qualification",
     ),
     ("KIMI", "kimi-k3"): ProviderPolicy(
         108, "KIMI", "kimi-k3", "LOW", "PROVISIONAL",
-        "PROVISIONAL", "explicit qualification only",
+        "PROVISIONAL", "provisional provider qualification",
     ),
 }
 
@@ -261,7 +261,7 @@ def _semantic_instructions(semantic_input: SemanticInput | None = None) -> str:
 
 
 class IsolatedStructuredSemanticProvider:
-    """Common fail-closed contract for explicit-only extension providers."""
+    """Common fail-closed contract for integrated extension providers."""
 
     name = "GENERIC_EXTENSION"
     endpoint = ""
@@ -270,7 +270,6 @@ class IsolatedStructuredSemanticProvider:
         "STRUCTURED_OUTPUT",
         "LOCAL_SCHEMA_VALIDATION",
         "USAGE_TELEMETRY",
-        "EXPLICIT_ONLY",
         "PROVISIONAL",
     )
 
@@ -1251,9 +1250,8 @@ def build_semantic_provider(
 ) -> Any:
     """Build an extension provider or delegate legacy selections unchanged.
 
-    AUTO intentionally delegates to M18 and therefore continues to consider
-    only OPENAI, DEEPSEEK and MIMO. Extension providers remain explicit-only
-    until their provisional qualification is completed by human smoke.
+    Dynamic AUTO orchestration is installed by provider_runtime_policy and may
+    consume these adapters whenever their registry/model configuration is eligible.
     """
 
     selected = selection.strip().upper()

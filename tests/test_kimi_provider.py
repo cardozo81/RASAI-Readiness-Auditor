@@ -141,7 +141,7 @@ def test_kimi_factory_registry_and_pricing_are_explicit_and_traceable() -> None:
         "cache_ttl": "5M", "operation_mode": "REALTIME", "region": "INTERNATIONAL",
     }
     registration = get_provider_registration("kimi")
-    assert registration is not None and registration.explicit_only and not registration.auto_eligible
+    assert registration is not None and not registration.explicit_only and registration.auto_eligible
     assert _ADAPTER_TYPES["KIMI"] == "KIMI_CHAT_COMPLETIONS"
     usage = provider._usage({"usage": {
         "prompt_tokens": 120,

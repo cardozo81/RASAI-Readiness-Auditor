@@ -75,7 +75,7 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
         )
         self.assertGreaterEqual(len(router.providers), 2)
         self.assertTrue(all(item.timeout == 210.0 for item in router.providers))
-        self.assertNotIn("MISTRAL", {item.name for item in router.providers})
+        self.assertIn("MISTRAL", {item.name for item in router.providers})
 
     def test_direct_runtime_builder_rejects_invalid_ai_timeout_only_when_ai_enabled(self) -> None:
         for raw in ("0", "-1", "nan", "inf", "invalid"):

@@ -42,14 +42,14 @@ O ambiente de execução atual não está limitado à OpenAI. O registry canôni
 | `qwen` | Alibaba Qwen | - | sim, se configurado e apto |
 | `gemini` | Google Gemini | - | sim, se configurado e apto |
 | `anthropic` | Anthropic Claude | `claude` | sim, se configurado e apto |
-| `mistral` | Mistral AI | - | **não; explicit-only durante homologação inicial** |
-| `copilot` | GitHub Copilot | `github-copilot` | **não; explicit-only** |
+| `mistral` | Mistral AI | - | sim, quando configurado/modelo elegível e saudável |
+| `copilot` | GitHub Copilot | `github-copilot` | sim, quando configurado/modelo elegível e saudável |
 | `none` | nenhum provider externo | - | não se aplica |
 | `auto` | coordenador dinâmico | - | usa o pool elegível |
 
 A propriedade `auto_eligible` pertence ao registry; participação efetiva exige também credencial/configuração válidas e ausência de exclusão explícita pelo usuário.
 
-Mistral é `explicit_only=true` e `auto_eligible=false` nesta entrega. Mesmo com `MISTRAL_API_KEY` configurada, só é consumido quando selecionado explicitamente até a homologação humana. GitHub Copilot também é `explicit_only=true` e `auto_eligible=false`; sua política evita uso involuntário de franquia/créditos da assinatura Copilot.
+Todos os providers integrados no registry atual, incluindo Mistral e GitHub Copilot, podem ser `auto_eligible=true`. Participação efetiva exige credencial/configuração válidas, modelo elegível, ausência de exclusão explícita e saúde operacional.
 
 ## 4. Defaults públicos, valores permitidos e recomendação
 
@@ -64,8 +64,8 @@ Os defaults públicos efetivos são definidos por `provider_runtime_policy` e s�
 | Qwen | `qwen3.8-flash` | conforme registry vigente | default público com reasoning `NONE` |
 | Gemini | `gemini-3.8-flash` | conforme registry vigente | default público |
 | Anthropic | `claude-sonnet-5` | conforme registry vigente | default público |
-| Mistral | `mistral-small-2603` | `mistral-small-2603` | seleção explícita / piloto |
-| GitHub Copilot | `auto` | `auto` | deixar SDK/assinatura resolver o modelo disponível; uso explícito |
+| Mistral | `mistral-small-2603` | `mistral-small-2603` | default público; elegível ao AUTO |
+| GitHub Copilot | `auto` | `auto` | deixar SDK/assinatura resolver o modelo disponível; elegível ao AUTO |
 
 A referência operacional completa de modelos e variáveis é `../ENVIRONMENT_VARIABLES.md` e deve ser usada quando o conjunto permitido mudar.
 
@@ -103,7 +103,7 @@ Seleção explícita mantém o provider solicitado e suas regras específicas de
 
 O ranking é recalculado a cada necessidade e pode mudar por horário, contexto, modelo, reasoning e usage observado. A política não troca silenciosamente para Batch/Flex/assíncrono para obter desconto.
 
-A exclusão de um provider do `AUTO` altera apenas participação no pool daquela política; não remove sua configuração. Providers `explicit-only`, atualmente Mistral durante a homologação inicial e GitHub Copilot, não entram no pool e não aparecem como candidatos de inclusão/exclusão AUTO.
+A exclusão de um provider do `AUTO` altera apenas participação no pool daquela política; não remove sua configuração. Todos os providers integrados podem aparecer como candidatos de inclusão/exclusão quando seus modelos forem elegíveis.
 
 Preços, janelas tarifárias e heurísticas vigentes: `../AUTO_COST_AWARE_AI_ROUTING.md`.
 

@@ -40,10 +40,10 @@ def test_mistral_shared_consumers_keep_standard_structured_contract() -> None:
         assert payload["response_format"]["json_schema"]["schema"] == _schema()
 
 
-def test_mistral_control_plane_identity_matches_explicit_only_registry() -> None:
+def test_mistral_control_plane_identity_matches_auto_registry() -> None:
     registration = get_provider_registration("mistral")
     assert registration is not None
     assert registration.provider_name == "MISTRAL"
-    assert registration.explicit_only is True
-    assert registration.auto_eligible is False
+    assert registration.explicit_only is False
+    assert registration.auto_eligible is True
     assert _ADAPTER_TYPES["MISTRAL"] == "MISTRAL_CHAT_COMPLETIONS"

@@ -20,7 +20,7 @@ def test_provider_docs_include_copilot_and_dynamic_auto_contract() -> None:
     ):
         text = _text(path)
         assert "Copilot" in text, path
-        assert "explicit-only" in text, path
+        assert "AUTO" in text, path
         assert "provider_registry" in text, path
 
     assert "não é uma cadeia fixa OpenAI → DeepSeek → MiMo" in _text("docs/CONFIGURATION.md")

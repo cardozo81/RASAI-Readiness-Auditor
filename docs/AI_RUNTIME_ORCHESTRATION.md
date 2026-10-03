@@ -35,9 +35,9 @@ Providers sem credencial, com configuração inválida ou excluídos pelo usuár
 
 A elegibilidade é específica da execução. Uma exclusão causada por falha não altera a configuração global nem impede o uso em auditorias futuras.
 
-### 2.1 Mistral durante a homologação inicial
+### 2.1 Mistral
 
-A integração Mistral desta entrega é deliberadamente **explicit-only**. Mesmo com `MISTRAL_API_KEY` configurada e pricing vigente, `mistral` não entra no pool de `AI=auto` enquanto a homologação humana não for concluída.
+Mistral está integrado e `auto_eligible=true`. Com `MISTRAL_API_KEY` configurada e modelo vigente, entra no pool de `AI=auto`, sujeito a `RASAI_AI_AUTO_EXCLUDE`, health, quarentena e circuit breaker.
 
 Contrato operacional vigente:
 
@@ -49,16 +49,16 @@ Contrato operacional vigente:
 - Structured Outputs por JSON Schema no wire, seguidos pela validação canônica/local do RASAi;
 - sem tools, web search, agents ou connectors no fluxo evidence-bound;
 - usage observado preserva `prompt_tokens`, `completion_tokens`, `total_tokens` e `prompt_tokens_details.cached_tokens` quando retornados;
-- pricing Standard permanece declarativo no catálogo; existência de preço não altera `auto_eligible=false`;
+- pricing Standard permanece declarativo no catálogo e participa da ordenação econômica;
 - `AI=none` e os providers já existentes não dependem de Mistral.
 
 O adapter Mistral reutiliza o mesmo boundary de retry, quarantine/circuit breaker, telemetria e sanitização das extensões síncronas. A integração não altera coleta, AUD/RPR, evidence seal, SARI, SCORE-GEO, Apdex, fórmulas determinísticas nem critérios de CAT.
 
 No reprocessamento, Mistral segue a mesma orquestração compartilhada da execução normal: somente trabalho de IA realmente invalidado por dependências de evidência pode ser reexecutado. O provider não cria um caminho paralelo de processamento.
 
-### 2.2 Kimi/Moonshot durante a homologação inicial
+### 2.2 Kimi/Moonshot
 
-Kimi é deliberadamente **explicit-only** nesta entrega. Mesmo com `MOONSHOT_API_KEY` configurada e pricing vigente, `kimi`/`moonshot` não entra no pool de `AI=auto`.
+Kimi/Moonshot está `auto_eligible=true`. Com `MOONSHOT_API_KEY` configurada e modelo vigente, `kimi`/`moonshot` entra no pool de `AI=auto`, sujeito aos mesmos gates operacionais dos demais providers.
 
 Contrato operacional vigente:
 
@@ -72,7 +72,7 @@ Contrato operacional vigente:
 - sem tools, Formula, web search, documents, multimodalidade ou fonte externa automática no fluxo evidence-bound;
 - cache implícito 5m por default; o adapter não envia `prompt_cache_options` nem expõe TTL 1h;
 - usage preserva input total, cached input, output e total sem somar cache-write duas vezes;
-- pricing declarativo não altera `auto_eligible=false`.
+- pricing declarativo participa da ordenação econômica; ausência de preço produziria UNPRICED, não inelegibilidade automática.
 
 A integração Kimi reutiliza retry, quarantine/circuit breaker, telemetria, secret-safety e consumers compartilhados de IA. Não altera crawling, AUD/RPR, checkpoints, evidence seal, CATs, SARI, SCORE-GEO, Apdex, fórmulas, scoring ou consolidação determinística.
 

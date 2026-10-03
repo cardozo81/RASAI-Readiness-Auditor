@@ -47,7 +47,7 @@ github-copilot -> copilot
 
 `none` desabilita IA. `auto` aciona a orquestração econômica entre providers elegíveis.
 
-Mistral, Cohere e Kimi permanecem explicit-only durante a homologação inicial, e GitHub Copilot também é explicit-only: a presença dessas credenciais não os inclui automaticamente no `AUTO`.
+Mistral, Cohere, Kimi e GitHub Copilot podem participar do `AUTO` quando suas credenciais/modelos estiverem configurados e aptos. Use `RASAI_AI_AUTO_EXCLUDE` para manter um provider configurado fora do pool.
 
 ## Arquivos administráveis pelo operador
 
@@ -177,7 +177,7 @@ Para cada provider, o `AUTO` resolve um modelo efetivo a partir do override do p
 
 O runtime estima o custo da necessidade atual e ordena os candidatos elegíveis do menor para o maior custo. A ordem pode mudar por horário, tokens, contexto, cache e reasoning.
 
-**Modelo sem pricing vigente não participa do `AUTO`.** Ele pode continuar disponível para seleção explícita quando o catálogo permitir. Ausência de preço nunca é tratada como custo zero.
+**Modelo elegível sem pricing vigente permanece `UNPRICED` no `AUTO`.** Ele é tentado depois dos candidatos precificados; ausência de preço nunca é tratada como custo zero.
 
 Cada provider pode ser tentado no máximo uma vez por necessidade. Falhas temporárias seguem a política central de retry/circuit breaker; condições terminais retiram o provider do restante da execução conforme o contrato de resiliência vigente.
 
@@ -211,13 +211,13 @@ Em `AUTO`, isso reutiliza a mesma política de custo, qualification, pricing, qu
 
 ## Mistral AI
 
-A integração inicial usa `mistral-small-2603`, `MISTRAL_API_KEY` e Chat Completions no endpoint global com `service_tier=standard_only`. Structured Outputs continuam sujeitos à validação local evidence-bound. O provider é selecionável explicitamente, mas permanece fora de `AUTO` até a homologação humana desta entrega.
+A integração usa `mistral-small-2603`, `MISTRAL_API_KEY` e Chat Completions no endpoint global com `service_tier=standard_only`. Structured Outputs continuam sujeitos à validação local evidence-bound. O provider está elegível ao AUTO quando configurado e apto.
 
 ## Cohere
 
 A integração inicial usa `COHERE_API_KEY`, `command-a-03-2025` e `POST https://api.cohere.com/v2/chat`. Structured Outputs são projetados para o subconjunto JSON Schema aceito pelo wire da Cohere, mas o schema local do RASAi continua normativo e é validado integralmente após a resposta.
 
-O adapter não envia `tools` nem `documents`, e não habilita RAG/Rerank. Reasoning permanece `PROVIDER_DEFAULT`. Para pricing, `RASAI_COHERE_COMMERCIAL_MODE` aceita `UNKNOWN`, `TRIAL` ou `PRODUCTION`; `UNKNOWN` é o default fail-closed, pois a API não informa ao adapter o tipo comercial da chave. `TRIAL` resolve custo zero conforme a política de trial gratuita/limitada e `PRODUCTION` aplica a tarifa pública token-based. Cohere é selecionável explicitamente e fica fora de `AUTO` até homologação humana positiva e eventual decisão posterior de promoção.
+O adapter não envia `tools` nem `documents`, e não habilita RAG/Rerank. Reasoning permanece `PROVIDER_DEFAULT`. Para pricing, `RASAI_COHERE_COMMERCIAL_MODE` aceita `UNKNOWN`, `TRIAL` ou `PRODUCTION`; `UNKNOWN` mantém o custo UNPRICED, `TRIAL` aplica custo monetário zero conforme a política oficial de trial e `PRODUCTION` aplica a tarifa pública token-based. Cohere está elegível ao AUTO quando configurado e apto.
 
 ## GitHub Copilot
 
@@ -234,7 +234,7 @@ Instalação opcional:
 python -m pip install -e ".[copilot]"
 ```
 
-A autenticação usa o token configurado e `use_logged_in_user=false`. O RASAi disponibiliza apenas a inferência necessária ao contrato evidence-bound e não habilita tools de edição/shell/browser. Copilot permanece fora de `AUTO` por padrão de produto.
+A autenticação usa o token configurado e `use_logged_in_user=false`. O RASAi disponibiliza apenas a inferência necessária ao contrato evidence-bound e não habilita tools de edição/shell/browser. Copilot pode participar do AUTO quando configurado; use `RASAI_AI_AUTO_EXCLUDE=copilot` para evitar consumo automático.
 
 ## Telemetria
 

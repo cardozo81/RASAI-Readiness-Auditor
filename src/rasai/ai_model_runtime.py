@@ -103,7 +103,7 @@ def apply_model_catalog(catalog: AiModelCatalog) -> AiModelCatalog:
     provider_extensions.EXTENSION_POLICIES.clear()
     provider_extensions.EXTENSION_POLICIES.update(extension_policies)
 
-    # Copilot SDK follows the same model-catalog contract while remaining explicit-only.
+    # Copilot SDK follows the same model-catalog and AUTO eligibility contract.
     copilot_items = _enabled(catalog, copilot_provider.COPILOT_PROVIDER_NAME)
     copilot_provider.COPILOT_SUPPORTED_MODELS = tuple(item.model for item in copilot_items)
     if copilot_items:

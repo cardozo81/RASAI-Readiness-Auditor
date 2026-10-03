@@ -1,6 +1,6 @@
-"""M20 adapters for explicit-only provider extensions.
+"""M20 adapters for integrated provider extensions.
 
-Legacy M20 routing is delegated unchanged for OpenAI, DeepSeek, MiMo and AUTO.
+AUTO reuses these adapters through the canonical dynamic routing session.
 """
 
 from __future__ import annotations

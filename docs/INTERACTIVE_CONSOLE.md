@@ -388,7 +388,7 @@ O catálogo identifica operações que não usam IA, podem usar IA ou exigem IA.
 
 Com apenas consumidores opcionais selecionados, o plano inicia em `Executar sem IA (recomendado)`. A ação `U` permite solicitar o enriquecimento por IA; indisponibilidade do provider é exibida como limitação, sem impedir o processamento determinístico. `CAT-08` torna IA obrigatória para o fechamento integral, mas não remove a possibilidade de executar/materializar a auditoria com `ai_provider=none`. No `CAT-10`, a opção de IA reutiliza o mesmo Improvement Intelligence no domínio `SECURITY`; não existe motor/provider de segurança paralelo.
 
-A seleção AUTO usa o `provider_registry` dinâmico; **não é uma cadeia fixa OpenAI -> DeepSeek -> MiMo**. O catálogo atual também contempla Copilot conforme o contrato do registry. Providers marcados `explicit-only` não entram silenciosamente no AUTO; continuam disponíveis quando selecionados explicitamente conforme sua política canônica.
+A seleção AUTO usa o `provider_registry` dinâmico; **não é uma cadeia fixa OpenAI -> DeepSeek -> MiMo**. Todos os providers integrados atuais podem entrar quando configurados, com modelo elegível e saudáveis. O operador pode manter uma credencial configurada e excluir somente sua participação no AUTO via `RASAI_AI_AUTO_EXCLUDE`.
 
 Providers sem credencial continuam configuráveis; ausência de credencial afeta readiness/execução, não a possibilidade de abrir e editar sua configuração.
 

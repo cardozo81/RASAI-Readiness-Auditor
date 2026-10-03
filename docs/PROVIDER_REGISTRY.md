@@ -23,10 +23,10 @@ Referência operacional de cadastro/login e geração de credenciais: [PROVIDER_
 | `qwen` | Alibaba Qwen | - | `DASHSCOPE_API_KEY` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | permitido quando o modelo efetivo é elegível e precificado |
 | `gemini` | Google Gemini | - | `GEMINI_API_KEY` | <https://aistudio.google.com/apikey> | permitido quando o modelo efetivo é elegível e precificado |
 | `anthropic` | Anthropic Claude | `claude` | `ANTHROPIC_API_KEY` | <https://console.anthropic.com/> | permitido quando o modelo efetivo é elegível e precificado |
-| `mistral` | Mistral AI | - | `MISTRAL_API_KEY` | <https://console.mistral.ai/api-keys/> | **não; explicit-only durante a homologação inicial** |
-| `cohere` | Cohere | - | `COHERE_API_KEY` | <https://dashboard.cohere.com/api-keys> | **não; explicit-only durante a homologação inicial** |
-| `kimi` | Kimi / Moonshot | `moonshot` | `MOONSHOT_API_KEY` | <https://platform.kimi.ai/console/api-keys> | **não; explicit-only durante a homologação inicial** |
-| `copilot` | GitHub Copilot | `github-copilot` | `COPILOT_GITHUB_TOKEN` | <https://github.com/settings/personal-access-tokens/new> | **não; explicit-only** |
+| `mistral` | Mistral AI | - | `MISTRAL_API_KEY` | <https://console.mistral.ai/api-keys/> | sim, quando configurado/modelo elegível e saudável |
+| `cohere` | Cohere | - | `COHERE_API_KEY` | <https://dashboard.cohere.com/api-keys> | sim, quando configurado/modelo elegível e saudável |
+| `kimi` | Kimi / Moonshot | `moonshot` | `MOONSHOT_API_KEY` | <https://platform.kimi.ai/console/api-keys> | sim, quando configurado/modelo elegível e saudável |
+| `copilot` | GitHub Copilot | `github-copilot` | `COPILOT_GITHUB_TOKEN` | <https://github.com/settings/personal-access-tokens/new> | sim, quando configurado/modelo elegível e saudável |
 
 `none` representa ausência deliberada de provider externo. `auto` representa a política de composição/orquestração e não um provider físico.
 
@@ -43,7 +43,7 @@ O provider registry responde **como** o RASAi integra uma IA:
 - endpoint configurável quando aplicável;
 - documentação/onboarding;
 - adapter/protocolo;
-- política explicit-only do provider quando necessária.
+- elegibilidade do provider no AUTO e sua configuração efetiva.
 
 O catálogo de modelos responde **qual modelo daquele provider pode ser usado**:
 
@@ -63,13 +63,13 @@ A integração inicial usa `POST https://api.mistral.ai/v1/chat/completions` com
 
 O provider não expõe `RASAI_MISTRAL_ENDPOINT` nesta etapa. O adapter fixa o endpoint global e `service_tier=standard_only` para manter o contexto comercial coerente com o pricing catalogado. O único modelo de fábrica inicialmente habilitado é `mistral-small-2603`.
 
-Mistral permanece `explicit_only=true` e `auto_eligible=false` até a conclusão da homologação humana de execução, telemetria/custo, structured output e evidence-bound. Sua presença não altera a semântica de `AI=auto`.
+Mistral está integrado e `auto_eligible=true`; quando `MISTRAL_API_KEY` e o modelo vigente estão configurados, participa de `AI=auto`, sujeito a exclusão explícita e saúde operacional.
 
 ## Cohere
 
 A integração inicial usa `POST https://api.cohere.com/v2/chat` com `COHERE_API_KEY` e o modelo `command-a-03-2025`. Structured Outputs são enviados em `response_format`; constraints que o wire Cohere não aceita são removidas apenas da projeção externa e continuam obrigatórias na validação local do RASAi.
 
-Não há `RASAI_COHERE_ENDPOINT` nem controle de reasoning nesta fase. Tools, documents, RAG e Rerank não fazem parte do adapter. Cohere permanece `explicit_only=true` e `auto_eligible=false` até smoke positivo de API/schema/usage/pricing/evidence-bound e decisão posterior específica sobre AUTO.
+Não há `RASAI_COHERE_ENDPOINT` nem controle de reasoning nesta fase. Tools, documents, RAG e Rerank não fazem parte do adapter. Cohere está `auto_eligible=true`; `RASAI_COHERE_COMMERCIAL_MODE=UNKNOWN` pode deixá-lo UNPRICED, sem removê-lo do AUTO.
 
 ## Kimi / Moonshot
 
@@ -77,7 +77,7 @@ A integração inicial usa `POST https://api.moonshot.ai/v1/chat/completions` co
 
 K3 usa Structured Output por `response_format.type=json_schema` com `strict=true`; o RASAi envia uma projeção wire conservadora e mantém a validação canônica/local integral. Reasoning aceita `LOW|HIGH|MAX`, com default público `LOW`. Não há `RASAI_KIMI_ENDPOINT`: endpoint China/regional alternativo, tools, web search, Formula, Responses API, multimodalidade e cache TTL 1h não fazem parte desta entrega.
 
-Kimi permanece `explicit_only=true` e `auto_eligible=false` até smoke real positivo de autenticação, schema, evidence-bound, usage/pricing e decisão posterior específica sobre AUTO.
+Kimi está `auto_eligible=true`; quando `MOONSHOT_API_KEY` e o modelo vigente estão configurados, participa do AUTO. Falhas futuras de quota/crédito/provider são tratadas como limitações/bugs funcionais sem reclassificar o provider como não homologado.
 
 ## GitHub Copilot
 
@@ -87,7 +87,7 @@ Para o RASAi local, a autenticação deliberada é `COPILOT_GITHUB_TOKEN`. O ada
 
 O token recomendado é um fine-grained PAT da conta pessoal com a permissão **Copilot Requests**. Prefixos aceitos pelo contrato atual: `github_pat_`, `gho_` e `ghu_`; classic PAT `ghp_` não é compatível com esse fluxo.
 
-O provider é `explicit_only=true`; o catálogo de fábrica mantém seu modelo `auto` com `auto_eligible=false`. Assim, a presença de uma credencial não autoriza consumo automático da assinatura pessoal.
+O provider está `explicit_only=false` e o modelo `auto` está `auto_eligible=true`. Portanto, `COPILOT_GITHUB_TOKEN` configurado autoriza sua participação no AUTO; use `RASAI_AI_AUTO_EXCLUDE=copilot` quando o operador quiser manter a credencial sem consumir a assinatura no roteamento automático.
 
 Instalação opcional:
 
@@ -112,9 +112,9 @@ Para cada provider tecnicamente integrado, `AI=auto`:
 9. tenta cada provider elegível no máximo uma vez por necessidade;
 10. aplica o mesmo circuit breaker/quarentena/fallback central durante a execução.
 
-Um modelo habilitado para seleção explícita, mas sem pricing vigente, continua tecnicamente selecionável quando permitido pelo catálogo. Ele **não participa do `AUTO` econômico**. O RASAi não inventa tarifa e não interpreta ausência de preço como custo zero.
+Um modelo habilitado e `auto_eligible=true` pode participar do AUTO mesmo sem pricing vigente. Nesse caso fica **UNPRICED**, é ordenado depois dos candidatos precificados e nunca é interpretado como custo zero.
 
-Providers explicit-only, atualmente Mistral, Cohere e Kimi durante a homologação inicial e GitHub Copilot, não entram no pool `AUTO` mesmo quando a credencial existe.
+Todos os providers de IA integrados no registry atual podem entrar no pool `AUTO` quando configurados, com modelo elegível e saudáveis. `RASAI_AI_AUTO_EXCLUDE` continua sendo a exclusão operacional explícita.
 
 A política de custo está em [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md) e o schema de preços em [AI_PRICING_CONFIGURATION.md](AI_PRICING_CONFIGURATION.md).
 
