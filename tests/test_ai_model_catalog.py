@@ -141,7 +141,7 @@ def test_factory_model_and_pricing_catalogs_are_aligned_for_auto() -> None:
     assert alignment.auto_unpriced == ("COPILOT/auto",)
     assert alignment.valid
     assert alignment.auto_eligible_models > 0
-    assert alignment.priced_models < alignment.auto_eligible_models
+    assert alignment.priced_models >= alignment.auto_eligible_models - len(alignment.auto_unpriced)
 
 
 def test_mimo_v25_models_expire_at_official_cutoff() -> None:
