@@ -1,6 +1,6 @@
 """GitHub Copilot SDK adapter for evidence-bound RASAi semantic analysis.
 
-The adapter is intentionally explicit-only. It requires a user-scoped GitHub token in
+The adapter requires a user-scoped GitHub token in
 ``COPILOT_GITHUB_TOKEN`` and disables fallback to locally logged-in credentials so an
 audit cannot silently consume a different Copilot subscription.
 """
@@ -133,7 +133,7 @@ class GitHubCopilotProvider(IsolatedStructuredSemanticProvider):
             "PROVIDER_DEFAULT",
             "PROVISIONAL-A-",
             "PROVISIONAL",
-            "explicit-only GitHub Copilot SDK qualification",
+            "GitHub Copilot SDK provider qualification",
         )
         self._last_attempt: ProviderAttempt | None = None
         self._last_attempts: tuple[ProviderAttempt, ...] = ()
