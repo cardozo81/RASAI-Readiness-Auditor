@@ -12,10 +12,10 @@ Os providers adicionais abaixo estão implementados e mantêm sua qualificação
 | `qwen` | Alibaba Cloud Model Studio / Qwen | `qwen3.8-flash` | OpenAI-compatible Chat Completions | `PROVISIONAL` | elegível se apto |
 | `gemini` | Google Gemini | `gemini-3.8-flash` | Gemini Interactions API | `PROVISIONAL` | elegível se apto |
 | `anthropic` / `claude` | Anthropic Claude | `claude-sonnet-5` | Messages API | `PROVISIONAL` | elegível se apto |
-| `mistral` | Mistral AI | `mistral-small-2603` | Chat Completions | `PROVISIONAL` | **não; explicit-only durante homologação** |
-| `cohere` | Cohere | `command-a-03-2025` | Chat V2 | `PROVISIONAL` | **não; explicit-only durante homologação** |
-| `kimi` / `moonshot` | Kimi / Moonshot | `kimi-k3` | Chat Completions | `PROVISIONAL` | **não; explicit-only durante homologação** |
-| `copilot` / `github-copilot` | GitHub Copilot | `auto` | GitHub Copilot SDK oficial | `PROVISIONAL` | **não; explicit-only** |
+| `mistral` | Mistral AI | `mistral-small-2603` | Chat Completions | `PROVISIONAL` | elegível quando configurado/apto |
+| `cohere` | Cohere | `command-a-03-2025` | Chat V2 | `PROVISIONAL` | elegível quando configurado/apto |
+| `kimi` / `moonshot` | Kimi / Moonshot | `kimi-k3` | Chat Completions | `PROVISIONAL` | elegível quando configurado/apto |
+| `copilot` / `github-copilot` | GitHub Copilot | `auto` | GitHub Copilot SDK oficial | `PROVISIONAL` | elegível quando configurado/apto |
 
 O contrato semântico exige o conjunto de regras previsto pela implementação, validação local de schema, proibição de `evidence_id` inventado e fail-closed em saída incompleta ou inválida.
 
@@ -35,7 +35,7 @@ A seleção é recalculada por necessidade de IA. Entre os candidatos ainda eleg
 
 A política econômica não troca silenciosamente para Batch/Flex/assíncrono e não altera quarentena, classificação de erro ou limiares de circuit breaker.
 
-Mistral, Cohere, Kimi e GitHub Copilot são `explicit-only` nesta entrega e não entram no pool AUTO mesmo quando suas credenciais estão configuradas. Para Mistral, a restrição permanece até homologação humana posterior; para Copilot, evita consumo involuntário da assinatura pessoal.
+Mistral, Cohere, Kimi e GitHub Copilot participam do pool AUTO quando configurados e aptos. Qualificação `PROVISIONAL` continua visível como governança, mas não bloqueia AUTO. Para evitar consumo automático de um provider configurado, use `RASAI_AI_AUTO_EXCLUDE`.
 
 Contratos completos: [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md) e [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md).
 
@@ -182,7 +182,7 @@ RASAI_MISTRAL_MODEL
 
 O adapter fixa `https://api.mistral.ai/v1/chat/completions` e `service_tier=standard_only`. Não existe `RASAI_MISTRAL_ENDPOINT` no contrato inicial. Structured Outputs usam JSON Schema no wire e continuam sujeitos à validação local integral do RASAi. Tools/search da Mistral não são habilitados nesta entrega.
 
-Mistral é `explicit_only=true` e `auto_eligible=false` até a homologação humana prevista para provider atual, Mistral e `AI=none`.
+Mistral é `explicit_only=false` e `auto_eligible=true`; limitações observadas por rate limit/quota são tratadas como condições operacionais e eventuais defeitos posteriores como bugs funcionais.
 
 ## Cohere
 
@@ -208,7 +208,7 @@ RASAI_COHERE_COMMERCIAL_MODE=UNKNOWN|TRIAL|PRODUCTION
 
 O adapter usa `https://api.cohere.com/v2/chat` e `response_format.type=json_object` com JSON Schema. `minItems`, `maxItems`, `uniqueItems`, `allOf`, `oneOf`, `not` e demais constraints incompatíveis são removidos somente da projeção enviada ao fornecedor; a validação canônica local continua integral.
 
-O contrato atual não envia `tools` nem `documents`, não ativa RAG/Rerank, não expõe endpoint override e não controla reasoning. Pricing exige modalidade comercial explícita: `UNKNOWN` é fail-closed, `TRIAL` usa custo monetário zero segundo a política oficial de trial e `PRODUCTION` usa a tarifa token-based pública. O adapter não infere o tipo da chave. Cohere é `explicit_only=true` e `auto_eligible=false`.
+O contrato atual não envia `tools` nem `documents`, não ativa RAG/Rerank, não expõe endpoint override e não controla reasoning. Pricing exige modalidade comercial explícita: `UNKNOWN` mantém o custo UNPRICED, `TRIAL` usa custo monetário zero segundo a política oficial de trial e `PRODUCTION` usa a tarifa token-based pública. O adapter não infere o tipo da chave. Cohere é `explicit_only=false` e `auto_eligible=true`.
 
 ## Kimi / Moonshot
 
@@ -234,7 +234,7 @@ RASAI_KIMI_REASONING_EFFORT=LOW|HIGH|MAX
 
 O adapter usa somente a plataforma internacional, `https://api.moonshot.ai/v1/chat/completions`. K3 sempre raciocina; o default RASAi é `LOW`. Structured Output usa `response_format.type=json_schema` com `strict=true`; a projeção no wire não substitui a validação local canônica.
 
-O contrato evidence-bound não envia tools, Formula, web search, documents nem `prompt_cache_options`. O cache implícito permanece no TTL 5m padrão; 1h não é exposto. Usage usa `prompt_tokens`, `prompt_tokens_details.cached_tokens`, `completion_tokens` e `total_tokens`; cache-write permanece dentro de `prompt_tokens` e não é somado novamente. Kimi é `explicit_only=true` e `auto_eligible=false`.
+O contrato evidence-bound não envia tools, Formula, web search, documents nem `prompt_cache_options`. O cache implícito permanece no TTL 5m padrão; 1h não é exposto. Usage usa `prompt_tokens`, `prompt_tokens_details.cached_tokens`, `completion_tokens` e `total_tokens`; cache-write permanece dentro de `prompt_tokens` e não é somado novamente. Kimi é `explicit_only=false` e `auto_eligible=true`.
 
 ## GitHub Copilot
 
@@ -259,13 +259,13 @@ O RASAi configura `use_logged_in_user=False`; portanto não usa silenciosamente 
 
 A sessão do SDK é criada sem tools e com política deny-by-default de permissões. O RASAi usa Copilot apenas para inferência evidence-bound, não para shell, edição de arquivos ou browser agentic.
 
-Copilot é `explicit_only=true` e `auto_eligible=false`. Selecionar `AI=auto` nunca deve consumir a assinatura Copilot.
+Copilot é `explicit_only=false` e `auto_eligible=true`. Com `COPILOT_GITHUB_TOKEN` configurado, pode ser consumido pelo AUTO; use `RASAI_AI_AUTO_EXCLUDE=copilot` para excluí-lo sem remover a credencial.
 
 ## Ausência de credencial
 
 Selecionar explicitamente um provider sem sua key/token resulta em `NOT_CONFIGURED`, zero chamada externa e zero custo daquela integração. Não existe fallback para credencial de outro provider.
 
-Em AUTO, ausência de credencial apenas impede a entrada daquele provider elegível no pool; os demais aptos continuam disponíveis. Mistral, Cohere, Kimi e Copilot continuam fora do AUTO nesta entrega independentemente da presença da credencial.
+Em AUTO, ausência de credencial apenas impede a entrada daquele provider no pool; os demais aptos continuam disponíveis. Todos os providers integrados atuais são elegíveis quando configurados, salvo exclusão explícita ou inelegibilidade operacional.
 
 ## Structured output e diferenças de wire
 
