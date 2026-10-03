@@ -171,6 +171,7 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
             ("Tokens de raciocínio", attempt.get("reasoning_tokens") or 0),
             ("Tokens totais", i._attempt_total_tokens(attempt)),
             ("Custo individual", cost_display),
+            *i._pricing_trace_rows(attempt),
             ("Roteamento / contingência", attempt.get("decision") or attempt.get("fallback_reason") or "-"),
             ("Fallback de", attempt.get("fallback_from_provider") or "-"),
             ("Erro", format_ai_attempt_diagnostic(attempt)),
