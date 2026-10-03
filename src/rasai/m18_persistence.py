@@ -12,7 +12,12 @@ import sqlite3
 import threading
 from typing import Any, Iterator
 
-from rasai.ai_cost_policy import PRICING_CATALOG
+from rasai.ai_cost_policy import (
+    PRICING_CATALOG,
+    effective_pricing_catalog,
+    resolve_native_usage_cost,
+)
+from rasai.ai_native_usage import NativeUsageComponent
 from rasai.m18_ai import ProviderAttempt
 from rasai.persistence import AuditWorkspace
 
@@ -258,6 +263,10 @@ class M18Persistence:
                     pricing_rule_id TEXT,
                     pricing_source_reference TEXT,
                     pricing_runtime_conditions TEXT NOT NULL DEFAULT '{}',
+                    surface TEXT,
+                    pricing_model TEXT,
+                    observed_cost REAL,
+                    observed_cost_currency TEXT,
                     request_message_summary TEXT NOT NULL,
                     request_payload_hash TEXT,
                     semantic_contract_version TEXT NOT NULL,
@@ -276,6 +285,32 @@ class M18Persistence:
                 CREATE INDEX IF NOT EXISTS idx_ai_attempts_provider
                     ON ai_provider_attempts(audit_id, provider, status);
 
+                CREATE TABLE IF NOT EXISTS ai_provider_native_usage (
+                    attempt_id TEXT NOT NULL REFERENCES ai_provider_attempts(attempt_id) ON DELETE CASCADE,
+                    component_index INTEGER NOT NULL,
+                    provider TEXT NOT NULL,
+                    surface TEXT,
+                    native_usage_unit TEXT NOT NULL,
+                    native_usage_quantity REAL NOT NULL,
+                    source_metric TEXT NOT NULL,
+                    component_type TEXT NOT NULL,
+                    billable INTEGER,
+                    observed_at TEXT,
+                    pricing_model TEXT,
+                    estimated_cost REAL,
+                    observed_cost REAL,
+                    cost_currency TEXT,
+                    pricing_version TEXT,
+                    pricing_context TEXT,
+                    pricing_rule_id TEXT,
+                    pricing_source_reference TEXT,
+                    pricing_runtime_conditions TEXT NOT NULL DEFAULT '{}',
+                    PRIMARY KEY(attempt_id, component_index)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_ai_native_usage_provider
+                    ON ai_provider_native_usage(provider, surface, native_usage_unit);
+
                 CREATE TABLE IF NOT EXISTS provider_pricing_catalog (
                     provider TEXT NOT NULL,
                     model TEXT NOT NULL,
@@ -290,6 +325,18 @@ class M18Persistence:
                     pricing_rule_id TEXT,
                     conditions_json TEXT NOT NULL DEFAULT '{}',
                     PRIMARY KEY(provider, model, pricing_version, pricing_context)
+                );
+
+                CREATE TABLE IF NOT EXISTS provider_native_pricing_catalog (
+                    provider TEXT NOT NULL,
+                    surface TEXT NOT NULL,
+                    native_usage_unit TEXT NOT NULL,
+                    pricing_model TEXT NOT NULL,
+                    currency TEXT,
+                    source_reference TEXT NOT NULL,
+                    pricing_version TEXT NOT NULL,
+                    policy_json TEXT NOT NULL,
+                    PRIMARY KEY(provider, surface, native_usage_unit, pricing_version)
                 );
                 """
             )
@@ -309,6 +356,10 @@ class M18Persistence:
                 ('pricing_rule_id', 'TEXT'),
                 ('pricing_source_reference', 'TEXT'),
                 ('pricing_runtime_conditions', "TEXT NOT NULL DEFAULT '{}'"),
+                ('surface', 'TEXT'),
+                ('pricing_model', 'TEXT'),
+                ('observed_cost', 'REAL'),
+                ('observed_cost_currency', 'TEXT'),
             ):
                 if column not in existing_attempt_columns:
                     self._connection.execute(f'ALTER TABLE ai_provider_attempts ADD COLUMN {column} {ddl}')
@@ -344,6 +395,46 @@ class M18Persistence:
                         item.pricing_version,
                         item.rule_id,
                         _dump(dict(item.conditions)),
+                    ),
+                )
+            catalog = effective_pricing_catalog()
+            for policy in catalog.native_usage:
+                policy_payload = {
+                    "provider": policy.provider,
+                    "surface": policy.surface,
+                    "unit": policy.unit,
+                    "pricing_model": policy.pricing_model,
+                    "currency": policy.currency,
+                    "source_reference": policy.source_reference,
+                    "rules": [
+                        {
+                            "rule_id": rule.rule_id,
+                            "context": rule.context,
+                            "priority": rule.priority,
+                            "effective_from": rule.effective_from,
+                            "effective_until": rule.effective_until,
+                            "unit_price": rule.unit_price,
+                            "conditions": dict(rule.conditions),
+                        }
+                        for rule in policy.rules
+                    ],
+                }
+                self._connection.execute(
+                    """
+                    INSERT OR REPLACE INTO provider_native_pricing_catalog (
+                        provider,surface,native_usage_unit,pricing_model,currency,
+                        source_reference,pricing_version,policy_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        policy.provider,
+                        policy.surface,
+                        policy.unit,
+                        policy.pricing_model,
+                        policy.currency,
+                        policy.source_reference,
+                        catalog.metadata.catalog_version,
+                        _dump(policy_payload),
                     ),
                 )
 
@@ -423,7 +514,8 @@ class M18Persistence:
             "retry_eligible", "retry_after_seconds", "decision", "fallback_from_provider", "fallback_reason",
             "input_tokens", "cached_input_tokens", "output_tokens", "reasoning_tokens", "total_tokens",
             "estimated_cost", "cost_currency", "pricing_version", "pricing_context", "pricing_rule_id",
-            "pricing_source_reference", "pricing_runtime_conditions", "request_message_summary", "request_payload_hash",
+            "pricing_source_reference", "pricing_runtime_conditions", "surface", "pricing_model",
+            "observed_cost", "observed_cost_currency", "request_message_summary", "request_payload_hash",
             "semantic_contract_version", "operation", "ai_task_id", "ai_round_id",
             "provider_qualification", "provider_reliability_score", "qualification_version",
         )
@@ -453,6 +545,10 @@ class M18Persistence:
             attempt.pricing_rule_id,
             attempt.pricing_source_reference,
             _dump(dict(attempt.pricing_runtime_conditions)),
+            attempt.surface,
+            attempt.pricing_model,
+            attempt.observed_cost,
+            attempt.observed_cost_currency,
             attempt.request_message_summary[:512],
             attempt.request_payload_hash,
             attempt.semantic_contract_version,
@@ -469,6 +565,62 @@ class M18Persistence:
                 f"INSERT INTO ai_provider_attempts ({','.join(columns)}) VALUES ({placeholders})",
                 values,
             )
+            native_components = tuple(usage.native_usage if usage else ())
+            catalog = effective_pricing_catalog()
+            runtime_conditions = dict(attempt.pricing_runtime_conditions)
+            for component_index, component in enumerate(native_components):
+                if not isinstance(component, NativeUsageComponent):
+                    raise TypeError("ProviderUsage.native_usage must contain NativeUsageComponent")
+                pricing = resolve_native_usage_cost(
+                    attempt.provider,
+                    str(attempt.surface or ""),
+                    (component,),
+                    attempt.finished_at,
+                    runtime_conditions=runtime_conditions or None,
+                )
+                policy = catalog.native_policy(
+                    attempt.provider,
+                    str(attempt.surface or ""),
+                    component.unit,
+                )
+                pricing_model = pricing.pricing_model or (
+                    policy.pricing_model if policy is not None else None
+                )
+                pricing_source = pricing.pricing_source_reference or (
+                    policy.source_reference if policy is not None else None
+                )
+                self._connection.execute(
+                    """
+                    INSERT INTO ai_provider_native_usage (
+                        attempt_id,component_index,provider,surface,native_usage_unit,
+                        native_usage_quantity,source_metric,component_type,billable,
+                        observed_at,pricing_model,estimated_cost,observed_cost,
+                        cost_currency,pricing_version,pricing_context,pricing_rule_id,
+                        pricing_source_reference,pricing_runtime_conditions
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        attempt_id,
+                        component_index,
+                        attempt.provider,
+                        attempt.surface,
+                        component.unit,
+                        component.quantity,
+                        component.source_metric,
+                        component.component_type,
+                        None if component.billable is None else (1 if component.billable else 0),
+                        component.observed_at.isoformat() if component.observed_at else None,
+                        pricing_model,
+                        pricing.estimated_cost,
+                        None,
+                        pricing.currency,
+                        pricing.pricing_version,
+                        pricing.pricing_context,
+                        pricing.pricing_rule_id,
+                        pricing_source,
+                        _dump(dict(pricing.runtime_conditions)),
+                    ),
+                )
 
     def list_attempts(self, audit_id: str) -> tuple[sqlite3.Row, ...]:
         return tuple(
