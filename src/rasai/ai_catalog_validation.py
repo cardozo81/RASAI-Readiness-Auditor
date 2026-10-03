@@ -20,7 +20,9 @@ class AiCatalogAlignment:
 
     @property
     def valid(self) -> bool:
-        return not self.pricing_orphans and not self.auto_unpriced
+        # AUTO accepts configured unpriced providers as deterministic fallback candidates.
+        # auto_unpriced remains observable governance metadata; it is not a catalog error.
+        return not self.pricing_orphans
 
 
 def validate_catalog_alignment(
