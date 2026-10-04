@@ -389,14 +389,50 @@ def _install_maybe_wrapper() -> None:
         evidence_snapshot = require_sealed_evidence(audit_id=audit_id, workspace=workspace)
         resources = _available_resources(workspace, audit_id)
 
-        # Preserve the original advisory behavior when there is no score-bound resource
-        # requirement. The call remains one atomic technical-remediation request.
+        # Advisory-only M24 is still one logical AI need. It therefore uses the
+        # same provider pool/cycle policy even though there are no score-bound
+        # RESOURCE:* requirements to accumulate.
         if not resources:
-            return current(
-                audit_id=audit_id,
-                workspace=workspace,
-                provider=provider,
-                diagnostics=diagnostics,
+            policy = getattr(provider, "_rasai_execution_policy", AiExecutionPolicy())
+            if not isinstance(policy, AiExecutionPolicy):
+                policy = AiExecutionPolicy()
+            sleeper = getattr(provider, "_rasai_cycle_sleeper", None)
+            last_result = None
+            winner = None
+
+            def advisory_candidates() -> tuple[Any, ...]:
+                return tuple(m24_ai._candidates(provider))
+
+            def advisory_invoke(
+                candidate: Any,
+                cycle: int,
+                call_index: int,
+            ) -> AiProviderInvocation:
+                nonlocal last_result, winner
+                result = current(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                    provider=candidate,
+                    diagnostics=diagnostics,
+                )
+                last_result = result
+                if result.state is ProviderState.AVAILABLE:
+                    winner = result
+                    return AiProviderInvocation(AiProviderOutcome.COMPLETE)
+                diagnostic = getattr(result, "diagnostic", None)
+                if diagnostic is not None:
+                    return invocation_from_diagnostic(diagnostic)
+                return AiProviderInvocation(AiProviderOutcome.NO_PROGRESS)
+
+            run_ai_need(
+                candidates=advisory_candidates,
+                invoke=advisory_invoke,
+                policy=policy,
+                sleeper=sleeper,
+            )
+            return winner or last_result or m24_ai.M24AiResult(
+                state=ProviderState.UNAVAILABLE,
+                reason="M24_AI_UNAVAILABLE",
             )
 
         requirements = tuple(_requirement(resource) for resource in resources)
