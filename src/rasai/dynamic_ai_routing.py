@@ -47,7 +47,6 @@ _TERMINAL_ERROR_CLASSES = frozenset({
     ProviderErrorClass.MODEL_ERROR.value,
     ProviderErrorClass.PERMISSION_ERROR.value,
 })
-_TERMINAL_HTTP_STATUS = frozenset({401, 403, 404, 410})
 _CONTEXT_FIELD_VALUES: dict[str, tuple[str, ...]] = {
     "risk_profile": ("standard", "ymyl"),
     "ymyl_category": ("none", "health-safety", "financial-security", "civic-societal", "other-significant-welfare"),
@@ -67,6 +66,8 @@ class ProviderExecutionHealth:
     successes: int = 0
     temporary_failures: int = 0
     terminal_failures: int = 0
+    degraded: bool = False
+    degradation_reason: str | None = None
     exclusion_reason: str | None = None
     last_error_class: str | None = None
     last_http_status: int | None = None
@@ -79,6 +80,8 @@ class ProviderExecutionHealth:
             "successes": self.successes,
             "temporary_failures": self.temporary_failures,
             "terminal_failures": self.terminal_failures,
+            "degraded": self.degraded,
+            "degradation_reason": self.degradation_reason,
             "exclusion_reason": self.exclusion_reason,
             "last_error_class": self.last_error_class,
             "last_http_status": self.last_http_status,
@@ -88,7 +91,7 @@ class ProviderExecutionHealth:
 
 
 class AiExecutionCoordinator:
-    """Eligibility, circuit breakers and same-execution usage learning for AUTO."""
+    """Execution-wide terminal quarantine and transient degradation/usage learning."""
 
     def __init__(self, provider_names: tuple[str, ...]) -> None:
         self.provider_names = tuple(dict.fromkeys(provider_names))
@@ -134,6 +137,11 @@ class AiExecutionCoordinator:
             health.outcomes.append(0)
             health.last_error_class = None
             health.last_http_status = None
+            health.degraded = sum(health.outcomes) >= FAILURES_TO_OPEN_CIRCUIT
+            health.degradation_reason = (
+                f"TRANSIENT_DEGRADED:{FAILURES_TO_OPEN_CIRCUIT}_FAILURES_IN_LAST_{ROLLING_WINDOW_SIZE}"
+                if health.degraded else None
+            )
             self.last_successful_provider = name
             if page_url:
                 self._successful_urls.setdefault(name, set()).add(page_url)
@@ -146,7 +154,7 @@ class AiExecutionCoordinator:
         health.last_error_class = error_class
         health.last_http_status = http_status
 
-        terminal = error_class in _TERMINAL_ERROR_CLASSES or http_status in _TERMINAL_HTTP_STATUS
+        terminal = error_class in _TERMINAL_ERROR_CLASSES
         if terminal:
             health.terminal_failures += 1
             health.eligible = False
@@ -154,9 +162,14 @@ class AiExecutionCoordinator:
             return
 
         health.temporary_failures += 1
-        if len(health.outcomes) >= FAILURES_TO_OPEN_CIRCUIT and sum(health.outcomes) >= FAILURES_TO_OPEN_CIRCUIT:
-            health.eligible = False
-            health.exclusion_reason = f"CIRCUIT_BREAKER:{FAILURES_TO_OPEN_CIRCUIT}_FAILURES_IN_LAST_{ROLLING_WINDOW_SIZE}"
+        health.degraded = (
+            len(health.outcomes) >= FAILURES_TO_OPEN_CIRCUIT
+            and sum(health.outcomes) >= FAILURES_TO_OPEN_CIRCUIT
+        )
+        health.degradation_reason = (
+            f"TRANSIENT_DEGRADED:{FAILURES_TO_OPEN_CIRCUIT}_FAILURES_IN_LAST_{ROLLING_WINDOW_SIZE}"
+            if health.degraded else None
+        )
 
     def _record_usage(self, scope: str, attempt: ProviderAttempt) -> None:
         usage = attempt.usage
@@ -383,7 +396,7 @@ class DynamicProviderRoutingSession:
             "successful_urls": self.coordinator.successful_urls(),
             "excluded_configurations": list(self.excluded_configurations),
             "routing_policy": {
-                "strategy": "COST_AWARE_WITH_CIRCUIT_BREAKER",
+                "strategy": "COST_AWARE_CANONICAL_CYCLES",
                 "same_need_provider_attempts": 1,
                 "failure_window": ROLLING_WINDOW_SIZE,
                 "failure_threshold": FAILURES_TO_OPEN_CIRCUIT,
