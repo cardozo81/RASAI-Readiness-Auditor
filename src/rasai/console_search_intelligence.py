@@ -22,7 +22,15 @@ from urllib.parse import urlsplit
 
 from rasai.console_artifacts import audit_workspace
 from rasai.console_m23 import State as BaseState
+from rasai.persistence import AuditWorkspace
 from rasai.search_intelligence.config import SerpRuntimeConfig, provider_key_env
+from rasai.search_intelligence.perplexity import (
+    API_KEY_ENV as PERPLEXITY_API_KEY_ENV,
+    MAX_QUERIES_PER_REQUEST as PERPLEXITY_MAX_QUERIES,
+    execute_perplexity_search,
+    humanized_perplexity_summary,
+    perplexity_configuration_status,
+)
 from rasai.search_intelligence.provider_catalog import serp_provider_registration
 from rasai.search_intelligence.runtime import (
     projected_http_request_ceiling,
@@ -50,6 +58,11 @@ class SearchConsoleState(BaseState):
     search_last_detail: str = ""
     search_last_report: str = ""
     search_last_duration_seconds: float | None = None
+    perplexity_queries: tuple[str, ...] = ()
+    perplexity_search_type: str = "web"
+    perplexity_last_status: str = "NOT_REQUESTED"
+    perplexity_last_detail: str = ""
+    perplexity_last_duration_seconds: float | None = None
 
 
 def parse_search_terms(raw: str) -> tuple[str, ...]:
