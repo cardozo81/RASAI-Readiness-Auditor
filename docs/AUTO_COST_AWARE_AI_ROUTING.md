@@ -120,7 +120,7 @@ estimated_cost =
   / 1_000_000
 ```
 
-Após a chamada, quando usage nativo é suficiente, o custo observado é calculado usando a mesma regra compatível com as condições efetivas e os tokens reportados. Se o adapter estiver em endpoint/tier/modalidade não reconhecido pelo catálogo, a tentativa permanece UNPRICED; não é custo zero.
+Após a chamada, quando o usage é suficiente, o boundary econômico calcula o **custo técnico derivado do usage** usando a mesma regra compatível com as condições efetivas e os tokens reportados. Esse valor é persistido em `estimated_cost`; `observed_cost` fica reservado a valor monetário efetivamente informado pelo provider. Se endpoint/tier/modalidade não corresponder ao catálogo, a tentativa permanece UNPRICED; não é custo zero.
 
 ## 4. Estruturas comerciais interpretadas pelo motor
 

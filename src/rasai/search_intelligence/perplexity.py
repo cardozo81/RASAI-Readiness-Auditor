@@ -22,7 +22,8 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
-from rasai.ai_cost_policy import PricingApplication, resolve_native_usage_cost
+from rasai.ai_cost_policy import PricingApplication
+from rasai.ai_economic_telemetry import price_native_usage
 from rasai.ai_native_usage import NativeUsageComponent, PERPLEXITY_SEARCH_REQUEST
 from rasai.m18_ai import (
     AttemptStatus,
@@ -685,7 +686,7 @@ def execute_perplexity_search(
             observed_at=finished_at,
         ),
     )
-    pricing = resolve_native_usage_cost(
+    pricing = price_native_usage(
         PROVIDER,
         SURFACE,
         native_usage,

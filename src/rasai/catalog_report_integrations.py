@@ -1,6 +1,7 @@
 """AI and external-integration telemetry, payload safety and cost projection."""
 from rasai.catalog_report_governance import *  # noqa: F401,F403
 from rasai.ai_native_usage import humanize_native_usage_unit
+from rasai.ai_economic_telemetry import aggregate_attempt_costs, attempt_monetary_cost, canonical_total_tokens
 from rasai.secret_safety import redact_value
 from rasai.time_contract import parse_timestamp
 
@@ -308,10 +309,9 @@ def _cost_forecast(database: Path, audit_id: str) -> dict[str,Any]:
 
 
 def _attempt_cost_value(attempt: Mapping[str,Any]) -> Any:
-    for key in ("observed_cost","estimated_cost","estimated_cost_usd"):
-        value=attempt.get(key)
-        if value not in (None,""):
-            return value
+    amount,_currency,_basis=attempt_monetary_cost(attempt)
+    if amount is not None:
+        return amount
     native = attempt.get("_native_usage")
     if isinstance(native, Sequence):
         priced = [
@@ -379,15 +379,8 @@ def _native_usage_summary(attempts: Sequence[Mapping[str,Any]]) -> tuple[str,int
 
 
 def _attempt_total_tokens(attempt: Mapping[str,Any]) -> int:
-    """Return canonical total tokens without double-counting reasoning tokens.
-
-    Provider accounting defines total as input + output. Reasoning tokens, when exposed,
-    are a subset of output tokens and therefore remain a diagnostic breakdown only.
-    """
-    persisted=attempt.get("total_tokens")
-    if persisted not in (None,""):
-        return int(persisted or 0)
-    return int(attempt.get("input_tokens") or 0)+int(attempt.get("output_tokens") or 0)
+    """Return canonical total tokens without double-counting reasoning tokens."""
+    return canonical_total_tokens(attempt) or 0
 
 
 def _pricing_trace_rows(attempt: Mapping[str,Any]) -> tuple[tuple[str,Any], ...]:

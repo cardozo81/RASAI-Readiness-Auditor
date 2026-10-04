@@ -260,7 +260,7 @@ def _catalog_fallback_estimate(
     if selection in {"none", "auto"}:
         return None
 
-    from rasai.ai_cost_policy import estimate_candidate_cost
+    from rasai.ai_economic_telemetry import forecast_candidate_cost
     from rasai.provider_registry import get_provider_registration
 
     registration = get_provider_registration(selection)
@@ -290,7 +290,7 @@ def _catalog_fallback_estimate(
     now = datetime.now(timezone.utc)
     for item in pending_ai_items:
         scope = scope_by_component.get(str(getattr(item, "component", "")).upper(), "SEMANTIC")
-        estimate = estimate_candidate_cost(provider, None, scope=scope, at=now)
+        estimate = forecast_candidate_cost(provider, None, scope=scope, at=now)
         if estimate.estimated_cost is None or not estimate.currency:
             return None
         if currency is None:

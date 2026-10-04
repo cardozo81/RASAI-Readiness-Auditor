@@ -23,6 +23,7 @@ from rasai.ai_resilience import (
     MAX_PROVIDER_ATTEMPTS_PER_CONTEXT,
 )
 from rasai.content_context import configured_content_analysis_context
+from rasai.ai_economic_telemetry import price_provider_usage
 from rasai.m18_ai import (
     AttemptStatus,
     ProviderAttempt,
@@ -35,7 +36,6 @@ from rasai.m18_ai import (
     _response_error,
     _usage_from_native,
     estimate_cost,
-    resolve_provider_cost,
     provider_session_snapshot,
 )
 from rasai.semantic import _extract_json_payload
@@ -395,7 +395,7 @@ class ContentRemediationProvider:
 
         finished_at = datetime.now(timezone.utc)
         duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
-        pricing = resolve_provider_cost(self, usage, finished_at)
+        pricing = price_provider_usage(self, usage, finished_at)
         self._last_attempt = ProviderAttempt(
             provider=self.name, model=self.model, reasoning_profile=self.reasoning_profile,
             provider_rank=self.policy.rank, attempt_index=1, snapshot_id=request.snapshot_id,
@@ -413,7 +413,7 @@ class ContentRemediationProvider:
 
     def _failure(self, request, started_at, started_perf, summary, payload_hash, diagnostic, status, *, usage=None):
         finished_at = datetime.now(timezone.utc)
-        pricing = resolve_provider_cost(self, usage, finished_at)
+        pricing = price_provider_usage(self, usage, finished_at)
         self._last_attempt = ProviderAttempt(
             provider=self.name, model=self.model, reasoning_profile=self.reasoning_profile,
             provider_rank=self.policy.rank, attempt_index=1, snapshot_id=request.snapshot_id,

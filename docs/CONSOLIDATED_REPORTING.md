@@ -629,9 +629,9 @@ No forecast pré-execução do especialista longitudinal, disponibilidade de tar
 - pricing parcial: `BAIXA`;
 - sem pricing utilizável: `NENHUMA`.
 
-`pricing_coverage` registra a fração de candidatos precificados e `confidence_basis` explica que tokens de entrada/saída continuam estimados antes da resposta real do provider. Isso não modifica preços nem custo observado.
+`pricing_coverage` registra a fração de candidatos precificados e `confidence_basis` explica que tokens de entrada/saída continuam estimados antes da resposta real do provider. Isso não modifica preços nem o custo técnico posteriormente derivado do usage.
 
-Quando existe forecast persistido, o HTML humano também expõe **Confiança da previsão**, **Cobertura de preços** e **Base da confiança**, ao lado de custo esperado/observado e desvio. Esses campos não ficam restritos ao manifest.
+Quando existe forecast persistido, o HTML humano expõe **Confiança da previsão**, **Cobertura de preços** e **Base da confiança** ao lado do forecast e do custo técnico contabilizado após as tentativas. O HTML não calcula um desvio pós-execução se esse outcome não foi persistido por um owner econômico comparável.
 
 ## Comparabilidade de configuração e linguagem da IA
 

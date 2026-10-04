@@ -308,9 +308,9 @@ Uma chamada externa pode ter sido concluída pelo provider e ainda assim ser rej
 
 A telemetria deve preservar essa distinção. Uma resposta rejeitada pelo contrato não deve ser rotulada genericamente como “provider indisponível” quando o provider de fato respondeu.
 
-Custos em `ai-integrations.html` são somados a partir de `estimated_cost` e `cost_currency` persistidos nas tentativas. Uma chamada sem usage retornado pelo provider não recebe custo observado inventado, mesmo que o billing externo possa posteriormente registrar cobrança. O ranking pré-chamada, porém, pode usar estimativas conservadoras para decidir qual candidato tentar primeiro.
+Custos em `ai-integrations.html` são projetados por moeda a partir da telemetria persistida. `estimated_cost` representa custo técnico derivado do usage; `observed_cost`, quando efetivamente fornecido pelo provider, tem precedência na projeção daquela tentativa. Uma chamada sem telemetria suficiente permanece UNPRICED, mesmo que o billing externo possa posteriormente registrar cobrança. O ranking pré-chamada pode usar estimativas conservadoras para ordenar candidatos.
 
-Quando o provider retorna usage faturável sem uma dimensão de cache separada, o RASAi só resolve custo observado se a regra vigente cobrar cached input e input normal pela mesma tarifa; caso contrário permanece UNPRICED. Para Cohere, a modalidade comercial também precisa estar explícita em `RASAI_COHERE_COMMERCIAL_MODE`; `UNKNOWN` nunca é convertido em TRIAL ou PRODUCTION por inferência.
+Quando o provider retorna usage faturável sem uma dimensão de cache separada, o RASAi só resolve custo técnico derivado do usage se a regra vigente cobrar cached input e input normal pela mesma tarifa; caso contrário permanece UNPRICED. Para Cohere, a modalidade comercial também precisa estar explícita em `RASAI_COHERE_COMMERCIAL_MODE`; `UNKNOWN` nunca é convertido em TRIAL ou PRODUCTION por inferência.
 
 Kimi K3 informa `usage.prompt_tokens` como input total e `usage.prompt_tokens_details.cached_tokens` como cache read; cache read, cache write e restante uncached são partições do mesmo total. Como o adapter fixa o TTL implícito 5m, cache write e cache miss usam a mesma tarifa de input. O RASAi não soma `cache_write_tokens` novamente e não expõe TTL 1h nesta fase.
 
@@ -420,7 +420,7 @@ A suíte deve cobrir no mínimo:
 - ausência de loop quando todos falham e respeito ao teto `max_cycles * providers_elegíveis`;
 - sanitização de segredos no exchange log;
 - truncamento/hash;
-- custo agregado derivado de telemetria persistida e ausência de custo observado inventado sem usage;
+- custo agregado por moeda derivado de telemetria persistida e ausência de custo/invoice inventado sem usage;
 - não persistência do contexto editorial transitório;
 - projeção de schema OpenAI sem alterar o validador local;
 - aceitação/transporte de `agentic-browsing` no PageSpeed v5 atual;

@@ -255,12 +255,22 @@ def _latest_m24_attempt(workspace: Any, audit_id: str) -> dict[str, Any] | None:
             return None
         columns = _columns(connection, "ai_provider_attempts")
         detail = ",error_detail" if "error_detail" in columns else ",NULL AS error_detail"
+        pricing_detail = "".join(
+            f",{name}" if name in columns else f",NULL AS {name}"
+            for name in (
+                "pricing_context",
+                "pricing_rule_id",
+                "pricing_source_reference",
+                "pricing_runtime_conditions",
+            )
+        )
         row = connection.execute(
             """SELECT provider,model,attempt_index,status,error_class,http_status,error_type,
                       error_code,semantic_contract_version,retry_eligible,decision,
                       fallback_from_provider,fallback_reason,input_tokens,cached_input_tokens,
                       output_tokens,reasoning_tokens,total_tokens,estimated_cost,cost_currency,
                       pricing_version,started_at,finished_at,duration_ms"""
+            + pricing_detail
             + detail
             + """ FROM ai_provider_attempts
                    WHERE audit_id=? AND semantic_contract_version LIKE 'M24%'
@@ -298,6 +308,10 @@ def reconcile_technical_ai_fulfillment(*, workspace: Any, audit_id: str, state: 
             "semantic_contract_version": attempt.get("semantic_contract_version"),
             "latest_provider_attempt": attempt.get("attempt_index"),
             "pricing_version": attempt.get("pricing_version"),
+            "pricing_context": attempt.get("pricing_context"),
+            "pricing_rule_id": attempt.get("pricing_rule_id"),
+            "pricing_source_reference": attempt.get("pricing_source_reference"),
+            "pricing_runtime_conditions": attempt.get("pricing_runtime_conditions"),
         },
     )
     if status == "SUCCESS" or str(state or "").upper() == "AVAILABLE":

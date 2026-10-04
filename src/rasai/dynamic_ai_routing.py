@@ -27,10 +27,9 @@ from rasai.ai_cost_policy import (
     CandidateCostEstimate,
     PRICING_REVIEW_RECOMMENDED_ON,
     PRICING_VERSION,
-    estimate_candidate_cost,
     pricing_review_due,
-    resolve_observed_cost,
 )
+from rasai.ai_economic_telemetry import forecast_candidate_cost, price_attempt_usage
 from rasai.ai_exchange_log import AiExchangeRecorder, instrument_provider_transport
 from rasai.content_context import ContentAnalysisContext
 from rasai.m18_ai import (
@@ -285,7 +284,7 @@ class DynamicProviderRoutingSession:
         pairs: list[tuple[Any, CandidateCostEstimate]] = []
         for item in candidates:
             hint = self.coordinator.usage_hint(scope, str(item.name))
-            estimate = estimate_candidate_cost(
+            estimate = forecast_candidate_cost(
                 item,
                 request,
                 scope=scope,
@@ -745,14 +744,7 @@ def _reactivate(provider: Any) -> None:
 
 
 def _price_auto_attempt(attempt: ProviderAttempt) -> ProviderAttempt:
-    application = resolve_observed_cost(
-        attempt.provider,
-        attempt.model or "",
-        attempt.usage,
-        attempt.finished_at,
-        runtime_conditions=dict(attempt.pricing_runtime_conditions),
-        surface=attempt.surface,
-    )
+    application = price_attempt_usage(attempt)
     # AUTO repricing is telemetry/ranking, never an admission gate. Preserve the
     # canonical pricing result exactly, including an explicit UNPRICED outcome and
     # native pricing provenance, instead of retaining a stale pre-routing amount.

@@ -15,7 +15,8 @@ from statistics import median
 from typing import Any, Iterable, Mapping
 
 from rasai.audit_execution_contract import normalize_audit_job_payload
-from rasai.m18_ai import ProviderUsage, estimate_cost
+from rasai.ai_economic_telemetry import price_usage
+from rasai.m18_ai import ProviderUsage
 from rasai.provider_registry import get_provider_registration
 
 _SUCCESS = {"SUCCESS", "SUCCEEDED", "COMPLETED", "PASS"}
@@ -178,15 +179,15 @@ def _current_cost(row: Mapping[str, Any]) -> tuple[float | None, str | None, boo
             _integer(_value(row, "total_tokens")),
         )
         runtime_conditions = _pricing_runtime_conditions_from_mapping(row)
-        amount, currency, _ = estimate_cost(
+        application = price_usage(
             provider,
             model,
             usage,
             datetime.now(timezone.utc),
             runtime_conditions=runtime_conditions or None,
         )
-        if amount is not None and currency:
-            return float(amount), str(currency), True
+        if application.estimated_cost is not None and application.currency:
+            return float(application.estimated_cost), str(application.currency), True
     amount = _number(_value(row, "estimated_cost"))
     currency = str(_value(row, "cost_currency") or "").strip() or None
     return (amount, currency, False) if amount is not None and currency else (None, currency, False)
@@ -396,15 +397,15 @@ def _group_cost(group: Mapping[str, Any]) -> tuple[float | None, str | None, boo
             _integer(group.get("total_tokens")),
         )
         runtime_conditions = _pricing_runtime_conditions_from_mapping(dimensions)
-        amount, currency, _ = estimate_cost(
+        application = price_usage(
             provider,
             model,
             usage,
             datetime.now(timezone.utc),
             runtime_conditions=runtime_conditions or None,
         )
-        if amount is not None and currency:
-            return float(amount), str(currency), True
+        if application.estimated_cost is not None and application.currency:
+            return float(application.estimated_cost), str(application.currency), True
     costs = dict(group.get("cost_by_currency") or {})
     if len(costs) == 1:
         currency, amount = next(iter(costs.items()))

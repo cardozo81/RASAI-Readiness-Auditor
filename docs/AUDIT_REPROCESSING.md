@@ -360,11 +360,11 @@ Quando o work-item está pendente, a análise pode ser repetida sobre a evidênc
 
 ### Custo, pricing e tentativas opcionais
 
-O reprocessamento não recalcula o custo observado de tentativas históricas. Cada chamada já realizada conserva os tokens, custo estimado e versão de pricing que foram persistidos na execução correspondente.
+O reprocessamento não reprecifica nem recalcula o custo técnico persistido de tentativas históricas. Cada chamada já realizada conserva tokens, `estimated_cost`, eventual `observed_cost`, moeda e versão/condições de pricing da execução correspondente.
 
 Uma nova tentativa feita por um `RPR-*` usa o mesmo motor vigente de pricing e telemetria usado por uma execução normal. O custo adicional aparece como nova tentativa; ele não sobrescreve nem reprecifica a tentativa anterior.
 
-Antes de um `RPR-*`, o console separa IA diretamente pendente de IA potencialmente invalidável por mudança de evidência. Para trabalho de IA já conhecido, pode projetar estimativa monetária seletiva a partir do histórico comparável e do catálogo vigente. Para pendências sem IA que possam modificar evidência, informa IA condicional e não garante custo zero antes da recuperação. Essa projeção é independente do custo observado e pode ser declarada não estimável quando a base histórica ou o próprio conjunto futuro de chamadas ainda não estiver determinado.
+Antes de um `RPR-*`, o console separa IA diretamente pendente de IA potencialmente invalidável por mudança de evidência. Para trabalho de IA já conhecido, pode projetar estimativa monetária seletiva a partir do histórico comparável e do catálogo vigente. Para pendências sem IA que possam modificar evidência, informa IA condicional e não garante custo zero antes da recuperação. Essa projeção é independente do custo técnico já persistido e de eventual `observed_cost` do provider, e pode ser declarada não estimável quando a base histórica ou o conjunto futuro de chamadas ainda não estiver determinado.
 
 ## Evidência core e integridade
 

@@ -68,7 +68,7 @@ Quando IA é solicitada, ao final da geração o console deve exibir o consumo d
 
 O HTML também contém esse detalhamento na seção de IA. Valores são estimativas técnicas baseadas na telemetria retornada e no catálogo de preços do RASAi; não são invoice/fatura do provedor.
 
-Quando houver forecast persistido, a seção humana mostra também **Confiança da previsão**, **Cobertura de preços** e **Base da confiança**. A finalidade é tornar o desvio entre custo previsto e observado interpretável sem exigir leitura do JSON.
+Quando houver forecast persistido, a seção humana mostra também **Confiança da previsão**, **Cobertura de preços** e **Base da confiança**. O forecast pré-execução e o custo técnico contabilizado após as tentativas são exibidos como conceitos separados; o renderer não inventa um outcome/desvio pós-execução quando ele não foi persistido.
 
 No forecast pré-execução do especialista longitudinal, **cobertura de preço não equivale a alta confiança financeira**. Mesmo quando todos os providers/modelos possuem tarifa conhecida e moeda compatível, o volume de tokens - em especial a saída - ainda é estimado. Por isso cobertura integral de pricing, isoladamente, produz confiança no máximo **MÉDIA**. Cobertura parcial produz **BAIXA** e ausência de preço produz **NENHUMA**. O campo `pricing_coverage` registra a cobertura objetiva e `confidence_basis` explica a incerteza; nenhuma dessas mudanças altera a aritmética de custo.
 
@@ -87,7 +87,7 @@ Quando há IA potencial e o forecast histórico ainda não consegue calcular um 
 
 O console não inventa quantidade de tokens antes de conhecer o conteúdo real. Portanto, sem histórico comparável, não exibe um total financeiro falso. O usuário precisa confirmar explicitamente a exposição antes da execução.
 
-Após a auditoria, permanece o relatório de consumo real persistido já existente no fluxo: tentativas, tokens, custo técnico estimado e chamadas externas. Quando existir forecast histórico monetário, a aderência entre estimativa e custo observado continua sendo exibida normalmente.
+Após a auditoria, permanece o relatório de consumo persistido já existente no fluxo: tentativas, tokens, custo técnico derivado do usage e chamadas externas. Quando existir um outcome pós-execução persistido e monetariamente comparável, a aderência ao forecast pode ser exibida; o consolidado não reconstrói esse desvio por conta própria.
 
 ## Testes mínimos
 

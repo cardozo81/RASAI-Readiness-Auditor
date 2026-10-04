@@ -277,10 +277,11 @@ def _attempt(
     snapshot_id: str | None = None,
     decision: str | None = None,
 ):
-    from rasai.m18_ai import ProviderAttempt, resolve_provider_cost
+    from rasai.ai_economic_telemetry import price_provider_usage
+    from rasai.m18_ai import ProviderAttempt
 
     finished = datetime.now(timezone.utc)
-    pricing = resolve_provider_cost(provider, usage, finished)
+    pricing = price_provider_usage(provider, usage, finished)
     return ProviderAttempt(
         provider=str(provider.name),
         model=str(provider.model),

@@ -17,6 +17,7 @@ import sqlite3
 from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 
+from rasai.ai_economic_telemetry import aggregate_attempt_costs, canonical_total_tokens
 from rasai.configuration_value_labels import configuration_value_report
 from rasai.catalog_report_public_labels import public_label
 from rasai.source_state import SourceState
@@ -1351,8 +1352,12 @@ def _competitive_html(database: Path, data: Any) -> str:
                     else "Não - ordem temporal inconsistente" if sealed_dt is not None and round_dt is not None
                     else "Não determinável"
                 )
-                total_cost=sum(float(r.get("estimated_cost") or 0) for r in attempts)
-                total_tokens=sum(int(r.get("total_tokens") or 0) for r in attempts)
+                monetary=aggregate_attempt_costs(attempts)
+                total_tokens=sum(canonical_total_tokens(r) or 0 for r in attempts)
+                cost_text=(
+                    " | ".join(f"{currency} {amount:.8f}" for currency,amount in monetary.totals)
+                    if monetary.totals else "Não materializado"
+                )
                 body+="<h3>Governança da IA competitiva</h3>"+page._kv((
                     ("Purpose",task.get("purpose") or "-"),
                     ("Scope",f"{task.get('scope_type') or '-'} / {task.get('scope_key') or '-'}"),
@@ -1364,8 +1369,8 @@ def _competitive_html(database: Path, data: Any) -> str:
                     ("Estado da task",page._status_label(task.get("status"))),
                     ("Rounds persistidos",len(rounds)),
                     ("Tentativas de provider",len(attempts)),
-                    ("Tokens persistidos",total_tokens),
-                    ("Custo observado",f"{attempts[0].get('cost_currency') or 'USD'} {total_cost:.8f}" if attempts else "Não materializado"),
+                    ("Tokens contabilizados",total_tokens),
+                    ("Custo técnico estimado",cost_text),
                 ))
                 round_rows=[(
                     r.get("round_index"),

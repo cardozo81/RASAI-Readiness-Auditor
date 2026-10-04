@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from decimal import Decimal
 import json
 from pathlib import Path
 import sqlite3
@@ -84,11 +83,11 @@ def test_final_web_metric_rows_accepts_shared_connection(tmp_path: Path) -> None
 
 def test_ai_totals_use_one_canonical_aggregation_without_reasoning_double_count() -> None:
     attempts = [
-        {"status": "SUCCESS", "input_tokens": 11493, "output_tokens": 3974, "reasoning_tokens": 0, "total_tokens": 15467, "estimated_cost": "0.00706740"},
-        {"status": "SUCCESS", "input_tokens": 2256, "output_tokens": 701, "reasoning_tokens": 0, "total_tokens": 2957, "estimated_cost": "0.00129240"},
-        {"status": "SUCCESS", "input_tokens": 4225, "output_tokens": 1370, "reasoning_tokens": 0, "total_tokens": 5595, "estimated_cost": "0.00248900"},
-        {"status": "CONTRACT_ERROR", "input_tokens": 25553, "output_tokens": 5180, "reasoning_tokens": 516, "total_tokens": 30733, "estimated_cost": "0.01132660"},
-        {"status": "SUCCESS", "input_tokens": 27976, "output_tokens": 17165, "reasoning_tokens": 5565, "total_tokens": 45141, "estimated_cost": "0.05245086"},
+        {"status": "SUCCESS", "input_tokens": 11493, "output_tokens": 3974, "reasoning_tokens": 0, "total_tokens": 15467, "estimated_cost": "0.00706740", "cost_currency": "USD"},
+        {"status": "SUCCESS", "input_tokens": 2256, "output_tokens": 701, "reasoning_tokens": 0, "total_tokens": 2957, "estimated_cost": "0.00129240", "cost_currency": "USD"},
+        {"status": "SUCCESS", "input_tokens": 4225, "output_tokens": 1370, "reasoning_tokens": 0, "total_tokens": 5595, "estimated_cost": "0.00248900", "cost_currency": "USD"},
+        {"status": "CONTRACT_ERROR", "input_tokens": 25553, "output_tokens": 5180, "reasoning_tokens": 516, "total_tokens": 30733, "estimated_cost": "0.01132660", "cost_currency": "USD"},
+        {"status": "SUCCESS", "input_tokens": 27976, "output_tokens": 17165, "reasoning_tokens": 5565, "total_tokens": 45141, "estimated_cost": "0.05245086", "cost_currency": "USD"},
     ]
     totals = _ai_totals(attempts)
     assert totals["attempts"] == 5
@@ -97,7 +96,8 @@ def test_ai_totals_use_one_canonical_aggregation_without_reasoning_double_count(
     assert totals["output"] == 28390
     assert totals["reasoning"] == 6081
     assert totals["total"] == 99893
-    assert totals["cost"] == Decimal("0.07462626")
+    assert totals["costs"] == (("USD", 0.07462626),)
+    assert totals["unpriced"] == 0
 
 
 def test_ai_usage_extract_explains_real_input_counts() -> None:

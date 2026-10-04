@@ -12,6 +12,8 @@ import sqlite3
 from typing import Any, Mapping
 from urllib.parse import urlsplit
 
+from rasai.ai_economic_telemetry import canonical_total_tokens
+
 
 def _table_exists(connection: sqlite3.Connection, table: str) -> bool:
     row = connection.execute(
@@ -75,7 +77,7 @@ def _metadata(
         "cached_input_tokens": row.get("cached_input_tokens"),
         "output_tokens": row.get("output_tokens"),
         "reasoning_tokens": row.get("reasoning_tokens"),
-        "total_tokens": row.get("total_tokens"),
+        "total_tokens": canonical_total_tokens(row),
         "decision": row.get("decision"),
         "retry": bool(row.get("retry_eligible")) and str(row.get("decision") or "").upper() == "RETRY",
         "fallback_from_provider": row.get("fallback_from_provider"),
