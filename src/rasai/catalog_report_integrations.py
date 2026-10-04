@@ -36,6 +36,11 @@ _AI_USAGE_DETAILS: dict[str, tuple[str,str,str]] = {
         "Contexto estratégico estruturado derivado exclusivamente de catálogos, findings, métricas, recomendações, evidências, remediações e limitações já persistidos nesta auditoria.",
         "Correlacionar ações existentes, impactos multidimensionais, esforço, confiança, dependências, ordem e validação. A IA não cria fatos técnicos, ações, evidências ou links de catálogo.",
     ),
+    "RASAI-PERPLEXITY-SEARCH-1": (
+        "CAT-05 · Pesquisa externa / Search Intelligence",
+        "Queries e fontes retornadas pela Perplexity Search API com provenance externa explícita.",
+        "Descobrir fontes externas e preservar citações/metadata. Esta pesquisa é advisory, não substitui SERP observada, não vira evidência determinística e não altera scoring.",
+    ),
 }
 
 
