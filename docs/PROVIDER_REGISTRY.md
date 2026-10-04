@@ -30,7 +30,7 @@ Referência operacional de cadastro/login e geração de credenciais: [PROVIDER_
 
 `none` representa ausência deliberada de provider externo. `auto` representa a política de composição/orquestração e não um provider físico.
 
-Na **seleção explícita** de um provider, pricing nunca é requisito para permitir a chamada. Credencial, modelo/configuração e saúde operacional continuam válidos; se o custo não puder ser resolvido, a tentativa é executável e registrada como `UNPRICED`. Pricing é telemetria e, no `AUTO`, critério de ordenação — não autorização de execução.
+Na **seleção explícita** de um provider, pricing nunca é requisito para permitir a chamada. Credencial, modelo/configuração e saúde operacional continuam válidos; se o custo não puder ser resolvido, a tentativa é executável e registrada como `UNPRICED`. Pricing é telemetria e, no `AUTO`, critério de ordenação; não é autorização de execução.
 
 ## Regra de escopo de capabilities externas
 
