@@ -19,6 +19,7 @@ on:
       - 'src/rasai/source_quality_ai.py'
       - 'src/rasai/directed_analysis.py'
       - 'src/rasai/ai_orchestration_unification.py'
+      - 'src/rasai/accepted_audit_refinements.py'
       - 'src/rasai/consolidation/specialist.py'
       - 'src/rasai/reprocess_ai.py'
       - 'src/rasai/reprocess_policy.py'
@@ -73,6 +74,7 @@ jobs:
             src/rasai/source_quality_ai.py \
             src/rasai/directed_analysis.py \
             src/rasai/ai_orchestration_unification.py \
+            src/rasai/accepted_audit_refinements.py \
             src/rasai/consolidation/specialist.py \
             src/rasai/reprocess_ai.py \
             src/rasai/reprocess_policy.py \
@@ -90,6 +92,7 @@ jobs:
           tests/test_ai_orchestration_190_characterization.py
           tests/test_ai_runtime_orchestration.py
           tests/test_ai_retry_fallback_observability.py
+          tests/test_accepted_audit_refinements.py
           tests/test_provider_extensions.py
           tests/test_m18_multi_ai_provider.py
 
