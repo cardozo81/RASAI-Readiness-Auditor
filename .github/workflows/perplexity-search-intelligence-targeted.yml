@@ -89,3 +89,64 @@ jobs:
             tests/test_ai_native_usage_pricing.py \
             tests/test_ai_cost_policy.py \
             tests/test_m9_scoring.py
+      - name: Optional real Perplexity FAST smoke when secret is available
+        env:
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sqlite3
+          import tempfile
+          from pathlib import Path
+
+          from rasai.persistence import AuditWorkspace
+          from rasai.search_intelligence.perplexity import execute_perplexity_search
+
+          if not os.environ.get("PERPLEXITY_API_KEY", "").strip():
+              print("PERPLEXITY_REAL_SMOKE=SKIPPED_NO_SECRET")
+              raise SystemExit(0)
+
+          with tempfile.TemporaryDirectory() as temp:
+              root = Path(temp) / "AUD-PERPLEXITY-SMOKE"
+              root.mkdir()
+              (root / "artifacts").mkdir()
+              database = root / "audit.db"
+              connection = sqlite3.connect(database)
+              try:
+                  connection.executescript(
+                      """
+                      PRAGMA foreign_keys=ON;
+                      CREATE TABLE audits(audit_id TEXT PRIMARY KEY);
+                      CREATE TABLE pages(page_id TEXT PRIMARY KEY,audit_id TEXT);
+                      CREATE TABLE page_snapshots(snapshot_id TEXT PRIMARY KEY,page_id TEXT);
+                      INSERT INTO audits(audit_id) VALUES ('AUD-PERPLEXITY-SMOKE');
+                      """
+                  )
+                  connection.commit()
+              finally:
+                  connection.close()
+
+              run = execute_perplexity_search(
+                  AuditWorkspace.open(root),
+                  audit_id="AUD-PERPLEXITY-SMOKE",
+                  query="RASAi Search and AI readiness",
+                  search_type="fast",
+                  max_results=1,
+                  timeout_seconds=15.0,
+              )
+              print(
+                  "PERPLEXITY_REAL_SMOKE="
+                  + json.dumps(
+                      {
+                          "status": run.status,
+                          "http_status": run.http_status,
+                          "sources": len(run.sources),
+                          "estimated_cost": run.pricing.estimated_cost,
+                          "pricing_context": run.pricing.pricing_context,
+                          "attempt_persisted": bool(run.attempt_id),
+                      },
+                      sort_keys=True,
+                  )
+              )
+          PY
