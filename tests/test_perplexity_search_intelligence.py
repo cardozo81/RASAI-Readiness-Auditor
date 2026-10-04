@@ -304,10 +304,11 @@ def test_missing_key_is_persisted_as_not_configured_without_fake_request(tmp_pat
     assert run.status == "NOT_CONFIGURED"
     assert run.native_usage == ()
     assert run.attempt_id is None
-    assert _db_rows(
+    tables = _db_rows(
         workspace,
-        "SELECT * FROM ai_provider_attempts WHERE provider='PERPLEXITY'",
-    ) == []
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='ai_provider_attempts'",
+    )
+    assert tables == []
     rows = _db_rows(workspace, "SELECT * FROM perplexity_search_runs")
     assert rows[0]["status"] == "NOT_CONFIGURED"
     assert rows[0]["native_usage_quantity"] is None
