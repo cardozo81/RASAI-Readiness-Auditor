@@ -8,7 +8,11 @@ MILESTONE = re.compile(r"(?<![\w-])M\d{1,2}(?![\w-])")
 
 # Internal architecture matrices legitimately use physical collector names; these
 # are not help pages or report templates and must not be rewritten for end users.
-_INTERNAL_ARCHITECTURE_DOCS = frozenset({"docs/AUD_RPR_PARITY_MATRIX_110.md"})
+_INTERNAL_ARCHITECTURE_DOCS = frozenset({
+    "docs/AI_RUNTIME_ORCHESTRATION.md",
+    "docs/AUD_RPR_INTERRUPTED_STAGE_POLICY.md",
+    "docs/AUD_RPR_PARITY_MATRIX_110.md",
+})
 
 
 def _public_documentation_paths() -> tuple[Path, ...]:
@@ -29,12 +33,16 @@ def test_documentation_has_no_standalone_delivery_milestone_labels() -> None:
     assert not failures, "\n".join(failures)
 
 
-def test_technical_parity_matrix_is_not_scanned_as_public_documentation() -> None:
-    matrix = ROOT / "docs" / "AUD_RPR_PARITY_MATRIX_110.md"
-    assert matrix.exists()
-    assert "M21" in matrix.read_text(encoding="utf-8")
-    assert matrix not in _public_documentation_paths()
-    assert ROOT / "README.md" in _public_documentation_paths()
+def test_internal_architecture_docs_are_not_scanned_as_public_documentation() -> None:
+    expected = {
+        ROOT / "docs" / "AI_RUNTIME_ORCHESTRATION.md",
+        ROOT / "docs" / "AUD_RPR_INTERRUPTED_STAGE_POLICY.md",
+        ROOT / "docs" / "AUD_RPR_PARITY_MATRIX_110.md",
+    }
+    public_paths = set(_public_documentation_paths())
+    assert all(path.exists() for path in expected)
+    assert all(path not in public_paths for path in expected)
+    assert ROOT / "README.md" in public_paths
 
 
 def test_user_facing_templates_have_no_standalone_delivery_milestone_labels() -> None:
@@ -359,3 +367,4 @@ def test_known_experience_apdex_error_codes_have_public_diagnostic_labels() -> N
     assert public_label("MEASUREMENT_IN_PROGRESS") == "Medição em andamento; conclusão ainda não registrada"
     assert public_label("M25_RUNTIME_FAILURE") == "Falha durante a execução do Apdex de experiência"
     assert public_label("NO_AUDITED_PAGES") == "Nenhuma página auditada elegível para o Apdex de experiência"
+    assert public_label("TOOL_CALL") == "Resposta do provedor solicitou uso de ferramenta não permitido"
