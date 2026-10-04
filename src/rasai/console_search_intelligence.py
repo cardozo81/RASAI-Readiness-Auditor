@@ -300,6 +300,142 @@ def configure_search_intelligence(state: SearchConsoleState) -> None:
         state.error = f"Search Intelligence: {exc}"
 
 
+def configure_perplexity_search(state: SearchConsoleState) -> None:
+    """Collect execution-scoped Perplexity external-research input."""
+
+    status = perplexity_configuration_status()
+    key_state = "[SET]" if status["configured"] else "<não definida>"
+    print("\nSEARCH INTELLIGENCE / PERPLEXITY")
+    print(
+        "Esta superfície é pesquisa externa com provenance própria; não substitui SERP "
+        "observada e não altera scoring, SARI, CATs ou evidência determinística."
+    )
+    print(
+        f"Provider: Perplexity | surface=SEARCH_API | "
+        f"{PERPLEXITY_API_KEY_ENV}={key_state}"
+    )
+    print(
+        f"Limite desta integração: até {PERPLEXITY_MAX_QUERIES} queries por request; "
+        "WEB e FAST usam a mesma estrutura de resposta."
+    )
+
+    try:
+        enabled = _yes_no(
+            "Executar pesquisa externa Perplexity após a auditoria?",
+            bool(state.perplexity_queries),
+        )
+        if not enabled:
+            state.perplexity_queries = ()
+            state.perplexity_last_status = "NOT_REQUESTED"
+            state.perplexity_last_detail = ""
+            state.perplexity_last_duration_seconds = None
+            state.error = ""
+            return
+
+        current = "; ".join(state.perplexity_queries)
+        raw = input(
+            "Query(s) Perplexity; separe múltiplas por ';'"
+            + (f" [{current}]" if current else "")
+            + ": "
+        ).strip()
+        queries = parse_search_terms(raw) if raw else state.perplexity_queries
+        if not queries:
+            raise ValueError("informe pelo menos uma query Perplexity")
+        if len(queries) > PERPLEXITY_MAX_QUERIES:
+            raise ValueError(
+                f"a Search API aceita no máximo {PERPLEXITY_MAX_QUERIES} queries por request"
+            )
+        state.perplexity_queries = queries
+
+        current_type = (
+            state.perplexity_search_type
+            if state.perplexity_search_type in {"web", "fast"}
+            else "web"
+        )
+        raw_type = input(
+            f"Tipo de busca Perplexity [web/fast] [{current_type}]: "
+        ).strip().casefold()
+        search_type = current_type if not raw_type else raw_type
+        if search_type not in {"web", "fast"}:
+            raise ValueError("tipo Perplexity deve ser web ou fast")
+        state.perplexity_search_type = search_type
+        state.perplexity_last_status = "PENDING"
+        state.perplexity_last_detail = (
+            f"{len(queries)} query(s); Search API {search_type.upper()}; "
+            + ("credencial configurada" if status["configured"] else "credencial não configurada")
+        )
+        state.error = ""
+    except (TypeError, ValueError) as exc:
+        state.error = f"Perplexity Search Intelligence: {exc}"
+
+
+def validate_perplexity_readiness(
+    state: object, env: Mapping[str, str] | None = None
+) -> tuple[bool, str]:
+    queries = tuple(getattr(state, "perplexity_queries", ()) or ())
+    if not queries:
+        return True, "Perplexity não solicitada nesta execução"
+    if len(queries) > PERPLEXITY_MAX_QUERIES:
+        return False, f"Perplexity excede {PERPLEXITY_MAX_QUERIES} queries por request"
+    search_type = str(getattr(state, "perplexity_search_type", "web") or "web").casefold()
+    if search_type not in {"web", "fast"}:
+        return False, "Perplexity search_type inválido"
+    configured = perplexity_configuration_status(env)["configured"]
+    suffix = "configurada" if configured else "não configurada; execução será contida como limitação externa"
+    return True, (
+        f"Perplexity Search API: {len(queries)} query(s), {search_type.upper()}, {suffix}"
+    )
+
+
+def execute_perplexity_for_audit(
+    state: SearchConsoleState,
+    *,
+    runner: Callable[..., object] | None = None,
+) -> int:
+    """Run isolated external research after the deterministic audit; always fail open."""
+
+    queries = tuple(getattr(state, "perplexity_queries", ()) or ())
+    if not queries:
+        return 0
+    workspace_path = audit_workspace(state)
+    if workspace_path is None:
+        state.perplexity_last_status = "UNAVAILABLE"
+        state.perplexity_last_detail = "workspace AUD da sessão não encontrado"
+        return 1
+
+    audit_id = str(getattr(state, "audit_id", "") or "").strip()
+    if not audit_id:
+        state.perplexity_last_status = "UNAVAILABLE"
+        state.perplexity_last_detail = "audit_id da sessão não encontrado"
+        return 1
+
+    effective_runner = execute_perplexity_search if runner is None else runner
+    started = time.monotonic()
+    try:
+        result = effective_runner(
+            AuditWorkspace.open(workspace_path),
+            audit_id=audit_id,
+            query=queries,
+            search_type=str(getattr(state, "perplexity_search_type", "web") or "web"),
+        )
+        summary = humanized_perplexity_summary(result)
+        state.perplexity_last_duration_seconds = max(time.monotonic() - started, 0.0)
+        state.perplexity_last_status = (
+            "COMPLETE" if str(result.status) == "SUCCESS" else "COMPLETE_WITH_LIMITATIONS"
+        )
+        state.perplexity_last_detail = (
+            f"{summary['origem']} | modo={summary['modo']} | "
+            f"queries={summary['consultas']} | requests={summary['requests']} | "
+            f"fontes={summary['fontes']} | custo={summary['custo']} | status={summary['status']}"
+        )
+        return 0 if str(result.status) == "SUCCESS" else 1
+    except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+        state.perplexity_last_duration_seconds = max(time.monotonic() - started, 0.0)
+        state.perplexity_last_status = "COMPLETE_WITH_LIMITATIONS"
+        state.perplexity_last_detail = f"Perplexity indisponível/ inválida: {type(exc).__name__}"
+        return 1
+
+
 def validate_search_readiness(
     state: object, env: Mapping[str, str] | None = None
 ) -> tuple[bool, str]:
