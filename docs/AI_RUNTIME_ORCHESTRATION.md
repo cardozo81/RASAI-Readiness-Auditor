@@ -21,13 +21,17 @@ A política financeira, preços, janelas horárias e critérios de revisão do c
 
 ## 2. Elegibilidade em `AI=auto`
 
-Ao iniciar uma auditoria com provider `auto`, o RASAi consulta o registry canônico de providers. Um provider entra no pool da execução somente quando:
+Ao iniciar uma auditoria com provider `auto`, o RASAi consulta o registry canônico de providers. **Governança de integração:** qualquer novo provider de IA homologado e mergeado nesse registry deve ser `auto_eligible=true` no mesmo merge; uma fase posterior `explicit-only` não é o padrão aceito. A participação efetiva ainda depende de configuração, modelo, exclusões e saúde.
+
+Um provider entra no pool da execução somente quando:
 
 - está marcado como elegível para AUTO no registry;
 - possui credencial configurada;
 - o modelo configurado é aceito pelo adapter;
 - as demais configurações obrigatórias são válidas;
 - não foi explicitamente excluído do AUTO pelo usuário.
+
+Integrações de domínio específico que não pertencem ao registry canônico seguem orquestração própria. A Perplexity Search API da issue #5 é Search Intelligence externa, não participa do `AI=auto` e não altera esta política. Consulte [PERPLEXITY_SEARCH_INTELLIGENCE.md](PERPLEXITY_SEARCH_INTELLIGENCE.md).
 
 `RASAI_AI_AUTO_EXCLUDE` contém IDs/aliases de providers separados por vírgula ou ponto e vírgula. O console oferece a mesma decisão por seleção interativa. Essa configuração é não secreta e não remove a variável de API key correspondente.
 
