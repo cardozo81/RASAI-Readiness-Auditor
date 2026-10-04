@@ -165,7 +165,7 @@ Quando a orientação é necessária:
 - grupos são enviados em lotes limitados;
 - não existe uma chamada por ocorrência;
 - grupos já solucionados com o mesmo fingerprint são reutilizados;
-- reparo é curto e restrito aos grupos que faltaram;
+- respostas parciais válidas preservam os grupos aceitos e somente os grupos faltantes seguem para o próximo provider do mesmo ciclo ou para ciclo posterior; não existe uma segunda chamada privada de reparo;
 - tentativa, tokens e custo são registrados no mesmo sistema de telemetria de IA, com finalidade própria de CAT-09.
 
 Isso evita transformar centenas de ocorrências repetidas em centenas de chamadas de modelo.
