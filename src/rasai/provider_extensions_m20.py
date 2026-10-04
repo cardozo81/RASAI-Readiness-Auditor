@@ -14,12 +14,9 @@ from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
 
 from rasai.ai_resilience import (
-    DECISION_RETRY,
     DECISION_STOP,
     DECISION_SUCCESS,
-    DECISION_SUCCESS_AFTER_RETRY,
     MAX_PROVIDER_ATTEMPTS_PER_CONTEXT,
-    retry_policy,
 )
 from rasai.m18_ai import (
     AttemptStatus,
