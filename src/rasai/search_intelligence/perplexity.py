@@ -348,7 +348,7 @@ class PerplexitySearchRepository:
                 CREATE TABLE IF NOT EXISTS perplexity_search_runs (
                     run_id TEXT PRIMARY KEY,
                     audit_id TEXT NOT NULL REFERENCES audits(audit_id) ON DELETE CASCADE,
-                    attempt_id TEXT REFERENCES ai_provider_attempts(attempt_id) ON DELETE SET NULL,
+                    attempt_id TEXT,
                     provider TEXT NOT NULL,
                     surface TEXT NOT NULL,
                     purpose TEXT NOT NULL,
