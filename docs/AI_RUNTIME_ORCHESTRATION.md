@@ -128,7 +128,7 @@ Provider explícito é o mesmo contrato com pool unitário: `A -> espera -> A ->
 
 O orquestrador encerra imediatamente quando a necessidade fica `COMPLETE`. Não chama providers restantes e não espera quando já concluiu, não existe ciclo seguinte ou o pool ficou vazio.
 
-O `CONS-5`, Improvement Intelligence, Competitive Intelligence, Directed Analysis, M7 semântico, M20, M24 e Source Quality consomem o mesmo motor de ciclos. Não existe rodada/retry privado adicional no consolidado.
+O `CONS-5`, Improvement Intelligence, Request Remediation/CAT-09, Competitive Intelligence, Directed Analysis, M7 semântico, M20, M24 e Source Quality consomem o mesmo motor de ciclos. Não existe rodada/retry/repair privado adicional nesses consumidores.
 
 ### 3.2 Partial completion e INPUT_BLOCKED
 
