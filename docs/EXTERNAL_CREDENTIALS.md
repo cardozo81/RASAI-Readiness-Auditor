@@ -632,6 +632,18 @@ Para qualquer provider:
 
 Uma credencial real nunca deve ser enviada em comentários de issue/PR nem colada em logs de validação compartilhados. Ao solicitar suporte, forneça somente nome da variável, provider, status HTTP/classificação, timestamp, modelo e identificadores não secretos.
 
+## Perplexity Search Intelligence
+
+A Perplexity Search API é uma integração externa de Search Intelligence e **não** um provider do registry canônico de IA nem um provider SERP observacional.
+
+| Integração | Variável | Surface | Onde criar ou gerenciar | Dependência funcional |
+|---|---|---|---|---|
+| Perplexity | `PERPLEXITY_API_KEY` | Search API | <https://www.perplexity.ai/settings/api> | opção `Perplexity externa` em Search Intelligence |
+
+O RASAi envia a credencial somente no header `Authorization: Bearer` para `https://api.perplexity.ai/search`. O console mostra apenas **configurada/não configurada**. A chave não entra em INI, TOML, command line, URL, logs, relatórios, `audit.db` em claro, snapshots ou argumentos de scheduler.
+
+A integração implementada é Search API. Agent API e outras superfícies Perplexity não são implicitamente suportadas. Contrato detalhado: [PERPLEXITY_SEARCH_INTELLIGENCE.md](PERPLEXITY_SEARCH_INTELLIGENCE.md).
+
 ## Providers SERP
 
 Estas credenciais são consumidas somente quando `RASAI_SERP_MODE=live` e o provider correspondente é selecionado.
