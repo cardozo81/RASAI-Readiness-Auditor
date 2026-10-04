@@ -19,10 +19,23 @@ import time
 from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
 
+from rasai.ai_canonical_orchestration import (
+    DEFAULT_AI_MAX_CYCLES,
+    AiExecutionPolicy,
+    AiProviderInvocation,
+    AiProviderOutcome,
+    invocation_from_diagnostic,
+    run_ai_need,
+)
 from rasai.ai_cost_policy import CandidateCostEstimate, PRICING_VERSION, estimate_candidate_cost
 from rasai.ai_task_profiles import profile_identity, render_task_profiles
 from rasai.catalog_report_public_labels import public_label
 from rasai.ai_execution_state import clear_current_ai_execution, current_ai_executions
+from rasai.dynamic_ai_routing import (
+    canonical_candidate_objects,
+    execution_coordinator_for,
+    record_canonical_attempt,
+)
 from rasai.ai_resilience import DECISION_FALLBACK, DECISION_FALLBACK_SUCCESS, DECISION_STOP, DECISION_SUCCESS
 from rasai.improvement_intelligence import (
     _provider_extract,
@@ -57,7 +70,7 @@ from .models import ConsolidationFilter, GenerationResult
 SPECIALIST_CONTRACT = "CONSOLIDATED-SPECIALIST-001"
 LONGITUDINAL_CONTRACT = "CONSOLIDATED-LONGITUDINAL-001"
 AI_SCOPE = "CONSOLIDATED_SPECIALIST"
-MAX_AI_ROUNDS = 2  # rodada inicial + uma única rodada adicional
+MAX_AI_ROUNDS = DEFAULT_AI_MAX_CYCLES  # compatibility/default forecast; runtime policy is canonical
 DEFAULT_RETRY_DELAY_SECONDS = 1.0
 RATE_LIMIT_RETRY_DELAY_SECONDS = 5.0
 MAX_RETRY_DELAY_SECONDS = 15.0
@@ -512,14 +525,18 @@ def _candidate_view(item: CandidateCostEstimate) -> dict[str, Any]:
     }
 
 
-def _forecast(estimates: tuple[CandidateCostEstimate, ...]) -> dict[str, Any]:
+def _forecast(
+    estimates: tuple[CandidateCostEstimate, ...],
+    *,
+    max_cycles: int = DEFAULT_AI_MAX_CYCLES,
+) -> dict[str, Any]:
     priced = [item for item in estimates if item.estimated_cost is not None and item.currency]
     currencies = {str(item.currency) for item in priced}
     currency = next(iter(currencies)) if len(currencies) == 1 else None
     expected = estimates[0].estimated_cost if estimates and estimates[0].estimated_cost is not None else None
     likely_low = min((float(item.estimated_cost) for item in priced), default=None)
     first_round = sum(float(item.estimated_cost) for item in priced) if priced and currency else None
-    potential = (first_round * MAX_AI_ROUNDS) if first_round is not None else None
+    potential = (first_round * max_cycles) if first_round is not None else None
     pricing_coverage = (len(priced) / len(estimates)) if estimates else 0.0
     # Pricing coverage can be complete while token/output volume remains a pre-execution
     # estimate. Do not call that financial forecast "ALTA" without observed calibration.
@@ -538,7 +555,7 @@ def _forecast(estimates: tuple[CandidateCostEstimate, ...]) -> dict[str, Any]:
             "sem cobertura de preço suficiente para estimativa financeira"
         ),
         "pricing_coverage": pricing_coverage,
-        "max_rounds": MAX_AI_ROUNDS,
+        "max_rounds": max_cycles,
         "candidate_count": len(estimates),
         "unpriced_candidates": len(estimates) - len(priced),
         "candidates": [_candidate_view(item) for item in estimates],
@@ -1704,7 +1721,10 @@ def preview_longitudinal_specialist(
         else:
             estimates = (estimate_candidate_cost(provider, hint, scope=AI_SCOPE, at=now),)
         selected = estimates[0] if estimates else None
-        forecast = _forecast(estimates)
+        preview_policy = getattr(provider, "_rasai_execution_policy", AiExecutionPolicy())
+        if not isinstance(preview_policy, AiExecutionPolicy):
+            preview_policy = AiExecutionPolicy()
+        forecast = _forecast(estimates, max_cycles=preview_policy.max_cycles)
         if selected is None:
             return SpecialistPreview(
                 False,
@@ -1824,19 +1844,23 @@ def run_longitudinal_ai(
     try:
         selection = _build_ai(filters, env)
         excluded = tuple(str(item) for item in getattr(selection, "excluded_configurations", ()) or ())
-        if hasattr(selection, "ordered_candidates_for_need"):
-            first_candidates = selection.ordered_candidates_for_need(hint, scope=AI_SCOPE)
-            coordinator = selection.coordinator
-        else:
-            first_candidates = (selection,)
-            coordinator = None
+        policy = getattr(selection, "_rasai_execution_policy", AiExecutionPolicy())
+        if not isinstance(policy, AiExecutionPolicy):
+            policy = AiExecutionPolicy()
+        sleeper = getattr(selection, "_rasai_cycle_sleeper", None)
+        first_candidates = canonical_candidate_objects(
+            selection,
+            hint,
+            scope=AI_SCOPE,
+        )
+        coordinator = execution_coordinator_for(selection)
 
         estimates = tuple(
             estimate_candidate_cost(item, hint, scope=AI_SCOPE, at=datetime.now(timezone.utc))
             for item in first_candidates
         )
         candidate_views = tuple(_candidate_view(item) for item in estimates)
-        forecast = _forecast(estimates)
+        forecast = _forecast(estimates, max_cycles=policy.max_cycles)
         if expected_preview is not None:
             expected_views = tuple(_candidate_view(item) for item in expected_preview.candidates)
             if (
@@ -1867,177 +1891,196 @@ def run_longitudinal_ai(
                 context_projection=projection_meta,
             )
 
-        retry_names: set[str] | None = None
         last_reason: str | None = None
+        fallback_from: str | None = None
+        fallback_reason: str | None = None
+        winner: tuple[
+            str,
+            tuple[dict[str, Any], ...],
+            tuple[dict[str, Any], ...],
+            tuple[dict[str, Any], ...],
+            dict[str, tuple[str, ...]],
+        ] | None = None
 
-        for round_no in range(1, MAX_AI_ROUNDS + 1):
-            if hasattr(selection, "ordered_candidates_for_need"):
-                current_candidates = selection.ordered_candidates_for_need(hint, scope=AI_SCOPE)
-            else:
-                current_candidates = first_candidates
-            if retry_names is not None:
-                current_candidates = tuple(
-                    item for item in current_candidates if str(getattr(item, "name", "")) in retry_names
-                )
-            if not current_candidates:
-                break
+        def candidates() -> tuple[Any, ...]:
+            return canonical_candidate_objects(
+                selection,
+                hint,
+                scope=AI_SCOPE,
+            )
 
-            rounds_executed = round_no
-            fallback_from: str | None = None
-            fallback_reason: str | None = None
-            round_attempts_start = len(attempts)
-
-            for position, provider in enumerate(current_candidates, 1):
-                body = json.dumps(
-                    _provider_payload(provider, instructions=instructions, user_text=user_text, schema=schema),
-                    ensure_ascii=False,
-                    separators=(",", ":"),
-                ).encode("utf-8")
-                started = datetime.now(timezone.utc)
-                started_perf = time.perf_counter()
-                status = AttemptStatus.TECHNICAL_ERROR
-                diagnostic: ProviderDiagnostic | None = None
-                usage = None
-                raw: Mapping[str, Any] | None = None
-                validated: tuple[
-                    str,
-                    tuple[dict[str, Any], ...],
-                    tuple[dict[str, Any], ...],
-                    tuple[dict[str, Any], ...],
-                    dict[str, tuple[str, ...]],
-                ] | None = None
-
-                try:
-                    candidate = provider._transport(
-                        provider.endpoint,
-                        provider._headers(),
-                        body,
-                        float(filters.ai_timeout_seconds or 180.0),
-                    )
-                    if not isinstance(candidate, Mapping):
-                        diagnostic = ProviderDiagnostic(ProviderErrorClass.INVALID_RESPONSE)
-                    else:
-                        raw = candidate
-                        usage = _provider_usage(provider, raw)
-                        diagnostic = _provider_native_error(provider, raw)
-                        if diagnostic is None:
-                            try:
-                                extracted = _provider_extract(provider, raw)
-                                _validate_configuration_comparability_language(extracted, pair_status)
-                                validated = _validated_longitudinal_payload(
-                                    extracted,
-                                    allowed=set(allowed_ids),
-                                    interval_ids=interval_ids,
-                                    allowed_audit_ids=set(bundle.audit_ids),
-                                )
-                                status = AttemptStatus.SUCCESS
-                            except Exception as exc:
-                                diagnostic = ProviderDiagnostic(
-                                    ProviderErrorClass.CONTRACT_ERROR,
-                                    error_type=type(exc).__name__,
-                                    error_code="CONSOLIDATED_LONGITUDINAL_OUTPUT_INVALID",
-                                )
-                                status = AttemptStatus.CONTRACT_ERROR
-                except HTTPError as exc:
-                    diagnostic = (
-                        _core_diagnostic_from_http(exc)
-                        if isinstance(provider, ResponsesSemanticProvider)
-                        else _extension_diagnostic_from_http(exc)
-                    )
-                except TimeoutError:
-                    diagnostic = ProviderDiagnostic(ProviderErrorClass.TIMEOUT_ERROR)
-                except (URLError, OSError):
-                    diagnostic = ProviderDiagnostic(ProviderErrorClass.NETWORK_ERROR)
-                except Exception as exc:
-                    diagnostic = ProviderDiagnostic(
-                        ProviderErrorClass.UNKNOWN_PROVIDER_ERROR,
-                        error_type=type(exc).__name__,
-                    )
-
-                duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
-                global_index = len(attempts) + 1
-                attempt = _attempt_record(
+        def invoke(provider: Any, cycle: int, call_index: int) -> AiProviderInvocation:
+            nonlocal rounds_executed, last_reason, fallback_from, fallback_reason, winner
+            rounds_executed = max(rounds_executed, cycle)
+            body = json.dumps(
+                _provider_payload(
                     provider,
-                    status=status,
-                    started=started,
-                    duration_ms=duration_ms,
-                    usage=usage,
-                    diagnostic=diagnostic,
-                    request_hash=request_hash,
-                    index=global_index,
+                    instructions=instructions,
+                    user_text=user_text,
+                    schema=schema,
+                ),
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            started = datetime.now(timezone.utc)
+            started_perf = time.perf_counter()
+            status = AttemptStatus.TECHNICAL_ERROR
+            diagnostic: ProviderDiagnostic | None = None
+            usage = None
+            raw: Mapping[str, Any] | None = None
+            validated: tuple[
+                str,
+                tuple[dict[str, Any], ...],
+                tuple[dict[str, Any], ...],
+                tuple[dict[str, Any], ...],
+                dict[str, tuple[str, ...]],
+            ] | None = None
+
+            try:
+                candidate = provider._transport(
+                    provider.endpoint,
+                    provider._headers(),
+                    body,
+                    float(filters.ai_timeout_seconds or 180.0),
                 )
-                if fallback_from:
-                    attempt = _replace_attempt(
-                        attempt,
-                        fallback_from=fallback_from,
-                        fallback_reason=fallback_reason,
-                    )
-
-                retry_eligible = status is not AttemptStatus.SUCCESS and _retryable(diagnostic)
-                attempt = replace(attempt, retry_eligible=retry_eligible)
-
-                if status is AttemptStatus.SUCCESS and validated is not None:
-                    decision = DECISION_FALLBACK_SUCCESS if attempts or fallback_from else DECISION_SUCCESS
-                    attempt = _replace_decision(attempt, decision)
-                    if coordinator is not None:
-                        coordinator.record_attempt(attempt, scope=AI_SCOPE)
-                    attempts.append((attempt, round_no))
-                    summary, interval_analyses, analyses, tradeoffs, strategy = validated
-                    return SpecialistRun(
-                        True,
-                        "COMPLETE",
-                        summary,
-                        analyses,
-                        tuple(_public_attempt(item, round_no=item_round) for item, item_round in attempts),
-                        interval_analyses=interval_analyses,
-                        tradeoffs=tradeoffs,
-                        strategy=strategy,
-                        profile_id=profile_ids,
-                        profile_version=profile_versions,
-                        rounds=rounds_executed,
-                        candidates=candidate_views,
-                        excluded_candidates=excluded,
-                        forecast=forecast,
-                        exchanges=_capture_ai_exchanges(),
-                        context_projection=projection_meta,
-                    )
-
-                has_next = position < len(current_candidates)
-                if has_next:
-                    attempt = _replace_decision(attempt, DECISION_FALLBACK)
-                elif round_no < MAX_AI_ROUNDS and retry_eligible:
-                    attempt = _replace_decision(attempt, "RETRY_ROUND")
+                if not isinstance(candidate, Mapping):
+                    diagnostic = ProviderDiagnostic(ProviderErrorClass.INVALID_RESPONSE)
                 else:
-                    attempt = _replace_decision(attempt, DECISION_STOP)
+                    raw = candidate
+                    usage = _provider_usage(provider, raw)
+                    diagnostic = _provider_native_error(provider, raw)
+                    if diagnostic is None:
+                        try:
+                            extracted = _provider_extract(provider, raw)
+                            _validate_configuration_comparability_language(
+                                extracted,
+                                pair_status,
+                            )
+                            validated = _validated_longitudinal_payload(
+                                extracted,
+                                allowed=set(allowed_ids),
+                                interval_ids=interval_ids,
+                                allowed_audit_ids=set(bundle.audit_ids),
+                            )
+                            status = AttemptStatus.SUCCESS
+                        except Exception as exc:
+                            diagnostic = ProviderDiagnostic(
+                                ProviderErrorClass.CONTRACT_ERROR,
+                                error_type=type(exc).__name__,
+                                error_code="CONSOLIDATED_LONGITUDINAL_OUTPUT_INVALID",
+                            )
+                            status = AttemptStatus.CONTRACT_ERROR
+            except HTTPError as exc:
+                diagnostic = (
+                    _core_diagnostic_from_http(exc)
+                    if isinstance(provider, ResponsesSemanticProvider)
+                    else _extension_diagnostic_from_http(exc)
+                )
+            except TimeoutError:
+                diagnostic = ProviderDiagnostic(ProviderErrorClass.TIMEOUT_ERROR)
+            except (URLError, OSError):
+                diagnostic = ProviderDiagnostic(ProviderErrorClass.NETWORK_ERROR)
+            except Exception as exc:
+                diagnostic = ProviderDiagnostic(
+                    ProviderErrorClass.UNKNOWN_PROVIDER_ERROR,
+                    error_type=type(exc).__name__,
+                )
 
-                if coordinator is not None:
-                    coordinator.record_attempt(attempt, scope=AI_SCOPE)
-                attempts.append((attempt, round_no))
-                last_reason = diagnostic.reason if diagnostic is not None else "provedor indisponível"
+            duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
+            attempt = _attempt_record(
+                provider,
+                status=status,
+                started=started,
+                duration_ms=duration_ms,
+                usage=usage,
+                diagnostic=diagnostic,
+                request_hash=request_hash,
+                index=call_index,
+            )
+            if fallback_from:
+                attempt = _replace_attempt(
+                    attempt,
+                    fallback_from=fallback_from,
+                    fallback_reason=fallback_reason,
+                )
 
-                if has_next:
-                    fallback_from = str(provider.name)
-                    fallback_reason = last_reason
+            success = status is AttemptStatus.SUCCESS and validated is not None
+            invocation = (
+                AiProviderInvocation(AiProviderOutcome.COMPLETE)
+                if success
+                else invocation_from_diagnostic(diagnostic)
+                if diagnostic is not None
+                else AiProviderInvocation(AiProviderOutcome.NO_PROGRESS)
+            )
+            attempt = replace(
+                attempt,
+                retry_eligible=invocation.outcome is AiProviderOutcome.TRANSIENT_FAILURE,
+                decision=(
+                    DECISION_FALLBACK_SUCCESS
+                    if success and attempts
+                    else DECISION_SUCCESS
+                    if success
+                    else DECISION_STOP
+                    if invocation.outcome is AiProviderOutcome.PROVIDER_TERMINAL
+                    else DECISION_FALLBACK
+                ),
+            )
+            record_canonical_attempt(
+                provider,
+                attempt,
+                scope=AI_SCOPE,
+            )
+            attempts.append((attempt, cycle))
 
-            round_attempts = attempts[round_attempts_start:]
-            retry_names = {
-                item.provider
-                for item, item_round in round_attempts
-                if item_round == round_no and item.retry_eligible
-            }
-            if round_no >= MAX_AI_ROUNDS or not retry_names:
-                break
-            if attempts:
-                last_attempt, last_round = attempts[-1]
-                attempts[-1] = (_replace_decision(last_attempt, "RETRY_ROUND"), last_round)
+            if success:
+                winner = validated
+                return AiProviderInvocation(AiProviderOutcome.COMPLETE)
 
-            delay = _retry_delay(attempts, round_no)
-            if delay > 0:
-                time.sleep(delay)
+            last_reason = (
+                diagnostic.reason
+                if diagnostic is not None
+                else "provedor indisponível"
+            )
+            fallback_from = str(provider.name)
+            fallback_reason = last_reason
+            return invocation
+
+        run_ai_need(
+            candidates=candidates,
+            invoke=invoke,
+            policy=policy,
+            sleeper=sleeper,
+        )
+        if winner is not None:
+            summary, interval_analyses, analyses, tradeoffs, strategy = winner
+            return SpecialistRun(
+                True,
+                "COMPLETE",
+                summary,
+                analyses,
+                tuple(
+                    _public_attempt(item, round_no=item_round)
+                    for item, item_round in attempts
+                ),
+                interval_analyses=interval_analyses,
+                tradeoffs=tradeoffs,
+                strategy=strategy,
+                profile_id=profile_ids,
+                profile_version=profile_versions,
+                rounds=rounds_executed,
+                candidates=candidate_views,
+                excluded_candidates=excluded,
+                forecast=forecast,
+                exchanges=_capture_ai_exchanges(),
+                context_projection=projection_meta,
+            )
+        if attempts:
+            last_attempt, last_round = attempts[-1]
+            attempts[-1] = (_replace_decision(last_attempt, DECISION_STOP), last_round)
 
         reason = _chain_failure_reason(attempts)
-        if rounds_executed >= MAX_AI_ROUNDS:
-            reason = "AI_PROVIDER_CHAIN_EXHAUSTED_AFTER_RETRY:" + reason
+        if rounds_executed >= policy.max_cycles:
+            reason = "AI_PROVIDER_CHAIN_EXHAUSTED_AFTER_CYCLES:" + reason
         return SpecialistRun(
             True,
             "UNAVAILABLE",
