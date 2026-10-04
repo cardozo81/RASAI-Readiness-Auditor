@@ -24,7 +24,7 @@ from typing import Any, Callable, Iterable, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 
-from rasai.ai_resilience import DECISION_RETRY, DECISION_STOP, DECISION_SUCCESS, DECISION_SUCCESS_AFTER_RETRY, MAX_PROVIDER_ATTEMPTS_PER_CONTEXT, retry_policy
+from rasai.ai_resilience import DECISION_STOP, DECISION_SUCCESS
 from rasai.domain import new_id
 from rasai.m18_ai import (
     AttemptStatus,
@@ -1328,10 +1328,18 @@ def build_improvement_request_context(
 
 
 def _ai_analyze(*, audit_id: str, workspace: AuditWorkspace, context: _TargetContext, config: ImprovementConfig, findings: list[dict[str, Any]], evidence_context: Mapping[str, Any], language: str, progress: Callable[[str, float, str], None] | None = None) -> tuple[str, list[dict[str, Any]], str | None]:
+    """Legacy direct boundary: exactly one provider call, with no local retry/timer.
+
+    The installed orchestration layer replaces this function for normal execution and
+    owns provider pools/cycles. Keeping this fallback atomic prevents import-order or
+    direct-call paths from reintroducing a competing retry policy.
+    """
     if str(config.provider or "").strip().casefold() in {"", "none", "auto"}:
         return "", [], "AI_NOT_CONFIGURED"
     provider = _build_provider(config)
-    if not getattr(provider, "api_key", None): return "", [], "AI_NOT_CONFIGURED"
+    if not getattr(provider, "api_key", None):
+        return "", [], "AI_NOT_CONFIGURED"
+
     schema = _schema(findings, config.max_recommendations)
     request_context, instructions = build_improvement_request_context(
         audit_id=audit_id,
@@ -1342,36 +1350,161 @@ def _ai_analyze(*, audit_id: str, workspace: AuditWorkspace, context: _TargetCon
         evidence_context=evidence_context,
         language=language,
     )
-    user_text = "Persisted RASAi evidence for one URL:\n" + json.dumps(request_context, ensure_ascii=False, default=str); body = json.dumps(_provider_payload(provider, instructions=instructions, user_text=user_text, schema=schema), ensure_ascii=False, separators=(",", ":")).encode("utf-8"); payload_hash = sha256(body).hexdigest(); summary_text = f"contract={CONTRACT_VERSION};findings={len(findings)};domains={len(config.domains)};snapshot={context.snapshot_id}"; last_reason = None
-    for ordinal in range(1, min(2, MAX_PROVIDER_ATTEMPTS_PER_CONTEXT) + 1):
-        if progress: progress("AI_ANALYSIS", 72.0 + ordinal * 8.0, f"consultando {getattr(provider,'name',config.provider)} / {config.model}; tentativa {ordinal}/2")
-        started_at = datetime.now(timezone.utc); started_perf = time.perf_counter(); diagnostic = None; usage = None; raw = None; status = AttemptStatus.TECHNICAL_ERROR
-        try:
-            candidate = provider._transport(provider.endpoint, provider._headers(), body, config.timeout_seconds)
-            if not isinstance(candidate, Mapping): diagnostic = ProviderDiagnostic(ProviderErrorClass.INVALID_RESPONSE)
-            else:
-                raw = candidate; usage = _provider_usage(provider, raw); diagnostic = _provider_native_error(provider, raw)
-                if diagnostic is None: status = AttemptStatus.SUCCESS
-        except HTTPError as exc: diagnostic = _core_diagnostic_from_http(exc) if isinstance(provider, ResponsesSemanticProvider) else _extension_diagnostic_from_http(exc)
-        except TimeoutError: diagnostic = ProviderDiagnostic(ProviderErrorClass.TIMEOUT_ERROR)
-        except (URLError, OSError): diagnostic = ProviderDiagnostic(ProviderErrorClass.NETWORK_ERROR)
-        except Exception as exc: diagnostic = ProviderDiagnostic(ProviderErrorClass.UNKNOWN_PROVIDER_ERROR, error_type=type(exc).__name__)
-        finished_at = datetime.now(timezone.utc); duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000)); pricing = resolve_provider_cost(provider, usage, finished_at)
-        if status is AttemptStatus.SUCCESS and raw is not None:
-            try: ai_summary, recommendations = _validate_ai_payload(_provider_extract(provider, raw), findings, config.max_recommendations)
-            except Exception as exc: status = AttemptStatus.CONTRACT_ERROR; diagnostic = ProviderDiagnostic(ProviderErrorClass.CONTRACT_ERROR, error_type=type(exc).__name__, error_code="IMPROVEMENT_OUTPUT_INVALID")
-            else:
-                attempt = ProviderAttempt(provider=str(provider.name), model=str(provider.model), reasoning_profile=str(getattr(provider, "reasoning_profile", config.reasoning)), provider_rank=int(getattr(provider.policy, "rank", 999)), attempt_index=ordinal, snapshot_id=context.snapshot_id, url=context.url, started_at=started_at, finished_at=finished_at, duration_ms=duration_ms, status=AttemptStatus.SUCCESS, usage=usage, estimated_cost=pricing.estimated_cost, cost_currency=pricing.currency, pricing_version=pricing.pricing_version, pricing_context=pricing.pricing_context, pricing_rule_id=pricing.pricing_rule_id, pricing_source_reference=pricing.pricing_source_reference, pricing_runtime_conditions=pricing.runtime_conditions, request_message_summary=summary_text, request_payload_hash=payload_hash, provider_qualification=str(getattr(provider.policy, "qualification", "PROVISIONAL")), provider_reliability_score=getattr(provider.policy, "reliability_score", None), semantic_contract_version=CONTRACT_VERSION, retry_eligible=False, decision=DECISION_SUCCESS_AFTER_RETRY if ordinal > 1 else DECISION_SUCCESS)
-                _persist_attempt(workspace, audit_id, context, attempt); return ai_summary, recommendations, None
-        policy = retry_policy(diagnostic.error_class if diagnostic else None, diagnostic.retry_after_seconds if diagnostic else None); decision = DECISION_RETRY if policy.eligible and ordinal < 2 else DECISION_STOP
-        attempt = ProviderAttempt(provider=str(provider.name), model=str(provider.model), reasoning_profile=str(getattr(provider, "reasoning_profile", config.reasoning)), provider_rank=int(getattr(provider.policy, "rank", 999)), attempt_index=ordinal, snapshot_id=context.snapshot_id, url=context.url, started_at=started_at, finished_at=finished_at, duration_ms=duration_ms, status=status, diagnostic=diagnostic, usage=usage, estimated_cost=pricing.estimated_cost, cost_currency=pricing.currency, pricing_version=pricing.pricing_version, pricing_context=pricing.pricing_context, pricing_rule_id=pricing.pricing_rule_id, pricing_source_reference=pricing.pricing_source_reference, pricing_runtime_conditions=pricing.runtime_conditions, request_message_summary=summary_text, request_payload_hash=payload_hash, provider_qualification=str(getattr(provider.policy, "qualification", "PROVISIONAL")), provider_reliability_score=getattr(provider.policy, "reliability_score", None), semantic_contract_version=CONTRACT_VERSION, retry_eligible=policy.eligible, decision=decision)
-        _persist_attempt(workspace, audit_id, context, attempt); last_reason = diagnostic.reason if diagnostic else "AI_PROVIDER_UNAVAILABLE"
-        if decision == DECISION_RETRY:
-            if policy.delay_seconds > 0: time.sleep(policy.delay_seconds)
-            continue
-        break
-    return "", [], last_reason or "AI_PROVIDER_UNAVAILABLE"
+    user_text = "Persisted RASAi evidence for one URL:\n" + json.dumps(
+        request_context, ensure_ascii=False, default=str
+    )
+    body = json.dumps(
+        _provider_payload(
+            provider,
+            instructions=instructions,
+            user_text=user_text,
+            schema=schema,
+        ),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    payload_hash = sha256(body).hexdigest()
+    summary_text = (
+        f"contract={CONTRACT_VERSION};findings={len(findings)};"
+        f"domains={len(config.domains)};snapshot={context.snapshot_id}"
+    )
+    if progress:
+        progress(
+            "AI_ANALYSIS",
+            80.0,
+            f"consultando {getattr(provider, 'name', config.provider)} / {config.model}",
+        )
 
+    started_at = datetime.now(timezone.utc)
+    started_perf = time.perf_counter()
+    diagnostic = None
+    usage = None
+    raw = None
+    status = AttemptStatus.TECHNICAL_ERROR
+    try:
+        candidate = provider._transport(
+            provider.endpoint,
+            provider._headers(),
+            body,
+            config.timeout_seconds,
+        )
+        if not isinstance(candidate, Mapping):
+            diagnostic = ProviderDiagnostic(ProviderErrorClass.INVALID_RESPONSE)
+        else:
+            raw = candidate
+            usage = _provider_usage(provider, raw)
+            diagnostic = _provider_native_error(provider, raw)
+            if diagnostic is None:
+                status = AttemptStatus.SUCCESS
+    except HTTPError as exc:
+        diagnostic = (
+            _core_diagnostic_from_http(exc)
+            if isinstance(provider, ResponsesSemanticProvider)
+            else _extension_diagnostic_from_http(exc)
+        )
+    except TimeoutError:
+        diagnostic = ProviderDiagnostic(ProviderErrorClass.TIMEOUT_ERROR)
+    except (URLError, OSError):
+        diagnostic = ProviderDiagnostic(ProviderErrorClass.NETWORK_ERROR)
+    except Exception as exc:
+        diagnostic = ProviderDiagnostic(
+            ProviderErrorClass.UNKNOWN_PROVIDER_ERROR,
+            error_type=type(exc).__name__,
+        )
+
+    finished_at = datetime.now(timezone.utc)
+    duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
+    pricing = resolve_provider_cost(provider, usage, finished_at)
+
+    if status is AttemptStatus.SUCCESS and raw is not None:
+        try:
+            ai_summary, recommendations = _validate_ai_payload(
+                _provider_extract(provider, raw),
+                findings,
+                config.max_recommendations,
+            )
+        except Exception as exc:
+            status = AttemptStatus.CONTRACT_ERROR
+            diagnostic = ProviderDiagnostic(
+                ProviderErrorClass.CONTRACT_ERROR,
+                error_type=type(exc).__name__,
+                error_code="IMPROVEMENT_OUTPUT_INVALID",
+            )
+        else:
+            attempt = ProviderAttempt(
+                provider=str(provider.name),
+                model=str(provider.model),
+                reasoning_profile=str(
+                    getattr(provider, "reasoning_profile", config.reasoning)
+                ),
+                provider_rank=int(getattr(provider.policy, "rank", 999)),
+                attempt_index=1,
+                snapshot_id=context.snapshot_id,
+                url=context.url,
+                started_at=started_at,
+                finished_at=finished_at,
+                duration_ms=duration_ms,
+                status=AttemptStatus.SUCCESS,
+                usage=usage,
+                estimated_cost=pricing.estimated_cost,
+                cost_currency=pricing.currency,
+                pricing_version=pricing.pricing_version,
+                pricing_context=pricing.pricing_context,
+                pricing_rule_id=pricing.pricing_rule_id,
+                pricing_source_reference=pricing.pricing_source_reference,
+                pricing_runtime_conditions=pricing.runtime_conditions,
+                request_message_summary=summary_text,
+                request_payload_hash=payload_hash,
+                provider_qualification=str(
+                    getattr(provider.policy, "qualification", "PROVISIONAL")
+                ),
+                provider_reliability_score=getattr(
+                    provider.policy, "reliability_score", None
+                ),
+                semantic_contract_version=CONTRACT_VERSION,
+                retry_eligible=False,
+                decision=DECISION_SUCCESS,
+            )
+            _persist_attempt(workspace, audit_id, context, attempt)
+            return ai_summary, recommendations, None
+
+    attempt = ProviderAttempt(
+        provider=str(provider.name),
+        model=str(provider.model),
+        reasoning_profile=str(
+            getattr(provider, "reasoning_profile", config.reasoning)
+        ),
+        provider_rank=int(getattr(provider.policy, "rank", 999)),
+        attempt_index=1,
+        snapshot_id=context.snapshot_id,
+        url=context.url,
+        started_at=started_at,
+        finished_at=finished_at,
+        duration_ms=duration_ms,
+        status=status,
+        diagnostic=diagnostic,
+        usage=usage,
+        estimated_cost=pricing.estimated_cost,
+        cost_currency=pricing.currency,
+        pricing_version=pricing.pricing_version,
+        pricing_context=pricing.pricing_context,
+        pricing_rule_id=pricing.pricing_rule_id,
+        pricing_source_reference=pricing.pricing_source_reference,
+        pricing_runtime_conditions=pricing.runtime_conditions,
+        request_message_summary=summary_text,
+        request_payload_hash=payload_hash,
+        provider_qualification=str(
+            getattr(provider.policy, "qualification", "PROVISIONAL")
+        ),
+        provider_reliability_score=getattr(provider.policy, "reliability_score", None),
+        semantic_contract_version=CONTRACT_VERSION,
+        retry_eligible=False,
+        decision=DECISION_STOP,
+    )
+    _persist_attempt(workspace, audit_id, context, attempt)
+    return "", [], (
+        diagnostic.reason if diagnostic is not None else "AI_PROVIDER_UNAVAILABLE"
+    )
 
 def collect_improvement_evidence(*, audit_id: str, workspace: AuditWorkspace, config: ImprovementConfig, progress: Callable[[str, float, str], None] | None = None) -> tuple[_TargetContext, list[dict[str, Any]], dict[str, Any], str]:
     connection = sqlite3.connect(workspace.database); connection.row_factory = sqlite3.Row
