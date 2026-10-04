@@ -28,7 +28,9 @@ O catálogo `RASAI-PRICING-2026-10-03.7` também preserva políticas `PER_REQUES
 - candidatos token-based atuais mantêm exatamente o contrato de ordenação já homologado;
 - ausência de conversão monetária continua UNPRICED, nunca custo zero.
 
-A integração futura de cada consumidor decide sua própria elegibilidade/finalidade sem alterar silenciosamente este contrato.
+A integração de cada consumidor respeita seu domínio. **Provider que entrar no registry canônico de IA e for homologado/mergeado deve nascer AUTO-eligible no mesmo merge**, sujeito apenas a configuração, modelo, exclusão explícita e saúde. Não existe fase pós-merge `explicit-only` como rollout padrão.
+
+Perplexity Search API permanece fora do AUTO nesta entrega porque é Search Intelligence externa e **não entra no registry canônico**. Isso é boundary arquitetural, não postergação de elegibilidade. Se outra superfície Perplexity for futuramente integrada ao registry canônico, a regra AUTO acima passa a valer imediatamente.
 
 ## 2. Duas fontes declarativas e duas camadas de responsabilidade
 
