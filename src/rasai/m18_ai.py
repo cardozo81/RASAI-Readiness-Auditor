@@ -835,6 +835,8 @@ class ProviderRoutingSession:
     providers: tuple[ResponsesSemanticProvider, ...]
     strategy: str = "AUTO"
     excluded_configurations: tuple[str, ...] = ()
+    _rasai_execution_policy: Any = None
+    _rasai_cycle_sleeper: Callable[[float], None] | None = None
     _states: dict[str, RuntimeProviderState] = field(init=False, default_factory=dict)
     _pins: dict[str, str] = field(init=False, default_factory=dict)
     _last_attempts: tuple[ProviderAttempt, ...] = field(init=False, default=())
