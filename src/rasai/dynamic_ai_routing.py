@@ -16,6 +16,13 @@ from statistics import median
 from types import MethodType
 from typing import Any, Mapping, Sequence
 
+from rasai.ai_canonical_orchestration import (
+    AiExecutionPolicy,
+    AiProviderInvocation,
+    AiProviderOutcome,
+    invocation_from_diagnostic,
+    run_ai_need,
+)
 from rasai.ai_cost_policy import (
     CandidateCostEstimate,
     PRICING_REVIEW_RECOMMENDED_ON,
@@ -308,24 +315,38 @@ class DynamicProviderRoutingSession:
 
     def analyze(self, semantic_input: Any) -> SemanticProviderResult:
         self._last_attempts = ()
-        candidates = self.ordered_candidates_for_need(semantic_input, scope="SEMANTIC")
-        if not candidates:
-            return SemanticProviderResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_CHAIN_EXHAUSTED")
-
         attempts: list[ProviderAttempt] = []
         last: SemanticProviderResult | None = None
+        winner: SemanticProviderResult | None = None
         fallback_from: str | None = None
         fallback_reason: str | None = None
+        policy = getattr(self, "_rasai_execution_policy", None)
+        if not isinstance(policy, AiExecutionPolicy):
+            policy = AiExecutionPolicy()
+        sleeper = getattr(self, "_rasai_cycle_sleeper", None)
 
-        for index, provider in enumerate(candidates):
+        def candidates() -> tuple[Any, ...]:
+            return self.ordered_candidates_for_need(semantic_input, scope="SEMANTIC")
+
+        def invoke(provider: Any, cycle: int, call_index: int) -> AiProviderInvocation:
+            nonlocal last, winner, fallback_from, fallback_reason
             result = provider.analyze(semantic_input, max_attempts=1)
             local = [_price_auto_attempt(item) for item in provider.consume_attempts()]
             if fallback_from is not None:
-                local = [replace(item, fallback_from_provider=fallback_from, fallback_reason=fallback_reason) for item in local]
-            local = [replace(item, attempt_index=len(attempts) + offset) for offset, item in enumerate(local, 1)]
+                local = [
+                    replace(
+                        item,
+                        fallback_from_provider=fallback_from,
+                        fallback_reason=fallback_reason,
+                    )
+                    for item in local
+                ]
+            local = [
+                replace(item, attempt_index=len(attempts) + offset)
+                for offset, item in enumerate(local, 1)
+            ]
             attempts.extend(local)
             last = result
-
             attempt = local[-1] if local else None
             if attempt is not None:
                 self.coordinator.record_attempt(
@@ -335,32 +356,50 @@ class DynamicProviderRoutingSession:
                 )
 
             if result.state is ProviderState.AVAILABLE:
-                if fallback_from is not None and attempts:
-                    attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK_SUCCESS, fallback_from_provider=fallback_from, fallback_reason=fallback_reason)
-                elif attempts:
-                    attempts[-1] = replace(attempts[-1], decision=DECISION_SUCCESS)
-                self._history.extend(attempts)
-                self._last_attempts = tuple(attempts)
-                return result
+                if attempts:
+                    attempts[-1] = replace(
+                        attempts[-1],
+                        decision=DECISION_FALLBACK_SUCCESS if fallback_from else DECISION_SUCCESS,
+                        fallback_from_provider=fallback_from,
+                        fallback_reason=fallback_reason,
+                    )
+                winner = result
+                return AiProviderInvocation(AiProviderOutcome.COMPLETE)
 
             if result.state is ProviderState.NOT_CONFIGURED:
-                if attempt is None:
-                    self.coordinator.exclude_configuration(str(provider.name), "NOT_CONFIGURED_DURING_EXECUTION")
-                continue
+                self.coordinator.exclude_configuration(
+                    str(provider.name),
+                    "NOT_CONFIGURED_DURING_EXECUTION",
+                )
+                return AiProviderInvocation(AiProviderOutcome.PROVIDER_TERMINAL)
 
-            if self.coordinator.is_eligible(str(provider.name)):
-                _reactivate(provider)
-            if index < len(candidates) - 1:
-                if attempts:
-                    attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK)
-                fallback_from = str(provider.name)
-                fallback_reason = result.reason or "AI_PROVIDER_UNAVAILABLE"
+            if attempts:
+                attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK)
+            fallback_from = str(provider.name)
+            fallback_reason = result.reason or "AI_PROVIDER_UNAVAILABLE"
+            if attempt is not None and attempt.diagnostic is not None:
+                return invocation_from_diagnostic(attempt.diagnostic)
+            return AiProviderInvocation(AiProviderOutcome.NO_PROGRESS)
 
+        run_ai_need(
+            candidates=candidates,
+            invoke=invoke,
+            policy=policy,
+            sleeper=sleeper,
+        )
         self._history.extend(attempts)
         self._last_attempts = tuple(attempts)
+        if winner is not None:
+            return winner
         if not self.coordinator.ordered_names():
-            return SemanticProviderResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_CHAIN_EXHAUSTED")
-        return last or SemanticProviderResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_UNAVAILABLE")
+            return SemanticProviderResult(
+                ProviderState.UNAVAILABLE,
+                reason="AI_PROVIDER_CHAIN_EXHAUSTED",
+            )
+        return last or SemanticProviderResult(
+            ProviderState.UNAVAILABLE,
+            reason="AI_PROVIDER_UNAVAILABLE",
+        )
 
     def consume_attempts(self) -> tuple[ProviderAttempt, ...]:
         items = self._last_attempts
@@ -423,25 +462,42 @@ class DynamicContentRemediationRoutingSession:
 
     def analyze(self, request: Any) -> Any:
         from rasai.m20_ai import ContentRemediationResult
-        self._last_attempts = ()
-        candidates = self.semantic_session.order_candidate_objects(
-            self.providers,
-            request,
-            scope="CONTENT_REMEDIATION",
-        )
-        if not candidates:
-            return ContentRemediationResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_CHAIN_EXHAUSTED")
 
+        self._last_attempts = ()
         attempts: list[ProviderAttempt] = []
         last = None
-        fallback_from = None
-        fallback_reason = None
-        for index, provider in enumerate(candidates):
+        winner = None
+        fallback_from: str | None = None
+        fallback_reason: str | None = None
+        policy = getattr(self.semantic_session, "_rasai_execution_policy", None)
+        if not isinstance(policy, AiExecutionPolicy):
+            policy = AiExecutionPolicy()
+        sleeper = getattr(self.semantic_session, "_rasai_cycle_sleeper", None)
+
+        def candidates() -> tuple[Any, ...]:
+            return self.semantic_session.order_candidate_objects(
+                self.providers,
+                request,
+                scope="CONTENT_REMEDIATION",
+            )
+
+        def invoke(provider: Any, cycle: int, call_index: int) -> AiProviderInvocation:
+            nonlocal last, winner, fallback_from, fallback_reason
             result = provider.analyze(request, max_attempts=1)
             local = [_price_auto_attempt(item) for item in provider.consume_attempts()]
             if fallback_from is not None:
-                local = [replace(item, fallback_from_provider=fallback_from, fallback_reason=fallback_reason) for item in local]
-            local = [replace(item, attempt_index=len(attempts) + offset) for offset, item in enumerate(local, 1)]
+                local = [
+                    replace(
+                        item,
+                        fallback_from_provider=fallback_from,
+                        fallback_reason=fallback_reason,
+                    )
+                    for item in local
+                ]
+            local = [
+                replace(item, attempt_index=len(attempts) + offset)
+                for offset, item in enumerate(local, 1)
+            ]
             attempts.extend(local)
             last = result
             attempt = local[-1] if local else None
@@ -453,23 +509,49 @@ class DynamicContentRemediationRoutingSession:
                 )
 
             if result.state is ProviderState.AVAILABLE:
-                if fallback_from is not None and attempts:
-                    attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK_SUCCESS, fallback_from_provider=fallback_from, fallback_reason=fallback_reason)
-                self._last_attempts = tuple(attempts)
-                return result
-
-            if self.coordinator.is_eligible(str(provider.name)):
-                _reactivate(provider)
-            if index < len(candidates) - 1:
                 if attempts:
-                    attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK)
-                fallback_from = str(provider.name)
-                fallback_reason = result.reason or "AI_PROVIDER_UNAVAILABLE"
+                    attempts[-1] = replace(
+                        attempts[-1],
+                        decision=DECISION_FALLBACK_SUCCESS if fallback_from else DECISION_SUCCESS,
+                        fallback_from_provider=fallback_from,
+                        fallback_reason=fallback_reason,
+                    )
+                winner = result
+                return AiProviderInvocation(AiProviderOutcome.COMPLETE)
 
+            if result.state is ProviderState.NOT_CONFIGURED:
+                self.coordinator.exclude_configuration(
+                    str(provider.name),
+                    "NOT_CONFIGURED_DURING_EXECUTION",
+                )
+                return AiProviderInvocation(AiProviderOutcome.PROVIDER_TERMINAL)
+
+            if attempts:
+                attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK)
+            fallback_from = str(provider.name)
+            fallback_reason = result.reason or "AI_PROVIDER_UNAVAILABLE"
+            if attempt is not None and attempt.diagnostic is not None:
+                return invocation_from_diagnostic(attempt.diagnostic)
+            return AiProviderInvocation(AiProviderOutcome.NO_PROGRESS)
+
+        run_ai_need(
+            candidates=candidates,
+            invoke=invoke,
+            policy=policy,
+            sleeper=sleeper,
+        )
         self._last_attempts = tuple(attempts)
+        if winner is not None:
+            return winner
         if not self.coordinator.ordered_names():
-            return ContentRemediationResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_CHAIN_EXHAUSTED")
-        return last or ContentRemediationResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_UNAVAILABLE")
+            return ContentRemediationResult(
+                ProviderState.UNAVAILABLE,
+                reason="AI_PROVIDER_CHAIN_EXHAUSTED",
+            )
+        return last or ContentRemediationResult(
+            ProviderState.UNAVAILABLE,
+            reason="AI_PROVIDER_UNAVAILABLE",
+        )
 
     def consume_attempts(self) -> tuple[ProviderAttempt, ...]:
         items = self._last_attempts
