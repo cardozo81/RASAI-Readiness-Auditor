@@ -1,6 +1,6 @@
 # Guia de IA
 
-O RASAi usa IA em finalidades opcionais e evidence-bound. A auditoria determinística continua capaz de executar sem IA. Todos os consumidores de IA reutilizam a mesma seleção principal e a mesma orquestração central de provider/modelo, custo, quarentena, circuit breaker e fallback.
+O RASAi usa IA em finalidades opcionais e evidence-bound. A auditoria determinística continua capaz de executar sem IA. Os consumidores que usam o **registry canônico de IA** reutilizam a mesma seleção principal e a mesma orquestração central de provider/modelo, custo, quarentena, circuit breaker e fallback. Integrações externas de domínio específico podem ter boundary próprio quando isso evita misturar pesquisa externa com evidência determinística.
 
 ## Finalidades
 
@@ -48,6 +48,14 @@ github-copilot -> copilot
 `none` desabilita IA. `auto` aciona a orquestração econômica entre providers elegíveis.
 
 Mistral, Cohere, Kimi e GitHub Copilot podem participar do `AUTO` quando suas credenciais/modelos estiverem configurados e aptos. Use `RASAI_AI_AUTO_EXCLUDE` para manter um provider configurado fora do pool.
+
+## Search Intelligence externa
+
+A Perplexity Search API é a primeira integração externa deste tipo. Ela não é adicionada à lista de providers concretos acima, não participa do `AI=auto` e não substitui SERP observada. A finalidade é descoberta de fontes externas com provenance explícita e persistência separada.
+
+A regra geral de providers canônicos permanece mais forte: qualquer novo provider que entrar no registry após homologação deve ser AUTO-eligible no mesmo merge quando configurado/apto. Perplexity Search API fica fora somente porque nesta entrega não pertence a esse registry.
+
+Contrato: [PERPLEXITY_SEARCH_INTELLIGENCE.md](PERPLEXITY_SEARCH_INTELLIGENCE.md).
 
 ## Arquivos administráveis pelo operador
 
