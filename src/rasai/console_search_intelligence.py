@@ -571,9 +571,27 @@ def _render_menu_extension(state: SearchConsoleState) -> None:
     else:
         mode = (os.environ.get("RASAI_SERP_MODE") or "disabled").strip().casefold()
         status = f"sem termos nesta execução | provider mode={mode}"
+    perplexity_queries = tuple(getattr(state, "perplexity_queries", ()) or ())
+    px_status = perplexity_configuration_status()
+    px_mode = str(getattr(state, "perplexity_search_type", "web") or "web").upper()
+    if perplexity_queries:
+        px_preview = "; ".join(perplexity_queries[:2])
+        if len(perplexity_queries) > 2:
+            px_preview += f"; +{len(perplexity_queries) - 2}"
+        perplexity_line = (
+            f"{len(perplexity_queries)} query(s) | {px_mode} | "
+            f"{'configurada' if px_status['configured'] else 'não configurada'} | {px_preview}"
+        )
+    else:
+        perplexity_line = (
+            "não solicitado | "
+            + ("credencial configurada" if px_status["configured"] else "credencial não configurada")
+        )
+
     print("\nSEARCH INTELLIGENCE")
     print(f"T. Termos SERP            : {status}")
-    print("   Termos são transitórios da sessão; credencial/provider/limites continuam em E.")
+    print(f"U. Perplexity externa     : {perplexity_line}")
+    print("   Termos são transitórios da sessão; credenciais/provider/limites continuam em E.")
 
 
 def install(console_module: ModuleType) -> None:
@@ -611,6 +629,9 @@ def install(console_module: ModuleType) -> None:
         if choice == "T":
             configure_search_intelligence(state)
             return
+        if choice == "U":
+            configure_perplexity_search(state)
+            return
         original_configure(state, choice)
 
     def readiness(state: SearchConsoleState) -> tuple[bool, str]:
@@ -620,43 +641,66 @@ def install(console_module: ModuleType) -> None:
         search_ready, search_reason = validate_search_readiness(state)
         if not search_ready:
             return False, search_reason
+        perplexity_ready, perplexity_reason = validate_perplexity_readiness(state)
+        if not perplexity_ready:
+            return False, perplexity_reason
+        details = [reason]
         if state.search_queries:
-            return True, f"{reason}; {search_reason}"
-        return ready, reason
+            details.append(search_reason)
+        if state.perplexity_queries:
+            details.append(perplexity_reason)
+        return True, "; ".join(item for item in details if item)
 
     def run(state: SearchConsoleState) -> int:
         code = int(original_run(state) or 0)
-        if code != 0 or not state.search_queries:
-            return code
-        try:
-            targets = console_module.preflight(state)
-            target_url = targets[0]
-        except (OSError, ValueError, UnicodeError) as exc:
-            state.search_last_status = "COMPLETE_WITH_LIMITATIONS"
-            state.search_last_detail = f"não foi possível resolver o domínio pós-auditoria: {exc}"
-            if code == 0:
-                state.status = "COMPLETE_WITH_LIMITATIONS"
+        if code != 0:
             return code
 
         previous_status = state.status
-        state.status = "SEARCH_INTELLIGENCE"
-        state.operation = "API:SERP"
-        try:
-            console_module.render_header(state)
-            print(
-                f"Search Intelligence: consultando {len(state.search_queries)} termo(s) "
-                "e associando as observações ao AUD atual..."
-            )
-        except Exception:
-            pass
+        any_limitation = False
 
-        search_code = execute_search_for_audit(state, target_url=target_url)
-        if search_code == 0:
-            state.status = previous_status
-            state.operation = "LOCAL:DONE"
-        else:
+        if state.search_queries:
+            try:
+                targets = console_module.preflight(state)
+                target_url = targets[0]
+            except (OSError, ValueError, UnicodeError) as exc:
+                state.search_last_status = "COMPLETE_WITH_LIMITATIONS"
+                state.search_last_detail = f"não foi possível resolver o domínio pós-auditoria: {exc}"
+                any_limitation = True
+            else:
+                state.status = "SEARCH_INTELLIGENCE"
+                state.operation = "API:SERP"
+                try:
+                    console_module.render_header(state)
+                    print(
+                        f"Search Intelligence: consultando {len(state.search_queries)} termo(s) "
+                        "e associando as observações ao AUD atual..."
+                    )
+                except Exception:
+                    pass
+                if execute_search_for_audit(state, target_url=target_url) != 0:
+                    any_limitation = True
+
+        if state.perplexity_queries:
+            state.status = "SEARCH_INTELLIGENCE"
+            state.operation = "API:PERPLEXITY_SEARCH"
+            try:
+                console_module.render_header(state)
+                print(
+                    f"Perplexity Search Intelligence: consultando "
+                    f"{len(state.perplexity_queries)} query(s) como pesquisa externa..."
+                )
+            except Exception:
+                pass
+            if execute_perplexity_for_audit(state) != 0:
+                any_limitation = True
+
+        if any_limitation:
             state.status = "COMPLETE_WITH_LIMITATIONS"
             state.operation = "INTEGRATION:SEARCH_INTELLIGENCE_LIMITATION"
+        else:
+            state.status = previous_status
+            state.operation = "LOCAL:DONE"
         return code
 
     def usage(state: SearchConsoleState) -> None:
@@ -674,15 +718,27 @@ def install(console_module: ModuleType) -> None:
         queries = tuple(getattr(state, "search_queries", ()) or ())
         if not queries and state.search_last_status == "NOT_REQUESTED":
             print("Search Intelligence   : não solicitado nesta sessão")
-            return
-        print(
-            f"Search Intelligence   : {state.search_last_status} | "
-            f"termos={len(queries)}"
-        )
-        if state.search_last_detail:
-            print(f"Detalhe Search       : {state.search_last_detail}")
-        if state.search_last_report:
-            print(f"Relatório Search     : {state.search_last_report}")
+        else:
+            print(
+                f"Search Intelligence   : {state.search_last_status} | "
+                f"termos={len(queries)}"
+            )
+            if state.search_last_detail:
+                print(f"Detalhe Search       : {state.search_last_detail}")
+            if state.search_last_report:
+                print(f"Relatório Search     : {state.search_last_report}")
+
+        perplexity_queries = tuple(getattr(state, "perplexity_queries", ()) or ())
+        if not perplexity_queries and state.perplexity_last_status == "NOT_REQUESTED":
+            print("Perplexity externa    : não solicitada nesta sessão")
+        else:
+            print(
+                f"Perplexity externa    : {state.perplexity_last_status} | "
+                f"queries={len(perplexity_queries)} | "
+                f"modo={state.perplexity_search_type.upper()}"
+            )
+            if state.perplexity_last_detail:
+                print(f"Detalhe Perplexity   : {state.perplexity_last_detail}")
 
     console_module._menu = menu
     console_module._configure = configure
