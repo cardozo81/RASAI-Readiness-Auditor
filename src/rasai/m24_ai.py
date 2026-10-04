@@ -12,7 +12,7 @@ from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
 
 from rasai.domain import new_id
-from rasai.dynamic_ai_routing import provider_is_eligible, record_canonical_attempt
+from rasai.dynamic_ai_routing import provider_is_eligible
 from rasai.m18_ai import (
     AttemptStatus,
     ProviderAttempt,
@@ -208,12 +208,6 @@ def maybe_remediate_m24(
             audit_id=audit_id,
             page_row=page_row,
             attempt=attempt,
-        )
-        record_canonical_attempt(
-            candidate,
-            attempt,
-            scope="TECHNICAL_AI",
-            page_url=str(page_row["url"]),
         )
         last = result
         if result.state is ProviderState.AVAILABLE:
