@@ -47,7 +47,7 @@ _EXECUTION_CONTEXT: ContextVar[tuple[str, Any, Any] | None] = ContextVar(
     "rasai_semantic_execution_context",
     default=None,
 )
-_RULE_PROVIDER_METADATA: ContextVar[dict[str, dict[str, str | None]]] = ContextVar(
+_RULE_PROVIDER_METADATA: ContextVar[dict[str, dict[str, Any]]] = ContextVar(
     "rasai_semantic_rule_provider_metadata",
     default={},
 )
@@ -135,7 +135,7 @@ def _assessment_from_payload(value: Mapping[str, Any]):
         return None
 
 
-def _persisted_task_values(workspace: Any, task_id: str) -> tuple[dict[str, Any], dict[str, dict[str, str | None]]]:
+def _persisted_task_values(workspace: Any, task_id: str) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     connection = sqlite3.connect(workspace.database)
     try:
         row = connection.execute(
@@ -156,7 +156,7 @@ def _persisted_task_values(workspace: Any, task_id: str) -> tuple[dict[str, Any]
         return {}, {}
 
     accepted: dict[str, Any] = {}
-    metadata: dict[str, dict[str, str | None]] = {}
+    metadata: dict[str, dict[str, Any]] = {}
     for key, value in raw.items():
         if not isinstance(value, Mapping):
             continue
@@ -167,13 +167,9 @@ def _persisted_task_values(workspace: Any, task_id: str) -> tuple[dict[str, Any]
         accepted[rule_id] = assessment
         raw_meta = value.get("provider_metadata")
         if isinstance(raw_meta, Mapping):
-            metadata[rule_id] = {
-                "provider": str(raw_meta.get("provider") or "") or None,
-                "model": str(raw_meta.get("model") or "") or None,
-                "prompt_id": str(raw_meta.get("prompt_id") or "") or None,
-                "prompt_version": str(raw_meta.get("prompt_version") or "") or None,
-                "configuration_version": str(raw_meta.get("configuration_version") or "") or None,
-            }
+            # Keep the full fragment-level provenance when the same evidence version
+            # is rehydrated; do not collapse cycle/attempt/usage/pricing metadata.
+            metadata[rule_id] = dict(raw_meta)
     return accepted, metadata
 
 
