@@ -10,6 +10,14 @@ from dataclasses import dataclass
 import math
 from typing import Any, Mapping
 
+from rasai.ai_canonical_orchestration import (
+    AI_CYCLE_DELAY_ENV,
+    AI_MAX_CYCLES_ENV,
+    DEFAULT_AI_CYCLE_DELAY_SECONDS,
+    DEFAULT_AI_MAX_CYCLES,
+    MAX_AI_CYCLE_DELAY_SECONDS,
+    MAX_AI_MAX_CYCLES,
+)
 from rasai.apdex_concurrency_policy import (
     ADVANCED_MIN_DELAY_SECONDS,
     EXPERIENCE_MAX_CONCURRENCY,
@@ -99,6 +107,7 @@ AUDIT_JOB_FIELDS = frozenset({
     "urls",
     "language", "market", "max_pages", "device_context",
     "ai_provider", "ai_model", "ai_reasoning", "ai_timeout_seconds",
+    "ai_max_cycles", "ai_cycle_delay_seconds",
     "ai_content_remediation", "ai_technical_remediation",
     "web_performance", "web_performance_max_pages", "web_performance_timeout_seconds",
     "web_performance_field_source", "lighthouse_categories",
@@ -142,6 +151,18 @@ def audit_job_options() -> tuple[AuditJobOption, ...]:
         AuditJobOption("ai_model", "", "text", required_when="Somente quando houver override de modelo."),
         AuditJobOption("ai_reasoning", "", "text", required_when="Somente provider explícito que exponha reasoning configurável."),
         AuditJobOption("ai_timeout_seconds", DEFAULT_AI_TIMEOUT_SECONDS, "number"),
+        AuditJobOption(
+            "ai_max_cycles",
+            DEFAULT_AI_MAX_CYCLES,
+            "integer",
+            description="Máximo de ciclos do orquestrador por necessidade lógica de IA.",
+        ),
+        AuditJobOption(
+            "ai_cycle_delay_seconds",
+            DEFAULT_AI_CYCLE_DELAY_SECONDS,
+            "number",
+            description="Espera somente entre ciclos de IA; nunca entre providers.",
+        ),
         AuditJobOption("ai_content_remediation", False, "boolean"),
         AuditJobOption("ai_technical_remediation", False, "boolean"),
         AuditJobOption("web_performance", False, "boolean"),
@@ -272,6 +293,23 @@ def normalize_audit_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     normalized["ai_model"] = _text(payload, "ai_model", "")
     normalized["ai_reasoning"] = _text(payload, "ai_reasoning", "")
     normalized["ai_timeout_seconds"] = _number(payload, "ai_timeout_seconds", DEFAULT_AI_TIMEOUT_SECONDS, minimum=0.000001)
+    normalized["ai_max_cycles"] = _int(
+        payload,
+        "ai_max_cycles",
+        DEFAULT_AI_MAX_CYCLES,
+        minimum=1,
+        maximum=MAX_AI_MAX_CYCLES,
+    )
+    normalized["ai_cycle_delay_seconds"] = _number(
+        payload,
+        "ai_cycle_delay_seconds",
+        DEFAULT_AI_CYCLE_DELAY_SECONDS,
+        minimum=0,
+    )
+    if normalized["ai_cycle_delay_seconds"] > MAX_AI_CYCLE_DELAY_SECONDS:
+        raise ValueError(
+            f"AUDIT payload field ai_cycle_delay_seconds must be <= {MAX_AI_CYCLE_DELAY_SECONDS:g}"
+        )
     normalized["ai_content_remediation"] = _bool(payload, "ai_content_remediation", False)
     normalized["ai_technical_remediation"] = _bool(payload, "ai_technical_remediation", False)
 
@@ -424,6 +462,8 @@ def audit_job_environment_overrides(payload: Mapping[str, Any]) -> dict[str, str
     normalized = normalize_audit_job_payload(payload)
     overrides = {
         AI_TIMEOUT_ENV: f"{normalized['ai_timeout_seconds']:g}",
+        AI_MAX_CYCLES_ENV: str(normalized["ai_max_cycles"]),
+        AI_CYCLE_DELAY_ENV: f"{normalized['ai_cycle_delay_seconds']:g}",
         **{
             environment_name: str(normalized[payload_name])
             for payload_name, environment_name in _CONTENT_PAYLOAD_TO_ENV.items()
