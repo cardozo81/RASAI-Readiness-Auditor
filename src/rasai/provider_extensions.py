@@ -19,8 +19,10 @@ from urllib.request import Request, urlopen
 
 from rasai.ai_cost_policy import resolve_observed_cost
 from rasai.ai_resilience import (
-    DECISION_RETRY, DECISION_STOP, DECISION_SUCCESS, DECISION_SUCCESS_AFTER_RETRY,
-    MAX_PROVIDER_ATTEMPTS_PER_CONTEXT, parse_retry_after, retry_policy,
+    DECISION_STOP,
+    DECISION_SUCCESS,
+    MAX_PROVIDER_ATTEMPTS_PER_CONTEXT,
+    parse_retry_after,
 )
 from rasai.m18_ai import (
     AttemptStatus,
