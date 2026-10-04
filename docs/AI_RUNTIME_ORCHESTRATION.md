@@ -170,6 +170,8 @@ Uma tentativa com sucesso entra na mesma janela e reduz naturalmente a densidade
 
 Quando o usuário escolhe um provider específico em vez de `auto`, permanecem válidas as regras de retry do adapter daquele provider. A ordenação econômica multi-provider e `RASAI_AI_AUTO_EXCLUDE` são exclusivas do AUTO.
 
+Pricing **não é gate de admissão** para a seleção explícita. Se provider, credencial, modelo/configuração e saúde estiverem aptos, ausência de regra de preço ou de contexto tarifário resolvível não bloqueia a chamada; a telemetria/custo permanece `UNPRICED` até existir base reproduzível. Em `AUTO`, o mesmo princípio vale para elegibilidade: preço conhecido ordena candidatos, preço desconhecido desloca o candidato para depois dos precificados, sem tratá-lo como custo zero.
+
 ## 5. Compartilhamento da política entre módulos
 
 O estado do coordenador AUTO pertence à execução, não a um módulo isolado. Sempre que o adapter é compatível, a mesma saúde do provider e a mesma política de custo são compartilhadas por:
