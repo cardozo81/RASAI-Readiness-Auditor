@@ -14,7 +14,9 @@ from rasai.console_search_intelligence import (
     install,
     build_search_argv,
     execute_search_for_audit,
+    execute_perplexity_for_audit,
     parse_search_terms,
+    validate_perplexity_readiness,
     validate_search_readiness,
 )
 from rasai.console_settings import _state_values
@@ -177,6 +179,69 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
                 os.path.normcase(os.path.realpath(captured_workspace)),
                 os.path.normcase(os.path.realpath(workspace)),
             )
+
+    def test_perplexity_readiness_keeps_missing_key_as_external_limitation(self) -> None:
+        state = SimpleNamespace(
+            perplexity_queries=("rasai readiness",),
+            perplexity_search_type="web",
+        )
+        ready, reason = validate_perplexity_readiness(state, {})
+        self.assertTrue(ready, reason)
+        self.assertIn("não configurada", reason)
+        self.assertNotIn("secret", reason.casefold())
+
+    def test_perplexity_execution_is_independent_from_serp_and_humanized(self) -> None:
+        import sqlite3
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "AUD-TEST"
+            workspace.mkdir(parents=True)
+            (workspace / "artifacts").mkdir()
+            connection = sqlite3.connect(workspace / "audit.db")
+            try:
+                connection.execute("CREATE TABLE audits(audit_id TEXT PRIMARY KEY)")
+                connection.execute("INSERT INTO audits VALUES ('AUD-TEST')")
+                connection.commit()
+            finally:
+                connection.close()
+
+            state = SearchConsoleState(
+                audits_root=str(root),
+                audit_id="AUD-TEST",
+                search_queries=(),
+                perplexity_queries=("rasai readiness", "search readiness"),
+                perplexity_search_type="fast",
+            )
+
+            def runner(workspace_obj, **kwargs):
+                self.assertEqual(
+                    os.path.normcase(os.path.realpath(workspace_obj.root)),
+                    os.path.normcase(os.path.realpath(workspace)),
+                )
+                self.assertEqual(kwargs["audit_id"], "AUD-TEST")
+                self.assertEqual(
+                    kwargs["query"],
+                    ("rasai readiness", "search readiness"),
+                )
+                self.assertEqual(kwargs["search_type"], "fast")
+                return SimpleNamespace(
+                    status="SUCCESS",
+                    search_type="fast",
+                    queries=kwargs["query"],
+                    native_usage=(SimpleNamespace(quantity=1.0),),
+                    sources=(SimpleNamespace(url="https://example.test/"),),
+                    pricing=SimpleNamespace(estimated_cost=0.001, currency="USD"),
+                )
+
+            code = execute_perplexity_for_audit(state, runner=runner)
+
+            self.assertEqual(code, 0)
+            self.assertEqual(state.perplexity_last_status, "COMPLETE")
+            self.assertIn("Perplexity Search API - pesquisa externa", state.perplexity_last_detail)
+            self.assertIn("requests=1.0", state.perplexity_last_detail)
+            self.assertEqual(state.search_queries, ())
+
 
     def test_cumulative_usage_reprojects_persisted_search_success(self) -> None:
         from rasai import console_governed_search_runtime as governed

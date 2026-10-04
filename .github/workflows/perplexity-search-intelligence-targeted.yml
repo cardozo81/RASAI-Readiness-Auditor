@@ -1,0 +1,91 @@
+name: Perplexity Search Intelligence targeted
+
+on:
+  push:
+    branches:
+      - feat/perplexity-search-intelligence
+    paths:
+      - 'src/rasai/search_intelligence/perplexity.py'
+      - 'src/rasai/platform/usage_ingestion.py'
+      - 'src/rasai/console_search_intelligence.py'
+      - 'src/rasai/catalog_report_integrations.py'
+      - 'src/rasai/catalog_report_model.py'
+      - 'tests/test_perplexity_search_intelligence.py'
+      - 'tests/test_console_search_intelligence.py'
+      - 'tests/test_provider_registry.py'
+      - 'docs/AI_PRICING_CONFIGURATION.md'
+      - 'docs/AI_RUNTIME_ORCHESTRATION.md'
+      - 'docs/AUTO_COST_AWARE_AI_ROUTING.md'
+      - 'docs/PROVIDER_REGISTRY.md'
+      - 'docs/AI_GUIDE.md'
+      - 'docs/CONFIGURATION.md'
+      - 'docs/CLI_REFERENCE.md'
+      - 'docs/EXTERNAL_CREDENTIALS.md'
+      - 'docs/ENVIRONMENT_VARIABLES.md'
+      - 'docs/PROVIDER_SETUP.md'
+      - 'docs/REPORTING_AI_USAGE.md'
+      - 'docs/CONSOLE_SEARCH_INTELLIGENCE.md'
+      - 'docs/PERPLEXITY_SEARCH_INTELLIGENCE.md'
+      - 'docs/README.md'
+      - '.github/workflows/perplexity-search-intelligence-targeted.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/rasai/search_intelligence/perplexity.py'
+      - 'src/rasai/platform/usage_ingestion.py'
+      - 'src/rasai/console_search_intelligence.py'
+      - 'src/rasai/catalog_report_integrations.py'
+      - 'src/rasai/catalog_report_model.py'
+      - 'tests/test_perplexity_search_intelligence.py'
+      - 'tests/test_console_search_intelligence.py'
+      - 'docs/AI_PRICING_CONFIGURATION.md'
+      - 'docs/AI_RUNTIME_ORCHESTRATION.md'
+      - 'docs/AUTO_COST_AWARE_AI_ROUTING.md'
+      - 'docs/PROVIDER_REGISTRY.md'
+      - 'docs/AI_GUIDE.md'
+      - 'docs/CONFIGURATION.md'
+      - 'docs/CLI_REFERENCE.md'
+      - 'docs/EXTERNAL_CREDENTIALS.md'
+      - 'docs/ENVIRONMENT_VARIABLES.md'
+      - 'docs/PROVIDER_SETUP.md'
+      - 'docs/REPORTING_AI_USAGE.md'
+      - 'docs/CONSOLE_SEARCH_INTELLIGENCE.md'
+      - 'docs/PERPLEXITY_SEARCH_INTELLIGENCE.md'
+      - 'docs/README.md'
+      - '.github/workflows/perplexity-search-intelligence-targeted.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  targeted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - name: Install package and pytest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+      - name: Compile changed Python boundary
+        run: |
+          python -m compileall -q \
+            src/rasai/search_intelligence/perplexity.py \
+            src/rasai/console_search_intelligence.py \
+            src/rasai/catalog_report_model.py \
+            src/rasai/catalog_report_integrations.py
+      - name: Run Perplexity and directly shared boundary tests
+        run: |
+          python -m pytest -q \
+            tests/test_perplexity_search_intelligence.py \
+            tests/test_console_search_intelligence.py \
+            tests/test_provider_registry.py \
+            tests/test_ai_native_usage_pricing.py \
+            tests/test_ai_cost_policy.py \
+            tests/test_m9_scoring.py

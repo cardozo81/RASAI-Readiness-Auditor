@@ -52,10 +52,13 @@ Mapeamentos públicos vigentes incluem:
 - análise semântica por dispositivo -> contexto SARI e CATs que consomem o resultado persistido;
 - crawling e remediação técnica de descoberta -> CAT-01;
 - Search/Competitive Intelligence -> CAT-05;
+- Perplexity Search API -> CAT-05 como **pesquisa externa**, com fontes/citações em provenance separada e sem promoção para SERP/evidência determinística;
 - Improvement Intelligence -> CAT-08;
 - remediação assistida de conteúdo -> CAT-09;
 - Análise Direcionada -> página `directed-analysis.html`;
 - demais finalidades -> contexto funcional explicitado na própria linha da tentativa.
+
+Tentativas `RASAI-PERPLEXITY-SEARCH-1` usam `ai_provider_attempts` somente como envelope operacional de telemetria e `ai_provider_native_usage` para `PERPLEXITY_SEARCH_REQUEST`. Tokens permanecem ausentes. O conteúdo retornado e as fontes ficam em `perplexity_search_runs`/`perplexity_search_sources`, separados das tabelas SERP. Assim, a página de IA/integrações pode mostrar custo e estado sem reclassificar a pesquisa externa como evidência canônica.
 
 Quando uma tentativa não possui telemetria suficiente ou nenhuma regra corresponde às condições runtime efetivas, o relatório mantém a tentativa e exibe **Não precificado**; ausência de preço não é convertida em custo zero. O mesmo vale para unidades nativas sem conversão monetária oficial, como `MANUS_CREDIT` nesta versão. A persistência conserva a regra, fonte e condições aplicadas quando a tarifa foi resolvida, permitindo reconstrução posterior sem reinterpretar a execução por preços correntes. Quando o custo persistido é explicitamente `0`, moeda e valor são exibidos em cinza claro e, na mesma tentativa, tokens de entrada/saída recebem o mesmo tratamento visual secundário. `reasoning_tokens`, quando presentes, são subconjunto dos tokens de saída e não são somados novamente ao total.
 

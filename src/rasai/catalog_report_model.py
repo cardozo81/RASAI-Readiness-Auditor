@@ -51,12 +51,14 @@ _AI_PURPOSE_LABELS = {
     "IMPROVEMENT-INTELLIGENCE-001":("Análise profunda e melhorias","CAT-08"),
     "COMPETITIVE-AI-001":("Inteligência competitiva por IA","CAT-05"),
     "DIRECTED-ANALYSIS-001":("Análise Direcionada","Análise Direcionada"),
+    "RASAI-PERPLEXITY-SEARCH-1":("Pesquisa externa Perplexity","CAT-05"),
 }
 _AI_EXCHANGE_PURPOSES = {
     "SEMANTIC_ANALYSIS":"Análise semântica",
     "TECHNICAL_REMEDIATION":"Remediação técnica",
     "CONTENT_REMEDIATION":"Remediação de conteúdo",
     "IMPROVEMENT_INTELLIGENCE":"Análise profunda e melhorias",
+    "SEARCH_INTELLIGENCE":"Pesquisa externa Perplexity",
 }
 _DOMAIN_CATALOG = {
     "ACCESSIBILITY":"CAT-02",

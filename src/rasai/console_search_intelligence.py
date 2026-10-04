@@ -22,7 +22,15 @@ from urllib.parse import urlsplit
 
 from rasai.console_artifacts import audit_workspace
 from rasai.console_m23 import State as BaseState
+from rasai.persistence import AuditWorkspace
 from rasai.search_intelligence.config import SerpRuntimeConfig, provider_key_env
+from rasai.search_intelligence.perplexity import (
+    API_KEY_ENV as PERPLEXITY_API_KEY_ENV,
+    MAX_QUERIES_PER_REQUEST as PERPLEXITY_MAX_QUERIES,
+    execute_perplexity_search,
+    humanized_perplexity_summary,
+    perplexity_configuration_status,
+)
 from rasai.search_intelligence.provider_catalog import serp_provider_registration
 from rasai.search_intelligence.runtime import (
     projected_http_request_ceiling,
@@ -50,6 +58,11 @@ class SearchConsoleState(BaseState):
     search_last_detail: str = ""
     search_last_report: str = ""
     search_last_duration_seconds: float | None = None
+    perplexity_queries: tuple[str, ...] = ()
+    perplexity_search_type: str = "web"
+    perplexity_last_status: str = "NOT_REQUESTED"
+    perplexity_last_detail: str = ""
+    perplexity_last_duration_seconds: float | None = None
 
 
 def parse_search_terms(raw: str) -> tuple[str, ...]:
@@ -287,6 +300,142 @@ def configure_search_intelligence(state: SearchConsoleState) -> None:
         state.error = f"Search Intelligence: {exc}"
 
 
+def configure_perplexity_search(state: SearchConsoleState) -> None:
+    """Collect execution-scoped Perplexity external-research input."""
+
+    status = perplexity_configuration_status()
+    key_state = "[SET]" if status["configured"] else "<não definida>"
+    print("\nSEARCH INTELLIGENCE / PERPLEXITY")
+    print(
+        "Esta superfície é pesquisa externa com provenance própria; não substitui SERP "
+        "observada e não altera scoring, SARI, CATs ou evidência determinística."
+    )
+    print(
+        f"Provider: Perplexity | surface=SEARCH_API | "
+        f"{PERPLEXITY_API_KEY_ENV}={key_state}"
+    )
+    print(
+        f"Limite desta integração: até {PERPLEXITY_MAX_QUERIES} queries por request; "
+        "WEB e FAST usam a mesma estrutura de resposta."
+    )
+
+    try:
+        enabled = _yes_no(
+            "Executar pesquisa externa Perplexity após a auditoria?",
+            bool(state.perplexity_queries),
+        )
+        if not enabled:
+            state.perplexity_queries = ()
+            state.perplexity_last_status = "NOT_REQUESTED"
+            state.perplexity_last_detail = ""
+            state.perplexity_last_duration_seconds = None
+            state.error = ""
+            return
+
+        current = "; ".join(state.perplexity_queries)
+        raw = input(
+            "Query(s) Perplexity; separe múltiplas por ';'"
+            + (f" [{current}]" if current else "")
+            + ": "
+        ).strip()
+        queries = parse_search_terms(raw) if raw else state.perplexity_queries
+        if not queries:
+            raise ValueError("informe pelo menos uma query Perplexity")
+        if len(queries) > PERPLEXITY_MAX_QUERIES:
+            raise ValueError(
+                f"a Search API aceita no máximo {PERPLEXITY_MAX_QUERIES} queries por request"
+            )
+        state.perplexity_queries = queries
+
+        current_type = (
+            state.perplexity_search_type
+            if state.perplexity_search_type in {"web", "fast"}
+            else "web"
+        )
+        raw_type = input(
+            f"Tipo de busca Perplexity [web/fast] [{current_type}]: "
+        ).strip().casefold()
+        search_type = current_type if not raw_type else raw_type
+        if search_type not in {"web", "fast"}:
+            raise ValueError("tipo Perplexity deve ser web ou fast")
+        state.perplexity_search_type = search_type
+        state.perplexity_last_status = "PENDING"
+        state.perplexity_last_detail = (
+            f"{len(queries)} query(s); Search API {search_type.upper()}; "
+            + ("credencial configurada" if status["configured"] else "credencial não configurada")
+        )
+        state.error = ""
+    except (TypeError, ValueError) as exc:
+        state.error = f"Perplexity Search Intelligence: {exc}"
+
+
+def validate_perplexity_readiness(
+    state: object, env: Mapping[str, str] | None = None
+) -> tuple[bool, str]:
+    queries = tuple(getattr(state, "perplexity_queries", ()) or ())
+    if not queries:
+        return True, "Perplexity não solicitada nesta execução"
+    if len(queries) > PERPLEXITY_MAX_QUERIES:
+        return False, f"Perplexity excede {PERPLEXITY_MAX_QUERIES} queries por request"
+    search_type = str(getattr(state, "perplexity_search_type", "web") or "web").casefold()
+    if search_type not in {"web", "fast"}:
+        return False, "Perplexity search_type inválido"
+    configured = perplexity_configuration_status(env)["configured"]
+    suffix = "configurada" if configured else "não configurada; execução será contida como limitação externa"
+    return True, (
+        f"Perplexity Search API: {len(queries)} query(s), {search_type.upper()}, {suffix}"
+    )
+
+
+def execute_perplexity_for_audit(
+    state: SearchConsoleState,
+    *,
+    runner: Callable[..., object] | None = None,
+) -> int:
+    """Run isolated external research after the deterministic audit; always fail open."""
+
+    queries = tuple(getattr(state, "perplexity_queries", ()) or ())
+    if not queries:
+        return 0
+    workspace_path = audit_workspace(state)
+    if workspace_path is None:
+        state.perplexity_last_status = "UNAVAILABLE"
+        state.perplexity_last_detail = "workspace AUD da sessão não encontrado"
+        return 1
+
+    audit_id = str(getattr(state, "audit_id", "") or "").strip()
+    if not audit_id:
+        state.perplexity_last_status = "UNAVAILABLE"
+        state.perplexity_last_detail = "audit_id da sessão não encontrado"
+        return 1
+
+    effective_runner = execute_perplexity_search if runner is None else runner
+    started = time.monotonic()
+    try:
+        result = effective_runner(
+            AuditWorkspace.open(workspace_path),
+            audit_id=audit_id,
+            query=queries,
+            search_type=str(getattr(state, "perplexity_search_type", "web") or "web"),
+        )
+        summary = humanized_perplexity_summary(result)
+        state.perplexity_last_duration_seconds = max(time.monotonic() - started, 0.0)
+        state.perplexity_last_status = (
+            "COMPLETE" if str(result.status) == "SUCCESS" else "COMPLETE_WITH_LIMITATIONS"
+        )
+        state.perplexity_last_detail = (
+            f"{summary['origem']} | modo={summary['modo']} | "
+            f"queries={summary['consultas']} | requests={summary['requests']} | "
+            f"fontes={summary['fontes']} | custo={summary['custo']} | status={summary['status']}"
+        )
+        return 0 if str(result.status) == "SUCCESS" else 1
+    except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+        state.perplexity_last_duration_seconds = max(time.monotonic() - started, 0.0)
+        state.perplexity_last_status = "COMPLETE_WITH_LIMITATIONS"
+        state.perplexity_last_detail = f"Perplexity indisponível/ inválida: {type(exc).__name__}"
+        return 1
+
+
 def validate_search_readiness(
     state: object, env: Mapping[str, str] | None = None
 ) -> tuple[bool, str]:
@@ -422,9 +571,27 @@ def _render_menu_extension(state: SearchConsoleState) -> None:
     else:
         mode = (os.environ.get("RASAI_SERP_MODE") or "disabled").strip().casefold()
         status = f"sem termos nesta execução | provider mode={mode}"
+    perplexity_queries = tuple(getattr(state, "perplexity_queries", ()) or ())
+    px_status = perplexity_configuration_status()
+    px_mode = str(getattr(state, "perplexity_search_type", "web") or "web").upper()
+    if perplexity_queries:
+        px_preview = "; ".join(perplexity_queries[:2])
+        if len(perplexity_queries) > 2:
+            px_preview += f"; +{len(perplexity_queries) - 2}"
+        perplexity_line = (
+            f"{len(perplexity_queries)} query(s) | {px_mode} | "
+            f"{'configurada' if px_status['configured'] else 'não configurada'} | {px_preview}"
+        )
+    else:
+        perplexity_line = (
+            "não solicitado | "
+            + ("credencial configurada" if px_status["configured"] else "credencial não configurada")
+        )
+
     print("\nSEARCH INTELLIGENCE")
     print(f"T. Termos SERP            : {status}")
-    print("   Termos são transitórios da sessão; credencial/provider/limites continuam em E.")
+    print(f"U. Perplexity externa     : {perplexity_line}")
+    print("   Termos são transitórios da sessão; credenciais/provider/limites continuam em E.")
 
 
 def install(console_module: ModuleType) -> None:
@@ -462,6 +629,9 @@ def install(console_module: ModuleType) -> None:
         if choice == "T":
             configure_search_intelligence(state)
             return
+        if choice == "U":
+            configure_perplexity_search(state)
+            return
         original_configure(state, choice)
 
     def readiness(state: SearchConsoleState) -> tuple[bool, str]:
@@ -471,43 +641,66 @@ def install(console_module: ModuleType) -> None:
         search_ready, search_reason = validate_search_readiness(state)
         if not search_ready:
             return False, search_reason
+        perplexity_ready, perplexity_reason = validate_perplexity_readiness(state)
+        if not perplexity_ready:
+            return False, perplexity_reason
+        details = [reason]
         if state.search_queries:
-            return True, f"{reason}; {search_reason}"
-        return ready, reason
+            details.append(search_reason)
+        if state.perplexity_queries:
+            details.append(perplexity_reason)
+        return True, "; ".join(item for item in details if item)
 
     def run(state: SearchConsoleState) -> int:
         code = int(original_run(state) or 0)
-        if code != 0 or not state.search_queries:
-            return code
-        try:
-            targets = console_module.preflight(state)
-            target_url = targets[0]
-        except (OSError, ValueError, UnicodeError) as exc:
-            state.search_last_status = "COMPLETE_WITH_LIMITATIONS"
-            state.search_last_detail = f"não foi possível resolver o domínio pós-auditoria: {exc}"
-            if code == 0:
-                state.status = "COMPLETE_WITH_LIMITATIONS"
+        if code != 0:
             return code
 
         previous_status = state.status
-        state.status = "SEARCH_INTELLIGENCE"
-        state.operation = "API:SERP"
-        try:
-            console_module.render_header(state)
-            print(
-                f"Search Intelligence: consultando {len(state.search_queries)} termo(s) "
-                "e associando as observações ao AUD atual..."
-            )
-        except Exception:
-            pass
+        any_limitation = False
 
-        search_code = execute_search_for_audit(state, target_url=target_url)
-        if search_code == 0:
-            state.status = previous_status
-            state.operation = "LOCAL:DONE"
-        else:
+        if state.search_queries:
+            try:
+                targets = console_module.preflight(state)
+                target_url = targets[0]
+            except (OSError, ValueError, UnicodeError) as exc:
+                state.search_last_status = "COMPLETE_WITH_LIMITATIONS"
+                state.search_last_detail = f"não foi possível resolver o domínio pós-auditoria: {exc}"
+                any_limitation = True
+            else:
+                state.status = "SEARCH_INTELLIGENCE"
+                state.operation = "API:SERP"
+                try:
+                    console_module.render_header(state)
+                    print(
+                        f"Search Intelligence: consultando {len(state.search_queries)} termo(s) "
+                        "e associando as observações ao AUD atual..."
+                    )
+                except Exception:
+                    pass
+                if execute_search_for_audit(state, target_url=target_url) != 0:
+                    any_limitation = True
+
+        if state.perplexity_queries:
+            state.status = "SEARCH_INTELLIGENCE"
+            state.operation = "API:PERPLEXITY_SEARCH"
+            try:
+                console_module.render_header(state)
+                print(
+                    f"Perplexity Search Intelligence: consultando "
+                    f"{len(state.perplexity_queries)} query(s) como pesquisa externa..."
+                )
+            except Exception:
+                pass
+            if execute_perplexity_for_audit(state) != 0:
+                any_limitation = True
+
+        if any_limitation:
             state.status = "COMPLETE_WITH_LIMITATIONS"
             state.operation = "INTEGRATION:SEARCH_INTELLIGENCE_LIMITATION"
+        else:
+            state.status = previous_status
+            state.operation = "LOCAL:DONE"
         return code
 
     def usage(state: SearchConsoleState) -> None:
@@ -525,15 +718,27 @@ def install(console_module: ModuleType) -> None:
         queries = tuple(getattr(state, "search_queries", ()) or ())
         if not queries and state.search_last_status == "NOT_REQUESTED":
             print("Search Intelligence   : não solicitado nesta sessão")
-            return
-        print(
-            f"Search Intelligence   : {state.search_last_status} | "
-            f"termos={len(queries)}"
-        )
-        if state.search_last_detail:
-            print(f"Detalhe Search       : {state.search_last_detail}")
-        if state.search_last_report:
-            print(f"Relatório Search     : {state.search_last_report}")
+        else:
+            print(
+                f"Search Intelligence   : {state.search_last_status} | "
+                f"termos={len(queries)}"
+            )
+            if state.search_last_detail:
+                print(f"Detalhe Search       : {state.search_last_detail}")
+            if state.search_last_report:
+                print(f"Relatório Search     : {state.search_last_report}")
+
+        perplexity_queries = tuple(getattr(state, "perplexity_queries", ()) or ())
+        if not perplexity_queries and state.perplexity_last_status == "NOT_REQUESTED":
+            print("Perplexity externa    : não solicitada nesta sessão")
+        else:
+            print(
+                f"Perplexity externa    : {state.perplexity_last_status} | "
+                f"queries={len(perplexity_queries)} | "
+                f"modo={state.perplexity_search_type.upper()}"
+            )
+            if state.perplexity_last_detail:
+                print(f"Detalhe Perplexity   : {state.perplexity_last_detail}")
 
     console_module._menu = menu
     console_module._configure = configure

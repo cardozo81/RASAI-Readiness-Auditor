@@ -56,6 +56,14 @@ No console local, configure o timezone pelo item **Timezone apresentação**, pe
 
 A presença de uma credencial não comprova validade, saldo, quota, plano ou acesso ao modelo. Instruções de criação e links oficiais: [EXTERNAL_CREDENTIALS.md](EXTERNAL_CREDENTIALS.md).
 
+## 2.1 Search Intelligence externa - credencial Perplexity
+
+| Variável | Default efetivo | Valores permitidos | Recomendado | Dependência funcional |
+|---|---|---|---|---|
+| `PERPLEXITY_API_KEY` | sem default | credencial Perplexity não vazia | secret/env | necessária somente quando a opção Perplexity externa é solicitada; não habilita `AI=auto` nem substitui provider SERP |
+
+A variável é secret-only. Não existe default seguro nem persistência em `rasai-console.ini`. Consulte [PERPLEXITY_SEARCH_INTELLIGENCE.md](PERPLEXITY_SEARCH_INTELLIGENCE.md).
+
 ## 3. IA - modelos
 
 | Variável | Default efetivo | Valores permitidos pelo runtime | Recomendado |

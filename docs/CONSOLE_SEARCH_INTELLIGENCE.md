@@ -10,7 +10,7 @@ O console separa três domínios:
 2. **provider/governança**: `RASAI_SERP_MODE`, `RASAI_SERP_PROVIDER`, limites `RASAI_SERP_*` e registry canônico;
 3. **credencial**: variável secreta exigida pelo provider live selecionado.
 
-Search Intelligence é evidence-bound e não altera `SARI-001` ou `SCORE-GEO-004` por ausência ou falha de SERP.
+A observação SERP desta superfície é evidence-bound e não altera `SARI-001` ou `SCORE-GEO-004` por ausência ou falha. A opção **Perplexity externa** é um subdomínio separado de pesquisa externa: preserva provenance própria, não vira SERP observada e não constitui evidência determinística.
 
 Google Search Console não faz parte desse domínio operacional. Embora ambos estejam relacionados a Search, GSC possui autenticação OAuth, property, política e readiness próprios e aparece como capacidade separada em `Preparar auditoria`.
 
@@ -222,6 +222,22 @@ AUD-*/report-catalog/cat-05.html
 ```
 
 Abrir o CAT-05 usa a evidência persistida e não refaz chamadas SERP somente para exibição.
+
+## Perplexity externa
+
+O console também expõe, de forma opt-in, uma integração separada:
+
+```text
+U. Perplexity externa
+```
+
+Ela aceita de uma a cinco queries no mesmo request e permite escolher `WEB` ou `FAST`. A credencial é `PERPLEXITY_API_KEY` e o console exibe somente o estado de presença da key.
+
+Essa execução ocorre após o core determinístico e é independente dos termos SERP. Seus resultados são persistidos em `perplexity_search_runs` e `perplexity_search_sources`, separados de `serp_observations` e `serp_results`.
+
+Falha, quota, rate limit ou ausência de credencial Perplexity permanecem contidos como limitação da integração. Não criam finding, não alteram SARI/SCORE-GEO/CATs/Apdex e não impedem a conclusão do core disponível.
+
+Detalhes de provenance, pricing e billing: [PERPLEXITY_SEARCH_INTELLIGENCE.md](PERPLEXITY_SEARCH_INTELLIGENCE.md).
 
 ## Falhas externas
 

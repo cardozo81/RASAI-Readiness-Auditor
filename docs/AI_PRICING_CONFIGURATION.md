@@ -238,6 +238,22 @@ Exemplos vigentes:
 
 A existência de outro tier/plano no fornecedor não o habilita no RASAi. Capacidades fora do contrato continuam sob análise na issue #180.
 
+### 6.7 Perplexity Search API - billability observada
+
+Para o consumidor #5, `PERPLEXITY_SEARCH_REQUEST` representa **um POST /search**, não quantidade de queries. A documentação oficial revalidada em 04/10/2026 estabelece:
+
+- `WEB`: USD 0,005 por request bem-sucedido;
+- `FAST`: USD 0,001 por request bem-sucedido;
+- até cinco queries relacionadas podem compartilhar um request e continuam sendo uma única unidade faturável;
+- rate limit usa query units por query e não deve ser confundido com a unidade de billing;
+- request inválido, rate-limited ou upstream failure conhecido não é faturado;
+- resposta bem-sucedida, inclusive sem resultados, é faturável;
+- Search API não adiciona cobrança por tokens.
+
+No runtime, `billable=false` permite custo monetário zero apenas quando a não faturabilidade é conhecida. Timeout/falha de rede sem confirmação preserva `billable=NULL` e custo `UNPRICED`; não se presume zero.
+
+A integração funcional está descrita em [PERPLEXITY_SEARCH_INTELLIGENCE.md](PERPLEXITY_SEARCH_INTELLIGENCE.md).
+
 ## 7. Reasoning faturável
 
 | Valor | Significado |

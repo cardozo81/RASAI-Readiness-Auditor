@@ -147,6 +147,17 @@ class ProviderRegistryTests(unittest.TestCase):
             ("openai", "deepseek", "mimo", "xai", "qwen", "gemini", "anthropic", "mistral", "cohere", "kimi", "copilot"),
         )
 
+    def test_every_canonical_ai_provider_is_auto_eligible_by_governance(self) -> None:
+        registrations = provider_registrations()
+        self.assertTrue(registrations)
+        self.assertTrue(
+            all(item.auto_eligible and not item.explicit_only for item in registrations)
+        )
+        self.assertEqual(
+            set(auto_provider_ids()),
+            {item.id for item in registrations},
+        )
+
     def test_mimo_payg_key_constraint_is_exposed_to_consumers(self) -> None:
         registration = get_provider_registration("mimo")
         self.assertIsNotNone(registration)

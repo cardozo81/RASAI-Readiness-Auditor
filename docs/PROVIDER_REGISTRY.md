@@ -116,7 +116,9 @@ Para cada provider tecnicamente integrado, `AI=auto`:
 
 Um modelo habilitado e `auto_eligible=true` pode participar do AUTO mesmo sem pricing vigente. Nesse caso fica **UNPRICED**, é ordenado depois dos candidatos precificados e nunca é interpretado como custo zero.
 
-Todos os providers de IA integrados no registry atual podem entrar no pool `AUTO` quando configurados, com modelo elegível e saudáveis. `RASAI_AI_AUTO_EXCLUDE` continua sendo a exclusão operacional explícita.
+Todos os providers de IA integrados no registry atual podem entrar no pool `AUTO` quando configurados, com modelo elegível e saudáveis. Esta é também uma **regra para novas integrações**: um provider que for homologado/mergeado no registry canônico deve entrar AUTO-eligible no mesmo merge. `RASAI_AI_AUTO_EXCLUDE` continua sendo a exclusão operacional explícita.
+
+Integrações domain-specific fora do registry não são providers do AUTO. A Perplexity Search API implementada em Search Intelligence é o caso atual: ela permanece separada de evidence-bound e do registry. Consulte [PERPLEXITY_SEARCH_INTELLIGENCE.md](PERPLEXITY_SEARCH_INTELLIGENCE.md).
 
 A política de custo está em [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md) e o schema de preços em [AI_PRICING_CONFIGURATION.md](AI_PRICING_CONFIGURATION.md).
 
