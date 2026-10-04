@@ -90,18 +90,31 @@ def test_request_remediation_partial_moves_to_next_provider_without_private_repa
 
     monkeypatch.setattr(accepted, "_deadline_candidate_call", fake_deadline)
 
-    groups = [
-        {
-            "group_id": "G-1",
-            "title": "Group 1",
-            "evidence_fingerprint": "FP-1",
-        },
-        {
-            "group_id": "G-2",
-            "title": "Group 2",
-            "evidence_fingerprint": "FP-2",
-        },
-    ]
+    def group(group_id: str) -> dict[str, object]:
+        return {
+            "group_id": group_id,
+            "title": f"Group {group_id}",
+            "evidence_fingerprint": f"FP-{group_id}",
+            "family": "REQUEST_FAILURE",
+            "party_scope": "FIRST_PARTY",
+            "problem_count": 1,
+            "occurrence_count": 1,
+            "affected_sample_count": 1,
+            "total_sample_count": 1,
+            "recurrence_ratio": 1.0,
+            "recurrence_class": "RECURRING",
+            "source_catalogs": ["CAT-09"],
+            "resource_urls": ["https://example.test/resource"],
+            "http_statuses": [500],
+            "error_types": ["HTTP_5XX"],
+            "observed_impacts": ["request failure"],
+            "potential_impacts": ["availability"],
+            "public_reference_label": "HTTP semantics",
+            "public_reference_url": "https://www.rfc-editor.org/rfc/rfc9110",
+            "events": [],
+        }
+
+    groups = [group("G-1"), group("G-2")]
 
     solutions, missing, provider, model, reason = remediation._call_ai_batch(
         audit_id="AUD-1",
