@@ -59,6 +59,9 @@ class ReprocessPolicy:
     ai_provider: str | None = None
     ai_model: str | None = None
     ai_reasoning: str | None = None
+    ai_timeout_seconds: float | None = None
+    ai_max_cycles: int | None = None
+    ai_cycle_delay_seconds: float | None = None
     execution_context: Mapping[str, Any] | None = None
 
     def as_configuration(self) -> dict[str, Any]:
@@ -70,6 +73,9 @@ class ReprocessPolicy:
             "ai_provider": self.ai_provider,
             "ai_model": self.ai_model,
             "ai_reasoning": self.ai_reasoning,
+            "ai_timeout_seconds": self.ai_timeout_seconds,
+            "ai_max_cycles": self.ai_max_cycles,
+            "ai_cycle_delay_seconds": self.ai_cycle_delay_seconds,
         }
         if self.execution_context:
             value["execution_context"] = dict(self.execution_context)
@@ -359,6 +365,9 @@ def reprocess_policy(
     ai_provider: str | None = None,
     ai_model: str | None = None,
     ai_reasoning: str | None = None,
+    ai_timeout_seconds: float | None = None,
+    ai_max_cycles: int | None = None,
+    ai_cycle_delay_seconds: float | None = None,
     execution_context: Mapping[str, Any] | None = None,
     workspace: Any | None = None,
     audit_id: str | None = None,
@@ -383,6 +392,13 @@ def reprocess_policy(
         ai_provider=(str(ai_provider).strip().casefold() if ai_provider else None),
         ai_model=(str(ai_model).strip() if ai_model else None),
         ai_reasoning=(str(ai_reasoning).strip().upper() if ai_reasoning else None),
+        ai_timeout_seconds=(float(ai_timeout_seconds) if ai_timeout_seconds is not None else None),
+        ai_max_cycles=(int(ai_max_cycles) if ai_max_cycles is not None else None),
+        ai_cycle_delay_seconds=(
+            float(ai_cycle_delay_seconds)
+            if ai_cycle_delay_seconds is not None
+            else None
+        ),
         execution_context=(dict(execution_context) if execution_context else None),
     )
     token = _POLICY.set(policy)
