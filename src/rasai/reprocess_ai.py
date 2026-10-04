@@ -38,6 +38,36 @@ def _contract_configuration(workspace: AuditWorkspace, audit_id: str) -> dict[st
     return dict(value) if isinstance(value, dict) else {}
 
 
+def _saved_ai_policy_environment(
+    workspace: AuditWorkspace,
+    audit_id: str,
+) -> dict[str, str]:
+    """Recover only non-secret canonical AI cadence from the original AUD snapshot."""
+    names = {
+        "RASAI_AI_TIMEOUT_SECONDS",
+        "RASAI_AI_MAX_CYCLES",
+        "RASAI_AI_CYCLE_DELAY_SECONDS",
+    }
+    try:
+        from rasai.selective_optional_reprocess import _saved_environment
+
+        saved = _saved_environment(workspace, audit_id)
+    except Exception:
+        try:
+            from rasai.audit_resume_runtime import load_resume_plan
+
+            plan = load_resume_plan(workspace, audit_id)
+            value = plan.get("optional_environment")
+            saved = dict(value) if isinstance(value, dict) else {}
+        except Exception:
+            saved = {}
+    return {
+        name: str(saved[name])
+        for name in names
+        if name in saved and str(saved[name]).strip()
+    }
+
+
 def build_reprocess_provider(workspace: AuditWorkspace, audit_id: str, item: WorkItem | None = None):
     """Build the RPR provider without mutating the original AUD configuration.
 
@@ -45,7 +75,12 @@ def build_reprocess_provider(workspace: AuditWorkspace, audit_id: str, item: Wor
     keep the original behavior of reconstructing the provider from AUD provenance.
     """
     from rasai.provider_registry import get_provider_registration
-    from rasai.provider_runtime_policy import build_semantic_provider, provider_reasoning_env
+    from rasai.ai_canonical_orchestration import AI_CYCLE_DELAY_ENV, AI_MAX_CYCLES_ENV
+    from rasai.provider_runtime_policy import (
+        AI_TIMEOUT_ENV,
+        build_semantic_provider,
+        provider_reasoning_env,
+    )
     from rasai.reprocess_policy import current_policy, provider_override
 
     policy = current_policy()
@@ -53,6 +88,12 @@ def build_reprocess_provider(workspace: AuditWorkspace, audit_id: str, item: Wor
     if policy.use_ai is True:
         selection = str(override_provider or "none").strip().casefold()
         environment = dict(os.environ)
+        if policy.ai_timeout_seconds is not None:
+            environment[AI_TIMEOUT_ENV] = f"{policy.ai_timeout_seconds:g}"
+        if policy.ai_max_cycles is not None:
+            environment[AI_MAX_CYCLES_ENV] = str(policy.ai_max_cycles)
+        if policy.ai_cycle_delay_seconds is not None:
+            environment[AI_CYCLE_DELAY_ENV] = f"{policy.ai_cycle_delay_seconds:g}"
         registration = get_provider_registration(selection)
         if registration is not None and override_reasoning:
             reasoning_env = provider_reasoning_env(registration.provider_name)
@@ -97,7 +138,15 @@ def build_reprocess_provider(workspace: AuditWorkspace, audit_id: str, item: Wor
         raise ValueError("original audit did not persist an eligible AI provider selection")
     if selection.upper() == "AUTO":
         model = None
-    return build_semantic_provider(selection, model_override=model)
+    environment = dict(os.environ)
+    # Credentials remain execution-time concerns. Only the non-secret cadence is
+    # restored from the AUD so an RPR cannot silently change its retry budget/timers.
+    environment.update(_saved_ai_policy_environment(workspace, audit_id))
+    return build_semantic_provider(
+        selection,
+        model_override=model,
+        env=environment,
+    )
 
 
 def _archive_query(
