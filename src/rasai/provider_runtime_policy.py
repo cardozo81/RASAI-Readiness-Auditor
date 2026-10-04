@@ -7,12 +7,22 @@ import math
 import os
 from typing import Any, Mapping, MutableMapping
 
+from rasai.ai_canonical_orchestration import (
+    AI_CYCLE_DELAY_ENV,
+    AI_MAX_CYCLES_ENV,
+    DEFAULT_AI_CYCLE_DELAY_SECONDS,
+    DEFAULT_AI_MAX_CYCLES,
+    MAX_AI_CYCLE_DELAY_SECONDS,
+    MAX_AI_MAX_CYCLES,
+    AiExecutionPolicy,
+)
 from rasai.ai_exchange_log import AiExchangeRecorder
 from rasai.ai_execution_state import clear_current_ai_execution, set_current_ai_execution
 from rasai.ai_model_runtime import model_definition
 from rasai.content_context import configured_content_analysis_context
 from rasai.copilot_provider import build_copilot_provider
 from rasai.dynamic_ai_routing import (
+    AiExecutionCoordinator,
     DynamicProviderRoutingSession,
     build_dynamic_content_remediation_router,
     install_dynamic_specialist_hooks,
@@ -162,6 +172,50 @@ def configured_ai_timeout_seconds(env: Mapping[str, str] | None = None) -> float
     return value
 
 
+def configured_ai_max_cycles(env: Mapping[str, str] | None = None) -> int:
+    environment = env if env is not None else os.environ
+    raw = (environment.get(AI_MAX_CYCLES_ENV) or str(DEFAULT_AI_MAX_CYCLES)).strip()
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(
+            f"{AI_MAX_CYCLES_ENV} must be an integer between 1 and {MAX_AI_MAX_CYCLES}"
+        ) from exc
+    if not 1 <= value <= MAX_AI_MAX_CYCLES:
+        raise ValueError(
+            f"{AI_MAX_CYCLES_ENV} must be between 1 and {MAX_AI_MAX_CYCLES}"
+        )
+    return value
+
+
+def configured_ai_cycle_delay_seconds(env: Mapping[str, str] | None = None) -> float:
+    environment = env if env is not None else os.environ
+    raw = (
+        environment.get(AI_CYCLE_DELAY_ENV)
+        or str(DEFAULT_AI_CYCLE_DELAY_SECONDS)
+    ).strip()
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ValueError(
+            f"{AI_CYCLE_DELAY_ENV} must be between 0 and {MAX_AI_CYCLE_DELAY_SECONDS:g} seconds"
+        ) from exc
+    if not math.isfinite(value) or value < 0 or value > MAX_AI_CYCLE_DELAY_SECONDS:
+        raise ValueError(
+            f"{AI_CYCLE_DELAY_ENV} must be between 0 and {MAX_AI_CYCLE_DELAY_SECONDS:g} seconds"
+        )
+    return value
+
+
+def configured_ai_execution_policy(
+    env: Mapping[str, str] | None = None,
+) -> AiExecutionPolicy:
+    return AiExecutionPolicy(
+        max_cycles=configured_ai_max_cycles(env),
+        cycle_delay_seconds=configured_ai_cycle_delay_seconds(env),
+    )
+
+
 def _apply_ai_timeout(provider: Any, timeout: float) -> Any:
     routed = getattr(provider, "providers", None)
     if isinstance(routed, tuple):
@@ -184,6 +238,8 @@ def environment_with_public_defaults(env: Mapping[str, str] | None = None) -> di
         if reasoning_env and definition is not None:
             result.setdefault(reasoning_env, definition.default_reasoning)
     result.setdefault(AI_TIMEOUT_ENV, f"{DEFAULT_AI_TIMEOUT_SECONDS:g}")
+    result.setdefault(AI_MAX_CYCLES_ENV, str(DEFAULT_AI_MAX_CYCLES))
+    result.setdefault(AI_CYCLE_DELAY_ENV, f"{DEFAULT_AI_CYCLE_DELAY_SECONDS:g}")
     result.setdefault(WEB_PERFORMANCE_TIMEOUT_ENV, f"{DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS:g}")
     return result
 
@@ -321,16 +377,19 @@ def build_semantic_provider(
 ) -> Any:
     effective_env = environment_with_public_defaults(env)
     context = configured_content_analysis_context(effective_env)
+    execution_policy = configured_ai_execution_policy(effective_env)
     selected = selection.strip().upper()
     if selected == "AUTO":
         if model_override:
             raise ValueError(
                 "AUTO does not accept one global model override; configure models per provider"
             )
-        return _apply_ai_timeout(
+        provider = _apply_ai_timeout(
             _build_auto_provider(effective_env=effective_env),
             configured_ai_timeout_seconds(effective_env),
         )
+        provider._rasai_execution_policy = execution_policy
+        return provider
 
     registration = get_provider_registration(selection)
     effective_model = model_override
@@ -360,6 +419,9 @@ def build_semantic_provider(
         clear_current_ai_execution()
         return provider
     _apply_ai_timeout(provider, configured_ai_timeout_seconds(effective_env))
+    coordinator = AiExecutionCoordinator((str(provider.name),))
+    provider._rasai_execution_coordinator = coordinator
+    provider._rasai_execution_policy = execution_policy
     recorder = AiExchangeRecorder()
     _prepare_concrete_provider(
         provider,
