@@ -17,6 +17,14 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 
+from rasai.ai_canonical_orchestration import (
+    AI_CYCLE_DELAY_ENV,
+    AI_MAX_CYCLES_ENV,
+    DEFAULT_AI_CYCLE_DELAY_SECONDS,
+    DEFAULT_AI_MAX_CYCLES,
+    MAX_AI_CYCLE_DELAY_SECONDS,
+    MAX_AI_MAX_CYCLES,
+)
 from rasai.apdex_concurrency_policy import (
     EXPERIENCE_MAX_CONCURRENCY,
     NAVIGATION_MAX_CONCURRENCY,
@@ -302,6 +310,22 @@ def _application_specs() -> tuple[EnvironmentSpec, ...]:
             "Timeout máximo de uma tentativa de IA.",
             "número > 0 (segundos)",
             default="180",
+        ),
+        EnvironmentSpec(
+            AI_MAX_CYCLES_ENV,
+            "Aplicação e execução",
+            "Máximo de ciclos por necessidade lógica de IA.",
+            f"inteiro 1..{MAX_AI_MAX_CYCLES}",
+            default=str(DEFAULT_AI_MAX_CYCLES),
+            impact="Multiplica o teto teórico de chamadas por necessidade pelo número de providers elegíveis.",
+        ),
+        EnvironmentSpec(
+            AI_CYCLE_DELAY_ENV,
+            "Aplicação e execução",
+            "Espera entre ciclos de IA; nunca é aplicada entre providers do mesmo ciclo.",
+            f"número 0..{MAX_AI_CYCLE_DELAY_SECONDS:g} (segundos)",
+            default=f"{DEFAULT_AI_CYCLE_DELAY_SECONDS:g}",
+            impact="Aumenta a duração apenas quando ainda há ciclo e provider elegível; Retry-After pode elevar o delay efetivo até o cap canônico.",
         ),
         EnvironmentSpec(
             "RASAI_AI_CONTENT_REMEDIATION",
