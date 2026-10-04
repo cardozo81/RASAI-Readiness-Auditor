@@ -24,14 +24,10 @@ from rasai.ai_cost_policy import (
 from rasai.ai_resilience import (
     DECISION_FALLBACK,
     DECISION_FALLBACK_SUCCESS,
-    DECISION_RETRY,
     DECISION_STOP,
     DECISION_SUCCESS,
-    DECISION_SUCCESS_AFTER_RETRY,
-    MAX_AUTO_ATTEMPTS_PER_CONTEXT,
     MAX_PROVIDER_ATTEMPTS_PER_CONTEXT,
     parse_retry_after,
-    retry_policy,
 )
 from rasai.openai_provider import (
     OpenAIProvider as _HardenedOpenAIProvider,
