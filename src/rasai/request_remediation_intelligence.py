@@ -663,12 +663,31 @@ def _call_ai_batch(
     from rasai import improvement_exchange_capture as capture
     from rasai import improvement_intelligence as improvement
     from rasai.accepted_audit_refinements import _deadline_candidate_call
-    from rasai.ai_resilience import DECISION_FALLBACK, DECISION_STOP, DECISION_SUCCESS
+    from rasai.ai_canonical_orchestration import (
+        AiExecutionPolicy,
+        AiProviderInvocation,
+        AiProviderOutcome,
+        invocation_from_diagnostic,
+        run_ai_need,
+    )
+    from rasai.ai_resilience import (
+        DECISION_FALLBACK,
+        DECISION_FALLBACK_SUCCESS,
+        DECISION_SUCCESS,
+    )
     from rasai.m18_ai import AttemptStatus, ProviderDiagnostic, ProviderErrorClass
     from rasai.m18_persistence import attempt_governance
 
-    group_ids = [str(group["group_id"]) for group in groups]
-    schema = _solution_schema(group_ids)
+    all_groups = [dict(group) for group in groups]
+    group_ids = [str(group["group_id"]) for group in all_groups]
+    pending = list(all_groups)
+    solutions: dict[str, dict[str, Any]] = {}
+    runtime = improvement._build_provider(config)
+    policy = getattr(runtime, "_rasai_execution_policy", AiExecutionPolicy())
+    if not isinstance(policy, AiExecutionPolicy):
+        policy = AiExecutionPolicy()
+    sleeper = getattr(runtime, "_rasai_cycle_sleeper", None)
+
     instructions = (
         "You are the RASAi remediation specialist for deterministic request/runtime error groups. "
         "The grouped facts, counts, URLs, statuses and observed impacts are immutable evidence. "
@@ -679,13 +698,28 @@ def _call_ai_batch(
         "state what concrete artifact should be inspected. verification must be reproducible. Do not invent public URLs or "
         "new observed facts; the official reference is already supplied by RASAi."
     )
-    user_text = "Grouped deterministic request/runtime evidence:\n" + json.dumps(
-        [_group_payload(group) for group in groups], ensure_ascii=False, default=str
-    )
-    runtime = improvement._build_provider(config)
-    hint = orchestration._token_hint(user_text, output_tokens=min(6000, 1200 + 450 * len(groups)))
-    candidates = orchestration._provider_candidates(runtime, hint, scope="IMPROVEMENT_INTELLIGENCE")
-    if not candidates:
+
+    def current_user_text() -> str:
+        return "Grouped deterministic request/runtime evidence:\n" + json.dumps(
+            [_group_payload(group) for group in pending],
+            ensure_ascii=False,
+            default=str,
+        )
+
+    def candidates() -> tuple[Any, ...]:
+        if not pending:
+            return ()
+        hint = orchestration._token_hint(
+            current_user_text(),
+            output_tokens=min(6000, 1200 + 450 * len(pending)),
+        )
+        return orchestration._provider_candidates(
+            runtime,
+            hint,
+            scope="REQUEST_REMEDIATION",
+        )
+
+    if not candidates():
         return {}, group_ids, None, None, "AI_PROVIDER_CHAIN_EXHAUSTED"
 
     state = capture._CaptureState(
@@ -696,8 +730,20 @@ def _call_ai_batch(
     )
     token = capture._STATE.set(state)
     last_reason: str | None = None
+    last_provider: str | None = None
+    last_model: str | None = None
+    fallback_from: str | None = None
+    fallback_reason: str | None = None
+
     try:
-        for index, provider in enumerate(candidates, 1):
+        def invoke(provider: Any, cycle: int, call_index: int) -> AiProviderInvocation:
+            nonlocal pending, last_reason, last_provider, last_model
+            nonlocal fallback_from, fallback_reason
+
+            scoped = list(pending)
+            scoped_ids = [str(group["group_id"]) for group in scoped]
+            schema = _solution_schema(scoped_ids)
+            user_text = current_user_text()
             payload = orchestration._structured_payload(
                 provider,
                 schema_name="rasai_request_remediation",
@@ -705,7 +751,11 @@ def _call_ai_batch(
                 user_text=user_text,
                 schema=schema,
             )
-            body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+            body = json.dumps(
+                payload,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
             request_hash = orchestration.sha256(body).hexdigest()
             started = orchestration.datetime.now(orchestration.timezone.utc)
             raw, usage, diagnostic, status, duration_ms = _deadline_candidate_call(
@@ -715,13 +765,18 @@ def _call_ai_batch(
                 candidate_call=orchestration._candidate_call,
             )
             _mark_latest_exchange_as_request_remediation(state)
+
             accepted: dict[str, dict[str, Any]] = {}
-            missing = list(group_ids)
+            missing = list(scoped_ids)
             if status is AttemptStatus.SUCCESS and raw is not None:
                 try:
                     extracted = orchestration._provider_extract(provider, raw)
-                    accepted, missing = _validate_solutions(extracted, groups)
-                    if not accepted:
+                    accepted, missing = _validate_solutions(extracted, scoped)
+                    if accepted:
+                        # Valid subset is partial progress, not a provider error.
+                        diagnostic = None
+                        status = AttemptStatus.SUCCESS
+                    else:
                         status = AttemptStatus.CONTRACT_ERROR
                         diagnostic = ProviderDiagnostic(
                             ProviderErrorClass.CONTRACT_ERROR,
@@ -735,10 +790,35 @@ def _call_ai_batch(
                         error_type=type(exc).__name__,
                         error_code="REQUEST_REMEDIATION_OUTPUT_INVALID",
                     )
-            decision = DECISION_SUCCESS if accepted else (DECISION_FALLBACK if index < len(candidates) else DECISION_STOP)
+
+            new_progress = False
+            for group_id, solution in accepted.items():
+                if group_id in solutions:
+                    continue
+                enriched = dict(solution)
+                enriched["_provider"] = str(provider.name)
+                enriched["_model"] = str(provider.model)
+                solutions[group_id] = enriched
+                new_progress = True
+
+            pending = [
+                group
+                for group in all_groups
+                if str(group["group_id"]) not in solutions
+            ]
+            complete = bool(accepted) and not pending
+            decision = (
+                DECISION_FALLBACK_SUCCESS
+                if complete and fallback_from
+                else DECISION_SUCCESS
+                if complete
+                else "PARTIAL_PROGRESS"
+                if new_progress
+                else DECISION_FALLBACK
+            )
             attempt = orchestration._attempt(
                 provider,
-                index=index,
+                index=call_index,
                 started=started,
                 duration_ms=duration_ms,
                 status=status,
@@ -750,19 +830,65 @@ def _call_ai_batch(
                 snapshot_id=context.snapshot_id,
                 decision=decision,
             )
+            if fallback_from:
+                attempt = replace(
+                    attempt,
+                    fallback_from_provider=fallback_from,
+                    fallback_reason=fallback_reason,
+                )
             attempt = replace(
                 attempt,
                 request_message_summary=(
-                    f"contract={REQUEST_REMEDIATION_CONTRACT};groups={len(groups)};"
-                    f"accepted={len(accepted)};missing={len(missing)}"
+                    f"contract={REQUEST_REMEDIATION_CONTRACT};cycle={cycle};"
+                    f"groups={len(scoped)};accepted_now={len(accepted)};"
+                    f"accepted_total={len(solutions)};missing={len(pending)}"
                 ),
             )
             with attempt_governance(operation="REQUEST_REMEDIATION"):
                 improvement._persist_attempt(workspace, audit_id, context, attempt)
-            if accepted:
-                return accepted, missing, str(provider.name), str(provider.model), None
-            last_reason = diagnostic.reason if diagnostic is not None else "AI_PROVIDER_UNAVAILABLE"
-        return {}, group_ids, None, None, last_reason or "AI_PROVIDER_CHAIN_EXHAUSTED"
+            orchestration.record_canonical_attempt(
+                provider,
+                attempt,
+                page_url=context.url,
+                scope="REQUEST_REMEDIATION",
+            )
+
+            last_provider = str(provider.name)
+            last_model = str(provider.model)
+            if complete:
+                return AiProviderInvocation(AiProviderOutcome.COMPLETE)
+            if new_progress:
+                return AiProviderInvocation(AiProviderOutcome.PARTIAL_PROGRESS)
+
+            last_reason = (
+                diagnostic.reason
+                if diagnostic is not None
+                else "AI_PROVIDER_NO_PROGRESS"
+            )
+            fallback_from = str(provider.name)
+            fallback_reason = last_reason
+            if diagnostic is not None:
+                return invocation_from_diagnostic(diagnostic)
+            return AiProviderInvocation(AiProviderOutcome.NO_PROGRESS)
+
+        run_ai_need(
+            candidates=candidates,
+            invoke=invoke,
+            policy=policy,
+            sleeper=sleeper,
+        )
+        missing_ids = [
+            str(group["group_id"])
+            for group in all_groups
+            if str(group["group_id"]) not in solutions
+        ]
+        return (
+            solutions,
+            missing_ids,
+            last_provider,
+            last_model,
+            last_reason if missing_ids else None,
+        )
     finally:
         try:
             capture._persist_state(state)
@@ -793,7 +919,10 @@ def _persist_ai_rows(
                     connection.execute(
                         "INSERT INTO request_remediation_ai VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                         (
-                            group_id, audit_id, group["evidence_fingerprint"], provider, model, "COMPLETE",
+                            group_id, audit_id, group["evidence_fingerprint"],
+                            solution.get("_provider") or provider,
+                            solution.get("_model") or model,
+                            "COMPLETE",
                             solution.get("title"), solution.get("solution"), solution.get("technical_detail"),
                             solution.get("example"), solution.get("verification"), solution.get("confidence"),
                             solution.get("effort"), None, now,
@@ -855,7 +984,6 @@ def refresh_request_remediation(
         context = improvement._target_context(connection, audit_id, workspace)
     finally:
         connection.close()
-    by_id = {str(group["group_id"]): group for group in groups}
     for offset in range(0, len(needed), AI_BATCH_SIZE):
         batch = needed[offset : offset + AI_BATCH_SIZE]
         solutions, missing, provider, model, reason = _call_ai_batch(
@@ -866,21 +994,6 @@ def refresh_request_remediation(
             groups=batch,
             timeout=float(getattr(cfg, "timeout_seconds", 240.0)),
         )
-        if missing and solutions:
-            repair_groups = [by_id[group_id] for group_id in missing if group_id in by_id]
-            repaired, still_missing, repair_provider, repair_model, repair_reason = _call_ai_batch(
-                audit_id=audit_id,
-                workspace=workspace,
-                context=context,
-                config=cfg,
-                groups=repair_groups,
-                timeout=min(45.0, max(15.0, float(getattr(cfg, "timeout_seconds", 240.0)) * 0.25)),
-            )
-            solutions.update(repaired)
-            missing = still_missing
-            provider = provider or repair_provider
-            model = model or repair_model
-            reason = repair_reason if missing else None
         _persist_ai_rows(
             workspace.database,
             audit_id,
