@@ -102,7 +102,7 @@ A chamada recebe somente grupos determinísticos já consolidados. Para cada `gr
 
 A confiança representa a confiança de que **a solução proposta se aplica à evidência apresentada**. Ela não altera a confiança da coleta determinística.
 
-IDs desconhecidos, confiança fora da faixa ou esforço fora do contrato são rejeitados. Respostas parciais preservam os grupos válidos e uma tentativa curta é usada somente para os grupos não respondidos.
+IDs desconhecidos, confiança fora da faixa ou esforço fora do contrato são rejeitados. Respostas parciais preservam os grupos válidos; somente os grupos não respondidos seguem pela orquestração canônica para o próximo provider elegível no mesmo ciclo ou para ciclo posterior, sem uma segunda chamada privada de reparo.
 
 ## Referências públicas
 
