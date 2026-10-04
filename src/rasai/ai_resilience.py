@@ -1,9 +1,8 @@
-"""Bounded retry/fallback policy for paid AI integrations.
+"""Provider-error classification compatibility helpers.
 
-Explicit providers may retry transient failures once. Dynamic AUTO never retries the
-same provider immediately: one AI need traverses each currently eligible provider at
-most once, while the execution-wide coordinator decides whether a provider remains
-eligible for later needs.
+Logical retry cadence belongs to ai_canonical_orchestration. Adapters are intentionally
+single-attempt; this module keeps legacy decision labels and Retry-After parsing used by
+telemetry and older call sites while they delegate scheduling to the canonical engine.
 """
 from __future__ import annotations
 
@@ -12,9 +11,9 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any
 
-MAX_PROVIDER_ATTEMPTS_PER_CONTEXT = 2
+MAX_PROVIDER_ATTEMPTS_PER_CONTEXT = 1
 MAX_AUTO_ATTEMPTS_PER_CONTEXT = 8
-MAX_RETRY_DELAY_SECONDS = 5.0
+MAX_RETRY_DELAY_SECONDS = 300.0
 DEFAULT_RETRY_DELAY_SECONDS = 0.25
 RATE_LIMIT_DEFAULT_DELAY_SECONDS = 1.0
 
@@ -68,7 +67,7 @@ def retry_policy(error_class: Any, retry_after_seconds: float | None = None) -> 
 
 
 def max_attempts_for_auto(provider_count: int) -> int:
-    """Bound AUTO to one call per currently eligible provider for one AI need."""
+    """Legacy one-cycle AUTO bound; canonical multi-cycle budget lives above adapters."""
     if provider_count <= 0:
         return 0
     return min(provider_count, MAX_AUTO_ATTEMPTS_PER_CONTEXT)
