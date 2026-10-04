@@ -425,7 +425,6 @@ class ExtensionContentRemediationProvider:
             provider_reliability_score=self.policy.reliability_score,
             semantic_contract_version=CONTENT_REMEDIATION_CONTRACT_VERSION,
         )
-        self._runtime_state = RuntimeProviderState.QUARANTINED_FOR_AUDIT
         return ContentRemediationResult(
             ProviderState.UNAVAILABLE,
             reason=diagnostic.reason,
