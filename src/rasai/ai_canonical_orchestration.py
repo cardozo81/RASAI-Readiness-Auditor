@@ -75,6 +75,38 @@ class AiNeedExecution:
     last_outcome: AiProviderOutcome | None = None
 
 
+
+TERMINAL_PROVIDER_ERROR_CLASSES = frozenset({
+    "AUTH_ERROR",
+    "CREDIT_ERROR",
+    "QUOTA_ERROR",
+    "MODEL_ERROR",
+    "PERMISSION_ERROR",
+})
+
+
+def provider_error_token(error_class: Any) -> str:
+    return str(getattr(error_class, "value", error_class) or "").strip().upper()
+
+
+def is_terminal_provider_error(error_class: Any) -> bool:
+    """Classify deterministically terminal provider failures by normalized class."""
+    return provider_error_token(error_class) in TERMINAL_PROVIDER_ERROR_CLASSES
+
+
+def invocation_from_diagnostic(diagnostic: Any) -> AiProviderInvocation:
+    """Translate a normalized adapter diagnostic into orchestration semantics."""
+    error_class = getattr(diagnostic, "error_class", None) if diagnostic is not None else None
+    outcome = (
+        AiProviderOutcome.PROVIDER_TERMINAL
+        if is_terminal_provider_error(error_class)
+        else AiProviderOutcome.TRANSIENT_FAILURE
+    )
+    return AiProviderInvocation(
+        outcome,
+        getattr(diagnostic, "retry_after_seconds", None) if diagnostic is not None else None,
+    )
+
 def _provider_key(candidate: Any) -> str:
     return str(getattr(candidate, "name", candidate)).strip().upper()
 
