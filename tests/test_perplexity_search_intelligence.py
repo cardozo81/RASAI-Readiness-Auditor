@@ -6,6 +6,8 @@ import sqlite3
 import pytest
 
 from rasai.ai_native_usage import PERPLEXITY_SEARCH_REQUEST
+from rasai.catalog_report_integrations import _AI_USAGE_DETAILS
+from rasai.catalog_report_model import _AI_PURPOSE_LABELS
 from rasai.persistence import AuditWorkspace
 from rasai.provider_registry import provider_registrations
 from rasai.search_intelligence.perplexity import (
@@ -328,6 +330,17 @@ def test_summary_is_humanized_and_perplexity_does_not_enter_canonical_ai_auto_re
 
     canonical = {item.provider_name for item in provider_registrations()}
     assert "PERPLEXITY" not in canonical
+
+
+
+def test_report_contract_labels_external_research_without_deterministic_claims() -> None:
+    purpose, catalog = _AI_PURPOSE_LABELS["RASAI-PERPLEXITY-SEARCH-1"]
+    assert purpose == "Pesquisa externa Perplexity"
+    assert catalog == "CAT-05"
+    detail = _AI_USAGE_DETAILS["RASAI-PERPLEXITY-SEARCH-1"]
+    assert "Pesquisa externa" in detail[0]
+    assert "não substitui SERP" in detail[2]
+    assert "não altera scoring" in detail[2]
 
 
 @pytest.mark.parametrize("status", [401, 403, 500])
