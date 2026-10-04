@@ -83,6 +83,9 @@ class ExtensionContentRemediationProvider:
         self.policy = base.policy
         self._transport = base._transport
         self._runtime_state = RuntimeProviderState.ACTIVE
+        self._rasai_execution_coordinator = getattr(base, "_rasai_execution_coordinator", None)
+        self._rasai_execution_policy = getattr(base, "_rasai_execution_policy", None)
+        self._rasai_cycle_sleeper = getattr(base, "_rasai_cycle_sleeper", None)
         self._last_attempt: ProviderAttempt | None = None
         self._last_attempts: tuple[ProviderAttempt, ...] = ()
 
