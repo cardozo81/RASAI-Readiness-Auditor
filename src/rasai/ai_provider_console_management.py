@@ -9,6 +9,12 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from rasai.ai_canonical_orchestration import (
+    AI_CYCLE_DELAY_ENV,
+    AI_MAX_CYCLES_ENV,
+    MAX_AI_CYCLE_DELAY_SECONDS,
+    MAX_AI_MAX_CYCLES,
+)
 from rasai.provider_registry import get_provider_registration, provider_registrations
 from rasai.provider_runtime_policy import (
     AI_TIMEOUT_ENV,
@@ -262,6 +268,45 @@ def _configure_auto_pool(state: Any, console: Any) -> bool:
         excluded = set(configured_auto_exclusions())
 
 
+def _configure_execution_policy(state: Any, console: Any) -> None:
+    state.ai_timeout = float(
+        console._number(
+            "Timeout por tentativa de IA",
+            state.ai_timeout,
+            minimum=1,
+            help_text="Limite de cada chamada externa. O adapter executa uma única tentativa.",
+        )
+    )
+    cycles = int(
+        console._number(
+            "Máximo de ciclos por necessidade de IA",
+            state.ai_max_cycles,
+            minimum=1,
+            integer=True,
+            help_text=f"Cada provider elegível é chamado no máximo uma vez por ciclo; limite 1..{MAX_AI_MAX_CYCLES}.",
+        )
+    )
+    if cycles > MAX_AI_MAX_CYCLES:
+        raise ValueError(f"máximo de ciclos deve estar entre 1 e {MAX_AI_MAX_CYCLES}")
+    delay = float(
+        console._number(
+            "Espera entre ciclos de IA (segundos)",
+            state.ai_cycle_delay,
+            minimum=0,
+            help_text=f"Somente entre ciclos, nunca entre providers; limite 0..{MAX_AI_CYCLE_DELAY_SECONDS:g}.",
+        )
+    )
+    if delay > MAX_AI_CYCLE_DELAY_SECONDS:
+        raise ValueError(
+            f"espera entre ciclos deve estar entre 0 e {MAX_AI_CYCLE_DELAY_SECONDS:g} segundos"
+        )
+    state.ai_max_cycles = cycles
+    state.ai_cycle_delay = delay
+    os.environ[AI_TIMEOUT_ENV] = f"{state.ai_timeout:g}"
+    os.environ[AI_MAX_CYCLES_ENV] = str(state.ai_max_cycles)
+    os.environ[AI_CYCLE_DELAY_ENV] = f"{state.ai_cycle_delay:g}"
+
+
 def _configure_model_reasoning_timeout(state: Any, console: Any, provider_id: str) -> None:
     provider_name = console.PROVIDERS[provider_id]
     default = os.environ.get(console.MODEL_ENV[provider_name], console.DEFAULT_MODELS[provider_name])
@@ -289,15 +334,7 @@ def _configure_model_reasoning_timeout(state: Any, console: Any, provider_id: st
         )
         state.ai_reasoning = effort or effort_default
         apply_console_reasoning_environment(provider_name, state.ai_reasoning)
-    state.ai_timeout = float(
-        console._number(
-            "Timeout por tentativa de IA",
-            state.ai_timeout,
-            minimum=1,
-            help_text="limite de espera de cada chamada ao provider. Não é o tempo máximo da auditoria inteira.",
-        )
-    )
-    os.environ[AI_TIMEOUT_ENV] = f"{state.ai_timeout:g}"
+    _configure_execution_policy(state, console)
     state.error = ""
 
 
@@ -318,15 +355,7 @@ def _configure_ai(state: Any, console: Any) -> None:
             state.ai_provider = "auto"
             state.ai_model = None
             state.ai_reasoning = None
-            state.ai_timeout = float(
-                console._number(
-                    "Timeout por tentativa de IA",
-                    state.ai_timeout,
-                    minimum=1,
-                    help_text="limite de espera de cada chamada ao provider. Não é o tempo máximo da auditoria inteira.",
-                )
-            )
-            os.environ[AI_TIMEOUT_ENV] = f"{state.ai_timeout:g}"
+            _configure_execution_policy(state, console)
         return
 
     outcome = _manage_provider(state, console, selection)
