@@ -439,7 +439,6 @@ class ContentRemediationProvider:
             provider_reliability_score=self.policy.reliability_score,
             semantic_contract_version=CONTENT_REMEDIATION_CONTRACT_VERSION,
         )
-        self._runtime_state = RuntimeProviderState.QUARANTINED_FOR_AUDIT
         return ContentRemediationResult(ProviderState.UNAVAILABLE, reason=diagnostic.reason, provider=self.name, model=self.model, reasoning_profile=self.reasoning_profile)
 
     def consume_attempts(self) -> tuple[ProviderAttempt, ...]:
