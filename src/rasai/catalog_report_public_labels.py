@@ -279,6 +279,7 @@ PUBLIC_VALUE_LABELS: dict[str, str] = {
     "BUSINESS_ERROR": "Erro de regra de negócio",
     "EMPTY_RESPONSE": "Resposta vazia",
     "INVALID_RESPONSE": "Resposta inválida",
+    "TOOL_CALL": "Resposta do provedor solicitou uso de ferramenta não permitido",
     "UNKNOWN_PROVIDER_ERROR": "Erro não identificado do provedor",
     "QUARANTINED": "Em quarentena",
     "QUARANTINED_FOR_AUDIT": "Indisponível nesta auditoria",
