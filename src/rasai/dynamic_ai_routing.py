@@ -596,6 +596,63 @@ def _context_interpretation_directive(context: ContentAnalysisContext) -> str:
     )
 
 
+def execution_coordinator_for(provider: Any) -> AiExecutionCoordinator | None:
+    """Return the execution-wide health coordinator shared by AUTO or explicit pools."""
+    if isinstance(provider, DynamicProviderRoutingSession):
+        return provider.coordinator
+    coordinator = getattr(provider, "_rasai_execution_coordinator", None)
+    if isinstance(coordinator, AiExecutionCoordinator):
+        return coordinator
+    base = getattr(provider, "base", None)
+    coordinator = getattr(base, "_rasai_execution_coordinator", None)
+    return coordinator if isinstance(coordinator, AiExecutionCoordinator) else None
+
+
+def provider_is_eligible(provider: Any) -> bool:
+    coordinator = execution_coordinator_for(provider)
+    name = str(getattr(provider, "name", "") or "")
+    if coordinator is not None and name:
+        return coordinator.is_eligible(name)
+    return getattr(provider, "_runtime_state", RuntimeProviderState.ACTIVE) is not RuntimeProviderState.QUARANTINED_FOR_AUDIT
+
+
+def canonical_candidate_objects(
+    provider: Any,
+    request: Any = None,
+    *,
+    scope: str,
+) -> tuple[Any, ...]:
+    """Expose one provider pool shape for AUTO and explicit selections."""
+    if isinstance(provider, DynamicProviderRoutingSession):
+        return tuple(
+            item for item in provider.order_candidate_objects(
+                provider.providers,
+                request,
+                scope=scope,
+            )
+            if provider_is_eligible(item)
+        )
+    routed = getattr(provider, "providers", None)
+    if isinstance(routed, tuple):
+        return tuple(item for item in routed if provider_is_eligible(item))
+    return (provider,) if provider is not None and provider_is_eligible(provider) else ()
+
+
+def record_canonical_attempt(
+    provider: Any,
+    attempt: ProviderAttempt,
+    *,
+    scope: str,
+    page_url: str | None = None,
+) -> None:
+    coordinator = execution_coordinator_for(provider)
+    if coordinator is None:
+        return
+    coordinator.record_attempt(attempt, page_url=page_url, scope=scope)
+    if coordinator.is_eligible(str(getattr(provider, "name", ""))):
+        _reactivate(provider)
+
+
 def _reactivate(provider: Any) -> None:
     try:
         provider._runtime_state = RuntimeProviderState.ACTIVE
