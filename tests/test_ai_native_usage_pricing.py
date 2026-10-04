@@ -17,6 +17,7 @@ from rasai.ai_native_usage import (
 )
 from rasai.ai_pricing_catalog import load_factory_pricing_catalog
 from rasai.catalog_report_integrations import _native_usage_display
+from rasai.dynamic_ai_routing import _price_auto_attempt
 from rasai.m18_ai import AttemptStatus, ProviderAttempt, ProviderUsage
 from rasai.m18_persistence import M18Persistence
 from rasai.persistence import AuditPersistence, AuditWorkspace
@@ -187,6 +188,75 @@ def test_explicit_nonbillable_request_has_real_zero_not_invented_token_cost() ->
     assert pricing.pricing_rule_id == "perplexity-search-web-realtime"
     assert usage.input_tokens is None
     assert usage.output_tokens is None
+
+
+def test_auto_repricing_preserves_native_surface_and_per_request_provenance() -> None:
+    usage, conditions = _perplexity_usage(billable=True)
+    attempt = ProviderAttempt(
+        provider="PERPLEXITY",
+        model=None,
+        reasoning_profile="NONE",
+        provider_rank=1,
+        attempt_index=1,
+        snapshot_id="SNP-NATIVE-AUTO",
+        url="https://example.com/",
+        started_at=AT,
+        finished_at=AT,
+        duration_ms=1,
+        status=AttemptStatus.SUCCESS,
+        usage=usage,
+        surface="SEARCH_API",
+        pricing_runtime_conditions=tuple(sorted(conditions.items())),
+    )
+
+    priced = _price_auto_attempt(attempt)
+
+    assert priced.estimated_cost == pytest.approx(0.005)
+    assert priced.cost_currency == "USD"
+    assert priced.pricing_model == PER_REQUEST
+    assert priced.pricing_rule_id == "perplexity-search-web-realtime"
+    assert priced.surface == "SEARCH_API"
+
+
+def test_auto_repricing_clears_stale_money_for_provider_credits_and_keeps_trace() -> None:
+    usage = ProviderUsage(
+        native_usage=(
+            NativeUsageComponent(
+                MANUS_CREDIT,
+                12,
+                "task.detail.task.credit_usage",
+                "CONSUMPTION",
+                None,
+                AT,
+            ),
+        )
+    )
+    attempt = ProviderAttempt(
+        provider="MANUS",
+        model=None,
+        reasoning_profile="NONE",
+        provider_rank=1,
+        attempt_index=1,
+        snapshot_id="SNP-MANUS-AUTO",
+        url="https://example.com/",
+        started_at=AT,
+        finished_at=AT,
+        duration_ms=1,
+        status=AttemptStatus.SUCCESS,
+        usage=usage,
+        estimated_cost=99.0,
+        cost_currency="USD",
+        surface="API_V2",
+    )
+
+    priced = _price_auto_attempt(attempt)
+
+    assert priced.estimated_cost is None
+    assert priced.cost_currency is None
+    assert priced.pricing_model == PROVIDER_CREDITS
+    assert priced.pricing_context == "UNPRICED_PROVIDER_CREDITS"
+    assert priced.pricing_source_reference == "https://open.manus.ai/docs/v2/task.detail"
+    assert priced.surface == "API_V2"
 
 
 def test_manus_primary_credit_usage_is_unpriced_and_reconciliation_is_not_double_counted() -> None:
