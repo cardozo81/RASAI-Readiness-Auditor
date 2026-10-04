@@ -43,6 +43,7 @@ class M24AiResult:
     explanation: dict[str, Any] | None = None
     reason: str | None = None
     diagnostic: ProviderDiagnostic | None = None
+    attempt: ProviderAttempt | None = None
 
 
 _RESOURCE_RULES: dict[str, tuple[str, ...]] = {
@@ -509,6 +510,7 @@ def _call(
                 provider=candidate.name,
                 model=candidate.model,
                 explanation=explanation,
+                attempt=attempt,
             ),
             attempt,
         )
@@ -519,6 +521,7 @@ def _call(
             model=candidate.model,
             reason=reason or "M24_AI_UNAVAILABLE",
             diagnostic=diagnostic,
+            attempt=attempt,
         ),
         attempt,
     )
