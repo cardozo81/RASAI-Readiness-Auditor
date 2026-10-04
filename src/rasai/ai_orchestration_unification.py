@@ -18,6 +18,19 @@ import time
 from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
 
+from rasai.ai_canonical_orchestration import (
+    AiExecutionPolicy,
+    AiProviderInvocation,
+    AiProviderOutcome,
+    invocation_from_diagnostic,
+    run_ai_need,
+)
+from rasai.dynamic_ai_routing import (
+    canonical_candidate_objects,
+    execution_coordinator_for,
+    record_canonical_attempt,
+)
+
 
 _INSTALLED = False
 _PRIMARY_AI_CONTEXT: ContextVar[tuple[str, str, str] | None] = ContextVar(
@@ -39,15 +52,14 @@ def _token_hint(text: str, *, output_tokens: int = 2400) -> _TokenHint:
 
 
 def _provider_candidates(runtime: Any, request: Any, *, scope: str) -> tuple[Any, ...]:
-    ordered = getattr(runtime, "ordered_candidates_for_need", None)
-    if callable(ordered):
-        return tuple(ordered(request, scope=scope))
     name = str(getattr(runtime, "name", "NONE") or "NONE").upper()
     if name in {"NONE", ""}:
         return ()
-    if not bool(getattr(runtime, "api_key", None)):
-        return ()
-    return (runtime,)
+    return tuple(
+        item
+        for item in canonical_candidate_objects(runtime, request, scope=scope)
+        if bool(getattr(item, "api_key", None))
+    )
 
 
 def _apply_timeout(runtime: Any, timeout: float) -> None:
@@ -373,10 +385,25 @@ def _install_search_competitive() -> None:
                 competitive_input.provider_payload(), ensure_ascii=False, separators=(",", ":")
             )
             hint = _token_hint(user_text, output_tokens=2600)
-            candidates = _provider_candidates(
-                self.runtime, hint, scope="COMPETITIVE_INTELLIGENCE"
-            )
-            if not candidates:
+            attempts: list[Any] = []
+            fallback_from: str | None = None
+            fallback_reason: str | None = None
+            winner = None
+            last_reason: str | None = None
+            policy = getattr(self.runtime, "_rasai_execution_policy", AiExecutionPolicy())
+            if not isinstance(policy, AiExecutionPolicy):
+                policy = AiExecutionPolicy()
+            sleeper = getattr(self.runtime, "_rasai_cycle_sleeper", None)
+
+            def candidates() -> tuple[Any, ...]:
+                return _provider_candidates(
+                    self.runtime,
+                    hint,
+                    scope="COMPETITIVE_INTELLIGENCE",
+                )
+
+            initial = candidates()
+            if not initial:
                 state = (
                     competitive.CompetitiveAiState.NOT_CONFIGURED
                     if self.name in {"NONE", ""}
@@ -389,11 +416,8 @@ def _install_search_competitive() -> None:
                 )
                 return competitive.CompetitiveAiResult(state, reason=reason)
 
-            coordinator = getattr(self.runtime, "coordinator", None)
-            attempts: list[Any] = []
-            fallback_from: str | None = None
-            fallback_reason: str | None = None
-            for index, provider in enumerate(candidates, 1):
+            def invoke(provider: Any, cycle: int, call_index: int) -> AiProviderInvocation:
+                nonlocal fallback_from, fallback_reason, winner, last_reason
                 payload = _structured_payload(
                     provider,
                     schema_name="rasai_competitive_ai",
@@ -401,12 +425,18 @@ def _install_search_competitive() -> None:
                     user_text=user_text,
                     schema=competitive.competitive_ai_output_schema(),
                 )
-                body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+                body = json.dumps(
+                    payload,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ).encode("utf-8")
                 request_hash = sha256(body).hexdigest()
                 started = datetime.now(timezone.utc)
                 self.calls += 1
                 raw, usage, diagnostic, status, duration_ms = _candidate_call(
-                    provider, body=body, timeout=self.timeout
+                    provider,
+                    body=body,
+                    timeout=self.timeout,
                 )
                 assessment = None
                 if status is AttemptStatus.SUCCESS and raw is not None:
@@ -427,14 +457,18 @@ def _install_search_competitive() -> None:
                             error_type=type(exc).__name__,
                             error_code="COMPETITIVE_AI_OUTPUT_INVALID",
                         )
-                decision = DECISION_STOP
-                if assessment is not None:
-                    decision = DECISION_FALLBACK_SUCCESS if fallback_from else DECISION_SUCCESS
-                elif index < len(candidates):
-                    decision = DECISION_FALLBACK
+
+                success = assessment is not None
+                decision = (
+                    DECISION_FALLBACK_SUCCESS
+                    if success and fallback_from
+                    else DECISION_SUCCESS
+                    if success
+                    else DECISION_FALLBACK
+                )
                 attempt = _attempt(
                     provider,
-                    index=index,
+                    index=call_index,
                     started=started,
                     duration_ms=duration_ms,
                     status=status,
@@ -451,22 +485,41 @@ def _install_search_competitive() -> None:
                         fallback_reason=fallback_reason,
                     )
                 attempts.append(attempt)
-                if coordinator is not None:
-                    coordinator.record_attempt(attempt, scope="COMPETITIVE_INTELLIGENCE")
-                if assessment is not None:
-                    self._last_attempts = tuple(attempts)
-                    self._history.extend(attempts)
-                    return competitive.CompetitiveAiResult(
-                        competitive.CompetitiveAiState.AVAILABLE, assessment=assessment
-                    )
-                fallback_from = str(provider.name)
-                fallback_reason = (
-                    diagnostic.reason if diagnostic is not None else "AI_PROVIDER_UNAVAILABLE"
+                record_canonical_attempt(
+                    provider,
+                    attempt,
+                    scope="COMPETITIVE_INTELLIGENCE",
                 )
 
+                if success:
+                    winner = assessment
+                    return AiProviderInvocation(AiProviderOutcome.COMPLETE)
+
+                last_reason = (
+                    diagnostic.reason
+                    if diagnostic is not None
+                    else "AI_PROVIDER_UNAVAILABLE"
+                )
+                fallback_from = str(provider.name)
+                fallback_reason = last_reason
+                if diagnostic is not None:
+                    return invocation_from_diagnostic(diagnostic)
+                return AiProviderInvocation(AiProviderOutcome.NO_PROGRESS)
+
+            run_ai_need(
+                candidates=candidates,
+                invoke=invoke,
+                policy=policy,
+                sleeper=sleeper,
+            )
             self._last_attempts = tuple(attempts)
             self._history.extend(attempts)
-            reason = fallback_reason or "AI_PROVIDER_CHAIN_EXHAUSTED"
+            if winner is not None:
+                return competitive.CompetitiveAiResult(
+                    competitive.CompetitiveAiState.AVAILABLE,
+                    assessment=winner,
+                )
+            reason = last_reason or "AI_PROVIDER_CHAIN_EXHAUSTED"
             return competitive.CompetitiveAiResult(
                 competitive.CompetitiveAiState.UNAVAILABLE,
                 reason=f"COMPETITIVE_AI_PROVIDER_UNAVAILABLE:{reason}",
@@ -729,10 +782,25 @@ def _install_improvement_runtime() -> None:
             user_text,
             output_tokens=min(8000, 1600 + config.max_recommendations * 180),
         )
-        candidates = _provider_candidates(
-            runtime, hint, scope="IMPROVEMENT_INTELLIGENCE"
-        )
-        if not candidates:
+        policy = getattr(runtime, "_rasai_execution_policy", AiExecutionPolicy())
+        if not isinstance(policy, AiExecutionPolicy):
+            policy = AiExecutionPolicy()
+        sleeper = getattr(runtime, "_rasai_cycle_sleeper", None)
+        last_reason: str | None = None
+        fallback_from: str | None = None
+        fallback_reason: str | None = None
+        winner_summary = ""
+        winner_recommendations: list[dict[str, Any]] | None = None
+
+        def candidates() -> tuple[Any, ...]:
+            return _provider_candidates(
+                runtime,
+                hint,
+                scope="IMPROVEMENT_INTELLIGENCE",
+            )
+
+        initial = candidates()
+        if not initial:
             registration = get_provider_registration(str(config.provider or "").casefold())
             missing_credential = bool(
                 registration is not None
@@ -743,16 +811,18 @@ def _install_improvement_runtime() -> None:
                 if str(config.provider or "").casefold() in {"", "none"} or missing_credential
                 else "AI_PROVIDER_CHAIN_EXHAUSTED"
             )
-        coordinator = getattr(runtime, "coordinator", None)
-        last_reason = None
-        fallback_from = None
-        fallback_reason = None
-        for ordinal, provider in enumerate(candidates, 1):
+
+        def invoke(provider: Any, cycle: int, call_index: int) -> AiProviderInvocation:
+            nonlocal last_reason, fallback_from, fallback_reason
+            nonlocal winner_summary, winner_recommendations
             if progress:
                 progress(
                     "AI_ANALYSIS",
-                    min(92.0, 72.0 + ordinal * 6.0),
-                    f"consultando {provider.name}/{provider.model}; candidato {ordinal}/{len(candidates)}",
+                    min(92.0, 72.0 + call_index * 3.0),
+                    (
+                        f"consultando {provider.name}/{provider.model}; "
+                        f"ciclo {cycle}/{policy.max_cycles}"
+                    ),
                 )
             payload = _structured_payload(
                 provider,
@@ -761,18 +831,26 @@ def _install_improvement_runtime() -> None:
                 user_text=user_text,
                 schema=schema,
             )
-            body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+            body = json.dumps(
+                payload,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
             request_hash = sha256(body).hexdigest()
             started = datetime.now(timezone.utc)
             raw, usage, diagnostic, status, duration_ms = _candidate_call(
-                provider, body=body, timeout=float(config.timeout_seconds)
+                provider,
+                body=body,
+                timeout=float(config.timeout_seconds),
             )
             ai_summary = ""
             recommendations: list[dict[str, Any]] = []
             if status is AttemptStatus.SUCCESS and raw is not None:
                 try:
                     ai_summary, recommendations = improvement._validate_ai_payload(
-                        _provider_extract(provider, raw), findings, config.max_recommendations
+                        _provider_extract(provider, raw),
+                        findings,
+                        config.max_recommendations,
                     )
                 except Exception as exc:
                     status = AttemptStatus.CONTRACT_ERROR
@@ -781,15 +859,11 @@ def _install_improvement_runtime() -> None:
                         error_type=type(exc).__name__,
                         error_code="IMPROVEMENT_OUTPUT_INVALID",
                     )
+
             success = status is AttemptStatus.SUCCESS and diagnostic is None
-            decision = DECISION_STOP
-            if success:
-                decision = DECISION_FALLBACK_SUCCESS if fallback_from else DECISION_SUCCESS
-            elif ordinal < len(candidates):
-                decision = DECISION_FALLBACK
             attempt = _attempt(
                 provider,
-                index=ordinal,
+                index=call_index,
                 started=started,
                 duration_ms=duration_ms,
                 status=status,
@@ -799,7 +873,13 @@ def _install_improvement_runtime() -> None:
                 contract=improvement.CONTRACT_VERSION,
                 url=context.url,
                 snapshot_id=context.snapshot_id,
-                decision=decision,
+                decision=(
+                    DECISION_FALLBACK_SUCCESS
+                    if success and fallback_from
+                    else DECISION_SUCCESS
+                    if success
+                    else DECISION_FALLBACK
+                ),
             )
             if fallback_from:
                 attempt = replace(
@@ -808,17 +888,35 @@ def _install_improvement_runtime() -> None:
                     fallback_reason=fallback_reason,
                 )
             improvement._persist_attempt(workspace, audit_id, context, attempt)
-            if coordinator is not None:
-                coordinator.record_attempt(
-                    attempt,
-                    page_url=context.url,
-                    scope="IMPROVEMENT_INTELLIGENCE",
-                )
+            record_canonical_attempt(
+                provider,
+                attempt,
+                page_url=context.url,
+                scope="IMPROVEMENT_INTELLIGENCE",
+            )
+
             if success:
-                return ai_summary, recommendations, None
-            last_reason = diagnostic.reason if diagnostic is not None else "AI_PROVIDER_UNAVAILABLE"
+                winner_summary = ai_summary
+                winner_recommendations = recommendations
+                return AiProviderInvocation(AiProviderOutcome.COMPLETE)
+
+            last_reason = (
+                diagnostic.reason if diagnostic is not None else "AI_PROVIDER_UNAVAILABLE"
+            )
             fallback_from = str(provider.name)
             fallback_reason = last_reason
+            if diagnostic is not None:
+                return invocation_from_diagnostic(diagnostic)
+            return AiProviderInvocation(AiProviderOutcome.NO_PROGRESS)
+
+        run_ai_need(
+            candidates=candidates,
+            invoke=invoke,
+            policy=policy,
+            sleeper=sleeper,
+        )
+        if winner_recommendations is not None:
+            return winner_summary, winner_recommendations, None
         return "", [], last_reason or "AI_PROVIDER_CHAIN_EXHAUSTED"
 
     improvement.ImprovementConfig.validate = validate
