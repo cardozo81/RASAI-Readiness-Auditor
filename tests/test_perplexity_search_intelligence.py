@@ -326,7 +326,7 @@ def test_summary_is_humanized_and_perplexity_does_not_enter_canonical_ai_auto_re
     assert summary["modo"] == "Busca web"
     assert summary["requests"] == pytest.approx(1.0)
 
-    canonical = {item.provider for item in provider_registrations()}
+    canonical = {item.provider_name for item in provider_registrations()}
     assert "PERPLEXITY" not in canonical
 
 
