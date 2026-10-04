@@ -10,6 +10,7 @@ on:
       - 'src/rasai/console_search_intelligence.py'
       - 'src/rasai/catalog_report_integrations.py'
       - 'tests/test_perplexity_search_intelligence.py'
+      - 'tests/test_provider_registry.py'
       - 'docs/AI_PRICING_CONFIGURATION.md'
       - 'docs/AI_RUNTIME_ORCHESTRATION.md'
       - 'docs/AUTO_COST_AWARE_AI_ROUTING.md'
@@ -72,6 +73,7 @@ jobs:
         run: |
           python -m pytest -q \
             tests/test_perplexity_search_intelligence.py \
+            tests/test_provider_registry.py \
             tests/test_ai_native_usage_pricing.py \
             tests/test_ai_cost_policy.py \
             tests/test_m9_scoring.py
