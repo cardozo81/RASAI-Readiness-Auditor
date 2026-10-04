@@ -28,13 +28,17 @@ Para saber **para que serve uma credencial, onde ela é usada e como criá-la no
 | `RASAI_LOG_LEVEL` | `INFO` | `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG` | `INFO` | verbosidade operacional |
 | `RASAI_DEVICE_CONTEXT` | `mobile` | `mobile`, `desktop`, `both` | `mobile` para execução mínima | device padrão quando CLI/menu não sobrescrevem |
 | `RASAI_PRESENTATION_TIMEZONE` | `America/Sao_Paulo` | timezone IANA válido | `America/Sao_Paulo` | somente apresentação; persistência continua UTC |
-| `RASAI_AI_TIMEOUT_SECONDS` | `180` | número `> 0` | `180` | timeout máximo por tentativa de IA |
+| `RASAI_AI_TIMEOUT_SECONDS` | `180` | número `> 0` | `180` | timeout máximo por tentativa externa de IA |
+| `RASAI_AI_MAX_CYCLES` | `3` | inteiro `1..10` | `3` | máximo de ciclos por necessidade lógica de IA |
+| `RASAI_AI_CYCLE_DELAY_SECONDS` | `60` | número `0..300` | `60` | espera somente entre ciclos; nunca entre providers do mesmo ciclo |
 | `RASAI_AI_AUTO_EXCLUDE` | vazio | CSV ou `;` de providers AUTO válidos | vazio | exclui provider apenas do pool `AI=auto` |
 | `RASAI_AI_CONTENT_REMEDIATION` | `false` | booleano | `false` | habilita remediação de conteúdo por IA |
 | `RASAI_AI_TECHNICAL_REMEDIATION` | `false` | booleano | `false` | habilita remediação técnica advisory por IA |
 | `RASAI_AI_EXCHANGE_LOG_MAX_BYTES` | `524288` | inteiro `4096..4194304` | `524288` | teto por request/response sanitizado no log de intercâmbio de IA |
 
 No console local, configure o timezone pelo item **Timezone apresentação**, persistido em `[presentation] timezone`. `RASAI_PRESENTATION_TIMEZONE` é override de processo e não reinterpreta timestamps persistidos. Consulte [TIMEZONE_CONTRACT.md](TIMEZONE_CONTRACT.md).
+
+`RASAI_AI_MAX_CYCLES` e `RASAI_AI_CYCLE_DELAY_SECONDS` são não secretos e participam do mesmo mecanismo de sessão/INI/defaults/snapshot que `RASAI_AI_TIMEOUT_SECONDS`. Cada nova necessidade lógica reinicia em ciclo 1; a quarentena de provider permanece válida pela AUD/RPR corrente. `Retry-After` transitório pode elevar a espera efetiva entre ciclos até 300 s.
 
 `RASAI_AI_AUTO_EXCLUDE` não apaga credenciais nem impede seleção explícita.
 
@@ -130,7 +134,7 @@ Um valor `auto` permanece `AUTO` no estado persistido. Eventual interpretação 
 
 ### 6.1 IA - análise profunda e idioma
 
-Improvement Intelligence usa a seleção principal de IA da execução. Não possui provider/modelo/reasoning próprios. Com `AI=auto`, reutiliza a mesma ordenação por custo, elegibilidade, quarentena, circuit breaker e fallback do runtime canônico. A execução é limitada a uma URL explícita e permanece advisory/non-scoring.
+Improvement Intelligence usa a seleção principal de IA da execução. Não possui provider/modelo/reasoning próprios. Com `AI=auto` ou provider explícito, reutiliza o mesmo motor canônico de ciclos, ordenação aplicável, health, quarentena e fallback. A execução é limitada a uma URL explícita e permanece advisory/non-scoring.
 
 | Variável | Default efetivo | Valores permitidos | Recomendado | Finalidade |
 |---|---|---|---|---|
