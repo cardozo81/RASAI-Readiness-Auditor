@@ -301,17 +301,27 @@ class ProviderExtensionTests(unittest.TestCase):
         self.assertEqual(result.state, ProviderState.NOT_CONFIGURED)
         self.assertFalse(called)
 
-    def test_partial_output_is_fail_closed_and_quarantined(self) -> None:
+    def test_partial_output_is_fail_closed_without_adapter_owned_quarantine(self) -> None:
+        calls = 0
+
+        def partial(*_):
+            nonlocal calls
+            calls += 1
+            return {"output_text": json.dumps(_payload(SEMANTIC_RULE_IDS[:-1]))}
+
         provider = GeminiProvider(
             model="gemini-3.8-flash",
             api_key="x",
-            transport=lambda *_: {"output_text": json.dumps(_payload(SEMANTIC_RULE_IDS[:-1]))},
+            transport=partial,
         )
         first = provider.analyze(_input())
         second = provider.analyze(_input())
+
         self.assertEqual(first.state, ProviderState.UNAVAILABLE)
         self.assertEqual(first.diagnostic.error_class.value, "CONTRACT_ERROR")
-        self.assertEqual(second.reason, "AI_PROVIDER_UNAVAILABLE:PROVIDER_QUARANTINED")
+        self.assertEqual(second.state, ProviderState.UNAVAILABLE)
+        self.assertEqual(second.diagnostic.error_class.value, "CONTRACT_ERROR")
+        self.assertEqual(calls, 2)
 
 
 if __name__ == "__main__":
