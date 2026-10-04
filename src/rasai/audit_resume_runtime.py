@@ -442,6 +442,10 @@ def finish_execution_session(
 
 
 _SAFE_OPTIONAL_ENV_NAMES = (
+    # Canonical AI execution policy. Provider keys remain intentionally excluded.
+    "RASAI_AI_TIMEOUT_SECONDS",
+    "RASAI_AI_MAX_CYCLES",
+    "RASAI_AI_CYCLE_DELAY_SECONDS",
     # Search Intelligence runtime contract (provider keys are intentionally excluded).
     "RASAI_SERP_MODE",
     "RASAI_SERP_PROVIDER",
