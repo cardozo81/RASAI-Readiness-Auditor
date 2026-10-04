@@ -412,12 +412,12 @@ A suíte deve cobrir no mínimo:
 - DeepSeek peak/off-peak com weekday calculado em UTC;
 - preservação da ordem rotativa determinística entre providers sem pricing conhecido;
 - exclusão voluntária de provider do AUTO sem apagar sua credencial e sem impedir seleção explícita;
-- fallback no mesmo contexto sem repetir provider;
+- fallback dentro do mesmo ciclo sem repetir provider; o mesmo provider só pode reaparecer em ciclo posterior;
 - telemetria de fallback também nos fluxos especializados;
-- permanência após falha temporária abaixo do limiar;
-- circuit breaker com três falhas nas últimas cinco observações;
-- exclusão imediata por erro terminal/HTTP 404;
-- ausência de loop quando todos falham;
+- falha transitória permanece recuperável entre ciclos;
+- três falhas transitórias nas últimas cinco observações marcam `DEGRADED`, sem quarentena permanente;
+- exclusão imediata somente por erro terminal normalizado; HTTP status isolado não decide quarentena;
+- ausência de loop quando todos falham e respeito ao teto `max_cycles * providers_elegíveis`;
 - sanitização de segredos no exchange log;
 - truncamento/hash;
 - custo agregado derivado de telemetria persistida e ausência de custo observado inventado sem usage;
