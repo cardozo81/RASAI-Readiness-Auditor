@@ -931,32 +931,52 @@ class ProviderRoutingSession:
         return self._provider_by_name(self._active_provider)
 
     def analyze(self, semantic_input: SemanticInput) -> SemanticProviderResult:
+        from rasai.ai_canonical_orchestration import (
+            AiExecutionPolicy,
+            AiProviderInvocation,
+            AiProviderOutcome,
+            invocation_from_diagnostic,
+            run_ai_need,
+        )
+
         self._last_attempts = ()
         if not self.providers:
-            return SemanticProviderResult(ProviderState.NOT_CONFIGURED, reason="AI_NOT_CONFIGURED", provider="AUTO", reasoning_profile="NONE")
-
-        candidates = list(self._healthy_candidates())
-        pinned_name = self._pins.get(semantic_input.page_url)
-        if pinned_name:
-            # A previous success keeps preference, but an integration failure may
-            # legitimately fall back to another healthy provider for this context.
-            candidates.sort(key=lambda item: (0 if item.name == pinned_name else 1, item.policy.rank))
-        if not candidates:
-            return SemanticProviderResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_CHAIN_EXHAUSTED", provider="AUTO", reasoning_profile="NONE")
+            return SemanticProviderResult(
+                ProviderState.NOT_CONFIGURED,
+                reason="AI_NOT_CONFIGURED",
+                provider="AUTO",
+                reasoning_profile="NONE",
+            )
 
         attempts: list[ProviderAttempt] = []
         last_result: SemanticProviderResult | None = None
+        winner: SemanticProviderResult | None = None
         fallback_from: str | None = None
         fallback_reason: str | None = None
+        policy = getattr(self, "_rasai_execution_policy", AiExecutionPolicy())
+        if not isinstance(policy, AiExecutionPolicy):
+            policy = AiExecutionPolicy()
+        sleeper = getattr(self, "_rasai_cycle_sleeper", None)
 
-        for candidate_index, provider in enumerate(candidates):
-            remaining = MAX_AUTO_ATTEMPTS_PER_CONTEXT - len(attempts)
-            if remaining <= 0:
-                break
-            result = provider.analyze(
-                semantic_input,
-                max_attempts=min(MAX_PROVIDER_ATTEMPTS_PER_CONTEXT, remaining),
-            )
+        def candidates() -> tuple[ResponsesSemanticProvider, ...]:
+            items = list(self._healthy_candidates())
+            pinned_name = self._pins.get(semantic_input.page_url)
+            if pinned_name:
+                items.sort(
+                    key=lambda item: (
+                        0 if item.name == pinned_name else 1,
+                        item.policy.rank,
+                    )
+                )
+            return tuple(items)
+
+        def invoke(
+            provider: ResponsesSemanticProvider,
+            cycle: int,
+            call_index: int,
+        ) -> AiProviderInvocation:
+            nonlocal last_result, winner, fallback_from, fallback_reason
+            result = provider.analyze(semantic_input, max_attempts=1)
             local = list(provider.consume_attempts())
             if fallback_from is not None:
                 local = [
@@ -973,48 +993,64 @@ class ProviderRoutingSession:
             ]
             attempts.extend(local)
             last_result = result
+            attempt = local[-1] if local else None
 
             if result.status is ProviderState.AVAILABLE:
-                if fallback_from is not None and attempts:
+                if attempts:
                     attempts[-1] = replace(
                         attempts[-1],
-                        decision=DECISION_FALLBACK_SUCCESS,
+                        decision=(
+                            DECISION_FALLBACK_SUCCESS
+                            if fallback_from
+                            else DECISION_SUCCESS
+                        ),
                         fallback_from_provider=fallback_from,
                         fallback_reason=fallback_reason,
                     )
                 self._pins[semantic_input.page_url] = provider.name
                 self._promote(provider.name)
                 self._successful_urls[provider.name].add(semantic_input.page_url)
-                self._last_attempts = tuple(attempts)
-                self._history.extend(self._last_attempts)
-                return result
+                winner = result
+                return AiProviderInvocation(AiProviderOutcome.COMPLETE)
 
             if result.status is ProviderState.NOT_CONFIGURED:
-                continue
+                self._quarantine(provider.name)
+                return AiProviderInvocation(AiProviderOutcome.PROVIDER_TERMINAL)
 
-            self._quarantine(provider.name)
-            has_next = (
-                candidate_index < len(candidates) - 1
-                and len(attempts) < MAX_AUTO_ATTEMPTS_PER_CONTEXT
-            )
-            if has_next:
-                if attempts:
-                    attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK)
-                fallback_from = provider.name
-                fallback_reason = result.reason or "AI_PROVIDER_UNAVAILABLE"
+            if attempts:
+                attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK)
+            fallback_from = provider.name
+            fallback_reason = result.reason or "AI_PROVIDER_UNAVAILABLE"
+            if attempt is not None and attempt.diagnostic is not None:
+                invocation = invocation_from_diagnostic(attempt.diagnostic)
+                if invocation.outcome is AiProviderOutcome.PROVIDER_TERMINAL:
+                    self._quarantine(provider.name)
+                return invocation
+            return AiProviderInvocation(AiProviderOutcome.NO_PROGRESS)
 
+        run_ai_need(
+            candidates=candidates,
+            invoke=invoke,
+            policy=policy,
+            sleeper=sleeper,
+        )
         self._last_attempts = tuple(attempts)
         self._history.extend(self._last_attempts)
-        if len(attempts) >= MAX_AUTO_ATTEMPTS_PER_CONTEXT and self._healthy_candidates():
-            return SemanticProviderResult(
+        if winner is not None:
+            return winner
+        if candidates():
+            return last_result or SemanticProviderResult(
                 ProviderState.UNAVAILABLE,
-                reason="AI_PROVIDER_ATTEMPT_BUDGET_EXHAUSTED",
+                reason="AI_PROVIDER_UNAVAILABLE",
                 provider="AUTO",
                 reasoning_profile="NONE",
             )
-        if self._healthy_candidates():
-            return last_result or SemanticProviderResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_UNAVAILABLE", provider="AUTO", reasoning_profile="NONE")
-        return SemanticProviderResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_CHAIN_EXHAUSTED", provider="AUTO", reasoning_profile="NONE")
+        return SemanticProviderResult(
+            ProviderState.UNAVAILABLE,
+            reason="AI_PROVIDER_CHAIN_EXHAUSTED",
+            provider="AUTO",
+            reasoning_profile="NONE",
+        )
 
     def consume_attempts(self) -> tuple[ProviderAttempt, ...]:
         attempts = self._last_attempts
