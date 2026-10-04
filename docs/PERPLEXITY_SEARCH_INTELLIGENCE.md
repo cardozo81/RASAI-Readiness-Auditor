@@ -1,0 +1,295 @@
+# Perplexity Search Intelligence
+
+**Estado:** implementação da issue #5  
+**Data de revalidação oficial:** 04/10/2026  
+**Surface implementada:** Perplexity Search API  
+**Boundary RASAi:** pesquisa externa / Search Intelligence, não provider evidence-bound canônico
+
+## Objetivo
+
+A integração Perplexity amplia o RASAi com pesquisa web externa rastreável sem alterar a auditoria determinística.
+
+~~~text
+RASAi Search Intelligence
+        ↓
+Perplexity Search API
+        ↓
+fontes/resultados externos
+        ↓
+provenance explícita
+        ↓
+persistência + native usage/pricing
+~~~
+
+Esta superfície **não**:
+
+- substitui SERP observada;
+- entra no provider_registry canônico de IA;
+- participa do AI=auto;
+- altera crawling;
+- altera SARI;
+- altera CATs;
+- altera SCORE-GEO;
+- altera Apdex;
+- cria finding determinístico;
+- promove fonte Perplexity para evidence canônica.
+
+A regra geral do RASAi continua sendo: qualquer provider que for integrado ao **registry canônico de IA** deve entrar no AI=auto no mesmo merge quando configurado e apto. Perplexity Search API fica fora dessa regra apenas porque nesta entrega ela não é um provider desse registry; é uma integração domain-specific de Search Intelligence.
+
+## API escolhida
+
+A primeira integração usa exclusivamente:
+
+~~~text
+POST https://api.perplexity.ai/search
+~~~
+
+Autenticação:
+
+~~~text
+Authorization: Bearer $PERPLEXITY_API_KEY
+Content-Type: application/json
+~~~
+
+Variável canônica:
+
+~~~text
+PERPLEXITY_API_KEY
+~~~
+
+A Agent API não faz parte desta entrega e não deve ser documentada como implementada.
+
+Fontes oficiais revalidadas em 04/10/2026:
+
+- Search API: https://docs.perplexity.ai/docs/search/quickstart
+- Fast Search: https://docs.perplexity.ai/docs/search/fast-search
+- pricing: https://docs.perplexity.ai/docs/getting-started/pricing
+- rate limits: https://docs.perplexity.ai/docs/admin/rate-limits-usage-tiers
+- API keys: https://docs.perplexity.ai/docs/admin/api-key-management
+
+## Request
+
+A integração suporta:
+
+- uma query;
+- até cinco queries relacionadas no mesmo request;
+- search_type=web;
+- search_type=fast;
+- max_results;
+- country ISO 3166-1 alpha-2;
+- search_language_filter com códigos ISO 639-1.
+
+A query ou lista de queries faz parte da provenance da execução.
+
+O secret não entra no payload persistido, hash de payload, relatório, banco, logs ou console.
+
+## Response e provenance
+
+A resposta esperada contém um id e results[].
+
+Para cada resultado o RASAi preserva, quando retornado:
+
+- posição na resposta;
+- URL;
+- título;
+- snippet;
+- date;
+- last_updated;
+- metadata adicional;
+- vínculo com o run_id;
+- vínculo com o audit_id.
+
+As URLs das fontes são também materializadas como conjunto de citações da execução.
+
+Persistência dedicada:
+
+~~~text
+perplexity_search_runs
+perplexity_search_sources
+~~~
+
+Essas tabelas são separadas de:
+
+~~~text
+serp_observations
+serp_results
+serp_evidence_provenance
+~~~
+
+Portanto uma fonte Perplexity não pode ser confundida com uma SERP observada.
+
+## Native usage e pricing
+
+A integração consome diretamente o contrato entregue pela issue #8:
+
+~~~text
+provider = PERPLEXITY
+surface = SEARCH_API
+unit = PERPLEXITY_SEARCH_REQUEST
+pricing_model = PER_REQUEST
+~~~
+
+Não são criados campos token-based fictícios.
+
+Para a Search API:
+
+~~~text
+WEB  = USD 5 / 1000 requests = USD 0.005 / request
+FAST = USD 1 / 1000 requests = USD 0.001 / request
+~~~
+
+A documentação oficial vigente distingue **billing** de **rate limit**:
+
+- uma resposta bem-sucedida de POST /search = uma unidade faturável;
+- um request com até cinco queries continua sendo **uma** unidade faturável;
+- rate limit conta uma query unit por query;
+- request inválido, rate-limited ou upstream failure não é faturado;
+- resposta bem-sucedida sem resultados continua faturável;
+- não há cobrança token-based adicional na Search API.
+
+Consequências no RASAi:
+
+- multi-query não multiplica PERPLEXITY_SEARCH_REQUEST;
+- HTTP não faturável conhecido recebe billable=false;
+- timeout/network sem certeza de faturabilidade preserva billable=NULL;
+- ausência de pricing reproduzível permanece UNPRICED;
+- ausência de preço nunca vira zero;
+- tokens permanecem NULL;
+- custo não é recalculado retroativamente com catálogo corrente.
+
+## Telemetria e ledger
+
+A chamada reutiliza:
+
+~~~text
+ai_provider_attempts
+ai_provider_native_usage
+usage_events
+pricing snapshots
+~~~
+
+O ai_provider_attempts é usado apenas como envelope genérico de tentativa/telemetria. O contrato da tentativa é:
+
+~~~text
+semantic_contract_version = RASAI-PERPLEXITY-SEARCH-1
+operation = SEARCH_INTELLIGENCE
+surface = SEARCH_API
+~~~
+
+O conteúdo externo e suas fontes permanecem nas tabelas de provenance Perplexity.
+
+A ingestão SaaS já existente trata a tentativa como contagem de call e a unidade nativa como consumo monetário separado, evitando dupla contagem de custo.
+
+## Erros
+
+A integração contém os erros no boundary externo.
+
+| Condição | Classificação |
+|---|---|
+| HTTP 401 | AUTH_ERROR |
+| HTTP 403 | PERMISSION_ERROR |
+| HTTP 429 | RATE_LIMIT_ERROR |
+| HTTP 5xx | SERVER_ERROR |
+| timeout | TIMEOUT_ERROR |
+| falha de rede | NETWORK_ERROR |
+| JSON/schema inválido em resposta 2xx | INVALID_RESPONSE |
+| credencial ausente | NOT_CONFIGURED |
+
+Erro Perplexity não vira finding do site auditado.
+
+Falha externa não invalida a auditoria determinística e é apresentada como limitação da integração.
+
+## Secrets
+
+PERPLEXITY_API_KEY:
+
+- é lida de environment/secret store;
+- não é persistida em rasai-console.ini;
+- não é gravada em TOML;
+- não é passada por command line;
+- não aparece em URL;
+- não é persistida em audit.db;
+- não é incluída em snapshots;
+- não aparece em relatório;
+- não entra em scheduler arguments.
+
+O console apresenta apenas estado configurada / não configurada.
+
+## Console
+
+A configuração fica no bloco Search Intelligence, separada da seleção principal de IA:
+
+~~~text
+T. Termos SERP
+U. Perplexity externa
+~~~
+
+A opção Perplexity é opt-in e independente dos termos SERP.
+
+O usuário escolhe:
+
+- queries da execução;
+- WEB ou FAST.
+
+A execução ocorre após o core determinístico da auditoria.
+
+A saída humanizada mostra:
+
+- origem Perplexity Search API;
+- pesquisa externa;
+- modo;
+- número de queries;
+- requests nativos;
+- fontes;
+- custo ou UNPRICED;
+- estado/limitação.
+
+## Relatórios
+
+O contrato RASAI-PERPLEXITY-SEARCH-1 é rotulado como:
+
+~~~text
+Pesquisa externa Perplexity
+CAT-05 · Pesquisa externa / Search Intelligence
+~~~
+
+A finalidade apresentada ao usuário deixa explícito que:
+
+- as fontes são externas;
+- a execução é advisory;
+- não substitui SERP;
+- não altera scoring;
+- não constitui evidence determinística.
+
+## AUTO
+
+Perplexity Search API não está no provider_registry.
+
+Logo ela não participa de:
+
+~~~text
+AI=auto
+RASAI_AI_AUTO_EXCLUDE
+fallback do provider registry
+ranking econômico do AUTO
+~~~
+
+Isso não cria exceção à regra geral de AUTO para providers canônicos.
+
+Se uma futura integração Perplexity entrar no registry canônico de IA, ela deverá ser AUTO-eligible no mesmo merge quando configurada/apta, salvo nova decisão arquitetural explícita e documentada.
+
+## Homologação com ressalvas externas
+
+Crédito, quota, saldo, rate limit, plano ou indisponibilidade comercial isolados não invalidam a implementação quando estiver comprovado que:
+
+1. request/auth/surface estão corretos;
+2. erro externo é classificado;
+3. erro fica contido;
+4. persistência permanece íntegra;
+5. secrets não vazam;
+6. native usage/pricing são coerentes;
+7. testes isolados estão verdes;
+8. CI relevante está verde;
+9. core determinístico permanece invariável.
+
+Qualquer defeito funcional posterior em main deve virar bug específico.
