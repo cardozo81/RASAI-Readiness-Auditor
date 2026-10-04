@@ -248,6 +248,8 @@ class DynamicProviderRoutingSession:
     excluded_configurations: tuple[str, ...] = ()
     strategy: str = "AUTO"
     recorder: AiExchangeRecorder | None = None
+    _rasai_execution_policy: AiExecutionPolicy | None = None
+    _rasai_cycle_sleeper: Callable[[float], None] | None = None
     coordinator: AiExecutionCoordinator = field(init=False)
     _last_attempts: tuple[ProviderAttempt, ...] = field(init=False, default=())
     _history: list[ProviderAttempt] = field(init=False, default_factory=list)
