@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import json
 from types import SimpleNamespace
 
+from rasai.ai_canonical_orchestration import AiExecutionPolicy
 from rasai.ai_exchange_log import AiExchangeRecorder
 from rasai.dynamic_ai_routing import AiExecutionCoordinator, DynamicProviderRoutingSession
 from rasai.m18_ai import (
@@ -78,7 +79,6 @@ class _FakeProvider:
                 model=self.model,
                 diagnostic=attempt.diagnostic,
             )
-            self._runtime_state = RuntimeProviderState.QUARANTINED_FOR_AUDIT
         self._last = (attempt,)
         return result
 
@@ -109,7 +109,7 @@ def test_auto_rotates_between_needs_and_falls_forward_on_temporary_error() -> No
     assert [a.calls, b.calls, c.calls, d.calls] == [2, 2, 1, 1]
 
 
-def test_temporary_circuit_breaker_opens_on_three_failures_within_five_observations() -> None:
+def test_transient_failure_window_marks_degraded_without_execution_quarantine() -> None:
     coordinator = AiExecutionCoordinator(("A",))
     sequence = [
         AttemptStatus.TECHNICAL_ERROR,
@@ -129,11 +129,13 @@ def test_temporary_circuit_breaker_opens_on_three_failures_within_five_observati
     health = coordinator.health_snapshot()["A"]
     assert health["rolling_observations"] == 5
     assert health["rolling_failures"] == 3
-    assert health["eligible"] is False
-    assert health["exclusion_reason"] == "CIRCUIT_BREAKER:3_FAILURES_IN_LAST_5"
+    assert health["eligible"] is True
+    assert health["exclusion_reason"] is None
+    assert health["degraded"] is True
+    assert health["degradation_reason"] == "TRANSIENT_DEGRADED:3_FAILURES_IN_LAST_5"
 
 
-def test_http_404_removes_provider_immediately() -> None:
+def test_http_status_alone_does_not_create_terminal_quarantine() -> None:
     coordinator = AiExecutionCoordinator(("A", "B"))
     coordinator.record_attempt(
         _attempt(
@@ -143,20 +145,34 @@ def test_http_404_removes_provider_immediately() -> None:
             http_status=404,
         )
     )
-    assert coordinator.is_eligible("A") is False
-    assert coordinator.ordered_names() == ("B",)
+    assert coordinator.is_eligible("A") is True
+    assert set(coordinator.ordered_names()) == {"A", "B"}
+    assert coordinator.health_snapshot()["A"]["temporary_failures"] == 1
 
 
-def test_one_need_never_loops_over_same_provider() -> None:
+def test_one_need_calls_each_provider_at_most_once_per_cycle() -> None:
     providers = tuple(
-        _FakeProvider(name, rank, [("temporary", ProviderErrorClass.NETWORK_ERROR, None)])
+        _FakeProvider(
+            name,
+            rank,
+            [("temporary", ProviderErrorClass.NETWORK_ERROR, None)] * 3,
+        )
         for rank, name in enumerate(("A", "B", "C"), 1)
     )
     session = DynamicProviderRoutingSession(providers)
+    session._rasai_execution_policy = AiExecutionPolicy(
+        max_cycles=3,
+        cycle_delay_seconds=60,
+    )
+    sleeps: list[float] = []
+    session._rasai_cycle_sleeper = sleeps.append
+
     result = session.analyze(SimpleNamespace(page_url="https://example.test/"))
+
     assert result.state is ProviderState.UNAVAILABLE
-    assert [provider.calls for provider in providers] == [1, 1, 1]
-    assert len(session.consume_attempts()) == 3
+    assert [provider.calls for provider in providers] == [3, 3, 3]
+    assert len(session.consume_attempts()) == 9
+    assert sleeps == [60, 60]
 
 
 def _context_interpretation() -> dict[str, object]:
