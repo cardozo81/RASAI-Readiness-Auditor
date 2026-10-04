@@ -783,7 +783,6 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
             provider_qualification=self.policy.qualification,
             provider_reliability_score=self.policy.reliability_score,
         )
-        self._runtime_state = RuntimeProviderState.QUARANTINED_FOR_AUDIT
         self._history.append(self._last_attempt)
         return SemanticProviderResult(
             ProviderState.UNAVAILABLE,
