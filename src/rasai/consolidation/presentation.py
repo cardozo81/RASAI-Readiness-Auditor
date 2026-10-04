@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 from typing import Any, Mapping
 
+from rasai.ai_economic_telemetry import aggregate_attempt_costs, attempt_monetary_cost, canonical_total_tokens
 from .models import GenerationResult
 
 _PRESENTATION_STYLE_ID = "rasai-consolidated-presentation-v1"
@@ -200,22 +201,12 @@ def specialist_usage_summary(report_dir: str | Path) -> SpecialistUsageSummary |
     cached = sum(int(item.get("cached_input_tokens") or 0) for item in attempts)
     output = sum(int(item.get("output_tokens") or 0) for item in attempts)
     reasoning = sum(int(item.get("reasoning_tokens") or 0) for item in attempts)
-    costs: dict[str, float] = {}
-    unpriced = 0
+    monetary = aggregate_attempt_costs(attempts)
     successes = 0
     for item in attempts:
         status = str(item.get("status") or "").upper()
         if status == "SUCCESS":
             successes += 1
-        amount = item.get("estimated_cost")
-        currency = str(item.get("currency") or "").strip()
-        if amount is not None and currency:
-            try:
-                costs[currency] = costs.get(currency, 0.0) + float(amount)
-            except (TypeError, ValueError):
-                unpriced += 1
-        elif any(item.get(key) is not None for key in ("input_tokens", "output_tokens", "reasoning_tokens")):
-            unpriced += 1
     return SpecialistUsageSummary(
         requested=bool(ai.get("requested")),
         status=str(ai.get("status") or "UNKNOWN"),
@@ -225,9 +216,9 @@ def specialist_usage_summary(report_dir: str | Path) -> SpecialistUsageSummary |
         cached_input_tokens=cached,
         output_tokens=output,
         reasoning_tokens=reasoning,
-        total_tokens=input_tokens + output,
-        costs=tuple(sorted((currency, round(amount, 10)) for currency, amount in costs.items())),
-        unpriced_attempts=unpriced,
+        total_tokens=sum(canonical_total_tokens(item) or 0 for item in attempts),
+        costs=monetary.totals,
+        unpriced_attempts=monetary.unpriced_attempts,
     )
 
 
@@ -658,9 +649,8 @@ def _render_usage(
 ) -> str:
     rows: list[str] = []
     details: list[str] = []
-    costs: dict[str, float] = {}
-    total_input = total_cached = total_output = total_reasoning = 0
-    unpriced = 0
+    total_input = total_cached = total_output = total_reasoning = total_tokens = 0
+    monetary = aggregate_attempt_costs(attempts)
     exchange_rows = exchanges or []
     exchange_by_sequence = {
         int(item.get("sequence_no") or 0): item
@@ -679,23 +669,12 @@ def _render_usage(
         total_cached += cached
         total_output += output
         total_reasoning += reasoning
+        total_tokens += canonical_total_tokens(item) or 0
 
-        amount = item.get("estimated_cost")
-        currency = str(item.get("currency") or "").strip()
-        if amount is not None and currency:
-            try:
-                costs[currency] = costs.get(currency, 0.0) + float(amount)
-            except (TypeError, ValueError):
-                unpriced += 1
-        elif any(item.get(key) is not None for key in ("input_tokens", "output_tokens", "reasoning_tokens")):
-            unpriced += 1
-
+        amount, currency, _basis = attempt_monetary_cost(item)
         rendered_cost = "-"
         if amount is not None and currency:
-            try:
-                rendered_cost = f"{currency} {float(amount):.8f}"
-            except (TypeError, ValueError):
-                rendered_cost = "não calculado"
+            rendered_cost = f"{currency} {float(amount):.8f}"
         zero_cost = bool(currency) and _is_explicit_zero_cost(amount)
         rendered_cost_html = _no_cost_html(rendered_cost) if zero_cost else escape(rendered_cost)
         input_html = _no_cost_html(f"{input_tokens:,}") if zero_cost else f"{input_tokens:,}"
@@ -759,34 +738,21 @@ def _render_usage(
         return "<p class='subtle'>Nenhuma chamada de IA foi materializada nesta análise.</p>"
 
     rendered_costs = " · ".join(
-        f"{currency} {amount:.8f}" for currency, amount in sorted(costs.items())
+        f"{currency} {amount:.8f}" for currency, amount in monetary.totals
     ) or "não calculável"
-    zero_total_confirmed = bool(attempts) and all(
-        bool(str(item.get("currency") or "").strip()) and _is_explicit_zero_cost(item.get("estimated_cost"))
-        for item in attempts
-    )
+    zero_total_confirmed = bool(attempts) and bool(monetary.totals) and all(
+        _is_explicit_zero_cost(amount) for _currency, amount in monetary.totals
+    ) and monetary.unpriced_attempts == 0
     rendered_costs_html = _no_cost_html(rendered_costs) if zero_total_confirmed else escape(rendered_costs)
     summary_input_html = _no_cost_html(f"{total_input:,}") if zero_total_confirmed else f"{total_input:,}"
     summary_output_html = _no_cost_html(f"{total_output:,}") if zero_total_confirmed else f"{total_output:,}"
-    unpriced_note = f" · {unpriced} tentativa(s) sem custo calculável" if unpriced else ""
+    unpriced_note = (
+        f" · {monetary.unpriced_attempts} tentativa(s) sem custo calculável"
+        if monetary.unpriced_attempts else ""
+    )
 
     forecast = forecast or {}
     forecast_currency = str(forecast.get("currency") or "")
-    expected = _number(forecast.get("expected_cost"))
-    likely_high = _number(forecast.get("likely_high"))
-    potential = _number(forecast.get("potential"))
-    observed = costs.get(forecast_currency) if forecast_currency else None
-    deviation = observed - expected if observed is not None and expected is not None else None
-    deviation_percent = (
-        deviation / abs(expected) * 100.0
-        if deviation is not None and expected not in (None, 0)
-        else None
-    )
-    observed_html = (
-        _no_cost_html(f"{forecast_currency} {observed:.8f}")
-        if zero_total_confirmed and forecast_currency and observed is not None
-        else escape(f"{forecast_currency} {observed:.8f}" if forecast_currency and observed is not None else rendered_costs)
-    )
     forecast_confidence = str(forecast.get("confidence") or "NENHUMA").strip().upper()
     forecast_confidence_label = {
         "ALTA": "Alta",
@@ -808,9 +774,7 @@ def _render_usage(
         f"<div><small>Custo esperado</small><strong>{_money_html(forecast.get('expected_cost'), forecast_currency)}</strong></div>"
         f"<div><small>Máximo estimado da 1ª rodada</small><strong>{_money_html(forecast.get('likely_high'), forecast_currency)}</strong></div>"
         f"<div><small>Cenário potencial com nova tentativa</small><strong>{_money_html(forecast.get('potential'), forecast_currency)}</strong></div>"
-        f"<div><small>Custo observado</small><strong>{observed_html}</strong></div>"
-        f"<div><small>Desvio monetário</small><strong>{_money_html(deviation, forecast_currency, signed=True) if deviation is not None else escape('Não calculável')}</strong></div>"
-        f"<div><small>Desvio percentual</small><strong>{escape(f'{deviation_percent:+.2f}%' if deviation_percent is not None else 'Não calculável')}</strong></div>"
+        f"<div><small>Custo técnico contabilizado</small><strong>{rendered_costs_html}</strong></div>"
         f"<div><small>Confiança da previsão</small><strong>{escape(forecast_confidence_label)}</strong></div>"
         f"<div><small>Cobertura de preços</small><strong>{escape(pricing_coverage_label)}</strong></div>"
         "</div>"
@@ -826,7 +790,8 @@ def _render_usage(
       <div><small>Tokens de cache</small><strong>{total_cached:,}</strong></div>
       <div><small>Tokens de saída</small><strong>{summary_output_html}</strong></div>
       <div><small>Tokens de raciocínio</small><strong>{total_reasoning:,}</strong></div>
-      <div><small>Custo técnico observado</small><strong>{rendered_costs_html}</strong></div>
+      <div><small>Tokens totais</small><strong>{total_tokens:,}</strong></div>
+      <div><small>Custo técnico contabilizado</small><strong>{rendered_costs_html}</strong></div>
     </div>
     <div class='table-wrap'><table><thead><tr><th>Rodada</th><th>Tentativa</th><th>Provedor</th><th>Modelo</th><th>Raciocínio</th><th>Resultado</th><th>Erro</th><th>Decisão</th><th>Entrada</th><th>Saída</th><th>Custo</th><th>Duração</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>
     <h3>Comunicação com as IAs</h3>

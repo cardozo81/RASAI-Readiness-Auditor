@@ -11,6 +11,7 @@ import sqlite3
 from typing import Any
 
 from rasai import report_navigation
+from rasai.ai_economic_telemetry import aggregate_attempt_costs, canonical_total_tokens
 from rasai.persistence import AuditWorkspace
 
 M24_FILE = "crawling-discovery.html"
@@ -337,9 +338,13 @@ def _ai_block(data: dict[str, Any]) -> str:
     provider = str(ai["provider"] or "-") if ai else "-"
     model = str(ai["model"] or "-") if ai else "-"
     artifact_available = bool(ai and ai["artifact_reference"])
-    total_tokens = sum(int(row["total_tokens"] or 0) for row in attempts)
-    costs = [float(row["estimated_cost"]) for row in attempts if row["estimated_cost"] is not None]
-    cost = f"{sum(costs):.6f} USD" if costs else "não calculável/zero chamadas"
+    total_tokens = sum(canonical_total_tokens(row) or 0 for row in attempts)
+    monetary = aggregate_attempt_costs(attempts)
+    cost = (
+        " | ".join(f"{amount:.6f} {currency}" for currency, amount in monetary.totals)
+        if monetary.totals
+        else "não calculável/zero chamadas"
+    )
     return f"""<section class='panel'><div class='kicker'>IA técnica de crawling/discovery (opcional)</div><h2>Telemetria e limites da remediação técnica</h2>
 <div class='metric-grid'>{_metric("Estado",state)}{_metric("Provider",provider)}{_metric("Modelo",model)}{_metric("Tentativas",str(len(attempts)))}{_metric("Tokens",str(total_tokens))}{_metric("Custo estimado",cost)}</div>
 <p class='intro'>A IA técnica desta página é controlada por <code>RASAI_AI_TECHNICAL_REMEDIATION</code>, independente de <code>RASAI_AI_CONTENT_REMEDIATION</code>. Ela recebe apenas diagnósticos/evidence IDs persistidos e não pode criar fatos, pesos ou elevar Confidence por opinião. Para sitemap/robots, uma classificação válida pode gerar somente PASS/WARNING/FAIL em regras auxiliares bounded que compartilham o mesmo grupo das regras determinísticas; resultado positivo não soma bônus e resultado neutro/negativo pode rebaixar o grupo.</p>

@@ -16,10 +16,11 @@ O RASAi separa:
 
 - **motor de pricing**: interpreta regras, vigência, faixas de tokens e janelas de horário;
 - **catálogo de pricing**: contém valores e condições comerciais por provider/modelo;
-- **roteamento AUTO**: usa o preço resolvido para ordenar candidatos elegíveis;
-- **telemetria/persistência**: registra custo e versão do pricing usados pela execução;
+- **boundary econômico de IA**: aplica a política canônica a forecast pré-chamada, usage observado, uso nativo e agregação por moeda;
+- **roteamento AUTO**: usa a estimativa econômica canônica para ordenar candidatos elegíveis, sem transformar preço ausente em bloqueio do provider explicitamente escolhido;
+- **telemetria/persistência**: registra usage bruto, custo técnico derivado, versão/regra/fonte/condições do pricing e provenance da tentativa;
 - **configuração local**: usa a superfície humana em `config/` ou a baseline de fábrica;
-- **SaaS/control plane**: usa o mesmo schema lógico e fixa um snapshot por job.
+- **SaaS/control plane**: projeta a mesma telemetria persistida e fixa um snapshot por job.
 
 Mudanças de preço, promoções, horários peak/off-peak e thresholds de contexto são representadas por dados quando já cabem nas primitivas do schema.
 
@@ -38,9 +39,21 @@ A regra operacional é a mesma usada pelos demais catálogos de IA:
 | `src/rasai/config/ai-models-defaults.toml` | modelos de fábrica | não |
 | `src/rasai/config/ai-profiles-defaults.toml` | personas de fábrica | não |
 | `src/rasai/ai_pricing_catalog.py` | parser, validação e seleção de regra | código |
-| `src/rasai/ai_cost_policy.py` | cálculo de custo e API de pricing | código |
+| `src/rasai/ai_cost_policy.py` | fórmulas, resolução de regras e estimativas de pricing | código |
+| `src/rasai/ai_economic_telemetry.py` | ownership operacional de pricing/usage, total de tokens e agregação monetária por moeda | código |
 
 Não existe outro formato público de pricing que deva ser conciliado com o TOML.
+
+### 2.1 Semântica econômica canônica
+
+O código distingue quatro conceitos que não devem ser tratados como sinônimos:
+
+- **forecast pré-execução**: projeção para decisão humana/roteamento; pode reprecificar histórico comparável com a tarifa vigente para estimar uma execução futura;
+- **`estimated_cost` persistido na tentativa**: custo técnico calculado após o provider retornar usage, usando a regra e as condições runtime efetivamente resolvidas para aquela tentativa;
+- **`observed_cost`**: reservado a um valor monetário efetivamente informado/observado pelo provider quando essa telemetria existir;
+- **invoice/fatura**: não é inferida pelo RASAi.
+
+`UNPRICED` permanece diferente de zero. Moedas diferentes nunca são somadas entre si nem convertidas implicitamente. Quando `total_tokens` não é informado pelo provider, o único fallback canônico é `input_tokens + output_tokens`; `reasoning_tokens` é breakdown de output e não é somado novamente.
 
 ## 3. Variáveis de configuração
 

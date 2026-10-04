@@ -13,6 +13,7 @@ from urllib.error import HTTPError, URLError
 
 from rasai.domain import new_id
 from rasai.dynamic_ai_routing import provider_is_eligible
+from rasai.ai_economic_telemetry import price_provider_usage
 from rasai.m18_ai import (
     AttemptStatus,
     ProviderAttempt,
@@ -24,7 +25,6 @@ from rasai.m18_ai import (
     _diagnostic_from_http,
     _response_error,
     _usage_from_native,
-    resolve_provider_cost,
 )
 from rasai.m18_persistence import M18Persistence
 from rasai.m24_crawling_discovery import M24Diagnostic, persist_ai_result
@@ -472,7 +472,7 @@ def _call(
 
     finished_at = datetime.now(timezone.utc)
     duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
-    pricing = resolve_provider_cost(candidate, usage, finished_at)
+    pricing = price_provider_usage(candidate, usage, finished_at)
     attempt = ProviderAttempt(
         provider=candidate.name,
         model=candidate.model,

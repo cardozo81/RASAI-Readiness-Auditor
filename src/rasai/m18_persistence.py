@@ -15,8 +15,8 @@ from typing import Any, Iterator
 from rasai.ai_cost_policy import (
     PRICING_CATALOG,
     effective_pricing_catalog,
-    resolve_native_usage_cost,
 )
+from rasai.ai_economic_telemetry import price_native_usage
 from rasai.ai_native_usage import NativeUsageComponent
 from rasai.m18_ai import ProviderAttempt
 from rasai.persistence import AuditWorkspace
@@ -571,7 +571,7 @@ class M18Persistence:
             for component_index, component in enumerate(native_components):
                 if not isinstance(component, NativeUsageComponent):
                     raise TypeError("ProviderUsage.native_usage must contain NativeUsageComponent")
-                pricing = resolve_native_usage_cost(
+                pricing = price_native_usage(
                     attempt.provider,
                     str(attempt.surface or ""),
                     (component,),

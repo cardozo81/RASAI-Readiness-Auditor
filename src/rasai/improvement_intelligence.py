@@ -26,6 +26,7 @@ from urllib.parse import urlsplit
 
 from rasai.ai_resilience import DECISION_STOP, DECISION_SUCCESS
 from rasai.domain import new_id
+from rasai.ai_economic_telemetry import price_provider_usage
 from rasai.m18_ai import (
     AttemptStatus,
     ProviderAttempt,
@@ -36,7 +37,6 @@ from rasai.m18_ai import (
     _diagnostic_from_http as _core_diagnostic_from_http,
     _response_error,
     _usage_from_native,
-    resolve_provider_cost,
 )
 from rasai.m18_persistence import M18Persistence
 from rasai.persistence import AuditWorkspace
@@ -1414,7 +1414,7 @@ def _ai_analyze(*, audit_id: str, workspace: AuditWorkspace, context: _TargetCon
 
     finished_at = datetime.now(timezone.utc)
     duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
-    pricing = resolve_provider_cost(provider, usage, finished_at)
+    pricing = price_provider_usage(provider, usage, finished_at)
 
     if status is AttemptStatus.SUCCESS and raw is not None:
         try:

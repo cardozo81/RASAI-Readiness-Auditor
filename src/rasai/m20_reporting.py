@@ -10,6 +10,7 @@ from pathlib import Path
 import sqlite3
 from typing import Any
 
+from rasai.ai_economic_telemetry import aggregate_attempt_costs, attempt_monetary_cost, canonical_total_tokens
 from rasai.content_context import configured_content_analysis_context
 from rasai.catalog_report_public_labels import public_label as catalog_public_label
 from rasai.configuration_value_labels import configuration_value_report
@@ -315,12 +316,14 @@ def _telemetry_summary(attempts: list[sqlite3.Row]) -> dict[str, Any]:
     models = sorted({str(row["model"]) for row in attempts if row["model"]})
     reasoning = sorted({str(row["reasoning_profile"]) for row in attempts if row["reasoning_profile"]})
     duration_ms = sum(int(row["duration_ms"] or 0) for row in attempts)
-    total_tokens_values = [int(row["total_tokens"]) for row in attempts if row["total_tokens"] is not None]
-    costs = [float(row["estimated_cost"]) for row in attempts if row["estimated_cost"] is not None]
-    currencies = sorted({str(row["cost_currency"]) for row in attempts if row["cost_currency"]})
-    if costs:
-        currency = currencies[0] if len(currencies) == 1 else "/".join(currencies)
-        cost = f"{sum(costs):.8f} {currency}".strip()
+    total_tokens_values = [
+        value for row in attempts if (value := canonical_total_tokens(row)) is not None
+    ]
+    monetary = aggregate_attempt_costs(attempts)
+    if monetary.totals:
+        cost = " | ".join(
+            f"{amount:.8f} {currency}" for currency, amount in monetary.totals
+        )
     else:
         cost = "Indisponível" if attempts else "0"
     return {
@@ -341,8 +344,10 @@ def _ai_telemetry(data: dict[str, Any]) -> str:
     rows = []
     for row in attempts:
         error = " · ".join(str(row[key]) for key in ("error_class", "http_status", "error_code") if row[key] not in (None, "")) or "-"
-        cost = f"{float(row['estimated_cost']):.8f} {escape(str(row['cost_currency'] or ''))}" if row["estimated_cost"] is not None else "-"
-        rows.append(f"<tr><td class='mono'>{escape(str(row['url']))}</td><td>{escape(str(row['device']))}</td><td>{escape(str(row['provider']))}</td><td>{escape(str(row['model'] or '-'))}</td><td>{escape(str(row['reasoning_profile'] or '-'))}</td><td>{escape(str(row['status']))}</td><td>{escape(str(row['input_tokens'] if row['input_tokens'] is not None else '-'))}</td><td>{escape(str(row['output_tokens'] if row['output_tokens'] is not None else '-'))}</td><td>{escape(str(row['reasoning_tokens'] if row['reasoning_tokens'] is not None else '-'))}</td><td>{escape(str(row['total_tokens'] if row['total_tokens'] is not None else '-'))}</td><td>{cost}</td><td>{escape(str(row['duration_ms']))} ms</td><td>{escape(error)}</td></tr>")
+        amount, currency, _basis = attempt_monetary_cost(row)
+        cost = f"{amount:.8f} {escape(str(currency))}" if amount is not None and currency else "-"
+        total_tokens = canonical_total_tokens(row)
+        rows.append(f"<tr><td class='mono'>{escape(str(row['url']))}</td><td>{escape(str(row['device']))}</td><td>{escape(str(row['provider']))}</td><td>{escape(str(row['model'] or '-'))}</td><td>{escape(str(row['reasoning_profile'] or '-'))}</td><td>{escape(str(row['status']))}</td><td>{escape(str(row['input_tokens'] if row['input_tokens'] is not None else '-'))}</td><td>{escape(str(row['output_tokens'] if row['output_tokens'] is not None else '-'))}</td><td>{escape(str(row['reasoning_tokens'] if row['reasoning_tokens'] is not None else '-'))}</td><td>{escape(str(total_tokens if total_tokens is not None else '-'))}</td><td>{cost}</td><td>{escape(str(row['duration_ms']))} ms</td><td>{escape(error)}</td></tr>")
     status = str(run["status"]) if run is not None else "UNAVAILABLE"
     enabled = bool(run["enabled"]) if run is not None else False
     context_record = data.get("context")

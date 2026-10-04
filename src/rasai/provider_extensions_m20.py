@@ -18,6 +18,7 @@ from rasai.ai_resilience import (
     DECISION_SUCCESS,
     MAX_PROVIDER_ATTEMPTS_PER_CONTEXT,
 )
+from rasai.ai_economic_telemetry import price_provider_usage
 from rasai.m18_ai import (
     AttemptStatus,
     ProviderAttempt,
@@ -26,7 +27,6 @@ from rasai.m18_ai import (
     ProviderState,
     RuntimeProviderState,
     estimate_cost,
-    resolve_provider_cost,
 )
 from rasai.m20_ai import (
     CONTENT_REMEDIATION_CONTRACT_VERSION,
@@ -300,7 +300,7 @@ class ExtensionContentRemediationProvider:
             )
 
         finished_at = datetime.now(timezone.utc)
-        pricing = resolve_provider_cost(self, usage, finished_at)
+        pricing = price_provider_usage(self, usage, finished_at)
         self._last_attempt = ProviderAttempt(
             provider=self.name,
             model=self.model,
@@ -348,7 +348,7 @@ class ExtensionContentRemediationProvider:
         usage=None,
     ) -> ContentRemediationResult:
         finished_at = datetime.now(timezone.utc)
-        pricing = resolve_provider_cost(self, usage, finished_at)
+        pricing = price_provider_usage(self, usage, finished_at)
         self._last_attempt = ProviderAttempt(
             provider=self.name,
             model=self.model,

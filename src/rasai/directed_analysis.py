@@ -44,6 +44,7 @@ from rasai.improvement_intelligence import (
     _target_context,
     configured_analysis_language,
 )
+from rasai.ai_economic_telemetry import price_provider_usage
 from rasai.m18_ai import (
     AttemptStatus,
     ProviderAttempt,
@@ -51,7 +52,6 @@ from rasai.m18_ai import (
     ProviderErrorClass,
     ResponsesSemanticProvider,
     _diagnostic_from_http as _core_diagnostic_from_http,
-    resolve_provider_cost,
 )
 from rasai.persistence import AuditWorkspace
 from rasai.provider_extensions import _diagnostic_from_http as _extension_diagnostic_from_http
@@ -926,7 +926,7 @@ def _ai_analyze(
 
         finished_at = datetime.now(timezone.utc)
         duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
-        pricing = resolve_provider_cost(candidate, usage, finished_at)
+        pricing = price_provider_usage(candidate, usage, finished_at)
         success_payload = None
         if status is AttemptStatus.SUCCESS and raw is not None:
             try:

@@ -17,10 +17,8 @@ from rasai.ai_native_usage import NativeUsageComponent
 from rasai.ai_cost_policy import (
     PRICING_CATALOG,
     PRICING_VERSION,
-    estimate_observed_cost,
-    resolve_observed_cost,
-    runtime_pricing_conditions,
 )
+from rasai.ai_economic_telemetry import price_provider_usage, price_usage
 from rasai.ai_resilience import (
     DECISION_FALLBACK,
     DECISION_FALLBACK_SUCCESS,
@@ -261,26 +259,20 @@ def estimate_cost(
     *,
     runtime_conditions: Mapping[str, str] | None = None,
 ) -> tuple[float | None, str | None, str | None]:
-    """Use the single canonical pricing resolver for explicit and AUTO telemetry."""
-    return estimate_observed_cost(
+    """Compatibility API delegating usage-derived technical cost to the economic boundary."""
+    application = price_usage(
         provider,
         model,
         usage,
         at,
         runtime_conditions=runtime_conditions,
     )
+    return application.estimated_cost, application.currency, application.pricing_version
 
 
 def resolve_provider_cost(provider: Any, usage: ProviderUsage | None, at: datetime):
-    """Resolve one provider object's observed cost with its effective runtime contract."""
-    return resolve_observed_cost(
-        str(getattr(provider, "name", "") or ""),
-        str(getattr(provider, "model", "") or ""),
-        usage,
-        at,
-        runtime_conditions=runtime_pricing_conditions(provider),
-        surface=str(getattr(provider, "surface", "") or ""),
-    )
+    """Compatibility API for usage-derived technical cost with effective runtime conditions."""
+    return price_provider_usage(provider, usage, at)
 
 
 def _usage_from_native(raw: Mapping[str, Any]) -> ProviderUsage | None:
@@ -638,13 +630,7 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
 
         finished_at = datetime.now(timezone.utc)
         duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
-        pricing = resolve_observed_cost(
-            self.name,
-            self.model,
-            usage,
-            finished_at,
-            runtime_conditions=self.pricing_runtime_conditions(),
-        )
+        pricing = price_provider_usage(self, usage, finished_at)
         self._last_attempt = ProviderAttempt(
             provider=self.name,
             model=self.model,
@@ -696,13 +682,7 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
     ) -> SemanticProviderResult:
         finished_at = datetime.now(timezone.utc)
         duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
-        pricing = resolve_observed_cost(
-            self.name,
-            self.model,
-            usage,
-            finished_at,
-            runtime_conditions=self.pricing_runtime_conditions(),
-        )
+        pricing = price_provider_usage(self, usage, finished_at)
         self._last_attempt = ProviderAttempt(
             provider=self.name,
             model=self.model,

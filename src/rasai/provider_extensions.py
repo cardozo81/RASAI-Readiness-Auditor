@@ -17,7 +17,7 @@ from typing import Any, Callable, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from rasai.ai_cost_policy import resolve_observed_cost
+from rasai.ai_economic_telemetry import price_provider_usage
 from rasai.ai_resilience import (
     DECISION_STOP,
     DECISION_SUCCESS,
@@ -479,13 +479,7 @@ class IsolatedStructuredSemanticProvider:
 
         finished_at = datetime.now(timezone.utc)
         duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
-        pricing = resolve_observed_cost(
-            self.name,
-            self.model,
-            usage,
-            finished_at,
-            runtime_conditions=self.pricing_runtime_conditions(),
-        )
+        pricing = price_provider_usage(self, usage, finished_at)
         self._last_attempt = ProviderAttempt(
             provider=self.name,
             model=self.model,
@@ -539,13 +533,7 @@ class IsolatedStructuredSemanticProvider:
     ) -> SemanticProviderResult:
         finished_at = datetime.now(timezone.utc)
         duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
-        pricing = resolve_observed_cost(
-            self.name,
-            self.model,
-            usage,
-            finished_at,
-            runtime_conditions=self.pricing_runtime_conditions(),
-        )
+        pricing = price_provider_usage(self, usage, finished_at)
         self._last_attempt = ProviderAttempt(
             provider=self.name,
             model=self.model,

@@ -27,7 +27,8 @@ from rasai.ai_canonical_orchestration import (
     invocation_from_diagnostic,
     run_ai_need,
 )
-from rasai.ai_cost_policy import CandidateCostEstimate, PRICING_VERSION, estimate_candidate_cost
+from rasai.ai_cost_policy import CandidateCostEstimate, PRICING_VERSION
+from rasai.ai_economic_telemetry import forecast_candidate_cost, price_provider_usage
 from rasai.ai_task_profiles import profile_identity, render_task_profiles
 from rasai.catalog_report_public_labels import public_label
 from rasai.ai_execution_state import clear_current_ai_execution, current_ai_executions
@@ -50,7 +51,6 @@ from rasai.m18_ai import (
     ProviderErrorClass,
     ResponsesSemanticProvider,
     _diagnostic_from_http as _core_diagnostic_from_http,
-    resolve_provider_cost,
 )
 from rasai.monitoring.compare import compare_audits
 from rasai.monitoring.models import AuditSnapshot, ChangeEvent, ComparisonResult
@@ -444,7 +444,7 @@ def _instructions() -> str:
 
 def _attempt_record(provider: Any, *, status: AttemptStatus, started: datetime, duration_ms: int, usage: Any, diagnostic: ProviderDiagnostic | None, request_hash: str, index: int) -> ProviderAttempt:
     finished = datetime.now(timezone.utc)
-    pricing = resolve_provider_cost(provider, usage, finished)
+    pricing = price_provider_usage(provider, usage, finished)
     return ProviderAttempt(
         provider=str(provider.name),
         model=str(provider.model),
@@ -1716,9 +1716,9 @@ def preview_longitudinal_specialist(
         excluded = tuple(str(item) for item in getattr(provider, "excluded_configurations", ()) or ())
         if hasattr(provider, "ordered_candidates_for_need"):
             candidates = provider.ordered_candidates_for_need(hint, scope=AI_SCOPE)
-            estimates = tuple(estimate_candidate_cost(item, hint, scope=AI_SCOPE, at=now) for item in candidates)
+            estimates = tuple(forecast_candidate_cost(item, hint, scope=AI_SCOPE, at=now) for item in candidates)
         else:
-            estimates = (estimate_candidate_cost(provider, hint, scope=AI_SCOPE, at=now),)
+            estimates = (forecast_candidate_cost(provider, hint, scope=AI_SCOPE, at=now),)
         selected = estimates[0] if estimates else None
         preview_policy = getattr(provider, "_rasai_execution_policy", AiExecutionPolicy())
         if not isinstance(preview_policy, AiExecutionPolicy):
@@ -1855,7 +1855,7 @@ def run_longitudinal_ai(
         coordinator = execution_coordinator_for(selection)
 
         estimates = tuple(
-            estimate_candidate_cost(item, hint, scope=AI_SCOPE, at=datetime.now(timezone.utc))
+            forecast_candidate_cost(item, hint, scope=AI_SCOPE, at=datetime.now(timezone.utc))
             for item in first_candidates
         )
         candidate_views = tuple(_candidate_view(item) for item in estimates)

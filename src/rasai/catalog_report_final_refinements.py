@@ -105,7 +105,9 @@ def _attempt_input_detail(attempt: Mapping[str, Any]) -> str:
 
 def _ai_totals(attempts: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     from rasai import catalog_report_integrations as i
+    from rasai.ai_economic_telemetry import aggregate_attempt_costs
 
+    monetary = aggregate_attempt_costs(attempts)
     return {
         "attempts": len(attempts),
         "success": sum(1 for a in attempts if i._norm(a.get("status")) in i._STATUS_SUCCESS),
@@ -114,12 +116,14 @@ def _ai_totals(attempts: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "output": sum(int(a.get("output_tokens") or 0) for a in attempts),
         "reasoning": sum(int(a.get("reasoning_tokens") or 0) for a in attempts),
         "total": sum(i._attempt_total_tokens(a) for a in attempts),
-        "cost": sum((_decimal(a.get("estimated_cost") or a.get("estimated_cost_usd")) for a in attempts), Decimal("0")),
+        "costs": monetary.totals,
+        "unpriced": monetary.unpriced_attempts,
     }
 
 
 def _ai_integrations_body(database: Any, data: Any) -> str:
     from rasai import catalog_report_integrations as i
+    from rasai.ai_economic_telemetry import aggregate_attempt_costs, attempt_monetary_cost
     from rasai.ai_failure_diagnostics import format_ai_attempt_diagnostic
     from rasai.catalog_report_presentation import _Html
 
@@ -136,9 +140,9 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
         exchange = i._match_exchange(attempt, exchanges, used)
         modal_id = f"ai-attempt-{index}"
         raw_cost = i._attempt_cost_value(attempt)
-        cost = _decimal(raw_cost)
         usage_context, inputs, role = i._ai_usage_detail(attempt)
-        currency = str(attempt.get("cost_currency") or "USD")
+        _amount, resolved_currency, _basis = attempt_monetary_cost(attempt)
+        currency = str(resolved_currency or attempt.get("cost_currency") or "USD")
         occurred_at = attempt.get("started_at") or attempt.get("finished_at")
         origin, reprocess_id = i._execution_origin(occurred_at, reprocess_runs)
         tokens_display = i._token_pair_display(
@@ -247,29 +251,26 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
         int_modals.append(i._modal(modal_id, row["name"], "Comunicação/serviço externo persistido", detail_body))
 
     forecast = i._cost_forecast(database, data.audit_id)
-    currency = str(forecast.get("currency") or "USD") if forecast else "USD"
-    expected_raw = forecast.get("expected_cost") if forecast else None
-    expected = _decimal(expected_raw) if forecast else Decimal("0")
-    observed = totals["cost"]
+    monetary = aggregate_attempt_costs(attempts)
+    forecast_currency = str(forecast.get("currency") or "USD") if forecast else "USD"
     attempt_costs = [i._attempt_cost_value(attempt) for attempt in attempts]
     zero_cost_confirmed = (not attempts) or (
         all(value not in (None, "") for value in attempt_costs)
-        and i._is_explicit_zero_cost(observed)
+        and bool(monetary.totals)
+        and all(i._is_explicit_zero_cost(amount) for _currency, amount in monetary.totals)
     )
-    observed_display_value = observed if zero_cost_confirmed or observed != 0 else None
-    persisted_observed = _decimal(forecast.get("actual_cost")) if forecast else observed
-    deviation = observed - expected if forecast else Decimal("0")
-    deviation_percent = (deviation / expected * Decimal("100")) if forecast and expected else None
-    persisted_deviation = _decimal(forecast.get("deviation_amount")) if forecast else deviation
-    persisted_percent = _decimal(forecast.get("deviation_percent")) if forecast and forecast.get("deviation_percent") is not None else deviation_percent
-    reconciled = abs(persisted_observed - observed) <= Decimal("0.00000001")
-    arithmetic_ok = (not forecast) or (
-        abs(persisted_deviation - deviation) <= Decimal("0.00000001")
-        and (deviation_percent is None or (persisted_percent is not None and abs(persisted_percent - deviation_percent) <= Decimal("0.0001")))
-    )
+    if monetary.totals:
+        summary_cost = _Html(" | ".join(
+            str(i._money_display(amount, cost_currency))
+            for cost_currency, amount in monetary.totals
+        ))
+    elif not attempts:
+        summary_cost = i._money_display(0, forecast_currency)
+    else:
+        summary_cost = i._money_display(None, forecast_currency)
 
     body = i._audit_hero(data, "IA e integrações", "Auditoria das comunicações externas: finalidade, dados envolvidos, tentativas, volume, custo, resultado e solicitações/respostas persistidas, com credenciais removidas.")
-    body += i._outline((("summary", "Resumo"), ("ai", "Requisições de IA"), ("integrations", "Outras integrações"), ("cost", "Previsão × consumo"), ("principles", "Leitura")))
+    body += i._outline((("summary", "Resumo"), ("ai", "Requisições de IA"), ("integrations", "Outras integrações"), ("cost", "Previsão × custo"), ("principles", "Leitura")))
     success_note = f"{totals['success']} concluída(s)"
     input_text = f"{totals['input']:,}".replace(",", " ")
     cached_text = f"{totals['cached']:,}".replace(",", " ")
@@ -280,40 +281,61 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
     summary_html += i._metric("Tentativas de IA", totals["attempts"], success_note)
     summary_input = i._no_cost_value(input_text) if zero_cost_confirmed else input_text
     summary_output = i._no_cost_value(output_text) if zero_cost_confirmed else output_text
-    summary_cost = i._money_display(observed_display_value, currency)
     summary_html += i._metric("Tokens de entrada", summary_input)
     summary_html += i._metric("Entrada em cache", cached_text)
     summary_html += i._metric("Tokens de saída", summary_output)
     summary_html += i._metric("Tokens de raciocínio", reasoning_text, "subconjunto informativo; não somado novamente")
-    summary_html += i._metric("Tokens totais", total_text, "total canônico persistido por tentativa")
-    summary_html += i._metric("Custo técnico observado", summary_cost, "soma única das tentativas com preço persistido")
+    summary_html += i._metric("Tokens totais", total_text, "total do provider quando presente; caso contrário, entrada + saída")
+    summary_html += i._metric("Custo técnico contabilizado", summary_cost, "agregado por moeda; sem conversão cambial implícita")
     summary_html += "</div>"
     body += i._section("summary", "Resumo do consumo", summary_html)
     body += i._section("ai", "Requisições de IA", i._table(("Finalidade", "Aplicação no relatório", "Provedor", "Modelo", "Data/hora", "Origem da execução", "Resultado", "Tokens entrada / saída", "Custo", "Detalhe"), rows, empty="Nenhuma tentativa de IA persistida.", sortable=bool(rows), page_size=10 if len(rows) > 10 else None) + "".join(modals))
     body += i._section("integrations", "Outras integrações", i._table(("Serviço", "Data/hora", "Origem da execução", "Resultado", "Tentativas", "Sucessos", "Duração", "Detalhe"), int_rows, empty="Nenhuma integração externa reconhecida foi persistida.", sortable=bool(int_rows), page_size=10 if len(int_rows) > 10 else None) + "".join(int_modals))
 
     if forecast:
+        expected_raw = forecast.get("expected_cost")
+        actual_raw = forecast.get("actual_cost")
+        deviation_raw = forecast.get("deviation_amount")
+        percent_raw = forecast.get("deviation_percent")
+        single = monetary.single_currency
+        comparable_aggregate = (
+            single is not None
+            and single[0] == forecast_currency
+            and actual_raw is not None
+        )
+        reconciled = (
+            comparable_aggregate
+            and abs(_decimal(actual_raw) - _decimal(single[1])) <= Decimal("0.00000001")
+        )
         cost_html = "<div class='metric-grid'>"
-        cost_html += i._metric("Custo esperado", i._money_display(expected_raw, currency))
-        cost_html += i._metric("Custo observado", i._money_display(observed_display_value, currency), "soma das tentativas com preço persistido")
-        cost_html += i._metric("Desvio monetário", i._signed_money_display(deviation, currency))
-        cost_html += i._metric("Desvio percentual", f"{deviation_percent:+.2f}%" if deviation_percent is not None else "Não calculável")
-        cost_html += i._metric("Faixa provável", i._money_range_display(forecast.get("likely_low"), forecast.get("likely_high"), currency))
-        cost_html += i._metric("Cenário potencial (P90)", i._money_display(forecast.get("potential"), currency))
+        cost_html += i._metric("Custo esperado", i._money_display(expected_raw, forecast_currency))
+        cost_html += i._metric("Custo pós-execução", i._money_display(actual_raw, forecast_currency), "valor persistido pela confirmação de custo")
+        cost_html += i._metric("Desvio monetário", i._signed_money_display(deviation_raw, forecast_currency) if deviation_raw is not None else "Não calculável")
+        cost_html += i._metric("Desvio percentual", f"{float(percent_raw):+.2f}%" if percent_raw is not None else "Não calculável")
+        cost_html += i._metric("Faixa provável", i._money_range_display(forecast.get("likely_low"), forecast.get("likely_high"), forecast_currency))
+        cost_html += i._metric("Cenário potencial (P90)", i._money_display(forecast.get("potential"), forecast_currency))
         cost_html += i._metric("Confiança da previsão", i._level_label(forecast.get("confidence")))
         cost_html += i._metric("Classificação", i._level_label(forecast.get("status")))
         cost_html += "</div>"
-        tone = "good" if reconciled and arithmetic_ok else "bad"
-        text = "Os totalizadores estão conciliados entre tentativas, custo observado e desvio da previsão." if reconciled and arithmetic_ok else "Há divergência entre os totalizadores persistidos e a agregação canônica desta projeção."
+        if comparable_aggregate:
+            tone = "good" if reconciled else "bad"
+            text = (
+                "O custo pós-execução persistido coincide com a agregação das tentativas na mesma moeda."
+                if reconciled
+                else "O custo pós-execução persistido diverge da agregação das tentativas na mesma moeda."
+            )
+        else:
+            tone = "warn"
+            text = "A execução não possui um único total monetário comparável na moeda da previsão; nenhuma conversão cambial foi aplicada."
         cost_html += f"<div class='notice {tone}'><strong>Conciliação:</strong> {escape(text)}</div>"
         if forecast.get("relation"):
             cost_html += f"<div class='notice'><strong>Posição:</strong> {escape(str(forecast.get('relation')))}</div>"
-        cost_html += f"<p class='muted'>Previsão avaliada em {escape(str(forecast.get('evaluated_at') or '-'))}. O custo é uma estimativa monetária técnica do RASAi; não representa invoice/fatura do provedor.</p>"
+        cost_html += f"<p class='muted'>Previsão avaliada em {escape(str(forecast.get('evaluated_at') or '-'))}. Forecast, custo técnico derivado do uso e eventual custo monetário observado pelo provider são conceitos distintos; nenhum deles representa invoice/fatura.</p>"
         if int(forecast.get("unpriced_ai_attempts") or 0):
             cost_html += f"<div class='notice warn'>{int(forecast.get('unpriced_ai_attempts') or 0)} tentativa(s) de IA não possuem preço monetário conhecido e permanecem fora do total.</div>"
     else:
-        cost_html = "<div class='metric-grid'>" + i._metric("Custo observado", i._money_display(observed_display_value, currency)) + i._metric("Previsão pré-execução", "Não persistida") + "</div><div class='notice'>Sem previsão persistida, o relatório não inventa custo esperado, desvio ou faixa histórica.</div>"
-    body += i._section("cost", "Previsão × consumo observado", cost_html)
+        cost_html = "<div class='metric-grid'>" + i._metric("Custo técnico contabilizado", summary_cost) + i._metric("Previsão pré-execução", "Não persistida") + "</div><div class='notice'>Sem previsão persistida, o relatório não inventa custo esperado, desvio ou faixa histórica.</div>"
+    body += i._section("cost", "Previsão × custo técnico", cost_html)
     body += i._section("principles", "Como ler esta página", "<div class='grid'><div class='card'><h3>CATs</h3><p>Mostram o resultado funcional produzido. Não repetem tokens, solicitações/respostas e custos.</p></div><div class='card'><h3>IA e integrações</h3><p>Centraliza a telemetria e a comunicação externa de cada tentativa e explica quais dados funcionais participaram de cada chamada.</p></div><div class='card'><h3>Segurança</h3><p>Segredos, tokens de autenticação e credenciais são removidos antes da projeção. Conteúdo ausente no log não é reconstruído.</p></div></div>")
     return body
 

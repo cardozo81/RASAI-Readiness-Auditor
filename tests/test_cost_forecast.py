@@ -73,7 +73,7 @@ class _FakeStore:
         return {
             "groups": [
                 {
-                    "dimensions": {"audit": "AUD-1", "job": "JOB-1", "provider": "OPENAI", "model": "gpt-5.6-luna", "status": "SUCCESS", "operation": "SEMANTIC_ANALYSIS"},
+                    "dimensions": {"audit": "AUD-1", "job": "JOB-1", "provider": "OPENAI", "model": "gpt-5.6-luna", "status": "SUCCESS", "operation": "SEMANTIC_ANALYSIS", "pricing_service_tier": "DEFAULT", "pricing_operation_mode": "REALTIME", "pricing_region": "GLOBAL"},
                     "event_count": 2,
                     "input_tokens": 2000,
                     "cached_input_tokens": 0,
@@ -83,7 +83,7 @@ class _FakeStore:
                     "cost_by_currency": {"USD": 0.001},
                 },
                 {
-                    "dimensions": {"audit": "AUD-1", "job": "JOB-1", "provider": "OPENAI", "model": "gpt-5.6-luna", "status": "TECHNICAL_ERROR", "operation": "SEMANTIC_ANALYSIS"},
+                    "dimensions": {"audit": "AUD-1", "job": "JOB-1", "provider": "OPENAI", "model": "gpt-5.6-luna", "status": "TECHNICAL_ERROR", "operation": "SEMANTIC_ANALYSIS", "pricing_service_tier": "DEFAULT", "pricing_operation_mode": "REALTIME", "pricing_region": "GLOBAL"},
                     "event_count": 1,
                     "input_tokens": 500,
                     "cached_input_tokens": 0,

@@ -37,9 +37,9 @@ A página de IA e integrações apresenta, a partir da telemetria persistida:
 - condições runtime usadas no matching da tarifa (tier/modalidade/operação/região), sem segredo;
 - roteamento, fallback e motivo técnico;
 - request e response sanitizados quando disponíveis;
-- custo observado total;
+- custo técnico contabilizado por moeda, sem conversão cambial implícita;
 - previsão pré-execução, quando persistida;
-- desvio entre custo esperado e observado, quando calculável de forma confiável.
+- outcome pós-execução persistido e desvio em relação ao forecast somente quando a cobertura monetária é comparável.
 
 A atribuição é funcional e aditiva: cada tentativa externa é contada uma única vez no total da auditoria. Uma mesma evidência pode ser reutilizada por várias páginas sem duplicar custo.
 
@@ -91,9 +91,9 @@ A página apresenta três níveis complementares:
 2. **Consumo global por provider/modelo** - consolida o custo de cada provider/modelo independentemente da superfície;
 3. **Detalhamento por relatório proprietário** - expande URL, dispositivo, contrato/finalidade, motivo da alocação, provider/modelo, status, tokens e custo.
 
-A soma das páginas proprietárias deve fechar com o total da execução porque uma tentativa nunca é atribuída a duas superfícies. Páginas sem consumo direto são listadas separadamente e não entram novamente na soma.
+A soma das páginas proprietárias deve fechar com o total da execução porque uma tentativa nunca é atribuída a duas superfícies. Páginas sem consumo direto são listadas separadamente e não entram novamente na soma. Totais monetários são conciliados **por moeda**; se a execução materializar mais de uma moeda, o relatório mantém os subtotais separados e recusa comparação cambial implícita com um forecast de moeda única.
 
-Custo continua sendo uma estimativa operacional, não invoice. O renderer não inventa custo para tentativa sem `estimated_cost` e não inventa tokens quando o provider não os retornou. `reasoning_tokens`, quando presentes, são tratados como subconjunto de output e não são adicionados novamente a `total_tokens`.
+O reporting distingue forecast, custo técnico derivado de usage, eventual custo monetário observado pelo provider e invoice. `estimated_cost` persistido em uma tentativa é uma estimativa técnica calculada depois do usage observado; não deve ser rotulado como cobrança/fatura observada. `observed_cost`, quando efetivamente presente, tem precedência apenas para a projeção monetária daquela tentativa. O renderer não inventa custo para tentativa não precificada. Se `total_tokens` estiver ausente mas input/output existirem, usa `input_tokens + output_tokens`; `reasoning_tokens` permanece breakdown de output e não é somado novamente.
 
 O enriquecimento é idempotente: regerar/finalizar o mini-site substitui o bloco padronizado anterior em vez de duplicá-lo.
 
