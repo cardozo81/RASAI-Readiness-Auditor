@@ -429,6 +429,7 @@ def build_semantic_provider(
         recorder=recorder,
         context=context,
     )
+    install_dynamic_specialist_hooks()
     set_current_ai_execution(provider, recorder)
     return provider
 
