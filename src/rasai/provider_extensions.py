@@ -611,7 +611,6 @@ class IsolatedStructuredSemanticProvider:
             qualification_version=EXTENSION_QUALIFICATION_VERSION,
             semantic_contract_version=EXTENSION_SEMANTIC_CONTRACT_VERSION,
         )
-        self._runtime_state = RuntimeProviderState.QUARANTINED_FOR_AUDIT
         self._history.append(self._last_attempt)
         return SemanticProviderResult(
             ProviderState.UNAVAILABLE,
