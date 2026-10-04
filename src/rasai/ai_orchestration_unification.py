@@ -20,6 +20,7 @@ from urllib.error import HTTPError, URLError
 
 from rasai.ai_canonical_orchestration import (
     AiExecutionPolicy,
+    AiNeedFinalState,
     AiProviderInvocation,
     AiProviderOutcome,
     invocation_from_diagnostic,
