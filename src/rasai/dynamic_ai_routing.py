@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 import json
 from statistics import median
 from types import MethodType
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from rasai.ai_canonical_orchestration import (
     AiExecutionPolicy,
