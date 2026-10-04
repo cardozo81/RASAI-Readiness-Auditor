@@ -22,6 +22,7 @@ from rasai.ai_canonical_orchestration import (
     run_ai_need,
 )
 from rasai.domain import new_id
+from rasai.dynamic_ai_routing import provider_is_eligible
 from rasai.m18_ai import (
     AttemptStatus,
     ProviderAttempt,
@@ -146,8 +147,13 @@ def _candidates(provider: Any) -> tuple[ResponsesSemanticProvider, ...]:
             for item in routed
             if isinstance(item, ResponsesSemanticProvider)
             and bool(getattr(item, "api_key", None))
+            and provider_is_eligible(item)
         )
-    if isinstance(provider, ResponsesSemanticProvider) and bool(getattr(provider, "api_key", None)):
+    if (
+        isinstance(provider, ResponsesSemanticProvider)
+        and bool(getattr(provider, "api_key", None))
+        and provider_is_eligible(provider)
+    ):
         return (provider,)
     return ()
 
