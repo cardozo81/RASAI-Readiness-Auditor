@@ -108,11 +108,14 @@ Para cada provider tecnicamente integrado, `AI=auto`:
 3. exige credencial/configuração válida;
 4. remove os IDs listados em `RASAI_AI_AUTO_EXCLUDE`;
 5. resolve a regra de pricing vigente quando disponível; ausência de preço mantém o candidato como `UNPRICED` e **não o remove** do pool;
-6. remove candidatos inelegíveis pela saúde/quarentena da execução;
+6. remove candidatos inelegíveis por configuração ou quarentena terminal da execução;
 7. estima o custo da necessidade atual usando provider/modelo/reasoning, tokens esperados, cache observado e tarifa vigente;
 8. ordena os candidatos elegíveis pelo menor custo estimado;
-9. tenta cada provider elegível no máximo uma vez por necessidade;
-10. aplica o mesmo circuit breaker/quarentena/fallback central durante a execução.
+9. em cada ciclo canônico, chama cada provider elegível no máximo uma vez;
+10. se ainda houver requisitos faltantes, repete somente em ciclo posterior até o limite configurado;
+11. aplica o mesmo health/quarentena/fallback central usado também por provider explícito.
+
+Provider explícito não possui retry próprio no adapter: ele usa o mesmo orquestrador com pool unitário. Os defaults de execução são `RASAI_AI_MAX_CYCLES=3`, `RASAI_AI_CYCLE_DELAY_SECONDS=60` e `RASAI_AI_TIMEOUT_SECONDS=180`. Cada adapter executa uma única chamada por oportunidade; timers pertencem ao orquestrador.
 
 Um modelo habilitado e `auto_eligible=true` pode participar do AUTO mesmo sem pricing vigente. Nesse caso fica **UNPRICED**, é ordenado depois dos candidatos precificados e nunca é interpretado como custo zero.
 
