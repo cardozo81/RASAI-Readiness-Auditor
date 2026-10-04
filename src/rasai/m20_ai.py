@@ -16,9 +16,11 @@ from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
 
 from rasai.ai_resilience import (
-    DECISION_FALLBACK, DECISION_FALLBACK_SUCCESS, DECISION_RETRY, DECISION_STOP,
-    DECISION_SUCCESS, DECISION_SUCCESS_AFTER_RETRY, MAX_AUTO_ATTEMPTS_PER_CONTEXT,
-    MAX_PROVIDER_ATTEMPTS_PER_CONTEXT, retry_policy,
+    DECISION_FALLBACK,
+    DECISION_FALLBACK_SUCCESS,
+    DECISION_STOP,
+    DECISION_SUCCESS,
+    MAX_PROVIDER_ATTEMPTS_PER_CONTEXT,
 )
 from rasai.content_context import configured_content_analysis_context
 from rasai.m18_ai import (
