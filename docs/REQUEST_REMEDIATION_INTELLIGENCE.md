@@ -88,7 +88,7 @@ Riscos potenciais - como Performance, Funcionalidade ou Confiabilidade - são de
 
 ## Papel da IA
 
-Quando Improvement Intelligence está habilitada e existem grupos que ainda não possuem solução válida para o fingerprint atual da evidência, o RASAi consulta o mesmo provider/modelo configurado para análise profunda.
+Quando Improvement Intelligence está habilitada e existem grupos que ainda não possuem solução válida para o fingerprint atual da evidência, o RASAi usa a mesma seleção principal de IA da execução (`auto` ou provider explícito), sob o orquestrador canônico; o CAT-09 não mantém provider/modelo próprio.
 
 A chamada recebe somente grupos determinísticos já consolidados. Para cada `group_id`, a IA deve produzir:
 
