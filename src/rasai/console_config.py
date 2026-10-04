@@ -7,6 +7,14 @@ from pathlib import Path
 import sys
 from typing import Mapping
 
+from rasai.ai_canonical_orchestration import (
+    AI_CYCLE_DELAY_ENV,
+    AI_MAX_CYCLES_ENV,
+    DEFAULT_AI_CYCLE_DELAY_SECONDS,
+    DEFAULT_AI_MAX_CYCLES,
+    MAX_AI_CYCLE_DELAY_SECONDS,
+    MAX_AI_MAX_CYCLES,
+)
 from rasai.ai_exchange_log import MAX_CAPTURE_BYTES_ENV
 from rasai.cli import validate_target
 from rasai.content_context import CONTENT_CONTEXT_ENV_NAMES, configured_content_analysis_context
@@ -44,7 +52,8 @@ AUTO_EXCLUDE_ENV = "RASAI_AI_AUTO_EXCLUDE"
 REPROCESS_LIVE_VALIDITY_ENV = "RASAI_REPROCESS_LIVE_VALIDITY_MINUTES"
 
 _BASE_ENV_NAMES = (
-    "RASAI_CONFIG", "RASAI_CONSOLE_MODE", "RASAI_LOG_LEVEL", "RASAI_DEVICE_CONTEXT", AI_TIMEOUT_ENV,
+    "RASAI_CONFIG", "RASAI_CONSOLE_MODE", "RASAI_LOG_LEVEL", "RASAI_DEVICE_CONTEXT",
+    AI_TIMEOUT_ENV, AI_MAX_CYCLES_ENV, AI_CYCLE_DELAY_ENV,
     MAX_CAPTURE_BYTES_ENV, AUTO_EXCLUDE_ENV, REPROCESS_LIVE_VALIDITY_ENV,
     "RASAI_AI_CONTENT_REMEDIATION", "RASAI_AI_TECHNICAL_REMEDIATION", *CONTENT_CONTEXT_ENV_NAMES,
     *PROPERTY_SEMANTIC_PROFILE_ENV_NAMES,
@@ -84,6 +93,8 @@ class State:
     ai_model: str | None = None
     ai_reasoning: str | None = None
     ai_timeout: float = DEFAULT_AI_TIMEOUT_SECONDS
+    ai_max_cycles: int = DEFAULT_AI_MAX_CYCLES
+    ai_cycle_delay: float = DEFAULT_AI_CYCLE_DELAY_SECONDS
     content_remediation: bool = False
     technical_remediation: bool = False
     web_performance: bool = False
@@ -137,6 +148,24 @@ def apply_environment_defaults(
                 raise ValueError
         except ValueError:
             issues.append(f"{AI_TIMEOUT_ENV}: use número > 0")
+    if active(AI_MAX_CYCLES_ENV):
+        raw = (environment.get(AI_MAX_CYCLES_ENV) or "").strip()
+        try:
+            state.ai_max_cycles = DEFAULT_AI_MAX_CYCLES if not raw else int(raw)
+            if not 1 <= state.ai_max_cycles <= MAX_AI_MAX_CYCLES:
+                raise ValueError
+        except ValueError:
+            issues.append(f"{AI_MAX_CYCLES_ENV}: use inteiro entre 1 e {MAX_AI_MAX_CYCLES}")
+    if active(AI_CYCLE_DELAY_ENV):
+        raw = (environment.get(AI_CYCLE_DELAY_ENV) or "").strip()
+        try:
+            state.ai_cycle_delay = DEFAULT_AI_CYCLE_DELAY_SECONDS if not raw else float(raw)
+            if not 0 <= state.ai_cycle_delay <= MAX_AI_CYCLE_DELAY_SECONDS:
+                raise ValueError
+        except ValueError:
+            issues.append(
+                f"{AI_CYCLE_DELAY_ENV}: use número entre 0 e {MAX_AI_CYCLE_DELAY_SECONDS:g}"
+            )
     if active("RASAI_AI_CONTENT_REMEDIATION"):
         state.content_remediation = boolean("RASAI_AI_CONTENT_REMEDIATION", False)
     if active("RASAI_AI_TECHNICAL_REMEDIATION"):
@@ -355,6 +384,16 @@ def validate_env_value(name: str, value: str) -> str:
         return str(minutes)
     if name in {AI_TIMEOUT_ENV, WEB_PERFORMANCE_TIMEOUT_ENV} and float(value) <= 0:
         raise ValueError("valor deve ser > 0")
+    if name == AI_MAX_CYCLES_ENV:
+        parsed = int(value)
+        if not 1 <= parsed <= MAX_AI_MAX_CYCLES:
+            raise ValueError(f"use inteiro entre 1 e {MAX_AI_MAX_CYCLES}")
+        return str(parsed)
+    if name == AI_CYCLE_DELAY_ENV:
+        parsed = float(value)
+        if not 0 <= parsed <= MAX_AI_CYCLE_DELAY_SECONDS:
+            raise ValueError(f"use número entre 0 e {MAX_AI_CYCLE_DELAY_SECONDS:g}")
+        return f"{parsed:g}"
     if name == "RASAI_WEB_PERFORMANCE_MAX_PAGES" and int(value) < 0:
         raise ValueError("valor deve ser >= 0")
     if name == "RASAI_WEB_PERFORMANCE_FIELD_SOURCE":
@@ -380,8 +419,15 @@ def validate_env_value(name: str, value: str) -> str:
 
 def preflight(state: State, env: Mapping[str, str] | None = None) -> tuple[str, ...]:
     environment = env if env is not None else os.environ
-    if state.max_pages <= 0 or state.web_max_pages < 0 or state.web_timeout <= 0 or state.ai_timeout <= 0:
-        raise ValueError("limites/timeout inválidos")
+    if (
+        state.max_pages <= 0
+        or state.web_max_pages < 0
+        or state.web_timeout <= 0
+        or state.ai_timeout <= 0
+        or not 1 <= state.ai_max_cycles <= MAX_AI_MAX_CYCLES
+        or not 0 <= state.ai_cycle_delay <= MAX_AI_CYCLE_DELAY_SECONDS
+    ):
+        raise ValueError("limites/timeout/política de IA inválidos")
     configured_content_analysis_context(environment)
     if state.input_mode == "url":
         if not state.target.strip():
