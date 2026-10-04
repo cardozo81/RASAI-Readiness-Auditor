@@ -110,6 +110,35 @@ def pricing_catalog_to_toml(catalog: PricingCatalog) -> str:
                 f"  cached_input_price_per_million = {rule.cached_input_price_per_million:.12g}",
                 f"  output_price_per_million = {rule.output_price_per_million:.12g}",
             ])
+    for policy in catalog.native_usage:
+        lines.extend([
+            "",
+            "[[native_usage]]",
+            f"provider = {_quoted(policy.provider)}",
+            f"surface = {_quoted(policy.surface)}",
+            f"unit = {_quoted(policy.unit)}",
+            f"pricing_model = {_quoted(policy.pricing_model)}",
+            f"source_reference = {_quoted(policy.source_reference)}",
+        ])
+        if policy.currency is not None:
+            lines.append(f"currency = {_quoted(policy.currency)}")
+        for rule in policy.rules:
+            lines.extend([
+                "",
+                "  [[native_usage.rules]]",
+                f"  rule_id = {_quoted(rule.rule_id)}",
+                f"  context = {_quoted(rule.context)}",
+                f"  priority = {rule.priority}",
+                f"  effective_from = {_quoted(rule.effective_from)}",
+            ])
+            if rule.effective_until is not None:
+                lines.append(f"  effective_until = {_quoted(rule.effective_until)}")
+            if rule.conditions:
+                rendered_conditions = ", ".join(
+                    f"{key} = {_quoted(value)}" for key, value in rule.conditions
+                )
+                lines.append(f"  conditions = {{ {rendered_conditions} }}")
+            lines.append(f"  unit_price = {rule.unit_price:.12g}")
     return "\n".join(lines) + "\n"
 
 

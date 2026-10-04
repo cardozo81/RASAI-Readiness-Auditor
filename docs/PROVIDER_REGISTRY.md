@@ -16,19 +16,21 @@ Referência operacional de cadastro/login e geração de credenciais: [PROVIDER_
 
 | ID canônico | Provider | Aliases CLI | Credencial | URL de credencial/login | Política do provider no `AUTO` |
 |---|---|---|---|---|---|
-| `openai` | OpenAI | - | `OPENAI_API_KEY` | <https://platform.openai.com/api-keys> | permitido quando o modelo efetivo é elegível e precificado |
-| `deepseek` | DeepSeek | - | `DEEPSEEK_API_KEY` | <https://platform.deepseek.com/api_keys> | permitido quando o modelo efetivo é elegível e precificado |
-| `mimo` | Xiaomi MiMo | - | `MIMO_API_KEY` | <https://mimo.mi.com/> | permitido quando o modelo efetivo é elegível e precificado |
-| `xai` | xAI / Grok | `grok` | `XAI_API_KEY` | <https://console.x.ai/> | permitido quando o modelo efetivo é elegível e precificado |
-| `qwen` | Alibaba Qwen | - | `DASHSCOPE_API_KEY` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | permitido quando o modelo efetivo é elegível e precificado |
-| `gemini` | Google Gemini | - | `GEMINI_API_KEY` | <https://aistudio.google.com/apikey> | permitido quando o modelo efetivo é elegível e precificado |
-| `anthropic` | Anthropic Claude | `claude` | `ANTHROPIC_API_KEY` | <https://console.anthropic.com/> | permitido quando o modelo efetivo é elegível e precificado |
+| `openai` | OpenAI | - | `OPENAI_API_KEY` | <https://platform.openai.com/api-keys> | sim, quando configurado/modelo elegível e saudável; pricing conhecido só altera a ordem econômica |
+| `deepseek` | DeepSeek | - | `DEEPSEEK_API_KEY` | <https://platform.deepseek.com/api_keys> | sim, quando configurado/modelo elegível e saudável; pricing conhecido só altera a ordem econômica |
+| `mimo` | Xiaomi MiMo | - | `MIMO_API_KEY` | <https://mimo.mi.com/> | sim, quando configurado/modelo elegível e saudável; pricing conhecido só altera a ordem econômica |
+| `xai` | xAI / Grok | `grok` | `XAI_API_KEY` | <https://console.x.ai/> | sim, quando configurado/modelo elegível e saudável; pricing conhecido só altera a ordem econômica |
+| `qwen` | Alibaba Qwen | - | `DASHSCOPE_API_KEY` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | sim, quando configurado/modelo elegível e saudável; pricing conhecido só altera a ordem econômica |
+| `gemini` | Google Gemini | - | `GEMINI_API_KEY` | <https://aistudio.google.com/apikey> | sim, quando configurado/modelo elegível e saudável; pricing conhecido só altera a ordem econômica |
+| `anthropic` | Anthropic Claude | `claude` | `ANTHROPIC_API_KEY` | <https://console.anthropic.com/> | sim, quando configurado/modelo elegível e saudável; pricing conhecido só altera a ordem econômica |
 | `mistral` | Mistral AI | - | `MISTRAL_API_KEY` | <https://console.mistral.ai/api-keys/> | sim, quando configurado/modelo elegível e saudável |
 | `cohere` | Cohere | - | `COHERE_API_KEY` | <https://dashboard.cohere.com/api-keys> | sim, quando configurado/modelo elegível e saudável |
 | `kimi` | Kimi / Moonshot | `moonshot` | `MOONSHOT_API_KEY` | <https://platform.kimi.ai/console/api-keys> | sim, quando configurado/modelo elegível e saudável |
 | `copilot` | GitHub Copilot | `github-copilot` | `COPILOT_GITHUB_TOKEN` | <https://github.com/settings/personal-access-tokens/new> | sim, quando configurado/modelo elegível e saudável |
 
 `none` representa ausência deliberada de provider externo. `auto` representa a política de composição/orquestração e não um provider físico.
+
+Na **seleção explícita** de um provider, pricing nunca é requisito para permitir a chamada. Credencial, modelo/configuração e saúde operacional continuam válidos; se o custo não puder ser resolvido, a tentativa é executável e registrada como `UNPRICED`. Pricing é telemetria e, no `AUTO`, critério de ordenação; não é autorização de execução.
 
 ## Regra de escopo de capabilities externas
 
@@ -105,7 +107,7 @@ Para cada provider tecnicamente integrado, `AI=auto`:
 2. exige que provider e modelo estejam habilitados para o `AUTO`;
 3. exige credencial/configuração válida;
 4. remove os IDs listados em `RASAI_AI_AUTO_EXCLUDE`;
-5. exige uma regra de pricing **vigente** para o modelo efetivo;
+5. resolve a regra de pricing vigente quando disponível; ausência de preço mantém o candidato como `UNPRICED` e **não o remove** do pool;
 6. remove candidatos inelegíveis pela saúde/quarentena da execução;
 7. estima o custo da necessidade atual usando provider/modelo/reasoning, tokens esperados, cache observado e tarifa vigente;
 8. ordena os candidatos elegíveis pelo menor custo estimado;
@@ -136,7 +138,7 @@ Cada registro público deriva do adapter e do catálogo efetivo e expõe:
 - qualificação pública;
 - restrição de prefixo/formato de credencial quando necessária.
 
-Qualificação e elegibilidade ao `AUTO` são conceitos diferentes. O modelo efetivo ainda precisa cumprir pricing e saúde operacional antes de entrar na decisão econômica.
+Qualificação e elegibilidade ao `AUTO` são conceitos diferentes. Saúde/configuração podem retirar o provider da execução; pricing não é gate de admissão. Quando não houver preço resolvível, o provider permanece `UNPRICED` e participa depois dos candidatos precificados.
 
 ## Catálogo de fábrica em 02/10/2026
 

@@ -7,11 +7,11 @@
 # Com RASAI_AI_PRICING_SOURCE=auto, este arquivo é usado quando presente. Alterações
 # salvas entram em vigor na próxima AUD do console; a AUD já iniciada usa um snapshot
 # imutável. Ao alterar materialmente o catálogo, atualize catalog_version e datas.
-# Valores são USD por 1.000.000 tokens salvo indicação contrária.
+# Valores token-based são USD por 1.000.000 tokens; regras nativas declaram preço por unidade.
 
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-PRICING-2026-10-03.6"
+catalog_version = "RASAI-PRICING-2026-10-03.7"
 reference_date = "2026-10-03"
 verified_on = "2026-10-03"
 review_recommended_on = "2026-11-03"
@@ -424,3 +424,36 @@ source_reference = "https://platform.kimi.ai/docs/pricing/chat"
   cached_input_price_per_million = 0.30
   output_price_per_million = 15.00
 
+
+
+# Native non-token usage is additive and does not reuse token fields.
+[[native_usage]]
+provider = "PERPLEXITY"
+surface = "SEARCH_API"
+unit = "PERPLEXITY_SEARCH_REQUEST"
+pricing_model = "PER_REQUEST"
+currency = "USD"
+source_reference = "https://docs.perplexity.ai/docs/getting-started/pricing?calc=search"
+
+  [[native_usage.rules]]
+  rule_id = "perplexity-search-web-realtime"
+  context = "SEARCH_WEB"
+  priority = 100
+  effective_from = "2026-10-03T00:00:00Z"
+  conditions = { search_type = "WEB", operation_mode = "REALTIME" }
+  unit_price = 0.005
+
+  [[native_usage.rules]]
+  rule_id = "perplexity-search-fast-realtime"
+  context = "SEARCH_FAST"
+  priority = 100
+  effective_from = "2026-10-03T00:00:00Z"
+  conditions = { search_type = "FAST", operation_mode = "REALTIME" }
+  unit_price = 0.001
+
+[[native_usage]]
+provider = "MANUS"
+surface = "API_V2"
+unit = "MANUS_CREDIT"
+pricing_model = "PROVIDER_CREDITS"
+source_reference = "https://open.manus.ai/docs/v2/task.detail"

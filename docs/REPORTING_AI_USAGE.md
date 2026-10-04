@@ -12,7 +12,8 @@ O relatório deve distinguir:
 - erro técnico de request/provider;
 - provider removido da execução por condição terminal;
 - provider removido pelo circuit breaker;
-- tokens medidos e custo estimado quando o provider fornece dados suficientes.
+- tokens medidos e custo estimado quando o provider fornece dados suficientes;
+- uso nativo não-token, quando aplicável, preservando unidade, quantidade, fonte da métrica e sem converter requisições/créditos em tokens.
 
 Uma resposta rejeitada localmente ainda representa comunicação externa e pode ter consumido tokens/custo. Portanto, não deve ser escondida nem descrita como se nenhuma chamada tivesse ocorrido.
 
@@ -42,6 +43,10 @@ A página de IA e integrações apresenta, a partir da telemetria persistida:
 
 A atribuição é funcional e aditiva: cada tentativa externa é contada uma única vez no total da auditoria. Uma mesma evidência pode ser reutilizada por várias páginas sem duplicar custo.
 
+Uso nativo é persistido em linhas filhas das tentativas, atualmente por `ai_provider_native_usage` e `content_remediation_native_usage`. O relatório humaniza unidades conhecidas, por exemplo `PERPLEXITY_SEARCH_REQUEST` como requisição de busca Perplexity e `MANUS_CREDIT` como crédito Manus. `REQUEST`/`CONSUMPTION` entram no total primário; `RECONCILIATION`, `REFUND` e `GRANT` permanecem rastreáveis, mas não são somados novamente como consumo.
+
+No ledger SaaS, a chamada continua sendo um evento `AI_PROVIDER_CALL` de unidade `call`. Componentes nativos são projetados separadamente como `AI_NATIVE_USAGE`, `AI_NATIVE_RECONCILIATION` ou `AI_NATIVE_ADJUSTMENT`. Quando existe custo nativo, ele fica no evento da unidade nativa, não no evento de chamada, evitando dupla contabilização.
+
 Mapeamentos públicos vigentes incluem:
 
 - análise semântica por dispositivo -> contexto SARI e CATs que consomem o resultado persistido;
@@ -52,7 +57,7 @@ Mapeamentos públicos vigentes incluem:
 - Análise Direcionada -> página `directed-analysis.html`;
 - demais finalidades -> contexto funcional explicitado na própria linha da tentativa.
 
-Quando uma tentativa não possui telemetria suficiente ou nenhuma regra corresponde às condições runtime efetivas, o relatório mantém a tentativa e exibe **Não precificado**; ausência de preço não é convertida em custo zero. A persistência conserva a regra, fonte e condições aplicadas quando a tarifa foi resolvida, permitindo reconstrução posterior sem reinterpretar a execução por preços correntes. Quando o custo persistido é explicitamente `0`, moeda e valor são exibidos em cinza claro e, na mesma tentativa, tokens de entrada/saída recebem o mesmo tratamento visual secundário. `reasoning_tokens`, quando presentes, são subconjunto dos tokens de saída e não são somados novamente ao total.
+Quando uma tentativa não possui telemetria suficiente ou nenhuma regra corresponde às condições runtime efetivas, o relatório mantém a tentativa e exibe **Não precificado**; ausência de preço não é convertida em custo zero. O mesmo vale para unidades nativas sem conversão monetária oficial, como `MANUS_CREDIT` nesta versão. A persistência conserva a regra, fonte e condições aplicadas quando a tarifa foi resolvida, permitindo reconstrução posterior sem reinterpretar a execução por preços correntes. Quando o custo persistido é explicitamente `0`, moeda e valor são exibidos em cinza claro e, na mesma tentativa, tokens de entrada/saída recebem o mesmo tratamento visual secundário. `reasoning_tokens`, quando presentes, são subconjunto dos tokens de saída e não são somados novamente ao total.
 
 A regeneração do `report-catalog/` apenas reprojeta os dados persistidos. Ela não cria chamadas de IA adicionais para preencher a página.
 

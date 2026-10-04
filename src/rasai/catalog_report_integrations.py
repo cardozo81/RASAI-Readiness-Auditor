@@ -1,5 +1,6 @@
 """AI and external-integration telemetry, payload safety and cost projection."""
 from rasai.catalog_report_governance import *  # noqa: F401,F403
+from rasai.ai_native_usage import humanize_native_usage_unit
 from rasai.secret_safety import redact_value
 from rasai.time_contract import parse_timestamp
 
@@ -98,9 +99,22 @@ def _ai_attempts(database: Path, audit_id: str) -> list[dict[str,Any]]:
             domains=_safe_json(improvement.get("domains_json"),[])
             normalized={_norm(v) for v in domains} if isinstance(domains,list) else set()
             security_only_improvement=normalized=={"SECURITY"} and bool(_audit_rows(con,"passive_security_runs",audit_id))
-        for table,contract_field in (("ai_provider_attempts","semantic_contract_version"),("content_remediation_attempts","contract_version")):
+        for table,contract_field,native_table in (
+            ("ai_provider_attempts","semantic_contract_version","ai_provider_native_usage"),
+            ("content_remediation_attempts","contract_version","content_remediation_native_usage"),
+        ):
             for r in _audit_rows(con,table,audit_id):
                 d=dict(r); contract=str(d.get(contract_field) or "")
+                try:
+                    d["_native_usage"] = [
+                        dict(item)
+                        for item in con.execute(
+                            f"SELECT * FROM {native_table} WHERE attempt_id=? ORDER BY component_index",
+                            (d.get("attempt_id"),),
+                        ).fetchall()
+                    ]
+                except sqlite3.OperationalError:
+                    d["_native_usage"] = []
                 purpose,catalog=_AI_PURPOSE_LABELS.get(contract.upper(),(contract or "Chamada de IA",""))
                 if contract.upper()=="IMPROVEMENT-INTELLIGENCE-001" and security_only_improvement:
                     purpose,catalog="Análise advisory de segurança passiva","CAT-10"
@@ -289,11 +303,74 @@ def _cost_forecast(database: Path, audit_id: str) -> dict[str,Any]:
 
 
 def _attempt_cost_value(attempt: Mapping[str,Any]) -> Any:
-    for key in ("estimated_cost","estimated_cost_usd"):
+    for key in ("observed_cost","estimated_cost","estimated_cost_usd"):
         value=attempt.get(key)
         if value not in (None,""):
             return value
+    native = attempt.get("_native_usage")
+    if isinstance(native, Sequence):
+        priced = [
+            row.get("observed_cost")
+            if row.get("observed_cost") not in (None, "")
+            else row.get("estimated_cost")
+            for row in native
+            if isinstance(row, Mapping)
+            and str(row.get("component_type") or "").upper() in {"REQUEST","CONSUMPTION"}
+        ]
+        known = [float(value) for value in priced if value not in (None, "")]
+        if known:
+            return sum(known)
     return None
+
+
+def _native_usage_display(attempt: Mapping[str,Any], *, include_trace: bool=False) -> str:
+    rows = attempt.get("_native_usage")
+    if not isinstance(rows, Sequence) or not rows:
+        return "Não aplicável"
+    rendered = []
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        quantity = float(row.get("native_usage_quantity") or 0.0)
+        unit = str(row.get("native_usage_unit") or "")
+        component_type = str(row.get("component_type") or "").upper()
+        label = humanize_native_usage_unit(unit, quantity)
+        prefix = {
+            "REQUEST": "Consumo",
+            "CONSUMPTION": "Consumo",
+            "RECONCILIATION": "Reconciliação",
+            "REFUND": "Reembolso",
+            "GRANT": "Crédito concedido",
+        }.get(component_type, component_type or "Uso")
+        text = f"{quantity:g} {label}"
+        if include_trace:
+            text = f"{prefix}: {text} · fonte {row.get('source_metric') or 'não informada'}"
+        rendered.append(text)
+    return "; ".join(rendered) or "Não aplicável"
+
+
+def _native_usage_summary(attempts: Sequence[Mapping[str,Any]]) -> tuple[str,int]:
+    totals: dict[str,float] = {}
+    unpriced = 0
+    for attempt in attempts:
+        rows = attempt.get("_native_usage")
+        if not isinstance(rows, Sequence):
+            continue
+        for row in rows:
+            if not isinstance(row, Mapping):
+                continue
+            if str(row.get("component_type") or "").upper() not in {"REQUEST","CONSUMPTION"}:
+                continue
+            unit = str(row.get("native_usage_unit") or "")
+            quantity = float(row.get("native_usage_quantity") or 0.0)
+            totals[unit] = totals.get(unit, 0.0) + quantity
+            if row.get("estimated_cost") in (None, "") and row.get("observed_cost") in (None, ""):
+                unpriced += 1
+    rendered = "; ".join(
+        f"{quantity:g} {humanize_native_usage_unit(unit, quantity)}"
+        for unit, quantity in sorted(totals.items())
+    )
+    return rendered, unpriced
 
 
 def _attempt_total_tokens(attempt: Mapping[str,Any]) -> int:
@@ -342,6 +419,8 @@ def _pricing_trace_rows(attempt: Mapping[str,Any]) -> tuple[tuple[str,Any], ...]
         ("Regra de preço", attempt.get("pricing_rule_id") or "Não determinada"),
         ("Contexto tarifário", attempt.get("pricing_context") or "Não determinado"),
         ("Versão do catálogo de preços", attempt.get("pricing_version") or "Não determinada"),
+        ("Modelo de precificação", attempt.get("pricing_model") or "Token-based / não persistido"),
+        ("Superfície comercial", attempt.get("surface") or "Não determinada"),
         ("Fonte oficial de preço", attempt.get("pricing_source_reference") or "Não determinada"),
         ("Condições tarifárias efetivas", rendered_conditions),
     )
@@ -360,6 +439,7 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
     total_tokens=sum(_attempt_total_tokens(a) for a in attempts)
     attempt_costs=[_attempt_cost_value(a) for a in attempts]
     total_cost=sum(float(value or 0) for value in attempt_costs)
+    native_usage_text,native_unpriced=_native_usage_summary(attempts)
     zero_cost_confirmed=(not attempts) or (
         all(value not in (None,"") for value in attempt_costs)
         and _is_explicit_zero_cost(total_cost)
@@ -378,6 +458,7 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
             a.get("purpose"),usage_context,a.get("provider") or "-",a.get("model") or "-",
             occurred_at or "-",origin,_status_label(a.get("status")),
             _token_pair_display(a.get("input_tokens"),a.get("output_tokens"),cost=raw_cost),
+            _native_usage_display(a),
             _money_display(raw_cost,currency_code),_modal_button(mid,"Ver requisição"),
         ))
         body=_kv((
@@ -393,9 +474,10 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
             ("Início",a.get("started_at") or "-"),
             ("Fim",a.get("finished_at") or "-"),
             ("Duração",_fmt_number(a.get("duration_ms"),"ms")),
-            ("Tokens de entrada",_token_value_display(a.get("input_tokens"),cost=raw_cost)),
+            ("Uso nativo",_native_usage_display(a,include_trace=True)),
+            ("Tokens de entrada",_token_value_display(a.get("input_tokens"),cost=raw_cost) if a.get("input_tokens") is not None else "Não informado"),
             ("Entrada em cache",a.get("cached_input_tokens") or 0),
-            ("Tokens de saída",_token_value_display(a.get("output_tokens"),cost=raw_cost)),
+            ("Tokens de saída",_token_value_display(a.get("output_tokens"),cost=raw_cost) if a.get("output_tokens") is not None else "Não informado"),
             ("Tokens de raciocínio",a.get("reasoning_tokens") or 0),
             ("Tokens totais",_attempt_total_tokens(a)),
             ("Custo individual",_money_display(raw_cost,currency_code)),
@@ -460,8 +542,9 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
     body+=_outline((("summary","Resumo"),("ai","Requisições de IA"),("integrations","Outras integrações"),("cost","Custos"),("principles","Leitura")))
     input_display=_no_cost_value(f"{input_tokens:,}".replace(","," ")) if zero_cost_confirmed else f"{input_tokens:,}".replace(","," ")
     output_display=_no_cost_value(f"{output_tokens:,}".replace(","," ")) if zero_cost_confirmed else f"{output_tokens:,}".replace(","," ")
-    body+=_section("summary","Resumo do consumo",f"<div class='metric-grid'>{_metric('Tentativas de IA',len(attempts),f'{success} concluída(s)')}{_metric('Tokens de entrada',input_display)}{_metric('Entrada em cache',f'{cached_tokens:,}'.replace(',',' '))}{_metric('Tokens de saída',output_display)}{_metric('Tokens de raciocínio',f'{reasoning_tokens:,}'.replace(',',' '), 'incluídos nos tokens de saída; não somados novamente')}{_metric('Tokens totais',f'{total_tokens:,}'.replace(',',' '),'entrada + saída')}{_metric('Custo técnico observado',_money_display(total_cost,currency),'soma dos custos individuais persistidos')}</div>")
-    body+=_section("ai","Requisições de IA",_table(("Finalidade","Aplicação no relatório","Provedor","Modelo","Data/hora","Origem da execução","Resultado","Tokens entrada / saída","Custo","Detalhe"),rows,empty="Nenhuma tentativa de IA persistida.",sortable=bool(rows),page_size=10 if len(rows)>10 else None)+"".join(modals))
+    native_metric=_metric('Uso nativo',native_usage_text,'unidades comerciais do provedor; não convertidas em tokens') if native_usage_text else ""
+    body+=_section("summary","Resumo do consumo",f"<div class='metric-grid'>{_metric('Tentativas de IA',len(attempts),f'{success} concluída(s)')}{_metric('Tokens de entrada',input_display)}{_metric('Entrada em cache',f'{cached_tokens:,}'.replace(',',' '))}{_metric('Tokens de saída',output_display)}{_metric('Tokens de raciocínio',f'{reasoning_tokens:,}'.replace(',',' '), 'incluídos nos tokens de saída; não somados novamente')}{_metric('Tokens totais',f'{total_tokens:,}'.replace(',',' '),'entrada + saída')}{native_metric}{_metric('Custo técnico observado',_money_display(total_cost,currency),'soma dos custos individuais persistidos')}</div>")
+    body+=_section("ai","Requisições de IA",_table(("Finalidade","Aplicação no relatório","Provedor","Modelo","Data/hora","Origem da execução","Resultado","Tokens entrada / saída","Uso nativo","Custo","Detalhe"),rows,empty="Nenhuma tentativa de IA persistida.",sortable=bool(rows),page_size=10 if len(rows)>10 else None)+"".join(modals))
     body+=_section("integrations","Outras integrações",_table(("Serviço","Data/hora","Origem da execução","Resultado","Tentativas","Sucessos","Duração","Detalhe"),int_rows,empty="Nenhuma integração externa reconhecida foi persistida.",sortable=bool(int_rows),page_size=10 if len(int_rows)>10 else None)+"".join(int_modals))
 
     if forecast:
@@ -486,6 +569,8 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
             cost_html+=f"<div class='notice warn'>{int(forecast.get('unpriced_ai_attempts') or 0)} tentativa(s) de IA não possuem preço monetário conhecido e permanecem fora do total.</div>"
     else:
         cost_html=f"<div class='metric-grid'>{_metric('Custo observado',_money_display(total_cost,currency))}{_metric('Previsão pré-execução','Não persistida')}</div><div class='notice'>Sem previsão persistida, o relatório não inventa custo esperado, desvio ou faixa histórica.</div>"
+    if native_unpriced:
+        cost_html+=f"<div class='notice warn'>{native_unpriced} componente(s) de uso nativo não possuem conversão monetária aplicável; o relatório preserva a unidade observada e não inventa custo zero.</div>"
     body+=_section("cost","Custos e aderência à estimativa",cost_html)
     body+=_section("principles","Como ler esta página","<div class='grid'><div class='card'><h3>CATs</h3><p>Mostram o resultado funcional produzido. Não repetem tokens, solicitações/respostas e custos.</p></div><div class='card'><h3>IA e integrações</h3><p>Centraliza a telemetria e a comunicação externa de cada tentativa e explica quais dados funcionais participaram de cada chamada.</p></div><div class='card'><h3>Segurança</h3><p>Segredos, tokens de autenticação e credenciais são removidos antes da projeção. Conteúdo ausente no log não é reconstruído.</p></div></div>")
     return body

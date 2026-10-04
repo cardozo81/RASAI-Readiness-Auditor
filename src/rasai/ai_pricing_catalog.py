@@ -16,6 +16,8 @@ import shutil
 import tomllib
 from typing import Any, Mapping
 
+from rasai.ai_native_usage import NATIVE_PRICING_MODELS, PER_REQUEST, PROVIDER_CREDITS
+
 PRICING_FILE_ENV = "RASAI_AI_PRICING_FILE"
 PRICING_SOURCE_ENV = "RASAI_AI_PRICING_SOURCE"
 CONSOLE_INI_ENV = "RASAI_CONSOLE_INI"
@@ -58,6 +60,28 @@ class PricingCatalogRule:
 
 
 @dataclass(frozen=True, slots=True)
+class NativePricingCatalogRule:
+    rule_id: str
+    context: str
+    priority: int
+    effective_from: str
+    effective_until: str | None
+    unit_price: float
+    conditions: tuple[tuple[str, str], ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class NativeUsagePricingPolicy:
+    provider: str
+    surface: str
+    unit: str
+    pricing_model: str
+    source_reference: str
+    currency: str | None
+    rules: tuple[NativePricingCatalogRule, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class PricingModelPolicy:
     provider: str
     model: str
@@ -74,10 +98,31 @@ class PricingCatalog:
     metadata: PricingCatalogMetadata
     models: tuple[PricingModelPolicy, ...]
     source: str
+    native_usage: tuple[NativeUsagePricingPolicy, ...] = ()
 
     def model_policy(self, provider: str, model: str) -> PricingModelPolicy | None:
         key = (provider.strip().upper(), model.strip())
         return next((item for item in self.models if (item.provider, item.model) == key), None)
+
+    def native_policy(
+        self,
+        provider: str,
+        surface: str,
+        unit: str,
+    ) -> NativeUsagePricingPolicy | None:
+        key = (
+            provider.strip().upper(),
+            surface.strip().upper(),
+            unit.strip().upper(),
+        )
+        return next(
+            (
+                item
+                for item in self.native_usage
+                if (item.provider, item.surface, item.unit) == key
+            ),
+            None,
+        )
 
     def catalog_models(self) -> frozenset[tuple[str, str]]:
         return frozenset((item.provider, item.model) for item in self.models)
@@ -173,6 +218,35 @@ def _parse_conditions(value: Any, *, field: str) -> tuple[tuple[str, str], ...]:
     return tuple(sorted(result))
 
 
+def _parse_native_rule(
+    raw: Mapping[str, Any],
+    *,
+    provider: str,
+    surface: str,
+    unit: str,
+) -> NativePricingCatalogRule:
+    prefix = f"{provider}/{surface}/{unit}"
+    rule_id = _text(raw.get("rule_id"), f"{prefix}.rule_id")
+    effective_from = _text(raw.get("effective_from"), f"{rule_id}.effective_from")
+    effective_until_raw = str(raw.get("effective_until") or "").strip() or None
+    start = _parse_instant(effective_from, f"{rule_id}.effective_from")
+    if effective_until_raw is not None:
+        end = _parse_instant(effective_until_raw, f"{rule_id}.effective_until")
+        if end <= start:
+            raise ValueError(
+                f"AI pricing: {rule_id}.effective_until deve ser posterior a effective_from"
+            )
+    return NativePricingCatalogRule(
+        rule_id=rule_id,
+        context=_text(raw.get("context", "STANDARD"), f"{rule_id}.context").upper(),
+        priority=int(raw.get("priority", 0)),
+        effective_from=effective_from,
+        effective_until=effective_until_raw,
+        unit_price=_nonnegative_float(raw.get("unit_price"), f"{rule_id}.unit_price"),
+        conditions=_parse_conditions(raw.get("conditions"), field=f"{rule_id}.conditions"),
+    )
+
+
 def _parse_rule(raw: Mapping[str, Any], *, provider: str, model: str) -> PricingCatalogRule:
     rule_id = _text(raw.get("rule_id"), f"{provider}/{model}.rule_id")
     effective_from = _text(raw.get("effective_from"), f"{rule_id}.effective_from")
@@ -261,7 +335,86 @@ def pricing_catalog_from_mapping(document: Mapping[str, Any], *, source: str = "
             currency=_text(raw.get("currency", "USD"), f"{provider}/{model}.currency").upper(),
             rules=rules,
         ))
-    return PricingCatalog(metadata=metadata, models=tuple(models), source=source)
+
+    native_usage: list[NativeUsagePricingPolicy] = []
+    native_keys: set[tuple[str, str, str]] = set()
+    native_raw = document.get("native_usage", [])
+    if not isinstance(native_raw, list):
+        raise ValueError("AI pricing: native_usage deve ser lista")
+    for raw in native_raw:
+        if not isinstance(raw, Mapping):
+            raise ValueError("AI pricing: cada native_usage deve ser um objeto")
+        provider = _text(raw.get("provider"), "native_usage.provider").upper()
+        surface = _text(raw.get("surface"), f"{provider}.surface").upper()
+        unit = _text(raw.get("unit"), f"{provider}/{surface}.unit").upper()
+        key = (provider, surface, unit)
+        if key in native_keys:
+            raise ValueError(
+                f"AI pricing: native usage duplicado: {provider}/{surface}/{unit}"
+            )
+        native_keys.add(key)
+        pricing_model = _text(
+            raw.get("pricing_model"),
+            f"{provider}/{surface}/{unit}.pricing_model",
+        ).upper()
+        if pricing_model not in NATIVE_PRICING_MODELS:
+            raise ValueError(
+                f"AI pricing: native pricing_model não suportado: {pricing_model}"
+            )
+        source_reference = _text(
+            raw.get("source_reference"),
+            f"{provider}/{surface}/{unit}.source_reference",
+        )
+        currency_raw = str(raw.get("currency") or "").strip()
+        rules_raw = raw.get("rules", [])
+        if not isinstance(rules_raw, list):
+            raise ValueError(
+                f"AI pricing: {provider}/{surface}/{unit}.rules deve ser lista"
+            )
+        rules = tuple(
+            _parse_native_rule(
+                rule,
+                provider=provider,
+                surface=surface,
+                unit=unit,
+            )
+            for rule in rules_raw
+        )
+        for rule in rules:
+            if rule.rule_id in rule_ids:
+                raise ValueError(f"AI pricing: rule_id duplicado: {rule.rule_id}")
+            rule_ids.add(rule.rule_id)
+        if pricing_model == PER_REQUEST:
+            if not currency_raw:
+                raise ValueError(
+                    f"AI pricing: {provider}/{surface}/{unit} PER_REQUEST exige currency"
+                )
+            if not rules:
+                raise ValueError(
+                    f"AI pricing: {provider}/{surface}/{unit} PER_REQUEST exige regra"
+                )
+        if pricing_model == PROVIDER_CREDITS and (currency_raw or rules):
+            raise ValueError(
+                f"AI pricing: {provider}/{surface}/{unit} PROVIDER_CREDITS "
+                "sem conversão monetária não pode declarar currency/rules"
+            )
+        native_usage.append(
+            NativeUsagePricingPolicy(
+                provider=provider,
+                surface=surface,
+                unit=unit,
+                pricing_model=pricing_model,
+                source_reference=source_reference,
+                currency=currency_raw.upper() or None,
+                rules=rules,
+            )
+        )
+    return PricingCatalog(
+        metadata=metadata,
+        models=tuple(models),
+        source=source,
+        native_usage=tuple(native_usage),
+    )
 
 
 def _load_toml_bytes(payload: bytes, *, source: str) -> PricingCatalog:
@@ -389,6 +542,68 @@ def rule_matches(
             if effective.get(key) != expected:
                 return False
     return True
+
+
+def _native_rule_matches(
+    rule: NativePricingCatalogRule,
+    *,
+    at: datetime,
+    runtime_conditions: Mapping[str, str] | None = None,
+) -> bool:
+    instant = _utc(at)
+    if instant < _parse_instant(rule.effective_from, f"{rule.rule_id}.effective_from"):
+        return False
+    if rule.effective_until is not None and instant >= _parse_instant(
+        rule.effective_until,
+        f"{rule.rule_id}.effective_until",
+    ):
+        return False
+    if rule.conditions:
+        if runtime_conditions is None:
+            return False
+        effective = {
+            str(key).strip().casefold(): str(value).strip().upper()
+            for key, value in runtime_conditions.items()
+            if str(key).strip() and str(value).strip()
+        }
+        for key, expected in rule.conditions:
+            if effective.get(key) != expected:
+                return False
+    return True
+
+
+def resolve_native_catalog_rule(
+    catalog: PricingCatalog,
+    provider: str,
+    surface: str,
+    unit: str,
+    *,
+    at: datetime,
+    runtime_conditions: Mapping[str, str] | None = None,
+) -> tuple[NativeUsagePricingPolicy, NativePricingCatalogRule] | None:
+    policy = catalog.native_policy(provider, surface, unit)
+    if policy is None or policy.pricing_model == PROVIDER_CREDITS:
+        return None
+    matches = [
+        rule
+        for rule in policy.rules
+        if _native_rule_matches(
+            rule,
+            at=at,
+            runtime_conditions=runtime_conditions,
+        )
+    ]
+    if not matches:
+        return None
+    selected = max(
+        matches,
+        key=lambda rule: (
+            rule.priority,
+            _parse_instant(rule.effective_from, f"{rule.rule_id}.effective_from"),
+            rule.rule_id,
+        ),
+    )
+    return policy, selected
 
 
 def resolve_catalog_rule(

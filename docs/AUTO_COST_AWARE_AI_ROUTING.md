@@ -1,7 +1,7 @@
 # AUTO cost-aware AI routing
 
 **Data de referência da política de preços: 03/10/2026**  
-**Versão do catálogo de pricing de fábrica: `RASAI-PRICING-2026-10-03.5`**  
+**Versão do catálogo de pricing de fábrica: `RASAI-PRICING-2026-10-03.7`**  
 **Data de referência do catálogo de modelos: 03/10/2026**
 
 Este documento define a seleção econômica usada pelo RASAi quando `AI=auto` está selecionado. O cadastro de modelos está em [`AI_MODEL_CONFIGURATION.md`](AI_MODEL_CONFIGURATION.md) e o schema comercial em [`AI_PRICING_CONFIGURATION.md`](AI_PRICING_CONFIGURATION.md).
@@ -10,13 +10,25 @@ Este documento define a seleção econômica usada pelo RASAi quando `AI=auto` e
 
 A política econômica:
 
-- somente ordena providers/modelos já configurados, elegíveis, precificados e saudáveis;
+- somente ordena providers/modelos já configurados, elegíveis e saudáveis; pricing conhecido ordena economicamente e ausência de pricing permanece UNPRICED;
 - não habilita credenciais;
 - não altera quarantine/circuit breaker;
 - não cria elegibilidade por preço: a elegibilidade vem do registry/model/configuração; todos os providers integrados atuais podem participar quando configurados e aptos;
 - não troca silenciosamente service tier para Batch/Flex/Priority;
 - não interpreta ausência de preço como preço zero;
 - trata preço como estimativa operacional, não como fatura do fornecedor.
+
+## 1.1 Limite da extensão de uso nativo
+
+O catálogo `RASAI-PRICING-2026-10-03.7` também preserva políticas `PER_REQUEST` e `PROVIDER_CREDITS` para consumidores não-token. Essa extensão **não redefine o AUTO**:
+
+- Perplexity Search API não é adicionada ao pool principal de providers por esta entrega;
+- Manus não é adicionado ao pool principal de providers por esta entrega;
+- `PERPLEXITY_SEARCH_REQUEST` e `MANUS_CREDIT` não são convertidos em tokens para participar da heurística atual;
+- candidatos token-based atuais mantêm exatamente o contrato de ordenação já homologado;
+- ausência de conversão monetária continua UNPRICED, nunca custo zero.
+
+A integração futura de cada consumidor decide sua própria elegibilidade/finalidade sem alterar silenciosamente este contrato.
 
 ## 2. Duas fontes declarativas e duas camadas de responsabilidade
 

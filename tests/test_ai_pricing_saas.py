@@ -20,7 +20,7 @@ def _factory_document() -> dict:
 
 def test_saas_snapshot_round_trip_uses_same_catalog_contract(tmp_path: Path) -> None:
     snapshot = build_pricing_job_snapshot(_factory_document())
-    assert snapshot.catalog_version == "RASAI-PRICING-2026-10-03.6"
+    assert snapshot.catalog_version == "RASAI-PRICING-2026-10-03.7"
     assert snapshot.reference_date == "2026-10-03"
     assert len(snapshot.sha256) == 64
 
@@ -42,6 +42,17 @@ def test_saas_snapshot_round_trip_uses_same_catalog_contract(tmp_path: Path) -> 
         "operation_mode": "REALTIME",
         "region": "GLOBAL",
     }
+    loaded_perplexity = loaded.native_policy(
+        "PERPLEXITY", "SEARCH_API", "PERPLEXITY_SEARCH_REQUEST"
+    )
+    factory_perplexity = factory.native_policy(
+        "PERPLEXITY", "SEARCH_API", "PERPLEXITY_SEARCH_REQUEST"
+    )
+    assert loaded_perplexity == factory_perplexity
+    loaded_manus = loaded.native_policy("MANUS", "API_V2", "MANUS_CREDIT")
+    assert loaded_manus is not None
+    assert loaded_manus.currency is None
+    assert loaded_manus.rules == ()
 
     env = pricing_worker_environment(path)
     assert env["RASAI_AI_PRICING_SOURCE"] == "file"

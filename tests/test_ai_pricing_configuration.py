@@ -45,7 +45,7 @@ def _conditions(provider: str) -> dict[str, str]:
 def test_factory_catalog_is_versioned_and_referenced_to_2026_10_02() -> None:
     catalog = load_factory_pricing_catalog()
     assert catalog.metadata.schema_version == 1
-    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-03.6"
+    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-03.7"
     assert catalog.metadata.reference_date == "2026-10-03"
     assert catalog.metadata.verified_on == "2026-10-03"
     assert catalog.metadata.review_recommended_on == "2026-11-03"
@@ -228,7 +228,7 @@ def test_restore_factory_helper_reconstructs_editable_catalog(tmp_path: Path) ->
     target.write_text("invalid = true\n", encoding="utf-8")
     restored = restore_factory_pricing_catalog(target)
     catalog = load_pricing_catalog(path=restored)
-    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-03.6"
+    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-03.7"
     assert catalog.source == str(target.resolve())
 
 
