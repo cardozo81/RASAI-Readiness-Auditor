@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 import pytest
 
@@ -13,7 +14,13 @@ from rasai.ai_canonical_orchestration import (
     invocation_from_diagnostic,
     run_ai_need,
 )
-from rasai.m18_ai import ProviderDiagnostic, ProviderErrorClass
+from rasai.dynamic_ai_routing import AiExecutionCoordinator
+from rasai.m18_ai import (
+    AttemptStatus,
+    ProviderAttempt,
+    ProviderDiagnostic,
+    ProviderErrorClass,
+)
 from rasai.provider_runtime_policy import (
     build_semantic_provider,
     configured_ai_cycle_delay_seconds,
@@ -147,6 +154,100 @@ def test_retry_after_is_applied_only_between_cycles_and_is_capped() -> None:
     assert effective_cycle_delay(60, (20, 120)) == 120
     assert effective_cycle_delay(60, (999,)) == 300
     assert effective_cycle_delay(0, (None, -1, float("nan"))) == 0
+
+
+def test_retry_after_is_slept_once_before_the_next_cycle() -> None:
+    candidate = _Candidate("A")
+    sleeps: list[float] = []
+    cycles: list[int] = []
+
+    def invoke(_item, cycle, _attempt):
+        cycles.append(cycle)
+        if cycle == 1:
+            return AiProviderInvocation(
+                AiProviderOutcome.TRANSIENT_FAILURE,
+                retry_after_seconds=120,
+            )
+        return AiProviderInvocation(AiProviderOutcome.COMPLETE)
+
+    execution = run_ai_need(
+        candidates=lambda: (candidate,),
+        invoke=invoke,
+        policy=AiExecutionPolicy(max_cycles=3, cycle_delay_seconds=60),
+        sleeper=sleeps.append,
+    )
+
+    assert execution.state is AiNeedFinalState.COMPLETE
+    assert cycles == [1, 2]
+    assert sleeps == [120]
+
+
+def test_terminal_quarantine_survives_the_next_logical_need() -> None:
+    coordinator = AiExecutionCoordinator(("A",))
+    candidate = _Candidate("A")
+    calls = 0
+
+    def candidates():
+        return (candidate,) if coordinator.is_eligible("A") else ()
+
+    def invoke(_item, _cycle, attempt_index):
+        nonlocal calls
+        calls += 1
+        now = datetime.now(timezone.utc)
+        diagnostic = ProviderDiagnostic(
+            ProviderErrorClass.CREDIT_ERROR,
+            http_status=429,
+            error_code="insufficient_quota",
+        )
+        coordinator.record_attempt(
+            ProviderAttempt(
+                provider="A",
+                model="test",
+                reasoning_profile="NONE",
+                provider_rank=1,
+                attempt_index=attempt_index,
+                snapshot_id="SNP-1",
+                url="https://example.test/",
+                started_at=now,
+                finished_at=now,
+                duration_ms=0,
+                status=AttemptStatus.TECHNICAL_ERROR,
+                diagnostic=diagnostic,
+            )
+        )
+        return invocation_from_diagnostic(diagnostic)
+
+    first = run_ai_need(
+        candidates=candidates,
+        invoke=invoke,
+        policy=AiExecutionPolicy(max_cycles=3, cycle_delay_seconds=0),
+        sleeper=lambda _seconds: None,
+    )
+    second = run_ai_need(
+        candidates=candidates,
+        invoke=lambda *_args: pytest.fail("quarantined provider must not be called"),
+        policy=AiExecutionPolicy(max_cycles=3, cycle_delay_seconds=0),
+        sleeper=lambda _seconds: None,
+    )
+
+    assert first.state is AiNeedFinalState.UNAVAILABLE
+    assert second.state is AiNeedFinalState.UNAVAILABLE
+    assert calls == 1
+    assert coordinator.is_eligible("A") is False
+    assert coordinator.health_snapshot()["A"]["exclusion_reason"].startswith("TERMINAL:CREDIT_ERROR")
+
+
+def test_ai_none_keeps_provider_execution_disabled() -> None:
+    provider = build_semantic_provider(
+        "none",
+        env={
+            "RASAI_AI_MAX_CYCLES": "10",
+            "RASAI_AI_CYCLE_DELAY_SECONDS": "300",
+        },
+    )
+    assert provider.name == "NONE"
+    assert not hasattr(provider, "_rasai_execution_coordinator")
+    assert not hasattr(provider, "_rasai_execution_policy")
 
 
 def test_normalized_error_class_not_http_status_drives_terminal_decision() -> None:
