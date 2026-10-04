@@ -8,6 +8,7 @@ on:
       - 'src/rasai/ai_native_usage.py'
       - 'src/rasai/ai_pricing_catalog.py'
       - 'src/rasai/ai_cost_policy.py'
+      - 'src/rasai/dynamic_ai_routing.py'
       - 'src/rasai/ai_pricing_saas.py'
       - 'src/rasai/ai_catalog_control_plane.py'
       - 'src/rasai/m18_ai.py'
@@ -37,6 +38,7 @@ on:
       - 'src/rasai/ai_native_usage.py'
       - 'src/rasai/ai_pricing_catalog.py'
       - 'src/rasai/ai_cost_policy.py'
+      - 'src/rasai/dynamic_ai_routing.py'
       - 'src/rasai/ai_pricing_saas.py'
       - 'src/rasai/ai_catalog_control_plane.py'
       - 'src/rasai/m18_ai.py'
@@ -80,7 +82,7 @@ jobs:
           python -m pip install -e . pytest
       - name: Compile only affected Python surfaces
         run: |
-          python -m compileall -q             src/rasai/ai_native_usage.py             src/rasai/ai_pricing_catalog.py             src/rasai/ai_cost_policy.py             src/rasai/ai_pricing_saas.py             src/rasai/ai_catalog_control_plane.py             src/rasai/m18_ai.py             src/rasai/m18_persistence.py             src/rasai/m20_persistence.py             src/rasai/platform/usage_ingestion.py             src/rasai/platform/consumption.py             src/rasai/platform/saas_management.py             src/rasai/platform/postgres_ai_catalog_migration.py             src/rasai/console_cost.py             src/rasai/interactive_console.py             src/rasai/catalog_report_integrations.py
+          python -m compileall -q             src/rasai/ai_native_usage.py             src/rasai/ai_pricing_catalog.py             src/rasai/ai_cost_policy.py             src/rasai/dynamic_ai_routing.py             src/rasai/ai_pricing_saas.py             src/rasai/ai_catalog_control_plane.py             src/rasai/m18_ai.py             src/rasai/m18_persistence.py             src/rasai/m20_persistence.py             src/rasai/platform/usage_ingestion.py             src/rasai/platform/consumption.py             src/rasai/platform/saas_management.py             src/rasai/platform/postgres_ai_catalog_migration.py             src/rasai/console_cost.py             src/rasai/interactive_console.py             src/rasai/catalog_report_integrations.py
       - name: Run native-usage and directly affected boundary tests
         run: |
           python -m pytest -q             tests/test_ai_native_usage_pricing.py             tests/test_ai_cost_policy.py             tests/test_ai_pricing_configuration.py             tests/test_ai_pricing_saas.py             tests/test_m18_multi_ai_provider.py             tests/test_catalog_report_final_refinements.py             tests/test_m9_scoring.py
