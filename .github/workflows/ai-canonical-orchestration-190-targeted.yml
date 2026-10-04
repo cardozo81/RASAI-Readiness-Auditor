@@ -20,6 +20,7 @@ on:
       - 'src/rasai/directed_analysis.py'
       - 'src/rasai/ai_orchestration_unification.py'
       - 'src/rasai/accepted_audit_refinements.py'
+      - 'src/rasai/request_remediation_intelligence.py'
       - 'src/rasai/consolidation/specialist.py'
       - 'src/rasai/reprocess_ai.py'
       - 'src/rasai/reprocess_policy.py'
@@ -35,6 +36,7 @@ on:
       - 'tests/test_ai_runtime_orchestration.py'
       - 'tests/test_ai_retry_fallback_observability.py'
       - 'tests/test_issue_43_reprocess_ai_timeout.py'
+      - 'tests/test_request_remediation_canonical_190.py'
       - '.github/workflows/ai-canonical-orchestration-190-targeted.yml'
   workflow_dispatch:
 
@@ -75,6 +77,7 @@ jobs:
             src/rasai/directed_analysis.py \
             src/rasai/ai_orchestration_unification.py \
             src/rasai/accepted_audit_refinements.py \
+            src/rasai/request_remediation_intelligence.py \
             src/rasai/consolidation/specialist.py \
             src/rasai/reprocess_ai.py \
             src/rasai/reprocess_policy.py \
@@ -93,6 +96,7 @@ jobs:
           tests/test_ai_runtime_orchestration.py
           tests/test_ai_retry_fallback_observability.py
           tests/test_accepted_audit_refinements.py
+          tests/test_request_remediation_canonical_190.py
           tests/test_provider_extensions.py
           tests/test_m18_multi_ai_provider.py
 
