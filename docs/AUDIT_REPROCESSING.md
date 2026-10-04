@@ -350,9 +350,9 @@ Se o work-item já possui sucesso efetivo e sua evidência persistida continua �
 
 ### Análise profunda por IA
 
-A análise profunda não possui um segundo motor/provider especializado. Na execução inicial, usa a seleção principal de IA da AUD. Em um `RPR-*`, usa a política de IA autorizada especificamente para aquele reprocessamento (`use_ai`, `ai_provider`, `ai_model`, `ai_reasoning`) quando fornecida, sem reescrever a configuração histórica da AUD.
+A análise profunda não possui um segundo motor/provider especializado. Na execução inicial, usa a seleção principal de IA da AUD. Em um `RPR-*`, usa a política de IA autorizada especificamente para aquele reprocessamento (`use_ai`, `ai_provider`, `ai_model`, `ai_reasoning`, timeout, máximo de ciclos e espera entre ciclos) quando fornecida, sem reescrever a configuração histórica da AUD.
 
-Se o RPR não fornecer política própria, permanece compatível com a seleção efetiva persistida da AUD. Se o RPR selecionar `AUTO`, a política canônica resolve novamente os providers elegíveis/configurados no ambiente atual, preservando custo, quarentena, circuit breaker, fallback e limite de tentativas do runtime principal. Credenciais nunca são persistidas no `RPR-*`.
+Se o RPR não fornecer política própria, a seleção efetiva e a cadência não-secreta persistidas na AUD são restauradas: timeout, `max_cycles` e `cycle_delay`. Credenciais continuam resolvidas no ambiente atual. Se o RPR selecionar `AUTO`, o mesmo motor canônico resolve novamente os providers elegíveis/configurados, preservando custo, health, quarentena terminal, fallback, partial e timers. Credenciais nunca são persistidas no `RPR-*`.
 
 Quando uma execução anterior da análise profunda já concluiu com sucesso e sua evidência persistida continua íntegra, o reprocessamento reutiliza o resultado com `reused=true`; não faz uma segunda chamada paga apenas para regenerar o relatório.
 
@@ -559,14 +559,14 @@ Um AUD incompleto pode ser reprocessável e, simultaneamente, servir como fonte 
 
 Cada `RPR-*` possui uma autorização própria de execução. O conjunto de pendências existentes na AUD não é automaticamente o conjunto executado pelo RPR.
 
-O operador pode selecionar itens específicos e decidir separadamente se IA será usada naquele reprocessamento. A política durável, sem segredos, registra `selected_items`, `use_ai`, `ai_provider`, `ai_model` e `ai_reasoning`; ao final, o mesmo registro recebe `ai_used`, distinguindo autorização de uma tentativa efetiva de provider.
+O operador pode selecionar itens específicos e decidir separadamente se IA será usada naquele reprocessamento. A política da tentativa também congela os parâmetros de execução de IA da sessão - timeout, máximo de ciclos e espera entre ciclos - além de `selected_items`, `use_ai`, `ai_provider`, `ai_model` e `ai_reasoning`. Ao final, o registro recebe `ai_used`, distinguindo autorização de uma tentativa efetiva de provider.
 
 Essa política não sobrescreve o snapshot original da AUD. Assim, uma AUD originalmente sem IA pode usar IA em um RPR, e uma AUD originalmente com IA pode executar um RPR apenas de integração com `use_ai=false`.
 
 Na preparação do RPR, o console separa explicitamente:
 
 - **Configuração original da AUD**: snapshot histórico preservado como provenance;
-- **IA atual da sessão**: provider/modelo atualmente configurados no console e usados para prever esta nova tentativa;
+- **IA atual da sessão**: provider/modelo e política de execução (timeout/ciclos/delay) atualmente configurados no console e usados nesta nova tentativa;
 - **Política deste RPR**: `S` usa a configuração atual da sessão quando aplicável; `N`/ENTER executa sem IA.
 
 Consequentemente, uma AUD criada com `provider=none` pode ser reprocessada com a sessão atual em `AUTO` sem reescrever a configuração original.

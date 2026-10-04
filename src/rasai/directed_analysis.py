@@ -18,8 +18,16 @@ import time
 from typing import Any, Iterable, Mapping, Sequence
 from urllib.error import HTTPError, URLError
 
+from rasai.ai_canonical_orchestration import (
+    AiExecutionPolicy,
+    AiProviderInvocation,
+    AiProviderOutcome,
+    invocation_from_diagnostic,
+    run_ai_need,
+)
 from rasai.ai_exchange_log import AiExchangeRecorder, instrument_provider_transport, persist_ai_exchange_log
-from rasai.ai_resilience import DECISION_RETRY, DECISION_STOP, DECISION_SUCCESS, DECISION_SUCCESS_AFTER_RETRY, retry_policy
+from rasai.ai_resilience import DECISION_FALLBACK, DECISION_FALLBACK_SUCCESS, DECISION_STOP, DECISION_SUCCESS
+from rasai.dynamic_ai_routing import canonical_candidate_objects, record_canonical_attempt
 from rasai.catalog_report_contract import CATALOG_PAGE_BY_ID, CATALOG_REPORT_CONTRACT_VERSION
 from rasai.catalog_report_model import _DOMAIN_CATALOG, _load_data
 from rasai import catalog_report_page as catalog_page
@@ -803,13 +811,10 @@ def _ai_analyze(
     *, audit_id: str, workspace: AuditWorkspace, context_payload: Mapping[str,Any],
     actions: Sequence[Mapping[str,Any]], config: ImprovementConfig, target_context: Any,
 ) -> tuple[dict[str,Any],dict[str,dict[str,Any]],list[dict[str,Any]],Any,str|None]:
-    provider = _build_provider(config)
-    if not getattr(provider, "api_key", None):
-        return {},{},[],None,"AI_NOT_CONFIGURED"
-    recorder=AiExchangeRecorder()
-    instrument_provider_transport(provider,recorder)
-    schema=_schema([str(action["action_id"]) for action in actions])
-    instructions=(
+    runtime = _build_provider(config)
+    recorder = AiExchangeRecorder()
+    schema = _schema([str(action["action_id"]) for action in actions])
+    instructions = (
         "You are the evidence-bound Directed Analysis strategist for RASAi. "
         "Use only the supplied persisted context and existing action IDs. Do not create new technical facts, actions, "
         "catalog links, evidence IDs, vulnerabilities, ranking causes, metrics or claims. Correlate actions across dimensions, "
@@ -822,87 +827,204 @@ def _ai_analyze(
         "Do not claim that SEO/GEO changes guarantee ranking improvements. Human review is mandatory. "
         f"Write human-readable text in {config.language}. This request purpose is DIRECTED_ANALYSIS."
     )
-    request_context=dict(context_payload)
-    request_context["snapshot_id"]=target_context.snapshot_id
-    request_context["page_url"]=target_context.url
-    user_text="Persisted RASAi strategic context:\n"+json.dumps(request_context,ensure_ascii=False,default=str)
-    body=json.dumps(_provider_payload(provider,instructions=instructions,user_text=user_text,schema=schema),ensure_ascii=False,separators=(",",":")).encode("utf-8")
-    payload_hash=sha256(body).hexdigest()
-    summary_text=f"contract={CONTRACT_VERSION};actions={len(actions)};context={context_payload.get('contract_version')};snapshot={target_context.snapshot_id}"
-    last_reason=None
-    raw_payload=None
-    try:
-        for ordinal in range(1,3):
-            started_at=datetime.now(timezone.utc); started_perf=time.perf_counter()
-            diagnostic=None; usage=None; raw=None; status=AttemptStatus.TECHNICAL_ERROR
-            try:
-                candidate=provider._transport(provider.endpoint,provider._headers(),body,config.timeout_seconds)
-                if not isinstance(candidate,Mapping):
-                    diagnostic=ProviderDiagnostic(ProviderErrorClass.INVALID_RESPONSE)
-                else:
-                    raw=candidate; usage=_provider_usage(provider,raw); diagnostic=_provider_native_error(provider,raw)
-                    if diagnostic is None:
-                        status=AttemptStatus.SUCCESS
-            except HTTPError as exc:
-                diagnostic=_core_diagnostic_from_http(exc) if isinstance(provider,ResponsesSemanticProvider) else _extension_diagnostic_from_http(exc)
-            except TimeoutError:
-                diagnostic=ProviderDiagnostic(ProviderErrorClass.TIMEOUT_ERROR)
-            except (URLError,OSError):
-                diagnostic=ProviderDiagnostic(ProviderErrorClass.NETWORK_ERROR)
-            except Exception as exc:
-                diagnostic=ProviderDiagnostic(ProviderErrorClass.UNKNOWN_PROVIDER_ERROR,error_type=type(exc).__name__)
-            finished_at=datetime.now(timezone.utc)
-            duration_ms=max(0,int((time.perf_counter()-started_perf)*1000))
-            pricing=resolve_provider_cost(provider,usage,finished_at)
-            if status is AttemptStatus.SUCCESS and raw is not None:
-                try:
-                    raw_payload=_provider_extract(provider,raw)
-                    summary,enriched,roadmap=_validate_ai_output(raw_payload,actions)
-                except Exception as exc:
-                    status=AttemptStatus.CONTRACT_ERROR
-                    diagnostic=ProviderDiagnostic(ProviderErrorClass.CONTRACT_ERROR,error_type=type(exc).__name__,error_code="DIRECTED_ANALYSIS_OUTPUT_INVALID")
-                else:
-                    attempt=ProviderAttempt(
-                        provider=str(provider.name),model=str(provider.model),
-                        reasoning_profile=str(getattr(provider,"reasoning_profile",config.reasoning)),
-                        provider_rank=int(getattr(provider.policy,"rank",999)),attempt_index=ordinal,
-                        snapshot_id=target_context.snapshot_id,url=target_context.url,
-                        started_at=started_at,finished_at=finished_at,duration_ms=duration_ms,
-                        status=AttemptStatus.SUCCESS,usage=usage,estimated_cost=pricing.estimated_cost,cost_currency=pricing.currency,
-                        pricing_version=pricing.pricing_version,pricing_context=pricing.pricing_context,pricing_rule_id=pricing.pricing_rule_id,
-                        pricing_source_reference=pricing.pricing_source_reference,pricing_runtime_conditions=pricing.runtime_conditions,request_message_summary=summary_text,
-                        request_payload_hash=payload_hash,provider_qualification=str(getattr(provider.policy,"qualification","PROVISIONAL")),
-                        provider_reliability_score=getattr(provider.policy,"reliability_score",None),
-                        semantic_contract_version=CONTRACT_VERSION,retry_eligible=False,
-                        decision=DECISION_SUCCESS_AFTER_RETRY if ordinal>1 else DECISION_SUCCESS,
-                    )
-                    _persist_attempt(workspace,audit_id,target_context,attempt)
-                    return summary,enriched,roadmap,raw_payload,None
-            policy=retry_policy(diagnostic.error_class if diagnostic else None,diagnostic.retry_after_seconds if diagnostic else None)
-            decision=DECISION_RETRY if policy.eligible and ordinal<2 else DECISION_STOP
-            attempt=ProviderAttempt(
-                provider=str(provider.name),model=str(provider.model),
-                reasoning_profile=str(getattr(provider,"reasoning_profile",config.reasoning)),
-                provider_rank=int(getattr(provider.policy,"rank",999)),attempt_index=ordinal,
-                snapshot_id=target_context.snapshot_id,url=target_context.url,
-                started_at=started_at,finished_at=finished_at,duration_ms=duration_ms,status=status,
-                diagnostic=diagnostic,usage=usage,estimated_cost=pricing.estimated_cost,cost_currency=pricing.currency,
-                pricing_version=pricing.pricing_version,pricing_context=pricing.pricing_context,pricing_rule_id=pricing.pricing_rule_id,
-                pricing_source_reference=pricing.pricing_source_reference,pricing_runtime_conditions=pricing.runtime_conditions,request_message_summary=summary_text,request_payload_hash=payload_hash,
-                provider_qualification=str(getattr(provider.policy,"qualification","PROVISIONAL")),
-                provider_reliability_score=getattr(provider.policy,"reliability_score",None),
-                semantic_contract_version=CONTRACT_VERSION,retry_eligible=policy.eligible,decision=decision,
+    request_context = dict(context_payload)
+    request_context["snapshot_id"] = target_context.snapshot_id
+    request_context["page_url"] = target_context.url
+    user_text = "Persisted RASAi strategic context:\n" + json.dumps(
+        request_context,
+        ensure_ascii=False,
+        default=str,
+    )
+    summary_text = (
+        f"contract={CONTRACT_VERSION};actions={len(actions)};"
+        f"context={context_payload.get('contract_version')};snapshot={target_context.snapshot_id}"
+    )
+    policy = getattr(runtime, "_rasai_execution_policy", AiExecutionPolicy())
+    if not isinstance(policy, AiExecutionPolicy):
+        policy = AiExecutionPolicy()
+    sleeper = getattr(runtime, "_rasai_cycle_sleeper", None)
+    last_reason: str | None = None
+    raw_payload = None
+    winner: tuple[
+        dict[str, Any],
+        dict[str, dict[str, Any]],
+        list[dict[str, Any]],
+        Any,
+    ] | None = None
+    fallback_from: str | None = None
+    fallback_reason: str | None = None
+    instrumented: set[int] = set()
+
+    def candidates() -> tuple[Any, ...]:
+        return tuple(
+            item
+            for item in canonical_candidate_objects(
+                runtime,
+                None,
+                scope="DIRECTED_ANALYSIS",
             )
-            _persist_attempt(workspace,audit_id,target_context,attempt)
-            last_reason=diagnostic.reason if diagnostic else "AI_PROVIDER_UNAVAILABLE"
-            if decision==DECISION_RETRY:
-                if policy.delay_seconds>0:
-                    time.sleep(policy.delay_seconds)
-                continue
-            break
-        return {},{},[],raw_payload,last_reason or "AI_PROVIDER_UNAVAILABLE"
+            if bool(getattr(item, "api_key", None))
+        )
+
+    if not candidates():
+        return {}, {}, [], None, "AI_NOT_CONFIGURED"
+
+    def invoke(candidate: Any, cycle: int, call_index: int) -> AiProviderInvocation:
+        nonlocal last_reason, raw_payload, winner, fallback_from, fallback_reason
+        identity = id(candidate)
+        if identity not in instrumented:
+            instrument_provider_transport(candidate, recorder)
+            instrumented.add(identity)
+
+        body = json.dumps(
+            _provider_payload(
+                candidate,
+                instructions=instructions,
+                user_text=user_text,
+                schema=schema,
+            ),
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        payload_hash = sha256(body).hexdigest()
+        started_at = datetime.now(timezone.utc)
+        started_perf = time.perf_counter()
+        diagnostic = None
+        usage = None
+        raw = None
+        status = AttemptStatus.TECHNICAL_ERROR
+        try:
+            response = candidate._transport(
+                candidate.endpoint,
+                candidate._headers(),
+                body,
+                config.timeout_seconds,
+            )
+            if not isinstance(response, Mapping):
+                diagnostic = ProviderDiagnostic(ProviderErrorClass.INVALID_RESPONSE)
+            else:
+                raw = response
+                usage = _provider_usage(candidate, raw)
+                diagnostic = _provider_native_error(candidate, raw)
+                if diagnostic is None:
+                    status = AttemptStatus.SUCCESS
+        except HTTPError as exc:
+            diagnostic = (
+                _core_diagnostic_from_http(exc)
+                if isinstance(candidate, ResponsesSemanticProvider)
+                else _extension_diagnostic_from_http(exc)
+            )
+        except TimeoutError:
+            diagnostic = ProviderDiagnostic(ProviderErrorClass.TIMEOUT_ERROR)
+        except (URLError, OSError):
+            diagnostic = ProviderDiagnostic(ProviderErrorClass.NETWORK_ERROR)
+        except Exception as exc:
+            diagnostic = ProviderDiagnostic(
+                ProviderErrorClass.UNKNOWN_PROVIDER_ERROR,
+                error_type=type(exc).__name__,
+            )
+
+        finished_at = datetime.now(timezone.utc)
+        duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
+        pricing = resolve_provider_cost(candidate, usage, finished_at)
+        success_payload = None
+        if status is AttemptStatus.SUCCESS and raw is not None:
+            try:
+                raw_payload = _provider_extract(candidate, raw)
+                summary, enriched, roadmap = _validate_ai_output(raw_payload, actions)
+                success_payload = (summary, enriched, roadmap, raw_payload)
+            except Exception as exc:
+                status = AttemptStatus.CONTRACT_ERROR
+                diagnostic = ProviderDiagnostic(
+                    ProviderErrorClass.CONTRACT_ERROR,
+                    error_type=type(exc).__name__,
+                    error_code="DIRECTED_ANALYSIS_OUTPUT_INVALID",
+                )
+
+        success = success_payload is not None
+        attempt = ProviderAttempt(
+            provider=str(candidate.name),
+            model=str(candidate.model),
+            reasoning_profile=str(
+                getattr(candidate, "reasoning_profile", config.reasoning)
+            ),
+            provider_rank=int(getattr(candidate.policy, "rank", 999)),
+            attempt_index=call_index,
+            snapshot_id=target_context.snapshot_id,
+            url=target_context.url,
+            started_at=started_at,
+            finished_at=finished_at,
+            duration_ms=duration_ms,
+            status=AttemptStatus.SUCCESS if success else status,
+            diagnostic=None if success else diagnostic,
+            usage=usage,
+            estimated_cost=pricing.estimated_cost,
+            cost_currency=pricing.currency,
+            pricing_version=pricing.pricing_version,
+            pricing_context=pricing.pricing_context,
+            pricing_rule_id=pricing.pricing_rule_id,
+            pricing_source_reference=pricing.pricing_source_reference,
+            pricing_runtime_conditions=pricing.runtime_conditions,
+            request_message_summary=summary_text,
+            request_payload_hash=payload_hash,
+            provider_qualification=str(
+                getattr(candidate.policy, "qualification", "PROVISIONAL")
+            ),
+            provider_reliability_score=getattr(
+                candidate.policy,
+                "reliability_score",
+                None,
+            ),
+            semantic_contract_version=CONTRACT_VERSION,
+            retry_eligible=not success and diagnostic is not None,
+            decision=(
+                DECISION_FALLBACK_SUCCESS
+                if success and fallback_from
+                else DECISION_SUCCESS
+                if success
+                else DECISION_FALLBACK
+            ),
+            fallback_from_provider=fallback_from,
+            fallback_reason=fallback_reason,
+        )
+        _persist_attempt(workspace, audit_id, target_context, attempt)
+        record_canonical_attempt(
+            candidate,
+            attempt,
+            page_url=target_context.url,
+            scope="DIRECTED_ANALYSIS",
+        )
+
+        if success_payload is not None:
+            winner = success_payload
+            return AiProviderInvocation(AiProviderOutcome.COMPLETE)
+
+        last_reason = (
+            diagnostic.reason if diagnostic is not None else "AI_PROVIDER_UNAVAILABLE"
+        )
+        fallback_from = str(candidate.name)
+        fallback_reason = last_reason
+        if diagnostic is not None:
+            return invocation_from_diagnostic(diagnostic)
+        return AiProviderInvocation(AiProviderOutcome.NO_PROGRESS)
+
+    try:
+        run_ai_need(
+            candidates=candidates,
+            invoke=invoke,
+            policy=policy,
+            sleeper=sleeper,
+        )
+        if winner is not None:
+            summary, enriched, roadmap, raw_payload = winner
+            return summary, enriched, roadmap, raw_payload, None
+        return {}, {}, [], raw_payload, last_reason or "AI_PROVIDER_UNAVAILABLE"
     finally:
-        persist_ai_exchange_log(audit_id=audit_id,workspace=workspace,recorder=recorder)
+        persist_ai_exchange_log(
+            audit_id=audit_id,
+            workspace=workspace,
+            recorder=recorder,
+        )
 
 
 def _persist(

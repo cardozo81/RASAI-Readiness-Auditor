@@ -252,7 +252,7 @@ class InteractiveConsoleTests(unittest.TestCase):
             estimate = estimate_exposure(state)
             self.assertEqual((estimate.min_pages, estimate.max_pages), (3, 3))
             self.assertEqual(estimate.device_contexts, 2)
-            self.assertEqual((estimate.min_ai_attempts, estimate.max_ai_attempts), (6, 24))
+            self.assertEqual((estimate.min_ai_attempts, estimate.max_ai_attempts), (6, 36))
             self.assertEqual((estimate.min_web_calls, estimate.max_web_calls), (4, 8))
             self.assertEqual(estimate.level, "ALTO")
             self.assertTrue(any("USD" in line for line in estimate.pricing_lines))
@@ -266,7 +266,7 @@ class InteractiveConsoleTests(unittest.TestCase):
         )
         estimate = estimate_exposure(state)
         self.assertEqual((estimate.min_pages, estimate.max_pages), (1, 5))
-        self.assertEqual((estimate.min_ai_attempts, estimate.max_ai_attempts), (1, 10))
+        self.assertEqual((estimate.min_ai_attempts, estimate.max_ai_attempts), (1, 15))
         self.assertEqual(estimate.level, "MÉDIO")
 
     def test_web_only_tracks_quota_without_inventing_monetary_cost(self) -> None:

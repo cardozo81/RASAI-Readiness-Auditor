@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
+from rasai.ai_canonical_orchestration import AI_CYCLE_DELAY_ENV, AI_MAX_CYCLES_ENV
 from rasai.apdex_concurrency_policy import EXPERIENCE_MAX_CONCURRENCY, NAVIGATION_MAX_CONCURRENCY
 from rasai.m25_cli import (
     DEFAULT_UX_CONSOLE_ERROR_CAPTURE,
@@ -117,6 +118,8 @@ def _runtime_environment_projection(state: Any) -> dict[str, str]:
     values = {
         "RASAI_DEVICE_CONTEXT": str(state.device),
         AI_TIMEOUT_ENV: f"{float(state.ai_timeout):g}",
+        AI_MAX_CYCLES_ENV: str(int(state.ai_max_cycles)),
+        AI_CYCLE_DELAY_ENV: f"{float(state.ai_cycle_delay):g}",
         "RASAI_AI_CONTENT_REMEDIATION": _bool_text(bool(state.content_remediation)),
         "RASAI_AI_TECHNICAL_REMEDIATION": _bool_text(bool(getattr(state, "technical_remediation", False))),
         "RASAI_WEB_PERFORMANCE": _bool_text(bool(state.web_performance)),
@@ -218,6 +221,8 @@ def _state_values(state: Any) -> dict[str, dict[str, str]]:
             "model": _optional(state.ai_model),
             "reasoning_effort": _optional(getattr(state, "ai_reasoning", None)),
             "timeout_seconds": f"{float(state.ai_timeout):g}",
+            "max_cycles": str(int(state.ai_max_cycles)),
+            "cycle_delay_seconds": f"{float(state.ai_cycle_delay):g}",
             "content_remediation": _bool_text(bool(state.content_remediation)),
             "technical_remediation": _bool_text(bool(getattr(state, "technical_remediation", False))),
         },
@@ -344,6 +349,14 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
     elif key == ("ai", "model"): state.ai_model = raw.strip() or None
     elif key == ("ai", "reasoning_effort"): state.ai_reasoning = raw.strip().upper() or None
     elif key == ("ai", "timeout_seconds"): state.ai_timeout = _positive_float(raw, label="ai.timeout_seconds")
+    elif key == ("ai", "max_cycles"):
+        value = int(raw)
+        if not 1 <= value <= 10: raise ValueError("ai.max_cycles: use inteiro entre 1 e 10")
+        state.ai_max_cycles = value
+    elif key == ("ai", "cycle_delay_seconds"):
+        value = float(raw)
+        if not 0 <= value <= 300: raise ValueError("ai.cycle_delay_seconds: use número entre 0 e 300")
+        state.ai_cycle_delay = value
     elif key == ("ai", "content_remediation"): state.content_remediation = _parse_bool(raw)
     elif key == ("ai", "technical_remediation"): state.technical_remediation = _parse_bool(raw)
     elif key == ("web_performance", "enabled"): state.web_performance = _parse_bool(raw)

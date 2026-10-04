@@ -32,8 +32,15 @@ def install() -> None:
 
     def preflight(state: Any, env: Mapping[str, str] | None = None) -> tuple[str, ...]:
         environment = env if env is not None else console_config.os.environ
-        if state.max_pages <= 0 or state.web_max_pages < 0 or state.web_timeout <= 0 or state.ai_timeout <= 0:
-            raise ValueError("limites/timeout inválidos")
+        if (
+            state.max_pages <= 0
+            or state.web_max_pages < 0
+            or state.web_timeout <= 0
+            or state.ai_timeout <= 0
+            or not 1 <= int(getattr(state, "ai_max_cycles", 3)) <= 10
+            or not 0 <= float(getattr(state, "ai_cycle_delay", 60.0)) <= 300
+        ):
+            raise ValueError("limites/timeout/política de IA inválidos")
         console_config.configured_content_analysis_context(environment)
         if state.input_mode == "url":
             if not state.target.strip():

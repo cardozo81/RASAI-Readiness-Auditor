@@ -14,7 +14,15 @@ import time
 from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
 
+from rasai.ai_canonical_orchestration import (
+    AiExecutionPolicy,
+    AiProviderInvocation,
+    AiProviderOutcome,
+    invocation_from_diagnostic,
+    run_ai_need,
+)
 from rasai.domain import new_id
+from rasai.dynamic_ai_routing import provider_is_eligible
 from rasai.m18_ai import (
     AttemptStatus,
     ProviderAttempt,
@@ -80,8 +88,23 @@ def maybe_explain_source_quality(
         return result
 
     last: SourceQualityAiResult | None = None
-    for attempt_index, candidate in enumerate(candidates, 1):
-        result, attempt = _call(candidate, assessment, page_row, attempt_index=attempt_index)
+    winner: SourceQualityAiResult | None = None
+    policy = getattr(provider, "_rasai_execution_policy", AiExecutionPolicy())
+    if not isinstance(policy, AiExecutionPolicy):
+        policy = AiExecutionPolicy()
+    cycle_sleeper = getattr(provider, "_rasai_cycle_sleeper", None)
+
+    def current_candidates() -> tuple[Any, ...]:
+        return tuple(_candidates(provider))
+
+    def invoke(candidate: Any, cycle: int, call_index: int) -> AiProviderInvocation:
+        nonlocal last, winner
+        result, attempt = _call(
+            candidate,
+            assessment,
+            page_row,
+            attempt_index=call_index,
+        )
         _persist_attempt(
             workspace=workspace,
             audit_id=audit_id,
@@ -90,10 +113,23 @@ def maybe_explain_source_quality(
         )
         last = result
         if result.state is ProviderState.AVAILABLE:
-            _persist_artifact(workspace, result)
-            return result
+            winner = result
+            return AiProviderInvocation(AiProviderOutcome.COMPLETE)
         if result.state is ProviderState.NOT_CONFIGURED:
-            continue
+            return AiProviderInvocation(AiProviderOutcome.NO_PROGRESS)
+        if attempt.diagnostic is not None:
+            return invocation_from_diagnostic(attempt.diagnostic)
+        return AiProviderInvocation(AiProviderOutcome.NO_PROGRESS)
+
+    execution = run_ai_need(
+        candidates=current_candidates,
+        invoke=invoke,
+        policy=policy,
+        sleeper=cycle_sleeper,
+    )
+    if winner is not None:
+        _persist_artifact(workspace, winner)
+        return winner
 
     final = last or SourceQualityAiResult(
         state=ProviderState.UNAVAILABLE,
@@ -111,8 +147,13 @@ def _candidates(provider: Any) -> tuple[ResponsesSemanticProvider, ...]:
             for item in routed
             if isinstance(item, ResponsesSemanticProvider)
             and bool(getattr(item, "api_key", None))
+            and provider_is_eligible(item)
         )
-    if isinstance(provider, ResponsesSemanticProvider) and bool(getattr(provider, "api_key", None)):
+    if (
+        isinstance(provider, ResponsesSemanticProvider)
+        and bool(getattr(provider, "api_key", None))
+        and provider_is_eligible(provider)
+    ):
         return (provider,)
     return ()
 

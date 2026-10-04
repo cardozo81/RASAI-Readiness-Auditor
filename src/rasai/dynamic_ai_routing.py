@@ -14,8 +14,15 @@ from datetime import datetime, timezone
 import json
 from statistics import median
 from types import MethodType
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
+from rasai.ai_canonical_orchestration import (
+    AiExecutionPolicy,
+    AiProviderInvocation,
+    AiProviderOutcome,
+    invocation_from_diagnostic,
+    run_ai_need,
+)
 from rasai.ai_cost_policy import (
     CandidateCostEstimate,
     PRICING_REVIEW_RECOMMENDED_ON,
@@ -47,7 +54,6 @@ _TERMINAL_ERROR_CLASSES = frozenset({
     ProviderErrorClass.MODEL_ERROR.value,
     ProviderErrorClass.PERMISSION_ERROR.value,
 })
-_TERMINAL_HTTP_STATUS = frozenset({401, 403, 404, 410})
 _CONTEXT_FIELD_VALUES: dict[str, tuple[str, ...]] = {
     "risk_profile": ("standard", "ymyl"),
     "ymyl_category": ("none", "health-safety", "financial-security", "civic-societal", "other-significant-welfare"),
@@ -67,6 +73,8 @@ class ProviderExecutionHealth:
     successes: int = 0
     temporary_failures: int = 0
     terminal_failures: int = 0
+    degraded: bool = False
+    degradation_reason: str | None = None
     exclusion_reason: str | None = None
     last_error_class: str | None = None
     last_http_status: int | None = None
@@ -79,6 +87,8 @@ class ProviderExecutionHealth:
             "successes": self.successes,
             "temporary_failures": self.temporary_failures,
             "terminal_failures": self.terminal_failures,
+            "degraded": self.degraded,
+            "degradation_reason": self.degradation_reason,
             "exclusion_reason": self.exclusion_reason,
             "last_error_class": self.last_error_class,
             "last_http_status": self.last_http_status,
@@ -88,7 +98,7 @@ class ProviderExecutionHealth:
 
 
 class AiExecutionCoordinator:
-    """Eligibility, circuit breakers and same-execution usage learning for AUTO."""
+    """Execution-wide terminal quarantine and transient degradation/usage learning."""
 
     def __init__(self, provider_names: tuple[str, ...]) -> None:
         self.provider_names = tuple(dict.fromkeys(provider_names))
@@ -134,6 +144,11 @@ class AiExecutionCoordinator:
             health.outcomes.append(0)
             health.last_error_class = None
             health.last_http_status = None
+            health.degraded = sum(health.outcomes) >= FAILURES_TO_OPEN_CIRCUIT
+            health.degradation_reason = (
+                f"TRANSIENT_DEGRADED:{FAILURES_TO_OPEN_CIRCUIT}_FAILURES_IN_LAST_{ROLLING_WINDOW_SIZE}"
+                if health.degraded else None
+            )
             self.last_successful_provider = name
             if page_url:
                 self._successful_urls.setdefault(name, set()).add(page_url)
@@ -146,7 +161,7 @@ class AiExecutionCoordinator:
         health.last_error_class = error_class
         health.last_http_status = http_status
 
-        terminal = error_class in _TERMINAL_ERROR_CLASSES or http_status in _TERMINAL_HTTP_STATUS
+        terminal = error_class in _TERMINAL_ERROR_CLASSES
         if terminal:
             health.terminal_failures += 1
             health.eligible = False
@@ -154,9 +169,14 @@ class AiExecutionCoordinator:
             return
 
         health.temporary_failures += 1
-        if len(health.outcomes) >= FAILURES_TO_OPEN_CIRCUIT and sum(health.outcomes) >= FAILURES_TO_OPEN_CIRCUIT:
-            health.eligible = False
-            health.exclusion_reason = f"CIRCUIT_BREAKER:{FAILURES_TO_OPEN_CIRCUIT}_FAILURES_IN_LAST_{ROLLING_WINDOW_SIZE}"
+        health.degraded = (
+            len(health.outcomes) >= FAILURES_TO_OPEN_CIRCUIT
+            and sum(health.outcomes) >= FAILURES_TO_OPEN_CIRCUIT
+        )
+        health.degradation_reason = (
+            f"TRANSIENT_DEGRADED:{FAILURES_TO_OPEN_CIRCUIT}_FAILURES_IN_LAST_{ROLLING_WINDOW_SIZE}"
+            if health.degraded else None
+        )
 
     def _record_usage(self, scope: str, attempt: ProviderAttempt) -> None:
         usage = attempt.usage
@@ -228,6 +248,8 @@ class DynamicProviderRoutingSession:
     excluded_configurations: tuple[str, ...] = ()
     strategy: str = "AUTO"
     recorder: AiExchangeRecorder | None = None
+    _rasai_execution_policy: AiExecutionPolicy | None = None
+    _rasai_cycle_sleeper: Callable[[float], None] | None = None
     coordinator: AiExecutionCoordinator = field(init=False)
     _last_attempts: tuple[ProviderAttempt, ...] = field(init=False, default=())
     _history: list[ProviderAttempt] = field(init=False, default_factory=list)
@@ -295,24 +317,38 @@ class DynamicProviderRoutingSession:
 
     def analyze(self, semantic_input: Any) -> SemanticProviderResult:
         self._last_attempts = ()
-        candidates = self.ordered_candidates_for_need(semantic_input, scope="SEMANTIC")
-        if not candidates:
-            return SemanticProviderResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_CHAIN_EXHAUSTED")
-
         attempts: list[ProviderAttempt] = []
         last: SemanticProviderResult | None = None
+        winner: SemanticProviderResult | None = None
         fallback_from: str | None = None
         fallback_reason: str | None = None
+        policy = getattr(self, "_rasai_execution_policy", None)
+        if not isinstance(policy, AiExecutionPolicy):
+            policy = AiExecutionPolicy()
+        sleeper = getattr(self, "_rasai_cycle_sleeper", None)
 
-        for index, provider in enumerate(candidates):
+        def candidates() -> tuple[Any, ...]:
+            return self.ordered_candidates_for_need(semantic_input, scope="SEMANTIC")
+
+        def invoke(provider: Any, cycle: int, call_index: int) -> AiProviderInvocation:
+            nonlocal last, winner, fallback_from, fallback_reason
             result = provider.analyze(semantic_input, max_attempts=1)
             local = [_price_auto_attempt(item) for item in provider.consume_attempts()]
             if fallback_from is not None:
-                local = [replace(item, fallback_from_provider=fallback_from, fallback_reason=fallback_reason) for item in local]
-            local = [replace(item, attempt_index=len(attempts) + offset) for offset, item in enumerate(local, 1)]
+                local = [
+                    replace(
+                        item,
+                        fallback_from_provider=fallback_from,
+                        fallback_reason=fallback_reason,
+                    )
+                    for item in local
+                ]
+            local = [
+                replace(item, attempt_index=len(attempts) + offset)
+                for offset, item in enumerate(local, 1)
+            ]
             attempts.extend(local)
             last = result
-
             attempt = local[-1] if local else None
             if attempt is not None:
                 self.coordinator.record_attempt(
@@ -322,32 +358,50 @@ class DynamicProviderRoutingSession:
                 )
 
             if result.state is ProviderState.AVAILABLE:
-                if fallback_from is not None and attempts:
-                    attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK_SUCCESS, fallback_from_provider=fallback_from, fallback_reason=fallback_reason)
-                elif attempts:
-                    attempts[-1] = replace(attempts[-1], decision=DECISION_SUCCESS)
-                self._history.extend(attempts)
-                self._last_attempts = tuple(attempts)
-                return result
+                if attempts:
+                    attempts[-1] = replace(
+                        attempts[-1],
+                        decision=DECISION_FALLBACK_SUCCESS if fallback_from else DECISION_SUCCESS,
+                        fallback_from_provider=fallback_from,
+                        fallback_reason=fallback_reason,
+                    )
+                winner = result
+                return AiProviderInvocation(AiProviderOutcome.COMPLETE)
 
             if result.state is ProviderState.NOT_CONFIGURED:
-                if attempt is None:
-                    self.coordinator.exclude_configuration(str(provider.name), "NOT_CONFIGURED_DURING_EXECUTION")
-                continue
+                self.coordinator.exclude_configuration(
+                    str(provider.name),
+                    "NOT_CONFIGURED_DURING_EXECUTION",
+                )
+                return AiProviderInvocation(AiProviderOutcome.PROVIDER_TERMINAL)
 
-            if self.coordinator.is_eligible(str(provider.name)):
-                _reactivate(provider)
-            if index < len(candidates) - 1:
-                if attempts:
-                    attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK)
-                fallback_from = str(provider.name)
-                fallback_reason = result.reason or "AI_PROVIDER_UNAVAILABLE"
+            if attempts:
+                attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK)
+            fallback_from = str(provider.name)
+            fallback_reason = result.reason or "AI_PROVIDER_UNAVAILABLE"
+            if attempt is not None and attempt.diagnostic is not None:
+                return invocation_from_diagnostic(attempt.diagnostic)
+            return AiProviderInvocation(AiProviderOutcome.NO_PROGRESS)
 
+        run_ai_need(
+            candidates=candidates,
+            invoke=invoke,
+            policy=policy,
+            sleeper=sleeper,
+        )
         self._history.extend(attempts)
         self._last_attempts = tuple(attempts)
+        if winner is not None:
+            return winner
         if not self.coordinator.ordered_names():
-            return SemanticProviderResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_CHAIN_EXHAUSTED")
-        return last or SemanticProviderResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_UNAVAILABLE")
+            return SemanticProviderResult(
+                ProviderState.UNAVAILABLE,
+                reason="AI_PROVIDER_CHAIN_EXHAUSTED",
+            )
+        return last or SemanticProviderResult(
+            ProviderState.UNAVAILABLE,
+            reason="AI_PROVIDER_UNAVAILABLE",
+        )
 
     def consume_attempts(self) -> tuple[ProviderAttempt, ...]:
         items = self._last_attempts
@@ -383,7 +437,7 @@ class DynamicProviderRoutingSession:
             "successful_urls": self.coordinator.successful_urls(),
             "excluded_configurations": list(self.excluded_configurations),
             "routing_policy": {
-                "strategy": "COST_AWARE_WITH_CIRCUIT_BREAKER",
+                "strategy": "COST_AWARE_CANONICAL_CYCLES",
                 "same_need_provider_attempts": 1,
                 "failure_window": ROLLING_WINDOW_SIZE,
                 "failure_threshold": FAILURES_TO_OPEN_CIRCUIT,
@@ -410,25 +464,42 @@ class DynamicContentRemediationRoutingSession:
 
     def analyze(self, request: Any) -> Any:
         from rasai.m20_ai import ContentRemediationResult
-        self._last_attempts = ()
-        candidates = self.semantic_session.order_candidate_objects(
-            self.providers,
-            request,
-            scope="CONTENT_REMEDIATION",
-        )
-        if not candidates:
-            return ContentRemediationResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_CHAIN_EXHAUSTED")
 
+        self._last_attempts = ()
         attempts: list[ProviderAttempt] = []
         last = None
-        fallback_from = None
-        fallback_reason = None
-        for index, provider in enumerate(candidates):
+        winner = None
+        fallback_from: str | None = None
+        fallback_reason: str | None = None
+        policy = getattr(self.semantic_session, "_rasai_execution_policy", None)
+        if not isinstance(policy, AiExecutionPolicy):
+            policy = AiExecutionPolicy()
+        sleeper = getattr(self.semantic_session, "_rasai_cycle_sleeper", None)
+
+        def candidates() -> tuple[Any, ...]:
+            return self.semantic_session.order_candidate_objects(
+                self.providers,
+                request,
+                scope="CONTENT_REMEDIATION",
+            )
+
+        def invoke(provider: Any, cycle: int, call_index: int) -> AiProviderInvocation:
+            nonlocal last, winner, fallback_from, fallback_reason
             result = provider.analyze(request, max_attempts=1)
             local = [_price_auto_attempt(item) for item in provider.consume_attempts()]
             if fallback_from is not None:
-                local = [replace(item, fallback_from_provider=fallback_from, fallback_reason=fallback_reason) for item in local]
-            local = [replace(item, attempt_index=len(attempts) + offset) for offset, item in enumerate(local, 1)]
+                local = [
+                    replace(
+                        item,
+                        fallback_from_provider=fallback_from,
+                        fallback_reason=fallback_reason,
+                    )
+                    for item in local
+                ]
+            local = [
+                replace(item, attempt_index=len(attempts) + offset)
+                for offset, item in enumerate(local, 1)
+            ]
             attempts.extend(local)
             last = result
             attempt = local[-1] if local else None
@@ -440,23 +511,49 @@ class DynamicContentRemediationRoutingSession:
                 )
 
             if result.state is ProviderState.AVAILABLE:
-                if fallback_from is not None and attempts:
-                    attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK_SUCCESS, fallback_from_provider=fallback_from, fallback_reason=fallback_reason)
-                self._last_attempts = tuple(attempts)
-                return result
-
-            if self.coordinator.is_eligible(str(provider.name)):
-                _reactivate(provider)
-            if index < len(candidates) - 1:
                 if attempts:
-                    attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK)
-                fallback_from = str(provider.name)
-                fallback_reason = result.reason or "AI_PROVIDER_UNAVAILABLE"
+                    attempts[-1] = replace(
+                        attempts[-1],
+                        decision=DECISION_FALLBACK_SUCCESS if fallback_from else DECISION_SUCCESS,
+                        fallback_from_provider=fallback_from,
+                        fallback_reason=fallback_reason,
+                    )
+                winner = result
+                return AiProviderInvocation(AiProviderOutcome.COMPLETE)
 
+            if result.state is ProviderState.NOT_CONFIGURED:
+                self.coordinator.exclude_configuration(
+                    str(provider.name),
+                    "NOT_CONFIGURED_DURING_EXECUTION",
+                )
+                return AiProviderInvocation(AiProviderOutcome.PROVIDER_TERMINAL)
+
+            if attempts:
+                attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK)
+            fallback_from = str(provider.name)
+            fallback_reason = result.reason or "AI_PROVIDER_UNAVAILABLE"
+            if attempt is not None and attempt.diagnostic is not None:
+                return invocation_from_diagnostic(attempt.diagnostic)
+            return AiProviderInvocation(AiProviderOutcome.NO_PROGRESS)
+
+        run_ai_need(
+            candidates=candidates,
+            invoke=invoke,
+            policy=policy,
+            sleeper=sleeper,
+        )
         self._last_attempts = tuple(attempts)
+        if winner is not None:
+            return winner
         if not self.coordinator.ordered_names():
-            return ContentRemediationResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_CHAIN_EXHAUSTED")
-        return last or ContentRemediationResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_UNAVAILABLE")
+            return ContentRemediationResult(
+                ProviderState.UNAVAILABLE,
+                reason="AI_PROVIDER_CHAIN_EXHAUSTED",
+            )
+        return last or ContentRemediationResult(
+            ProviderState.UNAVAILABLE,
+            reason="AI_PROVIDER_UNAVAILABLE",
+        )
 
     def consume_attempts(self) -> tuple[ProviderAttempt, ...]:
         items = self._last_attempts
@@ -581,6 +678,63 @@ def _context_interpretation_directive(context: ContentAnalysisContext) -> str:
         f"Allowed interpreted values: {allowed}. Each field object must contain status,value,confidence,rationale,evidence_ids. "
         "Auxiliary schema: " + json.dumps(_context_output_schema(), ensure_ascii=False, separators=(",", ":"))
     )
+
+
+def execution_coordinator_for(provider: Any) -> AiExecutionCoordinator | None:
+    """Return the execution-wide health coordinator shared by AUTO or explicit pools."""
+    if isinstance(provider, DynamicProviderRoutingSession):
+        return provider.coordinator
+    coordinator = getattr(provider, "_rasai_execution_coordinator", None)
+    if isinstance(coordinator, AiExecutionCoordinator):
+        return coordinator
+    base = getattr(provider, "base", None)
+    coordinator = getattr(base, "_rasai_execution_coordinator", None)
+    return coordinator if isinstance(coordinator, AiExecutionCoordinator) else None
+
+
+def provider_is_eligible(provider: Any) -> bool:
+    coordinator = execution_coordinator_for(provider)
+    name = str(getattr(provider, "name", "") or "")
+    if coordinator is not None and name:
+        return coordinator.is_eligible(name)
+    return getattr(provider, "_runtime_state", RuntimeProviderState.ACTIVE) is not RuntimeProviderState.QUARANTINED_FOR_AUDIT
+
+
+def canonical_candidate_objects(
+    provider: Any,
+    request: Any = None,
+    *,
+    scope: str,
+) -> tuple[Any, ...]:
+    """Expose one provider pool shape for AUTO and explicit selections."""
+    if isinstance(provider, DynamicProviderRoutingSession):
+        return tuple(
+            item for item in provider.order_candidate_objects(
+                provider.providers,
+                request,
+                scope=scope,
+            )
+            if provider_is_eligible(item)
+        )
+    routed = getattr(provider, "providers", None)
+    if isinstance(routed, tuple):
+        return tuple(item for item in routed if provider_is_eligible(item))
+    return (provider,) if provider is not None and provider_is_eligible(provider) else ()
+
+
+def record_canonical_attempt(
+    provider: Any,
+    attempt: ProviderAttempt,
+    *,
+    scope: str,
+    page_url: str | None = None,
+) -> None:
+    coordinator = execution_coordinator_for(provider)
+    if coordinator is None:
+        return
+    coordinator.record_attempt(attempt, page_url=page_url, scope=scope)
+    if coordinator.is_eligible(str(getattr(provider, "name", ""))):
+        _reactivate(provider)
 
 
 def _reactivate(provider: Any) -> None:

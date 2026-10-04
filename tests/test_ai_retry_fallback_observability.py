@@ -4,10 +4,10 @@ import io
 import json
 from email.message import Message
 import unittest
-from unittest.mock import patch
 from urllib.error import HTTPError
 
-from rasai.ai_resilience import MAX_AUTO_ATTEMPTS_PER_CONTEXT, retry_policy
+from rasai.ai_canonical_orchestration import AiExecutionPolicy
+from rasai.ai_resilience import retry_policy
 from rasai.m18_ai import (
     DeepSeekProvider,
     MiMoProvider,
@@ -66,7 +66,7 @@ def http_error(status: int, error_type: str, code: str, retry_after: str | None 
 
 
 class AiRetryFallbackTests(unittest.TestCase):
-    def test_timeout_retries_once_then_succeeds(self) -> None:
+    def test_provider_adapter_is_single_attempt_on_timeout(self) -> None:
         calls = 0
         def transport(*args):
             nonlocal calls
@@ -74,14 +74,41 @@ class AiRetryFallbackTests(unittest.TestCase):
             if calls == 1:
                 raise TimeoutError()
             return success(*args)
+
         provider = OpenAIProvider(api_key="x", transport=transport)
-        with patch("rasai.m18_ai.time.sleep", return_value=None):
-            result = provider.analyze(semantic_input())
+        result = provider.analyze(semantic_input())
+
+        self.assertEqual(result.state, ProviderState.UNAVAILABLE)
+        self.assertEqual(calls, 1)
+        attempts = provider.consume_attempts()
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(attempts[0].decision, "STOP")
+        self.assertFalse(attempts[0].retry_eligible)
+
+    def test_explicit_single_provider_retries_only_in_next_canonical_cycle(self) -> None:
+        calls = 0
+        def transport(*args):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise TimeoutError()
+            return success(*args)
+
+        provider = OpenAIProvider(api_key="x", transport=transport)
+        router = ProviderRoutingSession((provider,))
+        router._rasai_execution_policy = AiExecutionPolicy(
+            max_cycles=3,
+            cycle_delay_seconds=60,
+        )
+        sleeps: list[float] = []
+        router._rasai_cycle_sleeper = sleeps.append
+
+        result = router.analyze(semantic_input())
+
         self.assertEqual(result.state, ProviderState.AVAILABLE)
         self.assertEqual(calls, 2)
-        attempts = provider.consume_attempts()
-        self.assertEqual([item.decision for item in attempts], ["RETRY", "SUCCESS_AFTER_RETRY"])
-        self.assertTrue(attempts[0].retry_eligible)
+        self.assertEqual(sleeps, [60])
+        self.assertEqual(len(router.consume_attempts()), 2)
 
     def test_contract_error_is_never_retried(self) -> None:
         calls = 0
@@ -98,16 +125,25 @@ class AiRetryFallbackTests(unittest.TestCase):
         self.assertFalse(attempts[0].retry_eligible)
         self.assertEqual(attempts[0].decision, "STOP")
 
-    def test_retry_after_above_cap_stops_without_second_paid_call(self) -> None:
+    def test_retry_after_is_classified_for_orchestrator_but_adapter_does_not_retry(self) -> None:
         calls = 0
         def limited(*_):
             nonlocal calls
             calls += 1
             raise http_error(429, "rate_limit", "rate_limit", "120")
+
         provider = OpenAIProvider(api_key="x", transport=limited)
         result = provider.analyze(semantic_input())
+
         self.assertEqual(result.diagnostic.error_class, ProviderErrorClass.RATE_LIMIT_ERROR)
         self.assertEqual(calls, 1)
+        self.assertEqual(result.diagnostic.retry_after_seconds, 120.0)
+        policy = retry_policy(
+            result.diagnostic.error_class,
+            result.diagnostic.retry_after_seconds,
+        )
+        self.assertTrue(policy.eligible)
+        self.assertEqual(policy.delay_seconds, 120.0)
         self.assertFalse(provider.consume_attempts()[0].retry_eligible)
 
     def test_auto_declares_fallback_source_reason_and_success(self) -> None:
@@ -127,26 +163,31 @@ class AiRetryFallbackTests(unittest.TestCase):
         self.assertEqual(attempts[1].fallback_from_provider, "OPENAI")
         self.assertIn("AUTH_ERROR", attempts[1].fallback_reason or "")
 
-    def test_legacy_auto_router_is_bounded_even_when_every_provider_times_out(self) -> None:
+    def test_legacy_router_uses_same_three_cycle_budget_without_hidden_retry(self) -> None:
         calls = 0
         def timeout(*_):
             nonlocal calls
             calls += 1
             raise TimeoutError()
+
         router = ProviderRoutingSession((
             OpenAIProvider(api_key="x", transport=timeout),
             DeepSeekProvider(api_key="x", transport=timeout),
             MiMoProvider(api_key="x", transport=timeout),
         ))
-        with patch("rasai.m18_ai.time.sleep", return_value=None):
-            result = router.analyze(semantic_input())
+        router._rasai_execution_policy = AiExecutionPolicy(
+            max_cycles=3,
+            cycle_delay_seconds=60,
+        )
+        sleeps: list[float] = []
+        router._rasai_cycle_sleeper = sleeps.append
+
+        result = router.analyze(semantic_input())
+
         self.assertEqual(result.state, ProviderState.UNAVAILABLE)
-        # This legacy router retries each concrete provider once, therefore six
-        # calls are sufficient and the historical eight-call global ceiling is
-        # only an upper bound. Public AI=auto uses DynamicProviderRoutingSession.
-        self.assertEqual(calls, 6)
-        self.assertLessEqual(calls, MAX_AUTO_ATTEMPTS_PER_CONTEXT)
+        self.assertEqual(calls, 9)
         self.assertEqual(len(router.consume_attempts()), calls)
+        self.assertEqual(sleeps, [60, 60])
 
     def test_policy_contract_and_auth_are_non_retryable(self) -> None:
         self.assertFalse(retry_policy("CONTRACT_ERROR").eligible)

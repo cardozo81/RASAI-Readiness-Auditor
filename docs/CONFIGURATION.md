@@ -113,9 +113,10 @@ O coordenador:
 5. remove candidatos já inelegíveis pela saúde/quarentena da execução;
 6. estima o custo da necessidade atual usando provider, modelo, reasoning, input/output esperados, cache observado quando disponível e a regra tarifária vigente naquele instante;
 7. ordena os providers precificados do menor para o maior custo estimado; providers sem preço conhecido ficam depois dos precificados e preservam entre si a ordem rotativa determinística do coordenador;
-8. tenta cada provider elegível no máximo uma vez por necessidade;
-9. aplica circuit breaker/saúde por execução sem alterar os limiares existentes;
-10. encerra a necessidade no primeiro resultado válido.
+8. em cada ciclo, chama cada provider elegível no máximo uma vez;
+9. repete somente em ciclo posterior, até `RASAI_AI_MAX_CYCLES`, com `RASAI_AI_CYCLE_DELAY_SECONDS` entre ciclos;
+10. mantém falhas transitórias elegíveis e usa a janela 3/5 apenas como sinal de degradação; quarentena fica reservada a erro terminal normalizado;
+11. encerra imediatamente quando a necessidade fica completa.
 
 A ordem é recalculada a cada necessidade e pode mudar por horário, tamanho do request, modelo, reasoning, cache observado ou faixa de contexto. O runtime não troca silenciosamente para Batch, Flex ou outro service tier assíncrono somente para obter desconto.
 
@@ -147,13 +148,17 @@ Para Cohere, pricing possui uma configuração adicional não secreta: `RASAI_CO
 
 Política de default de reasoning: o RASAi usa o **menor nível válido que o modelo/API aceita**. Quando o provider permite desligar reasoning, o default é `NONE`; quando não permite, usa-se o menor effort disponível, como `LOW`; quando o adapter/modelo não expõe controle determinístico, permanece `PROVIDER_DEFAULT`. Isso é uma política RASAi de custo/eficiência e não uma afirmação sobre o default nativo do fornecedor.
 
-### Timeout de IA
+### Política de execução de IA
 
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---:|---|---|
-| `RASAI_AI_TIMEOUT_SECONDS` | `180` | número finito `> 0`, em segundos | `180`; reduzir/aumentar somente por necessidade operacional |
+| `RASAI_AI_TIMEOUT_SECONDS` | `180` | número finito `> 0`, em segundos | `180` |
+| `RASAI_AI_MAX_CYCLES` | `3` | inteiro `1..10` | `3` |
+| `RASAI_AI_CYCLE_DELAY_SECONDS` | `60` | número finito `0..300`, em segundos | `60` |
 
-O timeout vale por tentativa de provider, não para a auditoria inteira.
+O timeout vale por tentativa externa. `max_cycles` vale por necessidade lógica de IA e reinicia em cada nova necessidade. A espera ocorre somente entre ciclos; não existe espera entre providers do mesmo ciclo. Um `Retry-After` transitório pode aumentar a espera efetiva até o cap canônico de 300 s.
+
+AUTO e provider explícito usam essa mesma política. Na seleção explícita o pool contém apenas um provider; pricing continua sem funcionar como gate de admissão.
 
 ## Contexto editorial da IA - YMYL e E-E-A-T
 
@@ -296,7 +301,7 @@ valor já presente no processo/Windows
 > default do runtime
 ```
 
-Valores não secretos do INI são projetados novamente para o ambiente dos adapters antes da execução. Assim, remediação de IA, Web Performance, timeouts, modelo/reasoning selecionados e Synthetic Apdex podem sobreviver a salvar → fechar → reabrir.
+Valores não secretos do INI são projetados novamente para o ambiente dos adapters antes da execução. Assim, remediação de IA, timeout, máximo de ciclos, espera entre ciclos, modelo/reasoning selecionados, Web Performance e Synthetic Apdex podem sobreviver a salvar → fechar → reabrir. Os três parâmetros de execução de IA usam a mesma fonte de verdade no atalho de IA, em Todas as configurações, no snapshot da AUD e no RPR.
 
 Secrets nunca entram no INI. No Windows, o console pode persistir/remover uma credencial no escopo `User` somente mediante ação explícita; `Windows/Machine` é observado, não administrado.
 

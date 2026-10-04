@@ -19,8 +19,10 @@ from urllib.request import Request, urlopen
 
 from rasai.ai_cost_policy import resolve_observed_cost
 from rasai.ai_resilience import (
-    DECISION_RETRY, DECISION_STOP, DECISION_SUCCESS, DECISION_SUCCESS_AFTER_RETRY,
-    MAX_PROVIDER_ATTEMPTS_PER_CONTEXT, parse_retry_after, retry_policy,
+    DECISION_STOP,
+    DECISION_SUCCESS,
+    MAX_PROVIDER_ATTEMPTS_PER_CONTEXT,
+    parse_retry_after,
 )
 from rasai.m18_ai import (
     AttemptStatus,
@@ -325,66 +327,27 @@ class IsolatedStructuredSemanticProvider:
         *,
         max_attempts: int = MAX_PROVIDER_ATTEMPTS_PER_CONTEXT,
     ) -> SemanticProviderResult:
+        """Execute exactly one provider call; logical retry/cadence belongs to the orchestrator."""
+        del max_attempts  # compatibility argument; adapters never own logical retries.
         self._last_attempts = ()
-        collected: list[ProviderAttempt] = []
-        bounded = max(1, min(int(max_attempts), MAX_PROVIDER_ATTEMPTS_PER_CONTEXT))
-        last_result: SemanticProviderResult | None = None
-        for ordinal in range(1, bounded + 1):
-            result = self._analyze_once(semantic_input)
-            last_result = result
-            attempt = self._last_attempt
-            self._last_attempt = None
-            policy = retry_policy(None)
-            if attempt is not None:
-                diagnostic = attempt.diagnostic
-                policy = retry_policy(
-                    diagnostic.error_class if diagnostic else None,
-                    diagnostic.retry_after_seconds if diagnostic else None,
-                )
-                estimated = attempt.estimated_cost
-                currency = attempt.cost_currency
-                pricing_version = attempt.pricing_version
-                if attempt.usage is not None and estimated is None:
-                    estimated, currency, pricing_version = estimate_cost(
-                        attempt.provider,
-                        attempt.model or "",
-                        attempt.usage,
-                        attempt.finished_at,
-                        runtime_conditions=dict(attempt.pricing_runtime_conditions),
-                    )
-                decision = (
-                    DECISION_SUCCESS_AFTER_RETRY if result.status is ProviderState.AVAILABLE and ordinal > 1
-                    else DECISION_SUCCESS if result.status is ProviderState.AVAILABLE
-                    else DECISION_RETRY if policy.eligible and ordinal < bounded
+        result = self._analyze_once(semantic_input)
+        attempt = self._last_attempt
+        self._last_attempt = None
+        if attempt is not None:
+            annotated = replace(
+                attempt,
+                attempt_index=1,
+                retry_eligible=False,
+                decision=(
+                    DECISION_SUCCESS
+                    if result.status is ProviderState.AVAILABLE
                     else DECISION_STOP
-                )
-                annotated = replace(
-                    attempt,
-                    attempt_index=ordinal,
-                    retry_eligible=policy.eligible,
-                    decision=decision,
-                    estimated_cost=estimated,
-                    cost_currency=currency,
-                    pricing_version=pricing_version,
-                )
-                if self._history and self._history[-1] == attempt:
-                    self._history[-1] = annotated
-                collected.append(annotated)
-            if result.status is ProviderState.AVAILABLE:
-                self._last_attempts = tuple(collected)
-                return result
-            if result.status is ProviderState.NOT_CONFIGURED:
-                self._last_attempts = tuple(collected)
-                return result
-            if attempt is not None and policy.eligible and ordinal < bounded:
-                self._runtime_state = RuntimeProviderState.ACTIVE
-                if policy.delay_seconds > 0:
-                    time.sleep(policy.delay_seconds)
-                continue
-            self._last_attempts = tuple(collected)
-            return result
-        self._last_attempts = tuple(collected)
-        return last_result or SemanticProviderResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_UNAVAILABLE", provider=self.name, model=self.model, reasoning_profile=self.reasoning_profile)
+                ),
+            )
+            if self._history and self._history[-1] == attempt:
+                self._history[-1] = annotated
+            self._last_attempts = (annotated,)
+        return result
 
     def _analyze_once(self, semantic_input: SemanticInput) -> SemanticProviderResult:
         self._last_attempt = None
@@ -611,7 +574,6 @@ class IsolatedStructuredSemanticProvider:
             qualification_version=EXTENSION_QUALIFICATION_VERSION,
             semantic_contract_version=EXTENSION_SEMANTIC_CONTRACT_VERSION,
         )
-        self._runtime_state = RuntimeProviderState.QUARANTINED_FOR_AUDIT
         self._history.append(self._last_attempt)
         return SemanticProviderResult(
             ProviderState.UNAVAILABLE,

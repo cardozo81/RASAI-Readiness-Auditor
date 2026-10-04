@@ -13,6 +13,7 @@ from unittest.mock import patch
 from urllib.error import HTTPError, URLError
 
 from rasai.acquisition import HttpClient
+from rasai.ai_canonical_orchestration import AiExecutionPolicy
 from rasai.audit_runner import run_audit
 from rasai.device_context import DEVICE_CONTEXT_ENV
 from rasai.discovery import DiscoveryEngine
@@ -276,11 +277,24 @@ class M18ProviderTests(unittest.TestCase):
             DeepSeekProvider(api_key="x", transport=fail),
             MiMoProvider(api_key="x", transport=fail),
         ))
+        exhausted._rasai_execution_policy = AiExecutionPolicy(
+            max_cycles=3,
+            cycle_delay_seconds=60,
+        )
+        sleeps: list[float] = []
+        exhausted._rasai_cycle_sleeper = sleeps.append
         result = exhausted.analyze(_input())
-        self.assertEqual(result.reason, "AI_PROVIDER_CHAIN_EXHAUSTED")
-        self.assertTrue(all(value == "QUARANTINED_FOR_AUDIT" for value in exhausted.session_snapshot()["provider_states"].values()))
+        self.assertEqual(result.state, ProviderState.UNAVAILABLE)
+        self.assertIn("TIMEOUT_ERROR", result.reason or "")
+        self.assertTrue(
+            all(
+                value != "QUARANTINED_FOR_AUDIT"
+                for value in exhausted.session_snapshot()["provider_states"].values()
+            )
+        )
+        self.assertEqual(sleeps, [60, 60])
 
-    def test_explicit_provider_quarantine_blocks_retries_across_urls(self) -> None:
+    def test_explicit_adapter_transient_failure_does_not_quarantine_across_needs(self) -> None:
         calls = 0
 
         def fail(*_):
@@ -294,11 +308,11 @@ class M18ProviderTests(unittest.TestCase):
 
         self.assertEqual(first.state, ProviderState.UNAVAILABLE)
         self.assertEqual(second.state, ProviderState.UNAVAILABLE)
-        self.assertEqual(second.reason, "AI_PROVIDER_UNAVAILABLE:PROVIDER_QUARANTINED")
+        self.assertIn("TIMEOUT_ERROR", second.reason or "")
         self.assertEqual(calls, 2)
         snapshot = provider.session_snapshot()
         self.assertEqual(snapshot["strategy"], "SINGLE_PROVIDER")
-        self.assertEqual(snapshot["provider_states"]["OPENAI"], "QUARANTINED_FOR_AUDIT")
+        self.assertEqual(snapshot["provider_states"]["OPENAI"], "ACTIVE")
         self.assertEqual(len(provider.attempt_history()), 2)
 
     def test_run_audit_persists_attempts_and_materializes_ai_telemetry_page(self) -> None:

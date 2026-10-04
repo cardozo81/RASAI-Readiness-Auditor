@@ -4,6 +4,7 @@ import time
 
 from rasai.accepted_audit_refinements import (
     _deadline_candidate_call,
+    _install_improvement_runtime_patch,
     _merge_recommendations,
     _repair_findings,
     _root_for_recommendation,
@@ -24,6 +25,18 @@ class _FakeImprovement:
         if not set(raw.get("evidence_ids", [])).issubset(allowed[finding_id]):
             raise ValueError("evidence outside finding")
         return payload.get("summary", ""), [dict(raw)]
+
+
+def test_accepted_refinements_do_not_replace_canonical_improvement_orchestrator() -> None:
+    from rasai import improvement_intelligence as improvement
+
+    before = improvement._ai_analyze
+    assert getattr(before, "_rasai_canonical_cycles", False) is True
+
+    _install_improvement_runtime_patch()
+
+    assert improvement._ai_analyze is before
+    assert getattr(improvement._ai_analyze, "_rasai_canonical_cycles", False) is True
 
 
 def test_partial_recommendations_preserve_valid_and_isolate_rejected() -> None:

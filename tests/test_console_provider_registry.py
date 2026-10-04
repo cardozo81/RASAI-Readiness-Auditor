@@ -165,7 +165,7 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
                 ai_provider="auto",
             )
             estimate = estimate_exposure(state)
-            self.assertEqual((estimate.min_ai_attempts, estimate.max_ai_attempts), (1, 12))
+            self.assertEqual((estimate.min_ai_attempts, estimate.max_ai_attempts), (1, 36))
             self.assertTrue(any("6 provider" in reason for reason in estimate.reasons))
             self.assertFalse(any("OpenAI -> DeepSeek -> MiMo" in reason for reason in estimate.reasons))
         finally:

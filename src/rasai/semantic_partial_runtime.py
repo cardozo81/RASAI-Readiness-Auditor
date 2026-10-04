@@ -6,8 +6,8 @@ to a sealed evidence version enters a temporary rule-scope context.  Inside that
 a provider may return a valid subset of the rules requested for that logical round; the
 outer coordinator persists that subset and asks only for the unresolved rules next.
 
-Provider routing, retry, fallback, quarantine, usage and pricing remain owned by the
-existing provider runtime.
+Provider adapters remain atomic. Cycle scheduling, fallback, Retry-After and execution
+health are owned by the canonical RASAi orchestration layer.
 """
 from __future__ import annotations
 
@@ -18,6 +18,14 @@ import json
 import sqlite3
 from typing import Any, Iterator, Mapping, Sequence
 
+from rasai.ai_canonical_orchestration import (
+    AiExecutionPolicy,
+    AiNeedFinalState,
+    AiProviderInvocation,
+    AiProviderOutcome,
+    invocation_from_diagnostic,
+    run_ai_need,
+)
 from rasai.ai_governance import (
     begin_round,
     complete_round,
@@ -26,6 +34,11 @@ from rasai.ai_governance import (
     task_missing_requirements,
 )
 from rasai import semantic
+from rasai.dynamic_ai_routing import (
+    canonical_candidate_objects,
+    execution_coordinator_for,
+    record_canonical_attempt,
+)
 from rasai.m18_persistence import attempt_governance, remember_attempt_governance
 
 
@@ -34,11 +47,10 @@ _EXECUTION_CONTEXT: ContextVar[tuple[str, Any, Any] | None] = ContextVar(
     "rasai_semantic_execution_context",
     default=None,
 )
-_RULE_PROVIDER_METADATA: ContextVar[dict[str, dict[str, str | None]]] = ContextVar(
+_RULE_PROVIDER_METADATA: ContextVar[dict[str, dict[str, Any]]] = ContextVar(
     "rasai_semantic_rule_provider_metadata",
     default={},
 )
-_MAX_CONTINUATION_ROUNDS = 4
 _INSTALLED = False
 
 
@@ -87,9 +99,18 @@ def _assessment_payload(value: Any, metadata: Mapping[str, Any] | None = None) -
         output["provider_metadata"] = {
             "provider": metadata.get("provider"),
             "model": metadata.get("model"),
+            "cycle": metadata.get("cycle"),
+            "attempt": metadata.get("attempt"),
             "prompt_id": metadata.get("prompt_id"),
             "prompt_version": metadata.get("prompt_version"),
             "configuration_version": metadata.get("configuration_version"),
+            "evidence_snapshot_id": metadata.get("evidence_snapshot_id"),
+            "timestamp": metadata.get("timestamp"),
+            "usage": metadata.get("usage"),
+            "estimated_cost": metadata.get("estimated_cost"),
+            "cost_currency": metadata.get("cost_currency"),
+            "pricing_version": metadata.get("pricing_version"),
+            "pricing_rule_id": metadata.get("pricing_rule_id"),
         }
     return output
 
@@ -114,7 +135,7 @@ def _assessment_from_payload(value: Mapping[str, Any]):
         return None
 
 
-def _persisted_task_values(workspace: Any, task_id: str) -> tuple[dict[str, Any], dict[str, dict[str, str | None]]]:
+def _persisted_task_values(workspace: Any, task_id: str) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     connection = sqlite3.connect(workspace.database)
     try:
         row = connection.execute(
@@ -135,7 +156,7 @@ def _persisted_task_values(workspace: Any, task_id: str) -> tuple[dict[str, Any]
         return {}, {}
 
     accepted: dict[str, Any] = {}
-    metadata: dict[str, dict[str, str | None]] = {}
+    metadata: dict[str, dict[str, Any]] = {}
     for key, value in raw.items():
         if not isinstance(value, Mapping):
             continue
@@ -146,13 +167,9 @@ def _persisted_task_values(workspace: Any, task_id: str) -> tuple[dict[str, Any]
         accepted[rule_id] = assessment
         raw_meta = value.get("provider_metadata")
         if isinstance(raw_meta, Mapping):
-            metadata[rule_id] = {
-                "provider": str(raw_meta.get("provider") or "") or None,
-                "model": str(raw_meta.get("model") or "") or None,
-                "prompt_id": str(raw_meta.get("prompt_id") or "") or None,
-                "prompt_version": str(raw_meta.get("prompt_version") or "") or None,
-                "configuration_version": str(raw_meta.get("configuration_version") or "") or None,
-            }
+            # Keep the full fragment-level provenance when the same evidence version
+            # is rehydrated; do not collapse cycle/attempt/usage/pricing metadata.
+            metadata[rule_id] = dict(raw_meta)
     return accepted, metadata
 
 
@@ -314,7 +331,7 @@ def _install_m7_continuation() -> None:
         if _semantic_input_snapshot_gap(semantic_input, evidence_snapshot):
             return semantic.ProviderCallResult(
                 semantic.ProviderState.UNAVAILABLE,
-                reason="AI_EVIDENCE_SNAPSHOT_MISMATCH",
+                reason="INPUT_BLOCKED:AI_EVIDENCE_SNAPSHOT_MISMATCH",
             )
 
         task_id = register_task(
@@ -349,10 +366,24 @@ def _install_m7_continuation() -> None:
         last_call: Any | None = None
         pending = list(task_missing_requirements(workspace, task_id))
 
-        for _ in range(_MAX_CONTINUATION_ROUNDS):
-            if not pending:
-                break
-            requested = tuple(pending)
+        policy = getattr(provider, "_rasai_execution_policy", AiExecutionPolicy())
+        if not isinstance(policy, AiExecutionPolicy):
+            policy = AiExecutionPolicy()
+        cycle_sleeper = getattr(provider, "_rasai_cycle_sleeper", None)
+
+        def candidates() -> tuple[Any, ...]:
+            return canonical_candidate_objects(
+                provider,
+                semantic_input,
+                scope="SEMANTIC",
+            )
+
+        def invoke(candidate: Any, cycle: int, call_index: int) -> AiProviderInvocation:
+            nonlocal last_call, response_template, primary_intent
+            requested = tuple(task_missing_requirements(workspace, task_id))
+            if not requested:
+                return AiProviderInvocation(AiProviderOutcome.COMPLETE)
+
             round_id = begin_round(
                 workspace=workspace,
                 ai_task_id=task_id,
@@ -362,6 +393,9 @@ def _install_m7_continuation() -> None:
                     "requested_rule_ids": list(requested),
                     "evidence_ids": sorted(semantic_input.allowed_evidence_ids),
                     "evidence_snapshot_id": evidence_snapshot.evidence_snapshot_id,
+                    "cycle": cycle,
+                    "provider": str(getattr(candidate, "name", "")),
+                    "attempt": call_index,
                 },
                 input_summary={
                     "requested_rules": len(requested),
@@ -370,36 +404,68 @@ def _install_m7_continuation() -> None:
                 },
             )
             from rasai.m18_ai import provider_attempt_history
-            before_attempts = len(provider_attempt_history(provider))
+
+            before_attempts = len(provider_attempt_history(candidate))
             with attempt_governance(
                 operation="SEMANTIC_M7",
                 ai_task_id=task_id,
                 ai_round_id=round_id,
             ):
                 with _scoped_provider_contract(requested):
-                    call = original_safe(provider, semantic_input)
-            for provider_attempt in provider_attempt_history(provider)[before_attempts:]:
+                    call = original_safe(candidate, semantic_input)
+            fresh_attempts = provider_attempt_history(candidate)[before_attempts:]
+            for provider_attempt in fresh_attempts:
                 remember_attempt_governance(
                     provider_attempt,
                     operation="SEMANTIC_M7",
                     ai_task_id=task_id,
                     ai_round_id=round_id,
                 )
+                record_canonical_attempt(
+                    candidate,
+                    provider_attempt,
+                    scope="SEMANTIC",
+                    page_url=str(semantic_input.page_url),
+                )
+
             last_call = call
             response = getattr(call, "response", None)
             new_values: dict[str, Any] = {}
+            attempt_meta = fresh_attempts[-1] if fresh_attempts else None
             if response is not None:
                 response_template = response_template or response
                 for assessment in response.assessments:
                     rule_id = str(assessment.rule_id)
                     if rule_id not in requested or rule_id in accepted:
                         continue
+                    usage = getattr(attempt_meta, "usage", None)
                     meta = {
-                        "provider": str(getattr(response, "provider", "") or ""),
-                        "model": getattr(response, "model", None),
+                        "provider": str(getattr(response, "provider", "") or getattr(candidate, "name", "")),
+                        "model": getattr(response, "model", None) or getattr(candidate, "model", None),
+                        "cycle": cycle,
+                        "attempt": call_index,
                         "prompt_id": str(getattr(response, "prompt_id", "") or ""),
                         "prompt_version": str(getattr(response, "prompt_version", "") or ""),
                         "configuration_version": str(getattr(response, "configuration_version", "") or ""),
+                        "evidence_snapshot_id": evidence_snapshot.evidence_snapshot_id,
+                        "timestamp": (
+                            getattr(attempt_meta, "finished_at", None).isoformat()
+                            if getattr(attempt_meta, "finished_at", None) is not None else None
+                        ),
+                        "usage": (
+                            {
+                                "input_tokens": getattr(usage, "input_tokens", None),
+                                "cached_input_tokens": getattr(usage, "cached_input_tokens", None),
+                                "output_tokens": getattr(usage, "output_tokens", None),
+                                "reasoning_tokens": getattr(usage, "reasoning_tokens", None),
+                                "total_tokens": getattr(usage, "total_tokens", None),
+                            }
+                            if usage is not None else None
+                        ),
+                        "estimated_cost": getattr(attempt_meta, "estimated_cost", None),
+                        "cost_currency": getattr(attempt_meta, "cost_currency", None),
+                        "pricing_version": getattr(attempt_meta, "pricing_version", None),
+                        "pricing_rule_id": getattr(attempt_meta, "pricing_rule_id", None),
                     }
                     accepted[rule_id] = assessment
                     provider_meta[rule_id] = meta
@@ -424,15 +490,45 @@ def _install_m7_continuation() -> None:
                 missing=remaining,
                 output_payload={
                     "provider_state": str(getattr(call, "state", "UNAVAILABLE")),
+                    "provider": str(getattr(candidate, "name", "")),
+                    "cycle": cycle,
+                    "attempt": call_index,
                     "accepted_rule_ids": list(new_values),
                     "missing_rule_ids": list(remaining),
                     "reason": getattr(call, "reason", None),
                 },
                 failed=response is None,
             )
-            pending = list(task_missing_requirements(workspace, task_id))
-            if not new_values:
-                break
+            pending_now = tuple(task_missing_requirements(workspace, task_id))
+            if not pending_now:
+                return AiProviderInvocation(AiProviderOutcome.COMPLETE)
+            if new_values:
+                return AiProviderInvocation(AiProviderOutcome.PARTIAL_PROGRESS)
+
+            diagnostic = getattr(call, "diagnostic", None)
+            if diagnostic is None and attempt_meta is not None:
+                diagnostic = getattr(attempt_meta, "diagnostic", None)
+            if diagnostic is not None:
+                return invocation_from_diagnostic(diagnostic)
+
+            state = str(getattr(getattr(call, "state", None), "value", getattr(call, "state", "")))
+            if state == "NOT_CONFIGURED":
+                coordinator = execution_coordinator_for(candidate)
+                if coordinator is not None:
+                    coordinator.exclude_configuration(
+                        str(getattr(candidate, "name", "")),
+                        "NOT_CONFIGURED_DURING_EXECUTION",
+                    )
+                return AiProviderInvocation(AiProviderOutcome.PROVIDER_TERMINAL)
+            return AiProviderInvocation(AiProviderOutcome.NO_PROGRESS)
+
+        execution = run_ai_need(
+            candidates=candidates,
+            invoke=invoke,
+            policy=policy,
+            sleeper=cycle_sleeper,
+        )
+        pending = list(task_missing_requirements(workspace, task_id))
 
         if not accepted:
             return last_call or original_safe(provider, semantic_input)

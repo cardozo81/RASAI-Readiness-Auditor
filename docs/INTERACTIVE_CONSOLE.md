@@ -390,6 +390,8 @@ Com apenas consumidores opcionais selecionados, o plano inicia em `Executar sem 
 
 A seleção AUTO usa o `provider_registry` dinâmico; **não é uma cadeia fixa OpenAI -> DeepSeek -> MiMo**. Todos os providers integrados atuais podem entrar quando configurados, com modelo elegível e saudáveis. O operador pode manter uma credencial configurada e excluir somente sua participação no AUTO via `RASAI_AI_AUTO_EXCLUDE`.
 
+A área `INÍCIO > Inteligência Artificial` e `Todas as configurações` editam a mesma política de execução: **Timeout por tentativa**, **Máximo de ciclos** e **Espera entre ciclos**. Defaults: `180 s`, `3` ciclos e `60 s`. Esses valores são não secretos, podem permanecer apenas na sessão ou ser persistidos no INI, participam de Restore Defaults e são congelados para AUD/RPR. A espera existe somente entre ciclos; o console não cria retry/timer paralelo.
+
 Providers sem credencial continuam configuráveis; ausência de credencial afeta readiness/execução, não a possibilidade de abrir e editar sua configuração.
 
 A gestão específica de credencial de provider mantém as ações operacionais existentes:

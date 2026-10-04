@@ -1,9 +1,8 @@
 """Incremental, evidence-version-bound continuation for M24 technical AI.
 
-The existing M24 provider runtime remains the owner of provider selection, fallback,
-request construction, attempts, usage and cost. This layer coordinates logical rounds:
-valid resource assessments are retained, and a continuation asks only for resource
-requirements still missing from the same sealed evidence version.
+The M24 adapter owns one request/response only. The canonical orchestration engine owns
+provider order, cycles and timers; this layer owns requirement acceptance and asks each
+provider only for resources still missing from the same sealed evidence version.
 
 The wrapper is installed by the governed runtime and therefore affects both initial AUD
 execution and selective RPR recovery without duplicating provider policy.
@@ -19,6 +18,13 @@ import sqlite3
 from typing import Any, Iterator, Mapping, Sequence
 
 from rasai import ai_governance
+from rasai.ai_canonical_orchestration import (
+    AiExecutionPolicy,
+    AiProviderInvocation,
+    AiProviderOutcome,
+    invocation_from_diagnostic,
+    run_ai_need,
+)
 from rasai.ai_selective_invalidation import register_task_dependency
 from rasai.audit_phase_runtime import require_sealed_evidence
 from rasai.semantic import ProviderState
@@ -27,7 +33,6 @@ from rasai.m18_persistence import attempt_governance
 
 _PURPOSE = "TECHNICAL_AI"
 _CONTRACT = "M24-TECHNICAL-REMEDIATION-v2"
-_MAX_CONTINUATION_ROUNDS = 3
 _ACTIVE_RESOURCES: ContextVar[tuple[str, ...] | None] = ContextVar(
     "rasai_m24_requested_resources",
     default=None,
@@ -384,14 +389,50 @@ def _install_maybe_wrapper() -> None:
         evidence_snapshot = require_sealed_evidence(audit_id=audit_id, workspace=workspace)
         resources = _available_resources(workspace, audit_id)
 
-        # Preserve the original advisory behavior when there is no score-bound resource
-        # requirement. The call remains one atomic technical-remediation request.
+        # Advisory-only M24 is still one logical AI need. It therefore uses the
+        # same provider pool/cycle policy even though there are no score-bound
+        # RESOURCE:* requirements to accumulate.
         if not resources:
-            return current(
-                audit_id=audit_id,
-                workspace=workspace,
-                provider=provider,
-                diagnostics=diagnostics,
+            policy = getattr(provider, "_rasai_execution_policy", AiExecutionPolicy())
+            if not isinstance(policy, AiExecutionPolicy):
+                policy = AiExecutionPolicy()
+            sleeper = getattr(provider, "_rasai_cycle_sleeper", None)
+            last_result = None
+            winner = None
+
+            def advisory_candidates() -> tuple[Any, ...]:
+                return tuple(m24_ai._candidates(provider))
+
+            def advisory_invoke(
+                candidate: Any,
+                cycle: int,
+                call_index: int,
+            ) -> AiProviderInvocation:
+                nonlocal last_result, winner
+                result = current(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                    provider=candidate,
+                    diagnostics=diagnostics,
+                )
+                last_result = result
+                if result.state is ProviderState.AVAILABLE:
+                    winner = result
+                    return AiProviderInvocation(AiProviderOutcome.COMPLETE)
+                diagnostic = getattr(result, "diagnostic", None)
+                if diagnostic is not None:
+                    return invocation_from_diagnostic(diagnostic)
+                return AiProviderInvocation(AiProviderOutcome.NO_PROGRESS)
+
+            run_ai_need(
+                candidates=advisory_candidates,
+                invoke=advisory_invoke,
+                policy=policy,
+                sleeper=sleeper,
+            )
+            return winner or last_result or m24_ai.M24AiResult(
+                state=ProviderState.UNAVAILABLE,
+                reason="M24_AI_UNAVAILABLE",
             )
 
         requirements = tuple(_requirement(resource) for resource in resources)
@@ -435,18 +476,26 @@ def _install_maybe_wrapper() -> None:
                 reason="REUSED_GOVERNED_TASK",
             )
 
-        for _ in range(_MAX_CONTINUATION_ROUNDS):
-            if not pending:
-                break
-            requested = tuple(pending)
+        policy = getattr(provider, "_rasai_execution_policy", AiExecutionPolicy())
+        if not isinstance(policy, AiExecutionPolicy):
+            policy = AiExecutionPolicy()
+        cycle_sleeper = getattr(provider, "_rasai_cycle_sleeper", None)
+
+        def candidates() -> tuple[Any, ...]:
+            return tuple(m24_ai._candidates(provider))
+
+        def invoke(candidate: Any, cycle: int, call_index: int) -> AiProviderInvocation:
+            nonlocal last_result, provider_name, model_name
+            requested = tuple(ai_governance.task_missing_requirements(workspace, task_id))
+            if not requested:
+                return AiProviderInvocation(AiProviderOutcome.COMPLETE)
             active_resources = tuple(_resource_from_requirement(item) for item in requested)
+            active_set = set(active_resources)
             filtered_diagnostics = tuple(
                 item
                 for item in diagnostics
-                if _canonical_resource(getattr(item, "category", "")) in set(active_resources)
+                if _canonical_resource(getattr(item, "category", "")) in active_set
             )
-            # Keep an empty diagnostic set valid: resource baseline facts are loaded by
-            # the existing provider runtime from deterministic rule executions.
             round_id = ai_governance.begin_round(
                 workspace=workspace,
                 ai_task_id=task_id,
@@ -455,6 +504,9 @@ def _install_maybe_wrapper() -> None:
                     "evidence_snapshot_id": evidence_snapshot.evidence_snapshot_id,
                     "requested_requirements": list(requested),
                     "diagnostic_codes": [str(getattr(item, "code", "")) for item in filtered_diagnostics],
+                    "cycle": cycle,
+                    "provider": str(getattr(candidate, "name", "")),
+                    "attempt": call_index,
                 },
                 input_summary={
                     "requested_resources": list(active_resources),
@@ -470,7 +522,7 @@ def _install_maybe_wrapper() -> None:
                     result = current(
                         audit_id=audit_id,
                         workspace=workspace,
-                        provider=provider,
+                        provider=candidate,
                         diagnostics=filtered_diagnostics,
                     )
             last_result = result
@@ -485,6 +537,7 @@ def _install_maybe_wrapper() -> None:
             new_values: dict[str, dict[str, Any]] = {}
             explanation = result.explanation or {}
             raw_assessments = explanation.get("resource_assessments") if isinstance(explanation, Mapping) else None
+            attempt = getattr(result, "attempt", None)
             if isinstance(raw_assessments, list):
                 for raw in raw_assessments:
                     if not isinstance(raw, Mapping):
@@ -493,6 +546,32 @@ def _install_maybe_wrapper() -> None:
                     if key not in requested or key in accepted:
                         continue
                     value = dict(raw)
+                    usage = getattr(attempt, "usage", None)
+                    value["_rasai_provenance"] = {
+                        "provider": result.provider or getattr(candidate, "name", None),
+                        "model": result.model or getattr(candidate, "model", None),
+                        "cycle": cycle,
+                        "attempt": call_index,
+                        "evidence_snapshot_id": evidence_snapshot.evidence_snapshot_id,
+                        "timestamp": (
+                            getattr(attempt, "finished_at", None).isoformat()
+                            if getattr(attempt, "finished_at", None) is not None else None
+                        ),
+                        "usage": (
+                            {
+                                "input_tokens": getattr(usage, "input_tokens", None),
+                                "cached_input_tokens": getattr(usage, "cached_input_tokens", None),
+                                "output_tokens": getattr(usage, "output_tokens", None),
+                                "reasoning_tokens": getattr(usage, "reasoning_tokens", None),
+                                "total_tokens": getattr(usage, "total_tokens", None),
+                            }
+                            if usage is not None else None
+                        ),
+                        "estimated_cost": getattr(attempt, "estimated_cost", None),
+                        "cost_currency": getattr(attempt, "cost_currency", None),
+                        "pricing_version": getattr(attempt, "pricing_version", None),
+                        "pricing_rule_id": getattr(attempt, "pricing_rule_id", None),
+                    }
                     accepted[key] = value
                     new_values[key] = value
 
@@ -507,15 +586,31 @@ def _install_maybe_wrapper() -> None:
                     "provider_state": result.state.value,
                     "provider": result.provider,
                     "model": result.model,
+                    "cycle": cycle,
+                    "attempt": call_index,
                     "accepted_requirements": list(new_values),
                     "missing_requirements": list(remaining),
                     "reason": result.reason,
                 },
                 failed=result.state is not ProviderState.AVAILABLE,
             )
-            pending = list(ai_governance.task_missing_requirements(workspace, task_id))
-            if not new_values:
-                break
+            pending_now = tuple(ai_governance.task_missing_requirements(workspace, task_id))
+            if not pending_now:
+                return AiProviderInvocation(AiProviderOutcome.COMPLETE)
+            if new_values:
+                return AiProviderInvocation(AiProviderOutcome.PARTIAL_PROGRESS)
+            diagnostic = getattr(result, "diagnostic", None)
+            if diagnostic is not None:
+                return invocation_from_diagnostic(diagnostic)
+            return AiProviderInvocation(AiProviderOutcome.NO_PROGRESS)
+
+        run_ai_need(
+            candidates=candidates,
+            invoke=invoke,
+            policy=policy,
+            sleeper=cycle_sleeper,
+        )
+        pending = list(ai_governance.task_missing_requirements(workspace, task_id))
 
         unresolved = tuple(ai_governance.task_missing_requirements(workspace, task_id))
         final_state = "AVAILABLE" if accepted else (

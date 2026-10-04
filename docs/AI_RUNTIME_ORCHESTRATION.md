@@ -1,6 +1,6 @@
 # Orquestração de IA em tempo de execução
 
-Este documento descreve o contrato operacional do RASAi para uso de provedores de IA, com foco em `AI=auto`, rastreabilidade das comunicações externas e interpretação editorial transitória de campos configurados como `auto`.
+Este documento descreve o contrato canônico de orquestração local do RASAi para qualquer necessidade lógica de IA. `AI=auto` e provider explícito usam o mesmo motor de ciclos, timers, classificação de outcome, health e quarentena; a diferença é somente o tamanho/ordenação do pool de providers.
 
 A lógica deste documento é operacional. Ela não altera a identidade pública `SARI-001`, a metodologia `SCORE-GEO-004` nem transforma respostas de IA em fatos determinísticos do website.
 
@@ -14,7 +14,7 @@ A política financeira, preços, janelas horárias e critérios de revisão do c
 4. `AI=auto` deve escolher primeiro, entre os providers aptos e incluídos no pool AUTO, o candidato com menor custo estimado para a necessidade atual quando existir pricing conhecido.
 5. Capacidade (`APTA`) e participação no AUTO são estados diferentes: um provider pode permanecer apto e explicitamente selecionável mesmo quando o usuário o exclui do AUTO.
 6. Falhas terminais retiram o provider do restante daquela execução.
-7. Falhas temporárias permitem novas oportunidades, mas são limitadas por circuit breaker.
+7. Falhas transitórias permanecem recuperáveis em ciclos posteriores. A janela 3/5 sinaliza degradação de health, mas não exclui permanentemente o provider da AUD/RPR.
 8. Requests e responses externos são auditáveis, com sanitização de segredos.
 9. Interpretações YMYL/E-E-A-T de campos `auto` são informativas e transitórias: não sobrescrevem configuração nem entram no cálculo do SARI.
 10. Economia nunca reativa provider em quarentena nem altera classificação de falha.
@@ -56,7 +56,7 @@ Contrato operacional vigente:
 - pricing Standard permanece declarativo no catálogo e participa da ordenação econômica;
 - `AI=none` e os providers já existentes não dependem de Mistral.
 
-O adapter Mistral reutiliza o mesmo boundary de retry, quarantine/circuit breaker, telemetria e sanitização das extensões síncronas. A integração não altera coleta, AUD/RPR, evidence seal, SARI, SCORE-GEO, Apdex, fórmulas determinísticas nem critérios de CAT.
+O adapter Mistral reutiliza o mesmo boundary de single-attempt adapter, ciclos canônicos, health/quarentena, telemetria e sanitização das extensões síncronas. A integração não altera coleta, AUD/RPR, evidence seal, SARI, SCORE-GEO, Apdex, fórmulas determinísticas nem critérios de CAT.
 
 No reprocessamento, Mistral segue a mesma orquestração compartilhada da execução normal: somente trabalho de IA realmente invalidado por dependências de evidência pode ser reexecutado. O provider não cria um caminho paralelo de processamento.
 
@@ -78,7 +78,7 @@ Contrato operacional vigente:
 - usage preserva input total, cached input, output e total sem somar cache-write duas vezes;
 - pricing declarativo participa da ordenação econômica; ausência de preço produziria UNPRICED, não inelegibilidade automática.
 
-A integração Kimi reutiliza retry, quarantine/circuit breaker, telemetria, secret-safety e consumers compartilhados de IA. Não altera crawling, AUD/RPR, checkpoints, evidence seal, CATs, SARI, SCORE-GEO, Apdex, fórmulas, scoring ou consolidação determinística.
+A integração Kimi reutiliza single-attempt adapter, ciclos canônicos, health/quarentena, telemetria, secret-safety e consumers compartilhados de IA. Não altera crawling, AUD/RPR, checkpoints, evidence seal, CATs, SARI, SCORE-GEO, Apdex, fórmulas, scoring ou consolidação determinística.
 
 ## 3. Seleção por custo por necessidade de IA
 
@@ -107,25 +107,53 @@ necessidade 2 -> recalcular preços/tokens/horário/saúde antes de ordenar nova
 
 A ordem pode mudar entre duas necessidades consecutivas. Isso é intencional: o horário pode cruzar uma janela tarifária, o request pode ser maior, o reasoning/modelo pode ser diferente e o histórico de usage pode melhorar a estimativa.
 
-Em uma mesma necessidade, cada provider é visitado no máximo uma vez. Quando todos os candidatos elegíveis foram tentados sem sucesso, a necessidade termina como indisponível. Não há ciclo de retry entre providers.
+### 3.1 Necessidade lógica, tentativa e ciclo
 
+Uma **necessidade lógica de IA** é uma unidade de trabalho com seu próprio conjunto de requisitos. Cada nova necessidade começa em `cycle=1`, com orçamento novo de ciclos. A saúde/quarentena dos providers, porém, pertence à sessão da execução e não é reiniciada entre necessidades da mesma AUD/RPR.
 
-### 3.1 Política local do relatório consolidado
+Uma **tentativa** é uma única chamada externa a um provider. O adapter executa exatamente uma tentativa e apenas normaliza request/response/error/usage. Ele não possui retry lógico, fallback, `sleep` ou loop próprio.
 
-O contrato geral acima permanece inalterado para o runtime compartilhado.
+Um **ciclo** percorre, sem espera intermediária, cada provider ainda elegível no máximo uma vez. Com defaults `max_cycles=3` e providers `A/B/C`, a cadência máxima é:
 
-O `CONS-5` adiciona, exclusivamente em sua camada de consolidação, uma segunda rodada limitada quando a primeira cadeia inteira falha e existem erros transitórios. Essa política não altera `dynamic_ai_routing.py`, adapters, providers, coleta ou persistência das auditorias.
+```text
+ciclo 1: A -> B -> C
+espera entre ciclos
+ciclo 2: A -> B -> C
+espera entre ciclos
+ciclo 3: A -> B -> C
+encerra
+```
 
-A segunda rodada:
+Provider explícito é o mesmo contrato com pool unitário: `A -> espera -> A -> espera -> A`. Não existe retry oculto no adapter; por isso o teto teórico de chamadas de uma necessidade é `max_cycles * providers_elegíveis`.
 
-- possui limite total de 2 rodadas;
-- reconsulta a ordem de candidatos ainda elegíveis;
-- inclui somente providers cuja falha anterior foi classificada como transitória/retryable;
-- exclui erros terminais já classificados pelo runtime;
-- pode respeitar `Retry-After` com teto local;
-- preserva cada tentativa e exchange sanitizado no `CONRUN-*`.
+O orquestrador encerra imediatamente quando a necessidade fica `COMPLETE`. Não chama providers restantes e não espera quando já concluiu, não existe ciclo seguinte ou o pool ficou vazio.
 
-O objetivo é permitir recuperação de rate limit, timeout, rede e indisponibilidade temporária sem introduzir loop global no orquestrador.
+O `CONS-5`, Improvement Intelligence, Request Remediation/CAT-09, Competitive Intelligence, Directed Analysis, M7 semântico, M20, M24 e Source Quality consomem o mesmo motor de ciclos. Não existe rodada/retry/repair privado adicional nesses consumidores.
+
+### 3.2 Partial completion e INPUT_BLOCKED
+
+Resposta parcial válida não é erro de provider. Quando uma resposta fornece um subconjunto aceito:
+
+- o RASAi persiste os requisitos válidos e sua proveniência;
+- o outcome é `PARTIAL_PROGRESS`;
+- health/circuit não é penalizado;
+- apenas os requisitos faltantes seguem para o próximo provider, quando o contrato permite;
+- o mesmo provider somente pode complementar em ciclo posterior, nunca imediatamente no mesmo ciclo;
+- valores já aceitos não são silenciosamente reescritos.
+
+Ao esgotar ciclos, todos os requisitos atendidos resultam em `COMPLETE`; subset válido resulta em `PARTIAL`; nenhum requisito aceito resulta em `UNAVAILABLE`.
+
+`INPUT_BLOCKED` é diferente de `NO_PROGRESS`. O primeiro é decidido pelo próprio RASAi quando falta evidência/pré-requisito determinístico real e interrompe a necessidade sem tentar outro modelo. Se a entrada válida existe, mas o modelo não resolve ou devolve subset, o outcome é `NO_PROGRESS` ou `PARTIAL_PROGRESS`, e a orquestração pode continuar.
+
+### 3.3 Timers e Retry-After
+
+O orquestrador é o único proprietário de timers. O default é `RASAI_AI_CYCLE_DELAY_SECONDS=60`. Quando uma falha transitória retorna `Retry-After`, a espera antes do próximo ciclo é:
+
+```text
+max(cycle_delay_configurado, min(Retry-After_aplicável, 300 s))
+```
+
+O cap de `Retry-After` é 300 s. Provider terminal não cria espera própria e nenhum timer é aplicado duas vezes. Testes usam sleeper injetável; não esperam 60 s reais.
 
 ### 3.2 Projeção de contexto do relatório consolidado
 
@@ -147,32 +175,29 @@ A projeção é exclusiva do consolidado. Não modifica `dynamic_ai_routing.py`,
 
 O runtime não troca silenciosamente para Batch, Flex ou outro service tier de maior latência. A comparação econômica usa os modos síncronos compatíveis com o contrato vigente.
 
-## 4. Classes de falha e circuit breaker
+## 4. Classes de falha, degradação e quarentena
 
-### 4.1 Exclusão imediata
+### 4.1 Falhas terminais
 
-O provider é removido do pool pelo restante da execução quando a tentativa indica uma condição terminal, incluindo:
+A quarentena é propriedade da sessão de execução (AUD/RPR), não do adapter. Um provider sai do pool pelo restante daquela execução quando o erro normalizado é determinístico/terminal, hoje incluindo as classes canônicas:
 
-- autenticação inválida;
-- falta de crédito;
-- quota classificada como terminal pelo adapter;
-- permissão negada;
-- modelo inexistente/inválido;
-- HTTP 401, 403, 404 ou 410.
+- `AUTH_ERROR`;
+- `CREDIT_ERROR`;
+- `QUOTA_ERROR` quando o adapter a classificou como hard quota/billing;
+- `MODEL_ERROR`;
+- `PERMISSION_ERROR`.
 
-O relatório registra o motivo da exclusão.
+A decisão considera error class/code/type normalizados. **HTTP status isolado não é suficiente**: um `429 rate_limit` temporário não equivale a `insufficient_quota`, e um `404` com classe desconhecida não é automaticamente promovido a erro terminal.
 
-### 4.2 Falhas temporárias
+### 4.2 Falhas transitórias e degradação
 
-Timeout, rede, indisponibilidade de servidor, rate limit e demais falhas não terminais não excluem o provider na primeira ocorrência. A saúde é acompanhada em uma janela deslizante de até cinco observações daquele provider.
+Rede, timeout, 5xx, rate limit temporário, resposta vazia recuperável e `UNKNOWN_PROVIDER_ERROR` conservador permanecem elegíveis para ciclos posteriores. O coordenador mantém uma janela de cinco observações; três falhas nessa janela marcam o provider como `DEGRADED`, mas **não** abrem quarentena permanente.
 
-O circuit breaker abre quando existem pelo menos três falhas entre as últimas cinco observações. Enquanto não atingir o limiar, o provider continua elegível para necessidades futuras.
+O cooldown lógico é a própria espera entre ciclos. Uma nova necessidade reinicia o contador de ciclos, mas reutiliza o health da mesma execução.
 
-Uma tentativa com sucesso entra na mesma janela e reduz naturalmente a densidade de falhas. O breaker é limitado à auditoria atual.
+### 4.3 Provider explícito
 
-### 4.3 Provider explicitamente selecionado
-
-Quando o usuário escolhe um provider específico em vez de `auto`, permanecem válidas as regras de retry do adapter daquele provider. A ordenação econômica multi-provider e `RASAI_AI_AUTO_EXCLUDE` são exclusivas do AUTO.
+Provider explícito não possui política paralela. Ele é um pool de um provider e usa exatamente `max_cycles`, `cycle_delay`, `Retry-After`, classificação terminal/transitória, partial e `INPUT_BLOCKED` do mesmo orquestrador. `RASAI_AI_AUTO_EXCLUDE` e ordenação econômica multi-provider só fazem sentido no AUTO; todo o restante é comum.
 
 Pricing **não é gate de admissão** para a seleção explícita. Se provider, credencial, modelo/configuração e saúde estiverem aptos, ausência de regra de preço ou de contexto tarifário resolvível não bloqueia a chamada; a telemetria/custo permanece `UNPRICED` até existir base reproduzível. Em `AUTO`, o mesmo princípio vale para elegibilidade: preço conhecido ordena candidatos, preço desconhecido desloca o candidato para depois dos precificados, sem tratá-lo como custo zero.
 
@@ -387,12 +412,12 @@ A suíte deve cobrir no mínimo:
 - DeepSeek peak/off-peak com weekday calculado em UTC;
 - preservação da ordem rotativa determinística entre providers sem pricing conhecido;
 - exclusão voluntária de provider do AUTO sem apagar sua credencial e sem impedir seleção explícita;
-- fallback no mesmo contexto sem repetir provider;
+- fallback dentro do mesmo ciclo sem repetir provider; o mesmo provider só pode reaparecer em ciclo posterior;
 - telemetria de fallback também nos fluxos especializados;
-- permanência após falha temporária abaixo do limiar;
-- circuit breaker com três falhas nas últimas cinco observações;
-- exclusão imediata por erro terminal/HTTP 404;
-- ausência de loop quando todos falham;
+- falha transitória permanece recuperável entre ciclos;
+- três falhas transitórias nas últimas cinco observações marcam `DEGRADED`, sem quarentena permanente;
+- exclusão imediata somente por erro terminal normalizado; HTTP status isolado não decide quarentena;
+- ausência de loop quando todos falham e respeito ao teto `max_cycles * providers_elegíveis`;
 - sanitização de segredos no exchange log;
 - truncamento/hash;
 - custo agregado derivado de telemetria persistida e ausência de custo observado inventado sem usage;

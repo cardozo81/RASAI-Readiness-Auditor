@@ -12,6 +12,7 @@ from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
 
 from rasai.domain import new_id
+from rasai.dynamic_ai_routing import provider_is_eligible
 from rasai.m18_ai import (
     AttemptStatus,
     ProviderAttempt,
@@ -41,6 +42,8 @@ class M24AiResult:
     model: str | None = None
     explanation: dict[str, Any] | None = None
     reason: str | None = None
+    diagnostic: ProviderDiagnostic | None = None
+    attempt: ProviderAttempt | None = None
 
 
 _RESOURCE_RULES: dict[str, tuple[str, ...]] = {
@@ -250,8 +253,7 @@ def _candidates(provider: Any) -> tuple[Any, ...]:
             continue
         if not bool(getattr(item, "api_key", None)):
             continue
-        state = getattr(item, "_runtime_state", RuntimeProviderState.ACTIVE)
-        if state is RuntimeProviderState.QUARANTINED_FOR_AUDIT:
+        if not provider_is_eligible(item):
             continue
         output.append(item)
     return tuple(output)
@@ -508,6 +510,7 @@ def _call(
                 provider=candidate.name,
                 model=candidate.model,
                 explanation=explanation,
+                attempt=attempt,
             ),
             attempt,
         )
@@ -517,6 +520,8 @@ def _call(
             provider=candidate.name,
             model=candidate.model,
             reason=reason or "M24_AI_UNAVAILABLE",
+            diagnostic=diagnostic,
+            attempt=attempt,
         ),
         attempt,
     )

@@ -9,7 +9,6 @@ from pathlib import Path
 import sqlite3
 
 from rasai.ai_cost_policy import PRICING_VERSION, resolve_price, runtime_pricing_conditions
-from rasai.ai_resilience import MAX_PROVIDER_ATTEMPTS_PER_CONTEXT, max_attempts_for_auto
 from rasai.cli import validate_target
 from rasai.console_config import State, provider_capabilities
 from rasai.provider_registry import auto_provider_ids, get_provider_registration
@@ -186,10 +185,11 @@ def estimate_exposure(state: State) -> ExposureEstimate:
     max_ai = 0
     if provider_count:
         min_ai = min_pages * devices
+        cycles = int(getattr(state, "ai_max_cycles", 3) or 3)
         per_context_max = (
-            max_attempts_for_auto(provider_count)
+            provider_count * cycles
             if state.ai_provider == "auto"
-            else MAX_PROVIDER_ATTEMPTS_PER_CONTEXT
+            else cycles
         )
         max_ai = max_pages * devices * per_context_max
         if state.content_remediation:
@@ -231,21 +231,22 @@ def estimate_exposure(state: State) -> ExposureEstimate:
             reasons.append(
                 f"IA AUTO ativa: {provider_count} provider(s) configurado(s) e elegível(is); "
                 f"até {max_ai} chamada(s) potenciais considerando as finalidades habilitadas. "
-                f"Cada necessidade percorre no máximo {max_attempts_for_auto(provider_count)} provider(s), "
-                "com uma tentativa por provider nessa necessidade; os candidatos elegíveis são reordenados "
-                "pelo custo estimado da requisição e o circuit breaker permanece compartilhado durante a execução."
+                f"Cada necessidade pode executar até {provider_count} provider(s) por ciclo por "
+                f"{int(getattr(state, 'ai_max_cycles', 3) or 3)} ciclo(s), sem retry oculto no adapter; "
+                "os candidatos elegíveis são reordenados pelo custo estimado e falhas transitórias apenas "
+                "degradam health, sem quarentena permanente."
             )
             pool = ", ".join(provider for provider, _ in provider_models)
             reasons.append(
                 f"Pool AUTO projetado nesta configuração: {pool}. Providers sem credencial, modelo/configuração "
-                "válida ou elegibilidade de contexto ficam fora da projeção; falhas durante a execução podem "
-                "reduzir o pool pelo circuit breaker."
+                "válida ou elegibilidade de contexto ficam fora da projeção; somente falhas terminais "
+                "normalizadas retiram provider do restante da execução."
             )
         else:
             reasons.append(
                 f"IA ativa: até {max_ai} chamada(s) potenciais considerando as finalidades habilitadas. "
-                f"Provider explícito mantém no máximo {MAX_PROVIDER_ATTEMPTS_PER_CONTEXT} tentativa(s) por contexto "
-                "quando a política de retry permitir."
+                f"Provider explícito usa pool unitário e até {int(getattr(state, 'ai_max_cycles', 3) or 3)} "
+                "ciclo(s), com uma chamada externa por ciclo e sem retry oculto no adapter."
             )
     if state.content_remediation:
         reasons.append(

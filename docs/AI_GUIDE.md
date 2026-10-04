@@ -1,6 +1,6 @@
 # Guia de IA
 
-O RASAi usa IA em finalidades opcionais e evidence-bound. A auditoria determinística continua capaz de executar sem IA. Os consumidores que usam o **registry canônico de IA** reutilizam a mesma seleção principal e a mesma orquestração central de provider/modelo, custo, quarentena, circuit breaker e fallback. Integrações externas de domínio específico podem ter boundary próprio quando isso evita misturar pesquisa externa com evidência determinística.
+O RASAi usa IA em finalidades opcionais e evidence-bound. A auditoria determinística continua capaz de executar sem IA. Os consumidores que usam o **registry canônico de IA** reutilizam a mesma seleção principal e o mesmo motor local de ciclos, provider/modelo, custo, health, quarentena e fallback. Integrações externas de domínio específico podem ter boundary próprio quando isso evita misturar pesquisa externa com evidência determinística.
 
 ## Finalidades
 
@@ -187,17 +187,23 @@ O runtime estima o custo da necessidade atual quando isso é reproduzível e ord
 
 **Modelo elegível sem pricing vigente permanece `UNPRICED` no `AUTO`.** Ele é tentado depois dos candidatos precificados; ausência de preço nunca é tratada como custo zero nem como inelegibilidade. Na seleção explícita, pricing também não é gate: a falta de preço não bloqueia a chamada de um provider que esteja configurado e apto.
 
-Cada provider pode ser tentado no máximo uma vez por necessidade. Falhas temporárias seguem a política central de retry/circuit breaker; condições terminais retiram o provider do restante da execução conforme o contrato de resiliência vigente.
+Cada provider pode ser chamado no máximo uma vez **por ciclo** da mesma necessidade. O default é 3 ciclos com espera de 60 s somente entre ciclos. Falhas transitórias permanecem recuperáveis; falhas terminais normalizadas retiram o provider do restante da AUD/RPR. Provider explícito usa exatamente o mesmo contrato com pool unitário.
 
 Detalhes: [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md) e [AI_PRICING_CONFIGURATION.md](AI_PRICING_CONFIGURATION.md).
 
-## Timeout
+## Política de execução
 
 ```text
-RASAI_AI_TIMEOUT_SECONDS
+RASAI_AI_TIMEOUT_SECONDS=180
+RASAI_AI_MAX_CYCLES=3
+RASAI_AI_CYCLE_DELAY_SECONDS=60
 ```
 
-Default público: `180` segundos por tentativa. O timeout não representa duração máxima da auditoria completa.
+- **timeout**: limite de uma tentativa externa de provider;
+- **max cycles**: orçamento de ciclos por necessidade lógica de IA, reiniciado a cada nova necessidade;
+- **cycle delay**: espera apenas entre ciclos, nunca entre providers do mesmo ciclo.
+
+`Retry-After` transitório pode elevar a espera efetiva até o cap canônico de 300 s. O adapter não executa retry nem `sleep` próprio. O timeout/cadência não representam duração máxima da auditoria completa.
 
 ## Structured output e validação local
 
@@ -215,7 +221,7 @@ ou
 AUTO central
 ```
 
-Em `AUTO`, isso reutiliza a mesma política de custo, qualification, pricing, quarentena, circuit breaker e fallback. A finalidade pode alterar o tamanho estimado de input/output, mas não cria outro mecanismo de roteamento.
+Em `AUTO` ou provider explícito, isso reutiliza o mesmo motor de ciclos, custo, qualification, pricing, health, quarentena e fallback. A finalidade pode alterar requisitos e tamanho estimado de input/output, mas não cria outro mecanismo de retry/roteamento.
 
 ## Mistral AI
 

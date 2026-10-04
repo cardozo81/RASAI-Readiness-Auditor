@@ -12,7 +12,7 @@ A política econômica:
 
 - somente ordena providers/modelos já configurados, elegíveis e saudáveis; pricing conhecido ordena economicamente e ausência de pricing permanece UNPRICED;
 - não habilita credenciais;
-- não altera quarantine/circuit breaker;
+- não altera classificação terminal/transitória, health, ciclos ou quarentena;
 - não cria elegibilidade por preço: a elegibilidade vem do registry/model/configuração; todos os providers integrados atuais podem participar quando configurados e aptos;
 - não troca silenciosamente service tier para Batch/Flex/Priority;
 - não interpreta ausência de preço como preço zero;
@@ -92,18 +92,21 @@ Antes de cada nova AUD, o console resolve, valida e snapshotará os catálogos e
 
 ## 3. Algoritmo AUTO
 
-Para cada necessidade de IA:
+Para cada necessidade lógica de IA e a cada ciclo canônico:
 
 1. consulta o registry dos providers tecnicamente integrados;
 2. resolve **um modelo efetivo por provider** a partir de `RASAI_<PROVIDER>_MODEL` ou do `public_default` do catálogo;
 3. exige modelo habilitado, selecionável, vigente e `auto_eligible=true`;
 4. exige credencial/configuração válida e aplica `RASAI_AI_AUTO_EXCLUDE`;
 5. deriva do adapter as condições efetivas de pricing (tier/modalidade/região/operação) e tenta resolver uma regra vigente compatível, sem usar a ausência de preço como gate de admissão;
-6. remove candidatos inelegíveis pela política de saúde/quarentena;
+6. remove candidatos inelegíveis por configuração ou quarentena terminal da execução;
 7. resolve reasoning efetivo e estima input/output da necessidade;
 8. calcula o custo estimado da chamada atual quando houver pricing reproduzível;
 9. ordena primeiro os candidatos precificados do menor para o maior custo estimado e, depois, os candidatos `UNPRICED` em ordem determinística;
-10. fallback e circuit breaker continuam com suas regras próprias.
+10. chama cada provider no máximo uma vez naquele ciclo;
+11. se a necessidade ainda não completou, reavalia o pool no ciclo seguinte até `RASAI_AI_MAX_CYCLES`.
+
+Pricing decide ordem e telemetria, nunca retry, número de ciclos, admissão de provider explícito ou classificação de falha. A espera entre ciclos pertence ao orquestrador canônico.
 
 Um modelo `auto_eligible=true` sem pricing vigente permanece no `AUTO` como **UNPRICED** enquanto continuar configurado/modelo-elegível/saudável. Ele é ordenado depois dos candidatos precificados e nunca recebe custo zero. Em seleção explícita, pricing não autoriza nem bloqueia a execução.
 
@@ -295,7 +298,7 @@ A suíte deve preservar:
 - xAI >=200k;
 - expiração fail-closed do Gemini;
 - billing de reasoning do Gemini;
-- quarantine/circuit breaker inalterados;
+- health/quarentena e política de ciclos inalterados;
 - snapshots SaaS imutáveis para modelo e pricing.
 
 

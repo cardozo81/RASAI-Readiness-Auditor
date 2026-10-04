@@ -115,10 +115,12 @@ Nesse modo, a necessidade `IMPROVEMENT_INTELLIGENCE` reutiliza a política canô
 4. prioridade vigente de custo/roteamento;
 5. classificação de falhas;
 6. quarentena/circuit breaker;
-7. fallback para o próximo candidato elegível;
-8. término no primeiro sucesso ou no esgotamento da cadeia.
+7. partial completion acumulável, preservando recomendações válidas;
+8. fallback para o próximo candidato elegível no mesmo ciclo;
+9. repetição somente em ciclo posterior, respeitando o orçamento canônico;
+10. término imediato quando os requisitos obrigatórios ficam completos ou no esgotamento dos ciclos.
 
-A capacidade não possui política própria de ordenação, quarentena, circuit breaker ou número de tentativas. Seu contrato especializado fica restrito a prompt, schema, evidências e validação da resposta.
+A capacidade não possui política própria de ordenação, quarentena, circuit breaker, reparo ou número de tentativas. Seu contrato especializado fica restrito a prompt, schema, evidências e validação da resposta.
 
 Configurações próprias permanecem limitadas a ativação, domínios, teto de recomendações, timeout da necessidade e idioma preferencial.
 
