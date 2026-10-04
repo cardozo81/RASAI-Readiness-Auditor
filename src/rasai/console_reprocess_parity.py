@@ -959,6 +959,9 @@ def _reprocess_selected_once(console_module: ModuleType, state: Any, audit_id: s
                 ai_provider=(str(getattr(state, "ai_provider", "none") or "none") if use_ai else None),
                 ai_model=(str(getattr(state, "ai_model", "") or "") if use_ai else None),
                 ai_reasoning=(str(getattr(state, "ai_reasoning", "") or "") if use_ai else None),
+                ai_timeout_seconds=(float(getattr(state, "ai_timeout", 180.0)) if use_ai else None),
+                ai_max_cycles=(int(getattr(state, "ai_max_cycles", 3)) if use_ai else None),
+                ai_cycle_delay_seconds=(float(getattr(state, "ai_cycle_delay", 60.0)) if use_ai else None),
                 workspace=policy_workspace,
                 audit_id=audit_id,
             ):
