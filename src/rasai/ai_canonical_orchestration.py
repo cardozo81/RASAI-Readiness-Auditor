@@ -152,7 +152,7 @@ def run_ai_need(
     candidates: Callable[[], Sequence[Any]],
     invoke: Callable[[Any, int, int], AiProviderInvocation],
     policy: AiExecutionPolicy,
-    sleeper: Callable[[float], None] = time.sleep,
+    sleeper: Callable[[float], None] | None = None,
 ) -> AiNeedExecution:
     """Execute one logical need with one call/provider/cycle and one timer owner.
 
@@ -160,6 +160,7 @@ def run_ai_need(
     terminal quarantine survives across separate logical needs while every call to
     this function starts again at cycle 1.
     """
+    sleep = sleeper or time.sleep
     progress = False
     calls = 0
     last_outcome: AiProviderOutcome | None = None
@@ -212,7 +213,7 @@ def run_ai_need(
             cap_seconds=policy.retry_after_cap_seconds,
         )
         if delay > 0:
-            sleeper(delay)
+            sleep(delay)
 
     return AiNeedExecution(
         AiNeedFinalState.PARTIAL if progress else AiNeedFinalState.UNAVAILABLE,
