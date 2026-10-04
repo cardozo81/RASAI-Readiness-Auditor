@@ -597,13 +597,11 @@ def _price_auto_attempt(attempt: ProviderAttempt) -> ProviderAttempt:
         attempt.usage,
         attempt.finished_at,
         runtime_conditions=dict(attempt.pricing_runtime_conditions),
+        surface=attempt.surface,
     )
-    if application.estimated_cost is None:
-        return replace(
-            attempt,
-            pricing_version=application.pricing_version,
-            pricing_runtime_conditions=application.runtime_conditions,
-        )
+    # AUTO repricing is telemetry/ranking, never an admission gate. Preserve the
+    # canonical pricing result exactly, including an explicit UNPRICED outcome and
+    # native pricing provenance, instead of retaining a stale pre-routing amount.
     return replace(
         attempt,
         estimated_cost=application.estimated_cost,
@@ -613,6 +611,7 @@ def _price_auto_attempt(attempt: ProviderAttempt) -> ProviderAttempt:
         pricing_rule_id=application.pricing_rule_id,
         pricing_source_reference=application.pricing_source_reference,
         pricing_runtime_conditions=application.runtime_conditions,
+        pricing_model=application.pricing_model,
     )
 
 
