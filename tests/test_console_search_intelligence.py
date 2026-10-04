@@ -215,7 +215,10 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
             )
 
             def runner(workspace_obj, **kwargs):
-                self.assertEqual(workspace_obj.root, workspace)
+                self.assertEqual(
+                    os.path.normcase(os.path.realpath(workspace_obj.root)),
+                    os.path.normcase(os.path.realpath(workspace)),
+                )
                 self.assertEqual(kwargs["audit_id"], "AUD-TEST")
                 self.assertEqual(
                     kwargs["query"],
