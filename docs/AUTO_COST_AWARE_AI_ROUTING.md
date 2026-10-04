@@ -1,7 +1,7 @@
 # AUTO cost-aware AI routing
 
 **Data de referência da política de preços: 03/10/2026**  
-**Versão do catálogo de pricing de fábrica: `RASAI-PRICING-2026-10-03.5`**  
+**Versão do catálogo de pricing de fábrica: `RASAI-PRICING-2026-10-03.7`**  
 **Data de referência do catálogo de modelos: 03/10/2026**
 
 Este documento define a seleção econômica usada pelo RASAi quando `AI=auto` está selecionado. O cadastro de modelos está em [`AI_MODEL_CONFIGURATION.md`](AI_MODEL_CONFIGURATION.md) e o schema comercial em [`AI_PRICING_CONFIGURATION.md`](AI_PRICING_CONFIGURATION.md).
@@ -10,13 +10,25 @@ Este documento define a seleção econômica usada pelo RASAi quando `AI=auto` e
 
 A política econômica:
 
-- somente ordena providers/modelos já configurados, elegíveis, precificados e saudáveis;
+- somente ordena providers/modelos já configurados, elegíveis e saudáveis; pricing conhecido ordena economicamente e ausência de pricing permanece UNPRICED;
 - não habilita credenciais;
 - não altera quarantine/circuit breaker;
 - não cria elegibilidade por preço: a elegibilidade vem do registry/model/configuração; todos os providers integrados atuais podem participar quando configurados e aptos;
 - não troca silenciosamente service tier para Batch/Flex/Priority;
 - não interpreta ausência de preço como preço zero;
 - trata preço como estimativa operacional, não como fatura do fornecedor.
+
+## 1.1 Limite da extensão de uso nativo
+
+O catálogo `RASAI-PRICING-2026-10-03.7` também preserva políticas `PER_REQUEST` e `PROVIDER_CREDITS` para consumidores não-token. Essa extensão **não redefine o AUTO**:
+
+- Perplexity Search API não é adicionada ao pool principal de providers por esta entrega;
+- Manus não é adicionado ao pool principal de providers por esta entrega;
+- `PERPLEXITY_SEARCH_REQUEST` e `MANUS_CREDIT` não são convertidos em tokens para participar da heurística atual;
+- candidatos token-based atuais mantêm exatamente o contrato de ordenação já homologado;
+- ausência de conversão monetária continua UNPRICED, nunca custo zero.
+
+A integração futura de cada consumidor decide sua própria elegibilidade/finalidade sem alterar silenciosamente este contrato.
 
 ## 2. Duas fontes declarativas e duas camadas de responsabilidade
 
@@ -84,14 +96,14 @@ Para cada necessidade de IA:
 2. resolve **um modelo efetivo por provider** a partir de `RASAI_<PROVIDER>_MODEL` ou do `public_default` do catálogo;
 3. exige modelo habilitado, selecionável, vigente e `auto_eligible=true`;
 4. exige credencial/configuração válida e aplica `RASAI_AI_AUTO_EXCLUDE`;
-5. deriva do adapter as condições efetivas de pricing (tier/modalidade/região/operação) e exige uma regra vigente que corresponda integralmente;
+5. deriva do adapter as condições efetivas de pricing (tier/modalidade/região/operação) e tenta resolver uma regra vigente compatível, sem usar a ausência de preço como gate de admissão;
 6. remove candidatos inelegíveis pela política de saúde/quarentena;
 7. resolve reasoning efetivo e estima input/output da necessidade;
-8. calcula o custo estimado da chamada atual;
-9. ordena os candidatos elegíveis do menor para o maior custo estimado, preservando desempate determinístico;
+8. calcula o custo estimado da chamada atual quando houver pricing reproduzível;
+9. ordena primeiro os candidatos precificados do menor para o maior custo estimado e, depois, os candidatos `UNPRICED` em ordem determinística;
 10. fallback e circuit breaker continuam com suas regras próprias.
 
-Um modelo `auto_eligible=true` sem pricing vigente pode permanecer no `AUTO` como **UNPRICED**. Ele é ordenado depois dos candidatos precificados e nunca recebe custo zero.
+Um modelo `auto_eligible=true` sem pricing vigente permanece no `AUTO` como **UNPRICED** enquanto continuar configurado/modelo-elegível/saudável. Ele é ordenado depois dos candidatos precificados e nunca recebe custo zero. Em seleção explícita, pricing não autoriza nem bloqueia a execução.
 
 Fórmula atual:
 
@@ -183,7 +195,7 @@ As regras atuais são associadas à região `US_VIRGINIA`. O adapter deriva essa
 
 ### Gemini
 
-A regra atual expira em `2027-01-01T00:00:00Z`. Sem regra posterior, o modelo fica não precificado e sai do AUTO econômico. `reasoning_billing=ADD_REASONING_TO_OUTPUT` informa ao motor como compor o output faturável.
+A regra atual expira em `2027-01-01T00:00:00Z`. Sem regra posterior, o modelo fica `UNPRICED` e permanece no AUTO depois dos candidatos precificados, desde que continue elegível por registry/modelo/configuração e saúde. `reasoning_billing=ADD_REASONING_TO_OUTPUT` informa ao motor como compor o output faturável.
 
 ### Condicionamento runtime
 

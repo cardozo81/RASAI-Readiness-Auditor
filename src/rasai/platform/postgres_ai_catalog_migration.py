@@ -9,7 +9,7 @@ from typing import Any
 
 from .postgres_compat import PostgresConnectionAdapter
 
-AI_CATALOG_SCHEMA_VERSION = 2
+AI_CATALOG_SCHEMA_VERSION = 3
 
 
 _STATEMENTS: tuple[str, ...] = (
@@ -109,6 +109,18 @@ _STATEMENTS: tuple[str, ...] = (
     )""",
     "ALTER TABLE ai_pricing_rules ADD COLUMN IF NOT EXISTS conditions_json TEXT NOT NULL DEFAULT '{}'",
     "CREATE INDEX IF NOT EXISTS idx_ai_pricing_model ON ai_pricing_rules(provider_code,model_code,catalog_version)",
+    """CREATE TABLE IF NOT EXISTS ai_native_pricing_policies (
+        catalog_version TEXT NOT NULL REFERENCES ai_pricing_catalogs(catalog_version) ON DELETE CASCADE,
+        provider_code TEXT NOT NULL,
+        surface TEXT NOT NULL,
+        native_usage_unit TEXT NOT NULL,
+        pricing_model TEXT NOT NULL,
+        currency TEXT,
+        source_reference TEXT NOT NULL,
+        rules_json TEXT NOT NULL DEFAULT '[]',
+        PRIMARY KEY(catalog_version,provider_code,surface,native_usage_unit)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_ai_native_pricing_policy ON ai_native_pricing_policies(provider_code,surface,native_usage_unit,catalog_version)",
     """CREATE TABLE IF NOT EXISTS ai_job_catalog_snapshots (
         job_id TEXT PRIMARY KEY,
         model_catalog_version TEXT NOT NULL REFERENCES ai_model_catalogs(catalog_version) ON DELETE RESTRICT,

@@ -170,6 +170,8 @@ Uma tentativa com sucesso entra na mesma janela e reduz naturalmente a densidade
 
 Quando o usuário escolhe um provider específico em vez de `auto`, permanecem válidas as regras de retry do adapter daquele provider. A ordenação econômica multi-provider e `RASAI_AI_AUTO_EXCLUDE` são exclusivas do AUTO.
 
+Pricing **não é gate de admissão** para a seleção explícita. Se provider, credencial, modelo/configuração e saúde estiverem aptos, ausência de regra de preço ou de contexto tarifário resolvível não bloqueia a chamada; a telemetria/custo permanece `UNPRICED` até existir base reproduzível. Em `AUTO`, o mesmo princípio vale para elegibilidade: preço conhecido ordena candidatos, preço desconhecido desloca o candidato para depois dos precificados, sem tratá-lo como custo zero.
+
 ## 5. Compartilhamento da política entre módulos
 
 O estado do coordenador AUTO pertence à execução, não a um módulo isolado. Sempre que o adapter é compatível, a mesma saúde do provider e a mesma política de custo são compartilhadas por:
@@ -394,3 +396,21 @@ A suíte deve cobrir no mínimo:
 - projeção de schema OpenAI sem alterar o validador local;
 - aceitação/transporte de `agentic-browsing` no PageSpeed v5 atual;
 - Search content comparison desabilitada por default e explícita quando ativada.
+
+
+## Uso nativo não-token
+
+A telemetria de provider pode coexistir com componentes de uso nativo por meio de `ProviderUsage.native_usage`. Cada componente preserva:
+
+- `unit`;
+- `quantity`;
+- `source_metric`;
+- `component_type`;
+- `billable`;
+- `observed_at`.
+
+Esses componentes não reutilizam campos de tokens. A versão atual materializa apenas as unidades necessárias a consumidores reais já identificados: `PERPLEXITY_SEARCH_REQUEST` e `MANUS_CREDIT`.
+
+O runtime de pricing aceita `PER_REQUEST` para requisições faturáveis e `PROVIDER_CREDITS` para créditos sem conversão monetária. Uma tentativa que apresente simultaneamente tokens e unidades nativas não recebe preço composto especulativo: as observações são preservadas, mas o custo combinado falha fechado até existir um contrato comercial concreto.
+
+Essa extensão é exclusivamente de telemetria/pricing. Não altera crawling, aquisição, AUD/RPR, resume/checkpoints, evidence seal, SARI, CATs, SCORE-GEO, Apdex, fórmulas, pesos, scoring ou consolidação determinística. Também não adiciona Perplexity/Manus ao registry principal de IA.

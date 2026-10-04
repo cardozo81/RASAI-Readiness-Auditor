@@ -25,6 +25,7 @@ from rasai.console_config import (
     provider_capabilities,
 )
 from rasai.console_cost import actual_usage, estimate_exposure
+from rasai.ai_native_usage import humanize_native_usage_unit
 from rasai.console_confirmation_contract import confirm_continue, confirm_sensitive
 from rasai.console_help import menu_cost_badges, render_environment_help, render_help
 from rasai.console_input_contract import EditCancelled, prompt_number, prompt_secret, prompt_text, prompt_yes_no
@@ -695,6 +696,12 @@ def _render_actual_usage(state: State) -> None:
         print(f"Tokens output       : {usage.output_tokens:,}")
         print(f"Tokens reasoning    : {usage.reasoning_tokens:,}")
         print(f"Tokens total        : {paint(f'{usage.total_tokens:,}', CYAN, bold=True)}")
+        if usage.native_usage:
+            rendered_native = " | ".join(
+                f"{quantity:g} {humanize_native_usage_unit(unit, quantity)}"
+                for unit, quantity in usage.native_usage
+            )
+            print(f"Uso nativo IA       : {paint(rendered_native, CYAN, bold=True)}")
         if usage.costs:
             rendered_costs = " | ".join(f"{currency} {amount:.8f}" for currency, amount in usage.costs)
             print(f"Custo IA estimado   : {paint(rendered_costs, YELLOW, bold=True)}")
@@ -704,6 +711,13 @@ def _render_actual_usage(state: State) -> None:
             print("Custo IA estimado   : 0 (nenhuma tentativa de IA persistida)")
         if usage.unpriced_ai_attempts:
             print(paint(f"Atenção: {usage.unpriced_ai_attempts} tentativa(s) IA possuem tokens mas não custo estimável persistido.", YELLOW, bold=True))
+        if usage.unpriced_native_usage_components:
+            print(paint(
+                f"Atenção: {usage.unpriced_native_usage_components} componente(s) de uso nativo "
+                "não possuem conversão monetária aplicável e permanecem não precificados.",
+                YELLOW,
+                bold=True,
+            ))
         if usage.web_external_calls:
             services = ", ".join(f"{service}={count}" for service, count in usage.web_services)
             print(f"Chamadas Web Perf.  : {usage.web_external_calls} ({services})")

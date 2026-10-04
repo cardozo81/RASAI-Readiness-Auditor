@@ -7,6 +7,8 @@ import json
 import sqlite3
 from typing import Any
 
+from rasai.ai_cost_policy import effective_pricing_catalog, resolve_native_usage_cost
+from rasai.ai_native_usage import NativeUsageComponent
 from rasai.m18_ai import ProviderAttempt
 from rasai.m18_persistence import current_attempt_governance
 from rasai.persistence import AuditWorkspace
@@ -141,12 +143,43 @@ class M20Persistence:
                     estimated_cost REAL,
                     cost_currency TEXT,
                     pricing_version TEXT,
+                    pricing_context TEXT,
+                    pricing_rule_id TEXT,
+                    pricing_source_reference TEXT,
+                    pricing_runtime_conditions TEXT NOT NULL DEFAULT '{}',
+                    surface TEXT,
+                    pricing_model TEXT,
+                    observed_cost REAL,
+                    observed_cost_currency TEXT,
                     request_message_summary TEXT NOT NULL,
                     request_payload_hash TEXT,
                     contract_version TEXT NOT NULL,
                     operation TEXT,
                     ai_task_id TEXT,
                     ai_round_id TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS content_remediation_native_usage (
+                    attempt_id TEXT NOT NULL REFERENCES content_remediation_attempts(attempt_id) ON DELETE CASCADE,
+                    component_index INTEGER NOT NULL,
+                    provider TEXT NOT NULL,
+                    surface TEXT,
+                    native_usage_unit TEXT NOT NULL,
+                    native_usage_quantity REAL NOT NULL,
+                    source_metric TEXT NOT NULL,
+                    component_type TEXT NOT NULL,
+                    billable INTEGER,
+                    observed_at TEXT,
+                    pricing_model TEXT,
+                    estimated_cost REAL,
+                    observed_cost REAL,
+                    cost_currency TEXT,
+                    pricing_version TEXT,
+                    pricing_context TEXT,
+                    pricing_rule_id TEXT,
+                    pricing_source_reference TEXT,
+                    pricing_runtime_conditions TEXT NOT NULL DEFAULT '{}',
+                    PRIMARY KEY(attempt_id, component_index)
                 );
 
                 CREATE TABLE IF NOT EXISTS jsonld_remediation_suggestions (
@@ -178,10 +211,22 @@ class M20Persistence:
                     "PRAGMA table_info(content_remediation_attempts)"
                 ).fetchall()
             }
-            for column in ("operation", "ai_task_id", "ai_round_id"):
+            for column, ddl in (
+                ("operation", "TEXT"),
+                ("ai_task_id", "TEXT"),
+                ("ai_round_id", "TEXT"),
+                ("pricing_context", "TEXT"),
+                ("pricing_rule_id", "TEXT"),
+                ("pricing_source_reference", "TEXT"),
+                ("pricing_runtime_conditions", "TEXT NOT NULL DEFAULT '{}'"),
+                ("surface", "TEXT"),
+                ("pricing_model", "TEXT"),
+                ("observed_cost", "REAL"),
+                ("observed_cost_currency", "TEXT"),
+            ):
                 if column not in existing_attempt_columns:
                     self._connection.execute(
-                        f"ALTER TABLE content_remediation_attempts ADD COLUMN {column} TEXT"
+                        f"ALTER TABLE content_remediation_attempts ADD COLUMN {column} {ddl}"
                     )
 
     def upsert_run(self, run: ContentRemediationRun) -> None:
@@ -262,10 +307,12 @@ class M20Persistence:
                     reasoning_profile,provider_rank,attempt_index,started_at,finished_at,
                     duration_ms,status,http_status,error_class,error_type,error_code,request_id,
                     input_tokens,cached_input_tokens,output_tokens,reasoning_tokens,total_tokens,
-                    estimated_cost,cost_currency,pricing_version,request_message_summary,
+                    estimated_cost,cost_currency,pricing_version,pricing_context,pricing_rule_id,
+                    pricing_source_reference,pricing_runtime_conditions,surface,pricing_model,
+                    observed_cost,observed_cost_currency,request_message_summary,
                     request_payload_hash,contract_version,operation,ai_task_id,ai_round_id
                 ) VALUES (
-                    ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
+                    ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
                 )
                 """,
                 (
@@ -297,6 +344,14 @@ class M20Persistence:
                     attempt.estimated_cost,
                     attempt.cost_currency,
                     attempt.pricing_version,
+                    attempt.pricing_context,
+                    attempt.pricing_rule_id,
+                    attempt.pricing_source_reference,
+                    _dump(dict(attempt.pricing_runtime_conditions)),
+                    attempt.surface,
+                    attempt.pricing_model,
+                    attempt.observed_cost,
+                    attempt.observed_cost_currency,
                     attempt.request_message_summary[:512],
                     attempt.request_payload_hash,
                     attempt.semantic_contract_version,
@@ -305,6 +360,56 @@ class M20Persistence:
                     ai_round_id,
                 ),
             )
+            native_components = tuple(usage.native_usage if usage else ())
+            catalog = effective_pricing_catalog()
+            runtime_conditions = dict(attempt.pricing_runtime_conditions)
+            for component_index, component in enumerate(native_components):
+                if not isinstance(component, NativeUsageComponent):
+                    raise TypeError("ProviderUsage.native_usage must contain NativeUsageComponent")
+                pricing = resolve_native_usage_cost(
+                    attempt.provider,
+                    str(attempt.surface or ""),
+                    (component,),
+                    attempt.finished_at,
+                    runtime_conditions=runtime_conditions or None,
+                )
+                policy = catalog.native_policy(
+                    attempt.provider,
+                    str(attempt.surface or ""),
+                    component.unit,
+                )
+                self._connection.execute(
+                    """
+                    INSERT INTO content_remediation_native_usage (
+                        attempt_id,component_index,provider,surface,native_usage_unit,
+                        native_usage_quantity,source_metric,component_type,billable,
+                        observed_at,pricing_model,estimated_cost,observed_cost,
+                        cost_currency,pricing_version,pricing_context,pricing_rule_id,
+                        pricing_source_reference,pricing_runtime_conditions
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        attempt_id,
+                        component_index,
+                        attempt.provider,
+                        attempt.surface,
+                        component.unit,
+                        component.quantity,
+                        component.source_metric,
+                        component.component_type,
+                        None if component.billable is None else (1 if component.billable else 0),
+                        component.observed_at.isoformat() if component.observed_at else None,
+                        pricing.pricing_model or (policy.pricing_model if policy else None),
+                        pricing.estimated_cost,
+                        None,
+                        pricing.currency,
+                        pricing.pricing_version,
+                        pricing.pricing_context,
+                        pricing.pricing_rule_id,
+                        pricing.pricing_source_reference or (policy.source_reference if policy else None),
+                        _dump(dict(pricing.runtime_conditions)),
+                    ),
+                )
 
     def add_jsonld(self, item: PersistedJsonLdSuggestion) -> None:
         with self._connection:

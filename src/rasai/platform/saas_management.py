@@ -28,6 +28,7 @@ _ALLOWED_GROUPS = {
     "project", "property", "environment", "domain", "url", "user", "provider",
     "integration", "category", "operation", "status", "model", "job", "audit", "resource",
     "pricing_version", "pricing_context", "pricing_rule", "pricing_source",
+    "surface", "pricing_model", "native_usage_unit", "native_component_type", "native_source_metric",
     "pricing_service_tier", "pricing_commercial_mode", "pricing_operation_mode", "pricing_region",
 }
 

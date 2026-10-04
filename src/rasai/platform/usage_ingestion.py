@@ -7,8 +7,9 @@ can aggregate by tenant/user/domain/URL/provider without mutating historical AUD
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import sqlite3
-from typing import Any
+from typing import Any, Mapping
 from urllib.parse import urlsplit
 
 
@@ -85,6 +86,18 @@ def _metadata(
         "pricing_context": row.get("pricing_context"),
         "pricing_rule_id": row.get("pricing_rule_id"),
         "pricing_source_reference": row.get("pricing_source_reference"),
+        "surface": row.get("surface"),
+        "pricing_model": row.get("pricing_model"),
+        "native_usage_unit": row.get("native_usage_unit"),
+        "native_usage_quantity": row.get("native_usage_quantity"),
+        "native_source_metric": row.get("source_metric"),
+        "native_component_type": row.get("component_type"),
+        "native_billable": (
+            bool(row.get("billable")) if row.get("billable") is not None else None
+        ),
+        "observed_cost": row.get("observed_cost"),
+        "observed_cost_currency": row.get("observed_cost_currency") or row.get("cost_currency"),
+        "observed_at": row.get("observed_at"),
         "pricing_service_tier": pricing_conditions.get("service_tier"),
         "pricing_commercial_mode": pricing_conditions.get("commercial_mode"),
         "pricing_operation_mode": pricing_conditions.get("operation_mode"),
@@ -174,16 +187,28 @@ def ingest_audit_usage(
                 )
                 inserted += int(result.get("usage_event_id") is not None)
 
-        for table, operation in (
-            ("ai_provider_attempts", "SEMANTIC_ANALYSIS"),
-            ("content_remediation_attempts", "CONTENT_REMEDIATION"),
+        for table, native_table, operation in (
+            ("ai_provider_attempts", "ai_provider_native_usage", "SEMANTIC_ANALYSIS"),
+            ("content_remediation_attempts", "content_remediation_native_usage", "CONTENT_REMEDIATION"),
         ):
             if not _table_exists(connection, table):
                 continue
+            has_native_table = _table_exists(connection, native_table)
             for raw in connection.execute(f"SELECT * FROM {table} WHERE audit_id=?", (audit.audit_id,)):
                 row = _row_dict(raw)
                 attempt_id = str(row.get("attempt_id") or "unknown")
                 effective_operation = str(row.get("operation") or operation)
+                native_rows = (
+                    [
+                        _row_dict(item)
+                        for item in connection.execute(
+                            f"SELECT * FROM {native_table} WHERE attempt_id=? ORDER BY component_index",
+                            (attempt_id,),
+                        )
+                    ]
+                    if has_native_table
+                    else []
+                )
                 result = store.record_usage_once(
                     source_key=f"audit:{audit.audit_id}:{table}:{attempt_id}",
                     organization_id=organization_id,
@@ -193,8 +218,10 @@ def ingest_audit_usage(
                     category="AI_PROVIDER_CALL",
                     quantity=1,
                     unit="call",
-                    cost_estimate=row.get("estimated_cost"),
-                    currency=row.get("cost_currency"),
+                    # Native monetary usage is emitted on its own component events.
+                    # Keeping it off the call-count event prevents ledger double counting.
+                    cost_estimate=None if native_rows else row.get("estimated_cost"),
+                    currency=None if native_rows else row.get("cost_currency"),
                     provider=row.get("provider"),
                     metadata=_metadata(
                         row,
@@ -207,6 +234,48 @@ def ingest_audit_usage(
                     occurred_at=row.get("started_at") or audit.event_time,
                 )
                 inserted += int(result.get("usage_event_id") is not None)
+
+                for native in native_rows:
+                    component_type = str(native.get("component_type") or "").upper()
+                    category = (
+                        "AI_NATIVE_USAGE"
+                        if component_type in {"REQUEST", "CONSUMPTION"}
+                        else "AI_NATIVE_RECONCILIATION"
+                        if component_type == "RECONCILIATION"
+                        else "AI_NATIVE_ADJUSTMENT"
+                    )
+                    native_row = dict(row)
+                    native_row.update(native)
+                    result = store.record_usage_once(
+                        source_key=(
+                            f"audit:{audit.audit_id}:{native_table}:{attempt_id}:"
+                            f"{native.get('component_index')}"
+                        ),
+                        organization_id=organization_id,
+                        project_id=project_id,
+                        property_id=property_id,
+                        audit_id=audit.audit_id,
+                        category=category,
+                        quantity=float(native.get("native_usage_quantity") or 0.0),
+                        unit=str(native.get("native_usage_unit") or "unknown"),
+                        cost_estimate=native.get("estimated_cost"),
+                        currency=native.get("cost_currency"),
+                        provider=native.get("provider") or row.get("provider"),
+                        metadata=_metadata(
+                            native_row,
+                            user_id=user_id,
+                            environment_id=environment_id,
+                            job_id=job_id,
+                            operation=effective_operation,
+                            resource_type="AI",
+                        ),
+                        occurred_at=(
+                            native.get("observed_at")
+                            or row.get("started_at")
+                            or audit.event_time
+                        ),
+                    )
+                    inserted += int(result.get("usage_event_id") is not None)
 
         if _table_exists(connection, "web_performance_attempts"):
             for raw in connection.execute("SELECT * FROM web_performance_attempts WHERE audit_id=?", (audit.audit_id,)):

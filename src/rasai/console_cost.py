@@ -43,6 +43,8 @@ class ActualUsage:
     unpriced_ai_attempts: int
     web_external_calls: int
     web_services: tuple[tuple[str, int], ...]
+    native_usage: tuple[tuple[str, float], ...] = ()
+    unpriced_native_usage_components: int = 0
 
 
 def _configured_page_range(state: State) -> tuple[int, int]:
@@ -299,6 +301,7 @@ def _table_exists(connection: sqlite3.Connection, table: str) -> bool:
 def _usage_from_table(
     connection: sqlite3.Connection,
     table: str,
+    native_table: str | None = None,
 ) -> dict[str, int | dict[str, float]]:
     if not _table_exists(connection, table):
         return {
@@ -327,6 +330,11 @@ def _usage_from_table(
         FROM {table}
         """
     ).fetchone()
+    native_cost_exclusion = (
+        f" AND attempt_id NOT IN (SELECT attempt_id FROM {native_table})"
+        if native_table and _table_exists(connection, native_table)
+        else ""
+    )
     costs = {
         str(currency): float(amount)
         for currency, amount in connection.execute(
@@ -334,6 +342,7 @@ def _usage_from_table(
             SELECT cost_currency,COALESCE(SUM(estimated_cost),0)
             FROM {table}
             WHERE estimated_cost IS NOT NULL AND cost_currency IS NOT NULL
+            {native_cost_exclusion}
             GROUP BY cost_currency ORDER BY cost_currency
             """
         ).fetchall()
@@ -349,6 +358,40 @@ def _usage_from_table(
         "unpriced": int(row[7] or 0),
         "costs": costs,
     }
+
+
+def _native_usage_from_table(
+    connection: sqlite3.Connection,
+    table: str,
+) -> tuple[dict[str, float], dict[str, float], int]:
+    if not _table_exists(connection, table):
+        return {}, {}, 0
+    rows = connection.execute(
+        f"""
+        SELECT native_usage_unit,
+               COALESCE(SUM(native_usage_quantity),0),
+               SUM(CASE WHEN estimated_cost IS NULL THEN 1 ELSE 0 END)
+        FROM {table}
+        WHERE component_type IN ('REQUEST','CONSUMPTION')
+        GROUP BY native_usage_unit
+        """
+    ).fetchall()
+    totals = {str(unit): float(quantity or 0.0) for unit, quantity, _ in rows}
+    unpriced = sum(int(count or 0) for _, _, count in rows)
+    costs = {
+        str(currency): float(amount)
+        for currency, amount in connection.execute(
+            f"""
+            SELECT cost_currency,COALESCE(SUM(estimated_cost),0)
+            FROM {table}
+            WHERE component_type IN ('REQUEST','CONSUMPTION')
+              AND estimated_cost IS NOT NULL
+              AND cost_currency IS NOT NULL
+            GROUP BY cost_currency ORDER BY cost_currency
+            """
+        ).fetchall()
+    }
+    return totals, costs, unpriced
 
 
 def _web_usage(
@@ -378,8 +421,24 @@ def actual_usage(workspace: Path | None) -> ActualUsage | None:
     try:
         connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True, timeout=0.5)
         try:
-            semantic = _usage_from_table(connection, "ai_provider_attempts")
-            content = _usage_from_table(connection, "content_remediation_attempts")
+            semantic = _usage_from_table(
+                connection,
+                "ai_provider_attempts",
+                "ai_provider_native_usage",
+            )
+            content = _usage_from_table(
+                connection,
+                "content_remediation_attempts",
+                "content_remediation_native_usage",
+            )
+            semantic_native, semantic_native_costs, semantic_native_unpriced = _native_usage_from_table(
+                connection,
+                "ai_provider_native_usage",
+            )
+            content_native, content_native_costs, content_native_unpriced = _native_usage_from_table(
+                connection,
+                "content_remediation_native_usage",
+            )
             web_calls, services = _web_usage(connection)
         finally:
             connection.close()
@@ -387,10 +446,19 @@ def actual_usage(workspace: Path | None) -> ActualUsage | None:
         return None
 
     costs: dict[str, float] = {}
-    for source in (semantic["costs"], content["costs"]):
+    for source in (
+        semantic["costs"],
+        content["costs"],
+        semantic_native_costs,
+        content_native_costs,
+    ):
         assert isinstance(source, dict)
         for currency, amount in source.items():
             costs[str(currency)] = costs.get(str(currency), 0.0) + float(amount)
+    native_usage: dict[str, float] = {}
+    for source in (semantic_native, content_native):
+        for unit, quantity in source.items():
+            native_usage[unit] = native_usage.get(unit, 0.0) + float(quantity)
     return ActualUsage(
         ai_attempts=int(semantic["attempts"]) + int(content["attempts"]),
         ai_successes=int(semantic["successes"]) + int(content["successes"]),
@@ -405,6 +473,8 @@ def actual_usage(workspace: Path | None) -> ActualUsage | None:
         unpriced_ai_attempts=int(semantic["unpriced"]) + int(content["unpriced"]),
         web_external_calls=web_calls,
         web_services=services,
+        native_usage=tuple(sorted(native_usage.items())),
+        unpriced_native_usage_components=semantic_native_unpriced + content_native_unpriced,
     )
 
 

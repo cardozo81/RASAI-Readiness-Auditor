@@ -30,6 +30,7 @@ def test_postgresql_ai_catalog_schema_and_factory_publication() -> None:
             connection.execute("DELETE FROM ai_catalog_events")
             connection.execute("DELETE FROM ai_models")
             connection.execute("DELETE FROM ai_pricing_rules")
+            connection.execute("DELETE FROM ai_native_pricing_policies")
             connection.execute("DELETE FROM ai_model_catalogs")
             connection.execute("DELETE FROM ai_pricing_catalogs")
             connection.execute("DELETE FROM ai_providers")
@@ -44,9 +45,14 @@ def test_postgresql_ai_catalog_schema_and_factory_publication() -> None:
         providers = connection.execute("SELECT COUNT(*) FROM ai_providers").fetchone()
         models = connection.execute("SELECT COUNT(*) FROM ai_models").fetchone()
         prices = connection.execute("SELECT COUNT(*) FROM ai_pricing_rules").fetchone()
+        native_prices = connection.execute(
+            "SELECT COUNT(*) FROM ai_native_pricing_policies"
+        ).fetchone()
         assert providers is not None and int(providers[0]) >= 8
         assert models is not None and int(models[0]) == len(model_catalog.models)
         assert prices is not None and int(prices[0]) >= len(pricing_catalog.models)
+        assert native_prices is not None
+        assert int(native_prices[0]) == len(pricing_catalog.native_usage)
 
         mimo_rule = connection.execute(
             "SELECT conditions_json FROM ai_pricing_rules WHERE catalog_version=? AND rule_id=?",
@@ -58,5 +64,32 @@ def test_postgresql_ai_catalog_schema_and_factory_publication() -> None:
             "operation_mode": "REALTIME",
             "region": "GLOBAL",
         }
+
+        perplexity = connection.execute(
+            """SELECT pricing_model,currency,rules_json
+               FROM ai_native_pricing_policies
+               WHERE catalog_version=? AND provider_code='PERPLEXITY'
+                 AND surface='SEARCH_API' AND native_usage_unit='PERPLEXITY_SEARCH_REQUEST'""",
+            (pricing_catalog.metadata.catalog_version,),
+        ).fetchone()
+        assert perplexity is not None
+        assert str(perplexity[0]) == "PER_REQUEST"
+        assert str(perplexity[1]) == "USD"
+        assert {item["rule_id"] for item in json.loads(str(perplexity[2]))} == {
+            "perplexity-search-web-realtime",
+            "perplexity-search-fast-realtime",
+        }
+
+        manus = connection.execute(
+            """SELECT pricing_model,currency,rules_json
+               FROM ai_native_pricing_policies
+               WHERE catalog_version=? AND provider_code='MANUS'
+                 AND surface='API_V2' AND native_usage_unit='MANUS_CREDIT'""",
+            (pricing_catalog.metadata.catalog_version,),
+        ).fetchone()
+        assert manus is not None
+        assert str(manus[0]) == "PROVIDER_CREDITS"
+        assert manus[1] is None
+        assert json.loads(str(manus[2])) == []
     finally:
         connection.close()

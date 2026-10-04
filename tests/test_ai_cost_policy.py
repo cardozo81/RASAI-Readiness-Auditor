@@ -19,6 +19,8 @@ from rasai.ai_cost_policy import (
 from rasai.dynamic_ai_routing import DynamicProviderRoutingSession, _price_auto_attempt
 from rasai.m18_ai import AttemptStatus, ProviderAttempt, ProviderUsage
 from rasai.provider_extensions import QwenProvider
+from rasai.provider_runtime_policy import build_semantic_provider
+from rasai.ai_execution_state import clear_current_ai_execution
 
 UTC = timezone.utc
 BRT = timezone(timedelta(hours=-3))
@@ -229,6 +231,59 @@ def test_unpriced_candidates_keep_deterministic_rotating_order() -> None:
     assert [item.name for item in session.ordered_candidates_for_need()] == ["A", "B", "C"]
     session.coordinator._cursor = 1
     assert [item.name for item in session.ordered_candidates_for_need()] == ["B", "C", "A"]
+
+
+def test_explicit_unpriced_provider_is_not_blocked_by_pricing() -> None:
+    try:
+        provider = build_semantic_provider(
+            "cohere",
+            env={
+                "COHERE_API_KEY": "test-key",
+                "RASAI_COHERE_COMMERCIAL_MODE": "UNKNOWN",
+            },
+        )
+        assert provider.name == "COHERE"
+        estimate = estimate_candidate_cost(
+            provider,
+            SimpleNamespace(evidence=()),
+            scope="SEMANTIC",
+            at=datetime(2026, 10, 3, 18, 0, tzinfo=UTC),
+        )
+        assert estimate.estimated_cost is None
+        assert estimate.currency is None
+    finally:
+        clear_current_ai_execution()
+
+
+def test_auto_keeps_configured_unpriced_provider_after_priced_candidates() -> None:
+    try:
+        session = build_semantic_provider(
+            "auto",
+            env={
+                "MIMO_API_KEY": "test-key",
+                "COHERE_API_KEY": "test-key",
+                "RASAI_COHERE_COMMERCIAL_MODE": "UNKNOWN",
+            },
+        )
+        configured = [item.name for item in session.providers]
+        assert "MIMO" in configured
+        assert "COHERE" in configured
+
+        ordered = session.ordered_candidates_for_need(
+            SimpleNamespace(evidence=()),
+            scope="SEMANTIC",
+        )
+        names = [item.name for item in ordered]
+        assert names.index("MIMO") < names.index("COHERE")
+        cohere = next(
+            item
+            for item in session._last_cost_ranking
+            if item.provider == "COHERE"
+        )
+        assert cohere.estimated_cost is None
+        assert cohere.currency is None
+    finally:
+        clear_current_ai_execution()
 
 
 def test_review_date_is_explicit_and_machine_readable() -> None:

@@ -13,6 +13,7 @@ import time
 from typing import Any, Callable, Mapping
 from urllib.error import HTTPError, URLError
 
+from rasai.ai_native_usage import NativeUsageComponent
 from rasai.ai_cost_policy import (
     PRICING_CATALOG,
     PRICING_VERSION,
@@ -95,6 +96,7 @@ class ProviderUsage:
     output_tokens: int | None = None
     reasoning_tokens: int | None = None
     total_tokens: int | None = None
+    native_usage: tuple[NativeUsageComponent, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +146,10 @@ class ProviderAttempt:
     pricing_rule_id: str | None = None
     pricing_source_reference: str | None = None
     pricing_runtime_conditions: tuple[tuple[str, str], ...] = ()
+    surface: str | None = None
+    pricing_model: str | None = None
+    observed_cost: float | None = None
+    observed_cost_currency: str | None = None
     request_message_summary: str = ""
     request_payload_hash: str | None = None
     provider_qualification: str | None = None
@@ -277,6 +283,7 @@ def resolve_provider_cost(provider: Any, usage: ProviderUsage | None, at: dateti
         usage,
         at,
         runtime_conditions=runtime_pricing_conditions(provider),
+        surface=str(getattr(provider, "surface", "") or ""),
     )
 
 

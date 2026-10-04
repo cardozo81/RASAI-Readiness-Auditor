@@ -260,6 +260,7 @@ def publish_pricing_catalog(
             ),
         )
         connection.execute("DELETE FROM ai_pricing_rules WHERE catalog_version=?", (version,))
+        connection.execute("DELETE FROM ai_native_pricing_policies WHERE catalog_version=?", (version,))
         for policy in catalog.models:
             for rule in policy.rules:
                 connection.execute(
@@ -296,13 +297,51 @@ def publish_pricing_catalog(
                         rule.output_price_per_million,
                     ),
                 )
+        for policy in catalog.native_usage:
+            rules_payload = [
+                {
+                    "rule_id": rule.rule_id,
+                    "context": rule.context,
+                    "priority": rule.priority,
+                    "effective_from": rule.effective_from,
+                    "effective_until": rule.effective_until,
+                    "unit_price": rule.unit_price,
+                    "conditions": dict(rule.conditions),
+                }
+                for rule in policy.rules
+            ]
+            connection.execute(
+                """INSERT INTO ai_native_pricing_policies(
+                       catalog_version,provider_code,surface,native_usage_unit,pricing_model,
+                       currency,source_reference,rules_json
+                   ) VALUES(?,?,?,?,?,?,?,?)""",
+                (
+                    version,
+                    policy.provider,
+                    policy.surface,
+                    policy.unit,
+                    policy.pricing_model,
+                    policy.currency,
+                    policy.source_reference,
+                    json.dumps(
+                        rules_payload,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                ),
+            )
         _catalog_event(
             connection,
             kind="PRICING",
             version=version,
             action=state,
             actor_user_id=actor_user_id,
-            details={"sha256": digest, "models": len(catalog.models)},
+            details={
+                "sha256": digest,
+                "models": len(catalog.models),
+                "native_usage_policies": len(catalog.native_usage),
+            },
             at=at,
         )
     return digest

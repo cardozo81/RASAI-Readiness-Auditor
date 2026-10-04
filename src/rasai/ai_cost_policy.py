@@ -12,7 +12,18 @@ import json
 import math
 from typing import Any, Mapping
 
-from rasai.ai_pricing_catalog import PricingCatalog, PricingModelPolicy, load_pricing_catalog, resolve_catalog_rule
+from rasai.ai_native_usage import (
+    NativeUsageComponent,
+    PROVIDER_CREDITS,
+    counted_native_components,
+)
+from rasai.ai_pricing_catalog import (
+    PricingCatalog,
+    PricingModelPolicy,
+    load_pricing_catalog,
+    resolve_catalog_rule,
+    resolve_native_catalog_rule,
+)
 
 _EFFECTIVE_CATALOG: PricingCatalog = load_pricing_catalog()
 PRICING_VERSION = _EFFECTIVE_CATALOG.metadata.catalog_version
@@ -81,6 +92,21 @@ class ResolvedPrice:
 
 
 @dataclass(frozen=True, slots=True)
+class ResolvedNativePrice:
+    provider: str
+    surface: str
+    unit: str
+    pricing_model: str
+    rule_id: str
+    unit_price: float
+    currency: str
+    source_reference: str
+    pricing_context: str
+    runtime_conditions: tuple[tuple[str, str], ...] = ()
+    pricing_version: str = PRICING_VERSION
+
+
+@dataclass(frozen=True, slots=True)
 class CandidateCostEstimate:
     provider: str
     model: str
@@ -108,6 +134,9 @@ class PricingApplication:
     pricing_rule_id: str | None = None
     pricing_source_reference: str | None = None
     runtime_conditions: tuple[tuple[str, str], ...] = ()
+    pricing_model: str | None = None
+    native_usage_unit: str | None = None
+    native_usage_quantity: float | None = None
 
 
 def _normalize_runtime_conditions(
@@ -239,6 +268,144 @@ def resolve_price(
     )
 
 
+def resolve_native_price(
+    provider: str,
+    surface: str,
+    unit: str,
+    *,
+    at: datetime,
+    runtime_conditions: Mapping[str, str] | None = None,
+) -> ResolvedNativePrice | None:
+    provider_name = provider.strip().upper()
+    surface_name = surface.strip().upper()
+    unit_name = unit.strip().upper()
+    resolved = resolve_native_catalog_rule(
+        _EFFECTIVE_CATALOG,
+        provider_name,
+        surface_name,
+        unit_name,
+        at=at,
+        runtime_conditions=runtime_conditions,
+    )
+    if resolved is None:
+        return None
+    policy, rule = resolved
+    if not policy.currency:
+        return None
+    return ResolvedNativePrice(
+        provider=provider_name,
+        surface=surface_name,
+        unit=unit_name,
+        pricing_model=policy.pricing_model,
+        rule_id=rule.rule_id,
+        unit_price=rule.unit_price,
+        currency=policy.currency,
+        source_reference=policy.source_reference,
+        pricing_context=rule.context,
+        runtime_conditions=_normalize_runtime_conditions(runtime_conditions),
+        pricing_version=_EFFECTIVE_CATALOG.metadata.catalog_version,
+    )
+
+
+def resolve_native_usage_cost(
+    provider: str,
+    surface: str,
+    components: Any,
+    at: datetime,
+    *,
+    runtime_conditions: Mapping[str, str] | None = None,
+) -> PricingApplication:
+    normalized_conditions = _normalize_runtime_conditions(runtime_conditions)
+    native_components = tuple(
+        item for item in (components or ()) if isinstance(item, NativeUsageComponent)
+    )
+    counted = counted_native_components(native_components)
+    if not counted:
+        return PricingApplication(
+            None,
+            None,
+            PRICING_VERSION,
+            runtime_conditions=normalized_conditions,
+        )
+    units = {item.unit for item in counted}
+    if len(units) != 1:
+        return PricingApplication(
+            None,
+            None,
+            PRICING_VERSION,
+            runtime_conditions=normalized_conditions,
+        )
+    unit = next(iter(units))
+    policy = _EFFECTIVE_CATALOG.native_policy(provider, surface, unit)
+    quantity = sum(item.quantity for item in counted)
+    if policy is None:
+        return PricingApplication(
+            None,
+            None,
+            PRICING_VERSION,
+            runtime_conditions=normalized_conditions,
+            native_usage_unit=unit,
+            native_usage_quantity=quantity,
+        )
+    if policy.pricing_model == PROVIDER_CREDITS:
+        return PricingApplication(
+            None,
+            None,
+            _EFFECTIVE_CATALOG.metadata.catalog_version,
+            pricing_context="UNPRICED_PROVIDER_CREDITS",
+            pricing_source_reference=policy.source_reference,
+            runtime_conditions=normalized_conditions,
+            pricing_model=policy.pricing_model,
+            native_usage_unit=unit,
+            native_usage_quantity=quantity,
+        )
+    price = resolve_native_price(
+        provider,
+        surface,
+        unit,
+        at=at,
+        runtime_conditions=runtime_conditions,
+    )
+    if price is None:
+        return PricingApplication(
+            None,
+            None,
+            _EFFECTIVE_CATALOG.metadata.catalog_version,
+            pricing_source_reference=policy.source_reference,
+            runtime_conditions=normalized_conditions,
+            pricing_model=policy.pricing_model,
+            native_usage_unit=unit,
+            native_usage_quantity=quantity,
+        )
+    if any(item.billable is None for item in counted):
+        return PricingApplication(
+            None,
+            None,
+            price.pricing_version,
+            pricing_context=price.pricing_context,
+            pricing_rule_id=price.rule_id,
+            pricing_source_reference=price.source_reference,
+            runtime_conditions=price.runtime_conditions,
+            pricing_model=price.pricing_model,
+            native_usage_unit=unit,
+            native_usage_quantity=quantity,
+        )
+    billable_quantity = sum(item.quantity for item in counted if item.billable is True)
+    amount = billable_quantity * price.unit_price
+    return PricingApplication(
+        estimated_cost=round(amount, 10),
+        currency=price.currency,
+        pricing_version=price.pricing_version,
+        pricing_context=price.pricing_context,
+        pricing_rule_id=price.rule_id,
+        pricing_source_reference=price.source_reference,
+        runtime_conditions=price.runtime_conditions,
+        pricing_model=price.pricing_model,
+        native_usage_unit=unit,
+        native_usage_quantity=quantity,
+    )
+
+
 def _billable_output_tokens(provider: str, model: str, usage: Any) -> int | None:
     output = getattr(usage, "output_tokens", None)
     if output is None:
@@ -259,11 +426,32 @@ def resolve_observed_cost(
     at: datetime,
     *,
     runtime_conditions: Mapping[str, str] | None = None,
+    surface: str | None = None,
 ) -> PricingApplication:
     normalized_conditions = _normalize_runtime_conditions(runtime_conditions)
     if usage is None:
         return PricingApplication(None, None, PRICING_VERSION, runtime_conditions=normalized_conditions)
+    native_components = tuple(getattr(usage, "native_usage", ()) or ())
     input_tokens = getattr(usage, "input_tokens", None)
+    output_raw = getattr(usage, "output_tokens", None)
+    if native_components:
+        # Mixed token + native commercial composition is intentionally not priced by
+        # issue #8. The observations coexist, but no TOKEN_PLUS_* billing model is
+        # invented. A future concrete consumer must define that contract explicitly.
+        if input_tokens is not None or output_raw is not None:
+            return PricingApplication(
+                None,
+                None,
+                PRICING_VERSION,
+                runtime_conditions=normalized_conditions,
+            )
+        return resolve_native_usage_cost(
+            provider,
+            str(surface or ""),
+            native_components,
+            at,
+            runtime_conditions=runtime_conditions,
+        )
     cached_raw = getattr(usage, "cached_input_tokens", None)
     output_tokens = _billable_output_tokens(provider, model, usage)
     if input_tokens is None or output_tokens is None:

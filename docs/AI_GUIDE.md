@@ -167,17 +167,17 @@ config/ai-models.toml   -> capacidade e elegibilidade
 config/ai-pricing.toml  -> política comercial
 ```
 
-Para cada provider, o `AUTO` resolve um modelo efetivo a partir do override do provider ou do `public_default` do catálogo. O candidato somente entra no ranking econômico quando:
+Para cada provider, o `AUTO` resolve um modelo efetivo a partir do override do provider ou do `public_default` do catálogo. O candidato entra no pool quando:
 
 1. provider e modelo são tecnicamente válidos;
 2. há credencial/configuração válida;
 3. o modelo está habilitado, vigente e `auto_eligible=true`;
-4. existe regra de pricing vigente para o modelo;
-5. o provider não está inelegível pela saúde/quarentena.
+4. o provider não está inelegível pela saúde/quarentena;
+5. o pricing é resolvido quando houver regra/contexto compatível, exclusivamente para ordenar e telemetrar custo.
 
-O runtime estima o custo da necessidade atual e ordena os candidatos elegíveis do menor para o maior custo. A ordem pode mudar por horário, tokens, contexto, cache e reasoning.
+O runtime estima o custo da necessidade atual quando isso é reproduzível e ordena primeiro os candidatos precificados do menor para o maior custo. A ordem pode mudar por horário, tokens, contexto, cache e reasoning.
 
-**Modelo elegível sem pricing vigente permanece `UNPRICED` no `AUTO`.** Ele é tentado depois dos candidatos precificados; ausência de preço nunca é tratada como custo zero.
+**Modelo elegível sem pricing vigente permanece `UNPRICED` no `AUTO`.** Ele é tentado depois dos candidatos precificados; ausência de preço nunca é tratada como custo zero nem como inelegibilidade. Na seleção explícita, pricing também não é gate: a falta de preço não bloqueia a chamada de um provider que esteja configurado e apto.
 
 Cada provider pode ser tentado no máximo uma vez por necessidade. Falhas temporárias seguem a política central de retry/circuit breaker; condições terminais retiram o provider do restante da execução conforme o contrato de resiliência vigente.
 

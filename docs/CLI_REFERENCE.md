@@ -137,6 +137,8 @@ Quando um campo está em `auto` e IA está ligada, a configuração persistida c
 
 Cada chamada externa pode ser auditada em `report-catalog/ai-integrations.html`. O runtime registra request/response sanitizados, provider/modelo, finalidade, duração, status, hashes e truncamento. Secrets e raciocínio privado do provider não são persistidos.
 
+Quando a integração reporta uma unidade comercial nativa, o console/relatório a apresenta separadamente dos tokens. A telemetria pode mostrar, por exemplo, requisições de busca Perplexity ou créditos Manus; essas unidades nunca são reaproveitadas como `input_tokens`/`output_tokens`. Créditos Manus permanecem não precificados enquanto não houver conversão monetária oficial reproduzível. Esta entrega não cria novos valores para `--ai-provider`.
+
 O report usa provider/modelo efetivamente persistidos; não existe allowlist HTML específica que precise ser atualizada para Copilot ou para futuros providers registrados.
 
 Controle de tamanho:
