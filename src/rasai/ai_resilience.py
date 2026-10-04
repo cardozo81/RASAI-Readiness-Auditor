@@ -12,7 +12,6 @@ from email.utils import parsedate_to_datetime
 from typing import Any
 
 MAX_PROVIDER_ATTEMPTS_PER_CONTEXT = 1
-MAX_AUTO_ATTEMPTS_PER_CONTEXT = 8
 MAX_RETRY_DELAY_SECONDS = 300.0
 DEFAULT_RETRY_DELAY_SECONDS = 0.25
 RATE_LIMIT_DEFAULT_DELAY_SECONDS = 1.0
@@ -65,9 +64,3 @@ def retry_policy(error_class: Any, retry_after_seconds: float | None = None) -> 
         delay = DEFAULT_RETRY_DELAY_SECONDS if retry_after_seconds is None else retry_after_seconds
     return RetryPolicyDecision(True, min(max(delay, 0.0), MAX_RETRY_DELAY_SECONDS), "TRANSIENT_ERROR")
 
-
-def max_attempts_for_auto(provider_count: int) -> int:
-    """Legacy one-cycle AUTO bound; canonical multi-cycle budget lives above adapters."""
-    if provider_count <= 0:
-        return 0
-    return min(provider_count, MAX_AUTO_ATTEMPTS_PER_CONTEXT)
