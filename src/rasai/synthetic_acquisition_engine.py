@@ -524,6 +524,8 @@ def claim_persisted_load_boundary(
     timeout_seconds: float,
 ) -> SyntheticAcquisitionEnvelope | None:
     """Claim an unconsumed persisted load boundary after process restart."""
+    selected: sqlite3.Row | None = None
+    incompatible = 0
     try:
         connection = _connect(workspace)
         try:
@@ -546,31 +548,29 @@ def claim_persisted_load_boundary(
                     str(profile_id),
                 ),
             ).fetchall()
-            selected = None
-            incompatible = 0
             for row in rows:
                 duration = float(row["load_duration_ms"])
                 if duration <= float(timeout_seconds) * 1000.0:
                     selected = row
                     break
                 incompatible += 1
-            if incompatible:
-                _update_run_counter(workspace, audit_id, "timeout_incompatible", incompatible)
-            if selected is None:
-                return None
-            connection.execute(
-                "UPDATE synthetic_apdex_acquisitions "
-                "SET consumed_by_navigation=1,consumed_at=? WHERE acquisition_id=?",
-                (utc_now(), str(selected["acquisition_id"])),
-            )
+            if selected is not None:
+                connection.execute(
+                    "UPDATE synthetic_apdex_acquisitions "
+                    "SET consumed_by_navigation=1,consumed_at=? WHERE acquisition_id=?",
+                    (utc_now(), str(selected["acquisition_id"])),
+                )
             connection.commit()
         finally:
             connection.close()
     except sqlite3.Error:
         return None
+    if incompatible:
+        _update_run_counter(workspace, audit_id, "timeout_incompatible", incompatible)
+    if selected is None:
+        return None
     _update_run_counter(workspace, audit_id, "reused_by_navigation")
     return _envelope_from_row(selected)
-
 
 def available_full_envelopes(
     *,
