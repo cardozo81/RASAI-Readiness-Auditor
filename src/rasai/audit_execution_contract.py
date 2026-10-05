@@ -451,7 +451,10 @@ def normalize_audit_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     if urls is not None:
         if not isinstance(urls, list) or any(not isinstance(item, str) for item in urls):
             raise ValueError("AUDIT payload urls must be an array of strings")
-        normalized["urls"] = list(urls)
+        explicit_urls = [item.strip() for item in urls if item.strip()]
+        if len(explicit_urls) != 1:
+            raise ValueError("AUDIT payload urls must contain exactly one explicit URL for a new audit")
+        normalized["urls"] = explicit_urls
     return normalized
 
 

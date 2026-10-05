@@ -12,6 +12,7 @@ from rasai.recommendation_governance import (
     INFORMATIONAL,
     REJECTED,
     TARGET_SITE,
+    VERIFY_DECIDE,
     classify_candidate,
     evaluate_recommendations,
 )
@@ -116,7 +117,7 @@ def test_jsonld_absent_cannot_be_described_as_fixing_existing_jsonld() -> None:
         assert row["conflict_group"] == "JSONLD_EXISTENCE"
 
 
-def test_jsonld_absent_with_creation_payload_is_accepted() -> None:
+def test_jsonld_absent_with_unproven_entity_requires_decision() -> None:
     with tempfile.TemporaryDirectory() as directory:
         database = _database(Path(directory))
         connection = sqlite3.connect(database)
@@ -137,8 +138,149 @@ def test_jsonld_absent_with_creation_payload_is_accepted() -> None:
         rows = evaluate_recommendations(database, "AUD-1")
         row = next(item for item in rows if item["source_id"] == "J2")
         assert row["target_class"] == TARGET_SITE
-        assert row["decision"] == ACCEPTED
-        assert row["rejection_reason"] is None
+        assert row["decision"] == VERIFY_DECIDE
+        assert row["rejection_reason"] == "JSONLD_CONTENT_OR_ENTITY_NOT_PROVEN"
+        assert row["conflict_group"] == "JSONLD_CONTENT_SUPPORT"
+
+
+def test_jsonld_webpage_baseline_with_persisted_evidence_is_accepted() -> None:
+    target, decision, reason, conflict, _rationale = classify_candidate(
+        "JSONLD",
+        {
+            "status": "MISSING_PROPOSED",
+            "existing_types": "[]",
+            "proposed_json": json.dumps(
+                {
+                    "@context": "https://schema.org",
+                    "@type": "WebPage",
+                    "url": "https://example.test/pagina",
+                    "name": "Título observado",
+                }
+            ),
+            "evidence_ids": json.dumps(["EV-MAIN-CONTENT", "EV-META-TITLE"]),
+        },
+    )
+    assert target == TARGET_SITE
+    assert decision == ACCEPTED
+    assert reason is None
+    assert conflict is None
+
+
+def test_canonical_absence_requires_preferred_url_decision() -> None:
+    target, decision, reason, conflict, rationale = classify_candidate(
+        "DETERMINISTIC",
+        {
+            "rule_id": "BR-GEO-013",
+            "observed_value": json.dumps({"canonicals": []}),
+            "title": "Adicionar canonical autorreferente para /seguro-de-vida",
+            "description": "Implementar canonical autorreferente.",
+        },
+    )
+    assert target == TARGET_SITE
+    assert decision == VERIFY_DECIDE
+    assert reason == "CANONICAL_PREFERRED_URL_NOT_PROVEN"
+    assert conflict == "CANONICAL_TARGET_DECISION"
+    assert "não comprova qual URL" in rationale
+
+
+def test_canonical_specific_action_requires_prescription_to_match_proven_target() -> None:
+    proven = {
+        "rule_id": "BR-GEO-013",
+        "observed_value": json.dumps(
+            {
+                "canonicals": [],
+                "preferred_url": "https://example.test/preferida",
+            }
+        ),
+    }
+    target, decision, reason, conflict, _rationale = classify_candidate(
+        "DETERMINISTIC",
+        {
+            **proven,
+            "title": "Definir canonical para https://example.test/preferida",
+        },
+    )
+    assert target == TARGET_SITE
+    assert decision == ACCEPTED
+    assert reason is None
+    assert conflict is None
+
+    _target, decision, reason, conflict, _rationale = classify_candidate(
+        "DETERMINISTIC",
+        {
+            **proven,
+            "title": "Definir canonical para https://example.test/outra",
+        },
+    )
+    assert decision == VERIFY_DECIDE
+    assert reason == "PRESCRIPTION_CONFLICTS_WITH_EVIDENCE"
+    assert conflict == "CANONICAL_TARGET_DECISION"
+
+
+def test_noindex_requires_deliberate_indexability_intent() -> None:
+    target, decision, reason, conflict, _rationale = classify_candidate(
+        "DETERMINISTIC",
+        {
+            "rule_id": "BR-GEO-012",
+            "observed_value": json.dumps({"explicit_noindex": True}),
+            "title": "Remover noindex para indexar a página",
+        },
+    )
+    assert target == TARGET_SITE
+    assert decision == VERIFY_DECIDE
+    assert reason == "INDEXABILITY_INTENT_NOT_PROVEN"
+    assert conflict == "INDEXABILITY_POLICY_DECISION"
+
+    target, decision, reason, conflict, _rationale = classify_candidate(
+        "DETERMINISTIC",
+        {
+            "rule_id": "BR-GEO-012",
+            "observed_value": json.dumps(
+                {
+                    "explicit_noindex": True,
+                    "intended_indexability": "INDEX",
+                }
+            ),
+            "title": "Remover noindex para indexar a página",
+        },
+    )
+    assert target == TARGET_SITE
+    assert decision == ACCEPTED
+    assert reason is None
+    assert conflict is None
+
+
+def test_redirect_target_requires_persisted_destination() -> None:
+    target, decision, reason, conflict, _rationale = classify_candidate(
+        "DETERMINISTIC",
+        {
+            "rule_id": "BR-GEO-008",
+            "observed_value": json.dumps({"redirect_count": 4}),
+            "title": "Redirecionar para https://example.test/destino",
+        },
+    )
+    assert target == TARGET_SITE
+    assert decision == VERIFY_DECIDE
+    assert reason == "REDIRECT_TARGET_NOT_PROVEN"
+    assert conflict == "REDIRECT_TARGET_DECISION"
+
+    target, decision, reason, conflict, _rationale = classify_candidate(
+        "DETERMINISTIC",
+        {
+            "rule_id": "BR-GEO-008",
+            "observed_value": json.dumps(
+                {
+                    "redirect_count": 4,
+                    "redirect_target": "https://example.test/destino",
+                }
+            ),
+            "title": "Redirecionar para https://example.test/destino",
+        },
+    )
+    assert target == TARGET_SITE
+    assert decision == ACCEPTED
+    assert reason is None
+    assert conflict is None
 
 
 def test_third_party_request_remediation_targets_external_provider() -> None:

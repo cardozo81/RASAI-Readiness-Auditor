@@ -248,8 +248,7 @@ def render_loaded_configuration_summary(
     print("CONFIGURAÇÃO CARREGADA\n")
     print(f"Origem              : {source.audit_id}")
     print(
-        f"Entrada              : "
-        f"{'URL única' if getattr(state, 'input_mode', 'url') == 'url' else 'lista de URLs'}"
+        "Entrada              : URL única"
     )
     print(
         f"Alvo                 : "

@@ -291,7 +291,7 @@ Contrato de criação de schedule:
 | `name` | obrigatório | texto `1..200` |
 | `job_type` | `AUDIT` | `AUDIT`, `SEARCH_MONITOR`, `REPORT_REFRESH` |
 | `timezone` | obrigatório | texto `1..200`; validação temporal pertence ao store/contrato de schedule |
-| `urls` | `[]` | até 5000 itens |
+| `urls` | `[]` | para `AUDIT`, zero ou uma URL; vazio usa a origem do Environment; múltiplas URLs são rejeitadas |
 | `payload` | `{}` | objeto estruturado |
 | `overlap_policy` | `SKIP` | `SKIP`, `QUEUE` |
 | `priority` | `100` | `0..1000` |

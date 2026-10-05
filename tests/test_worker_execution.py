@@ -69,6 +69,26 @@ def test_audit_job_builds_only_canonical_arguments() -> None:
                 )
 
 
+def test_audit_job_rejects_multiple_explicit_urls_for_new_audit() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        with SecurePlatformStore(Path(directory) / "platform.db") as store:
+            project, prop, environment, user = _scope(store)
+            with pytest.raises(ValueError, match="exactly one explicit URL"):
+                store.enqueue_execution_job(
+                    project_id=project.project_id,
+                    property_id=prop.property_id,
+                    environment_id=environment.environment_id,
+                    job_type="AUDIT",
+                    requested_by=user.user_id,
+                    payload={
+                        "urls": [
+                            "https://worker.example.test/a",
+                            "https://worker.example.test/b",
+                        ]
+                    },
+                )
+
+
 def test_experience_apdex_job_uses_same_default_thresholds_as_cli_runtime() -> None:
     with tempfile.TemporaryDirectory() as directory:
         with SecurePlatformStore(Path(directory) / "platform.db") as store:

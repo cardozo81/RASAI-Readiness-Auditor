@@ -16,7 +16,7 @@ O produto avalia sinais técnicos e semânticos úteis para Search e sistemas ge
 
 Capacidades integradas no contrato atual:
 
-- auditoria por URL única, conjunto explícito ou arquivo TXT;
+- novas auditorias públicas por exatamente uma URL/domínio de entrada; estruturas multi-URL históricas permanecem legíveis internamente;
 - uma AUD usa um único contexto de device: `mobile` ou `desktop`;
 - persistência em SQLite + artefatos + log operacional;
 - relatório HTML pertencente à auditoria em `report-catalog/`, derivado da evidência persistida;
@@ -223,11 +223,7 @@ rasai audit https://example.com --device-context desktop --ai-provider none
 
 Uma AUD não combina Mobile e Desktop. Para comparar devices, execute AUDs separadas e use a camada de comparação/consolidação.
 
-Arquivo de URLs:
-
-```powershell
-rasai audit --urls-file urls.txt --device-context mobile --ai-provider none
-```
+Novas AUDs não aceitam arquivo/lista de URLs. Informe exatamente um target; a descoberta interna pode ampliar o conjunto de páginas dentro do limite configurado.
 
 A IA é opcional. Ausência de IA não transforma regras semânticas em `FAIL`; pode reduzir Coverage/Confidence quando evidência semântica aplicável não for obtida.
 

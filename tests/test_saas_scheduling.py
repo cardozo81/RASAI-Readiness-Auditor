@@ -104,6 +104,25 @@ def test_scheduled_urls_are_same_property_normalized_and_deduplicated() -> None:
         )
 
 
+def test_new_audit_schedule_rejects_multiple_urls() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        with open_platform_store(platform_db=Path(directory) / "platform.db") as store:
+            _organization, _workspace, project, prop, environment, user = _scope(store)
+            with pytest.raises(ValueError, match="exactly one URL"):
+                store.create_managed_schedule(
+                    project_id=project.project_id,
+                    property_id=prop.property_id,
+                    environment_id=environment.environment_id,
+                    name="Invalid multi target",
+                    job_type="AUDIT",
+                    recurrence={"times": ["08:00"]},
+                    timezone="America/Sao_Paulo",
+                    urls=["/a", "/b"],
+                    payload={"max_pages": 10},
+                    created_by=user.user_id,
+                )
+
+
 def test_managed_schedule_lifecycle_occurrence_idempotency_overlap_and_usage() -> None:
     with tempfile.TemporaryDirectory() as directory:
         database = Path(directory) / "platform.db"
@@ -122,14 +141,13 @@ def test_managed_schedule_lifecycle_occurrence_idempotency_overlap_and_usage() -
                     "weekdays": [1, 2, 3, 4, 5],
                 },
                 timezone="America/Sao_Paulo",
-                urls=["/a", "/b"],
+                urls=["/a"],
                 payload={"max_pages": 10, "device_context": "mobile", "ai_provider": "none"},
                 created_by=user.user_id,
             )
             assert schedule["status"] == "ACTIVE"
             assert schedule["urls"] == [
                 "https://schedule.example.test/a",
-                "https://schedule.example.test/b",
             ]
             assert schedule["overlap_policy"] == "SKIP"
 

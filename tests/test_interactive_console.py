@@ -100,19 +100,12 @@ class InteractiveConsoleTests(unittest.TestCase):
         state = State(target="https://example.com/path")
         self.assertEqual(preflight(state, {}), ("https://example.com/path",))
 
-    def test_preflight_txt_validates_origin_and_max_pages(self) -> None:
-        with TemporaryDirectory() as directory:
-            path = Path(directory) / "urls.txt"
-            path.write_text("https://example.com/a\nhttps://example.com/b\n", encoding="utf-8")
-            state = State(input_mode="file", target=str(path), max_pages=2)
-            self.assertEqual(len(preflight(state, {})), 2)
-            state.max_pages = 1
-            with self.assertRaises(ValueError):
-                preflight(state, {})
-            path.write_text("https://example.com/a\nhttps://other.example/b\n", encoding="utf-8")
-            state.max_pages = 2
-            with self.assertRaises(ValueError):
-                preflight(state, {})
+    def test_preflight_and_command_reject_file_mode_for_new_audit(self) -> None:
+        state = State(input_mode="file", target="urls.txt", max_pages=2)
+        with self.assertRaisesRegex(ValueError, "URL única"):
+            preflight(state, {})
+        with self.assertRaisesRegex(ValueError, "URL única"):
+            build_command(state)
 
     def test_preflight_allows_optional_runtime_unavailability_but_rejects_invalid_contracts(self) -> None:
         state = State(target="https://example.com", content_remediation=True)

@@ -6,13 +6,11 @@ A auditoria multi-URL com evidência visual evolui a cadeia persistida de audito
 
 O relatório permanece uma projeção. O estado persistido da auditoria é a fonte de verdade.
 
-## 2. Entrada `URL_SET`
+## 2. Compatibilidade histórica `URL_SET`
 
-Tanto um único target posicional quanto entrada explícita de múltiplos targets são suportados.
+Desde a restrição de entrada de novas AUDs a uma única URL, a CLI, console, Web/API e schedules não criam novos conjuntos explícitos multi-target. `TargetType.URL_SET` permanece no domínio interno para reabrir, reprocessar e projetar auditorias históricas sem migração destrutiva.
 
-Uma sequência explícita de targets ou `--urls-file` cria `TargetType.URL_SET`, mesmo que normalização/remoção de duplicatas resulte em uma única URL. O universo explícito de páginas não pode fazer fallback silencioso para expansão por descoberta comum.
-
-Para `URL_SET`:
+Para um `URL_SET` histórico:
 
 - normalizar URLs pela política de URL do projeto;
 - preservar a sequência ordenada e sem duplicatas de URLs normalizadas;
@@ -309,7 +307,7 @@ A cobertura de regressão focada deve incluir:
 - entrada multi-URL de mesma origem;
 - normalização/remoção de duplicatas;
 - rejeição de origem incompatível antes da aquisição;
-- `--urls-file`;
+- leitura do conjunto explicitamente persistido pela execução histórica;
 - um único workspace de auditoria para conjunto explícito;
 - uma aquisição de robots e uma aquisição por URL de sitemap/recurso de domínio;
 - artefatos de screenshot Desktop/Mobile e vínculo ao snapshot;

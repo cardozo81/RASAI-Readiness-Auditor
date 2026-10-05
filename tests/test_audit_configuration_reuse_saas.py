@@ -75,6 +75,32 @@ def test_saas_reuse_inherits_payload_series_and_records_override_delta() -> None
         assert "max_pages" in reused["configuration_changed_fields"]
 
 
+def test_saas_reuse_rejects_historical_multi_target_configuration_for_new_audit() -> None:
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        source = _complete_workspace(root, "AUD-SAAS-MULTI")
+        persist_audit_configuration(
+            source.root,
+            audit_id="AUD-SAAS-MULTI",
+            kind=KIND_AUDIT_PAYLOAD,
+            configuration={
+                **normalize_audit_job_payload({"urls": ["https://example.com/a"]}),
+                "urls": ["https://example.com/a", "https://example.com/b"],
+            },
+            scope={"project_id": "P1", "property_id": "PROP1", "environment_id": "ENV1"},
+        )
+
+        with pytest.raises(ValueError, match="exactly one explicit URL"):
+            build_reused_payload(
+                root,
+                "AUD-SAAS-MULTI",
+                {},
+                project_id="P1",
+                property_id="PROP1",
+                environment_id="ENV1",
+            )
+
+
 def test_saas_reuse_rejects_cross_scope_and_client_managed_provenance() -> None:
     with TemporaryDirectory() as directory:
         root = Path(directory)

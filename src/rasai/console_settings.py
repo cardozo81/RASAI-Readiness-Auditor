@@ -205,7 +205,7 @@ def _state_values(state: Any) -> dict[str, dict[str, str]]:
     return {
         "console": {
             "config_version": CONFIG_VERSION,
-            "input_mode": str(state.input_mode),
+            "input_mode": "url",
             "target": str(state.target),
             "project": str(state.project),
             "language": str(state.language),
@@ -329,8 +329,9 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
     key = (section, option)
     if key == ("console", "input_mode"):
         value = raw.strip().casefold()
-        if value not in {"url", "file"}: raise ValueError("use url ou file")
-        state.input_mode = value
+        if value != "url":
+            raise ValueError("novas AUDs aceitam somente input_mode=url")
+        state.input_mode = "url"
     elif key == ("console", "target"): state.target = raw.strip()
     elif key == ("console", "project"): state.project = raw.strip()
     elif key == ("console", "language"): state.language = raw.strip() or state.language

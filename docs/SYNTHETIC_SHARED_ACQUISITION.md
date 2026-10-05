@@ -4,6 +4,8 @@
 
 O RASAi pode reduzir navegações físicas quando **Synthetic Navigation Apdex** e **Synthetic User Experience Apdex** estão habilitados na mesma auditoria.
 
+O owner canônico da aquisição física é `src/rasai/synthetic_acquisition_engine.py`. Ele persiste envelopes brutos `LOAD_ONLY` e `FULL_EXPERIENCE`, congela a fronteira de `load` e armazena observáveis pós-load quando disponíveis. O engine não importa CAT-06/M23 nem CAT-07/M25 e não calcula Apdex. O runtime compartilhado anterior permanece nesta etapa somente como adapter de integração e será retirado após a homologação prevista em #207/#208.
+
 O contrato é **shared acquisition, independent evaluation**:
 
 - a página pode ser carregada fisicamente uma única vez;
@@ -99,7 +101,7 @@ Durante a auditoria o RASAi mantém um ledger técnico em `audit.db`:
 - `synthetic_apdex_acquisition_runs`;
 - `synthetic_apdex_acquisitions`.
 
-Esse ledger registra aquisições Experience elegíveis, reutilizações pelo Navigation e incompatibilidades de timeout. É evidência operacional; não participa do cálculo de nenhum score.
+Esse ledger é materializado pelo Synthetic Acquisition Engine neutro e registra envelopes físicos, observáveis disponíveis, reutilizações da fronteira de load e incompatibilidades de timeout. É evidência operacional; não participa do cálculo de nenhum score.
 
 `cat-06.html` e `cat-07.html` recebem a seção **Uma navegação física, avaliações Apdex independentes**, com:
 

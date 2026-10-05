@@ -139,7 +139,7 @@ A única exceção externa score-eligible vigente é a corroboração positiva C
 
 ## D-017 - Multi-URL e recursos de domínio
 
-Uma auditoria pode receber múltiplas URLs/targets conforme o contrato da CLI/API e preservar um único `audit_id` quando o escopo for válido.
+Novas auditorias públicas recebem exatamente uma URL/domínio de entrada. O crawler pode materializar múltiplas páginas dentro do mesmo `audit_id`; estruturas históricas `URL_SET`, readers e relatórios multi-URL permanecem suportados para compatibilidade, sem reabrir criação pública multi-target.
 
 `robots.txt`, sitemaps, feeds e demais recursos de domínio são evidências de domínio e não devem ser artificialmente duplicados como findings por página.
 

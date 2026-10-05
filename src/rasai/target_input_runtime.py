@@ -5,8 +5,6 @@ from pathlib import Path
 import sys
 from typing import Any, Mapping
 
-from rasai.target_file import validated_target_file
-
 _INSTALLED = False
 
 
@@ -20,15 +18,20 @@ def install() -> None:
     from rasai.url_utils import normalize_url, normalized_origin
 
     def audit_targets(args: Any) -> tuple[str, ...]:
-        values = list(args.target)
-        if args.urls_file:
-            path = Path(args.urls_file)
-            if not path.is_file():
-                raise ValueError(f"cannot read --urls-file {path}: file not found")
-            values.extend(validated_target_file(path, cli.validate_target))
-        if not values:
-            raise ValueError("provide at least one target URL/domain or --urls-file")
-        return tuple(cli.validate_target(value) for value in values)
+        if getattr(args, "urls_file", None):
+            raise ValueError(
+                "--urls-file is not supported for new audits; provide exactly one target URL/domain"
+            )
+        raw = getattr(args, "target", "")
+        if isinstance(raw, (list, tuple)):
+            values = [str(value).strip() for value in raw if str(value).strip()]
+            if len(values) != 1:
+                raise ValueError("new audits require exactly one target URL/domain")
+            raw = values[0]
+        target = str(raw or "").strip()
+        if not target:
+            raise ValueError("provide exactly one target URL/domain")
+        return (cli.validate_target(target),)
 
     def preflight(state: Any, env: Mapping[str, str] | None = None) -> tuple[str, ...]:
         environment = env if env is not None else console_config.os.environ
@@ -42,25 +45,15 @@ def install() -> None:
         ):
             raise ValueError("limites/timeout/política de IA inválidos")
         console_config.configured_content_analysis_context(environment)
-        if state.input_mode == "url":
-            if not state.target.strip():
-                raise ValueError("informe uma URL/domínio")
-            targets = (cli.validate_target(state.target),)
-        elif state.input_mode == "file":
-            path = Path(state.target)
-            if not path.is_file():
-                raise ValueError(f"TXT não encontrado: {path}")
-            targets = validated_target_file(path, cli.validate_target)
-        else:
-            raise ValueError("modo de entrada inválido")
+        if state.input_mode != "url":
+            raise ValueError("novas auditorias exigem Entrada=URL única")
+        if not state.target.strip():
+            raise ValueError("informe uma URL/domínio")
+        targets = (cli.validate_target(state.target),)
 
         normalized = tuple(dict.fromkeys(normalize_url(item) for item in targets))
         if len({normalized_origin(item) for item in normalized}) != 1:
-            raise ValueError("todos os targets devem pertencer à mesma origem normalizada")
-        if state.input_mode == "file" and len(normalized) > state.max_pages:
-            raise ValueError(
-                f"TXT possui {len(normalized)} URLs únicas e max-pages={state.max_pages}"
-            )
+            raise ValueError("target inválido para a origem normalizada")
         registration = get_provider_registration(state.ai_provider)
         provider_id = registration.id if registration else state.ai_provider
         capability = console_config.provider_capabilities(
@@ -79,19 +72,8 @@ def install() -> None:
         return normalized
 
     def configured_page_range(state: Any) -> tuple[int, int]:
-        if state.input_mode == "file":
-            path = Path(state.target).expanduser()
-            if not path.is_file():
-                return 0, 0
-            try:
-                targets = validated_target_file(path, cli.validate_target)
-                urls = [normalize_url(value) for value in targets]
-            except (ValueError, OSError, UnicodeError):
-                # Preflight surfaces the exact line error.  The exposure preview must
-                # never hide invalid lines and pretend the file contains fewer URLs.
-                return 0, 0
-            count = len(dict.fromkeys(urls))
-            return count, count
+        if state.input_mode != "url":
+            return 0, 0
         if not state.target.strip() or state.max_pages <= 0:
             return 0, 0
         return 1, state.max_pages

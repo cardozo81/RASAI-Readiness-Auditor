@@ -5,6 +5,7 @@ import sqlite3
 import time
 from types import SimpleNamespace
 
+from rasai import synthetic_acquisition_engine as acquisition_engine
 from rasai.domain import DeviceContext
 from rasai.m23_apdex import _classification as navigation_classification
 from rasai.m23_apdex_profiles import NavigationMeasurement
@@ -234,3 +235,131 @@ def test_load_boundary_timer_is_frozen_before_post_load_observation() -> None:
     proxy = _TimedPageProxy(Page(), capture)
     assert proxy.goto("https://example.test/", wait_until="load") == "response"
     assert capture["load_duration_ms"] >= 1.0
+
+
+def test_neutral_engine_supports_navigation_only_experience_only_and_both(tmp_path) -> None:
+    workspace = _workspace(tmp_path)
+
+    # CAT-06-only compatible envelope: load boundary exists without post-load facts.
+    acquisition_engine.prepare_acquisition_run(
+        audit_id="AUD-NAV-ONLY",
+        workspace=workspace,
+        mode="auto",
+    )
+    nav_only = acquisition_engine.record_acquisition(
+        audit_id="AUD-NAV-ONLY",
+        workspace=workspace,
+        url="https://example.test/",
+        device="MOBILE",
+        profile_id="PROFILE-MOBILE",
+        envelope_kind=acquisition_engine.LOAD_ONLY,
+        session_mode="cold",
+        load_duration_ms=321.0,
+        status="SUCCESS",
+        source="NAVIGATION_PHYSICAL",
+        reusable_for_load=True,
+    )
+    assert nav_only is not None
+    assert nav_only.full_observables is None
+    assert acquisition_engine.claim_load_boundary(
+        audit_id="AUD-NAV-ONLY",
+        workspace=workspace,
+        url="https://example.test/",
+        device="MOBILE",
+        profile_id="PROFILE-MOBILE",
+        timeout_seconds=45.0,
+    ).acquisition_id == nav_only.acquisition_id
+
+    # CAT-07-only FULL envelope keeps post-load facts and needs no Navigation consumer.
+    acquisition_engine.prepare_acquisition_run(
+        audit_id="AUD-EXP-ONLY",
+        workspace=workspace,
+        mode="auto",
+    )
+    exp_only = acquisition_engine.record_acquisition(
+        audit_id="AUD-EXP-ONLY",
+        workspace=workspace,
+        url="https://example.test/",
+        device="MOBILE",
+        profile_id="PROFILE-MOBILE",
+        envelope_kind=acquisition_engine.FULL_EXPERIENCE,
+        session_mode="cold",
+        load_duration_ms=654.0,
+        status="SUCCESS",
+        full_observables={"user_action_duration_ms": 900.0, "network_settled": True},
+        source="EXPERIENCE_PHYSICAL",
+        reusable_for_load=False,
+    )
+    assert exp_only is not None
+    persisted = acquisition_engine.persisted_envelopes(
+        audit_id="AUD-EXP-ONLY",
+        workspace=workspace,
+    )
+    assert len(persisted) == 1
+    assert persisted[0].full_observables["user_action_duration_ms"] == 900.0
+    assert acquisition_engine.claim_load_boundary(
+        audit_id="AUD-EXP-ONLY",
+        workspace=workspace,
+        url="https://example.test/",
+        device="MOBILE",
+        profile_id="PROFILE-MOBILE",
+        timeout_seconds=45.0,
+    ) is None
+
+    # Both evaluators can consume one FULL occurrence without sharing classification.
+    acquisition_engine.prepare_acquisition_run(
+        audit_id="AUD-BOTH",
+        workspace=workspace,
+        mode="auto",
+    )
+    both = acquisition_engine.record_acquisition(
+        audit_id="AUD-BOTH",
+        workspace=workspace,
+        url="https://example.test/",
+        device="MOBILE",
+        profile_id="PROFILE-MOBILE",
+        envelope_kind=acquisition_engine.FULL_EXPERIENCE,
+        session_mode="cold",
+        load_duration_ms=777.0,
+        status="SUCCESS",
+        full_observables={"user_action_duration_ms": 1_250.0},
+        source="EXPERIENCE_PHYSICAL",
+        reusable_for_load=True,
+    )
+    claimed = acquisition_engine.claim_load_boundary(
+        audit_id="AUD-BOTH",
+        workspace=workspace,
+        url="https://example.test/",
+        device="MOBILE",
+        profile_id="PROFILE-MOBILE",
+        timeout_seconds=45.0,
+    )
+    assert both is not None and claimed is not None
+    assert claimed.acquisition_id == both.acquisition_id
+    assert claimed.load_duration_ms == 777.0
+    assert claimed.full_observables["user_action_duration_ms"] == 1_250.0
+
+
+def test_load_only_envelope_cannot_fabricate_experience_observables(tmp_path) -> None:
+    workspace = _workspace(tmp_path)
+    acquisition_engine.prepare_acquisition_run(
+        audit_id="AUD-LOAD-ONLY",
+        workspace=workspace,
+        mode="auto",
+    )
+    import pytest
+
+    with pytest.raises(ValueError, match="LOAD_ONLY"):
+        acquisition_engine.record_acquisition(
+            audit_id="AUD-LOAD-ONLY",
+            workspace=workspace,
+            url="https://example.test/",
+            device="MOBILE",
+            profile_id="PROFILE-MOBILE",
+            envelope_kind=acquisition_engine.LOAD_ONLY,
+            session_mode="cold",
+            load_duration_ms=100.0,
+            status="SUCCESS",
+            full_observables={"user_action_duration_ms": 200.0},
+            source="NAVIGATION_PHYSICAL",
+        )

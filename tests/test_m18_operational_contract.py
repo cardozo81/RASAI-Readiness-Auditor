@@ -127,7 +127,6 @@ class M18OperationalContractTests(unittest.TestCase):
             "`--version`",
             "`--config PATH`",
             "`target`",
-            "`--urls-file PATH`",
             "`--project TEXT`",
             "`--language CODE`",
             "`--market CODE`",
@@ -141,6 +140,7 @@ class M18OperationalContractTests(unittest.TestCase):
         for token in required_tokens:
             with self.subTest(token=token):
                 self.assertIn(token, text)
+        self.assertNotIn("`--urls-file PATH`", text)
 
         for provider_name in ("none", "openai", "deepseek", "mimo", "auto"):
             with self.subTest(provider=provider_name):

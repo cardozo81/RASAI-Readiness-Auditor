@@ -164,15 +164,19 @@ class M14UrlSetTests(unittest.TestCase):
             )
         self.assertEqual(client.counts, {})
 
-    def test_urls_file_and_direct_targets_share_the_same_cli_input(self) -> None:
+    def test_public_cli_rejects_legacy_multi_url_input_while_internal_url_set_remains_supported(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "urls.txt"
-            path.write_text("# conjunto\nhttps://example.com/a\n\nhttps://example.com/b\n", encoding="utf-8")
-            args = Namespace(target=["https://example.com/"], urls_file=str(path))
-            self.assertEqual(
-                _audit_targets(args),
-                ("https://example.com/", "https://example.com/a", "https://example.com/b"),
-            )
+            path.write_text("# conjunto\nhttps://example.com/a\nhttps://example.com/b\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "--urls-file is not supported"):
+                _audit_targets(Namespace(target="https://example.com/", urls_file=str(path)))
+            with self.assertRaisesRegex(ValueError, "exactly one"):
+                _audit_targets(
+                    Namespace(
+                        target=["https://example.com/", "https://example.com/produto"],
+                        urls_file=None,
+                    )
+                )
 
 
 class M14EvidenceTests(unittest.TestCase):

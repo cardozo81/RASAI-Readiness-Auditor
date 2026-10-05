@@ -4,7 +4,7 @@
 
 O `CAT-09 · Remediações` é a superfície responsável por transformar findings/evidências dos demais catálogos em ações possíveis. Ele não pode tratar toda saída de IA ou todo diagnóstico técnico como ação do cliente.
 
-O contrato `RECOMMENDATION-GOVERNANCE-002` classifica e valida cada candidato antes de apresentá-lo no plano governado.
+O contrato `RECOMMENDATION-GOVERNANCE-003` classifica e valida cada candidato antes de apresentá-lo no plano governado.
 
 ## Classes de alvo
 
@@ -22,7 +22,8 @@ A classe descreve **quem é o alvo da ação**, não o catálogo de origem.
 
 Estados persistidos:
 
-- `ACCEPTED` - pode entrar no plano governado;
+- `ACCEPTED` - a ação está sustentada pela evidência e pode entrar no plano governado;
+- `VERIFY_DECIDE` - o problema/estado pode estar comprovado, mas falta uma decisão externa ou fato suficiente para prescrever a implementação; fica fora do plano direto até confirmação;
 - `REJECTED` - permanece auditável, mas não entra no plano do cliente.
 
 Campos de governança persistidos em `recommendation_governance` incluem:
@@ -82,7 +83,18 @@ rejection_reason = JSONLD_ABSENT_EXISTING_CONFLICT
 conflict_group = JSONLD_EXISTENCE
 ```
 
-Quando o JSON-LD está ausente, uma recomendação de criação pode ser aceita se houver payload/ação de criação coerente com a evidência.
+Quando o JSON-LD está ausente, um baseline `WebPage` só pode ser aceito quando os campos derivam de evidência persistida. Tipos específicos, entidades ou propriedades adicionais ficam em `VERIFY_DECIDE` quando conteúdo/entidade correspondente não estiver comprovado. JSON-LD não substitui conteúdo ausente e não autoriza inventar fatos.
+
+### Decisões evidence-bound
+
+Canonical, redirect e indexabilidade seguem a mesma regra: o diagnóstico técnico não prova automaticamente a decisão de negócio.
+
+- canonical ausente não autoriza escolher uma URL preferencial; sem `preferred_url`/decisão equivalente persistida, a ação fica `VERIFY_DECIDE`;
+- um destino de redirect só pode ser prescrito quando o destino estiver comprovado na evidência; reduzir uma cadeia excessiva pode continuar sendo orientação técnica sem inventar destino;
+- `noindex` observado não autoriza removê-lo: a intenção de indexabilidade precisa estar persistida antes de uma ação prescritiva;
+- quando uma prescrição diverge de um destino/intenção comprovado, ela é retida como `VERIFY_DECIDE` e o conflito é explicitado.
+
+Essas decisões não alteram finding, RuleResult, score nem a resposta bruta de IA. Controlam somente a promoção da recomendação ao plano governado.
 
 ## Relação com IA
 
@@ -95,8 +107,9 @@ A governança não altera SARI/SCORE-GEO.
 O CAT-09 separa:
 
 1. **Plano de ação aceito** - somente recomendações `ACCEPTED`;
-2. **Itens rejeitados ou informativos** - auditáveis, fora do plano;
-3. **Inventário técnico de origem** - trilha bruta preservada para rastreabilidade, explicitamente não apresentada como plano governado.
+2. **Verificar / decidir antes de implementar** - itens `VERIFY_DECIDE`, com a decisão/fato faltante explicitado;
+3. **Itens rejeitados ou informativos** - auditáveis, fora do plano;
+4. **Inventário técnico de origem** - trilha bruta preservada para rastreabilidade, explicitamente não apresentada como plano governado.
 
 A governança é materializada antes do fingerprint e do snapshot final de `report-catalog`, portanto o pacote entregue contém as mesmas decisões exibidas.
 

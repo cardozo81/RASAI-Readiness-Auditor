@@ -242,6 +242,8 @@ class SaaSManagementMixin:
         )
         if normalized_type != "AUDIT" and urls:
             raise ValueError("explicit scheduled URLs are currently supported only for AUDIT schedules")
+        if normalized_type == "AUDIT" and len(normalized_urls) != 1:
+            raise ValueError("new AUDIT schedules require exactly one URL")
         now = utc_now()
         next_run = next_occurrences(normalized_recurrence, zone, after=now, count=1)[0]
         schedule_id = new_id("SCH")
@@ -339,6 +341,8 @@ class SaaSManagementMixin:
         )
         next_payload = dict(payload) if payload is not None else dict(current["payload"])
         validate_secret_free_mapping(next_payload, context="schedule payload")
+        if current["job_type"] == "AUDIT" and len(next_urls) != 1:
+            raise ValueError("new AUDIT schedules require exactly one URL")
         if current["job_type"] == "SEARCH_MONITOR" and set(next_payload) != {"query_id"}:
             raise ValueError("SEARCH_MONITOR schedule payload must contain only query_id")
         next_priority = current["priority"] if priority is None else priority

@@ -241,6 +241,11 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
     targets = tuple(str(value).strip() for value in raw_targets if str(value).strip())
     if not targets:
         raise ValueError("snapshot de console não possui targets válidos")
+    if len(targets) != 1:
+        raise ValueError(
+            f"{source_audit_id}: configuração histórica possui {len(targets)} targets; "
+            "novas AUDs exigem exatamente uma URL. Selecione uma URL explicitamente antes de executar."
+        )
 
     warnings: list[str] = []
     allowed_environment = set(console_settings._known_nonsecret_environment_names())
@@ -272,16 +277,8 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
 
     _apply_search_settings(state, configuration, warnings)
 
-    if len(targets) == 1:
-        state.input_mode = "url"
-        state.target = targets[0]
-    else:
-        reuse_root = Path(state.audits_root) / ".reused-inputs"
-        reuse_root.mkdir(parents=True, exist_ok=True)
-        target_file = reuse_root / f"{source_audit_id}.txt"
-        target_file.write_text("\n".join(targets) + "\n", encoding="utf-8", newline="\n")
-        state.input_mode = "file"
-        state.target = str(target_file)
+    state.input_mode = "url"
+    state.target = targets[0]
 
     console_settings.sync_nonsecret_runtime_environment(state)
     return tuple(warnings)

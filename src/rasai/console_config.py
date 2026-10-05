@@ -432,30 +432,14 @@ def preflight(state: State, env: Mapping[str, str] | None = None) -> tuple[str, 
     ):
         raise ValueError("limites/timeout/política de IA inválidos")
     configured_content_analysis_context(environment)
-    if state.input_mode == "url":
-        if not state.target.strip():
-            raise ValueError("informe uma URL/domínio")
-        targets = (validate_target(state.target),)
-    elif state.input_mode == "file":
-        path = Path(state.target)
-        if not path.is_file():
-            raise ValueError(f"TXT não encontrado: {path}")
-        targets = tuple(
-            validate_target(line.strip())
-            for line in path.read_text(encoding="utf-8").splitlines()
-            if line.strip() and not line.lstrip().startswith("#")
-        )
-        if not targets:
-            raise ValueError("TXT não contém targets")
-    else:
-        raise ValueError("modo de entrada inválido")
+    if state.input_mode != "url":
+        raise ValueError("novas auditorias exigem Entrada=URL única")
+    if not state.target.strip():
+        raise ValueError("informe uma URL/domínio")
+    targets = (validate_target(state.target),)
     normalized = tuple(dict.fromkeys(normalize_url(item) for item in targets))
     if len({normalized_origin(item) for item in normalized}) != 1:
-        raise ValueError("todos os targets devem pertencer à mesma origem normalizada")
-    if state.input_mode == "file" and len(normalized) > state.max_pages:
-        raise ValueError(
-            f"TXT possui {len(normalized)} URLs únicas e max-pages={state.max_pages}"
-        )
+        raise ValueError("target inválido para a origem normalizada")
     registration = get_provider_registration(state.ai_provider)
     capability_key = registration.id if registration else state.ai_provider
     capability = provider_capabilities(environment, state.runtime_blocks).get(capability_key)
@@ -475,8 +459,9 @@ def preflight(state: State, env: Mapping[str, str] | None = None) -> tuple[str, 
 
 
 def build_command(state: State) -> list[str]:
-    command = [sys.executable, "-m", "rasai", "audit"]
-    command += ["--urls-file", state.target] if state.input_mode == "file" else [state.target]
+    if state.input_mode != "url":
+        raise ValueError("novas auditorias exigem Entrada=URL única")
+    command = [sys.executable, "-m", "rasai", "audit", state.target]
     if state.project:
         command += ["--project", state.project]
     command += [
