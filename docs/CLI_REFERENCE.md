@@ -224,13 +224,13 @@ Os seis argumentos públicos de perfil usam a mesma precedência da configuraç�
 
 Os presets não emulam RAM, GPU, estado térmico ou scheduler físico. O engine executado continua Chromium; identidade/viewport não deve ser interpretada como emulação de Safari/Firefox reais.
 
-Aquisição física compartilhável entre Navigation e Experience Apdex é controlada por:
+A estratégia física canônica de Navigation e Experience Apdex é controlada por:
 
 ```text
 RASAI_APDEX_ACQUISITION_MODE=auto|isolated
 ```
 
-Default `auto`. O compartilhamento só ocorre quando URL, device, perfil, sessão e requisitos de coleta são compatíveis. Cada Apdex preserva targets, thresholds, classificação e população próprios; ambos herdam o mesmo device único da AUD. `isolated` mantém as navegações físicas separadas.
+Default `auto`. O reuso físico só ocorre quando URL, device, perfil, sessão e requisitos de coleta são compatíveis. Cada Apdex preserva targets, thresholds, classificação e população próprios; ambos herdam o mesmo device único da AUD. `isolated` mantém as navegações físicas separadas.
 
 ## Synthetic User Experience Apdex
 
