@@ -4,7 +4,7 @@ Este documento registra somente correções do RASAi que representam contrato ca
 
 ## ORQETIA-CARRYOVER-001 - identidade estável de tentativa e exchange
 
-- **Origem RASAi:** issue #200; branch `fix/ai-audit-boundary-correlation`; PR a vincular nesta entrega.
+- **Origem RASAi:** issue #200; PR #201.
 - **Data:** 2026-10-05.
 - **Classificação:** `ORCHESTRATION_CANONICAL`.
 - **Problema:** `ai_provider_attempts` possuía `attempt_id`, mas `ai_exchange_log` não carregava identidade estável da tentativa. A correlação podia depender de provider/modelo/finalidade e produzir falso “request/response não persistido”.
@@ -30,7 +30,7 @@ Este documento registra somente correções do RASAi que representam contrato ca
 
 ## ORQETIA-CARRYOVER-002 - governança explícita para execução sem task/round
 
-- **Origem RASAi:** issue #200; branch `fix/ai-audit-boundary-correlation`.
+- **Origem RASAi:** issue #200; PR #201.
 - **Data:** 2026-10-05.
 - **Classificação:** `SHARED_CONTRACT_BOUNDARY`.
 - **Problema:** uma tentativa da Análise Direcionada era válida, mas persistia `operation=NULL`, `ai_task_id=NULL` e `ai_round_id=NULL`, tornando impossível distinguir “execução taskless por contrato” de “governança perdida”.
@@ -50,7 +50,7 @@ Este documento registra somente correções do RASAi que representam contrato ca
 
 ## ORQETIA-CARRYOVER-003 - integridade de payload persistido na fronteira de apresentação
 
-- **Origem RASAi:** issues #199 e #200; branch `fix/ai-audit-boundary-correlation`.
+- **Origem RASAi:** issues #199 e #200; PR #201.
 - **Data:** 2026-10-05.
 - **Classificação:** `SHARED_CONTRACT_BOUNDARY`.
 - **Problema:** conteúdo persistido de request/response podia ser semanticamente humanizado ao ser apresentado, alterando tokens técnicos que fazem parte da evidência.
