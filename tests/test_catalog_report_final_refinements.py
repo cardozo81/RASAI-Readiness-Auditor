@@ -893,7 +893,7 @@ def test_ai_task_final_failure_is_not_promoted_by_attempt_chain(tmp_path: Path) 
             ("AIT-FAIL", "AUD", "SEMANTIC_M7", "PAGE-1", "FAILED", "2026-10-05T11:00:00Z"),
         )
         connection.execute(
-            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 "AIA-FAIL", "AUD", "M18-SEMANTIC-22-v1", "OPENAI", "gpt-test", "ERROR", 1,
                 "2026-10-05T11:00:01Z", "2026-10-05T11:00:02Z", 1000,
