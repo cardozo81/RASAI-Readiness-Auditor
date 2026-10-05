@@ -1,0 +1,50 @@
+name: Synthetic acquisition homologation #207
+
+on:
+  pull_request:
+    paths:
+      - 'src/rasai/synthetic_acquisition_engine.py'
+      - 'src/rasai/synthetic_apdex_shared_runtime.py'
+      - 'src/rasai/reprocess_measurements.py'
+      - 'src/rasai/m23_apdex.py'
+      - 'src/rasai/m25_apdex_experience.py'
+      - 'tests/test_synthetic_apdex_shared_acquisition.py'
+      - 'tests/test_synthetic_acquisition_reprocess_206.py'
+      - 'tests/test_synthetic_acquisition_homologation_207.py'
+      - 'docs/SYNTHETIC_ACQUISITION_HOMOLOGATION.md'
+      - '.github/workflows/synthetic-acquisition-homologation-207.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/synthetic_acquisition_engine.py'
+      - 'src/rasai/synthetic_apdex_shared_runtime.py'
+      - 'src/rasai/reprocess_measurements.py'
+      - 'src/rasai/m23_apdex.py'
+      - 'src/rasai/m25_apdex_experience.py'
+      - 'tests/test_synthetic_apdex_shared_acquisition.py'
+      - 'tests/test_synthetic_acquisition_reprocess_206.py'
+      - 'tests/test_synthetic_acquisition_homologation_207.py'
+      - 'docs/SYNTHETIC_ACQUISITION_HOMOLOGATION.md'
+      - '.github/workflows/synthetic-acquisition-homologation-207.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  homologation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install project and pytest
+        run: python -m pip install -e . pytest
+      - name: Statistical parity, replay and physical workload gate
+        run: |
+          python -m pytest -q \
+            tests/test_synthetic_acquisition_homologation_207.py \
+            tests/test_synthetic_apdex_shared_acquisition.py \
+            tests/test_synthetic_acquisition_reprocess_206.py
