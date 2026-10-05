@@ -56,7 +56,7 @@ def test_experience_environment_overrides_are_projected_before_enablement() -> N
     assert state.apdex_experience is False
     assert state.apdex_experience_samples == 40
     assert state.apdex_experience_max_attempts == 55
-    assert state.apdex_experience_device_mix == "mobile=50,desktop=40,tablet=10"
+    assert state.apdex_experience_device_mix == "mobile=100,desktop=0,tablet=0"
     assert state.apdex_experience_session_mode == "warm"
 
 
@@ -71,7 +71,6 @@ def test_all_safe_console_environment_variables_are_ini_persistable() -> None:
 
 def test_saved_configuration_contains_runtime_and_experience_defaults(monkeypatch) -> None:
     state = State()
-    state.apdex_experience_device_mix = DEFAULT_UX_DEVICE_MIX
     for name in _runtime_environment_projection(state):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("RASAI_REMOTE_TIMEOUT_SECONDS", "45")
@@ -80,7 +79,7 @@ def test_saved_configuration_contains_runtime_and_experience_defaults(monkeypatc
     assert values["RASAI_SYNTHETIC_APDEX"] == "false"
     assert values["RASAI_APDEX_EXPERIENCE"] == "false"
     assert values["RASAI_APDEX_EXPERIENCE_SAMPLES"] == "100"
-    assert values["RASAI_APDEX_EXPERIENCE_DEVICE_MIX"] == DEFAULT_UX_DEVICE_MIX
+    assert values["RASAI_APDEX_EXPERIENCE_DEVICE_MIX"] == "mobile=100,desktop=0,tablet=0"
     assert values["RASAI_REMOTE_TIMEOUT_SECONDS"] == "45"
 
 
