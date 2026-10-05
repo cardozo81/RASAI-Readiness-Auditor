@@ -375,7 +375,7 @@ CAPABILITIES = (
     CapabilityUI("standards","Métricas e padrões","Serviços/métricas complementares baseados em padrões web."),
     CapabilityUI("search-intelligence","Search Intelligence","Observação SERP com provider, limites e compatibilidade validados antes da execução.","T"),
     CapabilityUI("apdex-navigation","Apdex de navegação","Navegações reais repetidas no browser sintético.","11"),
-    CapabilityUI("apdex-experience","Apdex de experiência","População sintética por dispositivo e calibração opcional Dynatrace.","11"),
+    CapabilityUI("apdex-experience","Apdex de experiência","Target sintético independente, no mesmo device da AUD, com calibração opcional Dynatrace.","11"),
     CapabilityUI("ai-visibility","Visibilidade em IA","Resultado quando houver fontes/evidências aplicáveis."),
     CapabilityUI("observability","Search & AI observados","Fontes observacionais externas configuradas."),
     CapabilityUI("deep-analysis","Análise profunda e melhorias","Análise evidence-bound de URL única com a IA principal.","13"),
@@ -403,7 +403,7 @@ def capability_status(state: Any, capability: CapabilityUI) -> tuple[str, str]:
         except (ValueError, OSError) as exc: return "CONFIGURAR", str(exc)
     if capability.key == "apdex-experience":
         if not bool(getattr(state,"apdex_experience",False)): return "DESABILITADO", "Experience Apdex não solicitado"
-        return "APTO", f"mix={getattr(state,'apdex_experience_device_mix','-')}"
+        return "APTO", f"device={str(getattr(state,'device','mobile')).upper()} target={getattr(state,'apdex_experience_samples','-')}"
     if capability.key == "deep-analysis":
         if not bool(getattr(state,"improvement_enabled",False)): return "DESABILITADO", "análise profunda não solicitada"
         try:
