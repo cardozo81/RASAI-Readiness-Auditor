@@ -41,8 +41,8 @@ A matriz canônica vigente é:
 | Regras de fundação e página | executor canônico por página/snapshot | o mesmo executor de fundação/página | recalcula somente escopos cujo input efetivo mudou |
 | Regras por snapshot | executor canônico por snapshot | o mesmo executor de snapshot | recalcula somente snapshots afetados |
 | Web Performance | mesmos parsers Lighthouse/CrUX, classificação de contexto e consolidação do run | mesmos parsers/classificadores/consolidador | chamadas externas já bem-sucedidas são reutilizadas; somente déficit é tentado |
-| Synthetic Navigation Apdex | perfis, medição, classificação e sumário canônico do Navigation Apdex | os mesmos classificadores e sumários canônicos do Navigation Apdex | acrescenta apenas amostras válidas faltantes até o alvo original |
-| Synthetic User Experience Apdex | calibração/perfis, `classify_measurement` e sumário canônico do Experience Apdex | os mesmos classificadores e sumários canônicos do Experience Apdex | acrescenta somente o déficit da população configurada |
+| Synthetic Navigation Apdex | perfis, medição, classificação e sumário canônico do Navigation Apdex | os mesmos classificadores e sumários canônicos do Navigation Apdex | antes de nova visita, consome `load` compatível de envelope canônico persistido; coleta fisicamente apenas o déficit restante |
+| Synthetic User Experience Apdex | calibração/perfis, `classify_measurement` e sumário canônico do Experience Apdex | os mesmos classificadores e sumários canônicos do Experience Apdex | antes de nova visita, reclassifica offline envelopes `FULL_EXPERIENCE` compatíveis; `LOAD_ONLY` nunca é promovido a Experience |
 | Semântica | executor semântico + provider runtime canônico | executor semântico canônico | executa só snapshot pendente/stale e usa a política autorizada do RPR |
 | Dados estruturados / descoberta técnica | executores canônicos | os mesmos executores | reexecutam apenas finalidade pendente/inválida |
 | Search Intelligence | executor competitivo canônico | o mesmo executor | usa configuração não secreta persistida e credencial atual em memória |
@@ -453,6 +453,16 @@ Exemplos atuais:
 - `WEB_PERFORMANCE` e `SYNTHETIC_APDEX` dependem do universo renderizado em `page_snapshots`; se `DISCOVERY_ACQUISITION`, `HTTP_ACQUISITION` ou `RENDER_CAPTURE` ainda estiverem pendentes, esses requisitos entram automaticamente no escopo efetivo;
 - `IMPROVEMENT_INTELLIGENCE`, quando IA está autorizada para o RPR, exige o contexto core persistido de aquisição/renderização/extração ainda não resolvido;
 - `EXPERIENCE_APDEX` não é artificialmente ligado a `RENDER_CAPTURE`, porque o runtime atual pode selecionar páginas diretamente da tabela `pages`.
+
+### Replay da aquisição sintética canônica
+
+No RPR, a aquisição física e a avaliação permanecem separadas. O ledger `synthetic_apdex_acquisitions` é consultado antes de abrir um novo browser:
+
+- CAT-06 pode reutilizar a fronteira de `load` de `FULL_EXPERIENCE` ou de outro envelope compatível ainda não consumido;
+- CAT-07 só pode ser reavaliado offline quando o envelope é `FULL_EXPERIENCE` e contém os observáveis pós-load necessários;
+- `LOAD_ONLY` não contém fatos suficientes para CAT-07 e, portanto, não gera amostra Experience;
+- replay preserva `captured_at` e registra o vínculo `acquisition_id -> sample_id` em `synthetic_acquisition_replay_links`, com fase `RPR`;
+- a classificação continua sendo executada pelo evaluator canônico do catálogo. O engine de aquisição não calcula Apdex nem promove amostra inválida.
 
 Sucessos já válidos não são repetidos: um componente pode constar do fechamento de dependências, mas os recovery loops executam apenas work-items ainda não resolvidos, retryable e temporalmente válidos.
 

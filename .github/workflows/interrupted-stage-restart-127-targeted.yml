@@ -4,10 +4,14 @@ on:
   pull_request:
     paths:
       - "src/rasai/reprocess_measurements.py"
+      - "src/rasai/synthetic_acquisition_engine.py"
+      - "src/rasai/synthetic_apdex_shared_runtime.py"
       - "src/rasai/m23_persistence.py"
       - "tests/test_m23_interrupted_resume.py"
       - "tests/test_m25_interrupted_stage_restart_126.py"
+      - "tests/test_synthetic_acquisition_reprocess_206.py"
       - "docs/AUD_RPR_INTERRUPTED_STAGE_POLICY.md"
+      - "docs/AUDIT_REPROCESSING.md"
       - ".github/workflows/interrupted-stage-restart-127-targeted.yml"
   workflow_dispatch:
 
@@ -23,4 +27,4 @@ jobs:
         run: python -m pip install -e . pytest
       - name: Run only M23/M25 interruption and directly related contracts
         run: |
-          python -m pytest -q             tests/test_m23_interrupted_resume.py             tests/test_m23_integration.py             tests/test_m25_interrupted_stage_restart_126.py             tests/test_m25_synthetic_user_experience.py             tests/test_governed_reprocess_dependencies.py
+          python -m pytest -q             tests/test_synthetic_acquisition_reprocess_206.py             tests/test_m23_interrupted_resume.py             tests/test_m23_integration.py             tests/test_m25_interrupted_stage_restart_126.py             tests/test_m25_synthetic_user_experience.py             tests/test_governed_reprocess_dependencies.py

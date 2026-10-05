@@ -180,6 +180,24 @@ def _connect(workspace: AuditWorkspace) -> sqlite3.Connection:
         "CREATE INDEX IF NOT EXISTS idx_synthetic_apdex_acquisition_lookup "
         "ON synthetic_apdex_acquisitions(audit_id,url,device,profile_id,created_at)"
     )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS synthetic_acquisition_replay_links(
+            link_id TEXT PRIMARY KEY,
+            audit_id TEXT NOT NULL,
+            acquisition_id TEXT NOT NULL,
+            consumer TEXT NOT NULL,
+            sample_id TEXT NOT NULL,
+            phase TEXT NOT NULL,
+            linked_at TEXT NOT NULL,
+            UNIQUE(audit_id,acquisition_id,consumer)
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_synthetic_acquisition_replay_lookup "
+        "ON synthetic_acquisition_replay_links(audit_id,consumer,acquisition_id)"
+    )
     connection.commit()
     return connection
 
@@ -198,6 +216,10 @@ def prepare_acquisition_run(
     try:
         connection = _connect(workspace)
         try:
+            connection.execute(
+                "DELETE FROM synthetic_acquisition_replay_links WHERE audit_id=?",
+                (audit_id,),
+            )
             connection.execute(
                 "DELETE FROM synthetic_apdex_acquisitions WHERE audit_id=?",
                 (audit_id,),
@@ -346,6 +368,7 @@ def record_acquisition(
     full_observables: Mapping[str, Any] | None = None,
     source: str,
     reusable_for_load: bool = False,
+    consumed_by_navigation: bool = False,
     planning_ordinal: int | None = None,
     captured_at: str | None = None,
 ) -> SyntheticAcquisitionEnvelope | None:
@@ -400,7 +423,9 @@ def record_acquisition(
                 (
                     item.acquisition_id,item.audit_id,item.url,item.device,item.profile_id,
                     str(source),item.status,item.load_duration_ms,item.http_status,item.final_url,
-                    item.cpu_method,item.network_method,0,None,item.captured_at,item.envelope_kind,
+                    item.cpu_method,item.network_method,int(bool(consumed_by_navigation)),
+                    item.captured_at if consumed_by_navigation else None,
+                    item.captured_at,item.envelope_kind,
                     item.session_mode,
                     json.dumps(item.full_observables, ensure_ascii=False, sort_keys=True)
                     if item.full_observables is not None else None,
@@ -468,6 +493,20 @@ def claim_load_boundary(
         if queue is not None and not queue:
             _pool.pop(key, None)
     if timed_out:
+        try:
+            connection = _connect(workspace)
+            try:
+                connection.executemany(
+                    "UPDATE synthetic_apdex_acquisitions "
+                    "SET consumed_by_navigation=-1,consumed_at=? "
+                    "WHERE acquisition_id=? AND consumed_by_navigation=0",
+                    [(utc_now(), item.acquisition_id) for item in timed_out],
+                )
+                connection.commit()
+            finally:
+                connection.close()
+        except sqlite3.Error:
+            pass
         _update_run_counter(workspace, audit_id, "timeout_incompatible", len(timed_out))
     if selected is None:
         return None
@@ -488,6 +527,205 @@ def claim_load_boundary(
     return selected
 
 
+
+def claim_persisted_load_boundary(
+    *,
+    audit_id: str,
+    workspace: AuditWorkspace,
+    url: str,
+    device: str,
+    profile_id: str,
+    timeout_seconds: float,
+) -> SyntheticAcquisitionEnvelope | None:
+    """Claim an unconsumed persisted load boundary after process restart."""
+    selected: sqlite3.Row | None = None
+    incompatible_ids: list[str] = []
+    try:
+        connection = _connect(workspace)
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            rows = connection.execute(
+                """
+                SELECT * FROM synthetic_apdex_acquisitions
+                WHERE audit_id=? AND url=? AND device=? AND profile_id=?
+                  AND consumed_by_navigation=0
+                ORDER BY
+                  CASE WHEN planning_ordinal IS NULL THEN 1 ELSE 0 END,
+                  planning_ordinal,
+                  COALESCE(captured_at,created_at),
+                  acquisition_id
+                """,
+                (
+                    str(audit_id),
+                    str(url),
+                    str(device).upper(),
+                    str(profile_id),
+                ),
+            ).fetchall()
+            for row in rows:
+                duration = float(row["load_duration_ms"])
+                if duration <= float(timeout_seconds) * 1000.0:
+                    selected = row
+                    break
+                incompatible_ids.append(str(row["acquisition_id"]))
+            if incompatible_ids:
+                connection.executemany(
+                    "UPDATE synthetic_apdex_acquisitions "
+                    "SET consumed_by_navigation=-1,consumed_at=? "
+                    "WHERE acquisition_id=? AND consumed_by_navigation=0",
+                    [(utc_now(), value) for value in incompatible_ids],
+                )
+            if selected is not None:
+                connection.execute(
+                    "UPDATE synthetic_apdex_acquisitions "
+                    "SET consumed_by_navigation=1,consumed_at=? WHERE acquisition_id=?",
+                    (utc_now(), str(selected["acquisition_id"])),
+                )
+            connection.commit()
+        finally:
+            connection.close()
+    except sqlite3.Error:
+        return None
+    if incompatible_ids:
+        _update_run_counter(
+            workspace,
+            audit_id,
+            "timeout_incompatible",
+            len(incompatible_ids),
+        )
+    if selected is None:
+        return None
+    _update_run_counter(workspace, audit_id, "reused_by_navigation")
+    return _envelope_from_row(selected)
+
+def available_full_envelopes(
+    *,
+    audit_id: str,
+    workspace: AuditWorkspace,
+    url: str,
+    device: str,
+    profile_id: str,
+) -> tuple[SyntheticAcquisitionEnvelope, ...]:
+    """Return persisted FULL envelopes eligible for evaluator-local offline replay."""
+    try:
+        connection = _connect(workspace)
+        try:
+            rows = connection.execute(
+                """
+                SELECT * FROM synthetic_apdex_acquisitions
+                WHERE audit_id=? AND url=? AND device=? AND profile_id=?
+                  AND envelope_kind=? AND full_observables_json IS NOT NULL
+                ORDER BY
+                  CASE WHEN planning_ordinal IS NULL THEN 1 ELSE 0 END,
+                  planning_ordinal,
+                  COALESCE(captured_at,created_at),
+                  acquisition_id
+                """,
+                (
+                    str(audit_id),
+                    str(url),
+                    str(device).upper(),
+                    str(profile_id),
+                    FULL_EXPERIENCE,
+                ),
+            ).fetchall()
+        finally:
+            connection.close()
+    except sqlite3.Error:
+        return ()
+    return tuple(_envelope_from_row(row) for row in rows)
+
+
+def record_replay_link(
+    *,
+    audit_id: str,
+    workspace: AuditWorkspace,
+    acquisition_id: str,
+    consumer: str,
+    sample_id: str,
+    phase: str = "RPR",
+) -> bool:
+    """Persist acquisition->sample provenance without changing evaluator state."""
+    try:
+        connection = _connect(workspace)
+        try:
+            connection.execute(
+                """
+                INSERT INTO synthetic_acquisition_replay_links(
+                    link_id,audit_id,acquisition_id,consumer,sample_id,phase,linked_at
+                ) VALUES(?,?,?,?,?,?,?)
+                """,
+                (
+                    new_id("SRL"),
+                    str(audit_id),
+                    str(acquisition_id),
+                    str(consumer),
+                    str(sample_id),
+                    str(phase),
+                    utc_now(),
+                ),
+            )
+            connection.commit()
+            return True
+        finally:
+            connection.close()
+    except sqlite3.IntegrityError:
+        return False
+    except sqlite3.Error:
+        return False
+
+
+def replay_linked_acquisition_ids(
+    *,
+    audit_id: str,
+    workspace: AuditWorkspace,
+    consumer: str,
+) -> frozenset[str]:
+    try:
+        connection = _connect(workspace)
+        try:
+            rows = connection.execute(
+                "SELECT acquisition_id FROM synthetic_acquisition_replay_links "
+                "WHERE audit_id=? AND consumer=?",
+                (str(audit_id), str(consumer)),
+            ).fetchall()
+        finally:
+            connection.close()
+    except sqlite3.Error:
+        return frozenset()
+    return frozenset(str(row[0]) for row in rows)
+
+
+def _envelope_from_row(row: sqlite3.Row) -> SyntheticAcquisitionEnvelope:
+    raw = row["full_observables_json"] if "full_observables_json" in row.keys() else None
+    try:
+        full = json.loads(raw) if raw else None
+    except (TypeError, ValueError, json.JSONDecodeError):
+        full = None
+    return SyntheticAcquisitionEnvelope(
+        acquisition_id=str(row["acquisition_id"]),
+        audit_id=str(row["audit_id"]),
+        url=str(row["url"]),
+        device=str(row["device"]),
+        profile_id=str(row["profile_id"]),
+        envelope_kind=str(row["envelope_kind"] or LOAD_ONLY),
+        session_mode=str(row["session_mode"] or "cold"),
+        load_duration_ms=float(row["load_duration_ms"]),
+        status=str(row["source_status"]),
+        http_status=_optional_int(row["http_status"]),
+        final_url=_optional_text(row["final_url"]),
+        cpu_method=_optional_text(row["cpu_method"]),
+        network_method=_optional_text(row["network_method"]),
+        full_observables=full if isinstance(full, Mapping) else None,
+        planning_ordinal=(
+            int(row["planning_ordinal"])
+            if "planning_ordinal" in row.keys() and row["planning_ordinal"] is not None
+            else None
+        ),
+        captured_at=str(row["captured_at"] or row["created_at"]),
+    )
+
+
 def persisted_envelopes(
     *,
     audit_id: str,
@@ -506,38 +744,7 @@ def persisted_envelopes(
             connection.close()
     except sqlite3.Error:
         return ()
-    values: list[SyntheticAcquisitionEnvelope] = []
-    for row in rows:
-        raw = row["full_observables_json"] if "full_observables_json" in row.keys() else None
-        try:
-            full = json.loads(raw) if raw else None
-        except (TypeError, ValueError, json.JSONDecodeError):
-            full = None
-        values.append(
-            SyntheticAcquisitionEnvelope(
-                acquisition_id=str(row["acquisition_id"]),
-                audit_id=str(row["audit_id"]),
-                url=str(row["url"]),
-                device=str(row["device"]),
-                profile_id=str(row["profile_id"]),
-                envelope_kind=str(row["envelope_kind"] or LOAD_ONLY),
-                session_mode=str(row["session_mode"] or "cold"),
-                load_duration_ms=float(row["load_duration_ms"]),
-                status=str(row["source_status"]),
-                http_status=_optional_int(row["http_status"]),
-                final_url=_optional_text(row["final_url"]),
-                cpu_method=_optional_text(row["cpu_method"]),
-                network_method=_optional_text(row["network_method"]),
-                full_observables=full if isinstance(full, Mapping) else None,
-                planning_ordinal=(
-                    int(row["planning_ordinal"])
-                    if "planning_ordinal" in row.keys() and row["planning_ordinal"] is not None
-                    else None
-                ),
-                captured_at=str(row["captured_at"] or row["created_at"]),
-            )
-        )
-    return tuple(values)
+    return tuple(_envelope_from_row(row) for row in rows)
 
 
 class TimedPageProxy:
@@ -584,7 +791,9 @@ __all__ = [
     "SyntheticAcquisitionPlan",
     "TimedContextProxy",
     "TimedPageProxy",
+    "available_full_envelopes",
     "claim_load_boundary",
+    "claim_persisted_load_boundary",
     "ensure_acquisition_run",
     "full_observables_from_measurement",
     "persisted_envelopes",
@@ -592,5 +801,7 @@ __all__ = [
     "prepare_acquisition_run",
     "prepare_navigation_claims",
     "record_acquisition",
+    "record_replay_link",
+    "replay_linked_acquisition_ids",
     "uniform_ordinals",
 ]
