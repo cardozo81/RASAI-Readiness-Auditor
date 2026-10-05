@@ -103,6 +103,196 @@ def _attempt_input_detail(attempt: Mapping[str, Any]) -> str:
     return "; ".join(items) or "O resumo quantitativo da entrada não foi persistido para esta tentativa."
 
 
+_AI_FINAL_SUCCESS = frozenset({"SUCCESS", "COMPLETE", "COMPLETED"})
+_AI_FINAL_FAILURE = frozenset({
+    "FAILED", "FAILURE", "ERROR", "FAILED_RETRYABLE", "FAILED_TERMINAL",
+    "FAILED_PERMANENT", "FAILED_FATAL", "BLOCKED",
+})
+
+
+def _ai_final_label(value: Any) -> str:
+    raw = str(value or "").strip().upper()
+    if raw in _AI_FINAL_SUCCESS:
+        return "Concluído"
+    if raw in _AI_FINAL_FAILURE:
+        return "Falha"
+    if raw == "PARTIAL":
+        return "Parcial"
+    if not raw:
+        return "Estado final não persistido"
+    return public_label(raw) or raw.replace("_", " ").title()
+
+
+def _safe_ai_row(database: Any, table: str, audit_id: str) -> dict[str, Any] | None:
+    connection = sqlite3.connect(database)
+    connection.row_factory = sqlite3.Row
+    try:
+        exists = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table,),
+        ).fetchone()
+        if exists is None:
+            return None
+        row = connection.execute(
+            f"SELECT * FROM {table} WHERE audit_id=? ORDER BY rowid DESC LIMIT 1",
+            (audit_id,),
+        ).fetchone()
+        return dict(row) if row is not None else None
+    except sqlite3.OperationalError:
+        return None
+    finally:
+        connection.close()
+
+
+def _safe_ai_tasks(database: Any, audit_id: str) -> dict[str, dict[str, Any]]:
+    connection = sqlite3.connect(database)
+    connection.row_factory = sqlite3.Row
+    try:
+        exists = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ai_tasks'"
+        ).fetchone()
+        if exists is None:
+            return {}
+        columns = {
+            str(row[1])
+            for row in connection.execute("PRAGMA table_info(ai_tasks)").fetchall()
+        }
+        if not {"ai_task_id", "audit_id", "status"}.issubset(columns):
+            return {}
+        rows = connection.execute(
+            "SELECT * FROM ai_tasks WHERE audit_id=? ORDER BY created_at,rowid"
+            if "created_at" in columns
+            else "SELECT * FROM ai_tasks WHERE audit_id=? ORDER BY rowid",
+            (audit_id,),
+        ).fetchall()
+        return {str(row["ai_task_id"]): dict(row) for row in rows}
+    except sqlite3.OperationalError:
+        return {}
+    finally:
+        connection.close()
+
+
+def _ai_chain_rows(
+    database: Any,
+    audit_id: str,
+    attempts: Sequence[Mapping[str, Any]],
+) -> list[Sequence[Any]]:
+    from rasai import catalog_report_integrations as i
+    from rasai.ai_failure_diagnostics import format_ai_attempt_diagnostic
+    from rasai.catalog_report_presentation import _Html
+
+    tasks = _safe_ai_tasks(database, audit_id)
+    session = _safe_ai_row(database, "ai_audit_sessions", audit_id)
+    improvement = _safe_ai_row(database, "improvement_intelligence_runs", audit_id)
+    remediation = _safe_ai_row(database, "content_remediation_runs", audit_id)
+
+    groups: dict[tuple[str, str], list[Mapping[str, Any]]] = {}
+    for index, attempt in enumerate(attempts, 1):
+        task_id = str(attempt.get("ai_task_id") or "").strip()
+        if task_id:
+            key = ("TASK", task_id)
+        else:
+            contract = str(attempt.get("contract") or "").strip().upper()
+            operation = str(attempt.get("operation") or "").strip().upper()
+            source = str(attempt.get("_source_table") or "").strip()
+            key = ("RUN", f"{source}|{contract}|{operation or index}")
+            # Audit-level contracts without task identity are one durable run, not
+            # separate pseudo-tasks derived from error text or provider names.
+            if contract.startswith("M18-SEMANTIC"):
+                key = ("RUN", "M18-SEMANTIC")
+            elif contract == "IMPROVEMENT-INTELLIGENCE-001":
+                key = ("RUN", "IMPROVEMENT-INTELLIGENCE")
+            elif contract.startswith("M20-CONTENT-REMEDIATION"):
+                key = ("RUN", "CONTENT-REMEDIATION")
+        groups.setdefault(key, []).append(attempt)
+
+    rows: list[Sequence[Any]] = []
+    for (kind, identity), values in groups.items():
+        ordered = sorted(
+            values,
+            key=lambda item: (
+                int(item.get("attempt_index") or 0),
+                str(item.get("started_at") or ""),
+            ),
+        )
+        task = tasks.get(identity) if kind == "TASK" else None
+        final_status: Any = task.get("status") if task else None
+        raw_task_label = (
+            str(task.get("purpose") or task.get("scope_key") or identity)
+            if task
+            else str(ordered[0].get("purpose") or ordered[0].get("contract") or identity)
+        )
+        task_label = public_label(raw_task_label) or raw_task_label.replace("_", " ").title()
+        persisted_provider: Any = None
+
+        contract = str(ordered[0].get("contract") or "").upper()
+        if final_status in (None, "") and contract.startswith("M18-SEMANTIC") and session:
+            final_status = session.get("status")
+            persisted_provider = session.get("effective_provider")
+        elif final_status in (None, "") and contract == "IMPROVEMENT-INTELLIGENCE-001" and improvement:
+            final_status = improvement.get("status")
+            persisted_provider = improvement.get("provider")
+        elif final_status in (None, "") and contract.startswith("M20-CONTENT-REMEDIATION") and remediation:
+            final_status = remediation.get("status")
+
+        normalized_final = str(final_status or "").strip().upper()
+        successful = [
+            item
+            for item in ordered
+            if i._norm(item.get("status")) in i._STATUS_SUCCESS
+        ]
+        effective_attempt = successful[-1] if successful else None
+        effective_provider = persisted_provider or (
+            effective_attempt.get("provider") if effective_attempt else None
+        )
+
+        success_position = (
+            ordered.index(effective_attempt)
+            if effective_attempt is not None
+            else -1
+        )
+        prior_failure = (
+            success_position > 0
+            and any(
+                i._norm(item.get("status")) not in i._STATUS_SUCCESS
+                for item in ordered[:success_position]
+            )
+        )
+        if normalized_final in _AI_FINAL_SUCCESS and effective_attempt is not None:
+            reading = "Fallback bem-sucedido" if prior_failure else "Concluída"
+        elif normalized_final in _AI_FINAL_FAILURE:
+            reading = "Falha final"
+        elif normalized_final == "PARTIAL":
+            reading = "Conclusão parcial"
+        else:
+            reading = "Estado final não persistido"
+
+        chain_parts: list[str] = []
+        for position, attempt in enumerate(ordered, 1):
+            provider = str(attempt.get("provider") or "-").strip() or "-"
+            model = str(attempt.get("model") or "")
+            status = i._status_label(attempt.get("status"))
+            detail = ""
+            if i._norm(attempt.get("status")) not in i._STATUS_SUCCESS:
+                diagnostic = format_ai_attempt_diagnostic(attempt)
+                if diagnostic and diagnostic != "-":
+                    detail = " — " + escape(str(diagnostic))
+            model_text = f" · {escape(model)}" if model else ""
+            chain_parts.append(
+                f"<div><strong>{position}.</strong> {escape(provider)}{model_text}"
+                f" — {escape(str(status))}{detail}</div>"
+            )
+        chain_html = _Html("".join(chain_parts))
+        rows.append((
+            task_label,
+            _ai_final_label(final_status),
+            i._provider_identity(effective_provider) if effective_provider else "Não determinado",
+            reading,
+            chain_html,
+        ))
+    return rows
+
+
 def _ai_totals(attempts: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     from rasai import catalog_report_integrations as i
     from rasai.ai_economic_telemetry import aggregate_attempt_costs
@@ -132,6 +322,7 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
     external = i._external_integrations(database, data.audit_id)
     reprocess_runs = i._reprocess_runs(database, data.audit_id)
     totals = _ai_totals(attempts)
+    chain_rows = _ai_chain_rows(database, data.audit_id, attempts)
     rows: list[Sequence[Any]] = []
     modals: list[str] = []
     used: set[str] = set()
@@ -270,7 +461,7 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
         summary_cost = i._money_display(None, forecast_currency)
 
     body = i._audit_hero(data, "IA e integrações", "Auditoria das comunicações externas: finalidade, dados envolvidos, tentativas, volume, custo, resultado e solicitações/respostas persistidas, com credenciais removidas.")
-    body += i._outline((("summary", "Resumo"), ("ai", "Requisições de IA"), ("integrations", "Outras integrações"), ("cost", "Previsão × custo"), ("principles", "Leitura")))
+    body += i._outline((("summary", "Resumo"), ("chains", "Resultado final e fallback"), ("ai", "Requisições de IA"), ("integrations", "Outras integrações"), ("cost", "Previsão × custo"), ("principles", "Leitura")))
     success_note = f"{totals['success']} concluída(s)"
     input_text = f"{totals['input']:,}".replace(",", " ")
     cached_text = f"{totals['cached']:,}".replace(",", " ")
@@ -289,6 +480,20 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
     summary_html += i._metric("Custo técnico contabilizado", summary_cost, "agregado por moeda; sem conversão cambial implícita")
     summary_html += "</div>"
     body += i._section("summary", "Resumo do consumo", summary_html)
+    chain_intro = (
+        "<p>O resultado final pertence à tarefa/run persistida; a sequência abaixo preserva "
+        "cada tentativa e deixa explícito quando uma falha intermediária foi seguida por "
+        "fallback bem-sucedido.</p>"
+    )
+    body += i._section(
+        "chains",
+        "Resultado final e fallback",
+        chain_intro + i._table(
+            ("Tarefa / finalidade", "Resultado final", "Provedor efetivo", "Leitura", "Sequência de tentativas"),
+            chain_rows,
+            empty="Nenhuma cadeia de IA persistida.",
+        ),
+    )
     body += i._section("ai", "Requisições de IA", i._table(("Finalidade", "Aplicação no relatório", "Provedor", "Modelo", "Data/hora", "Origem da execução", "Resultado", "Tokens entrada / saída", "Custo", "Detalhe"), rows, empty="Nenhuma tentativa de IA persistida.", sortable=bool(rows), page_size=10 if len(rows) > 10 else None) + "".join(modals))
     body += i._section("integrations", "Outras integrações", i._table(("Serviço", "Data/hora", "Origem da execução", "Resultado", "Tentativas", "Sucessos", "Duração", "Detalhe"), int_rows, empty="Nenhuma integração externa reconhecida foi persistida.", sortable=bool(int_rows), page_size=10 if len(int_rows) > 10 else None) + "".join(int_modals))
 
