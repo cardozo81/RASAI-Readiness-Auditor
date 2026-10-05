@@ -47,6 +47,20 @@ Quando perfis, sessão e requisitos de coleta são compatíveis, até 100 aquisi
 
 O mesmo raciocínio vale para uma AUD Desktop. Não existe compartilhamento cross-device dentro de uma nova AUD e Tablet não integra a população pública.
 
+### Planner físico determinístico
+
+Quando os contratos físicos são compatíveis, o planejamento usa:
+
+```text
+FULL_EXPERIENCE = N_EXPERIENCE
+LOAD_ONLY = max(N_NAVIGATION - N_EXPERIENCE, 0)
+TOTAL_PHYSICAL = max(N_NAVIGATION, N_EXPERIENCE)
+```
+
+Se `N_NAVIGATION < N_EXPERIENCE`, as observações Navigation são distribuídas deterministicamente ao longo de toda a população FULL. O planner não escolhe simplesmente as primeiras N. A seleção usa o ordinal atribuído antes do início/agendamento da aquisição; ordem de conclusão concorrente não muda a população escolhida.
+
+O planner altera somente a quantidade e o reaproveitamento de aquisições físicas. Cada evaluator mantém target, validade, classificação e score próprios.
+
 ## Concorrência e ordem física
 
 Os dois estágios não somam suas concorrências: o Experience executa antes do Navigation e, quando elegível, publica aquisições reutilizáveis para o estágio seguinte. O teto operacional é `1..3` no Experience e `1..4` no Navigation, ambos com default/recomendado `1`. Experience `3` e Navigation `3..4` exigem delay mínimo de `1 s`. A reutilização reduz navegações físicas; não autoriza aumentar os caps nem representa garantia de que o alvo suporte a carga.
