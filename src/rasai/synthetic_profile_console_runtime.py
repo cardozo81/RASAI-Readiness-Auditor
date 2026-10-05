@@ -24,6 +24,9 @@ PUBLIC_PROFILE_ENV_NAMES = tuple(
     for device in PUBLIC_PROFILE_DEVICES
     for kind in ("client", "hardware", "network")
 )
+_INTERNAL_ONLY_PROFILE_ENV_NAMES = frozenset(
+    name for name in PROFILE_ENV_NAMES if name not in PUBLIC_PROFILE_ENV_NAMES
+)
 
 
 def _profile_specs(ce: object) -> dict[str, object]:
@@ -83,7 +86,14 @@ def install() -> None:
     # Always repair the materialized catalog because another installer may have rebuilt
     # it after the first call. This is an upsert, not a destructive full rebuild, so
     # metadata installed by standards/other runtime extensions is preserved.
-    ce.ENV_NAMES = tuple(dict.fromkeys((*ce.ENV_NAMES, *PUBLIC_PROFILE_ENV_NAMES)))
+    ce.ENV_NAMES = tuple(
+        dict.fromkeys(
+            (
+                *(name for name in ce.ENV_NAMES if name not in _INTERNAL_ONLY_PROFILE_ENV_NAMES),
+                *PUBLIC_PROFILE_ENV_NAMES,
+            )
+        )
+    )
     by_name = {spec.name: spec for spec in ce.SPECS}
     by_name.update(replacements)
     ce.SPECS = tuple(by_name[name] for name in ce.ENV_NAMES if name in by_name)
@@ -91,7 +101,14 @@ def install() -> None:
 
     # interactive_console also imports the name tuple by value; keep help/startup in
     # lockstep with the canonical environment catalog.
-    ic.ENV_NAMES = tuple(dict.fromkeys((*ic.ENV_NAMES, *PUBLIC_PROFILE_ENV_NAMES)))
+    ic.ENV_NAMES = tuple(
+        dict.fromkeys(
+            (
+                *(name for name in ic.ENV_NAMES if name not in _INTERNAL_ONLY_PROFILE_ENV_NAMES),
+                *PUBLIC_PROFILE_ENV_NAMES,
+            )
+        )
+    )
 
     if not _INSTALLED:
         original_validate = ce._validate
