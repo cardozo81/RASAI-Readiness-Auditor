@@ -72,7 +72,6 @@ from rasai.m23_cli import (
 from rasai.m25_cli import (
     DEFAULT_UX_CONCURRENCY,
     DEFAULT_UX_DELAY_SECONDS,
-    DEFAULT_UX_DEVICE_MIX,
     DEFAULT_UX_ERROR_SCOPE,
     DEFAULT_UX_FRUSTRATED_SECONDS,
     DEFAULT_UX_KPM,
@@ -88,7 +87,6 @@ from rasai.m25_cli import (
     M25_ENV_NAMES,
     UX_CONCURRENCY_ENV,
     UX_DELAY_ENV,
-    UX_DEVICE_MIX_ENV,
     UX_ENABLED_ENV,
     UX_ERRORS_ENV,
     UX_JAVASCRIPT_ERRORS_ENV,
@@ -397,15 +395,6 @@ def _apdex_specs() -> tuple[EnvironmentSpec, ...]:
         EnvironmentSpec(UX_SAMPLES_ENV, "Synthetic Apdex", "Amostras válidas totais por página na população Experience.", "inteiro >= 1", default=str(DEFAULT_UX_SAMPLES)),
         EnvironmentSpec(UX_MAX_ATTEMPTS_ENV, "Synthetic Apdex", "Teto de tentativas por página Experience.", "inteiro >= samples", default="ceil(1.25 × samples)"),
         EnvironmentSpec(UX_MAX_PAGES_ENV, "Synthetic Apdex", "Máximo de páginas Experience; 0=todas.", "inteiro >= 0", default=str(DEFAULT_UX_MAX_PAGES)),
-        EnvironmentSpec(
-            UX_DEVICE_MIX_ENV,
-            "Synthetic Apdex",
-            "Distribuição percentual das amostras/user actions entre Mobile/Desktop/Tablet; soma obrigatória de 100%.",
-            "percentuais CSV",
-            default=DEFAULT_UX_DEVICE_MIX,
-            example=f"{UX_DEVICE_MIX_ENV}={DEFAULT_UX_DEVICE_MIX}",
-            notes="É peso populacional de amostras, não contagem bruta de subrequests HTTP; cada user action pode gerar vários requests.",
-        ),
         EnvironmentSpec(UX_SESSION_MODE_ENV, "Synthetic Apdex", "Sessão Experience cold/warm.", "enum", ("cold", "warm"), DEFAULT_UX_SESSION_MODE),
         EnvironmentSpec(UX_KPM_ENV, "Synthetic Apdex", "KPM temporal do Experience Apdex.", "enum", tuple(sorted(SUPPORTED_TIME_KPMS)), DEFAULT_UX_KPM),
         EnvironmentSpec(
