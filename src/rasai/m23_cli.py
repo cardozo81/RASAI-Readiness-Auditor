@@ -29,7 +29,7 @@ APDEX_TIMEOUT_ENV = "RASAI_APDEX_TIMEOUT_SECONDS"
 APDEX_DELAY_ENV = "RASAI_APDEX_DELAY_SECONDS"
 APDEX_CONCURRENCY_ENV = "RASAI_APDEX_CONCURRENCY"
 
-DEFAULT_APDEX_SAMPLES_PER_CONTEXT = 100
+DEFAULT_APDEX_SAMPLES_PER_CONTEXT = 150
 DEFAULT_APDEX_MAX_PAGES = 1
 DEFAULT_APDEX_TIMEOUT_SECONDS = 45.0
 DEFAULT_APDEX_DELAY_SECONDS = 1.0
@@ -42,7 +42,7 @@ def _profile_dest(device: str, kind: str) -> str:
 
 
 def _register_profile_arguments(parser: argparse.ArgumentParser) -> None:
-    for device in ("MOBILE", "DESKTOP", "TABLET"):
+    for device in ("MOBILE", "DESKTOP"):
         for kind in ("client", "hardware", "network"):
             parser.add_argument(
                 f"--apdex-{device.casefold()}-{kind}-profile",
