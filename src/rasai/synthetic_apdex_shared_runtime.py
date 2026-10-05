@@ -162,6 +162,7 @@ def publish_experience_acquisition(
     session_mode: str,
     measurement: Any,
     load_duration_ms: float | None,
+    planning_ordinal: int | None = None,
 ) -> acquisition_engine.SyntheticAcquisitionEnvelope | None:
     """Publish an Experience FULL envelope through the neutral acquisition owner."""
     if acquisition_mode() != "auto" or str(session_mode).casefold() != "cold":
@@ -191,6 +192,7 @@ def publish_experience_acquisition(
         full_observables=acquisition_engine.full_observables_from_measurement(measurement),
         source="SYNTHETIC_USER_EXPERIENCE_APDEX",
         reusable_for_load=True,
+        planning_ordinal=planning_ordinal,
     )
 
 
@@ -232,6 +234,9 @@ def _shared_ux_gateway_class(ux: Any) -> type:
             self._rasai_workspace = workspace
             self._rasai_capture_local = threading.local()
 
+        def set_planning_ordinal(self, value: int) -> None:
+            self._rasai_capture_local.planning_ordinal = int(value)
+
         def _context(self, *, device: str, profile: Any) -> tuple[Any, bool]:
             context, close_context = super()._context(device=device, profile=profile)
             capture = getattr(self._rasai_capture_local, "capture", None)
@@ -259,6 +264,11 @@ def _shared_ux_gateway_class(ux: Any) -> type:
                     session_mode=self.session_mode,
                     measurement=result,
                     load_duration_ms=capture.get("load_duration_ms"),
+                    planning_ordinal=getattr(
+                        self._rasai_capture_local,
+                        "planning_ordinal",
+                        None,
+                    ),
                 )
                 return result
             finally:
@@ -269,10 +279,19 @@ def _shared_ux_gateway_class(ux: Any) -> type:
 
 
 class SharedAwareNavigationGateway:
-    def __init__(self, *, audit_id: str, workspace: AuditWorkspace, delegate: Any) -> None:
+    def __init__(
+        self,
+        *,
+        audit_id: str,
+        workspace: AuditWorkspace,
+        delegate: Any,
+        navigation_target_samples: int,
+    ) -> None:
         self.audit_id = audit_id
         self.workspace = workspace
         self.delegate = delegate
+        self.navigation_target_samples = max(int(navigation_target_samples), 0)
+        self._prepared_keys: set[tuple[str, str, str]] = set()
 
     def environment(self) -> dict[str, Any]:
         value = dict(self.delegate.environment())
@@ -287,6 +306,16 @@ class SharedAwareNavigationGateway:
         from rasai.m23_apdex_profiles import NavigationMeasurement
 
         device = str(getattr(getattr(profile, "device", None), "value", getattr(profile, "device", ""))).upper()
+        key = (url, device, str(getattr(profile, "profile_id", "")))
+        if key not in self._prepared_keys:
+            acquisition_engine.prepare_navigation_claims(
+                audit_id=self.audit_id,
+                url=url,
+                device=device,
+                profile_id=key[2],
+                navigation_samples=self.navigation_target_samples,
+            )
+            self._prepared_keys.add(key)
         item = consume_navigation_acquisition(
             audit_id=self.audit_id,
             workspace=self.workspace,
@@ -474,10 +503,16 @@ def install() -> None:
                     gateway=gateway,
                     gateway_factory=gateway_factory,
                 )
+            target_samples = int(
+                getattr(config, "target_valid_samples", 0)
+                if config is not None
+                else 0
+            )
             factory = lambda: SharedAwareNavigationGateway(
                 audit_id=audit_id,
                 workspace=workspace,
                 delegate=profiles.PlaywrightSyntheticNavigationGateway(),
+                navigation_target_samples=target_samples,
             )
             result = original_m23_execute(
                 audit_id=audit_id,
