@@ -154,6 +154,7 @@ class ProviderAttempt:
     decision: str = DECISION_STOP
     fallback_from_provider: str | None = None
     fallback_reason: str | None = None
+    attempt_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
