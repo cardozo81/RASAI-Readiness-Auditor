@@ -368,6 +368,7 @@ def record_acquisition(
     full_observables: Mapping[str, Any] | None = None,
     source: str,
     reusable_for_load: bool = False,
+    consumed_by_navigation: bool = False,
     planning_ordinal: int | None = None,
     captured_at: str | None = None,
 ) -> SyntheticAcquisitionEnvelope | None:
@@ -422,7 +423,9 @@ def record_acquisition(
                 (
                     item.acquisition_id,item.audit_id,item.url,item.device,item.profile_id,
                     str(source),item.status,item.load_duration_ms,item.http_status,item.final_url,
-                    item.cpu_method,item.network_method,0,None,item.captured_at,item.envelope_kind,
+                    item.cpu_method,item.network_method,int(bool(consumed_by_navigation)),
+                    item.captured_at if consumed_by_navigation else None,
+                    item.captured_at,item.envelope_kind,
                     item.session_mode,
                     json.dumps(item.full_observables, ensure_ascii=False, sort_keys=True)
                     if item.full_observables is not None else None,
