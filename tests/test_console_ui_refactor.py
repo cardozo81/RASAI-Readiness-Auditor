@@ -156,9 +156,9 @@ def test_apdex_edit_cannot_reactivate_device_mix_override(monkeypatch) -> None:
     console._configure = change_mix
     console.mark_dirty = lambda state, value=True: None
     console._save_configuration = lambda state: True
-    state = ApdexConsoleState(device="both")
+    state = ApdexConsoleState(device="desktop")
     state.apdex_experience = True
-    state.apdex_experience_device_mix = ui._derived_apdex_mix("both")
+    state.apdex_experience_device_mix = ui._derived_apdex_mix("desktop")
     ui._set_mix_inherited(state, True)
 
     ui._install_configure_persistence(console)
