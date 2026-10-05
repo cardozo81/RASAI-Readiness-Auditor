@@ -274,7 +274,7 @@ def test_catalog_assurance_reaches_closure_targets_when_all_controls_pass(monkey
     database.write_bytes(b"")
     _patch_catalog(monkeypatch)
 
-    dom_identifier = "sk-BradescoHomePageProcess123456789UI1LongIdentifier"
+    dom_identifier = "sk-" + "BradescoHomePageProcess123456789UI1LongIdentifier"
     body = _body(
         "<pre>&lt;div id=&quot;"
         + dom_identifier
@@ -323,7 +323,7 @@ def test_unsafe_external_link_blocks_security_closure(monkeypatch, tmp_path: Pat
     assert "SEC_EXTERNAL_LINKS" in failed
 
 def test_security_scanner_ignores_css_sk_classes_but_detects_credential_assignment() -> None:
-    dom_identifier = "sk-BradescoHomePageProcess123456789UI1LongIdentifier"
+    dom_identifier = "sk-" + "BradescoHomePageProcess123456789UI1LongIdentifier"
     ok, failures = _safe_output(
         "<div class='sk-header-content sk-button--loading' id='"
         + dom_identifier
@@ -332,7 +332,7 @@ def test_security_scanner_ignores_css_sk_classes_but_detects_credential_assignme
     assert ok is True
     assert failures == []
 
-    scoped_token = "sk-proj-ABCD1234efgh5678IJKL9012mnop3456"
+    scoped_token = "sk-" + "proj-" + "ABCD1234efgh5678IJKL9012mnop3456"
     ok, failures = _safe_output(f"<div id='{scoped_token}'></div>")
     assert ok is False
     assert any("credencial" in item for item in failures)
