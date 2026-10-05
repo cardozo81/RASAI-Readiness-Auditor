@@ -11,13 +11,13 @@ import os
 from rasai.domain import DeviceContext
 
 DEVICE_CONTEXT_ENV = "RASAI_DEVICE_CONTEXT"
-_ALLOWED = {"mobile", "desktop", "both"}
+_ALLOWED = {"mobile", "desktop"}
 
 
 def normalize_device_context(value: str) -> str:
     normalized = value.strip().casefold()
     if normalized not in _ALLOWED:
-        raise ValueError(f"{DEVICE_CONTEXT_ENV} must be one of: mobile, desktop, both")
+        raise ValueError(f"{DEVICE_CONTEXT_ENV} must be one of: mobile, desktop")
     return normalized
 
 
@@ -30,9 +30,15 @@ def devices_from_context(value: str) -> tuple[DeviceContext, ...]:
     normalized = normalize_device_context(value)
     if normalized == "mobile":
         return (DeviceContext.MOBILE,)
-    if normalized == "desktop":
-        return (DeviceContext.DESKTOP,)
-    return (DeviceContext.DESKTOP, DeviceContext.MOBILE)
+    return (DeviceContext.DESKTOP,)
+
+
+def canonical_single_device_mix(value: str) -> str:
+    """Project one audit device into the legacy CAT-07 transport field."""
+    normalized = normalize_device_context(value)
+    if normalized == "mobile":
+        return "mobile=100,desktop=0,tablet=0"
+    return "mobile=0,desktop=100,tablet=0"
 
 
 def runtime_devices() -> tuple[DeviceContext, ...]:
