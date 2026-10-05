@@ -108,8 +108,8 @@ def test_cat06_replays_persisted_full_without_live_navigation(tmp_path, monkeypa
         def __init__(self, *_args, **_kwargs):
             raise AssertionError("live Navigation gateway must not be created")
 
-    import rasai.reprocess_measurements as recovery_module
-    monkeypatch.setattr(recovery_module, "PlaywrightSyntheticNavigationGateway", _Forbidden, raising=False)
+    from rasai import m23_apdex_profiles
+    monkeypatch.setattr(m23_apdex_profiles, "PlaywrightSyntheticNavigationGateway", _Forbidden)
 
     assert recover_synthetic_apdex(
         workspace=workspace,
