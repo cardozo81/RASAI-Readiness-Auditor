@@ -36,7 +36,7 @@ def _state(**overrides):
 
 def test_workload_model_gives_slow_repeated_work_more_weight() -> None:
     state = _state(
-        device="both",
+        device="desktop",
         web_performance=True,
         synthetic_apdex=True,
         apdex_samples=20,
