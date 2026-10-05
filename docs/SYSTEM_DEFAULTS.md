@@ -34,74 +34,55 @@ PageSpeed, CrUX e Google Search Console não recebem hard-on/hard-off obrigatór
 
 ## Synthetic Apdex
 
-Synthetic Navigation Apdex e Synthetic User Experience Apdex possuem defaults técnicos do runtime. A interface do console pode projetar valores derivados da próxima auditoria sem alterar esses defaults canônicos.
+Synthetic Navigation Apdex e Synthetic User Experience Apdex possuem **targets independentes** e herdam o mesmo device único da AUD.
 
 ### Navigation Apdex
 
-Baseline técnica:
+Baseline canônica para novas populações:
 
-- habilitado: `true`;
+- habilitado: `true` na baseline empacotada do console;
 - threshold `T`: `3 s`;
-- amostras válidas por URL/dispositivo: `1`;
-- máximo de tentativas: `2`;
+- amostras válidas por URL/device: **`150`**;
+- máximo de tentativas por contexto: **`188`** (`ceil(1.25 × 150)`);
 - máximo de páginas: `1`;
 - concorrência: `1`;
 - delay: `1 s`.
 
-`T=3 s` é uma baseline RASAi compatível com a referência temporal adotada pelo produto; não é apresentado como SLO universal. Quando a organização conhece seu SLO/Task target real, esse valor deve prevalecer.
+`T=3 s` é uma baseline operacional RASAi, não um SLO universal. Quando a organização conhece seu SLO/Task target real, o valor configurado deve prevalecer.
 
-Com `T=3 s`, Navigation Apdex classifica `Satisfied <= 3 s`, `Tolerating > 3 s e <= 12 s` e `Frustrated > 12 s`.
+### Experience Apdex
 
-### Experience Apdex - baseline do runtime
+Baseline canônica para novas populações:
 
-Na ausência de configuração projetada pela interface, override explícito ou importação aplicável, o runtime preserva sua baseline técnica:
-
-- habilitado: `true`;
-- amostras válidas por página: `20` na baseline de sistema;
-- máximo de tentativas: `25`;
+- habilitado: `true` na baseline empacotada do console;
+- amostras válidas por página: **`100`**;
+- máximo de tentativas por página: **`125`** (`ceil(1.25 × 100)`);
 - máximo de páginas: `1`;
-- device mix técnico: `mobile=60,desktop=35,tablet=5`;
+- device: **herdado integralmente da AUD**;
 - sessão: `cold`;
 - KPM executável: `USER_ACTION_DURATION`;
 - Satisfied: `3 s`;
 - Frustrated: `12 s`;
 - erros qualificáveis afetam Apdex: `true`;
-- erros JavaScript afetam Apdex: `true` - default Dynatrace;
-- erros de requisição/HTTP/CSP afetam Apdex: `true` - default Dynatrace;
-- `console.error` afeta Apdex: `false` - default RUM sem captura explícita equivalente a `cce=1`;
-- captura de erros JavaScript: `true`;
-- captura de XMLHttpRequest: `true`;
-- captura de Fetch: `true`;
+- erros JavaScript afetam Apdex: `true`;
+- erros de requisição/HTTP/CSP afetam Apdex: `true`;
+- `console.error` afeta Apdex: `false`;
+- captura de erros JavaScript/XMLHttpRequest/Fetch: habilitada conforme o contrato vigente;
 - captura de `console.error`: `false`;
-- máximo de erros detalhados: `10` (faixa `0..50`);
+- máximo de erros detalhados: `10`;
 - escopo de erros de requisição: `all`;
 - concorrência: `1`.
 
-Os demais parâmetros operacionais - amostras, tentativas, páginas, device mix, sessão, settle, delay, concorrência, timeout e perfis sintéticos - são defaults de segurança/reprodutibilidade do RASAi e não devem ser apresentados como defaults Dynatrace.
+Para novas AUDs, `Device=mobile` implica 100% MOBILE e `Device=desktop` implica 100% DESKTOP. **Não existe device mix público e Tablet não é uma opção operacional.** O campo técnico legado de mix permanece somente para compatibilidade interna com dados históricos.
 
-O mix `60/35/5` pertence ao contrato técnico do runtime/CLI e continua disponível quando nenhuma camada de maior precedência o substitui.
+### Ciclo de vida canônico
 
-### Experience Apdex - herança normal do console
+A configuração efetiva é congelada na população que a criou:
 
-Na preparação interativa, quando o mix ainda está marcado como **HERDADO**, o console projeta a população a partir de `Device`:
-
-```text
-Device=mobile   -> mobile=100,desktop=0,tablet=0
-Device=desktop  -> mobile=0,desktop=100,tablet=0
-Device=both     -> mobile=60,desktop=40,tablet=0
-```
-
-Essa projeção é configuração de maior precedência da próxima auditoria; não modifica `rasai-defaults.ini` e não redefine o contrato técnico da CLI.
-
-Enquanto herdado:
-
-- mudar `Device` recalcula o mix;
-- editar amostras, thresholds ou outros parâmetros não cria override de mix;
-- o mix não é materializado no INI apenas para repetir a herança;
-- alterar explicitamente o próprio mix transforma-o em configuração personalizada;
-- Tablet permanece disponível somente como override avançado da população Experience, não como `Device` do core.
-
-As 20 amostras da baseline de sistema continuam sendo uma configuração de baixa carga. O runtime pode classificar grupos pequenos conforme sua metodologia vigente. Para comparações mais representativas, use volume coerente com o objetivo de medição e com a política de carga autorizada.
+- processamento inicial persiste target, budget, device e perfis efetivos;
+- RPR/reprocessamento recupera exatamente esse contrato persistido e não adota silenciosamente defaults de uma versão posterior;
+- ao acrescentar CAT-06 ou CAT-07 a uma AUD, o novo catálogo parte dos defaults atuais/configuração explícita do complemento e congela sua própria população;
+- uma AUD histórica multi-device pode continuar sendo lida/reprocessada, mas não autoriza inventar um device para uma nova população CAT-06/CAT-07.
 
 A referência Dynatrace permanece metodológica e não significa equivalência de fornecedor. Consulte [SYNTHETIC_USER_EXPERIENCE_APDEX.md](SYNTHETIC_USER_EXPERIENCE_APDEX.md).
 
