@@ -1,4 +1,4 @@
-# Homologação do Synthetic Acquisition Engine — #207
+# Homologação do Synthetic Acquisition Engine - #207
 
 ## Escopo
 
