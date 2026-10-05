@@ -46,7 +46,7 @@ class CLIProviderExtensionTests(unittest.TestCase):
             with self.assertRaises(SystemExit) as raised:
                 main(["audit"])
         self.assertEqual(raised.exception.code, 2)
-        self.assertIn("provide at least one target", stderr.getvalue())
+        self.assertIn("the following arguments are required: target", stderr.getvalue())
         self.assertIs(legacy_cli.build_parser, original_parser)
         self.assertIs(legacy_cli.build_semantic_provider, original_builder)
 
