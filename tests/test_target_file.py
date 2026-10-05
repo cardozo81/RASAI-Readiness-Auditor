@@ -39,18 +39,25 @@ def test_target_file_reports_exact_invalid_line(tmp_path: Path) -> None:
     assert "HTTPSX://example.com/b" in str(exc.value)
 
 
-def test_runtime_uses_same_parser_for_cli_console_and_exposure(tmp_path: Path) -> None:
+def test_public_runtime_accepts_only_one_direct_target(tmp_path: Path) -> None:
     install()
     path = tmp_path / "urls.txt"
-    path.write_bytes(
-        b"\xef\xbb\xbfhttps://example.com/a\nhttps://example.com/b\n"
-    )
+    path.write_text("https://example.com/a\nhttps://example.com/b\n", encoding="utf-8")
 
-    args = SimpleNamespace(target=[], urls_file=str(path))
-    assert cli._audit_targets(args) == (
-        "https://example.com/a",
-        "https://example.com/b",
-    )
+    assert cli._audit_targets(
+        SimpleNamespace(target="https://example.com/a", urls_file=None)
+    ) == ("https://example.com/a",)
+
+    with pytest.raises(ValueError, match="--urls-file is not supported"):
+        cli._audit_targets(SimpleNamespace(target="", urls_file=str(path)))
+
+    with pytest.raises(ValueError, match="exactly one"):
+        cli._audit_targets(
+            SimpleNamespace(
+                target=["https://example.com/a", "https://example.com/b"],
+                urls_file=None,
+            )
+        )
 
     state = console_config.State(
         input_mode="file",
@@ -58,26 +65,18 @@ def test_runtime_uses_same_parser_for_cli_console_and_exposure(tmp_path: Path) -
         max_pages=2,
         ai_provider="none",
     )
-    assert console_config.preflight(state) == (
+    assert console_cost._configured_page_range(state) == (0, 0)
+    with pytest.raises(ValueError, match="URL única"):
+        console_config.preflight(state)
+
+
+def test_target_file_parser_remains_available_for_historical_internal_readers(tmp_path: Path) -> None:
+    path = tmp_path / "urls.txt"
+    path.write_text(
+        "https://example.com/a\nhttps://example.com/b\n",
+        encoding="utf-8",
+    )
+    assert validated_target_file(path, cli.validate_target) == (
         "https://example.com/a",
         "https://example.com/b",
     )
-    assert console_cost._configured_page_range(state) == (2, 2)
-
-
-def test_exposure_never_silently_drops_invalid_file_line(tmp_path: Path) -> None:
-    install()
-    path = tmp_path / "urls.txt"
-    path.write_text(
-        "https://example.com/a\ninvalid path/without-scheme\n",
-        encoding="utf-8",
-    )
-    state = console_config.State(
-        input_mode="file",
-        target=str(path),
-        max_pages=10,
-        ai_provider="none",
-    )
-    assert console_cost._configured_page_range(state) == (0, 0)
-    with pytest.raises(ValueError, match=r"linha 2"):
-        console_config.preflight(state)
