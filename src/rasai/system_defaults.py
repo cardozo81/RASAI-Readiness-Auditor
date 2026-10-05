@@ -31,8 +31,8 @@ SYSTEM_DEFAULTS_RESOURCE = "config/rasai-defaults.ini"
 SYSTEM_DEFAULTS_VERSION = "1"
 BOOTSTRAP_ENV_NAMES = frozenset({"RASAI_CONSOLE_INI", "RASAI_CONFIG"})
 REPRESENTATIVE_APDEX_SAMPLES = 100
-LOW_LOAD_NAVIGATION_SAMPLES = 1
-LOW_LOAD_EXPERIENCE_SAMPLES = 20
+LOW_LOAD_NAVIGATION_SAMPLES = 150
+LOW_LOAD_EXPERIENCE_SAMPLES = 100
 DYNATRACE_COMPAT_THRESHOLD_SECONDS = 3.0
 
 
@@ -519,10 +519,9 @@ def _patch_apdex_guidance() -> None:
         print(apdex_ui.paint("\n  Defaults e variáveis do Synthetic User Experience Apdex:", apdex_ui.DIM))
         rows = (
             (apdex_ui.UX_ENABLED_ENV, "true", "padrão do sistema RASAi"),
-            (apdex_ui.UX_SAMPLES_ENV, LOW_LOAD_EXPERIENCE_SAMPLES, "baixa carga; recomendado >=100 para grupo normal/representativo"),
-            (apdex_ui.UX_MAX_ATTEMPTS_ENV, "25 no baseline; derivado ceil(1.25 × samples)", "RASAi"),
+            (apdex_ui.UX_SAMPLES_ENV, LOW_LOAD_EXPERIENCE_SAMPLES, "target canônico Experience"),
+            (apdex_ui.UX_MAX_ATTEMPTS_ENV, "125 no baseline; derivado ceil(1.25 × samples)", "RASAi"),
             (apdex_ui.UX_MAX_PAGES_ENV, apdex_ui.DEFAULT_UX_MAX_PAGES, "RASAi"),
-            (apdex_ui.UX_DEVICE_MIX_ENV, apdex_ui.DEFAULT_UX_DEVICE_MIX, "RASAi; sem equivalente Dynatrace RUM"),
             (apdex_ui.UX_SESSION_MODE_ENV, apdex_ui.DEFAULT_UX_SESSION_MODE, "RASAi; sem equivalente RUM"),
             (apdex_ui.UX_KPM_ENV, apdex_ui.DEFAULT_UX_KPM, f"fallback compatível; Dynatrace Load prefere {apdex_ui.DYNATRACE_LOAD_PRIMARY_KPM}"),
             (apdex_ui.UX_SATISFIED_ENV, f"{apdex_ui.DEFAULT_UX_SATISFIED_SECONDS:g}s", "Dynatrace Load fallback/reference"),
@@ -552,8 +551,8 @@ def _patch_apdex_guidance() -> None:
     def configure_navigation(state: Any) -> None:
         print("\nSynthetic Navigation Apdex")
         print(
-            "Baseline RASAi: habilitado, T=3s Dynatrace-compatible, 1 amostra/contexto para baixa carga. "
-            "Use o SLO real quando conhecido; >=100 amostras/contexto é o alvo recomendado para resultado representativo.\n"
+            "Baseline RASAi: habilitado, T=3s Dynatrace-compatible, 150 amostras válidas por URL/device. "
+            "Use o SLO real quando conhecido; o target Navigation permanece independente do Experience.\n"
         )
         enabled = apdex_ui._yes_no(
             "Habilitar Synthetic Navigation Apdex? Gera tráfego HTTP real contra o alvo",
@@ -571,7 +570,7 @@ def _patch_apdex_guidance() -> None:
             state.apdex_samples,
             minimum=1,
             integer=True,
-            help_text="padrão baixa carga=1; 1-99 é small-group/diagnóstico; recomendado >=100 para grupo normal/representativo.",
+            help_text="padrão canônico=150; customização explícita continua permitida para cenários controlados.",
         ))
         suggested_attempts = max(
             state.apdex_samples,
