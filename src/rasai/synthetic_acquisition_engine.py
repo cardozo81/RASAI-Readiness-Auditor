@@ -40,6 +40,7 @@ class SyntheticAcquisitionEnvelope:
     cpu_method: str | None
     network_method: str | None
     full_observables: Mapping[str, Any] | None
+    planning_ordinal: int | None
     captured_at: str
 
     @property
@@ -50,6 +51,58 @@ class SyntheticAcquisitionEnvelope:
 
 _lock = threading.RLock()
 _pool: dict[tuple[str, str, str, str], deque[SyntheticAcquisitionEnvelope]] = defaultdict(deque)
+
+
+@dataclass(frozen=True, slots=True)
+class SyntheticAcquisitionPlan:
+    navigation_samples: int
+    experience_samples: int
+    full_experience: int
+    load_only: int
+    total_physical: int
+    navigation_ordinals: tuple[int, ...]
+
+
+def uniform_ordinals(select_count: int, population_count: int) -> tuple[int, ...]:
+    """Select deterministic zero-based ordinals across the whole planned population."""
+    select = max(int(select_count), 0)
+    population = max(int(population_count), 0)
+    if select <= 0 or population <= 0:
+        return ()
+    if select >= population:
+        return tuple(range(population))
+    if select == 1:
+        return ((population - 1) // 2,)
+    values = tuple(
+        int(round(index * (population - 1) / (select - 1)))
+        for index in range(select)
+    )
+    if len(set(values)) != select:
+        # This should not occur when select < population, but preserve determinism
+        # if integer rounding behavior ever changes.
+        values = tuple((index * population) // select for index in range(select))
+    return values
+
+
+def plan_acquisitions(
+    navigation_samples: int,
+    experience_samples: int,
+) -> SyntheticAcquisitionPlan:
+    navigation = max(int(navigation_samples), 0)
+    experience = max(int(experience_samples), 0)
+    full = experience
+    load_only = max(navigation - experience, 0)
+    total = max(navigation, experience)
+    reused = min(navigation, experience)
+    ordinals = uniform_ordinals(reused, experience)
+    return SyntheticAcquisitionPlan(
+        navigation_samples=navigation,
+        experience_samples=experience,
+        full_experience=full,
+        load_only=load_only,
+        total_physical=total,
+        navigation_ordinals=ordinals,
+    )
 
 
 def utc_now() -> str:
@@ -106,6 +159,7 @@ def _connect(workspace: AuditWorkspace) -> sqlite3.Connection:
             envelope_kind TEXT,
             session_mode TEXT,
             full_observables_json TEXT,
+            planning_ordinal INTEGER,
             captured_at TEXT
         )
         """
@@ -115,6 +169,7 @@ def _connect(workspace: AuditWorkspace) -> sqlite3.Connection:
         ("envelope_kind", "TEXT"),
         ("session_mode", "TEXT"),
         ("full_observables_json", "TEXT"),
+        ("planning_ordinal", "INTEGER"),
         ("captured_at", "TEXT"),
     ):
         if name not in columns:
@@ -291,6 +346,7 @@ def record_acquisition(
     full_observables: Mapping[str, Any] | None = None,
     source: str,
     reusable_for_load: bool = False,
+    planning_ordinal: int | None = None,
     captured_at: str | None = None,
 ) -> SyntheticAcquisitionEnvelope | None:
     kind = str(envelope_kind).upper()
@@ -323,6 +379,7 @@ def record_acquisition(
         cpu_method=_optional_text(cpu_method),
         network_method=_optional_text(network_method),
         full_observables=dict(full_observables) if full_observables is not None else None,
+        planning_ordinal=int(planning_ordinal) if planning_ordinal is not None else None,
         captured_at=str(captured_at or utc_now()),
     )
     if reusable_for_load:
@@ -337,8 +394,8 @@ def record_acquisition(
                     acquisition_id,audit_id,url,device,profile_id,source,source_status,
                     load_duration_ms,http_status,final_url,cpu_method,network_method,
                     consumed_by_navigation,consumed_at,created_at,
-                    envelope_kind,session_mode,full_observables_json,captured_at
-                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    envelope_kind,session_mode,full_observables_json,planning_ordinal,captured_at
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     item.acquisition_id,item.audit_id,item.url,item.device,item.profile_id,
@@ -347,6 +404,7 @@ def record_acquisition(
                     item.session_mode,
                     json.dumps(item.full_observables, ensure_ascii=False, sort_keys=True)
                     if item.full_observables is not None else None,
+                    item.planning_ordinal,
                     item.captured_at,
                 ),
             )
@@ -358,6 +416,33 @@ def record_acquisition(
     if reusable_for_load:
         _update_run_counter(workspace, audit_id, "eligible_acquisitions")
     return item
+
+
+def prepare_navigation_claims(
+    *,
+    audit_id: str,
+    url: str,
+    device: str,
+    profile_id: str,
+    navigation_samples: int,
+) -> SyntheticAcquisitionPlan:
+    """Restrict claim candidates using pre-start ordinals, never completion order."""
+    key = acquisition_key(audit_id, url, device, profile_id)
+    with _lock:
+        current = list(_pool.get(key, ()))
+        ordered = sorted(
+            current,
+            key=lambda item: (
+                item.planning_ordinal is None,
+                item.planning_ordinal if item.planning_ordinal is not None else 2**31,
+                item.captured_at,
+                item.acquisition_id,
+            ),
+        )
+        plan = plan_acquisitions(navigation_samples, len(ordered))
+        selected = [ordered[index] for index in plan.navigation_ordinals]
+        _pool[key] = deque(selected)
+    return plan
 
 
 def claim_load_boundary(
@@ -444,6 +529,11 @@ def persisted_envelopes(
                 cpu_method=_optional_text(row["cpu_method"]),
                 network_method=_optional_text(row["network_method"]),
                 full_observables=full if isinstance(full, Mapping) else None,
+                planning_ordinal=(
+                    int(row["planning_ordinal"])
+                    if "planning_ordinal" in row.keys() and row["planning_ordinal"] is not None
+                    else None
+                ),
                 captured_at=str(row["captured_at"] or row["created_at"]),
             )
         )
@@ -491,12 +581,16 @@ __all__ = [
     "LOAD_ONLY",
     "FULL_EXPERIENCE",
     "SyntheticAcquisitionEnvelope",
+    "SyntheticAcquisitionPlan",
     "TimedContextProxy",
     "TimedPageProxy",
     "claim_load_boundary",
     "ensure_acquisition_run",
     "full_observables_from_measurement",
     "persisted_envelopes",
+    "plan_acquisitions",
     "prepare_acquisition_run",
+    "prepare_navigation_claims",
     "record_acquisition",
+    "uniform_ordinals",
 ]
