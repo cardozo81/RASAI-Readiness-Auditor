@@ -336,10 +336,10 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
         standard = configured_apdex(args, {})
         pending = peek_pending_config()
         self.assertTrue(standard.enabled)
-        self.assertEqual(standard.target_valid_samples, 100)
+        self.assertEqual(standard.target_valid_samples, 150)
         self.assertTrue(pending.enabled)
         self.assertEqual(pending.target_samples_per_page, 1000)
-        self.assertEqual(pending.device_mix_dict()["TABLET"], 5.0)
+        self.assertEqual(pending.device_mix_dict(), {"MOBILE": 100.0})
 
         args_without_standard = parser.parse_args([
             "audit", "https://example.com",
