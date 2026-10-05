@@ -987,7 +987,13 @@ def _ai_analyze(
             fallback_from_provider=fallback_from,
             fallback_reason=fallback_reason,
         )
-        _persist_attempt(workspace, audit_id, target_context, attempt)
+        _persist_attempt(
+            workspace,
+            audit_id,
+            target_context,
+            attempt,
+            operation="DIRECTED_ANALYSIS",
+        )
         record_canonical_attempt(
             candidate,
             attempt,
