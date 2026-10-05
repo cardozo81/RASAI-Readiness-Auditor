@@ -426,6 +426,11 @@ def _materialize_added_work(
     use_ai: bool,
 ) -> set[str]:
     components: set[str] = set()
+    if added & {"CAT-06", "CAT-07"}:
+        from rasai.device_context import normalize_device_context
+        audit_device = normalize_device_context(str(getattr(state, "device", "mobile")))
+    else:
+        audit_device = str(getattr(state, "device", "mobile"))
     if added & {"CAT-02", "CAT-04"} and bool(getattr(state, "web_performance", False)):
         if _request_item(
             workspace, audit_id, "WEB_PERFORMANCE", _web_configuration(state),
@@ -460,6 +465,7 @@ def _materialize_added_work(
             "concurrency": cfg.concurrency,
             "mobile_profile": cfg.mobile_profile.as_dict(),
             "desktop_profile": cfg.desktop_profile.as_dict(),
+            "device_context": audit_device,
         }
         if _request_item(
             workspace, audit_id, "SYNTHETIC_APDEX", nav,
@@ -470,6 +476,7 @@ def _materialize_added_work(
     if "CAT-07" in added:
         from rasai.console_m23 import experience_from_state
         ux = experience_from_state(state).as_dict()
+        ux["device_context"] = audit_device
         if _request_item(
             workspace, audit_id, "EXPERIENCE_APDEX", ux,
             temporal_mode=LIVE_RECOLLECTION, valid_until=live_valid_until,
