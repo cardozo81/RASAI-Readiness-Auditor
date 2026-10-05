@@ -135,12 +135,9 @@ def configured_experience(
     max_pages = _nonnegative_int(getattr(args, "apdex_experience_max_pages", None), UX_MAX_PAGES_ENV, standard_max_pages if standard_max_pages >= 0 else DEFAULT_UX_MAX_PAGES, environment)
     canonical_mix_raw = canonical_single_device_mix((environment.get(DEVICE_CONTEXT_ENV) or "mobile").strip())
     mix = parse_device_mix(canonical_mix_raw)
-    requested_mix_raw = _text(getattr(args, "apdex_experience_device_mix", None), UX_DEVICE_MIX_ENV, environment)
-    if requested_mix_raw is not None and parse_device_mix(requested_mix_raw) != mix:
-        raise ValueError(
-            f"{UX_DEVICE_MIX_ENV} is inherited from {DEVICE_CONTEXT_ENV}; "
-            "select mobile or desktop at audit level instead of configuring a device mix"
-        )
+    # Historical configurations may still carry a device-mix value. It is deliberately
+    # inert for new execution: the audit-level device is the sole canonical source.
+    _text(getattr(args, "apdex_experience_device_mix", None), UX_DEVICE_MIX_ENV, environment)
     session = (_text(getattr(args, "apdex_experience_session_mode", None), UX_SESSION_MODE_ENV, environment) or DEFAULT_UX_SESSION_MODE).casefold()
     kpm = (_text(getattr(args, "apdex_experience_kpm", None), UX_KPM_ENV, environment) or DEFAULT_UX_KPM).upper()
     satisfied = _positive_float(getattr(args, "apdex_experience_satisfied_seconds", None), UX_SATISFIED_ENV, DEFAULT_UX_SATISFIED_SECONDS, environment)
