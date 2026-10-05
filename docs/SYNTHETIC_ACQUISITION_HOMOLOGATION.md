@@ -54,7 +54,10 @@ Para o cenário NAV=50/EXP=1000, também é verificado que:
 - o primeiro ordinal é 0;
 - o último ordinal é 999;
 - existem 50 ordinais únicos;
-- a média da amostra distribuída não desvia materialmente da população controlada.
+- o viés médio assinado é aproximadamente zero quando a mesma distribuição controlada é avaliada em múltiplas fases;
+- a amostra distribuída apresenta erro absoluto médio menor que a estratégia ingênua de usar as primeiras 50 ocorrências.
+
+Um desvio amostral isolado não é tratado como bias sistemático. O gate distingue variância de amostragem de deslocamento direcional persistente.
 
 ## Paridade CAT-07
 
