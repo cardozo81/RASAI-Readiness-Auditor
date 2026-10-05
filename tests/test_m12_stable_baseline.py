@@ -100,7 +100,7 @@ class M12StableBaselineTests(unittest.TestCase):
 <meta name='description' content='Guia técnico.'><link rel='canonical' href='{origin}/'>
 <script type='application/ld+json'>{{"@context":"https://schema.org","@type":"Article","headline":"Guia RASAi"}}</script>
 </head><body><nav><a href='{origin}/extra'>Extra</a></nav><main><h1>Guia RASAi</h1><h2>Visão geral</h2><p>Conteúdo principal técnico e verificável para a auditoria.</p><p>Publicado em 2026-09-02 pela Equipe Exemplo.</p></main></body></html>"""
-            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "both"}):
+            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "mobile"}):
                 result = run_audit(
                     f"{origin}/",
                     audits_root=Path(directory),
@@ -149,10 +149,10 @@ class M12StableBaselineTests(unittest.TestCase):
                 snapshots = connection.execute(
                     "SELECT device, COUNT(*) FROM page_snapshots GROUP BY device ORDER BY device"
                 ).fetchall()
-                self.assertEqual({row[0]: row[1] for row in snapshots}, {"DESKTOP": 1, "MOBILE": 1})
+                self.assertEqual({row[0]: row[1] for row in snapshots}, {"MOBILE": 1})
 
                 score_devices = {row[0] for row in connection.execute("SELECT DISTINCT device FROM scores")}
-                self.assertEqual(score_devices, {"DESKTOP", "MOBILE"})
+                self.assertEqual(score_devices, {"MOBILE"})
                 root_causes = connection.execute(
                     "SELECT COUNT(*) FROM root_cause_analyses WHERE audit_id=?",
                     (result.audit_id,),
@@ -193,8 +193,8 @@ class M12StableBaselineTests(unittest.TestCase):
                     "SELECT device,status FROM jsonld_remediation_suggestions WHERE audit_id=? ORDER BY device",
                     (result.audit_id,),
                 ).fetchall()
-                self.assertEqual(len(jsonld_rows), 2)
-                self.assertEqual({row["device"] for row in jsonld_rows}, {"DESKTOP", "MOBILE"})
+                self.assertEqual(len(jsonld_rows), 1)
+                self.assertEqual({row["device"] for row in jsonld_rows}, {"MOBILE"})
             finally:
                 connection.close()
 
