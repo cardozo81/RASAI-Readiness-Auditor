@@ -28,6 +28,7 @@ import threading
 import time
 from typing import Any, Callable
 
+from rasai import synthetic_acquisition_engine as acquisition_engine
 from rasai.domain import new_id
 from rasai.operational_log import try_append_operational_event
 from rasai.persistence import AuditWorkspace
@@ -124,33 +125,14 @@ def prepare_acquisition_run(
     mode: str,
     reason: str | None = None,
 ) -> None:
-    with _lock:
-        for key in [item for item in _pool if item[0] == audit_id]:
-            _pool.pop(key, None)
-    try:
-        connection = _connect(workspace)
-        try:
-            connection.execute("DELETE FROM synthetic_apdex_acquisitions WHERE audit_id=?", (audit_id,))
-            connection.execute(
-                """
-                INSERT INTO synthetic_apdex_acquisition_runs(
-                    audit_id,mode,reason,eligible_acquisitions,reused_by_navigation,
-                    timeout_incompatible,updated_at
-                ) VALUES(?,?,?,?,?,?,?)
-                ON CONFLICT(audit_id) DO UPDATE SET
-                    mode=excluded.mode,reason=excluded.reason,
-                    eligible_acquisitions=0,reused_by_navigation=0,
-                    timeout_incompatible=0,updated_at=excluded.updated_at
-                """,
-                (audit_id, mode, reason, 0, 0, 0, _utc_now()),
-            )
-            connection.commit()
-        finally:
-            connection.close()
-    except sqlite3.Error:
-        # The sharing optimization must never make the audit fail. In-memory reuse
-        # remains available even if the optional traceability table cannot be written.
-        pass
+    """Compatibility adapter; neutral engine owns the acquisition ledger."""
+    acquisition_engine.prepare_acquisition_run(
+        audit_id=audit_id,
+        workspace=workspace,
+        mode=mode,
+        reason=reason,
+    )
+
 
 
 def _update_run_counter(workspace: AuditWorkspace, audit_id: str, column: str, increment: int = 1) -> None:
@@ -180,8 +162,8 @@ def publish_experience_acquisition(
     session_mode: str,
     measurement: Any,
     load_duration_ms: float | None,
-) -> SharedNavigationAcquisition | None:
-    """Publish an M25 load boundary only when it is safe for M23 reuse."""
+) -> acquisition_engine.SyntheticAcquisitionEnvelope | None:
+    """Publish an Experience FULL envelope through the neutral acquisition owner."""
     if acquisition_mode() != "auto" or str(session_mode).casefold() != "cold":
         return None
     if not bool(getattr(measurement, "profile_applied", False)):
@@ -189,56 +171,28 @@ def publish_experience_acquisition(
     status = str(getattr(measurement, "status", ""))
     if status not in {"SUCCESS", "APPLICATION_ERROR"}:
         return None
-    try:
-        duration = float(load_duration_ms) if load_duration_ms is not None else math.nan
-    except (TypeError, ValueError):
-        return None
-    if not math.isfinite(duration) or duration < 0:
-        return None
     profile_id = str(getattr(profile, "profile_id", "") or "")
     if not profile_id:
         return None
-    item = SharedNavigationAcquisition(
-        acquisition_id=new_id("SYN"),
+    return acquisition_engine.record_acquisition(
         audit_id=audit_id,
+        workspace=workspace,
         url=str(url),
         device=str(device).upper(),
         profile_id=profile_id,
-        load_duration_ms=duration,
+        envelope_kind=acquisition_engine.FULL_EXPERIENCE,
+        session_mode=session_mode,
+        load_duration_ms=load_duration_ms,
         status=status,
-        http_status=_optional_int(getattr(measurement, "http_status", None)),
-        final_url=_optional_text(getattr(measurement, "final_url", None)),
-        cpu_method=_optional_text(getattr(measurement, "cpu_method", None)),
-        network_method=_optional_text(getattr(measurement, "network_method", None)),
-        created_at=_utc_now(),
+        http_status=getattr(measurement, "http_status", None),
+        final_url=getattr(measurement, "final_url", None),
+        cpu_method=getattr(measurement, "cpu_method", None),
+        network_method=getattr(measurement, "network_method", None),
+        full_observables=acquisition_engine.full_observables_from_measurement(measurement),
+        source="SYNTHETIC_USER_EXPERIENCE_APDEX",
+        reusable_for_load=True,
     )
-    with _lock:
-        _pool[_key(audit_id, item.url, item.device, item.profile_id)].append(item)
-    try:
-        connection = _connect(workspace)
-        try:
-            connection.execute(
-                """
-                INSERT OR REPLACE INTO synthetic_apdex_acquisitions(
-                    acquisition_id,audit_id,url,device,profile_id,source,source_status,
-                    load_duration_ms,http_status,final_url,cpu_method,network_method,
-                    consumed_by_navigation,consumed_at,created_at
-                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """,
-                (
-                    item.acquisition_id,item.audit_id,item.url,item.device,item.profile_id,
-                    "SYNTHETIC_USER_EXPERIENCE_APDEX",item.status,item.load_duration_ms,
-                    item.http_status,item.final_url,item.cpu_method,item.network_method,
-                    0,None,item.created_at,
-                ),
-            )
-            connection.commit()
-        finally:
-            connection.close()
-    except sqlite3.Error:
-        pass
-    _update_run_counter(workspace, audit_id, "eligible_acquisitions")
-    return item
+
 
 
 def consume_navigation_acquisition(
@@ -249,72 +203,23 @@ def consume_navigation_acquisition(
     device: str,
     profile_id: str,
     timeout_seconds: float,
-) -> SharedNavigationAcquisition | None:
+) -> acquisition_engine.SyntheticAcquisitionEnvelope | None:
+    """Claim only the persisted load boundary; CAT-06 still classifies independently."""
     if acquisition_mode() != "auto":
         return None
-    key = _key(audit_id, url, device, profile_id)
-    selected: SharedNavigationAcquisition | None = None
-    timed_out: list[SharedNavigationAcquisition] = []
-    with _lock:
-        queue = _pool.get(key)
-        while queue:
-            candidate = queue.popleft()
-            if candidate.load_duration_ms <= float(timeout_seconds) * 1000.0:
-                selected = candidate
-                break
-            timed_out.append(candidate)
-        if queue is not None and not queue:
-            _pool.pop(key, None)
-    if timed_out:
-        _update_run_counter(workspace, audit_id, "timeout_incompatible", len(timed_out))
-    if selected is None:
-        return None
-    try:
-        connection = _connect(workspace)
-        try:
-            connection.execute(
-                "UPDATE synthetic_apdex_acquisitions SET consumed_by_navigation=1,consumed_at=? WHERE acquisition_id=?",
-                (_utc_now(), selected.acquisition_id),
-            )
-            connection.commit()
-        finally:
-            connection.close()
-    except sqlite3.Error:
-        pass
-    _update_run_counter(workspace, audit_id, "reused_by_navigation")
-    return selected
+    return acquisition_engine.claim_load_boundary(
+        audit_id=audit_id,
+        workspace=workspace,
+        url=url,
+        device=device,
+        profile_id=profile_id,
+        timeout_seconds=timeout_seconds,
+    )
 
 
-class _TimedPageProxy:
-    def __init__(self, page: Any, capture: dict[str, float]) -> None:
-        self._raw_page = page
-        self._capture = capture
+_TimedPageProxy = acquisition_engine.TimedPageProxy
+_TimedContextProxy = acquisition_engine.TimedContextProxy
 
-    def goto(self, *args: Any, **kwargs: Any) -> Any:
-        started = time.monotonic()
-        try:
-            return self._raw_page.goto(*args, **kwargs)
-        finally:
-            self._capture["load_duration_ms"] = max((time.monotonic() - started) * 1000.0, 0.0)
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._raw_page, name)
-
-
-class _TimedContextProxy:
-    def __init__(self, context: Any, capture: dict[str, float]) -> None:
-        self._raw_context = context
-        self._capture = capture
-
-    def new_page(self) -> _TimedPageProxy:
-        return _TimedPageProxy(self._raw_context.new_page(), self._capture)
-
-    def new_cdp_session(self, page: Any) -> Any:
-        raw = getattr(page, "_raw_page", page)
-        return self._raw_context.new_cdp_session(raw)
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._raw_context, name)
 
 
 def _shared_ux_gateway_class(ux: Any) -> type:
