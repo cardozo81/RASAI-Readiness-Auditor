@@ -36,7 +36,7 @@ Quando `--apdex-experience` é habilitado e o usuário não fornece calibração
 | amostras por página | `100` | inteiro `>= 1` | `100`; reduzir somente em smoke controlado | política operacional RASAi |
 | máximo de tentativas | `ceil(1.25 × samples)` | inteiro `>= 1` | default derivado | política operacional RASAi |
 | máximo de páginas | `1` | inteiro `>= 0`; `0=todas` | `1` | política operacional RASAi |
-| mix de dispositivos | `mobile=60,desktop=35,tablet=5` | percentuais não negativos somando `100` | usar distribuição real observada quando houver | política sintética RASAi |
+| device da população | herdado da AUD (`mobile` ou `desktop`) | um único device | manter o device congelado da AUD | política operacional RASAi |
 | modo de sessão | `cold` | `cold`, `warm` | `cold` | política sintética RASAi |
 | settle | `5.0 s` | número `> 0` | `5.0 s` | janela de observação pós-load; não é somada automaticamente à duração |
 | delay | `1.0 s` | número `>= 0` | `1.0 s` ou maior conforme capacidade do alvo | política de carga RASAi |
