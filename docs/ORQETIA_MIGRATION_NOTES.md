@@ -2,7 +2,7 @@
 
 Este documento registra somente correções do RASAi que representam contrato canônico de orquestração ou fronteira compartilhada com um futuro orquestrador externo. Regras de HTML, CATs, auditoria e apresentação específicas do RASAi não devem ser copiadas para o Orqetia.
 
-## ORQETIA-CARRYOVER-001 — identidade estável de tentativa e exchange
+## ORQETIA-CARRYOVER-001 - identidade estável de tentativa e exchange
 
 - **Origem RASAi:** issue #200; branch `fix/ai-audit-boundary-correlation`; PR a vincular nesta entrega.
 - **Data:** 2026-10-05.
@@ -23,19 +23,19 @@ Este documento registra somente correções do RASAi que representam contrato ca
   5. retries de payload idêntico continuam distintos por `attempt_id`.
 - **Comportamento de erro:** se um exchange histórico não possuir identidade explícita, a leitura não falha. Correlação auxiliar por fingerprint só é aceitável quando existir um único candidato exato; ambiguidade deve permanecer não correlacionada, nunca resolvida por adivinhação temporal.
 - **Modelo de dados:** `attempt_id` passa a existir de forma intrínseca em `ProviderAttempt` e opcionalmente em `AiExchange`; a tabela `ai_exchange_log` recebe coluna aditiva `attempt_id`.
-- **Compatibilidade retroativa:** bancos antigos sem a coluna continuam legíveis. A inicialização adiciona a coluna sem recriar/destruir a tabela; linhas históricas podem permanecer `NULL`.
-- **Teste de referência:** `tests/test_ai_audit_boundary_regressions.py` — correlação Directed Analysis, Competitive Intelligence e upgrade de schema legado.
+- **Compatibilidade com dados históricos:** bancos antigos sem a coluna continuam legíveis. A inicialização adiciona a coluna sem recriar/destruir a tabela; linhas históricas podem permanecer `NULL`.
+- **Teste de referência:** `tests/test_ai_audit_boundary_regressions.py` - correlação Directed Analysis, Competitive Intelligence e upgrade de schema legado.
 - **Ação no Orqetia:** modelar `attempt_id` como identidade de primeira classe desde o início e propagá-la em request lifecycle, retry/fallback, usage, pricing, diagnostics e exchange log.
 - **Não copiar do RASAi:** nomes de CAT, HTML, `report-catalog`, tabelas `directed_analysis_*`, regras de Search Intelligence e qualquer lógica de apresentação.
 
-## ORQETIA-CARRYOVER-002 — governança explícita para execução sem task/round
+## ORQETIA-CARRYOVER-002 - governança explícita para execução sem task/round
 
 - **Origem RASAi:** issue #200; branch `fix/ai-audit-boundary-correlation`.
 - **Data:** 2026-10-05.
 - **Classificação:** `SHARED_CONTRACT_BOUNDARY`.
 - **Problema:** uma tentativa da Análise Direcionada era válida, mas persistia `operation=NULL`, `ai_task_id=NULL` e `ai_round_id=NULL`, tornando impossível distinguir “execução taskless por contrato” de “governança perdida”.
 - **Arquivos/símbolos RASAi de referência:**
-  - `src/rasai/directed_analysis.py` — persistência da tentativa com `operation=DIRECTED_ANALYSIS`;
+  - `src/rasai/directed_analysis.py` - persistência da tentativa com `operation=DIRECTED_ANALYSIS`;
   - `src/rasai/improvement_intelligence.py::_persist_attempt`.
 - **Contrato corrigido:** task/round não devem ser fabricados apenas para satisfazer telemetria. Uma execução sem task/round deve declarar uma `operation` estável e documentar que `ai_task_id`/`ai_round_id` são opcionais naquele contrato.
 - **Invariantes esperados:**
@@ -43,12 +43,12 @@ Este documento registra somente correções do RASAi que representam contrato ca
   2. nulidade de task/round é semântica e documentada, não ambígua;
   3. `attempt_id` continua obrigatório para a correlação da chamada externa;
   4. a ausência de task/round não altera retry, fallback, pricing ou status operacional.
-- **Compatibilidade retroativa:** linhas antigas com todos os campos nulos continuam legíveis; não devem ser reinterpretadas automaticamente como uma operação específica.
+- **Compatibilidade com dados históricos:** linhas antigas com todos os campos nulos continuam legíveis; não devem ser reinterpretadas automaticamente como uma operação específica.
 - **Teste de referência:** `test_directed_analysis_taskless_attempt_correlates_with_exchange`.
 - **Ação no Orqetia:** definir no contrato da API a diferença entre `attempt`, `operation` e eventuais conceitos de `task/round`. Não exigir task/round universalmente se o consumidor não possuir esse conceito.
 - **Não copiar do RASAi:** a semântica de negócio `DIRECTED_ANALYSIS`, Recommendation Governance, CATs e ações estratégicas.
 
-## ORQETIA-CARRYOVER-003 — integridade de payload persistido na fronteira de apresentação
+## ORQETIA-CARRYOVER-003 - integridade de payload persistido na fronteira de apresentação
 
 - **Origem RASAi:** issues #199 e #200; branch `fix/ai-audit-boundary-correlation`.
 - **Data:** 2026-10-05.
@@ -57,7 +57,7 @@ Este documento registra somente correções do RASAi que representam contrato ca
 - **Arquivos/símbolos RASAi de referência:**
   - `src/rasai/catalog_report_integrations.py::_persisted_payload_text`;
   - `src/rasai/catalog_report_integrations.py::_raw_payload_block`;
-  - `src/rasai/ai_exchange_log.py` — sanitização e persistência do exchange.
+  - `src/rasai/ai_exchange_log.py` - sanitização e persistência do exchange.
 - **Contrato corrigido:** sanitização de segredo ocorre antes da persistência; depois de persistido, request/response/prompt/schema expostos como evidência técnica devem ser retornados sem reescrita semântica. Camadas consumidoras podem humanizar apenas metadados, labels e estados.
 - **Invariantes esperados:**
   1. segredo não é reintroduzido;
