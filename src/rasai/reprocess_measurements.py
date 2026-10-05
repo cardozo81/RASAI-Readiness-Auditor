@@ -514,13 +514,13 @@ def recover_synthetic_apdex(
             ).validate()
             connection.close()
             from rasai import m23_apdex_profiles as m23_profiles
-            from rasai.synthetic_apdex_shared_runtime import SharedAwareNavigationGateway
+            from rasai.synthetic_acquisition_runtime import CanonicalNavigationGateway
 
             result = m23.execute_m23_apdex(
                 audit_id=audit_id,
                 workspace=workspace,
                 config=cfg,
-                gateway_factory=lambda: SharedAwareNavigationGateway(
+                gateway_factory=lambda: CanonicalNavigationGateway(
                     audit_id=audit_id,
                     workspace=workspace,
                     delegate=m23_profiles.PlaywrightSyntheticNavigationGateway(),
