@@ -14,7 +14,7 @@ COST_VOLUME = "MULTIPLICADOR DE CONSUMO"
 PARAMETER_HELP: tuple[tuple[str, str, str], ...] = (
     ("1. Entrada", "Define o alvo. URL única é seed de crawl; TXT contém uma URL por linha e permite conhecer previamente a quantidade de URLs explícitas.", COST_VOLUME + ": quantidade de URLs/páginas afeta o teto de contextos e integrações."),
     ("2. Projeto", "Nome lógico para identificar/organizar a auditoria.", COST_NONE),
-    ("3. Dispositivo", "Escolhe mobile, desktop ou both.", COST_VOLUME + ": both pode duplicar contextos e chamadas externas por página."),
+    ("3. Dispositivo", "Escolhe um único contexto para a AUD: mobile ou desktop. CAT-06 e CAT-07 herdam a mesma escolha.", COST_VOLUME + ": o volume sintético depende dos targets Navigation/Experience, não de um mix de devices."),
     ("4. IA", "Seleciona none, provider explícito ou AUTO. Somente opções aptas podem executar.", COST_EXTERNAL + ": cobrança depende do provider, modelo, tokens e plano."),
     ("5. Remediações IA", "Controla separadamente remediação de conteúdo e remediação técnica advisory de crawling/discovery; nenhuma delas altera score por opinião.", COST_EXTRA_AI + ": cada finalidade habilitada pode acrescentar chamadas externas quando houver contexto elegível."),
     ("6. Web Performance", "Ativa Web Performance/Lighthouse e a fonte de field data.", COST_QUOTA + ": PageSpeed/CrUX são integrações externas; o console não presume preço monetário quando o serviço não fornece base de custo persistida."),
@@ -27,7 +27,7 @@ PARAMETER_HELP: tuple[tuple[str, str, str], ...] = (
 SPECIFIC_ENV_HELP: dict[str, tuple[str, str]] = {
     "RASAI_CONFIG": ("Caminho/configuração geral consumida pelo RASAi quando aplicável.", COST_NONE),
     "RASAI_LOG_LEVEL": ("Nível de detalhamento do log operacional.", COST_NONE),
-    "RASAI_DEVICE_CONTEXT": ("Default de dispositivo: mobile, desktop ou both.", COST_VOLUME + " quando both."),
+    "RASAI_DEVICE_CONTEXT": ("Default de dispositivo da AUD: mobile ou desktop.", COST_VOLUME + ": CAT-06 e CAT-07 usam o mesmo device."),
     "RASAI_AI_TIMEOUT_SECONDS": ("Timeout máximo de uma tentativa de IA; não habilita retry automático.", "Não cria custo sozinho; chamada já processada externamente pode ser faturada conforme o provider."),
     "RASAI_AI_CONTENT_REMEDIATION": ("Default da remediação de conteúdo por IA.", COST_EXTRA_AI + " quando true e houver provider/casos elegíveis."),
     "RASAI_AI_TECHNICAL_REMEDIATION": ("Default da remediação técnica advisory de crawling/discovery por IA.", COST_EXTRA_AI + " quando true, provider apto e diagnósticos técnicos elegíveis."),
