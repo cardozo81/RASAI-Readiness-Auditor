@@ -107,7 +107,11 @@ Mistral e GitHub Copilot podem aparecer tanto por seleção explícita quanto pe
 
 Quando disponível, cada comunicação externa é apresentada em bloco expansível com provider/modelo, finalidade, página/snapshot, endpoint sanitizado, duração, status, request e response sanitizados, hashes e indicação de truncamento.
 
-A projeção HTML usa nomes públicos e funcionais para etapas e contratos. Identificadores internos de entrega não fazem parte do contrato público do relatório. Quando a cópia visual de um payload precisa normalizar um identificador interno, o hash continua referindo-se ao conteúdo original persistido/enviado; `audit.db` e a evidência bruta não são reescritos. O próprio HTML informa essa distinção para evitar que a versão sanitizada seja confundida com o payload bruto usado no cálculo do hash.
+A partir do contrato de correlação pós-refatoração, exchanges novos podem persistir `attempt_id`, vinculando deterministicamente `ai_exchange_log` à tentativa correspondente em `ai_provider_attempts`. A identidade explícita tem precedência sobre qualquer inferência por provider/modelo/finalidade. Para bancos históricos sem `attempt_id`, o renderer permanece compatível e pode usar somente o fallback legado existente; a leitura do banco antigo não depende de migração destrutiva.
+
+A projeção HTML usa nomes públicos e funcionais para metadados, labels, títulos e estados. **O conteúdo persistido como request, response, payload, prompt, schema ou evidência bruta não passa por humanização semântica.** O HTML aplica apenas escaping seguro ao texto que já foi sanitizado na persistência. Assim, tokens técnicos como `SEMANTIC_READINESS` permanecem exatamente representados e não são substituídos por rótulos públicos.
+
+Identidades canônicas de provider também são contexto técnico próprio: `OPENAI`, `GEMINI`, `DEEPSEEK`, `ANTHROPIC`, `MISTRAL`, `COHERE`, `KIMI` e demais providers do registry são exibidos como identidade do provider, sem passar pelo fallback genérico destinado a enums/condições internas.
 
 O conteúdo dessa tabela pertence à telemetria técnica. Ele não altera regras, findings, `SCORE-GEO-004` ou `SARI-001`.
 
