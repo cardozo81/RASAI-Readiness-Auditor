@@ -9,7 +9,7 @@ persistence so they can be rendered without becoming canonical audit data.
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import hashlib
 import io
@@ -87,6 +87,7 @@ class AiExchange:
     response_payload: str | None
     response_sha256: str | None
     response_truncated: bool
+    attempt_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +121,17 @@ class AiExchangeRecorder:
     @property
     def context_interpretations(self) -> tuple[ContextInterpretationRecord, ...]:
         return tuple(self._interpretations)
+
+    def bind_latest_attempt(self, attempt_id: str) -> bool:
+        """Attach a stable provider-attempt identity to the most recent exchange."""
+        token = str(attempt_id or "").strip()
+        if not token or not self._exchanges:
+            return False
+        latest = self._exchanges[-1]
+        if latest.attempt_id not in (None, token):
+            return False
+        self._exchanges[-1] = replace(latest, attempt_id=token)
+        return True
 
     def append_exchange(
         self,
@@ -571,11 +583,7 @@ def _exchange_attempt_id(
     item: AiExchange,
     claimed_attempt_ids: set[str],
 ) -> str | None:
-    """Resolve one persisted provider attempt from the exact raw request fingerprint.
-
-    The request hash is the primary correlation key. Provider/model constrain the
-    candidate set; time is used only to disambiguate retries of an identical request.
-    """
+    """Resolve an exchange to one provider attempt without time-based guessing."""
     try:
         columns = {
             str(row[1])
@@ -583,10 +591,21 @@ def _exchange_attempt_id(
         }
     except sqlite3.Error:
         return None
-    required = {"attempt_id", "audit_id", "provider", "request_payload_hash", "started_at"}
+    required = {"attempt_id", "audit_id", "provider"}
     if not required.issubset(columns):
         return None
 
+    explicit = str(item.attempt_id or "").strip()
+    if explicit:
+        row = connection.execute(
+            "SELECT 1 FROM ai_provider_attempts WHERE audit_id=? AND attempt_id=?",
+            (audit_id, explicit),
+        ).fetchone()
+        return explicit if row is not None else None
+
+    # Historical/unbound fallback: only accept a unique exact request fingerprint.
+    if "request_payload_hash" not in columns or not item.request_payload_hash:
+        return None
     where = [
         "audit_id=?",
         "UPPER(COALESCE(provider,''))=UPPER(?)",
@@ -596,42 +615,19 @@ def _exchange_attempt_id(
     if "model" in columns and item.model:
         where.append("COALESCE(model,'')=?")
         params.append(str(item.model))
-
-    order = "started_at"
-    if "attempt_index" in columns:
-        order += ",attempt_index"
-    order += ",attempt_id"
     try:
         rows = connection.execute(
-            f"SELECT attempt_id,started_at FROM ai_provider_attempts WHERE {' AND '.join(where)} ORDER BY {order}",
+            f"SELECT attempt_id FROM ai_provider_attempts WHERE {' AND '.join(where)} ORDER BY attempt_id",
             tuple(params),
         ).fetchall()
     except sqlite3.Error:
         return None
-
-    candidates = [row for row in rows if str(row[0] or "") not in claimed_attempt_ids]
-    if not candidates:
-        return None
-    if len(candidates) == 1:
-        return str(candidates[0][0])
-
-    try:
-        exchange_started = datetime.fromisoformat(item.started_at.replace("Z", "+00:00"))
-    except (TypeError, ValueError):
-        return str(candidates[0][0])
-
-    def distance(row: sqlite3.Row | tuple[Any, ...]) -> tuple[float, str]:
-        try:
-            started = datetime.fromisoformat(str(row[1]).replace("Z", "+00:00"))
-            if started.tzinfo is None and exchange_started.tzinfo is not None:
-                started = started.replace(tzinfo=exchange_started.tzinfo)
-            delta = abs((started - exchange_started).total_seconds())
-        except (TypeError, ValueError):
-            delta = float("inf")
-        return delta, str(row[0])
-
-    return str(min(candidates, key=distance)[0])
-
+    candidates = [
+        str(row[0])
+        for row in rows
+        if row[0] and str(row[0]) not in claimed_attempt_ids
+    ]
+    return candidates[0] if len(candidates) == 1 else None
 
 def persist_ai_exchange_log(
     *,
