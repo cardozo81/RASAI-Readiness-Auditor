@@ -73,7 +73,7 @@ Baseline canônica para novas populações:
 - escopo de erros de requisição: `all`;
 - concorrência: `1`.
 
-Para novas AUDs, `Device=mobile` implica 100% MOBILE e `Device=desktop` implica 100% DESKTOP. **Não existe device mix público e Tablet não é uma opção operacional.** O campo técnico legado de mix permanece somente para compatibilidade interna com dados históricos.
+Para novas AUDs, `Device=mobile` implica 100% MOBILE e `Device=desktop` implica 100% DESKTOP. **Não existe device mix público e Tablet não é uma opção operacional.** O campo técnico histórico de mix permanece somente para compatibilidade interna com dados históricos.
 
 ### Ciclo de vida canônico
 
