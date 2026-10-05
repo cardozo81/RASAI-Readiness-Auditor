@@ -18,7 +18,6 @@ install_ai_pricing_console()
 install_passive_security_environment()
 
 from rasai.console_environment import ENV_NAMES, SPEC_BY_NAME
-from rasai.m25_cli import DEFAULT_UX_DEVICE_MIX, parse_device_mix
 from rasai.provider_registry import provider_environment_names
 
 
@@ -53,6 +52,7 @@ _NON_PUBLIC_EXECUTION_ENV = frozenset(
         "RASAI_AI_PROVIDER",
         "RASAI_AI_MODEL",
         "RASAI_AI_REASONING",
+        "RASAI_APDEX_EXPERIENCE_DEVICE_MIX",
     }
 )
 _NON_PUBLIC_RUNTIME_ENV = _NON_PUBLIC_FEATURE_LOCAL_AI_ENV | _NON_PUBLIC_EXECUTION_ENV
@@ -163,11 +163,9 @@ def test_exchange_log_limit_is_exposed_in_console_catalog() -> None:
     assert "RASAI_AI_EXCHANGE_LOG_MAX_BYTES" in SPEC_BY_NAME
 
 
-def test_experience_apdex_has_a_valid_default_device_distribution() -> None:
-    mix = dict(parse_device_mix(DEFAULT_UX_DEVICE_MIX))
-    assert set(mix).issubset({"MOBILE", "DESKTOP", "TABLET"})
-    assert abs(sum(mix.values()) - 100.0) < 1e-9
-    assert SPEC_BY_NAME["RASAI_APDEX_EXPERIENCE_DEVICE_MIX"].default == DEFAULT_UX_DEVICE_MIX
+def test_experience_device_mix_is_internal_compatibility_only() -> None:
+    assert "RASAI_APDEX_EXPERIENCE_DEVICE_MIX" not in ENV_NAMES
+    assert "RASAI_APDEX_EXPERIENCE_DEVICE_MIX" not in SPEC_BY_NAME
 
 
 def test_shared_apdex_acquisition_mode_has_explicit_console_metadata() -> None:
