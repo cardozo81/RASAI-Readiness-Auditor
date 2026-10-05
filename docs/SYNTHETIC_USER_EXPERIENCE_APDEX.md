@@ -187,7 +187,7 @@ A execução persiste target, budget, device, sessão, concorrência, delay, per
 
 No reprocessamento, a configuração vem da população congelada da própria AUD. O RPR não adota silenciosamente presets ou defaults atuais do INI, ambiente ou worker. Para AUD histórica sem metadados modernos, o runtime usa a melhor evidência persistida disponível e registra a proveniência do fallback.
 
-Quando CAT-07 é acrescentado posteriormente a uma AUD, a nova população usa a configuração efetiva do complemento — incluindo o device único comprovado da AUD — e passa a ser o contrato congelado daquele catálogo. AUD histórica com device ambíguo/múltiplo não recebe uma nova população CAT-07 por inferência.
+Quando CAT-07 é acrescentado posteriormente a uma AUD, a nova população usa a configuração efetiva do complemento - incluindo o device único comprovado da AUD - e passa a ser o contrato congelado daquele catálogo. AUD histórica com device ambíguo/múltiplo não recebe uma nova população CAT-07 por inferência.
 
 Synthetic Navigation Apdex permanece em persistência separada e conserva seu target independente.
 
