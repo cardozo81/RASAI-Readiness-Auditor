@@ -30,15 +30,14 @@ rasai-console
 Forma geral:
 
 ```powershell
-rasai audit target [target ...] [opções]
+rasai audit target [opções]
 ```
 
 ### Entrada e contexto
 
 | Opção | Uso |
 |---|---|
-| `target` | domínio/URL HTTP(S) |
-| `--urls-file PATH` | TXT UTF-8 com URL/domínio por linha |
+| `target` | exatamente um domínio/URL HTTP(S) para a nova AUD |
 | `--project TEXT` | nome humano do projeto |
 | `--language CODE` | idioma; default `pt-BR` |
 | `--market CODE` | mercado; default `BR` |
@@ -49,6 +48,8 @@ rasai audit target [target ...] [opções]
 | `--ai-model MODEL_ID` | override de modelo para provider explícito |
 
 Default de dispositivo: `mobile`. Override: `RASAI_DEVICE_CONTEXT`.
+
+Novas auditorias públicas aceitam **exatamente uma URL/domínio de entrada**. O crawler ainda pode descobrir e auditar páginas adicionais dentro do mesmo escopo conforme `--max-pages`. O suporte interno a `URL_SET` permanece somente para leitura/compatibilidade de auditorias históricas e não reabre entrada multi-target na CLI.
 
 ## Índice e Método de Pontuação de Prontidão
 
