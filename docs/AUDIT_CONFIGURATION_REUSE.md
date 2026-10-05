@@ -181,7 +181,7 @@ O fluxo é:
 11. a execução cria um **novo `AUD-*`**;
 12. o novo snapshot registra origem, série, plano e diferenças.
 
-Para uma única URL, o target volta ao modo URL. Para múltiplos targets, o console materializa um TXT operacional em `audits/.reused-inputs/` e mantém no snapshot a lista canônica de URLs, não a dependência do caminho de um arquivo anterior.
+Para uma única URL, o target volta ao modo URL. Se o snapshot histórico contiver múltiplos targets, o console **não materializa TXT nem cria silenciosamente uma nova AUD multi-URL**: o carregamento é bloqueado com orientação para selecionar explicitamente uma única URL antes de uma nova execução. Os targets históricos permanecem preservados no AUD de origem para leitura, relatórios e compatibilidade.
 
 ## SaaS / Web API
 
