@@ -1,35 +1,17 @@
-"""Shared physical acquisition for the two independent synthetic Apdex methods.
+"""Canonical runtime integration for neutral synthetic physical acquisition.
 
-The contract is deliberately narrow:
-
-* Synthetic User Experience Apdex (M25) remains the source of its own population,
-  KPM, thresholds and error policy.
-* Synthetic Navigation Apdex (M23) remains the source of its own sample targets,
-  T/4T classification and validity rules.
-* A physical browser navigation may be reused by M23 only when M25 produced a
-  cold-context acquisition for the exact same URL, device and synthetic profile.
-* Only the load-boundary duration captured around ``page.goto(..., wait_until='load')``
-  is projected into M23. Post-load observation continues exclusively for M25.
-* Timeout/navigation-error acquisitions are not reused because the two methods may
-  have different timeout budgets.
-
-This reduces traffic without deriving one score from the other. The persisted ledger
-is traceability only and never participates in SCORE-GEO/SARI.
+The acquisition engine owns physical facts. CAT-06 and CAT-07 remain independent
+evaluators. Compatible physical occurrences may be reused in auto mode; isolated
+mode remains available for comparison and troubleshooting.
 """
 from __future__ import annotations
 
-from collections import defaultdict, deque
-from dataclasses import dataclass
-from datetime import datetime, timezone
-import math
 import os
 import sqlite3
 import threading
-import time
 from typing import Any, Callable
 
 from rasai import synthetic_acquisition_engine as acquisition_engine
-from rasai.domain import new_id
 from rasai.operational_log import try_append_operational_event
 from rasai.persistence import AuditWorkspace
 
@@ -38,24 +20,6 @@ DEFAULT_ACQUISITION_MODE = "auto"
 _ALLOWED_MODES = frozenset({"auto", "isolated"})
 
 
-@dataclass(frozen=True, slots=True)
-class SharedNavigationAcquisition:
-    acquisition_id: str
-    audit_id: str
-    url: str
-    device: str
-    profile_id: str
-    load_duration_ms: float
-    status: str
-    http_status: int | None
-    final_url: str | None
-    cpu_method: str | None
-    network_method: str | None
-    created_at: str
-
-
-_lock = threading.RLock()
-_pool: dict[tuple[str, str, str, str], deque[SharedNavigationAcquisition]] = defaultdict(deque)
 _INSTALLED = False
 
 
@@ -63,59 +27,6 @@ def acquisition_mode(environment: dict[str, str] | os._Environ[str] | None = Non
     env = environment if environment is not None else os.environ
     value = (env.get(ACQUISITION_MODE_ENV) or DEFAULT_ACQUISITION_MODE).strip().casefold()
     return value if value in _ALLOWED_MODES else "isolated"
-
-
-def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _key(audit_id: str, url: str, device: str, profile_id: str) -> tuple[str, str, str, str]:
-    return (str(audit_id), str(url), str(device).upper(), str(profile_id))
-
-
-def _connect(workspace: AuditWorkspace) -> sqlite3.Connection:
-    connection = sqlite3.connect(workspace.database)
-    connection.row_factory = sqlite3.Row
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS synthetic_apdex_acquisition_runs(
-            audit_id TEXT PRIMARY KEY,
-            mode TEXT NOT NULL,
-            reason TEXT,
-            eligible_acquisitions INTEGER NOT NULL DEFAULT 0,
-            reused_by_navigation INTEGER NOT NULL DEFAULT 0,
-            timeout_incompatible INTEGER NOT NULL DEFAULT 0,
-            updated_at TEXT NOT NULL
-        )
-        """
-    )
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS synthetic_apdex_acquisitions(
-            acquisition_id TEXT PRIMARY KEY,
-            audit_id TEXT NOT NULL,
-            url TEXT NOT NULL,
-            device TEXT NOT NULL,
-            profile_id TEXT NOT NULL,
-            source TEXT NOT NULL,
-            source_status TEXT NOT NULL,
-            load_duration_ms REAL NOT NULL,
-            http_status INTEGER,
-            final_url TEXT,
-            cpu_method TEXT,
-            network_method TEXT,
-            consumed_by_navigation INTEGER NOT NULL DEFAULT 0,
-            consumed_at TEXT,
-            created_at TEXT NOT NULL
-        )
-        """
-    )
-    connection.execute(
-        "CREATE INDEX IF NOT EXISTS idx_synthetic_apdex_acquisition_lookup "
-        "ON synthetic_apdex_acquisitions(audit_id,url,device,profile_id,created_at)"
-    )
-    connection.commit()
-    return connection
 
 
 def prepare_acquisition_run(
@@ -132,24 +43,6 @@ def prepare_acquisition_run(
         mode=mode,
         reason=reason,
     )
-
-
-
-def _update_run_counter(workspace: AuditWorkspace, audit_id: str, column: str, increment: int = 1) -> None:
-    if column not in {"eligible_acquisitions", "reused_by_navigation", "timeout_incompatible"}:
-        return
-    try:
-        connection = _connect(workspace)
-        try:
-            connection.execute(
-                f"UPDATE synthetic_apdex_acquisition_runs SET {column}={column}+?,updated_at=? WHERE audit_id=?",
-                (int(increment), _utc_now(), audit_id),
-            )
-            connection.commit()
-        finally:
-            connection.close()
-    except sqlite3.Error:
-        pass
 
 
 def publish_experience_acquisition(
@@ -196,7 +89,6 @@ def publish_experience_acquisition(
     )
 
 
-
 def consume_navigation_acquisition(
     *,
     audit_id: str,
@@ -233,11 +125,10 @@ _TimedPageProxy = acquisition_engine.TimedPageProxy
 _TimedContextProxy = acquisition_engine.TimedContextProxy
 
 
-
-def _shared_ux_gateway_class(ux: Any) -> type:
+def _canonical_ux_gateway_class(ux: Any) -> type:
     original = ux.PlaywrightSyntheticUxGateway
 
-    class SharedCaptureSyntheticUxGateway(original):
+    class CanonicalCaptureSyntheticUxGateway(original):
         def __init__(self, *, audit_id: str, workspace: AuditWorkspace, session_mode: str = "cold", executable_path: str | None = None) -> None:
             super().__init__(session_mode=session_mode, executable_path=executable_path)
             self._rasai_audit_id = audit_id
@@ -284,11 +175,11 @@ def _shared_ux_gateway_class(ux: Any) -> type:
             finally:
                 self._rasai_capture_local.capture = None
 
-    SharedCaptureSyntheticUxGateway.__name__ = "SharedCaptureSyntheticUxGateway"
-    return SharedCaptureSyntheticUxGateway
+    CanonicalCaptureSyntheticUxGateway.__name__ = "CanonicalCaptureSyntheticUxGateway"
+    return CanonicalCaptureSyntheticUxGateway
 
 
-class SharedAwareNavigationGateway:
+class CanonicalNavigationGateway:
     def __init__(
         self,
         *,
@@ -306,7 +197,7 @@ class SharedAwareNavigationGateway:
     def environment(self) -> dict[str, Any]:
         value = dict(self.delegate.environment())
         value["apdex_acquisition_mode"] = acquisition_mode()
-        value["shared_acquisition_enabled"] = acquisition_mode() == "auto"
+        value["canonical_acquisition_enabled"] = acquisition_mode() == "auto"
         return value
 
     def close(self) -> None:
@@ -373,7 +264,7 @@ class SharedAwareNavigationGateway:
             network_method=item.network_method,
             browser_diagnostics=(
                 {
-                    "type": "SHARED_ACQUISITION",
+                    "type": "CANONICAL_ACQUISITION_REUSE",
                     "message": item.acquisition_id,
                     "url": item.url,
                 },
@@ -404,8 +295,8 @@ def acquisition_stats(*, audit_id: str, workspace: AuditWorkspace) -> dict[str, 
         "m25_attempted": 0,
         "m23_attempted": 0,
         "m23_physical": 0,
-        "physical_without_sharing": 0,
-        "physical_with_sharing": 0,
+        "physical_isolated": 0,
+        "physical_canonical": 0,
         "avoided": 0,
     }
     try:
@@ -443,29 +334,13 @@ def acquisition_stats(*, audit_id: str, workspace: AuditWorkspace) -> dict[str, 
         pass
     result["avoided"] = min(int(result["reused"]), int(result["m23_attempted"]))
     result["m23_physical"] = max(int(result["m23_attempted"]) - int(result["avoided"]), 0)
-    result["physical_without_sharing"] = int(result["m25_attempted"]) + int(result["m23_attempted"])
-    result["physical_with_sharing"] = int(result["m25_attempted"]) + int(result["m23_physical"])
+    result["physical_isolated"] = int(result["m25_attempted"]) + int(result["m23_attempted"])
+    result["physical_canonical"] = int(result["m25_attempted"]) + int(result["m23_physical"])
     return result
 
 
-def _optional_text(value: Any) -> str | None:
-    if value is None:
-        return None
-    text = str(value)
-    return text if text else None
-
-
-def _optional_int(value: Any) -> int | None:
-    if value is None or isinstance(value, bool):
-        return None
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
 def install() -> None:
-    """Install the shared-acquisition adapter on the canonical public runtime path."""
+    """Install canonical acquisition adapters on the public M23/M25 runtime paths."""
     global _INSTALLED
     if _INSTALLED:
         return
@@ -476,11 +351,11 @@ def install() -> None:
     from rasai import m25_apdex_experience as ux
     from rasai import m25_runtime
 
-    shared_ux_gateway = _shared_ux_gateway_class(ux)
+    canonical_ux_gateway = _canonical_ux_gateway_class(ux)
 
     original_m25_execute = m25_runtime.execute_m25_experience
-    if not getattr(original_m25_execute, "_rasai_shared_acquisition", False):
-        def execute_m25_with_shared_acquisition(*, audit_id: str, workspace: AuditWorkspace, config: Any, gateway: Any = None, gateway_factory: Callable[[], Any] | None = None):
+    if not getattr(original_m25_execute, "_rasai_canonical_acquisition", False):
+        def execute_m25_with_canonical_acquisition(*, audit_id: str, workspace: AuditWorkspace, config: Any, gateway: Any = None, gateway_factory: Callable[[], Any] | None = None):
             mode = acquisition_mode()
             reason = None
             if mode != "auto":
@@ -492,7 +367,7 @@ def install() -> None:
             prepare_acquisition_run(audit_id=audit_id, workspace=workspace, mode=mode, reason=reason)
 
             if reason is None:
-                factory = lambda: shared_ux_gateway(
+                factory = lambda: canonical_ux_gateway(
                     audit_id=audit_id,
                     workspace=workspace,
                     session_mode=str(getattr(config, "session_mode", "cold")),
@@ -514,7 +389,7 @@ def install() -> None:
             stats = acquisition_stats(audit_id=audit_id, workspace=workspace)
             try_append_operational_event(
                 workspace,
-                "SYNTHETIC_APDEX_ACQUISITION_SOURCE_COMPLETED",
+                "SYNTHETIC_ACQUISITION_SOURCE_COMPLETED",
                 audit_id=audit_id,
                 mode=stats["mode"],
                 eligible_acquisitions=stats["eligible"],
@@ -523,13 +398,13 @@ def install() -> None:
             )
             return result
 
-        execute_m25_with_shared_acquisition._rasai_shared_acquisition = True
-        execute_m25_with_shared_acquisition._rasai_original = original_m25_execute
-        m25_runtime.execute_m25_experience = execute_m25_with_shared_acquisition
+        execute_m25_with_canonical_acquisition._rasai_canonical_acquisition = True
+        execute_m25_with_canonical_acquisition._rasai_original = original_m25_execute
+        m25_runtime.execute_m25_experience = execute_m25_with_canonical_acquisition
 
     original_m23_execute = cli_extensions.execute_m23_apdex
-    if not getattr(original_m23_execute, "_rasai_shared_acquisition", False):
-        def execute_m23_with_shared_acquisition(*, audit_id: str, workspace: AuditWorkspace, config: Any = None, gateway: Any = None, gateway_factory: Callable[[], Any] | None = None):
+    if not getattr(original_m23_execute, "_rasai_canonical_acquisition", False):
+        def execute_m23_with_canonical_acquisition(*, audit_id: str, workspace: AuditWorkspace, config: Any = None, gateway: Any = None, gateway_factory: Callable[[], Any] | None = None):
             if gateway is not None or gateway_factory is not None or acquisition_mode() != "auto":
                 return original_m23_execute(
                     audit_id=audit_id,
@@ -543,7 +418,7 @@ def install() -> None:
                 if config is not None
                 else 2**31 - 1
             )
-            factory = lambda: SharedAwareNavigationGateway(
+            factory = lambda: CanonicalNavigationGateway(
                 audit_id=audit_id,
                 workspace=workspace,
                 delegate=profiles.PlaywrightSyntheticNavigationGateway(),
@@ -558,7 +433,7 @@ def install() -> None:
             stats = acquisition_stats(audit_id=audit_id, workspace=workspace)
             try_append_operational_event(
                 workspace,
-                "SYNTHETIC_APDEX_SHARED_ACQUISITION_COMPLETED",
+                "SYNTHETIC_ACQUISITION_COMPLETED",
                 audit_id=audit_id,
                 mode=stats["mode"],
                 experience_eligible=stats["eligible"],
@@ -569,10 +444,10 @@ def install() -> None:
             )
             return result
 
-        execute_m23_with_shared_acquisition._rasai_shared_acquisition = True
-        execute_m23_with_shared_acquisition._rasai_original = original_m23_execute
-        cli_extensions.execute_m23_apdex = execute_m23_with_shared_acquisition
+        execute_m23_with_canonical_acquisition._rasai_canonical_acquisition = True
+        execute_m23_with_canonical_acquisition._rasai_original = original_m23_execute
+        cli_extensions.execute_m23_apdex = execute_m23_with_canonical_acquisition
         if m23.execute_m23_apdex is original_m23_execute:
-            m23.execute_m23_apdex = execute_m23_with_shared_acquisition
+            m23.execute_m23_apdex = execute_m23_with_canonical_acquisition
 
     _INSTALLED = True

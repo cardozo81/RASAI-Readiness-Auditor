@@ -78,7 +78,7 @@ O acesso direto ao CrUX é uma consulta de API de dados e não navega na origem 
 
 Synthetic Navigation Apdex e Synthetic User Experience Apdex exigem amostras independentes repetidas por definição. Um único snapshot principal não substitui uma população estatística de amostras.
 
-Quando os dois métodos Apdex usam aquisição equivalente de URL/dispositivo/perfil, o RASAi pode compartilhar uma navegação física elegível, preservando semânticas métricas separadas. Amostras repetidas exigidas metodologicamente não são tratadas como requisições redundantes.
+Quando os dois métodos Apdex usam aquisição equivalente de URL/dispositivo/perfil, o Synthetic Acquisition Engine pode reutilizar uma ocorrência física elegível, preservando evaluators e semânticas métricas separados. Amostras repetidas exigidas metodologicamente não são tratadas como requisições redundantes.
 
 #### Probe de interação de lazy loading
 

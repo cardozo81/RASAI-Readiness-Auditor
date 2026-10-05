@@ -209,7 +209,7 @@ Ao usar `Salvar configuração`, o INI passa a ser também um inventário comple
 - seletores que só devem existir quando há override explícito, como `RASAI_CONFIG`, permanecem vazios se o operador não os definiu; o ato de salvar não pode transformar ausência em override;
 - os inputs não sensíveis de Search ficam na seção `[search_intelligence]` (`queries`, `depth`, `region`, `device`, `competitive` e outros campos suportados pela capacidade quando presentes no estado);
 - a seleção explícita de catálogos fica na seção `[audit_catalog]`, em `selected`, e a escolha de IA opcional fica em `ai_enabled`;
-- ao carregar o INI, a seleção `CAT-*` é restaurada como plano da próxima auditoria; dependências canônicas, como `CAT-07 -> CAT-06`, continuam sendo aplicadas pelo owner do plano;
+- ao carregar o INI, a seleção `CAT-*` é restaurada como plano da próxima auditoria; CAT-06 e CAT-07 permanecem independentes e herdam o mesmo device da AUD;
 - secrets permanecem somente em sessão ou Windows/User, conforme suporte existente;
 - API keys, tokens, client secrets, passwords e outros valores classificados como sensíveis nunca entram no INI;
 - o snapshot do AUD preserva e congela o plano efetivo daquela execução conforme seu contrato próprio.

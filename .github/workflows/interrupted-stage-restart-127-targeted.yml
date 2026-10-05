@@ -5,7 +5,7 @@ on:
     paths:
       - "src/rasai/reprocess_measurements.py"
       - "src/rasai/synthetic_acquisition_engine.py"
-      - "src/rasai/synthetic_apdex_shared_runtime.py"
+      - "src/rasai/synthetic_acquisition_runtime.py"
       - "src/rasai/m23_persistence.py"
       - "tests/test_m23_interrupted_resume.py"
       - "tests/test_m25_interrupted_stage_restart_126.py"

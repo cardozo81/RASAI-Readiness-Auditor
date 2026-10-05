@@ -1,4 +1,4 @@
-# Shared Synthetic Apdex Acquisition
+# Aquisição sintética canônica
 
 ## Objetivo
 
@@ -6,7 +6,7 @@ O RASAi pode reduzir navegações físicas quando **Synthetic Navigation Apdex**
 
 O owner canônico da aquisição física é `src/rasai/synthetic_acquisition_engine.py`. Ele persiste envelopes brutos `LOAD_ONLY` e `FULL_EXPERIENCE`, congela a fronteira de `load` e armazena observáveis pós-load quando disponíveis. O engine não importa CAT-06/M23 nem CAT-07/M25 e não calcula Apdex. O runtime compartilhado anterior permanece nesta etapa somente como adapter de integração e será retirado após a homologação prevista em #207/#208.
 
-O contrato é **shared acquisition, independent evaluation**:
+O contrato é **canonical acquisition reuse, independent evaluation**:
 
 - a página pode ser carregada fisicamente uma única vez;
 - a fronteira temporal de `load` dessa aquisição pode alimentar o Synthetic Navigation Apdex;
@@ -133,3 +133,13 @@ Esse ledger é materializado pelo Synthetic Acquisition Engine neutro e registra
 O compartilhamento cria correlação entre as duas populações porque uma parte das avaliações deriva da mesma ocorrência física. Isso é intencional e melhora a comparabilidade entre métodos, mas não significa equivalência metodológica entre eles.
 
 Quando o Experience Apdex usa `session_mode=warm`, as aquisições permanecem isoladas porque o Navigation Apdex exige contexto frio. Perfis, sessão, URL ou device diferentes também impedem compartilhamento.
+
+
+## Compatibilidade histórica
+
+Persistências e diagnósticos antigos podem conter o identificador técnico `SHARED_ACQUISITION`.
+Ele permanece aceito somente para leitura/apresentação histórica. Novas execuções usam
+`CANONICAL_ACQUISITION_REUSE` e o runtime `synthetic_acquisition_runtime.py`.
+
+Não existe mais um owner direcional CAT-07 -> CAT-06. O owner dos fatos físicos é
+`synthetic_acquisition_engine.py`; CAT-06 e CAT-07 são consumidores independentes.

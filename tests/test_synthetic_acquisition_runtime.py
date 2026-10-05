@@ -11,8 +11,8 @@ from rasai.m23_apdex import _classification as navigation_classification
 from rasai.m23_apdex_profiles import NavigationMeasurement
 from rasai.m25_apdex_experience import Calibration, UxMeasurement, allocate_samples, classify_measurement
 from rasai.persistence import AuditWorkspace
-from rasai.synthetic_apdex_shared_runtime import (
-    SharedAwareNavigationGateway,
+from rasai.synthetic_acquisition_runtime import (
+    CanonicalNavigationGateway,
     _TimedPageProxy,
     acquisition_stats,
     consume_navigation_acquisition,
@@ -108,7 +108,7 @@ def test_device_mix_remains_independent_from_navigation_targets() -> None:
     }
 
 
-def test_warm_or_isolated_experience_is_not_shared(tmp_path, monkeypatch) -> None:
+def test_warm_or_isolated_experience_is_not_canonical(tmp_path, monkeypatch) -> None:
     workspace = _workspace(tmp_path)
     monkeypatch.setenv("RASAI_APDEX_ACQUISITION_MODE", "auto")
     prepare_acquisition_run(audit_id="AUD-2", workspace=workspace, mode="auto")
@@ -218,7 +218,7 @@ def test_navigation_gateway_reuses_compatible_experience_before_network(tmp_path
         load_duration_ms=432.4,
     )
     delegate = _Delegate()
-    gateway = SharedAwareNavigationGateway(
+    gateway = CanonicalNavigationGateway(
         audit_id="AUD-4",
         workspace=workspace,
         delegate=delegate,
@@ -227,7 +227,7 @@ def test_navigation_gateway_reuses_compatible_experience_before_network(tmp_path
     measured = gateway.measure(url="https://example.test/", profile=_profile(), timeout_seconds=45.0)
     assert delegate.calls == 0
     assert measured.duration_ms == 432
-    assert measured.browser_diagnostics[0]["type"] == "SHARED_ACQUISITION"
+    assert measured.browser_diagnostics[0]["type"] == "CANONICAL_ACQUISITION_REUSE"
 
 
 def test_load_boundary_timer_is_frozen_before_post_load_observation() -> None:

@@ -644,7 +644,7 @@ def render_m23_help(state: State) -> None:
     attempts, load = synthetic_load_summary(state)
     print("\n11. Synthetic Apdex")
     print("  Navegação        : NAVIGATION_LOAD; T explícito; Satisfied<=T, Tolerating<=4T, Frustrated>4T.")
-    print("  Experiência      : opcional; user action sintética enriquecida, thresholds independentes, mix Mobile/Desktop/Tablet e política de erros.")
+    print("  Experiência      : opcional; user action sintética enriquecida, thresholds independentes, device herdado da AUD e política de erros.")
     print("  Custo monetário : sem API paga própria e sem LLM; importação Dynatrace consulta apenas configuração.")
     print("  Carga            : " + load)
     print("  Governança       : Navigation e Experience são domínios independentes; ambos default OFF; grupos grandes exigem autorização do alvo.")

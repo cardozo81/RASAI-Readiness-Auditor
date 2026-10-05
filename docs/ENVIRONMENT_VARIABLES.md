@@ -266,7 +266,7 @@ Tablet não integra a superfície pública de novas AUDs. Identificadores intern
 | `RASAI_APDEX_EXPERIENCE_MAX_ATTEMPTS` | **`125`** para o target 100; em geral `ceil(1.25 × samples)` | inteiro `>= samples` | default derivado | orçamento de tentativas |
 | `RASAI_APDEX_EXPERIENCE_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` | teto de páginas |
 | `RASAI_APDEX_EXPERIENCE_SESSION_MODE` | `cold` | `cold`, `warm` | `cold` | política de sessão sintética |
-| `RASAI_APDEX_ACQUISITION_MODE` | `auto` | `auto`, `isolated` | `auto` | compartilhamento físico somente quando compatível |
+| `RASAI_APDEX_ACQUISITION_MODE` | `auto` | `auto`, `isolated` | `auto` | planner canônico; reuso físico somente quando compatível |
 | `RASAI_APDEX_EXPERIENCE_KPM` | `USER_ACTION_DURATION` | KPMs suportados pelo runtime | `USER_ACTION_DURATION` | KPM sintético |
 | `RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS` | `3` | número `> 0` | `3` | threshold satisfeito |
 | `RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS` | `12` | número `> satisfied` | `12` | threshold frustrado |

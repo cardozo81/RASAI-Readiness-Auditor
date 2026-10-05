@@ -94,16 +94,15 @@ def _resolve_m24_config(argv: list[str]) -> M24Config | None:
     return None
 
 
-def _execute_standalone_experience(
+def _execute_experience_stage(
     *,
-    m23_config: SyntheticApdexConfig,
     experience_config: ExperienceApdexConfig,
     audit_id: str,
     workspace: object,
     assessment: object | None,
 ) -> bool:
-    """Execute CAT-07 when CAT-06 is off, preserving source-quality fail-fast."""
-    if m23_config.enabled or not experience_config.enabled:
+    """Execute CAT-07 independently before CAT-06 physical reuse is evaluated."""
+    if not experience_config.enabled:
         return False
     if assessment is not None and bool(getattr(assessment, "all_pages_hard_blocked", False)):
         try_append_operational_event(
@@ -216,16 +215,16 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         assessment = load_assessment(workspace)
 
-        # CAT-07 has its own collector/persistence. If CAT-06 is off, run only
-        # M25 after core pages exist; never materialize a disabled M23 run/event.
+        # CAT-07 and CAT-06 are independent evaluators. Experience runs first only
+        # as an orchestration choice that can materialize FULL envelopes for the
+        # neutral acquisition engine; M23 no longer owns or triggers M25.
+        _execute_experience_stage(
+            experience_config=experience_config,
+            audit_id=audit_id,
+            workspace=workspace,
+            assessment=assessment,
+        )
         if not m23_config.enabled:
-            _execute_standalone_experience(
-                m23_config=m23_config,
-                experience_config=experience_config,
-                audit_id=audit_id,
-                workspace=workspace,
-                assessment=assessment,
-            )
             return
 
         if (
@@ -337,7 +336,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 scoring_impact="NONE",
             )
 
-    def execute_m21_and_m23(*args, **kwargs):
+    def execute_m21_and_synthetic(*args, **kwargs):
         nonlocal source_quality_skip
         audit_id = kwargs.get("audit_id")
         workspace = kwargs.get("workspace")
@@ -394,7 +393,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _audit_cli.build_parser = build_parser
         _audit_cli.build_semantic_provider = capture_build_semantic_provider
         _m20.build_content_remediation_router = build_content_remediation_router
-        _audit_cli.execute_m21 = execute_m21_and_m23
+        _audit_cli.execute_m21 = execute_m21_and_synthetic
         from rasai.audit_resume_runtime import resume_plan_options
 
         with resume_plan_options(resume_options):
