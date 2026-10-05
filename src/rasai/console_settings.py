@@ -343,6 +343,9 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
         value = raw.strip().casefold()
         if value not in {"mobile", "desktop"}: raise ValueError("use mobile ou desktop")
         state.device, state.current_device = value, value.upper()
+        if hasattr(state, "apdex_experience_device_mix"):
+            from rasai.device_context import canonical_single_device_mix
+            state.apdex_experience_device_mix = canonical_single_device_mix(value)
     elif key == ("presentation", "timezone"):
         os.environ[PRESENTATION_TIMEZONE_ENV] = validate_presentation_timezone(raw)
     elif key == ("ai", "provider"): state.ai_provider = raw.strip().casefold() or "none"
