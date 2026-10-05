@@ -272,11 +272,11 @@ Consulte [`MONITORING_OBSERVABILITY.md`](MONITORING_OBSERVABILITY.md) e [`ENVIRO
 | `RASAI_APDEX_TIMEOUT_SECONDS` | `max(45, 4T + 5)` | número `> 4T` | default derivado |
 | `RASAI_APDEX_DELAY_SECONDS` | `1` | número `>= 0` | `1` ou maior conforme sensibilidade do alvo |
 | `RASAI_APDEX_CONCURRENCY` | `1` | inteiro `1..4` | `1`; `3..4` exigem delay >= `1 s` |
-| `RASAI_APDEX_ACQUISITION_MODE` | `auto` | `auto`, `isolated` | `auto`; compartilha apenas aquisição física comprovadamente compatível |
+| `RASAI_APDEX_ACQUISITION_MODE` | `auto` | `auto`, `isolated` | `auto`; aplica o planner canônico e reutiliza apenas aquisição física comprovadamente compatível |
 
 Synthetic Navigation Apdex só pode ser habilitado com `T` explícito. Consulte [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md).
 
-`RASAI_APDEX_ACQUISITION_MODE` não unifica as métricas. Em `auto`, uma navegação física pode alimentar Navigation Apdex e Experience Apdex quando URL, device, perfil, sessão e requisitos de coleta forem compatíveis; targets, thresholds, classificação e o device mix do Experience permanecem independentes. `isolated` mantém navegações separadas.
+`RASAI_APDEX_ACQUISITION_MODE` não unifica as métricas. Em `auto`, o engine canônico pode projetar uma ocorrência física compatível para CAT-06 e CAT-07 sem unificar seus evaluators; targets, thresholds e classificações permanecem independentes e ambos herdam o device único da AUD. `isolated` mantém aquisições físicas separadas.
 
 ## Synthetic User Experience Apdex
 
