@@ -86,7 +86,7 @@ def _body(seed) -> dict:
         "job_type": "AUDIT",
         "timezone": "America/Sao_Paulo",
         "overlap_policy": "SKIP",
-        "urls": ["/a", "/b"],
+        "urls": ["/a"],
         "payload": {"max_pages": 20, "device_context": "mobile", "ai_provider": "none"},
         "recurrence": {"times": ["08:00", "12:00", "18:00"], "weekdays": [1, 2, 3, 4, 5]},
     }
@@ -112,8 +112,16 @@ def test_schedule_api_crud_rbac_tenant_isolation_and_preview() -> None:
             )
             assert created.status_code == 201, created.text
             schedule = created.json()
-            assert schedule["urls"] == ["https://a.example.test/a", "https://a.example.test/b"]
+            assert schedule["urls"] == ["https://a.example.test/a"]
             schedule_id = schedule["schedule_id"]
+
+            multi_target = client.post(
+                f"/api/v1/projects/{seed['project_a'].project_id}/schedules",
+                headers=_h(seed["operator"]),
+                json={**_body(seed), "name": "Multi target", "urls": ["/a", "/b"]},
+            )
+            assert multi_target.status_code == 422
+            assert "exactly one URL" in multi_target.text
 
             invalid_payload = client.post(
                 f"/api/v1/projects/{seed['project_a'].project_id}/schedules",
