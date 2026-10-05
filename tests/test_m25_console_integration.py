@@ -26,6 +26,7 @@ class M25ConsoleIntegrationTests(unittest.TestCase):
             apdex_experience_samples=10,
             apdex_experience_max_attempts=13,
             apdex_experience_max_pages=1,
+            device="desktop",
             apdex_experience_device_mix="mobile=60,desktop=30,tablet=10",
             apdex_experience_session_mode="cold",
             apdex_experience_kpm="USER_ACTION_DURATION",
@@ -47,13 +48,13 @@ class M25ConsoleIntegrationTests(unittest.TestCase):
         command = append_m23_command(["python", "-m", "rasai", "audit", state.target], state)
         self.assertIn("--synthetic-apdex", command)
         self.assertIn("--apdex-experience", command)
-        self.assertIn("mobile=60,desktop=30,tablet=10", command)
+        self.assertIn("mobile=0,desktop=100", command)
         self.assertIn("--apdex-experience-satisfied-seconds", command)
         self.assertIn("--apdex-experience-frustrated-seconds", command)
         self.assertNotIn("DYNATRACE_API_TOKEN", " ".join(command))
         cfg = experience_from_state(state)
         self.assertEqual(cfg.target_samples_per_page, 10)
-        self.assertEqual(cfg.device_mix_dict()["TABLET"], 10.0)
+        self.assertEqual(cfg.device_mix_dict(), {"DESKTOP": 100.0})
 
     def test_ini_roundtrip_persists_m25_nonsecret_settings_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -67,7 +68,7 @@ class M25ConsoleIntegrationTests(unittest.TestCase):
                 save_console_config(state, path)
             text = path.read_text(encoding="utf-8")
             self.assertIn("[synthetic_apdex_experience]", text)
-            self.assertIn("device_mix = mobile=60,desktop=30,tablet=10", text)
+            self.assertIn("device_mix = mobile=0,desktop=100,tablet=0", text)
             self.assertIn("dynatrace_application_id = APPLICATION-123", text)
             self.assertNotIn("super-secret-token", text)
             self.assertNotIn("dynatrace_api_token =", text.casefold())
@@ -77,7 +78,7 @@ class M25ConsoleIntegrationTests(unittest.TestCase):
             self.assertEqual(result.warnings, ())
             self.assertTrue(restored.apdex_experience)
             self.assertEqual(restored.apdex_experience_samples, 10)
-            self.assertEqual(restored.apdex_experience_device_mix, "mobile=60,desktop=30,tablet=10")
+            self.assertEqual(restored.apdex_experience_device_mix, "mobile=0,desktop=100,tablet=0")
             self.assertEqual(restored.apdex_experience_satisfied, 2.0)
             self.assertEqual(restored.apdex_experience_frustrated, 6.0)
             self.assertTrue(restored.apdex_dynatrace_import)
