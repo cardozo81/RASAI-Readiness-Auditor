@@ -205,7 +205,7 @@ Esses sinais permanecem complementares/advisory, salvo quando existir mapeamento
 
 `cat-07.html` existe sempre como superfície canônica. Quando a execução correspondente foi habilitada e persistida, apresenta a população sintética e continua sintético mesmo quando calibrado a partir de configuração Dynatrace. Quando não foi executado, apresenta estado neutro.
 
-O mix Mobile/Desktop/Tablet distribui percentualmente a população de amostras/user actions e deve somar 100%. Ele não representa diretamente o número de requests HTTP de subrecursos, pois uma única amostra pode disparar vários requests.
+CAT-07 herda o device único da AUD (`mobile` ou `desktop`). Não existe `device_mix` público nem Tablet para novas AUDs. Uma amostra pode disparar vários requests HTTP de subrecursos, portanto o target de amostras não equivale a contagem de requests.
 
 ## Improvement Intelligence
 
