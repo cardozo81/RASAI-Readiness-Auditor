@@ -14,6 +14,7 @@ import sqlite3
 from typing import Mapping
 
 from rasai.console_config import State as BaseState, validate_env_value as validate_base_env_value
+from rasai.device_context import canonical_single_device_mix
 from rasai.apdex_concurrency_policy import NAVIGATION_MAX_CONCURRENCY
 from rasai.m23_apdex import SyntheticApdexConfig
 from rasai.m23_cli import (
@@ -78,7 +79,7 @@ class State(BaseState):
     synthetic_apdex: bool = False
     apdex_threshold: float | None = None
     apdex_samples: int = DEFAULT_APDEX_SAMPLES_PER_CONTEXT
-    apdex_max_attempts: int = 125
+    apdex_max_attempts: int = 188
     apdex_max_pages: int = DEFAULT_APDEX_MAX_PAGES
     apdex_timeout: float = DEFAULT_APDEX_TIMEOUT_SECONDS
     apdex_delay: float = DEFAULT_APDEX_DELAY_SECONDS
@@ -288,7 +289,7 @@ def experience_from_state(state: State) -> ExperienceApdexConfig:
         target_samples_per_page=state.apdex_experience_samples,
         max_attempts_per_page=state.apdex_experience_max_attempts,
         max_pages=state.apdex_experience_max_pages,
-        device_mix=parse_device_mix(state.apdex_experience_device_mix),
+        device_mix=parse_device_mix(canonical_single_device_mix(state.device)),
         session_mode=state.apdex_experience_session_mode,
         kpm=state.apdex_experience_kpm,
         satisfied_threshold_seconds=state.apdex_experience_satisfied,
@@ -390,8 +391,8 @@ def synthetic_load_summary(state: State) -> tuple[int, str]:
     nav_detail = "Navigation Apdex não solicitado"
     if state.synthetic_apdex:
         pages = state.max_pages if state.apdex_max_pages == 0 else min(state.max_pages, state.apdex_max_pages)
-        devices = 2 if state.device == "both" else 1
-        contexts = max(pages, 0) * devices
+        devices = 1
+        contexts = max(pages, 0)
         m23_attempts = contexts * max(state.apdex_max_attempts, 0)
         nav_detail = (
             f"até {m23_attempts} navegação(ões) Synthetic Navigation Apdex "
