@@ -342,6 +342,7 @@ def _credential_output_failures(body: str) -> list[str]:
         unescape(body),
         path="catalog-report.html",
         strict=True,
+        html_dom_context=True,
     )
     return ["padrão de credencial detectado no HTML"] if exposures else []
 
