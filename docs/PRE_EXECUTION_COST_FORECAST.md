@@ -19,7 +19,7 @@ Fluxo:
 
 Quando não existe base monetária suficiente, a execução segue o fluxo normal sem inventar uma estimativa.
 
-Para alvo TXT, usa-se a quantidade conhecida de URLs. Para crawl iniciado por uma URL, usa-se a mediana histórica comparável de páginas, limitada pelo `max_pages` atual.
+Para novas AUDs, a entrada é uma única URL e a previsão usa a mediana histórica comparável de páginas, limitada pelo `max_pages` atual. Auditorias históricas multi-target continuam legíveis para comparação, mas não reabrem entrada TXT na execução nova.
 
 Improvement Intelligence é incluída quando provider/modelo históricos e contrato persistido forem comparáveis, pois suas tentativas usam a telemetria canônica `ai_provider_attempts`.
 
