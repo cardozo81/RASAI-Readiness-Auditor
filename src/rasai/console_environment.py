@@ -194,7 +194,7 @@ ENV_NAMES = tuple(
         (
             *BASE_ENV_NAMES,
             *M23_ENV_NAMES,
-            *M25_ENV_NAMES,
+            *(name for name in M25_ENV_NAMES if name != "RASAI_APDEX_EXPERIENCE_DEVICE_MIX"),
             DYNATRACE_API_TOKEN_ENV,
             CONSOLE_INI_ENV,
             *_SEARCH_ENV_NAMES,
@@ -298,9 +298,9 @@ def _application_specs() -> tuple[EnvironmentSpec, ...]:
             "Aplicação e execução",
             "Define o device default quando menu/CLI não fornecem valor explícito.",
             "enum",
-            ("mobile", "desktop", "both"),
+            ("mobile", "desktop"),
             "mobile",
-            impact="`both` multiplica contextos, tempo e carga de coleta.",
+            impact="CAT-06 e CAT-07 herdam o mesmo device único da AUD.",
         ),
         EnvironmentSpec(
             AI_TIMEOUT_ENV,
