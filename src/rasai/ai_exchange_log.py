@@ -52,6 +52,7 @@ _SECRET_KEYS = frozenset({
 })
 _PURPOSE_MARKERS = (
     ("directed_analysis", "DIRECTED_ANALYSIS"),
+    ("rasai_competitive_ai", "COMPETITIVE_INTELLIGENCE"),
     ("rasai_m24_technical_remediation", "TECHNICAL_REMEDIATION"),
     ("rasai_content_remediation", "CONTENT_REMEDIATION"),
     ("rasai_source_quality", "SOURCE_QUALITY_EXPLANATION"),
@@ -81,6 +82,7 @@ class AiExchange:
     exception_type: str | None
     request_payload: str
     request_sha256: str
+    request_payload_hash: str
     request_truncated: bool
     response_payload: str | None
     response_sha256: str | None
@@ -135,6 +137,7 @@ class AiExchangeRecorder:
         raw_http_error_body: bytes | None = None,
     ) -> None:
         request_text = body.decode("utf-8", errors="replace")
+        request_payload_hash = hashlib.sha256(body).hexdigest()
         request_for_log = _sanitize_request_text(request_text)
         request_payload, request_sha, request_truncated = _bounded(
             request_for_log, self.max_capture_bytes
@@ -194,6 +197,7 @@ class AiExchangeRecorder:
                 exception_type=exception_type,
                 request_payload=request_payload,
                 request_sha256=request_sha,
+                request_payload_hash=request_payload_hash,
                 request_truncated=request_truncated,
                 response_payload=response_payload,
                 response_sha256=response_sha,
@@ -560,13 +564,82 @@ def _strip_transient_context_interpretation(raw: Any) -> Any:
     return transformed if found else raw
 
 
+def _exchange_attempt_id(
+    connection: sqlite3.Connection,
+    *,
+    audit_id: str,
+    item: AiExchange,
+    claimed_attempt_ids: set[str],
+) -> str | None:
+    """Resolve one persisted provider attempt from the exact raw request fingerprint.
+
+    The request hash is the primary correlation key. Provider/model constrain the
+    candidate set; time is used only to disambiguate retries of an identical request.
+    """
+    try:
+        columns = {
+            str(row[1])
+            for row in connection.execute("PRAGMA table_info(ai_provider_attempts)").fetchall()
+        }
+    except sqlite3.Error:
+        return None
+    required = {"attempt_id", "audit_id", "provider", "request_payload_hash", "started_at"}
+    if not required.issubset(columns):
+        return None
+
+    where = [
+        "audit_id=?",
+        "UPPER(COALESCE(provider,''))=UPPER(?)",
+        "request_payload_hash=?",
+    ]
+    params: list[Any] = [audit_id, item.provider, item.request_payload_hash]
+    if "model" in columns and item.model:
+        where.append("COALESCE(model,'')=?")
+        params.append(str(item.model))
+
+    order = "started_at"
+    if "attempt_index" in columns:
+        order += ",attempt_index"
+    order += ",attempt_id"
+    try:
+        rows = connection.execute(
+            f"SELECT attempt_id,started_at FROM ai_provider_attempts WHERE {' AND '.join(where)} ORDER BY {order}",
+            tuple(params),
+        ).fetchall()
+    except sqlite3.Error:
+        return None
+
+    candidates = [row for row in rows if str(row[0] or "") not in claimed_attempt_ids]
+    if not candidates:
+        return None
+    if len(candidates) == 1:
+        return str(candidates[0][0])
+
+    try:
+        exchange_started = datetime.fromisoformat(item.started_at.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return str(candidates[0][0])
+
+    def distance(row: sqlite3.Row | tuple[Any, ...]) -> tuple[float, str]:
+        try:
+            started = datetime.fromisoformat(str(row[1]).replace("Z", "+00:00"))
+            if started.tzinfo is None and exchange_started.tzinfo is not None:
+                started = started.replace(tzinfo=exchange_started.tzinfo)
+            delta = abs((started - exchange_started).total_seconds())
+        except (TypeError, ValueError):
+            delta = float("inf")
+        return delta, str(row[0])
+
+    return str(min(candidates, key=distance)[0])
+
+
 def persist_ai_exchange_log(
     *,
     audit_id: str,
     workspace: AuditWorkspace,
     recorder: AiExchangeRecorder | None,
 ) -> int:
-    """Persist sanitized external exchanges. AUTO context interpretations stay in memory only."""
+    """Persist sanitized exchanges with additive attempt correlation metadata."""
     if recorder is None:
         return 0
     connection = sqlite3.connect(workspace.database)
@@ -592,10 +665,12 @@ def persist_ai_exchange_log(
                     exception_type TEXT,
                     request_payload TEXT NOT NULL,
                     request_sha256 TEXT NOT NULL,
+                    request_payload_hash TEXT,
                     request_truncated INTEGER NOT NULL,
                     response_payload TEXT,
                     response_sha256 TEXT,
-                    response_truncated INTEGER NOT NULL
+                    response_truncated INTEGER NOT NULL,
+                    attempt_id TEXT
                 );
                 CREATE INDEX IF NOT EXISTS idx_ai_exchange_audit
                     ON ai_exchange_log(audit_id,sequence_no);
@@ -603,28 +678,72 @@ def persist_ai_exchange_log(
                     ON ai_exchange_log(audit_id,provider,purpose);
                 """
             )
+            columns = {
+                str(row[1])
+                for row in connection.execute("PRAGMA table_info(ai_exchange_log)").fetchall()
+            }
+            if "request_payload_hash" not in columns:
+                connection.execute(
+                    "ALTER TABLE ai_exchange_log ADD COLUMN request_payload_hash TEXT"
+                )
+            if "attempt_id" not in columns:
+                connection.execute("ALTER TABLE ai_exchange_log ADD COLUMN attempt_id TEXT")
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_ai_exchange_attempt "
+                "ON ai_exchange_log(audit_id,attempt_id)"
+            )
+
+            claimed_attempt_ids = {
+                str(row[0])
+                for row in connection.execute(
+                    "SELECT attempt_id FROM ai_exchange_log "
+                    "WHERE audit_id=? AND attempt_id IS NOT NULL",
+                    (audit_id,),
+                ).fetchall()
+                if row[0]
+            }
             count = 0
             for item in recorder.exchanges:
+                attempt_id = _exchange_attempt_id(
+                    connection,
+                    audit_id=audit_id,
+                    item=item,
+                    claimed_attempt_ids=claimed_attempt_ids,
+                )
+                if attempt_id:
+                    claimed_attempt_ids.add(attempt_id)
                 cursor = connection.execute(
                     """
                     INSERT OR IGNORE INTO ai_exchange_log (
                         exchange_id,audit_id,sequence_no,provider,model,purpose,
                         snapshot_id,page_url,endpoint,started_at,finished_at,duration_ms,
                         outcome,http_status,exception_type,request_payload,request_sha256,
-                        request_truncated,response_payload,response_sha256,response_truncated
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        request_payload_hash,request_truncated,response_payload,response_sha256,
+                        response_truncated,attempt_id
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     (
                         item.exchange_id, audit_id, item.sequence_no, item.provider, item.model,
                         item.purpose, item.snapshot_id, item.page_url, item.endpoint,
                         item.started_at, item.finished_at, item.duration_ms, item.outcome,
                         item.http_status, item.exception_type, item.request_payload,
-                        item.request_sha256, 1 if item.request_truncated else 0,
+                        item.request_sha256, item.request_payload_hash,
+                        1 if item.request_truncated else 0,
                         item.response_payload, item.response_sha256,
-                        1 if item.response_truncated else 0,
+                        1 if item.response_truncated else 0, attempt_id,
                     ),
                 )
                 count += max(0, int(cursor.rowcount))
+                if cursor.rowcount == 0:
+                    connection.execute(
+                        """
+                        UPDATE ai_exchange_log
+                        SET request_payload_hash=COALESCE(request_payload_hash,?),
+                            attempt_id=COALESCE(attempt_id,?)
+                        WHERE exchange_id=? AND audit_id=?
+                        """,
+                        (item.request_payload_hash, attempt_id, item.exchange_id, audit_id),
+                    )
         return count
     finally:
         connection.close()
