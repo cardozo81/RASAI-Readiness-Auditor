@@ -442,7 +442,6 @@ def _configure(state: State, choice: str) -> None:
                 [
                     ("mobile", True, "default"),
                     ("desktop", True, "somente desktop"),
-                    ("both", True, "mobile + desktop; multiplica volume"),
                 ],
             )
             if value:
