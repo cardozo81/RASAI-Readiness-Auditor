@@ -150,11 +150,11 @@ def _install_console_environment() -> None:
                     "enum",
                     ("auto", "isolated"),
                     "auto",
-                    required_when="Nunca; auto é o default seguro e só compartilha aquisições comprovadamente compatíveis.",
-                    impact="auto pode reduzir navegações físicas contra o alvo; não altera targets, device mix, thresholds ou scores.",
+                    required_when="Nunca; auto é o default seguro e reutiliza somente aquisições físicas comprovadamente compatíveis.",
+                    impact="auto aplica o planner canônico e pode reduzir aquisições físicas; não altera targets, thresholds ou scores.",
                     example="RASAI_APDEX_ACQUISITION_MODE=isolated",
-                    source="docs/SYNTHETIC_SHARED_ACQUISITION.md",
-                    notes="Use isolated para comparação/troubleshooting. Não existe modo de compartilhamento forçado.",
+                    source="docs/SYNTHETIC_ACQUISITION.md",
+                    notes="Use isolated para comparação/troubleshooting. Não existe modo de reuso físico forçado.",
                 )
             )
         return tuple(items)
