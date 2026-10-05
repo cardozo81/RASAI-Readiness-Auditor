@@ -423,9 +423,9 @@ A seleção dos catálogos pertence à próxima execução. Ela é gravada no sn
 
 ## Apdex
 
-`CAT-07` depende de `CAT-06`. Cálculos de Apdex não dependem de IA e selecionar CAT-06/CAT-07 não ativa IA por si só.
+`CAT-06` e `CAT-07` são coletores independentes. Cálculos de Apdex não dependem de IA e selecionar CAT-06/CAT-07 não ativa IA por si só.
 
-`RASAI_APDEX_ACQUISITION_MODE` controla somente a estratégia de aquisição do Synthetic Apdex. Os valores técnicos aceitos são `auto` e `isolated`: `auto` é o default e compartilha somente aquisições comprovadamente compatíveis; `isolated` força aquisições independentes para comparação/troubleshooting. Essa configuração é operacional e **não altera a pontuação** nem o **Método de Pontuação de Prontidão**.
+`RASAI_APDEX_ACQUISITION_MODE` controla somente a estratégia de aquisição do Synthetic Apdex. Os valores técnicos aceitos são `auto` e `isolated`: `auto` é o default e aplica o planner canônico, reutilizando somente fatos físicos comprovadamente compatíveis; `isolated` força aquisições físicas independentes para comparação/troubleshooting. Essa configuração é operacional e **não altera a pontuação** nem o **Método de Pontuação de Prontidão**.
 
 ## Análise profunda e remediações
 
