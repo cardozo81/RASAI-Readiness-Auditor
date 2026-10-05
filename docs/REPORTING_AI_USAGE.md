@@ -74,6 +74,10 @@ A regeneração do `report-catalog/` apenas reprojeta os dados persistidos. Ela 
 
 Se ambas as chamadas retornaram usage/custo, **ambas entram no custo do relatório proprietário**. Se a primeira chamada não retornou dados suficientes para estimativa, ela continua aparecendo como tentativa sem custo mensurável; o RASAi não assume custo zero nem inventa um valor.
 
+A página `ai-integrations.html` separa explicitamente **resultado final** de **tentativas**. Quando existe `ai_task_id`, o estado final vem de `ai_tasks.status`; o provider efetivo é projetado a partir da tentativa bem-sucedida vinculada à mesma tarefa. Para contratos históricos sem task persistida, somente estados finais existentes em ledgers próprios — por exemplo `ai_audit_sessions`, `improvement_intelligence_runs` ou `content_remediation_runs` — podem sustentar a síntese. O renderer não deduz sucesso final a partir de texto de erro, nome do provider ou presença isolada de uma tentativa.
+
+Assim, uma tarefa `COMPLETE` com OPENAI falhando e DEEPSEEK sucedendo é apresentada como **Concluído / Fallback bem-sucedido / provider efetivo DEEPSEEK**, mantendo a falha OPENAI e seu diagnóstico técnico na sequência. Uma tarefa persistida como `FAILED` continua sendo apresentada como **Falha final**, mesmo que existam múltiplas attempts.
+
 Também é possível que URLs ou dispositivos diferentes do mesmo relatório sejam atendidos por providers distintos ao longo da execução. Por isso o relatório local e o totalizador sempre agregam por tentativa persistida, não por `effective_provider` da sessão.
 
 ## Total conciliado e drill-down em `ai-integrations.html`
