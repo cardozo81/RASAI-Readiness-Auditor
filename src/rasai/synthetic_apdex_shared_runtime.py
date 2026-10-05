@@ -504,9 +504,9 @@ def install() -> None:
                     gateway_factory=gateway_factory,
                 )
             target_samples = int(
-                getattr(config, "target_valid_samples", 0)
+                getattr(config, "target_valid_samples", 2**31 - 1)
                 if config is not None
-                else 0
+                else 2**31 - 1
             )
             factory = lambda: SharedAwareNavigationGateway(
                 audit_id=audit_id,
