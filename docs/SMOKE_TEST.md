@@ -52,14 +52,13 @@ report-catalog/css/site.css       existe
 
 Validar no `report-catalog/` os CATs selecionados e suas páginas de governança. A ausência de HTML não-catalog não pode reduzir findings, recomendações, causa raiz, precisão ou telemetria persistida.
 
-## 3. Desktop e Both
+## 3. Desktop e comparação entre devices
 
 ```powershell
 rasai audit https://example.com --max-pages 1 --device-context desktop
-rasai audit https://example.com --max-pages 1 --device-context both
 ```
 
-Validar páginas condicionais e BR-GEO-052 somente em `both`.
+Para comparar Mobile e Desktop, execute uma AUD Mobile e outra Desktop sobre o mesmo alvo. Não use `both` em uma nova AUD. Regras de variância entre devices devem ser validadas na camada de comparação que disponha das duas evidências, não dentro de uma única execução.
 
 ## 4. JSON-LD ausente
 
