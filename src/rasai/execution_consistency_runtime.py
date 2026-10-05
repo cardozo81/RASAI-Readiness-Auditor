@@ -784,7 +784,10 @@ def _install_request_remediation_filter() -> None:
         filtered = []
         for raw in events:
             item = dict(raw)
-            if str(item.get("error_type") or "").upper() == "SHARED_ACQUISITION":
+            if str(item.get("error_type") or "").upper() in {
+                "SHARED_ACQUISITION",
+                "CANONICAL_ACQUISITION_REUSE",
+            }:
                 continue
             if str(item.get("family") or "").upper() == "CORS":
                 message = str(item.get("message") or "")
