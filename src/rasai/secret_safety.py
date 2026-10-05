@@ -53,6 +53,10 @@ _PRIVATE_KEY_BLOCK_RE = re.compile(
     re.escape(_PRIVATE_KEY_BEGIN) + r".*?" + re.escape(_PRIVATE_KEY_END), re.DOTALL
 )
 _OPENAI_SECRET_CANDIDATE_RE = re.compile(r"\bsk-[A-Za-z0-9_-]{24,}\b")
+_OPENAI_SCOPED_SECRET_PREFIXES = ("proj-", "svcacct-", "admin-")
+_HTML_DOM_ATTRIBUTE_RE = re.compile(
+    r"""(?is)\b(?:id|class)\s*=\s*(?:(?P<quote>["'])(?P<quoted>.*?)(?P=quote)|(?P<bare>[^\s>]+))"""
+)
 _KNOWN_SECRET_RE = re.compile(
     r"(?:gh[pousr]_[A-Za-z0-9_]{12,}|AIza[A-Za-z0-9_-]{20,}|"
     r"xox[baprs]-[A-Za-z0-9-]{12,}|AKIA[A-Z0-9]{16})"
@@ -71,7 +75,7 @@ def _looks_like_openai_secret(value: str) -> bool:
     # Keep field/header context independently protected by the assignment/header
     # detectors below while avoiding CamelCase selector IDs such as
     # sk-BradescoHomePageProcess1UI1.
-    if suffix.startswith(("proj-", "svcacct-", "admin-")):
+    if suffix.startswith(_OPENAI_SCOPED_SECRET_PREFIXES):
         return any(ch.isdigit() for ch in suffix)
     return len(suffix) >= 32 and any(ch.isdigit() for ch in suffix)
 
@@ -161,6 +165,54 @@ def is_safe_placeholder(value: str) -> bool:
     if _ENV_NAME_RE.fullmatch(text) and is_sensitive_name(text):
         return True
     return any(word in lowered for word in _SAFE_PLACEHOLDER_WORDS)
+
+
+def _looks_like_dom_identifier_openai_candidate(value: str) -> bool:
+    """Classify human-readable sk-* DOM/CSS identifiers without weakening opaque secrets."""
+    text = _placeholder_candidate(value)
+    if _OPENAI_SECRET_CANDIDATE_RE.fullmatch(text) is None:
+        return False
+    suffix = text[3:]
+    if suffix.startswith(_OPENAI_SCOPED_SECRET_PREFIXES):
+        return False
+
+    parts = [part for part in suffix.split("-") if part]
+    semantic_parts = sum(
+        1
+        for part in parts
+        if len(part) >= 3 and any(ch.isalpha() for ch in part)
+    )
+    if len(parts) >= 2 and semantic_parts >= 2:
+        return True
+
+    # CamelCase IDs such as BradescoHomePageProcess... are common in observed DOM
+    # evidence. Requiring multiple word-like runs avoids treating a merely long,
+    # opaque legacy sk-* token as a selector solely because it sits in an id/class.
+    return len(re.findall(r"[A-Z]?[a-z]{3,}", suffix)) >= 2
+
+
+def _html_dom_identifier_candidate_spans(text: str) -> tuple[tuple[int, int], ...]:
+    """Locate only ambiguous sk-* candidates inside explicit HTML id/class values."""
+    spans: list[tuple[int, int]] = []
+    for attribute in _HTML_DOM_ATTRIBUTE_RE.finditer(text):
+        group_name = "quoted" if attribute.group("quoted") is not None else "bare"
+        raw_value = attribute.group(group_name) or ""
+        offset = attribute.start(group_name)
+        for candidate in _OPENAI_SECRET_CANDIDATE_RE.finditer(raw_value):
+            if _looks_like_dom_identifier_openai_candidate(candidate.group(0)):
+                spans.append((offset + candidate.start(), offset + candidate.end()))
+    return tuple(spans)
+
+
+def _span_is_within(
+    span: tuple[int, int],
+    containers: Sequence[tuple[int, int]],
+) -> bool:
+    start, end = span
+    return any(
+        container_start <= start and end <= container_end
+        for container_start, container_end in containers
+    )
 
 
 def _looks_high_confidence_secret(value: str) -> bool:
@@ -347,15 +399,26 @@ def detect_secret_exposures(
     *,
     path: str = "<memory>",
     strict: bool = True,
+    html_dom_context: bool = False,
 ) -> tuple[SecretExposure, ...]:
     """Find raw secret material.
 
     ``strict=True`` is used at runtime/configuration boundaries. Repository scanning
     uses ``strict=False`` so source code, tests and prose fail only for high-confidence
     secret material or credential literals in config-like files.
+
+    ``html_dom_context=True`` is reserved for rendered-HTML assurance. It suppresses
+    only human-readable legacy-like ``sk-*`` candidates proven to occur inside
+    explicit ``id``/``class`` values. Scoped OpenAI keys, opaque candidates and all
+    non-OpenAI secret detectors remain fail-closed.
     """
     findings: list[SecretExposure] = []
     config_like = _is_config_like_path(path)
+    dom_identifier_spans = (
+        _html_dom_identifier_candidate_spans(text)
+        if html_dom_context
+        else ()
+    )
 
     for match in _PRIVATE_KEY_BLOCK_RE.finditer(text):
         findings.append(SecretExposure(path, _line_number(text, match.start()), "PRIVATE_KEY", "private key material"))
@@ -363,6 +426,8 @@ def detect_secret_exposures(
     for match in _KNOWN_SECRET_RE.finditer(text):
         findings.append(SecretExposure(path, _line_number(text, match.start()), "KNOWN_SECRET_PATTERN", "known credential token pattern"))
     for match in _OPENAI_SECRET_CANDIDATE_RE.finditer(text):
+        if dom_identifier_spans and _span_is_within(match.span(), dom_identifier_spans):
+            continue
         if _looks_like_openai_secret(match.group(0)):
             findings.append(SecretExposure(path, _line_number(text, match.start()), "KNOWN_SECRET_PATTERN", "OpenAI credential token pattern"))
 
