@@ -961,6 +961,11 @@ def recover_experience_apdex(
                         profile = m25._profile_for_device(device)
                         items = list(existing_by_context.get((page_id,device),[]))
                         used_indices = {int(value.run_index) for value in items}
+                        used_captured_at = {
+                            str(value.captured_at)
+                            for value in items
+                            if str(getattr(value, "captured_at", "") or "")
+                        }
                         next_index = max(used_indices,default=0)+1
                         missing_valid = max(
                             target - sum(value.classification is not None for value in items),
@@ -983,11 +988,17 @@ def recover_experience_apdex(
                                     break
                                 if envelope.acquisition_id in linked:
                                     continue
+                                if (
+                                    envelope.planning_ordinal is not None
+                                    and int(envelope.planning_ordinal) in used_indices
+                                ):
+                                    continue
+                                if envelope.captured_at in used_captured_at:
+                                    continue
                                 replay_index = (
                                     int(envelope.planning_ordinal)
                                     if envelope.planning_ordinal is not None
                                     and int(envelope.planning_ordinal) > 0
-                                    and int(envelope.planning_ordinal) not in used_indices
                                     else next_index
                                 )
                                 measurement = _m25_measurement_from_acquisition(envelope)
@@ -1019,6 +1030,7 @@ def recover_experience_apdex(
                                 )
                                 items.append(classified)
                                 used_indices.add(replay_index)
+                                used_captured_at.add(envelope.captured_at)
                                 next_index = max(next_index, replay_index + 1)
                                 if classification is not None:
                                     missing_valid -= 1
