@@ -33,6 +33,7 @@ from rasai.content_context import (
     build_content_analysis_context,
 )
 from rasai.m21_web_performance import DEFAULT_CATEGORIES
+from rasai.device_context import canonical_single_device_mix
 from rasai.m23_cli import (
     DEFAULT_APDEX_CONCURRENCY,
     DEFAULT_APDEX_DELAY_SECONDS,
@@ -60,7 +61,6 @@ from rasai.m25_cli import (
     DEFAULT_UX_SATISFIED_SECONDS,
     DEFAULT_UX_SESSION_MODE,
     DEFAULT_UX_SETTLE_SECONDS,
-    parse_device_mix,
 )
 from rasai.m25_dynatrace import SUPPORTED_TIME_KPMS
 from rasai.property_semantic_profile import (
@@ -146,7 +146,7 @@ def audit_job_options() -> tuple[AuditJobOption, ...]:
         AuditJobOption("language", DEFAULT_LANGUAGE, "text", description="Idioma principal da análise."),
         AuditJobOption("market", DEFAULT_MARKET, "text", description="Mercado de referência."),
         AuditJobOption("max_pages", DEFAULT_MAX_PAGES, "integer", description="Máximo determinístico de páginas."),
-        AuditJobOption("device_context", DEFAULT_DEVICE_CONTEXT, "enum", ("mobile", "desktop", "both")),
+        AuditJobOption("device_context", DEFAULT_DEVICE_CONTEXT, "enum", ("mobile", "desktop")),
         AuditJobOption("ai_provider", DEFAULT_AI_PROVIDER, "enum", cli_provider_choices()),
         AuditJobOption("ai_model", "", "text", required_when="Somente quando houver override de modelo."),
         AuditJobOption("ai_reasoning", "", "text", required_when="Somente provider explícito que exponha reasoning configurável."),
@@ -173,7 +173,7 @@ def audit_job_options() -> tuple[AuditJobOption, ...]:
         AuditJobOption("synthetic_apdex", False, "boolean"),
         AuditJobOption("apdex_threshold_seconds", None, "number", required_when="Obrigatório quando Synthetic Navigation Apdex estiver habilitado."),
         AuditJobOption("apdex_samples_per_context", DEFAULT_APDEX_SAMPLES_PER_CONTEXT, "integer"),
-        AuditJobOption("apdex_max_attempts_per_context", 125, "integer"),
+        AuditJobOption("apdex_max_attempts_per_context", int(math.ceil(DEFAULT_APDEX_SAMPLES_PER_CONTEXT * 1.25)), "integer"),
         AuditJobOption("apdex_max_pages", DEFAULT_APDEX_MAX_PAGES, "integer"),
         AuditJobOption("apdex_timeout_seconds", None, "number", required_when="Quando omitido, o runtime usa max(45 s, 4T + 5 s)."),
         AuditJobOption("apdex_delay_seconds", DEFAULT_APDEX_DELAY_SECONDS, "number"),
@@ -182,7 +182,6 @@ def audit_job_options() -> tuple[AuditJobOption, ...]:
         AuditJobOption("apdex_experience_samples", DEFAULT_UX_SAMPLES, "integer"),
         AuditJobOption("apdex_experience_max_attempts", 125, "integer"),
         AuditJobOption("apdex_experience_max_pages", DEFAULT_UX_MAX_PAGES, "integer"),
-        AuditJobOption("apdex_experience_device_mix", DEFAULT_UX_DEVICE_MIX, "text", required_when="Percentuais Mobile/Desktop/Tablet devem totalizar 100%."),
         AuditJobOption("apdex_experience_session_mode", DEFAULT_UX_SESSION_MODE, "enum", ("cold", "warm")),
         AuditJobOption("apdex_experience_kpm", DEFAULT_UX_KPM, "enum", tuple(sorted(SUPPORTED_TIME_KPMS))),
         AuditJobOption(
@@ -288,7 +287,7 @@ def normalize_audit_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     normalized["language"] = _text(payload, "language", DEFAULT_LANGUAGE) or DEFAULT_LANGUAGE
     normalized["market"] = _text(payload, "market", DEFAULT_MARKET) or DEFAULT_MARKET
     normalized["max_pages"] = _int(payload, "max_pages", DEFAULT_MAX_PAGES, minimum=1, maximum=100000)
-    normalized["device_context"] = _text(payload, "device_context", DEFAULT_DEVICE_CONTEXT, choices=("mobile", "desktop", "both"))
+    normalized["device_context"] = _text(payload, "device_context", DEFAULT_DEVICE_CONTEXT, choices=("mobile", "desktop"))
     normalized["ai_provider"] = _text(payload, "ai_provider", DEFAULT_AI_PROVIDER, choices=cli_provider_choices())
     normalized["ai_model"] = _text(payload, "ai_model", "")
     normalized["ai_reasoning"] = _text(payload, "ai_reasoning", "")
@@ -337,7 +336,7 @@ def normalize_audit_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     normalized["synthetic_apdex"] = _bool(payload, "synthetic_apdex", False)
     normalized["apdex_threshold_seconds"] = _optional_positive_number(payload, "apdex_threshold_seconds")
     normalized["apdex_samples_per_context"] = _int(payload, "apdex_samples_per_context", DEFAULT_APDEX_SAMPLES_PER_CONTEXT, minimum=1)
-    normalized["apdex_max_attempts_per_context"] = _int(payload, "apdex_max_attempts_per_context", max(125, normalized["apdex_samples_per_context"]), minimum=1)
+    normalized["apdex_max_attempts_per_context"] = _int(payload, "apdex_max_attempts_per_context", max(normalized["apdex_samples_per_context"], int(math.ceil(normalized["apdex_samples_per_context"] * 1.25))), minimum=1)
     if normalized["apdex_max_attempts_per_context"] < normalized["apdex_samples_per_context"]:
         raise ValueError("AUDIT payload apdex_max_attempts_per_context must be >= apdex_samples_per_context")
     normalized["apdex_max_pages"] = _int(payload, "apdex_max_pages", DEFAULT_APDEX_MAX_PAGES, minimum=0)
@@ -357,8 +356,7 @@ def normalize_audit_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     if normalized["apdex_experience_max_attempts"] < normalized["apdex_experience_samples"]:
         raise ValueError("AUDIT payload apdex_experience_max_attempts must be >= apdex_experience_samples")
     normalized["apdex_experience_max_pages"] = _int(payload, "apdex_experience_max_pages", DEFAULT_UX_MAX_PAGES, minimum=0)
-    normalized["apdex_experience_device_mix"] = _text(payload, "apdex_experience_device_mix", DEFAULT_UX_DEVICE_MIX)
-    parse_device_mix(normalized["apdex_experience_device_mix"])
+    normalized["apdex_experience_device_mix"] = canonical_single_device_mix(normalized["device_context"])
     normalized["apdex_experience_session_mode"] = _text(payload, "apdex_experience_session_mode", DEFAULT_UX_SESSION_MODE, choices=("cold", "warm"))
     normalized["apdex_experience_kpm"] = _text(payload, "apdex_experience_kpm", DEFAULT_UX_KPM).upper()
     if normalized["apdex_experience_kpm"] not in SUPPORTED_TIME_KPMS:

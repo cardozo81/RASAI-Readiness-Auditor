@@ -154,7 +154,7 @@ class M23IntegrationTests(unittest.TestCase):
         state = State(
             target="https://example.com",
             max_pages=5,
-            device="both",
+            device="desktop",
             synthetic_apdex=True,
             apdex_threshold=1.0,
             apdex_samples=5,
@@ -169,7 +169,7 @@ class M23IntegrationTests(unittest.TestCase):
         self.assertIn("--synthetic-apdex", command)
         self.assertIn("--apdex-threshold-seconds", command)
         attempts, message = synthetic_load_summary(state)
-        self.assertEqual(attempts, 28)
+        self.assertEqual(attempts, 14)
         self.assertIn("múltiplos requests HTTP", message)
 
 

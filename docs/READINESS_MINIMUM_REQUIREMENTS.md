@@ -179,7 +179,7 @@ A CLI usa Mobile por padrão:
 --device-context mobile
 ```
 
-Isso é decisão operacional/custo do auditor, não afirmação de que Desktop seja irrelevante. Use `both` quando a comparação for necessária.
+Isso é decisão operacional/custo do auditor, não afirmação de que Desktop seja irrelevante. Quando a comparação Mobile x Desktop for necessária, execute AUDs separadas e compare os resultados na camada apropriada.
 
 ## Referências primárias principais
 

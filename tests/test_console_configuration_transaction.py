@@ -12,8 +12,10 @@ from rasai.console_m23 import M23_ENV_NAMES, apply_m23_environment_defaults
 from rasai.console_search_intelligence import SearchConsoleState
 from rasai.m23_cli import APDEX_MAX_ATTEMPTS_ENV, APDEX_SAMPLES_ENV, APDEX_THRESHOLD_ENV, APDEX_TIMEOUT_ENV
 from rasai.m25_cli import M25_ENV_NAMES, UX_MAX_ATTEMPTS_ENV, UX_SAMPLES_ENV
-from rasai.synthetic_profile_console_runtime import install as install_synthetic_profile_console_runtime
-from rasai.synthetic_runtime_profiles import PROFILE_ENV_NAMES
+from rasai.synthetic_profile_console_runtime import (
+    PUBLIC_PROFILE_ENV_NAMES,
+    install as install_synthetic_profile_console_runtime,
+)
 
 
 def _prepare_apdex(monkeypatch: pytest.MonkeyPatch, *, samples: int, attempts: int) -> SearchConsoleState:
@@ -233,9 +235,6 @@ def test_shared_experience_profiles_survive_ini_save_and_reload(
         "RASAI_APDEX_DESKTOP_CLIENT_PROFILE": "desktop-wide-chromium",
         "RASAI_APDEX_DESKTOP_HARDWARE_PROFILE": "desktop-constrained",
         "RASAI_APDEX_DESKTOP_NETWORK_PROFILE": "desktop-fiber",
-        "RASAI_APDEX_TABLET_CLIENT_PROFILE": "tablet-compact-chromium",
-        "RASAI_APDEX_TABLET_HARDWARE_PROFILE": "tablet-premium",
-        "RASAI_APDEX_TABLET_NETWORK_PROFILE": "tablet-wifi",
     }
     for name, value in selected.items():
         monkeypatch.setenv(name, value)
@@ -252,6 +251,6 @@ def test_shared_experience_profiles_survive_ini_save_and_reload(
 
     restored = SearchConsoleState()
     console_settings.load_console_config(restored, destination)
-    assert set(PROFILE_ENV_NAMES).issuperset(selected)
+    assert set(PUBLIC_PROFILE_ENV_NAMES).issuperset(selected)
     for name, value in selected.items():
         assert environment.os.environ[name] == value

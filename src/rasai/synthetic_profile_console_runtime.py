@@ -18,10 +18,20 @@ from rasai.synthetic_runtime_profiles import (
 
 _INSTALLED = False
 
+PUBLIC_PROFILE_DEVICES = ("MOBILE", "DESKTOP")
+PUBLIC_PROFILE_ENV_NAMES = tuple(
+    PROFILE_ENV[(device, kind)]
+    for device in PUBLIC_PROFILE_DEVICES
+    for kind in ("client", "hardware", "network")
+)
+_INTERNAL_ONLY_PROFILE_ENV_NAMES = frozenset(
+    name for name in PROFILE_ENV_NAMES if name not in PUBLIC_PROFILE_ENV_NAMES
+)
+
 
 def _profile_specs(ce: object) -> dict[str, object]:
     replacements: dict[str, object] = {}
-    for device in ("MOBILE", "DESKTOP", "TABLET"):
+    for device in PUBLIC_PROFILE_DEVICES:
         for kind in ("client", "hardware", "network"):
             name = PROFILE_ENV[(device, kind)]
             allowed = preset_ids(kind, device)
@@ -76,7 +86,14 @@ def install() -> None:
     # Always repair the materialized catalog because another installer may have rebuilt
     # it after the first call. This is an upsert, not a destructive full rebuild, so
     # metadata installed by standards/other runtime extensions is preserved.
-    ce.ENV_NAMES = tuple(dict.fromkeys((*ce.ENV_NAMES, *PROFILE_ENV_NAMES)))
+    ce.ENV_NAMES = tuple(
+        dict.fromkeys(
+            (
+                *(name for name in ce.ENV_NAMES if name not in _INTERNAL_ONLY_PROFILE_ENV_NAMES),
+                *PUBLIC_PROFILE_ENV_NAMES,
+            )
+        )
+    )
     by_name = {spec.name: spec for spec in ce.SPECS}
     by_name.update(replacements)
     ce.SPECS = tuple(by_name[name] for name in ce.ENV_NAMES if name in by_name)
@@ -84,7 +101,14 @@ def install() -> None:
 
     # interactive_console also imports the name tuple by value; keep help/startup in
     # lockstep with the canonical environment catalog.
-    ic.ENV_NAMES = tuple(dict.fromkeys((*ic.ENV_NAMES, *PROFILE_ENV_NAMES)))
+    ic.ENV_NAMES = tuple(
+        dict.fromkeys(
+            (
+                *(name for name in ic.ENV_NAMES if name not in _INTERNAL_ONLY_PROFILE_ENV_NAMES),
+                *PUBLIC_PROFILE_ENV_NAMES,
+            )
+        )
+    )
 
     if not _INSTALLED:
         original_validate = ce._validate
@@ -92,7 +116,7 @@ def install() -> None:
             reverse = {name: (device, kind) for (device, kind), name in PROFILE_ENV.items()}
 
             def validate(name: str, raw: str) -> str:
-                if name in PROFILE_ENV_NAMES:
+                if name in PUBLIC_PROFILE_ENV_NAMES:
                     device, kind = reverse[name]
                     return validate_preset(kind, device, raw)
                 return original_validate(name, raw)

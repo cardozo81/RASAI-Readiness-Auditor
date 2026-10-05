@@ -15,6 +15,7 @@ from typing import Any, Mapping
 
 from rasai.ai_canonical_orchestration import AI_CYCLE_DELAY_ENV, AI_MAX_CYCLES_ENV
 from rasai.apdex_concurrency_policy import EXPERIENCE_MAX_CONCURRENCY, NAVIGATION_MAX_CONCURRENCY
+from rasai.device_context import canonical_single_device_mix
 from rasai.m25_cli import (
     DEFAULT_UX_CONSOLE_ERROR_CAPTURE,
     DEFAULT_UX_CONSOLE_ERRORS_AFFECT,
@@ -142,7 +143,7 @@ def _runtime_environment_projection(state: Any) -> dict[str, str]:
             UX_SAMPLES_ENV: str(int(getattr(state, "apdex_experience_samples", 100))),
             UX_MAX_ATTEMPTS_ENV: str(int(getattr(state, "apdex_experience_max_attempts", 125))),
             UX_MAX_PAGES_ENV: str(int(getattr(state, "apdex_experience_max_pages", 1))),
-            UX_DEVICE_MIX_ENV: str(getattr(state, "apdex_experience_device_mix", "") or DEFAULT_UX_DEVICE_MIX),
+            UX_DEVICE_MIX_ENV: canonical_single_device_mix(str(getattr(state, "device", "mobile"))),
             UX_SESSION_MODE_ENV: str(getattr(state, "apdex_experience_session_mode", "cold")),
             UX_KPM_ENV: str(getattr(state, "apdex_experience_kpm", "USER_ACTION_DURATION")),
             UX_ERRORS_ENV: _bool_text(bool(getattr(state, "apdex_experience_errors", True))),
@@ -248,7 +249,7 @@ def _state_values(state: Any) -> dict[str, dict[str, str]]:
             "samples_per_page": str(int(getattr(state, "apdex_experience_samples", 100))),
             "max_attempts_per_page": str(int(getattr(state, "apdex_experience_max_attempts", 125))),
             "max_pages": str(int(getattr(state, "apdex_experience_max_pages", 1))),
-            "device_mix": str(getattr(state, "apdex_experience_device_mix", "") or DEFAULT_UX_DEVICE_MIX),
+            "device_mix": canonical_single_device_mix(str(getattr(state, "device", "mobile"))),
             "session_mode": str(getattr(state, "apdex_experience_session_mode", "cold")),
             "kpm": str(getattr(state, "apdex_experience_kpm", "USER_ACTION_DURATION")),
             "satisfied_seconds": _optional(getattr(state, "apdex_experience_satisfied", None)),
@@ -341,8 +342,11 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
     elif key == ("console", "audits_root"): state.audits_root = raw.strip() or state.audits_root
     elif key == ("console", "device"):
         value = raw.strip().casefold()
-        if value not in {"mobile", "desktop", "both"}: raise ValueError("use mobile, desktop ou both")
+        if value not in {"mobile", "desktop"}: raise ValueError("use mobile ou desktop")
         state.device, state.current_device = value, value.upper()
+        if hasattr(state, "apdex_experience_device_mix"):
+            from rasai.device_context import canonical_single_device_mix
+            state.apdex_experience_device_mix = canonical_single_device_mix(value)
     elif key == ("presentation", "timezone"):
         os.environ[PRESENTATION_TIMEZONE_ENV] = validate_presentation_timezone(raw)
     elif key == ("ai", "provider"): state.ai_provider = raw.strip().casefold() or "none"
@@ -408,9 +412,13 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
         if value < 0: raise ValueError("use inteiro >= 0")
         state.apdex_experience_max_pages = value
     elif key == ("synthetic_apdex_experience", "device_mix"):
-        value = raw.strip() or DEFAULT_UX_DEVICE_MIX
-        parse_device_mix(value)
-        state.apdex_experience_device_mix = value
+        # Read old INI files without reactivating device_mix as an operator setting.
+        if raw.strip():
+            parse_device_mix(raw.strip())
+        from rasai.device_context import canonical_single_device_mix
+        state.apdex_experience_device_mix = canonical_single_device_mix(
+            str(getattr(state, "device", "mobile"))
+        )
     elif key == ("synthetic_apdex_experience", "session_mode"):
         value = raw.strip().casefold()
         if value not in {"cold", "warm"}: raise ValueError("use cold ou warm")

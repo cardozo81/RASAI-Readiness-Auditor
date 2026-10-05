@@ -102,35 +102,23 @@ def _fingerprint(state: Any):
 
 
 def _derived_mix(device: str) -> str:
-    value = str(device).casefold()
-    if value == "desktop":
-        return "mobile=0,desktop=100,tablet=0"
-    if value == "both":
-        return "mobile=60,desktop=40,tablet=0"
-    return "mobile=100,desktop=0,tablet=0"
+    from rasai.device_context import canonical_single_device_mix
+
+    return canonical_single_device_mix(device)
 
 
 def _ensure_mix(state: Any) -> None:
     if not hasattr(state, "apdex_experience_device_mix"):
         return
-    try:
-        from rasai.m25_cli import DEFAULT_UX_DEVICE_MIX
-    except ImportError:
-        return
-    current = str(getattr(state, "apdex_experience_device_mix", "") or "")
-    inherited = _mix_inherited(state)
-    if inherited is None:
-        inherited = not current or current == DEFAULT_UX_DEVICE_MIX
-        _set_mix_inherited(state, inherited)
-    if inherited:
-        state.apdex_experience_device_mix = _derived_mix(getattr(state, "device", "mobile"))
+    _set_mix_inherited(state, True)
+    state.apdex_experience_device_mix = _derived_mix(getattr(state, "device", "mobile"))
 
 
 def _device_results(state: Any) -> tuple[str, str]:
     """Compatibility helper for the Device-derived report projection/tests."""
     value = str(getattr(state, "device", "mobile")).casefold()
-    mobile = "INCLUÍDO" if value in {"mobile", "both"} else "NÃO APLICÁVEL"
-    desktop = "INCLUÍDO" if value in {"desktop", "both"} else "NÃO APLICÁVEL"
+    mobile = "INCLUÍDO" if value == "mobile" else "NÃO APLICÁVEL"
+    desktop = "INCLUÍDO" if value == "desktop" else "NÃO APLICÁVEL"
     return mobile, desktop
 
 
@@ -401,14 +389,11 @@ def _install_configure_persistence(console: ModuleType) -> None:
     def configure(state: Any, choice: str):
         before = _fingerprint(state)
         _ensure_mix(state)
-        before_mix = str(getattr(state, "apdex_experience_device_mix", "") or "")
-        mix_was_inherited = _mix_inherited(state)
         original(state, choice)
-        if choice == "3" and _mix_inherited(state) and hasattr(state, "apdex_experience_device_mix"):
-            state.apdex_experience_device_mix = _derived_mix(getattr(state, "device", "mobile"))
-        if choice == "11" and mix_was_inherited and hasattr(state, "apdex_experience_device_mix"):
-            after_mix = str(getattr(state, "apdex_experience_device_mix", "") or "")
-            _set_mix_inherited(state, after_mix == before_mix)
+        if choice in {"3", "11"}:
+            # Device mix is no longer an operator-owned setting. Re-derive the
+            # compatibility field after every Device/APDEX edit.
+            _ensure_mix(state)
         if choice == "F" or _fingerprint(state) == before:
             return
         print("\nDESTINO DA ALTERAÇÃO")

@@ -36,7 +36,7 @@ Quando `--apdex-experience` é habilitado e o usuário não fornece calibração
 | amostras por página | `100` | inteiro `>= 1` | `100`; reduzir somente em smoke controlado | política operacional RASAi |
 | máximo de tentativas | `ceil(1.25 × samples)` | inteiro `>= 1` | default derivado | política operacional RASAi |
 | máximo de páginas | `1` | inteiro `>= 0`; `0=todas` | `1` | política operacional RASAi |
-| mix de dispositivos | `mobile=60,desktop=35,tablet=5` | percentuais não negativos somando `100` | usar distribuição real observada quando houver | política sintética RASAi |
+| device da população | herdado da AUD (`mobile` ou `desktop`) | um único device | manter o device congelado da AUD | política operacional RASAi |
 | modo de sessão | `cold` | `cold`, `warm` | `cold` | política sintética RASAi |
 | settle | `5.0 s` | número `> 0` | `5.0 s` | janela de observação pós-load; não é somada automaticamente à duração |
 | delay | `1.0 s` | número `>= 0` | `1.0 s` ou maior conforme capacidade do alvo | política de carga RASAi |
@@ -151,43 +151,20 @@ Fontes oficiais:
 
 ## 7. Configuração e console interativo
 
-Variáveis de Experience:
+Variáveis públicas de Experience incluem target, budget, páginas, sessão, KPM, thresholds, política/captura de erros, settle, delay, concorrência e integração Dynatrace. O device **não é uma configuração própria do CAT-07**: ele é herdado do device único da AUD.
 
 ```text
-RASAI_APDEX_EXPERIENCE
-RASAI_APDEX_EXPERIENCE_SAMPLES
-RASAI_APDEX_EXPERIENCE_MAX_ATTEMPTS
-RASAI_APDEX_EXPERIENCE_MAX_PAGES
-RASAI_APDEX_EXPERIENCE_DEVICE_MIX
-RASAI_APDEX_EXPERIENCE_SESSION_MODE
-RASAI_APDEX_EXPERIENCE_KPM
-RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS
-RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS
-RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT
-RASAI_APDEX_EXPERIENCE_JAVASCRIPT_ERRORS_AFFECT
-RASAI_APDEX_EXPERIENCE_REQUEST_ERRORS_AFFECT
-RASAI_APDEX_EXPERIENCE_CONSOLE_ERRORS_AFFECT
-RASAI_APDEX_EXPERIENCE_JAVASCRIPT_ERROR_CAPTURE
-RASAI_APDEX_EXPERIENCE_XHR_CAPTURE
-RASAI_APDEX_EXPERIENCE_FETCH_CAPTURE
-RASAI_APDEX_EXPERIENCE_CONSOLE_ERROR_CAPTURE
-RASAI_APDEX_EXPERIENCE_MAX_ERROR_DETAILS
-RASAI_APDEX_EXPERIENCE_ERROR_SCOPE
-RASAI_APDEX_EXPERIENCE_SETTLE_SECONDS
-RASAI_APDEX_EXPERIENCE_DELAY_SECONDS
-RASAI_APDEX_EXPERIENCE_CONCURRENCY
-RASAI_APDEX_DYNATRACE_IMPORT
-RASAI_DYNATRACE_BASE_URL
-RASAI_DYNATRACE_APPLICATION_ID
-RASAI_DYNATRACE_CONFIG_JSON
-DYNATRACE_API_TOKEN
+AUD mobile  -> Experience 100% MOBILE
+AUD desktop -> Experience 100% DESKTOP
 ```
+
+`RASAI_APDEX_EXPERIENCE_DEVICE_MIX` permanece apenas como campo técnico de compatibilidade histórica; não integra o catálogo público de novas AUDs. Tablet também não integra o fluxo público.
+
+Os perfis de cliente/hardware/rede são compartilhados com Synthetic Navigation Apdex e usam as seis variáveis públicas `RASAI_APDEX_{MOBILE|DESKTOP}_{CLIENT|HARDWARE|NETWORK}_PROFILE`. Perfis Tablet podem existir internamente somente para interpretar/reprocessar medições históricas.
 
 O console deve mostrar default, valor efetivo, origem e domínio permitido. Secrets aparecem somente como estado de configuração. `DYNATRACE_API_TOKEN` nunca é persistido em INI, SQLite, HTML, logs ou argumentos serializados.
 
-Os perfis de cliente/hardware/rede são compartilhados com Synthetic Navigation Apdex e usam as mesmas nove variáveis `RASAI_APDEX_{MOBILE|DESKTOP|TABLET}_{CLIENT|HARDWARE|NETWORK}_PROFILE`. O fluxo de configuração do Experience mostra os perfis efetivos por device, permite editá-los com o mesmo catálogo e mantém a precedência **ação/CLI > ambiente > rasai-console.ini > defaults controlados**. Alterar perfil muda a condição de laboratório das medições futuras de Navigation e Experience; não muda a fórmula Apdex.
-
-A concorrência do Experience permanece própria em `RASAI_APDEX_EXPERIENCE_CONCURRENCY`. Concorrência e perfis podem alterar os valores medidos por contenção local, carga simultânea, viewport, CPU relativa e envelope de rede, portanto fazem parte do contexto metodológico da execução.
+A concorrência do Experience permanece própria em `RASAI_APDEX_EXPERIENCE_CONCURRENCY`. Concorrência e perfis fazem parte do contexto metodológico porque alteram contenção local, carga simultânea, viewport, CPU relativa e envelope de rede.
 
 ## 8. Persistência e rastreabilidade
 
@@ -200,40 +177,38 @@ synthetic_ux_apdex_summaries
 synthetic_ux_apdex_error_details
 ```
 
-`synthetic_ux_apdex_error_details` é evidência diagnóstica subordinada à amostra. As tabelas `request_remediation_*` são uma projeção aditiva para agrupamento/solução e não substituem essa evidência de origem.
-
 A fórmula permanece:
 
 ```text
 Apdex = (Satisfied + 0.5 * Tolerating) / N_valid
 ```
 
-A execução persiste configuração efetiva, contrato de medição, ambiente de browser e versão metodológica interna suficientes para rastreabilidade. Isso inclui concorrência, delay, device mix, sessão e os IDs efetivos de cliente/hardware/rede por device.
+A execução persiste target, budget, device, sessão, concorrência, delay, perfis efetivos, contrato de medição, ambiente de browser e versão metodológica suficientes para rastreabilidade.
 
-No reprocessamento, os perfis e a concorrência vêm da configuração congelada da própria AUD. O RPR não pode adotar silenciosamente presets atuais do INI, ambiente do operador ou worker. Para AUD anterior sem `runtime_profiles`, o runtime tenta recuperar a identidade pelo `profile_id` já persistido nas amostras; somente na ausência dessa evidência usa o default histórico do catálogo e registra provenance operacional explícita. Synthetic Navigation Apdex permanece em persistência separada.
+No reprocessamento, a configuração vem da população congelada da própria AUD. O RPR não adota silenciosamente presets ou defaults atuais do INI, ambiente ou worker. Para AUD histórica sem metadados modernos, o runtime usa a melhor evidência persistida disponível e registra a proveniência do fallback.
+
+Quando CAT-07 é acrescentado posteriormente a uma AUD, a nova população usa a configuração efetiva do complemento - incluindo o device único comprovado da AUD - e passa a ser o contrato congelado daquele catálogo. AUD histórica com device ambíguo/múltiplo não recebe uma nova população CAT-07 por inferência.
+
+Synthetic Navigation Apdex permanece em persistência separada e conserva seu target independente.
 
 ## 9. Relatório HTML
 
 `report-catalog/cat-07.html` deve refletir exatamente a execução persistida e apresentar:
 
+- device efetivo da AUD;
+- target/budget Experience;
 - KPM efetiva e thresholds;
 - origem da calibração e fallback, quando aplicável;
 - política e escopo de erros;
 - regra de `USER_ACTION_DURATION`;
-- indicação de que `settle` é janela de observação e não acréscimo automático de duração;
-- `console.error` como erro global quando a política de erros está ativa;
+- sessão, concorrência, delay e perfis efetivos;
 - Satisfied/Tolerating/Frustrated e Frustrated forçado por erro;
-- p75/p90/p95/p99 quando disponíveis;
-- contadores XHR/fetch, recursos tardios e erros;
-- eventos individuais com URL/status/tipo/mensagem quando coletados;
-- padrões de erro agrupados entre amostras, com `N/Y`, percentual e frequência recorrente/intermitente/ocasional;
-- mix, session mode e grupos por device;
-- comparação com Synthetic Navigation Apdex quando houver contexto equivalente;
+- percentis quando disponíveis;
+- contadores e detalhes de erros/eventos quando coletados;
+- comparação com Synthetic Navigation Apdex somente quando houver contexto metodológico equivalente;
 - referências públicas.
 
-Os rótulos de recorrência descrevem frequência e não são usados isoladamente para afirmar causa estrutural. O detalhamento de solução fica no CAT-09; o CAT-07 permanece a projeção de observação/evidência.
-
-Nenhuma página HTML deve afirmar uma regra diferente da executada pelo runtime.
+O relatório não deve apresentar `device_mix` ou Tablet como opção de uma nova AUD. Dados históricos podem ser exibidos como evidência histórica quando existirem, sem reclassificá-los como configuração vigente.
 
 ## 10. Smoke humano recomendado
 
@@ -271,7 +246,7 @@ Antes de interpretar diferenças, confira:
 - thresholds e fallback;
 - política de erros;
 - período Dynatrace;
-- device mix;
+- mesmo device/contexto;
 - cold/warm;
 - perfis de CPU/rede e geografia.
 

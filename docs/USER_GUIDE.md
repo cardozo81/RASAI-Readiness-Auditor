@@ -94,10 +94,9 @@ Recurso não selecionado não deve bloquear o plano.
 ```text
 mobile
 desktop
-both
 ```
 
-Mobile/Desktop são dimensões/resultados derivados, não catálogos separados.
+Cada AUD usa exatamente um contexto de device. Mobile e Desktop continuam dimensões/resultados compatíveis com comparação longitudinal, mas não são combinados na mesma nova AUD.
 
 ## IDs de configuração
 
@@ -181,14 +180,14 @@ Ausência de field data ou resposta externa é limitação/indisponibilidade; n�
 
 `CAT-07` é independente de `CAT-06`. É possível executar apenas Experience Apdex, apenas Navigation Apdex ou ambos; selecionar um deles não inclui o outro automaticamente.
 
-Enquanto o mix estiver herdado:
+O device do Experience é herdado integralmente da AUD:
 
 ```text
-Device=mobile   -> 100% mobile
-Device=desktop  -> 100% desktop
-Device=both     -> 60% mobile + 40% desktop
-Tablet          -> 0% no default herdado
+Device=mobile   -> 100% MOBILE
+Device=desktop  -> 100% DESKTOP
 ```
+
+Não existe `device_mix` público para novas AUDs e Tablet não é uma opção operacional. Os targets permanecem independentes: Navigation usa 150 amostras válidas por URL/device por default; Experience usa 100 amostras válidas por página por default.
 
 Selecionar `CAT-07` não ativa IA. Qualquer correlação por IA pertence aos catálogos consumidores que a solicitam, como `CAT-08`.
 
@@ -237,7 +236,6 @@ O catálogo descrito neste documento é uma UX do `rasai-console`. A CLI tradici
 ```powershell
 rasai audit https://example.com --project "Exemplo"
 rasai audit https://example.com --device-context desktop
-rasai audit https://example.com --device-context both
 ```
 
 ## Segurança

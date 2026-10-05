@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from contextvars import ContextVar
 from dataclasses import replace
+import os
 import sqlite3
 from typing import Any, Mapping
 
@@ -615,6 +616,7 @@ def _wrap_m25(original):
                 "settle_seconds": getattr(cfg, "settle_seconds", None),
                 "delay_seconds": getattr(cfg, "delay_seconds", None),
                 "concurrency": getattr(cfg, "concurrency", None),
+                "device_context": os.environ.get("RASAI_DEVICE_CONTEXT", "mobile"),
             },
         )
         attempt_id = begin_attempt(
@@ -701,6 +703,7 @@ def _wrap_m23(original):
                 "timeout_seconds": getattr(cfg, "timeout_seconds", None),
                 "delay_seconds": getattr(cfg, "delay_seconds", None),
                 "concurrency": getattr(cfg, "concurrency", None),
+                "device_context": os.environ.get("RASAI_DEVICE_CONTEXT", "mobile"),
             },
         )
         attempt_id = begin_attempt(workspace,audit_id=audit_id,component="SYNTHETIC_APDEX")

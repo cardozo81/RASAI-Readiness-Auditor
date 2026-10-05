@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Medições dependentes de browser não devem ser interpretadas apenas pelo rótulo `Mobile`, `Desktop` ou `Tablet`. O RASAi separa a condição de laboratório em três dimensões configuráveis e persistidas:
+Medições dependentes de browser não devem ser interpretadas apenas pelo rótulo `Mobile` ou `Desktop`. O RASAi separa a condição de laboratório em três dimensões configuráveis e persistidas:
 
 1. **cliente**: viewport, DPR, mobile/touch e identidade Chromium coerente;
 2. **hardware**: capacidade relativa de CPU aplicada por slowdown controlado;
@@ -98,38 +98,13 @@ hardware : desktop-constrained | desktop-balanced
 rede     : desktop-constrained | desktop-balanced | desktop-fiber
 ```
 
-### Tablet
+### Compatibilidade histórica de Tablet
 
-Default:
-
-```text
-cliente  = tablet-balanced-chromium
-hardware = tablet-balanced
-rede     = tablet-4g-balanced
-```
-
-Condição principal:
-
-```text
-viewport = 1024 × 1366
-DPR      = 2
-CPU      = 2× slowdown relativo
-RTT      = 100 ms
-download = 4096 Kbps
-upload   = 2048 Kbps
-```
-
-Alternativas:
-
-```text
-cliente  : tablet-compact-chromium | tablet-balanced-chromium
-hardware : tablet-entry | tablet-balanced | tablet-premium
-rede     : tablet-4g-balanced | tablet-wifi
-```
+O runtime mantém presets Tablet apenas para leitura/reprocessamento de evidência histórica que já os tenha persistido. Tablet **não integra a superfície pública de novas AUDs**, não é opção de `Device` e não aparece no catálogo avançado de configuração.
 
 ## Configuração
 
-As opções são independentes por dispositivo:
+As opções públicas são independentes para Mobile e Desktop:
 
 ```text
 RASAI_APDEX_MOBILE_CLIENT_PROFILE
@@ -139,15 +114,9 @@ RASAI_APDEX_MOBILE_NETWORK_PROFILE
 RASAI_APDEX_DESKTOP_CLIENT_PROFILE
 RASAI_APDEX_DESKTOP_HARDWARE_PROFILE
 RASAI_APDEX_DESKTOP_NETWORK_PROFILE
-
-RASAI_APDEX_TABLET_CLIENT_PROFILE
-RASAI_APDEX_TABLET_HARDWARE_PROFILE
-RASAI_APDEX_TABLET_NETWORK_PROFILE
 ```
 
-No console interativo cada variável é apresentada como lista enumerada com os valores permitidos e o default efetivo. Overrides não secretos são persistidos no arquivo de configuração do console.
-
-O SaaS usa os mesmos identificadores como campos enum do job de auditoria. O worker projeta os valores para o mesmo runtime usado localmente; não existe uma tabela de defaults específica para o SaaS.
+O console interativo apresenta somente essas seis variáveis. O SaaS/worker projeta o mesmo contrato público. Identificadores Tablet, quando encontrados em dados históricos, são compatibilidade interna e não devem ser oferecidos para criar uma nova população.
 
 ## Synthetic Navigation Apdex
 
@@ -171,19 +140,16 @@ O relatório `cat-06.html` mostra os presets efetivos e os valores de CPU/rede/v
 
 ## Synthetic User Experience Apdex
 
-O device mix e o perfil são conceitos diferentes:
+Experience usa o **mesmo device da AUD** e o perfil correspondente:
 
 ```text
-device mix
-= proporção de user actions por Mobile/Desktop/Tablet
-
-perfil do dispositivo
-= condição de cliente + CPU + rede usada para executar cada ação daquele grupo
+AUD mobile  -> perfil MOBILE em 100% das amostras Experience
+AUD desktop -> perfil DESKTOP em 100% das amostras Experience
 ```
 
-O relatório `cat-07.html` mantém essa distinção e mostra os presets efetivos da população sintética, junto com concorrência, delay e sessão.
+Não existe `device_mix` público separado. O relatório `cat-07.html` mostra o device e os presets efetivos da população sintética, junto com concorrência, delay e sessão.
 
-Os mesmos IDs são usados localmente e no SaaS. Em uma nova AUD, o perfil efetivo é congelado na configuração persistida. Em um RPR da mesma AUD, o runtime reutiliza esse perfil congelado mesmo que o operador, INI ou worker tenham sido alterados depois; a configuração corrente vale para novas AUDs, não para reinterpretar uma medição histórica.
+Os mesmos IDs públicos são usados localmente e no SaaS. Em uma nova AUD, o perfil efetivo é congelado na configuração persistida. Em um RPR da mesma AUD, o runtime reutiliza esse perfil congelado mesmo que operador, INI ou worker tenham sido alterados depois. Ao complementar uma AUD com CAT-07, a nova população usa a configuração efetiva do complemento e então também fica congelada.
 
 ## Lighthouse / PageSpeed Insights
 

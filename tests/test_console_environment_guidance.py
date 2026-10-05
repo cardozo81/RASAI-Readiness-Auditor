@@ -9,7 +9,6 @@ from rasai.runtime_completion_extensions import install_runtime_completion_exten
 install_runtime_completion_extensions()
 
 from rasai.console_environment import CATEGORIES, ENV_NAMES, SPEC_BY_NAME, SPECS, _validate
-from rasai.m25_cli import DEFAULT_UX_DEVICE_MIX
 
 
 def test_every_exposed_environment_variable_has_one_spec() -> None:
@@ -35,7 +34,7 @@ def test_categories_cover_all_specs_and_are_not_empty() -> None:
 
 def test_known_domains_and_effective_defaults_are_exposed() -> None:
     device = SPEC_BY_NAME["RASAI_DEVICE_CONTEXT"]
-    assert device.accepted == ("mobile", "desktop", "both")
+    assert device.accepted == ("mobile", "desktop")
     assert device.default == "mobile"
 
     field = SPEC_BY_NAME["RASAI_WEB_PERFORMANCE_FIELD_SOURCE"]
@@ -58,7 +57,7 @@ def test_known_domains_and_effective_defaults_are_exposed() -> None:
     assert experience_concurrency.default == "1"
 
     assert SPEC_BY_NAME["RASAI_APDEX_EXPERIENCE"].default == "false"
-    assert SPEC_BY_NAME["RASAI_APDEX_EXPERIENCE_DEVICE_MIX"].default == DEFAULT_UX_DEVICE_MIX
+    assert "RASAI_APDEX_EXPERIENCE_DEVICE_MIX" not in SPEC_BY_NAME
     assert SPEC_BY_NAME["RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT"].default == "true"
 
     risk = SPEC_BY_NAME["RASAI_CONTENT_RISK_PROFILE"]
@@ -123,13 +122,6 @@ def test_additional_console_validation_rejects_invalid_values(tmp_path) -> None:
     with pytest.raises(ValueError):
         _validate("RASAI_CONTENT_RISK_PROFILE", "critical")
 
-    assert _validate(
-        "RASAI_APDEX_EXPERIENCE_DEVICE_MIX",
-        "mobile=60,desktop=35,tablet=5",
-    ) == "mobile=60,desktop=35,tablet=5"
-    with pytest.raises(ValueError):
-        _validate("RASAI_APDEX_EXPERIENCE_DEVICE_MIX", "mobile=60,desktop=30")
-
     assert _validate("RASAI_SERP_MODE", "LIVE") == "live"
     with pytest.raises(ValueError):
         _validate("RASAI_SERP_MAX_REQUESTS", "0")
@@ -151,12 +143,10 @@ def test_defaults_do_not_require_materializing_environment(monkeypatch) -> None:
         "RASAI_AI_TIMEOUT_SECONDS",
         "RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS",
         "RASAI_CONTENT_RISK_PROFILE",
-        "RASAI_APDEX_EXPERIENCE_DEVICE_MIX",
     ):
         monkeypatch.delenv(name, raising=False)
     assert SPEC_BY_NAME["RASAI_DEVICE_CONTEXT"].default == "mobile"
     assert SPEC_BY_NAME["RASAI_AI_TIMEOUT_SECONDS"].default == "180"
     assert SPEC_BY_NAME["RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS"].default == "120"
     assert SPEC_BY_NAME["RASAI_CONTENT_RISK_PROFILE"].default == "auto"
-    assert SPEC_BY_NAME["RASAI_APDEX_EXPERIENCE_DEVICE_MIX"].default == DEFAULT_UX_DEVICE_MIX
     assert "RASAI_DEVICE_CONTEXT" not in os.environ

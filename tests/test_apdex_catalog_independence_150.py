@@ -269,9 +269,10 @@ def test_navigation_configuration_off_does_not_disable_experience(monkeypatch) -
 
 def test_experience_capability_is_ready_without_navigation() -> None:
     state = State(
+        device="mobile",
         synthetic_apdex=False,
         apdex_experience=True,
-        apdex_experience_device_mix="mobile=60,desktop=35,tablet=5",
+        apdex_experience_samples=100,
     )
     capability = next(
         item for item in console_ui_catalog.CAPABILITIES
@@ -279,7 +280,8 @@ def test_experience_capability_is_ready_without_navigation() -> None:
     )
     status, detail = console_ui_catalog.capability_status(state, capability)
     assert status == "APTO"
-    assert "60" in detail
+    assert "device=MOBILE" in detail
+    assert "target=100" in detail
 
 
 def test_experience_execution_profile_contains_only_its_own_apdex_capability() -> None:

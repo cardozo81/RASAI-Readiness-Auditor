@@ -44,7 +44,7 @@ rasai audit target [target ...] [opções]
 | `--market CODE` | mercado; default `BR` |
 | `--max-pages N` | máximo determinístico de páginas |
 | `--audits-root PATH` | raiz dos workspaces; default `audits` |
-| `--device-context` | `mobile`, `desktop` ou `both` |
+| `--device-context` | `mobile` ou `desktop`; uma AUD usa um único device |
 | `--ai-provider` | `none`, provider explícito/alias do registry ou `auto` |
 | `--ai-model MODEL_ID` | override de modelo para provider explícito |
 
@@ -215,14 +215,11 @@ Lab e field data permanecem separados e não entram automaticamente no Índice d
 --apdex-desktop-client-profile PRESET
 --apdex-desktop-hardware-profile PRESET
 --apdex-desktop-network-profile PRESET
---apdex-tablet-client-profile PRESET
---apdex-tablet-hardware-profile PRESET
---apdex-tablet-network-profile PRESET
 ```
 
 Default OFF. O threshold `T` é obrigatório quando habilitado.
 
-Os nove argumentos de perfil usam a mesma precedência da configuração sintética: **CLI > variável de ambiente > default controlado**. Eles selecionam apenas o envelope de execução - cliente/viewport, slowdown relativo de CPU e rede - e não alteram a fórmula Apdex nem o Índice de Prontidão Search & IA ou o Método de Pontuação de Prontidão. Os equivalentes em ambiente são `RASAI_APDEX_MOBILE_*_PROFILE`, `RASAI_APDEX_DESKTOP_*_PROFILE` e `RASAI_APDEX_TABLET_*_PROFILE`; valores e defaults canônicos estão em [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) e [SYNTHETIC_RUNTIME_PROFILES.md](SYNTHETIC_RUNTIME_PROFILES.md).
+Os seis argumentos públicos de perfil usam a mesma precedência da configuração sintética: **CLI > variável de ambiente > default controlado**. Eles selecionam apenas o envelope de execução - cliente/viewport, slowdown relativo de CPU e rede - e não alteram a fórmula Apdex nem o Índice de Prontidão Search & IA ou o Método de Pontuação de Prontidão. Os equivalentes públicos em ambiente são `RASAI_APDEX_MOBILE_*_PROFILE` e `RASAI_APDEX_DESKTOP_*_PROFILE`; valores e defaults canônicos estão em [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) e [SYNTHETIC_RUNTIME_PROFILES.md](SYNTHETIC_RUNTIME_PROFILES.md).
 
 Os presets não emulam RAM, GPU, estado térmico ou scheduler físico. O engine executado continua Chromium; identidade/viewport não deve ser interpretada como emulação de Safari/Firefox reais.
 
@@ -232,7 +229,7 @@ Aquisição física compartilhável entre Navigation e Experience Apdex é contr
 RASAI_APDEX_ACQUISITION_MODE=auto|isolated
 ```
 
-Default `auto`. O compartilhamento só ocorre quando URL, device, perfil, sessão e requisitos de coleta são compatíveis. Cada Apdex preserva targets, thresholds, classificação e população próprios; o device mix do Experience continua independente. `isolated` mantém as navegações físicas separadas.
+Default `auto`. O compartilhamento só ocorre quando URL, device, perfil, sessão e requisitos de coleta são compatíveis. Cada Apdex preserva targets, thresholds, classificação e população próprios; ambos herdam o mesmo device único da AUD. `isolated` mantém as navegações físicas separadas.
 
 ## Synthetic User Experience Apdex
 
@@ -242,7 +239,6 @@ Default `auto`. O compartilhamento só ocorre quando URL, device, perfil, sessã
 --apdex-experience-samples N
 --apdex-experience-max-attempts N
 --apdex-experience-max-pages N
---apdex-experience-device-mix mobile=60,desktop=35,tablet=5
 --apdex-experience-session-mode cold|warm
 --apdex-experience-kpm KPM
 --apdex-experience-satisfied-seconds SECONDS
@@ -257,9 +253,9 @@ Default `auto`. O compartilhamento só ocorre quando URL, device, perfil, sessã
 
 A superfície continua sintética, inclusive quando calibrada contra configuração Dynatrace.
 
-O mix acima descreve a população sintética do Synthetic User Experience Apdex e é um contrato de `PROFILE_MEASUREMENT`, separado dos snapshots core. Uma execução com `--device-context mobile` restringe a experiência a 100% MOBILE; `desktop`, a 100% DESKTOP. Com `--device-context both`, o core continua produzindo snapshots MOBILE e DESKTOP, mas o **mix Experience explicitamente configurado é preservado**, inclusive TABLET quando presente. TABLET não se torna um `DeviceContext` core e não é solicitado implicitamente por um audit mobile-only ou desktop-only.
+O Synthetic User Experience Apdex herda o device da AUD: `mobile` produz 100% MOBILE e `desktop` produz 100% DESKTOP. Não existe mix público independente nem Tablet para novas AUDs. O target default do Experience é 100 amostras válidas por página; o Navigation mantém target separado de 150 amostras válidas por URL/device.
 
-O default `mobile=60,desktop=35,tablet=5` é uma política sintética RASAi, não uma estatística oficial ou alegação de distribuição real. Para comparação com RUM ou com uma aplicação específica, prefira o mix observado da população real.
+O campo técnico histórico de mix permanece apenas como compatibilidade interna para leitura/reprocessamento histórico; ele não é uma configuração pública para novas execuções.
 
 ## Search Intelligence
 

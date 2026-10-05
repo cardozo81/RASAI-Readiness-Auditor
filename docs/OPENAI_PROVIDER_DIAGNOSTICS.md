@@ -82,7 +82,7 @@ rasai audit https://example.com `
   --ai-provider openai
 ```
 
-Use `both` somente quando a comparação for necessária.
+Para comparar Mobile e Desktop, execute AUDs separadas; uma nova AUD não combina os dois contexts.
 
 ## Primeiro resultado válido
 
@@ -90,7 +90,7 @@ No AUTO, o primeiro provider com resultado válido encerra a cadeia naquele cont
 
 ## URL lock
 
-Com `both`, se uma URL foi aceita por um provider e esse provider falha no outro dispositivo, o runtime não mistura outro provider para completar a mesma URL. O provider pode ser quarantined para URLs posteriores.
+Em novas AUDs, cada URL possui um único contexto de device. A política de provider/URL continua vinculada à evidência daquele contexto e não mistura respostas de outra AUD ou de outro device.
 
 ## Custo
 

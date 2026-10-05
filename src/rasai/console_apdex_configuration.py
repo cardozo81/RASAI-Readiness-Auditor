@@ -15,6 +15,7 @@ from rasai.configuration_value_labels import configuration_value_choice, configu
 from rasai.console_confirmation_contract import confirm_sensitive
 from rasai.console_input_contract import EditCancelled, prompt_number, prompt_text, prompt_yes_no
 from rasai.console_m23 import State, config_from_state, experience_from_state, synthetic_load_summary
+from rasai.device_context import canonical_single_device_mix
 from rasai.console_ui import DIM, YELLOW, paint
 from rasai.m25_cli import (
     DEFAULT_UX_CONCURRENCY,
@@ -112,66 +113,46 @@ def _choice(
     return selected
 
 
-def _device_mix(current: str) -> str:
-    parsed = dict(parse_device_mix(current or DEFAULT_UX_DEVICE_MIX))
-    mobile = float(parsed.get("MOBILE", 0.0))
-    desktop = float(parsed.get("DESKTOP", 0.0))
-    tablet = float(parsed.get("TABLET", 0.0))
-    print(paint("  Distribuição da população sintética por dispositivo. A soma deve ser exatamente 100%.", DIM))
-    print(paint("  O percentual distribui user actions/amostras; não representa a quantidade bruta de subrequests HTTP da página.", DIM))
-    print(paint("  Não há device mix default no Dynatrace RUM; este é um default operacional do RASAi.", DIM))
-    mobile = float(_number("Mobile %", mobile, minimum=0.0))
-    desktop = float(_number("Desktop %", desktop, minimum=0.0))
-    tablet = float(_number("Tablet %", tablet, minimum=0.0))
-    raw = f"mobile={mobile:g},desktop={desktop:g},tablet={tablet:g}"
-    parse_device_mix(raw)
-    return raw
-
-
-def _configure_experience_runtime_profiles(device_mix_raw: str) -> None:
-    """Expose the shared synthetic envelopes inside the Experience configuration."""
-    mix = dict(parse_device_mix(device_mix_raw or DEFAULT_UX_DEVICE_MIX))
+def _configure_experience_runtime_profiles(device_value: str) -> None:
+    """Expose only the synthetic profile inherited from the audit device."""
+    device = str(device_value or "mobile").strip().upper()
+    if device not in {"MOBILE", "DESKTOP"}:
+        raise ValueError("Experience Apdex requer device da AUD igual a mobile ou desktop")
     labels = {
         "client": "Cliente/browser",
         "hardware": "Hardware/CPU",
         "network": "Rede",
     }
-    print(paint("\n  Perfis sintéticos efetivos · compartilhados com Navigation:", DIM))
-    for device in ("MOBILE", "DESKTOP", "TABLET"):
-        share = float(mix.get(device, 0.0))
-        state_label = f"ATIVO · {share:g}%" if share > 0 else "fora do mix atual"
-        print(paint(f"    {device.title()} [{state_label}]", DIM))
-        for kind in ("client", "hardware", "network"):
-            name = env_name(kind, device)
-            current = configured_preset(kind, device, os.environ)
-            print(
-                paint(
-                    f"      {labels[kind]}: {describe_preset(kind, current)} "
-                    f"· {name}={current}",
-                    DIM,
-                )
+    print(paint("\n  Perfil sintético efetivo · herdado do device da AUD:", DIM))
+    print(paint(f"    {device.title()} [100% das amostras Experience]", DIM))
+    for kind in ("client", "hardware", "network"):
+        name = env_name(kind, device)
+        current = configured_preset(kind, device, os.environ)
+        print(
+            paint(
+                f"      {labels[kind]}: {describe_preset(kind, current)} "
+                f"· {name}={current}",
+                DIM,
             )
+        )
     print(paint(
-        "  Esses perfis alteram a condição de laboratório e podem mudar o Apdex medido; "
-        "não alteram a fórmula. CPU é slowdown relativo CDP; RAM/GPU/thermal/scheduler "
-        "físicos não são emulados.",
+        "  O CAT-07 não possui device mix independente. Alterar o device da AUD altera "
+        "o contexto sintético de Navigation e Experience.",
         DIM,
     ))
-    if not _yes_no("Alterar os perfis sintéticos compartilhados nesta sessão", False):
+    if not _yes_no("Alterar o perfil sintético deste device nesta sessão", False):
         return
 
-    for device in ("MOBILE", "DESKTOP", "TABLET"):
-        print(paint(f"\n  {device.title()}", DIM))
-        for kind in ("client", "hardware", "network"):
-            name = env_name(kind, device)
-            current = configured_preset(kind, device, os.environ)
-            selected = _choice(
-                labels[kind],
-                current,
-                preset_ids(kind, device),
-                name,
-            )
-            os.environ[name] = selected
+    for kind in ("client", "hardware", "network"):
+        name = env_name(kind, device)
+        current = configured_preset(kind, device, os.environ)
+        selected = _choice(
+            labels[kind],
+            current,
+            preset_ids(kind, device),
+            name,
+        )
+        os.environ[name] = selected
 
 
 def _required_positive(prompt: str, current: float | None) -> float:
@@ -199,7 +180,6 @@ def _show_experience_defaults() -> None:
         (UX_SAMPLES_ENV, DEFAULT_UX_SAMPLES, "RASAi"),
         (UX_MAX_ATTEMPTS_ENV, "ceil(1.25 × samples)", "RASAi derivado"),
         (UX_MAX_PAGES_ENV, DEFAULT_UX_MAX_PAGES, "RASAi"),
-        (UX_DEVICE_MIX_ENV, DEFAULT_UX_DEVICE_MIX, "RASAi; sem equivalente Dynatrace RUM"),
         (UX_SESSION_MODE_ENV, DEFAULT_UX_SESSION_MODE, "RASAi; sem equivalente RUM"),
         (UX_KPM_ENV, DEFAULT_UX_KPM, f"fallback compatível; Dynatrace Load prefere {DYNATRACE_LOAD_PRIMARY_KPM}"),
         (UX_SATISFIED_ENV, f"{DEFAULT_UX_SATISFIED_SECONDS:g}s", "Dynatrace Load fallback/reference"),
@@ -236,7 +216,7 @@ def _show_effective_experience(state: State) -> None:
         ("Amostras", state.apdex_experience_samples, DEFAULT_UX_SAMPLES),
         ("Máx. tentativas", state.apdex_experience_max_attempts, derived_attempts),
         ("Máx. páginas", state.apdex_experience_max_pages, DEFAULT_UX_MAX_PAGES),
-        ("Device mix", state.apdex_experience_device_mix, DEFAULT_UX_DEVICE_MIX),
+        ("Device herdado da AUD", str(getattr(state, "device", "mobile")).upper(), "MOBILE"),
         ("Sessão", state.apdex_experience_session_mode, DEFAULT_UX_SESSION_MODE),
         ("KPM executável", state.apdex_experience_kpm, DEFAULT_UX_KPM),
         ("Satisfied", state.apdex_experience_satisfied, DEFAULT_UX_SATISFIED_SECONDS),
@@ -318,7 +298,7 @@ def _configure_navigation(state: State) -> None:
 
 def _configure_experience(state: State) -> None:
     print("\nSynthetic User Experience Apdex")
-    print("Gera apdex-experience.html quando habilitado e executado. Usa população Mobile/Desktop/Tablet configurável.")
+    print("Gera apdex-experience.html quando habilitado e executado. Usa exclusivamente o device selecionado para a AUD.")
     print("O baseline usa thresholds Dynatrace Load 3s/12s com USER_ACTION_DURATION como fallback executável; VISUALLY_COMPLETE não é falsamente emulado.\n")
     _show_experience_defaults()
     enabled = _yes_no("Habilitar Synthetic User Experience Apdex", state.apdex_experience)
@@ -332,7 +312,7 @@ def _configure_experience(state: State) -> None:
 
     state.apdex_experience_samples = int(_number(
         "Amostras válidas totais por página", state.apdex_experience_samples, minimum=1, integer=True,
-        help_text="as amostras são distribuídas entre dispositivos conforme os percentuais abaixo.",
+        help_text="target independente do Navigation; todas as amostras usam o device selecionado para a AUD.",
     ))
     suggested_attempts = max(
         state.apdex_experience_samples,
@@ -349,8 +329,8 @@ def _configure_experience(state: State) -> None:
         "Máximo de páginas Experience (0=todas)", state.apdex_experience_max_pages,
         minimum=0, integer=True,
     ))
-    state.apdex_experience_device_mix = _device_mix(state.apdex_experience_device_mix)
-    _configure_experience_runtime_profiles(state.apdex_experience_device_mix)
+    state.apdex_experience_device_mix = canonical_single_device_mix(state.device)
+    _configure_experience_runtime_profiles(state.device)
     state.apdex_experience_session_mode = _choice(
         "Modo de sessão",
         state.apdex_experience_session_mode,

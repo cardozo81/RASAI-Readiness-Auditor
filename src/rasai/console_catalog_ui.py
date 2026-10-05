@@ -166,7 +166,8 @@ def _render_context(state: Any, catalog: AuditCatalog) -> None:
         info("Amostras", getattr(state, "apdex_samples", "default"))
     elif catalog.id == "CAT-07":
         info("Habilitado", "SIM" if bool(getattr(state, "apdex_experience", False)) else "NÃO")
-        info("Mix", getattr(state, "apdex_experience_device_mix", "default"))
+        info("Device herdado", str(getattr(state, "device", "mobile")).upper())
+        info("Amostras", getattr(state, "apdex_experience_samples", "default"))
         info(
             "Sessão",
             configuration_value_info(

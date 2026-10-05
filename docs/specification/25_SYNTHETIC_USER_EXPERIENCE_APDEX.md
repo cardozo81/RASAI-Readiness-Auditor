@@ -53,7 +53,6 @@ Os dois domínios possuem persistência, população, thresholds e relatórios i
 | `RASAI_APDEX_EXPERIENCE_SAMPLES` | `100` | inteiro `>= 1` | RASAi |
 | `RASAI_APDEX_EXPERIENCE_MAX_ATTEMPTS` | `ceil(1.25 × samples)` | inteiro `>= samples` | RASAi |
 | `RASAI_APDEX_EXPERIENCE_MAX_PAGES` | normalmente `1` | inteiro `>= 0`; `0=todas` | RASAi |
-| `RASAI_APDEX_EXPERIENCE_DEVICE_MIX` | `mobile=60,desktop=35,tablet=5` | percentuais não negativos somando `100` | RASAi |
 | `RASAI_APDEX_EXPERIENCE_SESSION_MODE` | `cold` | `cold`, `warm` | RASAi |
 | `RASAI_APDEX_EXPERIENCE_SETTLE_SECONDS` | `5.0` | número finito `> 0` | RASAi |
 | `RASAI_APDEX_EXPERIENCE_DELAY_SECONDS` | normalmente `1.0` | número finito `>= 0` | RASAi |
@@ -194,13 +193,14 @@ Regras mínimas:
 
 ## 9. Dispositivos, perfis e sessão
 
-Mix default:
+O device de CAT-07 é herdado da AUD e não possui mix público próprio:
 
 ```text
-mobile=60,desktop=35,tablet=5
+AUD mobile  -> 100% MOBILE
+AUD desktop -> 100% DESKTOP
 ```
 
-Esse valor não é default Dynatrace. Para comparação com uma aplicação específica, deve-se usar distribuição real observada quando conhecida.
+Tablet não integra a superfície pública de novas AUDs. O campo técnico de mix pode existir apenas para interpretar dados históricos já persistidos.
 
 `cold`:
 
@@ -265,7 +265,7 @@ A execução persiste configuração efetiva, contrato de medição e ambiente s
 - JavaScript runtime errors e `console.error` conforme policy;
 - origem da calibração;
 - parâmetros com `Efetivo`, `Padrão/referência`, `Origem` e observação;
-- mix, session mode, população e grupos por device;
+- device, session mode, população e grupos da medição;
 - Satisfied/Tolerating/Frustrated;
 - Frustrated forçado por erro;
 - p75/p90/p95/p99 quando disponíveis;
@@ -296,7 +296,7 @@ Antes de comparar com Dynatrace RUM ou outra execução, conferir:
 4. thresholds e fallback;
 5. política de erros;
 6. período;
-7. device mix;
+7. mesmo device/contexto;
 8. sessão/cache;
 9. condições CPU/rede/geografia.
 

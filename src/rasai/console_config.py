@@ -136,10 +136,13 @@ def apply_environment_defaults(
         raw = (environment.get("RASAI_DEVICE_CONTEXT") or "").strip().casefold()
         if not raw:
             state.device, state.current_device = "mobile", "MOBILE"
-        elif raw in {"mobile", "desktop", "both"}:
+        elif raw in {"mobile", "desktop"}:
             state.device, state.current_device = raw, raw.upper()
+            if hasattr(state, "apdex_experience_device_mix"):
+                from rasai.device_context import canonical_single_device_mix
+                state.apdex_experience_device_mix = canonical_single_device_mix(raw)
         else:
-            issues.append("RASAI_DEVICE_CONTEXT: use mobile, desktop ou both")
+            issues.append("RASAI_DEVICE_CONTEXT: use mobile ou desktop")
     if active(AI_TIMEOUT_ENV):
         raw = (environment.get(AI_TIMEOUT_ENV) or "").strip()
         try:
@@ -364,8 +367,8 @@ def validate_env_value(name: str, value: str) -> str:
             raise ValueError("use local ou remote")
     if name == "RASAI_DEVICE_CONTEXT":
         value = value.casefold()
-        if value not in {"mobile", "desktop", "both"}:
-            raise ValueError("use mobile, desktop ou both")
+        if value not in {"mobile", "desktop"}:
+            raise ValueError("use mobile ou desktop")
     if name == MAX_CAPTURE_BYTES_ENV:
         try:
             size = int(value)

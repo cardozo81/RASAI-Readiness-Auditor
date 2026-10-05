@@ -224,7 +224,7 @@ Documentar premissas `MÍNIMO`, `CONTEXTUAL`, `OPCIONAL / REFORÇO` e `NÃO OBRI
 Classificar JSON-LD/Dados Estruturados como `OPCIONAL / REFORÇO`: ausência legítima isolada não é `FAIL` nem impede Overall; quando presente, deve ser interpretável, factual e coerente com conteúdo visível.
 
 ### FR-GEO-073
-Expor `--device-context mobile|desktop|both` e `RASAI_DEVICE_CONTEXT`, com precedência flag -> ambiente -> default `mobile` na CLI.
+Expor `--device-context mobile|desktop` e `RASAI_DEVICE_CONTEXT`, com precedência flag -> ambiente -> default `mobile` na CLI; cada nova AUD deve usar exatamente um contexto de device.
 
 ### FR-GEO-074
 O contexto de dispositivo selecionado deve controlar rendering e, por consequência, os contextos enviados ao provider semântico; nenhum provider deve ser chamado para dispositivo sem snapshot selecionado.

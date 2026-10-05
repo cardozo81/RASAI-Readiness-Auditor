@@ -3,8 +3,10 @@ from __future__ import annotations
 from rasai import console_provider_environment as facade
 from rasai import console_settings
 from rasai.configuration_registry import build_configuration_registry
-from rasai.synthetic_profile_console_runtime import install as install_synthetic_profile_console_runtime
-from rasai.synthetic_runtime_profiles import PROFILE_ENV_NAMES
+from rasai.synthetic_profile_console_runtime import (
+    PUBLIC_PROFILE_ENV_NAMES,
+    install as install_synthetic_profile_console_runtime,
+)
 from rasai.system_defaults import _patch_environment_catalog, load_system_defaults
 
 
@@ -21,7 +23,7 @@ def test_registry_covers_the_installed_console_surface_and_profile_defaults() ->
     assert set(registry) == set(specs)
 
     parser = load_system_defaults()
-    for name in PROFILE_ENV_NAMES:
+    for name in PUBLIC_PROFILE_ENV_NAMES:
         assert parser.has_option("environment", name)
         assert registry[name].persist_session is True
         assert registry[name].persist_ini is True
@@ -33,7 +35,8 @@ def test_registry_covers_the_installed_console_surface_and_profile_defaults() ->
 def test_runtime_enriched_nonsecret_specs_are_in_the_ini_allowlist() -> None:
     _install_configuration_surface()
     allowed = set(console_settings._known_nonsecret_environment_names())
-    assert set(PROFILE_ENV_NAMES) <= allowed
+    assert set(PUBLIC_PROFILE_ENV_NAMES) <= allowed
+    assert not any("TABLET" in name for name in allowed if name.startswith("RASAI_APDEX_"))
 
 
 from rasai import console_catalog_plan as catalog_plan
@@ -83,8 +86,8 @@ def test_cat07_registry_separates_exclusive_and_shared_configuration() -> None:
     shared_names = {item.name for item in shared}
 
     assert UX_SAMPLES_ENV in exclusive_names
-    assert set(PROFILE_ENV_NAMES) <= shared_names
-    assert set(PROFILE_ENV_NAMES).isdisjoint(exclusive_names)
+    assert set(PUBLIC_PROFILE_ENV_NAMES) <= shared_names
+    assert set(PUBLIC_PROFILE_ENV_NAMES).isdisjoint(exclusive_names)
 
 
 def test_restore_cat07_preserves_shared_profiles_and_other_catalogs(monkeypatch, tmp_path) -> None:
@@ -116,14 +119,14 @@ def test_restore_cat07_preserves_shared_profiles_and_other_catalogs(monkeypatch,
     assert not result.warnings, result.warnings
     assert UX_SAMPLES_ENV in result.restored_names
     assert shared_profile in result.shared_preserved
-    assert state.apdex_experience_samples == 20
+    assert state.apdex_experience_samples == 100
     assert state.web_max_pages == 99
     assert facade.base_environment.os.environ[shared_profile] == "mobile-compact-chromium"
 
     parser = ConfigParser(interpolation=None)
     parser.optionxform = str
     parser.read(destination, encoding="utf-8")
-    assert parser.get("environment", UX_SAMPLES_ENV) == "20"
+    assert parser.get("environment", UX_SAMPLES_ENV) == "100"
     assert parser.get("environment", shared_profile) == "mobile-compact-chromium"
     assert parser.get("environment", "RASAI_WEB_PERFORMANCE_MAX_PAGES") == "99"
 

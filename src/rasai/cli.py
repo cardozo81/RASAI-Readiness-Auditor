@@ -114,7 +114,7 @@ def build_parser() -> argparse.ArgumentParser:
     audit_parser.add_argument("--audits-root", default="audits", help="local directory that will contain audit workspaces")
     audit_parser.add_argument(
         "--device-context",
-        choices=("mobile", "desktop", "both"),
+        choices=("mobile", "desktop"),
         default=None,
         help=(
             "device context for rendering and semantic analysis; default is mobile, "

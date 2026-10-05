@@ -68,6 +68,116 @@ def _added_catalogs(state: Any, base: set[str]) -> tuple[str, ...]:
     return tuple(item.id for item in CATALOGS if item.id in selected - base)
 
 
+def _canonical_extension_audit_device(
+    workspace: AuditWorkspace,
+    audits_root: str | Path,
+    audit_id: str,
+) -> str | None:
+    """Resolve a single historical AUD device without inventing one.
+
+    New CAT-06/CAT-07 populations may only be attached when every durable source
+    agrees on one core device. Historical BOTH remains readable/reprocessable, but
+    it is intentionally ambiguous for creating a new synthetic population.
+    """
+    devices: set[str] = set()
+
+    try:
+        source = load_reusable_audit_configuration(
+            audits_root,
+            audit_id,
+            expected_kind=KIND_CONSOLE,
+        )
+        settings = source.configuration.get("settings")
+        if isinstance(settings, dict):
+            console = settings.get("console")
+            environment = settings.get("environment")
+            for raw in (
+                console.get("device") if isinstance(console, dict) else None,
+                environment.get("RASAI_DEVICE_CONTEXT") if isinstance(environment, dict) else None,
+            ):
+                normalized = str(raw or "").strip().upper()
+                if normalized == "BOTH":
+                    devices.update(("MOBILE", "DESKTOP"))
+                elif normalized in {"MOBILE", "DESKTOP", "TABLET"}:
+                    devices.add(normalized)
+    except (FileNotFoundError, OSError, TypeError, ValueError):
+        pass
+
+    try:
+        from rasai.audit_resume_runtime import expected_devices_for_audit
+
+        devices.update(
+            str(value).strip().upper()
+            for value in expected_devices_for_audit(workspace, audit_id)
+            if str(value).strip()
+        )
+    except (OSError, TypeError, ValueError):
+        pass
+
+    connection = None
+    try:
+        import sqlite3
+
+        connection = sqlite3.connect(workspace.database)
+        rows = connection.execute(
+            """SELECT DISTINCT ps.device
+               FROM page_snapshots ps
+               JOIN pages p ON p.page_id=ps.page_id
+               WHERE p.audit_id=?""",
+            (audit_id,),
+        ).fetchall()
+        devices.update(
+            str(row[0]).strip().upper()
+            for row in rows
+            if row and str(row[0]).strip()
+        )
+    except sqlite3.OperationalError:
+        pass
+    finally:
+        if connection is not None:
+            connection.close()
+
+    if devices == {"MOBILE"}:
+        return "mobile"
+    if devices == {"DESKTOP"}:
+        return "desktop"
+    return None
+
+
+def _initialize_new_apdex_catalog_defaults(state: Any, catalog_id: str) -> None:
+    """Start a newly-added APDEX catalog from current canonical defaults.
+
+    Existing catalogs remain immutable. Once the operator edits the new catalog, its
+    effective values are frozen into the extension work item and reused by every RPR.
+    """
+    import math
+    from rasai.device_context import canonical_single_device_mix
+
+    if catalog_id == "CAT-06":
+        from rasai.m23_cli import DEFAULT_APDEX_SAMPLES_PER_CONTEXT
+
+        state.synthetic_apdex = True
+        state.apdex_samples = DEFAULT_APDEX_SAMPLES_PER_CONTEXT
+        state.apdex_max_attempts = max(
+            state.apdex_samples,
+            int(math.ceil(state.apdex_samples * 1.25)),
+        )
+        if getattr(state, "apdex_threshold", None) is None:
+            state.apdex_threshold = 3.0
+    elif catalog_id == "CAT-07":
+        from rasai.m25_cli import DEFAULT_UX_SAMPLES
+
+        state.apdex_experience = True
+        state.apdex_experience_samples = DEFAULT_UX_SAMPLES
+        state.apdex_experience_max_attempts = max(
+            state.apdex_experience_samples,
+            int(math.ceil(state.apdex_experience_samples * 1.25)),
+        )
+        state.apdex_experience_device_mix = canonical_single_device_mix(
+            str(getattr(state, "device", "mobile"))
+        )
+
+
 def _render_catalogs(state: Any, base: set[str]) -> None:
     from rasai.console_catalog_plan import catalog_status, is_selected
 
@@ -196,6 +306,15 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
     # Effective selection may include prior extensions that are not part of the
     # immutable initial snapshot loaded above.
     set_selected_catalog_ids(state, tuple(item.id for item in CATALOGS if item.id in base))
+    audit_device = _canonical_extension_audit_device(
+        workspace,
+        state.audits_root,
+        audit_id,
+    )
+    if audit_device is not None:
+        state.device = audit_device
+        if hasattr(state, "current_device"):
+            state.current_device = audit_device.upper()
     bulk_notice = ""
 
     while True:
@@ -235,12 +354,17 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
             _configure_ai(console_module, state)
             continue
         if raw == "T":
-            newly = select_all_unselected_catalogs(state, excluded_catalog_ids=base)
+            excluded = set(base)
+            if audit_device is None:
+                excluded.update({"CAT-06", "CAT-07"})
+            newly = select_all_unselected_catalogs(state, excluded_catalog_ids=excluded)
             current = set(_added_catalogs(state, base)) | base
             set_selected_catalog_ids(
                 state,
                 tuple(item.id for item in CATALOGS if item.id in current),
             )
+            for catalog_id in tuple(item for item in newly if item not in base):
+                _initialize_new_apdex_catalog_defaults(state, catalog_id)
             bulk_notice = f"{len(tuple(item for item in newly if item not in base))} catálogo(s) novo(s) marcado(s)."
             continue
         if raw == "X" and added:
@@ -260,6 +384,12 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
             set_selected_catalog_ids(state, tuple(item.id for item in CATALOGS if item.id in current))
             continue
         if raw == "R" and added:
+            if set(added) & {"CAT-06", "CAT-07"} and audit_device is None:
+                state.error = (
+                    "CAT-06/CAT-07 não podem ser acrescentados a esta AUD: "
+                    "o device histórico não é unívoco (é necessário provar somente Mobile ou somente Desktop)."
+                )
+                continue
             try:
                 blockers = []
                 for catalog_id in added:
@@ -320,6 +450,12 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
             state.error = "Catálogo inválido."
             continue
         catalog = CATALOGS[index-1]
+        if catalog.id in {"CAT-06", "CAT-07"} and audit_device is None:
+            state.error = (
+                f"{catalog.id} indisponível para complemento: a AUD histórica não possui "
+                "um único device comprovado (Mobile ou Desktop)."
+            )
+            continue
         if catalog.id in base:
             state.error = (
                 f"{catalog.id} já pertence à AUD e está preservado; "
@@ -329,6 +465,7 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
         if not is_selected(state, catalog.id):
             try:
                 select_catalog(state, catalog)
+                _initialize_new_apdex_catalog_defaults(state, catalog.id)
             except ValueError as exc:
                 state.error = str(exc)
                 continue

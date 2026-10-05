@@ -107,7 +107,7 @@ flag CLI explícita > variável de ambiente > false
 
 Quando desabilitado, não existe chamada PageSpeed, CrUX ou LLM adicional para esta finalidade.
 
-`--web-performance-max-pages 0` significa todas as páginas auditadas elegíveis. `--device-context both` pode gerar contextos Mobile e Desktop para a mesma página.
+`--web-performance-max-pages 0` significa todas as páginas auditadas elegíveis. A coleta externa segue o device único da AUD; comparação Mobile x Desktop exige AUDs separadas.
 
 O timeout é aplicado por tentativa externa. Retry de falha transitória, quando previsto pelo adapter, continua sujeito aos limites internos de resiliência.
 

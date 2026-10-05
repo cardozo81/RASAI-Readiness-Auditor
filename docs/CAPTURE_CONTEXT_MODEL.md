@@ -166,36 +166,36 @@ A paginação e os filtros são client-side e atuam somente sobre a visualizaç�
 
 ## Console interativo e arquivo de configuração
 
-A seleção canônica continua sendo:
+A seleção pública canônica é:
 
 ```text
-RASAI_DEVICE_CONTEXT=mobile|desktop|both
+RASAI_DEVICE_CONTEXT=mobile|desktop
 ```
 
-O console interativo projeta e persiste essa escolha no arquivo de configuração. O contrato de contexto **não cria uma nova chave liga/desliga**, porque a rastreabilidade de escopo é obrigatória e não deve depender de uma configuração que possa ser esquecida.
+Cada nova AUD usa **exatamente um** contexto de device. O console persiste essa escolha no snapshot de execução.
 
 Consequências:
 
-- `mobile`: somente snapshots e medições Mobile aplicáveis;
-- `desktop`: somente snapshots e medições Desktop aplicáveis;
-- `both`: snapshots independentes dos dois dispositivos e comparação de variância quando houver dados suficientes;
-- recursos `ORIGIN` continuam sendo adquiridos uma vez por auditoria/origin em qualquer das três opções.
+- `mobile`: snapshots e medições aplicáveis somente em Mobile;
+- `desktop`: snapshots e medições aplicáveis somente em Desktop;
+- recursos `ORIGIN` continuam sendo adquiridos uma vez por auditoria/origin;
+- CAT-06 e CAT-07 herdam o mesmo device da AUD;
+- CAT-07 não possui `device_mix` público nem Tablet;
+- comparação Mobile × Desktop exige AUDs separadas e a camada de comparação/consolidação.
 
-A regra acima descreve os **snapshots core**. Synthetic User Experience Apdex pertence a `PROFILE_MEASUREMENT` e possui um mix populacional próprio: em `mobile` ou `desktop` a experiência é restringida a 100% do dispositivo selecionado para evitar tráfego inesperado; em `both`, o mix Experience explicitamente configurado é preservado, inclusive TABLET quando presente. Isso não promove TABLET a `DeviceContext` core e não cria snapshot Tablet no restante da auditoria.
+Dados históricos com `both` continuam legíveis e podem ser reprocessados quando o contrato persistido comprova os contextos. Essa compatibilidade não reabre `both` como opção para uma nova AUD nem permite inferir um device único para novo CAT-06/CAT-07.
 
-Toda configuração futura que altere comportamento de aquisição deve ser adicionada simultaneamente ao console, validação, persistência do arquivo de configuração e contrato SaaS. Não é permitido criar parâmetro operacional acessível somente por código.
+Toda configuração futura que altere comportamento de aquisição deve ser adicionada simultaneamente ao console, validação, persistência e contrato SaaS. Não é permitido criar parâmetro operacional acessível somente por código.
 
 ## SaaS e workers
 
 O control plane persiste `device_context` no payload estruturado do `ExecutionJob` de auditoria. O worker converte o valor persistido para `--device-context`, preservando a mesma semântica da execução local.
 
-O contrato de contexto é automático no worker. Não existe um segundo default específico do SaaS.
-
 Princípios obrigatórios:
 
-- control plane e execução local usam a mesma enumeração `mobile|desktop|both`;
+- control plane e execução local usam a mesma enumeração pública `mobile|desktop`;
 - payload de job permanece sem secrets;
-- o worker não refaz recursos globais por dispositivo;
+- o worker não inventa um segundo device;
 - o `AUD-*/audit.db` continua sendo a fonte de evidência da auditoria;
 - `capture-context.html` é produzido a partir das evidências persistidas, sem chamadas de rede ou IA durante sua renderização.
 

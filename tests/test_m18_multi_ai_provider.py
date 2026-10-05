@@ -323,7 +323,7 @@ class M18ProviderTests(unittest.TestCase):
 </head><body><main><h1>Guia M18</h1><h2>Visão geral</h2><p>Conteúdo técnico verificável para integração M18.</p></main></body></html>"""
             secret = "M18-INTEGRATION-SECRET"
             provider = OpenAIProvider(api_key=secret, transport=_success_transport())
-            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "both"}, clear=False):
+            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "mobile"}, clear=False):
                 result = run_audit(
                     f"{origin}/",
                     audits_root=Path(directory),
@@ -342,7 +342,7 @@ class M18ProviderTests(unittest.TestCase):
                     "SELECT provider,model,status,input_tokens,output_tokens,estimated_cost,pricing_version,pricing_context,pricing_rule_id,pricing_source_reference,pricing_runtime_conditions FROM ai_provider_attempts WHERE audit_id=? ORDER BY started_at",
                     (result.audit_id,),
                 ).fetchall()
-                self.assertEqual(len(attempts), 2)
+                self.assertEqual(len(attempts), 1)
                 self.assertTrue(all(row["provider"] == "OPENAI" for row in attempts))
                 self.assertTrue(all(row["model"] == "gpt-5.6-terra" for row in attempts))
                 self.assertTrue(all(row["status"] == "SUCCESS" for row in attempts))

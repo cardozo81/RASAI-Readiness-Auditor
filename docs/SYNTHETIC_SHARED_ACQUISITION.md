@@ -27,35 +27,23 @@ O modo padrão é `auto`. Uma aquisição do Experience Apdex só pode ser reuti
 
 Se qualquer critério falhar, a coleta do Navigation Apdex continua de forma isolada. Não há compartilhamento forçado.
 
-## Device mix e número de amostras
+## Device e número de amostras
 
-Os targets continuam independentes.
+Os targets continuam independentes, mas CAT-06 e CAT-07 usam o mesmo device da AUD.
 
-Exemplo:
+Exemplo para uma AUD Mobile:
 
 ```text
 Synthetic Navigation Apdex
-  Mobile:  100 amostras válidas
-  Desktop: 100 amostras válidas
+  MOBILE: 150 amostras válidas
 
 Synthetic User Experience Apdex
-  total por página: 100
-  Mobile:  60%
-  Desktop: 35%
-  Tablet:   5%
+  MOBILE: 100 amostras válidas
 ```
 
-Quando os perfis são compatíveis, o planner efetivo pode reutilizar até:
+Quando perfis, sessão e requisitos de coleta são compatíveis, até 100 aquisições Experience podem ser reutilizadas pelo Navigation. O Navigation ainda precisa completar as 50 amostras válidas restantes.
 
-```text
-Mobile:   60 aquisições
-Desktop:  35 aquisições
-Tablet:    0 aquisições para Navigation
-```
-
-O Navigation Apdex ainda precisa completar 100 Mobile e 100 Desktop. Portanto, após consumir as aquisições compartilhadas, executa somente as navegações físicas restantes.
-
-O Experience Apdex continua consolidando exatamente sua população 60/35/5. Tablet permanece exclusivo da população `PROFILE_MEASUREMENT` e não vira um `DeviceContext` core.
+O mesmo raciocínio vale para uma AUD Desktop. Não existe compartilhamento cross-device dentro de uma nova AUD e Tablet não integra a população pública.
 
 ## Concorrência e ordem física
 
@@ -78,7 +66,7 @@ A mesma aquisição pode produzir duas classificações diferentes porque cada m
 - mantém sua KPM configurada;
 - mantém thresholds Satisfied/Frustrated independentes;
 - mantém política de erros;
-- mantém `device_mix` e target total por página;
+- mantém seu target total por página e o device herdado da AUD;
 - continua observando XHR/fetch, recursos tardios, erros e sinais pós-load até sua janela de settle.
 
 A observação pós-load do Experience Apdex não altera retroativamente o tempo de `load` já congelado para o Navigation Apdex.

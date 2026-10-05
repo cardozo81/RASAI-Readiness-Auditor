@@ -31,9 +31,9 @@ def test_packaged_defaults_enable_maximum_credential_free_baseline() -> None:
     parser = load_system_defaults()
     assert parser.getboolean("synthetic_apdex", "enabled") is True
     assert parser.getfloat("synthetic_apdex", "threshold_seconds") == 3.0
-    assert parser.getint("synthetic_apdex", "samples_per_context") == LOW_LOAD_NAVIGATION_SAMPLES == 1
+    assert parser.getint("synthetic_apdex", "samples_per_context") == LOW_LOAD_NAVIGATION_SAMPLES == 150
     assert parser.getboolean("synthetic_apdex_experience", "enabled") is True
-    assert parser.getint("synthetic_apdex_experience", "samples_per_page") == LOW_LOAD_EXPERIENCE_SAMPLES == 20
+    assert parser.getint("synthetic_apdex_experience", "samples_per_page") == LOW_LOAD_EXPERIENCE_SAMPLES == 100
     assert REPRESENTATIVE_APDEX_SAMPLES == 100
 
     for name in (
@@ -80,7 +80,7 @@ def test_canonical_environment_defaults_accept_runtime_configuration_extensions(
     defaults = canonical_environment_defaults()
 
     assert defaults["RASAI_SYNTHETIC_APDEX"] == "true"
-    assert defaults["RASAI_APDEX_SAMPLES_PER_CONTEXT"] == "1"
+    assert defaults["RASAI_APDEX_SAMPLES_PER_CONTEXT"] == "150"
     assert defaults["RASAI_APDEX_EXPERIENCE"] == "true"
 
 
@@ -90,11 +90,11 @@ def test_structured_defaults_apply_low_load_apdex_and_dynatrace_compatible_thres
     assert warnings == ()
     assert state.synthetic_apdex is True
     assert state.apdex_threshold == 3.0
-    assert state.apdex_samples == 1
-    assert state.apdex_max_attempts == 2
+    assert state.apdex_samples == 150
+    assert state.apdex_max_attempts == 188
     assert state.apdex_experience is True
-    assert state.apdex_experience_samples == 20
-    assert state.apdex_experience_max_attempts == 25
+    assert state.apdex_experience_samples == 100
+    assert state.apdex_experience_max_attempts == 125
     assert state.apdex_experience_kpm == "USER_ACTION_DURATION"
     assert state.apdex_experience_satisfied == 3.0
     assert state.apdex_experience_frustrated == 12.0
@@ -108,9 +108,9 @@ def test_missing_user_ini_is_created_from_system_defaults_and_external_free_serv
         result = load_console_config_with_system_defaults(state, path)
         assert result.created is True
         assert state.synthetic_apdex is True
-        assert state.apdex_samples == 1
+        assert state.apdex_samples == 150
         assert state.apdex_experience is True
-        assert state.apdex_experience_samples == 20
+        assert state.apdex_experience_samples == 100
         assert os.environ["RASAI_W3C_VALIDATOR"] == "true"
         assert os.environ["RASAI_W3C_CSS_VALIDATOR"] == "true"
         assert os.environ["RASAI_MDN_OBSERVATORY"] == "true"
@@ -118,8 +118,8 @@ def test_missing_user_ini_is_created_from_system_defaults_and_external_free_serv
         assert os.environ["RASAI_WEB_FEATURES_DATASET"] == "auto"
         text = path.read_text(encoding="utf-8")
         assert "enabled = true" in text
-        assert "samples_per_context = 1" in text
-        assert "samples_per_page = 20" in text
+        assert "samples_per_context = 150" in text
+        assert "samples_per_page = 100" in text
         assert "RASAI_WEB_FEATURES_DATASET = auto" in text
         assert "OPENAI_API_KEY" not in text
 
@@ -219,7 +219,7 @@ def test_restore_preserves_or_clears_credentials_only_when_selected() -> None:
         assert os.environ["RASAI_W3C_VALIDATOR"] == "true"
         assert os.environ["RASAI_WEB_FEATURES_DATASET"] == "auto"
         assert state.synthetic_apdex is True
-        assert state.apdex_experience_samples == 20
+        assert state.apdex_experience_samples == 100
 
         second_path = Path(directory) / "clear.ini"
         result = restore_program_defaults(state, clear_credentials=True, path=second_path)

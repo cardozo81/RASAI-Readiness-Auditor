@@ -177,7 +177,7 @@ def _model_price_weight(provider_models: tuple[tuple[str, str], ...]) -> int:
 def estimate_exposure(state: State) -> ExposureEstimate:
     """Estimate request-volume exposure without inventing token quantities."""
     min_pages, max_pages = _configured_page_range(state)
-    devices = 2 if state.device == "both" else 1
+    devices = 1
     provider_models = _selected_provider_models(state)
     provider_count = len(provider_models)
 

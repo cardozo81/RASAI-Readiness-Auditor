@@ -42,13 +42,13 @@ def test_configuration_ids_are_numeric_stable_and_unique_for_current_catalog() -
 def test_device_drives_normal_experience_mix_without_tablet() -> None:
     assert ui._derived_apdex_mix("mobile") == "mobile=100,desktop=0,tablet=0"
     assert ui._derived_apdex_mix("desktop") == "mobile=0,desktop=100,tablet=0"
-    assert ui._derived_apdex_mix("both") == "mobile=60,desktop=40,tablet=0"
+    with pytest.raises(ValueError):
+        ui._derived_apdex_mix("both")
 
 
 def test_device_drives_mobile_and_desktop_result_visibility() -> None:
     assert ui._device_result_states(SimpleNamespace(device="mobile")) == ("INCLUÍDO", "NÃO APLICÁVEL")
     assert ui._device_result_states(SimpleNamespace(device="desktop")) == ("NÃO APLICÁVEL", "INCLUÍDO")
-    assert ui._device_result_states(SimpleNamespace(device="both")) == ("INCLUÍDO", "INCLUÍDO")
 
 
 def test_search_capability_filter_does_not_expose_unrelated_ai_variables() -> None:
@@ -116,8 +116,8 @@ def test_search_inputs_are_persisted_only_by_console_save(tmp_path) -> None:
 
 def test_inherited_experience_mix_is_not_materialized_as_override(tmp_path) -> None:
     ui._install_search_persistence()
-    state = ApdexConsoleState(device="both")
-    state.apdex_experience_device_mix = ui._derived_apdex_mix("both")
+    state = ApdexConsoleState(device="desktop")
+    state.apdex_experience_device_mix = ui._derived_apdex_mix("desktop")
     ui._set_mix_inherited(state, True)
     destination = tmp_path / "rasai-console.ini"
 
@@ -134,9 +134,9 @@ def test_apdex_edit_keeps_mix_inherited_when_mix_is_unchanged(monkeypatch) -> No
     )
     console.mark_dirty = lambda state, value=True: None
     console._save_configuration = lambda state: True
-    state = ApdexConsoleState(device="both")
+    state = ApdexConsoleState(device="desktop")
     state.apdex_experience = True
-    state.apdex_experience_device_mix = ui._derived_apdex_mix("both")
+    state.apdex_experience_device_mix = ui._derived_apdex_mix("desktop")
     ui._set_mix_inherited(state, True)
 
     ui._install_configure_persistence(console)
@@ -144,10 +144,10 @@ def test_apdex_edit_keeps_mix_inherited_when_mix_is_unchanged(monkeypatch) -> No
     console._configure(state, "11")
 
     assert ui._mix_inherited(state) is True
-    assert state.apdex_experience_device_mix == "mobile=60,desktop=40,tablet=0"
+    assert state.apdex_experience_device_mix == "mobile=0,desktop=100,tablet=0"
 
 
-def test_apdex_edit_marks_mix_override_only_when_mix_changes(monkeypatch) -> None:
+def test_apdex_edit_cannot_reactivate_device_mix_override(monkeypatch) -> None:
     console = ModuleType("test_console_ui_refactor_apdex_override")
 
     def change_mix(state, choice):
@@ -156,17 +156,17 @@ def test_apdex_edit_marks_mix_override_only_when_mix_changes(monkeypatch) -> Non
     console._configure = change_mix
     console.mark_dirty = lambda state, value=True: None
     console._save_configuration = lambda state: True
-    state = ApdexConsoleState(device="both")
+    state = ApdexConsoleState(device="desktop")
     state.apdex_experience = True
-    state.apdex_experience_device_mix = ui._derived_apdex_mix("both")
+    state.apdex_experience_device_mix = ui._derived_apdex_mix("desktop")
     ui._set_mix_inherited(state, True)
 
     ui._install_configure_persistence(console)
     monkeypatch.setattr(builtins, "input", lambda prompt="": "1")
     console._configure(state, "11")
 
-    assert ui._mix_inherited(state) is False
-    assert state.apdex_experience_device_mix == "mobile=50,desktop=50,tablet=0"
+    assert ui._mix_inherited(state) is True
+    assert state.apdex_experience_device_mix == "mobile=0,desktop=100,tablet=0"
 
 
 def test_preparation_surface_is_catalog_driven_and_returns_home(monkeypatch) -> None:

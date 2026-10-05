@@ -17,7 +17,7 @@ O produto avalia sinais técnicos e semânticos úteis para Search e sistemas ge
 Capacidades integradas no contrato atual:
 
 - auditoria por URL única, conjunto explícito ou arquivo TXT;
-- `mobile`, `desktop` ou `both`;
+- uma AUD usa um único contexto de device: `mobile` ou `desktop`;
 - persistência em SQLite + artefatos + log operacional;
 - relatório HTML pertencente à auditoria em `report-catalog/`, derivado da evidência persistida;
 - Índice de Prontidão Search & IA com Método de Pontuação de Prontidão, Cobertura, Confiança e Consolidação separados; IDs técnicos `SARI-001` e `SCORE-GEO-004` preservados;
@@ -29,7 +29,7 @@ Capacidades integradas no contrato atual:
 - Acessibilidade automatizada separada do SARI e sem alegar conformidade WCAG integral;
 - W3C HTML/CSS, MDN Observatory, Web Platform Baseline/WebDX e métricas derivadas conforme configuração/disponibilidade;
 - Synthetic Navigation Apdex;
-- Synthetic User Experience Apdex, inclusive perfis Mobile/Desktop/Tablet;
+- Synthetic User Experience Apdex no mesmo device da AUD, com perfis públicos Mobile/Desktop;
 - Observed Generative Visibility import-first;
 - Search & AI Observability com sidecar próprio;
 - qualidade, verificação de correção (Fix Verification) e linha do tempo de evidências (Evidence Timeline);
@@ -214,16 +214,19 @@ Sem IA:
 rasai audit https://example.com --ai-provider none
 ```
 
-Mobile + Desktop:
+Escolha explícita de device:
 
 ```powershell
-rasai audit https://example.com --device-context both --ai-provider none
+rasai audit https://example.com --device-context mobile --ai-provider none
+rasai audit https://example.com --device-context desktop --ai-provider none
 ```
+
+Uma AUD não combina Mobile e Desktop. Para comparar devices, execute AUDs separadas e use a camada de comparação/consolidação.
 
 Arquivo de URLs:
 
 ```powershell
-rasai audit --urls-file urls.txt --device-context both --ai-provider none
+rasai audit --urls-file urls.txt --device-context mobile --ai-provider none
 ```
 
 A IA é opcional. Ausência de IA não transforma regras semânticas em `FAIL`; pode reduzir Coverage/Confidence quando evidência semântica aplicável não for obtida.
