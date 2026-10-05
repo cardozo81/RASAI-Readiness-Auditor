@@ -105,6 +105,53 @@ def _workspace(tmp_path: Path, *, valid_until: str | None = None) -> AuditWorksp
     return workspace
 
 
+
+@pytest.mark.parametrize(
+    ("configured_device", "expected_devices", "resolved"),
+    [
+        ("mobile", ("MOBILE",), "mobile"),
+        ("desktop", ("DESKTOP",), "desktop"),
+        ("both", ("DESKTOP", "MOBILE"), None),
+    ],
+)
+def test_apdex_catalog_extension_requires_one_evidence_backed_audit_device(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    configured_device: str,
+    expected_devices: tuple[str, ...],
+    resolved: str | None,
+) -> None:
+    import rasai.audit_resume_runtime as resume_runtime
+    import rasai.console_audit_catalog_extension as console_extension
+
+    workspace = AuditWorkspace.create(tmp_path, AUDIT_ID)
+    source = SimpleNamespace(
+        configuration={
+            "settings": {
+                "console": {"device": configured_device},
+                "environment": {},
+            },
+            "targets": ["https://example.test/"],
+        }
+    )
+    monkeypatch.setattr(
+        console_extension,
+        "load_reusable_audit_configuration",
+        lambda *_args, **_kwargs: source,
+    )
+    monkeypatch.setattr(
+        resume_runtime,
+        "expected_devices_for_audit",
+        lambda *_args, **_kwargs: expected_devices,
+    )
+
+    assert console_extension._canonical_extension_audit_device(
+        workspace,
+        tmp_path,
+        AUDIT_ID,
+    ) == resolved
+
+
 def test_effective_catalog_ids_is_read_only_when_extension_schema_is_absent(tmp_path: Path) -> None:
     workspace = _workspace(tmp_path)
     con = sqlite3.connect(workspace.database)
