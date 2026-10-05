@@ -918,3 +918,76 @@ def test_ai_task_final_failure_is_not_promoted_by_attempt_chain(tmp_path: Path) 
     assert "Fallback bem-sucedido" not in html
     assert "Erro temporário do servidor" in html
 
+def test_ai_semantic_session_fallback_is_projected_without_task_identity(tmp_path: Path) -> None:
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE ai_audit_sessions(
+                audit_id TEXT PRIMARY KEY,
+                status TEXT,
+                effective_provider TEXT,
+                effective_model TEXT
+            );
+            CREATE TABLE ai_provider_attempts(
+                audit_id TEXT,
+                semantic_contract_version TEXT,
+                provider TEXT,
+                model TEXT,
+                status TEXT,
+                attempt_index INTEGER,
+                started_at TEXT,
+                finished_at TEXT,
+                duration_ms INTEGER,
+                error_class TEXT,
+                error_code TEXT,
+                input_tokens INTEGER,
+                output_tokens INTEGER,
+                total_tokens INTEGER,
+                estimated_cost REAL,
+                cost_currency TEXT,
+                request_message_summary TEXT,
+                request_payload_hash TEXT
+            );
+            """
+        )
+        connection.execute(
+            "INSERT INTO ai_audit_sessions VALUES (?,?,?,?)",
+            ("AUD", "SUCCESS", "DEEPSEEK", "deepseek-test"),
+        )
+        connection.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                (
+                    "AUD", "M18-SEMANTIC-22-v1", "OPENAI", "gpt-test", "ERROR", 1,
+                    "2026-10-05T12:00:01Z", "2026-10-05T12:00:02Z", 1000,
+                    "QUOTA_ERROR", "insufficient_quota", 0, 0, 0, None, "USD",
+                    "semantic", "hash-old-1",
+                ),
+                (
+                    "AUD", "M18-SEMANTIC-22-v1", "DEEPSEEK", "deepseek-test", "SUCCESS", 2,
+                    "2026-10-05T12:00:03Z", "2026-10-05T12:00:04Z", 1000,
+                    None, None, 100, 20, 120, 0.0, "USD",
+                    "semantic", "hash-old-2",
+                ),
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    data = SimpleNamespace(
+        audit_id="AUD",
+        targets=("https://example.test/",),
+        selected={"CAT-03"},
+        audit={"project_name": "Projeto", "status": "COMPLETED"},
+        fulfillment={"processing_status": "COMPLETE"},
+    )
+    html = _ai_integrations_body(database, data)
+
+    assert "Fallback bem-sucedido" in html
+    assert "Concluído" in html
+    assert "DEEPSEEK" in html
+    assert "Quota ou crédito indisponível" in html
+
