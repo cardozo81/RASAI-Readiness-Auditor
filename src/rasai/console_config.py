@@ -138,6 +138,9 @@ def apply_environment_defaults(
             state.device, state.current_device = "mobile", "MOBILE"
         elif raw in {"mobile", "desktop"}:
             state.device, state.current_device = raw, raw.upper()
+            if hasattr(state, "apdex_experience_device_mix"):
+                from rasai.device_context import canonical_single_device_mix
+                state.apdex_experience_device_mix = canonical_single_device_mix(raw)
         else:
             issues.append("RASAI_DEVICE_CONTEXT: use mobile ou desktop")
     if active(AI_TIMEOUT_ENV):
