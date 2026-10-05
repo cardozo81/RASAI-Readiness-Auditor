@@ -15,6 +15,7 @@ from typing import Any, Mapping
 
 from rasai.ai_canonical_orchestration import AI_CYCLE_DELAY_ENV, AI_MAX_CYCLES_ENV
 from rasai.apdex_concurrency_policy import EXPERIENCE_MAX_CONCURRENCY, NAVIGATION_MAX_CONCURRENCY
+from rasai.device_context import canonical_single_device_mix
 from rasai.m25_cli import (
     DEFAULT_UX_CONSOLE_ERROR_CAPTURE,
     DEFAULT_UX_CONSOLE_ERRORS_AFFECT,
