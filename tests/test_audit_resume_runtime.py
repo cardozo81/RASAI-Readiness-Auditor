@@ -125,7 +125,7 @@ def _workspace(tmp_path: Path) -> AuditWorkspace:
     return workspace
 
 
-def test_resume_plan_persists_device_universe_before_snapshots(tmp_path: Path) -> None:
+def test_resume_plan_persists_single_device_before_snapshots(tmp_path: Path) -> None:
     workspace = _workspace(tmp_path)
     plan = persist_resume_plan(
         workspace,
@@ -135,13 +135,13 @@ def test_resume_plan_persists_device_universe_before_snapshots(tmp_path: Path) -
         language="pt-BR",
         market="BR",
         max_pages=3,
-        device_context="both",
+        device_context="mobile",
         content_remediation=False,
         technical_remediation=False,
     )
 
     assert plan["schema_version"] == "AUDIT-RESUME-001"
-    assert expected_devices_for_audit(workspace, AUDIT_ID) == ("DESKTOP", "MOBILE")
+    assert expected_devices_for_audit(workspace, AUDIT_ID) == ("MOBILE",)
     connection = sqlite3.connect(workspace.database)
     try:
         stored = connection.execute(
@@ -153,6 +153,23 @@ def test_resume_plan_persists_device_universe_before_snapshots(tmp_path: Path) -
         assert "token" not in str(stored[0]).casefold()
     finally:
         connection.close()
+
+
+def test_new_resume_plan_rejects_both_device_context(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    with pytest.raises(ValueError, match="mobile, desktop"):
+        persist_resume_plan(
+            workspace,
+            AUDIT_ID,
+            targets=(URL,),
+            target_type="URL",
+            language="pt-BR",
+            market="BR",
+            max_pages=3,
+            device_context="both",
+            content_remediation=False,
+            technical_remediation=False,
+        )
 
 
 def test_active_execution_session_blocks_concurrent_resume(tmp_path: Path) -> None:
