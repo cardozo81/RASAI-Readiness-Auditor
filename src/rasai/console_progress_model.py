@@ -102,6 +102,54 @@ def _web_performance_enabled(state: Any) -> bool:
     return bool(getattr(state, "web_performance", False))
 
 
+def _synthetic_physical_workload(
+    state: Any,
+    *,
+    pages: int,
+    devices: int,
+) -> tuple[int, int]:
+    """Return physical FULL units and incremental Navigation LOAD_ONLY units."""
+    ux_enabled = bool(getattr(state, "apdex_experience", False))
+    nav_enabled = bool(getattr(state, "synthetic_apdex", False))
+
+    ux_pages = (
+        _bounded_pages(getattr(state, "apdex_experience_max_pages", 1), pages)
+        if ux_enabled
+        else 0
+    )
+    ux_samples = (
+        max(int(getattr(state, "apdex_experience_samples", 1) or 1), 1)
+        if ux_enabled
+        else 0
+    )
+    nav_pages = (
+        _bounded_pages(getattr(state, "apdex_max_pages", 1), pages)
+        if nav_enabled
+        else 0
+    )
+    nav_samples = (
+        max(int(getattr(state, "apdex_samples", 1) or 1), 1)
+        if nav_enabled
+        else 0
+    )
+
+    full_units = ux_pages * ux_samples
+    nav_units = nav_pages * max(devices, 1) * nav_samples
+    mode = (
+        os.environ.get("RASAI_APDEX_ACQUISITION_MODE") or "auto"
+    ).strip().casefold()
+    if not (ux_enabled and nav_enabled and mode == "auto"):
+        return full_units, nav_units
+
+    # Public new-AUD scope is a single inherited device. Reuse capacity is computed
+    # only across overlapping page populations and never changes either logical
+    # target. Historical multi-device data remains a read concern, not a new-run
+    # progress contract.
+    overlap_pages = min(ux_pages, nav_pages)
+    reusable = overlap_pages * min(ux_samples, nav_samples)
+    return full_units, max(nav_units - reusable, 0)
+
+
 def workload_weights(state: Any) -> dict[str, float]:
     """Return relative duration/work units for the configured current execution."""
     pages = max(_page_count(state), 1)
@@ -136,16 +184,17 @@ def workload_weights(state: Any) -> dict[str, float]:
 
     ux_enabled = bool(getattr(state, "apdex_experience", False))
     nav_enabled = bool(getattr(state, "synthetic_apdex", False))
+    full_units, nav_physical_units = _synthetic_physical_workload(
+        state,
+        pages=pages,
+        devices=devices,
+    )
     if ux_enabled:
-        ux_pages = _bounded_pages(getattr(state, "apdex_experience_max_pages", 1), pages)
-        samples = max(int(getattr(state, "apdex_experience_samples", 1) or 1), 1)
-        weights["SYNTHETIC_UX_APDEX"] = max(4.0, 1.25 * ux_pages * samples)
+        weights["SYNTHETIC_UX_APDEX"] = max(4.0, 1.25 * full_units)
     if nav_enabled:
-        nav_pages = _bounded_pages(getattr(state, "apdex_max_pages", 1), pages)
-        samples = max(int(getattr(state, "apdex_samples", 1) or 1), 1)
-        shared = ux_enabled and (os.environ.get("RASAI_APDEX_ACQUISITION_MODE") or "auto").strip().casefold() == "auto"
-        factor = 0.45 if shared else 1.15
-        weights["SYNTHETIC_APDEX"] = max(3.0, factor * nav_pages * devices * samples)
+        # CAT-06 evaluation remains visible even when all load boundaries come from
+        # FULL envelopes; only physical Navigation acquisition units are deduplicated.
+        weights["SYNTHETIC_APDEX"] = max(3.0, 1.15 * nav_physical_units)
 
     if _service_ready("google-search-console"):
         weights["GSC"] = 6.0
