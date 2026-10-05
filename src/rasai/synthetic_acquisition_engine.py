@@ -524,6 +524,7 @@ def claim_persisted_load_boundary(
     try:
         connection = _connect(workspace)
         try:
+            connection.execute("BEGIN IMMEDIATE")
             rows = connection.execute(
                 """
                 SELECT * FROM synthetic_apdex_acquisitions
