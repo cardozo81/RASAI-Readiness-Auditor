@@ -510,6 +510,9 @@ def persist_resume_plan(
     semantic_reasoning: str | None = None,
 ) -> dict[str, Any]:
     """Persist the minimum canonical, secret-free plan needed by recovery."""
+    from rasai.device_context import normalize_device_context
+
+    canonical_device = normalize_device_context(device_context)
     plan = {
         "schema_version": RESUME_PLAN_VERSION,
         "targets": [str(value) for value in targets],
@@ -517,7 +520,7 @@ def persist_resume_plan(
         "language": str(language),
         "market": str(market),
         "max_pages": int(max_pages),
-        "device_context": str(device_context),
+        "device_context": canonical_device,
         "content_remediation": bool(content_remediation),
         "technical_remediation": bool(technical_remediation),
         "semantic_ai_requested": bool(semantic_ai_requested),
@@ -630,6 +633,9 @@ def expected_devices_for_audit(workspace: AuditWorkspace, audit_id: str) -> tupl
     plan = load_resume_plan(workspace, audit_id)
     configured = str(plan.get("device_context") or "").strip().casefold()
     if configured:
+        if configured == "both":
+            # Read-only compatibility for pre-canonical AUDs. New plans cannot persist both.
+            return ("DESKTOP", "MOBILE")
         try:
             return tuple(device.value for device in devices_from_context(configured))
         except ValueError:
