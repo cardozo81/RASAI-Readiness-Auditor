@@ -389,6 +389,10 @@ def classify_candidate(source_kind: str, row: Mapping[str, Any]) -> tuple[str, s
         target = _request_target(row)
         if target == INFORMATIONAL:
             return target, REJECTED, "UNKNOWN_OWNERSHIP_INFORMATIONAL_ONLY", "TARGET_SCOPE", "A evidência não permite atribuir ownership da correção."
+        prescription = _evidence_bound_prescription(row)
+        if prescription is not None:
+            decision, reason, conflict, rationale = prescription
+            return target, decision, reason, conflict, rationale
         return target, ACCEPTED, None, None, "Ownership derivado deterministicamente do escopo first-party/third-party persistido."
     if source == "JSONLD":
         decision, reason, conflict = _jsonld_decision(row)
@@ -406,6 +410,10 @@ def classify_candidate(source_kind: str, row: Mapping[str, Any]) -> tuple[str, s
         if target == INFORMATIONAL:
             return target, REJECTED, "UNKNOWN_OWNERSHIP_INFORMATIONAL_ONLY", "TARGET_SCOPE", "O finding de origem não sustenta ownership operacional suficiente para promover a recomendação ao plano."
         if target in {TARGET_SITE, EXTERNAL_PROVIDER, ENVIRONMENTAL}:
+            prescription = _evidence_bound_prescription(row)
+            if prescription is not None:
+                decision, reason, conflict, rationale = prescription
+                return target, decision, reason, conflict, rationale
             return target, ACCEPTED, None, None, "Ownership reutilizado do target determinístico persistido no finding de origem; a governança não o reinfere por texto."
     prescription = _evidence_bound_prescription(row)
     if prescription is not None:
