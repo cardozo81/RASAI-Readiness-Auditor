@@ -367,8 +367,8 @@ def validate_env_value(name: str, value: str) -> str:
             raise ValueError("use local ou remote")
     if name == "RASAI_DEVICE_CONTEXT":
         value = value.casefold()
-        if value not in {"mobile", "desktop", "both"}:
-            raise ValueError("use mobile, desktop ou both")
+        if value not in {"mobile", "desktop"}:
+            raise ValueError("use mobile ou desktop")
     if name == MAX_CAPTURE_BYTES_ENV:
         try:
             size = int(value)
