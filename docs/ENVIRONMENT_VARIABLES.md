@@ -26,7 +26,7 @@ Para saber **para que serve uma credencial, onde ela é usada e como criá-la no
 | `RASAI_CONFIG` | sem arquivo obrigatório | caminho para TOML existente | omitir salvo necessidade de outro TOML | força arquivo geral de configuração |
 | `RASAI_CONSOLE_MODE` | `local` | `local`, `remote` | `local` | `remote` exige control plane remoto configurado |
 | `RASAI_LOG_LEVEL` | `INFO` | `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG` | `INFO` | verbosidade operacional |
-| `RASAI_DEVICE_CONTEXT` | `mobile` | `mobile`, `desktop`, `both` | `mobile` para execução mínima | device padrão quando CLI/menu não sobrescrevem |
+| `RASAI_DEVICE_CONTEXT` | `mobile` | `mobile`, `desktop` | `mobile` para execução mínima | device único da AUD; CAT-06/CAT-07 herdam a mesma escolha |
 | `RASAI_PRESENTATION_TIMEZONE` | `America/Sao_Paulo` | timezone IANA válido | `America/Sao_Paulo` | somente apresentação; persistência continua UTC |
 | `RASAI_AI_TIMEOUT_SECONDS` | `180` | número `> 0` | `180` | timeout máximo por tentativa externa de IA |
 | `RASAI_AI_MAX_CYCLES` | `3` | inteiro `1..10` | `3` | máximo de ciclos por necessidade lógica de IA |
@@ -240,92 +240,71 @@ Depois da janela, uma nova observação live deve ocorrer em nova auditoria quan
 
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
-| `RASAI_SYNTHETIC_APDEX` | `false` | booleano | `false`; habilitar deliberadamente |
-| `RASAI_APDEX_THRESHOLD_SECONDS` | sem default | número `> 0` | usar o SLO/KPM definido para o sistema; não inventar `T` |
-| `RASAI_APDEX_SAMPLES_PER_CONTEXT` | `100` | inteiro `>= 1` | `100` |
-| `RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT` | `ceil(1.25 x samples)` | inteiro `>= samples` | default derivado |
+| `RASAI_SYNTHETIC_APDEX` | `false` no runtime genérico; baseline do console pode habilitar | booleano | habilitar deliberadamente conforme o catálogo |
+| `RASAI_APDEX_THRESHOLD_SECONDS` | `3` na baseline empacotada | número `> 0` | usar o SLO/KPM definido para o sistema quando conhecido |
+| `RASAI_APDEX_SAMPLES_PER_CONTEXT` | **`150`** | inteiro `>= 1` | **`150`** |
+| `RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT` | **`188`** para o target 150; em geral `ceil(1.25 × samples)` | inteiro `>= samples` | default derivado |
 | `RASAI_APDEX_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` |
 | `RASAI_APDEX_TIMEOUT_SECONDS` | `max(45, 4T + 5)` | número `> 0` e `> 4T` | default derivado |
 | `RASAI_APDEX_DELAY_SECONDS` | `1` | número `>= 0` | `1` ou maior conforme sensibilidade do alvo |
 | `RASAI_APDEX_CONCURRENCY` | `1` | inteiro `1..4` | `1`; `3..4` exigem delay >= `1 s` |
-| `RASAI_APDEX_MOBILE_CLIENT_PROFILE` | `mobile-balanced-chromium` | `mobile-compact-chromium`, `mobile-balanced-chromium`, `mobile-large-chromium` | default |
-| `RASAI_APDEX_MOBILE_HARDWARE_PROFILE` | `mobile-balanced` | `mobile-entry`, `mobile-balanced`, `mobile-premium` | `mobile-balanced` |
-| `RASAI_APDEX_MOBILE_NETWORK_PROFILE` | `mobile-4g-balanced` | `mobile-3g-constrained`, `mobile-4g-balanced`, `mobile-4g-fast`, `mobile-5g` | `mobile-4g-balanced` |
-| `RASAI_APDEX_DESKTOP_CLIENT_PROFILE` | `desktop-balanced-chromium` | `desktop-1366-chromium`, `desktop-balanced-chromium`, `desktop-wide-chromium` | default |
-| `RASAI_APDEX_DESKTOP_HARDWARE_PROFILE` | `desktop-balanced` | `desktop-constrained`, `desktop-balanced` | `desktop-balanced` |
-| `RASAI_APDEX_DESKTOP_NETWORK_PROFILE` | `desktop-balanced` | `desktop-constrained`, `desktop-balanced`, `desktop-fiber` | `desktop-balanced` |
-| `RASAI_APDEX_TABLET_CLIENT_PROFILE` | `tablet-balanced-chromium` | `tablet-compact-chromium`, `tablet-balanced-chromium` | default |
-| `RASAI_APDEX_TABLET_HARDWARE_PROFILE` | `tablet-balanced` | `tablet-entry`, `tablet-balanced`, `tablet-premium` | `tablet-balanced` |
-| `RASAI_APDEX_TABLET_NETWORK_PROFILE` | `tablet-4g-balanced` | `tablet-4g-balanced`, `tablet-wifi` | `tablet-4g-balanced` |
+| `RASAI_APDEX_MOBILE_CLIENT_PROFILE` | `mobile-balanced-chromium` | presets Mobile publicados | default |
+| `RASAI_APDEX_MOBILE_HARDWARE_PROFILE` | `mobile-balanced` | presets Mobile publicados | default |
+| `RASAI_APDEX_MOBILE_NETWORK_PROFILE` | `mobile-4g-balanced` | presets Mobile publicados | default |
+| `RASAI_APDEX_DESKTOP_CLIENT_PROFILE` | `desktop-balanced-chromium` | presets Desktop publicados | default |
+| `RASAI_APDEX_DESKTOP_HARDWARE_PROFILE` | `desktop-balanced` | presets Desktop publicados | default |
+| `RASAI_APDEX_DESKTOP_NETWORK_PROFILE` | `desktop-balanced` | presets Desktop publicados | default |
 
-Os presets controlam cliente/viewport, slowdown relativo de CPU e envelope de rede. Não mudam a fórmula Apdex nem afirmam equivalência com hardware físico.
-
-Concorrência acima do recomendado aumenta CPU/RAM local e sobreposição de tráfego HTTP real. Navigation `3..4` e Experience `3` exigem pacing mínimo de `1 s`. O runtime não apresenta esses limites como garantia de segurança para qualquer servidor; capacidade, WAF/rate limit e autorização do alvo continuam sendo responsabilidade operacional.
+Tablet não integra a superfície pública de novas AUDs. Identificadores internos históricos podem permanecer no runtime somente para compatibilidade de leitura/reprocessamento.
 
 ## 9. Synthetic User Experience Apdex (`cat-07.html`)
 
 | Variável | Default efetivo | Valores permitidos | Recomendado | Dependência / finalidade |
 |---|---|---|---|---|
-| `RASAI_APDEX_EXPERIENCE` | `false` | booleano | `false` | habilita CAT-07 de forma independente do Synthetic Navigation Apdex |
-| `RASAI_APDEX_EXPERIENCE_SAMPLES` | `100` | inteiro `>= 1` | `100` | população sintética |
-| `RASAI_APDEX_EXPERIENCE_MAX_ATTEMPTS` | `ceil(1.25 x samples)` | inteiro `>= samples` | default derivado | orçamento de tentativas |
+| `RASAI_APDEX_EXPERIENCE` | `false` no runtime genérico; baseline do console pode habilitar | booleano | conforme o catálogo | habilita CAT-07 independentemente de CAT-06 |
+| `RASAI_APDEX_EXPERIENCE_SAMPLES` | **`100`** | inteiro `>= 1` | **`100`** | target Experience por página |
+| `RASAI_APDEX_EXPERIENCE_MAX_ATTEMPTS` | **`125`** para o target 100; em geral `ceil(1.25 × samples)` | inteiro `>= samples` | default derivado | orçamento de tentativas |
 | `RASAI_APDEX_EXPERIENCE_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` | teto de páginas |
-| `RASAI_APDEX_EXPERIENCE_DEVICE_MIX` | `mobile=60,desktop=35,tablet=5` | percentuais não negativos somando 100 | população real quando conhecida | peso populacional |
 | `RASAI_APDEX_EXPERIENCE_SESSION_MODE` | `cold` | `cold`, `warm` | `cold` | política de sessão sintética |
 | `RASAI_APDEX_ACQUISITION_MODE` | `auto` | `auto`, `isolated` | `auto` | compartilhamento físico somente quando compatível |
-| `RASAI_APDEX_EXPERIENCE_KPM` | `USER_ACTION_DURATION` | `USER_ACTION_DURATION`, `DOM_INTERACTIVE`, `LOAD_EVENT_START`, `LOAD_EVENT_END`, `RESPONSE_START`, `RESPONSE_END`, `LARGEST_CONTENTFUL_PAINT` | `USER_ACTION_DURATION` | KPM sintético |
+| `RASAI_APDEX_EXPERIENCE_KPM` | `USER_ACTION_DURATION` | KPMs suportados pelo runtime | `USER_ACTION_DURATION` | KPM sintético |
 | `RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS` | `3` | número `> 0` | `3` | threshold satisfeito |
 | `RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS` | `12` | número `> satisfied` | `12` | threshold frustrado |
-| `RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT` | `true` | booleano | `true` | chave mestra; default Dynatrace: erros elegíveis participam do Apdex |
-| `RASAI_APDEX_EXPERIENCE_JAVASCRIPT_ERRORS_AFFECT` | `true` | booleano | `true` | default Dynatrace: JavaScript errors podem tornar a ação Frustrated |
-| `RASAI_APDEX_EXPERIENCE_REQUEST_ERRORS_AFFECT` | `true` | booleano | `true` | request/HTTP/CSP errors qualificáveis podem impactar Apdex; `net::ERR_ABORTED` genérico de subrecurso permanece diagnóstico por default |
-| `RASAI_APDEX_EXPERIENCE_CONSOLE_ERRORS_AFFECT` | `false` | booleano | `false` | `console.error` só afeta Apdex quando habilitado explicitamente ou via configuração equivalente a `cce=1` |
-| `RASAI_APDEX_EXPERIENCE_JAVASCRIPT_ERROR_CAPTURE` | `true` | booleano | `true` | default Dynatrace: captura exceções JavaScript |
-| `RASAI_APDEX_EXPERIENCE_XHR_CAPTURE` | `true` | booleano | `true` | default Dynatrace: captura/correlaciona XMLHttpRequest |
-| `RASAI_APDEX_EXPERIENCE_FETCH_CAPTURE` | `true` | booleano | `true` | default Dynatrace: captura/correlaciona Fetch |
-| `RASAI_APDEX_EXPERIENCE_CONSOLE_ERROR_CAPTURE` | `false` | booleano | `false` | default Dynatrace; `cce=1` habilita a captura de `console.error` |
-| `RASAI_APDEX_EXPERIENCE_MAX_ERROR_DETAILS` | `10` | inteiro `0..50` | `10` | alinhado a `maxErrorsToCapture=10`; limita detalhes persistidos, não contadores agregados |
-| `RASAI_APDEX_EXPERIENCE_ERROR_SCOPE` | `all` | `navigation`, `first-party`, `all` | `all` | escopo apenas da família request/HTTP/CSP; demais valores são políticas RASAi |
+| `RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT` | `true` | booleano | `true` | chave mestra para erros qualificáveis |
+| `RASAI_APDEX_EXPERIENCE_JAVASCRIPT_ERRORS_AFFECT` | `true` | booleano | `true` | JavaScript errors qualificáveis podem tornar a ação Frustrated |
+| `RASAI_APDEX_EXPERIENCE_REQUEST_ERRORS_AFFECT` | `true` | booleano | `true` | request/HTTP/CSP errors qualificáveis podem impactar Apdex |
+| `RASAI_APDEX_EXPERIENCE_CONSOLE_ERRORS_AFFECT` | `false` | booleano | `false` | `console.error` é opt-in |
+| `RASAI_APDEX_EXPERIENCE_JAVASCRIPT_ERROR_CAPTURE` | `true` | booleano | `true` | captura exceções JavaScript |
+| `RASAI_APDEX_EXPERIENCE_XHR_CAPTURE` | `true` | booleano | `true` | captura/correlaciona XMLHttpRequest |
+| `RASAI_APDEX_EXPERIENCE_FETCH_CAPTURE` | `true` | booleano | `true` | captura/correlaciona Fetch |
+| `RASAI_APDEX_EXPERIENCE_CONSOLE_ERROR_CAPTURE` | `false` | booleano | `false` | captura de console é opt-in |
+| `RASAI_APDEX_EXPERIENCE_MAX_ERROR_DETAILS` | `10` | inteiro `0..50` | `10` | limita detalhes persistidos |
+| `RASAI_APDEX_EXPERIENCE_ERROR_SCOPE` | `all` | `navigation`, `first-party`, `all` | `all` | escopo da família request/HTTP/CSP |
 | `RASAI_APDEX_EXPERIENCE_SETTLE_SECONDS` | `5` | número `> 0` | `5` | janela pós-load |
 | `RASAI_APDEX_EXPERIENCE_DELAY_SECONDS` | `1` | número `>= 0` | `1` | intervalo entre ações |
-| `RASAI_APDEX_EXPERIENCE_CONCURRENCY` | `1` | inteiro `1..3` | `1`; `3` exige delay >= `1 s` e configuração explícita | workers simultâneos |
-| `RASAI_APDEX_DYNATRACE_IMPORT` | `false` | booleano | `false` | habilita importação live Dynatrace |
-| `RASAI_DYNATRACE_BASE_URL` | sem default | URL HTTPS absoluta | configurar somente para importação live | URL do ambiente Dynatrace |
-| `RASAI_DYNATRACE_APPLICATION_ID` | sem default | texto não vazio | somente importação live | aplicação web consultada |
-| `RASAI_DYNATRACE_CONFIG_JSON` | sem default | caminho para JSON existente | preferível à importação live quando possível | configuração offline/reproduzível |
-| `DYNATRACE_API_TOKEN` | sem default | token API válido com permissões mínimas necessárias | secret/env | obrigatório na importação live |
+| `RASAI_APDEX_EXPERIENCE_CONCURRENCY` | `1` | inteiro `1..3` | `1` | workers simultâneos |
+| `RASAI_APDEX_DYNATRACE_IMPORT` | `false` | booleano | `false` | importação/calibração Dynatrace |
+| `RASAI_DYNATRACE_BASE_URL` | sem default | URL HTTPS absoluta | somente importação live | ambiente Dynatrace |
+| `RASAI_DYNATRACE_APPLICATION_ID` | sem default | texto não vazio | somente importação live | aplicação consultada |
+| `RASAI_DYNATRACE_CONFIG_JSON` | sem default | caminho para JSON existente | preferível quando possível | configuração offline/reproduzível |
+| `DYNATRACE_API_TOKEN` | sem default | token válido | secret/env | importação live |
 
-### Proveniência dos defaults Apdex
+### Device e proveniência
 
-A classificação de origem é obrigatória:
+CAT-07 **não possui device mix público**. O device efetivo vem de `RASAI_DEVICE_CONTEXT`/configuração da AUD:
 
-- **Dynatrace reproduzível:** Experience thresholds 3/12, erros JavaScript = `true`, request errors = `true`, console errors = `false` e escopo default `all`;
-- **fallback RASAi derivado do Dynatrace:** `USER_ACTION_DURATION` 3/12 no lugar de `VISUALLY_COMPLETE`, porque o algoritmo proprietário de Visually Complete não é reimplementado;
-- **operacional RASAi sem default Dynatrace:** habilitação, número de amostras, tentativas, páginas, device mix, session mode, settle, delay, concorrência, timeout e perfis de cliente/hardware/rede.
+- `mobile` -> 100% MOBILE;
+- `desktop` -> 100% DESKTOP.
 
-Parâmetros operacionais RASAi nunca devem ser rotulados como “default Dynatrace”.
+O identificador técnico legado `RASAI_APDEX_EXPERIENCE_DEVICE_MIX` pode continuar sendo reconhecido internamente para compatibilidade histórica, mas não integra o catálogo público de novas configurações. Tablet também não integra a superfície pública.
 
-O valor `mobile=60,desktop=35,tablet=5` acima é o default técnico do runtime/variável. Na preparação pelo console, quando o mix está **HERDADO**, a interface projeta a próxima execução a partir de `Device`: `mobile` -> `100/0/0`, `desktop` -> `0/100/0` e `both` -> `60/40/0`. Essa projeção não altera o default da variável; Tablet permanece disponível por override avançado do mix.
+Os parâmetros operacionais RASAi — targets, budgets, páginas, sessão, pacing, concorrência e perfis — não devem ser rotulados como defaults Dynatrace. Thresholds e política de erros podem ter referência/calibração Dynatrace conforme documentado no contrato específico.
+
+### Persistência e reprocessamento
+
+Target, budget, device, perfis e demais opções efetivas são congelados na população da AUD. RPR usa esses valores persistidos; alterar INI, ambiente ou defaults depois não reinterpreta a medição histórica. Quando CAT-06/CAT-07 é acrescentado posteriormente, a nova população usa a configuração do complemento e passa a ser a fonte canônica daquele catálogo.
 
 Criação e segurança do token Dynatrace: [EXTERNAL_CREDENTIALS.md](EXTERNAL_CREDENTIALS.md). Consulte também [SYNTHETIC_USER_EXPERIENCE_APDEX.md](SYNTHETIC_USER_EXPERIENCE_APDEX.md).
-
-## 9.1 CAT-10 · Segurança passiva
-
-O CAT-10 é opt-in no plano da auditoria. Quando selecionado, reutiliza evidências HTTP/browser/runtime já persistidas e não executa pentest ou exploração. OSV e CISA KEV recebem apenas identificadores de componente/versionamento elegíveis; indisponibilidade externa reduz cobertura, sem virar finding do site.
-
-| Variável | Default efetivo | Valores permitidos | Recomendado | Dependência / finalidade |
-|---|---|---|---|---|
-| `RASAI_PASSIVE_SECURITY` | `false` | booleano | `false`; a seleção CAT-10 projeta `true` somente na execução | ativa o runtime do catálogo sem varredura ativa |
-| `RASAI_SECURITY_HEADERS` | `true` | booleano | `true` | HTTPS/redirecionamentos, cabeçalhos, CSP, CORS e políticas entre origens persistidas |
-| `RASAI_SECURITY_COOKIES` | `true` | booleano | `true` | cookies HTTP/runtime, atributos, identidade/provenance secret-safe; valores não são copiados para o CAT-10 |
-| `RASAI_SECURITY_RESOURCES` | `true` | booleano | `true` | scripts/recursos, integridade e telemetria bounded da mesma navegação; sem refetch obrigatório |
-| `RASAI_SECURITY_THIRD_PARTY` | `true` | booleano | `true` | próprio/terceiro, SRI, plataformas/identificadores seguros e relações observadas |
-| `RASAI_SECURITY_RUNTIME_CORRELATION` | `true` | booleano | `true` | reutiliza erros de runtime, setters de cookie e scripts persistidos; não altera Apdex/SARI |
-| `RASAI_SECURITY_OSV` | `true` | booleano | `true` salvo política de egress | consulta OSV somente com componente + ecossistema + versão identificáveis |
-| `RASAI_SECURITY_CISA_KEV` | `true` | booleano | `true` salvo política de egress | cruza CVEs obtidos via OSV com CISA KEV |
-| `RASAI_SECURITY_EXTERNAL_TIMEOUT_SECONDS` | `15` | número `> 0` e `<= 300` | `15` | tempo limite por chamada de inteligência de vulnerabilidades |
-
-MDN HTTP Observatory e Lighthouse Best Practices são **reutilizados** das coletas canônicas existentes; o CAT-10 não dispara segunda coleta para preencher o relatório. IA opcional reutiliza o Improvement Intelligence e a IA principal, limitada a `SECURITY` quando CAT-08 não foi solicitado. Contrato completo: [PASSIVE_SECURITY_CATALOG.md](PASSIVE_SECURITY_CATALOG.md).
 
 ## 10. Search Intelligence / Observability
 
