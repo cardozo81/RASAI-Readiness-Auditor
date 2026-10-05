@@ -100,12 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
     audit_parser = subparsers.add_parser("audit", help="execute a local RASAi readiness audit")
     audit_parser.add_argument(
         "target",
-        nargs="*",
-        help="one or more domains/HTTP(S) URLs to audit in the same audit_id",
-    )
-    audit_parser.add_argument(
-        "--urls-file",
-        help="UTF-8 text file with one domain/HTTP(S) URL per line; blank lines and # comments are ignored",
+        help="exactly one domain/HTTP(S) URL for the new audit",
     )
     audit_parser.add_argument("--project", help="human-readable project name")
     audit_parser.add_argument("--language", default="pt-BR", help="primary content/reporting language context")
@@ -317,21 +312,20 @@ def _semantic_provider(args: argparse.Namespace):
 
 
 def _audit_targets(args: argparse.Namespace) -> tuple[str, ...]:
-    values = list(args.target)
-    if args.urls_file:
-        path = Path(args.urls_file)
-        try:
-            lines = path.read_text(encoding="utf-8").splitlines()
-        except OSError as exc:
-            raise ValueError(f"cannot read --urls-file {path}: {exc}") from exc
-        values.extend(
-            line.strip()
-            for line in lines
-            if line.strip() and not line.lstrip().startswith("#")
+    if getattr(args, "urls_file", None):
+        raise ValueError(
+            "--urls-file is not supported for new audits; provide exactly one target URL/domain"
         )
-    if not values:
-        raise ValueError("provide at least one target URL/domain or --urls-file")
-    return tuple(validate_target(value) for value in values)
+    raw = getattr(args, "target", "")
+    if isinstance(raw, (list, tuple)):
+        values = [str(value).strip() for value in raw if str(value).strip()]
+        if len(values) != 1:
+            raise ValueError("new audits require exactly one target URL/domain")
+        raw = values[0]
+    target = str(raw or "").strip()
+    if not target:
+        raise ValueError("provide exactly one target URL/domain")
+    return (validate_target(target),)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -361,11 +355,7 @@ def main(argv: list[str] | None = None) -> int:
             os.environ[DEVICE_CONTEXT_ENV] = device_context
             try:
                 provider = _semantic_provider(args)
-                audit_target: str | tuple[str, ...] = (
-                    targets
-                    if args.urls_file or len(targets) > 1
-                    else targets[0]
-                )
+                audit_target = targets[0]
                 from rasai.audit_resume_runtime import resume_plan_options
 
                 with resume_plan_options(
