@@ -39,10 +39,17 @@ def _weights(model: Any, state: Any) -> dict[str, float]:
             model._bounded_pages(getattr(state, "web_max_pages", pages), pages) * devices,
             1,
         )
-    if bool(getattr(state, "synthetic_apdex", False)):
-        external += 4.0
-    if bool(getattr(state, "apdex_experience", False)):
-        external += 5.0
+    ux_enabled = bool(getattr(state, "apdex_experience", False))
+    nav_enabled = bool(getattr(state, "synthetic_apdex", False))
+    full_units, nav_physical_units = model._synthetic_physical_workload(
+        state,
+        pages=pages,
+        devices=devices,
+    )
+    if ux_enabled:
+        external += max(5.0, 1.25 * full_units)
+    if nav_enabled:
+        external += max(4.0, 1.15 * nav_physical_units)
     if model._service_ready("google-search-console"):
         external += 5.0
     external += 2.5 * model._external_operation_count(state)
