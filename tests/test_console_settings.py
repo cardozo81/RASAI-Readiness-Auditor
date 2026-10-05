@@ -49,7 +49,7 @@ class ConsoleSettingsTests(unittest.TestCase):
             state = State()
             state.target = "https://example.test/"
             state.project = "Projeto"
-            state.device = "both"
+            state.device = "desktop"
             state.ai_provider = "openai"
             state.ai_model = "gpt-5.6-luna"
             state.ai_reasoning = "NONE"
@@ -70,7 +70,7 @@ class ConsoleSettingsTests(unittest.TestCase):
             self.assertEqual(result.warnings, ())
             self.assertEqual(restored.target, state.target)
             self.assertEqual(restored.project, state.project)
-            self.assertEqual(restored.device, "both")
+            self.assertEqual(restored.device, "desktop")
             self.assertEqual(restored.ai_provider, "openai")
             self.assertEqual(restored.ai_model, "gpt-5.6-luna")
             self.assertEqual(restored.ai_reasoning, "NONE")
