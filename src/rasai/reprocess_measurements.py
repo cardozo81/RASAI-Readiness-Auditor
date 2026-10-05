@@ -377,6 +377,7 @@ def _restart_interrupted_m23_stage(
     if str(run["status"]).upper() != "RUNNING":
         return False
     from rasai import m23_apdex as m23
+    from rasai.m23_cli import DEFAULT_APDEX_SAMPLES_PER_CONTEXT
     from rasai.audit_fulfillment import archive_rows
     from rasai.governed_reprocess_runtime import _current_reprocess_id
     from rasai.m23_persistence import M23Persistence
@@ -478,8 +479,8 @@ def recover_synthetic_apdex(
             cfg = m23.SyntheticApdexConfig(
                 enabled=True,
                 threshold_seconds=float(cfg_map.get("threshold_seconds")),
-                target_valid_samples=int(cfg_map.get("target_valid_samples") or 100),
-                max_attempts_per_context=int(cfg_map.get("max_attempts_per_context") or 125),
+                target_valid_samples=int(cfg_map.get("target_valid_samples") or DEFAULT_APDEX_SAMPLES_PER_CONTEXT),
+                max_attempts_per_context=int(cfg_map.get("max_attempts_per_context") or max(DEFAULT_APDEX_SAMPLES_PER_CONTEXT, int(__import__("math").ceil(DEFAULT_APDEX_SAMPLES_PER_CONTEXT * 1.25)))),
                 max_pages=int(cfg_map.get("max_pages") or 0),
                 timeout_seconds=float(cfg_map.get("timeout_seconds") or 45.0),
                 delay_seconds=float(cfg_map.get("delay_seconds") or 1.0),
