@@ -248,23 +248,31 @@ def test_html_dom_context_ignores_semantic_sk_identifier_without_weakening_secre
     )
     assert any(item.kind == "KNOWN_SECRET_PATTERN" for item in scoped_findings)
 
+    opaque_legacy_token = "sk-abcdefghijklmnopqrstuvwxyz1234567890AB"
+    legacy_findings = detect_secret_exposures(
+        f"<div id='{opaque_legacy_token}'></div>",
+        path="catalog-report.html",
+        strict=True,
+        html_dom_context=True,
+    )
+    assert any(item.kind == "KNOWN_SECRET_PATTERN" for item in legacy_findings)
+
     mixed = (
         f"<div id='{dom_identifier}'></div>\n"
         "Authorization: Bearer live-token-93af\n"
         "api_key='prod-value-93af'\n"
         "password='prod-password-93af'\n"
+        "Cookie: session=prod-cookie-value-93af\n"
         "postgresql://rasai:prod-db-password@db.example.test/app"
     )
-    kinds = {
-        item.kind
-        for item in detect_secret_exposures(
-            mixed,
-            path="catalog-report.html",
-            strict=True,
-            html_dom_context=True,
-        )
-    }
+    findings = detect_secret_exposures(
+        mixed,
+        path="catalog-report.html",
+        strict=True,
+        html_dom_context=True,
+    )
+    kinds = {item.kind for item in findings}
     assert "BEARER_TOKEN" in kinds
-    assert "SECRET_ASSIGNMENT" in kinds
+    assert sum(item.kind == "SECRET_ASSIGNMENT" for item in findings) >= 3
     assert "CREDENTIAL_URL" in kinds
 
