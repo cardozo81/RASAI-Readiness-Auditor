@@ -136,10 +136,10 @@ def apply_environment_defaults(
         raw = (environment.get("RASAI_DEVICE_CONTEXT") or "").strip().casefold()
         if not raw:
             state.device, state.current_device = "mobile", "MOBILE"
-        elif raw in {"mobile", "desktop", "both"}:
+        elif raw in {"mobile", "desktop"}:
             state.device, state.current_device = raw, raw.upper()
         else:
-            issues.append("RASAI_DEVICE_CONTEXT: use mobile, desktop ou both")
+            issues.append("RASAI_DEVICE_CONTEXT: use mobile ou desktop")
     if active(AI_TIMEOUT_ENV):
         raw = (environment.get(AI_TIMEOUT_ENV) or "").strip()
         try:
