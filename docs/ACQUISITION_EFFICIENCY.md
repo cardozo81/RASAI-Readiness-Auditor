@@ -132,9 +132,9 @@ Redução de tokens só é permitida quando não remove informação semântica 
 
 Truncamento cego de conteúdo não é otimização padrão porque pode alterar avaliações de semântica, answerability, entidades ou claims factuais. Qualquer orçamento futuro de tokens deve preservar garantias determinísticas de cobertura e expor truncamento como limitação explícita.
 
-## Contrato de arquivo com conjunto de URLs
+## Compatibilidade com conjuntos históricos de URLs
 
-Arquivos TXT fornecidos pelo usuário aceitam UTF-8 com ou sem BOM. Linhas vazias e comentários iniciados por `#` são ignorados. Toda linha significativa é validada antes da execução; um alvo inválido é informado com o número exato da linha, em vez de ser removido silenciosamente das estimativas de exposição ou do escopo da auditoria.
+Novas AUDs não aceitam TXT/lista multi-target. O parser UTF-8/BOM de target files permanece apenas como utilitário interno de compatibilidade para dados históricos e testes de leitura; ele não é uma superfície pública de criação de auditoria. O collector e as estruturas persistidas de `URL_SET` não são removidos nesta transição.
 
 ## Resumo da política de requisições
 
