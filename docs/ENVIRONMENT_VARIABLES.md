@@ -296,15 +296,33 @@ CAT-07 **não possui device mix público**. O device efetivo vem de `RASAI_DEVIC
 - `mobile` -> 100% MOBILE;
 - `desktop` -> 100% DESKTOP.
 
-O identificador técnico legado `RASAI_APDEX_EXPERIENCE_DEVICE_MIX` pode continuar sendo reconhecido internamente para compatibilidade histórica, mas não integra o catálogo público de novas configurações. Tablet também não integra a superfície pública.
+O identificador técnico histórico `RASAI_APDEX_EXPERIENCE_DEVICE_MIX` pode continuar sendo reconhecido internamente para compatibilidade histórica, mas não integra o catálogo público de novas configurações. Tablet também não integra a superfície pública.
 
-Os parâmetros operacionais RASAi — targets, budgets, páginas, sessão, pacing, concorrência e perfis — não devem ser rotulados como defaults Dynatrace. Thresholds e política de erros podem ter referência/calibração Dynatrace conforme documentado no contrato específico.
+Os parâmetros operacionais RASAi - targets, budgets, páginas, sessão, pacing, concorrência e perfis - não devem ser rotulados como defaults Dynatrace. Thresholds e política de erros podem ter referência/calibração Dynatrace conforme documentado no contrato específico.
 
 ### Persistência e reprocessamento
 
 Target, budget, device, perfis e demais opções efetivas são congelados na população da AUD. RPR usa esses valores persistidos; alterar INI, ambiente ou defaults depois não reinterpreta a medição histórica. Quando CAT-06/CAT-07 é acrescentado posteriormente, a nova população usa a configuração do complemento e passa a ser a fonte canônica daquele catálogo.
 
 Criação e segurança do token Dynatrace: [EXTERNAL_CREDENTIALS.md](EXTERNAL_CREDENTIALS.md). Consulte também [SYNTHETIC_USER_EXPERIENCE_APDEX.md](SYNTHETIC_USER_EXPERIENCE_APDEX.md).
+
+## 9.1 CAT-10 · Segurança passiva
+
+O CAT-10 é opt-in no plano da auditoria. Quando selecionado, reutiliza evidências HTTP/browser/runtime já persistidas e não executa pentest ou exploração. OSV e CISA KEV recebem apenas identificadores de componente/versionamento elegíveis; indisponibilidade externa reduz cobertura, sem virar finding do site.
+
+| Variável | Default efetivo | Valores permitidos | Recomendado | Dependência / finalidade |
+|---|---|---|---|---|
+| `RASAI_PASSIVE_SECURITY` | `false` | booleano | `false`; a seleção CAT-10 projeta `true` somente na execução | ativa o runtime do catálogo sem varredura ativa |
+| `RASAI_SECURITY_HEADERS` | `true` | booleano | `true` | HTTPS/redirecionamentos, cabeçalhos, CSP, CORS e políticas entre origens persistidas |
+| `RASAI_SECURITY_COOKIES` | `true` | booleano | `true` | cookies HTTP/runtime, atributos, identidade/provenance secret-safe; valores não são copiados para o CAT-10 |
+| `RASAI_SECURITY_RESOURCES` | `true` | booleano | `true` | scripts/recursos, integridade e telemetria bounded da mesma navegação; sem refetch obrigatório |
+| `RASAI_SECURITY_THIRD_PARTY` | `true` | booleano | `true` | próprio/terceiro, SRI, plataformas/identificadores seguros e relações observadas |
+| `RASAI_SECURITY_RUNTIME_CORRELATION` | `true` | booleano | `true` | reutiliza erros de runtime, setters de cookie e scripts persistidos; não altera Apdex/SARI |
+| `RASAI_SECURITY_OSV` | `true` | booleano | `true` salvo política de egress | consulta OSV somente com componente + ecossistema + versão identificáveis |
+| `RASAI_SECURITY_CISA_KEV` | `true` | booleano | `true` salvo política de egress | cruza CVEs obtidos via OSV com CISA KEV |
+| `RASAI_SECURITY_EXTERNAL_TIMEOUT_SECONDS` | `15` | número `> 0` e `<= 300` | `15` | tempo limite por chamada de inteligência de vulnerabilidades |
+
+MDN HTTP Observatory e Lighthouse Best Practices são **reutilizados** das coletas canônicas existentes; o CAT-10 não dispara segunda coleta para preencher o relatório. IA opcional reutiliza o Improvement Intelligence e a IA principal, limitada a `SECURITY` quando CAT-08 não foi solicitado. Contrato completo: [PASSIVE_SECURITY_CATALOG.md](PASSIVE_SECURITY_CATALOG.md).
 
 ## 10. Search Intelligence / Observability
 
