@@ -411,22 +411,14 @@ def _configure(state: State, choice: str) -> None:
     render_header(state)
     try:
         if choice == "1":
-            mode = _select(
-                state,
-                "Fonte (default: URL única)",
-                [("url", True, "URL/domínio; seed de crawl"), ("file", True, "TXT UTF-8; uma URL por linha")],
+            target = prompt_text(
+                "URL/domínio da auditoria",
+                current=state.target if state.input_mode == "url" else "",
+                empty_keeps_current=False,
             )
-            if mode:
-                render_header(state)
-                print(f"Entrada selecionada: {mode}\n")
-                target = prompt_text(
-                    "URL/domínio da auditoria" if mode == "url" else "Caminho do arquivo TXT",
-                    current=state.target if state.input_mode == mode else "",
-                    empty_keeps_current=False,
-                )
-                state.input_mode = mode
-                state.target = target
-                state.current_url = target or "-"
+            state.input_mode = "url"
+            state.target = target
+            state.current_url = target or "-"
 
         elif choice == "2":
             state.project = prompt_text(
@@ -941,7 +933,7 @@ def _menu(state: State) -> str:
     if m23_attempts:
         print(paint("Carga Synthetic Apdex potencial: " + m23_load, YELLOW, bold=True))
     print()
-    print(f"1. Entrada               : {'URL única' if state.input_mode == 'url' else 'TXT'} | {state.target or '<não informada>'}")
+    print(f"1. Entrada               : URL única | {state.target or '<não informada>'}")
     print(f"2. Projeto               : {state.project or '<auto>'}")
     print(f"3. Dispositivo           : {state.device}{badges['device']}")
     effort = state.ai_reasoning or (LOWEST_REASONING.get(PROVIDERS.get(state.ai_provider, ''), '-') if state.ai_provider in PROVIDERS else '-')
