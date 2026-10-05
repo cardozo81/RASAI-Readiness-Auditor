@@ -411,9 +411,13 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
         if value < 0: raise ValueError("use inteiro >= 0")
         state.apdex_experience_max_pages = value
     elif key == ("synthetic_apdex_experience", "device_mix"):
-        value = raw.strip() or DEFAULT_UX_DEVICE_MIX
-        parse_device_mix(value)
-        state.apdex_experience_device_mix = value
+        # Read old INI files without reactivating device_mix as an operator setting.
+        if raw.strip():
+            parse_device_mix(raw.strip())
+        from rasai.device_context import canonical_single_device_mix
+        state.apdex_experience_device_mix = canonical_single_device_mix(
+            str(getattr(state, "device", "mobile"))
+        )
     elif key == ("synthetic_apdex_experience", "session_mode"):
         value = raw.strip().casefold()
         if value not in {"cold", "warm"}: raise ValueError("use cold ou warm")
