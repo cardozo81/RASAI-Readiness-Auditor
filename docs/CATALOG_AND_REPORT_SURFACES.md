@@ -175,7 +175,7 @@ Regras comuns:
 
 **Rastreabilidade:** run, sample, perfil, threshold `T`, dispositivo, timestamps e artifacts aplicáveis.
 
-**Aprofundamento técnico:** `SYNTHETIC_APDEX.md`, `SYNTHETIC_SHARED_ACQUISITION.md` e `SYNTHETIC_RUNTIME_PROFILES.md`.
+**Aprofundamento técnico:** `SYNTHETIC_APDEX.md`, `SYNTHETIC_ACQUISITION.md` e `SYNTHETIC_RUNTIME_PROFILES.md`.
 
 ## CAT-07 - Apdex de experiência
 
@@ -199,7 +199,7 @@ Regras comuns:
 
 **Rastreabilidade:** run, sample, perfil, dispositivo, KPM/fallback efetivo, threshold e configuração persistida.
 
-**Aprofundamento técnico:** `SYNTHETIC_USER_EXPERIENCE_APDEX.md`, `SYNTHETIC_SHARED_ACQUISITION.md` e `SYNTHETIC_RUNTIME_PROFILES.md`.
+**Aprofundamento técnico:** `SYNTHETIC_USER_EXPERIENCE_APDEX.md`, `SYNTHETIC_ACQUISITION.md` e `SYNTHETIC_RUNTIME_PROFILES.md`.
 
 ## CAT-08 - Análise profunda e melhorias
 
