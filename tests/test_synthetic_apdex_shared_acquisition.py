@@ -218,7 +218,12 @@ def test_navigation_gateway_reuses_compatible_experience_before_network(tmp_path
         load_duration_ms=432.4,
     )
     delegate = _Delegate()
-    gateway = SharedAwareNavigationGateway(audit_id="AUD-4", workspace=workspace, delegate=delegate)
+    gateway = SharedAwareNavigationGateway(
+        audit_id="AUD-4",
+        workspace=workspace,
+        delegate=delegate,
+        navigation_target_samples=1,
+    )
     measured = gateway.measure(url="https://example.test/", profile=_profile(), timeout_seconds=45.0)
     assert delegate.calls == 0
     assert measured.duration_ms == 432
@@ -363,3 +368,84 @@ def test_load_only_envelope_cannot_fabricate_experience_observables(tmp_path) ->
             full_observables={"user_action_duration_ms": 200.0},
             source="NAVIGATION_PHYSICAL",
         )
+
+
+def test_physical_planner_required_target_scenarios() -> None:
+    cases = {
+        (50, 1000): (1000, 0, 1000),
+        (100, 100): (100, 0, 100),
+        (150, 100): (100, 50, 150),
+        (1000, 50): (50, 950, 1000),
+    }
+    for (navigation, experience), expected in cases.items():
+        plan = acquisition_engine.plan_acquisitions(navigation, experience)
+        assert (
+            plan.full_experience,
+            plan.load_only,
+            plan.total_physical,
+        ) == expected
+        assert len(plan.navigation_ordinals) == min(navigation, experience)
+
+    sparse = acquisition_engine.plan_acquisitions(50, 1000)
+    assert sparse.navigation_ordinals[0] == 0
+    assert sparse.navigation_ordinals[-1] == 999
+    assert max(sparse.navigation_ordinals) - min(sparse.navigation_ordinals) == 999
+    assert len(set(sparse.navigation_ordinals)) == 50
+
+    equal = acquisition_engine.plan_acquisitions(100, 100)
+    assert equal.navigation_ordinals == tuple(range(100))
+
+
+def test_navigation_claim_selection_uses_planning_ordinal_not_completion_order(tmp_path) -> None:
+    workspace = _workspace(tmp_path)
+    acquisition_engine.prepare_acquisition_run(
+        audit_id="AUD-ORDINAL",
+        workspace=workspace,
+        mode="auto",
+    )
+    # Simulate concurrency finishing out of order: records are appended in completion
+    # order, while planning_ordinal is the pre-start order assigned by M25.
+    for planning_ordinal in (4, 1, 3, 2):
+        acquisition_engine.record_acquisition(
+            audit_id="AUD-ORDINAL",
+            workspace=workspace,
+            url="https://example.test/",
+            device="MOBILE",
+            profile_id="PROFILE-MOBILE",
+            envelope_kind=acquisition_engine.FULL_EXPERIENCE,
+            session_mode="cold",
+            load_duration_ms=float(planning_ordinal * 100),
+            status="SUCCESS",
+            full_observables={"planning_ordinal": planning_ordinal},
+            source="EXPERIENCE_PHYSICAL",
+            reusable_for_load=True,
+            planning_ordinal=planning_ordinal,
+        )
+
+    plan = acquisition_engine.prepare_navigation_claims(
+        audit_id="AUD-ORDINAL",
+        url="https://example.test/",
+        device="MOBILE",
+        profile_id="PROFILE-MOBILE",
+        navigation_samples=2,
+    )
+    assert plan.navigation_ordinals == (0, 3)
+
+    first = acquisition_engine.claim_load_boundary(
+        audit_id="AUD-ORDINAL",
+        workspace=workspace,
+        url="https://example.test/",
+        device="MOBILE",
+        profile_id="PROFILE-MOBILE",
+        timeout_seconds=45.0,
+    )
+    second = acquisition_engine.claim_load_boundary(
+        audit_id="AUD-ORDINAL",
+        workspace=workspace,
+        url="https://example.test/",
+        device="MOBILE",
+        profile_id="PROFILE-MOBILE",
+        timeout_seconds=45.0,
+    )
+    assert first is not None and second is not None
+    assert (first.planning_ordinal, second.planning_ordinal) == (1, 4)

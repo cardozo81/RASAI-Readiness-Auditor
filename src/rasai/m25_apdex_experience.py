@@ -1033,6 +1033,9 @@ def _measure_device(
     start_index = max(int(start_index), 1)
 
     def one(run_index: int, runner: SyntheticUxGateway) -> _Classified:
+        set_planning_ordinal = getattr(runner, "set_planning_ordinal", None)
+        if callable(set_planning_ordinal):
+            set_planning_ordinal(run_index)
         pacer.wait_for_slot()
         measurement = runner.measure(
             url=url, device=device, profile=profile,
