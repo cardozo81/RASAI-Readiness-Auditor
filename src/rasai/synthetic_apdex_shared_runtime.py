@@ -335,7 +335,32 @@ class SharedAwareNavigationGateway:
             timeout_seconds=timeout_seconds,
         )
         if item is None:
-            return self.delegate.measure(url=url, profile=profile, timeout_seconds=timeout_seconds)
+            measured = self.delegate.measure(
+                url=url,
+                profile=profile,
+                timeout_seconds=timeout_seconds,
+            )
+            duration = getattr(measured, "duration_ms", None)
+            if bool(getattr(measured, "profile_applied", False)) and duration is not None:
+                acquisition_engine.record_acquisition(
+                    audit_id=self.audit_id,
+                    workspace=self.workspace,
+                    url=url,
+                    device=device,
+                    profile_id=str(getattr(profile, "profile_id", "")),
+                    envelope_kind=acquisition_engine.LOAD_ONLY,
+                    session_mode="cold",
+                    load_duration_ms=float(duration),
+                    status=str(getattr(measured, "status", "")),
+                    http_status=getattr(measured, "http_status", None),
+                    final_url=getattr(measured, "final_url", None),
+                    cpu_method=getattr(measured, "cpu_method", None),
+                    network_method=getattr(measured, "network_method", None),
+                    source="SYNTHETIC_NAVIGATION_APDEX",
+                    reusable_for_load=False,
+                    consumed_by_navigation=True,
+                )
+            return measured
         return NavigationMeasurement(
             status=item.status,
             duration_ms=int(round(item.load_duration_ms)),
