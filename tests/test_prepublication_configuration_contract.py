@@ -56,7 +56,7 @@ def test_experience_environment_overrides_are_projected_before_enablement() -> N
     assert state.apdex_experience is False
     assert state.apdex_experience_samples == 40
     assert state.apdex_experience_max_attempts == 55
-    assert state.apdex_experience_device_mix == "mobile=100,desktop=0,tablet=0"
+    assert state.apdex_experience_device_mix == "mobile=100"
     assert state.apdex_experience_session_mode == "warm"
 
 
@@ -79,7 +79,7 @@ def test_saved_configuration_contains_runtime_and_experience_defaults(monkeypatc
     assert values["RASAI_SYNTHETIC_APDEX"] == "false"
     assert values["RASAI_APDEX_EXPERIENCE"] == "false"
     assert values["RASAI_APDEX_EXPERIENCE_SAMPLES"] == "100"
-    assert values["RASAI_APDEX_EXPERIENCE_DEVICE_MIX"] == "mobile=100,desktop=0,tablet=0"
+    assert "RASAI_APDEX_EXPERIENCE_DEVICE_MIX" not in values
     assert values["RASAI_REMOTE_TIMEOUT_SECONDS"] == "45"
 
 
