@@ -5,7 +5,7 @@ from html import escape
 import json
 from typing import Any
 
-from rasai.recommendation_governance import ACCEPTED, REJECTED, list_governance
+from rasai.recommendation_governance import ACCEPTED, REJECTED, VERIFY_DECIDE, list_governance
 
 _INSTALLED = False
 
@@ -18,6 +18,10 @@ _TARGET_LABELS = {
 }
 _CONFLICT_GROUP_LABELS = {
     "DISCOVERY_RESOURCE_STATE": "Conflito de estado dos recursos de descoberta",
+    "CANONICAL_TARGET_DECISION": "Decisão de URL canonical preferencial",
+    "REDIRECT_TARGET_DECISION": "Decisão de destino do redirecionamento",
+    "INDEXABILITY_POLICY_DECISION": "Decisão de política de indexabilidade",
+    "JSONLD_CONTENT_SUPPORT": "Suficiência factual para dados estruturados",
 }
 
 
@@ -42,6 +46,12 @@ _REASON_LABELS = {
     "JSONLD_ABSENT_WITHOUT_CREATION_PAYLOAD": "JSON-LD ausente sem payload de criação materializado",
     "UNCLASSIFIED_RECOMMENDATION_SOURCE": "Origem sem contrato de ownership reconhecido",
     "DISCOVERY_NEUTRAL_STATE_HUMAN_DECISION": "Estado neutro/ausência válida de discovery — requer decisão humana, não correção automática",
+    "CANONICAL_PREFERRED_URL_NOT_PROVEN": "URL canonical preferencial não comprovada — decidir antes de implementar",
+    "REDIRECT_TARGET_NOT_PROVEN": "Destino de redirect não comprovado — decidir antes de implementar",
+    "INDEXABILITY_INTENT_NOT_PROVEN": "Intenção de indexabilidade não comprovada — decidir antes de alterar noindex/index",
+    "JSONLD_CONTENT_EVIDENCE_REQUIRED": "Dados estruturados exigem conteúdo/evidência persistida correspondente",
+    "JSONLD_CONTENT_OR_ENTITY_NOT_PROVEN": "Tipo/entidade de dados estruturados não comprovado pela evidência",
+    "PRESCRIPTION_CONFLICTS_WITH_EVIDENCE": "Prescrição diverge da decisão/destino comprovado pela evidência",
 }
 
 
@@ -60,8 +70,9 @@ def governed_plan_html(database: Any, data: Any) -> str:
     from rasai import catalog_report_analysis as a
 
     accepted = list_governance(database, data.audit_id, decision=ACCEPTED)
+    verify = list_governance(database, data.audit_id, decision=VERIFY_DECIDE)
     rejected = list_governance(database, data.audit_id, decision=REJECTED)
-    if not accepted and not rejected:
+    if not accepted and not verify and not rejected:
         return (
             "<div class='notice warn'><strong>Governança de recomendações não materializada.</strong> "
             "O inventário técnico pode existir, mas não é apresentado como plano governado para o cliente.</div>"
@@ -91,6 +102,38 @@ def governed_plan_html(database: Any, data: Any) -> str:
         ))
         accepted_modals.append(a._modal(modal_id, row.get("title") or "Recomendação", "Governança CAT-09", body))
 
+    verify_rows = []
+    verify_modals = []
+    for index, row in enumerate(verify, 1):
+        modal_id = f"verify-rec-{index}"
+        evidence = _load(row.get("source_evidence_json"), [])
+        reason = _REASON_LABELS.get(
+            str(row.get("rejection_reason")),
+            str(row.get("rejection_reason") or "Decisão externa necessária"),
+        )
+        verify_rows.append((
+            row.get("title") or "Recomendação",
+            _TARGET_LABELS.get(str(row.get("target_class")), str(row.get("target_class") or "—")),
+            reason,
+            a._modal_button(modal_id, "Ver decisão necessária"),
+        ))
+        body = a._kv((
+            ("Decisão", "Verificar / decidir antes de implementar"),
+            ("Motivo", reason),
+            ("Grupo de decisão", _conflict_group_label(row.get("conflict_group"))),
+            ("Origem", _SOURCE_LABELS.get(str(row.get("source_kind")), row.get("source_kind"))),
+            ("Racional", row.get("rationale") or "—"),
+            ("Evidências relacionadas", ", ".join(str(item) for item in evidence) if isinstance(evidence, list) and evidence else "—"),
+        ))
+        verify_modals.append(
+            a._modal(
+                modal_id,
+                row.get("title") or "Decisão necessária",
+                "Item evidence-bound aguardando decisão",
+                body,
+            )
+        )
+
     rejected_rows = []
     rejected_modals = []
     for index, row in enumerate(rejected, 1):
@@ -116,6 +159,7 @@ def governed_plan_html(database: Any, data: Any) -> str:
     metrics = (
         "<div class='metric-grid'>"
         + a._metric("Ações aceitas", len(accepted))
+        + a._metric("Verificar / decidir", len(verify))
         + a._metric("Itens rejeitados", len(rejected))
         + a._metric("Ações no ativo auditado", sum(1 for row in accepted if row.get("target_class") == "TARGET_SITE"))
         + a._metric("Dependências externas", sum(1 for row in accepted if row.get("target_class") == "EXTERNAL_PROVIDER"))
@@ -128,6 +172,13 @@ def governed_plan_html(database: Any, data: Any) -> str:
         sortable=bool(accepted_rows),
         page_size=10 if len(accepted_rows) > 10 else None,
     ) + "".join(accepted_modals)
+    verify_html = a._table(
+        ("Decisão/verificação pendente", "Classificação", "Motivo", "Detalhe"),
+        verify_rows,
+        empty="Nenhuma decisão externa está pendente.",
+        sortable=bool(verify_rows),
+        page_size=10 if len(verify_rows) > 10 else None,
+    ) + "".join(verify_modals)
     rejected_html = a._table(
         ("Item excluído do plano", "Classificação", "Motivo", "Detalhe"),
         rejected_rows,
@@ -136,11 +187,12 @@ def governed_plan_html(database: Any, data: Any) -> str:
         page_size=10 if len(rejected_rows) > 10 else None,
     ) + "".join(rejected_modals)
     return (
-        "<div class='notice good'><strong>Plano governado:</strong> somente itens classificados e coerentes com a evidência "
-        "entram nesta lista. Problemas internos do auditor e recomendações contraditórias permanecem auditáveis, mas não são "
-        "tratados como ação do cliente.</div>"
+        "<div class='notice good'><strong>Plano governado:</strong> somente itens classificados e sustentados pela evidência "
+        "entram diretamente no plano de implementação. Quando a evidência comprova o problema, mas não a decisão final, "
+        "o item é separado como verificar/decidir em vez de virar prescrição automática.</div>"
         + metrics
         + "<div class='subsection'><h3>Plano de ação aceito</h3>" + accepted_html + "</div>"
+        + "<div class='subsection'><h3>Verificar / decidir antes de implementar</h3>" + verify_html + "</div>"
         + "<details><summary>Itens rejeitados ou somente informativos</summary><div class='detail-body'>" + rejected_html + "</div></details>"
     )
 
