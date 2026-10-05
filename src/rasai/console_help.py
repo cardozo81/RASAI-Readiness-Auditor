@@ -12,7 +12,7 @@ COST_QUOTA = "CONSOME API/QUOTA EXTERNA"
 COST_VOLUME = "MULTIPLICADOR DE CONSUMO"
 
 PARAMETER_HELP: tuple[tuple[str, str, str], ...] = (
-    ("1. Entrada", "Define o alvo. URL única é seed de crawl; TXT contém uma URL por linha e permite conhecer previamente a quantidade de URLs explícitas.", COST_VOLUME + ": quantidade de URLs/páginas afeta o teto de contextos e integrações."),
+    ("1. Entrada", "Define a única URL/domínio de entrada da nova AUD. O crawler pode descobrir páginas adicionais até o limite configurado.", COST_VOLUME + ": o teto de páginas descobertas/auditadas afeta contextos e integrações."),
     ("2. Projeto", "Nome lógico para identificar/organizar a auditoria.", COST_NONE),
     ("3. Dispositivo", "Escolhe um único contexto para a AUD: mobile ou desktop. CAT-06 e CAT-07 herdam a mesma escolha.", COST_VOLUME + ": o volume sintético depende dos targets Navigation/Experience, não de um mix de devices."),
     ("4. IA", "Seleciona none, provider explícito ou AUTO. Somente opções aptas podem executar.", COST_EXTERNAL + ": cobrança depende do provider, modelo, tokens e plano."),
