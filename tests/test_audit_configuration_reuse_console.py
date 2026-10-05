@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+
+import pytest
 from pathlib import Path
 
 from rasai.audit_configuration_reuse_console import (
@@ -68,7 +70,7 @@ def test_console_snapshot_preserves_search_execution_inputs() -> None:
     }
 
 
-def test_console_loads_multiple_historical_targets_without_reusing_old_file_path(tmp_path: Path) -> None:
+def test_console_blocks_multiple_historical_targets_without_materializing_file(tmp_path: Path) -> None:
     state = State()
     state.audits_root = str(tmp_path)
     state.max_pages = 3
@@ -79,18 +81,12 @@ def test_console_loads_multiple_historical_targets_without_reusing_old_file_path
     state.max_pages = 99
     state.target = "https://different.example/"
 
-    warnings = _apply_settings(state, configuration, "AUD-SOURCE")
+    with pytest.raises(ValueError, match="novas AUDs exigem exatamente uma URL"):
+        _apply_settings(state, configuration, "AUD-SOURCE")
 
-    assert not warnings
-    assert state.max_pages == 3
-    assert state.input_mode == "file"
-    target_file = Path(state.target)
-    assert target_file.parent == tmp_path / ".reused-inputs"
-    assert target_file.name == "AUD-SOURCE.txt"
-    assert target_file.read_text(encoding="utf-8").splitlines() == [
-        "https://example.com/a",
-        "https://example.com/b",
-    ]
+    assert not (tmp_path / ".reused-inputs").exists()
+    assert state.max_pages == 99
+    assert state.target == "https://different.example/"
 
 
 def test_console_loads_single_target_back_into_url_mode(tmp_path: Path) -> None:
