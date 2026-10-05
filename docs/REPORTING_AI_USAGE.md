@@ -107,7 +107,7 @@ Mistral e GitHub Copilot podem aparecer tanto por seleção explícita quanto pe
 
 Quando disponível, cada comunicação externa é apresentada em bloco expansível com provider/modelo, finalidade, página/snapshot, endpoint sanitizado, duração, status, request e response sanitizados, hashes e indicação de truncamento.
 
-A partir do contrato de correlação pós-refatoração, exchanges novos podem persistir `attempt_id`, vinculando deterministicamente `ai_exchange_log` à tentativa correspondente em `ai_provider_attempts`. A identidade explícita tem precedência sobre qualquer inferência por provider/modelo/finalidade. Para bancos históricos sem `attempt_id`, o renderer permanece compatível e pode usar somente o fallback legado existente; a leitura do banco antigo não depende de migração destrutiva.
+A partir do contrato de correlação pós-refatoração, exchanges novos podem persistir `attempt_id`, vinculando deterministicamente `ai_exchange_log` à tentativa correspondente em `ai_provider_attempts`. A identidade explícita tem precedência sobre qualquer inferência por provider/modelo/finalidade. Para bancos históricos sem `attempt_id`, o renderer permanece compatível e pode usar somente o fallback histórico existente; a leitura do banco antigo não depende de migração destrutiva.
 
 A projeção HTML usa nomes públicos e funcionais para metadados, labels, títulos e estados. **O conteúdo persistido como request, response, payload, prompt, schema ou evidência bruta não passa por humanização semântica.** O HTML aplica apenas escaping seguro ao texto que já foi sanitizado na persistência. Assim, tokens técnicos como `SEMANTIC_READINESS` permanecem exatamente representados e não são substituídos por rótulos públicos.
 
