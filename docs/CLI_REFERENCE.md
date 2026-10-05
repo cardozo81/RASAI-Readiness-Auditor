@@ -255,7 +255,7 @@ A superfície continua sintética, inclusive quando calibrada contra configuraç
 
 O Synthetic User Experience Apdex herda o device da AUD: `mobile` produz 100% MOBILE e `desktop` produz 100% DESKTOP. Não existe mix público independente nem Tablet para novas AUDs. O target default do Experience é 100 amostras válidas por página; o Navigation mantém target separado de 150 amostras válidas por URL/device.
 
-O campo técnico legado de mix permanece apenas como compatibilidade interna para leitura/reprocessamento histórico; ele não é uma configuração pública para novas execuções.
+O campo técnico histórico de mix permanece apenas como compatibilidade interna para leitura/reprocessamento histórico; ele não é uma configuração pública para novas execuções.
 
 ## Search Intelligence
 
