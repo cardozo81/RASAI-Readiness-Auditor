@@ -230,17 +230,14 @@ Para Synthetic Navigation Apdex e Synthetic User Experience Apdex, aumentar a me
 
 ## Device e Apdex
 
-`Device` permanece `mobile|desktop|both`.
-
-O mix efetivo de Experience Apdex segue:
+`Device` público é `mobile|desktop`. Cada nova AUD usa exatamente um device, herdado por CAT-06 e CAT-07.
 
 ```text
-mobile  -> mobile=100,desktop=0,tablet=0
-desktop -> mobile=0,desktop=100,tablet=0
-both    -> mobile=60,desktop=40,tablet=0
+AUD mobile  -> CAT-06 MOBILE / CAT-07 100% MOBILE
+AUD desktop -> CAT-06 DESKTOP / CAT-07 100% DESKTOP
 ```
 
-`CAT-07` depende de `CAT-06`; selecionar Experience Apdex inclui Navigation Apdex no plano.
+CAT-06 e CAT-07 são independentes: selecionar Experience Apdex não inclui Navigation Apdex, e selecionar Navigation não inclui Experience. Os defaults de novas populações são 150 amostras válidas para Navigation e 100 para Experience, com budgets derivados de 188 e 125 tentativas respectivamente.
 
 ## Search & AI Intelligence
 
