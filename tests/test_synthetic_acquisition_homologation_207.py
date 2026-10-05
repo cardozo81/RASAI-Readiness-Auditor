@@ -8,7 +8,7 @@ import statistics
 import pytest
 
 from rasai import synthetic_acquisition_engine as engine
-from rasai.m23_apdex import _sample as nav_sample
+from rasai.m23_apdex import _sample as nav_sample, _summary as nav_summary
 from rasai.m23_apdex_profiles import MOBILE_STANDARD_PROFILE, NavigationMeasurement
 from rasai.m25_apdex_experience import Calibration, UxMeasurement, classify_measurement
 
@@ -101,6 +101,44 @@ def test_navigation_evaluator_parity_on_identical_raw_load_facts() -> None:
     assert [item.measurement.duration_ms for item in canonical] == [
         item.measurement.duration_ms for item in isolated
     ]
+
+    isolated_summary = nav_summary(
+        audit_id="AUD-BASELINE",
+        page_id="PAGE-1",
+        device="MOBILE",
+        url="https://example.test/",
+        profile=MOBILE_STANDARD_PROFILE,
+        threshold=1.0,
+        target=len(isolated),
+        samples=isolated,
+    )
+    canonical_summary = nav_summary(
+        audit_id="AUD-CANONICAL",
+        page_id="PAGE-1",
+        device="MOBILE",
+        url="https://example.test/",
+        profile=MOBILE_STANDARD_PROFILE,
+        threshold=1.0,
+        target=len(canonical),
+        samples=canonical,
+    )
+    for field in (
+        "valid_samples",
+        "invalid_samples",
+        "satisfied_count",
+        "tolerating_count",
+        "frustrated_count",
+        "success_count",
+        "timeout_count",
+        "navigation_error_count",
+        "apdex_score",
+        "mean_ms",
+        "median_ms",
+        "stddev_ms",
+        "coefficient_of_variation",
+        "p95_ms",
+    ):
+        assert getattr(canonical_summary, field) == getattr(isolated_summary, field)
 
     # Uniform selection must not collapse into the prefix of a much larger FULL set.
     assert plan.navigation_ordinals[0] == 0
