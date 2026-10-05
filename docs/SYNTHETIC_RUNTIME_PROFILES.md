@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Medições dependentes de browser não devem ser interpretadas apenas pelo rótulo `Mobile`, `Desktop` ou `Tablet`. O RASAi separa a condição de laboratório em três dimensões configuráveis e persistidas:
+Medições dependentes de browser não devem ser interpretadas apenas pelo rótulo `Mobile` ou `Desktop`. O RASAi separa a condição de laboratório em três dimensões configuráveis e persistidas:
 
 1. **cliente**: viewport, DPR, mobile/touch e identidade Chromium coerente;
 2. **hardware**: capacidade relativa de CPU aplicada por slowdown controlado;
