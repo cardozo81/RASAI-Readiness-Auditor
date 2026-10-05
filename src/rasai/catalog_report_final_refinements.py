@@ -217,11 +217,12 @@ def _ai_chain_rows(
         )
         task = tasks.get(identity) if kind == "TASK" else None
         final_status: Any = task.get("status") if task else None
-        task_label = (
+        raw_task_label = (
             str(task.get("purpose") or task.get("scope_key") or identity)
             if task
             else str(ordered[0].get("purpose") or ordered[0].get("contract") or identity)
         )
+        task_label = public_label(raw_task_label) or raw_task_label.replace("_", " ").title()
         persisted_provider: Any = None
 
         contract = str(ordered[0].get("contract") or "").upper()
@@ -268,7 +269,7 @@ def _ai_chain_rows(
 
         chain_parts: list[str] = []
         for position, attempt in enumerate(ordered, 1):
-            provider = str(i._provider_identity(attempt.get("provider")) or "-")
+            provider = str(attempt.get("provider") or "-").strip() or "-"
             model = str(attempt.get("model") or "")
             status = i._status_label(attempt.get("status"))
             detail = ""
