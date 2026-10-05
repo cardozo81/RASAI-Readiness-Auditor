@@ -151,11 +151,29 @@ def test_navigation_evaluator_parity_on_identical_raw_load_facts() -> None:
     assert plan.navigation_ordinals[-1] == 999
     assert len(set(plan.navigation_ordinals)) == 50
 
-    full_mean = statistics.fmean(population)
-    nav_mean = statistics.fmean(selected)
-    # The deterministic spread should not introduce a material systematic shift in
-    # this controlled population.
-    assert abs(nav_mean - full_mean) / full_mean < 0.02
+    # Sampling variance in one finite population is not systematic bias. Exercise
+    # multiple deterministic phase offsets and test the signed error around zero.
+    signed_errors = []
+    uniform_absolute_errors = []
+    prefix_absolute_errors = []
+    for phase in range(0, 2200, 37):
+        phased = [650 + (((index * 37) + phase) % 2200) for index in range(1000)]
+        full_mean = statistics.fmean(phased)
+        uniform_mean = statistics.fmean(
+            phased[index] for index in plan.navigation_ordinals
+        )
+        prefix_mean = statistics.fmean(phased[:50])
+        relative_error = (uniform_mean - full_mean) / full_mean
+        signed_errors.append(relative_error)
+        uniform_absolute_errors.append(abs(relative_error))
+        prefix_absolute_errors.append(abs((prefix_mean - full_mean) / full_mean))
+
+    # No directional bias across phases, while the distributed sample has lower
+    # average absolute error than the naive first-50 prefix.
+    assert abs(statistics.fmean(signed_errors)) < 0.002
+    assert statistics.fmean(uniform_absolute_errors) < statistics.fmean(
+        prefix_absolute_errors
+    )
 
 
 def test_experience_evaluator_parity_preserves_kpm_errors_and_post_load_facts() -> None:
