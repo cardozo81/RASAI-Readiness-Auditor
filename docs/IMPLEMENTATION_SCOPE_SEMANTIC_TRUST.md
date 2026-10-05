@@ -57,9 +57,9 @@ Este documento registra o fechamento do escopo desenvolvido na branch `feature/s
 
 ## CAT-09
 
-- contrato `RECOMMENDATION-GOVERNANCE-002`;
+- contrato `RECOMMENDATION-GOVERNANCE-003`;
 - classificação `TARGET_SITE`, `AUDITOR_INTERNAL`, `EXTERNAL_PROVIDER`, `ENVIRONMENTAL`, `INFORMATIONAL`;
-- decisões `ACCEPTED/REJECTED` persistidas;
+- decisões `ACCEPTED/VERIFY_DECIDE/REJECTED` persistidas;
 - problemas internos do auditor não entram no plano do cliente;
 - third-party é tratado como fornecedor/dependência externa;
 - conflito `JSON-LD ausente × corrigir JSON-LD existente` é rejeitado deterministicamente;
