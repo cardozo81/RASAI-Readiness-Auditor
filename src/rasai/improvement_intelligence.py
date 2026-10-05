@@ -1209,9 +1209,29 @@ def _build_provider(config: ImprovementConfig, env: Mapping[str, str] | None = N
     return provider
 
 
-def _persist_attempt(workspace: AuditWorkspace, audit_id: str, context: _TargetContext, attempt: ProviderAttempt) -> None:
+def _persist_attempt(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    context: _TargetContext,
+    attempt: ProviderAttempt,
+    *,
+    operation: str | None = None,
+    ai_task_id: str | None = None,
+    ai_round_id: str | None = None,
+) -> None:
     with M18Persistence(workspace) as store:
-        store.add_attempt(attempt_id=new_id("AIA"), audit_id=audit_id, page_id=context.page_id, snapshot_id=context.snapshot_id, url=context.url, device=context.device, attempt=attempt)
+        store.add_attempt(
+            attempt_id=new_id("AIA"),
+            audit_id=audit_id,
+            page_id=context.page_id,
+            snapshot_id=context.snapshot_id,
+            url=context.url,
+            device=context.device,
+            attempt=attempt,
+            operation=operation,
+            ai_task_id=ai_task_id,
+            ai_round_id=ai_round_id,
+        )
 
 
 def _required_actionable_recommendation_finding_ids(
