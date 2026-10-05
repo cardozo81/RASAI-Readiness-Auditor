@@ -24,7 +24,7 @@ Este documento registra somente correções do RASAi que representam contrato ca
 - **Comportamento de erro:** se um exchange histórico não possuir identidade explícita, a leitura não falha. Correlação auxiliar por fingerprint só é aceitável quando existir um único candidato exato; ambiguidade deve permanecer não correlacionada, nunca resolvida por adivinhação temporal.
 - **Modelo de dados:** `attempt_id` passa a existir de forma intrínseca em `ProviderAttempt` e opcionalmente em `AiExchange`; a tabela `ai_exchange_log` recebe coluna aditiva `attempt_id`.
 - **Compatibilidade com dados históricos:** bancos antigos sem a coluna continuam legíveis. A inicialização adiciona a coluna sem recriar/destruir a tabela; linhas históricas podem permanecer `NULL`.
-- **Teste de referência:** `tests/test_ai_audit_boundary_regressions.py` - correlação Directed Analysis, Competitive Intelligence e upgrade de schema legado.
+- **Teste de referência:** `tests/test_ai_audit_boundary_regressions.py` - correlação Directed Analysis, Competitive Intelligence e upgrade aditivo de schema histórico.
 - **Ação no Orqetia:** modelar `attempt_id` como identidade de primeira classe desde o início e propagá-la em request lifecycle, retry/fallback, usage, pricing, diagnostics e exchange log.
 - **Não copiar do RASAi:** nomes de CAT, HTML, `report-catalog`, tabelas `directed_analysis_*`, regras de Search Intelligence e qualquer lógica de apresentação.
 
