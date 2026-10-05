@@ -7,6 +7,7 @@ Historical failures remain persisted for cost/reliability/operational analysis.
 from __future__ import annotations
 
 import json
+import math
 import os
 from pathlib import Path
 import sqlite3
@@ -480,7 +481,7 @@ def recover_synthetic_apdex(
                 enabled=True,
                 threshold_seconds=float(cfg_map.get("threshold_seconds")),
                 target_valid_samples=int(cfg_map.get("target_valid_samples") or DEFAULT_APDEX_SAMPLES_PER_CONTEXT),
-                max_attempts_per_context=int(cfg_map.get("max_attempts_per_context") or max(DEFAULT_APDEX_SAMPLES_PER_CONTEXT, int(__import__("math").ceil(DEFAULT_APDEX_SAMPLES_PER_CONTEXT * 1.25)))),
+                max_attempts_per_context=int(cfg_map.get("max_attempts_per_context") or max(DEFAULT_APDEX_SAMPLES_PER_CONTEXT, int(math.ceil(DEFAULT_APDEX_SAMPLES_PER_CONTEXT * 1.25)))),
                 max_pages=int(cfg_map.get("max_pages") or 0),
                 timeout_seconds=float(cfg_map.get("timeout_seconds") or 45.0),
                 delay_seconds=float(cfg_map.get("delay_seconds") or 1.0),
