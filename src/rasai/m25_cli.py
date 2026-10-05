@@ -172,7 +172,7 @@ def configured_experience(
     # are materialized into the current runtime environment so the one-shot M25 stage
     # and report persistence consume exactly the same selected presets.
     if hasattr(environment, "__setitem__"):
-        for device in ("MOBILE", "DESKTOP", "TABLET"):
+        for device in ("MOBILE", "DESKTOP"):
             for kind in ("client", "hardware", "network"):
                 environment[env_name(kind, device)] = _profile_value(args, environment, device, kind)  # type: ignore[index]
 
