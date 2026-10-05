@@ -14,7 +14,7 @@ import re
 import sqlite3
 from typing import Any, Iterable, Mapping
 
-CONTRACT_VERSION = "RECOMMENDATION-GOVERNANCE-002"
+CONTRACT_VERSION = "RECOMMENDATION-GOVERNANCE-003"
 
 TARGET_SITE = "TARGET_SITE"
 AUDITOR_INTERNAL = "AUDITOR_INTERNAL"
@@ -25,12 +25,18 @@ TARGET_CLASSES = frozenset({TARGET_SITE, AUDITOR_INTERNAL, EXTERNAL_PROVIDER, EN
 
 ACCEPTED = "ACCEPTED"
 REJECTED = "REJECTED"
+VERIFY_DECIDE = "VERIFY_DECIDE"
 
 _INTERNAL_MARKERS = (
     "audit.db", "report-catalog", "rasai", "auditor", "orquestrador", "orchestrator",
     "provider fallback", "telemetria", "telemetry", "persistência interna", "internal persistence",
 )
 _JSONLD_EXISTING_RE = re.compile(r"\b(corrigir|ajustar|alterar|atualizar|reparar|fix|update|repair)\b.*\b(json-?ld|dados estruturados|structured data)\b.*\b(existente|existing|atual|current)\b", re.I)
+_URL_RE = re.compile(r"https?://[^\s<>\"']+", re.I)
+_RELATIVE_TARGET_RE = re.compile(r"\b(?:para|to)\s+(/[A-Za-z0-9._~!$&'()*+,;=:@%/?#-]+)", re.I)
+_CANONICAL_RE = re.compile(r"\bcanonical\b", re.I)
+_REDIRECT_RE = re.compile(r"\b(redirect|redirecion(?:ar|amento|e)|301|302|307|308)\b", re.I)
+_NOINDEX_RE = re.compile(r"\b(noindex|indexa(?:r|ção|cao)|indexing|indexabilidade)\b", re.I)
 _NEUTRAL_DISCOVERY_RULES = frozenset({"BR-GEO-003", "BR-GEO-017", "BR-GEO-055", "BR-GEO-056"})
 
 
@@ -113,6 +119,162 @@ def _stable_id(audit_id: str, source_kind: str, source_id: str) -> str:
     return "RGV-" + digest
 
 
+def _context_rows(row: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
+    values: list[Mapping[str, Any]] = [row]
+    for field in (
+        "_governance_source_finding",
+        "_governance_linked_findings",
+        "_governance_linked_roots",
+    ):
+        candidate = row.get(field)
+        if isinstance(candidate, Mapping):
+            values.append(candidate)
+        elif isinstance(candidate, (list, tuple)):
+            values.extend(item for item in candidate if isinstance(item, Mapping))
+    return tuple(values)
+
+
+def _observed_mappings(row: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
+    values: list[Mapping[str, Any]] = []
+    for source in _context_rows(row):
+        for field in ("observed_value", "details_json", "details"):
+            parsed = _load(source.get(field), {})
+            if isinstance(parsed, Mapping):
+                values.append(parsed)
+    return tuple(values)
+
+
+def _rule_ids(row: Mapping[str, Any]) -> frozenset[str]:
+    return frozenset(
+        str(source.get("rule_id") or "").strip().upper()
+        for source in _context_rows(row)
+        if str(source.get("rule_id") or "").strip()
+    )
+
+
+def _evidence_scalar(row: Mapping[str, Any], keys: tuple[str, ...]) -> str | None:
+    for observed in _observed_mappings(row):
+        for key in keys:
+            value = observed.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return None
+
+
+def _prescribed_target(text: str) -> str | None:
+    match = _URL_RE.search(text)
+    if match:
+        return match.group(0).rstrip(".,;)")
+    relative = _RELATIVE_TARGET_RE.search(text)
+    return relative.group(1).rstrip(".,;)") if relative else None
+
+
+def _explicit_index_intent(text: str) -> str | None:
+    lowered = text.casefold()
+    if re.search(r"\b(remover|retirar|remove|retire)\b.{0,40}\bnoindex\b", lowered):
+        return "INDEX"
+    if re.search(r"\b(adicionar|aplicar|manter|add|keep)\b.{0,40}\bnoindex\b", lowered):
+        return "NOINDEX"
+    return None
+
+
+def _evidence_bound_prescription(
+    row: Mapping[str, Any],
+) -> tuple[str, str | None, str | None, str] | None:
+    """Gate decisions that require a fact or policy not proven by persisted evidence."""
+    rules = _rule_ids(row)
+    text = _text(row)
+    lowered = text.casefold()
+
+    canonical = "BR-GEO-013" in rules or _CANONICAL_RE.search(text) is not None
+    if canonical:
+        preferred = _evidence_scalar(
+            row,
+            ("preferred_url", "preferred_canonical", "canonical_target", "desired_canonical"),
+        )
+        prescribed = _prescribed_target(text)
+        absent = any(
+            observed.get("canonicals") == []
+            or str(observed.get("canonical_state") or "").upper() in {"ABSENT", "MISSING"}
+            for observed in _observed_mappings(row)
+        )
+        self_prescriptive = "autorrefer" in lowered or "self-refer" in lowered
+        if prescribed and preferred and prescribed.rstrip("/") != preferred.rstrip("/"):
+            return (
+                VERIFY_DECIDE,
+                "PRESCRIPTION_CONFLICTS_WITH_EVIDENCE",
+                "CANONICAL_TARGET_DECISION",
+                "A URL prescrita para canonical diverge do destino preferencial explicitamente comprovado pela evidência; a implementação deve ser decidida/reconciliada antes de qualquer alteração.",
+            )
+        if (absent or self_prescriptive or prescribed) and not preferred:
+            return (
+                VERIFY_DECIDE,
+                "CANONICAL_PREFERRED_URL_NOT_PROVEN",
+                "CANONICAL_TARGET_DECISION",
+                "A evidência comprova o estado da declaração canonical, mas não comprova qual URL deve ser a versão preferencial. Confirmar a decisão de canonicalização antes de implementar um destino.",
+            )
+
+    indexability = "BR-GEO-012" in rules or _NOINDEX_RE.search(text) is not None
+    if indexability:
+        intended = _evidence_scalar(
+            row,
+            ("intended_indexability", "indexing_intent", "desired_indexability", "indexability_intent"),
+        )
+        prescribed_intent = _explicit_index_intent(text)
+        if prescribed_intent and intended and prescribed_intent != intended.strip().upper():
+            return (
+                VERIFY_DECIDE,
+                "PRESCRIPTION_CONFLICTS_WITH_EVIDENCE",
+                "INDEXABILITY_POLICY_DECISION",
+                "A ação proposta diverge da intenção de indexabilidade persistida; reconciliar a política antes de alterar noindex/index.",
+            )
+        if not intended:
+            return (
+                VERIFY_DECIDE,
+                "INDEXABILITY_INTENT_NOT_PROVEN",
+                "INDEXABILITY_POLICY_DECISION",
+                "Noindex/indexação pode ser deliberado. A evidência técnica não contém a intenção de indexabilidade do proprietário; confirmar essa política antes de remover ou adicionar diretivas.",
+            )
+
+    redirect = _REDIRECT_RE.search(text) is not None
+    prescribed_redirect = _prescribed_target(text) if redirect else None
+    if redirect and prescribed_redirect:
+        destination = _evidence_scalar(
+            row,
+            ("redirect_target", "destination_url", "preferred_url", "target_url"),
+        )
+        if destination and prescribed_redirect.rstrip("/") != destination.rstrip("/"):
+            return (
+                VERIFY_DECIDE,
+                "PRESCRIPTION_CONFLICTS_WITH_EVIDENCE",
+                "REDIRECT_TARGET_DECISION",
+                "O destino de redirect prescrito diverge do destino comprovado pela evidência; reconciliar a decisão antes de alterar o roteamento.",
+            )
+        if not destination:
+            return (
+                VERIFY_DECIDE,
+                "REDIRECT_TARGET_NOT_PROVEN",
+                "REDIRECT_TARGET_DECISION",
+                "A evidência pode justificar revisar a cadeia de redirects, mas não comprova o destino prescrito. Confirmar o destino antes de implementar o redirecionamento.",
+            )
+    return None
+
+
+def _supported_schema_entities(row: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
+    raw = row.get("_governance_supported_entities")
+    if not isinstance(raw, (list, tuple)):
+        return ()
+    values: list[tuple[str, str]] = []
+    for item in raw:
+        if not isinstance(item, Mapping):
+            continue
+        entity_type = str(item.get("entity_type") or "").strip()
+        name = str(item.get("name") or "").strip()
+        if entity_type and name:
+            values.append((entity_type, name))
+    return tuple(values)
+
+
 def _jsonld_decision(row: Mapping[str, Any]) -> tuple[str, str | None, str | None]:
     existing = _load(row.get("existing_types"), [])
     existing_types = [str(item) for item in existing] if isinstance(existing, (list, tuple)) else []
@@ -122,7 +284,37 @@ def _jsonld_decision(row: Mapping[str, Any]) -> tuple[str, str | None, str | Non
         return REJECTED, "JSONLD_ABSENT_EXISTING_CONFLICT", "JSONLD_EXISTENCE"
     if not existing_types and proposed in (None, "", {}, []) and str(row.get("status") or "").upper() not in {"NOT_APPLICABLE", "NO_CHANGE"}:
         return REJECTED, "JSONLD_ABSENT_WITHOUT_CREATION_PAYLOAD", "JSONLD_EXISTENCE"
-    return ACCEPTED, None, None
+    if existing_types or proposed in (None, "", {}, []):
+        return ACCEPTED, None, None
+    if not isinstance(proposed, Mapping):
+        return VERIFY_DECIDE, "JSONLD_CONTENT_OR_ENTITY_NOT_PROVEN", "JSONLD_CONTENT_SUPPORT"
+    if not _evidence_values(row):
+        return VERIFY_DECIDE, "JSONLD_CONTENT_EVIDENCE_REQUIRED", "JSONLD_CONTENT_SUPPORT"
+
+    proposed_type = str(proposed.get("@type") or "").strip()
+    supported = _supported_schema_entities(row)
+    supported_types = {entity_type.casefold() for entity_type, _name in supported}
+    if proposed_type and proposed_type != "WebPage" and proposed_type.casefold() not in supported_types:
+        return VERIFY_DECIDE, "JSONLD_CONTENT_OR_ENTITY_NOT_PROVEN", "JSONLD_CONTENT_SUPPORT"
+
+    main_entity = proposed.get("mainEntity")
+    if isinstance(main_entity, Mapping):
+        main_type = str(main_entity.get("@type") or "").strip()
+        main_name = str(main_entity.get("name") or "").strip()
+        if not any(
+            entity_type.casefold() == main_type.casefold() and name.casefold() == main_name.casefold()
+            for entity_type, name in supported
+        ):
+            return VERIFY_DECIDE, "JSONLD_CONTENT_OR_ENTITY_NOT_PROVEN", "JSONLD_CONTENT_SUPPORT"
+
+    safe_webpage_fields = {
+        "@context", "@type", "url", "inLanguage", "name", "description", "mainEntity"
+    }
+    if proposed_type == "WebPage" and set(proposed).issubset(safe_webpage_fields):
+        return ACCEPTED, None, None
+    if proposed_type and proposed_type.casefold() in supported_types:
+        return ACCEPTED, None, None
+    return VERIFY_DECIDE, "JSONLD_CONTENT_OR_ENTITY_NOT_PROVEN", "JSONLD_CONTENT_SUPPORT"
 
 
 def _request_target(row: Mapping[str, Any]) -> str:
@@ -200,7 +392,12 @@ def classify_candidate(source_kind: str, row: Mapping[str, Any]) -> tuple[str, s
         return target, ACCEPTED, None, None, "Ownership derivado deterministicamente do escopo first-party/third-party persistido."
     if source == "JSONLD":
         decision, reason, conflict = _jsonld_decision(row)
-        rationale = "A sugestão é compatível com a presença/ausência de JSON-LD observada." if decision == ACCEPTED else "A sugestão pressupõe estado de JSON-LD incompatível com a evidência persistida."
+        if decision == ACCEPTED:
+            rationale = "A sugestão de dados estruturados permanece limitada a tipos/propriedades sustentados pela evidência persistida."
+        elif decision == VERIFY_DECIDE:
+            rationale = "Há uma proposta de structured data, mas conteúdo/entidade suficiente não está comprovado para promovê-la automaticamente ao plano de implementação."
+        else:
+            rationale = "A sugestão pressupõe estado de JSON-LD incompatível com a evidência persistida."
         return TARGET_SITE, decision, reason, conflict, rationale
     if source == "DEEP_ANALYSIS":
         target = _deterministic_target_class(row)
@@ -210,6 +407,10 @@ def classify_candidate(source_kind: str, row: Mapping[str, Any]) -> tuple[str, s
             return target, REJECTED, "UNKNOWN_OWNERSHIP_INFORMATIONAL_ONLY", "TARGET_SCOPE", "O finding de origem não sustenta ownership operacional suficiente para promover a recomendação ao plano."
         if target in {TARGET_SITE, EXTERNAL_PROVIDER, ENVIRONMENTAL}:
             return target, ACCEPTED, None, None, "Ownership reutilizado do target determinístico persistido no finding de origem; a governança não o reinfere por texto."
+    prescription = _evidence_bound_prescription(row)
+    if prescription is not None:
+        decision, reason, conflict, rationale = prescription
+        return TARGET_SITE, decision, reason, conflict, rationale
     if source == "M24_DISCOVERY":
         return INFORMATIONAL, ACCEPTED, None, None, "Orientação técnica contextual; requer decisão humana antes de implementação."
     if source == "DETERMINISTIC" and _deterministic_discovery_is_informational(row):
@@ -304,10 +505,31 @@ def collect_candidates(connection: sqlite3.Connection, audit_id: str) -> list[di
         candidates.append(_candidate("DETERMINISTIC", row.get("recommendation_id"), row.get("title"), merged, source_catalog="CAT-09", evidence=evidence))
 
     for row in _rows(connection, "content_remediation_suggestions", audit_id):
-        candidates.append(_candidate("CONTENT_AI", row.get("suggestion_id"), row.get("objective"), row, source_catalog="CAT-03", evidence=_evidence_values(row)))
+        finding = findings.get(str(row.get("finding_id") or ""), {})
+        merged = {
+            **finding,
+            **row,
+            "_governance_source_finding": finding,
+        }
+        evidence = list(_evidence_values(row))
+        for item in _evidence_values(finding):
+            if item not in evidence:
+                evidence.append(item)
+        candidates.append(_candidate("CONTENT_AI", row.get("suggestion_id"), row.get("objective"), merged, source_catalog="CAT-03", evidence=evidence))
 
+    entity_rows = _rows(connection, "entity_observations", audit_id)
+    entities_by_snapshot: dict[str, list[dict[str, Any]]] = {}
+    for entity in entity_rows:
+        snapshot_id = str(entity.get("snapshot_id") or "")
+        if snapshot_id:
+            entities_by_snapshot.setdefault(snapshot_id, []).append(entity)
     for row in _rows(connection, "jsonld_remediation_suggestions", audit_id):
-        candidates.append(_candidate("JSONLD", row.get("suggestion_id"), "Dados estruturados / JSON-LD", row, source_catalog="CAT-03", evidence=_evidence_values(row)))
+        merged = dict(row)
+        merged["_governance_supported_entities"] = entities_by_snapshot.get(
+            str(row.get("snapshot_id") or ""),
+            [],
+        )
+        candidates.append(_candidate("JSONLD", row.get("suggestion_id"), "Dados estruturados / JSON-LD", merged, source_catalog="CAT-03", evidence=_evidence_values(row)))
 
     deep_findings = {
         str(row.get("finding_id")): row
@@ -315,7 +537,7 @@ def collect_candidates(connection: sqlite3.Connection, audit_id: str) -> list[di
     }
     for row in _rows(connection, "improvement_intelligence_recommendations", audit_id):
         finding = deep_findings.get(str(row.get("finding_id") or ""), {})
-        merged = dict(row)
+        merged = {**finding, **row, "_governance_source_finding": finding}
         if finding.get("details_json") is not None:
             merged["details_json"] = finding.get("details_json")
         evidence = list(_evidence_values(row))
@@ -418,5 +640,5 @@ def list_governance(database: Any, audit_id: str, *, decision: str | None = None
 
 __all__ = [
     "CONTRACT_VERSION", "TARGET_SITE", "AUDITOR_INTERNAL", "EXTERNAL_PROVIDER", "ENVIRONMENTAL", "INFORMATIONAL",
-    "ACCEPTED", "REJECTED", "classify_candidate", "collect_candidates", "evaluate_recommendations", "list_governance",
+    "ACCEPTED", "REJECTED", "VERIFY_DECIDE", "classify_candidate", "collect_candidates", "evaluate_recommendations", "list_governance",
 ]
