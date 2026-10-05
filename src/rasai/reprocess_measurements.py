@@ -367,6 +367,29 @@ def _m23_item_from_row(row: sqlite3.Row):
     return _MeasuredSample(int(row["run_index"]), measurement, row["classification"])
 
 
+def _m23_measurement_from_acquisition(acquisition: Any):
+    from rasai.m23_apdex_profiles import NavigationMeasurement
+
+    return NavigationMeasurement(
+        status=str(acquisition.status),
+        duration_ms=int(round(float(acquisition.load_duration_ms))),
+        http_status=acquisition.http_status,
+        final_url=acquisition.final_url,
+        error_code=None,
+        error_message=None,
+        profile_applied=True,
+        cpu_method=acquisition.cpu_method,
+        network_method=acquisition.network_method,
+        browser_diagnostics=(
+            {
+                "type": "CANONICAL_ACQUISITION_REPLAY",
+                "message": acquisition.acquisition_id,
+                "url": acquisition.url,
+            },
+        ),
+    )
+
+
 def _restart_interrupted_m23_stage(
     workspace: AuditWorkspace,
     audit_id: str,
@@ -490,10 +513,19 @@ def recover_synthetic_apdex(
                 desktop_profile=desktop,
             ).validate()
             connection.close()
+            from rasai import m23_apdex_profiles as m23_profiles
+            from rasai.synthetic_apdex_shared_runtime import SharedAwareNavigationGateway
+
             result = m23.execute_m23_apdex(
                 audit_id=audit_id,
                 workspace=workspace,
                 config=cfg,
+                gateway_factory=lambda: SharedAwareNavigationGateway(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                    delegate=m23_profiles.PlaywrightSyntheticNavigationGateway(),
+                    navigation_target_samples=cfg.target_valid_samples,
+                ),
             )
             return m23.persisted_target_fulfilled(
                 workspace, audit_id, cfg.target_valid_samples
@@ -521,7 +553,9 @@ def recover_synthetic_apdex(
     finally:
         connection.close()
 
-    gateway = PlaywrightSyntheticNavigationGateway()
+    from rasai import synthetic_acquisition_engine as acquisition_engine
+
+    gateway = None
     pacer = m23._OriginPacer(cfg.delay_seconds)
     try:
         with M23Persistence(workspace) as store:
@@ -538,20 +572,49 @@ def recover_synthetic_apdex(
                 # RPRs, not a fresh budget for every recovery attempt.
                 remaining_budget = max(cfg.max_attempts_per_context - len(items), 0)
                 while m23._valid_count(items) < cfg.target_valid_samples and new_attempts < remaining_budget:
-                    pacer.wait_for_slot()
-                    measurement = gateway.measure(url=url,profile=profile,timeout_seconds=cfg.timeout_seconds)
+                    replayed = acquisition_engine.claim_persisted_load_boundary(
+                        audit_id=audit_id,
+                        workspace=workspace,
+                        url=url,
+                        device=device.value,
+                        profile_id=profile.profile_id,
+                        timeout_seconds=cfg.timeout_seconds,
+                    )
+                    if replayed is not None:
+                        measurement = _m23_measurement_from_acquisition(replayed)
+                        captured_at = replayed.captured_at
+                    else:
+                        if gateway is None:
+                            gateway = PlaywrightSyntheticNavigationGateway()
+                        pacer.wait_for_slot()
+                        measurement = gateway.measure(
+                            url=url,
+                            profile=profile,
+                            timeout_seconds=cfg.timeout_seconds,
+                        )
+                        captured_at = m23._utc_now()
                     measured = m23._sample(next_index,measurement,float(cfg.threshold_seconds))
                     items.append(measured)
+                    sample_id = new_id("APX")
                     store.add_sample(SyntheticApdexSample(
-                        sample_id=new_id("APX"),audit_id=audit_id,page_id=str(context["page_id"]),
+                        sample_id=sample_id,audit_id=audit_id,page_id=str(context["page_id"]),
                         snapshot_id=snapshot_id,device=device.value,url=url,run_index=next_index,
                         task_id=m23.TASK_NAVIGATION_LOAD,profile_id=profile.profile_id,profile_version=PROFILE_VERSION,
                         status=measurement.status,classification=measured.classification,duration_ms=measurement.duration_ms,
                         http_status=measurement.http_status,final_url=measurement.final_url,error_code=measurement.error_code,
                         error_message=m23._bounded(measurement.error_message,256),cpu_method=measurement.cpu_method,
                         network_method=measurement.network_method,browser_diagnostics={"events": list(measurement.browser_diagnostics)},
-                        cache_policy="COLD_CONTEXT",captured_at=m23._utc_now(),
+                        cache_policy="COLD_CONTEXT",captured_at=captured_at,
                     ))
+                    if replayed is not None:
+                        acquisition_engine.record_replay_link(
+                            audit_id=audit_id,
+                            workspace=workspace,
+                            acquisition_id=replayed.acquisition_id,
+                            consumer="CAT-06",
+                            sample_id=sample_id,
+                            phase="RPR",
+                        )
                     next_index += 1
                     new_attempts += 1
                 summary = m23._summary(
@@ -600,7 +663,8 @@ def recover_synthetic_apdex(
                 reason=reason,updated_at=m23._utc_now(),
             ))
     finally:
-        gateway.close()
+        if gateway is not None:
+            gateway.close()
     return m23.persisted_target_fulfilled(
         workspace, audit_id, cfg.target_valid_samples
     )
@@ -631,6 +695,46 @@ def _m25_item_from_row(row: sqlite3.Row):
     )
 
 
+def _m25_measurement_from_acquisition(acquisition: Any):
+    from rasai.m25_apdex_experience import UxMeasurement
+
+    raw = dict(acquisition.full_observables or {})
+    return UxMeasurement(
+        status=str(acquisition.status),
+        user_action_duration_ms=raw.get("user_action_duration_ms"),
+        navigation_duration_ms=raw.get("navigation_duration_ms"),
+        response_start_ms=raw.get("response_start_ms"),
+        response_end_ms=raw.get("response_end_ms"),
+        dom_interactive_ms=raw.get("dom_interactive_ms"),
+        load_event_start_ms=raw.get("load_event_start_ms"),
+        load_event_end_ms=raw.get("load_event_end_ms"),
+        lcp_ms=raw.get("lcp_ms"),
+        cls=raw.get("cls"),
+        http_status=acquisition.http_status,
+        final_url=acquisition.final_url,
+        xhr_fetch_count=int(raw.get("xhr_fetch_count") or 0),
+        dynamic_resource_count=int(raw.get("dynamic_resource_count") or 0),
+        javascript_error_count=int(raw.get("javascript_error_count") or 0),
+        console_error_count=int(raw.get("console_error_count") or 0),
+        request_failed_count=int(raw.get("request_failed_count") or 0),
+        first_party_request_failed_count=int(raw.get("first_party_request_failed_count") or 0),
+        http_error_count=int(raw.get("http_error_count") or 0),
+        first_party_http_error_count=int(raw.get("first_party_http_error_count") or 0),
+        csp_violation_count=int(raw.get("csp_violation_count") or 0),
+        first_party_csp_violation_count=int(raw.get("first_party_csp_violation_count") or 0),
+        failed_image_request_count=int(raw.get("failed_image_request_count") or 0),
+        first_party_failed_image_request_count=int(raw.get("first_party_failed_image_request_count") or 0),
+        csp_violation_details=tuple(raw.get("csp_violation_details") or ()),
+        request_error_events=tuple(raw.get("request_error_events") or ()),
+        network_settled=bool(raw.get("network_settled", True)),
+        profile_applied=True,
+        error_code=raw.get("error_code"),
+        error_message=raw.get("error_message"),
+        cpu_method=acquisition.cpu_method,
+        network_method=acquisition.network_method,
+    )
+
+
 def recover_experience_apdex(
     *,
     workspace: AuditWorkspace,
@@ -639,6 +743,7 @@ def recover_experience_apdex(
 ) -> bool:
     """Append only missing M25 valid samples, preserving every prior attempt."""
     from rasai import m25_apdex_experience as m25
+    from rasai import synthetic_acquisition_engine as acquisition_engine
     from rasai.m25_persistence import M25Persistence, SyntheticUxRun
 
     connection = sqlite3.connect(workspace.database)
@@ -855,11 +960,69 @@ def recover_experience_apdex(
                             continue
                         profile = m25._profile_for_device(device)
                         items = list(existing_by_context.get((page_id,device),[]))
-                        next_index = max((value.run_index for value in items),default=0)+1
+                        used_indices = {int(value.run_index) for value in items}
+                        next_index = max(used_indices,default=0)+1
                         missing_valid = max(
                             target - sum(value.classification is not None for value in items),
                             0,
                         )
+                        if missing_valid:
+                            linked = acquisition_engine.replay_linked_acquisition_ids(
+                                audit_id=audit_id,
+                                workspace=workspace,
+                                consumer="CAT-07",
+                            )
+                            for envelope in acquisition_engine.available_full_envelopes(
+                                audit_id=audit_id,
+                                workspace=workspace,
+                                url=url,
+                                device=device,
+                                profile_id=profile.profile_id,
+                            ):
+                                if missing_valid <= 0:
+                                    break
+                                if envelope.acquisition_id in linked:
+                                    continue
+                                replay_index = (
+                                    int(envelope.planning_ordinal)
+                                    if envelope.planning_ordinal is not None
+                                    and int(envelope.planning_ordinal) > 0
+                                    and int(envelope.planning_ordinal) not in used_indices
+                                    else next_index
+                                )
+                                measurement = _m25_measurement_from_acquisition(envelope)
+                                classification, value, forced = m25.classify_measurement(
+                                    measurement,
+                                    calibration,
+                                    error_scope=cfg.error_scope,
+                                )
+                                classified = m25._Classified(
+                                    replay_index,
+                                    device,
+                                    measurement,
+                                    classification,
+                                    value,
+                                    forced,
+                                    envelope.captured_at,
+                                )
+                                sample = m25._persisted_sample(
+                                    audit_id,page_id,url,profile,cfg,calibration,classified
+                                )
+                                store.add_sample(sample)
+                                acquisition_engine.record_replay_link(
+                                    audit_id=audit_id,
+                                    workspace=workspace,
+                                    acquisition_id=envelope.acquisition_id,
+                                    consumer="CAT-07",
+                                    sample_id=sample.sample_id,
+                                    phase="RPR",
+                                )
+                                items.append(classified)
+                                used_indices.add(replay_index)
+                                next_index = max(next_index, replay_index + 1)
+                                if classification is not None:
+                                    missing_valid -= 1
+
                         if missing_valid:
                             new_items = m25._measure_device(
                                 audit_id=audit_id,
