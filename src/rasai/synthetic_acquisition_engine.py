@@ -493,6 +493,20 @@ def claim_load_boundary(
         if queue is not None and not queue:
             _pool.pop(key, None)
     if timed_out:
+        try:
+            connection = _connect(workspace)
+            try:
+                connection.executemany(
+                    "UPDATE synthetic_apdex_acquisitions "
+                    "SET consumed_by_navigation=-1,consumed_at=? "
+                    "WHERE acquisition_id=? AND consumed_by_navigation=0",
+                    [(utc_now(), item.acquisition_id) for item in timed_out],
+                )
+                connection.commit()
+            finally:
+                connection.close()
+        except sqlite3.Error:
+            pass
         _update_run_counter(workspace, audit_id, "timeout_incompatible", len(timed_out))
     if selected is None:
         return None
@@ -525,7 +539,7 @@ def claim_persisted_load_boundary(
 ) -> SyntheticAcquisitionEnvelope | None:
     """Claim an unconsumed persisted load boundary after process restart."""
     selected: sqlite3.Row | None = None
-    incompatible = 0
+    incompatible_ids: list[str] = []
     try:
         connection = _connect(workspace)
         try:
@@ -553,7 +567,14 @@ def claim_persisted_load_boundary(
                 if duration <= float(timeout_seconds) * 1000.0:
                     selected = row
                     break
-                incompatible += 1
+                incompatible_ids.append(str(row["acquisition_id"]))
+            if incompatible_ids:
+                connection.executemany(
+                    "UPDATE synthetic_apdex_acquisitions "
+                    "SET consumed_by_navigation=-1,consumed_at=? "
+                    "WHERE acquisition_id=? AND consumed_by_navigation=0",
+                    [(utc_now(), value) for value in incompatible_ids],
+                )
             if selected is not None:
                 connection.execute(
                     "UPDATE synthetic_apdex_acquisitions "
@@ -565,8 +586,13 @@ def claim_persisted_load_boundary(
             connection.close()
     except sqlite3.Error:
         return None
-    if incompatible:
-        _update_run_counter(workspace, audit_id, "timeout_incompatible", incompatible)
+    if incompatible_ids:
+        _update_run_counter(
+            workspace,
+            audit_id,
+            "timeout_incompatible",
+            len(incompatible_ids),
+        )
     if selected is None:
         return None
     _update_run_counter(workspace, audit_id, "reused_by_navigation")
