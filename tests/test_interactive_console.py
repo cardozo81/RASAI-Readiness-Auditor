@@ -49,7 +49,7 @@ class InteractiveConsoleTests(unittest.TestCase):
         self.assertEqual(state.field_source, "pagespeed")
 
     def test_environment_edit_sync_can_be_scoped_without_resetting_menu_choices(self) -> None:
-        state = State(device="both", web_performance=True)
+        state = State(device="desktop", web_performance=True)
         issues = apply_environment_defaults(
             state,
             {"RASAI_WEB_PERFORMANCE_MAX_PAGES": "3"},
@@ -57,7 +57,7 @@ class InteractiveConsoleTests(unittest.TestCase):
         )
         self.assertEqual(issues, ())
         self.assertEqual(state.web_max_pages, 3)
-        self.assertEqual(state.device, "both")
+        self.assertEqual(state.device, "desktop")
         self.assertTrue(state.web_performance)
 
     def test_only_configured_valid_providers_are_available(self) -> None:
@@ -136,7 +136,7 @@ class InteractiveConsoleTests(unittest.TestCase):
         state = State(
             target="https://example.com",
             project="Example",
-            device="both",
+            device="desktop",
             ai_provider="openai",
             ai_model="gpt-5.6-terra",
             content_remediation=True,
@@ -146,7 +146,7 @@ class InteractiveConsoleTests(unittest.TestCase):
         command = build_command(state)
         self.assertIn("audit", command)
         self.assertIn("--device-context", command)
-        self.assertIn("both", command)
+        self.assertIn("desktop", command)
         self.assertIn("--ai-provider", command)
         self.assertIn("openai", command)
         self.assertIn("--ai-content-remediation", command)
@@ -161,7 +161,7 @@ class InteractiveConsoleTests(unittest.TestCase):
             ai_provider="openai",
             ai_model="gpt-5.6-terra",
             content_remediation=True,
-            device="both",
+            device="desktop",
             web_performance=True,
             web_max_pages=3,
         )
@@ -241,7 +241,7 @@ class InteractiveConsoleTests(unittest.TestCase):
                 input_mode="file",
                 target=str(path),
                 max_pages=3,
-                device="both",
+                device="desktop",
                 ai_provider="openai",
                 ai_model="gpt-5.6-terra",
                 content_remediation=True,
@@ -251,9 +251,9 @@ class InteractiveConsoleTests(unittest.TestCase):
             )
             estimate = estimate_exposure(state)
             self.assertEqual((estimate.min_pages, estimate.max_pages), (3, 3))
-            self.assertEqual(estimate.device_contexts, 2)
-            self.assertEqual((estimate.min_ai_attempts, estimate.max_ai_attempts), (6, 36))
-            self.assertEqual((estimate.min_web_calls, estimate.max_web_calls), (4, 8))
+            self.assertEqual(estimate.device_contexts, 1)
+            self.assertEqual((estimate.min_ai_attempts, estimate.max_ai_attempts), (3, 18))
+            self.assertEqual((estimate.min_web_calls, estimate.max_web_calls), (2, 4))
             self.assertEqual(estimate.level, "ALTO")
             self.assertTrue(any("USD" in line for line in estimate.pricing_lines))
 
