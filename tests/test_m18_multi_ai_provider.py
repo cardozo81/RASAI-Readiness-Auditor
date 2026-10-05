@@ -323,7 +323,7 @@ class M18ProviderTests(unittest.TestCase):
 </head><body><main><h1>Guia M18</h1><h2>Visão geral</h2><p>Conteúdo técnico verificável para integração M18.</p></main></body></html>"""
             secret = "M18-INTEGRATION-SECRET"
             provider = OpenAIProvider(api_key=secret, transport=_success_transport())
-            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "both"}, clear=False):
+            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "mobile"}, clear=False):
                 result = run_audit(
                     f"{origin}/",
                     audits_root=Path(directory),
