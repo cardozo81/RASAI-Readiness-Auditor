@@ -7,6 +7,7 @@ import os
 from typing import Any, Mapping
 
 from rasai.apdex_concurrency_policy import EXPERIENCE_MAX_CONCURRENCY
+from rasai.device_context import DEVICE_CONTEXT_ENV, canonical_single_device_mix
 from rasai.m25_apdex_experience import ExperienceApdexConfig
 from rasai.m25_dynatrace import SUPPORTED_TIME_KPMS
 from rasai.m25_dynatrace_defaults import (
@@ -66,7 +67,7 @@ M25_ENV_NAMES = (
 
 DEFAULT_UX_SAMPLES = 100
 DEFAULT_UX_MAX_PAGES = 1
-DEFAULT_UX_DEVICE_MIX = "mobile=60,desktop=35,tablet=5"
+DEFAULT_UX_DEVICE_MIX = "mobile=100,desktop=0,tablet=0"
 DEFAULT_UX_SESSION_MODE = "cold"
 DEFAULT_UX_KPM = RASAI_DYNATRACE_COMPAT_KPM
 DEFAULT_UX_SATISFIED_SECONDS = RASAI_DYNATRACE_COMPAT_SATISFIED_SECONDS
@@ -90,7 +91,7 @@ def register_experience_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--apdex-experience-samples", type=int, default=None, help=f"total valid samples per page across the configured device population; default {DEFAULT_UX_SAMPLES} or {UX_SAMPLES_ENV}")
     parser.add_argument("--apdex-experience-max-attempts", type=int, default=None, help=f"total attempt budget per page; default ceil(1.25*samples) or {UX_MAX_ATTEMPTS_ENV}")
     parser.add_argument("--apdex-experience-max-pages", type=int, default=None, help=f"maximum pages; 0=all; default {DEFAULT_UX_MAX_PAGES} or {UX_MAX_PAGES_ENV}")
-    parser.add_argument("--apdex-experience-device-mix", default=None, help=f"percentage distribution of synthetic user-action samples; must total 100; default {DEFAULT_UX_DEVICE_MIX} or {UX_DEVICE_MIX_ENV}")
+    parser.add_argument("--apdex-experience-device-mix", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--apdex-experience-session-mode", choices=("cold", "warm"), default=None, help=f"cold=fresh context/cache; warm=reused context/cache/cookies; default {DEFAULT_UX_SESSION_MODE} or {UX_SESSION_MODE_ENV}")
     parser.add_argument("--apdex-experience-kpm", choices=tuple(sorted(SUPPORTED_TIME_KPMS)), default=None, help=f"executable time KPM; default {DEFAULT_UX_KPM} or {UX_KPM_ENV}")
     parser.add_argument("--apdex-experience-satisfied-seconds", type=float, default=None, help=f"Satisfied/Tolerating threshold; default {DEFAULT_UX_SATISFIED_SECONDS:g}s or {UX_SATISFIED_ENV}")
@@ -132,8 +133,14 @@ def configured_experience(
     max_attempts = _optional_positive_int(getattr(args, "apdex_experience_max_attempts", None), UX_MAX_ATTEMPTS_ENV, environment)
     if max_attempts is None: max_attempts = max(samples, int(math.ceil(samples * 1.25)))
     max_pages = _nonnegative_int(getattr(args, "apdex_experience_max_pages", None), UX_MAX_PAGES_ENV, standard_max_pages if standard_max_pages >= 0 else DEFAULT_UX_MAX_PAGES, environment)
-    mix_raw = _text(getattr(args, "apdex_experience_device_mix", None), UX_DEVICE_MIX_ENV, environment) or DEFAULT_UX_DEVICE_MIX
-    mix = parse_device_mix(mix_raw)
+    canonical_mix_raw = canonical_single_device_mix((environment.get(DEVICE_CONTEXT_ENV) or "mobile").strip())
+    mix = parse_device_mix(canonical_mix_raw)
+    requested_mix_raw = _text(getattr(args, "apdex_experience_device_mix", None), UX_DEVICE_MIX_ENV, environment)
+    if requested_mix_raw is not None and parse_device_mix(requested_mix_raw) != mix:
+        raise ValueError(
+            f"{UX_DEVICE_MIX_ENV} is inherited from {DEVICE_CONTEXT_ENV}; "
+            "select mobile or desktop at audit level instead of configuring a device mix"
+        )
     session = (_text(getattr(args, "apdex_experience_session_mode", None), UX_SESSION_MODE_ENV, environment) or DEFAULT_UX_SESSION_MODE).casefold()
     kpm = (_text(getattr(args, "apdex_experience_kpm", None), UX_KPM_ENV, environment) or DEFAULT_UX_KPM).upper()
     satisfied = _positive_float(getattr(args, "apdex_experience_satisfied_seconds", None), UX_SATISFIED_ENV, DEFAULT_UX_SATISFIED_SECONDS, environment)
