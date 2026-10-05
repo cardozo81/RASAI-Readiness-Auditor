@@ -209,7 +209,17 @@ def consume_navigation_acquisition(
     """Claim only the persisted load boundary; CAT-06 still classifies independently."""
     if acquisition_mode() != "auto":
         return None
-    return acquisition_engine.claim_load_boundary(
+    item = acquisition_engine.claim_load_boundary(
+        audit_id=audit_id,
+        workspace=workspace,
+        url=url,
+        device=device,
+        profile_id=profile_id,
+        timeout_seconds=timeout_seconds,
+    )
+    if item is not None:
+        return item
+    return acquisition_engine.claim_persisted_load_boundary(
         audit_id=audit_id,
         workspace=workspace,
         url=url,
