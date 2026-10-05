@@ -341,7 +341,7 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
     elif key == ("console", "audits_root"): state.audits_root = raw.strip() or state.audits_root
     elif key == ("console", "device"):
         value = raw.strip().casefold()
-        if value not in {"mobile", "desktop", "both"}: raise ValueError("use mobile, desktop ou both")
+        if value not in {"mobile", "desktop"}: raise ValueError("use mobile ou desktop")
         state.device, state.current_device = value, value.upper()
     elif key == ("presentation", "timezone"):
         os.environ[PRESENTATION_TIMEZONE_ENV] = validate_presentation_timezone(raw)
