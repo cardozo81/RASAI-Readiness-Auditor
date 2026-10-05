@@ -942,6 +942,7 @@ def _ai_analyze(
                 )
 
         success = success_payload is not None
+        attempt_id = new_id("AIA")
         attempt = ProviderAttempt(
             provider=str(candidate.name),
             model=str(candidate.model),
@@ -986,12 +987,15 @@ def _ai_analyze(
             ),
             fallback_from_provider=fallback_from,
             fallback_reason=fallback_reason,
+            attempt_id=attempt_id,
         )
+        recorder.bind_latest_attempt(attempt_id)
         _persist_attempt(
             workspace,
             audit_id,
             target_context,
             attempt,
+            attempt_id=attempt_id,
             operation="DIRECTED_ANALYSIS",
         )
         record_canonical_attempt(
