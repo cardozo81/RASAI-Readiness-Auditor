@@ -213,7 +213,7 @@ def test_cli_resolves_pending_experience_when_navigation_is_disabled() -> None:
         set_pending_config(ExperienceApdexConfig(enabled=False))
 
 
-def test_standalone_experience_dispatch_does_not_execute_disabled_navigation(
+def test_experience_stage_dispatch_is_independent_from_navigation(
     monkeypatch,
 ) -> None:
     calls: list[tuple[str, object]] = []
@@ -224,8 +224,7 @@ def test_standalone_experience_dispatch_does_not_execute_disabled_navigation(
 
     monkeypatch.setattr(cli_extensions, "execute_pending_m25", fake_execute_pending_m25)
     workspace = object()
-    ran = cli_extensions._execute_standalone_experience(
-        m23_config=SyntheticApdexConfig(enabled=False),
+    ran = cli_extensions._execute_experience_stage(
         experience_config=SimpleNamespace(enabled=True),
         audit_id=AUDIT_ID,
         workspace=workspace,
@@ -288,3 +287,14 @@ def test_experience_execution_profile_contains_only_its_own_apdex_capability() -
     assert console_profile_capability_architecture.CAPS["apdex-experience"] == (
         "apdex-experience",
     )
+
+
+def test_m23_lighthouse_traceability_has_no_experience_dispatch() -> None:
+    import inspect
+    from rasai import m23_lighthouse_traceability
+
+    source = inspect.getsource(
+        m23_lighthouse_traceability.extract_lighthouse_execution_profiles
+    )
+    assert "execute_pending_m25" not in source
+    assert "m25" not in source.casefold()
