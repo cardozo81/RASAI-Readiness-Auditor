@@ -4,11 +4,11 @@ on:
   pull_request:
     paths:
       - 'src/rasai/synthetic_acquisition_engine.py'
-      - 'src/rasai/synthetic_apdex_shared_runtime.py'
+      - 'src/rasai/synthetic_acquisition_runtime.py'
       - 'src/rasai/reprocess_measurements.py'
       - 'src/rasai/m23_apdex.py'
       - 'src/rasai/m25_apdex_experience.py'
-      - 'tests/test_synthetic_apdex_shared_acquisition.py'
+      - 'tests/test_synthetic_acquisition_runtime.py'
       - 'tests/test_synthetic_acquisition_reprocess_206.py'
       - 'tests/test_synthetic_acquisition_homologation_207.py'
       - 'docs/SYNTHETIC_ACQUISITION_HOMOLOGATION.md'
@@ -17,11 +17,11 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/synthetic_acquisition_engine.py'
-      - 'src/rasai/synthetic_apdex_shared_runtime.py'
+      - 'src/rasai/synthetic_acquisition_runtime.py'
       - 'src/rasai/reprocess_measurements.py'
       - 'src/rasai/m23_apdex.py'
       - 'src/rasai/m25_apdex_experience.py'
-      - 'tests/test_synthetic_apdex_shared_acquisition.py'
+      - 'tests/test_synthetic_acquisition_runtime.py'
       - 'tests/test_synthetic_acquisition_reprocess_206.py'
       - 'tests/test_synthetic_acquisition_homologation_207.py'
       - 'docs/SYNTHETIC_ACQUISITION_HOMOLOGATION.md'
@@ -46,5 +46,5 @@ jobs:
         run: |
           python -m pytest -q \
             tests/test_synthetic_acquisition_homologation_207.py \
-            tests/test_synthetic_apdex_shared_acquisition.py \
+            tests/test_synthetic_acquisition_runtime.py \
             tests/test_synthetic_acquisition_reprocess_206.py
