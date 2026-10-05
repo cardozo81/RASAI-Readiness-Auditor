@@ -10,7 +10,13 @@ import pytest
 from rasai import synthetic_acquisition_engine as engine
 from rasai.m23_apdex import _sample as nav_sample, _summary as nav_summary
 from rasai.m23_apdex_profiles import MOBILE_STANDARD_PROFILE, NavigationMeasurement
-from rasai.m25_apdex_experience import Calibration, UxMeasurement, classify_measurement
+from rasai.m25_apdex_experience import (
+    Calibration,
+    UxMeasurement,
+    _Classified as UxClassified,
+    _summary as ux_summary,
+    classify_measurement,
+)
 
 
 @dataclass(frozen=True)
@@ -164,39 +170,108 @@ def test_experience_evaluator_parity_preserves_kpm_errors_and_post_load_facts() 
         request_errors_affect_apdex=True,
         console_errors_affect_apdex=False,
     )
-    baseline = UxMeasurement(
-        status="SUCCESS",
-        user_action_duration_ms=1_800.0,
-        navigation_duration_ms=800.0,
-        response_start_ms=100.0,
-        response_end_ms=220.0,
-        dom_interactive_ms=1_100.0,
-        load_event_start_ms=1_600.0,
-        load_event_end_ms=1_700.0,
-        lcp_ms=1_300.0,
-        cls=0.02,
-        http_status=200,
-        final_url="https://example.test/",
-        xhr_fetch_count=3,
-        dynamic_resource_count=7,
-        javascript_error_count=0,
-        request_failed_count=0,
-        network_settled=True,
-        profile_applied=True,
-    )
-    replayed = UxMeasurement(**{
-        field: getattr(baseline, field)
-        for field in baseline.__dataclass_fields__
-    })
-    assert classify_measurement(
-        replayed, calibration, error_scope="all"
-    ) == classify_measurement(
-        baseline, calibration, error_scope="all"
-    )
-    assert replayed.xhr_fetch_count == baseline.xhr_fetch_count
-    assert replayed.network_settled == baseline.network_settled
-    assert replayed.load_event_end_ms == baseline.load_event_end_ms
+    baseline_items = []
+    replay_items = []
+    for index in range(1, 101):
+        duration = 700.0 + ((index * 53) % 4200)
+        measurement = UxMeasurement(
+            status="SUCCESS",
+            user_action_duration_ms=duration,
+            navigation_duration_ms=duration * 0.45,
+            response_start_ms=100.0,
+            response_end_ms=220.0,
+            dom_interactive_ms=duration * 0.65,
+            load_event_start_ms=duration * 0.88,
+            load_event_end_ms=duration * 0.92,
+            lcp_ms=duration * 0.72,
+            cls=0.02,
+            http_status=200,
+            final_url="https://example.test/",
+            xhr_fetch_count=index % 5,
+            dynamic_resource_count=index % 9,
+            javascript_error_count=1 if index % 29 == 0 else 0,
+            request_failed_count=1 if index % 31 == 0 else 0,
+            network_settled=index % 17 != 0,
+            profile_applied=True,
+        )
+        replayed = UxMeasurement(**{
+            field: getattr(measurement, field)
+            for field in measurement.__dataclass_fields__
+        })
+        baseline_result = classify_measurement(
+            measurement, calibration, error_scope="all"
+        )
+        replay_result = classify_measurement(
+            replayed, calibration, error_scope="all"
+        )
+        assert replay_result == baseline_result
+        baseline_items.append(
+            UxClassified(
+                index,
+                "MOBILE",
+                measurement,
+                baseline_result[0],
+                baseline_result[1],
+                baseline_result[2],
+                f"2026-10-05T12:{index % 60:02d}:00+00:00",
+            )
+        )
+        replay_items.append(
+            UxClassified(
+                index,
+                "MOBILE",
+                replayed,
+                replay_result[0],
+                replay_result[1],
+                replay_result[2],
+                f"2026-10-05T12:{index % 60:02d}:00+00:00",
+            )
+        )
 
+    baseline_summary = ux_summary(
+        audit_id="AUD-BASELINE",
+        page_id="PAGE-1",
+        url="https://example.test/",
+        device="MOBILE",
+        profile_id="PROFILE",
+        target=100,
+        items=baseline_items,
+    )
+    replay_summary = ux_summary(
+        audit_id="AUD-CANONICAL",
+        page_id="PAGE-1",
+        url="https://example.test/",
+        device="MOBILE",
+        profile_id="PROFILE",
+        target=100,
+        items=replay_items,
+    )
+    for field in (
+        "valid_samples",
+        "invalid_samples",
+        "satisfied_count",
+        "tolerating_count",
+        "frustrated_count",
+        "error_forced_frustrated_count",
+        "apdex_score",
+        "mean_ms",
+        "median_ms",
+        "p95_ms",
+        "javascript_error_samples",
+        "request_error_samples",
+        "network_unsettled_samples",
+    ):
+        assert getattr(replay_summary, field) == getattr(baseline_summary, field)
+
+    assert [item.kpm_value_ms for item in replay_items] == [
+        item.kpm_value_ms for item in baseline_items
+    ]
+    assert [item.measurement.xhr_fetch_count for item in replay_items] == [
+        item.measurement.xhr_fetch_count for item in baseline_items
+    ]
+    assert [item.measurement.network_settled for item in replay_items] == [
+        item.measurement.network_settled for item in baseline_items
+    ]
 
 def test_invalid_fragments_remain_invalid_under_canonical_path() -> None:
     calibration = Calibration(
