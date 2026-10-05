@@ -58,6 +58,24 @@ def _safe_payload_text(value: Any) -> str:
     return str(sanitized)
 
 
+def _provider_identity(value: Any) -> _Html:
+    """Preserve canonical provider identity without weakening generic enum fallback."""
+    raw=str(value or "-").strip() or "-"
+    return _Html("<code class='provider-id'>"+escape(raw)+"</code>")
+
+
+def _persisted_payload_text(value: Any) -> str:
+    """Return the persisted exchange evidence without semantic humanization."""
+    if value in (None, ""):
+        return "Não persistido."
+    return str(value)
+
+
+def _raw_payload_block(value: Any) -> str:
+    # humanize_report_html intentionally treats <pre> as an immutable evidence zone.
+    return "<pre class='pre'>"+escape(_persisted_payload_text(value))+"</pre>"
+
+
 def _external_details_public_text(value: Any) -> str:
     """Display only recognized external-source metadata after secret redaction.
 
@@ -243,6 +261,16 @@ def _ai_exchange_rows(database: Path, audit_id: str) -> list[dict[str,Any]]:
 
 
 def _match_exchange(attempt: Mapping[str,Any], exchanges: Sequence[Mapping[str,Any]], used: set[str]) -> Mapping[str,Any]|None:
+    attempt_id=str(attempt.get("attempt_id") or "")
+    if attempt_id:
+        for ex in exchanges:
+            eid=str(ex.get("exchange_id") or "")
+            if eid in used:continue
+            if str(ex.get("attempt_id") or "")==attempt_id:
+                used.add(eid);return ex
+
+    # Backward-compatible fallback for historical databases created before stable
+    # attempt correlation existed. New exchanges must match by attempt_id above.
     ap=str(attempt.get("provider") or "").upper(); model=str(attempt.get("model") or "")
     purpose=str(attempt.get("purpose") or "").casefold()
     for ex in exchanges:
@@ -453,7 +481,7 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
         occurred_at=a.get("started_at") or a.get("finished_at")
         origin,reprocess_id=_execution_origin(occurred_at,reprocess_runs)
         rows.append((
-            a.get("purpose"),usage_context,a.get("provider") or "-",a.get("model") or "-",
+            a.get("purpose"),usage_context,_provider_identity(a.get("provider")),a.get("model") or "-",
             occurred_at or "-",origin,_status_label(a.get("status")),
             _token_pair_display(a.get("input_tokens"),a.get("output_tokens"),cost=raw_cost),
             _native_usage_display(a),
@@ -462,7 +490,7 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
         body=_kv((
             ("Finalidade",a.get("purpose")),
             ("Aplicação no relatório",usage_context),
-            ("Provedor",a.get("provider")),
+            ("Provedor",_provider_identity(a.get("provider"))),
             ("Modelo",a.get("model")),
             ("Data/hora",occurred_at or "-"),
             ("Origem da execução",origin),
@@ -487,14 +515,14 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
         body+="<h3>Papel da IA nesta chamada</h3><p>"+escape(role)+"</p>"
         body+="<h3>O que foi solicitado</h3><p>"+escape(str(a.get("request_message_summary") or "Resumo textual da solicitação não persistido."))+"</p>"
         if ex:
-            body+="<h3>Comunicação persistida · solicitação</h3><div class='pre'>"+escape(_safe_payload_text(ex.get("request_payload")))+"</div>"
-            body+="<h3>Comunicação persistida · resposta</h3><div class='pre'>"+escape(_safe_payload_text(ex.get("response_payload")))+"</div>"
+            body+="<h3>Comunicação persistida · solicitação</h3>"+_raw_payload_block(ex.get("request_payload"))
+            body+="<h3>Comunicação persistida · resposta</h3>"+_raw_payload_block(ex.get("response_payload"))
             if ex.get("request_truncated") or ex.get("response_truncated"):
                 body+="<div class='notice warn'>O log persistido sinaliza truncamento; o relatório não reconstrói conteúdo ausente.</div>"
         else:
             body+="<div class='notice'>O conteúdo bruto da solicitação/resposta não foi persistido para esta tentativa. O relatório exibe somente a telemetria disponível e não inventa a comunicação.</div>"
         body+="<details><summary>Ver contrato técnico da chamada</summary><div class='detail-body'>"+_kv((("Contrato",a.get("contract") or "-"),))+"</div></details>"
-        modals.append(_modal(mid,f"{a.get('purpose')} · tentativa {a.get('attempt_index') or i}",f"{a.get('provider') or 'IA'} / {a.get('model') or 'modelo não informado'}",body))
+        modals.append(_modal(mid,f"{a.get('purpose')} · tentativa {a.get('attempt_index') or i}","Detalhes técnicos da tentativa persistida",body))
     int_rows=[];int_modals=[]
     for i,r in enumerate(external,1):
         mid=f"integration-{i}"

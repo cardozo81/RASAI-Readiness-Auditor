@@ -9,7 +9,7 @@ persistence so they can be rendered without becoming canonical audit data.
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import hashlib
 import io
@@ -52,6 +52,7 @@ _SECRET_KEYS = frozenset({
 })
 _PURPOSE_MARKERS = (
     ("directed_analysis", "DIRECTED_ANALYSIS"),
+    ("rasai_competitive_ai", "COMPETITIVE_INTELLIGENCE"),
     ("rasai_m24_technical_remediation", "TECHNICAL_REMEDIATION"),
     ("rasai_content_remediation", "CONTENT_REMEDIATION"),
     ("rasai_source_quality", "SOURCE_QUALITY_EXPLANATION"),
@@ -81,10 +82,12 @@ class AiExchange:
     exception_type: str | None
     request_payload: str
     request_sha256: str
+    request_payload_hash: str
     request_truncated: bool
     response_payload: str | None
     response_sha256: str | None
     response_truncated: bool
+    attempt_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +122,17 @@ class AiExchangeRecorder:
     def context_interpretations(self) -> tuple[ContextInterpretationRecord, ...]:
         return tuple(self._interpretations)
 
+    def bind_latest_attempt(self, attempt_id: str) -> bool:
+        """Attach a stable provider-attempt identity to the most recent exchange."""
+        token = str(attempt_id or "").strip()
+        if not token or not self._exchanges:
+            return False
+        latest = self._exchanges[-1]
+        if latest.attempt_id not in (None, token):
+            return False
+        self._exchanges[-1] = replace(latest, attempt_id=token)
+        return True
+
     def append_exchange(
         self,
         *,
@@ -135,6 +149,7 @@ class AiExchangeRecorder:
         raw_http_error_body: bytes | None = None,
     ) -> None:
         request_text = body.decode("utf-8", errors="replace")
+        request_payload_hash = hashlib.sha256(body).hexdigest()
         request_for_log = _sanitize_request_text(request_text)
         request_payload, request_sha, request_truncated = _bounded(
             request_for_log, self.max_capture_bytes
@@ -194,6 +209,7 @@ class AiExchangeRecorder:
                 exception_type=exception_type,
                 request_payload=request_payload,
                 request_sha256=request_sha,
+                request_payload_hash=request_payload_hash,
                 request_truncated=request_truncated,
                 response_payload=response_payload,
                 response_sha256=response_sha,
@@ -560,13 +576,66 @@ def _strip_transient_context_interpretation(raw: Any) -> Any:
     return transformed if found else raw
 
 
+def _exchange_attempt_id(
+    connection: sqlite3.Connection,
+    *,
+    audit_id: str,
+    item: AiExchange,
+    claimed_attempt_ids: set[str],
+) -> str | None:
+    """Resolve an exchange to one provider attempt without time-based guessing."""
+    try:
+        columns = {
+            str(row[1])
+            for row in connection.execute("PRAGMA table_info(ai_provider_attempts)").fetchall()
+        }
+    except sqlite3.Error:
+        return None
+    required = {"attempt_id", "audit_id", "provider"}
+    if not required.issubset(columns):
+        return None
+
+    explicit = str(item.attempt_id or "").strip()
+    if explicit:
+        row = connection.execute(
+            "SELECT 1 FROM ai_provider_attempts WHERE audit_id=? AND attempt_id=?",
+            (audit_id, explicit),
+        ).fetchone()
+        return explicit if row is not None else None
+
+    # Historical/unbound fallback: only accept a unique exact request fingerprint.
+    if "request_payload_hash" not in columns or not item.request_payload_hash:
+        return None
+    where = [
+        "audit_id=?",
+        "UPPER(COALESCE(provider,''))=UPPER(?)",
+        "request_payload_hash=?",
+    ]
+    params: list[Any] = [audit_id, item.provider, item.request_payload_hash]
+    if "model" in columns and item.model:
+        where.append("COALESCE(model,'')=?")
+        params.append(str(item.model))
+    try:
+        rows = connection.execute(
+            f"SELECT attempt_id FROM ai_provider_attempts WHERE {' AND '.join(where)} ORDER BY attempt_id",
+            tuple(params),
+        ).fetchall()
+    except sqlite3.Error:
+        return None
+    candidates = [
+        str(row[0])
+        for row in rows
+        if row[0] and str(row[0]) not in claimed_attempt_ids
+    ]
+    return candidates[0] if len(candidates) == 1 else None
+
 def persist_ai_exchange_log(
     *,
     audit_id: str,
     workspace: AuditWorkspace,
     recorder: AiExchangeRecorder | None,
 ) -> int:
-    """Persist sanitized external exchanges. AUTO context interpretations stay in memory only."""
+    """Persist sanitized exchanges with additive attempt correlation metadata."""
     if recorder is None:
         return 0
     connection = sqlite3.connect(workspace.database)
@@ -592,10 +661,12 @@ def persist_ai_exchange_log(
                     exception_type TEXT,
                     request_payload TEXT NOT NULL,
                     request_sha256 TEXT NOT NULL,
+                    request_payload_hash TEXT,
                     request_truncated INTEGER NOT NULL,
                     response_payload TEXT,
                     response_sha256 TEXT,
-                    response_truncated INTEGER NOT NULL
+                    response_truncated INTEGER NOT NULL,
+                    attempt_id TEXT
                 );
                 CREATE INDEX IF NOT EXISTS idx_ai_exchange_audit
                     ON ai_exchange_log(audit_id,sequence_no);
@@ -603,28 +674,72 @@ def persist_ai_exchange_log(
                     ON ai_exchange_log(audit_id,provider,purpose);
                 """
             )
+            columns = {
+                str(row[1])
+                for row in connection.execute("PRAGMA table_info(ai_exchange_log)").fetchall()
+            }
+            if "request_payload_hash" not in columns:
+                connection.execute(
+                    "ALTER TABLE ai_exchange_log ADD COLUMN request_payload_hash TEXT"
+                )
+            if "attempt_id" not in columns:
+                connection.execute("ALTER TABLE ai_exchange_log ADD COLUMN attempt_id TEXT")
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_ai_exchange_attempt "
+                "ON ai_exchange_log(audit_id,attempt_id)"
+            )
+
+            claimed_attempt_ids = {
+                str(row[0])
+                for row in connection.execute(
+                    "SELECT attempt_id FROM ai_exchange_log "
+                    "WHERE audit_id=? AND attempt_id IS NOT NULL",
+                    (audit_id,),
+                ).fetchall()
+                if row[0]
+            }
             count = 0
             for item in recorder.exchanges:
+                attempt_id = _exchange_attempt_id(
+                    connection,
+                    audit_id=audit_id,
+                    item=item,
+                    claimed_attempt_ids=claimed_attempt_ids,
+                )
+                if attempt_id:
+                    claimed_attempt_ids.add(attempt_id)
                 cursor = connection.execute(
                     """
                     INSERT OR IGNORE INTO ai_exchange_log (
                         exchange_id,audit_id,sequence_no,provider,model,purpose,
                         snapshot_id,page_url,endpoint,started_at,finished_at,duration_ms,
                         outcome,http_status,exception_type,request_payload,request_sha256,
-                        request_truncated,response_payload,response_sha256,response_truncated
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        request_payload_hash,request_truncated,response_payload,response_sha256,
+                        response_truncated,attempt_id
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     (
                         item.exchange_id, audit_id, item.sequence_no, item.provider, item.model,
                         item.purpose, item.snapshot_id, item.page_url, item.endpoint,
                         item.started_at, item.finished_at, item.duration_ms, item.outcome,
                         item.http_status, item.exception_type, item.request_payload,
-                        item.request_sha256, 1 if item.request_truncated else 0,
+                        item.request_sha256, item.request_payload_hash,
+                        1 if item.request_truncated else 0,
                         item.response_payload, item.response_sha256,
-                        1 if item.response_truncated else 0,
+                        1 if item.response_truncated else 0, attempt_id,
                     ),
                 )
                 count += max(0, int(cursor.rowcount))
+                if cursor.rowcount == 0:
+                    connection.execute(
+                        """
+                        UPDATE ai_exchange_log
+                        SET request_payload_hash=COALESCE(request_payload_hash,?),
+                            attempt_id=COALESCE(attempt_id,?)
+                        WHERE exchange_id=? AND audit_id=?
+                        """,
+                        (item.request_payload_hash, attempt_id, item.exchange_id, audit_id),
+                    )
         return count
     finally:
         connection.close()

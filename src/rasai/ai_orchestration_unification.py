@@ -276,6 +276,7 @@ def _attempt(
     url: str | None = None,
     snapshot_id: str | None = None,
     decision: str | None = None,
+    attempt_id: str | None = None,
 ):
     from rasai.ai_economic_telemetry import price_provider_usage
     from rasai.m18_ai import ProviderAttempt
@@ -314,12 +315,14 @@ def _attempt(
         semantic_contract_version=contract,
         retry_eligible=False,
         decision=decision,
+        attempt_id=attempt_id,
     )
 
 
 def _install_search_competitive() -> None:
     from rasai.ai_resilience import DECISION_FALLBACK, DECISION_FALLBACK_SUCCESS, DECISION_STOP, DECISION_SUCCESS
     from rasai.m18_ai import AttemptStatus, ProviderDiagnostic, ProviderErrorClass
+    from rasai.domain import new_id
     from rasai.provider_registry import cli_provider_choices, get_provider_registration
     from rasai.provider_runtime_policy import build_semantic_provider, provider_reasoning_env
     from rasai.search_intelligence import competitive_ai as competitive
@@ -440,6 +443,11 @@ def _install_search_competitive() -> None:
                     body=body,
                     timeout=self.timeout,
                 )
+                attempt_id = new_id("AIA")
+                recorder = getattr(provider, "_rasai_exchange_recorder", None)
+                bind_latest = getattr(recorder, "bind_latest_attempt", None)
+                if callable(bind_latest):
+                    bind_latest(attempt_id)
                 assessment = None
                 if status is AttemptStatus.SUCCESS and raw is not None:
                     try:
@@ -479,6 +487,7 @@ def _install_search_competitive() -> None:
                     request_hash=request_hash,
                     contract=competitive.COMPETITIVE_AI_CONTRACT_VERSION,
                     decision=decision,
+                    attempt_id=attempt_id,
                 )
                 if fallback_from:
                     attempt = replace(

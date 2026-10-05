@@ -1060,7 +1060,7 @@ def _competitive_ai_hook(
                 with M18Persistence(workspace) as attempt_store:
                     for provider_attempt in provider_attempts:
                         attempt_store.add_attempt(
-                            attempt_id=new_id("AIA"),
+                            attempt_id=getattr(provider_attempt, "attempt_id", None) or new_id("AIA"),
                             audit_id=audit_id,
                             page_id=None,
                             snapshot_id=None,

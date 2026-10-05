@@ -100,7 +100,11 @@ DIRECTED_ANALYSIS
 
 Tentativas são registradas em `ai_provider_attempts`; requisição/resposta sanitizadas seguem `ai_exchange_log`. Tokens, custo, provider, modelo, reasoning, resultado e retries permanecem visíveis em **IA e integrações**.
 
-O raw response persistido pela Análise Direcionada passa pela sanitização de segredos antes de ser salvo.
+A Análise Direcionada é uma execução estratégica **taskless** no contrato atual: ela não cria uma `ai_task`/`ai_request_round` artificial apenas para satisfazer telemetria. Sua tentativa deve, entretanto, registrar `operation=DIRECTED_ANALYSIS` de forma explícita. Por isso, `ai_task_id` e `ai_round_id` podem permanecer nulos sem ambiguidade para esse contrato.
+
+Cada nova tentativa de provider da Análise Direcionada possui um `attempt_id` estável. O mesmo identificador é propagado ao exchange correspondente em `ai_exchange_log`, eliminando correlação por proximidade temporal ou por texto de finalidade.
+
+O raw response persistido pela Análise Direcionada passa pela sanitização de segredos antes de ser salvo. Na apresentação de evidência bruta, o conteúdo sanitizado persistido é exibido com escaping HTML, sem humanização semântica de tokens internos.
 
 ## Persistência
 
