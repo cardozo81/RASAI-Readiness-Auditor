@@ -152,14 +152,14 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
         )
         cost_display = i._money_display(raw_cost, currency)
         rows.append((
-            attempt.get("purpose"), usage_context, attempt.get("provider") or "-", attempt.get("model") or "-",
+            attempt.get("purpose"), usage_context, i._provider_identity(attempt.get("provider")), attempt.get("model") or "-",
             occurred_at or "-", origin, i._status_label(attempt.get("status")),
             tokens_display, cost_display, i._modal_button(modal_id, "Ver requisição"),
         ))
         attempt_details: list[tuple[str, Any]] = [
             ("Finalidade", attempt.get("purpose")),
             ("Aplicado em", usage_context),
-            ("Provedor", attempt.get("provider")),
+            ("Provedor", i._provider_identity(attempt.get("provider"))),
             ("Modelo", attempt.get("model")),
             ("Data/hora", occurred_at or "-"),
             ("Origem da execução", origin),
@@ -209,14 +209,14 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
         body += "<h3>Dados envolvidos</h3><p>" + escape(inputs) + "</p>"
         body += "<h3>Resultado funcional esperado</h3><p>" + escape(role) + "</p>"
         if exchange:
-            body += "<h3>Comunicação persistida · solicitação</h3><div class='pre'>" + escape(i._safe_payload_text(exchange.get("request_payload"))) + "</div>"
-            body += "<h3>Comunicação persistida · resposta</h3><div class='pre'>" + escape(i._safe_payload_text(exchange.get("response_payload"))) + "</div>"
+            body += "<h3>Comunicação persistida · solicitação</h3>" + i._raw_payload_block(exchange.get("request_payload"))
+            body += "<h3>Comunicação persistida · resposta</h3>" + i._raw_payload_block(exchange.get("response_payload"))
             if exchange.get("request_truncated") or exchange.get("response_truncated"):
                 body += "<div class='notice warn'>O log persistido sinaliza truncamento; o relatório não reconstrói conteúdo ausente.</div>"
         else:
             body += "<div class='notice'><strong>Solicitação/resposta bruta não persistida.</strong> A telemetria disponível é exibida acima; o relatório não reconstrói nem inventa o payload.</div>"
         body += "<details><summary>Ver contrato técnico da chamada</summary><div class='detail-body'>" + i._kv((("Contrato", attempt.get("contract") or "-"), ("Hash do payload", attempt.get("request_payload_hash") or "-"))) + "</div></details>"
-        modals.append(i._modal(modal_id, f"{attempt.get('purpose')} · tentativa {attempt.get('attempt_index') or index}", f"{attempt.get('provider') or 'IA'} / {attempt.get('model') or 'modelo não informado'}", body))
+        modals.append(i._modal(modal_id, f"{attempt.get('purpose')} · tentativa {attempt.get('attempt_index') or index}", "Detalhes técnicos da tentativa persistida", body))
 
     int_rows: list[Sequence[Any]] = []
     int_modals: list[str] = []
