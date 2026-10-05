@@ -87,7 +87,7 @@ def _body(seed) -> dict:
         "timezone": "America/Sao_Paulo",
         "overlap_policy": "SKIP",
         "urls": ["/a", "/b"],
-        "payload": {"max_pages": 20, "device_context": "both", "ai_provider": "none"},
+        "payload": {"max_pages": 20, "device_context": "mobile", "ai_provider": "none"},
         "recurrence": {"times": ["08:00", "12:00", "18:00"], "weekdays": [1, 2, 3, 4, 5]},
     }
 
