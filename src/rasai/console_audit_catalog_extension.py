@@ -68,6 +68,40 @@ def _added_catalogs(state: Any, base: set[str]) -> tuple[str, ...]:
     return tuple(item.id for item in CATALOGS if item.id in selected - base)
 
 
+def _initialize_new_apdex_catalog_defaults(state: Any, catalog_id: str) -> None:
+    """Start a newly-added APDEX catalog from current canonical defaults.
+
+    Existing catalogs remain immutable. Once the operator edits the new catalog, its
+    effective values are frozen into the extension work item and reused by every RPR.
+    """
+    import math
+    from rasai.device_context import canonical_single_device_mix
+
+    if catalog_id == "CAT-06":
+        from rasai.m23_cli import DEFAULT_APDEX_SAMPLES_PER_CONTEXT
+
+        state.synthetic_apdex = True
+        state.apdex_samples = DEFAULT_APDEX_SAMPLES_PER_CONTEXT
+        state.apdex_max_attempts = max(
+            state.apdex_samples,
+            int(math.ceil(state.apdex_samples * 1.25)),
+        )
+        if getattr(state, "apdex_threshold", None) is None:
+            state.apdex_threshold = 3.0
+    elif catalog_id == "CAT-07":
+        from rasai.m25_cli import DEFAULT_UX_SAMPLES
+
+        state.apdex_experience = True
+        state.apdex_experience_samples = DEFAULT_UX_SAMPLES
+        state.apdex_experience_max_attempts = max(
+            state.apdex_experience_samples,
+            int(math.ceil(state.apdex_experience_samples * 1.25)),
+        )
+        state.apdex_experience_device_mix = canonical_single_device_mix(
+            str(getattr(state, "device", "mobile"))
+        )
+
+
 def _render_catalogs(state: Any, base: set[str]) -> None:
     from rasai.console_catalog_plan import catalog_status, is_selected
 
@@ -241,6 +275,8 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
                 state,
                 tuple(item.id for item in CATALOGS if item.id in current),
             )
+            for catalog_id in tuple(item for item in newly if item not in base):
+                _initialize_new_apdex_catalog_defaults(state, catalog_id)
             bulk_notice = f"{len(tuple(item for item in newly if item not in base))} catálogo(s) novo(s) marcado(s)."
             continue
         if raw == "X" and added:
@@ -329,6 +365,7 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
         if not is_selected(state, catalog.id):
             try:
                 select_catalog(state, catalog)
+                _initialize_new_apdex_catalog_defaults(state, catalog.id)
             except ValueError as exc:
                 state.error = str(exc)
                 continue
