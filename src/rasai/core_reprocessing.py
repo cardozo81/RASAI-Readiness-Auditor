@@ -1660,6 +1660,103 @@ def _recompute_deterministic_snapshot(
                 limit_reached=limit_reached,
             )
 
+def _recompute_content_extractability_snapshot(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    snapshot_id: str,
+    reprocess_id: str,
+) -> None:
+    from rasai.content_extractability import execute_content_extractability
+    from rasai.m3 import M3ExecutionResult
+
+    row = _snapshot_row(workspace, audit_id, snapshot_id)
+    if row is None:
+        return
+    _archive_rule_scope(
+        workspace,
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        rule_ids=("BR-GEO-025", "BR-GEO-026", "BR-GEO-027"),
+        snapshot_id=snapshot_id,
+    )
+    page_id = str(row["page_id"])
+    device = DeviceContext(str(row["device"]))
+    with AuditPersistence(workspace) as persistence:
+        execute_content_extractability(
+            audit_id=audit_id,
+            m3_result=M3ExecutionResult(
+                snapshot_ids={page_id: {device: snapshot_id}},
+                failures=(),
+            ),
+            persistence=persistence,
+            workspace=workspace,
+        )
+
+
+def _refresh_semantic_dependency_after_core(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    snapshot_id: str,
+    reprocess_id: str,
+) -> bool:
+    """Refresh M7 only through its canonical mode for the affected snapshot.
+
+    When semantic AI is a durable fulfillment requirement, invalidate that one item
+    and let the normal RPR provider path recover it. No-AI audits have no such item,
+    so their deterministic M7 baseline is replayed locally without network/provider.
+    """
+    semantic_item = next(
+        (
+            item
+            for item in list_work_items(workspace, audit_id)
+            if item.component == "SEMANTIC_AI" and item.scope_key == snapshot_id
+        ),
+        None,
+    )
+    if semantic_item is not None:
+        if semantic_item.status == SUCCESS:
+            from rasai.governed_fulfillment_invalidation import invalidate_work_item
+
+            invalidate_work_item(
+                workspace,
+                audit_id=audit_id,
+                component="SEMANTIC_AI",
+                scope_key=snapshot_id,
+                error_class="EVIDENCE_DEPENDENCY",
+                error_code="SEMANTIC_INPUT_CHANGED",
+                error_message="materialized rendered evidence changed for this semantic snapshot",
+            )
+        return False
+
+    from rasai import reprocess_ai
+    from rasai.m7 import execute_m7
+    from rasai.semantic import NoneProvider
+
+    reprocess_ai._clear_semantic_snapshot(
+        workspace,
+        audit_id=audit_id,
+        snapshot_id=snapshot_id,
+        reprocess_id=reprocess_id,
+    )
+    m3_result, m4_result, m5_result, m6_result = reprocess_ai._m7_inputs(
+        workspace,
+        audit_id,
+        snapshot_id,
+    )
+    with AuditPersistence(workspace) as persistence:
+        execute_m7(
+            audit_id=audit_id,
+            m3_result=m3_result,
+            m4_result=m4_result,
+            m5_result=m5_result,
+            m6_result=m6_result,
+            persistence=persistence,
+            workspace=workspace,
+            provider=NoneProvider(),
+        )
+    return True
+
+
 def _invalidate_core_dependents(workspace: AuditWorkspace, audit_id: str) -> bool:
     """Reopen only derived work whose effective inputs changed after core recovery."""
     from rasai.governed_fulfillment_invalidation import invalidate_work_item
@@ -1771,13 +1868,24 @@ def _wrap_reprocess(original: Any, module: Any):
             reprocess_id,
         )
 
+        semantic_changed = False
         for snapshot_id in sorted(affected):
             _recompute_deterministic_snapshot(workspace,audit_id,snapshot_id,reprocess_id)
+            _recompute_content_extractability_snapshot(
+                workspace,audit_id,snapshot_id,reprocess_id,
+            )
+            semantic_changed = (
+                _refresh_semantic_dependency_after_core(
+                    workspace,audit_id,snapshot_id,reprocess_id,
+                )
+                or semantic_changed
+            )
         if affected:
             _invalidate_core_dependents(workspace, audit_id)
             from rasai.reprocess_ai import recompute_derived_after_ai
             recompute_derived_after_ai(
-                workspace=workspace,audit_id=audit_id,reprocess_id=reprocess_id,semantic_changed=False,
+                workspace=workspace,audit_id=audit_id,reprocess_id=reprocess_id,
+                semantic_changed=semantic_changed,
             )
 
         original_start = module.start_reprocess_run
