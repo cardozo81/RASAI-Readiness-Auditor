@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
+import json
 import threading
 import time
 import unittest
@@ -136,6 +137,10 @@ class M25UserActionBoundaryProof226Tests(unittest.TestCase):
             self.assertTrue(result.profile_applied, _facts(result))
             self.assertIsNotNone(result.user_action_duration_ms, _facts(result))
             self.assertIsNotNone(result.load_event_end_ms, _facts(result))
+            print("CAT07_BOUNDARY_PROOF " + json.dumps({
+                "scenario": scenario,
+                **_facts(result),
+            }, sort_keys=True))
             return result
         finally:
             gateway.close()
