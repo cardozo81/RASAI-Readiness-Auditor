@@ -96,6 +96,16 @@ def test_weighted_aggregate_and_sampling_uncertainty_are_deterministic() -> None
     assert result.standard_error == 0.0
     assert result.ci95_low == result.ci95_high == 0.5
 
+    partial = dict(stats)
+    partial["fast"] = StratumStatistics(
+        "fast", 2, 0, 2, 0, 0, 0, None,
+        None, None, None, None, (),
+    )
+    partial_result = aggregate_population_statistics(profile, partial)
+    assert partial_result.status == "PARTIAL"
+    assert partial_result.observed_weight_percent == 50.0
+    assert partial_result.weighted_apdex == 0.0
+
 
 class _PopulationGateway:
     def environment(self):
@@ -157,6 +167,9 @@ def test_population_execution_is_additive_and_does_not_replace_baseline(tmp_path
             "SELECT population_profile_id,runtime_version,weight_source,device "
             "FROM synthetic_population_apdex_runs WHERE audit_id='AUD-M25'"
         ).fetchone()
+        baseline_config = json.loads(db.execute(
+            "SELECT configuration FROM synthetic_ux_apdex_runs WHERE audit_id='AUD-M25'"
+        ).fetchone()[0])
 
     assert baseline == (1.0,)
     assert population == (0.5, 100.0, "SUCCESS")
@@ -170,3 +183,4 @@ def test_population_execution_is_additive_and_does_not_replace_baseline(tmp_path
         "RASAI_OPERATOR",
         "MOBILE",
     )
+    assert json.loads(baseline_config["population_profile_json"])["population_profile_id"] == "POP-MOBILE-CONTROLLED"

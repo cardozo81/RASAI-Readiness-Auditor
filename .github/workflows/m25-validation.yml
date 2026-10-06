@@ -35,6 +35,7 @@ jobs:
             src/rasai/m25_dynatrace.py \
             src/rasai/m25_persistence.py \
             src/rasai/m25_runtime.py \
+            src/rasai/synthetic_population_apdex.py \
             src/rasai/console_m23.py \
             src/rasai/console_settings.py
       - name: CAT-07 user action boundary proof (#226)
