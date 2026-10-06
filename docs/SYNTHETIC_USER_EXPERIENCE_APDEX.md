@@ -76,7 +76,7 @@ Fontes oficiais:
 
 ### Versão da fronteira
 
-A fronteira reproduzível mantida nesta versão é identificada como `UAD-BOUNDARY-001`. A decisão metodológica da #226 foi **KEEP** após prova Chromium controlada: a fórmula executável não mudou. O identificador é persistido no `measurement_contract` e no ambiente M25 para diferenciar explicitamente esta fronteira de qualquer evolução futura.
+A fronteira reproduzível mantida nesta versão é identificada como `UAD-BOUNDARY-001`. A decisão metodológica da #226 foi **KEEP** após prova Chromium controlada: a fórmula executável não mudou. O identificador é persistido no `measurement_contract` e no ambiente do Synthetic User Experience Apdex para diferenciar explicitamente esta fronteira de qualquer evolução futura.
 
 A prova cobriu fetch pré-load concluído pós-load, fetch iniciado pós-load, recurso dinâmico pós-load, mutação DOM + script, network idle tardio, JavaScript error, request abortado e cenário limpo. Somente XHR/fetch iniciado antes do load e encerrado depois estendeu `USER_ACTION_DURATION`; `networkidle`, LCP e tráfego pós-load permaneceram observacionais. Isso **não** declara equivalência com a correlação proprietária do Dynatrace RUM.
 

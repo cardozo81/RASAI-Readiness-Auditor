@@ -416,10 +416,12 @@ def _group_cost(group: Mapping[str, Any]) -> tuple[float | None, str | None, boo
 def _target_saas(payload: Mapping[str, Any], runs: list[HistoricalRunCost]) -> int:
     urls = tuple(dict.fromkeys(str(item).strip() for item in payload.get("urls", ()) if str(item).strip()))
     maximum = max(int(payload.get("max_pages") or 1), 1)
-    if urls:
-        return max(1, min(len(urls), maximum))
     observed = [run.page_count for run in runs if run.page_count > 0]
-    return max(1, min(maximum, int(round(median(observed))))) if observed else 1
+    if observed:
+        return max(1, min(maximum, int(round(median(observed)))))
+    # New audits accept one explicit seed URL. The seed count is not the number of
+    # pages the crawler may discover/process, so no-history remains conservatively 1.
+    return 1
 
 
 def forecast_saas_cost(
