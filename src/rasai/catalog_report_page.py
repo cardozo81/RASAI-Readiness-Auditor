@@ -1,6 +1,6 @@
 """Shared CAT page assembly preserving the stable section order."""
 from rasai.catalog_report_analysis import *  # noqa: F401,F403
-from rasai.catalog_report_public_labels import public_label, public_text
+from rasai.catalog_report_public_labels import public_contract_label, public_label, public_text
 from rasai.secret_safety import redact_text
 
 
@@ -256,11 +256,10 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
     config_rows=_catalog_configuration_rows(database,data,catalog_id)
     config=_section("config","Configuração efetiva",_table(("Configuração","Valor","Origem"),config_rows)+"<p class='muted'>As linhas de plano vêm do snapshot congelado desta AUD, não da configuração atual da máquina. Quando um RPR autoriza e executa IA, esse override aparece separadamente como execução efetiva, sem reescrever o plano original. Quando o snapshot não existe, o relatório declara o estado como indeterminado em vez de inferir “não solicitado”.</p>")
     cause_rows=[(
-        cause.cause_code,
-        cause.cause_class,
-        cause.technical_explanation,
-        cause.business_explanation,
-        "Sim" if cause.retryable else "Não",
+        public_contract_label(cause.cause_code),
+        public_contract_label(cause.cause_class),
+        public_text(cause.technical_explanation),
+        public_text(cause.business_explanation),        "Sim" if cause.retryable else "Não",
         "Sim" if cause.terminal else "Não",
         ", ".join(cause.evidence_references) or "-",
     ) for cause in causes]
