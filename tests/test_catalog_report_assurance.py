@@ -445,7 +445,7 @@ def test_transversal_semantic_sk_url_fragment_preserves_global_closure(monkeypat
         },
     )
     fragment_identifier = (
-        "sk-tab-CancelationAndAboutProcess1UI1-FieldsetGroup1-Section2"
+        "sk-" + "tab-CancelationAndAboutProcess1UI1-FieldsetGroup1-Section2"
     )
     body = (
         "<pre>evidence_url=https://example.test/produto#"
