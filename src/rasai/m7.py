@@ -225,11 +225,13 @@ def execute_m7(
                     render_quality_reason=quality_reason,
                 )
                 baseline_by_rule = evaluate_semantic_baseline(semantic_input)
-                call = (
-                    ProviderCallResult(ProviderState.UNAVAILABLE)
-                    if quality_reason is not None
-                    else _safe_provider_call(active_provider, semantic_input)
-                )
+                if quality_reason is not None and active_provider.name != "NONE":
+                    # Evidence validity is deterministic. Do not expose an incomplete
+                    # semantic source to an external provider.
+                    call = ProviderCallResult(ProviderState.UNAVAILABLE)
+                else:
+                    # NoneProvider is local and preserves canonical NO_AI provenance.
+                    call = _safe_provider_call(active_provider, semantic_input)
                 if call.response is not None and not _normalized_response_is_valid(
                     call.response,
                     semantic_input.allowed_evidence_ids,
