@@ -56,7 +56,7 @@ class _MaterialityParser(HTMLParser):
         self.lazy_markers = 0
         self.busy_markers = 0
         self.shell_markers = 0
-        self._main_depth = 0
+        self._main_stack: list[bool] = []
         self._ignored_depth = 0
         self._text: list[str] = []
         self._main_text: list[str] = []
@@ -80,7 +80,8 @@ class _MaterialityParser(HTMLParser):
         )
         if is_main:
             self.main_nodes += 1
-            self._main_depth += 1
+        parent_main = self._main_stack[-1] if self._main_stack else False
+        self._main_stack.append(parent_main or is_main)
 
         marker_values = " ".join(
             value for key, value in attr_map.items()
@@ -107,8 +108,8 @@ class _MaterialityParser(HTMLParser):
         tag_name = tag.casefold()
         if tag_name in {"script", "style", "template", "noscript"} and self._ignored_depth > 0:
             self._ignored_depth -= 1
-        if self._main_depth > 0 and tag_name in {"main", "div", "section", "article"}:
-            self._main_depth -= 1
+        if self._main_stack:
+            self._main_stack.pop()
 
     def handle_data(self, data: str) -> None:
         if self._ignored_depth:
@@ -117,7 +118,7 @@ class _MaterialityParser(HTMLParser):
         if not text:
             return
         self._text.append(text)
-        if self._main_depth:
+        if self._main_stack and self._main_stack[-1]:
             self._main_text.append(text)
 
     def observation(self) -> MaterialityObservation:
