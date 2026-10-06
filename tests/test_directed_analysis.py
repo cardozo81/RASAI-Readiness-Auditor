@@ -71,6 +71,12 @@ def _workspace(tmp_path: Path, *, ai_enabled: bool = False):
                 evidence_ids TEXT,
                 created_at TEXT
             );
+            CREATE TABLE entity_observations(
+                audit_id TEXT NOT NULL,
+                snapshot_id TEXT NOT NULL,
+                entity_type TEXT NOT NULL,
+                name TEXT NOT NULL
+            );
             """
         )
         connection.execute(
@@ -89,6 +95,10 @@ def _workspace(tmp_path: Path, *, ai_enabled: bool = False):
                 json.dumps(["Criar JSON-LD de organização"],ensure_ascii=False),
                 json.dumps(["EV-J1"]), "2026-09-19T10:00:00+00:00",
             ),
+        )
+        connection.execute(
+            "INSERT INTO entity_observations VALUES (?,?,?,?)",
+            (AUDIT_ID,"S1","Organization","Example Test"),
         )
         connection.commit()
     finally:
