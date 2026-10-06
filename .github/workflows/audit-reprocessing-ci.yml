@@ -125,6 +125,8 @@ jobs:
         run: python -m pip install -e . pytest
       - name: Public contract gate
         run: python -m rasai.public_contract_gate
+      - name: M6 rendered-discovery scope regressions
+        run: pytest -q tests/test_m6_javascript_spa.py
       - name: Fulfillment, reprocessing and reusable-AUD domain tests
         run: pytest -q tests/test_audit_fulfillment_reprocessing.py tests/test_audit_resume_runtime.py tests/test_issue_18_fulfillment_lifecycle.py tests/test_issue_25_pre_scoring_resume.py tests/test_issue_41_pre_m7_semantic_resume.py tests/test_issue_43_reprocess_ai_timeout.py tests/test_issue_46_semantic_backfill_causality.py tests/test_issue_50_preselection_reconciliation.py tests/test_issue_51_owned_standards_service_state.py tests/test_issue_164_ai_evidence_snapshot.py tests/test_provider_runtime_policy.py tests/test_audit_configuration_reuse.py tests/test_audit_management.py tests/test_consolidation_fulfillment_gate.py tests/test_core_reprocessing.py tests/test_core_reprocessing_context.py tests/test_issue_66_execution_reprocess_parity.py tests/test_core_integrity_runtime.py tests/test_reprocess_runtime_safety.py tests/test_reprocess_dependency_closure.py tests/test_governed_reprocess_dependencies.py tests/test_governed_ai_pipeline.py tests/test_reprocess_failure_preservation.py tests/test_reporting_read_only_boundary.py tests/test_semantic_recovery_runtime.py tests/test_m7_semantic_provider.py tests/test_audit_catalog_extension.py
       - name: Console navigation, configuration reuse and publication regressions
