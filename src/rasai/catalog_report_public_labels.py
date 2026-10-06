@@ -702,8 +702,7 @@ def _dynamic_cause_label(token: str) -> str | None:
         marker = "_" + suffix
         if token.endswith(marker) and len(token) > len(marker):
             component = token[:-len(marker)]
-            component_public = public_label(component) or component_label(component)
-            return f"{component_public} — {state_label}"
+            return f"{component_label(component)} — {state_label}"
     return None
 
 
