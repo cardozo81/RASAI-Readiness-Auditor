@@ -259,7 +259,8 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
         public_contract_label(cause.cause_code),
         public_contract_label(cause.cause_class),
         public_text(cause.technical_explanation),
-        public_text(cause.business_explanation),        "Sim" if cause.retryable else "Não",
+        public_text(cause.business_explanation),
+        "Sim" if cause.retryable else "Não",
         "Sim" if cause.terminal else "Não",
         ", ".join(cause.evidence_references) or "-",
     ) for cause in causes]
