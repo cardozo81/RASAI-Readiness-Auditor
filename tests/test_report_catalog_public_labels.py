@@ -583,6 +583,40 @@ def test_catalog_public_text_humanizes_recovery_gap_codes_and_dynamic_prerequisi
     )
 
 
+def test_catalog_causal_and_assurance_contracts_have_public_labels() -> None:
+    expected = {
+        "SERP_TERMINAL_LIMITED": "Cobertura SERP encerrada antes da profundidade solicitada",
+        "COVERAGE_LIMITATION": "Limitação de cobertura",
+        "EXTERNAL_INTEGRATION": "Integração externa",
+        "EXECUTION_FAILURE": "Falha de execução",
+        "DEPENDENCY_BLOCK": "Bloqueio de dependência",
+        "EXECUTION_INCOMPLETE": "Execução incompleta",
+        "COMMON_CRAWL_PROVIDER_5XX": "Common Crawl indisponível por erro HTTP 5xx",
+        "COMMON_CRAWL_PROVIDER_TIMEOUT": "Common Crawl indisponível por tempo limite",
+        "GLOBAL_OUTPUT_SECURITY_SECRET_EXPOSURE": "Possível credencial detectada em página transversal",
+        "GLOBAL_OUTPUT_SECURITY_NOT_MET": "Segurança das páginas transversais pendente",
+        "CATALOG_MATURITY_TARGET_NOT_MET": "Meta de maturidade estrutural dos catálogos não atingida",
+        "HIGH_ASSURANCE_TARGET_NOT_MET": "Meta de confiabilidade, integridade ou segurança não atingida",
+        "CFG_SECTION": "Seção de configuração",
+        "GOV_STATUS": "Governança do estado funcional",
+        "EXP_RESULTS": "Exposição dos resultados",
+        "REL_STATUS_TRUTH": "Aderência do estado à evidência",
+        "INT_REFERENTIAL_INTEGRITY": "Integridade referencial",
+        "SEC_OUTPUT_SECRETS": "Ausência de credenciais na saída",
+    }
+    for raw, label in expected.items():
+        assert public_label(raw) == label
+
+    assert (
+        public_contract_label("WEB_PERFORMANCE_FAILED_RETRYABLE")
+        == "Coletando Web Performance — Falha reprocessável"
+    )
+    assert (
+        public_contract_label("PASSIVE_SECURITY_BLOCKED")
+        == "Segurança passiva — Bloqueado"
+    )
+
+
 def test_catalog_public_text_uses_safe_fallback_for_unknown_machine_enum() -> None:
     rendered = public_text("estado BRAND_NEW_RUNTIME_ENUM")
     assert rendered == "estado Condição técnica não catalogada"
