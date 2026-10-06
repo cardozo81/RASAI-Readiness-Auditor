@@ -20,6 +20,7 @@ from playwright.sync_api import Error as PlaywrightError, TimeoutError as Playwr
 from rasai.cookie_path import _default_cookie_path
 from rasai.context_scope import CONTEXT_SCOPE_CONTRACT_VERSION, ContextScope
 from rasai.rendering import BrowserProfile, BrowserRenderResult, RenderErrorKind
+from rasai.render_materiality import resolve_capture_quality, unavailable_capture_quality
 from rasai.web_technology_signatures import analyze_script_source, detect_platforms
 
 
@@ -763,6 +764,12 @@ def _install_browser_capture() -> None:
 
             stage = "DOM_CAPTURE"
             rendered_html = page.content()
+            stage = "MATERIALITY_GATE"
+            rendered_html, capture_quality = resolve_capture_quality(
+                page,
+                rendered_html,
+                settle_outcome=settle_outcome,
+            )
             headers = response.headers if response is not None else {}
             stage = "DOCUMENT_SOURCE"
             document_source = _document_source_metadata(
@@ -821,6 +828,7 @@ def _install_browser_capture() -> None:
             metadata["script_runtime"] = script_runtime
             metadata["cookie_runtime"] = cookie_runtime
             metadata["bounded_lazy_probe"] = lazy_probe
+            metadata["capture_quality"] = capture_quality
             metadata["runtime_diagnostics"] = {
                 "scope": ContextScope.DEVICE_SNAPSHOT.value,
                 "count": len(runtime_diagnostics),
@@ -926,6 +934,10 @@ def _install_browser_capture() -> None:
             "attempted": False,
             "state": "UNAVAILABLE_RENDER_FAILURE",
         }
+        metadata["capture_quality"] = unavailable_capture_quality(
+            settle_outcome="NOT_AVAILABLE",
+            reason=(result.error_kind.value if result.error_kind is not None else "RENDER_FAILURE"),
+        )
         metadata["runtime_diagnostics"] = {
             "scope": ContextScope.DEVICE_SNAPSHOT.value,
             "count": len(runtime_diagnostics),
