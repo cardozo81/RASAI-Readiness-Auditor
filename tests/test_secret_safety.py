@@ -218,6 +218,65 @@ def test_openai_secret_detection_distinguishes_opaque_tokens_from_sk_dom_identif
     assert synthetic_token not in redact_text(f"token={synthetic_token}")
     assert REDACTED in redact_text(f"token={synthetic_token}")
 
+def test_html_output_context_ignores_only_proven_semantic_sk_url_fragments() -> None:
+    fragment_identifier = (
+        "sk-tab-CancelationAndAboutProcess1UI1-FieldsetGroup1-Section2"
+    )
+
+    safe_outputs = (
+        f"<a href='#{fragment_identifier}'>seção</a>",
+        f"<a href='/produto#{fragment_identifier}'>seção</a>",
+        f"<pre>https://example.test/produto#{fragment_identifier}</pre>",
+    )
+    for output in safe_outputs:
+        assert detect_secret_exposures(
+            output,
+            path="catalog-report.html",
+            strict=True,
+            html_dom_context=True,
+        ) == ()
+
+    # Merely adding '#' in arbitrary prose is not enough provenance.
+    generic = detect_secret_exposures(
+        f"<pre>#{fragment_identifier}</pre>",
+        path="catalog-report.html",
+        strict=True,
+        html_dom_context=True,
+    )
+    assert any(item.kind == "KNOWN_SECRET_PATTERN" for item in generic)
+
+    # Explicit OpenAI scoped and opaque legacy-like candidates remain blocked even
+    # when they are positioned after a legitimate URL fragment delimiter.
+    scoped = "sk-proj-ABCD1234efgh5678IJKL9012mnop3456"
+    opaque = "sk-abcdefghijklmnopqrstuvwxyz1234567890AB"
+    for candidate in (scoped, opaque):
+        findings = detect_secret_exposures(
+            f"<pre>https://example.test/produto#{candidate}</pre>",
+            path="catalog-report.html",
+            strict=True,
+            html_dom_context=True,
+        )
+        assert any(item.kind == "KNOWN_SECRET_PATTERN" for item in findings)
+
+    mixed = (
+        f"<pre>https://example.test/produto#{fragment_identifier}</pre>\n"
+        "Authorization: Bearer live-token-93af\n"
+        "api_key='prod-value-93af'\n"
+        "password='prod-password-93af'\n"
+        "Cookie: session=prod-cookie-value-93af\n"
+        "postgresql://rasai:prod-db-password@db.example.test/app"
+    )
+    findings = detect_secret_exposures(
+        mixed,
+        path="catalog-report.html",
+        strict=True,
+        html_dom_context=True,
+    )
+    kinds = {item.kind for item in findings}
+    assert "BEARER_TOKEN" in kinds
+    assert sum(item.kind == "SECRET_ASSIGNMENT" for item in findings) >= 3
+    assert "CREDENTIAL_URL" in kinds
+
 def test_html_dom_context_ignores_semantic_sk_identifier_without_weakening_secrets() -> None:
     dom_identifier = "sk-BradescoHomePageProcess123456789UI1LongIdentifier"
     html = f"<div id='{dom_identifier}' class='content'></div>"

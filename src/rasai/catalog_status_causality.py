@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import sqlite3
 from typing import Any, Mapping, Sequence
+import unicodedata
 
 from rasai.observability.store import observability_database_path
 
@@ -38,8 +39,15 @@ class CatalogStatusCause:
     evidence_references: tuple[str, ...]
 
 
+def normalize_catalog_status(value: Any) -> str:
+    """Normalize public/technical catalog states without losing accented letters."""
+    decomposed = unicodedata.normalize("NFKD", str(value or ""))
+    folded = "".join(char for char in decomposed if not unicodedata.combining(char))
+    return re.sub(r"[^A-Z0-9]+", "_", folded.upper()).strip("_")
+
+
 def _norm(value: Any) -> str:
-    return re.sub(r"[^A-Z0-9]+", "_", str(value or "").upper()).strip("_")
+    return normalize_catalog_status(value)
 
 
 def _safe_json(value: Any, default: Any) -> Any:

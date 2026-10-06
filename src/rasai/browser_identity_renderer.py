@@ -29,6 +29,7 @@ from rasai.rendering import (
     MOBILE_PROFILE,
     RenderErrorKind,
 )
+from rasai.render_materiality import resolve_capture_quality, unavailable_capture_quality
 
 _DEFAULT_LOCALE = "pt-BR"
 _SAFE_HEADER_NAMES = (
@@ -270,6 +271,11 @@ class BrowserIdentityRenderer(BrowserRenderer):
                 settle_outcome = "BOUNDED_TIMEOUT"
 
             rendered_html = page.content()
+            rendered_html, capture_quality = resolve_capture_quality(
+                page,
+                rendered_html,
+                settle_outcome=settle_outcome,
+            )
             screenshot_png: bytes | None = None
             screenshot_state = "NOT_CAPTURED"
             try:
@@ -298,6 +304,7 @@ class BrowserIdentityRenderer(BrowserRenderer):
                 "viewport_height": profile.viewport_height,
             }
             metadata["dom_observations"] = {"state": observation_state, "count": len(observations)}
+            metadata["capture_quality"] = capture_quality
             headers = response.headers if response is not None else {}
             return BrowserRenderResult(
                 requested_url=url,
@@ -344,6 +351,10 @@ class BrowserIdentityRenderer(BrowserRenderer):
         metadata["browser_identity"] = {**identity, "channel": self.browser_channel}
         metadata["navigation_trace"] = navigation_trace
         metadata["navigation_request_headers"] = request_headers
+        metadata["capture_quality"] = unavailable_capture_quality(
+            settle_outcome="NOT_AVAILABLE",
+            reason=error_kind.value,
+        )
         final_url = None
         if page is not None:
             try:

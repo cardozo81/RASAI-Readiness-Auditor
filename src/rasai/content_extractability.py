@@ -25,6 +25,7 @@ from rasai.evidence import EvidenceManager
 from rasai.extraction import ContentExtractor
 from rasai.m3 import M3ExecutionResult
 from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.render_materiality import capture_quality_block_reason
 from rasai.rules import RuleDefinition, RuleScope
 
 
@@ -94,9 +95,18 @@ def execute_content_extractability(
 
             rendered_html = _read(workspace, snapshot.rendered_artifact_ref)
             persisted_main = _read(workspace, snapshot.main_content_ref)
-            extracted = extractor.extract(rendered_html) if rendered_html is not None else None
+            quality_reason = capture_quality_block_reason(snapshot.browser_metadata)
+            extracted = (
+                extractor.extract(rendered_html)
+                if quality_reason is None and rendered_html is not None
+                else None
+            )
 
-            evaluations = _evaluate(extracted, persisted_main)
+            evaluations = (
+                _unknown_evaluations(quality_reason)
+                if quality_reason is not None
+                else _evaluate(extracted, persisted_main)
+            )
             prior: dict[str, RuleResult] = {}
             for definition in _DEFINITIONS:
                 result, observed, expected, reason = evaluations[definition.rule_id]
@@ -167,6 +177,29 @@ def execute_content_extractability(
                     finding_ids.append(finding.finding_id)
 
     return ContentExtractabilityResult(tuple(execution_ids), tuple(finding_ids))
+
+
+def _unknown_evaluations(reason: str) -> dict[str, tuple[RuleResult, object, str, str | None]]:
+    return {
+        "BR-GEO-025": (
+            RuleResult.UNKNOWN,
+            {"reason": reason},
+            "main content is deterministically identifiable from the rendered document",
+            reason,
+        ),
+        "BR-GEO-026": (
+            RuleResult.UNKNOWN,
+            {"reason": reason},
+            "meaningful non-boilerplate page content is recoverable without arbitrary word-count thresholds",
+            reason,
+        ),
+        "BR-GEO-027": (
+            RuleResult.UNKNOWN,
+            {"reason": reason},
+            "material factual qualifiers observable in extracted non-boilerplate text survive the persisted main-content extraction",
+            reason,
+        ),
+    }
 
 
 def _evaluate(extracted: object | None, persisted_main: str | None) -> dict[str, tuple[RuleResult, object, str, str | None]]:

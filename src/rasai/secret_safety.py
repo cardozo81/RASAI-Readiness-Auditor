@@ -57,6 +57,12 @@ _OPENAI_SCOPED_SECRET_PREFIXES = ("proj-", "svcacct-", "admin-")
 _HTML_DOM_ATTRIBUTE_RE = re.compile(
     r"""(?is)\b(?:id|class)\s*=\s*(?:(?P<quote>["'])(?P<quoted>.*?)(?P=quote)|(?P<bare>[^\s>]+))"""
 )
+_HTML_HREF_ATTRIBUTE_RE = re.compile(
+    r"""(?is)\bhref\s*=\s*(?:(?P<quote>["'])(?P<quoted>.*?)(?P=quote)|(?P<bare>[^\s>]+))"""
+)
+_ABSOLUTE_URL_WITH_FRAGMENT_RE = re.compile(
+    r"""(?i)\b[a-z][a-z0-9+.-]*://[^\s<>"']*#[^\s<>"']+"""
+)
 _KNOWN_SECRET_RE = re.compile(
     r"(?:gh[pousr]_[A-Za-z0-9_]{12,}|AIza[A-Za-z0-9_-]{20,}|"
     r"xox[baprs]-[A-Za-z0-9-]{12,}|AKIA[A-Z0-9]{16})"
@@ -202,6 +208,41 @@ def _html_dom_identifier_candidate_spans(text: str) -> tuple[tuple[int, int], ..
             if _looks_like_dom_identifier_openai_candidate(candidate.group(0)):
                 spans.append((offset + candidate.start(), offset + candidate.end()))
     return tuple(spans)
+
+
+def _url_fragment_identifier_candidate_spans(text: str) -> tuple[tuple[int, int], ...]:
+    """Locate semantic sk-* identifiers proven to be URL-fragment values.
+
+    This is deliberately narrower than accepting any token preceded by '#'. A candidate
+    must live after the fragment delimiter of an explicit HTML href or of an absolute
+    URL materialized as evidence/report text. Scoped/opaque key shapes never qualify
+    because the existing semantic-identifier classifier remains the final gate.
+    """
+    spans: list[tuple[int, int]] = []
+
+    def collect(raw_value: str, offset: int) -> None:
+        fragment_at = raw_value.find("#")
+        if fragment_at < 0:
+            return
+        fragment = raw_value[fragment_at + 1 :]
+        fragment_offset = offset + fragment_at + 1
+        for candidate in _OPENAI_SECRET_CANDIDATE_RE.finditer(fragment):
+            if _looks_like_dom_identifier_openai_candidate(candidate.group(0)):
+                spans.append(
+                    (
+                        fragment_offset + candidate.start(),
+                        fragment_offset + candidate.end(),
+                    )
+                )
+
+    for attribute in _HTML_HREF_ATTRIBUTE_RE.finditer(text):
+        group_name = "quoted" if attribute.group("quoted") is not None else "bare"
+        collect(attribute.group(group_name) or "", attribute.start(group_name))
+
+    for url in _ABSOLUTE_URL_WITH_FRAGMENT_RE.finditer(text):
+        collect(url.group(0), url.start())
+
+    return tuple(dict.fromkeys(spans))
 
 
 def _span_is_within(
@@ -409,13 +450,17 @@ def detect_secret_exposures(
 
     ``html_dom_context=True`` is reserved for rendered-HTML assurance. It suppresses
     only human-readable legacy-like ``sk-*`` candidates proven to occur inside
-    explicit ``id``/``class`` values. Scoped OpenAI keys, opaque candidates and all
-    non-OpenAI secret detectors remain fail-closed.
+    explicit ``id``/``class`` values or URL fragments in ``href``/absolute
+    evidence URLs. Scoped OpenAI keys, opaque candidates and all non-OpenAI secret
+    detectors remain fail-closed.
     """
     findings: list[SecretExposure] = []
     config_like = _is_config_like_path(path)
-    dom_identifier_spans = (
-        _html_dom_identifier_candidate_spans(text)
+    contextual_identifier_spans = (
+        (
+            *_html_dom_identifier_candidate_spans(text),
+            *_url_fragment_identifier_candidate_spans(text),
+        )
         if html_dom_context
         else ()
     )
@@ -426,7 +471,7 @@ def detect_secret_exposures(
     for match in _KNOWN_SECRET_RE.finditer(text):
         findings.append(SecretExposure(path, _line_number(text, match.start()), "KNOWN_SECRET_PATTERN", "known credential token pattern"))
     for match in _OPENAI_SECRET_CANDIDATE_RE.finditer(text):
-        if dom_identifier_spans and _span_is_within(match.span(), dom_identifier_spans):
+        if contextual_identifier_spans and _span_is_within(match.span(), contextual_identifier_spans):
             continue
         if _looks_like_openai_secret(match.group(0)):
             findings.append(SecretExposure(path, _line_number(text, match.start()), "KNOWN_SECRET_PATTERN", "OpenAI credential token pattern"))

@@ -163,6 +163,7 @@ def _safe_core_wrapper(base: Any, module: Any, core: Any):
             affected.update(changed)
         core.synchronize_core_work_items(workspace, audit_id)
 
+        semantic_changed = False
         for snapshot_id in sorted(affected):
             core._recompute_deterministic_snapshot(
                 workspace,
@@ -170,14 +171,30 @@ def _safe_core_wrapper(base: Any, module: Any, core: Any):
                 snapshot_id,
                 reprocess_id,
             )
+            core._recompute_content_extractability_snapshot(
+                workspace,
+                audit_id,
+                snapshot_id,
+                reprocess_id,
+            )
+            semantic_changed = (
+                core._refresh_semantic_dependency_after_core(
+                    workspace,
+                    audit_id,
+                    snapshot_id,
+                    reprocess_id,
+                )
+                or semantic_changed
+            )
         if affected:
+            core._invalidate_core_dependents(workspace, audit_id)
             from rasai.reprocess_ai import recompute_derived_after_ai
 
             recompute_derived_after_ai(
                 workspace=workspace,
                 audit_id=audit_id,
                 reprocess_id=reprocess_id,
-                semantic_changed=False,
+                semantic_changed=semantic_changed,
             )
 
         token = _CONTEXT.set(_CoreReprocessContext(audit_id, reprocess_id))

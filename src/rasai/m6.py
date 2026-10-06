@@ -24,6 +24,7 @@ from rasai.m3 import M3ExecutionResult
 from rasai.m4 import M4ExecutionResult
 from rasai.m5 import M5ExecutionResult
 from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.render_materiality import capture_quality_block_reason
 from rasai.rules import DependencyResolver, RuleDefinition, RuleEvaluation, RuleScope
 from rasai.spa_persistence import SnapshotArchitectureWriter
 from rasai.url_utils import normalize_url
@@ -98,7 +99,12 @@ def execute_m6_snapshot_scope(
         raise ValueError(f"snapshot not re-openable: {snapshot_id}")
     raw_html = _read(workspace, snapshot.raw_artifact_ref)
     rendered_html = _read(workspace, snapshot.rendered_artifact_ref)
-    comparison = analyzer.compare(raw_html, rendered_html) if raw_html is not None and rendered_html is not None else None
+    quality_reason = capture_quality_block_reason(snapshot.browser_metadata)
+    comparison = (
+        analyzer.compare(raw_html, rendered_html)
+        if quality_reason is None and raw_html is not None and rendered_html is not None
+        else None
+    )
     classification = comparison.architecture if comparison is not None else ArchitectureClassification.UNKNOWN
     writer.update(snapshot_id, classification)
 
@@ -114,6 +120,15 @@ def execute_m6_snapshot_scope(
         ),
         "BR-GEO-023": _evaluate_023(analyzer, rendered_html, acquisition.status),
     }
+    if quality_reason is not None:
+        expected_by_rule = {
+            rule_id: evaluation.expected_condition
+            for rule_id, evaluation in evaluations.items()
+        }
+        evaluations = {
+            rule_id: _unknown(quality_reason, expected_by_rule[rule_id])
+            for rule_id in expected_by_rule
+        }
 
     rendered_outside_audit: set[str] = set()
     nav_observed = evaluations["BR-GEO-022"].observed_value
@@ -128,7 +143,12 @@ def execute_m6_snapshot_scope(
             if normalized_candidate not in audited_urls:
                 rendered_outside_audit.add(normalized_candidate)
 
-    if rendered_html is not None:
+    if quality_reason is not None:
+        evaluations["BR-GEO-024"] = _unknown(
+            quality_reason,
+            "lazy-loaded essential content remains recoverable",
+        )
+    elif rendered_html is not None:
         preliminary = analyzer.lazy_loading(rendered_html, after_probe_html=None)
         if not preliminary.has_lazy_signals or preliminary.initial_content_recoverable:
             evaluations["BR-GEO-024"] = _evaluate_024(analyzer, rendered_html, None)

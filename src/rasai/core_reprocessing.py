@@ -8,6 +8,7 @@ never replaced with a later version of the website.
 """
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -45,6 +46,11 @@ from rasai.evidence import EvidenceManager
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.operational_log import try_append_operational_event
 from rasai.reprocess_policy import blocking_dependencies, item_executable, selected_counts
+from rasai.render_materiality import (
+    CaptureQualityState,
+    capture_quality_block_reason,
+    persisted_capture_quality_state,
+)
 
 DISCOVERY_ACQUISITION = "DISCOVERY_ACQUISITION"
 HTTP_ACQUISITION = "HTTP_ACQUISITION"
@@ -55,6 +61,7 @@ _AI_COMPONENTS = frozenset({"SEMANTIC_AI", "TECHNICAL_AI", "CONTENT_REMEDIATION_
 _RETRYABLE_STATES = frozenset({PENDING, RUNNING, WAITING_FOR_DATA, FAILED_RETRYABLE})
 _RESOLVED_STATES = frozenset({SUCCESS, DISABLED, NOT_APPLICABLE})
 _REDIRECT_FAILURES = frozenset({"REDIRECT_LOOP", "TOO_MANY_REDIRECTS", "INVALID_REDIRECT"})
+_CAPTURE_QUALITY_LIMITATION_PREFIX = "RENDER_CAPTURE_QUALITY_LIMITED:"
 _INSTALLED = False
 
 
@@ -157,6 +164,74 @@ def _set_item(
     )
 
 
+def _reconcile_capture_quality_limitation(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    states: list[dict[str, Any]],
+) -> None:
+    counts = {
+        CaptureQualityState.INCOMPLETE.value: 0,
+        CaptureQualityState.UNAVAILABLE.value: 0,
+    }
+    for state in states:
+        quality = state.get("capture_quality_state")
+        if quality in counts:
+            counts[str(quality)] += 1
+
+    with AuditPersistence(workspace) as persistence:
+        audit = persistence.audits.get(audit_id)
+        if audit is None:
+            return
+        retained = tuple(
+            item
+            for item in audit.limitations
+            if not str(item).startswith(_CAPTURE_QUALITY_LIMITATION_PREFIX)
+        )
+        additions: tuple[str, ...] = ()
+        limited = sum(counts.values())
+        if limited:
+            additions = (
+                _CAPTURE_QUALITY_LIMITATION_PREFIX
+                + f"INCOMPLETE={counts[CaptureQualityState.INCOMPLETE.value]};"
+                + f"UNAVAILABLE={counts[CaptureQualityState.UNAVAILABLE.value]}",
+            )
+        effective = tuple(dict.fromkeys((*retained, *additions)))
+        if effective != audit.limitations:
+            persistence.audits.update(replace(audit, limitations=effective))
+
+
+def _invalidate_successful_core_item(
+    workspace: AuditWorkspace,
+    *,
+    audit_id: str,
+    component: str,
+    scope_key: str,
+    error_code: str,
+    error_message: str,
+) -> None:
+    current = next(
+        (
+            item
+            for item in list_work_items(workspace, audit_id)
+            if item.component == component and item.scope_key == scope_key
+        ),
+        None,
+    )
+    if current is None or current.status != SUCCESS:
+        return
+    from rasai.governed_fulfillment_invalidation import invalidate_work_item
+
+    invalidate_work_item(
+        workspace,
+        audit_id=audit_id,
+        component=component,
+        scope_key=scope_key,
+        error_class="EVIDENCE_DEPENDENCY",
+        error_code=error_code,
+        error_message=error_message,
+    )
+
+
 def synchronize_core_work_items(workspace: AuditWorkspace, audit_id: str) -> None:
     """Project acquisition/render/extraction requirements from persisted evidence."""
     connection = sqlite3.connect(workspace.database)
@@ -194,6 +269,7 @@ def synchronize_core_work_items(workspace: AuditWorkspace, audit_id: str) -> Non
             rendered_exists = _file_exists(workspace,rendered_ref)
             raw_exists = _file_exists(workspace,raw_ref)
             render_declared_success = bool(metadata.get("render_succeeded"))
+            quality_state = persisted_capture_quality_state(metadata)
             extraction_sources = {
                 str(row[0]) for row in connection.execute(
                     """SELECT DISTINCT source FROM evidence WHERE audit_id=? AND snapshot_id=?
@@ -212,12 +288,15 @@ def synchronize_core_work_items(workspace: AuditWorkspace, audit_id: str) -> Non
                 "rendered_exists": rendered_exists,
                 "raw_exists": raw_exists,
                 "render_declared_success": render_declared_success,
+                "capture_quality_state": quality_state.value if quality_state is not None else None,
                 "extraction_evidence": bool(extraction_sources),
                 "rendered_extraction_evidence": "RENDERED_DOM" in extraction_sources,
                 "raw_extraction_evidence": "RAW_HTML_FALLBACK" in extraction_sources,
             })
     finally:
         connection.close()
+
+    _reconcile_capture_quality_limitation(workspace, audit_id, snapshot_states)
 
     existing_discovery = next(
         (item for item in list_work_items(workspace, audit_id) if item.component == DISCOVERY_ACQUISITION),
@@ -278,7 +357,27 @@ def synchronize_core_work_items(workspace: AuditWorkspace, audit_id: str) -> Non
     for state in snapshot_states:
         snapshot_id = state["snapshot_id"]
         config = {"page_id":state["page_id"],"device":state["device"],"url":state["url"]}
-        if state["render_declared_success"] and state["rendered_exists"]:
+        quality_state = state["capture_quality_state"]
+        quality_invalid = quality_state in {
+            CaptureQualityState.INCOMPLETE.value,
+            CaptureQualityState.UNAVAILABLE.value,
+        }
+        if quality_invalid:
+            render_status,render_retryable,render_code = (
+                FAILED_RETRYABLE,
+                True,
+                f"RENDER_CAPTURE_QUALITY_{quality_state}",
+            )
+            render_ref = None
+            _invalidate_successful_core_item(
+                workspace,
+                audit_id=audit_id,
+                component=RENDER_CAPTURE,
+                scope_key=snapshot_id,
+                error_code=render_code,
+                error_message="persisted rendered evidence is not materially complete",
+            )
+        elif state["render_declared_success"] and state["rendered_exists"]:
             render_status,render_retryable,render_code = SUCCESS,True,None
             render_ref = state["rendered_ref"]
         elif state["render_declared_success"]:
@@ -296,12 +395,26 @@ def synchronize_core_work_items(workspace: AuditWorkspace, audit_id: str) -> Non
             error_code=render_code,
             error_message=(None if render_status == SUCCESS else (
                 "persisted successful rendered artifact is missing; a later page version cannot replace it"
-                if render_status == BLOCKED else "browser document capture did not succeed"
+                if render_status == BLOCKED
+                else (
+                    "persisted rendered evidence is not materially complete"
+                    if quality_invalid
+                    else "browser document capture did not succeed"
+                )
             )),
         )
 
         source_available = bool(state["rendered_exists"] or state["raw_exists"])
         source_was_declared = bool(state["rendered_ref"] or state["raw_ref"])
+        if quality_invalid:
+            _invalidate_successful_core_item(
+                workspace,
+                audit_id=audit_id,
+                component=CONTENT_EXTRACTION,
+                scope_key=snapshot_id,
+                error_code="RENDER_CAPTURE_QUALITY_REQUIRED",
+                error_message="content extraction depends on a materially complete rendered capture",
+            )
         # A recovered rendered DOM supersedes a previously effective RAW-only
         # M4 extraction. Do not keep projecting its stale SUCCESS after M3 changes.
         rendered_upgrade = (
@@ -309,7 +422,11 @@ def synchronize_core_work_items(workspace: AuditWorkspace, audit_id: str) -> Non
             and state["raw_extraction_evidence"]
             and not state["rendered_extraction_evidence"]
         )
-        if rendered_upgrade:
+        if quality_invalid:
+            extraction_status,extraction_retryable,extraction_code = (
+                WAITING_FOR_DATA,True,"RENDER_CAPTURE_QUALITY_REQUIRED"
+            )
+        elif rendered_upgrade:
             # Monotonic SUCCESS cannot be demoted by ordinary status projection.
             # A material source transition is an explicit governed invalidation:
             # retain the old success timestamp and reference for provenance.
@@ -1013,6 +1130,42 @@ def _archive_snapshot(workspace: AuditWorkspace, *, audit_id: str, snapshot_id: 
             connection.close()
 
 
+def _retire_superseded_render_extraction(
+    workspace: AuditWorkspace,
+    *,
+    audit_id: str,
+    snapshot_id: str,
+    reprocess_id: str,
+) -> int:
+    """Archive prior M4 rows after a valid replacement render is accepted."""
+    rows = _archive_rows_for_query(
+        workspace,
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        component=CONTENT_EXTRACTION,
+        entity_type="superseded_render_extraction_evidence",
+        id_field="evidence_id",
+        sql="""SELECT * FROM evidence
+               WHERE audit_id=? AND snapshot_id=? AND source='RENDERED_DOM'
+               ORDER BY rowid""",
+        params=(audit_id, snapshot_id),
+    )
+    ids = tuple(str(row["evidence_id"]) for row in rows)
+    if not ids:
+        return 0
+    marks = ",".join("?" for _ in ids)
+    connection = sqlite3.connect(workspace.database)
+    try:
+        with connection:
+            connection.execute(
+                f"DELETE FROM evidence WHERE evidence_id IN ({marks})",
+                ids,
+            )
+    finally:
+        connection.close()
+    return len(ids)
+
+
 def _capture_render_diagnostic(
     result: Any,
     output: dict[str, Any] | None,
@@ -1084,6 +1237,9 @@ def _recover_render(
         if result.error_kind is not None or not result.rendered_html:
             _capture_render_diagnostic(result, failure_diagnostics)
             return False,getattr(result.error_kind,"value",None) or "RENDERED_DOCUMENT_UNAVAILABLE",set()
+        quality_reason = capture_quality_block_reason(result.browser_metadata)
+        if quality_reason is not None:
+            return False,quality_reason,set()
 
         connection = sqlite3.connect(workspace.database)
         try:
@@ -1123,7 +1279,8 @@ def _recover_render(
     if row is None:
         return False,"SNAPSHOT_NOT_FOUND",set()
     metadata = _load(row["browser_metadata"],{})
-    if bool(metadata.get("render_succeeded")):
+    persisted_quality_reason = capture_quality_block_reason(metadata)
+    if bool(metadata.get("render_succeeded")) and persisted_quality_reason is None:
         return False,"PERSISTED_RENDER_ARTIFACT_MISSING",set()
 
     device = DeviceContext(str(row["device"]))
@@ -1142,6 +1299,9 @@ def _recover_render(
     if result.error_kind is not None or not result.rendered_html:
         _capture_render_diagnostic(result, failure_diagnostics)
         return False,getattr(result.error_kind,"value",None) or "RENDERED_DOCUMENT_UNAVAILABLE",set()
+    quality_reason = capture_quality_block_reason(result.browser_metadata)
+    if quality_reason is not None:
+        return False,quality_reason,set()
 
     _archive_snapshot(
         workspace,
@@ -1149,6 +1309,12 @@ def _recover_render(
         snapshot_id=snapshot_id,
         reprocess_id=reprocess_id,
         component=RENDER_CAPTURE,
+    )
+    _retire_superseded_render_extraction(
+        workspace,
+        audit_id=audit_id,
+        snapshot_id=snapshot_id,
+        reprocess_id=reprocess_id,
     )
     with AuditPersistence(workspace) as persistence:
         page = persistence.pages.get(page_id)
@@ -1225,6 +1391,9 @@ def _recover_extraction(workspace: AuditWorkspace, audit_id: str, item: WorkItem
     row = _snapshot_row(workspace,audit_id,snapshot_id)
     if row is None:
         return False,"SNAPSHOT_NOT_FOUND",set()
+    quality_reason = capture_quality_block_reason(_load(row["browser_metadata"], {}))
+    if quality_reason is not None:
+        return False,"RENDER_CAPTURE_QUALITY_REQUIRED",set()
     if not (_file_exists(workspace,row["rendered_artifact_ref"]) or _file_exists(workspace,row["raw_artifact_ref"])):
         return False,"EXTRACTION_SOURCE_UNAVAILABLE",set()
     _archive_snapshot(workspace,audit_id=audit_id,snapshot_id=snapshot_id,reprocess_id=reprocess_id,component=CONTENT_EXTRACTION)
@@ -1491,6 +1660,125 @@ def _recompute_deterministic_snapshot(
                 limit_reached=limit_reached,
             )
 
+def _core_component_succeeded(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    component: str,
+    scope_key: str,
+) -> bool:
+    return any(
+        item.component == component
+        and item.scope_key == scope_key
+        and item.status == SUCCESS
+        for item in list_work_items(workspace, audit_id)
+    )
+
+
+def _recompute_content_extractability_snapshot(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    snapshot_id: str,
+    reprocess_id: str,
+) -> None:
+    from rasai.content_extractability import execute_content_extractability
+    from rasai.m3 import M3ExecutionResult
+
+    if not _core_component_succeeded(
+        workspace, audit_id, CONTENT_EXTRACTION, snapshot_id
+    ):
+        return
+    row = _snapshot_row(workspace, audit_id, snapshot_id)
+    if row is None:
+        return
+    _archive_rule_scope(
+        workspace,
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        rule_ids=("BR-GEO-025", "BR-GEO-026", "BR-GEO-027"),
+        snapshot_id=snapshot_id,
+    )
+    page_id = str(row["page_id"])
+    device = DeviceContext(str(row["device"]))
+    with AuditPersistence(workspace) as persistence:
+        execute_content_extractability(
+            audit_id=audit_id,
+            m3_result=M3ExecutionResult(
+                snapshot_ids={page_id: {device: snapshot_id}},
+                failures=(),
+            ),
+            persistence=persistence,
+            workspace=workspace,
+        )
+
+
+def _refresh_semantic_dependency_after_core(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    snapshot_id: str,
+    reprocess_id: str,
+) -> bool:
+    """Refresh M7 only through its canonical mode for the affected snapshot.
+
+    When semantic AI is a durable fulfillment requirement, invalidate that one item
+    and let the normal RPR provider path recover it. No-AI audits have no such item,
+    so their deterministic M7 baseline is replayed locally without network/provider.
+    """
+    if not _core_component_succeeded(
+        workspace, audit_id, CONTENT_EXTRACTION, snapshot_id
+    ):
+        return False
+    semantic_item = next(
+        (
+            item
+            for item in list_work_items(workspace, audit_id)
+            if item.component == "SEMANTIC_AI" and item.scope_key == snapshot_id
+        ),
+        None,
+    )
+    if semantic_item is not None:
+        if semantic_item.status == SUCCESS:
+            from rasai.governed_fulfillment_invalidation import invalidate_work_item
+
+            invalidate_work_item(
+                workspace,
+                audit_id=audit_id,
+                component="SEMANTIC_AI",
+                scope_key=snapshot_id,
+                error_class="EVIDENCE_DEPENDENCY",
+                error_code="SEMANTIC_INPUT_CHANGED",
+                error_message="materialized rendered evidence changed for this semantic snapshot",
+            )
+        return False
+
+    from rasai import reprocess_ai
+    from rasai.m7 import execute_m7
+    from rasai.semantic import NoneProvider
+
+    reprocess_ai._clear_semantic_snapshot(
+        workspace,
+        audit_id=audit_id,
+        snapshot_id=snapshot_id,
+        reprocess_id=reprocess_id,
+    )
+    m3_result, m4_result, m5_result, m6_result = reprocess_ai._m7_inputs(
+        workspace,
+        audit_id,
+        snapshot_id,
+    )
+    with AuditPersistence(workspace) as persistence:
+        execute_m7(
+            audit_id=audit_id,
+            m3_result=m3_result,
+            m4_result=m4_result,
+            m5_result=m5_result,
+            m6_result=m6_result,
+            persistence=persistence,
+            workspace=workspace,
+            provider=NoneProvider(),
+        )
+    return True
+
+
 def _invalidate_core_dependents(workspace: AuditWorkspace, audit_id: str) -> bool:
     """Reopen only derived work whose effective inputs changed after core recovery."""
     from rasai.governed_fulfillment_invalidation import invalidate_work_item
@@ -1602,13 +1890,24 @@ def _wrap_reprocess(original: Any, module: Any):
             reprocess_id,
         )
 
+        semantic_changed = False
         for snapshot_id in sorted(affected):
             _recompute_deterministic_snapshot(workspace,audit_id,snapshot_id,reprocess_id)
+            _recompute_content_extractability_snapshot(
+                workspace,audit_id,snapshot_id,reprocess_id,
+            )
+            semantic_changed = (
+                _refresh_semantic_dependency_after_core(
+                    workspace,audit_id,snapshot_id,reprocess_id,
+                )
+                or semantic_changed
+            )
         if affected:
             _invalidate_core_dependents(workspace, audit_id)
             from rasai.reprocess_ai import recompute_derived_after_ai
             recompute_derived_after_ai(
-                workspace=workspace,audit_id=audit_id,reprocess_id=reprocess_id,semantic_changed=False,
+                workspace=workspace,audit_id=audit_id,reprocess_id=reprocess_id,
+                semantic_changed=semantic_changed,
             )
 
         original_start = module.start_reprocess_run

@@ -477,7 +477,7 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
     summary_html += i._metric("Tokens de saída", summary_output)
     summary_html += i._metric("Tokens de raciocínio", reasoning_text, "subconjunto informativo; não somado novamente")
     summary_html += i._metric("Tokens totais", total_text, "total do provider quando presente; caso contrário, entrada + saída")
-    summary_html += i._metric("Custo técnico contabilizado", summary_cost, "agregado por moeda; sem conversão cambial implícita")
+    summary_html += i._metric("Custo observado", summary_cost, "custo técnico contabilizado, agregado por moeda; sem conversão cambial implícita")
     summary_html += "</div>"
     body += i._section("summary", "Resumo do consumo", summary_html)
     chain_intro = (
@@ -539,7 +539,7 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
         if int(forecast.get("unpriced_ai_attempts") or 0):
             cost_html += f"<div class='notice warn'>{int(forecast.get('unpriced_ai_attempts') or 0)} tentativa(s) de IA não possuem preço monetário conhecido e permanecem fora do total.</div>"
     else:
-        cost_html = "<div class='metric-grid'>" + i._metric("Custo técnico contabilizado", summary_cost) + i._metric("Previsão pré-execução", "Não persistida") + "</div><div class='notice'>Sem previsão persistida, o relatório não inventa custo esperado, desvio ou faixa histórica.</div>"
+        cost_html = "<div class='metric-grid'>" + i._metric("Custo observado", summary_cost, "custo técnico contabilizado; sem conversão cambial implícita") + i._metric("Previsão pré-execução", "Não persistida") + "</div><div class='notice'>Sem previsão persistida, o relatório não inventa custo esperado, desvio ou faixa histórica.</div>"
     body += i._section("cost", "Previsão × custo técnico", cost_html)
     body += i._section("principles", "Como ler esta página", "<div class='grid'><div class='card'><h3>CATs</h3><p>Mostram o resultado funcional produzido. Não repetem tokens, solicitações/respostas e custos.</p></div><div class='card'><h3>IA e integrações</h3><p>Centraliza a telemetria e a comunicação externa de cada tentativa e explica quais dados funcionais participaram de cada chamada.</p></div><div class='card'><h3>Segurança</h3><p>Segredos, tokens de autenticação e credenciais são removidos antes da projeção. Conteúdo ausente no log não é reconstruído.</p></div></div>")
     return body

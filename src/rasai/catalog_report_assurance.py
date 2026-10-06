@@ -16,6 +16,8 @@ import re
 import sqlite3
 from typing import Any, Mapping, Sequence
 
+from rasai.catalog_report_public_labels import public_label
+from rasai.public_language import safe_visible_fallback
 from rasai.secret_safety import detect_secret_exposures
 
 CATALOG_MATURITY_MIN = 95.0
@@ -934,9 +936,15 @@ def assess_catalogs(database: Path, data: Any, bodies: Mapping[str, str]) -> dic
             transversal_secret_failures[str(filename)] = failures
     global_output_security_ok = not transversal_secret_failures
 
-    closure_eligible = bool(
-        per_catalog_target and high_assurance_target and global_output_security_ok
-    )
+    closure_reason_codes: list[str] = []
+    if not per_catalog_target:
+        closure_reason_codes.append("CATALOG_MATURITY_TARGET_NOT_MET")
+    if not high_assurance_target:
+        closure_reason_codes.append("HIGH_ASSURANCE_TARGET_NOT_MET")
+    if not global_output_security_ok:
+        closure_reason_codes.append("GLOBAL_OUTPUT_SECURITY_NOT_MET")
+
+    closure_eligible = not closure_reason_codes
     return {
         "metric_semantics": "deterministic structural-control coverage; not statistical probability",
         "thresholds": {
@@ -950,8 +958,14 @@ def assess_catalogs(database: Path, data: Any, bodies: Mapping[str, str]) -> dic
         "global_output_security": {
             "passed": global_output_security_ok,
             "failures": transversal_secret_failures,
+            "reason_codes": (
+                []
+                if global_output_security_ok
+                else ["GLOBAL_OUTPUT_SECURITY_SECRET_EXPOSURE"]
+            ),
         },
         "closure_eligible": closure_eligible,
+        "closure_reason_codes": closure_reason_codes,
     }
 
 
@@ -972,7 +986,9 @@ def catalog_assurance_html(row: Mapping[str, Any]) -> str:
         detail = (
             "<details><summary>Controles pendentes</summary><div class='detail-body'><ul>"
             + "".join(
-                f"<li><code>{escape(str(item.get('code')))}</code> - {escape(str(item.get('detail') or ''))}</li>"
+                f"<li><strong>{escape(public_label(item.get('code')) or safe_visible_fallback(item.get('code')))}</strong> "
+                f"<span class='muted' title='Código técnico: {escape(str(item.get('code') or '-'))}'>[controle]</span> - "
+                f"{escape(str(item.get('detail') or ''))}</li>"
                 for item in failed
             )
             + "</ul></div></details>"
@@ -1020,6 +1036,16 @@ def assurance_matrix_html(result: Mapping[str, Any]) -> str:
     close = "ELEGÍVEL" if result.get("closure_eligible") else "PENDENTE"
     global_output = result.get("global_output_security", {})
     global_output_gate = "ATENDE" if global_output.get("passed", True) else "PENDENTE"
+    closure_reasons = [
+        public_label(code) or safe_visible_fallback(code)
+        for code in result.get("closure_reason_codes", ())
+    ]
+    closure_reason_html = (
+        "<div class='notice warn'><strong>Razões do encerramento pendente:</strong> "
+        + escape("; ".join(closure_reasons))
+        + "</div>"
+        if closure_reasons else ""
+    )
     package_integrity = result.get("package_integrity", {}) if isinstance(result.get("package_integrity"), Mapping) else {}
     snapshot_gate = "ATENDE" if package_integrity.get("final_source_snapshot_match", True) else "PENDENTE"
     catalog_gate = "ATENDE" if all(
@@ -1069,7 +1095,7 @@ def assurance_matrix_html(result: Mapping[str, Any]) -> str:
         f"<div class='metric'><small>Segurança das páginas transversais</small><strong>{global_output_gate}</strong></div>"
         f"<div class='metric'><small>Snapshot final da fonte</small><strong>{snapshot_gate}</strong></div>"
         f"<div class='metric'><small>Encerramento estrutural</small><strong>{close}</strong></div>"
-        "</div></section>"
+        "</div>" + closure_reason_html + "</section>"
     )
 
 

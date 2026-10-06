@@ -5,7 +5,7 @@ from pathlib import Path
 import sqlite3
 from types import SimpleNamespace
 
-from rasai.catalog_status_causality import explain_catalog_status
+from rasai.catalog_status_causality import explain_catalog_status, normalize_catalog_status
 
 
 AUD = "AUD-CAUSE"
@@ -94,10 +94,43 @@ def test_serp_terminal_limited_reports_observed_requested_without_retry(tmp_path
     assert "não podem ser tratadas como ausência" in cause.business_explanation
 
 
+def test_catalog_status_normalization_folds_portuguese_diacritics() -> None:
+    assert normalize_catalog_status("CONCLUÍDO") == "CONCLUIDO"
+    assert normalize_catalog_status("NÃO SOLICITADO") == "NAO_SOLICITADO"
+    assert normalize_catalog_status("FAILED_RETRYABLE") == "FAILED_RETRYABLE"
+
+
+def test_accented_integral_and_not_requested_states_short_circuit_causality(tmp_path: Path) -> None:
+    database = tmp_path / "audit.db"
+    sqlite3.connect(database).close()
+    failing_work = ({
+        "component": "SEARCH_INTELLIGENCE",
+        "scope_key": "default",
+        "status": "FAILED_RETRYABLE",
+        "retryable": 1,
+        "last_error_code": "PROVIDER_TIMEOUT",
+    },)
+
+    assert explain_catalog_status(
+        database, _data(failing_work), "CAT-05",
+        effective_status="CONCLUÍDO", work_items=failing_work,
+    ) == ()
+    assert explain_catalog_status(
+        database, _data(failing_work), "CAT-05",
+        effective_status="NÃO SOLICITADO", work_items=failing_work,
+    ) == ()
+
+
 def test_integral_catalog_has_no_spurious_cause(tmp_path: Path) -> None:
     database = tmp_path / "audit.db"
     sqlite3.connect(database).close()
-    work = ({"component": "WEB_PERFORMANCE", "status": "SUCCESS"},)
+    work = ({
+        "component": "WEB_PERFORMANCE",
+        "scope_key": "mobile",
+        "status": "FAILED_RETRYABLE",
+        "retryable": 1,
+        "last_error_code": "PROVIDER_TIMEOUT",
+    },)
     assert explain_catalog_status(
         database, _data(work), "CAT-04",
         effective_status="CONCLUÍDO", work_items=work,

@@ -1,6 +1,7 @@
 """Shared CAT page assembly preserving the stable section order."""
+import sqlite3
 from rasai.catalog_report_analysis import *  # noqa: F401,F403
-from rasai.catalog_report_public_labels import public_label, public_text
+from rasai.catalog_report_public_labels import public_contract_label, public_label, public_text
 from rasai.secret_safety import redact_text
 
 
@@ -235,6 +236,121 @@ def _catalog_configuration_rows(database: Path, data: _ReportData, catalog_id: s
     return rows
 
 
+def _cat07_methodology_summary_html(database: Path, data: _ReportData) -> str:
+    """Explain CAT-07's persisted temporal boundary without changing its calculation."""
+    connection=sqlite3.connect(database); connection.row_factory=sqlite3.Row
+    try:
+        run=_last(connection,"synthetic_ux_apdex_runs",data.audit_id)
+        population_run=_last(connection,"synthetic_population_apdex_runs",data.audit_id)
+        web_rows=_audit_rows(connection,"web_performance_observations",data.audit_id)
+    finally:
+        connection.close()
+
+    cfg=_safe_json(run.get("configuration"),{}) if run else {}
+    cfg=dict(cfg) if isinstance(cfg,Mapping) else {}
+    contract=cfg.get("measurement_contract")
+    contract=dict(contract) if isinstance(contract,Mapping) else {}
+    boundary=str(
+        contract.get("version")
+        or population_run.get("measurement_contract_version")
+        or ""
+    ).strip()
+    boundary_display=boundary or "Não identificada na provenance persistida desta AUD"
+
+    raw_population=cfg.get("population_profile_json")
+    population_configured=bool(population_run)
+    if not population_configured:
+        if isinstance(raw_population,Mapping):
+            population_configured=bool(raw_population)
+        else:
+            raw_text=str(raw_population or "").strip()
+            population_configured=bool(
+                raw_text and raw_text.casefold() not in {"none","null","{}"}
+            )
+
+    baseline_status=(
+        _status_label(run.get("status"))
+        if run else
+        "Sem execução baseline persistida"
+    )
+    if population_run:
+        population_status=(
+            "Configurado nesta AUD · "
+            + _status_label(population_run.get("status"))
+        )
+    elif population_configured:
+        population_status="Configurado nesta AUD · sem resultado populacional persistido"
+    else:
+        population_status="Não configurado nesta AUD"
+
+    html="<div class='subsection'><h3>Fronteira da medição e interpretação</h3>"
+    html+="<div class='metric-grid'>"
+    html+=_metric("Baseline Synthetic User Experience Apdex",baseline_status)
+    html+=_metric("Fronteira temporal do baseline",boundary_display)
+    html+=_metric("Synthetic Population Apdex",population_status)
+    html+="</div>"
+    if boundary=="UAD-BOUNDARY-001":
+        boundary_explanation=(
+            "No contrato UAD-BOUNDARY-001, XHR/fetch iniciado antes de loadEventEnd pode estender a ação até sua conclusão; "
+            "settle pós-load, network-idle, LCP e tráfego iniciado depois do load permanecem diagnósticos e não estendem automaticamente a UAD."
+        )
+    elif boundary:
+        boundary_explanation=(
+            f"A provenance desta AUD declara a fronteira {boundary}; o relatório não a reinterpreta como UAD-BOUNDARY-001. "
+            "LCP e diagnósticos pós-load permanecem apresentados separadamente da classificação Apdex persistida."
+        )
+    else:
+        boundary_explanation=(
+            "Esta AUD não persiste a versão da fronteira temporal; o relatório não atribui UAD-BOUNDARY-001 retroativamente. "
+            "LCP e diagnósticos pós-load permanecem apresentados separadamente da classificação Apdex persistida."
+        )
+    html+=(
+        "<div class='notice'><strong>O que a UAD mede:</strong> "
+        "a duração usada pelo baseline segue a fronteira temporal persistida acima. "
+        +escape(boundary_explanation)
+        +" Assim, Apdex/UAD alto e LCP ruim podem coexistir sem contradição matemática.</div>"
+    )
+
+    lighthouse_rows=[]
+    for row in web_rows:
+        performance=row.get("performance_score")
+        lcp=row.get("lcp_lab_ms")
+        if lcp is None:
+            lcp=row.get("lcp_ms")
+        if performance is None and lcp is None:
+            continue
+        lighthouse_rows.append((
+            _device_label(row.get("device")),
+            _fmt_number(performance,"/ 100") if performance is not None else "-",
+            _fmt_number(lcp,"ms") if lcp is not None else "-",
+            _friendly_service(row.get("strategy") or "PAGESPEED_INSIGHTS"),
+        ))
+    if lighthouse_rows:
+        html+=(
+            "<div class='notice'><strong>Dimensão paralela de performance:</strong> "
+            "PageSpeed/Lighthouse pertence ao CAT-04. Performance e LCP de laboratório abaixo são apresentados para contexto; "
+            "não entram na fórmula do Synthetic User Experience Apdex e o relatório não tenta reconciliar os dois métodos em um único índice.</div>"
+        )
+        html+=_table(
+            ("Dispositivo","Lighthouse · Desempenho","LCP de laboratório","Fonte"),
+            lighthouse_rows,
+            empty="Nenhuma observação Lighthouse/PageSpeed materializada.",
+        )
+    else:
+        html+=(
+            "<div class='notice'><strong>Lighthouse/PageSpeed:</strong> "
+            "nenhum indicador de performance/LCP foi materializado nesta AUD para comparação contextual. "
+            "Isso não altera o cálculo do CAT-07.</div>"
+        )
+
+    html+=(
+        "<div class='notice'><strong>Limite metodológico:</strong> "
+        "o baseline e o Synthetic Population, quando configurado, são medições de laboratório sintéticas. "
+        "Calibração ou configuração relacionada ao Dynatrace não os torna equivalentes a Dynatrace RUM nem a usuários reais.</div>"
+    )
+    return html+"</div>"
+
+
 def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
     catalog=CATALOG_BY_ID[catalog_id]
     status,tone,detail=_catalog_status(database,data,catalog_id)
@@ -246,7 +362,8 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
         database,data,catalog_id,effective_status=status,work_items=work,
     )
     outline=_outline((("summary","Resumo"),("scope","Escopo"),("config","Configuração"),("execution","Execução"),("results","Resultados"),("evidence","Evidências"),("analysis","Análise"),("remediation","Remediações"),("technical","Detalhes técnicos")))
-    summary=_section("summary","Resumo",f"<div class='catalog-state'><div><p>{escape(catalog.purpose)}</p><p class='muted'>{escape(catalog.expected_result)}</p></div>{_badge(status,tone)}</div><div class='metric-grid'>{_metric('Capacidades',len(catalog.capability_ids))}{_metric('Fontes com dados',len(sources))}{_metric('Etapas próprias',len(work))}{_metric('Indicadores principais',len(metrics))}</div>")
+    methodology=_cat07_methodology_summary_html(database,data) if catalog_id=="CAT-07" else ""
+    summary=_section("summary","Resumo",f"<div class='catalog-state'><div><p>{escape(catalog.purpose)}</p><p class='muted'>{escape(catalog.expected_result)}</p></div>{_badge(status,tone)}</div><div class='metric-grid'>{_metric('Capacidades',len(catalog.capability_ids))}{_metric('Fontes com dados',len(sources))}{_metric('Etapas próprias',len(work))}{_metric('Indicadores principais',len(metrics))}</div>"+methodology)
     if _plan_available(data):
         capability_state="Incluída" if catalog_id in data.selected else "Não solicitada"
     else:
@@ -256,10 +373,10 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
     config_rows=_catalog_configuration_rows(database,data,catalog_id)
     config=_section("config","Configuração efetiva",_table(("Configuração","Valor","Origem"),config_rows)+"<p class='muted'>As linhas de plano vêm do snapshot congelado desta AUD, não da configuração atual da máquina. Quando um RPR autoriza e executa IA, esse override aparece separadamente como execução efetiva, sem reescrever o plano original. Quando o snapshot não existe, o relatório declara o estado como indeterminado em vez de inferir “não solicitado”.</p>")
     cause_rows=[(
-        cause.cause_code,
-        cause.cause_class,
-        cause.technical_explanation,
-        cause.business_explanation,
+        public_contract_label(cause.cause_code),
+        public_contract_label(cause.cause_class),
+        public_text(cause.technical_explanation),
+        public_text(cause.business_explanation),
         "Sim" if cause.retryable else "Não",
         "Sim" if cause.terminal else "Não",
         ", ".join(cause.evidence_references) or "-",
