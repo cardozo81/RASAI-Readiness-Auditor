@@ -283,6 +283,7 @@ Tablet não integra a superfície pública de novas AUDs. Identificadores intern
 | `RASAI_APDEX_EXPERIENCE_SETTLE_SECONDS` | `5` | número `> 0` | `5` | janela pós-load |
 | `RASAI_APDEX_EXPERIENCE_DELAY_SECONDS` | `1` | número `>= 0` | `1` | intervalo entre ações |
 | `RASAI_APDEX_EXPERIENCE_CONCURRENCY` | `1` | inteiro `1..3` | `1` | workers simultâneos |
+| `RASAI_APDEX_POPULATION_PROFILE_JSON` | sem default | objeto JSON estratificado | somente quando a camada populacional for desejada | perfil, versão, origem dos pesos e estratos do Synthetic Population Apdex; ver `SYNTHETIC_POPULATION_APDEX.md` |
 | `RASAI_APDEX_DYNATRACE_IMPORT` | `false` | booleano | `false` | importação/calibração Dynatrace |
 | `RASAI_DYNATRACE_BASE_URL` | sem default | URL HTTPS absoluta | somente importação live | ambiente Dynatrace |
 | `RASAI_DYNATRACE_APPLICATION_ID` | sem default | texto não vazio | somente importação live | aplicação consultada |

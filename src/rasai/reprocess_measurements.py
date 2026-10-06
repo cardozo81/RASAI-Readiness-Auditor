@@ -797,6 +797,7 @@ def recover_experience_apdex(
                 dynatrace_base_url=str(cfg_map.get("dynatrace_base_url") or "") or None,
                 dynatrace_application_id=str(cfg_map.get("dynatrace_application_id") or "") or None,
                 dynatrace_config_json=str(cfg_map.get("dynatrace_config_json") or "") or None,
+                population_profile_json=str(cfg_map.get("population_profile_json") or "") or None,
             ).validate()
             profile_selection, profile_provenance = _m25_persisted_profile_selection(cfg_map)
             connection.close()
@@ -875,6 +876,7 @@ def recover_experience_apdex(
             dynatrace_base_url=str(config_map.get("dynatrace_base_url") or "") or None,
             dynatrace_application_id=str(config_map.get("dynatrace_application_id") or "") or None,
             dynatrace_config_json=str(config_map.get("dynatrace_config_json") or "") or None,
+            population_profile_json=str(config_map.get("population_profile_json") or "") or None,
         ).validate()
 
         calibration_metadata = _json_load(run["calibration_metadata"], {})
@@ -1105,4 +1107,46 @@ def recover_experience_apdex(
     finally:
         if shared_gateway is not None:
             shared_gateway.close()
+
+    if effective_success and cfg.population_profile_json:
+        connection = sqlite3.connect(workspace.database)
+        try:
+            table_exists = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='synthetic_population_apdex_runs'"
+            ).fetchone()
+            population_row = connection.execute(
+                "SELECT status FROM synthetic_population_apdex_runs WHERE audit_id=?",
+                (audit_id,),
+            ).fetchone() if table_exists else None
+        finally:
+            connection.close()
+        if population_row is None or str(population_row[0]).upper() != "SUCCESS":
+            try:
+                from rasai.synthetic_population_apdex import execute_population_apdex
+                population_status = execute_population_apdex(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                    base_config=cfg,
+                    calibration=calibration,
+                    profile_json=cfg.population_profile_json,
+                )
+                try_append_operational_event(
+                    workspace,
+                    "M25_RPR_SYNTHETIC_POPULATION_COMPLETED",
+                    audit_id=audit_id,
+                    status=population_status,
+                    provenance="FROZEN_AUD_CONFIGURATION",
+                    scoring_impact="NONE",
+                )
+            except Exception as exc:
+                try_append_operational_event(
+                    workspace,
+                    "M25_RPR_SYNTHETIC_POPULATION_UNAVAILABLE",
+                    level="WARNING",
+                    audit_id=audit_id,
+                    error_type=type(exc).__name__,
+                    error_message=str(exc)[:512],
+                    provenance="FROZEN_AUD_CONFIGURATION",
+                    scoring_impact="NONE",
+                )
     return effective_success

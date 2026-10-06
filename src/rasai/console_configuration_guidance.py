@@ -153,6 +153,8 @@ def context_for(spec) -> str:
         return "Google Chrome UX Report (CrUX)"
     if name.startswith("RASAI_APDEX_EXPERIENCE"):
         return "Synthetic User Experience Apdex"
+    if name == "RASAI_APDEX_POPULATION_PROFILE_JSON":
+        return "Synthetic Population Apdex"
     if name.startswith("RASAI_APDEX_DYNATRACE") or name.startswith("RASAI_DYNATRACE") or name == "DYNATRACE_API_TOKEN":
         return "Dynatrace / calibração Apdex"
     if name.startswith("RASAI_APDEX_") or name == "RASAI_SYNTHETIC_APDEX":

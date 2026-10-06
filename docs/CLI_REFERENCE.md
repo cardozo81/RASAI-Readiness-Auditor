@@ -252,6 +252,7 @@ Default `auto`. O reuso físico só ocorre quando URL, device, perfil, sessão e
 --apdex-experience-settle-seconds SECONDS
 --apdex-experience-delay-seconds SECONDS
 --apdex-experience-concurrency 1|2
+--apdex-population-profile-json JSON
 ```
 
 A superfície continua sintética, inclusive quando calibrada contra configuração Dynatrace.
@@ -259,6 +260,8 @@ A superfície continua sintética, inclusive quando calibrada contra configuraç
 O Synthetic User Experience Apdex herda o device da AUD: `mobile` produz 100% MOBILE e `desktop` produz 100% DESKTOP. Não existe mix público independente nem Tablet para novas AUDs. O target default do Experience é 100 amostras válidas por página; o Navigation mantém target separado de 150 amostras válidas por URL/device.
 
 O campo técnico histórico de mix permanece apenas como compatibilidade interna para leitura/reprocessamento histórico; ele não é uma configuração pública para novas execuções.
+
+`--apdex-population-profile-json` ativa uma camada **adicional** de Synthetic Population Apdex no CAT-07. O JSON define estratos, pesos e provenance; não troca o device da AUD, não substitui o Apdex Experience baseline e não altera CAT-06 ou SCORE-GEO. O contrato completo está em [SYNTHETIC_POPULATION_APDEX.md](SYNTHETIC_POPULATION_APDEX.md).
 
 ## Search Intelligence
 
