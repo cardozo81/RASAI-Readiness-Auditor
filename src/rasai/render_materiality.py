@@ -26,6 +26,40 @@ class CaptureQualityState(StrEnum):
     UNAVAILABLE = "UNAVAILABLE"
 
 
+def persisted_capture_quality_state(metadata: Any) -> CaptureQualityState | None:
+    """Return only an explicitly persisted #233 state.
+
+    Missing/legacy metadata deliberately returns None so historical AUDs are not
+    reinterpreted retroactively.
+    """
+    if not isinstance(metadata, dict):
+        return None
+    quality = metadata.get("capture_quality")
+    if not isinstance(quality, dict):
+        return None
+    raw = str(quality.get("state") or "").strip().upper()
+    try:
+        return CaptureQualityState(raw)
+    except ValueError:
+        return None
+
+
+def capture_quality_materialized(metadata: Any) -> bool:
+    """Whether rendered evidence may be consumed as materialized semantic input."""
+    state = persisted_capture_quality_state(metadata)
+    return state is None or state in {
+        CaptureQualityState.READY,
+        CaptureQualityState.RECOVERED,
+    }
+
+
+def capture_quality_block_reason(metadata: Any) -> str | None:
+    state = persisted_capture_quality_state(metadata)
+    if state in {CaptureQualityState.INCOMPLETE, CaptureQualityState.UNAVAILABLE}:
+        return f"RENDER_CAPTURE_QUALITY_{state.value}"
+    return None
+
+
 @dataclass(frozen=True, slots=True)
 class MaterialityObservation:
     text_length: int
