@@ -633,6 +633,135 @@ def _duration_only_apdex(samples: Sequence[Mapping[str, Any]], run: Mapping[str,
     return score, valid, satisfied, tolerating, frustrated
 
 
+def _synthetic_population_projection_html(database: Any, data: Any, analysis: Any, page: Any) -> str:
+    """Project the additive CAT-07 population without merging it into the baseline."""
+    from rasai.synthetic_population_apdex import read_population_projection
+    from rasai.synthetic_runtime_profiles import describe_preset
+
+    projection = read_population_projection(database, data.audit_id)
+    if not projection:
+        return ""
+    run = dict(projection.get("run") or {})
+    summaries = list(projection.get("summaries") or ())
+    strata = list(projection.get("strata") or ())
+
+    def number(value: Any, digits: int = 3) -> str:
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            return "-"
+        return f"{parsed:.{digits}f}"
+
+    def percent(value: Any) -> str:
+        try:
+            return f"{float(value):.1f}%"
+        except (TypeError, ValueError):
+            return "-"
+
+    def friendly(kind: str, value: Any) -> str:
+        raw = str(value or "").strip()
+        if not raw:
+            return "-"
+        try:
+            label = describe_preset(kind, raw)
+        except (KeyError, ValueError):
+            label = raw
+        return f"{label} [{raw}]"
+
+    first = summaries[0] if len(summaries) == 1 else None
+    population_value = number(first.get("weighted_apdex")) if first else "-"
+    tone = (
+        page._catalog_metric_tone("CAT-07", "Apdex", population_value)
+        if first and first.get("weighted_apdex") is not None
+        else "neutral"
+    )
+    observed = percent(first.get("observed_weight_percent")) if first else "-"
+    ci = "-"
+    if first and first.get("ci95_low") is not None and first.get("ci95_high") is not None:
+        ci = f"{number(first.get('ci95_low'))}–{number(first.get('ci95_high'))}"
+
+    html = "<h3>Apdex populacional sintético</h3>"
+    html += "<div class='metric-grid'>"
+    html += analysis._metric_result(
+        "Apdex populacional ponderado",
+        population_value,
+        tone,
+        "agregação dos estratos configurados; indicador adicional ao baseline",
+    )
+    html += analysis._metric("Peso populacional observado", observed, "100% significa que todos os estratos tiveram amostras válidas")
+    html += analysis._metric("IC95 amostral do Apdex", ci, "incerteza de amostragem condicionada aos pesos fixados")
+    html += analysis._metric("Páginas agregadas", len(summaries), "cada URL é agregada separadamente")
+    html += "</div>"
+
+    summary_rows = []
+    for row in summaries:
+        interval = "-"
+        if row.get("ci95_low") is not None and row.get("ci95_high") is not None:
+            interval = f"{number(row.get('ci95_low'))}–{number(row.get('ci95_high'))}"
+        summary_rows.append((
+            row.get("url") or "-",
+            analysis._state_text(row.get("status"), analysis._status_label(row.get("status"))),
+            number(row.get("weighted_apdex")),
+            percent(row.get("observed_weight_percent")),
+            number(row.get("p75_ms"), 1) + " ms" if row.get("p75_ms") is not None else "-",
+            number(row.get("p95_ms"), 1) + " ms" if row.get("p95_ms") is not None else "-",
+            interval,
+        ))
+    html += analysis._table(
+        ("URL", "Estado", "Apdex ponderado", "Peso observado", "P75", "P95", "IC95 amostral"),
+        summary_rows,
+        empty="Nenhum agregado populacional foi persistido.",
+        sortable=bool(summary_rows),
+    )
+
+    stratum_rows = []
+    for row in strata:
+        valid = int(row.get("valid_samples") or 0)
+        target = int(row.get("target_samples") or 0)
+        stratum_rows.append((
+            row.get("url") or "-",
+            row.get("stratum_id") or "-",
+            percent(row.get("weight")),
+            analysis._device_label(row.get("device")),
+            analysis._session_label(row.get("session_mode")),
+            friendly("client", row.get("client_profile_id")),
+            friendly("hardware", row.get("hardware_profile_id")),
+            friendly("network", row.get("network_profile_id")),
+            f"{valid}/{target}",
+            number(row.get("apdex_score")),
+        ))
+    html += analysis._table(
+        ("URL", "Estrato", "Peso", "Device", "Sessão", "Cliente", "Hardware", "Rede", "Válidas/target", "Apdex"),
+        stratum_rows,
+        empty="Nenhum estrato populacional foi persistido.",
+        sortable=bool(stratum_rows),
+        page_size=10 if len(stratum_rows) > 10 else None,
+    )
+
+    source = str(run.get("weight_source") or "-")
+    source_ref = str(run.get("weight_source_ref") or "").strip()
+    provenance = (
+        f"perfil {run.get('population_profile_id') or '-'}; versão {run.get('profile_version') or '-'}; "
+        f"runtime {run.get('runtime_version') or '-'}; origem dos pesos {source}"
+        + (f" ({source_ref})" if source_ref else "")
+        + f"; fronteira temporal {run.get('measurement_contract_version') or '-'}."
+    )
+    html += (
+        "<div class='notice'><strong>Proveniência da população:</strong> "
+        + escape(provenance)
+        + " A população é uma camada sintética adicional: não substitui o Apdex efetivo baseline de CAT-07, "
+        "não altera CAT-06 nem SCORE-GEO-004 e não é apresentada como RUM.</div>"
+    )
+    html += (
+        "<div class='notice warn'><strong>Limites de representatividade:</strong> "
+        "o IC95 acima quantifica somente incerteza amostral dentro dos estratos e pesos declarados; "
+        "não mede erro de representatividade da população escolhida. A V1 não modela geografia de rede, "
+        "não usa jitter aleatório e não trata coordenadas de geolocalização do navegador como região física, "
+        "rota de rede ou ponto de presença.</div>"
+    )
+    return html
+
+
 def _install_apdex_projection() -> None:
     from rasai import catalog_report_analysis as analysis
     from rasai import catalog_report_page as page
@@ -795,6 +924,8 @@ def _install_apdex_projection() -> None:
                     "A comparação separa a classificação temporal da classificação por política de erro; "
                     "um evento observado não é, por si só, evidência de falha funcional do site.</div>"
                 )
+        if experience:
+            lead += _synthetic_population_projection_html(database, data, analysis, page)
         if fallback_count:
             lead += f"<div class='notice'><strong>Proveniência temporal:</strong> {len(samples)-fallback_count} amostra(s) usam o horário da aquisição física e {fallback_count} usam somente o horário de persistência, explicitamente identificado.</div>"
 

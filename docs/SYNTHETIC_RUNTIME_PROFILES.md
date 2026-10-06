@@ -151,6 +151,14 @@ Não existe `device_mix` público separado. O relatório `cat-07.html` mostra o 
 
 Os mesmos IDs públicos são usados localmente e no SaaS. Em uma nova AUD, o perfil efetivo é congelado na configuração persistida. Em um RPR da mesma AUD, o runtime reutiliza esse perfil congelado mesmo que operador, INI ou worker tenham sido alterados depois. Ao complementar uma AUD com CAT-07, a nova população usa a configuração efetiva do complemento e então também fica congelada.
 
+## Synthetic Population Apdex
+
+A camada populacional opcional de CAT-07 reutiliza este mesmo catálogo de presets. Cada estrato declara explicitamente cliente, hardware, rede, sessão e peso. Na V1, todos os estratos mantêm o mesmo device congelado da AUD; a população não reintroduz mix Mobile/Desktop e não oferece Tablet para novas execuções.
+
+A composição é determinística: não existe jitter contínuo nem sorteio de perfil por amostra. Concorrência e delay continuam sendo política operacional de execução, e não uma dimensão da população. Geografia de rede não é modelada nesta versão; coordenadas de geolocalização do navegador não representam região física do runner, rota de rede, CDN/POP ou latência geográfica.
+
+Pesos devem somar 100 e possuem origem explícita. Os resultados por estrato e o agregado ponderado são persistidos separadamente do baseline Synthetic User Experience Apdex. Detalhes em [SYNTHETIC_POPULATION_APDEX.md](SYNTHETIC_POPULATION_APDEX.md).
+
 ## Lighthouse / PageSpeed Insights
 
 A integração atual com PageSpeed Insights permite ao RASAi escolher a estratégia `mobile` ou `desktop`. O serviço remoto decide os detalhes efetivos de throttling, CPU e screen emulation usados pela execução Lighthouse.

@@ -258,7 +258,15 @@ Antes de interpretar diferenças, confira:
 
 Mesmo com fatores controláveis alinhados, igualdade numérica não é esperada porque RUM observa usuários reais e Synthetic User Experience Apdex é laboratório sintético.
 
-## 13. Referências
+## 13. Synthetic Population Apdex
+
+CAT-07 pode executar opcionalmente uma camada populacional estratificada **adicional** ao baseline descrito neste documento. Ela reutiliza a mesma KPM, thresholds, política de erro e fronteira temporal, mas distribui um target próprio entre estratos explícitos de perfil e agrega o resultado pelos pesos declarados.
+
+A V1 não altera o device da AUD, não usa jitter, não modela geografia de rede e não converte browser geolocation em localização física do tráfego. O Apdex baseline e o Apdex populacional são persistidos e apresentados separadamente. Falha da camada populacional é fail-open em relação ao baseline CAT-07 e ao restante da auditoria.
+
+O contrato de perfil, pesos, provenance, incerteza, persistência e ativação está em [SYNTHETIC_POPULATION_APDEX.md](SYNTHETIC_POPULATION_APDEX.md).
+
+## 14. Referências
 
 - Apdex Technical Specification v1.1: <https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf>
 - Dynatrace - User actions in RUM Classic: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-actions>
