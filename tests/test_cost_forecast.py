@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from rasai.cost_forecast import (
     HistoricalRunCost,
     _forecast_from_runs,
+    _target_saas,
     forecast_saas_cost,
 )
 from rasai.web.cost_forecast_ui import inject_cost_forecast_ui
@@ -94,6 +95,19 @@ class _FakeStore:
                 },
             ]
         }
+
+
+def test_single_seed_target_uses_historical_median_capped_by_max_pages() -> None:
+    runs = [
+        HistoricalRunCost("AUD-1", 8, 0.1, 0.1, "USD", 1, 1),
+        HistoricalRunCost("AUD-2", 6, 0.1, 0.1, "USD", 1, 1),
+        HistoricalRunCost("AUD-3", 10, 0.1, 0.1, "USD", 1, 1),
+    ]
+    assert _target_saas({"urls": ["https://example.com/"], "max_pages": 7}, runs) == 7
+
+
+def test_single_seed_target_falls_back_to_one_without_history() -> None:
+    assert _target_saas({"urls": ["https://example.com/"], "max_pages": 10}, []) == 1
 
 
 def test_saas_forecast_uses_single_seed_and_historical_processed_page_count() -> None:
