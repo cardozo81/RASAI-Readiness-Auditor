@@ -422,6 +422,47 @@ def test_read_only_assurance_follows_materializer_wrapper_chain(monkeypatch) -> 
     assert "fingerprint" in detail
 
 
+def test_transversal_semantic_sk_url_fragment_preserves_global_closure(monkeypatch, tmp_path: Path) -> None:
+    from rasai import catalog_report_assurance as assurance
+
+    monkeypatch.setattr(
+        assurance,
+        "assess_catalog",
+        lambda _database, _data, catalog_id, _body: {
+            "catalog_id": catalog_id,
+            "selected": True,
+            "functional_status": "CONCLUÍDO",
+            "configurability": 100.0,
+            "governance": 100.0,
+            "exposure": 100.0,
+            "reliability": 100.0,
+            "integrity": 100.0,
+            "security": 100.0,
+            "maturity": 100.0,
+            "high_assurance": 100.0,
+            "closure_eligible": True,
+            "checks": [],
+        },
+    )
+    fragment_identifier = (
+        "sk-tab-CancelationAndAboutProcess1UI1-FieldsetGroup1-Section2"
+    )
+    body = (
+        "<pre>evidence_url=https://example.test/produto#"
+        + fragment_identifier
+        + "</pre>"
+    )
+    result = assurance.assess_catalogs(
+        tmp_path / "audit.db",
+        SimpleNamespace(),
+        {"ai-integrations.html": body},
+    )
+
+    assert result["global_output_security"]["passed"] is True
+    assert result["global_output_security"]["failures"] == {}
+    assert result["closure_eligible"] is True
+
+
 def test_transversal_secret_output_blocks_global_closure(monkeypatch, tmp_path: Path) -> None:
     from rasai import catalog_report_assurance as assurance
 
