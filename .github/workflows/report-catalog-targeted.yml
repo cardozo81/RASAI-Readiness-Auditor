@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/catalog_report_*.py'
+      - 'src/rasai/catalog_status_causality.py'
       - 'src/rasai/recommendation_governance.py'
       - 'src/rasai/recommendation_governance_reporting.py'
       - 'tests/test_recommendation_governance.py'
@@ -18,6 +19,7 @@ on:
       - 'tests/test_cat08_actionable_guidance.py'
       - 'tests/test_cat03_auto_projection.py'
       - 'tests/test_catalog_report_search_trust.py'
+      - 'tests/test_catalog_status_causality.py'
       - 'tests/test_w3c_catalog_detail.py'
       - 'tests/test_standards_css_validation.py'
       - 'src/rasai/observability/external_sources.py'
@@ -42,6 +44,7 @@ on:
   pull_request:
     paths:
       - 'src/rasai/catalog_report_*.py'
+      - 'src/rasai/catalog_status_causality.py'
       - 'src/rasai/recommendation_governance.py'
       - 'src/rasai/recommendation_governance_reporting.py'
       - 'tests/test_recommendation_governance.py'
@@ -55,6 +58,7 @@ on:
       - 'tests/test_cat08_actionable_guidance.py'
       - 'tests/test_cat03_auto_projection.py'
       - 'tests/test_catalog_report_search_trust.py'
+      - 'tests/test_catalog_status_causality.py'
       - 'tests/test_w3c_catalog_detail.py'
       - 'tests/test_standards_css_validation.py'
       - 'src/rasai/observability/external_sources.py'
@@ -102,6 +106,7 @@ jobs:
           tests/test_standards_css_validation.py
           tests/test_w3c_catalog_detail.py
           tests/test_catalog_report_search_trust.py
+          tests/test_catalog_status_causality.py
           tests/test_search_competitive_ai.py
           tests/test_competitive_acquisition_policy.py
           tests/test_cat09_w3c_remediation.py
