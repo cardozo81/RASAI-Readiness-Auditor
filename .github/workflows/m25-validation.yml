@@ -37,6 +37,8 @@ jobs:
             src/rasai/m25_runtime.py \
             src/rasai/console_m23.py \
             src/rasai/console_settings.py
+      - name: CAT-07 user action boundary proof (#226)
+        run: python -m pytest -q -s tests/test_m25_user_action_boundary_226.py
       - name: M25 directed tests
         run: |
           python -m pytest -q \

@@ -98,6 +98,12 @@ source        = origem importada + fallback explícito de capacidade
 
 Sem fallback utilizável, Experience falha de forma fail-open e não altera o audit core.
 
+### Fronteira versionada de USER_ACTION_DURATION
+
+A fronteira vigente possui identificador `UAD-BOUNDARY-001`. A decisão #226 é **KEEP**: o identificador formaliza a regra já executada, sem alterar a fórmula. Novas execuções persistem esse identificador no contrato de medição e no ambiente M25. A ausência do identificador em registros históricos deve ser registrada como provenance anterior sem identificador e não autoriza inferir outra fórmula sem evidência.
+
+A prova controlada confirma que somente XHR/fetch iniciado antes da conclusão do load e encerrado depois pode estender a duração além de `loadEventEnd`. Recursos/fetch iniciados pós-load, mutações DOM, LCP tardio, network idle tardio, erros JavaScript e request abortado continuam observáveis, mas não estendem por si a fronteira temporal. O contrato não é declarado equivalente à correlação proprietária do Dynatrace RUM.
+
 ## 5. Envelope de Load Action sintética
 
 Cada amostra observa, conforme disponibilidade:
