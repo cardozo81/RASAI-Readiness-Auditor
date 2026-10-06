@@ -1660,6 +1660,20 @@ def _recompute_deterministic_snapshot(
                 limit_reached=limit_reached,
             )
 
+def _core_component_succeeded(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    component: str,
+    scope_key: str,
+) -> bool:
+    return any(
+        item.component == component
+        and item.scope_key == scope_key
+        and item.status == SUCCESS
+        for item in list_work_items(workspace, audit_id)
+    )
+
+
 def _recompute_content_extractability_snapshot(
     workspace: AuditWorkspace,
     audit_id: str,
@@ -1669,6 +1683,10 @@ def _recompute_content_extractability_snapshot(
     from rasai.content_extractability import execute_content_extractability
     from rasai.m3 import M3ExecutionResult
 
+    if not _core_component_succeeded(
+        workspace, audit_id, CONTENT_EXTRACTION, snapshot_id
+    ):
+        return
     row = _snapshot_row(workspace, audit_id, snapshot_id)
     if row is None:
         return
@@ -1705,6 +1723,10 @@ def _refresh_semantic_dependency_after_core(
     and let the normal RPR provider path recover it. No-AI audits have no such item,
     so their deterministic M7 baseline is replayed locally without network/provider.
     """
+    if not _core_component_succeeded(
+        workspace, audit_id, CONTENT_EXTRACTION, snapshot_id
+    ):
+        return False
     semantic_item = next(
         (
             item
