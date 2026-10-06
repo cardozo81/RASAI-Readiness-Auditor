@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import os
 from typing import Any, Mapping
@@ -53,6 +54,7 @@ DYNATRACE_IMPORT_ENV = "RASAI_APDEX_DYNATRACE_IMPORT"
 DYNATRACE_BASE_URL_ENV = "RASAI_DYNATRACE_BASE_URL"
 DYNATRACE_APPLICATION_ID_ENV = "RASAI_DYNATRACE_APPLICATION_ID"
 DYNATRACE_CONFIG_JSON_ENV = "RASAI_DYNATRACE_CONFIG_JSON"
+POPULATION_PROFILE_ENV = "RASAI_APDEX_POPULATION_PROFILE_JSON"
 
 M25_ENV_NAMES = (
     UX_ENABLED_ENV, UX_SAMPLES_ENV, UX_MAX_ATTEMPTS_ENV, UX_MAX_PAGES_ENV,
@@ -63,6 +65,7 @@ M25_ENV_NAMES = (
     UX_ERROR_SCOPE_ENV, UX_SETTLE_ENV,
     UX_DELAY_ENV, UX_CONCURRENCY_ENV, APDEX_ACQUISITION_MODE_ENV, DYNATRACE_IMPORT_ENV,
     DYNATRACE_BASE_URL_ENV, DYNATRACE_APPLICATION_ID_ENV, DYNATRACE_CONFIG_JSON_ENV,
+    POPULATION_PROFILE_ENV,
 )
 
 DEFAULT_UX_SAMPLES = 100
@@ -113,6 +116,7 @@ def register_experience_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--dynatrace-base-url", default=None, help=f"Dynatrace environment URL, HTTPS only; or {DYNATRACE_BASE_URL_ENV}")
     parser.add_argument("--dynatrace-application-id", default=None, help=f"Dynatrace web application ID; or {DYNATRACE_APPLICATION_ID_ENV}")
     parser.add_argument("--apdex-dynatrace-config-json", default=None, help=f"offline exported Dynatrace application config JSON; or {DYNATRACE_CONFIG_JSON_ENV}")
+    parser.add_argument("--apdex-population-profile-json", default=None, help=f"optional stratified CAT-07 population profile JSON; additive to baseline; or {POPULATION_PROFILE_ENV}")
 
 
 def _profile_value(args: Any, environment: Mapping[str, str], device: str, kind: str) -> str:
@@ -163,6 +167,7 @@ def configured_experience(
     base_url = _text(getattr(args, "dynatrace_base_url", None), DYNATRACE_BASE_URL_ENV, environment)
     app_id = _text(getattr(args, "dynatrace_application_id", None), DYNATRACE_APPLICATION_ID_ENV, environment)
     config_json = _text(getattr(args, "apdex_dynatrace_config_json", None), DYNATRACE_CONFIG_JSON_ENV, environment)
+    population_profile_json = _text(getattr(args, "apdex_population_profile_json", None), POPULATION_PROFILE_ENV, environment)
     if config_json: dynatrace_import = True
 
     # Profile choices are shared by Navigation and User Experience Apdex. CLI overrides
@@ -200,6 +205,7 @@ def configured_experience(
         dynatrace_base_url=base_url,
         dynatrace_application_id=app_id,
         dynatrace_config_json=config_json,
+        population_profile_json=population_profile_json,
     ).validate()
 
 
@@ -235,6 +241,10 @@ def validate_m25_env_value(name: str, raw: str) -> str:
     elif name == UX_SESSION_MODE_ENV and value.casefold() not in {"cold", "warm"}: raise ValueError("session mode deve ser cold ou warm")
     elif name == UX_KPM_ENV and value.upper() not in SUPPORTED_TIME_KPMS: raise ValueError("KPM temporal não suportada pelo Synthetic User Experience Apdex")
     elif name == UX_ERROR_SCOPE_ENV and value.casefold() not in {"navigation", "first-party", "all"}: raise ValueError("error scope inválido")
+    elif name == POPULATION_PROFILE_ENV:
+        parsed = json.loads(value)
+        if not isinstance(parsed, dict):
+            raise ValueError("Synthetic Population profile deve ser objeto JSON")
     elif name == APDEX_ACQUISITION_MODE_ENV:
         value = value.casefold()
         if value not in {"auto", "isolated"}: raise ValueError("acquisition mode deve ser auto ou isolated")

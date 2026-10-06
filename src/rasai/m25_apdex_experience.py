@@ -73,6 +73,7 @@ class ExperienceApdexConfig:
     dynatrace_base_url: str | None = None
     dynatrace_application_id: str | None = None
     dynatrace_config_json: str | None = None
+    population_profile_json: str | None = None
 
     def validate(self) -> "ExperienceApdexConfig":
         if not self.enabled:
@@ -111,6 +112,15 @@ class ExperienceApdexConfig:
         if self.dynatrace_import and not self.dynatrace_config_json:
             if not self.dynatrace_base_url or not self.dynatrace_application_id:
                 raise ValueError("Synthetic User Experience Apdex: importação Dynatrace exige base URL e application ID")
+        if self.population_profile_json:
+            from rasai.synthetic_population_apdex import parse_population_profile
+            if len(mix) != 1:
+                raise ValueError("Synthetic Population V1 exige exatamente um device canônico na AUD")
+            parse_population_profile(
+                self.population_profile_json,
+                expected_device=next(iter(mix)),
+                default_target_samples=self.target_samples_per_page,
+            )
         return self
 
     def device_mix_dict(self) -> dict[str, float]:
@@ -144,6 +154,7 @@ class ExperienceApdexConfig:
             "dynatrace_base_url": self.dynatrace_base_url,
             "dynatrace_application_id": self.dynatrace_application_id,
             "dynatrace_config_json": self.dynatrace_config_json,
+            "population_profile_json": self.population_profile_json,
             "dynatrace_api_token_persisted": False,
             "measurement_contract": {
                 "version": USER_ACTION_DURATION_BOUNDARY_VERSION,
@@ -977,6 +988,34 @@ def execute_m25_experience(
         invalid_samples=invalid_total,
         final_population_groups=final_groups,
     )
+    if cfg.population_profile_json:
+        try:
+            from rasai.synthetic_population_apdex import execute_population_apdex
+            population_status = execute_population_apdex(
+                audit_id=audit_id,
+                workspace=workspace,
+                base_config=cfg,
+                calibration=calibration,
+                profile_json=cfg.population_profile_json,
+                gateway_factory=gateway_factory,
+            )
+            try_append_operational_event(
+                workspace,
+                "M25_SYNTHETIC_POPULATION_COMPLETED",
+                audit_id=audit_id,
+                status=population_status,
+                scoring_impact="NONE",
+            )
+        except Exception as exc:
+            try_append_operational_event(
+                workspace,
+                "M25_SYNTHETIC_POPULATION_UNAVAILABLE",
+                level="WARNING",
+                audit_id=audit_id,
+                error_type=type(exc).__name__,
+                error_message=str(exc)[:512],
+                scoring_impact="NONE",
+            )
     return M25ExecutionResult(
         True,
         status,
