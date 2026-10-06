@@ -224,9 +224,9 @@ def test_html_output_context_ignores_only_proven_semantic_sk_url_fragments() -> 
     )
 
     safe_outputs = (
-        f"<a href='#{fragment_identifier{"}"}'>seção</a>".replace("#$", "#"),
-        f"<a href='/produto#{fragment_identifier{"}"}'>seção</a>".replace("#$", "#"),
-        f"<pre>https://example.test/produto#{fragment_identifier{"}"} </pre>".replace("#$", "#"),
+        f"<a href='#{fragment_identifier}'>seção</a>",
+        f"<a href='/produto#{fragment_identifier}'>seção</a>",
+        f"<pre>https://example.test/produto#{fragment_identifier}</pre>",
     )
     for output in safe_outputs:
         assert detect_secret_exposures(
@@ -238,7 +238,7 @@ def test_html_output_context_ignores_only_proven_semantic_sk_url_fragments() -> 
 
     # Merely adding '#' in arbitrary prose is not enough provenance.
     generic = detect_secret_exposures(
-        f"<pre># {fragment_identifier{"}"} </pre>".replace("# ", "#"),
+        f"<pre>#{fragment_identifier}</pre>",
         path="catalog-report.html",
         strict=True,
         html_dom_context=True,
@@ -251,7 +251,7 @@ def test_html_output_context_ignores_only_proven_semantic_sk_url_fragments() -> 
     opaque = "sk-abcdefghijklmnopqrstuvwxyz1234567890AB"
     for candidate in (scoped, opaque):
         findings = detect_secret_exposures(
-            f"<pre>https://example.test/produto#{candidate{"}"} </pre>".replace("#$", "#"),
+            f"<pre>https://example.test/produto#{candidate}</pre>",
             path="catalog-report.html",
             strict=True,
             html_dom_context=True,
@@ -259,12 +259,12 @@ def test_html_output_context_ignores_only_proven_semantic_sk_url_fragments() -> 
         assert any(item.kind == "KNOWN_SECRET_PATTERN" for item in findings)
 
     mixed = (
-        f"<pre>https://example.test/produto#{fragment_identifier{"}"} </pre>\n".replace("#$", "#")
-        + "Authorization: Bearer live-token-93af\n"
-        + "api_key='prod-value-93af'\n"
-        + "password='prod-password-93af'\n"
-        + "Cookie: session=prod-cookie-value-93af\n"
-        + "postgresql://rasai:prod-db-password@db.example.test/app"
+        f"<pre>https://example.test/produto#{fragment_identifier}</pre>\n"
+        "Authorization: Bearer live-token-93af\n"
+        "api_key='prod-value-93af'\n"
+        "password='prod-password-93af'\n"
+        "Cookie: session=prod-cookie-value-93af\n"
+        "postgresql://rasai:prod-db-password@db.example.test/app"
     )
     findings = detect_secret_exposures(
         mixed,
@@ -276,7 +276,6 @@ def test_html_output_context_ignores_only_proven_semantic_sk_url_fragments() -> 
     assert "BEARER_TOKEN" in kinds
     assert sum(item.kind == "SECRET_ASSIGNMENT" for item in findings) >= 3
     assert "CREDENTIAL_URL" in kinds
-
 
 def test_html_dom_context_ignores_semantic_sk_identifier_without_weakening_secrets() -> None:
     dom_identifier = "sk-BradescoHomePageProcess123456789UI1LongIdentifier"
