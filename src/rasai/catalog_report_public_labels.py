@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from rasai.public_language import safe_visible_fallback, supplemental_public_label
+from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
     # Ciclo de vida da auditoria e estados operacionais públicos.
@@ -679,6 +679,33 @@ def public_text(value: Any) -> str:
         raw,
     )
 
+_DYNAMIC_CAUSE_STATE_LABELS = {
+    "FAILED_RETRYABLE": "Falha reprocessável",
+    "FAILED_TERMINAL": "Falha terminal",
+    "FAILED_PERMANENT": "Falha permanente",
+    "BLOCKED": "Bloqueado",
+    "REQUESTED_NOT_EXECUTED": "Solicitado, não executado",
+    "WAITING_FOR_DATA": "Aguardando pré-requisitos",
+    "IN_PROGRESS": "Em andamento",
+    "RUNNING": "Em execução",
+    "PENDING": "Pendente",
+    "PARTIAL": "Parcial",
+}
+
+
+def _dynamic_cause_label(token: str) -> str | None:
+    for suffix, state_label in sorted(
+        _DYNAMIC_CAUSE_STATE_LABELS.items(),
+        key=lambda item: len(item[0]),
+        reverse=True,
+    ):
+        marker = "_" + suffix
+        if token.endswith(marker) and len(token) > len(marker):
+            component = token[:-len(marker)]
+            return f"{component_label(component)} — {state_label}"
+    return None
+
+
 def public_contract_label(value: Any) -> str:
     raw = str(value or "").strip()
     if not raw:
@@ -737,6 +764,6 @@ def public_contract_label(value: Any) -> str:
     if head == "EMPIRICAL_VALIDATION":
         return "Validação empírica: não participa da pontuação"
 
-    return public_label(raw) or raw.replace("_", " ")
+    return public_label(raw) or _dynamic_cause_label(head) or safe_visible_fallback(raw)
 
 __all__ = ["PUBLIC_VALUE_LABELS", "PUBLIC_PHRASE_LABELS", "public_label", "public_text", "public_contract_label"]
