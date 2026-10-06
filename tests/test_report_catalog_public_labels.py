@@ -609,7 +609,7 @@ def test_catalog_causal_and_assurance_contracts_have_public_labels() -> None:
 
     assert (
         public_contract_label("WEB_PERFORMANCE_FAILED_RETRYABLE")
-        == "Coletando Web Performance — Falha reprocessável"
+        == "Web Performance — Falha reprocessável"
     )
     assert (
         public_contract_label("PASSIVE_SECURITY_BLOCKED")
