@@ -265,6 +265,66 @@ SUPPLEMENTAL_PUBLIC_LABELS: dict[str, str] = {
     "NOT_TESTED": "Não testado",
 }
 
+# Report-catalog causal/assurance vocabulary. These are deterministic contract
+# identifiers, not free-form runtime text. Keeping them in the shared public-language
+# registry prevents page-specific translation drift while preserving the technical
+# identifiers in persisted JSON/provenance.
+SUPPLEMENTAL_PUBLIC_LABELS.update({
+    "SERP_TERMINAL_LIMITED": "Cobertura SERP encerrada antes da profundidade solicitada",
+    "COVERAGE_LIMITATION": "Limitação de cobertura",
+    "EXTERNAL_INTEGRATION": "Integração externa",
+    "EXECUTION_FAILURE": "Falha de execução",
+    "DEPENDENCY_BLOCK": "Bloqueio de dependência",
+    "EXECUTION_INCOMPLETE": "Execução incompleta",
+    "COMMON_CRAWL_PROVIDER_5XX": "Common Crawl indisponível por erro HTTP 5xx",
+    "COMMON_CRAWL_PROVIDER_TIMEOUT": "Common Crawl indisponível por tempo limite",
+    "GLOBAL_OUTPUT_SECURITY": "Segurança global da saída",
+    "CLOSURE_ELIGIBLE": "Elegibilidade para encerramento estrutural",
+    "GLOBAL_OUTPUT_SECURITY_SECRET_EXPOSURE": "Possível credencial detectada em página transversal",
+    "GLOBAL_OUTPUT_SECURITY_NOT_MET": "Segurança das páginas transversais pendente",
+    "CATALOG_MATURITY_TARGET_NOT_MET": "Meta de maturidade estrutural dos catálogos não atingida",
+    "HIGH_ASSURANCE_TARGET_NOT_MET": "Meta de confiabilidade, integridade ou segurança não atingida",
+    "CFG_APPLICABLE_CONTROLS": "Controles de configuração aplicáveis",
+    "CFG_ORIGINS": "Origem das configurações",
+    "CFG_PLAN_HASH": "Integridade do plano de configuração",
+    "CFG_SECTION": "Seção de configuração",
+    "CFG_SELECTION": "Seleção do catálogo",
+    "GOV_AI_ATTEMPT_PROVENANCE": "Proveniência das tentativas de IA",
+    "GOV_CANONICAL_RUN": "Execução canônica",
+    "GOV_EVIDENCE": "Governança das evidências",
+    "GOV_INTERNAL_EXECUTION": "Execução interna governada",
+    "GOV_LIMITATION": "Limitações registradas",
+    "GOV_REMEDIATION": "Governança das remediações",
+    "GOV_RPR_AI_OVERRIDE_PROVENANCE": "Proveniência do override de IA no reprocessamento",
+    "GOV_STATUS": "Governança do estado funcional",
+    "GOV_TECHNICAL": "Detalhes técnicos governados",
+    "EXP_CONFIG": "Exposição da configuração",
+    "EXP_EVIDENCE": "Exposição das evidências",
+    "EXP_RESULTS": "Exposição dos resultados",
+    "EXP_SOURCES": "Exposição das fontes",
+    "EXP_TECHNICAL": "Exposição dos detalhes técnicos",
+    "REL_ANALYSIS": "Confiabilidade da análise",
+    "REL_CANONICAL_RUN": "Confiabilidade da execução canônica",
+    "REL_INTERNAL_EXECUTION": "Confiabilidade da execução interna",
+    "REL_NO_FALLBACK": "Ausência de fallback inventado",
+    "REL_RESULTS": "Confiabilidade dos resultados",
+    "REL_SOURCE_EXPOSURE": "Confiabilidade da exposição das fontes",
+    "REL_STATUS_TRUTH": "Aderência do estado à evidência",
+    "INT_AI_ATTEMPT_PROVENANCE": "Integridade da proveniência das tentativas de IA",
+    "INT_ARTIFACTS": "Integridade dos artefatos",
+    "INT_CONFIG_HASH": "Integridade do hash de configuração",
+    "INT_DERIVED_ARTIFACT_FRESHNESS": "Atualidade dos artefatos derivados",
+    "INT_READ_ONLY_CONTRACT": "Contrato somente leitura",
+    "INT_REFERENTIAL_INTEGRITY": "Integridade referencial",
+    "INT_RPR_AI_OVERRIDE_PROVENANCE": "Integridade do override de IA no reprocessamento",
+    "INT_SOURCE_INVENTORY": "Integridade do inventário de fontes",
+    "SEC_EXTERNAL_LINKS": "Segurança dos links externos",
+    "SEC_INLINE_EVENTS": "Segurança de eventos inline",
+    "SEC_JAVASCRIPT_URL": "Segurança de URLs JavaScript",
+    "SEC_OUTPUT_SECRETS": "Ausência de credenciais na saída",
+    "SEC_PERSISTED_CONFIG": "Segurança da configuração persistida",
+})
+
 # Finite vocabularies observed in typed CAT-04/CAT-10 evidence. Never whitelist
 # unknown uppercase strings or arbitrary cookie identifiers globally.
 SUPPLEMENTAL_PUBLIC_LABELS.update({
