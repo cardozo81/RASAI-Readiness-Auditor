@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -12,6 +13,7 @@ from rasai.core_reprocessing import (
     RENDER_CAPTURE,
     _core_unresolved,
     _invalidate_core_dependents,
+    _recompute_deterministic_snapshot,
     ensure_m5_foundation_from_persisted_m2,
     _recover_extraction,
     _recover_render,
@@ -19,6 +21,7 @@ from rasai.core_reprocessing import (
     synchronize_core_work_items,
 )
 from rasai.domain import Audit, AuditTarget, DeviceContext, Evidence, EvidenceType, Page, PageSnapshot, RuleExecution, RuleResult, TargetType, new_id, utc_now
+from rasai.m6 import DECLARED_SINGLE_URL_SCOPE_CAPABILITY
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.rendering import BrowserRenderResult
 
@@ -317,3 +320,39 @@ def test_core_dependency_invalidation_reopens_only_passive_security() -> None:
         assert items["PASSIVE_SECURITY"].effective_result_ref == "passive_security:effective"
         assert items["WEB_PERFORMANCE"].status == SUCCESS
         assert items["WEB_PERFORMANCE"].effective_result_ref == "web_performance:effective"
+
+def test_rpr_recompute_uses_frozen_single_url_scope_for_rendered_links() -> None:
+    with TemporaryDirectory() as directory:
+        workspace = _workspace(Path(directory), render_succeeded=True, rendered_exists=True)
+        rendered_path = workspace.root / "artifacts/rendered/core.html"
+        rendered_path.write_text(
+            "<!doctype html><html><head><title>Recovered</title></head>"
+            "<body><nav><a href='/related'>Related</a></nav>"
+            "<main><h1>Recovered</h1><p>Enough persisted content.</p></main></body></html>",
+            encoding="utf-8",
+        )
+        with AuditPersistence(workspace) as persistence:
+            audit = persistence.audits.get("AUD-CORE-RECOVERY")
+            assert audit is not None
+            persistence.audits.update(replace(
+                audit,
+                capabilities=tuple(dict.fromkeys((*audit.capabilities, DECLARED_SINGLE_URL_SCOPE_CAPABILITY))),
+            ))
+
+        reprocess_id = start_reprocess_run(workspace, "AUD-CORE-RECOVERY")
+        _recompute_deterministic_snapshot(
+            workspace,
+            "AUD-CORE-RECOVERY",
+            "SNP-CORE",
+            reprocess_id,
+        )
+
+        with AuditPersistence(workspace) as persistence:
+            audit = persistence.audits.get("AUD-CORE-RECOVERY")
+            assert audit is not None
+            assert not any(
+                value.startswith("RENDERED_DISCOVERY_GAP:")
+                or value.startswith("RENDERED_LINKS_OUTSIDE_AUDIT_UNIVERSE_MAX_PAGES:")
+                for value in audit.limitations
+            )
+

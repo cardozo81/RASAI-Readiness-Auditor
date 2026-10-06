@@ -12,12 +12,14 @@ from rasai.discovery import DiscoveredPage, DiscoveryResult, RobotsResult, Robot
 from rasai.domain import (
     ArchitectureClassification,
     Audit,
+    AuditTarget,
     DeviceContext,
     DiscoverySource,
     Page,
     PageSnapshot,
     RuleExecution,
     RuleResult,
+    TargetType,
     new_id,
 )
 from rasai.javascript_spa import JavascriptSpaAnalyzer
@@ -25,7 +27,12 @@ from rasai.m2 import M2ExecutionResult
 from rasai.m3 import M3ExecutionResult
 from rasai.m4 import M4ExecutionResult
 from rasai.m5 import M5ExecutionResult
-from rasai.m6 import _M6_DEFINITIONS, execute_m6
+from rasai.m6 import (
+    DECLARED_SINGLE_URL_SCOPE_CAPABILITY,
+    _M6_DEFINITIONS,
+    apply_rendered_discovery_limitation,
+    execute_m6,
+)
 from rasai.persistence import AuditPersistence, AuditWorkspace
 
 
@@ -89,7 +96,11 @@ class M6JavascriptSpaTests(unittest.TestCase):
             audit_id = new_id("AUD")
             workspace = AuditWorkspace.create(Path(temp_dir), audit_id)
             with AuditPersistence(workspace) as persistence:
-                audit = Audit(audit_id=audit_id, project_name="M6 test")
+                audit = Audit(
+                    audit_id=audit_id,
+                    project_name="M6 test",
+                    capabilities=(DECLARED_SINGLE_URL_SCOPE_CAPABILITY,),
+                )
                 persistence.audits.add(audit)
                 url = "https://example.test/app"
                 page = Page(
@@ -156,6 +167,10 @@ class M6JavascriptSpaTests(unittest.TestCase):
                 self.assertEqual(by_rule["BR-GEO-022"].result, RuleResult.WARNING)
                 self.assertEqual(by_rule["BR-GEO-023"].result, RuleResult.PASS)
                 self.assertEqual(by_rule["BR-GEO-024"].result, RuleResult.PASS)
+                stored_audit = persistence.audits.get(audit_id)
+                self.assertIsNotNone(stored_audit)
+                assert stored_audit is not None
+                self.assertEqual(stored_audit.limitations, ())
                 finding = next(
                     persistence.findings.get(item) for item in result.finding_ids
                     if persistence.findings.get(item).rule_id == "BR-GEO-022"
@@ -166,6 +181,101 @@ class M6JavascriptSpaTests(unittest.TestCase):
             with AuditPersistence(AuditWorkspace.open(workspace.root)) as reopened:
                 stored = reopened.snapshots.get(snapshot.snapshot_id)
                 self.assertEqual(stored.architecture_classification, ArchitectureClassification.CSR_SPA)
+
+    def test_historical_single_seed_without_scope_marker_keeps_gap_semantics(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            audit_id = new_id("AUD")
+            workspace = AuditWorkspace.create(Path(temp_dir), audit_id)
+            with AuditPersistence(workspace) as persistence:
+                persistence.audits.add(Audit(audit_id=audit_id, project_name="legacy URL"))
+                persistence.targets.add(AuditTarget(
+                    target_id=new_id("TGT"),
+                    audit_id=audit_id,
+                    input_url="https://example.test/app",
+                    normalized_origin="https://example.test",
+                    target_type=TargetType.URL,
+                ))
+                apply_rendered_discovery_limitation(
+                    audit_id=audit_id,
+                    persistence=persistence,
+                    rendered_outside_audit={"https://example.test/related"},
+                    limit_reached=False,
+                )
+                stored = persistence.audits.get(audit_id)
+                self.assertIsNotNone(stored)
+                assert stored is not None
+                self.assertEqual(stored.limitations, ("RENDERED_DISCOVERY_GAP:1",))
+
+    def test_legacy_url_set_keeps_rendered_discovery_gap(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            audit_id = new_id("AUD")
+            workspace = AuditWorkspace.create(Path(temp_dir), audit_id)
+            with AuditPersistence(workspace) as persistence:
+                persistence.audits.add(Audit(audit_id=audit_id, project_name="legacy URL_SET"))
+                persistence.targets.add(AuditTarget(
+                    target_id=new_id("TGT"),
+                    audit_id=audit_id,
+                    input_url="https://example.test/a",
+                    normalized_origin="https://example.test",
+                    target_type=TargetType.URL_SET,
+                ))
+                apply_rendered_discovery_limitation(
+                    audit_id=audit_id,
+                    persistence=persistence,
+                    rendered_outside_audit={
+                        "https://example.test/c",
+                        "https://example.test/d",
+                    },
+                    limit_reached=False,
+                )
+                stored = persistence.audits.get(audit_id)
+                self.assertIsNotNone(stored)
+                assert stored is not None
+                self.assertEqual(stored.limitations, ("RENDERED_DISCOVERY_GAP:2",))
+
+    def test_single_url_scope_preserves_real_max_pages_limitation(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            audit_id = new_id("AUD")
+            workspace = AuditWorkspace.create(Path(temp_dir), audit_id)
+            with AuditPersistence(workspace) as persistence:
+                persistence.audits.add(Audit(
+                    audit_id=audit_id,
+                    project_name="single URL with real limit",
+                    capabilities=(DECLARED_SINGLE_URL_SCOPE_CAPABILITY,),
+                    limitations=("MAX_PAGES_REACHED:1",),
+                ))
+                apply_rendered_discovery_limitation(
+                    audit_id=audit_id,
+                    persistence=persistence,
+                    rendered_outside_audit={"https://example.test/related"},
+                    limit_reached=True,
+                )
+                stored = persistence.audits.get(audit_id)
+                self.assertIsNotNone(stored)
+                assert stored is not None
+                self.assertEqual(stored.limitations, ("MAX_PAGES_REACHED:1",))
+
+    def test_existing_rendered_gap_is_never_removed_from_persisted_history(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            audit_id = new_id("AUD")
+            workspace = AuditWorkspace.create(Path(temp_dir), audit_id)
+            with AuditPersistence(workspace) as persistence:
+                persistence.audits.add(Audit(
+                    audit_id=audit_id,
+                    project_name="historical persisted gap",
+                    capabilities=(DECLARED_SINGLE_URL_SCOPE_CAPABILITY,),
+                    limitations=("RENDERED_DISCOVERY_GAP:3",),
+                ))
+                apply_rendered_discovery_limitation(
+                    audit_id=audit_id,
+                    persistence=persistence,
+                    rendered_outside_audit={"https://example.test/other"},
+                    limit_reached=False,
+                )
+                stored = persistence.audits.get(audit_id)
+                self.assertIsNotNone(stored)
+                assert stored is not None
+                self.assertEqual(stored.limitations, ("RENDERED_DISCOVERY_GAP:3",))
 
 
 if __name__ == "__main__":

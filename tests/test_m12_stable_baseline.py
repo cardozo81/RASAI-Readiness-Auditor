@@ -131,7 +131,13 @@ class M12StableBaselineTests(unittest.TestCase):
                 self.assertEqual(audit.status, AuditStatus.COMPLETED)
                 self.assertEqual(audit.completion_status, CompletionStatus.COMPLETE_WITH_LIMITATIONS)
                 self.assertEqual(audit.audit_mode, AuditMode.NO_AI)
+                self.assertIn("declared_single_url_scope", audit.capabilities)
                 self.assertTrue(any(limitation.startswith("MAX_PAGES_REACHED:") for limitation in audit.limitations))
+                self.assertFalse(any(
+                    limitation.startswith("RENDERED_DISCOVERY_GAP:")
+                    or limitation.startswith("RENDERED_LINKS_OUTSIDE_AUDIT_UNIVERSE_MAX_PAGES:")
+                    for limitation in audit.limitations
+                ))
 
             connection = sqlite3.connect(result.audit_root / "audit.db")
             connection.row_factory = sqlite3.Row

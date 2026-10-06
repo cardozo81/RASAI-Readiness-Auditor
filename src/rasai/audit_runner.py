@@ -29,7 +29,7 @@ from rasai.m2 import execute_m2
 from rasai.m3 import execute_m3
 from rasai.m4 import execute_m4
 from rasai.m5 import execute_m5
-from rasai.m6 import execute_m6
+from rasai.m6 import DECLARED_SINGLE_URL_SCOPE_CAPABILITY, execute_m6
 from rasai.m7 import execute_m7
 from rasai.m8 import execute_m8
 from rasai.m9 import execute_m9
@@ -156,6 +156,10 @@ def run_audit(
         capabilities.append("optional_ai_technical_discovery_assessment")
     if target_type is TargetType.URL_SET:
         capabilities.append("url_set")
+    else:
+        # Persist the declared single-URL scope in the AUD itself. RPR/M6 must
+        # never infer this historical contract from current console behavior.
+        capabilities.append(DECLARED_SINGLE_URL_SCOPE_CAPABILITY)
     audit = Audit(
         audit_id=audit_id,
         project_name=project,
