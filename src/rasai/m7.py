@@ -449,8 +449,9 @@ def _ensure_semantic_context_evidence(
         "main_content_excerpt": effective_main[:2000],
         "main_content_available": bool(effective_main),
         "structured_data_available": effective_structured is not None,
-        "render_quality_reason": render_quality_reason,
     }
+    if render_quality_reason is not None:
+        observed_value["render_quality_reason"] = render_quality_reason
 
     existing = _existing_semantic_context_evidence(
         persistence,
