@@ -25,6 +25,7 @@ from rasai.m4 import M4ExecutionResult
 from rasai.m5 import M5ExecutionResult
 from rasai.m6 import M6ExecutionResult
 from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.render_materiality import capture_quality_block_reason
 from rasai.rules import RuleDefinition, RuleEvaluation, RuleScope
 from rasai.semantic import (
     NoneProvider,
@@ -212,6 +213,7 @@ def execute_m7(
                 if snapshot is None or snapshot.page_id != page_id or snapshot.device != device:
                     raise ValueError(f"invalid snapshot mapping: {snapshot_id}")
 
+                quality_reason = capture_quality_block_reason(snapshot.browser_metadata)
                 semantic_input, context_evidence_id = _build_semantic_input(
                     audit,
                     page.normalized_url,
@@ -220,9 +222,14 @@ def execute_m7(
                     persistence,
                     workspace,
                     evidence_manager,
+                    render_quality_reason=quality_reason,
                 )
                 baseline_by_rule = evaluate_semantic_baseline(semantic_input)
-                call = _safe_provider_call(active_provider, semantic_input)
+                call = (
+                    ProviderCallResult(ProviderState.UNAVAILABLE)
+                    if quality_reason is not None
+                    else _safe_provider_call(active_provider, semantic_input)
+                )
                 if call.response is not None and not _normalized_response_is_valid(
                     call.response,
                     semantic_input.allowed_evidence_ids,
@@ -263,7 +270,14 @@ def execute_m7(
                         page_id,
                         snapshot_id,
                     )
-                    if blocked is not None:
+                    if quality_reason is not None:
+                        outcome = _blocked_outcome(
+                            definition.rule_id,
+                            RuleResult.UNKNOWN,
+                            context_evidence_id,
+                            reason=quality_reason,
+                        )
+                    elif blocked is not None:
                         outcome = _blocked_outcome(
                             definition.rule_id,
                             blocked,
@@ -418,6 +432,7 @@ def _ensure_semantic_context_evidence(
     manager: EvidenceManager,
     main_content: str | None = None,
     structured_data: Any = None,
+    render_quality_reason: str | None = None,
 ):
     effective_main = (
         main_content
@@ -434,6 +449,7 @@ def _ensure_semantic_context_evidence(
         "main_content_excerpt": effective_main[:2000],
         "main_content_available": bool(effective_main),
         "structured_data_available": effective_structured is not None,
+        "render_quality_reason": render_quality_reason,
     }
 
     existing = _existing_semantic_context_evidence(
@@ -456,7 +472,7 @@ def _ensure_semantic_context_evidence(
         evidence_type=EvidenceType.TEXT_EXCERPT,
         source="semantic-input-builder",
         observed_value=observed_value,
-        artifact_reference=snapshot.main_content_ref,
+        artifact_reference=(None if render_quality_reason is not None else snapshot.main_content_ref),
     )
 
 
@@ -507,9 +523,18 @@ def _build_semantic_input(
     persistence: AuditPersistence,
     workspace: AuditWorkspace,
     manager: EvidenceManager,
+    render_quality_reason: str | None = None,
 ) -> tuple[SemanticInput, str]:
-    main_content = _read_text(workspace, snapshot.main_content_ref) or ""
-    structured_data = _read_json(workspace, snapshot.structured_data_ref)
+    main_content = (
+        ""
+        if render_quality_reason is not None
+        else (_read_text(workspace, snapshot.main_content_ref) or "")
+    )
+    structured_data = (
+        None
+        if render_quality_reason is not None
+        else _read_json(workspace, snapshot.structured_data_ref)
+    )
     context = _ensure_semantic_context_evidence(
         audit_id=audit.audit_id,
         snapshot=snapshot,
@@ -518,9 +543,14 @@ def _build_semantic_input(
         manager=manager,
         main_content=main_content,
         structured_data=structured_data,
+        render_quality_reason=render_quality_reason,
     )
 
-    evidence_ids = list(m4_result.evidence_ids.get(snapshot.snapshot_id, ()))
+    evidence_ids = (
+        []
+        if render_quality_reason is not None
+        else list(m4_result.evidence_ids.get(snapshot.snapshot_id, ()))
+    )
     evidence_ids.append(context.evidence_id)
     evidence_inputs: list[SemanticEvidenceInput] = []
     for evidence_id in dict.fromkeys(evidence_ids):
@@ -639,13 +669,15 @@ def _blocked_outcome(
     rule_id: str,
     result: RuleResult,
     context_evidence_id: str,
+    *,
+    reason: str = "SEMANTIC_PREREQUISITE_BLOCKED",
 ) -> _Outcome:
     return _Outcome(
         evaluation=RuleEvaluation(
             result,
-            {"reason": "SEMANTIC_PREREQUISITE_BLOCKED"},
+            {"reason": reason},
             _EXPECTED[rule_id],
-            reason="SEMANTIC_PREREQUISITE_BLOCKED",
+            reason=reason,
         ),
         confidence=0.0,
         source_evidence_ids=(context_evidence_id,),
