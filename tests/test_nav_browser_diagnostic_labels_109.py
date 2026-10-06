@@ -18,7 +18,7 @@ def test_typed_event_name_is_public_and_original_payload_is_immutable() -> None:
     ]}
     current = analysis._browser_diagnostics_public(raw)
     assert current["events"][0] == {
-        "type": "Aquisição compartilhada",
+        "type": "Aquisição compartilhada (histórico)",
         "message": "SYN-SAMPLE-1",
         "url": "https://example.test/",
     }
