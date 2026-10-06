@@ -460,6 +460,8 @@ def test_transversal_semantic_sk_url_fragment_preserves_global_closure(monkeypat
 
     assert result["global_output_security"]["passed"] is True
     assert result["global_output_security"]["failures"] == {}
+    assert result["global_output_security"]["reason_codes"] == []
+    assert result["closure_reason_codes"] == []
     assert result["closure_eligible"] is True
 
 
@@ -492,7 +494,44 @@ def test_transversal_secret_output_blocks_global_closure(monkeypatch, tmp_path: 
     )
     assert result["global_output_security"]["passed"] is False
     assert "ai-integrations.html" in result["global_output_security"]["failures"]
+    assert result["global_output_security"]["reason_codes"] == [
+        "GLOBAL_OUTPUT_SECURITY_SECRET_EXPOSURE"
+    ]
+    assert result["closure_reason_codes"] == ["GLOBAL_OUTPUT_SECURITY_NOT_MET"]
     assert result["closure_eligible"] is False
+
+def test_assurance_matrix_humanizes_known_closure_reasons() -> None:
+    from rasai.catalog_report_assurance import assurance_matrix_html
+
+    result = {
+        "catalogs": [],
+        "global": {
+            "configurability": 100,
+            "governance": 100,
+            "exposure": 100,
+            "reliability": 100,
+            "integrity": 100,
+            "security": 100,
+            "maturity": 100,
+        },
+        "global_output_security": {
+            "passed": False,
+            "failures": {"ai-integrations.html": ["credencial"]},
+            "reason_codes": ["GLOBAL_OUTPUT_SECURITY_SECRET_EXPOSURE"],
+        },
+        "closure_eligible": False,
+        "closure_reason_codes": [
+            "GLOBAL_OUTPUT_SECURITY_NOT_MET",
+            "HIGH_ASSURANCE_TARGET_NOT_MET",
+        ],
+    }
+
+    html = assurance_matrix_html(result)
+
+    assert "Segurança das páginas transversais pendente" in html
+    assert "Meta de confiabilidade, integridade ou segurança não atingida" in html
+    assert "Condição técnica não catalogada" not in html
+
 
 def test_assurance_matrix_explains_each_axis_without_changing_columns() -> None:
     result = {
