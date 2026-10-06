@@ -1130,6 +1130,42 @@ def _archive_snapshot(workspace: AuditWorkspace, *, audit_id: str, snapshot_id: 
             connection.close()
 
 
+def _retire_superseded_render_extraction(
+    workspace: AuditWorkspace,
+    *,
+    audit_id: str,
+    snapshot_id: str,
+    reprocess_id: str,
+) -> int:
+    """Archive prior M4 rows after a valid replacement render is accepted."""
+    rows = _archive_rows_for_query(
+        workspace,
+        audit_id=audit_id,
+        reprocess_id=reprocess_id,
+        component=CONTENT_EXTRACTION,
+        entity_type="superseded_render_extraction_evidence",
+        id_field="evidence_id",
+        sql="""SELECT * FROM evidence
+               WHERE audit_id=? AND snapshot_id=? AND source='RENDERED_DOM'
+               ORDER BY rowid""",
+        params=(audit_id, snapshot_id),
+    )
+    ids = tuple(str(row["evidence_id"]) for row in rows)
+    if not ids:
+        return 0
+    marks = ",".join("?" for _ in ids)
+    connection = sqlite3.connect(workspace.database)
+    try:
+        with connection:
+            connection.execute(
+                f"DELETE FROM evidence WHERE evidence_id IN ({marks})",
+                ids,
+            )
+    finally:
+        connection.close()
+    return len(ids)
+
+
 def _capture_render_diagnostic(
     result: Any,
     output: dict[str, Any] | None,
@@ -1201,6 +1237,9 @@ def _recover_render(
         if result.error_kind is not None or not result.rendered_html:
             _capture_render_diagnostic(result, failure_diagnostics)
             return False,getattr(result.error_kind,"value",None) or "RENDERED_DOCUMENT_UNAVAILABLE",set()
+        quality_reason = capture_quality_block_reason(result.browser_metadata)
+        if quality_reason is not None:
+            return False,quality_reason,set()
 
         connection = sqlite3.connect(workspace.database)
         try:
@@ -1240,7 +1279,8 @@ def _recover_render(
     if row is None:
         return False,"SNAPSHOT_NOT_FOUND",set()
     metadata = _load(row["browser_metadata"],{})
-    if bool(metadata.get("render_succeeded")):
+    persisted_quality_reason = capture_quality_block_reason(metadata)
+    if bool(metadata.get("render_succeeded")) and persisted_quality_reason is None:
         return False,"PERSISTED_RENDER_ARTIFACT_MISSING",set()
 
     device = DeviceContext(str(row["device"]))
@@ -1259,6 +1299,9 @@ def _recover_render(
     if result.error_kind is not None or not result.rendered_html:
         _capture_render_diagnostic(result, failure_diagnostics)
         return False,getattr(result.error_kind,"value",None) or "RENDERED_DOCUMENT_UNAVAILABLE",set()
+    quality_reason = capture_quality_block_reason(result.browser_metadata)
+    if quality_reason is not None:
+        return False,quality_reason,set()
 
     _archive_snapshot(
         workspace,
@@ -1266,6 +1309,12 @@ def _recover_render(
         snapshot_id=snapshot_id,
         reprocess_id=reprocess_id,
         component=RENDER_CAPTURE,
+    )
+    _retire_superseded_render_extraction(
+        workspace,
+        audit_id=audit_id,
+        snapshot_id=snapshot_id,
+        reprocess_id=reprocess_id,
     )
     with AuditPersistence(workspace) as persistence:
         page = persistence.pages.get(page_id)
@@ -1342,6 +1391,9 @@ def _recover_extraction(workspace: AuditWorkspace, audit_id: str, item: WorkItem
     row = _snapshot_row(workspace,audit_id,snapshot_id)
     if row is None:
         return False,"SNAPSHOT_NOT_FOUND",set()
+    quality_reason = capture_quality_block_reason(_load(row["browser_metadata"], {}))
+    if quality_reason is not None:
+        return False,"RENDER_CAPTURE_QUALITY_REQUIRED",set()
     if not (_file_exists(workspace,row["rendered_artifact_ref"]) or _file_exists(workspace,row["raw_artifact_ref"])):
         return False,"EXTRACTION_SOURCE_UNAVAILABLE",set()
     _archive_snapshot(workspace,audit_id=audit_id,snapshot_id=snapshot_id,reprocess_id=reprocess_id,component=CONTENT_EXTRACTION)
