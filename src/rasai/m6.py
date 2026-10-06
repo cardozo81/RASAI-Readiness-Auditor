@@ -30,6 +30,7 @@ from rasai.url_utils import normalize_url
 
 
 _RULE_VERSION = "1"
+DECLARED_SINGLE_URL_SCOPE_CAPABILITY = "declared_single_url_scope"
 
 
 _M6_DEFINITIONS = (
@@ -209,6 +210,11 @@ def apply_rendered_discovery_limitation(
         return
     audit = persistence.audits.get(audit_id)
     if audit is None:
+        return
+    # The single-URL scope is frozen when a new AUD is created. Historical AUDs
+    # do not receive this marker retroactively, so their previous discovery
+    # semantics and persisted limitations remain untouched.
+    if DECLARED_SINGLE_URL_SCOPE_CAPABILITY in audit.capabilities:
         return
     reason = (
         f"RENDERED_LINKS_OUTSIDE_AUDIT_UNIVERSE_MAX_PAGES:{len(rendered_outside_audit)}"

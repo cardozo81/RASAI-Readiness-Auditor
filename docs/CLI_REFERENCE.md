@@ -51,6 +51,8 @@ Default de dispositivo: `mobile`. Override: `RASAI_DEVICE_CONTEXT`.
 
 Novas auditorias públicas aceitam **exatamente uma URL/domínio de entrada**. O crawler ainda pode descobrir e auditar páginas adicionais dentro do mesmo escopo conforme `--max-pages`. O suporte interno a `URL_SET` permanece somente para leitura/compatibilidade de auditorias históricas e não reabre entrada multi-target na CLI.
 
+O contrato de novas AUDs single-URL persiste a capability técnica `declared_single_url_scope`. Links internos observados no HTML renderizado continuam como evidência de navegação e para BR-GEO-022, mas não geram `RENDERED_DISCOVERY_GAP` apenas por estarem fora das URLs efetivamente auditadas. AUDs históricas sem esse marcador não são reinterpretadas, e limitações já persistidas continuam legíveis.
+
 ## Índice e Método de Pontuação de Prontidão
 
 **Search & AI Readiness Index - Índice de Prontidão Search & IA**, versão pública **001**, é o índice apresentado ao usuário; `SARI-001` é o identificador metodológico técnico. O **Método de Pontuação de Prontidão**, versão pública **001**, é a metodologia vigente; `SCORE-GEO-004` permanece como contrato técnico.
