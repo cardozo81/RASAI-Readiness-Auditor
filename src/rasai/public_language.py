@@ -284,6 +284,11 @@ SUPPLEMENTAL_PUBLIC_LABELS.update({
     "GLOBAL_OUTPUT_SECURITY_NOT_MET": "Segurança das páginas transversais pendente",
     "CATALOG_MATURITY_TARGET_NOT_MET": "Meta de maturidade estrutural dos catálogos não atingida",
     "HIGH_ASSURANCE_TARGET_NOT_MET": "Meta de confiabilidade, integridade ou segurança não atingida",
+    "RENDER_CAPTURE_QUALITY_REQUIRED": "Captura renderizada materialmente completa necessária",
+    "SEMANTIC_INPUT_CHANGED": "Entrada semântica alterada pela recuperação da evidência",
+    "NO_TRANSIENT_RENDER_SIGNAL": "Nenhum sinal transitório de renderização detectado",
+    "RENDERED_DOM_UNAVAILABLE": "DOM renderizado indisponível",
+    "NO_PAGES": "Nenhuma página disponível para a medição",
     "CFG_APPLICABLE_CONTROLS": "Controles de configuração aplicáveis",
     "CFG_ORIGINS": "Origem das configurações",
     "CFG_PLAN_HASH": "Integridade do plano de configuração",
@@ -483,6 +488,7 @@ COMPONENT_LABELS: dict[str, str] = {
     "SYNTHETIC_APDEX": "Apdex de navegação",
     "EXPERIENCE_APDEX": "Apdex de experiência",
     "IMPROVEMENT_INTELLIGENCE": "Análise profunda por IA",
+    "PASSIVE_SECURITY": "Segurança passiva",
 }
 
 CONSOLE_STATUS_LABELS: dict[str, str] = {
