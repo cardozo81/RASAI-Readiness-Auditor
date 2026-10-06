@@ -34,6 +34,14 @@ Search & AI Intelligence mantém estados independentes para:
 
 Uma fonte configurada mas não solicitada não aparece como executada. Uma fonte executada sem linhas/resultados não é apresentada como “incluída com sucesso”.
 
+## Causalidade de estados não integrais
+
+O relatório deriva uma camada causal determinística somente de estado/evidência persistidos. Para catálogos não integrais, quando houver base material suficiente, a projeção distingue código e classe da causa, explicação técnica, impacto negocial, retryability, terminalidade e referências de provenance.
+
+A camada não chama IA nem collectors. Mensagens livres de provider não são ecoadas como causa pública. CAT-05 diferencia explicitamente indisponibilidade externa do Common Crawl de defeito do site e trata paginação SERP naturalmente encerrada como cobertura terminal limitada, sem inferir ausência além das posições observadas.
+
+Catálogos concluídos integralmente não recebem explicação de falha espúria. Estados genéricos como `FAILED_RETRYABLE` e `BLOCKED` reutilizam o mesmo read model sem alterar fulfillment.
+
 ## Freshness e reuso
 
 SERP observada durante a própria AUD usa `LIVE_RECOLLECTION`.
