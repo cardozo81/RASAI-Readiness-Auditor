@@ -407,6 +407,7 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
             self.assertEqual(tablet, 1)
             self.assertNotIn("DYNATRACE_API_TOKEN", stored_config)
             self.assertIn("measurement_contract", stored_config)
+            self.assertIn('"version":"UAD-BOUNDARY-001"', stored_config)
             self.assertIsNone(result.report_path)
             self.assertFalse((workspace.root / "report").exists())
 

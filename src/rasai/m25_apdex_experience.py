@@ -39,6 +39,7 @@ from rasai.persistence import AuditWorkspace
 
 TASK_SYNTHETIC_USER_ACTION = "SYNTHETIC_LOAD_ACTION"
 M25_PROFILE_VERSION = "M25-PROFILE-003"
+USER_ACTION_DURATION_BOUNDARY_VERSION = "UAD-BOUNDARY-001"
 NORMAL_GROUP_MINIMUM = 100
 MAX_CONCURRENCY = EXPERIENCE_MAX_CONCURRENCY
 _DEVICE_ORDER = ("MOBILE", "DESKTOP", "TABLET")
@@ -145,6 +146,7 @@ class ExperienceApdexConfig:
             "dynatrace_config_json": self.dynatrace_config_json,
             "dynatrace_api_token_persisted": False,
             "measurement_contract": {
+                "version": USER_ACTION_DURATION_BOUNDARY_VERSION,
                 "user_action_duration": "navigationStart_to_loadEventEnd_or_last_xhr_fetch_started_before_loadEventEnd",
                 "settle_role": "observation_only_not_duration_extension",
                 "runtime_errors": "javascript_and_console_capture_are_explicit_and_independent_from_apdex_impact",
@@ -306,6 +308,7 @@ class PlaywrightSyntheticUxGateway:
         value = static_host_environment()
         value["chromium_version"] = getattr(self._browser, "version", None) if self._browser is not None else None
         value["m25_profile_version"] = M25_PROFILE_VERSION
+        value["user_action_duration_boundary_version"] = USER_ACTION_DURATION_BOUNDARY_VERSION
         value["session_mode"] = self.session_mode
         value["javascript_error_capture"] = self.javascript_error_capture
         value["xhr_capture"] = self.xhr_capture

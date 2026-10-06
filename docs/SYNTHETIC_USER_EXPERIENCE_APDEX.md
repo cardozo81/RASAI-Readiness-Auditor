@@ -74,6 +74,12 @@ Fontes oficiais:
 - Dynatrace - User actions in RUM Classic: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-actions>
 - Dynatrace - User action metrics in RUM Classic: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-action-metrics>
 
+### Versão da fronteira
+
+A fronteira reproduzível mantida nesta versão é identificada como `UAD-BOUNDARY-001`. A decisão metodológica da #226 foi **KEEP** após prova Chromium controlada: a fórmula executável não mudou. O identificador é persistido no `measurement_contract` e no ambiente M25 para diferenciar explicitamente esta fronteira de qualquer evolução futura.
+
+A prova cobriu fetch pré-load concluído pós-load, fetch iniciado pós-load, recurso dinâmico pós-load, mutação DOM + script, network idle tardio, JavaScript error, request abortado e cenário limpo. Somente XHR/fetch iniciado antes do load e encerrado depois estendeu `USER_ACTION_DURATION`; `networkidle`, LCP e tráfego pós-load permaneceram observacionais. Isso **não** declara equivalência com a correlação proprietária do Dynatrace RUM.
+
 ## 4. KPM e fallback
 
 O RASAi não implementa Dynatrace Visually Complete com equivalência de fornecedor.
