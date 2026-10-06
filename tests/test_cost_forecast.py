@@ -96,7 +96,7 @@ class _FakeStore:
         }
 
 
-def test_saas_forecast_uses_tenant_job_configuration_and_target_url_count() -> None:
+def test_saas_forecast_uses_single_seed_and_historical_processed_page_count() -> None:
     forecast = forecast_saas_cost(
         _FakeStore(),
         organization_id="ORG-1",
@@ -104,7 +104,7 @@ def test_saas_forecast_uses_tenant_job_configuration_and_target_url_count() -> N
         property_id="PROP-1",
         environment_id="ENV-1",
         payload={
-            "urls": ["https://example.com/a", "https://example.com/b", "https://example.com/c"],
+            "urls": ["https://example.com/"],
             "max_pages": 10,
             "device_context": "mobile",
             "ai_provider": "openai",
@@ -114,7 +114,7 @@ def test_saas_forecast_uses_tenant_job_configuration_and_target_url_count() -> N
         },
     )
     assert forecast.show_confirmation is True
-    assert forecast.target_pages == 3
+    assert forecast.target_pages == 2
     assert forecast.sample_runs == 1
     assert forecast.expected is not None
     assert forecast.success_baseline is not None
