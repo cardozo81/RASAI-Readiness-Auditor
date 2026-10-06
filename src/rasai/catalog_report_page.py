@@ -289,12 +289,26 @@ def _cat07_methodology_summary_html(database: Path, data: _ReportData) -> str:
     html+=_metric("Fronteira temporal do baseline",boundary_display)
     html+=_metric("Synthetic Population Apdex",population_status)
     html+="</div>"
+    if boundary=="UAD-BOUNDARY-001":
+        boundary_explanation=(
+            "No contrato UAD-BOUNDARY-001, XHR/fetch iniciado antes de loadEventEnd pode estender a ação até sua conclusão; "
+            "settle pós-load, network-idle, LCP e tráfego iniciado depois do load permanecem diagnósticos e não estendem automaticamente a UAD."
+        )
+    elif boundary:
+        boundary_explanation=(
+            f"A provenance desta AUD declara a fronteira {boundary}; o relatório não a reinterpreta como UAD-BOUNDARY-001. "
+            "LCP e diagnósticos pós-load permanecem apresentados separadamente da classificação Apdex persistida."
+        )
+    else:
+        boundary_explanation=(
+            "Esta AUD não persiste a versão da fronteira temporal; o relatório não atribui UAD-BOUNDARY-001 retroativamente. "
+            "LCP e diagnósticos pós-load permanecem apresentados separadamente da classificação Apdex persistida."
+        )
     html+=(
         "<div class='notice'><strong>O que a UAD mede:</strong> "
         "a duração usada pelo baseline segue a fronteira temporal persistida acima. "
-        "No contrato UAD-BOUNDARY-001, XHR/fetch iniciado antes de loadEventEnd pode estender a ação até sua conclusão; "
-        "settle pós-load, network-idle, LCP e tráfego iniciado depois do load permanecem diagnósticos e não estendem automaticamente a UAD. "
-        "Assim, Apdex/UAD alto e LCP ruim podem coexistir sem contradição matemática.</div>"
+        +escape(boundary_explanation)
+        +" Assim, Apdex/UAD alto e LCP ruim podem coexistir sem contradição matemática.</div>"
     )
 
     lighthouse_rows=[]
