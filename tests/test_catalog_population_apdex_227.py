@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import sqlite3
 from types import SimpleNamespace
 
@@ -14,6 +15,127 @@ from rasai.synthetic_population_apdex import (
     StratumStatistics,
     SyntheticPopulationPersistence,
 )
+
+
+def test_cat07_summary_exposes_uad_lighthouse_and_unconfigured_population(tmp_path: Path) -> None:
+    database = tmp_path / "audit.db"
+    with sqlite3.connect(database) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE synthetic_ux_apdex_runs(
+                audit_id TEXT,
+                status TEXT,
+                configuration TEXT
+            );
+            CREATE TABLE web_performance_observations(
+                audit_id TEXT,
+                device TEXT,
+                performance_score REAL,
+                lcp_lab_ms REAL,
+                strategy TEXT
+            );
+            """
+        )
+        connection.execute(
+            "INSERT INTO synthetic_ux_apdex_runs VALUES (?,?,?)",
+            (
+                "AUD-UAD",
+                "SUCCESS",
+                json.dumps({
+                    "measurement_contract": {"version": "UAD-BOUNDARY-001"},
+                    "population_profile_json": None,
+                }),
+            ),
+        )
+        connection.execute(
+            "INSERT INTO web_performance_observations VALUES (?,?,?,?,?)",
+            ("AUD-UAD", "MOBILE", 28.0, 7800.0, "PAGESPEED_INSIGHTS"),
+        )
+
+    html = page._cat07_methodology_summary_html(
+        database,
+        SimpleNamespace(audit_id="AUD-UAD"),
+    )
+
+    assert "UAD-BOUNDARY-001" in html
+    assert "settle pós-load" in html
+    assert "network-idle" in html
+    assert "LCP" in html
+    assert "sem contradição matemática" in html
+    assert "PageSpeed/Lighthouse pertence ao CAT-04" in html
+    assert "28" in html
+    assert "7 800" in html or "7800" in html
+    assert "Não configurado nesta AUD" in html
+    assert "não os torna equivalentes a Dynatrace RUM" in html
+
+
+def test_cat07_summary_reports_configured_population_without_merging_it_into_baseline(tmp_path: Path) -> None:
+    database = tmp_path / "audit.db"
+    with sqlite3.connect(database) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE synthetic_ux_apdex_runs(
+                audit_id TEXT,
+                status TEXT,
+                configuration TEXT
+            );
+            CREATE TABLE synthetic_population_apdex_runs(
+                audit_id TEXT,
+                status TEXT,
+                measurement_contract_version TEXT
+            );
+            """
+        )
+        connection.execute(
+            "INSERT INTO synthetic_ux_apdex_runs VALUES (?,?,?)",
+            (
+                "AUD-POP-CONFIG",
+                "SUCCESS",
+                json.dumps({
+                    "measurement_contract": {"version": "UAD-BOUNDARY-001"},
+                    "population_profile_json": json.dumps({
+                        "population_profile_id": "POP-1",
+                        "profile_version": "1",
+                    }),
+                }),
+            ),
+        )
+        connection.execute(
+            "INSERT INTO synthetic_population_apdex_runs VALUES (?,?,?)",
+            ("AUD-POP-CONFIG", "SUCCESS", "UAD-BOUNDARY-001"),
+        )
+
+    html = page._cat07_methodology_summary_html(
+        database,
+        SimpleNamespace(audit_id="AUD-POP-CONFIG"),
+    )
+
+    assert "Baseline Synthetic User Experience Apdex" in html
+    assert "Synthetic Population Apdex" in html
+    assert "Configurado nesta AUD" in html
+    assert "Não configurado nesta AUD" not in html
+    assert "não entram na fórmula" not in html  # no Lighthouse observation was persisted
+    assert "não os torna equivalentes a Dynatrace RUM" in html
+
+
+def test_cat07_summary_does_not_retroactively_infer_uad_boundary(tmp_path: Path) -> None:
+    database = tmp_path / "audit.db"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "CREATE TABLE synthetic_ux_apdex_runs(audit_id TEXT,status TEXT,configuration TEXT)"
+        )
+        connection.execute(
+            "INSERT INTO synthetic_ux_apdex_runs VALUES (?,?,?)",
+            ("AUD-LEGACY", "SUCCESS", "{}"),
+        )
+
+    html = page._cat07_methodology_summary_html(
+        database,
+        SimpleNamespace(audit_id="AUD-LEGACY"),
+    )
+
+    assert "Não identificada na provenance persistida desta AUD" in html
+    assert "não atribui UAD-BOUNDARY-001 retroativamente" in html
 
 
 def test_cat07_projects_population_separately_with_provenance_and_limits(tmp_path: Path) -> None:
