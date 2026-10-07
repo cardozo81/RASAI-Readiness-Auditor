@@ -286,3 +286,71 @@ def test_competitive_ai_block_reason_remains_visible_on_redraw(monkeypatch) -> N
     assert "IA competitiva ativada" in rendered
     assert "ficará pendente" in rendered
     assert "IA principal não configurada" in rendered
+
+
+def test_perplexity_submenu_configures_queries_and_fast_mode_independently_from_serp() -> None:
+    state = SearchConsoleState()
+
+    rendered = _run(
+        state,
+        [
+            "P",
+            "1", "rasai readiness; search readiness",
+            "2", "2",
+            "V",
+            "V",
+        ],
+    )
+
+    assert "PERPLEXITY SEARCH INTELLIGENCE" in rendered
+    assert "Pesquisa externa advisory" in rendered
+    assert state.perplexity_queries == ("rasai readiness", "search readiness")
+    assert state.perplexity_search_type == "fast"
+    assert state.perplexity_last_status == "PENDING"
+
+
+def test_perplexity_submenu_rejects_more_than_five_queries() -> None:
+    state = SearchConsoleState()
+
+    rendered = _run(
+        state,
+        ["P", "1", "um;dois;três;quatro;cinco;seis", "V", "V"],
+    )
+
+    assert "use de 1 a 5 queries" in rendered
+    assert state.perplexity_queries == ()
+
+
+def test_perplexity_disable_returns_to_not_requested() -> None:
+    state = SearchConsoleState(
+        perplexity_queries=("rasai readiness",),
+        perplexity_search_type="web",
+        perplexity_last_status="PENDING",
+    )
+
+    rendered = _run(state, ["P", "D", "V", "V"])
+
+    assert "Perplexity não será solicitada" in rendered
+    assert state.perplexity_queries == ()
+    assert state.perplexity_last_status == "NOT_REQUESTED"
+    assert state.perplexity_last_detail == ""
+
+
+def test_perplexity_credential_action_reuses_canonical_secret_editor(monkeypatch) -> None:
+    from rasai import console_provider_environment as environment
+    from rasai.console_search_parameter_menu import _edit_perplexity_credential
+
+    state = SearchConsoleState()
+    seen: list[str] = []
+
+    monkeypatch.setattr(environment, "refresh_specs", lambda: environment.SPECS)
+    monkeypatch.setattr(
+        environment,
+        "_variable_menu",
+        lambda _state, spec: seen.append(spec.name),
+    )
+
+    _edit_perplexity_credential(state)
+
+    assert seen == ["PERPLEXITY_API_KEY"]
+
