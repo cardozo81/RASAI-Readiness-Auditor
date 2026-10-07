@@ -170,3 +170,47 @@ def test_materiality_diagnostics_persist_counts_not_page_text_or_secrets() -> No
     assert "primary_text_length" in serialized
     assert "heading_nodes" in serialized
     assert "content_nodes" in serialized
+
+
+def test_nonsemantic_spa_content_can_be_material_without_main() -> None:
+    text = "Conteúdo auditável renderizado por componentes client-side. " * 14
+    html = (
+        "<html><head><meta charset='utf-8'><link rel='preload' href='/app.js'></head>"
+        "<body><div id='app'><div><div>" + text + "</div></div></div></body></html>"
+    )
+
+    observation = observe_materiality(html)
+    _, quality = resolve_capture_quality(
+        _FakePage([html]),
+        html,
+        settle_outcome="NETWORK_IDLE",
+    )
+
+    assert observation.main_present is False
+    assert observation.primary_text_length >= 600
+    assert observation.dom_nodes >= 4
+    assert quality["state"] == CaptureQualityState.READY.value
+    assert quality["reason"] == "PRIMARY_CONTENT_MATERIAL"
+
+
+def test_transient_marker_disappearing_without_material_content_does_not_end_recovery() -> None:
+    initial = "<html><body><div id='root'><div class='skeleton'>Carregando</div></div></body></html>"
+    weak_without_marker = "<html><body><div id='root'><div>Quase pronto</div></div></body></html>"
+    page = _FakePage([
+        weak_without_marker,
+        weak_without_marker,
+        weak_without_marker,
+        weak_without_marker,
+    ])
+
+    _, quality = resolve_capture_quality(
+        page,
+        initial,
+        settle_outcome="BOUNDED_TIMEOUT",
+    )
+
+    assert quality["state"] == CaptureQualityState.INCOMPLETE.value
+    assert quality["recovery"]["outcome"] == "BOUND_EXHAUSTED"
+    assert quality["recovery"]["observation_count"] == 4
+    assert quality["final"]["transient_markers"] == 0
+    assert quality["final"]["primary_text_length"] < 160
