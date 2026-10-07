@@ -103,7 +103,7 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
     Optional external search must already be persisted by its canonical owner.
     This adapter never searches, retries, charges or changes existing evidence.
     """
-    with closing(sqlite3.connect(str(database))) as con:
+    with closing(sqlite3.connect(str(database))) as con, con:
         con.row_factory = sqlite3.Row
         con.execute("PRAGMA foreign_keys=ON")
         tables = {
