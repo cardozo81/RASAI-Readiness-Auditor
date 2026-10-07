@@ -268,7 +268,7 @@ class PriorityEngine:
         return any(token in normalized for token in ("DISCOVERY", "ACCESS", "INDEX", "RENDER", "JAVASCRIPT", "SPA"))
 
     def _recommendation(self, *, audit_id: str, group: RemediationGroup, findings: list[Finding]) -> Recommendation:
-        recipe = recipe_for(group.rule_id)
+        recipe = recipe_for(group.rule_id, observed_value=findings[0].observed_value)
         expected = " ".join((findings[0].expected_condition or "").split())
         description = recipe.description
         if recipe.human_decision:
