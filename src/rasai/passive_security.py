@@ -1056,7 +1056,90 @@ def _runtime_intelligence_rows(
                 evidence_ids=cookie_row["evidence_ids"],
             )
 
-    return scripts, cookies, list(platforms.values()), list(relationships.values())
+    return _deduplicate_runtime_scripts(scripts), cookies, list(platforms.values()), list(relationships.values())
+
+
+def _canonical_runtime_item_key(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def _merge_runtime_item_lists(*groups: Iterable[Any]) -> list[Any]:
+    merged: dict[str, Any] = {}
+    for group in groups:
+        for raw in group or ():
+            value = dict(raw) if isinstance(raw, Mapping) else raw
+            merged[_canonical_runtime_item_key(value)] = value
+    return [merged[key] for key in sorted(merged)]
+
+
+def _merge_sparse_runtime_mapping(first: Any, second: Any) -> dict[str, Any]:
+    merged = dict(first) if isinstance(first, Mapping) else {}
+    incoming = dict(second) if isinstance(second, Mapping) else {}
+    for key in sorted(incoming):
+        if key not in merged or merged[key] is None or merged[key] == "":
+            merged[key] = incoming[key]
+    return merged
+
+
+def _deduplicate_runtime_scripts(scripts: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Collapse repeated observations of one stable script without losing evidence.
+
+    Browser/runtime instrumentation can surface the same response more than once.  The
+    persisted contract intentionally keys one logical script observation by script_ref,
+    so duplicates must be reconciled before the PRIMARY KEY insert rather than silently
+    dropped by SQLite.
+    """
+    by_ref: dict[str, dict[str, Any]] = {}
+    for raw in scripts:
+        item = dict(raw)
+        script_ref = str(item.get("script_ref") or "")
+        if not script_ref:
+            continue
+        current = by_ref.get(script_ref)
+        if current is None:
+            current = dict(item)
+            current["timing"] = dict(item.get("timing") or {})
+            current["integrity"] = dict(item.get("integrity") or {})
+            current["risk_signals"] = _merge_runtime_item_lists(item.get("risk_signals") or ())
+            current["platforms"] = _merge_runtime_item_lists(item.get("platforms") or ())
+            current["evidence_ids"] = sorted(
+                {str(value) for value in (item.get("evidence_ids") or ()) if str(value)}
+            )
+            by_ref[script_ref] = current
+            continue
+
+        for field in ("resource_url", "party", "domain", "snapshot_id", "page_id", "audit_id"):
+            if (current.get(field) is None or current.get(field) == "") and item.get(field) not in {None, ""}:
+                current[field] = item.get(field)
+
+        current["timing"] = _merge_sparse_runtime_mapping(
+            current.get("timing"), item.get("timing")
+        )
+        current["integrity"] = _merge_sparse_runtime_mapping(
+            current.get("integrity"), item.get("integrity")
+        )
+        current["risk_signals"] = _merge_runtime_item_lists(
+            current.get("risk_signals") or (), item.get("risk_signals") or ()
+        )
+        current["platforms"] = _merge_runtime_item_lists(
+            current.get("platforms") or (), item.get("platforms") or ()
+        )
+        current["evidence_ids"] = sorted(
+            {
+                str(value)
+                for value in (
+                    *(current.get("evidence_ids") or ()),
+                    *(item.get("evidence_ids") or ()),
+                )
+                if str(value)
+            }
+        )
+        if str(current.get("analysis_state") or "").upper() in {"", "NOT_AVAILABLE"}:
+            candidate_state = str(item.get("analysis_state") or "")
+            if candidate_state:
+                current["analysis_state"] = candidate_state
+
+    return [by_ref[key] for key in sorted(by_ref)]
 
 
 def _persist_runtime_intelligence(
