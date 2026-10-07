@@ -128,3 +128,80 @@ def test_canonical_runtime_installation_binds_the_report_renderers() -> None:
 
     _install_audit_runtime()
     remat._check_composition()
+
+
+def test_input_inventory_ignores_transient_sqlite_shm_but_protects_wal(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "inventory"
+    root.mkdir()
+    (root / "audit.db").write_bytes(b"db")
+    (root / "audit.db-wal").write_bytes(b"wal-v1")
+    (root / "audit.db-shm").write_bytes(b"shm-v1")
+    (root / "artifacts").mkdir()
+    (root / "artifacts" / "evidence.txt").write_text("evidence", encoding="utf-8")
+
+    before = remat._input_files(root)
+    assert "audit.db" in before
+    assert "audit.db-wal" in before
+    assert "audit.db-shm" not in before
+
+    (root / "audit.db-shm").write_bytes(b"shm-v2")
+    assert remat._input_files(root) == before
+
+    (root / "audit.db-wal").write_bytes(b"wal-v2")
+    after = remat._input_files(root)
+    assert after != before
+    added, removed, changed = remat._inventory_delta(before, after)
+    assert added == ()
+    assert removed == ()
+    assert changed == ("audit.db-wal",)
+
+
+def test_inventory_error_reports_exact_mutated_paths(tmp_path: Path) -> None:
+    expected = {
+        "audit.db": "db-old",
+        "artifacts/evidence.txt": "evidence",
+        "audit.db-wal": "wal-old",
+    }
+    actual = {
+        "audit.db": "db-new",
+        "artifacts/evidence.txt": "evidence",
+        "new.txt": "new",
+    }
+
+    message = remat._inventory_error("staging", expected, actual)
+    assert message is not None
+    assert "adicionados=new.txt" in message
+    assert "removidos=audit.db-wal" in message
+    assert "alterados=audit.db" in message
+
+
+def test_rematerialization_allows_transient_shm_change_in_staging(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    root = _source(tmp_path)
+    (root / "audit.db-shm").write_bytes(b"source-shm")
+    calls = _stub_canonical(monkeypatch, freshness="PRELIMINARY")
+
+    from rasai import report_completion
+
+    original_projection = report_completion.materialize_catalog_report_projection
+
+    def projection_with_shm_change(*, audit_id, workspace):
+        (workspace.root / "audit.db-shm").write_bytes(b"reader-mutated-shm")
+        return original_projection(audit_id=audit_id, workspace=workspace)
+
+    monkeypatch.setattr(
+        report_completion,
+        "materialize_catalog_report_projection",
+        projection_with_shm_change,
+    )
+
+    entry = remat.rematerialize(
+        audit_dir=root,
+        output_root=tmp_path / "new-reports",
+    )
+    assert entry.is_file()
+    assert calls == ["install", "composed", "project"]
+    assert (root / "audit.db-shm").read_bytes() == b"source-shm"
