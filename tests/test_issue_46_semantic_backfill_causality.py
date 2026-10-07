@@ -7,6 +7,8 @@ from rasai.audit_fulfillment import (
     FAILED_RETRYABLE,
     REPLAY_SAFE,
     SUCCESS,
+    begin_attempt,
+    finish_attempt,
     list_work_items,
     register_work_item,
     set_work_item_status,
@@ -14,6 +16,7 @@ from rasai.audit_fulfillment import (
 from rasai.audit_reprocess import (
     _repair_false_semantic_success,
     _semantic_attempt_succeeded,
+    _semantic_backfill_result_ref,
     _semantic_backfill_status,
 )
 from rasai.domain import Audit
@@ -384,5 +387,50 @@ def test_complete_governed_semantic_round_without_real_provider_is_not_causal(
             audit_id=AUDIT_ID,
             snapshot_id=SNAPSHOT_ID,
         ) is False
+    finally:
+        connection.close()
+
+
+def test_semantic_result_ref_is_recovered_from_last_success_after_false_demotion(
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="SEMANTIC_AI",
+        scope_key=SNAPSHOT_ID,
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        retryable=True,
+    )
+    attempt_id = begin_attempt(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="SEMANTIC_AI",
+        scope_key=SNAPSHOT_ID,
+    )
+    expected_ref = f"semantic:{SNAPSHOT_ID}:effective"
+    finish_attempt(
+        workspace,
+        attempt_id,
+        status=SUCCESS,
+        result_ref=expected_ref,
+    )
+
+    _repair_false_semantic_success(
+        workspace,
+        audit_id=AUDIT_ID,
+        snapshot_id=SNAPSHOT_ID,
+    )
+
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        assert _semantic_backfill_result_ref(
+            connection,
+            audit_id=AUDIT_ID,
+            snapshot_id=SNAPSHOT_ID,
+        ) == expected_ref
     finally:
         connection.close()
