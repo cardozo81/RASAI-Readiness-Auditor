@@ -680,7 +680,9 @@ def _remediation_html(database: Any, data: Any) -> str:
 def _source_quality_context_html(database: Any) -> str:
     """Project persisted source-quality/redirect diagnostics without new acquisition."""
     from rasai import catalog_report_governance as g
+    from rasai.catalog_source_dependencies import record_source_dependency
     path = Path(database).parent / "artifacts" / "source-quality.json"
+    record_source_dependency(path)
     if not path.is_file():
         return ""
     try:
@@ -693,6 +695,7 @@ def _source_quality_context_html(database: Any) -> str:
 
     ai_path = Path(database).parent / "artifacts" / "source-quality-ai.json"
     ai_payload: Mapping[str, Any] | None = None
+    record_source_dependency(ai_path)
     if ai_path.is_file():
         try:
             raw_ai = json.loads(ai_path.read_text(encoding="utf-8"))
