@@ -17,6 +17,7 @@ import sqlite3
 from typing import Any, Mapping, Sequence
 
 from rasai.catalog_report_public_labels import public_label
+from rasai.catalog_source_dependencies import record_source_dependency
 from rasai.public_language import safe_visible_fallback
 from rasai.secret_safety import detect_secret_exposures
 
@@ -206,6 +207,7 @@ def _artifact_integrity(database: Path, audit_id: str, catalog_id: str) -> tuple
                         failures.append(f"{table}.{ref_col}: SHA-256 não persistido")
                         continue
                     checked += 1
+                    record_source_dependency(path)
                     if not path.is_file():
                         failures.append(f"{table}.{ref_col}: arquivo ausente")
                         continue
@@ -636,6 +638,7 @@ def _external_metrics_artifact_freshness(database: Path, audit_id: str) -> tuple
         connection.close()
 
     artifact = database.parent / "artifacts" / "external-metrics-integrity.json"
+    record_source_dependency(artifact)
     if not artifact.is_file():
         return False, "external-metrics-integrity.json ausente para M21 habilitado"
     try:
