@@ -19,7 +19,13 @@ from typing import Iterator
 
 
 def _input_files(root: Path) -> dict[str, str]:
-    """Immutable input inventory: report-catalog is a generated output, not evidence."""
+    """Immutable input inventory excluding derived output and transient SQLite SHM.
+
+    SQLite `*-shm` is a shared-memory index for WAL mode. A read-only connection may
+    legitimately create or rewrite it without changing committed database evidence.
+    The main database and `*-wal` remain protected because committed transactions may
+    reside in the WAL until checkpointed.
+    """
     result: dict[str, str] = {}
     for item in sorted(root.rglob("*")):
         if not item.is_file() or item.is_symlink():
@@ -27,12 +33,51 @@ def _input_files(root: Path) -> dict[str, str]:
         relative = item.relative_to(root)
         if relative.parts[0] == "report-catalog":
             continue
+        if item.name.endswith("-shm"):
+            continue
         digest = hashlib.sha256()
         with item.open("rb") as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                 digest.update(chunk)
         result[relative.as_posix()] = digest.hexdigest()
     return result
+
+
+def _inventory_delta(
+    expected: dict[str, str],
+    actual: dict[str, str],
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    """Return added, removed and content-changed paths for a protected inventory."""
+    expected_keys = set(expected)
+    actual_keys = set(actual)
+    added = tuple(sorted(actual_keys - expected_keys))
+    removed = tuple(sorted(expected_keys - actual_keys))
+    changed = tuple(
+        sorted(
+            path
+            for path in (expected_keys & actual_keys)
+            if expected[path] != actual[path]
+        )
+    )
+    return added, removed, changed
+
+
+def _inventory_error(
+    label: str,
+    expected: dict[str, str],
+    actual: dict[str, str],
+) -> str | None:
+    added, removed, changed = _inventory_delta(expected, actual)
+    if not (added or removed or changed):
+        return None
+    parts = [label]
+    if added:
+        parts.append("adicionados=" + ",".join(added))
+    if removed:
+        parts.append("removidos=" + ",".join(removed))
+    if changed:
+        parts.append("alterados=" + ",".join(changed))
+    return "; ".join(parts)
 
 
 def _check_audit(source: Path) -> str:
@@ -128,8 +173,20 @@ def rematerialize(*, audit_dir: str | Path, output_root: str | Path) -> Path:
     stage = stage_parent / audit_id
     try:
         shutil.copytree(source, stage, symlinks=False)
-        if before != _input_files(source) or before != _input_files(stage):
-            raise RuntimeError("A origem mudou durante a copia: nao publicar.")
+        source_after_copy = _input_files(source)
+        stage_after_copy = _input_files(stage)
+        copy_errors = tuple(
+            error
+            for error in (
+                _inventory_error("origem", before, source_after_copy),
+                _inventory_error("staging", before, stage_after_copy),
+            )
+            if error is not None
+        )
+        if copy_errors:
+            raise RuntimeError(
+                "A origem mudou durante a copia: nao publicar. " + " | ".join(copy_errors)
+            )
 
         workspace = AuditWorkspace.open(stage)
         with _forbid_network():
@@ -153,8 +210,21 @@ def rematerialize(*, audit_dir: str | Path, output_root: str | Path) -> Path:
         if (manifest.get("source_fingerprint") != _source_fingerprint(workspace.database)
                 or snapshot.get("source_logical_sha256") != _sqlite_logical_digest(workspace.database)):
             raise RuntimeError("Projecao nao corresponde ao audit.db persistido.")
-        if before != _input_files(source) or before != _input_files(stage):
-            raise RuntimeError("Materializacao alterou a evidencia persistida: nao publicar.")
+        source_after_projection = _input_files(source)
+        stage_after_projection = _input_files(stage)
+        projection_errors = tuple(
+            error
+            for error in (
+                _inventory_error("origem", before, source_after_projection),
+                _inventory_error("staging", before, stage_after_projection),
+            )
+            if error is not None
+        )
+        if projection_errors:
+            raise RuntimeError(
+                "Materializacao alterou a evidencia persistida: nao publicar. "
+                + " | ".join(projection_errors)
+            )
         if destination.exists():
             raise FileExistsError(f"Saida passou a existir durante a materializacao: {destination}")
         stage.rename(destination)
