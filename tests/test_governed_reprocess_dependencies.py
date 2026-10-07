@@ -1905,3 +1905,106 @@ def test_competitive_hook_preserves_not_applicable_without_provider_execution(
     assert competitive.status == "NOT_APPLICABLE"
     assert competitive.attempt_count == 0
 
+
+
+def test_registered_ai_phase_projects_missing_hook_without_attempt(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
+    monkeypatch.setattr(audit_phase_runtime, "_AI_HOOKS", {})
+
+    outcomes = audit_phase_runtime.run_registered_ai_phase(
+        audit_id=AUDIT_ID,
+        workspace=workspace,
+        evidence_snapshot=SimpleNamespace(evidence_snapshot_id="AIE-1"),
+        purposes={"IMPROVEMENT_INTELLIGENCE"},
+    )
+
+    assert outcomes == {
+        "IMPROVEMENT_INTELLIGENCE": {
+            "status": "SKIPPED",
+            "reason": "AI_HOOK_NOT_REGISTERED",
+            "provider_called": False,
+        }
+    }
+    item = next(
+        value
+        for value in list_work_items(workspace, AUDIT_ID)
+        if value.component == "IMPROVEMENT_INTELLIGENCE"
+    )
+    assert item.status == "REQUESTED_NOT_EXECUTED"
+    assert item.last_error_class == "ORCHESTRATION"
+    assert item.last_error_code == "AI_HOOK_NOT_REGISTERED"
+    assert item.attempt_count == 0
+
+
+def test_registered_ai_phase_executes_present_hook_and_diagnoses_missing(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
+    calls: list[str] = []
+    monkeypatch.setattr(audit_phase_runtime, "_AI_HOOKS", {})
+
+    def present(**_kwargs):
+        calls.append("PRESENT")
+        return {"status": "COMPLETE", "provider": "test"}
+
+    audit_phase_runtime.register_ai_hook("PRESENT", present, order=10)
+
+    outcomes = audit_phase_runtime.run_registered_ai_phase(
+        audit_id=AUDIT_ID,
+        workspace=workspace,
+        evidence_snapshot=SimpleNamespace(evidence_snapshot_id="AIE-1"),
+        purposes={"PRESENT", "IMPROVEMENT_INTELLIGENCE"},
+    )
+
+    assert calls == ["PRESENT"]
+    assert outcomes["PRESENT"]["status"] == "COMPLETE"
+    assert outcomes["IMPROVEMENT_INTELLIGENCE"]["reason"] == "AI_HOOK_NOT_REGISTERED"
+
+
+def test_improvement_reconcile_preserves_specific_pre_provider_failure(
+    tmp_path: Path,
+) -> None:
+    from rasai import selective_optional_reprocess as optional
+
+    workspace = _workspace(tmp_path)
+    _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
+    set_work_item_status(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="IMPROVEMENT_INTELLIGENCE",
+        status="NOT_CONFIGURED",
+        error_class="CONFIGURATION",
+        error_code="IMPROVEMENT_CONFIGURATION_INVALID",
+        error_message="domínios inválidos",
+        retryable=True,
+    )
+
+    with reprocess_policy(use_ai=True, ai_provider="openai"):
+        optional._reconcile_improvement_rpr(workspace, AUDIT_ID)
+
+    item = next(
+        value
+        for value in list_work_items(workspace, AUDIT_ID)
+        if value.component == "IMPROVEMENT_INTELLIGENCE"
+    )
+    assert item.status == "NOT_CONFIGURED"
+    assert item.last_error_class == "CONFIGURATION"
+    assert item.last_error_code == "IMPROVEMENT_CONFIGURATION_INVALID"
+    assert item.last_error_message == "domínios inválidos"
+
+
+def test_governed_rpr_separates_handled_from_executed_ai_purposes() -> None:
+    import inspect
+
+    source = inspect.getsource(runtime._registered_ai_and_report)
+    assert "handled_purposes: set[str] = set()" in source
+    assert "executed_purposes: set[str] = set()" in source
+    assert "handled_purposes.update(pass_outcomes)" in source
+    assert "AI_HOOK_NOT_REGISTERED" in source
+    assert "executed_purposes.update(purposes)" not in source
