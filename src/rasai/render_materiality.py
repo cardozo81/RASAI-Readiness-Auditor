@@ -21,6 +21,10 @@ _CHROME_TOKEN_RE = re.compile(
     re.IGNORECASE,
 )
 _SPACE_RE = re.compile(r"\s+")
+_VOID_TAGS = frozenset({
+    "area", "base", "br", "col", "embed", "hr", "img", "input",
+    "link", "meta", "param", "source", "track", "wbr",
+})
 
 
 class CaptureQualityState(StrEnum):
@@ -128,7 +132,6 @@ class _MaterialityParser(HTMLParser):
         if is_main:
             self.main_nodes += 1
         parent_main = self._main_stack[-1] if self._main_stack else False
-        self._main_stack.append(parent_main or is_main)
 
         is_chrome = (
             tag_name in {"header", "nav", "footer", "aside"}
@@ -136,7 +139,9 @@ class _MaterialityParser(HTMLParser):
         )
         parent_chrome = self._chrome_stack[-1] if self._chrome_stack else False
         chrome_context = parent_chrome or is_chrome
-        self._chrome_stack.append(chrome_context)
+        if tag_name not in _VOID_TAGS:
+            self._main_stack.append(parent_main or is_main)
+            self._chrome_stack.append(chrome_context)
         if is_chrome:
             self.chrome_nodes += 1
 
@@ -166,7 +171,8 @@ class _MaterialityParser(HTMLParser):
 
     def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self.handle_starttag(tag, attrs)
-        self.handle_endtag(tag)
+        if tag.casefold() not in _VOID_TAGS:
+            self.handle_endtag(tag)
 
     def handle_endtag(self, tag: str) -> None:
         tag_name = tag.casefold()
