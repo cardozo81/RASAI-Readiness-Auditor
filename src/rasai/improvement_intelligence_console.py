@@ -21,7 +21,10 @@ from rasai.improvement_intelligence import (
     AI_ANALYSIS_LANGUAGE_ENV,
     DEFAULT_DOMAINS,
     DOMAIN_LABELS,
+    DOMAINS_ENV,
     ENABLED_ENV,
+    MAX_RECOMMENDATIONS_ENV,
+    TIMEOUT_ENV,
     ImprovementConfig,
     execute_improvement_intelligence,
     parse_domains,
@@ -105,13 +108,12 @@ def _install_settings(console_module: ModuleType) -> None:
 
     def state_values(state: Any) -> dict[str, dict[str, str]]:
         values = dict(original_values(state))
+        enabled, domains, maximum, timeout = _effective_feature_settings(state)
         values["improvement_intelligence"] = {
-            "enabled": "true" if bool(getattr(state, "improvement_enabled", False)) else "false",
-            "domains": ",".join(getattr(state, "improvement_domains", DEFAULT_DOMAINS)),
-            "max_recommendations": str(
-                int(getattr(state, "improvement_max_recommendations", 30))
-            ),
-            "timeout_seconds": f"{float(getattr(state, 'improvement_timeout', 240.0)):g}",
+            "enabled": "true" if enabled else "false",
+            "domains": ",".join(domains),
+            "max_recommendations": str(maximum),
+            "timeout_seconds": f"{float(timeout):g}",
         }
         return values
 
@@ -141,19 +143,53 @@ def _install_settings(console_module: ModuleType) -> None:
     settings._rasai_improvement_intelligence_settings = True
 
 
-def _config_from_state(state: Any) -> ImprovementConfig:
-    """Validate feature shape without turning provider readiness into a console gate."""
-    selection = str(getattr(state, "ai_provider", "none") or "none").strip().casefold()
-    model = str(getattr(state, "ai_model", "") or "") if selection != "auto" else ""
-    reasoning = str(getattr(state, "ai_reasoning", "") or "").strip().upper() if selection != "auto" else ""
-    domains = parse_domains(tuple(getattr(state, "improvement_domains", DEFAULT_DOMAINS)))
-    maximum = int(getattr(state, "improvement_max_recommendations", 30))
-    timeout = float(getattr(state, "improvement_timeout", 240.0))
-    language = validate_analysis_language(os.environ.get(AI_ANALYSIS_LANGUAGE_ENV) or "auto")
+def _effective_feature_settings(
+    state: Any,
+) -> tuple[bool, tuple[str, ...], int, float]:
+    """Resolve CAT-08 feature controls independently from provider readiness."""
+    enabled_raw = str(os.environ.get(ENABLED_ENV) or "").strip()
+    enabled = (
+        enabled_raw.casefold() in {"1", "true", "yes", "on"}
+        if enabled_raw
+        else bool(getattr(state, "improvement_enabled", False))
+    )
+    domains_raw = str(os.environ.get(DOMAINS_ENV) or "").strip()
+    domains = parse_domains(
+        domains_raw
+        if domains_raw
+        else tuple(getattr(state, "improvement_domains", DEFAULT_DOMAINS))
+    )
+    maximum_raw = str(os.environ.get(MAX_RECOMMENDATIONS_ENV) or "").strip()
+    maximum = (
+        int(maximum_raw)
+        if maximum_raw
+        else int(getattr(state, "improvement_max_recommendations", 30))
+    )
+    timeout_raw = str(os.environ.get(TIMEOUT_ENV) or "").strip()
+    timeout = (
+        float(timeout_raw)
+        if timeout_raw
+        else float(getattr(state, "improvement_timeout", 240.0))
+    )
     if maximum < 1 or maximum > 100:
         raise ValueError("máximo de recomendações deve estar entre 1 e 100")
     if not math.isfinite(timeout) or timeout <= 0:
         raise ValueError("timeout da análise profunda deve ser finito e > 0")
+    return enabled, domains, maximum, timeout
+
+
+def _config_from_state(state: Any) -> ImprovementConfig:
+    """Resolve the effective feature config with explicit environment overrides first.
+
+    The interactive state and the environment are two supported configuration
+    surfaces. An explicit RASAI_IMPROVEMENT_* override must not be silently replaced
+    by an older/default state value when the execution snapshot is frozen.
+    """
+    selection = str(getattr(state, "ai_provider", "none") or "none").strip().casefold()
+    model = str(getattr(state, "ai_model", "") or "") if selection != "auto" else ""
+    reasoning = str(getattr(state, "ai_reasoning", "") or "").strip().upper() if selection != "auto" else ""
+    enabled, domains, maximum, timeout = _effective_feature_settings(state)
+    language = validate_analysis_language(os.environ.get(AI_ANALYSIS_LANGUAGE_ENV) or "auto")
     if selection not in {"none", "auto", ""}:
         registration = get_provider_registration(selection)
         if registration is None:
@@ -169,7 +205,7 @@ def _config_from_state(state: Any) -> ImprovementConfig:
             )
         model = effective_model
     return ImprovementConfig(
-        enabled=bool(getattr(state, "improvement_enabled", False)),
+        enabled=enabled,
         provider=selection,
         model=model,
         reasoning=reasoning,
@@ -248,6 +284,7 @@ def configure(console_module: ModuleType, state: Any) -> None:
         enabled = prompt_yes_no("Habilitar análise profunda", current)
         if not enabled:
             state.improvement_enabled = False
+            os.environ[ENABLED_ENV] = "false"
             state.error = ""
             return
         if str(getattr(state, "input_mode", "url")) != "url":
@@ -307,6 +344,13 @@ def configure(console_module: ModuleType, state: Any) -> None:
             state.improvement_timeout = value
 
         _config_from_state(state)
+        # A successful edit through the dedicated CAT-08 surface becomes the current
+        # explicit session override as well, so both public configuration surfaces
+        # remain convergent.
+        os.environ[ENABLED_ENV] = "true"
+        os.environ[DOMAINS_ENV] = ",".join(state.improvement_domains)
+        os.environ[MAX_RECOMMENDATIONS_ENV] = str(state.improvement_max_recommendations)
+        os.environ[TIMEOUT_ENV] = f"{float(state.improvement_timeout):g}"
         state.error = ""
 
     except EditCancelled:

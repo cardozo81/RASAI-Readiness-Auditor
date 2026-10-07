@@ -1278,14 +1278,15 @@ def _install_improvement_console() -> None:
         selection = str(getattr(state, "ai_provider", "none") or "none").casefold()
         model = str(getattr(state, "ai_model", "") or "") if selection != "auto" else ""
         reasoning = str(getattr(state, "ai_reasoning", "") or "") if selection != "auto" else ""
+        enabled, domains, maximum, timeout = console._effective_feature_settings(state)
         return ImprovementConfig(
-            enabled=bool(getattr(state, "improvement_enabled", False)),
+            enabled=enabled,
             provider=selection,
             model=model,
             reasoning=reasoning,
-            domains=tuple(getattr(state, "improvement_domains", DEFAULT_DOMAINS)),
-            max_recommendations=int(getattr(state, "improvement_max_recommendations", 30)),
-            timeout_seconds=float(getattr(state, "improvement_timeout", 240.0)),
+            domains=domains,
+            max_recommendations=maximum,
+            timeout_seconds=timeout,
             language=(os.environ.get(console.AI_ANALYSIS_LANGUAGE_ENV) or "auto"),
         ).validate()
 
@@ -1314,11 +1315,19 @@ def _install_improvement_console() -> None:
         print("A análise usa exclusivamente a configuração principal de IA do RASAi.")
         print("Se a IA principal estiver em AUTO, são reutilizados ranking por custo, quarentena, circuit breaker e fallback do core.")
         print("O contrato desta feature continua evidence-bound, advisory/non-scoring e restrito a uma URL explícita.\n")
-        current = bool(getattr(state, "improvement_enabled", False))
+        effective_enabled, effective_domains, effective_maximum, effective_timeout = (
+            console._effective_feature_settings(state)
+        )
+        state.improvement_enabled = effective_enabled
+        state.improvement_domains = effective_domains
+        state.improvement_max_recommendations = effective_maximum
+        state.improvement_timeout = effective_timeout
+        current = effective_enabled
         raw = input(f"Habilitar análise profunda? [{'S/n' if current else 's/N'}]: ").strip().casefold()
         enabled = current if not raw else raw in {"s", "sim", "y", "yes", "1", "true", "on"}
         if not enabled:
             state.improvement_enabled = False
+            os.environ[console.ENABLED_ENV] = "false"
             state.error = ""
             return
         if state.input_mode != "url":
@@ -1365,6 +1374,12 @@ def _install_improvement_console() -> None:
                 raise ValueError("timeout deve ser > 0")
             state.improvement_timeout = value
         state.improvement_enabled = True
+        os.environ[console.ENABLED_ENV] = "true"
+        os.environ[console.DOMAINS_ENV] = ",".join(state.improvement_domains)
+        os.environ[console.MAX_RECOMMENDATIONS_ENV] = str(
+            state.improvement_max_recommendations
+        )
+        os.environ[console.TIMEOUT_ENV] = f"{float(state.improvement_timeout):g}"
         config_from_state(state)
         state.error = ""
 

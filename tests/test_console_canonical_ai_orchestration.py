@@ -149,3 +149,131 @@ print("OK")
     result = _run(code)
     assert result.returncode == 0, result.stderr
     assert "OK" in result.stdout
+
+
+def test_improvement_environment_override_is_canonical_for_snapshot_and_runtime() -> None:
+    code = r'''
+import os
+from rasai.ai_efficiency_policy import install as install_ai
+from rasai.runtime_completion_extensions import install_runtime_completion_extensions
+from rasai import interactive_console
+from rasai.improvement_intelligence_console import install as install_improvement
+from rasai import console_settings
+from rasai.audit_configuration_reuse_console import _export_settings
+
+install_ai()
+install_runtime_completion_extensions()
+install_improvement(interactive_console)
+
+state = interactive_console.State()
+state.input_mode = "url"
+state.target = "https://example.test/"
+state.ai_provider = "auto"
+state.ai_model = None
+state.ai_reasoning = None
+state.improvement_enabled = True
+state.improvement_domains = (
+    "TECHNICAL_HTML",
+    "SEMANTICS_STRUCTURE",
+    "CONTENT",
+)
+state.improvement_max_recommendations = 30
+state.improvement_timeout = 240.0
+
+os.environ["RASAI_IMPROVEMENT_INTELLIGENCE"] = "true"
+os.environ["RASAI_IMPROVEMENT_DOMAINS"] = "CONTENT,PERFORMANCE"
+os.environ["RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS"] = "50"
+os.environ["RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS"] = "333"
+
+from rasai import improvement_intelligence_console as deep
+config = deep._config_from_state(state)
+assert config.enabled is True
+assert config.domains == ("CONTENT", "PERFORMANCE")
+assert config.max_recommendations == 50
+assert config.timeout_seconds == 333.0
+assert config.provider == "auto"
+
+values = console_settings._state_values(state)["improvement_intelligence"]
+assert values == {
+    "enabled": "true",
+    "domains": "CONTENT,PERFORMANCE",
+    "max_recommendations": "50",
+    "timeout_seconds": "333",
+}
+
+snapshot = _export_settings(state, ("https://example.test/",))
+assert snapshot["settings"]["environment"]["RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS"] == "50"
+assert snapshot["settings"]["improvement_intelligence"]["max_recommendations"] == "50"
+assert snapshot["settings"]["environment"]["RASAI_IMPROVEMENT_DOMAINS"] == "CONTENT,PERFORMANCE"
+assert snapshot["settings"]["improvement_intelligence"]["domains"] == "CONTENT,PERFORMANCE"
+assert snapshot["settings"]["environment"]["RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS"] == "333"
+assert snapshot["settings"]["improvement_intelligence"]["timeout_seconds"] == "333"
+
+os.environ.pop("RASAI_IMPROVEMENT_DOMAINS", None)
+os.environ.pop("RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS", None)
+os.environ.pop("RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS", None)
+fallback = deep._config_from_state(state)
+assert fallback.domains == state.improvement_domains
+assert fallback.max_recommendations == 30
+assert fallback.timeout_seconds == 240.0
+print("OK")
+'''
+    result = _run(code)
+    assert result.returncode == 0, result.stderr
+    assert "OK" in result.stdout
+
+
+def test_improvement_invalid_environment_limit_remains_rejected() -> None:
+    code = r'''
+import os
+from rasai.ai_efficiency_policy import install as install_ai
+from rasai import interactive_console
+from rasai.improvement_intelligence_console import install as install_improvement
+
+install_ai()
+install_improvement(interactive_console)
+state = interactive_console.State()
+state.ai_provider = "auto"
+state.improvement_enabled = True
+state.improvement_max_recommendations = 30
+
+os.environ["RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS"] = "101"
+from rasai import improvement_intelligence_console as deep
+try:
+    deep._config_from_state(state)
+except ValueError as exc:
+    assert "entre 1 e 100" in str(exc)
+else:
+    raise AssertionError("invalid explicit max_recommendations was accepted")
+print("OK")
+'''
+    result = _run(code)
+    assert result.returncode == 0, result.stderr
+    assert "OK" in result.stdout
+
+
+def test_improvement_feature_resolution_does_not_require_provider_validation() -> None:
+    code = r'''
+import os
+from rasai.ai_efficiency_policy import install as install_ai
+from rasai import interactive_console
+from rasai.improvement_intelligence_console import install as install_improvement
+from rasai import console_settings
+
+install_ai()
+install_improvement(interactive_console)
+state = interactive_console.State()
+state.ai_provider = "unknown-provider"
+state.improvement_enabled = True
+state.improvement_domains = ("CONTENT",)
+state.improvement_max_recommendations = 30
+state.improvement_timeout = 240.0
+
+os.environ["RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS"] = "50"
+values = console_settings._state_values(state)["improvement_intelligence"]
+assert values["max_recommendations"] == "50"
+print("OK")
+'''
+    result = _run(code)
+    assert result.returncode == 0, result.stderr
+    assert "OK" in result.stdout
