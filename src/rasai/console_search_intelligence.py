@@ -442,6 +442,22 @@ def execute_perplexity_for_audit(
             f"queries={summary['consultas']} | requests={summary['requests']} | "
             f"fontes={summary['fontes']} | custo={summary['custo']} | status={summary['status']}"
         )
+        # Additive snapshot and canonical re-projection follow the optional
+        # search. They never invoke any collector/provider or change scoring.
+        if str(result.status) == "SUCCESS":
+            try:
+                from rasai.geo_observation import materialize_geo_observation
+                from rasai.report_completion import materialize_catalog_report_projection
+                workspace = AuditWorkspace.open(workspace_path)
+                materialize_geo_observation(Path(workspace.database), audit_id)
+                if (Path(workspace.root) / "report-catalog").exists():
+                    completion = materialize_catalog_report_projection(
+                        audit_id=audit_id, workspace=workspace
+                    )
+                    if completion.renderer_errors:
+                        state.perplexity_last_detail += " | GEO: relatório pendente de atualização"
+            except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+                state.perplexity_last_detail += f" | GEO advisory indisponível: {type(exc).__name__}"
         return 0 if str(result.status) == "SUCCESS" else 1
     except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
         state.perplexity_last_duration_seconds = max(time.monotonic() - started, 0.0)
