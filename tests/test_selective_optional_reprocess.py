@@ -14,6 +14,7 @@ from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.selective_optional_reprocess import (
     _backfill_console_search,
     _install_contextual_optional_hooks,
+    _optional_environment_values,
     _recover_search,
     _validate_success_integrity,
 )
@@ -318,3 +319,63 @@ def test_saved_console_search_is_backfilled_into_denominator() -> None:
         assert item.configuration["content_max_redirects"] == 5
         assert item.configuration["ai_competitive"] is False
         assert item.configuration["ymyl_mode"] == "AUTO"
+
+
+def test_improvement_domains_reprocess_environment_accepts_csv_list_and_tuple() -> None:
+    cases = (
+        (
+            "CONTENT,PERFORMANCE,AI_ACCESS",
+            "CONTENT,PERFORMANCE,AI_ACCESS",
+        ),
+        (
+            ["PERFORMANCE", "CONTENT", "SECURITY"],
+            "PERFORMANCE,CONTENT,SECURITY",
+        ),
+        (
+            ("AI_ACCESS", "CONTENT"),
+            "AI_ACCESS,CONTENT",
+        ),
+    )
+    for raw_domains, expected in cases:
+        with TemporaryDirectory() as directory:
+            workspace = _workspace(Path(directory))
+            register_work_item(
+                workspace,
+                audit_id=AUDIT_ID,
+                component="IMPROVEMENT_INTELLIGENCE",
+                required=True,
+                temporal_mode=REPLAY_SAFE,
+                retryable=True,
+                configuration={
+                    "requested": True,
+                    "domains": raw_domains,
+                    "max_recommendations": 30,
+                    "timeout_seconds": 240.0,
+                },
+            )
+
+            values = _optional_environment_values(workspace, AUDIT_ID)
+
+            assert values["RASAI_IMPROVEMENT_DOMAINS"] == expected
+
+
+def test_improvement_domains_reprocess_environment_preserves_custom_subset_order() -> None:
+    with TemporaryDirectory() as directory:
+        workspace = _workspace(Path(directory))
+        register_work_item(
+            workspace,
+            audit_id=AUDIT_ID,
+            component="IMPROVEMENT_INTELLIGENCE",
+            required=True,
+            temporal_mode=REPLAY_SAFE,
+            retryable=True,
+            configuration={
+                "requested": True,
+                "domains": "SECURITY,CONTENT,PERFORMANCE",
+            },
+        )
+
+        values = _optional_environment_values(workspace, AUDIT_ID)
+
+        assert values["RASAI_IMPROVEMENT_DOMAINS"] == "SECURITY,CONTENT,PERFORMANCE"
+        assert "TECHNICAL_HTML" not in values["RASAI_IMPROVEMENT_DOMAINS"]
