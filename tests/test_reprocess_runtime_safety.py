@@ -26,6 +26,7 @@ from rasai.reprocess_runtime_safety import (
     _RPR_CONTEXT,
     _RprContext,
     _install_m20_factory_hook,
+    _install_m20_recovery,
     record_reprocess_evaluation,
 )
 
@@ -175,3 +176,47 @@ def test_m20_recovery_context_is_thread_local_and_factory_binding_is_stable(monk
     # Outside an RPR context the same stable factory returns the normal router.
     plain = m20.build_content_remediation_router("NORMAL")
     assert not hasattr(plain, "successful")
+
+
+def test_m20_recovery_uses_governed_audit_runner_owner(monkeypatch) -> None:
+    from rasai import audit_runner, m20, reprocess_ai
+
+    calls: list[str] = []
+
+    def governed_owner(**kwargs):
+        calls.append("audit-runner")
+        return SimpleNamespace(status="SUCCESS")
+
+    monkeypatch.setattr(audit_runner, "execute_m20", governed_owner)
+    monkeypatch.setattr(
+        m20,
+        "execute_m20",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            AssertionError("raw m20.execute_m20 must not own RPR recovery")
+        ),
+    )
+    monkeypatch.setattr(
+        reprocess_ai,
+        "_successful_m20_snapshots",
+        lambda *_args, **_kwargs: frozenset(),
+    )
+
+    # Install the stable contextual recovery wrapper around the current implementation.
+    current = reprocess_ai.recover_content_remediation
+    if bool(getattr(current, "_rasai_contextual_m20_recovery", False)):
+        current = getattr(current, "_rasai_original", current)
+        monkeypatch.setattr(reprocess_ai, "recover_content_remediation", current)
+    _install_m20_recovery()
+
+    success, provider, status = reprocess_ai.recover_content_remediation(
+        workspace=SimpleNamespace(),
+        audit_id="AUD-RPR-M20-GOVERNED",
+        item=SimpleNamespace(),
+        provider=object(),
+        force_all_contexts=True,
+    )
+
+    assert success is True
+    assert provider is not None
+    assert status == "SUCCESS"
+    assert calls == ["audit-runner"]
