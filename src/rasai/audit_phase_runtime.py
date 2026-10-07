@@ -314,6 +314,66 @@ def run_registered_ai_phase(
         ),
         key=lambda item: (item.order, item.name),
     )
+    if selected is not None:
+        missing = tuple(sorted(selected.difference(_AI_HOOKS)))
+        for purpose in missing:
+            outcomes[purpose] = {
+                "status": "SKIPPED",
+                "reason": "AI_HOOK_NOT_REGISTERED",
+                "provider_called": False,
+            }
+            try:
+                from rasai.audit_fulfillment import (
+                    REQUESTED_NOT_EXECUTED,
+                    SUCCESS,
+                    list_work_items,
+                    set_work_item_status,
+                )
+
+                item = next(
+                    (
+                        value
+                        for value in list_work_items(workspace, audit_id)
+                        if bool(getattr(value, "required", False))
+                        and str(getattr(value, "component", "") or "").upper() == purpose
+                        and str(getattr(value, "scope_key", "AUDIT") or "AUDIT") == "AUDIT"
+                    ),
+                    None,
+                )
+                if item is not None and str(getattr(item, "status", "") or "").upper() != SUCCESS:
+                    set_work_item_status(
+                        workspace,
+                        audit_id=audit_id,
+                        component=purpose,
+                        scope_key="AUDIT",
+                        status=REQUESTED_NOT_EXECUTED,
+                        error_class="ORCHESTRATION",
+                        error_code="AI_HOOK_NOT_REGISTERED",
+                        error_message=(
+                            f"Purpose de IA {purpose} foi autorizado, mas nenhum "
+                            "hook executável está registrado neste processo"
+                        ),
+                        retryable=True,
+                    )
+            except Exception as exc:
+                try_append_operational_event(
+                    workspace,
+                    "AI_TASK_MISSING_HOOK_PROJECTION_WARNING",
+                    level="WARNING",
+                    audit_id=audit_id,
+                    purpose=purpose,
+                    error_type=type(exc).__name__,
+                )
+            try_append_operational_event(
+                workspace,
+                "AI_TASK_NOT_EXECUTABLE",
+                level="WARNING",
+                audit_id=audit_id,
+                purpose=purpose,
+                evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
+                reason="AI_HOOK_NOT_REGISTERED",
+                provider_called=False,
+            )
     for hook in hooks:
         try_append_operational_event(
             workspace,
