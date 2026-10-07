@@ -119,6 +119,7 @@ from rasai.provider_runtime_policy import (
     WEB_PERFORMANCE_TIMEOUT_ENV,
     provider_reasoning_env,
 )
+from rasai.search_intelligence.perplexity import API_KEY_ENV as PERPLEXITY_API_KEY_ENV
 from rasai.search_intelligence.config import (
     SERP_ENV_NAMES,
     SERP_FIXTURE_PATH_ENV,
@@ -188,7 +189,7 @@ _REMOTE_ENV_NAMES = (
     REMOTE_USER_ID_ENV,
     REMOTE_TIMEOUT_ENV,
 )
-_SEARCH_ENV_NAMES = (*SERP_ENV_NAMES, SEARCH_AI_PROVIDER_ENV, GSC_ACCESS_TOKEN_ENV)
+_SEARCH_ENV_NAMES = (*SERP_ENV_NAMES, SEARCH_AI_PROVIDER_ENV, GSC_ACCESS_TOKEN_ENV, PERPLEXITY_API_KEY_ENV)
 
 ENV_NAMES = tuple(
     dict.fromkeys(
@@ -471,6 +472,17 @@ def _search_specs() -> tuple[EnvironmentSpec, ...]:
         EnvironmentSpec(SERP_MIN_INTERVAL_ENV, "Search Intelligence / Observability", "Intervalo mínimo entre requests Search.", "número >= 0", default="1"),
         EnvironmentSpec(SEARCH_AI_PROVIDER_ENV, "Search Intelligence / Observability", "Provider da análise competitiva por IA.", "enum", ("none", "fixture", "openai"), "none"),
         EnvironmentSpec(GSC_ACCESS_TOKEN_ENV, "Search Intelligence / Observability", "OAuth bearer token temporário do Google Search Console.", "segredo/token", sensitive=True, required_when="Collectors GSC live."),
+        EnvironmentSpec(
+            PERPLEXITY_API_KEY_ENV,
+            "Search Intelligence / Observability",
+            "Credencial da Perplexity Search API para pesquisa externa advisory.",
+            "segredo/API key",
+            sensitive=True,
+            required_when="Somente quando a pesquisa externa Perplexity for solicitada para a próxima AUD.",
+            impact="Pode consumir quota/custo da Perplexity apenas durante execução solicitada; diagnóstico do console é somente de configuração.",
+            source="docs/PERPLEXITY_SEARCH_INTELLIGENCE.md",
+            notes="Queries e WEB/FAST são inputs da execução e não são variáveis de ambiente.",
+        ),
     )
 
 
