@@ -303,3 +303,12 @@ A nova superfície transversal `geo.html` é advisory e parte do `report-catalog
 Apenas evidências rastreáveis podem fundamentar recomendações; snippets de concorrentes não comprovam conteúdo integral. A interpretação deve separar explicitamente observação, hipótese e ação de boas práticas. Evolução longitudinal para CONS-* fica no gap #311 e fora da presente implementação.
 
 **Estado:** documento descreve projeto incremental; a implementação não deve ser considerada homologada até CI, testes de persistência/RPR, integridade e fechamento das issues-filhas #302–#310.
+
+
+### Snapshot GEO derivado e reuso
+
+A camada adicional `geo_observation_runs` mantém uma projeção `RASAI-GEO-OBSERVATION-1` vinculada a `audit_id`, `perplexity_run_id`, observação SERP comparável (quando disponível), fingerprint SHA-256 da entrada, contrato e timestamp de materialização. O ID é determinístico e a gravação é idempotente: nova evidência produz novo snapshot; a mesma evidência não é duplicada. Essa projeção não participa de scoring nem muda tabelas de origem.
+
+Depois de uma pesquisa Perplexity explicitamente executada pelo console e persistida com sucesso, o adapter GEO cria o snapshot e utiliza a materialização canônica do relatório existente para refletir os dados. Falhas nessa projeção opcional permanecem advisory. RPR e complementos continuam sujeitos às regras existentes de snapshot e aquisição: rematerialização HTML lê o estado persistido e não chama a API. Se não existir snapshot compatível, a seção deve apresentar indisponibilidade em vez de refazer a observação ou reinterpretar o histórico.
+
+A comparação é estritamente observacional: mesmo quando a consulta coincide, SERP e Perplexity podem diferir em momento, mercado, provider, profundidade e normalização. URLs recuperadas não são citações em respostas. As hipóteses de negócio/semântica são ações para avaliação humana, não causalidade comprovada.
