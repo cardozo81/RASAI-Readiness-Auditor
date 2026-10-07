@@ -188,35 +188,66 @@ def _governed_improvement_hook(*, audit_id: str, workspace: Any, evidence_snapsh
     if not config.enabled:
         return {"status": "SKIPPED", "reason": "DISABLED"}
 
-    _register_required_fulfillment(workspace, audit_id, config)
-    requirements = tuple(f"DOMAIN:{domain}" for domain in config.domains)
-    task_id = register_task(
-        workspace=workspace,
-        audit_id=audit_id,
-        purpose=_COMPONENT,
-        scope_type="AUDIT",
-        scope_key="AUDIT",
-        evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
-        requirements=requirements,
-        semantic_contract_version=CONTRACT_VERSION,
-    )
-    round_id = begin_round(
-        workspace=workspace,
-        ai_task_id=task_id,
-        requested_requirements=requirements,
-        input_payload={
-            "evidence_snapshot_id": evidence_snapshot.evidence_snapshot_id,
-            "evidence_fingerprint": evidence_snapshot.fingerprint,
-            "config_fingerprint": config.fingerprint(),
-            "domains": list(config.domains),
-        },
-        input_summary={
-            "evidence_count": len(evidence_snapshot.evidence_ids),
-            "domains": list(config.domains),
-            "provider": config.provider,
-            "model": config.model,
-        },
-    )
+    try:
+        _register_required_fulfillment(workspace, audit_id, config)
+        requirements = tuple(f"DOMAIN:{domain}" for domain in config.domains)
+        task_id = register_task(
+            workspace=workspace,
+            audit_id=audit_id,
+            purpose=_COMPONENT,
+            scope_type="AUDIT",
+            scope_key="AUDIT",
+            evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
+            requirements=requirements,
+            semantic_contract_version=CONTRACT_VERSION,
+        )
+        round_id = begin_round(
+            workspace=workspace,
+            ai_task_id=task_id,
+            requested_requirements=requirements,
+            input_payload={
+                "evidence_snapshot_id": evidence_snapshot.evidence_snapshot_id,
+                "evidence_fingerprint": evidence_snapshot.fingerprint,
+                "config_fingerprint": config.fingerprint(),
+                "domains": list(config.domains),
+            },
+            input_summary={
+                "evidence_count": len(evidence_snapshot.evidence_ids),
+                "domains": list(config.domains),
+                "provider": config.provider,
+                "model": config.model,
+            },
+        )
+    except Exception as exc:
+        code = f"IMPROVEMENT_GOVERNANCE_PREPARATION_{type(exc).__name__.upper()}"
+        safe_message = redact_text(str(exc))[:1000] or type(exc).__name__
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component=_COMPONENT,
+            status=FAILED_RETRYABLE,
+            error_class="ORCHESTRATION",
+            error_code=code,
+            error_message=safe_message,
+            retryable=True,
+        )
+        try_append_operational_event(
+            workspace,
+            "IMPROVEMENT_INTELLIGENCE_FAILURE",
+            level="WARNING",
+            audit_id=audit_id,
+            stage="GOVERNANCE_PREPARATION",
+            error_type=type(exc).__name__,
+            error_message=safe_message[:512],
+            provider_called=False,
+            scoring_impact="NONE",
+            evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
+        )
+        return {
+            "status": "ERROR",
+            "reason": code,
+            "provider_called": False,
+        }
 
     try_append_operational_event(
         workspace,
