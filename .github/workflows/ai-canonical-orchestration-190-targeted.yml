@@ -19,6 +19,9 @@ on:
       - 'src/rasai/source_quality_ai.py'
       - 'src/rasai/directed_analysis.py'
       - 'src/rasai/ai_orchestration_unification.py'
+      - 'src/rasai/render_materiality.py'
+      - 'src/rasai/search_audit_runtime.py'
+      - 'src/rasai/governed_reprocess_runtime.py'
       - 'src/rasai/accepted_audit_refinements.py'
       - 'src/rasai/request_remediation_intelligence.py'
       - 'src/rasai/consolidation/specialist.py'
@@ -37,6 +40,7 @@ on:
       - 'tests/test_ai_retry_fallback_observability.py'
       - 'tests/test_issue_43_reprocess_ai_timeout.py'
       - 'tests/test_request_remediation_canonical_190.py'
+      - 'tests/test_aud722_regressions.py'
       - '.github/workflows/ai-canonical-orchestration-190-targeted.yml'
   workflow_dispatch:
 
@@ -76,6 +80,9 @@ jobs:
             src/rasai/source_quality_ai.py \
             src/rasai/directed_analysis.py \
             src/rasai/ai_orchestration_unification.py \
+            src/rasai/render_materiality.py \
+            src/rasai/search_audit_runtime.py \
+            src/rasai/governed_reprocess_runtime.py \
             src/rasai/accepted_audit_refinements.py \
             src/rasai/request_remediation_intelligence.py \
             src/rasai/consolidation/specialist.py \
@@ -108,6 +115,7 @@ jobs:
           tests/test_issue_43_reprocess_ai_timeout.py
           tests/test_governed_reprocess_dependencies.py
           tests/test_issue_66_execution_reprocess_parity.py
+          tests/test_aud722_regressions.py
 
       - name: Configuration, console and pricing boundaries
         run: >-
