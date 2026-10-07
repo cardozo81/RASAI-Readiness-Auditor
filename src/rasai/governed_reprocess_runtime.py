@@ -56,7 +56,13 @@ from rasai.reprocess_policy import (
 
 _INSTALLED = False
 _AI_COMPONENTS = frozenset(
-    {"SEMANTIC_AI", "TECHNICAL_AI", "CONTENT_REMEDIATION_AI", "IMPROVEMENT_INTELLIGENCE"}
+    {
+        "SEMANTIC_AI",
+        "TECHNICAL_AI",
+        "CONTENT_REMEDIATION_AI",
+        "IMPROVEMENT_INTELLIGENCE",
+        "COMPETITIVE_INTELLIGENCE",
+    }
 )
 _LIVE_COMPONENTS = frozenset(
     {"WEB_PERFORMANCE", "SYNTHETIC_APDEX", "EXPERIENCE_APDEX"}
@@ -1204,7 +1210,31 @@ def _registered_ai_purposes(
             )
         else:
             purposes.add("IMPROVEMENT_INTELLIGENCE")
-    if str(recovered.get("SEARCH_INTELLIGENCE") or "").upper() == "SUCCESS":
+    from rasai.search_audit_runtime import ensure_competitive_ai_work_item
+
+    ensure_competitive_ai_work_item(workspace, audit_id)
+    competitive = _pending_item(workspace, audit_id, "COMPETITIVE_INTELLIGENCE")
+    if competitive is not None:
+        blockers = blocking_dependencies(workspace, competitive)
+        if blockers:
+            set_work_item_status(
+                workspace,
+                audit_id=audit_id,
+                component="COMPETITIVE_INTELLIGENCE",
+                scope_key=getattr(competitive, "scope_key", "AUDIT"),
+                status=WAITING_FOR_DATA,
+                error_class="PREREQUISITE",
+                error_code="AI_WAITING_FOR_PREREQUISITES",
+                error_message=(
+                    "IA competitiva aguardando pré-requisitos obrigatórios: "
+                    + ", ".join(blockers)
+                ),
+                retryable=True,
+            )
+        else:
+            purposes.add("COMPETITIVE_INTELLIGENCE")
+    elif str(recovered.get("SEARCH_INTELLIGENCE") or "").upper() == "SUCCESS":
+        # Compatibility path for configurations that do not request Competitive AI.
         purposes.add("COMPETITIVE_INTELLIGENCE")
     return frozenset(purposes)
 
