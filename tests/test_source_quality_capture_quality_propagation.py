@@ -7,11 +7,12 @@ from pathlib import Path
 import sqlite3
 from types import SimpleNamespace
 
-from rasai.audit_fulfillment import FAILED_RETRYABLE, WAITING_FOR_DATA
+from rasai.audit_fulfillment import FAILED_RETRYABLE, WAITING_FOR_DATA, start_reprocess_run
 from rasai.content_extractability import execute_content_extractability
 from rasai.core_reprocessing import (
     CONTENT_EXTRACTION,
     RENDER_CAPTURE,
+    _attempt,
     _recover_render,
     synchronize_core_work_items,
 )
@@ -324,3 +325,159 @@ def test_rpr_rejects_still_incomplete_replacement_without_overwriting_snapshot(t
     finally:
         after.close()
     assert current == original
+
+def test_rpr_incomplete_retry_persists_bounded_capture_quality_without_promoting_artifacts(tmp_path: Path) -> None:
+    secret = "TOP-SECRET-RENDER-TOKEN"
+
+    class Renderer:
+        def render(self, url, device, **_kwargs):
+            return BrowserRenderResult(
+                requested_url=url,
+                final_url=url,
+                http_status=200,
+                content_type="text/html",
+                rendered_html="<html><body><main aria-busy='true'><div class='skeleton'></div></main></body></html>",
+                screenshot_png=b"REJECTED-PNG",
+                browser_metadata={
+                    "render_succeeded": True,
+                    "capture_quality": {
+                        "contract_version": "RENDER-CAPTURE-QUALITY-001",
+                        "state": "INCOMPLETE",
+                        "reason": "TRANSIENT_RENDER_PERSISTED",
+                        "settle_outcome": "BOUNDED_TIMEOUT",
+                        "initial": {
+                            "text_length": 12,
+                            "main_text_length": 0,
+                            "dom_nodes": 5,
+                            "transient_markers": 1,
+                            "lazy_markers": 1,
+                            "busy_markers": 1,
+                            "shell_markers": 1,
+                            "raw_html": f"<html>{secret}</html>",
+                        },
+                        "final": {
+                            "text_length": 20,
+                            "main_text_length": 0,
+                            "dom_nodes": 6,
+                            "transient_markers": 1,
+                            "lazy_markers": 1,
+                            "busy_markers": 1,
+                            "shell_markers": 1,
+                        },
+                        "growth": {
+                            "text_delta": 8,
+                            "main_text_delta": 0,
+                            "dom_nodes_delta": 1,
+                            "transient_markers_delta": 0,
+                            "lazy_markers_delta": 0,
+                            "materialized": True,
+                        },
+                        "recovery": {
+                            "attempted": True,
+                            "observation_count": 4,
+                            "step_ms": 250,
+                            "bounded_wait_ms": 1000,
+                            "max_wait_ms": 1000,
+                            "outcome": "BOUND_EXHAUSTED",
+                        },
+                        "url": f"https://example.test/?token={secret}",
+                    },
+                    "headers": {"Authorization": f"Bearer {secret}"},
+                },
+                error_kind=None,
+            )
+
+    workspace = core_workspace(
+        tmp_path,
+        render_succeeded=True,
+        rendered_exists=True,
+    )
+    _set_snapshot_quality(workspace, "SNP-CORE", "INCOMPLETE")
+    synchronize_core_work_items(workspace, "AUD-CORE-RECOVERY")
+    item = _by_component(workspace)[RENDER_CAPTURE]
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        original = connection.execute(
+            "SELECT rendered_artifact_ref,browser_metadata FROM page_snapshots WHERE snapshot_id='SNP-CORE'"
+        ).fetchone()
+    finally:
+        connection.close()
+
+    reprocess_id = start_reprocess_run(workspace, "AUD-CORE-RECOVERY", source="TEST")
+    success, affected = _attempt(
+        workspace,
+        "AUD-CORE-RECOVERY",
+        item,
+        reprocess_id,
+        renderer=Renderer(),
+    )
+
+    assert success is False
+    assert affected == set()
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        attempt = connection.execute(
+            """SELECT status,error_code,metadata
+               FROM audit_fulfillment_attempts
+               WHERE audit_id=? ORDER BY rowid DESC LIMIT 1""",
+            ("AUD-CORE-RECOVERY",),
+        ).fetchone()
+        current = connection.execute(
+            "SELECT rendered_artifact_ref,browser_metadata FROM page_snapshots WHERE snapshot_id='SNP-CORE'"
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert current == original
+    assert attempt is not None
+    assert attempt[0] == FAILED_RETRYABLE
+    assert attempt[1] == "RENDER_CAPTURE_QUALITY_INCOMPLETE"
+    metadata = json.loads(str(attempt[2]))
+    assert metadata["temporal_mode"] == item.temporal_mode
+    assert metadata["capture_quality"] == {
+        "state": "INCOMPLETE",
+        "reason": "TRANSIENT_RENDER_PERSISTED",
+        "settle_outcome": "BOUNDED_TIMEOUT",
+        "initial": {
+            "text_length": 12,
+            "main_text_length": 0,
+            "dom_nodes": 5,
+            "transient_markers": 1,
+            "lazy_markers": 1,
+            "busy_markers": 1,
+            "shell_markers": 1,
+        },
+        "final": {
+            "text_length": 20,
+            "main_text_length": 0,
+            "dom_nodes": 6,
+            "transient_markers": 1,
+            "lazy_markers": 1,
+            "busy_markers": 1,
+            "shell_markers": 1,
+        },
+        "growth": {
+            "text_delta": 8,
+            "main_text_delta": 0,
+            "dom_nodes_delta": 1,
+            "transient_markers_delta": 0,
+            "lazy_markers_delta": 0,
+            "materialized": True,
+        },
+        "recovery": {
+            "attempted": True,
+            "observation_count": 4,
+            "step_ms": 250,
+            "bounded_wait_ms": 1000,
+            "max_wait_ms": 1000,
+            "outcome": "BOUND_EXHAUSTED",
+        },
+    }
+    serialized = json.dumps(metadata, sort_keys=True)
+    assert secret not in serialized
+    assert "raw_html" not in serialized
+    assert "Authorization" not in serialized
+    assert "REJECTED-PNG" not in serialized
+
