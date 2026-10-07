@@ -1,0 +1,49 @@
+"""Focused opt-out regression coverage for optional Perplexity Search."""
+from __future__ import annotations
+
+import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from rasai.console_search_intelligence import (
+    execute_perplexity_for_audit,
+    perplexity_enabled,
+    validate_perplexity_readiness,
+)
+
+
+class PerplexityActivationFlagTests(unittest.TestCase):
+    def test_missing_flag_preserves_legacy_behavior(self):
+        self.assertTrue(perplexity_enabled({}))
+        self.assertTrue(perplexity_enabled({"PERPLEXITY_API_KEY": "opaque"}))
+
+    def test_explicit_opt_out(self):
+        for value in ("false", "FALSE", "0", "off", "no"):
+            with self.subTest(value=value):
+                self.assertFalse(perplexity_enabled({"RASAI_PERPLEXITY_ENABLED": value}))
+
+    def test_disabled_readiness_is_advisory(self):
+        state = SimpleNamespace(perplexity_queries=("example",))
+        ready, detail = validate_perplexity_readiness(
+            state, {"RASAI_PERPLEXITY_ENABLED": "false", "PERPLEXITY_API_KEY": "opaque"}
+        )
+        self.assertTrue(ready)
+        self.assertIn("desabilitada", detail)
+
+    def test_disabled_never_reaches_workspace_or_runner(self):
+        state = SimpleNamespace(perplexity_queries=("example",))
+        with patch.dict("os.environ", {"RASAI_PERPLEXITY_ENABLED": "false"}), patch(
+            "rasai.console_search_intelligence.audit_workspace",
+            side_effect=AssertionError("workspace accessed despite opt-out"),
+        ):
+            self.assertEqual(
+                execute_perplexity_for_audit(
+                    state, runner=lambda *a, **kw: self.fail("request executed")
+                ),
+                0,
+            )
+        self.assertEqual(state.perplexity_last_status, "DISABLED_BY_USER")
+
+
+if __name__ == "__main__":
+    unittest.main()
