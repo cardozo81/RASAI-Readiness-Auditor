@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
+import json
 import sqlite3
 from typing import Any
 
@@ -153,38 +154,98 @@ def _table_exists(connection: sqlite3.Connection, name: str) -> bool:
     ).fetchone() is not None
 
 
+def _completed_semantic_governance_round(
+    connection: sqlite3.Connection,
+    *,
+    audit_id: str,
+    snapshot_id: str,
+) -> bool:
+    """Recognize a governed/backfilled M7 completion when provider telemetry is absent.
+
+    Older M7 executions persisted provider-backed semantic_assessments before
+    ai_provider_attempts became the universal provider ledger.  The governance
+    backfill intentionally represents those results as a SEMANTIC_M7 task plus a
+    COMPLETE round.  That chain is purpose-scoped and therefore cannot be satisfied
+    by Improvement, Technical AI, or other AI purposes sharing the same snapshot.
+    """
+    if not (
+        _table_exists(connection, "ai_tasks")
+        and _table_exists(connection, "ai_request_rounds")
+    ):
+        return False
+
+    task = connection.execute(
+        """SELECT ai_task_id,status,semantic_contract_version
+           FROM ai_tasks
+           WHERE audit_id=? AND purpose='SEMANTIC_M7' AND scope_key=?
+           ORDER BY updated_at DESC,rowid DESC LIMIT 1""",
+        (audit_id, snapshot_id),
+    ).fetchone()
+    if task is None or str(task[1] or "").upper() != "COMPLETE":
+        return False
+
+    contract = str(task[2] or "")
+    if contract and not contract.startswith("M18-SEMANTIC-"):
+        return False
+
+    rows = connection.execute(
+        """SELECT accepted_json,missing_json
+           FROM ai_request_rounds
+           WHERE ai_task_id=? AND status='COMPLETE'
+           ORDER BY round_index DESC,rowid DESC""",
+        (str(task[0]),),
+    ).fetchall()
+    for row in rows:
+        try:
+            accepted = json.loads(str(row[0] or "{}"))
+            missing = json.loads(str(row[1] or "[]"))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+        if isinstance(accepted, dict) and accepted and not missing:
+            return True
+    return False
+
+
 def _semantic_attempt_succeeded(
     connection: sqlite3.Connection,
     *,
     audit_id: str,
     snapshot_id: str,
 ) -> bool:
-    if not _table_exists(connection, "ai_provider_attempts"):
-        return False
-    columns = {
-        str(row[1])
-        for row in connection.execute("PRAGMA table_info(ai_provider_attempts)").fetchall()
-    }
-    filters = ["audit_id=?", "snapshot_id=?", "status='SUCCESS'"]
-    params: list[Any] = [audit_id, snapshot_id]
-    if "operation" in columns and "semantic_contract_version" in columns:
-        filters.append(
-            "(operation='SEMANTIC_M7' OR "
-            "(operation IS NULL AND semantic_contract_version LIKE 'M18-SEMANTIC-%'))"
-        )
-    elif "operation" in columns:
-        filters.append("operation='SEMANTIC_M7'")
-    elif "semantic_contract_version" in columns:
-        filters.append("semantic_contract_version LIKE 'M18-SEMANTIC-%'")
-    else:
-        # Pre-purpose schemas used ai_provider_attempts only for semantic M7.
-        # Preserve that legacy compatibility without allowing modern cross-purpose
-        # attempts to satisfy SEMANTIC_AI.
-        pass
-    return connection.execute(
-        "SELECT 1 FROM ai_provider_attempts WHERE " + " AND ".join(filters) + " LIMIT 1",
-        tuple(params),
-    ).fetchone() is not None
+    if _table_exists(connection, "ai_provider_attempts"):
+        columns = {
+            str(row[1])
+            for row in connection.execute("PRAGMA table_info(ai_provider_attempts)").fetchall()
+        }
+        filters = ["audit_id=?", "snapshot_id=?", "status='SUCCESS'"]
+        params: list[Any] = [audit_id, snapshot_id]
+        if "operation" in columns and "semantic_contract_version" in columns:
+            filters.append(
+                "(operation='SEMANTIC_M7' OR "
+                "(operation IS NULL AND semantic_contract_version LIKE 'M18-SEMANTIC-%'))"
+            )
+        elif "operation" in columns:
+            filters.append("operation='SEMANTIC_M7'")
+        elif "semantic_contract_version" in columns:
+            filters.append("semantic_contract_version LIKE 'M18-SEMANTIC-%'")
+        else:
+            # Pre-purpose schemas used ai_provider_attempts only for semantic M7.
+            # Preserve that legacy compatibility without allowing modern cross-purpose
+            # attempts to satisfy SEMANTIC_AI.
+            pass
+        if connection.execute(
+            "SELECT 1 FROM ai_provider_attempts WHERE "
+            + " AND ".join(filters)
+            + " LIMIT 1",
+            tuple(params),
+        ).fetchone() is not None:
+            return True
+
+    return _completed_semantic_governance_round(
+        connection,
+        audit_id=audit_id,
+        snapshot_id=snapshot_id,
+    )
 
 
 def _repair_false_semantic_success(
