@@ -31,8 +31,12 @@ pasta de saída nova, preservando a anterior como evidência.
    bindings efetivos de catálogo e padrões. Falhar se houver instalação
    incompleta, sem fabricar um HTML aparentemente íntegro.
 3. Calcular SHA-256 do inventário de arquivos da AUD (exceto
-   `report-catalog/`, que é produto derivado); copiar a AUD inteira para
-   staging sob a pasta de saída; conferir origem e staging por SHA-256.
+   `report-catalog/`, que é produto derivado, e arquivos SQLite `*-shm`, que
+   são índices transitórios de memória compartilhada e podem mudar apenas pela
+   abertura de uma conexão de leitura); copiar a AUD inteira para staging sob a
+   pasta de saída; conferir origem e staging por SHA-256. O banco principal e
+   arquivos `*-wal` continuam protegidos integralmente, pois o WAL pode conter
+   transações committed ainda não checkpointadas.
 4. Executar **apenas** `report_completion.materialize_catalog_report_projection`
    na cópia, com `socket.connect` e `socket.create_connection` bloqueados
    durante a projeção. Não executar finalizadores que consolidem/reconciliem
@@ -43,9 +47,11 @@ pasta de saída nova, preservando a anterior como evidência.
    `execution_consistency_runtime._publication_state` da própria AUD.
    `assurance.closure_eligible` avalia somente assurance estrutural e
    nunca eleva uma AUD parcial a FINAL.
-6. Revalidar inventário de entrada original e staging após a operação;
-   recusar qualquer alteração de evidência e só então promover
-   atomicamente a pasta com relatório para o destino definitivo.
+6. Revalidar inventário protegido da entrada original e do staging após a
+   operação; recusar qualquer alteração de evidência e informar os caminhos
+   adicionados, removidos ou alterados. Mudança apenas de `*-shm` não constitui
+   alteração de evidência persistida. Só então promover atomicamente a pasta
+   com relatório para o destino definitivo.
 
 O comando não pode garantir disponibilidade de artefatos originalmente
 não persistidos; ausência real de dado na AUD deve continuar explícita.
