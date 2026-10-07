@@ -220,3 +220,94 @@ def test_m20_recovery_uses_governed_audit_runner_owner(monkeypatch) -> None:
     assert provider is not None
     assert status == "SUCCESS"
     assert calls == ["audit-runner"]
+
+
+def test_historical_m20_backfill_links_missing_governance_without_changing_usage(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from rasai import ai_governance
+    from rasai.post_smoke_alignment import _backfill_content_task
+
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE content_remediation_runs(
+                audit_id TEXT PRIMARY KEY,status TEXT,
+                eligible_findings INTEGER,generated_suggestions INTEGER
+            );
+            CREATE TABLE content_remediation_attempts(
+                attempt_id TEXT PRIMARY KEY,audit_id TEXT,
+                operation TEXT,ai_task_id TEXT,ai_round_id TEXT,started_at TEXT,
+                provider TEXT,model TEXT,input_tokens INTEGER,output_tokens INTEGER,
+                estimated_cost REAL
+            );
+            CREATE TABLE content_remediation_suggestions(
+                audit_id TEXT,finding_id TEXT,suggestion_id TEXT
+            );
+            """
+        )
+        connection.execute(
+            "INSERT INTO content_remediation_runs VALUES (?,?,?,?)",
+            ("AUD-HIST-M20", "SUCCESS", 3, 3),
+        )
+        connection.execute(
+            "INSERT INTO content_remediation_attempts VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                "M20-ATTEMPT-1", "AUD-HIST-M20", None, None, None,
+                "2026-10-07T17:44:30+00:00", "OPENAI", "gpt-test",
+                5020, 930, 0.00212,
+            ),
+        )
+        connection.execute(
+            "INSERT INTO content_remediation_suggestions VALUES (?,?,?)",
+            ("AUD-HIST-M20", "FND-1", "SGT-1"),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    workspace = SimpleNamespace(database=database)
+    calls: list[str] = []
+    monkeypatch.setattr(
+        ai_governance,
+        "latest_evidence_snapshot",
+        lambda *_args, **_kwargs: SimpleNamespace(evidence_snapshot_id="AIE-HIST"),
+    )
+    monkeypatch.setattr(
+        ai_governance,
+        "register_task",
+        lambda **_kwargs: calls.append("task") or "AIT-HIST",
+    )
+    monkeypatch.setattr(
+        ai_governance,
+        "begin_round",
+        lambda **_kwargs: calls.append("round") or "AIR-HIST",
+    )
+    monkeypatch.setattr(
+        ai_governance,
+        "complete_round",
+        lambda **_kwargs: calls.append("complete"),
+    )
+
+    _backfill_content_task(workspace, "AUD-HIST-M20")
+    _backfill_content_task(workspace, "AUD-HIST-M20")
+
+    connection = sqlite3.connect(database)
+    try:
+        row = connection.execute(
+            """SELECT operation,ai_task_id,ai_round_id,provider,model,
+                      input_tokens,output_tokens,estimated_cost
+               FROM content_remediation_attempts
+               WHERE attempt_id='M20-ATTEMPT-1'"""
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert row == (
+        "CONTENT_REMEDIATION", "AIT-HIST", "AIR-HIST",
+        "OPENAI", "gpt-test", 5020, 930, 0.00212,
+    )
+    assert calls == ["task", "round", "complete"]
