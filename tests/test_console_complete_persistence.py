@@ -60,10 +60,13 @@ def test_save_materializes_search_inputs_and_all_safe_environment_settings(tmp_p
     state.search_region = "Porto Alegre, RS, Brazil"
     state.search_device = "mobile"
     state.search_competitive = True
+    state.perplexity_queries = ("external advisory query",)
+    state.perplexity_search_type = "fast"
 
     monkeypatch.setenv("RASAI_SERP_MAX_REQUESTS", "25")
     monkeypatch.setenv("RASAI_SERPAPI_API_KEY", "secret-serp")
     monkeypatch.setenv("RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN", "secret-gsc")
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "secret-perplexity")
     monkeypatch.delenv("RASAI_CONFIG", raising=False)
 
     destination = tmp_path / "rasai-console.ini"
@@ -84,8 +87,13 @@ def test_save_materializes_search_inputs_and_all_safe_environment_settings(tmp_p
 
     assert not parser.has_option("environment", "RASAI_SERPAPI_API_KEY")
     assert not parser.has_option("environment", "RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN")
-    assert "secret-serp" not in destination.read_text(encoding="utf-8")
-    assert "secret-gsc" not in destination.read_text(encoding="utf-8")
+    assert not parser.has_option("environment", "PERPLEXITY_API_KEY")
+    text = destination.read_text(encoding="utf-8")
+    assert "secret-serp" not in text
+    assert "secret-gsc" not in text
+    assert "secret-perplexity" not in text
+    assert "external advisory query" not in text
+    assert "perplexity_queries" not in text
 
     # Loading the generated INI must not turn the optional default TOML into an explicit
     # RASAI_CONFIG override in the current process.
