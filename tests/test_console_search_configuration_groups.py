@@ -89,3 +89,14 @@ def test_gsc_temporary_token_is_presented_as_alternative_not_parallel_requiremen
     assert "Client ID" in normalized.required_when
     assert "tempor" in normalized.purpose.casefold()
     assert normalized.sensitive is True
+
+
+def test_perplexity_configuration_has_its_own_search_intelligence_context() -> None:
+    assert context_label_for_name("PERPLEXITY_API_KEY") == (
+        "Perplexity Search Intelligence / Credencial"
+    )
+    specs = {spec.name: spec for spec in facade.refresh_specs()}
+    assert "PERPLEXITY_API_KEY" in specs
+    assert specs["PERPLEXITY_API_KEY"].sensitive is True
+    assert "Perplexity" in ui_catalog.owner_for(specs["PERPLEXITY_API_KEY"])
+
