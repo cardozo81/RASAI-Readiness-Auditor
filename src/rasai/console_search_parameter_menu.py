@@ -275,23 +275,16 @@ def _edit_perplexity_credential(state: Any) -> None:
 
 
 def _edit_perplexity_activation(state: Any) -> None:
-    """Use the same canonical variable editor as other integration settings."""
-    from rasai import console_environment as environment
+    """Use the canonical variable editor for scope, persistence and restore."""
+    from rasai import console_provider_environment as environment
+
+    environment.refresh_specs()
     spec = environment.SPEC_BY_NAME.get("RASAI_PERPLEXITY_ENABLED")
     if spec is None:
-        state.error = "Flag de Perplexity não registrada"
+        state.error = "RASAI_PERPLEXITY_ENABLED não registrada no catálogo canônico"
         return
-    # Existing catalog editor governs session/INI/Windows precedence and restore.
-    from rasai.console_search_intelligence import perplexity_enabled
-    raw = input("Ativar Perplexity? [S/N, V cancela]: ").strip().upper()
-    if raw == "V":
-        return
-    if raw not in {"S", "N"}:
-        print("Escolha S, N ou V.")
-        return
-    import os
-    os.environ["RASAI_PERPLEXITY_ENABLED"] = "true" if raw == "S" else "false"
-    _set_feedback(state, "Ativação aplicada à sessão. Para persistir, use Todas as configurações > salvar.")
+    environment._variable_menu(state, spec)
+    environment.refresh_specs()
 
 
 def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
