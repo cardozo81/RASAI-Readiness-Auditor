@@ -122,6 +122,27 @@ def geo_body(database: Path, audit_id: str) -> str:
         summary += f"{int(comparison.get('perplexity_url_count') or 0)} URLs Perplexity."
         summary += " Não demonstra causalidade, ranking equivalente ou citação generativa.</p>"
     summary += "</section>"
+    if comparison:
+        target = comparison.get("target_observation") or {}
+        status = str(target.get("status") or "UNAVAILABLE")
+        labels = {
+            "EXACT_URL_OBSERVED": "URL auditada recuperada nesta observação",
+            "DOMAIN_ALTERNATIVE_OBSERVED": "Domínio recuperado por URL alternativa",
+            "TARGET_NOT_IN_RETURNED_SOURCES": "URL/domínio não recuperados nas fontes retornadas",
+            "NOT_COMPARABLE": "Comparação com o alvo indisponível",
+            "UNAVAILABLE": "Observação inconclusiva",
+        }
+        summary += "<section><h2>Alvo auditado — leitura GEO</h2>"
+        summary += "<p><strong>" + escape(labels.get(status, "Indisponível")) + "</strong></p>"
+        if target.get("query"):
+            summary += "<p>Consulta: " + escape(str(target["query"])) + "</p>"
+        if target.get("target_url"):
+            summary += "<p>URL analisada: " + escape(str(target["target_url"])) + "</p>"
+        if target.get("recommendation"):
+            summary += "<p>Ação para avaliação: " + escape(str(target["recommendation"])) + "</p>"
+        if target.get("evidence_run_id"):
+            summary += "<p>Run de origem: " + escape(str(target["evidence_run_id"])) + "</p>"
+        summary += "<p>Este resultado não determina por que uma URL foi ou não foi recuperada.</p></section>"
     summary += "<section><h2>Domínios das fontes observadas</h2><ul>"
     for host, n in counts.most_common(20):
         summary += f"<li>{escape(host)}: {n} fonte(s)</li>"
