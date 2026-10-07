@@ -15,6 +15,7 @@ from rasai.audit_fulfillment import (
 )
 from rasai.domain import Audit
 from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.reprocess_ai import invalidate_content_remediation_dependency
 from rasai.reprocess_policy import (
     expand_selected_items,
     item_executable,
@@ -178,6 +179,15 @@ def test_improvement_dependency_closure_respects_ai_authorization(tmp_path: Path
     ):
         assert item_selected(content_remediation) is True
         assert item_executable(content_remediation) is True
+        assert invalidate_content_remediation_dependency(workspace, AUDIT_ID) is True
+        invalidated = next(
+            item
+            for item in list_work_items(workspace, AUDIT_ID)
+            if item.component == "CONTENT_REMEDIATION_AI"
+        )
+        assert invalidated.status == PENDING
+        assert item_selected(invalidated) is True
+        assert item_executable(invalidated) is True
 
     with reprocess_policy(
         selected_items=[item_key("IMPROVEMENT_INTELLIGENCE", "AUDIT")],
