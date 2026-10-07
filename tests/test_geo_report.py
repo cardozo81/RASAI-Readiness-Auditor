@@ -67,6 +67,10 @@ class GeoReportTests(unittest.TestCase):
                     CREATE TABLE serp_results (
                         observation_id TEXT, url TEXT
                     );
+                    CREATE TABLE geo_observation_runs (
+                        analysis_id TEXT, audit_id TEXT, projection_json TEXT,
+                        created_at TEXT
+                    );
                 """)
                 con.execute("INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?,?)",
                             ("r1","AUD-ONE",'["insurance premium"]',"web","SUCCESS","2026-10-07",None))
@@ -76,8 +80,15 @@ class GeoReportTests(unittest.TestCase):
                             ("s1","AUD-ONE","insurance premium","2026-10-07","OBSERVED","OBSERVED_API"))
                 con.execute("INSERT INTO serp_results VALUES (?,?)",
                             ("s1","https://example.org/policy"))
-            self.assertIn("URLs em ambas", geo_body(db, "AUD-ONE"))
-            self.assertIn("<td>1</td><td>1</td><td>1</td>", geo_body(db, "AUD-ONE"))
+                con.execute(
+                    "INSERT INTO geo_observation_runs VALUES (?,?,?,?)",
+                    ("g1", "AUD-ONE",
+                     '{"serp_observation_id":"s1","serp_url_count":1,'
+                     '"perplexity_url_count":1,"url_overlap_count":1}',
+                     "2026-10-07")
+                )
+            self.assertIn("Sobreposição observacional", geo_body(db, "AUD-ONE"))
+            self.assertIn("1 em ambas", geo_body(db, "AUD-ONE"))
 
 
 if __name__ == "__main__":
