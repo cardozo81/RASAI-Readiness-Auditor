@@ -150,7 +150,7 @@ def test_improvement_reconcile_preserves_waiting_when_prerequisite_blocks_execut
     assert item.attempt_count == 0
 
 
-def test_improvement_reconcile_marks_missing_run_failed_only_when_eligible(
+def test_improvement_reconcile_does_not_synthesize_missing_run_before_ai(
     tmp_path: Path,
 ) -> None:
     from rasai import selective_optional_reprocess as optional
@@ -160,6 +160,29 @@ def test_improvement_reconcile_marks_missing_run_failed_only_when_eligible(
 
     with reprocess_policy(use_ai=True, ai_provider="openai"):
         optional._reconcile_improvement_rpr(workspace, AUDIT_ID)
+
+    item = next(
+        item
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component == "IMPROVEMENT_INTELLIGENCE"
+    )
+    assert item.status == FAILED_RETRYABLE
+    assert item.last_error_class is None
+    assert item.last_error_code is None
+    assert item.attempt_count == 0
+
+
+def test_registered_ai_outcome_owns_missing_improvement_run_failure(
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
+
+    runtime._project_improvement_after_registered_outcome(
+        workspace,
+        AUDIT_ID,
+        {"status": "ERROR", "reason": "RUNTIME_ERROR"},
+    )
 
     item = next(
         item
