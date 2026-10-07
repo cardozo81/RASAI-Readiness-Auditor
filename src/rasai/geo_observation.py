@@ -10,6 +10,7 @@ import hashlib
 import json
 from pathlib import Path
 import sqlite3
+from urllib.parse import urlsplit
 
 
 VERSION = "RASAI-GEO-OBSERVATION-1"
@@ -21,6 +22,77 @@ def _canonical_json(value: object) -> str:
 
 def _records(con: sqlite3.Connection, sql: str, args: tuple) -> list[dict]:
     return [dict(row) for row in con.execute(sql, args).fetchall()]
+
+
+
+def _canonical_url(url: str) -> str:
+    try:
+        parsed = urlsplit(url.strip())
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+            return ""
+        authority = parsed.hostname.lower().removeprefix("www.")
+        path = parsed.path.rstrip("/") or "/"
+        # URL query is semantically significant; fragment is client-side only.
+        return authority + path + ("?" + parsed.query if parsed.query else "")
+    except ValueError:
+        return ""
+
+
+def _host(url: str) -> str:
+    try:
+        return (urlsplit(url).hostname or "").lower().removeprefix("www.")
+    except ValueError:
+        return ""
+
+
+def _target_observation(
+    con: sqlite3.Connection, audit_id: str, run: dict,
+    queries: object, sources: list[dict]
+) -> dict:
+    targets_table = con.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='audit_targets'"
+    ).fetchone()
+    targets = _records(con, "SELECT input_url FROM audit_targets WHERE audit_id=? "
+                       "ORDER BY target_id", (audit_id,)) if targets_table else []
+    if len(targets) != 1 or not isinstance(queries, list) or len(queries) != 1:
+        return {
+            "status": "NOT_COMPARABLE",
+            "explanation": "Alvo unico ou atribuicao por consulta indisponivel.",
+            "recommendation": None,
+            "evidence_run_id": run["run_id"],
+        }
+    target = targets[0]["input_url"]
+    desired = _canonical_url(target)
+    domain = _host(target)
+    if not desired or not domain or str(run["status"]).upper() != "SUCCESS":
+        return {"status": "UNAVAILABLE", "explanation": "Observacao incompleta.",
+                "recommendation": None, "evidence_run_id": run["run_id"]}
+    source_urls = [str(item["url"]) for item in sources]
+    exact = [url for url in source_urls if _canonical_url(url) == desired]
+    alternatives = [url for url in source_urls
+                    if _host(url) == domain and _canonical_url(url) != desired]
+    competitors = [url for url in source_urls if _host(url) and _host(url) != domain]
+    if exact:
+        status = "EXACT_URL_OBSERVED"
+        action = "Preservar fatos verificaveis e acompanhar a mesma consulta em novas observacoes."
+    elif alternatives:
+        status = "DOMAIN_ALTERNATIVE_OBSERVED"
+        action = "Investigar a relacao entre a URL auditada e as URLs alternativas do dominio; nao presumir problema de canonical."
+    else:
+        status = "TARGET_NOT_IN_RETURNED_SOURCES"
+        action = "Revisar cobertura da intencao, clareza da oferta e evidencias no CAT-03 antes de propor remediacao."
+    return {
+        "status": status,
+        "target_url": target,
+        "query": queries[0],
+        "evidence_run_id": run["run_id"],
+        "exact_sources": exact,
+        "domain_alternatives": alternatives,
+        "other_domain_sources": competitors,
+        "recommendation": action,
+        "causality": "Observacao pontual; nao prova inclusao em resposta gerativa nem causa de ausencia.",
+    }
+
 
 
 def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
@@ -82,7 +154,9 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
                 )
         source_urls = {x["url"].strip() for x in sources}
         serp_urls = {x["url"].strip() for x in comparable}
+        target_observation = _target_observation(con, audit_id, run, query_set, sources)
         projection = {
+            "target_observation": target_observation,
             "contract_version": VERSION,
             "audit_id": audit_id,
             "perplexity_run_id": run["run_id"],
@@ -100,7 +174,7 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
                 "Sobreposicao nao demonstra causalidade ou representatividade."
             ),
         }
-        inputs = {"run": run, "sources": sources, "serp": comparable,
+        inputs = {"run": run, "sources": sources, "target": target_observation, "serp": comparable,
                   "serp_observation_id": serp_id}
         fingerprint = hashlib.sha256(_canonical_json(inputs).encode("utf-8")).hexdigest()
         analysis_id = "GEO-" + hashlib.sha256(
