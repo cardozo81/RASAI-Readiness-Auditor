@@ -368,3 +368,39 @@ def test_known_experience_apdex_error_codes_have_public_diagnostic_labels() -> N
     assert public_label("M25_RUNTIME_FAILURE") == "Falha durante a execução do Apdex de experiência"
     assert public_label("NO_AUDITED_PAGES") == "Nenhuma página auditada elegível para o Apdex de experiência"
     assert public_label("TOOL_CALL") == "Resposta do provedor solicitou uso de ferramenta não permitido"
+
+
+def test_competitive_intelligence_uses_explicit_public_label_in_rpr_surface(
+    monkeypatch, capsys
+) -> None:
+    from types import SimpleNamespace
+    from rasai import console_navigation
+    from rasai.public_language import component_label
+
+    assert component_label("COMPETITIVE_INTELLIGENCE") == "Inteligência competitiva por IA"
+
+    item = SimpleNamespace(
+        component="COMPETITIVE_INTELLIGENCE",
+        scope_key="AUDIT",
+        status="WAITING_FOR_DATA",
+    )
+    monkeypatch.setattr(
+        console_navigation,
+        "_work_item_preview",
+        lambda _state, _audit_id: ((item,), ()),
+    )
+    monkeypatch.setattr(console_navigation, "confirm_continue", lambda *_args, **_kwargs: False)
+
+    state = SimpleNamespace(
+        audits_root="audits",
+        operation="",
+        error="",
+    )
+    console_module = SimpleNamespace(render_header=lambda _state: None)
+
+    console_navigation._reprocess_selected(console_module, state, "AUD-TEST")
+    rendered = capsys.readouterr().out
+
+    assert "Inteligência competitiva por IA/Auditoria" in rendered
+    assert "Etapa técnica da auditoria/Auditoria" not in rendered
+    assert "COMPETITIVE_INTELLIGENCE" not in rendered
