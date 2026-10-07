@@ -13,6 +13,7 @@ from rasai.audit_fulfillment import (
     set_work_item_status,
 )
 from rasai.operational_log import try_append_operational_event
+from rasai.secret_safety import redact_text
 
 _INSTALLED = False
 _GENERIC_NOT_MATERIALIZED = "IMPROVEMENT_RETRY_NOT_MATERIALIZED"
@@ -107,6 +108,7 @@ def _install_governed_hook_guard() -> None:
             )
         except Exception as exc:
             code = f"IMPROVEMENT_GOVERNED_HOOK_{type(exc).__name__.upper()}"
+            safe_message = redact_text(str(exc))[:1000]
             set_work_item_status(
                 workspace,
                 audit_id=audit_id,
@@ -114,7 +116,7 @@ def _install_governed_hook_guard() -> None:
                 status=FAILED_RETRYABLE,
                 error_class="ORCHESTRATION",
                 error_code=code,
-                error_message=str(exc)[:1000],
+                error_message=safe_message,
                 retryable=True,
             )
             try_append_operational_event(
@@ -124,7 +126,7 @@ def _install_governed_hook_guard() -> None:
                 audit_id=audit_id,
                 stage="GOVERNED_HOOK",
                 error_type=type(exc).__name__,
-                error_message=str(exc)[:512],
+                error_message=safe_message[:512],
                 scoring_impact="NONE",
             )
             return {
