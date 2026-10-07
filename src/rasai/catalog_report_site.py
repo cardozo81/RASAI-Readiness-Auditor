@@ -348,11 +348,11 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
     staging=root/f".{CATALOG_REPORT_DIR}.tmp-{token}"
     quarantine=root/f".{CATALOG_REPORT_DIR}.stale-{token}"
     before=_source_fingerprint(database)
-    dependency_token=begin_source_dependency_capture(root)
 
     if report_dir.exists() or report_dir.is_symlink():
         report_dir.replace(quarantine)
 
+    dependency_token=begin_source_dependency_capture(root)
     try:
         css_dir=staging/"css"
         css_dir.mkdir(parents=True,exist_ok=False)
