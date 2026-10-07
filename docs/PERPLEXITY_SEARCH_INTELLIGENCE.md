@@ -217,32 +217,31 @@ O console apresenta apenas estado configurada / não configurada.
 
 ## Console
 
-A configuração fica no bloco Search Intelligence, separada da seleção principal de IA:
+A Perplexity permanece separada da seleção principal de IA e é operada por três superfícies que compartilham a mesma configuração canônica:
 
 ~~~text
-T. Termos SERP
-U. Perplexity externa
+INÍCIO > PREPARAR AUDITORIA > CAT-05 · Search & AI Intelligence
+INÍCIO > 5. Integrações e serviços > Perplexity Search Intelligence
+INÍCIO > 6. Todas as configurações > Perplexity Search Intelligence / Credencial
 ~~~
 
-A opção Perplexity é opt-in e independente dos termos SERP.
+No CAT-05, a ação **P. Perplexity externa** abre o pedido da próxima execução. O usuário pode:
 
-O usuário escolhe:
+- não solicitar ou limpar a solicitação;
+- informar de uma a cinco queries;
+- escolher `WEB` ou `FAST`;
+- visualizar readiness e estado da credencial;
+- abrir o editor canônico de `PERPLEXITY_API_KEY`.
 
-- queries da execução;
-- WEB ou FAST.
+Queries e `WEB/FAST` são inputs da próxima execução. Eles não são convertidos em variáveis de ambiente e não são gravados como secrets/configuração reutilizável no `rasai-console.ini`.
+
+`PERPLEXITY_API_KEY` é a única variável de ambiente consumida pelo runtime Perplexity atual. O editor é o mesmo usado pelo catálogo global: entrada mascarada, sessão e persistência/remoção explícita em Windows/User; o valor nunca entra no INI.
+
+Em **Integrações e serviços**, o diagnóstico Perplexity é `CONFIGURATION_ONLY`: confirma apenas a presença/configuração local e **não executa `POST /search`**. Isso evita consumir request comercial/quota apenas para testar a integração. A validade funcional final da credencial é observada somente quando uma pesquisa Perplexity é realmente solicitada.
+
+A opção Perplexity é opt-in e independente dos termos SERP e do Google Search Console.
 
 A execução ocorre após o core determinístico da auditoria.
-
-A saída humanizada mostra:
-
-- origem Perplexity Search API;
-- pesquisa externa;
-- modo;
-- número de queries;
-- requests nativos;
-- fontes;
-- custo ou UNPRICED;
-- estado/limitação.
 
 ## Relatórios
 
