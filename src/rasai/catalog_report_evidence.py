@@ -1,6 +1,7 @@
 """Technical, accessibility and semantic evidence projections."""
 from rasai.catalog_report_metrics import *  # noqa: F401,F403
 from rasai.catalog_report_public_labels import public_label, public_text
+from rasai.catalog_source_dependencies import record_source_dependency
 
 
 def _artifact_path(root: Path, reference: Any) -> Path|None:
@@ -11,6 +12,7 @@ def _artifact_path(root: Path, reference: Any) -> Path|None:
         candidate.relative_to(root.resolve())
     except (ValueError,OSError):
         return None
+    record_source_dependency(candidate)
     return candidate if candidate.is_file() else None
 
 
