@@ -1154,6 +1154,7 @@ def _competitive_validation_rows(
 
 
 def _competitive_html(database: Path, data: Any) -> str:
+    from rasai import catalog_report_integrations as integrations
     from rasai import catalog_report_page as page
 
     configuration = _search_contract(data)
@@ -1314,7 +1315,7 @@ def _competitive_html(database: Path, data: Any) -> str:
                 opportunities=_safe_json(ai.get("opportunities_json"),[])
                 body+="<h3>Análise competitiva por IA</h3>"+page._kv((
                     ("Estado",page._status_label(ai.get("state"))),
-                    ("Provider efetivo",ai.get("provider") or "-"),
+                    ("Provider efetivo",integrations._provider_identity(ai.get("provider"))),
                     ("Modelo efetivo",ai.get("model") or "-"),
                     ("Contrato",ai.get("contract_version") or "-"),
                     ("Prompt",f"{ai.get('prompt_id') or '-'} v{ai.get('prompt_version') or '-'}"),
@@ -1387,7 +1388,7 @@ def _competitive_html(database: Path, data: Any) -> str:
                     empty="Nenhum round governado persistido.",
                 )
                 attempt_rows=[(
-                    r.get("provider") or "-",
+                    integrations._provider_identity(r.get("provider")),
                     r.get("model") or "-",
                     r.get("reasoning_profile") or "-",
                     page._status_label(r.get("status")),
@@ -1539,7 +1540,7 @@ def _external_html(database: Path, data: Any) -> str:
                     )
                     detail_cell=page._modal_button(modal_id,detail_label)
                     source_modals.append(page._modal(modal_id,"Common Crawl - diagnóstico de coleta",str(row.get("dataset_id") or "Dataset"),body))
-                details.append((row.get("dataset_id"),row.get("capture_method"),row.get("collected_at"),meta.get("requests") if isinstance(meta,Mapping) else "-",meta.get("rows") if isinstance(meta,Mapping) else count,meta.get("no_captures") if isinstance(meta,Mapping) else 0,meta.get("errors") if isinstance(meta,Mapping) else errors,row.get("artifact_path"),detail_cell))
+                details.append((row.get("dataset_id"),public_label(row.get("capture_method")) or row.get("capture_method") or "-",row.get("collected_at"),meta.get("requests") if isinstance(meta,Mapping) else "-",meta.get("rows") if isinstance(meta,Mapping) else count,meta.get("no_captures") if isinstance(meta,Mapping) else 0,meta.get("errors") if isinstance(meta,Mapping) else errors,row.get("artifact_path"),detail_cell))
             lead=f"<div class='metric-grid'>{page._metric('Execuções/datasets',len(rows))}{page._metric('Resultados',count)}{page._metric('Sem captura',no_captures) if source==_COMMON_CRAWL_SOURCE else ''}{page._metric('Erros',errors)}</div>"
             if source==_COMMON_CRAWL_SOURCE:
                 lead+="<div class='notice'>Common Crawl representa histórico do arquivo público e não comprova indexação atual em Google/Bing. Não participa diretamente do score. Quando houver limitação ou erro, use o detalhe do dataset para distinguir ausência de captura, indisponibilidade do provider e falha de transporte.</div>"
@@ -1550,7 +1551,7 @@ def _external_html(database: Path, data: Any) -> str:
             meta=_safe_json(row.get("metadata"),{})
             source_suffix=str(row.get("source_type") or "").removeprefix(_GSC_PREFIX)
             source_label=public_label(source_suffix) or source_suffix.replace("_"," ").title()
-            gsc_rows.append((source_label,row.get("capture_method"),row.get("collected_at"),row.get("period_start") or "-",row.get("period_end") or "-",row.get("artifact_path"),meta.get("rows") if isinstance(meta,Mapping) else "-"))
+            gsc_rows.append((source_label,public_label(row.get("capture_method")) or row.get("capture_method") or "-",row.get("collected_at"),row.get("period_start") or "-",row.get("period_end") or "-",row.get("artifact_path"),meta.get("rows") if isinstance(meta,Mapping) else "-"))
         blocks.append("<div class='subsection'><h3>Google Search Console</h3>"+page._table(("Conjunto de dados","Método","Coletado em","Período inicial","Período final","Artefato","Registros"),gsc_rows,empty="Nenhum dataset GSC persistido nesta AUD.")+"</div>")
         return "".join(blocks)
     finally:
