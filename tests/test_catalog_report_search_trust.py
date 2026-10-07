@@ -339,6 +339,7 @@ def test_common_crawl_error_modal_exposes_exception_and_recovery_steps(tmp_path:
     assert "Não altere a URL auditada por causa desse 5xx" in html
     assert "Verifique conectividade HTTPS, proxy, firewall" not in html
     assert "Indisponibilidade do Common Crawl não implica erro no site" in html
+    assert "API pública de índice" in html
 
 
 def test_common_crawl_no_capture_404_is_presented_as_coverage_limitation(tmp_path: Path) -> None:
@@ -669,6 +670,7 @@ def test_competitive_report_exposes_effective_contract_http_evidence_and_ai_gove
     assert "IA iniciou após o selo" in html
     assert "Tentativas de provider" in html
     assert "USD 0.00100000" in html
+    assert "<code class=\'provider-id\'>OPENAI</code>" in html
     assert "Íntegro - SHA-256 confere" in html
 
 
