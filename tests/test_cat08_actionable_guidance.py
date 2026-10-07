@@ -74,3 +74,5 @@ def test_cat08_problem_modal_exposes_ai_example_and_verification(tmp_path) -> No
     assert ".banner{color:#1f2937;background:#fff}" in html
     assert "Como validar a correção" in html
     assert "Reexecutar Lighthouse" in html
+    assert "Google Lighthouse" in html
+    assert "Condição técnica não catalogada" not in html
