@@ -1,6 +1,7 @@
 """Technical, accessibility and semantic evidence projections."""
 from rasai.catalog_report_metrics import *  # noqa: F401,F403
 from rasai.catalog_report_public_labels import public_label, public_text
+from rasai.catalog_source_dependencies import record_source_dependency
 
 
 def _artifact_path(root: Path, reference: Any) -> Path|None:
@@ -11,6 +12,7 @@ def _artifact_path(root: Path, reference: Any) -> Path|None:
         candidate.relative_to(root.resolve())
     except (ValueError,OSError):
         return None
+    record_source_dependency(candidate)
     return candidate if candidate.is_file() else None
 
 
@@ -263,6 +265,8 @@ def _crux_provenance_html(database: Path, data: _ReportData) -> str:
     try:
         from rasai.observability.store import observability_database_path
         sidecar=observability_database_path(database.parent)
+        record_source_dependency(sidecar)
+        record_source_dependency(sidecar.with_name(sidecar.name + "-wal"))
         if sidecar.is_file():
             connection=sqlite3.connect(sidecar)
             connection.row_factory=sqlite3.Row

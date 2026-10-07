@@ -20,6 +20,7 @@ from urllib.parse import urlsplit
 from rasai.ai_economic_telemetry import aggregate_attempt_costs, canonical_total_tokens
 from rasai.configuration_value_labels import configuration_value_report
 from rasai.catalog_report_public_labels import public_label
+from rasai.catalog_source_dependencies import record_source_dependency
 from rasai.source_state import SourceState
 
 _COMMON_CRAWL_SOURCE = "COMMON_CRAWL_CDX_HISTORY"
@@ -153,6 +154,8 @@ def _audit_service_runs(database: Path, audit_id: str, needle: str) -> list[dict
 
 def _observability(database: Path) -> tuple[list[dict[str, Any]], sqlite3.Connection | None]:
     path = observability_database_path(database.parent)
+    record_source_dependency(path)
+    record_source_dependency(path.with_name(path.name + "-wal"))
     if not path.is_file():
         return [], None
     connection = sqlite3.connect(path)
@@ -410,6 +413,7 @@ def _safe_artifact(database: Path, reference: Any) -> Path | None:
         candidate.relative_to(database.parent.resolve())
     except ValueError:
         return None
+    record_source_dependency(candidate)
     return candidate if candidate.is_file() else None
 
 

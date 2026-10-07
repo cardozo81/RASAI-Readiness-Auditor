@@ -13,6 +13,12 @@ import uuid
 from typing import Any
 
 from rasai.catalog_report_integrations import *  # noqa: F401,F403
+from rasai.catalog_source_dependencies import (
+    begin_source_dependency_capture,
+    captured_source_dependencies,
+    end_source_dependency_capture,
+    verify_source_dependencies,
+)
 from rasai.directed_analysis_reporting import directed_analysis_body
 from rasai.search_intelligence.freshness import require_valid_serp_freshness
 
@@ -284,9 +290,13 @@ def catalog_report_is_fresh(*,audit_id: str,workspace: Any) -> bool:
     try:
         current=_source_fingerprint(Path(workspace.database))
         logical_current=_sqlite_logical_digest(Path(workspace.database))
-    except (OSError,sqlite3.Error):
+        dependencies_ok,_dependency_errors=verify_source_dependencies(
+            Path(workspace.root),
+            manifest.get("source_dependencies"),
+        )
+    except (OSError,sqlite3.Error,RuntimeError):
         return False
-    return current==expected and logical_current==logical_expected
+    return current==expected and logical_current==logical_expected and dependencies_ok
 
 
 def _discard_tree(path: Path) -> None:
@@ -342,6 +352,7 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
     if report_dir.exists() or report_dir.is_symlink():
         report_dir.replace(quarantine)
 
+    dependency_token=begin_source_dependency_capture(root)
     try:
         css_dir=staging/"css"
         css_dir.mkdir(parents=True,exist_ok=False)
@@ -363,6 +374,13 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             raw_catalog_bodies[filename]=_catalog_body(database,data,catalog.id)
             bodies[filename]=raw_catalog_bodies[filename]
         assurance=assess_catalogs(database,data,bodies)
+        source_dependencies=captured_source_dependencies()
+        dependencies_ok,dependency_errors=verify_source_dependencies(root,source_dependencies)
+        if not dependencies_ok:
+            raise RuntimeError(
+                "catalog report source dependency changed during materialization: "
+                +" ; ".join(dependency_errors)
+            )
 
         after=_source_fingerprint(database)
         if before!=after:
@@ -411,6 +429,8 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             "source_of_truth":"audit.db + artifacts + secret-free execution snapshot",
             "source_fingerprint":after,
             "source_fingerprint_algorithm":"sha256(live audit.db + active WAL); runtime freshness only",
+            "source_dependencies":list(source_dependencies),
+            "source_dependency_algorithm":"sha256(file bytes) + size, or MISSING state for consulted external sources",
             "audit_snapshot":{"path":"integrity/audit-snapshot.db","sha256":snapshot_hash,"algorithm":"sha256","standalone_sqlite":True,"logical_sha256":snapshot_logical_hash,"source_logical_sha256":source_logical_hash,"logical_algorithm":"sha256(canonical logical SQLite contents)"},
             "package_integrity_algorithm":"sha256(each packaged file; manifest excluded)",
             "packaged_files":packaged_files,
@@ -447,14 +467,22 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             raise RuntimeError("catalog report package integrity failed: "+"; ".join(package_errors))
         if _source_fingerprint(database)!=after:
             raise RuntimeError("catalog report source changed before promotion; refusing stale projection")
+        dependencies_ok,dependency_errors=verify_source_dependencies(root,source_dependencies)
+        if not dependencies_ok:
+            raise RuntimeError(
+                "catalog report source dependency changed before promotion: "
+                +" ; ".join(dependency_errors)
+            )
         staging.replace(report_dir)
         _discard_tree(quarantine)
     except Exception:
+        end_source_dependency_capture(dependency_token)
         _discard_tree(staging)
         _discard_tree(report_dir)
         _discard_tree(quarantine)
         raise
 
+    end_source_dependency_capture(dependency_token)
     if not catalog_report_is_fresh(audit_id=audit_id,workspace=workspace):
         _discard_tree(report_dir)
         raise RuntimeError("catalog report freshness/integrity verification failed after promotion")

@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/catalog_report_*.py'
+      - 'src/rasai/catalog_source_dependencies.py'
       - 'src/rasai/catalog_status_causality.py'
       - 'src/rasai/recommendation_governance.py'
       - 'src/rasai/recommendation_governance_reporting.py'
@@ -39,6 +40,7 @@ on:
       - 'src/rasai/editorial_risk_context.py'
       - 'src/rasai/selective_optional_reprocess.py'
       - 'tests/test_report_catalog_public_labels.py'
+      - 'tests/test_issue_246_catalog_source_dependencies.py'
       - 'tests/test_catalog_report_package_integrity.py'
       - 'tests/test_catalog_source_inventory.py'
       - 'tests/test_catalog_report_assurance.py'
@@ -50,6 +52,7 @@ on:
   pull_request:
     paths:
       - 'src/rasai/catalog_report_*.py'
+      - 'src/rasai/catalog_source_dependencies.py'
       - 'src/rasai/catalog_status_causality.py'
       - 'src/rasai/recommendation_governance.py'
       - 'src/rasai/recommendation_governance_reporting.py'
@@ -84,6 +87,7 @@ on:
       - 'src/rasai/editorial_risk_context.py'
       - 'src/rasai/selective_optional_reprocess.py'
       - 'tests/test_report_catalog_public_labels.py'
+      - 'tests/test_issue_246_catalog_source_dependencies.py'
       - 'tests/test_catalog_report_package_integrity.py'
       - 'tests/test_catalog_source_inventory.py'
       - 'tests/test_catalog_report_assurance.py'
@@ -111,6 +115,7 @@ jobs:
         run: >-
           pytest -q
           tests/test_report_catalog_public_labels.py
+          tests/test_issue_246_catalog_source_dependencies.py
           tests/test_recommendation_governance.py
           tests/test_issue_253_structured_data_absence_remediation.py
           tests/test_catalog_report_assurance.py

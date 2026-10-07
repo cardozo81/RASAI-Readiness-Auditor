@@ -61,6 +61,7 @@ def _stub_canonical(monkeypatch, *, freshness: str) -> list[str]:
             "freshness": freshness,
             "audit_id": audit_id,
             "source_fingerprint": site._source_fingerprint(workspace.database),
+            "source_dependencies": [],
             "audit_snapshot": {
                 "source_logical_sha256": site._sqlite_logical_digest(workspace.database),
             },
