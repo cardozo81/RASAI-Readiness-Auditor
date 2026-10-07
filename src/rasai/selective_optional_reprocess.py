@@ -27,13 +27,14 @@ from rasai.audit_fulfillment import (
     LIVE_RECOLLECTION,
     REPLAY_SAFE,
     SUCCESS,
+    WAITING_FOR_DATA,
     list_work_items,
     register_work_item,
     set_work_item_status,
 )
 from rasai.execution_environment import override_environment, resolve_environment
 from rasai.persistence import AuditWorkspace
-from rasai.reprocess_policy import item_executable
+from rasai.reprocess_policy import blocking_dependencies, item_executable
 from rasai.secret_safety import redact_text
 from rasai.selective_reprocess_context import current, record_optional_evaluation, scope, should_execute
 
@@ -317,6 +318,27 @@ def _reconcile_improvement_rpr(workspace: Any, audit_id: str) -> None:
                 "language": cfg.language,
             },
         )
+
+    # Absence of a run is only an execution failure after the purpose was actually
+    # eligible. Re-check the same canonical dependency graph used by the governed AI
+    # runtime so "blocked / not attempted" cannot be rewritten as "attempted but lost".
+    current_item = _item(workspace, audit_id, "IMPROVEMENT_INTELLIGENCE")
+    blockers = blocking_dependencies(workspace, current_item) if current_item is not None else ()
+    if blockers:
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="IMPROVEMENT_INTELLIGENCE",
+            status=WAITING_FOR_DATA,
+            error_class="PREREQUISITE",
+            error_code="AI_WAITING_FOR_PREREQUISITES",
+            error_message=(
+                "IA aguardando pré-requisitos obrigatórios: "
+                + ", ".join(blockers)
+            ),
+            retryable=True,
+        )
+        return
 
     run = _improvement_run(workspace, audit_id)
     if run is None:
