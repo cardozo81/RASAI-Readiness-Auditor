@@ -76,7 +76,7 @@ def _serp_comparison(database: Path, audit_id: str, runs: list[dict], sources: l
             return []
         observations = list(con.execute(
             "SELECT observation_id, query, collected_at FROM serp_observations "
-            "WHERE audit_id=? AND observation_status='SUCCESS' AND data_mode='LIVE' "
+            "WHERE audit_id=? AND observation_status='OBSERVED' AND data_mode='OBSERVED_API' "
             "ORDER BY collected_at DESC, observation_id DESC", (audit_id,)
         ))
         latest: dict[str, str] = {}
