@@ -22,7 +22,9 @@ from urllib.parse import urlsplit
 from rasai.audit_fulfillment import (
     FAILED_RETRYABLE,
     LIVE_RECOLLECTION,
+    REPLAY_SAFE,
     SUCCESS,
+    WAITING_FOR_DATA,
     list_work_items,
     register_work_item,
     set_work_item_status,
@@ -784,6 +786,40 @@ def _persisted_search_configuration(workspace: Any, audit_id: str) -> dict[str, 
     return {}
 
 
+def ensure_competitive_ai_work_item(workspace: Any, audit_id: str):
+    """Backfill the replay-safe Competitive AI requirement from Search configuration."""
+    configuration = _persisted_search_configuration(workspace, audit_id)
+    if not configuration or not bool(configuration.get("ai_competitive", False)):
+        return None
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component="COMPETITIVE_INTELLIGENCE",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        retryable=True,
+        configuration={
+            "requested": True,
+            "provider": str(configuration.get("ai_provider") or "none"),
+            "model": str(configuration.get("ai_model") or ""),
+            "timeout_seconds": float(
+                configuration.get("ai_timeout_seconds") or DEFAULT_AI_TIMEOUT_SECONDS
+            ),
+            "ymyl_mode": str(configuration.get("ymyl_mode") or "AUTO"),
+            "source": "search_intelligence",
+        },
+    )
+    return next(
+        (
+            item
+            for item in list_work_items(workspace, audit_id)
+            if item.component == "COMPETITIVE_INTELLIGENCE"
+            and item.scope_key == "AUDIT"
+        ),
+        None,
+    )
+
+
 def _competitive_ai_input_from_artifact(
     observation_id: str,
     payload: Mapping[str, Any],
@@ -904,7 +940,18 @@ def _competitive_ai_hook(
     configuration = _persisted_search_configuration(workspace, audit_id)
     if not configuration or not bool(configuration.get("ai_competitive", False)):
         return {"status": "DISABLED", "requested": False}
+    ensure_competitive_ai_work_item(workspace, audit_id)
     if source_blocked:
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="COMPETITIVE_INTELLIGENCE",
+            status=WAITING_FOR_DATA,
+            error_class="PREREQUISITE",
+            error_code="COMPETITIVE_AI_WAITING_FOR_SEARCH_EVIDENCE",
+            error_message="Competitive AI aguarda evidência determinística de busca consolidada",
+            retryable=True,
+        )
         return {"status": "SKIPPED_SOURCE_BLOCKER", "requested": True}
     if not bool(configuration.get("compare_content", False)):
         return {
@@ -915,6 +962,16 @@ def _competitive_ai_hook(
 
     rows = _competitive_ai_rows(workspace, audit_id)
     if not rows:
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="COMPETITIVE_INTELLIGENCE",
+            status=WAITING_FOR_DATA,
+            error_class="PREREQUISITE",
+            error_code="NO_CONSOLIDATED_COMPETITIVE_EVIDENCE",
+            error_message="Competitive AI aguarda comparação competitiva determinística consolidada",
+            retryable=True,
+        )
         return {
             "status": "NOT_ELIGIBLE",
             "requested": True,
@@ -1100,6 +1157,28 @@ def _competitive_ai_hook(
     finally:
         repository.close()
 
+    if limitations == 0:
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="COMPETITIVE_INTELLIGENCE",
+            status=SUCCESS,
+            result_ref="competitive-intelligence:effective",
+            retryable=False,
+        )
+    else:
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="COMPETITIVE_INTELLIGENCE",
+            status=FAILED_RETRYABLE,
+            error_class="AI_PROVIDER",
+            error_code="COMPETITIVE_AI_INCOMPLETE",
+            error_message=(
+                f"Competitive AI não concluiu {limitations} de {len(rows)} observação(ões) elegível(is)"
+            ),
+            retryable=True,
+        )
     return {
         "status": "COMPLETE" if limitations == 0 else "COMPLETE_WITH_LIMITATIONS",
         "requested": True,

@@ -180,6 +180,8 @@ def _classify_http_error(status: int, error_type: str | None, error_code: str | 
         return ProviderErrorClass.AUTH_ERROR
     if status == 403:
         return ProviderErrorClass.PERMISSION_ERROR
+    if status == 402:
+        return ProviderErrorClass.CREDIT_ERROR
     if "credit" in token or "balance" in token:
         return ProviderErrorClass.CREDIT_ERROR
     if "quota" in token:

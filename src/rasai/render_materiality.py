@@ -180,14 +180,19 @@ def observe_materiality(rendered_html: str | None) -> MaterialityObservation:
 
 def _weak_primary_content(observation: MaterialityObservation) -> bool:
     if observation.main_present:
-        return observation.main_text_length < 160 and observation.text_length < 420
+        # Navigation/chrome text must not mask an empty or weak primary region.
+        return observation.main_text_length < 160
     return observation.text_length < 220
 
 
 def _transient_suspicion(observation: MaterialityObservation, settle_outcome: str) -> bool:
     if not _weak_primary_content(observation):
         return False
-    explicit_transient = observation.transient_markers > 0 or observation.busy_markers > 0
+    explicit_transient = (
+        observation.transient_markers > 0
+        or observation.busy_markers > 0
+        or observation.shell_markers > 0
+    )
     bounded_lazy = str(settle_outcome).upper() == "BOUNDED_TIMEOUT" and observation.lazy_markers > 0
     return explicit_transient or bounded_lazy
 

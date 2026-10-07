@@ -63,6 +63,60 @@ def _provider_candidates(runtime: Any, request: Any, *, scope: str) -> tuple[Any
     )
 
 
+def _current_primary_runtime(
+    selection: str,
+    *,
+    model: str | None = None,
+    reasoning: str | None = None,
+) -> Any | None:
+    """Reuse the canonical runtime already active for this AUD when compatible.
+
+    Specialist surfaces must share the execution-wide coordinator so a terminal
+    provider quarantine remains effective until the logical AUD execution ends.
+    """
+    normalized = str(selection or "").strip().casefold()
+    if normalized in {"", "none", "fixture"}:
+        return None
+
+    from rasai.ai_execution_state import current_ai_executions
+    from rasai.m18_ai import provider_session_snapshot
+    from rasai.provider_registry import get_provider_registration
+
+    registration = get_provider_registration(normalized)
+    expected_provider = (
+        str(registration.provider_name).upper()
+        if registration is not None
+        else normalized.upper()
+    )
+    expected_model = str(model or "").strip()
+    expected_reasoning = str(reasoning or "").strip().upper()
+
+    for execution in current_ai_executions():
+        runtime = getattr(execution, "provider", None)
+        if runtime is None:
+            continue
+        snapshot = provider_session_snapshot(runtime)
+        strategy = str(snapshot.get("strategy") or "").upper()
+        if normalized == "auto":
+            if strategy == "AUTO":
+                return runtime
+            continue
+
+        provider_name = str(snapshot.get("initial_provider") or "").upper()
+        if provider_name != expected_provider:
+            continue
+        runtime_model = str(snapshot.get("initial_model") or "").strip()
+        if expected_model and runtime_model and runtime_model != expected_model:
+            continue
+        runtime_reasoning = str(
+            snapshot.get("initial_reasoning_profile") or ""
+        ).strip().upper()
+        if expected_reasoning and runtime_reasoning and runtime_reasoning != expected_reasoning:
+            continue
+        return runtime
+    return None
+
+
 def _apply_timeout(runtime: Any, timeout: float) -> None:
     routed = getattr(runtime, "providers", None)
     if isinstance(routed, tuple):
@@ -351,12 +405,18 @@ def _install_search_competitive() -> None:
                 reasoning_env = provider_reasoning_env(registration.provider_name)
                 if reasoning_env:
                     environment[reasoning_env] = reasoning_effort.strip().upper()
-            self.runtime = build_semantic_provider(
+            self.runtime = _current_primary_runtime(
                 normalized,
-                model_override=model if normalized not in {"auto", "none"} else None,
-                env=environment,
+                model=model,
+                reasoning=reasoning_effort,
             )
-            _apply_timeout(self.runtime, timeout)
+            if self.runtime is None:
+                self.runtime = build_semantic_provider(
+                    normalized,
+                    model_override=model if normalized not in {"auto", "none"} else None,
+                    env=environment,
+                )
+                _apply_timeout(self.runtime, timeout)
             self.timeout = timeout
             self.name = "AUTO" if normalized == "auto" else str(
                 getattr(self.runtime, "name", normalized.upper())
@@ -741,12 +801,18 @@ def _install_improvement_runtime() -> None:
             reasoning_env = provider_reasoning_env(registration.provider_name)
             if reasoning_env:
                 environment[reasoning_env] = config.reasoning
-        runtime = build_semantic_provider(
+        runtime = _current_primary_runtime(
             selection,
-            model_override=(config.model or None) if selection not in {"auto", "none", ""} else None,
-            env=environment,
+            model=(config.model or None),
+            reasoning=(config.reasoning or None),
         )
-        _apply_timeout(runtime, float(config.timeout_seconds))
+        if runtime is None:
+            runtime = build_semantic_provider(
+                selection,
+                model_override=(config.model or None) if selection not in {"auto", "none", ""} else None,
+                env=environment,
+            )
+            _apply_timeout(runtime, float(config.timeout_seconds))
         return runtime
 
     def _validate_partial_payload(payload, scoped_findings, maximum):
