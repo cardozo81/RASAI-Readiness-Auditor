@@ -195,7 +195,8 @@ def test_nonsemantic_spa_content_can_be_material_without_main() -> None:
     assert observation.primary_text_length >= 600
     assert observation.dom_nodes >= 4
     assert quality["state"] == CaptureQualityState.READY.value
-    assert quality["reason"] == "PRIMARY_CONTENT_MATERIAL"
+    assert quality["reason"] == "NO_TRANSIENT_RENDER_SIGNAL"
+    assert quality["materiality_reason"] == "PRIMARY_CONTENT_MATERIAL"
 
 
 def test_transient_marker_disappearing_without_material_content_does_not_end_recovery() -> None:
