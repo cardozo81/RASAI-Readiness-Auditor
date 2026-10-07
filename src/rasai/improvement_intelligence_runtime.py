@@ -26,6 +26,7 @@ from rasai.improvement_intelligence import (
 )
 from rasai.operational_log import try_append_operational_event
 from rasai.m18_persistence import attempt_governance
+from rasai.secret_safety import redact_text
 
 _INSTALLED = False
 _SURFACE_ID = "improvement-intelligence"
@@ -157,16 +158,32 @@ def _governed_improvement_hook(*, audit_id: str, workspace: Any, evidence_snapsh
         # immutable AUD snapshot. Feature/domain/limit settings remain those of CAT-08.
         config = _apply_reprocess_ai_policy(config)
     except Exception as exc:
+        safe_message = redact_text(str(exc))[:1000] or type(exc).__name__
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component=_COMPONENT,
+            status=NOT_CONFIGURED,
+            error_class="CONFIGURATION",
+            error_code="IMPROVEMENT_CONFIGURATION_INVALID",
+            error_message=safe_message,
+            retryable=True,
+        )
         try_append_operational_event(
             workspace,
             "IMPROVEMENT_INTELLIGENCE_CONFIGURATION_INVALID",
             level="WARNING",
             audit_id=audit_id,
             error_type=type(exc).__name__,
-            error_message=str(exc)[:512],
+            error_message=safe_message[:512],
+            provider_called=False,
             scoring_impact="NONE",
         )
-        return {"status": "SKIPPED", "reason": "CONFIGURATION_INVALID"}
+        return {
+            "status": "NOT_CONFIGURED",
+            "reason": "IMPROVEMENT_CONFIGURATION_INVALID",
+            "provider_called": False,
+        }
 
     if not config.enabled:
         return {"status": "SKIPPED", "reason": "DISABLED"}
