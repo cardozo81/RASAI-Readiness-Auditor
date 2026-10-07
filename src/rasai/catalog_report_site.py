@@ -375,6 +375,19 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             filename=CATALOG_PAGE_BY_ID[catalog.id].filename
             raw_catalog_bodies[filename]=_catalog_body(database,data,catalog.id)
             bodies[filename]=raw_catalog_bodies[filename]
+        # Advisory cross-references only: CAT engines, scores and findings are unchanged.
+        geo_reference=(
+            "<section><h2>Contexto GEO (observacional)</h2>"
+            "<p>Consulte a <a href='geo.html'>síntese GEO</a> para fontes "
+            "externas e comparações sustentadas por dados persistidos. "
+            "A página não atribui causalidade nem garante citação em IAs.</p></section>"
+        )
+        for geo_catalog in ("CAT-01","CAT-03","CAT-05","CAT-08","CAT-09"):
+            geo_filename=CATALOG_PAGE_BY_ID[geo_catalog].filename
+            if geo_filename in bodies:
+                bodies[geo_filename]+=geo_reference
+        for geo_page in ("index.html","directed-analysis.html","ai-integrations.html"):
+            bodies[geo_page]+=geo_reference
         assurance=assess_catalogs(database,data,bodies)
         source_dependencies=captured_source_dependencies()
         dependencies_ok,dependency_errors=verify_source_dependencies(root,source_dependencies)
