@@ -1,0 +1,33 @@
+name: CLI final fulfillment status 245 targeted
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/cli.py'
+      - 'tests/test_m21_cli_fail_open.py'
+      - '.github/workflows/cli-final-fulfillment-245-targeted.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/cli.py'
+      - 'tests/test_m21_cli_fail_open.py'
+      - '.github/workflows/cli-final-fulfillment-245-targeted.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  targeted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package and pytest
+        run: python -m pip install -e . pytest
+      - name: Final fulfillment CLI regressions
+        run: python -m pytest -q tests/test_m21_cli_fail_open.py

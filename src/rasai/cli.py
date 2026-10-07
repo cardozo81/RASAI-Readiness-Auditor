@@ -328,6 +328,43 @@ def _audit_targets(args: argparse.Namespace) -> tuple[str, ...]:
     return (validate_target(target),)
 
 
+def _final_fulfillment_projection(
+    result: object,
+    workspace: AuditWorkspace | None,
+) -> tuple[str, str | None]:
+    """Project the final persisted fulfillment state after post-core capabilities."""
+
+    fallback = str(getattr(getattr(result, "completion_status", None), "value", "") or "UNKNOWN")
+    current_workspace = workspace
+    if current_workspace is None:
+        audit_root = getattr(result, "audit_root", None)
+        if audit_root is not None and Path(audit_root).is_dir():
+            try:
+                current_workspace = AuditWorkspace.open(Path(audit_root))
+            except Exception:
+                _LOGGER.warning(
+                    "Could not reopen audit workspace for final fulfillment projection",
+                    exc_info=True,
+                )
+                return "UNKNOWN", None
+    if current_workspace is None:
+        return fallback, None
+
+    try:
+        from rasai.audit_fulfillment import read_summary
+
+        summary = read_summary(current_workspace, str(getattr(result, "audit_id", "") or ""))
+    except Exception:
+        _LOGGER.warning(
+            "Could not read final fulfillment state for CLI projection",
+            exc_info=True,
+        )
+        return "UNKNOWN", None
+    if summary is None:
+        return fallback, None
+    return str(summary.processing_status), str(summary.report_status)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -420,8 +457,14 @@ def main(argv: list[str] | None = None) -> int:
             _LOGGER.exception("Audit failed")
             parser.error(str(exc))
 
+        final_processing_status, final_report_status = _final_fulfillment_projection(
+            result,
+            workspace,
+        )
         print(f"Auditoria concluída: {result.audit_id}")
-        print(f"Status: {result.completion_status.value}")
+        print(f"Status: {final_processing_status}")
+        if final_report_status is not None:
+            print(f"Relatório: {final_report_status}")
         print(f"Páginas auditadas: {result.audited_pages}")
         print(f"Contexto de dispositivo: {device_context.upper()}")
         print(f"Sugestões de conteúdo por IA: {'HABILITADAS' if content_remediation else 'DESABILITADAS'}")
