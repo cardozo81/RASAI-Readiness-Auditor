@@ -8,7 +8,7 @@ import re
 from typing import Any
 
 
-CAPTURE_QUALITY_CONTRACT_VERSION = "RENDER-CAPTURE-QUALITY-002"
+CAPTURE_QUALITY_CONTRACT_VERSION = "RENDER-CAPTURE-QUALITY-001"
 _RECOVERY_STEP_MS = 250
 _RECOVERY_OBSERVATIONS = 4
 
@@ -227,6 +227,14 @@ def _strong_primary_content(observation: MaterialityObservation) -> bool:
     """Require material text plus structural evidence without requiring <main>."""
     if observation.main_text_length >= 160:
         return True
+    # Preserve short but semantically explicit pages: a primary landmark with a
+    # heading is stronger evidence than raw text volume alone.
+    if (
+        observation.main_present
+        and observation.main_text_length > 0
+        and observation.heading_nodes > 0
+    ):
+        return True
     semantic_content = observation.heading_nodes > 0 and observation.content_nodes >= 2
     if observation.primary_text_length >= 160 and semantic_content:
         return True
@@ -348,7 +356,8 @@ def resolve_capture_quality(
         return rendered_html, {
             "contract_version": CAPTURE_QUALITY_CONTRACT_VERSION,
             "state": CaptureQualityState.READY.value,
-            "reason": _materiality_reason(initial),
+            "reason": "NO_TRANSIENT_RENDER_SIGNAL",
+            "materiality_reason": _materiality_reason(initial),
             "settle_outcome": str(settle_outcome),
             "initial": initial.to_dict(),
             "final": initial.to_dict(),
@@ -367,7 +376,8 @@ def resolve_capture_quality(
         return rendered_html, {
             "contract_version": CAPTURE_QUALITY_CONTRACT_VERSION,
             "state": CaptureQualityState.INCOMPLETE.value,
-            "reason": _materiality_reason(initial),
+            "reason": "PRIMARY_CONTENT_INSUFFICIENT",
+            "materiality_reason": _materiality_reason(initial),
             "settle_outcome": str(settle_outcome),
             "initial": initial.to_dict(),
             "final": initial.to_dict(),
@@ -406,11 +416,13 @@ def resolve_capture_quality(
     growth = _growth(initial, final)
     recovered = not _weak_primary_content(final)
     state = CaptureQualityState.RECOVERED if recovered else CaptureQualityState.INCOMPLETE
-    reason = "SLOW_HYDRATION" if recovered else _materiality_reason(final)
+    reason = "TRANSIENT_RENDER_MATERIALIZED" if recovered else "TRANSIENT_RENDER_PERSISTED"
+    materiality_reason = "SLOW_HYDRATION" if recovered else _materiality_reason(final)
     return final_html, {
         "contract_version": CAPTURE_QUALITY_CONTRACT_VERSION,
         "state": state.value,
         "reason": reason,
+        "materiality_reason": materiality_reason,
         "settle_outcome": str(settle_outcome),
         "initial": initial.to_dict(),
         "final": final.to_dict(),
