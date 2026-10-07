@@ -67,6 +67,23 @@ def test_spa_skeleton_materializes_with_bounded_recovery() -> None:
     assert quality["initial"]["transient_markers"] > quality["final"]["transient_markers"]
 
 
+def test_empty_structural_app_shell_remains_incomplete_without_other_markers() -> None:
+    shell = "<html><body><div id='app'><main></main></div></body></html>"
+    page = _SequencePage([shell])
+
+    final_html, quality = resolve_capture_quality(
+        page,
+        shell,
+        settle_outcome="NETWORKIDLE",
+    )
+
+    assert final_html == shell
+    assert quality["state"] == CaptureQualityState.INCOMPLETE.value
+    assert quality["reason"] == "TRANSIENT_RENDER_PERSISTED"
+    assert quality["recovery"]["attempted"] is True
+    assert quality["recovery"]["observation_count"] == 4
+
+
 def test_persistent_skeleton_is_incomplete_after_fixed_bound() -> None:
     skeleton = (
         "<html><body><div id='app'><main aria-busy='true'>"
