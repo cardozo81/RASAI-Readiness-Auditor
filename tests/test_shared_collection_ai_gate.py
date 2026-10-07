@@ -10,9 +10,11 @@ from rasai.audit_fulfillment import (
     NOT_APPLICABLE,
     PENDING,
     REPLAY_SAFE,
+    REQUESTED_NOT_EXECUTED,
     SUCCESS,
     WAITING_FOR_DATA,
     initialize_contract,
+    list_work_items,
     register_work_item,
     set_work_item_status,
 )
@@ -261,3 +263,157 @@ def test_initial_gate_uses_completed_passive_security_state_and_still_blocks_rea
     blocked = evaluate_collection_readiness(failed_workspace, AUDIT_ID)
     assert not blocked.ready
     assert blocked.blockers == ("SEARCH_INTELLIGENCE/AUDIT:FAILED_RETRYABLE",)
+
+def test_rpr_deferred_collection_projects_selected_ai_as_waiting_after_finalizer(
+    monkeypatch, tmp_path
+):
+    from types import SimpleNamespace
+
+    from rasai import governed_reprocess_runtime as runtime
+    from rasai.reprocess_policy import item_key, reprocess_policy
+
+    workspace = _workspace(tmp_path)
+    _item(workspace, "RENDER_CAPTURE", FAILED_RETRYABLE, scope_key="SNP-1")
+    _item(workspace, "SEMANTIC_AI", FAILED_RETRYABLE, scope_key="SNP-1")
+    _item(workspace, "TECHNICAL_AI", REQUESTED_NOT_EXECUTED)
+    _item(workspace, "CONTENT_REMEDIATION_AI", REQUESTED_NOT_EXECUTED)
+    _item(workspace, "IMPROVEMENT_INTELLIGENCE", WAITING_FOR_DATA)
+    _item(workspace, "COMPETITIVE_INTELLIGENCE", REQUESTED_NOT_EXECUTED)
+    _item(workspace, "CORE_AUDIT", PENDING)
+
+    monkeypatch.setattr(
+        runtime,
+        "_registered_ai_purposes",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("AI purpose evaluated")),
+    )
+    monkeypatch.setattr(
+        runtime,
+        "run_registered_ai_phase",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("AI provider called")),
+    )
+    monkeypatch.setattr(
+        runtime,
+        "record_collection_gate",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        runtime,
+        "recalculate",
+        lambda *_args: SimpleNamespace(processing_status="PARTIAL_RETRYABLE"),
+    )
+    monkeypatch.setattr(runtime, "project_report_validity", lambda **_kwargs: None)
+
+    def data_finalizer(**_kwargs):
+        # Reproduce the deterministic semantic backfill that can restore an older
+        # causal status after the collection gate has already deferred this RPR.
+        set_work_item_status(
+            workspace,
+            audit_id=AUDIT_ID,
+            component="SEMANTIC_AI",
+            scope_key="SNP-1",
+            status=FAILED_RETRYABLE,
+            error_class="AI_PROVIDER",
+            error_code="SEMANTIC_AI_NO_SUCCESSFUL_CAUSAL_ATTEMPT",
+            error_message="no successful SEMANTIC_M7 attempt exists for this snapshot",
+            retryable=True,
+        )
+
+    selected = [
+        item_key("SEMANTIC_AI", "SNP-1"),
+        item_key("TECHNICAL_AI", "AUDIT"),
+        item_key("CONTENT_REMEDIATION_AI", "AUDIT"),
+        item_key("IMPROVEMENT_INTELLIGENCE", "AUDIT"),
+        # COMPETITIVE_INTELLIGENCE is intentionally not selected.
+    ]
+    with reprocess_policy(
+        selected_items=selected,
+        use_ai=True,
+        workspace=workspace,
+        audit_id=AUDIT_ID,
+    ):
+        used_ai = runtime._registered_ai_and_report(
+            workspace=workspace,
+            audit_id=AUDIT_ID,
+            preparation=runtime.ReprocessPreparation(
+                snapshot=SimpleNamespace(evidence_snapshot_id="AIE-SEALED"),
+                recovered={},
+                evaluated_optional=frozenset(),
+                sealed_new_evidence=True,
+            ),
+            data_finalizer=data_finalizer,
+            directed_finalizer=lambda **_kwargs: None,
+            catalog_finalizer=lambda **_kwargs: None,
+        )
+
+    assert used_ai is False
+    items = {
+        (item.component, item.scope_key): item
+        for item in list_work_items(workspace, AUDIT_ID)
+    }
+
+    for key in (
+        ("SEMANTIC_AI", "SNP-1"),
+        ("TECHNICAL_AI", "AUDIT"),
+        ("CONTENT_REMEDIATION_AI", "AUDIT"),
+        ("IMPROVEMENT_INTELLIGENCE", "AUDIT"),
+    ):
+        item = items[key]
+        assert item.status == WAITING_FOR_DATA
+        assert item.attempt_count == 0
+        assert item.last_error_class == "PREREQUISITE"
+        assert item.last_error_code == "AI_WAITING_FOR_PREREQUISITES"
+        assert "RENDER_CAPTURE/SNP-1:FAILED_RETRYABLE" in str(item.last_error_message)
+
+    competitive = items[("COMPETITIVE_INTELLIGENCE", "AUDIT")]
+    assert competitive.status == REQUESTED_NOT_EXECUTED
+    assert competitive.attempt_count == 0
+
+
+def test_rpr_deferred_collection_never_downgrades_selected_ai_success(
+    monkeypatch, tmp_path
+):
+    from types import SimpleNamespace
+
+    from rasai import governed_reprocess_runtime as runtime
+    from rasai.reprocess_policy import item_key, reprocess_policy
+
+    workspace = _workspace(tmp_path)
+    _item(workspace, "RENDER_CAPTURE", FAILED_RETRYABLE, scope_key="SNP-1")
+    _item(workspace, "TECHNICAL_AI", SUCCESS)
+    _item(workspace, "CORE_AUDIT", PENDING)
+
+    monkeypatch.setattr(runtime, "record_collection_gate", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        runtime,
+        "recalculate",
+        lambda *_args: SimpleNamespace(processing_status="PARTIAL_RETRYABLE"),
+    )
+    monkeypatch.setattr(runtime, "project_report_validity", lambda **_kwargs: None)
+
+    with reprocess_policy(
+        selected_items=[item_key("TECHNICAL_AI", "AUDIT")],
+        use_ai=True,
+        workspace=workspace,
+        audit_id=AUDIT_ID,
+    ):
+        runtime._registered_ai_and_report(
+            workspace=workspace,
+            audit_id=AUDIT_ID,
+            preparation=runtime.ReprocessPreparation(
+                snapshot=SimpleNamespace(evidence_snapshot_id="AIE-SEALED"),
+                recovered={},
+                evaluated_optional=frozenset(),
+                sealed_new_evidence=True,
+            ),
+            data_finalizer=lambda **_kwargs: None,
+            directed_finalizer=lambda **_kwargs: None,
+            catalog_finalizer=lambda **_kwargs: None,
+        )
+
+    technical = next(
+        item
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component == "TECHNICAL_AI"
+    )
+    assert technical.status == SUCCESS
+

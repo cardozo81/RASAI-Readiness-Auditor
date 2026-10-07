@@ -1168,6 +1168,53 @@ def refresh_final_directed_analysis(
     return reprocess_directed_analysis(audit_id=audit_id, workspace=workspace)
 
 
+def _project_selected_ai_waiting_for_collection(
+    workspace: Any,
+    audit_id: str,
+    *,
+    blockers: tuple[str, ...],
+) -> None:
+    """Project the current causal reason when the shared collection gate defers AI.
+
+    A selected AI work-item may carry an older retry/interruption status from the
+    original AUD or from deterministic backfill.  Once this RPR has explicitly
+    authorized the item but the shared collection gate is not ready, the current
+    reason for *not executing* is a prerequisite block, not a provider/runtime
+    failure.  Historical attempts remain durable in their own ledgers.
+    """
+    if not blockers or not ai_execution_allowed():
+        return
+    message = "IA aguardando conclusão da coleta obrigatória: " + ", ".join(blockers)
+    for item in list_work_items(workspace, audit_id):
+        component = str(item.component or "").upper()
+        if component not in _AI_COMPONENTS or not bool(item.required):
+            continue
+        if str(item.status or "").upper() in {SUCCESS, NOT_APPLICABLE, "DISABLED"}:
+            continue
+        if not item_executable(item):
+            continue
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component=component,
+            scope_key=str(item.scope_key or "AUDIT"),
+            status=WAITING_FOR_DATA,
+            error_class="PREREQUISITE",
+            error_code="AI_WAITING_FOR_PREREQUISITES",
+            error_message=message,
+            retryable=True,
+        )
+        try_append_operational_event(
+            workspace,
+            "AUDIT_REPROCESS_AI_WAITING_FOR_COLLECTION_READINESS",
+            level="INFO",
+            audit_id=audit_id,
+            component=component,
+            blockers=blockers,
+            provider_called=False,
+        )
+
+
 def _registered_ai_purposes(
     workspace: Any,
     audit_id: str,
@@ -1315,6 +1362,16 @@ def _registered_ai_and_report(
         )
 
     data_finalizer(audit_id=audit_id, workspace=workspace)
+    if not gate.ready:
+        # Finalizers may reconcile/backfill older causal states (for example,
+        # SEMANTIC_AI_NO_SUCCESSFUL_CAUSAL_ATTEMPT).  Re-project the reason owned
+        # by this RPR after those reconciliations so the visible state remains
+        # "blocked / not attempted" rather than an unrelated historical failure.
+        _project_selected_ai_waiting_for_collection(
+            workspace,
+            audit_id,
+            blockers=gate.blockers,
+        )
     if evaluated:
         optional._record_optional_attempts(workspace, audit_id, evaluated)
 
