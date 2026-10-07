@@ -119,7 +119,7 @@ def _install_m20_factory_hook() -> None:
 
 
 def _install_m20_recovery() -> None:
-    from rasai import m20, reprocess_ai
+    from rasai import audit_runner, m20, reprocess_ai
 
     current = reprocess_ai.recover_content_remediation
     if bool(getattr(current, "_rasai_contextual_m20_recovery", False)):
