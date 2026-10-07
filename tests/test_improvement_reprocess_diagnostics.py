@@ -106,6 +106,11 @@ def test_governed_hook_guard_projects_escaped_failure(monkeypatch) -> None:
 
     monkeypatch.setattr(diagnostics, "set_work_item_status", project)
     monkeypatch.setattr(diagnostics, "try_append_operational_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        diagnostics,
+        "_improvement_configuration_error",
+        lambda *args, **kwargs: None,
+    )
     try:
         diagnostics._install_governed_hook_guard()
         outcome = phase._AI_HOOKS["IMPROVEMENT_INTELLIGENCE"].callback(
