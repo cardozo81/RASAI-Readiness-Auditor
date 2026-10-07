@@ -1604,3 +1604,221 @@ def test_governed_dependency_invalidation_reopens_only_impacted_success(tmp_path
     assert items["PASSIVE_SECURITY"].effective_result_ref == "passive_security:effective"
     assert items["WEB_PERFORMANCE"].status == SUCCESS
     assert items["WEB_PERFORMANCE"].effective_result_ref == "web_performance:effective"
+
+def _patch_registered_ai_report_boundary(monkeypatch):
+    from rasai import selective_optional_reprocess as optional
+
+    monkeypatch.setattr(
+        runtime,
+        "evaluate_collection_readiness",
+        lambda *_args, **_kwargs: SimpleNamespace(ready=True, blockers=()),
+    )
+    monkeypatch.setattr(runtime, "record_collection_gate", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(runtime, "mark_ai_sealed", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        runtime,
+        "recalculate",
+        lambda *_args, **_kwargs: SimpleNamespace(processing_status="PARTIAL_RETRYABLE"),
+    )
+    monkeypatch.setattr(runtime, "project_report_validity", lambda **_kwargs: None)
+    monkeypatch.setattr(runtime, "_archive_improvement_intelligence", lambda *_args: 0)
+    monkeypatch.setattr(
+        optional,
+        "_original_optional_environment",
+        lambda *_args, **_kwargs: nullcontext(),
+    )
+    monkeypatch.setattr(optional, "_record_optional_attempts", lambda *_args, **_kwargs: None)
+
+
+def test_rpr_releases_improvement_after_competitive_resolves_in_same_run(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="COMPETITIVE_INTELLIGENCE",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status="PENDING",
+        retryable=True,
+        configuration={"requested": True},
+    )
+    _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
+    _patch_registered_ai_report_boundary(monkeypatch)
+
+    calls: list[frozenset[str]] = []
+
+    def fake_registered_ai_phase(*, audit_id, workspace, evidence_snapshot, purposes):
+        del evidence_snapshot
+        selected = frozenset(purposes)
+        calls.append(selected)
+        if selected == frozenset({"COMPETITIVE_INTELLIGENCE"}):
+            set_work_item_status(
+                workspace,
+                audit_id=audit_id,
+                component="COMPETITIVE_INTELLIGENCE",
+                status=SUCCESS,
+                result_ref="competitive:success",
+                retryable=False,
+            )
+            return {
+                "COMPETITIVE_INTELLIGENCE": {
+                    "status": "SUCCESS",
+                    "provider": "deepseek",
+                }
+            }
+        if selected == frozenset({"IMPROVEMENT_INTELLIGENCE"}):
+            set_work_item_status(
+                workspace,
+                audit_id=audit_id,
+                component="IMPROVEMENT_INTELLIGENCE",
+                status=SUCCESS,
+                result_ref="improvement:success",
+                retryable=False,
+            )
+            return {
+                "IMPROVEMENT_INTELLIGENCE": {
+                    "status": "SUCCESS",
+                    "provider": "openai",
+                }
+            }
+        raise AssertionError(f"unexpected purposes: {selected}")
+
+    monkeypatch.setattr(runtime, "run_registered_ai_phase", fake_registered_ai_phase)
+
+    used_ai = runtime._registered_ai_and_report(
+        workspace=workspace,
+        audit_id=AUDIT_ID,
+        preparation=runtime.ReprocessPreparation(
+            snapshot=SimpleNamespace(evidence_snapshot_id="AIE-SEALED"),
+            recovered={},
+            evaluated_optional=frozenset(),
+            sealed_new_evidence=False,
+        ),
+        data_finalizer=lambda **_kwargs: None,
+        directed_finalizer=lambda **_kwargs: None,
+        catalog_finalizer=lambda **_kwargs: None,
+    )
+
+    assert used_ai is True
+    assert calls == [
+        frozenset({"COMPETITIVE_INTELLIGENCE"}),
+        frozenset({"IMPROVEMENT_INTELLIGENCE"}),
+    ]
+    states = {
+        item.component: item.status
+        for item in list_work_items(workspace, AUDIT_ID)
+    }
+    assert states["COMPETITIVE_INTELLIGENCE"] == SUCCESS
+    assert states["IMPROVEMENT_INTELLIGENCE"] == SUCCESS
+
+
+def test_rpr_does_not_release_improvement_while_competitive_remains_nonterminal(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="COMPETITIVE_INTELLIGENCE",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status="PENDING",
+        retryable=True,
+        configuration={"requested": True},
+    )
+    _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
+    _patch_registered_ai_report_boundary(monkeypatch)
+
+    calls: list[frozenset[str]] = []
+
+    def fake_registered_ai_phase(*, audit_id, workspace, evidence_snapshot, purposes):
+        del audit_id, workspace, evidence_snapshot
+        selected = frozenset(purposes)
+        calls.append(selected)
+        return {
+            "COMPETITIVE_INTELLIGENCE": {
+                "status": "NOT_ELIGIBLE",
+                "reason": "WAITING_FOR_EVIDENCE",
+                "provider": "",
+            }
+        }
+
+    monkeypatch.setattr(runtime, "run_registered_ai_phase", fake_registered_ai_phase)
+
+    used_ai = runtime._registered_ai_and_report(
+        workspace=workspace,
+        audit_id=AUDIT_ID,
+        preparation=runtime.ReprocessPreparation(
+            snapshot=SimpleNamespace(evidence_snapshot_id="AIE-SEALED"),
+            recovered={},
+            evaluated_optional=frozenset(),
+            sealed_new_evidence=False,
+        ),
+        data_finalizer=lambda **_kwargs: None,
+        directed_finalizer=lambda **_kwargs: None,
+        catalog_finalizer=lambda **_kwargs: None,
+    )
+
+    assert used_ai is False
+    assert calls == [frozenset({"COMPETITIVE_INTELLIGENCE"})]
+    improvement = next(
+        item
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component == "IMPROVEMENT_INTELLIGENCE"
+    )
+    assert improvement.status == WAITING_FOR_DATA
+    assert "COMPETITIVE_INTELLIGENCE/AUDIT" in str(improvement.last_error_message)
+
+
+def test_rpr_does_not_duplicate_improvement_when_already_eligible_first_pass(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
+    _patch_registered_ai_report_boundary(monkeypatch)
+
+    calls: list[frozenset[str]] = []
+
+    def fake_registered_ai_phase(*, audit_id, workspace, evidence_snapshot, purposes):
+        del evidence_snapshot
+        selected = frozenset(purposes)
+        calls.append(selected)
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="IMPROVEMENT_INTELLIGENCE",
+            status=SUCCESS,
+            result_ref="improvement:success",
+            retryable=False,
+        )
+        return {
+            "IMPROVEMENT_INTELLIGENCE": {
+                "status": "SUCCESS",
+                "provider": "openai",
+            }
+        }
+
+    monkeypatch.setattr(runtime, "run_registered_ai_phase", fake_registered_ai_phase)
+
+    used_ai = runtime._registered_ai_and_report(
+        workspace=workspace,
+        audit_id=AUDIT_ID,
+        preparation=runtime.ReprocessPreparation(
+            snapshot=SimpleNamespace(evidence_snapshot_id="AIE-SEALED"),
+            recovered={},
+            evaluated_optional=frozenset(),
+            sealed_new_evidence=False,
+        ),
+        data_finalizer=lambda **_kwargs: None,
+        directed_finalizer=lambda **_kwargs: None,
+        catalog_finalizer=lambda **_kwargs: None,
+    )
+
+    assert used_ai is True
+    assert calls == [frozenset({"IMPROVEMENT_INTELLIGENCE"})]
+
