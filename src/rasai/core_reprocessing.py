@@ -1195,6 +1195,150 @@ def _capture_render_diagnostic(
     }
 
 
+def _bounded_capture_quality_int(value: Any, *, signed: bool = False) -> int | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    limit = 100_000_000
+    if (not signed and parsed < 0) or abs(parsed) > limit:
+        return None
+    return parsed
+
+
+def _closed_capture_quality_token(
+    value: Any,
+    *,
+    allowed: frozenset[str],
+    allow_observation_error: bool = False,
+) -> str | None:
+    text = str(value or "").strip().upper()
+    if not text or len(text) > 96:
+        return None
+    if text in allowed:
+        return text
+    if allow_observation_error and text.startswith("OBSERVATION_ERROR:"):
+        suffix = text.partition(":")[2]
+        if suffix and len(suffix) <= 64 and all(ch.isalnum() or ch == "_" for ch in suffix):
+            return f"OBSERVATION_ERROR:{suffix}"
+    return None
+
+
+def _capture_quality_diagnostic(
+    result: Any,
+    output: dict[str, Any] | None,
+) -> None:
+    """Project only bounded, secret-safe capture-quality facts from a rejected render."""
+    if output is None:
+        return
+    metadata = getattr(result, "browser_metadata", None)
+    raw = metadata.get("capture_quality") if isinstance(metadata, dict) else None
+    if not isinstance(raw, dict):
+        return
+
+    state = _closed_capture_quality_token(
+        raw.get("state"),
+        allowed=frozenset({
+            CaptureQualityState.INCOMPLETE.value,
+            CaptureQualityState.UNAVAILABLE.value,
+        }),
+    )
+    if state is None:
+        return
+
+    diagnostic: dict[str, Any] = {"state": state}
+    reason = _closed_capture_quality_token(
+        raw.get("reason"),
+        allowed=frozenset({
+            "RENDERED_DOM_UNAVAILABLE",
+            "NO_TRANSIENT_RENDER_SIGNAL",
+            "TRANSIENT_RENDER_MATERIALIZED",
+            "TRANSIENT_RENDER_PERSISTED",
+        }),
+    )
+    if reason is not None:
+        diagnostic["reason"] = reason
+    settle_outcome = _closed_capture_quality_token(
+        raw.get("settle_outcome"),
+        allowed=frozenset({
+            "NOT_ATTEMPTED",
+            "NETWORKIDLE",
+            "BOUNDED_TIMEOUT",
+            "SOURCE_QUALITY_BLOCKED",
+            "NAVIGATION_ERROR",
+        }),
+    )
+    if settle_outcome is not None:
+        diagnostic["settle_outcome"] = settle_outcome
+
+    observation_fields = (
+        "text_length",
+        "main_text_length",
+        "dom_nodes",
+        "transient_markers",
+        "lazy_markers",
+        "busy_markers",
+        "shell_markers",
+    )
+    for section in ("initial", "final"):
+        raw_section = raw.get(section)
+        if not isinstance(raw_section, dict):
+            continue
+        projected: dict[str, int] = {}
+        for field in observation_fields:
+            value = _bounded_capture_quality_int(raw_section.get(field))
+            if value is not None:
+                projected[field] = value
+        if projected:
+            diagnostic[section] = projected
+
+    raw_growth = raw.get("growth")
+    if isinstance(raw_growth, dict):
+        growth: dict[str, Any] = {}
+        for field in (
+            "text_delta",
+            "main_text_delta",
+            "dom_nodes_delta",
+            "transient_markers_delta",
+            "lazy_markers_delta",
+        ):
+            value = _bounded_capture_quality_int(raw_growth.get(field), signed=True)
+            if value is not None:
+                growth[field] = value
+        if isinstance(raw_growth.get("materialized"), bool):
+            growth["materialized"] = raw_growth["materialized"]
+        if growth:
+            diagnostic["growth"] = growth
+
+    raw_recovery = raw.get("recovery")
+    if isinstance(raw_recovery, dict):
+        recovery: dict[str, Any] = {}
+        if isinstance(raw_recovery.get("attempted"), bool):
+            recovery["attempted"] = raw_recovery["attempted"]
+        for field in ("observation_count", "step_ms", "bounded_wait_ms", "max_wait_ms"):
+            value = _bounded_capture_quality_int(raw_recovery.get(field))
+            if value is not None:
+                recovery[field] = value
+        outcome = _closed_capture_quality_token(
+            raw_recovery.get("outcome"),
+            allowed=frozenset({
+                "NOT_AVAILABLE",
+                "NOT_REQUIRED",
+                "BOUND_EXHAUSTED",
+                "MATERIALIZED",
+            }),
+            allow_observation_error=True,
+        )
+        if outcome is not None:
+            recovery["outcome"] = outcome
+        if recovery:
+            diagnostic["recovery"] = recovery
+
+    output["capture_quality"] = diagnostic
+
+
 def _recover_render(
     workspace: AuditWorkspace,
     audit_id: str,
@@ -1236,9 +1380,11 @@ def _recover_render(
             result = renderer.render(url,device)
         if result.error_kind is not None or not result.rendered_html:
             _capture_render_diagnostic(result, failure_diagnostics)
+            _capture_quality_diagnostic(result, failure_diagnostics)
             return False,getattr(result.error_kind,"value",None) or "RENDERED_DOCUMENT_UNAVAILABLE",set()
         quality_reason = capture_quality_block_reason(result.browser_metadata)
         if quality_reason is not None:
+            _capture_quality_diagnostic(result, failure_diagnostics)
             return False,quality_reason,set()
 
         connection = sqlite3.connect(workspace.database)
@@ -1298,9 +1444,11 @@ def _recover_render(
         result = renderer.render(str(row["requested_url"]),device)
     if result.error_kind is not None or not result.rendered_html:
         _capture_render_diagnostic(result, failure_diagnostics)
+        _capture_quality_diagnostic(result, failure_diagnostics)
         return False,getattr(result.error_kind,"value",None) or "RENDERED_DOCUMENT_UNAVAILABLE",set()
     quality_reason = capture_quality_block_reason(result.browser_metadata)
     if quality_reason is not None:
+        _capture_quality_diagnostic(result, failure_diagnostics)
         return False,quality_reason,set()
 
     _archive_snapshot(

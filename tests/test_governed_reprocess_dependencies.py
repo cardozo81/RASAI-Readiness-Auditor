@@ -15,6 +15,7 @@ from rasai.audit_fulfillment import (
     LIVE_RECOLLECTION,
     REPLAY_SAFE,
     SUCCESS,
+    WAITING_FOR_DATA,
     begin_attempt,
     finish_attempt,
     initialize_contract,
@@ -114,6 +115,61 @@ def test_improvement_rpr_uses_same_required_fulfillment_gate_as_initial_audit(tm
         {"SEARCH_INTELLIGENCE": "SUCCESS"},
     ) == frozenset({"COMPETITIVE_INTELLIGENCE"})
 
+
+
+
+def test_improvement_reconcile_preserves_waiting_when_prerequisite_blocks_execution(
+    tmp_path: Path,
+) -> None:
+    from rasai import selective_optional_reprocess as optional
+
+    workspace = _workspace(tmp_path)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="CONTENT_EXTRACTION",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status=WAITING_FOR_DATA,
+        retryable=True,
+    )
+    _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
+
+    with reprocess_policy(use_ai=True, ai_provider="openai"):
+        optional._reconcile_improvement_rpr(workspace, AUDIT_ID)
+
+    item = next(
+        item
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component == "IMPROVEMENT_INTELLIGENCE"
+    )
+    assert item.status == WAITING_FOR_DATA
+    assert item.last_error_class == "PREREQUISITE"
+    assert item.last_error_code == "AI_WAITING_FOR_PREREQUISITES"
+    assert "CONTENT_EXTRACTION" in str(item.last_error_message)
+    assert item.attempt_count == 0
+
+
+def test_improvement_reconcile_marks_missing_run_failed_only_when_eligible(
+    tmp_path: Path,
+) -> None:
+    from rasai import selective_optional_reprocess as optional
+
+    workspace = _workspace(tmp_path)
+    _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
+
+    with reprocess_policy(use_ai=True, ai_provider="openai"):
+        optional._reconcile_improvement_rpr(workspace, AUDIT_ID)
+
+    item = next(
+        item
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component == "IMPROVEMENT_INTELLIGENCE"
+    )
+    assert item.status == FAILED_RETRYABLE
+    assert item.last_error_class == "ORCHESTRATION"
+    assert item.last_error_code == "IMPROVEMENT_RETRY_NOT_MATERIALIZED"
+    assert item.attempt_count == 0
 
 def test_improvement_rpr_accepts_same_terminal_degraded_dependency_as_initial_gate(
     tmp_path: Path,
