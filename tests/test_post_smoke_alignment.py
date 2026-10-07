@@ -275,3 +275,112 @@ def test_content_remediation_prepares_governance_before_provider_call(monkeypatc
 
     assert result.status == "SUCCESS"
     assert order == ["dependency", "prepare", "provider", "complete"]
+
+
+def test_improvement_runtime_projects_invalid_configuration_before_provider(
+    monkeypatch,
+) -> None:
+    from rasai import improvement_intelligence_runtime as runtime
+
+    projected: dict[str, object] = {}
+    monkeypatch.setattr(
+        runtime.ImprovementConfig,
+        "from_environment",
+        classmethod(
+            lambda cls, env=None: (_ for _ in ()).throw(
+                ValueError("domínios de análise desconhecidos: INVALID")
+            )
+        ),
+    )
+
+    def project(_workspace, *, audit_id, component, status, error_class, error_code,
+                error_message, retryable, **_kwargs):
+        projected.update(
+            audit_id=audit_id,
+            component=component,
+            status=status,
+            error_class=error_class,
+            error_code=error_code,
+            error_message=error_message,
+            retryable=retryable,
+        )
+
+    monkeypatch.setattr(runtime, "set_work_item_status", project)
+    monkeypatch.setattr(runtime, "try_append_operational_event", lambda *args, **kwargs: None)
+
+    outcome = runtime._governed_improvement_hook(
+        audit_id="AUD-1",
+        workspace=SimpleNamespace(),
+        evidence_snapshot=SimpleNamespace(evidence_snapshot_id="AIE-1"),
+    )
+
+    assert outcome == {
+        "status": "NOT_CONFIGURED",
+        "reason": "IMPROVEMENT_CONFIGURATION_INVALID",
+        "provider_called": False,
+    }
+    assert projected["status"] == "NOT_CONFIGURED"
+    assert projected["error_class"] == "CONFIGURATION"
+    assert projected["error_code"] == "IMPROVEMENT_CONFIGURATION_INVALID"
+    assert "INVALID" in str(projected["error_message"])
+
+
+def test_improvement_runtime_projects_governance_preparation_failure(
+    monkeypatch,
+) -> None:
+    from rasai import improvement_intelligence_runtime as runtime
+
+    config = SimpleNamespace(
+        enabled=True,
+        provider="auto",
+        model="",
+        reasoning="",
+        domains=("CONTENT",),
+        max_recommendations=30,
+        language="pt-BR",
+        fingerprint=lambda: "CFG-FP",
+    )
+    projected: dict[str, object] = {}
+
+    monkeypatch.setattr(runtime.ImprovementConfig, "from_environment", classmethod(lambda cls, env=None: config))
+    monkeypatch.setattr(runtime, "_apply_reprocess_ai_policy", lambda value: value)
+    monkeypatch.setattr(runtime, "_register_required_fulfillment", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        runtime,
+        "register_task",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("task registration failed")),
+    )
+
+    def project(_workspace, *, audit_id, component, status, error_class, error_code,
+                error_message, retryable, **_kwargs):
+        projected.update(
+            audit_id=audit_id,
+            component=component,
+            status=status,
+            error_class=error_class,
+            error_code=error_code,
+            error_message=error_message,
+            retryable=retryable,
+        )
+
+    monkeypatch.setattr(runtime, "set_work_item_status", project)
+    monkeypatch.setattr(runtime, "try_append_operational_event", lambda *args, **kwargs: None)
+
+    outcome = runtime._governed_improvement_hook(
+        audit_id="AUD-1",
+        workspace=SimpleNamespace(),
+        evidence_snapshot=SimpleNamespace(
+            evidence_snapshot_id="AIE-1",
+            fingerprint="EVIDENCE-FP",
+            evidence_ids=("EV-1",),
+        ),
+    )
+
+    assert outcome == {
+        "status": "ERROR",
+        "reason": "IMPROVEMENT_GOVERNANCE_PREPARATION_RUNTIMEERROR",
+        "provider_called": False,
+    }
+    assert projected["status"] == "FAILED_RETRYABLE"
+    assert projected["error_class"] == "ORCHESTRATION"
+    assert projected["error_code"] == "IMPROVEMENT_GOVERNANCE_PREPARATION_RUNTIMEERROR"
