@@ -57,6 +57,7 @@ _SERP_SUBGROUPS = {
 }
 
 _LABELS = {
+    "PERPLEXITY_API_KEY": "Credencial — Perplexity Search API",
     "RASAI_GSC_ENABLED": "Uso do Google Search Console",
     "RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN": "Token OAuth temporário — Google Search Console",
     "RASAI_GSC_SEARCH_ANALYTICS_DAYS": "Janela de Search Analytics",
@@ -77,6 +78,10 @@ def _is_gsc(name: str) -> bool:
     return normalized.startswith("RASAI_GSC_") or normalized.startswith(
         "RASAI_GOOGLE_SEARCH_CONSOLE_"
     )
+
+
+def _is_perplexity(name: str) -> bool:
+    return str(name).upper() == "PERPLEXITY_API_KEY"
 
 
 def _is_serp(name: str) -> bool:
@@ -101,6 +106,8 @@ def context_label_for_name(name: str) -> str | None:
         return "Google Search Console / " + _GSC_SUBGROUPS.get(
             normalized, (9, "Outras opções")
         )[1]
+    if _is_perplexity(normalized):
+        return "Perplexity Search Intelligence / Credencial"
     if _is_serp(normalized):
         if normalized.endswith("_API_KEY"):
             return "SERP / Provider e credencial"
@@ -122,13 +129,15 @@ def _group(spec: Any) -> tuple[int, int, str, str]:
     if _is_gsc(name):
         order, subgroup = _GSC_SUBGROUPS.get(name, (9, "Outras opções"))
         return 1, order, "GOOGLE SEARCH CONSOLE — dados da property autenticada", subgroup
+    if _is_perplexity(name):
+        return 2, 0, "PERPLEXITY — pesquisa externa advisory", "Credencial"
     try:
         from rasai.console_configuration_guidance import context_for
 
         context = str(context_for(spec))
     except (ImportError, AttributeError):
         context = str(getattr(spec, "category", "Outras configurações"))
-    return 2, 0, "OUTRAS FONTES DO CAT-05", context
+    return 3, 0, "OUTRAS FONTES DO CAT-05", context
 
 
 def _install_context_grouping() -> None:
@@ -258,7 +267,7 @@ def _install_catalog_grouping() -> None:
                     previous_print(raw, **kwargs)
                     previous_print(
                         paint(
-                            "SERP e Google Search Console são fontes independentes: configurar uma não configura nem autentica a outra.",
+                            "SERP, Google Search Console e Perplexity são fontes independentes: configurar uma não configura nem autentica as demais.",
                             DIM,
                         )
                     )
