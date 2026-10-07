@@ -807,11 +807,15 @@ def ensure_competitive_ai_work_item(workspace: Any, audit_id: str):
                 configuration.get("ai_timeout_seconds") or DEFAULT_AI_TIMEOUT_SECONDS
             ),
             "ymyl_mode": str(configuration.get("ymyl_mode") or "AUTO"),
-            "compare_content": bool(configuration.get("compare_content", False)),
+            "compare_content": (
+                bool(configuration.get("compare_content"))
+                if "compare_content" in configuration
+                else None
+            ),
             "source": "search_intelligence",
         },
     )
-    if not bool(configuration.get("compare_content", False)):
+    if "compare_content" in configuration and not bool(configuration.get("compare_content")):
         set_work_item_status(
             workspace,
             audit_id=audit_id,
