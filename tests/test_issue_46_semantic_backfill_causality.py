@@ -176,3 +176,148 @@ def test_false_semantic_success_is_repaired_to_retryable(tmp_path: Path) -> None
     assert item.retryable is True
     assert item.last_error_code == "SEMANTIC_AI_NO_SUCCESSFUL_CAUSAL_ATTEMPT"
     assert item.effective_result_ref is None
+
+
+def test_governed_semantic_round_without_provider_ledger_preserves_success(
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    connection = _attempt_table(workspace)
+    try:
+        with connection:
+            connection.execute(
+                """
+                CREATE TABLE ai_tasks(
+                    ai_task_id TEXT PRIMARY KEY,
+                    audit_id TEXT,
+                    purpose TEXT,
+                    scope_key TEXT,
+                    semantic_contract_version TEXT,
+                    status TEXT,
+                    updated_at TEXT
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE ai_request_rounds(
+                    ai_round_id TEXT PRIMARY KEY,
+                    ai_task_id TEXT,
+                    round_index INTEGER,
+                    status TEXT,
+                    accepted_json TEXT,
+                    missing_json TEXT
+                )
+                """
+            )
+            connection.execute(
+                "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?)",
+                (
+                    "AIA-OTHER",
+                    AUDIT_ID,
+                    SNAPSHOT_ID,
+                    "SUCCESS",
+                    "IMPROVEMENT_INTELLIGENCE",
+                    "IMPROVEMENT-INTELLIGENCE-001",
+                ),
+            )
+            connection.execute(
+                "INSERT INTO ai_tasks VALUES (?,?,?,?,?,?,?)",
+                (
+                    "AIT-SEM-BACKFILL",
+                    AUDIT_ID,
+                    "SEMANTIC_M7",
+                    SNAPSHOT_ID,
+                    "M18-SEMANTIC-22-v1",
+                    "COMPLETE",
+                    "2026-10-07T14:01:21+00:00",
+                ),
+            )
+            connection.execute(
+                "INSERT INTO ai_request_rounds VALUES (?,?,?,?,?,?)",
+                (
+                    "AIR-SEM-BACKFILL",
+                    "AIT-SEM-BACKFILL",
+                    1,
+                    "COMPLETE",
+                    '{"BR-GEO-028":{"result":"PASS"}}',
+                    "[]",
+                ),
+            )
+
+        semantic_success = _semantic_attempt_succeeded(
+            connection,
+            audit_id=AUDIT_ID,
+            snapshot_id=SNAPSHOT_ID,
+        )
+        assert semantic_success is True
+        assert _semantic_backfill_status(
+            successful_attempt=semantic_success,
+            assessments=22,
+            latest_task_status="COMPLETE",
+        ) == SUCCESS
+    finally:
+        connection.close()
+
+
+def test_stale_governed_semantic_round_does_not_preserve_success(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    connection = _attempt_table(workspace)
+    try:
+        with connection:
+            connection.execute(
+                """
+                CREATE TABLE ai_tasks(
+                    ai_task_id TEXT PRIMARY KEY,
+                    audit_id TEXT,
+                    purpose TEXT,
+                    scope_key TEXT,
+                    semantic_contract_version TEXT,
+                    status TEXT,
+                    updated_at TEXT
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE ai_request_rounds(
+                    ai_round_id TEXT PRIMARY KEY,
+                    ai_task_id TEXT,
+                    round_index INTEGER,
+                    status TEXT,
+                    accepted_json TEXT,
+                    missing_json TEXT
+                )
+                """
+            )
+            connection.execute(
+                "INSERT INTO ai_tasks VALUES (?,?,?,?,?,?,?)",
+                (
+                    "AIT-SEM-STALE",
+                    AUDIT_ID,
+                    "SEMANTIC_M7",
+                    SNAPSHOT_ID,
+                    "M18-SEMANTIC-22-v1",
+                    "STALE",
+                    "2026-10-07T14:01:21+00:00",
+                ),
+            )
+            connection.execute(
+                "INSERT INTO ai_request_rounds VALUES (?,?,?,?,?,?)",
+                (
+                    "AIR-SEM-STALE",
+                    "AIT-SEM-STALE",
+                    1,
+                    "COMPLETE",
+                    '{"BR-GEO-028":{"result":"PASS"}}',
+                    "[]",
+                ),
+            )
+
+        assert _semantic_attempt_succeeded(
+            connection,
+            audit_id=AUDIT_ID,
+            snapshot_id=SNAPSHOT_ID,
+        ) is False
+    finally:
+        connection.close()
