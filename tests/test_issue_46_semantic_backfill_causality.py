@@ -240,7 +240,7 @@ def test_governed_semantic_round_without_provider_ledger_preserves_success(
                     "AIT-SEM-BACKFILL",
                     1,
                     "COMPLETE",
-                    '{"BR-GEO-028":{"result":"PASS"}}',
+                    '{"BR-GEO-028":{"result":"PASS","provider":"OPENAI"}}',
                     "[]",
                 ),
             )
@@ -309,7 +309,72 @@ def test_stale_governed_semantic_round_does_not_preserve_success(tmp_path: Path)
                     "AIT-SEM-STALE",
                     1,
                     "COMPLETE",
-                    '{"BR-GEO-028":{"result":"PASS"}}',
+                    '{"BR-GEO-028":{"result":"PASS","provider":"OPENAI"}}',
+                    "[]",
+                ),
+            )
+
+        assert _semantic_attempt_succeeded(
+            connection,
+            audit_id=AUDIT_ID,
+            snapshot_id=SNAPSHOT_ID,
+        ) is False
+    finally:
+        connection.close()
+
+
+def test_complete_governed_semantic_round_without_real_provider_is_not_causal(
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    connection = _attempt_table(workspace)
+    try:
+        with connection:
+            connection.execute(
+                """
+                CREATE TABLE ai_tasks(
+                    ai_task_id TEXT PRIMARY KEY,
+                    audit_id TEXT,
+                    purpose TEXT,
+                    scope_key TEXT,
+                    semantic_contract_version TEXT,
+                    status TEXT,
+                    updated_at TEXT
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE ai_request_rounds(
+                    ai_round_id TEXT PRIMARY KEY,
+                    ai_task_id TEXT,
+                    round_index INTEGER,
+                    status TEXT,
+                    accepted_json TEXT,
+                    missing_json TEXT
+                )
+                """
+            )
+            connection.execute(
+                "INSERT INTO ai_tasks VALUES (?,?,?,?,?,?,?)",
+                (
+                    "AIT-SEM-DETERMINISTIC",
+                    AUDIT_ID,
+                    "SEMANTIC_M7",
+                    SNAPSHOT_ID,
+                    "M18-SEMANTIC-22-v1",
+                    "COMPLETE",
+                    "2026-10-07T14:01:21+00:00",
+                ),
+            )
+            connection.execute(
+                "INSERT INTO ai_request_rounds VALUES (?,?,?,?,?,?)",
+                (
+                    "AIR-SEM-DETERMINISTIC",
+                    "AIT-SEM-DETERMINISTIC",
+                    1,
+                    "COMPLETE",
+                    '{"BR-GEO-028":{"result":"PASS","provider":"DETERMINISTIC"}}',
                     "[]",
                 ),
             )
