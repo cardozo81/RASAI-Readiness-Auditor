@@ -48,7 +48,8 @@ def test_chrome_only_without_main_is_not_material_even_above_220_characters() ->
     assert observation.text_length > 220
     assert observation.primary_text_length < 80
     assert quality["state"] == CaptureQualityState.INCOMPLETE.value
-    assert quality["reason"] == "CHROME_ONLY"
+    assert quality["reason"] == "PRIMARY_CONTENT_INSUFFICIENT"
+    assert quality["materiality_reason"] == "CHROME_ONLY"
     assert quality["recovery"]["attempted"] is False
 
 
@@ -67,7 +68,8 @@ def test_real_content_without_main_is_material() -> None:
     assert observation.content_nodes >= 2
     assert observation.primary_text_length >= 160
     assert quality["state"] == CaptureQualityState.READY.value
-    assert quality["reason"] == "PRIMARY_CONTENT_MATERIAL"
+    assert quality["reason"] == "NO_TRANSIENT_RENDER_SIGNAL"
+    assert quality["materiality_reason"] == "PRIMARY_CONTENT_MATERIAL"
 
 
 def test_empty_main_with_external_primary_content_is_material() -> None:
@@ -83,7 +85,8 @@ def test_empty_main_with_external_primary_content_is_material() -> None:
     assert observation.main_present is True
     assert observation.main_text_length == 0
     assert quality["state"] == CaptureQualityState.READY.value
-    assert quality["reason"] == "EMPTY_MAIN_WITH_EXTERNAL_PRIMARY_CONTENT"
+    assert quality["reason"] == "NO_TRANSIENT_RENDER_SIGNAL"
+    assert quality["materiality_reason"] == "EMPTY_MAIN_WITH_EXTERNAL_PRIMARY_CONTENT"
 
 
 def test_empty_main_with_chrome_and_transient_shell_remains_incomplete() -> None:
@@ -106,7 +109,8 @@ def test_empty_main_with_chrome_and_transient_shell_remains_incomplete() -> None
     assert quality["recovery"]["attempted"] is True
     assert quality["recovery"]["observation_count"] == 4
     assert quality["recovery"]["bounded_wait_ms"] == 1000
-    assert quality["reason"] in {"CHROME_ONLY", "TRANSIENT_SHELL"}
+    assert quality["reason"] == "TRANSIENT_RENDER_PERSISTED"
+    assert quality["materiality_reason"] in {"CHROME_ONLY", "TRANSIENT_SHELL"}
 
 
 def test_skeleton_that_materializes_within_bound_is_recovered() -> None:
@@ -125,7 +129,8 @@ def test_skeleton_that_materializes_within_bound_is_recovered() -> None:
 
     assert final_html == hydrated
     assert quality["state"] == CaptureQualityState.RECOVERED.value
-    assert quality["reason"] == "SLOW_HYDRATION"
+    assert quality["reason"] == "TRANSIENT_RENDER_MATERIALIZED"
+    assert quality["materiality_reason"] == "SLOW_HYDRATION"
     assert quality["recovery"]["outcome"] == "MATERIALIZED"
     assert quality["recovery"]["observation_count"] == 2
     assert quality["growth"]["primary_text_delta"] > 0
