@@ -342,42 +342,11 @@ def _reconcile_improvement_rpr(workspace: Any, audit_id: str) -> None:
 
     run = _improvement_run(workspace, audit_id)
     if run is None:
-        # A pre-provider failure (configuration, missing hook, execution policy,
-        # governed preparation) may legitimately leave no domain run row. Preserve
-        # that causal state instead of rewriting it as a synthetic materialization
-        # failure.
-        current_item = _item(workspace, audit_id, "IMPROVEMENT_INTELLIGENCE")
-        existing_code = str(
-            getattr(current_item, "last_error_code", "") or ""
-        ).strip()
-        existing_class = str(
-            getattr(current_item, "last_error_class", "") or ""
-        ).strip()
-        existing_message = str(
-            getattr(current_item, "last_error_message", "") or ""
-        ).strip()
-        existing_status = str(
-            getattr(current_item, "status", "") or ""
-        ).upper()
-        if (
-            current_item is not None
-            and existing_status
-            in {FAILED_RETRYABLE, NOT_CONFIGURED, "REQUESTED_NOT_EXECUTED"}
-            and existing_code
-            and existing_code != "IMPROVEMENT_RETRY_NOT_MATERIALIZED"
-            and (existing_class or existing_message)
-        ):
-            return
-        set_work_item_status(
-            workspace,
-            audit_id=audit_id,
-            component="IMPROVEMENT_INTELLIGENCE",
-            status=FAILED_RETRYABLE,
-            error_class="ORCHESTRATION",
-            error_code="IMPROVEMENT_RETRY_NOT_MATERIALIZED",
-            error_message="Improvement Intelligence foi reavaliado, mas não materializou resultado persistido",
-            retryable=True,
-        )
+        # This reconciler is used both before and after the registered-AI phase.
+        # Absence of a domain run is therefore not proof that an execution attempt
+        # happened. Preserve any explicit causal state and otherwise leave the item
+        # untouched. The registered-AI owner projects NOT_MATERIALIZED only after a
+        # real hook outcome proves that the purpose was handled by its executor.
         return
     status = str(run.get("status") or "").upper()
     reason = str(run.get("reason") or "").upper()
