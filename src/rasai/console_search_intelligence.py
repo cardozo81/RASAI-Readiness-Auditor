@@ -369,12 +369,21 @@ def configure_perplexity_search(state: SearchConsoleState) -> None:
         state.error = f"Perplexity Search Intelligence: {exc}"
 
 
+def perplexity_enabled(env: Mapping[str, str] | None = None) -> bool:
+    """Explicit opt-out; an absent flag retains legacy behavior for configured credentials."""
+    values = os.environ if env is None else env
+    raw = str(values.get("RASAI_PERPLEXITY_ENABLED", "") or "").strip().casefold()
+    return raw not in {"false", "0", "off", "no"}
+
+
 def validate_perplexity_readiness(
     state: object, env: Mapping[str, str] | None = None
 ) -> tuple[bool, str]:
     queries = tuple(getattr(state, "perplexity_queries", ()) or ())
     if not queries:
         return True, "Perplexity não solicitada nesta execução"
+    if not perplexity_enabled(env):
+        return True, "Perplexity desabilitada pelo usuário; nenhuma chamada externa"
     if len(queries) > PERPLEXITY_MAX_QUERIES:
         return False, f"Perplexity excede {PERPLEXITY_MAX_QUERIES} queries por request"
     search_type = str(getattr(state, "perplexity_search_type", "web") or "web").casefold()
@@ -396,6 +405,11 @@ def execute_perplexity_for_audit(
 
     queries = tuple(getattr(state, "perplexity_queries", ()) or ())
     if not queries:
+        return 0
+    if not perplexity_enabled():
+        state.perplexity_last_status = "DISABLED_BY_USER"
+        state.perplexity_last_detail = "Perplexity desabilitada pelo usuário; nenhuma chamada ou custo"
+        state.perplexity_last_duration_seconds = None
         return 0
     workspace_path = audit_workspace(state)
     if workspace_path is None:
