@@ -311,7 +311,10 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             + ("CONFIGURADA" if status["configured"] else "NÃO CONFIGURADA")
         )
         from rasai.console_search_intelligence import perplexity_enabled
-        print(f"  Habilitada            : {'SIM' if perplexity_enabled() else 'NÃO'}")
+        active = perplexity_enabled()
+        effective = active and bool(status["configured"]) and bool(queries)
+        print(f"  Habilitada            : {'SIM' if active else 'NÃO'}")
+        print(f"  Efetiva nesta AUD     : {'SIM' if effective else 'NÃO'}")
         print(f"  Readiness             : {'APTA' if ready else 'CONFIGURAR'}")
         print(f"  Detalhe               : {detail}")
         print("\n1. Definir/alterar queries")
