@@ -80,7 +80,6 @@ class AiExchange:
     outcome: str
     http_status: int | None
     exception_type: str | None
-    exception_detail: str | None
     request_payload: str
     request_sha256: str
     request_payload_hash: str
@@ -89,6 +88,7 @@ class AiExchange:
     response_sha256: str | None
     response_truncated: bool
     attempt_id: str | None = None
+    exception_detail: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
