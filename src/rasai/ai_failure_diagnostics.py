@@ -48,10 +48,15 @@ def format_ai_attempt_diagnostic(attempt: Mapping[str, Any]) -> str:
     error_class = str(attempt.get("error_class") or "").upper().strip()
     error_code = str(attempt.get("error_code") or "").strip()
     error_type = str(attempt.get("error_type") or "").strip()
+    error_detail = str(attempt.get("error_detail") or "").strip()
     http_status = attempt.get("http_status")
 
     parts: list[str] = []
-    if error_class:
+    if error_class == "UNKNOWN_PROVIDER_ERROR" and error_detail:
+        # A classe técnica continua UNKNOWN para retry/quarentena, mas a apresentação
+        # não deve apagar uma causa concreta já sanitizada e persistida.
+        parts.append("Falha do provedor sem classificação específica")
+    elif error_class:
         parts.append(
             _ERROR_LABELS.get(error_class)
             or public_label(error_class)
@@ -70,6 +75,9 @@ def format_ai_attempt_diagnostic(attempt: Mapping[str, Any]) -> str:
         parts.append(public_label(error_code) or error_code.replace("_", " ").title())
     elif error_type and not parts:
         parts.append(public_label(error_type) or error_type.replace("_", " ").title())
+
+    if error_detail and error_class == "UNKNOWN_PROVIDER_ERROR":
+        parts.append(error_detail)
 
     return " - ".join(dict.fromkeys(parts)) or "Erro técnico sem detalhe persistido"
 
