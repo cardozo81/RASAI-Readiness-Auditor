@@ -292,3 +292,14 @@ Crédito, quota, saldo, rate limit, plano ou indisponibilidade comercial isolado
 9. core determinístico permanece invariável.
 
 Qualquer defeito funcional posterior em main deve virar bug específico.
+
+
+## Evolução GEO (#301, implementação em andamento)
+
+A configuração opcional `RASAI_PERPLEXITY_ENABLED` controla **ativação**, separadamente de `PERPLEXITY_API_KEY`. A ausência da flag é compatível com o comportamento previamente homologado (queries explícitas + credencial); `false`, `0`, `off` ou `no` impedem requisição externa sem apagar a credencial. O inventário de variáveis utiliza `EnvironmentSpec`, e somente configurações não secretas são elegíveis ao INI; restauração segue o registry e a precedência padrão do produto.
+
+A nova superfície transversal `geo.html` é advisory e parte do `report-catalog` da AUD individual. Lê apenas evidências persistidas; não substitui CAT-05, não altera índice e não comprova answer inclusion ou citation inclusion em respostas generativas. Comparações de URLs entre SERP e Perplexity somente têm semântica direta quando a Search API recebeu **uma única consulta** e existe observação SERP live válida equivalente. Requests multi-query não oferecem, no contrato atual, vínculo individual fonte→query: apresentar indisponibilidade da comparação em vez de inventar pareamento.
+
+Apenas evidências rastreáveis podem fundamentar recomendações; snippets de concorrentes não comprovam conteúdo integral. A interpretação deve separar explicitamente observação, hipótese e ação de boas práticas. Evolução longitudinal para CONS-* fica no gap #311 e fora da presente implementação.
+
+**Estado:** documento descreve projeto incremental; a implementação não deve ser considerada homologada até CI, testes de persistência/RPR, integridade e fechamento das issues-filhas #302–#310.
