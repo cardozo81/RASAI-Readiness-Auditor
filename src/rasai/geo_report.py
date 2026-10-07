@@ -73,6 +73,49 @@ def _stored_comparison(database: Path, audit_id: str) -> dict | None:
     return result if isinstance(result, dict) else None
 
 
+
+def _prior_competitive_ai(database: Path, audit_id: str, serp_id: str | None) -> dict | None:
+    """Consume only a previously persisted, canonical competitive-AI assessment.
+
+    This adapter neither invokes a provider nor creates an AI task. Existing
+    source consumer owns evidence validation and provider/usage provenance.
+    """
+    if not serp_id:
+        return None
+    with closing(sqlite3.connect(f"file:{database.resolve().as_posix()}?mode=ro", uri=True)) as con:
+        if not con.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' "
+            "AND name='serp_competitive_ai_analyses'"
+        ).fetchone():
+            return None
+        con.row_factory = sqlite3.Row
+        row = con.execute(
+            "SELECT observation_id,state,provider,model,contract_version,prompt_id,"
+            "prompt_version,summary,opportunities_json,evidence_ref,evidence_sha256 "
+            "FROM serp_competitive_ai_analyses "
+            "WHERE audit_id=? AND observation_id=? AND state='AVAILABLE'",
+            (audit_id, serp_id),
+        ).fetchone()
+    if row is None:
+        return None
+    assessment = dict(row)
+    try:
+        opportunities = json.loads(assessment["opportunities_json"] or "[]")
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(opportunities, list):
+        return None
+    # Reject opportunity entries without provenance identifiers; do not
+    # manufacture evidence to make AI claims appear more confident.
+    assessment["opportunities"] = [
+        o for o in opportunities
+        if isinstance(o, dict) and isinstance(o.get("evidence_ids"), list)
+        and o["evidence_ids"] and all(isinstance(i, str) and i.strip() for i in o["evidence_ids"])
+    ]
+    return assessment
+
+
+
 def geo_body(database: Path, audit_id: str) -> str:
     """Evidence-backed readout; no scores, causal attribution or speculative gaps."""
     runs, sources = _observations(database, audit_id)
@@ -145,6 +188,38 @@ def geo_body(database: Path, audit_id: str) -> str:
         if target.get("evidence_run_id"):
             summary += "<p>Run de origem: " + escape(str(target["evidence_run_id"])) + "</p>"
         summary += "<p>Este resultado não determina por que uma URL foi ou não foi recuperada.</p></section>"
+    ai = _prior_competitive_ai(
+        database, audit_id, comparison.get("serp_observation_id") if comparison else None
+    )
+    summary += "<section><h2>Síntese competitiva de IA disponível</h2>"
+    if ai is None:
+        summary += "<p>Não há síntese competitiva canônica compatível persistida para a "
+        summary += "observação SERP correlacionada. Nenhuma chamada adicional de IA é "
+        summary += "executada para materializar este relatório.</p>"
+    else:
+        summary += "<p>Origem: análise competitiva por IA já persistida no CAT-05, "
+        summary += "não uma avaliação nova da Perplexity. "
+        summary += "Provider: " + escape(str(ai.get("provider") or "-"))
+        summary += "; modelo: " + escape(str(ai.get("model") or "-"))
+        summary += "; contrato: " + escape(str(ai.get("contract_version") or "-"))
+        summary += "; prompt: " + escape(str(ai.get("prompt_id") or "-"))
+        summary += " / " + escape(str(ai.get("prompt_version") or "-")) + ".</p>"
+        if ai.get("summary"):
+            summary += "<p>" + escape(str(ai["summary"])) + "</p>"
+        if ai["opportunities"]:
+            summary += "<ol>"
+            for opportunity in ai["opportunities"][:12]:
+                summary += "<li><strong>" + escape(str(opportunity.get("title") or "-"))
+                summary += "</strong> — " + escape(str(opportunity.get("recommendation") or "-"))
+                summary += " (evidências: "
+                summary += ", ".join(escape(x) for x in opportunity["evidence_ids"])
+                summary += ")</li>"
+            summary += "</ol>"
+        else:
+            summary += "<p>Não há oportunidades com referência de evidência auditável.</p>"
+        summary += "<p>A análise é uma hipótese assistida; confirme cada remediação "
+        summary += "nas evidências correspondentes antes de priorizar.</p>"
+    summary += "</section>"
     summary += "<section><h2>Domínios das fontes observadas</h2><ul>"
     for host, n in counts.most_common(20):
         summary += f"<li>{escape(host)}: {n} fonte(s)</li>"
