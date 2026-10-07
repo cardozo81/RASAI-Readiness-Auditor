@@ -97,7 +97,7 @@ def record_reprocess_evaluation(
 
 
 def _install_m20_factory_hook() -> None:
-    from rasai import m20, reprocess_ai
+    from rasai import audit_runner, m20, reprocess_ai
 
     original = m20.build_content_remediation_router
     if bool(getattr(original, "_rasai_contextual_m20_recovery", False)):
@@ -145,7 +145,7 @@ def _install_m20_recovery() -> None:
         )
         token = _M20_CONTEXT.set(_M20RecoveryContext(successful))
         try:
-            result = m20.execute_m20(
+            result = audit_runner.execute_m20(
                 audit_id=audit_id,
                 enabled=True,
                 semantic_provider=active_provider,
