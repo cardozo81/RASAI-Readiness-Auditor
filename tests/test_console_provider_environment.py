@@ -40,6 +40,17 @@ class ConsoleProviderEnvironmentTests(unittest.TestCase):
         self.assertTrue(copilot.sensitive)
         self.assertTrue(gemini.sensitive)
 
+
+    def test_perplexity_secret_is_in_canonical_configuration_catalog(self) -> None:
+        specs = {item.name: item for item in provider_environment.refresh_specs()}
+        perplexity = specs["PERPLEXITY_API_KEY"]
+        self.assertTrue(perplexity.sensitive)
+        self.assertEqual(perplexity.category, "Search Intelligence / Observability")
+        self.assertIn("Perplexity Search API", perplexity.purpose)
+        self.assertIn("PERPLEXITY_SEARCH_INTELLIGENCE.md", perplexity.source)
+        self.assertNotIn("PERPLEXITY_SEARCH_REQUEST", specs)
+        self.assertNotIn("PERPLEXITY_QUERIES", specs)
+
     def test_refresh_preserves_runtime_added_environment_contracts(self) -> None:
         install_runtime_completion_extensions()
         specs = provider_environment.refresh_specs()
