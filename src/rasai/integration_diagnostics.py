@@ -24,6 +24,7 @@ from urllib.request import Request, urlopen
 from rasai.provider_registry import get_provider_registration, provider_registrations
 from rasai.runtime_paths import runtime_directory
 from rasai.search_intelligence.provider_catalog import SERP_PROVIDER_REGISTRY
+from rasai.search_intelligence.perplexity import API_KEY_ENV as PERPLEXITY_API_KEY_ENV
 from rasai.standards_service_registry import services as standards_services
 
 
@@ -212,6 +213,25 @@ def integration_specs() -> tuple[IntegrationSpec, ...]:
             documentation_url=registration.documentation_url,
             freshness_minutes=60,
         ))
+
+    output.append(IntegrationSpec(
+        id="search:perplexity",
+        label="Perplexity Search Intelligence",
+        category="SERP / Search Intelligence",
+        probe_kind="CONFIGURATION_ONLY",
+        dependencies=(
+            _dep(
+                PERPLEXITY_API_KEY_ENV,
+                required=True,
+                secret=True,
+                purpose="credencial da Perplexity Search API",
+            ),
+        ),
+        probe_cost=PROBE_NO_PROVIDER_FEE,
+        safe_for_bulk=True,
+        documentation_url="https://docs.perplexity.ai/docs/search/quickstart",
+        freshness_minutes=60,
+    ))
 
     service_probe_kind = {
         "pagespeed": "PAGESPEED",
