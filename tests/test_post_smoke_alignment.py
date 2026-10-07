@@ -384,3 +384,121 @@ def test_improvement_runtime_projects_governance_preparation_failure(
     assert projected["status"] == "FAILED_RETRYABLE"
     assert projected["error_class"] == "ORCHESTRATION"
     assert projected["error_code"] == "IMPROVEMENT_GOVERNANCE_PREPARATION_RUNTIMEERROR"
+
+
+def test_content_remediation_governance_backfill_is_deterministic_and_telemetry_safe(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from rasai import ai_governance
+    from rasai.post_smoke_alignment import _backfill_content_task
+
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE content_remediation_runs(
+                audit_id TEXT PRIMARY KEY,
+                status TEXT,
+                eligible_findings INTEGER,
+                generated_suggestions INTEGER
+            );
+            CREATE TABLE content_remediation_attempts(
+                attempt_id TEXT PRIMARY KEY,
+                audit_id TEXT,
+                operation TEXT,
+                ai_task_id TEXT,
+                ai_round_id TEXT,
+                started_at TEXT,
+                provider TEXT,
+                model TEXT,
+                input_tokens INTEGER,
+                output_tokens INTEGER,
+                estimated_cost REAL
+            );
+            CREATE TABLE content_remediation_suggestions(
+                audit_id TEXT,
+                finding_id TEXT,
+                suggestion_id TEXT
+            );
+            """
+        )
+        connection.execute(
+            "INSERT INTO content_remediation_runs VALUES (?,?,?,?)",
+            ("AUD-BACKFILL", "SUCCESS", 3, 3),
+        )
+        connection.execute(
+            """INSERT INTO content_remediation_attempts
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                "AIP-M20-1",
+                "AUD-BACKFILL",
+                None,
+                None,
+                None,
+                "2026-10-07T17:44:30+00:00",
+                "OPENAI",
+                "gpt-test",
+                5020,
+                930,
+                0.00212,
+            ),
+        )
+        connection.execute(
+            "INSERT INTO content_remediation_suggestions VALUES (?,?,?)",
+            ("AUD-BACKFILL", "FND-1", "SGT-1"),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    workspace = SimpleNamespace(database=database)
+    calls: list[tuple[str, object]] = []
+
+    monkeypatch.setattr(
+        ai_governance,
+        "latest_evidence_snapshot",
+        lambda *_args, **_kwargs: SimpleNamespace(evidence_snapshot_id="AIE-1"),
+    )
+    monkeypatch.setattr(
+        ai_governance,
+        "register_task",
+        lambda **kwargs: calls.append(("task", kwargs)) or "AIT-BACKFILL",
+    )
+    monkeypatch.setattr(
+        ai_governance,
+        "begin_round",
+        lambda **kwargs: calls.append(("round", kwargs)) or "AIR-BACKFILL",
+    )
+    monkeypatch.setattr(
+        ai_governance,
+        "complete_round",
+        lambda **kwargs: calls.append(("complete", kwargs)),
+    )
+
+    _backfill_content_task(workspace, "AUD-BACKFILL")
+    _backfill_content_task(workspace, "AUD-BACKFILL")
+
+    connection = sqlite3.connect(database)
+    try:
+        row = connection.execute(
+            """SELECT operation,ai_task_id,ai_round_id,provider,model,
+                      input_tokens,output_tokens,estimated_cost
+               FROM content_remediation_attempts
+               WHERE attempt_id='AIP-M20-1'"""
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert row == (
+        "CONTENT_REMEDIATION",
+        "AIT-BACKFILL",
+        "AIR-BACKFILL",
+        "OPENAI",
+        "gpt-test",
+        5020,
+        930,
+        0.00212,
+    )
+    assert [name for name, _payload in calls] == ["task", "round", "complete"]
