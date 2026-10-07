@@ -134,7 +134,7 @@ def test_governed_hook_guard_projects_escaped_failure(monkeypatch) -> None:
     assert "preparação inválida" in str(projected["error_message"])
 
 
-def test_entrypoints_install_improvement_diagnostics_after_final_binding() -> None:
+def test_entrypoints_use_canonical_improvement_causal_contracts() -> None:
     import rasai.console_entrypoint as console_entrypoint
     import rasai.entrypoint as entrypoint
 
@@ -142,13 +142,11 @@ def test_entrypoints_install_improvement_diagnostics_after_final_binding() -> No
     cli_source = inspect.getsource(entrypoint._install_audit_runtime)
 
     for source in (console_source, cli_source):
+        assert "install_improvement_reprocess_diagnostics()" not in source
+        assert source.index("install_improvement_intelligence_runtime()") < source.index(
+            "install_final_smoke_closure()"
+        )
         assert source.index("install_final_smoke_closure()") < source.index(
-            "install_improvement_reprocess_diagnostics()"
-        )
-        assert source.index("install_governed_report_projection()") < source.index(
-            "install_improvement_reprocess_diagnostics()"
-        )
-        assert source.index("install_improvement_reprocess_diagnostics()") < source.index(
             "install_audit_resume_runtime()"
         )
 
