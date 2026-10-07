@@ -417,9 +417,11 @@ def _backfill_contract(workspace: AuditWorkspace, audit_id: str) -> None:
 
     from rasai.audit_fulfillment_runtime import _sync_persisted_components
     from rasai.audit_resume_runtime import materialize_planned_work_items
+    from rasai.post_smoke_alignment import _backfill_content_task
 
     _sync_persisted_components(audit_id=audit_id,workspace=workspace)
     materialize_planned_work_items(workspace, audit_id)
+    _backfill_content_task(workspace, audit_id)
     recalculate(workspace,audit_id)
 
 
