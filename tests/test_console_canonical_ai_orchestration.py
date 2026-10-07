@@ -250,3 +250,30 @@ print("OK")
     result = _run(code)
     assert result.returncode == 0, result.stderr
     assert "OK" in result.stdout
+
+
+def test_improvement_feature_resolution_does_not_require_provider_validation() -> None:
+    code = r'''
+import os
+from rasai.ai_efficiency_policy import install as install_ai
+from rasai import interactive_console
+from rasai.improvement_intelligence_console import install as install_improvement
+from rasai import console_settings
+
+install_ai()
+install_improvement(interactive_console)
+state = interactive_console.State()
+state.ai_provider = "unknown-provider"
+state.improvement_enabled = True
+state.improvement_domains = ("CONTENT",)
+state.improvement_max_recommendations = 30
+state.improvement_timeout = 240.0
+
+os.environ["RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS"] = "50"
+values = console_settings._state_values(state)["improvement_intelligence"]
+assert values["max_recommendations"] == "50"
+print("OK")
+'''
+    result = _run(code)
+    assert result.returncode == 0, result.stderr
+    assert "OK" in result.stdout
