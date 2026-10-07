@@ -16,6 +16,10 @@ _TRANSIENT_TOKEN_RE = re.compile(r"(?:^|[-_\s])(skeleton|shimmer|placeholder|loa
 _LAZY_TOKEN_RE = re.compile(r"(?:^|[-_\s])(lazy|lazyload|defer)(?:$|[-_\s])", re.IGNORECASE)
 _MAIN_TOKEN_RE = re.compile(r"(?:^|[-_\s])main(?:$|[-_\s])", re.IGNORECASE)
 _SHELL_TOKEN_RE = re.compile(r"^(?:app|root|__next|__nuxt)$", re.IGNORECASE)
+_CHROME_TOKEN_RE = re.compile(
+    r"(?:^|[-_\s])(cookie|consent|gdpr|privacy-consent|cookie-banner)(?:$|[-_\s])",
+    re.IGNORECASE,
+)
 _SPACE_RE = re.compile(r"\s+")
 
 
@@ -64,8 +68,12 @@ def capture_quality_block_reason(metadata: Any) -> str | None:
 class MaterialityObservation:
     text_length: int
     main_text_length: int
+    primary_text_length: int
     dom_nodes: int
     main_nodes: int
+    heading_nodes: int
+    content_nodes: int
+    chrome_nodes: int
     transient_markers: int
     lazy_markers: int
     busy_markers: int
@@ -86,14 +94,19 @@ class _MaterialityParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.dom_nodes = 0
         self.main_nodes = 0
+        self.heading_nodes = 0
+        self.content_nodes = 0
+        self.chrome_nodes = 0
         self.transient_markers = 0
         self.lazy_markers = 0
         self.busy_markers = 0
         self.shell_markers = 0
         self._main_stack: list[bool] = []
+        self._chrome_stack: list[bool] = []
         self._ignored_depth = 0
         self._text: list[str] = []
         self._main_text: list[str] = []
+        self._primary_text: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self.dom_nodes += 1
@@ -116,6 +129,23 @@ class _MaterialityParser(HTMLParser):
             self.main_nodes += 1
         parent_main = self._main_stack[-1] if self._main_stack else False
         self._main_stack.append(parent_main or is_main)
+
+        is_chrome = (
+            tag_name in {"header", "nav", "footer", "aside"}
+            or bool(_CHROME_TOKEN_RE.search(identity))
+        )
+        parent_chrome = self._chrome_stack[-1] if self._chrome_stack else False
+        chrome_context = parent_chrome or is_chrome
+        self._chrome_stack.append(chrome_context)
+        if is_chrome:
+            self.chrome_nodes += 1
+
+        if not chrome_context:
+            if tag_name in {"h1", "h2", "h3", "h4", "h5", "h6"}:
+                self.heading_nodes += 1
+                self.content_nodes += 1
+            elif tag_name in {"article", "section", "p"}:
+                self.content_nodes += 1
 
         marker_values = " ".join(
             value for key, value in attr_map.items()
@@ -144,6 +174,8 @@ class _MaterialityParser(HTMLParser):
             self._ignored_depth -= 1
         if self._main_stack:
             self._main_stack.pop()
+        if self._chrome_stack:
+            self._chrome_stack.pop()
 
     def handle_data(self, data: str) -> None:
         if self._ignored_depth:
@@ -154,15 +186,22 @@ class _MaterialityParser(HTMLParser):
         self._text.append(text)
         if self._main_stack and self._main_stack[-1]:
             self._main_text.append(text)
+        if not self._chrome_stack or not self._chrome_stack[-1]:
+            self._primary_text.append(text)
 
     def observation(self) -> MaterialityObservation:
         text = " ".join(self._text)
         main_text = " ".join(self._main_text)
+        primary_text = " ".join(self._primary_text)
         return MaterialityObservation(
             text_length=len(text),
             main_text_length=len(main_text),
+            primary_text_length=len(primary_text),
             dom_nodes=self.dom_nodes,
             main_nodes=self.main_nodes,
+            heading_nodes=self.heading_nodes,
+            content_nodes=self.content_nodes,
+            chrome_nodes=self.chrome_nodes,
             transient_markers=self.transient_markers,
             lazy_markers=self.lazy_markers,
             busy_markers=self.busy_markers,
@@ -178,11 +217,46 @@ def observe_materiality(rendered_html: str | None) -> MaterialityObservation:
     return parser.observation()
 
 
+def _strong_primary_content(observation: MaterialityObservation) -> bool:
+    """Require material text plus structural evidence without requiring <main>."""
+    if observation.main_text_length >= 160:
+        return True
+    semantic_content = observation.heading_nodes > 0 and observation.content_nodes >= 2
+    if observation.primary_text_length >= 160 and semantic_content:
+        return True
+    # Non-semantic SPAs remain observable when there is a large body of text outside
+    # known chrome containers. The higher threshold prevents nav/footer copy alone
+    # from becoming material just because the document omits <main>.
+    if observation.primary_text_length >= 600 and observation.content_nodes >= 1:
+        return True
+    return False
+
+
 def _weak_primary_content(observation: MaterialityObservation) -> bool:
-    if observation.main_present:
-        # Navigation/chrome text must not mask an empty or weak primary region.
-        return observation.main_text_length < 160
-    return observation.text_length < 220
+    return not _strong_primary_content(observation)
+
+
+def _materiality_reason(observation: MaterialityObservation) -> str:
+    outside_main_text = max(
+        observation.primary_text_length - observation.main_text_length,
+        0,
+    )
+    if (
+        observation.main_present
+        and observation.main_text_length < 160
+        and _strong_primary_content(observation)
+        and outside_main_text >= 160
+    ):
+        return "EMPTY_MAIN_WITH_EXTERNAL_PRIMARY_CONTENT"
+    if (
+        observation.text_length >= 220
+        and observation.primary_text_length < 80
+        and observation.chrome_nodes > 0
+    ):
+        return "CHROME_ONLY"
+    if observation.transient_markers or observation.busy_markers or observation.shell_markers:
+        return "TRANSIENT_SHELL"
+    return "PRIMARY_CONTENT_WEAK"
 
 
 def _transient_suspicion(observation: MaterialityObservation, settle_outcome: str) -> bool:
@@ -205,11 +279,15 @@ def _growth(initial: MaterialityObservation, final: MaterialityObservation) -> d
     return {
         "text_delta": final.text_length - initial.text_length,
         "main_text_delta": final.main_text_length - initial.main_text_length,
+        "primary_text_delta": final.primary_text_length - initial.primary_text_length,
         "dom_nodes_delta": final.dom_nodes - initial.dom_nodes,
+        "heading_nodes_delta": final.heading_nodes - initial.heading_nodes,
+        "content_nodes_delta": final.content_nodes - initial.content_nodes,
         "transient_markers_delta": final.transient_markers - initial.transient_markers,
         "lazy_markers_delta": final.lazy_markers - initial.lazy_markers,
         "materialized": (
             final.main_text_length > initial.main_text_length
+            or final.primary_text_length > initial.primary_text_length
             or final.text_length > initial.text_length
             or final.dom_nodes > initial.dom_nodes
             or final.transient_markers < initial.transient_markers
@@ -258,11 +336,11 @@ def resolve_capture_quality(
         )
 
     initial = observe_materiality(rendered_html)
-    if not _transient_suspicion(initial, settle_outcome):
+    if not _weak_primary_content(initial):
         return rendered_html, {
             "contract_version": CAPTURE_QUALITY_CONTRACT_VERSION,
             "state": CaptureQualityState.READY.value,
-            "reason": "NO_TRANSIENT_RENDER_SIGNAL",
+            "reason": _materiality_reason(initial),
             "settle_outcome": str(settle_outcome),
             "initial": initial.to_dict(),
             "final": initial.to_dict(),
@@ -274,6 +352,25 @@ def resolve_capture_quality(
                 "bounded_wait_ms": 0,
                 "max_wait_ms": recovery_step_ms * recovery_observations,
                 "outcome": "NOT_REQUIRED",
+            },
+        }
+
+    if not _transient_suspicion(initial, settle_outcome):
+        return rendered_html, {
+            "contract_version": CAPTURE_QUALITY_CONTRACT_VERSION,
+            "state": CaptureQualityState.INCOMPLETE.value,
+            "reason": _materiality_reason(initial),
+            "settle_outcome": str(settle_outcome),
+            "initial": initial.to_dict(),
+            "final": initial.to_dict(),
+            "growth": _growth(initial, initial),
+            "recovery": {
+                "attempted": False,
+                "observation_count": 0,
+                "step_ms": recovery_step_ms,
+                "bounded_wait_ms": 0,
+                "max_wait_ms": recovery_step_ms * recovery_observations,
+                "outcome": "NOT_APPLICABLE",
             },
         }
 
@@ -299,9 +396,9 @@ def resolve_capture_quality(
             break
 
     growth = _growth(initial, final)
-    recovered = not _transient_suspicion(final, settle_outcome)
+    recovered = not _weak_primary_content(final)
     state = CaptureQualityState.RECOVERED if recovered else CaptureQualityState.INCOMPLETE
-    reason = "TRANSIENT_RENDER_MATERIALIZED" if recovered else "TRANSIENT_RENDER_PERSISTED"
+    reason = "SLOW_HYDRATION" if recovered else _materiality_reason(final)
     return final_html, {
         "contract_version": CAPTURE_QUALITY_CONTRACT_VERSION,
         "state": state.value,
