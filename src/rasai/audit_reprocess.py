@@ -201,8 +201,24 @@ def _completed_semantic_governance_round(
             missing = json.loads(str(row[1] or "[]"))
         except (TypeError, ValueError, json.JSONDecodeError):
             continue
-        if isinstance(accepted, dict) and accepted and not missing:
-            return True
+        if not (isinstance(accepted, dict) and accepted and not missing):
+            continue
+        for value in accepted.values():
+            if not isinstance(value, dict):
+                continue
+            metadata = value.get("provider_metadata")
+            provider = value.get("provider")
+            if not provider and isinstance(metadata, dict):
+                provider = metadata.get("provider")
+            normalized = str(provider or "").strip().upper()
+            if normalized not in {
+                "",
+                "NONE",
+                "FALLBACK",
+                "DETERMINISTIC",
+                "DETERMINISTIC_BASELINE",
+            }:
+                return True
     return False
 
 
