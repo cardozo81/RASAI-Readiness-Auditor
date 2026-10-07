@@ -10,6 +10,7 @@ on:
       - 'src/rasai/source_quality_browser.py'
       - 'src/rasai/external_metrics_integrity.py'
       - 'src/rasai/browser_identity_renderer.py'
+      - 'src/rasai/render_materiality.py'
       - 'src/rasai/m3.py'
       - 'src/rasai/m23_apdex_profiles.py'
       - 'src/rasai/audit_runner.py'
@@ -28,6 +29,7 @@ on:
       - 'src/rasai/source_quality_browser.py'
       - 'src/rasai/external_metrics_integrity.py'
       - 'src/rasai/browser_identity_renderer.py'
+      - 'src/rasai/render_materiality.py'
       - 'src/rasai/m3.py'
       - 'src/rasai/m23_apdex_profiles.py'
       - 'src/rasai/audit_runner.py'
@@ -65,6 +67,7 @@ jobs:
             src/rasai/source_quality_browser.py \
             src/rasai/external_metrics_integrity.py \
             src/rasai/browser_identity_renderer.py \
+            src/rasai/render_materiality.py \
             src/rasai/m3.py \
             src/rasai/m23_apdex_profiles.py \
             src/rasai/audit_runner.py \
