@@ -1335,24 +1335,48 @@ def _registered_ai_and_report(
     # purpose-specific prerequisites are individually satisfied.
     gate = evaluate_collection_readiness(workspace, audit_id)
     record_collection_gate(workspace, audit_id, path="RPR_FINAL", readiness=gate)
-    purposes = (
-        _registered_ai_purposes(workspace, audit_id, preparation.recovered)
-        if gate.ready else frozenset()
-    )
     evaluated = set(preparation.evaluated_optional)
     outcomes: dict[str, Mapping[str, Any]] = {}
-    if purposes:
+    executed_purposes: set[str] = set()
+
+    # Registered AI has one explicit dependency edge today:
+    # COMPETITIVE_INTELLIGENCE -> IMPROVEMENT_INTELLIGENCE.  Re-evaluate once after
+    # the first governed pass so a prerequisite resolved inside this same RPR can
+    # release its dependent immediately.  Subtract already executed purposes to avoid
+    # duplicate provider calls.  Two passes are deliberately bounded; provider-level
+    # retry/fallback cycles remain owned by the canonical AI orchestration.
+    for pass_index in range(2):
+        purposes = (
+            _registered_ai_purposes(workspace, audit_id, preparation.recovered)
+            if gate.ready else frozenset()
+        )
+        purposes = frozenset(
+            purpose for purpose in purposes if purpose not in executed_purposes
+        )
+        if not purposes:
+            break
         if "IMPROVEMENT_INTELLIGENCE" in purposes:
             _archive_improvement_intelligence(workspace, audit_id)
         with optional._original_optional_environment(workspace, audit_id):
-            outcomes = run_registered_ai_phase(
+            pass_outcomes = run_registered_ai_phase(
                 audit_id=audit_id,
                 workspace=workspace,
                 evidence_snapshot=snapshot,
                 purposes=purposes,
             )
+        outcomes.update(pass_outcomes)
+        executed_purposes.update(purposes)
         if "IMPROVEMENT_INTELLIGENCE" in purposes:
             evaluated.add("IMPROVEMENT_INTELLIGENCE")
+        if pass_index:
+            try_append_operational_event(
+                workspace,
+                "AUDIT_REPROCESS_AI_DEPENDENCY_RELEASED",
+                level="INFO",
+                audit_id=audit_id,
+                purposes=tuple(sorted(purposes)),
+                evidence_snapshot_id=snapshot.evidence_snapshot_id,
+            )
     if gate.ready and not _required_pending(workspace, audit_id):
         mark_ai_sealed(
             audit_id=audit_id,
