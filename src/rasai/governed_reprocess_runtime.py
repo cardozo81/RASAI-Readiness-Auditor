@@ -32,6 +32,8 @@ from rasai.ai_governance import (
 from rasai.audit_fulfillment import (
     FAILED_RETRYABLE,
     NOT_APPLICABLE,
+    NOT_CONFIGURED,
+    REQUESTED_NOT_EXECUTED,
     SUCCESS,
     WAITING_FOR_DATA,
     archive_rows,
@@ -1318,6 +1320,104 @@ def _outcomes_used_ai(outcomes: Mapping[str, Mapping[str, Any]]) -> bool:
     return False
 
 
+def _project_improvement_after_registered_outcome(
+    workspace: Any,
+    audit_id: str,
+    outcome: Mapping[str, Any],
+) -> None:
+    """Own Improvement no-run classification only after a real registered-AI outcome.
+
+    Generic reconciliation runs both before and after AI and therefore cannot infer
+    that a missing domain run means an execution attempt occurred.
+    """
+    from rasai import selective_optional_reprocess as optional
+
+    if optional._improvement_run(workspace, audit_id) is not None:
+        return
+
+    item = optional._item(workspace, audit_id, "IMPROVEMENT_INTELLIGENCE")
+    existing_code = str(getattr(item, "last_error_code", "") or "").strip()
+    existing_status = str(getattr(item, "status", "") or "").strip().upper()
+    if (
+        item is not None
+        and existing_code
+        and existing_code != "IMPROVEMENT_RETRY_NOT_MATERIALIZED"
+        and existing_status in {
+            FAILED_RETRYABLE,
+            NOT_CONFIGURED,
+            REQUESTED_NOT_EXECUTED,
+            WAITING_FOR_DATA,
+        }
+    ):
+        return
+
+    status = str(outcome.get("status") or "").strip().upper()
+    reason = str(outcome.get("reason") or "").strip().upper()
+
+    if reason == "AI_HOOK_NOT_REGISTERED":
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="IMPROVEMENT_INTELLIGENCE",
+            status=REQUESTED_NOT_EXECUTED,
+            error_class="ORCHESTRATION",
+            error_code="AI_HOOK_NOT_REGISTERED",
+            error_message=(
+                "Improvement Intelligence foi autorizada, mas o hook executável "
+                "não estava registrado neste processo"
+            ),
+            retryable=True,
+        )
+        return
+
+    if status == "NOT_CONFIGURED" or reason == "IMPROVEMENT_CONFIGURATION_INVALID":
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="IMPROVEMENT_INTELLIGENCE",
+            status=NOT_CONFIGURED,
+            error_class="CONFIGURATION",
+            error_code=reason or "IMPROVEMENT_CONFIGURATION_INVALID",
+            error_message=(
+                "A configuração efetiva de Improvement Intelligence não permitiu "
+                "iniciar a execução do provider"
+            ),
+            retryable=True,
+        )
+        return
+
+    if status in {"SKIPPED", "DISABLED", "NOT_REQUESTED", "NOT_ELIGIBLE"}:
+        code = reason or f"IMPROVEMENT_{status}"
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="IMPROVEMENT_INTELLIGENCE",
+            status=REQUESTED_NOT_EXECUTED,
+            error_class="EXECUTION_POLICY",
+            error_code=code,
+            error_message=(
+                "Improvement Intelligence foi selecionada neste RPR, mas o hook "
+                f"não iniciou uma execução materializável ({code})"
+            ),
+            retryable=True,
+        )
+        return
+
+    set_work_item_status(
+        workspace,
+        audit_id=audit_id,
+        component="IMPROVEMENT_INTELLIGENCE",
+        status=FAILED_RETRYABLE,
+        error_class="ORCHESTRATION",
+        error_code="IMPROVEMENT_RETRY_NOT_MATERIALIZED",
+        error_message=(
+            "Improvement Intelligence retornou um outcome executável, mas não "
+            "materializou improvement_intelligence_runs"
+        ),
+        retryable=True,
+    )
+
+
 def _registered_ai_and_report(
     *,
     workspace: Any,
@@ -1371,6 +1471,12 @@ def _registered_ai_and_report(
                 purposes=purposes,
             )
         outcomes.update(pass_outcomes)
+        if "IMPROVEMENT_INTELLIGENCE" in pass_outcomes:
+            _project_improvement_after_registered_outcome(
+                workspace,
+                audit_id,
+                pass_outcomes["IMPROVEMENT_INTELLIGENCE"],
+            )
         handled_purposes.update(pass_outcomes)
         pass_executed = {
             purpose
