@@ -65,4 +65,34 @@ Toda alteração de versão deve deixar rastreabilidade no GitHub por issue/PR o
 - relação com bugs/features que motivaram a mudança;
 - checks relevantes executados.
 
-Não criar release/tag automaticamente apenas por incrementar o código. Release e tag representam uma decisão de publicação/distribuição e devem ser feitos quando o estado estiver aprovado para esse marco.
+Não criar release/tag automaticamente apenas por incrementar o código. **Bump de versão e decisão de publicação são decisões distintas.** Release e tag representam uma decisão explícita de publicação/distribuição e devem ser feitos somente quando o estado estiver aprovado para aquele marco.
+
+Uma tag/release publicada identifica um commit imutável. Depois de publicada:
+
+- a tag histórica não deve ser movida, recriada sobre outro commit nem acompanhada até a HEAD;
+- o GitHub Release deve continuar associado ao mesmo baseline histórico;
+- alterações posteriores pertencem a um estado **unreleased** até que outro marco seja aprovado;
+- um estado funcionalmente diferente não deve ser apresentado como se fosse o mesmo release;
+- o próximo SemVer só deve ser escolhido depois de classificar e validar as mudanças acumuladas desde o último release.
+
+A versão declarada no código, isoladamente, não prova que a HEAD atual foi publicada. Enquanto não houver novo gate de release, a HEAD pode continuar declarando a última versão de pacote conhecida e, ainda assim, representar desenvolvimento pós-release não publicado. Esse intervalo deve ser tratado explicitamente como `unreleased`.
+
+## Marcos históricos e estado pós-v0.7.0
+
+Estado reconciliado em 2026-10-06 para a governança da issue #243:
+
+| Marco | Commit canônico | Publicação verificada |
+| --- | --- | --- |
+| `v0.5.1` | `1f40e9bf69e0859b1a959bff4c302c0291435bb1` | tag anotada e GitHub Release `RASAi 0.5.1` |
+| `v0.6.0` | `f345fd0b8acfa550ea340853547c6f8589c7462e` | tag anotada; nenhum GitHub Release encontrado na reconciliação |
+| baseline package/runtime `0.7.0` | `c66188e6e3088603b08eb750eece272451d6342c` | PR #198 confirma o bump 0.6.0 -> 0.7.0; a publicação deve apontar exatamente para este commit |
+
+O commit `c66188e6e3088603b08eb750eece272451d6342c` é o baseline histórico do package/runtime `0.7.0`. A `main` avançou funcionalmente depois dele. Portanto:
+
+```text
+main posterior a c66188e6... = pós-v0.7.0 / unreleased
+```
+
+A HEAD posterior não deve receber nem reutilizar a tag `v0.7.0`. Quando a publicação histórica `v0.7.0` for materializada ou reconciliada, a tag e o GitHub Release devem representar exclusivamente `c66188e6e3088603b08eb750eece272451d6342c`.
+
+Nenhum próximo número de versão é inferido deste estado. Antes de novo bump/publicação, deve existir validação técnica da `main` cobrindo a integridade do processo de auditoria, a coerência entre configuração, coleta, persistência, derivação e apresentação, e a classificação das mudanças desde o último baseline publicado.
