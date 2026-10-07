@@ -79,7 +79,10 @@ jobs:
             src/rasai/search_intelligence/perplexity.py \
             src/rasai/console_search_intelligence.py \
             src/rasai/catalog_report_model.py \
-            src/rasai/catalog_report_integrations.py
+            src/rasai/catalog_report_integrations.py \
+            src/rasai/geo_observation.py \
+            src/rasai/geo_report.py \
+            src/rasai/report_completion.py
       - name: Run Perplexity and directly shared boundary tests
         run: |
           python -m pytest -q \
@@ -88,4 +91,7 @@ jobs:
             tests/test_provider_registry.py \
             tests/test_ai_native_usage_pricing.py \
             tests/test_ai_cost_policy.py \
-            tests/test_m9_scoring.py
+            tests/test_m9_scoring.py \
+            tests/test_perplexity_activation_flag.py \
+            tests/test_geo_observation.py \
+            tests/test_geo_report.py
