@@ -91,5 +91,35 @@ class GeoReportTests(unittest.TestCase):
             self.assertIn("1 em ambas", geo_body(db, "AUD-ONE"))
 
 
+    def test_existing_competitive_ai_is_reused_only_with_evidence_ids(self):
+        from rasai.geo_report import _prior_competitive_ai
+        with tempfile.TemporaryDirectory() as temp:
+            db = Path(temp) / "audit.db"
+            with sqlite3.connect(db) as con:
+                con.execute("""
+                    CREATE TABLE serp_competitive_ai_analyses (
+                        observation_id TEXT, audit_id TEXT, state TEXT,
+                        provider TEXT, model TEXT, contract_version TEXT,
+                        prompt_id TEXT, prompt_version TEXT, summary TEXT,
+                        opportunities_json TEXT, evidence_ref TEXT, evidence_sha256 TEXT
+                    )
+                """)
+                con.execute(
+                    "INSERT INTO serp_competitive_ai_analyses VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    ("SERP-1", "AUD-ONE", "AVAILABLE", "TEST", "m1",
+                     "COMPETITIVE-AI-001", "p1", "v1", "Hypothesis",
+                     '[{"title":"Check clarity","recommendation":"Review headline",'
+                     '"evidence_ids":["E1"]},'
+                     '{"title":"Uncited guess","recommendation":"Unverifiable",'
+                     '"evidence_ids":[]}]',
+                     "artifacts/source.json", "deadbeef"),
+                )
+            matching = _prior_competitive_ai(db, "AUD-ONE", "SERP-1")
+            self.assertIsNotNone(matching)
+            self.assertEqual(len(matching["opportunities"]), 1)
+            self.assertIsNone(_prior_competitive_ai(db, "AUD-TWO", "SERP-1"))
+            self.assertIsNone(_prior_competitive_ai(db, "AUD-ONE", "SERP-UNKNOWN"))
+
+
 if __name__ == "__main__":
     unittest.main()
