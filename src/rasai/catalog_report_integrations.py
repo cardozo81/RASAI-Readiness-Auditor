@@ -1,5 +1,6 @@
 """AI and external-integration telemetry, payload safety and cost projection."""
 from rasai.catalog_report_governance import *  # noqa: F401,F403
+from rasai.catalog_report_public_labels import public_label
 from rasai.ai_native_usage import humanize_native_usage_unit
 from rasai.ai_economic_telemetry import aggregate_attempt_costs, attempt_monetary_cost, canonical_total_tokens
 from rasai.secret_safety import redact_value
@@ -87,6 +88,11 @@ def _external_details_public_text(value: Any) -> str:
     if not isinstance(payload, Mapping):
         return safe
     displayed = dict(payload)
+    for key in ("source_type", "capture_method"):
+        raw = displayed.get(key)
+        label = public_label(raw)
+        if label is not None:
+            displayed[key] = label
     dataset = displayed.get("dataset")
     if isinstance(dataset, Mapping) and dataset.get("source") == "NPM_WEB_FEATURES":
         dataset = dict(dataset)
