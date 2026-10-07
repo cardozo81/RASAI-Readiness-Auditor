@@ -9,6 +9,8 @@ from rasai.catalog_report_analysis import _runtime_security_inventory_html, _tec
 from rasai.passive_security import (
     _analyze_headers,
     _cookie_attributes,
+    _deduplicate_runtime_scripts,
+    _persist_runtime_intelligence,
     _runtime_intelligence_rows,
     ensure_schema,
     improvement_findings,
@@ -417,6 +419,113 @@ def test_runtime_normalization_links_script_platform_and_cookie_without_value():
     assert "SCRIPT_SETS_COOKIE" in {item["relation_type"] for item in relationships}
     serialized = json.dumps([scripts, cookies, platforms, relationships])
     assert "SERVER_SECRET" not in serialized
+
+
+
+
+def test_duplicate_runtime_script_is_collapsed_before_primary_key_persistence(tmp_path):
+    script_url = "https://cdn.example.test/repeated.js"
+    runtime_item = {
+        "snapshot_id": SNAPSHOT_ID,
+        "url": script_url,
+        "url_hash": "same-runtime-hash",
+        "party": "THIRD_PARTY",
+        "body_analysis_state": "ANALYZED",
+        "content_sha256": "abc",
+        "risk_signals": [{"signal_id": "DYNAMIC_EVAL"}],
+        "platforms": [],
+    }
+    page_context = {
+        PAGE_ID: {
+            "page_url": "https://example.test/",
+            "headers": {"set-cookie": []},
+            "header_evidence": [],
+            "script_runtime": [dict(runtime_item), dict(runtime_item)],
+            "cookie_runtime": [],
+            "verifications": [],
+        }
+    }
+
+    scripts, cookies, platforms, relationships = _runtime_intelligence_rows(
+        AUDIT_ID,
+        [],
+        page_context,
+    )
+
+    assert len(scripts) == 1
+    assert scripts[0]["resource_url"] == script_url
+    assert {item["signal_id"] for item in scripts[0]["risk_signals"]} == {"DYNAMIC_EVAL"}
+
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE audits(audit_id TEXT PRIMARY KEY);
+            CREATE TABLE pages(page_id TEXT PRIMARY KEY, audit_id TEXT);
+            INSERT INTO audits VALUES ('AUD-ISSUE56');
+            INSERT INTO pages VALUES ('PAGE-1','AUD-ISSUE56');
+            """
+        )
+        ensure_schema(connection)
+        _persist_runtime_intelligence(
+            connection,
+            AUDIT_ID,
+            scripts,
+            cookies,
+            platforms,
+            relationships,
+        )
+        connection.commit()
+        count = connection.execute(
+            "SELECT COUNT(*) FROM passive_security_script_observations WHERE audit_id=?",
+            (AUDIT_ID,),
+        ).fetchone()[0]
+        assert count == 1
+    finally:
+        connection.close()
+
+
+def test_duplicate_runtime_script_merges_complementary_evidence_deterministically():
+    shared = {
+        "script_ref": "PSS-SAME",
+        "audit_id": AUDIT_ID,
+        "page_id": PAGE_ID,
+        "snapshot_id": SNAPSHOT_ID,
+        "resource_url": "https://cdn.example.test/repeated.js",
+        "party": "THIRD_PARTY",
+        "domain": "cdn.example.test",
+        "analysis_state": "ANALYZED",
+    }
+    first = {
+        **shared,
+        "timing": {"duration_ms": 20},
+        "integrity": {"content_sha256": "abc"},
+        "risk_signals": [{"signal_id": "DYNAMIC_EVAL"}],
+        "platforms": [{"platform_id": "TAG_A"}],
+        "evidence_ids": ["EV-2"],
+    }
+    second = {
+        **shared,
+        "timing": {"transfer_size_bytes": 1200},
+        "integrity": {"content_bytes": 900},
+        "risk_signals": [{"signal_id": "DOCUMENT_WRITE"}],
+        "platforms": [{"platform_id": "TAG_B"}],
+        "evidence_ids": ["EV-1", "EV-2"],
+    }
+
+    merged = _deduplicate_runtime_scripts([second, first])
+
+    assert len(merged) == 1
+    item = merged[0]
+    assert item["timing"] == {"duration_ms": 20, "transfer_size_bytes": 1200}
+    assert item["integrity"] == {"content_bytes": 900, "content_sha256": "abc"}
+    assert {value["signal_id"] for value in item["risk_signals"]} == {
+        "DOCUMENT_WRITE",
+        "DYNAMIC_EVAL",
+    }
+    assert {value["platform_id"] for value in item["platforms"]} == {"TAG_A", "TAG_B"}
+    assert item["evidence_ids"] == ["EV-1", "EV-2"]
 
 
 def test_runtime_normalization_does_not_promote_unconfirmed_write_to_effective_cookie():
