@@ -8,7 +8,7 @@ import re
 from typing import Any
 
 
-CAPTURE_QUALITY_CONTRACT_VERSION = "RENDER-CAPTURE-QUALITY-001"
+CAPTURE_QUALITY_CONTRACT_VERSION = "RENDER-CAPTURE-QUALITY-002"
 _RECOVERY_STEP_MS = 250
 _RECOVERY_OBSERVATIONS = 4
 
@@ -227,7 +227,7 @@ def _strong_primary_content(observation: MaterialityObservation) -> bool:
     # Non-semantic SPAs remain observable when there is a large body of text outside
     # known chrome containers. The higher threshold prevents nav/footer copy alone
     # from becoming material just because the document omits <main>.
-    if observation.primary_text_length >= 600 and observation.content_nodes >= 1:
+    if observation.primary_text_length >= 600 and observation.dom_nodes >= 4:
         return True
     return False
 
@@ -393,7 +393,7 @@ def resolve_capture_quality(
         if isinstance(candidate, str) and candidate:
             final_html = candidate
             final = observe_materiality(candidate)
-        if not _transient_suspicion(final, settle_outcome):
+        if not _weak_primary_content(final):
             outcome = "MATERIALIZED"
             break
 
