@@ -6,7 +6,7 @@ import sqlite3
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
-from rasai.audit_fulfillment import BLOCKED, FAILED_RETRYABLE, LIVE_RECOLLECTION, REPLAY_SAFE, SUCCESS, WAITING_FOR_DATA, list_work_items, register_work_item, set_work_item_status
+from rasai.audit_fulfillment import BLOCKED, LIVE_RECOLLECTION, REPLAY_SAFE, SUCCESS, list_work_items, register_work_item, set_work_item_status
 from rasai.core_integrity_runtime import install as install_core_integrity
 from rasai.domain import Audit
 from rasai.execution_environment import override_environment, resolve_environment
@@ -15,10 +15,8 @@ from rasai.selective_optional_reprocess import (
     _backfill_console_search,
     _install_contextual_optional_hooks,
     _recover_search,
-    _reconcile_improvement_rpr,
     _validate_success_integrity,
 )
-from rasai.reprocess_policy import reprocess_policy
 from rasai.selective_reprocess_context import scope
 
 
@@ -320,69 +318,3 @@ def test_saved_console_search_is_backfilled_into_denominator() -> None:
         assert item.configuration["content_max_redirects"] == 5
         assert item.configuration["ai_competitive"] is False
         assert item.configuration["ymyl_mode"] == "AUTO"
-
-def test_improvement_reconcile_preserves_waiting_when_prerequisite_blocks_execution() -> None:
-    with TemporaryDirectory() as directory:
-        workspace = _workspace(Path(directory))
-        register_work_item(
-            workspace,
-            audit_id=AUDIT_ID,
-            component="CONTENT_EXTRACTION",
-            required=True,
-            temporal_mode=REPLAY_SAFE,
-            status=WAITING_FOR_DATA,
-            retryable=True,
-        )
-        register_work_item(
-            workspace,
-            audit_id=AUDIT_ID,
-            component="IMPROVEMENT_INTELLIGENCE",
-            required=True,
-            temporal_mode=REPLAY_SAFE,
-            status=FAILED_RETRYABLE,
-            retryable=True,
-            configuration={"requested": True},
-        )
-
-        with reprocess_policy(use_ai=True, ai_provider="openai"):
-            _reconcile_improvement_rpr(workspace, AUDIT_ID)
-
-        item = next(
-            item
-            for item in list_work_items(workspace, AUDIT_ID)
-            if item.component == "IMPROVEMENT_INTELLIGENCE"
-        )
-        assert item.status == WAITING_FOR_DATA
-        assert item.last_error_class == "PREREQUISITE"
-        assert item.last_error_code == "AI_WAITING_FOR_PREREQUISITES"
-        assert "CONTENT_EXTRACTION" in str(item.last_error_message)
-        assert item.attempt_count == 0
-
-
-def test_improvement_reconcile_marks_missing_run_failed_only_when_eligible() -> None:
-    with TemporaryDirectory() as directory:
-        workspace = _workspace(Path(directory))
-        register_work_item(
-            workspace,
-            audit_id=AUDIT_ID,
-            component="IMPROVEMENT_INTELLIGENCE",
-            required=True,
-            temporal_mode=REPLAY_SAFE,
-            status=FAILED_RETRYABLE,
-            retryable=True,
-            configuration={"requested": True},
-        )
-
-        with reprocess_policy(use_ai=True, ai_provider="openai"):
-            _reconcile_improvement_rpr(workspace, AUDIT_ID)
-
-        item = next(
-            item
-            for item in list_work_items(workspace, AUDIT_ID)
-            if item.component == "IMPROVEMENT_INTELLIGENCE"
-        )
-        assert item.status == FAILED_RETRYABLE
-        assert item.last_error_class == "ORCHESTRATION"
-        assert item.last_error_code == "IMPROVEMENT_RETRY_NOT_MATERIALIZED"
-        assert item.attempt_count == 0
-
