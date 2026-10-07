@@ -61,12 +61,12 @@ def _install_improvement_console_settings() -> None:
 
         def state_values(state: Any) -> dict[str, dict[str, str]]:
             values = dict(original_values(state))
-            config = console._config_from_state(state)
+            enabled, domains, maximum, timeout = console._effective_feature_settings(state)
             values["improvement_intelligence"] = {
-                "enabled": "true" if config.enabled else "false",
-                "domains": ",".join(config.domains),
-                "max_recommendations": str(config.max_recommendations),
-                "timeout_seconds": f"{float(config.timeout_seconds):g}",
+                "enabled": "true" if enabled else "false",
+                "domains": ",".join(domains),
+                "max_recommendations": str(maximum),
+                "timeout_seconds": f"{float(timeout):g}",
             }
             return values
 
