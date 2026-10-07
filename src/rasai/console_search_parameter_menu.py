@@ -176,8 +176,150 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
         print(f"   Impacto projetado         : {projected}/{config.max_requests} requests no teto conservador")
     else:
         print("   Solicitação               : NÃO SOLICITADA enquanto não houver termos")
+    perplexity_queries = tuple(getattr(state, "perplexity_queries", ()) or ())
+    perplexity_type = str(
+        getattr(state, "perplexity_search_type", "web") or "web"
+    ).strip().upper()
+    from rasai.search_intelligence.perplexity import perplexity_configuration_status
+    px_status = perplexity_configuration_status()
+    px_request = (
+        f"{len(perplexity_queries)} query(s) | {perplexity_type}"
+        if perplexity_queries
+        else "NÃO SOLICITADA"
+    )
+    px_credential = "credencial configurada" if px_status["configured"] else "credencial não configurada"
+    print(f"\nP. Perplexity externa      : {px_request} | {px_credential}")
+    print("   Pesquisa externa advisory; independente de SERP e sem efeito em scoring/evidência determinística.")
     print("\nD. Não solicitar SERP nesta execução (limpa os termos)")
     print("V. Voltar")
+
+
+def _mark_perplexity_pending(search_module: ModuleType, state: Any) -> None:
+    queries = tuple(getattr(state, "perplexity_queries", ()) or ())
+    if not queries:
+        state.perplexity_last_status = "NOT_REQUESTED"
+        state.perplexity_last_detail = ""
+        state.perplexity_last_duration_seconds = None
+        state.error = ""
+        return
+    search_type = str(
+        getattr(state, "perplexity_search_type", "web") or "web"
+    ).strip().casefold()
+    status = search_module.perplexity_configuration_status()
+    state.perplexity_last_status = "PENDING"
+    state.perplexity_last_detail = (
+        f"{len(queries)} query(s); Search API {search_type.upper()}; "
+        + ("credencial configurada" if status["configured"] else "credencial não configurada")
+    )
+    state.error = ""
+
+
+def _edit_perplexity_queries(search_module: ModuleType, state: Any) -> None:
+    maximum = int(search_module.PERPLEXITY_MAX_QUERIES)
+    current = tuple(getattr(state, "perplexity_queries", ()) or ())
+    print("\nQUERIES PERPLEXITY")
+    print(
+        "  Informe de 1 a "
+        f"{maximum} queries separadas por ';'. Duplicados são removidos preservando a ordem."
+    )
+    print("  V = voltar | LIMPAR = não solicitar Perplexity nesta execução.")
+    raw = input(
+        "Novas queries"
+        + (f" [{'; '.join(current)}]" if current else "")
+        + ": "
+    ).strip()
+    if raw.upper() == "V":
+        return
+    if raw.upper() == "LIMPAR":
+        state.perplexity_queries = ()
+        _mark_perplexity_pending(search_module, state)
+        return
+    queries = search_module.parse_search_terms(raw)
+    if not queries:
+        print("  Valor inválido: informe pelo menos uma query.")
+        return
+    if len(queries) > maximum:
+        print(f"  Valor inválido: use de 1 a {maximum} queries.")
+        return
+    state.perplexity_queries = queries
+    _mark_perplexity_pending(search_module, state)
+
+
+def _edit_perplexity_type(search_module: ModuleType, state: Any) -> None:
+    current = str(
+        getattr(state, "perplexity_search_type", "web") or "web"
+    ).strip().casefold()
+    print("\nTIPO DE BUSCA PERPLEXITY")
+    print("  1. WEB  — pesquisa web padrão")
+    print("  2. FAST — pesquisa otimizada para menor latência")
+    print("  V. Voltar")
+    raw = input("Escolha [1-2/V]: ").strip().upper()
+    values = {"1": "web", "2": "fast"}
+    if raw in values:
+        state.perplexity_search_type = values[raw]
+        _mark_perplexity_pending(search_module, state)
+    elif raw != "V":
+        print("  Opção inválida: use 1, 2 ou V.")
+
+
+def _edit_perplexity_credential(state: Any) -> None:
+    from rasai import console_provider_environment as environment
+
+    environment.refresh_specs()
+    spec = environment.SPEC_BY_NAME.get("PERPLEXITY_API_KEY")
+    if spec is None:
+        state.error = "PERPLEXITY_API_KEY não está registrada no catálogo canônico"
+        return
+    environment._variable_menu(state, spec)
+    environment.refresh_specs()
+
+
+def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
+    """Bounded CAT-05 editor for Perplexity execution inputs and canonical secret."""
+    while True:
+        queries = tuple(getattr(state, "perplexity_queries", ()) or ())
+        search_type = str(
+            getattr(state, "perplexity_search_type", "web") or "web"
+        ).strip().upper()
+        status = search_module.perplexity_configuration_status()
+        ready, detail = search_module.validate_perplexity_readiness(state)
+
+        print("\n[ PERPLEXITY SEARCH INTELLIGENCE — PESQUISA EXTERNA ]")
+        print(
+            "  Advisory e independente de SERP: não altera scoring, SARI, CAT score "
+            "ou evidência determinística."
+        )
+        print(f"  Solicitação           : {'SOLICITADA' if queries else 'NÃO SOLICITADA'}")
+        print(f"  Queries               : {len(queries)}"
+              + (f" | {'; '.join(queries)}" if queries else ""))
+        print(f"  Tipo                  : {search_type}")
+        print(
+            "  Credencial            : "
+            + ("CONFIGURADA" if status["configured"] else "NÃO CONFIGURADA")
+        )
+        print(f"  Readiness             : {'APTA' if ready else 'CONFIGURAR'}")
+        print(f"  Detalhe               : {detail}")
+        print("\n1. Definir/alterar queries")
+        print("2. Escolher WEB/FAST")
+        print("3. Gerenciar credencial Perplexity")
+        print("D. Não solicitar Perplexity nesta execução")
+        print("V. Voltar ao CAT-05")
+        raw = input("Opção Perplexity: ").strip().upper()
+        if raw == "V":
+            return
+        if raw == "D":
+            state.perplexity_queries = ()
+            _mark_perplexity_pending(search_module, state)
+            _set_feedback(state, "Perplexity não será solicitada na próxima execução.")
+            continue
+        if raw == "1":
+            _edit_perplexity_queries(search_module, state)
+        elif raw == "2":
+            _edit_perplexity_type(search_module, state)
+        elif raw == "3":
+            _edit_perplexity_credential(state)
+        else:
+            print("  Opção inválida: use 1, 2, 3, D ou V.")
 
 
 def _edit_terms(search_module: ModuleType, state: Any, config: SerpRuntimeConfig) -> None:
@@ -512,6 +654,9 @@ def configure_search_parameters(search_module: ModuleType, state: Any) -> None:
             state.search_queries = ()
             _mark_pending(search_module, state, config)
             continue
+        if raw == "P":
+            _configure_perplexity(search_module, state)
+            continue
         editable = {"1", "2", "3", "4", "5"}
         if hasattr(state, "search_compare_content"):
             editable.update({"6", "7", "8", "9", "10", "11", "12"})
@@ -546,7 +691,7 @@ def configure_search_parameters(search_module: ModuleType, state: Any) -> None:
             _edit_ymyl_mode(state)
         else:
             allowed = "1-12" if hasattr(state, "search_compare_content") else "1-5"
-            print(f"  Opção inválida: use {allowed}, D ou V.")
+            print(f"  Opção inválida: use {allowed}, P, D ou V.")
 
 
 def install(search_module: ModuleType) -> None:
