@@ -107,6 +107,9 @@ def geo_body(database: Path, audit_id: str) -> str:
         ) + "</tr>"
     summary += "</tbody></table></section>"
     comparison = _stored_comparison(database, audit_id)
+    if comparison is not None and comparison.get("perplexity_run_id") != runs[-1]["run_id"]:
+        # Never promote a previous successful snapshot to the latest failed attempt.
+        comparison = None
     summary += "<section><h2>Comparação SERP × Perplexity</h2>"
     if comparison is None or comparison.get("serp_observation_id") is None:
         summary += "<p>Comparação não aplicável: não há snapshot de análise GEO "
