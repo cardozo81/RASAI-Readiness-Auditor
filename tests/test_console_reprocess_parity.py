@@ -838,6 +838,23 @@ def test_post_reprocess_uses_standard_post_run_usage_surface() -> None:
     assert "AÇÕES DA AUDITORIA DESTA SESSÃO" in rendered
 
 
+def test_console_entrypoint_installs_search_ai_runtime_before_reprocess_surface() -> None:
+    import inspect
+    import rasai.console_entrypoint as entrypoint
+    import rasai.search_audit_runtime as search_runtime
+
+    console_source = inspect.getsource(entrypoint.main)
+    search_install_source = inspect.getsource(search_runtime.install)
+
+    assert "install_search_audit_runtime()" in console_source
+    assert console_source.index("install_search_audit_runtime()") < console_source.index(
+        "install_console_reprocess_parity"
+    )
+    assert 'register_ai_hook("COMPETITIVE_INTELLIGENCE"' in inspect.getsource(
+        search_runtime.install
+    ) or "_competitive_ai_hook" in search_install_source
+
+
 def test_entrypoint_installs_parity_after_existing_audit_workflow() -> None:
     import inspect
     import rasai.console_entrypoint as entrypoint
