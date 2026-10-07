@@ -100,13 +100,14 @@ A lista de superfícies audit-owned é definida por `src/rasai/catalog_report_co
 | remediações | `cat-09.html` | ações técnicas/editoriais rastreáveis |
 | segurança passiva | `cat-10.html` | postura passiva, vulnerabilidades conhecidas e remediações |
 | análise direcionada | `directed-analysis.html` | síntese estratégica sobre evidências e ações persistidas |
+| inteligência GEO observacional | `geo.html` | fontes Perplexity persistidas e sobreposição SERP quando comparável; sem prometer citação em IA |
 | contexto de captura | `capture-context.html` | escopo URL/dispositivo e topologia da captura |
 | evidências da execução | `execution-evidence.html` | fulfillment, estados de execução e integridade operacional |
 | IA e integrações | `ai-integrations.html` | tentativas, providers, modelos, tokens, custos e integrações |
 | método de pontuação | `methodology.html` | Método de Pontuação de Prontidão, contrato técnico `SCORE-GEO-004`, pesos, critérios críticos e rastreabilidade |
 | índices e métricas | `metrics.html` | inventário transversal de métricas persistidas |
 
-Não existem, no contrato audit-owned atual, páginas independentes `mobile.html`, `desktop.html`, `standards.html`, `ai-visibility.html`, `observability.html`, `quality.html` ou `references.html`. Os respectivos dados são projetados nas páginas responsáveis acima quando persistidos. Relatórios comparativos e temporais, como Monitoring, Fix Verification e Evidence Timeline, permanecem artefatos standalone fora de `report-catalog/`.
+Não existem, no contrato audit-owned atual, páginas independentes `mobile.html`, `desktop.html`, `standards.html`, `ai-visibility.html`, `observability.html`, `quality.html` ou `references.html`. `geo.html` é a superfície transversal observacional da AUD, distinta de um índice oficial dos buscadores. Os respectivos dados são projetados nas páginas responsáveis acima quando persistidos. Relatórios comparativos e temporais, como Monitoring, Fix Verification e Evidence Timeline, permanecem artefatos standalone fora de `report-catalog/`.
 
 `index.html` pode repetir sínteses necessárias à leitura executiva, mas não funde domínios complementares em um score comum.
 
