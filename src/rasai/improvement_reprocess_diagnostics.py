@@ -130,7 +130,6 @@ def _install_governed_hook_guard() -> None:
             return {
                 "status": "ERROR",
                 "reason": code,
-                "provider_called": False,
             }
 
     guarded._rasai_improvement_exception_guard = True
