@@ -88,11 +88,6 @@ def _external_details_public_text(value: Any) -> str:
     if not isinstance(payload, Mapping):
         return safe
     displayed = dict(payload)
-    for key in ("source_type", "capture_method"):
-        raw = displayed.get(key)
-        label = public_label(raw)
-        if label is not None:
-            displayed[key] = label
     dataset = displayed.get("dataset")
     if isinstance(dataset, Mapping) and dataset.get("source") == "NPM_WEB_FEATURES":
         dataset = dict(dataset)
@@ -116,6 +111,11 @@ def _external_details_public_text(value: Any) -> str:
             if metadata.get("scope_policy") == "AUDITED_ORIGIN_ONLY":
                 metadata["scope_policy"] = "Somente a origem auditada"
             displayed["metadata"] = metadata
+    for key in ("source_type", "capture_method"):
+        raw = displayed.get(key)
+        label = public_label(raw)
+        if label is not None:
+            displayed[key] = label
     return json.dumps(displayed, ensure_ascii=False, indent=2)
 
 
