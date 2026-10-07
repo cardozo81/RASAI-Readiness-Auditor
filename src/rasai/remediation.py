@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+from typing import Any, Mapping
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +66,20 @@ _CANONICAL = RemediationRecipe(
     ),
 )
 
+
+_STRUCTURED_DATA_ABSENT = RemediationRecipe(
+    "BR-GEO-034",
+    "Avaliar aplicabilidade de Dados Estruturados",
+    "Dados Estruturados",
+    None,
+    None,
+    "REVIEW_STRUCTURED_DATA_APPLICABILITY",
+    "Nenhum bloco de dados estruturados foi observado; não existe sintaxe de bloco existente a corrigir. Avalie adoção somente quando houver benefício semântico sustentado pelo conteúdo visível e pela estratégia do site.",
+    None,
+    ("A ausência de markup não é apresentada como erro de sintaxe.", "Qualquer adoção futura reflete fatos já visíveis e verificáveis na página."),
+    ("Se houver decisão de adoção, validar o novo JSON-LD e reexecutar BR-GEO-034/036/037.",),
+    "A adoção de dados estruturados é uma decisão editorial/SEO; ausência, por si só, não cria requisito universal de implementação.",
+)
 
 _RECIPES: dict[str, RemediationRecipe] = {
     "BR-GEO-005": RemediationRecipe(
@@ -301,8 +317,25 @@ _RECIPES: dict[str, RemediationRecipe] = {
 }
 
 
-def recipe_for(rule_id: str) -> RemediationRecipe:
-    """Return a rule-specific recipe or an explicit conservative fallback."""
+def _structured_data_absent(observed_value: Any) -> bool:
+    value = observed_value
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return False
+    if not isinstance(value, Mapping):
+        return False
+    present = value.get("present")
+    blocks = value.get("blocks")
+    return present is False or (present in (None, False) and blocks == 0)
+
+
+def recipe_for(rule_id: str, *, observed_value: Any = None) -> RemediationRecipe:
+    """Return an evidence-aware rule recipe or an explicit conservative fallback."""
+
+    if rule_id == "BR-GEO-034" and _structured_data_absent(observed_value):
+        return _STRUCTURED_DATA_ABSENT
 
     recipe = _RECIPES.get(rule_id)
     if recipe is not None:
