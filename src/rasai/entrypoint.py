@@ -35,6 +35,7 @@ from rasai.governed_report_projection_runtime import install as install_governed
 from rasai.gsc_oauth_runtime import install as install_gsc_oauth_runtime
 from rasai.gsc_scope_runtime import install as install_gsc_scope_runtime
 from rasai.improvement_intelligence_runtime import install as install_improvement_intelligence_runtime
+from rasai.improvement_reprocess_diagnostics import install as install_improvement_reprocess_diagnostics
 from rasai.passive_security_runtime import install as install_passive_security_runtime
 from rasai.improvement_intelligence_saas import install as install_improvement_intelligence_saas
 from rasai.passive_security_saas import install as install_passive_security_saas
@@ -311,6 +312,7 @@ def _install_audit_runtime() -> None:
     install_final_smoke_closure()
     install_governed_analysis_post()
     install_governed_report_projection()
+    install_improvement_reprocess_diagnostics()
     # This guard must be outermost: no reprocess adapter may mutate this AUD before
     # active-session validation and orphan-attempt reconciliation.
     install_audit_resume_runtime()
