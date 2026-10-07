@@ -323,21 +323,33 @@ def _semantic_backfill_result_ref(
     audit_id: str,
     snapshot_id: str,
 ) -> str | None:
-    """Preserve provenance metadata when reconciling an already-proven SUCCESS.
+    """Preserve or recover the last causal semantic result reference.
 
-    Backfill may discover durable semantic success without executing a new provider
-    attempt. In that case it must not replace the causal result reference or make the
-    reconciliation look like a new success event. Missing/non-success work-items keep
-    the legacy canonical fallback used when the fulfillment row is first materialized.
+    Reconciliation may discover durable semantic success without executing a provider.
+    Preserve an active SUCCESS reference when present.  If an earlier buggy
+    reconciliation cleared it while demoting the item, recover the latest SUCCESS
+    reference from the fulfillment-attempt ledger rather than fabricating a new event.
     """
     row = connection.execute(
-        """SELECT status,effective_result_ref
+        """SELECT work_item_id,status,effective_result_ref
            FROM audit_fulfillment_work_items
            WHERE audit_id=? AND component='SEMANTIC_AI' AND scope_key=?""",
         (audit_id, snapshot_id),
     ).fetchone()
     if row is not None and str(row["status"] or "").upper() == SUCCESS:
         return row["effective_result_ref"]
+
+    if row is not None and _table_exists(connection, "audit_fulfillment_attempts"):
+        historical = connection.execute(
+            """SELECT result_ref
+               FROM audit_fulfillment_attempts
+               WHERE work_item_id=? AND status='SUCCESS' AND result_ref IS NOT NULL
+               ORDER BY attempt_number DESC,rowid DESC LIMIT 1""",
+            (str(row["work_item_id"]),),
+        ).fetchone()
+        if historical is not None and historical["result_ref"]:
+            return str(historical["result_ref"])
+
     return f"semantic:{snapshot_id}"
 
 
