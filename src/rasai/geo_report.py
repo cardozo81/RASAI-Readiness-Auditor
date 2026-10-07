@@ -272,6 +272,28 @@ def geo_body(database: Path, audit_id: str) -> str:
     summary += "<section><h2>Domínios das fontes observadas</h2><ul>"
     for host, n in counts.most_common(20):
         summary += f"<li>{escape(host)}: {n} fonte(s)</li>"
+    summary += "<section><h2>Evidências externas para análise competitiva</h2>"
+    summary += "<p>Somente metadados de fontes e trechos retornados pela Search API. "
+    summary += "Não houve leitura integral de páginas concorrentes; os trechos não "
+    summary += "comprovam profundidade, precisão ou superioridade do conteúdo.</p>"
+    if not sources:
+        summary += "<p>Nenhuma fonte retornada para comparação nesta execução.</p>"
+    else:
+        summary += "<table><thead><tr><th>Run/posição</th><th>Domínio e URL</th>"
+        summary += "<th>Título retornado</th><th>Trecho disponível</th></tr></thead><tbody>"
+        for source in sources[:20]:
+            url = str(source.get("url") or "")
+            run_id = str(source.get("run_id") or "")
+            evidence_id = run_id + ":" + str(source.get("position") or "-")
+            summary += "<tr><td>" + escape(evidence_id) + "</td>"
+            summary += "<td>" + escape(_host(url)) + "<br>" + escape(url[:300]) + "</td>"
+            summary += "<td>" + escape(str(source.get("title") or "-")[:250]) + "</td>"
+            summary += "<td>" + escape(str(source.get("snippet") or "Não fornecido")[:450])
+            summary += "</td></tr>"
+        summary += "</tbody></table>"
+        if len(sources) > 20:
+            summary += f"<p>Exibindo 20 de {len(sources)} fontes; dados completos persistidos no audit.db.</p>"
+    summary += "</section>"
     summary += "</ul><p>Recorrência de fontes não mede participação de mercado nem preferência "
     summary += "dos modelos de IA. É necessário verificar consultas, conteúdo e contexto.</p></section>"
     findings = _geo_relevant_findings(database, audit_id)
