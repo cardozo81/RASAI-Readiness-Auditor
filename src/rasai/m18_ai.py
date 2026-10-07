@@ -106,9 +106,9 @@ class ProviderDiagnostic:
     http_status: int | None = None
     error_type: str | None = None
     error_code: str | None = None
-    error_detail: str | None = None
     request_id: str | None = None
     retry_after_seconds: float | None = None
+    error_detail: str | None = None
 
     @property
     def reason(self) -> str | None:
