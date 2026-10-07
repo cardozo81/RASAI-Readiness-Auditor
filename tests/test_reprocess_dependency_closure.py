@@ -9,6 +9,7 @@ from rasai.audit_fulfillment import (
     LIVE_RECOLLECTION,
     PENDING,
     REPLAY_SAFE,
+    SUCCESS,
     list_work_items,
     register_work_item,
 )
@@ -16,6 +17,7 @@ from rasai.domain import Audit
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.reprocess_policy import (
     expand_selected_items,
+    item_executable,
     item_key,
     item_selected,
     reprocess_policy,
@@ -125,6 +127,9 @@ def test_improvement_dependency_closure_respects_ai_authorization(tmp_path: Path
     _register(workspace, "HTTP_ACQUISITION", "PGE-1", temporal_mode=LIVE_RECOLLECTION)
     _register(workspace, "RENDER_CAPTURE", "PLANNED:PGE-1:MOBILE", status=PENDING, temporal_mode=LIVE_RECOLLECTION)
     _register(workspace, "CONTENT_EXTRACTION", "SNP-1")
+    # M20 is successful at selection time, but semantic replay may invalidate it
+    # after the RPR scope has already been frozen.
+    _register(workspace, "CONTENT_REMEDIATION_AI", status=SUCCESS)
     _register(workspace, "IMPROVEMENT_INTELLIGENCE")
 
     disabled = expand_selected_items(
@@ -140,6 +145,7 @@ def test_improvement_dependency_closure_respects_ai_authorization(tmp_path: Path
         "HTTP_ACQUISITION",
         "RENDER_CAPTURE",
         "CONTENT_EXTRACTION",
+        "CONTENT_REMEDIATION_AI",
     ):
         assert dependency in disabled
 
@@ -155,8 +161,32 @@ def test_improvement_dependency_closure_respects_ai_authorization(tmp_path: Path
         "HTTP_ACQUISITION",
         "RENDER_CAPTURE",
         "CONTENT_EXTRACTION",
+        "CONTENT_REMEDIATION_AI",
     ):
         assert dependency in enabled
+
+    content_remediation = next(
+        item
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component == "CONTENT_REMEDIATION_AI"
+    )
+    with reprocess_policy(
+        selected_items=[item_key("IMPROVEMENT_INTELLIGENCE", "AUDIT")],
+        use_ai=True,
+        workspace=workspace,
+        audit_id=AUDIT_ID,
+    ):
+        assert item_selected(content_remediation) is True
+        assert item_executable(content_remediation) is True
+
+    with reprocess_policy(
+        selected_items=[item_key("IMPROVEMENT_INTELLIGENCE", "AUDIT")],
+        use_ai=False,
+        workspace=workspace,
+        audit_id=AUDIT_ID,
+    ):
+        assert item_selected(content_remediation) is True
+        assert item_executable(content_remediation) is False
 
 
 def test_experience_apdex_is_not_artificially_bound_to_render_capture(tmp_path: Path) -> None:
