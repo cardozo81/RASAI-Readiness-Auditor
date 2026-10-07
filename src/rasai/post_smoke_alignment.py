@@ -782,7 +782,7 @@ def _complete_content_task(
 
 
 def _backfill_content_task(workspace: Any, audit_id: str) -> None:
-    """Backfill missing M20 governance from durable attempts without provider work."""
+    """Reconstruct missing legacy M20 lineage without claiming original governance."""
     from rasai.ai_governance import begin_round, complete_round, latest_evidence_snapshot, register_task
 
     snapshot = latest_evidence_snapshot(workspace, audit_id)
@@ -854,47 +854,54 @@ def _backfill_content_task(workspace: Any, audit_id: str) -> None:
             semantic_contract_version="M20-CONTENT-REMEDIATION-v3",
         )
     )
-    round_id = begin_round(
-        workspace=workspace,
-        ai_task_id=task_id,
-        requested_requirements=requirements,
-        input_payload={
-            "evidence_snapshot_id": snapshot.evidence_snapshot_id,
-            "backfilled_attempt_ids": [str(row["attempt_id"]) for row in missing_attempts],
-        },
-        input_summary={
-            "backfilled_from": "content_remediation_attempts",
-            "attempts": len(missing_attempts),
-            "eligible_findings": int(run["eligible_findings"] or 0),
-        },
-    )
     success = str(run["status"] or "").upper() == "SUCCESS"
     accepted = (
         {requirement: {"status": "SUCCESS"} for requirement in requirements}
         if success else {}
     )
-    complete_round(
-        workspace=workspace,
-        ai_round_id=round_id,
-        accepted=accepted,
-        rejected={},
-        missing=() if success else requirements,
-        output_payload={
-            "status": run["status"],
-            "generated_suggestions": int(run["generated_suggestions"] or 0),
-            "backfilled_attempts": len(missing_attempts),
-        },
-        failed=not success,
-    )
 
-    connection = sqlite3.connect(workspace.database)
-    try:
-        with connection:
-            for attempt in missing_attempts:
+    # One reconstructed round per durable historical attempt preserves identity and
+    # chronology clues without pretending the provider originally ran under this
+    # governance context. The explicit operation marker makes that distinction public.
+    for attempt in missing_attempts:
+        round_id = begin_round(
+            workspace=workspace,
+            ai_task_id=task_id,
+            requested_requirements=requirements,
+            input_payload={
+                "evidence_snapshot_id": snapshot.evidence_snapshot_id,
+                "legacy_attempt_id": str(attempt["attempt_id"]),
+                "legacy_started_at": str(attempt["started_at"] or ""),
+            },
+            input_summary={
+                "backfilled_from": "content_remediation_attempts",
+                "legacy_attempt_id": str(attempt["attempt_id"]),
+                "eligible_findings": int(run["eligible_findings"] or 0),
+            },
+        )
+        complete_round(
+            workspace=workspace,
+            ai_round_id=round_id,
+            accepted=accepted,
+            rejected={},
+            missing=() if success else requirements,
+            output_payload={
+                "status": run["status"],
+                "generated_suggestions": int(run["generated_suggestions"] or 0),
+                "legacy_attempt_id": str(attempt["attempt_id"]),
+                "lineage_reconstructed": True,
+            },
+            failed=not success,
+        )
+
+        connection = sqlite3.connect(workspace.database)
+        try:
+            with connection:
                 connection.execute(
                     """UPDATE content_remediation_attempts
                        SET operation=CASE
-                               WHEN operation IS NULL OR TRIM(operation)='' THEN 'CONTENT_REMEDIATION'
+                               WHEN operation IS NULL OR TRIM(operation)=''
+                               THEN 'CONTENT_REMEDIATION_LEGACY_BACKFILL'
                                ELSE operation
                            END,
                            ai_task_id=CASE
@@ -908,9 +915,8 @@ def _backfill_content_task(workspace: Any, audit_id: str) -> None:
                        WHERE attempt_id=?""",
                     (task_id, round_id, str(attempt["attempt_id"])),
                 )
-    finally:
-        connection.close()
-
+        finally:
+            connection.close()
 
 def _install_ai_governance_completion() -> None:
     """Ensure semantic/content AI expose dependency + task/round provenance."""
