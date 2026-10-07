@@ -248,6 +248,8 @@ def _materiality_reason(observation: MaterialityObservation) -> str:
         and outside_main_text >= 160
     ):
         return "EMPTY_MAIN_WITH_EXTERNAL_PRIMARY_CONTENT"
+    if _strong_primary_content(observation):
+        return "PRIMARY_CONTENT_MATERIAL"
     if (
         observation.text_length >= 220
         and observation.primary_text_length < 80
