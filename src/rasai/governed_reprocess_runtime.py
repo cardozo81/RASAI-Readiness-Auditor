@@ -1210,7 +1210,6 @@ def _project_selected_ai_waiting_for_collection(
             level="INFO",
             audit_id=audit_id,
             component=component,
-            scope_key=str(item.scope_key or "AUDIT"),
             blockers=blockers,
             provider_called=False,
         )
