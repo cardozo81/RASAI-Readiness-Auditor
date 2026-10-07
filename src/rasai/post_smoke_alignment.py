@@ -782,19 +782,27 @@ def _complete_content_task(
 
 
 def _backfill_content_task(workspace: Any, audit_id: str) -> None:
+    """Backfill missing M20 governance from durable attempts without provider work."""
     from rasai.ai_governance import begin_round, complete_round, latest_evidence_snapshot, register_task
+
     snapshot = latest_evidence_snapshot(workspace, audit_id)
     if snapshot is None:
         return
     connection = sqlite3.connect(workspace.database)
     connection.row_factory = sqlite3.Row
     try:
-        exists = connection.execute(
-            "SELECT 1 FROM ai_tasks WHERE audit_id=? AND purpose='CONTENT_REMEDIATION' LIMIT 1",
-            (audit_id,),
-        ).fetchone()
-        if exists is not None or not _table_exists(connection, "content_remediation_runs"):
+        if not _table_exists(connection, "content_remediation_runs"):
             return
+        task_row = (
+            connection.execute(
+                """SELECT ai_task_id FROM ai_tasks
+                   WHERE audit_id=? AND purpose='CONTENT_REMEDIATION'
+                   ORDER BY created_at DESC,rowid DESC LIMIT 1""",
+                (audit_id,),
+            ).fetchone()
+            if _table_exists(connection, "ai_tasks")
+            else None
+        )
         run = connection.execute(
             "SELECT * FROM content_remediation_runs WHERE audit_id=?", (audit_id,)
         ).fetchone()
@@ -818,25 +826,47 @@ def _backfill_content_task(workspace: Any, audit_id: str) -> None:
         connection.close()
     if run is None or not attempts:
         return
+
+    missing_attempts = [
+        row
+        for row in attempts
+        if not str(row["operation"] or "").strip()
+        or not str(row["ai_task_id"] or "").strip()
+        or not str(row["ai_round_id"] or "").strip()
+    ]
+    if not missing_attempts:
+        return
+
     requirements = tuple(
         dict.fromkeys(f"FINDING:{row['finding_id']}" for row in suggestions if row["finding_id"])
     ) or ("CONTENT_REMEDIATION_RESULT",)
-    task_id = register_task(
-        workspace=workspace,
-        audit_id=audit_id,
-        purpose="CONTENT_REMEDIATION",
-        scope_type="AUDIT",
-        scope_key="AUDIT",
-        evidence_snapshot_id=snapshot.evidence_snapshot_id,
-        requirements=requirements,
-        semantic_contract_version="M20-CONTENT-REMEDIATION-v3",
+    task_id = (
+        str(task_row["ai_task_id"])
+        if task_row is not None
+        else register_task(
+            workspace=workspace,
+            audit_id=audit_id,
+            purpose="CONTENT_REMEDIATION",
+            scope_type="AUDIT",
+            scope_key="AUDIT",
+            evidence_snapshot_id=snapshot.evidence_snapshot_id,
+            requirements=requirements,
+            semantic_contract_version="M20-CONTENT-REMEDIATION-v3",
+        )
     )
     round_id = begin_round(
         workspace=workspace,
         ai_task_id=task_id,
         requested_requirements=requirements,
-        input_payload={"evidence_snapshot_id": snapshot.evidence_snapshot_id},
-        input_summary={"attempts": len(attempts), "eligible_findings": int(run["eligible_findings"] or 0)},
+        input_payload={
+            "evidence_snapshot_id": snapshot.evidence_snapshot_id,
+            "backfilled_attempt_ids": [str(row["attempt_id"]) for row in missing_attempts],
+        },
+        input_summary={
+            "backfilled_from": "content_remediation_attempts",
+            "attempts": len(missing_attempts),
+            "eligible_findings": int(run["eligible_findings"] or 0),
+        },
     )
     success = str(run["status"] or "").upper() == "SUCCESS"
     accepted = (
@@ -852,10 +882,34 @@ def _backfill_content_task(workspace: Any, audit_id: str) -> None:
         output_payload={
             "status": run["status"],
             "generated_suggestions": int(run["generated_suggestions"] or 0),
-            "attempts": len(attempts),
+            "backfilled_attempts": len(missing_attempts),
         },
         failed=not success,
     )
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        with connection:
+            for attempt in missing_attempts:
+                connection.execute(
+                    """UPDATE content_remediation_attempts
+                       SET operation=CASE
+                               WHEN operation IS NULL OR TRIM(operation)='' THEN 'CONTENT_REMEDIATION'
+                               ELSE operation
+                           END,
+                           ai_task_id=CASE
+                               WHEN ai_task_id IS NULL OR TRIM(ai_task_id)='' THEN ?
+                               ELSE ai_task_id
+                           END,
+                           ai_round_id=CASE
+                               WHEN ai_round_id IS NULL OR TRIM(ai_round_id)='' THEN ?
+                               ELSE ai_round_id
+                           END
+                       WHERE attempt_id=?""",
+                    (task_id, round_id, str(attempt["attempt_id"])),
+                )
+    finally:
+        connection.close()
 
 
 def _install_ai_governance_completion() -> None:
