@@ -210,7 +210,8 @@ def test_ai_integrations_projects_mixed_currency_without_implicit_fx(tmp_path) -
 
     html = _ai_integrations_body(database, data)
 
-    assert "Custo técnico contabilizado" in html
+    assert "Custo observado" in html
+    assert "custo técnico contabilizado" in html
     assert "EUR 0.20000000" in html
     assert "USD 0.10000000" in html
     assert "USD/EUR" not in html
