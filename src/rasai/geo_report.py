@@ -5,6 +5,8 @@ This projection must never create a search request or write to audit.db.
 """
 from __future__ import annotations
 
+from contextlib import closing
+
 from collections import Counter
 from html import escape
 import json
@@ -22,7 +24,7 @@ def _host(url: str) -> str:
 
 def _observations(database: Path, audit_id: str) -> tuple[list[dict], list[dict]]:
     # mode=ro forbids any schema initialization/mutation during report generation.
-    with sqlite3.connect(f"file:{database.resolve().as_posix()}?mode=ro", uri=True) as con:
+    with closing(sqlite3.connect(f"file:{database.resolve().as_posix()}?mode=ro", uri=True)) as con:
         existing = {
             row[0] for row in con.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' "
