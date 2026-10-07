@@ -85,7 +85,7 @@ Estado reconciliado em 2026-10-06 para a governança da issue #243:
 | --- | --- | --- |
 | `v0.5.1` | `1f40e9bf69e0859b1a959bff4c302c0291435bb1` | tag anotada e GitHub Release `RASAi 0.5.1` |
 | `v0.6.0` | `f345fd0b8acfa550ea340853547c6f8589c7462e` | tag anotada; nenhum GitHub Release encontrado na reconciliação |
-| baseline package/runtime `0.7.0` | `c66188e6e3088603b08eb750eece272451d6342c` | PR #198 confirma o bump 0.6.0 -> 0.7.0; a publicação deve apontar exatamente para este commit |
+| `v0.7.0` | `c66188e6e3088603b08eb750eece272451d6342c` | tag anotada e GitHub Release `RASAi 0.7.0`; baseline histórico confirmado |
 
 O commit `c66188e6e3088603b08eb750eece272451d6342c` é o baseline histórico do package/runtime `0.7.0`. A `main` avançou funcionalmente depois dele. Portanto:
 
@@ -93,6 +93,30 @@ O commit `c66188e6e3088603b08eb750eece272451d6342c` é o baseline histórico do 
 main posterior a c66188e6... = pós-v0.7.0 / unreleased
 ```
 
-A HEAD posterior não deve receber nem reutilizar a tag `v0.7.0`. Quando a publicação histórica `v0.7.0` for materializada ou reconciliada, a tag e o GitHub Release devem representar exclusivamente `c66188e6e3088603b08eb750eece272451d6342c`.
+A HEAD posterior não deve receber nem reutilizar a tag `v0.7.0`. A publicação histórica `v0.7.0` foi reconciliada e representa exclusivamente `c66188e6e3088603b08eb750eece272451d6342c`.
+
+## Imutabilidade de releases
+
+Para novos marcos SemVer, o repositório deve usar o recurso **Immutable Releases** do GitHub antes da publicação. O fluxo canônico é:
+
+```text
+estado tecnicamente aprovado
+-> definir SemVer
+-> criar release como draft
+-> validar tag/commit e anexar assets aplicáveis
+-> publicar release imutável
+-> verificar integridade do release
+```
+
+Regras:
+
+- release publicado não pode depender apenas de convenção humana para impedir movimentação da tag;
+- assets devem ser anexados antes da publicação, porque releases imutáveis bloqueiam alteração posterior dos assets;
+- a tag específica do release deve ficar bloqueada ao commit publicado;
+- `gh release verify <tag>` ou verificação equivalente deve fazer parte do fechamento do marco quando o release for imutável;
+- releases históricos anteriores à habilitação do recurso não devem ser apagados/republicados apenas para obter imutabilidade retroativa, salvo decisão específica de governança com análise de risco;
+- notas e metadados editoriais podem continuar ajustáveis quando o GitHub permitir, mas o baseline técnico (tag, commit e assets publicados) permanece congelado.
+
+A issue #247 controla a habilitação administrativa de Immutable Releases antes do próximo marco pós-`v0.7.0`.
 
 Nenhum próximo número de versão é inferido deste estado. Antes de novo bump/publicação, deve existir validação técnica da `main` cobrindo a integridade do processo de auditoria, a coerência entre configuração, coleta, persistência, derivação e apresentação, e a classificação das mudanças desde o último baseline publicado.
