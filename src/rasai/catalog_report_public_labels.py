@@ -214,6 +214,8 @@ PUBLIC_VALUE_LABELS: dict[str, str] = {
     "HTML_CSS": "HTML / CSS",
     "CRAWLABILITY": "Rastreabilidade por crawlers",
     "COMPETITIVE_INTELLIGENCE": "Inteligência competitiva",
+    "COMPETITIVE_AI_INCOMPLETE": "IA competitiva incompleta",
+    "COMPETITIVE_AI_WAITING_FOR_SEARCH_EVIDENCE": "IA competitiva aguardando evidências de busca",
     "TECHNICAL_QUALITY": "Qualidade técnica",
     "DESKTOP": "Desktop",
     "MOBILE": "Dispositivo móvel",
