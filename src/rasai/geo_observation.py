@@ -152,8 +152,8 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
                     con, "SELECT position, url FROM serp_results "
                     "WHERE observation_id=? ORDER BY position, url", (serp_id,)
                 )
-        source_urls = {x["url"].strip() for x in sources}
-        serp_urls = {x["url"].strip() for x in comparable}
+        source_urls = {_canonical_url(x["url"]) for x in sources if _canonical_url(x["url"])}
+        serp_urls = {_canonical_url(x["url"]) for x in comparable if _canonical_url(x["url"])}
         target_observation = _target_observation(con, audit_id, run, query_set, sources)
         projection = {
             "target_observation": target_observation,
