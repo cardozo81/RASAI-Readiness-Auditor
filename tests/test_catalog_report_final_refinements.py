@@ -182,6 +182,7 @@ def test_catalog_freshness_fails_after_source_database_changes(tmp_path: Path) -
                 "audit_id": "AUD",
                 "freshness": "FINAL",
                 "source_fingerprint": fingerprint,
+                "source_dependencies": [],
                 "audit_snapshot": {
                     "path": "integrity/audit-snapshot.db",
                     "sha256": _sha256_file(snapshot),
