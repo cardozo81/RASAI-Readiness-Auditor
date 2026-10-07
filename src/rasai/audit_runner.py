@@ -61,6 +61,70 @@ from rasai.source_quality_browser import (
 from rasai.url_utils import normalize_url, normalized_origin
 
 
+_INITIAL_AI_COMPONENTS = frozenset(
+    {
+        "SEMANTIC_AI",
+        "TECHNICAL_AI",
+        "CONTENT_REMEDIATION_AI",
+        "IMPROVEMENT_INTELLIGENCE",
+        "COMPETITIVE_INTELLIGENCE",
+    }
+)
+
+
+def _project_initial_ai_waiting_for_collection(
+    workspace: Any,
+    audit_id: str,
+    *,
+    blockers: tuple[str, ...],
+    ai_configured: bool,
+) -> None:
+    """Project collection-gate causality onto selected AI work in the initial AUD.
+
+    Deterministic/diagnostic AI adapters may materialize placeholder states while the
+    shared collection gate is closed.  Those placeholders must not become the public
+    causal reason for why selected, configured AI work did not execute.
+    """
+    if not blockers or not ai_configured:
+        return
+
+    from rasai.audit_fulfillment import (
+        NOT_APPLICABLE,
+        SUCCESS,
+        WAITING_FOR_DATA,
+        list_work_items,
+        set_work_item_status,
+    )
+
+    message = "IA aguardando conclusão da coleta obrigatória: " + ", ".join(blockers)
+    for item in list_work_items(workspace, audit_id):
+        component = str(item.component or "").upper()
+        if component not in _INITIAL_AI_COMPONENTS or not bool(item.required):
+            continue
+        if str(item.status or "").upper() in {SUCCESS, NOT_APPLICABLE, "DISABLED"}:
+            continue
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component=component,
+            scope_key=str(item.scope_key or "AUDIT"),
+            status=WAITING_FOR_DATA,
+            error_class="PREREQUISITE",
+            error_code="AI_WAITING_FOR_PREREQUISITES",
+            error_message=message,
+            retryable=True,
+        )
+        try_append_operational_event(
+            workspace,
+            "AUDIT_INITIAL_AI_WAITING_FOR_COLLECTION_READINESS",
+            level="INFO",
+            audit_id=audit_id,
+            component=component,
+            blockers=blockers,
+            provider_called=False,
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class AuditRunResult:
     audit_id: str
@@ -689,6 +753,13 @@ def run_audit(
                     recorder=execution.recorder,
                 )
             reconcile_before_reporting(workspace=workspace, audit_id=audit_id)
+            if not collection_gate.ready:
+                _project_initial_ai_waiting_for_collection(
+                    workspace,
+                    audit_id,
+                    blockers=collection_gate.blockers,
+                    ai_configured=not isinstance(configured_provider, NoneProvider),
+                )
             persist_active_outcome_before_reporting(audit_id=audit_id, workspace=workspace)
 
             # Root-cause and precision are durable audit derivations consumed by
