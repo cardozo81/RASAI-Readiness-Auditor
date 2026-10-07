@@ -55,7 +55,6 @@ from rasai.gsc_oauth_runtime import install as install_gsc_oauth_runtime
 from rasai.gsc_scope_runtime import install as install_gsc_scope_runtime
 from rasai.improvement_intelligence_console import install as install_improvement_intelligence_console, install_environment as install_improvement_intelligence_environment
 from rasai.improvement_intelligence_runtime import install as install_improvement_intelligence_runtime
-from rasai.improvement_reprocess_diagnostics import install as install_improvement_reprocess_diagnostics
 from rasai.passive_security_console import install as install_passive_security_environment
 from rasai.passive_security_runtime import install as install_passive_security_runtime
 from rasai.integration_diagnostics_console import install as install_integration_diagnostics_console
@@ -189,7 +188,6 @@ def main() -> int:
     install_final_smoke_closure()
     install_governed_analysis_post()
     install_governed_report_projection()
-    install_improvement_reprocess_diagnostics()
     # Keep active-AUD exclusion outside all console reprocess adapters.
     install_audit_resume_runtime()
     return interactive_console.main()
