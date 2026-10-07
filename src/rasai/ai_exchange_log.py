@@ -24,7 +24,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from uuid import uuid4
 
 from rasai.persistence import AuditWorkspace
-from rasai.secret_safety import REDACTED as SECRET_REDACTED, is_sensitive_name
+from rasai.secret_safety import REDACTED as SECRET_REDACTED, is_sensitive_name, redact_text
 
 MAX_CAPTURE_BYTES_ENV = "RASAI_AI_EXCHANGE_LOG_MAX_BYTES"
 DEFAULT_MAX_CAPTURE_BYTES = 512 * 1024
@@ -88,6 +88,7 @@ class AiExchange:
     response_sha256: str | None
     response_truncated: bool
     attempt_id: str | None = None
+    exception_detail: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,6 +147,7 @@ class AiExchangeRecorder:
         response: Any = None,
         http_status: int | None = None,
         exception_type: str | None = None,
+        exception_detail: str | None = None,
         raw_http_error_body: bytes | None = None,
     ) -> None:
         request_text = body.decode("utf-8", errors="replace")
@@ -207,6 +209,11 @@ class AiExchangeRecorder:
                 outcome=outcome,
                 http_status=http_status,
                 exception_type=exception_type,
+                exception_detail=(
+                    redact_text(str(exception_detail)).strip()[:1000]
+                    if exception_detail
+                    else None
+                ),
                 request_payload=request_payload,
                 request_sha256=request_sha,
                 request_payload_hash=request_payload_hash,
@@ -267,6 +274,7 @@ def instrument_provider_transport(provider: Any, recorder: AiExchangeRecorder) -
                 duration_ms=int((time.perf_counter() - started_perf) * 1000),
                 outcome="EXCEPTION",
                 exception_type=type(exc).__name__,
+                exception_detail=redact_text(str(exc)).strip()[:1000] or None,
             )
             raise
 
@@ -659,6 +667,7 @@ def persist_ai_exchange_log(
                     outcome TEXT NOT NULL,
                     http_status INTEGER,
                     exception_type TEXT,
+                    exception_detail TEXT,
                     request_payload TEXT NOT NULL,
                     request_sha256 TEXT NOT NULL,
                     request_payload_hash TEXT,
@@ -678,6 +687,10 @@ def persist_ai_exchange_log(
                 str(row[1])
                 for row in connection.execute("PRAGMA table_info(ai_exchange_log)").fetchall()
             }
+            if "exception_detail" not in columns:
+                connection.execute(
+                    "ALTER TABLE ai_exchange_log ADD COLUMN exception_detail TEXT"
+                )
             if "request_payload_hash" not in columns:
                 connection.execute(
                     "ALTER TABLE ai_exchange_log ADD COLUMN request_payload_hash TEXT"
@@ -713,16 +726,16 @@ def persist_ai_exchange_log(
                     INSERT OR IGNORE INTO ai_exchange_log (
                         exchange_id,audit_id,sequence_no,provider,model,purpose,
                         snapshot_id,page_url,endpoint,started_at,finished_at,duration_ms,
-                        outcome,http_status,exception_type,request_payload,request_sha256,
+                        outcome,http_status,exception_type,exception_detail,request_payload,request_sha256,
                         request_payload_hash,request_truncated,response_payload,response_sha256,
                         response_truncated,attempt_id
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     (
                         item.exchange_id, audit_id, item.sequence_no, item.provider, item.model,
                         item.purpose, item.snapshot_id, item.page_url, item.endpoint,
                         item.started_at, item.finished_at, item.duration_ms, item.outcome,
-                        item.http_status, item.exception_type, item.request_payload,
+                        item.http_status, item.exception_type, item.exception_detail, item.request_payload,
                         item.request_sha256, item.request_payload_hash,
                         1 if item.request_truncated else 0,
                         item.response_payload, item.response_sha256,

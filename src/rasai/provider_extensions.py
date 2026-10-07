@@ -33,6 +33,7 @@ from rasai.m18_ai import (
     ProviderUsage,
     RuntimeProviderState,
     estimate_cost,
+    safe_provider_error_detail,
     SemanticProviderResult,
     build_semantic_provider as _legacy_build_semantic_provider,
 )
@@ -407,10 +408,14 @@ class IsolatedStructuredSemanticProvider:
                 ProviderDiagnostic(ProviderErrorClass.NETWORK_ERROR),
                 AttemptStatus.TECHNICAL_ERROR,
             )
-        except Exception:
+        except Exception as exc:
             return self._failure_result(
                 semantic_input, started_at, started_perf, summary, payload_hash,
-                ProviderDiagnostic(ProviderErrorClass.UNKNOWN_PROVIDER_ERROR),
+                ProviderDiagnostic(
+                    ProviderErrorClass.UNKNOWN_PROVIDER_ERROR,
+                    error_type=type(exc).__name__,
+                    error_detail=safe_provider_error_detail(exc),
+                ),
                 AttemptStatus.TECHNICAL_ERROR,
             )
 
@@ -464,7 +469,11 @@ class IsolatedStructuredSemanticProvider:
             )
             return self._failure_result(
                 semantic_input, started_at, started_perf, summary, payload_hash,
-                ProviderDiagnostic(error_class, error_type=type(exc).__name__),
+                ProviderDiagnostic(
+                    error_class,
+                    error_type=type(exc).__name__,
+                    error_detail=safe_provider_error_detail(exc),
+                ),
                 AttemptStatus.CONTRACT_ERROR,
                 usage=usage,
             )

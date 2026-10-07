@@ -32,6 +32,7 @@ from rasai.openai_provider import (
     SEMANTIC_RULE_CRITERIA,
     hardened_semantic_output_schema,
 )
+from rasai.secret_safety import redact_text
 from rasai.semantic import (
     EntityCandidate,
     ProviderCallResult,
@@ -83,6 +84,12 @@ class RuntimeProviderState(StrEnum):
     QUARANTINED_FOR_AUDIT = "QUARANTINED_FOR_AUDIT"
 
 
+def safe_provider_error_detail(exc: BaseException, *, limit: int = 1000) -> str | None:
+    """Return a bounded, secret-safe provider exception detail for audit telemetry."""
+    detail = redact_text(str(exc or "")).strip()
+    return detail[: max(0, int(limit))] or None
+
+
 @dataclass(frozen=True, slots=True)
 class ProviderUsage:
     input_tokens: int | None = None
@@ -101,6 +108,7 @@ class ProviderDiagnostic:
     error_code: str | None = None
     request_id: str | None = None
     retry_after_seconds: float | None = None
+    error_detail: str | None = None
 
     @property
     def reason(self) -> str | None:

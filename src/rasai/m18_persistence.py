@@ -250,6 +250,7 @@ class M18Persistence:
                     error_class TEXT,
                     error_type TEXT,
                     error_code TEXT,
+                    error_detail TEXT,
                     request_id TEXT,
                     input_tokens INTEGER,
                     cached_input_tokens INTEGER,
@@ -344,6 +345,7 @@ class M18Persistence:
                 str(row['name']) for row in self._connection.execute('PRAGMA table_info(ai_provider_attempts)').fetchall()
             }
             for column, ddl in (
+                ('error_detail', 'TEXT'),
                 ('retry_eligible', 'INTEGER NOT NULL DEFAULT 0'),
                 ('retry_after_seconds', 'REAL'),
                 ('decision', "TEXT NOT NULL DEFAULT 'STOP'"),
@@ -510,7 +512,7 @@ class M18Persistence:
         columns = (
             "attempt_id", "audit_id", "page_id", "snapshot_id", "url", "device", "provider", "model",
             "reasoning_profile", "provider_rank", "attempt_index", "started_at", "finished_at", "duration_ms",
-            "status", "http_status", "error_class", "error_type", "error_code", "request_id",
+            "status", "http_status", "error_class", "error_type", "error_code", "error_detail", "request_id",
             "retry_eligible", "retry_after_seconds", "decision", "fallback_from_provider", "fallback_reason",
             "input_tokens", "cached_input_tokens", "output_tokens", "reasoning_tokens", "total_tokens",
             "estimated_cost", "cost_currency", "pricing_version", "pricing_context", "pricing_rule_id",
@@ -527,6 +529,7 @@ class M18Persistence:
             diagnostic.error_class.value if diagnostic and diagnostic.error_class else None,
             diagnostic.error_type if diagnostic else None,
             diagnostic.error_code if diagnostic else None,
+            diagnostic.error_detail if diagnostic else None,
             diagnostic.request_id if diagnostic else None,
             1 if attempt.retry_eligible else 0,
             diagnostic.retry_after_seconds if diagnostic else None,

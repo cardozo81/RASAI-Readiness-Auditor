@@ -372,10 +372,13 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
             ("Erro", format_ai_attempt_diagnostic(attempt)),
         ]
         if attempt.get("error_class") not in (None, ""):
-            attempt_details.append((
-                "Classificação do erro",
-                i._status_label(attempt.get("error_class")),
-            ))
+            raw_error_class = str(attempt.get("error_class") or "").strip().upper()
+            class_label = (
+                "Falha do provedor sem classificação específica"
+                if raw_error_class == "UNKNOWN_PROVIDER_ERROR" and attempt.get("error_detail")
+                else i._status_label(attempt.get("error_class"))
+            )
+            attempt_details.append(("Classificação do erro", class_label))
         if attempt.get("http_status") not in (None, ""):
             attempt_details.append(("HTTP", attempt.get("http_status")))
         if attempt.get("error_code") not in (None, ""):

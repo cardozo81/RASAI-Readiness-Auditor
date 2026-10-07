@@ -27,6 +27,7 @@ from rasai.m18_ai import (
     ProviderState,
     RuntimeProviderState,
     estimate_cost,
+    safe_provider_error_detail,
 )
 from rasai.m20_ai import (
     CONTENT_REMEDIATION_CONTRACT_VERSION,
@@ -252,10 +253,14 @@ class ExtensionContentRemediationProvider:
                 ProviderDiagnostic(ProviderErrorClass.NETWORK_ERROR),
                 AttemptStatus.TECHNICAL_ERROR,
             )
-        except Exception:
+        except Exception as exc:
             return self._failure(
                 request, started_at, started_perf, summary, payload_hash,
-                ProviderDiagnostic(ProviderErrorClass.UNKNOWN_PROVIDER_ERROR),
+                ProviderDiagnostic(
+                    ProviderErrorClass.UNKNOWN_PROVIDER_ERROR,
+                    error_type=type(exc).__name__,
+                    error_detail=safe_provider_error_detail(exc),
+                ),
                 AttemptStatus.TECHNICAL_ERROR,
             )
 
@@ -283,6 +288,7 @@ class ExtensionContentRemediationProvider:
                     ProviderErrorClass.CONTRACT_ERROR,
                     error_type=type(exc).__name__,
                     error_code=exc.code,
+                    error_detail=safe_provider_error_detail(exc),
                 ),
                 AttemptStatus.CONTRACT_ERROR,
                 usage=usage,
@@ -294,6 +300,7 @@ class ExtensionContentRemediationProvider:
                     ProviderErrorClass.CONTRACT_ERROR,
                     error_type=type(exc).__name__,
                     error_code="M20_UNEXPECTED_CONTRACT_ERROR",
+                    error_detail=safe_provider_error_detail(exc),
                 ),
                 AttemptStatus.CONTRACT_ERROR,
                 usage=usage,

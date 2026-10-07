@@ -284,7 +284,12 @@ def _candidate_call(
     body: bytes,
     timeout: float,
 ) -> tuple[Mapping[str, Any] | None, Any, Any, Any, int]:
-    from rasai.m18_ai import AttemptStatus, ProviderDiagnostic, ProviderErrorClass
+    from rasai.m18_ai import (
+        AttemptStatus,
+        ProviderDiagnostic,
+        ProviderErrorClass,
+        safe_provider_error_detail,
+    )
 
     started_perf = time.perf_counter()
     raw: Mapping[str, Any] | None = None
@@ -311,6 +316,7 @@ def _candidate_call(
         diagnostic = ProviderDiagnostic(
             ProviderErrorClass.UNKNOWN_PROVIDER_ERROR,
             error_type=type(exc).__name__,
+            error_detail=safe_provider_error_detail(exc),
         )
     duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
     return raw, usage, diagnostic, status, duration_ms
