@@ -370,7 +370,7 @@ def configure_perplexity_search(state: SearchConsoleState) -> None:
 
 
 def perplexity_enabled(env: Mapping[str, str] | None = None) -> bool:
-    """Explicit opt-out; an absent flag retains legacy behavior for configured credentials."""
+    """Explicit opt-out; an absent flag preserves compatibility for configured credentials."""
     values = os.environ if env is None else env
     raw = str(values.get("RASAI_PERPLEXITY_ENABLED", "") or "").strip().casefold()
     return raw not in {"false", "0", "off", "no"}
