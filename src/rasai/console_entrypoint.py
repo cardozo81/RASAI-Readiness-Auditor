@@ -67,6 +67,7 @@ from rasai.runtime_adherence_extensions import install_runtime_adherence_extensi
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 from rasai.runtime_contract_compatibility import install_console_runtime_contract_compatibility
 from rasai.runtime_progress_gate import install_search_progress_gate
+from rasai.search_audit_runtime import install as install_search_audit_runtime
 from rasai.search_fulfillment_runtime import install as install_search_fulfillment
 from rasai.selective_optional_reprocess import install as install_selective_optional_reprocess
 from rasai.semantic_context_console import install as install_semantic_context_console
@@ -146,6 +147,7 @@ def main() -> int:
     install_console_cancellation_runtime()
     install_improvement_intelligence_runtime()
     install_passive_security_runtime()
+    install_search_audit_runtime()
     install_selective_optional_reprocess()
     install_masked_secret_input()
     install_environment_reset()
