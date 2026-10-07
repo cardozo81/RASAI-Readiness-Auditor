@@ -116,6 +116,55 @@ def _prior_competitive_ai(database: Path, audit_id: str, serp_id: str | None) ->
 
 
 
+
+def _geo_relevant_findings(database: Path, audit_id: str) -> list[dict]:
+    """Map only observed audit issues to review candidates; never infer causality."""
+    with closing(sqlite3.connect(f"file:{database.resolve().as_posix()}?mode=ro", uri=True)) as con:
+        tables = {row[0] for row in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name IN ('findings','recommendations')"
+        )}
+        if "findings" not in tables:
+            return []
+        con.row_factory = sqlite3.Row
+        findings = [dict(r) for r in con.execute(
+            "SELECT finding_id, rule_id, category, severity, title, evidence_ids, "
+            "observed_value, expected_condition FROM findings WHERE audit_id=? "
+            "ORDER BY CASE UPPER(severity) WHEN 'CRITICAL' THEN 0 "
+            "WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 ELSE 3 END, finding_id",
+            (audit_id,),
+        )]
+        # A rule's title and category are useful heuristics for routing human
+        # inspection, not proof that the issue affects AI answer ranking.
+        terms = ("CONTENT", "SEMANTIC", "STRUCTURE", "HTML", "INDEX",
+                 "CRAWL", "CANONICAL", "DISCOVER", "ENTITY", "SCHEMA", "META",
+                 "ROBOTS", "SITEMAP", "SEARCH", "JSON_LD")
+        eligible = [
+            item for item in findings
+            if any(term in (
+                str(item.get("category") or "") + " " +
+                str(item.get("rule_id") or "") + " " +
+                str(item.get("title") or "")
+            ).upper() for term in terms)
+        ][:12]
+        if "recommendations" in tables and eligible:
+            ids = [item["finding_id"] for item in eligible]
+            placeholders = ",".join("?" for _ in ids)
+            rows = con.execute(
+                "SELECT finding_id, title, description, priority_class FROM recommendations "
+                "WHERE audit_id=? AND finding_id IN (" + placeholders + ") "
+                "ORDER BY priority_score DESC",
+                (audit_id, *ids),
+            )
+            recommendations = {}
+            for row in rows:
+                recommendations.setdefault(row["finding_id"], dict(row))
+            for item in eligible:
+                item["existing_recommendation"] = recommendations.get(item["finding_id"])
+    return eligible
+
+
+
 def geo_body(database: Path, audit_id: str) -> str:
     """Evidence-backed readout; no scores, causal attribution or speculative gaps."""
     runs, sources = _observations(database, audit_id)
@@ -225,6 +274,28 @@ def geo_body(database: Path, audit_id: str) -> str:
         summary += f"<li>{escape(host)}: {n} fonte(s)</li>"
     summary += "</ul><p>Recorrência de fontes não mede participação de mercado nem preferência "
     summary += "dos modelos de IA. É necessário verificar consultas, conteúdo e contexto.</p></section>"
+    findings = _geo_relevant_findings(database, audit_id)
+    summary += "<section><h2>Oportunidades técnicas/editoriais contextualizadas</h2>"
+    if findings:
+        summary += "<p>Os achados abaixo são evidências existentes na auditoria que "
+        summary += "merecem revisão para descoberta e compreensão de conteúdo. "
+        summary += "Não comprovam impacto causal nas fontes Perplexity recuperadas.</p><ol>"
+        for finding in findings:
+            summary += "<li><strong>" + escape(str(finding.get("title") or "-"))
+            summary += "</strong> — " + escape(str(finding.get("category") or "-"))
+            summary += " / " + escape(str(finding.get("severity") or "-"))
+            summary += " | regra: " + escape(str(finding.get("rule_id") or "-"))
+            summary += " | evidência: " + escape(str(finding.get("finding_id") or "-"))
+            existing = finding.get("existing_recommendation") or {}
+            if existing.get("description"):
+                summary += "<br>Ação previamente registrada no RASAi: "
+                summary += escape(str(existing["description"]))
+            summary += "</li>"
+        summary += "</ol>"
+    else:
+        summary += "<p>Nenhum achado técnico/editorial elegível foi encontrado nesta "
+        summary += "projeção. Isso não significa ausência de oportunidades GEO.</p>"
+    summary += "</section>"
     summary += "<section><h2>Próximas ações de análise</h2><p>"
     summary += "Confronte as consultas com as evidências de descoberta e indexabilidade "
     summary += "do <a href='cat-01.html'>CAT-01</a>, conteúdo e entidades do "
