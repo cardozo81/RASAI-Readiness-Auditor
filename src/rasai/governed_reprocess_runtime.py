@@ -1341,21 +1341,23 @@ def _registered_ai_and_report(
     record_collection_gate(workspace, audit_id, path="RPR_FINAL", readiness=gate)
     evaluated = set(preparation.evaluated_optional)
     outcomes: dict[str, Mapping[str, Any]] = {}
+    handled_purposes: set[str] = set()
     executed_purposes: set[str] = set()
 
     # Registered AI has one explicit dependency edge today:
-    # COMPETITIVE_INTELLIGENCE -> IMPROVEMENT_INTELLIGENCE.  Re-evaluate once after
+    # COMPETITIVE_INTELLIGENCE -> IMPROVEMENT_INTELLIGENCE. Re-evaluate once after
     # the first governed pass so a prerequisite resolved inside this same RPR can
-    # release its dependent immediately.  Subtract already executed purposes to avoid
-    # duplicate provider calls.  Two passes are deliberately bounded; provider-level
-    # retry/fallback cycles remain owned by the canonical AI orchestration.
+    # release its dependent immediately. A purpose can be handled diagnostically
+    # without its hook being executable; keep handled and executed identities separate
+    # so missing hooks are not counted as execution attempts. Two passes are bounded;
+    # provider-level retry/fallback cycles remain owned by canonical orchestration.
     for pass_index in range(2):
         purposes = (
             _registered_ai_purposes(workspace, audit_id, preparation.recovered)
             if gate.ready else frozenset()
         )
         purposes = frozenset(
-            purpose for purpose in purposes if purpose not in executed_purposes
+            purpose for purpose in purposes if purpose not in handled_purposes
         )
         if not purposes:
             break
@@ -1369,8 +1371,15 @@ def _registered_ai_and_report(
                 purposes=purposes,
             )
         outcomes.update(pass_outcomes)
-        executed_purposes.update(purposes)
-        if "IMPROVEMENT_INTELLIGENCE" in purposes:
+        handled_purposes.update(pass_outcomes)
+        pass_executed = {
+            purpose
+            for purpose, outcome in pass_outcomes.items()
+            if str(outcome.get("reason") or "").strip().upper()
+            != "AI_HOOK_NOT_REGISTERED"
+        }
+        executed_purposes.update(pass_executed)
+        if "IMPROVEMENT_INTELLIGENCE" in pass_executed:
             evaluated.add("IMPROVEMENT_INTELLIGENCE")
         if pass_index:
             try_append_operational_event(
