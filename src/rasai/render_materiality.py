@@ -188,10 +188,14 @@ def _weak_primary_content(observation: MaterialityObservation) -> bool:
 def _transient_suspicion(observation: MaterialityObservation, settle_outcome: str) -> bool:
     if not _weak_primary_content(observation):
         return False
+    # App/root shell identifiers are structural containers and usually remain after
+    # hydration. By themselves they indicate a transient shell only while primary
+    # content is still empty; otherwise they would keep a valid hydrated DOM blocked.
+    shell_suspicion = observation.shell_markers > 0 and observation.main_text_length == 0
     explicit_transient = (
         observation.transient_markers > 0
         or observation.busy_markers > 0
-        or observation.shell_markers > 0
+        or shell_suspicion
     )
     bounded_lazy = str(settle_outcome).upper() == "BOUNDED_TIMEOUT" and observation.lazy_markers > 0
     return explicit_transient or bounded_lazy
