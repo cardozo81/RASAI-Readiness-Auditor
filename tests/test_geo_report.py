@@ -48,5 +48,37 @@ class GeoReportTests(unittest.TestCase):
             self.assertNotIn("<script>", html)
 
 
+    def test_cross_source_comparison_requires_single_query_and_observed_api(self):
+        with tempfile.TemporaryDirectory() as temp:
+            db = Path(temp) / "audit.db"
+            with sqlite3.connect(db) as con:
+                con.executescript("""
+                    CREATE TABLE perplexity_search_runs (
+                        run_id TEXT PRIMARY KEY, audit_id TEXT, query_json TEXT,
+                        search_type TEXT, status TEXT, started_at TEXT, error_class TEXT
+                    );
+                    CREATE TABLE perplexity_search_sources (
+                        run_id TEXT, position INTEGER, url TEXT, title TEXT, snippet TEXT
+                    );
+                    CREATE TABLE serp_observations (
+                        observation_id TEXT, audit_id TEXT, query TEXT,
+                        collected_at TEXT, observation_status TEXT, data_mode TEXT
+                    );
+                    CREATE TABLE serp_results (
+                        observation_id TEXT, url TEXT
+                    );
+                """)
+                con.execute("INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?,?)",
+                            ("r1","AUD-ONE",'["insurance premium"]',"web","SUCCESS","2026-10-07",None))
+                con.execute("INSERT INTO perplexity_search_sources VALUES (?,?,?,?,?)",
+                            ("r1",1,"https://example.org/policy","Policy","snippet"))
+                con.execute("INSERT INTO serp_observations VALUES (?,?,?,?,?,?)",
+                            ("s1","AUD-ONE","insurance premium","2026-10-07","OBSERVED","OBSERVED_API"))
+                con.execute("INSERT INTO serp_results VALUES (?,?)",
+                            ("s1","https://example.org/policy"))
+            self.assertIn("URLs em ambas", geo_body(db, "AUD-ONE"))
+            self.assertIn("<td>1</td><td>1</td><td>1</td>", geo_body(db, "AUD-ONE"))
+
+
 if __name__ == "__main__":
     unittest.main()
