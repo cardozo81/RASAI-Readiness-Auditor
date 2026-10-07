@@ -45,3 +45,33 @@ def test_cat05_scope_uses_friendly_execution_concepts() -> None:
     assert "GSC e SERP são fontes independentes" in rendered
     assert "search_queries" not in rendered
     assert "RASAI_" not in rendered
+
+
+def test_cat05_scope_exposes_perplexity_as_independent_external_research(monkeypatch) -> None:
+    monkeypatch.delenv("PERPLEXITY_API_KEY", raising=False)
+    state = SearchConsoleState(
+        target="https://example.com/",
+        language="pt-BR",
+        market="BR",
+        device="mobile",
+        perplexity_queries=("rasai readiness", "search readiness"),
+        perplexity_search_type="fast",
+    )
+
+    output = StringIO()
+    with patch(
+        "rasai.console_catalog_plan.raw_capability_status",
+        return_value=("NÃO CONFIGURADO", "GSC opcional"),
+    ), redirect_stdout(output):
+        render_search_scope(state)
+
+    rendered = output.getvalue()
+    assert "PERPLEXITY SEARCH INTELLIGENCE" in rendered
+    assert "SOLICITADA" in rendered
+    assert "Quantidade de queries" in rendered
+    assert "2" in rendered
+    assert "FAST" in rendered
+    assert "NÃO CONFIGURADA" in rendered
+    assert "não substitui SERP observada" in rendered
+    assert "não entra no scoring" in rendered
+

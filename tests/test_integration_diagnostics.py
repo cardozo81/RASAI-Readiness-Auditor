@@ -223,6 +223,32 @@ def test_persisted_diagnostic_is_invalidated_when_configuration_changes(tmp_path
     assert result_currency(spec, loaded, env_after) == "CONFIG_CHANGED"
 
 
+
+
+def test_perplexity_diagnostic_is_configuration_only_and_never_calls_search() -> None:
+    spec = get_integration_spec("search:perplexity")
+    assert spec is not None
+    assert spec.probe_kind == "CONFIGURATION_ONLY"
+    assert spec.safe_for_bulk is True
+    assert spec.provider_id is None
+    assert spec.environment_names == ("PERPLEXITY_API_KEY",)
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("Perplexity diagnostic must not call a commercial search endpoint")
+
+    missing = run_diagnostic(spec, env={}, opener=forbidden)
+    assert missing.status == STATUS_NOT_CONFIGURED
+
+    configured = run_diagnostic(
+        spec,
+        env={"PERPLEXITY_API_KEY": "opaque-perplexity-secret"},
+        opener=forbidden,
+    )
+    assert configured.status == STATUS_OPERATIONAL_LIMITED
+    assert configured.category == "CONFIGURATION_ONLY"
+    assert "opaque-perplexity-secret" not in configured.detail
+    assert configured.validated_facets == ("configuration",)
+
 def test_catalog_covers_current_ai_serp_and_key_external_services() -> None:
     ids = {item.id for item in integration_specs()}
     assert {
@@ -240,6 +266,7 @@ def test_catalog_covers_current_ai_serp_and_key_external_services() -> None:
         "serp:serpapi-bing",
         "serp:zenserp",
         "serp:scrapingdog",
+        "search:perplexity",
         "service:pagespeed",
         "service:crux",
         "service:crux-history",

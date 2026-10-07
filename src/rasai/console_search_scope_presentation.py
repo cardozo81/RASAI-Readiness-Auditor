@@ -86,6 +86,35 @@ def render_search_scope(state: Any) -> None:
         )
     )
 
+    print()
+    print(paint("PERPLEXITY SEARCH INTELLIGENCE", CYAN, bold=True))
+    from rasai.console_search_intelligence import validate_perplexity_readiness
+    from rasai.search_intelligence.perplexity import perplexity_configuration_status
+
+    perplexity_queries = tuple(getattr(state, "perplexity_queries", ()) or ())
+    perplexity_type = str(
+        getattr(state, "perplexity_search_type", "web") or "web"
+    ).strip().upper()
+    perplexity_status = perplexity_configuration_status()
+    ready, detail = validate_perplexity_readiness(state)
+    info("Solicitação", "SOLICITADA" if perplexity_queries else "NÃO SOLICITADA")
+    info("Quantidade de queries", len(perplexity_queries))
+    info("Tipo", perplexity_type)
+    info(
+        "Credencial",
+        "CONFIGURADA" if perplexity_status["configured"] else "NÃO CONFIGURADA",
+    )
+    info("Readiness", "APTA" if ready else "CONFIGURAR")
+    if detail:
+        print(paint(f"  {detail}", DIM))
+    print(
+        paint(
+            "Pesquisa externa advisory com provenance própria: não substitui SERP observada, "
+            "não entra no scoring e não se torna evidência determinística.",
+            DIM,
+        )
+    )
+
 
 def install() -> None:
     """Replace only the CAT-05 context renderer in the public catalog UI."""

@@ -190,6 +190,23 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
         self.assertIn("não configurada", reason)
         self.assertNotIn("secret", reason.casefold())
 
+    def test_perplexity_readiness_rejects_invalid_type_and_query_overflow(self) -> None:
+        invalid_type = SimpleNamespace(
+            perplexity_queries=("rasai readiness",),
+            perplexity_search_type="invalid",
+        )
+        ready, reason = validate_perplexity_readiness(invalid_type, {"PERPLEXITY_API_KEY": "secret"})
+        self.assertFalse(ready)
+        self.assertIn("search_type inválido", reason)
+
+        overflow = SimpleNamespace(
+            perplexity_queries=("1", "2", "3", "4", "5", "6"),
+            perplexity_search_type="web",
+        )
+        ready, reason = validate_perplexity_readiness(overflow, {"PERPLEXITY_API_KEY": "secret"})
+        self.assertFalse(ready)
+        self.assertIn("excede 5 queries", reason)
+
     def test_perplexity_execution_is_independent_from_serp_and_humanized(self) -> None:
         import sqlite3
 

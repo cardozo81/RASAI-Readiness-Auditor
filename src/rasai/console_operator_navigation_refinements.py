@@ -51,6 +51,8 @@ def _repair_service_toggle_domains() -> None:
 
 def _serp_spec(spec: Any) -> bool:
     name = str(spec.name).upper()
+    if name == "PERPLEXITY_API_KEY":
+        return True
     if name.startswith("RASAI_SERP"):
         return True
     try:
@@ -206,8 +208,8 @@ def _install_search_capability_split() -> None:
         if item.key == "search-intelligence":
             item = catalog.CapabilityUI(
                 "search-intelligence",
-                "Search Intelligence / SERP",
-                "Observação SERP por termos desta execução, com provider, limites e compatibilidade validados antes da chamada.",
+                "Search Intelligence / SERP + pesquisa externa",
+                "Observação SERP por termos desta execução e Perplexity Search Intelligence como pesquisa externa advisory independente.",
                 item.handler_choice,
                 item.automatic,
                 item.derived,

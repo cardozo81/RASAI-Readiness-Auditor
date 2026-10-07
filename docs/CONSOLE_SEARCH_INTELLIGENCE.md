@@ -228,10 +228,10 @@ Abrir o CAT-05 usa a evidência persistida e não refaz chamadas SERP somente pa
 O console também expõe, de forma opt-in, uma integração separada:
 
 ```text
-U. Perplexity externa
+P. Perplexity externa
 ```
 
-Ela aceita de uma a cinco queries no mesmo request e permite escolher `WEB` ou `FAST`. A credencial é `PERPLEXITY_API_KEY` e o console exibe somente o estado de presença da key.
+Ela aceita de uma a cinco queries no mesmo request e permite escolher `WEB` ou `FAST`. A credencial é `PERPLEXITY_API_KEY` e o console exibe somente o estado de presença da key. A mesma credencial pode ser gerenciada em **5. Integrações e serviços** e **6. Todas as configurações**, sempre pelo editor canônico de secrets. O diagnóstico de integração é apenas de configuração e não executa uma busca comercial.
 
 Essa execução ocorre após o core determinístico e é independente dos termos SERP. Seus resultados são persistidos em `perplexity_search_runs` e `perplexity_search_sources`, separados de `serp_observations` e `serp_results`.
 
