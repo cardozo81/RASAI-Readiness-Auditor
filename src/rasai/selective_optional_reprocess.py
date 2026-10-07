@@ -1124,8 +1124,11 @@ def _optional_environment_values(workspace: Any, audit_id: str) -> dict[str, Any
             if cfg.get(key) not in (None, ""):
                 overrides[env_name] = cfg[key]
         domains = cfg.get("domains")
-        if isinstance(domains, (list, tuple)) and domains:
-            overrides[DOMAINS_ENV] = ",".join(str(value) for value in domains)
+        if domains not in (None, "", (), []):
+            from rasai.improvement_intelligence import parse_domains
+
+            normalized_domains = parse_domains(domains)
+            overrides[DOMAINS_ENV] = ",".join(normalized_domains)
 
     passive = _item(workspace, audit_id, "PASSIVE_SECURITY")
     if passive is not None:
