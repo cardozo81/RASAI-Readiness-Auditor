@@ -274,6 +274,26 @@ def _edit_perplexity_credential(state: Any) -> None:
     environment.refresh_specs()
 
 
+def _edit_perplexity_activation(state: Any) -> None:
+    """Use the same canonical variable editor as other integration settings."""
+    from rasai import console_environment as environment
+    spec = environment.SPEC_BY_NAME.get("RASAI_PERPLEXITY_ENABLED")
+    if spec is None:
+        state.error = "Flag de Perplexity não registrada"
+        return
+    # Existing catalog editor governs session/INI/Windows precedence and restore.
+    from rasai.console_search_intelligence import perplexity_enabled
+    raw = input("Ativar Perplexity? [S/N, V cancela]: ").strip().upper()
+    if raw == "V":
+        return
+    if raw not in {"S", "N"}:
+        print("Escolha S, N ou V.")
+        return
+    import os
+    os.environ["RASAI_PERPLEXITY_ENABLED"] = "true" if raw == "S" else "false"
+    _set_feedback(state, "Ativação aplicada à sessão. Para persistir, use Todas as configurações > salvar.")
+
+
 def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
     """Bounded CAT-05 editor for Perplexity execution inputs and canonical secret."""
     while True:
@@ -297,11 +317,14 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             "  Credencial            : "
             + ("CONFIGURADA" if status["configured"] else "NÃO CONFIGURADA")
         )
+        from rasai.console_search_intelligence import perplexity_enabled
+        print(f"  Habilitada            : {'SIM' if perplexity_enabled() else 'NÃO'}")
         print(f"  Readiness             : {'APTA' if ready else 'CONFIGURAR'}")
         print(f"  Detalhe               : {detail}")
         print("\n1. Definir/alterar queries")
         print("2. Escolher WEB/FAST")
         print("3. Gerenciar credencial Perplexity")
+        print("4. Ativar/desativar integração")
         print("D. Não solicitar Perplexity nesta execução")
         print("V. Voltar ao CAT-05")
         raw = input("Opção Perplexity: ").strip().upper()
@@ -318,8 +341,10 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             _edit_perplexity_type(search_module, state)
         elif raw == "3":
             _edit_perplexity_credential(state)
+        elif raw == "4":
+            _edit_perplexity_activation(state)
         else:
-            print("  Opção inválida: use 1, 2, 3, D ou V.")
+            print("  Opção inválida: use 1, 2, 3, 4, D ou V.")
 
 
 def _edit_terms(search_module: ModuleType, state: Any, config: SerpRuntimeConfig) -> None:
