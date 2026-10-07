@@ -189,7 +189,7 @@ _REMOTE_ENV_NAMES = (
     REMOTE_USER_ID_ENV,
     REMOTE_TIMEOUT_ENV,
 )
-_SEARCH_ENV_NAMES = (*SERP_ENV_NAMES, SEARCH_AI_PROVIDER_ENV, GSC_ACCESS_TOKEN_ENV, PERPLEXITY_API_KEY_ENV)
+_SEARCH_ENV_NAMES = (*SERP_ENV_NAMES, SEARCH_AI_PROVIDER_ENV, GSC_ACCESS_TOKEN_ENV, PERPLEXITY_API_KEY_ENV, "RASAI_PERPLEXITY_ENABLED")
 
 ENV_NAMES = tuple(
     dict.fromkeys(
@@ -472,6 +472,15 @@ def _search_specs() -> tuple[EnvironmentSpec, ...]:
         EnvironmentSpec(SERP_MIN_INTERVAL_ENV, "Search Intelligence / Observability", "Intervalo mínimo entre requests Search.", "número >= 0", default="1"),
         EnvironmentSpec(SEARCH_AI_PROVIDER_ENV, "Search Intelligence / Observability", "Provider da análise competitiva por IA.", "enum", ("none", "fixture", "openai"), "none"),
         EnvironmentSpec(GSC_ACCESS_TOKEN_ENV, "Search Intelligence / Observability", "OAuth bearer token temporário do Google Search Console.", "segredo/token", sensitive=True, required_when="Collectors GSC live."),
+        EnvironmentSpec(
+            "RASAI_PERPLEXITY_ENABLED",
+            "Search Intelligence / Observability",
+            "Ativação opcional da Perplexity Search sem remover credencial.",
+            "booleano", ("true", "false"),
+            required_when="Quando pesquisas Perplexity são solicitadas.",
+            impact="false impede requisições faturáveis; ausência mantém compatibilidade com o estado anterior.",
+            source="docs/PERPLEXITY_SEARCH_INTELLIGENCE.md",
+        ),
         EnvironmentSpec(
             PERPLEXITY_API_KEY_ENV,
             "Search Intelligence / Observability",
