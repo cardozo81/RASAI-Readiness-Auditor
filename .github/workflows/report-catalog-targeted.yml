@@ -8,7 +8,12 @@ on:
       - 'src/rasai/catalog_status_causality.py'
       - 'src/rasai/recommendation_governance.py'
       - 'src/rasai/recommendation_governance_reporting.py'
+      - 'src/rasai/remediation.py'
+      - 'src/rasai/prioritization.py'
+      - 'src/rasai/m16_root_cause.py'
+      - 'src/rasai/m17_precision.py'
       - 'tests/test_recommendation_governance.py'
+      - 'tests/test_issue_253_structured_data_absence_remediation.py'
       - 'tests/test_cat09_w3c_remediation.py'
       - 'tests/test_search_competitive_ai.py'
       - 'tests/test_competitive_acquisition_policy.py'
@@ -48,7 +53,12 @@ on:
       - 'src/rasai/catalog_status_causality.py'
       - 'src/rasai/recommendation_governance.py'
       - 'src/rasai/recommendation_governance_reporting.py'
+      - 'src/rasai/remediation.py'
+      - 'src/rasai/prioritization.py'
+      - 'src/rasai/m16_root_cause.py'
+      - 'src/rasai/m17_precision.py'
       - 'tests/test_recommendation_governance.py'
+      - 'tests/test_issue_253_structured_data_absence_remediation.py'
       - 'tests/test_cat09_w3c_remediation.py'
       - 'tests/test_search_competitive_ai.py'
       - 'tests/test_competitive_acquisition_policy.py'
@@ -102,6 +112,7 @@ jobs:
           pytest -q
           tests/test_report_catalog_public_labels.py
           tests/test_recommendation_governance.py
+          tests/test_issue_253_structured_data_absence_remediation.py
           tests/test_catalog_report_assurance.py
           tests/test_catalog_source_inventory.py
           tests/test_catalog_report_package_integrity.py
