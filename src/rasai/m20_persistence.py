@@ -135,6 +135,7 @@ class M20Persistence:
                     error_class TEXT,
                     error_type TEXT,
                     error_code TEXT,
+                    error_detail TEXT,
                     request_id TEXT,
                     input_tokens INTEGER,
                     cached_input_tokens INTEGER,
@@ -213,6 +214,7 @@ class M20Persistence:
                 ).fetchall()
             }
             for column, ddl in (
+                ("error_detail", "TEXT"),
                 ("operation", "TEXT"),
                 ("ai_task_id", "TEXT"),
                 ("ai_round_id", "TEXT"),
@@ -306,14 +308,14 @@ class M20Persistence:
                 INSERT INTO content_remediation_attempts (
                     attempt_id,audit_id,page_id,snapshot_id,device,url,provider,model,
                     reasoning_profile,provider_rank,attempt_index,started_at,finished_at,
-                    duration_ms,status,http_status,error_class,error_type,error_code,request_id,
+                    duration_ms,status,http_status,error_class,error_type,error_code,error_detail,request_id,
                     input_tokens,cached_input_tokens,output_tokens,reasoning_tokens,total_tokens,
                     estimated_cost,cost_currency,pricing_version,pricing_context,pricing_rule_id,
                     pricing_source_reference,pricing_runtime_conditions,surface,pricing_model,
                     observed_cost,observed_cost_currency,request_message_summary,
                     request_payload_hash,contract_version,operation,ai_task_id,ai_round_id
                 ) VALUES (
-                    ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
+                    ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
                 )
                 """,
                 (
@@ -336,6 +338,7 @@ class M20Persistence:
                     diagnostic.error_class.value if diagnostic and diagnostic.error_class else None,
                     diagnostic.error_type if diagnostic else None,
                     diagnostic.error_code if diagnostic else None,
+                    diagnostic.error_detail if diagnostic else None,
                     diagnostic.request_id if diagnostic else None,
                     usage.input_tokens if usage else None,
                     usage.cached_input_tokens if usage else None,
