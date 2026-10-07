@@ -39,7 +39,7 @@ _BOOLEAN_LIKE_CONFIGURATION_VALUES = frozenset({
 _BEARER_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}")
 _APIKEY_RE = re.compile(r"(?i)\b(?:sk|key|token)[-_][A-Za-z0-9._-]{12,}")
 _EXTERNAL_LINK_RE = re.compile(r"<a\b([^>]*?)href=['\"]https?://[^'\"]+['\"]([^>]*)>", re.I)
-_EVENT_HANDLER_RE = re.compile(r"\son[a-z]+\s*=", re.I)
+_EVENT_HANDLER_RE = re.compile(r"<[^>]*\son[a-z]+\s*=", re.I)
 
 _SPECIFIC_CONFIG_MARKERS: dict[str, tuple[str, ...]] = {
     "CAT-03": (
@@ -735,8 +735,14 @@ def _rpr_ai_override_provenance(database: Path, audit_id: str, catalog_id: str) 
                 tuple(params),
             ).fetchone()
             observed = attempt is not None
-            if declared != observed:
-                failures.append(f"{run['reprocess_id']}: ai_used={declared} versus tentativa_CAT08={observed}")
+            # ai_used is global to the whole RPR, not catalog-specific. A CAT-08
+            # provider attempt while ai_used=False is contradictory. The inverse is
+            # legitimate when another AI component (for example TECHNICAL_AI or M20)
+            # accounts for the RPR-level AI usage while Improvement remains blocked.
+            if observed and not declared:
+                failures.append(
+                    f"{run['reprocess_id']}: ai_used=False versus tentativa_CAT08=True"
+                )
             elif observed:
                 reconciled += 1
         if failures:
