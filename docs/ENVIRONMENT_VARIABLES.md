@@ -440,3 +440,7 @@ Sempre que um `*.md` publicar configuração, deve distinguir quando aplicável:
 5. impacto de custo, carga, segurança, quota, latência ou reprodutibilidade quando material.
 
 Quando não existir default tecnicamente seguro, documentar **sem default** em vez de inventar um valor.
+
+## Perplexity Search — ativação independente
+
+`RASAI_PERPLEXITY_ENABLED` é uma configuração booleana não secreta; aceita `true` ou `false`. Quando ausente, preserva a execução anterior, condicionada a queries explicitamente solicitadas e à credencial. `false` bloqueia novas chamadas externas sem excluir `PERPLEXITY_API_KEY`. O valor não secreto pode seguir o writer, o `rasai-console.ini` e o contrato canônico de restauração; a credencial permanece secret-only. O relatório GEO apresenta observações advisory e nunca garante citação em respostas gerativas.
