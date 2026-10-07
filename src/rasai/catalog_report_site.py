@@ -20,6 +20,7 @@ from rasai.catalog_source_dependencies import (
     verify_source_dependencies,
 )
 from rasai.directed_analysis_reporting import directed_analysis_body
+from rasai.geo_report import geo_body
 from rasai.search_intelligence.freshness import require_valid_serp_freshness
 
 
@@ -365,6 +366,7 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             "execution-evidence.html":_execution_evidence_body(database,data),
             "ai-integrations.html":_ai_integrations_body(database,data),
             "directed-analysis.html":directed_analysis_body(database,data),
+            "geo.html":geo_body(database,audit_id),
             "methodology.html":_methodology_body(data),
             "metrics.html":_metrics_body(database,data),
         }
