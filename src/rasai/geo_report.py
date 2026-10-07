@@ -48,6 +48,57 @@ def _observations(database: Path, audit_id: str) -> tuple[list[dict], list[dict]
     return runs, sources
 
 
+
+def _serp_comparison(database: Path, audit_id: str, runs: list[dict], sources: list[dict]) -> list[tuple[str, int, int, int]]:
+    """Compare URL overlap only for unambiguously single-query Perplexity requests.
+
+    Multi-query search sources cannot reliably be assigned to individual queries.
+    SERP comparisons only use successful live observations; fixture/failed data abstains.
+    """
+    eligible: list[tuple[str, str]] = []
+    for run in runs:
+        if str(run.get("status", "")).upper() != "SUCCESS":
+            continue
+        try:
+            queries = json.loads(run["query_json"])
+        except (TypeError, ValueError):
+            continue
+        if isinstance(queries, list) and len(queries) == 1 and isinstance(queries[0], str):
+            eligible.append((run["run_id"], queries[0].strip().casefold()))
+    if not eligible:
+        return []
+    with sqlite3.connect(f"file:{database.resolve().as_posix()}?mode=ro", uri=True) as con:
+        tables = {row[0] for row in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name IN ('serp_observations','serp_results')"
+        )}
+        if len(tables) < 2:
+            return []
+        observations = list(con.execute(
+            "SELECT observation_id, query, collected_at FROM serp_observations "
+            "WHERE audit_id=? AND observation_status='SUCCESS' AND data_mode='LIVE' "
+            "ORDER BY collected_at DESC, observation_id DESC", (audit_id,)
+        ))
+        latest: dict[str, str] = {}
+        for obs_id, query, _ in observations:
+            latest.setdefault(str(query).strip().casefold(), obs_id)
+        result = []
+        for run_id, query in eligible:
+            obs_id = latest.get(query)
+            if not obs_id:
+                continue
+            serp_urls = {str(row[0]).strip() for row in con.execute(
+                "SELECT url FROM serp_results WHERE observation_id=?", (obs_id,)
+            )}
+            perplexity_urls = {str(s["url"]).strip() for s in sources if s["run_id"] == run_id}
+            if not serp_urls and not perplexity_urls:
+                continue
+            result.append((query, len(serp_urls), len(perplexity_urls),
+                           len(serp_urls & perplexity_urls)))
+    return result
+
+
+
 def geo_body(database: Path, audit_id: str) -> str:
     """Evidence-backed readout; no scores, causal attribution or speculative gaps."""
     runs, sources = _observations(database, audit_id)
@@ -83,6 +134,21 @@ def geo_body(database: Path, audit_id: str) -> str:
             for value in (run["run_id"], qs, run["status"], run["search_type"])
         ) + "</tr>"
     summary += "</tbody></table></section>"
+    comparisons = _serp_comparison(database, audit_id, runs, sources)
+    summary += "<section><h2>Comparação SERP × Perplexity</h2>"
+    if not comparisons:
+        summary += "<p>Comparação não aplicável: não há queries singulares correspondentes "
+        summary += "com SERP live válida e fontes rastreáveis. Requests com múltiplas queries "
+        summary += "não são desagregados artificialmente.</p>"
+    else:
+        summary += "<table><thead><tr><th>Consulta</th><th>URLs SERP</th>"
+        summary += "<th>URLs Perplexity</th><th>URLs em ambas</th></tr></thead><tbody>"
+        for query, serp_count, px_count, overlap in comparisons:
+            summary += f"<tr><td>{escape(query)}</td><td>{serp_count}</td>"
+            summary += f"<td>{px_count}</td><td>{overlap}</td></tr>"
+        summary += "</tbody></table><p>Sobreposição observacional de URLs exatas, "
+        summary += "sem equivalência temporal, de ranking ou de comportamento dos modelos.</p>"
+    summary += "</section>"
     summary += "<section><h2>Domínios das fontes observadas</h2><ul>"
     for host, n in counts.most_common(20):
         summary += f"<li>{escape(host)}: {n} fonte(s)</li>"
