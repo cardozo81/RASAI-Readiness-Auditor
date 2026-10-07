@@ -49,54 +49,26 @@ def _observations(database: Path, audit_id: str) -> tuple[list[dict], list[dict]
 
 
 
-def _serp_comparison(database: Path, audit_id: str, runs: list[dict], sources: list[dict]) -> list[tuple[str, int, int, int]]:
-    """Compare URL overlap only for unambiguously single-query Perplexity requests.
-
-    Multi-query search sources cannot reliably be assigned to individual queries.
-    SERP comparisons only use successful live observations; fixture/failed data abstains.
-    """
-    eligible: list[tuple[str, str]] = []
-    for run in runs:
-        if str(run.get("status", "")).upper() != "SUCCESS":
-            continue
-        try:
-            queries = json.loads(run["query_json"])
-        except (TypeError, ValueError):
-            continue
-        if isinstance(queries, list) and len(queries) == 1 and isinstance(queries[0], str):
-            eligible.append((run["run_id"], queries[0].strip().casefold()))
-    if not eligible:
-        return []
+def _stored_comparison(database: Path, audit_id: str) -> dict | None:
+    """Read only the frozen GEO observation snapshot; never derive metrics in HTML."""
     with sqlite3.connect(f"file:{database.resolve().as_posix()}?mode=ro", uri=True) as con:
-        tables = {row[0] for row in con.execute(
+        table = con.execute(
             "SELECT name FROM sqlite_master WHERE type='table' "
-            "AND name IN ('serp_observations','serp_results')"
-        )}
-        if len(tables) < 2:
-            return []
-        observations = list(con.execute(
-            "SELECT observation_id, query, collected_at FROM serp_observations "
-            "WHERE audit_id=? AND observation_status='OBSERVED' AND data_mode='OBSERVED_API' "
-            "ORDER BY collected_at DESC, observation_id DESC", (audit_id,)
-        ))
-        latest: dict[str, str] = {}
-        for obs_id, query, _ in observations:
-            latest.setdefault(str(query).strip().casefold(), obs_id)
-        result = []
-        for run_id, query in eligible:
-            obs_id = latest.get(query)
-            if not obs_id:
-                continue
-            serp_urls = {str(row[0]).strip() for row in con.execute(
-                "SELECT url FROM serp_results WHERE observation_id=?", (obs_id,)
-            )}
-            perplexity_urls = {str(s["url"]).strip() for s in sources if s["run_id"] == run_id}
-            if not serp_urls and not perplexity_urls:
-                continue
-            result.append((query, len(serp_urls), len(perplexity_urls),
-                           len(serp_urls & perplexity_urls)))
-    return result
-
+            "AND name='geo_observation_runs'"
+        ).fetchone()
+        if table is None:
+            return None
+        row = con.execute(
+            "SELECT projection_json FROM geo_observation_runs WHERE audit_id=? "
+            "ORDER BY created_at DESC, analysis_id DESC LIMIT 1", (audit_id,)
+        ).fetchone()
+    if row is None:
+        return None
+    try:
+        result = json.loads(row[0])
+    except (ValueError, TypeError):
+        return None
+    return result if isinstance(result, dict) else None
 
 
 def geo_body(database: Path, audit_id: str) -> str:
@@ -134,20 +106,18 @@ def geo_body(database: Path, audit_id: str) -> str:
             for value in (run["run_id"], qs, run["status"], run["search_type"])
         ) + "</tr>"
     summary += "</tbody></table></section>"
-    comparisons = _serp_comparison(database, audit_id, runs, sources)
+    comparison = _stored_comparison(database, audit_id)
     summary += "<section><h2>Comparação SERP × Perplexity</h2>"
-    if not comparisons:
-        summary += "<p>Comparação não aplicável: não há queries singulares correspondentes "
-        summary += "com SERP live válida e fontes rastreáveis. Requests com múltiplas queries "
+    if comparison is None or comparison.get("serp_observation_id") is None:
+        summary += "<p>Comparação não aplicável: não há snapshot de análise GEO "
+        summary += "com consulta única e observação SERP live válida. Requests multi-query "
         summary += "não são desagregados artificialmente.</p>"
     else:
-        summary += "<table><thead><tr><th>Consulta</th><th>URLs SERP</th>"
-        summary += "<th>URLs Perplexity</th><th>URLs em ambas</th></tr></thead><tbody>"
-        for query, serp_count, px_count, overlap in comparisons:
-            summary += f"<tr><td>{escape(query)}</td><td>{serp_count}</td>"
-            summary += f"<td>{px_count}</td><td>{overlap}</td></tr>"
-        summary += "</tbody></table><p>Sobreposição observacional de URLs exatas, "
-        summary += "sem equivalência temporal, de ranking ou de comportamento dos modelos.</p>"
+        summary += "<p>Sobreposição observacional de URLs exatas na mesma consulta: "
+        summary += f"{int(comparison.get('url_overlap_count') or 0)} em ambas; "
+        summary += f"{int(comparison.get('serp_url_count') or 0)} URLs SERP e "
+        summary += f"{int(comparison.get('perplexity_url_count') or 0)} URLs Perplexity."
+        summary += " Não demonstra causalidade, ranking equivalente ou citação generativa.</p>"
     summary += "</section>"
     summary += "<section><h2>Domínios das fontes observadas</h2><ul>"
     for host, n in counts.most_common(20):
