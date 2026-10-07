@@ -13,6 +13,17 @@ from rasai.console_search_intelligence import (
 
 
 class PerplexityActivationFlagTests(unittest.TestCase):
+    def test_flag_is_managed_by_canonical_nonsecret_registry(self):
+        from rasai import console_provider_environment
+        from rasai.console_settings import _known_nonsecret_environment_names
+        spec = console_provider_environment.refresh_specs()
+        flag = next(item for item in spec if item.name == "RASAI_PERPLEXITY_ENABLED")
+        key = next(item for item in spec if item.name == "PERPLEXITY_API_KEY")
+        self.assertFalse(flag.sensitive)
+        self.assertTrue(key.sensitive)
+        self.assertIn("RASAI_PERPLEXITY_ENABLED", _known_nonsecret_environment_names())
+        self.assertNotIn("PERPLEXITY_API_KEY", _known_nonsecret_environment_names())
+
     def test_missing_flag_preserves_legacy_behavior(self):
         self.assertTrue(perplexity_enabled({}))
         self.assertTrue(perplexity_enabled({"PERPLEXITY_API_KEY": "opaque"}))
