@@ -342,6 +342,32 @@ def _reconcile_improvement_rpr(workspace: Any, audit_id: str) -> None:
 
     run = _improvement_run(workspace, audit_id)
     if run is None:
+        # A pre-provider failure (configuration, missing hook, execution policy,
+        # governed preparation) may legitimately leave no domain run row. Preserve
+        # that causal state instead of rewriting it as a synthetic materialization
+        # failure.
+        current_item = _item(workspace, audit_id, "IMPROVEMENT_INTELLIGENCE")
+        existing_code = str(
+            getattr(current_item, "last_error_code", "") or ""
+        ).strip()
+        existing_class = str(
+            getattr(current_item, "last_error_class", "") or ""
+        ).strip()
+        existing_message = str(
+            getattr(current_item, "last_error_message", "") or ""
+        ).strip()
+        existing_status = str(
+            getattr(current_item, "status", "") or ""
+        ).upper()
+        if (
+            current_item is not None
+            and existing_status
+            in {FAILED_RETRYABLE, NOT_CONFIGURED, "REQUESTED_NOT_EXECUTED"}
+            and existing_code
+            and existing_code != "IMPROVEMENT_RETRY_NOT_MATERIALIZED"
+            and (existing_class or existing_message)
+        ):
+            return
         set_work_item_status(
             workspace,
             audit_id=audit_id,
