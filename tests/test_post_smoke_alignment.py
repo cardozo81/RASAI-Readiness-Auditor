@@ -492,7 +492,7 @@ def test_content_remediation_governance_backfill_is_deterministic_and_telemetry_
         connection.close()
 
     assert row == (
-        "CONTENT_REMEDIATION",
+        "CONTENT_REMEDIATION_LEGACY_BACKFILL",
         "AIT-BACKFILL",
         "AIR-BACKFILL",
         "OPENAI",
