@@ -54,6 +54,31 @@ class GeoObservationTests(unittest.TestCase):
             self.assertEqual(data["serp_observation_id"], "SERP-1")
             self.assertEqual(data["url_overlap_count"], 1)
 
+    def test_target_observation_explains_alternative_and_absence_without_causality(self):
+        from rasai.geo_observation import _target_observation
+        with sqlite3.connect(":memory:") as con:
+            con.row_factory = sqlite3.Row
+            con.execute("CREATE TABLE audit_targets (target_id TEXT, audit_id TEXT, input_url TEXT)")
+            con.execute("INSERT INTO audit_targets VALUES (?,?,?)",
+                        ("target", "AUD-1", "https://example.org/seguro"))
+            run = {"run_id": "RUN-1", "status": "SUCCESS"}
+            alt = _target_observation(
+                con, "AUD-1", run, ["seguro"],
+                [{"url": "https://example.org/other", "position": 1}]
+            )
+            self.assertEqual(alt["status"], "DOMAIN_ALTERNATIVE_OBSERVED")
+            missing = _target_observation(
+                con, "AUD-1", run, ["seguro"],
+                [{"url": "https://competitor.org/policy", "position": 1}]
+            )
+            self.assertEqual(missing["status"], "TARGET_NOT_IN_RETURNED_SOURCES")
+            self.assertIn("nao prova", missing["causality"])
+            exact = _target_observation(
+                con, "AUD-1", run, ["seguro"],
+                [{"url": "https://www.example.org/seguro/", "position": 1}]
+            )
+            self.assertEqual(exact["status"], "EXACT_URL_OBSERVED")
+
     def test_multi_query_abstains_from_serp_attribution(self):
         with tempfile.TemporaryDirectory() as temp:
             db = Path(temp) / "audit.db"
