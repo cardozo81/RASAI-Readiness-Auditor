@@ -307,7 +307,7 @@ def test_historical_m20_backfill_links_missing_governance_without_changing_usage
         connection.close()
 
     assert row == (
-        "CONTENT_REMEDIATION", "AIT-HIST", "AIR-HIST",
+        "CONTENT_REMEDIATION_LEGACY_BACKFILL", "AIT-HIST", "AIR-HIST",
         "OPENAI", "gpt-test", 5020, 930, 0.00212,
     )
     assert calls == ["task", "round", "complete"]
