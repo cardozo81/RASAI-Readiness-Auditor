@@ -41,6 +41,16 @@ class PerplexityActivationFlagTests(unittest.TestCase):
         self.assertTrue(ready)
         self.assertIn("desabilitada", detail)
 
+    def test_optional_search_failure_never_demotes_audit_status(self):
+        from pathlib import Path
+        source = (Path(__file__).resolve().parents[1] / "src" / "rasai" /
+                  "console_search_intelligence.py").read_text(encoding="utf-8")
+        self.assertIn("execute_perplexity_for_audit(state)", source)
+        self.assertNotIn(
+            "if execute_perplexity_for_audit(state) != 0:\\n                any_limitation = True",
+            source,
+        )
+
     def test_disabled_never_reaches_workspace_or_runner(self):
         state = SimpleNamespace(perplexity_queries=("example",))
         with patch.dict("os.environ", {"RASAI_PERPLEXITY_ENABLED": "false"}), patch(
