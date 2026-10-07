@@ -48,6 +48,10 @@ _SELECTION_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "HTTP_ACQUISITION",
         "RENDER_CAPTURE",
         "CONTENT_EXTRACTION",
+        # Semantic replay may invalidate a previously successful M20 result during
+        # this same RPR. Pre-authorize M20 in the frozen scope so the invalidated
+        # dependency can be refreshed before Deep Analysis is dependency-gated.
+        "CONTENT_REMEDIATION_AI",
     ),
 }
 
