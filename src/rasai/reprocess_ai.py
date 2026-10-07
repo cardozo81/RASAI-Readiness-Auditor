@@ -385,7 +385,7 @@ def recover_content_remediation(
     provider: Any | None = None,
     force_all_contexts: bool = False,
 ) -> tuple[bool, Any, str]:
-    from rasai import m20
+    from rasai import audit_runner, m20
 
     active_provider = provider or build_reprocess_provider(workspace,audit_id,item)
     successful = frozenset() if force_all_contexts else _successful_m20_snapshots(workspace,audit_id)
@@ -396,7 +396,7 @@ def recover_content_remediation(
 
     m20.build_content_remediation_router = selective_factory
     try:
-        result = m20.execute_m20(
+        result = audit_runner.execute_m20(
             audit_id=audit_id,enabled=True,semantic_provider=active_provider,workspace=workspace,
         )
     finally:
