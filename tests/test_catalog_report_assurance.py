@@ -342,6 +342,20 @@ def test_security_scanner_ignores_css_sk_classes_but_detects_credential_assignme
     assert any("credencial" in item for item in failures)
 
 
+def test_security_scanner_ignores_escaped_evidence_handlers_but_rejects_active_inline_handler() -> None:
+    escaped = (
+        "<div class='pre'>&lt;a href=&quot;&quot; "
+        "onclick=&quot;cookieBannerControl(event)&quot;&gt;</div>"
+    )
+    ok, failures = _safe_output(escaped)
+    assert ok is True
+    assert failures == []
+
+    ok, failures = _safe_output("<button onclick=\"runUnsafe()\">Executar</button>")
+    assert ok is False
+    assert any("event handler" in item for item in failures)
+
+
 def test_catalog_referential_integrity_detects_audit_owned_fk_violation(monkeypatch, tmp_path: Path) -> None:
     from rasai import catalog_report_catalog_state as state
     import sqlite3
@@ -1028,6 +1042,72 @@ def test_cat08_rpr_ai_override_provenance_reconciles_ledger_and_provider_attempt
     passed, detail = _rpr_ai_override_provenance(database, "AUD-ASSURANCE", "CAT-08")
     assert passed is True
     assert "1 com IA efetivamente executada" in detail
+
+
+def test_cat08_rpr_global_ai_usage_without_improvement_attempt_is_not_mismatch(tmp_path: Path) -> None:
+    import json
+    import sqlite3
+    from rasai.catalog_report_assurance import _rpr_ai_override_provenance
+
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE audit_reprocess_runs(
+                reprocess_id TEXT,audit_id TEXT,configuration TEXT,
+                started_at TEXT,completed_at TEXT
+            );
+            CREATE TABLE audit_fulfillment_work_items(
+                work_item_id TEXT,audit_id TEXT,component TEXT
+            );
+            CREATE TABLE audit_fulfillment_attempts(
+                reprocess_id TEXT,audit_id TEXT,work_item_id TEXT
+            );
+            CREATE TABLE ai_provider_attempts(
+                audit_id TEXT,semantic_contract_version TEXT,
+                started_at TEXT,operation TEXT
+            );
+            """
+        )
+        connection.execute(
+            "INSERT INTO audit_reprocess_runs VALUES (?,?,?,?,?)",
+            (
+                "RPR-OTHER-AI",
+                "AUD-ASSURANCE",
+                json.dumps({"ai_used": True}),
+                "2026-09-22T10:00:00+00:00",
+                "2026-09-22T10:05:00+00:00",
+            ),
+        )
+        connection.execute(
+            "INSERT INTO audit_fulfillment_work_items VALUES (?,?,?)",
+            ("WKI-1", "AUD-ASSURANCE", "IMPROVEMENT_INTELLIGENCE"),
+        )
+        connection.execute(
+            "INSERT INTO audit_fulfillment_attempts VALUES (?,?,?)",
+            ("RPR-OTHER-AI", "AUD-ASSURANCE", "WKI-1"),
+        )
+        connection.execute(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?)",
+            (
+                "AUD-ASSURANCE",
+                "M24-TECHNICAL-REMEDIATION-v2",
+                "2026-09-22T10:02:00+00:00",
+                "TECHNICAL_AI",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    passed, detail = _rpr_ai_override_provenance(
+        database,
+        "AUD-ASSURANCE",
+        "CAT-08",
+    )
+    assert passed is True
+    assert "0 com IA efetivamente executada" in detail
 
 
 def test_logical_sqlite_digest_detects_snapshot_state_divergence(tmp_path: Path) -> None:
