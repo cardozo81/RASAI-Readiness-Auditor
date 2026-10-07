@@ -1822,3 +1822,86 @@ def test_rpr_does_not_duplicate_improvement_when_already_eligible_first_pass(
     assert used_ai is True
     assert calls == [frozenset({"IMPROVEMENT_INTELLIGENCE"})]
 
+def test_ineligible_competitive_is_terminal_before_improvement_dependency_gate(
+    tmp_path: Path,
+) -> None:
+    workspace = _workspace(tmp_path)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="SEARCH_INTELLIGENCE",
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        status=SUCCESS,
+        retryable=False,
+        configuration={
+            "ai_competitive": True,
+            "compare_content": False,
+            "ai_provider": "auto",
+            "ai_model": "",
+            "ai_timeout_seconds": 180.0,
+            "ymyl_mode": "AUTO",
+        },
+    )
+    _register_pending(workspace, "IMPROVEMENT_INTELLIGENCE")
+
+    purposes = runtime._registered_ai_purposes(workspace, AUDIT_ID, {})
+
+    assert purposes == frozenset({"IMPROVEMENT_INTELLIGENCE"})
+    items = {
+        item.component: item
+        for item in list_work_items(workspace, AUDIT_ID)
+    }
+    competitive = items["COMPETITIVE_INTELLIGENCE"]
+    assert competitive.status == "NOT_APPLICABLE"
+    assert competitive.retryable is False
+    assert competitive.last_error_class == "ELIGIBILITY"
+    assert competitive.last_error_code == "CONTENT_COMPARISON_REQUIRED"
+
+    improvement = items["IMPROVEMENT_INTELLIGENCE"]
+    assert improvement.status == FAILED_RETRYABLE
+
+
+def test_competitive_hook_preserves_not_applicable_without_provider_execution(
+    tmp_path: Path,
+) -> None:
+    from rasai.search_audit_runtime import _competitive_ai_hook
+
+    workspace = _workspace(tmp_path)
+    register_work_item(
+        workspace,
+        audit_id=AUDIT_ID,
+        component="SEARCH_INTELLIGENCE",
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        status=SUCCESS,
+        retryable=False,
+        configuration={
+            "ai_competitive": True,
+            "compare_content": False,
+            "ai_provider": "auto",
+            "ai_model": "",
+            "ai_timeout_seconds": 180.0,
+            "ymyl_mode": "AUTO",
+        },
+    )
+
+    outcome = _competitive_ai_hook(
+        audit_id=AUDIT_ID,
+        workspace=workspace,
+        evidence_snapshot=None,
+    )
+
+    assert outcome == {
+        "status": "NOT_ELIGIBLE",
+        "requested": True,
+        "reason": "CONTENT_COMPARISON_REQUIRED",
+    }
+    competitive = next(
+        item
+        for item in list_work_items(workspace, AUDIT_ID)
+        if item.component == "COMPETITIVE_INTELLIGENCE"
+    )
+    assert competitive.status == "NOT_APPLICABLE"
+    assert competitive.attempt_count == 0
+

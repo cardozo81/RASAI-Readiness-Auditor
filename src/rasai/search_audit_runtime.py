@@ -22,6 +22,7 @@ from urllib.parse import urlsplit
 from rasai.audit_fulfillment import (
     FAILED_RETRYABLE,
     LIVE_RECOLLECTION,
+    NOT_APPLICABLE,
     REPLAY_SAFE,
     SUCCESS,
     WAITING_FOR_DATA,
@@ -806,9 +807,28 @@ def ensure_competitive_ai_work_item(workspace: Any, audit_id: str):
                 configuration.get("ai_timeout_seconds") or DEFAULT_AI_TIMEOUT_SECONDS
             ),
             "ymyl_mode": str(configuration.get("ymyl_mode") or "AUTO"),
+            "compare_content": (
+                bool(configuration.get("compare_content"))
+                if "compare_content" in configuration
+                else None
+            ),
             "source": "search_intelligence",
         },
     )
+    if "compare_content" in configuration and not bool(configuration.get("compare_content")):
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="COMPETITIVE_INTELLIGENCE",
+            status=NOT_APPLICABLE,
+            error_class="ELIGIBILITY",
+            error_code="CONTENT_COMPARISON_REQUIRED",
+            error_message=(
+                "Competitive AI não é aplicável porque a comparação determinística "
+                "de conteúdo não foi habilitada na configuração original da auditoria"
+            ),
+            retryable=False,
+        )
     return next(
         (
             item

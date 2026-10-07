@@ -1229,6 +1229,13 @@ def _registered_ai_purposes(
         return frozenset()
 
     purposes: set[str] = set()
+    from rasai.search_audit_runtime import ensure_competitive_ai_work_item
+
+    # Reconcile Competitive applicability before Deep Analysis inspects the shared
+    # fulfillment graph. A configuration-level NOT_APPLICABLE state is terminal and
+    # must not survive as a transient blocker for Improvement.
+    competitive_item = ensure_competitive_ai_work_item(workspace, audit_id)
+
     improvement = _pending_item(workspace, audit_id, "IMPROVEMENT_INTELLIGENCE")
     if improvement is not None:
         blockers = blocking_dependencies(workspace, improvement)
@@ -1257,9 +1264,6 @@ def _registered_ai_purposes(
             )
         else:
             purposes.add("IMPROVEMENT_INTELLIGENCE")
-    from rasai.search_audit_runtime import ensure_competitive_ai_work_item
-
-    ensure_competitive_ai_work_item(workspace, audit_id)
     competitive = _pending_item(workspace, audit_id, "COMPETITIVE_INTELLIGENCE")
     if competitive is not None:
         blockers = blocking_dependencies(workspace, competitive)
@@ -1280,7 +1284,7 @@ def _registered_ai_purposes(
             )
         else:
             purposes.add("COMPETITIVE_INTELLIGENCE")
-    elif str(recovered.get("SEARCH_INTELLIGENCE") or "").upper() == "SUCCESS":
+    elif competitive_item is None and str(recovered.get("SEARCH_INTELLIGENCE") or "").upper() == "SUCCESS":
         # Compatibility path for configurations that do not request Competitive AI.
         purposes.add("COMPETITIVE_INTELLIGENCE")
     return frozenset(purposes)
