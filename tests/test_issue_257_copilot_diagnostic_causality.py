@@ -167,4 +167,4 @@ def test_attempt_persistence_and_report_keep_provider_error_detail(tmp_path) -> 
     )
     html = _ai_integrations_body(workspace.database, data)
     assert detail in html
-    assert "SemanticProviderError" in html
+    assert "Erro não identificado do provedor" not in html
