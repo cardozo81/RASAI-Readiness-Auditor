@@ -176,6 +176,12 @@ def test_both_orchestrators_use_gate_and_m24_cli_does_not_run_preseal_ai():
     assert initial.index("evaluate_collection_readiness(") < initial.index("maybe_explain_source_quality(")
     assert "if explain_source_quality and collection_gate.ready:" in initial
     assert "if collection_gate.ready else {}" in initial
+    initial_run = inspect.getsource(audit_runner.run_audit)
+    assert (
+        initial_run.index("reconcile_before_reporting(workspace=workspace, audit_id=audit_id)")
+        < initial_run.index("_project_initial_ai_waiting_for_collection(")
+        < initial_run.index("persist_active_outcome_before_reporting(")
+    )
     assert rpr.index("evaluate_collection_readiness(") < rpr.index("result = original(")
     assert "if not collection_gate.ready:" in rpr
     assert registered.index("evaluate_collection_readiness(") < registered.index("_registered_ai_purposes(")
@@ -416,4 +422,63 @@ def test_rpr_deferred_collection_never_downgrades_selected_ai_success(
         if item.component == "TECHNICAL_AI"
     )
     assert technical.status == SUCCESS
+
+def test_initial_aud_deferred_collection_projects_configured_ai_as_waiting(tmp_path):
+    from rasai import audit_runner
+
+    workspace = _workspace(tmp_path)
+    _item(workspace, "PASSIVE_SECURITY", FAILED_RETRYABLE)
+    _item(workspace, "SEMANTIC_AI", FAILED_RETRYABLE, scope_key="SNP-1")
+    _item(workspace, "TECHNICAL_AI", REQUESTED_NOT_EXECUTED)
+    _item(workspace, "CONTENT_REMEDIATION_AI", REQUESTED_NOT_EXECUTED)
+    _item(workspace, "IMPROVEMENT_INTELLIGENCE", REQUESTED_NOT_EXECUTED)
+    _item(workspace, "COMPETITIVE_INTELLIGENCE", REQUESTED_NOT_EXECUTED, required=False)
+
+    audit_runner._project_initial_ai_waiting_for_collection(
+        workspace,
+        AUDIT_ID,
+        blockers=("PASSIVE_SECURITY/AUDIT:FAILED_RETRYABLE",),
+        ai_configured=True,
+    )
+
+    items = {
+        (item.component, item.scope_key): item
+        for item in list_work_items(workspace, AUDIT_ID)
+    }
+    for key in (
+        ("SEMANTIC_AI", "SNP-1"),
+        ("TECHNICAL_AI", "AUDIT"),
+        ("CONTENT_REMEDIATION_AI", "AUDIT"),
+        ("IMPROVEMENT_INTELLIGENCE", "AUDIT"),
+    ):
+        item = items[key]
+        assert item.status == WAITING_FOR_DATA
+        assert item.attempt_count == 0
+        assert item.last_error_class == "PREREQUISITE"
+        assert item.last_error_code == "AI_WAITING_FOR_PREREQUISITES"
+        assert "PASSIVE_SECURITY/AUDIT:FAILED_RETRYABLE" in str(item.last_error_message)
+
+    competitive = items[("COMPETITIVE_INTELLIGENCE", "AUDIT")]
+    assert competitive.status == REQUESTED_NOT_EXECUTED
+    assert competitive.attempt_count == 0
+
+
+def test_initial_aud_gate_projection_preserves_success_and_real_no_provider_state(tmp_path):
+    from rasai import audit_runner
+
+    workspace = _workspace(tmp_path)
+    _item(workspace, "PASSIVE_SECURITY", FAILED_RETRYABLE)
+    _item(workspace, "TECHNICAL_AI", SUCCESS)
+    _item(workspace, "IMPROVEMENT_INTELLIGENCE", REQUESTED_NOT_EXECUTED)
+
+    audit_runner._project_initial_ai_waiting_for_collection(
+        workspace,
+        AUDIT_ID,
+        blockers=("PASSIVE_SECURITY/AUDIT:FAILED_RETRYABLE",),
+        ai_configured=False,
+    )
+
+    items = {item.component: item for item in list_work_items(workspace, AUDIT_ID)}
+    assert items["TECHNICAL_AI"].status == SUCCESS
+    assert items["IMPROVEMENT_INTELLIGENCE"].status == REQUESTED_NOT_EXECUTED
 
