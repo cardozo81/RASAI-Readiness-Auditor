@@ -265,6 +265,7 @@ def _crux_provenance_html(database: Path, data: _ReportData) -> str:
     try:
         from rasai.observability.store import observability_database_path
         sidecar=observability_database_path(database.parent)
+        record_source_dependency(sidecar)
         if sidecar.is_file():
             connection=sqlite3.connect(sidecar)
             connection.row_factory=sqlite3.Row
