@@ -155,6 +155,7 @@ def _audit_service_runs(database: Path, audit_id: str, needle: str) -> list[dict
 def _observability(database: Path) -> tuple[list[dict[str, Any]], sqlite3.Connection | None]:
     path = observability_database_path(database.parent)
     record_source_dependency(path)
+    record_source_dependency(path.with_name(path.name + "-wal"))
     if not path.is_file():
         return [], None
     connection = sqlite3.connect(path)
