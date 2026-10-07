@@ -1,5 +1,6 @@
 """AI and external-integration telemetry, payload safety and cost projection."""
 from rasai.catalog_report_governance import *  # noqa: F401,F403
+from rasai.catalog_report_public_labels import public_label
 from rasai.ai_native_usage import humanize_native_usage_unit
 from rasai.ai_economic_telemetry import aggregate_attempt_costs, attempt_monetary_cost, canonical_total_tokens
 from rasai.secret_safety import redact_value
@@ -110,6 +111,11 @@ def _external_details_public_text(value: Any) -> str:
             if metadata.get("scope_policy") == "AUDITED_ORIGIN_ONLY":
                 metadata["scope_policy"] = "Somente a origem auditada"
             displayed["metadata"] = metadata
+    for key in ("source_type", "capture_method"):
+        raw = displayed.get(key)
+        label = public_label(raw)
+        if label is not None:
+            displayed[key] = label
     return json.dumps(displayed, ensure_ascii=False, indent=2)
 
 

@@ -238,7 +238,7 @@ def _technical_context(bundle: Any) -> tuple[dict[str, Any], ...]:
         evolution = "NEW" if prior is None else ("CHANGED" if _fingerprint(item) not in prior else "PERSISTING")
         row = dict(item)
         row["evolution_status"] = evolution
-        row["remediation_recipe"] = asdict(recipe_for(str(item.get("rule_id") or "")))
+        row["remediation_recipe"] = asdict(recipe_for(str(item.get("rule_id") or ""), observed_value=item.get("observed_value")))
         row["relevant_to_material_change"] = bool(
             (not relevant_rules and not relevant_urls) or row["rule_id"] in relevant_rules or str(row.get("url") or "") in relevant_urls
         )

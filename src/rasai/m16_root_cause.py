@@ -293,12 +293,12 @@ def derive_root_cause(
     audit_id: str,
 ) -> RootCauseAnalysis:
     rule_id = str(finding["rule_id"])
-    recipe = recipe_for(rule_id)
     observed = _json_value(
         finding["execution_observed_value"]
         if "execution_observed_value" in finding.keys()
         else finding["observed_value"]
     )
+    recipe = recipe_for(rule_id, observed_value=observed)
     expected = (
         finding["execution_expected_condition"]
         if "execution_expected_condition" in finding.keys() and finding["execution_expected_condition"]

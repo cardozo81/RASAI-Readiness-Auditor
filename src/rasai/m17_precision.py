@@ -208,7 +208,7 @@ def derive_precision(
         reason = _derived_rule_reason(analysis.rule_id, analysis.observed_value)
     status = _observed_element_status(analysis, reason)
     observed_selector = _observed_selector(analysis, status)
-    recipe = recipe_for(analysis.rule_id)
+    recipe = recipe_for(analysis.rule_id, observed_value=analysis.observed_value)
     target_selector = _TARGET_SELECTOR.get(analysis.rule_id)
     precise = _precise_cause(analysis, reason, status)
     return RootCausePrecision(
