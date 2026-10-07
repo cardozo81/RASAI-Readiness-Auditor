@@ -722,8 +722,9 @@ def install(console_module: ModuleType) -> None:
                 )
             except Exception:
                 pass
-            if execute_perplexity_for_audit(state) != 0:
-                any_limitation = True
+            # Perplexity is optional advisory enrichment: its failure must not
+            # demote the audit lifecycle state or consolidation eligibility.
+            execute_perplexity_for_audit(state)
 
         if any_limitation:
             state.status = "COMPLETE_WITH_LIMITATIONS"
