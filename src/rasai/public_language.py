@@ -483,6 +483,7 @@ COMPONENT_LABELS: dict[str, str] = {
     "ACCESSIBILITY_DATA": "Dados de acessibilidade",
     "STANDARDS_EXTERNAL": "Validação externa de padrões",
     "DIRECTED_ANALYSIS": "Análise direcionada",
+    "COMPETITIVE_INTELLIGENCE": "Inteligência competitiva por IA",
     "SEARCH_INTELLIGENCE": "Inteligência de busca / SERP",
     "WEB_PERFORMANCE": "Web Performance",
     "SYNTHETIC_APDEX": "Apdex de navegação",
