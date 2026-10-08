@@ -138,6 +138,106 @@ class PerplexityActivationFlagTests(unittest.TestCase):
             source,
         )
 
+    def test_invalid_optional_perplexity_is_not_an_aud_readiness_gate(self):
+        from types import ModuleType
+        from rasai.console_search_intelligence import SearchConsoleState, install
+        console = ModuleType("test_isolated_perplexity_console")
+        console._menu = lambda state: "V"
+        console._configure = lambda state, choice: None
+        console._execution_readiness = lambda state: (True, "AUD pronta")
+        console.run_audit_from_console = lambda state: 0
+        console._render_actual_usage = lambda state: None
+        install(console)
+
+        state = SearchConsoleState(
+            perplexity_queries=("termo",),
+            perplexity_search_type="invalid",
+        )
+        ready, reason = console._execution_readiness(state)
+        self.assertTrue(ready)
+        self.assertIn("Perplexity opcional não será executada", reason)
+        self.assertIn("search_type inválido", reason)
+
+        state.perplexity_search_type = "web"
+        state.perplexity_queries = ("um", "dois", "tres", "quatro", "cinco", "seis")
+        ready, reason = console._execution_readiness(state)
+        self.assertTrue(ready)
+        self.assertIn("excede", reason)
+
+    def test_invalid_optional_query_never_reaches_workspace_or_provider(self):
+        from rasai.console_search_intelligence import SearchConsoleState
+        state = SearchConsoleState(
+            perplexity_queries=("um",),
+            perplexity_search_type="invalid",
+        )
+        with patch.dict("os.environ", {"RASAI_PERPLEXITY_ENABLED": "true"}), patch(
+            "rasai.console_search_intelligence.audit_workspace",
+            side_effect=AssertionError("optional invalid query must never enter AUD workspace"),
+        ):
+            self.assertEqual(
+                execute_perplexity_for_audit(
+                    state, runner=lambda *args, **kwargs: self.fail("paid Perplexity called")
+                ), 1,
+            )
+        self.assertEqual(state.perplexity_last_status, "COMPLETE_WITH_LIMITATIONS")
+        self.assertIn("não executada", state.perplexity_last_detail)
+
+    def test_unexpected_perplexity_adapter_error_cannot_demote_completed_aud(self):
+        from types import ModuleType
+        from rasai.console_search_intelligence import SearchConsoleState, install
+        console = ModuleType("test_perplexity_exception_isolation_console")
+        console._menu = lambda state: "V"
+        console._configure = lambda state, choice: None
+        console._execution_readiness = lambda state: (True, "AUD pronta")
+        console.run_audit_from_console = lambda state: (
+            setattr(state, "status", "PARTIAL_RETRYABLE") or 0
+        )
+        console._render_actual_usage = lambda state: None
+        install(console)
+        state = SearchConsoleState(
+            perplexity_queries=("seguro de vida",),
+            perplexity_search_type="web",
+        )
+        with patch(
+            "rasai.console_search_intelligence.execute_perplexity_for_audit",
+            side_effect=AssertionError("mock provider integration failed"),
+        ):
+            self.assertEqual(console.run_audit_from_console(state), 0)
+        self.assertEqual(state.status, "PARTIAL_RETRYABLE")
+        self.assertEqual(state.operation, "LOCAL:DONE")
+        self.assertEqual(state.perplexity_last_status, "COMPLETE_WITH_LIMITATIONS")
+        self.assertIn("AssertionError", state.perplexity_last_detail)
+        self.assertNotIn("mock provider integration failed", state.perplexity_last_detail)
+
+    def test_unexpected_runner_error_is_contained_in_perplexity_only(self):
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+        import sqlite3
+        from rasai.console_search_intelligence import SearchConsoleState
+        with TemporaryDirectory() as directory, patch.dict(
+            "os.environ", {"RASAI_PERPLEXITY_ENABLED": "true"}
+        ):
+            root = Path(directory) / "AUD-OPTIONAL-TEST"
+            root.mkdir()
+            with sqlite3.connect(root / "audit.db") as conn:
+                conn.execute("CREATE TABLE audits (audit_id TEXT PRIMARY KEY)")
+                conn.execute("INSERT INTO audits VALUES (?)", ("AUD-OPTIONAL-TEST",))
+            state = SearchConsoleState(
+                audits_root=directory,
+                audit_id="AUD-OPTIONAL-TEST",
+                perplexity_queries=("termo",),
+            )
+            code = execute_perplexity_for_audit(
+                state,
+                runner=lambda *args, **kwargs: (_ for _ in ()).throw(
+                    AssertionError("provider may contain credential")
+                ),
+            )
+        self.assertEqual(code, 1)
+        self.assertEqual(state.perplexity_last_status, "COMPLETE_WITH_LIMITATIONS")
+        self.assertIn("AssertionError", state.perplexity_last_detail)
+        self.assertNotIn("credential", state.perplexity_last_detail)
+
     def test_disabled_never_reaches_workspace_or_runner(self):
         state = SimpleNamespace(perplexity_queries=("example",))
         with patch.dict("os.environ", {"RASAI_PERPLEXITY_ENABLED": "false"}), patch(
