@@ -365,3 +365,16 @@ Para consultas Perplexity com região SERP explicitamente brasileira, são encam
 O motor de captura existente obtém o DOM serializado e, posteriormente, o screenshot do mesmo contexto de navegação. Quando o estado materializado de `capture_quality` já for `INCOMPLETE` e houver screenshot, uma única leitura adicional de `page.content()` após a imagem gera a metainformação `screenshot_dom_correlation`: versão do contrato, SHA-256 do HTML congelado e do DOM observado após screenshot, comprimento textual de `<main>` nos dois instantes e delta. A observação é local, não navega, não consulta providers e não substitui arquivos, hashes originais, pontuações nem as regras da captura renderizada. Para capturas `READY`, screenshots não capturados ou falhas no probe, não há impacto operacional: o estado será `NOT_APPLICABLE` ou `UNAVAILABLE`.
 
 Uma divergência temporal positiva é sinal observacional de conteúdo que apareceu após o primeiro DOM, **não** comprovação de que uma captura visual seja legível/indexável por crawler. O diagnóstico GEO de confiabilidade apresenta os artefatos de extração e de HTML/screenshot associados por SNP, sem OCR, e precisa de análise contextual antes de recomendar qualquer correção técnica.
+
+
+## Complemento externo GEO de auditoria concluida (#318 / #323)
+
+No menu de parametros CAT-05 > Perplexity, a opcao **6** permite propor a copia de termos SERP para Perplexity, mas somente apos confirmacao afirmativa. SERP e Perplexity nunca compartilham intencao automaticamente.
+
+A opcao **7** aceita o caminho de uma **AUD COMPLETE existente** e solicita queries, tipo WEB/FAST, pais, `intent_id` exclusivo e autorizacao expressa para **uma** consulta Search API potencialmente faturavel. A consulta e o custo nao sao disparados pelo toggle da integracao nem pela existencia de chave. A extensao nao executa novamente captura, extracao, SERP, PSI, IA canonica nem Apdex.
+
+O suplemento fica fora da pasta original da AUD, em `<audits-root>/.rasai-geo-supplements/<audit_id>/<intent-hash>/`. Contem `intent.json`, `result.json`, `supplement.html`, `evidence/audit.db` e `manifest.json` proprios. Um mesmo `intent_id` e escopo retorna o pacote existente sem novo HTTP. Intencao iniciada e nao finalizada **nao deve ser reenviada automaticamente**, pois timeout de rede pode ter faturamento desconhecido. Novo `intent_id` configura uma nova requisicao que exige novo aceite.
+
+Antes da extensao, sao verificadas a situacao `COMPLETE`, a integridade SQLite/FK e o pacote `report-catalog` original. O pacote e manifestos **originais nao sao atualizados**; o suplemento externo apresenta proveniencia e hash de vinculo. Resultados posteriores nao sao promovidos ao score ou reclassificados como observacoes historicas da AUD. O contrato da fronteira e o estudo de reuso estao em [ADR_PERPLEXITY_SEARCH_REUSE_323.md](ADR_PERPLEXITY_SEARCH_REUSE_323.md).
+
+**Limite:** executar a consulta real ainda depende de autorizacao humana explicita no console; a suite automatizada usa transporte fake sem consumo de API paga.
