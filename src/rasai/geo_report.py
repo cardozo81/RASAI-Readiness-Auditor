@@ -207,6 +207,30 @@ def _geo_ai_result(database: Path, audit_id: str, latest_run_id: str) -> dict | 
 def geo_body(database: Path, audit_id: str) -> str:
     """Evidence-backed readout; no scores, causal attribution or speculative gaps."""
     runs, sources = _observations(database, audit_id)
+    # Scoped component styling: no global report layout or engine changes.
+    style = """
+    <style>
+    .geo-view {--geo-border:#dbe4ee;--geo-surface:#fff;--geo-muted:#526579;
+      --geo-accent:#126b86;display:grid;gap:1.25rem;max-width:100%}
+    .geo-view > h1 {margin:.2rem 0 0;font-size:clamp(1.5rem,2.6vw,2rem);line-height:1.25}
+    .geo-view > p {color:var(--geo-muted);max-width:88ch;line-height:1.65;margin:0 0 .25rem}
+    .geo-view > section {background:var(--geo-surface);border:1px solid var(--geo-border);
+      border-left:4px solid var(--geo-accent);border-radius:12px;padding:1.3rem 1.5rem;
+      box-shadow:0 3px 14px rgba(20,42,66,.045);min-width:0}
+    .geo-view > section:nth-of-type(even) {border-left-color:#5774b9}
+    .geo-view section h2 {margin:0 0 .85rem;font-size:1.15rem;letter-spacing:-.01em}
+    .geo-view section p {line-height:1.6;color:var(--geo-muted);margin:.65rem 0}
+    .geo-view section table {display:block;overflow-x:auto;width:100%;border-collapse:collapse}
+    .geo-view section th,.geo-view section td {padding:.75rem .8rem;text-align:left;
+      border-bottom:1px solid var(--geo-border);vertical-align:top;overflow-wrap:anywhere}
+    .geo-view section th {background:#eef4f9;color:#243f58;font-weight:650}
+    .geo-view section li {margin:.55rem 0;line-height:1.6}
+    .geo-view section a {text-underline-offset:3px}
+    .geo-view > section:focus-within {outline:2px solid #abd3e0;outline-offset:2px}
+    @media(max-width:650px){.geo-view{gap:.85rem}.geo-view>section{padding:1rem}
+      .geo-view section th,.geo-view section td{padding:.6rem;font-size:.9rem}}
+    </style>
+    """
     header = (
         "<h1>GEO — Oportunidades para pesquisa orientada por IA</h1>"
         "<p>Esta página reúne observações externas e orientações de análise. "
@@ -215,14 +239,14 @@ def geo_body(database: Path, audit_id: str) -> str:
         "Melhorias representam boas práticas, nunca garantia de visibilidade.</p>"
     )
     if not runs:
-        return header + (
+        return style + '<div class="geo-view">' + header + (
             "<section><h2>Estado da observação</h2><p>Não há execução "
             "Perplexity Search persistida nesta auditoria. "
             "Pode estar não solicitada, desabilitada ou sem aquisição registrada. "
             "Sem dados, não é possível concluir presença ou ausência da URL em AI Search.</p></section>"
             "<p>Detalhes técnicos: <a href='cat-05.html'>CAT-05</a>; "
             "<a href='ai-integrations.html'>IA e integrações</a>.</p>"
-        )
+        ) + "</div>"
     counts = Counter(_host(x["url"]) for x in sources if _host(x["url"]))
     summary = "<section><h2>Observações recuperadas</h2>"
     summary += f"<p>{len(runs)} execução(ões) persistida(s); {len(sources)} fonte(s) recuperada(s).</p>"
@@ -424,4 +448,4 @@ def geo_body(database: Path, audit_id: str) -> str:
     summary += "<a href='cat-05.html'>CAT-05</a> e recomendações do "
     summary += "<a href='cat-09.html'>CAT-09</a>. "
     summary += "Não atribua causalidade sem evidência de conteúdo ou de acesso.</p></section>"
-    return header + summary
+    return style + '<div class="geo-view">' + header + summary + "</div>"
