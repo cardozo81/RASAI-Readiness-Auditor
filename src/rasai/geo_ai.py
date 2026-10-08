@@ -54,7 +54,10 @@ def _prepare(con: sqlite3.Connection, audit_id: str) -> tuple[str, CompetitiveAi
         return None
     evidence = tuple(
         CompetitiveAiEvidence(
-            evidence_id=f"PX:{row['run_id']}:{x['position']}",
+            evidence_id=(
+                f"PX:{row['run_id']}:{x['position']}:"
+                f"{sha256(str(x['url']).encode('utf-8')).hexdigest()[:10]}"
+            ),
             evidence_type="EXTERNAL_SEARCH_RESULT_METADATA",
             source="PERPLEXITY_SEARCH_API",
             observed_value={
