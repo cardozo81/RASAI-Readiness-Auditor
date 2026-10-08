@@ -344,7 +344,7 @@ def test_report_contract_labels_external_research_without_deterministic_claims()
     assert "não altera scoring" in detail[2]
 
 
-@pytest.mark.parametrize("status", [401, 403, 500])
+@pytest.mark.parametrize("status", [401, 402, 403, 429, 500])
 def test_http_errors_are_contained_and_not_billed(tmp_path, status: int) -> None:
     workspace = _workspace(tmp_path)
 
@@ -365,3 +365,9 @@ def test_http_errors_are_contained_and_not_billed(tmp_path, status: int) -> None
     assert run.status != "SUCCESS"
     assert run.native_usage[0].billable is False
     assert run.pricing.estimated_cost == pytest.approx(0.0)
+    if status == 402:
+        assert run.status == "CREDIT_ERROR"
+        assert run.diagnostic.error_class.value == "CREDIT_ERROR"
+        with sqlite3.connect(workspace.database) as conn:
+            assert conn.execute("SELECT COUNT(*) FROM perplexity_search_runs").fetchone()[0] == 1
+            assert conn.execute("SELECT score FROM scores").fetchone()[0] == 87.5
