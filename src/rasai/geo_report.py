@@ -123,6 +123,42 @@ def _prior_competitive_ai(database: Path, audit_id: str, serp_id: str | None) ->
 
 
 
+def _geo_review_routing(finding: dict) -> tuple[str, str]:
+    """Suggest a reviewer and verification step, not a causal GEO diagnosis.
+
+    Human owner labels route existing audit findings; they do not change the
+    underlying finding or promote Search API snippets to evidence.
+    """
+    value = " ".join(
+        str(finding.get(k) or "") for k in ("category", "rule_id", "title")
+    ).upper()
+    if any(term in value for term in (
+        "ROBOTS", "SITEMAP", "CRAWL", "INDEX", "CANONICAL", "DISCOVER",
+    )):
+        return (
+            "SEO técnico + Engenharia Web",
+            "verificar acesso crawler, sinais de indexação e URLs canônicas em ferramentas do buscador",
+        )
+    if any(term in value for term in (
+        "SCHEMA", "JSON_LD", "HTML", "STRUCTURE", "RENDER", "JAVASCRIPT",
+    )):
+        return (
+            "Engenharia Front-end + SEO técnico",
+            "comparar HTML inicial e DOM renderizado, extração principal e sintaxe de dados estruturados",
+        )
+    if any(term in value for term in (
+        "CONTENT", "SEMANTIC", "ENTITY", "META", "TITLE", "HEADING",
+    )):
+        return (
+            "Conteúdo/SEO editorial + especialista de produto",
+            "conferir clareza da resposta, precisão de afirmações, entidade, cobertura da intenção e atualização",
+        )
+    return (
+        "SEO + área de negócio responsável pela oferta",
+        "inspecionar achado original e validar relevância para intenção/mercado antes de priorizar",
+    )
+
+
 def _geo_relevant_findings(database: Path, audit_id: str) -> list[dict]:
     """Map only observed audit issues to review candidates; never infer causality."""
     with closing(sqlite3.connect(f"file:{database.resolve().as_posix()}?mode=ro", uri=True)) as con:
@@ -488,6 +524,9 @@ def geo_body(database: Path, audit_id: str) -> str:
             summary += " / " + escape(str(finding.get("severity") or "-"))
             summary += " | regra: " + escape(str(finding.get("rule_id") or "-"))
             summary += " | evidência: " + escape(str(finding.get("finding_id") or "-"))
+            owner, verification = _geo_review_routing(finding)
+            summary += "<br>Área para avaliar: " + escape(owner)
+            summary += " | Validação recomendada: " + escape(verification)
             existing = finding.get("existing_recommendation") or {}
             if existing.get("description"):
                 summary += "<br>Ação previamente registrada no RASAi: "
