@@ -165,6 +165,39 @@ def _geo_relevant_findings(database: Path, audit_id: str) -> list[dict]:
 
 
 
+
+def _geo_ai_result(database: Path, audit_id: str, latest_run_id: str) -> dict | None:
+    """Read an already-persisted GEO interpretation without AI calls."""
+    with closing(sqlite3.connect(f"file:{database.resolve().as_posix()}?mode=ro", uri=True)) as con:
+        if not con.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' "
+            "AND name='geo_ai_interpretations'"
+        ).fetchone():
+            return None
+        con.row_factory = sqlite3.Row
+        row = con.execute(
+            "SELECT state, provider, model, prompt_id, prompt_version, "
+            "summary, opportunities_json, input_sha256, error_reason "
+            "FROM geo_ai_interpretations WHERE audit_id=? AND perplexity_run_id=? "
+            "ORDER BY created_at DESC, result_id DESC LIMIT 1",
+            (audit_id, latest_run_id),
+        ).fetchone()
+    if row is None:
+        return None
+    result = dict(row)
+    try:
+        opportunities = json.loads(result["opportunities_json"] or "[]")
+    except (ValueError, TypeError):
+        opportunities = []
+    result["opportunities"] = [
+        x for x in opportunities
+        if isinstance(x, dict) and isinstance(x.get("evidence_ids"), list)
+        and x["evidence_ids"]
+    ] if isinstance(opportunities, list) else []
+    return result
+
+
+
 def geo_body(database: Path, audit_id: str) -> str:
     """Evidence-backed readout; no scores, causal attribution or speculative gaps."""
     runs, sources = _observations(database, audit_id)
@@ -237,6 +270,38 @@ def geo_body(database: Path, audit_id: str) -> str:
         if target.get("evidence_run_id"):
             summary += "<p>Run de origem: " + escape(str(target["evidence_run_id"])) + "</p>"
         summary += "<p>Este resultado não determina por que uma URL foi ou não foi recuperada.</p></section>"
+    geo_ai = _geo_ai_result(database, audit_id, runs[-1]["run_id"])
+    summary += "<section><h2>Interpretação GEO por IA canônica (opcional)</h2>"
+    if geo_ai is None:
+        summary += "<p>Não solicitada, indisponível ou sem resultado persistido "
+        summary += "para a observação externa mais recente.</p>"
+    else:
+        summary += "<p>Status: " + escape(str(geo_ai.get("state") or "-"))
+        summary += "; provider: " + escape(str(geo_ai.get("provider") or "-"))
+        summary += "; modelo: " + escape(str(geo_ai.get("model") or "-"))
+        summary += "; prompt: " + escape(str(geo_ai.get("prompt_id") or "-"))
+        summary += " / " + escape(str(geo_ai.get("prompt_version") or "-"))
+        summary += "; input hash: " + escape(str(geo_ai.get("input_sha256") or "-"))
+        summary += "</p>"
+        if geo_ai.get("summary"):
+            summary += "<p>" + escape(str(geo_ai["summary"])) + "</p>"
+        if geo_ai["opportunities"]:
+            summary += "<ol>"
+            for opportunity in geo_ai["opportunities"][:12]:
+                summary += "<li><strong>" + escape(str(opportunity.get("title") or "-"))
+                summary += "</strong> (" + escape(str(opportunity.get("priority") or "-")) + ")"
+                summary += ": " + escape(str(opportunity.get("recommendation") or "-"))
+                summary += " | evidências: " + ", ".join(
+                    escape(str(x)) for x in opportunity["evidence_ids"]
+                ) + "</li>"
+            summary += "</ol>"
+        else:
+            summary += "<p>Sem oportunidade com referência de evidência validada.</p>"
+        if geo_ai.get("error_reason"):
+            summary += "<p>Limitação: " + escape(str(geo_ai["error_reason"])) + "</p>"
+        summary += "<p>Inferências não comprovam causalidade, preferência de buscadores "
+        summary += "ou avaliação do conteúdo integral dos concorrentes.</p>"
+    summary += "</section>"
     ai = _prior_competitive_ai(
         database, audit_id, comparison.get("serp_observation_id") if comparison else None
     )
