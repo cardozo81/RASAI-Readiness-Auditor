@@ -59,9 +59,9 @@ def inspect_workspace_extractions(root: Path) -> list[dict]:
 
 def materialize_extraction_quality(root: Path) -> str | None:
     """Add one stable advisory file, without changing M4 persistence or score."""
-    findings = inspect_workspace_extractions(root)
-    if not findings:
+    if not (Path(root) / "artifacts" / "extraction").is_dir():
         return None
+    findings = inspect_workspace_extractions(root)
     destination = Path(root) / "artifacts" / "geo-extraction-quality.json"
     payload = json.dumps({
         "contract_version": "GEO-EXTRACTION-QUALITY-1",
