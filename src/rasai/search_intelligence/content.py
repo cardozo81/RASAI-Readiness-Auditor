@@ -566,14 +566,33 @@ def _median(values: Iterable[float | int]) -> float | None:
     return (ordered[middle - 1] + ordered[middle]) / 2.0
 
 
+def _has_comparable_semantic_content(page: CompetitivePageFeatures) -> bool:
+    """HTTP success is not evidence that extractable competitive content exists.
+
+    This deliberately narrow guard rejects only *entirely empty* page-feature
+    observations. A title-only or JSON-LD-only document remains eligible,
+    preserving previously homologated semantic comparisons and source records.
+    """
+    return (
+        page.status is ContentFetchStatus.OBSERVED
+        and bool(
+            page.word_count > 0
+            or (page.title or "").strip()
+            or (page.meta_description or "").strip()
+            or any(item.strip() for item in page.headings)
+            or page.jsonld_types
+        )
+    )
+
+
 def compare_content_features(
     customer: CompetitivePageFeatures,
     competitors: Iterable[CompetitivePageFeatures],
 ) -> tuple[CompetitiveGap, ...]:
     leaders = tuple(
-        item for item in competitors if item.status is ContentFetchStatus.OBSERVED
+        item for item in competitors if _has_comparable_semantic_content(item)
     )
-    if customer.status is not ContentFetchStatus.OBSERVED or not leaders:
+    if not _has_comparable_semantic_content(customer) or not leaders:
         return ()
 
     urls = tuple(item.final_url or item.requested_url for item in leaders)
@@ -683,10 +702,12 @@ def analyze_competitive_content(
     )
     gaps = compare_content_features(customer_page, competitor_pages)
     observed_competitors = sum(
-        item.status is ContentFetchStatus.OBSERVED for item in competitor_pages
+        _has_comparable_semantic_content(item) for item in competitor_pages
     )
     if customer_page.status is not ContentFetchStatus.OBSERVED:
         status = "CUSTOMER_CONTENT_UNAVAILABLE"
+    elif not _has_comparable_semantic_content(customer_page):
+        status = "CUSTOMER_CONTENT_NOT_COMPARABLE"
     elif not selection.selected_candidates:
         status = "NO_ELIGIBLE_COMPETITOR_CANDIDATES"
     elif observed_competitors == 0:
