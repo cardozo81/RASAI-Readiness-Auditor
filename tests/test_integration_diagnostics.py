@@ -265,6 +265,25 @@ def test_perplexity_diagnostic_is_configuration_only_and_never_calls_search() ->
     assert invalid.category == "INVALID_ACTIVATION"
     assert "bloqueadas" in invalid.detail
 
+def test_perplexity_console_status_distinguishes_disabled_from_missing_key(monkeypatch) -> None:
+    from rasai.integration_diagnostics_console import _summary_status
+
+    spec = get_integration_spec("search:perplexity")
+    assert spec is not None
+    monkeypatch.delenv("PERPLEXITY_API_KEY", raising=False)
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "false")
+    text, _color = _summary_status(spec, None)
+    assert text == "DESABILITADA"
+
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "malformed")
+    text, _color = _summary_status(spec, None)
+    assert text == "ATIVAÇÃO INVÁLIDA — BLOQUEADA"
+
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    text, _color = _summary_status(spec, None)
+    assert text == "CONFIGURAR"
+
+
 def test_catalog_covers_current_ai_serp_and_key_external_services() -> None:
     ids = {item.id for item in integration_specs()}
     assert {
