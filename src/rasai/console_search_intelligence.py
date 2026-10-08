@@ -427,12 +427,23 @@ def execute_perplexity_for_audit(
     effective_runner = execute_perplexity_search if runner is None else runner
     started = time.monotonic()
     try:
-        result = effective_runner(
-            AuditWorkspace.open(workspace_path),
-            audit_id=audit_id,
-            query=queries,
-            search_type=str(getattr(state, "perplexity_search_type", "web") or "web"),
+        # Match the SERP geographic intent where explicitly configured.
+        # A ccTLD is not a country detector; Perplexity's country/language
+        # filters are best-effort provider constraints, not guaranteed BR-only.
+        serp_region = str(getattr(state, "search_region", "") or "").casefold()
+        brazil_scope = any(
+            token in serp_region
+            for token in ("brazil", "brasil", ", br", "brazilian")
         )
+        search_kwargs = {
+            "audit_id": audit_id,
+            "query": queries,
+            "search_type": str(getattr(state, "perplexity_search_type", "web") or "web"),
+        }
+        if brazil_scope and runner is None:
+            search_kwargs["country"] = "BR"
+            search_kwargs["search_language_filter"] = ("pt",)
+        result = effective_runner(AuditWorkspace.open(workspace_path), **search_kwargs)
         summary = humanized_perplexity_summary(result)
         state.perplexity_last_duration_seconds = max(time.monotonic() - started, 0.0)
         state.perplexity_last_status = (
