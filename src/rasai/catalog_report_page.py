@@ -361,7 +361,7 @@ def _apdex_readiness_notice(catalog_id: str) -> str:
         "antes de textos, blocos essenciais e controles estarem utilizáveis. "
         "Este Apdex mede somente sua própria fronteira temporal persistida; "
         "não mede o instante de conteúdo principal pronto. "
-        "Não existe aqui uma série same-sample de prontidão validada. "
+        "Não existe aqui uma série validada de prontidão medida na mesma amostra. "
         "Consulte a arquitetura observada em "
         "<a href='capture-context.html'>Contexto da captura</a> e confronte "
         "com o <a href='cat-04.html'>Lighthouse</a> sem misturar os índices.</div>"
