@@ -59,6 +59,11 @@ _SERP_SUBGROUPS = {
 _LABELS = {
     "PERPLEXITY_API_KEY": "Credencial — Perplexity Search API",
     "RASAI_PERPLEXITY_ENABLED": "Habilitar Perplexity Search API",
+    "RASAI_PERPLEXITY_MAX_RESULTS": "Máximo de fontes por pesquisa Perplexity",
+    "RASAI_PERPLEXITY_COUNTRY": "País da pesquisa Perplexity",
+    "RASAI_PERPLEXITY_SEARCH_LANGUAGE_FILTER": "Idiomas da pesquisa Perplexity",
+    "RASAI_PERPLEXITY_SEARCH_DOMAIN_FILTER": "Filtro de domínios Perplexity",
+    "RASAI_PERPLEXITY_SEARCH_RECENCY_FILTER": "Janela de recência Perplexity",
     "RASAI_GSC_ENABLED": "Uso do Google Search Console",
     "RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN": "Token OAuth temporário — Google Search Console",
     "RASAI_GSC_SEARCH_ANALYTICS_DAYS": "Janela de Search Analytics",
@@ -82,7 +87,20 @@ def _is_gsc(name: str) -> bool:
 
 
 def _is_perplexity(name: str) -> bool:
-    return str(name).upper() in {"PERPLEXITY_API_KEY", "RASAI_PERPLEXITY_ENABLED"}
+    return str(name).upper() == "PERPLEXITY_API_KEY" or str(name).upper().startswith("RASAI_PERPLEXITY_")
+
+
+def _perplexity_subgroup(name: str) -> str:
+    normalized = str(name).upper()
+    if normalized == "PERPLEXITY_API_KEY":
+        return "Credencial"
+    if normalized == "RASAI_PERPLEXITY_ENABLED":
+        return "Ativação"
+    if normalized in {"RASAI_PERPLEXITY_COUNTRY", "RASAI_PERPLEXITY_SEARCH_LANGUAGE_FILTER"}:
+        return "Escopo geográfico e idioma"
+    if normalized in {"RASAI_PERPLEXITY_MAX_RESULTS", "RASAI_PERPLEXITY_MAX_TOKENS", "RASAI_PERPLEXITY_MAX_TOKENS_PER_PAGE"}:
+        return "Volume de resultados"
+    return "Filtros opt-in de domínio e período"
 
 
 def _is_serp(name: str) -> bool:
@@ -108,7 +126,7 @@ def context_label_for_name(name: str) -> str | None:
             normalized, (9, "Outras opções")
         )[1]
     if _is_perplexity(normalized):
-        return "Perplexity Search Intelligence / " + ("Credencial" if normalized == "PERPLEXITY_API_KEY" else "Ativação")
+        return "Perplexity Search Intelligence / " + _perplexity_subgroup(normalized)
     if _is_serp(normalized):
         if normalized.endswith("_API_KEY"):
             return "SERP / Provider e credencial"
@@ -131,7 +149,7 @@ def _group(spec: Any) -> tuple[int, int, str, str]:
         order, subgroup = _GSC_SUBGROUPS.get(name, (9, "Outras opções"))
         return 1, order, "GOOGLE SEARCH CONSOLE — dados da property autenticada", subgroup
     if _is_perplexity(name):
-        return 2, 0, "PERPLEXITY — pesquisa externa advisory", ("Credencial" if name == "PERPLEXITY_API_KEY" else "Ativação")
+        return 2, 0, "PERPLEXITY — pesquisa externa advisory", _perplexity_subgroup(name)
     try:
         from rasai.console_configuration_guidance import context_for
 
