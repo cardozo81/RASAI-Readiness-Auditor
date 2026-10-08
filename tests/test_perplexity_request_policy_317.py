@@ -105,10 +105,15 @@ def test_editor_and_request_use_same_policy() -> None:
 
 def test_every_scope_variable_is_canonical_nonsecret_and_persistible() -> None:
     specs = {spec.name: spec for spec in _search_specs()}
+    from rasai.console_config import is_secret
+    from rasai.console_settings import _known_nonsecret_environment_names
+    persistible = _known_nonsecret_environment_names()
     for suffix in OPTION_FIELDS:
         name = PREFIX + suffix
         assert name in specs
         assert specs[name].sensitive is False
+        assert not is_secret(name)
+        assert name in persistible
     assert specs[PREFIX + "MAX_RESULTS"].default == "10"
 
 
