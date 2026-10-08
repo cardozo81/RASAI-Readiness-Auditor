@@ -9,6 +9,7 @@ from contextlib import closing
 
 from collections import Counter
 from html import escape
+from hashlib import sha256
 import json
 from pathlib import Path
 import sqlite3
@@ -378,7 +379,10 @@ def geo_body(database: Path, audit_id: str) -> str:
         for source in sources[:20]:
             url = str(source.get("url") or "")
             run_id = str(source.get("run_id") or "")
-            evidence_id = run_id + ":" + str(source.get("position") or "-")
+            evidence_id = (
+                f"PX:{run_id}:{source.get('position')}:"
+                f"{sha256(url.encode('utf-8')).hexdigest()[:10]}"
+            )
             summary += "<tr><td>" + escape(evidence_id) + "</td>"
             summary += "<td>" + escape(_host(url)) + "<br>" + escape(url[:300]) + "</td>"
             summary += "<td>" + escape(str(source.get("title") or "-")[:250]) + "</td>"
