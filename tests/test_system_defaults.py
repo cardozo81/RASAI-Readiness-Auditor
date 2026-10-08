@@ -213,7 +213,7 @@ def test_perplexity_explicit_false_survives_load_and_global_restore_sets_true() 
     ):
         path = Path(directory) / "rasai-console.ini"
         path.write_text(
-            "[console]\\nconfig_version = 4\\n[environment]\\nRASAI_PERPLEXITY_ENABLED = false\\n",
+            "[console]\nconfig_version = 4\n[environment]\nRASAI_PERPLEXITY_ENABLED = false\n",
             encoding="utf-8",
         )
         state = State()
