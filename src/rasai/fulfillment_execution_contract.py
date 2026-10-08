@@ -430,6 +430,7 @@ def _reconcile_requested_improvement(workspace: Any, audit_id: str) -> None:
             existing_code in {
                 "AI_NOT_AUTHORIZED_FOR_EXECUTION",
                 "AI_PREREQUISITES_INCOMPLETE",
+                "AI_WAITING_FOR_PREREQUISITES",  # initial AUD collection gate
             }
             and existing_status in {"REQUESTED_NOT_EXECUTED", "WAITING_FOR_DATA"}
         ):
