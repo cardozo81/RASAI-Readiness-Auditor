@@ -117,6 +117,7 @@ jobs:
             tests/test_geo_post_audit_complement_318.py \
             tests/test_geo_observation.py \
             tests/test_geo_report.py \
+            tests/test_geo_baseline_without_perplexity_305.py \
             tests/test_geo_ai.py \
             tests/test_competitive_empty_content_313.py \
             tests/test_geo_extraction_quality.py
