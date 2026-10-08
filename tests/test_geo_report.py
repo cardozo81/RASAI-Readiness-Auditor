@@ -93,6 +93,35 @@ class GeoReportTests(unittest.TestCase):
             self.assertIn("1 em ambas", geo_body(db, "AUD-ONE"))
 
 
+    def test_geo_section_visual_separation_and_foreign_tld_hint(self):
+        from rasai.geo_report import geo_body
+        with tempfile.TemporaryDirectory() as temp:
+            db = Path(temp) / "audit.db"
+            with closing(sqlite3.connect(db)) as con, con:
+                con.executescript("""
+                    CREATE TABLE perplexity_search_runs (
+                        run_id TEXT PRIMARY KEY, audit_id TEXT, query_json TEXT,
+                        search_type TEXT, status TEXT, started_at TEXT
+                    );
+                    CREATE TABLE perplexity_search_sources (
+                        run_id TEXT, position INTEGER, url TEXT, title TEXT, snippet TEXT
+                    );
+                """)
+                con.execute(
+                    "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
+                    ("PX-1", "AUD-1", '["seguro de vida"]', "web", "SUCCESS", "2026-10-08")
+                )
+                con.execute(
+                    "INSERT INTO perplexity_search_sources VALUES (?,?,?,?,?)",
+                    ("PX-1", 1, "https://ejemplo.es/seguros", "Seguro", "Fragmento")
+                )
+            html = geo_body(db, "AUD-1")
+            self.assertIn('class="geo-view"', html)
+            self.assertIn("geo-view &gt;", html.replace("geo-view >", "geo-view &gt;"))
+            self.assertIn("TLD estrangeiro", html)
+            self.assertIn("ejemplo.es", html)
+            self.assertIn("não prova que a fonte seja irrelevante", html)
+
     def test_existing_competitive_ai_is_reused_only_with_evidence_ids(self):
         from rasai.geo_report import _prior_competitive_ai
         with tempfile.TemporaryDirectory() as temp:
