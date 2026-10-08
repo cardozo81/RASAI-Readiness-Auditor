@@ -154,6 +154,7 @@ def _geo_review_routing(finding: dict) -> tuple[str, str]:
         )
     if any(term in value for term in (
         "CONTENT", "SEMANTIC", "ENTITY", "META", "TITLE", "HEADING",
+        "CITATION", "EVIDENCE", "INTENT",
     )):
         return (
             "Conteúdo/SEO editorial + especialista de produto",
