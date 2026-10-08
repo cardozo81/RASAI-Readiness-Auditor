@@ -80,6 +80,17 @@ def _summary_status(
     spec: diagnostics.IntegrationSpec,
     result: diagnostics.IntegrationDiagnostic | None,
 ) -> tuple[str, str]:
+    if spec.id == "search:perplexity":
+        # Activation is a separate user decision from possession of a secret.
+        # A disabled integration must never be presented as needing credentials,
+        # even when no API key is configured; no provider probe is performed.
+        from rasai.console_search_intelligence import perplexity_enabled
+        if not perplexity_enabled():
+            raw = str(os.environ.get("RASAI_PERPLEXITY_ENABLED") or "").strip().casefold()
+            return (
+                ("DESABILITADA" if raw in {"false", "0", "off", "no"} else "ATIVAÇÃO INVÁLIDA — BLOQUEADA"),
+                YELLOW,
+            )
     if not _configured(spec):
         return "CONFIGURAR", RED
     currency = diagnostics.result_currency(spec, result)
