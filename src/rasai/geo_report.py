@@ -209,6 +209,38 @@ def _geo_ai_result(database: Path, audit_id: str, latest_run_id: str) -> dict | 
 
 
 
+def _extraction_quality_section(database: Path) -> str:
+    output = ""
+    quality_path = database.parent / "artifacts" / "geo-extraction-quality.json"
+    if quality_path.is_file():
+        try:
+            quality = json.loads(quality_path.read_text(encoding="utf-8"))
+            anomalies = [
+                row for row in quality.get("observations", [])
+                if isinstance(row, dict) and row.get("state") == "NAVIGATION_DOMINATED_SUSPECTED"
+            ]
+        except (OSError, ValueError, AttributeError):
+            anomalies = []
+        if anomalies:
+            output += "<section><h2>Confiabilidade da extração principal</h2>"
+            output += "<p>A extração determinística contém sinais de conteúdo "
+            output += "predominantemente de navegação. Verifique o DOM principal "
+            output += "antes de usar esse texto em recomendações editoriais ou GEO. "
+            output += "Isso é uma suspeita, não prova de falha do crawler ou indexabilidade.</p>"
+            output += "<ul>"
+            for item in anomalies[:20]:
+                output += "<li>" + escape(str(item.get("artifact_ref") or "-"))
+                output += ": " + escape(str(item.get("word_count") or 0))
+                output += " palavras extraídas"
+                dom = item.get("rendered_dom") if isinstance(item.get("rendered_dom"), dict) else None
+                if dom and dom.get("main_empty_in_captured_html"):
+                    output += "; elemento main/article sem texto no HTML capturado"
+                    output += " (HTML: " + escape(str(dom.get("rendered_html_ref") or "-")) + ")"
+                output += "</li>"
+            output += "</ul></section>"
+    return output
+
+
 def geo_body(database: Path, audit_id: str) -> str:
     """Evidence-backed readout; no scores, causal attribution or speculative gaps."""
     runs, sources = _observations(database, audit_id)
@@ -251,7 +283,7 @@ def geo_body(database: Path, audit_id: str) -> str:
             "Sem dados, não é possível concluir presença ou ausência da URL em AI Search.</p></section>"
             "<p>Detalhes técnicos: <a href='cat-05.html'>CAT-05</a>; "
             "<a href='ai-integrations.html'>IA e integrações</a>.</p>"
-        ) + "</div>"
+        ) + _extraction_quality_section(database) + "</div>"
     counts = Counter(_host(x["url"]) for x in sources if _host(x["url"]))
     summary = "<section><h2>Observações recuperadas</h2>"
     summary += f"<p>{len(runs)} execução(ões) persistida(s); {len(sources)} fonte(s) recuperada(s).</p>"
@@ -437,33 +469,7 @@ def geo_body(database: Path, audit_id: str) -> str:
             summary += f"<p>Exibindo 20 de {len(sources)} fontes; dados completos persistidos no audit.db.</p>"
     summary += "</section>"
 
-    quality_path = database.parent / "artifacts" / "geo-extraction-quality.json"
-    if quality_path.is_file():
-        try:
-            quality = json.loads(quality_path.read_text(encoding="utf-8"))
-            anomalies = [
-                row for row in quality.get("observations", [])
-                if isinstance(row, dict) and row.get("state") == "NAVIGATION_DOMINATED_SUSPECTED"
-            ]
-        except (OSError, ValueError, AttributeError):
-            anomalies = []
-        if anomalies:
-            summary += "<section><h2>Confiabilidade da extração principal</h2>"
-            summary += "<p>A extração determinística contém sinais de conteúdo "
-            summary += "predominantemente de navegação. Verifique o DOM principal "
-            summary += "antes de usar esse texto em recomendações editoriais ou GEO. "
-            summary += "Isso é uma suspeita, não prova de falha do crawler ou indexabilidade.</p>"
-            summary += "<ul>"
-            for item in anomalies[:20]:
-                summary += "<li>" + escape(str(item.get("artifact_ref") or "-"))
-                summary += ": " + escape(str(item.get("word_count") or 0))
-                summary += " palavras extraídas"
-                dom = item.get("rendered_dom") if isinstance(item.get("rendered_dom"), dict) else None
-                if dom and dom.get("main_empty_in_captured_html"):
-                    summary += "; elemento main/article sem texto no HTML capturado"
-                    summary += " (HTML: " + escape(str(dom.get("rendered_html_ref") or "-")) + ")"
-                summary += "</li>"
-            summary += "</ul></section>"
+    summary += _extraction_quality_section(database)
     findings = _geo_relevant_findings(database, audit_id)
     summary += "<section><h2>Oportunidades técnicas/editoriais contextualizadas</h2>"
     if findings:
