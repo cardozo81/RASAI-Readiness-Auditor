@@ -534,6 +534,7 @@ def execute_perplexity_search(
     max_results: int = 10,
     country: str | None = None,
     search_language_filter: Sequence[str] = (),
+    search_options: Mapping[str, Any] | None = None,
     timeout_seconds: float = 15.0,
     env: Mapping[str, str] | None = None,
     transport: PerplexityTransport | None = None,
@@ -571,9 +572,19 @@ def execute_perplexity_search(
         if str(item).strip()
     )
     if languages:
-        if any(len(item) != 2 or not item.isalpha() for item in languages):
-            raise ValueError("Perplexity search_language_filter must use ISO 639-1 codes")
+        if len(languages) > 20 or any(len(item) != 2 or not item.isalpha() for item in languages):
+            raise ValueError("Perplexity search_language_filter must use up to 20 ISO 639-1 codes")
         payload["search_language_filter"] = list(languages)
+
+    # Canonical, fully validated optional scope. The adapter remains transport-
+    # agnostic; no new collector, navigation, scoring or provider routing occurs.
+    from rasai.search_intelligence.perplexity_request_policy import validate_request_options
+    if search_options:
+        payload.update(validate_request_options(search_options, search_type=normalized_type))
+    # Validate even legacy calls where max_results is supplied directly.
+    validate_request_options({key: value for key, value in payload.items() if key in {
+        "max_results", "country", "search_language_filter",
+    }}, search_type=normalized_type)
 
     body = _json_bytes(payload)
     request_hash = _payload_hash(body)
