@@ -394,6 +394,11 @@ def geo_body(database: Path, audit_id: str) -> str:
     summary += "</ul><p>Recorrência de fontes não mede participação de mercado nem preferência "
     summary += "dos modelos de IA. É necessário verificar consultas, conteúdo e contexto.</p></section>"
     summary += "<section><h2>Evidências externas para análise competitiva</h2>"
+    summary += "<p>Recorte geográfico: fontes estrangeiras podem aparecer "
+    summary += "mesmo com filtros de país e idioma. TLD .es, por exemplo, é "
+    summary += "um sinal para conferir pertinência ao mercado brasileiro, "
+    summary += "não prova que a fonte seja irrelevante. Essas fontes permanecem "
+    summary += "registradas por integridade da observação.</p>"
     summary += "<p>Somente metadados de fontes e trechos retornados pela Search API. "
     summary += "Não houve leitura integral de páginas concorrentes; os trechos não "
     summary += "comprovam profundidade, precisão ou superioridade do conteúdo.</p>"
@@ -410,7 +415,15 @@ def geo_body(database: Path, audit_id: str) -> str:
                 f"{sha256(url.encode('utf-8')).hexdigest()[:10]}"
             )
             summary += "<tr><td>" + escape(evidence_id) + "</td>"
-            summary += "<td>" + escape(_host(url)) + "<br>" + escape(url[:300]) + "</td>"
+            host = _host(url)
+            tld = host.rsplit(".", 1)[-1] if "." in host else ""
+            locale_hint = (
+                " | TLD estrangeiro (verificar aderência ao Brasil)"
+                if tld in {"es", "pt", "mx", "ar", "cl", "us", "uk"}
+                else ""
+            )
+            summary += "<td>" + escape(host) + escape(locale_hint)
+            summary += "<br>" + escape(url[:300]) + "</td>"
             summary += "<td>" + escape(str(source.get("title") or "-")[:250]) + "</td>"
             summary += "<td>" + escape(str(source.get("snippet") or "Não fornecido")[:450])
             summary += "</td></tr>"
