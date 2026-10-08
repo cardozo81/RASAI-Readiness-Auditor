@@ -323,3 +323,12 @@ O consumidor `rasai.geo_ai` reutiliza o contrato `CompetitiveAiInput`/`Competiti
 As interpretações bem-sucedidas e tentativas derivadas são persistidas em `geo_ai_interpretations`, vinculadas a `audit_id` e `perplexity_run_id`, com hash de entrada, provider, modelo, versões de prompt, status e oportunidades com IDs de evidência. Antes de nova tentativa, o consumidor verifica o mesmo fingerprint e seleção: uma análise já persistida é reutilizada sem nova chamada faturável. RPR, complemento e geração HTML não executam esse consumidor, apenas projetam os dados persistidos. O report `geo.html` diferencia a interpretação GEO específica de sínteses competitivas pré-existentes em SERP.
 
 A exposição a texto de fonte externa é limitada a metadados e snippets, tratados como evidência observacional não confiável. A saída não modifica score, CAT, SARI, SCORE-GEO, indexação nem mecanismo de IA. Recomendações precisam ser validadas pelo analista humano e não são prova de inclusão em respostas generativas.
+
+
+### Qualidade de extração e benchmark competitivo (#313)
+
+A projeção de relatório inspeciona os `main_content.txt` já persistidos pelo M4, sem executá-lo novamente. Textos extremamente curtos dominados por rótulos usuais de navegação podem receber o diagnóstico aditivo `NAVIGATION_DOMINATED_SUSPECTED` em `artifacts/geo-extraction-quality.json`. Essa evidência é **heurística**, não representa erro confirmado do crawler, e não modifica nenhum snapshot, pontuação ou classificação de catálogo. A seção GEO apresenta o alerta e a referência ao arquivo para inspeção humana do DOM.
+
+No comparador competitivo determinístico, um concorrente observado com HTTP 200 mas **sem qualquer texto de corpo, título, descrição, heading ou JSON-LD** continua com o status de coleta observado, mas não integra as medianas/gaps. Se nenhum concorrente possuir atributos analisáveis, a comparação não é consolidada. A opção elimina referências competitivas vazias sem alterar o motor de coleta nem apagar a resposta original.
+
+Para consultas Perplexity com região SERP explicitamente brasileira, são encaminhados `country=BR` e `search_language_filter=pt`; esses filtros não certificam geolocalização de cada fonte. Fontes com TLD de outros países são preservadas e sinalizadas apenas para revisão de pertinência.
