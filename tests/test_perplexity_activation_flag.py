@@ -219,6 +219,7 @@ class PerplexityActivationFlagTests(unittest.TestCase):
         ):
             root = Path(directory) / "AUD-OPTIONAL-TEST"
             root.mkdir()
+            (root / "artifacts").mkdir()  # Canonical AuditWorkspace.open prerequisite.
             with sqlite3.connect(root / "audit.db") as conn:
                 conn.execute("CREATE TABLE audits (audit_id TEXT PRIMARY KEY)")
                 conn.execute("INSERT INTO audits VALUES (?)", ("AUD-OPTIONAL-TEST",))
