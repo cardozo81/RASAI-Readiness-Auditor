@@ -17,6 +17,7 @@ class GeoReportTests(unittest.TestCase):
             ({"rule_id": "ROBOTS_EXCLUSION"}, "SEO técnico", "crawler"),
             ({"category": "HTML_RENDER"}, "Engenharia Front-end", "DOM renderizado"),
             ({"category": "SEMANTIC_CONTENT"}, "Conteúdo/SEO editorial", "clareza"),
+            ({"category": "CITATION_READINESS"}, "Conteúdo/SEO editorial", "clareza"),
             ({"category": "OTHER"}, "área de negócio", "achado original"),
         )
         for finding, owner_fragment, verification_fragment in examples:
