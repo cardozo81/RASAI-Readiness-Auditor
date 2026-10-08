@@ -33,6 +33,16 @@ class PerplexityActivationFlagTests(unittest.TestCase):
             with self.subTest(value=value):
                 self.assertFalse(perplexity_enabled({"RASAI_PERPLEXITY_ENABLED": value}))
 
+    def test_brazil_geography_is_explicit_not_substring_or_provider_guess(self):
+        from rasai.console_search_intelligence import _explicit_brazil_scope
+        for region in (
+            "Porto Alegre, RS, Brazil", "São Paulo, SP, Brasil",
+            "Brazil", "BR", "Curitiba, PR, BR",
+        ):
+            self.assertTrue(_explicit_brazil_scope(region), region)
+        for region in ("", "Porto", "Lisboa, Portugal", "Bratislava, Slovakia", "Bristol, UK"):
+            self.assertFalse(_explicit_brazil_scope(region), region)
+
     def test_explicit_opt_out_persists_without_secret(self):
         import configparser
         import tempfile
