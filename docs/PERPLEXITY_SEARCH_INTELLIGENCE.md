@@ -69,7 +69,7 @@ Fontes oficiais revalidadas em 04/10/2026:
 
 ## Request
 
-### Resolução automática do escopo — #317
+### Resolução automática do escopo - #317
 
 O RASAi, **não o Playground**, constrói o payload de `POST /search` no instante de execução da AUD. A solicitação Perplexity continua opt-in **por queries na AUD**, independente de `RASAI_PERPLEXITY_ENABLED=true`. Seleção WEB/FAST permanece escopo da auditoria. Não existe pesquisa implícita, OCR nem alteração do SERP, de scoring ou da orquestração IA.
 
