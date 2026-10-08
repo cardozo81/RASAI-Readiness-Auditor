@@ -56,8 +56,8 @@ def test_opt_in_scope_allows_domains_dates_and_content_limits() -> None:
         PREFIX + "SEARCH_RECENCY_FILTER": "year",
         PREFIX + "SEARCH_AFTER_DATE": "01/01/2025",
         PREFIX + "LAST_UPDATED_BEFORE": "12/31/2026",
-        PREFIX + "MAX_TOKENS": "10000",
-        PREFIX + "MAX_TOKENS_PER_PAGE": "3000",
+        PREFIX + "MAX_CONTENT_UNITS": "10000",
+        PREFIX + "MAX_CONTENT_UNITS_PER_PAGE": "3000",
     })
     assert values["search_domain_filter"] == ["example.com", "portal.com.br"]
     assert values["search_recency_filter"] == "year"
@@ -79,7 +79,7 @@ def test_opt_in_scope_allows_domains_dates_and_content_limits() -> None:
     {PREFIX + "SEARCH_AFTER_DATE": "02/30/2026"},
     {PREFIX + "SEARCH_AFTER_DATE": "2026-10-08"},
     {PREFIX + "SEARCH_AFTER_DATE": "12/31/2026", PREFIX + "SEARCH_BEFORE_DATE": "01/01/2026"},
-    {PREFIX + "MAX_TOKENS_PER_PAGE": "-1"},
+    {PREFIX + "MAX_CONTENT_UNITS_PER_PAGE": "-1"},
 ])
 def test_invalid_configuration_rejected_before_network(env: dict[str, str]) -> None:
     with pytest.raises(ValueError):
