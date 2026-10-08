@@ -86,8 +86,8 @@ Configurações adicionais **não secretas**, disponíveis no catálogo canônic
 | `RASAI_PERPLEXITY_SEARCH_BEFORE_DATE` | `search_before_date_filter` (MM/DD/YYYY) | omitido |
 | `RASAI_PERPLEXITY_LAST_UPDATED_AFTER` | `last_updated_after_filter` (MM/DD/YYYY) | omitido |
 | `RASAI_PERPLEXITY_LAST_UPDATED_BEFORE` | `last_updated_before_filter` (MM/DD/YYYY) | omitido |
-| `RASAI_PERPLEXITY_MAX_TOKENS` | `max_tokens` (1..1.000.000) | omitido |
-| `RASAI_PERPLEXITY_MAX_TOKENS_PER_PAGE` | `max_tokens_per_page` (1..1.000.000) | omitido |
+| `RASAI_PERPLEXITY_MAX_CONTENT_UNITS` | `max_tokens` (1..1.000.000) | omitido |
+| `RASAI_PERPLEXITY_MAX_CONTENT_UNITS_PER_PAGE` | `max_tokens_per_page` (1..1.000.000) | omitido |
 
 **Precedência:** quando a região SERP da AUD identifica explicitamente Brasil, a chamada recebe `country=BR` independentemente de país de override; usa `search_language_filter=["pt"]` somente se não houver filtro de idiomas explícito. Sem região brasileira explícita, `RASAI_PERPLEXITY_COUNTRY` pode definir um país ISO de duas letras. **Nenhum país é inferido pelo ccTLD**; não se restringem domínios `.br` nem datas por padrão. O resultado pode incluir fontes estrangeiras, tratadas como evidências externas, não prova de localização.
 
