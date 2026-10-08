@@ -367,6 +367,8 @@ def geo_body(database: Path, audit_id: str) -> str:
     summary += "<section><h2>Domínios das fontes observadas</h2><ul>"
     for host, n in counts.most_common(20):
         summary += f"<li>{escape(host)}: {n} fonte(s)</li>"
+    summary += "</ul><p>Recorrência de fontes não mede participação de mercado nem preferência "
+    summary += "dos modelos de IA. É necessário verificar consultas, conteúdo e contexto.</p></section>"
     summary += "<section><h2>Evidências externas para análise competitiva</h2>"
     summary += "<p>Somente metadados de fontes e trechos retornados pela Search API. "
     summary += "Não houve leitura integral de páginas concorrentes; os trechos não "
@@ -392,8 +394,7 @@ def geo_body(database: Path, audit_id: str) -> str:
         if len(sources) > 20:
             summary += f"<p>Exibindo 20 de {len(sources)} fontes; dados completos persistidos no audit.db.</p>"
     summary += "</section>"
-    summary += "</ul><p>Recorrência de fontes não mede participação de mercado nem preferência "
-    summary += "dos modelos de IA. É necessário verificar consultas, conteúdo e contexto.</p></section>"
+
     findings = _geo_relevant_findings(database, audit_id)
     summary += "<section><h2>Oportunidades técnicas/editoriais contextualizadas</h2>"
     if findings:
