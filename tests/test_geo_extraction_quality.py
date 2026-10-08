@@ -71,10 +71,15 @@ def test_rendered_main_empty_correlates_by_snapshot_without_altering_html(tmp_pa
         "<html><body><nav>Produtos Menu Buscar</nav><main></main><h1></h1></body></html>",
         encoding="utf-8",
     )
+    screenshot = tmp_path / "artifacts" / "visual" / "PAGE-1" / "mobile" / (snapshot + ".png")
+    screenshot.parent.mkdir(parents=True)
+    screenshot.write_bytes(b"fake-png-fixture")
     source_sha = rendered.read_bytes()
     rows = inspect_workspace_extractions(tmp_path)
     assert len(rows) == 1
     assert rows[0]["rendered_dom"]["main_empty_in_captured_html"] is True
     assert rows[0]["rendered_dom"]["main_element_count"] == 1
     assert rows[0]["rendered_dom"]["h1_text_characters"] == 0
+    assert rows[0]["visual"]["screenshot_ref"].endswith(snapshot + ".png")
+    assert len(rows[0]["visual"]["screenshot_sha256"]) == 64
     assert rendered.read_bytes() == source_sha
