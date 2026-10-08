@@ -93,6 +93,26 @@ class GeoReportTests(unittest.TestCase):
             self.assertIn("1 em ambas", geo_body(db, "AUD-ONE"))
 
 
+    def test_optional_recommendations_with_partial_schema_do_not_break_geo(self):
+        from rasai.geo_report import _geo_relevant_findings
+        with tempfile.TemporaryDirectory() as temp:
+            db = Path(temp) / "audit.db"
+            with closing(sqlite3.connect(db)) as con, con:
+                con.execute(
+                    "CREATE TABLE findings (finding_id TEXT, audit_id TEXT, "
+                    "rule_id TEXT, category TEXT, severity TEXT, title TEXT, "
+                    "evidence_ids TEXT, observed_value TEXT, expected_condition TEXT)"
+                )
+                con.execute("CREATE TABLE recommendations (finding_id TEXT, title TEXT)")
+                con.execute(
+                    "INSERT INTO findings VALUES (?,?,?,?,?,?,?,?,?)",
+                    ("F1", "AUD-1", "HTML-1", "HTML", "HIGH", "HTML main empty",
+                     "[]", "empty", "content"),
+                )
+            findings = _geo_relevant_findings(db, "AUD-1")
+            self.assertEqual(len(findings), 1)
+            self.assertEqual(findings[0]["finding_id"], "F1")
+
     def test_geo_section_visual_separation_and_foreign_tld_hint(self):
         from rasai.geo_report import geo_body
         with tempfile.TemporaryDirectory() as temp:
