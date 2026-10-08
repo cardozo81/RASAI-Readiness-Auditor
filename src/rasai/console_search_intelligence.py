@@ -869,10 +869,19 @@ def install(console_module: ModuleType) -> None:
                             f"soma {timeline.summed_duration_ms / 1000:.1f}s | "
                             "ativo não calculável (intervalos incompletos)"
                         )
+                        provider_coverage = sum(
+                            stage.observed_cost_attempts for stage in timeline.stages
+                        )
+                        provider_label = (
+                            f"{timeline.provider_observed_usd:.6f}"
+                            if provider_coverage else "N/D (provider não informou)"
+                        )
+                        if 0 < provider_coverage < timeline.attempts:
+                            provider_label += f" (parcial: {provider_coverage}/{timeline.attempts})"
                         print(
                             "  Valores USD pós-uso : "
                             f"estimativa {timeline.posthoc_estimated_usd:.6f}; "
-                            f"provider {timeline.provider_observed_usd:.6f}; "
+                            f"provider {provider_label}; "
                             f"sem preço {timeline.unpriced_attempts}"
                         )
                         print(
