@@ -72,7 +72,8 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
                 f"{stage.summed_duration_ms / 1000:.2f} s",
                 active,
                 f"{stage.priced_usd_estimate:.6f}",
-                f"{stage.priced_usd_provider_observed:.6f}",
+                (f"{stage.priced_usd_provider_observed:.6f}" if stage.observed_cost_attempts
+                 else "N/D (provider não informou)"),
                 f"intervalos desconhecidos={stage.unknown_intervals}; sem preço={stage.unpriced_attempts}",
             ))
         body+=_section(
@@ -80,7 +81,9 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
             "Linha temporal e valores das chamadas de IA",
             "<p>São durações por tentativa nas bases M18/M20, não o tempo total "
             "da auditoria. Chamadas simultâneas se sobrepõem. A soma das durações "
-            "não representa tempo de parede. Preço estimado após a execução não "
+            "não representa tempo de parede. Quando há timestamps completos, "
+            "ambas as durações usam o mesmo relógio; caso contrário, "
+            "usa-se a duração informada sem projetar união. Preço estimado após a execução não "
             "é a previsão pré-auditoria nem fatura; custo observado pelo provider "
             "também não é confirmação de cobrança bancária. Captura, PSI e Apdex "
             "não são medidos nesta projeção.</p>"
