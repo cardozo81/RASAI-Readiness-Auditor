@@ -1,5 +1,7 @@
 """Focused read-only GEO projection and source-isolation contract tests."""
 from __future__ import annotations
+
+from contextlib import closing
 import sqlite3
 import tempfile
 import unittest
@@ -12,7 +14,7 @@ class GeoReportTests(unittest.TestCase):
     def test_no_optional_tables_is_explicitly_inconclusive(self):
         with tempfile.TemporaryDirectory() as temp:
             db = Path(temp) / "audit.db"
-            with sqlite3.connect(db) as con:
+            with closing(sqlite3.connect(db)) as con, con:
                 con.execute("CREATE TABLE marker (id INTEGER)")
             before = db.read_bytes()
             html = geo_body(db, "AUD-TEST")
@@ -23,7 +25,7 @@ class GeoReportTests(unittest.TestCase):
     def test_sources_are_audit_scoped_and_html_escaped(self):
         with tempfile.TemporaryDirectory() as temp:
             db = Path(temp) / "audit.db"
-            with sqlite3.connect(db) as con:
+            with closing(sqlite3.connect(db)) as con, con:
                 con.executescript("""
                     CREATE TABLE perplexity_search_runs (
                         run_id TEXT PRIMARY KEY, audit_id TEXT, query_json TEXT,
@@ -51,7 +53,7 @@ class GeoReportTests(unittest.TestCase):
     def test_cross_source_comparison_requires_single_query_and_observed_api(self):
         with tempfile.TemporaryDirectory() as temp:
             db = Path(temp) / "audit.db"
-            with sqlite3.connect(db) as con:
+            with closing(sqlite3.connect(db)) as con, con:
                 con.executescript("""
                     CREATE TABLE perplexity_search_runs (
                         run_id TEXT PRIMARY KEY, audit_id TEXT, query_json TEXT,
@@ -95,7 +97,7 @@ class GeoReportTests(unittest.TestCase):
         from rasai.geo_report import _prior_competitive_ai
         with tempfile.TemporaryDirectory() as temp:
             db = Path(temp) / "audit.db"
-            with sqlite3.connect(db) as con:
+            with closing(sqlite3.connect(db)) as con, con:
                 con.execute("""
                     CREATE TABLE serp_competitive_ai_analyses (
                         observation_id TEXT, audit_id TEXT, state TEXT,
