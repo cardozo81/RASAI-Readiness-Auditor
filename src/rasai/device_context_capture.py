@@ -608,6 +608,47 @@ def _rendered_dom_metadata(rendered_html: str) -> dict[str, Any]:
     }
 
 
+def _optional_screenshot_dom_correlation(
+    page: Any, rendered_html: str | None,
+    capture_quality: dict[str, Any], screenshot_png: bytes | None,
+) -> dict[str, Any]:
+    """Optional same-session drift evidence; never recapture or replace DOM."""
+    result = {
+        "state": "NOT_APPLICABLE",
+        "contract_version": "SCREENSHOT-DOM-CORRELATION-001",
+    }
+    if screenshot_png is None or capture_quality.get("state") != "INCOMPLETE":
+        return result
+    try:
+        from rasai.render_materiality import observe_materiality
+        baseline = observe_materiality(rendered_html)
+        current_html = page.content()
+        if not isinstance(current_html, str):
+            return {**result, "state": "UNAVAILABLE"}
+        screenshot_time = observe_materiality(current_html)
+        return {
+            **result,
+            "state": "OBSERVED",
+            "captured_dom_sha256": hashlib.sha256(
+                (rendered_html or "").encode("utf-8")
+            ).hexdigest(),
+            "screenshot_time_dom_sha256": hashlib.sha256(
+                current_html.encode("utf-8")
+            ).hexdigest(),
+            "captured_main_text_length": baseline.main_text_length,
+            "screenshot_time_main_text_length": screenshot_time.main_text_length,
+            "main_text_delta": (
+                screenshot_time.main_text_length - baseline.main_text_length
+            ),
+            "limitation": (
+                "Read-only post-screenshot DOM observation; no proof of "
+                "image content, indexing or hydration cause."
+            ),
+        }
+    except (PlaywrightError, TypeError, ValueError, RuntimeError):
+        return {**result, "state": "UNAVAILABLE"}
+
+
 def _same_session_lazy_probe(page: Any, rendered_html: str) -> dict[str, Any]:
     """Run BR-GEO-024's bounded interaction without another page navigation."""
     from rasai.javascript_spa import JavascriptSpaAnalyzer
@@ -808,46 +849,9 @@ def _install_browser_capture() -> None:
             except (PlaywrightError, TypeError, ValueError):
                 observation_state = "CAPTURE_FAILED"
 
-            # Read-only screenshot-time DOM correlation for incomplete primary
-            # materiality. Never replace the frozen HTML or image snapshot.
-            # The extra local DOM serialization is optional and cannot fail M3.
-            screenshot_dom_correlation = {
-                "state": "NOT_APPLICABLE",
-                "contract_version": "SCREENSHOT-DOM-CORRELATION-001",
-            }
-            if (
-                screenshot_png is not None
-                and str(capture_quality.get("state") or "") == "INCOMPLETE"
-            ):
-                try:
-                    from rasai.render_materiality import observe_materiality
-                    baseline = observe_materiality(rendered_html)
-                    current_html = page.content()
-                    screenshot_time = observe_materiality(current_html)
-                    screenshot_dom_correlation = {
-                        "state": "OBSERVED",
-                        "contract_version": "SCREENSHOT-DOM-CORRELATION-001",
-                        "captured_dom_sha256": hashlib.sha256(
-                            (rendered_html or "").encode("utf-8")
-                        ).hexdigest(),
-                        "screenshot_time_dom_sha256": hashlib.sha256(
-                            current_html.encode("utf-8")
-                        ).hexdigest(),
-                        "captured_main_text_length": baseline.main_text_length,
-                        "screenshot_time_main_text_length": screenshot_time.main_text_length,
-                        "main_text_delta": (
-                            screenshot_time.main_text_length - baseline.main_text_length
-                        ),
-                        "limitation": (
-                            "Read-only post-screenshot DOM observation. No proof "
-                            "of screenshot content, indexing or hydration cause."
-                        ),
-                    }
-                except (PlaywrightError, TypeError, ValueError, RuntimeError):
-                    screenshot_dom_correlation = {
-                        "state": "UNAVAILABLE",
-                        "contract_version": "SCREENSHOT-DOM-CORRELATION-001",
-                    }
+            screenshot_dom_correlation = _optional_screenshot_dom_correlation(
+                page, rendered_html, capture_quality, screenshot_png
+            )
 
             # Primary snapshot evidence above is frozen before any diagnostic interaction.
             # If lazy content needs bounded scrolling, reuse this same page/context instead
