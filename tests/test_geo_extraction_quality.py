@@ -40,3 +40,18 @@ def test_sidecar_is_deterministic_and_preserves_original_text(tmp_path: Path):
     assert len(rows) == 1
     payload = json.loads(first)
     assert payload["scoring_effect"] == "NONE"
+
+
+def test_regenerated_main_text_retires_stale_advisory(tmp_path: Path):
+    original = tmp_path / "artifacts" / "extraction" / "SNP-1" / "main_content.txt"
+    original.parent.mkdir(parents=True)
+    original.write_text("Produtos Dental Residencial Vida Viagem Capitalização Atendimento Acessibilidade Menu Buscar", encoding="utf-8")
+    materialize_extraction_quality(tmp_path)
+    original.write_text(
+        "Coberturas contratuais, benefícios e critérios de elegibilidade da proteção de vida "
+        "são apresentados nesta página para a análise das condições da oferta.",
+        encoding="utf-8",
+    )
+    materialize_extraction_quality(tmp_path)
+    payload = json.loads((tmp_path / "artifacts" / "geo-extraction-quality.json").read_text(encoding="utf-8"))
+    assert payload["observations"] == []
