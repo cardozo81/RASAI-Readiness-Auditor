@@ -246,7 +246,7 @@ def _url_fragment_identifier_candidate_spans(text: str) -> tuple[tuple[int, int]
 
 
 _STRUCTURED_FRAGMENT_EVIDENCE_RE = re.compile(
-    r"""(?i)\\?"(?:href|selector)\\?"\s*:\s*\\?"(?P<value>[^"\\\n]{0,2048})\\?""""
+    r'(?i)\\?"(?:href|selector)\\?"\s*:\s*\\?"(?P<value>[^"\\\n]{0,2048})\\?"'
 )
 
 
