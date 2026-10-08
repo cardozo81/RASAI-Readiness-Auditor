@@ -329,6 +329,21 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         print(f"  Efetiva nesta AUD     : {'SIM' if effective else 'NÃO'}")
         print(f"  Readiness             : {'APTA' if ready else 'CONFIGURAR'}")
         print(f"  Detalhe               : {detail}")
+        from rasai.search_intelligence.perplexity_request_policy import resolve_request_options
+        try:
+            brazil = search_module._explicit_brazil_scope(
+                str(getattr(state, "search_region", "") or "")
+            )
+            options = resolve_request_options(explicit_brazil=brazil, search_type=search_type.lower())
+            country = options.get("country", "sem restrição")
+            languages = ",".join(options.get("search_language_filter", [])) or "sem restrição"
+            count = options.get("max_results", 10)
+            optional = sorted(set(options) - {"country", "search_language_filter", "max_results"})
+            print(f"  Escopo desta AUD      : país={country} | idioma={languages} | fontes={count}")
+            print("  Filtros adicionais   : " + (", ".join(optional) if optional else "nenhum"))
+        except ValueError as exc:
+            print(f"  Escopo desta AUD      : INVÁLIDO — {exc}")
+        print("  Ajuste de filtros    : menu 5 ou 6 > Perplexity Search Intelligence")
         print("\n1. Definir/alterar queries")
         print("2. Escolher WEB/FAST")
         print("3. Gerenciar credencial Perplexity")
