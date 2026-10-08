@@ -11,6 +11,22 @@ from rasai.geo_report import geo_body
 
 
 class GeoReportTests(unittest.TestCase):
+    def test_review_routing_is_advisory_and_category_based(self):
+        from rasai.geo_report import _geo_review_routing
+        examples = (
+            ({"rule_id": "ROBOTS_EXCLUSION"}, "SEO técnico", "crawler"),
+            ({"category": "HTML_RENDER"}, "Engenharia Front-end", "DOM renderizado"),
+            ({"category": "SEMANTIC_CONTENT"}, "Conteúdo/SEO editorial", "clareza"),
+            ({"category": "OTHER"}, "área de negócio", "achado original"),
+        )
+        for finding, owner_fragment, verification_fragment in examples:
+            with self.subTest(finding=finding):
+                owner, verification = _geo_review_routing(finding)
+                self.assertIn(owner_fragment, owner)
+                self.assertIn(verification_fragment, verification)
+                self.assertNotIn("garantia", verification.lower())
+
+
     def test_no_optional_tables_is_explicitly_inconclusive(self):
         with tempfile.TemporaryDirectory() as temp:
             db = Path(temp) / "audit.db"
