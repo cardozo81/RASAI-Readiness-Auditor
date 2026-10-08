@@ -112,3 +112,44 @@ def test_noncomplete_aud_or_changed_intent_never_executes(tmp_path, monkeypatch)
             explicit_cost_authorization=True,
             env={"RASAI_PERPLEXITY_ENABLED": "true", "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
             transport=lambda *a: pytest.fail("incomplete AUD must not call"))
+
+
+def test_same_intent_with_different_payload_is_rejected_before_http(tmp_path, monkeypatch):
+    workspace, aud = source(tmp_path, monkeypatch)
+    env = {"RASAI_PERPLEXITY_ENABLED": "true", "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"}
+    first = run(workspace, audit_id=aud, intent_id="same-intent", query="seguro de vida",
+                explicit_cost_authorization=True, env=env, transport=fake_transport)
+    assert first.status == "SUCCESS"
+    with pytest.raises(ValueError, match="same intent_id"):
+        run(workspace, audit_id=aud, intent_id="same-intent", query="previdencia",
+            explicit_cost_authorization=True, env=env,
+            transport=lambda *args: pytest.fail("changed scope must not call API"))
+
+
+def test_timeout_has_unknown_billability_and_must_never_auto_resend(tmp_path, monkeypatch):
+    from rasai.search_intelligence.perplexity import PerplexityTimeoutError
+    workspace, aud = source(tmp_path, monkeypatch)
+    transport_calls = []
+    def ambiguous_timeout(*args):
+        transport_calls.append(1)
+        raise PerplexityTimeoutError("request dispatched, no response")
+
+    kwargs = dict(
+        audit_id=aud, intent_id="timeout-unresolved", query="seguro de vida",
+        explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true", "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+        transport=ambiguous_timeout,
+    )
+    first = run(workspace, **kwargs)
+    assert first.request_executed is True
+    assert first.billability == "UNKNOWN"
+    assert len(transport_calls) == 1
+    repeated = run(workspace, **kwargs)
+    assert repeated.status == "ALREADY_RECORDED"
+    assert repeated.request_executed is False
+    assert repeated.billability == "UNKNOWN"
+    assert len(transport_calls) == 1
+    assert first.directory is not None
+    stored = json.loads((first.directory / "result.json").read_text(encoding="utf-8"))
+    assert stored["billability"] == "UNKNOWN"
+    assert stored["native_usage_quantity"] == 1.0
