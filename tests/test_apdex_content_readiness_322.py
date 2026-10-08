@@ -88,7 +88,7 @@ def test_apdex_report_discloses_load_vs_main_content_without_fabricated_metric()
         message = _apdex_readiness_notice(catalog_id)
         assert "Carregamento não é prontidão do conteúdo" in message
         assert "não mede o instante de conteúdo principal pronto" in message
-        assert "same-sample de prontidão validada" in message
+        assert "prontidão medida na mesma amostra" in message
         assert "capture-context.html" in message
         assert "cat-04.html" in message
     assert _apdex_readiness_notice("CAT-05") == ""
