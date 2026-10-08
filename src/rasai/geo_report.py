@@ -452,7 +452,12 @@ def geo_body(database: Path, audit_id: str) -> str:
             for item in anomalies[:20]:
                 summary += "<li>" + escape(str(item.get("artifact_ref") or "-"))
                 summary += ": " + escape(str(item.get("word_count") or 0))
-                summary += " palavras extraídas</li>"
+                summary += " palavras extraídas"
+                dom = item.get("rendered_dom") if isinstance(item.get("rendered_dom"), dict) else None
+                if dom and dom.get("main_empty_in_captured_html"):
+                    summary += "; elemento main/article sem texto no HTML capturado"
+                    summary += " (HTML: " + escape(str(dom.get("rendered_html_ref") or "-")) + ")"
+                summary += "</li>"
             summary += "</ul></section>"
     findings = _geo_relevant_findings(database, audit_id)
     summary += "<section><h2>Oportunidades técnicas/editoriais contextualizadas</h2>"
