@@ -332,3 +332,10 @@ A projeção de relatório inspeciona os `main_content.txt` já persistidos pelo
 No comparador competitivo determinístico, um concorrente observado com HTTP 200 mas **sem qualquer texto de corpo, título, descrição, heading ou JSON-LD** continua com o status de coleta observado, mas não integra as medianas/gaps. Se nenhum concorrente possuir atributos analisáveis, a comparação não é consolidada. A opção elimina referências competitivas vazias sem alterar o motor de coleta nem apagar a resposta original.
 
 Para consultas Perplexity com região SERP explicitamente brasileira, são encaminhados `country=BR` e `search_language_filter=pt`; esses filtros não certificam geolocalização de cada fonte. Fontes com TLD de outros países são preservadas e sinalizadas apenas para revisão de pertinência.
+
+
+### Correlação temporal entre DOM e screenshot (#315)
+
+O motor de captura existente obtém o DOM serializado e, posteriormente, o screenshot do mesmo contexto de navegação. Quando o estado materializado de `capture_quality` já for `INCOMPLETE` e houver screenshot, uma única leitura adicional de `page.content()` após a imagem gera a metainformação `screenshot_dom_correlation`: versão do contrato, SHA-256 do HTML congelado e do DOM observado após screenshot, comprimento textual de `<main>` nos dois instantes e delta. A observação é local, não navega, não consulta providers e não substitui arquivos, hashes originais, pontuações nem as regras da captura M3. Para capturas `READY`, screenshots não capturados ou falhas no probe, não há impacto operacional: o estado será `NOT_APPLICABLE` ou `UNAVAILABLE`.
+
+Uma divergência temporal positiva é sinal observacional de conteúdo que apareceu após o primeiro DOM, **não** comprovação de que uma captura visual seja legível/indexável por crawler. O diagnóstico GEO de confiabilidade apresenta os artefatos M4 e de HTML/screenshot associados por SNP, sem OCR, e precisa de análise contextual antes de recomendar qualquer correção técnica.
