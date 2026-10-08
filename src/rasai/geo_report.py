@@ -33,11 +33,15 @@ def _observations(database: Path, audit_id: str) -> tuple[list[dict], list[dict]
         }
         if len(existing) < 2:
             return [], []
+        columns = {row[1] for row in con.execute("PRAGMA table_info(perplexity_search_runs)")}
+        optional = ", ".join(
+            field if field in columns else "NULL AS " + field
+            for field in ("error_class", "http_status", "error_code")
+        )
         con.row_factory = sqlite3.Row
         runs = [dict(r) for r in con.execute(
-            "SELECT run_id, query_json, search_type, status, started_at, error_class, "
-            "http_status, error_code "
-            "FROM perplexity_search_runs WHERE audit_id=? ORDER BY started_at, run_id",
+            "SELECT run_id, query_json, search_type, status, started_at, " + optional +
+            " FROM perplexity_search_runs WHERE audit_id=? ORDER BY started_at, run_id",
             (audit_id,),
         )]
         if not runs:
