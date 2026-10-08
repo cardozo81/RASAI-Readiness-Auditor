@@ -90,6 +90,10 @@ def test_geo_works_without_optional_perplexity_with_scoped_serp_and_existing_ai(
     assert "Inteligência competitiva já produzida" in output
     assert "Revisar conteúdo da página" in output
     assert "CE-1" in output
+    assert "Conteúdo/SEO editorial + especialista de produto" in output
+    assert "confiança atribuída pela análise IA: 0.8" in output
+    assert "Motivo relatado: Diferença observada" in output
+    assert "Limite causal: Não comprova efeito" in output
     assert "Sem evidência</strong>" not in output
     assert "F-1" in output and "EV-1" in output
     assert "Revisar fatos e atribuição" in output
