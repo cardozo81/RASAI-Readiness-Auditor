@@ -55,3 +55,26 @@ def test_regenerated_main_text_retires_stale_advisory(tmp_path: Path):
     materialize_extraction_quality(tmp_path)
     payload = json.loads((tmp_path / "artifacts" / "geo-extraction-quality.json").read_text(encoding="utf-8"))
     assert payload["observations"] == []
+
+
+def test_rendered_main_empty_correlates_by_snapshot_without_altering_html(tmp_path: Path):
+    snapshot = "SNP-EXAMPLE"
+    original = tmp_path / "artifacts" / "extraction" / "PAGE-1" / "mobile" / snapshot / "main_content.txt"
+    original.parent.mkdir(parents=True)
+    original.write_text(
+        "Produtos Dental Residencial Vida Viagem Capitalização Atendimento Acessibilidade Menu Buscar",
+        encoding="utf-8",
+    )
+    rendered = tmp_path / "artifacts" / "rendered" / "PAGE-1" / "mobile" / (snapshot + ".html")
+    rendered.parent.mkdir(parents=True)
+    rendered.write_text(
+        "<html><body><nav>Produtos Menu Buscar</nav><main></main><h1></h1></body></html>",
+        encoding="utf-8",
+    )
+    source_sha = rendered.read_bytes()
+    rows = inspect_workspace_extractions(tmp_path)
+    assert len(rows) == 1
+    assert rows[0]["rendered_dom"]["main_empty_in_captured_html"] is True
+    assert rows[0]["rendered_dom"]["main_element_count"] == 1
+    assert rows[0]["rendered_dom"]["h1_text_characters"] == 0
+    assert rendered.read_bytes() == source_sha
