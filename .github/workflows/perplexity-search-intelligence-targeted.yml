@@ -83,6 +83,7 @@ jobs:
             src/rasai/geo_observation.py \
             src/rasai/geo_report.py \
             src/rasai/geo_ai.py \
+            src/rasai/geo_extraction_quality.py \
             src/rasai/report_completion.py
       - name: Run Perplexity and directly shared boundary tests
         run: |
@@ -97,4 +98,5 @@ jobs:
             tests/test_geo_observation.py \
             tests/test_geo_report.py \
             tests/test_geo_ai.py \
-            tests/test_competitive_empty_content_313.py
+            tests/test_competitive_empty_content_313.py \
+            tests/test_geo_extraction_quality.py
