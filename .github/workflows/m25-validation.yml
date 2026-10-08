@@ -31,6 +31,7 @@ jobs:
             src/rasai/m23_cli.py \
             src/rasai/m23_lighthouse_traceability.py \
             src/rasai/m25_apdex_experience.py \
+            src/rasai/apdex_content_readiness_observation.py \
             src/rasai/m25_cli.py \
             src/rasai/m25_dynatrace.py \
             src/rasai/m25_persistence.py \
@@ -48,5 +49,7 @@ jobs:
             tests/test_synthetic_population_apdex_227.py \
             tests/test_m25_console_integration.py \
             tests/test_catalog_report_final_refinements.py::test_cat07_table_pages_sorts_and_explains_error_forced_frustration
+      - name: #322 advisory readiness contract (no browser)
+        run: python -m pytest -q tests/test_apdex_content_readiness_322.py
       - name: M23 regression
         run: python -m pytest -q tests/test_m23_integration.py
