@@ -54,6 +54,42 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
     body=_audit_hero(data,"Índices e métricas","Inventário transversal dos números persistidos, com rótulos funcionais e referência ao catálogo proprietário.")
     body+=_section("inventory","Inventário desta auditoria",_table(("Indicador","Tipo","Valor","Contexto","Origem","Contrato"),rows,empty="Nenhum índice/métrica reconhecido foi persistido."))
     body+=_section("dictionary","Dicionário",_table(("Termo","Tipo","Como interpretar"),definitions))
+    # #319 is a read-only projection from TWO attempt tables, with no invoice,
+    # no provider execution and no extension to sealed evidence.
+    try:
+        from rasai.audit_attempt_timeline import read_audit_attempt_timeline
+        timeline = read_audit_attempt_timeline(database, data.audit_id)
+    except (OSError, ValueError, sqlite3.Error):
+        timeline = None
+    if timeline is not None and timeline.attempts:
+        timeline_rows=[]
+        for stage in timeline.stages:
+            active = (f"{stage.union_active_ms / 1000:.2f} s"
+                      if stage.union_active_ms is not None else "N/D (relógio incompleto)")
+            timeline_rows.append((
+                stage.name.replace("_"," ").title(),
+                stage.attempts,
+                f"{stage.summed_duration_ms / 1000:.2f} s",
+                active,
+                f"{stage.priced_usd_estimate:.6f}",
+                f"{stage.priced_usd_provider_observed:.6f}",
+                f"intervalos desconhecidos={stage.unknown_intervals}; sem preço={stage.unpriced_attempts}",
+            ))
+        body+=_section(
+            "ai-attempt-timeline",
+            "Linha temporal e valores das chamadas de IA",
+            "<p>São durações por tentativa nas bases M18/M20, não o tempo total "
+            "da auditoria. Chamadas simultâneas se sobrepõem. A soma das durações "
+            "não representa tempo de parede. Preço estimado após a execução não "
+            "é a previsão pré-auditoria nem fatura; custo observado pelo provider "
+            "também não é confirmação de cobrança bancária. Captura, PSI e Apdex "
+            "não são medidos nesta projeção.</p>"
+            + _table(
+                ("Etapa", "Tentativas", "Soma das durações", "Tempo ativo (união)",
+                 "Estimativa pós-uso USD", "Valor provider USD", "Lacunas"),
+                timeline_rows,
+            ),
+        )
     return body
 
 
