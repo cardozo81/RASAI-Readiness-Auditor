@@ -32,7 +32,7 @@ _DATE_FIELDS = frozenset({
 _POSITIVE_FIELDS = frozenset({"max_results", "max_tokens", "max_tokens_per_page"})
 _LIST_FIELDS = frozenset({"search_language_filter", "search_domain_filter"})
 _RECENCY = frozenset({"hour", "day", "week", "month", "year"})
-_DOMAIN = re.compile(r"(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$")
+_DOMAIN = re.compile(r"(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
 
 
 def _tokens(value: Any) -> tuple[str, ...]:
