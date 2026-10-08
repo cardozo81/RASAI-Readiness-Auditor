@@ -35,7 +35,8 @@ def _observations(database: Path, audit_id: str) -> tuple[list[dict], list[dict]
             return [], []
         con.row_factory = sqlite3.Row
         runs = [dict(r) for r in con.execute(
-            "SELECT run_id, query_json, search_type, status, started_at, error_class "
+            "SELECT run_id, query_json, search_type, status, started_at, error_class, "
+            "http_status, error_code "
             "FROM perplexity_search_runs WHERE audit_id=? ORDER BY started_at, run_id",
             (audit_id,),
         )]
@@ -212,6 +213,7 @@ def geo_body(database: Path, audit_id: str) -> str:
         return header + (
             "<section><h2>Estado da observação</h2><p>Não há execução "
             "Perplexity Search persistida nesta auditoria. "
+            "Pode estar não solicitada, desabilitada ou sem aquisição registrada. "
             "Sem dados, não é possível concluir presença ou ausência da URL em AI Search.</p></section>"
             "<p>Detalhes técnicos: <a href='cat-05.html'>CAT-05</a>; "
             "<a href='ai-integrations.html'>IA e integrações</a>.</p>"
@@ -232,7 +234,30 @@ def geo_body(database: Path, audit_id: str) -> str:
             f"<td>{escape(str(value or '-'))}</td>"
             for value in (run["run_id"], qs, run["status"], run["search_type"])
         ) + "</tr>"
-    summary += "</tbody></table></section>"
+    summary += "</tbody></table>"
+    latest_status = str(runs[-1].get("status") or "UNAVAILABLE").upper()
+    explanations = {
+        "NOT_CONFIGURED": "Credencial não configurada. Revise a chave PERPLEXITY_API_KEY no menu de integrações.",
+        "SUCCESS": "A pesquisa retornou fontes; presença em resultado de busca não equivale a citação em resposta generativa.",
+        "TIMEOUT_ERROR": "A requisição externa excedeu o tempo; o diagnóstico RASAi permanece utilizável.",
+        "NETWORK_ERROR": "Falha de comunicação externa; auditoria e catálogos continuam íntegros.",
+        "AUTH_ERROR": "Autenticação recusada; confira validade da chave Perplexity.",
+        "PERMISSION_ERROR": "Permissão insuficiente para a Search API.",
+        "QUOTA_ERROR": "Limitação de quota/crédito do serviço externo.",
+        "RATE_LIMIT_ERROR": "Limite de frequência externo. Não houve repetição automática pela projeção GEO.",
+        "INVALID_RESPONSE": "Resposta externa fora do contrato esperado. Não inferir resultados ausentes.",
+    }
+    explanation = explanations.get(
+        latest_status,
+        "Fonte externa indisponível ou com erro; não inferir ausência da URL."
+    )
+    summary += "<p>Estado mais recente: <strong>" + escape(latest_status) + "</strong> - "
+    summary += escape(explanation) + "</p>"
+    if runs[-1].get("http_status") is not None:
+        summary += "<p>HTTP externo: " + escape(str(runs[-1]["http_status"])) + "</p>"
+    if runs[-1].get("error_code"):
+        summary += "<p>Código externo: " + escape(str(runs[-1]["error_code"])) + "</p>"
+    summary += "</section>"
     comparison = _stored_comparison(database, audit_id)
     if comparison is not None and comparison.get("perplexity_run_id") != runs[-1]["run_id"]:
         # Never promote a previous successful snapshot to the latest failed attempt.
