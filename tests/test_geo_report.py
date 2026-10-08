@@ -83,7 +83,7 @@ class GeoReportTests(unittest.TestCase):
                 con.execute(
                     "INSERT INTO geo_observation_runs VALUES (?,?,?,?)",
                     ("g1", "AUD-ONE",
-                     '{"serp_observation_id":"s1","serp_url_count":1,'
+                     '{"perplexity_run_id":"r1","serp_observation_id":"s1","serp_url_count":1,'
                      '"perplexity_url_count":1,"url_overlap_count":1}',
                      "2026-10-07")
                 )
