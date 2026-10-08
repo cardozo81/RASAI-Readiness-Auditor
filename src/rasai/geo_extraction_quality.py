@@ -6,6 +6,8 @@ Only additive diagnostic metadata is persisted alongside the original artifacts.
 from __future__ import annotations
 
 from pathlib import Path
+from hashlib import sha256
+from html.parser import HTMLParser
 import json
 import re
 
@@ -36,12 +38,71 @@ def classify_extracted_text(text: str) -> dict:
     }
 
 
+class _RenderedMainProbe(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.main_count = 0
+        self.main_depth = 0
+        self.main_text_characters = 0
+        self.h1_count = 0
+        self.h1_depth = 0
+        self.h1_text_characters = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in {"main", "article"}:
+            self.main_count += 1
+            self.main_depth += 1
+        if tag == "h1":
+            self.h1_count += 1
+            self.h1_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in {"main", "article"} and self.main_depth:
+            self.main_depth -= 1
+        if tag == "h1" and self.h1_depth:
+            self.h1_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if self.main_depth:
+            self.main_text_characters += len(data.strip())
+        if self.h1_depth:
+            self.h1_text_characters += len(data.strip())
+
+
+def _rendered_materiality(root: Path, path: Path) -> dict | None:
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > 6_000_000:
+        return None
+    raw = path.read_bytes()
+    probe = _RenderedMainProbe()
+    probe.feed(raw.decode("utf-8", errors="replace"))
+    probe.close()
+    return {
+        "rendered_html_ref": path.relative_to(root).as_posix(),
+        "rendered_html_sha256": sha256(raw).hexdigest(),
+        "main_element_count": probe.main_count,
+        "main_text_characters": probe.main_text_characters,
+        "h1_element_count": probe.h1_count,
+        "h1_text_characters": probe.h1_text_characters,
+        "main_empty_in_captured_html": bool(probe.main_count and not probe.main_text_characters),
+        "limitation": (
+            "Captured serialized HTML may not match screenshot timing, iframe "
+            "or shadow-DOM content. Visual correspondence requires separate validation."
+        ),
+    }
+
+
 def inspect_workspace_extractions(root: Path) -> list[dict]:
     """Inspect only M4 text files, without editing or deleting source artifacts."""
     extraction = Path(root) / "artifacts" / "extraction"
     if not extraction.is_dir():
         return []
     output = []
+    rendered_root = Path(root) / "artifacts" / "rendered"
+    rendered_by_snapshot = {
+        candidate.stem: candidate
+        for candidate in sorted(rendered_root.rglob("SNP-*.html"))[:1000]
+        if candidate.is_file() and not candidate.is_symlink()
+    } if rendered_root.is_dir() else {}
     for artifact in sorted(extraction.rglob("main_content.txt"))[:1000]:
         if artifact.is_symlink() or not artifact.is_file():
             continue
@@ -49,10 +110,15 @@ def inspect_workspace_extractions(root: Path) -> list[dict]:
             continue
         text = artifact.read_text(encoding="utf-8", errors="replace")
         result = classify_extracted_text(text)
-        if result["state"] in {"NAVIGATION_DOMINATED_SUSPECTED", "NO_EXTRACTED_TEXT"}:
+        rendered = rendered_by_snapshot.get(artifact.parent.name)
+        materiality = _rendered_materiality(root, rendered) if rendered is not None else None
+        if result["state"] in {"NAVIGATION_DOMINATED_SUSPECTED", "NO_EXTRACTED_TEXT"} or (
+            materiality and materiality["main_empty_in_captured_html"]
+        ):
             output.append({
                 "artifact_ref": artifact.relative_to(root).as_posix(),
                 **result,
+                "rendered_dom": materiality,
             })
     return output
 
