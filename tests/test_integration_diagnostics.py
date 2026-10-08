@@ -249,6 +249,22 @@ def test_perplexity_diagnostic_is_configuration_only_and_never_calls_search() ->
     assert "opaque-perplexity-secret" not in configured.detail
     assert configured.validated_facets == ("configuration",)
 
+    disabled = run_diagnostic(
+        spec,
+        env={"PERPLEXITY_API_KEY": "opaque-key", "RASAI_PERPLEXITY_ENABLED": "false"},
+        opener=forbidden,
+    )
+    assert disabled.category == "DISABLED_BY_USER"
+    assert "desabilitada" in disabled.detail
+    assert result_currency(
+        spec, configured,
+        {"PERPLEXITY_API_KEY": "opaque-perplexity-secret", "RASAI_PERPLEXITY_ENABLED": "false"},
+    ) == "CONFIG_CHANGED"
+
+    invalid = run_diagnostic(spec, env={"RASAI_PERPLEXITY_ENABLED": "invalid"}, opener=forbidden)
+    assert invalid.category == "INVALID_ACTIVATION"
+    assert "bloqueadas" in invalid.detail
+
 def test_catalog_covers_current_ai_serp_and_key_external_services() -> None:
     ids = {item.id for item in integration_specs()}
     assert {
