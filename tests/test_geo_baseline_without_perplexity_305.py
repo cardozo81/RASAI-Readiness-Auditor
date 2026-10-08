@@ -60,6 +60,8 @@ def _database(path: Path) -> None:
              "COMPETITIVE-001", "prompt", "v1",
              "Hipótese de lacuna editorial por intenção, evidência disponível",
              '[{"title":"Cobertura de intenção","priority":"HIGH",'
+             '"category":"QUERY_INTENT","rationale":"Diferença observada, exige conferência",'
+             '"confidence":0.8,"causality_note":"Não comprova efeito na visibilidade",'
              '"recommendation":"Revisar conteúdo da página","evidence_ids":["CE-1"]},'
              '{"title":"Sem evidência","recommendation":"Ignorar","evidence_ids":[]}]',
              "artifacts/fake.json", "hash"),
