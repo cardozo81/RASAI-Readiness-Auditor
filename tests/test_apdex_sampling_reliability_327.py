@@ -81,6 +81,21 @@ def test_normal_group_is_not_called_statistically_confident(tmp_path: Path) -> N
     assert "não equivale a confiança estatística" in html
 
 
+@pytest.mark.parametrize("count", [100, 125])
+def test_m23_normal_group_can_be_unfinished_above_minimum(
+    tmp_path: Path, count: int,
+) -> None:
+    """M23 final_group=(count >= max(configured_target, 100)); target may be > count."""
+    db = tmp_path / "audit.db"
+    _db(db, cat="CAT-06", groups=[("MOBILE", count, 0, 0)])
+    before = db.read_bytes()
+    html = report(db, "AUD-1", "CAT-06")
+    assert "MÍNIMO METODOLÓGICO ATINGIDO" in html
+    assert f"amostras válidas por grupo: {count}" in html
+    assert "indeterminada" not in html
+    assert db.read_bytes() == before
+
+
 def test_mixed_groups_disclose_variance_of_sufficiency(tmp_path: Path) -> None:
     db = tmp_path / "audit.db"
     _db(db, cat="CAT-07", groups=[("MOBILE", 3, 1, 0), ("DESKTOP", 120, 0, 1)])
@@ -114,7 +129,7 @@ def test_missing_and_legacy_schema_are_inconclusive(tmp_path: Path, catalog: str
     assert report(db, "AUD-1", "CAT-05") == ""
 
 
-@pytest.mark.parametrize("valid,small,final", [(0, 0, 0), (3, 0, 1), (101, 1, 0), (100, 0, 0)])
+@pytest.mark.parametrize("valid,small,final", [(0, 0, 0), (3, 0, 1), (3, 1, 1), (101, 1, 0)])
 def test_inconsistent_group_evidence_is_not_promoted(
     tmp_path: Path, valid: int, small: int, final: int,
 ) -> None:
