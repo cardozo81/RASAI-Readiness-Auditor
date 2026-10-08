@@ -96,4 +96,5 @@ jobs:
             tests/test_perplexity_activation_flag.py \
             tests/test_geo_observation.py \
             tests/test_geo_report.py \
-            tests/test_geo_ai.py
+            tests/test_geo_ai.py \
+            tests/test_competitive_empty_content_313.py
