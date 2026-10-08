@@ -231,7 +231,7 @@ def test_perplexity_diagnostic_is_configuration_only_and_never_calls_search() ->
     assert spec.probe_kind == "CONFIGURATION_ONLY"
     assert spec.safe_for_bulk is True
     assert spec.provider_id is None
-    assert spec.environment_names == ("PERPLEXITY_API_KEY",)
+    assert spec.environment_names == ("PERPLEXITY_API_KEY", "RASAI_PERPLEXITY_ENABLED")
 
     def forbidden(*_args, **_kwargs):
         raise AssertionError("Perplexity diagnostic must not call a commercial search endpoint")
