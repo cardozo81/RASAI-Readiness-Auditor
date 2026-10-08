@@ -381,7 +381,12 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
     outline=_outline((("summary","Resumo"),("scope","Escopo"),("config","Configuração"),("execution","Execução"),("results","Resultados"),("evidence","Evidências"),("analysis","Análise"),("remediation","Remediações"),("technical","Detalhes técnicos")))
     methodology=_cat07_methodology_summary_html(database,data) if catalog_id=="CAT-07" else ""
     readiness_notice=_apdex_readiness_notice(catalog_id)
-    summary=_section("summary","Resumo",f"<div class='catalog-state'><div><p>{escape(catalog.purpose)}</p><p class='muted'>{escape(catalog.expected_result)}</p></div>{_badge(status,tone)}</div><div class='metric-grid'>{_metric('Capacidades',len(catalog.capability_ids))}{_metric('Fontes com dados',len(sources))}{_metric('Etapas próprias',len(work))}{_metric('Indicadores principais',len(metrics))}</div>"+methodology+readiness_notice)
+    from rasai.apdex_sampling_reliability_reporting import apdex_sampling_reliability_html
+
+    reliability_notice=apdex_sampling_reliability_html(
+        database,data.audit_id,catalog_id,
+    ) if catalog_id in {"CAT-06","CAT-07"} else ""
+    summary=_section("summary","Resumo",f"<div class='catalog-state'><div><p>{escape(catalog.purpose)}</p><p class='muted'>{escape(catalog.expected_result)}</p></div>{_badge(status,tone)}</div><div class='metric-grid'>{_metric('Capacidades',len(catalog.capability_ids))}{_metric('Fontes com dados',len(sources))}{_metric('Etapas próprias',len(work))}{_metric('Indicadores principais',len(metrics))}</div>"+methodology+reliability_notice+readiness_notice)
     if _plan_available(data):
         capability_state="Incluída" if catalog_id in data.selected else "Não solicitada"
     else:
