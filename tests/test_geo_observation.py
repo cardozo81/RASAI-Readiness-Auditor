@@ -1,6 +1,8 @@
 """Focused deterministic and replay-safe GEO snapshot contract tests."""
 from __future__ import annotations
 
+from contextlib import closing
+
 import json
 from pathlib import Path
 import sqlite3
@@ -14,7 +16,7 @@ class GeoObservationTests(unittest.TestCase):
     def test_idempotent_snapshot_and_per_query_provenance(self):
         with tempfile.TemporaryDirectory() as temp:
             db = Path(temp) / "audit.db"
-            with sqlite3.connect(db) as con:
+            with closing(sqlite3.connect(db)) as con, con:
                 con.executescript("""
                     CREATE TABLE audits (audit_id TEXT PRIMARY KEY);
                     CREATE TABLE perplexity_search_runs (
@@ -44,7 +46,7 @@ class GeoObservationTests(unittest.TestCase):
                             ("SERP-1",1,"https://example.org/seguro"))
             first = materialize_geo_observation(db, "AUD-1")
             self.assertEqual(first, materialize_geo_observation(db, "AUD-1"))
-            with sqlite3.connect(db) as con:
+            with closing(sqlite3.connect(db)) as con, con:
                 self.assertEqual(con.execute("PRAGMA integrity_check").fetchone()[0], "ok")
                 self.assertEqual(con.execute("SELECT count(*) FROM geo_observation_runs").fetchone()[0], 1)
                 data = json.loads(con.execute(
@@ -56,7 +58,7 @@ class GeoObservationTests(unittest.TestCase):
 
     def test_target_observation_explains_alternative_and_absence_without_causality(self):
         from rasai.geo_observation import _target_observation
-        with sqlite3.connect(":memory:") as con:
+        with closing(sqlite3.connect(":memory:")) as con, con:
             con.row_factory = sqlite3.Row
             con.execute("CREATE TABLE audit_targets (target_id TEXT, audit_id TEXT, input_url TEXT)")
             con.execute("INSERT INTO audit_targets VALUES (?,?,?)",
@@ -82,7 +84,7 @@ class GeoObservationTests(unittest.TestCase):
     def test_multi_query_abstains_from_serp_attribution(self):
         with tempfile.TemporaryDirectory() as temp:
             db = Path(temp) / "audit.db"
-            with sqlite3.connect(db) as con:
+            with closing(sqlite3.connect(db)) as con, con:
                 con.executescript("""
                     CREATE TABLE audits (audit_id TEXT PRIMARY KEY);
                     CREATE TABLE perplexity_search_runs (
@@ -98,7 +100,7 @@ class GeoObservationTests(unittest.TestCase):
                 con.execute("INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
                             ("RUN-1", "AUD-1", '["one","two"]', "web", "SUCCESS", "2026-10-07"))
             materialize_geo_observation(db, "AUD-1")
-            with sqlite3.connect(db) as con:
+            with closing(sqlite3.connect(db)) as con, con:
                 data = json.loads(con.execute(
                     "SELECT projection_json FROM geo_observation_runs"
                 ).fetchone()[0])
@@ -112,7 +114,7 @@ class GeoObservationTests(unittest.TestCase):
         from rasai.report_completion import materialize_catalog_report_projection
         with tempfile.TemporaryDirectory() as temp:
             db = Path(temp) / "audit.db"
-            with sqlite3.connect(db) as con:
+            with closing(sqlite3.connect(db)) as con, con:
                 con.executescript("""
                     CREATE TABLE audits (audit_id TEXT PRIMARY KEY);
                     CREATE TABLE perplexity_search_runs (
@@ -139,7 +141,7 @@ class GeoObservationTests(unittest.TestCase):
                     )
                     self.assertFalse(completion.renderer_errors)
                 self.assertEqual(html.call_count, 2)
-            with sqlite3.connect(db) as con:
+            with closing(sqlite3.connect(db)) as con, con:
                 self.assertEqual(
                     con.execute("SELECT count(*) FROM geo_observation_runs").fetchone()[0], 1
                 )
