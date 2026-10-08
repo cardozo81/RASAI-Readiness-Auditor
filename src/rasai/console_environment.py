@@ -476,8 +476,8 @@ _PERPLEXITY_DESCRIPTIONS = {
     "SEARCH_BEFORE_DATE": "Publicações anteriores à data MM/DD/YYYY.",
     "LAST_UPDATED_AFTER": "Atualizações posteriores à data MM/DD/YYYY.",
     "LAST_UPDATED_BEFORE": "Atualizações anteriores à data MM/DD/YYYY.",
-    "MAX_TOKENS": "Teto de tokens de conteúdo devolvido na resposta (opt-in).",
-    "MAX_TOKENS_PER_PAGE": "Teto de tokens de conteúdo por fonte (opt-in).",
+    "MAX_CONTENT_UNITS": "Teto de tokens de conteúdo devolvido na resposta (opt-in).",
+    "MAX_CONTENT_UNITS_PER_PAGE": "Teto de tokens de conteúdo por fonte (opt-in).",
 }
 
 
@@ -490,7 +490,7 @@ def _perplexity_option_specs() -> tuple[EnvironmentSpec, ...]:
             "Search Intelligence / Observability",
             _PERPLEXITY_DESCRIPTIONS[suffix],
             "enum" if choices else ("inteiro > 0" if suffix in {
-                "MAX_RESULTS", "MAX_TOKENS", "MAX_TOKENS_PER_PAGE",
+                "MAX_RESULTS", "MAX_CONTENT_UNITS", "MAX_CONTENT_UNITS_PER_PAGE",
             } else "texto"),
             choices,
             "10" if suffix == "MAX_RESULTS" else None,
