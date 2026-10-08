@@ -321,6 +321,8 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         print("2. Escolher WEB/FAST")
         print("3. Gerenciar credencial Perplexity")
         print("4. Ativar/desativar integração")
+        print("5. Habilitar/desabilitar síntese GEO por IA canônica nesta AUD")
+        print(f"  Síntese GEO por IA    : {'SOLICITADA' if bool(getattr(state, 'geo_ai_requested', False)) else 'NÃO SOLICITADA'}")
         print("D. Não solicitar Perplexity nesta execução")
         print("V. Voltar ao CAT-05")
         raw = input("Opção Perplexity: ").strip().upper()
@@ -339,8 +341,20 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             _edit_perplexity_credential(state)
         elif raw == "4":
             _edit_perplexity_activation(state)
+        elif raw == "5":
+            requested = input(
+                "Solicitar análise GEO por IA canônica? Pode consumir quota/custo. [S/N]: "
+            ).strip().upper()
+            if requested in {"S", "N"}:
+                state.geo_ai_requested = requested == "S"
+                _set_feedback(
+                    state,
+                    "Síntese GEO por IA " + ("solicitada" if requested == "S" else "não solicitada")
+                )
+            else:
+                print("  Escolha S ou N.")
         else:
-            print("  Opção inválida: use 1, 2, 3, 4, D ou V.")
+            print("  Opção inválida: use 1, 2, 3, 4, 5, D ou V.")
 
 
 def _edit_terms(search_module: ModuleType, state: Any, config: SerpRuntimeConfig) -> None:
