@@ -165,6 +165,86 @@ def test_missing_screenshot_never_probes_dom():
     assert page.calls == 0
 
 
+def test_late_materialized_dom_is_promoted_only_with_provenance():
+    from rasai.device_context_capture import (
+        _observe_post_screenshot_dom, _promote_late_materialized_dom,
+        _rendered_dom_metadata,
+    )
+    from rasai.render_materiality import observe_materiality
+    old_html = "<html><body><main><h1></h1></main></body></html>"
+    new_html = "<html><body><main><h1>Seguro de Vida</h1><p>" + (
+        "Cobertura em vida com proteções para famílias. " * 14
+    ) + "</p></main></body></html>"
+    original = observe_materiality(old_html).to_dict()
+    quality = {
+        "state": "INCOMPLETE",
+        "initial": original,
+        "final": original,
+        "growth": {"main_text_delta": 0, "materialized": False},
+        "recovery": {"attempted": True, "outcome": "BOUND_EXHAUSTED", "observation_count": 4},
+    }
+    page = _FakeDriftPage(new_html)
+    correlation, observed_html = _observe_post_screenshot_dom(page, old_html, quality, b"image")
+    chosen, promoted = _promote_late_materialized_dom(old_html, quality, correlation, observed_html)
+
+    assert page.calls == 1
+    assert chosen == new_html
+    assert promoted["state"] == "RECOVERED"
+    assert promoted["reason"] == "POST_SCREENSHOT_DOM_MATERIALIZED"
+    assert promoted["initial"] == original
+    assert promoted["final"]["main_text_length"] > 160
+    assert promoted["growth"]["main_text_delta"] > 160
+    assert promoted["recovery"]["outcome"] == "BOUND_EXHAUSTED"
+    assert promoted["post_screenshot_recovery"]["additional_navigation_requests"] == 0
+    assert _rendered_dom_metadata(chosen)["sha256"] == correlation["screenshot_time_dom_sha256"]
+    assert quality["state"] == "INCOMPLETE"
+    assert quality["growth"]["materialized"] is False
+
+
+def test_incomplete_dom_without_materiality_is_not_promoted():
+    from rasai.device_context_capture import (
+        _observe_post_screenshot_dom, _promote_late_materialized_dom,
+    )
+    from rasai.render_materiality import observe_materiality
+    old_html = "<html><body><main></main></body></html>"
+    late_html = "<html><body><main>Menu Buscar</main></body></html>"
+    observation = observe_materiality(old_html).to_dict()
+    quality = {"state": "INCOMPLETE", "initial": observation, "final": observation}
+    correlation, late = _observe_post_screenshot_dom(
+        _FakeDriftPage(late_html), old_html, quality, b"image"
+    )
+    assert _promote_late_materialized_dom(old_html, quality, correlation, late) == (
+        old_html, quality
+    )
+
+
+def test_ready_and_static_ssr_are_never_promoted_or_reobserved():
+    from rasai.device_context_capture import (
+        _observe_post_screenshot_dom, _promote_late_materialized_dom,
+    )
+    html = "<html><body><main><h1>Conteúdo estático</h1></main></body></html>"
+    quality = {"state": "READY", "reason": "NO_TRANSIENT_RENDER_SIGNAL"}
+    page = _FakeDriftPage("<main>changed unexpectedly</main>")
+    correlation, late = _observe_post_screenshot_dom(page, html, quality, b"image")
+    assert page.calls == 0
+    assert _promote_late_materialized_dom(html, quality, correlation, late) == (
+        html, quality
+    )
+
+
+def test_missing_screenshot_cannot_promote_late_dom():
+    from rasai.device_context_capture import (
+        _observe_post_screenshot_dom, _promote_late_materialized_dom,
+    )
+    quality = {"state": "INCOMPLETE"}
+    page = _FakeDriftPage("<main>Some future content</main>")
+    correlation, late = _observe_post_screenshot_dom(page, "<main></main>", quality, None)
+    assert page.calls == 0
+    assert _promote_late_materialized_dom("<main></main>", quality, correlation, late) == (
+        "<main></main>", quality
+    )
+
+
 def test_screenshot_dom_probe_fails_open_on_page_content_error():
     from rasai.device_context_capture import _optional_screenshot_dom_correlation
 
