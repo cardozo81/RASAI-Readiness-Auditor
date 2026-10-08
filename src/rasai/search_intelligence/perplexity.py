@@ -186,6 +186,8 @@ def _retry_after(headers: Mapping[str, str]) -> float | None:
 def _http_error_class(status: int) -> ProviderErrorClass:
     if status == 401:
         return ProviderErrorClass.AUTH_ERROR
+    if status == 402:
+        return ProviderErrorClass.CREDIT_ERROR
     if status == 403:
         return ProviderErrorClass.PERMISSION_ERROR
     if status == 429:
