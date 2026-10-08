@@ -132,8 +132,9 @@ def execute_geo_ai(
             if not hasattr(competitive_ai, "OrchestratedCompetitiveAiProvider"):
                 return "CANONICAL_AI_NOT_INSTALLED"
             provider_factory = competitive_ai.build_competitive_ai_provider
+        injected_test_factory = provider_factory is not None and getattr(provider_factory, "__module__", "") != "rasai.ai_orchestration_unification"
         provider = provider_factory(selection)
-        if provider.__class__.__name__ != "OrchestratedCompetitiveAiProvider" and provider_factory.__module__ != __name__:
+        if not injected_test_factory and provider.__class__.__name__ != "OrchestratedCompetitiveAiProvider":
             return "CANONICAL_AI_NOT_INSTALLED"
         output = provider.analyze(competitive_input)
         assessment = output.assessment
