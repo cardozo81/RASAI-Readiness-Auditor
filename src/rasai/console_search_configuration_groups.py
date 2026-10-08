@@ -98,7 +98,7 @@ def _perplexity_subgroup(name: str) -> str:
         return "Ativação"
     if normalized in {"RASAI_PERPLEXITY_COUNTRY", "RASAI_PERPLEXITY_SEARCH_LANGUAGE_FILTER"}:
         return "Escopo geográfico e idioma"
-    if normalized in {"RASAI_PERPLEXITY_MAX_RESULTS", "RASAI_PERPLEXITY_MAX_TOKENS", "RASAI_PERPLEXITY_MAX_TOKENS_PER_PAGE"}:
+    if normalized in {"RASAI_PERPLEXITY_MAX_RESULTS", "RASAI_PERPLEXITY_MAX_CONTENT_UNITS", "RASAI_PERPLEXITY_MAX_CONTENT_UNITS_PER_PAGE"}:
         return "Volume de resultados"
     return "Filtros opt-in de domínio e período"
 
