@@ -163,3 +163,19 @@ def test_missing_screenshot_never_probes_dom():
     )
     assert result["state"] == "NOT_APPLICABLE"
     assert page.calls == 0
+
+
+def test_screenshot_dom_probe_fails_open_on_page_content_error():
+    from rasai.device_context_capture import _optional_screenshot_dom_correlation
+
+    class _FailingPage:
+        def content(self):
+            raise RuntimeError("page closed between capture phases")
+
+    result = _optional_screenshot_dom_correlation(
+        _FailingPage(), "<main></main>", {"state": "INCOMPLETE"}, b"image"
+    )
+    assert result == {
+        "state": "UNAVAILABLE",
+        "contract_version": "SCREENSHOT-DOM-CORRELATION-001",
+    }
