@@ -8,10 +8,13 @@ on:
       - 'src/rasai/search_intelligence/perplexity.py'
       - 'src/rasai/platform/usage_ingestion.py'
       - 'src/rasai/console_search_intelligence.py'
+      - 'src/rasai/search_intelligence/perplexity_request_policy.py'
+      - 'src/rasai/console_environment.py'
       - 'src/rasai/catalog_report_integrations.py'
       - 'src/rasai/catalog_report_model.py'
       - 'tests/test_perplexity_search_intelligence.py'
       - 'tests/test_console_search_intelligence.py'
+      - 'tests/test_perplexity_request_policy_317.py'
       - 'tests/test_provider_registry.py'
       - 'docs/AI_PRICING_CONFIGURATION.md'
       - 'docs/AI_RUNTIME_ORCHESTRATION.md'
@@ -35,10 +38,13 @@ on:
       - 'src/rasai/search_intelligence/perplexity.py'
       - 'src/rasai/platform/usage_ingestion.py'
       - 'src/rasai/console_search_intelligence.py'
+      - 'src/rasai/search_intelligence/perplexity_request_policy.py'
+      - 'src/rasai/console_environment.py'
       - 'src/rasai/catalog_report_integrations.py'
       - 'src/rasai/catalog_report_model.py'
       - 'tests/test_perplexity_search_intelligence.py'
       - 'tests/test_console_search_intelligence.py'
+      - 'tests/test_perplexity_request_policy_317.py'
       - 'docs/AI_PRICING_CONFIGURATION.md'
       - 'docs/AI_RUNTIME_ORCHESTRATION.md'
       - 'docs/AUTO_COST_AWARE_AI_ROUTING.md'
@@ -78,6 +84,7 @@ jobs:
           python -m compileall -q \
             src/rasai/search_intelligence/perplexity.py \
             src/rasai/console_search_intelligence.py \
+            src/rasai/search_intelligence/perplexity_request_policy.py \
             src/rasai/catalog_report_model.py \
             src/rasai/catalog_report_integrations.py \
             src/rasai/geo_observation.py \
@@ -95,6 +102,7 @@ jobs:
             tests/test_ai_cost_policy.py \
             tests/test_m9_scoring.py \
             tests/test_perplexity_activation_flag.py \
+            tests/test_perplexity_request_policy_317.py \
             tests/test_geo_observation.py \
             tests/test_geo_report.py \
             tests/test_geo_ai.py \
