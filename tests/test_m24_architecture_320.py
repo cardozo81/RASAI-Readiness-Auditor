@@ -83,7 +83,7 @@ def test_discovery_missing_snapshots_remains_explicitly_unknown(tmp_path: Path) 
     assert data["architectures"] == []
     html = _page(data, tmp_path / "report")
     assert "Arquitetura não determinada" in html
-    assert "não possui classificação M6 persistida" in html
+    assert "não possui classificação arquitetural persistida" in html
 
 
 def test_legacy_missing_classification_column_does_not_infer_static(tmp_path: Path) -> None:
