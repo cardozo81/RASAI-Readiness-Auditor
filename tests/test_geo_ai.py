@@ -1,6 +1,8 @@
 """GEO AI must be explicit, canonical-provider-owned and idempotent."""
 from __future__ import annotations
 
+from contextlib import closing
+
 import sqlite3
 import tempfile
 import unittest
@@ -44,7 +46,7 @@ class FakeCanonicalConsumer:
 
 class GeoAiConsumerTests(unittest.TestCase):
     def _db(self, path):
-        with sqlite3.connect(path) as con:
+        with closing(sqlite3.connect(path)) as con, con:
             con.executescript("""
                 CREATE TABLE audits (audit_id TEXT PRIMARY KEY);
                 CREATE TABLE perplexity_search_runs (
@@ -77,7 +79,7 @@ class GeoAiConsumerTests(unittest.TestCase):
             second = execute_geo_ai(db, "AUD-1", provider_selection="auto", provider_factory=factory)
             self.assertEqual(second, "AVAILABLE")
             self.assertEqual(adapter.calls, 1)
-            with sqlite3.connect(db) as con:
+            with closing(sqlite3.connect(db)) as con, con:
                 self.assertEqual(
                     con.execute("SELECT count(*) FROM geo_ai_interpretations").fetchone()[0], 1
                 )
@@ -88,7 +90,7 @@ class GeoAiConsumerTests(unittest.TestCase):
             db = Path(root) / "audit.db"
             self._db(db)
             self.assertEqual(execute_geo_ai(db, "AUD-1", provider_selection="none"), "NOT_CONFIGURED")
-            with sqlite3.connect(db) as con:
+            with closing(sqlite3.connect(db)) as con, con:
                 self.assertFalse(con.execute(
                     "SELECT 1 FROM sqlite_master WHERE name='geo_ai_interpretations'"
                 ).fetchone())
