@@ -120,6 +120,7 @@ jobs:
           tests/test_issue_253_structured_data_absence_remediation.py
           tests/test_catalog_report_assurance.py
           tests/test_report_numeric_zero_326.py
+          tests/test_apdex_sampling_reliability_327.py
           tests/test_catalog_source_inventory.py
           tests/test_catalog_report_package_integrity.py
           tests/test_standards_css_validation.py
