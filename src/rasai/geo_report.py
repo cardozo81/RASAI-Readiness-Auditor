@@ -94,6 +94,12 @@ def _prior_competitive_ai(database: Path, audit_id: str, serp_id: str | None) ->
             "AND name='serp_competitive_ai_analyses'"
         ).fetchone():
             return None
+        needed = {"audit_id", "observation_id", "state", "provider", "model",
+                  "contract_version", "prompt_id", "prompt_version", "summary",
+                  "opportunities_json", "evidence_ref", "evidence_sha256"}
+        existing = {r[1] for r in con.execute("PRAGMA table_info(serp_competitive_ai_analyses)")}
+        if not needed.issubset(existing):
+            return None
         con.row_factory = sqlite3.Row
         row = con.execute(
             "SELECT observation_id,state,provider,model,contract_version,prompt_id,"
@@ -167,6 +173,11 @@ def _geo_relevant_findings(database: Path, audit_id: str) -> list[dict]:
             "AND name IN ('findings','recommendations')"
         )}
         if "findings" not in tables:
+            return []
+        needed = {"audit_id", "finding_id", "rule_id", "category", "severity",
+                  "title", "evidence_ids", "observed_value", "expected_condition"}
+        current = {row[1] for row in con.execute("PRAGMA table_info(findings)")}
+        if not needed.issubset(current):
             return []
         con.row_factory = sqlite3.Row
         findings = [dict(r) for r in con.execute(
