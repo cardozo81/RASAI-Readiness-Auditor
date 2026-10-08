@@ -91,6 +91,7 @@ class GeoReportTests(unittest.TestCase):
                 )
             self.assertIn("Sobreposição observacional", geo_body(db, "AUD-ONE"))
             self.assertIn("1 em ambas", geo_body(db, "AUD-ONE"))
+            self.assertIn("não comprova escopo de país, idioma, dispositivo", geo_body(db, "AUD-ONE"))
 
 
     def test_extraction_warning_visible_without_perplexity_run(self):
