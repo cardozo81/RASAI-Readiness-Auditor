@@ -384,10 +384,34 @@ def _baseline_serp_section(database: Path, audit_id: str) -> str:
                 result += "<li><strong>" + escape(str(opportunity.get("title") or "-"))
                 result += "</strong> (prioridade indicativa: "
                 result += escape(str(opportunity.get("priority") or "N/D")) + ")"
+                category = str(opportunity.get("category") or "NAO_CLASSIFICADA").upper()
+                owner, verify = _geo_review_routing({
+                    "category": category,
+                    "title": opportunity.get("title") or "",
+                })
+                # Competitive categories concern market/content unless the actual
+                # issue mentions technical crawling or rendering.
+                if category in {"QUERY_INTENT", "TOPIC_COVERAGE", "ENTITY_COVERAGE",
+                                "CITATION_READINESS", "EVIDENCE_TRUST"}:
+                    owner = "Conteúdo/SEO editorial + especialista de produto"
+                    verify = "validar intenção e afirmações com especialistas, oferta real e evidência de origem"
+                elif category == "INFORMATION_ARCHITECTURE":
+                    owner = "SEO técnico + Conteúdo/UX"
+                    verify = "validar jornada, navegabilidade, clareza semântica e links internos"
+                result += "<br>Categoria: " + escape(category)
+                if opportunity.get("confidence") is not None:
+                    result += " | confiança atribuída pela análise IA: "
+                    result += escape(str(opportunity["confidence"]))
+                result += "<br>Área sugerida: " + escape(owner)
                 result += "<br>Ação proposta: " + escape(str(opportunity.get("recommendation") or "Revisar evidência"))
+                if opportunity.get("rationale"):
+                    result += "<br>Motivo relatado: " + escape(str(opportunity["rationale"])[:450])
+                if opportunity.get("causality_note"):
+                    result += "<br>Limite causal: " + escape(str(opportunity["causality_note"])[:300])
                 result += "<br>Evidências declaradas: " + ", ".join(
                     escape(str(evidence)) for evidence in opportunity["evidence_ids"][:8]
                 )
+                result += " | Validação humana: " + escape(verify)
                 result += "</li>"
             result += "</ol>"
         else:
