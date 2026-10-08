@@ -60,6 +60,7 @@ class SearchConsoleState(BaseState):
     search_last_duration_seconds: float | None = None
     perplexity_queries: tuple[str, ...] = ()
     perplexity_search_type: str = "web"
+    geo_ai_requested: bool = False
     perplexity_last_status: str = "NOT_REQUESTED"
     perplexity_last_detail: str = ""
     perplexity_last_duration_seconds: float | None = None
@@ -450,6 +451,19 @@ def execute_perplexity_for_audit(
                 from rasai.report_completion import materialize_catalog_report_projection
                 workspace = AuditWorkspace.open(workspace_path)
                 materialize_geo_observation(Path(workspace.database), audit_id)
+                if bool(getattr(state, "geo_ai_requested", False)):
+                    try:
+                        from rasai.geo_ai import execute_geo_ai
+                        ai_state = execute_geo_ai(
+                            Path(workspace.database),
+                            audit_id,
+                            provider_selection=str(getattr(state, "ai_provider", "none")),
+                        )
+                        state.perplexity_last_detail += f" | GEO IA: {ai_state}"
+                    except (OSError, ValueError, RuntimeError, sqlite3.Error) as ai_exc:
+                        state.perplexity_last_detail += (
+                            f" | GEO IA indisponível: {type(ai_exc).__name__}"
+                        )
                 if (Path(workspace.root) / "report-catalog").exists():
                     completion = materialize_catalog_report_projection(
                         audit_id=audit_id, workspace=workspace
