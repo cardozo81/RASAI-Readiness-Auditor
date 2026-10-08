@@ -253,6 +253,34 @@ def _edit_perplexity_queries(search_module: ModuleType, state: Any) -> None:
     _mark_perplexity_pending(search_module, state)
 
 
+def _copy_serp_terms_to_perplexity(search_module: ModuleType, state: Any) -> None:
+    """Copy only on affirmative opt-in; SERP request intent is never inherited."""
+    source = tuple(getattr(state, "search_queries", ()) or ())
+    maximum = int(search_module.PERPLEXITY_MAX_QUERIES)
+    if not source:
+        print("  Não há termos SERP para sugerir. Configure os termos explicitamente.")
+        return
+    if len(source) > maximum:
+        print(
+            f"  SERP possui {len(source)} termos; limite Perplexity = {maximum}. "
+            "Selecione manualmente até o limite na opção 1."
+        )
+        return
+    print(
+        f"  Sugestão: {len(source)} termo(s) SERP. Copiar configura uma requisição "
+        "Perplexity Search API independente e potencialmente faturável."
+    )
+    print("  Habilitar integração ou configurar SERP não autoriza essa requisição.")
+    confirmation = input(
+        "Autorizar explicitamente a cópia e a pesquisa externa faturável [S/N]: "
+    ).strip().upper()
+    if confirmation != "S":
+        print("  Sem autorização: nenhuma query Perplexity foi modificada.")
+        return
+    state.perplexity_queries = source
+    _mark_perplexity_pending(search_module, state)
+
+
 def _edit_perplexity_type(search_module: ModuleType, state: Any) -> None:
     current = str(
         getattr(state, "perplexity_search_type", "web") or "web"
@@ -349,6 +377,7 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         print("3. Gerenciar credencial Perplexity")
         print("4. Ativar/desativar integração")
         print("5. Habilitar/desabilitar síntese GEO por IA canônica nesta AUD")
+        print("6. Copiar termos SERP para pesquisa Perplexity (confirmação faturável)")
         print(f"  Síntese GEO por IA    : {'SOLICITADA' if bool(getattr(state, 'geo_ai_requested', False)) else 'NÃO SOLICITADA'}")
         print("D. Não solicitar Perplexity nesta execução")
         print("V. Voltar ao CAT-05")
@@ -368,6 +397,8 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             _edit_perplexity_credential(state)
         elif raw == "4":
             _edit_perplexity_activation(state)
+        elif raw == "6":
+            _copy_serp_terms_to_perplexity(search_module, state)
         elif raw == "5":
             requested = input(
                 "Solicitar análise GEO por IA canônica? Pode consumir quota/custo. [S/N]: "
@@ -381,7 +412,7 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             else:
                 print("  Escolha S ou N.")
         else:
-            print("  Opção inválida: use 1, 2, 3, 4, 5, D ou V.")
+            print("  Opção inválida: use 1, 2, 3, 4, 5, 6, D ou V.")
 
 
 def _edit_terms(search_module: ModuleType, state: Any, config: SerpRuntimeConfig) -> None:
