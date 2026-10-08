@@ -408,6 +408,15 @@ def validate_perplexity_readiness(
     search_type = str(getattr(state, "perplexity_search_type", "web") or "web").casefold()
     if search_type not in {"web", "fast"}:
         return False, "Perplexity search_type inválido"
+    try:
+        from rasai.search_intelligence.perplexity_request_policy import resolve_request_options
+        resolve_request_options(
+            env, explicit_brazil=_explicit_brazil_scope(
+                str(getattr(state, "search_region", "") or "")
+            ), search_type=search_type,
+        )
+    except ValueError as exc:
+        return False, f"Configuração de escopo Perplexity inválida: {exc}"
     configured = perplexity_configuration_status(env)["configured"]
     suffix = "configurada" if configured else "não configurada; execução será contida como limitação externa"
     return True, (
@@ -464,9 +473,14 @@ def execute_perplexity_for_audit(
             "query": queries,
             "search_type": str(getattr(state, "perplexity_search_type", "web") or "web"),
         }
-        if brazil_scope and runner is None:
-            search_kwargs["country"] = "BR"
-            search_kwargs["search_language_filter"] = ("pt",)
+        if runner is None:
+            # Effective AUD scope takes priority over integration overrides.
+            # The adapter validates the same policy again before any POST.
+            from rasai.search_intelligence.perplexity_request_policy import resolve_request_options
+            search_kwargs["search_options"] = resolve_request_options(
+                explicit_brazil=brazil_scope,
+                search_type=search_kwargs["search_type"],
+            )
         result = effective_runner(AuditWorkspace.open(workspace_path), **search_kwargs)
         summary = humanized_perplexity_summary(result)
         state.perplexity_last_duration_seconds = max(time.monotonic() - started, 0.0)
