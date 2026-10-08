@@ -103,6 +103,12 @@ def inspect_workspace_extractions(root: Path) -> list[dict]:
         for candidate in sorted(rendered_root.rglob("SNP-*.html"))[:1000]
         if candidate.is_file() and not candidate.is_symlink()
     } if rendered_root.is_dir() else {}
+    visual_root = Path(root) / "artifacts" / "visual"
+    visual_by_snapshot = {
+        candidate.stem: candidate
+        for candidate in sorted(visual_root.rglob("SNP-*.png"))[:1000]
+        if candidate.is_file() and not candidate.is_symlink()
+    } if visual_root.is_dir() else {}
     for artifact in sorted(extraction.rglob("main_content.txt"))[:1000]:
         if artifact.is_symlink() or not artifact.is_file():
             continue
@@ -115,10 +121,22 @@ def inspect_workspace_extractions(root: Path) -> list[dict]:
         if result["state"] in {"NAVIGATION_DOMINATED_SUSPECTED", "NO_EXTRACTED_TEXT"} or (
             materiality and materiality["main_empty_in_captured_html"]
         ):
+            visual_path = visual_by_snapshot.get(artifact.parent.name)
+            visual = None
+            if visual_path is not None and visual_path.stat().st_size <= 10_000_000:
+                visual = {
+                    "screenshot_ref": visual_path.relative_to(root).as_posix(),
+                    "screenshot_sha256": sha256(visual_path.read_bytes()).hexdigest(),
+                    "interpretation": (
+                        "Same SNP image exists; image content was not OCR-verified "
+                        "or assumed indexable."
+                    ),
+                }
             output.append({
                 "artifact_ref": artifact.relative_to(root).as_posix(),
                 **result,
                 "rendered_dom": materiality,
+                "visual": visual,
             })
     return output
 
