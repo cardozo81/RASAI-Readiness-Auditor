@@ -66,6 +66,17 @@ class SearchConsoleState(BaseState):
     perplexity_last_duration_seconds: float | None = None
 
 
+def _explicit_brazil_scope(region: str) -> bool:
+    """Detect explicit Brazilian locale, never guess from provider defaults."""
+    normalized = " ".join(str(region or "").casefold().split())
+    if normalized in {"br", "brasil", "brazil", "brazilian"}:
+        return True
+    suffixes = (", br", ", brasil", ", brazil")
+    return normalized.endswith(suffixes) or any(
+        token in normalized for token in (", br,", ", brasil,", ", brazil,")
+    )
+
+
 def parse_search_terms(raw: str) -> tuple[str, ...]:
     """Parse semicolon/newline separated terms preserving order and removing duplicates."""
 
@@ -430,10 +441,8 @@ def execute_perplexity_for_audit(
         # Match the SERP geographic intent where explicitly configured.
         # A ccTLD is not a country detector; Perplexity's country/language
         # filters are best-effort provider constraints, not guaranteed BR-only.
-        serp_region = str(getattr(state, "search_region", "") or "").casefold()
-        brazil_scope = any(
-            token in serp_region
-            for token in ("brazil", "brasil", ", br", "brazilian")
+        brazil_scope = _explicit_brazil_scope(
+            str(getattr(state, "search_region", "") or "")
         )
         search_kwargs = {
             "audit_id": audit_id,
