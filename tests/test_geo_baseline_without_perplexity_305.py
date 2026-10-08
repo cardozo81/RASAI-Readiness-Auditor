@@ -127,3 +127,33 @@ def test_geo_handles_legacy_partial_serp_without_false_positive(tmp_path: Path) 
     result = geo_body(db, "AUD-1")
     assert "Não há observação SERP live elegível" in result
     assert "Não há execução Perplexity Search persistida" in result
+
+
+def test_geo_abstains_on_incomplete_legacy_competitive_and_finding_schemas(
+    tmp_path: Path,
+) -> None:
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+        CREATE TABLE serp_observations (
+          observation_id TEXT, audit_id TEXT, query TEXT, engine TEXT,
+          country TEXT, region TEXT, language TEXT, device TEXT,
+          data_mode TEXT, observation_status TEXT, collected_at TEXT
+        );
+        CREATE TABLE serp_results (
+          observation_id TEXT, position INTEGER, url TEXT, title TEXT
+        );
+        CREATE TABLE serp_competitive_ai_analyses (
+          observation_id TEXT, audit_id TEXT, state TEXT
+        );
+        CREATE TABLE findings (finding_id TEXT, audit_id TEXT);
+        """)
+        con.execute(
+            "INSERT INTO serp_observations VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            ("S1", "AUD-1", "seguro", "google", "BR", "SP", "pt-BR",
+             "mobile", "OBSERVED_API", "OBSERVED", "2026-10-08"),
+        )
+    html = geo_body(db, "AUD-1")
+    assert "Panorama SERP existente" in html
+    assert "Não existe análise competitiva canônica disponível" in html
+    assert "Nenhum achado elegível foi encontrado" in html
