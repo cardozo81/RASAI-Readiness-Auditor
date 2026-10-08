@@ -351,6 +351,23 @@ def _cat07_methodology_summary_html(database: Path, data: _ReportData) -> str:
     return html+"</div>"
 
 
+def _apdex_readiness_notice(catalog_id: str) -> str:
+    """Advisory boundary without implying same-sample DOM observation."""
+    if catalog_id not in {"CAT-06", "CAT-07"}:
+        return ""
+    return (
+        "<div class='notice warn'><strong>Carregamento não é prontidão do conteúdo:</strong> "
+        "em páginas SPA/CSR ou hidratadas, a tarefa de navegação pode concluir "
+        "antes de textos, blocos essenciais e controles estarem utilizáveis. "
+        "Este Apdex mede somente sua própria fronteira temporal persistida; "
+        "não mede o instante de conteúdo principal pronto. "
+        "Não existe aqui uma série same-sample de prontidão validada. "
+        "Consulte a arquitetura observada em "
+        "<a href='capture-context.html'>Contexto da captura</a> e confronte "
+        "com o <a href='cat-04.html'>Lighthouse</a> sem misturar os índices.</div>"
+    )
+
+
 def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
     catalog=CATALOG_BY_ID[catalog_id]
     status,tone,detail=_catalog_status(database,data,catalog_id)
@@ -363,20 +380,7 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
     )
     outline=_outline((("summary","Resumo"),("scope","Escopo"),("config","Configuração"),("execution","Execução"),("results","Resultados"),("evidence","Evidências"),("analysis","Análise"),("remediation","Remediações"),("technical","Detalhes técnicos")))
     methodology=_cat07_methodology_summary_html(database,data) if catalog_id=="CAT-07" else ""
-    # #322: explicit readout boundary only, not a new metric or a change to
-    # homologated M23/M25 measurement clocks or classification.
-    readiness_notice=(
-        "<div class='notice warn'><strong>Carregamento não é prontidão do conteúdo:</strong> "
-        "em páginas SPA/CSR ou hidratadas, a tarefa de navegação pode concluir "
-        "antes de textos, blocos essenciais e controles estarem utilizáveis. "
-        "Este Apdex mede somente sua própria fronteira temporal persistida; "
-        "não mede o instante de conteúdo principal pronto. "
-        "Não existe aqui uma série same-sample de prontidão validada. "
-        "Consulte a arquitetura observada em "
-        "<a href='capture-context.html'>Contexto da captura</a> e confronte "
-        "com o <a href='cat-04.html'>Lighthouse</a> sem misturar os índices.</div>"
-        if catalog_id in {"CAT-06", "CAT-07"} else ""
-    )
+    readiness_notice=_apdex_readiness_notice(catalog_id)
     summary=_section("summary","Resumo",f"<div class='catalog-state'><div><p>{escape(catalog.purpose)}</p><p class='muted'>{escape(catalog.expected_result)}</p></div>{_badge(status,tone)}</div><div class='metric-grid'>{_metric('Capacidades',len(catalog.capability_ids))}{_metric('Fontes com dados',len(sources))}{_metric('Etapas próprias',len(work))}{_metric('Indicadores principais',len(metrics))}</div>"+methodology+readiness_notice)
     if _plan_available(data):
         capability_state="Incluída" if catalog_id in data.selected else "Não solicitada"
