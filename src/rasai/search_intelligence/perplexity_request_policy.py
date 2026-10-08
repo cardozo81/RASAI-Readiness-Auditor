@@ -21,8 +21,8 @@ OPTION_FIELDS = {
     "SEARCH_BEFORE_DATE": "search_before_date_filter",
     "LAST_UPDATED_AFTER": "last_updated_after_filter",
     "LAST_UPDATED_BEFORE": "last_updated_before_filter",
-    "MAX_TOKENS": "max_tokens",
-    "MAX_TOKENS_PER_PAGE": "max_tokens_per_page",
+    "MAX_CONTENT_UNITS": "max_tokens",
+    "MAX_CONTENT_UNITS_PER_PAGE": "max_tokens_per_page",
 }
 VALID_OPTION_FIELDS = frozenset(OPTION_FIELDS.values())
 _DATE_FIELDS = frozenset({
