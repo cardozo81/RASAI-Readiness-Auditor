@@ -73,10 +73,11 @@ def _sealed_audit(workspace: AuditWorkspace, audit_id: str) -> tuple[str, str, s
     db_uri = f"file:{workspace.database.resolve().as_posix()}?mode=ro"
     with sqlite3.connect(db_uri, uri=True) as connection:
         row = connection.execute(
-            "SELECT completion_status FROM audits WHERE audit_id=?",
+            "SELECT status, completion_status FROM audits WHERE audit_id=?",
             (audit_id,),
         ).fetchone()
-        if row is None or str(row[0] or "").upper() != "COMPLETE":
+        if (row is None or str(row[0] or "").upper() != "COMPLETED"
+                or str(row[1] or "").upper() != "COMPLETE"):
             raise ValueError("source AUD must be COMPLETE before external supplement")
         if connection.execute("PRAGMA quick_check").fetchone()[0] != "ok":
             raise ValueError("source audit.db integrity check failed")
