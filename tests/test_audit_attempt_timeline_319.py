@@ -91,3 +91,60 @@ def test_unknown_timestamps_not_falsely_summed_as_wall_time(tmp_path):
     assert result.summed_duration_ms == 45000
     assert result.unknown_intervals == 1
     assert result.union_active_ms is None
+
+
+def test_union_cannot_exceed_summed_timing_when_reported_duration_is_rounded(tmp_path):
+    database = tmp_path / "audit.db"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "CREATE TABLE ai_provider_attempts("
+            "attempt_id TEXT PRIMARY KEY, audit_id TEXT, operation TEXT,"
+            "duration_ms INTEGER, started_at TEXT, finished_at TEXT,"
+            "estimated_cost REAL, cost_currency TEXT,"
+            "observed_cost REAL, observed_cost_currency TEXT)"
+        )
+        connection.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?)",
+            [
+                ("A1", "AUD-T", "IMPROVEMENT_INTELLIGENCE", 122764,
+                 "2026-10-08T14:16:46.503559+00:00",
+                 "2026-10-08T14:18:49.285950+00:00", .02, "USD", None, None),
+                ("A2", "AUD-T", "IMPROVEMENT_INTELLIGENCE", 173103,
+                 "2026-10-08T14:18:49.338513+00:00",
+                 "2026-10-08T14:21:42.444117+00:00", .03, "USD", None, None),
+            ],
+        )
+    result = read_audit_attempt_timeline(database, "AUD-T")
+    stage = result.stages[0]
+    assert stage.observed_cost_attempts == 0
+    assert stage.unknown_intervals == 0
+    assert abs(stage.summed_duration_ms - stage.union_active_ms) < 0.001
+    assert abs(stage.summed_duration_ms - 295887.995) < .1
+    assert stage.overlapping_duration_ms == 0
+
+
+def test_provider_cost_coverage_distinguishes_unavailable_from_observed_zero(tmp_path):
+    database = tmp_path / "audit.db"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "CREATE TABLE ai_provider_attempts("
+            "attempt_id TEXT PRIMARY KEY, audit_id TEXT, operation TEXT,"
+            "duration_ms INTEGER, started_at TEXT, finished_at TEXT,"
+            "observed_cost REAL, observed_cost_currency TEXT)"
+        )
+        connection.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?)",
+            [
+                ("A1", "AUD-C", "WITH_OBSERVED", 1000,
+                 "2026-10-08T15:00:00+00:00", "2026-10-08T15:00:01+00:00",
+                 0.0, "USD"),
+                ("A2", "AUD-C", "WITHOUT_OBSERVED", 1000,
+                 "2026-10-08T15:00:02+00:00", "2026-10-08T15:00:03+00:00",
+                 None, None),
+            ],
+        )
+    result = read_audit_attempt_timeline(database, "AUD-C")
+    stages = {row.name: row for row in result.stages}
+    assert stages["WITH_OBSERVED"].observed_cost_attempts == 1
+    assert stages["WITH_OBSERVED"].priced_usd_provider_observed == 0.0
+    assert stages["WITHOUT_OBSERVED"].observed_cost_attempts == 0
