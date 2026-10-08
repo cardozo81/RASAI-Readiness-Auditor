@@ -338,7 +338,13 @@ def geo_body(database: Path, audit_id: str) -> str:
         summary += f"{int(comparison.get('url_overlap_count') or 0)} em ambas; "
         summary += f"{int(comparison.get('serp_url_count') or 0)} URLs SERP e "
         summary += f"{int(comparison.get('perplexity_url_count') or 0)} URLs Perplexity."
-        summary += " Não demonstra causalidade, ranking equivalente ou citação generativa.</p>"
+        summary += (
+            " É apenas interseção de URLs para a mesma string de consulta; "
+            "a origem de busca não comprova escopo de país, idioma, dispositivo "
+            "ou janela temporal equivalentes entre providers. Não é comparação "
+            "estatisticamente calibrada, não demonstra causalidade, ranking "
+            "equivalente ou citação generativa.</p>"
+        )
     summary += "</section>"
     if comparison:
         target = comparison.get("target_observation") or {}
