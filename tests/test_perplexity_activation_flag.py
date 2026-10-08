@@ -33,6 +33,26 @@ class PerplexityActivationFlagTests(unittest.TestCase):
             with self.subTest(value=value):
                 self.assertFalse(perplexity_enabled({"RASAI_PERPLEXITY_ENABLED": value}))
 
+    def test_explicit_opt_out_persists_without_secret(self):
+        import configparser
+        import tempfile
+        from pathlib import Path
+        from rasai.console_settings import save_console_config
+        from rasai.console_search_intelligence import SearchConsoleState
+
+        with tempfile.TemporaryDirectory() as root, patch.dict(
+            "os.environ",
+            {"RASAI_PERPLEXITY_ENABLED": "false", "PERPLEXITY_API_KEY": "opaque-secret"},
+        ):
+            destination = Path(root) / "rasai-console.ini"
+            save_console_config(SearchConsoleState(), destination)
+            parser = configparser.ConfigParser(interpolation=None)
+            parser.optionxform = str
+            parser.read(destination, encoding="utf-8")
+            self.assertEqual(parser.get("environment", "RASAI_PERPLEXITY_ENABLED"), "false")
+            self.assertFalse(parser.has_option("environment", "PERPLEXITY_API_KEY"))
+            self.assertNotIn("opaque-secret", destination.read_text(encoding="utf-8"))
+
     def test_disabled_readiness_is_advisory(self):
         state = SimpleNamespace(perplexity_queries=("example",))
         ready, detail = validate_perplexity_readiness(
