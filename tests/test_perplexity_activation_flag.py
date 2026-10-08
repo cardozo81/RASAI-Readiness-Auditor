@@ -24,6 +24,31 @@ class PerplexityActivationFlagTests(unittest.TestCase):
         self.assertIn("RASAI_PERPLEXITY_ENABLED", _known_nonsecret_environment_names())
         self.assertNotIn("PERPLEXITY_API_KEY", _known_nonsecret_environment_names())
 
+    def test_true_never_schedules_implicit_requests(self):
+        for value in ("true", "TRUE", "1", "on", "yes"):
+            with self.subTest(value=value):
+                self.assertTrue(perplexity_enabled({"RASAI_PERPLEXITY_ENABLED": value}))
+        state = SimpleNamespace(perplexity_queries=())
+        with patch.dict("os.environ", {"RASAI_PERPLEXITY_ENABLED": "true"}), patch(
+            "rasai.console_search_intelligence.audit_workspace",
+            side_effect=AssertionError("no query must not access workspace"),
+        ):
+            self.assertEqual(execute_perplexity_for_audit(state, runner=lambda **kw: self.fail("request")), 0)
+
+    def test_invalid_flag_is_fail_closed(self):
+        for value in ("invalid", "enabled", "tru", "true; false"):
+            with self.subTest(value=value):
+                self.assertFalse(perplexity_enabled({"RASAI_PERPLEXITY_ENABLED": value}))
+        state = SimpleNamespace(perplexity_queries=("example",))
+        with patch.dict("os.environ", {"RASAI_PERPLEXITY_ENABLED": "invalid"}), patch(
+            "rasai.console_search_intelligence.audit_workspace",
+            side_effect=AssertionError("invalid flag must not access workspace"),
+        ):
+            self.assertEqual(execute_perplexity_for_audit(state, runner=lambda **kw: self.fail("request")), 0)
+        ready, detail = validate_perplexity_readiness(state, {"RASAI_PERPLEXITY_ENABLED": "invalid"})
+        self.assertTrue(ready)
+        self.assertIn("inválida", detail)
+
     def test_missing_flag_preserves_legacy_behavior(self):
         self.assertTrue(perplexity_enabled({}))
         self.assertTrue(perplexity_enabled({"PERPLEXITY_API_KEY": "opaque"}))
@@ -42,6 +67,13 @@ class PerplexityActivationFlagTests(unittest.TestCase):
             self.assertTrue(_explicit_brazil_scope(region), region)
         for region in ("", "Porto", "Lisboa, Portugal", "Bratislava, Slovakia", "Bristol, UK"):
             self.assertFalse(_explicit_brazil_scope(region), region)
+
+    def test_editor_accepts_only_boolean_values(self):
+        from rasai.console_environment import _validate
+        self.assertEqual(_validate("RASAI_PERPLEXITY_ENABLED", " TRUE "), "true")
+        self.assertEqual(_validate("RASAI_PERPLEXITY_ENABLED", "OFF"), "false")
+        with self.assertRaises(ValueError):
+            _validate("RASAI_PERPLEXITY_ENABLED", "automatic")
 
     def test_explicit_opt_out_persists_without_secret(self):
         import configparser
