@@ -107,12 +107,14 @@ def classify_primary_content_readiness(
     for i, first in enumerate(checkpoints):
         if not material(first):
             continue
-        if any(
-            material(next_sample)
-            and next_sample.since_navigation_ms - first.since_navigation_ms >= _MIN_STABILITY_MS
-            for next_sample in checkpoints[i + 1:]
-        ):
-            return result("OBSERVED", "stable_primary_dom_text", first.since_navigation_ms)
+        # A skeleton or an empty/intermediate checkpoint breaks continuity.
+        # Two distant positive probes cannot establish stability if a negative
+        # probe was recorded between them in this SAME browser context.
+        for next_sample in checkpoints[i + 1:]:
+            if not material(next_sample):
+                break
+            if next_sample.since_navigation_ms - first.since_navigation_ms >= _MIN_STABILITY_MS:
+                return result("OBSERVED", "stable_primary_dom_text", first.since_navigation_ms)
     return result(
         "TIMEOUT" if window_expired else "NOT_OBSERVED",
         "window_censored" if window_expired else "content_not_yet_stable",
