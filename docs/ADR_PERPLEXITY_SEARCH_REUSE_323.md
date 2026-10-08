@@ -1,4 +1,4 @@
-# ADR-323 — Reutilização interna da Perplexity Search API
+# ADR-323 - Reutilização interna da Perplexity Search API
 
 Status: **aprovada para fachada mínima audit-scoped; API independente de auditoria, adiada**.
 Controle: #301 / #310; relacionada a #302, #317, #318. Implementação: PR #312.
@@ -16,13 +16,13 @@ Controle: #301 / #310; relacionada a #302, #317, #318. Implementação: PR #312.
 | `report_completion.py` | Materialização de relatório após persistência | Manifest, fingerprint de SQLite e `report-catalog` | Não faz rede |
 | RPR/replay | Reprojeções de evidências já existentes | Snapshot original | Não devem disparar Search API |
 
-**Conclusão:** já há um núcleo único de HTTP e cálculo comercial. Não duplicar transporte, credenciais, pricing, rate control ou normalização de erro para novo consumer. Porém o método `execute_perplexity_search(workspace, audit_id, ...)` é **audit-scoped** e altera `audit.db` e ledger M18. Separá-lo apenas por nomenclatura seria um falso desacoplamento.
+**Conclusão:** já há um núcleo único de HTTP e cálculo comercial. Não duplicar transporte, credenciais, pricing, rate control ou normalização de erro para novo consumer. Porém o método `execute_perplexity_search(workspace, audit_id, ...)` é **audit-scoped** e altera `audit.db` e ledger ledger de tentativas de IA. Separá-lo apenas por nomenclatura seria um falso desacoplamento.
 
 ## Escolha arquitetural e trade-off
 
-- **A — Fachada interna audit-scoped sobre o adapter existente (recomendada agora).** Menor diff/risco, compartilha transporte, request policy, preço e status; exige um workspace de AUD mutável. Útil para CAT-05 e outros consumidores **durante** AUD. Adicionar `consumer_id`, `purpose`, `context_ref`, consentimento de custo e chave de idempotência na camada *aplicativa*, sem alterar motor, apenas quando houver segundo consumer real.
-- **B — Port/adapter com persistence injetável (necessária para complemento externo selado #318).** Extrair fronteira pura `request -> response` + emissor de custos, passar sink isolado e original AUD read-only; exige contrato próprio de ledger, sidecar versionado e deduplicação resistente a corrida/crash. **Não** reutilizar ingenuamente `execute_perplexity_search` sobre `audit.db` já selado.
-- **C — Serviço/API externa ou provider de orquestrador.** Escopo excessivo, risco alto para integridade e duplicação de encargos; **rejeitada** para este release. API Orqetia permanece independente.
+- **A - Fachada interna audit-scoped sobre o adapter existente (recomendada agora).** Menor diff/risco, compartilha transporte, request policy, preço e status; exige um workspace de AUD mutável. Útil para CAT-05 e outros consumidores **durante** AUD. Adicionar `consumer_id`, `purpose`, `context_ref`, consentimento de custo e chave de idempotência na camada *aplicativa*, sem alterar motor, apenas quando houver segundo consumer real.
+- **B - Port/adapter com persistence injetável (necessária para complemento externo selado #318).** Extrair fronteira pura `request -> response` + emissor de custos, passar sink isolado e original AUD read-only; exige contrato próprio de ledger, sidecar versionado e deduplicação resistente a corrida/crash. **Não** reutilizar ingenuamente `execute_perplexity_search` sobre `audit.db` já selado.
+- **C - Serviço/API externa ou provider de orquestrador.** Escopo excessivo, risco alto para integridade e duplicação de encargos; **rejeitada** para este release. API Orqetia permanece independente.
 
 ## Contrato-alvo da fachada (não afirmar que já existe)
 
@@ -42,7 +42,7 @@ SearchOutcome {
 
 **Gates antes do transporte:** query explicitamente requerida; toggle ON não autoriza cobrança; validação e orçamento; autorização por requisição (não por login/configuração); idempotency key única para a *intenção* e *escopo efetivo*; chave de segredo apenas em memória/headers; limite de tentativas; deduplicação atômica por consumer/context/intent. A API externa não documenta idempotência comercial equivalente à chave local; timeout após envio tem cobrança incerta, portanto **não repetir cegamente** uma tentativa em estado desconhecido.
 
-**Persistência:** em AUD ativa, tabelas `perplexity_search_runs` e `perplexity_search_sources` com `attempt_id` no ledger M18, `request_payload_hash` e materialização GEO. Em AUD COMPLETE **selada**, não modificar `audit.db`, `audit-snapshot.db` ou o `report-catalog` original: usar sidecar `supplement_id` independente, registro append-only, manifest próprio com SHA e vínculo audit_id/hash original. Reexecução idempotente deve devolver o suplemento existente sem nova requisição, inclusive após reinício; só gerar *nova* pesquisa com nova intenção autorizada. Reconstrução do pacote original continua verificável byte a byte.
+**Persistência:** em AUD ativa, tabelas `perplexity_search_runs` e `perplexity_search_sources` com `attempt_id` no ledger ledger de tentativas de IA, `request_payload_hash` e materialização GEO. Em AUD COMPLETE **selada**, não modificar `audit.db`, `audit-snapshot.db` ou o `report-catalog` original: usar sidecar `supplement_id` independente, registro append-only, manifest próprio com SHA e vínculo audit_id/hash original. Reexecução idempotente deve devolver o suplemento existente sem nova requisição, inclusive após reinício; só gerar *nova* pesquisa com nova intenção autorizada. Reconstrução do pacote original continua verificável byte a byte.
 
 ## Segurança e aceitação
 
