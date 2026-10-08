@@ -7,7 +7,7 @@ import sqlite3
 
 import pytest
 
-from rasai.domain import Audit, CompletionStatus
+from rasai.domain import Audit, AuditStatus, CompletionStatus
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.search_intelligence.perplexity import PerplexityHttpResponse
 from rasai.geo_post_audit_complement import run_post_audit_geo_supplement as run
@@ -19,6 +19,7 @@ def source(tmp_path, monkeypatch, *, complete=True):
     with AuditPersistence(workspace) as store:
         store.audits.add(Audit(
             audit_id=aud, project_name="sealed original",
+            status=AuditStatus.COMPLETED if complete else AuditStatus.CREATED,
             completion_status=CompletionStatus.COMPLETE if complete else None,
         ))
     catalog = workspace.root / "report-catalog"
