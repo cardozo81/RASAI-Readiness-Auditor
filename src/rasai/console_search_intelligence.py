@@ -851,6 +851,36 @@ def install(console_module: ModuleType) -> None:
             )
             if state.perplexity_last_detail:
                 print(f"Detalhe Perplexity   : {state.perplexity_last_detail}")
+        # Optional #319 projection; no recalculation, billing, or live requests.
+        if str(getattr(state, "audit_id", "") or "").strip():
+            try:
+                from rasai.audit_attempt_timeline import read_audit_attempt_timeline
+                root = audit_workspace(state)
+                if root is not None:
+                    workspace = AuditWorkspace.open(root)
+                    timeline = read_audit_attempt_timeline(Path(workspace.database), state.audit_id)
+                    if timeline.attempts:
+                        print(
+                            f"Cronologia IA M18/M20: {timeline.attempts} tentativas | "
+                            f"soma {timeline.summed_duration_ms / 1000:.1f}s | "
+                            f"ativo {timeline.union_active_ms / 1000:.1f}s"
+                            if timeline.union_active_ms is not None else
+                            f"Cronologia IA M18/M20: {timeline.attempts} tentativas | "
+                            f"soma {timeline.summed_duration_ms / 1000:.1f}s | "
+                            "ativo não calculável (intervalos incompletos)"
+                        )
+                        print(
+                            "  Valores USD pós-uso : "
+                            f"estimativa {timeline.posthoc_estimated_usd:.6f}; "
+                            f"provider {timeline.provider_observed_usd:.6f}; "
+                            f"sem preço {timeline.unpriced_attempts}"
+                        )
+                        print(
+                            "  Nota               : tempos simultâneos não são aditivos; "
+                            "não inclui captura/PSI/Apdex; valores não são fatura."
+                        )
+            except (OSError, ValueError, sqlite3.Error):
+                pass
 
     console_module._menu = menu
     console_module._configure = configure
