@@ -71,3 +71,11 @@ def test_no_legacy_apdex_formula_or_database_dependency():
         name.startswith("synthetic_apdex") or name.startswith("synthetic_ux_apdex")
         for name in module.__dict__
     )
+
+
+def test_intervening_skeleton_resets_stability():
+    value = observation(samples=[cp(500, 500), cp(560, 600, skeleton=True), cp(650, 500)])
+    assert value.status == 'NOT_OBSERVED'
+    stable = observation(samples=[cp(500, 500), cp(560, 600, skeleton=True), cp(650, 500), cp(770, 520)])
+    assert stable.status == 'OBSERVED'
+    assert stable.primary_content_ms == 650
