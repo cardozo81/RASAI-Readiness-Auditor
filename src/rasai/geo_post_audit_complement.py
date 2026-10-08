@@ -18,7 +18,7 @@ import re
 import sqlite3
 from typing import Any, Mapping, Sequence
 
-from rasai.domain import Audit, CompletionStatus
+from rasai.domain import Audit, AuditStatus, CompletionStatus
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.search_intelligence.perplexity import (
     PerplexityTransport,
@@ -60,7 +60,7 @@ def _write_json(path: Path, data: dict[str, Any]) -> None:
     os.replace(pending, path)
 
 
-def _sealed_audit(workspace: AuditWorkspace, audit_id: str) -> tuple[str, str]:
+def _sealed_audit(workspace: AuditWorkspace, audit_id: str) -> tuple[str, str, str]:
     # No CREATE, UPDATE, connections in read/write mode or manifest rewrite.
     report_root = workspace.root / "report-catalog"
     report_manifest = report_root / "manifest.json"
@@ -82,7 +82,8 @@ def _sealed_audit(workspace: AuditWorkspace, audit_id: str) -> tuple[str, str]:
             raise ValueError("source audit.db integrity check failed")
         if connection.execute("PRAGMA foreign_key_check").fetchone() is not None:
             raise ValueError("source audit.db foreign keys invalid")
-    return _digest(workspace.database), _digest(report_manifest)
+    from rasai.catalog_report_site import _source_fingerprint
+    return _digest(workspace.database), _digest(report_manifest), _source_fingerprint(workspace.database)
 
 
 def _existing(
@@ -163,7 +164,7 @@ def run_post_audit_geo_supplement(
             audit_id, intent_id, None, "DISABLED", False, "integração desabilitada",
         )
 
-    source_db_sha, source_manifest_sha = _sealed_audit(original_workspace, audit_id)
+    source_db_sha, source_manifest_sha, source_state_fingerprint = _sealed_audit(original_workspace, audit_id)
     scope = {
         "audit_id": audit_id,
         "intent_id": intent_id,
@@ -196,6 +197,7 @@ def run_post_audit_geo_supplement(
             "request_fingerprint": fingerprint,
             "scope": scope,
             "source_audit_db_sha256": source_db_sha,
+            "source_audit_state_fingerprint": source_state_fingerprint,
             "source_catalog_manifest_sha256": source_manifest_sha,
             "authorization": "EXPLICIT_PER_INTENT",
         },
@@ -209,6 +211,7 @@ def run_post_audit_geo_supplement(
             Audit(
                 audit_id=audit_id,
                 project_name="Derived external GEO supplement (not original AUD)",
+                status=AuditStatus.COMPLETED,
                 completion_status=CompletionStatus.COMPLETE,
             )
         )
@@ -228,6 +231,7 @@ def run_post_audit_geo_supplement(
         "version": SUPPLEMENT_VERSION,
         "source_audit_id": audit_id,
         "source_audit_db_sha256": source_db_sha,
+        "source_audit_state_fingerprint": source_state_fingerprint,
         "source_catalog_manifest_sha256": source_manifest_sha,
         "supplement_intent_id": intent_id,
         "request_fingerprint": fingerprint,
@@ -281,8 +285,10 @@ def run_post_audit_geo_supplement(
             raise RuntimeError("supplement SQLite integrity failed")
         if connection.execute("PRAGMA foreign_key_check").fetchone() is not None:
             raise RuntimeError("supplement SQLite FK validation failed")
+    from rasai.catalog_report_site import _source_fingerprint
     if (
         _digest(original_workspace.database) != source_db_sha
+        or _source_fingerprint(original_workspace.database) != source_state_fingerprint
         or _digest(original_workspace.root / "report-catalog" / "manifest.json")
         != source_manifest_sha
     ):
