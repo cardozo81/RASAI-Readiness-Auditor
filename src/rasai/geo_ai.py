@@ -68,11 +68,24 @@ def _prepare(con: sqlite3.Connection, audit_id: str) -> tuple[str, CompetitiveAi
         )
         for x in sources
     )
+    audit_columns = {x[1] for x in con.execute("PRAGMA table_info(audits)")}
+    audit_context = (
+        con.execute(
+            "SELECT market, primary_language FROM audits WHERE audit_id=?", (audit_id,)
+        ).fetchone()
+        if {"market", "primary_language"}.issubset(audit_columns)
+        else None
+    )
+    market = str(audit_context["market"] or "BR") if audit_context else "BR"
+    language = (
+        str(audit_context["primary_language"] or "pt-BR")
+        if audit_context else "pt-BR"
+    )
     obj = CompetitiveAiInput(
         observation_id=row["run_id"],
         query=queries[0],
-        market="BR",
-        language="pt-BR",
+        market=market,
+        language=language,
         ymyl_mode="AUTO",
         evidence=evidence,
     )
