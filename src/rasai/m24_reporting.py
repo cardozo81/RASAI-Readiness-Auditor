@@ -101,7 +101,7 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
             (audit_id,),
         )
         resources = _captured_resources(workspace, resource_rows, diagnostics)
-        # M6 is the only authoritative architecture classifier. This report only
+        # The canonical classificador analyzer is the only authoritative architecture classifier. This report only
         # projects existing per-SNP classifications; no detection or navigation.
         try:
             architecture_rows = _many(
@@ -114,7 +114,7 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
                 (audit_id,),
             )
         except sqlite3.OperationalError as exc:
-            # Older compatible databases may predate M6's classification column.
+            # Older compatible databases may predate the classification column.
             if "no such column" not in str(exc).casefold():
                 raise
             architecture_rows = []
@@ -207,7 +207,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 
 
 def _architecture_section(rows: list[dict[str, Any]]) -> str:
-    """Read-only projection of the audited URL architecture by M6 snapshot."""
+    """Read-only projection of the audited URL architecture from the persisted snapshot."""
     from rasai.catalog_report_presentation import _architecture_label
 
     note = (
