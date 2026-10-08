@@ -608,23 +608,23 @@ def _rendered_dom_metadata(rendered_html: str) -> dict[str, Any]:
     }
 
 
-def _optional_screenshot_dom_correlation(
+def _observe_post_screenshot_dom(
     page: Any, rendered_html: str | None,
     capture_quality: dict[str, Any], screenshot_png: bytes | None,
-) -> dict[str, Any]:
-    """Optional same-session drift evidence; never recapture or replace DOM."""
+) -> tuple[dict[str, Any], str | None]:
+    """Read one optional late DOM; return only its metadata for persistence."""
     result = {
         "state": "NOT_APPLICABLE",
         "contract_version": "SCREENSHOT-DOM-CORRELATION-001",
     }
     if screenshot_png is None or capture_quality.get("state") != "INCOMPLETE":
-        return result
+        return result, None
     try:
         from rasai.render_materiality import observe_materiality
         baseline = observe_materiality(rendered_html)
         current_html = page.content()
         if not isinstance(current_html, str):
-            return {**result, "state": "UNAVAILABLE"}
+            return {**result, "state": "UNAVAILABLE"}, None
         screenshot_time = observe_materiality(current_html)
         return {
             **result,
@@ -641,12 +641,87 @@ def _optional_screenshot_dom_correlation(
                 screenshot_time.main_text_length - baseline.main_text_length
             ),
             "limitation": (
-                "Read-only post-screenshot DOM observation; no proof of "
+                "Same-session post-screenshot DOM observation; no proof of "
                 "image content, indexing or hydration cause."
             ),
-        }
+        }, current_html
     except (PlaywrightError, TypeError, ValueError, RuntimeError):
-        return {**result, "state": "UNAVAILABLE"}
+        return {**result, "state": "UNAVAILABLE"}, None
+
+
+def _optional_screenshot_dom_correlation(
+    page: Any, rendered_html: str | None,
+    capture_quality: dict[str, Any], screenshot_png: bytes | None,
+) -> dict[str, Any]:
+    """Backward-compatible metadata-only probe for existing callers and tests."""
+    return _observe_post_screenshot_dom(
+        page, rendered_html, capture_quality, screenshot_png
+    )[0]
+
+
+def _promote_late_materialized_dom(
+    rendered_html: str | None,
+    capture_quality: dict[str, Any],
+    correlation: dict[str, Any],
+    observed_html: str | None,
+) -> tuple[str | None, dict[str, Any]]:
+    """Accept late DOM only while M3 is live and only under the *existing* gate.
+
+    This is not SPA identification. The M6 raw/rendered classifier remains unchanged.
+    A successful existing observation is reused (no further page reads or waits).
+    """
+    if (
+        capture_quality.get("state") != "INCOMPLETE"
+        or correlation.get("state") != "OBSERVED"
+        or not isinstance(observed_html, str)
+        or not observed_html
+    ):
+        return rendered_html, capture_quality
+
+    from rasai.render_materiality import _strong_primary_content, observe_materiality
+
+    observed = observe_materiality(observed_html)
+    if not _strong_primary_content(observed):
+        return rendered_html, capture_quality
+
+    initial = capture_quality.get("initial")
+    if not isinstance(initial, dict):
+        initial = observe_materiality(rendered_html).to_dict()
+    final = observed.to_dict()
+    growth_fields = {
+        "text_delta": "text_length",
+        "main_text_delta": "main_text_length",
+        "primary_text_delta": "primary_text_length",
+        "dom_nodes_delta": "dom_nodes",
+        "heading_nodes_delta": "heading_nodes",
+        "content_nodes_delta": "content_nodes",
+        "transient_markers_delta": "transient_markers",
+        "lazy_markers_delta": "lazy_markers",
+    }
+    growth = {
+        output: final[key] - int(initial.get(key, 0))
+        for output, key in growth_fields.items()
+    }
+    growth["materialized"] = True
+    late_observation = {
+        "state": "MATERIALIZED",
+        "capture_method": "REUSE_POST_SCREENSHOT_PAGE_CONTENT",
+        "additional_navigation_requests": 0,
+        "additional_page_content_reads": 0,
+        "previous_rendered_sha256": correlation.get("captured_dom_sha256"),
+        "accepted_rendered_sha256": correlation.get("screenshot_time_dom_sha256"),
+    }
+    # Preserve the bounded recovery's original result: it genuinely exhausted.
+    # The *later* successful observation is an independently documented phase.
+    return observed_html, {
+        **capture_quality,
+        "state": "RECOVERED",
+        "reason": "POST_SCREENSHOT_DOM_MATERIALIZED",
+        "materiality_reason": "LATE_SAME_SESSION_PRIMARY_CONTENT",
+        "final": final,
+        "growth": growth,
+        "post_screenshot_recovery": late_observation,
+    }
 
 
 def _same_session_lazy_probe(page: Any, rendered_html: str) -> dict[str, Any]:
@@ -849,9 +924,16 @@ def _install_browser_capture() -> None:
             except (PlaywrightError, TypeError, ValueError):
                 observation_state = "CAPTURE_FAILED"
 
-            screenshot_dom_correlation = _optional_screenshot_dom_correlation(
+            screenshot_dom_correlation, late_dom = _observe_post_screenshot_dom(
                 page, rendered_html, capture_quality, screenshot_png
             )
+            rendered_html, capture_quality = _promote_late_materialized_dom(
+                rendered_html, capture_quality, screenshot_dom_correlation, late_dom
+            )
+            if capture_quality.get("post_screenshot_recovery", {}).get("state") == "MATERIALIZED":
+                # The authoritative M3 artifact and its metadata MUST hash the same
+                # accepted HTML. The early and later hashes remain in correlation.
+                rendered_dom = _rendered_dom_metadata(rendered_html)
 
             # Primary snapshot evidence above is frozen before any diagnostic interaction.
             # If lazy content needs bounded scrolling, reuse this same page/context instead
