@@ -211,7 +211,7 @@ def _architecture_section(rows: list[dict[str, Any]]) -> str:
     from rasai.catalog_report_presentation import _architecture_label
 
     note = (
-        "Classificação observacional do M6 por URL e dispositivo, derivada "
+        "Classificação observacional por URL e dispositivo, derivada "
         "da comparação entre HTML inicial e DOM renderizado. Não descreve "
         "automaticamente todas as páginas do domínio e não mede desempenho "
         "ou experiência. Estática e SSR integram a mesma classe no contrato."
@@ -219,7 +219,7 @@ def _architecture_section(rows: list[dict[str, Any]]) -> str:
     if not rows:
         body = (
             "<p class='intro'>Arquitetura não determinada: esta auditoria "
-            "não possui classificação M6 persistida para as URLs analisadas.</p>"
+            "não possui classificação arquitetural persistida para as URLs analisadas.</p>"
         )
     else:
         cards = []
