@@ -69,6 +69,32 @@ Fontes oficiais revalidadas em 04/10/2026:
 
 ## Request
 
+### Resolução automática do escopo — #317
+
+O RASAi, **não o Playground**, constrói o payload de `POST /search` no instante de execução da AUD. A solicitação Perplexity continua opt-in **por queries na AUD**, independente de `RASAI_PERPLEXITY_ENABLED=true`. Seleção WEB/FAST permanece escopo da auditoria. Não existe pesquisa implícita, OCR nem alteração do SERP, de scoring ou da orquestração IA.
+
+Configurações adicionais **não secretas**, disponíveis no catálogo canônico (menus 5 e 6), editáveis e persistíveis no mesmo `rasai-console.ini`:
+
+| Variável | Campo enviado à Search API | Padrão |
+| --- | --- | --- |
+| `RASAI_PERPLEXITY_MAX_RESULTS` | `max_results` (1..20 WEB/FAST) | 10 |
+| `RASAI_PERPLEXITY_COUNTRY` | `country` ISO 3166-1 alpha-2 | omitido |
+| `RASAI_PERPLEXITY_SEARCH_LANGUAGE_FILTER` | `search_language_filter` (ISO 639-1 separados por vírgula, até 20) | omitido |
+| `RASAI_PERPLEXITY_SEARCH_DOMAIN_FILTER` | `search_domain_filter` (domínios sem URL, até 20) | omitido |
+| `RASAI_PERPLEXITY_SEARCH_RECENCY_FILTER` | `search_recency_filter` (hour/day/week/month/year) | omitido |
+| `RASAI_PERPLEXITY_SEARCH_AFTER_DATE` | `search_after_date_filter` (MM/DD/YYYY) | omitido |
+| `RASAI_PERPLEXITY_SEARCH_BEFORE_DATE` | `search_before_date_filter` (MM/DD/YYYY) | omitido |
+| `RASAI_PERPLEXITY_LAST_UPDATED_AFTER` | `last_updated_after_filter` (MM/DD/YYYY) | omitido |
+| `RASAI_PERPLEXITY_LAST_UPDATED_BEFORE` | `last_updated_before_filter` (MM/DD/YYYY) | omitido |
+| `RASAI_PERPLEXITY_MAX_TOKENS` | `max_tokens` (1..1.000.000) | omitido |
+| `RASAI_PERPLEXITY_MAX_TOKENS_PER_PAGE` | `max_tokens_per_page` (1..1.000.000) | omitido |
+
+**Precedência:** quando a região SERP da AUD identifica explicitamente Brasil, a chamada recebe `country=BR` independentemente de país de override; usa `search_language_filter=["pt"]` somente se não houver filtro de idiomas explícito. Sem região brasileira explícita, `RASAI_PERPLEXITY_COUNTRY` pode definir um país ISO de duas letras. **Nenhum país é inferido pelo ccTLD**; não se restringem domínios `.br` nem datas por padrão. O resultado pode incluir fontes estrangeiras, tratadas como evidências externas, não prova de localização.
+
+O editor valida valores e o adapter revalida *antes da rede*: entrada inválida aborta apenas a pesquisa opcional (sem custo), preservando estado e evidências da AUD. O hash SHA-256 de `request_payload_hash` é calculado sobre o **JSON efetivamente enviado**; não contém credencial. O hash prova identidade dos bytes da solicitação, não reconstitui sozinho os parâmetros de uma execução antiga após mudança de INI. Versões históricas permanecem legíveis; não há alteração de esquema nem atualização retroativa de snapshots.
+
+Documentação de campos e limites: https://docs.perplexity.ai/api-reference/search-post.
+
 A integração suporta:
 
 - uma query;
@@ -235,7 +261,7 @@ No CAT-05, a ação **P. Perplexity externa** abre o pedido da próxima execuç�
 
 Queries e `WEB/FAST` são inputs da próxima execução. Eles não são convertidos em variáveis de ambiente e não são gravados como secrets/configuração reutilizável no `rasai-console.ini`.
 
-`PERPLEXITY_API_KEY` é a única variável de ambiente consumida pelo runtime Perplexity atual. O editor é o mesmo usado pelo catálogo global: entrada mascarada, sessão e persistência/remoção explícita em Windows/User; o valor nunca entra no INI.
+`PERPLEXITY_API_KEY` é a única **credencial secreta** consumida pelo runtime Perplexity. Flag de ativação e filtros opcionais são configurações não secretas. O editor é o mesmo usado pelo catálogo global: entrada mascarada, sessão e persistência/remoção explícita em Windows/User; o valor nunca entra no INI.
 
 Em **Integrações e serviços**, o diagnóstico Perplexity é `CONFIGURATION_ONLY`: confirma apenas a presença/configuração local e **não executa `POST /search`**. Isso evita consumir request comercial/quota apenas para testar a integração. A validade funcional final da credencial é observada somente quando uma pesquisa Perplexity é realmente solicitada.
 
