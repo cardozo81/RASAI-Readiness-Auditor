@@ -101,6 +101,12 @@ def materialize_catalog_report_projection(
         # Optional analytics must not demote previously valid catalogs.
         pass
     try:
+        from rasai.geo_extraction_quality import materialize_extraction_quality
+        materialize_extraction_quality(Path(workspace.root))
+    except (OSError, ValueError, UnicodeError):
+        # Advisory sidecar cannot change successful canonical extraction.
+        pass
+    try:
         materialize_catalog_report_site(audit_id=audit_id, workspace=workspace)
     except Exception as exc:
         errors.append(f"catalog-report:{type(exc).__name__}:{str(exc)[:240]}")
