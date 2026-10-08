@@ -106,5 +106,45 @@ class GeoObservationTests(unittest.TestCase):
             self.assertIsNone(data["url_overlap_count"])
 
 
+    def test_report_reprocessing_reuses_persisted_external_evidence(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from rasai.report_completion import materialize_catalog_report_projection
+        with tempfile.TemporaryDirectory() as temp:
+            db = Path(temp) / "audit.db"
+            with sqlite3.connect(db) as con:
+                con.executescript("""
+                    CREATE TABLE audits (audit_id TEXT PRIMARY KEY);
+                    CREATE TABLE perplexity_search_runs (
+                        run_id TEXT PRIMARY KEY, audit_id TEXT, query_json TEXT,
+                        search_type TEXT, status TEXT, started_at TEXT
+                    );
+                    CREATE TABLE perplexity_search_sources (
+                        run_id TEXT, position INTEGER, url TEXT, title TEXT,
+                        snippet TEXT, source_date TEXT, last_updated TEXT
+                    );
+                """)
+                con.execute("INSERT INTO audits VALUES ('AUD-1')")
+                con.execute(
+                    "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
+                    ("RUN-1", "AUD-1", '["insurance"]', "web", "SUCCESS", "2026-10-07")
+                )
+            workspace = SimpleNamespace(root=Path(temp), database=db)
+            with patch("rasai.catalog_report_site.materialize_catalog_report_site") as html, patch(
+                "rasai.catalog_report_site.catalog_report_is_fresh", return_value=True
+            ):
+                for _ in range(2):
+                    completion = materialize_catalog_report_projection(
+                        audit_id="AUD-1", workspace=workspace
+                    )
+                    self.assertFalse(completion.renderer_errors)
+                self.assertEqual(html.call_count, 2)
+            with sqlite3.connect(db) as con:
+                self.assertEqual(
+                    con.execute("SELECT count(*) FROM geo_observation_runs").fetchone()[0], 1
+                )
+                self.assertEqual(con.execute("PRAGMA integrity_check").fetchone()[0], "ok")
+
+
 if __name__ == "__main__":
     unittest.main()
