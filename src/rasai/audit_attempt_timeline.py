@@ -22,6 +22,7 @@ class TimelineStage:
     priced_usd_provider_observed: float
     unpriced_attempts: int
     unknown_intervals: int
+    observed_cost_attempts: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,19 +94,26 @@ def _stage(name: str, rows: list[dict]) -> TimelineStage:
     unknown = 0
     estimated = observed = 0.0
     unpriced = 0
+    observed_count = 0
     for row in rows:
-        duration = row.get("duration_ms")
-        if duration is not None:
-            try:
-                elapsed += max(0.0, float(duration))
-            except (ValueError, TypeError):
-                pass
         start = _time(row.get("started_at"))
         stop = _time(row.get("finished_at"))
         if start is None or stop is None or stop < start:
             unknown += 1
+            # When timestamps are incomplete, retain the available duration for
+            # summed telemetry, but do not claim a calculable interval union.
+            duration = row.get("duration_ms")
+            if duration is not None:
+                try:
+                    elapsed += max(0.0, float(duration))
+                except (ValueError, TypeError):
+                    pass
         else:
+            # Compare like with like. Persisted duration_ms is a separately
+            # rounded clock and can differ by milliseconds from wall timestamps.
+            # Using it here could imply an impossible union > summed duration.
             intervals.append((start, stop))
+            elapsed += stop - start
         observed_value = row.get("observed_cost")
         estimate_value = row.get("estimated_cost")
         observed_currency = str(row.get("observed_cost_currency") or "").upper()
@@ -113,6 +121,7 @@ def _stage(name: str, rows: list[dict]) -> TimelineStage:
         try:
             if observed_value is not None and observed_currency == "USD":
                 observed += float(observed_value)
+                observed_count += 1
             elif estimate_value is not None and estimate_currency == "USD":
                 estimated += float(estimate_value)
             else:
@@ -130,6 +139,7 @@ def _stage(name: str, rows: list[dict]) -> TimelineStage:
         priced_usd_provider_observed=observed,
         unpriced_attempts=unpriced,
         unknown_intervals=unknown,
+        observed_cost_attempts=observed_count,
     )
 
 
