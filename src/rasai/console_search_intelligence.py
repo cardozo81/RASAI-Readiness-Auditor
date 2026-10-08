@@ -430,6 +430,14 @@ def execute_perplexity_for_audit(
         state.perplexity_last_detail = "Perplexity desabilitada pelo usuário; nenhuma chamada ou custo"
         state.perplexity_last_duration_seconds = None
         return 0
+    optional_ready, optional_reason = validate_perplexity_readiness(state)
+    if not optional_ready:
+        # An invalid *optional* query contract must never create a paid request
+        # or prevent deterministic collection, canonical AI, or persistence.
+        state.perplexity_last_status = "COMPLETE_WITH_LIMITATIONS"
+        state.perplexity_last_detail = "Pesquisa Perplexity não executada: " + optional_reason
+        state.perplexity_last_duration_seconds = None
+        return 1
     workspace_path = audit_workspace(state)
     if workspace_path is None:
         state.perplexity_last_status = "UNAVAILABLE"
@@ -500,7 +508,10 @@ def execute_perplexity_for_audit(
             except Exception as exc:
                 state.perplexity_last_detail += f" | GEO advisory indisponível: {type(exc).__name__}"
         return 0 if str(result.status) == "SUCCESS" else 1
-    except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+    except Exception as exc:
+        # Last-resort isolation of optional integration failures, including
+        # provider adapters or their own provenance writer. Never propagate
+        # to the already-finished AUD or its independent AI/SERP pipelines.
         state.perplexity_last_duration_seconds = max(time.monotonic() - started, 0.0)
         state.perplexity_last_status = "COMPLETE_WITH_LIMITATIONS"
         state.perplexity_last_detail = f"Perplexity indisponível/ inválida: {type(exc).__name__}"
@@ -712,14 +723,21 @@ def install(console_module: ModuleType) -> None:
         search_ready, search_reason = validate_search_readiness(state)
         if not search_ready:
             return False, search_reason
-        perplexity_ready, perplexity_reason = validate_perplexity_readiness(state)
-        if not perplexity_ready:
-            return False, perplexity_reason
+        # The Perplexity request is advisory and independent of the AUD gate.
+        # A malformed optional query is reported, not allowed to cancel the AUD.
+        try:
+            perplexity_ready, perplexity_reason = validate_perplexity_readiness(state)
+        except Exception as exc:
+            perplexity_ready = False
+            perplexity_reason = f"validação Perplexity indisponível: {type(exc).__name__}"
         details = [reason]
         if state.search_queries:
             details.append(search_reason)
         if state.perplexity_queries:
-            details.append(perplexity_reason)
+            details.append(
+                perplexity_reason if perplexity_ready
+                else "Perplexity opcional não será executada: " + perplexity_reason
+            )
         return True, "; ".join(item for item in details if item)
 
     def run(state: SearchConsoleState) -> int:
@@ -763,9 +781,17 @@ def install(console_module: ModuleType) -> None:
                 )
             except Exception:
                 pass
-            # Perplexity is optional advisory enrichment: its failure must not
-            # demote the audit lifecycle state or consolidation eligibility.
-            execute_perplexity_for_audit(state)
+            # Perplexity is optional advisory enrichment. Contain even an
+            # unexpected adapter exception so the AUD status and canonical
+            # collection/AI/persistence results remain unchanged.
+            try:
+                execute_perplexity_for_audit(state)
+            except Exception as exc:
+                state.perplexity_last_status = "COMPLETE_WITH_LIMITATIONS"
+                state.perplexity_last_detail = (
+                    f"Perplexity opcional indisponível: {type(exc).__name__}"
+                )
+                state.perplexity_last_duration_seconds = None
 
         if any_limitation:
             state.status = "COMPLETE_WITH_LIMITATIONS"
