@@ -44,3 +44,43 @@ def test_serp_copy_never_truncates_budget_or_invents_queries(capsys) -> None:
         _copy_serp_terms_to_perplexity(search, state)
     assert state.perplexity_queries == ()
     assert "limite Perplexity" in capsys.readouterr().out
+
+
+def test_post_aud_console_action_needs_explicit_billing_confirmation(monkeypatch, capsys) -> None:
+    from pathlib import Path
+    from types import SimpleNamespace
+    from rasai.console_search_parameter_menu import _external_geo_supplement
+    from rasai.persistence import AuditWorkspace
+    from rasai import geo_post_audit_complement
+
+    state = SearchConsoleState(perplexity_queries=("seguro de vida",))
+    calls: list[dict] = []
+
+    def fake_run(workspace, **kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(status="SUCCESS", request_executed=True,
+                               billability="TRUE", directory=Path("/fake/supplement"))
+
+    monkeypatch.setattr(AuditWorkspace, "open", classmethod(
+        lambda cls, path: SimpleNamespace(root=Path("/fake/AUD-TEST-1"))
+    ))
+    monkeypatch.setattr(geo_post_audit_complement, "run_post_audit_geo_supplement", fake_run)
+    with patch("builtins.input", side_effect=["/fake/AUD-TEST-1", "new-intent", "S", "N"]):
+        _external_geo_supplement(state)
+    assert not calls
+    with patch("builtins.input", side_effect=["/fake/AUD-TEST-1", "new-intent", "S", "S"]):
+        _external_geo_supplement(state)
+    assert len(calls) == 1
+    assert calls[0]["explicit_cost_authorization"] is True
+    assert calls[0]["search_options"]["country"] == "BR"
+    assert calls[0]["search_options"]["max_results"] == 10
+    assert calls[0]["audit_id"] == "AUD-TEST-1"
+    assert "Operação não autorizada" in capsys.readouterr().out
+
+
+def test_post_aud_console_action_requires_queries_before_filesystem(monkeypatch, capsys) -> None:
+    from rasai.console_search_parameter_menu import _external_geo_supplement
+    state = SearchConsoleState(perplexity_queries=())
+    with patch("builtins.input", side_effect=AssertionError("no IO allowed")):
+        _external_geo_supplement(state)
+    assert "Configure primeiro queries" in capsys.readouterr().out
