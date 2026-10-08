@@ -11,7 +11,7 @@ _RICH_TOKEN_RE = re.compile(
 )
 
 def _ui_text(value: Any) -> str:
-    return str(value or "").replace("\u2014", "-")
+    return str("" if value is None or value is False else value).replace("\u2014", "-")
 
 
 # Cookie names are evidence identifiers, not enum values. Escape them and only
