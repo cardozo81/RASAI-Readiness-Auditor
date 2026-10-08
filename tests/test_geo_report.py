@@ -93,6 +93,24 @@ class GeoReportTests(unittest.TestCase):
             self.assertIn("1 em ambas", geo_body(db, "AUD-ONE"))
 
 
+    def test_extraction_warning_visible_without_perplexity_run(self):
+        from rasai.geo_report import geo_body
+        with tempfile.TemporaryDirectory() as root:
+            folder = Path(root)
+            db = folder / "audit.db"
+            with closing(sqlite3.connect(db)) as con, con:
+                con.execute("CREATE TABLE placeholder (id TEXT)")
+            quality_path = folder / "artifacts" / "geo-extraction-quality.json"
+            quality_path.parent.mkdir(parents=True)
+            quality_path.write_text(
+                '{"observations":[{"state":"NAVIGATION_DOMINATED_SUSPECTED",'
+                '"artifact_ref":"artifacts/extraction/SNP-1/main_content.txt",'
+                '"word_count":11}]}', encoding="utf-8"
+            )
+            page = geo_body(db, "AUD-ONE")
+            self.assertIn("Confiabilidade da extração principal", page)
+            self.assertIn("Não há execução Perplexity Search", page)
+
     def test_optional_recommendations_with_partial_schema_do_not_break_geo(self):
         from rasai.geo_report import _geo_relevant_findings
         with tempfile.TemporaryDirectory() as temp:
