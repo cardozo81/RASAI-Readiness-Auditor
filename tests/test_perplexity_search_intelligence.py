@@ -390,8 +390,8 @@ def test_scoped_search_payload_persists_exact_payload_fingerprint(tmp_path) -> N
         "RASAI_PERPLEXITY_SEARCH_LANGUAGE_FILTER": "pt",
         "RASAI_PERPLEXITY_SEARCH_DOMAIN_FILTER": "example.com",
         "RASAI_PERPLEXITY_SEARCH_RECENCY_FILTER": "month",
-        "RASAI_PERPLEXITY_MAX_TOKENS": "4000",
-        "RASAI_PERPLEXITY_MAX_TOKENS_PER_PAGE": "2000",
+        "RASAI_PERPLEXITY_MAX_CONTENT_UNITS": "4000",
+        "RASAI_PERPLEXITY_MAX_CONTENT_UNITS_PER_PAGE": "2000",
     }, explicit_brazil=True)
     run = execute_perplexity_search(
         workspace,
