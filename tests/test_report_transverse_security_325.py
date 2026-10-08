@@ -57,7 +57,7 @@ def test_transverse_assurance_blocks_realistic_tokens_even_in_json_fragments(
         "Arbitrary prose #" + SEMANTIC_ID,
         "Authorization: Bearer " + "deliberately-secret-12345",
         "api_key=" + "'unsafe-secret-for-test-123'",
-        "postgresql://test:" + "opaque-test-password-123" + "@localhost/database",
+        "postgresql://test:" + "opaque-prod-credential-927354128" + "@localhost/database",
     ],
 )
 def test_transverse_assurance_remains_fail_closed_without_evidence_context(
