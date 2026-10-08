@@ -349,8 +349,9 @@ def _cat07_methodology_summary_html(database: Path, data: _ReportData) -> str:
 
     html+=(
         "<p class='muted'><strong>Origem laboratorial:</strong> "
-        "baseline e Synthetic Population (quando configurado) são testes sintéticos. "
-        "A calibração Dynatrace, se existente, não substitui telemetria RUM.</p>"
+        "o baseline e o Synthetic Population, quando configurado, são testes "
+        "sintéticos; a calibração do perfil não os torna equivalentes a "
+        "Dynatrace RUM nem a observações de usuários reais.</p>"
     )
     return html+"</div>"
 
