@@ -79,3 +79,16 @@ def test_intervening_skeleton_resets_stability():
     stable = observation(samples=[cp(500, 500), cp(560, 600, skeleton=True), cp(650, 500), cp(770, 520)])
     assert stable.status == 'OBSERVED'
     assert stable.primary_content_ms == 650
+
+
+def test_apdex_report_discloses_load_vs_main_content_without_fabricated_metric():
+    from rasai.catalog_report_page import _apdex_readiness_notice
+
+    for catalog_id in ("CAT-06", "CAT-07"):
+        message = _apdex_readiness_notice(catalog_id)
+        assert "Carregamento não é prontidão do conteúdo" in message
+        assert "não mede o instante de conteúdo principal pronto" in message
+        assert "same-sample de prontidão validada" in message
+        assert "capture-context.html" in message
+        assert "cat-04.html" in message
+    assert _apdex_readiness_notice("CAT-05") == ""
