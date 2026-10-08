@@ -220,8 +220,14 @@ def _execution_context_notice(database: Path, data: _ReportData, catalog_id: str
             normal_min=config.get("normal_group_minimum") if isinstance(config,Mapping) else None
             valid=int(run.get("valid_samples") or 0)
             target=int(run.get("target_valid_samples") or 0)
-            minimum=f"{normal_min} amostras" if normal_min else "o grupo mínimo normal da metodologia"
-            return f"<div class='notice warn'><strong>Por que o resultado é Parcial se a etapa foi concluída?</strong> A coleta técnica terminou sem falha e atingiu {valid} amostra(s) válida(s) para uma meta operacional de {target}. Porém, esse volume está abaixo de {escape(minimum)}; por contrato, o Apdex é calculado, mas permanece <strong>Parcial</strong> por cobertura estatística reduzida. Isso não representa falha de execução.</div>"
+            return (
+                "<div class='notice warn'><strong>Estado operacional x amostragem:</strong> "
+                f"foram registradas {valid} amostra(s) válida(s), com meta de {target}. "
+                "O estado Parcial expressa um grupo abaixo do mínimo normal "
+                "da metodologia, não uma falha de execução. A suficiência "
+                "e os limites de interpretação estão no <a href='#summary'>Resumo</a>."
+                "</div>"
+            )
         return "<div class='notice warn'><strong>Resultado funcional parcial:</strong> a etapa técnica foi executada, mas a metodologia registrou cobertura incompleta ou amostra inválida. Consulte as amostras e o motivo persistido.</div>"
     return ""
 
@@ -351,12 +357,13 @@ def _cat07_methodology_summary_html(database: Path, data: _ReportData) -> str:
     return html+"</div>"
 
 
-def _apdex_readiness_notice(catalog_id: str) -> str:
+def _apdex_readiness_notice(catalog_id: str, *, compact: bool = False) -> str:
     """Advisory boundary without implying same-sample DOM observation."""
     if catalog_id not in {"CAT-06", "CAT-07"}:
         return ""
     return (
-        "<div class='notice warn'><strong>Carregamento não é prontidão do conteúdo:</strong> "
+        ("<p>" if compact else "<div class='notice warn'>")
+        + "<strong>Carregamento não é prontidão do conteúdo:</strong> "
         "em páginas SPA/CSR ou hidratadas, a tarefa de navegação pode concluir "
         "antes de textos, blocos essenciais e controles estarem utilizáveis. "
         "Este Apdex mede somente sua própria fronteira temporal persistida; "
@@ -364,7 +371,8 @@ def _apdex_readiness_notice(catalog_id: str) -> str:
         "Não existe aqui uma série validada de prontidão medida na mesma amostra. "
         "Consulte a arquitetura observada em "
         "<a href='capture-context.html'>Contexto da captura</a> e confronte "
-        "com o <a href='cat-04.html'>Lighthouse</a> sem misturar os índices.</div>"
+        "com o <a href='cat-04.html'>Lighthouse</a> sem misturar os índices."
+        + ("</p>" if compact else "</div>")
     )
 
 
@@ -380,13 +388,16 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
     )
     outline=_outline((("summary","Resumo"),("scope","Escopo"),("config","Configuração"),("execution","Execução"),("results","Resultados"),("evidence","Evidências"),("analysis","Análise"),("remediation","Remediações"),("technical","Detalhes técnicos")))
     methodology=_cat07_methodology_summary_html(database,data) if catalog_id=="CAT-07" else ""
-    readiness_notice=_apdex_readiness_notice(catalog_id)
     from rasai.apdex_sampling_reliability_reporting import apdex_sampling_reliability_html
 
-    reliability_notice=apdex_sampling_reliability_html(
-        database,data.audit_id,catalog_id,
-    ) if catalog_id in {"CAT-06","CAT-07"} else ""
-    summary=_section("summary","Resumo",f"<div class='catalog-state'><div><p>{escape(catalog.purpose)}</p><p class='muted'>{escape(catalog.expected_result)}</p></div>{_badge(status,tone)}</div><div class='metric-grid'>{_metric('Capacidades',len(catalog.capability_ids))}{_metric('Fontes com dados',len(sources))}{_metric('Etapas próprias',len(work))}{_metric('Indicadores principais',len(metrics))}</div>"+methodology+reliability_notice+readiness_notice)
+    interpretation_html=(
+        "<div class='subsection'><h3>Interpretação e limites do índice</h3>"
+        +apdex_sampling_reliability_html(database,data.audit_id,catalog_id,compact=True)
+        +_apdex_readiness_notice(catalog_id,compact=True)
+        +"</div>"
+        if catalog_id in {"CAT-06","CAT-07"} else ""
+    )
+    summary=_section("summary","Resumo",f"<div class='catalog-state'><div><p>{escape(catalog.purpose)}</p><p class='muted'>{escape(catalog.expected_result)}</p></div>{_badge(status,tone)}</div><div class='metric-grid'>{_metric('Capacidades',len(catalog.capability_ids))}{_metric('Fontes com dados',len(sources))}{_metric('Etapas próprias',len(work))}{_metric('Indicadores principais',len(metrics))}</div>"+methodology+interpretation_html)
     if _plan_available(data):
         capability_state="Incluída" if catalog_id in data.selected else "Não solicitada"
     else:
