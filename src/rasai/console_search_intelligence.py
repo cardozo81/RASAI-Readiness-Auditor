@@ -460,7 +460,7 @@ def execute_perplexity_for_audit(
                             provider_selection=str(getattr(state, "ai_provider", "none")),
                         )
                         state.perplexity_last_detail += f" | GEO IA: {ai_state}"
-                    except (OSError, ValueError, RuntimeError, sqlite3.Error) as ai_exc:
+                    except Exception as ai_exc:
                         state.perplexity_last_detail += (
                             f" | GEO IA indisponível: {type(ai_exc).__name__}"
                         )
@@ -470,7 +470,7 @@ def execute_perplexity_for_audit(
                     )
                     if completion.renderer_errors:
                         state.perplexity_last_detail += " | GEO: relatório pendente de atualização"
-            except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+            except Exception as exc:
                 state.perplexity_last_detail += f" | GEO advisory indisponível: {type(exc).__name__}"
         return 0 if str(result.status) == "SUCCESS" else 1
     except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
