@@ -120,6 +120,11 @@ from rasai.provider_runtime_policy import (
     provider_reasoning_env,
 )
 from rasai.search_intelligence.perplexity import API_KEY_ENV as PERPLEXITY_API_KEY_ENV
+from rasai.search_intelligence.perplexity_request_policy import (
+    OPTION_FIELDS as PERPLEXITY_OPTION_FIELDS,
+    PREFIX as PERPLEXITY_PREFIX,
+    validate_console_override as validate_perplexity_option,
+)
 from rasai.search_intelligence.config import (
     SERP_ENV_NAMES,
     SERP_FIXTURE_PATH_ENV,
@@ -189,7 +194,11 @@ _REMOTE_ENV_NAMES = (
     REMOTE_USER_ID_ENV,
     REMOTE_TIMEOUT_ENV,
 )
-_SEARCH_ENV_NAMES = (*SERP_ENV_NAMES, SEARCH_AI_PROVIDER_ENV, GSC_ACCESS_TOKEN_ENV, PERPLEXITY_API_KEY_ENV, "RASAI_PERPLEXITY_ENABLED")
+_SEARCH_ENV_NAMES = (
+    *SERP_ENV_NAMES, SEARCH_AI_PROVIDER_ENV, GSC_ACCESS_TOKEN_ENV,
+    PERPLEXITY_API_KEY_ENV, "RASAI_PERPLEXITY_ENABLED",
+    *(PERPLEXITY_PREFIX + suffix for suffix in PERPLEXITY_OPTION_FIELDS),
+)
 
 ENV_NAMES = tuple(
     dict.fromkeys(
@@ -457,6 +466,41 @@ def _apdex_specs() -> tuple[EnvironmentSpec, ...]:
     )
 
 
+_PERPLEXITY_DESCRIPTIONS = {
+    "MAX_RESULTS": "Quantidade máxima de fontes devolvidas por busca WEB/FAST (1 a 20).",
+    "COUNTRY": "Filtro de país ISO-3166-1 alfa-2; região BR explícita na AUD tem prioridade.",
+    "SEARCH_LANGUAGE_FILTER": "Idiomas ISO 639-1 (ex.: pt,en); até 20, separados por vírgula.",
+    "SEARCH_DOMAIN_FILTER": "Domínios permitidos (sem URL); até 20. Não inferir .br.",
+    "SEARCH_RECENCY_FILTER": "Recência de publicação quando explicitamente solicitada.",
+    "SEARCH_AFTER_DATE": "Publicações posteriores à data MM/DD/YYYY.",
+    "SEARCH_BEFORE_DATE": "Publicações anteriores à data MM/DD/YYYY.",
+    "LAST_UPDATED_AFTER": "Atualizações posteriores à data MM/DD/YYYY.",
+    "LAST_UPDATED_BEFORE": "Atualizações anteriores à data MM/DD/YYYY.",
+    "MAX_TOKENS": "Teto de tokens de conteúdo devolvido na resposta (opt-in).",
+    "MAX_TOKENS_PER_PAGE": "Teto de tokens de conteúdo por fonte (opt-in).",
+}
+
+
+def _perplexity_option_specs() -> tuple[EnvironmentSpec, ...]:
+    result: list[EnvironmentSpec] = []
+    for suffix in PERPLEXITY_OPTION_FIELDS:
+        choices = ("hour", "day", "week", "month", "year") if suffix == "SEARCH_RECENCY_FILTER" else ()
+        result.append(EnvironmentSpec(
+            PERPLEXITY_PREFIX + suffix,
+            "Search Intelligence / Observability",
+            _PERPLEXITY_DESCRIPTIONS[suffix],
+            "enum" if choices else ("inteiro > 0" if suffix in {
+                "MAX_RESULTS", "MAX_TOKENS", "MAX_TOKENS_PER_PAGE",
+            } else "texto"),
+            choices,
+            "10" if suffix == "MAX_RESULTS" else None,
+            required_when="Somente se Perplexity Search API for explicitamente solicitada.",
+            impact="Controla o payload da pesquisa externa. Não executa consultas sozinho.",
+            source="docs/PERPLEXITY_SEARCH_INTELLIGENCE.md",
+        ))
+    return tuple(result)
+
+
 def _search_specs() -> tuple[EnvironmentSpec, ...]:
     return (
         EnvironmentSpec(SERP_MODE_ENV, "Search Intelligence / Observability", "Modo global SERP.", "enum", ("disabled", "live", "fixture"), "disabled"),
@@ -492,6 +536,7 @@ def _search_specs() -> tuple[EnvironmentSpec, ...]:
             source="docs/PERPLEXITY_SEARCH_INTELLIGENCE.md",
             notes="Queries e WEB/FAST são inputs da execução e não são variáveis de ambiente.",
         ),
+        *_perplexity_option_specs(),
     )
 
 
@@ -710,6 +755,8 @@ def _absolute_url(value: str, *, https_only: bool = False, loopback_http: bool =
 
 def _validate(name: str, raw: str) -> str:
     value = validate_existing(name, raw)
+    if name.startswith(PERPLEXITY_PREFIX) and name.removeprefix(PERPLEXITY_PREFIX) in PERPLEXITY_OPTION_FIELDS:
+        return validate_perplexity_option(name, value)
     if name == "RASAI_PERPLEXITY_ENABLED":
         normalized = value.strip().casefold()
         if normalized not in {"true", "false", "1", "0", "yes", "no", "on", "off"}:
