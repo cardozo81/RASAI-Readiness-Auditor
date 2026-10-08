@@ -336,6 +336,29 @@ def test_perplexity_disable_returns_to_not_requested() -> None:
     assert state.perplexity_last_detail == ""
 
 
+def test_perplexity_toggle_preserves_queries_and_refreshes_status(monkeypatch) -> None:
+    from rasai import console_provider_environment as environment
+    from rasai.console_search_parameter_menu import _edit_perplexity_activation
+
+    state = SearchConsoleState(perplexity_queries=("seguro de vida",))
+    observed = []
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "false")
+    rendered = _run(state, ["P", "V", "V"])
+    assert "DESATIVADA" in rendered
+    assert "Habilitada            : NÃO" in rendered
+    assert state.perplexity_queries == ("seguro de vida",)
+
+    def choose_true(_state, spec):
+        observed.append(spec.name)
+        monkeypatch.setenv(spec.name, "true")
+
+    monkeypatch.setattr(environment, "_variable_menu", choose_true)
+    _edit_perplexity_activation(state)
+    assert observed == ["RASAI_PERPLEXITY_ENABLED"]
+    assert state.perplexity_queries == ("seguro de vida",)
+    assert state.perplexity_last_status == "PENDING"
+
+
 def test_perplexity_credential_action_reuses_canonical_secret_editor(monkeypatch) -> None:
     from rasai import console_provider_environment as environment
     from rasai.console_search_parameter_menu import _edit_perplexity_credential
