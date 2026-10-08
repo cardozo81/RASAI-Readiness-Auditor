@@ -9,7 +9,7 @@ from rasai.catalog_report_assurance import _credential_output_failures
 from rasai.secret_safety import detect_secret_exposures
 
 
-SEMANTIC_ID = "sk-LIFEShowcaseProcessUIDef-Covers-Fieldset3-PanelGroup1-panel_content_2"
+SEMANTIC_ID = "sk-" + "LIFEShowcaseProcessUIDef-Covers-Fieldset3-PanelGroup1-panel_content_2"
 SCOPED_TOKEN = "sk-" + "proj-" + "ABCD1234efgh5678IJKL9012mnop3456"
 OPAQUE_TOKEN = "sk-" + "abcdefghijklmnopqrstuvwxyz1234567890AB"
 
