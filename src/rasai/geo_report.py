@@ -432,6 +432,28 @@ def geo_body(database: Path, audit_id: str) -> str:
             summary += f"<p>Exibindo 20 de {len(sources)} fontes; dados completos persistidos no audit.db.</p>"
     summary += "</section>"
 
+    quality_path = database.parent / "artifacts" / "geo-extraction-quality.json"
+    if quality_path.is_file():
+        try:
+            quality = json.loads(quality_path.read_text(encoding="utf-8"))
+            anomalies = [
+                row for row in quality.get("observations", [])
+                if isinstance(row, dict) and row.get("state") == "NAVIGATION_DOMINATED_SUSPECTED"
+            ]
+        except (OSError, ValueError, AttributeError):
+            anomalies = []
+        if anomalies:
+            summary += "<section><h2>Confiabilidade da extração principal</h2>"
+            summary += "<p>A extração determinística contém sinais de conteúdo "
+            summary += "predominantemente de navegação. Verifique o DOM principal "
+            summary += "antes de usar esse texto em recomendações editoriais ou GEO. "
+            summary += "Isso é uma suspeita, não prova de falha do crawler ou indexabilidade.</p>"
+            summary += "<ul>"
+            for item in anomalies[:20]:
+                summary += "<li>" + escape(str(item.get("artifact_ref") or "-"))
+                summary += ": " + escape(str(item.get("word_count") or 0))
+                summary += " palavras extraídas</li>"
+            summary += "</ul></section>"
     findings = _geo_relevant_findings(database, audit_id)
     summary += "<section><h2>Oportunidades técnicas/editoriais contextualizadas</h2>"
     if findings:
