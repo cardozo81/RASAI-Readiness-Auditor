@@ -97,7 +97,7 @@ def materialize_catalog_report_projection(
     try:
         from rasai.geo_observation import materialize_geo_observation
         materialize_geo_observation(Path(workspace.database), audit_id)
-    except (OSError, ValueError, RuntimeError, sqlite3.Error):
+    except Exception:
         # Optional analytics must not demote previously valid catalogs.
         pass
     try:
