@@ -445,6 +445,26 @@ Quando não existir default tecnicamente seguro, documentar **sem default** em v
 
 `RASAI_PERPLEXITY_ENABLED` é uma configuração booleana não secreta, com **default `true`**. Ela habilita a integração, mas não inicia nenhuma busca sem queries explicitamente solicitadas na AUD e a credencial `PERPLEXITY_API_KEY`. `false` interrompe novas chamadas externas e preserva a chave e as consultas configuradas. Ausência mantém o comportamento anteriormente homologado, enquanto valores inválidos não autorizam chamadas. A preferência `false` em `rasai-console.ini` ou no ambiente prevalece sobre o padrão `true` e sobrevive à reabertura. Restaurar padrões globais define `true` novamente, sem apagar a chave quando a opção de preservar credenciais é selecionada. CAT-05, menus 5 (Integrações) e 6 (Todas as configurações) apresentam o mesmo controle canônico. O diagnóstico local não executa buscas comerciais, e GEO não comprova citações de respostas gerativas.
 
-### Perplexity Search API — parâmetros do payload (issue #317)
+### Perplexity Search API - parâmetros do payload (issue #317)
 
 O contrato de Search API é composto pelo próprio RASAi no momento do request: termos e WEB/FAST pertencem à auditoria; país, idioma, quantidade de fontes, domínios, recência, datas e limites de conteúdo são resolvidos pelas variáveis `RASAI_PERPLEXITY_*`, todas opcionais exceto o baseline `RASAI_PERPLEXITY_MAX_RESULTS=10`. O console inclui esses parâmetros nos menus 5 e 6, persistindo valores não secretos em `rasai-console.ini`. Região SERP brasileira **explicitamente** solicitada tem precedência sobre `RASAI_PERPLEXITY_COUNTRY` e sugere `pt` somente na ausência de idioma explícito. Outros países devem ser declarados por ISO alpha-2; o TLD da URL não define região. Nenhum filtro de domínio ou período é inferido. A flag `RASAI_PERPLEXITY_ENABLED=false` impede chamadas, ainda que haja queries e API key. Valores inválidos são contidos antes do transporte. A lista completa, limites, precedence e proveniência estão em `docs/PERPLEXITY_SEARCH_INTELLIGENCE.md`, seção Resolução automática do escopo.
+
+#### Referência exata das opções Perplexity Search API (#317)
+
+As opções não secretas abaixo são editáveis nos menus 5 e 6 e persistíveis em `rasai-console.ini`; quando ausentes, os filtros opcionais não são enviados à API:
+
+| Variável de ambiente | Campo da requisição | Contrato |
+| --- | --- | --- |
+| `RASAI_PERPLEXITY_MAX_RESULTS` | `max_results` | Inteiro positivo; padrão 10 |
+| `RASAI_PERPLEXITY_COUNTRY` | `country` | Código ISO de duas letras; BR explícito da AUD prevalece |
+| `RASAI_PERPLEXITY_SEARCH_LANGUAGE_FILTER` | `search_language_filter` | Códigos de idioma separados por vírgula |
+| `RASAI_PERPLEXITY_SEARCH_DOMAIN_FILTER` | `search_domain_filter` | Domínios explícitos; não inferir `.br` |
+| `RASAI_PERPLEXITY_SEARCH_RECENCY_FILTER` | `search_recency_filter` | `hour`, `day`, `week`, `month` ou `year` |
+| `RASAI_PERPLEXITY_SEARCH_AFTER_DATE` | `search_after_date_filter` | Data MM/DD/YYYY |
+| `RASAI_PERPLEXITY_SEARCH_BEFORE_DATE` | `search_before_date_filter` | Data MM/DD/YYYY |
+| `RASAI_PERPLEXITY_LAST_UPDATED_AFTER` | `last_updated_after_filter` | Data MM/DD/YYYY |
+| `RASAI_PERPLEXITY_LAST_UPDATED_BEFORE` | `last_updated_before_filter` | Data MM/DD/YYYY |
+| `RASAI_PERPLEXITY_MAX_CONTENT_UNITS` | `max_tokens` | Limite numérico positivo; opcional |
+| `RASAI_PERPLEXITY_MAX_CONTENT_UNITS_PER_PAGE` | `max_tokens_per_page` | Limite numérico positivo; opcional |
+
+As variáveis de volume usam `CONTENT_UNITS` no nome para não serem confundidas com segredos pela política conservadora do console (nomes contendo `TOKEN` são considerados credenciais). O payload usa os nomes oficiais da API. Nunca persistir `PERPLEXITY_API_KEY` no INI.
