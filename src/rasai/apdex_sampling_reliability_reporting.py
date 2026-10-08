@@ -18,7 +18,7 @@ _TABLE = {
 
 
 def apdex_sampling_reliability_html(
-    database: Path, audit_id: str, catalog_id: str,
+    database: Path, audit_id: str, catalog_id: str, *, compact: bool = False,
 ) -> str:
     """Report evidence-backed sample sufficiency, never probabilistic confidence."""
     table = _TABLE.get(catalog_id)
@@ -46,18 +46,20 @@ def apdex_sampling_reliability_html(
         rows = []
 
     prefix = (
-        "<div class='notice'><strong>Confiabilidade da interpretação do Apdex:</strong> "
+        ("<p>" if compact else "<div class='notice'>")
+        + "<strong>Confiabilidade da interpretação do Apdex:</strong> "
     )
+    closing_tag = "</p>" if compact else "</div>"
     if not rows:
         return prefix + (
             "não determinável nesta auditoria: resumo por grupo ausente ou "
-            "esquema de evidência insuficiente. Não presumir amostra representativa.</div>"
+            "esquema de evidência insuficiente. Não presumir amostra representativa." + closing_tag
         )
     try:
         parsed = [(int(v), int(s), int(f)) for v, s, f in rows]
     except (TypeError, ValueError, OverflowError):
         return prefix + (
-            "indeterminada: contagens ou estados de grupos inválidos na evidência.</div>"
+            "indeterminada: contagens ou estados de grupos inválidos na evidência." + closing_tag
         )
     # Detect inconsistent states rather than inventing a reliability level.
     if any(
@@ -67,7 +69,7 @@ def apdex_sampling_reliability_html(
     ):
         return prefix + (
             "indeterminada: metadados de grupos inválidos ou incompatíveis "
-            "com o mínimo metodológico normal. Revisar a evidência persistida.</div>"
+            "com o mínimo metodológico normal. Revisar a evidência persistida." + closing_tag
         )
     n = len(parsed)
     small = sum(s for _, s, _ in parsed)
@@ -86,18 +88,18 @@ def apdex_sampling_reliability_html(
             + escape(suffix)
             + " A execução pode ter cumprido integralmente a meta configurada, "
             "mas o tamanho da amostra restringe conclusões gerais; "
-            "o Apdex continua sendo o índice das amostras efetivamente observadas.</div>"
+            "o Apdex continua sendo o índice das amostras efetivamente observadas." + closing_tag
         )
     if small:
         return prefix + (
             f"<strong>HETEROGÊNEA: {small}/{n} grupo(s) pequenos.</strong>"
             + escape(suffix)
             + " Não generalizar o resultado dos grupos pequenos como se "
-            "tivessem a mesma cobertura dos demais.</div>"
+            "tivessem a mesma cobertura dos demais." + closing_tag
         )
     return prefix + (
         "<strong>MÍNIMO METODOLÓGICO ATINGIDO (grupos normais).</strong>"
         + escape(suffix)
         + " A classificação normal não equivale a confiança estatística "
-        "quantificada nem a dados de usuários reais.</div>"
+        "quantificada nem a dados de usuários reais." + closing_tag
     )
