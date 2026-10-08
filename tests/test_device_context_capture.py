@@ -116,3 +116,50 @@ def test_rendered_dom_fingerprint_is_local_and_deterministic() -> None:
     assert first["capture_state"] == "CAPTURED"
     assert first["sha256"] == hashlib.sha256(html.encode("utf-8")).hexdigest()
     assert first["additional_network_requests"] == 0
+
+
+class _FakeDriftPage:
+    def __init__(self, html: str):
+        self.html = html
+        self.calls = 0
+
+    def content(self) -> str:
+        self.calls += 1
+        return self.html
+
+
+def test_incomplete_capture_records_dom_growth_without_changing_original():
+    from rasai.device_context_capture import _optional_screenshot_dom_correlation
+    old = "<html><body><main></main></body></html>"
+    new = "<html><body><main><h1>Seguro de Vida</h1><p>" + ("Cobertura " * 40) + "</p></main></body></html>"
+    page = _FakeDriftPage(new)
+    original = old
+    result = _optional_screenshot_dom_correlation(
+        page, old, {"state": "INCOMPLETE"}, b"image"
+    )
+    assert result["state"] == "OBSERVED"
+    assert result["captured_main_text_length"] == 0
+    assert result["main_text_delta"] > 0
+    assert result["captured_dom_sha256"] == hashlib.sha256(old.encode()).hexdigest()
+    assert old == original
+    assert page.calls == 1
+
+
+def test_healthy_capture_does_not_probe_dom_again():
+    from rasai.device_context_capture import _optional_screenshot_dom_correlation
+    page = _FakeDriftPage("<html><main>changed</main></html>")
+    result = _optional_screenshot_dom_correlation(
+        page, "<main>healthy</main>", {"state": "READY"}, b"image"
+    )
+    assert result["state"] == "NOT_APPLICABLE"
+    assert page.calls == 0
+
+
+def test_missing_screenshot_never_probes_dom():
+    from rasai.device_context_capture import _optional_screenshot_dom_correlation
+    page = _FakeDriftPage("<main>changed</main>")
+    result = _optional_screenshot_dom_correlation(
+        page, "<main></main>", {"state": "INCOMPLETE"}, None
+    )
+    assert result["state"] == "NOT_APPLICABLE"
+    assert page.calls == 0
