@@ -188,7 +188,9 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
         else "NÃO SOLICITADA"
     )
     px_credential = "credencial configurada" if px_status["configured"] else "credencial não configurada"
-    print(f"\nP. Perplexity externa      : {px_request} | {px_credential}")
+    from rasai.console_search_intelligence import perplexity_enabled
+    px_activation = "ATIVA" if perplexity_enabled() else "DESATIVADA"
+    print(f"\nP. Perplexity externa      : {px_activation} | {px_request} | {px_credential}")
     print("   Pesquisa externa advisory; independente de SERP e sem efeito em scoring/evidência determinística.")
     print("\nD. Não solicitar SERP nesta execução (limpa os termos)")
     print("V. Voltar")
@@ -206,6 +208,12 @@ def _mark_perplexity_pending(search_module: ModuleType, state: Any) -> None:
         getattr(state, "perplexity_search_type", "web") or "web"
     ).strip().casefold()
     status = search_module.perplexity_configuration_status()
+    if not search_module.perplexity_enabled():
+        state.perplexity_last_status = "DISABLED_BY_USER"
+        state.perplexity_last_detail = "Integração Perplexity desabilitada; consultas preservadas, nenhuma chamada externa"
+        state.perplexity_last_duration_seconds = None
+        state.error = ""
+        return
     state.perplexity_last_status = "PENDING"
     state.perplexity_last_detail = (
         f"{len(queries)} query(s); Search API {search_type.upper()}; "
@@ -285,6 +293,8 @@ def _edit_perplexity_activation(state: Any) -> None:
         return
     environment._variable_menu(state, spec)
     environment.refresh_specs()
+    from rasai import console_search_intelligence as search_module
+    _mark_perplexity_pending(search_module, state)
 
 
 def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
@@ -313,7 +323,9 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         from rasai.console_search_intelligence import perplexity_enabled
         active = perplexity_enabled()
         effective = active and bool(status["configured"]) and bool(queries)
+        activation_raw = (os.environ.get("RASAI_PERPLEXITY_ENABLED") or "").strip()
         print(f"  Habilitada            : {'SIM' if active else 'NÃO'}")
+        print(f"  Flag                  : {activation_raw or 'ausente (compatibilidade: true)'}")
         print(f"  Efetiva nesta AUD     : {'SIM' if effective else 'NÃO'}")
         print(f"  Readiness             : {'APTA' if ready else 'CONFIGURAR'}")
         print(f"  Detalhe               : {detail}")

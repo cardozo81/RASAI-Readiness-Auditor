@@ -51,7 +51,7 @@ def _repair_service_toggle_domains() -> None:
 
 def _serp_spec(spec: Any) -> bool:
     name = str(spec.name).upper()
-    if name == "PERPLEXITY_API_KEY":
+    if name in {"PERPLEXITY_API_KEY", "RASAI_PERPLEXITY_ENABLED"}:
         return True
     if name.startswith("RASAI_SERP"):
         return True

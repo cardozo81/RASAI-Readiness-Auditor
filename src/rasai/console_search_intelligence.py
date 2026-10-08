@@ -385,7 +385,10 @@ def perplexity_enabled(env: Mapping[str, str] | None = None) -> bool:
     """Explicit opt-out; an absent flag preserves compatibility for configured credentials."""
     values = os.environ if env is None else env
     raw = str(values.get("RASAI_PERPLEXITY_ENABLED", "") or "").strip().casefold()
-    return raw not in {"false", "0", "off", "no"}
+    if not raw:
+        return True  # Historical compatibility; no query is created automatically.
+    # Malformed overrides may never trigger billable requests.
+    return raw in {"true", "1", "on", "yes"}
 
 
 def validate_perplexity_readiness(
@@ -395,6 +398,10 @@ def validate_perplexity_readiness(
     if not queries:
         return True, "Perplexity não solicitada nesta execução"
     if not perplexity_enabled(env):
+        values = os.environ if env is None else env
+        raw = str(values.get("RASAI_PERPLEXITY_ENABLED", "") or "").strip().casefold()
+        if raw not in {"false", "0", "off", "no"}:
+            return True, "RASAI_PERPLEXITY_ENABLED inválida; nenhuma chamada externa por segurança"
         return True, "Perplexity desabilitada pelo usuário; nenhuma chamada externa"
     if len(queries) > PERPLEXITY_MAX_QUERIES:
         return False, f"Perplexity excede {PERPLEXITY_MAX_QUERIES} queries por request"

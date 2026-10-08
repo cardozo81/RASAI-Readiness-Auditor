@@ -227,6 +227,7 @@ def integration_specs() -> tuple[IntegrationSpec, ...]:
                 purpose="credencial da Perplexity Search API",
             ),
         ),
+        related_envs=("RASAI_PERPLEXITY_ENABLED",),
         probe_cost=PROBE_NO_PROVIDER_FEE,
         safe_for_bulk=True,
         documentation_url="https://docs.perplexity.ai/docs/search/quickstart",
@@ -509,6 +510,19 @@ def _classify_http(
 
 def _local_validation(spec: IntegrationSpec, env: Mapping[str, str]) -> IntegrationDiagnostic | None:
     fingerprint = configuration_fingerprint(spec, env)
+    if spec.id == "search:perplexity":
+        from rasai.console_search_intelligence import perplexity_enabled
+        if not perplexity_enabled(env):
+            raw = str(env.get("RASAI_PERPLEXITY_ENABLED") or "").strip().casefold()
+            invalid = raw not in {"false", "0", "off", "no"}
+            return IntegrationDiagnostic(
+                spec.id, spec.label, datetime.now(timezone.utc).isoformat(),
+                STATUS_OPERATIONAL_LIMITED, "INVALID_ACTIVATION" if invalid else "DISABLED_BY_USER",
+                ("Flag inválida; requisições Perplexity bloqueadas." if invalid
+                 else "Perplexity desabilitada por RASAI_PERPLEXITY_ENABLED=false; credencial preservada."),
+                "Configure RASAI_PERPLEXITY_ENABLED=true para permitir chamadas solicitadas.",
+                fingerprint, None, None, spec.probe_cost, ("configuration",),
+            )
     missing = missing_dependencies(spec, env)
     if missing:
         names = ", ".join(item.name for item in missing)

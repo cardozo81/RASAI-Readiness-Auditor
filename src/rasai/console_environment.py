@@ -476,9 +476,9 @@ def _search_specs() -> tuple[EnvironmentSpec, ...]:
             "RASAI_PERPLEXITY_ENABLED",
             "Search Intelligence / Observability",
             "Ativação opcional da Perplexity Search sem remover credencial.",
-            "booleano", ("true", "false"),
+            "booleano", ("true", "false"), default="true",
             required_when="Quando pesquisas Perplexity são solicitadas.",
-            impact="false impede requisições faturáveis; ausência mantém compatibilidade com o estado anterior.",
+            impact="true permite somente buscas explicitamente solicitadas com chave; false bloqueia chamadas e preserva chave/consultas.",
             source="docs/PERPLEXITY_SEARCH_INTELLIGENCE.md",
         ),
         EnvironmentSpec(
@@ -710,6 +710,11 @@ def _absolute_url(value: str, *, https_only: bool = False, loopback_http: bool =
 
 def _validate(name: str, raw: str) -> str:
     value = validate_existing(name, raw)
+    if name == "RASAI_PERPLEXITY_ENABLED":
+        normalized = value.strip().casefold()
+        if normalized not in {"true", "false", "1", "0", "yes", "no", "on", "off"}:
+            raise ValueError("use true ou false para a ativação Perplexity")
+        return "true" if normalized in {"true", "1", "yes", "on"} else "false"
     if name == "RASAI_LOG_LEVEL":
         value = value.upper()
         if value not in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}:
