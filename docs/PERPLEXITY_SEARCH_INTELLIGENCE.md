@@ -312,3 +312,14 @@ A camada adicional `geo_observation_runs` mantém uma projeção `RASAI-GEO-OBSE
 Depois de uma pesquisa Perplexity explicitamente executada pelo console e persistida com sucesso, o adapter GEO cria o snapshot e utiliza a materialização canônica do relatório existente para refletir os dados. Falhas nessa projeção opcional permanecem advisory. RPR e complementos continuam sujeitos às regras existentes de snapshot e aquisição: rematerialização HTML lê o estado persistido e não chama a API. Se não existir snapshot compatível, a seção deve apresentar indisponibilidade em vez de refazer a observação ou reinterpretar o histórico.
 
 A comparação é estritamente observacional: mesmo quando a consulta coincide, SERP e Perplexity podem diferir em momento, mercado, provider, profundidade e normalização. URLs recuperadas não são citações em respostas. As hipóteses de negócio/semântica são ações para avaliação humana, não causalidade comprovada.
+
+
+### Interpretação GEO por IA canônica (#306)
+
+O menu da Perplexity no CAT-05 oferece a opção explícita **"Síntese GEO por IA canônica nesta AUD"**, desabilitada por padrão e separada da pesquisa externa. A pesquisa Perplexity somente solicita requisições quando o operador informou consultas, ativação e credencial aplicáveis. A síntese por IA somente considera fontes persistidas e uma consulta única com provenance rastreável. A análise não lê automaticamente o conteúdo integral dos concorrentes.
+
+O consumidor `rasai.geo_ai` reutiliza o contrato `CompetitiveAiInput`/`CompetitiveAiEvidence` e o builder já instalado da orquestração competitiva canônica. Não existe cliente HTTP privado, fallback de provider ou motor próprio de preços/retries. Caso a orquestração canônica não esteja instalada, configurada ou elegível, a síntese é indicada como indisponível; a AUD e CAT-05 não são rebaixados.
+
+As interpretações bem-sucedidas e tentativas derivadas são persistidas em `geo_ai_interpretations`, vinculadas a `audit_id` e `perplexity_run_id`, com hash de entrada, provider, modelo, versões de prompt, status e oportunidades com IDs de evidência. Antes de nova tentativa, o consumidor verifica o mesmo fingerprint e seleção: uma análise já persistida é reutilizada sem nova chamada faturável. RPR, complemento e geração HTML não executam esse consumidor, apenas projetam os dados persistidos. O report `geo.html` diferencia a interpretação GEO específica de sínteses competitivas pré-existentes em SERP.
+
+A exposição a texto de fonte externa é limitada a metadados e snippets, tratados como evidência observacional não confiável. A saída não modifica score, CAT, SARI, SCORE-GEO, indexação nem mecanismo de IA. Recomendações precisam ser validadas pelo analista humano e não são prova de inclusão em respostas generativas.
