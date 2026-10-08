@@ -153,7 +153,12 @@ def _geo_relevant_findings(database: Path, audit_id: str) -> list[dict]:
                 str(item.get("title") or "")
             ).upper() for term in terms)
         ][:12]
-        if "recommendations" in tables and eligible:
+        recommendation_columns = (
+            {row[1] for row in con.execute("PRAGMA table_info(recommendations)")}
+            if "recommendations" in tables else set()
+        )
+        required = {"audit_id", "finding_id", "title", "description", "priority_class", "priority_score"}
+        if required.issubset(recommendation_columns) and eligible:
             ids = [item["finding_id"] for item in eligible]
             placeholders = ",".join("?" for _ in ids)
             rows = con.execute(
