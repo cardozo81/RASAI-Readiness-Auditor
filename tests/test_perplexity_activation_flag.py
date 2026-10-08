@@ -63,6 +63,31 @@ class PerplexityActivationFlagTests(unittest.TestCase):
             self.assertFalse(parser.has_option("environment", "PERPLEXITY_API_KEY"))
             self.assertNotIn("opaque-secret", destination.read_text(encoding="utf-8"))
 
+    def test_startup_reload_accepts_persisted_activation_without_warning(self):
+        """A saved GEO flag must reopen through the same canonical INI allowlist."""
+        import os
+        import tempfile
+        from pathlib import Path
+        from rasai.console_settings import load_console_config, save_console_config
+        from rasai.console_search_intelligence import SearchConsoleState
+
+        with tempfile.TemporaryDirectory() as root, patch.dict(
+            os.environ,
+            {"RASAI_PERPLEXITY_ENABLED": "false", "PERPLEXITY_API_KEY": "opaque-secret"},
+            clear=True,
+        ):
+            destination = Path(root) / "rasai-console.ini"
+            save_console_config(SearchConsoleState(), destination)
+            # Simulate a fresh console process: reload the persisted nonsecret flag.
+            os.environ.pop("RASAI_PERPLEXITY_ENABLED")
+            restored = SearchConsoleState()
+            outcome = load_console_config(restored, destination)
+            self.assertFalse(outcome.created)
+            self.assertEqual(outcome.warnings, ())
+            self.assertEqual(os.environ.get("RASAI_PERPLEXITY_ENABLED"), "false")
+            self.assertFalse(perplexity_enabled(os.environ))
+            self.assertNotIn("opaque-secret", destination.read_text(encoding="utf-8"))
+
     def test_disabled_readiness_is_advisory(self):
         state = SimpleNamespace(perplexity_queries=("example",))
         ready, detail = validate_perplexity_readiness(
