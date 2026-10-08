@@ -49,6 +49,7 @@ def test_search_capability_contains_serp_but_not_gsc_and_gsc_has_own_capability(
 
     assert "RASAI_SERP_MODE" in search_names
     assert "PERPLEXITY_API_KEY" in search_names
+    assert "RASAI_PERPLEXITY_ENABLED" in search_names
     assert "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL" not in search_names
     assert "RASAI_GSC_ENABLED" not in search_names
 
