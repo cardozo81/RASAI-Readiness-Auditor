@@ -45,6 +45,34 @@ def test_three_valid_samples_are_limited_not_invalid_and_readonly(
     assert db.read_bytes() == before
 
 
+@pytest.mark.parametrize("target_met", [False, True])
+def test_cat07_real_smoke_three_of_three_is_limited_even_when_final(
+    tmp_path: Path, target_met: bool,
+) -> None:
+    """Real AUD shape: M25 small_group=1 AND final_group=1 at n=3."""
+    db = tmp_path / "audit.db"
+    _db(db, cat="CAT-07", groups=[
+        ("MOBILE", 3, 1, int(target_met)),
+        ("POPULATION", 3, 1, 1),
+    ])
+    text = report(db, "AUD-1", "CAT-07")
+    assert "LIMITADA para generalização" in text
+    assert "amostras válidas por grupo: 3" in text
+    assert "indeterminada" not in text
+    assert f"atingida ({int(target_met)}/1 grupo(s))" in text
+    assert "não define suficiência estatística" in text
+
+
+def test_cat07_methodological_minimum_can_precede_operational_target(
+    tmp_path: Path,
+) -> None:
+    db = tmp_path / "audit.db"
+    _db(db, cat="CAT-07", groups=[("MOBILE", 100, 0, 0)])
+    text = report(db, "AUD-1", "CAT-07")
+    assert "MÍNIMO METODOLÓGICO ATINGIDO" in text
+    assert "atingida (0/1 grupo(s))" in text
+
+
 def test_normal_group_is_not_called_statistically_confident(tmp_path: Path) -> None:
     db = tmp_path / "audit.db"
     _db(db, cat="CAT-06", groups=[("MOBILE", 100, 0, 1)])
