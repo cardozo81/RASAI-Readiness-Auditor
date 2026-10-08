@@ -180,7 +180,7 @@ def _geo_relevant_findings(database: Path, audit_id: str) -> list[dict]:
         # inspection, not proof that the issue affects AI answer ranking.
         terms = ("CONTENT", "SEMANTIC", "STRUCTURE", "HTML", "INDEX",
                  "CRAWL", "CANONICAL", "DISCOVER", "ENTITY", "SCHEMA", "META",
-                 "ROBOTS", "SITEMAP", "SEARCH", "JSON_LD")
+                 "ROBOTS", "SITEMAP", "SEARCH", "JSON_LD", "CITATION", "EVIDENCE", "INTENT")
         eligible = [
             item for item in findings
             if any(term in (
@@ -277,6 +277,163 @@ def _extraction_quality_section(database: Path) -> str:
     return output
 
 
+
+def _serp_baseline(database: Path, audit_id: str) -> tuple[dict, list[dict]] | None:
+    """Read ONE latest eligible SERP observation for the same audited AUD.
+
+    Search results are not evidence of generative citations. Do not infer
+    competitor content from snippets or mix observations from different runs.
+    """
+    with closing(sqlite3.connect(f"file:{database.resolve().as_posix()}?mode=ro", uri=True)) as con:
+        tables = {row[0] for row in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name IN ('serp_observations','serp_results')"
+        )}
+        if tables != {"serp_observations", "serp_results"}:
+            return None
+        required_observation = {
+            "observation_id", "audit_id", "query", "engine", "country",
+            "region", "language", "device", "data_mode",
+            "observation_status", "collected_at",
+        }
+        required_result = {"observation_id", "position", "url", "title"}
+        obs_cols = {row[1] for row in con.execute("PRAGMA table_info(serp_observations)")}
+        res_cols = {row[1] for row in con.execute("PRAGMA table_info(serp_results)")}
+        if not required_observation.issubset(obs_cols) or not required_result.issubset(res_cols):
+            return None
+        con.row_factory = sqlite3.Row
+        observation = con.execute(
+            "SELECT observation_id,query,engine,country,region,language,device,"
+            "data_mode,observation_status,collected_at FROM serp_observations "
+            "WHERE audit_id=? AND data_mode='OBSERVED_API' "
+            "AND observation_status='OBSERVED' "
+            "ORDER BY collected_at DESC,observation_id DESC LIMIT 1",
+            (audit_id,),
+        ).fetchone()
+        if observation is None:
+            return None
+        results = [dict(row) for row in con.execute(
+            "SELECT position,url,title FROM serp_results WHERE observation_id=? "
+            "ORDER BY position LIMIT 10",
+            (observation["observation_id"],),
+        )]
+    return dict(observation), results
+
+
+def _baseline_serp_section(database: Path, audit_id: str) -> str:
+    baseline = _serp_baseline(database, audit_id)
+    result = "<section><h2>Panorama SERP existente — sem consulta Perplexity</h2>"
+    if baseline is None:
+        return result + (
+            "<p>Não há observação SERP live elegível com origem e escopo "
+            "verificáveis nesta auditoria. Sem observação, não se deduz "
+            "visibilidade GEO, posicionamento ou ausência de concorrentes.</p></section>"
+        )
+    observation, rows = baseline
+    observation_id = str(observation["observation_id"])
+    result += "<p>Observação de resultados de busca persistida no "
+    result += "<a href='cat-05.html'>CAT-05</a>. Consulta: <strong>"
+    result += escape(str(observation.get("query") or "-")) + "</strong>"
+    result += "; motor: " + escape(str(observation.get("engine") or "-"))
+    result += "; país/idioma: " + escape(str(observation.get("country") or "-"))
+    result += " / " + escape(str(observation.get("language") or "-"))
+    result += "; região: " + escape(str(observation.get("region") or "-"))
+    result += "; dispositivo: " + escape(str(observation.get("device") or "-"))
+    result += "; coletado em: " + escape(str(observation.get("collected_at") or "-"))
+    result += "; evidência: <code>" + escape(observation_id) + "</code>.</p>"
+    result += (
+        "<p>Esta lista retrata somente URLs e títulos de uma amostra SERP; "
+        "não constitui ranking em respostas generativas, análise completa "
+        "das páginas concorrentes, nem comprova pertinência de cada "
+        "resultado à intenção comercial auditada.</p>"
+    )
+    if rows:
+        result += "<table><thead><tr><th>Posição</th><th>Domínio</th><th>Título observado</th>"
+        result += "<th>Referência</th></tr></thead><tbody>"
+        for item in rows:
+            url = str(item.get("url") or "")
+            result += "<tr><td>" + escape(str(item.get("position") if item.get("position") is not None else "-"))
+            result += "</td><td>" + escape(_host(url) or "N/D")
+            result += "</td><td>" + escape(str(item.get("title") or "-")[:180])
+            result += "</td><td><code>" + escape(observation_id)
+            result += ":" + escape(str(item.get("position") or "-")) + "</code></td></tr>"
+        result += "</tbody></table>"
+    else:
+        result += "<p>Nenhuma URL materializada no resultado SERP elegível.</p>"
+    result += "</section>"
+    assessment = _prior_competitive_ai(database, audit_id, observation_id)
+    result += "<section><h2>Inteligência competitiva já produzida</h2>"
+    if assessment is None:
+        result += (
+            "<p>Não existe análise competitiva canônica disponível para esta "
+            "observação SERP. Títulos SERP não são usados para inventar "
+            "diagnósticos de conteúdo de outras páginas.</p>"
+        )
+    else:
+        result += "<p>Resumo de IA já persistido no CAT-05; não é "
+        result += "nova análise, pesquisa Perplexity ou medição de citações. "
+        result += "Provider: " + escape(str(assessment.get("provider") or "-"))
+        result += "; modelo: " + escape(str(assessment.get("model") or "-"))
+        result += "; referência: " + escape(str(assessment.get("evidence_ref") or "-"))
+        result += ".</p>"
+        if assessment.get("summary"):
+            result += "<p>" + escape(str(assessment["summary"])[:2200]) + "</p>"
+        if assessment["opportunities"]:
+            result += "<ol>"
+            for opportunity in assessment["opportunities"][:8]:
+                result += "<li><strong>" + escape(str(opportunity.get("title") or "-"))
+                result += "</strong> (prioridade indicativa: "
+                result += escape(str(opportunity.get("priority") or "N/D")) + ")"
+                result += "<br>Ação proposta: " + escape(str(opportunity.get("recommendation") or "Revisar evidência"))
+                result += "<br>Evidências declaradas: " + ", ".join(
+                    escape(str(evidence)) for evidence in opportunity["evidence_ids"][:8]
+                )
+                result += "</li>"
+            result += "</ol>"
+        else:
+            result += "<p>Sem oportunidades vinculadas a IDs de evidência.</p>"
+        result += ("<p>As interpretações exigem conferência nas evidências de origem; "
+                   "não estabelecem causalidade com classificação, citação ou "
+                   "presença em respostas de IA.</p>")
+    return result + "</section>"
+
+
+def _baseline_findings_section(database: Path, audit_id: str) -> str:
+    findings = _geo_relevant_findings(database, audit_id)
+    section = "<section><h2>Plano de revisão técnica, editorial e de negócio</h2>"
+    if not findings:
+        return section + (
+            "<p>Nenhum achado elegível foi encontrado. Isso não significa "
+            "ausência de oportunidades GEO.</p></section>"
+        )
+    section += (
+        "<p>Priorização orientativa de achados já persistidos na auditoria. "
+        "A gravidade é a classificação do catálogo original, não uma estimativa "
+        "de efeito em respostas generativas. Valide cada evidência e "
+        "ação antes de autorizar mudanças.</p><ol>"
+    )
+    for finding in findings:
+        section += "<li><strong>" + escape(str(finding.get("title") or "-"))
+        section += "</strong> | gravidade original: " + escape(str(finding.get("severity") or "-"))
+        section += " | regra: <code>" + escape(str(finding.get("rule_id") or "-")) + "</code>"
+        section += " | finding: <code>" + escape(str(finding.get("finding_id") or "-")) + "</code>"
+        owner, verification = _geo_review_routing(finding)
+        section += "<br>Área: " + escape(owner) + " | Verificação: " + escape(verification)
+        try:
+            evidence = json.loads(finding.get("evidence_ids") or "[]")
+        except (TypeError, ValueError):
+            evidence = []
+        if isinstance(evidence, list) and evidence:
+            section += "<br>Evidências persistidas: " + ", ".join(
+                escape(str(ref)) for ref in evidence[:8] if isinstance(ref, str)
+            )
+        recommended = finding.get("existing_recommendation") or {}
+        if recommended.get("description"):
+            section += "<br>Ação registrada: " + escape(str(recommended["description"])[:600])
+        section += "</li>"
+    return section + "</ol></section>"
+
+
 def geo_body(database: Path, audit_id: str) -> str:
     """Evidence-backed readout; no scores, causal attribution or speculative gaps."""
     runs, sources = _observations(database, audit_id)
@@ -319,7 +476,7 @@ def geo_body(database: Path, audit_id: str) -> str:
             "Sem dados, não é possível concluir presença ou ausência da URL em AI Search.</p></section>"
             "<p>Detalhes técnicos: <a href='cat-05.html'>CAT-05</a>; "
             "<a href='ai-integrations.html'>IA e integrações</a>.</p>"
-        ) + _extraction_quality_section(database) + "</div>"
+        ) + _baseline_serp_section(database, audit_id) + _baseline_findings_section(database, audit_id) + _extraction_quality_section(database) + "</div>"
     counts = Counter(_host(x["url"]) for x in sources if _host(x["url"]))
     summary = "<section><h2>Observações recuperadas</h2>"
     summary += f"<p>{len(runs)} execução(ões) persistida(s); {len(sources)} fonte(s) recuperada(s).</p>"
@@ -512,31 +669,8 @@ def geo_body(database: Path, audit_id: str) -> str:
     summary += "</section>"
 
     summary += _extraction_quality_section(database)
-    findings = _geo_relevant_findings(database, audit_id)
-    summary += "<section><h2>Oportunidades técnicas/editoriais contextualizadas</h2>"
-    if findings:
-        summary += "<p>Os achados abaixo são evidências existentes na auditoria que "
-        summary += "merecem revisão para descoberta e compreensão de conteúdo. "
-        summary += "Não comprovam impacto causal nas fontes Perplexity recuperadas.</p><ol>"
-        for finding in findings:
-            summary += "<li><strong>" + escape(str(finding.get("title") or "-"))
-            summary += "</strong> — " + escape(str(finding.get("category") or "-"))
-            summary += " / " + escape(str(finding.get("severity") or "-"))
-            summary += " | regra: " + escape(str(finding.get("rule_id") or "-"))
-            summary += " | evidência: " + escape(str(finding.get("finding_id") or "-"))
-            owner, verification = _geo_review_routing(finding)
-            summary += "<br>Área para avaliar: " + escape(owner)
-            summary += " | Validação recomendada: " + escape(verification)
-            existing = finding.get("existing_recommendation") or {}
-            if existing.get("description"):
-                summary += "<br>Ação previamente registrada no RASAi: "
-                summary += escape(str(existing["description"]))
-            summary += "</li>"
-        summary += "</ol>"
-    else:
-        summary += "<p>Nenhum achado técnico/editorial elegível foi encontrado nesta "
-        summary += "projeção. Isso não significa ausência de oportunidades GEO.</p>"
-    summary += "</section>"
+    summary += _baseline_serp_section(database, audit_id)
+    summary += _baseline_findings_section(database, audit_id)
     summary += "<section><h2>Próximas ações de análise</h2><p>"
     summary += "Confronte as consultas com as evidências de descoberta e indexabilidade "
     summary += "do <a href='cat-01.html'>CAT-01</a>, conteúdo e entidades do "
