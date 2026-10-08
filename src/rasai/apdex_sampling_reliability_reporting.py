@@ -61,10 +61,14 @@ def apdex_sampling_reliability_html(
         return prefix + (
             "indeterminada: contagens ou estados de grupos inválidos na evidência." + closing_tag
         )
-    # Detect inconsistent states rather than inventing a reliability level.
+    # M23: final_group means >= normal methodological minimum (100).
+    # M25: final_group means configured *operational target reached*, which
+    # legitimately coexists with small_group for target=3 (3/3 complete).
+    # Never conflate run completion with inferential sample sufficiency.
     if any(
-        v < 1 or s not in (0, 1) or f not in (0, 1) or s == f
-        or (s == 1 and v >= 100) or (f == 1 and v < 100)
+        v < 1 or s not in (0, 1) or f not in (0, 1)
+        or (s == 1 and v >= 100) or (s == 0 and v < 100)
+        or (catalog_id == "CAT-06" and (f != int(v >= 100)))
         for v, s, f in parsed
     ):
         return prefix + (
@@ -82,6 +86,13 @@ def apdex_sampling_reliability_html(
         "intervalo de confiança estatística, representatividade de usuários "
         "reais ou garantia de repetibilidade."
     )
+    if catalog_id == "CAT-07":
+        complete = sum(f for _, _, f in parsed)
+        suffix += (
+            f" No CAT-07, 'grupo final' marca apenas a meta operacional "
+            f"atingida ({complete}/{n} grupo(s)); não define suficiência "
+            "estatística para generalização."
+        )
     if small == n:
         return prefix + (
             "<strong>LIMITADA para generalização (grupos pequenos).</strong>"
