@@ -61,14 +61,17 @@ def apdex_sampling_reliability_html(
         return prefix + (
             "indeterminada: contagens ou estados de grupos inválidos na evidência." + closing_tag
         )
-    # M23: final_group means >= normal methodological minimum (100).
+    # M23: final_group is set only when valid >= max(target, 100), so
+    # 100+ valid samples may be normal (small_group=0) without being final
+    # when the configured target exceeds the observed sample count.
     # M25: final_group means configured *operational target reached*, which
     # legitimately coexists with small_group for target=3 (3/3 complete).
-    # Never conflate run completion with inferential sample sufficiency.
+    # Reject an impossible M23 final group below 100, but never infer the
+    # unknown configured target from valid_samples alone.
     if any(
         v < 1 or s not in (0, 1) or f not in (0, 1)
         or (s == 1 and v >= 100) or (s == 0 and v < 100)
-        or (catalog_id == "CAT-06" and (f != int(v >= 100)))
+        or (catalog_id == "CAT-06" and f == 1 and v < 100)
         for v, s, f in parsed
     ):
         return prefix + (
