@@ -356,8 +356,9 @@ def _cat07_methodology_summary_html(database: Path, data: _ReportData) -> str:
     # Only frozen AUD configuration can prove a historical profile selection.
     # Older audit plans and mismatched hashes must not adopt today's console INI.
     from rasai.cat07_architecture_reporting_358 import cat07_architecture_advice_html
-    frozen = data.configuration if (
-        data.config_hash and data.config_hash == data.computed_hash
+    frozen = getattr(data, "configuration", None) if (
+        getattr(data, "config_hash", "")
+        and getattr(data, "config_hash", "") == getattr(data, "computed_hash", "")
     ) else None
     html += cat07_architecture_advice_html(database, data.audit_id, frozen_meta=frozen)
     return html+"</div>"
