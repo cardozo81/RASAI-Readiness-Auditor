@@ -74,7 +74,7 @@ filho de cada **nova** AUD, antes da finalização e do registro de
 hash `audit_execution_configurations`. A projeção CAT-07 agora lê
 `architecture` e `profile_mode` desse snapshot apenas quando o
 hash persistido é exatamente igual ao hash recalculado pelo contrato
-canônico. Se nenhum snapshot existir, for legado ou tiver hash
+canônico. Se nenhum snapshot existir, for histórico ou tiver hash
 inconsistente, o modo fica N/D. O relatório não lê o INI de outra
 auditoria nem altera os hashes/configurações de execuções existentes.
 Testes de contrato cobrem presença e abstenção do modo congelado.
