@@ -431,3 +431,33 @@ continuar internamente íntegro, mas não corresponder ao `audit.db` atual;
 essa condição bloqueia a reserva de intenção e qualquer tentativa
 Perplexity **antes de consumo tarifável**. Este guard não modifica o pacote,
 não reinterpreta uma AUD e não autoriza reenvio em casos ambíguos.
+
+
+## Consulta dos complementos GEO pós-AUD (CAT-05, #318/#309)
+
+No submenu **P. Perplexity** do CAT-05, a opção **8. Consultar
+complementos GEO existentes** é somente leitura e independe de ativação
+de Perplexity, chave, parâmetros SERP ou nova autorização comercial.
+O operador informa a pasta da AUD COMPLETE e recebe as intenções
+pré-existentes, o estado de verificação e, quando confirmado, o caminho
+do relatório independente `supplement.html`.
+
+A verificação exige: pacote original íntegro/fresco, origem da AUD
+estável, requisição autorizada com hash/escopo consistente, manifesto
+independente com SHA-256 dos arquivos, `result.json` coerente e
+`perplexity_search_runs` da base derivada vinculado ao run_id,
+query, search_type, estado da execução, integridade SQLite e FKs.
+Um manifesto isolado não basta para afirmar sucesso. Saídas possíveis:
+
+- `VERIFIED`: dados locais da intenção, resultado e ledger
+  verificados; não implica citação em resposta de IA.
+- `PENDING_UNCERTAIN`: reserva incompleta ou resposta sem
+  evidência conclusiva. Não refazer automaticamente, pois cobrança
+  pode ter ocorrido.
+- `INVALID`: identidade ou integridade não verificáveis.
+  Não considerar evidência GEO e não reenviar automaticamente.
+
+O inventário não cria sidecars, não materializa novos catálogos, não
+muda o banco original e não dispara Search API ou IA. Não tenta
+transformar automaticamente o suplemento externo em snapshot GEO v5
+da AUD selada. Essa projeção futura permanece pendente no #311/#309.
