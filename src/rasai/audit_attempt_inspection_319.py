@@ -15,6 +15,7 @@ import sqlite3
 from typing import Sequence
 
 from rasai.audit_attempt_timeline import read_audit_attempt_timeline
+from rasai.audit_duration_forecast_319 import _m21_http_request_sums
 
 _AUD = re.compile(r"^AUD-[A-Za-z0-9-]{1,100}$")
 
@@ -42,6 +43,10 @@ def inspect_audit_attempts(aud_dir: Path) -> dict:
         if con.execute("PRAGMA foreign_key_check").fetchone() is not None:
             raise ValueError("AUD database foreign keys inconsistent")
         status, completion = rows[0]
+        # M21 records per HTTP attempt, not stage wall-clock. Preserve the
+        # same conservative, AUD-scoped and fail-closed interpretation already
+        # used by the historical duration forecast.
+        http_request_sums = _m21_http_request_sums(con, root.name)
     timeline = read_audit_attempt_timeline(db, root.name)
     stages = [asdict(x) for x in timeline.stages]
     return {
@@ -60,6 +65,18 @@ def inspect_audit_attempts(aud_dir: Path) -> dict:
         "provider_observed_usd": timeline.provider_observed_usd,
         "unpriced_attempts": timeline.unpriced_attempts,
         "non_ai_stages_measured": False,
+        "observed_http_request_sums_ms": http_request_sums,
+        "http_request_telemetry": (
+            "OBSERVED_CUMULATIVE_REQUEST_DURATION"
+            if http_request_sums else "NOT_VERIFIABLE"
+        ),
+        "http_request_stage_wall_clock_available": False,
+        "http_request_caveat": (
+            "Valores M21 são somas verificadas de duração de requisições "
+            "HTTP PSI/CrUX por serviço, não tempo físico de fase, "
+            "nem parcelas somáveis ao tempo ativo IA ou à duração da AUD. "
+            "Serviços com tentativa de tempo inválido permanecem N/D."
+        ),
         "caveat": timeline.timing_caveat +
             " Custo observado pelo provedor não equivale à fatura. "
             "Processamentos fora da sessão física da AUD também podem figurar no histórico.",
@@ -71,7 +88,7 @@ def inspect_audit_attempts(aud_dir: Path) -> dict:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Read persisted AUD M18/M20 attempt chronology without external calls."
+        description="Read AUD M18/M20 attempts and distinct M21 HTTP request telemetry without network."
     )
     parser.add_argument("audit_dir", type=Path)
     args = parser.parse_args(argv)
