@@ -15,6 +15,7 @@ import sqlite3
 from typing import Any, Callable
 
 from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
+from rasai.geo_observation import _canonical_url
 
 from rasai.search_intelligence.competitive_ai import (
     CompetitiveAiEvidence, CompetitiveAiInput, CompetitiveAiState,
@@ -54,6 +55,15 @@ def _prepare(con: sqlite3.Connection, audit_id: str) -> tuple[str, CompetitiveAi
         "SELECT position, url, title, snippet FROM perplexity_search_sources "
         "WHERE run_id=? ORDER BY position, url LIMIT 12", (row["run_id"],)
     )]
+    # Source metadata is untrusted provider input. An invalid/userinfo/
+    # javascript URL must not become an evidence reference or prompt context
+    # solely because a row was persisted. Do not fetch/rewrite the sources.
+    sources = [
+        x for x in sources
+        if isinstance(x.get("url"), str)
+        and len(x["url"]) <= 2048
+        and bool(_canonical_url(x["url"]))
+    ]
     if not sources:
         return None
     evidence = tuple(
@@ -65,7 +75,7 @@ def _prepare(con: sqlite3.Connection, audit_id: str) -> tuple[str, CompetitiveAi
             evidence_type="EXTERNAL_SEARCH_RESULT_METADATA",
             source="PERPLEXITY_SEARCH_API",
             observed_value={
-                "url": x["url"], "title": x["title"],
+                "url": x["url"], "title": str(x["title"] or "")[:240],
                 "snippet": str(x["snippet"] or "")[:900],
                 "limitation": "Snippet metadata only; no full competitor page inspection.",
             },
