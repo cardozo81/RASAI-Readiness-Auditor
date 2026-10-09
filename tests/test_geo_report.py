@@ -136,6 +136,21 @@ class GeoReportTests(unittest.TestCase):
             self.assertIn("Sobreposição observacional de URLs: N/D", v4)
             self.assertIn("instantes de coleta sem relógios verificáveis", v4)
             self.assertNotIn("1 em ambas", v4)
+            with closing(sqlite3.connect(db)) as con, con:
+                con.execute(
+                    "INSERT INTO geo_observation_runs VALUES (?,?,?,?)",
+                    ("g3", "AUD-ONE",
+                     '{"contract_version":"RASAI-GEO-OBSERVATION-5",'
+                     '"perplexity_run_id":"r1","serp_observation_id":"s1",'
+                     '"url_overlap_count":1,"serp_url_count":1,"perplexity_url_count":1,'
+                     '"descriptive_overlap":{"status":"NOT_COMPARABLE",'
+                     '"reason":"TIME_SCOPE_OUTSIDE_WINDOW"}}',
+                     "2026-10-09T19:00:00Z"),
+                )
+            v5 = geo_body(db, "AUD-ONE")
+            self.assertIn("Sobreposição observacional de URLs: N/D", v5)
+            self.assertIn("coletas separadas por mais de 24 horas", v5)
+            self.assertNotIn("1 em ambas", v5)
 
 
     def test_extraction_warning_visible_without_perplexity_run(self):

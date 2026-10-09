@@ -172,10 +172,32 @@ def _historical_audit(
             return None
         if not isinstance(config, dict) or not _strictly_comparable(state, config):
             return None
-        audit = conn.execute("SELECT status FROM audits WHERE audit_id=?", (audit_id,)).fetchone()
-        if not audit or str(audit[0] or "").strip().upper() not in {"COMPLETE", "COMPLETED"}:
+        # Physical duration must not be learned from a logically partial AUD.
+        # COMPLETED is the lifecycle status, NOT proof that mandatory catalog
+        # requirements reached completion_status=COMPLETE.
+        audit_columns = {
+            str(column[1]) for column in conn.execute("PRAGMA table_info(audits)")
+        }
+        page_columns = {
+            str(column[1]) for column in conn.execute("PRAGMA table_info(pages)")
+        }
+        if not {"audit_id", "status", "completion_status"}.issubset(audit_columns):
             return None
-        count = int(conn.execute("SELECT COUNT(*) FROM pages").fetchone()[0])
+        if not {"audit_id", "page_id"}.issubset(page_columns):
+            return None
+        audit = conn.execute(
+            "SELECT status, completion_status FROM audits WHERE audit_id=?",
+            (audit_id,),
+        ).fetchone()
+        if (
+            not audit
+            or str(audit["status"] or "").strip().upper() != "COMPLETED"
+            or str(audit["completion_status"] or "").strip().upper() != "COMPLETE"
+        ):
+            return None
+        count = int(conn.execute(
+            "SELECT COUNT(*) FROM pages WHERE audit_id=?", (audit_id,),
+        ).fetchone()[0])
         if count != target_pages or count <= 0:
             return None
         wall = float(row["duration_ms"])

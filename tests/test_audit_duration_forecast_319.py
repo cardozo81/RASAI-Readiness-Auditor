@@ -29,6 +29,7 @@ def _state(root: Path):
 
 
 def _audit(root: Path, index: int, *, status="COMPLETE", duration=600_000,
+           completion_status="COMPLETE",
            with_stage=True, device="MOBILE", complete_config=True,
            wrong_clock=False, pages=1, web_max_pages=1,
            input_mode="URL", with_http=False, invalid_http=False) -> Path:
@@ -50,8 +51,8 @@ def _audit(root: Path, index: int, *, status="COMPLETE", duration=600_000,
     with sqlite3.connect(database) as con:
         con.executescript(
             """
-            CREATE TABLE audits (audit_id TEXT PRIMARY KEY, status TEXT);
-            CREATE TABLE pages (page_id TEXT PRIMARY KEY);
+            CREATE TABLE audits (audit_id TEXT PRIMARY KEY, status TEXT, completion_status TEXT);
+            CREATE TABLE pages (page_id TEXT PRIMARY KEY, audit_id TEXT);
             CREATE TABLE console_execution_projections (
                 audit_id TEXT, configuration TEXT, duration_ms INTEGER,
                 started_at TEXT, finished_at TEXT
@@ -66,9 +67,12 @@ def _audit(root: Path, index: int, *, status="COMPLETE", duration=600_000,
             );
             """
         )
-        con.execute("INSERT INTO audits VALUES (?,?)", (audit_id, status))
+        con.execute(
+            "INSERT INTO audits VALUES (?,?,?)",
+            (audit_id, "COMPLETED" if status == "COMPLETE" else status, completion_status),
+        )
         for page_no in range(pages):
-            con.execute("INSERT INTO pages VALUES (?)", (f"PAGE-{page_no}",))
+            con.execute("INSERT INTO pages VALUES (?,?)", (f"PAGE-{page_no}", audit_id))
         con.execute(
             "INSERT INTO console_execution_projections VALUES (?,?,?,?,?)",
             (audit_id, json.dumps(config), duration,
@@ -206,3 +210,42 @@ def test_console_monetary_preview_stays_intact_with_separate_duration_layer(tmp_
     assert "Duracao total histor." in rendered
     assert "Nenhuma chamada tarifável" not in rendered  # existing verbatim disclaimer remains
     assert "A execução ainda não iniciou" in rendered
+
+
+
+def test_completed_but_logically_partial_never_enters_forecast_cohort(tmp_path):
+    # Lifecycle COMPLETED can coexist with a partial diagnostic outcome.
+    # A status-only filter would falsely learn from this incomplete sample.
+    for i in range(5):
+        _audit(tmp_path, i, completion_status="PARTIAL_RETRYABLE")
+    value = forecast_local_duration(_state(tmp_path))
+    assert value.sample_runs == 0
+    assert not value.available
+
+
+def test_page_count_scoped_to_current_audit_not_foreign_records(tmp_path):
+    for i in range(5):
+        db = _audit(tmp_path, i)
+        with sqlite3.connect(db) as con:
+            con.execute(
+                "INSERT INTO pages VALUES (?,?)",
+                ("FOREIGN-" + str(i), "AUD-FOREIGN"),
+            )
+    value = forecast_local_duration(_state(tmp_path))
+    assert value.sample_runs == 5
+    assert value.available
+
+
+def test_legacy_missing_completion_or_page_provenance_abstains(tmp_path):
+    databases = [_audit(tmp_path, i) for i in range(5)]
+    for path in databases:
+        with sqlite3.connect(path) as con:
+            con.executescript(
+                "ALTER TABLE audits RENAME TO audits_old;"
+                "CREATE TABLE audits(audit_id TEXT PRIMARY KEY, status TEXT);"
+                "INSERT INTO audits SELECT audit_id,status FROM audits_old;"
+                "DROP TABLE audits_old;"
+            )
+    value = forecast_local_duration(_state(tmp_path))
+    assert not value.available
+    assert value.sample_runs == 0

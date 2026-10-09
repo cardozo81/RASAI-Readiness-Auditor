@@ -62,10 +62,17 @@ def _serp(con: sqlite3.Connection, audit: str) -> str:
     needed = {"audit_id", "observation_id", "query", "data_mode", "observation_status"}
     if not needed.issubset(_columns(con, "serp_observations")):
         return "<p>Não há observação SERP live elegível para esta auditoria.</p>"
+    # Observation IDs are opaque, not chronological keys. Prefer recorded
+    # collection instants; older/partial schemas retain explicit ID fallback.
+    sort = (
+        "collected_at DESC, observation_id DESC"
+        if "collected_at" in _columns(con, "serp_observations")
+        else "observation_id DESC"
+    )
     row = con.execute(
         "SELECT observation_id, query FROM serp_observations "
         "WHERE audit_id=? AND data_mode='OBSERVED_API' "
-        "AND observation_status='OBSERVED' ORDER BY observation_id DESC LIMIT 1",
+        "AND observation_status='OBSERVED' ORDER BY " + sort + " LIMIT 1",
         (audit,),
     ).fetchone()
     if row is None:
@@ -79,9 +86,16 @@ def _interpretation(con: sqlite3.Connection, audit: str) -> str:
     cols = _columns(con, "geo_ai_interpretations")
     if not {"audit_id", "result_id", "state"}.issubset(cols):
         return "<p>Interpretação GEO por IA não materializada.</p>"
+    # Opaque result IDs cannot establish latest interpretation. Retain the
+    # historical fallback only for schemas without an observed instant.
+    sort = (
+        "created_at DESC, result_id DESC"
+        if "created_at" in cols
+        else "result_id DESC"
+    )
     row = con.execute(
         "SELECT result_id FROM geo_ai_interpretations "
-        "WHERE audit_id=? AND state='AVAILABLE' ORDER BY result_id DESC LIMIT 1",
+        "WHERE audit_id=? AND state='AVAILABLE' ORDER BY " + sort + " LIMIT 1",
         (audit,),
     ).fetchone()
     if row is None:

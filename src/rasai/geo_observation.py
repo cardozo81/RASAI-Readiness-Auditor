@@ -15,9 +15,10 @@ import sqlite3
 from urllib.parse import urlsplit
 
 
-# Versioned immutable projection: v4 adds verifiable temporal eligibility.
-# Legacy v1/v2/v3 observations remain persisted and immutable.
-VERSION = "RASAI-GEO-OBSERVATION-4"
+# v5 fixes exact-URL host comparison: www versus apex cannot be silently
+# conflated as exact URL without observed redirect/canonical evidence. v4 and
+# older persisted projections remain untouched and continue to render.
+VERSION = "RASAI-GEO-OBSERVATION-5"
 _MAX_OBSERVATION_GAP_SECONDS = 24 * 60 * 60
 
 
@@ -36,7 +37,10 @@ def _canonical_url(url: str) -> str:
         if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
             return ""
         scheme = parsed.scheme.lower()
-        authority = parsed.hostname.lower().removeprefix("www.")
+        # Exact URL identity retains the host as delivered. In particular
+        # www.example.org and example.org are distinct without observed proof
+        # of a canonical redirect; domain-family comparison remains separate.
+        authority = parsed.hostname.lower()
         if ":" in authority:  # IPv6 canonical authority
             authority = "[" + authority + "]"
         port = parsed.port  # invalid/out-of-range port raises ValueError

@@ -87,7 +87,12 @@ class GeoObservationTests(unittest.TestCase):
                 con, "AUD-1", run, ["seguro"],
                 [{"url": "https://www.example.org/seguro/", "position": 1}]
             )
-            self.assertEqual(exact["status"], "EXACT_URL_OBSERVED")
+            self.assertEqual(exact["status"], "DOMAIN_ALTERNATIVE_OBSERVED")
+            truly_exact = _target_observation(
+                con, "AUD-1", run, ["seguro"],
+                [{"url": "https://example.org/seguro/", "position": 1}]
+            )
+            self.assertEqual(truly_exact["status"], "EXACT_URL_OBSERVED")
 
     def test_multi_query_abstains_from_serp_attribution(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -205,6 +210,12 @@ class GeoObservationTests(unittest.TestCase):
                      "RASAI-GEO-OBSERVATION-2", "v2-hash",
                      '{"old_v2":true}', "2026-10-08"),
                 )
+                con.execute(
+                    "INSERT INTO geo_observation_runs VALUES (?,?,?,?,?,?,?,?)",
+                    ("GEO-V4", "AUD-1", "RUN-1", None,
+                     "RASAI-GEO-OBSERVATION-4", "v4-hash",
+                     '{"old_v4":true}', "2026-10-09"),
+                )
             new_id = materialize_geo_observation(db, "AUD-1")
             self.assertIsNotNone(new_id)
             self.assertNotEqual(new_id, "GEO-LEGACY")
@@ -214,19 +225,24 @@ class GeoObservationTests(unittest.TestCase):
                     "SELECT contract_version, projection_json FROM geo_observation_runs "
                     "ORDER BY contract_version"
                 ).fetchall()
-                self.assertEqual(len(rows), 3)
+                self.assertEqual(len(rows), 4)
                 self.assertEqual(rows[0], ("RASAI-GEO-OBSERVATION-1", old_projection))
                 self.assertEqual(rows[1], ("RASAI-GEO-OBSERVATION-2", '{"old_v2":true}'))
-                self.assertEqual(rows[2][0], "RASAI-GEO-OBSERVATION-4")
-                self.assertIn("descriptive_overlap", json.loads(rows[2][1]))
+                self.assertEqual(rows[2], ("RASAI-GEO-OBSERVATION-4", '{"old_v4":true}'))
+                self.assertEqual(rows[3][0], "RASAI-GEO-OBSERVATION-5")
+                self.assertIn("descriptive_overlap", json.loads(rows[3][1]))
                 self.assertEqual(con.execute("PRAGMA foreign_key_check").fetchall(), [])
                 self.assertEqual(con.execute("PRAGMA integrity_check").fetchone()[0], "ok")
 
     def test_exact_url_comparison_preserves_scheme_port_query_and_ipv6(self):
         from rasai.geo_observation import _canonical_url, _host
-        self.assertEqual(
+        self.assertNotEqual(
             _canonical_url("https://www.example.org:443/a/?x=1#part"),
             _canonical_url("https://example.org/a?x=1"),
+        )
+        self.assertEqual(
+            _canonical_url("https://www.example.org:443/a/?x=1#part"),
+            _canonical_url("https://www.example.org/a?x=1"),
         )
         self.assertNotEqual(
             _canonical_url("http://example.org/a"),
@@ -358,3 +374,57 @@ class GeoObservationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_www_vs_apex_not_counted_as_exact_overlap_in_v5_snapshot(self):
+        with tempfile.TemporaryDirectory() as root:
+            db = Path(root) / "audit.db"
+            with closing(sqlite3.connect(db)) as con, con:
+                con.executescript("""
+                    CREATE TABLE audits(audit_id TEXT PRIMARY KEY);
+                    CREATE TABLE perplexity_search_runs(
+                        run_id TEXT PRIMARY KEY, audit_id TEXT, query_json TEXT,
+                        search_type TEXT, status TEXT, started_at TEXT
+                    );
+                    CREATE TABLE perplexity_search_sources(
+                        run_id TEXT, position INTEGER, url TEXT, title TEXT,
+                        snippet TEXT, source_date TEXT, last_updated TEXT
+                    );
+                    CREATE TABLE serp_observations(
+                        observation_id TEXT, audit_id TEXT, query TEXT,
+                        collected_at TEXT, observation_status TEXT, data_mode TEXT
+                    );
+                    CREATE TABLE serp_results(
+                        observation_id TEXT, position INTEGER, url TEXT
+                    );
+                    CREATE TABLE audit_targets(
+                        target_id TEXT, audit_id TEXT, input_url TEXT
+                    );
+                """)
+                con.execute("INSERT INTO audits VALUES (?)", ("AUD-1",))
+                con.execute("INSERT INTO audit_targets VALUES (?,?,?)",
+                            ("T", "AUD-1", "https://www.example.org/a"))
+                con.execute("INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
+                            ("P-1", "AUD-1", '["insurance"]', "web", "SUCCESS",
+                             "2026-10-09T10:00:00+00:00"))
+                con.execute("INSERT INTO perplexity_search_sources VALUES (?,?,?,?,?,?,?)",
+                            ("P-1", 1, "https://example.org/a", "Title", "", None, None))
+                con.execute("INSERT INTO serp_observations VALUES (?,?,?,?,?,?)",
+                            ("S-1", "AUD-1", "insurance", "2026-10-09T10:01:00+00:00",
+                             "OBSERVED", "OBSERVED_API"))
+                con.execute("INSERT INTO serp_results VALUES (?,?,?)",
+                            ("S-1", 1, "https://www.example.org/a"))
+            first = materialize_geo_observation(db, "AUD-1")
+            assert first == materialize_geo_observation(db, "AUD-1")
+            with closing(sqlite3.connect(db)) as con:
+                value = json.loads(con.execute(
+                    "SELECT projection_json FROM geo_observation_runs"
+                ).fetchone()[0])
+            self.assertEqual(value["contract_version"], "RASAI-GEO-OBSERVATION-5")
+            self.assertEqual(value["descriptive_overlap"]["status"], "DESCRIPTIVE_ONLY")
+            self.assertEqual(value["descriptive_overlap"]["common_urls"], 0)
+            self.assertEqual(value["url_overlap_count"], 0)
+            self.assertEqual(
+                value["target_observation"]["status"],
+                "DOMAIN_ALTERNATIVE_OBSERVED",
+            )
