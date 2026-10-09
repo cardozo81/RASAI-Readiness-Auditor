@@ -1,0 +1,33 @@
+name: GEO focused hardening 308-309-306-304
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/geo_catalog_context.py'
+      - 'src/rasai/catalog_report_site.py'
+      - 'src/rasai/geo_ai.py'
+      - 'src/rasai/geo_observation.py'
+      - 'tests/test_geo_catalog_context_308.py'
+      - 'tests/test_geo_lifecycle_309.py'
+      - 'tests/test_geo_ai.py'
+      - 'tests/test_geo_observation.py'
+      - '.github/workflows/geo-hardening-targeted.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  focused-geo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install and validate only affected boundaries
+        run: |
+          python -m pip install -e . pytest
+          python -m compileall -q src/rasai/geo_catalog_context.py src/rasai/catalog_report_site.py src/rasai/geo_observation.py src/rasai/geo_ai.py
+          python -m pytest -q tests/test_geo_catalog_context_308.py tests/test_geo_lifecycle_309.py tests/test_geo_ai.py tests/test_geo_observation.py tests/test_geo_report.py tests/test_catalog_report_site.py
