@@ -140,3 +140,25 @@ de normalizacao por versao ao ler v5/v6/v7; nunca reinterpreta os
 snapshots ja congelados com a politica de v8. Uma serie com versoes
 diferentes permanece em grupos distintos e sem tendencia numerica
 compartilhada. Nenhuma AUD ou registro GEO anterior e regravado.
+
+### Elegibilidade pela ultima tentativa externa (#309/#311)
+
+A sequencia longitudinal de snapshots `GEO v5-v8` nao pode promover uma
+observacao Search API antiga quando a mesma AUD possui tentativa posterior.
+O consumidor read-only seleciona a ultima Search API da AUD por relogios
+offset-aware convertidos a UTC. Se a mais recente falhou, se nao tem
+snapshot dela, ou se multiplos relogios sao nao comparaveis/empatados,
+a AUD e excluida com motivo estruturado
+(`GEO_LATEST_SEARCH_NOT_SUCCESSFUL`,
+`GEO_SNAPSHOT_NOT_FROM_LATEST_SEARCH`,
+`GEO_SEARCH_CHRONOLOGY_UNVERIFIABLE`).
+
+O inventario nao recupera automaticamente sucesso antigo nem executa
+Search API. Comprovacao de fonte adulterada continua retornando
+`GEO_SOURCE_PROVENANCE_UNVERIFIED` antes de escolher coorte.
+Persistencia da AUD e timestamps originais nao sao alterados. Nenhuma
+metrica gerativa, ranking ou tendencia e inferida.
+
+Suplementos externos pos-AUD seguem independentes do snapshot original,
+nao entram silenciosamente na serie CONS-*: esta lacuna exige adaptador
+dedicado com proveniencia completa antes de ativacao.
