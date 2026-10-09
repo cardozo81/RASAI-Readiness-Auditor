@@ -16,7 +16,7 @@ import re
 import sqlite3
 from typing import Sequence
 
-from rasai.audit_attempt_timeline import _stage, _time, read_audit_attempt_timeline
+from rasai.audit_attempt_timeline import _group, _stage, _time, read_audit_attempt_timeline
 from rasai.audit_duration_forecast_319 import _m21_http_request_sums
 
 _AUD = re.compile(r"^AUD-[A-Za-z0-9-]{1,100}$")
@@ -91,6 +91,7 @@ def _ai_attempt_scope_breakdown(
         "BEFORE_VERIFIED_CONSOLE_SESSION": [],
         "UNCERTAIN_TIME_OR_SCOPE": [],
     }
+    stage_groups: dict[tuple[str, str], list[dict]] = {}
     for table in ("ai_provider_attempts", "content_remediation_attempts"):
         cols = {str(x[1]) for x in con.execute("PRAGMA table_info(" + table + ")")}
         if not {"audit_id", "attempt_id"}.issubset(cols):
@@ -122,6 +123,8 @@ def _ai_attempt_scope_breakdown(
             else:
                 category = "UNCERTAIN_TIME_OR_SCOPE"
             groups[category].append(data)
+            stage = _group(data, table=table)
+            stage_groups.setdefault((category, stage), []).append(data)
     result = {}
     for label, rows in groups.items():
         metrics = _stage(label, rows)
@@ -133,13 +136,33 @@ def _ai_attempt_scope_breakdown(
             "posthoc_estimated_usd": metrics.priced_usd_estimate,
             "unpriced_attempts": metrics.unpriced_attempts,
             "unknown_intervals": metrics.unknown_intervals,
+            "provider_observed_attempts": metrics.observed_cost_attempts,
         }
+    stage_rows = []
+    for (scope, name), rows in sorted(stage_groups.items()):
+        metrics = _stage(name, rows)
+        stage_rows.append({
+            "stage": name,
+            "session_scope": scope,
+            "attempts": metrics.attempts,
+            "summed_ai_attempts_ms": metrics.summed_duration_ms,
+            "union_active_ai_ms": metrics.union_active_ms,
+            "overlap_ai_ms": metrics.overlapping_duration_ms,
+            "provider_observed_usd": metrics.priced_usd_provider_observed,
+            "provider_observed_attempts": metrics.observed_cost_attempts,
+            "posthoc_estimated_usd": metrics.priced_usd_estimate,
+            "unpriced_attempts": metrics.unpriced_attempts,
+            "unknown_intervals": metrics.unknown_intervals,
+        })
     return {
         "status": (
             "VERIFIED_PHYSICAL_WINDOW_COHORTS"
             if window is not None else "AUD_WINDOW_UNVERIFIABLE"
         ),
         "cohorts": result,
+        "by_stage": stage_rows,
+        "stage_attempts_total": sum(row["attempts"] for row in stage_rows),
+        "temporal_attribution": "CLOCK_PLACEMENT_ONLY_NOT_OPERATION_PROOF",
         "limitation": (
             "O recorte usa somente relógios de tentativas M18/M20 "
             "frente à sessão física completa comprovada. Chamadas posteriores "
@@ -232,6 +255,15 @@ def inspect_audit_attempts(aud_dir: Path) -> dict:
         "audit_writes": 0,
     }
 
+
+
+def inspect_ai_stage_scope(audit_dir: Path) -> dict:
+    """Read audit-scoped attempt cohorts, no package writes or billability claim.
+
+    This is the same verification entrypoint used by the #319 CLI inspector,
+    but returning only stage and temporal-scope evidence for the HTML report.
+    """
+    return inspect_audit_attempts(audit_dir)["ai_attempt_execution_scope"]
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
