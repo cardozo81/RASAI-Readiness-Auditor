@@ -46,6 +46,8 @@ from rasai.m25_cli import (
     UX_ERROR_SCOPE_ENV,
     UX_FRUSTRATED_ENV,
     UX_KPM_ENV,
+    UX_ARCHITECTURE_ENV,
+    UX_PROFILE_MODE_ENV,
     UX_MAX_ATTEMPTS_ENV,
     UX_MAX_PAGES_ENV,
     UX_SAMPLES_ENV,
@@ -146,6 +148,8 @@ def _runtime_environment_projection(state: Any) -> dict[str, str]:
             UX_DEVICE_MIX_ENV: canonical_single_device_mix(str(getattr(state, "device", "mobile"))),
             UX_SESSION_MODE_ENV: str(getattr(state, "apdex_experience_session_mode", "cold")),
             UX_KPM_ENV: str(getattr(state, "apdex_experience_kpm", "USER_ACTION_DURATION")),
+            UX_ARCHITECTURE_ENV: str(getattr(state, "apdex_experience_architecture", "AUTO")),
+            UX_PROFILE_MODE_ENV: str(getattr(state, "apdex_experience_profile_mode", "CUSTOM")),
             UX_ERRORS_ENV: _bool_text(bool(getattr(state, "apdex_experience_errors", True))),
             UX_JAVASCRIPT_ERRORS_ENV: _bool_text(bool(getattr(state, "apdex_experience_javascript_errors", DEFAULT_UX_JAVASCRIPT_ERRORS_AFFECT))),
             UX_REQUEST_ERRORS_ENV: _bool_text(bool(getattr(state, "apdex_experience_request_errors", DEFAULT_UX_REQUEST_ERRORS_AFFECT))),
@@ -252,6 +256,8 @@ def _state_values(state: Any) -> dict[str, dict[str, str]]:
             "device_mix": canonical_single_device_mix(str(getattr(state, "device", "mobile"))),
             "session_mode": str(getattr(state, "apdex_experience_session_mode", "cold")),
             "kpm": str(getattr(state, "apdex_experience_kpm", "USER_ACTION_DURATION")),
+            "architecture": str(getattr(state, "apdex_experience_architecture", "AUTO")),
+            "profile_mode": str(getattr(state, "apdex_experience_profile_mode", "CUSTOM")),
             "satisfied_seconds": _optional(getattr(state, "apdex_experience_satisfied", None)),
             "frustrated_seconds": _optional(getattr(state, "apdex_experience_frustrated", None)),
             "errors_affect_apdex": _bool_text(bool(getattr(state, "apdex_experience_errors", True))),
@@ -424,6 +430,16 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
         value = raw.strip().casefold()
         if value not in {"cold", "warm"}: raise ValueError("use cold ou warm")
         state.apdex_experience_session_mode = value
+    elif key == ("synthetic_apdex_experience", "architecture"):
+        value = raw.strip().upper()
+        if value not in {"AUTO", "STATIC_OR_SSR", "HYDRATED", "CSR_SPA", "MIXED", "UNKNOWN"}:
+            raise ValueError("arquitetura Experience inválida")
+        state.apdex_experience_architecture = value
+    elif key == ("synthetic_apdex_experience", "profile_mode"):
+        value = raw.strip().upper()
+        if value not in {"CUSTOM", "DYNATRACE_GUIDED", "DYNATRACE_IMPORTED"}:
+            raise ValueError("perfil Experience inválido")
+        state.apdex_experience_profile_mode = value
     elif key == ("synthetic_apdex_experience", "kpm"):
         value = raw.strip().upper()
         if not value: raise ValueError("KPM não pode ser vazia")
