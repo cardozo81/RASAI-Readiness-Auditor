@@ -119,3 +119,16 @@ A instrumentação produtiva e o relato de tempos medidos continuam
 overhead, validação externa e revisão de confiabilidade. Nenhuma
 métrica observacional nova é exibida automaticamente no HTML a partir
 deste adapter sem a coleta real.
+
+
+### Publicação atômica do sidecar #322 (09/10/2026)
+
+O escritor de observações experimentais publica arquivos de digest
+em **dois estágios**: monta integralmente um arquivo temporário no
+diretório-irmão, flush/fsync, e só então publica o nome definitivo
+via hard-link exclusivo. Replays não substituem arquivos existentes;
+falhas de I/O nunca expõem JSON parcialmente escrito sob o nome
+de evidência válido. A rotina descarta staging em falhas tratadas;
+em interrupção abrupta poderá restar arquivo temporário ignorado
+pelo leitor. Diretórios linkados do relatório original/sidecar
+não são aceitos. Nada altera o pacote da AUD nem ativa o probe M23/M25.
