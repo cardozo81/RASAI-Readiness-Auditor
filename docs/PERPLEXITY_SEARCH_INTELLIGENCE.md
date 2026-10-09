@@ -527,3 +527,23 @@ nova inferência, cobrança, reprocessamento nem alteração de
 scores/achados. O estado registrado é renderizado com escape
 HTML e a ausência de interpretação continua explicitamente
 identificada.
+
+
+## Inventário do ciclo de suplementos independentes (#309)
+
+Para uma AUD COMPLETE selada, o comando read-only
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai geo-supplements ".\audits\AUD-EXEMPLO"
+```
+
+consulta os dados já existentes em `.rasai-geo-supplements` sem flags,
+chaves, nova autorização, requests externos ou materialização. Reutiliza
+a mesma validação de origem, manifesto e ledger da consulta no console
+CAT-05 Perplexity > opção 8. Saída JSON por intenção: `VERIFIED`,
+`PENDING_UNCERTAIN` ou `INVALID`, com disponibilidade do HTML
+**somente** para evidências integralmente verificadas e contadores
+`provider_requests=0` e `audit_writes=0`. Falha/timeout
+de faturamento desconhecido permanece incerto, sem repetição automática.
+Esse inventário não prova citação em IA, não altera o snapshot GEO v5/v6
+da AUD original e não aciona RPR.
