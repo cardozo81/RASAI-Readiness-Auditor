@@ -567,6 +567,27 @@ def geo_body(database: Path, audit_id: str) -> str:
         summary += f"{int(comparison.get('url_overlap_count') or 0)} em ambas; "
         summary += f"{int(comparison.get('serp_url_count') or 0)} URLs SERP e "
         summary += f"{int(comparison.get('perplexity_url_count') or 0)} URLs Perplexity."
+        rates = comparison.get("descriptive_overlap")
+        if isinstance(rates, dict) and rates.get("status") == "DESCRIPTIVE_ONLY":
+            summary += "</p><p>Taxas descritivas, denominadores de URLs únicas válidas: "
+            summary += (
+                f"interseção / SERP: {float(rates['serp_overlap_rate']):.1%} "
+                f"({int(rates['common_urls'])}/{int(rates['serp_denominator'])}); "
+                f"interseção / Perplexity: {float(rates['perplexity_overlap_rate']):.1%} "
+                f"({int(rates['common_urls'])}/{int(rates['perplexity_denominator'])}); "
+                f"interseção / união: {float(rates['jaccard_url_rate']):.1%}. "
+                f"Exclusivas: SERP {int(rates['serp_only_count'])}, "
+                f"Perplexity {int(rates['perplexity_only_count'])}."
+            )
+        elif isinstance(rates, dict):
+            reasons = {
+                "EXTERNAL_SEARCH_NOT_SUCCESSFUL": "busca externa sem sucesso",
+                "UNATTRIBUTABLE_QUERY_SET": "fontes não atribuíveis a uma única consulta",
+                "NO_EQUIVALENT_OBSERVED_SERP_QUERY": "sem SERP real da mesma consulta",
+                "NO_VALID_URL_DENOMINATOR": "sem denominadores de URLs válidas em ambas as fontes",
+            }
+            reason = reasons.get(str(rates.get("reason") or ""), "dados insuficientes")
+            summary += "</p><p>Taxas não aplicáveis: " + escape(reason) + "."
         summary += (
             " É apenas interseção de URLs para a mesma string de consulta; "
             "a origem de busca não comprova escopo de país, idioma, dispositivo "
