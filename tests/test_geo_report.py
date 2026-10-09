@@ -103,12 +103,21 @@ class GeoReportTests(unittest.TestCase):
                     "INSERT INTO geo_observation_runs VALUES (?,?,?,?)",
                     ("g1", "AUD-ONE",
                      '{"perplexity_run_id":"r1","serp_observation_id":"s1","serp_url_count":1,'
-                     '"perplexity_url_count":1,"url_overlap_count":1}',
+                     '"perplexity_url_count":1,"url_overlap_count":1,'
+                     '"comparability":{"query_equivalent":true,'
+                     '"geo_language_device_time_equivalence_proven":false,'
+                     '"serp_context":{"country":"BR","region":"São Paulo",'
+                     '"language":"pt-BR","device":"mobile","engine":"google",'
+                     '"collected_at":"2026-10-07"}}}',
                      "2026-10-07")
                 )
             self.assertIn("Sobreposição observacional", geo_body(db, "AUD-ONE"))
             self.assertIn("1 em ambas", geo_body(db, "AUD-ONE"))
             self.assertIn("não comprova escopo de país, idioma, dispositivo", geo_body(db, "AUD-ONE"))
+            self.assertIn("País SERP: BR", geo_body(db, "AUD-ONE"))
+            self.assertIn("Região SERP: São Paulo", geo_body(db, "AUD-ONE"))
+            self.assertIn("Equivalência de país, idioma, dispositivo e instante", geo_body(db, "AUD-ONE"))
+            self.assertIn("não comprovada", geo_body(db, "AUD-ONE"))
 
 
     def test_extraction_warning_visible_without_perplexity_run(self):
