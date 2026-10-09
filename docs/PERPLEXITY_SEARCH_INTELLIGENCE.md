@@ -704,3 +704,14 @@ sem userinfo, controles, backslashes ou URL ambígua). Fontes
 inválidas não são legitimadas por um prefixo textual `https://`.
 Isso não reescreve fontes externas, custos, hashes, AUDs anteriores
 nem implementa navegação/fetch da página concorrente.
+
+#### Evidências GEO IA: limite após validação (#306)
+
+A interpretação GEO lê no máximo 256 candidatos persistidos da última
+pesquisa válida e só depois de eliminar URLs inválidas seleciona as
+primeiras 12 fontes aptas. Antes, as 12 primeiras linhas eram
+selecionadas no SQLite **antes** da validação; resultados suspeitos
+nas primeiras posições podiam ocupar todo o orçamento de evidências e
+ocultar fontes válidas subsequentes. A mudança é estritamente local
+ao adaptador opcional, não amplia o limite de contexto de IA e não
+faz chamada adicional de provider ou crawler.
