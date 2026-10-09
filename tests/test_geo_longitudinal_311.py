@@ -297,3 +297,80 @@ def test_v5_v6_methodology_versions_never_share_a_longitudinal_group(tmp_path):
     assert all(x["status"] == "SINGLE_OBSERVATION" for x in result["timelines"])
     assert all(x["trend_conclusion"] == "N/D" for x in result["timelines"])
     assert result["audit_writes"] == result["provider_requests"] == 0
+
+
+def test_v7_longitudinal_selects_latest_snapshot_by_utc_not_lexical_string(tmp_path):
+    first = audit(
+        tmp_path, "AUD-V7-MULTI",
+        version="RASAI-GEO-OBSERVATION-7",
+    )
+    second = audit(
+        tmp_path, "AUD-V7-OTHER",
+        version="RASAI-GEO-OBSERVATION-7",
+    )
+    db = first / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE geo_observation_runs SET created_at=? "
+            "WHERE audit_id=?",
+            ("2026-10-09T11:30:00+00:00", first.name),
+        )
+        payload = con.execute(
+            "SELECT audit_id,contract_version,projection_json,"
+            "perplexity_run_id,serp_observation_id,input_sha256 "
+            "FROM geo_observation_runs WHERE audit_id=?", (first.name,),
+        ).fetchone()
+        con.execute(
+            "INSERT INTO geo_observation_runs VALUES (?,?,?,?,?,?,?,?)",
+            ("GEO-PHYSICALLY-NEWER", payload[0], payload[1],
+             payload[2], "2026-10-09T09:00:00-03:00",
+             payload[3], payload[4], payload[5]),
+        )
+    before = [sha256((root / "audit.db").read_bytes()).hexdigest()
+              for root in (first, second)]
+    result = build_geo_longitudinal_preview([first, second])
+    assert result["audits_eligible"] == 2
+    assert result["excluded"] == []
+    timeline = result["timelines"][0]
+    selected = {x["audit_id"]: x for x in timeline["observations"]}
+    assert selected[first.name]["observation_id"] == "GEO-PHYSICALLY-NEWER"
+    assert timeline["method_version"] == "RASAI-GEO-OBSERVATION-7"
+    assert timeline["trend_rate"] is None
+    assert [sha256((root / "audit.db").read_bytes()).hexdigest()
+            for root in (first, second)] == before
+
+
+@pytest.mark.parametrize(
+    "second_clock",
+    ["2026-10-09T09:00:00-03:00", "2026-10-09", None],
+)
+def test_longitudinal_abstains_on_tied_or_unverifiable_snapshot_clocks(
+    tmp_path, second_clock,
+):
+    original = audit(
+        tmp_path, "AUD-UNPROVEN", version="RASAI-GEO-OBSERVATION-7",
+        timestamp="2026-10-09T12:00:00Z",
+    )
+    stable = audit(
+        tmp_path, "AUD-STABLE", version="RASAI-GEO-OBSERVATION-7",
+    )
+    db = original / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "INSERT INTO geo_observation_runs "
+            "SELECT ?, audit_id, contract_version, projection_json, ?, "
+            "perplexity_run_id, serp_observation_id, input_sha256 "
+            "FROM geo_observation_runs WHERE audit_id=?",
+            ("GEO-SECOND", second_clock, original.name),
+        )
+    before = [sha256((root / "audit.db").read_bytes()).hexdigest()
+              for root in (original, stable)]
+    outcome = build_geo_longitudinal_preview([original, stable])
+    assert outcome["audits_eligible"] == 1
+    assert outcome["excluded"] == [{
+        "audit_id": original.name,
+        "reason": "GEO_SNAPSHOT_CHRONOLOGY_UNVERIFIABLE",
+    }]
+    assert outcome["provider_requests"] == outcome["audit_writes"] == 0
+    assert [sha256((root / "audit.db").read_bytes()).hexdigest()
+            for root in (original, stable)] == before
