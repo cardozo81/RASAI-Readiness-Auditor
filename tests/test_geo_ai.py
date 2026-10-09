@@ -210,6 +210,54 @@ class GeoAiConsumerTests(unittest.TestCase):
             )
             self.assertEqual(consumer.calls, 0)
 
+    def test_empty_available_assessment_does_not_fake_success(self):
+        class EmptyConsumer:
+            def analyze(self, _evidence):
+                return CompetitiveAiResult(CompetitiveAiState.AVAILABLE, assessment=None)
+
+        with tempfile.TemporaryDirectory() as root:
+            db = Path(root) / "audit.db"
+            self._db(db)
+            state = execute_geo_ai(
+                db, "AUD-1", provider_selection="auto",
+                provider_factory=lambda _: EmptyConsumer(),
+            )
+            self.assertEqual(state, "UNAVAILABLE")
+            with closing(sqlite3.connect(db)) as con:
+                row = con.execute(
+                    "SELECT summary, opportunities_json, error_reason "
+                    "FROM geo_ai_interpretations"
+                ).fetchone()
+                self.assertIsNone(row[0])
+                self.assertEqual(row[1], "[]")
+                self.assertEqual(row[2], "GEO_AI_EMPTY_CANONICAL_ASSESSMENT")
+
+    def test_unavailable_provider_never_publishes_incidental_assessment(self):
+        class InvalidStateConsumer(FakeCanonicalConsumer):
+            def analyze(self, evidence_input):
+                result = super().analyze(evidence_input)
+                return CompetitiveAiResult(
+                    CompetitiveAiState.UNAVAILABLE,
+                    assessment=result.assessment,
+                    reason="FAKE_UNAVAILABLE",
+                )
+
+        with tempfile.TemporaryDirectory() as root:
+            db = Path(root) / "audit.db"
+            self._db(db)
+            state = execute_geo_ai(
+                db, "AUD-1", provider_selection="auto",
+                provider_factory=lambda _: InvalidStateConsumer(),
+            )
+            self.assertEqual(state, "UNAVAILABLE")
+            with closing(sqlite3.connect(db)) as con:
+                row = con.execute(
+                    "SELECT summary, opportunities_json, error_reason FROM geo_ai_interpretations"
+                ).fetchone()
+                self.assertIsNone(row[0])
+                self.assertEqual(row[1], "[]")
+                self.assertEqual(row[2], "FAKE_UNAVAILABLE")
+
     def test_no_credential_selection_creates_no_calls_or_tables(self):
         with tempfile.TemporaryDirectory() as root:
             db = Path(root) / "audit.db"
