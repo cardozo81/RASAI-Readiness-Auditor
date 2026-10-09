@@ -485,3 +485,46 @@ def test_geo_ai_reserves_before_external_call_and_replay_after_crash_is_noop(
         ).fetchone()[0] == 1
         assert verify.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert verify.execute("PRAGMA foreign_key_check").fetchone() is None
+
+
+def test_geo_ai_causality_and_rationale_are_persisted_and_html_escaped(tmp_path):
+    from dataclasses import replace
+    import json
+    from rasai.geo_report import geo_body
+
+    class CausalCaveatConsumer(FakeCanonicalConsumer):
+        def analyze(self, evidence_input):
+            result = super().analyze(evidence_input)
+            assessment = result.assessment
+            original = assessment.opportunities[0]
+            updated = replace(
+                original,
+                rationale="<img src=x onerror=alert(1)> observed snippet",
+                causality_note="<script>not causal</script>",
+            )
+            return replace(
+                result,
+                assessment=replace(assessment, opportunities=(updated,)),
+            )
+
+    db = tmp_path / "audit.db"
+    GeoAiConsumerTests()._db(db)
+    assert execute_geo_ai(
+        db, "AUD-1", provider_selection="auto",
+        provider_factory=lambda _: CausalCaveatConsumer(),
+    ) == "AVAILABLE"
+    with sqlite3.connect(db) as connection:
+        recorded = json.loads(connection.execute(
+            "SELECT opportunities_json FROM geo_ai_interpretations"
+        ).fetchone()[0])
+    assert recorded[0]["causality_note"] == "<script>not causal</script>"
+    assert recorded[0]["rationale"].startswith("<img")
+    before = db.read_bytes()
+    html = geo_body(db, "AUD-1")
+    assert "Justificativa apresentada pela IA:" in html
+    assert "Limite de causalidade:" in html
+    assert "&lt;script&gt;not causal&lt;/script&gt;" in html
+    assert "&lt;img src=x onerror=alert(1)&gt;" in html
+    assert "<script>not causal</script>" not in html
+    assert "<img src=x onerror=alert(1)>" not in html
+    assert db.read_bytes() == before
