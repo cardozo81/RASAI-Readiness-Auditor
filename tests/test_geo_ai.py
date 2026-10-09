@@ -258,6 +258,28 @@ class GeoAiConsumerTests(unittest.TestCase):
                 self.assertEqual(row[1], "[]")
                 self.assertEqual(row[2], "FAKE_UNAVAILABLE")
 
+    def test_default_factory_must_create_canonical_provider_not_fake(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as root:
+            db = Path(root) / "audit.db"
+            self._db(db)
+            fake = FakeCanonicalConsumer()
+            # This mock occupies the real builder's module. Production must
+            # still validate the returned provider type before invoking AI.
+            with patch(
+                "rasai.search_intelligence.competitive_ai.build_competitive_ai_provider",
+                return_value=fake,
+            ):
+                status = execute_geo_ai(db, "AUD-1", provider_selection="auto")
+            self.assertEqual(status, "CANONICAL_AI_NOT_INSTALLED")
+            self.assertEqual(fake.calls, 0)
+            with closing(sqlite3.connect(db)) as con:
+                self.assertEqual(
+                    con.execute("SELECT count(*) FROM geo_ai_interpretations").fetchone()[0],
+                    0,
+                )
+
     def test_no_credential_selection_creates_no_calls_or_tables(self):
         with tempfile.TemporaryDirectory() as root:
             db = Path(root) / "audit.db"
