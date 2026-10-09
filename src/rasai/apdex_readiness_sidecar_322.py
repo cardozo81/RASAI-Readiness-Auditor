@@ -11,7 +11,9 @@ from dataclasses import asdict
 from hashlib import sha256
 import json
 import math
+import os
 from pathlib import Path
+import tempfile
 from types import SimpleNamespace
 import re
 import sqlite3
@@ -45,6 +47,7 @@ def _original(aud_dir: Path) -> tuple[str, str, str]:
     manifest = aud_dir / "report-catalog" / "manifest.json"
     if (
         db.is_symlink() or manifest.is_symlink()
+        or (aud_dir / "report-catalog").is_symlink()
         or not db.is_file() or not manifest.is_file()
     ):
         raise ValueError("sealed source audit.db and manifest required")
@@ -156,13 +159,24 @@ def write_readiness_sidecar(
     path = folder / (digest + ".json")
     if path.is_symlink():
         raise ValueError("sidecar cannot be symlink")
+    # Stage completely before publication. Writing directly to the final
+    # immutable name would expose truncated JSON if interrupted mid-write.
+    # Hard-link publication is exclusive: never overwrite a concurrent writer,
+    # even on replay. A crash may leave an ignored .pending- file, not a
+    # falsely sealed record.
+    fd, staged = tempfile.mkstemp(dir=folder, prefix=".pending-", suffix=".tmp")
     try:
-        # Exclusive create. A replay never rewrites an already recorded output.
-        with path.open("xb") as stream:
+        with os.fdopen(fd, "wb") as stream:
             stream.write(payload)
-    except FileExistsError:
-        if path.read_bytes() != payload:
-            raise ValueError("sidecar checksum mismatch; not overwriting")
+            stream.flush()
+            os.fsync(stream.fileno())
+        try:
+            os.link(staged, path)
+        except FileExistsError:
+            if path.is_symlink() or path.read_bytes() != payload:
+                raise ValueError("sidecar checksum mismatch; not overwriting")
+    finally:
+        Path(staged).unlink(missing_ok=True)
     return path
 
 
@@ -174,6 +188,7 @@ def read_readiness_sidecar(aud_dir: Path, sidecar_path: Path) -> dict:
     if (
         sidecar_path.parent != expected
         or sidecar_path.is_symlink() or expected.is_symlink()
+        or expected.parent.is_symlink()
         or not re.fullmatch(r"[0-9a-f]{64}\.json", sidecar_path.name)
     ):
         raise ValueError("sidecar path outside sealed AUD scope")
