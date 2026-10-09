@@ -1,0 +1,29 @@
+name: Directed Roadmap UX focused
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/directed_analysis_reporting.py'
+      - 'src/rasai/catalog_report_style.py'
+      - 'tests/test_directed_roadmap_layout_334.py'
+      - 'tests/test_issue_54_directed_analysis_target_context.py'
+      - '.github/workflows/directed-roadmap-ux-334.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  targeted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install and test only affected report projection
+        run: |
+          python -m pip install -e . pytest
+          python -m compileall -q src/rasai/directed_analysis_reporting.py src/rasai/catalog_report_style.py
+          python -m pytest -q tests/test_directed_roadmap_layout_334.py tests/test_issue_54_directed_analysis_target_context.py tests/test_directed_analysis.py tests/test_catalog_report_site.py
