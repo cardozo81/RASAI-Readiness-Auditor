@@ -601,6 +601,12 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
             cost_html+=f"<div class='notice warn'>{int(forecast.get('unpriced_ai_attempts') or 0)} tentativa(s) de IA não possuem preço monetário conhecido e permanecem fora do total.</div>"
     else:
         cost_html=f"<div class='metric-grid'>{_metric('Custo observado',_money_display(total_cost,currency))}{_metric('Previsão pré-execução','Não persistida')}</div><div class='notice'>Sem previsão persistida, o relatório não inventa custo esperado, desvio ou faixa histórica.</div>"
+    from rasai.audit_cost_explain import forecast_readout
+    cost_html += forecast_readout(
+        forecast, observed_total=total_cost,
+        priced_attempts=sum(value is not None for value in attempt_costs),
+        total_attempts=len(attempt_costs),
+    )
     if native_unpriced:
         cost_html+=f"<div class='notice warn'>{native_unpriced} componente(s) de uso nativo não possuem conversão monetária aplicável; o relatório preserva a unidade observada e não inventa custo zero.</div>"
     body+=_section("cost","Custos e aderência à estimativa",cost_html)
