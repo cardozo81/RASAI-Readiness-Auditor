@@ -401,3 +401,21 @@ requisição Search API nem são interpretados como sucesso. Resultados
 inconclusivos demandam revisão humana; nunca reutilizar um suplemento
 ligado a outra versão física da AUD. Esta checagem é local, automática,
 sem chamadas externas e **não** homologa faturamento comercial real.
+
+
+### GEO observation v5 - exact URL versus domain-family evidence (09/10/2026)
+
+A versão `RASAI-GEO-OBSERVATION-5` conserva `www.` no host ao
+normalizar URL para comparação exata. Sem redirecionamento canônico
+realmente observado, `https://www.example.org/a` e
+`https://example.org/a` **não** são a mesma URL exata;
+a relação por família de domínio continua elegível como alternativa
+sob interpretação advisory. O mesmo rigor vale para o conjunto de URLs
+SERP x Perplexity: esse par não conta como URL comum, embora haja
+similaridade de domínio. O snapshot v4 anterior permanece imutável;
+novas análises derivadas recebem identificador e contrato v5 próprios.
+Continuam obrigatórios query única, clocks verificáveis <=24h,
+denominadores de URLs válidos e avisos de não equivalência
+mercado/idioma/dispositivo/intenção. O `geo.html` respeita abstenção N/D
+tanto em v4 quanto v5; nenhuma inferência de canonical SEO ou citação
+generativa decorre desta normalização.
