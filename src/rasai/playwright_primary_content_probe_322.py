@@ -23,15 +23,42 @@ from rasai.apdex_content_readiness_observation import (
 # screenshot/OCR, document-wide text extraction and unbounded polling.
 _DOM_SNAPSHOT = """() => {
     const root = document.querySelector('main, article, [role="main"]');
-    const text = root ? (root.textContent || '') : '';
-    const heading = root ? root.querySelector('h1, h2, [role="heading"]') : null;
+    // textContent includes hidden hydration/bootstrap placeholders. Bound
+    // visible text-node traversal to avoid treating offscreen hidden content
+    // as materialized; never serialize text, HTML, links or secrets to Python.
+    // getClientRects/getComputedStyle introduce a bounded layout read whose
+    // cost is separately measured by the experimental overhead pilot.
+    const visible = el => {
+      if (!el || el.closest('[hidden], [aria-hidden="true"]')) return false;
+      const css = window.getComputedStyle(el);
+      return css.display !== 'none' && css.visibility !== 'hidden'
+        && css.visibility !== 'collapse' && el.getClientRects().length > 0;
+    };
+    const mainVisible = visible(root);
+    const heading = mainVisible
+      ? root.querySelector('h1, h2, [role="heading"]') : null;
+    const headingChars = visible(heading)
+      ? (heading.textContent || '').trim().length : 0;
+    let characters = 0;
+    let inspected = 0;
+    if (mainVisible) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let item;
+      while (inspected < 128 && characters < 10000 && (item = walker.nextNode())) {
+        inspected++;
+        if (visible(item.parentElement)) {
+          characters += (item.textContent || '').trim().length;
+        }
+      }
+    }
     const skeleton = !!(root && root.querySelector(
       '[aria-busy="true"], [data-loading="true"], .skeleton, [class*="skeleton"]'
     ));
     return {
-      main_text_characters: text.trim().length,
-      heading_text_characters: heading ? (heading.textContent || '').trim().length : 0,
-      skeleton_present: skeleton || !!(root && root.matches('[aria-busy="true"]'))
+      main_text_characters: characters,
+      heading_text_characters: headingChars,
+      skeleton_present: !mainVisible || skeleton
+        || !!(root && root.matches('[aria-busy="true"]'))
     };
 }"""
 
