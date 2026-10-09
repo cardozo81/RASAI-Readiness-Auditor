@@ -249,3 +249,85 @@ def test_audit_wall_time_abstains_when_physical_or_logical_provenance_invalid(
     assert outcome["aud_wall_clock_scope"] == "NOT_VERIFIABLE"
     assert outcome["non_ai_stages_measured"] is False
     assert (root / "audit.db").read_bytes() == before
+
+
+def test_ai_scope_cohorts_distinguish_5_in_session_and_3_after_without_losing_m20(
+    tmp_path,
+):
+    root = _fixture(tmp_path)
+    with sqlite3.connect(root / "audit.db") as con:
+        con.execute(
+            "CREATE TABLE console_execution_projections("
+            "audit_id TEXT, duration_ms REAL, started_at TEXT, finished_at TEXT)"
+        )
+        con.execute(
+            "INSERT INTO console_execution_projections VALUES (?,?,?,?)",
+            (root.name, 300000.0, "2026-10-09T10:00:00+00:00",
+             "2026-10-09T10:05:00+00:00"),
+        )
+    before = (root / "audit.db").read_bytes()
+    result = inspect_audit_attempts(root)
+    cohorts = result["ai_attempt_execution_scope"]
+    assert cohorts["status"] == "VERIFIED_PHYSICAL_WINDOW_COHORTS"
+    inner = cohorts["cohorts"]["WITHIN_VERIFIED_CONSOLE_SESSION"]
+    after = cohorts["cohorts"]["AFTER_VERIFIED_CONSOLE_SESSION"]
+    uncertain = cohorts["cohorts"]["UNCERTAIN_TIME_OR_SCOPE"]
+    before_session = cohorts["cohorts"]["BEFORE_VERIFIED_CONSOLE_SESSION"]
+    assert inner["attempts"] == 5
+    assert after["attempts"] == 3
+    assert uncertain["attempts"] == before_session["attempts"] == 0
+    assert inner["summed_ai_attempts_ms"] == 50000
+    assert after["summed_ai_attempts_ms"] == 40000
+    assert abs(inner["posthoc_estimated_usd"] - .05) < 1e-8
+    assert abs(after["posthoc_estimated_usd"] - .02) < 1e-8
+    assert abs(after["provider_observed_usd"] - .04) < 1e-8
+    assert result["attempts_total"] == 8
+    assert result["verified_aud_wall_duration_ms"] == 300000
+    assert result["non_ai_stages_measured"] is False
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert (root / "audit.db").read_bytes() == before
+
+
+def test_ai_scope_unverifiable_session_never_assigns_post_aud_cost(tmp_path):
+    root = _fixture(tmp_path)
+    original = (root / "audit.db").read_bytes()
+    out = inspect_audit_attempts(root)
+    scope = out["ai_attempt_execution_scope"]
+    assert scope["status"] == "AUD_WINDOW_UNVERIFIABLE"
+    assert scope["cohorts"]["UNCERTAIN_TIME_OR_SCOPE"]["attempts"] == 8
+    assert scope["cohorts"]["WITHIN_VERIFIED_CONSOLE_SESSION"]["attempts"] == 0
+    assert scope["cohorts"]["AFTER_VERIFIED_CONSOLE_SESSION"]["attempts"] == 0
+    assert (root / "audit.db").read_bytes() == original
+
+
+def test_ai_scope_rejects_naive_and_cross_boundary_attempts(tmp_path):
+    root = _fixture(tmp_path)
+    with sqlite3.connect(root / "audit.db") as con:
+        con.execute(
+            "CREATE TABLE console_execution_projections("
+            "audit_id TEXT, duration_ms REAL, started_at TEXT, finished_at TEXT)"
+        )
+        con.execute(
+            "INSERT INTO console_execution_projections VALUES (?,?,?,?)",
+            (root.name, 300000, "2026-10-09T10:00:00+00:00",
+             "2026-10-09T10:05:00+00:00"),
+        )
+        con.execute(
+            "UPDATE ai_provider_attempts SET started_at=? WHERE attempt_id='AI-0'",
+            ("2026-10-09T10:00:00",),  # naive clock cannot be classified
+        )
+        con.execute(
+            "UPDATE ai_provider_attempts SET started_at=?,finished_at=? "
+            "WHERE attempt_id='AI-1'",
+            ("2026-10-09T10:04:55+00:00", "2026-10-09T10:05:05+00:00"),
+        )
+    original = (root / "audit.db").read_bytes()
+    report = inspect_audit_attempts(root)
+    scope = report["ai_attempt_execution_scope"]["cohorts"]
+    assert scope["UNCERTAIN_TIME_OR_SCOPE"]["attempts"] == 2
+    assert scope["WITHIN_VERIFIED_CONSOLE_SESSION"]["attempts"] == 3
+    assert scope["AFTER_VERIFIED_CONSOLE_SESSION"]["attempts"] == 3
+    assert scope["UNCERTAIN_TIME_OR_SCOPE"]["union_active_ai_ms"] is None
+    assert "fatura" in report["ai_attempt_execution_scope"]["limitation"]
+    assert report["attempts_total"] == 8
+    assert (root / "audit.db").read_bytes() == original
