@@ -108,6 +108,13 @@ def execute_geo_ai(
         return "NOT_CONFIGURED"
     with closing(sqlite3.connect(str(database))) as con, con:
         con.execute("PRAGMA foreign_keys=ON")
+        # An explicit AI request is not equivalent to having eligible source
+        # evidence. Probe only the canonical persisted Perplexity rows first:
+        # a no-search/failed/multi-query AUD must not acquire even an empty
+        # AI table just because the operator toggled an optional feature.
+        prepared = _prepare(con, audit_id)
+        if prepared is None:
+            return "NOT_ELIGIBLE"
         con.executescript("""
             CREATE TABLE IF NOT EXISTS geo_ai_interpretations (
                 result_id TEXT PRIMARY KEY,
@@ -131,9 +138,6 @@ def execute_geo_ai(
             CREATE INDEX IF NOT EXISTS idx_geo_ai_audit
                 ON geo_ai_interpretations(audit_id, created_at);
         """)
-        prepared = _prepare(con, audit_id)
-        if prepared is None:
-            return "NOT_ELIGIBLE"
         run_id, competitive_input, input_hash = prepared
         result_id = "GEOAI-" + sha256(
             f"{audit_id}|{run_id}|{selection}|{VERSION}|{input_hash}".encode("utf-8")
