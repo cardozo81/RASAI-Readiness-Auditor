@@ -154,7 +154,15 @@ def _existing(
     ):
         raise ValueError("supplement manifest provenance mismatch; do not retry")
     files = manifest.get("files")
-    if not isinstance(files, list) or not files:
+    required_paths = {
+        "intent.json", "result.json", "supplement.html", "evidence/audit.db",
+    }
+    if (
+        not isinstance(files, list)
+        or len(files) != len(required_paths)
+        or any(not isinstance(f, dict) for f in files)
+        or {str(f.get("path") or "") for f in files} != required_paths
+    ):
         raise ValueError("supplement manifest is incomplete; do not retry")
     for file in files:
         if not isinstance(file, dict):
@@ -165,6 +173,7 @@ def _existing(
         candidate = directory / relative
         if (
             candidate.is_symlink()
+            or candidate.parent.is_symlink()
             or not candidate.is_file()
             or candidate.parent not in {directory, directory / "evidence"}
             or candidate.stat().st_size != file.get("bytes")
