@@ -402,6 +402,46 @@ def _external_geo_supplement(state: Any) -> None:
     )
 
 
+
+def _review_external_geo_supplements() -> None:
+    """Operator-initiated inspection: no Perplexity request or billable action."""
+    from pathlib import Path
+    from rasai.persistence import AuditWorkspace
+    from rasai.geo_post_audit_complement import list_post_audit_geo_supplements
+
+    path = input("Pasta da AUD para consultar complementos existentes: ").strip()
+    if not path:
+        print("  Pasta não informada. Nenhuma consulta externa.")
+        return
+    try:
+        workspace = AuditWorkspace.open(Path(path).expanduser())
+        records = list_post_audit_geo_supplements(
+            workspace, audit_id=workspace.root.name,
+        )
+    except (OSError, ValueError, RuntimeError) as exc:
+        print(
+            f"  Inventário indisponível: {type(exc).__name__}: {str(exc)[:160]}. "
+            "Nenhuma requisição externa executada."
+        )
+        return
+    print(f"\n[ COMPLEMENTOS GEO - {workspace.root.name} ]")
+    if not records:
+        print("  Nenhum suplemento independente registrado nesta AUD.")
+    for item in records:
+        print(
+            f"  Intenção: {item.intent_id} | estado: {item.state} | "
+            f"queries: {item.query_count if item.query_count is not None else 'N/D'} | "
+            f"tipo: {item.search_type or 'N/D'} | faturamento: {item.billability}"
+        )
+        print(f"  Detalhe: {item.detail}")
+        if item.state == "VERIFIED":
+            print(f"  Evidência externa: {item.directory / 'supplement.html'}")
+    print(
+        "  Consulta apenas local: não altera a AUD, não ativa Perplexity, "
+        "não prova citação em respostas de IA."
+    )
+
+
 def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
     """Bounded CAT-05 editor for Perplexity execution inputs and canonical secret."""
     while True:
@@ -456,6 +496,7 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         print("5. Habilitar/desabilitar síntese GEO por IA canônica nesta AUD")
         print("6. Copiar termos SERP para pesquisa Perplexity (confirmação faturável)")
         print("7. Complemento GEO externo em AUD COMPLETE existente (não altera AUD)")
+        print("8. Consultar complementos GEO existentes (somente leitura, sem cobrança)")
         print(f"  Síntese GEO por IA    : {'SOLICITADA' if bool(getattr(state, 'geo_ai_requested', False)) else 'NÃO SOLICITADA'}")
         print("D. Não solicitar Perplexity nesta execução")
         print("V. Voltar ao CAT-05")
@@ -479,6 +520,8 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             _copy_serp_terms_to_perplexity(search_module, state)
         elif raw == "7":
             _external_geo_supplement(state)
+        elif raw == "8":
+            _review_external_geo_supplements()
         elif raw == "5":
             requested = input(
                 "Solicitar análise GEO por IA canônica? Pode consumir quota/custo. [S/N]: "
@@ -492,7 +535,7 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             else:
                 print("  Escolha S ou N.")
         else:
-            print("  Opção inválida: use 1, 2, 3, 4, 5, 6, 7, D ou V.")
+            print("  Opção inválida: use 1, 2, 3, 4, 5, 6, 7, 8, D ou V.")
 
 
 def _edit_terms(search_module: ModuleType, state: Any, config: SerpRuntimeConfig) -> None:
