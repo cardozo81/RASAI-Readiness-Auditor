@@ -96,7 +96,13 @@ Regras conservadoras:
   indevidamente). Tempos de etapas IA **não são aditivos** e não equivalem
   à duração total do processamento.
 - A duração física detalhada de captura, PSI, Apdex e geração de HTML
-  permanece `N/D` onde não há telemetria de mesma etapa. As faixas
+  permanece `N/D` onde não há telemetria de mesma etapa.
+- Para PageSpeed Insights e CrUX, quando **todos** os membros da coorte possuem
+  tempos de requisição válidos em `web_performance_attempts`, a prévia também
+  informa **tempo acumulado de chamadas HTTP** por serviço, sem confundi-lo
+  com a duração física do M21. Tentativas com tempo ausente/inválido fazem a
+  projeção daquele serviço abster; o valor não é somado à duração total nem
+  a outras etapas. O recurso é read-only e não altera os coletores. As faixas
   históricas não são SLAs, probabilidades calibradas ou custo de provider.
 - Não altera forecast de dinheiro, pricing, autorização de custo,
   orquestrador de IA ou cálculo de pontuação.
