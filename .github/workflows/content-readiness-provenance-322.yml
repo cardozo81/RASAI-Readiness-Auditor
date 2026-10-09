@@ -1,0 +1,27 @@
+name: Content readiness provenance contract 322
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/apdex_content_readiness_observation.py'
+      - 'tests/test_apdex_content_readiness_322.py'
+      - 'docs/APDEX_CONTENT_READINESS_INVESTIGATION_321.md'
+      - '.github/workflows/content-readiness-provenance-322.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: |
+          python -m pip install -e . pytest
+          python -m compileall -q src/rasai/apdex_content_readiness_observation.py
+          python -m pytest -q tests/test_apdex_content_readiness_322.py tests/test_apdex_report_cohesion_329.py tests/test_apdex_sampling_reliability_327.py
