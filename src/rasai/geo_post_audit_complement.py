@@ -337,7 +337,7 @@ def list_post_audit_geo_supplements(
                 con.execute("PRAGMA query_only=ON")
                 matches = con.execute(
                     "SELECT run_id, audit_id, status, query_json, search_type, "
-                    "purpose, request_payload_hash, started_at, finished_at "
+                    "purpose, request_payload_hash, started_at, finished_at, billable "
                     "FROM perplexity_search_runs WHERE run_id=?",
                     (result["run_id"],),
                 ).fetchall()
@@ -350,6 +350,11 @@ def list_post_audit_geo_supplements(
                     or matches[0][6] != result.get("request_payload_hash")
                     or matches[0][7] != result["started_at"]
                     or matches[0][8] != result["finished_at"]
+                    or matches[0][9] not in (None, 0, 1)
+                    or result["billability"] != (
+                        "UNKNOWN" if matches[0][9] is None
+                        else "TRUE" if matches[0][9] == 1 else "FALSE"
+                    )
                     or json.loads(matches[0][3]) != list(request)
                     or con.execute("PRAGMA quick_check").fetchone()[0] != "ok"
                     or con.execute("PRAGMA foreign_key_check").fetchone() is not None
