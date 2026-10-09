@@ -563,12 +563,32 @@ def geo_body(database: Path, audit_id: str) -> str:
         summary += "com consulta única e observação SERP live válida. Requests multi-query "
         summary += "não são desagregados artificialmente.</p>"
     else:
-        summary += "<p>Sobreposição observacional bruta de URLs para texto de consulta coincidente (não prova intenção equivalente): "
-        summary += f"{int(comparison.get('url_overlap_count') or 0)} em ambas; "
-        summary += f"{int(comparison.get('serp_url_count') or 0)} URLs SERP e "
-        summary += f"{int(comparison.get('perplexity_url_count') or 0)} URLs Perplexity."
         rates = comparison.get("descriptive_overlap")
-        if isinstance(rates, dict) and rates.get("status") == "DESCRIPTIVE_ONLY":
+        has_verified_rates = (
+            isinstance(rates, dict) and rates.get("status") == "DESCRIPTIVE_ONLY"
+        )
+        # On v4, an ineligible time window is NOT a measured zero overlap.
+        # Legacy snapshots predate that contract: keep their historical raw
+        # counts visible but label them as noncomparable legacy observations.
+        is_v4 = comparison.get("contract_version") == "RASAI-GEO-OBSERVATION-4"
+        if is_v4 and not has_verified_rates:
+            summary += (
+                "<p>Sobreposição observacional de URLs: N/D. "
+                "O snapshot não autoriza apresentar contagem de coincidências "
+                "como comparação entre fontes."
+            )
+        else:
+            prefix = (
+                "Sobreposição observacional bruta de URLs "
+                "para texto de consulta coincidente (não prova intenção equivalente): "
+            )
+            summary += "<p>" + prefix
+            summary += f"{int(comparison.get('url_overlap_count') or 0)} em ambas; "
+            summary += f"{int(comparison.get('serp_url_count') or 0)} URLs SERP e "
+            summary += f"{int(comparison.get('perplexity_url_count') or 0)} URLs Perplexity."
+            if not is_v4:
+                summary += " Snapshot histórico sem elegibilidade geotemporal validada."
+        if has_verified_rates:
             summary += "</p><p>Taxas descritivas, denominadores de URLs únicas válidas: "
             summary += (
                 f"interseção / SERP: {float(rates['serp_overlap_rate']):.1%} "
