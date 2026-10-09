@@ -149,13 +149,27 @@ def execute_geo_ai(
                 return "CANONICAL_AI_NOT_INSTALLED"
             provider_factory = competitive_ai.build_competitive_ai_provider
         injected_test_factory = provider_factory is not None and getattr(provider_factory, "__module__", "") != "rasai.ai_orchestration_unification"
-        provider = provider_factory(selection)
+        try:
+            provider = provider_factory(selection)
+        except Exception:
+            # The selected canonical consumer cannot be initialized; never
+            # substitute a private provider or retry through another model.
+            return "CANONICAL_AI_UNAVAILABLE"
         if not injected_test_factory and provider.__class__.__name__ != "OrchestratedCompetitiveAiProvider":
             return "CANONICAL_AI_NOT_INSTALLED"
-        output = provider.analyze(competitive_input)
-        assessment = output.assessment
-        state = str(getattr(output.state, "value", output.state))
-        error_reason = output.reason
+        try:
+            output = provider.analyze(competitive_input)
+        except Exception:
+            # A request may already have been submitted or charged. Persist the
+            # terminal ambiguity under the input fingerprint: no automatic
+            # retry during report materialization or a repeated operator click.
+            assessment = None
+            state = "UNAVAILABLE"
+            error_reason = "GEO_AI_CANONICAL_EXECUTION_ERROR"
+        else:
+            assessment = output.assessment
+            state = str(getattr(output.state, "value", output.state))
+            error_reason = output.reason
         if assessment is not None and any(
             not opportunity.evidence_ids
             or not set(opportunity.evidence_ids).issubset(competitive_input.allowed_evidence_ids)
