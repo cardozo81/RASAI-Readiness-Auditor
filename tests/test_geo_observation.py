@@ -678,6 +678,7 @@ def test_v8_materialized_overlap_refuses_unproved_slash_alias_and_userinfo():
                 [
                     ("P1", 1, "https://example.org/produto/", "Alternative", "", None, None),
                     ("P1", 2, "https://user:secret@example.org/produto", "Invalid", "", None, None),
+                    ("P1", 3, " https://example.org/produto", "Padded", "", None, None),
                 ],
             )
             con.execute(
@@ -699,7 +700,7 @@ def test_v8_materialized_overlap_refuses_unproved_slash_alias_and_userinfo():
             value = json.loads(rows[0][0])
             assert con.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert value["contract_version"] == "RASAI-GEO-OBSERVATION-8"
-        assert value["source_count"] == 2  # raw evidence is preserved
+        assert value["source_count"] == 3  # raw evidence is preserved, including malformed URLs
         assert value["perplexity_url_count"] == 1  # bad userinfo excluded
         assert value["serp_url_count"] == 1
         assert value["descriptive_overlap"]["status"] == "DESCRIPTIVE_ONLY"
@@ -712,3 +713,17 @@ def test_v8_materialized_overlap_refuses_unproved_slash_alias_and_userinfo():
         assert value["target_observation"]["domain_alternatives"] == [
             "https://example.org/produto/",
         ]
+
+def test_v8_rejects_padding_as_invalid_url_instead_of_trimming_into_exact_match():
+    from rasai.geo_observation import _canonical_url, _host
+
+    trusted = "https://example.org/produto"
+    assert _canonical_url(trusted) == trusted
+    assert _host(trusted) == "example.org"
+    assert _canonical_url("https://example.org/seguro%20de%20vida") != ""
+    for malformed in (
+        " " + trusted, trusted + " ", "\t" + trusted,
+        trusted + "\n", "\r" + trusted, trusted + "\x7f",
+    ):
+        assert _canonical_url(malformed) == ""
+        assert _host(malformed) == ""

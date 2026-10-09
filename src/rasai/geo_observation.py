@@ -38,9 +38,12 @@ def _canonical_url(url: str) -> str:
     # equivalence: a trailing slash can address a different resource.
     # Browser URL interpretation of userinfo, controls and backslashes is
     # unsafe/ambiguous; do not promote these strings into exact matches.
-    if not isinstance(url, str) or not url.strip():
+    # v8 requires exact, unambiguous URL identity. Trimming leading or
+    # trailing whitespace would silently turn malformed provider evidence
+    # into a different, apparently exact URL (including target matches).
+    if not isinstance(url, str) or not url or url != url.strip():
         return ""
-    stripped = url.strip()
+    stripped = url
     if "\\" in stripped or any(ord(char) <= 32 or ord(char) == 127 for char in stripped):
         return ""
     try:
