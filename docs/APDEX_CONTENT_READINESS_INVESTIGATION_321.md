@@ -87,3 +87,35 @@ estabelecer mecanismo de persistência isolado com checksum e UI advisory.
 Somente depois decidir se o custo de processamento justifica habilitar o
 probe; jamais alterar samples históricos, timebound e pontuação Apdex
 homologados. O smoke humano da UI anterior não substitui esse gate.
+
+
+## Persistência advisory **fora da AUD** (#322) - pós-merge 09/10/2026
+
+`apdex_readiness_sidecar_322.py` acrescenta um armazenamento isolado e
+não instalado no coletor. O consumidor fornece explicitamente uma
+`PrimaryContentReadiness` **strict provenance v2**. Após a AUD estar
+logicamente `COMPLETED/COMPLETE`, íntegra e com `report-catalog` vigente
+(`catalog_report_is_fresh`), o módulo oferece:
+
+- `write_readiness_sidecar(aud_dir, observation)`: arquivo JSON
+  imutável e endereçado por digest SHA-256 em diretório-irmão
+  `.rasai-readiness-sidecars/AUD-*/<sha256>.json`. O replay da mesma
+  observação preserva bytes; arquivo adulterado não é sobrescrito.
+- `read_readiness_sidecar(aud_dir, path)`: leitura conservadora com
+  verificação de digest, vínculo à AUD de origem e aos hashes de
+  `audit.db` e `report-catalog/manifest.json`; nunca vincula dados de
+  outra AUD. `TIMEOUT/ERROR/NOT_APPLICABLE` jamais carregam latência
+  materializada como se fossem sucesso.
+- **NÃO altera** `audit.db`, `report-catalog`, manifests, M23, M25,
+  thresholds, pontuação, RPR ou motor AI; tampouco produz chamadas
+  comerciais.
+- O campo `measurement_provenance=PRODUCER_DECLARED_SAME_SAMPLE`
+  explicita a limitação: o sidecar prova **integridade do registro** e
+  associação à fonte, **não** prova sozinho que o objeto Playwright e o
+  cronômetro vieram da mesma amostra física.
+
+A instrumentação produtiva e o relato de tempos medidos continuam
+**PENDENTES**, condicionados a hook não invasivo no gateway, prova de
+overhead, validação externa e revisão de confiabilidade. Nenhuma
+métrica observacional nova é exibida automaticamente no HTML a partir
+deste adapter sem a coleta real.
