@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 METHOD_VERSION = "APP_PRIMARY_CONTENT_READINESS-EXPERIMENTAL-001"
+STRICT_PROVENANCE_VERSION = "APP_PRIMARY_CONTENT_READINESS-EXPERIMENTAL-002-STRICT-PROVENANCE"
 _ELIGIBLE = frozenset({"CSR_SPA", "HYDRATED", "MIXED"})
 _MIN_MAIN_CHARACTERS = 200
 _MIN_HEADING_CHARACTERS = 5
@@ -25,6 +26,8 @@ class PrimaryContentCheckpoint:
     main_text_characters: int
     heading_text_characters: int
     skeleton_present: bool
+    page_id: str = ""
+    device: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +42,8 @@ class PrimaryContentReadiness:
     post_load_delta_ms: float | None
     observation_window_ms: int
     reason: str
+    page_id: str = ""
+    device: str = ""
 
 
 def classify_primary_content_readiness(
@@ -51,6 +56,9 @@ def classify_primary_content_readiness(
     enabled: bool = False,
     window_ms: int = 1500,
     window_expired: bool = False,
+    page_id: str = "",
+    device: str = "",
+    strict_provenance: bool = False,
 ) -> PrimaryContentReadiness:
     """Classify only pre-collected same-sample monotonic checkpoints.
 
@@ -64,13 +72,17 @@ def classify_primary_content_readiness(
             sample_id=sample_id,
             context_id=context_id,
             architecture=name,
-            method_version=METHOD_VERSION,
+            method_version=(
+                STRICT_PROVENANCE_VERSION if strict_provenance else METHOD_VERSION
+            ),
             status=status,
             load_ms=load_ms,
             primary_content_ms=ready,
             post_load_delta_ms=(max(ready - load_ms, 0.0) if ready is not None and load_ms is not None else None),
             observation_window_ms=window_ms,
             reason=reason,
+            page_id=page_id if strict_provenance else "",
+            device=device if strict_provenance else "",
         )
 
     if not enabled:
@@ -79,6 +91,10 @@ def classify_primary_content_readiness(
         return result("NOT_APPLICABLE", "architecture_not_selected")
     if not sample_id or not context_id:
         return result("ERROR", "missing_sample_or_context_identity")
+    if strict_provenance and (
+        not str(page_id).strip() or not str(device).strip()
+    ):
+        return result("ERROR", "missing_page_or_device_identity")
     if not isinstance(window_ms, int) or not 100 <= window_ms <= _MAX_WINDOW_MS:
         return result("ERROR", "invalid_observation_window")
     if load_ms is None or not 0 <= load_ms < float("inf"):
@@ -86,6 +102,10 @@ def classify_primary_content_readiness(
     if any(
         sample.sample_id != sample_id
         or sample.context_id != context_id
+        or (
+            strict_provenance
+            and (sample.page_id != page_id or sample.device != device)
+        )
         or not 0 <= sample.since_navigation_ms < float("inf")
         or sample.since_navigation_ms > load_ms + window_ms
         or sample.main_text_characters < 0
