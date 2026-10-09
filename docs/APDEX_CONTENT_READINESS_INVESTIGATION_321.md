@@ -35,3 +35,22 @@ Uma implementação in-process requer um hook no mesmo navegador do gateway de A
 O repositório fornece código e contrato; nesta inspeção via GitHub não foram recuperadas séries SQLite da AUD real. Não há base comprovada para quantificar p50/p75/p95 de diferenças entre `t_load` e `t_primary`, gasto extra por arquitetura, falsos positivos medidos ou “equivalência Dynatrace/RUM”. A conclusão metodológica é qualitativa, não estimativa numérica. Testes e medição controlada devem ocorrer antes de habilitar sonda de produção.
 
 **Decisão:** permitir componentes aditivos isolados em #322, manter eventuais hooks Apdex de navegação/Apdex de experiência e estimativa de custos incrementais como gate condicionado; nenhum recálculo retroativo.
+
+
+## Extensão isolada do contrato #322 (09/10/2026)
+
+O classificador experimental agora aceita um modo adicional `strict_provenance=True`,
+distinto da versão anterior: `APP_PRIMARY_CONTENT_READINESS-EXPERIMENTAL-002-STRICT-PROVENANCE`.
+No modo estrito, o produtor precisa fornecer `sample_id`, `context_id`,
+`page_id` e `device`, e **cada checkpoint** deve coincidir com a
+identidade da mesma amostra/página/dispositivo. Dados heterogêneos => `ERROR`,
+sem duração `primary_content_ms` ou delta `post_load_delta_ms` fabricados.
+`STATIC_OR_SSR`, `UNKNOWN` e opt-out continuam `NOT_APPLICABLE`.
+O contrato v1 permanece disponível e não foi reinterpretado.
+
+**Não há hook Playwright, medição real, persistência nem novo índice nesta
+iteração.** O classificador não lê nem escreve evidências do M23/M25, SARI
+ou SCORE-GEO. Não transformar testes de checkpoint fake em homologação de uma
+sonda real, e não declarar p75/p95 ou economia de latência sem amostras medidas.
+A etapa operacional pendente é medir overhead e materialidade *na mesma amostra*,
+com autorização humana explícita, janela curta e armazenamento independente.
