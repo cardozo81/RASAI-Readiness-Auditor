@@ -6,11 +6,13 @@ contract but cannot independently establish physical Playwright provenance.
 """
 from __future__ import annotations
 
+from contextlib import closing
 from dataclasses import asdict
 from hashlib import sha256
 import json
 import math
 from pathlib import Path
+from types import SimpleNamespace
 import re
 import sqlite3
 
@@ -46,8 +48,16 @@ def _original(aud_dir: Path) -> tuple[str, str, str]:
         or not db.is_file() or not manifest.is_file()
     ):
         raise ValueError("sealed source audit.db and manifest required")
+    # An AUD flagged COMPLETE is not sufficient: its packaged HTML/evidence
+    # must also be fresh and cryptographically consistent with the source.
+    from rasai.catalog_report_site import catalog_report_is_fresh
+    if not catalog_report_is_fresh(
+        audit_id=aud_dir.name,
+        workspace=SimpleNamespace(root=aud_dir, database=db),
+    ):
+        raise ValueError("source AUD report manifest is stale or invalid")
     uri = db.resolve().as_uri() + "?mode=ro"
-    with sqlite3.connect(uri, uri=True, timeout=1) as con:
+    with closing(sqlite3.connect(uri, uri=True, timeout=1)) as con:
         con.execute("PRAGMA query_only=ON")
         try:
             rows = con.execute(
