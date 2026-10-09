@@ -70,6 +70,12 @@ def _sealed_audit(workspace: AuditWorkspace, audit_id: str) -> tuple[str, str, s
     verified, problems = verify_catalog_report_package(report_root)
     if not verified:
         raise ValueError("original report-catalog failed package verification: " + str(problems[:2]))
+    # Package self-integrity alone cannot prove that the report still
+    # represents the live AUD state. This prevents a post-AUD paid search
+    # from binding a valid OLD report to a modified/new source database.
+    from rasai.catalog_report_site import catalog_report_is_fresh
+    if not catalog_report_is_fresh(audit_id=audit_id, workspace=workspace):
+        raise ValueError("original report-catalog stale against source AUD")
     db_uri = f"file:{workspace.database.resolve().as_posix()}?mode=ro"
     with sqlite3.connect(db_uri, uri=True) as connection:
         row = connection.execute(
