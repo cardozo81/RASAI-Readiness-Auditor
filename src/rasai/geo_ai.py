@@ -14,6 +14,8 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Callable
 
+from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
+
 from rasai.search_intelligence.competitive_ai import (
     CompetitiveAiEvidence, CompetitiveAiInput, CompetitiveAiState,
 )
@@ -34,12 +36,14 @@ def _prepare(con: sqlite3.Connection, audit_id: str) -> tuple[str, CompetitiveAi
     if len(tables) != 2:
         return None
     con.row_factory = sqlite3.Row
-    row = con.execute(
-        "SELECT run_id, query_json, status FROM perplexity_search_runs "
-        "WHERE audit_id=? ORDER BY started_at DESC, run_id DESC LIMIT 1", (audit_id,)
-    ).fetchone()
-    if row is None or row["status"] != "SUCCESS":
+    selected = ("run_id", "query_json", "status")
+    latest = _last_temporally_verified(
+        con, table="perplexity_search_runs", audit_id=audit_id,
+        columns=selected, time_column="started_at",
+    )
+    if latest is None or latest is _UNVERIFIABLE or latest[2] != "SUCCESS":
         return None
+    row = dict(zip(selected, latest))
     try:
         queries = json.loads(row["query_json"])
     except (TypeError, ValueError):
