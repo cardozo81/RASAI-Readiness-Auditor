@@ -47,7 +47,8 @@ relação com uma navegação real ou confiabilidade do producer.
 
 ## Integração aditiva no console e CAT-07 (ciclo PR de #358)
 
-O console agora oferece dois eixos de prévia: arquitetura declarada
+CAT-07 Experience e CAT-06 Navigation são selecionáveis de modo independente;
+desabilitar Navigation não bloqueia a edição de Experience Apdex.\n\nO console agora oferece dois eixos de prévia: arquitetura declarada
 (AUTO/SSR/CSR_SPA/HYDRATED/MIXED/UNKNOWN) e calibração
 (CUSTOM/DYNATRACE_GUIDED/DYNATRACE_IMPORTED). Esses dois campos são
 metadados não executores no `State`, no INI e no registro de variáveis
