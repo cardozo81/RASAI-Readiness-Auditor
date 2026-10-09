@@ -31,7 +31,7 @@ def _state(root: Path):
 def _audit(root: Path, index: int, *, status="COMPLETE", duration=600_000,
            with_stage=True, device="MOBILE", complete_config=True,
            wrong_clock=False, pages=1, web_max_pages=1,
-           input_mode="URL") -> Path:
+           input_mode="URL", with_http=False, invalid_http=False) -> Path:
     audit_id = f"AUD-DURATION-{index}"
     folder = root / audit_id
     folder.mkdir(parents=True)
@@ -60,6 +60,10 @@ def _audit(root: Path, index: int, *, status="COMPLETE", duration=600_000,
                 attempt_id TEXT PRIMARY KEY, audit_id TEXT,
                 operation TEXT, started_at TEXT, finished_at TEXT
             );
+            CREATE TABLE web_performance_attempts (
+                attempt_id TEXT PRIMARY KEY, audit_id TEXT,
+                service TEXT, duration_ms INTEGER
+            );
             """
         )
         con.execute("INSERT INTO audits VALUES (?,?)", (audit_id, status))
@@ -77,6 +81,16 @@ def _audit(root: Path, index: int, *, status="COMPLETE", duration=600_000,
                     (f"AIP-{n}", audit_id, "SEMANTIC_ANALYSIS",
                      (started + timedelta(seconds=low)).isoformat(),
                      (started + timedelta(seconds=high)).isoformat()),
+                )
+        if with_http:
+            for aid, service, elapsed in (
+                ("HTTP-1", "PAGESPEED_INSIGHTS", 30_000),
+                ("HTTP-2", "PAGESPEED_INSIGHTS", 30_000),
+                ("HTTP-3", "CRUX_API", 10_000),
+            ):
+                con.execute(
+                    "INSERT INTO web_performance_attempts VALUES (?,?,?,?)",
+                    (aid, audit_id, service, None if invalid_http and aid == "HTTP-2" else elapsed),
                 )
     return database
 
@@ -148,6 +162,30 @@ def test_cannot_predict_optional_unrecorded_scope(tmp_path):
     state.improvement_enabled = False
     state.search_ai_competitive = True
     assert not forecast_local_duration(state).available
+
+
+def test_m21_http_request_totals_are_separate_from_audit_wall_clock(tmp_path):
+    for i in range(5):
+        _audit(tmp_path, i, with_http=True)
+    forecast = forecast_local_duration(_state(tmp_path))
+    assert forecast.available
+    by_service = {x.label: x for x in forecast.http_request_stages}
+    assert by_service["PAGESPEED_INSIGHTS"].median_ms == 60_000
+    assert by_service["CRUX_API"].median_ms == 10_000
+    assert forecast.total.median_ms == 600_000
+    content = "\n".join(format_duration_preview(forecast))
+    assert "HTTP PAGESPEED_INSIGHTS" in content
+    assert "nao wall-clock" in content
+    assert "NAO sao wall-clock" in content
+
+
+def test_m21_http_request_abstains_from_missing_or_invalid_cohort_timings(tmp_path):
+    for i in range(5):
+        _audit(tmp_path, i, with_http=i != 4, invalid_http=i == 2)
+    forecast = forecast_local_duration(_state(tmp_path))
+    assert forecast.available
+    assert forecast.http_request_stages == ()
+    assert forecast.total is not None
 
 
 def test_console_monetary_preview_stays_intact_with_separate_duration_layer(tmp_path):
