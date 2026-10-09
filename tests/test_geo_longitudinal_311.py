@@ -395,3 +395,58 @@ def test_v7_and_v8_url_identity_methodology_never_share_longitudinal_series(tmp_
     assert all(x["trend_conclusion"] == "N/D" for x in comparison["timelines"])
     assert comparison["provider_requests"] == comparison["audit_writes"] == 0
     assert [p.joinpath("audit.db").read_bytes() for p in (earlier, later)] == before
+
+
+@pytest.mark.parametrize(
+    ("later_status", "later_instant", "expected_reason"),
+    [
+        ("AUTH_ERROR", "2026-10-09T09:00:00-03:00", "GEO_LATEST_SEARCH_NOT_SUCCESSFUL"),
+        ("SUCCESS", "2026-10-09T09:00:00-03:00", "GEO_SNAPSHOT_NOT_FROM_LATEST_SEARCH"),
+        ("SUCCESS", "2026-10-09T10:00:00Z", "GEO_SEARCH_CHRONOLOGY_UNVERIFIABLE"),
+        ("SUCCESS", "2026-10-09", "GEO_SEARCH_CHRONOLOGY_UNVERIFIABLE"),
+    ],
+)
+def test_longitudinal_never_promotes_stale_geo_success_after_later_search(
+    tmp_path, later_status, later_instant, expected_reason,
+):
+    source = audit(tmp_path, "AUD-SUPERSEDED")
+    control = audit(tmp_path, "AUD-CURRENT")
+    with sqlite3.connect(source / "audit.db") as con:
+        con.execute(
+            "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
+            ("PX-NEXT", source.name, '["seguro de vida"]', "web",
+             later_status, later_instant),
+        )
+    original = {
+        path.name: (path / "audit.db").read_bytes()
+        for path in (source, control)
+    }
+    result = build_geo_longitudinal_preview([source, control])
+    assert result["audits_eligible"] == 1
+    assert result["excluded"] == [
+        {"audit_id": source.name, "reason": expected_reason}
+    ]
+    assert len(result["timelines"]) == 1
+    assert result["timelines"][0]["observations"][0]["audit_id"] == control.name
+    assert result["audit_writes"] == result["provider_requests"] == 0
+    assert all((path / "audit.db").read_bytes() == original[path.name]
+               for path in (source, control))
+
+
+def test_longitudinal_keeps_current_success_when_older_failed_search_exists(
+    tmp_path,
+):
+    source = audit(tmp_path, "AUD-RECOVERED")
+    control = audit(tmp_path, "AUD-PAIR")
+    with sqlite3.connect(source / "audit.db") as con:
+        con.execute(
+            "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
+            ("PX-OLDER-FAIL", source.name, '["seguro de vida"]',
+             "web", "NETWORK_ERROR", "2026-10-09T09:59:59+00:00"),
+        )
+    before = [path.joinpath("audit.db").read_bytes() for path in (source, control)]
+    outcome = build_geo_longitudinal_preview([source, control])
+    assert outcome["audits_eligible"] == 2
+    assert outcome["excluded"] == []
+    assert outcome["timelines"][0]["status"] == "OBSERVATIONAL_SEQUENCE_ONLY"
+    assert [path.joinpath("audit.db").read_bytes() for path in (source, control)] == before
