@@ -474,3 +474,27 @@ só podem ser conhecidos pela resposta real do serviço, após autorização.
 A autorização explícita continua obrigatória mesmo quando a credencial
 está ausente. A consulta read-only pela opção **8** funciona sem token
 e não dispara integrações nem recálculo de relatórios.
+
+
+### GEO observation v6 - eleição de amostra SERP pela proximidade temporal (#304)
+
+A versão `RASAI-GEO-OBSERVATION-6` corrige um viés de seleção da
+amostra SERP por consulta única: antes, a observação SERP mais
+recente podia estar fora da janela de 24h de uma Search API
+enquanto uma observação anterior da mesma consulta estava
+temporalmente próxima e era mais comparável.
+
+Agora só amostras `OBSERVED_API/OBSERVED`, correspondentes à
+**mesma consulta textual** e com instantes offset-aware
+dentro de 24h concorrem ao cálculo. Seleciona-se o menor
+intervalo de tempo; empates favorecem o SERP mais recente
+e depois o ID de observação estável. Se não houver nenhuma
+amostra elegível, preserva-se o diagnóstico de abstenção
+(`TIME_SCOPE_UNPROVEN` ou `TIME_SCOPE_OUTSIDE_WINDOW`),
+sem inventar sobreposição numérica.
+
+Essa regra melhora apenas a seleção de evidência já
+persistida, não afirma intenção equivalente, posição em
+resposta gerativa ou relevância de negócio. Não executa
+coletas, serviços externos, IA ou pontuação. Snapshots v1-v5
+pré-existentes conservam seus métodos e identificadores.
