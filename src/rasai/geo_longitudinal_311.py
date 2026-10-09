@@ -16,6 +16,7 @@ import sqlite3
 from typing import Any, Sequence
 
 from rasai.geo_observation import _canonical_url
+from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
 
 _CONTRACTS = frozenset({
     "RASAI-GEO-OBSERVATION-5", "RASAI-GEO-OBSERVATION-6",
@@ -101,7 +102,7 @@ def _source_provenance(
 
 
 def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
-    """Read a complete AUD's latest immutable v5 record; fail closed."""
+    """Read a complete AUD's latest immutable GEO record; fail closed."""
     root = Path(root)
     if not root.name.startswith("AUD-") or root.is_symlink():
         return None, "INVALID_AUD_DIRECTORY"
@@ -149,15 +150,20 @@ def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
             }
             if not required_geo.issubset(geo_columns):
                 return None, "GEO_SNAPSHOT_SCHEMA_UNSUPPORTED"
-            rows = con.execute(
-                "SELECT analysis_id, contract_version, projection_json, created_at, "
-                "perplexity_run_id, serp_observation_id, input_sha256 "
-                "FROM geo_observation_runs WHERE audit_id=? "
-                "ORDER BY created_at DESC, analysis_id DESC LIMIT 1", (root.name,),
-            ).fetchall()
-            if len(rows) != 1:
+            selected = (
+                "analysis_id", "contract_version", "projection_json",
+                "created_at", "perplexity_run_id", "serp_observation_id",
+                "input_sha256",
+            )
+            latest = _last_temporally_verified(
+                con, table="geo_observation_runs", audit_id=root.name,
+                columns=selected, time_column="created_at",
+            )
+            if latest is _UNVERIFIABLE:
+                return None, "GEO_SNAPSHOT_CHRONOLOGY_UNVERIFIABLE"
+            if latest is None:
                 return None, "GEO_SNAPSHOT_MISSING"
-            stored = dict(rows[0])
+            stored = dict(zip(selected, latest))
     except (sqlite3.Error, OSError):
         return None, "AUD_SCHEMA_OR_READ_ERROR"
     if stored["contract_version"] not in _CONTRACTS:
@@ -254,7 +260,7 @@ def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
 def build_geo_longitudinal_preview(audit_dirs: Sequence[Path]) -> dict[str, Any]:
     """Group matched observations; never manufacture rankings or time trends.
 
-    Each AUD supplies at most one v5 snapshot; no query or locale is guessed.
+    Each AUD supplies at most one verified v5/v6/v7 snapshot; no query or locale is guessed.
     Results include the original source-observation timestamps and counts,
     but comparisons never imply provider market/device or intent equivalence.
     """
