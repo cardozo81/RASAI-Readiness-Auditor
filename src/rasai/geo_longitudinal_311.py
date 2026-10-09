@@ -10,6 +10,7 @@ import argparse
 from contextlib import closing
 from datetime import datetime, timezone
 import json
+import re
 from pathlib import Path
 import sqlite3
 from typing import Any, Sequence
@@ -28,6 +29,72 @@ def _aware(raw: object) -> datetime | None:
         return value.astimezone(timezone.utc) if value.tzinfo else None
     except (ValueError, OverflowError, TypeError):
         return None
+
+
+
+def _source_provenance(
+    root: Path, audit_id: str, stored: dict[str, Any], projection: dict[str, Any],
+) -> bool:
+    """Verify that frozen snapshot IDs refer to observed source rows of this AUD.
+
+    This validates logical source linkage, not the authenticity of third-party
+    rankings, raw HTTP responses, or the completeness of the original package.
+    """
+    run_id = projection.get("perplexity_run_id")
+    serp_id = projection.get("serp_observation_id")
+    if (
+        not isinstance(run_id, str) or not run_id
+        or not isinstance(serp_id, str) or not serp_id
+        or stored.get("perplexity_run_id") != run_id
+        or stored.get("serp_observation_id") != serp_id
+        or not re.fullmatch(r"[a-fA-F0-9]{64}", str(stored.get("input_sha256") or ""))
+    ):
+        return False
+    try:
+        db = root / "audit.db"
+        with closing(sqlite3.connect(
+            db.resolve().as_uri() + "?mode=ro", uri=True, timeout=1,
+        )) as con:
+            con.row_factory = sqlite3.Row
+            con.execute("PRAGMA query_only=ON")
+            run = con.execute(
+                "SELECT query_json, search_type, status, started_at "
+                "FROM perplexity_search_runs WHERE run_id=? AND audit_id=?",
+                (run_id, audit_id),
+            ).fetchone()
+            serp = con.execute(
+                "SELECT query, collected_at, data_mode, observation_status, "
+                "engine, country, region, language, device "
+                "FROM serp_observations WHERE observation_id=? AND audit_id=?",
+                (serp_id, audit_id),
+            ).fetchone()
+            if run is None or serp is None:
+                return False
+            px = projection.get("comparability", {}).get("perplexity_context")
+            sc = projection.get("comparability", {}).get("serp_context")
+            if not isinstance(px, dict) or not isinstance(sc, dict):
+                return False
+            queries = json.loads(str(run["query_json"]))
+            if not isinstance(queries, list) or queries != projection.get("queries"):
+                return False
+            if (
+                run["status"] != "SUCCESS"
+                or str(run["search_type"]).lower() != str(projection.get("search_type")).lower()
+                or str(run["search_type"]).lower() != str(px.get("search_type")).lower()
+                or _aware(run["started_at"]) != _aware(px.get("started_at"))
+                or serp["data_mode"] != "OBSERVED_API"
+                or serp["observation_status"] != "OBSERVED"
+                or str(serp["query"]).strip().casefold() != str(queries[0]).strip().casefold()
+                or _aware(serp["collected_at"]) != _aware(sc.get("collected_at"))
+            ):
+                return False
+            return all(
+                str(serp[key] or "").strip().casefold()
+                == str(sc.get(key) or "").strip().casefold()
+                for key in _SCOPE_KEYS
+            )
+    except (sqlite3.Error, ValueError, TypeError, OSError, IndexError):
+        return False
 
 
 def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
@@ -53,7 +120,8 @@ def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
             ):
                 return None, "AUD_NOT_LOGICALLY_COMPLETE"
             rows = con.execute(
-                "SELECT analysis_id, contract_version, projection_json, created_at "
+                "SELECT analysis_id, contract_version, projection_json, created_at, "
+                "perplexity_run_id, serp_observation_id, input_sha256 "
                 "FROM geo_observation_runs WHERE audit_id=? "
                 "ORDER BY created_at DESC, analysis_id DESC LIMIT 1", (root.name,),
             ).fetchall()
@@ -70,6 +138,8 @@ def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
         return None, "GEO_PROJECTION_INVALID"
     if not isinstance(projection, dict):
         return None, "GEO_PROJECTION_INVALID"
+    if not _source_provenance(root, root.name, stored, projection):
+        return None, "GEO_SOURCE_PROVENANCE_UNVERIFIED"
     if (
         projection.get("contract_version") != _CONTRACT
         or projection.get("audit_id") != root.name
