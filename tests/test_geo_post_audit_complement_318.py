@@ -30,6 +30,10 @@ def source(tmp_path, monkeypatch, *, complete=True):
         "rasai.catalog_report_site.verify_catalog_report_package",
         lambda root: (True, ()),
     )
+    monkeypatch.setattr(
+        "rasai.catalog_report_site.catalog_report_is_fresh",
+        lambda *, audit_id, workspace: True,
+    )
     return workspace, aud
 
 
@@ -305,3 +309,24 @@ def test_manifest_mismatched_audit_identity_never_reuses_sidecar(tmp_path, monke
     path.write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(ValueError, match="provenance mismatch"):
         run(workspace, **params, transport=lambda *args: pytest.fail("must not resend"))
+
+
+
+def test_stale_report_catalog_rejected_before_any_paid_intent(tmp_path, monkeypatch):
+    workspace, aud = source(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        "rasai.catalog_report_site.catalog_report_is_fresh",
+        lambda *, audit_id, workspace: False,
+    )
+    env = {
+        "RASAI_PERPLEXITY_ENABLED": "true",
+        "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY",
+    }
+    with pytest.raises(ValueError, match="stale against source AUD"):
+        run(
+            workspace,
+            audit_id=aud, intent_id="stale-package", query="seguro de vida",
+            explicit_cost_authorization=True, env=env,
+            transport=lambda *args: pytest.fail("stale AUD must not dispatch"),
+        )
+    assert not (workspace.root.parent / ".rasai-geo-supplements").exists()

@@ -119,3 +119,18 @@ captura, web performance, Apdex, relatório e análises opcionais somente pode
 avançar após identificar medições históricas completas e comparáveis, com
 identidade de etapa e relógios rastreáveis. Não reconstruir estágios
 por subtração de timestamps entre coletores independentes.
+
+
+### Filtro físico adicional do histórico #319 (09/10/2026)
+
+O forecast de tempo **por tarefa IA** exige que cada `started_at` e
+`finished_at` das tentativas IA/complemento pertença ao intervalo
+físico `console_execution_projections.started_at..finished_at` da
+**mesma AUD**, com offsets temporais explícitos e sem duração invertida.
+Um ledger de tentativa feita depois do encerramento do console pode ser
+correto para cobrança/reprocessamento, mas **não representa tempo ativo
+dentro da sessão**; portanto a coorte daquele estágio fica `N/D`.
+
+O tempo **total** da AUD continua elegível quando seu próprio relógio
+e sua condição lógica `COMPLETED/COMPLETE` estiverem íntegros. Nada
+reclassifica tentativas passadas, inventa paralelismo ou recalcula custo.

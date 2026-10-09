@@ -147,6 +147,34 @@ def _m21_http_request_sums(conn: sqlite3.Connection, audit_id: str) -> dict[str,
         return {}
 
 
+
+def _ai_intervals_within_console(
+    con: sqlite3.Connection, audit_id: str, started: datetime, finished: datetime,
+) -> bool:
+    """Fail closed on IA timing that cannot belong to the same physical AUD.
+
+    Attempt ledgers may include later continuations or clock inconsistencies.
+    Those attempts remain valid economic evidence but may NOT supply a stage
+    duration estimate for this console wall-clock cohort.
+    """
+    for table in ("ai_provider_attempts", "content_remediation_attempts"):
+        columns = {
+            str(row[1]) for row in con.execute("PRAGMA table_info(" + table + ")")
+        }
+        if not columns:
+            continue
+        if not {"audit_id", "started_at", "finished_at"}.issubset(columns):
+            return False
+        for first, last in con.execute(
+            "SELECT started_at, finished_at FROM " + table + " WHERE audit_id=?",
+            (audit_id,),
+        ):
+            lo, hi = _time(first), _time(last)
+            if lo is None or hi is None or not (started <= lo <= hi <= finished):
+                return False
+    return True
+
+
 def _historical_audit(
     database: Path, state: Any, target_pages: int,
 ) -> tuple[float, str, dict[str, float], dict[str, float]] | None:
@@ -211,11 +239,18 @@ def _historical_audit(
         # This optional stage projection reads existing, aud-scoped AI telemetry
         # only. It never requests a provider and does not materialize results.
         timeline = read_audit_attempt_timeline(database, audit_id)
+        # The stage union may be individually shorter than AUD duration while
+        # physically occurring entirely outside the observed console session.
+        # Never use such activity to forecast in-session stage latency.
+        stage_provenance_ok = _ai_intervals_within_console(
+            conn, audit_id, started, finished,
+        )
         stages = {
             item.name: float(item.union_active_ms)
             for item in timeline.stages
             if (
-                item.attempts > 0
+                stage_provenance_ok
+                and item.attempts > 0
                 and item.unknown_intervals == 0
                 and item.union_active_ms is not None
                 and 0 <= float(item.union_active_ms) <= wall
@@ -281,6 +316,8 @@ def forecast_local_duration(
             "intervalos probabilisticos calibrados.",
             "Atividade de IA pode ocorrer em paralelo: tempos por etapa "
             "NAO devem ser somados para prever duracao da AUD.",
+            "Tempos de IA fora do intervalo do console, ou sem relogios "
+            "rastreaveis, ficam N/D na previsao por etapa.",
             "Coleta, PageSpeed, Apdex e relatorio nao possuem duracao fisica "
             "por etapa comprovada por este historico; permanecem N/D.",
             "Quando disponiveis, tempos PSI/CrUX somam duracoes de HTTP por "
