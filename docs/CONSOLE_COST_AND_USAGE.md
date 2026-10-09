@@ -148,3 +148,31 @@ O comando não coleta, não faz cobrança, não recalcula relatórios ou custos
 e mantém `non_ai_stages_measured=false` enquanto não existir cronômetro
 físico da fase. O forecast ex ante e os indicadores homologados ficam
 inalterados.
+
+
+### Recorte de tentativas IA dentro e fora da sessão física verificada (#319)
+
+`rasai audit-attempts <AUD>` traz
+`ai_attempt_execution_scope` com quatro coortes independentes:
+`WITHIN_VERIFIED_CONSOLE_SESSION`,
+`AFTER_VERIFIED_CONSOLE_SESSION`,
+`BEFORE_VERIFIED_CONSOLE_SESSION` e
+`UNCERTAIN_TIME_OR_SCOPE`.
+
+A única referência autorizada é a sessão física da AUD quando o registro
+`console_execution_projections` comprova exatamente um intervalo íntegro,
+offset-aware, logicamente `COMPLETED/COMPLETE`. As chamadas M18 e M20
+são incluídas, sem dupla contagem dentro de cada ledger. O recorte
+separa números de tentativas, soma descritiva de durações IA, união
+temporal quando todos os relógios do grupo são válidos, custo
+observado USD informado pelo provedor, estimativa USD pós-fato e
+tentativas sem precificação. Nenhum desses campos equivale a fatura.
+
+Uma tentativa posterior ao encerramento **não é automaticamente**
+classificada como análise direcionada nem RPR: cronologia não comprova
+finalidade. Tentativas que cruzam o limite de sessão, têm relógios
+ingênuos/reversos ou não possuem prova de origem são não classificadas.
+Sem sessão completa verificada, todas são `UNCERTAIN_TIME_OR_SCOPE`.
+Essas coortes não ajustam a previsão ex ante, não identificam fases
+físicas não instrumentadas e não alteram preços, scores, manifests ou
+qualquer evidência original.
