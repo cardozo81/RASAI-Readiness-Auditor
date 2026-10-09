@@ -34,7 +34,7 @@ def test_ini_round_trip_and_menu_six_registry_include_nonexecuting_metadata(tmp_
     assert result.warnings == ()
     assert restored.apdex_experience_architecture == "HYDRATED"
     assert restored.apdex_experience_profile_mode == "DYNATRACE_GUIDED"
-    specs = {spec.name: spec for spec in console_environment.ENV_SPECS}
+    specs = {spec.name: spec for spec in console_environment.environment_specs()}
     assert UX_ARCHITECTURE_ENV in specs and UX_PROFILE_MODE_ENV in specs
     assert not specs[UX_ARCHITECTURE_ENV].sensitive
     assert not specs[UX_PROFILE_MODE_ENV].sensitive
