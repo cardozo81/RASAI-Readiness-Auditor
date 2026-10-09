@@ -162,3 +162,29 @@ metrica gerativa, ranking ou tendencia e inferida.
 Suplementos externos pos-AUD seguem independentes do snapshot original,
 nao entram silenciosamente na serie CONS-*: esta lacuna exige adaptador
 dedicado com proveniencia completa antes de ativacao.
+
+## HTML standalone read-only: quadro de observações para discussão de CONS (#311)
+
+O comando existente agora aceita uma representação HTML **opcional**
+sem executar auditorias nem gravar em qualquer pasta AUD ou CONS:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai geo-longitudinal --format html `
+    "C:\audits\AUD-EXEMPLO-A" "C:\audits\AUD-EXEMPLO-B" `
+    | Out-File -Encoding utf8 ".\geo-longitudinal-preview.html"
+```
+
+O padrão continua `--format json`, preservando consumidores automáticos.
+A renderização HTML é autocontida, sanitiza texto/URL de origem, mostra
+coortes equivalentes por URL exata, query, versão de método e escopo SERP,
+contagens por amostra, auditorias excluídas com motivo e
+**tendência N/D**. Não cria links externos navegáveis nem converte
+interseções URL em taxa de visibilidade GEO.
+
+O HTML ainda é um arquivo **independente**, não uma nova página
+reconciliada em `CONS-*`. O fluxo de consolidação canônico,
+manifests, hashes e cálculo de indicadores permanecem intocados.
+Uma inclusão no CONS com série de tendência calibrada só poderá
+ocorrer em uma entrega posterior com metodologia e aceite próprios,
+porque a Search API não verifica equivalência estatística de mercado,
+idioma, intenção e amostragem entre datas.
