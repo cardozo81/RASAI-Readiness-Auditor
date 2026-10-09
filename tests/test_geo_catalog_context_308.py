@@ -373,3 +373,32 @@ def test_multiple_tied_or_invalid_clocks_cannot_establish_last_ai_attempt(tmp_pa
     second = catalog_geo_context(db, "AUD-1", "CAT-08")
     assert "último estado N/D" in second
     assert "A1" not in second and "A2" not in second
+
+
+def test_cat08_uncertain_ai_reservation_explains_billing_and_no_automatic_retry(
+    tmp_path,
+):
+    from rasai.geo_catalog_context import _interpretation
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE geo_ai_interpretations("
+            "audit_id TEXT, result_id TEXT, state TEXT, created_at TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO geo_ai_interpretations VALUES (?,?,?,?)",
+            [
+                ("AUD-A", "OLD-SUCCESS", "AVAILABLE",
+                 "2026-10-09T09:00:00+00:00"),
+                ("AUD-A", "NEW-UNCERTAIN", "PENDING_UNCERTAIN",
+                 "2026-10-09T09:01:00+00:00"),
+            ],
+        )
+    before = db.read_bytes()
+    with sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True) as con:
+        result = _interpretation(con, "AUD-A")
+    assert "resultado indeterminado" in result
+    assert "Reenvio automático bloqueado" in result
+    assert "pode ter sido faturada" in result
+    assert "OLD-SUCCESS" not in result
+    assert db.read_bytes() == before
