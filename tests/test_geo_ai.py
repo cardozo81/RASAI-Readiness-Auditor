@@ -85,6 +85,62 @@ class GeoAiConsumerTests(unittest.TestCase):
                 )
                 self.assertEqual(con.execute("PRAGMA integrity_check").fetchone()[0], "ok")
 
+    def test_invalid_evidence_ids_are_quarantined_without_publishing_summary(self):
+        from dataclasses import replace
+
+        class InvalidEvidenceConsumer(FakeCanonicalConsumer):
+            def analyze(self, evidence_input):
+                result = super().analyze(evidence_input)
+                assert result.assessment is not None
+                original = result.assessment.opportunities[0]
+                bad = replace(original, evidence_ids=("UNOBSERVED-ID",))
+                return replace(
+                    result,
+                    assessment=replace(result.assessment, opportunities=(bad,)),
+                )
+
+        with tempfile.TemporaryDirectory() as root:
+            db = Path(root) / "audit.db"
+            self._db(db)
+            consumer = InvalidEvidenceConsumer()
+            factory = lambda _: consumer
+            state = execute_geo_ai(
+                db, "AUD-1", provider_selection="auto",
+                provider_factory=factory,
+            )
+            self.assertEqual(state, "UNAVAILABLE")
+            with closing(sqlite3.connect(db)) as con, con:
+                row = con.execute(
+                    "SELECT state, summary, opportunities_json, error_reason "
+                    "FROM geo_ai_interpretations"
+                ).fetchone()
+                self.assertEqual(row[0], "UNAVAILABLE")
+                self.assertIsNone(row[1])
+                self.assertEqual(row[2], "[]")
+                self.assertEqual(row[3], "GEO_AI_INVALID_EVIDENCE_REFERENCES")
+            self.assertEqual(
+                execute_geo_ai(db, "AUD-1", provider_selection="auto", provider_factory=factory),
+                "UNAVAILABLE",
+            )
+            self.assertEqual(consumer.calls, 1)
+
+    def test_failed_search_abstains_without_ai_call(self):
+        with tempfile.TemporaryDirectory() as root:
+            db = Path(root) / "audit.db"
+            self._db(db)
+            with closing(sqlite3.connect(db)) as con, con:
+                con.execute(
+                    "UPDATE perplexity_search_runs SET status='TIMEOUT_ERROR' "
+                    "WHERE run_id='PXS-1'"
+                )
+            consumer = FakeCanonicalConsumer()
+            self.assertEqual(
+                execute_geo_ai(db, "AUD-1", provider_selection="auto",
+                               provider_factory=lambda _: consumer),
+                "NOT_ELIGIBLE",
+            )
+            self.assertEqual(consumer.calls, 0)
+
     def test_no_credential_selection_creates_no_calls_or_tables(self):
         with tempfile.TemporaryDirectory() as root:
             db = Path(root) / "audit.db"
