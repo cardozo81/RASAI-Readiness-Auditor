@@ -323,5 +323,92 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
             self.assertEqual(state.search_last_report, "")
 
 
+
+class PerplexityExplicitCopy318Tests(unittest.TestCase):
+    """#318: no SERP inheritance or charge without two operator choices."""
+
+    def test_copy_is_explicit_and_follows_a_second_charge_confirmation(self):
+        from rasai.console_search_intelligence import configure_perplexity_search
+        state = SearchConsoleState(
+            search_queries=("seguro de vida", "seguro residencial"),
+            perplexity_queries=(),
+        )
+        with patch.dict(os.environ, {
+            "RASAI_PERPLEXITY_ENABLED": "true",
+            "PERPLEXITY_API_KEY": "TEST_OPAQUE_KEY",
+        }, clear=False), patch(
+            "builtins.input", side_effect=("s", "s", "", "fast", "sim"),
+        ) as answers, redirect_stdout(StringIO()) as output:
+            configure_perplexity_search(state)
+        self.assertEqual(answers.call_count, 5)
+        self.assertEqual(
+            state.perplexity_queries, ("seguro de vida", "seguro residencial")
+        )
+        self.assertEqual(state.perplexity_search_type, "fast")
+        self.assertEqual(state.perplexity_last_status, "PENDING")
+        rendered = output.getvalue()
+        self.assertIn("Termos SERP NÃO são herdados automaticamente", rendered)
+        self.assertIn("custo exato: N/D", rendered)
+        self.assertNotIn("TEST_OPAQUE_KEY", rendered)
+
+    def test_serp_declined_and_operator_types_independent_queries(self):
+        from rasai.console_search_intelligence import configure_perplexity_search
+        state = SearchConsoleState(
+            search_queries=("serp-exclusive",),
+            perplexity_queries=(),
+        )
+        with patch("builtins.input", side_effect=(
+            "s", "n", "perplexity-exclusive", "", "s",
+        )), redirect_stdout(StringIO()):
+            configure_perplexity_search(state)
+        self.assertEqual(state.perplexity_queries, ("perplexity-exclusive",))
+        self.assertNotIn("serp-exclusive", state.perplexity_queries)
+        self.assertEqual(state.perplexity_last_status, "PENDING")
+
+    def test_missing_final_authorization_clears_previous_draft(self):
+        from rasai.console_search_intelligence import configure_perplexity_search
+        state = SearchConsoleState(
+            search_queries=(),
+            perplexity_queries=("previous-consent-does-not-carry",),
+            perplexity_search_type="web",
+        )
+        with patch("builtins.input", side_effect=(
+            "s", "", "", "n",
+        )), redirect_stdout(StringIO()):
+            configure_perplexity_search(state)
+        self.assertEqual(state.perplexity_queries, ())
+        self.assertEqual(state.perplexity_last_status, "NOT_REQUESTED")
+        self.assertIn("zero requisição", state.perplexity_last_detail)
+
+    def test_more_than_five_serp_terms_never_copy_partially(self):
+        from rasai.console_search_intelligence import configure_perplexity_search
+        state = SearchConsoleState(
+            search_queries=("q1", "q2", "q3", "q4", "q5", "q6"),
+            perplexity_queries=(),
+        )
+        with patch("builtins.input", side_effect=("s", "s")) as answers, (
+            redirect_stdout(StringIO())
+        ):
+            configure_perplexity_search(state)
+        self.assertEqual(answers.call_count, 2)
+        self.assertEqual(state.perplexity_queries, ())
+        self.assertIn("Não copiar parcialmente", state.error)
+        self.assertEqual(state.perplexity_last_status, "NOT_REQUESTED")
+
+    def test_copy_refusal_does_not_trigger_perplexity_transport(self):
+        from rasai.console_search_intelligence import configure_perplexity_search
+        state = SearchConsoleState(
+            search_queries=("serp-query",), perplexity_queries=(),
+        )
+        with patch("builtins.input", side_effect=("n",)) as answers, (
+            redirect_stdout(StringIO())
+        ), patch("rasai.console_search_intelligence.execute_perplexity_search") as provider:
+            configure_perplexity_search(state)
+        provider.assert_not_called()
+        self.assertEqual(answers.call_count, 1)
+        self.assertEqual(state.perplexity_last_status, "NOT_REQUESTED")
+        self.assertEqual(state.perplexity_queries, ())
+
+
 if __name__ == "__main__":
     unittest.main()
