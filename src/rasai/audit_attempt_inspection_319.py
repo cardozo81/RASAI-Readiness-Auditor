@@ -96,12 +96,12 @@ def _ai_attempt_scope_breakdown(
         if not {"audit_id", "attempt_id"}.issubset(cols):
             continue
         seen: set[str] = set()
-        for row in con.execute(
+        cursor = con.execute(
             "SELECT * FROM " + table + " WHERE audit_id=?", (audit_id,)
-        ):
-            data = dict(zip([x[0] for x in con.execute(
-                "SELECT * FROM " + table + " LIMIT 0"
-            ).description], row))
+        )
+        fields = tuple(str(column[0]) for column in cursor.description)
+        for row in cursor:
+            data = dict(zip(fields, row))
             attempt = str(data.get("attempt_id") or "")
             if attempt in seen:
                 continue
