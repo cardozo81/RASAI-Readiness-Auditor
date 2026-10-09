@@ -401,6 +401,11 @@ class GeoSupplementInventoryItem:
     source_count: int | None = None
     started_at: str | None = None
     finished_at: str | None = None
+    # Available ONLY when content is verified against the derived M18 ledger.
+    # Post-hoc estimate, not observed provider invoice or original AUD cost.
+    posthoc_estimated_cost: float | None = None
+    cost_currency: str | None = None
+    pricing_version: str | None = None
 
 
 def list_post_audit_geo_supplements(
@@ -503,6 +508,9 @@ def list_post_audit_geo_supplements(
                 source_count=source_count,
                 started_at=result["started_at"],
                 finished_at=result["finished_at"],
+                posthoc_estimated_cost=result.get("posthoc_estimated_cost"),
+                cost_currency=result.get("cost_currency"),
+                pricing_version=result.get("pricing_version"),
             ))
         except (OSError, UnicodeError, ValueError, TypeError, sqlite3.Error):
             rows.append(GeoSupplementInventoryItem(
