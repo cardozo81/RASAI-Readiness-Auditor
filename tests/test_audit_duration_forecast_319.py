@@ -249,3 +249,39 @@ def test_legacy_missing_completion_or_page_provenance_abstains(tmp_path):
     value = forecast_local_duration(_state(tmp_path))
     assert not value.available
     assert value.sample_runs == 0
+
+
+
+def test_stage_forecast_excludes_attempt_outside_console_wallclock(tmp_path):
+    databases = [_audit(tmp_path, i) for i in range(5)]
+    with sqlite3.connect(databases[2]) as con:
+        con.execute(
+            "UPDATE ai_provider_attempts SET started_at=?, finished_at=? "
+            "WHERE attempt_id='AIP-1'",
+            ("2026-10-08T13:00:00+00:00", "2026-10-08T13:00:20+00:00"),
+        )
+    expected = [sha256(path.read_bytes()).hexdigest() for path in databases]
+    preview = forecast_local_duration(_state(tmp_path))
+    assert preview.available and preview.total is not None
+    assert preview.sample_runs == 5
+    assert preview.ai_stages == ()
+    assert [sha256(path.read_bytes()).hexdigest() for path in databases] == expected
+
+
+def test_stage_forecast_excludes_naive_and_reversed_attempt_clocks(tmp_path):
+    databases = [_audit(tmp_path, i) for i in range(5)]
+    with sqlite3.connect(databases[0]) as con:
+        con.execute(
+            "UPDATE ai_provider_attempts SET started_at=? WHERE attempt_id='AIP-1'",
+            ("2026-10-08T12:00:10",),
+        )
+    with sqlite3.connect(databases[1]) as con:
+        con.execute(
+            "UPDATE ai_provider_attempts SET started_at=?, finished_at=? "
+            "WHERE attempt_id='AIP-2'",
+            ("2026-10-08T12:00:35+00:00", "2026-10-08T12:00:30+00:00"),
+        )
+    value = forecast_local_duration(_state(tmp_path))
+    assert value.available
+    assert value.ai_stages == ()
+    assert "relogios" in " ".join(value.notes)
