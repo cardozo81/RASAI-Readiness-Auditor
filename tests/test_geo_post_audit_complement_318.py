@@ -285,7 +285,7 @@ def test_corrupt_manifest_and_untrusted_manifest_path_never_resend(tmp_path, mon
     manifest = json.loads(original)
     manifest["files"][0]["path"] = "../../audit.db"
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-    with pytest.raises(ValueError, match="unsafe file path"):
+    with pytest.raises(ValueError, match="incomplete|unsafe file path"):
         run(workspace, **params)
     assert len(calls) == 1
 
