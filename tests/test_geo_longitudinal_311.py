@@ -133,7 +133,7 @@ def test_legacy_partial_missing_scope_and_censored_sources_abstain(tmp_path):
     assert result["audits_eligible"] == 0
     reasons = {x["audit_id"]: x["reason"] for x in result["excluded"]}
     assert reasons["AUD-LEGACY"] == "GEO_LEGACY_OR_UNSUPPORTED_VERSION"
-    assert reasons["AUD-PARTIAL"] == "AUD_NOT_LOGICALLY_COMPLETE"
+    assert reasons["AUD-PARTIAL"] == "AUD_COMPLETION_NOT_COMPLETE"
     assert reasons["AUD-LOCALE"] == "SERP_SCOPE_INCOMPLETE"
     assert reasons["AUD-CENSORED"] == "URL_DENOMINATOR_OR_COMPARABILITY_UNPROVEN"
 
@@ -209,3 +209,76 @@ def test_public_geo_longitudinal_entrypoint_bypasses_audit_installers(
     alias = entrypoint.main(["geo-history", str(first), str(second)])
     assert alias == 0
     capsys.readouterr()
+
+
+
+def test_readonly_diagnostic_distinguishes_audit_lifecycle_from_identity(tmp_path):
+    foreign = audit(tmp_path, "AUD-FOREIGN")
+    lifecycle = audit(tmp_path, "AUD-LIFECYCLE")
+    completion = audit(tmp_path, "AUD-INCOMPLETE", completion="PARTIAL")
+    duplicate = audit(tmp_path, "AUD-DUPLICATE")
+    empty = audit(tmp_path, "AUD-EMPTY")
+    with sqlite3.connect(foreign / "audit.db") as con:
+        con.execute("UPDATE audits SET audit_id='AUD-OTHER'")
+    with sqlite3.connect(lifecycle / "audit.db") as con:
+        con.execute("UPDATE audits SET status='RUNNING'")
+    with sqlite3.connect(duplicate / "audit.db") as con:
+        con.execute(
+            "INSERT INTO audits VALUES (?,?,?)",
+            ("AUD-OTHER", "COMPLETED", "COMPLETE"),
+        )
+    with sqlite3.connect(empty / "audit.db") as con:
+        con.execute("DELETE FROM audits")
+    folders = [foreign, lifecycle, completion, duplicate, empty]
+    hashes = [(root / "audit.db").read_bytes() for root in folders]
+    output = build_geo_longitudinal_preview(folders)
+    reasons = {row["audit_id"]: row["reason"] for row in output["excluded"]}
+    assert reasons == {
+        "AUD-FOREIGN": "AUD_IDENTITY_MISMATCH",
+        "AUD-LIFECYCLE": "AUD_LIFECYCLE_NOT_COMPLETED",
+        "AUD-INCOMPLETE": "AUD_COMPLETION_NOT_COMPLETE",
+        "AUD-DUPLICATE": "AUD_MULTIPLE_METADATA_ROWS",
+        "AUD-EMPTY": "AUD_METADATA_ROW_MISSING",
+    }
+    assert output["audits_eligible"] == 0
+    assert output["provider_requests"] == output["audit_writes"] == 0
+    assert [(root / "audit.db").read_bytes() for root in folders] == hashes
+
+
+def test_readonly_diagnostic_identifies_missing_legacy_tables_and_columns(tmp_path):
+    metadata_missing = audit(tmp_path, "AUD-NO-AUDITS")
+    metadata_legacy = audit(tmp_path, "AUD-LEGACY-META")
+    geo_missing = audit(tmp_path, "AUD-NO-GEO")
+    geo_legacy = audit(tmp_path, "AUD-LEGACY-GEO")
+    with sqlite3.connect(metadata_missing / "audit.db") as con:
+        con.execute("DROP TABLE audits")
+    with sqlite3.connect(metadata_legacy / "audit.db") as con:
+        con.execute("ALTER TABLE audits DROP COLUMN completion_status")
+    with sqlite3.connect(geo_missing / "audit.db") as con:
+        con.execute("DROP TABLE geo_observation_runs")
+    with sqlite3.connect(geo_legacy / "audit.db") as con:
+        con.execute("ALTER TABLE geo_observation_runs DROP COLUMN input_sha256")
+    roots = [metadata_missing, metadata_legacy, geo_missing, geo_legacy]
+    before = [sha256((root / "audit.db").read_bytes()).hexdigest() for root in roots]
+    output = build_geo_longitudinal_preview(roots)
+    reasons = {row["audit_id"]: row["reason"] for row in output["excluded"]}
+    assert reasons == {
+        "AUD-NO-AUDITS": "AUD_METADATA_TABLE_MISSING",
+        "AUD-LEGACY-META": "AUD_METADATA_SCHEMA_UNSUPPORTED",
+        "AUD-NO-GEO": "GEO_SNAPSHOT_TABLE_MISSING",
+        "AUD-LEGACY-GEO": "GEO_SNAPSHOT_SCHEMA_UNSUPPORTED",
+    }
+    assert [sha256((root / "audit.db").read_bytes()).hexdigest()
+            for root in roots] == before
+
+
+def test_corrupt_sqlite_remains_explicit_technical_read_failure(tmp_path):
+    corrupted = tmp_path / "AUD-CORRUPTED"
+    corrupted.mkdir()
+    (corrupted / "audit.db").write_bytes(b"not a valid sqlite database")
+    good = audit(tmp_path, "AUD-GOOD")
+    result = build_geo_longitudinal_preview([corrupted, good])
+    assert result["audits_eligible"] == 1
+    assert result["excluded"] == [{
+        "audit_id": "AUD-CORRUPTED", "reason": "AUD_SCHEMA_OR_READ_ERROR",
+    }]
