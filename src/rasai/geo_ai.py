@@ -106,7 +106,14 @@ def execute_geo_ai(
     selection = provider_selection.strip().casefold()
     if selection in {"", "none", "fixture"}:
         return "NOT_CONFIGURED"
-    with closing(sqlite3.connect(str(database))) as con, con:
+    # No eligible persisted AUD must never turn a typo/nonexistent path into
+    # an empty SQLite database merely because optional AI was requested.
+    database = Path(database)
+    if not database.is_file() or database.is_symlink():
+        return "NOT_ELIGIBLE"
+    with closing(sqlite3.connect(
+        database.resolve().as_uri() + "?mode=rw", uri=True
+    )) as con, con:
         con.execute("PRAGMA foreign_keys=ON")
         # An explicit AI request is not equivalent to having eligible source
         # evidence. Probe only the canonical persisted Perplexity rows first:
