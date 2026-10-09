@@ -575,7 +575,7 @@ inspeção humana, porque a cobrança anterior pode ter ocorrido.
 A AUD original permanece selada e não é rematerializada.
 
 
-### GEO observation v7 — requisição externa corrente comprovável (#304/#309)
+### GEO observation v7 - requisição externa corrente comprovável (#304/#309)
 
 `RASAI-GEO-OBSERVATION-7` mantém a eleição de SERP válida mais próxima
 introduzida em v6. Corrige o **outro lado** do pareamento: a seleção do
@@ -591,7 +591,7 @@ escolher entre múltiplos instantes.
 O status real do run mais recente (inclusive AUTH_ERROR, TIMEOUT etc.)
 é preservado como evidência de serviço; **não** vira falha do website,
 pontuação GEO, zero cobertura inventada ou autorização para retry pago.
-Snapshots v1–v6 continuam com versões, IDs e bytes anteriores. A nova
+Snapshots v1-v6 continuam com versões, IDs e bytes anteriores. A nova
 versão possui fingerprint e ID derivados de suas fontes efetivamente
 selecionadas e é reproduzível sem nova consulta. `geo.html`, o
 read-only longitudinal e o seletor de IA reconhecem o método v7 e
