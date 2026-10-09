@@ -235,3 +235,24 @@ def test_cat07_hash_verified_frozen_console_mode_is_shown_but_not_host_ini(tmp_p
     assert "N/D (não congelado nesta AUD)" in legacy_html
     assert "DYNATRACE_GUIDED" not in legacy_html
     assert db.read_bytes() == before
+
+
+def test_cat07_experience_remains_configurable_with_navigation_disabled(monkeypatch):
+    state = State()
+    state.synthetic_apdex = False
+    state.apdex_experience = False
+    steps = []
+    def navigation(item):
+        item.synthetic_apdex = False
+        steps.append("NAVIGATION_DISABLED")
+    def experience(item):
+        item.apdex_experience = True
+        item.apdex_experience_profile_mode = "CUSTOM"
+        steps.append("EXPERIENCE_ENABLED")
+    monkeypatch.setattr(ui, "_configure_navigation", navigation)
+    monkeypatch.setattr(ui, "_configure_experience", experience)
+    ui.configure_apdex(state)
+    assert steps == ["NAVIGATION_DISABLED", "EXPERIENCE_ENABLED"]
+    assert state.synthetic_apdex is False
+    assert state.apdex_experience is True
+    assert state.error == ""
