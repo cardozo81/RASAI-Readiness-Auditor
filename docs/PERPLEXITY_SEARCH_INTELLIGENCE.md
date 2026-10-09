@@ -653,3 +653,24 @@ autorizacao. Nenhuma reserva pendente significa que um custo foi comprovado.
 Os testes sao locais e isolados, com interrupcao simulada e symlinks
 adversariais; nao contratam IA ou Perplexity, nao alteram RPR ou os motores
 homologados e nao migram auditorias anteriores.
+
+### Hardening observacional, financeiro e da interpretacao GEO IA (09/10/2026)
+
+A inspecao read-only de complemento externo compara adicionalmente
+`native_usage_unit`, `native_usage_quantity`,
+`posthoc_estimated_cost`, `cost_currency` e `pricing_version`
+de `result.json` com a linha `perplexity_search_runs` persistida
+no SQLite derivado. Alterar o JSON e recomputar os SHA-256 do manifesto
+nao comprova uso ou preco diferente. Quantidades nao finitas, valores
+negativos e tipos ambiguos sao invalidados sem reenvio.
+Estimativa pos-uso nao e fatura do fornecedor.
+
+O contexto de IA GEO opcional inclui somente URLs HTTP/HTTPS
+sintaticamente validas segundo o canonizador v8, sem credenciais
+userinfo, whitespace ou esquemas executaveis. Titulos/snippets sao
+limitados antes de alimentar o consumidor canonico; se nenhuma fonte
+valida permanece, nenhuma chamada de IA, reserva ou DDL e executada.
+O resultado persistido passa a conservar `causality_note` de cada
+oportunidade da IA e o HTML apresenta justificativa e limite causal
+com escape, sem promover hipotese a fato. Nenhum coletor, provider,
+score, reprocesso ou historico antigo e recalculado.
