@@ -229,7 +229,7 @@ class GeoObservationTests(unittest.TestCase):
                 self.assertEqual(rows[0], ("RASAI-GEO-OBSERVATION-1", old_projection))
                 self.assertEqual(rows[1], ("RASAI-GEO-OBSERVATION-2", '{"old_v2":true}'))
                 self.assertEqual(rows[2], ("RASAI-GEO-OBSERVATION-4", '{"old_v4":true}'))
-                self.assertEqual(rows[3][0], "RASAI-GEO-OBSERVATION-5")
+                self.assertEqual(rows[3][0], "RASAI-GEO-OBSERVATION-6")
                 self.assertIn("descriptive_overlap", json.loads(rows[3][1]))
                 self.assertEqual(con.execute("PRAGMA foreign_key_check").fetchall(), [])
                 self.assertEqual(con.execute("PRAGMA integrity_check").fetchone()[0], "ok")
@@ -372,11 +372,7 @@ class GeoObservationTests(unittest.TestCase):
         self.assertEqual(boundary["status"], "DESCRIPTIVE_ONLY")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
-    def test_www_vs_apex_not_counted_as_exact_overlap_in_v5_snapshot(self):
+    def test_www_vs_apex_not_counted_as_exact_overlap_in_v6_snapshot(self):
         with tempfile.TemporaryDirectory() as root:
             db = Path(root) / "audit.db"
             with closing(sqlite3.connect(db)) as con, con:
@@ -420,7 +416,7 @@ if __name__ == "__main__":
                 value = json.loads(con.execute(
                     "SELECT projection_json FROM geo_observation_runs"
                 ).fetchone()[0])
-            self.assertEqual(value["contract_version"], "RASAI-GEO-OBSERVATION-5")
+            self.assertEqual(value["contract_version"], "RASAI-GEO-OBSERVATION-6")
             self.assertEqual(value["descriptive_overlap"]["status"], "DESCRIPTIVE_ONLY")
             self.assertEqual(value["descriptive_overlap"]["common_urls"], 0)
             self.assertEqual(value["url_overlap_count"], 0)
@@ -428,3 +424,87 @@ if __name__ == "__main__":
                 value["target_observation"]["status"],
                 "DOMAIN_ALTERNATIVE_OBSERVED",
             )
+
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+def test_v6_prefers_nearest_trusted_serp_even_if_later_record_is_outside_window():
+    """Original v5 selected the latest timestamp, losing a valid closer source."""
+    with tempfile.TemporaryDirectory() as temp:
+        db = Path(temp) / "audit.db"
+        with closing(sqlite3.connect(db)) as con, con:
+            con.executescript("""
+                CREATE TABLE audits (audit_id TEXT PRIMARY KEY);
+                CREATE TABLE perplexity_search_runs (
+                    run_id TEXT PRIMARY KEY, audit_id TEXT, query_json TEXT,
+                    search_type TEXT, status TEXT, started_at TEXT
+                );
+                CREATE TABLE perplexity_search_sources (
+                    run_id TEXT, position INTEGER, url TEXT, title TEXT,
+                    snippet TEXT, source_date TEXT, last_updated TEXT
+                );
+                CREATE TABLE serp_observations (
+                    observation_id TEXT, audit_id TEXT, query TEXT,
+                    collected_at TEXT, observation_status TEXT, data_mode TEXT,
+                    engine TEXT, country TEXT, region TEXT, language TEXT, device TEXT
+                );
+                CREATE TABLE serp_results (
+                    observation_id TEXT, position INTEGER, url TEXT
+                );
+            """)
+            con.execute("INSERT INTO audits VALUES ('AUD-ONE')")
+            con.execute(
+                "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
+                ("PX-1", "AUD-ONE", '["seguro vida"]', "web", "SUCCESS",
+                 "2026-10-09T10:00:00+00:00"),
+            )
+            con.execute(
+                "INSERT INTO perplexity_search_sources VALUES (?,?,?,?,?,?,?)",
+                ("PX-1", 1, "https://example.org/a", "Title", "", None, None),
+            )
+            con.executemany(
+                "INSERT INTO serp_observations VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                [
+                    ("S-CLOSE", "AUD-ONE", "seguro vida", "2026-10-09T10:10:00+00:00",
+                     "OBSERVED", "OBSERVED_API", "google", "BR", "São Paulo",
+                     "pt-BR", "mobile"),
+                    ("S-LATER-UNUSABLE", "AUD-ONE", "seguro vida",
+                     "2026-10-11T10:00:00+00:00", "OBSERVED", "OBSERVED_API",
+                     "google", "BR", "São Paulo", "pt-BR", "mobile"),
+                ],
+            )
+            con.executemany(
+                "INSERT INTO serp_results VALUES (?,?,?)",
+                [
+                    ("S-CLOSE", 1, "https://example.org/a"),
+                    ("S-LATER-UNUSABLE", 1, "https://example.org/other"),
+                ],
+            )
+        first = materialize_geo_observation(db, "AUD-ONE")
+        assert first == materialize_geo_observation(db, "AUD-ONE")
+        with closing(sqlite3.connect(db)) as con:
+            raw = con.execute(
+                "SELECT projection_json FROM geo_observation_runs WHERE analysis_id=?",
+                (first,),
+            ).fetchone()[0]
+            assert con.execute("SELECT count(*) FROM geo_observation_runs").fetchone()[0] == 1
+            assert con.execute("PRAGMA foreign_key_check").fetchall() == []
+        snapshot = json.loads(raw)
+        assert snapshot["contract_version"] == "RASAI-GEO-OBSERVATION-6"
+        assert snapshot["serp_observation_id"] == "S-CLOSE"
+        assert snapshot["descriptive_overlap"]["status"] == "DESCRIPTIVE_ONLY"
+        assert snapshot["descriptive_overlap"]["common_urls"] == 1
+        assert snapshot["comparability"]["time_gap_seconds"] == 600
+
+
+def test_v6_abstains_if_all_serp_timestamps_are_untrusted_or_outside_window():
+    from rasai.geo_observation import _temporal_gap_seconds
+    assert _temporal_gap_seconds(
+        "2026-10-09T10:00:00Z", "2026-10-11T10:00:00Z"
+    ) > 86400
+    assert _temporal_gap_seconds(
+        "2026-10-09T10:00:00Z", "2026-10-09"
+    ) is None
