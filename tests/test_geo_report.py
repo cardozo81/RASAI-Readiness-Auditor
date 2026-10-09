@@ -109,7 +109,7 @@ class GeoReportTests(unittest.TestCase):
                      '"serp_context":{"country":"BR","region":"São Paulo",'
                      '"language":"pt-BR","device":"mobile","engine":"google",'
                      '"collected_at":"2026-10-07"}}}',
-                     "2026-10-07")
+                     "2026-10-07T00:00:00Z")
                 )
             self.assertIn("Sobreposição observacional", geo_body(db, "AUD-ONE"))
             self.assertIn("1 em ambas", geo_body(db, "AUD-ONE"))
