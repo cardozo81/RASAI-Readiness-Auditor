@@ -533,8 +533,9 @@ def configure_apdex(state: State) -> None:
     }
     try:
         _configure_navigation(state)
-        if state.synthetic_apdex:
-            _configure_experience(state)
+        # CAT-06 Navigation and CAT-07 Experience are independently selectable.
+        # Disabling one must not hide calibration/architecture of the other.
+        _configure_experience(state)
         state.error = ""
         attempts, load = synthetic_load_summary(state)
         if attempts:
