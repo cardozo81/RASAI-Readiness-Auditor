@@ -347,6 +347,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.geo_supplement_inspection_309 import main as inspect_geo_supplements
         return inspect_geo_supplements(effective[1:])
 
+    if effective and effective[0] == "dynatrace-apdex-review":
+        # Optional offline RUM settings advisory, no tenant or provider access.
+        # Execute before secrets/collector runtime initialization.
+        from rasai.dynatrace_apdex_review_cli_355 import main as dynatrace_review
+        return dynatrace_review(effective[1:])
+
     if effective and effective[0] == "rematerialize-report":
         # The dedicated reporting command installs the SAME canonical runtime hooks
         # itself, and never invokes collectors, AI, audit or reprocess entrypoints.

@@ -175,6 +175,29 @@ def execute_geo_ai(
             return "CANONICAL_AI_UNAVAILABLE"
         if not injected_test_factory and provider.__class__.__name__ != "OrchestratedCompetitiveAiProvider":
             return "CANONICAL_AI_NOT_INSTALLED"
+        # Reserve the fingerprint BEFORE the first potentially chargeable AI
+        # request. A process crash or forced shutdown during analyze() must
+        # not turn the next operator click into a second billable attempt.
+        # Commit the reservation independently of the provider execution.
+        reservation = con.execute(
+            "INSERT OR IGNORE INTO geo_ai_interpretations("
+            "result_id,audit_id,perplexity_run_id,contract_version,input_sha256,"
+            "selection,state,opportunities_json,error_reason,created_at)"
+            "VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (result_id, audit_id, run_id, VERSION, input_hash, selection,
+             "PENDING_UNCERTAIN", "[]", "GEO_AI_OUTCOME_NOT_YET_PERSISTED",
+             datetime.now(timezone.utc).isoformat()),
+        )
+        reserved_by_this_execution = reservation.rowcount == 1
+        con.commit()
+        if not reserved_by_this_execution:
+            # Another process has already reserved or finished this intent.
+            # No provider execution is allowed until explicitly reconciled.
+            saved = con.execute(
+                "SELECT state FROM geo_ai_interpretations WHERE result_id=?",
+                (result_id,),
+            ).fetchone()
+            return str(saved[0]) if saved else "PENDING_UNCERTAIN"
         try:
             output = provider.analyze(competitive_input)
             assessment = output.assessment
@@ -220,21 +243,19 @@ def execute_geo_ai(
         else:
             opportunities = []
         con.execute(
-            "INSERT OR IGNORE INTO geo_ai_interpretations("
-            "result_id,audit_id,perplexity_run_id,contract_version,input_sha256,"
-            "selection,state,provider,model,prompt_id,prompt_version,provider_request_id,"
-            "summary,opportunities_json,error_reason,created_at)"
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "UPDATE geo_ai_interpretations "
+            "SET state=?,provider=?,model=?,prompt_id=?,prompt_version=?,"
+            "provider_request_id=?,summary=?,opportunities_json=?,error_reason=? "
+            "WHERE result_id=? AND state='PENDING_UNCERTAIN'",
             (
-                result_id, audit_id, run_id, VERSION, input_hash, selection, state,
+                state,
                 assessment.provider if assessment is not None else None,
                 assessment.model if assessment is not None else None,
                 assessment.prompt_id if assessment is not None else None,
                 assessment.prompt_version if assessment is not None else None,
                 assessment.provider_request_id if assessment is not None else None,
                 assessment.summary if assessment is not None else None,
-                _json(opportunities), error_reason,
-                datetime.now(timezone.utc).isoformat(),
+                _json(opportunities), error_reason, result_id,
             ),
         )
         return state

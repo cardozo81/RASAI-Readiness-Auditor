@@ -346,3 +346,44 @@ def test_primary_geo_ai_report_uses_newest_actual_utc_attempt_for_same_run(tmp_p
         con.execute("UPDATE geo_ai_interpretations SET created_at=NULL WHERE result_id='NEW'")
     assert _geo_ai_result(db, "AUD-1", "RUN-1") is None
     assert db.read_bytes() != before  # mutation belongs only to test fixture
+
+
+def test_geo_page_explains_durable_uncertain_ai_intent_without_publishing_success(
+    tmp_path,
+):
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE perplexity_search_runs(
+                run_id TEXT PRIMARY KEY, audit_id TEXT, query_json TEXT,
+                search_type TEXT, status TEXT, started_at TEXT, error_class TEXT);
+            CREATE TABLE perplexity_search_sources(
+                run_id TEXT, position INTEGER, url TEXT, title TEXT, snippet TEXT);
+            CREATE TABLE geo_ai_interpretations(
+                audit_id TEXT, perplexity_run_id TEXT, state TEXT,
+                provider TEXT, model TEXT, prompt_id TEXT, prompt_version TEXT,
+                summary TEXT, opportunities_json TEXT, input_sha256 TEXT,
+                error_reason TEXT, created_at TEXT);
+        """)
+        con.execute(
+            "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?,?)",
+            ("P1", "AUD-A", '["seguro"]', "web", "SUCCESS",
+             "2026-10-09T09:00:00+00:00", None),
+        )
+        con.execute(
+            "INSERT INTO perplexity_search_sources VALUES (?,?,?,?,?)",
+            ("P1", 1, "https://external.example/evidence", "Title", "Excerpt"),
+        )
+        con.execute(
+            "INSERT INTO geo_ai_interpretations VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("AUD-A", "P1", "PENDING_UNCERTAIN", None, None, None, None,
+             None, "[]", "testhash", "GEO_AI_OUTCOME_NOT_YET_PERSISTED",
+             "2026-10-09T09:01:00+00:00"),
+        )
+    before = db.read_bytes()
+    page = geo_body(db, "AUD-A")
+    assert "Resultado indeterminado" in page
+    assert "pode existir cobrança" in page.lower()
+    assert "bloqueia novo envio" in page
+    assert "Sem oportunidade com referência de evidência validada." not in page
+    assert db.read_bytes() == before

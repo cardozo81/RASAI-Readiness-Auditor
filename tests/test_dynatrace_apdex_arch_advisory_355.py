@@ -202,3 +202,58 @@ def test_no_homologated_apdex_runtime_dependency():
         "m23_apdex", "m25_apdex_experience", "requests", "httpx",
         "sqlite3", "AuditWorkspace", "build_provider",
     ))
+
+def test_offline_dynatrace_apdex_cli_uses_operator_json_without_runtime_bootstrap(
+    tmp_path, monkeypatch, capsys,
+):
+    from rasai import entrypoint
+    monkeypatch.setattr(
+        entrypoint, "_install_audit_runtime",
+        lambda: pytest.fail("offline advisory must not install collectors/providers"),
+    )
+    # This is operator-supplied data, not authenticated settings.read evidence.
+    import json
+    path = tmp_path / "dynatrace-export.json"
+    config = _config(xhr=True, count=0, capture={"xhr": False, "fetch": False})
+    config["api_token"] = "SENSITIVE_NEVER_PRINT"
+    path.write_text(json.dumps(config), encoding="utf-8")
+    before = path.read_bytes()
+    assert entrypoint.main([
+        "dynatrace-apdex-review",
+        "--architecture", "CSR_SPA",
+        "--architecture-evidence-id", "M6-OPERATOR-REFERENCE",
+        "--soft-navigation", "observed",
+        "--async-requests", "observed",
+        "--settings-json", str(path),
+    ]) == 0
+    response = json.loads(capsys.readouterr().out)
+    assert response["status"] == "REVIEW_RECOMMENDED"
+    assert "ASYNC_CAPTURE_DISABLED_FOR_OBSERVED_SOFT_NAVIGATION" in response["reasons"]
+    assert response["settings_provenance"] == "NOT_VERIFIED_BY_RASAI"
+    assert response["actual_dynatrace_tenant_consulted"] is False
+    assert response["dynatrace_provider_requests"] == response["audit_writes"] == 0
+    assert response["rasai_synthetic_apdex_unchanged"] is True
+    assert "SENSITIVE_NEVER_PRINT" not in json.dumps(response)
+    assert path.read_bytes() == before
+
+
+def test_offline_dynatrace_apdex_cli_absent_settings_fail_closed(tmp_path, capsys):
+    from rasai.dynatrace_apdex_review_cli_355 import main
+    import json
+    assert main([
+        "--architecture", "STATIC_OR_SSR",
+        "--architecture-evidence-id", "M6-REFERENCE",
+        "--soft-navigation", "not-observed",
+    ]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "NOT_EVALUABLE"
+    assert result["reasons"] == ["NO_DYNATRACE_SETTINGS_SNAPSHOT"]
+    assert result["input_source"] == "NO_SETTINGS"
+    assert result["dynatrace_provider_requests"] == 0
+    with pytest.raises(SystemExit) as failed:
+        main([
+            "--architecture", "CSR_SPA", "--settings-json",
+            str(tmp_path / "not-found.json"),
+        ])
+    assert failed.value.code == 2
+    assert not (tmp_path / "not-found.json").exists()

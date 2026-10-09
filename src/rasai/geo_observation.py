@@ -229,7 +229,15 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
     Optional external search must already be persisted by its canonical owner.
     This adapter never searches, retries, charges or changes existing evidence.
     """
-    with closing(sqlite3.connect(str(database))) as con, con:
+    # A missing or linked source is not an AUD. sqlite3.connect(path) would
+    # otherwise CREATE a blank audit.db on an optional GEO materialization.
+    # Open only an existing local database, never silently manufacture one.
+    database = Path(database)
+    if not database.is_file() or database.is_symlink():
+        return None
+    with closing(sqlite3.connect(
+        database.resolve().as_uri() + "?mode=rw", uri=True
+    )) as con, con:
         con.row_factory = sqlite3.Row
         con.execute("PRAGMA foreign_keys=ON")
         tables = {

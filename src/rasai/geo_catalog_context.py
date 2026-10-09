@@ -91,6 +91,14 @@ def _interpretation(con: sqlite3.Connection, audit: str) -> str:
         )
     if row is None:
         return "<p>Sem interpretação GEO por IA disponível e persistida.</p>"
+    if row[1] == "PENDING_UNCERTAIN":
+        return (
+            "<p>Interpretação GEO por IA: resultado indeterminado após reserva "
+            "de execução; a chamada pode ter sido faturada. "
+            "Reenvio automático bloqueado para evitar consumo duplicado. "
+            "Revisar o ledger canônico antes de uma nova autorização. "
+            "Não utilizar síntese anterior como evidência atual.</p>"
+        )
     if row[1] != "AVAILABLE":
         return (
             "<p>Interpretação GEO por IA indisponível na última tentativa "
