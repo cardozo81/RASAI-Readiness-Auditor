@@ -387,3 +387,48 @@ def test_geo_page_explains_durable_uncertain_ai_intent_without_publishing_succes
     assert "bloqueia novo envio" in page
     assert "Sem oportunidade com referência de evidência validada." not in page
     assert db.read_bytes() == before
+
+
+def test_geo_stored_overlap_uses_utc_order_and_abstains_on_ambiguous_history(
+    tmp_path,
+):
+    from rasai.geo_report import _stored_comparison
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE geo_observation_runs("
+            "audit_id TEXT, analysis_id TEXT, projection_json TEXT, created_at TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO geo_observation_runs VALUES (?,?,?,?)",
+            [
+                ("AUD-A", "LEXICAL-Z-OLD", '{"marker":"OLD"}',
+                 "2026-10-09T11:30:00+00:00"),
+                ("AUD-A", "LEXICAL-A-NEW", '{"marker":"NEW"}',
+                 "2026-10-09T09:00:00-03:00"),
+                ("AUD-B", "OTHER-AUD", '{"marker":"SECRET"}',
+                 "2026-10-09T23:00:00+00:00"),
+            ],
+        )
+    before = db.read_bytes()
+    assert _stored_comparison(db, "AUD-A") == {"marker": "NEW"}
+    assert "SECRET" not in str(_stored_comparison(db, "AUD-A"))
+    assert db.read_bytes() == before
+
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE geo_observation_runs SET created_at=? WHERE analysis_id=?",
+            ("2026-10-09T12:00:00Z", "LEXICAL-Z-OLD"),
+        )
+    before_tie = db.read_bytes()
+    assert _stored_comparison(db, "AUD-A") is None
+    assert db.read_bytes() == before_tie
+
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE geo_observation_runs SET created_at=? WHERE analysis_id=?",
+            ("2026-10-09", "LEXICAL-Z-OLD"),
+        )
+    before_naive = db.read_bytes()
+    assert _stored_comparison(db, "AUD-A") is None
+    assert db.read_bytes() == before_naive
