@@ -1,0 +1,23 @@
+name: Audit stage scope 319 targeted
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - src/rasai/audit_attempt_inspection_319.py
+      - src/rasai/catalog_report_site.py
+      - tests/test_audit_stage_scope_319.py
+      - docs/AUDIT_STAGE_SCOPE_319.md
+      - .github/workflows/audit-stage-scope-319-targeted.yml
+permissions:
+  contents: read
+jobs:
+  scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -e . pytest
+      - run: python -m pytest -q tests/test_audit_stage_scope_319.py tests/test_audit_attempt_timeline_319.py tests/test_audit_cost_explain_319.py
