@@ -229,7 +229,7 @@ class GeoObservationTests(unittest.TestCase):
                 self.assertEqual(rows[0], ("RASAI-GEO-OBSERVATION-1", old_projection))
                 self.assertEqual(rows[1], ("RASAI-GEO-OBSERVATION-2", '{"old_v2":true}'))
                 self.assertEqual(rows[2], ("RASAI-GEO-OBSERVATION-4", '{"old_v4":true}'))
-                self.assertEqual(rows[3][0], "RASAI-GEO-OBSERVATION-7")
+                self.assertEqual(rows[3][0], "RASAI-GEO-OBSERVATION-8")
                 self.assertIn("descriptive_overlap", json.loads(rows[3][1]))
                 self.assertEqual(con.execute("PRAGMA foreign_key_check").fetchall(), [])
                 self.assertEqual(con.execute("PRAGMA integrity_check").fetchone()[0], "ok")
@@ -242,8 +242,18 @@ class GeoObservationTests(unittest.TestCase):
         )
         self.assertEqual(
             _canonical_url("https://www.example.org:443/a/?x=1#part"),
+            _canonical_url("https://www.example.org/a/?x=1"),
+        )
+        self.assertNotEqual(
+            _canonical_url("https://www.example.org/a/?x=1"),
             _canonical_url("https://www.example.org/a?x=1"),
         )
+        self.assertEqual(_canonical_url("https://user:secret@example.org/a"), "")
+        self.assertEqual(_canonical_url("https://user@example.org/a"), "")
+        self.assertEqual(_canonical_url("https://example.org:0/a"), "")
+        self.assertEqual(_canonical_url("https://example.org/a\\\\b"), "")
+        self.assertEqual(_canonical_url("https://example.org/a b"), "")
+        self.assertEqual(_host("https://user:secret@example.org/a"), "")
         self.assertNotEqual(
             _canonical_url("http://example.org/a"),
             _canonical_url("https://example.org/a"),
@@ -416,7 +426,7 @@ class GeoObservationTests(unittest.TestCase):
                 value = json.loads(con.execute(
                     "SELECT projection_json FROM geo_observation_runs"
                 ).fetchone()[0])
-            self.assertEqual(value["contract_version"], "RASAI-GEO-OBSERVATION-7")
+            self.assertEqual(value["contract_version"], "RASAI-GEO-OBSERVATION-8")
             self.assertEqual(value["descriptive_overlap"]["status"], "DESCRIPTIVE_ONLY")
             self.assertEqual(value["descriptive_overlap"]["common_urls"], 0)
             self.assertEqual(value["url_overlap_count"], 0)
@@ -493,7 +503,7 @@ def test_v6_prefers_nearest_trusted_serp_even_if_later_record_is_outside_window(
             assert con.execute("SELECT count(*) FROM geo_observation_runs").fetchone()[0] == 1
             assert con.execute("PRAGMA foreign_key_check").fetchall() == []
         snapshot = json.loads(raw)
-        assert snapshot["contract_version"] == "RASAI-GEO-OBSERVATION-7"
+        assert snapshot["contract_version"] == "RASAI-GEO-OBSERVATION-8"
         assert snapshot["serp_observation_id"] == "S-CLOSE"
         assert snapshot["descriptive_overlap"]["status"] == "DESCRIPTIVE_ONLY"
         assert snapshot["descriptive_overlap"]["common_urls"] == 1
@@ -510,7 +520,7 @@ def test_v6_abstains_if_all_serp_timestamps_are_untrusted_or_outside_window():
     ) is None
 
 
-def _two_external_runs_for_v7(db: Path, *, ambiguous: bool = False) -> None:
+def _two_external_runs_for_v8(db: Path, *, ambiguous: bool = False) -> None:
     with closing(sqlite3.connect(db)) as con, con:
         con.executescript("""
             CREATE TABLE audits (audit_id TEXT PRIMARY KEY);
@@ -544,10 +554,10 @@ def _two_external_runs_for_v7(db: Path, *, ambiguous: bool = False) -> None:
         )
 
 
-def test_v7_picks_actual_utc_latest_external_run_before_persisting_snapshot():
+def test_v8_picks_actual_utc_latest_external_run_before_persisting_snapshot():
     with tempfile.TemporaryDirectory() as temp:
         db = Path(temp) / "audit.db"
-        _two_external_runs_for_v7(db)
+        _two_external_runs_for_v8(db)
         result_id = materialize_geo_observation(db, "AUD-ONE")
         assert result_id is not None
         assert result_id == materialize_geo_observation(db, "AUD-ONE")
@@ -561,7 +571,7 @@ def test_v7_picks_actual_utc_latest_external_run_before_persisting_snapshot():
             ).fetchone()[0])
             assert con.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert count == 1
-        assert payload["contract_version"] == "RASAI-GEO-OBSERVATION-7"
+        assert payload["contract_version"] == "RASAI-GEO-OBSERVATION-8"
         assert payload["perplexity_run_id"] == "PX-NEW"
         assert payload["search_status"] == "AUTH_ERROR"
         assert payload["source_count"] == 0
@@ -571,10 +581,10 @@ def test_v7_picks_actual_utc_latest_external_run_before_persisting_snapshot():
         assert "PX-OLD" not in str(payload)
 
 
-def test_v7_never_materializes_ambiguous_last_external_run_or_mutates_database():
+def test_v8_never_materializes_ambiguous_last_external_run_or_mutates_database():
     with tempfile.TemporaryDirectory() as temp:
         db = Path(temp) / "audit.db"
-        _two_external_runs_for_v7(db, ambiguous=True)
+        _two_external_runs_for_v8(db, ambiguous=True)
         original = db.read_bytes()
         assert materialize_geo_observation(db, "AUD-ONE") is None
         assert materialize_geo_observation(db, "AUD-ONE") is None
@@ -585,10 +595,10 @@ def test_v7_never_materializes_ambiguous_last_external_run_or_mutates_database()
             ).fetchone() is None
 
 
-def test_v7_snapshot_version_does_not_rewrite_older_geo_records():
+def test_v8_snapshot_version_does_not_rewrite_older_geo_records():
     with tempfile.TemporaryDirectory() as temp:
         db = Path(temp) / "audit.db"
-        _two_external_runs_for_v7(db)
+        _two_external_runs_for_v8(db)
         with closing(sqlite3.connect(db)) as con, con:
             con.execute("""
                 CREATE TABLE geo_observation_runs (
@@ -604,7 +614,7 @@ def test_v7_snapshot_version_does_not_rewrite_older_geo_records():
             con.execute(
                 "INSERT INTO geo_observation_runs VALUES (?,?,?,?,?,?,?,?)",
                 ("GEO-HISTORICAL", "AUD-ONE", "PX-OLD", None,
-                 "RASAI-GEO-OBSERVATION-6", "legacy-fingerprint",
+                 "RASAI-GEO-OBSERVATION-7", "historical-fingerprint",
                  '{"historical":true}', "2026-10-09T10:00:00+00:00"),
             )
         result_id = materialize_geo_observation(db, "AUD-ONE")
@@ -615,5 +625,5 @@ def test_v7_snapshot_version_does_not_rewrite_older_geo_records():
                 "WHERE analysis_id='GEO-HISTORICAL'"
             ).fetchone()
             count = con.execute("SELECT COUNT(*) FROM geo_observation_runs").fetchone()[0]
-        assert old == ('{"historical":true}', "RASAI-GEO-OBSERVATION-6")
+        assert old == ('{"historical":true}', "RASAI-GEO-OBSERVATION-7")
         assert count == 2
