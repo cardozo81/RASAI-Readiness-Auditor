@@ -77,7 +77,7 @@ em Windows e Linux; não testa provedores comerciais nem instrumentação
 real de navegadores.
 
 
-## Diagnóstico de elegibilidade em dados históricos — #311
+## Diagnóstico de elegibilidade em dados históricos - #311
 
 Para cada pasta AUD com SQLite presente, o comando aplica **abstenção**
 sem reprocessar ou sobrescrever evidências. A taxonomia de exclusão
