@@ -68,6 +68,7 @@ def test_eight_attempts_across_both_ledgers_are_counted_once(tmp_path):
     assert out["unknown_ai_intervals"] == 0
     assert out["provider_requests"] == out["audit_writes"] == 0
     assert out["non_ai_stages_measured"] is False
+    assert out["verified_aud_wall_duration_ms"] is None
     assert out["observed_http_request_sums_ms"] == {}
     assert out["http_request_telemetry"] == "NOT_VERIFIABLE"
     assert out["http_request_stage_wall_clock_available"] is False
@@ -174,4 +175,77 @@ def test_m21_incomplete_or_invalid_service_abstains_without_inventing_zero(tmp_p
     assert "PAGESPEED_INSIGHTS" not in out["observed_http_request_sums_ms"]
     assert out["unknown_ai_intervals"] == 0
     assert out["non_ai_stages_measured"] is False
+    assert (root / "audit.db").read_bytes() == before
+
+
+def test_audit_total_wall_time_requires_single_complete_physically_consistent_session(tmp_path):
+    root = _fixture(tmp_path)
+    with sqlite3.connect(root / "audit.db") as con:
+        con.execute(
+            "CREATE TABLE console_execution_projections("
+            "audit_id TEXT, duration_ms REAL, started_at TEXT, finished_at TEXT)"
+        )
+        con.execute(
+            "INSERT INTO console_execution_projections VALUES (?,?,?,?)",
+            (root.name, 812000.0, "2026-10-09T10:00:00-03:00",
+             "2026-10-09T10:13:32-03:00"),
+        )
+        con.execute(
+            "INSERT INTO console_execution_projections VALUES (?,?,?,?)",
+            ("AUD-FOREIGN", 999000.0, "2026-10-09T11:00:00+00:00",
+             "2026-10-09T11:16:39+00:00"),
+        )
+    before = (root / "audit.db").read_bytes()
+    report = inspect_audit_attempts(root)
+    assert report["verified_aud_wall_duration_ms"] == 812000.0
+    assert report["aud_wall_clock_scope"] == "SINGLE_VERIFIED_COMPLETE_CONSOLE_SESSION"
+    assert report["summed_ai_attempts_ms"] == 90000
+    assert "não pode" in report["aud_wall_clock_caveat"]
+    assert report["non_ai_stages_measured"] is False
+    assert (root / "audit.db").read_bytes() == before
+    with sqlite3.connect(root / "audit.db") as con:
+        con.execute(
+            "INSERT INTO console_execution_projections VALUES (?,?,?,?)",
+            (root.name, 5000.0, "2026-10-09T11:00:00+00:00",
+             "2026-10-09T11:00:05+00:00"),
+        )
+    after = inspect_audit_attempts(root)
+    assert after["verified_aud_wall_duration_ms"] is None
+    assert after["aud_wall_clock_scope"] == "NOT_VERIFIABLE"
+
+
+@pytest.mark.parametrize("variant", ["partial", "naive", "mismatch", "negative", "nonfinite"])
+def test_audit_wall_time_abstains_when_physical_or_logical_provenance_invalid(
+    tmp_path, variant,
+):
+    root = _fixture(tmp_path)
+    start, end, elapsed = (
+        "2026-10-09T10:00:00+00:00", "2026-10-09T10:01:00+00:00", 60000.0,
+    )
+    if variant == "naive":
+        start = "2026-10-09T10:00:00"
+    elif variant == "mismatch":
+        elapsed = 10000.0
+    elif variant == "negative":
+        elapsed = -10.0
+    elif variant == "nonfinite":
+        elapsed = float("inf")
+    with sqlite3.connect(root / "audit.db") as con:
+        con.execute(
+            "CREATE TABLE console_execution_projections("
+            "audit_id TEXT, duration_ms REAL, started_at TEXT, finished_at TEXT)"
+        )
+        con.execute(
+            "INSERT INTO console_execution_projections VALUES (?,?,?,?)",
+            (root.name, elapsed, start, end),
+        )
+        if variant == "partial":
+            con.execute(
+                "UPDATE audits SET completion_status='PARTIAL_RETRYABLE'"
+            )
+    before = (root / "audit.db").read_bytes()
+    outcome = inspect_audit_attempts(root)
+    assert outcome["verified_aud_wall_duration_ms"] is None
+    assert outcome["aud_wall_clock_scope"] == "NOT_VERIFIABLE"
+    assert outcome["non_ai_stages_measured"] is False
     assert (root / "audit.db").read_bytes() == before
