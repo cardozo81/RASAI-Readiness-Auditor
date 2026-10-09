@@ -45,16 +45,35 @@ Não há leitura autônoma de arquivos/tenant dentro do resolvedor.
 Sem evidência, `N/D`; o ID de snapshot não comprova sozinho
 relação com uma navegação real ou confiabilidade do producer.
 
-## Próximo componente pendente na issue #358
+## Integração aditiva no console e CAT-07 (ciclo PR de #358)
 
-Esta entrega é o **núcleo determinístico/focado** da issue, ainda
-não o fluxo de edição transacional. A inclusão das duas seleções
-no console, visibilidade em "6. Todas as configurações",
-persistência INI/env por origem/precedência, congelamento seguro
-do modo da AUD e sua renderização na seção CAT-07 requerem
-projeto aditivo que preserve configuração corrente/importação,
-tests de golden HTML, idempotência e versões antigas.
-Não declarar essas partes como implementadas até serem testadas.
+O console agora oferece dois eixos de prévia: arquitetura declarada
+(AUTO/SSR/CSR_SPA/HYDRATED/MIXED/UNKNOWN) e calibração
+(CUSTOM/DYNATRACE_GUIDED/DYNATRACE_IMPORTED). Esses dois campos são
+metadados não executores no `State`, no INI e no registro de variáveis
+do menu "6. Todas as configurações". O modo Guided só altera três
+valores de Load já suportados após confirmação explícita. Custom
+mantém KPM e thresholds do usuário; Imported preserva o parser e
+a credencial/arquivo existente. A operação de cancelamento ou erro
+restaura também essas opções e os campos da edição em andamento.
+
+A seção CAT-07 recebe um *advisory read-only* que consulta
+exclusivamente a `audit.db` da AUD em apresentação: configuração
+M25 persistida e classificação M6 vinculada a `page_id/snapshot_id`.
+Se existir múltipla arquitetura por capturas, ausência de amostra,
+configuração antiga sem snapshot ou modo não congelado no momento
+da auditoria, declara N/D. Os dados atuais do console ou INI da
+máquina **nunca** são adotados retroativamente para relatórios
+históricos. Não modifica contagens, fronteiras, fórmulas, scores,
+evidências ou manifests dos motores homologados.
+
+**Limite explícito**: a seleção do modo/arquitetura do console ainda
+não integra automaticamente o snapshot canônico `audit_execution_configurations`
+de novas AUDs. A projeção só identifica o modo executado quando houver
+metadados comprovadamente congelados. O fechamento da issue exige
+validar o percurso completo até o snapshot de nova AUD e seus golden
+reports; não forçar metadados em JSON de M25 se isso modificar IDs/hashes
+ou coletores.
 
 Fontes do contrato RUM, diferentes do RASAi Synthetic Apdex:
 https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/web-applications/additional-configuration/configure-apdex-web
