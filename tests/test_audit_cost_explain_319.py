@@ -73,3 +73,24 @@ def test_explicit_zero_value_is_covered_and_no_other_aud_leaks(tmp_path):
         observed_total=0, priced_attempts=1, total_attempts=1
     )
     assert db.read_bytes() == original
+
+
+def test_optional_directed_attempts_prevent_false_total_forecast_comparison():
+    forecast = {"expected_cost": .06, "likely_low": .01, "likely_high": .2}
+    html = forecast_readout(
+        forecast, observed_total=.15, priced_attempts=8,
+        total_attempts=8, optional_attempts=1,
+    )
+    assert "análise complementar/direcionada" in html
+    assert "dentro da faixa histórica provável" not in html
+    assert "Desvio frente à estimativa pontual" not in html
+
+
+def test_mixed_currency_does_not_claim_forecast_range():
+    html = forecast_readout(
+        {"expected_cost": .1, "likely_low": .05, "likely_high": .3},
+        observed_total=.2, priced_attempts=2, total_attempts=2,
+        comparable_currency=False,
+    )
+    assert "Moedas dos custos" in html
+    assert "dentro da faixa histórica provável" not in html
