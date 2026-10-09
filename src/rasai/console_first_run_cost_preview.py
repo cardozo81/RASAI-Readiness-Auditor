@@ -18,7 +18,7 @@ from rasai.cost_forecast import CostForecast, forecast_local_cost
 _DECLINED: set[int] = set()
 
 
-def _render_fallback(forecast: CostForecast, exposure: ExposureEstimate) -> None:
+def _render_fallback(forecast: CostForecast, exposure: ExposureEstimate, *, state: Any | None = None) -> None:
     print("\n" + title_text("PRÉVIA FINANCEIRA ANTES DA EXECUÇÃO - SEM HISTÓRICO COMPARÁVEL"))
     print("-" * 100)
     print(
@@ -49,6 +49,20 @@ def _render_fallback(forecast: CostForecast, exposure: ExposureEstimate) -> None
     )
     for note in forecast.notes:
         print(paint(f"Motivo histórico     : {note}", DIM))
+    if state is not None:
+        from rasai.audit_duration_forecast_319 import (
+            forecast_local_duration, format_duration_preview,
+        )
+        from rasai.console_cost import _configured_page_range
+
+        min_pages, max_pages = _configured_page_range(state)
+        print("\n" + title_text("PREVISÃO DE DURAÇÃO — HISTÓRICO LOCAL"))
+        if min_pages < 1 or min_pages != max_pages:
+            print(paint("Previsão física N/D: número de páginas do plano não está definido.", DIM))
+        else:
+            timing = forecast_local_duration(state, target_pages=min_pages)
+            for line in format_duration_preview(timing):
+                print(paint(line, DIM))
     print(
         paint(
             "Nenhuma chamada tarifável foi disparada nesta etapa de prévia.",
@@ -81,7 +95,7 @@ def install(console_module: ModuleType) -> None:
             state.operation = "LOCAL:COST_EXPOSURE_PREVIEW"
             state.error = ""
             console_module.render_header(state)
-            _render_fallback(forecast, exposure)
+            _render_fallback(forecast, exposure, state=state)
             action = _financial_execution_action(state, console_module)
 
             if action == "A":
