@@ -1,7 +1,7 @@
 # #311 - GEO longitudinal: inventário observacional conservador
 
 Esta entrega é uma fase independente, read-only e opt-in de comparação
-de snapshots GEO v5 já persistidos em AUDs distintas. Ela não altera
+de snapshots GEO v5/v6 já persistidos em AUDs distintas. Ela não altera
 `CONS-*`, não materializa nova auditoria, não chama SERP/Perplexity/IA,
 não executa RPR, não modifica pontuação nem cria relatório
 consolidado novo. Não pressupõe que presença em Search API
@@ -94,3 +94,19 @@ de exclusão ficou mais específica. O motivo reflete apenas a
 **primeira condição impeditiva**, não um diagnóstico completo de
 todas as tabelas da AUD. A saída mantém o contrato JSON advisory v1
 e o contador de zero escritas/zero chamadas externas.
+
+
+## Admissão de snapshots GEO v6 - #304/#311
+
+Novas AUDs podem materializar `RASAI-GEO-OBSERVATION-6`. A nova
+metodologia escolhe o SERP observado e textualmente atribuível cuja
+data/hora validada está mais próxima da requisição Search API
+(na janela <=24h), em vez de preferir sempre a linha SERP mais
+recente, que pode estar fora da janela. Se não houver amostra
+elegível, taxas SERP x Perplexity continuam `N/D`.
+
+O comando longitudinal aceita snapshots **v5 e v6** mas usa
+`method_version` como chave de agrupamento. Duas observações
+da mesma URL, mesmo mercado e query com versões diferentes
+continuam separadas e `trend_conclusion=N/D`. Nenhuma equivalência
+de mercado/idioma/dispositivo entre motores foi presumida.
