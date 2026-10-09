@@ -9,6 +9,7 @@ on:
       - 'src/rasai/geo_observation.py'
       - 'tests/test_geo_catalog_context_308.py'
       - 'tests/test_geo_lifecycle_309.py'
+      - 'tests/test_geo_post_audit_complement_318.py'
       - 'tests/test_geo_ai.py'
       - 'tests/test_geo_observation.py'
       - '.github/workflows/geo-hardening-targeted.yml'
@@ -30,4 +31,4 @@ jobs:
         run: |
           python -m pip install -e . pytest
           python -m compileall -q src/rasai/geo_catalog_context.py src/rasai/catalog_report_site.py src/rasai/geo_observation.py src/rasai/geo_ai.py
-          python -m pytest -q tests/test_geo_catalog_context_308.py tests/test_geo_lifecycle_309.py tests/test_geo_ai.py tests/test_geo_observation.py tests/test_geo_report.py tests/test_catalog_report_site.py
+          python -m pytest -q tests/test_geo_catalog_context_308.py tests/test_geo_lifecycle_309.py tests/test_geo_post_audit_complement_318.py tests/test_geo_ai.py tests/test_geo_observation.py tests/test_geo_report.py tests/test_catalog_report_site.py
