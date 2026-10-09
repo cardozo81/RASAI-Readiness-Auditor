@@ -15,7 +15,7 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Sequence
 
-from rasai.geo_observation import _canonical_url
+from rasai.geo_observation import _canonical_url, _canonical_url_v7
 from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
 
 _CONTRACTS = frozenset({
@@ -197,7 +197,13 @@ def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
     ):
         return None, "GEO_QUERY_ATTRIBUTION_UNPROVEN"
     uri = target.get("target_url")
-    exact = _canonical_url(uri) if isinstance(uri, str) else ""
+    # Version-specific normalization must not reinterpret an immutable
+    # historical v5/v6/v7 cohort under the stricter v8 URL identity.
+    identity = (
+        _canonical_url if stored["contract_version"] == "RASAI-GEO-OBSERVATION-8"
+        else _canonical_url_v7
+    )
+    exact = identity(uri) if isinstance(uri, str) else ""
     if (
         not exact
         or target.get("status") not in {
