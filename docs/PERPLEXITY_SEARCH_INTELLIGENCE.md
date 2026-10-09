@@ -623,3 +623,33 @@ As rates continuam DESCRIPTIVE_ONLY para query simples efetivamente
 coincidente; multi-query ou clocks nao demonstraveis continuam N/D.
 Sem chamada extra a Perplexity ou SERP, mudanca nos coletores,
 indices homologados, score GEO, Apdex ou storage de capturas.
+
+
+### Segurança do lifecycle GEO: reserva, isolamento e reuso (#306/#309/#318)
+
+A rotina `materialize_geo_observation` abre somente um `audit.db` regular,
+preexistente e nao simbolico, em modo SQLite `rw` sem criacao implicita.
+Um caminho inexistente retorna N/D e nao cria um banco vazio, artefato,
+snapshot ou solicitacao de provider.
+
+O complemento externo vincula `audit_id` e identidade da AUD ao workspace
+derivado. Antes da reserva comercial, o executor e o inventario rejeitam
+`.rasai-geo-supplements` ou seu subdiretorio da AUD caso estejam ligados por
+symlink. A validacao de arquivos e do ledger continua obrigatoria. Um diretorio
+de destino fora do escopo nao pode receber evidencias ou autorizacao de custo
+por um caminho simbolico.
+
+Na interpretacao GEO por IA canonica, a mesma combinacao de AUD, Search run,
+modelo selecionado, versao do contrato e fingerprint da entrada tem uma
+reserva persistida `PENDING_UNCERTAIN` confirmada em transacao **antes**
+de `provider.analyze`. Sucesso ou indisponibilidade substituem esse estado
+apos a resposta. Se o processo parar no meio de uma chamada possivelmente
+faturavel, um novo clique com o mesmo fingerprint encontra a reserva e nao
+envia outro pedido automaticamente. Este contrato e de **at-most-once** do
+RASAi, nao prova de idempotencia comercial no fornecedor. Auditoria/replay/HTML
+apenas exibem a incerteza e orientam consulta do ledger antes de nova
+autorizacao. Nenhuma reserva pendente significa que um custo foi comprovado.
+
+Os testes sao locais e isolados, com interrupcao simulada e symlinks
+adversariais; nao contratam IA ou Perplexity, nao alteram RPR ou os motores
+homologados e nao migram auditorias anteriores.
