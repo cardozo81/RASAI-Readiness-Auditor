@@ -67,13 +67,17 @@ máquina **nunca** são adotados retroativamente para relatórios
 históricos. Não modifica contagens, fronteiras, fórmulas, scores,
 evidências ou manifests dos motores homologados.
 
-**Limite explícito**: a seleção do modo/arquitetura do console ainda
-não integra automaticamente o snapshot canônico `audit_execution_configurations`
-de novas AUDs. A projeção só identifica o modo executado quando houver
-metadados comprovadamente congelados. O fechamento da issue exige
-validar o percurso completo até o snapshot de nova AUD e seus golden
-reports; não forçar metadados em JSON de M25 se isso modificar IDs/hashes
-ou coletores.
+**Proveniência histórica do modo:** o snapshot canônico de configuração
+já implementado em `audit_configuration_reuse_console._export_settings`
+serializa a seção INI `settings.synthetic_apdex_experience` no handoff
+filho de cada **nova** AUD, antes da finalização e do registro de
+hash `audit_execution_configurations`. A projeção CAT-07 agora lê
+`architecture` e `profile_mode` desse snapshot apenas quando o
+hash persistido é exatamente igual ao hash recalculado pelo contrato
+canônico. Se nenhum snapshot existir, for legado ou tiver hash
+inconsistente, o modo fica N/D. O relatório não lê o INI de outra
+auditoria nem altera os hashes/configurações de execuções existentes.
+Testes de contrato cobrem presença e abstenção do modo congelado.
 
 Fontes do contrato RUM, diferentes do RASAi Synthetic Apdex:
 https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/web-applications/additional-configuration/configure-apdex-web
