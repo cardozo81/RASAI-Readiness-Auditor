@@ -15,7 +15,7 @@ from pathlib import Path
 import sqlite3
 from urllib.parse import urlsplit
 
-from rasai.geo_catalog_context import _last_temporally_verified, _UNVERIFIABLE
+from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
 
 
 def _host(url: str) -> str:
