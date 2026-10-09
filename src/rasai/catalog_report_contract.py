@@ -36,6 +36,7 @@ _CATALOG_PAGES = tuple(
 )
 
 _STRATEGIC_PAGES = (
+    CatalogReportPage("geo", "geo.html", "GEO — Inteligência competitiva", "Estratégia"),
     CatalogReportPage(
         "directed-analysis",
         "directed-analysis.html",

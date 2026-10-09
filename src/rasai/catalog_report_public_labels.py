@@ -258,6 +258,7 @@ PUBLIC_VALUE_LABELS: dict[str, str] = {
     "PUBLIC_WEB_DESTINATION_BLOCKED": "Destino público bloqueado pela política de aquisição",
     "SERP_OBSERVATION_UNAVAILABLE": "Observação de SERP indisponível",
     "CLASSIFICATION_ONLY": "Somente classificação",
+    "DESCRIPTIVE_ONLY": "Sobreposição de URLs apenas descritiva",
     "NOT_FOUND_WITHIN_DEPTH": "Não encontrado na profundidade coletada",
     "FOUND": "Encontrado na profundidade coletada",
     "ORGANIC_CANDIDATE": "Candidato orgânico",

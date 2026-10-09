@@ -97,6 +97,10 @@ def test_perplexity_configuration_has_its_own_search_intelligence_context() -> N
     )
     specs = {spec.name: spec for spec in facade.refresh_specs()}
     assert "PERPLEXITY_API_KEY" in specs
+    assert "RASAI_PERPLEXITY_ENABLED" in specs
+    assert specs["RASAI_PERPLEXITY_ENABLED"].default == "true"
+    assert specs["RASAI_PERPLEXITY_ENABLED"].sensitive is False
+    assert context_label_for_name("RASAI_PERPLEXITY_ENABLED") == "Perplexity Search Intelligence / Ativação"
     assert specs["PERPLEXITY_API_KEY"].sensitive is True
     assert "Perplexity" in ui_catalog.owner_for(specs["PERPLEXITY_API_KEY"])
 

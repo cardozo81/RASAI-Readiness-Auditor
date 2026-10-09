@@ -7,6 +7,8 @@ those data finalizers complete. No ``<AUD>/report/`` projection is part of this 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+import sqlite3
 import json
 from typing import Any, Mapping, Sequence
 
@@ -90,6 +92,20 @@ def materialize_catalog_report_projection(
     from rasai.catalog_report_site import catalog_report_is_fresh, materialize_catalog_report_site
 
     errors: list[str] = []
+    # Derive advisory evidence once from the persisted provider observation;
+    # RPR/complement never re-queries a paid API during report materialization.
+    try:
+        from rasai.geo_observation import materialize_geo_observation
+        materialize_geo_observation(Path(workspace.database), audit_id)
+    except Exception:
+        # Optional analytics must not demote previously valid catalogs.
+        pass
+    try:
+        from rasai.geo_extraction_quality import materialize_extraction_quality
+        materialize_extraction_quality(Path(workspace.root))
+    except (OSError, ValueError, UnicodeError):
+        # Advisory sidecar cannot change successful canonical extraction.
+        pass
     try:
         materialize_catalog_report_site(audit_id=audit_id, workspace=workspace)
     except Exception as exc:

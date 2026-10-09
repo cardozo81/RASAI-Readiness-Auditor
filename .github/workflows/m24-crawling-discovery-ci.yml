@@ -10,6 +10,7 @@ on:
       - 'src/rasai/report_navigation.py'
       - 'src/rasai/public_report_safety.py'
       - 'tests/test_m24_crawling_discovery.py'
+      - 'tests/test_m24_architecture_320.py'
       - 'tests/test_public_crawling_report_contract.py'
       - 'tests/test_m2_discovery_http.py'
       - 'docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md'
@@ -32,6 +33,7 @@ on:
       - 'src/rasai/report_navigation.py'
       - 'src/rasai/public_report_safety.py'
       - 'tests/test_m24_crawling_discovery.py'
+      - 'tests/test_m24_architecture_320.py'
       - 'tests/test_public_crawling_report_contract.py'
       - 'tests/test_m2_discovery_http.py'
       - 'docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md'
@@ -81,6 +83,7 @@ jobs:
         run: |
           python -m pytest -q \
             tests/test_m24_crawling_discovery.py \
+            tests/test_m24_architecture_320.py \
             tests/test_public_crawling_report_contract.py \
             tests/test_m2_discovery_http.py
       - name: Directly affected integration regressions

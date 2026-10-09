@@ -69,6 +69,32 @@ Fontes oficiais revalidadas em 04/10/2026:
 
 ## Request
 
+### Resolução automática do escopo - #317
+
+O RASAi, **não o Playground**, constrói o payload de `POST /search` no instante de execução da AUD. A solicitação Perplexity continua opt-in **por queries na AUD**, independente de `RASAI_PERPLEXITY_ENABLED=true`. Seleção WEB/FAST permanece escopo da auditoria. Não existe pesquisa implícita, OCR nem alteração do SERP, de scoring ou da orquestração IA.
+
+Configurações adicionais **não secretas**, disponíveis no catálogo canônico (menus 5 e 6), editáveis e persistíveis no mesmo `rasai-console.ini`:
+
+| Variável | Campo enviado à Search API | Padrão |
+| --- | --- | --- |
+| `RASAI_PERPLEXITY_MAX_RESULTS` | `max_results` (1..20 WEB/FAST) | 10 |
+| `RASAI_PERPLEXITY_COUNTRY` | `country` ISO 3166-1 alpha-2 | omitido |
+| `RASAI_PERPLEXITY_SEARCH_LANGUAGE_FILTER` | `search_language_filter` (ISO 639-1 separados por vírgula, até 20) | omitido |
+| `RASAI_PERPLEXITY_SEARCH_DOMAIN_FILTER` | `search_domain_filter` (domínios sem URL, até 20) | omitido |
+| `RASAI_PERPLEXITY_SEARCH_RECENCY_FILTER` | `search_recency_filter` (hour/day/week/month/year) | omitido |
+| `RASAI_PERPLEXITY_SEARCH_AFTER_DATE` | `search_after_date_filter` (MM/DD/YYYY) | omitido |
+| `RASAI_PERPLEXITY_SEARCH_BEFORE_DATE` | `search_before_date_filter` (MM/DD/YYYY) | omitido |
+| `RASAI_PERPLEXITY_LAST_UPDATED_AFTER` | `last_updated_after_filter` (MM/DD/YYYY) | omitido |
+| `RASAI_PERPLEXITY_LAST_UPDATED_BEFORE` | `last_updated_before_filter` (MM/DD/YYYY) | omitido |
+| `RASAI_PERPLEXITY_MAX_CONTENT_UNITS` | `max_tokens` (1..1.000.000) | omitido |
+| `RASAI_PERPLEXITY_MAX_CONTENT_UNITS_PER_PAGE` | `max_tokens_per_page` (1..1.000.000) | omitido |
+
+**Precedência:** quando a região SERP da AUD identifica explicitamente Brasil, a chamada recebe `country=BR` independentemente de país de override; usa `search_language_filter=["pt"]` somente se não houver filtro de idiomas explícito. Sem região brasileira explícita, `RASAI_PERPLEXITY_COUNTRY` pode definir um país ISO de duas letras. **Nenhum país é inferido pelo ccTLD**; não se restringem domínios `.br` nem datas por padrão. O resultado pode incluir fontes estrangeiras, tratadas como evidências externas, não prova de localização.
+
+O editor valida valores e o adapter revalida *antes da rede*: entrada inválida aborta apenas a pesquisa opcional (sem custo), preservando estado e evidências da AUD. O hash SHA-256 de `request_payload_hash` é calculado sobre o **JSON efetivamente enviado**; não contém credencial. O hash prova identidade dos bytes da solicitação, não reconstitui sozinho os parâmetros de uma execução antiga após mudança de INI. Versões históricas permanecem legíveis; não há alteração de esquema nem atualização retroativa de snapshots.
+
+Documentação de campos e limites: https://docs.perplexity.ai/api-reference/search-post.
+
 A integração suporta:
 
 - uma query;
@@ -235,7 +261,7 @@ No CAT-05, a ação **P. Perplexity externa** abre o pedido da próxima execuç�
 
 Queries e `WEB/FAST` são inputs da próxima execução. Eles não são convertidos em variáveis de ambiente e não são gravados como secrets/configuração reutilizável no `rasai-console.ini`.
 
-`PERPLEXITY_API_KEY` é a única variável de ambiente consumida pelo runtime Perplexity atual. O editor é o mesmo usado pelo catálogo global: entrada mascarada, sessão e persistência/remoção explícita em Windows/User; o valor nunca entra no INI.
+`PERPLEXITY_API_KEY` é a única **credencial secreta** consumida pelo runtime Perplexity. Flag de ativação e filtros opcionais são configurações não secretas. O editor é o mesmo usado pelo catálogo global: entrada mascarada, sessão e persistência/remoção explícita em Windows/User; o valor nunca entra no INI.
 
 Em **Integrações e serviços**, o diagnóstico Perplexity é `CONFIGURATION_ONLY`: confirma apenas a presença/configuração local e **não executa `POST /search`**. Isso evita consumir request comercial/quota apenas para testar a integração. A validade funcional final da credencial é observada somente quando uma pesquisa Perplexity é realmente solicitada.
 
@@ -292,3 +318,63 @@ Crédito, quota, saldo, rate limit, plano ou indisponibilidade comercial isolado
 9. core determinístico permanece invariável.
 
 Qualquer defeito funcional posterior em main deve virar bug específico.
+
+
+## Evolução GEO (#301, implementação em andamento)
+
+`RASAI_PERPLEXITY_ENABLED = true` é o **padrão do produto** que permite consultas explícitas à Perplexity Search API. `true` não dispara consultas automaticamente: a AUD ainda precisa de queries solicitadas e credencial `PERPLEXITY_API_KEY` configurada. `false` (`0`/`off`/`no`) impede chamadas externas e preserva a credencial e as queries existentes. A flag ausente preserva a compatibilidade anterior; valor inválido impede requisições por segurança. O `EnvironmentSpec` canônico registra o valor não secreto em `rasai-console.ini`; preferências `false` explícitas não são sobrescritas pelo baseline `true` no reinício. Restaurar padrões globais redefine `true`, mas não remove a chave quando escolhida a preservação de credenciais. CAT-05, Integrações e serviços e Todas as configurações expõem o controle. Diagnósticos locais permanecem sem consumo comercial.
+
+A nova superfície transversal `geo.html` é advisory e parte do `report-catalog` da AUD individual. Lê apenas evidências persistidas; não substitui CAT-05, não altera índice e não comprova answer inclusion ou citation inclusion em respostas generativas. Comparações de URLs entre SERP e Perplexity somente têm semântica direta quando a Search API recebeu **uma única consulta** e existe observação SERP live válida equivalente. Requests multi-query não oferecem, no contrato atual, vínculo individual fonte→query: apresentar indisponibilidade da comparação em vez de inventar pareamento.
+
+Apenas evidências rastreáveis podem fundamentar recomendações; snippets de concorrentes não comprovam conteúdo integral. A interpretação deve separar explicitamente observação, hipótese e ação de boas práticas. Evolução longitudinal para CONS-* fica no gap #311 e fora da presente implementação.
+
+**Estado:** documento descreve projeto incremental; a implementação não deve ser considerada homologada até CI, testes de persistência/RPR, integridade e fechamento das issues-filhas #302-#310.
+
+
+### Snapshot GEO derivado e reuso
+
+A camada adicional `geo_observation_runs` mantém uma projeção `RASAI-GEO-OBSERVATION-1` vinculada a `audit_id`, `perplexity_run_id`, observação SERP comparável (quando disponível), fingerprint SHA-256 da entrada, contrato e timestamp de materialização. O ID é determinístico e a gravação é idempotente: nova evidência produz novo snapshot; a mesma evidência não é duplicada. Essa projeção não participa de scoring nem muda tabelas de origem.
+
+Depois de uma pesquisa Perplexity explicitamente executada pelo console e persistida com sucesso, o adapter GEO cria o snapshot e utiliza a materialização canônica do relatório existente para refletir os dados. Falhas nessa projeção opcional permanecem advisory. RPR e complementos continuam sujeitos às regras existentes de snapshot e aquisição: rematerialização HTML lê o estado persistido e não chama a API. Se não existir snapshot compatível, a seção deve apresentar indisponibilidade em vez de refazer a observação ou reinterpretar o histórico.
+
+A comparação é estritamente observacional: mesmo quando a consulta coincide, SERP e Perplexity podem diferir em momento, mercado, provider, profundidade e normalização. URLs recuperadas não são citações em respostas. As hipóteses de negócio/semântica são ações para avaliação humana, não causalidade comprovada.
+
+
+### Interpretação GEO por IA canônica (#306)
+
+O menu da Perplexity no CAT-05 oferece a opção explícita **"Síntese GEO por IA canônica nesta AUD"**, desabilitada por padrão e separada da pesquisa externa. A pesquisa Perplexity somente solicita requisições quando o operador informou consultas, ativação e credencial aplicáveis. A síntese por IA somente considera fontes persistidas e uma consulta única com provenance rastreável. A análise não lê automaticamente o conteúdo integral dos concorrentes.
+
+O consumidor `rasai.geo_ai` reutiliza o contrato `CompetitiveAiInput`/`CompetitiveAiEvidence` e o builder já instalado da orquestração competitiva canônica. Não existe cliente HTTP privado, fallback de provider ou motor próprio de preços/retries. Caso a orquestração canônica não esteja instalada, configurada ou elegível, a síntese é indicada como indisponível; a AUD e CAT-05 não são rebaixados.
+
+As interpretações bem-sucedidas e tentativas derivadas são persistidas em `geo_ai_interpretations`, vinculadas a `audit_id` e `perplexity_run_id`, com hash de entrada, provider, modelo, versões de prompt, status e oportunidades com IDs de evidência. Antes de nova tentativa, o consumidor verifica o mesmo fingerprint e seleção: uma análise já persistida é reutilizada sem nova chamada faturável. RPR, complemento e geração HTML não executam esse consumidor, apenas projetam os dados persistidos. O report `geo.html` diferencia a interpretação GEO específica de sínteses competitivas pré-existentes em SERP.
+
+A exposição a texto de fonte externa é limitada a metadados e snippets, tratados como evidência observacional não confiável. A saída não modifica score, CAT, SARI, SCORE-GEO, indexação nem mecanismo de IA. Recomendações precisam ser validadas pelo analista humano e não são prova de inclusão em respostas generativas.
+
+
+### Qualidade de extração e benchmark competitivo (#313)
+
+A projeção de relatório inspeciona os `main_content.txt` já persistidos pela extração determinística, sem executá-lo novamente. Textos extremamente curtos dominados por rótulos usuais de navegação podem receber o diagnóstico aditivo `NAVIGATION_DOMINATED_SUSPECTED` em `artifacts/geo-extraction-quality.json`. Essa evidência é **heurística**, não representa erro confirmado do crawler, e não modifica nenhum snapshot, pontuação ou classificação de catálogo. A seção GEO apresenta o alerta e a referência ao arquivo para inspeção humana do DOM.
+
+No comparador competitivo determinístico, um concorrente observado com HTTP 200 mas **sem qualquer texto de corpo, título, descrição, heading ou JSON-LD** continua com o status de coleta observado, mas não integra as medianas/gaps. Se nenhum concorrente possuir atributos analisáveis, a comparação não é consolidada. A opção elimina referências competitivas vazias sem alterar o motor de coleta nem apagar a resposta original.
+
+Para consultas Perplexity com região SERP explicitamente brasileira, são encaminhados `country=BR` e `search_language_filter=pt`; esses filtros não certificam geolocalização de cada fonte. Fontes com TLD de outros países são preservadas e sinalizadas apenas para revisão de pertinência.
+
+
+### Correlação temporal entre DOM e screenshot (#315)
+
+O motor de captura existente obtém o DOM serializado e, posteriormente, o screenshot do mesmo contexto de navegação. Quando o estado materializado de `capture_quality` já for `INCOMPLETE` e houver screenshot, uma única leitura adicional de `page.content()` após a imagem gera a metainformação `screenshot_dom_correlation`: versão do contrato, SHA-256 do HTML congelado e do DOM observado após screenshot, comprimento textual de `<main>` nos dois instantes e delta. A observação é local, não navega, não consulta providers e não substitui arquivos, hashes originais, pontuações nem as regras da captura renderizada. Para capturas `READY`, screenshots não capturados ou falhas no probe, não há impacto operacional: o estado será `NOT_APPLICABLE` ou `UNAVAILABLE`.
+
+Uma divergência temporal positiva é sinal observacional de conteúdo que apareceu após o primeiro DOM, **não** comprovação de que uma captura visual seja legível/indexável por crawler. O diagnóstico GEO de confiabilidade apresenta os artefatos de extração e de HTML/screenshot associados por SNP, sem OCR, e precisa de análise contextual antes de recomendar qualquer correção técnica.
+
+
+## Complemento externo GEO de auditoria concluida (#318 / #323)
+
+No menu de parametros CAT-05 > Perplexity, a opcao **6** permite propor a copia de termos SERP para Perplexity, mas somente apos confirmacao afirmativa. SERP e Perplexity nunca compartilham intencao automaticamente.
+
+A opcao **7** aceita o caminho de uma **AUD COMPLETE existente** e solicita queries, tipo WEB/FAST, pais, `intent_id` exclusivo e autorizacao expressa para **uma** consulta Search API potencialmente faturavel. A consulta e o custo nao sao disparados pelo toggle da integracao nem pela existencia de chave. A extensao nao executa novamente captura, extracao, SERP, PSI, IA canonica nem Apdex.
+
+O suplemento fica fora da pasta original da AUD, em `<audits-root>/.rasai-geo-supplements/<audit_id>/<intent-hash>/`. Contem `intent.json`, `result.json`, `supplement.html`, `evidence/audit.db` e `manifest.json` proprios. Um mesmo `intent_id` e escopo retorna o pacote existente sem novo HTTP. Intencao iniciada e nao finalizada **nao deve ser reenviada automaticamente**, pois timeout de rede pode ter faturamento desconhecido. Novo `intent_id` configura uma nova requisicao que exige novo aceite.
+
+Antes da extensao, sao verificadas a situacao `COMPLETE`, a integridade SQLite/FK e o pacote `report-catalog` original. O pacote e manifestos **originais nao sao atualizados**; o suplemento externo apresenta proveniencia e hash de vinculo. Resultados posteriores nao sao promovidos ao score ou reclassificados como observacoes historicas da AUD. O contrato da fronteira e o estudo de reuso estao em [ADR_PERPLEXITY_SEARCH_REUSE_323.md](ADR_PERPLEXITY_SEARCH_REUSE_323.md).
+
+**Limite:** executar a consulta real ainda depende de autorizacao humana explicita no console; a suite automatizada usa transporte fake sem consumo de API paga.

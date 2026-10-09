@@ -100,13 +100,14 @@ A lista de superfícies audit-owned é definida por `src/rasai/catalog_report_co
 | remediações | `cat-09.html` | ações técnicas/editoriais rastreáveis |
 | segurança passiva | `cat-10.html` | postura passiva, vulnerabilidades conhecidas e remediações |
 | análise direcionada | `directed-analysis.html` | síntese estratégica sobre evidências e ações persistidas |
+| inteligência GEO observacional | `geo.html` | fontes Perplexity persistidas e sobreposição SERP quando comparável; sem prometer citação em IA |
 | contexto de captura | `capture-context.html` | escopo URL/dispositivo e topologia da captura |
 | evidências da execução | `execution-evidence.html` | fulfillment, estados de execução e integridade operacional |
 | IA e integrações | `ai-integrations.html` | tentativas, providers, modelos, tokens, custos e integrações |
 | método de pontuação | `methodology.html` | Método de Pontuação de Prontidão, contrato técnico `SCORE-GEO-004`, pesos, critérios críticos e rastreabilidade |
 | índices e métricas | `metrics.html` | inventário transversal de métricas persistidas |
 
-Não existem, no contrato audit-owned atual, páginas independentes `mobile.html`, `desktop.html`, `standards.html`, `ai-visibility.html`, `observability.html`, `quality.html` ou `references.html`. Os respectivos dados são projetados nas páginas responsáveis acima quando persistidos. Relatórios comparativos e temporais, como Monitoring, Fix Verification e Evidence Timeline, permanecem artefatos standalone fora de `report-catalog/`.
+Não existem, no contrato audit-owned atual, páginas independentes `mobile.html`, `desktop.html`, `standards.html`, `ai-visibility.html`, `observability.html`, `quality.html` ou `references.html`. `geo.html` é a superfície transversal observacional da AUD, distinta de um índice oficial dos buscadores. Os respectivos dados são projetados nas páginas responsáveis acima quando persistidos. Relatórios comparativos e temporais, como Monitoring, Fix Verification e Evidence Timeline, permanecem artefatos standalone fora de `report-catalog/`.
 
 `index.html` pode repetir sínteses necessárias à leitura executiva, mas não funde domínios complementares em um score comum.
 
@@ -355,3 +356,12 @@ Estados visuais específicos do domínio prevalecem sobre decoradores genéricos
 O catálogo de superfícies e a validação de completude usam `REPORT-CONTRACT-002`. `methodology.html` é a única superfície canônica de metodologia; a versão metodológica pertence a `scoring_version`, não ao filename. A regra estrutural vigente é: **toda superfície canônica possui HTML no mini-site final; dados e capacidades continuam opcionais conforme seus próprios contratos**.
 
 Detalhes complementares: [OUTPUTS_AND_ARTIFACTS.md](OUTPUTS_AND_ARTIFACTS.md), [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md), [SCORING_GUIDE.md](SCORING_GUIDE.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md), [SCORE_GEO_004.md](SCORE_GEO_004.md) e [CAPTURE_CONTEXT_MODEL.md](CAPTURE_CONTEXT_MODEL.md).
+
+
+## Cronologia das tentativas e prontidao de conteudo (#319 / #321 / #322)
+
+Em `metrics.html`, quando existem registros, a tabela adicional de cronologia de IA agrega, em modo **read-only**, `ai_provider_attempts` e `content_remediation_attempts`. Distingue soma de duracoes, uniao de intervalos efetivos (retirando sobreposicoes), custos estimados apos uso, valores observados por provider e dados sem precificacao. A soma de duracoes **nao** equivale ao tempo de parede da auditoria; tarefas simultaneas se sobrepoem. A tabela nao substitui previsao economica ex ante ou fatura, nem mede sozinha tempos de navegador, PSI, Apdex ou geracao de relatorio.
+
+No console, a cronologia e apresentada como observacao independente apos a AUD. Sua ausencia nao indica zero custo quando os registros estao incompletos. Chamadas Search API externas e analises direcionadas podem ser posteriores a conclusao inicial e devem ter temporalidade propria.
+
+O estudo [APDEX_CONTENT_READINESS_INVESTIGATION_321.md](APDEX_CONTENT_READINESS_INVESTIGATION_321.md) demonstra a diferenca entre evento `load`, tarefa de experiencia sintetica e materializacao de conteudo primario em uma SPA. Uma leitura de arquitetura `CSR_SPA`, `HYDRATED` ou `MIXED` **nao** modifica Apdex, pontuacao ou qualquer serie historica. Existe classificador advisory experimental `APP_PRIMARY_CONTENT_READINESS` com checkpoints monotônicos da **mesma amostra e contexto**, censura, opt-in e exclusoes explicitas. A sonda de navegador ainda nao esta integrada aos gateways homologados, portanto o relatorio **nao** atribui duracao ficticia de prontidao a amostras existentes.

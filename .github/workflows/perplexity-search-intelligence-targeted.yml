@@ -8,10 +8,17 @@ on:
       - 'src/rasai/search_intelligence/perplexity.py'
       - 'src/rasai/platform/usage_ingestion.py'
       - 'src/rasai/console_search_intelligence.py'
+      - 'src/rasai/console_search_parameter_menu.py'
+      - 'src/rasai/search_intelligence/perplexity_request_policy.py'
+      - 'src/rasai/console_environment.py'
       - 'src/rasai/catalog_report_integrations.py'
       - 'src/rasai/catalog_report_model.py'
       - 'tests/test_perplexity_search_intelligence.py'
       - 'tests/test_console_search_intelligence.py'
+      - 'tests/test_perplexity_request_policy_317.py'
+      - 'tests/test_perplexity_serp_copy_318.py'
+      - 'tests/test_geo_post_audit_complement_318.py'
+      - 'src/rasai/geo_post_audit_complement.py'
       - 'tests/test_provider_registry.py'
       - 'docs/AI_PRICING_CONFIGURATION.md'
       - 'docs/AI_RUNTIME_ORCHESTRATION.md'
@@ -35,10 +42,17 @@ on:
       - 'src/rasai/search_intelligence/perplexity.py'
       - 'src/rasai/platform/usage_ingestion.py'
       - 'src/rasai/console_search_intelligence.py'
+      - 'src/rasai/console_search_parameter_menu.py'
+      - 'src/rasai/search_intelligence/perplexity_request_policy.py'
+      - 'src/rasai/console_environment.py'
       - 'src/rasai/catalog_report_integrations.py'
       - 'src/rasai/catalog_report_model.py'
       - 'tests/test_perplexity_search_intelligence.py'
       - 'tests/test_console_search_intelligence.py'
+      - 'tests/test_perplexity_request_policy_317.py'
+      - 'tests/test_perplexity_serp_copy_318.py'
+      - 'tests/test_geo_post_audit_complement_318.py'
+      - 'src/rasai/geo_post_audit_complement.py'
       - 'docs/AI_PRICING_CONFIGURATION.md'
       - 'docs/AI_RUNTIME_ORCHESTRATION.md'
       - 'docs/AUTO_COST_AWARE_AI_ROUTING.md'
@@ -78,8 +92,16 @@ jobs:
           python -m compileall -q \
             src/rasai/search_intelligence/perplexity.py \
             src/rasai/console_search_intelligence.py \
+            src/rasai/console_search_parameter_menu.py \
+            src/rasai/search_intelligence/perplexity_request_policy.py \
             src/rasai/catalog_report_model.py \
-            src/rasai/catalog_report_integrations.py
+            src/rasai/catalog_report_integrations.py \
+            src/rasai/geo_observation.py \
+            src/rasai/geo_post_audit_complement.py \
+            src/rasai/geo_report.py \
+            src/rasai/geo_ai.py \
+            src/rasai/geo_extraction_quality.py \
+            src/rasai/report_completion.py
       - name: Run Perplexity and directly shared boundary tests
         run: |
           python -m pytest -q \
@@ -88,4 +110,14 @@ jobs:
             tests/test_provider_registry.py \
             tests/test_ai_native_usage_pricing.py \
             tests/test_ai_cost_policy.py \
-            tests/test_m9_scoring.py
+            tests/test_m9_scoring.py \
+            tests/test_perplexity_activation_flag.py \
+            tests/test_perplexity_request_policy_317.py \
+            tests/test_perplexity_serp_copy_318.py \
+            tests/test_geo_post_audit_complement_318.py \
+            tests/test_geo_observation.py \
+            tests/test_geo_report.py \
+            tests/test_geo_baseline_without_perplexity_305.py \
+            tests/test_geo_ai.py \
+            tests/test_competitive_empty_content_313.py \
+            tests/test_geo_extraction_quality.py

@@ -60,9 +60,21 @@ class SearchConsoleState(BaseState):
     search_last_duration_seconds: float | None = None
     perplexity_queries: tuple[str, ...] = ()
     perplexity_search_type: str = "web"
+    geo_ai_requested: bool = False
     perplexity_last_status: str = "NOT_REQUESTED"
     perplexity_last_detail: str = ""
     perplexity_last_duration_seconds: float | None = None
+
+
+def _explicit_brazil_scope(region: str) -> bool:
+    """Detect explicit Brazilian locale, never guess from provider defaults."""
+    normalized = " ".join(str(region or "").casefold().split())
+    if normalized in {"br", "brasil", "brazil", "brazilian"}:
+        return True
+    suffixes = (", br", ", brasil", ", brazil")
+    return normalized.endswith(suffixes) or any(
+        token in normalized for token in (", br,", ", brasil,", ", brazil,")
+    )
 
 
 def parse_search_terms(raw: str) -> tuple[str, ...]:
@@ -369,17 +381,42 @@ def configure_perplexity_search(state: SearchConsoleState) -> None:
         state.error = f"Perplexity Search Intelligence: {exc}"
 
 
+def perplexity_enabled(env: Mapping[str, str] | None = None) -> bool:
+    """Explicit opt-out; an absent flag preserves compatibility for configured credentials."""
+    values = os.environ if env is None else env
+    raw = str(values.get("RASAI_PERPLEXITY_ENABLED", "") or "").strip().casefold()
+    if not raw:
+        return True  # Historical compatibility; no query is created automatically.
+    # Malformed overrides may never trigger billable requests.
+    return raw in {"true", "1", "on", "yes"}
+
+
 def validate_perplexity_readiness(
     state: object, env: Mapping[str, str] | None = None
 ) -> tuple[bool, str]:
     queries = tuple(getattr(state, "perplexity_queries", ()) or ())
     if not queries:
         return True, "Perplexity não solicitada nesta execução"
+    if not perplexity_enabled(env):
+        values = os.environ if env is None else env
+        raw = str(values.get("RASAI_PERPLEXITY_ENABLED", "") or "").strip().casefold()
+        if raw not in {"false", "0", "off", "no"}:
+            return True, "RASAI_PERPLEXITY_ENABLED inválida; nenhuma chamada externa por segurança"
+        return True, "Perplexity desabilitada pelo usuário; nenhuma chamada externa"
     if len(queries) > PERPLEXITY_MAX_QUERIES:
         return False, f"Perplexity excede {PERPLEXITY_MAX_QUERIES} queries por request"
     search_type = str(getattr(state, "perplexity_search_type", "web") or "web").casefold()
     if search_type not in {"web", "fast"}:
         return False, "Perplexity search_type inválido"
+    try:
+        from rasai.search_intelligence.perplexity_request_policy import resolve_request_options
+        resolve_request_options(
+            env, explicit_brazil=_explicit_brazil_scope(
+                str(getattr(state, "search_region", "") or "")
+            ), search_type=search_type,
+        )
+    except ValueError as exc:
+        return False, f"Configuração de escopo Perplexity inválida: {exc}"
     configured = perplexity_configuration_status(env)["configured"]
     suffix = "configurada" if configured else "não configurada; execução será contida como limitação externa"
     return True, (
@@ -397,6 +434,19 @@ def execute_perplexity_for_audit(
     queries = tuple(getattr(state, "perplexity_queries", ()) or ())
     if not queries:
         return 0
+    if not perplexity_enabled():
+        state.perplexity_last_status = "DISABLED_BY_USER"
+        state.perplexity_last_detail = "Perplexity desabilitada pelo usuário; nenhuma chamada ou custo"
+        state.perplexity_last_duration_seconds = None
+        return 0
+    optional_ready, optional_reason = validate_perplexity_readiness(state)
+    if not optional_ready:
+        # An invalid *optional* query contract must never create a paid request
+        # or prevent deterministic collection, canonical AI, or persistence.
+        state.perplexity_last_status = "COMPLETE_WITH_LIMITATIONS"
+        state.perplexity_last_detail = "Pesquisa Perplexity não executada: " + optional_reason
+        state.perplexity_last_duration_seconds = None
+        return 1
     workspace_path = audit_workspace(state)
     if workspace_path is None:
         state.perplexity_last_status = "UNAVAILABLE"
@@ -412,12 +462,26 @@ def execute_perplexity_for_audit(
     effective_runner = execute_perplexity_search if runner is None else runner
     started = time.monotonic()
     try:
-        result = effective_runner(
-            AuditWorkspace.open(workspace_path),
-            audit_id=audit_id,
-            query=queries,
-            search_type=str(getattr(state, "perplexity_search_type", "web") or "web"),
+        # Match the SERP geographic intent where explicitly configured.
+        # A ccTLD is not a country detector; Perplexity's country/language
+        # filters are best-effort provider constraints, not guaranteed BR-only.
+        brazil_scope = _explicit_brazil_scope(
+            str(getattr(state, "search_region", "") or "")
         )
+        search_kwargs = {
+            "audit_id": audit_id,
+            "query": queries,
+            "search_type": str(getattr(state, "perplexity_search_type", "web") or "web"),
+        }
+        if runner is None:
+            # Effective AUD scope takes priority over integration overrides.
+            # The adapter validates the same policy again before any POST.
+            from rasai.search_intelligence.perplexity_request_policy import resolve_request_options
+            search_kwargs["search_options"] = resolve_request_options(
+                explicit_brazil=brazil_scope,
+                search_type=search_kwargs["search_type"],
+            )
+        result = effective_runner(AuditWorkspace.open(workspace_path), **search_kwargs)
         summary = humanized_perplexity_summary(result)
         state.perplexity_last_duration_seconds = max(time.monotonic() - started, 0.0)
         state.perplexity_last_status = (
@@ -428,8 +492,40 @@ def execute_perplexity_for_audit(
             f"queries={summary['consultas']} | requests={summary['requests']} | "
             f"fontes={summary['fontes']} | custo={summary['custo']} | status={summary['status']}"
         )
+        # Additive snapshot and canonical re-projection follow the optional
+        # search. They never invoke any collector/provider or change scoring.
+        if str(result.status) == "SUCCESS":
+            try:
+                from rasai.geo_observation import materialize_geo_observation
+                from rasai.report_completion import materialize_catalog_report_projection
+                workspace = AuditWorkspace.open(workspace_path)
+                materialize_geo_observation(Path(workspace.database), audit_id)
+                if bool(getattr(state, "geo_ai_requested", False)):
+                    try:
+                        from rasai.geo_ai import execute_geo_ai
+                        ai_state = execute_geo_ai(
+                            Path(workspace.database),
+                            audit_id,
+                            provider_selection=str(getattr(state, "ai_provider", "none")),
+                        )
+                        state.perplexity_last_detail += f" | GEO IA: {ai_state}"
+                    except Exception as ai_exc:
+                        state.perplexity_last_detail += (
+                            f" | GEO IA indisponível: {type(ai_exc).__name__}"
+                        )
+                if (Path(workspace.root) / "report-catalog").exists():
+                    completion = materialize_catalog_report_projection(
+                        audit_id=audit_id, workspace=workspace
+                    )
+                    if completion.renderer_errors:
+                        state.perplexity_last_detail += " | GEO: relatório pendente de atualização"
+            except Exception as exc:
+                state.perplexity_last_detail += f" | GEO advisory indisponível: {type(exc).__name__}"
         return 0 if str(result.status) == "SUCCESS" else 1
-    except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+    except Exception as exc:
+        # Last-resort isolation of optional integration failures, including
+        # provider adapters or their own provenance writer. Never propagate
+        # to the already-finished AUD or its independent AI/SERP pipelines.
         state.perplexity_last_duration_seconds = max(time.monotonic() - started, 0.0)
         state.perplexity_last_status = "COMPLETE_WITH_LIMITATIONS"
         state.perplexity_last_detail = f"Perplexity indisponível/ inválida: {type(exc).__name__}"
@@ -641,14 +737,21 @@ def install(console_module: ModuleType) -> None:
         search_ready, search_reason = validate_search_readiness(state)
         if not search_ready:
             return False, search_reason
-        perplexity_ready, perplexity_reason = validate_perplexity_readiness(state)
-        if not perplexity_ready:
-            return False, perplexity_reason
+        # The Perplexity request is advisory and independent of the AUD gate.
+        # A malformed optional query is reported, not allowed to cancel the AUD.
+        try:
+            perplexity_ready, perplexity_reason = validate_perplexity_readiness(state)
+        except Exception as exc:
+            perplexity_ready = False
+            perplexity_reason = f"validação Perplexity indisponível: {type(exc).__name__}"
         details = [reason]
         if state.search_queries:
             details.append(search_reason)
         if state.perplexity_queries:
-            details.append(perplexity_reason)
+            details.append(
+                perplexity_reason if perplexity_ready
+                else "Perplexity opcional não será executada: " + perplexity_reason
+            )
         return True, "; ".join(item for item in details if item)
 
     def run(state: SearchConsoleState) -> int:
@@ -692,8 +795,17 @@ def install(console_module: ModuleType) -> None:
                 )
             except Exception:
                 pass
-            if execute_perplexity_for_audit(state) != 0:
-                any_limitation = True
+            # Perplexity is optional advisory enrichment. Contain even an
+            # unexpected adapter exception so the AUD status and canonical
+            # collection/AI/persistence results remain unchanged.
+            try:
+                execute_perplexity_for_audit(state)
+            except Exception as exc:
+                state.perplexity_last_status = "COMPLETE_WITH_LIMITATIONS"
+                state.perplexity_last_detail = (
+                    f"Perplexity opcional indisponível: {type(exc).__name__}"
+                )
+                state.perplexity_last_duration_seconds = None
 
         if any_limitation:
             state.status = "COMPLETE_WITH_LIMITATIONS"
@@ -739,6 +851,45 @@ def install(console_module: ModuleType) -> None:
             )
             if state.perplexity_last_detail:
                 print(f"Detalhe Perplexity   : {state.perplexity_last_detail}")
+        # Optional #319 projection; no recalculation, billing, or live requests.
+        if str(getattr(state, "audit_id", "") or "").strip():
+            try:
+                from rasai.audit_attempt_timeline import read_audit_attempt_timeline
+                root = audit_workspace(state)
+                if root is not None:
+                    workspace = AuditWorkspace.open(root)
+                    timeline = read_audit_attempt_timeline(Path(workspace.database), state.audit_id)
+                    if timeline.attempts:
+                        print(
+                            f"Cronologia IA M18/M20: {timeline.attempts} tentativas | "
+                            f"soma {timeline.summed_duration_ms / 1000:.1f}s | "
+                            f"ativo {timeline.union_active_ms / 1000:.1f}s"
+                            if timeline.union_active_ms is not None else
+                            f"Cronologia IA M18/M20: {timeline.attempts} tentativas | "
+                            f"soma {timeline.summed_duration_ms / 1000:.1f}s | "
+                            "ativo não calculável (intervalos incompletos)"
+                        )
+                        provider_coverage = sum(
+                            stage.observed_cost_attempts for stage in timeline.stages
+                        )
+                        provider_label = (
+                            f"{timeline.provider_observed_usd:.6f}"
+                            if provider_coverage else "N/D (provider não informou)"
+                        )
+                        if 0 < provider_coverage < timeline.attempts:
+                            provider_label += f" (parcial: {provider_coverage}/{timeline.attempts})"
+                        print(
+                            "  Valores USD pós-uso : "
+                            f"estimativa {timeline.posthoc_estimated_usd:.6f}; "
+                            f"provider {provider_label}; "
+                            f"sem preço {timeline.unpriced_attempts}"
+                        )
+                        print(
+                            "  Nota               : tempos simultâneos não são aditivos; "
+                            "não inclui captura/PSI/Apdex; valores não são fatura."
+                        )
+            except (OSError, ValueError, sqlite3.Error):
+                pass
 
     console_module._menu = menu
     console_module._configure = configure

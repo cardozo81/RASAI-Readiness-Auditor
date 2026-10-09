@@ -20,6 +20,7 @@ from rasai.catalog_source_dependencies import (
     verify_source_dependencies,
 )
 from rasai.directed_analysis_reporting import directed_analysis_body
+from rasai.geo_report import geo_body
 from rasai.search_intelligence.freshness import require_valid_serp_freshness
 
 
@@ -53,6 +54,45 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
     body=_audit_hero(data,"Índices e métricas","Inventário transversal dos números persistidos, com rótulos funcionais e referência ao catálogo proprietário.")
     body+=_section("inventory","Inventário desta auditoria",_table(("Indicador","Tipo","Valor","Contexto","Origem","Contrato"),rows,empty="Nenhum índice/métrica reconhecido foi persistido."))
     body+=_section("dictionary","Dicionário",_table(("Termo","Tipo","Como interpretar"),definitions))
+    # #319 is a read-only projection from TWO attempt tables, with no invoice,
+    # no provider execution and no extension to sealed evidence.
+    try:
+        from rasai.audit_attempt_timeline import read_audit_attempt_timeline
+        timeline = read_audit_attempt_timeline(database, data.audit_id)
+    except (OSError, ValueError, sqlite3.Error):
+        timeline = None
+    if timeline is not None and timeline.attempts:
+        timeline_rows=[]
+        for stage in timeline.stages:
+            active = (f"{stage.union_active_ms / 1000:.2f} s"
+                      if stage.union_active_ms is not None else "N/D (relógio incompleto)")
+            timeline_rows.append((
+                stage.name.replace("_"," ").title(),
+                stage.attempts,
+                f"{stage.summed_duration_ms / 1000:.2f} s",
+                active,
+                f"{stage.priced_usd_estimate:.6f}",
+                (f"{stage.priced_usd_provider_observed:.6f}" if stage.observed_cost_attempts
+                 else "N/D (provider não informou)"),
+                f"intervalos desconhecidos={stage.unknown_intervals}; sem preço={stage.unpriced_attempts}",
+            ))
+        body+=_section(
+            "ai-attempt-timeline",
+            "Linha temporal e valores das chamadas de IA",
+            "<p>São durações por tentativa nas bases M18/M20, não o tempo total "
+            "da auditoria. Chamadas simultâneas se sobrepõem. A soma das durações "
+            "não representa tempo de parede. Quando há timestamps completos, "
+            "ambas as durações usam o mesmo relógio; caso contrário, "
+            "usa-se a duração informada sem projetar união. Preço estimado após a execução não "
+            "é a previsão pré-auditoria nem fatura; custo observado pelo provider "
+            "também não é confirmação de cobrança bancária. Captura, PSI e Apdex "
+            "não são medidos nesta projeção.</p>"
+            + _table(
+                ("Etapa", "Tentativas", "Soma das durações", "Tempo ativo (união)",
+                 "Estimativa pós-uso USD", "Valor provider USD", "Lacunas"),
+                timeline_rows,
+            ),
+        )
     return body
 
 
@@ -365,6 +405,7 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             "execution-evidence.html":_execution_evidence_body(database,data),
             "ai-integrations.html":_ai_integrations_body(database,data),
             "directed-analysis.html":directed_analysis_body(database,data),
+            "geo.html":geo_body(database,audit_id),
             "methodology.html":_methodology_body(data),
             "metrics.html":_metrics_body(database,data),
         }
@@ -373,6 +414,58 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             filename=CATALOG_PAGE_BY_ID[catalog.id].filename
             raw_catalog_bodies[filename]=_catalog_body(database,data,catalog.id)
             bodies[filename]=raw_catalog_bodies[filename]
+        # Advisory cross-references only: CAT engines, scores and findings are unchanged.
+        # Advisory cross-catalog projection: explain each catalog's GEO decision
+        # surface without altering findings, scores, CAT eligibility or engines.
+        geo_topics = {
+            "CAT-01": (
+                "Acesso e descoberta",
+                "Revise controles de crawling, indexabilidade, canonical e HTML"
+                " existentes. Eles podem viabilizar leitura, mas não garantem"
+                " presença em resultados gerativos."
+            ),
+            "CAT-03": (
+                "Cobertura editorial e entidades",
+                "Compare intenção de consulta, clareza de oferta, evidências"
+                " editoriais e entidades da URL com metadados das fontes externas;"
+                " sem leitura integral do concorrente, trate diferenças como hipóteses."
+            ),
+            "CAT-05": (
+                "Pesquisa externa observacional",
+                "Confira consultas, estado do provider, fontes, URLs e"
+                " comparabilidade SERP-Perplexity. Nenhuma fonte prova uma"
+                " citação em resposta de IA."
+            ),
+            "CAT-08": (
+                "Interpretação e priorização",
+                "Utilize análises existentes e IA opcional somente quando"
+                " vinculadas a IDs de evidência. Separe observação, hipótese"
+                " e próximo teste; não invente causas para posições."
+            ),
+            "CAT-09": (
+                "Remediações e mensuração",
+                "Priorize correções sustentadas por achados do RASAi,"
+                " atribua responsáveis técnicos ou editoriais e defina"
+                " novas consultas comparáveis para verificar a evolução."
+            ),
+        }
+        for geo_catalog, (geo_title, geo_guidance) in geo_topics.items():
+            geo_filename=CATALOG_PAGE_BY_ID[geo_catalog].filename
+            if geo_filename in bodies:
+                bodies[geo_filename] += (
+                    "<section><h2>Perspectiva GEO - " + escape(geo_title) + "</h2><p>"
+                    + escape(geo_guidance)
+                    + " Consulte a <a href='geo.html'>síntese GEO baseada em evidências</a>."
+                    " A auditoria principal e seu score permanecem independentes.</p></section>"
+                )
+        geo_reference=(
+            "<section><h2>GEO (observacional)</h2><p>Analise a "
+            "<a href='geo.html'>síntese transversal GEO</a> para fontes externas,"
+            " consultas e oportunidades baseadas em evidências persistidas."
+            " Nenhuma ação técnica ou editorial garante citação em IAs.</p></section>"
+        )
+        for geo_page in ("index.html","directed-analysis.html","ai-integrations.html"):
+            bodies[geo_page]+=geo_reference
         assurance=assess_catalogs(database,data,bodies)
         source_dependencies=captured_source_dependencies()
         dependencies_ok,dependency_errors=verify_source_dependencies(root,source_dependencies)

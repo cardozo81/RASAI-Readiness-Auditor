@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'src/rasai/ai_economic_telemetry.py'
+      - 'src/rasai/audit_attempt_timeline.py'
       - 'src/rasai/ai_cost_policy.py'
       - 'src/rasai/dynamic_ai_routing.py'
       - 'src/rasai/m18_ai.py'
@@ -34,6 +35,7 @@ on:
       - 'docs/REPORTING_AI_USAGE.md'
       - 'docs/AI_PRICING_CONFIGURATION.md'
       - 'tests/test_ai_economic_telemetry.py'
+      - 'tests/test_audit_attempt_timeline_319.py'
       - 'tests/test_ai_economic_reporting_195.py'
       - '.github/workflows/ai-economic-telemetry-195-targeted.yml'
   workflow_dispatch:
@@ -61,6 +63,7 @@ jobs:
         run: |
           python -m py_compile \
             src/rasai/ai_economic_telemetry.py \
+            src/rasai/audit_attempt_timeline.py \
             src/rasai/dynamic_ai_routing.py \
             src/rasai/m18_ai.py \
             src/rasai/m20_ai.py \
@@ -90,6 +93,7 @@ jobs:
         run: >-
           pytest -q
           tests/test_ai_economic_telemetry.py
+          tests/test_audit_attempt_timeline_319.py
           tests/test_ai_cost_policy.py
           tests/test_ai_native_usage_pricing.py
           tests/test_cost_forecast.py

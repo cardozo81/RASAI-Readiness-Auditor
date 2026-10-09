@@ -344,7 +344,7 @@ def test_report_contract_labels_external_research_without_deterministic_claims()
     assert "não altera scoring" in detail[2]
 
 
-@pytest.mark.parametrize("status", [401, 403, 500])
+@pytest.mark.parametrize("status", [401, 402, 403, 429, 500])
 def test_http_errors_are_contained_and_not_billed(tmp_path, status: int) -> None:
     workspace = _workspace(tmp_path)
 
@@ -365,3 +365,81 @@ def test_http_errors_are_contained_and_not_billed(tmp_path, status: int) -> None
     assert run.status != "SUCCESS"
     assert run.native_usage[0].billable is False
     assert run.pricing.estimated_cost == pytest.approx(0.0)
+    if status == 402:
+        assert run.status == "CREDIT_ERROR"
+        assert run.diagnostic.error_class.value == "CREDIT_ERROR"
+        with sqlite3.connect(workspace.database) as conn:
+            assert conn.execute("SELECT COUNT(*) FROM perplexity_search_runs").fetchone()[0] == 1
+            assert conn.execute("SELECT score FROM scores").fetchone()[0] == 87.5
+
+
+def test_scoped_search_payload_persists_exact_payload_fingerprint(tmp_path) -> None:
+    """Provider receives only policy-approved options, not PlayGround settings."""
+    import hashlib
+    from rasai.search_intelligence.perplexity_request_policy import resolve_request_options
+
+    workspace = _workspace(tmp_path)
+    payloads: list[dict] = []
+
+    def transport(endpoint, headers, body, timeout):
+        payloads.append(json.loads(body))
+        return _success_transport("web")(endpoint, headers, body, timeout)
+
+    scope = resolve_request_options({
+        "RASAI_PERPLEXITY_MAX_RESULTS": "7",
+        "RASAI_PERPLEXITY_SEARCH_LANGUAGE_FILTER": "pt",
+        "RASAI_PERPLEXITY_SEARCH_DOMAIN_FILTER": "example.com",
+        "RASAI_PERPLEXITY_SEARCH_RECENCY_FILTER": "month",
+        "RASAI_PERPLEXITY_MAX_CONTENT_UNITS": "4000",
+        "RASAI_PERPLEXITY_MAX_CONTENT_UNITS_PER_PAGE": "2000",
+    }, explicit_brazil=True)
+    run = execute_perplexity_search(
+        workspace,
+        audit_id=AUDIT_ID,
+        query="seguro de vida",
+        search_type="web",
+        search_options=scope,
+        env={API_KEY_ENV: "TEST_ONLY_PERPLEXITY_KEY"},
+        transport=transport,
+    )
+    assert run.status == "SUCCESS"
+    assert len(payloads) == 1
+    outgoing = payloads[0]
+    assert outgoing == {
+        "query": "seguro de vida",
+        "search_type": "web",
+        "max_results": 7,
+        "country": "BR",
+        "search_language_filter": ["pt"],
+        "search_domain_filter": ["example.com"],
+        "search_recency_filter": "month",
+        "max_tokens": 4000,
+        "max_tokens_per_page": 2000,
+    }
+    expected = json.dumps(outgoing, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    assert run.request_payload_hash == hashlib.sha256(expected).hexdigest()
+    row = _db_rows(
+        workspace,
+        "SELECT request_payload_hash FROM perplexity_search_runs WHERE run_id='" + run.run_id + "'",
+    )
+    assert len(row) == 1
+    assert row[0]["request_payload_hash"] == run.request_payload_hash
+    assert "TEST_ONLY_PERPLEXITY_KEY" not in repr(outgoing)
+
+
+def test_scoped_search_rejects_invalid_options_without_transport(tmp_path) -> None:
+    workspace = _workspace(tmp_path)
+
+    def forbidden(*args):
+        raise AssertionError("invalid request should never reach HTTP transport")
+
+    with pytest.raises(ValueError, match="max_results"):
+        execute_perplexity_search(
+            workspace,
+            audit_id=AUDIT_ID,
+            query="seguro de vida",
+            search_options={"max_results": 21},
+            env={API_KEY_ENV: "TEST_ONLY_PERPLEXITY_KEY"},
+            transport=forbidden,
+        )
+

@@ -245,6 +245,32 @@ def _url_fragment_identifier_candidate_spans(text: str) -> tuple[tuple[int, int]
     return tuple(dict.fromkeys(spans))
 
 
+_STRUCTURED_FRAGMENT_EVIDENCE_RE = re.compile(
+    r'(?i)\\?"(?:href|selector)\\?"\s*:\s*\\?"(?P<value>[^"\\\n]{0,2048})\\?"'
+)
+
+
+def _serialized_evidence_identifier_candidate_spans(text: str) -> tuple[tuple[int, int], ...]:
+    """Ignore semantic DOM fragments only in explicit serialized JSON evidence fields.
+
+    The IA communication report escapes JSON as text, so an observed
+    \\"href\\": \\"#sk-section-...\\" is not an actual HTML href attribute.
+    Never exempt opaque/scoped keys or arbitrary #sk-* text.
+    """
+    spans: list[tuple[int, int]] = []
+    for field in _STRUCTURED_FRAGMENT_EVIDENCE_RE.finditer(text):
+        value = field.group("value")
+        fragment_at = value.rfind("#")
+        if fragment_at < 0:
+            continue
+        fragment = value[fragment_at + 1 :]
+        for candidate in _OPENAI_SECRET_CANDIDATE_RE.finditer(fragment):
+            if _looks_like_dom_identifier_openai_candidate(candidate.group(0)):
+                base = field.start("value") + fragment_at + 1
+                spans.append((base + candidate.start(), base + candidate.end()))
+    return tuple(spans)
+
+
 def _span_is_within(
     span: tuple[int, int],
     containers: Sequence[tuple[int, int]],
@@ -460,6 +486,7 @@ def detect_secret_exposures(
         (
             *_html_dom_identifier_candidate_spans(text),
             *_url_fragment_identifier_candidate_spans(text),
+            *_serialized_evidence_identifier_candidate_spans(text),
         )
         if html_dom_context
         else ()

@@ -211,6 +211,45 @@ def test_requested_improvement_without_materialized_run_is_visible(monkeypatch) 
         assert item.configuration["model"] == ""
 
 
+def test_initial_aud_improvement_prerequisite_wait_is_not_overwritten_by_not_configured(monkeypatch) -> None:
+    """A blocked initial AUD has no IA attempt; reconciliation cannot invent configuration failure."""
+    for code in ("AI_WAITING_FOR_PREREQUISITES", "AI_PREREQUISITES_INCOMPLETE"):
+        with TemporaryDirectory() as directory:
+            workspace = _workspace(Path(directory))
+            register_work_item(
+                workspace,
+                audit_id=AUDIT_ID,
+                component="IMPROVEMENT_INTELLIGENCE",
+                required=True,
+                temporal_mode=REPLAY_SAFE,
+                retryable=True,
+            )
+            blocker = "RENDER_CAPTURE/SNP-TEST:FAILED_RETRYABLE, CONTENT_EXTRACTION/SNP-TEST:WAITING_FOR_DATA"
+            set_work_item_status(
+                workspace,
+                audit_id=AUDIT_ID,
+                component="IMPROVEMENT_INTELLIGENCE",
+                status="WAITING_FOR_DATA",
+                error_class="PREREQUISITE",
+                error_code=code,
+                error_message=blocker,
+                retryable=True,
+            )
+            monkeypatch.setenv("RASAI_IMPROVEMENT_INTELLIGENCE", "true")
+            # Without the guard, missing execution-local ImprovementConfig.provider
+            # would incorrectly overwrite WAITING with AI_NOT_CONFIGURED.
+            _reconcile_requested_improvement(workspace, AUDIT_ID)
+            item = next(
+                item for item in list_work_items(workspace, AUDIT_ID)
+                if item.component == "IMPROVEMENT_INTELLIGENCE"
+            )
+            assert item.status == "WAITING_FOR_DATA"
+            assert item.last_error_class == "PREREQUISITE"
+            assert item.last_error_code == code
+            assert item.last_error_message == blocker
+            assert item.attempt_count == 0
+
+
 def test_physical_100_percent_does_not_turn_partial_fulfillment_into_complete() -> None:
     with TemporaryDirectory() as directory:
         workspace = _workspace(Path(directory))

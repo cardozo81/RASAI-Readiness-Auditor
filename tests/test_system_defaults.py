@@ -47,6 +47,7 @@ def test_packaged_defaults_enable_maximum_credential_free_baseline() -> None:
     ):
         assert parser.getboolean("environment", name) is True
     assert parser.get("environment", "RASAI_WEB_FEATURES_DATASET") == "auto"
+    assert parser.get("environment", "RASAI_PERPLEXITY_ENABLED") == "true"
 
     # Credential-driven services stay AUTO-by-requirements: the defaults file must not
     # materialize an explicit hard-on/hard-off that defeats credential discovery.
@@ -121,6 +122,7 @@ def test_missing_user_ini_is_created_from_system_defaults_and_external_free_serv
         assert "samples_per_context = 150" in text
         assert "samples_per_page = 100" in text
         assert "RASAI_WEB_FEATURES_DATASET = auto" in text
+        assert "RASAI_PERPLEXITY_ENABLED = true" in text
         assert "OPENAI_API_KEY" not in text
 
 
@@ -200,6 +202,30 @@ def test_user_ini_still_overrides_system_defaults() -> None:
         assert state.apdex_samples == 7
         assert state.apdex_experience is False
         assert state.apdex_experience_samples == 40
+
+
+def test_perplexity_explicit_false_survives_load_and_global_restore_sets_true() -> None:
+    _install_standards_catalog()
+    with TemporaryDirectory() as directory, patch.dict(
+        os.environ, {"PERPLEXITY_API_KEY": "opaque-key"}, clear=True
+    ), patch("rasai.system_defaults.machine_environment_value", return_value=None), patch(
+        "rasai.system_defaults.user_environment_value", return_value=None
+    ):
+        path = Path(directory) / "rasai-console.ini"
+        path.write_text(
+            "[console]\nconfig_version = 4\n[environment]\nRASAI_PERPLEXITY_ENABLED = false\n",
+            encoding="utf-8",
+        )
+        state = State()
+        result = load_console_config_with_system_defaults(state, path)
+        assert result.warnings == ()
+        assert os.environ["RASAI_PERPLEXITY_ENABLED"] == "false"
+        assert "opaque-key" not in path.read_text(encoding="utf-8")
+        restored = restore_program_defaults(state, clear_credentials=False, path=path)
+        assert restored.warnings == ()
+        assert os.environ["RASAI_PERPLEXITY_ENABLED"] == "true"
+        assert os.environ["PERPLEXITY_API_KEY"] == "opaque-key"
+        assert "RASAI_PERPLEXITY_ENABLED = true" in path.read_text(encoding="utf-8")
 
 
 def test_restore_preserves_or_clears_credentials_only_when_selected() -> None:

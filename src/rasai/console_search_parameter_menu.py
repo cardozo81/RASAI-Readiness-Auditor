@@ -188,7 +188,9 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
         else "NÃO SOLICITADA"
     )
     px_credential = "credencial configurada" if px_status["configured"] else "credencial não configurada"
-    print(f"\nP. Perplexity externa      : {px_request} | {px_credential}")
+    from rasai.console_search_intelligence import perplexity_enabled
+    px_activation = "ATIVA" if perplexity_enabled() else "DESATIVADA"
+    print(f"\nP. Perplexity externa      : {px_activation} | {px_request} | {px_credential}")
     print("   Pesquisa externa advisory; independente de SERP e sem efeito em scoring/evidência determinística.")
     print("\nD. Não solicitar SERP nesta execução (limpa os termos)")
     print("V. Voltar")
@@ -206,6 +208,12 @@ def _mark_perplexity_pending(search_module: ModuleType, state: Any) -> None:
         getattr(state, "perplexity_search_type", "web") or "web"
     ).strip().casefold()
     status = search_module.perplexity_configuration_status()
+    if not search_module.perplexity_enabled():
+        state.perplexity_last_status = "DISABLED_BY_USER"
+        state.perplexity_last_detail = "Integração Perplexity desabilitada; consultas preservadas, nenhuma chamada externa"
+        state.perplexity_last_duration_seconds = None
+        state.error = ""
+        return
     state.perplexity_last_status = "PENDING"
     state.perplexity_last_detail = (
         f"{len(queries)} query(s); Search API {search_type.upper()}; "
@@ -245,6 +253,34 @@ def _edit_perplexity_queries(search_module: ModuleType, state: Any) -> None:
     _mark_perplexity_pending(search_module, state)
 
 
+def _copy_serp_terms_to_perplexity(search_module: ModuleType, state: Any) -> None:
+    """Copy only on affirmative opt-in; SERP request intent is never inherited."""
+    source = tuple(getattr(state, "search_queries", ()) or ())
+    maximum = int(search_module.PERPLEXITY_MAX_QUERIES)
+    if not source:
+        print("  Não há termos SERP para sugerir. Configure os termos explicitamente.")
+        return
+    if len(source) > maximum:
+        print(
+            f"  SERP possui {len(source)} termos; limite Perplexity = {maximum}. "
+            "Selecione manualmente até o limite na opção 1."
+        )
+        return
+    print(
+        f"  Sugestão: {len(source)} termo(s) SERP. Copiar configura uma requisição "
+        "Perplexity Search API independente e potencialmente faturável."
+    )
+    print("  Habilitar integração ou configurar SERP não autoriza essa requisição.")
+    confirmation = input(
+        "Autorizar explicitamente a cópia e a pesquisa externa faturável [S/N]: "
+    ).strip().upper()
+    if confirmation != "S":
+        print("  Sem autorização: nenhuma query Perplexity foi modificada.")
+        return
+    state.perplexity_queries = source
+    _mark_perplexity_pending(search_module, state)
+
+
 def _edit_perplexity_type(search_module: ModuleType, state: Any) -> None:
     current = str(
         getattr(state, "perplexity_search_type", "web") or "web"
@@ -274,6 +310,98 @@ def _edit_perplexity_credential(state: Any) -> None:
     environment.refresh_specs()
 
 
+def _edit_perplexity_activation(state: Any) -> None:
+    """Use the canonical variable editor for scope, persistence and restore."""
+    from rasai import console_provider_environment as environment
+
+    environment.refresh_specs()
+    spec = environment.SPEC_BY_NAME.get("RASAI_PERPLEXITY_ENABLED")
+    if spec is None:
+        state.error = "RASAI_PERPLEXITY_ENABLED não registrada no catálogo canônico"
+        return
+    environment._variable_menu(state, spec)
+    environment.refresh_specs()
+    from rasai import console_search_intelligence as search_module
+    _mark_perplexity_pending(search_module, state)
+
+
+def _external_geo_supplement(state: Any) -> None:
+    """CAT-05 explicit post-AUD request; never calls audit/collection orchestration."""
+    from pathlib import Path
+    from rasai.persistence import AuditWorkspace
+    from rasai.search_intelligence.perplexity_request_policy import resolve_request_options
+    from rasai.geo_post_audit_complement import run_post_audit_geo_supplement
+
+    queries = tuple(getattr(state, "perplexity_queries", ()) or ())
+    if not queries:
+        print("  Configure primeiro queries Perplexity na opção 1 ou cópia opt-in na 6.")
+        return
+    if len(queries) > 5:
+        print("  Limite do complemento: 1..5 queries.")
+        return
+    search_type = str(getattr(state, "perplexity_search_type", "web") or "web").lower()
+    path = input("Pasta original da AUD COMPLETE (contém audit.db e artifacts): ").strip()
+    if not path:
+        print("  Pasta obrigatória. Nenhum request.")
+        return
+    try:
+        workspace = AuditWorkspace.open(Path(path).expanduser())
+    except (OSError, ValueError) as exc:
+        print(f"  AUD indisponível: {type(exc).__name__}; nenhuma chamada.")
+        return
+
+    intent_id = input("ID único da intenção (repita para reutilizar; novo ID = nova cobrança possível): ").strip()
+    if not intent_id:
+        print("  ID da intenção obrigatório. Nenhum request.")
+        return
+    explicit_br = input("Restringir expressamente a pesquisa ao Brasil / português [S/N]: ").strip().upper()
+    if explicit_br not in {"S", "N"}:
+        print("  Mercado não confirmado. Nenhum request.")
+        return
+    try:
+        options = resolve_request_options(
+            explicit_brazil=(explicit_br == "S"), search_type=search_type,
+        )
+    except ValueError as exc:
+        print(f"  Opções Perplexity inválidas: {exc}; nenhuma chamada.")
+        return
+    print(
+        f"  AUD origem: {workspace.root.name}; queries={len(queries)}; "
+        f"modo={search_type.upper()}; limite_fontes={options.get('max_results', 10)}; "
+        f"país={options.get('country', 'sem filtro')}; "
+        f"idioma={options.get('search_language_filter', 'sem filtro')}."
+    )
+    print(
+        "  PREVISÃO DE EXPOSIÇÃO: 1 requisição Search API potencialmente faturável. "
+        "Custo exato depende do contrato/provedor; timeout após envio pode ter "
+        "faturamento desconhecido. A AUD e o relatório originais não serão alterados."
+    )
+    confirm = input("CONFIRMAR esta intenção comercial independente [S/N]: ").strip().upper()
+    if confirm != "S":
+        print("  Operação não autorizada; nenhuma requisição enviada.")
+        return
+    try:
+        outcome = run_post_audit_geo_supplement(
+            workspace,
+            audit_id=workspace.root.name,
+            intent_id=intent_id,
+            query=queries,
+            search_type=search_type,
+            search_options=options,
+            explicit_cost_authorization=True,
+        )
+    except (OSError, ValueError, PermissionError, RuntimeError) as exc:
+        print(
+            f"  Complemento externo não concluído: {type(exc).__name__}: {str(exc)[:200]}. "
+            "Não repetir automaticamente a mesma intenção."
+        )
+        return
+    print(
+        f"  Resultado: {outcome.status}; nova chamada={outcome.request_executed}; "
+        f"cobrança={outcome.billability}; pacote={outcome.directory or 'não criado'}."
+    )
+
+
 def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
     """Bounded CAT-05 editor for Perplexity execution inputs and canonical secret."""
     while True:
@@ -297,11 +425,38 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             "  Credencial            : "
             + ("CONFIGURADA" if status["configured"] else "NÃO CONFIGURADA")
         )
+        from rasai.console_search_intelligence import perplexity_enabled
+        active = perplexity_enabled()
+        effective = active and bool(status["configured"]) and bool(queries)
+        activation_raw = (os.environ.get("RASAI_PERPLEXITY_ENABLED") or "").strip()
+        print(f"  Habilitada            : {'SIM' if active else 'NÃO'}")
+        print(f"  Flag                  : {activation_raw or 'ausente (compatibilidade: true)'}")
+        print(f"  Efetiva nesta AUD     : {'SIM' if effective else 'NÃO'}")
         print(f"  Readiness             : {'APTA' if ready else 'CONFIGURAR'}")
         print(f"  Detalhe               : {detail}")
+        from rasai.search_intelligence.perplexity_request_policy import resolve_request_options
+        try:
+            brazil = search_module._explicit_brazil_scope(
+                str(getattr(state, "search_region", "") or "")
+            )
+            options = resolve_request_options(explicit_brazil=brazil, search_type=search_type.lower())
+            country = options.get("country", "sem restrição")
+            languages = ",".join(options.get("search_language_filter", [])) or "sem restrição"
+            count = options.get("max_results", 10)
+            optional = sorted(set(options) - {"country", "search_language_filter", "max_results"})
+            print(f"  Escopo desta AUD      : país={country} | idioma={languages} | fontes={count}")
+            print("  Filtros adicionais   : " + (", ".join(optional) if optional else "nenhum"))
+        except ValueError as exc:
+            print(f"  Escopo desta AUD      : INVÁLIDO — {exc}")
+        print("  Ajuste de filtros    : menu 5 ou 6 > Perplexity Search Intelligence")
         print("\n1. Definir/alterar queries")
         print("2. Escolher WEB/FAST")
         print("3. Gerenciar credencial Perplexity")
+        print("4. Ativar/desativar integração")
+        print("5. Habilitar/desabilitar síntese GEO por IA canônica nesta AUD")
+        print("6. Copiar termos SERP para pesquisa Perplexity (confirmação faturável)")
+        print("7. Complemento GEO externo em AUD COMPLETE existente (não altera AUD)")
+        print(f"  Síntese GEO por IA    : {'SOLICITADA' if bool(getattr(state, 'geo_ai_requested', False)) else 'NÃO SOLICITADA'}")
         print("D. Não solicitar Perplexity nesta execução")
         print("V. Voltar ao CAT-05")
         raw = input("Opção Perplexity: ").strip().upper()
@@ -318,8 +473,26 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             _edit_perplexity_type(search_module, state)
         elif raw == "3":
             _edit_perplexity_credential(state)
+        elif raw == "4":
+            _edit_perplexity_activation(state)
+        elif raw == "6":
+            _copy_serp_terms_to_perplexity(search_module, state)
+        elif raw == "7":
+            _external_geo_supplement(state)
+        elif raw == "5":
+            requested = input(
+                "Solicitar análise GEO por IA canônica? Pode consumir quota/custo. [S/N]: "
+            ).strip().upper()
+            if requested in {"S", "N"}:
+                state.geo_ai_requested = requested == "S"
+                _set_feedback(
+                    state,
+                    "Síntese GEO por IA " + ("solicitada" if requested == "S" else "não solicitada")
+                )
+            else:
+                print("  Escolha S ou N.")
         else:
-            print("  Opção inválida: use 1, 2, 3, D ou V.")
+            print("  Opção inválida: use 1, 2, 3, 4, 5, 6, 7, D ou V.")
 
 
 def _edit_terms(search_module: ModuleType, state: Any, config: SerpRuntimeConfig) -> None:

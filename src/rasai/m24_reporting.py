@@ -101,12 +101,30 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
             (audit_id,),
         )
         resources = _captured_resources(workspace, resource_rows, diagnostics)
+        # The canonical classificador analyzer is the only authoritative architecture classifier. This report only
+        # projects existing per-SNP classifications; no detection or navigation.
+        try:
+            architecture_rows = _many(
+                connection,
+                """SELECT ps.snapshot_id,ps.device,ps.requested_url,ps.final_url,
+                          ps.architecture_classification
+                   FROM page_snapshots ps
+                   JOIN pages p ON p.page_id=ps.page_id
+                   WHERE p.audit_id=? ORDER BY ps.rowid""",
+                (audit_id,),
+            )
+        except sqlite3.OperationalError as exc:
+            # Older compatible databases may predate the classification column.
+            if "no such column" not in str(exc).casefold():
+                raise
+            architecture_rows = []
         return {
             "run": run,
             "diagnostics": diagnostics,
             "ai": ai,
             "attempts": attempts,
             "resources": resources,
+            "architectures": [dict(row) for row in architecture_rows],
         }
     finally:
         connection.close()
@@ -166,6 +184,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 {_metric("Sitemaps externos", str(external_count))}
 {_metric("Impacto desta camada", "NENHUM" if run and str(run["scoring_impact"]) == "NONE" else (str(run["scoring_impact"]) if run else "NENHUM"))}
 </div></header>
+{_architecture_section(data.get("architectures", []))}
 <section class='notice'><strong>Fronteira metodológica:</strong> GPTBot, OAI-SearchBot e Google-Extended possuem finalidades distintas. Bloqueio de GPTBot/Google-Extended não é convertido em penalidade de Search. <code>llms.txt</code> é tratado como proposta comunitária experimental, não como web standard obrigatório.</section>
 <section class='panel'><div class='kicker'>Resumo</div><h2>Universo técnico observado</h2>
 <div class='metric-grid'>{''.join(_metric(key, str(value)) for key,value in sorted(categories.items()))}</div>
@@ -185,6 +204,59 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 <footer class='footer'>{PUBLIC_CONTRACT} · os diagnósticos aprofundados desta página são orientativos e não alteram a pontuação. As Regras de Avaliação de Prontidão BR-GEO-003, BR-GEO-017 e BR-GEO-018 permanecem entradas do Índice de Prontidão Search & IA pelo Método de Pontuação de Prontidão. IDs técnicos: SARI-001 e SCORE-GEO-004.</footer>
 </main>{_copy_script()}</body></html>
 """
+
+
+def _architecture_section(rows: list[dict[str, Any]]) -> str:
+    """Read-only projection of the audited URL architecture from the persisted snapshot."""
+    from rasai.catalog_report_presentation import _architecture_label
+
+    note = (
+        "Classificação observacional por URL e dispositivo, derivada "
+        "da comparação entre HTML inicial e DOM renderizado. Não descreve "
+        "automaticamente todas as páginas do domínio e não mede desempenho "
+        "ou experiência. Estática e SSR integram a mesma classe no contrato."
+    )
+    if not rows:
+        body = (
+            "<p class='intro'>Arquitetura não determinada: esta auditoria "
+            "não possui classificação arquitetural persistida para as URLs analisadas.</p>"
+        )
+    else:
+        cards = []
+        for row in rows:
+            raw = str(row.get("architecture_classification") or "UNKNOWN").upper()
+            # Preserve the provenance enum but display the existing public label.
+            if raw not in {"STATIC_OR_SSR", "HYDRATED", "CSR_SPA", "MIXED", "UNKNOWN"}:
+                raw = "UNKNOWN"
+            requested = str(row.get("requested_url") or "URL não registrada")
+            final = str(row.get("final_url") or "")
+            device = str(row.get("device") or "SEM_DISPOSITIVO").upper()
+            device_label = {"MOBILE": "Móvel", "DESKTOP": "Desktop"}.get(device, "Dispositivo não informado")
+            detail = (
+                "<p><strong>URL final:</strong> " + escape(final) + "</p>"
+                if final and final != requested else ""
+            )
+            limitation = (
+                "<p class='intro'>Sem evidência suficiente para identificar "
+                "a arquitetura nesta captura.</p>" if raw == "UNKNOWN" else ""
+            )
+            cards.append(
+                "<article class='page-card'><div class='panel-head'><div>"
+                "<h3>" + escape(_architecture_label(raw)) + "</h3></div>"
+                "<span class='badge info'>" + escape(device_label) + "</span></div>"
+                "<p class='page-url'><strong>URL solicitada:</strong> "
+                + escape(requested) + "</p>" + detail
+                + "<p><strong>Identificador da captura:</strong> <code>"
+                + escape(str(row.get("snapshot_id") or "-"))
+                + "</code></p>" + limitation + "</article>"
+            )
+        body = "".join(cards)
+    return (
+        "<section class='panel' id='observed-architecture'>"
+        "<div class='kicker'>Arquitetura observada</div>"
+        "<h2>Como as URLs analisadas são renderizadas</h2>"
+        f"<p class='intro'>{escape(note)}</p>{body}</section>"
+    )
 
 
 def _group(category: str, rows: list[sqlite3.Row]) -> str:

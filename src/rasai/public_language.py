@@ -496,6 +496,19 @@ COMPONENT_LABELS: dict[str, str] = {
     "PASSIVE_SECURITY": "Segurança passiva",
 }
 
+
+# Public labels for persisted SPA recovery and optional external GEO observations.
+# Keep canonical enum literals in the database. This maps presentation only.
+SUPPLEMENTAL_PUBLIC_LABELS.update({
+    "POST_SCREENSHOT_DOM_MATERIALIZED": "Conteúdo principal materializado após a captura visual",
+    "DOMAIN_ALTERNATIVE_OBSERVED": "Fonte do mesmo domínio encontrada em outra URL",
+    "EXACT_URL_OBSERVED": "URL exata encontrada nas fontes observadas",
+    "NOT_COMPARABLE": "Sem evidências comparáveis para a consulta",
+    "TARGET_NOT_IN_RETURNED_SOURCES": "URL analisada não encontrada nas fontes retornadas",
+    "CUSTOMER_CONTENT_NOT_COMPARABLE": "Conteúdo da URL analisada insuficiente para comparação",
+})
+
+
 CONSOLE_STATUS_LABELS: dict[str, str] = {
     **{key: value for key, value in SUPPLEMENTAL_PUBLIC_LABELS.items() if key in {
         "STARTING", "FINALIZING", "REPROCESSING", "REPROCESS_FAILED", "PRECHECK_FAILED",
