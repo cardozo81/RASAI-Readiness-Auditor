@@ -372,11 +372,7 @@ class GeoObservationTests(unittest.TestCase):
         self.assertEqual(boundary["status"], "DESCRIPTIVE_ONLY")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
-    def test_www_vs_apex_not_counted_as_exact_overlap_in_v5_snapshot(self):
+    def test_www_vs_apex_not_counted_as_exact_overlap_in_v6_snapshot(self):
         with tempfile.TemporaryDirectory() as root:
             db = Path(root) / "audit.db"
             with closing(sqlite3.connect(db)) as con, con:
@@ -428,6 +424,11 @@ if __name__ == "__main__":
                 value["target_observation"]["status"],
                 "DOMAIN_ALTERNATIVE_OBSERVED",
             )
+
+
+
+if __name__ == "__main__":
+    unittest.main()
 
 
 def test_v6_prefers_nearest_trusted_serp_even_if_later_record_is_outside_window():
