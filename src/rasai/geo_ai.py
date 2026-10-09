@@ -53,7 +53,10 @@ def _prepare(con: sqlite3.Connection, audit_id: str) -> tuple[str, CompetitiveAi
         return None
     sources = [dict(x) for x in con.execute(
         "SELECT position, url, title, snippet FROM perplexity_search_sources "
-        "WHERE run_id=? ORDER BY position, url LIMIT 12", (row["run_id"],)
+        # Read a bounded candidate window, then select up to 12 VALID
+        # sources. A poisoned leading result must not consume an evidence
+        # slot or suppress a real source further down the provider response.
+        "WHERE run_id=? ORDER BY position, url LIMIT 256", (row["run_id"],)
     )]
     # Source metadata is untrusted provider input. An invalid/userinfo/
     # javascript URL must not become an evidence reference or prompt context
@@ -63,7 +66,7 @@ def _prepare(con: sqlite3.Connection, audit_id: str) -> tuple[str, CompetitiveAi
         if isinstance(x.get("url"), str)
         and len(x["url"]) <= 2048
         and bool(_canonical_url(x["url"]))
-    ]
+    ][:12]
     if not sources:
         return None
     evidence = tuple(

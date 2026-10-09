@@ -674,3 +674,51 @@ O resultado persistido passa a conservar `causality_note` de cada
 oportunidade da IA e o HTML apresenta justificativa e limite causal
 com escape, sem promover hipotese a fato. Nenhum coletor, provider,
 score, reprocesso ou historico antigo e recalculado.
+
+### Seleção independente e autorização de queries Perplexity (#318)
+
+No console, `T` configura os termos SERP e `U` configura
+independentemente a consulta externa Perplexity. O menu exibe
+separadamente **integração HABILITADA/DESABILITADA**,
+**credencial CONFIGURADA/NÃO CONFIGURADA** e
+**pesquisa SOLICITADA/NÃO SOLICITADA**. Uma chave definida nunca
+implica autorização ou envio de pesquisa externa.
+
+No menu `U`, quando existem termos SERP, o operador pode
+escolher explicitamente **copiar** esses termos para a solicitação
+Perplexity. A escolha padrão é **não**; não há herança automática.
+Um conjunto SERP com mais de cinco termos é recusado integralmente,
+sem cópia parcial. A interface permite revisar os termos, selecionar
+WEB/FAST e exibe que o custo de uma consulta não tem cotação
+comprovada (**N/D**), podendo haver cobrança externa. Uma segunda
+confirmação, com padrão **não**, autoriza agendar essa pesquisa
+apenas **após a auditoria**; recusar limpa solicitações anteriores,
+evitando executar drafts persistidos na sessão. A configuração
+não faz HTTP nem dispara provedor; a aquisição continua separada
+e sujeita à disponibilidade e à governança do serviço.
+
+No relatório HTML separado de suplemento, URLs vindas da Search API
+permanecem preservadas no ledger, porém só são exibidas como links
+clicáveis se passam pela regra estrita de identidade GEO v8 (HTTP(S)
+sem userinfo, controles, backslashes ou URL ambígua). Fontes
+inválidas não são legitimadas por um prefixo textual `https://`.
+Isso não reescreve fontes externas, custos, hashes, AUDs anteriores
+nem implementa navegação/fetch da página concorrente.
+
+#### Evidências GEO IA: limite após validação (#306)
+
+A interpretação GEO lê no máximo 256 candidatos persistidos da última
+pesquisa válida e só depois de eliminar URLs inválidas seleciona as
+primeiras 12 fontes aptas. Antes, as 12 primeiras linhas eram
+selecionadas no SQLite **antes** da validação; resultados suspeitos
+nas primeiras posições podiam ocupar todo o orçamento de evidências e
+ocultar fontes válidas subsequentes. A mudança é estritamente local
+ao adaptador opcional, não amplia o limite de contexto de IA e não
+faz chamada adicional de provider ou crawler.
+
+Quando a edição do menu U for inválida (termos, limite ou modo
+de busca), a solicitação opcional será cancelada, inclusive caso
+houvesse uma seleção anterior na mesma sessão. Esta regra impede
+que uma configuração antiga permaneça elegível para uma chamada
+potencialmente faturável após erro de preenchimento. A chave e
+os termos SERP não são alterados por esse cancelamento.

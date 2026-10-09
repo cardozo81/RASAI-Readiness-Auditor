@@ -317,6 +317,7 @@ def configure_perplexity_search(state: SearchConsoleState) -> None:
 
     status = perplexity_configuration_status()
     key_state = "[SET]" if status["configured"] else "<não definida>"
+    enabled_flag = perplexity_enabled()
     print("\nSEARCH INTELLIGENCE / PERPLEXITY")
     print(
         "Esta superfície é pesquisa externa com provenance própria; não substitui SERP "
@@ -329,6 +330,19 @@ def configure_perplexity_search(state: SearchConsoleState) -> None:
     print(
         f"Limite desta integração: até {PERPLEXITY_MAX_QUERIES} queries por request; "
         "WEB e FAST usam a mesma estrutura de resposta."
+    )
+    print(
+        "Estado independente: integração="
+        + ("HABILITADA" if enabled_flag else "DESABILITADA")
+        + "; credencial="
+        + ("CONFIGURADA" if status["configured"] else "NÃO CONFIGURADA")
+        + "; pesquisa opcional="
+        + ("SOLICITADA" if state.perplexity_queries else "NÃO SOLICITADA")
+    )
+    print(
+        "Termos SERP NÃO são herdados automaticamente pela Perplexity. "
+        "A Search API é potencialmente faturável; preços WEB/FAST em USD: "
+        "N/D sem cotação comercial comprovada. Nenhuma cobrança ocorre na configuração."
     )
 
     try:
@@ -344,20 +358,48 @@ def configure_perplexity_search(state: SearchConsoleState) -> None:
             state.error = ""
             return
 
-        current = "; ".join(state.perplexity_queries)
+        # Optional one-way suggestion only: SERP inputs are NOT automatically
+        # charged or inherited by the external Perplexity Search API. Keep
+        # the choice session-scoped and require explicit final authorization.
+        suggested = tuple(state.search_queries or ())
+        copy_serp = False
+        if suggested:
+            print(
+                f"Existem {len(suggested)} termo(s) SERP nesta sessão. "
+                "Copiar é apenas sugestão; não associa as origens de evidência."
+            )
+            copy_serp = _yes_no(
+                "Copiar explicitamente os termos SERP para as queries Perplexity?",
+                False,
+            )
+            if copy_serp and len(suggested) > PERPLEXITY_MAX_QUERIES:
+                raise ValueError(
+                    f"SERP possui {len(suggested)} termos; Perplexity aceita no máximo "
+                    f"{PERPLEXITY_MAX_QUERIES}. Não copiar parcialmente: "
+                    "defina as queries manualmente."
+                )
+        current = "; ".join(
+            suggested if copy_serp else state.perplexity_queries
+        )
+        if copy_serp:
+            print(
+                "Sugestão SERP copiada somente para esta configuração; "
+                "revise os termos antes de confirmar a chamada externa."
+            )
         raw = input(
             "Query(s) Perplexity; separe múltiplas por ';'"
             + (f" [{current}]" if current else "")
             + ": "
         ).strip()
-        queries = parse_search_terms(raw) if raw else state.perplexity_queries
+        queries = parse_search_terms(raw) if raw else (
+            suggested if copy_serp else state.perplexity_queries
+        )
         if not queries:
             raise ValueError("informe pelo menos uma query Perplexity")
         if len(queries) > PERPLEXITY_MAX_QUERIES:
             raise ValueError(
                 f"a Search API aceita no máximo {PERPLEXITY_MAX_QUERIES} queries por request"
             )
-        state.perplexity_queries = queries
 
         current_type = (
             state.perplexity_search_type
@@ -370,6 +412,26 @@ def configure_perplexity_search(state: SearchConsoleState) -> None:
         search_type = current_type if not raw_type else raw_type
         if search_type not in {"web", "fast"}:
             raise ValueError("tipo Perplexity deve ser web ou fast")
+        print(
+            f"RESUMO EXPLÍCITO: Perplexity Search API {search_type.upper()}, "
+            f"{len(queries)} query(s); credencial "
+            + ("configurada" if status["configured"] else "não configurada")
+            + ". Consulta externa pode ser cobrada; custo exato: N/D. "
+            "Esta confirmação não executa HTTP agora."
+        )
+        if not _yes_no(
+            "Confirmar SOLICITAÇÃO Perplexity potencialmente faturável após a auditoria?",
+            False,
+        ):
+            # Refusal clears even an earlier draft; no stale request may later
+            # run implicitly through the console orchestration.
+            state.perplexity_queries = ()
+            state.perplexity_last_status = "NOT_REQUESTED"
+            state.perplexity_last_detail = "solicitação externa não autorizada; zero requisição"
+            state.perplexity_last_duration_seconds = None
+            state.error = ""
+            return
+        state.perplexity_queries = queries
         state.perplexity_search_type = search_type
         state.perplexity_last_status = "PENDING"
         state.perplexity_last_detail = (
@@ -378,6 +440,15 @@ def configure_perplexity_search(state: SearchConsoleState) -> None:
         )
         state.error = ""
     except (TypeError, ValueError) as exc:
+        # Treat a failed edit as a withdrawn paid request. Retaining a
+        # previously selected set of queries would schedule an unintended
+        # external search when the operator proceeds to run the AUD.
+        state.perplexity_queries = ()
+        state.perplexity_last_status = "NOT_REQUESTED"
+        state.perplexity_last_detail = (
+            "configuração Perplexity inválida; solicitação externa cancelada"
+        )
+        state.perplexity_last_duration_seconds = None
         state.error = f"Perplexity Search Intelligence: {exc}"
 
 
@@ -669,6 +740,7 @@ def _render_menu_extension(state: SearchConsoleState) -> None:
         status = f"sem termos nesta execução | provider mode={mode}"
     perplexity_queries = tuple(getattr(state, "perplexity_queries", ()) or ())
     px_status = perplexity_configuration_status()
+    px_feature = "HABILITADA" if perplexity_enabled() else "DESABILITADA"
     px_mode = str(getattr(state, "perplexity_search_type", "web") or "web").upper()
     if perplexity_queries:
         px_preview = "; ".join(perplexity_queries[:2])
@@ -676,17 +748,22 @@ def _render_menu_extension(state: SearchConsoleState) -> None:
             px_preview += f"; +{len(perplexity_queries) - 2}"
         perplexity_line = (
             f"{len(perplexity_queries)} query(s) | {px_mode} | "
+            f"integração {px_feature} | "
             f"{'configurada' if px_status['configured'] else 'não configurada'} | {px_preview}"
         )
     else:
         perplexity_line = (
-            "não solicitado | "
+            f"não solicitado | integração {px_feature} | "
             + ("credencial configurada" if px_status["configured"] else "credencial não configurada")
         )
 
     print("\nSEARCH INTELLIGENCE")
     print(f"T. Termos SERP            : {status}")
     print(f"U. Perplexity externa     : {perplexity_line}")
+    print(
+        "   SERP e Perplexity são pedidos independentes; "
+        "habilitar integração/chave não solicita pesquisa externa."
+    )
     print("   Termos são transitórios da sessão; credenciais/provider/limites continuam em E.")
 
 
