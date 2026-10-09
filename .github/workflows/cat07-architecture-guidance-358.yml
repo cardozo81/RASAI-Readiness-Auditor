@@ -1,0 +1,41 @@
+name: CAT-07 architecture guidance 358 isolated
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/experience_architecture_guidance_358.py'
+      - 'tests/test_experience_architecture_guidance_358.py'
+      - 'docs/CAT07_EXPERIENCE_ARCH_GUIDANCE_358.md'
+      - '.github/workflows/cat07-architecture-guidance-358.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/experience_architecture_guidance_358.py'
+      - 'tests/test_experience_architecture_guidance_358.py'
+      - '.github/workflows/cat07-architecture-guidance-358.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  cat07-architecture-advisory:
+    name: CAT-07 M25 architecture advisory no-provider (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - name: Install package and pytest
+        run: python -m pip install -e . pytest
+      - name: Pure architecture guidance and existing M25 reference defaults
+        run: >-
+          python -m pytest -q
+          tests/test_experience_architecture_guidance_358.py
+          tests/test_m25_dynatrace_compat_defaults.py
