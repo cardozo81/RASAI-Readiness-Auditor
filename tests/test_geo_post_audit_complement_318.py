@@ -567,6 +567,14 @@ def test_supplement_lifecycle_inspector_without_new_cost_or_aud_changes(
     assert output["entries"][0]["verified_source_count"] == 1
     assert output["entries"][0]["search_started_at"]
     assert output["entries"][0]["search_finished_at"]
+    cost_source = json.loads(
+        (created.directory / "result.json").read_text(encoding="utf-8")
+    )
+    assert output["entries"][0]["posthoc_estimated_cost"] == cost_source["posthoc_estimated_cost"]
+    assert output["entries"][0]["cost_currency"] == cost_source["cost_currency"]
+    assert output["entries"][0]["pricing_version"] == cost_source["pricing_version"]
+    assert output["entries"][0]["cost_is_provider_invoice"] is False
+    assert output["entries"][0]["cost_belongs_to_original_audit"] is False
     assert output["verified_successful_searches"] == 1
     assert output["verified_unsuccessful_searches"] == 0
     assert output["verified_means_evidence_integrity_not_search_success"] is True
@@ -606,6 +614,7 @@ def test_supplement_lifecycle_exposes_ambiguous_and_invalid_without_html(
     assert final["verified"] == 0
     assert final["uncertain"] == final["invalid"] == 1
     assert all(x["evidence_html"] is None for x in final["entries"])
+    assert all(x["posthoc_estimated_cost"] is None for x in final["entries"])
     assert final["provider_requests"] == final["audit_writes"] == 0
     assert workspace.database.read_bytes() == original
 
@@ -875,3 +884,75 @@ def test_paid_geo_supplement_rejects_linked_parent_scope_without_reservation(
         list_post_audit_geo_supplements(workspace, audit_id=aud)
     assert not list(escaped.iterdir())
     assert workspace.database.read_bytes() == original
+
+
+@pytest.mark.parametrize(
+    ("field", "forged"),
+    [
+        ("native_usage_quantity", 777),
+        ("native_usage_quantity", float("nan")),
+        ("native_usage_unit", "fabricated-token-count"),
+        ("posthoc_estimated_cost", 991.9),
+        ("posthoc_estimated_cost", float("inf")),
+        ("cost_currency", "FAKE"),
+        ("pricing_version", "forged-price-table"),
+    ],
+)
+def test_external_geo_economics_cannot_be_forged_by_rehashing_manifest(
+    tmp_path, monkeypatch, field, forged,
+):
+    """Result economics must match the derived canonical SQLite ledger."""
+    from rasai.geo_supplement_inspection_309 import inspect_geo_supplements
+    workspace, aud = source(tmp_path, monkeypatch)
+    original_db = workspace.database.read_bytes()
+    intent_id = "economics-proof-" + field.replace("_", "-") + (
+        "-nan" if isinstance(forged, float) and forged != forged
+        else "-inf" if forged == float("inf") else "-value"
+    )
+    created = run(
+        workspace, audit_id=aud, intent_id=intent_id,
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={
+            "RASAI_PERPLEXITY_ENABLED": "true",
+            "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY",
+        },
+        transport=fake_transport,
+    )
+    assert inspect_geo_supplements(workspace.root)["verified"] == 1
+    result_path = created.directory / "result.json"
+    manifest_path = created.directory / "manifest.json"
+    result_data = json.loads(result_path.read_text(encoding="utf-8"))
+    result_data[field] = forged
+    result_path.write_text(json.dumps(result_data), encoding="utf-8")
+    manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for item in manifest_data["files"]:
+        if item["path"] == "result.json":
+            item["bytes"] = result_path.stat().st_size
+            item["sha256"] = sha256(result_path.read_bytes()).hexdigest()
+    manifest_path.write_text(json.dumps(manifest_data), encoding="utf-8")
+    inspection = inspect_geo_supplements(workspace.root)
+    assert inspection["verified"] == 0
+    assert inspection["invalid"] == 1
+    assert inspection["entries"][0]["billability"] == "UNKNOWN"
+    assert inspection["entries"][0]["evidence_html"] is None
+    with pytest.raises(ValueError, match="ledger mismatch"):
+        run(
+            workspace, audit_id=aud, intent_id=intent_id,
+            query="seguro de vida", explicit_cost_authorization=True,
+            env={
+                "RASAI_PERPLEXITY_ENABLED": "true",
+                "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY",
+            },
+            transport=lambda *args: pytest.fail("no HTTP on manipulated ledger"),
+        )
+    assert workspace.database.read_bytes() == original_db
+
+
+def test_ledger_unknown_estimated_cost_cannot_be_published_as_zero():
+    from rasai.geo_post_audit_complement import _same_ledger_quantity
+    assert _same_ledger_quantity(None, None)
+    assert not _same_ledger_quantity(0, None)
+    assert not _same_ledger_quantity(0.0, None)
+    assert _same_ledger_quantity(0, None, null_usage_zero=True)
+    assert not _same_ledger_quantity(float("nan"), None, null_usage_zero=True)
+    assert not _same_ledger_quantity(False, 0)

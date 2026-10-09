@@ -32,6 +32,11 @@ def inspect_geo_supplements(aud_dir: Path) -> dict:
             "verified_source_count": item.source_count,
             "search_started_at": item.started_at,
             "search_finished_at": item.finished_at,
+            "posthoc_estimated_cost": item.posthoc_estimated_cost,
+            "cost_currency": item.cost_currency,
+            "pricing_version": item.pricing_version,
+            "cost_is_provider_invoice": False,
+            "cost_belongs_to_original_audit": False,
             "detail": item.detail,
             "evidence_html": str(item.directory / "supplement.html")
             if item.state == "VERIFIED" else None,

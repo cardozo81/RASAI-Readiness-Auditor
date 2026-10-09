@@ -164,6 +164,14 @@ def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
             if latest is None:
                 return None, "GEO_SNAPSHOT_MISSING"
             stored = dict(zip(selected, latest))
+            # #309/#311: a frozen snapshot is not CURRENT if a subsequent
+            # Search API attempt failed (or ordering is ambiguous). This is
+            # the same conservative policy as GEO CAT cross-references: never
+            # promote earlier success merely because its report persisted.
+            current_search = _last_temporally_verified(
+                con, table="perplexity_search_runs", audit_id=root.name,
+                columns=("run_id", "status"), time_column="started_at",
+            )
     except (sqlite3.Error, OSError):
         return None, "AUD_SCHEMA_OR_READ_ERROR"
     if stored["contract_version"] not in _CONTRACTS:
@@ -176,6 +184,14 @@ def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
         return None, "GEO_PROJECTION_INVALID"
     if not _source_provenance(root, root.name, stored, projection):
         return None, "GEO_SOURCE_PROVENANCE_UNVERIFIED"
+    if current_search is _UNVERIFIABLE:
+        return None, "GEO_SEARCH_CHRONOLOGY_UNVERIFIABLE"
+    if current_search is None:
+        return None, "GEO_SEARCH_NOT_PERSISTED"
+    if current_search[1] != "SUCCESS":
+        return None, "GEO_LATEST_SEARCH_NOT_SUCCESSFUL"
+    if current_search[0] != stored["perplexity_run_id"]:
+        return None, "GEO_SNAPSHOT_NOT_FROM_LATEST_SEARCH"
     if (
         projection.get("contract_version") != stored["contract_version"]
         or projection.get("audit_id") != root.name

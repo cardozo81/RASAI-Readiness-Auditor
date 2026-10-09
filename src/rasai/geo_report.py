@@ -80,11 +80,15 @@ def _stored_comparison(database: Path, audit_id: str) -> dict | None:
         ).fetchone()
         if table is None:
             return None
-        row = con.execute(
-            "SELECT projection_json FROM geo_observation_runs WHERE audit_id=? "
-            "ORDER BY created_at DESC, analysis_id DESC LIMIT 1", (audit_id,)
-        ).fetchone()
-    if row is None:
+        # A textual DESC sort of ISO timestamps does not establish physical
+        # recency across UTC offsets. Reuse the bounded UTC-aware selector for
+        # the GEO page itself, not only its CAT crossrefs. Equal/unparseable
+        # histories must abstain rather than resurface stale metrics.
+        row = _last_temporally_verified(
+            con, table="geo_observation_runs", audit_id=audit_id,
+            columns=("projection_json",), time_column="created_at",
+        )
+    if row is None or row is _UNVERIFIABLE:
         return None
     try:
         result = json.loads(row[0])
@@ -714,7 +718,16 @@ def geo_body(database: Path, audit_id: str) -> str:
                 summary += ": " + escape(str(opportunity.get("recommendation") or "-"))
                 summary += " | evidências: " + ", ".join(
                     escape(str(x)) for x in opportunity["evidence_ids"]
-                ) + "</li>"
+                )
+                if opportunity.get("rationale"):
+                    summary += "<p>Justificativa apresentada pela IA: " + escape(
+                        str(opportunity["rationale"])
+                    ) + "</p>"
+                if opportunity.get("causality_note"):
+                    summary += "<p>Limite de causalidade: " + escape(
+                        str(opportunity["causality_note"])
+                    ) + "</p>"
+                summary += "</li>"
             summary += "</ol>"
         elif geo_ai.get("state") == "PENDING_UNCERTAIN":
             summary += (

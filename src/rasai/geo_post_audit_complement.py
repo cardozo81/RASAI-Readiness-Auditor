@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from html import escape
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -250,6 +251,30 @@ def _existing(
 
 
 
+def _same_ledger_quantity(
+    reported: object, recorded: object, *, null_usage_zero: bool = False,
+) -> bool:
+    """Compare canonical numeric evidence without laundering unknown cost.
+
+    Only native request usage may serialize SQL NULL as zero when no usage
+    item was present. An unknown *cost* must remain None, never become 0.
+    """
+    if recorded is None:
+        return (
+            reported is None
+            or (null_usage_zero and type(reported) in (int, float)
+                and math.isfinite(reported) and reported == 0)
+        )
+    if (
+        type(reported) not in (int, float)
+        or type(recorded) not in (int, float)
+        or not math.isfinite(reported) or not math.isfinite(recorded)
+        or reported < 0 or recorded < 0
+    ):
+        return False
+    return reported == recorded
+
+
 def _verify_recorded_supplement(
     directory: Path, *,
     audit_id: str, intent_id: str, request_fingerprint: str,
@@ -319,7 +344,9 @@ def _verify_recorded_supplement(
         con.execute("PRAGMA query_only=ON")
         rows = con.execute(
             "SELECT audit_id, status, query_json, search_type, purpose, "
-            "request_payload_hash, started_at, finished_at, billable "
+            "request_payload_hash, started_at, finished_at, billable, "
+            "native_usage_unit, native_usage_quantity, estimated_cost, "
+            "cost_currency, pricing_version "
             "FROM perplexity_search_runs WHERE run_id=?",
             (result["run_id"],),
         ).fetchall()
@@ -338,6 +365,16 @@ def _verify_recorded_supplement(
             or row[6] != result["started_at"]
             or row[7] != result["finished_at"]
             or charged != result["billability"]
+            # The report-facing economic metadata cannot be altered by
+            # rewriting result.json and re-hashing manifest.json. Neither
+            # estimated cost nor usage is proof of an actual provider invoice.
+            or row[9] != result.get("native_usage_unit")
+            or not _same_ledger_quantity(
+                result.get("native_usage_quantity"), row[10], null_usage_zero=True
+            )
+            or not _same_ledger_quantity(result.get("posthoc_estimated_cost"), row[11])
+            or row[12] != result.get("cost_currency")
+            or row[13] != result.get("pricing_version")
             or con.execute("PRAGMA quick_check").fetchone()[0] != "ok"
             or con.execute("PRAGMA foreign_key_check").fetchone() is not None
         ):
@@ -371,6 +408,11 @@ class GeoSupplementInventoryItem:
     source_count: int | None = None
     started_at: str | None = None
     finished_at: str | None = None
+    # Available ONLY when content is verified against the derived M18 ledger.
+    # Post-hoc estimate, not observed provider invoice or original AUD cost.
+    posthoc_estimated_cost: float | None = None
+    cost_currency: str | None = None
+    pricing_version: str | None = None
 
 
 def list_post_audit_geo_supplements(
@@ -473,6 +515,9 @@ def list_post_audit_geo_supplements(
                 source_count=source_count,
                 started_at=result["started_at"],
                 finished_at=result["finished_at"],
+                posthoc_estimated_cost=result.get("posthoc_estimated_cost"),
+                cost_currency=result.get("cost_currency"),
+                pricing_version=result.get("pricing_version"),
             ))
         except (OSError, UnicodeError, ValueError, TypeError, sqlite3.Error):
             rows.append(GeoSupplementInventoryItem(
