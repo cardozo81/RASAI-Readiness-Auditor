@@ -72,6 +72,34 @@ def _canonical_url(url: str) -> str:
         return ""
 
 
+def _canonical_url_v7(url: str) -> str:
+    """Historical interpretation for frozen v1-v7 descriptive cohorts only.
+
+    Do not rewrite prior snapshots or silently apply v8 URL identity to a
+    longitudinal group whose original method treated /path and /path/ as
+    equivalent. Never use this weaker helper for NEW v8 observations.
+    """
+    if not isinstance(url, str):
+        return ""
+    try:
+        parsed = urlsplit(url.strip())
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+            return ""
+        scheme = parsed.scheme.lower()
+        authority = parsed.hostname.lower()
+        if ":" in authority:
+            authority = "[" + authority + "]"
+        port = parsed.port
+        if port is not None and port != (443 if scheme == "https" else 80):
+            authority += ":" + str(port)
+        path = parsed.path.rstrip("/") or "/"
+        return scheme + "://" + authority + path + (
+            "?" + parsed.query if parsed.query else ""
+        )
+    except ValueError:
+        return ""
+
+
 def _host(url: str) -> str:
     canonical = _canonical_url(url)
     if not canonical:
