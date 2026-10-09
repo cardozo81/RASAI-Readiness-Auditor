@@ -615,8 +615,9 @@ def geo_body(database: Path, audit_id: str) -> str:
                 summary += ("<p>Intervalo entre coletas observadas: "
                             + escape(str(round(float(scope["time_gap_seconds"]) / 60, 1)))
                             + " minutos (limite descritivo de 24 horas).</p>")
-            summary += ("<p>Equivalência de intenção, país, idioma e dispositivo "
-                        "com a busca externa: <strong>não comprovada</strong>.</p>")
+            summary += ("<p>Equivalência de país, idioma, dispositivo e instante "
+                        "com a busca externa (inclusive intenção): "
+                        "<strong>não comprovada</strong>.</p>")
     summary += "</section>"
     if comparison:
         target = comparison.get("target_observation") or {}
