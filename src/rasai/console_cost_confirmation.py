@@ -50,7 +50,7 @@ def _signed_money(value: float | None, currency: str | None) -> str:
     return f"{currency} {value:+.6f}"
 
 
-def _render_forecast(forecast: CostForecast) -> None:
+def _render_forecast(forecast: CostForecast, *, state: Any | None = None) -> None:
     print("\n" + title_text("ESTIMATIVA FINANCEIRA ANTES DA EXECUÇÃO"))
     print("-" * 100)
     print(
@@ -79,6 +79,17 @@ def _render_forecast(forecast: CostForecast) -> None:
     print(f"Reprecificação atual : {forecast.repriced_share * 100:.0f}% das chamadas conhecidas")
     for note in forecast.notes:
         print(paint(f"Observação           : {note}", DIM))
+    if state is not None:
+        # Advisory-only duration preview: no execution, provider call or database write.
+        # A monetary sample is NOT evidence of comparable wall-time observations.
+        from rasai.audit_duration_forecast_319 import (
+            forecast_local_duration, format_duration_preview,
+        )
+
+        timing = forecast_local_duration(state, target_pages=forecast.target_pages)
+        print("\n" + title_text("PREVISÃO DE DURAÇÃO — OBSERVAÇÕES HISTÓRICAS"))
+        for line in format_duration_preview(timing):
+            print(paint(line, DIM))
     print(
         paint(
             "A execução ainda não iniciou e nenhuma chamada tarifável foi disparada nesta etapa.",
@@ -571,7 +582,7 @@ def install(console_module: ModuleType) -> None:
             state.operation = "LOCAL:COST_FORECAST"
             state.error = ""
             console_module.render_header(state)
-            _render_forecast(forecast)
+            _render_forecast(forecast, state=state)
             action = _financial_execution_action(state, console_module)
 
             if action == "A":
