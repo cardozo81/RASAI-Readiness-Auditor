@@ -58,3 +58,20 @@ aceite metodológico.
 
 Workflow focal `GEO Longitudinal 311 Read-Only`, sem credenciais
 comerciais nem alterações dos motores homologados.
+
+
+## Public CLI (#311)
+
+O router canônico aceita o comando `rasai geo-longitudinal` (alias
+`rasai geo-history`), encaminhando diretamente para a rotina read-only
+**antes** da instalação de hooks de auditoria, IA ou segredos da sessão.
+Exemplo no PowerShell:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai geo-longitudinal "C:\audits\AUD-1" "C:\audits\AUD-2"
+```
+
+O comando especializado `python -m rasai.geo_longitudinal_311` continua
+suportado e produz o mesmo JSON. Workflow de regressão testa ambos
+em Windows e Linux; não testa provedores comerciais nem instrumentação
+real de navegadores.
