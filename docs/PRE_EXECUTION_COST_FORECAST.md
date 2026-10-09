@@ -65,3 +65,42 @@ O RASAi não presume que todo erro seja faturável. Uma tentativa com falha só 
 O RASAi não faz conversão cambial implícita. Históricos comparáveis com moedas distintas suprimem a previsão em vez de fabricar um único valor.
 
 SERP, PageSpeed, CrUX e outras integrações permanecem fora da decisão monetária quando o RASAi possui telemetria de quota/uso, mas não possui estimativa monetária canônica.
+
+
+## Observabilidade de duração antes da auditoria — #319 (incremental)
+
+O console apresenta uma projeção **separada da previsão financeira**: o
+módulo `audit_duration_forecast_319.py` lê apenas bancos `AUD-*/audit.db`
+no modo `ro`, até 200 AUDs, sem internet, IA, novas amostras, alterações
+de materialização ou execução física. Isso não representa uma previsão
+precisa de tempo de conclusão.
+
+Regras conservadoras:
+
+- Somente execuções `COMPLETE` com `console_execution_projections`
+  materializada, relógios de início e fim compatíveis, duração física
+  positiva e contagem de páginas **idêntica** à projetada são elegíveis.
+- É obrigatória a equivalência dos campos históricos disponíveis:
+  dispositivo, seleção de provider/modelo, content remediation, web
+  performance, field source e max pages. Falta do campo é **abstenção**.
+  Seleções opcionais não representadas na configuração histórica são
+  deliberadamente excluídas.
+- Exigir **no mínimo cinco** AUDs comparáveis antes de mostrar mediana,
+  P25–P75 e P90 descritivos de duração total. Na ausência da coorte,
+  mostrar `N/D`, não extrapolar uma AUD isolada.
+- Tempo ativo de etapa IA só pode aparecer se o intervalo observado
+  `started_at/finished_at` for íntegro em **todos** os membros da coorte.
+  Utiliza a união dos intervalos por etapa (sem somar chamadas paralelas
+  indevidamente). Tempos de etapas IA **não são aditivos** e não equivalem
+  à duração total do processamento.
+- A duração física detalhada de captura, PSI, Apdex e geração de HTML
+  permanece `N/D` onde não há telemetria de mesma etapa. As faixas
+  históricas não são SLAs, probabilidades calibradas ou custo de provider.
+- Não altera forecast de dinheiro, pricing, autorização de custo,
+  orquestrador de IA ou cálculo de pontuação.
+
+**Lacuna residual #319:** a estimativa física *ex ante* segmentada por
+captura, web performance, Apdex, relatório e análises opcionais somente pode
+avançar após identificar medições históricas completas e comparáveis, com
+identidade de etapa e relógios rastreáveis. Não reconstruir estágios
+por subtração de timestamps entre coletores independentes.
