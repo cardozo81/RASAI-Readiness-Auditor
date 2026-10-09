@@ -422,6 +422,23 @@ class PerplexityExplicitCopy318Tests(unittest.TestCase):
         self.assertIn("integração DESABILITADA", off.getvalue())
         self.assertIn("credencial não configurada", off.getvalue())
 
+    def test_invalid_edit_cancels_prior_paid_request_instead_of_reusing_it(self):
+        from rasai.console_search_intelligence import configure_perplexity_search
+        state = SearchConsoleState(
+            search_queries=("q1", "q2", "q3", "q4", "q5", "q6"),
+            perplexity_queries=("previously-scheduled-and-now-cancelled",),
+            perplexity_last_status="PENDING",
+        )
+        with patch("builtins.input", side_effect=("s", "s")) as prompts, (
+            redirect_stdout(StringIO())
+        ):
+            configure_perplexity_search(state)
+        self.assertEqual(prompts.call_count, 2)
+        self.assertIn("Não copiar parcialmente", state.error)
+        self.assertEqual(state.perplexity_queries, ())
+        self.assertEqual(state.perplexity_last_status, "NOT_REQUESTED")
+        self.assertIn("solicitação externa cancelada", state.perplexity_last_detail)
+
     def test_copy_refusal_does_not_trigger_perplexity_transport(self):
         from rasai.console_search_intelligence import configure_perplexity_search
         state = SearchConsoleState(
