@@ -254,6 +254,15 @@ class GeoObservationTests(unittest.TestCase):
         self.assertEqual(_canonical_url("https://example.org/a\\\\b"), "")
         self.assertEqual(_canonical_url("https://example.org/a b"), "")
         self.assertEqual(_host("https://user:secret@example.org/a"), "")
+        from rasai.geo_observation import _canonical_url_v7
+        self.assertEqual(
+            _canonical_url_v7("https://example.org/a/"),
+            _canonical_url_v7("https://example.org/a"),
+        )
+        self.assertNotEqual(
+            _canonical_url("https://example.org/a/"),
+            _canonical_url("https://example.org/a"),
+        )
         self.assertNotEqual(
             _canonical_url("http://example.org/a"),
             _canonical_url("https://example.org/a"),
