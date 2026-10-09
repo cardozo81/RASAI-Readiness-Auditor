@@ -193,6 +193,161 @@ def _existing(
     )
 
 
+
+@dataclass(frozen=True, slots=True)
+class GeoSupplementInventoryItem:
+    """Only facts verified against the current sealed AUD and supplement files."""
+    intent_id: str
+    state: str
+    query_count: int | None
+    search_type: str | None
+    billability: str
+    directory: Path
+    detail: str
+
+
+def list_post_audit_geo_supplements(
+    original_workspace: AuditWorkspace, *, audit_id: str,
+) -> tuple[GeoSupplementInventoryItem, ...]:
+    """Read-only listing. Never reserves an intent or executes a provider.
+
+    A structurally valid manifest is not alone a valid successful observation:
+    manifest SHA, original hashes, recorded request identity, result JSON and
+    the derived Perplexity ledger must all agree. Uncertain attempts never
+    silently become reusable or "not charged".
+    """
+    original_workspace = AuditWorkspace.open(original_workspace.root)
+    if audit_id != original_workspace.root.name:
+        raise ValueError("source workspace and audit_id mismatch")
+    db_sha, report_sha, state_hash = _sealed_audit(original_workspace, audit_id)
+    root = original_workspace.root.parent / ".rasai-geo-supplements"
+    if root.is_symlink():
+        raise ValueError("external supplement root cannot be symlink")
+    scope_dir = root / audit_id
+    if scope_dir.is_symlink():
+        raise ValueError("external supplement scope cannot be symlink")
+    if not scope_dir.exists():
+        return ()
+    if not scope_dir.is_dir():
+        raise ValueError("external supplement scope is not a directory")
+    rows: list[GeoSupplementInventoryItem] = []
+    for folder in sorted(scope_dir.iterdir(), key=lambda x: x.name):
+        if folder.is_symlink() or not folder.is_dir():
+            # Symlinked evidence can escape the user's audit scope. Never follow.
+            rows.append(GeoSupplementInventoryItem(
+                "N/D", "INVALID", None, None, "UNKNOWN", folder,
+                "diretório vinculado ou inválido; leitura recusada",
+            ))
+            continue
+        intent_path = folder / "intent.json"
+        if intent_path.is_symlink():
+            rows.append(GeoSupplementInventoryItem(
+                "N/D", "INVALID", None, None, "UNKNOWN", folder,
+                "registro de intenção vinculado; leitura recusada",
+            ))
+            continue
+        try:
+            saved = json.loads(intent_path.read_text(encoding="utf-8"))
+            if not isinstance(saved, dict) or not isinstance(saved.get("scope"), dict):
+                raise ValueError("intent structure")
+            data = saved["scope"]
+            intent = data.get("intent_id")
+            if (
+                not isinstance(intent, str)
+                or not _INTENT_PATTERN.fullmatch(intent)
+                or folder.name != sha256(intent.encode("utf-8")).hexdigest()[:32]
+                or data.get("audit_id") != audit_id
+                or data.get("version") != SUPPLEMENT_VERSION
+                or saved.get("authorization") != "EXPLICIT_PER_INTENT"
+            ):
+                raise ValueError("intent identity mismatch")
+            expected = sha256(
+                json.dumps(
+                    data, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+                ).encode("utf-8")
+            ).hexdigest()
+            if saved.get("request_fingerprint") != expected:
+                raise ValueError("intent request fingerprint mismatch")
+            request = data.get("queries")
+            mode = data.get("search_type")
+            if (
+                not isinstance(request, (list, tuple))
+                or not 1 <= len(request) <= 5
+                or any(not isinstance(q, str) or not q.strip() for q in request)
+                or mode not in {"web", "fast"}
+            ):
+                raise ValueError("query provenance invalid")
+            query_count = len(request)
+        except (OSError, UnicodeError, ValueError, TypeError):
+            rows.append(GeoSupplementInventoryItem(
+                "N/D", "PENDING_UNCERTAIN", None, None, "UNKNOWN", folder,
+                "registro de intenção ausente, corrompido ou não verificável; não reenviar",
+            ))
+            continue
+        try:
+            checked = _existing(
+                folder, audit_id=audit_id, intent_id=intent,
+                request_fingerprint=expected, source_db_sha=db_sha,
+                source_manifest_sha=report_sha,
+                source_state_fingerprint=state_hash,
+            )
+            if checked.status == "PENDING_UNCERTAIN":
+                rows.append(GeoSupplementInventoryItem(
+                    intent, "PENDING_UNCERTAIN", query_count, mode, "UNKNOWN",
+                    folder, checked.detail,
+                ))
+                continue
+            # Validate the *semantic* link between the manifest and the
+            # derived evidence, not only independent hashes of those files.
+            manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
+            result = json.loads((folder / "result.json").read_text(encoding="utf-8"))
+            if (
+                not isinstance(result, dict)
+                or result.get("version") != SUPPLEMENT_VERSION
+                or result.get("source_audit_id") != audit_id
+                or result.get("supplement_intent_id") != intent
+                or result.get("request_fingerprint") != expected
+                or result.get("source_audit_db_sha256") != db_sha
+                or result.get("source_catalog_manifest_sha256") != report_sha
+                or result.get("source_audit_state_fingerprint") != state_hash
+                or result.get("query_count") != query_count
+                or result.get("queries") != list(request)
+                or result.get("search_type") != mode
+                or result.get("status") != manifest.get("run_status")
+                or str(result.get("billability")) != str(manifest.get("billability"))
+                or not isinstance(result.get("run_id"), str)
+            ):
+                raise ValueError("derived result provenance mismatch")
+            evidence_db = folder / "evidence" / "audit.db"
+            with sqlite3.connect(evidence_db.resolve().as_uri() + "?mode=ro", uri=True) as con:
+                con.execute("PRAGMA query_only=ON")
+                matches = con.execute(
+                    "SELECT run_id, audit_id, status, query_json, search_type "
+                    "FROM perplexity_search_runs WHERE run_id=?",
+                    (result["run_id"],),
+                ).fetchall()
+                if (
+                    len(matches) != 1
+                    or matches[0][1] != audit_id
+                    or matches[0][2] != result["status"]
+                    or matches[0][4] != mode
+                    or json.loads(matches[0][3]) != list(request)
+                    or con.execute("PRAGMA quick_check").fetchone()[0] != "ok"
+                    or con.execute("PRAGMA foreign_key_check").fetchone() is not None
+                ):
+                    raise ValueError("derived SQLite ledger mismatch")
+            rows.append(GeoSupplementInventoryItem(
+                intent, "VERIFIED", query_count, mode, str(result["billability"]),
+                folder, f"suplemento {result['status']}; fonte e ledger verificados",
+            ))
+        except (OSError, UnicodeError, ValueError, TypeError, sqlite3.Error):
+            rows.append(GeoSupplementInventoryItem(
+                intent, "INVALID", query_count, mode, "UNKNOWN", folder,
+                "manifesto, fonte ou ledger inconsistente; não reenviar",
+            ))
+    return tuple(rows)
+
+
 def run_post_audit_geo_supplement(
     original_workspace: AuditWorkspace,
     *,
