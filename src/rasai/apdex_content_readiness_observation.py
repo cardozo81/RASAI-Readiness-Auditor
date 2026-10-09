@@ -7,6 +7,7 @@ context. This classifier cannot infer timestamps from M3 capture or past M23/M25
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Sequence
 
 METHOD_VERSION = "APP_PRIMARY_CONTENT_READINESS-EXPERIMENTAL-001"
@@ -16,6 +17,7 @@ _MIN_MAIN_CHARACTERS = 200
 _MIN_HEADING_CHARACTERS = 5
 _MIN_STABILITY_MS = 100
 _MAX_WINDOW_MS = 3000
+_MAX_CHECKPOINTS = 128  # Bounded pre-collected checkpoints; never a live sampler.
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +87,9 @@ def classify_primary_content_readiness(
             device=device if strict_provenance else "",
         )
 
+    if any(type(flag) is not bool for flag in
+           (enabled, window_expired, strict_provenance)):
+        return result("ERROR", "invalid_observation_flags")
     if not enabled:
         return result("NOT_APPLICABLE", "opt_in_disabled")
     if name not in _ELIGIBLE:
@@ -95,19 +100,34 @@ def classify_primary_content_readiness(
         not str(page_id).strip() or not str(device).strip()
     ):
         return result("ERROR", "missing_page_or_device_identity")
-    if not isinstance(window_ms, int) or not 100 <= window_ms <= _MAX_WINDOW_MS:
+    if type(window_ms) is not int or not 100 <= window_ms <= _MAX_WINDOW_MS:
         return result("ERROR", "invalid_observation_window")
-    if load_ms is None or not 0 <= load_ms < float("inf"):
+    if (
+        type(load_ms) not in (int, float)
+        or not math.isfinite(load_ms)
+        or load_ms < 0
+    ):
         return result("ERROR", "no_same_context_load_boundary")
+    if (
+        not isinstance(checkpoints, Sequence)
+        or isinstance(checkpoints, (str, bytes))
+        or len(checkpoints) > _MAX_CHECKPOINTS
+    ):
+        return result("ERROR", "invalid_checkpoint_collection")
     if any(
-        sample.sample_id != sample_id
+        not isinstance(sample, PrimaryContentCheckpoint)
+        or sample.sample_id != sample_id
         or sample.context_id != context_id
         or (
             strict_provenance
             and (sample.page_id != page_id or sample.device != device)
         )
-        or not 0 <= sample.since_navigation_ms < float("inf")
-        or sample.since_navigation_ms > load_ms + window_ms
+        or type(sample.since_navigation_ms) not in (int, float)
+        or not math.isfinite(sample.since_navigation_ms)
+        or not 0 <= sample.since_navigation_ms <= load_ms + window_ms
+        or type(sample.main_text_characters) is not int
+        or type(sample.heading_text_characters) is not int
+        or type(sample.skeleton_present) is not bool
         or sample.main_text_characters < 0
         or sample.heading_text_characters < 0
         for sample in checkpoints
