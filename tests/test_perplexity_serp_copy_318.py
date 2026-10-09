@@ -54,6 +54,10 @@ def test_post_aud_console_action_needs_explicit_billing_confirmation(monkeypatch
     from rasai import geo_post_audit_complement
 
     state = SearchConsoleState(perplexity_queries=("seguro de vida",))
+    # Test the consent flow with fake, locally "configured" credentials.
+    # The production gate must reject absent credentials before any prompts.
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "FAKE_FOR_TEST_ONLY")
     calls: list[dict] = []
 
     def fake_run(workspace, **kwargs):

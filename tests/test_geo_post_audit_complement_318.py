@@ -466,3 +466,63 @@ def test_review_rejects_semantic_forgery_even_after_manifest_file_hash_rewritten
     record, = list_post_audit_geo_supplements(workspace, audit_id=aud)
     assert record.state == "INVALID"
     assert record.billability == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    "environment,status", [
+        ({"RASAI_PERPLEXITY_ENABLED": "false"}, "DISABLED"),
+        ({"RASAI_PERPLEXITY_ENABLED": "true"}, "NOT_CONFIGURED"),
+        ({"RASAI_PERPLEXITY_ENABLED": "true", "PERPLEXITY_API_KEY": ""}, "NOT_CONFIGURED"),
+    ],
+)
+def test_unavailable_integration_never_reserves_or_calls_provider(
+    tmp_path, monkeypatch, environment, status,
+):
+    workspace, aud = source(tmp_path, monkeypatch)
+    before = workspace.database.read_bytes()
+    original_manifest = (workspace.root / "report-catalog" / "manifest.json").read_bytes()
+    result = run(
+        workspace, audit_id=aud, intent_id="preflight-not-sent",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env=environment,
+        transport=lambda *args: pytest.fail("not configured must never call provider"),
+    )
+    assert result.status == status
+    assert result.directory is None
+    assert result.request_executed is False
+    assert result.billability == "NOT_ATTEMPTED"
+    assert workspace.database.read_bytes() == before
+    assert (workspace.root / "report-catalog" / "manifest.json").read_bytes() == original_manifest
+    assert not (workspace.root.parent / ".rasai-geo-supplements").exists()
+
+
+def test_missing_key_preflight_does_not_override_explicit_permission_requirement(
+    tmp_path, monkeypatch,
+):
+    workspace, aud = source(tmp_path, monkeypatch)
+    with pytest.raises(PermissionError, match="authorization"):
+        run(
+            workspace, audit_id=aud, intent_id="not-authorized",
+            query="seguro de vida", explicit_cost_authorization=False,
+            env={"RASAI_PERPLEXITY_ENABLED": "true"},
+            transport=lambda *args: pytest.fail("never authorized"),
+        )
+    assert not (workspace.root.parent / ".rasai-geo-supplements").exists()
+
+
+def test_console_paid_action_rejects_missing_key_before_requesting_aud_path(
+    monkeypatch,
+):
+    from rasai import console_search_parameter_menu as menu
+    from rasai.console_search_intelligence import SearchConsoleState
+    from unittest.mock import patch
+    from contextlib import redirect_stdout
+    from io import StringIO
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    monkeypatch.delenv("PERPLEXITY_API_KEY", raising=False)
+    state = SearchConsoleState(perplexity_queries=("seguro de vida",))
+    output = StringIO()
+    with patch("builtins.input", side_effect=AssertionError("no prompts before credential")), redirect_stdout(output):
+        menu._external_geo_supplement(state)
+    assert "não configurada" in output.getvalue()
+    assert "nenhuma intenção reservada" in output.getvalue()

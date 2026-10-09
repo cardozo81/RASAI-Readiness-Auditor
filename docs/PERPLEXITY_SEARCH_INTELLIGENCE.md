@@ -461,3 +461,16 @@ O inventário não cria sidecars, não materializa novos catálogos, não
 muda o banco original e não dispara Search API ou IA. Não tenta
 transformar automaticamente o suplemento externo em snapshot GEO v5
 da AUD selada. Essa projeção futura permanece pendente no #311/#309.
+
+
+### Pré-checagem comercial de configuração (CAT-05 #318)
+
+A opção de **novo complemento externo** rejeita habilitação ausente
+(`DISABLED`) e credencial Perplexity ausente (`NOT_CONFIGURED`)
+**antes** de reservar o `intent_id` e, na interface, **antes** de pedir
+o caminho da AUD ou confirmar cobrança. Configurar a flag não valida
+automaticamente o token: validade remota, crédito e eventuais falhas
+só podem ser conhecidos pela resposta real do serviço, após autorização.
+A autorização explícita continua obrigatória mesmo quando a credencial
+está ausente. A consulta read-only pela opção **8** funciona sem token
+e não dispara integrações nem recálculo de relatórios.
