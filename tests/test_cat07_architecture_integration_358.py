@@ -223,7 +223,7 @@ def test_cat07_hash_verified_frozen_console_mode_is_shown_but_not_host_ini(tmp_p
     html = page._cat07_methodology_summary_html(db, data)
     assert "DYNATRACE_GUIDED" in html
     assert "SPA com renderização principal no cliente" in html
-    assert "user action" in html.lower()
+    assert "USER_ACTION_DURATION" in html
     assert db.read_bytes() == before
 
     # A current INI/state value is never retroactively inserted into an AUD.
