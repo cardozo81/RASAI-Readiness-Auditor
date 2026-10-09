@@ -75,7 +75,10 @@ def test_report_projection_replay_never_calls_provider_and_reuses_snapshot(tmp_p
         assert projection["audit_id"] == "AUD-1"
         assert projection["perplexity_run_id"] == "RUN-1"
         assert projection["serp_observation_id"] == "SERP-1"
-        assert projection["descriptive_overlap"]["common_urls"] == 1
+        # Legacy date-only clocks do not prove a 24h comparable observation window.
+        # Preserve sources/replay, but abstain from v4 overlap rates.
+        assert projection["descriptive_overlap"]["common_urls"] is None
+        assert projection["descriptive_overlap"]["reason"] == "TIME_SCOPE_UNPROVEN"
         assert "private.example" not in rows[0]["projection_json"]
         assert con.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert con.execute("PRAGMA foreign_key_check").fetchone() is None

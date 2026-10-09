@@ -54,3 +54,36 @@ ou SCORE-GEO. Não transformar testes de checkpoint fake em homologação de uma
 sonda real, e não declarar p75/p95 ou economia de latência sem amostras medidas.
 A etapa operacional pendente é medir overhead e materialidade *na mesma amostra*,
 com autorização humana explícita, janela curta e armazenamento independente.
+
+
+## Adapter isolado de observação no mesmo page - #322 (09/10/2026)
+
+O módulo `playwright_primary_content_probe_322.py` adiciona a função
+`observe_existing_playwright_page` **opt-in**, aplicada somente a um objeto
+`page` fornecido explicitamente por um consumidor que já detenha aquela
+sessão de navegador. Recebe do **mesmo sample** a origem
+`navigation_started_monotonic_ns`, `load_ms` e identidades
+`sample_id/context_id/page_id/device`. Não cria aba, navegador, navegação,
+rede, screenshot, OCR, estado SQLite ou nova task Apdex.
+
+- Classifica somente `CSR_SPA`, `HYDRATED`, `MIXED`, com janela de
+  100 a 3000 ms a partir do marco `load`, polling limitado de 100 a
+  500 ms e sem tentativa se o prazo já tiver expirado.
+- Em `page.evaluate` lê apenas texto de `main/article/[role=main]`,
+  heading e skeleton/aria-busy. Exige duas observações positivas estáveis
+  em pelo menos 100 ms e não transforma timeout em observação.
+- Falha de DOM, referência de página ausente, relógio inválido e material
+  malformado retornam `ERROR` sem vazar exceções de navegador. Leitura
+  que ultrapasse o prazo de observação é censurada.
+- O método é somente um **adapter de observação não instalado**.
+  Não há hook ativo no ciclo M23/M25, nem persistência, nem dados reais.
+  Tests com `Page` e relógio fake comprovam limites lógicos, **não**
+  comprovam baixo overhead em navegador físico.
+
+**Gate ainda obrigatório para uso produtivo:** instrumentar origem monotônica
+no *mesmo* sample/gateway de Apdex, demonstrar identidade do objeto Playwright,
+quantificar CPU/latência de `page.evaluate` em cenários SPA/SSR/cache,
+estabelecer mecanismo de persistência isolado com checksum e UI advisory.
+Somente depois decidir se o custo de processamento justifica habilitar o
+probe; jamais alterar samples históricos, timebound e pontuação Apdex
+homologados. O smoke humano da UI anterior não substitui esse gate.

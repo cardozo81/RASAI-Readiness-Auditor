@@ -333,9 +333,18 @@ Apenas evidências rastreáveis podem fundamentar recomendações; snippets de c
 
 ### Snapshot GEO derivado e reuso
 
-A camada adicional `geo_observation_runs` mantém uma projeção `RASAI-GEO-OBSERVATION-1` vinculada a `audit_id`, `perplexity_run_id`, observação SERP comparável (quando disponível), fingerprint SHA-256 da entrada, contrato e timestamp de materialização. O ID é determinístico e a gravação é idempotente: nova evidência produz novo snapshot; a mesma evidência não é duplicada. Essa projeção não participa de scoring nem muda tabelas de origem.
+A camada adicional `geo_observation_runs` mantém projeções imutáveis e versionadas (`RASAI-GEO-OBSERVATION-1` a `RASAI-GEO-OBSERVATION-4`) vinculadas a `audit_id`, `perplexity_run_id`, observação SERP comparável (quando disponível), fingerprint SHA-256 da entrada, contrato e timestamp de materialização. O ID é determinístico e a gravação é idempotente: nova evidência produz novo snapshot; a mesma evidência não é duplicada. Essa projeção não participa de scoring nem muda tabelas de origem.
 
 Depois de uma pesquisa Perplexity explicitamente executada pelo console e persistida com sucesso, o adapter GEO cria o snapshot e utiliza a materialização canônica do relatório existente para refletir os dados. Falhas nessa projeção opcional permanecem advisory. RPR e complementos continuam sujeitos às regras existentes de snapshot e aquisição: rematerialização HTML lê o estado persistido e não chama a API. Se não existir snapshot compatível, a seção deve apresentar indisponibilidade em vez de refazer a observação ou reinterpretar o histórico.
+
+No contrato v4, taxas de interseção por URL são exibidas somente para consulta única,
+SERP observada via API e horários **com timezone explícito** cuja distância
+não exceda 24 horas. Data sem fuso, clock inválido, diferença maior que 24 horas,
+multi-query ou denominador vazio tornam as taxas N/D, com razão registrada;
+contagens brutas não são apresentadas como taxas comparáveis. Os snapshots v1 a v3
+não são regravados e mantêm suas limitações metodológicas originais.
+O limite de 24 horas é apenas uma janela de elegibilidade descritiva, não um
+ajuste estatístico ou prova de identidade de intenção, país, idioma e dispositivo.
 
 A comparação é estritamente observacional: mesmo quando a consulta coincide, SERP e Perplexity podem diferir em momento, mercado, provider, profundidade e normalização. URLs recuperadas não são citações em respostas. As hipóteses de negócio/semântica são ações para avaliação humana, não causalidade comprovada.
 
@@ -378,3 +387,17 @@ O suplemento fica fora da pasta original da AUD, em `<audits-root>/.rasai-geo-su
 Antes da extensao, sao verificadas a situacao `COMPLETE`, a integridade SQLite/FK e o pacote `report-catalog` original. O pacote e manifestos **originais nao sao atualizados**; o suplemento externo apresenta proveniencia e hash de vinculo. Resultados posteriores nao sao promovidos ao score ou reclassificados como observacoes historicas da AUD. O contrato da fronteira e o estudo de reuso estao em [ADR_PERPLEXITY_SEARCH_REUSE_323.md](ADR_PERPLEXITY_SEARCH_REUSE_323.md).
 
 **Limite:** executar a consulta real ainda depende de autorizacao humana explicita no console; a suite automatizada usa transporte fake sem consumo de API paga.
+
+
+### Hardening de complemento e replay #318 - 09/10/2026
+
+No replay de um suplemento existente, a identidade da AUD original deve
+continuar igual à registrada na reserva inicial (SHA-256 do `audit.db`,
+fingerprint do estado e SHA-256 do manifesto do `report-catalog`).
+O `intent_id` somente pode reutilizar arquivos com manifesto íntegro,
+mesmo escopo e lista completa de quatro arquivos exigidos. Manifesto
+corrompido, diretório/arquivo linkado ou trilha insegura não autorizam nova
+requisição Search API nem são interpretados como sucesso. Resultados
+inconclusivos demandam revisão humana; nunca reutilizar um suplemento
+ligado a outra versão física da AUD. Esta checagem é local, automática,
+sem chamadas externas e **não** homologa faturamento comercial real.

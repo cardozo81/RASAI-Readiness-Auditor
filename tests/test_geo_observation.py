@@ -37,11 +37,11 @@ class GeoObservationTests(unittest.TestCase):
                 """)
                 con.execute("INSERT INTO audits VALUES ('AUD-1')")
                 con.execute("INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
-                            ("RUN-1", "AUD-1", '["seguro de vida"]', "web", "SUCCESS", "2026-10-07"))
+                            ("RUN-1", "AUD-1", '["seguro de vida"]', "web", "SUCCESS", "2026-10-07T10:00:00+00:00"))
                 con.execute("INSERT INTO perplexity_search_sources VALUES (?,?,?,?,?,?,?)",
                             ("RUN-1", 1, "https://example.org/seguro", "Title", "", None, None))
                 con.execute("INSERT INTO serp_observations VALUES (?,?,?,?,?,?)",
-                            ("SERP-1","AUD-1","seguro de vida","2026-10-07","OBSERVED","OBSERVED_API"))
+                            ("SERP-1","AUD-1","seguro de vida","2026-10-07T10:05:00+00:00","OBSERVED","OBSERVED_API"))
                 con.execute("INSERT INTO serp_results VALUES (?,?,?)",
                             ("SERP-1",1,"https://example.org/seguro"))
             first = materialize_geo_observation(db, "AUD-1")
@@ -217,7 +217,7 @@ class GeoObservationTests(unittest.TestCase):
                 self.assertEqual(len(rows), 3)
                 self.assertEqual(rows[0], ("RASAI-GEO-OBSERVATION-1", old_projection))
                 self.assertEqual(rows[1], ("RASAI-GEO-OBSERVATION-2", '{"old_v2":true}'))
-                self.assertEqual(rows[2][0], "RASAI-GEO-OBSERVATION-3")
+                self.assertEqual(rows[2][0], "RASAI-GEO-OBSERVATION-4")
                 self.assertIn("descriptive_overlap", json.loads(rows[2][1]))
                 self.assertEqual(con.execute("PRAGMA foreign_key_check").fetchall(), [])
                 self.assertEqual(con.execute("PRAGMA integrity_check").fetchone()[0], "ok")
@@ -290,6 +290,9 @@ class GeoObservationTests(unittest.TestCase):
             self.assertEqual(scope["serp_context"]["language"], "pt-BR")
             self.assertEqual(scope["serp_context"]["device"], "mobile")
             self.assertIsNone(scope["perplexity_context"]["geography_language_device"])
+            self.assertTrue(scope["time_window_within_24h"])
+            self.assertFalse(scope["intent_equivalence_proven"])
+            self.assertEqual(scope["time_gap_seconds"], 600.0)
 
     def test_descriptive_metrics_are_directional_and_abstain_without_denominator(self):
         from rasai.geo_observation import _descriptive_overlap_metrics
@@ -297,6 +300,7 @@ class GeoObservationTests(unittest.TestCase):
             {"example.org/a", "example.org/b"},
             {"example.org/b", "example.org/c", "example.org/d"},
             serp_id="SERP-1", query_set=["insurance"], search_status="SUCCESS",
+            time_gap_seconds=60,
         )
         self.assertEqual(metrics["status"], "DESCRIPTIVE_ONLY")
         self.assertEqual(metrics["serp_denominator"], 3)
@@ -309,7 +313,7 @@ class GeoObservationTests(unittest.TestCase):
         self.assertEqual(metrics["perplexity_only_count"], 1)
         empty = _descriptive_overlap_metrics(
             set(), {"example.org/c"}, serp_id="SERP-1",
-            query_set=["insurance"], search_status="SUCCESS",
+            query_set=["insurance"], search_status="SUCCESS", time_gap_seconds=60,
         )
         self.assertEqual(empty["reason"], "NO_VALID_URL_DENOMINATOR")
         self.assertIsNone(empty["jaccard_url_rate"])
@@ -326,6 +330,30 @@ class GeoObservationTests(unittest.TestCase):
         self.assertEqual(failed["reason"], "EXTERNAL_SEARCH_NOT_SUCCESSFUL")
         self.assertIsNone(failed["common_urls"])
 
+    def test_temporal_scope_requires_timezone_and_bounded_gap(self):
+        from rasai.geo_observation import _temporal_gap_seconds, _descriptive_overlap_metrics
+        self.assertEqual(
+            _temporal_gap_seconds("2026-10-09T12:00:00Z", "2026-10-09T09:00:00-03:00"),
+            0.0,
+        )
+        self.assertIsNone(_temporal_gap_seconds("2026-10-09", "2026-10-09T12:00:00Z"))
+        self.assertIsNone(_temporal_gap_seconds("not-a-date", "2026-10-09T12:00:00Z"))
+        for gap, reason in ((None, "TIME_SCOPE_UNPROVEN"),
+                            (86401, "TIME_SCOPE_OUTSIDE_WINDOW")):
+            rates = _descriptive_overlap_metrics(
+                {"https://example.org/a"}, {"https://example.org/a"},
+                serp_id="SERP-1", query_set=["insurance"],
+                search_status="SUCCESS", time_gap_seconds=gap,
+            )
+            self.assertEqual(rates["status"], "NOT_COMPARABLE")
+            self.assertEqual(rates["reason"], reason)
+            self.assertIsNone(rates["jaccard_url_rate"])
+        boundary = _descriptive_overlap_metrics(
+            {"https://example.org/a"}, {"https://example.org/a"},
+            serp_id="SERP-1", query_set=["insurance"], search_status="SUCCESS",
+            time_gap_seconds=86400,
+        )
+        self.assertEqual(boundary["status"], "DESCRIPTIVE_ONLY")
 
 
 if __name__ == "__main__":

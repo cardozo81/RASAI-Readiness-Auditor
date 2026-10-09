@@ -143,12 +143,15 @@ def execute_geo_ai(
         ).fetchone()
         if existing is not None:
             return str(existing[0])
+        injected_test_factory = provider_factory is not None
         if provider_factory is None:
             from rasai.search_intelligence import competitive_ai
             if not hasattr(competitive_ai, "OrchestratedCompetitiveAiProvider"):
                 return "CANONICAL_AI_NOT_INSTALLED"
             provider_factory = competitive_ai.build_competitive_ai_provider
-        injected_test_factory = provider_factory is not None and getattr(provider_factory, "__module__", "") != "rasai.ai_orchestration_unification"
+        # Never infer injection from __module__: the real canonical builder
+        # lives in search_intelligence, not ai_orchestration_unification.
+        # Only an explicit factory argument is eligible as a test adapter.
         try:
             provider = provider_factory(selection)
         except Exception:

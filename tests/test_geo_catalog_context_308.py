@@ -39,6 +39,7 @@ def _db(path: Path) -> None:
         ])
         con.executemany("INSERT INTO recommendations VALUES (?,?,?,?)", [
             ("AUD-1", "F-TECH", "Rever canonical", "P1"),
+            ("AUD-1", "F-TECH", "Rever canonical", "P1"),  # replay duplicate
             ("AUD-1", "F-CONTENT", "Rever entidade", "P2"),
             ("AUD-1", "F-OTHER", "Melhorar LCP", "P1"),
             ("AUD-2", "F-PRIVATE", "SEGREDO-RECOMENDACAO", "P1"),
@@ -71,6 +72,7 @@ def test_cat_projection_uses_only_category_owned_evidence_and_filters_other_aud(
     assert "SERP-REAL" in c5 and "SERP-SYNTH" not in c5
     assert "GEOAI-OK" in c8 and "GEOAI-SECRET" not in c8
     assert "Rever canonical" in c9 and "Rever entidade" in c9
+    assert c9.count("Rever canonical") == 1  # no duplicate GEO action from replay
     assert "Melhorar LCP" not in c9
     for html in (c1, c3, c5, c8, c9):
         assert "SEGREDO" not in html

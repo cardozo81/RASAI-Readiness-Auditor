@@ -105,11 +105,21 @@ def _recommendations(con: sqlite3.Connection, audit: str) -> str:
         "WHERE r.audit_id=? ORDER BY r.finding_id LIMIT 100", (audit,),
     )
     valid_categories = frozenset().union(*_CATEGORIES.values())
-    entries = [
-        (fid, title, priority, _refs(evidence))
-        for fid, title, priority, category, evidence in rows
-        if str(category or "").upper() in valid_categories and _refs(evidence)
-    ][:5]
+    entries = []
+    seen: set[tuple[str, str]] = set()
+    for fid, title, priority, category, evidence in rows:
+        refs = _refs(evidence)
+        if str(category or "").upper() not in valid_categories or not refs:
+            continue
+        # Legacy recommendation stores can contain repeated projections of
+        # the same finding/action. Do not duplicate an identical callout.
+        key = (str(fid), str(title))
+        if key in seen:
+            continue
+        seen.add(key)
+        entries.append((fid, title, priority, refs))
+        if len(entries) >= 5:
+            break
     if not entries:
         return "<p>Sem recomendações GEO associadas a evidências desta AUD.</p>"
     return "<ul>" + "".join(

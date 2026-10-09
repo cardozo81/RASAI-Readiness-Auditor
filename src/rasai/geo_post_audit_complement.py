@@ -90,8 +90,16 @@ def _sealed_audit(workspace: AuditWorkspace, audit_id: str) -> tuple[str, str, s
 def _existing(
     directory: Path, *,
     audit_id: str, intent_id: str, request_fingerprint: str,
+    source_db_sha: str, source_manifest_sha: str,
+    source_state_fingerprint: str,
 ) -> GeoSupplementResult:
+    # A previously reserved intent must never silently bind to a changed AUD.
+    # Refuse linked files through symlinks, which could escape the sidecar.
+    if directory.is_symlink():
+        raise ValueError("supplement directory is a symlink; reuse denied")
     record_path = directory / "intent.json"
+    if record_path.is_symlink():
+        raise ValueError("supplement intent is a symlink; reuse denied")
     if not record_path.is_file():
         return GeoSupplementResult(
             audit_id, intent_id, directory, "PENDING_UNCERTAIN", False,
@@ -104,19 +112,69 @@ def _existing(
             audit_id, intent_id, directory, "PENDING_UNCERTAIN", False,
             "registro de intenção corrompido; não reenviar",
         )
+    if not isinstance(saved, dict):
+        return GeoSupplementResult(
+            audit_id, intent_id, directory, "PENDING_UNCERTAIN", False,
+            "registro de intenção inválido; não reenviar",
+        )
     if saved.get("request_fingerprint") != request_fingerprint:
         raise ValueError("same intent_id cannot be reused for different queries/options")
+    expected_original = {
+        "source_audit_db_sha256": source_db_sha,
+        "source_catalog_manifest_sha256": source_manifest_sha,
+        "source_audit_state_fingerprint": source_state_fingerprint,
+    }
+    if any(saved.get(key) != value for key, value in expected_original.items()):
+        raise ValueError("source AUD changed since intent reservation; manual review required")
     manifest_path = directory / "manifest.json"
+    if manifest_path.is_symlink():
+        raise ValueError("supplement manifest is a symlink; reuse denied")
     if not manifest_path.is_file():
         return GeoSupplementResult(
             audit_id, intent_id, directory, "PENDING_UNCERTAIN", False,
             "tentativa não finalizada; situação faturável desconhecida; não reenviar",
         )
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    for file in manifest.get("files", ()):
-        candidate = directory / str(file.get("path") or "")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return GeoSupplementResult(
+            audit_id, intent_id, directory, "PENDING_UNCERTAIN", False,
+            "manifesto inválido; nenhuma repetição automática",
+        )
+    if not isinstance(manifest, dict) or any(
+        manifest.get(key) != expected
+        for key, expected in {
+            "version": SUPPLEMENT_VERSION,
+            "audit_id": audit_id,
+            "intent_id": intent_id,
+            "request_fingerprint": request_fingerprint,
+            "source_audit_db_sha256": source_db_sha,
+            "source_catalog_manifest_sha256": source_manifest_sha,
+        }.items()
+    ):
+        raise ValueError("supplement manifest provenance mismatch; do not retry")
+    files = manifest.get("files")
+    required_paths = {
+        "intent.json", "result.json", "supplement.html", "evidence/audit.db",
+    }
+    if (
+        not isinstance(files, list)
+        or len(files) != len(required_paths)
+        or any(not isinstance(f, dict) for f in files)
+        or {str(f.get("path") or "") for f in files} != required_paths
+    ):
+        raise ValueError("supplement manifest is incomplete; do not retry")
+    for file in files:
+        if not isinstance(file, dict):
+            raise ValueError("supplement manifest has invalid file record")
+        relative = Path(str(file.get("path") or ""))
+        if relative.is_absolute() or ".." in relative.parts or not relative.parts:
+            raise ValueError("supplement manifest has unsafe file path")
+        candidate = directory / relative
         if (
-            not candidate.is_file()
+            candidate.is_symlink()
+            or candidate.parent.is_symlink()
+            or not candidate.is_file()
             or candidate.parent not in {directory, directory / "evidence"}
             or candidate.stat().st_size != file.get("bytes")
             or _digest(candidate) != file.get("sha256")
@@ -189,6 +247,9 @@ def run_post_audit_geo_supplement(
         return _existing(
             supplement_root, audit_id=audit_id, intent_id=intent_id,
             request_fingerprint=fingerprint,
+            source_db_sha=source_db_sha,
+            source_manifest_sha=source_manifest_sha,
+            source_state_fingerprint=source_state_fingerprint,
         )
     # Persistent reservation precedes network. A crash/timeout blocks automatic
     # retry, because the provider may have billed the first POST.

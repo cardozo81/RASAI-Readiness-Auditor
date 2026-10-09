@@ -236,3 +236,72 @@ def test_intent_payload_reuse_cannot_change_search_type_or_options(tmp_path, mon
             workspace, **common, search_type="fast",
             transport=lambda *args: pytest.fail("new request cannot reuse intent"),
         )
+
+
+
+def test_reused_supplement_fails_closed_when_source_aud_changes(tmp_path, monkeypatch):
+    workspace, aud = source(tmp_path, monkeypatch)
+    calls = []
+    def transport(*args):
+        calls.append(1)
+        return fake_transport(*args)
+
+    params = dict(
+        audit_id=aud, intent_id="immutable-source",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true", "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+        transport=transport,
+    )
+    first = run(workspace, **params)
+    assert first.status == "SUCCESS"
+    with sqlite3.connect(workspace.database) as con:
+        con.execute("CREATE TABLE post_audit_marker(id TEXT)")
+    with pytest.raises(ValueError, match="source AUD changed since intent"):
+        run(workspace, **params)
+    assert len(calls) == 1
+
+
+def test_corrupt_manifest_and_untrusted_manifest_path_never_resend(tmp_path, monkeypatch):
+    workspace, aud = source(tmp_path, monkeypatch)
+    calls = []
+    def transport(*args):
+        calls.append(1)
+        return fake_transport(*args)
+
+    params = dict(
+        audit_id=aud, intent_id="manifest-tamper",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true", "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+        transport=transport,
+    )
+    result = run(workspace, **params)
+    assert result.directory is not None
+    manifest_path = result.directory / "manifest.json"
+    original = manifest_path.read_text(encoding="utf-8")
+    manifest_path.write_text("not json", encoding="utf-8")
+    invalid = run(workspace, **params)
+    assert invalid.status == "PENDING_UNCERTAIN"
+    assert invalid.request_executed is False
+    manifest = json.loads(original)
+    manifest["files"][0]["path"] = "../../audit.db"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="incomplete|unsafe file path"):
+        run(workspace, **params)
+    assert len(calls) == 1
+
+
+def test_manifest_mismatched_audit_identity_never_reuses_sidecar(tmp_path, monkeypatch):
+    workspace, aud = source(tmp_path, monkeypatch)
+    params = dict(
+        audit_id=aud, intent_id="manifest-provenance",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true", "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+    )
+    result = run(workspace, **params, transport=fake_transport)
+    assert result.directory is not None
+    path = result.directory / "manifest.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest["audit_id"] = "AUD-SPOOF"
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="provenance mismatch"):
+        run(workspace, **params, transport=lambda *args: pytest.fail("must not resend"))
