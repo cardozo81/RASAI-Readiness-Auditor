@@ -333,9 +333,18 @@ Apenas evidências rastreáveis podem fundamentar recomendações; snippets de c
 
 ### Snapshot GEO derivado e reuso
 
-A camada adicional `geo_observation_runs` mantém uma projeção `RASAI-GEO-OBSERVATION-1` vinculada a `audit_id`, `perplexity_run_id`, observação SERP comparável (quando disponível), fingerprint SHA-256 da entrada, contrato e timestamp de materialização. O ID é determinístico e a gravação é idempotente: nova evidência produz novo snapshot; a mesma evidência não é duplicada. Essa projeção não participa de scoring nem muda tabelas de origem.
+A camada adicional `geo_observation_runs` mantém projeções imutáveis e versionadas (`RASAI-GEO-OBSERVATION-1` a `RASAI-GEO-OBSERVATION-4`) vinculadas a `audit_id`, `perplexity_run_id`, observação SERP comparável (quando disponível), fingerprint SHA-256 da entrada, contrato e timestamp de materialização. O ID é determinístico e a gravação é idempotente: nova evidência produz novo snapshot; a mesma evidência não é duplicada. Essa projeção não participa de scoring nem muda tabelas de origem.
 
 Depois de uma pesquisa Perplexity explicitamente executada pelo console e persistida com sucesso, o adapter GEO cria o snapshot e utiliza a materialização canônica do relatório existente para refletir os dados. Falhas nessa projeção opcional permanecem advisory. RPR e complementos continuam sujeitos às regras existentes de snapshot e aquisição: rematerialização HTML lê o estado persistido e não chama a API. Se não existir snapshot compatível, a seção deve apresentar indisponibilidade em vez de refazer a observação ou reinterpretar o histórico.
+
+No contrato v4, taxas de interseção por URL são exibidas somente para consulta única,
+SERP observada via API e horários **com timezone explícito** cuja distância
+não exceda 24 horas. Data sem fuso, clock inválido, diferença maior que 24 horas,
+multi-query ou denominador vazio tornam as taxas N/D, com razão registrada;
+contagens brutas não são apresentadas como taxas comparáveis. Os snapshots v1 a v3
+não são regravados e mantêm suas limitações metodológicas originais.
+O limite de 24 horas é apenas uma janela de elegibilidade descritiva, não um
+ajuste estatístico ou prova de identidade de intenção, país, idioma e dispositivo.
 
 A comparação é estritamente observacional: mesmo quando a consulta coincide, SERP e Perplexity podem diferir em momento, mercado, provider, profundidade e normalização. URLs recuperadas não são citações em respostas. As hipóteses de negócio/semântica são ações para avaliação humana, não causalidade comprovada.
 
