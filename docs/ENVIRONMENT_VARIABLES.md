@@ -468,3 +468,11 @@ As opções não secretas abaixo são editáveis nos menus 5 e 6 e persistíveis
 | `RASAI_PERPLEXITY_MAX_CONTENT_UNITS_PER_PAGE` | `max_tokens_per_page` | Limite numérico positivo; opcional |
 
 As variáveis de volume usam `CONTENT_UNITS` no nome para não serem confundidas com segredos pela política conservadora do console (nomes contendo `TOKEN` são considerados credenciais). O payload usa os nomes oficiais da API. Nunca persistir `PERPLEXITY_API_KEY` no INI.
+
+
+## CAT-07 architecture-aware Experience Apdex advisory (#358)
+
+- `RASAI_APDEX_EXPERIENCE_ARCHITECTURE`: operator-declared architecture for the **next** audit. Accepted values: `AUTO` (default), `STATIC_OR_SSR`, `CSR_SPA`, `HYDRATED`, `MIXED`, `UNKNOWN`. This value is **not** an observed M6 classification and does not alter any frozen audit's M23/M25 scoring.
+- `RASAI_APDEX_EXPERIENCE_PROFILE_MODE`: calibration intent for Experience Apdex. Accepted: `CUSTOM` (default), `DYNATRACE_GUIDED`, `DYNATRACE_IMPORTED`. A guided console preview proposes only the existing executable Load action reference (USER_ACTION_DURATION and 3s/12s thresholds) after explicit approval. Custom keeps the user's KPM/thresholds; Imported continues to use the existing validated Dynatrace import path.
+
+Both values are nonsecret metadata in the interactive console, its INI and menu "6. Todas as configurações". They do not independently dispatch a provider, synthesize XHR/Custom actions, or change M25 calculations. The canonical console audit configuration handoff freezes the selected metadata for **new** executions; reports of older AUDs show N/D when no hash-verifiable stored selection exists.
