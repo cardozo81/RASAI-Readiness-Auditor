@@ -567,10 +567,12 @@ def geo_body(database: Path, audit_id: str) -> str:
         has_verified_rates = (
             isinstance(rates, dict) and rates.get("status") == "DESCRIPTIVE_ONLY"
         )
-        # On v4, an ineligible time window is NOT a measured zero overlap.
+        # On v4/v5, an ineligible time window is NOT a measured zero overlap.
         # Legacy snapshots predate that contract: keep their historical raw
         # counts visible but label them as noncomparable legacy observations.
-        is_v4 = comparison.get("contract_version") == "RASAI-GEO-OBSERVATION-4"
+        is_v4 = comparison.get("contract_version") in {
+            "RASAI-GEO-OBSERVATION-4", "RASAI-GEO-OBSERVATION-5",
+        }
         if is_v4 and not has_verified_rates:
             summary += (
                 "<p>Sobreposição observacional de URLs: N/D. "
