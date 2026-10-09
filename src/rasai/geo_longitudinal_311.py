@@ -17,7 +17,9 @@ from typing import Any, Sequence
 
 from rasai.geo_observation import _canonical_url
 
-_CONTRACT = "RASAI-GEO-OBSERVATION-5"
+_CONTRACTS = frozenset({
+    "RASAI-GEO-OBSERVATION-5", "RASAI-GEO-OBSERVATION-6",
+})
 _SCOPE_KEYS = ("engine", "country", "region", "language", "device")
 
 
@@ -157,7 +159,7 @@ def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
             stored = dict(rows[0])
     except (sqlite3.Error, OSError):
         return None, "AUD_SCHEMA_OR_READ_ERROR"
-    if stored["contract_version"] != _CONTRACT:
+    if stored["contract_version"] not in _CONTRACTS:
         return None, "GEO_LEGACY_OR_UNSUPPORTED_VERSION"
     try:
         projection = json.loads(stored["projection_json"])
@@ -168,7 +170,7 @@ def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
     if not _source_provenance(root, root.name, stored, projection):
         return None, "GEO_SOURCE_PROVENANCE_UNVERIFIED"
     if (
-        projection.get("contract_version") != _CONTRACT
+        projection.get("contract_version") != stored["contract_version"]
         or projection.get("audit_id") != root.name
         or projection.get("search_status") != "SUCCESS"
     ):
@@ -235,6 +237,7 @@ def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
     return {
         "audit_id": root.name,
         "observation_id": stored["analysis_id"],
+        "method_version": stored["contract_version"],
         "observed_at": instant.isoformat(),
         "target_url": exact,
         "query": queries[0].strip(),
@@ -268,6 +271,7 @@ def build_geo_longitudinal_preview(audit_dirs: Sequence[Path]) -> dict[str, Any]
         key = json.dumps(
             {
                 "target_url": row["target_url"],
+                "method_version": row["method_version"],
                 "query": row["query"].casefold(),
                 "serp_scope": row["serp_scope"],
                 "external_search_mode": row["external_search_mode"],
@@ -281,6 +285,7 @@ def build_geo_longitudinal_preview(audit_dirs: Sequence[Path]) -> dict[str, Any]
         meta = json.loads(key)
         timelines.append({
             "target_url": meta["target_url"],
+            "method_version": meta["method_version"],
             "query": meta["query"],
             "serp_scope": meta["serp_scope"],
             "external_search_mode": meta["external_search_mode"],
