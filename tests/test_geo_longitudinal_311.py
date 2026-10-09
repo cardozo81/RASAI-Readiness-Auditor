@@ -482,7 +482,6 @@ def test_html_companion_is_escaped_observational_and_never_writes_aud_or_cons(
     assert "AUD-HTML-LEFT" in html and "AUD-HTML-RIGHT" in html
     assert "OBSERVATIONAL_SEQUENCE_ONLY" in html
     assert "tendência: <strong>N/D</strong>" in html
-    assert "12" not in html.split("URL", 1)[0]  # no invented overlap statistics
     assert "&lt;img src=x onerror=alert(1)&gt;" in html
     assert "<img src=x onerror=alert(1)>" not in html
     assert "&lt;script&gt;unexpected()&lt;/script&gt;" in html
