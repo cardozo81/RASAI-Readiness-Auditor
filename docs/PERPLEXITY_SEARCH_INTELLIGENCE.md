@@ -419,3 +419,15 @@ denominadores de URLs válidos e avisos de não equivalência
 mercado/idioma/dispositivo/intenção. O `geo.html` respeita abstenção N/D
 tanto em v4 quanto v5; nenhuma inferência de canonical SEO ou citação
 generativa decorre desta normalização.
+
+
+### Pré-condição de frescor do pacote original em complemento pós-AUD (#318)
+
+A rotina externa de complemento exige simultaneamente integridade do pacote
+`report-catalog` pelo manifesto e **frescor em relação ao estado corrente da
+AUD original**, utilizando o entrypoint canônico
+`catalog_report_is_fresh(audit_id, workspace)`. Um pacote antigo pode
+continuar internamente íntegro, mas não corresponder ao `audit.db` atual;
+essa condição bloqueia a reserva de intenção e qualquer tentativa
+Perplexity **antes de consumo tarifável**. Este guard não modifica o pacote,
+não reinterpreta uma AUD e não autoriza reenvio em casos ambíguos.
