@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/geo_longitudinal_311.py'
+      - 'src/rasai/entrypoint.py'
       - 'src/rasai/geo_observation.py'
       - 'tests/test_geo_longitudinal_311.py'
       - 'docs/GEO_LONGITUDINAL_311.md'
@@ -14,7 +15,11 @@ permissions:
 
 jobs:
   longitudinal:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
