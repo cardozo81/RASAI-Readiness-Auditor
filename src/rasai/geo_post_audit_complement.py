@@ -386,6 +386,15 @@ def run_post_audit_geo_supplement(
         return GeoSupplementResult(
             audit_id, intent_id, None, "DISABLED", False, "integração desabilitada",
         )
+    from rasai.search_intelligence.perplexity import perplexity_configuration_status
+    if not perplexity_configuration_status(environment)["configured"]:
+        # Do not reserve an irreversible intent for a request that cannot be
+        # submitted. Missing local credentials are NOT a provider 401: key
+        # validity cannot be proved without a billable external request.
+        return GeoSupplementResult(
+            audit_id, intent_id, None, "NOT_CONFIGURED", False,
+            "credencial Perplexity não configurada; nenhuma intenção reservada",
+        )
 
     source_db_sha, source_manifest_sha, source_state_fingerprint = _sealed_audit(original_workspace, audit_id)
     scope = {
