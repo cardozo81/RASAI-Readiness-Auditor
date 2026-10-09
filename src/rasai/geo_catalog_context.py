@@ -156,3 +156,73 @@ def catalog_geo_context(database: Path, audit_id: str, catalog_id: str) -> str:
     return (result + "<p><a href='geo.html'>Síntese GEO e evidências</a>. "
             "A associação é orientativa e não comprova efeito em ranking ou "
             "respostas generativas.</p></section>")
+
+
+def geo_surface_context(database: Path, audit_id: str, surface: str) -> str:
+    """Status/provenance only. Never assert GEO inference was used by other engines."""
+    if surface not in {"index", "directed-analysis", "ai-integrations"}:
+        return ""
+    intro = {
+        "index": "Panorama GEO desta auditoria",
+        "directed-analysis": "Relação com análise direcionada",
+        "ai-integrations": "Integração externa GEO e proveniência",
+    }[surface]
+    result = "<section><h2>" + escape(intro) + "</h2>"
+    try:
+        with closing(sqlite3.connect(
+            f"file:{database.resolve().as_posix()}?mode=ro", uri=True
+        )) as con:
+            necessary = {"audit_id", "run_id", "status"}
+            if not necessary.issubset(_columns(con, "perplexity_search_runs")):
+                result += "<p>Perplexity Search não solicitada ou não persistida nesta AUD.</p>"
+            else:
+                ordering = "started_at DESC, run_id DESC" if (
+                    "started_at" in _columns(con, "perplexity_search_runs")
+                ) else "run_id DESC"
+                row = con.execute(
+                    "SELECT run_id,status FROM perplexity_search_runs "
+                    "WHERE audit_id=? ORDER BY " + ordering + " LIMIT 1", (audit_id,)
+                ).fetchone()
+                if row is None:
+                    result += "<p>Perplexity Search não solicitada ou não persistida nesta AUD.</p>"
+                else:
+                    run_id, status = row
+                    result += (
+                        "<p>Última busca externa registrada: "
+                        + escape(str(status or "INDETERMINADO")[:60])
+                        + "; execução <code>" + escape(str(run_id)[:100])
+                        + "</code>. "
+                    )
+                    if {"run_id", "url"}.issubset(
+                        _columns(con, "perplexity_search_sources")
+                    ):
+                        sources = con.execute(
+                            "SELECT COUNT(*) FROM perplexity_search_sources "
+                            "WHERE run_id=?", (run_id,)
+                        ).fetchone()[0]
+                        result += "Fontes externas retornadas: " + str(sources) + ". "
+                    result += "</p>"
+                    if surface == "directed-analysis":
+                        result += (
+                            "<p>A existência dessa observação não significa que "
+                            "a análise direcionada a tenha consumido. Verifique "
+                            "as evidências citadas na própria análise.</p>"
+                        )
+                    if surface == "ai-integrations":
+                        result += (
+                            "<p>Custo e tentativas: consultar os lançamentos "
+                            "persistidos nesta página. A projeção GEO não "
+                            "recontabiliza gasto, nem presume faturamento.</p>"
+                        )
+                    if surface == "index":
+                        result += (
+                            "<p>O status da fonte não comprova presença da "
+                            "URL auditada em respostas generativas.</p>"
+                        )
+    except (OSError, sqlite3.Error):
+        result += "<p>Estado da fonte externa indisponível nesta projeção.</p>"
+    return (
+        result + "<p>Consulte a <a href='geo.html'>síntese GEO</a> "
+        "para evidências, ressalvas e interpretação sem efeitos de ranking "
+        "presumidos.</p></section>"
+    )
