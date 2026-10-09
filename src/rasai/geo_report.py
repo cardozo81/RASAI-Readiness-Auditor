@@ -563,7 +563,7 @@ def geo_body(database: Path, audit_id: str) -> str:
         summary += "com consulta única e observação SERP live válida. Requests multi-query "
         summary += "não são desagregados artificialmente.</p>"
     else:
-        summary += "<p>Interseção bruta de URLs para texto de consulta coincidente (não prova intenção equivalente): "
+        summary += "<p>Sobreposição observacional bruta de URLs para texto de consulta coincidente (não prova intenção equivalente): "
         summary += f"{int(comparison.get('url_overlap_count') or 0)} em ambas; "
         summary += f"{int(comparison.get('serp_url_count') or 0)} URLs SERP e "
         summary += f"{int(comparison.get('perplexity_url_count') or 0)} URLs Perplexity."
