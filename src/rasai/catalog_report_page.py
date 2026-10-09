@@ -353,6 +353,14 @@ def _cat07_methodology_summary_html(database: Path, data: _ReportData) -> str:
         "sintéticos; a calibração do perfil não os torna equivalentes a "
         "Dynatrace RUM nem a observações de usuários reais.</p>"
     )
+    # Only frozen AUD configuration can prove a historical profile selection.
+    # Older audit plans and mismatched hashes must not adopt today's console INI.
+    from rasai.cat07_architecture_reporting_358 import cat07_architecture_advice_html
+    frozen = getattr(data, "configuration", None) if (
+        getattr(data, "config_hash", "")
+        and getattr(data, "config_hash", "") == getattr(data, "computed_hash", "")
+    ) else None
+    html += cat07_architecture_advice_html(database, data.audit_id, frozen_meta=frozen)
     return html+"</div>"
 
 

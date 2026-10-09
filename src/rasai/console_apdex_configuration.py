@@ -15,6 +15,7 @@ from rasai.configuration_value_labels import configuration_value_choice, configu
 from rasai.console_confirmation_contract import confirm_sensitive
 from rasai.console_input_contract import EditCancelled, prompt_number, prompt_text, prompt_yes_no
 from rasai.console_m23 import State, config_from_state, experience_from_state, synthetic_load_summary
+from rasai.experience_architecture_guidance_358 import resolve_experience_architecture_guidance
 from rasai.device_context import canonical_single_device_mix
 from rasai.console_ui import DIM, YELLOW, paint
 from rasai.m25_cli import (
@@ -235,6 +236,10 @@ def _show_effective_experience(state: State) -> None:
         ("Delay", state.apdex_experience_delay, DEFAULT_UX_DELAY_SECONDS),
         ("Concorrência", state.apdex_experience_concurrency, DEFAULT_UX_CONCURRENCY),
     )
+    values += (
+        ("Arquitetura declarada pelo operador", getattr(state, "apdex_experience_architecture", "AUTO"), "AUTO"),
+        ("Modo de calibração de experiência", getattr(state, "apdex_experience_profile_mode", "CUSTOM"), "CUSTOM"),
+    )
     print(paint("\n  Configuração efetiva:", DIM))
     for label, value, default in values:
         print(paint(f"    {label}: {value} [{_origin(value, default)}]", DIM))
@@ -305,6 +310,18 @@ def _configure_experience(state: State) -> None:
     state.apdex_experience = enabled
     if not enabled:
         return
+    print(paint("  Arquitetura é uma declaração prévia; a classificação M6 será descoberta depois da coleta.", DIM))
+    state.apdex_experience_architecture = _choice(
+        "Arquitetura esperada da URL (AUTO = ainda não determinada)",
+        state.apdex_experience_architecture,
+        ("AUTO", "STATIC_OR_SSR", "HYDRATED", "CSR_SPA", "MIXED", "UNKNOWN"),
+    )
+    state.apdex_experience_profile_mode = _choice(
+        "Calibração do Experience Apdex",
+        "DYNATRACE_IMPORTED" if state.apdex_dynatrace_import else state.apdex_experience_profile_mode,
+        ("CUSTOM", "DYNATRACE_GUIDED", "DYNATRACE_IMPORTED"),
+    )
+    print(paint("  Guided propõe apenas o baseline Load executável (USER_ACTION_DURATION, 3s/12s); não mede XHR/soft navigation.", DIM))
     if state.apdex_experience_satisfied is None:
         state.apdex_experience_satisfied = DEFAULT_UX_SATISFIED_SECONDS
     if state.apdex_experience_frustrated is None:
@@ -337,12 +354,13 @@ def _configure_experience(state: State) -> None:
         ("cold", "warm"),
         UX_SESSION_MODE_ENV,
     )
-    state.apdex_experience_kpm = _choice(
-        "KPM temporal executável",
-        state.apdex_experience_kpm,
-        tuple(sorted(SUPPORTED_TIME_KPMS)),
-        UX_KPM_ENV,
-    )
+    if state.apdex_experience_profile_mode == "CUSTOM":
+        state.apdex_experience_kpm = _choice(
+            "KPM temporal executável",
+            state.apdex_experience_kpm,
+            tuple(sorted(SUPPORTED_TIME_KPMS)),
+            UX_KPM_ENV,
+        )
     state.apdex_experience_errors = _yes_no(
         "Erros qualificáveis podem forçar Frustrated", state.apdex_experience_errors
     )
@@ -412,8 +430,8 @@ def _configure_experience(state: State) -> None:
         raise EditCancelled()
     state.apdex_experience_concurrency = selected_experience_concurrency
 
-    state.apdex_dynatrace_import = _yes_no(
-        "Importar calibração Dynatrace", state.apdex_dynatrace_import
+    state.apdex_dynatrace_import = (
+        state.apdex_experience_profile_mode == "DYNATRACE_IMPORTED"
     )
     if state.apdex_dynatrace_import:
         current_json = state.apdex_dynatrace_config_json
@@ -446,16 +464,45 @@ def _configure_experience(state: State) -> None:
         state.apdex_dynatrace_config_json = ""
         state.dynatrace_base_url = ""
         state.dynatrace_application_id = ""
-        state.apdex_experience_satisfied = _required_positive(
-            f"Threshold Satisfied em segundos (default Dynatrace-compatible {DEFAULT_UX_SATISFIED_SECONDS:g}s)",
-            state.apdex_experience_satisfied,
-        )
-        state.apdex_experience_frustrated = _required_positive(
-            f"Threshold Frustrated em segundos (default Dynatrace-compatible {DEFAULT_UX_FRUSTRATED_SECONDS:g}s)",
-            state.apdex_experience_frustrated,
-        )
-        if state.apdex_experience_frustrated <= state.apdex_experience_satisfied:
-            raise ValueError("Threshold Frustrated deve ser maior que o threshold Satisfied")
+        if state.apdex_experience_profile_mode == "CUSTOM":
+            state.apdex_experience_satisfied = _required_positive(
+                f"Threshold Satisfied em segundos (default Dynatrace-compatible {DEFAULT_UX_SATISFIED_SECONDS:g}s)",
+                state.apdex_experience_satisfied,
+            )
+            state.apdex_experience_frustrated = _required_positive(
+                f"Threshold Frustrated em segundos (default Dynatrace-compatible {DEFAULT_UX_FRUSTRATED_SECONDS:g}s)",
+                state.apdex_experience_frustrated,
+            )
+            if state.apdex_experience_frustrated <= state.apdex_experience_satisfied:
+                raise ValueError("Threshold Frustrated deve ser maior que o threshold Satisfied")
+        else:
+            recommendation = resolve_experience_architecture_guidance(
+                {
+                    "kpm": state.apdex_experience_kpm,
+                    "satisfied_threshold_seconds": state.apdex_experience_satisfied,
+                    "frustrated_threshold_seconds": state.apdex_experience_frustrated,
+                },
+                selected_architecture=state.apdex_experience_architecture,
+                profile_mode="DYNATRACE_GUIDED",
+            )
+            print(paint("\n  Prévia de alteração guiada para a PRÓXIMA auditoria:", YELLOW))
+            for entry in recommendation["new_audit_configuration_preview"]:
+                print(paint(
+                    f"    {entry['variable']} = {entry['value']} "
+                    f"[origem: {entry['source']}; altera campo atual: "
+                    f"{'sim' if entry['would_override_current'] else 'não'}]",
+                    DIM,
+                ))
+            print(paint(
+                "  Não há perfil universal SPA. Load mede apenas a navegação inicial; "
+                "nenhuma configuração muda sem confirmação.",
+                DIM,
+            ))
+            if not _yes_no("Aplicar os 3 valores de referência Load executáveis", False):
+                raise EditCancelled()
+            state.apdex_experience_kpm = DEFAULT_UX_KPM
+            state.apdex_experience_satisfied = DEFAULT_UX_SATISFIED_SECONDS
+            state.apdex_experience_frustrated = DEFAULT_UX_FRUSTRATED_SECONDS
 
     experience_from_state(state)
     _show_effective_experience(state)
@@ -486,8 +533,9 @@ def configure_apdex(state: State) -> None:
     }
     try:
         _configure_navigation(state)
-        if state.synthetic_apdex:
-            _configure_experience(state)
+        # CAT-06 Navigation and CAT-07 Experience are independently selectable.
+        # Disabling one must not hide calibration/architecture of the other.
+        _configure_experience(state)
         state.error = ""
         attempts, load = synthetic_load_summary(state)
         if attempts:
@@ -502,4 +550,12 @@ def configure_apdex(state: State) -> None:
         state.error = ""
         state.operation = "LOCAL:APDEX_EDIT_CANCELLED"
     except (ValueError, OverflowError) as exc:
+        # A failed edit cannot leave half-applied architecture/preset values
+        # or runtime profile environment mutations behind.
+        for name, value in tracked_state.items():
+            setattr(state, name, value)
+        for name in tuple(os.environ):
+            if name.startswith(prefixes) and name not in tracked_environment:
+                os.environ.pop(name, None)
+        os.environ.update(tracked_environment)
         state.error = str(exc)

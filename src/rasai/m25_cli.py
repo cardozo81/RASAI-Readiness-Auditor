@@ -33,6 +33,8 @@ UX_MAX_ATTEMPTS_ENV = "RASAI_APDEX_EXPERIENCE_MAX_ATTEMPTS"
 UX_MAX_PAGES_ENV = "RASAI_APDEX_EXPERIENCE_MAX_PAGES"
 UX_DEVICE_MIX_ENV = "RASAI_APDEX_EXPERIENCE_DEVICE_MIX"
 UX_SESSION_MODE_ENV = "RASAI_APDEX_EXPERIENCE_SESSION_MODE"
+UX_ARCHITECTURE_ENV = "RASAI_APDEX_EXPERIENCE_ARCHITECTURE"
+UX_PROFILE_MODE_ENV = "RASAI_APDEX_EXPERIENCE_PROFILE_MODE"
 UX_KPM_ENV = "RASAI_APDEX_EXPERIENCE_KPM"
 UX_SATISFIED_ENV = "RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS"
 UX_FRUSTRATED_ENV = "RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS"
@@ -58,7 +60,8 @@ POPULATION_PROFILE_ENV = "RASAI_APDEX_POPULATION_PROFILE_JSON"
 
 M25_ENV_NAMES = (
     UX_ENABLED_ENV, UX_SAMPLES_ENV, UX_MAX_ATTEMPTS_ENV, UX_MAX_PAGES_ENV,
-    UX_DEVICE_MIX_ENV, UX_SESSION_MODE_ENV, UX_KPM_ENV, UX_SATISFIED_ENV,
+    UX_DEVICE_MIX_ENV, UX_SESSION_MODE_ENV, UX_ARCHITECTURE_ENV,
+    UX_PROFILE_MODE_ENV, UX_KPM_ENV, UX_SATISFIED_ENV,
     UX_FRUSTRATED_ENV, UX_ERRORS_ENV, UX_JAVASCRIPT_ERRORS_ENV, UX_REQUEST_ERRORS_ENV,
     UX_CONSOLE_ERRORS_ENV, UX_JAVASCRIPT_CAPTURE_ENV, UX_XHR_CAPTURE_ENV,
     UX_FETCH_CAPTURE_ENV, UX_CONSOLE_CAPTURE_ENV, UX_MAX_ERROR_DETAILS_ENV,
@@ -239,6 +242,8 @@ def validate_m25_env_value(name: str, raw: str) -> str:
     elif name == UX_MAX_PAGES_ENV and int(value) < 0: raise ValueError("valor deve ser inteiro >=0")
     elif name == UX_DEVICE_MIX_ENV: parse_device_mix(value)
     elif name == UX_SESSION_MODE_ENV and value.casefold() not in {"cold", "warm"}: raise ValueError("session mode deve ser cold ou warm")
+    elif name == UX_ARCHITECTURE_ENV and value.upper() not in {"AUTO", "STATIC_OR_SSR", "HYDRATED", "CSR_SPA", "MIXED", "UNKNOWN"}: raise ValueError("arquitetura Experience inválida")
+    elif name == UX_PROFILE_MODE_ENV and value.upper() not in {"DYNATRACE_GUIDED", "CUSTOM", "DYNATRACE_IMPORTED"}: raise ValueError("modo de perfil Experience inválido")
     elif name == UX_KPM_ENV and value.upper() not in SUPPORTED_TIME_KPMS: raise ValueError("KPM temporal não suportada pelo Synthetic User Experience Apdex")
     elif name == UX_ERROR_SCOPE_ENV and value.casefold() not in {"navigation", "first-party", "all"}: raise ValueError("error scope inválido")
     elif name == POPULATION_PROFILE_ENV:

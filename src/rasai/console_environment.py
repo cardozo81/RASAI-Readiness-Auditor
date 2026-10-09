@@ -101,6 +101,8 @@ from rasai.m25_cli import (
     UX_ERROR_SCOPE_ENV,
     UX_FRUSTRATED_ENV,
     UX_KPM_ENV,
+    UX_ARCHITECTURE_ENV,
+    UX_PROFILE_MODE_ENV,
     UX_MAX_ATTEMPTS_ENV,
     UX_MAX_PAGES_ENV,
     UX_SAMPLES_ENV,
@@ -408,6 +410,8 @@ def _apdex_specs() -> tuple[EnvironmentSpec, ...]:
         EnvironmentSpec(UX_MAX_PAGES_ENV, "Synthetic Apdex", "Máximo de páginas Experience; 0=todas.", "inteiro >= 0", default=str(DEFAULT_UX_MAX_PAGES)),
         EnvironmentSpec(UX_SESSION_MODE_ENV, "Synthetic Apdex", "Sessão Experience cold/warm.", "enum", ("cold", "warm"), DEFAULT_UX_SESSION_MODE),
         EnvironmentSpec(UX_KPM_ENV, "Synthetic Apdex", "KPM temporal do Experience Apdex.", "enum", tuple(sorted(SUPPORTED_TIME_KPMS)), DEFAULT_UX_KPM),
+        EnvironmentSpec(UX_ARCHITECTURE_ENV, "Synthetic Apdex", "Arquitetura declarada pelo operador para orientação CAT-07; AUTO não é arquitetura descoberta.", "enum", ("AUTO", "STATIC_OR_SSR", "HYDRATED", "CSR_SPA", "MIXED", "UNKNOWN"), "AUTO", notes="Somente metadado de preflight; a classificação M6 observada não reconfigura auditorias já concluídas."),
+        EnvironmentSpec(UX_PROFILE_MODE_ENV, "Synthetic Apdex", "Modo de calibração orientativa CAT-07: Guided propõe o baseline Load executável; Custom mantém o que o operador escolheu.", "enum", ("CUSTOM", "DYNATRACE_GUIDED", "DYNATRACE_IMPORTED"), "CUSTOM", notes="O valor é metadado; não aplica thresholds sozinho nem dispara Dynatrace/Perplexity."),
         EnvironmentSpec(
             UX_SATISFIED_ENV,
             "Synthetic Apdex",
