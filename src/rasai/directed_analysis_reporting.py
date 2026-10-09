@@ -428,6 +428,116 @@ def _action_modal(
     return modal_id,_modal(modal_id,action.get("title") or "Ação estratégica","Análise Direcionada · ação estratégica",body)
 
 
+def _roadmap_phase_cards(
+    roadmap: Any,
+    by_id: Mapping[str, Mapping[str, Any]],
+    target_by_id: Mapping[str, Mapping[str, str]],
+) -> str:
+    """Present persisted roadmap phases without narrow in-card action tables.
+
+    One action_id is one persisted occurrence. Titles are grouped only for the
+    executive count and modal navigation; individual targets stay separate.
+    The same phase modal is also the full-detail print representation.
+    """
+    cards: list[str] = []
+    modals: list[str] = []
+    if not isinstance(roadmap, list):
+        roadmap = []
+    for index, phase in enumerate(roadmap):
+        if not isinstance(phase, Mapping):
+            continue
+        phase_title = str(phase.get("phase") or "Fase")
+        objective = str(phase.get("objective") or "")
+        raw_ids = phase.get("action_ids")
+        ids: list[str] = []
+        seen: set[str] = set()
+        for raw in raw_ids if isinstance(raw_ids, list) else []:
+            action_id = str(raw)
+            if action_id in by_id and action_id not in seen:
+                ids.append(action_id)
+                seen.add(action_id)
+        phase_actions = [by_id[action_id] for action_id in ids]
+        groups = _group_actions_by_title(phase_actions)
+        modal_id = (
+            "directed-roadmap-phase-" + str(index + 1) + "-"
+            + sha256(f"{index}|{phase_title}".encode("utf-8")).hexdigest()[:10]
+        )
+        card = (
+            "<article class='card directed-roadmap-card'>"
+            "<h3>" + escape(phase_title) + "</h3>"
+            "<p class='directed-roadmap-objective'>" + escape(objective) + "</p>"
+            "<p class='directed-roadmap-counts'><strong>"
+            + str(len(groups)) + " ação(ões) temática(s)</strong> · "
+            + str(len(phase_actions)) + " ocorrência(s) vinculada(s)</p>"
+            "<div class='directed-roadmap-card-action'>"
+            + str(_modal_button(modal_id, "Ver ações e alvos"))
+            + "</div></article>"
+        )
+        cards.append(card)
+        group_details = []
+        for group in groups:
+            occurrences = []
+            for action in group:
+                action_id = str(action.get("action_id") or "")
+                context = target_by_id.get(action_id, {})
+                label = str(context.get("label") or "Alvo não identificado na evidência persistida.")
+                note = context.get("note")
+                occurrence = (
+                    "<li class='directed-roadmap-occurrence'>"
+                    "<strong>Alvo / ocorrência:</strong> " + escape(label)
+                )
+                if note:
+                    occurrence += "<p class='muted'>" + escape(str(note)) + "</p>"
+                for field, title in (
+                    ("source_refs_json", "Origem técnica"),
+                    ("evidence_refs_json", "Evidências"),
+                ):
+                    refs = _json(action.get(field), [])
+                    if isinstance(refs, list) and refs:
+                        occurrence += (
+                            "<div class='directed-roadmap-references'><strong>"
+                            + escape(title) + ":</strong> "
+                            + str(_links(refs, label_prefix=title)) + "</div>"
+                        )
+                occurrences.append(occurrence + "</li>")
+            group_details.append(
+                "<details class='directed-roadmap-group'>"
+                "<summary>" + escape(str(group[0].get("title") or "-"))
+                + " · " + str(len(group)) + " ocorrência(s)</summary>"
+                "<div class='detail-body'>"
+                "<ol class='directed-roadmap-occurrences'>"
+                + "".join(occurrences) + "</ol></div></details>"
+            )
+        body = (
+            "<p class='section-lead'>"
+            + escape(objective)
+            + "</p><p>Ações agrupadas por título. Cada ocorrência e seu alvo "
+            "persistido permanecem individuais, mesmo quando o título se repete. "
+            "Detalhes adicionais: seção Ações estratégicas.</p>"
+            + (
+                "".join(group_details)
+                if group_details
+                else "<div class='notice'>Nenhuma ação persistida está vinculada a esta fase.</div>"
+            )
+        )
+        modals.append(_modal(
+            modal_id, phase_title, "Plano geral de ação · ações e alvos", body,
+        ))
+    if not cards:
+        return (
+            "<div class='notice'>Ordem estratégica não materializada. "
+            "O relatório não fabrica uma sequência quando a IA estratégica "
+            "não produziu uma resposta válida.</div>"
+        )
+    return (
+        "<p class='section-lead'>Fases na ordem estratégica persistida. "
+        "Abra uma fase para consultar suas ações e ocorrências; "
+        "a impressão inclui os detalhes de todas as fases.</p>"
+        "<div class='directed-roadmap-grid'>"
+        + "".join(cards) + "</div>" + "".join(modals)
+    )
+
+
 def directed_analysis_body(database: Any, data: Any) -> str:
     connection=sqlite3.connect(database); connection.row_factory=sqlite3.Row
     try:
@@ -540,28 +650,10 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         ),
     )
 
-    roadmap_html=""
-    if isinstance(roadmap,list) and roadmap:
-        for phase in roadmap:
-            if not isinstance(phase,Mapping):
-                continue
-            ids=[str(v) for v in phase.get("action_ids",[]) if str(v) in by_id]
-            phase_actions=[by_id[action_id] for action_id in ids]
-            rows=[]
-            for group in _group_actions_by_title(phase_actions):
-                rows.append((
-                    group[0].get("title") or "-",
-                    _target_summary(group,target_by_id,limit=2),
-                ))
-            roadmap_html+=(
-                "<div class='card'><h3>"+escape(str(phase.get("phase") or "Fase"))+"</h3><p>"
-                +escape(str(phase.get("objective") or ""))+"</p>"
-                +_table(("Ação","Ocorrências / alvos"),rows,empty="Nenhuma ação vinculada.")
-                +"</div>"
-            )
-    if not roadmap_html:
-        roadmap_html="<div class='notice'>Ordem estratégica não materializada. O relatório não fabrica uma sequência quando a IA estratégica não produziu uma resposta válida.</div>"
-    body+=_section("roadmap","Plano geral de ação","<div class='grid'>"+roadmap_html+"</div>" if roadmap_html.startswith("<div class='card'>") else roadmap_html)
+    body+=_section(
+        "roadmap", "Plano geral de ação",
+        _roadmap_phase_cards(roadmap, by_id, target_by_id),
+    )
 
     dimensions={}
     for action in actions:
