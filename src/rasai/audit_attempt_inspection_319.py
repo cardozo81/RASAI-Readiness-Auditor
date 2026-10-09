@@ -16,16 +16,16 @@ import re
 import sqlite3
 from typing import Sequence
 
-from rasai.audit_attempt_timeline import read_audit_attempt_timeline
+from rasai.audit_attempt_timeline import _stage, _time, read_audit_attempt_timeline
 from rasai.audit_duration_forecast_319 import _m21_http_request_sums
 
 _AUD = re.compile(r"^AUD-[A-Za-z0-9-]{1,100}$")
 
 
 
-def _verified_console_wall_ms(
+def _verified_console_window(
     con: sqlite3.Connection, audit_id: str, *, status: str, completion: str,
-) -> float | None:
+) -> tuple[float, float, float] | None:
     """Observe one persisted physical session; never infer from AI attempt sums.
 
     Multiple sessions (e.g. continuation/RPR), naive timestamps, implausible
@@ -67,7 +67,87 @@ def _verified_console_wall_ms(
         or abs(elapsed - physical) > max(5000, physical * .05)
     ):
         return None
-    return elapsed
+    return (
+        elapsed,
+        start.astimezone(timezone.utc).timestamp() * 1000,
+        finish.astimezone(timezone.utc).timestamp() * 1000,
+    )
+
+
+def _ai_attempt_scope_breakdown(
+    con: sqlite3.Connection,
+    audit_id: str,
+    window: tuple[float, float, float] | None,
+) -> dict:
+    """Read-only economic/time cohorts by proven initial physical session.
+
+    Cohorts only describe observed clock placement, not whether a later
+    invocation was directed analysis, RPR or authorized post-AUD work.
+    No overlapping operations are added into wall-clock stage estimates.
+    """
+    groups: dict[str, list[dict]] = {
+        "WITHIN_VERIFIED_CONSOLE_SESSION": [],
+        "AFTER_VERIFIED_CONSOLE_SESSION": [],
+        "BEFORE_VERIFIED_CONSOLE_SESSION": [],
+        "UNCERTAIN_TIME_OR_SCOPE": [],
+    }
+    for table in ("ai_provider_attempts", "content_remediation_attempts"):
+        cols = {str(x[1]) for x in con.execute("PRAGMA table_info(" + table + ")")}
+        if not {"audit_id", "attempt_id"}.issubset(cols):
+            continue
+        seen: set[str] = set()
+        for row in con.execute(
+            "SELECT * FROM " + table + " WHERE audit_id=?", (audit_id,)
+        ):
+            data = dict(zip([x[0] for x in con.execute(
+                "SELECT * FROM " + table + " LIMIT 0"
+            ).description], row))
+            attempt = str(data.get("attempt_id") or "")
+            if attempt in seen:
+                continue
+            seen.add(attempt)
+            start = _time(data.get("started_at"))
+            stop = _time(data.get("finished_at"))
+            if (
+                window is None or start is None or stop is None
+                or stop < start
+            ):
+                category = "UNCERTAIN_TIME_OR_SCOPE"
+            elif start >= window[2]:
+                category = "AFTER_VERIFIED_CONSOLE_SESSION"
+            elif stop <= window[1]:
+                category = "BEFORE_VERIFIED_CONSOLE_SESSION"
+            elif window[1] <= start <= stop <= window[2]:
+                category = "WITHIN_VERIFIED_CONSOLE_SESSION"
+            else:
+                category = "UNCERTAIN_TIME_OR_SCOPE"
+            groups[category].append(data)
+    result = {}
+    for label, rows in groups.items():
+        metrics = _stage(label, rows)
+        result[label] = {
+            "attempts": metrics.attempts,
+            "summed_ai_attempts_ms": metrics.summed_duration_ms,
+            "union_active_ai_ms": metrics.union_active_ms,
+            "provider_observed_usd": metrics.priced_usd_provider_observed,
+            "posthoc_estimated_usd": metrics.priced_usd_estimate,
+            "unpriced_attempts": metrics.unpriced_attempts,
+            "unknown_intervals": metrics.unknown_intervals,
+        }
+    return {
+        "status": (
+            "VERIFIED_PHYSICAL_WINDOW_COHORTS"
+            if window is not None else "AUD_WINDOW_UNVERIFIABLE"
+        ),
+        "cohorts": result,
+        "limitation": (
+            "O recorte usa somente relógios de tentativas M18/M20 "
+            "frente à sessão física completa comprovada. Chamadas posteriores "
+            "podem ser continuação, RPR ou outro escopo: não se deduz operação "
+            "a partir do instante. Valores estimados e observados não são "
+            "fatura nem devem ser somados como wall-clock de fases."
+        ),
+    }
 
 
 def inspect_audit_attempts(aud_dir: Path) -> dict:
@@ -93,10 +173,12 @@ def inspect_audit_attempts(aud_dir: Path) -> dict:
         if con.execute("PRAGMA foreign_key_check").fetchone() is not None:
             raise ValueError("AUD database foreign keys inconsistent")
         status, completion = rows[0]
-        wall_duration_ms = _verified_console_wall_ms(
+        window = _verified_console_window(
             con, root.name,
             status=str(status or ""), completion=str(completion or ""),
         )
+        wall_duration_ms = window[0] if window is not None else None
+        scope_breakdown = _ai_attempt_scope_breakdown(con, root.name, window)
         # M21 records per HTTP attempt, not stage wall-clock. Preserve the
         # same conservative, AUD-scoped and fail-closed interpretation already
         # used by the historical duration forecast.
@@ -118,6 +200,7 @@ def inspect_audit_attempts(aud_dir: Path) -> dict:
             "ser derivada de somas de IA/HTTP, nem atribuída a fases "
             "sem cronômetros próprios. Continuações e RPR são escopos distintos."
         ),
+        "ai_attempt_execution_scope": scope_breakdown,
         "attempts_total": timeline.attempts,
         "stage_attempts_total": sum(x["attempts"] for x in stages),
         "m18_m20_ledger_union": "NO_DOUBLE_COUNT_WITHIN_EACH_LEDGER",
