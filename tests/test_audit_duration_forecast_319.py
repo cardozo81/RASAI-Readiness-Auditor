@@ -20,16 +20,18 @@ from rasai.cost_forecast import CostForecast
 
 def _state(root: Path):
     return SimpleNamespace(
-        audits_root=str(root), device="MOBILE", ai_provider="auto",
+        audits_root=str(root), input_mode="URL", device="MOBILE", ai_provider="auto",
         ai_model="", content_remediation=False, web_performance=True,
-        field_source="NONE", max_pages=1, improvement_enabled=False,
+        field_source="NONE", max_pages=1, web_max_pages=1,
+        improvement_enabled=False,
         search_ai_competitive=False,
     )
 
 
 def _audit(root: Path, index: int, *, status="COMPLETE", duration=600_000,
            with_stage=True, device="MOBILE", complete_config=True,
-           wrong_clock=False, pages=1) -> Path:
+           wrong_clock=False, pages=1, web_max_pages=1,
+           input_mode="URL") -> Path:
     audit_id = f"AUD-DURATION-{index}"
     folder = root / audit_id
     folder.mkdir(parents=True)
@@ -37,9 +39,11 @@ def _audit(root: Path, index: int, *, status="COMPLETE", duration=600_000,
     started = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
     finished = started + timedelta(milliseconds=duration * (2 if wrong_clock else 1))
     config = {
-        "device": device, "ai_provider": "auto", "ai_model": "",
+        "input_mode": input_mode, "device": device,
+        "ai_provider": "auto", "ai_model": "",
         "content_remediation": False, "web_performance": True,
         "field_source": "NONE", "max_pages": 1,
+        "web_max_pages": web_max_pages,
     }
     if not complete_config:
         config.pop("field_source")
@@ -118,6 +122,8 @@ def test_rejects_incomplete_invalid_clock_schema_and_mismatched_config(tmp_path)
     _audit(tmp_path, 4, device="DESKTOP")
     _audit(tmp_path, 5, duration=-100)
     _audit(tmp_path, 6, pages=2)
+    _audit(tmp_path, 7, web_max_pages=10)
+    _audit(tmp_path, 8, input_mode="FILE")
     projection = forecast_local_duration(_state(tmp_path))
     assert projection.sample_runs == 0
     assert not projection.available
