@@ -417,47 +417,11 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
         # Advisory cross-references only: CAT engines, scores and findings are unchanged.
         # Advisory cross-catalog projection: explain each catalog's GEO decision
         # surface without altering findings, scores, CAT eligibility or engines.
-        geo_topics = {
-            "CAT-01": (
-                "Acesso e descoberta",
-                "Revise controles de crawling, indexabilidade, canonical e HTML"
-                " existentes. Eles podem viabilizar leitura, mas não garantem"
-                " presença em resultados gerativos."
-            ),
-            "CAT-03": (
-                "Cobertura editorial e entidades",
-                "Compare intenção de consulta, clareza de oferta, evidências"
-                " editoriais e entidades da URL com metadados das fontes externas;"
-                " sem leitura integral do concorrente, trate diferenças como hipóteses."
-            ),
-            "CAT-05": (
-                "Pesquisa externa observacional",
-                "Confira consultas, estado do provider, fontes, URLs e"
-                " comparabilidade SERP-Perplexity. Nenhuma fonte prova uma"
-                " citação em resposta de IA."
-            ),
-            "CAT-08": (
-                "Interpretação e priorização",
-                "Utilize análises existentes e IA opcional somente quando"
-                " vinculadas a IDs de evidência. Separe observação, hipótese"
-                " e próximo teste; não invente causas para posições."
-            ),
-            "CAT-09": (
-                "Remediações e mensuração",
-                "Priorize correções sustentadas por achados do RASAi,"
-                " atribua responsáveis técnicos ou editoriais e defina"
-                " novas consultas comparáveis para verificar a evolução."
-            ),
-        }
-        for geo_catalog, (geo_title, geo_guidance) in geo_topics.items():
-            geo_filename=CATALOG_PAGE_BY_ID[geo_catalog].filename
+        from rasai.geo_catalog_context import catalog_geo_context
+        for geo_catalog in ("CAT-01", "CAT-03", "CAT-05", "CAT-08", "CAT-09"):
+            geo_filename = CATALOG_PAGE_BY_ID[geo_catalog].filename
             if geo_filename in bodies:
-                bodies[geo_filename] += (
-                    "<section><h2>Perspectiva GEO - " + escape(geo_title) + "</h2><p>"
-                    + escape(geo_guidance)
-                    + " Consulte a <a href='geo.html'>síntese GEO baseada em evidências</a>."
-                    " A auditoria principal e seu score permanecem independentes.</p></section>"
-                )
+                bodies[geo_filename] += catalog_geo_context(database, audit_id, geo_catalog)
         geo_reference=(
             "<section><h2>GEO (observacional)</h2><p>Analise a "
             "<a href='geo.html'>síntese transversal GEO</a> para fontes externas,"

@@ -595,6 +595,21 @@ def geo_body(database: Path, audit_id: str) -> str:
             "estatisticamente calibrada, não demonstra causalidade, ranking "
             "equivalente ou citação generativa.</p>"
         )
+        scope = comparison.get("comparability")
+        if isinstance(scope, dict):
+            serp = scope.get("serp_context")
+            if isinstance(serp, dict):
+                parts = [
+                    label + ": " + escape(str(serp.get(key) or "N/D")[:120])
+                    for label, key in (
+                        ("Motor SERP", "engine"), ("País SERP", "country"),
+                        ("Região SERP", "region"), ("Idioma SERP", "language"),
+                        ("Dispositivo SERP", "device"), ("Coleta SERP", "collected_at")
+                    )
+                ]
+                summary += "<p>Escopo observado da SERP: " + "; ".join(parts) + ".</p>"
+            summary += ("<p>Equivalência de país, idioma, dispositivo e instante "
+                        "com a busca externa: <strong>não comprovada</strong>.</p>")
     summary += "</section>"
     if comparison:
         target = comparison.get("target_observation") or {}

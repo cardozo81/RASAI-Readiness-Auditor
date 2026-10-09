@@ -17,7 +17,9 @@ from urllib.parse import urlsplit
 
 # Versioned immutable projection: v2 adds denominators and descriptive rates.
 # Legacy v1 snapshots stay persisted and are never rewritten.
-VERSION = "RASAI-GEO-OBSERVATION-2"
+# v3 adds URL origin identity and explicit search-context comparability metadata.
+# v1/v2 rows remain immutable and queryable.
+VERSION = "RASAI-GEO-OBSERVATION-3"
 
 
 def _canonical_json(value: object) -> str:
@@ -34,17 +36,27 @@ def _canonical_url(url: str) -> str:
         parsed = urlsplit(url.strip())
         if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
             return ""
+        scheme = parsed.scheme.lower()
         authority = parsed.hostname.lower().removeprefix("www.")
+        if ":" in authority:  # IPv6 canonical authority
+            authority = "[" + authority + "]"
+        port = parsed.port  # invalid/out-of-range port raises ValueError
+        if port is not None and port != (443 if scheme == "https" else 80):
+            authority += ":" + str(port)
         path = parsed.path.rstrip("/") or "/"
-        # URL query is semantically significant; fragment is client-side only.
-        return authority + path + ("?" + parsed.query if parsed.query else "")
+        # Never treat HTTP and HTTPS, or distinct ports, as the exact URL.
+        # Retain the query string: parameters can select different content.
+        return scheme + "://" + authority + path + ("?" + parsed.query if parsed.query else "")
     except ValueError:
         return ""
 
 
 def _host(url: str) -> str:
     try:
-        return (urlsplit(url).hostname or "").lower().removeprefix("www.")
+        parsed = urlsplit(url)
+        if parsed.scheme.lower() not in {"http", "https"}:
+            return ""
+        return (parsed.hostname or "").lower().removeprefix("www.")
     except ValueError:
         return ""
 
@@ -180,11 +192,20 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
         except (ValueError, TypeError):
             query_set = []
         serp_id = None
+        serp_scope = None
         if ("serp_observations" in tables and "serp_results" in tables
                 and isinstance(query_set, list) and len(query_set) == 1
                 and isinstance(query_set[0], str)):
+            serp_columns = {
+                str(row[1]) for row in con.execute("PRAGMA table_info(serp_observations)")
+            }
+            extra_scope = ("engine", "country", "region", "language", "device")
+            scope_sql = ", ".join(
+                name if name in serp_columns else "NULL AS " + name
+                for name in extra_scope
+            )
             observations = _records(
-                con, "SELECT observation_id, query, collected_at "
+                con, "SELECT observation_id, query, collected_at, " + scope_sql + " "
                 "FROM serp_observations WHERE audit_id=? "
                 "AND data_mode='OBSERVED_API' AND observation_status='OBSERVED' "
                 "ORDER BY collected_at DESC, observation_id DESC", (audit_id,)
@@ -196,6 +217,11 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
             )
             if match:
                 serp_id = match["observation_id"]
+                serp_scope = {
+                    key: match.get(key)
+                    for key in ("query", "collected_at", "engine", "country",
+                                "region", "language", "device")
+                }
                 comparable = _records(
                     con, "SELECT position, url FROM serp_results "
                     "WHERE observation_id=? ORDER BY position, url", (serp_id,)
@@ -217,6 +243,20 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
             "queries": query_set,
             "source_count": len(sources),
             "serp_observation_id": serp_id,
+            "comparability": {
+                "query_equivalent": serp_id is not None,
+                "geo_language_device_time_equivalence_proven": False,
+                "serp_context": serp_scope,
+                "perplexity_context": {
+                    "search_type": run["search_type"],
+                    "started_at": run["started_at"],
+                    "geography_language_device": None,
+                },
+                "limitation": (
+                    "Coincidencia textual da consulta nao comprova equivalencia "
+                    "de mercado, idioma, dispositivo, motor ou janela temporal."
+                ),
+            },
             "serp_url_count": len(serp_urls) if serp_id else None,
             "perplexity_url_count": len(source_urls),
             "url_overlap_count": len(source_urls & serp_urls) if serp_id else None,
@@ -228,7 +268,7 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
             ),
         }
         inputs = {"run": run, "sources": sources, "target": target_observation, "serp": comparable,
-                  "serp_observation_id": serp_id}
+                  "serp_observation_id": serp_id, "serp_scope": serp_scope}
         fingerprint = hashlib.sha256(_canonical_json(inputs).encode("utf-8")).hexdigest()
         analysis_id = "GEO-" + hashlib.sha256(
             (audit_id + ":" + VERSION + ":" + fingerprint).encode("utf-8")

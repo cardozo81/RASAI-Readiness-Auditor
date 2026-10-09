@@ -141,6 +141,123 @@ class GeoAiConsumerTests(unittest.TestCase):
             )
             self.assertEqual(consumer.calls, 0)
 
+    def test_unexpected_canonical_exception_is_terminal_and_never_retried(self):
+        class BrokenConsumer:
+            calls = 0
+
+            def analyze(self, _evidence):
+                self.calls += 1
+                raise TimeoutError("possible billed AI timeout: SECRET_DO_NOT_LOG")
+
+        with tempfile.TemporaryDirectory() as root:
+            db = Path(root) / "audit.db"
+            self._db(db)
+            consumer = BrokenConsumer()
+            factory = lambda _: consumer
+            self.assertEqual(
+                execute_geo_ai(db, "AUD-1", provider_selection="auto",
+                               provider_factory=factory),
+                "UNAVAILABLE",
+            )
+            self.assertEqual(
+                execute_geo_ai(db, "AUD-1", provider_selection="auto",
+                               provider_factory=factory),
+                "UNAVAILABLE",
+            )
+            self.assertEqual(consumer.calls, 1)
+            with closing(sqlite3.connect(db)) as con:
+                state, summary, reason = con.execute(
+                    "SELECT state, summary, error_reason FROM geo_ai_interpretations"
+                ).fetchone()
+                self.assertEqual(state, "UNAVAILABLE")
+                self.assertIsNone(summary)
+                self.assertEqual(reason, "GEO_AI_CANONICAL_EXECUTION_ERROR")
+                self.assertNotIn("SECRET_DO_NOT_LOG", reason)
+                self.assertEqual(con.execute("PRAGMA foreign_key_check").fetchall(), [])
+
+    def test_canonical_factory_failure_never_falls_back_to_private_provider(self):
+        with tempfile.TemporaryDirectory() as root:
+            db = Path(root) / "audit.db"
+            self._db(db)
+
+            def invalid_factory(_selection):
+                raise RuntimeError("missing credential")
+
+            self.assertEqual(
+                execute_geo_ai(db, "AUD-1", provider_selection="auto",
+                               provider_factory=invalid_factory),
+                "CANONICAL_AI_UNAVAILABLE",
+            )
+            with closing(sqlite3.connect(db)) as con:
+                self.assertEqual(
+                    con.execute("SELECT count(*) FROM geo_ai_interpretations").fetchone()[0], 0
+                )
+
+    def test_multiquery_never_infers_evidence_assignment(self):
+        with tempfile.TemporaryDirectory() as root:
+            db = Path(root) / "audit.db"
+            self._db(db)
+            with closing(sqlite3.connect(db)) as con, con:
+                con.execute(
+                    "UPDATE perplexity_search_runs SET query_json='[\"one\",\"two\"]' "
+                    "WHERE run_id='PXS-1'"
+                )
+            consumer = FakeCanonicalConsumer()
+            self.assertEqual(
+                execute_geo_ai(db, "AUD-1", provider_selection="auto",
+                               provider_factory=lambda _: consumer),
+                "NOT_ELIGIBLE",
+            )
+            self.assertEqual(consumer.calls, 0)
+
+    def test_empty_available_assessment_does_not_fake_success(self):
+        class EmptyConsumer:
+            def analyze(self, _evidence):
+                return CompetitiveAiResult(CompetitiveAiState.AVAILABLE, assessment=None)
+
+        with tempfile.TemporaryDirectory() as root:
+            db = Path(root) / "audit.db"
+            self._db(db)
+            state = execute_geo_ai(
+                db, "AUD-1", provider_selection="auto",
+                provider_factory=lambda _: EmptyConsumer(),
+            )
+            self.assertEqual(state, "UNAVAILABLE")
+            with closing(sqlite3.connect(db)) as con:
+                row = con.execute(
+                    "SELECT summary, opportunities_json, error_reason "
+                    "FROM geo_ai_interpretations"
+                ).fetchone()
+                self.assertIsNone(row[0])
+                self.assertEqual(row[1], "[]")
+                self.assertEqual(row[2], "GEO_AI_EMPTY_CANONICAL_ASSESSMENT")
+
+    def test_unavailable_provider_never_publishes_incidental_assessment(self):
+        class InvalidStateConsumer(FakeCanonicalConsumer):
+            def analyze(self, evidence_input):
+                result = super().analyze(evidence_input)
+                return CompetitiveAiResult(
+                    CompetitiveAiState.UNAVAILABLE,
+                    assessment=result.assessment,
+                    reason="FAKE_UNAVAILABLE",
+                )
+
+        with tempfile.TemporaryDirectory() as root:
+            db = Path(root) / "audit.db"
+            self._db(db)
+            state = execute_geo_ai(
+                db, "AUD-1", provider_selection="auto",
+                provider_factory=lambda _: InvalidStateConsumer(),
+            )
+            self.assertEqual(state, "UNAVAILABLE")
+            with closing(sqlite3.connect(db)) as con:
+                row = con.execute(
+                    "SELECT summary, opportunities_json, error_reason FROM geo_ai_interpretations"
+                ).fetchone()
+                self.assertIsNone(row[0])
+                self.assertEqual(row[1], "[]")
+                self.assertEqual(row[2], "FAKE_UNAVAILABLE")
+
     def test_no_credential_selection_creates_no_calls_or_tables(self):
         with tempfile.TemporaryDirectory() as root:
             db = Path(root) / "audit.db"
