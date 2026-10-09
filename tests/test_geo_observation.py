@@ -159,6 +159,62 @@ class GeoObservationTests(unittest.TestCase):
                 self.assertEqual(con.execute("PRAGMA integrity_check").fetchone()[0], "ok")
 
 
+    def test_v2_projection_preserves_v1_snapshot_and_replays_idempotently(self):
+        with tempfile.TemporaryDirectory() as root:
+            db = Path(root) / "audit.db"
+            old_projection = '{"legacy":true}'
+            with closing(sqlite3.connect(db)) as con, con:
+                con.execute("PRAGMA foreign_keys=ON")
+                con.executescript("""
+                    CREATE TABLE audits(audit_id TEXT PRIMARY KEY);
+                    CREATE TABLE perplexity_search_runs(
+                        run_id TEXT PRIMARY KEY, audit_id TEXT, query_json TEXT,
+                        search_type TEXT, status TEXT, started_at TEXT
+                    );
+                    CREATE TABLE perplexity_search_sources(
+                        run_id TEXT, position INTEGER, url TEXT, title TEXT,
+                        snippet TEXT, source_date TEXT, last_updated TEXT
+                    );
+                    CREATE TABLE geo_observation_runs(
+                        analysis_id TEXT PRIMARY KEY,
+                        audit_id TEXT NOT NULL REFERENCES audits(audit_id) ON DELETE CASCADE,
+                        perplexity_run_id TEXT NOT NULL REFERENCES perplexity_search_runs(run_id)
+                            ON DELETE CASCADE,
+                        serp_observation_id TEXT, contract_version TEXT NOT NULL,
+                        input_sha256 TEXT NOT NULL, projection_json TEXT NOT NULL,
+                        created_at TEXT NOT NULL
+                    );
+                """)
+                con.execute("INSERT INTO audits VALUES ('AUD-1')")
+                con.execute(
+                    "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
+                    ("RUN-1", "AUD-1", '["seguro"]', "web", "SUCCESS", "2026-10-07"),
+                )
+                con.execute(
+                    "INSERT INTO perplexity_search_sources VALUES (?,?,?,?,?,?,?)",
+                    ("RUN-1", 1, "https://example.org/seguro", "Oferta", "", None, None),
+                )
+                con.execute(
+                    "INSERT INTO geo_observation_runs VALUES (?,?,?,?,?,?,?,?)",
+                    ("GEO-LEGACY", "AUD-1", "RUN-1", None,
+                     "RASAI-GEO-OBSERVATION-1", "old-hash", old_projection, "2026-10-07"),
+                )
+            new_id = materialize_geo_observation(db, "AUD-1")
+            self.assertIsNotNone(new_id)
+            self.assertNotEqual(new_id, "GEO-LEGACY")
+            self.assertEqual(new_id, materialize_geo_observation(db, "AUD-1"))
+            with closing(sqlite3.connect(db)) as con:
+                rows = con.execute(
+                    "SELECT contract_version, projection_json FROM geo_observation_runs "
+                    "ORDER BY contract_version"
+                ).fetchall()
+                self.assertEqual(len(rows), 2)
+                self.assertEqual(rows[0], ("RASAI-GEO-OBSERVATION-1", old_projection))
+                self.assertEqual(rows[1][0], "RASAI-GEO-OBSERVATION-2")
+                self.assertIn("descriptive_overlap", json.loads(rows[1][1]))
+                self.assertEqual(con.execute("PRAGMA foreign_key_check").fetchall(), [])
+                self.assertEqual(con.execute("PRAGMA integrity_check").fetchone()[0], "ok")
+
     def test_descriptive_metrics_are_directional_and_abstain_without_denominator(self):
         from rasai.geo_observation import _descriptive_overlap_metrics
         metrics = _descriptive_overlap_metrics(
