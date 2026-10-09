@@ -148,3 +148,37 @@ def test_provider_cost_coverage_distinguishes_unavailable_from_observed_zero(tmp
     assert stages["WITH_OBSERVED"].observed_cost_attempts == 1
     assert stages["WITH_OBSERVED"].priced_usd_provider_observed == 0.0
     assert stages["WITHOUT_OBSERVED"].observed_cost_attempts == 0
+
+
+
+def test_invalid_numeric_cost_and_duration_do_not_poison_319_projection(tmp_path):
+    database = tmp_path / "audit.db"
+    with sqlite3.connect(database) as con:
+        con.execute(
+            "CREATE TABLE ai_provider_attempts("
+            "attempt_id TEXT PRIMARY KEY, audit_id TEXT, operation TEXT,"
+            "duration_ms REAL, started_at TEXT, finished_at TEXT,"
+            "estimated_cost REAL, cost_currency TEXT,"
+            "observed_cost REAL, observed_cost_currency TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?)",
+            [
+                ("A1", "AUD-C", "IMPROVEMENT_INTELLIGENCE",
+                 float("nan"), "?", "?", float("nan"), "USD", None, None),
+                ("A2", "AUD-C", "DIRECTED_ANALYSIS",
+                 float("inf"), "?", "?", 0.01, "USD", float("inf"), "USD"),
+                ("A3", "AUD-C", "OTHER",
+                 -10, "?", "?", -1.0, "USD", None, None),
+            ],
+        )
+    before = database.read_bytes()
+    result = read_audit_attempt_timeline(database, "AUD-C")
+    assert result.attempts == 3
+    assert result.unknown_intervals == 3
+    assert result.union_active_ms is None
+    assert result.summed_duration_ms == 0
+    assert result.provider_observed_usd == 0
+    assert result.posthoc_estimated_usd == 0
+    assert result.unpriced_attempts == 3
+    assert database.read_bytes() == before

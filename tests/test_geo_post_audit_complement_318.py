@@ -526,3 +526,77 @@ def test_console_paid_action_rejects_missing_key_before_requesting_aud_path(
         menu._external_geo_supplement(state)
     assert "não configurada" in output.getvalue()
     assert "nenhuma intenção reservada" in output.getvalue()
+
+
+
+def test_supplement_lifecycle_inspector_without_new_cost_or_aud_changes(
+    tmp_path, monkeypatch, capsys,
+):
+    from rasai.geo_supplement_inspection_309 import inspect_geo_supplements
+    from rasai import entrypoint
+    workspace, aud = source(tmp_path, monkeypatch)
+    original = workspace.database.read_bytes()
+    manifest = (workspace.root / "report-catalog" / "manifest.json").read_bytes()
+    initial = inspect_geo_supplements(workspace.root)
+    assert initial["no_supplements"] is True
+    assert initial["verified"] == 0
+    assert not (workspace.root.parent / ".rasai-geo-supplements").exists()
+    created = run(
+        workspace, audit_id=aud, intent_id="readonly-cli-fixture",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true",
+             "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+        transport=fake_transport,
+    )
+    assert created.status == "SUCCESS"
+    monkeypatch.setattr(
+        entrypoint, "_install_audit_runtime",
+        lambda: pytest.fail("read-only CLI cannot install collectors or providers"),
+    )
+    monkeypatch.setattr(
+        "rasai.geo_post_audit_complement.execute_perplexity_search",
+        lambda *args, **kwargs: pytest.fail("read-only lifecycle must not request API"),
+    )
+    assert entrypoint.main(["geo-supplements", str(workspace.root)]) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["audit_id"] == aud
+    assert output["total_intents"] == output["verified"] == 1
+    assert output["entries"][0]["intent_id"] == "readonly-cli-fixture"
+    assert output["entries"][0]["status"] == "VERIFIED"
+    assert output["entries"][0]["main_audit_geo_snapshot"] is False
+    assert output["entries"][0]["evidence_html"].endswith("supplement.html")
+    assert output["provider_requests"] == output["audit_writes"] == 0
+    assert workspace.database.read_bytes() == original
+    assert (workspace.root / "report-catalog" / "manifest.json").read_bytes() == manifest
+
+
+def test_supplement_lifecycle_exposes_ambiguous_and_invalid_without_html(
+    tmp_path, monkeypatch,
+):
+    from rasai.geo_supplement_inspection_309 import inspect_geo_supplements
+    workspace, aud = source(tmp_path, monkeypatch)
+    created = run(
+        workspace, audit_id=aud, intent_id="tampered-cli-fixture",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true",
+             "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+        transport=fake_transport,
+    )
+    from hashlib import sha256 as digest
+    uncertain = workspace.root.parent / ".rasai-geo-supplements" / aud / (
+        digest(b"reserved-unresolved").hexdigest()[:32]
+    )
+    uncertain.mkdir(parents=True)
+    original = workspace.database.read_bytes()
+    after = inspect_geo_supplements(workspace.root)
+    assert after["verified"] == 1 and after["uncertain"] == 1
+    result_path = created.directory / "result.json"
+    payload = json.loads(result_path.read_text(encoding="utf-8"))
+    payload["query_count"] = 5
+    result_path.write_text(json.dumps(payload), encoding="utf-8")
+    final = inspect_geo_supplements(workspace.root)
+    assert final["verified"] == 0
+    assert final["uncertain"] == final["invalid"] == 1
+    assert all(x["evidence_html"] is None for x in final["entries"])
+    assert final["provider_requests"] == final["audit_writes"] == 0
+    assert workspace.database.read_bytes() == original

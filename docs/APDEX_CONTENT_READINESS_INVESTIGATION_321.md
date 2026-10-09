@@ -132,3 +132,16 @@ de evidência válido. A rotina descarta staging em falhas tratadas;
 em interrupção abrupta poderá restar arquivo temporário ignorado
 pelo leitor. Diretórios linkados do relatório original/sidecar
 não são aceitos. Nada altera o pacote da AUD nem ativa o probe M23/M25.
+
+
+## Integridade estrita da arquitetura no sidecar experimental (#322)
+
+A camada imutável de prontidão aditiva rejeita registros
+`OBSERVED`, `NOT_OBSERVED` ou `TIMEOUT` com arquitetura
+`STATIC_OR_SSR` ou `UNKNOWN`: uma simples indicação de
+`load` ou um producer externo não pode inventar um probe
+aprovado para essas classes. `OBSERVED` também exige o
+motivo de estabilidade de conteúdo `stable_primary_dom_text`.
+O comportamento normal do M23/M25, scores, thresholds e amostras
+permanece intocado. Isso **não prova uma medição real** nem
+instala o sensor físico de mesma amostra nos navegadores.

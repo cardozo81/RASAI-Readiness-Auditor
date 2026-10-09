@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+import math
 import sqlite3
 
 
@@ -105,8 +106,10 @@ def _stage(name: str, rows: list[dict]) -> TimelineStage:
             duration = row.get("duration_ms")
             if duration is not None:
                 try:
-                    elapsed += max(0.0, float(duration))
-                except (ValueError, TypeError):
+                    value = float(duration)
+                    if math.isfinite(value) and value >= 0:
+                        elapsed += value
+                except (ValueError, TypeError, OverflowError):
                     pass
         else:
             # Compare like with like. Persisted duration_ms is a separately
@@ -120,13 +123,21 @@ def _stage(name: str, rows: list[dict]) -> TimelineStage:
         estimate_currency = str(row.get("cost_currency") or "").upper()
         try:
             if observed_value is not None and observed_currency == "USD":
-                observed += float(observed_value)
+                amount = float(observed_value)
+                if not math.isfinite(amount) or amount < 0:
+                    raise ValueError("invalid observed provider amount")
+                observed += amount
                 observed_count += 1
             elif estimate_value is not None and estimate_currency == "USD":
-                estimated += float(estimate_value)
+                amount = float(estimate_value)
+                if not math.isfinite(amount) or amount < 0:
+                    raise ValueError("invalid posthoc estimate amount")
+                estimated += amount
             else:
                 unpriced += 1
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
+            # Do not let NaN/Infinity/negative values enter the aggregate.
+            # Unlike provider ledger, this projection cannot infer a price.
             unpriced += 1
     active = _interval_union(intervals) if not unknown else None
     return TimelineStage(

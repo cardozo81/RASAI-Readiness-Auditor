@@ -134,3 +134,25 @@ dentro da sessão**; portanto a coorte daquele estágio fica `N/D`.
 O tempo **total** da AUD continua elegível quando seu próprio relógio
 e sua condição lógica `COMPLETED/COMPLETE` estiverem íntegros. Nada
 reclassifica tentativas passadas, inventa paralelismo ou recalcula custo.
+
+
+## Diagnóstico cronológico de uma AUD (#319)
+
+O novo comando opt-in e **somente leitura** permite inspecionar tentativas IA
+persistidas em `ai_provider_attempts` e `content_remediation_attempts`,
+sem misturar as oito chamadas observadas com o tempo total da auditoria:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai audit-attempts ".\audits\AUD-EXEMPLO"
+```
+
+O JSON traz identidade/estado da AUD, total de tentativas, duração somada,
+união física de intervalos IA (quando calculável), tempo simultâneo,
+custos estimados e reportados pelo provedor em colunas separadas,
+número de intervalos sem relógio e detalhamento por etapa. **O estado
+da AUD pode ser parcial**: o inspetor mostra seu estado real, mas isso
+não torna tal execução elegível para forecast histórico de concluídas.
+Custo reportado pelo provedor não é fatura; durações de chamadas sobrepostas
+não são aditivas ao wall-clock da AUD. Coleta, Apdex e relatório permanecem
+N/D, sem inventar um residual. O comando não executa IA, não altera
+banco original e não modifica a estimativa prévia.
