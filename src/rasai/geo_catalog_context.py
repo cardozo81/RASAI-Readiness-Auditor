@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from contextlib import closing
+from datetime import datetime, timezone
 from html import escape
 import json
 from pathlib import Path
@@ -33,6 +34,59 @@ def _columns(con: sqlite3.Connection, name: str) -> set[str]:
     return {str(row[1]) for row in con.execute(f"PRAGMA table_info({name})")}
 
 
+_UNVERIFIABLE = object()
+_MAX_READONLY_CROSSREF_ROWS = 256
+
+
+def _last_temporally_verified(
+    con: sqlite3.Connection, *,
+    table: str, audit_id: str,
+    columns: tuple[str, ...], time_column: str,
+    condition: str = "",
+) -> tuple | None | object:
+    """Pick the latest same-AUD row only with provable clock chronology.
+
+    IDs are opaque and SQLite lexical ordering of ISO instants with different
+    UTC offsets is not temporal ordering. A single row needs no ordering proof;
+    multiple rows require unique, offset-aware, parsable instants. Bounded and
+    read-only; ambiguous ordering never promotes an old success as current.
+    All SQL identifiers/conditions are fixed by internal callers.
+    """
+    available = _columns(con, table)
+    if not {"audit_id", *columns}.issubset(available):
+        return _UNVERIFIABLE
+    stamp = time_column if time_column in available else "NULL"
+    query = (
+        "SELECT " + ", ".join(columns) + ", " + stamp + " AS _observed_at "
+        + "FROM " + table + " WHERE audit_id=?" + condition
+        + " LIMIT " + str(_MAX_READONLY_CROSSREF_ROWS + 1)
+    )
+    rows = con.execute(query, (audit_id,)).fetchall()
+    if not rows:
+        return None
+    if len(rows) == 1:
+        return tuple(rows[0][:-1])
+    if len(rows) > _MAX_READONLY_CROSSREF_ROWS or time_column not in available:
+        return _UNVERIFIABLE
+    ordered: list[tuple[datetime, tuple]] = []
+    for record in rows:
+        try:
+            instant = datetime.fromisoformat(
+                str(record[-1]).replace("Z", "+00:00")
+            )
+            if instant.tzinfo is None:
+                return _UNVERIFIABLE
+            instant = instant.astimezone(timezone.utc)
+        except (ValueError, TypeError, OverflowError):
+            return _UNVERIFIABLE
+        ordered.append((instant, tuple(record[:-1])))
+    ordered.sort(key=lambda item: item[0], reverse=True)
+    if ordered[0][0] == ordered[1][0]:
+        # Equal timestamps cannot prove which physical attempt was last.
+        return _UNVERIFIABLE
+    return ordered[0][1]
+
+
 def _refs(raw: object) -> tuple[str, ...]:
     try:
         values = json.loads(raw) if isinstance(raw, str) else raw
@@ -62,19 +116,15 @@ def _serp(con: sqlite3.Connection, audit: str) -> str:
     needed = {"audit_id", "observation_id", "query", "data_mode", "observation_status"}
     if not needed.issubset(_columns(con, "serp_observations")):
         return "<p>Não há observação SERP live elegível para esta auditoria.</p>"
-    # Observation IDs are opaque, not chronological keys. Prefer recorded
-    # collection instants; older/partial schemas retain explicit ID fallback.
-    sort = (
-        "collected_at DESC, observation_id DESC"
-        if "collected_at" in _columns(con, "serp_observations")
-        else "observation_id DESC"
+    row = _last_temporally_verified(
+        con, table="serp_observations", audit_id=audit,
+        columns=("observation_id", "query"), time_column="collected_at",
+        condition=" AND data_mode='OBSERVED_API' AND observation_status='OBSERVED'",
     )
-    row = con.execute(
-        "SELECT observation_id, query FROM serp_observations "
-        "WHERE audit_id=? AND data_mode='OBSERVED_API' "
-        "AND observation_status='OBSERVED' ORDER BY " + sort + " LIMIT 1",
-        (audit,),
-    ).fetchone()
+    if row is _UNVERIFIABLE:
+        return ("<p>Há observações SERP elegíveis, mas a cronologia não "
+                "é verificável; consulta mais recente N/D. "
+                "Nenhuma conclusão GEO é inferida.</p>")
     if row is None:
         return "<p>Não há observação SERP live elegível para esta auditoria.</p>"
     return ("<p>Consulta SERP observada: " + escape(str(row[1] or "-")[:160])
@@ -86,21 +136,16 @@ def _interpretation(con: sqlite3.Connection, audit: str) -> str:
     cols = _columns(con, "geo_ai_interpretations")
     if not {"audit_id", "result_id", "state"}.issubset(cols):
         return "<p>Interpretação GEO por IA não materializada.</p>"
-    # Opaque result IDs cannot establish latest interpretation. Retain the
-    # historical fallback only for schemas without an observed instant.
-    sort = (
-        "created_at DESC, result_id DESC"
-        if "created_at" in cols
-        else "result_id DESC"
+    row = _last_temporally_verified(
+        con, table="geo_ai_interpretations", audit_id=audit,
+        columns=("result_id", "state"), time_column="created_at",
     )
-    # Never promote an earlier AVAILABLE result if the newest persisted
-    # attempt failed or is unknown. The CAT-08 crossref must describe the
-    # current terminal state without launching or reusing an AI provider.
-    row = con.execute(
-        "SELECT result_id, state FROM geo_ai_interpretations "
-        "WHERE audit_id=? ORDER BY " + sort + " LIMIT 1",
-        (audit,),
-    ).fetchone()
+    if row is _UNVERIFIABLE:
+        return (
+            "<p>Interpretação GEO por IA: múltiplas tentativas sem cronologia "
+            "verificável; último estado N/D. Não promover resultado anterior "
+            "nem executar IA nesta projeção.</p>"
+        )
     if row is None:
         return "<p>Sem interpretação GEO por IA disponível e persistida.</p>"
     if row[1] != "AVAILABLE":
@@ -210,14 +255,16 @@ def geo_surface_context(database: Path, audit_id: str, surface: str) -> str:
             if not necessary.issubset(_columns(con, "perplexity_search_runs")):
                 result += "<p>Perplexity Search não solicitada ou não persistida nesta AUD.</p>"
             else:
-                ordering = "started_at DESC, run_id DESC" if (
-                    "started_at" in _columns(con, "perplexity_search_runs")
-                ) else "run_id DESC"
-                row = con.execute(
-                    "SELECT run_id,status FROM perplexity_search_runs "
-                    "WHERE audit_id=? ORDER BY " + ordering + " LIMIT 1", (audit_id,)
-                ).fetchone()
-                if row is None:
+                row = _last_temporally_verified(
+                    con, table="perplexity_search_runs", audit_id=audit_id,
+                    columns=("run_id", "status"), time_column="started_at",
+                )
+                if row is _UNVERIFIABLE:
+                    result += (
+                        "<p>Múltiplas buscas externas sem cronologia verificável; "
+                        "última execução N/D. Nenhum sucesso anterior é promovido.</p>"
+                    )
+                elif row is None:
                     result += "<p>Perplexity Search não solicitada ou não persistida nesta AUD.</p>"
                 else:
                     run_id, status = row
