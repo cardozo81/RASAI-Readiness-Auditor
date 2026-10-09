@@ -1,4 +1,4 @@
-# Plano linear de pendências — RASAi (09/10/2026)
+# Plano linear de pendências - RASAi (09/10/2026)
 
 ## Fonte de verdade e baseline
 
