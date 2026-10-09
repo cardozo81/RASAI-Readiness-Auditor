@@ -127,3 +127,22 @@ específica; não é aceitável degradar Apdex em nome da observabilidade.
 #318 ainda requer autorização independente para uso comercial real da
 Perplexity. #310 e os épicos seguem abertos; #328/#330/#311/#210,
 #1/#127/#192 permanecem conforme status acima.
+
+
+## Consolidado de hardening seguro para smoke - 09/10/2026
+
+- **#318:** validação fail-closed de manifesto, reserva e vínculo do
+  suplemento à AUD selada; impede reuso com hash/fingerprint divergente,
+  manifesto incompleto/corrompido, symlink e caminho não permitido.
+  Cobertura fake de HTTP/timeout/reuse sem consumo real. Aceite comercial
+  permanece PENDENTE e **não** é pré-requisito para o smoke read-only.
+- **#304:** relatório GEO v4 exibe N/D para sobreposição quando não houver
+  comparabilidade temporal válida; não converte ausência de métrica em
+  zero interseção. Snapshots legados permanecem explicitamente históricos.
+- **#322:** adapter opt-in `playwright_primary_content_probe_322.py`
+  disponível para estudo com o mesmo objeto de página e cronômetro
+  monotônico fornecidos por futuro gateway, apenas com testes fake;
+  **sem hook instalado em M23/M25**, sem nova amostra nem índice.
+- **#310:** roteiro de smoke humano mínimo em
+  `docs/SMOKE_GATE_310_20261009.md`, sem repetir a AUD completa;
+  não confundir CI da branch com aceite humano do pacote e do console.
