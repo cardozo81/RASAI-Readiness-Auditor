@@ -15,6 +15,8 @@ from pathlib import Path
 import sqlite3
 from urllib.parse import urlsplit
 
+from rasai.geo_catalog_context import _last_temporally_verified, _UNVERIFIABLE
+
 
 def _host(url: str) -> str:
     try:
@@ -55,6 +57,18 @@ def _observations(database: Path, audit_id: str) -> tuple[list[dict], list[dict]
         )]
     return runs, sources
 
+
+
+def _current_run_id(database: Path, audit_id: str) -> str | None:
+    """Select one verifiably most recent external request, or abstain."""
+    with closing(sqlite3.connect(
+        f"file:{database.resolve().as_posix()}?mode=ro", uri=True
+    )) as con:
+        row = _last_temporally_verified(
+            con, table="perplexity_search_runs", audit_id=audit_id,
+            columns=("run_id",), time_column="started_at",
+        )
+    return str(row[0]) if row is not None and row is not _UNVERIFIABLE else None
 
 
 def _stored_comparison(database: Path, audit_id: str) -> dict | None:
@@ -233,17 +247,19 @@ def _geo_ai_result(database: Path, audit_id: str, latest_run_id: str) -> dict | 
             "AND name='geo_ai_interpretations'"
         ).fetchone():
             return None
-        con.row_factory = sqlite3.Row
-        row = con.execute(
-            "SELECT state, provider, model, prompt_id, prompt_version, "
-            "summary, opportunities_json, input_sha256, error_reason "
-            "FROM geo_ai_interpretations WHERE audit_id=? AND perplexity_run_id=? "
-            "ORDER BY created_at DESC, result_id DESC LIMIT 1",
-            (audit_id, latest_run_id),
-        ).fetchone()
-    if row is None:
+        selected = (
+            "state", "provider", "model", "prompt_id", "prompt_version",
+            "summary", "opportunities_json", "input_sha256", "error_reason",
+        )
+        row = _last_temporally_verified(
+            con, table="geo_ai_interpretations", audit_id=audit_id,
+            columns=selected, time_column="created_at",
+            condition=" AND perplexity_run_id=?",
+            condition_params=(latest_run_id,),
+        )
+    if row is None or row is _UNVERIFIABLE:
         return None
-    result = dict(row)
+    result = dict(zip(selected, row))
     try:
         opportunities = json.loads(result["opportunities_json"] or "[]")
     except (ValueError, TypeError):
@@ -513,6 +529,8 @@ def geo_body(database: Path, audit_id: str) -> str:
             "<p>Detalhes técnicos: <a href='cat-05.html'>CAT-05</a>; "
             "<a href='ai-integrations.html'>IA e integrações</a>.</p>"
         ) + _baseline_serp_section(database, audit_id) + _baseline_findings_section(database, audit_id) + _extraction_quality_section(database) + "</div>"
+    current_id = _current_run_id(database, audit_id)
+    current = next((r for r in runs if r.get("run_id") == current_id), None)
     counts = Counter(_host(x["url"]) for x in sources if _host(x["url"]))
     summary = "<section><h2>Observações recuperadas</h2>"
     summary += f"<p>{len(runs)} execução(ões) persistida(s); {len(sources)} fonte(s) recuperada(s).</p>"
@@ -530,7 +548,10 @@ def geo_body(database: Path, audit_id: str) -> str:
             for value in (run["run_id"], qs, run["status"], run["search_type"])
         ) + "</tr>"
     summary += "</tbody></table>"
-    latest_status = str(runs[-1].get("status") or "UNAVAILABLE").upper()
+    latest_status = (
+        str(current.get("status") or "UNAVAILABLE").upper()
+        if current is not None else "N/D"
+    )
     explanations = {
         "NOT_CONFIGURED": "Credencial não configurada. Revise a chave PERPLEXITY_API_KEY no menu de integrações.",
         "SUCCESS": "A pesquisa retornou fontes; presença em resultado de busca não equivale a citação em resposta generativa.",
@@ -541,6 +562,7 @@ def geo_body(database: Path, audit_id: str) -> str:
         "QUOTA_ERROR": "Limitação de quota/crédito do serviço externo.",
         "RATE_LIMIT_ERROR": "Limite de frequência externo. Não houve repetição automática pela projeção GEO.",
         "INVALID_RESPONSE": "Resposta externa fora do contrato esperado. Não inferir resultados ausentes.",
+        "N/D": "Múltiplas execuções sem cronologia UTC verificável; não é possível definir o último estado.",
     }
     explanation = explanations.get(
         latest_status,
@@ -548,13 +570,15 @@ def geo_body(database: Path, audit_id: str) -> str:
     )
     summary += "<p>Estado mais recente: <strong>" + escape(latest_status) + "</strong> - "
     summary += escape(explanation) + "</p>"
-    if runs[-1].get("http_status") is not None:
-        summary += "<p>HTTP externo: " + escape(str(runs[-1]["http_status"])) + "</p>"
-    if runs[-1].get("error_code"):
-        summary += "<p>Código externo: " + escape(str(runs[-1]["error_code"])) + "</p>"
+    if current is not None and current.get("http_status") is not None:
+        summary += "<p>HTTP externo: " + escape(str(current["http_status"])) + "</p>"
+    if current is not None and current.get("error_code"):
+        summary += "<p>Código externo: " + escape(str(current["error_code"])) + "</p>"
     summary += "</section>"
     comparison = _stored_comparison(database, audit_id)
-    if comparison is not None and comparison.get("perplexity_run_id") != runs[-1]["run_id"]:
+    if comparison is not None and (
+        current is None or comparison.get("perplexity_run_id") != current["run_id"]
+    ):
         # Never promote a previous successful snapshot to the latest failed attempt.
         comparison = None
     summary += "<section><h2>Comparação SERP × Perplexity</h2>"
@@ -663,7 +687,10 @@ def geo_body(database: Path, audit_id: str) -> str:
         if target.get("evidence_run_id"):
             summary += "<p>Run de origem: " + escape(str(target["evidence_run_id"])) + "</p>"
         summary += "<p>Este resultado não determina por que uma URL foi ou não foi recuperada.</p></section>"
-    geo_ai = _geo_ai_result(database, audit_id, runs[-1]["run_id"])
+    geo_ai = (
+        _geo_ai_result(database, audit_id, current["run_id"])
+        if current is not None else None
+    )
     summary += "<section><h2>Interpretação GEO por IA canônica (opcional)</h2>"
     if geo_ai is None:
         summary += "<p>Não solicitada, indisponível ou sem resultado persistido "
