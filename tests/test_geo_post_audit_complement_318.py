@@ -330,3 +330,109 @@ def test_stale_report_catalog_rejected_before_any_paid_intent(tmp_path, monkeypa
             transport=lambda *args: pytest.fail("stale AUD must not dispatch"),
         )
     assert not (workspace.root.parent / ".rasai-geo-supplements").exists()
+
+
+def test_review_supplements_is_readonly_and_proves_source_ledger_identity(
+    tmp_path, monkeypatch,
+):
+    from rasai.geo_post_audit_complement import list_post_audit_geo_supplements
+    workspace, aud = source(tmp_path, monkeypatch)
+    params = dict(
+        audit_id=aud, intent_id="human-explicit-001", query="seguro de vida",
+        explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true",
+             "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+        transport=fake_transport,
+    )
+    # Inspecting before any supplement must NOT allocate a sidecar.
+    assert list_post_audit_geo_supplements(workspace, audit_id=aud) == ()
+    assert not (workspace.root.parent / ".rasai-geo-supplements").exists()
+    created = run(workspace, **params)
+    assert created.status == "SUCCESS"
+    source_bytes = workspace.database.read_bytes()
+    catalog_bytes = (workspace.root / "report-catalog" / "manifest.json").read_bytes()
+    monkeypatch.setattr(
+        "rasai.geo_post_audit_complement.execute_perplexity_search",
+        lambda *a, **kw: pytest.fail("inventory must never send provider requests"),
+    )
+    items = list_post_audit_geo_supplements(workspace, audit_id=aud)
+    assert len(items) == 1
+    assert items[0].state == "VERIFIED"
+    assert items[0].intent_id == params["intent_id"]
+    assert items[0].query_count == 1
+    assert items[0].search_type == "web"
+    assert items[0].directory == created.directory
+    assert workspace.database.read_bytes() == source_bytes
+    assert (workspace.root / "report-catalog" / "manifest.json").read_bytes() == catalog_bytes
+
+
+def test_review_returns_invalid_for_tampered_result_not_fake_success(
+    tmp_path, monkeypatch,
+):
+    from rasai.geo_post_audit_complement import list_post_audit_geo_supplements
+    workspace, aud = source(tmp_path, monkeypatch)
+    created = run(
+        workspace, audit_id=aud, intent_id="tampered-observation",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true",
+             "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+        transport=fake_transport,
+    )
+    assert created.directory is not None
+    result_path = created.directory / "result.json"
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    result["status"] = "SUCCESS_BUT_FORGED"
+    result_path.write_text(json.dumps(result), encoding="utf-8")
+    item, = list_post_audit_geo_supplements(workspace, audit_id=aud)
+    assert item.state == "INVALID"
+    assert item.billability == "UNKNOWN"
+
+
+def test_review_never_retries_ambiguous_intent_or_cross_aud(
+    tmp_path, monkeypatch,
+):
+    from rasai.geo_post_audit_complement import list_post_audit_geo_supplements
+    workspace, aud = source(tmp_path, monkeypatch)
+    root = workspace.root.parent / ".rasai-geo-supplements" / aud
+    from hashlib import sha256 as digest
+    intent_dir = root / digest(b"crash-reserved").hexdigest()[:32]
+    intent_dir.mkdir(parents=True)
+    before = sorted(str(x) for x in root.rglob("*"))
+    item, = list_post_audit_geo_supplements(workspace, audit_id=aud)
+    assert item.state == "PENDING_UNCERTAIN"
+    assert item.billability == "UNKNOWN"
+    assert sorted(str(x) for x in root.rglob("*")) == before
+    with pytest.raises(ValueError, match="mismatch"):
+        list_post_audit_geo_supplements(workspace, audit_id="AUD-FOREIGN")
+
+
+def test_console_menu_review_existing_supplements_without_billing(
+    tmp_path, monkeypatch,
+):
+    from contextlib import redirect_stdout
+    from io import StringIO
+    from unittest.mock import patch
+    from rasai import console_search_intelligence as search
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_search_parameter_menu import configure_search_parameters
+    workspace, aud = source(tmp_path, monkeypatch)
+    result = run(
+        workspace, audit_id=aud, intent_id="console-preview",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true",
+             "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+        transport=fake_transport,
+    )
+    assert result.status == "SUCCESS"
+    monkeypatch.setattr(
+        "rasai.geo_post_audit_complement.execute_perplexity_search",
+        lambda *args, **kwargs: pytest.fail("console preview is read-only"),
+    )
+    output = StringIO()
+    with patch("builtins.input", side_effect=["P", "8", str(workspace.root), "V", "V"]), redirect_stdout(output):
+        configure_search_parameters(search, SearchConsoleState())
+    display = output.getvalue()
+    assert "Consultar complementos GEO existentes" in display
+    assert "console-preview" in display
+    assert "VERIFIED" in display
+    assert "sem cobrança" in display
