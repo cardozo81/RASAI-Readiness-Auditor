@@ -4,6 +4,14 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/experience_architecture_guidance_358.py'
+      - 'src/rasai/console_m23.py'
+      - 'src/rasai/m25_cli.py'
+      - 'src/rasai/console_settings.py'
+      - 'src/rasai/console_environment.py'
+      - 'src/rasai/console_apdex_configuration.py'
+      - 'src/rasai/cat07_architecture_reporting_358.py'
+      - 'src/rasai/catalog_report_page.py'
+      - 'tests/test_cat07_architecture_integration_358.py'
       - 'tests/test_experience_architecture_guidance_358.py'
       - 'docs/CAT07_EXPERIENCE_ARCH_GUIDANCE_358.md'
       - '.github/workflows/cat07-architecture-guidance-358.yml'
@@ -38,4 +46,7 @@ jobs:
         run: >-
           python -m pytest -q
           tests/test_experience_architecture_guidance_358.py
+          tests/test_cat07_architecture_integration_358.py
+          tests/test_console_settings.py
+          tests/test_catalog_population_apdex_227.py
           tests/test_m25_dynatrace_compat_defaults.py
