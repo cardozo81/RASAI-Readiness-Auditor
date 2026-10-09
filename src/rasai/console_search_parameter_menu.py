@@ -334,6 +334,13 @@ def _external_geo_supplement(state: Any) -> None:
     from rasai.search_intelligence.perplexity import perplexity_configuration_status
     from rasai.console_search_intelligence import perplexity_enabled
 
+    queries = tuple(getattr(state, "perplexity_queries", ()) or ())
+    if not queries:
+        print("  Configure primeiro queries Perplexity na opção 1 ou cópia opt-in na 6.")
+        return
+    if len(queries) > 5:
+        print("  Limite do complemento: 1..5 queries.")
+        return
     # Do not ask for a commercial consent or AUD path when the local request
     # is technically impossible. The read-only option 8 stays available
     # independently of token/flag state.
@@ -342,13 +349,6 @@ def _external_geo_supplement(state: Any) -> None:
         return
     if not perplexity_configuration_status()["configured"]:
         print("  PERPLEXITY_API_KEY não configurada; nenhuma intenção reservada.")
-        return
-    queries = tuple(getattr(state, "perplexity_queries", ()) or ())
-    if not queries:
-        print("  Configure primeiro queries Perplexity na opção 1 ou cópia opt-in na 6.")
-        return
-    if len(queries) > 5:
-        print("  Limite do complemento: 1..5 queries.")
         return
     search_type = str(getattr(state, "perplexity_search_type", "web") or "web").lower()
     path = input("Pasta original da AUD COMPLETE (contém audit.db e artifacts): ").strip()
