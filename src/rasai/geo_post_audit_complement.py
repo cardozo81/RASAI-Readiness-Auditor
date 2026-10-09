@@ -9,6 +9,7 @@ not a commercial idempotency guarantee after unknown network outcomes.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from hashlib import sha256
 from html import escape
 import json
@@ -49,6 +50,28 @@ def _digest(path: Path) -> str:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             hasher.update(block)
     return hasher.hexdigest()
+
+
+def _valid_provider_interval(started_at: object, finished_at: object) -> bool:
+    """Verify an offset-aware, ordered run window before promoting evidence.
+
+    Matching result.json and a rehashed SQLite ledger is not enough: both
+    can contain the same impossible or timezone-ambiguous timestamps.
+    """
+    if not isinstance(started_at, str) or not isinstance(finished_at, str):
+        return False
+    try:
+        started = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+        finished = datetime.fromisoformat(finished_at.replace("Z", "+00:00"))
+        return (
+            started.tzinfo is not None
+            and finished.tzinfo is not None
+            and started.utcoffset() is not None
+            and finished.utcoffset() is not None
+            and started.astimezone(timezone.utc) <= finished.astimezone(timezone.utc)
+        )
+    except (ValueError, TypeError, OverflowError):
+        return False
 
 
 def _write_json(path: Path, data: dict[str, Any]) -> None:
@@ -268,6 +291,8 @@ def _verify_recorded_supplement(
         )
     ):
         raise ValueError("supplement result provenance mismatch; do not retry")
+    if not _valid_provider_interval(result["started_at"], result["finished_at"]):
+        raise ValueError("supplement temporal provenance invalid; do not retry")
     evidence_db = directory / "evidence" / "audit.db"
     with sqlite3.connect(evidence_db.resolve().as_uri() + "?mode=ro",
                          uri=True, timeout=2) as con:
