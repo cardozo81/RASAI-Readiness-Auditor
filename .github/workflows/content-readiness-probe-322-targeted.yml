@@ -5,6 +5,8 @@ on:
     paths:
       - 'src/rasai/playwright_primary_content_probe_322.py'
       - 'src/rasai/apdex_content_readiness_observation.py'
+      - 'src/rasai/apdex_readiness_sidecar_322.py'
+      - 'tests/test_apdex_readiness_sidecar_322.py'
       - 'tests/test_playwright_primary_content_probe_322.py'
       - 'tests/test_apdex_content_readiness_322.py'
       - 'docs/APDEX_CONTENT_READINESS_INVESTIGATION_321.md'
@@ -27,5 +29,5 @@ jobs:
       - name: Run isolated no-network/no-browser tests
         run: |
           python -m pip install -e . pytest
-          python -m compileall -q src/rasai/playwright_primary_content_probe_322.py src/rasai/apdex_content_readiness_observation.py
-          python -m pytest -q tests/test_playwright_primary_content_probe_322.py tests/test_apdex_content_readiness_322.py
+          python -m compileall -q src/rasai/playwright_primary_content_probe_322.py src/rasai/apdex_content_readiness_observation.py src/rasai/apdex_readiness_sidecar_322.py
+          python -m pytest -q tests/test_playwright_primary_content_probe_322.py tests/test_apdex_content_readiness_322.py tests/test_apdex_readiness_sidecar_322.py
