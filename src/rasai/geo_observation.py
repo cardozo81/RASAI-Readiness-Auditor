@@ -97,6 +97,50 @@ def _target_observation(
 
 
 
+def _descriptive_overlap_metrics(
+    perplexity_urls: set[str], serp_urls: set[str], *, serp_id: str | None,
+    query_set: object, search_status: str,
+) -> dict:
+    """Rates describe only URL-set membership, not equivalent provider coverage.
+
+    No per-query mapping is inferred from aggregated multi-query Search API runs.
+    Denominators are distinct, valid canonical URLs, never request counts.
+    """
+    metrics = {
+        "status": "NOT_COMPARABLE",
+        "reason": None,
+        "serp_denominator": len(serp_urls) if serp_id else None,
+        "perplexity_denominator": len(perplexity_urls),
+        "common_urls": None,
+        "serp_overlap_rate": None,
+        "perplexity_overlap_rate": None,
+        "jaccard_url_rate": None,
+        "serp_only_count": None,
+        "perplexity_only_count": None,
+    }
+    if search_status.upper() != "SUCCESS":
+        metrics["reason"] = "EXTERNAL_SEARCH_NOT_SUCCESSFUL"
+    elif not isinstance(query_set, list) or len(query_set) != 1 or not isinstance(query_set[0], str) or not query_set[0].strip():
+        metrics["reason"] = "UNATTRIBUTABLE_QUERY_SET"
+    elif not serp_id:
+        metrics["reason"] = "NO_EQUIVALENT_OBSERVED_SERP_QUERY"
+    elif not serp_urls or not perplexity_urls:
+        metrics["reason"] = "NO_VALID_URL_DENOMINATOR"
+    else:
+        both = len(serp_urls & perplexity_urls)
+        union = len(serp_urls | perplexity_urls)
+        metrics.update(
+            status="DESCRIPTIVE_ONLY",
+            common_urls=both,
+            serp_overlap_rate=round(both / len(serp_urls), 4),
+            perplexity_overlap_rate=round(both / len(perplexity_urls), 4),
+            jaccard_url_rate=round(both / union, 4),
+            serp_only_count=len(serp_urls - perplexity_urls),
+            perplexity_only_count=len(perplexity_urls - serp_urls),
+        )
+    return metrics
+
+
 def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
     """Freeze a deterministic advisory snapshot after an explicitly requested search.
 
@@ -157,6 +201,10 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
         source_urls = {_canonical_url(x["url"]) for x in sources if _canonical_url(x["url"])}
         serp_urls = {_canonical_url(x["url"]) for x in comparable if _canonical_url(x["url"])}
         target_observation = _target_observation(con, audit_id, run, query_set, sources)
+        overlap_metrics = _descriptive_overlap_metrics(
+            source_urls, serp_urls, serp_id=serp_id, query_set=query_set,
+            search_status=str(run["status"]),
+        )
         projection = {
             "target_observation": target_observation,
             "contract_version": VERSION,
@@ -170,6 +218,7 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
             "serp_url_count": len(serp_urls) if serp_id else None,
             "perplexity_url_count": len(source_urls),
             "url_overlap_count": len(source_urls & serp_urls) if serp_id else None,
+            "descriptive_overlap": overlap_metrics,
             "limitation": (
                 "A busca externa nao equivale a resposta/citacao generativa; "
                 "nao ha atribuicao de fontes a consultas individuais em multi-query. "
