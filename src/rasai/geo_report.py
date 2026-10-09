@@ -563,7 +563,7 @@ def geo_body(database: Path, audit_id: str) -> str:
         summary += "com consulta única e observação SERP live válida. Requests multi-query "
         summary += "não são desagregados artificialmente.</p>"
     else:
-        summary += "<p>Sobreposição observacional de URLs exatas na mesma consulta: "
+        summary += "<p>Interseção bruta de URLs para texto de consulta coincidente (não prova intenção equivalente): "
         summary += f"{int(comparison.get('url_overlap_count') or 0)} em ambas; "
         summary += f"{int(comparison.get('serp_url_count') or 0)} URLs SERP e "
         summary += f"{int(comparison.get('perplexity_url_count') or 0)} URLs Perplexity."
@@ -585,13 +585,16 @@ def geo_body(database: Path, audit_id: str) -> str:
                 "UNATTRIBUTABLE_QUERY_SET": "fontes não atribuíveis a uma única consulta",
                 "NO_EQUIVALENT_OBSERVED_SERP_QUERY": "sem SERP real da mesma consulta",
                 "NO_VALID_URL_DENOMINATOR": "sem denominadores de URLs válidas em ambas as fontes",
+                "TIME_SCOPE_UNPROVEN": "instantes de coleta sem relógios verificáveis nas duas fontes",
+                "TIME_SCOPE_OUTSIDE_WINDOW": "coletas separadas por mais de 24 horas",
             }
             reason = reasons.get(str(rates.get("reason") or ""), "dados insuficientes")
             summary += "</p><p>Taxas não aplicáveis: " + escape(reason) + "."
         summary += (
             " É apenas interseção de URLs para a mesma string de consulta; "
             "a origem de busca não comprova escopo de país, idioma, dispositivo "
-            "ou janela temporal equivalentes entre providers. Não é comparação "
+            "entre providers. Janela temporal de até 24h é somente filtro " 
+            "observacional, não garantia de equivalência. Não é comparação "
             "estatisticamente calibrada, não demonstra causalidade, ranking "
             "equivalente ou citação generativa.</p>"
         )
@@ -608,7 +611,11 @@ def geo_body(database: Path, audit_id: str) -> str:
                     )
                 ]
                 summary += "<p>Escopo observado da SERP: " + "; ".join(parts) + ".</p>"
-            summary += ("<p>Equivalência de país, idioma, dispositivo e instante "
+            if scope.get("time_gap_seconds") is not None:
+                summary += ("<p>Intervalo entre coletas observadas: "
+                            + escape(str(round(float(scope["time_gap_seconds"]) / 60, 1)))
+                            + " minutos (limite descritivo de 24 horas).</p>")
+            summary += ("<p>Equivalência de intenção, país, idioma e dispositivo "
                         "com a busca externa: <strong>não comprovada</strong>.</p>")
     summary += "</section>"
     if comparison:
