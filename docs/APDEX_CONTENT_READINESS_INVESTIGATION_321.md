@@ -157,3 +157,51 @@ monotônico fisicamente absurdo (>48h) também é inválido. A consequência
 Essas validações são **somente sobre dados fornecidos pelo producer**;
 não constituem evidência de sensor Playwright de mesma amostra nem medição
 de overhead. Gate físico de #322 permanece aberto.
+
+
+## Piloto com Chromium físico e custo observável #322 (09/10/2026)
+
+Adicionado `readiness_probe_cost_pilot_322.py` com
+`measure_existing_playwright_probe_cost`. A rotina recebe exclusivamente
+o **objeto `page` já existente**, a origem `time.monotonic_ns` e o instante
+de load capturados pelo consumidor na **mesma execução física de teste**.
+Não cria browser, guia uma URL, muda o Apdex ou abre banco. Cronometra
+cada DOM evaluation individual, soma seus custos, mede tempo total da
+sonda e isola, sem sumarizar artificialmente, o tempo de `sleep` entre
+leituras. A saída separa `local_evaluation_budget_met` do gate de
+integração: ainda que o custo local fique abaixo da referência, o estado
+permanece `PILOT_ONLY_REQUIRES_MATCHED_BASELINE_AND_GATEWAY_IDENTITY`.
+Custos altos geram `BLOCKED_BY_LOCAL_DOM_OVERHEAD`, **sem declarar
+readiness como Apdex**. IDs e timestamps são declarados pelo produtor,
+não atestados pelo M25.
+
+A leitura DOM foi endurecida para não tratar texto invisível
+(`aria-hidden`, `hidden`, `display:none`, `visibility:hidden`)
+como materialização perceptível. Limita a contagem de nós de texto a
+128 por checkpoint, os caracteres examinados a 10000 e as chamadas
+a uma janela curta. O custo da consulta computada de visibilidade
+e layout foi incorporado ao piloto como overhead explícito.
+Não serializa HTML, texto da URL, cabeçalhos de rede ou segredos.
+`TIMEOUT` e ausência de materialidade continuam censurados.
+
+Existe agora uma job isolada com **Chromium real offline**, sem acesso
+a sites e sem API paga, que mede DOM dinâmico pós-load, conteúdo
+oculto que não deve ser classificado como pronto e SSR com zero
+interações da sonda. Outra job valida a matemática de custo em
+Linux/Windows com relógio e página falsos. A job física observa
+`page.set_content` em uma aba local criada pelo teste; ela **não**
+substitui dados de amostras reais em websites nem demonstra que o hook
+está ligado ao M23/M25 produtivo.
+
+### Gate não ultrapassado
+
+O piloto **não instala** probe em nenhum gateway homologado, não
+altera `synthetic_ux_apdex_samples`, `synthetic_apdex_samples`,
+amostragem, timeout ou scores, e não produz relatórios com valores
+de readiness em AUDs reais. Para isso faltam controle/baseline
+comparável no mesmo hardware e cenário, perfil experimental
+autorizado, vínculo físico ao ID M25 de cada sample, tratamento
+do custo de sondagem no orçamento de execução e homologação
+de produto/relatório. Sem esses dados, p75 e melhora percetível
+do site são `N/D`. Este piloto não altera históricos nem recomenda
+um novo limiar Apdex por arquitetura.
