@@ -597,6 +597,7 @@ def geo_body(database: Path, audit_id: str) -> str:
         is_v4 = comparison.get("contract_version") in {
             "RASAI-GEO-OBSERVATION-4", "RASAI-GEO-OBSERVATION-5",
             "RASAI-GEO-OBSERVATION-6", "RASAI-GEO-OBSERVATION-7",
+            "RASAI-GEO-OBSERVATION-8",
         }
         if is_v4 and not has_verified_rates:
             summary += (

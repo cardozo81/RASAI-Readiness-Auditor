@@ -17,10 +17,10 @@ from urllib.parse import urlsplit
 from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
 
 
-# v7 preserves nearest eligible SERP selection from v6 and additionally
-# requires a verifiably latest Search API attempt (UTC-aware chronology).
-# Older v1-v6 snapshots remain immutable, not retroactively reinterpreted.
-VERSION = "RASAI-GEO-OBSERVATION-7"
+# v8 preserves v7 UTC-proven provenance but refuses fabricated URL equality:
+# an unobserved trailing-slash redirect and URLs with userinfo/control bytes
+# are never treated as the same URL. v1-v7 snapshots remain immutable.
+VERSION = "RASAI-GEO-OBSERVATION-8"
 _MAX_OBSERVATION_GAP_SECONDS = 24 * 60 * 60
 
 
@@ -34,9 +34,23 @@ def _records(con: sqlite3.Connection, sql: str, args: tuple) -> list[dict]:
 
 
 def _canonical_url(url: str) -> str:
+    # This is exact observed URL identity, NOT inferred canonical
+    # equivalence: a trailing slash can address a different resource.
+    # Browser URL interpretation of userinfo, controls and backslashes is
+    # unsafe/ambiguous; do not promote these strings into exact matches.
+    if not isinstance(url, str) or not url.strip():
+        return ""
+    stripped = url.strip()
+    if "\\" in stripped or any(ord(char) <= 32 or ord(char) == 127 for char in stripped):
+        return ""
     try:
-        parsed = urlsplit(url.strip())
-        if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+        parsed = urlsplit(stripped)
+        if (
+            parsed.scheme.lower() not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
             return ""
         scheme = parsed.scheme.lower()
         # Exact URL identity retains the host as delivered. In particular
@@ -46,9 +60,11 @@ def _canonical_url(url: str) -> str:
         if ":" in authority:  # IPv6 canonical authority
             authority = "[" + authority + "]"
         port = parsed.port  # invalid/out-of-range port raises ValueError
+        if port == 0:
+            return ""
         if port is not None and port != (443 if scheme == "https" else 80):
             authority += ":" + str(port)
-        path = parsed.path.rstrip("/") or "/"
+        path = parsed.path or "/"
         # Never treat HTTP and HTTPS, or distinct ports, as the exact URL.
         # Retain the query string: parameters can select different content.
         return scheme + "://" + authority + path + ("?" + parsed.query if parsed.query else "")
@@ -56,12 +72,40 @@ def _canonical_url(url: str) -> str:
         return ""
 
 
-def _host(url: str) -> str:
+def _canonical_url_v7(url: str) -> str:
+    """Historical interpretation for frozen v1-v7 descriptive cohorts only.
+
+    Do not rewrite prior snapshots or silently apply v8 URL identity to a
+    longitudinal group whose original method treated /path and /path/ as
+    equivalent. Never use this weaker helper for NEW v8 observations.
+    """
+    if not isinstance(url, str):
+        return ""
     try:
-        parsed = urlsplit(url)
-        if parsed.scheme.lower() not in {"http", "https"}:
+        parsed = urlsplit(url.strip())
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
             return ""
-        return (parsed.hostname or "").lower().removeprefix("www.")
+        scheme = parsed.scheme.lower()
+        authority = parsed.hostname.lower()
+        if ":" in authority:
+            authority = "[" + authority + "]"
+        port = parsed.port
+        if port is not None and port != (443 if scheme == "https" else 80):
+            authority += ":" + str(port)
+        path = parsed.path.rstrip("/") or "/"
+        return scheme + "://" + authority + path + (
+            "?" + parsed.query if parsed.query else ""
+        )
+    except ValueError:
+        return ""
+
+
+def _host(url: str) -> str:
+    canonical = _canonical_url(url)
+    if not canonical:
+        return ""
+    try:
+        return (urlsplit(canonical).hostname or "").lower().removeprefix("www.")
     except ValueError:
         return ""
 

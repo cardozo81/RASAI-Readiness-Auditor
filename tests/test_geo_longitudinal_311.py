@@ -374,3 +374,24 @@ def test_longitudinal_abstains_on_tied_or_unverifiable_snapshot_clocks(
     assert outcome["provider_requests"] == outcome["audit_writes"] == 0
     assert [sha256((root / "audit.db").read_bytes()).hexdigest()
             for root in (original, stable)] == before
+
+
+def test_v7_and_v8_url_identity_methodology_never_share_longitudinal_series(tmp_path):
+    earlier = audit(
+        tmp_path, "AUD-METHOD-007", version="RASAI-GEO-OBSERVATION-7",
+    )
+    later = audit(
+        tmp_path, "AUD-METHOD-008", version="RASAI-GEO-OBSERVATION-8",
+    )
+    before = [p.joinpath("audit.db").read_bytes() for p in (earlier, later)]
+    comparison = build_geo_longitudinal_preview([earlier, later])
+    assert comparison["audits_eligible"] == 2
+    assert comparison["excluded"] == []
+    assert {x["method_version"] for x in comparison["timelines"]} == {
+        "RASAI-GEO-OBSERVATION-7", "RASAI-GEO-OBSERVATION-8",
+    }
+    assert len(comparison["timelines"]) == 2
+    assert all(x["status"] == "SINGLE_OBSERVATION" for x in comparison["timelines"])
+    assert all(x["trend_conclusion"] == "N/D" for x in comparison["timelines"])
+    assert comparison["provider_requests"] == comparison["audit_writes"] == 0
+    assert [p.joinpath("audit.db").read_bytes() for p in (earlier, later)] == before

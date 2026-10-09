@@ -1,7 +1,7 @@
 # #311 - GEO longitudinal: inventário observacional conservador
 
 Esta entrega é uma fase independente, read-only e opt-in de comparação
-de snapshots GEO v5/v6/v7 já persistidos em AUDs distintas. Ela não altera
+de snapshots GEO v5/v6/v7/v8 já persistidos em AUDs distintas. Ela não altera
 `CONS-*`, não materializa nova auditoria, não chama SERP/Perplexity/IA,
 não executa RPR, não modifica pontuação nem cria relatório
 consolidado novo. Não pressupõe que presença em Search API
@@ -105,7 +105,7 @@ data/hora validada está mais próxima da requisição Search API
 recente, que pode estar fora da janela. Se não houver amostra
 elegível, taxas SERP x Perplexity continuam `N/D`.
 
-O comando longitudinal aceita snapshots **v5, v6 e v7** mas usa
+O comando longitudinal aceita snapshots **v5, v6, v7 e v8** mas usa
 `method_version` como chave de agrupamento. Duas observações
 da mesma URL, mesmo mercado e query com versões diferentes
 continuam separadas e `trend_conclusion=N/D`. Nenhuma equivalência
@@ -129,3 +129,14 @@ mas preserva método/versionamento como chave de agrupamento,
 separando v5, v6 e v7 de qualquer inferência de tendência.
 Nenhuma alteração é feita no motor CONS de mesma URL,
 em AUDs seladas ou em serviços comerciais.
+
+
+## v8 - fronteira metodologica de URL exata
+
+Os novos snapshots `RASAI-GEO-OBSERVATION-8` exigem identidade exata
+mais estrita, preservando a barra final do path e recusando userinfo ou
+URLs de sintaxe ambigua. A comparacao longitudinal preserva a regra
+de normalizacao por versao ao ler v5/v6/v7; nunca reinterpreta os
+snapshots ja congelados com a politica de v8. Uma serie com versoes
+diferentes permanece em grupos distintos e sem tendencia numerica
+compartilhada. Nenhuma AUD ou registro GEO anterior e regravado.
