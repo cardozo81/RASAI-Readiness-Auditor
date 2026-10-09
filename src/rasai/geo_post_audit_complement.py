@@ -330,7 +330,7 @@ def list_post_audit_geo_supplements(
                     len(matches) != 1
                     or matches[0][1] != audit_id
                     or matches[0][2] != result["status"]
-                    or matches[0][4] != mode
+                    or str(matches[0][4] or "").lower() != mode
                     or json.loads(matches[0][3]) != list(request)
                     or con.execute("PRAGMA quick_check").fetchone()[0] != "ok"
                     or con.execute("PRAGMA foreign_key_check").fetchone() is not None
