@@ -158,3 +158,43 @@ def test_strict_provenance_does_not_widen_architecture_or_opt_in():
     )
     assert classify(**base, enabled=True).status == "NOT_APPLICABLE"
     assert classify(**base, enabled=False).status == "NOT_APPLICABLE"
+
+
+def test_invalid_types_cannot_be_treated_as_observed_content_ready():
+    from dataclasses import replace
+    import math
+    points = [cp(500, 420), cp(650, 430)]
+    base = dict(
+        sample_id="M25-SAMPLE-1", context_id="CTX-A",
+        architecture="CSR_SPA", load_ms=300,
+        enabled=True, window_ms=1200, checkpoints=points,
+    )
+    invalid_rows = [
+        replace(points[0], since_navigation_ms=True),
+        replace(points[0], since_navigation_ms="500"),
+        replace(points[0], main_text_characters="500"),
+        replace(points[0], heading_text_characters=30.5),
+        replace(points[0], skeleton_present="false"),
+        replace(points[0], since_navigation_ms=math.inf),
+    ]
+    for invalid in invalid_rows:
+        result = classify(**{**base, "checkpoints": [invalid, points[1]]})
+        assert result.status == "ERROR"
+        assert result.primary_content_ms is None
+    for invalid_load in (True, "300", math.nan, math.inf):
+        result = classify(**{**base, "load_ms": invalid_load})
+        assert result.status == "ERROR"
+        assert result.post_load_delta_ms is None
+    for invalid_kwargs in (
+        {"window_ms": True},
+        {"enabled": "true"},
+        {"window_expired": "false"},
+        {"strict_provenance": "false"},
+        {"checkpoints": None},
+        {"checkpoints": [points[0]] * 129},
+    ):
+        result = classify(**{**base, **invalid_kwargs})
+        assert result.status == "ERROR"
+        assert result.primary_content_ms is None
+    # A well-typed, same-sample pair still has identical semantics.
+    assert classify(**base).status == "OBSERVED"
