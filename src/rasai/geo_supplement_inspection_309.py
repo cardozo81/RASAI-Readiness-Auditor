@@ -27,6 +27,11 @@ def inspect_geo_supplements(aud_dir: Path) -> dict:
             "query_count": item.query_count,
             "search_type": item.search_type,
             "billability": item.billability,
+            # VERIFIED refers to package provenance, not API success.
+            "search_status": item.run_status,
+            "verified_source_count": item.source_count,
+            "search_started_at": item.started_at,
+            "search_finished_at": item.finished_at,
             "detail": item.detail,
             "evidence_html": str(item.directory / "supplement.html")
             if item.state == "VERIFIED" else None,
@@ -39,11 +44,21 @@ def inspect_geo_supplements(aud_dir: Path) -> dict:
         "audit_id": ws.root.name,
         "total_intents": len(entries),
         "verified": sum(x["status"] == "VERIFIED" for x in entries),
+        "verified_successful_searches": sum(
+            x["status"] == "VERIFIED" and x["search_status"] == "SUCCESS"
+            for x in entries
+        ),
+        "verified_unsuccessful_searches": sum(
+            x["status"] == "VERIFIED" and x["search_status"] != "SUCCESS"
+            for x in entries
+        ),
         "uncertain": sum(x["status"] == "PENDING_UNCERTAIN" for x in entries),
         "invalid": sum(x["status"] == "INVALID" for x in entries),
         "no_supplements": len(entries) == 0,
         "post_aud_isolated_from_original": True,
         "does_not_imply_generatively_cited": True,
+        "verified_means_evidence_integrity_not_search_success": True,
+        "excludes_supplement_cost_and_duration_from_original_audit": True,
         "provider_requests": 0,
         "audit_writes": 0,
         "entries": entries,
