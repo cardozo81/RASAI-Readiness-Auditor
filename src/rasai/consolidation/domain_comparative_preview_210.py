@@ -43,6 +43,8 @@ def _identity(url: str) -> tuple[str, str] | None:
         else:
             return None
         port = parsed.port
+        if port is not None and port < 1:
+            return None
         standard = 80 if parsed.scheme.lower() == "http" else 443
         authority = hostname + (":" + str(port) if port and port != standard else "")
         normalized = (
@@ -86,6 +88,17 @@ def preview_same_domain_candidates(
     if not 2 <= len(candidates) <= 100:
         return abstain("AUDIT_COUNT_OUT_OF_RANGE")
     if any(not isinstance(x, AuditCandidate) for x in candidates):
+        return abstain("INVALID_CANDIDATE")
+    if any(
+        not all(
+            isinstance(getattr(x, name), str)
+            for name in ("audit_id", "url", "device", "status", "event_time")
+        ) or (
+            x.completion_status is not None
+            and not isinstance(x.completion_status, str)
+        )
+        for x in candidates
+    ):
         return abstain("INVALID_CANDIDATE")
     ids = [x.audit_id for x in candidates]
     if any(not x or not x.startswith("AUD-") for x in ids) or len(set(ids)) != len(ids):
