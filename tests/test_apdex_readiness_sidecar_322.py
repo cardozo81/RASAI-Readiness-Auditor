@@ -72,6 +72,7 @@ def test_immutable_same_sample_sidecar_outside_original(tmp_path):
     assert stored["observation"]["post_load_delta_ms"] == 190.0
     assert (source / "audit.db").read_bytes() == original
     assert (source / "report-catalog" / "manifest.json").read_bytes() == manifest
+    assert not list(path.parent.glob(".pending-*.tmp"))  # staging never leaks in success
 
 
 @pytest.mark.parametrize("change", [
@@ -158,3 +159,37 @@ def test_source_report_package_must_pass_freshness_gate(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="stale or invalid"):
         write_readiness_sidecar(source, observed())
     assert not (tmp_path / ".rasai-readiness-sidecars").exists()
+
+
+
+def test_interrupted_atomic_publication_never_exposes_partial_final_json(
+    tmp_path, monkeypatch,
+):
+    source = aud(tmp_path)
+    from rasai import apdex_readiness_sidecar_322 as storage
+
+    def no_link(*_args, **_kwargs):
+        raise OSError("simulated filesystem publication failure")
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(storage.os, "link", no_link)
+        with pytest.raises(OSError, match="publication failure"):
+            write_readiness_sidecar(source, observed())
+    folder = tmp_path / ".rasai-readiness-sidecars" / source.name
+    assert not list(folder.glob("*.json"))
+    assert not list(folder.glob(".pending-*.tmp"))
+    successful = write_readiness_sidecar(source, observed())
+    assert read_readiness_sidecar(source, successful)["advisory_only"] is True
+
+
+def test_report_catalog_symlink_refused(tmp_path):
+    source = aud(tmp_path)
+    original = source / "report-catalog"
+    other = tmp_path / "other-report"
+    original.rename(other)
+    try:
+        original.symlink_to(other, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlink unavailable")
+    with pytest.raises(ValueError, match="sealed source"):
+        write_readiness_sidecar(source, observed())
