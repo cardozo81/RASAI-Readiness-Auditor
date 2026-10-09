@@ -836,3 +836,42 @@ def test_rehashed_sqlite_and_result_cannot_launder_inverted_provider_clock(
                  "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
             transport=lambda *args: pytest.fail("invalid chronology must not retry"),
         )
+
+
+@pytest.mark.parametrize("linked_scope", ["root", "audit"])
+def test_paid_geo_supplement_rejects_linked_parent_scope_without_reservation(
+    tmp_path, monkeypatch, linked_scope,
+):
+    """Neither source integrity nor explicit consent permits sidecar path escape."""
+    from rasai.geo_post_audit_complement import (
+        list_post_audit_geo_supplements,
+    )
+    workspace, aud = source(tmp_path, monkeypatch)
+    original = workspace.database.read_bytes()
+    escaped = tmp_path / "external-output"
+    escaped.mkdir()
+    supplement_base = workspace.root.parent / ".rasai-geo-supplements"
+    try:
+        if linked_scope == "root":
+            supplement_base.symlink_to(escaped, target_is_directory=True)
+        else:
+            supplement_base.mkdir()
+            (supplement_base / aud).symlink_to(
+                escaped, target_is_directory=True,
+            )
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"symlink creation not permitted by test platform: {exc}")
+    with pytest.raises(ValueError, match="cannot be linked"):
+        run(
+            workspace, audit_id=aud, intent_id="linked-boundary",
+            query="seguro de vida", explicit_cost_authorization=True,
+            env={
+                "RASAI_PERPLEXITY_ENABLED": "true",
+                "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY",
+            },
+            transport=lambda *args: pytest.fail("must reject before provider HTTP"),
+        )
+    with pytest.raises(ValueError, match="cannot be linked"):
+        list_post_audit_geo_supplements(workspace, audit_id=aud)
+    assert not list(escaped.iterdir())
+    assert workspace.database.read_bytes() == original
