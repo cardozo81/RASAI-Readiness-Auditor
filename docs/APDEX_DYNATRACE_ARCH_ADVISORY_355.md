@@ -84,3 +84,29 @@ na camada advisory do relatório e oferecer nova auditoria.
 Não há autorização para consultar tenant, nem medição RUM
 disponível nesta fase. Nenhum threshold poderá ser sugerido
 como valor oficial para arquitetura isoladamente.
+
+
+## Revisao offline operavel de configuracoes RUM (sem acesso ao tenant)
+
+A funcao pura do #355 tambem pode ser chamada com um JSON local, por exemplo
+um snapshot exportado/manual de configuracoes compatíveis com seu esquema:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai dynatrace-apdex-review `
+  --architecture CSR_SPA `
+  --architecture-evidence-id M6-REFERENCIA-LOCAL `
+  --soft-navigation observed `
+  --async-requests observed `
+  --settings-json .\dynatrace-rum-settings.json
+```
+
+O retorno JSON separa tipo de acao Load/XHR/Custom, KPM e diagnostico de
+cobertura. Os tres parametros de observacao e o documento sao fornecidos
+pelo operador; nao sao provas de capturas fisicas, tampouco resultado de
+`settings.read`. A ferramenta informa `settings_provenance:
+NOT_VERIFIED_BY_RASAI`, `actual_dynatrace_tenant_consulted: false` e zero
+requests. Arquivo ausente ou nao JSON e recusado. O CLI nao instala
+runtime de auditoria, nao expoe um campo de token fornecido no JSON e nao
+executa M23/M25. Ainda e obrigatorio confirmar application ID, escopo,
+janela temporal, captura de rotas e thresholds em Dynatrace real para
+uma recomendacao homologada, conforme o gate desta issue.
