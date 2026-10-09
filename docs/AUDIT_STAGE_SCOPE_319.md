@@ -1,4 +1,4 @@
-# #319 — Tempo ativo, custo e escopo temporal M18/M20 (comprovação por sessão)
+# #319 - Tempo ativo, custo e escopo temporal M18/M20 (comprovação por sessão)
 
 ## Entrega técnica
 
