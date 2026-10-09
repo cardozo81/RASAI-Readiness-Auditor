@@ -254,3 +254,95 @@ class GeoReportTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_primary_geo_page_current_status_uses_utc_instead_of_lexicographic_time(tmp_path):
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE perplexity_search_runs(
+                run_id TEXT PRIMARY KEY, audit_id TEXT, query_json TEXT,
+                search_type TEXT, status TEXT, started_at TEXT, error_class TEXT);
+            CREATE TABLE perplexity_search_sources(
+                run_id TEXT, position INTEGER, url TEXT, title TEXT, snippet TEXT);
+        """)
+        con.executemany(
+            "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?,?)",
+            [
+                ("OLD-SUCCESS", "AUD-1", '["seguro de vida"]', "web", "SUCCESS",
+                 "2026-10-09T11:30:00+00:00", None),
+                ("NEW-ERROR", "AUD-1", '["seguro de vida"]', "web", "RATE_LIMIT_ERROR",
+                 "2026-10-09T09:00:00-03:00", "RATE_LIMIT_ERROR"),
+            ],
+        )
+        con.execute(
+            "INSERT INTO perplexity_search_sources VALUES (?,?,?,?,?)",
+            ("OLD-SUCCESS", 1, "https://example.org/a", "Fonte", "Snippet"),
+        )
+    before = db.read_bytes()
+    html = geo_body(db, "AUD-1")
+    assert "Estado mais recente: <strong>RATE_LIMIT_ERROR</strong>" in html
+    assert "Estado mais recente: <strong>SUCCESS</strong>" not in html
+    assert "OLD-SUCCESS" in html  # historical evidence remains visible, not latest
+    assert "NEW-ERROR" in html
+    assert db.read_bytes() == before
+
+
+def test_primary_geo_page_does_not_promote_old_success_without_credible_clock(tmp_path):
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE perplexity_search_runs(
+                run_id TEXT PRIMARY KEY, audit_id TEXT, query_json TEXT,
+                search_type TEXT, status TEXT, started_at TEXT);
+            CREATE TABLE perplexity_search_sources(
+                run_id TEXT, position INTEGER, url TEXT, title TEXT, snippet TEXT);
+        """)
+        con.executemany(
+            "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
+            [
+                ("OLD-SUCCESS", "AUD-1", '["seguro de vida"]', "web",
+                 "SUCCESS", "2026-10-09"),
+                ("NEW-FAILED", "AUD-1", '["seguro de vida"]', "web",
+                 "NETWORK_ERROR", "2026-10-10"),
+            ],
+        )
+    before = db.read_bytes()
+    html = geo_body(db, "AUD-1")
+    assert "Estado mais recente: <strong>N/D</strong>" in html
+    assert "Estado mais recente: <strong>SUCCESS</strong>" not in html
+    assert "cronologia UTC verificável" in html
+    assert db.read_bytes() == before
+
+
+def test_primary_geo_ai_report_uses_newest_actual_utc_attempt_for_same_run(tmp_path):
+    from rasai.geo_report import _geo_ai_result
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE geo_ai_interpretations("
+            "audit_id TEXT, perplexity_run_id TEXT, result_id TEXT, "
+            "state TEXT, provider TEXT, model TEXT, prompt_id TEXT, "
+            "prompt_version TEXT, summary TEXT, opportunities_json TEXT, "
+            "input_sha256 TEXT, error_reason TEXT, created_at TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO geo_ai_interpretations VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            [
+                ("AUD-1", "RUN-1", "OLD", "AVAILABLE", "TEST", "m", "p",
+                 "v", "antiga", "[]", "hash1", None,
+                 "2026-10-09T11:30:00+00:00"),
+                ("AUD-1", "RUN-1", "NEW", "UNAVAILABLE", "TEST", "m", "p",
+                 "v", "", "[]", "hash2", "timeout",
+                 "2026-10-09T09:00:00-03:00"),
+            ],
+        )
+    before = db.read_bytes()
+    latest = _geo_ai_result(db, "AUD-1", "RUN-1")
+    assert latest is not None
+    assert latest["state"] == "UNAVAILABLE"
+    assert latest["summary"] == ""
+    with sqlite3.connect(db) as con:
+        con.execute("UPDATE geo_ai_interpretations SET created_at=NULL WHERE result_id='NEW'")
+    assert _geo_ai_result(db, "AUD-1", "RUN-1") is None
+    assert db.read_bytes() != before  # mutation belongs only to test fixture
