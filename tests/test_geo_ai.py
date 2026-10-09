@@ -528,3 +528,70 @@ def test_geo_ai_causality_and_rationale_are_persisted_and_html_escaped(tmp_path)
     assert "<script>not causal</script>" not in html
     assert "<img src=x onerror=alert(1)>" not in html
     assert db.read_bytes() == before
+
+
+def test_geo_ai_ignores_untrusted_urls_and_limits_metadata_before_provider(
+    tmp_path,
+):
+    db = tmp_path / "audit.db"
+    GeoAiConsumerTests()._db(db)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "DELETE FROM perplexity_search_sources WHERE run_id='PXS-1'"
+        )
+        con.executemany(
+            "INSERT INTO perplexity_search_sources VALUES (?,?,?,?,?)", [
+                ("PXS-1", 1, "https://user:pass@external.example/offer",
+                 "bad", "not valid"),
+                ("PXS-1", 2, "javascript:alert(1)", "bad", "not valid"),
+                ("PXS-1", 3, " https://external.example/padded",
+                 "bad", "not valid"),
+                ("PXS-1", 4, "https://external.example/verified",
+                 "B" * 500, "S" * 2000),
+            ],
+        )
+    consumer = FakeCanonicalConsumer()
+    assert execute_geo_ai(
+        db, "AUD-1", provider_selection="auto",
+        provider_factory=lambda _: consumer,
+    ) == "AVAILABLE"
+    assert consumer.calls == 1
+    assert len(consumer.last_ids) == 1
+    assert all(":4:" in evidence for evidence in consumer.last_ids)
+    with sqlite3.connect(db) as con:
+        assert con.execute(
+            "SELECT count(*) FROM geo_ai_interpretations"
+        ).fetchone()[0] == 1
+    from rasai.geo_ai import _prepare
+    with sqlite3.connect(db) as con:
+        prepared = _prepare(con, "AUD-1")
+    assert prepared is not None
+    context = prepared[1].provider_payload()
+    assert "javascript:" not in json.dumps(context)
+    assert "user:pass@" not in json.dumps(context)
+    assert "S" * 901 not in json.dumps(context)
+    assert "B" * 241 not in json.dumps(context)
+
+
+def test_geo_ai_all_malformed_source_urls_abstain_without_schema_or_cost(
+    tmp_path,
+):
+    db = tmp_path / "audit.db"
+    GeoAiConsumerTests()._db(db)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE perplexity_search_sources SET url=? WHERE run_id='PXS-1'",
+            ("https://user:secret@external.example/offer",),
+        )
+    before = db.read_bytes()
+    assert execute_geo_ai(
+        db, "AUD-1", provider_selection="auto",
+        provider_factory=lambda _: (_ for _ in ()).throw(
+            AssertionError("invalid evidence must not start AI")
+        ),
+    ) == "NOT_ELIGIBLE"
+    assert db.read_bytes() == before
+    with sqlite3.connect(db) as con:
+        assert con.execute(
+            "SELECT name FROM sqlite_master WHERE name='geo_ai_interpretations'"
+        ).fetchone() is None
