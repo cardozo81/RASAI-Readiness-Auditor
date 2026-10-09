@@ -93,7 +93,7 @@ def test_audit_attempts_cli_never_installs_provider_runtime(tmp_path, capsys, mo
 
 def test_unverified_or_missing_aud_fails_without_files(tmp_path):
     root = _fixture(tmp_path)
-    with pytest.raises(ValueError, match="identity"):
+    with pytest.raises(ValueError, match="audit.db missing"):
         inspect_audit_attempts(tmp_path / "AUD-NO-DB")
     with sqlite3.connect(root / "audit.db") as con:
         con.execute("UPDATE audits SET audit_id='AUD-FOREIGN'")
