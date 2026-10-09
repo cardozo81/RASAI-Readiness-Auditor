@@ -1,0 +1,31 @@
+name: Content Readiness Probe 322 Targeted
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/playwright_primary_content_probe_322.py'
+      - 'src/rasai/apdex_content_readiness_observation.py'
+      - 'tests/test_playwright_primary_content_probe_322.py'
+      - 'tests/test_apdex_content_readiness_322.py'
+      - 'docs/APDEX_CONTENT_READINESS_INVESTIGATION_321.md'
+      - '.github/workflows/content-readiness-probe-322-targeted.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Bounded same-page probe isolated regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Run isolated no-network/no-browser tests
+        run: |
+          python -m pip install -e . pytest
+          python -m compileall -q src/rasai/playwright_primary_content_probe_322.py src/rasai/apdex_content_readiness_observation.py
+          python -m pytest -q tests/test_playwright_primary_content_probe_322.py tests/test_apdex_content_readiness_322.py
