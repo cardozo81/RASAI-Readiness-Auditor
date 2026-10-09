@@ -678,3 +678,38 @@ def test_rehashed_manifest_cannot_launder_fabricated_evidence(
     assert report["entries"][0]["search_status"] is None
     assert report["entries"][0]["verified_source_count"] is None
     assert report["entries"][0]["evidence_html"] is None
+
+
+def test_rehashed_billability_claim_must_match_canonical_provider_ledger(
+    tmp_path, monkeypatch,
+):
+    """Neither a valid manifest hash nor result.json can assert invented free billing."""
+    from rasai.geo_supplement_inspection_309 import inspect_geo_supplements
+    workspace, aud = source(tmp_path, monkeypatch)
+    created = run(
+        workspace, audit_id=aud, intent_id="false-no-charge-claim",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true",
+             "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+        transport=fake_transport,
+    )
+    assert created.billability == "TRUE"
+    assert created.directory is not None
+    report = inspect_geo_supplements(workspace.root)
+    assert report["entries"][0]["billability"] == "TRUE"
+    result_path = created.directory / "result.json"
+    manifest_path = created.directory / "manifest.json"
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    result["billability"] = "FALSE"
+    manifest["billability"] = "FALSE"
+    result_path.write_text(json.dumps(result), encoding="utf-8")
+    for item in manifest["files"]:
+        if item["path"] == "result.json":
+            item["sha256"] = sha256(result_path.read_bytes()).hexdigest()
+            item["bytes"] = result_path.stat().st_size
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    after = inspect_geo_supplements(workspace.root)
+    assert after["invalid"] == 1 and after["verified"] == 0
+    assert after["entries"][0]["billability"] == "UNKNOWN"
+    assert after["entries"][0]["search_status"] is None
