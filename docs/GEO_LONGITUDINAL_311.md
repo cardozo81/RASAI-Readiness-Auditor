@@ -81,7 +81,7 @@ real de navegadores.
 
 Para cada pasta AUD com SQLite presente, o comando aplica **abstenção**
 sem reprocessar ou sobrescrever evidências. A taxonomia de exclusão
-separa agora: tabela de metadados ausente, schema legado sem colunas
+separa agora: tabela de metadados ausente, schema histórico sem colunas
 obrigatórias, ausência/duplicação de linha audit, ID do banco divergente
 do nome da pasta, ciclo físico não concluído, conclusão lógica parcial,
 tabela GEO ausente, tabela GEO legada/incompatível e snapshot GEO ausente.
@@ -89,7 +89,7 @@ Erros SQLite residuais permanecem identificados como falhas técnicas
 de leitura, **sem implicar corrupção automaticamente**.
 
 Essa classificação não altera os critérios estritos de elegibilidade:
-um banco legado não passa a conter dados GEO v5 porque sua causa
+um banco histórico não passa a conter dados GEO v5 porque sua causa
 de exclusão ficou mais específica. O motivo reflete apenas a
 **primeira condição impeditiva**, não um diagnóstico completo de
 todas as tabelas da AUD. A saída mantém o contrato JSON advisory v1
