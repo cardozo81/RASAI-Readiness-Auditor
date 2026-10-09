@@ -18,6 +18,7 @@ _MIN_HEADING_CHARACTERS = 5
 _MIN_STABILITY_MS = 100
 _MAX_WINDOW_MS = 3000
 _MAX_CHECKPOINTS = 128  # Bounded pre-collected checkpoints; never a live sampler.
+_MAX_SINCE_NAVIGATION_MS = 48 * 60 * 60 * 1000  # absurd clock => ERROR
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,8 +105,8 @@ def classify_primary_content_readiness(
         return result("ERROR", "invalid_observation_window")
     if (
         type(load_ms) not in (int, float)
+        or not 0 <= load_ms <= _MAX_SINCE_NAVIGATION_MS
         or not math.isfinite(load_ms)
-        or load_ms < 0
     ):
         return result("ERROR", "no_same_context_load_boundary")
     if (
@@ -123,8 +124,8 @@ def classify_primary_content_readiness(
             and (sample.page_id != page_id or sample.device != device)
         )
         or type(sample.since_navigation_ms) not in (int, float)
-        or not math.isfinite(sample.since_navigation_ms)
         or not 0 <= sample.since_navigation_ms <= load_ms + window_ms
+        or not math.isfinite(sample.since_navigation_ms)
         or type(sample.main_text_characters) is not int
         or type(sample.heading_text_characters) is not int
         or type(sample.skeleton_present) is not bool
