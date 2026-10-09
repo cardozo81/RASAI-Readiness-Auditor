@@ -764,3 +764,75 @@ def test_rehashed_intent_scope_cannot_rebind_existing_paid_request(
             transport=lambda *args: pytest.fail("no dispatch on tampering"),
         )
     assert workspace.database.read_bytes() == before
+
+@pytest.mark.parametrize(
+    ("start", "finish", "expected"),
+    [
+        ("2026-10-09T12:00:00-03:00", "2026-10-09T15:01:00Z", True),
+        ("2026-10-09T12:00:00-03:00", "2026-10-09T15:00:00Z", True),
+        ("2026-10-09T12:00:00-03:00", "2026-10-09T14:59:59Z", False),
+        ("2026-10-09T12:00:00", "2026-10-09T15:01:00Z", False),
+        ("2026-10-09T12:00:00Z", "2026-10-09T15:01:00", False),
+        ("not-a-date", "2026-10-09T15:01:00Z", False),
+    ],
+)
+def test_geo_supplement_provider_interval_requires_utc_comparable_clocks(
+    start, finish, expected,
+):
+    from rasai.geo_post_audit_complement import _valid_provider_interval
+    assert _valid_provider_interval(start, finish) is expected
+
+
+def test_rehashed_sqlite_and_result_cannot_launder_inverted_provider_clock(
+    tmp_path, monkeypatch,
+):
+    """Even a matching forged SQLite ledger and rehashed manifest is not a
+    chronological observation; preserve source AUD and prohibit a resend.
+    """
+    from rasai.geo_supplement_inspection_309 import inspect_geo_supplements
+    workspace, aud = source(tmp_path, monkeypatch)
+    original_db = workspace.database.read_bytes()
+    created = run(
+        workspace, audit_id=aud, intent_id="inverted-provider-clock",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true",
+             "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+        transport=fake_transport,
+    )
+    assert created.status == "SUCCESS"
+    assert created.directory is not None
+    assert inspect_geo_supplements(workspace.root)["verified"] == 1
+
+    result_path = created.directory / "result.json"
+    db_path = created.directory / "evidence" / "audit.db"
+    manifest_path = created.directory / "manifest.json"
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    result["finished_at"] = "2025-01-01T00:00:00+00:00"
+    result_path.write_text(json.dumps(result), encoding="utf-8")
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            "UPDATE perplexity_search_runs SET finished_at=? WHERE run_id=?",
+            (result["finished_at"], result["run_id"]),
+        )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for item in manifest["files"]:
+        if item["path"] in {"result.json", "evidence/audit.db"}:
+            file_path = created.directory / item["path"]
+            item["bytes"] = file_path.stat().st_size
+            item["sha256"] = sha256(file_path.read_bytes()).hexdigest()
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    inspection = inspect_geo_supplements(workspace.root)
+    assert inspection["verified"] == 0
+    assert inspection["invalid"] == 1
+    assert inspection["entries"][0]["search_status"] is None
+    assert inspection["entries"][0]["evidence_html"] is None
+    assert workspace.database.read_bytes() == original_db
+    with pytest.raises(ValueError, match="temporal provenance invalid"):
+        run(
+            workspace, audit_id=aud, intent_id="inverted-provider-clock",
+            query="seguro de vida", explicit_cost_authorization=True,
+            env={"RASAI_PERPLEXITY_ENABLED": "true",
+                 "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+            transport=lambda *args: pytest.fail("invalid chronology must not retry"),
+        )
