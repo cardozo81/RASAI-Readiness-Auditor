@@ -337,6 +337,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.geo_longitudinal_311 import main as geo_history_main
         return geo_history_main(effective[1:])
 
+    if effective and effective[0] == "audit-attempts":
+        # Read-only local audit M18/M20 timeline; never activate provider runtime.
+        from rasai.audit_attempt_inspection_319 import main as inspect_attempts
+        return inspect_attempts(effective[1:])
+
+    if effective and effective[0] == "geo-supplements":
+        # Independent post-AUD GEO evidence inspection is never billable.
+        from rasai.geo_supplement_inspection_309 import main as inspect_geo_supplements
+        return inspect_geo_supplements(effective[1:])
+
     if effective and effective[0] == "rematerialize-report":
         # The dedicated reporting command installs the SAME canonical runtime hooks
         # itself, and never invokes collectors, AI, audit or reprocess entrypoints.
