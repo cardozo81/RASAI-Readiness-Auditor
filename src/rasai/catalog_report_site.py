@@ -100,6 +100,56 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
                 timeline_rows,
             ),
         )
+    # Temporal placement is a separate axis from operational task naming.
+    # Neither a DIRECTED_ANALYSIS tag nor an end timestamp alone proves
+    # optional completion/RPR or inclusion in the original cost forecast.
+    # All evidence comes from the existing AUD database, verified read-only.
+    try:
+        from rasai.audit_attempt_inspection_319 import inspect_ai_stage_scope
+        scope = inspect_ai_stage_scope(database.parent)
+    except (OSError, ValueError, sqlite3.Error):
+        scope = None
+    if scope is not None and scope.get("by_stage"):
+        scope_labels = {
+            "WITHIN_VERIFIED_CONSOLE_SESSION": "Dentro da sessão física verificada",
+            "AFTER_VERIFIED_CONSOLE_SESSION": "Após a sessão física verificada",
+            "BEFORE_VERIFIED_CONSOLE_SESSION": "Antes da sessão física verificada",
+            "UNCERTAIN_TIME_OR_SCOPE": "Tempo/escopo não comprovável",
+        }
+        scope_rows = []
+        for item in scope["by_stage"]:
+            union = item["union_active_ai_ms"]
+            observed_count = item["provider_observed_attempts"]
+            scope_rows.append((
+                str(item["stage"]).replace("_", " ").title(),
+                scope_labels.get(item["session_scope"], "N/D"),
+                item["attempts"],
+                f'{item["summed_ai_attempts_ms"] / 1000:.2f} s',
+                f"{union / 1000:.2f} s" if union is not None else "N/D",
+                (f'{item["provider_observed_usd"]:.6f}'
+                 if observed_count == item["attempts"] else
+                 f'N/D (parcial {observed_count}/{item["attempts"]})'),
+                f'{item["posthoc_estimated_usd"]:.6f} (apenas estimativas disponíveis)',
+                f'ausências temporais={item["unknown_intervals"]}; sem preço={item["unpriced_attempts"]}',
+            ))
+        body += _section(
+            "ai-session-scope-319",
+            "Chamadas de IA por etapa e posição temporal na auditoria",
+            "<p>Observação adicional M18/M20: a classificação temporal depende "
+            "de uma única sessão de console COMPLETE com início, fim e duração "
+            "coerentes. Não equivale à atribuição funcional de RPR, análise "
+            "direcionada ou suplemento nem demonstra inclusão na previsão "
+            "financeira inicial. Uma tentativa após a sessão deve ser "
+            "interpretada separadamente da execução inicial; não somar "
+            "durações sobrepostas nem assumir valores sem cobertura integral "
+            "de custos observados pelo provedor.</p>"
+            + _table(
+                ("Etapa declarada", "Posição temporal", "Tentativas",
+                 "Soma das chamadas", "União ativa", "USD provider (cobertura)",
+                 "USD estimado pós-uso", "Lacunas"),
+                scope_rows,
+            ),
+        )
     return body
 
 
