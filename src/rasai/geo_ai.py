@@ -234,6 +234,7 @@ def execute_geo_ai(
                     "title": o.title,
                     "recommendation": o.recommendation,
                     "rationale": o.rationale,
+                    "causality_note": o.causality_note,
                     "confidence": o.confidence,
                     "evidence_ids": list(o.evidence_ids),
                 }
