@@ -22,8 +22,9 @@ _MIN_RUNS = 5
 _MAX_RUNS_SCANNED = 200
 _MAX_WALL_MS = 48 * 60 * 60 * 1000
 _COMPARABLE_FIELDS = (
-    "device", "ai_provider", "ai_model", "content_remediation",
-    "web_performance", "field_source", "max_pages",
+    "input_mode", "device", "ai_provider", "ai_model",
+    "content_remediation", "web_performance", "web_max_pages",
+    "field_source", "max_pages",
 )
 
 
