@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import sqlite3
 
+from rasai.geo_snapshot_context_308 import geo_snapshot_context_html
 from rasai.geo_temporal_provenance import (
     _UNVERIFIABLE, _columns, _last_temporally_verified,
 )
@@ -172,6 +173,7 @@ def catalog_geo_context(database: Path, audit_id: str, catalog_id: str) -> str:
                 result += _interpretation(con, audit_id)
             elif catalog_id == "CAT-09":
                 result += _recommendations(con, audit_id)
+            result += geo_snapshot_context_html(con, audit_id, catalog_id)
     except (OSError, sqlite3.Error):
         result += "<p>Projeção indisponível: dados persistidos não legíveis.</p>"
     return (result + "<p><a href='geo.html'>Síntese GEO e evidências</a>. "
@@ -242,6 +244,7 @@ def geo_surface_context(database: Path, audit_id: str, surface: str) -> str:
                             "<p>O status da fonte não comprova presença da "
                             "URL auditada em respostas generativas.</p>"
                         )
+            result += geo_snapshot_context_html(con, audit_id, surface)
     except (OSError, sqlite3.Error):
         result += "<p>Estado da fonte externa indisponível nesta projeção.</p>"
     return (

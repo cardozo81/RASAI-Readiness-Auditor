@@ -1,0 +1,41 @@
+name: GEO CAT crossref current snapshot only (308 309)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/geo_snapshot_context_308.py'
+      - 'src/rasai/geo_catalog_context.py'
+      - 'tests/test_geo_snapshot_context_308_309.py'
+      - 'tests/test_geo_catalog_context_308.py'
+      - 'docs/GEO_CATALOG_CONTEXT_308_309.md'
+      - '.github/workflows/geo-cat-crossref-308-309.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/geo_snapshot_context_308.py'
+      - 'src/rasai/geo_catalog_context.py'
+      - 'tests/test_geo_snapshot_context_308_309.py'
+      - '.github/workflows/geo-cat-crossref-308-309.yml'
+permissions:
+  contents: read
+jobs:
+  geo-catalog-crossrefs:
+    name: GEO current-AUD CAT crossrefs no providers (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -e . pytest
+      - name: Source-scoped report and replay regressions
+        run: >-
+          python -m pytest -q
+          tests/test_geo_snapshot_context_308_309.py
+          tests/test_geo_catalog_context_308.py
+          tests/test_geo_lifecycle_309.py
