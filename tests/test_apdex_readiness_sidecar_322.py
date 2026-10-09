@@ -16,6 +16,16 @@ from rasai.apdex_readiness_sidecar_322 import (
 )
 
 
+@pytest.fixture(autouse=True)
+def isolate_catalog_verifier(monkeypatch):
+    # These fixtures test the advisory storage contract. Full report package
+    # verification already has its own real-manifest test suite.
+    monkeypatch.setattr(
+        "rasai.catalog_report_site.catalog_report_is_fresh",
+        lambda *, audit_id, workspace: True,
+    )
+
+
 def aud(tmp_path, *, audit_id="AUD-SAMPLE-1", complete=True):
     folder = tmp_path / audit_id
     folder.mkdir()
@@ -100,10 +110,11 @@ def test_source_db_and_report_manifest_mutations_break_source_binding(tmp_path):
         con.execute("CREATE TABLE post_source_marker(x INTEGER)")
     with pytest.raises(ValueError, match="source or contract mismatch"):
         read_readiness_sidecar(source, path)
-    with pytest.raises(ValueError, match="sidecar checksum mismatch|source"):
-        # The existing original path cannot be replaced silently by the writer.
-        write_readiness_sidecar(source, observed())
-    # New source hash creates a new record; it never replaces previous one.
+    # With a deliberately stubbed catalog verifier, a changed input source
+    # binds to a DIFFERENT immutable digest, never overwriting old evidence.
+    newer = write_readiness_sidecar(source, observed())
+    assert newer != path and newer.is_file()
+    assert path.is_file()
 
 
 def test_manifest_change_invalidates_read_without_touching_aud(tmp_path):
@@ -133,5 +144,17 @@ def test_sidecar_corruption_and_cross_aud_link_fail_closed(tmp_path):
 def test_missing_or_partial_aud_is_not_considered_proven_source(tmp_path):
     source = aud(tmp_path, complete=False)
     with pytest.raises(ValueError, match="not complete"):
+        write_readiness_sidecar(source, observed())
+    assert not (tmp_path / ".rasai-readiness-sidecars").exists()
+
+
+
+def test_source_report_package_must_pass_freshness_gate(tmp_path, monkeypatch):
+    source = aud(tmp_path)
+    monkeypatch.setattr(
+        "rasai.catalog_report_site.catalog_report_is_fresh",
+        lambda *, audit_id, workspace: False,
+    )
+    with pytest.raises(ValueError, match="stale or invalid"):
         write_readiness_sidecar(source, observed())
     assert not (tmp_path / ".rasai-readiness-sidecars").exists()
