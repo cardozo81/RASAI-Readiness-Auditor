@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from html import escape
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -250,6 +251,25 @@ def _existing(
 
 
 
+def _same_ledger_quantity(reported: object, recorded: object) -> bool:
+    """Compare finite numeric usage/cost while rejecting bool, NaN and Infinity.
+
+    result.json records zero usage when the provider returned no native
+    consumption item; the canonical ledger uses SQL NULL in that case.
+    This is a representation allowance, not an invented provider charge.
+    """
+    if recorded is None:
+        return reported is None or type(reported) in (int, float) and reported == 0
+    if (
+        type(reported) not in (int, float)
+        or type(recorded) not in (int, float)
+        or not math.isfinite(reported) or not math.isfinite(recorded)
+        or reported < 0 or recorded < 0
+    ):
+        return False
+    return reported == recorded
+
+
 def _verify_recorded_supplement(
     directory: Path, *,
     audit_id: str, intent_id: str, request_fingerprint: str,
@@ -319,7 +339,9 @@ def _verify_recorded_supplement(
         con.execute("PRAGMA query_only=ON")
         rows = con.execute(
             "SELECT audit_id, status, query_json, search_type, purpose, "
-            "request_payload_hash, started_at, finished_at, billable "
+            "request_payload_hash, started_at, finished_at, billable, "
+            "native_usage_unit, native_usage_quantity, estimated_cost, "
+            "cost_currency, pricing_version "
             "FROM perplexity_search_runs WHERE run_id=?",
             (result["run_id"],),
         ).fetchall()
@@ -338,6 +360,14 @@ def _verify_recorded_supplement(
             or row[6] != result["started_at"]
             or row[7] != result["finished_at"]
             or charged != result["billability"]
+            # The report-facing economic metadata cannot be altered by
+            # rewriting result.json and re-hashing manifest.json. Neither
+            # estimated cost nor usage is proof of an actual provider invoice.
+            or row[9] != result.get("native_usage_unit")
+            or not _same_ledger_quantity(result.get("native_usage_quantity"), row[10])
+            or not _same_ledger_quantity(result.get("posthoc_estimated_cost"), row[11])
+            or row[12] != result.get("cost_currency")
+            or row[13] != result.get("pricing_version")
             or con.execute("PRAGMA quick_check").fetchone()[0] != "ok"
             or con.execute("PRAGMA foreign_key_check").fetchone() is not None
         ):
