@@ -191,3 +191,47 @@ def test_cat07_legacy_database_without_snapshot_or_m25_gracefully_reports_nd(tmp
     assert "N/D" in html and "Sem configuração M25 persistida" in html
     assert "não determinada" in html.casefold()
     assert db.read_bytes() == original
+
+
+def test_cat07_hash_verified_frozen_console_mode_is_shown_but_not_host_ini(tmp_path):
+    from types import SimpleNamespace
+    from rasai import catalog_report_page as page
+    from rasai.audit_configuration_reuse import configuration_hash
+
+    db = tmp_path / "audit.db"
+    _db(db, cfg={
+        "kpm": "USER_ACTION_DURATION",
+        "satisfied_threshold_seconds": 3.0,
+        "frustrated_threshold_seconds": 12.0,
+        "measurement_contract": {"version": "UAD-BOUNDARY-001"},
+    })
+    frozen = {
+        "settings": {
+            "synthetic_apdex_experience": {
+                "architecture": "CSR_SPA",
+                "profile_mode": "DYNATRACE_GUIDED",
+            }
+        },
+        "targets": ["https://example.org/seguro"],
+    }
+    digest = configuration_hash(frozen)
+    data = SimpleNamespace(
+        audit_id="AUD-1", configuration=frozen,
+        config_hash=digest, computed_hash=digest,
+    )
+    before = db.read_bytes()
+    html = page._cat07_methodology_summary_html(db, data)
+    assert "DYNATRACE_GUIDED" in html
+    assert "SPA com renderização principal no cliente" in html
+    assert "user action" in html.lower()
+    assert db.read_bytes() == before
+
+    # A current INI/state value is never retroactively inserted into an AUD.
+    bad = SimpleNamespace(
+        audit_id="AUD-1", configuration=frozen,
+        config_hash="tampered", computed_hash=digest,
+    )
+    legacy_html = page._cat07_methodology_summary_html(db, bad)
+    assert "N/D (não congelado nesta AUD)" in legacy_html
+    assert "DYNATRACE_GUIDED" not in legacy_html
+    assert db.read_bytes() == before
