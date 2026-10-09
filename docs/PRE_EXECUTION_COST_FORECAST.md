@@ -81,8 +81,10 @@ Regras conservadoras:
   materializada, relógios de início e fim compatíveis, duração física
   positiva e contagem de páginas **idêntica** à projetada são elegíveis.
 - É obrigatória a equivalência dos campos históricos disponíveis:
-  dispositivo, seleção de provider/modelo, content remediation, web
-  performance, field source e max pages. Falta do campo é **abstenção**.
+  modo de entrada, dispositivo, seleção de provider/modelo, content remediation,
+  web performance, limite de páginas PSI (`web_max_pages`), field source e max
+  pages. Falta do campo é **abstenção**; contagens PSI distintas não entram
+  na mesma coorte de duração.
   Seleções opcionais não representadas na configuração histórica são
   deliberadamente excluídas.
 - Exigir **no mínimo cinco** AUDs comparáveis antes de mostrar mediana,
