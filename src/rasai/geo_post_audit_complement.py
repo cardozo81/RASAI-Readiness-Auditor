@@ -186,12 +186,128 @@ def _existing(
             or _digest(candidate) != file.get("sha256")
         ):
             raise ValueError("supplement manifest integrity failed; do not retry automatically")
+    # The same path is reached by a second paid-action click. Never report
+    # ALREADY_RECORDED solely from self-consistent file hashes: a rehashed
+    # result.json could claim a fabricated source, clock or free request.
+    # Reuse requires the same semantic checks as the read-only inventory.
+    _verify_recorded_supplement(
+        directory, audit_id=audit_id, intent_id=intent_id,
+        request_fingerprint=request_fingerprint,
+        source_db_sha=source_db_sha,
+        source_manifest_sha=source_manifest_sha,
+        source_state_fingerprint=source_state_fingerprint,
+        scope=saved.get("scope"), manifest=manifest,
+    )
     return GeoSupplementResult(
         audit_id, intent_id, directory, "ALREADY_RECORDED", False,
         f"Reutilizado suplemento independente: {manifest.get('run_status', 'UNKNOWN')}",
         str(manifest.get("billability") or "UNKNOWN"),
     )
 
+
+
+
+def _verify_recorded_supplement(
+    directory: Path, *,
+    audit_id: str, intent_id: str, request_fingerprint: str,
+    source_db_sha: str, source_manifest_sha: str,
+    source_state_fingerprint: str,
+    scope: object, manifest: dict,
+) -> tuple[dict[str, Any], int]:
+    """Verify derived provider evidence, not just user-rehashable file digests.
+
+    Used by repeat intent handling and inspection. A failed verification must
+    never cause a second request, nor imply that a possibly charged request
+    was free. This function is strictly read-only.
+    """
+    if not isinstance(scope, dict) or any(
+        scope.get(k) != v for k, v in {
+            "audit_id": audit_id, "intent_id": intent_id,
+            "version": SUPPLEMENT_VERSION,
+        }.items()
+    ):
+        raise ValueError("supplement scope identity mismatch; do not retry")
+    recalculated = sha256(
+        json.dumps(scope, sort_keys=True, separators=(",", ":"),
+                   ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    if recalculated != request_fingerprint:
+        raise ValueError("supplement intent fingerprint mismatch; do not retry")
+    queries = scope.get("queries")
+    mode = scope.get("search_type")
+    if (
+        not isinstance(queries, list) or not 1 <= len(queries) <= 5
+        or any(not isinstance(q, str) or not q.strip() for q in queries)
+        or mode not in {"web", "fast"}
+    ):
+        raise ValueError("supplement query scope invalid; do not retry")
+    result = json.loads((directory / "result.json").read_text(encoding="utf-8"))
+    if (
+        not isinstance(result, dict)
+        or result.get("version") != SUPPLEMENT_VERSION
+        or result.get("source_audit_id") != audit_id
+        or result.get("supplement_intent_id") != intent_id
+        or result.get("request_fingerprint") != request_fingerprint
+        or result.get("source_audit_db_sha256") != source_db_sha
+        or result.get("source_catalog_manifest_sha256") != source_manifest_sha
+        or result.get("source_audit_state_fingerprint") != source_state_fingerprint
+        or result.get("query_count") != len(queries)
+        or result.get("queries") != queries
+        or result.get("search_type") != mode
+        or result.get("status") != manifest.get("run_status")
+        or result.get("billability") != manifest.get("billability")
+        or not isinstance(result.get("run_id"), str)
+        or not isinstance(result.get("started_at"), str)
+        or not isinstance(result.get("finished_at"), str)
+        or not isinstance(result.get("sources"), list)
+        or any(
+            not isinstance(item, dict)
+            or not all(isinstance(item.get(k), str) for k in
+                       ("url", "title", "snippet"))
+            for item in result["sources"]
+        )
+    ):
+        raise ValueError("supplement result provenance mismatch; do not retry")
+    evidence_db = directory / "evidence" / "audit.db"
+    with sqlite3.connect(evidence_db.resolve().as_uri() + "?mode=ro",
+                         uri=True, timeout=2) as con:
+        con.execute("PRAGMA query_only=ON")
+        rows = con.execute(
+            "SELECT audit_id, status, query_json, search_type, purpose, "
+            "request_payload_hash, started_at, finished_at, billable "
+            "FROM perplexity_search_runs WHERE run_id=?",
+            (result["run_id"],),
+        ).fetchall()
+        if len(rows) != 1:
+            raise ValueError("supplement run identity missing; do not retry")
+        row = rows[0]
+        charged = ("UNKNOWN" if row[8] is None
+                   else "TRUE" if row[8] == 1 else "FALSE" if row[8] == 0
+                   else "INVALID")
+        if (
+            row[0] != audit_id or row[1] != result["status"]
+            or json.loads(row[2]) != queries
+            or str(row[3] or "").lower() != mode
+            or row[4] != "POST_AUD_GEO_SUPPLEMENT"
+            or row[5] != result.get("request_payload_hash")
+            or row[6] != result["started_at"]
+            or row[7] != result["finished_at"]
+            or charged != result["billability"]
+            or con.execute("PRAGMA quick_check").fetchone()[0] != "ok"
+            or con.execute("PRAGMA foreign_key_check").fetchone() is not None
+        ):
+            raise ValueError("supplement SQLite ledger mismatch; do not retry")
+        sources = con.execute(
+            "SELECT url, title, snippet FROM perplexity_search_sources "
+            "WHERE run_id=? ORDER BY position, url",
+            (result["run_id"],),
+        ).fetchall()
+        if result["sources"] != [
+            {"url": url, "title": title, "snippet": snippet}
+            for url, title, snippet in sources
+        ]:
+            raise ValueError("supplement source ledger mismatch; do not retry")
+    return result, len(sources)
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,82 +419,18 @@ def list_post_audit_geo_supplements(
                     folder, checked.detail,
                 ))
                 continue
-            # Validate the *semantic* link between the manifest and the
-            # derived evidence, not only independent hashes of those files.
             manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
-            result = json.loads((folder / "result.json").read_text(encoding="utf-8"))
-            if (
-                not isinstance(result, dict)
-                or result.get("version") != SUPPLEMENT_VERSION
-                or result.get("source_audit_id") != audit_id
-                or result.get("supplement_intent_id") != intent
-                or result.get("request_fingerprint") != expected
-                or result.get("source_audit_db_sha256") != db_sha
-                or result.get("source_catalog_manifest_sha256") != report_sha
-                or result.get("source_audit_state_fingerprint") != state_hash
-                or result.get("query_count") != query_count
-                or result.get("queries") != list(request)
-                or result.get("search_type") != mode
-                or result.get("status") != manifest.get("run_status")
-                or str(result.get("billability")) != str(manifest.get("billability"))
-                or not isinstance(result.get("run_id"), str)
-                or not isinstance(result.get("started_at"), str)
-                or not isinstance(result.get("finished_at"), str)
-                or not isinstance(result.get("sources"), list)
-                or any(
-                    not isinstance(source, dict)
-                    or not all(isinstance(source.get(key), str) for key in ("url", "title", "snippet"))
-                    for source in result["sources"]
-                )
-            ):
-                raise ValueError("derived result provenance mismatch")
-            evidence_db = folder / "evidence" / "audit.db"
-            with sqlite3.connect(evidence_db.resolve().as_uri() + "?mode=ro", uri=True) as con:
-                con.execute("PRAGMA query_only=ON")
-                matches = con.execute(
-                    "SELECT run_id, audit_id, status, query_json, search_type, "
-                    "purpose, request_payload_hash, started_at, finished_at, billable "
-                    "FROM perplexity_search_runs WHERE run_id=?",
-                    (result["run_id"],),
-                ).fetchall()
-                if (
-                    len(matches) != 1
-                    or matches[0][1] != audit_id
-                    or matches[0][2] != result["status"]
-                    or str(matches[0][4] or "").lower() != mode
-                    or matches[0][5] != "POST_AUD_GEO_SUPPLEMENT"
-                    or matches[0][6] != result.get("request_payload_hash")
-                    or matches[0][7] != result["started_at"]
-                    or matches[0][8] != result["finished_at"]
-                    or matches[0][9] not in (None, 0, 1)
-                    or result["billability"] != (
-                        "UNKNOWN" if matches[0][9] is None
-                        else "TRUE" if matches[0][9] == 1 else "FALSE"
-                    )
-                    or json.loads(matches[0][3]) != list(request)
-                    or con.execute("PRAGMA quick_check").fetchone()[0] != "ok"
-                    or con.execute("PRAGMA foreign_key_check").fetchone() is not None
-                ):
-                    raise ValueError("derived SQLite ledger mismatch")
-                # A manifest with recomputed file hashes cannot promote invented
-                # sources to real observations: compare against the immutable
-                # SQLite adapter ledger, not only the exported result.json.
-                source_rows = con.execute(
-                    "SELECT url, title, snippet FROM perplexity_search_sources "
-                    "WHERE run_id=? ORDER BY position, url",
-                    (result["run_id"],),
-                ).fetchall()
-                ledger_sources = [
-                    {"url": url, "title": title, "snippet": snippet}
-                    for url, title, snippet in source_rows
-                ]
-                if result["sources"] != ledger_sources:
-                    raise ValueError("derived source evidence disagrees with SQLite ledger")
+            result, source_count = _verify_recorded_supplement(
+                folder, audit_id=audit_id, intent_id=intent,
+                request_fingerprint=expected, source_db_sha=db_sha,
+                source_manifest_sha=report_sha,
+                source_state_fingerprint=state_hash, scope=data, manifest=manifest,
+            )
             rows.append(GeoSupplementInventoryItem(
                 intent, "VERIFIED", query_count, mode, str(result["billability"]),
                 folder, f"suplemento {result['status']}; fonte e ledger verificados",
                 run_status=str(result["status"]),
-                source_count=len(ledger_sources),
+                source_count=source_count,
                 started_at=result["started_at"],
                 finished_at=result["finished_at"],
             ))
