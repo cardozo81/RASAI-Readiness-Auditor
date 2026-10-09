@@ -83,6 +83,9 @@ def test_immutable_same_sample_sidecar_outside_original(tmp_path):
     {"load_ms": float("nan")},
     {"primary_content_ms": float("inf")},
     {"architecture": "MADE_UP"},
+    {"architecture": "UNKNOWN"},
+    {"architecture": "STATIC_OR_SSR"},
+    {"reason": "load_event_only"},
 ])
 def test_invalid_or_fabricated_observation_is_never_materialized(tmp_path, change):
     source = aud(tmp_path)
