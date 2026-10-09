@@ -27,7 +27,14 @@ explicitamente 2 a 100 pastas de AUD; nenhuma varredura automática.
 - Cada snapshot exige mesma AUD, estado externo `SUCCESS`, query
   única, URL-alvo válida, run_id vinculado, janela entre fontes <=24h
   com timestamps offset-aware, SERP com engine/país/região/idioma/
-  dispositivo explícitos e denominadores de URLs positivos.
+  dispositivo explícitos e denominadores de URLs positivos. O vínculo
+  é conferido novamente, somente em modo SQLite `ro`, contra os registros
+  `perplexity_search_runs` e `serp_observations` da mesma AUD:
+  consulta única, IDs, status, origem `OBSERVED_API`, instante,
+  mercado, idioma, dispositivo e demais informações de escopo devem
+  coincidir com o snapshot; discrepâncias geram abstenção. Isso
+  comprova a consistência lógica local, **não** a autenticidade de
+  respostas do provedor externo nem equivalência entre motores.
 - Agrupamento somente entre URL-alvo exata, query, SERP engine/país/
   região/idioma/dispositivo e modo externo iguais. Grupos que
   divergirem permanecem separados.
