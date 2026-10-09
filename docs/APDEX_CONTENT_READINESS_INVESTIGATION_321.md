@@ -145,3 +145,15 @@ motivo de estabilidade de conteúdo `stable_primary_dom_text`.
 O comportamento normal do M23/M25, scores, thresholds e amostras
 permanece intocado. Isso **não prova uma medição real** nem
 instala o sensor físico de mesma amostra nos navegadores.
+
+
+## Validação defensiva dos checkpoints experimentais (#322)
+
+O classificador puro rejeita valores de tempo não numéricos, NaN/infinito,
+booleanos como duração, flags não booleanas, contagens textuais,
+skeleton não booleano e coleções com mais de 128 checkpoints. Um relógio
+monotônico fisicamente absurdo (>48h) também é inválido. A consequência
+é estado `ERROR` sem materializar latência nem alterar o Apdex.
+Essas validações são **somente sobre dados fornecidos pelo producer**;
+não constituem evidência de sensor Playwright de mesma amostra nem medição
+de overhead. Gate físico de #322 permanece aberto.

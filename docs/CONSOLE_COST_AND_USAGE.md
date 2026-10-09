@@ -131,3 +131,20 @@ Consulte [AUDIT_REPROCESSING.md](AUDIT_REPROCESSING.md) para a seleção de depe
 - custos são estimativas técnicas;
 - não assuma que key configurada implica quota/saldo;
 - não confunda carga Synthetic Apdex com custo financeiro de API.
+
+
+## Inspeção read-only de tempos M18/M20 e chamadas HTTP M21 (#319)
+
+Para uma AUD persistida, `rasai audit-attempts <AUD>` expõe a
+cronologia de tentativas IA M18/M20 e, quando comprovável, o novo campo
+`observed_http_request_sums_ms` para `PAGESPEED_INSIGHTS` e
+`CRUX_API`. Esses valores são **somas de durações HTTP individuais**,
+não medem a duração física da fase, não podem ser adicionados ao
+wall-clock da AUD e não se somam automaticamente ao tempo ativo IA.
+Se houver tentativa sem duração válida para um serviço, a série daquele
+serviço é omitida (N/D); AUDs distintas nunca são combinadas. A presença
+ou ausência de telemetria é explícita via `http_request_telemetry`.
+O comando não coleta, não faz cobrança, não recalcula relatórios ou custos
+e mantém `non_ai_stages_measured=false` enquanto não existir cronômetro
+físico da fase. O forecast ex ante e os indicadores homologados ficam
+inalterados.

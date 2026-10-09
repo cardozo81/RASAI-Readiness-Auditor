@@ -561,3 +561,15 @@ registrada como possível/verdadeira em gratuita. Para pacote `INVALID`
 ou `PENDING_UNCERTAIN`, o resultado e a quantidade de fontes não são
 inferidos. Custos e tempos dos suplementos não entram nas somas da AUD
 original (#319). Nenhuma chamada comercial é realizada pela inspeção.
+
+
+### Reuso de intenção pós-AUD: integridade semântica (#309)
+
+Quando uma intenção comercial já está reservada, a nova entrada de
+solicitação não aceita `ALREADY_RECORDED` com base apenas nos hashes do
+manifesto. A mesma verificação semântica read-only do inventário confere
+consulta, escopo autorizado, `result.json`, execução e fontes SQLite,
+status, timestamps e `billable`; rejeita adulteração mesmo após rehash.
+Nenhuma rejeição causa reenvio de `POST /search`: erro ou dúvida exige
+inspeção humana, porque a cobrança anterior pode ter ocorrido.
+A AUD original permanece selada e não é rematerializada.
