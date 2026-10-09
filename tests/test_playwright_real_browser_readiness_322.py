@@ -6,6 +6,7 @@ third-party API, credential, invoice, scoring, or audit state is involved.
 """
 from __future__ import annotations
 
+import os
 import time
 
 from playwright.sync_api import sync_playwright
@@ -13,6 +14,16 @@ from playwright.sync_api import sync_playwright
 from rasai.readiness_probe_cost_pilot_322 import measure_existing_playwright_probe_cost
 
 BODY = " ".join(["Cobertura, condições e benefícios da apólice verificáveis."] * 10)
+
+
+def _headless_browser(playwright):
+    # GitHub ubuntu-latest image contains Google Chrome already. CI sets an
+    # explicit channel, avoiding browser/apt downloads and network-dependent
+    # install delays. Local environments can use their normal Playwright build.
+    return playwright.chromium.launch(
+        channel=os.environ.get("RASAI_322_CHROME_CHANNEL") or None,
+        headless=True,
+    )
 
 
 def _pilot(page, *, architecture="CSR_SPA", enabled=True, window_ms=1500):
@@ -47,7 +58,7 @@ def _pilot(page, *, architecture="CSR_SPA", enabled=True, window_ms=1500):
 
 def test_real_offline_chromium_same_page_load_then_late_spa_content():
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
+        browser = _headless_browser(playwright)
         try:
             context = browser.new_context(service_workers="block")
             # Offline fixture: network requests are explicitly rejected, and
@@ -80,7 +91,7 @@ def test_real_offline_chromium_same_page_load_then_late_spa_content():
 
 def test_real_offline_chromium_aria_hidden_bootstrap_never_proves_readiness():
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
+        browser = _headless_browser(playwright)
         try:
             context = browser.new_context(service_workers="block")
             context.route("**/*", lambda route: route.abort())
@@ -110,7 +121,7 @@ def test_real_offline_chromium_aria_hidden_bootstrap_never_proves_readiness():
 
 def test_real_offline_chromium_ssr_opt_out_zero_dom_overhead():
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
+        browser = _headless_browser(playwright)
         try:
             context = browser.new_context(service_workers="block")
             page = context.new_page()
