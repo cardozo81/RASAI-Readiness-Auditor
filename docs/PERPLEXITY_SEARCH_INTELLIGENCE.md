@@ -573,3 +573,26 @@ status, timestamps e `billable`; rejeita adulteração mesmo após rehash.
 Nenhuma rejeição causa reenvio de `POST /search`: erro ou dúvida exige
 inspeção humana, porque a cobrança anterior pode ter ocorrido.
 A AUD original permanece selada e não é rematerializada.
+
+
+### GEO observation v7 — requisição externa corrente comprovável (#304/#309)
+
+`RASAI-GEO-OBSERVATION-7` mantém a eleição de SERP válida mais próxima
+introduzida em v6. Corrige o **outro lado** do pareamento: a seleção do
+run Perplexity corrente deixa de usar ordenação lexical de `started_at`
+ou `run_id`. Se existirem várias pesquisas, a escolha exige instantes
+com fuso explícito comparados em UTC; dois runs com relógio empatado,
+inválido ou sem timezone tornam impossível provar qual é o último.
+Nesse caso, a projeção devolve ausência de novo snapshot, sem criar
+tabelas, chamar APIs, acionar IA ou promover um sucesso antigo. Um run
+único preserva a compatibilidade com históricos que não precisavam
+escolher entre múltiplos instantes.
+
+O status real do run mais recente (inclusive AUTH_ERROR, TIMEOUT etc.)
+é preservado como evidência de serviço; **não** vira falha do website,
+pontuação GEO, zero cobertura inventada ou autorização para retry pago.
+Snapshots v1–v6 continuam com versões, IDs e bytes anteriores. A nova
+versão possui fingerprint e ID derivados de suas fontes efetivamente
+selecionadas e é reproduzível sem nova consulta. `geo.html`, o
+read-only longitudinal e o seletor de IA reconhecem o método v7 e
+continuam a tratar evidência de busca como observação, não citação de IA.
