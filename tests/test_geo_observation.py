@@ -229,7 +229,7 @@ class GeoObservationTests(unittest.TestCase):
                 self.assertEqual(rows[0], ("RASAI-GEO-OBSERVATION-1", old_projection))
                 self.assertEqual(rows[1], ("RASAI-GEO-OBSERVATION-2", '{"old_v2":true}'))
                 self.assertEqual(rows[2], ("RASAI-GEO-OBSERVATION-4", '{"old_v4":true}'))
-                self.assertEqual(rows[3][0], "RASAI-GEO-OBSERVATION-6")
+                self.assertEqual(rows[3][0], "RASAI-GEO-OBSERVATION-7")
                 self.assertIn("descriptive_overlap", json.loads(rows[3][1]))
                 self.assertEqual(con.execute("PRAGMA foreign_key_check").fetchall(), [])
                 self.assertEqual(con.execute("PRAGMA integrity_check").fetchone()[0], "ok")
@@ -416,7 +416,7 @@ class GeoObservationTests(unittest.TestCase):
                 value = json.loads(con.execute(
                     "SELECT projection_json FROM geo_observation_runs"
                 ).fetchone()[0])
-            self.assertEqual(value["contract_version"], "RASAI-GEO-OBSERVATION-6")
+            self.assertEqual(value["contract_version"], "RASAI-GEO-OBSERVATION-7")
             self.assertEqual(value["descriptive_overlap"]["status"], "DESCRIPTIVE_ONLY")
             self.assertEqual(value["descriptive_overlap"]["common_urls"], 0)
             self.assertEqual(value["url_overlap_count"], 0)
@@ -493,7 +493,7 @@ def test_v6_prefers_nearest_trusted_serp_even_if_later_record_is_outside_window(
             assert con.execute("SELECT count(*) FROM geo_observation_runs").fetchone()[0] == 1
             assert con.execute("PRAGMA foreign_key_check").fetchall() == []
         snapshot = json.loads(raw)
-        assert snapshot["contract_version"] == "RASAI-GEO-OBSERVATION-6"
+        assert snapshot["contract_version"] == "RASAI-GEO-OBSERVATION-7"
         assert snapshot["serp_observation_id"] == "S-CLOSE"
         assert snapshot["descriptive_overlap"]["status"] == "DESCRIPTIVE_ONLY"
         assert snapshot["descriptive_overlap"]["common_urls"] == 1
