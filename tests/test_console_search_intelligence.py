@@ -395,6 +395,33 @@ class PerplexityExplicitCopy318Tests(unittest.TestCase):
         self.assertIn("Não copiar parcialmente", state.error)
         self.assertEqual(state.perplexity_last_status, "NOT_REQUESTED")
 
+    def test_pre_audit_menu_distinguishes_enabled_key_and_request(self):
+        from rasai.console_search_intelligence import _render_menu_extension
+        empty = SearchConsoleState(
+            search_queries=("serp-stays-serp",), perplexity_queries=(),
+        )
+        with patch.dict(os.environ, {
+            "RASAI_PERPLEXITY_ENABLED": "true",
+            "PERPLEXITY_API_KEY": "OPAQUE_NEVER_PRINT",
+        }, clear=False), redirect_stdout(StringIO()) as output:
+            _render_menu_extension(empty)
+        rendered = output.getvalue()
+        self.assertIn("U. Perplexity externa", rendered)
+        self.assertIn("integração HABILITADA", rendered)
+        self.assertIn("não solicitado", rendered)
+        self.assertIn("credencial configurada", rendered)
+        self.assertIn("não solicita pesquisa externa", rendered)
+        self.assertNotIn("OPAQUE_NEVER_PRINT", rendered)
+        self.assertNotIn("serp-stays-serp | integração", rendered)
+
+        with patch.dict(os.environ, {
+            "RASAI_PERPLEXITY_ENABLED": "false",
+            "PERPLEXITY_API_KEY": "",
+        }, clear=False), redirect_stdout(StringIO()) as off:
+            _render_menu_extension(empty)
+        self.assertIn("integração DESABILITADA", off.getvalue())
+        self.assertIn("credencial não configurada", off.getvalue())
+
     def test_copy_refusal_does_not_trigger_perplexity_transport(self):
         from rasai.console_search_intelligence import configure_perplexity_search
         state = SearchConsoleState(
