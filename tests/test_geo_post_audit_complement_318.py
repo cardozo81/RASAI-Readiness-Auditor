@@ -956,3 +956,57 @@ def test_ledger_unknown_estimated_cost_cannot_be_published_as_zero():
     assert _same_ledger_quantity(0, None, null_usage_zero=True)
     assert not _same_ledger_quantity(float("nan"), None, null_usage_zero=True)
     assert not _same_ledger_quantity(False, 0)
+
+
+def test_supplement_html_links_reject_untrusted_provider_url_authorities(
+    tmp_path, monkeypatch,
+):
+    """Untrusted Search API URLs remain in evidence but are never clickable."""
+    workspace, aud = source(tmp_path, monkeypatch)
+    initial = workspace.database.read_bytes()
+    calls = []
+
+    def malicious_sources_transport(*args):
+        calls.append(1)
+        return PerplexityHttpResponse(
+            status=200, headers={},
+            body=json.dumps({
+                "id": "MOCK-BROWSER-SAFETY",
+                "results": [
+                    {"url": "https://user:secret@attacker.example/hijack",
+                     "title": "Com credencial", "snippet": "não vincular"},
+                    {"url": "https://safe.example\\@attacker.example/path",
+                     "title": "Backslash", "snippet": "não vincular"},
+                    {"url": "https://safe.example/real?x=1&y=2",
+                     "title": "<b>fonte válida</b>", "snippet": "texto & evidência"},
+                ],
+            }).encode("utf-8"),
+        )
+
+    kwargs = dict(
+        audit_id=aud, intent_id="unsafe-links-report",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={
+            "RASAI_PERPLEXITY_ENABLED": "true",
+            "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY",
+        },
+        transport=malicious_sources_transport,
+    )
+    result = run(workspace, **kwargs)
+    assert result.status == "SUCCESS"
+    assert len(calls) == 1
+    html = (result.directory / "supplement.html").read_text(encoding="utf-8")
+    assert html.count("<li><a href=") == 1
+    assert "href='https://safe.example/real?x=1&amp;y=2'" in html
+    assert "&lt;b&gt;fonte válida&lt;/b&gt;" in html
+    assert "texto &amp; evidência" in html
+    assert "user:secret@" not in html
+    assert "attacker.example" not in html
+    saved = json.loads(
+        (result.directory / "result.json").read_text(encoding="utf-8")
+    )
+    assert len(saved["sources"]) == 3  # no tampering with provider evidence
+    again = run(workspace, **kwargs)
+    assert again.status == "ALREADY_RECORDED"
+    assert len(calls) == 1
+    assert workspace.database.read_bytes() == initial
