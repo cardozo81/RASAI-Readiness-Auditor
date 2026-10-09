@@ -55,14 +55,19 @@ def _render_fallback(forecast: CostForecast, exposure: ExposureEstimate, *, stat
         )
         from rasai.console_cost import _configured_page_range
 
-        min_pages, max_pages = _configured_page_range(state)
         print("\n" + title_text("PREVISÃO DE DURAÇÃO — HISTÓRICO LOCAL"))
-        if min_pages < 1 or min_pages != max_pages:
-            print(paint("Previsão física N/D: número de páginas do plano não está definido.", DIM))
+        # Lightweight consoles and test adapters may not expose URL planning
+        # fields. In that case, abstain without changing financial consent.
+        if not all(hasattr(state, field) for field in ("input_mode", "target", "max_pages")):
+            print(paint("Previsão física N/D: parâmetros de páginas indisponíveis.", DIM))
         else:
-            timing = forecast_local_duration(state, target_pages=min_pages)
-            for line in format_duration_preview(timing):
-                print(paint(line, DIM))
+            min_pages, max_pages = _configured_page_range(state)
+            if min_pages < 1 or min_pages != max_pages:
+                print(paint("Previsão física N/D: número de páginas do plano não está definido.", DIM))
+            else:
+                timing = forecast_local_duration(state, target_pages=min_pages)
+                for line in format_duration_preview(timing):
+                    print(paint(line, DIM))
     print(
         paint(
             "Nenhuma chamada tarifável foi disparada nesta etapa de prévia.",
