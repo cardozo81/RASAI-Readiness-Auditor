@@ -204,6 +204,12 @@ class GeoSupplementInventoryItem:
     billability: str
     directory: Path
     detail: str
+    # Independently verified Search API outcome, distinct from package integrity.
+    # Uncertain and invalid packages never expose an inferred provider result.
+    run_status: str | None = None
+    source_count: int | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
 
 
 def list_post_audit_geo_supplements(
@@ -316,6 +322,14 @@ def list_post_audit_geo_supplements(
                 or result.get("status") != manifest.get("run_status")
                 or str(result.get("billability")) != str(manifest.get("billability"))
                 or not isinstance(result.get("run_id"), str)
+                or not isinstance(result.get("started_at"), str)
+                or not isinstance(result.get("finished_at"), str)
+                or not isinstance(result.get("sources"), list)
+                or any(
+                    not isinstance(source, dict)
+                    or not all(isinstance(source.get(key), str) for key in ("url", "title", "snippet"))
+                    for source in result["sources"]
+                )
             ):
                 raise ValueError("derived result provenance mismatch")
             evidence_db = folder / "evidence" / "audit.db"
@@ -323,7 +337,7 @@ def list_post_audit_geo_supplements(
                 con.execute("PRAGMA query_only=ON")
                 matches = con.execute(
                     "SELECT run_id, audit_id, status, query_json, search_type, "
-                    "purpose, request_payload_hash "
+                    "purpose, request_payload_hash, started_at, finished_at "
                     "FROM perplexity_search_runs WHERE run_id=?",
                     (result["run_id"],),
                 ).fetchall()
@@ -334,14 +348,34 @@ def list_post_audit_geo_supplements(
                     or str(matches[0][4] or "").lower() != mode
                     or matches[0][5] != "POST_AUD_GEO_SUPPLEMENT"
                     or matches[0][6] != result.get("request_payload_hash")
+                    or matches[0][7] != result["started_at"]
+                    or matches[0][8] != result["finished_at"]
                     or json.loads(matches[0][3]) != list(request)
                     or con.execute("PRAGMA quick_check").fetchone()[0] != "ok"
                     or con.execute("PRAGMA foreign_key_check").fetchone() is not None
                 ):
                     raise ValueError("derived SQLite ledger mismatch")
+                # A manifest with recomputed file hashes cannot promote invented
+                # sources to real observations: compare against the immutable
+                # SQLite adapter ledger, not only the exported result.json.
+                source_rows = con.execute(
+                    "SELECT url, title, snippet FROM perplexity_search_sources "
+                    "WHERE run_id=? ORDER BY position, url",
+                    (result["run_id"],),
+                ).fetchall()
+                ledger_sources = [
+                    {"url": url, "title": title, "snippet": snippet}
+                    for url, title, snippet in source_rows
+                ]
+                if result["sources"] != ledger_sources:
+                    raise ValueError("derived source evidence disagrees with SQLite ledger")
             rows.append(GeoSupplementInventoryItem(
                 intent, "VERIFIED", query_count, mode, str(result["billability"]),
                 folder, f"suplemento {result['status']}; fonte e ledger verificados",
+                run_status=str(result["status"]),
+                source_count=len(ledger_sources),
+                started_at=result["started_at"],
+                finished_at=result["finished_at"],
             ))
         except (OSError, UnicodeError, ValueError, TypeError, sqlite3.Error):
             rows.append(GeoSupplementInventoryItem(
