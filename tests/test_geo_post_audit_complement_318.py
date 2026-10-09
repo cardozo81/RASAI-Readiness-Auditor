@@ -678,6 +678,16 @@ def test_rehashed_manifest_cannot_launder_fabricated_evidence(
     assert report["entries"][0]["search_status"] is None
     assert report["entries"][0]["verified_source_count"] is None
     assert report["entries"][0]["evidence_html"] is None
+    # More important than the CLI: a repeated paid-action intent must not
+    # accept the rehashed forgery as a reusable successful package.
+    with pytest.raises(ValueError, match="ledger mismatch|provenance mismatch"):
+        run(
+            workspace, audit_id=aud, intent_id=f"forged-{field}",
+            query="seguro de vida", explicit_cost_authorization=True,
+            env={"RASAI_PERPLEXITY_ENABLED": "true",
+                 "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+            transport=lambda *args: pytest.fail("forged replay must not send API"),
+        )
 
 
 def test_rehashed_billability_claim_must_match_canonical_provider_ledger(
@@ -713,3 +723,44 @@ def test_rehashed_billability_claim_must_match_canonical_provider_ledger(
     assert after["invalid"] == 1 and after["verified"] == 0
     assert after["entries"][0]["billability"] == "UNKNOWN"
     assert after["entries"][0]["search_status"] is None
+    with pytest.raises(ValueError, match="ledger mismatch"):
+        run(
+            workspace, audit_id=aud, intent_id="false-no-charge-claim",
+            query="seguro de vida", explicit_cost_authorization=True,
+            env={"RASAI_PERPLEXITY_ENABLED": "true",
+                 "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+            transport=lambda *args: pytest.fail("tampered billability cannot resend"),
+        )
+
+
+def test_rehashed_intent_scope_cannot_rebind_existing_paid_request(
+    tmp_path, monkeypatch,
+):
+    """A previously paid query may never be relabeled by changing intent.json."""
+    workspace, aud = source(tmp_path, monkeypatch)
+    params = dict(
+        audit_id=aud, intent_id="scope-rebinding-rejected",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true",
+             "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+    )
+    created = run(workspace, **params, transport=fake_transport)
+    assert created.directory is not None
+    path = created.directory / "intent.json"
+    manifest_path = created.directory / "manifest.json"
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    saved["scope"]["queries"] = ["previdencia"]
+    path.write_text(json.dumps(saved), encoding="utf-8")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for item in manifest["files"]:
+        if item["path"] == "intent.json":
+            item["bytes"] = path.stat().st_size
+            item["sha256"] = sha256(path.read_bytes()).hexdigest()
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    before = workspace.database.read_bytes()
+    with pytest.raises(ValueError, match="fingerprint mismatch"):
+        run(
+            workspace, **params,
+            transport=lambda *args: pytest.fail("no dispatch on tampering"),
+        )
+    assert workspace.database.read_bytes() == before
