@@ -255,3 +255,29 @@ def test_structural_assurance_is_only_in_overview_not_repeated_in_catalog_pages(
     for catalog_id in range(1, 11):
         html = (report / f"cat-{catalog_id:02d}.html").read_text(encoding="utf-8")
         assert "Confiabilidade e governança estrutural" not in html
+
+
+def test_geo_context_is_built_from_same_aud_findings_and_only_its_catalog(tmp_path: Path) -> None:
+    workspace, _ = _workspace(tmp_path)
+    with sqlite3.connect(workspace.database) as connection:
+        connection.execute(
+            "CREATE TABLE findings(audit_id TEXT, finding_id TEXT, category TEXT, "
+            "rule_id TEXT, title TEXT, evidence_ids TEXT)"
+        )
+        connection.execute(
+            "INSERT INTO findings VALUES (?,?,?,?,?,?)",
+            (AUDIT_ID, "GEO-CAT1", "INDEXABILITY", "R-INDEX",
+             "Inspecionar indexação", '["EV-INDEX"]'),
+        )
+        connection.execute(
+            "INSERT INTO findings VALUES (?,?,?,?,?,?)",
+            ("AUD-PRIVATE", "GEO-OTHER", "INDEXABILITY", "R-PRIVATE",
+             "NÃO REVELAR OUTRA AUD", '["EV-PRIVATE"]'),
+        )
+    report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
+    cat1 = (report / "cat-01.html").read_text(encoding="utf-8")
+    cat3 = (report / "cat-03.html").read_text(encoding="utf-8")
+    assert "GEO-CAT1" in cat1 and "EV-INDEX" in cat1
+    assert "GEO-CAT1" not in cat3
+    assert "GEO-OTHER" not in cat1
+    assert "NÃO REVELAR OUTRA AUD" not in cat1
