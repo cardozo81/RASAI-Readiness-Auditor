@@ -351,3 +351,93 @@ class GeoAiConsumerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_geo_ai_denies_old_success_if_later_external_attempt_failed(tmp_path):
+    db = tmp_path / "audit.db"
+    GeoAiConsumerTests()._db(db)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE perplexity_search_runs SET started_at=? WHERE run_id='PXS-1'",
+            ("2026-10-09T11:30:00+00:00",),
+        )
+        con.execute(
+            "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
+            ("PXS-LATER-FAILED", "AUD-1", '["seguro de vida"]',
+             "web", "AUTH_ERROR", "2026-10-09T09:00:00-03:00"),
+        )
+    before = db.read_bytes()
+    result = execute_geo_ai(
+        db, "AUD-1", provider_selection="auto",
+        provider_factory=lambda _: (_ for _ in ()).throw(
+            AssertionError("older success cannot trigger an AI call")
+        ),
+    )
+    assert result == "NOT_ELIGIBLE"
+    assert db.read_bytes() == before
+    with sqlite3.connect(db) as con:
+        assert con.execute(
+            "SELECT name FROM sqlite_master WHERE name='geo_ai_interpretations'"
+        ).fetchone() is None
+
+
+def test_geo_ai_selects_actual_utc_latest_successful_source(tmp_path):
+    db = tmp_path / "audit.db"
+    GeoAiConsumerTests()._db(db)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE perplexity_search_runs SET started_at=? WHERE run_id='PXS-1'",
+            ("2026-10-09T11:30:00+00:00",),
+        )
+        con.execute(
+            "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
+            ("PXS-NEW", "AUD-1", '["seguro de vida"]',
+             "web", "SUCCESS", "2026-10-09T09:00:00-03:00"),
+        )
+        con.execute(
+            "INSERT INTO perplexity_search_sources VALUES (?,?,?,?,?)",
+            ("PXS-NEW", 1, "https://new.example/offer", "New", "Observed"),
+        )
+    adapter = FakeCanonicalConsumer()
+    assert execute_geo_ai(
+        db, "AUD-1", provider_selection="auto",
+        provider_factory=lambda _: adapter,
+    ) == "AVAILABLE"
+    assert adapter.calls == 1
+    assert all(evidence_id.startswith("PX:PXS-NEW:") for evidence_id in adapter.last_ids)
+    with sqlite3.connect(db) as con:
+        assert con.execute(
+            "SELECT perplexity_run_id FROM geo_ai_interpretations"
+        ).fetchone()[0] == "PXS-NEW"
+
+
+def test_geo_ai_abstains_on_unordered_or_tied_external_runs_without_ai_cost(
+    tmp_path,
+):
+    db = tmp_path / "audit.db"
+    GeoAiConsumerTests()._db(db)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
+            ("PXS-2", "AUD-1", '["seguro de vida"]',
+             "web", "SUCCESS", "2026-10-08"),
+        )
+    before = db.read_bytes()
+    consumer = FakeCanonicalConsumer()
+    assert execute_geo_ai(
+        db, "AUD-1", provider_selection="auto",
+        provider_factory=lambda _: consumer,
+    ) == "NOT_ELIGIBLE"
+    assert consumer.calls == 0
+    assert db.read_bytes() == before
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE perplexity_search_runs SET started_at=?",
+            ("2026-10-09T12:00:00+00:00",),
+        )
+    # Distinct run IDs at the same measured instant still have no order.
+    assert execute_geo_ai(
+        db, "AUD-1", provider_selection="auto",
+        provider_factory=lambda _: consumer,
+    ) == "NOT_ELIGIBLE"
+    assert consumer.calls == 0
