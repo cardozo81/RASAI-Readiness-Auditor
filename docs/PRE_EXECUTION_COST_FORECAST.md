@@ -67,7 +67,7 @@ O RASAi não faz conversão cambial implícita. Históricos comparáveis com moe
 SERP, PageSpeed, CrUX e outras integrações permanecem fora da decisão monetária quando o RASAi possui telemetria de quota/uso, mas não possui estimativa monetária canônica.
 
 
-## Observabilidade de duração antes da auditoria — #319 (incremental)
+## Observabilidade de duração antes da auditoria - #319 (incremental)
 
 O console apresenta uma projeção **separada da previsão financeira**: o
 módulo `audit_duration_forecast_319.py` lê apenas bancos `AUD-*/audit.db`
@@ -86,7 +86,7 @@ Regras conservadoras:
   Seleções opcionais não representadas na configuração histórica são
   deliberadamente excluídas.
 - Exigir **no mínimo cinco** AUDs comparáveis antes de mostrar mediana,
-  P25–P75 e P90 descritivos de duração total. Na ausência da coorte,
+  P25-P75 e P90 descritivos de duração total. Na ausência da coorte,
   mostrar `N/D`, não extrapolar uma AUD isolada.
 - Tempo ativo de etapa IA só pode aparecer se o intervalo observado
   `started_at/finished_at` for íntegro em **todos** os membros da coorte.
