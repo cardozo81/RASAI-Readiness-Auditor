@@ -715,3 +715,10 @@ nas primeiras posições podiam ocupar todo o orçamento de evidências e
 ocultar fontes válidas subsequentes. A mudança é estritamente local
 ao adaptador opcional, não amplia o limite de contexto de IA e não
 faz chamada adicional de provider ou crawler.
+
+Quando a edição do menu U for inválida (termos, limite ou modo
+de busca), a solicitação opcional será cancelada, inclusive caso
+houvesse uma seleção anterior na mesma sessão. Esta regra impede
+que uma configuração antiga permaneça elegível para uma chamada
+potencialmente faturável após erro de preenchimento. A chave e
+os termos SERP não são alterados por esse cancelamento.
