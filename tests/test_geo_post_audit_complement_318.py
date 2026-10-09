@@ -563,6 +563,14 @@ def test_supplement_lifecycle_inspector_without_new_cost_or_aud_changes(
     assert output["total_intents"] == output["verified"] == 1
     assert output["entries"][0]["intent_id"] == "readonly-cli-fixture"
     assert output["entries"][0]["status"] == "VERIFIED"
+    assert output["entries"][0]["search_status"] == "SUCCESS"
+    assert output["entries"][0]["verified_source_count"] == 1
+    assert output["entries"][0]["search_started_at"]
+    assert output["entries"][0]["search_finished_at"]
+    assert output["verified_successful_searches"] == 1
+    assert output["verified_unsuccessful_searches"] == 0
+    assert output["verified_means_evidence_integrity_not_search_success"] is True
+    assert output["excludes_supplement_cost_and_duration_from_original_audit"] is True
     assert output["entries"][0]["main_audit_geo_snapshot"] is False
     assert output["entries"][0]["evidence_html"].endswith("supplement.html")
     assert output["provider_requests"] == output["audit_writes"] == 0
@@ -600,3 +608,73 @@ def test_supplement_lifecycle_exposes_ambiguous_and_invalid_without_html(
     assert all(x["evidence_html"] is None for x in final["entries"])
     assert final["provider_requests"] == final["audit_writes"] == 0
     assert workspace.database.read_bytes() == original
+
+
+def test_verified_http_failure_is_not_reported_as_successful_search(
+    tmp_path, monkeypatch,
+):
+    """Integrity of an error ledger never implies a successful GEO observation."""
+    from rasai.geo_supplement_inspection_309 import inspect_geo_supplements
+    workspace, aud = source(tmp_path, monkeypatch)
+    original = workspace.database.read_bytes()
+    result = run(
+        workspace, audit_id=aud, intent_id="failed-request-fixture",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true",
+             "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+        transport=lambda *args: PerplexityHttpResponse(
+            status=401, headers={}, body=b'{"error":"invalid token"}',
+        ),
+    )
+    assert result.status == "AUTH_ERROR"
+    report = inspect_geo_supplements(workspace.root)
+    assert report["verified"] == 1  # verified *package*, not successful request
+    assert report["verified_successful_searches"] == 0
+    assert report["verified_unsuccessful_searches"] == 1
+    assert report["entries"][0]["search_status"] == "AUTH_ERROR"
+    assert report["entries"][0]["verified_source_count"] == 0
+    assert report["entries"][0]["billability"] == "FALSE"
+    assert report["entries"][0]["evidence_html"] is not None
+    assert workspace.database.read_bytes() == original
+
+
+@pytest.mark.parametrize("field", ["sources", "started_at"])
+def test_rehashed_manifest_cannot_launder_fabricated_evidence(
+    tmp_path, monkeypatch, field,
+):
+    """A rehashed derived JSON must still match the source SQLite ledger."""
+    from rasai.geo_supplement_inspection_309 import inspect_geo_supplements
+    workspace, aud = source(tmp_path, monkeypatch)
+    result = run(
+        workspace, audit_id=aud, intent_id=f"forged-{field}",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true",
+             "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+        transport=fake_transport,
+    )
+    assert result.directory is not None
+    assert inspect_geo_supplements(workspace.root)["verified"] == 1
+    result_path = result.directory / "result.json"
+    manifest_path = result.directory / "manifest.json"
+    payload = json.loads(result_path.read_text(encoding="utf-8"))
+    if field == "sources":
+        payload["sources"].append({
+            "url": "https://forged.example/claim", "title": "Fictitious",
+            "snippet": "Unobserved",
+        })
+    else:
+        payload["started_at"] = "2026-10-09T00:00:00+00:00"
+    result_path.write_text(json.dumps(payload), encoding="utf-8")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for entry in manifest["files"]:
+        if entry["path"] == "result.json":
+            entry["sha256"] = sha256(result_path.read_bytes()).hexdigest()
+            entry["bytes"] = result_path.stat().st_size
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    report = inspect_geo_supplements(workspace.root)
+    assert report["verified"] == 0
+    assert report["invalid"] == 1
+    assert report["verified_successful_searches"] == 0
+    assert report["entries"][0]["search_status"] is None
+    assert report["entries"][0]["verified_source_count"] is None
+    assert report["entries"][0]["evidence_html"] is None
