@@ -636,3 +636,79 @@ def test_v8_snapshot_version_does_not_rewrite_older_geo_records():
             count = con.execute("SELECT COUNT(*) FROM geo_observation_runs").fetchone()[0]
         assert old == ('{"historical":true}', "RASAI-GEO-OBSERVATION-7")
         assert count == 2
+
+
+def test_v8_materialized_overlap_refuses_unproved_slash_alias_and_userinfo():
+    with tempfile.TemporaryDirectory() as temp:
+        db = Path(temp) / "audit.db"
+        with closing(sqlite3.connect(db)) as con, con:
+            con.executescript("""
+                CREATE TABLE audits(audit_id TEXT PRIMARY KEY);
+                CREATE TABLE audit_targets(
+                    target_id TEXT PRIMARY KEY, audit_id TEXT, input_url TEXT
+                );
+                CREATE TABLE perplexity_search_runs(
+                    run_id TEXT PRIMARY KEY, audit_id TEXT, query_json TEXT,
+                    search_type TEXT, status TEXT, started_at TEXT
+                );
+                CREATE TABLE perplexity_search_sources(
+                    run_id TEXT, position INTEGER, url TEXT, title TEXT,
+                    snippet TEXT, source_date TEXT, last_updated TEXT
+                );
+                CREATE TABLE serp_observations(
+                    observation_id TEXT PRIMARY KEY, audit_id TEXT, query TEXT,
+                    collected_at TEXT, observation_status TEXT, data_mode TEXT
+                );
+                CREATE TABLE serp_results(
+                    observation_id TEXT, position INTEGER, url TEXT
+                );
+            """)
+            con.execute("INSERT INTO audits VALUES (?)", ("AUD-URL-V8",))
+            con.execute(
+                "INSERT INTO audit_targets VALUES (?,?,?)",
+                ("T1", "AUD-URL-V8", "https://example.org/produto"),
+            )
+            con.execute(
+                "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
+                ("P1", "AUD-URL-V8", '["produto seguro"]',
+                 "web", "SUCCESS", "2026-10-09T10:00:00+00:00"),
+            )
+            con.executemany(
+                "INSERT INTO perplexity_search_sources VALUES (?,?,?,?,?,?,?)",
+                [
+                    ("P1", 1, "https://example.org/produto/", "Alternative", "", None, None),
+                    ("P1", 2, "https://user:secret@example.org/produto", "Invalid", "", None, None),
+                ],
+            )
+            con.execute(
+                "INSERT INTO serp_observations VALUES (?,?,?,?,?,?)",
+                ("S1", "AUD-URL-V8", "produto seguro",
+                 "2026-10-09T10:05:00+00:00", "OBSERVED", "OBSERVED_API"),
+            )
+            con.execute(
+                "INSERT INTO serp_results VALUES (?,?,?)",
+                ("S1", 1, "https://example.org/produto"),
+            )
+        first = materialize_geo_observation(db, "AUD-URL-V8")
+        assert first and first == materialize_geo_observation(db, "AUD-URL-V8")
+        with closing(sqlite3.connect(db)) as con:
+            rows = con.execute(
+                "SELECT projection_json FROM geo_observation_runs"
+            ).fetchall()
+            assert len(rows) == 1
+            value = json.loads(rows[0][0])
+            assert con.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+        assert value["contract_version"] == "RASAI-GEO-OBSERVATION-8"
+        assert value["source_count"] == 2  # raw evidence is preserved
+        assert value["perplexity_url_count"] == 1  # bad userinfo excluded
+        assert value["serp_url_count"] == 1
+        assert value["descriptive_overlap"]["status"] == "DESCRIPTIVE_ONLY"
+        assert value["descriptive_overlap"]["common_urls"] == 0
+        assert value["descriptive_overlap"]["serp_denominator"] == 1
+        assert value["descriptive_overlap"]["perplexity_denominator"] == 1
+        assert value["descriptive_overlap"]["jaccard_url_rate"] == 0
+        assert value["target_observation"]["status"] == "DOMAIN_ALTERNATIVE_OBSERVED"
+        assert value["target_observation"]["exact_sources"] == []
+        assert value["target_observation"]["domain_alternatives"] == [
+            "https://example.org/produto/",
+        ]
