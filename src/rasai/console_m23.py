@@ -92,6 +92,8 @@ class State(BaseState):
     apdex_experience_device_mix: str = DEFAULT_UX_DEVICE_MIX
     apdex_experience_session_mode: str = DEFAULT_UX_SESSION_MODE
     apdex_experience_kpm: str = DEFAULT_UX_KPM
+    apdex_experience_architecture: str = "AUTO"
+    apdex_experience_profile_mode: str = "CUSTOM"
     apdex_experience_satisfied: float | None = None
     apdex_experience_frustrated: float | None = None
     apdex_experience_errors: bool = True
@@ -221,6 +223,14 @@ def apply_m23_environment_defaults(
     state.apdex_delay = cfg.delay_seconds
     state.apdex_concurrency = cfg.concurrency
     _apply_experience_state(state, experience)
+    from rasai.m25_cli import UX_ARCHITECTURE_ENV, UX_PROFILE_MODE_ENV
+    state.apdex_experience_architecture = (
+        environment.get(UX_ARCHITECTURE_ENV) or "AUTO"
+    ).strip().upper()
+    state.apdex_experience_profile_mode = (
+        environment.get(UX_PROFILE_MODE_ENV) or
+        ("DYNATRACE_IMPORTED" if experience.dynatrace_import else "CUSTOM")
+    ).strip().upper()
     return ()
 
 
