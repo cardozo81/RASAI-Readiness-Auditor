@@ -68,6 +68,9 @@ def test_eight_attempts_across_both_ledgers_are_counted_once(tmp_path):
     assert out["unknown_ai_intervals"] == 0
     assert out["provider_requests"] == out["audit_writes"] == 0
     assert out["non_ai_stages_measured"] is False
+    assert out["observed_http_request_sums_ms"] == {}
+    assert out["http_request_telemetry"] == "NOT_VERIFIABLE"
+    assert out["http_request_stage_wall_clock_available"] is False
     assert out["provider_observed_usd"] == .04
     assert abs(out["posthoc_estimated_usd"] - .07) < 0.000001
     assert {x["name"]: x["attempts"] for x in out["stages"]} == {
@@ -111,3 +114,64 @@ def test_partial_aud_still_explicitly_identified_as_not_complete(tmp_path):
     result = inspect_audit_attempts(root)
     assert result["source_completion_status"] == "PARTIAL_RETRYABLE"
     assert result["attempts_total"] == 8
+
+
+def test_m21_http_request_sums_are_scoped_but_not_fake_stage_wall_clock(tmp_path):
+    root = _fixture(tmp_path)
+    with sqlite3.connect(root / "audit.db") as con:
+        con.executescript("""
+            CREATE TABLE web_performance_attempts (
+                attempt_id TEXT PRIMARY KEY, audit_id TEXT,
+                service TEXT, duration_ms REAL
+            );
+        """)
+        con.executemany(
+            "INSERT INTO web_performance_attempts VALUES (?,?,?,?)",
+            [
+                ("HTTP-1", root.name, "PAGESPEED_INSIGHTS", 20000.0),
+                ("HTTP-2", root.name, "PAGESPEED_INSIGHTS", 40000.0),
+                ("HTTP-3", root.name, "CRUX_API", 10000.0),
+                ("FOREIGN", "AUD-FOREIGN", "PAGESPEED_INSIGHTS", 999000.0),
+                ("OTHER", root.name, "UNKNOWN_SERVICE", 888000.0),
+            ],
+        )
+    before = (root / "audit.db").read_bytes()
+    out = inspect_audit_attempts(root)
+    assert out["attempts_total"] == out["stage_attempts_total"] == 8
+    assert out["summed_ai_attempts_ms"] == out["union_active_ai_ms"] == 90000
+    assert out["observed_http_request_sums_ms"] == {
+        "PAGESPEED_INSIGHTS": 60000.0, "CRUX_API": 10000.0,
+    }
+    assert out["http_request_telemetry"] == "OBSERVED_CUMULATIVE_REQUEST_DURATION"
+    assert out["non_ai_stages_measured"] is False
+    assert out["http_request_stage_wall_clock_available"] is False
+    assert "não tempo físico de fase" in out["http_request_caveat"]
+    assert out["provider_requests"] == out["audit_writes"] == 0
+    assert (root / "audit.db").read_bytes() == before
+
+
+def test_m21_incomplete_or_invalid_service_abstains_without_inventing_zero(tmp_path):
+    root = _fixture(tmp_path)
+    with sqlite3.connect(root / "audit.db") as con:
+        con.executescript("""
+            CREATE TABLE web_performance_attempts (
+                attempt_id TEXT PRIMARY KEY, audit_id TEXT,
+                service TEXT, duration_ms REAL
+            );
+        """)
+        con.executemany(
+            "INSERT INTO web_performance_attempts VALUES (?,?,?,?)",
+            [
+                ("HTTP-1", root.name, "PAGESPEED_INSIGHTS", 20000.0),
+                ("HTTP-2", root.name, "PAGESPEED_INSIGHTS", None),
+                ("HTTP-3", root.name, "CRUX_API", 10000.0),
+                ("HTTP-4", "AUD-FOREIGN", "CRUX_API", float("inf")),
+            ],
+        )
+    before = (root / "audit.db").read_bytes()
+    out = inspect_audit_attempts(root)
+    assert out["observed_http_request_sums_ms"] == {"CRUX_API": 10000.0}
+    assert "PAGESPEED_INSIGHTS" not in out["observed_http_request_sums_ms"]
+    assert out["unknown_ai_intervals"] == 0
+    assert out["non_ai_stages_measured"] is False
+    assert (root / "audit.db").read_bytes() == before
