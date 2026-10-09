@@ -90,7 +90,7 @@ class GeoObservationTests(unittest.TestCase):
             self.assertEqual(exact["status"], "DOMAIN_ALTERNATIVE_OBSERVED")
             truly_exact = _target_observation(
                 con, "AUD-1", run, ["seguro"],
-                [{"url": "https://example.org/seguro/", "position": 1}]
+                [{"url": "https://example.org/seguro", "position": 1}]
             )
             self.assertEqual(truly_exact["status"], "EXACT_URL_OBSERVED")
 
