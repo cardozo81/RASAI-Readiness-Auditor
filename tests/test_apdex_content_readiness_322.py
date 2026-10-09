@@ -92,3 +92,69 @@ def test_apdex_report_discloses_load_vs_main_content_without_fabricated_metric()
         assert "capture-context.html" in message
         assert "cat-04.html" in message
     assert _apdex_readiness_notice("CAT-05") == ""
+
+
+def test_strict_provenance_requires_real_page_and_device_before_observed():
+    from rasai.apdex_content_readiness_observation import (
+        STRICT_PROVENANCE_VERSION, classify_primary_content_readiness as classify,
+    )
+    points = [
+        C("S-1", "CTX-A", 400, 400, 30, False, "PAGE-1", "MOBILE"),
+        C("S-1", "CTX-A", 540, 420, 30, False, "PAGE-1", "MOBILE"),
+    ]
+    kwargs = dict(
+        sample_id="S-1", context_id="CTX-A", architecture="CSR_SPA",
+        load_ms=300, enabled=True, window_ms=1000, checkpoints=points,
+        strict_provenance=True,
+    )
+    missing = classify(**kwargs)
+    assert missing.status == "ERROR"
+    assert missing.reason == "missing_page_or_device_identity"
+    observed = classify(**kwargs, page_id="PAGE-1", device="MOBILE")
+    assert observed.status == "OBSERVED"
+    assert observed.page_id == "PAGE-1"
+    assert observed.device == "MOBILE"
+    assert observed.primary_content_ms == 400
+    assert observed.post_load_delta_ms == 100
+    assert observed.method_version == STRICT_PROVENANCE_VERSION
+
+
+def test_strict_provenance_rejects_mixed_page_or_device_without_changing_apdex():
+    from rasai.apdex_content_readiness_observation import classify_primary_content_readiness as classify
+
+    base = dict(
+        sample_id="S-1", context_id="CTX-A", architecture="HYDRATED",
+        load_ms=300, enabled=True, window_ms=1000,
+        page_id="PAGE-1", device="DESKTOP", strict_provenance=True,
+    )
+    for invalid in (
+        C("S-1", "CTX-A", 450, 400, 20, False, "PAGE-OTHER", "DESKTOP"),
+        C("S-1", "CTX-A", 450, 400, 20, False, "PAGE-1", "MOBILE"),
+        C("S-1", "CTX-A", 450, 400, 20, False),  # missing owner identity
+    ):
+        outcome = classify(
+            **base, checkpoints=[
+                invalid,
+                C("S-1", "CTX-A", 580, 420, 20, False, "PAGE-1", "DESKTOP"),
+            ],
+        )
+        assert outcome.status == "ERROR"
+        assert outcome.reason == "mixed_context_or_invalid_checkpoint"
+        assert outcome.primary_content_ms is None
+        assert outcome.post_load_delta_ms is None
+    # Existing experimental v1 consumer remains purely advisory, opt-in and unchanged.
+    legacy = observation(samples=[cp(450, 400), cp(600, 405)])
+    assert legacy.status == "OBSERVED"
+    assert legacy.page_id == "" and legacy.device == ""
+    assert legacy.method_version == METHOD_VERSION
+
+
+def test_strict_provenance_does_not_widen_architecture_or_opt_in():
+    from rasai.apdex_content_readiness_observation import classify_primary_content_readiness as classify
+    base = dict(
+        sample_id="S", context_id="CTX", page_id="PAGE",
+        device="MOBILE", architecture="STATIC_OR_SSR",
+        load_ms=100, strict_provenance=True,
+    )
+    assert classify(**base, enabled=True).status == "NOT_APPLICABLE"
+    assert classify(**base, enabled=False).status == "NOT_APPLICABLE"
