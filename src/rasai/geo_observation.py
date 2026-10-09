@@ -14,12 +14,13 @@ from pathlib import Path
 import sqlite3
 from urllib.parse import urlsplit
 
+from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
 
-# v6 selects the *nearest valid observed SERP sample* for a single
-# matched Perplexity query, rather than blindly taking the latest record
-# which can be outside the 24h window even when a valid closer sample exists.
-# Previous v1-v5 snapshot rows retain their original contract/provenance.
-VERSION = "RASAI-GEO-OBSERVATION-6"
+
+# v7 preserves nearest eligible SERP selection from v6 and additionally
+# requires a verifiably latest Search API attempt (UTC-aware chronology).
+# Older v1-v6 snapshots remain immutable, not retroactively reinterpreted.
+VERSION = "RASAI-GEO-OBSERVATION-7"
 _MAX_OBSERVATION_GAP_SECONDS = 24 * 60 * 60
 
 
@@ -193,14 +194,17 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
         }
         if not {"perplexity_search_runs", "perplexity_search_sources"}.issubset(tables):
             return None
-        runs = _records(
-            con, "SELECT run_id, query_json, search_type, status, started_at "
-            "FROM perplexity_search_runs WHERE audit_id=? "
-            "ORDER BY started_at DESC, run_id DESC LIMIT 1", (audit_id,)
+        # Do not compute or publish a new GEO snapshot from the wrong run:
+        # textual ISO ordering and opaque IDs may promote stale SUCCESS.
+        # Ambiguous clock history is not evidence that the old run is current.
+        columns = ("run_id", "query_json", "search_type", "status", "started_at")
+        latest = _last_temporally_verified(
+            con, table="perplexity_search_runs", audit_id=audit_id,
+            columns=columns, time_column="started_at",
         )
-        if not runs:
-            return None
-        run = runs[0]
+        if latest is None or latest is _UNVERIFIABLE:
+            return None  # no derived table/write/provider call
+        run = dict(zip(columns, latest))
         sources = _records(
             con, "SELECT position, url, title, snippet, source_date, last_updated "
             "FROM perplexity_search_sources WHERE run_id=? ORDER BY position, url",
