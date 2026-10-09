@@ -155,6 +155,17 @@ def execute_geo_ai(
         output = provider.analyze(competitive_input)
         assessment = output.assessment
         state = str(getattr(output.state, "value", output.state))
+        error_reason = output.reason
+        if assessment is not None and any(
+            not opportunity.evidence_ids
+            or not set(opportunity.evidence_ids).issubset(competitive_input.allowed_evidence_ids)
+            for opportunity in assessment.opportunities
+        ):
+            # Defense in depth: never publish an otherwise valid-looking summary
+            # if a consumer bypasses the canonical evidence-ID validator.
+            assessment = None
+            state = "UNAVAILABLE"
+            error_reason = "GEO_AI_INVALID_EVIDENCE_REFERENCES"
         if assessment is not None:
             opportunities = [
                 {
@@ -185,7 +196,7 @@ def execute_geo_ai(
                 assessment.prompt_version if assessment is not None else None,
                 assessment.provider_request_id if assessment is not None else None,
                 assessment.summary if assessment is not None else None,
-                _json(opportunities), output.reason,
+                _json(opportunities), error_reason,
                 datetime.now(timezone.utc).isoformat(),
             ),
         )
