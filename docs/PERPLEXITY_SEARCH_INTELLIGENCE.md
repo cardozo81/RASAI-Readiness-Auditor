@@ -498,3 +498,18 @@ persistida, não afirma intenção equivalente, posição em
 resposta gerativa ou relevância de negócio. Não executa
 coletas, serviços externos, IA ou pontuação. Snapshots v1-v5
 pré-existentes conservam seus métodos e identificadores.
+
+
+### GEO IA opcional: abstenção antes de escrita (#306, 09/10/2026)
+
+A seleção explícita de síntese GEO por IA não significa que exista
+evidência apta para síntese. O consumidor canônico da AUD verifica
+primeiro, **sem criar tabelas derivadas**, a presença de uma execução
+Perplexity persistida, bem-sucedida, atribuível a exatamente uma
+consulta e com fontes reais. Sem esses pré-requisitos retorna
+`NOT_ELIGIBLE`: não cria `geo_ai_interpretations`, não invoca a IA,
+não consome quota nem altera o banco da AUD. Se houver evidências
+e a execução for explicitamente solicitada, continuam válidos o
+contrato de consumidor canônico, a persistência de estado terminal
+e os IDs de evidência exigidos. Reprocessamentos e visualização HTML
+não ganham capacidade de disparar chamadas.
