@@ -15,10 +15,11 @@ import sqlite3
 from urllib.parse import urlsplit
 
 
-# v5 fixes exact-URL host comparison: www versus apex cannot be silently
-# conflated as exact URL without observed redirect/canonical evidence. v4 and
-# older persisted projections remain untouched and continue to render.
-VERSION = "RASAI-GEO-OBSERVATION-5"
+# v6 selects the *nearest valid observed SERP sample* for a single
+# matched Perplexity query, rather than blindly taking the latest record
+# which can be outside the 24h window even when a valid closer sample exists.
+# Previous v1-v5 snapshot rows retain their original contract/provenance.
+VERSION = "RASAI-GEO-OBSERVATION-6"
 _MAX_OBSERVATION_GAP_SECONDS = 24 * 60 * 60
 
 
@@ -230,11 +231,34 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
                 "AND data_mode='OBSERVED_API' AND observation_status='OBSERVED' "
                 "ORDER BY collected_at DESC, observation_id DESC", (audit_id,)
             )
-            match = next(
-                (x for x in observations
-                 if str(x["query"]).strip().casefold() ==
-                 str(query_set[0]).strip().casefold()), None
+            matching = [
+                row for row in observations
+                if str(row["query"]).strip().casefold() ==
+                str(query_set[0]).strip().casefold()
+            ]
+            # Only offset-aware, within-window observations can contribute
+            # numeric SERP x Perplexity overlap. If several exist, select the
+            # nearest in physical time; for equal gaps, prefer newer SERP,
+            # then a deterministic observation ID. A non-comparable latest
+            # sample must never shadow a valid earlier observation.
+            candidates = [
+                (gap, row) for row in matching
+                if (gap := _temporal_gap_seconds(
+                    run["started_at"], row["collected_at"]
+                )) is not None and gap <= _MAX_OBSERVATION_GAP_SECONDS
+            ]
+            candidates.sort(
+                key=lambda item: (
+                    item[0],
+                    -datetime.fromisoformat(
+                        str(item[1]["collected_at"]).replace("Z", "+00:00")
+                    ).timestamp(),
+                    str(item[1]["observation_id"]),
+                )
             )
+            # Retain legacy-style latest-match diagnostics when none is
+            # temporally eligible; downstream rates must abstain as before.
+            match = candidates[0][1] if candidates else (matching[0] if matching else None)
             if match:
                 serp_id = match["observation_id"]
                 time_gap_seconds = _temporal_gap_seconds(run["started_at"], match["collected_at"])
