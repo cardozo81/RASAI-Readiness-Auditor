@@ -727,3 +727,29 @@ def test_v8_rejects_padding_as_invalid_url_instead_of_trimming_into_exact_match(
     ):
         assert _canonical_url(malformed) == ""
         assert _host(malformed) == ""
+
+
+def test_geo_materializer_never_creates_database_when_aud_is_absent(tmp_path):
+    import pytest
+
+    from rasai.geo_observation import materialize_geo_observation
+    missing = tmp_path / "missing-AUD" / "audit.db"
+    assert materialize_geo_observation(missing, "AUD-NOT-EXIST") is None
+    assert not missing.exists()
+    assert not missing.parent.exists()
+
+    # Directory paths must not be mistaken for database files.
+    assert materialize_geo_observation(tmp_path, "AUD-NOT-EXIST") is None
+    assert list(tmp_path.iterdir()) == []
+
+    real_db = tmp_path / "real.db"
+    with sqlite3.connect(real_db) as con:
+        con.execute("CREATE TABLE audits (audit_id TEXT PRIMARY KEY)")
+    original = real_db.read_bytes()
+    link_db = tmp_path / "linked.db"
+    try:
+        link_db.symlink_to(real_db)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"symlink creation not permitted: {exc}")
+    assert materialize_geo_observation(link_db, "AUD-NOT-EXIST") is None
+    assert real_db.read_bytes() == original
