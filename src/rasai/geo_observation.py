@@ -15,11 +15,10 @@ import sqlite3
 from urllib.parse import urlsplit
 
 
-# Versioned immutable projection: v2 adds denominators and descriptive rates.
-# Legacy v1 snapshots stay persisted and are never rewritten.
-# v3 adds URL origin identity and explicit search-context comparability metadata.
-# v1/v2 rows remain immutable and queryable.
-VERSION = "RASAI-GEO-OBSERVATION-3"
+# Versioned immutable projection: v4 adds verifiable temporal eligibility.
+# Legacy v1/v2/v3 observations remain persisted and immutable.
+VERSION = "RASAI-GEO-OBSERVATION-4"
+_MAX_OBSERVATION_GAP_SECONDS = 24 * 60 * 60
 
 
 def _canonical_json(value: object) -> str:
@@ -59,6 +58,18 @@ def _host(url: str) -> str:
         return (parsed.hostname or "").lower().removeprefix("www.")
     except ValueError:
         return ""
+
+
+def _temporal_gap_seconds(search_started: object, serp_collected: object) -> float | None:
+    """Only offset-aware clocks establish a cross-source observation window."""
+    try:
+        a = datetime.fromisoformat(str(search_started).replace("Z", "+00:00"))
+        b = datetime.fromisoformat(str(serp_collected).replace("Z", "+00:00"))
+        if a.tzinfo is None or b.tzinfo is None:
+            return None
+        return abs((a.astimezone(timezone.utc) - b.astimezone(timezone.utc)).total_seconds())
+    except (ValueError, TypeError, OverflowError):
+        return None
 
 
 def _target_observation(
@@ -113,7 +124,7 @@ def _target_observation(
 
 def _descriptive_overlap_metrics(
     perplexity_urls: set[str], serp_urls: set[str], *, serp_id: str | None,
-    query_set: object, search_status: str,
+    query_set: object, search_status: str, time_gap_seconds: float | None = None,
 ) -> dict:
     """Rates describe only URL-set membership, not equivalent provider coverage.
 
@@ -138,6 +149,10 @@ def _descriptive_overlap_metrics(
         metrics["reason"] = "UNATTRIBUTABLE_QUERY_SET"
     elif not serp_id:
         metrics["reason"] = "NO_EQUIVALENT_OBSERVED_SERP_QUERY"
+    elif time_gap_seconds is None:
+        metrics["reason"] = "TIME_SCOPE_UNPROVEN"
+    elif time_gap_seconds > _MAX_OBSERVATION_GAP_SECONDS:
+        metrics["reason"] = "TIME_SCOPE_OUTSIDE_WINDOW"
     elif not serp_urls or not perplexity_urls:
         metrics["reason"] = "NO_VALID_URL_DENOMINATOR"
     else:
@@ -193,6 +208,7 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
             query_set = []
         serp_id = None
         serp_scope = None
+        time_gap_seconds = None
         if ("serp_observations" in tables and "serp_results" in tables
                 and isinstance(query_set, list) and len(query_set) == 1
                 and isinstance(query_set[0], str)):
@@ -217,6 +233,7 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
             )
             if match:
                 serp_id = match["observation_id"]
+                time_gap_seconds = _temporal_gap_seconds(run["started_at"], match["collected_at"])
                 serp_scope = {
                     key: match.get(key)
                     for key in ("query", "collected_at", "engine", "country",
@@ -231,7 +248,7 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
         target_observation = _target_observation(con, audit_id, run, query_set, sources)
         overlap_metrics = _descriptive_overlap_metrics(
             source_urls, serp_urls, serp_id=serp_id, query_set=query_set,
-            search_status=str(run["status"]),
+            search_status=str(run["status"]), time_gap_seconds=time_gap_seconds,
         )
         projection = {
             "target_observation": target_observation,
@@ -245,6 +262,13 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
             "serp_observation_id": serp_id,
             "comparability": {
                 "query_equivalent": serp_id is not None,
+                "query_text_match_only": serp_id is not None,
+                "intent_equivalence_proven": False,
+                "time_gap_seconds": time_gap_seconds,
+                "time_window_within_24h": (
+                    time_gap_seconds <= _MAX_OBSERVATION_GAP_SECONDS
+                    if time_gap_seconds is not None else None
+                ),
                 "geo_language_device_time_equivalence_proven": False,
                 "serp_context": serp_scope,
                 "perplexity_context": {
@@ -254,7 +278,7 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
                 },
                 "limitation": (
                     "Coincidencia textual da consulta nao comprova equivalencia "
-                    "de mercado, idioma, dispositivo, motor ou janela temporal."
+                    "de mercado, intencao, idioma, dispositivo ou motor; janela temporal de 24h e so elegibilidade observacional."
                 ),
             },
             "serp_url_count": len(serp_urls) if serp_id else None,
