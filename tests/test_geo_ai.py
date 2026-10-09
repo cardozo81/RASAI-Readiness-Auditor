@@ -441,3 +441,47 @@ def test_geo_ai_abstains_on_unordered_or_tied_external_runs_without_ai_cost(
         provider_factory=lambda _: consumer,
     ) == "NOT_ELIGIBLE"
     assert consumer.calls == 0
+
+def test_geo_ai_reserves_before_external_call_and_replay_after_crash_is_noop(
+    tmp_path,
+):
+    """A hard process interruption must not authorize a second AI request."""
+    db = tmp_path / "audit.db"
+    GeoAiConsumerTests()._db(db)
+    called = []
+
+    class InterruptingConsumer:
+        def analyze(self, _input):
+            called.append(1)
+            # The reservation is a durable, committed row while AI runs.
+            with sqlite3.connect(db) as observer:
+                row = observer.execute(
+                    "SELECT state, error_reason FROM geo_ai_interpretations"
+                ).fetchone()
+            assert row == (
+                "PENDING_UNCERTAIN", "GEO_AI_OUTCOME_NOT_YET_PERSISTED",
+            )
+            raise KeyboardInterrupt("simulated hard interruption")
+
+    import pytest
+    with pytest.raises(KeyboardInterrupt, match="simulated hard interruption"):
+        execute_geo_ai(
+            db, "AUD-1", provider_selection="auto",
+            provider_factory=lambda _: InterruptingConsumer(),
+        )
+    assert called == [1]
+
+    def prohibit_factory(_):
+        raise AssertionError("reserved GEO AI intent cannot execute twice")
+
+    assert execute_geo_ai(
+        db, "AUD-1", provider_selection="auto",
+        provider_factory=prohibit_factory,
+    ) == "PENDING_UNCERTAIN"
+    assert called == [1]
+    with sqlite3.connect(db) as verify:
+        assert verify.execute(
+            "SELECT count(*) FROM geo_ai_interpretations"
+        ).fetchone()[0] == 1
+        assert verify.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+        assert verify.execute("PRAGMA foreign_key_check").fetchone() is None
