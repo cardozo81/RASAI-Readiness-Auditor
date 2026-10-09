@@ -25,7 +25,7 @@
 | 2 | #304 | Parcial, P1 | Taxas descritivas SERP x Perplexity, URL segura e contexto geotemporal persistidos. Falta comparabilidade comprovável de fontes e validação real. | Testes e ajustes determinísticos; abster de ranking, citações e equivalência não observados. |
 | 3 | #306 | Parcial, P2 | IA GEO opt-in e integração canônica com falhas fakes. Falta aceite de operação real com proveniência/custo. | Fechar somente lacunas determinísticas; segregação do gate externo. |
 | 4 | #308 | Parcial, P2 | Contexto por finding/CAT e referências estratégicas implementados. #334 cobre somente UX dirigida. | Matriz de cobertura CAT-01/03/05/08/09, index, directed e ai-integrations, com evidências. |
-| 5 | #309 | Parcial, P1 | Replay e fluxo pós-AUD com sidecar e fakes implementados. | Regressão de legado/idempotência, integração read-only, sem coleta duplicada. |
+| 5 | #309 | Parcial, P1 | Replay e fluxo pós-AUD com sidecar e fakes implementados. | Regressão de historico/idempotência, integração read-only, sem coleta duplicada. |
 | 6 | #322 | Parcial, P2 | Classificador 001/002 estrito concluído, sem Playwright same-sample. | Avaliar probe opt-in de baixo overhead e armazenamento separado; não alterar M23/M25. |
 | 7 | #324 | Épico Apdex | Controla #322; não é segundo motor. | Registrar limites, testes, aprovação metodológica e fechamento condicionado. |
 | 8 | #310 | Gate/release, P1 | Integração e CI verde, mas homologações residuais pendentes. | Fechar somente após reconciliar todas as dependências; registrar autorização externa não obtida. |
