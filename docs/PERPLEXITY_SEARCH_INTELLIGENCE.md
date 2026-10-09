@@ -596,3 +596,30 @@ versão possui fingerprint e ID derivados de suas fontes efetivamente
 selecionadas e é reproduzível sem nova consulta. `geo.html`, o
 read-only longitudinal e o seletor de IA reconhecem o método v7 e
 continuam a tratar evidência de busca como observação, não citação de IA.
+
+
+### GEO observation v8 - equivalencia exata de URL sem redirecionamento presumido (#304)
+
+`RASAI-GEO-OBSERVATION-8` conserva o criterio de consulta unica, janela
+temporal e escolha do ultimo run Search API verificado por UTC (v7).
+O ajuste desta versao e estritamente semantico e afeta apenas NOVOS
+snapshots derivados: `/produto` e `/produto/` **nao** sao URLs identicas
+sem evidencia observada de redirecionamento ou canonical. Um resultado
+com a rota alternativa pode continuar sendo descrito como observacao
+de outra URL do dominio, mas nunca soma a cobertura exata da pagina.
+A identidade exata preserva protocolo, host, porta nao-default,
+caminho e query; ignora somente fragmentos de pagina, ausentes no
+request HTTP, e normaliza portas default. URLs com userinfo, controles
+ASCII, backslash, whitespace interno ou porta zero nao contribuem
+para denominadores de URLs validas.
+
+O metodo foi versionado em v8 para impedir mistura com as metricas
+das versoes anteriores. Snapshots v1-v7 permanecem imutaveis;
+a leitura longitudinal do metodo antigo reusa a normalizacao daquela
+versao, enquanto grupos v8 recebem a semantica mais estrita. Em
+nenhuma situacao o v8 atribui redirecionamento/canonical, marca,
+intencao, regiao, idioma, citacao gerativa ou ranking nao observados.
+As rates continuam DESCRIPTIVE_ONLY para query simples efetivamente
+coincidente; multi-query ou clocks nao demonstraveis continuam N/D.
+Sem chamada extra a Perplexity ou SERP, mudanca nos coletores,
+indices homologados, score GEO, Apdex ou storage de capturas.
