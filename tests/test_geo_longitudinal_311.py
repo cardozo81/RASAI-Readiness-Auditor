@@ -189,3 +189,23 @@ def test_mismatched_query_and_locale_against_source_abstains(tmp_path):
     result = build_geo_longitudinal_preview([first, second])
     assert result["audits_eligible"] == 1
     assert result["excluded"][0]["reason"] == "GEO_SOURCE_PROVENANCE_UNVERIFIED"
+
+
+
+def test_public_geo_longitudinal_entrypoint_bypasses_audit_installers(
+    tmp_path, capsys, monkeypatch,
+):
+    from rasai import entrypoint
+    first = audit(tmp_path, "AUD-CONSOLE-1")
+    second = audit(tmp_path, "AUD-CONSOLE-2")
+    def no_audit_runtime():
+        raise AssertionError("GEO history must never activate audit runtime")
+    monkeypatch.setattr(entrypoint, "_install_audit_runtime", no_audit_runtime)
+    result = entrypoint.main(["geo-longitudinal", str(first), str(second)])
+    assert result == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["audits_eligible"] == 2
+    assert out["provider_requests"] == 0
+    alias = entrypoint.main(["geo-history", str(first), str(second)])
+    assert alias == 0
+    capsys.readouterr()
