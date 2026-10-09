@@ -15,7 +15,9 @@ import sqlite3
 from urllib.parse import urlsplit
 
 
-VERSION = "RASAI-GEO-OBSERVATION-1"
+# Versioned immutable projection: v2 adds denominators and descriptive rates.
+# Legacy v1 snapshots stay persisted and are never rewritten.
+VERSION = "RASAI-GEO-OBSERVATION-2"
 
 
 def _canonical_json(value: object) -> str:
