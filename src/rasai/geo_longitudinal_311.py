@@ -109,16 +109,43 @@ def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
         with closing(sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True, timeout=1)) as con:
             con.execute("PRAGMA query_only=ON")
             con.row_factory = sqlite3.Row
+            # Diagnostics are mutually exclusive and read-only. The previous
+            # single "AUD_NOT_LOGICALLY_COMPLETE" bucket conflated lifecycle,
+            # foreign identity, empty metadata and duplicates, while the
+            # generic schema error also concealed absent historical GEO tables.
+            audit_columns = {
+                str(row[1]) for row in con.execute("PRAGMA table_info(audits)")
+            }
+            if not audit_columns:
+                return None, "AUD_METADATA_TABLE_MISSING"
+            if not {"audit_id", "status", "completion_status"}.issubset(audit_columns):
+                return None, "AUD_METADATA_SCHEMA_UNSUPPORTED"
             metadata = con.execute(
                 "SELECT audit_id, status, completion_status FROM audits LIMIT 2"
             ).fetchall()
-            if (
-                len(metadata) != 1
-                or metadata[0]["audit_id"] != root.name
-                or str(metadata[0]["status"]).upper() != "COMPLETED"
-                or str(metadata[0]["completion_status"]).upper() != "COMPLETE"
-            ):
-                return None, "AUD_NOT_LOGICALLY_COMPLETE"
+            if not metadata:
+                return None, "AUD_METADATA_ROW_MISSING"
+            if len(metadata) > 1:
+                return None, "AUD_MULTIPLE_METADATA_ROWS"
+            if metadata[0]["audit_id"] != root.name:
+                return None, "AUD_IDENTITY_MISMATCH"
+            if str(metadata[0]["status"] or "").strip().upper() != "COMPLETED":
+                return None, "AUD_LIFECYCLE_NOT_COMPLETED"
+            if str(metadata[0]["completion_status"] or "").strip().upper() != "COMPLETE":
+                return None, "AUD_COMPLETION_NOT_COMPLETE"
+            geo_columns = {
+                str(row[1])
+                for row in con.execute("PRAGMA table_info(geo_observation_runs)")
+            }
+            if not geo_columns:
+                return None, "GEO_SNAPSHOT_TABLE_MISSING"
+            required_geo = {
+                "audit_id", "analysis_id", "contract_version", "projection_json",
+                "created_at", "perplexity_run_id", "serp_observation_id",
+                "input_sha256",
+            }
+            if not required_geo.issubset(geo_columns):
+                return None, "GEO_SNAPSHOT_SCHEMA_UNSUPPORTED"
             rows = con.execute(
                 "SELECT analysis_id, contract_version, projection_json, created_at, "
                 "perplexity_run_id, serp_observation_id, input_sha256 "
