@@ -387,3 +387,17 @@ O suplemento fica fora da pasta original da AUD, em `<audits-root>/.rasai-geo-su
 Antes da extensao, sao verificadas a situacao `COMPLETE`, a integridade SQLite/FK e o pacote `report-catalog` original. O pacote e manifestos **originais nao sao atualizados**; o suplemento externo apresenta proveniencia e hash de vinculo. Resultados posteriores nao sao promovidos ao score ou reclassificados como observacoes historicas da AUD. O contrato da fronteira e o estudo de reuso estao em [ADR_PERPLEXITY_SEARCH_REUSE_323.md](ADR_PERPLEXITY_SEARCH_REUSE_323.md).
 
 **Limite:** executar a consulta real ainda depende de autorizacao humana explicita no console; a suite automatizada usa transporte fake sem consumo de API paga.
+
+
+### Hardening de complemento e replay #318 - 09/10/2026
+
+No replay de um suplemento existente, a identidade da AUD original deve
+continuar igual à registrada na reserva inicial (SHA-256 do `audit.db`,
+fingerprint do estado e SHA-256 do manifesto do `report-catalog`).
+O `intent_id` somente pode reutilizar arquivos com manifesto íntegro,
+mesmo escopo e lista completa de quatro arquivos exigidos. Manifesto
+corrompido, diretório/arquivo linkado ou trilha insegura não autorizam nova
+requisição Search API nem são interpretados como sucesso. Resultados
+inconclusivos demandam revisão humana; nunca reutilizar um suplemento
+ligado a outra versão física da AUD. Esta checagem é local, automática,
+sem chamadas externas e **não** homologa faturamento comercial real.
