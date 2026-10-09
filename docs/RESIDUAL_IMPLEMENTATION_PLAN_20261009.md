@@ -86,3 +86,44 @@ registrados e comparáveis, pelo menos cinco observações: onde não houver
 medição suficiente, apresentar `N/D`. Métricas separadas por coleta,
 PSI, Apdex e geração de relatório dependem de relógios específicos
 persistidos, não de resíduo aritmético.
+
+
+## Checkpoint de implementação incremental — 09/10/2026 — PR #336
+
+### Entregue com testes determinísticos
+
+- **#319:** forecast físico ex ante read-only com coorte de >=5 AUDs
+  completas, mesma configuração (incluindo modo de entrada e limite
+  PSI `web_max_pages`), duração real total, união de tempos ativos de IA
+  e faixas descritivas P25/P75/P90. Quando o histórico permite, soma de
+  tempos de **requests HTTP** PageSpeed/CrUX por serviço é mostrada em
+  seção distinta, com abstenção por ausência/invalidez. Isto não é
+  duração física do estágio M21, nem parcela aditiva do relógio total.
+- **#304:** snapshot GEO v4 imutável; dados v1/v2/v3 não são reescritos.
+  Janela descritiva entre consultas exige horários com timezone e
+  diferença <=24h. Multi-query, janela não comprovada, dados/denominadores
+  ausentes geram taxas N/D. A correspondência da string não comprova
+  intenção nem equivalência de país, idioma e dispositivo.
+- **#306:** caminho de execução de IA GEO opt-in exige provedor canônico
+  efetivo; uma factory injetada explicitamente em testes não é prova de
+  elegibilidade do provedor em produção. Regressão com factory fake.
+- **#308:** deduplicação no HTML CAT-09 da mesma recomendação/achado,
+  somente leitura; preservação de ações e evidências distintas.
+- **#309:** regressão de RPR/replay com data histórica sem timezone:
+  preserva proveniência e idempotência, mas não atribui taxas GEO.
+- **#322:** somente classificação experimental existente; nenhuma
+  coleta same-sample via Playwright foi homologada neste recorte.
+
+### Aceites residuais e fronteiras técnicas
+
+O trabalho incremental foi testado nos workflows existentes do GitHub.
+Cada commit novo demanda nova verificação no **HEAD exato**; um CI
+bem-sucedido em um SHA anterior não libera alterações posteriores.
+Os gaps físicos de #319 que dependem de nova instrumentação
+(captura, extração, Apdex, relatório e duração real completa de M21)
+permanecem N/D. A instalação de hook #322 nos motores de browser
+homologados carece de prova de overhead/identidade amostral e decisão
+específica; não é aceitável degradar Apdex em nome da observabilidade.
+#318 ainda requer autorização independente para uso comercial real da
+Perplexity. #310 e os épicos seguem abertos; #328/#330/#311/#210,
+#1/#127/#192 permanecem conforme status acima.
