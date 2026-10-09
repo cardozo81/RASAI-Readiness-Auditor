@@ -731,6 +731,7 @@ def _render_menu_extension(state: SearchConsoleState) -> None:
         status = f"sem termos nesta execução | provider mode={mode}"
     perplexity_queries = tuple(getattr(state, "perplexity_queries", ()) or ())
     px_status = perplexity_configuration_status()
+    px_feature = "HABILITADA" if perplexity_enabled() else "DESABILITADA"
     px_mode = str(getattr(state, "perplexity_search_type", "web") or "web").upper()
     if perplexity_queries:
         px_preview = "; ".join(perplexity_queries[:2])
@@ -738,17 +739,22 @@ def _render_menu_extension(state: SearchConsoleState) -> None:
             px_preview += f"; +{len(perplexity_queries) - 2}"
         perplexity_line = (
             f"{len(perplexity_queries)} query(s) | {px_mode} | "
+            f"integração {px_feature} | "
             f"{'configurada' if px_status['configured'] else 'não configurada'} | {px_preview}"
         )
     else:
         perplexity_line = (
-            "não solicitado | "
+            f"não solicitado | integração {px_feature} | "
             + ("credencial configurada" if px_status["configured"] else "credencial não configurada")
         )
 
     print("\nSEARCH INTELLIGENCE")
     print(f"T. Termos SERP            : {status}")
     print(f"U. Perplexity externa     : {perplexity_line}")
+    print(
+        "   SERP e Perplexity são pedidos independentes; "
+        "habilitar integração/chave não solicita pesquisa externa."
+    )
     print("   Termos são transitórios da sessão; credenciais/provider/limites continuam em E.")
 
 
