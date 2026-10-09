@@ -93,13 +93,23 @@ def _interpretation(con: sqlite3.Connection, audit: str) -> str:
         if "created_at" in cols
         else "result_id DESC"
     )
+    # Never promote an earlier AVAILABLE result if the newest persisted
+    # attempt failed or is unknown. The CAT-08 crossref must describe the
+    # current terminal state without launching or reusing an AI provider.
     row = con.execute(
-        "SELECT result_id FROM geo_ai_interpretations "
-        "WHERE audit_id=? AND state='AVAILABLE' ORDER BY " + sort + " LIMIT 1",
+        "SELECT result_id, state FROM geo_ai_interpretations "
+        "WHERE audit_id=? ORDER BY " + sort + " LIMIT 1",
         (audit,),
     ).fetchone()
     if row is None:
         return "<p>Sem interpretação GEO por IA disponível e persistida.</p>"
+    if row[1] != "AVAILABLE":
+        return (
+            "<p>Interpretação GEO por IA indisponível na última tentativa "
+            "(estado: " + escape(str(row[1] or "INDETERMINADO")[:60]) + "). "
+            "Uma interpretação anterior não representa o estado atual; "
+            "nenhuma IA é acionada nesta projeção.</p>"
+        )
     return ("<p>Interpretação GEO persistida: <code>" + escape(str(row[0]))
             + "</code>. Verifique suas fontes e limitações em GEO; "
             "nenhuma IA é acionada nesta projeção.</p>")
