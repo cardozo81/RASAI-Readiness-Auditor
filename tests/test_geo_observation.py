@@ -55,6 +55,14 @@ class GeoObservationTests(unittest.TestCase):
             self.assertEqual(data["perplexity_run_id"], "RUN-1")
             self.assertEqual(data["serp_observation_id"], "SERP-1")
             self.assertEqual(data["url_overlap_count"], 1)
+            descriptive = data["descriptive_overlap"]
+            self.assertEqual(descriptive["status"], "DESCRIPTIVE_ONLY")
+            self.assertEqual(descriptive["serp_denominator"], 1)
+            self.assertEqual(descriptive["perplexity_denominator"], 1)
+            self.assertEqual(descriptive["common_urls"], 1)
+            self.assertEqual(descriptive["serp_overlap_rate"], 1.0)
+            self.assertEqual(descriptive["perplexity_overlap_rate"], 1.0)
+            self.assertEqual(descriptive["jaccard_url_rate"], 1.0)
 
     def test_target_observation_explains_alternative_and_absence_without_causality(self):
         from rasai.geo_observation import _target_observation
@@ -106,6 +114,9 @@ class GeoObservationTests(unittest.TestCase):
                 ).fetchone()[0])
             self.assertIsNone(data["serp_observation_id"])
             self.assertIsNone(data["url_overlap_count"])
+            self.assertEqual(data["descriptive_overlap"]["status"], "NOT_COMPARABLE")
+            self.assertEqual(data["descriptive_overlap"]["reason"], "UNATTRIBUTABLE_QUERY_SET")
+            self.assertIsNone(data["descriptive_overlap"]["serp_overlap_rate"])
 
 
     def test_report_reprocessing_reuses_persisted_external_evidence(self):
@@ -146,6 +157,43 @@ class GeoObservationTests(unittest.TestCase):
                     con.execute("SELECT count(*) FROM geo_observation_runs").fetchone()[0], 1
                 )
                 self.assertEqual(con.execute("PRAGMA integrity_check").fetchone()[0], "ok")
+
+
+    def test_descriptive_metrics_are_directional_and_abstain_without_denominator(self):
+        from rasai.geo_observation import _descriptive_overlap_metrics
+        metrics = _descriptive_overlap_metrics(
+            {"example.org/a", "example.org/b"},
+            {"example.org/b", "example.org/c", "example.org/d"},
+            serp_id="SERP-1", query_set=["insurance"], search_status="SUCCESS",
+        )
+        self.assertEqual(metrics["status"], "DESCRIPTIVE_ONLY")
+        self.assertEqual(metrics["serp_denominator"], 3)
+        self.assertEqual(metrics["perplexity_denominator"], 2)
+        self.assertEqual(metrics["common_urls"], 1)
+        self.assertEqual(metrics["serp_overlap_rate"], 0.3333)
+        self.assertEqual(metrics["perplexity_overlap_rate"], 0.5)
+        self.assertEqual(metrics["jaccard_url_rate"], 0.25)
+        self.assertEqual(metrics["serp_only_count"], 2)
+        self.assertEqual(metrics["perplexity_only_count"], 1)
+        empty = _descriptive_overlap_metrics(
+            set(), {"example.org/c"}, serp_id="SERP-1",
+            query_set=["insurance"], search_status="SUCCESS",
+        )
+        self.assertEqual(empty["reason"], "NO_VALID_URL_DENOMINATOR")
+        self.assertIsNone(empty["jaccard_url_rate"])
+        missing = _descriptive_overlap_metrics(
+            {"example.org/a"}, {"example.org/a"}, serp_id=None,
+            query_set=["insurance"], search_status="SUCCESS",
+        )
+        self.assertEqual(missing["reason"], "NO_EQUIVALENT_OBSERVED_SERP_QUERY")
+        self.assertIsNone(missing["serp_denominator"])
+        failed = _descriptive_overlap_metrics(
+            {"example.org/a"}, {"example.org/a"}, serp_id="SERP-1",
+            query_set=["insurance"], search_status="TIMEOUT_ERROR",
+        )
+        self.assertEqual(failed["reason"], "EXTERNAL_SEARCH_NOT_SUCCESSFUL")
+        self.assertIsNone(failed["common_urls"])
+
 
 
 if __name__ == "__main__":
