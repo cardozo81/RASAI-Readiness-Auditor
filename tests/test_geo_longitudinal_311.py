@@ -282,3 +282,18 @@ def test_corrupt_sqlite_remains_explicit_technical_read_failure(tmp_path):
     assert result["excluded"] == [{
         "audit_id": "AUD-CORRUPTED", "reason": "AUD_SCHEMA_OR_READ_ERROR",
     }]
+
+
+def test_v5_v6_methodology_versions_never_share_a_longitudinal_group(tmp_path):
+    old = audit(tmp_path, "AUD-OLD-METHOD", version="RASAI-GEO-OBSERVATION-5")
+    current = audit(tmp_path, "AUD-NEW-METHOD", version="RASAI-GEO-OBSERVATION-6")
+    result = build_geo_longitudinal_preview([old, current])
+    assert result["audits_eligible"] == 2
+    assert result["excluded"] == []
+    assert len(result["timelines"]) == 2
+    assert {x["method_version"] for x in result["timelines"]} == {
+        "RASAI-GEO-OBSERVATION-5", "RASAI-GEO-OBSERVATION-6",
+    }
+    assert all(x["status"] == "SINGLE_OBSERVATION" for x in result["timelines"])
+    assert all(x["trend_conclusion"] == "N/D" for x in result["timelines"])
+    assert result["audit_writes"] == result["provider_requests"] == 0
