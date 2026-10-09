@@ -946,3 +946,13 @@ def test_external_geo_economics_cannot_be_forged_by_rehashing_manifest(
             transport=lambda *args: pytest.fail("no HTTP on manipulated ledger"),
         )
     assert workspace.database.read_bytes() == original_db
+
+
+def test_ledger_unknown_estimated_cost_cannot_be_published_as_zero():
+    from rasai.geo_post_audit_complement import _same_ledger_quantity
+    assert _same_ledger_quantity(None, None)
+    assert not _same_ledger_quantity(0, None)
+    assert not _same_ledger_quantity(0.0, None)
+    assert _same_ledger_quantity(0, None, null_usage_zero=True)
+    assert not _same_ledger_quantity(float("nan"), None, null_usage_zero=True)
+    assert not _same_ledger_quantity(False, 0)
