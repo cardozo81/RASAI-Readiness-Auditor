@@ -567,6 +567,14 @@ def test_supplement_lifecycle_inspector_without_new_cost_or_aud_changes(
     assert output["entries"][0]["verified_source_count"] == 1
     assert output["entries"][0]["search_started_at"]
     assert output["entries"][0]["search_finished_at"]
+    cost_source = json.loads(
+        (created.directory / "result.json").read_text(encoding="utf-8")
+    )
+    assert output["entries"][0]["posthoc_estimated_cost"] == cost_source["posthoc_estimated_cost"]
+    assert output["entries"][0]["cost_currency"] == cost_source["cost_currency"]
+    assert output["entries"][0]["pricing_version"] == cost_source["pricing_version"]
+    assert output["entries"][0]["cost_is_provider_invoice"] is False
+    assert output["entries"][0]["cost_belongs_to_original_audit"] is False
     assert output["verified_successful_searches"] == 1
     assert output["verified_unsuccessful_searches"] == 0
     assert output["verified_means_evidence_integrity_not_search_success"] is True
@@ -606,6 +614,7 @@ def test_supplement_lifecycle_exposes_ambiguous_and_invalid_without_html(
     assert final["verified"] == 0
     assert final["uncertain"] == final["invalid"] == 1
     assert all(x["evidence_html"] is None for x in final["entries"])
+    assert all(x["posthoc_estimated_cost"] is None for x in final["entries"])
     assert final["provider_requests"] == final["audit_writes"] == 0
     assert workspace.database.read_bytes() == original
 
