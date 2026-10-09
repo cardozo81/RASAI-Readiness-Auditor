@@ -64,10 +64,17 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
     if timeline is not None and timeline.attempts:
         timeline_rows=[]
         for stage in timeline.stages:
+            if stage.name == "DIRECTED_ANALYSIS":
+                scope = "Análise direcionada opcional ou complementar"
+            elif stage.name == "EXTERNAL_SEARCH_API":
+                scope = "Integração externa sob solicitação"
+            else:
+                scope = "IA da execução; verificar origem no ledger"
             active = (f"{stage.union_active_ms / 1000:.2f} s"
                       if stage.union_active_ms is not None else "N/D (relógio incompleto)")
             timeline_rows.append((
                 stage.name.replace("_"," ").title(),
+                scope,
                 stage.attempts,
                 f"{stage.summed_duration_ms / 1000:.2f} s",
                 active,
@@ -88,7 +95,7 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
             "também não é confirmação de cobrança bancária. Captura, PSI e Apdex "
             "não são medidos nesta projeção.</p>"
             + _table(
-                ("Etapa", "Tentativas", "Soma das durações", "Tempo ativo (união)",
+                ("Etapa", "Escopo do gasto", "Tentativas", "Soma das durações", "Tempo ativo (união)",
                  "Estimativa pós-uso USD", "Valor provider USD", "Lacunas"),
                 timeline_rows,
             ),
@@ -422,14 +429,13 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             geo_filename = CATALOG_PAGE_BY_ID[geo_catalog].filename
             if geo_filename in bodies:
                 bodies[geo_filename] += catalog_geo_context(database, audit_id, geo_catalog)
-        geo_reference=(
-            "<section><h2>GEO (observacional)</h2><p>Analise a "
-            "<a href='geo.html'>síntese transversal GEO</a> para fontes externas,"
-            " consultas e oportunidades baseadas em evidências persistidas."
-            " Nenhuma ação técnica ou editorial garante citação em IAs.</p></section>"
-        )
-        for geo_page in ("index.html","directed-analysis.html","ai-integrations.html"):
-            bodies[geo_page]+=geo_reference
+        from rasai.geo_catalog_context import geo_surface_context
+        for geo_page, scope in (
+            ("index.html", "index"),
+            ("directed-analysis.html", "directed-analysis"),
+            ("ai-integrations.html", "ai-integrations"),
+        ):
+            bodies[geo_page] += geo_surface_context(database, audit_id, scope)
         assurance=assess_catalogs(database,data,bodies)
         source_dependencies=captured_source_dependencies()
         dependencies_ok,dependency_errors=verify_source_dependencies(root,source_dependencies)

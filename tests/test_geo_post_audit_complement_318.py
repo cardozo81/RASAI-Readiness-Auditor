@@ -154,3 +154,85 @@ def test_timeout_has_unknown_billability_and_must_never_auto_resend(tmp_path, mo
     stored = json.loads((first.directory / "result.json").read_text(encoding="utf-8"))
     assert stored["billability"] == "UNKNOWN"
     assert stored["native_usage_quantity"] == 1.0
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected_status"),
+    [(401, "AUTH_ERROR"), (402, "CREDIT_ERROR"), (429, "RATE_LIMIT_ERROR")],
+)
+def test_provider_business_errors_keep_original_sealed_and_never_retry(
+    tmp_path, monkeypatch, status_code, expected_status,
+):
+    workspace, aud = source(tmp_path, monkeypatch)
+    initial_db = sha256(workspace.database.read_bytes()).hexdigest()
+    original_manifest = (workspace.root / "report-catalog" / "manifest.json").read_bytes()
+    calls = []
+
+    def negative_transport(*args):
+        calls.append(status_code)
+        return PerplexityHttpResponse(
+            status=status_code, headers={},
+            body=b'{"error":{"message":"no credits or invalid key"}}',
+        )
+
+    kwargs = dict(
+        audit_id=aud, intent_id=f"http-{status_code}",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true", "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+        transport=negative_transport,
+    )
+    first = run(workspace, **kwargs)
+    assert first.request_executed is True
+    assert first.status == expected_status
+    assert first.directory is not None
+    with sqlite3.connect(first.directory / "evidence" / "audit.db") as con:
+        assert con.execute(
+            "SELECT status FROM perplexity_search_runs WHERE audit_id=?", (aud,)
+        ).fetchone()[0] == expected_status
+        assert con.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+    second = run(workspace, **kwargs)
+    assert second.status == "ALREADY_RECORDED"
+    assert second.request_executed is False
+    assert len(calls) == 1
+    assert sha256(workspace.database.read_bytes()).hexdigest() == initial_db
+    assert (workspace.root / "report-catalog" / "manifest.json").read_bytes() == original_manifest
+
+
+def test_existing_incomplete_intent_reservation_blocks_dispatch(tmp_path, monkeypatch):
+    from hashlib import sha256 as digest
+
+    workspace, aud = source(tmp_path, monkeypatch)
+    intent = "crash-recovered"
+    directory = (
+        workspace.root.parent / ".rasai-geo-supplements" / aud
+        / digest(intent.encode("utf-8")).hexdigest()[:32]
+    )
+    directory.mkdir(parents=True)
+    # Simulates crash before intent.json became durable.
+    kwargs = dict(
+        audit_id=aud, intent_id=intent, query="seguro de vida",
+        explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true", "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+        transport=lambda *args: pytest.fail("uncertain reservation must never call provider"),
+    )
+    result = run(workspace, **kwargs)
+    assert result.status == "PENDING_UNCERTAIN"
+    assert result.request_executed is False
+    assert result.billability == "NOT_ATTEMPTED"
+    assert not (directory / "evidence").exists()
+
+
+def test_intent_payload_reuse_cannot_change_search_type_or_options(tmp_path, monkeypatch):
+    workspace, aud = source(tmp_path, monkeypatch)
+    common = dict(
+        audit_id=aud, intent_id="unique-intent",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true", "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+    )
+    first = run(workspace, **common, transport=fake_transport)
+    assert first.status == "SUCCESS"
+    with pytest.raises(ValueError, match="same intent_id"):
+        run(
+            workspace, **common, search_type="fast",
+            transport=lambda *args: pytest.fail("new request cannot reuse intent"),
+        )

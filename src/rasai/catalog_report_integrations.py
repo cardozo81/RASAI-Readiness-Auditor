@@ -601,6 +601,36 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
             cost_html+=f"<div class='notice warn'>{int(forecast.get('unpriced_ai_attempts') or 0)} tentativa(s) de IA não possuem preço monetário conhecido e permanecem fora do total.</div>"
     else:
         cost_html=f"<div class='metric-grid'>{_metric('Custo observado',_money_display(total_cost,currency))}{_metric('Previsão pré-execução','Não persistida')}</div><div class='notice'>Sem previsão persistida, o relatório não inventa custo esperado, desvio ou faixa histórica.</div>"
+    from rasai.audit_cost_explain import forecast_readout
+    directed = [
+        i for i, attempt in enumerate(attempts)
+        if "DIRECTED" in " ".join(
+            str(attempt.get(key) or "").upper()
+            for key in ("operation", "ai_task_id", "contract", "purpose")
+        )
+    ]
+    if directed:
+        directed_value = sum(float(attempt_costs[i] or 0) for i in directed)
+        cost_html += (
+            "<div class='notice'>Desagregação de análises direcionadas: "
+            + str(len(directed)) + " tentativa(s), USD "
+            + f"{directed_value:.6f}"
+            + " em custos técnicos já incluídos no total; "
+            "não somar novamente. A previsão original pode ter escopo distinto.</div>"
+        )
+    forecast_currency = str(forecast.get("currency") or "USD").upper() if forecast else "USD"
+    observed_currencies = {
+        str(attempt.get("observed_cost_currency") or attempt.get("cost_currency") or "").upper()
+        for attempt in attempts if _attempt_cost_value(attempt) is not None
+    }
+    comparable_currency = bool(observed_currencies) and observed_currencies == {forecast_currency}
+    cost_html += forecast_readout(
+        forecast, observed_total=total_cost,
+        priced_attempts=sum(value is not None for value in attempt_costs),
+        total_attempts=len(attempt_costs),
+        optional_attempts=len(directed),
+        comparable_currency=comparable_currency,
+    )
     if native_unpriced:
         cost_html+=f"<div class='notice warn'>{native_unpriced} componente(s) de uso nativo não possuem conversão monetária aplicável; o relatório preserva a unidade observada e não inventa custo zero.</div>"
     body+=_section("cost","Custos e aderência à estimativa",cost_html)
