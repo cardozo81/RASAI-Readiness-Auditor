@@ -99,3 +99,58 @@ def test_cat08_without_ai_does_not_claim_interpretation(tmp_path):
     assert "GEOAI-OK" not in output
 
 
+
+
+def test_strategic_geo_surfaces_expose_only_persisted_same_aud_status(tmp_path):
+    from rasai.geo_catalog_context import geo_surface_context
+    db = tmp_path / "audit.db"
+    _db(db)
+    original = db.read_bytes()
+    index = geo_surface_context(db, "AUD-1", "index")
+    directed = geo_surface_context(db, "AUD-1", "directed-analysis")
+    integrations = geo_surface_context(db, "AUD-1", "ai-integrations")
+    assert "SERP-REAL" not in index
+    assert "Perplexity Search não solicitada" in index
+    for page in (index, directed, integrations):
+        assert "geo.html" in page
+    assert db.read_bytes() == original
+
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE perplexity_search_runs("
+            "run_id TEXT, audit_id TEXT, status TEXT, started_at TEXT)"
+        )
+        con.execute(
+            "CREATE TABLE perplexity_search_sources("
+            "run_id TEXT, url TEXT)"
+        )
+        con.executemany("INSERT INTO perplexity_search_runs VALUES (?,?,?,?)", [
+            ("RUN-1", "AUD-1", "SUCCESS", "2026-10-09"),
+            ("RUN-2", "AUD-2", "CREDIT_ERROR", "2026-10-09"),
+        ])
+        con.executemany("INSERT INTO perplexity_search_sources VALUES (?,?)", [
+            ("RUN-1", "https://evidence.test/a"),
+            ("RUN-1", "https://evidence.test/b"),
+            ("RUN-2", "https://secret.other/x"),
+        ])
+    overview = geo_surface_context(db, "AUD-1", "index")
+    directed = geo_surface_context(db, "AUD-1", "directed-analysis")
+    integrations = geo_surface_context(db, "AUD-1", "ai-integrations")
+    assert "RUN-1" in overview and "SUCCESS" in overview
+    assert "Fontes externas retornadas: 2" in overview
+    assert "RUN-2" not in overview and "CREDIT_ERROR" not in overview
+    assert "não significa que" in directed
+    assert "não recontabiliza gasto" in integrations
+    assert geo_surface_context(db, "AUD-1", "cat-07") == ""
+
+
+def test_surface_context_escapes_status_and_id(tmp_path):
+    from rasai.geo_catalog_context import geo_surface_context
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute("CREATE TABLE perplexity_search_runs(run_id TEXT,audit_id TEXT,status TEXT)")
+        con.execute("INSERT INTO perplexity_search_runs VALUES (?,?,?)",
+                    ("<img>", "AUD-S", "<script>"))
+    html = geo_surface_context(db, "AUD-S", "index")
+    assert "<script>" not in html and "<img>" not in html
+    assert "&lt;script&gt;" in html and "&lt;img&gt;" in html
