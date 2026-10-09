@@ -97,6 +97,16 @@ def _valid(observation: PrimaryContentReadiness) -> dict:
         or not 100 <= row["observation_window_ms"] <= 3000
     ):
         raise ValueError("incomplete or non-strict readiness provenance")
+    # Measurement states are only authorized for opt-in architectures.
+    # Otherwise a manually created JSON could falsely claim same-sample
+    # readiness on UNKNOWN/STATIC_OR_SSR without any physical probe.
+    if (
+        row["status"] in {"OBSERVED", "NOT_OBSERVED", "TIMEOUT"}
+        and row["architecture"] not in {"CSR_SPA", "HYDRATED", "MIXED"}
+    ):
+        raise ValueError("readiness measurement on non-eligible architecture")
+    if row["status"] == "OBSERVED" and row["reason"] != "stable_primary_dom_text":
+        raise ValueError("observed readiness must cite stability rule")
     for key in ("load_ms", "primary_content_ms", "post_load_delta_ms"):
         val = row[key]
         if val is not None and (
