@@ -450,3 +450,75 @@ def test_longitudinal_keeps_current_success_when_older_failed_search_exists(
     assert outcome["excluded"] == []
     assert outcome["timelines"][0]["status"] == "OBSERVATIONAL_SEQUENCE_ONLY"
     assert [path.joinpath("audit.db").read_bytes() for path in (source, control)] == before
+
+
+def test_html_companion_is_escaped_observational_and_never_writes_aud_or_cons(
+    tmp_path, capsys, monkeypatch,
+):
+    from rasai import entrypoint
+    left = audit(
+        tmp_path, "AUD-HTML-LEFT",
+        query="seguro <img src=x onerror=alert(1)>",
+        scope_region="São Paulo <script>unexpected()</script>",
+    )
+    right = audit(
+        tmp_path, "AUD-HTML-RIGHT",
+        query="seguro <img src=x onerror=alert(1)>",
+        scope_region="São Paulo <script>unexpected()</script>",
+    )
+    before = [
+        (path / "audit.db").read_bytes() for path in (left, right)
+    ]
+    monkeypatch.setattr(
+        entrypoint, "_install_audit_runtime",
+        lambda: pytest.fail("HTML read-only mode must not install audit runtime"),
+    )
+    assert entrypoint.main([
+        "geo-longitudinal", "--format", "html", str(left), str(right),
+    ]) == 0
+    html = capsys.readouterr().out
+    assert html.startswith("<!doctype html>")
+    assert "<h1>Inventário GEO longitudinal" in html
+    assert "AUD-HTML-LEFT" in html and "AUD-HTML-RIGHT" in html
+    assert "OBSERVATIONAL_SEQUENCE_ONLY" in html
+    assert "tendência: <strong>N/D</strong>" in html
+    assert "&lt;img src=x onerror=alert(1)&gt;" in html
+    assert "<img src=x onerror=alert(1)>" not in html
+    assert "&lt;script&gt;unexpected()&lt;/script&gt;" in html
+    assert "<script>unexpected()</script>" not in html
+    assert "não significa citação" in html
+    assert [path.joinpath("audit.db").read_bytes() for path in (left, right)] == before
+    assert all(not (path / "report-catalog").exists() for path in (left, right))
+    assert not list(tmp_path.glob("CONS-*"))
+
+
+def test_html_companion_explicitly_shows_rejected_and_empty_groups(
+    tmp_path, capsys,
+):
+    from rasai.geo_longitudinal_html_311 import render_geo_longitudinal_html
+    first = audit(tmp_path, "AUD-WITH-GEO")
+    second = tmp_path / "AUD-LEGACY-NO-DATABASE"
+    second.mkdir()
+    preview = build_geo_longitudinal_preview([first, second])
+    html = render_geo_longitudinal_html(preview)
+    assert "<th>Motivo verificável</th>" in html
+    assert "AUD-LEGACY-NO-DATABASE" in html
+    assert "AUD_DATABASE_MISSING" in html
+    assert "SINGLE_OBSERVATION" in html
+    assert "tendência: <strong>N/D</strong>" in html
+    assert "provider_requests" not in html  # does not invent commercial measurements
+    assert main(["--format", "json", str(first), str(second)]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["provider_requests"] == payload["audit_writes"] == 0
+    assert payload["audits_eligible"] == 1
+
+    fake = dict(preview)
+    fake["timelines"] = []
+    fake["excluded"] = [
+        {"audit_id": "<img src=x onerror=alert(1)>", "reason": "<script>unsafe</script>"}
+    ]
+    empty_html = render_geo_longitudinal_html(fake)
+    assert "Nenhuma coorte GEO longitudinal elegível" in empty_html
+    assert "<script>unsafe</script>" not in empty_html
+    assert "&lt;script&gt;unsafe&lt;/script&gt;" in empty_html
+    assert "&lt;img src=x onerror=alert(1)&gt;" in empty_html

@@ -344,10 +344,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Read-only GEO observational inventory; no AI/Search API requests."
     )
+    parser.add_argument(
+        "--format", choices=("json", "html"), default="json",
+        help="Standalone read-only output; HTML does not mutate CONS or AUDs.",
+    )
     parser.add_argument("audit_dirs", nargs="+", type=Path)
     args = parser.parse_args(argv)
     result = build_geo_longitudinal_preview(args.audit_dirs)
-    print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))
+    if args.format == "html":
+        from rasai.geo_longitudinal_html_311 import render_geo_longitudinal_html
+        print(render_geo_longitudinal_html(result))
+    else:
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))
     return 0
 
 
