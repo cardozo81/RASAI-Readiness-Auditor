@@ -547,3 +547,17 @@ CAT-05 Perplexity > opção 8. Saída JSON por intenção: `VERIFIED`,
 de faturamento desconhecido permanece incerto, sem repetição automática.
 Esse inventário não prova citação em IA, não altera o snapshot GEO v5/v6
 da AUD original e não aciona RPR.
+
+O estado `VERIFIED` certifica **integridade e vínculo do pacote**, não uma
+resposta HTTP bem-sucedida. O inventário expõe separadamente
+`search_status`, `verified_source_count`, `search_started_at` e
+`search_finished_at` apenas após conferir os registros de resultado,
+fontes, timestamps e faturabilidade contra o SQLite derivado. Totais
+`verified_successful_searches` e `verified_unsuccessful_searches`
+distinguem sucesso de erro de autenticação, rate limit e outras falhas.
+Um `result.json` adulterado, mesmo acompanhado de manifesto com novos
+hashes, não pode declarar fontes não persistidas ou converter cobrança
+registrada como possível/verdadeira em gratuita. Para pacote `INVALID`
+ou `PENDING_UNCERTAIN`, o resultado e a quantidade de fontes não são
+inferidos. Custos e tempos dos suplementos não entram nas somas da AUD
+original (#319). Nenhuma chamada comercial é realizada pela inspeção.
