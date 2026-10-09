@@ -251,15 +251,20 @@ def _existing(
 
 
 
-def _same_ledger_quantity(reported: object, recorded: object) -> bool:
-    """Compare finite numeric usage/cost while rejecting bool, NaN and Infinity.
+def _same_ledger_quantity(
+    reported: object, recorded: object, *, null_usage_zero: bool = False,
+) -> bool:
+    """Compare canonical numeric evidence without laundering unknown cost.
 
-    result.json records zero usage when the provider returned no native
-    consumption item; the canonical ledger uses SQL NULL in that case.
-    This is a representation allowance, not an invented provider charge.
+    Only native request usage may serialize SQL NULL as zero when no usage
+    item was present. An unknown *cost* must remain None, never become 0.
     """
     if recorded is None:
-        return reported is None or type(reported) in (int, float) and reported == 0
+        return (
+            reported is None
+            or (null_usage_zero and type(reported) in (int, float)
+                and math.isfinite(reported) and reported == 0)
+        )
     if (
         type(reported) not in (int, float)
         or type(recorded) not in (int, float)
@@ -364,7 +369,9 @@ def _verify_recorded_supplement(
             # rewriting result.json and re-hashing manifest.json. Neither
             # estimated cost nor usage is proof of an actual provider invoice.
             or row[9] != result.get("native_usage_unit")
-            or not _same_ledger_quantity(result.get("native_usage_quantity"), row[10])
+            or not _same_ledger_quantity(
+                result.get("native_usage_quantity"), row[10], null_usage_zero=True
+            )
             or not _same_ledger_quantity(result.get("posthoc_estimated_cost"), row[11])
             or row[12] != result.get("cost_currency")
             or row[13] != result.get("pricing_version")
