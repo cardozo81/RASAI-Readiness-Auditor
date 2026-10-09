@@ -88,8 +88,6 @@ def cat07_architecture_advice_html(
     frozen_meta: Mapping[str, Any] | None = None,
 ) -> str:
     """Render an advisory from one AUD. Empty/ambiguous old data => explicit N/D."""
-    from rasai.catalog_report_model import _safe_json
-    del _safe_json  # Explicitly never use mutable current console settings.
     with sqlite3.connect(f"file:{database.resolve().as_posix()}?mode=ro", uri=True) as con:
         con.execute("PRAGMA query_only=ON")
         architecture, provenance, note = _observed_architecture(con, audit_id)
