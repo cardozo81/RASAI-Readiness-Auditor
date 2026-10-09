@@ -18,8 +18,12 @@ permissions:
 
 jobs:
   probe:
-    name: Bounded same-page probe isolated regression
-    runs-on: ubuntu-latest
+    name: Bounded same-page probe isolated regression (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
