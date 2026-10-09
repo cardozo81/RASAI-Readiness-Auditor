@@ -1,0 +1,34 @@
+name: GEO Supplement and AUD Attempt Inspection
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/geo_supplement_inspection_309.py'
+      - 'src/rasai/audit_attempt_inspection_319.py'
+      - 'src/rasai/geo_post_audit_complement.py'
+      - 'src/rasai/audit_attempt_timeline.py'
+      - 'src/rasai/entrypoint.py'
+      - 'tests/test_audit_inspection_cli_319.py'
+      - 'tests/test_geo_post_audit_complement_318.py'
+      - '.github/workflows/geo-read-only-inspection-targeted.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Run source-only fixtures without any provider secrets
+        run: |
+          python -m pip install -e . pytest
+          python -m pytest -q tests/test_audit_inspection_cli_319.py tests/test_geo_post_audit_complement_318.py
