@@ -716,6 +716,13 @@ def geo_body(database: Path, audit_id: str) -> str:
                     escape(str(x)) for x in opportunity["evidence_ids"]
                 ) + "</li>"
             summary += "</ol>"
+        elif geo_ai.get("state") == "PENDING_UNCERTAIN":
+            summary += (
+                "<p>Resultado indeterminado: uma solicitação à IA canônica "
+                "foi reservada, mas a conclusão não foi persistida. "
+                "Pode existir cobrança externa. O RASAi bloqueia novo envio "
+                "automático; consulte o ledger antes de autorizar outra tentativa.</p>"
+            )
         else:
             summary += "<p>Sem oportunidade com referência de evidência validada.</p>"
         if geo_ai.get("error_reason"):
