@@ -26,6 +26,8 @@ def forecast_readout(
     observed_total: float | None,
     priced_attempts: int,
     total_attempts: int,
+    optional_attempts: int = 0,
+    comparable_currency: bool = True,
 ) -> str:
     """Return only qualified, report-ready text from already persisted numbers."""
     if not forecast:
@@ -40,7 +42,8 @@ def forecast_readout(
     observed = _number(observed_total)
     count = max(int(total_attempts), 0)
     priced = max(0, min(int(priced_attempts), count))
-    coverage_complete = count > 0 and priced == count
+    coverage_complete = count > 0 and priced == count and comparable_currency
+    has_optional = optional_attempts > 0
     result = (
         "<div class='notice'><strong>Interpretação da previsão:</strong> "
         "a classe de desvio compara o realizado com a estimativa pontual; "
@@ -49,6 +52,19 @@ def forecast_readout(
         "Chamadas opcionais pós-AUD e suplementos GEO possuem escopo econômico "
         "próprio e não devem ser atribuídos retroativamente à execução central.</div>"
     )
+    if has_optional:
+        result += (
+            "<div class='notice warn'>Há " + str(optional_attempts)
+            + " tentativa(s) de análise complementar/direcionada. "
+            "Sem prova de que a previsão pré-auditoria as incluiu, "
+            "não comparar o total combinado com a faixa ou previsão central.</div>"
+        )
+    if not comparable_currency:
+        result += (
+            "<div class='notice warn'>Moedas dos custos individuais e da "
+            "previsão não são comprovadamente homogêneas; taxas de câmbio "
+            "não são estimadas.</div>"
+        )
     if not coverage_complete:
         result += (
             "<div class='notice warn'>Cobertura monetária incompleta: "
@@ -57,7 +73,7 @@ def forecast_readout(
             "Não concluir precisão ou desvio do custo total.</div>"
         )
     if (
-        coverage_complete and observed is not None
+        coverage_complete and not has_optional and observed is not None
         and low is not None and high is not None and low <= high
     ):
         if low <= observed <= high:
@@ -77,7 +93,7 @@ def forecast_readout(
             "<p>Posição do custo na faixa histórica: N/D "
             "(faixa, cobertura ou valor observado insuficiente).</p>"
         )
-    if expected is not None and expected > 0 and coverage_complete and observed is not None:
+    if expected is not None and expected > 0 and coverage_complete and not has_optional and observed is not None:
         delta = (observed - expected) * 100 / expected
         result += (
             "<p>Desvio frente à estimativa pontual persistida: "
