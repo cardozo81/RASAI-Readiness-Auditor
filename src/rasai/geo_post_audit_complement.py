@@ -322,7 +322,8 @@ def list_post_audit_geo_supplements(
             with sqlite3.connect(evidence_db.resolve().as_uri() + "?mode=ro", uri=True) as con:
                 con.execute("PRAGMA query_only=ON")
                 matches = con.execute(
-                    "SELECT run_id, audit_id, status, query_json, search_type "
+                    "SELECT run_id, audit_id, status, query_json, search_type, "
+                    "purpose, request_payload_hash "
                     "FROM perplexity_search_runs WHERE run_id=?",
                     (result["run_id"],),
                 ).fetchall()
@@ -331,6 +332,8 @@ def list_post_audit_geo_supplements(
                     or matches[0][1] != audit_id
                     or matches[0][2] != result["status"]
                     or str(matches[0][4] or "").lower() != mode
+                    or matches[0][5] != "POST_AUD_GEO_SUPPLEMENT"
+                    or matches[0][6] != result.get("request_payload_hash")
                     or json.loads(matches[0][3]) != list(request)
                     or con.execute("PRAGMA quick_check").fetchone()[0] != "ok"
                     or con.execute("PRAGMA foreign_key_check").fetchone() is not None
