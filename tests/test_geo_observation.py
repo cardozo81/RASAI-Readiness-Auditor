@@ -210,6 +210,12 @@ class GeoObservationTests(unittest.TestCase):
                      "RASAI-GEO-OBSERVATION-2", "v2-hash",
                      '{"old_v2":true}', "2026-10-08"),
                 )
+                con.execute(
+                    "INSERT INTO geo_observation_runs VALUES (?,?,?,?,?,?,?,?)",
+                    ("GEO-V4", "AUD-1", "RUN-1", None,
+                     "RASAI-GEO-OBSERVATION-4", "v4-hash",
+                     '{"old_v4":true}', "2026-10-09"),
+                )
             new_id = materialize_geo_observation(db, "AUD-1")
             self.assertIsNotNone(new_id)
             self.assertNotEqual(new_id, "GEO-LEGACY")
@@ -219,11 +225,12 @@ class GeoObservationTests(unittest.TestCase):
                     "SELECT contract_version, projection_json FROM geo_observation_runs "
                     "ORDER BY contract_version"
                 ).fetchall()
-                self.assertEqual(len(rows), 3)
+                self.assertEqual(len(rows), 4)
                 self.assertEqual(rows[0], ("RASAI-GEO-OBSERVATION-1", old_projection))
                 self.assertEqual(rows[1], ("RASAI-GEO-OBSERVATION-2", '{"old_v2":true}'))
-                self.assertEqual(rows[2][0], "RASAI-GEO-OBSERVATION-5")
-                self.assertIn("descriptive_overlap", json.loads(rows[2][1]))
+                self.assertEqual(rows[2], ("RASAI-GEO-OBSERVATION-4", '{"old_v4":true}'))
+                self.assertEqual(rows[3][0], "RASAI-GEO-OBSERVATION-5")
+                self.assertIn("descriptive_overlap", json.loads(rows[3][1]))
                 self.assertEqual(con.execute("PRAGMA foreign_key_check").fetchall(), [])
                 self.assertEqual(con.execute("PRAGMA integrity_check").fetchone()[0], "ok")
 
