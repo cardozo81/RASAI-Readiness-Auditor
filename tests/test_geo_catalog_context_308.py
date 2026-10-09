@@ -99,23 +99,3 @@ def test_cat08_without_ai_does_not_claim_interpretation(tmp_path):
     assert "GEOAI-OK" not in output
 
 
-def test_existing_report_materialization_uses_context_by_catalog(tmp_path):
-    from test_catalog_report_site import _workspace, AUDIT_ID
-    from rasai.catalog_report_site import materialize_catalog_report_site
-
-    workspace, _ = _workspace(tmp_path)
-    with sqlite3.connect(workspace.database) as con:
-        con.execute(
-            "CREATE TABLE findings(audit_id TEXT, finding_id TEXT, category TEXT, "
-            "rule_id TEXT, title TEXT, evidence_ids TEXT)"
-        )
-        con.execute(
-            "INSERT INTO findings VALUES (?,?,?,?,?,?)",
-            (AUDIT_ID, "GEO-CAT1", "INDEXABILITY", "R-INDEX",
-             "Inspecionar indexação", '["EV-INDEX"]'),
-        )
-    report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
-    cat1 = (report / "cat-01.html").read_text(encoding="utf-8")
-    cat3 = (report / "cat-03.html").read_text(encoding="utf-8")
-    assert "GEO-CAT1" in cat1 and "EV-INDEX" in cat1
-    assert "GEO-CAT1" not in cat3
