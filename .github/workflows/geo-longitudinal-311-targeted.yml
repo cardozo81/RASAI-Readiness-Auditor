@@ -1,0 +1,28 @@
+name: GEO Longitudinal 311 Read-Only
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/geo_longitudinal_311.py'
+      - 'src/rasai/geo_observation.py'
+      - 'tests/test_geo_longitudinal_311.py'
+      - 'docs/GEO_LONGITUDINAL_311.md'
+      - '.github/workflows/geo-longitudinal-311-targeted.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  longitudinal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Run isolated fake persisted GEO fixtures; no API keys
+        run: |
+          python -m pip install -e . pytest
+          python -m compileall -q src/rasai/geo_longitudinal_311.py
+          python -m pytest -q tests/test_geo_longitudinal_311.py
