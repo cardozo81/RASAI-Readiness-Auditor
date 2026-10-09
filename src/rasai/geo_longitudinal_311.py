@@ -20,7 +20,7 @@ from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIAB
 
 _CONTRACTS = frozenset({
     "RASAI-GEO-OBSERVATION-5", "RASAI-GEO-OBSERVATION-6",
-    "RASAI-GEO-OBSERVATION-7",
+    "RASAI-GEO-OBSERVATION-7", "RASAI-GEO-OBSERVATION-8",
 })
 _SCOPE_KEYS = ("engine", "country", "region", "language", "device")
 
