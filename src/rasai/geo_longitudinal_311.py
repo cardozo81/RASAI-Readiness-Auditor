@@ -19,6 +19,7 @@ from rasai.geo_observation import _canonical_url
 
 _CONTRACTS = frozenset({
     "RASAI-GEO-OBSERVATION-5", "RASAI-GEO-OBSERVATION-6",
+    "RASAI-GEO-OBSERVATION-7",
 })
 _SCOPE_KEYS = ("engine", "country", "region", "language", "device")
 

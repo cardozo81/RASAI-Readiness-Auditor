@@ -596,7 +596,7 @@ def geo_body(database: Path, audit_id: str) -> str:
         # counts visible but label them as noncomparable legacy observations.
         is_v4 = comparison.get("contract_version") in {
             "RASAI-GEO-OBSERVATION-4", "RASAI-GEO-OBSERVATION-5",
-            "RASAI-GEO-OBSERVATION-6",
+            "RASAI-GEO-OBSERVATION-6", "RASAI-GEO-OBSERVATION-7",
         }
         if is_v4 and not has_verified_rates:
             summary += (
