@@ -335,5 +335,19 @@ class GeoAiConsumerTests(unittest.TestCase):
                 ).fetchone())
 
 
+    def test_optional_geo_ai_never_creates_database_for_missing_file(self):
+        with tempfile.TemporaryDirectory() as root:
+            absent = Path(root) / "AUD-MISSING" / "audit.db"
+            self.assertFalse(absent.exists())
+            self.assertEqual(
+                execute_geo_ai(
+                    absent, "AUD-MISSING", provider_selection="auto",
+                    provider_factory=lambda _: self.fail("no provider without source"),
+                ),
+                "NOT_ELIGIBLE",
+            )
+            self.assertFalse(absent.exists())
+
+
 if __name__ == "__main__":
     unittest.main()
