@@ -1,7 +1,7 @@
 # #311 - GEO longitudinal: inventário observacional conservador
 
 Esta entrega é uma fase independente, read-only e opt-in de comparação
-de snapshots GEO v5/v6 já persistidos em AUDs distintas. Ela não altera
+de snapshots GEO v5/v6/v7 já persistidos em AUDs distintas. Ela não altera
 `CONS-*`, não materializa nova auditoria, não chama SERP/Perplexity/IA,
 não executa RPR, não modifica pontuação nem cria relatório
 consolidado novo. Não pressupõe que presença em Search API
@@ -105,8 +105,27 @@ data/hora validada está mais próxima da requisição Search API
 recente, que pode estar fora da janela. Se não houver amostra
 elegível, taxas SERP x Perplexity continuam `N/D`.
 
-O comando longitudinal aceita snapshots **v5 e v6** mas usa
+O comando longitudinal aceita snapshots **v5, v6 e v7** mas usa
 `method_version` como chave de agrupamento. Duas observações
 da mesma URL, mesmo mercado e query com versões diferentes
 continuam separadas e `trend_conclusion=N/D`. Nenhuma equivalência
 de mercado/idioma/dispositivo entre motores foi presumida.
+
+
+## Prova de cronologia do snapshot GEO v7 (#311)
+
+Ao encontrar mais de um `geo_observation_runs` na mesma AUD, o inventário
+não pressupõe que um `analysis_id` opaco seja ordenável, nem que strings
+ISO de diferentes fusos estejam em ordem cronológica. O candidato mais
+recente é escolhido por `created_at` convertido a UTC somente quando
+todos os instantes envolvidos possuem fuso válido, há no máximo
+256 snapshots e o instante mais recente é único. Se houver empate,
+timestamp ingênuo, nulo, inválido ou excesso de histórico, a AUD
+fica em `excluded[]` com
+`GEO_SNAPSHOT_CHRONOLOGY_UNVERIFIABLE`, sem promover resultado antigo.
+
+Um único snapshot mantém compatibilidade legada. A visão aceita v7,
+mas preserva método/versionamento como chave de agrupamento,
+separando v5, v6 e v7 de qualquer inferência de tendência.
+Nenhuma alteração é feita no motor CONS de mesma URL,
+em AUDs seladas ou em serviços comerciais.
