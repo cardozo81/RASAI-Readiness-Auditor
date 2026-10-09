@@ -43,6 +43,7 @@ def _last_temporally_verified(
     table: str, audit_id: str,
     columns: tuple[str, ...], time_column: str,
     condition: str = "",
+    condition_params: tuple = (),
 ) -> tuple | None | object:
     """Pick the latest same-AUD row only with provable clock chronology.
 
@@ -61,7 +62,7 @@ def _last_temporally_verified(
         + "FROM " + table + " WHERE audit_id=?" + condition
         + " LIMIT " + str(_MAX_READONLY_CROSSREF_ROWS + 1)
     )
-    rows = con.execute(query, (audit_id,)).fetchall()
+    rows = con.execute(query, (audit_id, *condition_params)).fetchall()
     if not rows:
         return None
     if len(rows) == 1:
