@@ -118,6 +118,24 @@ class GeoReportTests(unittest.TestCase):
             self.assertIn("Região SERP: São Paulo", geo_body(db, "AUD-ONE"))
             self.assertIn("Equivalência de país, idioma, dispositivo e instante", geo_body(db, "AUD-ONE"))
             self.assertIn("não comprovada", geo_body(db, "AUD-ONE"))
+            # A v4 snapshot can retain source evidence but cannot report
+            # noncomparable raw coincidence counts as cross-source overlap.
+            with closing(sqlite3.connect(db)) as con, con:
+                con.execute(
+                    "INSERT INTO geo_observation_runs VALUES (?,?,?,?)",
+                    ("g2", "AUD-ONE",
+                     '{"contract_version":"RASAI-GEO-OBSERVATION-4",'
+                     '"perplexity_run_id":"r1","serp_observation_id":"s1",'
+                     '"url_overlap_count":1,"serp_url_count":1,"perplexity_url_count":1,'
+                     '"descriptive_overlap":{"status":"NOT_COMPARABLE",'
+                     '"reason":"TIME_SCOPE_UNPROVEN"},'
+                     '"comparability":{"serp_context":{"country":"BR"}}}',
+                     "2026-10-09T18:00:00Z"),
+                )
+            v4 = geo_body(db, "AUD-ONE")
+            self.assertIn("Sobreposição observacional de URLs: N/D", v4)
+            self.assertIn("instantes de coleta sem relógios verificáveis", v4)
+            self.assertNotIn("1 em ambas", v4)
 
 
     def test_extraction_warning_visible_without_perplexity_run(self):
