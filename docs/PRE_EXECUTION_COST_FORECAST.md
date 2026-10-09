@@ -77,9 +77,16 @@ precisa de tempo de conclusão.
 
 Regras conservadoras:
 
-- Somente execuções `COMPLETE` com `console_execution_projections`
-  materializada, relógios de início e fim compatíveis, duração física
-  positiva e contagem de páginas **idêntica** à projetada são elegíveis.
+- Somente execuções com status de ciclo `COMPLETED` **e**
+  `completion_status=COMPLETE` (ambos persistidos) podem constituir
+  a coorte. Um ciclo encerrado com diagnóstico parcial não serve
+  de baseline físico de auditoria completa. Schemas históricos que
+  não registram `completion_status` recebem `N/D`.
+- A contagem de páginas é filtrada por `pages.audit_id` da AUD
+  observada, nunca por linhas pertencentes a outro audit_id. Exigir
+  `console_execution_projections` materializada, relógios de início e
+  fim compatíveis, duração física positiva e universo de páginas
+  **idêntico** ao projetado. Sem identidade de página auditável, `N/D`.
 - É obrigatória a equivalência dos campos históricos disponíveis:
   modo de entrada, dispositivo, seleção de provider/modelo, content remediation,
   web performance, limite de páginas PSI (`web_max_pages`), field source e max
