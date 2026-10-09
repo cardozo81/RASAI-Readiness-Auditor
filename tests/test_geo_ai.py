@@ -291,5 +291,49 @@ class GeoAiConsumerTests(unittest.TestCase):
                 ).fetchone())
 
 
+    def test_ineligible_geo_ai_request_is_readonly_with_no_derived_table(self):
+        """No AI quota, materialization or schema mutation for failed search."""
+        with tempfile.TemporaryDirectory() as root:
+            db = Path(root) / "audit.db"
+            self._db(db)
+            with closing(sqlite3.connect(db)) as con, con:
+                con.execute(
+                    "UPDATE perplexity_search_runs SET status='AUTH_ERROR' "
+                    "WHERE run_id='PXS-1'"
+                )
+            original = db.read_bytes()
+            consumer = FakeCanonicalConsumer()
+            returned = execute_geo_ai(
+                db, "AUD-1", provider_selection="auto",
+                provider_factory=lambda _: consumer,
+            )
+            self.assertEqual(returned, "NOT_ELIGIBLE")
+            self.assertEqual(consumer.calls, 0)
+            self.assertEqual(db.read_bytes(), original)
+            with closing(sqlite3.connect(db)) as con:
+                self.assertIsNone(con.execute(
+                    "SELECT 1 FROM sqlite_master WHERE name='geo_ai_interpretations'"
+                ).fetchone())
+                self.assertEqual(con.execute("PRAGMA integrity_check").fetchone()[0], "ok")
+
+    def test_missing_geo_source_tables_abstains_without_empty_ai_artifacts(self):
+        with tempfile.TemporaryDirectory() as root:
+            db = Path(root) / "audit.db"
+            with closing(sqlite3.connect(db)) as con, con:
+                con.execute("CREATE TABLE audits (audit_id TEXT PRIMARY KEY)")
+                con.execute("INSERT INTO audits VALUES ('AUD-1')")
+            before = db.read_bytes()
+            self.assertEqual(
+                execute_geo_ai(db, "AUD-1", provider_selection="auto",
+                               provider_factory=lambda _: self.fail("AI not eligible")),
+                "NOT_ELIGIBLE",
+            )
+            self.assertEqual(db.read_bytes(), before)
+            with closing(sqlite3.connect(db)) as con:
+                self.assertIsNone(con.execute(
+                    "SELECT 1 FROM sqlite_master WHERE name='geo_ai_interpretations'"
+                ).fetchone())
+
+
 if __name__ == "__main__":
     unittest.main()
