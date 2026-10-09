@@ -21,6 +21,7 @@ import sqlite3
 from typing import Any, Mapping, Sequence
 
 from rasai.domain import Audit, AuditStatus, CompletionStatus
+from rasai.geo_observation import _canonical_url
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.search_intelligence.perplexity import (
     PerplexityTransport,
@@ -673,7 +674,11 @@ def run_post_audit_geo_supplement(
         f"<li><a href='{escape(s.url, quote=True)}' rel='noopener noreferrer'>"
         f"{escape(s.title or s.url)}</a> — {escape(s.snippet)}</li>"
         for s in run.sources
-        if s.url.startswith(("https://", "http://"))
+        # The external API may return syntactically misleading links despite
+        # an http(s) prefix (userinfo, controls or backslashes). Preserve the
+        # original URL in ledger/manifest, but never render it as a clickable
+        # destination unless it passes strict GEO v8 URL identity validation.
+        if _canonical_url(s.url)
     )
     html = (
         "<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>"
