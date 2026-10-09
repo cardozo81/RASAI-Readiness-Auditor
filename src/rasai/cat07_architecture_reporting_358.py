@@ -98,10 +98,18 @@ def cat07_architecture_advice_html(
         "frustrated_threshold_seconds": run.get("frustrated_threshold_seconds"),
     }
     meta = frozen_meta if isinstance(frozen_meta, Mapping) else {}
-    # New metadata may appear only in an explicitly frozen audit plan.
-    # This report must not accept the workstation's live INI/environment.
-    selected = str(meta.get("apdex_experience_architecture", "AUTO"))
-    raw_mode = str(meta.get("apdex_experience_profile_mode", "UNKNOWN"))
+    # The canonical console handoff serializes INI sections under "settings".
+    # Only a hash-verified frozen audit_execution_configurations snapshot can
+    # supply these values. An old AUD with no such fields remains N/D.
+    stored_sections = meta.get("settings", {})
+    stored = (
+        stored_sections.get("synthetic_apdex_experience", {})
+        if isinstance(stored_sections, Mapping) else {}
+    )
+    if not isinstance(stored, Mapping):
+        stored = {}
+    selected = str(stored.get("architecture", "AUTO"))
+    raw_mode = str(stored.get("profile_mode", "UNKNOWN"))
     mode = raw_mode if raw_mode in {"CUSTOM", "DYNATRACE_GUIDED", "DYNATRACE_IMPORTED"} else "UNKNOWN"
     if not run:
         mode = "UNKNOWN"
