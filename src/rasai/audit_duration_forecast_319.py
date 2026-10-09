@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 import json
+import math
 import sqlite3
 from statistics import median
 from typing import Any, Mapping
@@ -43,6 +44,7 @@ class AuditDurationForecast:
     sample_runs: int
     total: DurationRange | None
     ai_stages: tuple[DurationRange, ...]
+    http_request_stages: tuple[DurationRange, ...] = ()
     source: str = "historico-local-console"
     notes: tuple[str, ...] = ()
 
@@ -102,9 +104,52 @@ def _strictly_comparable(current: Any, historical: Mapping[str, Any]) -> bool:
     return True
 
 
+def _m21_http_request_sums(conn: sqlite3.Connection, audit_id: str) -> dict[str, float]:
+    """Cumulative HTTP request time, never an M21 stage wall-clock duration.
+
+    Only complete, nonnegative per-request timings for a known service qualify.
+    Missing table/columns, unmeasured attempts and schema drift abstain.
+    """
+    try:
+        columns = {
+            str(row[1]) for row in conn.execute("PRAGMA table_info(web_performance_attempts)")
+        }
+        if not {"audit_id", "service", "duration_ms"}.issubset(columns):
+            return {}
+        rows = conn.execute(
+            "SELECT service, duration_ms FROM web_performance_attempts WHERE audit_id=?",
+            (audit_id,),
+        )
+        totals: dict[str, float] = {}
+        rejected: set[str] = set()
+        for service, duration in rows:
+            name = str(service or "").strip().upper()
+            if name not in {"PAGESPEED_INSIGHTS", "CRUX_API"}:
+                continue
+            if duration is None:
+                rejected.add(name)
+                continue
+            try:
+                elapsed = float(duration)
+            except (TypeError, ValueError, OverflowError):
+                rejected.add(name)
+                continue
+            if not math.isfinite(elapsed) or not 0 < elapsed <= _MAX_WALL_MS:
+                rejected.add(name)
+                continue
+            totals[name] = totals.get(name, 0.0) + elapsed
+        return {
+            name: milliseconds
+            for name, milliseconds in totals.items()
+            if name not in rejected and milliseconds <= _MAX_WALL_MS
+        }
+    except sqlite3.Error:
+        return {}
+
+
 def _historical_audit(
     database: Path, state: Any, target_pages: int,
-) -> tuple[float, str, dict[str, float]] | None:
+) -> tuple[float, str, dict[str, float], dict[str, float]] | None:
     try:
         conn = sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True, timeout=.5)
     except (sqlite3.Error, OSError):
@@ -154,7 +199,7 @@ def _historical_audit(
                 and 0 <= float(item.union_active_ms) <= wall
             )
         }
-        return wall, audit_id, stages
+        return wall, audit_id, stages, _m21_http_request_sums(conn, audit_id)
     except (sqlite3.Error, ValueError, TypeError, OverflowError):
         return None
     finally:
@@ -201,8 +246,14 @@ def forecast_local_duration(
         for name in names
         if all(name in a[2] for a in eligible)
     )
+    technical_names = sorted(set().union(*(set(a[3]) for a in eligible)))
+    http_request_stages = tuple(
+        _range(name, [a[3][name] for a in eligible])
+        for name in technical_names
+        if all(name in a[3] for a in eligible)
+    )
     return AuditDurationForecast(
-        count, total, stages,
+        count, total, stages, http_request_stages=http_request_stages,
         notes=(
             "Mediana, P25-P75 e P90 sao descritores historicos, nao SLA nem "
             "intervalos probabilisticos calibrados.",
@@ -210,6 +261,8 @@ def forecast_local_duration(
             "NAO devem ser somados para prever duracao da AUD.",
             "Coleta, PageSpeed, Apdex e relatorio nao possuem duracao fisica "
             "por etapa comprovada por este historico; permanecem N/D.",
+            "Quando disponiveis, tempos PSI/CrUX somam duracoes de HTTP por "
+            "servico: NAO sao wall-clock do M21, nem aditivos a IA ou a AUD.",
             "Flag opcional nao presente na configuracao historica impede "
             "comparacao quando solicitada; etapas opcionais externas ficam fora.",
         ),
@@ -232,6 +285,11 @@ def format_duration_preview(projection: AuditDurationForecast) -> tuple[str, ...
         lines.append(
             f"IA {stage.label}: tempo ativo mediano {seconds(stage.median_ms)} "
             f"({stage.sample_runs} AUDs)"
+        )
+    for stage in projection.http_request_stages:
+        lines.append(
+            f"HTTP {stage.label}: tempo acumulado de requests, mediana "
+            f"{seconds(stage.median_ms)} ({stage.sample_runs} AUDs; nao wall-clock)"
         )
     lines.extend(projection.notes)
     return tuple(lines)
