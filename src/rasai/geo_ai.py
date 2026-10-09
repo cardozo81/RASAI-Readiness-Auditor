@@ -159,6 +159,9 @@ def execute_geo_ai(
             return "CANONICAL_AI_NOT_INSTALLED"
         try:
             output = provider.analyze(competitive_input)
+            assessment = output.assessment
+            state = str(getattr(output.state, "value", output.state))
+            error_reason = output.reason
         except Exception:
             # A request may already have been submitted or charged. Persist the
             # terminal ambiguity under the input fingerprint: no automatic
@@ -166,10 +169,12 @@ def execute_geo_ai(
             assessment = None
             state = "UNAVAILABLE"
             error_reason = "GEO_AI_CANONICAL_EXECUTION_ERROR"
-        else:
-            assessment = output.assessment
-            state = str(getattr(output.state, "value", output.state))
-            error_reason = output.reason
+        if state == "AVAILABLE" and assessment is None:
+            state = "UNAVAILABLE"
+            error_reason = "GEO_AI_EMPTY_CANONICAL_ASSESSMENT"
+        elif state != "AVAILABLE":
+            # Do not publish misleading summaries attached to failed provider output.
+            assessment = None
         if assessment is not None and any(
             not opportunity.evidence_ids
             or not set(opportunity.evidence_ids).issubset(competitive_input.allowed_evidence_ids)
