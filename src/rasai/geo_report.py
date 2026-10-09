@@ -714,7 +714,16 @@ def geo_body(database: Path, audit_id: str) -> str:
                 summary += ": " + escape(str(opportunity.get("recommendation") or "-"))
                 summary += " | evidências: " + ", ".join(
                     escape(str(x)) for x in opportunity["evidence_ids"]
-                ) + "</li>"
+                )
+                if opportunity.get("rationale"):
+                    summary += "<p>Justificativa apresentada pela IA: " + escape(
+                        str(opportunity["rationale"])
+                    ) + "</p>"
+                if opportunity.get("causality_note"):
+                    summary += "<p>Limite de causalidade: " + escape(
+                        str(opportunity["causality_note"])
+                    ) + "</p>"
+                summary += "</li>"
             summary += "</ol>"
         elif geo_ai.get("state") == "PENDING_UNCERTAIN":
             summary += (
