@@ -193,7 +193,60 @@ def test_crossrefs_use_actual_observation_timestamps_not_opaque_ids(tmp_path):
     search = catalog_geo_context(db, "AUD-1", "CAT-05")
     advisory = catalog_geo_context(db, "AUD-1", "CAT-08")
     assert "SERP-A-NEWER" in search and "SERP-Z-OLDER" not in search
-    assert "GEOAI-A-NEWER" in advisory and "GEOAI-Z-OLDER" not in advisory
+    assert "FAILED" in advisory and "última tentativa" in advisory
+    assert "GEOAI-A-NEWER" not in advisory and "GEOAI-Z-OLDER" not in advisory
     assert "SERP-PRIVATE" not in search
     assert "GEOAI-PRIVATE" not in advisory
     assert db.read_bytes() == before
+
+
+def test_cat08_does_not_promote_older_success_after_latest_unavailable(tmp_path):
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE geo_ai_interpretations("
+            "audit_id TEXT, result_id TEXT, state TEXT, created_at TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO geo_ai_interpretations VALUES (?,?,?,?)",
+            [
+                ("AUD-1", "OLD-AVAILABLE", "AVAILABLE",
+                 "2026-10-08T10:00:00+00:00"),
+                ("AUD-1", "NEW-UNAVAILABLE", "UNAVAILABLE",
+                 "2026-10-09T10:00:00+00:00"),
+                ("AUD-2", "PRIVATE-AVAILABLE", "AVAILABLE",
+                 "2026-11-09T10:00:00+00:00"),
+            ],
+        )
+    before = db.read_bytes()
+    output = catalog_geo_context(db, "AUD-1", "CAT-08")
+    assert "UNAVAILABLE" in output
+    assert "OLD-AVAILABLE" not in output
+    assert "NEW-UNAVAILABLE" not in output
+    assert "PRIVATE-AVAILABLE" not in output
+    assert db.read_bytes() == before
+
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE geo_ai_interpretations SET state='AVAILABLE' "
+            "WHERE result_id='NEW-UNAVAILABLE'"
+        )
+    eligible = catalog_geo_context(db, "AUD-1", "CAT-08")
+    assert "NEW-UNAVAILABLE" in eligible
+    assert "OLD-AVAILABLE" not in eligible
+
+
+def test_cat08_terminal_state_is_html_escaped(tmp_path):
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE geo_ai_interpretations("
+            "audit_id TEXT, result_id TEXT, state TEXT)"
+        )
+        con.execute(
+            "INSERT INTO geo_ai_interpretations VALUES (?,?,?)",
+            ("AUD-1", "AI-X", "<script>bad</script>"),
+        )
+    output = catalog_geo_context(db, "AUD-1", "CAT-08")
+    assert "<script>bad</script>" not in output
+    assert "&lt;script&gt;" in output
