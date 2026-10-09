@@ -88,7 +88,7 @@ PSI, Apdex e geração de relatório dependem de relógios específicos
 persistidos, não de resíduo aritmético.
 
 
-## Checkpoint de implementação incremental — 09/10/2026 — PR #336
+## Checkpoint de implementação incremental - 09/10/2026 - PR #336
 
 ### Entregue com testes determinísticos
 
