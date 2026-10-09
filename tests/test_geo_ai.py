@@ -596,3 +596,39 @@ def test_geo_ai_all_malformed_source_urls_abstain_without_schema_or_cost(
         assert con.execute(
             "SELECT name FROM sqlite_master WHERE name='geo_ai_interpretations'"
         ).fetchone() is None
+
+
+def test_geo_ai_takes_first_twelve_valid_sources_after_filtering(tmp_path):
+    """Invalid leading provider results cannot consume paid-AI evidence slots."""
+    db = tmp_path / "audit.db"
+    GeoAiConsumerTests()._db(db)
+    with sqlite3.connect(db) as con:
+        con.execute("DELETE FROM perplexity_search_sources WHERE run_id='PXS-1'")
+        con.executemany(
+            "INSERT INTO perplexity_search_sources VALUES (?,?,?,?,?)",
+            [
+                ("PXS-1", pos, "https://user:password@unsafe.example/r",
+                 "Untrusted", "Not evidence")
+                for pos in range(1, 13)
+            ] + [
+                ("PXS-1", pos, f"https://observed.example/{pos}",
+                 f"Legitimate {pos}", "Bounded source")
+                for pos in range(13, 27)
+            ],
+        )
+    from rasai.geo_ai import _prepare
+    with sqlite3.connect(db) as con:
+        prepared = _prepare(con, "AUD-1")
+    assert prepared is not None
+    evidence = prepared[1].evidence
+    assert len(evidence) == 12
+    assert all("observed.example" in str(x.observed_value["url"]) for x in evidence)
+    assert "user:password" not in str(prepared[1].provider_payload())
+    assert all(f":{p}:" in evidence[p - 13].evidence_id for p in range(13, 25))
+    consumer = FakeCanonicalConsumer()
+    assert execute_geo_ai(
+        db, "AUD-1", provider_selection="auto",
+        provider_factory=lambda _: consumer,
+    ) == "AVAILABLE"
+    assert consumer.calls == 1
+    assert len(consumer.last_ids) == 12
