@@ -250,3 +250,126 @@ def test_cat08_terminal_state_is_html_escaped(tmp_path):
     output = catalog_geo_context(db, "AUD-1", "CAT-08")
     assert "<script>bad</script>" not in output
     assert "&lt;script&gt;" in output
+
+
+def test_crossrefs_compare_real_utc_instants_not_iso_strings_or_opaque_ids(tmp_path):
+    from rasai.geo_catalog_context import geo_surface_context
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE serp_observations(
+                observation_id TEXT, audit_id TEXT, query TEXT,
+                collected_at TEXT, data_mode TEXT, observation_status TEXT);
+            CREATE TABLE geo_ai_interpretations(
+                result_id TEXT, audit_id TEXT, state TEXT, created_at TEXT);
+            CREATE TABLE perplexity_search_runs(
+                run_id TEXT, audit_id TEXT, status TEXT, started_at TEXT);
+        """)
+        con.executemany(
+            "INSERT INTO serp_observations VALUES (?,?,?,?,?,?)",
+            [
+                ("SERP-Z-OLDER", "AUD-1", "antiga", "2026-10-09T11:30:00+00:00",
+                 "OBSERVED_API", "OBSERVED"),
+                ("SERP-A-NEWER", "AUD-1", "atual", "2026-10-09T09:00:00-03:00",
+                 "OBSERVED_API", "OBSERVED"),
+                ("SERP-FOREIGN", "AUD-2", "segredo", "2026-12-01T00:00:00+00:00",
+                 "OBSERVED_API", "OBSERVED"),
+            ],
+        )
+        con.executemany(
+            "INSERT INTO geo_ai_interpretations VALUES (?,?,?,?)",
+            [
+                ("GEO-OLD-AVAILABLE", "AUD-1", "AVAILABLE",
+                 "2026-10-09T11:30:00+00:00"),
+                ("GEO-NEW-FAILED", "AUD-1", "FAILED",
+                 "2026-10-09T09:00:00-03:00"),
+                ("GEO-FOREIGN", "AUD-2", "AVAILABLE",
+                 "2026-12-01T00:00:00+00:00"),
+            ],
+        )
+        con.executemany(
+            "INSERT INTO perplexity_search_runs VALUES (?,?,?,?)",
+            [
+                ("RUN-OLD", "AUD-1", "SUCCESS", "2026-10-09T11:30:00+00:00"),
+                ("RUN-NEW", "AUD-1", "RATE_LIMIT_ERROR", "2026-10-09T09:00:00-03:00"),
+                ("RUN-FOREIGN", "AUD-2", "SUCCESS", "2026-12-01T00:00:00+00:00"),
+            ],
+        )
+    before = db.read_bytes()
+    search = catalog_geo_context(db, "AUD-1", "CAT-05")
+    interpretation = catalog_geo_context(db, "AUD-1", "CAT-08")
+    overview = geo_surface_context(db, "AUD-1", "index")
+    assert "SERP-A-NEWER" in search and "SERP-Z-OLDER" not in search
+    assert "FAILED" in interpretation and "GEO-OLD-AVAILABLE" not in interpretation
+    assert "RATE_LIMIT_ERROR" in overview
+    assert "RUN-NEW" in overview and "RUN-OLD" not in overview
+    assert "FOREIGN" not in search + interpretation + overview
+    assert db.read_bytes() == before
+
+
+def test_crossrefs_abstain_on_ambiguous_history_instead_of_promoting_old_success(
+    tmp_path,
+):
+    from rasai.geo_catalog_context import geo_surface_context
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE serp_observations(
+                observation_id TEXT, audit_id TEXT, query TEXT,
+                data_mode TEXT, observation_status TEXT);
+            CREATE TABLE geo_ai_interpretations(
+                result_id TEXT, audit_id TEXT, state TEXT);
+            CREATE TABLE perplexity_search_runs(
+                run_id TEXT, audit_id TEXT, status TEXT);
+        """)
+        con.executemany(
+            "INSERT INTO serp_observations VALUES (?,?,?,?,?)",
+            [
+                ("SERP-Z", "AUD-1", "uma", "OBSERVED_API", "OBSERVED"),
+                ("SERP-A", "AUD-1", "outra", "OBSERVED_API", "OBSERVED"),
+            ],
+        )
+        con.executemany(
+            "INSERT INTO geo_ai_interpretations VALUES (?,?,?)",
+            [("GEO-Z", "AUD-1", "AVAILABLE"), ("GEO-A", "AUD-1", "FAILED")],
+        )
+        con.executemany(
+            "INSERT INTO perplexity_search_runs VALUES (?,?,?)",
+            [("RUN-Z", "AUD-1", "SUCCESS"), ("RUN-A", "AUD-1", "TIMEOUT_ERROR")],
+        )
+    before = db.read_bytes()
+    search = catalog_geo_context(db, "AUD-1", "CAT-05")
+    geoai = catalog_geo_context(db, "AUD-1", "CAT-08")
+    external = geo_surface_context(db, "AUD-1", "index")
+    assert "cronologia não" in search and "mais recente N/D" in search
+    assert "último estado N/D" in geoai and "AVAILABLE" not in geoai
+    assert "última execução N/D" in external and "SUCCESS" not in external
+    assert all(key not in search for key in ("SERP-Z", "SERP-A"))
+    assert all(key not in geoai for key in ("GEO-Z", "GEO-A"))
+    assert all(key not in external for key in ("RUN-Z", "RUN-A"))
+    assert db.read_bytes() == before
+
+
+def test_multiple_tied_or_invalid_clocks_cannot_establish_last_ai_attempt(tmp_path):
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE geo_ai_interpretations("
+            "result_id TEXT, audit_id TEXT, state TEXT, created_at TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO geo_ai_interpretations VALUES (?,?,?,?)",
+            [
+                ("A1", "AUD-1", "AVAILABLE", "2026-10-09T12:00:00+00:00"),
+                ("A2", "AUD-1", "FAILED", "2026-10-09T09:00:00-03:00"),
+            ],
+        )
+    outcome = catalog_geo_context(db, "AUD-1", "CAT-08")
+    assert "último estado N/D" in outcome
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE geo_ai_interpretations SET created_at=NULL WHERE result_id='A2'"
+        )
+    second = catalog_geo_context(db, "AUD-1", "CAT-08")
+    assert "último estado N/D" in second
+    assert "A1" not in second and "A2" not in second
