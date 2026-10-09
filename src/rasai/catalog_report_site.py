@@ -64,10 +64,17 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
     if timeline is not None and timeline.attempts:
         timeline_rows=[]
         for stage in timeline.stages:
+            if stage.name == "DIRECTED_ANALYSIS":
+                scope = "Análise direcionada opcional ou complementar"
+            elif stage.name == "EXTERNAL_SEARCH_API":
+                scope = "Integração externa sob solicitação"
+            else:
+                scope = "IA da execução; verificar origem no ledger"
             active = (f"{stage.union_active_ms / 1000:.2f} s"
                       if stage.union_active_ms is not None else "N/D (relógio incompleto)")
             timeline_rows.append((
                 stage.name.replace("_"," ").title(),
+                scope,
                 stage.attempts,
                 f"{stage.summed_duration_ms / 1000:.2f} s",
                 active,
@@ -88,7 +95,7 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
             "também não é confirmação de cobrança bancária. Captura, PSI e Apdex "
             "não são medidos nesta projeção.</p>"
             + _table(
-                ("Etapa", "Tentativas", "Soma das durações", "Tempo ativo (união)",
+                ("Etapa", "Escopo do gasto", "Tentativas", "Soma das durações", "Tempo ativo (união)",
                  "Estimativa pós-uso USD", "Valor provider USD", "Lacunas"),
                 timeline_rows,
             ),
