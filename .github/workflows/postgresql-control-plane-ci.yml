@@ -53,7 +53,9 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:18
+        # Docker Official Image on the verified AWS ECR Public Docker registry.
+        # Avoid Docker Hub anonymous pull throttling on GitHub-hosted runners.
+        image: public.ecr.aws/docker/library/postgres:18
         env:
           POSTGRES_DB: rasai_control_plane
           POSTGRES_USER: rasai_app
