@@ -440,6 +440,15 @@ def configure_perplexity_search(state: SearchConsoleState) -> None:
         )
         state.error = ""
     except (TypeError, ValueError) as exc:
+        # Treat a failed edit as a withdrawn paid request. Retaining a
+        # previously selected set of queries would schedule an unintended
+        # external search when the operator proceeds to run the AUD.
+        state.perplexity_queries = ()
+        state.perplexity_last_status = "NOT_REQUESTED"
+        state.perplexity_last_detail = (
+            "configuração Perplexity inválida; solicitação externa cancelada"
+        )
+        state.perplexity_last_duration_seconds = None
         state.error = f"Perplexity Search Intelligence: {exc}"
 
 
