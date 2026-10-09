@@ -331,6 +331,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.provider_cli import main as provider_main
         return provider_main(effective[1:])
 
+    if effective and effective[0] in {"geo-longitudinal", "geo-history"}:
+        # Standalone read-only observational inventory. Must execute BEFORE
+        # installers / secrets / collector and AI runtime bootstrap.
+        from rasai.geo_longitudinal_311 import main as geo_history_main
+        return geo_history_main(effective[1:])
+
     if effective and effective[0] == "rematerialize-report":
         # The dedicated reporting command installs the SAME canonical runtime hooks
         # itself, and never invokes collectors, AI, audit or reprocess entrypoints.
