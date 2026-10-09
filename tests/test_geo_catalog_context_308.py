@@ -156,3 +156,44 @@ def test_surface_context_escapes_status_and_id(tmp_path):
     html = geo_surface_context(db, "AUD-S", "index")
     assert "<script>" not in html and "<img>" not in html
     assert "&lt;script&gt;" in html and "&lt;img&gt;" in html
+
+
+
+def test_crossrefs_use_actual_observation_timestamps_not_opaque_ids(tmp_path):
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE serp_observations (
+              audit_id TEXT, observation_id TEXT, query TEXT,
+              data_mode TEXT, observation_status TEXT, collected_at TEXT
+            );
+            CREATE TABLE geo_ai_interpretations (
+              audit_id TEXT, result_id TEXT, state TEXT, created_at TEXT
+            );
+        """)
+        con.executemany(
+            "INSERT INTO serp_observations VALUES (?,?,?,?,?,?)", [
+                ("AUD-1", "SERP-Z-OLDER", "consulta antiga", "OBSERVED_API",
+                 "OBSERVED", "2026-10-07T10:00:00+00:00"),
+                ("AUD-1", "SERP-A-NEWER", "consulta atual", "OBSERVED_API",
+                 "OBSERVED", "2026-10-09T10:00:00+00:00"),
+                ("AUD-2", "SERP-PRIVATE", "não mostrar", "OBSERVED_API",
+                 "OBSERVED", "2026-12-01T10:00:00+00:00"),
+            ],
+        )
+        con.executemany(
+            "INSERT INTO geo_ai_interpretations VALUES (?,?,?,?)", [
+                ("AUD-1", "GEOAI-Z-OLDER", "AVAILABLE", "2026-10-07T10:00:00+00:00"),
+                ("AUD-1", "GEOAI-A-NEWER", "AVAILABLE", "2026-10-09T10:00:00+00:00"),
+                ("AUD-1", "GEOAI-UNAVAILABLE", "FAILED", "2026-12-01T10:00:00+00:00"),
+                ("AUD-2", "GEOAI-PRIVATE", "AVAILABLE", "2026-12-01T10:00:00+00:00"),
+            ],
+        )
+    before = db.read_bytes()
+    search = catalog_geo_context(db, "AUD-1", "CAT-05")
+    advisory = catalog_geo_context(db, "AUD-1", "CAT-08")
+    assert "SERP-A-NEWER" in search and "SERP-Z-OLDER" not in search
+    assert "GEOAI-A-NEWER" in advisory and "GEOAI-Z-OLDER" not in advisory
+    assert "SERP-PRIVATE" not in search
+    assert "GEOAI-PRIVATE" not in advisory
+    assert db.read_bytes() == before
