@@ -83,6 +83,26 @@ def _write_json(path: Path, data: dict[str, Any]) -> None:
     os.replace(pending, path)
 
 
+def _safe_supplement_scope_root(workspace: AuditWorkspace, audit_id: str) -> Path:
+    """Reject linked parent directories before reserving any billable intent.
+
+    The read-only inventory already rejected symlinked roots, but the paid
+    entrypoint could follow a linked .rasai-geo-supplements/AUD scope on mkdir.
+    Both paths must enforce the same fail-closed containment boundary.
+    """
+    root = workspace.root.parent / ".rasai-geo-supplements"
+    scope = root / audit_id
+    if workspace.root.is_symlink() or workspace.database.is_symlink():
+        raise ValueError("original AUD workspace cannot be linked")
+    if root.is_symlink() or scope.is_symlink():
+        raise ValueError("external supplement root or scope cannot be linked")
+    if (root.exists() and not root.is_dir()) or (
+        scope.exists() and not scope.is_dir()
+    ):
+        raise ValueError("external supplement root or scope is not a directory")
+    return scope
+
+
 def _sealed_audit(workspace: AuditWorkspace, audit_id: str) -> tuple[str, str, str]:
     # No CREATE, UPDATE, connections in read/write mode or manifest rewrite.
     report_root = workspace.root / "report-catalog"
@@ -367,12 +387,7 @@ def list_post_audit_geo_supplements(
     if audit_id != original_workspace.root.name:
         raise ValueError("source workspace and audit_id mismatch")
     db_sha, report_sha, state_hash = _sealed_audit(original_workspace, audit_id)
-    root = original_workspace.root.parent / ".rasai-geo-supplements"
-    if root.is_symlink():
-        raise ValueError("external supplement root cannot be symlink")
-    scope_dir = root / audit_id
-    if scope_dir.is_symlink():
-        raise ValueError("external supplement scope cannot be symlink")
+    scope_dir = _safe_supplement_scope_root(original_workspace, audit_id)
     if not scope_dir.exists():
         return ()
     if not scope_dir.is_dir():
@@ -525,9 +540,7 @@ def run_post_audit_geo_supplement(
         json.dumps(scope, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     ).hexdigest()
     supplement_root = (
-        original_workspace.root.parent
-        / ".rasai-geo-supplements"
-        / audit_id
+        _safe_supplement_scope_root(original_workspace, audit_id)
         / sha256(intent_id.encode("utf-8")).hexdigest()[:32]
     )
     try:
