@@ -24,6 +24,7 @@ def audit(
     projection = {
         "audit_id": aid, "contract_version": version,
         "perplexity_run_id": f"PX-{aid}", "search_status": "SUCCESS",
+        "serp_observation_id": f"SERP-{aid}", "search_type": mode,
         "queries": [query],
         "target_observation": {
             "status": status, "query": query, "target_url": url,
@@ -53,15 +54,36 @@ def audit(
             );
             CREATE TABLE geo_observation_runs (
                 analysis_id TEXT, audit_id TEXT, contract_version TEXT,
-                projection_json TEXT, created_at TEXT
+                projection_json TEXT, created_at TEXT,
+                perplexity_run_id TEXT, serp_observation_id TEXT, input_sha256 TEXT
+            );
+            CREATE TABLE perplexity_search_runs (
+                run_id TEXT PRIMARY KEY, audit_id TEXT, query_json TEXT,
+                search_type TEXT, status TEXT, started_at TEXT
+            );
+            CREATE TABLE serp_observations (
+                observation_id TEXT, audit_id TEXT, query TEXT, collected_at TEXT,
+                data_mode TEXT, observation_status TEXT, engine TEXT,
+                country TEXT, region TEXT, language TEXT, device TEXT
             );
         """)
         con.execute(
             "INSERT INTO audits VALUES (?,?,?)", (aid, "COMPLETED", completion)
         )
         con.execute(
-            "INSERT INTO geo_observation_runs VALUES (?,?,?,?,?)",
-            (f"GEO-{aid}", aid, version, json.dumps(projection), timestamp),
+            "INSERT INTO geo_observation_runs VALUES (?,?,?,?,?,?,?,?)",
+            (f"GEO-{aid}", aid, version, json.dumps(projection), timestamp,
+             f"PX-{aid}", f"SERP-{aid}", "a" * 64),
+        )
+        con.execute(
+            "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
+            (f"PX-{aid}", aid, json.dumps([query]), mode, "SUCCESS", timestamp),
+        )
+        con.execute(
+            "INSERT INTO serp_observations VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (f"SERP-{aid}", aid, query, "2026-10-09T10:05:00Z", "OBSERVED_API",
+             "OBSERVED", engine, scope_country, scope_region, scope_language,
+             scope_device),
         )
     return root
 
@@ -137,3 +159,33 @@ def test_readonly_cli_json_and_duplicate_guard(tmp_path, capsys):
         build_geo_longitudinal_preview([source1, source1])
     with pytest.raises(ValueError, match="2..100"):
         build_geo_longitudinal_preview([source1])
+
+
+
+def test_tampered_snapshot_source_identity_and_unobserved_serp_abstain(tmp_path):
+    source = audit(tmp_path, "AUD-SOURCE")
+    normal = audit(tmp_path, "AUD-NORMAL")
+    with sqlite3.connect(source / "audit.db") as con:
+        con.execute(
+            "UPDATE geo_observation_runs SET perplexity_run_id='PX-SPOOF'"
+        )
+    result = build_geo_longitudinal_preview([source, normal])
+    assert result["audits_eligible"] == 1
+    assert result["excluded"][0]["reason"] == "GEO_SOURCE_PROVENANCE_UNVERIFIED"
+
+    source2 = audit(tmp_path, "AUD-SYNTHETIC")
+    with sqlite3.connect(source2 / "audit.db") as con:
+        con.execute("UPDATE serp_observations SET data_mode='SYNTHETIC'")
+    result = build_geo_longitudinal_preview([source2, normal])
+    assert result["audits_eligible"] == 1
+    assert result["excluded"][0]["reason"] == "GEO_SOURCE_PROVENANCE_UNVERIFIED"
+
+
+def test_mismatched_query_and_locale_against_source_abstains(tmp_path):
+    first = audit(tmp_path, "AUD-MISMATCH")
+    second = audit(tmp_path, "AUD-CLEAN")
+    with sqlite3.connect(first / "audit.db") as con:
+        con.execute("UPDATE serp_observations SET country='PT'")
+    result = build_geo_longitudinal_preview([first, second])
+    assert result["audits_eligible"] == 1
+    assert result["excluded"][0]["reason"] == "GEO_SOURCE_PROVENANCE_UNVERIFIED"
