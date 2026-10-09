@@ -185,6 +185,11 @@ def assess_dynatrace_apdex_architecture(
     elif "xhr_actions" not in settings:
         output["status"] = "INSUFFICIENT_ACTION_SCOPE"
         output["reasons"].append("XHR_APDEX_CONFIGURATION_NOT_PROVIDED")
+    elif not isinstance(coverage, Mapping) or not (
+        type(coverage.get("xhr")) is int and coverage["xhr"] > 0
+    ):
+        output["status"] = "INSUFFICIENT_ACTION_SCOPE"
+        output["reasons"].append("XHR_ACTION_POPULATION_NOT_PROVEN")
     else:
         output["status"] = "CONFIGURATION_PLAUSIBLE_WITH_XHR_COVERAGE"
     output["review_actions"].append(
