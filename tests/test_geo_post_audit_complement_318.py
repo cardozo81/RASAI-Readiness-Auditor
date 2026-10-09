@@ -436,3 +436,33 @@ def test_console_menu_review_existing_supplements_without_billing(
     assert "console-preview" in display
     assert "VERIFIED" in display
     assert "sem cobrança" in display
+
+
+def test_review_rejects_semantic_forgery_even_after_manifest_file_hash_rewritten(
+    tmp_path, monkeypatch,
+):
+    from rasai.geo_post_audit_complement import list_post_audit_geo_supplements
+    workspace, aud = source(tmp_path, monkeypatch)
+    created = run(
+        workspace, audit_id=aud, intent_id="semantic-forgery",
+        query="seguro de vida", explicit_cost_authorization=True,
+        env={"RASAI_PERPLEXITY_ENABLED": "true",
+             "PERPLEXITY_API_KEY": "FAKE_FOR_TEST_ONLY"},
+        transport=fake_transport,
+    )
+    assert created.directory is not None
+    result_path = created.directory / "result.json"
+    manifest_path = created.directory / "manifest.json"
+    payload = json.loads(result_path.read_text(encoding="utf-8"))
+    payload["request_payload_hash"] = "f" * 64
+    result_path.write_text(json.dumps(payload), encoding="utf-8")
+    # Adversarial self-consistent file manifest must not bypass ledger truth.
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for entry in manifest["files"]:
+        if entry["path"] == "result.json":
+            entry["bytes"] = result_path.stat().st_size
+            entry["sha256"] = sha256(result_path.read_bytes()).hexdigest()
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    record, = list_post_audit_geo_supplements(workspace, audit_id=aud)
+    assert record.state == "INVALID"
+    assert record.billability == "UNKNOWN"
