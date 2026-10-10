@@ -313,13 +313,28 @@ def catalog_menu(console_module: ModuleType, state: Any, *, view: str, title: st
                 f"{getattr(state, 'audits_root', 'audits')}"
             )
             print(paint("   Usa o mesmo editor e a mesma persistência da preparação da auditoria.", DIM))
+            from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
+            px = inspect_perplexity_readiness(state)
+            print(paint(
+                "Perplexity externa nesta AUD: " + px["status"]
+                + " (configurar chave/flag NÃO configura queries)",
+                YELLOW if px["enabled"] and not px["queries_requested"] else DIM,
+            ))
         _rows(state, rows, mode == "owner" and search_rows is None)
         if not rows: print(paint("\nNenhuma configuração corresponde ao filtro atual.", DIM))
         section("AÇÕES")
         print("O. Por owner funcional\nA. Ordem alfabética\nE. Por estado\nM. Somente modificadas\nP. Somente pendentes\nF. Localizar por ID/nome/finalidade")
+        if view == "all":
+            print("Q. Configurar PESQUISA Perplexity para esta AUD (queries e WEB/FAST; opcional)")
         print("V. Voltar")
         raw = input("ID ou ação: ").strip().upper()
         if raw == "V": return
+        if raw == "Q" and view == "all":
+            from rasai import console_search_intelligence as search_module
+            from rasai.console_search_parameter_menu import _configure_perplexity
+            _configure_perplexity(search_module, state)
+            search_rows = None
+            continue
         if raw == CORE_IDS["audits_root"] and view == "all":
             console_module._configure(state, "10"); search_rows = None; continue
         if raw == "1" and view == "ai": console_module._configure(state, "4"); search_rows = None; continue
