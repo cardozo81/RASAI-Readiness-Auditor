@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - src/rasai/audit_attempt_inspection_319.py
+      - src/rasai/audit_fulfillment_timing_319.py
       - src/rasai/catalog_report_site.py
       - tests/test_audit_stage_scope_319.py
       - docs/AUDIT_STAGE_SCOPE_319.md
