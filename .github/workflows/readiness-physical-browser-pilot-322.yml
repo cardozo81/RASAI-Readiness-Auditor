@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/readiness_probe_cost_pilot_322.py'
+      - 'src/rasai/readiness_matched_pilot_322.py'
+      - 'tests/test_readiness_matched_pilot_322.py'
       - 'src/rasai/playwright_primary_content_probe_322.py'
       - 'tests/test_readiness_probe_cost_pilot_322.py'
       - 'tests/test_playwright_real_browser_readiness_322.py'
@@ -13,6 +15,8 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/readiness_probe_cost_pilot_322.py'
+      - 'src/rasai/readiness_matched_pilot_322.py'
+      - 'tests/test_readiness_matched_pilot_322.py'
       - 'src/rasai/playwright_primary_content_probe_322.py'
       - 'tests/test_readiness_probe_cost_pilot_322.py'
       - 'tests/test_playwright_real_browser_readiness_322.py'
@@ -40,6 +44,7 @@ jobs:
       - run: >-
           python -m pytest -q
           tests/test_readiness_probe_cost_pilot_322.py
+          tests/test_readiness_matched_pilot_322.py
           tests/test_playwright_primary_content_probe_322.py
           tests/test_apdex_content_readiness_322.py
 

@@ -147,6 +147,64 @@ def cat07_architecture_advice_html(
         "equivalência com Dynatrace RUM. Um Apdex alto pode não representar "
         "uma transição SPA ou hidratação completa.</p>",
     ]
+    # Render only advice computed from the effective M25 run and a verified
+    # frozen console handoff. Display proposed future variables as proposals,
+    # never as settings silently used by this historical AUD.
+    declared = guidance["selected_architecture"]
+    declared_label = (
+        "AUTO - não declarada previamente"
+        if declared == "AUTO" else ARCH_LABELS.get(declared, "N/D")
+    )
+    parts.append(
+        "<p><strong>Arquitetura informada antes da AUD:</strong> "
+        + escape(declared_label if meta else "N/D (sem handoff congelado)")
+        + ". <strong>Origem da identificação:</strong> "
+        + escape(guidance["architecture_source"]) + ".</p>"
+    )
+    source_labels = {
+        "RASAI_EXECUTABLE_NOW": "No RASAi (executável após confirmação)",
+        "DYNATRACE_EXTERNAL": "Somente Dynatrace externo (não executado pelo RASAi)",
+        "FUTURE_CAPABILITY": "Capacidade futura (não disponível nesta AUD)",
+    }
+    action_rows = guidance.get("next_actions", ())
+    if action_rows:
+        parts.append("<h4>Ações recomendadas e limites de execução</h4><ul>")
+        for action in action_rows:
+            parts.append(
+                "<li><strong>"
+                + escape(source_labels.get(action.get("scope"), "Escopo não comprovado"))
+                + ":</strong> " + escape(str(action.get("text", "N/D"))) + "</li>"
+            )
+        parts.append("</ul>")
+    preview = guidance.get("new_audit_configuration_preview") or []
+    if preview:
+        parts.append(
+            "<h4>Prévia para uma NOVA auditoria (não aplicada)</h4>"
+            "<p>Somente o modo Guided apresenta valores propostos; "
+            "não há alteração de configuração nesta página nem garantia "
+            "de precedência sobre CLI, INI ou ambiente. Confirmar novamente "
+            "no console antes da execução.</p>"
+            "<div class='table-wrap'><table><thead><tr>"
+            "<th>Variável</th><th>Valor proposto</th><th>Origem</th>"
+            "<th>Substituiria valor atual?</th></tr></thead><tbody>"
+        )
+        for item in preview:
+            parts.append(
+                "<tr><td><code>" + escape(str(item.get("variable") or "N/D"))
+                + "</code></td><td>" + escape(str(item.get("value") or "N/D"))
+                + "</td><td>" + escape(str(item.get("source") or "N/D"))
+                + "</td><td>"
+                + ("Sim - requer aceite" if item.get("would_override_current")
+                   else "Não identificado")
+                + "</td></tr>"
+            )
+        parts.append("</tbody></table></div>")
+    elif mode in {"CUSTOM", "DYNATRACE_IMPORTED"}:
+        parts.append(
+            "<p><strong>Valores de nova auditoria:</strong> não gerar um "
+            "preset substituto em modo Custom/Imported. Valores efetivos "
+            "persistidos acima são apenas o registro da AUD corrente.</p>"
+        )
     if guidance["architecture_mismatch"]:
         parts.append("<p><strong>Atenção:</strong> arquitetura declarada diverge da observada. "
                      "Revisar a configuração antes de uma nova auditoria.</p>")

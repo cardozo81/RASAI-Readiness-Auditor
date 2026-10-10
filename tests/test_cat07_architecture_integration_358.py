@@ -256,3 +256,59 @@ def test_cat07_experience_remains_configurable_with_navigation_disabled(monkeypa
     assert state.synthetic_apdex is False
     assert state.apdex_experience is True
     assert state.error == ""
+
+
+def test_cat07_guided_readonly_report_shows_approved_future_values_not_applied(tmp_path):
+    db = tmp_path / "audit.db"
+    _db(db, cfg={
+        "kpm": "LOAD_EVENT_END",
+        "satisfied_threshold_seconds": 4.0,
+        "frustrated_threshold_seconds": 16.0,
+    })
+    frozen = {"settings": {"synthetic_apdex_experience": {
+        "architecture": "STATIC_OR_SSR",
+        "profile_mode": "DYNATRACE_GUIDED",
+    }}}
+    before = db.read_bytes()
+    html = cat07_architecture_advice_html(db, "AUD-1", frozen_meta=frozen)
+    assert "Arquitetura informada antes da AUD" in html
+    assert "arquitetura declarada diverge" in html
+    assert "Prévia para uma NOVA auditoria (não aplicada)" in html
+    assert "RASAI_APDEX_EXPERIENCE_KPM" in html
+    assert "RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS" in html
+    assert "RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS" in html
+    assert "Sim - requer aceite" in html
+    assert "LOAD_EVENT_END" in html and "4.0" in html
+    assert "Somente Dynatrace externo" not in html or "não executado pelo RASAi" in html
+    assert db.read_bytes() == before
+
+
+def test_cat07_custom_report_never_proposes_guided_override_or_new_aud(tmp_path):
+    db = tmp_path / "audit.db"
+    _db(db, cfg={
+        "kpm": "RESPONSE_END",
+        "satisfied_threshold_seconds": 2.0,
+        "frustrated_threshold_seconds": 8.0,
+    })
+    frozen = {"settings": {"synthetic_apdex_experience": {
+        "architecture": "CSR_SPA",
+        "profile_mode": "CUSTOM",
+    }}}
+    source = db.read_bytes()
+    html = cat07_architecture_advice_html(db, "AUD-1", frozen_meta=frozen)
+    assert "não gerar um preset substituto em modo Custom/Imported" in html
+    assert "Prévia para uma NOVA auditoria" not in html
+    assert "RESPONSE_END" in html
+    assert db.read_bytes() == source
+
+
+def test_cat07_report_escapes_untrusted_effective_kpm(tmp_path):
+    db = tmp_path / "audit.db"
+    _db(db, cfg={
+        "kpm": "<img src=x onerror=alert(1)>",
+        "satisfied_threshold_seconds": 3.0,
+        "frustrated_threshold_seconds": 12.0,
+    })
+    html = cat07_architecture_advice_html(db, "AUD-1")
+    assert "<img" not in html
+    assert "&lt;img" in html

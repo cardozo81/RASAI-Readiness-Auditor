@@ -110,3 +110,53 @@ runtime de auditoria, nao expoe um campo de token fornecido no JSON e nao
 executa M23/M25. Ainda e obrigatorio confirmar application ID, escopo,
 janela temporal, captura de rotas e thresholds em Dynatrace real para
 uma recomendacao homologada, conforme o gate desta issue.
+
+
+## Adaptador offline Settings API effectiveValues - entrega adicional #355
+
+O comando passa a aceitar JSON exportado da rota documentada
+`GET /api/v2/settings/effectiveValues` (Dynatrace Settings API 2.0).
+As consultas reais exigem `settings.read` ou `settings:objects:read`;
+**este fluxo NÃO as executa**. O operador exporta fora do RASAi.
+Fontes oficiais:
+- https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/objects/get-effective-values
+- https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions
+- https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-xhr-actions
+- https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-custom-actions
+
+Exemplo: exporte o JSON completo de effectiveValues com as três
+`schemaIds` específicas de Apdex RUM Web e escopo `APPLICATION-...`.
+Depois use, sem credenciais:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai dynatrace-apdex-review `
+  --architecture CSR_SPA `
+  --architecture-evidence-id M6-REFERENCIA-LOCAL `
+  --soft-navigation observed `
+  --async-requests observed `
+  --effective-values-json .\effective-values-apdex.json `
+  --application-scope APPLICATION-ID-DECLARADO
+```
+
+O `--application-scope` é **declaração do operador** e NÃO demonstra que
+o arquivo foi realmente solicitado naquele escopo. O endpoint
+effectiveValues fornece `schemaId`, `value`, `schemaVersion`,
+`origin` e paginação; não fornece sozinho contagens de ações nem
+prova que o período/URL coincidam com M6. O adaptador rejeita
+paginação incompleta, totalCount divergente, itens duplicados,
+schemas desconhecidos, objeto inválido, tamanho >1 MiB e symlinks.
+`capture` e `action_counts` continuam ausentes, em vez de
+serem simulados como desligados/zero.
+
+Somente campos documentados são mapeados:
+`load_actions`, `xhr_actions`, `custom_actions` com
+`thresholds`, `fallbackThresholds` (Load/XHR) e KPMs suportadas.
+`settings_provenance=NOT_VERIFIED_BY_RASAI` e
+`actual_dynatrace_tenant_consulted=false` permanecem.
+O output adicional apresenta origem e versões declaradas sem
+converter o JSON em configuração executada do M25.
+
+Esta etapa conclui **leitura compatível com exportação do fornecedor
+sem rede**. Não conclui a integração live com token, avaliação de
+políticas por URL nem correlação física de amostras RUM; #355
+permanece aberta até esses gates e aprovação humana.
