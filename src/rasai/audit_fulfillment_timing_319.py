@@ -93,7 +93,7 @@ def inspect_fulfillment_attempt_intervals(
         SELECT a.attempt_id, a.started_at, a.finished_at, a.status,
                a.reprocess_id, w.component
           FROM audit_fulfillment_attempts AS a
-          JOIN audit_fulfillment_work_items AS w
+          LEFT JOIN audit_fulfillment_work_items AS w
             ON w.work_item_id=a.work_item_id AND w.audit_id=a.audit_id
          WHERE a.audit_id=?
          ORDER BY a.attempt_id
@@ -116,9 +116,13 @@ def inspect_fulfillment_attempt_intervals(
             result["status"] = "ATTEMPT_IDENTITY_UNVERIFIABLE"
             return result
         seen.add(attempt_id)
-        name = str(component or "").strip().upper()
-        if not name:
-            name = "COMPONENT_UNVERIFIED"
+        # A WKA may point to a work-item of another AUD even when its FK
+        # itself is satisfied. Such a mismatch invalidates the entire cohort.
+        if not isinstance(component, str) or not component.strip():
+            result["status"] = "WORK_ITEM_AUDIT_IDENTITY_MISMATCH"
+            result["by_component"] = []
+            return result
+        name = component.strip().upper()
         lo, hi = _instant(started), _instant(finished)
         valid = (
             lo is not None and hi is not None
