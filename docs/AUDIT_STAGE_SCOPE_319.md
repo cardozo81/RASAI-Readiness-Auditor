@@ -60,7 +60,7 @@ A apresentação `metrics.html` agora reutiliza o inventário read-only de
 `observed_http_request_sums_ms` somente para
 `PAGESPEED_INSIGHTS` e `CRUX_API` da AUD corrente.
 
-Uma nova seção **Tempos observados de requisições web — M21** apresenta
+Uma nova seção **Tempos observados de requisições web  -  M21** apresenta
 as somas de HTTP verificadas em segundos. Um serviço sem telemetria, ou
 com qualquer tentativa de tempo inválido, exibe **N/D** em vez de zero,
 mesmo quando outras tentativas desse serviço têm duração válida.
