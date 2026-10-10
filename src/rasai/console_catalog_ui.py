@@ -353,6 +353,21 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
         print(f"IA                         : {ai_state}")
         for line in ai_lines:
             print(paint(f"  {line}", DIM))
+        if any(item.id == "CAT-05" for item in selected):
+            from rasai.console_perplexity_readiness_318 import (
+                inspect_perplexity_readiness,
+            )
+            px = inspect_perplexity_readiness(state)
+            print(paint(
+                "Perplexity externa         : " + px["status"],
+                YELLOW if px["enabled"] and not px["queries_requested"] else DIM,
+            ))
+            if px["enabled"] and px["credential_configured"] and not px["queries_requested"]:
+                print(paint(
+                    "  Chave e ativação não solicitam pesquisa: CAT-05 > P > "
+                    "1. Queries ou 6. Copiar SERP (opt-in e potencial custo).",
+                    YELLOW,
+                ))
         if (ai_required(state) or ai_optional(state)) and ai_provider_readiness(state)[0]:
             print(
                 paint(
