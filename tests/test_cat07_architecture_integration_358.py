@@ -325,7 +325,8 @@ def test_guided_proposal_appears_before_concurrency_gate_and_is_non_destructive(
     state.apdex_experience_kpm = "DOM_INTERACTIVE"
     state.apdex_experience_satisfied = 5.0
     state.apdex_experience_frustrated = 20.0
-    ui._configure_experience(state)
+    with pytest.raises(ui.EditCancelled):
+        ui._configure_experience(state)
     text = capsys.readouterr().out
     assert "PRÉVIA GUIADA ANTECIPADA (NÃO APLICADA)" in text
     for field in ("RASAI_APDEX_EXPERIENCE_KPM",
@@ -333,7 +334,7 @@ def test_guided_proposal_appears_before_concurrency_gate_and_is_non_destructive(
                   "RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS"):
         assert field in text
     assert "origem:" in text and "substitui valor atual: SIM" in text
-    assert text.index("PRÉVIA GUIADA ANTECIPADA") < text.index("Carga") if "Carga" in text else True
+    assert text.index("PRÉVIA GUIADA ANTECIPADA") < text.index("Prévia de alteração guiada para a PRÓXIMA auditoria")
     assert (state.apdex_experience_kpm, state.apdex_experience_satisfied,
             state.apdex_experience_frustrated) == ("DOM_INTERACTIVE", 5.0, 20.0)
 
