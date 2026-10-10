@@ -321,7 +321,45 @@ def _configure_experience(state: State) -> None:
         "DYNATRACE_IMPORTED" if state.apdex_dynatrace_import else state.apdex_experience_profile_mode,
         ("CUSTOM", "DYNATRACE_GUIDED", "DYNATRACE_IMPORTED"),
     )
+    print(paint(
+        "  Modo selecionado: " + state.apdex_experience_profile_mode
+        + " | arquitetura declarada: " + state.apdex_experience_architecture,
+        DIM,
+    ))
     print(paint("  Guided propõe apenas o baseline Load executável (USER_ACTION_DURATION, 3s/12s); não mede XHR/soft navigation.", DIM))
+    if state.apdex_experience_profile_mode == "DYNATRACE_GUIDED":
+        # Present the three proposed values BEFORE lengthy sample/profile/error
+        # prompts and the sensitive concurrency gate. They are NOT yet applied.
+        # The existing final approval later in this function remains mandatory.
+        initial_preview = resolve_experience_architecture_guidance(
+            {
+                "kpm": state.apdex_experience_kpm,
+                "satisfied_threshold_seconds": state.apdex_experience_satisfied,
+                "frustrated_threshold_seconds": state.apdex_experience_frustrated,
+            },
+            selected_architecture=state.apdex_experience_architecture,
+            profile_mode="DYNATRACE_GUIDED",
+        )
+        print(paint("\\n  PRÉVIA GUIADA ANTECIPADA (NÃO APLICADA):", YELLOW))
+        for proposed in initial_preview["new_audit_configuration_preview"]:
+            print(paint(
+                f"    {proposed['variable']} = {proposed['value']}"
+                f" | origem: {proposed['source']}"
+                f" | substitui valor atual: "
+                f"{'SIM' if proposed['would_override_current'] else 'NÃO'}",
+                DIM,
+            ))
+        print(paint(
+            "  Esta é só a prévia. A aplicação exige confirmação explícita "
+            "depois dos parâmetros de amostragem/concorrência.",
+            YELLOW,
+        ))
+    else:
+        print(paint(
+            "  Nenhum preset Guided será apresentado/aplicado em modo "
+            + state.apdex_experience_profile_mode + ".",
+            DIM,
+        ))
     if state.apdex_experience_satisfied is None:
         state.apdex_experience_satisfied = DEFAULT_UX_SATISFIED_SECONDS
     if state.apdex_experience_frustrated is None:
