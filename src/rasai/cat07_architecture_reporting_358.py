@@ -21,6 +21,23 @@ ARCH_LABELS = {
     "STATIC_OR_SSR": "Página estática ou renderizada no servidor",
     "UNKNOWN": "Não determinada com evidências suficientes",
 }
+# Presentation-only vocabulary. Executable KPM/source enums remain unchanged
+# in SQLite and in the architecture-advisory contract.
+_KPM_LABELS = {
+    "USER_ACTION_DURATION": "Duração da ação de carregamento inicial",
+    "DOM_INTERACTIVE": "Tempo até o documento ficar interativo (DOM)",
+    "LOAD_EVENT_START": "Início do evento de carregamento",
+    "LOAD_EVENT_END": "Conclusão do evento de carregamento",
+    "RESPONSE_START": "Início da resposta HTTP",
+    "RESPONSE_END": "Conclusão da resposta HTTP",
+    "LARGEST_CONTENTFUL_PAINT": "Maior pintura de conteúdo (LCP)",
+}
+_ARCHITECTURE_SOURCE_LABELS = {
+    "M6_OBSERVED": "Identificada pela captura desta auditoria",
+    "OPERATOR_DECLARED": "Informada pelo operador; sem observação conclusiva",
+    "UNKNOWN": "Não determinada com evidências suficientes",
+}
+
 ADVICE_LABELS = {
     "ADEQUADA_AO_ESCOPO": "Compatível apenas com o carregamento inicial",
     "COBERTURA_PARCIAL": "Cobertura parcial para experiência além da entrada inicial",
@@ -38,9 +55,9 @@ def _columns(con: sqlite3.Connection, name: str) -> set[str]:
 def _observed_architecture(con: sqlite3.Connection, audit_id: str):
     cols = _columns(con, "page_snapshots")
     if not {"snapshot_id", "page_id", "device", "architecture_classification"}.issubset(cols):
-        return "UNKNOWN", None, "Nenhuma classificação arquitetural M6 por página foi persistida."
+        return "UNKNOWN", None, "Nenhuma classificação arquitetural por página foi persistida."
     if not {"page_id", "audit_id"}.issubset(_columns(con, "pages")):
-        return "UNKNOWN", None, "Vínculo da classificação M6 com a AUD não comprovável."
+        return "UNKNOWN", None, "Vínculo da classificação arquitetural com a auditoria não comprovável."
     rows = con.execute(
         "SELECT ps.snapshot_id, ps.page_id, ps.device, ps.architecture_classification "
         "FROM page_snapshots ps JOIN pages p ON p.page_id=ps.page_id "
@@ -48,7 +65,7 @@ def _observed_architecture(con: sqlite3.Connection, audit_id: str):
         (audit_id,),
     ).fetchall()
     if not rows:
-        return "UNKNOWN", None, "Nenhuma arquitetura M6 observada nesta AUD."
+        return "UNKNOWN", None, "Nenhuma arquitetura observada nesta auditoria."
     if len(rows) != 1:
         return "UNKNOWN", None, (
             "Há múltiplas capturas nesta AUD; arquitetura de uma única página/ação "
@@ -60,10 +77,10 @@ def _observed_architecture(con: sqlite3.Connection, audit_id: str):
         not isinstance(x, str) or not x.strip()
         for x in (snapshot, page, device)
     ):
-        return "UNKNOWN", None, "Classificação M6 insuficiente ou incompleta."
+        return "UNKNOWN", None, "Classificação de arquitetura insuficiente ou incompleta."
     return architecture, {
         "snapshot_id": snapshot, "page_id": page, "device": device,
-    }, "Classificação M6 persistida nesta AUD, não inferida pelo relatório."
+    }, "Arquitetura observada e registrada nesta auditoria, não inferida pelo relatório."
 
 
 def _run_config(con: sqlite3.Connection, audit_id: str) -> Mapping[str, Any]:
@@ -124,13 +141,17 @@ def cat07_architecture_advice_html(
     )
     label = ARCH_LABELS.get(architecture, ARCH_LABELS["UNKNOWN"])
     kpm = config.get("kpm") if isinstance(config.get("kpm"), str) else None
+    kpm_label = _KPM_LABELS.get(kpm, kpm) if kpm else "N/D"
+    origin_label = _ARCHITECTURE_SOURCE_LABELS.get(
+        guidance["architecture_source"], "Não determinada com evidências suficientes"
+    )
     parts = [
         "<div class='subsection' data-contract='CAT07-ARCHITECTURE-358'>",
         "<h3>Arquitetura observada e adequação do Apdex</h3>",
-        "<p><strong>Arquitetura por M6:</strong> " + escape(label) + ". "
+        "<p><strong>Arquitetura observada na captura:</strong> " + escape(label) + ". "
         + escape(note) + "</p>",
-        "<p><strong>Configuração M25 comprovada:</strong> KPM "
-        + escape(kpm or "N/D") + "; Satisfied "
+        "<p><strong>Configuração efetiva do Apdex de experiência:</strong> Métrica "
+        + escape(kpm_label) + "; Satisfied "
         + escape(str(config.get("satisfied_threshold_seconds")
                     if config.get("satisfied_threshold_seconds") is not None else "N/D"))
         + " s; Frustrated "
@@ -142,7 +163,7 @@ def cat07_architecture_advice_html(
         "<p><strong>Modo de calibração da AUD:</strong> "
         + escape(mode if mode != "UNKNOWN" else "N/D (não congelado nesta AUD)")
         + ". Não inferir modo Guided pela simples coincidência numérica.</p>",
-        "<p><strong>Limite de medição:</strong> M25 mede a navegação inicial; "
+        "<p><strong>Limite de medição:</strong> Este Apdex mede apenas o carregamento inicial; "
         "não produz ações XHR/Custom autônomas, prontidão de conteúdo ou "
         "equivalência com Dynatrace RUM. Um Apdex alto pode não representar "
         "uma transição SPA ou hidratação completa.</p>",
@@ -159,7 +180,7 @@ def cat07_architecture_advice_html(
         "<p><strong>Arquitetura informada antes da AUD:</strong> "
         + escape(declared_label if meta else "N/D (sem handoff congelado)")
         + ". <strong>Origem da identificação:</strong> "
-        + escape(guidance["architecture_source"]) + ".</p>"
+        + escape(origin_label) + ".</p>"
     )
     source_labels = {
         "RASAI_EXECUTABLE_NOW": "No RASAi (executável após confirmação)",
