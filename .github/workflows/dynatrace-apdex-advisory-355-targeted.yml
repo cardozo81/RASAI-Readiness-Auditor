@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/dynatrace_apdex_arch_advisory_355.py'
+      - 'src/rasai/dynatrace_effective_values_adapter_355.py'
+      - 'src/rasai/dynatrace_apdex_review_cli_355.py'
       - 'tests/test_dynatrace_apdex_arch_advisory_355.py'
       - 'docs/APDEX_DYNATRACE_ARCH_ADVISORY_355.md'
       - '.github/workflows/dynatrace-apdex-advisory-355-targeted.yml'
@@ -12,6 +14,8 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/dynatrace_apdex_arch_advisory_355.py'
+      - 'src/rasai/dynatrace_effective_values_adapter_355.py'
+      - 'src/rasai/dynatrace_apdex_review_cli_355.py'
       - 'tests/test_dynatrace_apdex_arch_advisory_355.py'
       - '.github/workflows/dynatrace-apdex-advisory-355-targeted.yml'
 
