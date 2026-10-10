@@ -576,6 +576,40 @@ def install(console_module: ModuleType) -> None:
         global _ACTIVE_RUN
         forecast = forecast_local_cost(state)
         if not forecast.show_confirmation:
+            # A zero/unavailable price forecast is NOT authorization to navigate
+            # external URLs, stress a target with synthetic samples or use a
+            # paid integration whose price cannot be estimated.
+            from rasai.console_confirmation_contract import confirm_continue
+            from rasai.console_catalog_plan import ai_execution_enabled
+
+            state.operation = "LOCAL:EXECUTION_CONFIRMATION"
+            state.error = ""
+            console_module.render_header(state)
+            print("\n" + title_text("CONFIRMAÇÃO FINAL ANTES DA AUDITORIA"))
+            print(f"URL                    : {getattr(state, 'target', '') or '<não informada>'}")
+            print(f"Dispositivo            : {str(getattr(state, 'device', '-') or '-').upper()}")
+            print(f"Apdex navegação        : {'ATIVO' if getattr(state, 'synthetic_apdex', False) else 'INATIVO'}")
+            print(f"Apdex experiência      : {'ATIVO' if getattr(state, 'apdex_experience', False) else 'INATIVO'}")
+            print(f"IA no plano            : {'ATIVA' if ai_execution_enabled(state) else 'NÃO AUTORIZADA'}")
+            print(paint(
+                "Sem previsão financeira confirmável NÃO significa zero custos, "
+                "requisições HTTP ou carga sintética no site-alvo.",
+                YELLOW,
+                bold=True,
+            ))
+            if not confirm_continue(
+                "Confirmar e INICIAR agora a auditoria e suas requisições",
+                back_label="Voltar ao plano sem executar",
+            ):
+                _DECLINED.add(id(state))
+                _FORECASTS.pop(id(state), None)
+                _OUTCOMES.pop(id(state), None)
+                _ACTIVE_RUN = None
+                state.status = "READY"
+                state.operation = "LOCAL:EXECUTION_DECLINED"
+                state.error = ""
+                return 0
+            state.operation = "LOCAL:EXECUTION_CONFIRMED"
             return int(original_run(state) or 0)
 
         while True:
