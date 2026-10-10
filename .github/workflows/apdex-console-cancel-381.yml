@@ -1,0 +1,40 @@
+name: Apdex console cancel transaction 381
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/console_ui_refactor.py'
+      - 'tests/test_console_apdex_cancel_transaction_381.py'
+      - '.github/workflows/apdex-console-cancel-381.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apdex-console-cancel:
+    name: Transactional Apdex edit (\u0024{{ matrix.os }})
+    runs-on: \u0024{{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package and pytest
+        run: python -m pip install -e . pytest
+      - name: Compile changed console code
+        run: python -m py_compile src/rasai/console_ui_refactor.py tests/test_console_apdex_cancel_transaction_381.py
+      - name: Run only cancellation and existing Apdex boundary regressions
+        run: >-
+          python -m pytest -q
+          tests/test_console_apdex_cancel_transaction_381.py
+          tests/test_console_ui_refactor.py::test_apdex_edit_keeps_mix_inherited_when_mix_is_unchanged
+          tests/test_console_ui_refactor.py::test_apdex_edit_cannot_reactivate_device_mix_override
+          tests/test_cat07_architecture_integration_358.py::test_rejected_guided_preview_restores_state_and_environment
+          tests/test_console_input_navigation_contract.py::test_apdex_edit_restores_previous_values_when_cancelled_mid_form
