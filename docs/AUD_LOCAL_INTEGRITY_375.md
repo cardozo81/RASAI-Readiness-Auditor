@@ -1,4 +1,4 @@
-# Gate auditável de integridade local — #375
+# Gate auditável de integridade local - #375
 
 ## Evidência comparável à última release tagueada
 
