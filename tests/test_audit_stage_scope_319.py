@@ -144,3 +144,92 @@ def test_319_metrics_html_shows_scope_by_stage_without_changing_scores(tmp_path,
     assert "Direcionada" not in html or "não equivale" in html
     assert "999" not in html
     assert db.read_bytes() == source
+
+
+def test_319_metrics_html_shows_aud_scoped_m21_http_request_sums_not_stage_clocks(
+    tmp_path, monkeypatch,
+):
+    from rasai import catalog_report_site as report
+    root, db = make_aud(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE web_performance_attempts("
+            "attempt_id TEXT PRIMARY KEY, audit_id TEXT, "
+            "service TEXT, duration_ms REAL)"
+        )
+        con.executemany(
+            "INSERT INTO web_performance_attempts VALUES (?,?,?,?)",
+            [
+                ("PSI-1", AUD, "PAGESPEED_INSIGHTS", 20000.0),
+                ("PSI-2", AUD, "PAGESPEED_INSIGHTS", 40000.0),
+                ("CRUX-1", AUD, "CRUX_API", 10000.0),
+                ("FOREIGN", FOREIGN, "PAGESPEED_INSIGHTS", 999000.0),
+                ("UNKNOWN", AUD, "UNREGISTERED_PROVIDER", 777000.0),
+            ],
+        )
+    before = db.read_bytes()
+    monkeypatch.setattr(report, "_audit_hero", lambda *_args: "")
+    monkeypatch.setattr(report, "_catalog_metrics", lambda *_args: {})
+    monkeypatch.setattr(report, "_catalog_metric_rows", lambda *_args: [])
+    monkeypatch.setattr(
+        report, "_section",
+        lambda key, title, body:
+            "<section id='" + key + "'><h2>" + title + "</h2>" + body + "</section>"
+    )
+    monkeypatch.setattr(
+        report, "_table",
+        lambda _headers, rows, **_kwargs: " ".join(str(row) for row in rows)
+    )
+    html = report._metrics_body(db, SimpleNamespace(scores=[], audit_id=AUD))
+    assert "http-request-observations-319" in html
+    assert "Tempos observados de requisições web" in html
+    assert "PageSpeed Insights" in html and "60.00 s" in html
+    assert "CrUX API" in html and "10.00 s" in html
+    assert "Tempo físico de fase: N/D" in html
+    assert "não somar com atividade IA" in html
+    assert "999.00 s" not in html
+    assert "777.00 s" not in html
+    assert "ai-session-scope-319" in html
+    assert db.read_bytes() == before
+
+
+def test_319_metrics_html_m21_incomplete_service_abstains_not_zero(
+    tmp_path, monkeypatch,
+):
+    from rasai import catalog_report_site as report
+    root, db = make_aud(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE web_performance_attempts("
+            "attempt_id TEXT PRIMARY KEY, audit_id TEXT, "
+            "service TEXT, duration_ms REAL)"
+        )
+        con.executemany(
+            "INSERT INTO web_performance_attempts VALUES (?,?,?,?)",
+            [
+                ("PSI-VALID", AUD, "PAGESPEED_INSIGHTS", 25000.0),
+                ("PSI-UNKNOWN", AUD, "PAGESPEED_INSIGHTS", None),
+                ("CRUX-VALID", AUD, "CRUX_API", 11000.0),
+            ],
+        )
+    before = db.read_bytes()
+    monkeypatch.setattr(report, "_audit_hero", lambda *_args: "")
+    monkeypatch.setattr(report, "_catalog_metrics", lambda *_args: {})
+    monkeypatch.setattr(report, "_catalog_metric_rows", lambda *_args: [])
+    monkeypatch.setattr(
+        report, "_section",
+        lambda key, title, body:
+            "<section id='" + key + "'><h2>" + title + "</h2>" + body + "</section>"
+    )
+    monkeypatch.setattr(
+        report, "_table",
+        lambda _headers, rows, **_kwargs: repr(rows)
+    )
+    html = report._metrics_body(db, SimpleNamespace(scores=[], audit_id=AUD))
+    assert "http-request-observations-319" in html
+    m21_html = html.split("http-request-observations-319", 1)[1]
+    assert "'PageSpeed Insights', 'N/D'" in m21_html
+    assert "'CrUX API', '11.00 s'" in m21_html
+    assert "25.00 s" not in m21_html  # rejected whole partial service
+    assert "Sem telemetria temporal completa" in m21_html
+    assert db.read_bytes() == before
