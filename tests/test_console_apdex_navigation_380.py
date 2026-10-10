@@ -23,6 +23,10 @@ from rasai.apdex_concurrency_policy import (
 )
 from rasai.console_m23 import State
 
+# Capture the canonical Experience editor before tests temporarily override its
+# binding for Navigation-only scenarios.
+CANONICAL_EXPERIENCE_EDITOR = apdex._configure_experience
+
 
 @pytest.fixture
 def effective_console(monkeypatch, tmp_path):
@@ -179,3 +183,45 @@ def test_experience_limit_is_not_raised_by_navigation_policy():
     assert NAVIGATION_MAX_CONCURRENCY == 4
     assert EXPERIENCE_MAX_CONCURRENCY == 3
     validate_navigation_concurrency(4, 1.0)
+
+
+def test_experience_three_remains_sensitive_and_cancelled_edit_is_atomic(
+    monkeypatch, effective_console,
+):
+    console, state, saved, ini = effective_console
+    state.apdex_experience = True
+    state.apdex_experience_concurrency = 3
+    state.apdex_experience_delay = 1.0
+    state.apdex_experience_satisfied = 3.0
+    state.apdex_experience_frustrated = 12.0
+    state.apdex_experience_profile_mode = "CUSTOM"
+    monkeypatch.setattr(apdex, "_configure_navigation", lambda s: None)
+    monkeypatch.setattr(apdex, "_configure_experience", CANONICAL_EXPERIENCE_EDITOR)
+    monkeypatch.setattr(apdex, "_show_experience_defaults", lambda: None)
+    monkeypatch.setattr(apdex, "_configure_experience_runtime_profiles", lambda d: None)
+    monkeypatch.setattr(apdex, "_yes_no", lambda label, current: current)
+    monkeypatch.setattr(apdex, "_number", lambda label, current, **kw: current)
+    monkeypatch.setattr(apdex, "_choice", lambda label, current, *args: current)
+    monkeypatch.setattr(apdex, "_required_positive", lambda label, current: current)
+    gates = []
+    def reject(phrase, *, action_label, **kwargs):
+        gates.append((phrase, action_label))
+        return False
+    monkeypatch.setattr(apdex, "confirm_sensitive", reject)
+    monkeypatch.setattr(builtins, "input", lambda prompt="": (_ for _ in ()).throw(
+        AssertionError("no persistence prompt permitted")
+    ))
+    before = persistence._fingerprint(state)
+    old_env = dict(os.environ)
+    output = StringIO()
+    with redirect_stdout(output):
+        console._configure(state, "11")
+    assert len(gates) == 1
+    assert gates[0][0] == "CONCORRÊNCIA"
+    assert "Experience 3" in gates[0][1]
+    assert state.operation == "LOCAL:APDEX_EDIT_CANCELLED"
+    assert persistence._fingerprint(state) == before
+    assert dict(os.environ) == old_env
+    assert saved == []
+    assert "DESTINO DA ALTERAÇÃO" not in output.getvalue()
+    assert ini.read_text(encoding="utf-8") == "original-ini-content\\n".replace("\\n", "\n")
