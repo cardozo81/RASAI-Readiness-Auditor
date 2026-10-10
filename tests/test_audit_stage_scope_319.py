@@ -233,3 +233,171 @@ def test_319_metrics_html_m21_incomplete_service_abstains_not_zero(
     assert "25.00 s" not in m21_html  # rejected whole partial service
     assert "Sem telemetria temporal completa" in m21_html
     assert db.read_bytes() == before
+
+
+def test_319_fulfillment_wrapper_intervals_are_not_physical_stage_durations(tmp_path):
+    root, db = make_aud(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE audit_fulfillment_work_items (
+                work_item_id TEXT PRIMARY KEY, audit_id TEXT, component TEXT
+            );
+            CREATE TABLE audit_fulfillment_attempts (
+                attempt_id TEXT PRIMARY KEY, audit_id TEXT, work_item_id TEXT,
+                reprocess_id TEXT, started_at TEXT, finished_at TEXT, status TEXT
+            );
+        """)
+        con.executemany(
+            "INSERT INTO audit_fulfillment_work_items VALUES (?,?,?)",
+            [("W-1", AUD, "EXTRACTION"), ("W-2", FOREIGN, "EXTRACTION")],
+        )
+        con.executemany(
+            "INSERT INTO audit_fulfillment_attempts VALUES (?,?,?,?,?,?,?)",
+            [
+                ("A", AUD, "W-1", None, "2026-10-08T10:01:00Z",
+                 "2026-10-08T10:03:00Z", "SUCCESS"),
+                ("B", AUD, "W-1", None, "2026-10-08T10:02:00+00:00",
+                 "2026-10-08T10:04:00+00:00", "FAILED_RETRYABLE"),
+                ("POST", AUD, "W-1", None, "2026-10-08T10:22:00Z",
+                 "2026-10-08T10:23:00Z", "SUCCESS"),
+                ("RPR", AUD, "W-1", "RPR-ONE", "2026-10-08T10:05:00Z",
+                 "2026-10-08T10:06:00Z", "SUCCESS"),
+                ("UNKNOWN", AUD, "W-1", None, "2026-10-08T10:04:00",
+                 "2026-10-08T10:06:00", "RUNNING"),
+                ("FOREIGN", FOREIGN, "W-2", None, "2026-10-08T10:01:00Z",
+                 "2026-10-08T10:19:00Z", "SUCCESS"),
+            ],
+        )
+    before = sha256(db.read_bytes()).hexdigest()
+    inspection = inspect_audit_attempts(root)
+    evidence = inspection["fulfillment_attempt_temporal_evidence"]
+    assert evidence["status"] == "ATTEMPT_INTERVALS_WITH_LIMITATIONS"
+    assert evidence["attempts_total"] == 5
+    assert evidence["physical_stage_duration_available"] is False
+    assert inspection["non_ai_stages_measured"] is False
+    groups = {
+        (r["component"], r["temporal_scope"]): r for r in evidence["by_component"]
+    }
+    within = groups[("EXTRACTION", "WITHIN_VERIFIED_CONSOLE_WINDOW")]
+    assert within["attempts"] == 2
+    assert within["summed_elapsed_ms"] == 240000
+    assert within["union_elapsed_ms"] == 180000
+    assert within["overlap_elapsed_ms"] == 60000
+    assert groups[("EXTRACTION", "AFTER_VERIFIED_CONSOLE_WINDOW")]["attempts"] == 1
+    assert groups[("EXTRACTION", "REPROCESS_ATTEMPT")]["attempts"] == 1
+    assert groups[("EXTRACTION", "WINDOW_UNVERIFIED")]["unknown_intervals"] == 1
+    assert groups[("EXTRACTION", "WINDOW_UNVERIFIED")]["union_elapsed_ms"] is None
+    assert "FOREIGN" not in str(evidence)
+    assert sha256(db.read_bytes()).hexdigest() == before
+
+
+def test_319_missing_fulfillment_tables_and_partial_aud_abstain(tmp_path):
+    (tmp_path / "missing").mkdir()
+    root, db = make_aud(tmp_path / "missing")
+    source = db.read_bytes()
+    evidence = inspect_audit_attempts(root)["fulfillment_attempt_temporal_evidence"]
+    assert evidence["status"] == "SCHEMA_NOT_AVAILABLE"
+    assert evidence["by_component"] == []
+    assert db.read_bytes() == source
+    (tmp_path / "partial").mkdir()
+    root2, db2 = make_aud(tmp_path / "partial", completion="PARTIAL_RETRYABLE")
+    with sqlite3.connect(db2) as con:
+        con.executescript("""
+            CREATE TABLE audit_fulfillment_work_items (
+                work_item_id TEXT PRIMARY KEY, audit_id TEXT, component TEXT
+            );
+            CREATE TABLE audit_fulfillment_attempts (
+                attempt_id TEXT PRIMARY KEY, audit_id TEXT, work_item_id TEXT,
+                reprocess_id TEXT, started_at TEXT, finished_at TEXT, status TEXT
+            );
+        """)
+        con.execute(
+            "INSERT INTO audit_fulfillment_work_items VALUES (?,?,?)",
+            ("W-ONE", AUD, "CAPTURE"),
+        )
+        con.execute(
+            "INSERT INTO audit_fulfillment_attempts VALUES (?,?,?,?,?,?,?)",
+            ("ATT-ONE", AUD, "W-ONE", None,
+             "2026-10-08T10:01:00Z", "2026-10-08T10:02:00Z", "SUCCESS"),
+        )
+    digest = sha256(db2.read_bytes()).hexdigest()
+    result = inspect_audit_attempts(root2)
+    assert result["verified_aud_wall_duration_ms"] is None
+    attempt = result["fulfillment_attempt_temporal_evidence"]["by_component"][0]
+    assert attempt["temporal_scope"] == "WINDOW_UNVERIFIED"
+    assert result["non_ai_stages_measured"] is False
+    assert sha256(db2.read_bytes()).hexdigest() == digest
+
+
+def test_319_fulfillment_metrics_report_is_explicitly_not_stage_measurement(
+    tmp_path, monkeypatch,
+):
+    from rasai import catalog_report_site as report
+    root, db = make_aud(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE audit_fulfillment_work_items (
+                work_item_id TEXT PRIMARY KEY, audit_id TEXT, component TEXT
+            );
+            CREATE TABLE audit_fulfillment_attempts (
+                attempt_id TEXT PRIMARY KEY, audit_id TEXT, work_item_id TEXT,
+                reprocess_id TEXT, started_at TEXT, finished_at TEXT, status TEXT
+            );
+        """)
+        con.execute(
+            "INSERT INTO audit_fulfillment_work_items VALUES (?,?,?)",
+            ("WORK", AUD, "EXTRACTION"),
+        )
+        con.execute(
+            "INSERT INTO audit_fulfillment_attempts VALUES (?,?,?,?,?,?,?)",
+            ("ATT", AUD, "WORK", None,
+             "2026-10-08T10:01:00Z", "2026-10-08T10:03:00Z", "SUCCESS"),
+        )
+    before = db.read_bytes()
+    monkeypatch.setattr(report, "_audit_hero", lambda *_: "")
+    monkeypatch.setattr(report, "_catalog_metrics", lambda *_: {})
+    monkeypatch.setattr(report, "_catalog_metric_rows", lambda *_: [])
+    monkeypatch.setattr(
+        report, "_section", lambda key, title, body:
+        "<section id='" + key + "'>" + title + body + "</section>",
+    )
+    monkeypatch.setattr(report, "_table", lambda _headers, rows, **_kwargs:
+                        " ".join(str(r) for r in rows))
+    html = report._metrics_body(db, SimpleNamespace(scores=[], audit_id=AUD))
+    assert "fulfillment-intervals-319" in html
+    assert "Intervalos das tentativas operacionais" in html
+    assert "120.00 s" in html
+    assert "não duração física exclusiva" in html
+    assert "N/D - sem cronômetro físico da etapa" in html
+    assert db.read_bytes() == before
+
+
+def test_319_cross_aud_work_item_reference_abstains_instead_of_dropping_row(tmp_path):
+    root, db = make_aud(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE audit_fulfillment_work_items (
+                work_item_id TEXT PRIMARY KEY, audit_id TEXT, component TEXT
+            );
+            CREATE TABLE audit_fulfillment_attempts (
+                attempt_id TEXT PRIMARY KEY, audit_id TEXT, work_item_id TEXT,
+                reprocess_id TEXT, started_at TEXT, finished_at TEXT, status TEXT
+            );
+        """)
+        con.execute(
+            "INSERT INTO audit_fulfillment_work_items VALUES (?,?,?)",
+            ("FOREIGN-WORK", FOREIGN, "CAPTURE"),
+        )
+        con.execute(
+            "INSERT INTO audit_fulfillment_attempts VALUES (?,?,?,?,?,?,?)",
+            ("CROSS-AUD", AUD, "FOREIGN-WORK", None,
+             "2026-10-08T10:01:00Z", "2026-10-08T10:02:00Z", "SUCCESS"),
+        )
+    original = db.read_bytes()
+    inspection = inspect_audit_attempts(root)
+    evidence = inspection["fulfillment_attempt_temporal_evidence"]
+    assert evidence["status"] == "WORK_ITEM_AUDIT_IDENTITY_MISMATCH"
+    assert evidence["by_component"] == []
+    assert evidence["physical_stage_duration_available"] is False
+    assert inspection["non_ai_stages_measured"] is False
+    assert db.read_bytes() == original

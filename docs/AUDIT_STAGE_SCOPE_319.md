@@ -72,3 +72,43 @@ tempo ativo IA nem à duração física total da auditoria. O tempo físico de
 etapas não-IA continua **N/D**. A mudança se limita à projeção de
 relatório: nenhuma nova tabela, aquisição, fatura, IA, forecast, score
 ou alteração do pacote de auditoria original.
+
+## Incremento WKA: inventário de relógios operacionais não-IA
+
+A tabela persistida `audit_fulfillment_attempts` possui `started_at` e
+`finished_at` para tentativas de work-items relacionados a
+`audit_fulfillment_work_items`. O relatório `metrics.html` agora pode
+exibir os **intervalos entre os marcos das tentativas de fulfillment**
+quando o ledger está disponível, sem alterar o contrato do motor.
+
+O resultado de `inspect_audit_attempts` inclui
+`fulfillment_attempt_temporal_evidence` com:
+- componente efetivo do work-item, número de tentativas e cobertura;
+- soma de intervalos completos, união temporal e sobreposição;
+- colocação dentro/antes/depois/cruzando a única janela do console validada;
+- classe separada `REPROCESS_ATTEMPT` quando há `reprocess_id`;
+- `WINDOW_UNVERIFIED`, `N/D` e ausência de agregação completa
+  caso faltem timestamps válidos.
+
+A leitura exige identificação explícita da AUD em ambas as tabelas,
+usa SQLite em `mode=ro` e não altera banco, artefato, amostras,
+custo ou resultados históricos. AUD incompleta não recebe atribuição
+positiva à sessão inicial, mesmo quando a tentativa tem timestamp.
+
+**Limite metodológico fundamental:** o invólucro
+`begin_attempt`/`finish_attempt` pode incluir chamadas aninhadas,
+esperas, concorrência e operações de vários tipos; seus timestamps
+não são cronômetros físicos exclusivos das fases M3/M21/M23/M25,
+renderização, processamento determinístico ou relatório. Portanto
+`non_ai_stages_measured=false` permanece. Não utilizar esses dados
+para subtração residual, previsão por fase ou recalibração do Apdex.
+
+Fixture focal: tentativas de extração sobrepostas (240 s de soma,
+180 s de união, 60 s de sobreposição), reprocessamento separado,
+tentativa posterior à sessão, clock ingênuo invalidado, AUD parcial,
+entidade de outra AUD excluída e SHA-256 do banco preservado.
+Não foi executado smoke com coleta nem API comercial.
+
+Próxima dependência da #319: tempos físicos **da própria fase**
+precisam de marcos instrumentados com `execution_id` e período de
+execução inequívoco. O WKA não autoriza afirmar duração física exclusiva.

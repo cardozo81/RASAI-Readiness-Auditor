@@ -152,6 +152,49 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
                 scope_rows,
             ),
         )
+    # The work-item ledger records begin/finish of operational wrappers, not
+    # physical stage sensors. Show this separately from AI and M21 request time.
+    fulfillment = (measured or {}).get("fulfillment_attempt_temporal_evidence", {})
+    if fulfillment.get("by_component"):
+        positions = {
+            "WITHIN_VERIFIED_CONSOLE_WINDOW": "Dentro da janela de console verificada",
+            "AFTER_VERIFIED_CONSOLE_WINDOW": "Após a janela de console",
+            "BEFORE_VERIFIED_CONSOLE_WINDOW": "Antes da janela de console",
+            "CROSSES_CONSOLE_WINDOW": "Intervalo cruza o limite do console",
+            "REPROCESS_ATTEMPT": "Tentativa de reprocessamento (RPR)",
+            "WINDOW_UNVERIFIED": "Janela/relógios não verificáveis",
+        }
+        def _interval_seconds(value):
+            return f"{value / 1000:.2f} s" if value is not None else "N/D"
+        wrapper_rows = [
+            (
+                item["component"].replace("_", " ").title(),
+                positions.get(item["temporal_scope"], "N/D"),
+                item["attempts"],
+                _interval_seconds(item["summed_elapsed_ms"]),
+                _interval_seconds(item["union_elapsed_ms"]),
+                item["unknown_intervals"],
+                "N/D - sem cronômetro físico da etapa",
+            )
+            for item in fulfillment["by_component"]
+        ]
+        body += _section(
+            "fulfillment-intervals-319",
+            "Intervalos das tentativas operacionais (fulfillment)",
+            "<p>Fonte read-only: work-items de fulfillment da AUD, com "
+            "marcos begin_attempt/finish_attempt. Os intervalos mostram o "
+            "tempo entre marcos do invólucro operacional, não duração "
+            "física exclusiva de captura, extração, renderização, Apdex "
+            "ou relatório. Tentativas de RPR ficam separadas; sem relógios "
+            "ou janela verificáveis exibe-se N/D. Não somar com IA/HTTP "
+            "nem subtrair da duração física da auditoria.</p>"
+            + _table(
+                ("Componente do work-item", "Posição temporal", "Tentativas",
+                 "Soma de intervalos", "União de intervalos", "Sem relógios",
+                 "Duração física da fase"),
+                wrapper_rows,
+            ),
+        )
     # #319: expose M21 HTTP timing that has ALREADY been independently
     # validated for the original AUD. Request sums are neither physical
     # PSI/CrUX stage clocks nor components to add to the AUD wall duration.
