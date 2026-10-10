@@ -35,6 +35,7 @@ def _state() -> State:
     state.apdex_threshold = 3.0
     state.apdex_samples = 10
     state.apdex_concurrency = 4
+    state.apdex_delay = 1.0
     state.apdex_experience = True
     state.apdex_experience_profile_mode = "DYNATRACE_GUIDED"
     state.apdex_experience_architecture = "CSR_SPA"
@@ -57,12 +58,12 @@ def _compose(monkeypatch, tmp_path):
     console._configure = lambda state, choice: apdex.configure_apdex(state) if choice == "11" else None
     console.mark_dirty = lambda state, value=True: None
     ini = tmp_path / "rasai-console.ini"
-    ini.write_text("[existing]\\nkeep = yes\\n", encoding="utf-8")
+    ini.write_text("[existing]\nkeep = yes\n", encoding="utf-8")
     saved = []
 
     def save(state):
         saved.append(True)
-        ini.write_text("[existing]\\nkeep = changed\\n", encoding="utf-8")
+        ini.write_text("[existing]\nkeep = changed\n", encoding="utf-8")
         return True
 
     console._save_configuration = save
@@ -189,4 +190,4 @@ def test_explicit_guided_approval_retains_normal_save_path(monkeypatch, tmp_path
     assert state.apdex_experience_device_mix == "mobile=0,desktop=100,tablet=0"
     assert saved == [True]
     assert "DESTINO DA ALTERAÇÃO" in output.getvalue()
-    assert ini.read_text(encoding="utf-8").endswith("keep = changed\\n")
+    assert ini.read_text(encoding="utf-8").endswith("keep = changed\n")
