@@ -18,6 +18,7 @@ from typing import Sequence
 
 from rasai.audit_attempt_timeline import _group, _stage, _time, read_audit_attempt_timeline
 from rasai.audit_duration_forecast_319 import _m21_http_request_sums
+from rasai.audit_fulfillment_timing_319 import inspect_fulfillment_attempt_intervals
 
 _AUD = re.compile(r"^AUD-[A-Za-z0-9-]{1,100}$")
 
@@ -206,6 +207,7 @@ def inspect_audit_attempts(aud_dir: Path) -> dict:
         # same conservative, AUD-scoped and fail-closed interpretation already
         # used by the historical duration forecast.
         http_request_sums = _m21_http_request_sums(con, root.name)
+        fulfillment_intervals = inspect_fulfillment_attempt_intervals(con, root.name, window)
     timeline = read_audit_attempt_timeline(db, root.name)
     stages = [asdict(x) for x in timeline.stages]
     return {
@@ -235,6 +237,7 @@ def inspect_audit_attempts(aud_dir: Path) -> dict:
         "provider_observed_usd": timeline.provider_observed_usd,
         "unpriced_attempts": timeline.unpriced_attempts,
         "non_ai_stages_measured": False,
+        "fulfillment_attempt_temporal_evidence": fulfillment_intervals,
         "observed_http_request_sums_ms": http_request_sums,
         "http_request_telemetry": (
             "OBSERVED_CUMULATIVE_REQUEST_DURATION"
