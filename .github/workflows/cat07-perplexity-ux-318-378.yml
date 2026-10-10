@@ -8,6 +8,7 @@ on:
       - 'src/rasai/console_perplexity_readiness_318.py'
       - 'src/rasai/integration_diagnostics_console.py'
       - 'src/rasai/console_catalog_ui.py'
+      - 'src/rasai/console_ui_catalog.py'
       - 'src/rasai/console_search_parameter_menu.py'
       - 'tests/test_cat07_architecture_integration_358.py'
       - 'tests/test_console_perplexity_readiness_318.py'
@@ -20,6 +21,7 @@ on:
       - 'src/rasai/console_perplexity_readiness_318.py'
       - 'src/rasai/integration_diagnostics_console.py'
       - 'src/rasai/console_catalog_ui.py'
+      - 'src/rasai/console_ui_catalog.py'
       - 'src/rasai/console_search_parameter_menu.py'
       - 'tests/test_cat07_architecture_integration_358.py'
       - 'tests/test_console_perplexity_readiness_318.py'
@@ -50,6 +52,7 @@ jobs:
           src/rasai/console_perplexity_readiness_318.py
           src/rasai/integration_diagnostics_console.py
           src/rasai/console_catalog_ui.py
+          src/rasai/console_ui_catalog.py
           src/rasai/console_search_parameter_menu.py
       - name: Scoped regression without external providers
         run: >-
