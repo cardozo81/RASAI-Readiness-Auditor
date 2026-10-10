@@ -11,6 +11,7 @@ import builtins
 from contextlib import redirect_stdout
 import io
 import math
+import os
 import sys
 from types import ModuleType
 from typing import Any
@@ -388,11 +389,63 @@ def _install_configure_persistence(console: ModuleType) -> None:
 
     def configure(state: Any, choice: str):
         before = _fingerprint(state)
-        _ensure_mix(state)
-        original(state, choice)
+        # The APDEX editor is transactional, but the compatibility mix is normalized
+        # by this outer wrapper BEFORE the editor takes its own rollback snapshot.
+        # Snapshot here as well so V/N/invalid input cannot offer INI persistence
+        # or quietly change the session's inherited mix/environment.
+        apdex_edit = choice == "11"
+        prior_operation = getattr(state, "operation", None)
+        prior_inherited = _mix_inherited(state) if apdex_edit else None
+        prior_apdex = {
+            name: getattr(state, name)
+            for name in dir(state)
+            if apdex_edit
+            and (name == "synthetic_apdex" or name.startswith(("apdex_", "dynatrace_")))
+            and not name.startswith("__")
+            and not callable(getattr(state, name))
+        }
+        apdex_prefixes = ("RASAI_APDEX_", "RASAI_SYNTHETIC_APDEX", "DYNATRACE_")
+        prior_environment = {
+            name: value for name, value in os.environ.items()
+            if apdex_edit and name.startswith(apdex_prefixes)
+        }
+
+        def rollback_apdex() -> None:
+            for name, value in prior_apdex.items():
+                setattr(state, name, value)
+            for name in tuple(os.environ):
+                if name.startswith(apdex_prefixes) and name not in prior_environment:
+                    os.environ.pop(name, None)
+            os.environ.update(prior_environment)
+            if prior_inherited is None:
+                _drop_meta(state, "apdex_mix_inherited")
+            else:
+                _set_mix_inherited(state, prior_inherited)
+
+        if apdex_edit:
+            # Distinguish a fresh cancellation from a stale operation left by an
+            # earlier edit. The inner editor sets APDEX_EDIT_CANCELLED explicitly.
+            state.operation = "LOCAL:APDEX_EDIT_IN_PROGRESS"
+        try:
+            _ensure_mix(state)
+            original(state, choice)
+        except BaseException:
+            if apdex_edit:
+                rollback_apdex()
+                if state.operation == "LOCAL:APDEX_EDIT_IN_PROGRESS":
+                    state.operation = prior_operation
+            raise
+        if apdex_edit and (
+            state.operation == "LOCAL:APDEX_EDIT_CANCELLED"
+            or bool(getattr(state, "error", ""))
+        ):
+            rollback_apdex()
+            return
+        if apdex_edit and state.operation == "LOCAL:APDEX_EDIT_IN_PROGRESS":
+            state.operation = prior_operation
         if choice in {"3", "11"}:
             # Device mix is no longer an operator-owned setting. Re-derive the
-            # compatibility field after every Device/APDEX edit.
+            # compatibility field after every successful Device/APDEX edit.
             _ensure_mix(state)
         if choice == "F" or _fingerprint(state) == before:
             return
