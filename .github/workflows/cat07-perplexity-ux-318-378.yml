@@ -1,0 +1,64 @@
+name: CAT07 report labels and Perplexity intent UX 318-378
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/cat07_architecture_reporting_358.py'
+      - 'src/rasai/console_perplexity_readiness_318.py'
+      - 'src/rasai/integration_diagnostics_console.py'
+      - 'src/rasai/console_catalog_ui.py'
+      - 'src/rasai/console_search_parameter_menu.py'
+      - 'tests/test_cat07_architecture_integration_358.py'
+      - 'tests/test_console_perplexity_readiness_318.py'
+      - 'docs/PERPLEXITY_SEARCH_INTELLIGENCE.md'
+      - '.github/workflows/cat07-perplexity-ux-318-378.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/cat07_architecture_reporting_358.py'
+      - 'src/rasai/console_perplexity_readiness_318.py'
+      - 'src/rasai/integration_diagnostics_console.py'
+      - 'src/rasai/console_catalog_ui.py'
+      - 'src/rasai/console_search_parameter_menu.py'
+      - 'tests/test_cat07_architecture_integration_358.py'
+      - 'tests/test_console_perplexity_readiness_318.py'
+      - '.github/workflows/cat07-perplexity-ux-318-378.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  scoped-regression:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install Python and pytest
+        run: python -m pip install -e . pytest
+      - name: Compile edited modules
+        run: >-
+          python -m compileall -q
+          src/rasai/cat07_architecture_reporting_358.py
+          src/rasai/console_perplexity_readiness_318.py
+          src/rasai/integration_diagnostics_console.py
+          src/rasai/console_catalog_ui.py
+          src/rasai/console_search_parameter_menu.py
+      - name: Scoped regression without external providers
+        run: >-
+          python -m pytest -q
+          tests/test_cat07_architecture_integration_358.py
+          tests/test_console_perplexity_readiness_318.py
+          tests/test_console_search_parameter_menu.py
+          tests/test_console_integration_diagnostics_route.py
+          tests/test_console_search_scope_presentation.py
+          tests/test_perplexity_serp_copy_318.py
+          tests/test_report_catalog_public_labels.py
+          tests/test_public_report_pipeline_milestone_safety.py
