@@ -128,3 +128,28 @@ def test_perplexity_dependency_editor_has_request_route_separate_from_key(monkey
     assert result is False
     assert events == ["configure"]
     assert "PARA ESTA AUD" in output.getvalue()
+
+
+def test_all_configurations_warns_and_routes_q_to_existing_per_aud_editor(monkeypatch):
+    from rasai import console_search_parameter_menu as submenu
+    from rasai import console_ui_catalog as ui_catalog
+    from rasai import console_provider_environment as environment
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "opaque-never-print")
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    monkeypatch.setattr(ui_catalog, "catalog_specs", lambda view: ())
+    monkeypatch.setattr(environment.base_environment, "render_header", lambda state: None)
+    events = []
+    monkeypatch.setattr(submenu, "_configure_perplexity",
+                        lambda _module, state: events.append("configure"))
+    answers = iter(("Q", "V"))
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+    module = ModuleType("catalog_test")
+    module.render_header = lambda _state: None
+    output = StringIO()
+    with redirect_stdout(output):
+        ui_catalog.catalog_menu(module, _state(), view="all", title="TODAS AS CONFIGURAÇÕES")
+    rendered = output.getvalue()
+    assert events == ["configure"]
+    assert "Perplexity externa nesta AUD: NÃO SOLICITADA" in rendered
+    assert "Q. Configurar PESQUISA Perplexity para esta AUD" in rendered
+    assert "opaque-never-print" not in rendered
