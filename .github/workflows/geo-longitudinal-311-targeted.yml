@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/geo_longitudinal_311.py'
+      - 'src/rasai/geo_cons_companion_311.py'
+      - 'tests/test_geo_cons_companion_311.py'
+      - 'docs/GEO_CONS_COMPANION_311.md'
       - 'src/rasai/entrypoint.py'
       - 'src/rasai/geo_observation.py'
       - 'tests/test_geo_longitudinal_311.py'
@@ -29,5 +32,5 @@ jobs:
       - name: Run isolated fake persisted GEO fixtures; no API keys
         run: |
           python -m pip install -e . pytest
-          python -m compileall -q src/rasai/geo_longitudinal_311.py
-          python -m pytest -q tests/test_geo_longitudinal_311.py
+          python -m compileall -q src/rasai/geo_longitudinal_311.py src/rasai/geo_cons_companion_311.py
+          python -m pytest -q tests/test_geo_longitudinal_311.py tests/test_geo_cons_companion_311.py
