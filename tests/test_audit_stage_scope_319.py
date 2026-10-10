@@ -292,12 +292,14 @@ def test_319_fulfillment_wrapper_intervals_are_not_physical_stage_durations(tmp_
 
 
 def test_319_missing_fulfillment_tables_and_partial_aud_abstain(tmp_path):
+    (tmp_path / "missing").mkdir()
     root, db = make_aud(tmp_path / "missing")
     source = db.read_bytes()
     evidence = inspect_audit_attempts(root)["fulfillment_attempt_temporal_evidence"]
     assert evidence["status"] == "SCHEMA_NOT_AVAILABLE"
     assert evidence["by_component"] == []
     assert db.read_bytes() == source
+    (tmp_path / "partial").mkdir()
     root2, db2 = make_aud(tmp_path / "partial", completion="PARTIAL_RETRYABLE")
     with sqlite3.connect(db2) as con:
         con.executescript("""
@@ -325,3 +327,46 @@ def test_319_missing_fulfillment_tables_and_partial_aud_abstain(tmp_path):
     assert attempt["temporal_scope"] == "WINDOW_UNVERIFIED"
     assert result["non_ai_stages_measured"] is False
     assert sha256(db2.read_bytes()).hexdigest() == digest
+
+
+def test_319_fulfillment_metrics_report_is_explicitly_not_stage_measurement(
+    tmp_path, monkeypatch,
+):
+    from rasai import catalog_report_site as report
+    root, db = make_aud(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE audit_fulfillment_work_items (
+                work_item_id TEXT PRIMARY KEY, audit_id TEXT, component TEXT
+            );
+            CREATE TABLE audit_fulfillment_attempts (
+                attempt_id TEXT PRIMARY KEY, audit_id TEXT, work_item_id TEXT,
+                reprocess_id TEXT, started_at TEXT, finished_at TEXT, status TEXT
+            );
+        """)
+        con.execute(
+            "INSERT INTO audit_fulfillment_work_items VALUES (?,?,?)",
+            ("WORK", AUD, "EXTRACTION"),
+        )
+        con.execute(
+            "INSERT INTO audit_fulfillment_attempts VALUES (?,?,?,?,?,?,?)",
+            ("ATT", AUD, "WORK", None,
+             "2026-10-08T10:01:00Z", "2026-10-08T10:03:00Z", "SUCCESS"),
+        )
+    before = db.read_bytes()
+    monkeypatch.setattr(report, "_audit_hero", lambda *_: "")
+    monkeypatch.setattr(report, "_catalog_metrics", lambda *_: {})
+    monkeypatch.setattr(report, "_catalog_metric_rows", lambda *_: [])
+    monkeypatch.setattr(
+        report, "_section", lambda key, title, body:
+        "<section id='" + key + "'>" + title + body + "</section>",
+    )
+    monkeypatch.setattr(report, "_table", lambda _headers, rows, **_kwargs:
+                        " ".join(str(r) for r in rows))
+    html = report._metrics_body(db, SimpleNamespace(scores=[], audit_id=AUD))
+    assert "fulfillment-intervals-319" in html
+    assert "Intervalos das tentativas operacionais" in html
+    assert "120.00 s" in html
+    assert "não duração física exclusiva" in html
+    assert "N/D - sem cronômetro físico da etapa" in html
+    assert db.read_bytes() == before
