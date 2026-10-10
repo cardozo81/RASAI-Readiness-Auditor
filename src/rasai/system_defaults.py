@@ -12,7 +12,6 @@ import builtins
 from configparser import ConfigParser
 from dataclasses import dataclass, replace
 from importlib.resources import files
-import math
 import os
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
