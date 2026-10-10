@@ -52,3 +52,23 @@ A estimativa prévia segue histórica e independente do
 observado, sem recalibração pós-fato. Não houve nova AUD,
 requisição comercial, migração SQLite, mudança no motor
 AI/AUTO, scoring ou reprocessamento.
+
+## Projeção M21 observada na página metrics.html
+
+A apresentação `metrics.html` agora reutiliza o inventário read-only de
+`inspect_audit_attempts`, incluindo
+`observed_http_request_sums_ms` somente para
+`PAGESPEED_INSIGHTS` e `CRUX_API` da AUD corrente.
+
+Uma nova seção **Tempos observados de requisições web — M21** apresenta
+as somas de HTTP verificadas em segundos. Um serviço sem telemetria, ou
+com qualquer tentativa de tempo inválido, exibe **N/D** em vez de zero,
+mesmo quando outras tentativas desse serviço têm duração válida.
+Requisições de AUDs alheias e de serviços desconhecidos não participam.
+
+**Invariante:** soma de tempo HTTP não é relógio físico da etapa, não
+comprova tempo de experiência do usuário e não pode ser adicionada ao
+tempo ativo IA nem à duração física total da auditoria. O tempo físico de
+etapas não-IA continua **N/D**. A mudança se limita à projeção de
+relatório: nenhuma nova tabela, aquisição, fatura, IA, forecast, score
+ou alteração do pacote de auditoria original.
