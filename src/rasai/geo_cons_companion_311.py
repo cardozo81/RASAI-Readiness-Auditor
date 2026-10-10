@@ -26,6 +26,7 @@ def build_cons_geo_advisory(cons_dir: Path, audits_root: Path) -> dict[str, Any]
     cons = Path(cons_dir)
     if (
         not root.is_dir() or root.is_symlink()
+        or (root / "consolidated").is_symlink()
         or not cons.is_dir() or cons.is_symlink()
         or not _CONS.fullmatch(cons.name)
         or cons.resolve().parent != (root / "consolidated").resolve()
