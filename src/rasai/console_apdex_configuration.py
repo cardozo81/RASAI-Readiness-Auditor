@@ -340,7 +340,7 @@ def _configure_experience(state: State) -> None:
             selected_architecture=state.apdex_experience_architecture,
             profile_mode="DYNATRACE_GUIDED",
         )
-        print(paint("\\n  PRÉVIA GUIADA ANTECIPADA (NÃO APLICADA):", YELLOW))
+        print(paint("\n  PRÉVIA GUIADA ANTECIPADA (NÃO APLICADA):", YELLOW))
         for proposed in initial_preview["new_audit_configuration_preview"]:
             print(paint(
                 f"    {proposed['variable']} = {proposed['value']}"
