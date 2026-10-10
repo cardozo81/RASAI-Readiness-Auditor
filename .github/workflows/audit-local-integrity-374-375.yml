@@ -1,0 +1,56 @@
+name: Console execution gate and local AUD integrity 374-375
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/console_cost_confirmation.py'
+      - 'src/rasai/console_apdex_configuration.py'
+      - 'src/rasai/audit_integrity_review_375.py'
+      - 'tests/test_console_cost_confirmation.py'
+      - 'tests/test_cat07_architecture_integration_358.py'
+      - 'tests/test_audit_integrity_review_375.py'
+      - 'docs/AUD_LOCAL_INTEGRITY_375.md'
+      - '.github/workflows/audit-local-integrity-374-375.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/console_cost_confirmation.py'
+      - 'src/rasai/console_apdex_configuration.py'
+      - 'src/rasai/audit_integrity_review_375.py'
+      - 'tests/test_console_cost_confirmation.py'
+      - 'tests/test_cat07_architecture_integration_358.py'
+      - 'tests/test_audit_integrity_review_375.py'
+      - '.github/workflows/audit-local-integrity-374-375.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  scoped-acceptance:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install pytest
+        run: python -m pip install -e . pytest
+      - name: Compile reviewed modules
+        run: >-
+          python -m compileall -q
+          src/rasai/console_cost_confirmation.py
+          src/rasai/console_apdex_configuration.py
+          src/rasai/audit_integrity_review_375.py
+      - name: Local deterministic regression no providers
+        run: >-
+          python -m pytest -q
+          tests/test_console_cost_confirmation.py
+          tests/test_cat07_architecture_integration_358.py
+          tests/test_audit_integrity_review_375.py
+          tests/test_catalog_report_package_integrity.py
