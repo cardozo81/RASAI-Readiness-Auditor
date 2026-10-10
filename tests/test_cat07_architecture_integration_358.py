@@ -312,3 +312,41 @@ def test_cat07_report_escapes_untrusted_effective_kpm(tmp_path):
     html = cat07_architecture_advice_html(db, "AUD-1")
     assert "<img" not in html
     assert "&lt;img" in html
+
+
+def test_guided_proposal_appears_before_concurrency_gate_and_is_non_destructive(
+    monkeypatch, capsys,
+):
+    _quiet_ui(monkeypatch, confirm=False)
+    state = State()
+    state.apdex_experience = True
+    state.apdex_experience_profile_mode = "DYNATRACE_GUIDED"
+    state.apdex_experience_architecture = "CSR_SPA"
+    state.apdex_experience_kpm = "DOM_INTERACTIVE"
+    state.apdex_experience_satisfied = 5.0
+    state.apdex_experience_frustrated = 20.0
+    with pytest.raises(ui.EditCancelled):
+        ui._configure_experience(state)
+    text = capsys.readouterr().out
+    assert "PRÉVIA GUIADA ANTECIPADA (NÃO APLICADA)" in text
+    for field in ("RASAI_APDEX_EXPERIENCE_KPM",
+                  "RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS",
+                  "RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS"):
+        assert field in text
+    assert "origem:" in text and "substitui valor atual: SIM" in text
+    assert text.index("PRÉVIA GUIADA ANTECIPADA") < text.index("Prévia de alteração guiada para a PRÓXIMA auditoria")
+    assert (state.apdex_experience_kpm, state.apdex_experience_satisfied,
+            state.apdex_experience_frustrated) == ("DOM_INTERACTIVE", 5.0, 20.0)
+
+
+def test_custom_mode_does_not_display_guided_proposal(monkeypatch, capsys):
+    _quiet_ui(monkeypatch)
+    state = State()
+    state.apdex_experience = True
+    state.apdex_experience_profile_mode = "CUSTOM"
+    state.apdex_experience_architecture = "CSR_SPA"
+    ui._configure_experience(state)
+    text = capsys.readouterr().out
+    assert "Modo selecionado: CUSTOM" in text
+    assert "Nenhum preset Guided será apresentado/aplicado" in text
+    assert "PRÉVIA GUIADA ANTECIPADA" not in text

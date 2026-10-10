@@ -144,19 +144,84 @@ def test_cost_confirmation_reconfigures_ai_then_recalculates_before_confirmation
     assert "run" in calls
 
 
-def test_cost_confirmation_is_silent_without_monetary_forecast(monkeypatch) -> None:
+def test_no_forecast_requires_explicit_final_authorization_before_external_audit(monkeypatch) -> None:
     calls: list[str] = []
     module = _module(calls)
     monkeypatch.setattr(
-        console_cost_confirmation,
-        "forecast_local_cost",
+        console_cost_confirmation, "forecast_local_cost",
         lambda state: CostForecast(False, False, source="test"),
     )
+    prompts = []
+    monkeypatch.setattr("builtins.input", lambda prompt="": (prompts.append(prompt), "C")[1])
+    install(module)
+    state = SimpleNamespace(
+        status="READY", operation="", error="", target="https://example.org",
+        device="mobile", synthetic_apdex=True, apdex_experience=True,
+    )
+    output = StringIO()
+    with redirect_stdout(output):
+        assert module.run_audit_from_console(state) == 0
+    assert calls.count("run") == 1
+    assert state.operation == "LOCAL:EXECUTION_CONFIRMED"
+    assert prompts == ["Escolha [C/V]: "]
+    assert "CONFIRMAÇÃO FINAL ANTES DA AUDITORIA" in output.getvalue()
+    assert "Sem previsão financeira confirmável" in output.getvalue()
+    assert "Apdex experiência" in output.getvalue()
+
+
+def test_no_forecast_enter_is_safe_cancel_and_preserves_state(monkeypatch) -> None:
+    calls = []
+    module = _module(calls)
+    monkeypatch.setattr(
+        console_cost_confirmation, "forecast_local_cost",
+        lambda state: CostForecast(False, False, source="test"),
+    )
+    monkeypatch.setattr("builtins.input", lambda prompt="": "")
+    install(module)
+    state = SimpleNamespace(
+        status="READY", operation="", error="old", target="https://example.org",
+        device="mobile", synthetic_apdex=True, apdex_experience=True,
+    )
+    assert module.run_audit_from_console(state) == 0
+    assert "run" not in calls
+    assert state.status == "READY"
+    assert state.operation == "LOCAL:EXECUTION_DECLINED"
+    assert state.error == ""
+    assert module._post_run_actions(state) is False
+    assert "post" not in calls
+
+
+def test_no_forecast_v_cancels_without_calling_engine(monkeypatch) -> None:
+    calls = []
+    module = _module(calls)
+    monkeypatch.setattr(
+        console_cost_confirmation, "forecast_local_cost",
+        lambda state: CostForecast(False, False, source="test"),
+    )
+    monkeypatch.setattr("builtins.input", lambda prompt="": "V")
     install(module)
     state = SimpleNamespace(status="READY", operation="", error="")
-
     assert module.run_audit_from_console(state) == 0
-    assert calls == ["run"]
+    assert "run" not in calls
+    assert state.operation == "LOCAL:EXECUTION_DECLINED"
+    assert module._post_run_actions(state) is False
+
+
+def test_no_forecast_invalid_choice_cannot_accidentally_start(monkeypatch) -> None:
+    calls = []
+    module = _module(calls)
+    monkeypatch.setattr(
+        console_cost_confirmation, "forecast_local_cost",
+        lambda state: CostForecast(False, False, source="test"),
+    )
+    answers = iter(("R", "Y", "V"))
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+    install(module)
+    state = SimpleNamespace(status="READY", operation="", error="")
+    assert module.run_audit_from_console(state) == 0
+    assert "run" not in calls
+    assert state.operation == "LOCAL:EXECUTION_DECLINED"
+    assert module._post_run_actions(state) is False
 
 
 def test_post_run_cost_at_or_below_expected_is_green_semantics() -> None:
