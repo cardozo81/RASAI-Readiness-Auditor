@@ -370,3 +370,34 @@ def test_319_fulfillment_metrics_report_is_explicitly_not_stage_measurement(
     assert "não duração física exclusiva" in html
     assert "N/D - sem cronômetro físico da etapa" in html
     assert db.read_bytes() == before
+
+
+def test_319_cross_aud_work_item_reference_abstains_instead_of_dropping_row(tmp_path):
+    root, db = make_aud(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE audit_fulfillment_work_items (
+                work_item_id TEXT PRIMARY KEY, audit_id TEXT, component TEXT
+            );
+            CREATE TABLE audit_fulfillment_attempts (
+                attempt_id TEXT PRIMARY KEY, audit_id TEXT, work_item_id TEXT,
+                reprocess_id TEXT, started_at TEXT, finished_at TEXT, status TEXT
+            );
+        """)
+        con.execute(
+            "INSERT INTO audit_fulfillment_work_items VALUES (?,?,?)",
+            ("FOREIGN-WORK", FOREIGN, "CAPTURE"),
+        )
+        con.execute(
+            "INSERT INTO audit_fulfillment_attempts VALUES (?,?,?,?,?,?,?)",
+            ("CROSS-AUD", AUD, "FOREIGN-WORK", None,
+             "2026-10-08T10:01:00Z", "2026-10-08T10:02:00Z", "SUCCESS"),
+        )
+    original = db.read_bytes()
+    inspection = inspect_audit_attempts(root)
+    evidence = inspection["fulfillment_attempt_temporal_evidence"]
+    assert evidence["status"] == "WORK_ITEM_AUDIT_IDENTITY_MISMATCH"
+    assert evidence["by_component"] == []
+    assert evidence["physical_stage_duration_available"] is False
+    assert inspection["non_ai_stages_measured"] is False
+    assert db.read_bytes() == original
