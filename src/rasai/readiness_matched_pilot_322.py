@@ -16,7 +16,7 @@ from typing import Any, Mapping, Sequence
 VERSION = "RASAI-READINESS-MATCHED-BROWSER-PILOT-001"
 _ALLOWED = {"CSR_SPA", "HYDRATED", "MIXED"}
 _KEYS = ("page_id", "device", "architecture", "browser_version",
-         "network_profile", "cpu_profile", "navigation_url")
+         "network_profile", "cpu_profile", "context_profile", "navigation_url")
 _MAX_PAIRS = 200
 _MAX_MS = 600_000
 
