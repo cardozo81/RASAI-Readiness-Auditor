@@ -67,6 +67,11 @@ def _compose(monkeypatch, tmp_path):
         return True
 
     console._save_configuration = save
+    # Compose the real system-defaults *configure wrapper* without installing its
+    # unrelated global environment-catalog patches into other pytest modules.
+    # The latter pollute the Windows console-navigation aggregate test order.
+    monkeypatch.setattr(system_defaults, "_patch_environment_catalog", lambda: None)
+    monkeypatch.setattr(system_defaults, "_patch_apdex_guidance", lambda: None)
     system_defaults.install(console)
     refactor._install_configure_persistence(console)
 
