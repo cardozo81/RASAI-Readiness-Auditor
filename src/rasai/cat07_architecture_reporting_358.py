@@ -234,7 +234,7 @@ def cat07_architecture_advice_html(
                      "XHR/Fetch, soft navigation e interatividade real; "
                      "não recalcular o Apdex homologado com dados inexistentes.</p>")
     if not run:
-        parts.append("<p>Sem configuração M25 persistida suficiente para comparação numérica.</p>")
+        parts.append("<p>Sem configuração do Apdex de experiência persistida suficiente para comparação numérica.</p>")
     parts.append("<p class='muted'>Orientação derivada exclusivamente de dados persistidos "
                  "desta AUD. A configuração de uma nova auditoria não altera a AUD original.</p></div>")
     return "".join(parts)
