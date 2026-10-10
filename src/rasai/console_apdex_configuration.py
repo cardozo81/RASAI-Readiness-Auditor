@@ -10,6 +10,7 @@ from rasai.apdex_concurrency_policy import (
     NAVIGATION_MAX_CONCURRENCY,
     experience_risk,
     navigation_risk,
+    validate_navigation_concurrency,
 )
 from rasai.configuration_value_labels import configuration_value_choice, configuration_value_info
 from rasai.console_confirmation_contract import confirm_sensitive
@@ -249,7 +250,12 @@ def _show_effective_experience(state: State) -> None:
 
 def _configure_navigation(state: State) -> None:
     print("\nSynthetic Navigation Apdex")
-    print("Mede repetidamente NAVIGATION_LOAD em Chromium. T é definido pelo usuário/SLO; não existe default metodológico universal.\n")
+    print(
+        "Baseline operacional RASAi: habilitado, T=3s compatível com referência "
+        "Dynatrace, 150 amostras válidas por URL/device (configurável). "
+        "T deve seguir o SLO real quando conhecido; Navigation e Experience "
+        "possuem targets independentes e não há T metodológico universal.\n"
+    )
     enabled = _yes_no("Habilitar Synthetic Navigation Apdex? Gera tráfego HTTP real contra o alvo", state.synthetic_apdex)
     state.synthetic_apdex = enabled
     if not enabled:
@@ -258,7 +264,7 @@ def _configure_navigation(state: State) -> None:
     state.apdex_threshold = _required_positive("Threshold T em segundos", state.apdex_threshold)
     state.apdex_samples = int(_number(
         "Amostras válidas por URL/dispositivo", state.apdex_samples, minimum=1, integer=True,
-        help_text="100 é o default operacional; 1-99 é diagnóstico small-group (*).",
+        help_text="baseline institucional=150; 1-99 é diagnóstico small-group (*); customização explícita permitida.",
     ))
     suggested_attempts = max(state.apdex_samples, int(math.ceil(state.apdex_samples * 1.25)))
     if state.apdex_max_attempts < state.apdex_samples:
@@ -291,6 +297,9 @@ def _configure_navigation(state: State) -> None:
     if selected_concurrency > NAVIGATION_MAX_CONCURRENCY:
         raise ValueError(f"Concorrência Navigation deve estar entre 1 e {NAVIGATION_MAX_CONCURRENCY}")
     print(paint(f"  Grau de risco: {navigation_risk(selected_concurrency)}", YELLOW if selected_concurrency > 1 else DIM, bold=selected_concurrency > 1))
+    # Reject unsafe pacing *before* asking for sensitive level-4 authorization.
+    # The canonical M23 contract still validates the finalized state as usual.
+    validate_navigation_concurrency(selected_concurrency, state.apdex_delay)
     if selected_concurrency >= 4 and not confirm_sensitive(
         "CONCORRÊNCIA",
         action_label=f"Usar concorrência Navigation {selected_concurrency} - {navigation_risk(selected_concurrency)}",
