@@ -105,9 +105,11 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
     # optional completion/RPR or inclusion in the original cost forecast.
     # All evidence comes from the existing AUD database, verified read-only.
     try:
-        from rasai.audit_attempt_inspection_319 import inspect_ai_stage_scope
-        scope = inspect_ai_stage_scope(database.parent)
+        from rasai.audit_attempt_inspection_319 import inspect_audit_attempts
+        measured = inspect_audit_attempts(database.parent)
+        scope = measured["ai_attempt_execution_scope"]
     except (OSError, ValueError, sqlite3.Error):
+        measured = None
         scope = None
     if scope is not None and scope.get("by_stage"):
         scope_labels = {
@@ -148,6 +150,43 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
                  "Soma das chamadas", "União ativa", "USD provider (cobertura)",
                  "USD estimado pós-uso", "Lacunas"),
                 scope_rows,
+            ),
+        )
+    # #319: expose M21 HTTP timing that has ALREADY been independently
+    # validated for the original AUD. Request sums are neither physical
+    # PSI/CrUX stage clocks nor components to add to the AUD wall duration.
+    # No table DDL, provider calls or analytic score re-projection.
+    if measured is not None:
+        http = measured.get("observed_http_request_sums_ms") or {}
+        services = (
+            ("PAGESPEED_INSIGHTS", "PageSpeed Insights"),
+            ("CRUX_API", "CrUX API"),
+        )
+        http_rows = [
+            (
+                label,
+                f"{http[key] / 1000:.2f} s" if key in http else "N/D",
+                "Somatório de requisições HTTP verificadas"
+                if key in http else "Sem telemetria temporal completa",
+                "Tempo físico de fase: N/D",
+            )
+            for key, label in services
+        ]
+        body += _section(
+            "http-request-observations-319",
+            "Tempos observados de requisições web — M21",
+            "<p>A soma abaixo considera somente durações HTTP PSI/CrUX "
+            "persistidas, verificadas e pertencentes à auditoria. "
+            "Não representa o tempo físico da etapa, a experiência real "
+            "do usuário nem o custo de IA. Chamadas podem ser paralelas; "
+            "não somar com atividade IA ou duração total da AUD. "
+            "Quando houver amostras sem duração confiável, o serviço "
+            "inteiro permanece N/D, nunca zero presumido. "
+            "Não há cronômetro físico de etapa não-IA validado.</p>"
+            + _table(
+                ("Serviço M21", "Soma observada HTTP", "Proveniência",
+                 "Tempo físico da etapa"),
+                http_rows,
             ),
         )
     return body
