@@ -484,6 +484,13 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         print(f"  Flag                  : {activation_raw or 'ausente (compatibilidade: true)'}")
         print(f"  Efetiva nesta AUD     : {'SIM' if effective else 'NÃO'}")
         print(f"  Readiness             : {'APTA' if ready else 'CONFIGURAR'}")
+        from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
+        px = inspect_perplexity_readiness(state)
+        print(f"  Execução próxima AUD  : {px['status']}")
+        if not px["queries_requested"]:
+            print("  AÇÃO NECESSÁRIA: definir queries nesta tela (1) ou copiar "
+                  "termos SERP com autorização (6).")
+        print("  País, idioma, domínio, recência e limites adicionais são opcionais.")
         print(f"  Detalhe               : {detail}")
         from rasai.search_intelligence.perplexity_request_policy import resolve_request_options
         try:
