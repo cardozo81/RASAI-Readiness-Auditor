@@ -257,3 +257,142 @@ def test_offline_dynatrace_apdex_cli_absent_settings_fail_closed(tmp_path, capsy
         ])
     assert failed.value.code == 2
     assert not (tmp_path / "not-found.json").exists()
+
+
+def _effective_values_export():
+    return {
+        "items": [
+            {
+                "schemaId": "builtin:rum.web.key-performance-metric-load-actions",
+                "schemaVersion": "1.1.0",
+                "origin": "APPLICATION-TEST",
+                "value": {
+                    "kpm": "USER_ACTION_DURATION",
+                    "thresholds": {
+                        "toleratedThresholdSeconds": 3.0,
+                        "frustratingThresholdSeconds": 12.0,
+                    },
+                    "fallbackThresholds": {
+                        "toleratedFallbackThresholdSeconds": 3.0,
+                        "frustratingFallbackThresholdSeconds": 12.0,
+                    },
+                },
+            },
+            {
+                "schemaId": "builtin:rum.web.key-performance-metric-xhr-actions",
+                "schemaVersion": "1.1.0",
+                "origin": "environment",
+                "value": {
+                    "kpm": "RESPONSE_END",
+                    "thresholds": {
+                        "toleratedThresholdSeconds": 2.0,
+                        "frustratingThresholdSeconds": 8.0,
+                    },
+                    "fallbackThresholds": {
+                        "toleratedFallbackThresholdSeconds": 3.0,
+                        "frustratingFallbackThresholdSeconds": 12.0,
+                    },
+                },
+            },
+            {
+                "schemaId": "builtin:rum.web.key-performance-metric-custom-actions",
+                "schemaVersion": "1.1.0",
+                "value": {
+                    "thresholds": {
+                        "toleratedThresholdSeconds": 4.0,
+                        "frustratingThresholdSeconds": 16.0,
+                    },
+                },
+            },
+        ],
+        "nextPageKey": None,
+        "totalCount": 3,
+    }
+
+
+def test_effective_values_export_offline_advisory_no_fabricated_action_counts():
+    from rasai.dynatrace_effective_values_adapter_355 import (
+        extract_apdex_from_effective_values,
+    )
+    supplied = _effective_values_export()
+    original = json.dumps(supplied, sort_keys=True)
+    parsed = extract_apdex_from_effective_values(
+        supplied, declared_application_scope="APPLICATION-ABC123",
+    )
+    assert parsed["dynatrace_provider_requests"] == 0
+    assert parsed["rasai_audit_writes"] == 0
+    assert parsed["settings_provenance"].endswith("NOT_TENANT_VERIFIED")
+    assert parsed["capture_flags_available"] is False
+    assert parsed["action_counts_available"] is False
+    assert "capture" not in parsed["settings"]
+    assert parsed["settings"]["xhr_actions"]["kpm"] == "RESPONSE_END"
+    assert "kpm" not in parsed["settings"]["custom_actions"]
+    outcome = _assess(settings=parsed["settings"])
+    assert outcome["status"] == "INSUFFICIENT_ACTION_SCOPE"
+    assert "XHR_ACTION_POPULATION_NOT_PROVEN" in outcome["reasons"]
+    assert outcome["recommended_numeric_thresholds"] is None
+    assert json.dumps(supplied, sort_keys=True) == original
+
+
+@pytest.mark.parametrize("variant", [
+    "next_page", "duplicate", "foreign_schema", "count_mismatch",
+    "not_a_list", "empty_value", "invalid_scope",
+])
+def test_effective_values_export_malformed_data_abstains(variant):
+    from rasai.dynatrace_effective_values_adapter_355 import (
+        extract_apdex_from_effective_values,
+    )
+    value = _effective_values_export()
+    scope = "APPLICATION-ABC123"
+    if variant == "next_page":
+        value["nextPageKey"] = "opaque"
+    elif variant == "duplicate":
+        value["items"].append(dict(value["items"][0]))
+        value["totalCount"] += 1
+    elif variant == "foreign_schema":
+        value["items"][0]["schemaId"] = "builtin:synthetic.browser.scheduling"
+    elif variant == "count_mismatch":
+        value["totalCount"] += 1
+    elif variant == "not_a_list":
+        value["items"] = {}
+    elif variant == "empty_value":
+        value["items"][0]["value"] = {}
+    elif variant == "invalid_scope":
+        scope = "environment"
+    with pytest.raises(ValueError):
+        extract_apdex_from_effective_values(value, declared_application_scope=scope)
+
+
+def test_offline_effective_values_cli_is_read_only_with_explicit_unverified_scope(
+    tmp_path, capsys, monkeypatch,
+):
+    from rasai.dynatrace_apdex_review_cli_355 import main
+    path = tmp_path / "effective.json"
+    path.write_text(json.dumps(_effective_values_export()), encoding="utf-8")
+    import socket
+    monkeypatch.setattr(socket, "create_connection",
+                        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                            AssertionError("network must not be used")))
+    digest = path.read_bytes()
+    assert main([
+        "--architecture", "CSR_SPA",
+        "--architecture-evidence-id", "SNP-EXPORTED-UNVERIFIED",
+        "--soft-navigation", "observed",
+        "--async-requests", "observed",
+        "--effective-values-json", str(path),
+        "--application-scope", "APPLICATION-ABC123",
+    ]) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["input_source"] == "OPERATOR_SUPPLIED_DYNATRACE_EFFECTIVE_VALUES_EXPORT"
+    assert output["actual_dynatrace_tenant_consulted"] is False
+    assert output["effective_values_export"]["scope_provenance"].endswith(
+        "NOT_VERIFIED_FROM_FILE"
+    )
+    assert output["dynatrace_provider_requests"] == 0
+    assert output["synthetic_m23_m25_changed"] is False
+    assert path.read_bytes() == digest
+    with pytest.raises(SystemExit):
+        main([
+            "--architecture", "CSR_SPA",
+            "--effective-values-json", str(path),
+        ])
