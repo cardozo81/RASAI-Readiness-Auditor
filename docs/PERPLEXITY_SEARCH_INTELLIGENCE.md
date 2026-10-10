@@ -722,3 +722,47 @@ houvesse uma seleção anterior na mesma sessão. Esta regra impede
 que uma configuração antiga permaneça elegível para uma chamada
 potencialmente faturável após erro de preenchimento. A chave e
 os termos SERP não são alterados por esse cancelamento.
+
+## Orientação do console para a próxima AUD (#318, 10/10/2026)
+
+O menu `5. Integrações e serviços > Perplexity Search Intelligence`
+separa **configuração de integração** de **solicitação de pesquisa**.
+Mesmo com `PERPLEXITY_API_KEY` em Windows/User e
+`RASAI_PERPLEXITY_ENABLED=true`, a pesquisa da próxima AUD
+continua `NÃO SOLICITADA` até o operador definir explicitamente
+pelo menos uma query Perplexity. A configuração de termos SERP
+é independente e jamais gera essa autorização implicitamente.
+
+O console exibe um quadro de prontidão **sem revelar a chave**:
+ativação, presença de credencial, total de queries da sessão,
+tipo WEB/FAST, filtros opcionais e estado de solicitação.
+Em `5 > Perplexity > P` ou no editor da integração em `P`
+é possível abrir diretamente a configuração da próxima pesquisa.
+O menu `6. Todas as configurações` apresenta o estado da pesquisa da
+próxima AUD e oferece `Q. Configurar PESQUISA Perplexity` sem
+modificar parâmetros globais, credenciais ou liberar chamadas externas.
+O caminho equivalente é `1. Preparar auditoria > CAT-05 > P`,
+seguido de `1. Definir queries` ou `6. Copiar termos SERP`
+(com consentimento específico para a cópia e pesquisa).
+
+**Somente condicionalmente necessários para uma pesquisa:** integração
+habilitada, credencial presente, uma ou mais queries explicitamente
+definidas, tipo WEB ou FAST válido e autorização de execução/comercial
+aplicável. Não tornar obrigatórios filtros como país, idioma, domínio,
+datas ou teto de conteúdo. A política de escopo do provider continua
+resolvendo seus próprios defaults e limites.
+
+Menus e diagnósticos de configuração **não executam** a Search API.
+Uma AUD sem pesquisa Perplexity continua válida; ausência de
+queries implica zero requisições Perplexity por intenção, não
+falha de CAT-05. O painel de prontidão é uma projeção operacional
+sem novos valores persistidos e sem mudanças em `rasai-console.ini`.
+
+### CAT-07: rótulos de relatório (#378)
+
+O relatório do CAT-07 passa a traduzir valores efetivos conhecidos,
+como `USER_ACTION_DURATION` e origem `M6_OBSERVED`, em frases
+legíveis ao usuário. Não transforma dados, não infere ações XHR
+ou interatividade e não aplica presets ao histórico.
+As informações de arquitetura e perfil pertencem exclusivamente
+ao snapshot congelado da AUD e à medição persistida.

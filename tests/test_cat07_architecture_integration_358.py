@@ -158,10 +158,13 @@ def test_cat07_report_shows_actual_m6_and_effective_m25_without_modifying_aud(tm
     before = db.read_bytes()
     html = cat07_architecture_advice_html(db, "AUD-1")
     assert "SPA com renderização principal no cliente" in html
-    assert "M25 comprovada" in html and "USER_ACTION_DURATION" in html
+    assert "Configuração efetiva do Apdex de experiência" in html
+    assert "Duração da ação de carregamento inicial" in html
+    assert "Identificada pela captura desta auditoria" in html
+    assert "Condição técnica não catalogada" not in html
     assert "3.0" in html and "12.0" in html
     assert "N/D (não congelado nesta AUD)" in html
-    assert "M25 mede a navegação inicial" in html
+    assert "Este Apdex mede apenas o carregamento inicial" in html
     assert "SNP-OTHER" not in html
     assert db.read_bytes() == before
     assert cat07_architecture_advice_html(db, "AUD-1") == html
@@ -188,7 +191,7 @@ def test_cat07_legacy_database_without_snapshot_or_m25_gracefully_reports_nd(tmp
         pass
     original = db.read_bytes()
     html = cat07_architecture_advice_html(db, "AUD-LEGACY")
-    assert "N/D" in html and "Sem configuração M25 persistida" in html
+    assert "N/D" in html and "Sem configuração do Apdex de experiência persistida" in html
     assert "não determinada" in html.casefold()
     assert db.read_bytes() == original
 
@@ -223,7 +226,8 @@ def test_cat07_hash_verified_frozen_console_mode_is_shown_but_not_host_ini(tmp_p
     html = page._cat07_methodology_summary_html(db, data)
     assert "DYNATRACE_GUIDED" in html
     assert "SPA com renderização principal no cliente" in html
-    assert "USER_ACTION_DURATION" in html
+    assert "Duração da ação de carregamento inicial" in html
+    assert "Identificada pela captura desta auditoria" in html
     assert db.read_bytes() == before
 
     # A current INI/state value is never retroactively inserted into an AUD.
@@ -278,7 +282,7 @@ def test_cat07_guided_readonly_report_shows_approved_future_values_not_applied(t
     assert "RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS" in html
     assert "RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS" in html
     assert "Sim - requer aceite" in html
-    assert "LOAD_EVENT_END" in html and "4.0" in html
+    assert "Conclusão do evento de carregamento" in html and "4.0" in html
     assert "Somente Dynatrace externo" not in html or "não executado pelo RASAi" in html
     assert db.read_bytes() == before
 
@@ -298,7 +302,7 @@ def test_cat07_custom_report_never_proposes_guided_override_or_new_aud(tmp_path)
     html = cat07_architecture_advice_html(db, "AUD-1", frozen_meta=frozen)
     assert "não gerar um preset substituto em modo Custom/Imported" in html
     assert "Prévia para uma NOVA auditoria" not in html
-    assert "RESPONSE_END" in html
+    assert "Conclusão da resposta HTTP" in html
     assert db.read_bytes() == source
 
 
@@ -350,3 +354,41 @@ def test_custom_mode_does_not_display_guided_proposal(monkeypatch, capsys):
     assert "Modo selecionado: CUSTOM" in text
     assert "Nenhum preset Guided será apresentado/aplicado" in text
     assert "PRÉVIA GUIADA ANTECIPADA" not in text
+
+
+
+def test_real_aud_architecture_known_source_and_metric_do_not_trigger_public_enum_fallback(tmp_path):
+    db = tmp_path / "audit.db"
+    _db(db, cfg={
+        "kpm": "USER_ACTION_DURATION",
+        "satisfied_threshold_seconds": 3.0,
+        "frustrated_threshold_seconds": 12.0,
+    })
+    frozen = {"settings": {"synthetic_apdex_experience": {
+        "architecture": "CSR_SPA", "profile_mode": "CUSTOM",
+    }}}
+    before = db.read_bytes()
+    html = cat07_architecture_advice_html(db, "AUD-1", frozen_meta=frozen)
+    assert "Duração da ação de carregamento inicial" in html
+    assert "Identificada pela captura desta auditoria" in html
+    assert "Arquitetura observada na captura" in html
+    assert "Configuração M25" not in html
+    assert "Arquitetura por M6" not in html
+    assert "Condição técnica não catalogada" not in html
+    assert db.read_bytes() == before
+
+
+def test_cat07_no_snapshot_does_not_claim_observed_architecture(tmp_path):
+    db = tmp_path / "audit.db"
+    _db(db, arch="UNKNOWN", cfg={
+        "kpm": "DOM_INTERACTIVE",
+        "satisfied_threshold_seconds": 3.0,
+        "frustrated_threshold_seconds": 12.0,
+    })
+    frozen = {"settings": {"synthetic_apdex_experience": {
+        "architecture": "HYDRATED", "profile_mode": "CUSTOM",
+    }}}
+    html = cat07_architecture_advice_html(db, "AUD-1", frozen_meta=frozen)
+    assert "Informada pelo operador; sem observação conclusiva" in html
+    assert "Tempo até o documento ficar interativo (DOM)" in html
+    assert "Identificada pela captura desta auditoria" not in html

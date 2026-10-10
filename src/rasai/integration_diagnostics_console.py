@@ -225,6 +225,9 @@ def _render_dependencies(state: Any, spec: diagnostics.IntegrationSpec) -> None:
             origin = origin_for(state, env_spec) if env_spec is not None else ("SESSÃO" if (os.environ.get(name) or "").strip() else "PADRÃO/AUSENTE")
             print(f" - {label}: {value} [{origin}]")
             print(paint(f"   Variável técnica: {name}", GRAY))
+    if spec.id == "search:perplexity":
+        from rasai.console_perplexity_readiness_318 import render_perplexity_readiness
+        render_perplexity_readiness(state)
     if spec.probe_kind in _TARGETED_WEB_PROBE_KINDS:
         print("\nALVO DO TESTE DE INTEGRAÇÃO")
         print(f" - URL/origem padrão                           {DEFAULT_WEB_PROBE_URL}")
@@ -317,8 +320,16 @@ def _edit_dependency(console_module: ModuleType, state: Any, spec: diagnostics.I
         marker = "obrigatória" if required else "relacionada/opcional"
         print(f" {index:2d}. {friendly_label(environment_spec)} [{marker}] {environment_console.decision_badge(environment_spec)}")
         print(paint(f"     Variável técnica: {name}", GRAY))
+    if spec.id == "search:perplexity":
+        print("\n P. Definir queries e tipo WEB/FAST PARA ESTA AUD (não altera credencial)")
+        print("    Key/ativação são configuração global; queries são solicitação por execução.")
     print("\n V. Voltar")
     raw = input("Escolha: ").strip().upper()
+    if raw == "P" and spec.id == "search:perplexity":
+        from rasai import console_search_intelligence as search_module
+        from rasai.console_search_parameter_menu import _configure_perplexity
+        _configure_perplexity(search_module, state)
+        return False
     if raw == "V":
         return False
     try:
@@ -361,6 +372,8 @@ def _detail_menu(console_module: ModuleType, state: Any, spec: diagnostics.Integ
         print("T. Validar / retestar integração")
         print("A. Ajustar dependência/parâmetro")
         print("C. Abrir catálogo completo de configuração")
+        if spec.id == "search:perplexity":
+            print("P. Configurar pesquisa Perplexity nesta AUD (queries e WEB/FAST)")
         print("V. Voltar")
         choice = input("Escolha: ").strip().upper()
         if choice == "V":
@@ -371,6 +384,11 @@ def _detail_menu(console_module: ModuleType, state: Any, spec: diagnostics.Integ
             continue
         if choice == "A":
             _edit_dependency(console_module, state, spec)
+            continue
+        if choice == "P" and spec.id == "search:perplexity":
+            from rasai import console_search_intelligence as search_module
+            from rasai.console_search_parameter_menu import _configure_perplexity
+            _configure_perplexity(search_module, state)
             continue
         if choice == "C":
             environment_console.environment_menu(state)
