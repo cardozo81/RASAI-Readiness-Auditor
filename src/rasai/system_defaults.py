@@ -548,77 +548,13 @@ def _patch_apdex_guidance() -> None:
             print(apdex_ui.paint(f"    {name} = {default}  [{source}]", apdex_ui.DIM))
         print(apdex_ui.paint("    DYNATRACE_API_TOKEN = secret de ambiente; nunca persistido no INI/report.", apdex_ui.DIM))
 
-    def configure_navigation(state: Any) -> None:
-        print("\nSynthetic Navigation Apdex")
-        print(
-            "Baseline RASAi: habilitado, T=3s Dynatrace-compatible, 150 amostras válidas por URL/device. "
-            "Use o SLO real quando conhecido; o target Navigation permanece independente do Experience.\n"
-        )
-        enabled = apdex_ui._yes_no(
-            "Habilitar Synthetic Navigation Apdex? Gera tráfego HTTP real contra o alvo",
-            state.synthetic_apdex,
-        )
-        state.synthetic_apdex = enabled
-        if not enabled:
-            return
-
-        state.apdex_threshold = apdex_ui._required_positive(
-            "Threshold T em segundos", state.apdex_threshold
-        )
-        state.apdex_samples = int(apdex_ui._number(
-            "Amostras válidas por URL/dispositivo",
-            state.apdex_samples,
-            minimum=1,
-            integer=True,
-            help_text="padrão canônico=150; customização explícita continua permitida para cenários controlados.",
-        ))
-        suggested_attempts = max(
-            state.apdex_samples,
-            int(math.ceil(state.apdex_samples * 1.25)),
-        )
-        if state.apdex_max_attempts < state.apdex_samples:
-            state.apdex_max_attempts = suggested_attempts
-        state.apdex_max_attempts = int(apdex_ui._number(
-            "Máximo de tentativas por URL/dispositivo",
-            state.apdex_max_attempts,
-            minimum=state.apdex_samples,
-            integer=True,
-            help_text="permite repor amostras inválidas; referência derivada ceil(1.25 × amostras).",
-        ))
-        state.apdex_max_pages = int(apdex_ui._number(
-            "Máximo de páginas (0=todas)",
-            state.apdex_max_pages,
-            minimum=0,
-            integer=True,
-            help_text="baseline=1 para conter carga; amplie deliberadamente quando precisar de cobertura maior.",
-        ))
-        minimum_timeout = 4.0 * state.apdex_threshold
-        recommended_timeout = max(45.0, minimum_timeout + 5.0)
-        if state.apdex_timeout <= minimum_timeout:
-            state.apdex_timeout = recommended_timeout
-        state.apdex_timeout = float(apdex_ui._number(
-            "Timeout por navegação (deve ser > 4T)",
-            state.apdex_timeout,
-            minimum=0.000001,
-            help_text="evita truncar artificialmente a faixa Frustrated.",
-        ))
-        state.apdex_delay = float(apdex_ui._number(
-            "Delay mínimo entre inícios",
-            state.apdex_delay,
-            minimum=0.0,
-            help_text="valores maiores reduzem a pressão sobre o alvo e aumentam a duração.",
-        ))
-        state.apdex_concurrency = int(apdex_ui._number(
-            "Concorrência (1-2)",
-            state.apdex_concurrency,
-            minimum=1,
-            integer=True,
-            help_text="1 é o default conservador; 2 aumenta a carga concorrente.",
-        ))
-        apdex_ui.config_from_state(state)
+    # Navigation configuration and concurrency guardrails belong exclusively to
+    # console_apdex_configuration._configure_navigation. Previous versions installed
+    # a second editor here (including obsolete "Concorrência (1-2)" copy) and
+    # inadvertently bypassed the canonical level-4 sensitive confirmation.
+    # Packaged baseline values remain supplied by rasai-defaults.ini.
 
     apdex_ui._show_experience_defaults = show_experience_defaults
-    apdex_ui._configure_navigation = configure_navigation
     apdex_ui._rasai_system_default_guidance = True
 
 
