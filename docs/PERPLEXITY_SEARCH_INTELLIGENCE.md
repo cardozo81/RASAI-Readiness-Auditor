@@ -738,6 +738,9 @@ ativação, presença de credencial, total de queries da sessão,
 tipo WEB/FAST, filtros opcionais e estado de solicitação.
 Em `5 > Perplexity > P` ou no editor da integração em `P`
 é possível abrir diretamente a configuração da próxima pesquisa.
+O menu `6. Todas as configurações` apresenta o estado da pesquisa da
+próxima AUD e oferece `Q. Configurar PESQUISA Perplexity` sem
+modificar parâmetros globais, credenciais ou liberar chamadas externas.
 O caminho equivalente é `1. Preparar auditoria > CAT-05 > P`,
 seguido de `1. Definir queries` ou `6. Copiar termos SERP`
 (com consentimento específico para a cópia e pesquisa).
