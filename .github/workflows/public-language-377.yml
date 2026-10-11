@@ -1,0 +1,46 @@
+name: Public UX language 377 isolated
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/console_search_intelligence.py'
+      - 'src/rasai/console_apdex_configuration.py'
+      - 'src/rasai/catalog_report_site.py'
+      - 'src/rasai/cat07_architecture_reporting_358.py'
+      - 'src/rasai/dynatrace_apdex_arch_advisory_355.py'
+      - 'tests/test_public_language_377.py'
+      - 'tests/test_cat07_architecture_integration_358.py'
+      - 'docs/PUBLIC_LANGUAGE_377.md'
+      - '.github/workflows/public-language-377.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/console_search_intelligence.py'
+      - 'src/rasai/catalog_report_site.py'
+      - 'src/rasai/cat07_architecture_reporting_358.py'
+      - 'src/rasai/dynatrace_apdex_arch_advisory_355.py'
+      - 'tests/test_public_language_377.py'
+      - '.github/workflows/public-language-377.yml'
+permissions:
+  contents: read
+jobs:
+  public-ux-language:
+    name: Public language with provenance (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install Python and pytest
+        run: python -m pip install -e . pytest
+      - name: Focused public copy and CAT-07 evidence guards
+        run: >-
+          python -m pytest -q
+          tests/test_public_language_377.py
+          tests/test_cat07_architecture_integration_358.py
