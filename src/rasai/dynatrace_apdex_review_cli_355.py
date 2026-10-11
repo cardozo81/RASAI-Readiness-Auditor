@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import Sequence
 
@@ -15,6 +16,7 @@ from rasai.dynatrace_apdex_arch_advisory_355 import (
     explain_dynatrace_apdex_pt_br,
 )
 from rasai.dynatrace_effective_values_adapter_355 import extract_apdex_from_effective_values
+from rasai.dynatrace_settings_live_355 import read_live_dynatrace_apdex_settings
 
 _FLAG_MAP = {"observed": True, "not-observed": False, "unknown": None}
 _MAX_SNAPSHOT_BYTES = 1024 * 1024
@@ -47,6 +49,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--effective-values-json", type=Path,
         help="Offline exported Dynatrace Settings API effectiveValues response (no HTTP).",
     )
+    source_group.add_argument(
+        "--live-base-url", default=None,
+        help="Explicit Dynatrace SaaS HTTPS tenant for a read-only settings.read GET.",
+    )
+    parser.add_argument(
+        "--allow-live-settings-read", action="store_true",
+        help="Explicitly authorize exactly one live, read-only Settings API request.",
+    )
     parser.add_argument(
         "--application-scope", default=None,
         help="Required with --effective-values-json; operator-declared APP scope, NOT verified.",
@@ -54,10 +64,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     settings = None
     exported = None
-    if args.effective_values_json is not None and not args.application_scope:
+    if (args.effective_values_json is not None or args.live_base_url is not None) and not args.application_scope:
         parser.error("--application-scope is required with --effective-values-json")
-    if args.application_scope and args.effective_values_json is None:
+    if args.application_scope and args.effective_values_json is None and args.live_base_url is None:
         parser.error("--application-scope requires --effective-values-json")
+    if args.allow_live_settings_read and args.live_base_url is None:
+        parser.error("--allow-live-settings-read requires --live-base-url")
+    if args.live_base_url is not None:
+        if not args.allow_live_settings_read:
+            parser.error("explicit --allow-live-settings-read is required")
+        token = os.environ.get("DYNATRACE_API_TOKEN")
+        try:
+            exported = read_live_dynatrace_apdex_settings(
+                base_url=args.live_base_url,
+                application_scope=args.application_scope,
+                api_token=token,
+            )
+        except ValueError:
+            parser.error("live Dynatrace read-only Settings API request unavailable or invalid")
+        settings = exported["settings"]
     input_path = args.settings_json or args.effective_values_json
     if input_path is not None:
         try:
@@ -88,6 +113,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         settings=settings,
     )
     result["input_source"] = (
+        "AUTHENTICATED_LIVE_DYNATRACE_EFFECTIVE_VALUES"
+        if args.live_base_url is not None else
         "OPERATOR_SUPPLIED_DYNATRACE_EFFECTIVE_VALUES_EXPORT"
         if exported is not None else
         "OPERATOR_SUPPLIED_LOCAL_JSON" if settings is not None else "NO_SETTINGS"
@@ -97,7 +124,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             key: value for key, value in exported.items() if key != "settings"
         }
     result["analyst_guidance_pt_br"] = explain_dynatrace_apdex_pt_br(result)
-    result["actual_dynatrace_tenant_consulted"] = False
+    result["actual_dynatrace_tenant_consulted"] = args.live_base_url is not None
+    result["dynatrace_provider_requests"] = 1 if args.live_base_url is not None else 0
     result["rasai_synthetic_apdex_unchanged"] = True
     print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False))
     return 0
