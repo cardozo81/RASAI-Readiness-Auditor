@@ -70,13 +70,13 @@ def test_core_vs_post_aud_is_evidence_based_and_prevents_parallel_double_count(t
     assert result["aud_started_at_utc"] == "2026-10-08T14:00:00+00:00"
     assert result["total_attempts"] == 5
     assert result["aud_completed_at_utc"] == "2026-10-08T14:26:07+00:00"
-    during, post, crossing, unknown, before, start_cross = result["buckets"]
+    during, post, crossing, unknown, pre_aud_bucket, start_cross = result["buckets"]
     assert [x["classification"] for x in result["buckets"]] == [
         "DURING_AUD","AFTER_AUD","CROSSES_AUD_COMPLETION","UNKNOWN_CLOCK",
         "BEFORE_AUD","CROSSES_AUD_START",
     ]
     assert [x["attempts"] for x in result["buckets"]] == [2,1,1,1,0,0]
-    assert before["attempts"] == start_cross["attempts"] == 0
+    assert pre_aud_bucket["attempts"] == start_cross["attempts"] == 0
     assert during["sum_call_durations_ms"] == 240000
     assert during["union_active_calls_ms"] == 180000
     assert during["overlap_ms"] == 60000
