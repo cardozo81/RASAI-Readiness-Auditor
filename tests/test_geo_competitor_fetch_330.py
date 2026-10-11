@@ -76,7 +76,14 @@ def _inspect(client, *, url="https://example.com/seguro-de-vida",
 
 def test_explicit_robots_allow_returns_transient_html_features_no_aud_write():
     t = _FakeTransport(b"User-agent: *\nAllow: /\n")
-    result = _inspect(_client(t))
+    client = _client(t)
+    from urllib.robotparser import RobotFileParser
+    direct = RobotFileParser()
+    direct.parse(t.robots.decode().splitlines())
+    assert direct.default_entry is not None, repr(t.robots)
+    probe = client.fetch("https://example.com/robots.txt")
+    assert probe.body == t.robots, (repr(probe.body), repr(t.robots))
+    result = _inspect(client)
     assert result["status"] == "STATIC_HTML_FEATURES_OBSERVED"
     assert result["robots_fetch_status"] == "ALLOWED"
     assert result["content_evidence_status"] == "TRANSIENT_STATIC_HTML_FEATURES"
