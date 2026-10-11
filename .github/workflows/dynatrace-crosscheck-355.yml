@@ -1,0 +1,35 @@
+name: Dynatrace offline settings USQL crosscheck 355
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/dynatrace_population_crosscheck_355.py'
+      - 'tests/test_dynatrace_population_crosscheck_355.py'
+      - 'docs/DYNATRACE_POPULATION_CROSSCHECK_355.md'
+      - '.github/workflows/dynatrace-crosscheck-355.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/dynatrace_population_crosscheck_355.py'
+      - 'tests/test_dynatrace_population_crosscheck_355.py'
+      - '.github/workflows/dynatrace-crosscheck-355.yml'
+permissions:
+  contents: read
+jobs:
+  scoped-configuration-vs-rum:
+    name: Dynatrace settings USQL N-D checks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package and pytest
+        run: python -m pip install -e . pytest
+      - name: Test pure offline settings and USQL crosscheck
+        run: python -m pytest -q tests/test_dynatrace_population_crosscheck_355.py tests/test_dynatrace_rum_population_355.py
