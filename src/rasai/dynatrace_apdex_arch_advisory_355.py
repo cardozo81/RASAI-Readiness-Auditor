@@ -198,3 +198,92 @@ def assess_dynatrace_apdex_architecture(
         "Nenhuma regra universal define thresholds só por ser SPA."
     )
     return output
+
+
+# A user-facing interpretation of the same, explicitly unverified offline verdict.
+# Never translate an absent RUM setting into a claim that capture was disabled.
+_STATUS_PT_BR = {
+    "NOT_EVALUABLE": "Diagnóstico não determinável com as evidências fornecidas",
+    "INVALID_SETTINGS_SNAPSHOT": "Configuração fornecida inconsistente ou inválida",
+    "INSUFFICIENT_ACTION_SCOPE": "Cobertura das ações não comprovada",
+    "REVIEW_RECOMMENDED": "Revisão de instrumentação e cobertura recomendada",
+    "CONFIGURATION_PLAUSIBLE_FOR_DOCUMENT_NAVIGATION":
+        "Configuração Load plausível para navegação de documento; cobertura não homologada",
+    "CONFIGURATION_PLAUSIBLE_WITH_XHR_COVERAGE":
+        "Configuração e população XHR declaradas plausíveis; correlação não homologada",
+}
+_REASON_PT_BR = {
+    "ARCHITECTURE_NOT_PROVEN": "Arquitetura não determinada",
+    "ARCHITECTURE_EVIDENCE_NOT_VERIFIED": "Identificador de evidência de arquitetura ausente",
+    "INVALID_OBSERVATION_FLAGS": "Indicadores de navegação inválidos",
+    "NO_DYNATRACE_SETTINGS_SNAPSHOT": "Nenhuma configuração RUM fornecida",
+    "NO_ACTION_APDEX_CONFIGURATIONS": "Nenhuma configuração de Apdex por tipo de ação fornecida",
+    "LOAD_ACTION_CONFIGURATION_NOT_PROVIDED": "Configuração Load não fornecida",
+    "SOFT_NAVIGATION_NOT_PROVEN": "Transição de rota client-side não comprovada",
+    "ASYNC_TRIGGER_FOR_SOFT_NAVIGATION_NOT_PROVEN":
+        "XHR/Fetch na transição de rota não comprovado",
+    "ASYNC_CAPTURE_DISABLED_FOR_OBSERVED_SOFT_NAVIGATION":
+        "O JSON informa captura XHR e Fetch desabilitada na transição declarada",
+    "NO_XHR_ACTIONS_IN_DECLARED_RUM_POPULATION":
+        "O JSON informa população de XHR actions igual a zero",
+    "XHR_APDEX_CONFIGURATION_NOT_PROVIDED":
+        "Configuração de Apdex XHR não fornecida",
+    "XHR_ACTION_POPULATION_NOT_PROVEN":
+        "Quantidade de XHR actions não comprovada",
+    "INVALID_ACTION_CONFIGURATION": "Configuração de ação inválida",
+    "KPM_NOT_SUPPORTED_FOR_ACTION_TYPE": "KPM incompatível com o tipo de ação",
+    "INVALID_APDEX_THRESHOLDS": "Thresholds Apdex inválidos",
+    "INVALID_FALLBACK_THRESHOLDS": "Thresholds de fallback inválidos",
+    "INVALID_ASYNC_CAPTURE_FLAGS": "Indicadores de captura inválidos",
+    "INVALID_POPULATION": "Contagens de ações inválidas",
+}
+
+
+def explain_dynatrace_apdex_pt_br(result: Mapping[str, Any]) -> dict[str, Any]:
+    """Produce a safe, readable advisory from a verdict, never from tenant data.
+
+    This is *not* a RUM observation, HTML report projection or RASAi M25 KPM.
+    """
+    reasons = result.get("reasons", ())
+    if not isinstance(reasons, (tuple, list)):
+        reasons = ()
+    formatted_reasons = []
+    for reason in reasons:
+        if not isinstance(reason, str):
+            continue
+        action, sep, code = reason.partition(":")
+        label = _REASON_PT_BR.get(code if sep else action, "Condição sem descrição validada")
+        prefix = {"load_actions": "Load", "xhr_actions": "XHR",
+                  "custom_actions": "Custom", "capture": "Captura",
+                  "action_counts": "População"}.get(action, "Evidência")
+        formatted_reasons.append((prefix + ": " if sep else "") + label)
+    supplied = result.get("observed_kpm", {})
+    if not isinstance(supplied, Mapping):
+        supplied = {}
+    return {
+        "conclusao": _STATUS_PT_BR.get(
+            result.get("status"), "Diagnóstico não determinável"
+        ),
+        "arquitetura_informada": (
+            result.get("architecture")
+            if result.get("architecture") in ARCHITECTURES else "UNKNOWN"
+        ),
+        "metricas_declaradas_na_configuracao": {
+            label: str(supplied[key])
+            for key, label in (
+                ("load_actions", "Load"), ("xhr_actions", "XHR"),
+                ("custom_actions", "Custom")
+            )
+            if isinstance(supplied.get(key), str)
+            and supplied[key] in KPM_BY_ACTION[key]
+        },
+        "motivos": formatted_reasons,
+        "proximos_passos": list(result.get("review_actions") or ()),
+        "limite_metodologico": (
+            "Configuração fornecida pelo operador, não verificada no tenant. "
+            "A presença de configuração Load/XHR/Custom não comprova captura, "
+            "população de ações, URL, período nem a mesma amostra observada pelo M6. "
+            "O Apdex sintético RASAi M23/M25 não foi recalculado. "
+            "Não existem thresholds universais do Dynatrace por arquitetura."
+        ),
+    }
