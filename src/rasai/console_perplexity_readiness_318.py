@@ -34,6 +34,13 @@ def inspect_perplexity_readiness(
     requests = tuple(getattr(state, "perplexity_queries", ()) or ())
     kind = str(getattr(state, "perplexity_search_type", "web") or "web").strip().upper()
     requested = bool(requests)
+    # Display readiness must never promise an executable Search API request
+    # for a malformed/incomplete per-AUD query list. The runtime validates
+    # the same 1..5 boundary; the console remains read-only here.
+    valid_queries = (
+        1 <= len(requests) <= 5
+        and all(isinstance(q, str) and bool(q.strip()) for q in requests)
+    )
     enabled = bool(active)
     filters = sum(bool(str(env.get(name) or "").strip()) for name in _FILTERS)
     if not enabled:
@@ -42,6 +49,8 @@ def inspect_perplexity_readiness(
         status = "CREDENCIAL AUSENTE - NENHUMA PESQUISA"
     elif not requested:
         status = "NÃO SOLICITADA - DEFINIR QUERIES NO CAT-05"
+    elif not valid_queries:
+        status = "QUERIES INVÁLIDAS - CORRIGIR NO CAT-05"
     elif kind not in {"WEB", "FAST"}:
         status = "TIPO INVÁLIDO - REVISAR CAT-05"
     else:
@@ -50,11 +59,12 @@ def inspect_perplexity_readiness(
         "enabled": enabled,
         "credential_configured": key_present,
         "queries_requested": requested,
+        "queries_valid": valid_queries,
         "query_count": len(requests),
         "mode": kind,
         "optional_filters_configured": filters,
         "status": status,
-        "executable_request_pending": enabled and key_present and requested and kind in {"WEB", "FAST"},
+        "executable_request_pending": enabled and key_present and valid_queries and kind in {"WEB", "FAST"},
     }
 
 
