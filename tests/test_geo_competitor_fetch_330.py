@@ -151,7 +151,7 @@ def test_redirected_html_is_not_followed_even_if_destination_public():
 def test_spa_shell_without_lexical_body_does_not_prove_primary_content():
     t = _FakeTransport(
         b"User-agent: *\nAllow: /",
-        html=b"<html><title>Seguro de vida</title><main id='app'></main></html>",
+        html=b"<html><title>Welcome</title><main id='app'></main></html>",
     )
     result = _inspect(_client(t), role="CUSTOMER")
     assert result["status"] == "STATIC_HTML_WITHOUT_QUERY_BODY_EVIDENCE"
