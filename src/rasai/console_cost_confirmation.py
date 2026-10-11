@@ -1,6 +1,8 @@
 """Pre-execution monetary confirmation and post-run cost adherence for the local console."""
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
@@ -20,6 +22,24 @@ _FORECASTS: dict[int, CostForecast] = {}
 _OUTCOMES: dict[int, "_CostOutcome"] = {}
 _ACTIVE_RUN: tuple[Any, CostForecast] | None = None
 _ALERT_THRESHOLD_PERCENT = 5.0
+
+# The public entrypoint installs the first-run cost-exposure preview outside
+# this wrapper. Its explicit C/N selection is already final authorization.
+# Consume that authorization once for the same state, never a global bypass.
+_EXPOSURE_PREAUTHORIZED: ContextVar[int | None] = ContextVar(
+    "rasai_cost_exposure_authorized_state", default=None,
+)
+
+
+@contextmanager
+def preauthorized_exposure_execution(state: Any):
+    """Scope one already-approved cost-exposure choice to this exact AUD launch."""
+    token = _EXPOSURE_PREAUTHORIZED.set(id(state))
+    try:
+        yield
+    finally:
+        _EXPOSURE_PREAUTHORIZED.reset(token)
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -576,6 +596,14 @@ def install(console_module: ModuleType) -> None:
         global _ACTIVE_RUN
         forecast = forecast_local_cost(state)
         if not forecast.show_confirmation:
+            # The *outer* first-run exposure preview already obtained C or N.
+            # Consume it before running, preventing double confirmation. This
+            # exception is neither persistent nor transferable to another state.
+            if _EXPOSURE_PREAUTHORIZED.get() == id(state):
+                _EXPOSURE_PREAUTHORIZED.set(None)
+                state.operation = "LOCAL:EXECUTION_CONFIRMED"
+                state.error = ""
+                return int(original_run(state) or 0)
             # A zero/unavailable price forecast is NOT authorization to navigate
             # external URLs, stress a target with synthetic samples or use a
             # paid integration whose price cannot be estimated.
