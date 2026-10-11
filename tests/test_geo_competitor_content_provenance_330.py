@@ -125,6 +125,56 @@ def test_malformed_or_duplicate_competitor_cannot_create_false_pair(tmp_path):
     assert value["comparisons"] == []
 
 
+def test_competitor_redirect_to_customer_is_not_independent_evidence(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET final_url=? "
+            "WHERE role='COMPETITOR_CANDIDATE' AND observation_id='SERP-1'",
+            ("https://example.org/seguro-vida",),
+        )
+    before = sha256(db.read_bytes()).hexdigest()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+    assert result["comparisons"] == []
+    assert result["competitors"][0]["final_url"] == "https://example.org/seguro-vida"
+    assert sha256(db.read_bytes()).hexdigest() == before
+
+
+def test_customer_redirect_to_competitor_cannot_compare_same_final_page(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET final_url=? "
+            "WHERE role='CUSTOMER' AND observation_id='SERP-1'",
+            ("https://competitor.org/seguro-vida",),
+        )
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+    assert result["comparisons"] == []
+
+
+def test_two_competitor_serp_urls_with_one_final_html_destination_count_once(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "INSERT INTO serp_competitive_pages "
+            "SELECT observation_id, role, ?, final_url, fetch_status, http_status, "
+            "content_type, content_sha256, bytes_read, word_count, title, "
+            "headings_json, query_terms_json, query_terms_body_json "
+            "FROM serp_competitive_pages WHERE role='COMPETITOR_CANDIDATE' "
+            "AND observation_id='SERP-1'",
+            ("https://alias.com/other-page",),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "DESCRIPTIVE_PERSISTED_HTML_COMPARISON"
+    assert len(result["competitors"]) == 2
+    assert len(result["comparisons"]) == 1
+    assert result["comparisons"][0]["observed_word_count_difference"] == 100
+    assert db.read_bytes() == before
+
+
 def test_legacy_absent_schema_abstains_without_ddl(tmp_path):
     db = tmp_path / "audit.db"
     with sqlite3.connect(db):
