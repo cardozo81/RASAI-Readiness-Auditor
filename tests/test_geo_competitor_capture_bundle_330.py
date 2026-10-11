@@ -211,3 +211,49 @@ def test_cli_requires_explicit_network_flag_without_reaching_network(tmp_path, c
     assert exc.value.code == 2
     assert "explicit --allow-public-html-requests" in capsys.readouterr().err
     assert not (tmp_path/"output").exists()
+
+
+@pytest.mark.parametrize(
+    "package_relative",
+    (
+        "AUD-OTHER/artifacts/competitor-evidence",
+        "consolidated/CONS-FOREIGN/artifacts",
+        "RPR-ANOTHER/artifacts/cobs",
+    ),
+)
+def test_capture_never_writes_inside_foreign_aud_cons_rpr_packages(
+    tmp_path, monkeypatch, package_relative,
+):
+    folder = _audit(tmp_path)
+    calls = _fake(monkeypatch)
+    # Output roots must be isolated even when they belong to a DIFFERENT
+    # physical package; an unrelated AUD is not writable capture storage.
+    target = tmp_path / package_relative
+    assert not target.exists()
+    original = (folder / "audit.db").read_bytes()
+    with pytest.raises(ValueError, match="outside every AUD/CONS/RPR"):
+        capture.capture_competitor_sidecar(
+            folder, _OBS, _URL,
+            output_root=target,
+            consented_hostnames=("competitor.example.org",),
+        )
+    assert calls == []
+    assert not target.exists()
+    assert (folder / "audit.db").read_bytes() == original
+
+
+def test_capture_relative_parent_traversal_to_other_aud_rejected_before_network(
+    tmp_path, monkeypatch,
+):
+    folder = _audit(tmp_path)
+    calls = _fake(monkeypatch)
+    other = tmp_path / "AUD-OTHER"
+    other.mkdir()
+    misleading_root = folder / ".." / "AUD-OTHER" / "artifacts"
+    with pytest.raises(ValueError, match="outside every AUD/CONS/RPR"):
+        capture.capture_competitor_sidecar(
+            folder, _OBS, _URL, output_root=misleading_root,
+            consented_hostnames=("competitor.example.org",),
+        )
+    assert calls == []
+    assert not (other / "artifacts").exists()
