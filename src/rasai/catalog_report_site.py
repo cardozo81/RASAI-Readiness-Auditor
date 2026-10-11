@@ -86,7 +86,7 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
         body+=_section(
             "ai-attempt-timeline",
             "Linha temporal e valores das chamadas de IA",
-            "<p>São durações por tentativa nas bases M18/M20, não o tempo total "
+            "<p>São durações das solicitações de análise por IA, não o tempo total "
             "da auditoria. Chamadas simultâneas se sobrepõem. A soma das durações "
             "não representa tempo de parede. Quando há timestamps completos, "
             "ambas as durações usam o mesmo relógio; caso contrário, "
