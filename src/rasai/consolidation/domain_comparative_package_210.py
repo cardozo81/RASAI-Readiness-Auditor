@@ -49,6 +49,9 @@ def materialize_same_domain_package(
             + str(preview.get("reason") or "UNVERIFIED")
         )
     source_ids = [str(item["audit_id"]) for item in preview["audits"]]
+    expected = preview.get("index_reference", {}).get("source_fingerprints_by_audit")
+    if not isinstance(expected, dict) or set(expected) != set(source_ids):
+        raise ValueError("physical AUD source fingerprint proof is unavailable")
     fingerprints = {}
     for audit_id in source_ids:
         parent = root / audit_id
@@ -58,7 +61,10 @@ def materialize_same_domain_package(
             or parent.resolve().parent != root.resolve()
         ):
             raise ValueError("physical source became unsafe before package materialization")
-        fingerprints[audit_id] = source_file_fingerprint(source)
+        current_fingerprint = source_file_fingerprint(source)
+        if current_fingerprint != expected[audit_id]:
+            raise ValueError("AUD source changed during package preparation")
+        fingerprints[audit_id] = current_fingerprint
     inputs = {
         "contract_version": _VERSION,
         "comparison_mode": "SAME_DOMAIN_COMPARATIVE",
@@ -114,6 +120,8 @@ def materialize_same_domain_package(
         }
 
     destination_root.mkdir(exist_ok=True)
+    if destination_root.is_symlink():
+        raise ValueError("comparison destination changed to symlink")
     temporary = Path(tempfile.mkdtemp(prefix=".cdomain-staging-", dir=destination_root))
     try:
         (temporary / "manifest.json").write_bytes(manifest_bytes)
