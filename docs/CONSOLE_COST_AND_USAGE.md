@@ -133,10 +133,10 @@ Consulte [AUDIT_REPROCESSING.md](AUDIT_REPROCESSING.md) para a seleção de depe
 - não confunda carga Synthetic Apdex com custo financeiro de API.
 
 
-## Inspeção read-only de tempos M18/M20 e chamadas HTTP M21 (#319)
+## Inspeção de tempos das análises por IA e requisições web (#319)
 
 Para uma AUD persistida, `rasai audit-attempts <AUD>` expõe a
-cronologia de tentativas IA M18/M20 e, quando comprovável, o novo campo
+cronologia das tentativas de análise por IA e, quando comprovável, o campo
 `observed_http_request_sums_ms` para `PAGESPEED_INSIGHTS` e
 `CRUX_API`. Esses valores são **somas de durações HTTP individuais**,
 não medem a duração física da fase, não podem ser adicionados ao
