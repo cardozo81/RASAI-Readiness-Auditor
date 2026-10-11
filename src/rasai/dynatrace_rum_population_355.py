@@ -107,6 +107,16 @@ def read_live_dynatrace_action_population(
         raise ValueError("Dynatrace USQL response JSON invalid") from None
     if not isinstance(payload, dict):
         raise ValueError("Dynatrace USQL aggregate object required")
+    # Dynatrace may return extrapolated aggregate counts rather than a
+    # literal census of user actions. Null/absent extrapolationLevel is NOT
+    # evidence of a raw count. Retain the estimated numbers but label their
+    # epistemic status; reject malformed declarations.
+    raw_extrapolation = payload.get("extrapolationLevel")
+    if raw_extrapolation is not None and (
+        type(raw_extrapolation) is not int
+        or not 1 <= raw_extrapolation <= 1000
+    ):
+        raise ValueError("Dynatrace USQL extrapolation level invalid")
     columns = payload.get("columnNames")
     values = payload.get("values")
     if (
@@ -143,6 +153,11 @@ def read_live_dynatrace_action_population(
         ).isoformat(),
         "action_counts": counts,
         "action_count_total": sum(counts.values()),
+        "usql_extrapolation_level": raw_extrapolation,
+        "usql_reported_counts_extrapolated": (
+            raw_extrapolation > 1 if raw_extrapolation is not None else None
+        ),
+        "raw_rum_action_census_verified": False,
         "population_query_scoped_to_exact_url_device_window": True,
         "rum_action_aggregate_returned": True,
         "rasai_same_browser_sample_verified": False,
@@ -154,6 +169,8 @@ def read_live_dynatrace_action_population(
             "Agregação USQL da população RUM Classic do filtro informado, "
             "não log de usuário nem evidência de ação na mesma sessão Playwright. "
             "Zero XHR no resultado não prova que captura XHR/Fetch esteja desabilitada. "
+            "A API USQL pode extrapolar contagens de uma amostra; "
+            "extrapolationLevel ausente não comprova contagem bruta física. "
             "Sampling, retenção e permissões do tenant podem reduzir a cobertura. "
             "Settings API e USQL usam tokens/permissões distintas; não extrapolar "
             "thresholds ou atribuir causa de Apdex por arquitetura."
