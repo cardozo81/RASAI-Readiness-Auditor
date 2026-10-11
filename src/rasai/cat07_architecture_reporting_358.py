@@ -48,11 +48,11 @@ ADVICE_LABELS = {
 
 # Structured resolver codes are kept for diagnostics; the report explains them in PT-BR.
 _REASON_LABELS = {
-    "KPM_NOT_EXECUTABLE_IN_M25": "a métrica registrada não é executável pelo M25",
+    "KPM_NOT_EXECUTABLE_IN_M25": "a métrica registrada não é executável pelo Apdex de experiência",
     "SATISFIED_INVALID": "o limite Satisfied registrado é inválido",
     "FRUSTRATED_INVALID": "o limite Frustrated registrado é inválido",
     "FRUSTRATED_NOT_GREATER_THAN_SATISFIED": "o limite Frustrated não supera o Satisfied",
-    "EFFECTIVE_CONFIG_NOT_AVAILABLE": "configuração efetiva M25 indisponível",
+    "EFFECTIVE_CONFIG_NOT_AVAILABLE": "configuração efetiva do Apdex de experiência indisponível",
     "DECLARED_VS_OBSERVED_ARCHITECTURE_MISMATCH": "arquitetura declarada diferente da observada",
     "PROFILE_MODE_NOT_RECOGNIZED": "modo de calibração não comprovado nesta auditoria",
     "IMPORTED_CONFIG_PROVENANCE_UNAVAILABLE": "origem da calibração importada indisponível",
