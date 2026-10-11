@@ -190,6 +190,11 @@ def _ai_intervals_within_console(
 def _historical_audit(
     database: Path, state: Any, target_pages: int,
 ) -> tuple[float, str, dict[str, float], dict[str, float]] | None:
+    # Only local physical AUD packages may enter the historical cohort.
+    # Following an AUD directory or audit.db symlink could import a
+    # foreign package with a matching audit_id into the forecast.
+    if database.is_symlink() or database.parent.is_symlink():
+        return None
     try:
         conn = sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True, timeout=.5)
     except (sqlite3.Error, OSError):
@@ -288,7 +293,13 @@ def forecast_local_duration(
         return AuditDurationForecast(0, None, (), notes=("Sem historico local comparavel.",))
     try:
         databases = sorted(
-            (p / "audit.db" for p in root.glob("AUD-*") if (p / "audit.db").is_file()),
+            (
+                p / "audit.db" for p in root.glob("AUD-*")
+                if p.is_dir() and not p.is_symlink()
+                and (p / "audit.db").is_file()
+                and not (p / "audit.db").is_symlink()
+                and p.resolve().parent == root.resolve()
+            ),
             key=lambda p: p.stat().st_mtime_ns, reverse=True,
         )[:_MAX_RUNS_SCANNED]
     except OSError:

@@ -10,7 +10,10 @@ from pathlib import Path
 import sqlite3
 from types import SimpleNamespace
 
+import pytest
+
 from rasai.audit_duration_forecast_319 import (
+    _historical_audit,
     forecast_local_duration,
     format_duration_preview,
 )
@@ -121,6 +124,34 @@ def test_5_comparable_completed_runs_produce_total_and_union_ai_stage(tmp_path):
     assert "tempo ativo" in visible
     assert "NAO devem ser somados" in visible
     assert "P90" in visible
+
+
+@pytest.mark.parametrize("link_kind", ("audit_directory", "audit_db"))
+def test_foreign_symlinked_audit_never_enters_duration_history(tmp_path, link_kind):
+    root = tmp_path / "audits"
+    root.mkdir()
+    outside = tmp_path / "foreign"
+    outside.mkdir()
+    legitimate = [_audit(root, i) for i in range(4)]
+    source = _audit(outside, 4)
+    candidate = root / "AUD-DURATION-4"
+    try:
+        if link_kind == "audit_directory":
+            candidate.symlink_to(source.parent, target_is_directory=True)
+        else:
+            candidate.mkdir()
+            (candidate / "audit.db").symlink_to(source)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"symlink creation not permitted on this platform: {exc}")
+    original = [sha256(db.read_bytes()).hexdigest()
+                for db in (*legitimate, source)]
+    result = forecast_local_duration(_state(root))
+    assert _historical_audit(candidate / "audit.db", _state(root), 1) is None
+    assert not result.available
+    assert result.sample_runs == 4
+    assert result.ai_stages == ()
+    assert [sha256(db.read_bytes()).hexdigest()
+            for db in (*legitimate, source)] == original
 
 
 def test_abstains_for_insufficient_history_instead_of_extrapolating(tmp_path):
