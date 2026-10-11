@@ -62,6 +62,20 @@ def _strict_query_terms(raw: object) -> tuple[str, ...]:
     return tuple(parsed)
 
 
+def _optional_jsonld_types(raw: object) -> list[str] | None:
+    if not isinstance(raw, str):
+        return None
+    try:
+        parsed = json.loads(raw)
+    except (ValueError, TypeError):
+        return None
+    if (not isinstance(parsed, list) or len(parsed) > 20
+            or any(not isinstance(value, str) or not value.strip()
+                   for value in parsed)):
+        return None
+    return [value[:120] for value in parsed]
+
+
 def _optional_terms(raw: object, expected: tuple[str, ...]) -> list[str] | None:
     """Validate a bounded lexical projection against its original query.
 
@@ -128,7 +142,7 @@ def _page(row: sqlite3.Row, expected_terms: tuple[str, ...]) -> dict[str, Any]:
     title_terms = _optional_terms(row["query_terms_title_json"], expected_terms)
     description_terms = _optional_terms(row["query_terms_description_json"], expected_terms)
     heading_terms = _optional_terms(row["query_terms_headings_json"], expected_terms)
-    jsonld_types = _texts(row["jsonld_types_json"]) if row["jsonld_types_json"] is not None else None
+    jsonld_types = _optional_jsonld_types(row["jsonld_types_json"])
     return {
         "role": row["role"],
         "requested_url": requested if requested_url else None,
