@@ -159,6 +159,10 @@ def domain_preview_from_index(
         "source_audits_reopened_for_freshness": verify_source_metadata,
         "source_file_metadata_matched": verify_source_metadata,
         "source_url_identity_verified": verify_source_metadata,
+        "source_fingerprints_by_audit": (
+            {audit_id: by_id[audit_id][0]["source_fingerprint"].lower()
+             for audit_id in ids} if verify_source_metadata else None
+        ),
         # A path/size/mtime digest is not cryptographic byte attestation.
         "source_package_freshness_verified": False,
         "native_cons3_created": False,
