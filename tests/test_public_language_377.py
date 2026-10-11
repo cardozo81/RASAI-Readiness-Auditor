@@ -7,7 +7,7 @@ from rasai.cat07_architecture_reporting_358 import _REASON_LABELS
 
 
 ROOT = Path(__file__).resolve().parents[1] / "src" / "rasai"
-_INTERNAL = re.compile(r"(?<!\\w)M\\d{1,2}(?:/M\\d{1,2})?(?!\\w)")
+_INTERNAL = re.compile(r"(?<!\w)M\d{1,2}(?:/M\d{1,2})?(?!\w)")
 
 
 def test_known_console_and_metrics_public_copy_is_functional_not_module_codes():
