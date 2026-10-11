@@ -74,6 +74,50 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
 #roadmap dialog.rasai-modal[id^='directed-roadmap-phase-'] details{break-inside:auto}
 }
 
+/* #328: segment CAT-06/CAT-07 explanations without hiding source tables. */
+.cat-apdex-readable{
+  margin:16px 0;
+  padding:17px 20px;
+  min-width:0;
+  border:1px solid var(--line);
+  border-left:3px solid #526fc2;
+  border-radius:11px;
+  background:#fff;
+}
+.cat-apdex-readable>h3{
+  margin:0 0 12px;
+  padding:0 0 8px;
+  border-bottom:1px solid var(--line);
+  line-height:1.4;
+}
+.cat-apdex-readable>.table-wrap{max-width:100%}
+.cat-apdex-readable [data-contract='CAT07-ARCHITECTURE-358']{
+  background:#f8fbff;
+  border:1px solid #d9e5f4;
+  border-radius:10px;
+  padding:14px 16px;
+  margin:16px 0 0;
+  overflow-wrap:anywhere;
+}
+.cat-apdex-readable [data-contract='CAT07-ARCHITECTURE-358'] h3{
+  margin:0 0 10px;
+  padding-bottom:8px;
+  border-bottom:1px solid #d9e5f4;
+}
+@media(max-width:700px){
+  .cat-apdex-readable{padding:13px 11px}
+  .cat-apdex-readable [data-contract='CAT07-ARCHITECTURE-358']{padding:11px 9px}
+}
+@media print{
+  .cat-apdex-readable,
+  .cat-apdex-readable [data-contract='CAT07-ARCHITECTURE-358']{
+    background:#fff;
+    box-shadow:none;
+    break-inside:auto;
+  }
+}
+
+
 """
 
 _JS = r"""

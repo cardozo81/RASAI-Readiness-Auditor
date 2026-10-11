@@ -169,13 +169,13 @@ def _catalog_results_html(database: Path, data: _ReportData, catalog_id: str) ->
     if catalog_id=="CAT-05":
         return base+"<div class='subsection'><h3>Observações de busca</h3>"+_search_intelligence_html(database,data)+"</div>"
     if catalog_id=="CAT-06":
-        return base+"<div class='subsection'><h3>Amostras</h3>"+_apdex_samples_html(database,data,experience=False)+"</div>"
+        return base+"<div class='subsection cat-apdex-readable'><h3>Amostras</h3>"+_apdex_samples_html(database,data,experience=False)+"</div>"
     if catalog_id=="CAT-07":
         return (
             base
-            +"<div class='subsection'><h3>Tentativas e retornos por perfil</h3>"
+            +"<div class='subsection cat-apdex-readable'><h3>Tentativas e retornos por perfil</h3>"
             +_ux_profile_execution_html(database,data)
-            +"</div><div class='subsection'><h3>Amostras</h3><p class='section-lead'>A tabela usa o fuso horário de apresentação do RASAi, mostra 10 registros por página quando necessário e permite ordenar pelas colunas.</p>"
+            +"</div><div class='subsection cat-apdex-readable'><h3>Amostras</h3><p class='section-lead'>A tabela usa o fuso horário de apresentação do RASAi, mostra 10 registros por página quando necessário e permite ordenar pelas colunas.</p>"
             +_apdex_samples_html(database,data,experience=True)
             +"</div>"
         )
@@ -287,7 +287,7 @@ def _cat07_methodology_summary_html(database: Path, data: _ReportData) -> str:
     else:
         population_status="Não configurado nesta AUD"
 
-    html="<div class='subsection'><h3>Fronteira temporal e perfil da medição</h3>"
+    html="<div class='subsection cat-apdex-readable'><h3>Fronteira temporal e perfil da medição</h3>"
     html+="<div class='metric-grid'>"
     html+=_metric("Baseline Synthetic User Experience Apdex",baseline_status)
     html+=_metric("Fronteira temporal do baseline",boundary_display)
