@@ -177,3 +177,51 @@ def test_no_runtime_or_transport_imports_and_no_modified_input():
         "sqlite3", "urlopen", "requests", "httpx", "m25_apdex_experience",
         "m23_apdex", "AuditWorkspace", "provider_factory",
     ))
+
+
+def test_recorded_m25_policies_are_explicit_readonly_and_secret_free():
+    cfg = {
+        **_config(),
+        "request_errors_affect_apdex": False,
+        "console_errors_affect_apdex": True,
+        "error_scope": "first-party",
+        "target_samples_per_page": 10,
+        "concurrency": 3,
+        "settle_seconds": 5.0,
+        "delay_seconds": 1.0,
+        "dynatrace_config_json": "SECRET_CALIBRATION_JSON",
+        "dynatrace_base_url": "SECRET_TENANT_HOST",
+    }
+    before = deepcopy(cfg)
+    result = resolve(cfg, profile_mode="CUSTOM", selected_architecture="CSR_SPA")
+    persisted = result["effective_recorded_run_context"]
+    assert persisted["request_errors_affect_apdex"] is False
+    assert persisted["console_errors_affect_apdex"] is True
+    assert persisted["error_scope"] == "first-party"
+    assert persisted["target_samples_per_page"] == 10
+    assert persisted["concurrency"] == 3
+    assert persisted["settle_seconds"] == 5.0
+    assert result["recorded_run_context_origin"] == "PERSISTED_EFFECTIVE_M25_CONFIGURATION_ONLY"
+    assert "SECRET_CALIBRATION_JSON" not in str(result)
+    assert "SECRET_TENANT_HOST" not in str(result)
+    assert cfg == before
+
+
+def test_recorded_context_unknown_and_invalid_values_abstain_without_defaults():
+    cfg = {**_config(), "request_errors_affect_apdex": "true",
+           "error_scope": "all<script>", "concurrency": 8,
+           "settle_seconds": 0, "javascript_error_capture": False}
+    out = resolve(cfg, profile_mode="CUSTOM")
+    assert out["effective_recorded_run_context"]["request_errors_affect_apdex"] is None
+    assert out["effective_recorded_run_context"]["error_scope"] is None
+    assert out["effective_recorded_run_context"]["concurrency"] is None
+    assert out["effective_recorded_run_context"]["settle_seconds"] is None
+    assert out["effective_recorded_run_context"]["javascript_error_capture"] is False
+    missing = resolve({
+        "kpm": "USER_ACTION_DURATION",
+        "satisfied_threshold_seconds": 3.0,
+        "frustrated_threshold_seconds": 12.0,
+    }, profile_mode="CUSTOM")
+    assert all(value is None for value in
+               missing["effective_recorded_run_context"].values())
+    assert out["new_audit_configuration_preview"] == []

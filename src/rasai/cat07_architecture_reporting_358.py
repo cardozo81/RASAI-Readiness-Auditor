@@ -12,7 +12,10 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Mapping
 
-from rasai.experience_architecture_guidance_358 import resolve_experience_architecture_guidance
+from rasai.experience_architecture_guidance_358 import (
+    RECORDED_CONTEXT_FIELDS,
+    resolve_experience_architecture_guidance,
+)
 
 ARCH_LABELS = {
     "CSR_SPA": "SPA com renderização principal no cliente",
@@ -131,6 +134,7 @@ def cat07_architecture_advice_html(
         "satisfied_threshold_seconds": run.get("satisfied_threshold_seconds"),
         "frustrated_threshold_seconds": run.get("frustrated_threshold_seconds"),
     }
+    config.update({key: run.get(key) for key in RECORDED_CONTEXT_FIELDS})
     meta = frozen_meta if isinstance(frozen_meta, Mapping) else {}
     # The canonical console handoff serializes INI sections under "settings".
     # Only a hash-verified frozen audit_execution_configurations snapshot can
@@ -185,6 +189,46 @@ def cat07_architecture_advice_html(
         "equivalência com Dynatrace RUM. Um Apdex alto pode não representar "
         "uma transição SPA ou hidratação completa.</p>",
     ]
+    # Context is whitelisted from the persisted M25 run, never from the
+    # console process, old INI, vendor JSON, credentials or inferred defaults.
+    recorded = guidance["effective_recorded_run_context"]
+    policy_labels = {
+        "errors_affect_apdex": "Erros impactam a classificação",
+        "javascript_errors_affect_apdex": "Erros JavaScript impactam a classificação",
+        "request_errors_affect_apdex": "Erros de requisição impactam a classificação",
+        "console_errors_affect_apdex": "Erros de console impactam a classificação",
+        "javascript_error_capture": "Captura de erros JavaScript",
+        "xhr_capture": "Captura de observações XHR",
+        "fetch_capture": "Captura de observações Fetch",
+        "console_error_capture": "Captura de erros de console",
+    }
+    scope_labels = {
+        "error_scope": "Escopo dos erros",
+        "session_mode": "Modo de sessão",
+        "target_samples_per_page": "Amostras previstas por página",
+        "max_attempts_per_page": "Tentativas máximas por página",
+        "concurrency": "Concorrência efetiva",
+        "settle_seconds": "Observação pós-load (s; não somada ao Apdex)",
+        "delay_seconds": "Intervalo entre tentativas (s)",
+    }
+    details = []
+    for key, label_text in (*policy_labels.items(), *scope_labels.items()):
+        value = recorded.get(key)
+        shown = (
+            "Sim" if value is True else "Não" if value is False
+            else "N/D" if value is None else str(value)
+        )
+        details.append(
+            "<li><strong>" + escape(label_text) + ":</strong> "
+            + escape(shown) + "</li>"
+        )
+    parts.append(
+        "<h4>Políticas de erro e contexto efetivamente persistidos</h4>"
+        "<p>Valores obtidos somente da configuração de execução gravada nesta AUD; "
+        "campos ausentes ou inválidos permanecem N/D, sem preenchimento pelo INI atual. "
+        "Capturar XHR/Fetch não equivale a executar uma XHR Action autônoma.</p>"
+        "<ul>" + "".join(details) + "</ul>"
+    )
     if provenance:
         parts.append(
             "<p><strong>Rastreabilidade da arquitetura identificada (contexto observado):</strong> "
