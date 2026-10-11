@@ -60,3 +60,15 @@ para esta implementação. Ainda não existe integração do pacote COBS
 ao schema canônico da AUD, mecanismo de consentimento auditável SaaS,
 proxy de egress anti-DNS-rebinding, locale/device de renderização ou
 aceite humano da comparabilidade. A issue #330 permanece OPEN.
+
+## Isolamento transversal de pacotes (#330, correção)
+
+O bloqueio do diretório de saída não se limita mais à AUD de origem:
+`--output-root` precisa estar fora de **todas** as pastas com
+identidade física `AUD-*`, `CONS-*` e `RPR-*`, inclusive quando
+algum componente do caminho é relativo (`..`) ou passa por link
+simbólico ancestral. Uma captura autorizada **nunca** pode escrever
+em artefatos de outra auditoria ou em pacotes de consolidação/
+reprocessamento. A verificação ocorre antes de qualquer chamada HTTP
+e não cria diretórios quando a saída é insegura. Diretórios irmãos
+dedicados à evidência `COBS-*` continuam elegíveis.

@@ -74,6 +74,17 @@ def capture_competitor_sidecar(
     resolved_root = destroot.resolve()
     if resolved_root == resolved_source or resolved_source in resolved_root.parents:
         raise ValueError("companion evidence must be stored outside the AUD")
+    # All AUD, CONS and RPR packages are immutable inputs, not destinations.
+    # Restrict the caller-supplied output path across *other* packages too:
+    # previously it was possible to save COBS files inside a different AUD.
+    # Resolved ancestor checks also catch relative paths and symlink parents.
+    if any(
+        part.name.startswith(("AUD-", "CONS-", "RPR-"))
+        for part in (resolved_root, *resolved_root.parents)
+    ):
+        raise ValueError(
+            "companion evidence destination must be outside every AUD/CONS/RPR package"
+        )
     if destroot.is_symlink() or (destroot.exists() and not destroot.is_dir()):
         raise ValueError("unsafe competitor evidence destination")
     if db.stat().st_size > _MAX_SOURCE_DB_BYTES:
