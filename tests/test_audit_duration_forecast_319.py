@@ -162,11 +162,13 @@ def test_retrospective_p90_loo_diagnostic_uses_only_verified_wall_times(tmp_path
     assert projection.available and backtest is not None
     assert backtest.method == "LEAVE_ONE_OUT_RETROSPECTIVE_ONLY"
     assert backtest.evaluated_runs == 8
-    assert backtest.within_held_out_p90 == 7
-    assert backtest.observed_fraction == .875
+    # Excluding either of the two highest samples lowers the P90 cut enough
+    # for those samples to miss; six earlier samples remain within bounds.
+    assert backtest.within_held_out_p90 == 6
+    assert backtest.observed_fraction == .75
     lines = "\n".join(format_duration_preview(projection))
     assert "Backtest retrospectivo LOO" in lines
-    assert "7/8" in lines
+    assert "6/8" in lines
     assert "nao e calibracao prospectiva ou SLA" in lines
     assert [sha256(p.read_bytes()).hexdigest() for p in dbs] == originals
 
