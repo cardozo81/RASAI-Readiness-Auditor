@@ -61,19 +61,23 @@ def _source_provenance(
         )) as con:
             con.row_factory = sqlite3.Row
             con.execute("PRAGMA query_only=ON")
-            run = con.execute(
+            runs = con.execute(
                 "SELECT query_json, search_type, status, started_at "
-                "FROM perplexity_search_runs WHERE run_id=? AND audit_id=?",
+                "FROM perplexity_search_runs WHERE run_id=? AND audit_id=? LIMIT 2",
                 (run_id, audit_id),
-            ).fetchone()
-            serp = con.execute(
+            ).fetchall()
+            serps = con.execute(
                 "SELECT query, collected_at, data_mode, observation_status, "
                 "engine, country, region, language, device "
-                "FROM serp_observations WHERE observation_id=? AND audit_id=?",
+                "FROM serp_observations WHERE observation_id=? AND audit_id=? LIMIT 2",
                 (serp_id, audit_id),
-            ).fetchone()
-            if run is None or serp is None:
+            ).fetchall()
+            # Never choose a convenient first row when a corrupted/legacy
+            # source table contains conflicting identities. One GEO snapshot
+            # must map to exactly one persisted Search and SERP observation.
+            if len(runs) != 1 or len(serps) != 1:
                 return False
+            run, serp = runs[0], serps[0]
             px = projection.get("comparability", {}).get("perplexity_context")
             sc = projection.get("comparability", {}).get("serp_context")
             if not isinstance(px, dict) or not isinstance(sc, dict):
