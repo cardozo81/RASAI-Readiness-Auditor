@@ -12,6 +12,14 @@
 | CAT-07 / motivos | configuração efetiva M25 | configuração do Apdex de experiência | Apenas rótulo; códigos estruturados imutáveis |
 | CLI Dynatrace / orientação | mesma amostra M6; M23/M25 | mesma amostra de arquitetura; Apdex de navegação e experiência | Não confundir RUM com Synthetic |
 
+## Ampliação de inventário operacional (ciclo seguinte)
+
+| Origem | Texto anterior no usuário | Rótulo público | Decisão |
+| --- | --- | --- | --- |
+| CLI `audit-attempts --help` | attempts M18/M20, M21 HTTP | tentativas de IA e requisições HTTP | Preservar nomes físicos apenas no JSON |
+| Descrições do CLI e ledger de tempos | relógios de tentativas M18/M20, Valores M21 | relógios de análises por IA, tempos informados por requisição | Sem alterar valores e fórmulas |
+| Manual operacional de custos | tempos M18/M20 e chamadas HTTP M21 | tempos de análises por IA e requisições web | Preservar os campos JSON documentados |
+
 ## Exceções deliberadas
 
 **Documentação técnica:** `docs/AUDIT_STAGE_SCOPE_319.md`,
