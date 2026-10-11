@@ -33,6 +33,52 @@ _VARS = (
     ("satisfied_threshold_seconds", "RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS"),
     ("frustrated_threshold_seconds", "RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS"),
 )
+# Only public non-secret fields from the persisted *effective* M25 run.
+# Do not infer defaults from the current host/INI or import configuration blobs.
+RECORDED_POLICY_FIELDS = (
+    "errors_affect_apdex",
+    "javascript_errors_affect_apdex",
+    "request_errors_affect_apdex",
+    "console_errors_affect_apdex",
+    "javascript_error_capture",
+    "xhr_capture",
+    "fetch_capture",
+    "console_error_capture",
+)
+RECORDED_SCOPE_FIELDS = (
+    "error_scope", "session_mode", "target_samples_per_page",
+    "max_attempts_per_page", "concurrency", "settle_seconds", "delay_seconds",
+)
+RECORDED_CONTEXT_FIELDS = RECORDED_POLICY_FIELDS + RECORDED_SCOPE_FIELDS
+
+
+def _recorded_run_context(config: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Whitelist effective settings, invalid/missing/legacy values remain None."""
+    if not isinstance(config, Mapping):
+        config = {}
+    result: dict[str, Any] = {}
+    for key in RECORDED_CONTEXT_FIELDS:
+        value = config.get(key)
+        if key in RECORDED_POLICY_FIELDS:
+            valid = type(value) is bool
+        elif key == "error_scope":
+            valid = isinstance(value, str) and value in {"navigation", "first-party", "all"}
+        elif key == "session_mode":
+            valid = isinstance(value, str) and value in {"cold", "warm"}
+        elif key in {"target_samples_per_page", "max_attempts_per_page", "concurrency"}:
+            valid = type(value) is int and 1 <= value <= 1000000
+            if key == "concurrency":
+                valid = type(value) is int and 1 <= value <= 3
+        else:
+            valid = (
+                type(value) in (int, float) and math.isfinite(value)
+                and 0 <= value <= 24 * 3600
+                and (key != "settle_seconds" or value > 0)
+            )
+        result[key] = value if valid else None
+    return result
+
+
 _NOTICE_BY_ARCH = {
     "STATIC_OR_SSR": (
         "Load Action pode representar navegacao de documento completa; "
@@ -239,6 +285,8 @@ def resolve_experience_architecture_guidance(
         "requested_kpm": values.get("kpm"),
         "effective_kpm": values.get("kpm"),
         "effective_settings": values,
+        "effective_recorded_run_context": _recorded_run_context(config),
+        "recorded_run_context_origin": "PERSISTED_EFFECTIVE_M25_CONFIGURATION_ONLY",
         "per_field_source": field_sources,
         "fallback_reason": None,
         "objective": objective,
