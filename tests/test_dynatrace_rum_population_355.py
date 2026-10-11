@@ -107,7 +107,7 @@ def test_single_scoped_aggregate_query_and_no_private_session_export():
         {"target_url": "https://www.example.com/x\" OR 1=1"},
         {"target_url": "https://www.example.com/x#fragment"},
         {"dynatrace_device": 'MOBILE" OR 1=1'},
-        {"start_timestamp_ms": START + 100},
+        {"start_timestamp_ms": END + 100},
         {"end_timestamp_ms": START + 25 * 60 * 60 * 1000},
         {"start_timestamp_ms": True},
         {"api_token": "secret\nleak"},
