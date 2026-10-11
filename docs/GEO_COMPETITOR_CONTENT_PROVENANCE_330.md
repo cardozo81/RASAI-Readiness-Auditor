@@ -40,3 +40,15 @@ pode vir de menu, rodapé ou shell SPA. A evidência não comprova
 conteúdo principal e o campo `primary_content_proven=false`
 permanece. Comparações de contagem de palavras seguem estritamente
 descritivas e não fundamentam propostas causais de GEO/SEO.
+
+
+## Tipo MIME verificado no registro HTTP
+
+Mesmo com status HTTP 200, hash e texto persistido, a comparação
+consultiva só aceita o cabeçalho MIME registrado como `text/html`
+ou `application/xhtml+xml` (com `charset` opcional). Respostas
+`text/plain`, `application/pdf`, MIME ausente ou inválido
+retornam `NOT_COMPARABLE`; schemas mais antigos sem o campo
+`content_type` produzem `CONTENT_EVIDENCE_SCHEMA_ND`, sem migração
+ou atribuição retroativa. A regra consome apenas o HTTP já persistido
+pelo coletor original e não acrescenta requisições ao fluxo.

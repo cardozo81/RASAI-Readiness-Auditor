@@ -22,7 +22,7 @@ _MAX_ROWS = 40
 _REQUIRED_OBS = {"observation_id", "audit_id", "query", "collected_at",
                  "observation_status", "data_mode"}
 _REQUIRED_CONTENT = {"observation_id", "role", "requested_url", "final_url",
-                     "fetch_status", "http_status", "content_sha256",
+                     "fetch_status", "http_status", "content_type", "content_sha256",
                      "bytes_read", "word_count", "title", "headings_json",
                      "query_terms_json", "query_terms_body_json"}
 
@@ -77,8 +77,14 @@ def _page(row: sqlite3.Row, expected_terms: tuple[str, ...]) -> dict[str, Any]:
         bool(expected_terms) and indexed_terms == expected_terms
         and bool(body_terms) and set(body_terms).issubset(indexed_terms)
     )
+    raw_type = row["content_type"]
+    media_type = (
+        raw_type.split(";", 1)[0].strip().casefold()
+        if isinstance(raw_type, str) else ""
+    )
     valid_content = (
-        lexical_body_matches
+        media_type in {"text/html", "application/xhtml+xml"}
+        and lexical_body_matches
         and str(row["fetch_status"]).upper() == "OBSERVED"
         and type(row["http_status"]) is int and 200 <= row["http_status"] < 300
         and isinstance(row["content_sha256"], str)
@@ -97,6 +103,7 @@ def _page(row: sqlite3.Row, expected_terms: tuple[str, ...]) -> dict[str, Any]:
             "PERSISTED_HTML_FEATURES" if valid_content else "NOT_COMPARABLE"
         ),
         "http_status": row["http_status"],
+        "verified_html_media_type": media_type if valid_content else None,
         "content_sha256": row["content_sha256"] if valid_content else None,
         "word_count": row["word_count"] if valid_content else None,
         "title_present": bool((row["title"] or "").strip()) if valid_content else None,
@@ -164,7 +171,7 @@ def inspect_geo_competitor_content(
             return abstain("SERP_CONTEXT_NOT_PROVEN")
         rows = con.execute(
             "SELECT role, requested_url, final_url, fetch_status, "
-            "http_status, content_sha256, bytes_read, word_count, "
+            "http_status, content_type, content_sha256, bytes_read, word_count, "
             "title, headings_json, query_terms_json, query_terms_body_json "
             "FROM serp_competitive_pages "
             "WHERE observation_id=? ORDER BY role, requested_url LIMIT ?",
