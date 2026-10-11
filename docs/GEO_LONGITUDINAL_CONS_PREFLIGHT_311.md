@@ -59,3 +59,23 @@ feature as implemented.
 The existing `python -m rasai geo-longitudinal` standalone advisory is the
 safe offline review surface. No lifecycle edits, synthetic historical
 cohorts outside fixtures, or commercial Search API requests are justified.
+
+## Conferência adicional de denominadores físicos para snapshots GEO v8 (#311)
+
+Para registros com metodologia `RASAI-GEO-OBSERVATION-8`, o leitor
+longitudinal exige agora as tabelas físicas `perplexity_search_sources`
+e `serp_results` da mesma execução e observação. É feita a projeção
+da mesma identidade canônica estrita de URL do v8, sem nova coleta.
+O consumo somente leitura compara o total de linhas Search, conjuntos
+de URLs distintas por fornecedor, interseção, exclusivos e taxas
+descritivas (SERP, Perplexity e Jaccard) com o snapshot já persistido.
+Divergências ou ausência do conjunto fonte não viram tendência:
+`GEO_SOURCE_PROVENANCE_UNVERIFIED`/N/D.
+
+Os formatos v5-v7 mantêm sua interpretação histórica congelada, sem
+aplicação retroativa da canonicalização v8. Payload de `comparability`
+não-objeto é recusado sem lançar exceção nem interromper o relatório
+consultivo. Essa verificação aumenta a consistência entre registros do
+mesmo `audit.db`, mas não é uma certificação criptográfica do fornecedor
+e não permite inferir equivalência de market/intent, evolução de ranking
+ou cobertura gerativa. Nenhum dado original é regravado.
