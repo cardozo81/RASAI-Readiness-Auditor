@@ -53,3 +53,29 @@ def test_dynatrace_human_explanation_omits_internal_module_tokens():
     assert "índices sintéticos de navegação e experiência" in rendered
     assert "Configuração de Apdex XHR não fornecida" in rendered
     assert "mesma amostra" in rendered
+
+
+def test_audit_timing_inspector_explains_ia_http_without_internal_module_names(capsys):
+    from rasai.audit_attempt_inspection_319 import main
+    import pytest
+
+    with pytest.raises(SystemExit) as exc:
+        main(["--help"])
+    assert exc.value.code == 0
+    rendered = capsys.readouterr().out
+    assert "tentativas de IA" in rendered
+    assert "requisições HTTP" in rendered
+    assert "M18/M20" not in rendered
+    assert "M21" not in rendered
+    inspector = (ROOT / "audit_attempt_inspection_319.py").read_text(encoding="utf-8")
+    assert "O recorte usa somente relógios das tentativas de análise" in inspector
+    assert "Os tempos informados são somas verificadas" in inspector
+    assert "Valores M21 são somas" not in inspector
+
+
+def test_console_cost_operator_guide_has_human_names():
+    doc = (ROOT.parents[1] / "docs" / "CONSOLE_COST_AND_USAGE.md").read_text(encoding="utf-8")
+    assert "Inspeção de tempos das análises por IA e requisições web" in doc
+    assert "Inspeção read-only de tempos M18/M20" not in doc
+    assert "cronologia de tentativas IA M18/M20" not in doc
+    assert "observed_http_request_sums_ms" in doc  # technical field stays stable
