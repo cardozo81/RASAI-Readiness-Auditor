@@ -153,3 +153,36 @@ Portanto, `source_package_freshness_verified=false` continua sendo a
 declaração correta. O modo não comprova dispositivo persistido ou ruleset
 de origem e **não** autoriza deltas audit-level ou tendência page-level.
 SAME_URL/CONS-3 continuam inalterados.
+
+## Pacote versionado CDOM, separado de CONS-3 (#210)
+
+A partir do modo consultivo read-only, há uma opção **explícita de gravar**
+somente uma saída derivada nova em
+`audits_root/consolidated-domain/CDOM-<fingerprint>/`, fora de
+`consolidated/CONS-*`, sem acionar o gerador CONS-3. O contrato é
+`CONS-DOMAIN-COMPARATIVE-1` e produz `manifest.json` e
+`report.html` com hash determinístico de entrada. Requer conferência
+física do índice contra as AUDs de origem e recusa fontes
+incompatíveis, alteradas ou inseguras.
+
+```powershell
+python -m rasai.consolidation.domain_comparative_package_210 `
+  --audits-root .\audits --audit-id AUD-PRIMEIRA --audit-id AUD-SEGUNDA `
+  --write-domain-package
+```
+
+Somente URLs distintas do mesmo **hostname exato** e device uniforme,
+com uma URL e conclusão COMPLETE por AUD, geram pacote. A operação é
+idempotente quando o manifesto e o HTML existentes são idênticos e
+**não sobrescreve** arquivos divergentes nem fontes. Os fingerprints
+atestam metadados `path|size|mtime_ns`; não autenticam todos os bytes
+da AUD. Score/Apdex/CWV por página, melhorias e tendência temporal
+continuam N/D. O pacote CDOM **não** entra no histórico CONS-3,
+não habilita o modo produtivo SAME_DOMAIN, não muda SQL do CONS e não
+implica conclusão da issue #210.
+
+Os testes locais cobrindo recusa/retorno idempotente, integridade
+SHA-256 de arquivos originais e isolamento de saída são executados
+sem chamadas externas ou AUD reais. Para permitir consolidação
+metodológica audit-level entre URLs diferentes, ainda será necessário
+aprovar regras de equivalência de universo e configuração.
