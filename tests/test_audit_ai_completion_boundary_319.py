@@ -17,7 +17,7 @@ def _db(tmp_path):
     with sqlite3.connect(db) as con:
         con.executescript("""
             CREATE TABLE audits(audit_id TEXT, status TEXT,
-                completion_status TEXT, completed_at TEXT);
+                completion_status TEXT, started_at TEXT, completed_at TEXT);
             CREATE TABLE ai_provider_attempts(
                 attempt_id TEXT,audit_id TEXT,operation TEXT,
                 surface TEXT, started_at TEXT,finished_at TEXT,
@@ -29,7 +29,8 @@ def _db(tmp_path):
                 duration_ms REAL,estimated_cost REAL,cost_currency TEXT,
                 observed_cost REAL,observed_cost_currency TEXT);
             INSERT INTO audits VALUES (
-                'AUD-T', 'COMPLETED', 'COMPLETE', '2026-10-08T11:26:07-03:00'
+                'AUD-T', 'COMPLETED', 'COMPLETE',
+                '2026-10-08T11:00:00-03:00', '2026-10-08T11:26:07-03:00'
             );
         """)
         con.executemany(
@@ -65,13 +66,17 @@ def test_core_vs_post_aud_is_evidence_based_and_prevents_parallel_double_count(t
     before = sha256(db.read_bytes()).hexdigest()
     result = inspect_ai_audit_boundary(db, "AUD-T")
     assert result["status"] == "DESCRIPTIVE_ONLY"
+    assert result["contract_version"] == "RASAI-AUD-AI-TIME-ECONOMICS-319-002"
+    assert result["aud_started_at_utc"] == "2026-10-08T14:00:00+00:00"
     assert result["total_attempts"] == 5
     assert result["aud_completed_at_utc"] == "2026-10-08T14:26:07+00:00"
-    during, post, crossing, unknown = result["buckets"]
+    during, post, crossing, unknown, pre_aud_bucket, start_cross = result["buckets"]
     assert [x["classification"] for x in result["buckets"]] == [
-        "DURING_AUD","AFTER_AUD","CROSSES_AUD_COMPLETION","UNKNOWN_CLOCK"
+        "DURING_AUD","AFTER_AUD","CROSSES_AUD_COMPLETION","UNKNOWN_CLOCK",
+        "BEFORE_AUD","CROSSES_AUD_START",
     ]
-    assert [x["attempts"] for x in result["buckets"]] == [2,1,1,1]
+    assert [x["attempts"] for x in result["buckets"]] == [2,1,1,1,0,0]
+    assert pre_aud_bucket["attempts"] == start_cross["attempts"] == 0
     assert during["sum_call_durations_ms"] == 240000
     assert during["union_active_calls_ms"] == 180000
     assert during["overlap_ms"] == 60000
@@ -164,3 +169,72 @@ def test_offline_cli_emits_json_without_mutating_db(tmp_path, capsys):
     assert result["status"] == "DESCRIPTIVE_ONLY"
     assert result["total_attempts"] == 5
     assert db.read_bytes() == before
+
+
+def test_ai_calls_before_aud_or_crossing_start_do_not_inflate_in_aud(
+    tmp_path,
+):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            [
+                ("BEFORE", "AUD-T", "DIRECTED_ANALYSIS", None,
+                 "2026-10-08T10:40:00-03:00",
+                 "2026-10-08T10:45:00-03:00",
+                 300000, .30, "USD", None, None),
+                ("START-CROSS", "AUD-T", "COMPETITIVE", None,
+                 "2026-10-08T10:59:30-03:00",
+                 "2026-10-08T11:00:30-03:00",
+                 60000, .06, "USD", None, None),
+                ("AT-START", "AUD-T", "OTHER_AI", None,
+                 "2026-10-08T11:00:00-03:00",
+                 "2026-10-08T11:00:10-03:00",
+                 10000, .01, "USD", None, None),
+            ],
+        )
+    before_digest = sha256(db.read_bytes()).hexdigest()
+    outcome = inspect_ai_audit_boundary(db, "AUD-T")
+    assert outcome["status"] == "DESCRIPTIVE_ONLY"
+    assert outcome["total_attempts"] == 8
+    during, post, completion, unknown, earlier, start_overlap = outcome["buckets"]
+    assert during["attempts"] == 3
+    assert during["posthoc_estimated_cost_usd"] == .06
+    assert earlier["attempts"] == 1
+    assert earlier["posthoc_estimated_cost_usd"] == .30
+    assert "DIRECTED_ANALYSIS" in earlier["stages"]
+    assert start_overlap["attempts"] == 1
+    assert start_overlap["posthoc_estimated_cost_usd"] == .06
+    assert outcome["post_aud_cost_included_in_aud_core_price"] is None
+    assert sha256(db.read_bytes()).hexdigest() == before_digest
+
+
+@pytest.mark.parametrize("start_clock,expected", [
+    ("2026-10-08", "AUD_START_CLOCK_UNVERIFIABLE"),
+    ("2026-10-09T12:00:00-03:00", "AUD_START_CLOCK_UNVERIFIABLE"),
+    ("", "AUD_START_CLOCK_UNVERIFIABLE"),
+])
+def test_missing_or_inverted_physical_aud_start_abstains(
+    tmp_path, start_clock, expected,
+):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute("UPDATE audits SET started_at=?", (start_clock,))
+    original = db.read_bytes()
+    result = inspect_ai_audit_boundary(db, "AUD-T")
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == expected
+    assert result["buckets"] == []
+    assert db.read_bytes() == original
+
+
+def test_historical_aud_without_started_column_cannot_claim_in_aud(
+    tmp_path,
+):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute("ALTER TABLE audits DROP COLUMN started_at")
+    result = inspect_ai_audit_boundary(db, "AUD-T")
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "AUD_COMPLETION_SCHEMA_MISSING"
+    assert result["buckets"] == []
