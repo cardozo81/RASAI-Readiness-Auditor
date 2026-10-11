@@ -46,6 +46,23 @@ ADVICE_LABELS = {
 }
 
 
+# Structured resolver codes are kept for diagnostics; the report explains them in PT-BR.
+_REASON_LABELS = {
+    "KPM_NOT_EXECUTABLE_IN_M25": "a métrica registrada não é executável pelo M25",
+    "SATISFIED_INVALID": "o limite Satisfied registrado é inválido",
+    "FRUSTRATED_INVALID": "o limite Frustrated registrado é inválido",
+    "FRUSTRATED_NOT_GREATER_THAN_SATISFIED": "o limite Frustrated não supera o Satisfied",
+    "EFFECTIVE_CONFIG_NOT_AVAILABLE": "configuração efetiva M25 indisponível",
+    "DECLARED_VS_OBSERVED_ARCHITECTURE_MISMATCH": "arquitetura declarada diferente da observada",
+    "PROFILE_MODE_NOT_RECOGNIZED": "modo de calibração não comprovado nesta auditoria",
+    "IMPORTED_CONFIG_PROVENANCE_UNAVAILABLE": "origem da calibração importada indisponível",
+    "ARCHITECTURE_NOT_PROVEN": "arquitetura sem evidência conclusiva",
+    "MEASUREMENT_OBJECTIVE_NOT_PROVEN": "objetivo de medição não comprovado",
+    "INITIAL_LOAD_DOES_NOT_COVER_WIDER_EXPERIENCE": "o carregamento inicial não cobre a experiência ampla",
+    "GUIDED_PRESET_CONFLICTS_WITH_EFFECTIVE_FIELDS": "a proposta Guided diverge de valores efetivos já registrados",
+}
+
+
 def _columns(con: sqlite3.Connection, name: str) -> set[str]:
     return {str(row[1]) for row in con.execute(
         "PRAGMA table_info(" + name + ")"
@@ -168,6 +185,30 @@ def cat07_architecture_advice_html(
         "equivalência com Dynatrace RUM. Um Apdex alto pode não representar "
         "uma transição SPA ou hidratação completa.</p>",
     ]
+    if provenance:
+        parts.append(
+            "<p><strong>Rastreabilidade da arquitetura M6 (contexto observado):</strong> "
+            "snapshot <code>" + escape(provenance["snapshot_id"]) + "</code>; "
+            "página <code>" + escape(provenance["page_id"]) + "</code>; "
+            "dispositivo <code>" + escape(provenance["device"]) + "</code>. "
+            "Essa evidência não é extrapolada a outras páginas ou dispositivos.</p>"
+        )
+    else:
+        parts.append(
+            "<p><strong>Rastreabilidade da arquitetura M6:</strong> N/D "
+            "(captura ausente, insuficiente ou múltiplos contextos não individualizados).</p>"
+        )
+    parts.append(
+        "<p><strong>Contrato de interpretação:</strong> "
+        + escape(str(guidance["contract_version"]))
+        + "; tarefa efetivamente medida: "
+        + escape(str(guidance["measured_task"]))
+        + ". É uma orientação RASAi, não um Apdex RUM/Synthetic Browser Dynatrace.</p>"
+    )
+    if guidance["reasons"]:
+        parts.append("<p><strong>Motivos do diagnóstico:</strong> "
+                     + escape("; ".join(_REASON_LABELS.get(code, "condição não catalogada")
+                                        for code in guidance["reasons"])) + ".</p>")
     # Render only advice computed from the effective M25 run and a verified
     # frozen console handoff. Display proposed future variables as proposals,
     # never as settings silently used by this historical AUD.
