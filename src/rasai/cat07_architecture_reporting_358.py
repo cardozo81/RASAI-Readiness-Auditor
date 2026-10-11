@@ -187,7 +187,7 @@ def cat07_architecture_advice_html(
     ]
     if provenance:
         parts.append(
-            "<p><strong>Rastreabilidade da arquitetura M6 (contexto observado):</strong> "
+            "<p><strong>Rastreabilidade da arquitetura identificada (contexto observado):</strong> "
             "snapshot <code>" + escape(provenance["snapshot_id"]) + "</code>; "
             "página <code>" + escape(provenance["page_id"]) + "</code>; "
             "dispositivo <code>" + escape(provenance["device"]) + "</code>. "
@@ -195,7 +195,7 @@ def cat07_architecture_advice_html(
         )
     else:
         parts.append(
-            "<p><strong>Rastreabilidade da arquitetura M6:</strong> N/D "
+            "<p><strong>Rastreabilidade da arquitetura identificada:</strong> N/D "
             "(captura ausente, insuficiente ou múltiplos contextos não individualizados).</p>"
         )
     parts.append(
