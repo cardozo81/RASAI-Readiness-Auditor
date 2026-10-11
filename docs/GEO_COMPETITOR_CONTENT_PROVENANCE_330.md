@@ -52,3 +52,21 @@ retornam `NOT_COMPARABLE`; schemas mais antigos sem o campo
 `content_type` produzem `CONTENT_EVIDENCE_SCHEMA_ND`, sem migração
 ou atribuição retroativa. A regra consome apenas o HTTP já persistido
 pelo coletor original e não acrescenta requisições ao fluxo.
+
+## Fatos lexicais adicionais sem inferência de qualidade (#330)
+
+Quando a AUD já possui colunas modernas de `serp_competitive_pages`, a prévia
+consulta também as listas persistidas de correspondência de termos da **mesma
+query SERP** no `title`, na metadescrição, nos cabeçalhos e no corpo. A saída
+`observed_lexical_differences` informa **quantidade de termos encontrados no
+concorrente menos quantidade encontrada no alvo**. Valores positivos e negativos
+não significam superioridade, lacuna causal ou recomendação de mudança de score.
+
+Listas JSON sem prova lexical consistente, corrompidas ou colunas ausentes
+resultam em `null` (N/D) **por dimensão**. `[]` validado na origem representa
+zero observacional, sem se confundir com dado não coletado. A prévia ainda expõe
+tipos JSON-LD como inventário, não como prova de qualidade/validade semântica.
+Contagem de palavras continua descritiva e páginas SPA/menu não comprovam
+conteúdo principal. O mesmo gate prévio de HTTP HTML válido, hash,
+URL final, query, AUD e observação SERP é exigido antes da comparação.
+A leitura continua sem produzir chamadas externas ou alterar artefatos.
