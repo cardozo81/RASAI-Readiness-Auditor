@@ -118,3 +118,51 @@ def test_wal_or_sqlite_journal_sidecar_abstains_without_reading_stale_index(tmp_
             assert db.read_bytes() == original
         finally:
             sidecar.unlink()
+
+
+def test_same_domain_html_is_read_only_responsive_and_printable(tmp_path, capsys):
+    root, db = _index(tmp_path)
+    before = db.read_bytes()
+    assert main(["--format", "html", "--audits-root", str(root),
+                 "--audit-id", "AUD-ONE", "--audit-id", "AUD-TWO"]) == 0
+    html = capsys.readouterr().out
+    assert "<!doctype html>" in html
+    assert "Prévia comparativa por domínio (não é CONS)" in html
+    assert "source_package_freshness_verified" not in html
+    assert "frescor frente às AUDs não foi revalidado" in html
+    assert "https://example.org/product-a" in html
+    assert "https://example.org/product-b" in html
+    assert "Métricas por URL" in html
+    assert "N/D" in html
+    assert "@media print" in html
+    assert "@media(max-width:680px)" in html
+    assert db.read_bytes() == before
+    assert not (root / "consolidated").exists()
+
+
+def test_same_domain_html_escapes_all_dynamic_audit_fields(tmp_path):
+    from rasai.consolidation.domain_comparative_html_210 import (
+        render_same_domain_advisory_html as render,
+    )
+    root, db = _index(tmp_path)
+    result = domain_preview_from_index(root, ("AUD-ONE", "AUD-TWO"))
+    result["audits"][0]["url"] = "https://example.org/<svg onload=alert(123)>"
+    result["hostname"] = 'host"><script>danger</script>'
+    html = render(result)
+    assert "&lt;svg onload=alert(123)&gt;" in html
+    assert "&lt;script&gt;danger&lt;/script&gt;" in html
+    assert "<script>danger</script>" not in html
+    assert "<svg onload=" not in html
+    result["index_reference"]["source_package_freshness_verified"] = True
+    with pytest.raises(ValueError, match="freshness"):
+        render(result)
+
+
+def test_same_domain_html_abstention_without_false_positive_table(tmp_path, capsys):
+    root, db = _index(tmp_path)
+    assert main(["--format", "html", "--audits-root", str(root),
+                 "--audit-id", "AUD-ONE", "--audit-id", "AUD-OTHER"]) == 0
+    html = capsys.readouterr().out
+    assert "Não comparável: Os nomes de host" in html
+    assert "<table>" not in html
+    assert "antes/depois" in html
