@@ -97,10 +97,22 @@ def _strictly_comparable(current: Any, historical: Mapping[str, Any]) -> bool:
                 return False
         elif str(wanted or "").strip().casefold() != str(old or "").strip().casefold():
             return False
-    # An unrepresented optional scope cannot be silently assumed to match.
-    if any(bool(getattr(current, flag, False)) for flag in
-           ("improvement_enabled", "search_ai_competitive")):
-        return False
+    # Optional workloads change physical duration. An enabled current scope
+    # needs explicit persisted evidence; a historically enabled scope cannot
+    # silently enter a baseline where it is disabled now. Legacy absent flags
+    # remain admissible only for a current disabled/default scope.
+    for flag in ("improvement_enabled", "search_ai_competitive",
+                 "technical_remediation"):
+        current_value = getattr(current, flag, False)
+        if type(current_value) is not bool:
+            return False
+        if flag not in historical:
+            if current_value:
+                return False
+            continue
+        historic_value = historical[flag]
+        if type(historic_value) is not bool or historic_value != current_value:
+            return False
     return True
 
 

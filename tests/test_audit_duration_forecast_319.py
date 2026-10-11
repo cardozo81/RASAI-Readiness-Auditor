@@ -166,6 +166,52 @@ def test_cannot_predict_optional_unrecorded_scope(tmp_path):
     state.improvement_enabled = False
     state.search_ai_competitive = True
     assert not forecast_local_duration(state).available
+    state.search_ai_competitive = False
+    state.technical_remediation = True
+    assert not forecast_local_duration(state).available
+
+
+def test_historical_optional_scope_must_match_explicit_current_scope(tmp_path):
+    databases = [_audit(tmp_path, i) for i in range(5)]
+    baselines = [sha256(db.read_bytes()).hexdigest() for db in databases]
+    for db in databases:
+        with sqlite3.connect(db) as connection:
+            row = connection.execute(
+                "SELECT configuration FROM console_execution_projections"
+            ).fetchone()
+            payload = json.loads(row[0])
+            payload["technical_remediation"] = True
+            payload["improvement_enabled"] = False
+            payload["search_ai_competitive"] = False
+            connection.execute(
+                "UPDATE console_execution_projections SET configuration=?",
+                (json.dumps(payload),),
+            )
+    prepared = [sha256(db.read_bytes()).hexdigest() for db in databases]
+    assert prepared != baselines  # Only the explicit fixture edit changed them.
+    state = _state(tmp_path)
+    assert not forecast_local_duration(state).available  # Historic scope is larger.
+    state.technical_remediation = True
+    confirmed = forecast_local_duration(state)
+    assert confirmed.available and confirmed.sample_runs == 5
+    # Both forecasts are read-only and cannot mutate the audited ledger.
+    assert [sha256(db.read_bytes()).hexdigest() for db in databases] == prepared
+
+
+def test_malformed_optional_scope_flags_are_not_promoted_to_comparable(tmp_path):
+    databases = [_audit(tmp_path, i) for i in range(5)]
+    for db in databases:
+        with sqlite3.connect(db) as connection:
+            row = connection.execute(
+                "SELECT configuration FROM console_execution_projections"
+            ).fetchone()
+            payload = json.loads(row[0])
+            payload["technical_remediation"] = "false"
+            connection.execute(
+                "UPDATE console_execution_projections SET configuration=?",
+                (json.dumps(payload),),
+            )
+    assert not forecast_local_duration(_state(tmp_path)).available
 
 
 def test_m21_http_request_totals_are_separate_from_audit_wall_clock(tmp_path):
