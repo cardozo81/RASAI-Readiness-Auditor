@@ -91,6 +91,13 @@ as bases das AUDs. Exige seleção explícita de AUDs únicas, cada uma
 com exatamente uma URL e um dispositivo no índice, e submete os
 candidatos ao resolvedor determinístico já testado.
 
+O identificador `source_fingerprint` do cache precisa ter forma
+SHA-256 hexadecimal de 64 caracteres. Valor ausente, truncado, preenchido
+com espaços ou não hexadecimal bloqueia a prévia; isto valida apenas o
+**formato** do identificador, não o conteúdo ou a atualidade da AUD.
+O hash de cache existente deriva de metadados locais do arquivo, não é
+assinatura criptográfica do pacote e não substitui conferência de manifestos.
+
 A resposta JSON declara
 `source_package_freshness_verified=false` e
 `native_cons3_created=false`: um índice previamente gerado
