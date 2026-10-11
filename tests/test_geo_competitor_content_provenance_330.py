@@ -175,6 +175,37 @@ def test_two_competitor_serp_urls_with_one_final_html_destination_count_once(tmp
     assert db.read_bytes() == before
 
 
+def test_observed_html_without_final_url_cannot_claim_page_identity(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET final_url=NULL "
+            "WHERE role='COMPETITOR_CANDIDATE' AND observation_id='SERP-1'"
+        )
+    before = db.read_bytes()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+    assert result["comparisons"] == []
+    assert result["competitors"][0]["final_url"] is None
+    assert result["competitors"][0]["content_sha256"] is None
+    assert db.read_bytes() == before
+
+
+def test_customer_html_without_final_url_cannot_enter_comparison(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET final_url=NULL "
+            "WHERE role='CUSTOMER' AND observation_id='SERP-1'"
+        )
+    before = sha256(db.read_bytes()).hexdigest()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+    assert result["comparisons"] == []
+    assert result["customer"]["content_evidence_status"] == "NOT_COMPARABLE"
+    assert sha256(db.read_bytes()).hexdigest() == before
+
+
 def test_legacy_absent_schema_abstains_without_ddl(tmp_path):
     db = tmp_path / "audit.db"
     with sqlite3.connect(db):

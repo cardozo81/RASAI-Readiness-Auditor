@@ -68,8 +68,11 @@ def _parse_context_clock(raw: object) -> bool:
 
 def _page(row: sqlite3.Row, expected_terms: tuple[str, ...]) -> dict[str, Any]:
     requested = row["requested_url"]
-    final = row["final_url"] or requested
+    final = row["final_url"]
     requested_url = _canonical_url(requested)
+    # Observed HTML must carry the concrete destination fetched. A NULL
+    # final_url cannot be promoted into evidence of the requested SERP URL:
+    # the transport may have redirected to a different page.
     final_url = _canonical_url(final)
     indexed_terms = _strict_query_terms(row["query_terms_json"])
     body_terms = _strict_query_terms(row["query_terms_body_json"])
