@@ -80,6 +80,23 @@ inconsistente, o modo fica N/D. O relatório não lê o INI de outra
 auditoria nem altera os hashes/configurações de execuções existentes.
 Testes de contrato cobrem presença e abstenção do modo congelado.
 
+### Evidência e rastreabilidade no HTML (#358)
+
+A projeção CAT-07 mostra os identificadores `snapshot_id`, `page_id` e
+`device` **apenas** quando a AUD contém uma única classificação M6
+inequívoca vinculada à mesma AUD. Em capturas múltiplas, dados antigos ou
+evidência incompleta, o relatório usa `N/D`, sem atribuir a arquitetura
+de uma página a outras rotas ou dispositivos. Os valores são escapados no
+HTML e a origem é sempre a base `audit.db` aberta em modo somente leitura.
+
+A mesma seção informa a versão do contrato determinístico, a Task Load
+efetivamente medida e a explicação em português dos motivos estruturados
+do diagnóstico. A explicação **não** transforma recomendações em
+configuração executada, não interpreta KPMs RUM/Synthetic Browser como
+medições M25 e não modifica o hash, o score ou as evidências originais.
+A regressão focalizada cobre rastreabilidade, HTML escaping,
+abstenção multicontexto e rematerialização determinística sem escrita.
+
 Fontes do contrato RUM, diferentes do RASAi Synthetic Apdex:
 https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/web-applications/additional-configuration/configure-apdex-web
 https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions
