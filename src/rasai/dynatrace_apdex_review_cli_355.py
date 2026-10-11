@@ -12,6 +12,7 @@ from typing import Sequence
 
 from rasai.dynatrace_apdex_arch_advisory_355 import (
     ARCHITECTURES, assess_dynatrace_apdex_architecture,
+    explain_dynatrace_apdex_pt_br,
 )
 from rasai.dynatrace_effective_values_adapter_355 import extract_apdex_from_effective_values
 
@@ -95,6 +96,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         result["effective_values_export"] = {
             key: value for key, value in exported.items() if key != "settings"
         }
+    result["analyst_guidance_pt_br"] = explain_dynatrace_apdex_pt_br(result)
     result["actual_dynatrace_tenant_consulted"] = False
     result["rasai_synthetic_apdex_unchanged"] = True
     print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False))
