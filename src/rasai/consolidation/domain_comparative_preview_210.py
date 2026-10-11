@@ -20,10 +20,13 @@ from .selection import AuditCandidate
 
 def _identity(url: str) -> tuple[str, str] | None:
     """Return exact host and URL-universe identity, not a registrable-domain guess."""
-    if not isinstance(url, str):
+    # A padded/control-bearing URL is not the same observed resource.
+    # Never normalize malformed source evidence into a comparable URL.
+    if (not isinstance(url, str) or not url or url != url.strip()
+            or "\\" in url or any(ord(char) <= 32 or ord(char) == 127 for char in url)):
         return None
     try:
-        parsed = urlsplit(url.strip())
+        parsed = urlsplit(url)
         if (
             parsed.scheme.lower() not in {"http", "https"}
             or not parsed.hostname or parsed.username is not None
