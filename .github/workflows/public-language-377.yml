@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/console_search_intelligence.py'
+      - 'src/rasai/audit_attempt_inspection_319.py'
       - 'src/rasai/console_apdex_configuration.py'
       - 'src/rasai/catalog_report_site.py'
       - 'src/rasai/cat07_architecture_reporting_358.py'
@@ -11,11 +12,13 @@ on:
       - 'tests/test_public_language_377.py'
       - 'tests/test_cat07_architecture_integration_358.py'
       - 'docs/PUBLIC_LANGUAGE_377.md'
+      - 'docs/CONSOLE_COST_AND_USAGE.md'
       - '.github/workflows/public-language-377.yml'
   push:
     branches: [main]
     paths:
       - 'src/rasai/console_search_intelligence.py'
+      - 'src/rasai/audit_attempt_inspection_319.py'
       - 'src/rasai/catalog_report_site.py'
       - 'src/rasai/cat07_architecture_reporting_358.py'
       - 'src/rasai/dynatrace_apdex_arch_advisory_355.py'
