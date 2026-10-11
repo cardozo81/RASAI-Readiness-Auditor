@@ -153,3 +153,26 @@ def test_all_configurations_warns_and_routes_q_to_existing_per_aud_editor(monkey
     assert "Perplexity externa nesta AUD: NÃO SOLICITADA" in rendered
     assert "Q. Configurar PESQUISA Perplexity para esta AUD" in rendered
     assert "opaque-never-print" not in rendered
+
+
+def test_invalid_query_list_never_promises_executable_paid_search():
+    for queries in (("ok",) * 6, ("ok", ""), ("",), ("   ",)):
+        state = _state(perplexity_queries=queries)
+        before = vars(state).copy()
+        result = inspect_perplexity_readiness(state, environment={
+            "PERPLEXITY_API_KEY": "opaque-secret",
+            "RASAI_PERPLEXITY_ENABLED": "true",
+        })
+        assert result["queries_requested"] is True
+        assert result["queries_valid"] is False
+        assert result["executable_request_pending"] is False
+        assert "QUERIES INVÁLIDAS" in result["status"]
+        assert "opaque-secret" not in str(result)
+        assert vars(state) == before
+
+    valid = inspect_perplexity_readiness(
+        _state(perplexity_queries=("seguro de vida",)),
+        environment={"PERPLEXITY_API_KEY": "secret", "RASAI_PERPLEXITY_ENABLED": "true"},
+    )
+    assert valid["queries_valid"] is True
+    assert valid["executable_request_pending"] is True
