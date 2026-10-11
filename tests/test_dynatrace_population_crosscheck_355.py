@@ -1,0 +1,172 @@
+"""#355: no-provider Dynatrace settings vs USQL scope and sampling cross-check."""
+from __future__ import annotations
+
+from copy import deepcopy
+import json
+
+import pytest
+
+from rasai.dynatrace_population_crosscheck_355 import (
+    compare_dynatrace_settings_and_rum as compare,
+    main,
+)
+
+
+_APP = "APPLICATION-1234567890ABCDEF"
+
+
+def _settings(*, live=True, xhr=True, arch="CSR_SPA"):
+    return {
+        "contract_version": "RASAI-DYNATRACE-APDEX-ARCHITECTURE-ADVISORY-001",
+        "input_source": (
+            "AUTHENTICATED_LIVE_DYNATRACE_EFFECTIVE_VALUES"
+            if live else "OPERATOR_SUPPLIED_DYNATRACE_EFFECTIVE_VALUES_EXPORT"
+        ),
+        "settings_provenance": (
+            "LIVE_DYNATRACE_SETTINGS_API_EFFECTIVE_VALUES"
+            if live else "OPERATOR_SUPPLIED_API_EXPORT_NOT_TENANT_VERIFIED"
+        ),
+        "actual_dynatrace_tenant_consulted": live,
+        "effective_values_export": {"declared_application_scope": _APP},
+        "architecture": arch,
+        "status": "CONFIGURATION_PLAUSIBLE_WITH_XHR_COVERAGE",
+        "observed_kpm": (
+            {"load_actions": "VISUALLY_COMPLETE",
+             "xhr_actions": "USER_ACTION_DURATION"}
+            if xhr else {"load_actions": "VISUALLY_COMPLETE"}
+        ),
+        "new_apdex_score": None,
+        "synthetic_m23_m25_changed": False,
+    }
+
+
+def _rum(*, xhr=0, extrap=4):
+    return {
+        "contract_version": "RASAI-DYNATRACE-RUM-USQL-ACTIONS-001",
+        "source": "LIVE_RUM_CLASSIC_USQL_AGGREGATE_RESPONSE",
+        "application_id": _APP,
+        "target_url": "https://www.example.com/seguro",
+        "declared_dynatrace_device_filter": "MOBILE",
+        "period_start_utc": "2026-10-10T10:00:00+00:00",
+        "period_end_utc": "2026-10-10T11:00:00+00:00",
+        "action_counts": {"load": 10, "xhr": xhr, "custom": 2, "other": 0},
+        "action_count_total": 12 + xhr,
+        "usql_extrapolation_level": extrap,
+        "usql_reported_counts_extrapolated": (
+            None if extrap is None else extrap > 1
+        ),
+        "raw_rum_action_census_verified": False,
+        "rasai_same_browser_sample_verified": False,
+        "audit_writes": 0,
+        "provider_requests": 1,
+    }
+
+
+def test_extrapolated_zero_xhr_provokes_review_not_disabled_capture_claim():
+    original_settings = _settings()
+    original_rum = _rum(xhr=0)
+    before = json.dumps((original_settings, original_rum), sort_keys=True)
+    out = compare(original_settings, original_rum)
+    assert out["status"] == "CLAIMED_LIVE_APPLICATION_ID_MATCH"
+    assert out["settings_export_claims_live_origin"] is True
+    assert out["application_scope_verified_across_sources"] is False
+    assert out["rum_counts_are_raw_population_census"] is False
+    assert out["action_counts_reported"]["xhr"] == 0
+    assert out["usql_extrapolation_level"] == 4
+    assert "NO_REPORTED_XHR_ACTIONS_DOES_NOT_PROVE_CAPTURE_DISABLED" in out[
+        "review_findings"
+    ]
+    assert "RUM_COUNTS_EXTRAPOLATED_NOT_RAW_CENSUS" in out["review_findings"]
+    assert "INITIAL_LOAD_COUNTS_DO_NOT_PROVE_SOFT_ROUTE_READINESS" in out[
+        "review_findings"
+    ]
+    assert out["rasai_same_browser_sample_verified"] is False
+    assert out["new_apdex_score"] is None
+    assert out["synthetic_m23_m25_changed"] is False
+    assert out["provider_requests"] == out["audit_writes"] == 0
+    assert json.dumps((original_settings, original_rum), sort_keys=True) == before
+
+
+def test_rum_xhr_population_without_configured_xhr_kpm_not_a_score():
+    out = compare(_settings(xhr=False), _rum(xhr=18, extrap=1))
+    assert "XHR_ACTIONS_REPORTED_WITHOUT_MATCHING_KPM_SNAPSHOT" in out[
+        "review_findings"
+    ]
+    assert out["action_apdex_kpm"] == {"load_actions": "VISUALLY_COMPLETE"}
+    assert out["new_apdex_score"] is None
+    assert out["application_scope_verified_across_sources"] is False
+
+
+def test_offline_user_export_only_matches_declared_scope_without_auth():
+    out = compare(_settings(live=False), _rum(xhr=8, extrap=None))
+    assert out["status"] == "DECLARED_APPLICATION_ID_MATCH"
+    assert out["settings_export_claims_live_origin"] is False
+    assert "SETTINGS_SCOPE_IS_OPERATOR_DECLARED_NOT_AUTHENTICATED" in out[
+        "review_findings"
+    ]
+    assert "RUM_EXTRAPOLATION_LEVEL_UNKNOWN" in out["review_findings"]
+    assert out["application_scope_verified_across_sources"] is False
+
+
+@pytest.mark.parametrize(
+    ("mutator", "reason"),
+    [
+        (lambda s, r: r.update(application_id="APPLICATION-OTHER"),
+         "APPLICATION_SCOPE_NOT_MATCHED"),
+        (lambda s, r: r.update(action_count_total=900),
+         "RUM_ACTION_COUNTS_INVALID"),
+        (lambda s, r: r["action_counts"].update(xhr=True),
+         "RUM_ACTION_COUNTS_INVALID"),
+        (lambda s, r: r.update(usql_reported_counts_extrapolated=False),
+         "RUM_EXTRAPOLATION_PROVENANCE_INVALID"),
+        (lambda s, r: r.update(raw_rum_action_census_verified=True),
+         "RUM_USQL_PROVENANCE_NOT_VERIFIED"),
+        (lambda s, r: s.update(status="INVALID_SETTINGS_SNAPSHOT"),
+         "SETTINGS_ADVISORY_NOT_ELIGIBLE"),
+        (lambda s, r: s.update(observed_kpm=[]),
+         "SETTINGS_KPM_NOT_AVAILABLE"),
+        (lambda s, r: r.update(contract_version="UNSUPPORTED"),
+         "RUM_USQL_VERSION_UNSUPPORTED"),
+    ],
+    ids=["different-app", "wrong-total", "boolean-count",
+         "false-extrapolation", "invented-raw-census", "settings-invalid",
+         "broken-kpm", "unsupported-rum"],
+)
+def test_fail_closed_on_cross_system_evidence_mismatch(mutator, reason):
+    settings, rum = _settings(), _rum()
+    mutator(settings, rum)
+    out = compare(settings, rum)
+    assert out["status"] == "NOT_COMPARABLE"
+    assert out["reason"] == reason
+    assert out["new_apdex_score"] is None
+    assert out["application_scope_verified_across_sources"] is False
+
+
+def test_ssr_load_and_unknown_are_noncausal():
+    ssr = compare(_settings(arch="STATIC_OR_SSR"), _rum(xhr=0))
+    assert "LOAD_ACTION_COUNTS_DO_NOT_PROVE_SAME_PAGE_SAMPLE" in ssr[
+        "review_findings"
+    ]
+    unknown = compare(_settings(arch="UNKNOWN"), _rum(xhr=5))
+    assert "ARCHITECTURE_NOT_COMPARABLE_WITH_RUM_ACTION_POPULATION" in unknown[
+        "review_findings"
+    ]
+
+
+def test_offline_cli_reads_bounded_json_without_network_or_mutation(tmp_path, capsys):
+    a = tmp_path / "settings.json"
+    b = tmp_path / "rum.json"
+    a.write_text(json.dumps(_settings()), encoding="utf-8")
+    b.write_text(json.dumps(_rum()), encoding="utf-8")
+    before = a.read_bytes(), b.read_bytes()
+    assert main(["--settings-advisory-json", str(a),
+                 "--rum-population-json", str(b)]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "CLAIMED_LIVE_APPLICATION_ID_MATCH"
+    assert result["provider_requests"] == 0
+    assert (a.read_bytes(), b.read_bytes()) == before
+    b.write_text("not-json", encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        main(["--settings-advisory-json",str(a),
+              "--rum-population-json",str(b)])
+    assert exc.value.code == 2
