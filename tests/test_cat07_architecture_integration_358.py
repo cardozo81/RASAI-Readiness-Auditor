@@ -161,6 +161,12 @@ def test_cat07_report_shows_actual_m6_and_effective_m25_without_modifying_aud(tm
     assert "Configuração efetiva do Apdex de experiência" in html
     assert "Duração da ação de carregamento inicial" in html
     assert "Identificada pela captura desta auditoria" in html
+    assert "Rastreabilidade da arquitetura M6 (contexto observado)" in html
+    assert "snapshot <code>SNP-1</code>" in html
+    assert "página <code>P-1</code>" in html
+    assert "dispositivo <code>MOBILE</code>" in html
+    assert "RASAI-CAT07-ARCHITECTURE-GUIDANCE-001" in html
+    assert "SYNTHETIC_LOAD_ACTION" in html
     assert "Condição técnica não catalogada" not in html
     assert "3.0" in html and "12.0" in html
     assert "N/D (não congelado nesta AUD)" in html
@@ -182,6 +188,11 @@ def test_cat07_report_mixed_or_old_evidence_abstains_without_source_leak(tmp_pat
     assert "múltiplas capturas" in html
     assert "Não determinada" in html
     assert "Não determinável" in html
+    assert "Rastreabilidade da arquitetura M6:</strong> N/D" in html
+    assert "snapshot <code>SNP-1</code>" not in html
+    assert "snapshot <code>SNP-2</code>" not in html
+    assert "Motivos do diagnóstico:" in html
+    assert "arquitetura sem evidência conclusiva" in html
     assert db.read_bytes() == before
 
 
@@ -304,6 +315,29 @@ def test_cat07_custom_report_never_proposes_guided_override_or_new_aud(tmp_path)
     assert "Prévia para uma NOVA auditoria" not in html
     assert "Conclusão da resposta HTTP" in html
     assert db.read_bytes() == source
+
+
+def test_cat07_report_escapes_m6_context_and_keeps_audit_immutable(tmp_path):
+    db = tmp_path / "audit.db"
+    _db(db, cfg={
+        "kpm": "USER_ACTION_DURATION",
+        "satisfied_threshold_seconds": 3.0,
+        "frustrated_threshold_seconds": 12.0,
+    })
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE page_snapshots SET snapshot_id=? WHERE snapshot_id='SNP-1'",
+            ("<img src=x onerror=alert(1)>",),
+        )
+    before = db.read_bytes()
+    html = cat07_architecture_advice_html(db, "AUD-1")
+    assert "<img" not in html
+    assert "&lt;img src=x onerror=alert(1)&gt;" in html
+    assert "snapshot <code>&lt;img src=x onerror=alert(1)&gt;</code>" in html
+    assert "página <code>P-1</code>" in html
+    assert "SNP-OTHER" not in html
+    assert db.read_bytes() == before
+    assert cat07_architecture_advice_html(db, "AUD-1") == html
 
 
 def test_cat07_report_escapes_untrusted_effective_kpm(tmp_path):
