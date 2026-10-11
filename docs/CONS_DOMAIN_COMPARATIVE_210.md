@@ -70,3 +70,30 @@ um recurso para a mesma origem/hostname. Esta regra só interpreta
 entradas do adaptador advisory e não reescreve URLs das AUDs.
 A comparação de caminhos distintos continua um **projeto metodológico**,
 não uma tendência por mesma página; o CONS produtivo permanece inalterado.
+
+## Entrada operacional somente leitura do índice existente
+
+Além do resolvedor puro, `consolidation.domain_comparative_index_210`
+permite selecionar duas ou mais AUDs já materializadas no índice
+analítico local. Exemplo:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai.consolidation.domain_comparative_index_210 `
+  --audits-root .\audits `
+  --audit-id AUD-PRIMEIRA `
+  --audit-id AUD-SEGUNDA
+```
+
+O arquivo `.rasai/consolidated-index.db` precisa existir, ter schema
+versão 1 e não possuir sidecars SQLite WAL/SHM/journal: o consumidor
+utiliza URI `mode=ro&immutable=1` e não atualiza o índice nem abre
+as bases das AUDs. Exige seleção explícita de AUDs únicas, cada uma
+com exatamente uma URL e um dispositivo no índice, e submete os
+candidatos ao resolvedor determinístico já testado.
+
+A resposta JSON declara
+`source_package_freshness_verified=false` e
+`native_cons3_created=false`: um índice previamente gerado
+pode estar desatualizado em relação aos pacotes AUD de origem.
+Nenhum score, série longitudinal, cálculo de métrica por página,
+manifest CONS ou HTML canônico é gerado nesta etapa.
