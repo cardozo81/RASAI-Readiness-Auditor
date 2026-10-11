@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from rasai.audit_duration_forecast_319 import (
+    _historical_audit,
     forecast_local_duration,
     format_duration_preview,
 )
@@ -145,6 +146,7 @@ def test_foreign_symlinked_audit_never_enters_duration_history(tmp_path, link_ki
     original = [sha256(db.read_bytes()).hexdigest()
                 for db in (*legitimate, source)]
     result = forecast_local_duration(_state(root))
+    assert _historical_audit(candidate / "audit.db", _state(root), 1) is None
     assert not result.available
     assert result.sample_runs == 4
     assert result.ai_stages == ()
