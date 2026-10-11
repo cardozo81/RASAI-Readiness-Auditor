@@ -311,7 +311,7 @@ def test_versioned_cdom_package_is_idempotent_isolated_and_immutable(tmp_path):
     }
     assert manifest["provider_requests"] == manifest["audit_writes"] == 0
     assert "report.html" in result["html_path"]
-    html = (package_dir / "report.html").read_text()
+    html = (package_dir / "report.html").read_text(encoding="utf-8")
     assert "Prévia comparativa por domínio" in html
     assert "URLs distintas" in html
     assert "frescor criptográfico" in html
