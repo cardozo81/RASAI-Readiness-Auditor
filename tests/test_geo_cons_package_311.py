@@ -153,3 +153,98 @@ def test_symlink_destination_rejected(tmp_path):
     with pytest.raises(ValueError, match="unsafe GEO companion output"):
         module.materialize_cons_geo_companion(cons, root)
     assert not list(outside.iterdir())
+
+
+def test_second_geo_projection_must_match_initial_source_snapshot(
+    tmp_path, monkeypatch,
+):
+    root, cons = _cons(tmp_path)
+    original = _hashes(root)
+    real = module.build_cons_geo_advisory
+    seen = {"calls": 0}
+
+    def a_moving_projection(*args, **kwargs):
+        seen["calls"] += 1
+        result = real(*args, **kwargs)
+        if seen["calls"] == 2:
+            result["excluded"][0]["reason"] = "CHANGED_AFTER_FIRST_PREVIEW"
+        return result
+
+    monkeypatch.setattr(module, "build_cons_geo_advisory", a_moving_projection)
+    with pytest.raises(ValueError, match="GEO companion projection changed"):
+        module.materialize_cons_geo_companion(cons, root)
+    assert seen["calls"] == 2
+    assert not (root / "consolidated-geo-companions").exists()
+    assert _hashes(root) == original
+
+
+def test_aud_changes_during_second_projection_aborts_new_sidecar(
+    tmp_path, monkeypatch,
+):
+    root, cons = _cons(tmp_path)
+    real = module.build_cons_geo_advisory
+    seen = {"calls": 0}
+
+    def mutating_projection(*args, **kwargs):
+        seen["calls"] += 1
+        projection = real(*args, **kwargs)
+        if seen["calls"] == 2:
+            with sqlite3.connect(root / "AUD-LEFT" / "audit.db") as db:
+                db.execute(
+                    "UPDATE audits SET status='PARTIAL_RETRYABLE'"
+                )
+        return projection
+
+    monkeypatch.setattr(module, "build_cons_geo_advisory", mutating_projection)
+    with pytest.raises(ValueError, match="source AUD changed"):
+        module.materialize_cons_geo_companion(cons, root)
+    assert seen["calls"] == 2
+    assert not (root / "consolidated-geo-companions").exists()
+
+
+def test_existing_geo_package_is_not_returned_as_success_if_aud_changes(
+    tmp_path, monkeypatch,
+):
+    root, cons = _cons(tmp_path)
+    first = module.materialize_cons_geo_companion(cons, root)
+    previous = Path(first["manifest_path"]).read_bytes()
+    real = module.build_cons_geo_advisory
+    calls = {"n": 0}
+
+    def changing_source(*args, **kwargs):
+        calls["n"] += 1
+        preview = real(*args, **kwargs)
+        if calls["n"] == 2:
+            # Mutate after all input SHA values are captured but before
+            # the existing package's identity is accepted as idempotent.
+            with sqlite3.connect(root / "AUD-LEFT" / "audit.db") as con:
+                con.execute(
+                    "UPDATE audits SET status='PARTIAL_RETRYABLE'"
+                )
+        return preview
+
+    monkeypatch.setattr(module, "build_cons_geo_advisory", changing_source)
+    with pytest.raises(ValueError, match="source AUD changed"):
+        module.materialize_cons_geo_companion(cons, root)
+    assert calls["n"] == 2
+    assert Path(first["manifest_path"]).read_bytes() == previous
+
+
+def test_sidecar_created_during_second_projection_is_rejected(
+    tmp_path, monkeypatch,
+):
+    root, cons = _cons(tmp_path)
+    real = module.build_cons_geo_advisory
+    count = {"n": 0}
+
+    def adding_sidecar(*args, **kwargs):
+        count["n"] += 1
+        output = real(*args, **kwargs)
+        if count["n"] == 2:
+            (root / "AUD-LEFT" / "audit.db-wal").write_bytes(b"concurrent transaction")
+        return output
+
+    monkeypatch.setattr(module, "build_cons_geo_advisory", adding_sidecar)
+    with pytest.raises(ValueError, match="gained SQLite sidecars"):
+        module.materialize_cons_geo_companion(cons, root)
+    assert not (root / "consolidated-geo-companions").exists()
