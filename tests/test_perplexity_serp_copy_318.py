@@ -88,3 +88,58 @@ def test_post_aud_console_action_requires_queries_before_filesystem(monkeypatch,
     with patch("builtins.input", side_effect=AssertionError("no IO allowed")):
         _external_geo_supplement(state)
     assert "Configure primeiro queries" in capsys.readouterr().out
+
+
+def test_post_aud_console_does_not_print_raw_provider_or_token_errors(monkeypatch, capsys):
+    from pathlib import Path
+    from types import SimpleNamespace
+    from rasai.console_search_parameter_menu import _external_geo_supplement
+    from rasai.persistence import AuditWorkspace
+    from rasai import geo_post_audit_complement
+
+    state = SearchConsoleState(perplexity_queries=("seguro de vida",))
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "SECRET_IN_HEADER")
+    monkeypatch.setattr(AuditWorkspace, "open", classmethod(
+        lambda cls, path: SimpleNamespace(root=Path("/fake/AUD-TEST-1"))
+    ))
+    calls = []
+    def provider_failure(*args, **kwargs):
+        calls.append(kwargs)
+        raise RuntimeError(
+            "Authorization: Bearer SECRET_IN_HEADER - provider response / private endpoint"
+        )
+    monkeypatch.setattr(
+        geo_post_audit_complement, "run_post_audit_geo_supplement", provider_failure
+    )
+    with patch("builtins.input", side_effect=["/fake/AUD-TEST-1", "intent-1", "S", "S"]):
+        _external_geo_supplement(state)
+    output = capsys.readouterr().out
+    assert len(calls) == 1
+    assert "Complemento externo não concluído: RuntimeError" in output
+    assert "sem reenvio automático" in output
+    assert "SECRET_IN_HEADER" not in output
+    assert "private endpoint" not in output
+
+
+def test_readonly_geo_inventory_does_not_print_internal_failure_details(monkeypatch, capsys):
+    from pathlib import Path
+    from types import SimpleNamespace
+    from rasai.console_search_parameter_menu import _review_external_geo_supplements
+    from rasai.persistence import AuditWorkspace
+    from rasai import geo_post_audit_complement
+
+    monkeypatch.setattr(AuditWorkspace, "open", classmethod(
+        lambda cls, path: SimpleNamespace(root=Path("/fake/AUD-TEST-1"))
+    ))
+    def fail_inventory(*args, **kwargs):
+        raise ValueError("Sensitive_LOCAL_AUD_PATH / secret in error details")
+    monkeypatch.setattr(
+        geo_post_audit_complement, "list_post_audit_geo_supplements", fail_inventory
+    )
+    with patch("builtins.input", return_value="/fake/AUD-TEST-1"):
+        _review_external_geo_supplements()
+    result = capsys.readouterr().out
+    assert "Inventário indisponível: ValueError" in result
+    assert "Sensitive_LOCAL_AUD_PATH" not in result
+    assert "secret in error" not in result
