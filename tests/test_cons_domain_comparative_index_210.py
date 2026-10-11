@@ -12,6 +12,9 @@ from rasai.consolidation.domain_comparative_index_210 import (
     domain_preview_from_index, main,
 )
 from rasai.consolidation.reader import source_file_fingerprint
+from rasai.consolidation.domain_comparative_package_210 import (
+    materialize_same_domain_package, main as package_cli,
+)
 
 
 def _index(tmp_path: Path):
@@ -286,3 +289,113 @@ def test_same_domain_html_abstention_without_false_positive_table(tmp_path, caps
     assert "Não comparável: Os nomes de host" in html
     assert "<table>" not in html
     assert "antes/depois" in html
+
+
+def test_versioned_cdom_package_is_idempotent_isolated_and_immutable(tmp_path):
+    root, index = _index(tmp_path)
+    _physical_sources(root, index)
+    originals = {str(p): sha256(p.read_bytes()).hexdigest()
+                 for p in root.rglob("*") if p.is_file()}
+    result = materialize_same_domain_package(root, ("AUD-ONE", "AUD-TWO"))
+    assert result["status"] == "MATERIALIZED"
+    assert result["package_id"].startswith("CDOM-")
+    package_dir = root / "consolidated-domain" / result["package_id"]
+    manifest = json.loads((package_dir / "manifest.json").read_text())
+    assert manifest["contract_version"] == "CONS-DOMAIN-COMPARATIVE-1"
+    assert manifest["native_cons3_created"] is False
+    assert manifest["source_package_freshness_verified"] is False
+    assert manifest["page_score_or_apdex_deltas_eligible"] is False
+    assert manifest["source_audit_ids"] == ["AUD-ONE", "AUD-TWO"]
+    assert set(manifest["source_file_metadata_fingerprints"]) == {
+        "AUD-ONE", "AUD-TWO"
+    }
+    assert manifest["provider_requests"] == manifest["audit_writes"] == 0
+    assert "report.html" in result["html_path"]
+    html = (package_dir / "report.html").read_text()
+    assert "Prévia comparativa por domínio" in html
+    assert "URLs distintas" in html
+    assert "frescor criptográfico" in html
+    assert not (root / "consolidated").exists()
+    before_package = {
+        p.name: sha256(p.read_bytes()).hexdigest() for p in package_dir.iterdir()
+    }
+    same = materialize_same_domain_package(root, ("AUD-ONE", "AUD-TWO"))
+    assert same["status"] == "IDEMPOTENT_EXISTING"
+    assert same["package_id"] == result["package_id"]
+    assert {
+        p.name: sha256(p.read_bytes()).hexdigest() for p in package_dir.iterdir()
+    } == before_package
+    assert {str(p): sha256(p.read_bytes()).hexdigest()
+            for p in root.rglob("*") if str(p) in originals} == originals
+
+
+def test_cdom_package_rejects_ineligible_and_legacy_without_outputs(tmp_path):
+    root, index = _index(tmp_path)
+    _physical_sources(root, index)
+    for ids in (("AUD-ONE", "AUD-OTHER"), ("AUD-ONE", "AUD-ONE")):
+        with pytest.raises(ValueError):
+            materialize_same_domain_package(root, ids)
+    assert not (root / "consolidated-domain").exists()
+    with sqlite3.connect(index) as con:
+        con.execute(
+            "UPDATE source_audits SET completion_status='PARTIAL_RETRYABLE' "
+            "WHERE audit_id='AUD-TWO'"
+        )
+    with pytest.raises(ValueError):
+        materialize_same_domain_package(root, ("AUD-ONE", "AUD-TWO"))
+    assert not (root / "consolidated-domain").exists()
+
+
+def test_cdom_package_refuses_modified_existing_report(tmp_path):
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    result = materialize_same_domain_package(root, ("AUD-ONE", "AUD-TWO"))
+    report = Path(result["html_path"])
+    report.write_text("tampered HTML")
+    with pytest.raises(ValueError, match="will not overwrite"):
+        materialize_same_domain_package(root, ("AUD-ONE", "AUD-TWO"))
+    assert report.read_text() == "tampered HTML"
+
+
+def test_cdom_rejects_source_changes_between_preview_and_package(tmp_path, monkeypatch):
+    from rasai.consolidation import domain_comparative_package_210 as module
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    original = module.source_file_fingerprint
+    monkeypatch.setattr(module, "source_file_fingerprint", lambda path: "f" * 64)
+    with pytest.raises(ValueError, match="source changed"):
+        module.materialize_same_domain_package(root, ("AUD-ONE", "AUD-TWO"))
+    assert not (root / "consolidated-domain").exists()
+    monkeypatch.setattr(module, "source_file_fingerprint", original)
+
+
+def test_cdom_package_cli_explicit_opt_in(tmp_path, capsys):
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    args = ["--audits-root", str(root), "--audit-id", "AUD-ONE",
+            "--audit-id", "AUD-TWO"]
+    with pytest.raises(SystemExit) as exc:
+        package_cli(args)
+    assert exc.value.code == 2
+    assert not (root / "consolidated-domain").exists()
+    capsys.readouterr()
+    assert package_cli([*args, "--write-domain-package"]) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["status"] == "MATERIALIZED"
+    assert Path(output["html_path"]).is_file()
+    assert not (root / "consolidated").exists()
+
+
+def test_cdom_package_rejects_symlinked_output_root(tmp_path):
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    linked = root / "consolidated-domain"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    try:
+        linked.symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("filesystem does not allow symlink fixture")
+    with pytest.raises(ValueError, match="unsafe comparison package"):
+        materialize_same_domain_package(root, ("AUD-ONE", "AUD-TWO"))
+    assert not list(outside.iterdir())
