@@ -192,16 +192,25 @@ def inspect_geo_competitor_content(
     context["html_fetch_timestamp"] = None  # not in persisted schema
     comparisons = []
     if customer["content_evidence_status"] == "PERSISTED_HTML_FEATURES":
-        seen_urls = set()
+        # The persisted content belongs to the final fetched URL, not
+        # necessarily to the candidate SERP URL. Redirects to the audited
+        # page are not independent competitor evidence; aliases landing on
+        # one destination must not inflate a comparison cohort.
+        customer_urls = {
+            _canonical_url(customer["requested_url"]),
+            _canonical_url(customer["final_url"]),
+        }
+        seen_destinations = set()
         for candidate in competitors:
             if candidate["content_evidence_status"] != "PERSISTED_HTML_FEATURES":
                 continue
-            canonical = _canonical_url(candidate["requested_url"])
-            if not canonical or canonical == _canonical_url(customer["requested_url"]):
+            requested = _canonical_url(candidate["requested_url"])
+            destination = _canonical_url(candidate["final_url"])
+            if (not requested or not destination
+                    or requested in customer_urls or destination in customer_urls
+                    or destination in seen_destinations):
                 continue
-            if canonical in seen_urls:
-                continue
-            seen_urls.add(canonical)
+            seen_destinations.add(destination)
             comparisons.append({
                 "competitor_url": candidate["requested_url"],
                 "customer_content_sha256": customer["content_sha256"],
