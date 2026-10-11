@@ -33,8 +33,12 @@ def domain_preview_from_index(audits_root: Path, audit_ids: Sequence[str]) -> di
         raise ValueError("existing safe analytical index required; no refresh performed")
     if (root / ".rasai").is_symlink():
         raise ValueError("symlinked analytical index directory is forbidden")
+    # Even a read-only WAL connection can create or refresh SQLite sidecars.
+    # Abstain instead of opening an active or uncheckpointed cache snapshot.
+    if any((db.parent / (db.name + suffix)).exists() for suffix in ("-wal", "-shm", "-journal")):
+        raise ValueError("analytical index has active or unverified SQLite sidecars")
 
-    with sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True, timeout=3) as con:
+    with sqlite3.connect(db.resolve().as_uri() + "?mode=ro&immutable=1", uri=True, timeout=3) as con:
         con.row_factory = sqlite3.Row
         con.execute("PRAGMA query_only=ON")
         version = con.execute("PRAGMA user_version").fetchone()[0]
