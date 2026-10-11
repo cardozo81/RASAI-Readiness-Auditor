@@ -31,6 +31,8 @@ _MAX_HASH_BYTES_TOTAL = 512 * 1024 * 1024
 
 def _source_sha256(path: Path, remaining_budget: int) -> tuple[str, int]:
     """Hash bounded physical source bytes; never use mtime as content proof."""
+    if path.is_symlink() or path.parent.is_symlink() or not path.is_file():
+        raise ValueError("unsafe AUD source encountered during SHA-256 verification")
     size = path.stat().st_size
     if size > remaining_budget:
         raise ValueError("AUD bytes exceed local SHA-256 evidence budget")
