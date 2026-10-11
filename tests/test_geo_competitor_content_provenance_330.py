@@ -23,7 +23,8 @@ def _db(tmp_path):
                 observation_id TEXT, role TEXT, requested_url TEXT,
                 final_url TEXT, fetch_status TEXT, http_status INTEGER,
                 content_sha256 TEXT, bytes_read INTEGER, word_count INTEGER,
-                title TEXT, headings_json TEXT
+                title TEXT, headings_json TEXT,
+                query_terms_json TEXT, query_terms_body_json TEXT
             );
         """)
         con.execute(
@@ -38,9 +39,11 @@ def _db(tmp_path):
         )
         def page(obs, role, url, words, *, status="OBSERVED", sha="a"*64):
             con.execute(
-                "INSERT INTO serp_competitive_pages VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO serp_competitive_pages VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (obs, role, url, url, status, 200, sha, 500, words,
-                 "Seguros" if words else "", json.dumps(["Cobertura"] if words else [])),
+                 "Seguros" if words else "", json.dumps(["Cobertura"] if words else []),
+                 json.dumps(["seguro", "vida"] if obs == "SERP-1" else ["seguro", "carro"]),
+                 json.dumps(["seguro"] if words else [])),
             )
         page("SERP-1", "CUSTOMER", "https://example.org/seguro-vida", 200)
         page("SERP-1", "COMPETITOR_CANDIDATE", "https://competitor.org/seguro-vida", 300)
@@ -140,3 +143,41 @@ def test_cli_prints_offline_only_without_touching_db(tmp_path, capsys):
     assert payload["status"] == "DESCRIPTIVE_PERSISTED_HTML_COMPARISON"
     assert payload["provider_requests"] == 0
     assert db.read_bytes() == before
+
+
+def test_shell_or_menu_without_query_terms_in_body_is_not_comparable(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET query_terms_body_json='[]' "
+            "WHERE role='COMPETITOR_CANDIDATE' AND observation_id='SERP-1'"
+        )
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+    assert result["competitors"][0]["primary_content_proven"] is False
+    assert result["competitors"][0]["query_body_terms"] == []
+    assert result["comparisons"] == []
+
+
+def test_cross_query_persisted_terms_and_tampered_json_abstain(tmp_path):
+    db = _db(tmp_path)
+    for changed in ('["other", "search"]', '["seguro", 5]', 'not-json'):
+        with sqlite3.connect(db) as con:
+            con.execute(
+                "UPDATE serp_competitive_pages SET query_terms_json=? "
+                "WHERE role='COMPETITOR_CANDIDATE' AND observation_id='SERP-1'",
+                (changed,),
+            )
+        result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+        assert result["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+        assert result["comparisons"] == []
+
+
+def test_query_terms_observed_do_not_establish_primary_content(tmp_path):
+    db = _db(tmp_path)
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "DESCRIPTIVE_PERSISTED_HTML_COMPARISON"
+    assert result["customer"]["query_body_terms"] == ["seguro"]
+    assert result["competitors"][0]["query_body_terms"] == ["seguro"]
+    assert result["customer"]["primary_content_proven"] is False
+    assert "shells SPA e menus" in result["limitations"]

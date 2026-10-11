@@ -15,6 +15,7 @@ import sqlite3
 from typing import Any, Sequence
 
 from rasai.geo_observation import _canonical_url
+from rasai.search_intelligence.content import query_terms
 
 _SHA256 = re.compile(r"^[a-fA-F0-9]{64}$")
 _MAX_ROWS = 40
@@ -22,7 +23,8 @@ _REQUIRED_OBS = {"observation_id", "audit_id", "query", "collected_at",
                  "observation_status", "data_mode"}
 _REQUIRED_CONTENT = {"observation_id", "role", "requested_url", "final_url",
                      "fetch_status", "http_status", "content_sha256",
-                     "bytes_read", "word_count", "title", "headings_json"}
+                     "bytes_read", "word_count", "title", "headings_json",
+                     "query_terms_json", "query_terms_body_json"}
 
 
 def _columns(con: sqlite3.Connection, table: str) -> set[str]:
@@ -40,6 +42,20 @@ def _texts(value: object) -> list[str]:
             if isinstance(item, str) and item.strip()]
 
 
+def _strict_query_terms(raw: object) -> tuple[str, ...]:
+    if not isinstance(raw, str):
+        return ()
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        return ()
+    if (not isinstance(parsed, list) or not 1 <= len(parsed) <= 20
+            or any(not isinstance(term, str) or not term.strip()
+                   for term in parsed)):
+        return ()
+    return tuple(parsed)
+
+
 def _parse_context_clock(raw: object) -> bool:
     if not isinstance(raw, str):
         return False
@@ -50,20 +66,28 @@ def _parse_context_clock(raw: object) -> bool:
         return False
 
 
-def _page(row: sqlite3.Row) -> dict[str, Any]:
+def _page(row: sqlite3.Row, expected_terms: tuple[str, ...]) -> dict[str, Any]:
     requested = row["requested_url"]
     final = row["final_url"] or requested
     requested_url = _canonical_url(requested)
     final_url = _canonical_url(final)
+    indexed_terms = _strict_query_terms(row["query_terms_json"])
+    body_terms = _strict_query_terms(row["query_terms_body_json"])
+    lexical_body_matches = (
+        bool(expected_terms) and indexed_terms == expected_terms
+        and bool(body_terms) and set(body_terms).issubset(indexed_terms)
+    )
     valid_content = (
-        str(row["fetch_status"]).upper() == "OBSERVED"
+        lexical_body_matches
+        and str(row["fetch_status"]).upper() == "OBSERVED"
         and type(row["http_status"]) is int and 200 <= row["http_status"] < 300
         and isinstance(row["content_sha256"], str)
         and bool(_SHA256.fullmatch(row["content_sha256"]))
         and type(row["bytes_read"]) is int and row["bytes_read"] > 0
         and type(row["word_count"]) is int and row["word_count"] > 0
         and bool(requested_url and final_url)
-        and bool((row["title"] or "").strip() or _texts(row["headings_json"]))
+        and bool((row["title"].strip() if isinstance(row["title"], str) else "")
+                 or _texts(row["headings_json"]))
     )
     return {
         "role": row["role"],
@@ -77,6 +101,8 @@ def _page(row: sqlite3.Row) -> dict[str, Any]:
         "word_count": row["word_count"] if valid_content else None,
         "title_present": bool((row["title"] or "").strip()) if valid_content else None,
         "headings_count": len(_texts(row["headings_json"])) if valid_content else None,
+        "query_body_terms": list(body_terms) if valid_content else [],
+        "primary_content_proven": False,
     }
 
 
@@ -101,7 +127,9 @@ def inspect_geo_competitor_content(
             "Somente atributos de HTML previamente coletado pela SERP com opt-in. "
             "Nenhum snippet Perplexity prova conteúdo integral; contexto SERP "
             "não comprova instante da coleta HTML, equivalência entre fornecedores "
-            "ou causa de ranking. Diferenças de volume não provam qualidade."
+            "ou causa de ranking. Diferenças de volume não provam qualidade. "
+            "Mesmo cobertura lexical no corpo da resposta não comprova "
+            "conteúdo primário: shells SPA e menus podem conter os termos."
         ),
     }
     def abstain(status: str) -> dict[str, Any]:
@@ -137,7 +165,8 @@ def inspect_geo_competitor_content(
         rows = con.execute(
             "SELECT role, requested_url, final_url, fetch_status, "
             "http_status, content_sha256, bytes_read, word_count, "
-            "title, headings_json FROM serp_competitive_pages "
+            "title, headings_json, query_terms_json, query_terms_body_json "
+            "FROM serp_competitive_pages "
             "WHERE observation_id=? ORDER BY role, requested_url LIMIT ?",
             (observation_id, _MAX_ROWS + 1),
         ).fetchall()
@@ -146,8 +175,9 @@ def inspect_geo_competitor_content(
     customer_rows = [row for row in rows if row["role"] == "CUSTOMER"]
     if len(customer_rows) != 1:
         return abstain("CUSTOMER_HTML_EVIDENCE_ND")
-    customer = _page(customer_rows[0])
-    competitors = [_page(row) for row in rows
+    expected = query_terms(observed["query"])
+    customer = _page(customer_rows[0], expected)
+    competitors = [_page(row, expected) for row in rows
                    if row["role"] == "COMPETITOR_CANDIDATE"]
     context = {key: observed[key] for key in
                ("query", "collected_at", "country", "region",

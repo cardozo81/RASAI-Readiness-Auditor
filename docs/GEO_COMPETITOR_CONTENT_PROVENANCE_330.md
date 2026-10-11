@@ -24,3 +24,19 @@ Limites restantes: novos candidatos exclusivos da Perplexity requerem
 opt-in próprio, regras robots, origem/URL, locale, dispositivo, custo e
 proveniência física. Esta ponte não abre novo crawler. Fixtures validam
 integridade byte a byte da AUD, ausência de provider e fallback N/D.
+
+## Gate de correspondência lexical da mesma query
+
+Para formar um par descritivo, cada página persistida deve manter
+`query_terms_json` idêntico à tokenização determinística da query
+SERP e ao menos um desses termos em `query_terms_body_json`,
+extraídos no mesmo processo de aquisição de HTML. JSON malformado,
+ausência de termos no corpo, documento vazio e termos de outra query
+abstêm com `CONTENT_EVIDENCE_NOT_COMPARABLE`. O novo gate não
+aciona extração novamente nem realiza chamada de rede.
+
+**Limite explícito:** mesmo uma correspondência lexical no corpo HTML
+pode vir de menu, rodapé ou shell SPA. A evidência não comprova
+conteúdo principal e o campo `primary_content_proven=false`
+permanece. Comparações de contagem de palavras seguem estritamente
+descritivas e não fundamentam propostas causais de GEO/SEO.
