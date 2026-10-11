@@ -156,7 +156,7 @@ def read_live_dynatrace_action_population(
             "Zero XHR no resultado não prova que captura XHR/Fetch esteja desabilitada. "
             "Sampling, retenção e permissões do tenant podem reduzir a cobertura. "
             "Settings API e USQL usam tokens/permissões distintas; não extrapolar "
-            "thrêsholds ou atribuir causa de Apdex por arquitetura."
+            "thresholds ou atribuir causa de Apdex por arquitetura."
         ),
     }
 
