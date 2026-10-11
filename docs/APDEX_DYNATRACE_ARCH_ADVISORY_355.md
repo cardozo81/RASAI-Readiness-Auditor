@@ -160,3 +160,16 @@ Esta etapa conclui **leitura compatível com exportação do fornecedor
 sem rede**. Não conclui a integração live com token, avaliação de
 políticas por URL nem correlação física de amostras RUM; #355
 permanece aberta até esses gates e aprovação humana.
+
+## Explicação para o analista humano no CLI (complemento #355)
+
+Além dos códigos estruturados determinísticos, o comando
+`dynatrace-apdex-review` apresenta `analyst_guidance_pt_br` com
+conclusão, arquitetura **informada**, KPMs **declaradas no arquivo** por
+Load/XHR/Custom, motivos em português, próximos passos e ressalva explícita
+de que o export não comprova tenant, captura, população de ações, período,
+URL nem identidade física de amostra com M6. Essa explicação não converte
+configuração offline em medição efetiva, não sugere limiares universais e
+não altera o status do contrato, as fórmulas M23/M25, a AUD ou o relatório.
+A integração de settings.read e a projeção no relatório de auditoria
+continuam condicionadas aos gates de autenticação/proveniência e aceite.
