@@ -49,3 +49,22 @@ O pacote é um **companion consultivo separado**, não uma integração
 nativa ao formato `CONS-3` produtivo. A issue #311 continua OPEN
 para critérios metodológicos de tendências calibradas e eventual
 integração formal sem romper fingerprints/contratos existentes.
+
+
+## Checagem de concorrência e proveniência do GCOMP
+
+O manifesto GCOMP não pode associar uma projeção GEO de um instante
+aos hashes de uma versão posterior do banco. Além de comparar o
+SHA-256 das origens, o materializador agora **recalcula a mesma
+projeção read-only** após capturar os hashes e a compara integralmente
+à primeira projeção. Em seguida, revalida todos os hashes e a
+ausência de sidecars SQLite, antes de publicar **ou retornar um
+pacote idempotente existente**.
+
+Se uma AUD ou CONS for modificada, se a segunda interpretação GEO
+divergir ou se aparecerem journals SQLite, a saída é recusada, sem
+modificar os artefatos existentes. A verificação permanece local,
+sem novas requisições de IA/Perplexity/SERP nem replay de coleta.
+O contrato `RASAI-CONS-GEO-COMPANION-PACKAGE-311-001` continua
+compatível: esta correção de integridade não reescreve manifestos
+GCOMP históricos nem converte tendências N/D em métricas.
