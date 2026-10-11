@@ -1,18 +1,29 @@
-# #319 - Separação pós-fato das chamadas IA pela conclusão da AUD
+# #319 - Separação pós-fato das chamadas IA pela janela física da AUD
 
 O consumidor `python -m rasai.audit_ai_completion_boundary_319`
 utiliza somente metadados já persistidos em `audit.db`. Nenhuma IA,
 coletor, provider de pricing, report writer, SERP, RPR ou CONS é acionado.
 
-A referência temporal física é `audits.completed_at`, em timezone
-explícito, com `status=COMPLETED` e `completion_status=COMPLETE`.
+As referências temporais físicas são `audits.started_at` e
+`audits.completed_at`, ambas com timezone explícito, em ordem estrita,
+com `status=COMPLETED` e `completion_status=COMPLETE`. Na ausência
+de início confiável, o resultado inteiro abstém (N/D): apenas conhecer
+a conclusão não prova que uma chamada antiga tenha ocorrido na AUD.
 Cada linha de `ai_provider_attempts` e
 `content_remediation_attempts` pertence a apenas um dos grupos:
 
-- `DURING_AUD`: chamada terminou até o instante de conclusão.
+- `DURING_AUD`: chamada começou no início ou depois e terminou até a conclusão.
 - `AFTER_AUD`: chamada começou após a conclusão.
 - `CROSSES_AUD_COMPLETION`: intervalo cruza o instante de término.
 - `UNKNOWN_CLOCK`: timestamps ausentes, sem timezone ou invertidos.
+- `BEFORE_AUD`: chamada terminou antes ou no instante de início.
+- `CROSSES_AUD_START`: chamada começou antes da AUD e terminou após o início.
+
+O contrato evoluiu de `RASAI-AUD-AI-TIME-ECONOMICS-319-001` para
+`RASAI-AUD-AI-TIME-ECONOMICS-319-002`; essa correção impede que
+requisições de auditorias anteriores inflem o custo/tempo da janela
+atual. As chamadas que cruzam o começo ou o fim ficam separadas, sem
+distribuição fictícia de custos entre estágios.
 
 `DIRECTED_ANALYSIS` não é classificado por nome como pós-AUD: somente
 o relógio observado determina o grupo. Custos de chamadas que cruzam
@@ -38,7 +49,8 @@ python -m rasai.audit_ai_completion_boundary_319 `
 
 O banco é aberto somente em leitura com `mode=ro&immutable=1`, sem
 sidecars nem links simbólicos; a operação não escreve no histórico.
-Fixture sintética comprova duas chamadas IA paralelas antes da AUD,
-Directed Analysis posterior, remediação cruzando a fronteira, relógio
-não confiável e preservação do SHA-256 da base. Isto é diagnóstico
+Fixtures sintéticas comprovam duas chamadas IA paralelas durante a AUD,
+chamadas estritamente anteriores ao início, chamadas cruzando seu começo,
+Directed Analysis posterior, remediação cruzando a conclusão, relógios
+sem timezone ou invertidos e preservação do SHA-256 da base. Isto é diagnóstico
 pós-fato, não calibração da previsão ex ante, e não requer smoke geral.
