@@ -101,3 +101,20 @@ Fontes do contrato RUM, diferentes do RASAi Synthetic Apdex:
 https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/web-applications/additional-configuration/configure-apdex-web
 https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions
 https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/web-applications/initial-setup/configure-dynatrace-real-user-monitoring-to-capture-xhr-actions
+
+## Política efetiva de erros e execução (incremento de evidência #358)
+
+A seção CAT-07 passou a exibir os flags persistidos de captura e impacto
+de erros (JavaScript, requisição, console, XHR/Fetch), escopo de erro,
+modo de sessão, volume de amostras, limite de tentativas, concorrência,
+intervalo e settle. Todos são projetados **somente** do
+`synthetic_ux_apdex_runs.configuration` da AUD corrente, em allowlist
+explícita. Ausência, campo inválido e legado produzem `N/D`; o relatório
+não reconsulta INI/env nem infere defaults Dynatrace ou RASAi.
+
+A interpretação preserva a fronteira temporal: `settle_seconds` é
+observação e não tempo adicionado ao índice; ter XHR/Fetch capture não
+significa executar XHR Action como tarefa separada. URL/token/configuração
+Dynatrace e parâmetros fora da allowlist nunca são serializados nesse
+advisory. Testes de replay, sigilo e imutabilidade do audit.db por bytes
+acompanham os contratos unitários sem chamada ao provider.
