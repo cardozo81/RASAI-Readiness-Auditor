@@ -154,6 +154,43 @@ def test_foreign_symlinked_audit_never_enters_duration_history(tmp_path, link_ki
             for db in (*legitimate, source)] == original
 
 
+def test_retrospective_p90_loo_diagnostic_uses_only_verified_wall_times(tmp_path):
+    dbs = [_audit(tmp_path, i, duration=600_000 + i * 1000) for i in range(8)]
+    originals = [sha256(p.read_bytes()).hexdigest() for p in dbs]
+    projection = forecast_local_duration(_state(tmp_path), target_pages=1)
+    backtest = projection.total_p90_backtest
+    assert projection.available and backtest is not None
+    assert backtest.method == "LEAVE_ONE_OUT_RETROSPECTIVE_ONLY"
+    assert backtest.evaluated_runs == 8
+    assert backtest.within_held_out_p90 == 7
+    assert backtest.observed_fraction == .875
+    lines = "\n".join(format_duration_preview(projection))
+    assert "Backtest retrospectivo LOO" in lines
+    assert "7/8" in lines
+    assert "nao e calibracao prospectiva ou SLA" in lines
+    assert [sha256(p.read_bytes()).hexdigest() for p in dbs] == originals
+
+
+def test_five_samples_cannot_be_mislabeled_as_calibrated_p90(tmp_path):
+    for i in range(5):
+        _audit(tmp_path, i)
+    projection = forecast_local_duration(_state(tmp_path))
+    assert projection.available and projection.sample_runs == 5
+    assert projection.total_p90_backtest is None
+    assert "Backtest retrospectivo" not in "\n".join(
+        format_duration_preview(projection)
+    )
+
+
+def test_backtest_only_counts_eligible_complete_auds(tmp_path):
+    for i in range(7):
+        _audit(tmp_path, i, duration=600_000 + i * 1000)
+    _audit(tmp_path, 7, completion_status="PARTIAL_RETRYABLE")
+    report = forecast_local_duration(_state(tmp_path))
+    assert report.sample_runs == 7
+    assert report.total_p90_backtest is None
+
+
 def test_abstains_for_insufficient_history_instead_of_extrapolating(tmp_path):
     _audit(tmp_path, 1)
     _audit(tmp_path, 2)
