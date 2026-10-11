@@ -224,3 +224,123 @@ def test_cli_offline_json_only(tmp_path, capsys):
     data = json.loads(capsys.readouterr().out)
     assert data["queries"][0]["declared_query_class"] == "BRANDED_DECLARED"
     assert data["provider_requests"] == data["audit_writes"] == 0
+
+
+def _set_physical_aud_targets(folder, targets):
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "CREATE TABLE audit_targets (audit_id TEXT, input_url TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO audit_targets VALUES (?,?)", targets
+        )
+
+
+def test_v2_exact_aud_target_is_visible_per_query_in_both_observed_url_sets(
+    tmp_path,
+):
+    folder = _audit(tmp_path)
+    _set_physical_aud_targets(
+        folder, [("AUD-GEO304", "https://example.org/shared")]
+    )
+    original = (folder / "audit.db").read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-002"
+    assert result["status"] == "DESCRIPTIVE_ONLY"
+    assert result["aud_target_scope"] == "SINGLE_EXACT_AUD_TARGET"
+    assert result["aud_target_exact_url"] == "https://example.org/shared"
+    for row in result["queries"]:
+        assert row["target_url_exact_in_serp"] is True
+        assert row["target_url_exact_in_perplexity"] is True
+        assert row["target_url_overlap_status"] == "BOTH_SOURCE_SETS"
+        assert row["ranking_or_generative_citation_proven"] is False
+        assert row["intent_equivalence_proven"] is False
+    assert (folder / "audit.db").read_bytes() == original
+
+
+@pytest.mark.parametrize(
+    ("scope", "in_serp", "in_external", "expected"),
+    [
+        ("both", True, True, "BOTH_SOURCE_SETS"),
+        ("serp_only", True, False, "SERP_SOURCE_SET_ONLY"),
+        ("external_only", False, True, "EXTERNAL_SOURCE_SET_ONLY"),
+        ("neither", False, False, "NEITHER_RETURNED_SOURCE_SET"),
+        ("trailing_slash", False, False, "NEITHER_RETURNED_SOURCE_SET"),
+    ],
+)
+def test_exact_audit_url_coverage_never_infers_redirects_or_citations(
+    tmp_path, scope, in_serp, in_external, expected,
+):
+    folder = _audit(tmp_path, multi=False)
+    target = (
+        "https://target.example.org/not-returned" if scope == "neither"
+        else "https://example.org/shared/" if scope == "trailing_slash"
+        else "https://example.org/shared"
+    )
+    _set_physical_aud_targets(folder, [("AUD-GEO304", target)])
+    with sqlite3.connect(folder / "audit.db") as con:
+        if scope == "external_only":
+            con.execute(
+                "UPDATE serp_results SET url=? WHERE observation_id=? AND position=0",
+                ("https://serp.example.org/replacement", "SERP-0"),
+            )
+        elif scope == "serp_only":
+            con.execute(
+                "UPDATE perplexity_search_sources SET url=? WHERE run_id=? AND position=0",
+                ("https://external.example.org/replacement", "PX-A"),
+            )
+    before = (folder / "audit.db").read_bytes()
+    result = inspect_geo_per_query(folder)
+    row = result["queries"][0]
+    assert row["status"] == "DESCRIPTIVE_ONLY"
+    assert row["target_url_exact_in_serp"] is in_serp
+    assert row["target_url_exact_in_perplexity"] is in_external
+    assert row["target_url_overlap_status"] == expected
+    assert row["ranking_or_generative_citation_proven"] is False
+    assert row["jaccard_url_rate"] is not None
+    assert (folder / "audit.db").read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "aud_targets",
+    [
+        [],
+        [
+            ("AUD-GEO304", "https://example.org/shared"),
+            ("AUD-GEO304", "https://example.org/shared"),
+        ],
+        [("AUD-FOREIGN", "https://example.org/shared")],
+        [("AUD-GEO304", "javascript:alert(1)")],
+    ],
+    ids=["no-target", "two-target-rows", "foreign-only", "invalid-URL"],
+)
+def test_absent_or_ambiguous_aud_target_is_explicit_nd_not_false(
+    tmp_path, aud_targets,
+):
+    folder = _audit(tmp_path, multi=False)
+    _set_physical_aud_targets(folder, aud_targets)
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "DESCRIPTIVE_ONLY"
+    assert result["aud_target_scope"] == "NO_UNIQUE_CANONICAL_TARGET"
+    assert result["aud_target_exact_url"] is None
+    row = result["queries"][0]
+    assert row["target_url_exact_in_serp"] is None
+    assert row["target_url_exact_in_perplexity"] is None
+    assert row["target_url_overlap_status"] == "N/D"
+    assert row["common_urls"] == 1
+
+
+def test_target_presence_is_nd_when_per_query_source_mapping_is_absent(tmp_path):
+    folder = _audit(tmp_path, source_query_column=False)
+    _set_physical_aud_targets(
+        folder, [("AUD-GEO304", "https://example.org/shared")]
+    )
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["aud_target_scope"] == "SINGLE_EXACT_AUD_TARGET"
+    assert all(
+        row["target_url_exact_in_serp"] is None
+        and row["target_url_exact_in_perplexity"] is None
+        and row["target_url_overlap_status"] == "N/D"
+        for row in result["queries"]
+    )
