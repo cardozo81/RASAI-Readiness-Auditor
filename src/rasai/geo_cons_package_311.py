@@ -123,20 +123,35 @@ def materialize_cons_geo_companion(
             "audit_writes": 0, "cons_writes": 0, "provider_requests": 0,
         }
 
+    def reverify_sources() -> None:
+        """Protect both fresh publish and idempotent returns from input races."""
+        if (_file_digest(canonical) != source_manifest_digest
+                or _file_digest(report) != source_report_digest):
+            raise ValueError("CONS source changed during GEO companion packaging")
+        for audit_id, saved_hash in file_hashes.items():
+            parent = root / audit_id
+            db = parent / "audit.db"
+            if parent.is_symlink() or db.is_symlink():
+                raise ValueError("GEO companion source AUD became a link")
+            if saved_hash is not None:
+                if any(Path(str(db) + suffix).exists()
+                       for suffix in ("-wal", "-shm", "-journal")):
+                    raise ValueError("GEO companion source AUD gained SQLite sidecars")
+                if _file_digest(db) != saved_hash:
+                    raise ValueError("source AUD changed during GEO companion packaging")
+            elif db.exists():
+                raise ValueError("missing source AUD appeared during packaging")
+
+    # First preview may have read mutable AUDs before the first SHA-256 pass.
+    # A second independent read must produce the same projection; otherwise
+    # the package would claim that the SHA-256 values attest stale findings.
+    reverify_sources()
+    if build_cons_geo_advisory(cons, root) != preview:
+        raise ValueError("GEO companion projection changed during packaging")
+    # Ensure the second preview did not see a source moving underneath it.
+    reverify_sources()
     if destination.exists():
         return existing()
-
-    # Re-check every physical input before publishing the derived artifact.
-    if (_file_digest(canonical) != source_manifest_digest
-            or _file_digest(report) != source_report_digest):
-        raise ValueError("CONS source changed during GEO companion packaging")
-    for audit_id, saved_hash in file_hashes.items():
-        db = root / audit_id / "audit.db"
-        if saved_hash is not None:
-            if _file_digest(db) != saved_hash:
-                raise ValueError("source AUD changed during GEO companion packaging")
-        elif db.exists():
-            raise ValueError("missing source AUD appeared during packaging")
 
     destination_root.mkdir(exist_ok=True)
     if destination_root.is_symlink():
