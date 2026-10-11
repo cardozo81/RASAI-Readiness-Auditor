@@ -25,6 +25,12 @@ _REQUIRED_CONTENT = {"observation_id", "role", "requested_url", "final_url",
                      "fetch_status", "http_status", "content_type", "content_sha256",
                      "bytes_read", "word_count", "title", "headings_json",
                      "query_terms_json", "query_terms_body_json"}
+# These columns are present in the current canonical collector, but missing
+# from some legacy test AUDs. An absent column must yield N/D, not invented
+# zero matches or a backfill into historic SQLite packages.
+_OPTIONAL_CONTENT = ("meta_description", "query_terms_title_json",
+                     "query_terms_description_json", "query_terms_headings_json",
+                     "jsonld_types_json")
 
 
 def _columns(con: sqlite3.Connection, table: str) -> set[str]:
@@ -54,6 +60,27 @@ def _strict_query_terms(raw: object) -> tuple[str, ...]:
                    for term in parsed)):
         return ()
     return tuple(parsed)
+
+
+def _optional_terms(raw: object, expected: tuple[str, ...]) -> list[str] | None:
+    """Validate a bounded lexical projection against its original query.
+
+    Empty list is an observed zero; absent or corrupted JSON is N/D.
+    """
+    if raw is None or not isinstance(raw, str):
+        return None
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    if (not isinstance(parsed, list) or len(parsed) > 20
+            or any(not isinstance(value, str) or not value.strip()
+                   for value in parsed)):
+        return None
+    if (len(set(parsed)) != len(parsed)
+            or not set(parsed).issubset(set(expected))):
+        return None
+    return parsed
 
 
 def _parse_context_clock(raw: object) -> bool:
@@ -98,6 +125,10 @@ def _page(row: sqlite3.Row, expected_terms: tuple[str, ...]) -> dict[str, Any]:
         and bool((row["title"].strip() if isinstance(row["title"], str) else "")
                  or _texts(row["headings_json"]))
     )
+    title_terms = _optional_terms(row["query_terms_title_json"], expected_terms)
+    description_terms = _optional_terms(row["query_terms_description_json"], expected_terms)
+    heading_terms = _optional_terms(row["query_terms_headings_json"], expected_terms)
+    jsonld_types = _texts(row["jsonld_types_json"]) if row["jsonld_types_json"] is not None else None
     return {
         "role": row["role"],
         "requested_url": requested if requested_url else None,
@@ -112,6 +143,14 @@ def _page(row: sqlite3.Row, expected_terms: tuple[str, ...]) -> dict[str, Any]:
         "title_present": bool((row["title"] or "").strip()) if valid_content else None,
         "headings_count": len(_texts(row["headings_json"])) if valid_content else None,
         "query_body_terms": list(body_terms) if valid_content else [],
+        "query_title_terms": title_terms if valid_content else None,
+        "query_description_terms": description_terms if valid_content else None,
+        "query_heading_terms": heading_terms if valid_content else None,
+        "meta_description_present": (
+            bool(row["meta_description"].strip())
+            if valid_content and isinstance(row["meta_description"], str) else None
+        ),
+        "jsonld_types": jsonld_types if valid_content else None,
         "primary_content_proven": False,
     }
 
@@ -172,11 +211,16 @@ def inspect_geo_competitor_content(
                 or not observed["query"].strip()
                 or not _parse_context_clock(observed["collected_at"])):
             return abstain("SERP_CONTEXT_NOT_PROVEN")
+        content_columns = _columns(con, "serp_competitive_pages")
+        optional_fields = ", ".join(
+            name if name in content_columns else "NULL AS " + name
+            for name in _OPTIONAL_CONTENT
+        )
         rows = con.execute(
             "SELECT role, requested_url, final_url, fetch_status, "
             "http_status, content_type, content_sha256, bytes_read, word_count, "
-            "title, headings_json, query_terms_json, query_terms_body_json "
-            "FROM serp_competitive_pages "
+            "title, headings_json, query_terms_json, query_terms_body_json, "
+            + optional_fields + " FROM serp_competitive_pages "
             "WHERE observation_id=? ORDER BY role, requested_url LIMIT ?",
             (observation_id, _MAX_ROWS + 1),
         ).fetchall()
@@ -220,6 +264,19 @@ def inspect_geo_competitor_content(
                 "competitor_content_sha256": candidate["content_sha256"],
                 "observed_word_count_difference":
                     candidate["word_count"] - customer["word_count"],
+                "observed_lexical_differences": {
+                    label: (
+                        len(candidate[field]) - len(customer[field])
+                        if candidate[field] is not None and customer[field] is not None
+                        else None
+                    )
+                    for label, field in (
+                        ("query_terms_in_title", "query_title_terms"),
+                        ("query_terms_in_description", "query_description_terms"),
+                        ("query_terms_in_headings", "query_heading_terms"),
+                        ("query_terms_in_body", "query_body_terms"),
+                    )
+                },
                 "meaning": "DESCRIPTIVE_CONTENT_ONLY_NO_CAUSAL_CLAIM",
             })
     return {
