@@ -434,3 +434,142 @@ def test_pt_br_offline_cli_explains_unknown_without_ever_claiming_real_rum(
     assert message["metricas_declaradas_na_configuracao"] == {}
     assert payload["actual_dynatrace_tenant_consulted"] is False
     assert payload["audit_writes"] == payload["dynatrace_provider_requests"] == 0
+
+
+def test_settings_read_live_adapter_uses_exact_scoped_get_and_not_redirects():
+    from rasai.dynatrace_settings_live_355 import read_live_dynatrace_apdex_settings
+    class Reply:
+        def __enter__(self):
+            return self
+        def __exit__(self, *_):
+            return None
+        def getcode(self):
+            return 200
+        def read(self, max_bytes):
+            assert max_bytes == 1024 * 1024 + 1
+            return json.dumps(_effective_values_export()).encode("utf-8")
+    class FakeOpener:
+        def __init__(self):
+            self.calls = []
+        def open(self, request, timeout):
+            self.calls.append((request, timeout))
+            return Reply()
+    fake = FakeOpener()
+    result = read_live_dynatrace_apdex_settings(
+        base_url="https://abc123.live.dynatrace.com",
+        application_scope="APPLICATION-ABC123",
+        api_token="SECRET-TOKEN-NOT-LOGGED",
+        opener=fake,
+    )
+    assert len(fake.calls) == 1
+    request, timeout = fake.calls[0]
+    assert request.get_method() == "GET"
+    assert request.full_url.startswith(
+        "https://abc123.live.dynatrace.com/api/v2/settings/effectiveValues?"
+    )
+    assert "scope=APPLICATION-ABC123" in request.full_url
+    assert "schemaIds=" in request.full_url
+    assert "Api-Token SECRET" in request.get_header("Authorization")
+    assert timeout == 10.0
+    assert result["actual_dynatrace_tenant_consulted"] is True
+    assert result["settings_provenance"] == "LIVE_DYNATRACE_SETTINGS_API_EFFECTIVE_VALUES"
+    assert result["rum_action_population_verified"] is False
+    assert result["rasai_same_page_device_time_verified"] is False
+    assert result["dynatrace_provider_requests"] == 1
+    assert "SECRET-TOKEN" not in json.dumps(result)
+
+
+@pytest.mark.parametrize("url", [
+    "http://abc.live.dynatrace.com",
+    "https://abc.live.dynatrace.com.evil.org",
+    "https://abc.live.dynatrace.com/path",
+    "https://user@abc.live.dynatrace.com",
+    "https://abc.live.dynatrace.com:443",
+    "https://abc.live.dynatrace.com/?token=abc",
+    " https://abc.live.dynatrace.com",
+    "https://localhost",
+    "https://127.0.0.1",
+])
+def test_settings_read_rejects_unsafe_environment_before_network(url):
+    from rasai.dynatrace_settings_live_355 import read_live_dynatrace_apdex_settings
+    class NoNetwork:
+        def open(self, *_args, **_kwargs):
+            pytest.fail("invalid request reached transport")
+    with pytest.raises(ValueError):
+        read_live_dynatrace_apdex_settings(
+            base_url=url, application_scope="APPLICATION-ABC123",
+            api_token="PRIVATE", opener=NoNetwork(),
+        )
+
+
+def test_settings_read_missing_token_bad_scope_and_pagination_no_false_success():
+    from rasai.dynatrace_settings_live_355 import read_live_dynatrace_apdex_settings
+    class Never:
+        def open(self, *_args, **_kwargs):
+            pytest.fail("unexpected outbound call")
+    for token, scope in (("", "APPLICATION-ABC123"),
+                         ("SECRET" + chr(10) + "LEAK", "APPLICATION-ABC123"),
+                         ("valid", "environment")):
+        with pytest.raises(ValueError):
+            read_live_dynatrace_apdex_settings(
+                base_url="https://abc.live.dynatrace.com",
+                application_scope=scope, api_token=token, opener=Never(),
+            )
+
+    class Paged:
+        def __init__(self, payload):
+            self.payload = payload
+        def __enter__(self):
+            return self
+        def __exit__(self, *_):
+            return None
+        def getcode(self):
+            return 200
+        def read(self, _):
+            return json.dumps(self.payload).encode("utf-8")
+    class Open:
+        def open(self, request, timeout):
+            paged = _effective_values_export()
+            paged["nextPageKey"] = "another-page"
+            return Paged(paged)
+    with pytest.raises(ValueError, match="paginated"):
+        read_live_dynatrace_apdex_settings(
+            base_url="https://abc.live.dynatrace.com",
+            application_scope="APPLICATION-ABC123",
+            api_token="SECRET", opener=Open(),
+        )
+
+
+def test_cli_live_settings_requires_opt_in_and_keeps_no_secrets(tmp_path, monkeypatch, capsys):
+    from rasai.dynatrace_apdex_review_cli_355 import main
+    from rasai import dynatrace_apdex_review_cli_355 as cli
+    monkeypatch.setenv("DYNATRACE_API_TOKEN", "SENSITIVE_NEVER_RENDER")
+    calls = []
+    def fake_read(**kwargs):
+        calls.append(kwargs)
+        result = {
+            "settings": _config(xhr=True, count=4),
+            "settings_provenance": "LIVE_DYNATRACE_SETTINGS_API_EFFECTIVE_VALUES",
+            "scope_provenance": "AUTHENTICATED_SETTINGS_API_SCOPE_NOT_RUM_EVENTS",
+        }
+        return result
+    monkeypatch.setattr(cli, "read_live_dynatrace_apdex_settings", fake_read)
+    args = ["--architecture", "CSR_SPA",
+            "--architecture-evidence-id", "SNP-1",
+            "--soft-navigation", "observed",
+            "--async-requests", "observed",
+            "--application-scope", "APPLICATION-ABC123",
+            "--live-base-url", "https://abc.live.dynatrace.com"]
+    with pytest.raises(SystemExit):
+        main(args)
+    assert calls == []
+    capsys.readouterr()
+    assert main(args + ["--allow-live-settings-read"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert len(calls) == 1 and calls[0]["api_token"] == "SENSITIVE_NEVER_RENDER"
+    assert payload["settings_provenance"] == "LIVE_DYNATRACE_SETTINGS_API_EFFECTIVE_VALUES"
+    assert payload["actual_dynatrace_tenant_consulted"] is True
+    assert payload["dynatrace_provider_requests"] == 1
+    assert payload["rasai_same_page_device_time_verified"] is False
+    assert "Valores efetivos consultados" in payload["analyst_guidance_pt_br"]["limite_metodologico"]
+    assert "SENSITIVE_NEVER_RENDER" not in json.dumps(payload)

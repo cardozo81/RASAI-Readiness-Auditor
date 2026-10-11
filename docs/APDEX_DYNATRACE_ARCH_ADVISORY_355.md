@@ -173,3 +173,46 @@ configuração offline em medição efetiva, não sugere limiares universais e
 não altera o status do contrato, as fórmulas M23/M25, a AUD ou o relatório.
 A integração de settings.read e a projeção no relatório de auditoria
 continuam condicionadas aos gates de autenticação/proveniência e aceite.
+
+
+## Leitura efetiva opt-in via Settings API (fase aditiva #355)
+
+O comando `rasai dynatrace-apdex-review` suporta opcionalmente
+`--live-base-url https://<ambiente>.live.dynatrace.com`,
+`--application-scope APPLICATION-...` e
+`--allow-live-settings-read`. A chamada GET única e somente leitura usa
+o token já reconhecido pelo RASAi em `DYNATRACE_API_TOKEN`, exclusivamente
+em cabeçalho, e requer escopo `settings.read`.
+O CLI nunca imprime o token nem o corpo de erro HTTP.
+
+O adaptador permite somente HTTPS em ambiente SaaS Dynatrace com
+domínio `.live.dynatrace.com`, bloqueia URLs com usuário, query,
+path e porta, rejeita redirecionamento, limita a resposta a 1 MiB
+e um único request de até 10 segundos; exportações paginadas não são
+apresentadas como completas. Não há retry, coleta RUM nem escrita
+em AUD. A resposta declara o número de solicitações e distingue
+`LIVE_DYNATRACE_SETTINGS_API_EFFECTIVE_VALUES` de exports offline.
+
+Exemplo de ativação somente quando autorizado pelo operador:
+
+```powershell
+$env:DYNATRACE_API_TOKEN = "<token settings.read>"
+.\.venv\Scripts\python.exe -m rasai dynatrace-apdex-review `
+  --architecture CSR_SPA `
+  --architecture-evidence-id SNP-REFERENCIA `
+  --soft-navigation observed --async-requests observed `
+  --application-scope APPLICATION-REFERENCIA `
+  --live-base-url https://ambiente.live.dynatrace.com `
+  --allow-live-settings-read
+```
+
+**Fronteira de confiança:** a resposta autenticada prova apenas valores
+efetivos de configuração devolvidos pela Settings API para o scope
+consultado; não comprova população de Load/XHR/Custom Actions,
+correlação com `snapshot_id/page_id/device`, rota visitada ou período
+da auditoria. Os índices sintéticos RASAi M23/M25 permanecem separados.
+Ausência de token, request não autorizada ou resposta incompleta => erro
+explícito, sem troca silenciosa de metodologia ou provider.
+
+Referência oficial:
+https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/objects/get-effective-values

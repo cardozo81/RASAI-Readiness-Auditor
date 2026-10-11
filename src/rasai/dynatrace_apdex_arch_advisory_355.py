@@ -260,6 +260,9 @@ def explain_dynatrace_apdex_pt_br(result: Mapping[str, Any]) -> dict[str, Any]:
     supplied = result.get("observed_kpm", {})
     if not isinstance(supplied, Mapping):
         supplied = {}
+    authenticated_settings = (
+        result.get("settings_provenance") == "LIVE_DYNATRACE_SETTINGS_API_EFFECTIVE_VALUES"
+    )
     return {
         "conclusao": _STATUS_PT_BR.get(
             result.get("status"), "Diagnóstico não determinável"
@@ -280,8 +283,10 @@ def explain_dynatrace_apdex_pt_br(result: Mapping[str, Any]) -> dict[str, Any]:
         "motivos": formatted_reasons,
         "proximos_passos": list(result.get("review_actions") or ()),
         "limite_metodologico": (
-            "Configuração fornecida pelo operador, não verificada no tenant. "
-            "A presença de configuração Load/XHR/Custom não comprova captura, "
+            ("Valores efetivos consultados no tenant via Settings API; "
+             if authenticated_settings else
+             "Configuração fornecida pelo operador, não verificada no tenant. ")
+            + "A presença de configuração Load/XHR/Custom não comprova captura, "
             "população de ações, URL, período nem a mesma amostra da identificação de arquitetura. "
             "Os índices sintéticos de navegação e experiência do RASAi não foram recalculados. "
             "Não existem thresholds universais do Dynatrace por arquitetura."
