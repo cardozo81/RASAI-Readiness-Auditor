@@ -425,7 +425,7 @@ def test_319_monotonic_step_log_is_observed_but_never_exclusive_or_sealed(tmp_pa
          "timestamp": "2026-10-08T10:26:00Z", "phase": "REPROCESS",
          "step_key": "POST_AUD", "duration_ms": 30000, "status": "SUCCESS"},
     ]
-    log.write_text("".join(json.dumps(v) + "\\n" for v in events), encoding="utf-8")
+    log.write_text("".join(json.dumps(v) + "\n" for v in events), encoding="utf-8")
     old_db, old_log = db.read_bytes(), log.read_bytes()
     response = inspect_audit_attempts(root)
     evidence = response["pipeline_step_timer_evidence"]
@@ -457,12 +457,12 @@ def test_319_invalid_or_missing_pipeline_log_fails_closed(tmp_path):
     event = {"event": "AUDIT_PIPELINE_STEP_FINISHED", "audit_id": AUD,
              "timestamp": "2026-10-08T10:05:00Z", "phase": "COLLECTION",
              "step_key": "M3", "duration_ms": 2000, "status": "SUCCESS"}
-    log.write_text(json.dumps(event) + "\\n" + "broken\\n", encoding="utf-8")
+    log.write_text(json.dumps(event) + "\n" + "broken\n", encoding="utf-8")
     result = inspect_pipeline_step_timers(root, AUD, None)
     assert result["status"] == "LOG_JSON_INVALID" and result["by_step"] == []
-    log.write_text(json.dumps({**event, "duration_ms": -1}) + "\\n", encoding="utf-8")
+    log.write_text(json.dumps({**event, "duration_ms": -1}) + "\n", encoding="utf-8")
     assert inspect_pipeline_step_timers(root, AUD, None)["status"] == "STEP_EVIDENCE_INVALID"
-    log.write_text(json.dumps({**event, "timestamp": "2026-10-08T10:05:00"}) + "\\n", encoding="utf-8")
+    log.write_text(json.dumps({**event, "timestamp": "2026-10-08T10:05:00"}) + "\n", encoding="utf-8")
     assert inspect_pipeline_step_timers(root, AUD, None)["status"] == "STEP_EVIDENCE_INVALID"
     log.write_bytes(b"x" * (8 * 1024 * 1024 + 1))
     assert inspect_pipeline_step_timers(root, AUD, None)["status"] == "LOG_TOO_LARGE"
@@ -479,7 +479,7 @@ def test_319_partial_aud_does_not_promote_wrapper_to_initial_session(tmp_path):
         "event": "AUDIT_PIPELINE_STEP_FINISHED", "audit_id": AUD,
         "timestamp": "2026-10-08T10:03:00Z", "phase": "COLLECTION",
         "step_key": "RENDER", "duration_ms": 3000, "status": "SUCCESS",
-    }) + "\\n", encoding="utf-8")
+    }) + "\n", encoding="utf-8")
     response = inspect_audit_attempts(root)
     event = response["pipeline_step_timer_evidence"]["by_step"][0]
     assert event["console_window_placement"] == "NOT_PROVEN_IN_INITIAL_WINDOW"
