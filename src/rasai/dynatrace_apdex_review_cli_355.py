@@ -123,6 +123,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         result["effective_values_export"] = {
             key: value for key, value in exported.items() if key != "settings"
         }
+    if args.live_base_url is not None and exported is not None:
+        result["settings_provenance"] = exported["settings_provenance"]
+        result["scope_provenance"] = exported["scope_provenance"]
+        result["rum_action_population_verified"] = False
+        result["rasai_same_page_device_time_verified"] = False
     result["analyst_guidance_pt_br"] = explain_dynatrace_apdex_pt_br(result)
     result["actual_dynatrace_tenant_consulted"] = args.live_base_url is not None
     result["dynatrace_provider_requests"] = 1 if args.live_base_url is not None else 0
