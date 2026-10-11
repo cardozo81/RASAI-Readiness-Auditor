@@ -70,7 +70,8 @@ def inspect_pipeline_step_timers(
         if path.stat().st_size > _MAX_BYTES:
             result["status"] = "LOG_TOO_LARGE"
             return result
-        data = path.read_bytes()
+        with path.open("rb") as stream:
+            data = stream.read(_MAX_BYTES + 1)
     except OSError:
         result["status"] = "LOG_READ_UNAVAILABLE"
         return result
