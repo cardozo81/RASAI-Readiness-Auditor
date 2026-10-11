@@ -26,6 +26,8 @@ def compare_dynatrace_settings_and_rum(
     base = {
         "contract_version": "RASAI-DYNATRACE-RUM-SETTINGS-COMPARISON-355-001",
         "status": "NOT_COMPARABLE", "reason": None,
+        # Two JSON exports can claim one app without authenticating each
+        # other. This pure reader cannot cryptographically attest a tenant.
         "application_scope_verified_across_sources": False,
         "rasai_same_browser_sample_verified": False,
         "rum_observation_matches_architecture_sample": False,
@@ -37,7 +39,8 @@ def compare_dynatrace_settings_and_rum(
         "review_findings": [],
         "limitations": (
             "Application ID matching only reconciles declared scope of "
-            "separately exported settings and reported aggregate USQL counts. "
+            "two separately supplied JSON documents; local JSON may be forged "
+            "and cannot authenticate Dynatrace tenant or account ownership. "
             "It cannot prove identical tenant/URL/browser/device/clock "
             "as the RASAi physical architecture observation, causal "
             "quality, instrumented soft navigation or raw census."
@@ -111,10 +114,11 @@ def compare_dynatrace_settings_and_rum(
     return {
         **base,
         "status": (
-            "MATCHED_APPLICATION_SCOPE_ONLY" if actual_settings
-            else "DECLARED_APPLICATION_SCOPE_ONLY"
+            "CLAIMED_LIVE_APPLICATION_ID_MATCH" if actual_settings
+            else "DECLARED_APPLICATION_ID_MATCH"
         ),
-        "application_scope_verified_across_sources": actual_settings,
+        "application_scope_verified_across_sources": False,
+        "settings_export_claims_live_origin": actual_settings,
         "application_id": application_id,
         "architecture": architecture,
         "declared_dynatrace_device_filter": rum_population.get(
