@@ -1,0 +1,35 @@
+name: Dynatrace live dual API crosscheck 355
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/dynatrace_live_crosscheck_355.py'
+      - 'tests/test_dynatrace_live_crosscheck_355.py'
+      - 'docs/DYNATRACE_LIVE_CROSSCHECK_355.md'
+      - '.github/workflows/dynatrace-live-crosscheck-355.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/dynatrace_live_crosscheck_355.py'
+      - 'tests/test_dynatrace_live_crosscheck_355.py'
+      - '.github/workflows/dynatrace-live-crosscheck-355.yml'
+permissions:
+  contents: read
+jobs:
+  dynatrace-live-join:
+    name: Dynatrace dual-read consent and scope (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package and pytest
+        run: python -m pip install -e . pytest
+      - name: Targeted Dynatrace dual API scope and offline USQL tests
+        run: python -m pytest -q tests/test_dynatrace_live_crosscheck_355.py tests/test_dynatrace_population_crosscheck_355.py
