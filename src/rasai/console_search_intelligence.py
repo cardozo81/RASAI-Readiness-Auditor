@@ -938,11 +938,11 @@ def install(console_module: ModuleType) -> None:
                     timeline = read_audit_attempt_timeline(Path(workspace.database), state.audit_id)
                     if timeline.attempts:
                         print(
-                            f"Cronologia IA M18/M20: {timeline.attempts} tentativas | "
+                            f"Tempo e consumo das análises por IA: {timeline.attempts} tentativas | "
                             f"soma {timeline.summed_duration_ms / 1000:.1f}s | "
                             f"ativo {timeline.union_active_ms / 1000:.1f}s"
                             if timeline.union_active_ms is not None else
-                            f"Cronologia IA M18/M20: {timeline.attempts} tentativas | "
+                            f"Tempo e consumo das análises por IA: {timeline.attempts} tentativas | "
                             f"soma {timeline.summed_duration_ms / 1000:.1f}s | "
                             "ativo não calculável (intervalos incompletos)"
                         )
