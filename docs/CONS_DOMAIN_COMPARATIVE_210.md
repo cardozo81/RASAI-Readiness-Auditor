@@ -61,3 +61,12 @@ A integração é uma demanda distinta de implementação produtiva;
 Esta fase modifica apenas o módulo advisory, seus testes isolados
 e a documentação. Nem o índice SQL, nem o seletor CONS homologado,
 nem seus manifests, coleta, IA, SCORE-GEO ou Apdex são alterados.
+
+## Validação adicional de identidade (#210)
+
+A prévia rejeita URLs com espaços nas extremidades, controles ASCII e
+barras invertidas, em vez de remover caracteres malformados e promover
+um recurso para a mesma origem/hostname. Esta regra só interpreta
+entradas do adaptador advisory e não reescreve URLs das AUDs.
+A comparação de caminhos distintos continua um **projeto metodológico**,
+não uma tendência por mesma página; o CONS produtivo permanece inalterado.

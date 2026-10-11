@@ -119,3 +119,22 @@ def test_no_external_call_or_materialization_imported():
     assert not any(name in module.__dict__ for name in (
         "requests", "httpx", "sqlite3", "AuditWorkspace", "materialize_geo_observation",
     ))
+
+
+def test_padded_control_or_backslash_url_cannot_become_verified_domain_source():
+    a = _candidate("AUD-ONE", "https://example.org/a")
+    bad_urls = (
+        " https://example.org/b",
+        "https://example.org/b ",
+        "https://example.org/b\n",
+        "https://example.org/b\t",
+        "https://example.org/b\r",
+        "https://example.org/b\x7f",
+        "https://example.org\\\\b",
+    )
+    for url in bad_urls:
+        other = _candidate("AUD-TWO", url, timestamp="2026-10-09T11:00:00Z")
+        result = preview_same_domain_candidates((a, other))
+        assert result["reason"] == "UNVERIFIABLE_SINGLE_URL", repr(url)
+        assert result["eligible"] is False
+        assert result["audit_writes"] == result["provider_requests"] == 0
