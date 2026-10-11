@@ -109,7 +109,7 @@ de erros (JavaScript, requisição, console, XHR/Fetch), escopo de erro,
 modo de sessão, volume de amostras, limite de tentativas, concorrência,
 intervalo e settle. Todos são projetados **somente** do
 `synthetic_ux_apdex_runs.configuration` da AUD corrente, em allowlist
-explícita. Ausência, campo inválido e legado produzem `N/D`; o relatório
+explícita. Ausência e campos inválidos em AUDs de versões anteriores produzem `N/D`; o relatório
 não reconsulta INI/env nem infere defaults Dynatrace ou RASAi.
 
 A interpretação preserva a fronteira temporal: `settle_seconds` é
