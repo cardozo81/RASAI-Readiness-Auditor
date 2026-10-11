@@ -25,6 +25,24 @@ from rasai.consolidation.domain_comparative_index_210 import (
 from rasai.consolidation.reader import source_file_fingerprint
 
 _VERSION = "CONS-DOMAIN-COMPARATIVE-1"
+_VERSION_BYTES = "CONS-DOMAIN-COMPARATIVE-2"
+_MAX_HASH_BYTES_TOTAL = 512 * 1024 * 1024
+
+
+def _source_sha256(path: Path, remaining_budget: int) -> tuple[str, int]:
+    """Hash bounded physical source bytes; never use mtime as content proof."""
+    size = path.stat().st_size
+    if size > remaining_budget:
+        raise ValueError("AUD bytes exceed local SHA-256 evidence budget")
+    digest = sha256()
+    consumed = 0
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            consumed += len(chunk)
+            if consumed > remaining_budget:
+                raise ValueError("AUD bytes changed beyond verification budget")
+            digest.update(chunk)
+    return digest.hexdigest(), consumed
 
 
 def _encode(obj: Any) -> bytes:
@@ -35,7 +53,8 @@ def _encode(obj: Any) -> bytes:
 
 
 def materialize_same_domain_package(
-    audits_root: Path, audit_ids: Sequence[str],
+    audits_root: Path, audit_ids: Sequence[str], *,
+    verify_source_bytes: bool = False,
 ) -> dict[str, Any]:
     """Opt-in standalone CDOM package; never mutate existing CONS-3 output."""
     root = Path(audits_root)
@@ -53,6 +72,8 @@ def materialize_same_domain_package(
     if not isinstance(expected, dict) or set(expected) != set(source_ids):
         raise ValueError("physical AUD source fingerprint proof is unavailable")
     fingerprints = {}
+    byte_hashes: dict[str, str] = {}
+    remaining_budget = _MAX_HASH_BYTES_TOTAL
     for audit_id in source_ids:
         parent = root / audit_id
         source = parent / "audit.db"
@@ -65,11 +86,24 @@ def materialize_same_domain_package(
         if current_fingerprint != expected[audit_id]:
             raise ValueError("AUD source changed during package preparation")
         fingerprints[audit_id] = current_fingerprint
+        if verify_source_bytes:
+            digest, consumed = _source_sha256(source, remaining_budget)
+            remaining_budget -= consumed
+            byte_hashes[audit_id] = digest
+            # Source metadata must still equal the indexed metadata after
+            # reading the physical bytes, not just before the SHA pass.
+            if source_file_fingerprint(source) != current_fingerprint:
+                raise ValueError("AUD source metadata changed during SHA-256 read")
     inputs = {
-        "contract_version": _VERSION,
+        "contract_version": _VERSION_BYTES if verify_source_bytes else _VERSION,
         "comparison_mode": "SAME_DOMAIN_COMPARATIVE",
         "source_audit_ids": source_ids,
         "source_file_metadata_fingerprints": fingerprints,
+        **({
+            "source_file_sha256": byte_hashes,
+            "source_bytes_locally_verified": True,
+            "source_bytes_budget_bytes": _MAX_HASH_BYTES_TOTAL,
+        } if verify_source_bytes else {}),
         "source_package_freshness_verified": False,
         "advisory": preview,
     }
@@ -85,14 +119,33 @@ def materialize_same_domain_package(
         "provider_requests": 0,
         "audit_writes": 0,
         "limitations": (
-            "Pacote local de comparação consultiva de URLs distintas. "
-            "Não é CONS-3, nem série da mesma URL, nem autenticação "
-            "criptográfica dos bytes das AUDs: fingerprints de origem "
-            "usam path, tamanho e mtime. Score, Apdex e CWV entre "
-            "universos não são comparáveis."
+            (
+                "Pacote local de comparação consultiva de URLs distintas. "
+                "Não é CONS-3, nem série da mesma URL, nem assinatura de "
+                "autenticidade das AUDs. SHA-256 comprova bytes locais lidos, "
+                "não autoria do provedor. Score, Apdex e CWV entre universos "
+                "não são comparáveis."
+            ) if verify_source_bytes else (
+                "Pacote local de comparação consultiva de URLs distintas. "
+                "Não é CONS-3, nem série da mesma URL, nem autenticação "
+                "criptográfica dos bytes das AUDs: fingerprints de origem "
+                "usam path, tamanho e mtime. Score, Apdex e CWV entre "
+                "universos não são comparáveis."
+            )
         ),
     }
     report_bytes = render_same_domain_advisory_html(preview).encode("utf-8")
+    # The SHA capture is optional (v2). A second read immediately before
+    # any package publication prevents a stale pinned source snapshot.
+    if verify_source_bytes:
+        remaining_budget = _MAX_HASH_BYTES_TOTAL
+        for audit_id in source_ids:
+            source = root / audit_id / "audit.db"
+            now_hash, consumed = _source_sha256(source, remaining_budget)
+            remaining_budget -= consumed
+            if (now_hash != byte_hashes[audit_id]
+                    or source_file_fingerprint(source) != fingerprints[audit_id]):
+                raise ValueError("AUD source bytes changed before CDOM publication")
     manifest_bytes = _encode(manifest)
     destination_root = root / "consolidated-domain"
     dest = destination_root / package_id
@@ -149,12 +202,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--audits-root", type=Path, required=True)
     parser.add_argument("--audit-id", action="append", required=True)
     parser.add_argument("--write-domain-package", action="store_true")
+    parser.add_argument(
+        "--verify-source-bytes", action="store_true",
+        help="Opt-in bounded SHA-256 of source AUD files; v2 standalone package.",
+    )
     args = parser.parse_args(argv)
     if not args.write_domain_package:
         parser.error("explicit --write-domain-package required")
     try:
         outcome = materialize_same_domain_package(
             args.audits_root, args.audit_id,
+            verify_source_bytes=args.verify_source_bytes,
         )
     except (ValueError, OSError, sqlite3.DatabaseError) as exc:
         parser.error(str(exc))
