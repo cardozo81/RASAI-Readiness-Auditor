@@ -112,3 +112,27 @@ Não foi executado smoke com coleta nem API comercial.
 Próxima dependência da #319: tempos físicos **da própria fase**
 precisam de marcos instrumentados com `execution_id` e período de
 execução inequívoco. O WKA não autoriza afirmar duração física exclusiva.
+
+## Durações monotônicas de wrappers do pipeline - evidência consultiva
+
+O runtime `audit_progress_runtime._wrap_step` já emite eventos
+`AUDIT_PIPELINE_STEP_FINISHED` no arquivo operacional `logs/audit.log`.
+O inspetor `rasai audit-attempts AUD-DIR` agora projeta
+`pipeline_step_timer_evidence`, somente quando o JSONL local
+contém duração monotônica `duration_ms` válida, ID da AUD e timestamp
+com fuso. Limites: 8 MiB, 4.000 eventos; não gera arquivos,
+não chama provedores e recusa symlinks ou registro corrompido.
+
+Cada linha é **somente o tempo observado de um wrapper de
+execução**, com possibilidade de sobreposição, etapas aninhadas,
+falha, continuação ou RPR. O log não é evidência selada:
+`operational_log_sealed_evidence=false`,
+`exclusive_stage_wall_clock_proven=false` e
+`non_ai_stages_measured=false`. Mesmo um evento dentro da sessão
+física verificada recebe `WITHIN_VERIFIED_WINDOW_UNSEALED`,
+não é convertido em cronômetro exclusivo de captura/Apdex ou
+parcela somável à duração física da AUD.
+
+Este recorte usa instrumentos já existentes, sem novos hooks,
+mas não homologa overhead de sensor de conteúdo nem previsão
+ex ante de custos e tempos por etapa.
