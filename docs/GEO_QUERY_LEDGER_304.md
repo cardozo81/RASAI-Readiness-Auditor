@@ -52,3 +52,33 @@ Testes focados usam SQLite físico sintético, inclusive schema anterior
 multi-query sem per-source query, troca de identidade AUD, dados
 parciais/fora da janela, clocks/serp duplicados e invariância dos bytes
 do banco. Nenhuma consulta Perplexity, SERP ou IA real foi executada.
+
+
+## Contrato v2: presença exata da URL da própria AUD
+
+O ledger `RASAI-GEO-PER-QUERY-304-ADVISORY-002` apresenta
+`aud_target_scope` e, somente se existir **uma** linha
+`audit_targets` pertencente à AUD com URL exata válida,
+`aud_target_exact_url`. Para cada query com dois denominadores
+fisicamente atribuíveis e escopo SERP observado, os campos
+`target_url_exact_in_serp` e
+`target_url_exact_in_perplexity` indicam presença da mesma URL
+nos respectivos conjuntos de fontes.
+
+`target_url_overlap_status` pode ser
+`BOTH_SOURCE_SETS`, `SERP_SOURCE_SET_ONLY`,
+`EXTERNAL_SOURCE_SET_ONLY` ou
+`NEITHER_RETURNED_SOURCE_SET`. Sem alvo único comprovado,
+sem per-source query em multi-query ou sem observação comparável,
+o estado é `N/D`, e os dois indicadores são **nulos**, não
+`false`. Alvos de outra AUD ou com URL malformada nunca
+entram na conclusão.
+
+A identidade exata das URLs segue o contrato GEO v8: não
+presume redirecionamento, equivalência entre `/path` e
+`/path/`, www/apex nem entre esquemas/portas.
+Os indicadores descrevem unicamente fontes URL retornadas,
+**não** ranqueamento, menção/citação em texto gerado,
+participação GEO, causalidade, intenção ou visibilidade.
+O runtime Perplexity, SERP, relatórios homologados,
+SARI/SCORE-GEO e bancos persistidos continuam inalterados.
