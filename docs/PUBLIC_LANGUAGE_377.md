@@ -1,6 +1,6 @@
-# #377 — Vocabulário público e rastreabilidade técnica
+# #377 - Vocabulário público e rastreabilidade técnica
 
-## Inventário focalizado — ciclo pré-smoke
+## Inventário focalizado - ciclo pré-smoke
 
 | Origem | Texto anterior no usuário | Rótulo público | Decisão |
 | --- | --- | --- | --- |
