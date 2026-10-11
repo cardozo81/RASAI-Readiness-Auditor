@@ -6,6 +6,7 @@ instrumentation, raw RUM census or synthetic M23/M25 Apdex equivalence.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
 from typing import Any, Callable, Sequence
@@ -96,6 +97,15 @@ def inspect_live_dynatrace_apdex_coverage(
             or rum_result.get("application_id") != application_id
             or rum_result.get("target_url") != target_url
             or rum_result.get("declared_dynatrace_device_filter") != dynatrace_device
+            or rum_result.get("population_query_scoped_to_exact_url_device_window")
+            is not True
+            or rum_result.get("rum_action_aggregate_returned") is not True
+            or rum_result.get("period_start_utc") != datetime.fromtimestamp(
+                start_timestamp_ms / 1000, timezone.utc
+            ).isoformat()
+            or rum_result.get("period_end_utc") != datetime.fromtimestamp(
+                end_timestamp_ms / 1000, timezone.utc
+            ).isoformat()
             or rum_result.get("provider_requests") != 1):
         raise ValueError("Dynatrace responses do not attest requested bounded scope")
 
