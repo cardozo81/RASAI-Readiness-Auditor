@@ -22,7 +22,7 @@ def _db(tmp_path):
             CREATE TABLE serp_competitive_pages(
                 observation_id TEXT, role TEXT, requested_url TEXT,
                 final_url TEXT, fetch_status TEXT, http_status INTEGER,
-                content_sha256 TEXT, bytes_read INTEGER, word_count INTEGER,
+                content_type TEXT, content_sha256 TEXT, bytes_read INTEGER, word_count INTEGER,
                 title TEXT, headings_json TEXT,
                 query_terms_json TEXT, query_terms_body_json TEXT
             );
@@ -39,8 +39,8 @@ def _db(tmp_path):
         )
         def page(obs, role, url, words, *, status="OBSERVED", sha="a"*64):
             con.execute(
-                "INSERT INTO serp_competitive_pages VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (obs, role, url, url, status, 200, sha, 500, words,
+                "INSERT INTO serp_competitive_pages VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (obs, role, url, url, status, 200, "text/html; charset=utf-8", sha, 500, words,
                  "Seguros" if words else "", json.dumps(["Cobertura"] if words else []),
                  json.dumps(["seguro", "vida"] if obs == "SERP-1" else ["seguro", "carro"]),
                  json.dumps(["seguro"] if words else [])),
@@ -60,6 +60,7 @@ def test_only_persisted_same_serp_html_pair_is_compared_and_db_is_immutable(tmp_
     assert value["context"]["device"] == "MOBILE"
     assert value["context"]["html_fetch_timestamp"] is None
     assert value["customer"]["content_sha256"] == "a" * 64
+    assert value["customer"]["verified_html_media_type"] == "text/html"
     assert value["comparisons"][0]["observed_word_count_difference"] == 100
     assert len(value["comparisons"]) == 1
     assert "intruder.org" not in json.dumps(value)
@@ -181,3 +182,50 @@ def test_query_terms_observed_do_not_establish_primary_content(tmp_path):
     assert result["competitors"][0]["query_body_terms"] == ["seguro"]
     assert result["customer"]["primary_content_proven"] is False
     assert "shells SPA e menus" in result["limitations"]
+
+
+def test_non_html_200_body_cannot_be_counted_as_competitor_content(tmp_path):
+    db = _db(tmp_path)
+    for media_type in ("application/pdf", "text/plain", "", "image/svg+xml", None):
+        with sqlite3.connect(db) as con:
+            con.execute(
+                "UPDATE serp_competitive_pages SET content_type=? "
+                "WHERE role='COMPETITOR_CANDIDATE' AND observation_id='SERP-1'",
+                (media_type,),
+            )
+        result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+        assert result["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+        assert result["comparisons"] == []
+        assert result["competitors"][0]["verified_html_media_type"] is None
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET content_type=? "
+            "WHERE role='COMPETITOR_CANDIDATE' AND observation_id='SERP-1'",
+            ("application/xhtml+xml",),
+        )
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "DESCRIPTIVE_PERSISTED_HTML_COMPARISON"
+    assert result["competitors"][0]["verified_html_media_type"] == "application/xhtml+xml"
+
+
+def test_historical_schema_without_mime_evidence_abstains_readonly(tmp_path):
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE serp_observations (
+                observation_id TEXT, audit_id TEXT, query TEXT,
+                collected_at TEXT, observation_status TEXT, data_mode TEXT
+            );
+            CREATE TABLE serp_competitive_pages (
+                observation_id TEXT, role TEXT, requested_url TEXT,
+                final_url TEXT, fetch_status TEXT, http_status INTEGER,
+                content_sha256 TEXT, bytes_read INTEGER, word_count INTEGER,
+                title TEXT, headings_json TEXT,
+                query_terms_json TEXT, query_terms_body_json TEXT
+            );
+        """)
+    old = db.read_bytes()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "CONTENT_EVIDENCE_SCHEMA_ND"
+    assert result["comparisons"] == []
+    assert db.read_bytes() == old
