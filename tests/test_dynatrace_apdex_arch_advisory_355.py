@@ -397,3 +397,40 @@ def test_offline_effective_values_cli_is_read_only_with_explicit_unverified_scop
             "--architecture", "CSR_SPA",
             "--effective-values-json", str(path),
         ])
+
+
+def test_pt_br_advisory_spa_load_only_never_claims_captured_xhr():
+    from rasai.dynatrace_apdex_arch_advisory_355 import explain_dynatrace_apdex_pt_br
+    verdict = _assess(settings=_config())
+    explanation = explain_dynatrace_apdex_pt_br(verdict)
+    assert explanation["conclusao"] == "Cobertura das ações não comprovada"
+    assert explanation["metricas_declaradas_na_configuracao"] == {"Load": "VISUALLY_COMPLETE"}
+    assert "Configuração de Apdex XHR não fornecida" in explanation["motivos"]
+    assert "não comprova captura" in explanation["limite_metodologico"]
+    assert "mesma amostra" in explanation["limite_metodologico"]
+    assert explanation["arquitetura_informada"] == "CSR_SPA"
+
+
+def test_pt_br_advisory_rejects_fabricated_metrics_and_surfaces_threshold_reasons():
+    from rasai.dynatrace_apdex_arch_advisory_355 import explain_dynatrace_apdex_pt_br
+    cfg = _config(xhr=True)
+    cfg["xhr_actions"]["kpm"] = "SPEED_INDEX"
+    invalid = _assess(settings=cfg)
+    report = explain_dynatrace_apdex_pt_br(invalid)
+    assert report["metricas_declaradas_na_configuracao"] == {}
+    assert "XHR: KPM incompatível com o tipo de ação" in report["motivos"]
+    assert report["conclusao"] == "Configuração fornecida inconsistente ou inválida"
+
+
+def test_pt_br_offline_cli_explains_unknown_without_ever_claiming_real_rum(
+    tmp_path, capsys,
+):
+    from rasai.dynatrace_apdex_review_cli_355 import main
+    assert main(["--architecture", "UNKNOWN"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    message = payload["analyst_guidance_pt_br"]
+    assert message["conclusao"] == "Diagnóstico não determinável com as evidências fornecidas"
+    assert message["motivos"] == ["Arquitetura não determinada"]
+    assert message["metricas_declaradas_na_configuracao"] == {}
+    assert payload["actual_dynatrace_tenant_consulted"] is False
+    assert payload["audit_writes"] == payload["dynatrace_provider_requests"] == 0
