@@ -766,3 +766,13 @@ legíveis ao usuário. Não transforma dados, não infere ações XHR
 ou interatividade e não aplica presets ao histórico.
 As informações de arquitetura e perfil pertencem exclusivamente
 ao snapshot congelado da AUD e à medição persistida.
+
+
+### Readiness das consultas opt-in (hardening #318)
+
+O painel de preparação da próxima AUD considera a pesquisa **não apta** quando
+as queries explicitamente informadas excedem cinco, contêm entradas vazias
+ou não são strings. A integração habilitada e a chave presente **não**
+transformam consultas inválidas em autorização comercial. O editor CAT-05
+permanece o único caminho de correção e autorização do pedido; a avaliação
+é somente leitura, sem chamadas Perplexity.
