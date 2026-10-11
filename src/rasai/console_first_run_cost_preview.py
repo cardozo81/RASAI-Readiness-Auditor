@@ -12,7 +12,7 @@ from typing import Any
 
 from rasai.console_cost import ExposureEstimate, estimate_exposure
 from rasai.console_ui import CYAN, DIM, GREEN, YELLOW, paint, title_text
-from rasai.console_cost_confirmation import _financial_execution_action
+from rasai.console_cost_confirmation import _financial_execution_action, preauthorized_exposure_execution
 from rasai.cost_forecast import CostForecast, forecast_local_cost
 
 _DECLINED: set[int] = set()
@@ -122,7 +122,10 @@ def install(console_module: ModuleType) -> None:
                 else "LOCAL:COST_EXPOSURE_CONFIRMED_NO_AI"
             )
             with execution_ai_choice(state, use_ai):
-                return int(original_run(state) or 0)
+                # C/N above is the final approval. The inner no-cost wrapper
+                # must consume it once, rather than prompting a second time.
+                with preauthorized_exposure_execution(state):
+                    return int(original_run(state) or 0)
 
     def post_run(state: Any) -> bool:
         if id(state) in _DECLINED:
