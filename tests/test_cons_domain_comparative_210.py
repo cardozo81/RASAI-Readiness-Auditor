@@ -126,10 +126,10 @@ def test_padded_control_or_backslash_url_cannot_become_verified_domain_source():
     bad_urls = (
         " https://example.org/b",
         "https://example.org/b ",
-        "https://example.org/b\\n",
-        "https://example.org/b\\t",
-        "https://example.org/b\\r",
-        "https://example.org/b\\x7f",
+        "https://example.org/b\n",
+        "https://example.org/b\t",
+        "https://example.org/b\r",
+        "https://example.org/b\x7f",
         "https://example.org\\\\b",
     )
     for url in bad_urls:
