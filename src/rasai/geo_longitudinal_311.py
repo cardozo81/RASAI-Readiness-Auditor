@@ -36,6 +36,65 @@ def _aware(raw: object) -> datetime | None:
 
 
 
+def _v8_source_counts_match(
+    con: sqlite3.Connection, run_id: str, serp_id: str, projection: dict[str, Any],
+) -> bool:
+    """Verify v8 rate denominators against the physically persisted URL sets.
+
+    Historical v5-v7 are not reinterpreted with current v8 URL normalization.
+    A count in a signed-looking snapshot is not proof that the physical
+    Search/SERP rows still support that number.
+    """
+    px_rows = con.execute(
+        "SELECT url FROM perplexity_search_sources WHERE run_id=?", (run_id,)
+    ).fetchall()
+    serp_rows = con.execute(
+        "SELECT url FROM serp_results WHERE observation_id=?", (serp_id,)
+    ).fetchall()
+    px = {_canonical_url(row[0]) for row in px_rows}
+    serp = {_canonical_url(row[0]) for row in serp_rows}
+    px.discard("")
+    serp.discard("")
+    if not px or not serp:
+        return False
+    overlap = projection.get("descriptive_overlap")
+    if not isinstance(overlap, dict) or overlap.get("status") != "DESCRIPTIVE_ONLY":
+        return False
+    common = len(px & serp)
+    union = len(px | serp)
+    expected_ints = {
+        "serp_denominator": len(serp),
+        "perplexity_denominator": len(px),
+        "common_urls": common,
+        "serp_only_count": len(serp - px),
+        "perplexity_only_count": len(px - serp),
+    }
+    expected_rates = {
+        "serp_overlap_rate": round(common / len(serp), 4),
+        "perplexity_overlap_rate": round(common / len(px), 4),
+        "jaccard_url_rate": round(common / union, 4),
+    }
+    return (
+        type(projection.get("source_count")) is int
+        and projection["source_count"] == len(px_rows)
+        and all(
+            type(overlap.get(key)) is int and overlap[key] == value
+            for key, value in expected_ints.items()
+        )
+        and all(
+            type(overlap.get(key)) in (int, float)
+            and float(overlap[key]) == value
+            for key, value in expected_rates.items()
+        )
+        and type(projection.get("serp_url_count")) is int
+        and projection["serp_url_count"] == len(serp)
+        and type(projection.get("perplexity_url_count")) is int
+        and projection["perplexity_url_count"] == len(px)
+        and type(projection.get("url_overlap_count")) is int
+        and projection["url_overlap_count"] == common
+    )
+
+
 def _source_provenance(
     root: Path, audit_id: str, stored: dict[str, Any], projection: dict[str, Any],
 ) -> bool:
@@ -78,8 +137,11 @@ def _source_provenance(
             if len(runs) != 1 or len(serps) != 1:
                 return False
             run, serp = runs[0], serps[0]
-            px = projection.get("comparability", {}).get("perplexity_context")
-            sc = projection.get("comparability", {}).get("serp_context")
+            comparison = projection.get("comparability")
+            if not isinstance(comparison, dict):
+                return False
+            px = comparison.get("perplexity_context")
+            sc = comparison.get("serp_context")
             if not isinstance(px, dict) or not isinstance(sc, dict):
                 return False
             queries = json.loads(str(run["query_json"]))
@@ -96,11 +158,15 @@ def _source_provenance(
                 or _aware(serp["collected_at"]) != _aware(sc.get("collected_at"))
             ):
                 return False
-            return all(
+            if not all(
                 str(serp[key] or "").strip().casefold()
                 == str(sc.get(key) or "").strip().casefold()
                 for key in _SCOPE_KEYS
-            )
+            ):
+                return False
+            if stored.get("contract_version") == "RASAI-GEO-OBSERVATION-8":
+                return _v8_source_counts_match(con, run_id, serp_id, projection)
+            return True
     except (sqlite3.Error, ValueError, TypeError, OSError, IndexError):
         return False
 
