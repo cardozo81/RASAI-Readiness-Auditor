@@ -50,7 +50,7 @@ def test_existing_index_yields_same_host_advisory_without_creating_cons(tmp_path
     assert result["production_cons_mode_changed"] is False
     assert result["audit_score_deltas_eligible"] is False
     assert result["apdex_or_cwv_deltas_eligible"] is False
-    assert result["source_audits_reopened_for_freshness"] is False if "source_audits_reopened_for_freshness" in result else True
+    assert result["index_reference"]["source_audits_reopened_for_freshness"] is False
     assert result["index_reference"]["source_package_freshness_verified"] is False
     assert result["index_reference"]["native_cons3_created"] is False
     assert result["index_reference"]["index_writes"] == 0
