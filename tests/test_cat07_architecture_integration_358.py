@@ -426,3 +426,45 @@ def test_cat07_no_snapshot_does_not_claim_observed_architecture(tmp_path):
     assert "Informada pelo operador; sem observação conclusiva" in html
     assert "Tempo até o documento ficar interativo (DOM)" in html
     assert "Identificada pela captura desta auditoria" not in html
+
+
+def test_cat07_recorded_error_policy_and_context_are_safe_and_do_not_touch_aud(tmp_path):
+    db = tmp_path / "audit.db"
+    _db(db, cfg={
+        "kpm": "USER_ACTION_DURATION",
+        "satisfied_threshold_seconds": 3.0,
+        "frustrated_threshold_seconds": 12.0,
+        "request_errors_affect_apdex": False,
+        "console_errors_affect_apdex": True,
+        "xhr_capture": True,
+        "error_scope": "first-party",
+        "target_samples_per_page": 12,
+        "concurrency": 3,
+        "settle_seconds": 5.0,
+        "dynatrace_base_url": "NEVER_RENDER_TENANT_SECRET",
+        "dynatrace_config_json": "NEVER_RENDER_VENDOR_JSON",
+    })
+    before = db.read_bytes()
+    html = cat07_architecture_advice_html(db, "AUD-1")
+    assert "Políticas de erro e contexto efetivamente persistidos" in html
+    assert "Erros de requisição impactam a classificação:</strong> Não" in html
+    assert "Erros de console impactam a classificação:</strong> Sim" in html
+    assert "Escopo dos erros:</strong> first-party" in html
+    assert "Concorrência efetiva:</strong> 3" in html
+    assert "Observação pós-load (s; não somada ao Apdex):</strong> 5.0" in html
+    assert "Capturar XHR/Fetch não equivale" in html
+    assert "NEVER_RENDER_TENANT_SECRET" not in html
+    assert "NEVER_RENDER_VENDOR_JSON" not in html
+    assert db.read_bytes() == before
+    assert cat07_architecture_advice_html(db, "AUD-1") == html
+
+
+def test_cat07_legacy_policy_does_not_inherit_host_defaults(tmp_path):
+    db = tmp_path / "audit.db"
+    _db(db, cfg={"kpm": "USER_ACTION_DURATION",
+                 "satisfied_threshold_seconds": 3.0,
+                 "frustrated_threshold_seconds": 12.0})
+    html = cat07_architecture_advice_html(db, "AUD-1")
+    assert "Escopo dos erros:</strong> N/D" in html
+    assert "Concorrência efetiva:</strong> N/D" in html
+    assert "Captura de observações XHR:</strong> N/D" in html
