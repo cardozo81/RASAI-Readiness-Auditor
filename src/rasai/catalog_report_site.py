@@ -86,7 +86,7 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
         body+=_section(
             "ai-attempt-timeline",
             "Linha temporal e valores das chamadas de IA",
-            "<p>São durações por tentativa nas bases M18/M20, não o tempo total "
+            "<p>São durações das solicitações de análise por IA, não o tempo total "
             "da auditoria. Chamadas simultâneas se sobrepõem. A soma das durações "
             "não representa tempo de parede. Quando há timestamps completos, "
             "ambas as durações usam o mesmo relógio; caso contrário, "
@@ -137,7 +137,7 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
         body += _section(
             "ai-session-scope-319",
             "Chamadas de IA por etapa e posição temporal na auditoria",
-            "<p>Observação adicional M18/M20: a classificação temporal depende "
+            "<p>Observação adicional das tentativas de IA: a classificação temporal depende "
             "de uma única sessão de console COMPLETE com início, fim e duração "
             "coerentes. Não equivale à atribuição funcional de RPR, análise "
             "direcionada ou suplemento nem demonstra inclusão na previsão "
@@ -217,7 +217,7 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
         ]
         body += _section(
             "http-request-observations-319",
-            "Tempos observados de requisições web — M21",
+            "Tempos observados de requisições web",
             "<p>A soma abaixo considera somente durações HTTP PSI/CrUX "
             "persistidas, verificadas e pertencentes à auditoria. "
             "Não representa o tempo físico da etapa, a experiência real "
@@ -227,7 +227,7 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
             "inteiro permanece N/D, nunca zero presumido. "
             "Não há cronômetro físico de etapa não-IA validado.</p>"
             + _table(
-                ("Serviço M21", "Soma observada HTTP", "Proveniência",
+                ("Serviço web", "Soma observada HTTP", "Proveniência",
                  "Tempo físico da etapa"),
                 http_rows,
             ),

@@ -282,8 +282,8 @@ def explain_dynatrace_apdex_pt_br(result: Mapping[str, Any]) -> dict[str, Any]:
         "limite_metodologico": (
             "Configuração fornecida pelo operador, não verificada no tenant. "
             "A presença de configuração Load/XHR/Custom não comprova captura, "
-            "população de ações, URL, período nem a mesma amostra observada pelo M6. "
-            "O Apdex sintético RASAi M23/M25 não foi recalculado. "
+            "população de ações, URL, período nem a mesma amostra da identificação de arquitetura. "
+            "Os índices sintéticos de navegação e experiência do RASAi não foram recalculados. "
             "Não existem thresholds universais do Dynatrace por arquitetura."
         ),
     }

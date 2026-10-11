@@ -161,7 +161,7 @@ def test_cat07_report_shows_actual_m6_and_effective_m25_without_modifying_aud(tm
     assert "Configuração efetiva do Apdex de experiência" in html
     assert "Duração da ação de carregamento inicial" in html
     assert "Identificada pela captura desta auditoria" in html
-    assert "Rastreabilidade da arquitetura M6 (contexto observado)" in html
+    assert "Rastreabilidade da arquitetura identificada (contexto observado)" in html
     assert "snapshot <code>SNP-1</code>" in html
     assert "página <code>P-1</code>" in html
     assert "dispositivo <code>MOBILE</code>" in html
@@ -188,7 +188,7 @@ def test_cat07_report_mixed_or_old_evidence_abstains_without_source_leak(tmp_pat
     assert "múltiplas capturas" in html
     assert "Não determinada" in html
     assert "Não determinável" in html
-    assert "Rastreabilidade da arquitetura M6:</strong> N/D" in html
+    assert "Rastreabilidade da arquitetura identificada:</strong> N/D" in html
     assert "snapshot <code>SNP-1</code>" not in html
     assert "snapshot <code>SNP-2</code>" not in html
     assert "Motivos do diagnóstico:" in html
