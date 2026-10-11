@@ -319,7 +319,7 @@ def _configure_experience(state: State) -> None:
     state.apdex_experience = enabled
     if not enabled:
         return
-    print(paint("  Arquitetura é uma declaração prévia; a classificação M6 será descoberta depois da coleta.", DIM))
+    print(paint("  Arquitetura é uma declaração prévia; a arquitetura será identificada durante a coleta.", DIM))
     state.apdex_experience_architecture = _choice(
         "Arquitetura esperada da URL (AUTO = ainda não determinada)",
         state.apdex_experience_architecture,
