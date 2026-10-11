@@ -6,7 +6,6 @@ authoritative freshness attestation of audit.db sources.
 from __future__ import annotations
 
 import argparse
-from hashlib import sha256
 import json
 from pathlib import Path
 import re
@@ -18,7 +17,6 @@ from rasai.consolidation.domain_comparative_preview_210 import preview_same_doma
 from rasai.consolidation.selection import AuditCandidate
 
 _AUD = re.compile(r"^AUD-[A-Za-z0-9-]{1,100}$")
-_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _SCHEMA_VERSION = 1
 
 
