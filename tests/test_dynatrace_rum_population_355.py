@@ -72,6 +72,9 @@ def test_single_scoped_aggregate_query_and_no_private_session_export():
         "load": 7, "xhr": 25, "custom": 2, "other": 3,
     }
     assert result["action_count_total"] == 37
+    assert result["usql_extrapolation_level"] is None
+    assert result["usql_reported_counts_extrapolated"] is None
+    assert result["raw_rum_action_census_verified"] is False
     assert result["rasai_same_browser_sample_verified"] is False
     assert result["population_query_scoped_to_exact_url_device_window"] is True
     assert result["audit_writes"] == 0
@@ -179,3 +182,30 @@ def test_live_cli_cannot_query_without_explicit_flag(capsys):
               "--end-timestamp-ms", str(END)])
     assert exc.value.code == 2
     assert "explicit --allow-live-usql-read" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("extrapolation", "expected"),
+    [
+        (1, False),
+        (4, True),
+        (100, True),
+    ],
+)
+def test_usql_extrapolation_disclosed_without_raw_census_claim(
+    extrapolation, expected,
+):
+    table = dict(TABLE, extrapolationLevel=extrapolation)
+    value = _read(_FakeOpener(table))
+    assert value["action_counts"]["load"] == 7
+    assert value["usql_extrapolation_level"] == extrapolation
+    assert value["usql_reported_counts_extrapolated"] is expected
+    assert value["raw_rum_action_census_verified"] is False
+    assert value["rasai_same_browser_sample_verified"] is False
+
+
+@pytest.mark.parametrize("bad_level", (True, 0, -1, 1.5, "4", {}, 5000))
+def test_usql_invalid_extrapolation_levels_fail_closed(bad_level):
+    table = dict(TABLE, extrapolationLevel=bad_level)
+    with pytest.raises(ValueError, match="extrapolation"):
+        _read(_FakeOpener(table))

@@ -269,3 +269,17 @@ Fonte oficial: [User Sessions API - GET table]
 A issue #355 continua pendente para correlacionar dados físicos com
 aplicação/URL/dispositivo e janela de AUD real. Não alegar essa validação
 somente com fakes HTTP ou query agregada.
+
+### Extrapolação e contagens USQL não equivalentes a censo
+
+A documentação oficial do endpoint `/table` registra
+`extrapolationLevel`: nível `4`, por exemplo, indica extrapolação de
+dados capturados em apenas um quarto da população. O adaptador agora
+exibe `usql_extrapolation_level` quando informado e
+`usql_reported_counts_extrapolated=true` se for maior que um.
+Campo ausente -> `null` (N/D), **nunca** significa contagem bruta
+homologada; `raw_rum_action_census_verified=false` em todos os casos.
+Valores inválidos ou sem tipo numérico inteiro resultam em erro
+fail-closed. Por isso, as `action_counts` são quantidades reportadas
+pela API, não volume físico comprovado de eventos de um mesmo browser.
+Fonte: https://docs.dynatrace.com/docs/dynatrace-api/environment-api/rum/user-sessions/table
