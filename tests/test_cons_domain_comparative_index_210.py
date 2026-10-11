@@ -86,6 +86,30 @@ def test_invalid_selected_ids_and_multiple_urls_fail_closed(tmp_path):
         domain_preview_from_index(root, ("AUD-ONE", "AUD-TWO"))
 
 
+def test_malformed_source_fingerprint_cannot_create_eligible_comparison(tmp_path):
+    root, db = _index(tmp_path)
+    for malformed in ("CORRUPT", "a" * 63, "z" * 64, " " + "a" * 64):
+        with sqlite3.connect(db) as connection:
+            connection.execute(
+                "UPDATE source_audits SET source_fingerprint=? WHERE audit_id=?",
+                (malformed, "AUD-TWO"),
+            )
+        before = db.read_bytes()
+        with pytest.raises(ValueError, match="fingerprint"):
+            domain_preview_from_index(root, ("AUD-ONE", "AUD-TWO"))
+        assert db.read_bytes() == before
+    with sqlite3.connect(db) as connection:
+        connection.execute(
+            "UPDATE source_audits SET source_fingerprint=? WHERE audit_id=?",
+            ("b" * 64, "AUD-TWO"),
+        )
+    # Correct syntax is necessary but does not attest the original AUD's
+    # freshness or validate the cache fingerprint against a source file.
+    value = domain_preview_from_index(root, ("AUD-ONE", "AUD-TWO"))
+    assert value["eligible"] is True
+    assert value["index_reference"]["source_package_freshness_verified"] is False
+
+
 def test_missing_index_is_not_created(tmp_path):
     root = tmp_path / "audits"
     root.mkdir()
