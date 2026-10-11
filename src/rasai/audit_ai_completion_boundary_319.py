@@ -18,11 +18,9 @@ from rasai.audit_attempt_timeline import _group, _stage
 _MAX_ATTEMPTS = 5000
 _BUCKETS = ("DURING_AUD", "AFTER_AUD", "CROSSES_AUD_COMPLETION", "UNKNOWN_CLOCK")
 _TABLES = ("ai_provider_attempts", "content_remediation_attempts")
-_REQUIRED = {
-    "attempt_id", "audit_id", "started_at", "finished_at", "duration_ms",
-    "estimated_cost", "cost_currency", "observed_cost",
-    "observed_cost_currency",
-}
+# Amount and duration fields can be absent in older physical AUDs. The
+# reused stage ledger treats missing cost as unpriced (N/D), not zero.
+_REQUIRED = {"attempt_id", "audit_id", "started_at", "finished_at"}
 
 
 def _utc(value: object) -> datetime | None:
