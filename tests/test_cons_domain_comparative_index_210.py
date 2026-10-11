@@ -104,3 +104,17 @@ def test_cli_is_read_only_and_never_launches_consolidation(tmp_path, capsys):
     assert result["index_reference"]["read_only"] is True
     assert result["index_reference"]["source_package_freshness_verified"] is False
     assert index.read_bytes() == original
+
+
+def test_wal_or_sqlite_journal_sidecar_abstains_without_reading_stale_index(tmp_path):
+    root, db = _index(tmp_path)
+    original = db.read_bytes()
+    for suffix in ("-wal", "-shm", "-journal"):
+        sidecar = db.parent / (db.name + suffix)
+        sidecar.write_bytes(b"UNVERIFIED-IN-PROGRESS")
+        try:
+            with pytest.raises(ValueError, match="sidecars"):
+                domain_preview_from_index(root, ("AUD-ONE", "AUD-TWO"))
+            assert db.read_bytes() == original
+        finally:
+            sidecar.unlink()
