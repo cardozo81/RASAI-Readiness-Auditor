@@ -136,3 +136,34 @@ parcela somável à duração física da AUD.
 Este recorte usa instrumentos já existentes, sem novos hooks,
 mas não homologa overhead de sensor de conteúdo nem previsão
 ex ante de custos e tempos por etapa.
+
+
+## Replay cronologico pre-execucao de P90 (#319)
+
+A prévia de `audit_duration_forecast_319.py` mantém o backtest
+retrospectivo leave-one-out como descritor secundário, sem alterar
+preço, orquestrador, motor de coleta, cálculo de tempo histórico nem
+o contrato já materializado. Um **segundo diagnóstico**,
+`forward_p90_backtest`, avalia as AUDs cronologicamente, em janela
+expansiva: para cada início físico do console, o P90 é calculado
+**exclusivamente** com AUDs comparáveis, completas e terminadas
+até esse início. Auditorias em andamento, iniciadas simultaneamente
+ou encerradas no futuro não entram na amostra daquele instante.
+
+Critérios: mínimo de oito AUDs físicas elegíveis no total, mínimo
+de cinco AUDs anteriores **já concluídas** por janela avaliada e
+pelo menos três janelas realmente avaliáveis. Se esses requisitos
+não forem demonstráveis, `forward_p90_backtest=None` (N/D),
+mesmo que o leave-one-out retrospectivo ainda exista. A ordenação
+é pelos relógios persistidos da execução; a data de modificação do
+arquivo pode limitar quais AUDs são inspecionadas, mas **não** pode
+determinar a posição temporal de um fold.
+
+O console mostra a fração de execuções cuja duração observada ficou
+dentro do P90 conhecido *antes* da execução, com ressalva explícita
+de que se trata de observações locais, não homologação prospectiva
+em produção, previsão individual ou SLA de 90%. Os testes cobrem
+crescimento da duração que estoura o P90 disponível no passado,
+execuções simultâneas, ordenação de mtime invertida, AUD parcial
+excluída da janela e preservação dos arquivos físicos. Sem requisições
+externas e sem alteração de scores.

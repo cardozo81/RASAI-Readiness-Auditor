@@ -21,6 +21,7 @@ from rasai.audit_attempt_timeline import read_audit_attempt_timeline
 
 _MIN_RUNS = 5
 _MIN_BACKTEST_RUNS = 8
+_MIN_FORWARD_FOLDS = 3
 _MAX_RUNS_SCANNED = 200
 _MAX_WALL_MS = 48 * 60 * 60 * 1000
 _COMPARABLE_FIELDS = (
@@ -51,6 +52,17 @@ class DurationP90Backtest:
 
 
 @dataclass(frozen=True, slots=True)
+class DurationForwardP90Backtest:
+    """Chronological expanding-origin replay; not a prospectively tested SLA."""
+
+    evaluated_runs: int
+    within_prior_p90: int
+    observed_fraction: float
+    min_prior_cohort: int
+    method: str = "PAST_COMPLETED_AUDS_ONLY_EXPANDING_WINDOW"
+
+
+@dataclass(frozen=True, slots=True)
 class AuditDurationForecast:
     sample_runs: int
     total: DurationRange | None
@@ -59,6 +71,7 @@ class AuditDurationForecast:
     source: str = "historico-local-console"
     notes: tuple[str, ...] = ()
     total_p90_backtest: DurationP90Backtest | None = None
+    forward_p90_backtest: DurationForwardP90Backtest | None = None
 
     @property
     def available(self) -> bool:
@@ -99,6 +112,39 @@ def _historical_p90_backtest(wall_ms: list[float]) -> DurationP90Backtest | None
         evaluated_runs=len(wall_ms),
         within_held_out_p90=hits,
         observed_fraction=round(hits / len(wall_ms), 4),
+    )
+
+
+def _chronological_p90_backtest(
+    eligible: list[tuple[Any, ...]],
+) -> DurationForwardP90Backtest | None:
+    """Replay P90 as of each AUD start using only previously finished AUDs.
+
+    Sorting on file mtime or completion order risks future-data leakage for
+    overlapping runs. A prior observation enters the fold only if its
+    *physical end* is at or before the target AUD's physical start.
+    """
+    if len(eligible) < _MIN_BACKTEST_RUNS:
+        return None
+    ordered = sorted(eligible, key=lambda item: (item[4], item[1]))
+    hits = 0
+    folds = 0
+    for observed in ordered:
+        target_start = observed[4]
+        history = [
+            item[0] for item in ordered
+            if item[1] != observed[1] and item[5] <= target_start
+        ]
+        if len(history) < _MIN_RUNS:
+            continue
+        folds += 1
+        hits += observed[0] <= _percentile(history, .90)
+    if folds < _MIN_FORWARD_FOLDS:
+        return None
+    return DurationForwardP90Backtest(
+        evaluated_runs=folds, within_prior_p90=hits,
+        observed_fraction=round(hits / folds, 4),
+        min_prior_cohort=_MIN_RUNS,
     )
 
 
@@ -221,7 +267,7 @@ def _ai_intervals_within_console(
 
 def _historical_audit(
     database: Path, state: Any, target_pages: int,
-) -> tuple[float, str, dict[str, float], dict[str, float]] | None:
+) -> tuple[float, str, dict[str, float], dict[str, float], datetime, datetime] | None:
     # Only local physical AUD packages may enter the historical cohort.
     # Following an AUD directory or audit.db symlink could import a
     # foreign package with a matching audit_id into the forecast.
@@ -305,7 +351,10 @@ def _historical_audit(
                 and 0 <= float(item.union_active_ms) <= wall
             )
         }
-        return wall, audit_id, stages, _m21_http_request_sums(conn, audit_id)
+        return (
+            wall, audit_id, stages, _m21_http_request_sums(conn, audit_id),
+            started, finished,
+        )
     except (sqlite3.Error, ValueError, TypeError, OverflowError):
         return None
     finally:
@@ -354,6 +403,7 @@ def forecast_local_duration(
     wall_values = [a[0] for a in eligible]
     total = _range("Auditoria total (relogio do console)", wall_values)
     p90_diagnostic = _historical_p90_backtest(wall_values)
+    forward_diagnostic = _chronological_p90_backtest(eligible)
     names = sorted(set().union(*(set(a[2]) for a in eligible)))
     stages = tuple(
         _range(name, [a[2][name] for a in eligible])
@@ -369,6 +419,7 @@ def forecast_local_duration(
     return AuditDurationForecast(
         count, total, stages, http_request_stages=http_request_stages,
         total_p90_backtest=p90_diagnostic,
+        forward_p90_backtest=forward_diagnostic,
         notes=(
             "Mediana, P25-P75 e P90 sao descritores historicos, nao SLA nem "
             "intervalos probabilisticos calibrados.",
@@ -405,6 +456,15 @@ def format_duration_preview(projection: AuditDurationForecast) -> tuple[str, ...
             f"{diagnostic.within_held_out_p90}/{diagnostic.evaluated_runs} "
             "AUDs dentro do P90 reconstruido sem a propria AUD; "
             "nao e calibracao prospectiva ou SLA."
+        )
+    forward = projection.forward_p90_backtest
+    if forward is not None:
+        lines.append(
+            "Replay cronologico P90 total (AUDs anteriores concluidas): "
+            f"{forward.within_prior_p90}/{forward.evaluated_runs} "
+            "dentro do P90 calculado com historico disponivel antes do inicio; "
+            "amostra local observacional, nao homologacao de SLA ou "
+            "garantia de previsao futura."
         )
     for stage in projection.ai_stages:
         lines.append(

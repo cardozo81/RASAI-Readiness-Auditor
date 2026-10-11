@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from io import StringIO
 import json
+import os
 from pathlib import Path
 import sqlite3
 from types import SimpleNamespace
@@ -35,12 +36,16 @@ def _audit(root: Path, index: int, *, status="COMPLETE", duration=600_000,
            completion_status="COMPLETE",
            with_stage=True, device="MOBILE", complete_config=True,
            wrong_clock=False, pages=1, web_max_pages=1,
-           input_mode="URL", with_http=False, invalid_http=False) -> Path:
+           input_mode="URL", with_http=False, invalid_http=False,
+           start_offset_minutes=0) -> Path:
     audit_id = f"AUD-DURATION-{index}"
     folder = root / audit_id
     folder.mkdir(parents=True)
     database = folder / "audit.db"
-    started = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
+    started = (
+        datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
+        + timedelta(minutes=start_offset_minutes)
+    )
     finished = started + timedelta(milliseconds=duration * (2 if wrong_clock else 1))
     config = {
         "input_mode": input_mode, "device": device,
@@ -166,6 +171,9 @@ def test_retrospective_p90_loo_diagnostic_uses_only_verified_wall_times(tmp_path
     # for those samples to miss; six earlier samples remain within bounds.
     assert backtest.within_held_out_p90 == 6
     assert backtest.observed_fraction == .75
+    # All fixture runs share the same start. No completed prior cohort was
+    # physically available when any other audit began.
+    assert projection.forward_p90_backtest is None
     lines = "\n".join(format_duration_preview(projection))
     assert "Backtest retrospectivo LOO" in lines
     assert "6/8" in lines
@@ -179,6 +187,7 @@ def test_five_samples_cannot_be_mislabeled_as_calibrated_p90(tmp_path):
     projection = forecast_local_duration(_state(tmp_path))
     assert projection.available and projection.sample_runs == 5
     assert projection.total_p90_backtest is None
+    assert projection.forward_p90_backtest is None
     assert "Backtest retrospectivo" not in "\n".join(
         format_duration_preview(projection)
     )
@@ -401,3 +410,75 @@ def test_stage_forecast_excludes_naive_and_reversed_attempt_clocks(tmp_path):
     assert value.available
     assert value.ai_stages == ()
     assert "relogios" in " ".join(value.notes)
+
+
+def test_expanding_chronological_replay_uses_only_prior_finished_auds(tmp_path):
+    databases = [
+        _audit(
+            tmp_path, i,
+            duration=600_000 if i < 5 else 1_200_000,
+            start_offset_minutes=30 * i,
+        ) for i in range(8)
+    ]
+    baseline = {str(p): sha256(p.read_bytes()).hexdigest() for p in databases}
+    result = forecast_local_duration(_state(tmp_path))
+    replay = result.forward_p90_backtest
+    assert result.available and replay is not None
+    assert replay.method == "PAST_COMPLETED_AUDS_ONLY_EXPANDING_WINDOW"
+    assert replay.min_prior_cohort == 5
+    assert replay.evaluated_runs == 3
+    # The 6th and 7th audits exceed P90 known before each run started;
+    # the 8th falls on the prior 7-AUD P90 threshold.
+    assert replay.within_prior_p90 == 1
+    assert replay.observed_fraction == .3333
+    assert result.total_p90_backtest is not None
+    lines = "\n".join(format_duration_preview(result))
+    assert "Replay cronologico P90 total" in lines
+    assert "1/3" in lines
+    assert "nao homologacao de SLA" in lines
+    assert all(sha256(Path(path).read_bytes()).hexdigest() == digest
+               for path, digest in baseline.items())
+
+
+def test_chronological_replay_is_independent_of_filesystem_mtime(tmp_path):
+    dbs = [
+        _audit(tmp_path, i, duration=600_000,
+               start_offset_minutes=25*i)
+        for i in range(9)
+    ]
+    initial = forecast_local_duration(_state(tmp_path)).forward_p90_backtest
+    assert initial is not None
+    assert initial.evaluated_runs == 4
+    assert initial.within_prior_p90 == 4
+    for i, path in enumerate(dbs):
+        # Explicitly scramble file mtimes opposite to AUD chronology.
+        os.utime(path, ns=(1_650_000_000_000_000_000+i,
+                           1_650_000_000_000_000_000+i))
+    changed = forecast_local_duration(_state(tmp_path)).forward_p90_backtest
+    assert changed == initial
+
+
+def test_earlier_completion_is_required_not_just_earlier_start(tmp_path):
+    for i in range(8):
+        _audit(tmp_path, i, duration=600_000, start_offset_minutes=i)
+    result = forecast_local_duration(_state(tmp_path))
+    assert result.total_p90_backtest is not None
+    # Runs overlap physically: none of them has five earlier
+    # *finished* AUDs at its start, despite distinct start timestamps.
+    assert result.forward_p90_backtest is None
+    assert "Replay cronologico" not in "\n".join(format_duration_preview(result))
+
+
+def test_one_corrupt_partial_aud_does_not_train_the_next_fold(tmp_path):
+    for i in range(9):
+        _audit(tmp_path, i, duration=600_000, start_offset_minutes=30*i)
+    path = tmp_path / "AUD-DURATION-4" / "audit.db"
+    with sqlite3.connect(path) as con:
+        con.execute(
+            "UPDATE audits SET completion_status='PARTIAL_RETRYABLE'"
+        )
+    result = forecast_local_duration(_state(tmp_path))
+    assert result.sample_runs == 8
+    replay = result.forward_p90_backtest
+    assert replay is not None and replay.evaluated_runs == 3
+    assert replay.within_prior_p90 == 3
