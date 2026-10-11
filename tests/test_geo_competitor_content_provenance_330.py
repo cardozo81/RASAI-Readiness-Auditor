@@ -289,6 +289,91 @@ def test_non_html_200_body_cannot_be_counted_as_competitor_content(tmp_path):
     assert result["competitors"][0]["verified_html_media_type"] == "application/xhtml+xml"
 
 
+def test_current_html_features_reuse_persisted_lexical_evidence_without_scoring(tmp_path):
+    db = _db(tmp_path)
+    fields = (
+        "meta_description", "query_terms_title_json",
+        "query_terms_description_json", "query_terms_headings_json",
+        "jsonld_types_json",
+    )
+    with sqlite3.connect(db) as con:
+        for name in fields:
+            con.execute(f"ALTER TABLE serp_competitive_pages ADD COLUMN {name} TEXT")
+        for role, data in (
+            ("CUSTOMER", (
+                "Plano de seguro", '["seguro"]', '[]', '["seguro"]', '[]',
+            )),
+            ("COMPETITOR_CANDIDATE", (
+                "Proteção de seguro", '["seguro","vida"]',
+                '["seguro"]', '[]', '["Product","FAQPage"]',
+            )),
+        ):
+            con.execute(
+                "UPDATE serp_competitive_pages SET " +
+                ", ".join(f"{name}=?" for name in fields) +
+                " WHERE observation_id='SERP-1' AND role=?",
+                (*data, role),
+            )
+    original = sha256(db.read_bytes()).hexdigest()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "DESCRIPTIVE_PERSISTED_HTML_COMPARISON"
+    assert result["comparisons"][0]["observed_lexical_differences"] == {
+        "query_terms_in_title": 1,
+        "query_terms_in_description": 1,
+        "query_terms_in_headings": -1,
+        "query_terms_in_body": 0,
+    }
+    assert result["competitors"][0]["jsonld_types"] == ["Product", "FAQPage"]
+    assert result["competitors"][0]["primary_content_proven"] is False
+    assert result["score_changed"] is False
+    assert sha256(db.read_bytes()).hexdigest() == original
+
+
+def test_legacy_optional_features_are_nd_and_observed_empty_is_zero(tmp_path):
+    db = _db(tmp_path)
+    old = db.read_bytes()
+    preview = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    diffs = preview["comparisons"][0]["observed_lexical_differences"]
+    assert diffs == {
+        "query_terms_in_title": None,
+        "query_terms_in_description": None,
+        "query_terms_in_headings": None,
+        "query_terms_in_body": 0,
+    }
+    assert preview["competitors"][0]["jsonld_types"] is None
+    assert db.read_bytes() == old
+
+
+def test_malformed_optional_lexical_json_abstains_without_falsifying_zero(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "ALTER TABLE serp_competitive_pages ADD COLUMN query_terms_title_json TEXT"
+        )
+        con.execute(
+            "ALTER TABLE serp_competitive_pages ADD COLUMN jsonld_types_json TEXT"
+        )
+        con.execute(
+            "UPDATE serp_competitive_pages SET query_terms_title_json='[]', "
+            "jsonld_types_json='[]' WHERE role='CUSTOMER' AND observation_id='SERP-1'"
+        )
+        con.execute(
+            "UPDATE serp_competitive_pages SET query_terms_title_json=?, "
+            "jsonld_types_json=? WHERE role='COMPETITOR_CANDIDATE' "
+            "AND observation_id='SERP-1'",
+            ('["unrelated"]', '{"tampered": true}'),
+        )
+    original = db.read_bytes()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "DESCRIPTIVE_PERSISTED_HTML_COMPARISON"
+    assert result["comparisons"][0]["observed_lexical_differences"][
+        "query_terms_in_title"
+    ] is None
+    assert result["competitors"][0]["jsonld_types"] is None
+    assert result["customer"]["query_title_terms"] == []
+    assert db.read_bytes() == original
+
+
 def test_historical_schema_without_mime_evidence_abstains_readonly(tmp_path):
     db = tmp_path / "audit.db"
     with sqlite3.connect(db) as con:
