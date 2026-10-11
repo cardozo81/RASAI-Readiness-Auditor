@@ -16,7 +16,7 @@ M23/M25, SARI, SCORE-GEO, Search API, SERP runtime, orquestrador ou CONS.
 - Na **consulta única**, as URLs do run pertencem a essa query.
   Em **multi-query**, só calcula métricas se cada linha persistida
   `perplexity_search_sources` contiver a coluna `query`, com valor
-  inequívoco dentro do conjunto solicitado. No schema legado, essa
+  inequívoco dentro do conjunto solicitado. No schema anterior, essa
   coluna não existe: o resultado é `MULTI_QUERY_SOURCE_MAPPING_MISSING`,
   e `common_urls/denominators/rates` ficam nulos.
 - A observação SERP deve pertencer à mesma AUD, ser
@@ -48,7 +48,7 @@ python -m rasai.geo_query_ledger_304 `
   --declared-branded-query "seguro bradesco"
 ```
 
-Testes focados usam SQLite físico sintético, inclusive schema legada
+Testes focados usam SQLite físico sintético, inclusive schema anterior
 multi-query sem per-source query, troca de identidade AUD, dados
 parciais/fora da janela, clocks/serp duplicados e invariância dos bytes
 do banco. Nenhuma consulta Perplexity, SERP ou IA real foi executada.
