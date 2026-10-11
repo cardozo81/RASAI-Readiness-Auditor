@@ -187,15 +187,15 @@ def test_historical_optional_scope_must_match_explicit_current_scope(tmp_path):
                 "UPDATE console_execution_projections SET configuration=?",
                 (json.dumps(payload),),
             )
+    prepared = [sha256(db.read_bytes()).hexdigest() for db in databases]
+    assert prepared != baselines  # Only the explicit fixture edit changed them.
     state = _state(tmp_path)
-    assert not forecast_local_duration(state).available  # historic scope is larger
+    assert not forecast_local_duration(state).available  # Historic scope is larger.
     state.technical_remediation = True
     confirmed = forecast_local_duration(state)
     assert confirmed.available and confirmed.sample_runs == 5
-    # The forecast reads the augmented local ledger without modifying its bytes.
-    after = [sha256(db.read_bytes()).hexdigest() for db in databases]
-    assert after != baselines  # only the explicit fixture edit changed databases
-    assert after == [sha256(db.read_bytes()).hexdigest() for db in databases]
+    # Both forecasts are read-only and cannot mutate the audited ledger.
+    assert [sha256(db.read_bytes()).hexdigest() for db in databases] == prepared
 
 
 def test_malformed_optional_scope_flags_are_not_promoted_to_comparable(tmp_path):
