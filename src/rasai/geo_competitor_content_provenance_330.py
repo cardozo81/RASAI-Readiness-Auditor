@@ -79,7 +79,7 @@ def _page(row: sqlite3.Row, expected_terms: tuple[str, ...]) -> dict[str, Any]:
     )
     valid_content = (
         lexical_body_matches
-        str(row["fetch_status"]).upper() == "OBSERVED"
+        and str(row["fetch_status"]).upper() == "OBSERVED"
         and type(row["http_status"]) is int and 200 <= row["http_status"] < 300
         and isinstance(row["content_sha256"], str)
         and bool(_SHA256.fullmatch(row["content_sha256"]))
