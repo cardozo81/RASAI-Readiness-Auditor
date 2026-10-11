@@ -165,7 +165,7 @@ def _ai_attempt_scope_breakdown(
         "stage_attempts_total": sum(row["attempts"] for row in stage_rows),
         "temporal_attribution": "CLOCK_PLACEMENT_ONLY_NOT_OPERATION_PROOF",
         "limitation": (
-            "O recorte usa somente relógios de tentativas M18/M20 "
+            "O recorte usa somente relógios das tentativas de análise e remediação por IA "
             "frente à sessão física completa comprovada. Chamadas posteriores "
             "podem ser continuação, RPR ou outro escopo: não se deduz operação "
             "a partir do instante. Valores estimados e observados não são "
@@ -245,7 +245,7 @@ def inspect_audit_attempts(aud_dir: Path) -> dict:
         ),
         "http_request_stage_wall_clock_available": False,
         "http_request_caveat": (
-            "Valores M21 são somas verificadas de duração de requisições "
+            "Os tempos informados são somas verificadas de duração de requisições "
             "HTTP PSI/CrUX por serviço, não tempo físico de fase, "
             "nem parcelas somáveis ao tempo ativo IA ou à duração da AUD. "
             "Serviços com tentativa de tempo inválido permanecem N/D."
@@ -270,7 +270,7 @@ def inspect_ai_stage_scope(audit_dir: Path) -> dict:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Read AUD M18/M20 attempts and distinct M21 HTTP request telemetry without network."
+        description="Inspeciona tentativas de IA e tempos de requisições HTTP persistidos, sem acesso à rede."
     )
     parser.add_argument("audit_dir", type=Path)
     args = parser.parse_args(argv)
