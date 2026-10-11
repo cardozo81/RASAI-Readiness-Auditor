@@ -20,6 +20,7 @@ from rasai.audit_attempt_timeline import read_audit_attempt_timeline
 
 
 _MIN_RUNS = 5
+_MIN_BACKTEST_RUNS = 8
 _MAX_RUNS_SCANNED = 200
 _MAX_WALL_MS = 48 * 60 * 60 * 1000
 _COMPARABLE_FIELDS = (
@@ -40,6 +41,16 @@ class DurationRange:
 
 
 @dataclass(frozen=True, slots=True)
+class DurationP90Backtest:
+    """Retrospective leave-one-out diagnostic; never a calibrated SLA."""
+
+    evaluated_runs: int
+    within_held_out_p90: int
+    observed_fraction: float
+    method: str = "LEAVE_ONE_OUT_RETROSPECTIVE_ONLY"
+
+
+@dataclass(frozen=True, slots=True)
 class AuditDurationForecast:
     sample_runs: int
     total: DurationRange | None
@@ -47,6 +58,7 @@ class AuditDurationForecast:
     http_request_stages: tuple[DurationRange, ...] = ()
     source: str = "historico-local-console"
     notes: tuple[str, ...] = ()
+    total_p90_backtest: DurationP90Backtest | None = None
 
     @property
     def available(self) -> bool:
@@ -67,6 +79,26 @@ def _range(label: str, values: list[float]) -> DurationRange:
         round(_percentile(values, .25), 2),
         round(_percentile(values, .75), 2),
         round(_percentile(values, .90), 2),
+    )
+
+
+def _historical_p90_backtest(wall_ms: list[float]) -> DurationP90Backtest | None:
+    """Leave one eligible AUD out of the P90 estimate for each fold.
+
+    This is a self-consistency diagnostic of the exact same cohort and
+    configuration gates; NOT out-of-time validation, independent holdout,
+    calibration to a service-level target or a forecast confidence interval.
+    """
+    if len(wall_ms) < _MIN_BACKTEST_RUNS:
+        return None
+    hits = sum(
+        value <= _percentile(wall_ms[:i] + wall_ms[i + 1:], .90)
+        for i, value in enumerate(wall_ms)
+    )
+    return DurationP90Backtest(
+        evaluated_runs=len(wall_ms),
+        within_held_out_p90=hits,
+        observed_fraction=round(hits / len(wall_ms), 4),
     )
 
 
@@ -319,7 +351,9 @@ def forecast_local_duration(
                 "e intervalo fisico consistente.",
             ),
         )
-    total = _range("Auditoria total (relogio do console)", [a[0] for a in eligible])
+    wall_values = [a[0] for a in eligible]
+    total = _range("Auditoria total (relogio do console)", wall_values)
+    p90_diagnostic = _historical_p90_backtest(wall_values)
     names = sorted(set().union(*(set(a[2]) for a in eligible)))
     stages = tuple(
         _range(name, [a[2][name] for a in eligible])
@@ -334,6 +368,7 @@ def forecast_local_duration(
     )
     return AuditDurationForecast(
         count, total, stages, http_request_stages=http_request_stages,
+        total_p90_backtest=p90_diagnostic,
         notes=(
             "Mediana, P25-P75 e P90 sao descritores historicos, nao SLA nem "
             "intervalos probabilisticos calibrados.",
@@ -363,6 +398,14 @@ def format_duration_preview(projection: AuditDurationForecast) -> tuple[str, ...
         f"| P90 {seconds(projection.total.p90_ms)} "
         f"({projection.sample_runs} AUDs)",
     ]
+    diagnostic = projection.total_p90_backtest
+    if diagnostic is not None:
+        lines.append(
+            "Backtest retrospectivo LOO do P90 total: "
+            f"{diagnostic.within_held_out_p90}/{diagnostic.evaluated_runs} "
+            "AUDs dentro do P90 reconstruido sem a propria AUD; "
+            "nao e calibracao prospectiva ou SLA."
+        )
     for stage in projection.ai_stages:
         lines.append(
             f"IA {stage.label}: tempo ativo mediano {seconds(stage.median_ms)} "

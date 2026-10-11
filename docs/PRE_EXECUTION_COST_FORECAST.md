@@ -156,3 +156,20 @@ Custo reportado pelo provedor não é fatura; durações de chamadas sobrepostas
 não são aditivas ao wall-clock da AUD. Coleta, Apdex e relatório permanecem
 N/D, sem inventar um residual. O comando não executa IA, não altera
 banco original e não modifica a estimativa prévia.
+
+### Diagnóstico retrospectivo da duração total (#319)
+
+Com pelo menos **oito AUDs físicas elegíveis e de configuração comparável**, a
+prévia local passa a exibir um diagnóstico de autoconsistência `leave-one-out`
+para o **P90 do tempo total de console**: cada amostra é testada contra o
+percentil P90 reconstruído das demais amostras históricas. O relatório mostra
+`acertos/amostras`; com 5-7 amostras exibe apenas o P90 descritivo anterior,
+sem alegar backtest.
+
+A medida é **retrospectiva**, não realiza aquisição externa e não muda a
+previsão, o cálculo de custo ou a execução. Não é validação independente
+out-of-time, garantia de cobertura de 90%, intervalo calibrado, SLA ou medição
+de fase exclusiva. As mesmas regras fail-closed de status COMPLETE, cronologia
+física, páginas e configuração são aplicadas antes da análise; amostras
+rejeitadas não entram no denominador. A base `audit.db` é lida somente em
+modo consulta e nunca reescrita.
