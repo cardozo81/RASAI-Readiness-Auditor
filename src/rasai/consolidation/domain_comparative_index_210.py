@@ -17,6 +17,7 @@ from rasai.consolidation.domain_comparative_preview_210 import preview_same_doma
 from rasai.consolidation.selection import AuditCandidate
 
 _AUD = re.compile(r"^AUD-[A-Za-z0-9-]{1,100}$")
+_SOURCE_FINGERPRINT = re.compile(r"^[a-fA-F0-9]{64}$")
 _SCHEMA_VERSION = 1
 
 
@@ -74,8 +75,12 @@ def domain_preview_from_index(audits_root: Path, audit_ids: Sequence[str]) -> di
             raise ValueError("each selected AUD needs exactly one indexed URL")
         source = parts[0]
         raw_fingerprint = source["source_fingerprint"]
-        if not isinstance(raw_fingerprint, str) or not raw_fingerprint.strip():
-            raise ValueError("source fingerprint absent")
+        if (not isinstance(raw_fingerprint, str)
+                or not _SOURCE_FINGERPRINT.fullmatch(raw_fingerprint)):
+            # Source freshness remains unverified even with a well-formed
+            # cache fingerprint. An arbitrary marker must not become a
+            # formally identified source in the comparison advisory.
+            raise ValueError("source fingerprint absent or invalid")
         try:
             devices = json.loads(str(source["devices_json"]))
         except (TypeError, ValueError) as exc:
