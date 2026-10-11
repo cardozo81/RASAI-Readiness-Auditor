@@ -1,4 +1,4 @@
-# #319 — Separação pós-fato das chamadas IA pela conclusão da AUD
+# #319 - Separação pós-fato das chamadas IA pela conclusão da AUD
 
 O consumidor `python -m rasai.audit_ai_completion_boundary_319`
 utiliza somente metadados já persistidos em `audit.db`. Nenhuma IA,
