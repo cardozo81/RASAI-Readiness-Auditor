@@ -181,6 +181,45 @@ def test_tampered_snapshot_source_identity_and_unobserved_serp_abstain(tmp_path)
     assert result["excluded"][0]["reason"] == "GEO_SOURCE_PROVENANCE_UNVERIFIED"
 
 
+def test_duplicate_same_audit_serp_source_cannot_be_selected_arbitrarily(tmp_path):
+    conflicted = audit(tmp_path, "AUD-DUPLICATE-SERP")
+    reference = audit(tmp_path, "AUD-UNIQUE-SERP")
+    with sqlite3.connect(conflicted / "audit.db") as con:
+        con.execute(
+            "INSERT INTO serp_observations "
+            "SELECT observation_id, audit_id, query, collected_at, data_mode, "
+            "observation_status, engine, ?, region, language, device "
+            "FROM serp_observations WHERE audit_id=?",
+            ("US", conflicted.name),
+        )
+    original = [(p / "audit.db").read_bytes() for p in (conflicted, reference)]
+    result = build_geo_longitudinal_preview([conflicted, reference])
+    assert result["audits_eligible"] == 1
+    assert result["excluded"] == [
+        {"audit_id": conflicted.name, "reason": "GEO_SOURCE_PROVENANCE_UNVERIFIED"}
+    ]
+    assert result["timelines"][0]["observations"][0]["audit_id"] == reference.name
+    assert [(p / "audit.db").read_bytes() for p in (conflicted, reference)] == original
+
+
+def test_same_serp_id_but_foreign_audit_row_does_not_shadow_source(tmp_path):
+    source = audit(tmp_path, "AUD-PROVEN-SERP")
+    other = audit(tmp_path, "AUD-SECOND-SERP")
+    with sqlite3.connect(source / "audit.db") as con:
+        con.execute(
+            "INSERT INTO serp_observations "
+            "SELECT observation_id, ?, query, collected_at, data_mode, "
+            "observation_status, engine, ?, region, language, device "
+            "FROM serp_observations WHERE audit_id=?",
+            ("AUD-FOREIGN", "US", source.name),
+        )
+    original = [(p / "audit.db").read_bytes() for p in (source, other)]
+    result = build_geo_longitudinal_preview([source, other])
+    assert result["audits_eligible"] == 2
+    assert result["excluded"] == []
+    assert [(p / "audit.db").read_bytes() for p in (source, other)] == original
+
+
 def test_mismatched_query_and_locale_against_source_abstains(tmp_path):
     first = audit(tmp_path, "AUD-MISMATCH")
     second = audit(tmp_path, "AUD-CLEAN")
