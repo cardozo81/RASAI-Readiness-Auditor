@@ -163,7 +163,7 @@ Com pelo menos **oito AUDs físicas elegíveis e de configuração comparável**
 prévia local passa a exibir um diagnóstico de autoconsistência `leave-one-out`
 para o **P90 do tempo total de console**: cada amostra é testada contra o
 percentil P90 reconstruído das demais amostras históricas. O relatório mostra
-`acertos/amostras`; com 5–7 amostras exibe apenas o P90 descritivo anterior,
+`acertos/amostras`; com 5-7 amostras exibe apenas o P90 descritivo anterior,
 sem alegar backtest.
 
 A medida é **retrospectiva**, não realiza aquisição externa e não muda a
