@@ -776,3 +776,14 @@ ou não são strings. A integração habilitada e a chave presente **não**
 transformam consultas inválidas em autorização comercial. O editor CAT-05
 permanece o único caminho de correção e autorização do pedido; a avaliação
 é somente leitura, sem chamadas Perplexity.
+
+
+## Erros de complemento pós-AUD: segurança de mensagens (#318)
+
+O console não expõe textos arbitrários de exceções de transporte,
+fornecedor ou sistema de arquivos ao falhar um complemento externo.
+A interface mostra apenas a classe do erro e uma orientação fixa para
+consultar o inventário da intenção sem reenvio automático. É uma proteção
+contra vazamento indireto de credenciais, detalhes de URL e respostas
+externas inseridos no texto de uma exceção. A falha não altera a
+integridade da AUD original nem autoriza nova cobrança por retry.

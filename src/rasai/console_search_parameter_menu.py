@@ -402,9 +402,12 @@ def _external_geo_supplement(state: Any) -> None:
             explicit_cost_authorization=True,
         )
     except (OSError, ValueError, PermissionError, RuntimeError) as exc:
+        # Never echo a provider/transport exception: its text may contain
+        # Authorization headers, URL parameters or response diagnostics.
         print(
-            f"  Complemento externo não concluído: {type(exc).__name__}: {str(exc)[:200]}. "
-            "Não repetir automaticamente a mesma intenção."
+            f"  Complemento externo não concluído: {type(exc).__name__}. "
+            "Consulte o estado local da intenção sem reenvio automático; "
+            "detalhes de fornecedor e credenciais não são exibidos."
         )
         return
     print(
@@ -431,8 +434,8 @@ def _review_external_geo_supplements() -> None:
         )
     except (OSError, ValueError, RuntimeError) as exc:
         print(
-            f"  Inventário indisponível: {type(exc).__name__}: {str(exc)[:160]}. "
-            "Nenhuma requisição externa executada."
+            f"  Inventário indisponível: {type(exc).__name__}. "
+            "Nenhuma requisição externa executada; detalhes internos não são exibidos."
         )
         return
     print(f"\n[ COMPLEMENTOS GEO - {workspace.root.name} ]")
