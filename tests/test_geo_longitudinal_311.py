@@ -88,6 +88,116 @@ def audit(
     return root
 
 
+def _v8_physical_sources(root):
+    """Persist the exact Search/SERP URL sets attributed to a GEO v8 snapshot."""
+    db = root / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE perplexity_search_sources(run_id TEXT, url TEXT);
+            CREATE TABLE serp_results(observation_id TEXT, url TEXT);
+        """)
+        for url in (
+            "https://example.org/seguro",
+            "https://external-only.org/other",
+        ):
+            con.execute(
+                "INSERT INTO perplexity_search_sources VALUES (?,?)",
+                (f"PX-{root.name}", url),
+            )
+        for url in (
+            "https://example.org/seguro",
+            "https://serp-only.org/one",
+            "https://serp-only.org/two",
+        ):
+            con.execute(
+                "INSERT INTO serp_results VALUES (?,?)",
+                (f"SERP-{root.name}", url),
+            )
+        projection = json.loads(con.execute(
+            "SELECT projection_json FROM geo_observation_runs"
+        ).fetchone()[0])
+        projection.update(
+            source_count=2, serp_url_count=3, perplexity_url_count=2,
+            url_overlap_count=1,
+        )
+        projection["descriptive_overlap"].update(
+            serp_denominator=3, perplexity_denominator=2,
+            common_urls=1, serp_only_count=2, perplexity_only_count=1,
+            serp_overlap_rate=0.3333, perplexity_overlap_rate=0.5,
+            jaccard_url_rate=0.25,
+        )
+        con.execute(
+            "UPDATE geo_observation_runs SET projection_json=?",
+            (json.dumps(projection),),
+        )
+
+
+def test_v8_source_observation_counts_are_reconciled_against_physical_sets(tmp_path):
+    first = audit(tmp_path, "AUD-V8-ONE", version="RASAI-GEO-OBSERVATION-8")
+    second = audit(tmp_path, "AUD-V8-TWO", version="RASAI-GEO-OBSERVATION-8")
+    for root in (first, second):
+        _v8_physical_sources(root)
+    before = [(path / "audit.db").read_bytes() for path in (first, second)]
+    preview = build_geo_longitudinal_preview([first, second])
+    assert preview["audits_eligible"] == 2
+    assert preview["timelines"][0]["trend_conclusion"] == "N/D"
+    assert [row["url_intersection_observed"]
+            for row in preview["timelines"][0]["observations"]] == [1, 1]
+    assert [(path / "audit.db").read_bytes() for path in (first, second)] == before
+
+
+def test_v8_source_drift_and_tampered_overlap_abstain_without_rewrite(tmp_path):
+    drift = audit(tmp_path, "AUD-V8-DRIFT", version="RASAI-GEO-OBSERVATION-8")
+    forged = audit(tmp_path, "AUD-V8-FORGED", version="RASAI-GEO-OBSERVATION-8")
+    stable = audit(tmp_path, "AUD-V8-STABLE", version="RASAI-GEO-OBSERVATION-8")
+    for source in (drift, forged, stable):
+        _v8_physical_sources(source)
+    with sqlite3.connect(drift / "audit.db") as con:
+        con.execute(
+            "UPDATE perplexity_search_sources SET url=? WHERE url=?",
+            ("https://serp-only.org/one", "https://external-only.org/other"),
+        )
+    with sqlite3.connect(forged / "audit.db") as con:
+        payload = json.loads(con.execute(
+            "SELECT projection_json FROM geo_observation_runs"
+        ).fetchone()[0])
+        payload["descriptive_overlap"]["common_urls"] = 2
+        con.execute(
+            "UPDATE geo_observation_runs SET projection_json=?", (json.dumps(payload),)
+        )
+    original = [(root / "audit.db").read_bytes() for root in (drift, forged, stable)]
+    output = build_geo_longitudinal_preview([drift, forged, stable])
+    assert output["audits_eligible"] == 1
+    assert {row["audit_id"]: row["reason"] for row in output["excluded"]} == {
+        "AUD-V8-DRIFT": "GEO_SOURCE_PROVENANCE_UNVERIFIED",
+        "AUD-V8-FORGED": "GEO_SOURCE_PROVENANCE_UNVERIFIED",
+    }
+    assert [(root / "audit.db").read_bytes()
+            for root in (drift, forged, stable)] == original
+
+
+def test_corrupted_projection_context_is_not_a_cons_runtime_exception(tmp_path):
+    corrupted = audit(tmp_path, "AUD-BAD-CONTEXT")
+    stable = audit(tmp_path, "AUD-VALID-CONTEXT")
+    for broken in (None, [], "corrupt", 7):
+        with sqlite3.connect(corrupted / "audit.db") as con:
+            payload = json.loads(con.execute(
+                "SELECT projection_json FROM geo_observation_runs"
+            ).fetchone()[0])
+            payload["comparability"] = broken
+            con.execute(
+                "UPDATE geo_observation_runs SET projection_json=?", (json.dumps(payload),)
+            )
+        original = (corrupted / "audit.db").read_bytes()
+        output = build_geo_longitudinal_preview([corrupted, stable])
+        assert output["audits_eligible"] == 1
+        assert output["excluded"] == [{
+            "audit_id": corrupted.name,
+            "reason": "GEO_SOURCE_PROVENANCE_UNVERIFIED",
+        }]
+        assert (corrupted / "audit.db").read_bytes() == original
+
+
 def test_two_comparable_provenance_records_stay_observational_not_trend(tmp_path):
     older = audit(tmp_path, "AUD-ONE", timestamp="2026-10-09T10:00:00Z")
     newer = audit(tmp_path, "AUD-TWO", timestamp="2026-10-09T11:00:00Z", result_count=0,
@@ -422,6 +532,7 @@ def test_v7_and_v8_url_identity_methodology_never_share_longitudinal_series(tmp_
     later = audit(
         tmp_path, "AUD-METHOD-008", version="RASAI-GEO-OBSERVATION-8",
     )
+    _v8_physical_sources(later)
     before = [p.joinpath("audit.db").read_bytes() for p in (earlier, later)]
     comparison = build_geo_longitudinal_preview([earlier, later])
     assert comparison["audits_eligible"] == 2
