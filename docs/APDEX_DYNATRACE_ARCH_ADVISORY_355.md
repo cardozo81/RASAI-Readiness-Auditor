@@ -216,3 +216,56 @@ explícito, sem troca silenciosa de metodologia ou provider.
 
 Referência oficial:
 https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/objects/get-effective-values
+
+## Consulta de população de Load/Xhr/Custom na RUM Classic (#355)
+
+O adaptador `python -m rasai.dynatrace_rum_population_355` é
+**independente e opcional**, separado do Settings API 2.0 e de M25.
+Um único GET ao endpoint oficial `/api/v1/userSessionQueryLanguage/table`
+consulta **somente** `COUNT(*)` agrupado por `type` em `useraction`,
+com filtros explícitos e exatos de `internalApplicationId`,
+`targetUrl`, `usersession.device` e janela UTC de no máximo 24h.
+
+- Requer `--allow-live-usql-read` e token de ambiente
+  `DYNATRACE_USQL_API_TOKEN` com privilégio **DTAQLAccess**.
+  Não reutiliza implicitamente o token `settings.read` do Settings API.
+- Somente tenant SaaS `*.live.dynatrace.com` HTTPS, sem credenciais
+  embutidas na URL, sem redirects/retries, HTTP GET com 10 segundos e
+  resposta JSON até 256 KiB.
+- Apenas `columnNames=["type","COUNT(*)"]` e grupos não ambíguos são
+  aceitos. Contagens negativas, booleanas, duplicadas ou schema incerto
+  tornam a análise N/D. Nenhuma linha de sessão individual, ID de usuário,
+  IP ou PII é consultada, retornada ou persistida.
+- `action_counts` registra Load, Xhr, Custom e outros tipos agregados,
+  com total e período UTC. **Zero Xhr observado** em um filtro não prova
+  captura XHR/Fetch desabilitada, nem prova que SPA não faça soft navigation.
+- `rasai_same_browser_sample_verified=false` permanece: mesmo escopo
+  literal de URL/dispositivo/período em RUM e RASAi não comprova que as
+  ações são a mesma sessão física de Playwright/M6. Não importa
+  thresholds, reprocessa AUD nem muda scores M23/M25.
+
+Exemplo controlado com token já provisionado:
+
+```powershell
+python -m rasai.dynatrace_rum_population_355 `
+  --live-base-url https://tenant-example.live.dynatrace.com `
+  --application-id APPLICATION-1234567890ABCDEF `
+  --target-url https://www.example.com/pagina `
+  --dynatrace-device MOBILE `
+  --start-timestamp-ms 1780000000000 `
+  --end-timestamp-ms 1780000900000 `
+  --allow-live-usql-read
+```
+
+A consulta não ocorre automaticamente; não foi realizada em tenant real
+nesta entrega. O token nunca é impresso. A API clássica tem limitações de
+retencão e amostragem e **não equivale** à API de eventos do RUM atual.
+Validar versão Dynatrace e valores de `device` no tenant antes do aceite.
+Fonte oficial: [User Sessions API - GET table]
+(https://docs.dynatrace.com/docs/dynatrace-api/environment-api/rum/user-sessions/table),
+[USQL no RUM Classic]
+(https://docs.dynatrace.com/docs/observe/digital-experience/session-segmentation/custom-queries-segmentation-and-aggregation-of-session-data).
+
+A issue #355 continua pendente para correlacionar dados físicos com
+aplicação/URL/dispositivo e janela de AUD real. Não alegar essa validação
+somente com fakes HTTP ou query agregada.
