@@ -119,10 +119,25 @@ def inspect_consented_public_html(
     parser = RobotFileParser()
     parser.set_url(robots_url)
     parser.parse(policy.splitlines())
-    if not (
+    # Python 3.13.16+ RFC 9309 robotparser stores agents in "groups",
+    # while earlier Python implementations expose default_entry/entries.
+    # Requiring a matching group prevents can_fetch() from accepting an
+    # unrelated robots policy merely because the agent was unspecified.
+    current_groups = getattr(parser, "groups", {})
+    agent_name = _USER_AGENT.split("/", 1)[0].lower()
+    current_match = (
+        isinstance(current_groups, dict)
+        and any(
+            isinstance(key, str)
+            and (key == "*" or agent_name.startswith(key.lower()))
+            for key in current_groups
+        )
+    )
+    legacy_match = (
         parser.default_entry is not None
         or any(entry.applies_to(_USER_AGENT) for entry in parser.entries)
-    ):
+    )
+    if not (current_match or legacy_match):
         return outcome("ROBOTS_NO_APPLICABLE_USER_AGENT",
                        robots_fetch_status="NOT_VERIFIED")
     if not parser.can_fetch(_USER_AGENT, normalized):
