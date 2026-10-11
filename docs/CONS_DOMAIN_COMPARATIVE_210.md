@@ -186,3 +186,34 @@ SHA-256 de arquivos originais e isolamento de saída são executados
 sem chamadas externas ou AUD reais. Para permitir consolidação
 metodológica audit-level entre URLs diferentes, ainda será necessário
 aprovar regras de equivalência de universo e configuração.
+
+
+## Modo opcional CDOM v2 com SHA-256 local (#210)
+
+O modo CDOM original `CONS-DOMAIN-COMPARATIVE-1` e os pacotes
+`CDOM-*` já gerados não são regravados. Uma opção separada
+`--verify-source-bytes`, utilizada **junto** da autorização
+`--write-domain-package`, produz o contrato versionado
+`CONS-DOMAIN-COMPARATIVE-2` e novo identificador de pacote,
+incluindo `source_file_sha256` para cada `audit.db`.
+
+```powershell
+python -m rasai.consolidation.domain_comparative_package_210 `
+  --audits-root .\audits --audit-id AUD-PRIMEIRA --audit-id AUD-SEGUNDA `
+  --write-domain-package --verify-source-bytes
+```
+
+Os bytes são lidos de forma incremental com limite agregado de
+512 MiB por seleção. Cada origem mantém também o fingerprint de
+metadados do índice e é novamente lida/validada antes da publicação.
+Fonte alterada, symlink, extrapolação do orçamento ou checksum
+inconsistente recusa o pacote sem gravar artefato. Não faz chamadas
+externas nem reescreve as bases.
+
+`source_bytes_locally_verified=true` demonstra apenas que os bytes
+do arquivo **local** consultado são os mesmos do pacote derivado
+naquele instante. `source_package_freshness_verified=false` continua:
+não existe atestação de assinatura do fornecedor, nem prova de que
+os valores armazenados no índice representem toda a mesma população
+de origem. Nenhum score, Apdex ou série com URLs distintas é
+homologado por este hash.

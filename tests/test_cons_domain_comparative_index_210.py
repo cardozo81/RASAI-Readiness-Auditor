@@ -399,3 +399,90 @@ def test_cdom_package_rejects_symlinked_output_root(tmp_path):
     with pytest.raises(ValueError, match="unsafe comparison package"):
         materialize_same_domain_package(root, ("AUD-ONE", "AUD-TWO"))
     assert not list(outside.iterdir())
+
+
+def test_cdom_v2_opt_in_local_source_bytes_pin_does_not_rewrite_v1(tmp_path):
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    before = {
+        str(p): sha256(p.read_bytes()).hexdigest()
+        for p in root.rglob("*") if p.is_file()
+    }
+    v1 = materialize_same_domain_package(root, ("AUD-ONE", "AUD-TWO"))
+    v2 = materialize_same_domain_package(
+        root, ("AUD-ONE", "AUD-TWO"), verify_source_bytes=True,
+    )
+    assert v1["package_id"] != v2["package_id"]
+    manifest1 = json.loads(Path(v1["manifest_path"]).read_text(encoding="utf-8"))
+    manifest2 = json.loads(Path(v2["manifest_path"]).read_text(encoding="utf-8"))
+    assert manifest1["contract_version"] == "CONS-DOMAIN-COMPARATIVE-1"
+    assert "source_file_sha256" not in manifest1
+    assert manifest2["contract_version"] == "CONS-DOMAIN-COMPARATIVE-2"
+    assert manifest2["source_bytes_locally_verified"] is True
+    assert manifest2["source_package_freshness_verified"] is False
+    assert manifest2["native_cons3_created"] is False
+    assert manifest2["source_file_sha256"] == {
+        a: sha256((root / a / "audit.db").read_bytes()).hexdigest()
+        for a in ("AUD-ONE", "AUD-TWO")
+    }
+    assert materialize_same_domain_package(
+        root, ("AUD-ONE", "AUD-TWO"), verify_source_bytes=True,
+    )["status"] == "IDEMPOTENT_EXISTING"
+    assert materialize_same_domain_package(
+        root, ("AUD-ONE", "AUD-TWO"),
+    )["package_id"] == v1["package_id"]
+    assert all(sha256(Path(path).read_bytes()).hexdigest() == digest
+               for path, digest in before.items())
+
+
+def test_cdom_v2_abstains_when_source_bytes_change_before_publication(
+    tmp_path, monkeypatch,
+):
+    from rasai.consolidation import domain_comparative_package_210 as mod
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    old = mod._source_sha256
+    counts = {"seen": 0}
+    def changed_on_second_pass(source, remaining):
+        counts["seen"] += 1
+        digest, consumed = old(source, remaining)
+        if counts["seen"] == 3:
+            return "0" * 64, consumed
+        return digest, consumed
+    monkeypatch.setattr(mod, "_source_sha256", changed_on_second_pass)
+    with pytest.raises(ValueError, match="bytes changed"):
+        mod.materialize_same_domain_package(
+            root, ("AUD-ONE", "AUD-TWO"), verify_source_bytes=True,
+        )
+    assert counts["seen"] >= 3
+    assert not (root / "consolidated-domain").exists()
+
+
+def test_cdom_v2_digest_budget_fail_closed_without_materialization(
+    tmp_path, monkeypatch,
+):
+    from rasai.consolidation import domain_comparative_package_210 as mod
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    monkeypatch.setattr(mod, "_MAX_HASH_BYTES_TOTAL", 64)
+    with pytest.raises(ValueError, match="SHA-256 evidence budget"):
+        mod.materialize_same_domain_package(
+            root, ("AUD-ONE", "AUD-TWO"), verify_source_bytes=True,
+        )
+    assert not (root / "consolidated-domain").exists()
+
+
+def test_cdom_v2_cli_opt_in_with_crypto_file_digest(tmp_path, capsys):
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    args = [
+        "--audits-root", str(root), "--audit-id", "AUD-ONE",
+        "--audit-id", "AUD-TWO", "--write-domain-package",
+        "--verify-source-bytes",
+    ]
+    assert package_cli(args) == 0
+    result = json.loads(capsys.readouterr().out)
+    manifest = json.loads(Path(result["manifest_path"]).read_text(encoding="utf-8"))
+    assert manifest["contract_version"] == "CONS-DOMAIN-COMPARATIVE-2"
+    assert all(len(d) == 64 for d in manifest["source_file_sha256"].values())
+    assert result["audit_writes"] == result["provider_requests"] == 0
