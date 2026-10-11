@@ -57,6 +57,9 @@ def _row(query: str, classification: str, reason: str) -> dict[str, Any]:
         "perplexity_only_urls": None,
         "serp_overlap_rate": None, "perplexity_overlap_rate": None,
         "jaccard_url_rate": None,
+        "target_url_exact_in_serp": None,
+        "target_url_exact_in_perplexity": None,
+        "target_url_overlap_status": "N/D",
         "external_market_language_device_equivalence_proven": False,
         "intent_equivalence_proven": False,
         "ranking_or_generative_citation_proven": False,
@@ -90,10 +93,12 @@ def inspect_geo_per_query(
         raise ValueError("invalid explicit branded-query declaration")
 
     out: dict[str, Any] = {
-        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-001",
+        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-002",
         "audit_id": root.name, "status": "NOT_COMPARABLE",
         "reason": None, "queries": [],
         "per_query_attribution_status": "NOT_VERIFIED",
+        "aud_target_scope": "NO_UNIQUE_CANONICAL_TARGET",
+        "aud_target_exact_url": None,
         "external_market_language_device_equivalence_proven": False,
         "intent_equivalence_proven": False,
         "query_classes_from_operator_only": True,
@@ -104,7 +109,9 @@ def inspect_geo_per_query(
             "participação em respostas gerativas, rank, causalidade, "
             "representatividade ou mesma intenção/mercado/dispositivo "
             "entre SERP e Perplexity. Classificação branded é declaração "
-            "do operador, não inferência do provedor."
+            "do operador, não inferência do provedor. Presença da URL "
+            "auditada em fontes retornadas não prova menção ou citação "
+            "na resposta generativa."
         ),
     }
     def abstain(reason: str) -> dict[str, Any]:
@@ -140,6 +147,20 @@ def inspect_geo_per_query(
                 return abstain("SERP_SCOPE_SCHEMA_UNVERIFIABLE")
             if not {"observation_id", "url"} <= _columns(con, "serp_results"):
                 return abstain("SERP_RESULTS_SCHEMA_UNVERIFIABLE")
+            # Exact audit target is optional but MUST come from the same AUD.
+            # Multiple canonical candidates or absent provenance abstain
+            # without changing the independently verified set-overlap rates.
+            target: str | None = None
+            if {"audit_id", "input_url"} <= _columns(con, "audit_targets"):
+                targets = con.execute(
+                    "SELECT input_url FROM audit_targets WHERE audit_id=? LIMIT 2",
+                    (root.name,),
+                ).fetchall()
+                if len(targets) == 1:
+                    target = _canonical_url(targets[0]["input_url"]) or None
+            if target is not None:
+                out["aud_target_scope"] = "SINGLE_EXACT_AUD_TARGET"
+                out["aud_target_exact_url"] = target
             selected = ("run_id", "query_json", "search_type", "status", "started_at")
             latest = _last_temporally_verified(
                 con, table="perplexity_search_runs", audit_id=root.name,
@@ -278,6 +299,19 @@ def inspect_geo_per_query(
                     perplexity_overlap_rate=round(common / len(px_urls), 4),
                     jaccard_url_rate=round(common / union, 4),
                 )
+                if target is not None:
+                    in_serp = target in serp_urls
+                    in_external = target in px_urls
+                    row.update(
+                        target_url_exact_in_serp=in_serp,
+                        target_url_exact_in_perplexity=in_external,
+                        target_url_overlap_status=(
+                            "BOTH_SOURCE_SETS" if in_serp and in_external
+                            else "SERP_SOURCE_SET_ONLY" if in_serp
+                            else "EXTERNAL_SOURCE_SET_ONLY" if in_external
+                            else "NEITHER_RETURNED_SOURCE_SET"
+                        ),
+                    )
                 out["queries"].append(row)
             out["per_query_attribution_status"] = (
                 "PHYSICALLY_ATTRIBUTABLE" if attributable else
