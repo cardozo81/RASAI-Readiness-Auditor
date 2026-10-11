@@ -126,3 +126,30 @@ Exemplo:
 atesta o frescor das fontes; URLs diferentes não compõem uma série
 longitudinal e não permitem recálculo de Apdex, CWV ou scores.
 Isto é um comparativo de inventário, não um modo CONS-3 produtivo.
+
+## Conferência opcional dos arquivos físicos de origem (#210)
+
+O modo `--verify-source-metadata` exige, **sem escrever**, a presença
+física de cada `AUD-*/audit.db` original, caminho canônico coincidente com o
+índice, ausência de symlinks e sidecars SQLite não verificados, e igualdade
+do fingerprint atual `path|size|mtime_ns` com o registro `source_audits`.
+Consulta `audits` para identificar a AUD concluída e verifica a única URL
+extraída dos registros `pages`/`audit_input_urls` contra a URL do índice.
+Qualquer divergência bloqueia a comparação; registros históricos incompletos
+não são preenchidos nem migrados.
+
+Exemplo:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai.consolidation.domain_comparative_index_210 `
+  --audits-root .\audits --audit-id AUD-PRIMEIRA --audit-id AUD-SEGUNDA `
+  --verify-source-metadata --format html
+```
+
+Esse processo melhora a rastreabilidade da prévia em relação a um índice
+possivelmente obsoleto; porém o fingerprint canônico é gerado com metadados
+de arquivo, **não** com hash criptográfico de todos os bytes da AUD.
+Portanto, `source_package_freshness_verified=false` continua sendo a
+declaração correta. O modo não comprova dispositivo persistido ou ruleset
+de origem e **não** autoriza deltas audit-level ou tendência page-level.
+SAME_URL/CONS-3 continuam inalterados.

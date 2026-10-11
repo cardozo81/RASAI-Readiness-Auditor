@@ -14,6 +14,7 @@ from typing import Sequence
 from urllib.parse import urlsplit
 
 from rasai.consolidation.domain_comparative_preview_210 import preview_same_domain_candidates
+from rasai.consolidation.reader import _audit_urls, _columns, source_file_fingerprint
 from rasai.consolidation.selection import AuditCandidate
 
 _AUD = re.compile(r"^AUD-[A-Za-z0-9-]{1,100}$")
@@ -21,8 +22,53 @@ _SOURCE_FINGERPRINT = re.compile(r"^[a-fA-F0-9]{64}$")
 _SCHEMA_VERSION = 1
 
 
-def domain_preview_from_index(audits_root: Path, audit_ids: Sequence[str]) -> dict:
-    """Reuse the existing *materialized* index without creating or refreshing it."""
+def _verify_indexed_source(
+    root: Path, audit_id: str, indexed_url: str,
+    index_db_path: str, index_fingerprint: str,
+) -> None:
+    """Optional real-source metadata check; NOT cryptographic AUD attestation.
+
+    Do not trust the indexed db_path for traversal. Only the AUD-ID-derived
+    path is admissible. Source-fingerprint is path/size/mtime, not file SHA.
+    """
+    if index_db_path != f"{audit_id}/audit.db":
+        raise ValueError("indexed AUD source path is not canonical")
+    parent = root / audit_id
+    source = parent / "audit.db"
+    if (parent.is_symlink() or not parent.is_dir()
+            or source.is_symlink() or not source.is_file()
+            or parent.resolve().parent != root.resolve()):
+        raise ValueError("physical AUD source missing or linked")
+    if any((parent / (source.name + suffix)).exists()
+           for suffix in ("-wal", "-shm", "-journal")):
+        raise ValueError("physical AUD source has unverified SQLite sidecars")
+    if source_file_fingerprint(source) != index_fingerprint.lower():
+        raise ValueError("indexed AUD source metadata fingerprint mismatch")
+    with sqlite3.connect(
+        source.resolve().as_uri() + "?mode=ro&immutable=1",
+        uri=True, timeout=2,
+    ) as con:
+        con.execute("PRAGMA query_only=ON")
+        required = {"audit_id", "status", "completion_status"}
+        if not required.issubset(_columns(con, "audits")):
+            raise ValueError("physical AUD metadata schema not verified")
+        rows = con.execute(
+            "SELECT audit_id, status, completion_status FROM audits LIMIT 2"
+        ).fetchall()
+        if (len(rows) != 1 or rows[0][0] != audit_id
+                or str(rows[0][1]).strip().upper() != "COMPLETED"
+                or str(rows[0][2]).strip().upper() != "COMPLETE"):
+            raise ValueError("physical AUD identity/completion mismatch")
+        urls = _audit_urls(con, audit_id)
+        if len(urls) != 1 or urls[0] != indexed_url:
+            raise ValueError("physical AUD indexed URL mismatch")
+
+
+def domain_preview_from_index(
+    audits_root: Path, audit_ids: Sequence[str], *,
+    verify_source_metadata: bool = False,
+) -> dict:
+    """Reuse the index; optionally check original AUDs without any writes."""
     root = Path(audits_root)
     ids = tuple(audit_ids)
     if not 2 <= len(ids) <= 100 or len(set(ids)) != len(ids):
@@ -48,7 +94,8 @@ def domain_preview_from_index(audits_root: Path, audit_ids: Sequence[str]) -> di
         for table, needed in (
             ("source_audits", {"audit_id", "event_time", "status",
                                "completion_status", "devices_json",
-                               "url_count", "source_fingerprint"}),
+                               "url_count", "source_fingerprint",
+                               *({"db_path"} if verify_source_metadata else set())}),
             ("audit_urls", {"audit_id", "url"}),
         ):
             cols = {r[1] for r in con.execute("PRAGMA table_info(" + table + ")")}
@@ -60,8 +107,9 @@ def domain_preview_from_index(audits_root: Path, audit_ids: Sequence[str]) -> di
         placeholders = ",".join("?" for _ in ids)
         rows = con.execute(
             "SELECT a.audit_id, a.event_time, a.status, a.completion_status, "
-            "a.devices_json, a.url_count, a.source_fingerprint, u.url "
-            "FROM source_audits a LEFT JOIN audit_urls u ON u.audit_id=a.audit_id "
+            "a.devices_json, a.url_count, a.source_fingerprint, u.url, "
+            + ("a.db_path" if verify_source_metadata else "NULL AS db_path")
+            + " FROM source_audits a LEFT JOIN audit_urls u ON u.audit_id=a.audit_id "
             f"WHERE a.audit_id IN ({placeholders}) ORDER BY a.audit_id",
             ids,
         ).fetchall()
@@ -88,6 +136,11 @@ def domain_preview_from_index(audits_root: Path, audit_ids: Sequence[str]) -> di
         if not isinstance(devices, list) or len(devices) != 1 or not isinstance(devices[0], str):
             raise ValueError("single-device AUD required")
         url = source["url"]
+        if verify_source_metadata:
+            _verify_indexed_source(
+                root, item, str(url or ""), str(source["db_path"] or ""),
+                raw_fingerprint,
+            )
         candidates.append(AuditCandidate(
             audit_id=item,
             event_time=str(source["event_time"] or ""),
@@ -103,12 +156,19 @@ def domain_preview_from_index(audits_root: Path, audit_ids: Sequence[str]) -> di
         "selected_audit_ids": list(ids),
         "read_only": True,
         "index_writes": 0,
-        "source_audits_reopened_for_freshness": False,
+        "source_audits_reopened_for_freshness": verify_source_metadata,
+        "source_file_metadata_matched": verify_source_metadata,
+        "source_url_identity_verified": verify_source_metadata,
+        # A path/size/mtime digest is not cryptographic byte attestation.
         "source_package_freshness_verified": False,
         "native_cons3_created": False,
         "limitations": (
-            "Prévia do índice analítico existente. Nenhuma AUD original foi "
-            "reaberta para atestar frescor; conteúdo do índice pode estar defasado. "
+            "Prévia do índice analítico existente. "
+            + ("AUDs reabertas apenas em leitura para comparar identidade, URL "
+               "e metadados do arquivo; fingerprint de cache não autentica bytes. "
+               if verify_source_metadata else
+               "Nenhuma AUD original foi reaberta para atestar frescor. ")
+            + "O índice pode estar defasado ou não autenticado. "
             "Não é relatório CONS nem série temporal da mesma URL."
         ),
     }
@@ -124,9 +184,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--audits-root", type=Path, required=True)
     parser.add_argument("--audit-id", action="append", required=True,
                         help="Identificador de AUD; informe 2 ou mais vezes")
+    parser.add_argument("--verify-source-metadata", action="store_true",
+                        help="Valida URL, AUD e path/size/mtime da fonte local sem escrita")
     args = parser.parse_args(argv)
     try:
-        result = domain_preview_from_index(args.audits_root, args.audit_id)
+        result = domain_preview_from_index(
+            args.audits_root, args.audit_id,
+            verify_source_metadata=args.verify_source_metadata,
+        )
     except (ValueError, sqlite3.DatabaseError, OSError) as exc:
         parser.error(str(exc))
     if args.format == "html":

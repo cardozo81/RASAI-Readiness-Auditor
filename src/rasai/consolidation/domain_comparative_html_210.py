@@ -38,6 +38,12 @@ def render_same_domain_advisory_html(advisory: Mapping[str, Any]) -> str:
     source = source if isinstance(source, Mapping) else {}
     if source.get("source_package_freshness_verified") is not False:
         raise ValueError("index freshness disclosure is missing")
+    source_checked = source.get("source_audits_reopened_for_freshness") is True
+    if source_checked and (
+        source.get("source_file_metadata_matched") is not True
+        or source.get("source_url_identity_verified") is not True
+    ):
+        raise ValueError("unverified optional source reconciliation")
     title = "Prévia comparativa por domínio (não é CONS)"
     parts = [
         "<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>",
@@ -54,8 +60,11 @@ def render_same_domain_advisory_html(advisory: Mapping[str, Any]) -> str:
         "<h1>" + escape(title) + "</h1>",
         "<p class='notice'><strong>Semantica e origem:</strong> "
         "Esta prévia utiliza exclusivamente um índice analítico local já existente. "
-        "Seu frescor frente às AUDs não foi revalidado; "
-        "nenhum relatório CONS, score, Apdex, CWV ou tendência por página é criado."
+        + ("Identidades das AUDs, URLs e metadados de arquivo foram conferidos "
+           "em leitura local; isso não autentica os bytes das AUDs nem prova "
+           "frescor criptográfico. " if source_checked else
+           "Seu frescor frente às AUDs não foi revalidado; ")
+        + "nenhum relatório CONS, score, Apdex, CWV ou tendência por página é criado."
         "</p>",
         "<p><strong>Elegibilidade:</strong> " +
         ("Comparação descritiva de inventário" if good else "Não comparável: " + escape(reason))

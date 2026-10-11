@@ -11,6 +11,7 @@ import pytest
 from rasai.consolidation.domain_comparative_index_210 import (
     domain_preview_from_index, main,
 )
+from rasai.consolidation.reader import source_file_fingerprint
 
 
 def _index(tmp_path: Path):
@@ -39,6 +40,101 @@ def _index(tmp_path: Path):
             )
             con.execute("INSERT INTO audit_urls VALUES (?,?)", (name, url))
     return root, path
+
+
+def _physical_sources(root: Path, index: Path):
+    with sqlite3.connect(index) as con:
+        con.execute("ALTER TABLE source_audits ADD COLUMN db_path TEXT")
+        for name, url in con.execute(
+            "SELECT audit_id, url FROM audit_urls ORDER BY audit_id"
+        ).fetchall():
+            folder = root / name
+            folder.mkdir()
+            db = folder / "audit.db"
+            with sqlite3.connect(db) as source:
+                source.execute(
+                    "CREATE TABLE audits(audit_id TEXT, status TEXT, completion_status TEXT)"
+                )
+                source.execute(
+                    "INSERT INTO audits VALUES (?, 'COMPLETED', 'COMPLETE')", (name,)
+                )
+                source.execute("CREATE TABLE pages(audit_id TEXT, normalized_url TEXT)")
+                source.execute("INSERT INTO pages VALUES (?,?)", (name, url))
+            con.execute(
+                "UPDATE source_audits SET db_path=?,source_fingerprint=? WHERE audit_id=?",
+                (f"{name}/audit.db", source_file_fingerprint(db), name),
+            )
+
+
+def test_opt_in_physical_source_reconciliation_is_read_only_and_noncausal(tmp_path, capsys):
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    before = {str(p): sha256(p.read_bytes()).hexdigest()
+              for p in root.rglob("*") if p.is_file()}
+    proof = domain_preview_from_index(
+        root, ("AUD-ONE", "AUD-TWO"), verify_source_metadata=True
+    )
+    ref = proof["index_reference"]
+    assert proof["eligible"] is True
+    assert ref["source_audits_reopened_for_freshness"] is True
+    assert ref["source_file_metadata_matched"] is True
+    assert ref["source_url_identity_verified"] is True
+    assert ref["source_package_freshness_verified"] is False
+    assert ref["native_cons3_created"] is False
+    assert main(["--audits-root", str(root), "--audit-id", "AUD-ONE",
+                 "--audit-id", "AUD-TWO", "--verify-source-metadata",
+                 "--format", "html"]) == 0
+    html = capsys.readouterr().out
+    assert "isso não autentica os bytes das AUDs" in html
+    assert "frescor criptográfico" in html
+    assert "nenhum relatório CONS" in html
+    assert {str(p): sha256(p.read_bytes()).hexdigest()
+            for p in root.rglob("*") if p.is_file()} == before
+    assert not (root / "consolidated").exists()
+
+
+def test_opt_in_rejects_stale_index_and_forged_source_url(tmp_path):
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    source = root / "AUD-TWO" / "audit.db"
+    with sqlite3.connect(source) as con:
+        con.execute(
+            "UPDATE pages SET normalized_url='https://example.org/different'"
+        )
+    before = source.read_bytes()
+    with pytest.raises(ValueError, match="fingerprint mismatch"):
+        domain_preview_from_index(
+            root, ("AUD-ONE", "AUD-TWO"), verify_source_metadata=True
+        )
+    with sqlite3.connect(idx) as con:
+        con.execute(
+            "UPDATE source_audits SET source_fingerprint=? WHERE audit_id='AUD-TWO'",
+            (source_file_fingerprint(source),),
+        )
+    with pytest.raises(ValueError, match="URL mismatch"):
+        domain_preview_from_index(
+            root, ("AUD-ONE", "AUD-TWO"), verify_source_metadata=True
+        )
+    assert source.read_bytes() == before
+
+
+def test_opt_in_rejects_legacy_index_without_db_path_and_physical_sidecars(tmp_path):
+    root, idx = _index(tmp_path)
+    with pytest.raises(ValueError, match="incomplete analytical index schema"):
+        domain_preview_from_index(
+            root, ("AUD-ONE", "AUD-TWO"), verify_source_metadata=True
+        )
+    _physical_sources(root, idx)
+    source = root / "AUD-ONE" / "audit.db"
+    sidecar = source.parent / "audit.db-wal"
+    sidecar.write_bytes(b"unverified")
+    try:
+        with pytest.raises(ValueError, match="sidecars"):
+            domain_preview_from_index(
+                root, ("AUD-ONE", "AUD-TWO"), verify_source_metadata=True
+            )
+    finally:
+        sidecar.unlink()
 
 
 def test_existing_index_yields_same_host_advisory_without_creating_cons(tmp_path):
