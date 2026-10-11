@@ -217,7 +217,11 @@ def test_recorded_context_unknown_and_invalid_values_abstain_without_defaults():
     assert out["effective_recorded_run_context"]["concurrency"] is None
     assert out["effective_recorded_run_context"]["settle_seconds"] is None
     assert out["effective_recorded_run_context"]["javascript_error_capture"] is False
-    missing = resolve(_config(), profile_mode="CUSTOM")
+    missing = resolve({
+        "kpm": "USER_ACTION_DURATION",
+        "satisfied_threshold_seconds": 3.0,
+        "frustrated_threshold_seconds": 12.0,
+    }, profile_mode="CUSTOM")
     assert all(value is None for value in
                missing["effective_recorded_run_context"].values())
     assert out["new_audit_configuration_preview"] == []
