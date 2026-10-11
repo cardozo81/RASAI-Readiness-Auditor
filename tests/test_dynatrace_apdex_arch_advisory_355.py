@@ -508,7 +508,7 @@ def test_settings_read_missing_token_bad_scope_and_pagination_no_false_success()
         def open(self, *_args, **_kwargs):
             pytest.fail("unexpected outbound call")
     for token, scope in (("", "APPLICATION-ABC123"),
-                         ("SECRET\\nLEAK", "APPLICATION-ABC123"),
+                         ("SECRET" + chr(10) + "LEAK", "APPLICATION-ABC123"),
                          ("valid", "environment")):
         with pytest.raises(ValueError):
             read_live_dynatrace_apdex_settings(
