@@ -401,3 +401,86 @@ def test_319_cross_aud_work_item_reference_abstains_instead_of_dropping_row(tmp_
     assert evidence["physical_stage_duration_available"] is False
     assert inspection["non_ai_stages_measured"] is False
     assert db.read_bytes() == original
+
+
+def test_319_monotonic_step_log_is_observed_but_never_exclusive_or_sealed(tmp_path):
+    import json
+    root, db = make_aud(tmp_path)
+    directory = root / "logs"
+    directory.mkdir()
+    log = directory / "audit.log"
+    events = [
+        {"event": "AUDIT_PIPELINE_STEP_STARTED", "audit_id": AUD,
+         "timestamp": "2026-10-08T10:02:00Z"},
+        {"event": "AUDIT_PIPELINE_STEP_FINISHED", "audit_id": AUD,
+         "timestamp": "2026-10-08T10:04:00Z", "phase": "COLLECTION",
+         "step_key": "RENDER", "duration_ms": 120000, "status": "SUCCESS"},
+        {"event": "AUDIT_PIPELINE_STEP_FINISHED", "audit_id": AUD,
+         "timestamp": "2026-10-08T10:05:00Z", "phase": "PERF",
+         "step_key": "PSI", "duration_ms": 60000, "status": "ERROR"},
+        {"event": "AUDIT_PIPELINE_STEP_FINISHED", "audit_id": FOREIGN,
+         "timestamp": "2026-10-08T10:06:00Z", "phase": "PERF",
+         "step_key": "FOREIGN", "duration_ms": 999999, "status": "SUCCESS"},
+        {"event": "AUDIT_PIPELINE_STEP_FINISHED", "audit_id": AUD,
+         "timestamp": "2026-10-08T10:26:00Z", "phase": "REPROCESS",
+         "step_key": "POST_AUD", "duration_ms": 30000, "status": "SUCCESS"},
+    ]
+    log.write_text("".join(json.dumps(v) + "\\n" for v in events), encoding="utf-8")
+    old_db, old_log = db.read_bytes(), log.read_bytes()
+    response = inspect_audit_attempts(root)
+    evidence = response["pipeline_step_timer_evidence"]
+    assert evidence["status"] == "OBSERVED_UNSEALED_WRAPPER_TIMERS"
+    assert evidence["physical_wrapper_timer_observed"] is True
+    assert evidence["exclusive_stage_wall_clock_proven"] is False
+    assert evidence["operational_log_sealed_evidence"] is False
+    assert response["non_ai_stages_measured"] is False
+    assert evidence["audit_writes"] == evidence["provider_requests"] == 0
+    assert [item["observed_monotonic_wrapper_ms"] for item in evidence["by_step"]] == [
+        120000, 60000, 30000,
+    ]
+    assert evidence["by_step"][0]["console_window_placement"] == "WITHIN_VERIFIED_WINDOW_UNSEALED"
+    assert evidence["by_step"][2]["console_window_placement"] == "NOT_PROVEN_IN_INITIAL_WINDOW"
+    assert "FOREIGN" not in str(evidence)
+    assert db.read_bytes() == old_db and log.read_bytes() == old_log
+    assert inspect_audit_attempts(root)["pipeline_step_timer_evidence"] == evidence
+
+
+def test_319_invalid_or_missing_pipeline_log_fails_closed(tmp_path):
+    import json
+    from rasai.audit_step_timer_inspection_319 import inspect_pipeline_step_timers
+    root, db = make_aud(tmp_path)
+    assert inspect_pipeline_step_timers(root, AUD, None)["status"] == "NOT_AVAILABLE"
+    assert not (root / "logs").exists()
+    directory = root / "logs"
+    directory.mkdir()
+    log = directory / "audit.log"
+    event = {"event": "AUDIT_PIPELINE_STEP_FINISHED", "audit_id": AUD,
+             "timestamp": "2026-10-08T10:05:00Z", "phase": "COLLECTION",
+             "step_key": "M3", "duration_ms": 2000, "status": "SUCCESS"}
+    log.write_text(json.dumps(event) + "\\n" + "broken\\n", encoding="utf-8")
+    result = inspect_pipeline_step_timers(root, AUD, None)
+    assert result["status"] == "LOG_JSON_INVALID" and result["by_step"] == []
+    log.write_text(json.dumps({**event, "duration_ms": -1}) + "\\n", encoding="utf-8")
+    assert inspect_pipeline_step_timers(root, AUD, None)["status"] == "STEP_EVIDENCE_INVALID"
+    log.write_text(json.dumps({**event, "timestamp": "2026-10-08T10:05:00"}) + "\\n", encoding="utf-8")
+    assert inspect_pipeline_step_timers(root, AUD, None)["status"] == "STEP_EVIDENCE_INVALID"
+    log.write_bytes(b"x" * (8 * 1024 * 1024 + 1))
+    assert inspect_pipeline_step_timers(root, AUD, None)["status"] == "LOG_TOO_LARGE"
+
+
+def test_319_partial_aud_does_not_promote_wrapper_to_initial_session(tmp_path):
+    import json
+    base = tmp_path / "partial"
+    base.mkdir()
+    root, _ = make_aud(base, completion="PARTIAL_RETRYABLE")
+    directory = root / "logs"
+    directory.mkdir()
+    (directory / "audit.log").write_text(json.dumps({
+        "event": "AUDIT_PIPELINE_STEP_FINISHED", "audit_id": AUD,
+        "timestamp": "2026-10-08T10:03:00Z", "phase": "COLLECTION",
+        "step_key": "RENDER", "duration_ms": 3000, "status": "SUCCESS",
+    }) + "\\n", encoding="utf-8")
+    response = inspect_audit_attempts(root)
+    event = response["pipeline_step_timer_evidence"]["by_step"][0]
+    assert event["console_window_placement"] == "NOT_PROVEN_IN_INITIAL_WINDOW"
+    assert response["non_ai_stages_measured"] is False
