@@ -97,3 +97,25 @@ A resposta JSON declara
 pode estar desatualizado em relação aos pacotes AUD de origem.
 Nenhum score, série longitudinal, cálculo de métrica por página,
 manifest CONS ou HTML canônico é gerado nesta etapa.
+
+
+## Apresentação HTML separada e opcional
+
+O modo `--format html` escreve **somente em stdout** um documento
+consultivo com tabela de AUDs, URL exata, dispositivo, horário UTC,
+fingerprint do universo e indicação explícita de métricas `N/D`.
+A saída é responsiva, imprimível e escapa todos os valores extraídos
+do índice. A opção padrão continua `--format json`. O módulo não
+cria arquivos nem altera pacote CONS, hashes, report-catalog ou AUD.
+
+Exemplo:
+```powershell
+.\.venv\Scripts\python.exe -m rasai.consolidation.domain_comparative_index_210 `
+  --audits-root .\audits --audit-id AUD-PRIMEIRA `
+  --audit-id AUD-SEGUNDA --format html
+```
+
+**Aviso persistente:** o índice analítico previamente gerado não
+atesta o frescor das fontes; URLs diferentes não compõem uma série
+longitudinal e não permitem recálculo de Apdex, CWV ou scores.
+Isto é um comparativo de inventário, não um modo CONS-3 produtivo.

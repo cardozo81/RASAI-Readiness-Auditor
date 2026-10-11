@@ -114,6 +114,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Prévia consultiva por domínio de AUDs indexadas; sem gerar CONS."
     )
+    parser.add_argument("--format", choices=("json", "html"), default="json",
+                        help="Saída local: JSON por padrão ou HTML consultivo somente texto.")
     parser.add_argument("--audits-root", type=Path, required=True)
     parser.add_argument("--audit-id", action="append", required=True,
                         help="Identificador de AUD; informe 2 ou mais vezes")
@@ -122,7 +124,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = domain_preview_from_index(args.audits_root, args.audit_id)
     except (ValueError, sqlite3.DatabaseError, OSError) as exc:
         parser.error(str(exc))
-    print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+    if args.format == "html":
+        from rasai.consolidation.domain_comparative_html_210 import render_same_domain_advisory_html
+        print(render_same_domain_advisory_html(result))
+    else:
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 
 
