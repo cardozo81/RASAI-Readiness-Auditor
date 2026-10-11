@@ -126,6 +126,8 @@ def test_consent_does_not_trigger_dns_or_http():
         (b"User-agent: *\nAllow: /\n\xff", 200, "text/plain",
          "ROBOTS_INVALID_ENCODING"),
     ],
+    ids=("missing", "wrong-mime", "malformed", "unmatched-agent",
+         "oversized", "invalid-encoding"),
 )
 def test_robots_absent_or_invalid_abstains_without_html(
     robots, code, media, expected,
