@@ -74,8 +74,8 @@ def inspect_consented_public_html(
     )
     if not isinstance(client, PublicWebFetcher) or client.max_redirects != 0:
         raise ValueError("no-redirect PublicWebFetcher required")
-    if client.max_bytes > 2_000_000:
-        raise ValueError("fetch byte limit exceeds 2 MiB")
+    if client.max_bytes > 2_000_000 or client.timeout_seconds > 10:
+        raise ValueError("fetch byte/time limits exceed local inspection budget")
     if client.user_agent != _USER_AGENT:
         raise ValueError("robots user-agent must match HTML client")
     starting_requests = client.requests_used
@@ -86,13 +86,17 @@ def inspect_consented_public_html(
             "provider_requests": client.requests_used - starting_requests,
             **details,
         }
+    # Consent must be checked *before DNS preflight* (even DNS is network).
+    try:
+        host = urlsplit(url).hostname
+    except (TypeError, ValueError):
+        return outcome("UNSAFE_PUBLIC_URL")
+    if host is None or host.lower() not in allowed:
+        return outcome("EXACT_HOST_CONSENT_MISSING")
     try:
         normalized = _validate_public_url(url, client.resolver)
     except (InvalidUrl, PublicWebBlocked, ValueError, OSError):
         return outcome("UNSAFE_PUBLIC_URL")
-    host = urlsplit(normalized).hostname
-    if host is None or host.lower() not in allowed:
-        return outcome("EXACT_HOST_CONSENT_MISSING")
 
     uri = urlsplit(normalized)
     robots_url = f"{uri.scheme}://{uri.netloc}/robots.txt"
@@ -115,8 +119,11 @@ def inspect_consented_public_html(
     parser = RobotFileParser()
     parser.set_url(robots_url)
     parser.parse(policy.splitlines())
-    if parser.default_entry is None and not parser.entries:
-        return outcome("ROBOTS_NO_VALID_USER_AGENT",
+    if not (
+        parser.default_entry is not None
+        or any(entry.applies_to(_USER_AGENT) for entry in parser.entries)
+    ):
+        return outcome("ROBOTS_NO_APPLICABLE_USER_AGENT",
                        robots_fetch_status="NOT_VERIFIED")
     if not parser.can_fetch(_USER_AGENT, normalized):
         return outcome("ROBOTS_DISALLOWED", robots_fetch_status="DISALLOWED")
@@ -146,7 +153,7 @@ def inspect_consented_public_html(
     return outcome(
         status, robots_fetch_status="ALLOWED",
         content_evidence_status=(
-            "PERSISTED_ONLY_AFTER_EXPLICIT_SAVE" if status == "STATIC_HTML_FEATURES_OBSERVED"
+            "TRANSIENT_STATIC_HTML_FEATURES" if status == "STATIC_HTML_FEATURES_OBSERVED"
             else "NOT_COMPARABLE"
         ),
         http_status=fetched.http_status, final_url=fetched.final_url,
