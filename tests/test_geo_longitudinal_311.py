@@ -737,3 +737,86 @@ def test_longitudinal_rejects_unsealed_sqlite_sidecars_before_read(
     assert [(aud / "audit.db").read_bytes()
             for aud in (unsealed, stable)] == before
     assert sidecar.read_bytes() == b"simulated-incomplete-transaction"
+
+
+def test_longitudinal_abstains_when_db_changes_between_snapshot_and_source_reads(
+    tmp_path, monkeypatch,
+):
+    from rasai import geo_longitudinal_311 as module
+    moving = audit(tmp_path, "AUD-MOVING-SOURCE")
+    stable = audit(tmp_path, "AUD-STABLE-SOURCE")
+    original = (moving / "audit.db").read_bytes()
+    real = module._one_unsealed
+
+    def physical_change_after_source_reads(root):
+        result = real(root)
+        if root.name == moving.name:
+            with (root / "audit.db").open("ab") as stream:
+                stream.write(b"physical-bytes-changed")
+        return result
+
+    monkeypatch.setattr(module, "_one_unsealed", physical_change_after_source_reads)
+    output = build_geo_longitudinal_preview((moving, stable))
+    assert output["audits_eligible"] == 1
+    assert output["excluded"] == [
+        {"audit_id": moving.name, "reason": "AUD_SOURCE_CHANGED_DURING_READ"}
+    ]
+    assert output["timelines"][0]["observations"][0]["audit_id"] == stable.name
+    assert (moving / "audit.db").read_bytes() == original + b"physical-bytes-changed"
+
+
+def test_longitudinal_abstains_on_new_wal_after_independent_source_reads(
+    tmp_path, monkeypatch,
+):
+    from rasai import geo_longitudinal_311 as module
+    moving = audit(tmp_path, "AUD-SIDECAR-DURING-READ")
+    stable = audit(tmp_path, "AUD-UNCHANGED")
+    original = (moving / "audit.db").read_bytes()
+    real = module._one_unsealed
+
+    def sidecar_after_source_reads(root):
+        result = real(root)
+        if root.name == moving.name:
+            (root / "audit.db-wal").write_bytes(b"pending-transaction")
+        return result
+
+    monkeypatch.setattr(module, "_one_unsealed", sidecar_after_source_reads)
+    output = build_geo_longitudinal_preview((moving, stable))
+    assert output["audits_eligible"] == 1
+    assert output["excluded"][0] == {
+        "audit_id": moving.name, "reason": "AUD_SOURCE_CHANGED_DURING_READ",
+    }
+    assert (moving / "audit.db").read_bytes() == original
+    assert (moving / "audit.db-wal").read_bytes() == b"pending-transaction"
+
+
+def test_longitudinal_rejects_source_over_hash_budget_without_querying_sqlite(
+    tmp_path, monkeypatch,
+):
+    from rasai import geo_longitudinal_311 as module
+    large = audit(tmp_path, "AUD-OVER-BYTE-BUDGET")
+    stable = audit(tmp_path, "AUD-IN-BUDGET")
+    db = large / "audit.db"
+    original = db.read_bytes()
+    old_limit = module._MAX_AUD_DB_HASH_BYTES
+    monkeypatch.setattr(module, "_MAX_AUD_DB_HASH_BYTES", len(original) - 1)
+    try:
+        result = build_geo_longitudinal_preview((large, stable))
+    finally:
+        monkeypatch.setattr(module, "_MAX_AUD_DB_HASH_BYTES", old_limit)
+    assert result["audits_eligible"] == 1
+    assert result["excluded"][0] == {
+        "audit_id": large.name, "reason": "AUD_SOURCE_BYTES_UNVERIFIABLE",
+    }
+    assert db.read_bytes() == original
+
+
+def test_longitudinal_no_mutation_of_eligible_sources_after_hash_seal(tmp_path):
+    left = audit(tmp_path, "AUD-SEALED-LEFT")
+    right = audit(tmp_path, "AUD-SEALED-RIGHT")
+    original = [(db / "audit.db").read_bytes() for db in (left, right)]
+    value = build_geo_longitudinal_preview((left, right))
+    assert value["audits_eligible"] == 2
+    assert value["excluded"] == []
+    assert [(db / "audit.db").read_bytes() for db in (left, right)] == original
+    assert all(not list(db.glob("audit.db-*")) for db in (left, right))
