@@ -671,7 +671,7 @@ def test_cobs_pair_refuses_rehashed_manifest_with_duplicate_json_keys(
     if duplicate == "identical_root_key":
         text = raw.decode("utf-8").rstrip()
         raw = (text[:-1] + ',"requested_url":' +
-               json.dumps(candidate["requested_url"]) + '}\\n').encode("utf-8")
+               json.dumps(candidate["requested_url"]) + '}').encode("utf-8")
     elif duplicate == "conflicting_root_before_valid":
         raw = (b'{"requested_url":"https://forged.example.org/page",' +
                raw.lstrip()[1:])
