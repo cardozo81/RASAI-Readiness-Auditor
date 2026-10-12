@@ -656,6 +656,47 @@ def test_cobs_pair_refuses_rehashed_manifest_without_physical_serp_binding(
     assert (folder / "audit.db").read_bytes() == original
 
 
+@pytest.mark.parametrize("duplicate", [
+    "identical_root_key", "conflicting_root_before_valid",
+    "nested_capture_role_before_valid",
+])
+def test_cobs_pair_refuses_rehashed_manifest_with_duplicate_json_keys(
+    tmp_path, monkeypatch, duplicate,
+):
+    from pathlib import Path
+    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    folder, target, competitor, original, calls = _pair_capture(tmp_path, monkeypatch)
+    candidate = json.loads(Path(competitor["manifest_path"]).read_text(encoding="utf-8"))
+    raw = capture._payload(candidate)
+    if duplicate == "identical_root_key":
+        text = raw.decode("utf-8").rstrip()
+        raw = (text[:-1] + ',"requested_url":' +
+               json.dumps(candidate["requested_url"]) + '}').encode("utf-8")
+    elif duplicate == "conflicting_root_before_valid":
+        raw = (b'{"requested_url":"https://forged.example.org/page",' +
+               raw.lstrip()[1:])
+    else:
+        raw = raw.replace(
+            b'"capture": {',
+            b'"capture": {"role": "CUSTOMER",',
+            1,
+        )
+    # The previous default decoder chose the last duplicate, apparently
+    # accepting a valid customer/competitor comparison after recomputing SHA.
+    default = json.loads(raw)
+    assert default["requested_url"] == candidate["requested_url"]
+    assert default["capture"]["role"] == "COMPETITOR_CANDIDATE"
+    name = "COBS-" + sha256(raw).hexdigest()[:32].upper()
+    suspect = tmp_path / "rehashed-duplicate" / name / "manifest.json"
+    suspect.parent.mkdir(parents=True)
+    suspect.write_bytes(raw)
+    before_calls = len(calls)
+    with pytest.raises(ValueError, match="COBS manifest JSON invalid"):
+        compare_cobs_static_pair(folder, target["manifest_path"], suspect)
+    assert len(calls) == before_calls
+    assert (folder / "audit.db").read_bytes() == original
+
+
 def test_cobs_pair_fails_on_changed_physical_aud(tmp_path, monkeypatch):
     from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
     folder, target, competitor, _, _ = _pair_capture(tmp_path, monkeypatch)
