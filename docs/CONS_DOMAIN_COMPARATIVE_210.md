@@ -249,3 +249,31 @@ A prévia puramente indexada, sem `--verify-source-metadata`,
 continua sendo apenas consultiva, sem atestação da fonte.
 A correção é aplicada ao consumidor e não altera
 `audit.db`, schemas produtivos, score ou CONS-3.
+
+
+## Entrada pública pelo CLI RASAi (12/10/2026)
+
+A prévia CDOM pode ser executada pelo roteador `rasai`, sem carregar
+o runtime de coletores, IA ou o fluxo produtivo CONS-3:
+
+```powershell
+rasai domain-comparative --audits-root .\\audits `
+  --audit-id AUD-PRIMEIRA --audit-id AUD-SEGUNDA `
+  --verify-source-metadata --format html
+```
+
+A materialização **separada** exige o mesmo consentimento explícito de
+escrita `--write-domain-package` do módulo offline e admite a proteção
+adicional `--verify-source-bytes`:
+
+```powershell
+rasai domain-package --audits-root .\\audits `
+  --audit-id AUD-PRIMEIRA --audit-id AUD-SEGUNDA `
+  --write-domain-package --verify-source-bytes
+```
+
+A primeira operação não escreve arquivos. A segunda só escreve
+`consolidated-domain/CDOM-*` versionado, com idempotência e
+verificação física; **não** gera nem modifica `CONS-*` e não calcula
+deltas Apdex, CWV, SARI ou GEO. A integração nativa ao relatório CONS
+permanece sujeita à metodologia de universos de URL diferentes.
