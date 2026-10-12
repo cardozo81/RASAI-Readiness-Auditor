@@ -160,3 +160,21 @@ de outra origem continuam podendo ser descritas como destinos
 finais persistidos, mas o comparativo é N/D. Não há fetch,
 execução de browser, modificação de AUD ou novos contratos
 de SERP/Perplexity.
+
+
+## Integridade de headings físicos persistidos (12/10/2026)
+
+`headings_json` é evidência obrigatória do inventário HTML:
+JSON ausente, inválido, não-lista, com entradas não textuais/vazias
+ou fora do orçamento (128 KiB, 100 entradas, 500 caracteres por item)
+não pode ser convertido silenciosamente em `headings_count=0`.
+Nesse caso os fatos de conteúdo da página são
+`NOT_COMPARABLE`, com contagem `N/D`, mesmo que o
+título exista; não se publica uma diferença textual falsa.
+
+Uma lista explicitamente persistida `[]` continua representando
+**zero observado**, quando existe título HTML confiável. Listas
+inteiras dentro dos limites passam a ser contadas integralmente,
+sem truncamento anterior nas primeiras 20 headings. Isto não
+interpreta conteúdo primário nem renderiza SPA; é somente
+preservação fiel dos metadados físicos já coletados.

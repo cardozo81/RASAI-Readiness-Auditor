@@ -756,3 +756,73 @@ def test_default_tls_port_redirect_within_same_origin_remains_observational(
     assert result["competitors"][0]["serp_result_membership_proven"] is True
     assert result["competitors"][0]["primary_content_proven"] is False
     assert db.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "defect",
+    ("missing", "malformed", "non_list", "non_string",
+     "blank_heading", "oversized_bytes", "over_100_headings"),
+)
+def test_invalid_or_unbounded_persisted_headings_never_infer_zero(
+    tmp_path, defect,
+):
+    # Keep pytest IDs short on Windows: large raw parameter values
+    # can overflow its 32767-character environment-variable limit.
+    bad_headings = {
+        "missing": None,
+        "malformed": "{invalid-json",
+        "non_list": '{"not": "a-list"}',
+        "non_string": '["real heading", 7]',
+        "blank_heading": '["real heading", "  "]',
+        "oversized_bytes": json.dumps(["x" * (128 * 1024 + 1)]),
+        "over_100_headings": json.dumps([str(i) for i in range(101)]),
+    }[defect]
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET headings_json=? "
+            "WHERE role='COMPETITOR_CANDIDATE' AND observation_id='SERP-1'",
+            (bad_headings,),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+    assert result["comparisons"] == []
+    assert result["competitors"][0]["content_evidence_status"] == "NOT_COMPARABLE"
+    assert result["competitors"][0]["headings_count"] is None
+    assert result["competitors"][0]["primary_content_proven"] is False
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert db.read_bytes() == before
+
+
+def test_explicit_empty_headings_is_observed_zero_when_title_is_present(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET headings_json='[]' "
+            "WHERE role='COMPETITOR_CANDIDATE' AND observation_id='SERP-1'"
+        )
+    before = db.read_bytes()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "DESCRIPTIVE_PERSISTED_HTML_COMPARISON"
+    assert result["competitors"][0]["headings_count"] == 0
+    assert len(result["comparisons"]) == 1
+    assert db.read_bytes() == before
+
+
+def test_bounded_persisted_headings_are_counted_without_silent_truncation(tmp_path):
+    db = _db(tmp_path)
+    headings = [f"Tópico {i}" for i in range(40)]
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET headings_json=? "
+            "WHERE role='COMPETITOR_CANDIDATE' AND observation_id='SERP-1'",
+            (json.dumps(headings),),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "DESCRIPTIVE_PERSISTED_HTML_COMPARISON"
+    assert result["competitors"][0]["headings_count"] == 40
+    assert result["competitors"][0]["title_present"] is True
+    assert result["competitors"][0]["primary_content_proven"] is False
+    assert db.read_bytes() == before

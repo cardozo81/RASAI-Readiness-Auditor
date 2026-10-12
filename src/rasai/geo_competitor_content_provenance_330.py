@@ -39,15 +39,24 @@ def _columns(con: sqlite3.Connection, table: str) -> set[str]:
     return {str(row[1]) for row in con.execute("PRAGMA table_info(" + table + ")")}
 
 
-def _texts(value: object) -> list[str]:
+def _strict_headings(value: object) -> list[str] | None:
+    """A missing, invalid, or truncated heading ledger is NOT an empty one.
+
+    Use the physically persisted list as supplied by the existing collector.
+    If the observed source cannot be fully parsed within a bounded budget,
+    do not publish a guessed zero or shortened headings count.
+    """
+    if not isinstance(value, str) or len(value.encode("utf-8")) > 128 * 1024:
+        return None
     try:
-        values = json.loads(value) if isinstance(value, str) else []
-    except (ValueError, TypeError):
-        return []
-    if not isinstance(values, list):
-        return []
-    return [item[:120] for item in values[:20]
-            if isinstance(item, str) and item.strip()]
+        values = json.loads(value)
+    except (TypeError, ValueError):
+        return None
+    if (not isinstance(values, list) or len(values) > 100
+            or any(not isinstance(item, str) or not item.strip()
+                   or len(item) > 500 for item in values)):
+        return None
+    return values
 
 
 def _strict_query_terms(raw: object) -> tuple[str, ...]:
@@ -137,6 +146,8 @@ def _page(row: sqlite3.Row, expected_terms: tuple[str, ...]) -> dict[str, Any]:
         bool(expected_terms) and indexed_terms == expected_terms
         and bool(body_terms) and set(body_terms).issubset(indexed_terms)
     )
+    headings = _strict_headings(row["headings_json"])
+    title = row["title"] if isinstance(row["title"], str) else ""
     raw_type = row["content_type"]
     media_type = (
         raw_type.split(";", 1)[0].strip().casefold()
@@ -152,8 +163,8 @@ def _page(row: sqlite3.Row, expected_terms: tuple[str, ...]) -> dict[str, Any]:
         and type(row["bytes_read"]) is int and row["bytes_read"] > 0
         and type(row["word_count"]) is int and row["word_count"] > 0
         and bool(requested_url and final_url)
-        and bool((row["title"].strip() if isinstance(row["title"], str) else "")
-                 or _texts(row["headings_json"]))
+        and headings is not None
+        and bool(title.strip() or headings)
     )
     title_terms = _optional_terms(row["query_terms_title_json"], expected_terms)
     description_terms = _optional_terms(row["query_terms_description_json"], expected_terms)
@@ -170,8 +181,8 @@ def _page(row: sqlite3.Row, expected_terms: tuple[str, ...]) -> dict[str, Any]:
         "verified_html_media_type": media_type if valid_content else None,
         "content_sha256": row["content_sha256"] if valid_content else None,
         "word_count": row["word_count"] if valid_content else None,
-        "title_present": bool((row["title"] or "").strip()) if valid_content else None,
-        "headings_count": len(_texts(row["headings_json"])) if valid_content else None,
+        "title_present": bool(title.strip()) if valid_content else None,
+        "headings_count": len(headings) if valid_content else None,
         "query_body_terms": list(body_terms) if valid_content else [],
         "query_title_terms": title_terms if valid_content else None,
         "query_description_terms": description_terms if valid_content else None,
