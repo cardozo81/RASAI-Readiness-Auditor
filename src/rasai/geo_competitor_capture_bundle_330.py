@@ -185,6 +185,19 @@ def capture_competitor_sidecar(
             if role == "COMPETITOR_CANDIDATE":
                 if not in_observed_serp:
                     raise ValueError("candidate URL is not in persisted SERP evidence")
+                # SERP membership alone cannot turn this AUD's exact target
+                # into independent competitor content. Refuse the conflicting
+                # role before consented HTTP when the single target is known.
+                if {"audit_id", "input_url"} <= _columns(con, "audit_targets"):
+                    targets = con.execute(
+                        "SELECT input_url FROM audit_targets WHERE audit_id=? LIMIT 2",
+                        (audit_dir.name,),
+                    ).fetchall()
+                    if (len(targets) == 1
+                            and _canonical_url(targets[0]["input_url"]) == candidate):
+                        raise ValueError(
+                            "AUD target cannot be labeled as competitor candidate"
+                        )
             else:
                 if not {"audit_id", "input_url"} <= _columns(con, "audit_targets"):
                     raise ValueError("unique persisted AUD target not available")
