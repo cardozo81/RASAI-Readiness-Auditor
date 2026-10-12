@@ -197,3 +197,21 @@ artefato é uma **prévia consultiva externa**, não injeta GEO em
 nem compara automaticamente intenção, idioma, dispositivo, ranking
 e menções em texto gerativo. A gravação opcional por redirecionamento
 é decisão explícita do operador, fora da AUD.
+
+
+## Entrada pública read-only pelo comando `rasai` (12/10/2026)
+
+O mesmo inventário offline pode ser consultado sem importar o runtime
+de auditoria, coletores ou credenciais dos providers:
+
+```powershell
+rasai geo-query-ledger .\audits\AUD-EXEMPLO --format html
+rasai geo-query-report .\audits\AUD-EXEMPLO --format json
+```
+
+A saída HTML é um documento acessível e independente para leitura humana,
+**não** uma escrita em `report-catalog/geo.html`, nem uma mutação de
+relatório já homologado. O roteador apenas delega ao consumer físico
+`geo_query_ledger_304`. A comparação por consulta continua
+`DESCRIPTIVE_ONLY`/N/D e não prova mesma população de mercado, idioma,
+device, intenção, nem citação generativa. Não dispara Search API/IA.
