@@ -79,7 +79,9 @@ def render_dynatrace_population_crosscheck_html(
     if eligible and (not isinstance(counts, Mapping)
                      or not isinstance(kpm, Mapping)
                      or not isinstance(findings, list)
-                     or len(findings) > 40):
+                     or len(findings) > 40
+                     or any(not isinstance(item, str) or len(item) > 200
+                            for item in findings)):
         raise ValueError("Dynatrace eligible projection missing evidence sets")
     if not eligible:
         counts, kpm, findings = {}, {}, []
@@ -94,7 +96,10 @@ def render_dynatrace_population_crosscheck_html(
         for key, label in _KPM
     )
     architecture = result.get("architecture") if eligible else None
-    architecture_label = _ARCH.get(architecture, "N/D")
+    architecture_label = (
+        _ARCH.get(architecture, "N/D")
+        if isinstance(architecture, str) else "N/D"
+    )
     extrap = result.get("usql_extrapolation_level") if eligible else None
     if type(extrap) is int and extrap > 1:
         extrap_label = f"Nível {extrap} informado; contagens extrapoladas"
