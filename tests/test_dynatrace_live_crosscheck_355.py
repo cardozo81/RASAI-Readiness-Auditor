@@ -140,6 +140,7 @@ def test_same_tenant_gets_two_explicit_readonly_api_requests_and_no_secrets():
         ({"end_timestamp_ms": _START}, "time"),
         ({"settings_api_token": ""}, "tokens"),
         ({"usql_api_token": "LINE" + chr(10) + "INJECTION"}, "tokens"),
+        ({"usql_api_token": "SETTINGS-SCOPE-SECRET"}, "distinct"),
         ({"architecture": "NOT_AN_ARCHITECTURE"}, "architecture"),
         ({"architecture_evidence_id": ""}, "architecture"),
     ],
@@ -211,3 +212,16 @@ def test_cli_requires_both_explicit_flags_before_any_network(tmp_path, capsys):
             main(args + tail)
         assert exc.value.code == 2
         assert "both explicit" in capsys.readouterr().err
+
+
+def test_identical_tokens_refused_without_first_or_second_network_request():
+    read_settings, read_rum, events = _fakes()
+    args = _arguments(
+        settings_api_token="ONE-SHARED-BROAD-TOKEN",
+        usql_api_token="ONE-SHARED-BROAD-TOKEN",
+    )
+    with pytest.raises(ValueError, match="distinct read-only Dynatrace tokens"):
+        inspect_live_dynatrace_apdex_coverage(
+            **args, settings_reader=read_settings, rum_reader=read_rum,
+        )
+    assert events == []
