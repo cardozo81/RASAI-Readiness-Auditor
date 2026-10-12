@@ -731,3 +731,50 @@ def test_html_renderer_refuses_bad_contract_and_handles_untrusted_rows():
     assert "99.00%" not in html
     assert "Sim (URL exata" not in html
     assert "N/D" in html
+
+
+@pytest.mark.parametrize(
+    ("global_status", "source_guard"),
+    [
+        ("NOT_COMPARABLE", "DOUBLE_SHA256_MATCH"),
+        ("DESCRIPTIVE_ONLY", "UNVERIFIED"),
+    ],
+)
+def test_html_global_source_gate_never_leaks_stale_verified_row(
+    global_status, source_guard,
+):
+    """Rows from a failed global source gate cannot become positive evidence."""
+    from rasai.geo_query_ledger_html_304 import render_geo_query_ledger_html
+
+    projection = {
+        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-005",
+        "audit_id": "AUD-GEO304",
+        "status": global_status,
+        "reason": "AUD_SOURCE_CHANGED_DURING_READ",
+        "source_audit_db_integrity_guard": source_guard,
+        "queries": [{
+            "query": "seguro de vida",
+            "status": "DESCRIPTIVE_ONLY",
+            "serp_scope": {
+                "engine": "google", "country": "BR", "region": "RS",
+                "language": "pt-BR", "device": "mobile",
+            },
+            "serp_distinct_urls": 9876543,
+            "perplexity_distinct_urls": 8765432,
+            "common_urls": 7654321,
+            "serp_overlap_rate": 0.9876,
+            "target_url_exact_in_serp": True,
+            "target_url_overlap_status": "BOTH_SOURCE_SETS",
+            "declared_query_class": "UNCLASSIFIED",
+        }],
+    }
+    html = render_geo_query_ledger_html(projection)
+    assert "N/D - comparabilidade não demonstrada" in html
+    assert "9876543" not in html
+    assert "8765432" not in html
+    assert "7654321" not in html
+    assert "98.76%" not in html
+    assert "Sim (URL exata" not in html
+    assert "engine: google" not in html
+    assert "BOTH_SOURCE_SETS" not in html
+    assert "AUD_SOURCE_CHANGED_DURING_READ" in html
