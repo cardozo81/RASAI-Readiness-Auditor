@@ -778,3 +778,40 @@ def test_html_global_source_gate_never_leaks_stale_verified_row(
     assert "engine: google" not in html
     assert "BOTH_SOURCE_SETS" not in html
     assert "AUD_SOURCE_CHANGED_DURING_READ" in html
+
+
+def test_public_cli_geo_query_ledger_and_html_do_not_bootstrap_audit_or_ai(
+    tmp_path, capsys, monkeypatch,
+):
+    from rasai import entrypoint
+    folder = _audit(tmp_path, multi=False)
+    source = folder / "audit.db"
+    initial = source.read_bytes()
+    monkeypatch.setattr(
+        entrypoint, "_install_audit_runtime",
+        lambda: pytest.fail("GEO per-query CLI must not install runtime"),
+    )
+    monkeypatch.setattr(
+        entrypoint, "_activate_persisted_cli_secrets",
+        lambda: pytest.fail("GEO per-query CLI must not access secrets"),
+    )
+    assert entrypoint.main([
+        "geo-query-ledger", str(folder), "--format", "html",
+    ]) == 0
+    html = capsys.readouterr().out
+    assert html.startswith("<!doctype html>")
+    assert "Sobreposição descritiva de fontes URL" in html
+    assert "N/D" in html
+    assert "SCORE-GEO" in html
+    assert source.read_bytes() == initial
+    assert not (folder / "report-catalog").exists()
+    assert not list(folder.glob("GEO-*"))
+    assert entrypoint.main([
+        "geo-query-report", str(folder), "--format", "json",
+    ]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["contract_version"] == (
+        "RASAI-GEO-PER-QUERY-304-ADVISORY-005"
+    )
+    assert payload["provider_requests"] == payload["audit_writes"] == 0
+    assert source.read_bytes() == initial
