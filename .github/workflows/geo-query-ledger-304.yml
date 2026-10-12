@@ -5,6 +5,7 @@ on:
     paths:
       - 'src/rasai/geo_query_ledger_304.py'
       - 'src/rasai/geo_query_ledger_html_304.py'
+      - 'src/rasai/entrypoint.py'
       - 'tests/test_geo_query_ledger_304.py'
       - 'docs/GEO_QUERY_LEDGER_304.md'
       - '.github/workflows/geo-query-ledger-304.yml'
@@ -13,6 +14,7 @@ on:
     paths:
       - 'src/rasai/geo_query_ledger_304.py'
       - 'src/rasai/geo_query_ledger_html_304.py'
+      - 'src/rasai/entrypoint.py'
       - 'tests/test_geo_query_ledger_304.py'
       - '.github/workflows/geo-query-ledger-304.yml'
 permissions:
