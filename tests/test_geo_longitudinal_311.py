@@ -137,6 +137,49 @@ def _v8_physical_sources(root):
         )
 
 
+@pytest.mark.parametrize(
+    ("field", "kind", "expected_reason"),
+    [
+        ("query", "oversized_text", "GEO_SOURCE_PROVENANCE_UNVERIFIED"),
+        ("query", "binary_json", "GEO_SOURCE_PROVENANCE_UNVERIFIED"),
+        ("projection", "oversized_text", "GEO_PROJECTION_INVALID"),
+        ("projection", "binary_json", "GEO_PROJECTION_INVALID"),
+    ],
+)
+def test_v8_large_or_binary_json_abstains_without_decoding_unbounded_evidence(
+    tmp_path, field, kind, expected_reason,
+):
+    altered = audit(tmp_path, "AUD-V8-UNBOUNDED", version="RASAI-GEO-OBSERVATION-8")
+    stable = audit(tmp_path, "AUD-V8-STABLE", version="RASAI-GEO-OBSERVATION-8")
+    for root in (altered, stable):
+        _v8_physical_sources(root)
+    db = altered / "audit.db"
+    with sqlite3.connect(db) as con:
+        table, column = (
+            ("perplexity_search_runs", "query_json") if field == "query"
+            else ("geo_observation_runs", "projection_json")
+        )
+        original = con.execute(f"SELECT {column} FROM {table}").fetchone()[0]
+        assert isinstance(original, str)
+        if kind == "oversized_text":
+            budget = 16 * 1024 if field == "query" else 4 * 1024 * 1024
+            value = " " * (budget + 1) + original
+        else:
+            value = original.encode("utf-8")
+        # Both mutation classes are valid inputs to a permissive json.loads.
+        assert json.loads(value) == json.loads(original)
+        con.execute(f"UPDATE {table} SET {column}=?", (value,))
+    before = {root.name: (root / "audit.db").read_bytes()
+              for root in (altered, stable)}
+    preview = build_geo_longitudinal_preview([altered, stable])
+    assert preview["audits_eligible"] == 1
+    assert {"audit_id": altered.name, "reason": expected_reason} in preview["excluded"]
+    assert preview["timelines"][0]["observations"][0]["audit_id"] == stable.name
+    assert preview["provider_requests"] == preview["audit_writes"] == 0
+    assert all((root / "audit.db").read_bytes() == before[root.name]
+               for root in (altered, stable))
+
+
 def test_v8_source_observation_counts_are_reconciled_against_physical_sets(tmp_path):
     first = audit(tmp_path, "AUD-V8-ONE", version="RASAI-GEO-OBSERVATION-8")
     second = audit(tmp_path, "AUD-V8-TWO", version="RASAI-GEO-OBSERVATION-8")
