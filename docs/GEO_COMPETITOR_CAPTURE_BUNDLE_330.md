@@ -164,3 +164,21 @@ Nenhum conteúdo HTML bruto, sessão individual ou token
 de terceiros é gravado. A etapa de comparação profunda
 com renderização equivalente permanece pendente e, sem
 evidência, deve aparecer N/D.
+
+
+## Autorização adicional no COBS live (12/10/2026)
+
+Antes de qualquer DNS/HTTP, a captura de HTML exige a finalidade
+compatível com `--capture-role` e as duas operações GET
+individualmente consentidas. Exemplo para concorrente:
+`--consent-purpose GEO_COMPETITOR_STATIC_CONTENT_REVIEW`
+`--consent-operation GET_ROBOTS_TXT`
+`--consent-operation GET_STATIC_HTML`.
+Para a URL do cliente, usar
+`--consent-purpose AUD_CUSTOMER_STATIC_CONTENT_REVIEW`.
+Os antigos comandos sem o escopo explícito param antes da rede.
+
+A versão do COBS não muda porque o controle se limita à autorização
+pré-fetch, sem reescrever manifests ou snapshots já persistidos.
+A finalidade não é evidência assinada de consentimento histórico; não
+homologa coleta automática, egress SaaS ou integração com o pipeline.
