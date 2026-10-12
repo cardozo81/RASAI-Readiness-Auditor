@@ -547,3 +547,121 @@ def test_customer_capture_rejects_mismatched_transport_role_and_requested_url(
                 consented_hostnames=("customer.example.org",),
             )
         assert not (tmp_path / "out").exists()
+
+
+def _pair_capture(tmp_path, monkeypatch, *, gap_hours=1):
+    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    folder = _audit(tmp_path)
+    _add_aud_targets(folder, [(folder.name, _TARGET_URL)])
+    original = (folder / "audit.db").read_bytes()
+    calls = []
+    def fake(url, **kwargs):
+        calls.append((url, kwargs["role"]))
+        target = kwargs["role"] == "CUSTOMER"
+        return _response(
+            role=kwargs["role"], requested_url=url, final_url=url,
+            title="Meu seguro" if target else "Seguro concorrente",
+            headings=["Cobertura", "Assistência"] if target else ["Proteção"],
+            jsonld_types=["Product"] if target else ["FAQPage", "Product"],
+            query_body_terms=["vida", "seguro"] if target else ["vida"],
+            content_sha256=("e" if target else "f") * 64,
+            html_fetch_timestamp=(
+                "2026-10-10T10:15:00Z" if target
+                else ("2026-10-12T10:15:00Z" if gap_hours > 24
+                      else "2026-10-10T11:15:00Z")
+            ),
+        )
+    monkeypatch.setattr(capture, "inspect_consented_public_html", fake)
+    target = capture.capture_competitor_sidecar(
+        folder, _OBS, _TARGET_URL, role="CUSTOMER",
+        output_root=tmp_path / "pair-evidence",
+        consented_hostnames=("customer.example.org",),
+    )
+    competitor = _run(folder, tmp_path)
+    return folder, target, competitor, original, calls
+
+
+def test_customer_competitor_pair_compares_only_sealed_static_metadata(
+    tmp_path, monkeypatch,
+):
+    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    folder, target, competitor, original, calls = _pair_capture(tmp_path, monkeypatch)
+    assert [role for _, role in calls] == ["CUSTOMER", "COMPETITOR_CANDIDATE"]
+    result = compare_cobs_static_pair(
+        folder, target["manifest_path"], competitor["manifest_path"],
+    )
+    assert result["status"] == "DESCRIPTIVE_STATIC_HTML_ONLY"
+    assert result["source_audit_id"] == folder.name
+    assert result["source_audit_db_sha256"] == sha256(original).hexdigest()
+    assert result["source_serp_observation_id"] == _OBS
+    assert result["html_capture_gap_seconds"] == 3600
+    assert result["customer"]["url"] == _TARGET_URL
+    assert result["competitor"]["url"] == _URL
+    assert result["customer"]["title"] == "Meu seguro"
+    assert result["competitor"]["title"] == "Seguro concorrente"
+    assert result["title_exact_text_equal"] is False
+    assert result["observed_jsonld_types_both"] == ["Product"]
+    assert result["observed_jsonld_types_competitor_only"] == ["FAQPage"]
+    assert result["primary_content_comparison_eligible"] is False
+    assert result["editorial_gap_claim_eligible"] is False
+    assert result["word_count_delta_eligible"] is False
+    assert result["localisation_equivalence_proven"] is False
+    assert result["generative_citation_proven"] is False
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert (folder / "audit.db").read_bytes() == original
+
+
+def test_cobs_pair_fails_on_changed_physical_aud(tmp_path, monkeypatch):
+    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    folder, target, competitor, _, _ = _pair_capture(tmp_path, monkeypatch)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute("UPDATE audits SET completion_status='PARTIAL_RETRYABLE'")
+    with pytest.raises(ValueError, match="different physical AUD"):
+        compare_cobs_static_pair(
+            folder, target["manifest_path"], competitor["manifest_path"],
+        )
+
+
+def test_cobs_pair_rejects_stale_capture_and_reversed_roles(tmp_path, monkeypatch):
+    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    folder, target, competitor, _, _ = _pair_capture(
+        tmp_path, monkeypatch, gap_hours=48,
+    )
+    with pytest.raises(ValueError, match="outside permitted 24h"):
+        compare_cobs_static_pair(
+            folder, target["manifest_path"], competitor["manifest_path"],
+        )
+    with pytest.raises(ValueError, match="version does not match role"):
+        compare_cobs_static_pair(
+            folder, competitor["manifest_path"], target["manifest_path"],
+        )
+
+
+def test_cobs_pair_rejects_manifest_byte_tampering_before_reading_facts(
+    tmp_path, monkeypatch,
+):
+    from pathlib import Path
+    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    folder, target, competitor, original, _ = _pair_capture(tmp_path, monkeypatch)
+    suspect = Path(competitor["manifest_path"])
+    suspect.write_bytes(suspect.read_bytes() + b" ")
+    with pytest.raises(ValueError, match="package ID does not match"):
+        compare_cobs_static_pair(
+            folder, target["manifest_path"], suspect,
+        )
+    assert (folder / "audit.db").read_bytes() == original
+
+
+def test_pair_cli_read_only_without_network(tmp_path, monkeypatch, capsys):
+    from rasai.geo_competitor_pair_330 import main as pair_main
+    folder, target, competitor, original, calls = _pair_capture(tmp_path, monkeypatch)
+    requests_before = len(calls)
+    assert pair_main([
+        "--audit-dir", str(folder),
+        "--customer-manifest", target["manifest_path"],
+        "--competitor-manifest", competitor["manifest_path"],
+    ]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["status"] == "DESCRIPTIVE_STATIC_HTML_ONLY"
+    assert len(calls) == requests_before
+    assert (folder / "audit.db").read_bytes() == original
