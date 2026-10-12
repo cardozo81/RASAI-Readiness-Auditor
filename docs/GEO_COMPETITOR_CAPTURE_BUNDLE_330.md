@@ -72,3 +72,18 @@ em artefatos de outra auditoria ou em pacotes de consolidação/
 reprocessamento. A verificação ocorre antes de qualquer chamada HTTP
 e não cria diretórios quando a saída é insegura. Diretórios irmãos
 dedicados à evidência `COBS-*` continuam elegíveis.
+
+
+## Relógio da observação SERP (#330)
+
+O registro `serp_observations.collected_at` precisa representar um
+instante **com fuso UTC explícito**, incluindo `Z` ou offset
+numérico. Data sem horário, timestamp sem offset, valores impossíveis
+ou texto vazio não permitem confirmar proveniência cronológica e
+bloqueiam a captura **antes de requests públicos**. Quando verificável,
+o instante é serializado no manifesto COBS em ISO 8601 normalizado UTC,
+sem alterar a observação SERP original.
+
+Essa condição **não** demonstra que a captura HTML e a observação
+SERP ocorreram na mesma época, no mesmo idioma, dispositivo ou
+população: `temporal_equivalence_proven=false` permanece.

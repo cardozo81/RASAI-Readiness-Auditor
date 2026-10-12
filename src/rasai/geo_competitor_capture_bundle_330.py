@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import closing
+from datetime import datetime, timezone
 from hashlib import sha256
 import json
 import os
@@ -130,6 +131,18 @@ def capture_competitor_sidecar(
                            for key in ("collected_at", "engine", "country",
                                       "region", "language", "device"))):
                 raise ValueError("SERP query and region context not proven")
+            # A filled-in timestamp is not a physical UTC observation.
+            # Date-only, offset-free, malformed or impossible clocks do not
+            # supply provenance for a consented competitor capture.
+            try:
+                observed_at = datetime.fromisoformat(
+                    record["collected_at"].replace("Z", "+00:00")
+                )
+                if observed_at.tzinfo is None:
+                    raise ValueError("SERP observation clock has no timezone")
+                normalized_collected_at = observed_at.astimezone(timezone.utc).isoformat()
+            except (ValueError, OverflowError, TypeError):
+                raise ValueError("SERP observation UTC clock not proven") from None
             urls = con.execute(
                 "SELECT url FROM serp_results WHERE observation_id=? LIMIT 501",
                 (observation_id,),
@@ -143,7 +156,7 @@ def capture_competitor_sidecar(
                 key: record[key] for key in
                 ("engine", "country", "region", "language", "device")
             }
-            collected_at = record["collected_at"]
+            collected_at = normalized_collected_at
     except sqlite3.Error:
         raise ValueError("AUD/SERP source cannot be verified") from None
 
