@@ -391,6 +391,53 @@ def test_legacy_optional_features_are_nd_and_observed_empty_is_zero(tmp_path):
     assert db.read_bytes() == old
 
 
+@pytest.mark.parametrize(
+    ("column", "expected_field", "required"),
+    [
+        ("query_terms_json", None, True),
+        ("query_terms_body_json", None, True),
+        ("query_terms_title_json", "query_title_terms", False),
+        ("query_terms_description_json", "query_description_terms", False),
+        ("query_terms_headings_json", "query_heading_terms", False),
+        ("jsonld_types_json", "jsonld_types", False),
+    ],
+)
+def test_oversized_persisted_lexical_json_cannot_supply_html_evidence(
+    tmp_path, column, expected_field, required,
+):
+    db = _db(tmp_path)
+    oversized_valid_json = " " * (32 * 1024 + 1) + '["seguro"]'
+    with sqlite3.connect(db) as con:
+        if not required:
+            con.execute(f"ALTER TABLE serp_competitive_pages ADD COLUMN {column} TEXT")
+        con.execute(
+            f"UPDATE serp_competitive_pages SET {column}=? "
+            "WHERE observation_id='SERP-1' AND role='COMPETITOR_CANDIDATE'",
+            (oversized_valid_json,),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    competitor = result["competitors"][0]
+    if required:
+        assert result["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+        assert result["comparisons"] == []
+        assert competitor["content_evidence_status"] == "NOT_COMPARABLE"
+    else:
+        assert result["status"] == "DESCRIPTIVE_PERSISTED_HTML_COMPARISON"
+        assert len(result["comparisons"]) == 1
+        assert competitor[expected_field] is None
+        if column != "jsonld_types_json":
+            field = {
+                "query_terms_title_json": "query_terms_in_title",
+                "query_terms_description_json": "query_terms_in_description",
+                "query_terms_headings_json": "query_terms_in_headings",
+            }[column]
+            assert result["comparisons"][0]["observed_lexical_differences"][field] is None
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert result["score_changed"] is False
+    assert db.read_bytes() == before
+
+
 def test_malformed_optional_lexical_json_abstains_without_falsifying_zero(tmp_path):
     db = _db(tmp_path)
     with sqlite3.connect(db) as con:
