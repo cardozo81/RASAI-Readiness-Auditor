@@ -162,6 +162,10 @@ def materialize_cons_geo_companion(
         (staging / "report.html").write_bytes(html)
         if destination.exists() or destination.is_symlink():
             raise ValueError("GEO companion package destination appeared")
+        # A CONS/AUD file or SQLite journal can change after the preview
+        # comparison and before writing the staging files. Recheck the
+        # complete physical source seal immediately before publication.
+        reverify_sources()
         os.rename(staging, destination)
     finally:
         if staging.exists():
