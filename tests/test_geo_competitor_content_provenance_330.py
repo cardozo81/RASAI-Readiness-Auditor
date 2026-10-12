@@ -5,6 +5,8 @@ from hashlib import sha256
 import json
 import sqlite3
 
+import pytest
+
 from rasai.geo_competitor_content_provenance_330 import (
     inspect_geo_competitor_content, main,
 )
@@ -679,4 +681,78 @@ def test_exact_customer_target_can_compare_serp_member_without_primary_claim(tmp
     assert len(out["comparisons"]) == 1
     assert out["customer"]["primary_content_proven"] is False
     assert out["provider_requests"] == out["audit_writes"] == 0
+    assert db.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "final_url",
+    (
+        "http://competitor.org/landing",
+        "https://competitor.org:8443/landing",
+        "http://competitor.org:8080/landing",
+    ),
+)
+def test_same_hostname_different_http_origin_competitor_cannot_compare(
+    tmp_path, final_url,
+):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET final_url=? "
+            "WHERE role='COMPETITOR_CANDIDATE' AND observation_id='SERP-1'",
+            (final_url,),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+    assert result["comparisons"] == []
+    assert result["competitors"][0]["final_url"] == final_url
+    assert result["competitors"][0]["primary_content_proven"] is False
+    assert db.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "final_url",
+    (
+        "http://example.org/seguro-vida",
+        "https://example.org:8443/seguro-vida",
+        "http://example.org:8080/seguro-vida",
+    ),
+)
+def test_same_hostname_different_http_origin_customer_cannot_compare(
+    tmp_path, final_url,
+):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET final_url=? "
+            "WHERE role='CUSTOMER' AND observation_id='SERP-1'",
+            (final_url,),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+    assert result["comparisons"] == []
+    assert result["customer"]["aud_target_exact_url_proven"] is True
+    assert result["customer"]["final_url"] == final_url
+    assert db.read_bytes() == before
+
+
+def test_default_tls_port_redirect_within_same_origin_remains_observational(
+    tmp_path,
+):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET final_url=? "
+            "WHERE role='COMPETITOR_CANDIDATE' AND observation_id='SERP-1'",
+            ("https://competitor.org:443/canonical-landing",),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "DESCRIPTIVE_PERSISTED_HTML_COMPARISON"
+    assert len(result["comparisons"]) == 1
+    assert result["customer"]["aud_target_exact_url_proven"] is True
+    assert result["competitors"][0]["serp_result_membership_proven"] is True
+    assert result["competitors"][0]["primary_content_proven"] is False
     assert db.read_bytes() == before
