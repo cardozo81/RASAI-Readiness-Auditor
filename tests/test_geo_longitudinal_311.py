@@ -146,6 +146,62 @@ def test_v8_source_observation_counts_are_reconciled_against_physical_sets(tmp_p
     assert [(path / "audit.db").read_bytes() for path in (first, second)] == before
 
 
+@pytest.mark.parametrize("oversized_ledger", ["perplexity", "serp"])
+def test_v8_over_budget_physical_source_sets_abstain_even_with_correct_counters(
+    tmp_path, oversized_ledger,
+):
+    large = audit(tmp_path, "AUD-V8-OVERSIZED", version="RASAI-GEO-OBSERVATION-8")
+    stable = audit(tmp_path, "AUD-V8-STABLE", version="RASAI-GEO-OBSERVATION-8")
+    for root in (large, stable):
+        _v8_physical_sources(root)
+    with sqlite3.connect(large / "audit.db") as con:
+        if oversized_ledger == "perplexity":
+            table, id_column, id_value, added = (
+                "perplexity_search_sources", "run_id", f"PX-{large.name}", 499,
+            )
+        else:
+            table, id_column, id_value, added = (
+                "serp_results", "observation_id", f"SERP-{large.name}", 498,
+            )
+        con.executemany(
+            f"INSERT INTO {table} ({id_column},url) VALUES (?,?)",
+            [(id_value, f"https://excess-{i}.example.org/item") for i in range(added)],
+        )
+        px = {r[0] for r in con.execute(
+            "SELECT url FROM perplexity_search_sources"
+        )}
+        serp = {r[0] for r in con.execute("SELECT url FROM serp_results")}
+        both = len(px & serp)
+        assert both == 1
+        assert max(len(px), len(serp)) == 501
+        projection = json.loads(con.execute(
+            "SELECT projection_json FROM geo_observation_runs"
+        ).fetchone()[0])
+        projection.update(
+            source_count=len(px), serp_url_count=len(serp),
+            perplexity_url_count=len(px), url_overlap_count=both,
+        )
+        projection["descriptive_overlap"].update(
+            serp_denominator=len(serp), perplexity_denominator=len(px),
+            common_urls=both, serp_only_count=len(serp - px),
+            perplexity_only_count=len(px - serp),
+            serp_overlap_rate=round(both / len(serp), 4),
+            perplexity_overlap_rate=round(both / len(px), 4),
+            jaccard_url_rate=round(both / len(serp | px), 4),
+        )
+        con.execute(
+            "UPDATE geo_observation_runs SET projection_json=?",
+            (json.dumps(projection),),
+        )
+    original = [(root / "audit.db").read_bytes() for root in (large, stable)]
+    output = build_geo_longitudinal_preview([large, stable])
+    assert output["audits_eligible"] == 1
+    assert output["excluded"] == [{
+        "audit_id": large.name, "reason": "GEO_SOURCE_PROVENANCE_UNVERIFIED",
+    }]
+    assert [(root / "audit.db").read_bytes() for root in (large, stable)] == original
+
+
 def test_v8_source_drift_and_tampered_overlap_abstain_without_rewrite(tmp_path):
     drift = audit(tmp_path, "AUD-V8-DRIFT", version="RASAI-GEO-OBSERVATION-8")
     forged = audit(tmp_path, "AUD-V8-FORGED", version="RASAI-GEO-OBSERVATION-8")
