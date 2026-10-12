@@ -246,7 +246,7 @@ def test_v2_exact_aud_target_is_visible_per_query_in_both_observed_url_sets(
     )
     original = (folder / "audit.db").read_bytes()
     result = inspect_geo_per_query(folder)
-    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-003"
+    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-004"
     assert result["status"] == "DESCRIPTIVE_ONLY"
     assert result["aud_target_scope"] == "SINGLE_EXACT_AUD_TARGET"
     assert result["aud_target_exact_url"] == "https://example.org/shared"
@@ -417,3 +417,96 @@ def test_v3_bounded_local_sha_budget_abstains_without_promoting_overlap(
     assert result["queries"] == []
     assert result["source_audit_db_sha256"] is None
     assert (folder / "audit.db").read_bytes() == original
+
+
+def test_v4_same_exact_host_alternatives_and_competitor_hosts_are_distinct(
+    tmp_path,
+):
+    folder = _audit(tmp_path, multi=False)
+    _set_physical_aud_targets(
+        folder, [("AUD-GEO304", "https://example.org/shared")]
+    )
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "INSERT INTO serp_results VALUES (?,?,?)",
+            ("SERP-0", 10, "https://example.org/other-product"),
+        )
+        con.execute(
+            "INSERT INTO serp_results VALUES (?,?,?)",
+            ("SERP-0", 11, "https://www.example.org/shared"),
+        )
+        con.execute(
+            "INSERT INTO perplexity_search_sources VALUES (?,?,?,?)",
+            ("PX-A", 88, "https://example.org/alternative", "seguro de vida"),
+        )
+        con.execute(
+            "INSERT INTO perplexity_search_sources VALUES (?,?,?,?)",
+            ("PX-A", 89, "https://brand.org/other", "seguro de vida"),
+        )
+    raw = (folder / "audit.db").read_bytes()
+    result = inspect_geo_per_query(folder)
+    row = result["queries"][0]
+    assert row["status"] == "DESCRIPTIVE_ONLY"
+    assert row["target_url_overlap_status"] == "BOTH_SOURCE_SETS"
+    assert row["serp_target_host_group"] == {
+        "same_host_alternative_urls": 1,
+        "other_host_distinct_urls": 3,
+        "other_distinct_hosts": 3,
+    }
+    assert row["external_target_host_group"] == {
+        "same_host_alternative_urls": 1,
+        "other_host_distinct_urls": 2,
+        "other_distinct_hosts": 2,
+    }
+    # www/apex are distinct physical hosts; no inferred redirect.
+    assert row["ranking_or_generative_citation_proven"] is False
+    assert row["intent_equivalence_proven"] is False
+    assert (folder / "audit.db").read_bytes() == raw
+
+
+def test_v4_single_query_explicitly_wrong_source_query_abstains(
+    tmp_path,
+):
+    folder = _audit(tmp_path, multi=False)
+    _set_physical_aud_targets(
+        folder, [("AUD-GEO304", "https://example.org/shared")]
+    )
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "UPDATE perplexity_search_sources SET query=? WHERE position=0",
+            ("an unrelated search",),
+        )
+    raw = (folder / "audit.db").read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "NO_QUERY_WITH_VERIFIED_SOURCE_DENOMINATORS"
+    assert result["queries"][0]["reason"] == "PER_QUERY_SOURCE_ATTRIBUTION_UNPROVEN"
+    assert result["queries"][0]["serp_target_host_group"] is None
+    assert result["queries"][0]["external_target_host_group"] is None
+    assert result["queries"][0]["common_urls"] is None
+    assert result["source_audit_db_sha256"] == sha256(raw).hexdigest()
+    assert (folder / "audit.db").read_bytes() == raw
+
+
+def test_v4_legacy_single_query_null_explicit_query_is_not_false_conflict(
+    tmp_path,
+):
+    folder = _audit(tmp_path, multi=False)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "UPDATE perplexity_search_sources SET query=NULL"
+        )
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "DESCRIPTIVE_ONLY"
+    assert result["queries"][0]["serp_target_host_group"] is None
+    assert result["queries"][0]["external_target_host_group"] is None
+
+
+def test_v4_host_groups_are_nd_when_aud_target_is_ambiguous(tmp_path):
+    folder = _audit(tmp_path, multi=False)
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "DESCRIPTIVE_ONLY"
+    row = result["queries"][0]
+    assert row["serp_target_host_group"] is None
+    assert row["external_target_host_group"] is None
+    assert row["target_url_overlap_status"] == "N/D"

@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 import sqlite3
 from typing import Any, Mapping, Sequence
+from urllib.parse import urlsplit
 
 from rasai.geo_observation import _canonical_url, _temporal_gap_seconds
 from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
@@ -23,6 +24,25 @@ _MAX_SERP_ROWS = 200
 _MAX_AUD_BYTES = 256 * 1024 * 1024
 _WINDOW = 86400
 _SCOPE = ("engine", "country", "region", "language", "device")
+
+
+def _host_group(urls: set[str], target: str) -> dict[str, int]:
+    """Count observed exact-host alternatives and other hosts, not eTLD+1.
+
+    A www host is NOT the same as its apex without a persisted redirect.
+    The v8 URL canonicalizer already rejected ambiguous source identities.
+    """
+    hostname = urlsplit(target).hostname
+    same_host = {url for url in urls if urlsplit(url).hostname == hostname}
+    competitors = {
+        urlsplit(url).hostname for url in urls
+        if urlsplit(url).hostname != hostname
+    }
+    return {
+        "same_host_alternative_urls": len(same_host - {target}),
+        "other_host_distinct_urls": len(urls - same_host),
+        "other_distinct_hosts": len(competitors),
+    }
 
 
 def _audit_digest(path: Path) -> tuple[str, int]:
@@ -80,6 +100,8 @@ def _row(query: str, classification: str, reason: str) -> dict[str, Any]:
         "target_url_exact_in_serp": None,
         "target_url_exact_in_perplexity": None,
         "target_url_overlap_status": "N/D",
+        "serp_target_host_group": None,
+        "external_target_host_group": None,
         "external_market_language_device_equivalence_proven": False,
         "intent_equivalence_proven": False,
         "ranking_or_generative_citation_proven": False,
@@ -113,7 +135,7 @@ def inspect_geo_per_query(
         raise ValueError("invalid explicit branded-query declaration")
 
     out: dict[str, Any] = {
-        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-003",
+        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-004",
         "audit_id": root.name, "status": "NOT_COMPARABLE",
         "reason": None, "queries": [],
         "per_query_attribution_status": "NOT_VERIFIED",
@@ -134,7 +156,9 @@ def inspect_geo_per_query(
             "entre SERP e Perplexity. Classificação branded é declaração "
             "do operador, não inferência do provedor. Presença da URL "
             "auditada em fontes retornadas não prova menção ou citação "
-            "na resposta generativa."
+            "na resposta generativa. Domínio alternativo significa "
+            "somente mesmo hostname exato, não equivalência www/apex."
+
         ),
     }
     def abstain(reason: str) -> dict[str, Any]:
@@ -233,8 +257,23 @@ def inspect_geo_per_query(
                 _query_key(q): set() for q in declared
             }
             # Missing per-source query is safe ONLY for a single-query run.
-            attributable = len(declared) == 1 or (
-                "query" in source_columns
+            # A legacy single-query run owns its sources unambiguously if
+            # per-source provenance is absent. But if a populated per-source
+            # query explicitly contradicts that run, fail closed rather than
+            # overriding contrary evidence.
+            attributable = (
+                len(declared) == 1
+                and (
+                    "query" not in source_columns
+                    or all(
+                        item["query"] is None
+                        or _query_key(item["query"]) == _query_key(declared[0])
+                        for item in sources
+                    )
+                )
+            ) or (
+                len(declared) > 1
+                and "query" in source_columns
                 and all(_query_key(item["query"]) in source_by_query for item in sources)
             )
             if attributable:
@@ -333,6 +372,8 @@ def inspect_geo_per_query(
                     row.update(
                         target_url_exact_in_serp=in_serp,
                         target_url_exact_in_perplexity=in_external,
+                        serp_target_host_group=_host_group(serp_urls, target),
+                        external_target_host_group=_host_group(px_urls, target),
                         target_url_overlap_status=(
                             "BOTH_SOURCE_SETS" if in_serp and in_external
                             else "SERP_SOURCE_SET_ONLY" if in_serp

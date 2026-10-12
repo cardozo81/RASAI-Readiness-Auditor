@@ -110,3 +110,33 @@ prova de ranking/citação gerativa nem causalidade.
 
 Não há alteração de GEO v8, coleta, AUD, snapshot, report writer,
 SARI/SCORE-GEO, M23/M25, nem chamadas externas.
+
+## v4: alternativas do mesmo host e hosts externos observados
+
+O contrato consultivo `RASAI-GEO-PER-QUERY-304-ADVISORY-004`
+incorpora, por consulta e somente quando a atribuição física
+é comprovada, `serp_target_host_group` e
+`external_target_host_group`. Cada conjunto apresenta:
+
+- `same_host_alternative_urls`: URLs distintas da URL exata da AUD
+  cujo hostname **exato** é igual ao da URL auditada.
+- `other_host_distinct_urls`: URLs retornadas em hosts diferentes.
+- `other_distinct_hosts`: quantidade de hostnames externos distintos.
+
+A contagem é observacional, de URLs canônicas v8, nunca um indicador
+de competidores comerciais conhecidos, ranqueamento, autoridade,
+sucesso em busca generativa, intenção ou taxa de participação.
+`www.example.com` não é igual a `example.com` sem prova física de
+redirecionamento. Não há inferência de eTLD+1, nem agrupamento
+por organização econômica. Um alvo físico ausente/ambíguo ou
+query não atribuível gera N/D, sem números fabricados.
+
+Também há proteção nova para consultas únicas: se existir coluna
+`perplexity_search_sources.query` preenchida com uma consulta
+**contraditória** à única consulta declarada do run, a associação
+é recusada. Fontes sem coluna (ou com NULL explícito) em execução
+de query única mantêm a compatibilidade histórica.
+
+Nenhuma alteração em SERP, Perplexity Search, coletores,
+SARI/SCORE-GEO, scoring, AUD ou snapshot GEO histórico;
+o consumidor permanece estritamente offline e read-only.
