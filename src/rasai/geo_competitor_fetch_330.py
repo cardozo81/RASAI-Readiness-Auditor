@@ -18,6 +18,7 @@ from rasai.search_intelligence.content import (
     ContentFetchStatus, PublicWebFetcher, PublicWebBlocked,
     _validate_public_url, extract_page_features,
 )
+from rasai.geo_competitor_pinned_egress_330 import PublicWebPinnedOpener
 from rasai.url_utils import InvalidUrl
 
 
@@ -65,12 +66,17 @@ def inspect_consented_public_html(
             "Coleta opt-in somente local; robots.txt verificado por URL. "
             "HTML estático, sem JavaScript; render SPA, dispositivo, locale, "
             "mercado ou relação causal com ranking não comprovados. "
-            "O cliente HTTP faz preflight de DNS, mas não oferece proteção "
-            "egress contra DNS rebinding em SaaS."
+            "O transporte padrão local faz pin do IP público validado, "
+            "preserva Host/SNI e verifica TLS, sem proxy nem redirect; "
+            "transportes injetados não têm egress autenticado. "
+            "Deploy SaaS requer revisão de egress, consentimento e operação."
         ),
     }
-    client = fetcher or PublicWebFetcher(
+    # Only the default live transport is egress-hardened. Test or custom
+    # fetchers can be injected, but their TCP destination is not attested.
+    client = fetcher if fetcher is not None else PublicWebFetcher(
         max_redirects=0, max_bytes=2_000_000, user_agent=_USER_AGENT,
+        opener=PublicWebPinnedOpener(),
     )
     if not isinstance(client, PublicWebFetcher) or client.max_redirects != 0:
         raise ValueError("no-redirect PublicWebFetcher required")
@@ -79,6 +85,11 @@ def inspect_consented_public_html(
     if client.user_agent != _USER_AGENT:
         raise ValueError("robots user-agent must match HTML client")
     starting_requests = client.requests_used
+    default_egress_verified = isinstance(client.opener, PublicWebPinnedOpener)
+    base["egress_transport_status"] = (
+        "PINNED_PUBLIC_IP_TLS_HOSTNAME_CHECK"
+        if default_egress_verified else "INJECTED_TRANSPORT_NOT_EGRESS_ATTESTED"
+    )
 
     def outcome(status: str, **details: Any) -> dict[str, Any]:
         return {
