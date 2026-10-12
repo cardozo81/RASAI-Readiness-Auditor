@@ -692,3 +692,64 @@ def test_cdom_v2_rechecks_changed_source_after_staging_before_atomic_publish(
     assert changed_db.read_bytes().startswith(original_db)
     assert not list((root / "consolidated-domain").glob("CDOM-*"))
     assert not list((root / "consolidated-domain").glob(".cdomain-staging-*"))
+
+
+def test_native_domain_comparative_and_cdom_package_cli_separated_from_cons(
+    tmp_path, capsys, monkeypatch,
+):
+    from rasai import entrypoint
+    root, index = _index(tmp_path)
+    _physical_sources(root, index)
+    original = {
+        str(p): sha256(p.read_bytes()).hexdigest()
+        for p in root.rglob("*") if p.is_file()
+    }
+    monkeypatch.setattr(
+        entrypoint, "_install_audit_runtime",
+        lambda: pytest.fail("advisory CDOM must not install audit runtime"),
+    )
+    monkeypatch.setattr(
+        entrypoint, "_activate_persisted_cli_secrets",
+        lambda: pytest.fail("CDOM commands must not activate provider secrets"),
+    )
+    args = [
+        "--audits-root", str(root), "--audit-id", "AUD-ONE",
+        "--audit-id", "AUD-TWO",
+    ]
+    assert entrypoint.main([
+        "domain-comparative", *args, "--verify-source-metadata",
+        "--format", "html",
+    ]) == 0
+    html = capsys.readouterr().out
+    assert html.startswith("<!doctype html>")
+    assert "Prévia comparativa por domínio" in html
+    assert "N/D" in html
+    assert not (root / "consolidated").exists()
+    assert {
+        str(p): sha256(p.read_bytes()).hexdigest()
+        for p in root.rglob("*") if p.is_file()
+    } == original
+
+    with pytest.raises(SystemExit) as exc:
+        entrypoint.main(["domain-package", *args, "--verify-source-bytes"])
+    assert exc.value.code == 2
+    capsys.readouterr()
+    assert not (root / "consolidated-domain").exists()
+
+    opts = ["domain-package", *args, "--write-domain-package",
+            "--verify-source-bytes"]
+    assert entrypoint.main(opts) == 0
+    created = json.loads(capsys.readouterr().out)
+    assert created["status"] == "MATERIALIZED"
+    manifest = json.loads(Path(created["manifest_path"]).read_text(encoding="utf-8"))
+    assert manifest["contract_version"] == "CONS-DOMAIN-COMPARATIVE-2"
+    assert manifest["native_cons3_created"] is False
+    assert manifest["page_score_or_apdex_deltas_eligible"] is False
+    assert manifest["audit_writes"] == manifest["provider_requests"] == 0
+    assert entrypoint.main(opts) == 0
+    existing = json.loads(capsys.readouterr().out)
+    assert existing["status"] == "IDEMPOTENT_EXISTING"
+    assert existing["package_id"] == created["package_id"]
+    assert not (root / "consolidated").exists()
+    assert all(sha256(Path(p).read_bytes()).hexdigest() == digest
+               for p, digest in original.items())
