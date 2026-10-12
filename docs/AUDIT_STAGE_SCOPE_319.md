@@ -217,3 +217,22 @@ principal isolado. Fixtures simulam sidecars antes e durante a leitura,
 com preservação dos bytes de todas as fontes. Isso não constitui lock
 global ou assinatura criptográfica da AUD e não torna os tempos de
 wrappers cronômetros exclusivos por fase.
+
+
+## Identificadores físicos de tentativas IA/M20 (12/10/2026)
+
+Os leitores consultivos de M18/M20 e do recorte de escopo #319
+não podem mais descartar silenciosamente uma linha cujo
+`attempt_id` repete outro dentro **do mesmo ledger e AUD**.
+Isso escondia execuções e subestimava tempo físico observado,
+custo USD e contagens por fase. Identificador ausente ou repetido
+resulta em erro explícito de evidência ambígua, nunca em
+soma parcial publicada. IDs iguais em AUDs diferentes são
+admitidos se cada leitura está fisicamente limitada à AUD
+selecionada; M18 e M20 continuam universos distintos.
+
+Fixtures SQLite sem chave única simulam fonte legada anômala,
+contém tentativas duplicadas com custos diferentes e comprovam
+preservação byte a byte. Nenhum preço, duração, timeout,
+seletor AUTO, sensor M23/M25, estrutura de ledger ou
+previsão ex ante foi modificado.

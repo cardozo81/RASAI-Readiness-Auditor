@@ -182,3 +182,59 @@ def test_invalid_numeric_cost_and_duration_do_not_poison_319_projection(tmp_path
     assert result.posthoc_estimated_usd == 0
     assert result.unpriced_attempts == 3
     assert database.read_bytes() == before
+
+
+def test_timeline_rejects_duplicate_ai_attempt_identity_without_undercount(
+    tmp_path,
+):
+    import pytest
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE ai_provider_attempts("
+            "attempt_id TEXT, audit_id TEXT, operation TEXT, "
+            "started_at TEXT, finished_at TEXT, "
+            "observed_cost REAL, observed_cost_currency TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?)",
+            [
+                ("DUP", "AUD-SELF", "COMPETITIVE_AI",
+                 "2026-10-12T10:00:00Z", "2026-10-12T10:00:02Z", .1, "USD"),
+                ("DUP", "AUD-SELF", "IMPROVEMENT_INTELLIGENCE",
+                 "2026-10-12T10:00:02Z", "2026-10-12T10:00:08Z", .2, "USD"),
+                ("DUP", "AUD-OTHER", "DIRECTED_ANALYSIS",
+                 "2026-10-12T10:00:01Z", "2026-10-12T10:01:00Z", 900, "USD"),
+            ],
+        )
+    original = db.read_bytes()
+    with pytest.raises(ValueError, match="ambiguous AI attempt_id"):
+        read_audit_attempt_timeline(db, "AUD-SELF")
+    assert db.read_bytes() == original
+
+
+def test_timeline_same_attempt_id_in_distinct_auds_is_not_source_collision(
+    tmp_path,
+):
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE ai_provider_attempts("
+            "attempt_id TEXT, audit_id TEXT, operation TEXT, "
+            "started_at TEXT, finished_at TEXT, "
+            "observed_cost REAL, observed_cost_currency TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?)",
+            [
+                ("AUD-LOCAL-ID", "AUD-A", "OTHER",
+                 "2026-10-12T10:00:00Z", "2026-10-12T10:00:02Z", .01, "USD"),
+                ("AUD-LOCAL-ID", "AUD-B", "OTHER",
+                 "2026-10-12T10:00:00Z", "2026-10-12T10:00:02Z", 10, "USD"),
+            ],
+        )
+    original = db.read_bytes()
+    result = read_audit_attempt_timeline(db, "AUD-A")
+    assert result.attempts == 1
+    assert result.provider_observed_usd == .01
+    assert db.read_bytes() == original
