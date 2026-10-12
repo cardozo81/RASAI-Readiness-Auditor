@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 from contextlib import closing
 from datetime import datetime, timezone
+from hashlib import sha256
 import json
 from pathlib import Path
 import sqlite3
@@ -19,8 +20,27 @@ from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIAB
 _MAX_QUERY_COUNT = 10
 _MAX_SOURCES = 500
 _MAX_SERP_ROWS = 200
+_MAX_AUD_BYTES = 256 * 1024 * 1024
 _WINDOW = 86400
 _SCOPE = ("engine", "country", "region", "language", "device")
+
+
+def _audit_digest(path: Path) -> tuple[str, int]:
+    """Bounded local source seal, never a claim of provider authenticity."""
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("AUD source changed to unsafe path")
+    size = path.stat().st_size
+    if size > _MAX_AUD_BYTES:
+        raise ValueError("AUD source exceeds bounded verification budget")
+    digest = sha256()
+    read_bytes = 0
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            read_bytes += len(chunk)
+            if read_bytes > _MAX_AUD_BYTES:
+                raise ValueError("AUD source changed beyond verification budget")
+            digest.update(chunk)
+    return digest.hexdigest(), read_bytes
 
 
 def _columns(con: sqlite3.Connection, table: str) -> set[str]:
@@ -93,7 +113,7 @@ def inspect_geo_per_query(
         raise ValueError("invalid explicit branded-query declaration")
 
     out: dict[str, Any] = {
-        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-002",
+        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-003",
         "audit_id": root.name, "status": "NOT_COMPARABLE",
         "reason": None, "queries": [],
         "per_query_attribution_status": "NOT_VERIFIED",
@@ -104,6 +124,9 @@ def inspect_geo_per_query(
         "query_classes_from_operator_only": True,
         "provider_requests": 0, "audit_writes": 0,
         "score_changed": False, "source_package_freshness_verified": False,
+        "source_audit_db_sha256": None,
+        "source_audit_db_bytes_verified": None,
+        "source_audit_db_integrity_guard": "UNVERIFIED",
         "limitations": (
             "Comparação descritiva de conjuntos de URLs persistidas, não "
             "participação em respostas gerativas, rank, causalidade, "
@@ -118,6 +141,11 @@ def inspect_geo_per_query(
         out["reason"] = reason
         return out
     try:
+        # immutable=1 does not lock the physical SQLite bytes. A source may
+        # change while a multi-table projection is being read. Seal before
+        # entering immutable mode, then verify the same bytes once more
+        # before emitting ANY numeric URL-set conclusions.
+        digest_before, size_before = _audit_digest(db)
         with closing(sqlite3.connect(
             db.resolve().as_uri() + "?mode=ro&immutable=1",
             uri=True, timeout=2,
@@ -322,6 +350,29 @@ def inspect_geo_per_query(
             ) else "NOT_COMPARABLE"
             if out["status"] == "NOT_COMPARABLE":
                 out["reason"] = "NO_QUERY_WITH_VERIFIED_SOURCE_DENOMINATORS"
+            if any(Path(str(db) + suffix).exists()
+                   for suffix in ("-wal", "-shm", "-journal")):
+                return {
+                    **out,
+                    "status": "NOT_COMPARABLE",
+                    "reason": "AUD_SQLITE_SIDECAR_APPEARED_DURING_READ",
+                    "queries": [],
+                    "aud_target_scope": "NO_UNIQUE_CANONICAL_TARGET",
+                    "aud_target_exact_url": None,
+                }
+            digest_after, size_after = _audit_digest(db)
+            if digest_before != digest_after or size_before != size_after:
+                return {
+                    **out,
+                    "status": "NOT_COMPARABLE",
+                    "reason": "AUD_SOURCE_CHANGED_DURING_READ",
+                    "queries": [],
+                    "aud_target_scope": "NO_UNIQUE_CANONICAL_TARGET",
+                    "aud_target_exact_url": None,
+                }
+            out["source_audit_db_sha256"] = digest_before
+            out["source_audit_db_bytes_verified"] = size_before
+            out["source_audit_db_integrity_guard"] = "DOUBLE_SHA256_MATCH"
             return out
     except (sqlite3.Error, OSError, ValueError, OverflowError) as exc:
         # The source may be an old/corrupt SQLite package. Never mutate it.
