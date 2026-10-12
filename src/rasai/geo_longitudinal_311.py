@@ -115,6 +115,9 @@ def _source_provenance(
         return False
     try:
         db = root / "audit.db"
+        if any(Path(str(db) + suffix).exists()
+               for suffix in ("-wal", "-shm", "-journal")):
+            return False
         with closing(sqlite3.connect(
             db.resolve().as_uri() + "?mode=ro", uri=True, timeout=1,
         )) as con:
@@ -135,6 +138,20 @@ def _source_provenance(
             # source table contains conflicting identities. One GEO snapshot
             # must map to exactly one persisted Search and SERP observation.
             if len(runs) != 1 or len(serps) != 1:
+                return False
+            # v8 URL sets are read by run_id/observation_id alone. Refuse
+            # cross-AUD collisions before joining these physical source rows.
+            # v5-v7 are immutable historical methods with a different
+            # attribution contract: do not retroactively reinterpret them.
+            if stored.get("contract_version") == "RASAI-GEO-OBSERVATION-8" and (
+                con.execute(
+                    "SELECT COUNT(*) FROM perplexity_search_runs WHERE run_id=?",
+                    (run_id,),
+                ).fetchone()[0] != 1 or con.execute(
+                    "SELECT COUNT(*) FROM serp_observations WHERE observation_id=?",
+                    (serp_id,),
+                ).fetchone()[0] != 1
+            ):
                 return False
             run, serp = runs[0], serps[0]
             comparison = projection.get("comparability")
@@ -179,6 +196,11 @@ def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
     db = root / "audit.db"
     if not db.is_file() or db.is_symlink():
         return None, "AUD_DATABASE_MISSING"
+    # A live sidecar means the bare audit.db cannot represent one sealed
+    # source snapshot. Do not open it or derive GEO source trends from it.
+    if any(Path(str(db) + suffix).exists()
+           for suffix in ("-wal", "-shm", "-journal")):
+        return None, "AUD_SQLITE_SNAPSHOT_UNVERIFIED"
     try:
         with closing(sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True, timeout=1)) as con:
             con.execute("PRAGMA query_only=ON")

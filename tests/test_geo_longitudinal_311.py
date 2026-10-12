@@ -672,3 +672,68 @@ def test_html_companion_explicitly_shows_rejected_and_empty_groups(
     assert "<script>unsafe</script>" not in empty_html
     assert "&lt;script&gt;unsafe&lt;/script&gt;" in empty_html
     assert "&lt;img src=x onerror=alert(1)&gt;" in empty_html
+
+
+def test_v8_rejects_cross_aud_duplicate_serp_id_even_when_url_totals_match(
+    tmp_path,
+):
+    ambiguous = audit(
+        tmp_path, "AUD-V8-FOREIGN-ID", version="RASAI-GEO-OBSERVATION-8",
+    )
+    stable = audit(
+        tmp_path, "AUD-V8-UNIQUE-ID", version="RASAI-GEO-OBSERVATION-8",
+    )
+    for aud in (ambiguous, stable):
+        _v8_physical_sources(aud)
+    with sqlite3.connect(ambiguous / "audit.db") as con:
+        # Foreign metadata reuses exactly the same observation_id. Its
+        # result duplicates an existing URL, so distinct URL totals alone
+        # cannot detect the cross-AUD attribution ambiguity.
+        con.execute(
+            "INSERT INTO serp_observations "
+            "SELECT observation_id, 'AUD-FOREIGN', query, collected_at, "
+            "data_mode, observation_status, engine, country, region, "
+            "language, device FROM serp_observations WHERE audit_id=?",
+            (ambiguous.name,),
+        )
+        con.execute(
+            "INSERT INTO serp_results VALUES (?,?)",
+            (f"SERP-{ambiguous.name}", "https://example.org/seguro"),
+        )
+    before = {
+        aud.name: (aud / "audit.db").read_bytes()
+        for aud in (ambiguous, stable)
+    }
+    result = build_geo_longitudinal_preview([ambiguous, stable])
+    assert result["audits_eligible"] == 1
+    assert result["excluded"] == [{
+        "audit_id": ambiguous.name,
+        "reason": "GEO_SOURCE_PROVENANCE_UNVERIFIED",
+    }]
+    assert result["timelines"][0]["observations"][0]["audit_id"] == stable.name
+    assert result["timelines"][0]["trend_conclusion"] == "N/D"
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert all((aud / "audit.db").read_bytes() == before[aud.name]
+               for aud in (ambiguous, stable))
+
+
+@pytest.mark.parametrize("suffix", ["-wal", "-shm", "-journal"])
+def test_longitudinal_rejects_unsealed_sqlite_sidecars_before_read(
+    tmp_path, suffix,
+):
+    unsealed = audit(tmp_path, "AUD-GEO-UNSEALED")
+    stable = audit(tmp_path, "AUD-GEO-SEALED")
+    sidecar = unsealed / ("audit.db" + suffix)
+    sidecar.write_bytes(b"simulated-incomplete-transaction")
+    before = [(aud / "audit.db").read_bytes() for aud in (unsealed, stable)]
+    preview = build_geo_longitudinal_preview([unsealed, stable])
+    assert preview["audits_eligible"] == 1
+    assert preview["excluded"] == [{
+        "audit_id": unsealed.name,
+        "reason": "AUD_SQLITE_SNAPSHOT_UNVERIFIED",
+    }]
+    assert preview["timelines"][0]["observations"][0]["audit_id"] == stable.name
+    assert preview["timelines"][0]["trend_conclusion"] == "N/D"
+    assert [(aud / "audit.db").read_bytes()
+            for aud in (unsealed, stable)] == before
+    assert sidecar.read_bytes() == b"simulated-incomplete-transaction"
