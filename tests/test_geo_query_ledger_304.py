@@ -644,3 +644,90 @@ def test_v5_metadata_is_not_parsed_beyond_bounded_evidence_budget(tmp_path):
     result = inspect_geo_per_query(folder)
     assert result["status"] == "NOT_COMPARABLE"
     assert all(row["common_urls"] is None for row in result["queries"])
+
+
+def test_cli_optional_html_is_escaped_responsive_and_byte_read_only(
+    tmp_path, capsys,
+):
+    folder = _audit(tmp_path)
+    injection = '<img src=x onerror="alert(304)">'
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "UPDATE perplexity_search_runs SET query_json=?",
+            (json.dumps([injection, "seguro de vida"]),),
+        )
+        con.execute(
+            "UPDATE serp_observations SET query=? WHERE observation_id='SERP-0'",
+            (injection,),
+        )
+        con.execute(
+            "UPDATE perplexity_search_sources SET query=? WHERE query='seguro bradesco'",
+            (injection,),
+        )
+    before = sha256((folder / "audit.db").read_bytes()).hexdigest()
+    assert main([str(folder), "--format", "html"]) == 0
+    html = capsys.readouterr().out
+    assert "<!doctype html>" in html
+    assert "<html lang=\"pt-BR\">" in html
+    assert "&lt;img src=x onerror=&quot;alert(304)&quot;&gt;" in html
+    assert injection not in html
+    assert "Comparação de conjuntos de URLs observadas" in html
+    assert "N/D" in html
+    assert "CSS" not in html
+    assert "@media(max-width:680px)" in html
+    assert "@media print" in html
+    assert "URLs distintas SERP" in html
+    assert "33.33%" in html
+    assert "50.00%" in html
+    assert sha256((folder / "audit.db").read_bytes()).hexdigest() == before
+    assert list(folder.iterdir()) == [folder / "audit.db"]
+
+
+def test_html_abstains_for_multiquery_unattributed_and_invalid_target(tmp_path, capsys):
+    folder = _audit(tmp_path, source_query_column=False)
+    raw = (folder / "audit.db").read_bytes()
+    assert main([str(folder), "--format", "html"]) == 0
+    html = capsys.readouterr().out
+    assert "N/D - comparabilidade não demonstrada" in html
+    assert "PER_QUERY_SOURCE_ATTRIBUTION_UNPROVEN" in html
+    assert "URLs distintas SERP" in html
+    assert "33.33%" not in html
+    assert (folder / "audit.db").read_bytes() == raw
+
+
+def test_html_renderer_refuses_bad_contract_and_handles_untrusted_rows():
+    from rasai.geo_query_ledger_html_304 import render_geo_query_ledger_html
+    with pytest.raises(ValueError, match="unsupported"):
+        render_geo_query_ledger_html({"contract_version": "WRONG", "queries": []})
+    with pytest.raises(ValueError, match="malformed"):
+        render_geo_query_ledger_html({
+            "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-005",
+            "status": "DESCRIPTIVE_ONLY",
+            "queries": ["not a row"],
+        })
+    projection = {
+        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-005",
+        "status": "NOT_COMPARABLE", "audit_id": "<script>alert(1)</script>",
+        "source_audit_db_integrity_guard": "UNVERIFIED",
+        "queries": [{
+            "query": "<svg onload=alert(4)>",
+            "status": "NOT_COMPARABLE",
+            "reason": '<a href="javascript:alert(7)">unsafe</a>',
+            "serp_distinct_urls": 999,
+            "perplexity_distinct_urls": 999,
+            "common_urls": 999,
+            "serp_overlap_rate": 0.99,
+            "target_url_exact_in_serp": True,
+            "target_url_overlap_status": "BOTH_SOURCE_SETS",
+            "declared_query_class": "UNCLASSIFIED",
+        }],
+    }
+    html = render_geo_query_ledger_html(projection)
+    assert "<script>" not in html
+    assert "<svg onload=" not in html
+    assert "javascript:alert(7)" in html  # Escaped text, never href attribute
+    assert "&lt;a href=&quot;javascript:alert(7)&quot;&gt;" in html
+    assert "999" not in html
+    assert "99.00%" not in html
+    assert "Sim (URL exata" not in html
+    assert "N/D" in html
