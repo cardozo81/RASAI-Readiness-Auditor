@@ -129,14 +129,18 @@ def read_live_dynatrace_action_population(
     seen: set[str] = set()
     counts = {"load": 0, "xhr": 0, "custom": 0, "other": 0}
     for row in values:
+        if not isinstance(row, list) or len(row) != 2 or not isinstance(row[0], str):
+            raise ValueError("Dynatrace USQL action count row is invalid")
+        # USQL label formatting cannot define a second physical action
+        # population: "Load" and " load " are the same logical type.
+        # Normalize *before* duplicate detection and categorization.
+        action = row[0].strip().casefold()
         if (
-            not isinstance(row, list) or len(row) != 2
-            or not isinstance(row[0], str) or not row[0].strip()
-            or row[0].casefold() in seen
+            not action or len(action) > 80
+            or action in seen
             or type(row[1]) is not int or not 0 <= row[1] <= 100_000_000
         ):
             raise ValueError("Dynatrace USQL action count row is invalid")
-        action = row[0].casefold()
         seen.add(action)
         counts[action if action in counts and action != "other" else "other"] += row[1]
     return {

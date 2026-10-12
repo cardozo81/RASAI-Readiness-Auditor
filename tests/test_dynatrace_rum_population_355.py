@@ -209,3 +209,35 @@ def test_usql_invalid_extrapolation_levels_fail_closed(bad_level):
     table = dict(TABLE, extrapolationLevel=bad_level)
     with pytest.raises(ValueError, match="extrapolation"):
         _read(_FakeOpener(table))
+
+
+def test_usql_action_types_are_trimmed_before_grouping_without_extra_requests():
+    fake = _FakeOpener({
+        "columnNames": ["type", "COUNT(*)"],
+        "values": [[" Load ", 3], [" Xhr ", 5], [" Custom ", 2],
+                   [" EndVisit ", 4]],
+    })
+    result = _read(fake)
+    assert result["action_counts"] == {
+        "load": 3, "xhr": 5, "custom": 2, "other": 4,
+    }
+    assert result["action_count_total"] == 14
+    assert result["provider_requests"] == 1
+    assert result["audit_writes"] == 0
+    assert len(fake.requests) == 1
+
+
+@pytest.mark.parametrize("types", [
+    ["Load", " load "],
+    [" XHR ", "xhr"],
+    [" Custom", "custom "],
+    ["EndVisit ", " endvisit"],
+])
+def test_usql_duplicate_action_after_normalization_refuses_ambiguous_total(types):
+    fake = _FakeOpener({
+        "columnNames": ["type", "COUNT(*)"],
+        "values": [[types[0], 3], [types[1], 7]],
+    })
+    with pytest.raises(ValueError, match="action count row is invalid"):
+        _read(fake)
+    assert len(fake.requests) == 1
