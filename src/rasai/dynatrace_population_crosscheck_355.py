@@ -6,16 +6,34 @@ Same application scope is not same browser/device/time population proof.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from rasai.dynatrace_apdex_arch_advisory_355 import VERSION as _SETTINGS_ADVISORY_VERSION
+from rasai.dynatrace_rum_population_355 import _APPLICATION_ID, _DEVICE
+from rasai.geo_observation import _canonical_url
 
 _RUM_CONTRACT = "RASAI-DYNATRACE-RUM-USQL-ACTIONS-001"
 _MAX_SETTINGS_BYTES = 1024 * 1024
 _MAX_RUM_BYTES = 256 * 1024
 _ACTIONS = ("load", "xhr", "custom", "other")
+
+
+def _utc_clock(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if dt.tzinfo is None or dt.utcoffset() is None:
+            return None
+        # JSON fields explicitly promise UTC, not an arbitrary offset.
+        if dt.utcoffset().total_seconds() != 0:
+            return None
+        return dt.astimezone(timezone.utc)
+    except (TypeError, ValueError, OverflowError):
+        return None
 
 
 def compare_dynatrace_settings_and_rum(
@@ -24,7 +42,7 @@ def compare_dynatrace_settings_and_rum(
 ) -> dict[str, Any]:
     """Never inject USQL extrapolated counts into Apdex config or scores."""
     base = {
-        "contract_version": "RASAI-DYNATRACE-RUM-SETTINGS-COMPARISON-355-001",
+        "contract_version": "RASAI-DYNATRACE-RUM-SETTINGS-COMPARISON-355-002",
         "status": "NOT_COMPARABLE", "reason": None,
         # Two JSON exports can claim one app without authenticating each
         # other. This pure reader cannot cryptographically attest a tenant.
@@ -71,6 +89,24 @@ def compare_dynatrace_settings_and_rum(
     if (extrap is not None and (type(extrap) is not int or not 1 <= extrap <= 1000)
             or extrap_flag is not (None if extrap is None else extrap > 1)):
         return abstain("RUM_EXTRAPOLATION_PROVENANCE_INVALID")
+    # This offline comparison does not attest the tenant; however it must
+    # at least refuse internally inconsistent JSON claims about an exact
+    # URL/device/time-scoped aggregation. Previously even missing periods and
+    # flags could be promoted to a declared matching application scope.
+    target = rum_population.get("target_url")
+    device = rum_population.get("declared_dynatrace_device_filter")
+    started = _utc_clock(rum_population.get("period_start_utc"))
+    finished = _utc_clock(rum_population.get("period_end_utc"))
+    if (
+        rum_population.get("population_query_scoped_to_exact_url_device_window") is not True
+        or rum_population.get("rum_action_aggregate_returned") is not True
+        or not isinstance(target, str) or len(target) > 1024
+        or not target or _canonical_url(target) != target
+        or not isinstance(device, str) or not _DEVICE.fullmatch(device)
+        or started is None or finished is None
+        or not 0 < (finished - started).total_seconds() <= 86400
+    ):
+        return abstain("RUM_EXACT_POPULATION_SCOPE_UNVERIFIABLE")
     application_id = rum_population.get("application_id")
     raw_settings = settings_advisory.get("effective_values_export")
     scope = (raw_settings.get("declared_application_scope")
@@ -82,7 +118,8 @@ def compare_dynatrace_settings_and_rum(
         and settings_advisory.get("input_source")
         == "AUTHENTICATED_LIVE_DYNATRACE_EFFECTIVE_VALUES"
     )
-    if (not isinstance(application_id, str) or not application_id.strip()
+    if (not isinstance(application_id, str)
+            or not _APPLICATION_ID.fullmatch(application_id)
             or not isinstance(scope, str) or scope != application_id):
         return abstain("APPLICATION_SCOPE_NOT_MATCHED")
     if settings_advisory.get("status") in {
