@@ -65,6 +65,6 @@ o crosscheck verifica coerência interna do material fornecido,
 não autenticidade da fonte remota.
 
 Os produtores de JSON RUM anteriores já expõem essas flags e UTC
-do backend; um arquivo legado incompleto pode retornar N/D,
+do backend; um arquivo anterior incompleto pode retornar N/D,
 em vez de receber uma nova hipótese positiva. Sem novas chamadas
 Dynatrace, sem modificação do perfil sintético M23/M25.
