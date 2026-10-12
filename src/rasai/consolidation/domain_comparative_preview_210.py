@@ -23,7 +23,11 @@ def _identity(url: str) -> tuple[str, str] | None:
     # A padded/control-bearing URL is not the same observed resource.
     # Never normalize malformed source evidence into a comparable URL.
     if (not isinstance(url, str) or not url or url != url.strip()
-            or "\\" in url or any(ord(char) <= 32 or ord(char) == 127 for char in url)):
+            or "\\" in url or "#" in url
+            or any(ord(char) <= 32 or ord(char) == 127 for char in url)):
+        # Hash-routed SPAs may use fragments as their effective page
+        # identity. urlsplit(fragment) would otherwise silently discard it,
+        # inventing same-URL equivalence between distinct client-side views.
         return None
     try:
         parsed = urlsplit(url)
