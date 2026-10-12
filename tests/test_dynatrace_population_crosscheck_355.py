@@ -228,3 +228,66 @@ def test_v2_rum_scope_metadata_must_be_complete_and_consistent(mutator, reason):
     assert result["provider_requests"] == result["audit_writes"] == 0
     assert result["new_apdex_score"] is None
     assert json.dumps((rum, settings), sort_keys=True) == before
+
+
+def test_offline_crosscheck_html_explains_spa_xhr_and_extrapolation(
+    tmp_path, capsys,
+):
+    from rasai.dynatrace_population_crosscheck_html_355 import (
+        render_dynatrace_population_crosscheck_html,
+    )
+    settings = _settings()
+    settings["observed_kpm"]["load_actions"] = '<img src=x onerror="alert(355)">'
+    rum = _rum(xhr=0, extrap=4)
+    a, b = tmp_path / "settings.json", tmp_path / "rum.json"
+    a.write_text(json.dumps(settings), encoding="utf-8")
+    b.write_text(json.dumps(rum), encoding="utf-8")
+    before = a.read_bytes(), b.read_bytes()
+    assert main([
+        "--settings-advisory-json", str(a),
+        "--rum-population-json", str(b),
+        "--format", "html",
+    ]) == 0
+    html = capsys.readouterr().out
+    assert "<!doctype html>" in html
+    assert '<html lang="pt-BR">' in html
+    assert "&lt;img src=x onerror=&quot;alert(355)&quot;&gt;" in html
+    assert '<img src=x onerror="alert(355)">' not in html
+    assert "SPA client-side (CSR)" in html
+    assert "Load" in html and "XHR" in html and "Custom" in html
+    assert "Nível 4 informado; contagens extrapoladas" in html
+    assert "zero xhr não prova captura desativada" in html.lower()
+    assert "Mesmo tenant, navegador" in html
+    assert "@media print" in html and "@media(max-width:680px)" in html
+    assert "Nenhum threshold foi inferido" in html
+    assert "SCORE-GEO" in html
+    assert (a.read_bytes(), b.read_bytes()) == before
+    assert render_dynatrace_population_crosscheck_html(
+        compare(settings, rum)
+    ).startswith("<!doctype html>")
+
+
+def test_dynatrace_html_rejects_false_status_and_respects_nd(tmp_path):
+    from rasai.dynatrace_population_crosscheck_html_355 import (
+        render_dynatrace_population_crosscheck_html as render,
+    )
+    out = compare(_settings(), _rum())
+    out["status"] = "NOT_COMPARABLE"
+    out["reason"] = '<script>alert("untrusted")</script>'
+    out["action_counts_reported"] = {
+        "load": 999, "xhr": 888, "custom": 777, "other": 666
+    }
+    out["target_url"] = "<img onerror=alert(1)>"
+    html = render(out)
+    assert "N/D - fontes não comparáveis" in html
+    assert "&lt;script&gt;alert(&quot;untrusted&quot;)&lt;/script&gt;" in html
+    assert "<script>" not in html and "<img onerror=" not in html
+    assert "999" not in html and "888" not in html
+    assert "<th scope='row'>XHR</th><td>N/D</td>" in html
+    assert "Same" not in html
+    with pytest.raises(ValueError, match="v2 projection"):
+        render({"contract_version": "UNSUPPORTED", "status": "NOT_COMPARABLE"})
+    projection = compare(_settings(), _rum())
+    projection["review_findings"] = [{"danger": "not a code"}]
+    with pytest.raises(ValueError, match="missing evidence sets"):
+        render(projection)

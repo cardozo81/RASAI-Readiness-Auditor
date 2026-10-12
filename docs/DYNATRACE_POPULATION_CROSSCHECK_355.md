@@ -68,3 +68,32 @@ Os produtores de JSON RUM anteriores já expõem essas flags e UTC
 do backend; um arquivo anterior incompleto pode retornar N/D,
 em vez de receber uma nova hipótese positiva. Sem novas chamadas
 Dynatrace, sem modificação do perfil sintético M23/M25.
+
+
+## Visualização humana offline (#355)
+
+O contrato `RASAI-DYNATRACE-RUM-SETTINGS-COMPARISON-355-002`
+agora pode ser apresentado por `--format html`, mantendo JSON
+como formato padrão e sem executar qualquer nova chamada Dynatrace:
+
+```powershell
+python -m rasai.dynatrace_population_crosscheck_355 `
+  --settings-advisory-json .\settings_advisory.json `
+  --rum-population-json .\rum_actions.json `
+  --format html > revisao-dynatrace.html
+```
+
+A saída responsiva e imprimível, sem JavaScript, distingue
+arquitetura declarada, KPM Load/XHR/Custom do export, contagens
+USQL, nível de extrapolação, escopo de aplicação/URL/dispositivo/
+janela e orientações legíveis para revisão operacional.
+
+O relatório conserva explicitamente `N/D` para fontes
+incomparáveis, nunca reinterpreta zero XHR como captura
+desativada e não transforma contagens RUM em prontidão SPA.
+Também nunca afirma autenticar o tenant com dois arquivos
+JSON, nem sugere thresholds numéricos universais por arquitetura.
+Nenhum score, perfil executável M23/M25, relatório de AUD
+ou contrato de RUM é alterado. Os testes cobrem escaping de
+campos arbitrários da exportação, estado N/D e integridade
+byte a byte dos arquivos de entrada.
