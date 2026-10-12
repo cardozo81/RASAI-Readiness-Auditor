@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 import re
 import sqlite3
+from urllib.parse import urlsplit
 from typing import Any, Sequence
 
 from rasai.geo_observation import _canonical_url
@@ -284,7 +285,13 @@ def inspect_geo_competitor_content(
                 "language", "device", "engine")}
     context["html_fetch_timestamp"] = None  # not in persisted schema
     comparisons = []
-    if customer["content_evidence_status"] == "PERSISTED_HTML_FEATURES":
+    if (
+        customer["content_evidence_status"] == "PERSISTED_HTML_FEATURES"
+        # A cross-host redirect is an observed final page, NOT proof that
+        # its content belongs to the AUD target/compared SERP hostname.
+        and urlsplit(customer["requested_url"]).hostname
+        == urlsplit(customer["final_url"]).hostname
+    ):
         # The persisted content belongs to the final fetched URL, not
         # necessarily to the candidate SERP URL. Redirects to the audited
         # page are not independent competitor evidence; aliases landing on
@@ -300,6 +307,9 @@ def inspect_geo_competitor_content(
             requested = _canonical_url(candidate["requested_url"])
             destination = _canonical_url(candidate["final_url"])
             if (not requested or not destination
+                    # Do not attribute redirected third-party-host HTML to
+                    # the persisted SERP competitor URL, even when words match.
+                    or urlsplit(requested).hostname != urlsplit(destination).hostname
                     or requested in customer_urls or destination in customer_urls
                     or destination in seen_destinations):
                 continue

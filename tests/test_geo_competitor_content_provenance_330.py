@@ -464,3 +464,68 @@ def test_sqlite_sidecar_abstains_before_content_read(tmp_path):
     with pytest.raises(ValueError, match="SQLite sidecars"):
         inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
     assert sidecar.read_bytes() == b"unverified concurrent transaction"
+
+
+def test_cross_hostname_competitor_redirect_is_not_misattributed_to_serp_host(
+    tmp_path,
+):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET final_url=? "
+            "WHERE role='COMPETITOR_CANDIDATE' AND observation_id='SERP-1'",
+            ("https://third-party-host.net/landing",),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+    assert result["comparisons"] == []
+    assert result["competitors"][0]["requested_url"] == (
+        "https://competitor.org/seguro-vida"
+    )
+    assert result["competitors"][0]["final_url"] == (
+        "https://third-party-host.net/landing"
+    )
+    assert result["competitors"][0]["primary_content_proven"] is False
+    assert result["audit_writes"] == result["provider_requests"] == 0
+    assert db.read_bytes() == before
+
+
+def test_cross_hostname_customer_redirect_cannot_claim_target_text_gap(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET final_url=? "
+            "WHERE role='CUSTOMER' AND observation_id='SERP-1'",
+            ("https://unrelated-customer-landing.net/other",),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+    assert result["customer"]["final_url"] == (
+        "https://unrelated-customer-landing.net/other"
+    )
+    assert result["comparisons"] == []
+    assert result["customer"]["primary_content_proven"] is False
+    assert db.read_bytes() == before
+
+
+def test_same_hostname_redirect_retains_final_url_and_observational_limit(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET final_url=? "
+            "WHERE role='COMPETITOR_CANDIDATE' AND observation_id='SERP-1'",
+            ("https://competitor.org/canonical-landing",),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "DESCRIPTIVE_PERSISTED_HTML_COMPARISON"
+    assert result["competitors"][0]["final_url"] == (
+        "https://competitor.org/canonical-landing"
+    )
+    assert result["comparisons"][0]["meaning"] == (
+        "DESCRIPTIVE_CONTENT_ONLY_NO_CAUSAL_CLAIM"
+    )
+    assert result["competitors"][0]["primary_content_proven"] is False
+    assert db.read_bytes() == before
