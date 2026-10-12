@@ -99,7 +99,8 @@ def _optional_terms(raw: object, expected: tuple[str, ...]) -> list[str] | None:
 
     Empty list is an observed zero; absent or corrupted JSON is N/D.
     """
-    if raw is None or not isinstance(raw, str):
+    if (not isinstance(raw, str)
+            or len(raw.encode("utf-8")) > _MAX_LEXICAL_JSON_BYTES):
         return None
     try:
         parsed = json.loads(raw)
