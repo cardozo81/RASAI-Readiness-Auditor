@@ -9,6 +9,7 @@ import sqlite3
 import pytest
 
 from rasai.geo_query_ledger_304 import inspect_geo_per_query, main
+from rasai import geo_query_ledger_304 as ledger
 
 
 def _audit(tmp_path: Path, *, multi=True, source_query_column=True) -> Path:
@@ -245,7 +246,7 @@ def test_v2_exact_aud_target_is_visible_per_query_in_both_observed_url_sets(
     )
     original = (folder / "audit.db").read_bytes()
     result = inspect_geo_per_query(folder)
-    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-002"
+    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-003"
     assert result["status"] == "DESCRIPTIVE_ONLY"
     assert result["aud_target_scope"] == "SINGLE_EXACT_AUD_TARGET"
     assert result["aud_target_exact_url"] == "https://example.org/shared"
@@ -344,3 +345,75 @@ def test_target_presence_is_nd_when_per_query_source_mapping_is_absent(tmp_path)
         and row["target_url_overlap_status"] == "N/D"
         for row in result["queries"]
     )
+
+
+def test_v3_observed_query_overlap_sealed_against_physical_db_bytes(tmp_path):
+    folder = _audit(tmp_path, multi=False)
+    before = (folder / "audit.db").read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "DESCRIPTIVE_ONLY"
+    assert result["source_audit_db_integrity_guard"] == "DOUBLE_SHA256_MATCH"
+    assert result["source_audit_db_sha256"] == sha256(before).hexdigest()
+    assert result["source_audit_db_bytes_verified"] == len(before)
+    assert result["source_package_freshness_verified"] is False
+    assert (folder / "audit.db").read_bytes() == before
+
+
+def test_v3_change_during_immutable_projection_discards_numeric_metrics(
+    tmp_path, monkeypatch,
+):
+    folder = _audit(tmp_path, multi=False)
+    original = ledger._audit_digest
+    calls = {"count": 0}
+    def changed_before_second_digest(path):
+        calls["count"] += 1
+        if calls["count"] == 2:
+            with sqlite3.connect(path) as con:
+                con.execute(
+                    "UPDATE serp_results SET url='https://tampered.org/' "
+                    "WHERE observation_id='SERP-0' AND position=0"
+                )
+        return original(path)
+    monkeypatch.setattr(ledger, "_audit_digest", changed_before_second_digest)
+    result = inspect_geo_per_query(folder)
+    assert calls["count"] == 2
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "AUD_SOURCE_CHANGED_DURING_READ"
+    assert result["queries"] == []
+    assert result["source_audit_db_sha256"] is None
+    assert result["source_audit_db_integrity_guard"] == "UNVERIFIED"
+
+
+def test_v3_new_sqlite_journal_during_projection_discards_overlap(
+    tmp_path, monkeypatch,
+):
+    folder = _audit(tmp_path, multi=False)
+    original = ledger._audit_digest
+    calls = {"count": 0}
+    def journal_during_read(path):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            result = original(path)
+            (folder / "audit.db-wal").write_bytes(b"uncommitted")
+            return result
+        return original(path)
+    monkeypatch.setattr(ledger, "_audit_digest", journal_during_read)
+    outcome = inspect_geo_per_query(folder)
+    assert outcome["status"] == "NOT_COMPARABLE"
+    assert outcome["reason"] == "AUD_SQLITE_SIDECAR_APPEARED_DURING_READ"
+    assert outcome["queries"] == []
+    assert calls["count"] == 1
+
+
+def test_v3_bounded_local_sha_budget_abstains_without_promoting_overlap(
+    tmp_path, monkeypatch,
+):
+    folder = _audit(tmp_path, multi=False)
+    original = (folder / "audit.db").read_bytes()
+    monkeypatch.setattr(ledger, "_MAX_AUD_BYTES", 64)
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "SOURCE_SCHEMA_OR_READ_FAILURE"
+    assert result["queries"] == []
+    assert result["source_audit_db_sha256"] is None
+    assert (folder / "audit.db").read_bytes() == original
