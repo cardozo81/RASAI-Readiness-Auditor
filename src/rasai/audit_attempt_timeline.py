@@ -176,9 +176,14 @@ def read_audit_attempt_timeline(database: Path, audit_id: str) -> AuditAttemptTi
             seen: set[str] = set()
             for raw in rows:
                 row = dict(raw)
-                key = str(row.get("attempt_id") or "")
-                if key in seen:
-                    continue
+                key = str(row.get("attempt_id") or "").strip()
+                # A physical duplicate is not a second observation and not
+                # an ignorable row. Silently dropping it understates cost and
+                # time; refuse the entire ambiguous ledger instead.
+                if not key or key in seen:
+                    raise ValueError(
+                        "ambiguous AI attempt_id in physical " + table + " ledger"
+                    )
                 seen.add(key)
                 name = _group(row, table=table)
                 groups.setdefault(name, []).append(row)
