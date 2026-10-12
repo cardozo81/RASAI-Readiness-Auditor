@@ -332,6 +332,20 @@ def inspect_geo_competitor_content(
     customer_rows = [row for row in rows if row["role"] == "CUSTOMER"]
     if len(customer_rows) != 1:
         return abstain("CUSTOMER_HTML_EVIDENCE_ND")
+    # Two physical HTML rows for the same observed candidate URL can
+    # disagree on content SHA or lexical statistics. Picking the first
+    # SQL row silently makes the reported comparison order-dependent.
+    # Different SERP aliases with a common final URL are *not* identical
+    # requested URLs and still use downstream destination deduplication.
+    candidate_keys: set[str] = set()
+    for item in rows:
+        if item["role"] != "COMPETITOR_CANDIDATE":
+            continue
+        identity = _canonical_url(item["requested_url"])
+        if identity and identity in candidate_keys:
+            return abstain("COMPETITOR_HTML_REQUESTED_URL_AMBIGUOUS")
+        if identity:
+            candidate_keys.add(identity)
     expected = query_terms(observed["query"])
     customer = _page(customer_rows[0], expected)
     customer["aud_target_exact_url_proven"] = (

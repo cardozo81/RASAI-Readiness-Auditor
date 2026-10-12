@@ -826,3 +826,69 @@ def test_bounded_persisted_headings_are_counted_without_silent_truncation(tmp_pa
     assert result["competitors"][0]["title_present"] is True
     assert result["competitors"][0]["primary_content_proven"] is False
     assert db.read_bytes() == before
+
+
+def test_duplicate_same_serp_competitor_url_with_conflicting_html_abstains(
+    tmp_path,
+):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "INSERT INTO serp_competitive_pages "
+            "SELECT observation_id, role, requested_url, final_url, "
+            "fetch_status, http_status, content_type, ?, bytes_read, ?, "
+            "title, headings_json, query_terms_json, query_terms_body_json "
+            "FROM serp_competitive_pages "
+            "WHERE observation_id='SERP-1' AND role='COMPETITOR_CANDIDATE'",
+            ("b" * 64, 9999),
+        )
+    original = db.read_bytes()
+    out = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert out["status"] == "COMPETITOR_HTML_REQUESTED_URL_AMBIGUOUS"
+    assert out["comparisons"] == []
+    assert out["competitors"] == []
+    assert out["customer"] is None
+    assert out["provider_requests"] == out["audit_writes"] == 0
+    assert db.read_bytes() == original
+
+
+def test_same_serp_competitor_url_duplicate_even_if_html_equal_abstains(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "INSERT INTO serp_competitive_pages "
+            "SELECT * FROM serp_competitive_pages "
+            "WHERE observation_id='SERP-1' AND role='COMPETITOR_CANDIDATE'"
+        )
+    before = db.read_bytes()
+    out = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert out["status"] == "COMPETITOR_HTML_REQUESTED_URL_AMBIGUOUS"
+    assert out["comparisons"] == []
+    assert db.read_bytes() == before
+
+
+def test_different_serp_urls_same_final_destination_remain_deduplicated(
+    tmp_path,
+):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "INSERT INTO serp_results VALUES (?,?,?)",
+            ("SERP-1", 2, "https://competitor.org/redirect-alias"),
+        )
+        con.execute(
+            "INSERT INTO serp_competitive_pages "
+            "SELECT observation_id,role,?,final_url,fetch_status,http_status,"
+            "content_type,content_sha256,bytes_read,word_count,title,"
+            "headings_json,query_terms_json,query_terms_body_json "
+            "FROM serp_competitive_pages "
+            "WHERE observation_id='SERP-1' AND role='COMPETITOR_CANDIDATE'",
+            ("https://competitor.org/redirect-alias",),
+        )
+    original = db.read_bytes()
+    out = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert out["status"] == "DESCRIPTIVE_PERSISTED_HTML_COMPARISON"
+    assert len(out["competitors"]) == 2
+    assert len(out["comparisons"]) == 1
+    assert out["provider_requests"] == out["audit_writes"] == 0
+    assert db.read_bytes() == original
