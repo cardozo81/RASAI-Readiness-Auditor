@@ -620,3 +620,73 @@ def test_device_identity_from_source_matches_index_without_extra_writes(
     assert projection["audits"][0]["device"] == "MOBILE"
     assert all(sha256(Path(path).read_bytes()).hexdigest() == digest
                for path, digest in initial.items())
+
+
+@pytest.mark.parametrize("verify_bytes", [False, True], ids=["metadata-v1", "sha-v2"])
+def test_cdom_publication_aborts_if_sqlite_sidecar_appears_during_staging(
+    tmp_path, monkeypatch, verify_bytes,
+):
+    from rasai.consolidation import domain_comparative_package_210 as mod
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    original = {
+        str(p): sha256(p.read_bytes()).hexdigest()
+        for p in root.rglob("*") if p.is_file()
+    }
+    sidecar = root / "AUD-ONE" / "audit.db-wal"
+    real_write = Path.write_bytes
+    triggered = {"value": False}
+
+    def concurrent_writer_during_output_staging(path, payload):
+        written = real_write(path, payload)
+        if path.name == "report.html" and path.parent.name.startswith(
+            ".cdomain-staging-"
+        ):
+            triggered["value"] = True
+            real_write(sidecar, b"simulated-active-wal")
+        return written
+
+    monkeypatch.setattr(Path, "write_bytes", concurrent_writer_during_output_staging)
+    try:
+        with pytest.raises(ValueError, match="sidecars"):
+            mod.materialize_same_domain_package(
+                root, ("AUD-ONE", "AUD-TWO"),
+                verify_source_bytes=verify_bytes,
+            )
+        assert triggered["value"] is True
+        assert sidecar.read_bytes() == b"simulated-active-wal"
+        assert not list((root / "consolidated-domain").glob("CDOM-*"))
+        assert not list((root / "consolidated-domain").glob(".cdomain-staging-*"))
+        assert all(sha256(Path(p).read_bytes()).hexdigest() == digest
+                   for p, digest in original.items())
+    finally:
+        sidecar.unlink(missing_ok=True)
+
+
+def test_cdom_v2_rechecks_changed_source_after_staging_before_atomic_publish(
+    tmp_path, monkeypatch,
+):
+    from rasai.consolidation import domain_comparative_package_210 as mod
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    changed_db = root / "AUD-TWO" / "audit.db"
+    real_write = Path.write_bytes
+    original_db = changed_db.read_bytes()
+
+    def simulate_source_change_during_report_output(path, payload):
+        written = real_write(path, payload)
+        if path.name == "report.html" and path.parent.name.startswith(
+            ".cdomain-staging-"
+        ):
+            with changed_db.open("ab") as handle:
+                handle.write(b"source-mutated-by-synthetic-fixture")
+        return written
+
+    monkeypatch.setattr(Path, "write_bytes", simulate_source_change_during_report_output)
+    with pytest.raises(ValueError, match="metadata changed|bytes changed"):
+        mod.materialize_same_domain_package(
+            root, ("AUD-ONE", "AUD-TWO"), verify_source_bytes=True,
+        )
+    assert changed_db.read_bytes().startswith(original_db)
+    assert not list((root / "consolidated-domain").glob("CDOM-*"))
+    assert not list((root / "consolidated-domain").glob(".cdomain-staging-*"))
