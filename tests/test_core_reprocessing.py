@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from contextlib import closing
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
-from rasai.audit_fulfillment import BLOCKED, FAILED_RETRYABLE, REPLAY_SAFE, SUCCESS, WAITING_FOR_DATA, list_work_items, register_work_item, set_work_item_status, start_reprocess_run
+from rasai.audit_fulfillment import BLOCKED, FAILED_RETRYABLE, LIVE_RECOLLECTION, REPLAY_SAFE, SUCCESS, WAITING_FOR_DATA, list_work_items, register_work_item, set_work_item_status, start_reprocess_run
 from rasai.core_reprocessing import (
     CONTENT_EXTRACTION,
     HTTP_ACQUISITION,
@@ -100,6 +101,101 @@ def test_core_projection_separates_successful_capture_from_pending_extraction() 
         assert items[RENDER_CAPTURE].status == SUCCESS
         assert items[CONTENT_EXTRACTION].status == FAILED_RETRYABLE
         assert _core_unresolved(workspace,"AUD-CORE-RECOVERY") is True
+
+
+def test_secure_https_browser_recovery_does_not_satisfy_original_http_or_ai_gate() -> None:
+    """#488: valid rendered DOM is not proof of original HTTP or AI eligibility."""
+    import json
+    import sqlite3
+
+    from rasai.audit_collection_gate import evaluate_collection_readiness
+    from rasai.audit_fulfillment import initialize_contract
+
+    with TemporaryDirectory() as directory:
+        workspace = _workspace(Path(directory), render_succeeded=True, rendered_exists=True)
+        audit_id = "AUD-CORE-RECOVERY"
+        initialize_contract(
+            workspace,
+            audit_id,
+            {"resume_plan": {"schema_version": "TEST", "targets": ["https://example.test/core"]}},
+        )
+        with AuditPersistence(workspace) as persistence:
+            persistence.evidence.add(
+                Evidence(
+                    evidence_id=new_id("EV-GEO"),
+                    audit_id=audit_id,
+                    page_id="PGE-CORE",
+                    snapshot_id="SNP-CORE",
+                    device=DeviceContext.MOBILE,
+                    evidence_type=EvidenceType.MAIN_CONTENT,
+                    source="RENDERED_DOM",
+                    observed_value={"text": "Persisted, material DOM fixture"},
+                    artifact_reference="artifacts/rendered/core.html",
+                    captured_at=utc_now(),
+                )
+            )
+        with closing(sqlite3.connect(workspace.database)) as connection, connection:
+            # Original HTTP ended on a TLS error after an insecure redirect.
+            # The browser independently recovered a same-site HTTPS route.
+            connection.execute(
+                "UPDATE rule_executions SET result='FAIL' WHERE rule_id='BR-GEO-005'"
+            )
+            connection.execute(
+                "UPDATE page_snapshots SET raw_artifact_ref=NULL, final_url=?, browser_metadata=? "
+                "WHERE snapshot_id='SNP-CORE'",
+                (
+                    "https://www.example.test/core",
+                    json.dumps({
+                        "render_succeeded": True,
+                        "secure_redirect_recovery": {
+                            "attempted": True,
+                            "succeeded": True,
+                            "tls_validation": "ENABLED",
+                            "candidate_url": "https://www.example.test/core",
+                        },
+                    }),
+                ),
+            )
+        synchronize_core_work_items(workspace, audit_id)
+        items = _by_component(workspace)
+        assert items[HTTP_ACQUISITION].status == FAILED_RETRYABLE
+        assert items[HTTP_ACQUISITION].last_error_code == "HTTP_ACQUISITION_INCOMPLETE"
+        assert items[RENDER_CAPTURE].status == SUCCESS
+        assert items[CONTENT_EXTRACTION].status == SUCCESS
+
+        # An additional deficient SERP is an independent, mandatory blocker.
+        register_work_item(
+            workspace, audit_id=audit_id, component="SEARCH_INTELLIGENCE",
+            required=True, temporal_mode=LIVE_RECOLLECTION,
+            status=FAILED_RETRYABLE,
+        )
+        gate = evaluate_collection_readiness(workspace, audit_id)
+        assert gate.ready is False
+        assert "HTTP_ACQUISITION/PGE-CORE:FAILED_RETRYABLE" in gate.blockers
+        assert "SEARCH_INTELLIGENCE/AUDIT:FAILED_RETRYABLE" in gate.blockers
+        # Projection and the gate are idempotent; neither can invent HTTP.
+        synchronize_core_work_items(workspace, audit_id)
+        assert evaluate_collection_readiness(workspace, audit_id).blockers == gate.blockers
+
+
+def test_missing_recovered_render_cannot_close_http_dependency() -> None:
+    """#488: disappearance of a declared rendered artifact is fail-closed."""
+    import sqlite3
+
+    with TemporaryDirectory() as directory:
+        workspace = _workspace(
+            Path(directory), render_succeeded=True, rendered_exists=False,
+        )
+        with closing(sqlite3.connect(workspace.database)) as connection, connection:
+            connection.execute(
+                "UPDATE rule_executions SET result='FAIL' WHERE rule_id='BR-GEO-005'"
+            )
+        synchronize_core_work_items(workspace, "AUD-CORE-RECOVERY")
+        items = _by_component(workspace)
+        assert items[HTTP_ACQUISITION].status == FAILED_RETRYABLE
+        assert items[RENDER_CAPTURE].status == BLOCKED
+        assert items[RENDER_CAPTURE].retryable is False
+        assert items[CONTENT_EXTRACTION].status == BLOCKED
 
 
 def test_replay_safe_extraction_completes_without_network_recollection() -> None:

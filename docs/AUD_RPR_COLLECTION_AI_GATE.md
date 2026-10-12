@@ -24,6 +24,8 @@ metodologia independente de cálculo ou aquisição.
 6. Derivar, pontuar e publicar somente sobre a evidência efetiva, identificando
    corretamente estados parciais, preliminares e elegibilidade de consolidação.
 
+A reconciliação `HTTPS_DOWNGRADE_SECURE_RECOVERY` pertence à **qualidade de origem/browser**: ela prova apenas que o navegador recuperou uma rota HTTPS permitida com TLS estrito. Não transforma `BR-GEO-005` em `PASS` nem autoriza `HTTP_ACQUISITION=SUCCESS` se a aquisição original falhou. Mesmo com `RENDER_CAPTURE=SUCCESS` e `CONTENT_EXTRACTION=SUCCESS`, `HTTP_ACQUISITION=FAILED_RETRYABLE` continua bloqueando a IA. O mesmo ocorre se `SEARCH_INTELLIGENCE` permanecer incompleta (ex.: SERP 19/20 com posição 10 não observada). Para autorizar consumo seletivo apenas do DOM recuperado, seria indispensável um contrato versionado de elegibilidade de evidências, proveniência e dependências por consumidor; **não existe essa exceção no gate atual**. Não simular sucesso ou reclassificar HTTP/SERP para contornar o bloqueio.
+
 O gate não confunde `FAILED_RETRYABLE`, `WAITING_FOR_DATA`, `RUNNING` e
 `REQUESTED_NOT_EXECUTED` com coleta concluída. `SUCCESS`,
 `NOT_APPLICABLE` e `DISABLED` são elegíveis. `CORE_AUDIT` e as

@@ -113,6 +113,19 @@ def test_gate_event_never_includes_private_url_scope(tmp_path):
     assert "private.example" not in repr(state)
 
 
+def test_http_page_scope_keeps_safe_canonical_id_not_untrusted_url(tmp_path):
+    """#488: real page scope is PGE-*; a URL must never leak into gate logs."""
+    workspace = _workspace(tmp_path)
+    _item(workspace, "HTTP_ACQUISITION", FAILED_RETRYABLE, scope_key="PGE-12513660AA524D5B97F84841E5CC8F88")
+    _item(workspace, "RENDER_CAPTURE", FAILED_RETRYABLE, scope_key="https://private.test/?key=secret")
+    gate = evaluate_collection_readiness(workspace, AUDIT_ID)
+    assert not gate.ready
+    assert "HTTP_ACQUISITION/PGE-12513660AA524D5B97F84841E5CC8F88:FAILED_RETRYABLE" in gate.blockers
+    assert "RENDER_CAPTURE/SCOPE_REDACTED:FAILED_RETRYABLE" in gate.blockers
+    assert "private.test" not in repr(gate)
+    assert "secret" not in repr(gate)
+
+
 def test_pending_render_and_navigation_block_ai_despite_two_prior_successes(tmp_path):
     workspace = _workspace(tmp_path)
     _item(workspace, "WEB_PERFORMANCE", SUCCESS)
