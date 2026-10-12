@@ -347,3 +347,75 @@ def test_offline_crosscheck_html_does_not_expose_untrusted_kpm_payload():
     assert payload not in html
     assert "alert(355)" not in html
     assert "Não concluir configuração" in html
+
+
+def test_native_dynatrace_rum_crosscheck_html_and_json_bypass_audit_and_secrets(
+    tmp_path, capsys, monkeypatch,
+):
+    from rasai import entrypoint
+
+    settings, rum = tmp_path / "settings.json", tmp_path / "rum.json"
+    settings.write_text(json.dumps(_settings()), encoding="utf-8")
+    rum.write_text(json.dumps(_rum(xhr=0, extrap=4)), encoding="utf-8")
+    original = (settings.read_bytes(), rum.read_bytes())
+    monkeypatch.setattr(
+        entrypoint, "_install_audit_runtime",
+        lambda: pytest.fail("offline crosscheck must not install audit runtime"),
+    )
+    monkeypatch.setattr(
+        entrypoint, "_activate_persisted_cli_secrets",
+        lambda: pytest.fail("offline crosscheck must not activate secrets"),
+    )
+    flags = [
+        "--settings-advisory-json", str(settings),
+        "--rum-population-json", str(rum),
+    ]
+    assert entrypoint.main(["dynatrace-rum-crosscheck", *flags, "--format", "html"]) == 0
+    html = capsys.readouterr().out
+    assert html.startswith("<!doctype html>")
+    assert "SPA client-side (CSR)" in html
+    assert "XHR" in html
+    assert "Mesmo tenant, navegador" in html
+    assert "Nenhum threshold foi inferido" in html
+
+    assert entrypoint.main(["dynatrace-rum-review", *flags, "--format", "json"]) == 0
+    projection = json.loads(capsys.readouterr().out)
+    assert projection["contract_version"] == (
+        "RASAI-DYNATRACE-RUM-SETTINGS-COMPARISON-355-002"
+    )
+    assert projection["status"] == "CLAIMED_LIVE_APPLICATION_ID_MATCH"
+    assert projection["application_scope_verified_across_sources"] is False
+    assert projection["rasai_same_browser_sample_verified"] is False
+    assert projection["recommended_numeric_thresholds"] is None
+    assert projection["provider_requests"] == projection["audit_writes"] == 0
+    assert (settings.read_bytes(), rum.read_bytes()) == original
+    assert set(path.name for path in tmp_path.iterdir()) == {
+        "settings.json", "rum.json",
+    }
+
+
+def test_native_dynatrace_crosscheck_missing_or_malformed_sources_fail_closed(
+    tmp_path, capsys, monkeypatch,
+):
+    from rasai import entrypoint
+
+    monkeypatch.setattr(
+        entrypoint, "_install_audit_runtime",
+        lambda: pytest.fail("offline command must not install runtime"),
+    )
+    first = tmp_path / "settings.json"
+    second = tmp_path / "rum.json"
+    first.write_text(json.dumps(_settings()), encoding="utf-8")
+    original = first.read_bytes()
+    args = ["dynatrace-rum-crosscheck",
+            "--settings-advisory-json", str(first),
+            "--rum-population-json", str(second)]
+    with pytest.raises(SystemExit) as exc:
+        entrypoint.main(args)
+    assert exc.value.code == 2
+    capsys.readouterr()
+    second.write_text("{invalid", encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        entrypoint.main(args)
+    assert exc.value.code == 2
+    assert first.read_bytes() == original
