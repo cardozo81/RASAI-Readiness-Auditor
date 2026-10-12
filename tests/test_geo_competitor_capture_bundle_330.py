@@ -422,3 +422,128 @@ def test_public_competitor_sha256_fails_closed_on_truncated_during_read(
     monkeypatch.setattr(type(source), "open", truncated_open)
     with pytest.raises(ValueError, match="changed size"):
         capture._physical_digest(source)
+
+
+_TARGET_URL = "https://customer.example.org/seguro-vida"
+
+
+def _add_aud_targets(folder, rows):
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute("CREATE TABLE audit_targets(audit_id TEXT,input_url TEXT)")
+        con.executemany("INSERT INTO audit_targets VALUES (?,?)", rows)
+
+
+def test_explicit_customer_capture_uses_unique_aud_target_without_serp_listing(
+    tmp_path, monkeypatch,
+):
+    folder = _audit(tmp_path)
+    _add_aud_targets(folder, [(folder.name, _TARGET_URL)])
+    before = sha256((folder / "audit.db").read_bytes()).hexdigest()
+    seen = []
+    def fake(url, **kwargs):
+        seen.append((url, kwargs))
+        return _response(
+            role=kwargs["role"], requested_url=url, final_url=url,
+            content_sha256="e"*64,
+        )
+    monkeypatch.setattr(capture, "inspect_consented_public_html", fake)
+    result = capture.capture_competitor_sidecar(
+        folder, _OBS, _TARGET_URL,
+        role="CUSTOMER",
+        output_root=tmp_path / "customer-evidence",
+        consented_hostnames=("customer.example.org",),
+    )
+    assert result["status"] == "MATERIALIZED"
+    assert seen[0][0] == _TARGET_URL
+    assert seen[0][1]["query"] == "seguro de vida"
+    assert seen[0][1]["role"] == "CUSTOMER"
+    manifest = json.loads(open(result["manifest_path"], encoding="utf-8").read())
+    assert manifest["contract_version"] == "RASAI-COMPETITOR-CAPTURE-SIDECAR-330-002"
+    assert manifest["source_role"] == "CUSTOMER"
+    assert manifest["source_target_exact_url"] == _TARGET_URL
+    assert manifest["source_serp_result_membership_proven"] is False
+    assert manifest["source_audit_db_sha256"] == before
+    assert manifest["source_serp_observation_id"] == _OBS
+    assert manifest["content_comparison_eligible"] is False
+    assert manifest["primary_content_proven"] is False
+    assert manifest["raw_html_persisted"] is False
+    assert sha256((folder / "audit.db").read_bytes()).hexdigest() == before
+    again = capture.capture_competitor_sidecar(
+        folder, _OBS, _TARGET_URL,
+        role="CUSTOMER",
+        output_root=tmp_path / "customer-evidence",
+        consented_hostnames=("customer.example.org",),
+    )
+    assert again["status"] == "IDEMPOTENT_EXISTING"
+
+
+@pytest.mark.parametrize(
+    ("targets", "expected"),
+    [
+        ([], "unique persisted AUD target"),
+        ([("AUD-OTHER", _TARGET_URL)], "unique AUD target"),
+        ([("AUD-REAL", "https://another.example.org/vida")], "unique AUD target"),
+        ([
+            ("AUD-REAL", _TARGET_URL),
+            ("AUD-REAL", _TARGET_URL),
+        ], "unique AUD target"),
+    ],
+    ids=["empty", "foreign", "different-customer", "ambiguous-duplicate"],
+)
+def test_customer_capture_rejects_unverified_target_before_dns(
+    tmp_path, monkeypatch, targets, expected,
+):
+    folder = _audit(tmp_path)
+    _add_aud_targets(folder, targets)
+    seen = _fake(monkeypatch)
+    original = (folder / "audit.db").read_bytes()
+    with pytest.raises(ValueError, match=expected):
+        capture.capture_competitor_sidecar(
+            folder, _OBS, _TARGET_URL,
+            role="CUSTOMER",
+            output_root=tmp_path / "out",
+            consented_hostnames=("customer.example.org",),
+        )
+    assert seen == []
+    assert not (tmp_path / "out").exists()
+    assert (folder / "audit.db").read_bytes() == original
+
+
+def test_customer_capture_does_not_make_nonserp_competitor_eligible(
+    tmp_path, monkeypatch,
+):
+    folder = _audit(tmp_path)
+    _add_aud_targets(folder, [(folder.name, _TARGET_URL)])
+    seen = _fake(monkeypatch)
+    with pytest.raises(ValueError, match="not in persisted SERP"):
+        capture.capture_competitor_sidecar(
+            folder, _OBS, _TARGET_URL,
+            role="COMPETITOR_CANDIDATE",
+            output_root=tmp_path / "out",
+            consented_hostnames=("customer.example.org",),
+        )
+    assert seen == []
+
+
+def test_customer_capture_rejects_mismatched_transport_role_and_requested_url(
+    tmp_path, monkeypatch,
+):
+    folder = _audit(tmp_path)
+    _add_aud_targets(folder, [(folder.name, _TARGET_URL)])
+    for data in (
+        _response(role="COMPETITOR_CANDIDATE",
+                  requested_url=_TARGET_URL, final_url=_TARGET_URL),
+        _response(role="CUSTOMER", requested_url=_URL,
+                  final_url=_TARGET_URL),
+        _response(role="CUSTOMER", requested_url=_TARGET_URL,
+                  final_url=_TARGET_URL, robots_fetch_status="NOT_VERIFIED"),
+    ):
+        _fake(monkeypatch, data)
+        with pytest.raises(ValueError, match="captured HTML provenance"):
+            capture.capture_competitor_sidecar(
+                folder, _OBS, _TARGET_URL,
+                role="CUSTOMER",
+                output_root=tmp_path / "out",
+                consented_hostnames=("customer.example.org",),
+            )
+        assert not (tmp_path / "out").exists()
