@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/dynatrace_population_crosscheck_355.py'
+      - 'src/rasai/dynatrace_population_crosscheck_html_355.py'
       - 'tests/test_dynatrace_population_crosscheck_355.py'
       - 'docs/DYNATRACE_POPULATION_CROSSCHECK_355.md'
       - '.github/workflows/dynatrace-crosscheck-355.yml'
@@ -11,6 +12,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/dynatrace_population_crosscheck_355.py'
+      - 'src/rasai/dynatrace_population_crosscheck_html_355.py'
       - 'tests/test_dynatrace_population_crosscheck_355.py'
       - '.github/workflows/dynatrace-crosscheck-355.yml'
 permissions:
