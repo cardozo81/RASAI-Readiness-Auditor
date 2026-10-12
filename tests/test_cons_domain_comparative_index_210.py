@@ -486,3 +486,45 @@ def test_cdom_v2_cli_opt_in_with_crypto_file_digest(tmp_path, capsys):
     assert manifest["contract_version"] == "CONS-DOMAIN-COMPARATIVE-2"
     assert all(len(d) == 64 for d in manifest["source_file_sha256"].values())
     assert result["audit_writes"] == result["provider_requests"] == 0
+
+
+@pytest.mark.parametrize("sidecar_suffix", ("-wal", "-shm", "-journal"))
+def test_cdom_v2_refuses_sqlite_sidecar_created_between_digest_passes(
+    tmp_path, monkeypatch, sidecar_suffix,
+):
+    from rasai.consolidation import domain_comparative_package_210 as mod
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    original = {
+        str(path): sha256(path.read_bytes()).hexdigest()
+        for path in root.rglob("*") if path.is_file()
+    }
+    real_digest = mod._source_sha256
+    reads = {"n": 0}
+    target = root / "AUD-ONE" / ("audit.db" + sidecar_suffix)
+    def begin_unsealed_transaction_after_first_pass(source, remaining_budget):
+        reads["n"] += 1
+        result = real_digest(source, remaining_budget)
+        if reads["n"] == 2:
+            # The indexed metadata and first SHA pass were already accepted.
+            # A subsequent live writer changes snapshot eligibility even if
+            # audit.db's bare SHA-256 and mtime have not moved.
+            target.write_bytes(b"unsealed-in-progress")
+        return result
+    monkeypatch.setattr(
+        mod, "_source_sha256", begin_unsealed_transaction_after_first_pass
+    )
+    try:
+        with pytest.raises(ValueError, match="unsealed SQLite sidecars"):
+            mod.materialize_same_domain_package(
+                root, ("AUD-ONE", "AUD-TWO"), verify_source_bytes=True,
+            )
+        assert reads["n"] == 3
+        assert target.read_bytes() == b"unsealed-in-progress"
+        assert not (root / "consolidated-domain").exists()
+        assert all(
+            sha256(Path(path).read_bytes()).hexdigest() == value
+            for path, value in original.items()
+        )
+    finally:
+        target.unlink(missing_ok=True)
