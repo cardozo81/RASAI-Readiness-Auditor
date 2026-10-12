@@ -103,7 +103,10 @@ def read_live_dynatrace_action_population(
         with client.open(request, timeout=timeout_seconds) as response:
             if response.getcode() != 200:
                 raise ValueError("Dynatrace USQL query did not return HTTP 200")
-            if "application/json" not in str(response.headers.get("Content-Type", "")).lower():
+            media_type = str(response.headers.get("Content-Type", "")).split(
+                ";", 1
+            )[0].strip().casefold()
+            if media_type != "application/json":
                 raise ValueError("Dynatrace USQL response is not JSON")
             raw = response.read(_BODY_LIMIT + 1)
     except (HTTPError, URLError, OSError, TimeoutError):

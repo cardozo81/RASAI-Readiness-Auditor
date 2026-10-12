@@ -167,6 +167,33 @@ def test_usql_duplicate_response_keys_cannot_publish_ambiguous_aggregates(raw):
     assert len(fake.requests) == 1
 
 
+@pytest.mark.parametrize("media", [
+    "application/jsonp",
+    "text/application/json",
+    "application/json-patch+json",
+    "application/json-unsupported; charset=utf-8",
+])
+def test_usql_confusable_mime_never_authenticates_aggregate_payload(media):
+    fake = _FakeOpener(media=media)
+    with pytest.raises(ValueError, match="response is not JSON"):
+        _read(fake)
+    assert len(fake.requests) == 1
+
+
+@pytest.mark.parametrize("media", [
+    "application/json",
+    "application/json; charset=utf-8",
+    " APPLICATION/JSON ; charset=UTF-8",
+])
+def test_usql_real_json_media_type_and_parameters_remain_accepted(media):
+    fake = _FakeOpener(media=media)
+    result = _read(fake)
+    assert result["action_count_total"] == 37
+    assert result["provider_requests"] == 1
+    assert result["audit_writes"] == 0
+    assert len(fake.requests) == 1
+
+
 def test_invalid_http_json_and_oversize_are_not_disclosed():
     cases = [
         _FakeOpener(code=403),
