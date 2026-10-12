@@ -23,6 +23,7 @@ _MAX_SOURCES = 500
 _MAX_SERP_ROWS = 200
 _MAX_AUD_BYTES = 256 * 1024 * 1024
 _MAX_SOURCE_METADATA_BYTES = 4096
+_MAX_QUERY_JSON_BYTES = 16 * 1024
 _INVALID_METADATA = object()
 
 
@@ -267,8 +268,15 @@ def inspect_geo_per_query(
                 (run["run_id"],),
             ).fetchone()[0] != 1:
                 return abstain("EXTERNAL_RUN_ID_AMBIGUOUS")
+            raw_queries = run["query_json"]
+            # Only ten short query strings can be in a valid persisted run.
+            # A padded/oversized SQLite JSON field must not consume an
+            # unbounded decoder budget just to fail validation afterward.
+            if (not isinstance(raw_queries, str)
+                    or len(raw_queries.encode("utf-8")) > _MAX_QUERY_JSON_BYTES):
+                return abstain("EXTERNAL_QUERY_JSON_INVALID")
             try:
-                declared = json.loads(run["query_json"])
+                declared = json.loads(raw_queries)
             except (ValueError, TypeError):
                 return abstain("EXTERNAL_QUERY_JSON_INVALID")
             if (not isinstance(declared, list)
