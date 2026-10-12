@@ -271,13 +271,26 @@ def _historical_audit(
     # Only local physical AUD packages may enter the historical cohort.
     # Following an AUD directory or audit.db symlink could import a
     # foreign package with a matching audit_id into the forecast.
-    if database.is_symlink() or database.parent.is_symlink():
+    if (
+        database.is_symlink() or database.parent.is_symlink()
+        or any(
+            Path(str(database) + suffix).exists()
+            for suffix in ("-wal", "-shm", "-journal")
+        )
+    ):
+        # Historical forecasting must not include an AUD with an unsealed
+        # SQLite transaction. Even a logically COMPLETE row may be read from
+        # an active WAL, yielding a projection not reproducible from audit.db.
         return None
     try:
-        conn = sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True, timeout=.5)
+        conn = sqlite3.connect(
+            database.resolve().as_uri() + "?mode=ro&immutable=1",
+            uri=True, timeout=.5,
+        )
     except (sqlite3.Error, OSError):
         return None
     try:
+        conn.execute("PRAGMA query_only=ON")
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             "SELECT audit_id, configuration, duration_ms, started_at, finished_at "
