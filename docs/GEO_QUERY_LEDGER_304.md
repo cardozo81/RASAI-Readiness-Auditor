@@ -82,3 +82,31 @@ Os indicadores descrevem unicamente fontes URL retornadas,
 participação GEO, causalidade, intenção ou visibilidade.
 O runtime Perplexity, SERP, relatórios homologados,
 SARI/SCORE-GEO e bancos persistidos continuam inalterados.
+
+## Contrato v3 - selo local de origem SQLite
+
+O contrato `RASAI-GEO-PER-QUERY-304-ADVISORY-003` protege as
+métricas descritivas contra alteração concorrente da AUD entre
+consultas SQLite em `immutable=1`. A rotina calcula SHA-256 dos bytes
+físicos antes de iniciar as leituras e novamente antes de retornar
+qualquer interseção ou denominador numérico. Limite: **256 MiB** para
+leitura local; maior volume falha com N/D em vez de consulta ilimitada.
+
+Mudança do hash/tamanho, symlink inseguro ou surgimento de arquivos
+`audit.db-wal`, `audit.db-shm` ou `audit.db-journal` durante a
+projeção bloqueiam a publicação de resultados numéricos, com
+`AUD_SOURCE_CHANGED_DURING_READ` ou
+`AUD_SQLITE_SIDECAR_APPEARED_DURING_READ`. O objeto deixa
+`queries=[]` e `status=NOT_COMPARABLE`, sem conservar interseções
+calculadas contra origem possivelmente mista.
+
+Somente com duas leituras físicas coerentes aparecem
+`source_audit_db_sha256`, `source_audit_db_bytes_verified` e
+`source_audit_db_integrity_guard=DOUBLE_SHA256_MATCH`. Esse selo
+comprova identidade dos bytes locais da AUD nos momentos medidos,
+não assinatura de fornecedor, atualidade de dados SERP/Perplexity,
+prova de ranking/citação gerativa nem causalidade.
+`source_package_freshness_verified=false` continua preservado.
+
+Não há alteração de GEO v8, coleta, AUD, snapshot, report writer,
+SARI/SCORE-GEO, M23/M25, nem chamadas externas.
