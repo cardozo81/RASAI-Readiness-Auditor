@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import sqlite3
 
@@ -11,6 +12,7 @@ import pytest
 from rasai.consolidation.domain_comparative_index_210 import (
     domain_preview_from_index, main,
 )
+from rasai.consolidation import domain_comparative_index_210 as domain_index
 from rasai.consolidation.reader import source_file_fingerprint
 from rasai.consolidation.domain_comparative_package_210 import (
     materialize_same_domain_package, main as package_cli,
@@ -103,6 +105,51 @@ def test_opt_in_physical_source_reconciliation_is_read_only_and_noncausal(tmp_pa
     assert {str(p): sha256(p.read_bytes()).hexdigest()
             for p in root.rglob("*") if p.is_file()} == before
     assert not (root / "consolidated").exists()
+
+
+@pytest.mark.parametrize("mutation", ("late-sidecar", "mtime-drift"))
+@pytest.mark.parametrize("consumer", ("preview", "package"))
+def test_physical_source_changing_during_device_read_never_verifies_metadata(
+    tmp_path, monkeypatch, mutation, consumer,
+):
+    root, index = _index(tmp_path)
+    _physical_sources(root, index)
+    source = root / "AUD-ONE" / "audit.db"
+    before = source.read_bytes()
+    index_before = index.read_bytes()
+    original_devices = domain_index._devices
+    sidecar = Path(str(source) + "-wal")
+    triggered = []
+
+    def change_after_read(con, audit_id):
+        devices = original_devices(con, audit_id)
+        if not triggered:
+            triggered.append(True)
+            if mutation == "late-sidecar":
+                sidecar.write_bytes(b"unverified concurrent SQLite state")
+            else:
+                stat = source.stat()
+                os.utime(source, ns=(stat.st_atime_ns, stat.st_mtime_ns + 5_000_000_000))
+        return devices
+
+    monkeypatch.setattr(domain_index, "_devices", change_after_read)
+    try:
+        with pytest.raises(ValueError, match="source changed during metadata verification"):
+            if consumer == "preview":
+                domain_preview_from_index(
+                    root, ("AUD-ONE", "AUD-TWO"), verify_source_metadata=True
+                )
+            else:
+                materialize_same_domain_package(
+                    root, ("AUD-ONE", "AUD-TWO"), verify_source_bytes=True
+                )
+    finally:
+        if sidecar.exists():
+            sidecar.unlink()
+    assert triggered == [True]
+    assert source.read_bytes() == before
+    assert index.read_bytes() == index_before
+    assert not (root / "consolidated-domain").exists()
 
 
 def test_opt_in_rejects_stale_index_and_forged_source_url(tmp_path):
