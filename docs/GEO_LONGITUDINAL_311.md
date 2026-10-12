@@ -209,3 +209,19 @@ Isso reforça a estabilidade dos bytes locais, sem provar autenticidade
 de fornecedor, selagem do pacote AUD completo ou equivalência das
 populações GEO entre datas. Nenhuma tendência, score ou CONS-3
 produtivo é criado ou modificado.
+
+
+## Integridade total dos denominadores de origem GEO v8 (12/10/2026)
+
+O consumidor longitudinal read-only exige que **todas** as URLs físicas
+atribuídas aos conjuntos Search API e SERP do snapshot GEO v8 tenham
+identidade HTTP(S) válida. Não basta recalcular taxas e contagens ignorando
+uma URL com userinfo, protocolo inválido ou espaços: isso reduziria
+silenciosamente a amostra e permitiria aceitar uma projeção adulterada
+internamente consistente. Se qualquer membro físico for inválido, a AUD
+é excluída com `GEO_SOURCE_PROVENANCE_UNVERIFIED`, preservando as outras
+AUDs e mantendo `trend_rate=N/D`. O controle não reinterpreta snapshots
+históricos v5-v7, não altera a normalização do produtor GEO, não escreve
+AUD/CONS nem realiza chamadas externas. Quatro fixtures físicas SQLite
+verificam fontes inválidas SERP/Search com métricas coerentemente
+recalculadas, abstenção e integridade byte a byte das AUDs.
