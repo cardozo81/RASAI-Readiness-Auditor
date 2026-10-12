@@ -479,6 +479,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("audit_dir", type=Path)
     parser.add_argument("--declared-branded-query", action="append", default=[])
+    parser.add_argument(
+        "--format", choices=("json", "html"), default="json",
+        help="Offline advisory output only; HTML does not modify GEO reports.",
+    )
     args = parser.parse_args(argv)
     try:
         outcome = inspect_geo_per_query(
@@ -486,7 +490,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     except ValueError as exc:
         parser.error(str(exc))
-    print(json.dumps(outcome, ensure_ascii=False, sort_keys=True, indent=2))
+    if args.format == "html":
+        from rasai.geo_query_ledger_html_304 import render_geo_query_ledger_html
+        print(render_geo_query_ledger_html(outcome))
+    else:
+        print(json.dumps(outcome, ensure_ascii=False, sort_keys=True, indent=2))
     return 0
 
 
