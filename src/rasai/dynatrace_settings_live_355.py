@@ -5,12 +5,15 @@ No request is made without an explicit calling action and an API token.
 """
 from __future__ import annotations
 
+from contextlib import closing
 import json
 import re
 from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import Request
+
+from rasai.geo_competitor_pinned_egress_330 import PublicWebPinnedOpener
 
 from rasai.dynatrace_effective_values_adapter_355 import (
     SCHEMA_TO_ACTION, extract_apdex_from_effective_values,
@@ -18,11 +21,6 @@ from rasai.dynatrace_effective_values_adapter_355 import (
 
 _MAX_BODY = 1024 * 1024
 _TENANT = re.compile(r"^[a-z0-9-]{1,80}\.live\.dynatrace\.com$", re.ASCII)
-
-
-class _DenyRedirect(HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
 
 
 def _tenant_endpoint(base_url: str) -> str:
@@ -42,6 +40,41 @@ def _tenant_endpoint(base_url: str) -> str:
     except ValueError as exc:
         raise ValueError("Dynatrace environment must be a supported HTTPS SaaS tenant") from None
     return "https://" + parsed.hostname + "/api/v2/settings/effectiveValues"
+
+
+_READ_ENDPOINT_PATHS = frozenset({
+    "/api/v2/settings/effectiveValues",
+    "/api/v1/userSessionQueryLanguage/table",
+})
+
+
+class DynatracePinnedOpener:
+    """SaaS-only GET adapter: public numeric TCP IP + original TLS identity.
+
+    Delegates the network boundary to the already-tested COBS pinned
+    transport. It never uses ambient HTTP proxies or follows redirects.
+    A caller-supplied opener remains supported for offline tests only.
+    """
+
+    def __init__(self, resolver=None) -> None:
+        self._transport = PublicWebPinnedOpener(resolver)
+
+    def open(self, request: Request, timeout: float = 10.0):
+        # Deny a future caller from sending an Api-Token header to an
+        # arbitrary hostname/path, even before consulting DNS.
+        try:
+            parsed = urlsplit(request.full_url)
+            _tenant_endpoint(f"{parsed.scheme}://{parsed.netloc}")
+            if (
+                request.get_method() != "GET"
+                or parsed.path not in _READ_ENDPOINT_PATHS
+                or not parsed.query
+                or parsed.fragment
+            ):
+                raise ValueError("Dynatrace GET endpoint outside approved scope")
+        except (TypeError, AttributeError, ValueError):
+            raise ValueError("Dynatrace GET endpoint outside approved scope") from None
+        return closing(self._transport(request, timeout=timeout))
 
 
 def read_live_dynatrace_apdex_settings(
@@ -83,7 +116,7 @@ def read_live_dynatrace_apdex_settings(
         },
         method="GET",
     )
-    client = opener or build_opener(_DenyRedirect())
+    client = opener if opener is not None else DynatracePinnedOpener()
     try:
         with client.open(request, timeout=timeout_seconds) as response:
             if response.getcode() != 200:
