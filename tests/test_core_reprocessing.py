@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import closing
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -133,7 +134,7 @@ def test_secure_https_browser_recovery_does_not_satisfy_original_http_or_ai_gate
                     captured_at=utc_now(),
                 )
             )
-        with __import__('contextlib').closing(sqlite3.connect(workspace.database)) as connection, connection:
+        with closing(sqlite3.connect(workspace.database)) as connection, connection:
             # Original HTTP ended on a TLS error after an insecure redirect.
             # The browser independently recovered a same-site HTTPS route.
             connection.execute(
@@ -185,7 +186,7 @@ def test_missing_recovered_render_cannot_close_http_dependency() -> None:
         workspace = _workspace(
             Path(directory), render_succeeded=True, rendered_exists=False,
         )
-        with __import__('contextlib').closing(sqlite3.connect(workspace.database)) as connection, connection:
+        with closing(sqlite3.connect(workspace.database)) as connection, connection:
             connection.execute(
                 "UPDATE rule_executions SET result='FAIL' WHERE rule_id='BR-GEO-005'"
             )
