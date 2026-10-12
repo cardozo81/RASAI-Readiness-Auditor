@@ -101,21 +101,29 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
             if isinstance(scope, Mapping) and row_status == "DESCRIPTIVE_ONLY"
             else "N/D"
         )
+        # An abstained row must render N/D even if an untrusted caller
+        # supplies leftover numeric fields from an unrelated projection.
+        metric = lambda key, fmt: (
+            fmt(entry.get(key)) if row_status == "DESCRIPTIVE_ONLY" else "N/D"
+        )
         metrics = [
-            ("URLs distintas SERP", _count(entry.get("serp_distinct_urls"))),
-            ("URLs distintas Search API", _count(entry.get("perplexity_distinct_urls"))),
-            ("URLs comuns", _count(entry.get("common_urls"))),
-            ("Exclusivas SERP", _count(entry.get("serp_only_urls"))),
-            ("Exclusivas Search API", _count(entry.get("perplexity_only_urls"))),
-            ("Overlap relativo SERP", _rate(entry.get("serp_overlap_rate"))),
-            ("Overlap relativo Search API", _rate(entry.get("perplexity_overlap_rate"))),
-            ("Jaccard (URLs exatas)", _rate(entry.get("jaccard_url_rate"))),
+            ("URLs distintas SERP", metric("serp_distinct_urls", _count)),
+            ("URLs distintas Search API", metric("perplexity_distinct_urls", _count)),
+            ("URLs comuns", metric("common_urls", _count)),
+            ("Exclusivas SERP", metric("serp_only_urls", _count)),
+            ("Exclusivas Search API", metric("perplexity_only_urls", _count)),
+            ("Overlap relativo SERP", metric("serp_overlap_rate", _rate)),
+            ("Overlap relativo Search API", metric("perplexity_overlap_rate", _rate)),
+            ("Jaccard (URLs exatas)", metric("jaccard_url_rate", _rate)),
         ]
         metrics_html = "".join(
             _table_row([escape(label, quote=True), metric]) for label, metric in metrics
         )
         target_html = "".join(
-            _table_row([escape(label, quote=True), _presence(entry.get(field))])
+            _table_row([escape(label, quote=True), (
+                _presence(entry.get(field))
+                if row_status == "DESCRIPTIVE_ONLY" else "N/D"
+            )])
             for label, field in [
                 ("URL auditada no SERP", "target_url_exact_in_serp"),
                 ("URL auditada no Search API", "target_url_exact_in_perplexity"),
@@ -132,7 +140,8 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
             "</table></div><div><h3>URL auditada (identidade exata)</h3><table>",
             target_html,
             "</table><p class='muted'>Estado: ",
-            _safe(entry.get("target_url_overlap_status")),
+            _safe(entry.get("target_url_overlap_status"))
+            if row_status == "DESCRIPTIVE_ONLY" else "N/D",
             "</p></div></div></section>",
         ]
         snippets.append("".join(segments))
