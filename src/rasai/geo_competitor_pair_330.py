@@ -6,11 +6,13 @@ matched locale/device/session, no deep-content or causal comparison is valid.
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
 from pathlib import Path
 import re
+import sqlite3
 from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 
@@ -107,6 +109,54 @@ def _validate_capture(manifest: Mapping[str, Any], expected_role: str) -> None:
             raise ValueError("CUSTOMER role lacks exact AUD target attestation")
 
 
+def _verify_physical_serp_pair(
+    db: Path, audit_id: str, customer: Mapping[str, Any],
+    competitor: Mapping[str, Any],
+) -> None:
+    """Rebind untrusted COBS manifest claims to the sealed AUD, without writes."""
+    observation_id = customer["source_serp_observation_id"]
+    try:
+        with closing(sqlite3.connect(
+            db.resolve().as_uri() + "?mode=ro&immutable=1", uri=True, timeout=2,
+        )) as con:
+            con.row_factory = sqlite3.Row
+            con.execute("PRAGMA query_only=ON")
+            observations = con.execute(
+                "SELECT audit_id,query,collected_at,observation_status,data_mode,"
+                "engine,country,region,language,device FROM serp_observations "
+                "WHERE observation_id=? LIMIT 2", (observation_id,),
+            ).fetchall()
+            if len(observations) != 1:
+                raise ValueError("COBS physical SERP observation not unique")
+            obs = observations[0]
+            if (obs["audit_id"] != audit_id
+                    or obs["observation_status"] != "OBSERVED"
+                    or obs["data_mode"] != "OBSERVED_API"
+                    or obs["query"] != customer["source_serp_query"]
+                    or _time(obs["collected_at"]) is None
+                    or _time(obs["collected_at"]) != _time(customer["source_serp_collected_at"])
+                    or any(obs[k] != customer["source_serp_scope"][k] for k in _SCOPE)):
+                raise ValueError("COBS manifest SERP scope differs from physical AUD")
+            targets = con.execute(
+                "SELECT input_url FROM audit_targets WHERE audit_id=? LIMIT 2",
+                (audit_id,),
+            ).fetchall()
+            if (len(targets) != 1
+                    or _canonical_url(targets[0][0]) != customer["requested_url"]):
+                raise ValueError("COBS customer URL is not the physical AUD target")
+            returned = con.execute(
+                "SELECT url FROM serp_results WHERE observation_id=? LIMIT 501",
+                (observation_id,),
+            ).fetchall()
+            if (len(returned) > 500
+                    or _canonical_url(competitor["requested_url"]) not in {
+                        _canonical_url(row[0]) for row in returned
+                    }):
+                raise ValueError("COBS competitor URL not in physical SERP results")
+    except sqlite3.Error:
+        raise ValueError("COBS physical SERP/AUD source unreadable") from None
+
+
 def _facts(manifest: Mapping[str, Any]) -> dict[str, Any]:
     capture = manifest["capture"]
     count = capture.get("word_count")
@@ -165,6 +215,7 @@ def compare_cobs_static_pair(
         urlsplit(customer_url).hostname == urlsplit(competitor_url).hostname
     ):
         raise ValueError("pair must contain target and distinct competitor host")
+    _verify_physical_serp_pair(db, root.name, customer, competitor)
     customer_time = _time(customer["capture"]["html_fetch_timestamp"])
     competitor_time = _time(competitor["capture"]["html_fetch_timestamp"])
     assert customer_time is not None and competitor_time is not None
