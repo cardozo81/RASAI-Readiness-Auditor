@@ -119,3 +119,22 @@ somente leitura. Não há injeção no CAT-07 histórico nem afirmação
 de mesma amostra RUM/Synthetic. A ausência de prova de
 market/browser/tenant/sessão mantém os campos correspondentes falsos
 ou N/D, sem criar recomendação numérica de thresholds.
+
+
+## Normalização da identidade de tipos USQL (12/10/2026)
+
+A resposta de `useraction` agregada por `type` é tratada
+como evidência consultiva por classe `load`, `xhr`,
+`custom` e `other`. Os rótulos são agora normalizados
+com `strip().casefold()` **antes** de atribuir classe
+e verificar duplicidades. Assim `" Load "` não se torna
+equivocadamente `other`, e `"Load"` + `" load "`
+não podem representar duas coortes físicas independentes:
+a resposta é rejeitada com N/D, sem publicar soma parcial.
+Rótulos vazios ou maiores que 80 caracteres também são
+considerados inválidos.
+
+A lógica mantém `USQL` opt-in e sem novas requisições,
+não supõe amostra bruta sem extrapolação e não deduz
+cobertura de XHR/soft navigation na aplicação SPA nem
+equivalência entre RUM real e a auditoria Synthetic.
