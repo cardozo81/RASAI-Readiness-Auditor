@@ -14,6 +14,11 @@ from typing import Any
 
 _MAX_MS = 48 * 60 * 60 * 1000
 _MAX_ATTEMPTS = 2000
+# Only finished, recognized fulfillment outcomes can establish an elapsed
+# attempt interval. Unknown/intermediate ledger states are not proof of finish.
+_FINISHED_STATES = frozenset({
+    "SUCCESS", "FAILED_RETRYABLE", "FAILED_PERMANENT", "BLOCKED",
+})
 _REQUIRED_ATTEMPT = {
     "attempt_id", "audit_id", "work_item_id", "reprocess_id",
     "started_at", "finished_at", "status",
@@ -127,7 +132,8 @@ def inspect_fulfillment_attempt_intervals(
         valid = (
             lo is not None and hi is not None
             and 0 < hi - lo <= _MAX_MS
-            and str(status or "").upper() != "RUNNING"
+            and isinstance(status, str)
+            and status in _FINISHED_STATES
         )
         if reprocess_id:
             placement = "REPROCESS_ATTEMPT"
