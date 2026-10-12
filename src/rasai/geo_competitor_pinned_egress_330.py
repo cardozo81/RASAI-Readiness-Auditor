@@ -12,7 +12,6 @@ import http.client
 import ipaddress
 import socket
 import ssl
-from typing import Callable
 from urllib.error import URLError
 from urllib.parse import urlsplit
 
