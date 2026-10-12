@@ -611,6 +611,51 @@ def test_customer_competitor_pair_compares_only_sealed_static_metadata(
     assert (folder / "audit.db").read_bytes() == original
 
 
+@pytest.mark.parametrize("mutation", [
+    "competitor_not_in_serp", "fabricated_query",
+    "fabricated_serp_scope", "fabricated_customer_target",
+])
+def test_cobs_pair_refuses_rehashed_manifest_without_physical_serp_binding(
+    tmp_path, monkeypatch, mutation,
+):
+    from pathlib import Path
+    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    folder, target, competitor, original, calls = _pair_capture(tmp_path, monkeypatch)
+    customer = json.loads(Path(target["manifest_path"]).read_text(encoding="utf-8"))
+    candidate = json.loads(Path(competitor["manifest_path"]).read_text(encoding="utf-8"))
+    if mutation == "competitor_not_in_serp":
+        forged_url = "https://not-in-serp.example.org/competitor"
+        candidate["requested_url"] = forged_url
+        candidate["capture"]["requested_url"] = forged_url
+        candidate["capture"]["final_url"] = forged_url
+    elif mutation == "fabricated_query":
+        customer["source_serp_query"] = "outra consulta"
+        candidate["source_serp_query"] = "outra consulta"
+    elif mutation == "fabricated_serp_scope":
+        customer["source_serp_scope"]["language"] = "en-US"
+        candidate["source_serp_scope"]["language"] = "en-US"
+    else:
+        forged_url = "https://not-the-aud-target.example.org/seguro"
+        customer["requested_url"] = forged_url
+        customer["source_target_exact_url"] = forged_url
+        customer["capture"]["requested_url"] = forged_url
+        customer["capture"]["final_url"] = forged_url
+
+    def reseal(payload):
+        raw = capture._payload(payload)
+        name = "COBS-" + sha256(raw).hexdigest()[:32].upper()
+        path = tmp_path / "forged-evidence" / name / "manifest.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+        return path
+
+    n_before = len(calls)
+    with pytest.raises(ValueError, match="COBS (physical SERP|manifest SERP|customer URL|competitor URL)"):
+        compare_cobs_static_pair(folder, reseal(customer), reseal(candidate))
+    assert len(calls) == n_before
+    assert (folder / "audit.db").read_bytes() == original
+
+
 def test_cobs_pair_fails_on_changed_physical_aud(tmp_path, monkeypatch):
     from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
     folder, target, competitor, _, _ = _pair_capture(tmp_path, monkeypatch)
