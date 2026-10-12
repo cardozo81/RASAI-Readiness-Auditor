@@ -34,6 +34,23 @@ def _physical_digest(source: Path) -> str:
     return hash_.hexdigest()
 
 
+def _assert_aud_still_sealed(source: Path, digest: str) -> None:
+    """Fail closed on a changed source or newly appearing SQLite journals.
+
+    A status-only NOT_CAPTURED outcome must never hide an AUD source race.
+    Recheck also immediately before atomic sidecar publication or reuse.
+    """
+    if (
+        source.is_symlink() or not source.is_file()
+        or source.parent.is_symlink()
+        or any(Path(str(source) + ending).exists()
+               for ending in ("-wal", "-shm", "-journal"))
+    ):
+        raise ValueError("physical AUD source no longer sealed during capture")
+    if _physical_digest(source) != digest:
+        raise ValueError("physical AUD changed during capture")
+
+
 def _columns(con: sqlite3.Connection, table: str) -> set[str]:
     return {str(row[1]) for row in con.execute(f"PRAGMA table_info({table})")}
 
@@ -164,6 +181,9 @@ def capture_competitor_sidecar(
         candidate_url, query=original_query, role="COMPETITOR_CANDIDATE",
         consented_hostnames=consented_hostnames, fetcher=fetcher,
     )
+    # This check MUST run even if robots/HTTP returned an unobserved
+    # status: otherwise an intervening AUD write is hidden as NOT_CAPTURED.
+    _assert_aud_still_sealed(db, digest_before)
     if capture.get("status") not in {
         "STATIC_HTML_FEATURES_OBSERVED",
         "STATIC_HTML_WITHOUT_QUERY_BODY_EVIDENCE",
@@ -175,8 +195,6 @@ def capture_competitor_sidecar(
             "provider_requests": capture.get("provider_requests", 0),
             "content_comparison_eligible": False,
         }
-    if _physical_digest(db) != digest_before:
-        raise ValueError("physical AUD changed during capture")
     if capture.get("final_url") != candidate:
         raise ValueError("final fetched URL disagrees with authorized source")
     manifest = {
@@ -209,6 +227,7 @@ def capture_competitor_sidecar(
     if dest.is_symlink():
         raise ValueError("unsafe existing evidence output")
     if dest.exists():
+        _assert_aud_still_sealed(db, digest_before)
         if (not dest.is_dir() or (dest / "manifest.json").is_symlink()
                 or (dest / "manifest.json").read_bytes() != raw):
             raise ValueError("existing evidence differs; refusing overwrite")
@@ -227,6 +246,7 @@ def capture_competitor_sidecar(
         (temp / "manifest.json").write_bytes(raw)
         if dest.exists() or dest.is_symlink():
             raise ValueError("evidence destination exists; no overwrite")
+        _assert_aud_still_sealed(db, digest_before)
         os.rename(temp, dest)
     finally:
         if temp.exists():
