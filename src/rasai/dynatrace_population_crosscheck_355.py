@@ -11,7 +11,9 @@ import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from rasai.dynatrace_apdex_arch_advisory_355 import VERSION as _SETTINGS_ADVISORY_VERSION
+from rasai.dynatrace_apdex_arch_advisory_355 import (
+    KPM_BY_ACTION, VERSION as _SETTINGS_ADVISORY_VERSION,
+)
 from rasai.dynatrace_rum_population_355 import _APPLICATION_ID, _DEVICE
 from rasai.geo_observation import _canonical_url
 
@@ -127,8 +129,18 @@ def compare_dynatrace_settings_and_rum(
     }:
         return abstain("SETTINGS_ADVISORY_NOT_ELIGIBLE")
     observed_kpm = settings_advisory.get("observed_kpm")
-    if not isinstance(observed_kpm, Mapping):
+    if not isinstance(observed_kpm, Mapping) or not observed_kpm:
         return abstain("SETTINGS_KPM_NOT_AVAILABLE")
+    # Offline projections can be edited independently of authenticated
+    # Settings evidence. Only action-specific documented KPM enums qualify.
+    if any(
+        not isinstance(category, str)
+        or category not in KPM_BY_ACTION
+        or not isinstance(kpm, str)
+        or kpm not in KPM_BY_ACTION[category]
+        for category, kpm in observed_kpm.items()
+    ):
+        return abstain("SETTINGS_KPM_PROJECTION_UNVERIFIABLE")
     architecture = settings_advisory.get("architecture")
     notes = []
     if not actual_settings:

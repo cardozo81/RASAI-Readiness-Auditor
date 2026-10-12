@@ -237,7 +237,6 @@ def test_offline_crosscheck_html_explains_spa_xhr_and_extrapolation(
         render_dynatrace_population_crosscheck_html,
     )
     settings = _settings()
-    settings["observed_kpm"]["load_actions"] = '<img src=x onerror="alert(355)">'
     rum = _rum(xhr=0, extrap=4)
     a, b = tmp_path / "settings.json", tmp_path / "rum.json"
     a.write_text(json.dumps(settings), encoding="utf-8")
@@ -251,8 +250,6 @@ def test_offline_crosscheck_html_explains_spa_xhr_and_extrapolation(
     html = capsys.readouterr().out
     assert "<!doctype html>" in html
     assert '<html lang="pt-BR">' in html
-    assert "&lt;img src=x onerror=&quot;alert(355)&quot;&gt;" in html
-    assert '<img src=x onerror="alert(355)">' not in html
     assert "SPA client-side (CSR)" in html
     assert "Load" in html and "XHR" in html and "Custom" in html
     assert "Nível 4 informado; contagens extrapoladas" in html
@@ -291,3 +288,62 @@ def test_dynatrace_html_rejects_false_status_and_respects_nd(tmp_path):
     projection["review_findings"] = [{"danger": "not a code"}]
     with pytest.raises(ValueError, match="missing evidence sets"):
         render(projection)
+
+
+@pytest.mark.parametrize(
+    ("category", "kpm"),
+    [
+        ("load_actions", "NOT_OFFICIAL_KPM"),
+        ("xhr_actions", "SPEED_INDEX"),
+        ("custom_actions", "VISUALLY_COMPLETE"),
+        ("unexpected_action_type", "USER_ACTION_DURATION"),
+    ],
+)
+def test_offline_crosscheck_abstains_from_unsupported_action_specific_kpm(
+    category, kpm,
+):
+    settings, rum = _settings(), _rum(xhr=5)
+    settings["observed_kpm"][category] = kpm
+    before = json.dumps((settings, rum), sort_keys=True)
+    result = compare(settings, rum)
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "SETTINGS_KPM_PROJECTION_UNVERIFIABLE"
+    assert "action_apdex_kpm" not in result
+    assert "action_counts_reported" not in result
+    assert result["new_apdex_score"] is None
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert json.dumps((settings, rum), sort_keys=True) == before
+
+
+def test_offline_crosscheck_rejects_empty_kpm_snapshot_without_counts(tmp_path, capsys):
+    settings = _settings()
+    settings["observed_kpm"] = {}
+    a, b = tmp_path / "settings.json", tmp_path / "rum.json"
+    a.write_text(json.dumps(settings), encoding="utf-8")
+    b.write_text(json.dumps(_rum(xhr=12)), encoding="utf-8")
+    before = a.read_bytes(), b.read_bytes()
+    assert main(["--settings-advisory-json", str(a),
+                 "--rum-population-json", str(b), "--format", "html"]) == 0
+    html = capsys.readouterr().out
+    assert "N/D - fontes não comparáveis" in html
+    assert "<th scope='row'>XHR</th><td>N/D</td>" in html
+    assert "Nenhuma cobertura por ação foi comprovada" in html
+    assert "12</td>" not in html
+    assert (a.read_bytes(), b.read_bytes()) == before
+
+
+def test_offline_crosscheck_html_does_not_expose_untrusted_kpm_payload():
+    from rasai.dynatrace_population_crosscheck_html_355 import (
+        render_dynatrace_population_crosscheck_html,
+    )
+    settings = _settings()
+    payload = '<img src=x onerror="alert(355)">'
+    settings["observed_kpm"]["load_actions"] = payload
+    result = compare(settings, _rum(xhr=8))
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "SETTINGS_KPM_PROJECTION_UNVERIFIABLE"
+    html = render_dynatrace_population_crosscheck_html(result)
+    assert "N/D - fontes não comparáveis" in html
+    assert payload not in html
+    assert "alert(355)" not in html
+    assert "Não concluir configuração" in html
