@@ -471,6 +471,39 @@ def test_319_monotonic_step_log_is_observed_but_never_exclusive_or_sealed(tmp_pa
     assert inspect_audit_attempts(root)["pipeline_step_timer_evidence"] == evidence
 
 
+@pytest.mark.parametrize(("name", "first_key"), [
+    ("foreign-aud", '"audit_id": "AUD-319-OTHER",'),
+    ("contradictory-duration", '"duration_ms": 999999,'),
+    ("duplicate-identical-duration", '"duration_ms": 2000,'),
+    ("wrong-event", '"event": "AUDIT_PIPELINE_STEP_STARTED",'),
+])
+def test_319_duplicate_pipeline_json_event_keys_never_become_timer_evidence(
+    tmp_path, name, first_key,
+):
+    import json
+    from rasai.audit_step_timer_inspection_319 import inspect_pipeline_step_timers
+    root, db = make_aud(tmp_path)
+    directory = root / "logs"
+    directory.mkdir()
+    log = directory / "audit.log"
+    good = {
+        "event": "AUDIT_PIPELINE_STEP_FINISHED", "audit_id": AUD,
+        "timestamp": "2026-10-08T10:05:00Z", "phase": "COLLECTION",
+        "step_key": "RENDER", "duration_ms": 2000, "status": "SUCCESS",
+    }
+    # A standard decoder uses the final value and incorrectly presents an
+    # apparently valid timer even when the raw event has conflicting keys.
+    line = "{" + first_key + json.dumps(good)[1:]
+    assert json.loads(line) == good
+    log.write_text(line + "\n", encoding="utf-8")
+    before = (db.read_bytes(), log.read_bytes())
+    evidence = inspect_pipeline_step_timers(root, AUD, None)
+    assert evidence["status"] == "LOG_JSON_INVALID"
+    assert evidence["by_step"] == []
+    assert evidence["provider_requests"] == evidence["audit_writes"] == 0
+    assert (db.read_bytes(), log.read_bytes()) == before
+
+
 def test_319_invalid_or_missing_pipeline_log_fails_closed(tmp_path):
     import json
     from rasai.audit_step_timer_inspection_319 import inspect_pipeline_step_timers

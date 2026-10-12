@@ -20,6 +20,16 @@ _MAX_DURATION_MS = 48 * 60 * 60 * 1000
 _KEY = re.compile(r"^[A-Za-z0-9_.:-]{1,120}$")
 
 
+def _reject_duplicate_log_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """An operational event with contradictory JSON keys is not evidence."""
+    item: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in item:
+            raise ValueError("ambiguous duplicate audit pipeline log key")
+        item[key] = value
+    return item
+
+
 def _epoch_ms(raw: object) -> float | None:
     if not isinstance(raw, str) or not raw:
         return None
@@ -91,7 +101,7 @@ def inspect_pipeline_step_timers(
         if not raw.strip():
             continue
         try:
-            item = json.loads(raw)
+            item = json.loads(raw, object_pairs_hook=_reject_duplicate_log_keys)
         except (TypeError, ValueError):
             # A partially written JSONL log cannot be used to assert the
             # completeness of timers; refuse to publish partial results.
