@@ -92,3 +92,16 @@ apropriada separadamente, sem desabilitar o pinning ou TLS.
 A consulta live segue **opt-in** e não demonstra a mesma sessão RUM,
 dispositivo, URL observada, ações SPA ou equivalência com o Apdex
 Sintético M23/M25.
+
+
+## Integridade JSON da Settings API (12/10/2026)
+
+O leitor live read-only da Settings 2.0 recusa respostas JSON que contenham
+**qualquer chave duplicada**, inclusive duplicidade idêntica no objeto raiz
+ou aninhada nos valores de threshold/KPM. O parser JSON padrão manteria
+silenciosamente a última ocorrência (`last-key-wins`), atribuindo uma
+configuração potencialmente conflitante à aplicação consultada. Agora a
+resposta ambígua é rejeitada antes da projeção, com mensagem genérica que
+não expõe token ou tenant. Testes com resposta HTTP simulada verificam
+objetos raiz e aninhados; nenhuma alteração do endpoint, TLS, token,
+permissões, M23/M25 ou dados de AUD/CONS.

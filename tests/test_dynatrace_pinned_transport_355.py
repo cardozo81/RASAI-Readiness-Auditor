@@ -165,6 +165,44 @@ def test_http_redirect_does_not_trigger_secondary_request(monkeypatch):
     assert sockets[0].closed
 
 
+@pytest.mark.parametrize("raw_json", [
+    '{"items":[],"totalCount":0,"totalCount":0}',
+    '{"items":[{"schemaId":"bad"}],"items":[],"totalCount":0}',
+    (
+        '{"items":[{"schemaId":'
+        '"builtin:rum.web.key-performance-metric-load-actions",'
+        '"value":{"thresholds":{"toleratedThresholdSeconds":2,'
+        '"toleratedThresholdSeconds":4}}}],"totalCount":1}'
+    ),
+])
+def test_live_settings_duplicate_json_keys_are_rejected_without_claiming_scope(
+    raw_json,
+):
+    """#355: root/nested last-key-wins may not forge effective settings."""
+    class Reply:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def getcode(self): return 200
+        def read(self, size): return raw_json.encode("utf-8")[:size]
+
+    class MemoryOpener:
+        def __init__(self): self.requests = []
+        def open(self, request, timeout):
+            self.requests.append((request, timeout))
+            return Reply()
+
+    fake = MemoryOpener()
+    with pytest.raises(ValueError, match="Settings API response is not valid JSON") as err:
+        settings.read_live_dynatrace_apdex_settings(
+            base_url=_BASE, application_scope=_APP,
+            api_token="PRIVATE-SETTINGS-TOKEN", opener=fake,
+        )
+    assert len(fake.requests) == 1
+    assert fake.requests[0][1] == 10
+    assert "PRIVATE-SETTINGS-TOKEN" not in str(err.value)
+    assert _BASE not in str(err.value)
+
+
 def test_both_live_readers_use_pinned_default_path_with_only_memory_io(monkeypatch):
     sockets, sni, destinations = _network(monkeypatch)
     cls = DynatracePinnedOpener
