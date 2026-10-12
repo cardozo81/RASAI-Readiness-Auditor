@@ -381,6 +381,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.geo_supplement_inspection_309 import main as inspect_geo_supplements
         return inspect_geo_supplements(effective[1:])
 
+    if effective and effective[0] == "competitor-html-review":
+        # Standalone consent-gated static HTML/robots inspection. No AUD,
+        # providers or report side effects; all network requires explicit
+        # per-host, per-purpose and per-operation authorization.
+        from rasai.geo_competitor_fetch_330 import main as competitor_html_main
+        return competitor_html_main(effective[1:])
+
+    if effective and effective[0] == "competitor-capture":
+        # COBS packages remain separately versioned and strictly opt-in.
+        # Never activate the canonical collectors or modify source AUD.
+        from rasai.geo_competitor_capture_bundle_330 import main as cobs_capture_main
+        return cobs_capture_main(effective[1:])
+
     if effective and effective[0] in {"dynatrace-rum-crosscheck", "dynatrace-rum-review"}:
         # Two already captured JSONs, no external settings/USQL provider,
         # synthetic Apdex, CLI secrets or audit/runtime initialization.
