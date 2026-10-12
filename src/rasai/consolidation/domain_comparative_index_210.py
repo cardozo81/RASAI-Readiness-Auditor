@@ -69,6 +69,12 @@ def _verify_indexed_source(
                 or physical_devices[0] != indexed_device.strip().upper()):
             raise ValueError("physical AUD indexed device mismatch or unverified")
 
+    if (parent.is_symlink() or source.is_symlink() or not source.is_file()
+            or any(Path(str(source) + suffix).exists()
+                   for suffix in ("-wal", "-shm", "-journal"))
+            or source_file_fingerprint(source) != index_fingerprint.lower()):
+        raise ValueError("physical AUD source changed during metadata verification")
+
 
 def domain_preview_from_index(
     audits_root: Path, audit_ids: Sequence[str], *,
