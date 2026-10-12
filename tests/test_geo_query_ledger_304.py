@@ -601,6 +601,34 @@ def test_v5_refuses_unverifiable_or_bad_per_source_query_metadata(
     assert (folder / "audit.db").read_bytes() == original
 
 
+@pytest.mark.parametrize("duplicate_query_json", [
+    '{"query":"seguro bradesco","query":"seguro de vida"}',
+    '{"query":"seguro bradesco","query":"seguro bradesco"}',
+])
+def test_v5_duplicate_query_keys_in_provider_metadata_cannot_assign_sources(
+    tmp_path, duplicate_query_json,
+):
+    folder = _audit(tmp_path, multi=True, source_query_column=False)
+    _provider_source_metadata(folder)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "UPDATE perplexity_search_sources SET source_metadata_json=? "
+            "WHERE position=0",
+            (duplicate_query_json,),
+        )
+    original = (folder / "audit.db").read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["per_query_attribution_status"] == "MULTI_QUERY_SOURCE_MAPPING_MISSING"
+    assert {row["reason"] for row in result["queries"]} == {
+        "PER_QUERY_SOURCE_ATTRIBUTION_UNPROVEN"
+    }
+    assert all(row["common_urls"] is None for row in result["queries"])
+    assert result["source_audit_db_integrity_guard"] == "DOUBLE_SHA256_MATCH"
+    assert result["source_audit_db_sha256"] == sha256(original).hexdigest()
+    assert (folder / "audit.db").read_bytes() == original
+
+
 def test_v5_conflict_between_column_and_provider_metadata_abstains(tmp_path):
     folder = _audit(tmp_path, multi=True, source_query_column=True)
     _provider_source_metadata(folder)
