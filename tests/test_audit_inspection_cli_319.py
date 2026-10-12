@@ -434,3 +434,47 @@ def test_audit_attempts_detects_new_sidecar_during_secondary_timeline_read(
     assert sidecar.read_bytes() == b"arrived-during-timeline"
     assert db.read_bytes() == original
     sidecar.unlink()
+
+
+def test_inspector_refuses_duplicate_physical_ai_attempt_ids_instead_of_cost_loss(
+    tmp_path,
+):
+    root = _fixture(tmp_path)
+    db = root / "audit.db"
+    with sqlite3.connect(db) as con:
+        # Rebuild a synthetic legacy table without a PK, to simulate an
+        # anomalous physical ledger with duplicate billable attempt IDs.
+        con.execute(
+            "CREATE TABLE legacy_ai AS SELECT * FROM ai_provider_attempts"
+        )
+        con.execute("DROP TABLE ai_provider_attempts")
+        con.execute("ALTER TABLE legacy_ai RENAME TO ai_provider_attempts")
+        con.execute(
+            "INSERT INTO ai_provider_attempts "
+            "SELECT * FROM ai_provider_attempts WHERE attempt_id='AI-0' LIMIT 1"
+        )
+    before = db.read_bytes()
+    with pytest.raises(ValueError, match="ambiguous AI attempt_id"):
+        inspect_audit_attempts(root)
+    assert db.read_bytes() == before
+
+
+def test_inspector_refuses_duplicate_remediation_attempt_ids(
+    tmp_path,
+):
+    root = _fixture(tmp_path)
+    db = root / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE legacy_m20 AS SELECT * FROM content_remediation_attempts"
+        )
+        con.execute("DROP TABLE content_remediation_attempts")
+        con.execute("ALTER TABLE legacy_m20 RENAME TO content_remediation_attempts")
+        con.execute(
+            "INSERT INTO content_remediation_attempts "
+            "SELECT * FROM content_remediation_attempts LIMIT 1"
+        )
+    before = db.read_bytes()
+    with pytest.raises(ValueError, match="ambiguous AI attempt_id"):
+        inspect_audit_attempts(root)
+    assert db.read_bytes() == before
