@@ -63,6 +63,11 @@ def inspect_live_dynatrace_apdex_coverage(
         if (not isinstance(token, str) or not token or token != token.strip()
                 or "\r" in token or "\n" in token):
             raise ValueError("both separate read-only Dynatrace tokens required")
+    # Do not let one all-scopes credential silently satisfy both explicit
+    # grants. Distinct credential material is a local policy gate, not proof
+    # of Dynatrace permissions (which remain server-side).
+    if settings_api_token == usql_api_token:
+        raise ValueError("distinct read-only Dynatrace tokens required")
     if (architecture not in ARCHITECTURES
             or any(type(flag) not in (bool, type(None))
                    for flag in (soft_navigation_observed, async_requests_observed))
