@@ -295,3 +295,19 @@ elegível. Isso não homologa equivalência de ofertas, ruleset,
 universo de scores, renderização SPA nem deltas de métricas
 entre páginas. O seletor `CONS-3` e o pipeline homologado
 permanecem inalterados.
+
+
+## Identidade de telas SPA com fragmentos de URL (12/10/2026)
+
+Na prévia `SAME_DOMAIN_COMPARATIVE`, URLs contendo `#` não são
+identidades de página verificáveis. Em aplicações SPA com hash routing,
+`/app#/produto-a` e `/app#/produto-b` podem representar telas distintas,
+embora a URL HTTP sem fragmento seja a mesma. Ignorar silenciosamente o
+fragmento atribuiria indevidamente essas observações à mesma página e
+poderia sugerir a série longitudinal estrita. O contrato conservador
+recusa esses candidatos com `UNVERIFIABLE_SINGLE_URL`, sem inferir
+redirecionamentos, hidratação, equivalência de DOM ou união de universos.
+Consultas que contêm `%23` **codificado** continuam sendo query strings
+normais, sem interpretação como fragmento. Fixtures isoladas cobrem
+fragments distintos, vazio, simples e query codificada; nenhuma alteração
+no seletor CONS produtivo, na captura, em scores, Apdex, CWV ou IA.
