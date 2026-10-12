@@ -15,6 +15,7 @@ import sqlite3
 from typing import Any, Sequence
 
 from rasai.geo_observation import _canonical_url
+from rasai.geo_competitor_capture_bundle_330 import _physical_digest
 from rasai.search_intelligence.content import query_terms
 
 _SHA256 = re.compile(r"^[a-fA-F0-9]{64}$")
@@ -176,6 +177,9 @@ def inspect_geo_competitor_content(
     database = Path(database)
     if not database.is_file() or database.is_symlink():
         raise ValueError("existing non-symlink audit.db required")
+    if any(Path(str(database) + suffix).exists()
+           for suffix in ("-wal", "-shm", "-journal")):
+        raise ValueError("source AUD has pending SQLite sidecars")
     if not isinstance(audit_id, str) or not audit_id.startswith("AUD-"):
         raise ValueError("audit identity required")
     if not isinstance(observation_id, str) or not observation_id.strip():
@@ -199,13 +203,25 @@ def inspect_geo_competitor_content(
         return {**base, "status": status, "context": None,
                 "customer": None, "competitors": [], "comparisons": []}
 
-    with sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True) as con:
+    source_digest = _physical_digest(database)
+    with sqlite3.connect(
+        database.resolve().as_uri() + "?mode=ro&immutable=1", uri=True,
+    ) as con:
         con.row_factory = sqlite3.Row
         con.execute("PRAGMA query_only=ON")
         if not _REQUIRED_OBS <= _columns(con, "serp_observations"):
             return abstain("SERP_OBSERVATION_SCHEMA_ND")
         if not _REQUIRED_CONTENT <= _columns(con, "serp_competitive_pages"):
             return abstain("CONTENT_EVIDENCE_SCHEMA_ND")
+        # The content ledger may have only observation_id, not audit_id.
+        # Treat the observation ID as a *global* source key or fail closed:
+        # a duplicate under a foreign AUD could otherwise inject its HTML.
+        observed_ids = con.execute(
+            "SELECT audit_id FROM serp_observations WHERE observation_id=? LIMIT 2",
+            (observation_id,),
+        ).fetchall()
+        if len(observed_ids) != 1 or observed_ids[0]["audit_id"] != audit_id:
+            return abstain("SERP_OBSERVATION_ID_AMBIGUOUS_OR_FOREIGN")
         optional = ("country", "region", "language", "device", "engine")
         known = _columns(con, "serp_observations")
         fields = ", ".join(name if name in known else "NULL AS " + name
@@ -230,6 +246,16 @@ def inspect_geo_competitor_content(
             name if name in content_columns else "NULL AS " + name
             for name in _OPTIONAL_CONTENT
         )
+        # If a schema version has per-content audit scope, reject foreign
+        # rows rather than silently folding them into the current page pair.
+        if "audit_id" in content_columns:
+            foreign = con.execute(
+                "SELECT 1 FROM serp_competitive_pages "
+                "WHERE observation_id=? AND (audit_id IS NULL OR audit_id!=?) LIMIT 1",
+                (observation_id, audit_id),
+            ).fetchone()
+            if foreign:
+                return abstain("CROSS_AUD_CONTENT_PROVENANCE_UNVERIFIABLE")
         rows = con.execute(
             "SELECT role, requested_url, final_url, fetch_status, "
             "http_status, content_type, content_sha256, bytes_read, word_count, "
@@ -238,6 +264,10 @@ def inspect_geo_competitor_content(
             "WHERE observation_id=? ORDER BY role, requested_url LIMIT ?",
             (observation_id, _MAX_ROWS + 1),
         ).fetchall()
+    if (any(Path(str(database) + suffix).exists()
+            for suffix in ("-wal", "-shm", "-journal"))
+            or _physical_digest(database) != source_digest):
+        return abstain("AUD_SOURCE_CHANGED_DURING_READ")
     if len(rows) > _MAX_ROWS:
         return abstain("CONTENT_EVIDENCE_LIMIT_EXCEEDED")
     customer_rows = [row for row in rows if row["role"] == "CUSTOMER"]
@@ -293,6 +323,10 @@ def inspect_geo_competitor_content(
                 },
                 "meaning": "DESCRIPTIVE_CONTENT_ONLY_NO_CAUSAL_CLAIM",
             })
+    if (any(Path(str(database) + suffix).exists()
+            for suffix in ("-wal", "-shm", "-journal"))
+            or _physical_digest(database) != source_digest):
+        return abstain("AUD_SOURCE_CHANGED_DURING_READ")
     return {
         **base,
         "status": ("DESCRIPTIVE_PERSISTED_HTML_COMPARISON"
