@@ -43,3 +43,28 @@ que ambas as fontes correspondem à mesma aplicação, e evidência física
 de browser/URL/device/instante para compará-las à coleta RASAi.
 A rotina não efetua novas consultas e não usa dados pessoais,
 segredos, raw sessions ou qualquer chamada IA.
+
+## Contrato v2: integridade do escopo declarado
+
+O consumidor `RASAI-DYNATRACE-RUM-SETTINGS-COMPARISON-355-002`
+agora recusa JSONs RUM sem a confirmação estrutural
+`population_query_scoped_to_exact_url_device_window=true` ou
+`rum_action_aggregate_returned=true`. Também exige:
+
+- `target_url` HTTP(S) canônica inequívoca, no máximo 1024 caracteres;
+- `declared_dynatrace_device_filter` sintaticamente válido;
+- `application_id` no formato de entidade real aceito pelo coletor;
+- `period_start_utc` e `period_end_utc` com offset UTC explícito,
+  em ordem, janela maior que zero e de até 24 horas.
+
+A ausência ou contradição gera `NOT_COMPARABLE` e
+`RUM_EXACT_POPULATION_SCOPE_UNVERIFIABLE`, **sem inferir
+mesmo browser, dispositivo real, tenant ou página**. Uma URL
+sintaticamente válida ainda pode ser forjada pelo operador;
+o crosscheck verifica coerência interna do material fornecido,
+não autenticidade da fonte remota.
+
+Os produtores de JSON RUM anteriores já expõem essas flags e UTC
+do backend; um arquivo anterior incompleto pode retornar N/D,
+em vez de receber uma nova hipótese positiva. Sem novas chamadas
+Dynatrace, sem modificação do perfil sintético M23/M25.

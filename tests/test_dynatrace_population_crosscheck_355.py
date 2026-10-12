@@ -57,6 +57,8 @@ def _rum(*, xhr=0, extrap=4):
         ),
         "raw_rum_action_census_verified": False,
         "rasai_same_browser_sample_verified": False,
+        "population_query_scoped_to_exact_url_device_window": True,
+        "rum_action_aggregate_returned": True,
         "audit_writes": 0,
         "provider_requests": 1,
     }
@@ -170,3 +172,59 @@ def test_offline_cli_reads_bounded_json_without_network_or_mutation(tmp_path, ca
         main(["--settings-advisory-json",str(a),
               "--rum-population-json",str(b)])
     assert exc.value.code == 2
+
+
+@pytest.mark.parametrize(
+    ("mutator", "reason"),
+    [
+        (lambda x: x.pop("population_query_scoped_to_exact_url_device_window"),
+         "RUM_EXACT_POPULATION_SCOPE_UNVERIFIABLE"),
+        (lambda x: x.update(population_query_scoped_to_exact_url_device_window=False),
+         "RUM_EXACT_POPULATION_SCOPE_UNVERIFIABLE"),
+        (lambda x: x.pop("rum_action_aggregate_returned"),
+         "RUM_EXACT_POPULATION_SCOPE_UNVERIFIABLE"),
+        (lambda x: x.update(target_url="javascript:alert(1)"),
+         "RUM_EXACT_POPULATION_SCOPE_UNVERIFIABLE"),
+        (lambda x: x.update(target_url="https://www.example.com/seguro/"),
+         None),
+        (lambda x: x.update(declared_dynatrace_device_filter=""),
+         "RUM_EXACT_POPULATION_SCOPE_UNVERIFIABLE"),
+        (lambda x: x.update(period_start_utc="2026-10-10T10:00:00"),
+         "RUM_EXACT_POPULATION_SCOPE_UNVERIFIABLE"),
+        (lambda x: x.update(period_end_utc="2026-10-10T09:00:00Z"),
+         "RUM_EXACT_POPULATION_SCOPE_UNVERIFIABLE"),
+        (lambda x: x.update(period_end_utc="2026-10-12T00:00:00Z"),
+         "RUM_EXACT_POPULATION_SCOPE_UNVERIFIABLE"),
+        (lambda x: x.update(period_start_utc="2026-10-10T07:00:00-03:00"),
+         "RUM_EXACT_POPULATION_SCOPE_UNVERIFIABLE"),
+    ],
+    ids=[
+        "missing-url-device-window-claim", "false-exact-scope-claim",
+        "missing-aggregated-result", "bad-target-url", "different-safe-target-url",
+        "missing-device", "naive-UTC-start", "reversed-time", "over-24h",
+        "non-UTC-offset",
+    ],
+)
+def test_v2_rum_scope_metadata_must_be_complete_and_consistent(mutator, reason):
+    rum = _rum()
+    settings = _settings()
+    mutator(rum)
+    before = json.dumps((rum, settings), sort_keys=True)
+    result = compare(settings, rum)
+    assert result["contract_version"] == (
+        "RASAI-DYNATRACE-RUM-SETTINGS-COMPARISON-355-002"
+    )
+    if reason is not None:
+        assert result["status"] == "NOT_COMPARABLE"
+        assert result["reason"] == reason
+        assert "action_counts_reported" not in result
+        assert result["application_scope_verified_across_sources"] is False
+    else:
+        assert result["status"] == "CLAIMED_LIVE_APPLICATION_ID_MATCH"
+        # Even a different syntactically valid target URL in a forged JSON
+        # cannot authenticate tenant, page or session.
+        assert result["rasai_same_browser_sample_verified"] is False
+        assert result["application_scope_verified_across_sources"] is False
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert result["new_apdex_score"] is None
+    assert json.dumps((rum, settings), sort_keys=True) == before
