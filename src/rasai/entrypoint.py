@@ -331,6 +331,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.provider_cli import main as provider_main
         return provider_main(effective[1:])
 
+    if effective and effective[0] == "domain-comparative":
+        # Advisory only: existing analytical index and optional read-only
+        # physical source check. Not a same-URL CONS-3 execution.
+        from rasai.consolidation.domain_comparative_index_210 import (
+            main as domain_preview_main,
+        )
+        return domain_preview_main(effective[1:])
+
+    if effective and effective[0] == "domain-package":
+        # Explicit --write-domain-package remains mandatory in the
+        # independent CDOM writer. Never activate the canonical CONS path.
+        from rasai.consolidation.domain_comparative_package_210 import (
+            main as domain_package_main,
+        )
+        return domain_package_main(effective[1:])
+
     if effective and effective[0] in {"geo-query-ledger", "geo-query-report"}:
         # Verified per-query SERP x Search source evidence and accessible HTML.
         # Dispatch before audit runtime, provider secret activation or collectors.
