@@ -278,3 +278,17 @@ Nenhum consumidor de AUD em andamento foi alterado. Isso evita
 leitura física heterogênea, mas não autentica o provedor nem
 converte wrappers em relógios exclusivos de etapa; a previsão
 permanece histórica e não altera preços, timeout ou motores.
+
+
+## Estados do fulfillment e legitimidade de intervalos (12/10/2026)
+
+O leitor consultivo de tentativas `audit_fulfillment_timing_319` considera
+intervalo temporal verificado somente se houver início/fim válidos **e** o
+status persistido pertencer à lista fechada de resultados finais de tentativa:
+`SUCCESS`, `FAILED_RETRYABLE`, `FAILED_PERMANENT` ou `BLOCKED`.
+`RUNNING`, `PENDING`, `WAITING_FOR_DATA`, textos desconhecidos e variantes
+malformadas não comprovam encerramento, mesmo quando existem timestamps.
+Eles seguem em `WINDOW_UNVERIFIED`, com intervalos `N/D`, sem representar
+cronômetro exclusivo de etapa ou alimentar forecast/custo. Testes offline
+SQLite preservam as tentativas terminais e recusam as não comprovadas,
+sem alterar ledger, writer, motor, preço ou execução.
