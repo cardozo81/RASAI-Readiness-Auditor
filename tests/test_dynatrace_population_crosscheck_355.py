@@ -256,7 +256,7 @@ def test_offline_crosscheck_html_explains_spa_xhr_and_extrapolation(
     assert "SPA client-side (CSR)" in html
     assert "Load" in html and "XHR" in html and "Custom" in html
     assert "Nível 4 informado; contagens extrapoladas" in html
-    assert "zero XHR não prova captura desativada" in html.lower()
+    assert "zero xhr não prova captura desativada" in html.lower()
     assert "Mesmo tenant, navegador" in html
     assert "@media print" in html and "@media(max-width:680px)" in html
     assert "Nenhum threshold foi inferido" in html
