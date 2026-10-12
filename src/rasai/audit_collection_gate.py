@@ -27,7 +27,7 @@ POST_COLLECTION_COMPONENTS = frozenset({
 SATISFIED_COLLECTION_STATES = frozenset({SUCCESS, NOT_APPLICABLE, DISABLED})
 
 
-_SAFE_SCOPE = re.compile(r"^(?:AUDIT|(?:SNP|CTX|PAGE|URL|RPR)-[A-Z0-9]{1,64})$")
+_SAFE_SCOPE = re.compile(r"^(?:AUDIT|(?:PGE|SNP|CTX|PAGE|URL|RPR)-[A-Z0-9]{1,64})$")
 
 
 def _safe_scope_key(scope_key: Any) -> str:
