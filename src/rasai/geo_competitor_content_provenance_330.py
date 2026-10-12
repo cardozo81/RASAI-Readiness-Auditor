@@ -220,8 +220,10 @@ def inspect_geo_competitor_content(
             "SELECT audit_id FROM serp_observations WHERE observation_id=? LIMIT 2",
             (observation_id,),
         ).fetchall()
-        if len(observed_ids) != 1 or observed_ids[0]["audit_id"] != audit_id:
+        if len(observed_ids) > 1:
             return abstain("SERP_OBSERVATION_ID_AMBIGUOUS_OR_FOREIGN")
+        if len(observed_ids) != 1 or observed_ids[0]["audit_id"] != audit_id:
+            return abstain("SERP_OBSERVATION_NOT_VERIFIED")
         optional = ("country", "region", "language", "device", "engine")
         known = _columns(con, "serp_observations")
         fields = ", ".join(name if name in known else "NULL AS " + name
