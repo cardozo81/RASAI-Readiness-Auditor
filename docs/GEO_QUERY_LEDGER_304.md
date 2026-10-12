@@ -215,3 +215,25 @@ relatório já homologado. O roteador apenas delega ao consumer físico
 `geo_query_ledger_304`. A comparação por consulta continua
 `DESCRIPTIVE_ONLY`/N/D e não prova mesma população de mercado, idioma,
 device, intenção, nem citação generativa. Não dispara Search API/IA.
+
+
+## Gate de consistência do escopo SERP por consulta (12/10/2026)
+
+Quando a AUD contém mais de uma observação `OBSERVED_API/OBSERVED`
+para a mesma consulta dentro da janela física de 24 horas da busca
+externa, o ledger #304 exige que **todas as observações elegíveis**
+concordem exatamente em `engine`, `country`, `region`,
+`language` e `device`. Se algum campo diferir, a escolha da
+observação mais próxima no tempo seria uma seleção arbitrária de
+universos diferentes; a consulta afetada agora retorna
+`AMBIGUOUS_SERP_MARKET_LANGUAGE_DEVICE_SCOPE` com taxas,
+denominadores e presença da URL em N/D.
+
+Outras consultas independentes permanecem elegíveis quando seus
+respectivos escopos físicos forem coerentes. Duas observações
+com o **mesmo** escopo e timestamps válidos ainda usam a
+seleção cronológica determinística existente; empates continuam
+rejeitados. Isso não prova equivalência do mercado, idioma,
+dispositivo ou intenção **externa** da Perplexity, cujas flags
+permanecem `false`; não altera scores, SERP runtime, coleta,
+persistência ou proveniência de nenhuma AUD.

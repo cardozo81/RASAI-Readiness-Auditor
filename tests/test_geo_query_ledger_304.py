@@ -815,3 +815,82 @@ def test_public_cli_geo_query_ledger_and_html_do_not_bootstrap_audit_or_ai(
     )
     assert payload["provider_requests"] == payload["audit_writes"] == 0
     assert source.read_bytes() == initial
+
+
+@pytest.mark.parametrize(
+    ("field", "other_value"),
+    [
+        ("engine", "bing"),
+        ("country", "ES"),
+        ("region", "Rio de Janeiro"),
+        ("language", "es-ES"),
+        ("device", "desktop"),
+    ],
+)
+def test_v5_multiple_serp_scopes_for_one_query_abstain_per_query_only(
+    tmp_path, field, other_value,
+):
+    folder = _audit(tmp_path, multi=True)
+    with sqlite3.connect(folder / "audit.db") as con:
+        columns = (
+            "observation_id", "audit_id", "query", "collected_at",
+            "observation_status", "data_mode", "engine", "country",
+            "region", "language", "device",
+        )
+        row = dict(zip(columns, con.execute(
+            "SELECT * FROM serp_observations WHERE observation_id='SERP-0'"
+        ).fetchone()))
+        row["observation_id"] = "SERP-SECOND-SCOPE"
+        row["collected_at"] = "2026-10-10T12:01:00Z"
+        row[field] = other_value
+        con.execute(
+            "INSERT INTO serp_observations VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            tuple(row[key] for key in columns),
+        )
+        con.execute(
+            "INSERT INTO serp_results VALUES (?,?,?)",
+            ("SERP-SECOND-SCOPE", 0, "https://example.org/shared"),
+        )
+    original = (folder / "audit.db").read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "DESCRIPTIVE_ONLY"
+    assert result["per_query_attribution_status"] == "PHYSICALLY_ATTRIBUTABLE"
+    first, second = result["queries"]
+    assert first["query"] == "seguro bradesco"
+    assert first["status"] == "NOT_COMPARABLE"
+    assert first["reason"] == "AMBIGUOUS_SERP_MARKET_LANGUAGE_DEVICE_SCOPE"
+    assert first["serp_scope"] is None
+    assert first["common_urls"] is None
+    assert first["serp_overlap_rate"] is None
+    assert first["serp_observation_id"] is None
+    assert first["ranking_or_generative_citation_proven"] is False
+    assert second["query"] == "seguro de vida"
+    assert second["status"] == "DESCRIPTIVE_ONLY"
+    assert second["serp_scope"]["country"] == "BR"
+    assert result["source_audit_db_integrity_guard"] == "DOUBLE_SHA256_MATCH"
+    assert (folder / "audit.db").read_bytes() == original
+
+
+def test_v5_two_same_scope_serp_observations_choose_closest_physical_time(
+    tmp_path,
+):
+    folder = _audit(tmp_path, multi=False)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "INSERT INTO serp_observations "
+            "SELECT 'SERP-CLOSER',audit_id,query,'2026-10-10T12:02:00Z',"
+            "observation_status,data_mode,engine,country,region,language,device "
+            "FROM serp_observations WHERE observation_id='SERP-0'"
+        )
+        con.execute(
+            "INSERT INTO serp_results VALUES (?,?,?)",
+            ("SERP-CLOSER", 0, "https://example.org/shared"),
+        )
+    original = (folder / "audit.db").read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "DESCRIPTIVE_ONLY"
+    assert result["queries"][0]["status"] == "DESCRIPTIVE_ONLY"
+    assert result["queries"][0]["serp_observation_id"] == "SERP-CLOSER"
+    assert result["queries"][0]["observation_gap_seconds"] == 120
+    assert result["queries"][0]["serp_scope"]["country"] == "BR"
+    assert (folder / "audit.db").read_bytes() == original

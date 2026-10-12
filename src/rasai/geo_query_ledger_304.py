@@ -368,6 +368,19 @@ def inspect_geo_per_query(
                     row["reason"] = "NO_COMPARABLE_OBSERVED_SERP_SCOPE_WITHIN_24H"
                     out["queries"].append(row)
                     continue
+                # The SERP query may have been sampled under several
+                # engines/markets/locales/devices during one 24h window.
+                # Choosing the nearest one silently cherry-picks a
+                # different population from those actually observed.
+                # Require one exact physical scope across all candidates.
+                scopes = {
+                    tuple(str(candidate[2][field]).strip() for field in _SCOPE)
+                    for candidate in candidates
+                }
+                if len(scopes) != 1:
+                    row["reason"] = "AMBIGUOUS_SERP_MARKET_LANGUAGE_DEVICE_SCOPE"
+                    out["queries"].append(row)
+                    continue
                 candidates.sort(key=lambda x: (x[0], -x[1].timestamp(), str(x[2]["observation_id"])))
                 # Equidistant and equal-time observations cannot be
                 # resolved by an arbitrary opaque observation ID.
