@@ -277,3 +277,21 @@ A primeira operação não escreve arquivos. A segunda só escreve
 verificação física; **não** gera nem modifica `CONS-*` e não calcula
 deltas Apdex, CWV, SARI ou GEO. A integração nativa ao relatório CONS
 permanece sujeita à metodologia de universos de URL diferentes.
+
+
+## Gate estrito de origem HTTP (#210, 12/10/2026)
+
+Além de exigir um hostname e dispositivo comuns, o comparador
+CDOM agora exige a mesma **origem HTTP normalizada**: protocolo,
+hostname e porta efetiva. Mesmo hostname não comprova mesma
+aplicação quando uma AUD veio de HTTPS padrão e outra de HTTP
+ou HTTPS numa porta alternativa. Essa mistura retorna
+`DIFFERENT_URL_ORIGINS_UNVERIFIED` e nenhuma coorte positiva.
+Portas padrão são normalizadas; duas URLs com caminhos diferentes
+e a mesma origem ainda podem compor inventário consultivo.
+
+O campo aditivo `origin` só aparece preenchido em um resultado
+elegível. Isso não homologa equivalência de ofertas, ruleset,
+universo de scores, renderização SPA nem deltas de métricas
+entre páginas. O seletor `CONS-3` e o pipeline homologado
+permanecem inalterados.

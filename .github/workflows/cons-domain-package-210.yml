@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/consolidation/domain_comparative_package_210.py'
+      - 'src/rasai/consolidation/domain_comparative_preview_210.py'
       - 'src/rasai/consolidation/domain_comparative_index_210.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_cons_domain_comparative_index_210.py'
@@ -13,6 +14,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/consolidation/domain_comparative_package_210.py'
+      - 'src/rasai/consolidation/domain_comparative_preview_210.py'
       - 'src/rasai/consolidation/domain_comparative_index_210.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_cons_domain_comparative_index_210.py'

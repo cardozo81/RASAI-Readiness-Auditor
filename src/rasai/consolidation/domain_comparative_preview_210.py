@@ -85,7 +85,7 @@ def preview_same_domain_candidates(
     def abstain(reason: str) -> dict:
         return {
             **base, "eligible": False, "reason": reason,
-            "hostname": None, "device": None, "audits": [],
+            "hostname": None, "origin": None, "device": None, "audits": [],
             "url_universe_count": None,
         }
     if not 2 <= len(candidates) <= 100:
@@ -118,6 +118,14 @@ def preview_same_domain_candidates(
     hosts = {x[0] for x in identities if x}
     if len(hosts) != 1:
         return abstain("DIFFERENT_HOSTNAMES")
+    # Same hostname on different schemes/ports may serve unrelated apps.
+    # Never manufacture equivalent HTTP populations without origin proof.
+    origins = {
+        urlsplit(identity[1]).scheme + "://" + urlsplit(identity[1]).netloc
+        for identity in identities if identity is not None
+    }
+    if len(origins) != 1:
+        return abstain("DIFFERENT_URL_ORIGINS_UNVERIFIED")
     devices = {x.device.strip().upper() for x in candidates if x.device.strip()}
     if len(devices) != 1 or any(not x.device.strip() for x in candidates):
         return abstain("INCOMPATIBLE_DEVICE")
@@ -144,6 +152,7 @@ def preview_same_domain_candidates(
     return {
         **base, "eligible": True, "reason": None,
         "hostname": next(iter(hosts)),
+        "origin": next(iter(origins)),
         "device": next(iter(devices)),
         "audits": prepared,
         "url_universe_count": len(unique_urls),
