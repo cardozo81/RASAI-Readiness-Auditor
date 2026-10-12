@@ -283,6 +283,12 @@ def _historical_audit(
         # an active WAL, yielding a projection not reproducible from audit.db.
         return None
     try:
+        source_stat = database.stat()
+        source_identity = (
+            source_stat.st_dev, source_stat.st_ino,
+            source_stat.st_size, source_stat.st_mtime_ns,
+            source_stat.st_ctime_ns,
+        )
         conn = sqlite3.connect(
             database.resolve().as_uri() + "?mode=ro&immutable=1",
             uri=True, timeout=.5,
@@ -364,11 +370,25 @@ def _historical_audit(
                 and 0 <= float(item.union_active_ms) <= wall
             )
         }
-        return (
-            wall, audit_id, stages, _m21_http_request_sums(conn, audit_id),
-            started, finished,
-        )
-    except (sqlite3.Error, ValueError, TypeError, OverflowError):
+        requests = _m21_http_request_sums(conn, audit_id)
+        # Immutable SQLite reads are not a lock on the physical AUD. Abort
+        # if a journal appeared or file identity/mtime/size moved mid-read;
+        # this inexpensive guard does not pretend to cryptographically seal
+        # every historical AUD (which would multiply preview I/O).
+        current_stat = database.stat()
+        if (
+            database.is_symlink() or database.parent.is_symlink()
+            or any(Path(str(database) + suffix).exists()
+                   for suffix in ("-wal", "-shm", "-journal"))
+            or (
+                current_stat.st_dev, current_stat.st_ino,
+                current_stat.st_size, current_stat.st_mtime_ns,
+                current_stat.st_ctime_ns,
+            ) != source_identity
+        ):
+            return None
+        return (wall, audit_id, stages, requests, started, finished)
+    except (OSError, sqlite3.Error, ValueError, TypeError, OverflowError):
         return None
     finally:
         conn.close()
