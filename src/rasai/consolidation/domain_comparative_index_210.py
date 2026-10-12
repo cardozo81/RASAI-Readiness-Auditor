@@ -14,7 +14,7 @@ from typing import Sequence
 from urllib.parse import urlsplit
 
 from rasai.consolidation.domain_comparative_preview_210 import preview_same_domain_candidates
-from rasai.consolidation.reader import _audit_urls, _columns, source_file_fingerprint
+from rasai.consolidation.reader import _audit_urls, _columns, _devices, source_file_fingerprint
 from rasai.consolidation.selection import AuditCandidate
 
 _AUD = re.compile(r"^AUD-[A-Za-z0-9-]{1,100}$")
@@ -24,7 +24,7 @@ _SCHEMA_VERSION = 1
 
 def _verify_indexed_source(
     root: Path, audit_id: str, indexed_url: str,
-    index_db_path: str, index_fingerprint: str,
+    index_db_path: str, index_fingerprint: str, indexed_device: str,
 ) -> None:
     """Optional real-source metadata check; NOT cryptographic AUD attestation.
 
@@ -62,6 +62,12 @@ def _verify_indexed_source(
         urls = _audit_urls(con, audit_id)
         if len(urls) != 1 or urls[0] != indexed_url:
             raise ValueError("physical AUD indexed URL mismatch")
+        # A cached single-device label cannot prove that the source AUD's
+        # physically persisted snapshots were collected for that device.
+        physical_devices = _devices(con, audit_id)
+        if (len(physical_devices) != 1
+                or physical_devices[0] != indexed_device.strip().upper()):
+            raise ValueError("physical AUD indexed device mismatch or unverified")
 
 
 def domain_preview_from_index(
@@ -139,7 +145,7 @@ def domain_preview_from_index(
         if verify_source_metadata:
             _verify_indexed_source(
                 root, item, str(url or ""), str(source["db_path"] or ""),
-                raw_fingerprint,
+                raw_fingerprint, devices[0],
             )
         candidates.append(AuditCandidate(
             audit_id=item,
@@ -168,8 +174,9 @@ def domain_preview_from_index(
         "native_cons3_created": False,
         "limitations": (
             "Prévia do índice analítico existente. "
-            + ("AUDs reabertas apenas em leitura para comparar identidade, URL "
-               "e metadados do arquivo; fingerprint de cache não autentica bytes. "
+            + ("AUDs reabertas apenas em leitura para comparar identidade, URL, "
+               "dispositivo físico e metadados do arquivo; "
+               "fingerprint de cache não autentica bytes. "
                if verify_source_metadata else
                "Nenhuma AUD original foi reaberta para atestar frescor. ")
             + "O índice pode estar defasado ou não autenticado. "

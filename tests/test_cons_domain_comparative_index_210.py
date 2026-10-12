@@ -61,8 +61,17 @@ def _physical_sources(root: Path, index: Path):
                 source.execute(
                     "INSERT INTO audits VALUES (?, 'COMPLETED', 'COMPLETE')", (name,)
                 )
-                source.execute("CREATE TABLE pages(audit_id TEXT, normalized_url TEXT)")
-                source.execute("INSERT INTO pages VALUES (?,?)", (name, url))
+                source.execute(
+                    "CREATE TABLE pages(page_id TEXT, audit_id TEXT, normalized_url TEXT)"
+                )
+                page_id = name + "-PAGE"
+                source.execute("INSERT INTO pages VALUES (?,?,?)", (page_id, name, url))
+                source.execute(
+                    "CREATE TABLE page_snapshots(page_id TEXT, device TEXT)"
+                )
+                source.execute(
+                    "INSERT INTO page_snapshots VALUES (?,?)", (page_id, "MOBILE")
+                )
             con.execute(
                 "UPDATE source_audits SET db_path=?,source_fingerprint=? WHERE audit_id=?",
                 (f"{name}/audit.db", source_file_fingerprint(db), name),
@@ -528,3 +537,86 @@ def test_cdom_v2_refuses_sqlite_sidecar_created_between_digest_passes(
         )
     finally:
         target.unlink(missing_ok=True)
+
+
+@pytest.mark.parametrize(
+    ("physical_devices", "expected_fragment"),
+    [
+        (["DESKTOP"], "device mismatch"),
+        (["MOBILE", "DESKTOP"], "device mismatch"),
+        ([], "device mismatch"),
+    ],
+    ids=("different-physical-device", "multiple-physical-devices",
+         "device-not-observed"),
+)
+def test_cdom_requires_physically_matching_device_not_cached_index_claim(
+    tmp_path, physical_devices, expected_fragment,
+):
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    physical = root / "AUD-TWO" / "audit.db"
+    with sqlite3.connect(physical) as con:
+        con.execute("DELETE FROM page_snapshots")
+        con.executemany(
+            "INSERT INTO page_snapshots VALUES (?,?)",
+            [("AUD-TWO-PAGE", device) for device in physical_devices],
+        )
+    # Reconcile file metadata to ensure the test fails because of
+    # physical device *content*, not merely an outdated mtime.
+    with sqlite3.connect(idx) as con:
+        con.execute(
+            "UPDATE source_audits SET source_fingerprint=? WHERE audit_id=?",
+            (source_file_fingerprint(physical), "AUD-TWO"),
+        )
+    original = {str(path): sha256(path.read_bytes()).hexdigest()
+                for path in root.rglob("*") if path.is_file()}
+    with pytest.raises(ValueError, match=expected_fragment):
+        domain_preview_from_index(
+            root, ("AUD-ONE", "AUD-TWO"), verify_source_metadata=True,
+        )
+    with pytest.raises(ValueError, match=expected_fragment):
+        materialize_same_domain_package(
+            root, ("AUD-ONE", "AUD-TWO"), verify_source_bytes=True,
+        )
+    assert not (root / "consolidated-domain").exists()
+    assert all(sha256(Path(path).read_bytes()).hexdigest() == digest
+               for path, digest in original.items())
+
+
+def test_cached_wrong_device_cannot_override_physical_mobile_source(tmp_path):
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    physical_sources = {
+        path: sha256(path.read_bytes()).hexdigest()
+        for path in root.glob("AUD-*/audit.db")
+    }
+    with sqlite3.connect(idx) as con:
+        con.execute(
+            "UPDATE source_audits SET devices_json='[\"DESKTOP\"]'"
+            " WHERE audit_id='AUD-TWO'"
+        )
+    with pytest.raises(ValueError, match="device mismatch"):
+        domain_preview_from_index(
+            root, ("AUD-ONE", "AUD-TWO"), verify_source_metadata=True,
+        )
+    assert all(sha256(path.read_bytes()).hexdigest() == digest
+               for path, digest in physical_sources.items())
+
+
+def test_device_identity_from_source_matches_index_without_extra_writes(
+    tmp_path,
+):
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    initial = {
+        str(p): sha256(p.read_bytes()).hexdigest()
+        for p in root.rglob("*") if p.is_file()
+    }
+    projection = domain_preview_from_index(
+        root, ("AUD-ONE", "AUD-TWO"), verify_source_metadata=True,
+    )
+    assert projection["eligible"] is True
+    assert projection["index_reference"]["source_file_metadata_matched"] is True
+    assert projection["audits"][0]["device"] == "MOBILE"
+    assert all(sha256(Path(path).read_bytes()).hexdigest() == digest
+               for path, digest in initial.items())

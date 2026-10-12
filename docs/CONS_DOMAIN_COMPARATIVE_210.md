@@ -230,3 +230,22 @@ O pacote é recusado, sem criar manifesto, substituir arquivos
 existentes, realizar checkpoint ou remover journals. Essa
 proteção não é uma assinatura nem garante isolamento sob um
 writer que possa surgir depois da última verificação.
+
+
+## Proveniência física de dispositivo (#210)
+
+Ao acionar `--verify-source-metadata` (prévia) ou o pacote
+`CDOM` opt-in, a consulta não aceita mais apenas
+`devices_json` do índice analítico. A identidade de dispositivo
+é conferida diretamente nas capturas físicas
+`page_snapshots.device` associadas às páginas da AUD
+(`pages.page_id`, `pages.audit_id`) e comparada à identidade
+única indexada. Ausência de captura, vários dispositivos ou
+divergência de MOBILE/DESKTOP impedem a emissão de resultado
+comparável e a materialização de CDOM, mesmo quando URL, status,
+hash e metadados do arquivo coincidem.
+
+A prévia puramente indexada, sem `--verify-source-metadata`,
+continua sendo apenas consultiva, sem atestação da fonte.
+A correção é aplicada ao consumidor e não altera
+`audit.db`, schemas produtivos, score ou CONS-3.
