@@ -26,6 +26,8 @@ _CONTRACTS = frozenset({
 _SCOPE_KEYS = ("engine", "country", "region", "language", "device")
 _MAX_AUD_DB_HASH_BYTES = 256 * 1024 * 1024
 _MAX_V8_SOURCE_URL_ROWS = 500
+_MAX_V8_QUERY_JSON_BYTES = 16 * 1024
+_MAX_V8_PROJECTION_JSON_BYTES = 4 * 1024 * 1024
 
 
 def _aware(raw: object) -> datetime | None:
@@ -196,7 +198,13 @@ def _source_provenance(
             sc = comparison.get("serp_context")
             if not isinstance(px, dict) or not isinstance(sc, dict):
                 return False
-            queries = json.loads(str(run["query_json"]))
+            raw_query_json = run["query_json"]
+            if stored.get("contract_version") == "RASAI-GEO-OBSERVATION-8" and (
+                not isinstance(raw_query_json, str)
+                or len(raw_query_json.encode("utf-8")) > _MAX_V8_QUERY_JSON_BYTES
+            ):
+                return False
+            queries = json.loads(str(raw_query_json))
             if not isinstance(queries, list) or queries != projection.get("queries"):
                 return False
             if (
@@ -303,8 +311,14 @@ def _one_unsealed(root: Path) -> tuple[dict[str, Any] | None, str | None]:
         return None, "AUD_SCHEMA_OR_READ_ERROR"
     if stored["contract_version"] not in _CONTRACTS:
         return None, "GEO_LEGACY_OR_UNSUPPORTED_VERSION"
+    raw_projection = stored["projection_json"]
+    if stored["contract_version"] == "RASAI-GEO-OBSERVATION-8" and (
+        not isinstance(raw_projection, str)
+        or len(raw_projection.encode("utf-8")) > _MAX_V8_PROJECTION_JSON_BYTES
+    ):
+        return None, "GEO_PROJECTION_INVALID"
     try:
-        projection = json.loads(stored["projection_json"])
+        projection = json.loads(raw_projection)
     except (TypeError, ValueError):
         return None, "GEO_PROJECTION_INVALID"
     if not isinstance(projection, dict):
