@@ -331,6 +331,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.provider_cli import main as provider_main
         return provider_main(effective[1:])
 
+    if effective and effective[0] in {"geo-query-ledger", "geo-query-report"}:
+        # Verified per-query SERP x Search source evidence and accessible HTML.
+        # Dispatch before audit runtime, provider secret activation or collectors.
+        from rasai.geo_query_ledger_304 import main as geo_query_ledger_main
+        return geo_query_ledger_main(effective[1:])
+
     if effective and effective[0] in {"geo-longitudinal", "geo-history"}:
         # Standalone read-only observational inventory. Must execute BEFORE
         # installers / secrets / collector and AI runtime bootstrap.
