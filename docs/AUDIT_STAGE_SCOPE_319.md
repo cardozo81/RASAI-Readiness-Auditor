@@ -185,3 +185,18 @@ a **elegibilidade** da amostra histórica. Com menos de cinco
 AUDs restantes, a previsão fica N/D, em vez de reutilizar
 a fonte possivelmente em uso. A rejeição é conservadora e
 não tenta inferir se o WAL pendente é válido ou encerrado.
+
+## Classificação CRÍTICO versus faixa provável de custo
+
+A aderência financeira existente usa **dois comparadores independentes**:
+o estado `CRÍTICO` decorre exclusivamente de desvio superior a 5%
+contra a **estimativa monetária pontual**, enquanto a posição histórica
+é calculada contra `likely_low/likely_high/potential`.
+Logo, uma AUD pode ser `CRÍTICO` e, simultaneamente,
+`dentro da faixa provável histórica` sem contradição.
+
+O console e as notas persistidas da aderência agora explicam
+explicitamente essa condição quando ela ocorre. A mudança não ajusta
+threshold de alerta, pricing, unidade monetária, estimativa,
+P90, fatura, score nem motor de IA. Para estado CRÍTICO acima da faixa,
+a informação não afirma erroneamente que a observação ficou dentro.
