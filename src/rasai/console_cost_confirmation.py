@@ -332,6 +332,18 @@ def _evaluate_cost_outcome(
         status = "ALERTA"
     else:
         status = "CRÍTICO"
+    relation = _historical_relation(forecast, observed)
+    # The 5% fixed rule compares the point estimate, not a probabilistic
+    # interval. An actual inside the historical range may be CRÍTICO
+    # without implying an accounting error or a breached historical P90.
+    point_vs_range_note = (
+        "CRÍTICO indica desvio superior a 5% do custo esperado pontual; "
+        "o custo observado permanece dentro da faixa provável histórica. "
+        "Os critérios são independentes e não representam fatura do provedor."
+        if status == "CRÍTICO"
+        and relation == "dentro da faixa provável histórica"
+        else None
+    )
     return _CostOutcome(
         comparable=True,
         currency=currency,
@@ -340,13 +352,14 @@ def _evaluate_cost_outcome(
         deviation=deviation,
         deviation_percent=deviation_percent,
         status=status,
-        relation=_historical_relation(forecast, observed),
+        relation=relation,
         forecast_pages=forecast.target_pages,
         actual_pages=actual_pages,
         unpriced_ai_attempts=0,
         notes=(
             "classificação compara o custo monetário técnico observado com o custo esperado da prévia; "
             "não representa invoice/fatura do provider",
+            *((point_vs_range_note,) if point_vs_range_note else ()),
         ),
     )
 

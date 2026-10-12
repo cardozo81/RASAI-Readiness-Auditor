@@ -520,3 +520,50 @@ def test_usage_does_not_rewrite_matching_persisted_cost_outcome(monkeypatch) -> 
     assert persisted == []
     assert finalized == []
     assert rendered == [refreshed]
+
+
+def test_critical_point_deviation_inside_historical_band_is_explained_not_reclassified():
+    forecast = _forecast()  # expected USD .12, historical range .10-.14
+    outcome = console_cost_confirmation._evaluate_cost_outcome(
+        forecast, costs=(("USD", 0.13),),
+        unpriced_ai_attempts=0, actual_pages=3,
+    )
+    assert outcome.comparable is True
+    assert outcome.status == "CRÍTICO"
+    assert outcome.relation == "dentro da faixa provável histórica"
+    assert outcome.deviation_percent is not None
+    assert 8.33 < outcome.deviation_percent < 8.34
+    assert len(outcome.notes) == 2
+    assert "critérios são independentes" in outcome.notes[1]
+    assert "5%" in outcome.notes[1]
+    assert "fatura" in outcome.notes[1]
+    output = StringIO()
+    with redirect_stdout(output):
+        console_cost_confirmation._render_outcome(forecast, outcome)
+    rendered = output.getvalue()
+    assert "CRÍTICO" in rendered
+    assert "dentro da faixa provável histórica" in rendered
+    assert "critérios são independentes" in rendered
+
+
+def test_critical_cost_above_historical_band_does_not_claim_inside_band():
+    outcome = console_cost_confirmation._evaluate_cost_outcome(
+        _forecast(), costs=(("USD", 0.19),),
+        unpriced_ai_attempts=0, actual_pages=3,
+    )
+    assert outcome.status == "CRÍTICO"
+    assert outcome.relation == "acima do cenário potencial P90"
+    assert len(outcome.notes) == 1
+    assert not any("permanece dentro" in note for note in outcome.notes)
+
+
+def test_noncritical_cost_within_band_keeps_normal_single_disclaimer():
+    outcome = console_cost_confirmation._evaluate_cost_outcome(
+        _forecast(), costs=(("USD", 0.123),),
+        unpriced_ai_attempts=0, actual_pages=3,
+    )
+    assert outcome.status == "ALERTA"
+    assert outcome.relation == "dentro da faixa provável histórica"
+    assert len(outcome.notes) == 1
+    assert outcome.deviation_percent is not None
+    assert 2.49 < outcome.deviation_percent < 2.51
