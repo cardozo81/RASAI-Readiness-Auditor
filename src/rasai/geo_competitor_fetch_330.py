@@ -24,11 +24,18 @@ from rasai.url_utils import InvalidUrl
 
 _USER_AGENT = "RASAI-Search-Intelligence/0.1"
 _MAX_ROBOTS_BYTES = 64_000
+_REQUIRED_OPERATIONS = frozenset({"GET_ROBOTS_TXT", "GET_STATIC_HTML"})
+_PURPOSE_BY_ROLE = {
+    "CUSTOMER": "AUD_CUSTOMER_STATIC_CONTENT_REVIEW",
+    "COMPETITOR_CANDIDATE": "GEO_COMPETITOR_STATIC_CONTENT_REVIEW",
+}
 
 
 def inspect_consented_public_html(
     url: str, *, query: str, role: str,
     consented_hostnames: Sequence[str],
+    consent_purpose: str | None = None,
+    consented_operations: Sequence[str] = (),
     fetcher: PublicWebFetcher | None = None,
 ) -> dict[str, Any]:
     """Read robots first and return bounded HTML features, without persisting.
@@ -104,6 +111,17 @@ def inspect_consented_public_html(
         return outcome("UNSAFE_PUBLIC_URL")
     if host is None or host.lower() not in allowed:
         return outcome("EXACT_HOST_CONSENT_MISSING")
+    # Host consent does not authorize every possible type of request.
+    # Require a role-specific stated purpose AND both exact GET operations.
+    # This gate runs before any DNS lookup and before robots/HTML HTTP.
+    if (
+        consent_purpose != _PURPOSE_BY_ROLE[role]
+        or isinstance(consented_operations, (str, bytes))
+        or not isinstance(consented_operations, (tuple, list))
+        or len(consented_operations) != len(_REQUIRED_OPERATIONS)
+        or set(consented_operations) != _REQUIRED_OPERATIONS
+    ):
+        return outcome("EXPLICIT_PURPOSE_OPERATION_CONSENT_MISSING")
     try:
         normalized = _validate_public_url(url, client.resolver)
     except (InvalidUrl, PublicWebBlocked, ValueError, OSError):
@@ -201,14 +219,28 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--role", choices=("CUSTOMER", "COMPETITOR_CANDIDATE"),
                         required=True)
     parser.add_argument("--consent-host", action="append", required=True)
+    parser.add_argument("--consent-purpose", choices=tuple(_PURPOSE_BY_ROLE.values()))
+    parser.add_argument(
+        "--consent-operation", action="append",
+        choices=tuple(sorted(_REQUIRED_OPERATIONS)),
+    )
     parser.add_argument("--allow-public-html-requests", action="store_true")
     args = parser.parse_args(argv)
     if not args.allow_public_html_requests:
         parser.error("explicit --allow-public-html-requests is required")
+    if (
+        args.consent_purpose != _PURPOSE_BY_ROLE[args.role]
+        or args.consent_operation is None
+        or len(args.consent_operation) != 2
+        or set(args.consent_operation) != _REQUIRED_OPERATIONS
+    ):
+        parser.error("explicit purpose and both GET operations are required")
     try:
         result = inspect_consented_public_html(
             args.url, query=args.query, role=args.role,
             consented_hostnames=args.consent_host,
+            consent_purpose=args.consent_purpose,
+            consented_operations=args.consent_operation,
         )
     except ValueError as exc:
         parser.error(str(exc))
