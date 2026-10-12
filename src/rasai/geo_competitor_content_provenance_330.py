@@ -21,6 +21,7 @@ from rasai.search_intelligence.content import query_terms
 
 _SHA256 = re.compile(r"^[a-fA-F0-9]{64}$")
 _MAX_ROWS = 40
+_MAX_LEXICAL_JSON_BYTES = 32 * 1024
 _REQUIRED_OBS = {"observation_id", "audit_id", "query", "collected_at",
                  "observation_status", "data_mode"}
 _REQUIRED_CONTENT = {"observation_id", "role", "requested_url", "final_url",
@@ -60,7 +61,8 @@ def _strict_headings(value: object) -> list[str] | None:
 
 
 def _strict_query_terms(raw: object) -> tuple[str, ...]:
-    if not isinstance(raw, str):
+    if (not isinstance(raw, str)
+            or len(raw.encode("utf-8")) > _MAX_LEXICAL_JSON_BYTES):
         return ()
     try:
         parsed = json.loads(raw)
@@ -78,7 +80,8 @@ def _strict_query_terms(raw: object) -> tuple[str, ...]:
 
 
 def _optional_jsonld_types(raw: object) -> list[str] | None:
-    if not isinstance(raw, str):
+    if (not isinstance(raw, str)
+            or len(raw.encode("utf-8")) > _MAX_LEXICAL_JSON_BYTES):
         return None
     try:
         parsed = json.loads(raw)
