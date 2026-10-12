@@ -116,3 +116,27 @@ resposta IA generativa nem causalidade.
 São verificações sobre AUD SQLite **somente leitura**;
 nenhum download, API comercial, score, persistência ou
 contrato de coletor foi alterado.
+
+
+## Vínculo do papel CUSTOMER à URL-alvo física da AUD (12/10/2026)
+
+O valor `role='CUSTOMER'` dentro de `serp_competitive_pages`
+não constitui prova de que o HTML armazenado pertença à URL
+efetivamente auditada. Para entrar em uma comparação, o leitor
+agora exige exatamente **um** `audit_targets.input_url` para
+a mesma `audit_id`, com identidade canônica exata igual à
+`requested_url` do registro CUSTOMER. O indicador observacional
+`customer.aud_target_exact_url_proven` esclarece o resultado.
+
+Um cliente rotulado com URL de outra página não entra na
+comparação, mesmo com conteúdo HTML/termos válidos e concorrente
+fisicamente comprovado na SERP. Tabela ausente, alvo ausente,
+duplicidade ou URL inválida produzem
+`AUD_TARGET_URL_PROVENANCE_ND` sem conteúdo parcial nem
+conclusões positivas. A evidência de identidade da URL não é
+prova de conteúdo principal, hidratação SPA, equivalência de
+idioma/dispositivo ou causalidade.
+
+O leitor é estritamente offline e utiliza apenas dados
+anteriormente persistidos; nenhuma mudança de coletor,
+esquema SQLite, GEO v8, score, relatório ou AUD é necessária.
