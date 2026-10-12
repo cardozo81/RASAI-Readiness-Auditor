@@ -171,7 +171,7 @@ Quando a tentativa HTTPS segura funciona, o problema deixa de ser um bloqueio to
 HTTPS_DOWNGRADE_SECURE_RECOVERY
 ```
 
-A auditoria pode continuar usando a URL final realmente alcançada pelo navegador, mas permanece com limitação explícita porque a infraestrutura publicada continua problemática.
+A captura Chromium e as análises determinísticas que utilizam o DOM podem continuar com a URL final realmente alcançada, mas isso **não equivale a uma aquisição HTTP original bem-sucedida** nem garante encerramento lógico da auditoria. A infraestrutura publicada continua problemática.
 
 O report deve mostrar simultaneamente:
 
@@ -192,7 +192,7 @@ Se a recuperação produz HTML/DOM válido:
 - extração, regras e `SCORE-GEO-004` podem prosseguir;
 - Web Performance, se habilitado, pode usar a `final_url` recuperada;
 - Synthetic Apdex, se habilitado, pode usar a `final_url` recuperada;
-- IA, se habilitada, pode analisar os fatos persistidos e complementar a explicação.
+- IA, se habilitada, **somente** poderá analisar os fatos persistidos quando **todos** os requisitos obrigatórios do gate AUD/RPR estiverem satisfeitos. A recuperação Chromium isolada **não** satisfaz `HTTP_ACQUISITION` quando `BR-GEO-005` falhou. A captura pode ser válida para consumidores determinísticos e, simultaneamente, a AUD permanecer `PARTIAL_RETRYABLE`, com a IA em `WAITING_FOR_DATA`.
 
 A recuperação não altera fórmulas de Score, Lighthouse, Core Web Vitals ou Apdex.
 
