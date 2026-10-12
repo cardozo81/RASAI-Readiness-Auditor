@@ -257,3 +257,52 @@ def test_capture_relative_parent_traversal_to_other_aud_rejected_before_network(
         )
     assert calls == []
     assert not (other / "artifacts").exists()
+
+
+@pytest.mark.parametrize(
+    "unverified_clock",
+    [
+        "2026-10-10",
+        "2026-10-10T10:00:00",
+        "2026-15-99T00:00:00Z",
+        "not-a-date",
+        "",
+    ],
+    ids=["date-only", "timezone-absent", "impossible", "malformed", "empty"],
+)
+def test_unverified_serp_observation_clock_refuses_before_any_network(
+    tmp_path, monkeypatch, unverified_clock,
+):
+    folder = _audit(tmp_path)
+    calls = _fake(monkeypatch)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "UPDATE serp_observations SET collected_at=? WHERE observation_id=?",
+            (unverified_clock, _OBS),
+        )
+    before = (folder / "audit.db").read_bytes()
+    with pytest.raises(ValueError, match="(UTC clock not proven|context not proven)"):
+        _run(folder, tmp_path)
+    assert calls == []
+    assert not (tmp_path / "output").exists()
+    assert (folder / "audit.db").read_bytes() == before
+
+
+def test_serp_clock_is_normalized_to_utc_without_claiming_same_page_context(
+    tmp_path, monkeypatch,
+):
+    folder = _audit(tmp_path)
+    _fake(monkeypatch)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "UPDATE serp_observations SET collected_at=? WHERE observation_id=?",
+            ("2026-10-10T07:00:00-03:00", _OBS),
+        )
+    first = _run(folder, tmp_path)
+    manifest = json.loads(
+        open(first["manifest_path"], encoding="utf-8").read()
+    )
+    assert manifest["source_serp_collected_at"] == "2026-10-10T10:00:00+00:00"
+    assert manifest["temporal_equivalence_proven"] is False
+    assert manifest["locale_equivalence_proven"] is False
+    assert manifest["content_comparison_eligible"] is False
