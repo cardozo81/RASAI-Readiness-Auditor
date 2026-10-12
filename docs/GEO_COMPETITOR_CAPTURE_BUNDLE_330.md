@@ -87,3 +87,22 @@ sem alterar a observação SERP original.
 Essa condição **não** demonstra que a captura HTML e a observação
 SERP ocorreram na mesma época, no mesmo idioma, dispositivo ou
 população: `temporal_equivalence_proven=false` permanece.
+
+
+## Revalidação da origem até a publicação (#330)
+
+O SHA-256 e os journals SQLite (`audit.db-wal`, `-shm`,
+`-journal`) agora são conferidos **também após uma resposta
+não observada** de robots/HTTP e imediatamente antes do
+`rename` atômico do COBS, inclusive na reutilização de pacote
+existente. Uma AUD que mudou fisicamente enquanto a captura
+estava em andamento é rejeitada mesmo que a resposta externa
+tenha sido `ROBOTS_DISALLOWED` ou `HTML_NOT_OBSERVED`.
+Um journal que apareça depois do preflight também impede
+a emissão de manifesto. O staging é descartado em caso de
+falha, sem tocar AUD/CONS/RPR.
+
+O digest local demonstra estabilidade dos bytes observados
+entre verificações, mas não cria lock transacional com
+processos externos. A rotina permanece estritamente
+opt-in, isolada e não homologada como aquisição SaaS.
