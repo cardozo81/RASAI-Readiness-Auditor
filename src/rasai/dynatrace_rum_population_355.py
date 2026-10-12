@@ -14,9 +14,9 @@ import re
 from typing import Any, Sequence
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import Request, build_opener
+from urllib.request import Request
 
-from rasai.dynatrace_settings_live_355 import _DenyRedirect, _tenant_endpoint
+from rasai.dynatrace_settings_live_355 import DynatracePinnedOpener, _tenant_endpoint
 from rasai.geo_observation import _canonical_url
 
 _APPLICATION_ID = re.compile(r"^APPLICATION-[A-F0-9]{16}$")
@@ -88,7 +88,7 @@ def read_live_dynatrace_action_population(
         },
         method="GET",
     )
-    client = opener or build_opener(_DenyRedirect())
+    client = opener if opener is not None else DynatracePinnedOpener()
     try:
         with client.open(request, timeout=timeout_seconds) as response:
             if response.getcode() != 200:

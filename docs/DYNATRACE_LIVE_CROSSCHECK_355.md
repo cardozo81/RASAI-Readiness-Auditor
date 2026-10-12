@@ -58,3 +58,37 @@ A CI usa fake readers e não faz GET real. Sem autorização e credenciais
 para tenant físico, não é possível homologar o mesmo usuário/
 dispositivo/janela RUM e RASAi, nem validar a relação causal com Apdex.
 A issue #355 e o épico #357 permanecem abertos.
+
+
+## Transporte autenticado com IP fixado (12/10/2026)
+
+Antes desta correção, os dois GETs Dynatrace Settings/USQL eram feitos
+pelo `urllib` padrão após validar apenas o hostname do tenant.
+O socket podia fazer uma segunda resolução DNS, inclusive para
+um endereço não público, e poderia obedecer aos proxies do ambiente.
+Como ambos os requests contêm tokens de API, essa condição não deve
+ser aceita como egress autorizado.
+
+O transporte padrão agora usa `DynatracePinnedOpener`, adaptador
+isolado sobre o `PublicWebPinnedOpener` testado no COBS: a conexão
+TCP se dirige **somente ao IP público numérico verificado**, o cabeçalho
+Host/SNI e a validação do certificado TLS permanecem vinculados ao
+hostname original `*.live.dynatrace.com`. É proibido usar proxy,
+seguir redirect ou acessar outros endpoints; o GET só é admitido
+para `/api/v2/settings/effectiveValues` ou
+`/api/v1/userSessionQueryLanguage/table` com query explícita.
+Endereços DNS privados/loopback ou respostas mistas são bloqueados
+**antes do TCP**. Erros de rede permanecem genéricos, sem retornar
+token, headers ou corpo remoto.
+
+Os testes exercitam sockets e TLS simulados em memória, incluindo
+mudança público→privado entre DNS preflight e conexão e tentativas
+de desviar o token para outros hosts/paths. Não há qualquer consulta
+ao Dynatrace real em CI. O transporte explicitamente injetado continua
+disponível apenas para testes/fixtures, não é atestado por esta regra.
+Ambientes com proxy obrigatório deverão validar uma rota de egress
+apropriada separadamente, sem desabilitar o pinning ou TLS.
+
+A consulta live segue **opt-in** e não demonstra a mesma sessão RUM,
+dispositivo, URL observada, ações SPA ou equivalência com o Apdex
+Sintético M23/M25.

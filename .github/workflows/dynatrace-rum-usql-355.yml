@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/dynatrace_rum_population_355.py'
+      - 'src/rasai/dynatrace_settings_live_355.py'
+      - 'tests/test_dynatrace_pinned_transport_355.py'
       - 'tests/test_dynatrace_rum_population_355.py'
       - 'docs/APDEX_DYNATRACE_ARCH_ADVISORY_355.md'
       - '.github/workflows/dynatrace-rum-usql-355.yml'
@@ -11,6 +13,8 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/dynatrace_rum_population_355.py'
+      - 'src/rasai/dynatrace_settings_live_355.py'
+      - 'tests/test_dynatrace_pinned_transport_355.py'
       - 'tests/test_dynatrace_rum_population_355.py'
       - '.github/workflows/dynatrace-rum-usql-355.yml'
 permissions:
@@ -32,4 +36,4 @@ jobs:
       - name: Install package and pytest
         run: python -m pip install -e . pytest
       - name: Test USQL response contract via fake HTTP
-        run: python -m pytest -q tests/test_dynatrace_rum_population_355.py
+        run: python -m pytest -q tests/test_dynatrace_rum_population_355.py tests/test_dynatrace_pinned_transport_355.py
