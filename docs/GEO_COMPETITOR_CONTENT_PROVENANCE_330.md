@@ -178,3 +178,21 @@ inteiras dentro dos limites passam a ser contadas integralmente,
 sem truncamento anterior nas primeiras 20 headings. Isto não
 interpreta conteúdo primário nem renderiza SPA; é somente
 preservação fiel dos metadados físicos já coletados.
+
+
+## Identidades duplicadas de páginas concorrentes no ledger (#330)
+
+Se `serp_competitive_pages` contiver duas linhas de
+`COMPETITOR_CANDIDATE` com a **mesma requested_url canônica**
+na mesma observação, selecionar uma delas pela ordem SQL
+poderia ocultar divergência de hash/conteúdo/contagem lexical.
+O comparador retorna
+`COMPETITOR_HTML_REQUESTED_URL_AMBIGUOUS`, sem cliente,
+candidatos nem comparações parciais, mesmo quando as duas linhas
+aparentam conter o mesmo HTML: não há contrato de seleção
+física entre tentativas.
+
+URLs SERP **distintas** que redirecionam ao mesmo `final_url`
+continuam representando uma única evidência de destino pelo
+deduplicador existente. Esta restrição é exclusivamente
+read-only, não modifica o collector nem os bancos.
