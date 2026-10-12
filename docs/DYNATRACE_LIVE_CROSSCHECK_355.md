@@ -12,7 +12,11 @@ exige **as duas flags** `--allow-live-settings-read` e
 
 Antes do primeiro request, valida HTTPS SaaS sem redirecionamento,
 ID de aplicação, URL exata, dispositivo, janela UTC de até 24 horas,
-tokens sem caracteres de controle e arquitetura declarada.
+tokens sem caracteres de controle, **valores de token distintos** e
+arquitetura declarada. Se os dois tokens forem idênticos, a execução
+é recusada antes de qualquer requisição HTTP. Essa é uma restrição
+local de separação de credenciais, não uma prova das permissões
+atribuídas a cada token pelo tenant.
 Executa exatamente um GET Settings 2.0 e um GET USQL Classic,
 com limites próprios de tamanho e timeout; se a leitura Settings
 falhar, a segunda requisição não é iniciada. Falhas não imprimem
