@@ -217,3 +217,16 @@ não existe atestação de assinatura do fornecedor, nem prova de que
 os valores armazenados no índice representem toda a mesma população
 de origem. Nenhum score, Apdex ou série com URLs distintas é
 homologado por este hash.
+
+
+### Gate SQLite entre as duas verificações SHA-256
+
+A leitura de bytes do CDOM v2 exige ausência de
+`audit.db-wal`, `audit.db-shm` e `audit.db-journal`
+em **cada** passagem de hash. Mesmo sem mudanças no tamanho,
+mtime ou SHA-256 do arquivo principal, o surgimento de arquivos
+de transação invalida a hipótese de um snapshot físico selado.
+O pacote é recusado, sem criar manifesto, substituir arquivos
+existentes, realizar checkpoint ou remover journals. Essa
+proteção não é uma assinatura nem garante isolamento sob um
+writer que possa surgir depois da última verificação.
