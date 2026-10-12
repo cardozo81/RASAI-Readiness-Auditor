@@ -119,6 +119,7 @@ def inspect_consented_public_html(
         or isinstance(consented_operations, (str, bytes))
         or not isinstance(consented_operations, (tuple, list))
         or len(consented_operations) != len(_REQUIRED_OPERATIONS)
+        or any(not isinstance(item, str) for item in consented_operations)
         or set(consented_operations) != _REQUIRED_OPERATIONS
     ):
         return outcome("EXPLICIT_PURPOSE_OPERATION_CONSENT_MISSING")
