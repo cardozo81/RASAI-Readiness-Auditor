@@ -504,6 +504,16 @@ def test_cat07_cannot_attribute_duplicate_foreign_snapshot_id_to_current_aud(
                  "satisfied_threshold_seconds": 3.0,
                  "frustrated_threshold_seconds": 12.0})
     with sqlite3.connect(db) as con:
+        # Deliberately remove the fixture's PK, modeling an anomalous
+        # legacy/corrupt source whose identifiers are not globally unique.
+        con.execute("ALTER TABLE page_snapshots RENAME TO _unique_snapshots")
+        con.execute(
+            "CREATE TABLE page_snapshots("
+            "snapshot_id TEXT, page_id TEXT, device TEXT,"
+            "architecture_classification TEXT)"
+        )
+        con.execute("INSERT INTO page_snapshots SELECT * FROM _unique_snapshots")
+        con.execute("DROP TABLE _unique_snapshots")
         con.execute(
             "INSERT INTO page_snapshots VALUES "
             "('SNP-1','P-OTHER','DESKTOP','STATIC_OR_SSR')"
