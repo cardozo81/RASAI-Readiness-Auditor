@@ -22,6 +22,9 @@ def _db(tmp_path):
             CREATE TABLE serp_results(
                 observation_id TEXT, position INTEGER, url TEXT
             );
+            CREATE TABLE audit_targets(
+                audit_id TEXT, input_url TEXT
+            );
             CREATE TABLE serp_competitive_pages(
                 observation_id TEXT, role TEXT, requested_url TEXT,
                 final_url TEXT, fetch_status TEXT, http_status INTEGER,
@@ -39,6 +42,10 @@ def _db(tmp_path):
             "INSERT INTO serp_observations VALUES (?,?,?,?,?,?,?,?,?,?)",
             ("SERP-2", "AUD-OTHER", "seguro de carro", "2026-10-10T10:00:00Z",
              "OBSERVED", "OBSERVED_API", "US", "en", "DESKTOP", "google"),
+        )
+        con.execute(
+            "INSERT INTO audit_targets VALUES (?,?)",
+            ("AUD-1", "https://example.org/seguro-vida"),
         )
         con.execute(
             "INSERT INTO serp_results VALUES (?,?,?)",
@@ -595,4 +602,81 @@ def test_deep_content_serp_identity_is_preserved_with_valid_physical_member(tmp_
         "https://competitor.org/seguro-vida"
     )
     assert value["competitors"][0]["serp_result_membership_proven"] is True
+    assert db.read_bytes() == before
+
+
+def test_customer_content_must_match_unique_physical_aud_target(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages "
+            "SET requested_url='https://other-aud-customer.net/landing',"
+            "final_url='https://other-aud-customer.net/landing' "
+            "WHERE role='CUSTOMER' AND observation_id='SERP-1'"
+        )
+    before = db.read_bytes()
+    out = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert out["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+    assert out["customer"]["aud_target_exact_url_proven"] is False
+    assert out["comparisons"] == []
+    assert out["competitors"][0]["serp_result_membership_proven"] is True
+    assert out["provider_requests"] == out["audit_writes"] == 0
+    assert db.read_bytes() == before
+
+
+def test_target_from_other_audit_never_grants_customer_content_identity(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute("DELETE FROM audit_targets")
+        con.execute(
+            "INSERT INTO audit_targets VALUES (?,?)",
+            ("AUD-OTHER", "https://example.org/seguro-vida"),
+        )
+    before = db.read_bytes()
+    out = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert out["status"] == "AUD_TARGET_URL_PROVENANCE_ND"
+    assert out["customer"] is None
+    assert out["competitors"] == out["comparisons"] == []
+    assert db.read_bytes() == before
+
+
+def test_missing_or_ambiguous_physical_target_abstains_before_html_pair(tmp_path):
+    for defect in ("missing_table", "missing_row", "two_targets", "bad_url"):
+        from pathlib import Path
+        folder = tmp_path / defect
+        folder.mkdir()
+        db = _db(folder)
+        with sqlite3.connect(db) as con:
+            if defect == "missing_table":
+                con.execute("DROP TABLE audit_targets")
+            elif defect == "missing_row":
+                con.execute("DELETE FROM audit_targets")
+            elif defect == "two_targets":
+                con.execute(
+                    "INSERT INTO audit_targets VALUES (?,?)",
+                    ("AUD-1", "https://example.org/other"),
+                )
+            else:
+                con.execute(
+                    "UPDATE audit_targets SET input_url=? WHERE audit_id='AUD-1'",
+                    ("javascript:alert(1)",),
+                )
+        before = db.read_bytes()
+        out = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+        assert out["status"] == "AUD_TARGET_URL_PROVENANCE_ND"
+        assert out["customer"] is None and out["comparisons"] == []
+        assert out["provider_requests"] == out["audit_writes"] == 0
+        assert db.read_bytes() == before
+
+
+def test_exact_customer_target_can_compare_serp_member_without_primary_claim(tmp_path):
+    db = _db(tmp_path)
+    before = db.read_bytes()
+    out = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert out["status"] == "DESCRIPTIVE_PERSISTED_HTML_COMPARISON"
+    assert out["customer"]["aud_target_exact_url_proven"] is True
+    assert out["competitors"][0]["serp_result_membership_proven"] is True
+    assert len(out["comparisons"]) == 1
+    assert out["customer"]["primary_content_proven"] is False
+    assert out["provider_requests"] == out["audit_writes"] == 0
     assert db.read_bytes() == before
