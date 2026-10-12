@@ -468,3 +468,85 @@ def test_cat07_legacy_policy_does_not_inherit_host_defaults(tmp_path):
     assert "Escopo dos erros:</strong> N/D" in html
     assert "Concorrência efetiva:</strong> N/D" in html
     assert "Captura de observações XHR:</strong> N/D" in html
+
+
+@pytest.mark.parametrize("suffix", ["-wal", "-shm", "-journal"])
+def test_cat07_abstains_on_unsealed_sqlite_without_opening_aud(
+    tmp_path, monkeypatch, suffix,
+):
+    from rasai import cat07_architecture_reporting_358 as presentation
+
+    db = tmp_path / "audit.db"
+    _db(db, cfg={"kpm": "USER_ACTION_DURATION",
+                 "satisfied_threshold_seconds": 3.0,
+                 "frustrated_threshold_seconds": 12.0})
+    before = db.read_bytes()
+    sidecar = tmp_path / ("audit.db" + suffix)
+    sidecar.write_bytes(b"fake-open-journal")
+    monkeypatch.setattr(
+        presentation.sqlite3, "connect",
+        lambda *args, **kwargs: pytest.fail("must not open an unsealed AUD"),
+    )
+    html = presentation.cat07_architecture_advice_html(db, "AUD-1")
+    assert "data-contract='CAT07-ARCHITECTURE-358'" in html
+    assert "N/D" in html
+    assert "Fonte SQLite não estável" in html
+    assert "3.0" not in html and "CSR_SPA" not in html
+    assert db.read_bytes() == before
+    assert sidecar.read_bytes() == b"fake-open-journal"
+
+
+def test_cat07_cannot_attribute_duplicate_foreign_snapshot_id_to_current_aud(
+    tmp_path,
+):
+    db = tmp_path / "audit.db"
+    _db(db, cfg={"kpm": "USER_ACTION_DURATION",
+                 "satisfied_threshold_seconds": 3.0,
+                 "frustrated_threshold_seconds": 12.0})
+    with sqlite3.connect(db) as con:
+        # Deliberately remove the fixture's PK, modeling an anomalous
+        # legacy/corrupt source whose identifiers are not globally unique.
+        con.execute("ALTER TABLE page_snapshots RENAME TO _unique_snapshots")
+        con.execute(
+            "CREATE TABLE page_snapshots("
+            "snapshot_id TEXT, page_id TEXT, device TEXT,"
+            "architecture_classification TEXT)"
+        )
+        con.execute("INSERT INTO page_snapshots SELECT * FROM _unique_snapshots")
+        con.execute("DROP TABLE _unique_snapshots")
+        con.execute(
+            "INSERT INTO page_snapshots VALUES "
+            "('SNP-1','P-OTHER','DESKTOP','STATIC_OR_SSR')"
+        )
+    before = db.read_bytes()
+    html = cat07_architecture_advice_html(db, "AUD-1")
+    assert "Identificador de snapshot repetido" in html
+    assert "Rastreabilidade da arquitetura identificada:</strong> N/D" in html
+    assert "Identificada pela captura desta auditoria" not in html
+    assert "snapshot <code>SNP-1</code>" not in html
+    assert db.read_bytes() == before
+
+
+def test_cat07_rejects_new_sqlite_sidecar_appearing_during_projection(
+    tmp_path, monkeypatch,
+):
+    from rasai import cat07_architecture_reporting_358 as presentation
+    db = tmp_path / "audit.db"
+    _db(db, cfg={"kpm": "USER_ACTION_DURATION",
+                 "satisfied_threshold_seconds": 3.0,
+                 "frustrated_threshold_seconds": 12.0})
+    original = db.read_bytes()
+    real = presentation._run_config
+    sidecar = tmp_path / "audit.db-wal"
+
+    def moving_source(con, audit_id):
+        observed = real(con, audit_id)
+        sidecar.write_bytes(b"new-pending-transaction")
+        return observed
+
+    monkeypatch.setattr(presentation, "_run_config", moving_source)
+    html = presentation.cat07_architecture_advice_html(db, "AUD-1")
+    assert "Fonte SQLite não estável" in html
+    assert "snapshot <code>SNP-1</code>" not in html
+    assert db.read_bytes() == original
+    assert sidecar.read_bytes() == b"new-pending-transaction"

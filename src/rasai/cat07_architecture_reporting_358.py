@@ -92,6 +92,15 @@ def _observed_architecture(con: sqlite3.Connection, audit_id: str):
             "não deve ser atribuída ao índice agregado."
         )
     snapshot, page, device, classification = rows[0]
+    # A snapshot ID reused by another page/AUD cannot identify the evidence
+    # shown to the analyst, even if the scoped JOIN yielded one row.
+    if con.execute(
+        "SELECT COUNT(*) FROM page_snapshots WHERE snapshot_id=?", (snapshot,),
+    ).fetchone()[0] != 1:
+        return "UNKNOWN", None, (
+            "Identificador de snapshot repetido; a origem desta "
+            "classificação arquitetural não é inequívoca."
+        )
     architecture = str(classification or "").strip().upper()
     if architecture not in ARCH_LABELS or architecture == "UNKNOWN" or any(
         not isinstance(x, str) or not x.strip()
@@ -120,15 +129,44 @@ def _run_config(con: sqlite3.Connection, audit_id: str) -> Mapping[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _unsealed_cat07_advisory() -> str:
+    """Abstain without touching a live/symlinked SQLite source."""
+    return (
+        "<div class='subsection' data-contract='CAT07-ARCHITECTURE-358'>"
+        "<h3>Arquitetura observada e adequação do Apdex</h3>"
+        "<p><strong>Arquitetura:</strong> N/D. "
+        "Fonte SQLite não estável ou caminho não confiável; "
+        "a interpretação CAT-07 foi suspensa sem reprocessar a AUD.</p>"
+        "<p><strong>Configuração efetiva:</strong> N/D. "
+        "Nenhuma comparação Load/XHR/Custom ou equivalência com "
+        "Dynatrace RUM foi comprovada.</p></div>"
+    )
+
+
+def _unsealed_sqlite_source(db: Path) -> bool:
+    return (
+        db.is_symlink()
+        or any(Path(str(db) + suffix).exists()
+               for suffix in ("-wal", "-shm", "-journal"))
+    )
+
+
 def cat07_architecture_advice_html(
     database: Path, audit_id: str, *,
     frozen_meta: Mapping[str, Any] | None = None,
 ) -> str:
     """Render an advisory from one AUD. Empty/ambiguous old data => explicit N/D."""
-    with sqlite3.connect(f"file:{database.resolve().as_posix()}?mode=ro", uri=True) as con:
+    db = Path(database)
+    if _unsealed_sqlite_source(db):
+        return _unsealed_cat07_advisory()
+    with sqlite3.connect(db.resolve().as_uri() + "?mode=ro&immutable=1", uri=True) as con:
         con.execute("PRAGMA query_only=ON")
         architecture, provenance, note = _observed_architecture(con, audit_id)
         run = _run_config(con, audit_id)
+    # Do not publish a positive architectural conclusion if an AUD writer
+    # added a journal during the read; the bare source is not attested.
+    if _unsealed_sqlite_source(db):
+        return _unsealed_cat07_advisory()
     config = {
         "kpm": run.get("kpm"),
         "satisfied_threshold_seconds": run.get("satisfied_threshold_seconds"),
