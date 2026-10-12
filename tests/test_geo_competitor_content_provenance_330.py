@@ -275,6 +275,33 @@ def test_cross_query_persisted_terms_and_tampered_json_abstain(tmp_path):
         assert result["comparisons"] == []
 
 
+@pytest.mark.parametrize("role", ["CUSTOMER", "COMPETITOR_CANDIDATE"])
+@pytest.mark.parametrize("repetition", [
+    ["seguro", "seguro"],
+    ["seguro", "vida", "seguro"],
+])
+def test_duplicate_persisted_body_terms_never_inflate_competitor_lexical_counts(
+    tmp_path, role, repetition,
+):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET query_terms_body_json=? "
+            "WHERE observation_id='SERP-1' AND role=?",
+            (json.dumps(repetition), role),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+    assert result["comparisons"] == []
+    affected = (result["customer"] if role == "CUSTOMER"
+                else result["competitors"][0])
+    assert affected["content_evidence_status"] == "NOT_COMPARABLE"
+    assert affected["query_body_terms"] == []
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert db.read_bytes() == before
+
+
 def test_query_terms_observed_do_not_establish_primary_content(tmp_path):
     db = _db(tmp_path)
     result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")

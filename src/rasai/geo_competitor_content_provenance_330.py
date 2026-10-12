@@ -68,7 +68,11 @@ def _strict_query_terms(raw: object) -> tuple[str, ...]:
         return ()
     if (not isinstance(parsed, list) or not 1 <= len(parsed) <= 20
             or any(not isinstance(term, str) or not term.strip()
-                   for term in parsed)):
+                   for term in parsed)
+            # The canonical extractor emits a unique term inventory. A
+            # duplicated persisted body term cannot be counted as an extra
+            # lexical match against the customer's audited page.
+            or len(set(parsed)) != len(parsed)):
         return ()
     return tuple(parsed)
 
