@@ -182,3 +182,15 @@ A versão do COBS não muda porque o controle se limita à autorização
 pré-fetch, sem reescrever manifests ou snapshots já persistidos.
 A finalidade não é evidência assinada de consentimento histórico; não
 homologa coleta automática, egress SaaS ou integração com o pipeline.
+
+
+## CLI pública para a captura COBS
+
+`rasai competitor-capture` encaminha os argumentos ao
+materializador versionado isolado sem acionar o motor de auditoria.
+Além dos parâmetros de `python -m
+rasai.geo_competitor_capture_bundle_330`, permanecem obrigatórios
+`--allow-public-html-requests`, `--consent-host` exato,
+`--consent-purpose` compatível com o papel, e ambas as flags
+`--consent-operation`. O comando não retira as proteções de
+proveniência SERP/AUD nem grava em `audit.db`.

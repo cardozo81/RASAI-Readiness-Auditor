@@ -224,3 +224,87 @@ def test_cli_explicit_purpose_and_operation_required_before_network(capsys):
         main(arguments)
     assert exc.value.code == 2
     assert "explicit purpose and both GET operations" in capsys.readouterr().err
+
+
+def test_native_competitor_html_entrypoint_routes_scope_without_audit_bootstrap(
+    capsys, monkeypatch,
+):
+    from rasai import entrypoint
+    from rasai import geo_competitor_fetch_330 as module
+
+    monkeypatch.setattr(
+        entrypoint, "_install_audit_runtime",
+        lambda: pytest.fail("consented COBS route must never install audit runtime"),
+    )
+    monkeypatch.setattr(
+        entrypoint, "_activate_persisted_cli_secrets",
+        lambda: pytest.fail("consented COBS route must not activate secrets"),
+    )
+    received = []
+
+    def fake_consented_inspection(url, **kwargs):
+        received.append((url, kwargs))
+        return {
+            "status": "EXACT_HOST_CONSENT_MISSING",
+            "provider_requests": 0, "audit_writes": 0,
+        }
+
+    monkeypatch.setattr(
+        module, "inspect_consented_public_html", fake_consented_inspection,
+    )
+    args = [
+        "--url", "https://example.com/pagina",
+        "--query", "seguro de vida",
+        "--role", "COMPETITOR_CANDIDATE",
+        "--consent-host", "example.com",
+        "--allow-public-html-requests",
+        "--consent-purpose", "GEO_COMPETITOR_STATIC_CONTENT_REVIEW",
+        "--consent-operation", "GET_ROBOTS_TXT",
+        "--consent-operation", "GET_STATIC_HTML",
+    ]
+    assert entrypoint.main(["competitor-html-review", *args]) == 0
+    obj = json.loads(capsys.readouterr().out)
+    assert obj["provider_requests"] == obj["audit_writes"] == 0
+    assert received == [(
+        "https://example.com/pagina", {
+            "query": "seguro de vida",
+            "role": "COMPETITOR_CANDIDATE",
+            "consented_hostnames": ["example.com"],
+            "consent_purpose": "GEO_COMPETITOR_STATIC_CONTENT_REVIEW",
+            "consented_operations": ["GET_ROBOTS_TXT", "GET_STATIC_HTML"],
+        },
+    )]
+
+
+def test_native_cobs_capture_requires_purpose_operations_before_source_or_network(
+    tmp_path, capsys, monkeypatch,
+):
+    from rasai import entrypoint
+    from rasai import geo_competitor_capture_bundle_330 as module
+
+    monkeypatch.setattr(
+        entrypoint, "_install_audit_runtime",
+        lambda: pytest.fail("COBS command must not install audit runtime"),
+    )
+    monkeypatch.setattr(
+        entrypoint, "_activate_persisted_cli_secrets",
+        lambda: pytest.fail("COBS command must not activate secrets"),
+    )
+    monkeypatch.setattr(
+        module, "capture_competitor_sidecar",
+        lambda *a, **k: pytest.fail("unconsented CLI must stop before capture"),
+    )
+    args = [
+        "competitor-capture",
+        "--audit-dir", str(tmp_path / "AUD-TEST"),
+        "--serp-observation-id", "SERP-ONE",
+        "--candidate-url", "https://example.com/pagina",
+        "--output-root", str(tmp_path / "output"),
+        "--consent-host", "example.com",
+        "--allow-public-html-requests",
+    ]
+    with pytest.raises(SystemExit) as err:
+        entrypoint.main(args)
+    assert err.value.code == 2
+    assert "explicit purpose and both GET operations" in capsys.readouterr().err
+    assert not (tmp_path / "output").exists()
