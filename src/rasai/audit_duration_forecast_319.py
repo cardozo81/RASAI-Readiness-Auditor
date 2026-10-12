@@ -204,18 +204,32 @@ def _m21_http_request_sums(conn: sqlite3.Connection, audit_id: str) -> dict[str,
         columns = {
             str(row[1]) for row in conn.execute("PRAGMA table_info(web_performance_attempts)")
         }
-        if not {"audit_id", "service", "duration_ms"}.issubset(columns):
+        if not {"attempt_id", "audit_id", "service", "duration_ms"}.issubset(columns):
+            # Without a physical attempt key, summing requests may count
+            # the same operation multiple times. Do not infer uniqueness.
             return {}
         rows = conn.execute(
-            "SELECT service, duration_ms FROM web_performance_attempts WHERE audit_id=?",
+            "SELECT attempt_id, service, duration_ms "
+            "FROM web_performance_attempts WHERE audit_id=?",
             (audit_id,),
         )
         totals: dict[str, float] = {}
         rejected: set[str] = set()
-        for service, duration in rows:
+        seen: dict[str, str] = {}
+        for attempt_id, service, duration in rows:
             name = str(service or "").strip().upper()
             if name not in {"PAGESPEED_INSIGHTS", "CRUX_API"}:
                 continue
+            # A duplicate key, even across services, makes both reported
+            # denominators ambiguous. Never silently deduplicate or count
+            # one of the conflicting physical rows.
+            if (not isinstance(attempt_id, str) or not attempt_id.strip()
+                    or attempt_id in seen):
+                rejected.add(name)
+                if isinstance(attempt_id, str) and attempt_id in seen:
+                    rejected.add(seen[attempt_id])
+                continue
+            seen[attempt_id] = name
             if duration is None:
                 rejected.add(name)
                 continue

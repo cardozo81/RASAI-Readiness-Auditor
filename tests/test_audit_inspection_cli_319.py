@@ -331,3 +331,66 @@ def test_ai_scope_rejects_naive_and_cross_boundary_attempts(tmp_path):
     assert "fatura" in report["ai_attempt_execution_scope"]["limitation"]
     assert report["attempts_total"] == 8
     assert (root / "audit.db").read_bytes() == original
+
+
+def test_m21_duplicate_attempt_identity_abstains_per_affected_service(tmp_path):
+    root = _fixture(tmp_path)
+    with sqlite3.connect(root / "audit.db") as con:
+        # Synthetic physical table with deliberately absent uniqueness constraint.
+        con.execute(
+            "CREATE TABLE web_performance_attempts("
+            "attempt_id TEXT, audit_id TEXT, service TEXT, duration_ms REAL)"
+        )
+        con.executemany(
+            "INSERT INTO web_performance_attempts VALUES (?,?,?,?)",
+            [
+                ("PSI-DUP", root.name, "PAGESPEED_INSIGHTS", 20000.0),
+                ("PSI-DUP", root.name, "PAGESPEED_INSIGHTS", 30000.0),
+                ("CRUX-OK", root.name, "CRUX_API", 11000.0),
+                ("FOREIGN", "AUD-FOREIGN", "CRUX_API", 900000.0),
+            ],
+        )
+    before = (root / "audit.db").read_bytes()
+    result = inspect_audit_attempts(root)
+    assert result["observed_http_request_sums_ms"] == {"CRUX_API": 11000.0}
+    assert result["http_request_stage_wall_clock_available"] is False
+    assert (root / "audit.db").read_bytes() == before
+
+
+def test_m21_cross_service_id_collision_refuses_both_totals(tmp_path):
+    root = _fixture(tmp_path)
+    with sqlite3.connect(root / "audit.db") as con:
+        con.execute(
+            "CREATE TABLE web_performance_attempts("
+            "attempt_id TEXT, audit_id TEXT, service TEXT, duration_ms REAL)"
+        )
+        con.executemany(
+            "INSERT INTO web_performance_attempts VALUES (?,?,?,?)",
+            [
+                ("COLLISION", root.name, "PAGESPEED_INSIGHTS", 20000.0),
+                ("COLLISION", root.name, "CRUX_API", 10000.0),
+            ],
+        )
+    original = (root / "audit.db").read_bytes()
+    result = inspect_audit_attempts(root)
+    assert result["observed_http_request_sums_ms"] == {}
+    assert result["http_request_telemetry"] == "NOT_VERIFIABLE"
+    assert (root / "audit.db").read_bytes() == original
+
+
+def test_m21_legacy_missing_attempt_key_is_nd_not_fake_sum(tmp_path):
+    root = _fixture(tmp_path)
+    with sqlite3.connect(root / "audit.db") as con:
+        con.execute(
+            "CREATE TABLE web_performance_attempts("
+            "audit_id TEXT, service TEXT, duration_ms REAL)"
+        )
+        con.execute(
+            "INSERT INTO web_performance_attempts VALUES (?,?,?)",
+            (root.name, "PAGESPEED_INSIGHTS", 12345.0),
+        )
+    before = (root / "audit.db").read_bytes()
+    result = inspect_audit_attempts(root)
+    assert result["observed_http_request_sums_ms"] == {}
+    assert result["http_request_telemetry"] == "NOT_VERIFIABLE"
+    assert (root / "audit.db").read_bytes() == before
