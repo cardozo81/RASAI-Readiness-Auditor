@@ -73,6 +73,10 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
         raise ValueError("bounded GEO query ledger rows required")
 
     verified = projection.get("source_audit_db_integrity_guard") == "DOUBLE_SHA256_MATCH"
+    # Per-row status cannot override the projection-wide physical source gate.
+    # A caller may retain stale rows after an upstream read/integrity failure.
+    # Such rows must never be presented as measured URL overlaps.
+    admissible = status == "DESCRIPTIVE_ONLY" and verified
     seal = (
         "SHA-256 local conferido em duas leituras"
         if verified else "Integridade física não comprovada"
@@ -86,25 +90,28 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
             raise ValueError("invalid GEO query status")
         query = _safe(entry.get("query"))
         kind = escape(_classification(entry.get("declared_query_class")), quote=True)
+        row_admissible = admissible and row_status == "DESCRIPTIVE_ONLY"
         result_label = (
             "Sobreposição descritiva de fontes URL"
-            if row_status == "DESCRIPTIVE_ONLY"
-            else "N/D - dados insuficientes"
+            if row_admissible else "N/D - dados insuficientes"
         )
         reason = (
-            "" if row_status == "DESCRIPTIVE_ONLY"
-            else "<p class='muted'>Motivo: " + _safe(entry.get("reason")) + "</p>"
+            "" if row_admissible
+            else "<p class='muted'>Motivo: " + _safe(
+                entry.get("reason") or projection.get("reason")
+                or ("SOURCE_INTEGRITY_UNVERIFIED" if not verified
+                    else "GLOBAL_COMPARABILITY_NOT_VERIFIED")
+            ) + "</p>"
         )
         scope = entry.get("serp_scope")
         scope_text = (
             " · ".join(f"{field}: {_safe(scope.get(field))}" for field in _SCOPE)
-            if isinstance(scope, Mapping) and row_status == "DESCRIPTIVE_ONLY"
-            else "N/D"
+            if isinstance(scope, Mapping) and row_admissible else "N/D"
         )
-        # An abstained row must render N/D even if an untrusted caller
-        # supplies leftover numeric fields from an unrelated projection.
+        # Both row and projection-wide provenance gates must pass. Never
+        # expose stale numeric fields after a physical-source abstention.
         metric = lambda key, fmt: (
-            fmt(entry.get(key)) if row_status == "DESCRIPTIVE_ONLY" else "N/D"
+            fmt(entry.get(key)) if row_admissible else "N/D"
         )
         metrics = [
             ("URLs distintas SERP", metric("serp_distinct_urls", _count)),
@@ -122,7 +129,7 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
         target_html = "".join(
             _table_row([escape(label, quote=True), (
                 _presence(entry.get(field))
-                if row_status == "DESCRIPTIVE_ONLY" else "N/D"
+                if row_admissible else "N/D"
             )])
             for label, field in [
                 ("URL auditada no SERP", "target_url_exact_in_serp"),
@@ -141,7 +148,7 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
             target_html,
             "</table><p class='muted'>Estado: ",
             _safe(entry.get("target_url_overlap_status"))
-            if row_status == "DESCRIPTIVE_ONLY" else "N/D",
+            if row_admissible else "N/D",
             "</p></div></div></section>",
         ]
         snippets.append("".join(segments))
@@ -151,8 +158,7 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
     )
     summary = (
         "Somente observações descritivas. Não equivale a citação gerativa."
-        if status == "DESCRIPTIVE_ONLY"
-        else "N/D - comparabilidade não demonstrada."
+        if admissible else "N/D - comparabilidade não demonstrada."
     )
     return """<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8">
