@@ -55,3 +55,16 @@ simulado apenas para verificar o encaminhamento, isolamento
 de caminhos maliciosos, duplicações, ausência de escrita,
 e fluxo HTML. As fixtures positivas GEO multi-AUD existentes
 permanecem na suíte `test_geo_longitudinal_311.py`.
+
+
+## Chaves duplicadas no manifest CONS (12/10/2026)
+
+O companion read-only rejeita qualquer chave JSON duplicada, tanto no objeto
+principal `manifest.json` quanto em `source_audits[].audit_id`. Um parser
+permissivo adotaria o último valor, que poderia trocar o CONS, o fingerprint
+ou os identificadores das AUDs de origem sem registrar a ambiguidade.
+Manifests ambíguos param com `cannot parse CONS manifest` **antes** da
+consulta longitudinal. Fixtures sintetizadas provam abstenção e identidade
+byte a byte de todos os arquivos fonte. O arquivo CONS não é regravado,
+o score não é recalculado e nenhum provedor é invocado. Isso não configura
+a integração produtiva do GEO ao relatório CONS-3 nem valida tendência.
