@@ -200,3 +200,20 @@ explicitamente essa condição quando ela ocorre. A mudança não ajusta
 threshold de alerta, pricing, unidade monetária, estimativa,
 P90, fatura, score nem motor de IA. Para estado CRÍTICO acima da faixa,
 a informação não afirma erroneamente que a observação ficou dentro.
+
+
+## Inspeção de AUD com SQLite estável (12/10/2026)
+
+O comando público read-only `rasai audit-attempts AUD-DIR` passou a
+recusar `audit.db-wal`, `audit.db-shm` e `audit.db-journal` antes de
+consultar os ledgers e novamente após a segunda leitura do timeline.
+A primeira conexão de metadados usa `mode=ro&immutable=1` com
+`PRAGMA query_only=ON`; nenhuma leitura realiza DDL, checkpoint ou
+remoção de sidecar.
+
+A presença desses arquivos pode indicar transação ainda não
+consolidada; a interpretação deve abortar, em vez de confiar no arquivo
+principal isolado. Fixtures simulam sidecars antes e durante a leitura,
+com preservação dos bytes de todas as fontes. Isso não constitui lock
+global ou assinatura criptográfica da AUD e não torna os tempos de
+wrappers cronômetros exclusivos por fase.
