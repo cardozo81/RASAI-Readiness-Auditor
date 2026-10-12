@@ -86,3 +86,29 @@ e o aparecimento de `audit.db-journal` exatamente entre
 a serialização e o rename, sem emitir pacote inconsistente.
 Isto não constitui lock concorrente global nem substitui
 comprovação de equivalência metodológica entre observações GEO.
+
+
+## Acesso público ao companion GEO via CLI (12/10/2026)
+
+A seleção CONS existente pode ser inspecionada diretamente pelo
+roteador `rasai`, sem inicializar coletores, providers ou runtime de
+auditoria, e sem escrever no CONS original:
+
+```powershell
+rasai geo-cons-review --audits-root .\\audits `
+  --cons-dir .\\audits\\consolidated\\CONS-EXEMPLO --format html
+```
+
+Para materializar **somente um companion independente GCOMP**, o usuário
+deve acionar expressamente a flag `--write-geo-companion`:
+
+```powershell
+rasai geo-cons-package --audits-root .\\audits `
+  --cons-dir .\\audits\\consolidated\\CONS-EXEMPLO `
+  --write-geo-companion
+```
+
+A segunda chamada com as mesmas fontes retorna `IDEMPOTENT_EXISTING`
+quando bytes e manifestos permanecem idênticos. O pacote continua
+separado em `consolidated-geo-companions/GCOMP-*`, e não promove
+`trend_conclusion=N/D` a tendência calibrada ou métrica CONS-3.

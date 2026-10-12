@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/geo_cons_package_311.py'
+      - 'src/rasai/entrypoint.py'
       - 'tests/test_geo_cons_package_311.py'
       - 'docs/GEO_CONS_PACKAGE_311.md'
       - '.github/workflows/geo-cons-package-311.yml'
@@ -11,6 +12,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/geo_cons_package_311.py'
+      - 'src/rasai/entrypoint.py'
       - 'tests/test_geo_cons_package_311.py'
       - '.github/workflows/geo-cons-package-311.yml'
 permissions:

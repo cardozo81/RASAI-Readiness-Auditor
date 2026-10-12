@@ -338,3 +338,55 @@ def test_gcomp_digest_detects_size_race_during_bounded_physical_read(
     monkeypatch.setattr(Path, "open", transient_open)
     with pytest.raises(ValueError, match=message):
         module._file_digest(path)
+
+
+def test_native_geo_cons_commands_preserve_cons_and_require_package_opt_in(
+    tmp_path, capsys, monkeypatch,
+):
+    from rasai import entrypoint
+    root, cons = _cons(tmp_path)
+    before = _hashes(root)
+    monkeypatch.setattr(
+        entrypoint, "_install_audit_runtime",
+        lambda: pytest.fail("GCOMP read-only CLI must not install audit runtime"),
+    )
+    monkeypatch.setattr(
+        entrypoint, "_activate_persisted_cli_secrets",
+        lambda: pytest.fail("GCOMP CLI must not access provider secrets"),
+    )
+    args = ["--audits-root", str(root), "--cons-dir", str(cons)]
+    assert entrypoint.main(["geo-cons-review", *args, "--format", "html"]) == 0
+    html = capsys.readouterr().out
+    assert html.startswith("<!doctype html>")
+    assert "Nenhuma coorte GEO longitudinal elegível" in html
+    assert "N/D" in html
+    assert _hashes(root) == before
+    assert not (root / "consolidated-geo-companions").exists()
+
+    with pytest.raises(SystemExit) as err:
+        entrypoint.main(["geo-cons-package", *args])
+    assert err.value.code == 2
+    capsys.readouterr()
+    assert not (root / "consolidated-geo-companions").exists()
+
+    assert entrypoint.main([
+        "geo-cons-package", *args, "--write-geo-companion",
+    ]) == 0
+    created = json.loads(capsys.readouterr().out)
+    assert created["status"] == "MATERIALIZED"
+    manifest = json.loads(Path(created["manifest_path"]).read_text(encoding="utf-8"))
+    assert manifest["contract_version"] == (
+        "RASAI-CONS-GEO-COMPANION-PACKAGE-311-001"
+    )
+    assert manifest["native_cons_modified"] is False
+    assert manifest["geo_trends_calibrated"] is False
+    assert manifest["audit_writes"] == manifest["provider_requests"] == 0
+    assert entrypoint.main([
+        "geo-cons-package", *args, "--write-geo-companion",
+    ]) == 0
+    repeat = json.loads(capsys.readouterr().out)
+    assert repeat["status"] == "IDEMPOTENT_EXISTING"
+    assert repeat["package_id"] == created["package_id"]
+    assert all(sha256(Path(path).read_bytes()).hexdigest() == digest
+               for path, digest in before.items())
+    assert list((root / "consolidated").glob("CONS-*")) == [cons]

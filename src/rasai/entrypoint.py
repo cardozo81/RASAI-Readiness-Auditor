@@ -347,6 +347,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return domain_package_main(effective[1:])
 
+    if effective and effective[0] == "geo-cons-review":
+        # Consult one existing CONS selection without changing CONS-3,
+        # historical GEO snapshots or the audit/provider runtime.
+        from rasai.geo_cons_companion_311 import main as geo_cons_review_main
+        return geo_cons_review_main(effective[1:])
+
+    if effective and effective[0] == "geo-cons-package":
+        # Explicit --write-geo-companion is still required; output is a
+        # separately versioned GCOMP package, never a canonical CONS mutation.
+        from rasai.geo_cons_package_311 import main as geo_cons_package_main
+        return geo_cons_package_main(effective[1:])
+
     if effective and effective[0] in {"geo-query-ledger", "geo-query-report"}:
         # Verified per-query SERP x Search source evidence and accessible HTML.
         # Dispatch before audit runtime, provider secret activation or collectors.
