@@ -67,10 +67,18 @@ def _client(transport, resolved=None):
 
 
 def _inspect(client, *, url="https://example.com/seguro-de-vida",
-             consent=("example.com",), role="COMPETITOR_CANDIDATE"):
+             consent=("example.com",), role="COMPETITOR_CANDIDATE",
+             purpose=None, operations=("GET_ROBOTS_TXT", "GET_STATIC_HTML")):
+    if purpose is None:
+        purpose = (
+            "AUD_CUSTOMER_STATIC_CONTENT_REVIEW"
+            if role == "CUSTOMER"
+            else "GEO_COMPETITOR_STATIC_CONTENT_REVIEW"
+        )
     return inspect_consented_public_html(
         url, query="seguro de vida", role=role,
         consented_hostnames=consent, fetcher=client,
+        consent_purpose=purpose, consented_operations=operations,
     )
 
 
@@ -179,3 +187,40 @@ def test_cli_requires_explicit_http_authorization(capsys):
               "--role", "CUSTOMER", "--consent-host", "example.com"])
     assert exc.value.code == 2
     assert "explicit --allow-public-html-requests is required" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "reason,changes",
+    [
+        ("no-purpose", {"purpose": "INVALID_PURPOSE"}),
+        ("wrong-purpose", {"purpose": "AUD_CUSTOMER_STATIC_CONTENT_REVIEW"}),
+        ("no-operations", {"operations": ()}),
+        ("one-operation", {"operations": ("GET_ROBOTS_TXT",)}),
+        ("duplicates", {"operations": ("GET_STATIC_HTML", "GET_STATIC_HTML")}),
+        ("extra-operation", {"operations": ("GET_ROBOTS_TXT", "GET_STATIC_HTML", "POST")}),
+    ],
+)
+def test_missing_role_purpose_or_operations_refuses_before_dns_and_http(
+    reason, changes,
+):
+    dns, transport = [], _FakeTransport(b"User-agent: *\\nAllow: /\\n")
+    client = _client(transport, resolved=lambda host, port: dns.append(host) or ("1.1.1.1",))
+    result = _inspect(client, **changes)
+    assert result["status"] == "EXPLICIT_PURPOSE_OPERATION_CONSENT_MISSING", reason
+    assert result["provider_requests"] == 0
+    assert dns == [] and transport.urls == []
+    assert client.requests_used == 0
+
+
+def test_cli_explicit_purpose_and_operation_required_before_network(capsys):
+    arguments = [
+        "--url", "https://example.com/seguro-de-vida",
+        "--query", "seguro de vida",
+        "--role", "COMPETITOR_CANDIDATE",
+        "--consent-host", "example.com",
+        "--allow-public-html-requests",
+    ]
+    with pytest.raises(SystemExit) as exc:
+        main(arguments)
+    assert exc.value.code == 2
+    assert "explicit purpose and both GET operations" in capsys.readouterr().err
