@@ -510,3 +510,52 @@ def test_forecast_rejects_active_sqlite_sidecar_and_preserves_aud_bytes(
     recovered = forecast_local_duration(_state(tmp_path))
     assert recovered.sample_runs == 5
     assert recovered.available
+
+
+def test_forecast_excludes_aud_if_journal_appears_during_projection(
+    tmp_path, monkeypatch,
+):
+    from rasai import audit_duration_forecast_319 as mod
+
+    databases = [_audit(tmp_path, i) for i in range(5)]
+    source = databases[4]
+    original = source.read_bytes()
+    reader = mod.read_audit_attempt_timeline
+
+    def concurrent_journal(database, audit_id):
+        result = reader(database, audit_id)
+        if Path(database) == source:
+            Path(str(source) + "-wal").write_bytes(b"concurrent writer")
+        return result
+
+    monkeypatch.setattr(mod, "read_audit_attempt_timeline", concurrent_journal)
+    projection = mod.forecast_local_duration(_state(tmp_path))
+    assert projection.sample_runs == 4
+    assert not projection.available
+    assert source.read_bytes() == original
+
+
+def test_forecast_excludes_aud_if_file_mtime_moves_during_projection(
+    tmp_path, monkeypatch,
+):
+    from rasai import audit_duration_forecast_319 as mod
+
+    databases = [_audit(tmp_path, i) for i in range(5)]
+    source = databases[4]
+    original = source.read_bytes()
+    reader = mod.read_audit_attempt_timeline
+
+    def concurrent_metadata_change(database, audit_id):
+        result = reader(database, audit_id)
+        if Path(database) == source:
+            metadata = source.stat()
+            os.utime(
+                source, ns=(metadata.st_atime_ns, metadata.st_mtime_ns + 10_000_000)
+            )
+        return result
+
+    monkeypatch.setattr(mod, "read_audit_attempt_timeline", concurrent_metadata_change)
+    projection = mod.forecast_local_duration(_state(tmp_path))
+    assert projection.sample_runs == 4
+    assert projection.total is None
+    assert source.read_bytes() == original
