@@ -421,8 +421,9 @@ def test_audit_attempts_detects_new_sidecar_during_secondary_timeline_read(
     real_timeline = module.read_audit_attempt_timeline
     sidecar = root / "audit.db-wal"
 
-    def concurrent_uncheckpointed_writer(path, audit_id):
-        timeline = real_timeline(path, audit_id)
+    def concurrent_uncheckpointed_writer(path, audit_id, *, sealed_source=False):
+        assert sealed_source is True
+        timeline = real_timeline(path, audit_id, sealed_source=sealed_source)
         sidecar.write_bytes(b"arrived-during-timeline")
         return timeline
 
@@ -478,3 +479,46 @@ def test_inspector_refuses_duplicate_remediation_attempt_ids(
     with pytest.raises(ValueError, match="ambiguous AI attempt_id"):
         inspect_audit_attempts(root)
     assert db.read_bytes() == before
+
+
+def test_inspector_detects_physical_db_change_without_wal_during_second_read(
+    tmp_path, monkeypatch,
+):
+    from rasai import audit_attempt_inspection_319 as module
+    root = _fixture(tmp_path)
+    db = root / "audit.db"
+    original = db.read_bytes()
+    real_timeline = module.read_audit_attempt_timeline
+
+    def mutate_after_timeline(path, audit_id, *, sealed_source=False):
+        result = real_timeline(path, audit_id, sealed_source=sealed_source)
+        # A file replacement or out-of-band append need not create WAL/SHM.
+        with db.open("ab") as stream:
+            stream.write(b"changed-after-read")
+        return result
+
+    monkeypatch.setattr(
+        module, "read_audit_attempt_timeline", mutate_after_timeline
+    )
+    with pytest.raises(ValueError, match="changed during physical inspection"):
+        module.inspect_audit_attempts(root)
+    assert db.read_bytes() == original + b"changed-after-read"
+    assert not any(
+        (root / ("audit.db" + ext)).exists()
+        for ext in ("-wal", "-shm", "-journal")
+    )
+
+
+def test_inspector_rejects_oversized_source_without_opening_sqlite(
+    tmp_path, monkeypatch,
+):
+    from rasai import audit_attempt_inspection_319 as module
+    root = _fixture(tmp_path)
+    db = root / "audit.db"
+    previous = module._MAX_SOURCE_BYTES
+    monkeypatch.setattr(module, "_MAX_SOURCE_BYTES", db.stat().st_size - 1)
+    original = db.read_bytes()
+    with pytest.raises(ValueError, match="exceeds bounded verification limit"):
+        module.inspect_audit_attempts(root)
+    assert db.read_bytes() == original
+    assert previous > db.stat().st_size
