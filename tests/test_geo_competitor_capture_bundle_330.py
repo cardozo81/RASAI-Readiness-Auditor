@@ -433,6 +433,30 @@ def _add_aud_targets(folder, rows):
         con.executemany("INSERT INTO audit_targets VALUES (?,?)", rows)
 
 
+@pytest.mark.parametrize("same_aud_target", [True, False])
+def test_serp_member_cannot_be_labeled_competitor_when_it_is_exact_aud_target(
+    tmp_path, monkeypatch, same_aud_target,
+):
+    """#330: role provenance is stronger than mere SERP result membership."""
+    folder = _audit(tmp_path)
+    _add_aud_targets(folder, [
+        (folder.name, _URL if same_aud_target else _TARGET_URL),
+    ])
+    seen = _fake(monkeypatch)
+    original = (folder / "audit.db").read_bytes()
+    if same_aud_target:
+        with pytest.raises(ValueError, match="AUD target cannot be labeled"):
+            _run(folder, tmp_path)
+        assert seen == []
+        assert not (tmp_path / "output").exists()
+    else:
+        outcome = _run(folder, tmp_path)
+        assert outcome["status"] == "MATERIALIZED"
+        assert len(seen) == 1
+        assert outcome["content_comparison_eligible"] is False
+    assert (folder / "audit.db").read_bytes() == original
+
+
 def test_explicit_customer_capture_uses_unique_aud_target_without_serp_listing(
     tmp_path, monkeypatch,
 ):
