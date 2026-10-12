@@ -25,6 +25,16 @@ _BODY_LIMIT = 256 * 1024
 _MAX_ROWS = 20
 
 
+def _unique_usql_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Do not select the last of two conflicting physical JSON keys."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("ambiguous duplicate USQL JSON key")
+        result[key] = value
+    return result
+
+
 def read_live_dynatrace_action_population(
     *, base_url: str, application_id: str, target_url: str,
     dynatrace_device: str, start_timestamp_ms: int, end_timestamp_ms: int,
@@ -102,7 +112,7 @@ def read_live_dynatrace_action_population(
     if len(raw) > _BODY_LIMIT:
         raise ValueError("Dynatrace USQL aggregate response exceeds size limit")
     try:
-        payload = json.loads(raw)
+        payload = json.loads(raw, object_pairs_hook=_unique_usql_json_object)
     except (UnicodeError, ValueError, TypeError):
         raise ValueError("Dynatrace USQL response JSON invalid") from None
     if not isinstance(payload, dict):
