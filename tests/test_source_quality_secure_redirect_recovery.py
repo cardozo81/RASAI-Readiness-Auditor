@@ -64,6 +64,8 @@ class SecureRedirectRecoveryTests(unittest.TestCase):
         self.assertIn("https://mds.pt/", recovered.deterministic_summary)
         self.assertIn("validação TLS ativa", recovered.deterministic_summary)
         self.assertIn("não corrige o servidor", recovered.deterministic_summary)
+        self.assertIn("não comprova aquisição HTTP original", recovered.deterministic_summary)
+        self.assertIn("nem libera isoladamente a IA", recovered.deterministic_summary)
         self.assertTrue(any("sem hop intermediário HTTP" in item for item in recovered.recommended_actions))
         self.assertTrue(recovered.http_downgrade_hop)
 
@@ -85,6 +87,8 @@ class SecureRedirectRecoveryTests(unittest.TestCase):
         self.assertIn("HTTP", limitations[0])
         self.assertIn("rota segura", limitations[0])
         self.assertIn("corrigido", limitations[0])
+        self.assertIn("não comprova aquisição HTTP original", limitations[0])
+        self.assertIn("nem libera isoladamente a IA", limitations[0])
 
     def test_report_shows_recovered_final_url_and_original_301_chain(self) -> None:
         recovered = _recovered_issue(self._issue(), (self._observation(),))
