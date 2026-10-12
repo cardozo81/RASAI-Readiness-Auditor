@@ -140,3 +140,23 @@ idioma/dispositivo ou causalidade.
 O leitor é estritamente offline e utiliza apenas dados
 anteriormente persistidos; nenhuma mudança de coletor,
 esquema SQLite, GEO v8, score, relatório ou AUD é necessária.
+
+
+## Identidade da origem HTTP em redirects persistidos (12/10/2026)
+
+Uma mudança de `https://cliente.example/pagina` para
+`http://cliente.example/pagina`, ou para
+`https://cliente.example:8443/outra`, preserva o hostname,
+mas **não** a origem HTTP. O leitor HTML consultivo exige agora
+mesmo **scheme, hostname canônico e porta efetiva** entre
+`requested_url` e `final_url` de CUSTOMER **e** do
+COMPETITOR_CANDIDATE para autorizar comparações. Portas
+padrão HTTP 80 / HTTPS 443 são normalizadas pela identidade GEO
+v8 já homologada. Redirects entre caminhos na mesma origem
+permanecem elegíveis apenas para fatos estáticos observados.
+
+A mudança não atribui score nem qualidade editorial; URLs
+de outra origem continuam podendo ser descritas como destinos
+finais persistidos, mas o comparativo é N/D. Não há fetch,
+execução de browser, modificação de AUD ou novos contratos
+de SERP/Perplexity.
