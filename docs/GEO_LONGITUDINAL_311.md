@@ -188,3 +188,24 @@ Uma inclusão no CONS com série de tendência calibrada só poderá
 ocorrer em uma entrega posterior com metodologia e aceite próprios,
 porque a Search API não verifica equivalência estatística de mercado,
 idioma, intenção e amostragem entre datas.
+
+
+## Fonte física estável entre leitores independentes (#311)
+
+O comparador observacional agora sela cada `audit.db` com
+**SHA-256 físico e tamanho antes e depois** de consultar os
+snapshots GEO e os registros SERP/Search externos da mesma AUD.
+As conexões do inventário e da reconciliação de origem utilizam
+`mode=ro&immutable=1`, com proibição de WAL/SHM/journal
+antes e depois da leitura. Cada hash é limitado a 256 MiB.
+
+Se o arquivo físico for modificado durante qualquer das leituras,
+inclusive **sem criar sidecar**, a AUD é excluída com
+`AUD_SOURCE_CHANGED_DURING_READ`. Banco além do orçamento ou
+origem não verificável produz
+`AUD_SOURCE_BYTES_UNVERIFIABLE`. As demais AUDs independentes
+permanecem elegíveis, mas jamais recebem evidência da fonte excluída.
+Isso reforça a estabilidade dos bytes locais, sem provar autenticidade
+de fornecedor, selagem do pacote AUD completo ou equivalência das
+populações GEO entre datas. Nenhuma tendência, score ou CONS-3
+produtivo é criado ou modificado.

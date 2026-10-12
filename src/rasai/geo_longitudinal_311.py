@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 from contextlib import closing
 from datetime import datetime, timezone
+from hashlib import sha256
 import json
 import re
 from pathlib import Path
@@ -23,6 +24,7 @@ _CONTRACTS = frozenset({
     "RASAI-GEO-OBSERVATION-7", "RASAI-GEO-OBSERVATION-8",
 })
 _SCOPE_KEYS = ("engine", "country", "region", "language", "device")
+_MAX_AUD_DB_HASH_BYTES = 256 * 1024 * 1024
 
 
 def _aware(raw: object) -> datetime | None:
@@ -119,7 +121,7 @@ def _source_provenance(
                for suffix in ("-wal", "-shm", "-journal")):
             return False
         with closing(sqlite3.connect(
-            db.resolve().as_uri() + "?mode=ro", uri=True, timeout=1,
+            db.resolve().as_uri() + "?mode=ro&immutable=1", uri=True, timeout=1,
         )) as con:
             con.row_factory = sqlite3.Row
             con.execute("PRAGMA query_only=ON")
@@ -188,7 +190,7 @@ def _source_provenance(
         return False
 
 
-def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
+def _one_unsealed(root: Path) -> tuple[dict[str, Any] | None, str | None]:
     """Read a complete AUD's latest immutable GEO record; fail closed."""
     root = Path(root)
     if not root.name.startswith("AUD-") or root.is_symlink():
@@ -202,7 +204,7 @@ def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
            for suffix in ("-wal", "-shm", "-journal")):
         return None, "AUD_SQLITE_SNAPSHOT_UNVERIFIED"
     try:
-        with closing(sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True, timeout=1)) as con:
+        with closing(sqlite3.connect(db.resolve().as_uri() + "?mode=ro&immutable=1", uri=True, timeout=1)) as con:
             con.execute("PRAGMA query_only=ON")
             con.row_factory = sqlite3.Row
             # Diagnostics are mutually exclusive and read-only. The previous
@@ -369,6 +371,58 @@ def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
         "serp_urls_observed": overlap["serp_denominator"],
         "external_urls_observed": overlap["perplexity_denominator"],
     }, None
+
+
+def _physical_source_sha256(db: Path) -> tuple[str, int]:
+    """Bounded fingerprint of bare SQLite bytes; not an AUD authenticity proof."""
+    if db.is_symlink() or not db.is_file() or any(
+        Path(str(db) + suffix).exists()
+        for suffix in ("-wal", "-shm", "-journal")
+    ):
+        raise ValueError("unsealed GEO longitudinal source")
+    length = db.stat().st_size
+    if length > _MAX_AUD_DB_HASH_BYTES:
+        raise ValueError("GEO longitudinal source exceeds byte budget")
+    digest = sha256()
+    read = 0
+    with db.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            read += len(block)
+            if read > _MAX_AUD_DB_HASH_BYTES:
+                raise ValueError("GEO longitudinal source changed while hashing")
+            digest.update(block)
+    if read != length or db.stat().st_size != length or any(
+        Path(str(db) + suffix).exists()
+        for suffix in ("-wal", "-shm", "-journal")
+    ):
+        raise ValueError("GEO longitudinal source changed while hashing")
+    return digest.hexdigest(), read
+
+
+def _one(root: Path) -> tuple[dict[str, Any] | None, str | None]:
+    """Require physically unchanged SQLite across independent GEO reads."""
+    root = Path(root)
+    # Retain the pre-existing exclusion taxonomy for an invalid/missing AUD.
+    if not root.name.startswith("AUD-") or root.is_symlink():
+        return None, "INVALID_AUD_DIRECTORY"
+    db = root / "audit.db"
+    if db.is_symlink() or not db.is_file():
+        return None, "AUD_DATABASE_MISSING"
+    if any(Path(str(db) + ext).exists()
+           for ext in ("-wal", "-shm", "-journal")):
+        return None, "AUD_SQLITE_SNAPSHOT_UNVERIFIED"
+    try:
+        before = _physical_source_sha256(db)
+    except (ValueError, OSError):
+        return None, "AUD_SOURCE_BYTES_UNVERIFIABLE"
+    row, reason = _one_unsealed(root)
+    try:
+        after = _physical_source_sha256(db)
+    except (ValueError, OSError):
+        return None, "AUD_SOURCE_CHANGED_DURING_READ"
+    if before != after:
+        return None, "AUD_SOURCE_CHANGED_DURING_READ"
+    return row, reason
 
 
 def build_geo_longitudinal_preview(audit_dirs: Sequence[Path]) -> dict[str, Any]:
