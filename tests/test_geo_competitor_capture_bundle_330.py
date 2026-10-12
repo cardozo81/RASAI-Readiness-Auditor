@@ -306,3 +306,79 @@ def test_serp_clock_is_normalized_to_utc_without_claiming_same_page_context(
     assert manifest["temporal_equivalence_proven"] is False
     assert manifest["locale_equivalence_proven"] is False
     assert manifest["content_comparison_eligible"] is False
+
+
+def test_failed_http_outcome_does_not_hide_aud_mutation(
+    tmp_path, monkeypatch,
+):
+    folder = _audit(tmp_path)
+    def changed_before_rejected_response(url, **kwargs):
+        with sqlite3.connect(folder / "audit.db") as conn:
+            conn.execute(
+                "UPDATE audits SET completion_status='PARTIAL_RETRYABLE'"
+            )
+        return _response(status="ROBOTS_DISALLOWED")
+    monkeypatch.setattr(
+        capture, "inspect_consented_public_html",
+        changed_before_rejected_response,
+    )
+    with pytest.raises(ValueError, match="physical AUD changed during capture"):
+        _run(folder, tmp_path)
+    assert not (tmp_path / "output").exists()
+
+
+def test_new_sqlite_sidecar_during_blocked_http_rejects_source(
+    tmp_path, monkeypatch,
+):
+    folder = _audit(tmp_path)
+    before = (folder / "audit.db").read_bytes()
+    def sidecar_before_rejected_response(url, **kwargs):
+        (folder / "audit.db-wal").write_bytes(b"concurrent write")
+        return _response(status="ROBOTS_DISALLOWED")
+    monkeypatch.setattr(
+        capture, "inspect_consented_public_html",
+        sidecar_before_rejected_response,
+    )
+    with pytest.raises(ValueError, match="no longer sealed"):
+        _run(folder, tmp_path)
+    assert not (tmp_path / "output").exists()
+    assert (folder / "audit.db").read_bytes() == before
+
+
+def test_aud_modified_while_manifest_is_prepared_never_gets_published(
+    tmp_path, monkeypatch,
+):
+    folder = _audit(tmp_path)
+    _fake(monkeypatch)
+    original_payload = capture._payload
+    def manifest_built_after_source_changes(data):
+        raw = original_payload(data)
+        with sqlite3.connect(folder / "audit.db") as con:
+            con.execute("UPDATE audits SET status='REOPENED'")
+        return raw
+    monkeypatch.setattr(capture, "_payload", manifest_built_after_source_changes)
+    with pytest.raises(ValueError, match="physical AUD changed during capture"):
+        _run(folder, tmp_path)
+    destination_root = tmp_path / "output"
+    assert not list(destination_root.glob("COBS-*"))
+    assert not list(destination_root.glob(".cobs-staging-*"))
+
+
+def test_new_sidecar_created_during_manifest_preparation_prevents_publish(
+    tmp_path, monkeypatch,
+):
+    folder = _audit(tmp_path)
+    _fake(monkeypatch)
+    original_payload = capture._payload
+    def manifest_built_with_unsealed_source(data):
+        raw = original_payload(data)
+        (folder / "audit.db-journal").write_bytes(b"unsealed")
+        return raw
+    monkeypatch.setattr(
+        capture, "_payload", manifest_built_with_unsealed_source,
+    )
+    with pytest.raises(ValueError, match="no longer sealed"):
+        _run(folder, tmp_path)
+    dest = tmp_path / "output"
+    assert not list(dest.glob("COBS-*"))
+    assert not list(dest.glob(".cobs-staging-*"))
