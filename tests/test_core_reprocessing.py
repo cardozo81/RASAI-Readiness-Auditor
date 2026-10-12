@@ -7,7 +7,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
-from rasai.audit_fulfillment import BLOCKED, FAILED_RETRYABLE, REPLAY_SAFE, SUCCESS, WAITING_FOR_DATA, list_work_items, register_work_item, set_work_item_status, start_reprocess_run
+from rasai.audit_fulfillment import BLOCKED, FAILED_RETRYABLE, LIVE_RECOLLECTION, REPLAY_SAFE, SUCCESS, WAITING_FOR_DATA, list_work_items, register_work_item, set_work_item_status, start_reprocess_run
 from rasai.core_reprocessing import (
     CONTENT_EXTRACTION,
     HTTP_ACQUISITION,
