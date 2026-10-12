@@ -260,6 +260,21 @@ def inspect_geo_competitor_content(
         observed_serp_urls.discard("")
         if not observed_serp_urls:
             return abstain("SERP_RESULT_URL_PROVENANCE_ND")
+        # A 'CUSTOMER' role in the HTML feature ledger is a label, not
+        # a binding to the AUD target. Require the unique physical input URL
+        # in this AUD before its content may participate in a comparison.
+        if not {"audit_id", "input_url"} <= _columns(con, "audit_targets"):
+            return abstain("AUD_TARGET_URL_PROVENANCE_ND")
+        targets = con.execute(
+            "SELECT input_url FROM audit_targets WHERE audit_id=? LIMIT 2",
+            (audit_id,),
+        ).fetchall()
+        target_url = (
+            _canonical_url(targets[0]["input_url"])
+            if len(targets) == 1 else ""
+        )
+        if not target_url:
+            return abstain("AUD_TARGET_URL_PROVENANCE_ND")
         content_columns = _columns(con, "serp_competitive_pages")
         optional_fields = ", ".join(
             name if name in content_columns else "NULL AS " + name
@@ -294,6 +309,10 @@ def inspect_geo_competitor_content(
         return abstain("CUSTOMER_HTML_EVIDENCE_ND")
     expected = query_terms(observed["query"])
     customer = _page(customer_rows[0], expected)
+    customer["aud_target_exact_url_proven"] = (
+        isinstance(customer["requested_url"], str)
+        and _canonical_url(customer["requested_url"]) == target_url
+    )
     competitors = [_page(row, expected) for row in rows
                    if row["role"] == "COMPETITOR_CANDIDATE"]
     for candidate in competitors:
@@ -308,6 +327,7 @@ def inspect_geo_competitor_content(
     comparisons = []
     if (
         customer["content_evidence_status"] == "PERSISTED_HTML_FEATURES"
+        and customer["aud_target_exact_url_proven"] is True
         # A cross-host redirect is an observed final page, NOT proof that
         # its content belongs to the AUD target/compared SERP hostname.
         and urlsplit(customer["requested_url"]).hostname
