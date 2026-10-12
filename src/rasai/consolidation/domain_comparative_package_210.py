@@ -145,17 +145,31 @@ def materialize_same_domain_package(
         ),
     }
     report_bytes = render_same_domain_advisory_html(preview).encode("utf-8")
-    # The SHA capture is optional (v2). A second read immediately before
-    # any package publication prevents a stale pinned source snapshot.
-    if verify_source_bytes:
+
+    def reverify_sources() -> None:
+        """Fail closed if the physical sources move while packaging output.
+
+        The first comparison is not a lock. Check again just before rename,
+        after writing staging files, including SQLite sidecars in both modes.
+        """
         remaining_budget = _MAX_HASH_BYTES_TOTAL
         for audit_id in source_ids:
             source = root / audit_id / "audit.db"
-            now_hash, consumed = _source_sha256(source, remaining_budget)
-            remaining_budget -= consumed
-            if (now_hash != byte_hashes[audit_id]
-                    or source_file_fingerprint(source) != fingerprints[audit_id]):
-                raise ValueError("AUD source bytes changed before CDOM publication")
+            if any(Path(str(source) + suffix).exists()
+                   for suffix in ("-wal", "-shm", "-journal")):
+                raise ValueError("unsealed SQLite sidecars disallow CDOM publication")
+            if source_file_fingerprint(source) != fingerprints[audit_id]:
+                raise ValueError("AUD source metadata changed before CDOM publication")
+            if verify_source_bytes:
+                now_hash, consumed = _source_sha256(source, remaining_budget)
+                remaining_budget -= consumed
+                if now_hash != byte_hashes[audit_id]:
+                    raise ValueError("AUD source bytes changed before CDOM publication")
+
+    # A second SHA-256 pass protects the preview, and the final one protects
+    # the publication boundary. Metadata-only mode remains explicitly
+    # weaker than byte attestation but still rejects source changes/sidecars.
+    reverify_sources()
     manifest_bytes = _encode(manifest)
     destination_root = root / "consolidated-domain"
     dest = destination_root / package_id
@@ -166,6 +180,9 @@ def materialize_same_domain_package(
     if dest.is_symlink():
         raise ValueError("existing comparison package is a symlink")
     if dest.exists():
+        # Existing packages are immutable; do not return idempotent success
+        # against a source that became active after the prior verification.
+        reverify_sources()
         if (
             not dest.is_dir() or (dest / "manifest.json").is_symlink()
             or (dest / "report.html").is_symlink()
@@ -191,6 +208,7 @@ def materialize_same_domain_package(
         (temporary / "report.html").write_bytes(report_bytes)
         if dest.exists() or dest.is_symlink():
             raise ValueError("comparison package destination unexpectedly exists")
+        reverify_sources()
         os.rename(temporary, dest)
     finally:
         if temporary.exists():
