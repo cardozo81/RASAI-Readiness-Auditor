@@ -480,7 +480,7 @@ def test_explicit_customer_capture_uses_unique_aud_target_without_serp_listing(
 @pytest.mark.parametrize(
     ("targets", "expected"),
     [
-        ([], "unique persisted AUD target"),
+        ([], "unique AUD target"),
         ([("AUD-OTHER", _TARGET_URL)], "unique AUD target"),
         ([("AUD-REAL", "https://another.example.org/vida")], "unique AUD target"),
         ([
