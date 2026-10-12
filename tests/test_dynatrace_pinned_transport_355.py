@@ -98,7 +98,7 @@ def test_auth_token_goes_only_to_verified_numeric_ip_with_original_tls_host(monk
         assert json.loads(response.read(1024)) == {"items": [], "totalCount": 0}
     assert destinations == [(("8.8.8.8", 443), 3.5)]
     assert sni == [_TENANT]
-    assert dns and all(d == (_TENANT, 443) for d in dns)
+    assert dns == [(_TENANT, None), (_TENANT, 443)]
     assert len(sockets) == 1 and sockets[0].closed
     sent = bytes(sockets[0].sent)
     assert b"Host: tenant-abc123.live.dynatrace.com" in sent
