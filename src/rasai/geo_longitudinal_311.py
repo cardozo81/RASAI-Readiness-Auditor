@@ -139,17 +139,19 @@ def _source_provenance(
             # must map to exactly one persisted Search and SERP observation.
             if len(runs) != 1 or len(serps) != 1:
                 return False
-            # Source URL rows are addressed by run_id/observation_id alone.
-            # If another AUD reused either ID, the v8 URL sets would merge
-            # populations even when the owner-specific metadata query passes.
-            # Require global uniqueness before interpreting any source row.
-            if (con.execute(
-                "SELECT COUNT(*) FROM perplexity_search_runs WHERE run_id=?",
-                (run_id,),
-            ).fetchone()[0] != 1 or con.execute(
-                "SELECT COUNT(*) FROM serp_observations WHERE observation_id=?",
-                (serp_id,),
-            ).fetchone()[0] != 1):
+            # v8 URL sets are read by run_id/observation_id alone. Refuse
+            # cross-AUD collisions before joining these physical source rows.
+            # v5-v7 are immutable historical methods with a different
+            # attribution contract: do not retroactively reinterpret them.
+            if stored.get("contract_version") == "RASAI-GEO-OBSERVATION-8" and (
+                con.execute(
+                    "SELECT COUNT(*) FROM perplexity_search_runs WHERE run_id=?",
+                    (run_id,),
+                ).fetchone()[0] != 1 or con.execute(
+                    "SELECT COUNT(*) FROM serp_observations WHERE observation_id=?",
+                    (serp_id,),
+                ).fetchone()[0] != 1
+            ):
                 return False
             run, serp = runs[0], serps[0]
             comparison = projection.get("comparability")
