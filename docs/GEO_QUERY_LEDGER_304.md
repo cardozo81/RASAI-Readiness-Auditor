@@ -170,3 +170,30 @@ inventa por ordem, ranking, snippets, título ou posição. O atributo
 não atestação independente de autenticidade, escopo de mercado,
 idioma, dispositivo, intenção ou citação em uma resposta de IA.
 Nenhum score, histórico GEO v8, SERP, SARI ou CONS é modificado.
+
+
+## Prévia HTML consultiva por consulta (#304)
+
+O contrato observacional existente `RASAI-GEO-PER-QUERY-304-ADVISORY-005`
+agora pode ser apresentado diretamente no console como HTML independente,
+com `--format html`. A opção padrão continua sendo `--format json`;
+nenhuma resposta do provedor ou tabela da AUD é modificada.
+
+```powershell
+python -m rasai.geo_query_ledger_304 .\audits\AUD-EXEMPLO --format html > geo-por-consulta.html
+```
+
+A visualização separa explicitamente denominadores, interseção,
+URLs exclusivas, taxas relativas e presença exata da URL auditada
+nos dois conjuntos observados, mantendo classificação branded
+somente quando declarada pelo operador. A indicação `N/D` não
+é convertida em zero, ausência de citação ou ausência de visibilidade.
+HTML externo é escapado; consultas e URLs de origem não são
+interpretadas como elementos, scripts ou links executáveis.
+
+Layout responsivo e impressão são suportados sem JavaScript. O
+artefato é uma **prévia consultiva externa**, não injeta GEO em
+`report.html`, `directed-analysis.html`, SARI/SCORE-GEO ou CONS,
+nem compara automaticamente intenção, idioma, dispositivo, ranking
+e menções em texto gerativo. A gravação opcional por redirecionamento
+é decisão explícita do operador, fora da AUD.
