@@ -40,6 +40,18 @@ def _time(value: object) -> datetime | None:
         return None
 
 
+def _reject_duplicate_manifest_keys(
+    pairs: list[tuple[str, Any]],
+) -> dict[str, Any]:
+    """Refuse ambiguous COBS JSON even when its raw bytes are rehashed."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate COBS manifest JSON key")
+        result[key] = value
+    return result
+
+
 def _read_manifest(path: Path) -> Mapping[str, Any]:
     if path.name != "manifest.json" or path.is_symlink() or not path.is_file():
         raise ValueError("physical COBS manifest file required")
@@ -54,7 +66,7 @@ def _read_manifest(path: Path) -> Mapping[str, Any]:
     if path.parent.name != package_id:
         raise ValueError("COBS package ID does not match manifest bytes")
     try:
-        payload = json.loads(raw)
+        payload = json.loads(raw, object_pairs_hook=_reject_duplicate_manifest_keys)
     except (UnicodeError, ValueError, TypeError):
         raise ValueError("COBS manifest JSON invalid") from None
     if not isinstance(payload, dict):
