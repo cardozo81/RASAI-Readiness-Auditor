@@ -140,6 +140,41 @@ def test_padded_control_or_backslash_url_cannot_become_verified_domain_source():
         assert result["audit_writes"] == result["provider_requests"] == 0
 
 
+def test_hash_routed_spa_urls_never_collapse_into_same_page_universe():
+    """#210: hash fragments can select distinct client-rendered screens."""
+    plain = _candidate("AUD-ONE", "https://shop.example.org/app")
+    for fragment in (
+        "https://shop.example.org/app#/produto-a",
+        "https://shop.example.org/app#/produto-b",
+        "https://shop.example.org/app#",
+        "https://shop.example.org/app#section-one",
+    ):
+        candidate = _candidate(
+            "AUD-TWO", fragment, timestamp="2026-10-09T11:00:00Z",
+        )
+        output = preview_same_domain_candidates((plain, candidate))
+        assert output["eligible"] is False
+        assert output["reason"] == "UNVERIFIABLE_SINGLE_URL"
+        assert output["audits"] == []
+        assert output["page_level_trends_eligible"] is False
+        assert output["audit_score_deltas_eligible"] is False
+        assert output["apdex_or_cwv_deltas_eligible"] is False
+        assert output["provider_requests"] == output["audit_writes"] == 0
+
+    # Two different SPA fragment routes cannot be silently coerced to
+    # the exact same URL and referred to the strict CONS longitudinal path.
+    a = _candidate("AUD-ONE", "https://shop.example.org/app#/a")
+    b = _candidate("AUD-TWO", "https://shop.example.org/app#/b",
+                   timestamp="2026-10-09T11:00:00Z")
+    outcome = preview_same_domain_candidates((a, b))
+    assert outcome["reason"] == "UNVERIFIABLE_SINGLE_URL"
+    # Encoded "#" in the actual URL query is not a fragment.
+    a = _candidate("AUD-ONE", "https://shop.example.org/app?tab=%23a")
+    b = _candidate("AUD-TWO", "https://shop.example.org/app?tab=%23b",
+                   timestamp="2026-10-09T11:00:00Z")
+    assert preview_same_domain_candidates((a, b))["eligible"] is True
+
+
 def test_same_hostname_mixed_http_origins_abstain_without_score_claim():
     first = _candidate("AUD-ONE", "https://example.org/seguro")
     for different_origin in (
