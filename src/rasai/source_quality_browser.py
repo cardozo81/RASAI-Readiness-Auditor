@@ -119,7 +119,7 @@ def browser_reconciliation_limitations(
                 "A cadeia publicada para "
                 f"{issue.requested_url} rebaixou HTTPS para HTTP. A rota original falhou, "
                 "mas o equivalente HTTPS do mesmo hop respondeu com conteúdo válido. A "
-                "auditoria prosseguiu pela rota segura; o redirect de origem deve ser "
+                "captura renderizada prosseguiu pela rota segura, mas isso não comprova aquisição HTTP original nem libera isoladamente a IA; o redirect de origem deve ser "
                 "corrigido para não depender de HSTS/cache/estado prévio do navegador."
             )
         else:
@@ -217,7 +217,7 @@ def _recovered_issue(
             f"original terminou em {preflight_route} com {preflight_error}. O RASAi "
             "executou uma única verificação do equivalente HTTPS do mesmo hop, mantendo "
             f"validação TLS ativa ({candidates}), e alcançou conteúdo válido "
-            f"({browser_routes}). A auditoria prosseguiu pela rota segura. Este mecanismo "
+            f"({browser_routes}). A captura renderizada prosseguiu pela rota segura. Isso não comprova aquisição HTTP original nem libera isoladamente a IA. Este mecanismo "
             "não corrige o servidor: o redirect deve apontar diretamente para HTTPS e não "
             "depender de HSTS, cache de 301 ou estado prévio do navegador."
         )
