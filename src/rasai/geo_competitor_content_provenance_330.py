@@ -109,6 +109,20 @@ def _parse_context_clock(raw: object) -> bool:
         return False
 
 
+def _same_observed_http_origin(first: object, second: object) -> bool:
+    """Same scheme, canonical host and effective port; paths may redirect.
+
+    A shared DNS hostname on HTTP versus HTTPS or on an alternate TCP
+    port is not proof that both URLs refer to the same web application.
+    """
+    a = _canonical_url(first)
+    b = _canonical_url(second)
+    if not a or not b:
+        return False
+    lhs, rhs = urlsplit(a), urlsplit(b)
+    return (lhs.scheme, lhs.netloc) == (rhs.scheme, rhs.netloc)
+
+
 def _page(row: sqlite3.Row, expected_terms: tuple[str, ...]) -> dict[str, Any]:
     requested = row["requested_url"]
     final = row["final_url"]
@@ -328,10 +342,11 @@ def inspect_geo_competitor_content(
     if (
         customer["content_evidence_status"] == "PERSISTED_HTML_FEATURES"
         and customer["aud_target_exact_url_proven"] is True
-        # A cross-host redirect is an observed final page, NOT proof that
-        # its content belongs to the AUD target/compared SERP hostname.
-        and urlsplit(customer["requested_url"]).hostname
-        == urlsplit(customer["final_url"]).hostname
+        # Distinct HTTP origins (including scheme/port) may serve different
+        # applications even if the DNS hostname happens to be identical.
+        and _same_observed_http_origin(
+            customer["requested_url"], customer["final_url"]
+        )
     ):
         # The persisted content belongs to the final fetched URL, not
         # necessarily to the candidate SERP URL. Redirects to the audited
@@ -349,9 +364,9 @@ def inspect_geo_competitor_content(
             requested = _canonical_url(candidate["requested_url"])
             destination = _canonical_url(candidate["final_url"])
             if (not requested or not destination
-                    # Do not attribute redirected third-party-host HTML to
-                    # the persisted SERP competitor URL, even when words match.
-                    or urlsplit(requested).hostname != urlsplit(destination).hostname
+                    # Cross-origin HTML cannot be assigned to the original
+                    # SERP candidate, including same-host port/scheme changes.
+                    or not _same_observed_http_origin(requested, destination)
                     or requested in customer_urls or destination in customer_urls
                     or destination in seen_destinations):
                 continue
