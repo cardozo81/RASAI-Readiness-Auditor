@@ -395,3 +395,72 @@ def test_historical_schema_without_mime_evidence_abstains_readonly(tmp_path):
     assert result["status"] == "CONTENT_EVIDENCE_SCHEMA_ND"
     assert result["comparisons"] == []
     assert db.read_bytes() == old
+
+
+def test_duplicate_serp_observation_id_from_foreign_aud_cannot_inject_html(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "INSERT INTO serp_observations "
+            "SELECT observation_id, 'AUD-FOREIGN', query, collected_at, "
+            "observation_status, data_mode, country, language, device, engine "
+            "FROM serp_observations WHERE observation_id='SERP-1'"
+        )
+    initial = sha256(db.read_bytes()).hexdigest()
+    outcome = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert outcome["status"] == "SERP_OBSERVATION_ID_AMBIGUOUS_OR_FOREIGN"
+    assert outcome["customer"] is None
+    assert outcome["competitors"] == []
+    assert outcome["comparisons"] == []
+    assert sha256(db.read_bytes()).hexdigest() == initial
+
+
+def test_optional_content_aud_scoping_blocks_foreign_rows(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute("ALTER TABLE serp_competitive_pages ADD COLUMN audit_id TEXT")
+        con.execute(
+            "UPDATE serp_competitive_pages SET audit_id='AUD-1' "
+            "WHERE observation_id='SERP-1'"
+        )
+        con.execute(
+            "UPDATE serp_competitive_pages SET audit_id='AUD-FOREIGN' "
+            "WHERE observation_id='SERP-1' AND role='COMPETITOR_CANDIDATE'"
+        )
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "CROSS_AUD_CONTENT_PROVENANCE_UNVERIFIABLE"
+    assert not result["comparisons"]
+
+
+def test_mutating_physical_aud_while_evaluating_cannot_return_content_metrics(
+    tmp_path, monkeypatch,
+):
+    from rasai import geo_competitor_content_provenance_330 as module
+    db = _db(tmp_path)
+    original = module._page
+    triggered = []
+    def edit_after_snapshot(row, expected_terms):
+        if not triggered:
+            triggered.append(True)
+            with sqlite3.connect(db) as con:
+                con.execute(
+                    "UPDATE serp_competitive_pages SET title='changed mid-read' "
+                    "WHERE observation_id='SERP-1' AND role='CUSTOMER'"
+                )
+        return original(row, expected_terms)
+    monkeypatch.setattr(module, "_page", edit_after_snapshot)
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert triggered
+    assert result["status"] == "AUD_SOURCE_CHANGED_DURING_READ"
+    assert result["customer"] is None
+    assert result["comparisons"] == []
+
+
+def test_sqlite_sidecar_abstains_before_content_read(tmp_path):
+    import pytest
+    db = _db(tmp_path)
+    sidecar = db.parent / "audit.db-wal"
+    sidecar.write_bytes(b"unverified concurrent transaction")
+    with pytest.raises(ValueError, match="SQLite sidecars"):
+        inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert sidecar.read_bytes() == b"unverified concurrent transaction"
