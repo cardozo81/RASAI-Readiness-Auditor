@@ -70,3 +70,22 @@ Contagem de palavras continua descritiva e páginas SPA/menu não comprovam
 conteúdo principal. O mesmo gate prévio de HTTP HTML válido, hash,
 URL final, query, AUD e observação SERP é exigido antes da comparação.
 A leitura continua sem produzir chamadas externas ou alterar artefatos.
+
+## Isolamento de observações e leitura física (#330)
+
+O consumidor de conteúdo competitivo só vincula conteúdo pelo
+`observation_id` quando esse identificador é **único em toda a tabela
+`serp_observations`**, não apenas dentro da AUD solicitada. Uma segunda
+linha com o mesmo ID, inclusive pertencente a outra auditoria, resulta em
+`SERP_OBSERVATION_ID_AMBIGUOUS_OR_FOREIGN` e nenhuma comparação.
+Se a tabela de conteúdo possui `audit_id`, qualquer registro com
+`audit_id` divergente ou nulo bloqueia a projeção com
+`CROSS_AUD_CONTENT_PROVENANCE_UNVERIFIABLE`.
+
+A leitura valida ausência de sidecars SQLite e usa snapshot local read-only
+após hash físico limitado de `audit.db`. O hash é verificado após a consulta
+e imediatamente antes de emitir comparação; qualquer alteração durante o
+processamento retorna `AUD_SOURCE_CHANGED_DURING_READ`, sem publicar
+métricas ou criar artefatos. O hash prova estabilidade dos bytes lidos, não
+origem autêntica do fornecedor, captura no mesmo dispositivo, equivalência de
+idioma nem conteúdo principal renderizado. Os testes são offline e isolados.
