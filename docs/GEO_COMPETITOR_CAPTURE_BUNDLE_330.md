@@ -194,3 +194,19 @@ rasai.geo_competitor_capture_bundle_330`, permanecem obrigatórios
 `--consent-purpose` compatível com o papel, e ambas as flags
 `--consent-operation`. O comando não retira as proteções de
 proveniência SERP/AUD nem grava em `audit.db`.
+
+
+## Identidade do concorrente versus alvo físico da AUD (12/10/2026)
+
+A presença na SERP da mesma observação **não basta** para declarar
+uma URL como fonte concorrente: quando existe um único alvo físico
+`audit_targets.input_url` para esta AUD, e sua URL canônica é exatamente
+a candidata, a captura `role=COMPETITOR_CANDIDATE` é recusada **antes de
+qualquer DNS/HTTP**. A URL do próprio cliente somente pode ser tratada
+pela trilha `role=CUSTOMER`, que mantém as verificações próprias de
+identidade. URLs distintas e efetivamente observadas na SERP mantêm o
+fluxo anterior; a comparação posterior ainda aplica critérios de
+hostname, período e proveniência. Sem alvo único comprovado, este
+controle adicional não inventa uma identidade nem homologa a
+comparabilidade. Testes SQLite físicos positivos/negativos sem
+requisições comerciais, banco original intacto.
