@@ -759,19 +759,24 @@ def test_default_tls_port_redirect_within_same_origin_remains_observational(
 
 
 @pytest.mark.parametrize(
-    "bad_headings",
-    (
-        None,
-        "{invalid-json",
-        '{"not": "a-list"}',
-        '["real heading", 7]',
-        '["real heading", "  "]',
-        '["x"]' * 20000,
-    ),
+    "defect",
+    ("missing", "malformed", "non_list", "non_string",
+     "blank_heading", "oversized_bytes", "over_100_headings"),
 )
 def test_invalid_or_unbounded_persisted_headings_never_infer_zero(
-    tmp_path, bad_headings,
+    tmp_path, defect,
 ):
+    # Keep pytest IDs short on Windows: large raw parameter values
+    # can overflow its 32767-character environment-variable limit.
+    bad_headings = {
+        "missing": None,
+        "malformed": "{invalid-json",
+        "non_list": '{"not": "a-list"}',
+        "non_string": '["real heading", 7]',
+        "blank_heading": '["real heading", "  "]',
+        "oversized_bytes": json.dumps(["x" * (128 * 1024 + 1)]),
+        "over_100_headings": json.dumps([str(i) for i in range(101)]),
+    }[defect]
     db = _db(tmp_path)
     with sqlite3.connect(db) as con:
         con.execute(
