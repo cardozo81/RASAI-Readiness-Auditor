@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/geo_competitor_fetch_330.py'
+      - 'src/rasai/entrypoint.py'
       - 'src/rasai/geo_competitor_pinned_egress_330.py'
       - 'tests/test_geo_competitor_fetch_330.py'
       - 'tests/test_geo_competitor_pinned_egress_330.py'
@@ -13,6 +14,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/geo_competitor_fetch_330.py'
+      - 'src/rasai/entrypoint.py'
       - 'src/rasai/geo_competitor_pinned_egress_330.py'
       - 'tests/test_geo_competitor_fetch_330.py'
       - 'tests/test_geo_competitor_pinned_egress_330.py'
