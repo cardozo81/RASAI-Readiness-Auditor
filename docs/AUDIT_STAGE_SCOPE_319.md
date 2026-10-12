@@ -167,3 +167,21 @@ crescimento da duração que estoura o P90 disponível no passado,
 execuções simultâneas, ordenação de mtime invertida, AUD parcial
 excluída da janela e preservação dos arquivos físicos. Sem requisições
 externas e sem alteração de scores.
+
+
+## Imutabilidade do histórico usado para previsão (#319)
+
+A previsão de duração recusa uma AUD física que contenha
+`audit.db-wal`, `audit.db-shm` ou `audit.db-journal`, mesmo
+que a coluna lógica de conclusão tenha valor COMPLETE. Esses
+arquivos podem indicar transação ou snapshot SQLite ainda não
+consolidado; consultá-los como histórico estável produziria um P90
+sem representação fiel nos bytes de `audit.db`.
+
+A leitura do arquivo principal passou a `mode=ro&immutable=1`
+e `PRAGMA query_only=ON`; nenhuma transação, checkpoint, migração
+ou gravação de metadados é iniciada. Esse gate afeta somente
+a **elegibilidade** da amostra histórica. Com menos de cinco
+AUDs restantes, a previsão fica N/D, em vez de reutilizar
+a fonte possivelmente em uso. A rejeição é conservadora e
+não tenta inferir se o WAL pendente é válido ou encerrado.
