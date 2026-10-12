@@ -16,7 +16,7 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Sequence
 
-from rasai.geo_observation import _canonical_url, _canonical_url_v7
+from rasai.geo_observation import _canonical_url, _canonical_url_v7, _host
 from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
 
 _CONTRACTS = frozenset({
@@ -40,7 +40,8 @@ def _aware(raw: object) -> datetime | None:
 
 
 def _v8_source_counts_match(
-    con: sqlite3.Connection, run_id: str, serp_id: str, projection: dict[str, Any],
+    con: sqlite3.Connection, run_id: str, serp_id: str,
+    projection: dict[str, Any], audit_id: str,
 ) -> bool:
     """Verify v8 rate denominators against the physically persisted URL sets.
 
@@ -67,6 +68,29 @@ def _v8_source_counts_match(
     px.discard("")
     serp.discard("")
     if not px or not serp:
+        return False
+    # A frozen v8 target label is not its own provenance. Confirm the
+    # displayed target was the sole input URL of this AUD and that the
+    # claimed exact/alternative/absent state is present in the physical
+    # Search source rows, not just in self-consistent overlap counters.
+    target = projection.get("target_observation")
+    if not isinstance(target, dict):
+        return False
+    targets = con.execute(
+        "SELECT input_url FROM audit_targets WHERE audit_id=? LIMIT 2",
+        (audit_id,),
+    ).fetchall()
+    target_url = _canonical_url(target.get("target_url"))
+    if (len(targets) != 1 or not target_url
+            or _canonical_url(targets[0][0]) != target_url):
+        return False
+    if target_url in px:
+        observed_state = "EXACT_URL_OBSERVED"
+    elif any(_host(url) == _host(target_url) for url in px):
+        observed_state = "DOMAIN_ALTERNATIVE_OBSERVED"
+    else:
+        observed_state = "TARGET_NOT_IN_RETURNED_SOURCES"
+    if target.get("status") != observed_state:
         return False
     overlap = projection.get("descriptive_overlap")
     if not isinstance(overlap, dict) or overlap.get("status") != "DESCRIPTIVE_ONLY":
@@ -193,7 +217,7 @@ def _source_provenance(
             ):
                 return False
             if stored.get("contract_version") == "RASAI-GEO-OBSERVATION-8":
-                return _v8_source_counts_match(con, run_id, serp_id, projection)
+                return _v8_source_counts_match(con, run_id, serp_id, projection, audit_id)
             return True
     except (sqlite3.Error, ValueError, TypeError, OSError, IndexError):
         return False
