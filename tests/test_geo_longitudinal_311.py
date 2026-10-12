@@ -194,6 +194,88 @@ def test_v8_source_observation_counts_are_reconciled_against_physical_sets(tmp_p
     assert [(path / "audit.db").read_bytes() for path in (first, second)] == before
 
 
+@pytest.mark.parametrize(
+    ("origin", "invalid_url"),
+    [
+        ("perplexity", "javascript:alert(1)"),
+        ("perplexity", " https://external-only.org/other"),
+        ("serp", "https://user:private@serp-only.org/two"),
+        ("serp", "not a valid URL"),
+    ],
+)
+def test_v8_invalid_physical_member_cannot_disappear_from_consistent_denominator(
+    tmp_path, origin, invalid_url,
+):
+    """#311: even self-consistent forged overlap cannot omit invalid source."""
+    from rasai.geo_observation import _canonical_url
+
+    bad = audit(tmp_path, "AUD-V8-BAD-SAMPLE", version="RASAI-GEO-OBSERVATION-8")
+    good = audit(tmp_path, "AUD-V8-GOOD-SAMPLE", version="RASAI-GEO-OBSERVATION-8")
+    for root in (bad, good):
+        _v8_physical_sources(root)
+    db = bad / "audit.db"
+    with sqlite3.connect(db) as con:
+        if origin == "perplexity":
+            con.execute(
+                "UPDATE perplexity_search_sources SET url=? WHERE url=?",
+                (invalid_url, "https://external-only.org/other"),
+            )
+        else:
+            con.execute(
+                "UPDATE serp_results SET url=? WHERE url=?",
+                (invalid_url, "https://serp-only.org/two"),
+            )
+        # Recalculate all persisted metrics as if malformed observations
+        # could be dropped; without the new guard this matches the reader.
+        px_rows = [row[0] for row in con.execute(
+            "SELECT url FROM perplexity_search_sources"
+        )]
+        serp_rows = [row[0] for row in con.execute(
+            "SELECT url FROM serp_results"
+        )]
+        px = {_canonical_url(url) for url in px_rows} - {""}
+        serp = {_canonical_url(url) for url in serp_rows} - {""}
+        common = len(px & serp)
+        snapshot = json.loads(con.execute(
+            "SELECT projection_json FROM geo_observation_runs"
+        ).fetchone()[0])
+        snapshot.update(
+            source_count=len(px_rows),
+            serp_url_count=len(serp),
+            perplexity_url_count=len(px),
+            url_overlap_count=common,
+        )
+        snapshot["descriptive_overlap"].update(
+            serp_denominator=len(serp),
+            perplexity_denominator=len(px),
+            common_urls=common,
+            serp_only_count=len(serp - px),
+            perplexity_only_count=len(px - serp),
+            serp_overlap_rate=round(common / len(serp), 4),
+            perplexity_overlap_rate=round(common / len(px), 4),
+            jaccard_url_rate=round(common / len(px | serp), 4),
+        )
+        con.execute(
+            "UPDATE geo_observation_runs SET projection_json=?",
+            (json.dumps(snapshot),),
+        )
+    originals = {root.name: (root / "audit.db").read_bytes()
+                 for root in (bad, good)}
+    projection = build_geo_longitudinal_preview([bad, good])
+    assert projection["audits_requested"] == 2
+    assert projection["audits_eligible"] == 1
+    assert projection["excluded"] == [{
+        "audit_id": bad.name,
+        "reason": "GEO_SOURCE_PROVENANCE_UNVERIFIED",
+    }]
+    assert len(projection["timelines"]) == 1
+    assert projection["timelines"][0]["observations"][0]["audit_id"] == good.name
+    assert projection["timelines"][0]["trend_rate"] is None
+    assert projection["provider_requests"] == projection["audit_writes"] == 0
+    assert all((root / "audit.db").read_bytes() == originals[root.name]
+               for root in (bad, good))
+
+
 @pytest.mark.parametrize("oversized_ledger", ["perplexity", "serp"])
 def test_v8_over_budget_physical_source_sets_abstain_even_with_correct_counters(
     tmp_path, oversized_ledger,

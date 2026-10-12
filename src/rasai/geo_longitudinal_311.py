@@ -65,10 +65,15 @@ def _v8_source_counts_match(
     if (len(px_rows) > _MAX_V8_SOURCE_URL_ROWS
             or len(serp_rows) > _MAX_V8_SOURCE_URL_ROWS):
         return False
-    px = {_canonical_url(row[0]) for row in px_rows}
-    serp = {_canonical_url(row[0]) for row in serp_rows}
-    px.discard("")
-    serp.discard("")
+    px_normalized = [_canonical_url(row[0]) for row in px_rows]
+    serp_normalized = [_canonical_url(row[0]) for row in serp_rows]
+    # v8 physical evidence must support the ENTIRE reported sample. Silently
+    # dropping malformed HTTP(S) identities creates fictitious denominators,
+    # even when a projection is re-saved with internally matching counts.
+    if "" in px_normalized or "" in serp_normalized:
+        return False
+    px = set(px_normalized)
+    serp = set(serp_normalized)
     if not px or not serp:
         return False
     # A frozen v8 target label is not its own provenance. Confirm the
