@@ -482,3 +482,31 @@ def test_one_corrupt_partial_aud_does_not_train_the_next_fold(tmp_path):
     replay = result.forward_p90_backtest
     assert replay is not None and replay.evaluated_runs == 3
     assert replay.within_prior_p90 == 3
+
+
+@pytest.mark.parametrize("suffix", ("-wal", "-shm", "-journal"))
+def test_forecast_rejects_active_sqlite_sidecar_and_preserves_aud_bytes(
+    tmp_path, suffix,
+):
+    sources = [_audit(tmp_path, i) for i in range(5)]
+    before = {str(path): sha256(path.read_bytes()).hexdigest() for path in sources}
+    original = forecast_local_duration(_state(tmp_path))
+    assert original.sample_runs == 5 and original.available
+    sidecar = Path(str(sources[-1]) + suffix)
+    sidecar.write_bytes(b"unsealed physical transaction")
+    try:
+        uncertain = forecast_local_duration(_state(tmp_path))
+        assert uncertain.sample_runs == 4
+        assert uncertain.available is False
+        assert uncertain.total is None
+        assert uncertain.ai_stages == ()
+        assert _historical_audit(sources[-1], _state(tmp_path), 1) is None
+        assert sidecar.read_bytes() == b"unsealed physical transaction"
+        assert {
+            str(path): sha256(path.read_bytes()).hexdigest() for path in sources
+        } == before
+    finally:
+        sidecar.unlink()
+    recovered = forecast_local_duration(_state(tmp_path))
+    assert recovered.sample_runs == 5
+    assert recovered.available
