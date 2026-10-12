@@ -6,6 +6,8 @@ from pathlib import Path
 import sqlite3
 from types import SimpleNamespace
 
+import pytest
+
 from rasai.audit_attempt_inspection_319 import (
     inspect_audit_attempts, inspect_ai_stage_scope,
 )
@@ -104,6 +106,30 @@ def test_319_physical_console_window_separates_7_plus_1_by_stage_and_time(tmp_pa
     assert "999" not in str(stage)
     assert stage["temporal_attribution"] == "CLOCK_PLACEMENT_ONLY_NOT_OPERATION_PROOF"
     assert sha256(db.read_bytes()).hexdigest() == before
+
+
+@pytest.mark.parametrize("ledger", [
+    "ai_provider_attempts", "content_remediation_attempts",
+])
+def test_319_oversized_ai_attempt_ledger_abstains_without_partial_costs(
+    tmp_path, ledger,
+):
+    root, db = make_aud(tmp_path)
+    # Copy real physical rows into the same AUD under unique attempt IDs.
+    # 2001 extra attempts exceeds the 2000-row independent per-ledger budget.
+    original = "IMP-1" if ledger == "ai_provider_attempts" else "M20-1"
+    with sqlite3.connect(db) as con:
+        fields = [row[1] for row in con.execute(f"PRAGMA table_info({ledger})")]
+        source_columns = ", ".join(fields[1:])
+        con.executemany(
+            f"INSERT INTO {ledger} SELECT ?, {source_columns} "
+            "FROM " + ledger + " WHERE attempt_id=?",
+            ((f"OVERSIZE-{i}", original) for i in range(2001)),
+        )
+    before = db.read_bytes()
+    with pytest.raises(ValueError, match="bounded inspection limit"):
+        inspect_audit_attempts(root)
+    assert db.read_bytes() == before
 
 
 def test_319_partial_or_missing_window_never_classifies_calls_as_initial_or_later(tmp_path):

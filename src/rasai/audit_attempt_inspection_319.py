@@ -24,6 +24,7 @@ from rasai.audit_step_timer_inspection_319 import inspect_pipeline_step_timers
 
 _AUD = re.compile(r"^AUD-[A-Za-z0-9-]{1,100}$")
 _MAX_SOURCE_BYTES = 1024 * 1024 * 1024
+_MAX_AI_ATTEMPTS_PER_LEDGER = 2000
 
 
 
@@ -134,11 +135,18 @@ def _ai_attempt_scope_breakdown(
         if not {"audit_id", "attempt_id"}.issubset(cols):
             continue
         seen: set[str] = set()
+        # Budget the offline projection before it materializes per-attempt
+        # rows and before read_audit_attempt_timeline opens its second reader.
+        # Never present a truncated cohort as exhaustive cost or wall time.
         cursor = con.execute(
-            "SELECT * FROM " + table + " WHERE audit_id=?", (audit_id,)
+            "SELECT * FROM " + table + " WHERE audit_id=? LIMIT ?",
+            (audit_id, _MAX_AI_ATTEMPTS_PER_LEDGER + 1),
         )
         fields = tuple(str(column[0]) for column in cursor.description)
-        for row in cursor:
+        rows = cursor.fetchall()
+        if len(rows) > _MAX_AI_ATTEMPTS_PER_LEDGER:
+            raise ValueError("AUD AI attempt ledger exceeds bounded inspection limit")
+        for row in rows:
             data = dict(zip(fields, row))
             attempt = str(data.get("attempt_id") or "").strip()
             if not attempt or attempt in seen:
