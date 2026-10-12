@@ -528,7 +528,9 @@ def test_cdom_v2_refuses_sqlite_sidecar_created_between_digest_passes(
             mod.materialize_same_domain_package(
                 root, ("AUD-ONE", "AUD-TWO"), verify_source_bytes=True,
             )
-        assert reads["n"] == 3
+        # The extra pre-hash sidecar gate now refuses immediately after
+        # the second read; a third SHA is neither required nor safe.
+        assert reads["n"] == 2
         assert target.read_bytes() == b"unsealed-in-progress"
         assert not (root / "consolidated-domain").exists()
         assert all(
