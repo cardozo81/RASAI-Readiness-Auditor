@@ -797,9 +797,15 @@ def test_longitudinal_rejects_source_over_hash_budget_without_querying_sqlite(
     large = audit(tmp_path, "AUD-OVER-BYTE-BUDGET")
     stable = audit(tmp_path, "AUD-IN-BUDGET")
     db = large / "audit.db"
+    # Create a source larger than the intact companion regardless of
+    # audit-ID length or SQLite page-allocation details on each OS.
+    with db.open("ab") as stream:
+        stream.write(b"over-budget-physical-source" * 1000)
     original = db.read_bytes()
+    stable_size = (stable / "audit.db").stat().st_size
+    assert len(original) > stable_size
     old_limit = module._MAX_AUD_DB_HASH_BYTES
-    monkeypatch.setattr(module, "_MAX_AUD_DB_HASH_BYTES", len(original) - 1)
+    monkeypatch.setattr(module, "_MAX_AUD_DB_HASH_BYTES", stable_size)
     try:
         result = build_geo_longitudinal_preview((large, stable))
     finally:
