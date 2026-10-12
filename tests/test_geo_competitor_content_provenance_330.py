@@ -19,6 +19,9 @@ def _db(tmp_path):
                 collected_at TEXT, observation_status TEXT, data_mode TEXT,
                 country TEXT, language TEXT, device TEXT, engine TEXT
             );
+            CREATE TABLE serp_results(
+                observation_id TEXT, position INTEGER, url TEXT
+            );
             CREATE TABLE serp_competitive_pages(
                 observation_id TEXT, role TEXT, requested_url TEXT,
                 final_url TEXT, fetch_status TEXT, http_status INTEGER,
@@ -36,6 +39,14 @@ def _db(tmp_path):
             "INSERT INTO serp_observations VALUES (?,?,?,?,?,?,?,?,?,?)",
             ("SERP-2", "AUD-OTHER", "seguro de carro", "2026-10-10T10:00:00Z",
              "OBSERVED", "OBSERVED_API", "US", "en", "DESKTOP", "google"),
+        )
+        con.execute(
+            "INSERT INTO serp_results VALUES (?,?,?)",
+            ("SERP-1", 1, "https://competitor.org/seguro-vida"),
+        )
+        con.execute(
+            "INSERT INTO serp_results VALUES (?,?,?)",
+            ("SERP-2", 1, "https://intruder.org/car"),
         )
         def page(obs, role, url, words, *, status="OBSERVED", sha="a"*64):
             con.execute(
@@ -528,4 +539,60 @@ def test_same_hostname_redirect_retains_final_url_and_observational_limit(tmp_pa
         "DESCRIPTIVE_CONTENT_ONLY_NO_CAUSAL_CLAIM"
     )
     assert result["competitors"][0]["primary_content_proven"] is False
+    assert db.read_bytes() == before
+
+
+def test_deep_competitor_html_requires_serp_result_membership_for_pair(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        # HTML is persisted but its URL was never returned in the observed
+        # SERP. The link by observation_id alone does not prove membership.
+        con.execute(
+            "UPDATE serp_competitive_pages SET requested_url=?,final_url=? "
+            "WHERE role='COMPETITOR_CANDIDATE' AND observation_id='SERP-1'",
+            ("https://unrelated.org/not-observed",
+             "https://unrelated.org/not-observed"),
+        )
+    before = db.read_bytes()
+    value = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert value["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+    assert value["comparisons"] == []
+    assert value["competitors"][0]["serp_result_membership_proven"] is False
+    assert value["competitors"][0]["primary_content_proven"] is False
+    assert value["provider_requests"] == value["audit_writes"] == 0
+    assert db.read_bytes() == before
+
+
+def test_deep_content_without_physical_serp_results_is_nd_not_fake_pair(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute("DROP TABLE serp_results")
+    before = db.read_bytes()
+    output = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert output["status"] == "SERP_RESULT_URL_PROVENANCE_ND"
+    assert output["comparisons"] == []
+    assert output["competitors"] == [] and output["customer"] is None
+    assert db.read_bytes() == before
+
+
+def test_deep_content_serp_member_from_foreign_observation_not_sufficient(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute("DELETE FROM serp_results WHERE observation_id='SERP-1'")
+    original = db.read_bytes()
+    value = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert value["status"] == "SERP_RESULT_URL_PROVENANCE_ND"
+    assert value["comparisons"] == []
+    assert db.read_bytes() == original
+
+
+def test_deep_content_serp_identity_is_preserved_with_valid_physical_member(tmp_path):
+    db = _db(tmp_path)
+    before = db.read_bytes()
+    value = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert value["status"] == "DESCRIPTIVE_PERSISTED_HTML_COMPARISON"
+    assert value["comparisons"][0]["competitor_url"] == (
+        "https://competitor.org/seguro-vida"
+    )
+    assert value["competitors"][0]["serp_result_membership_proven"] is True
     assert db.read_bytes() == before
