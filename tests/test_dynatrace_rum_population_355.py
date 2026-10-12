@@ -154,6 +154,19 @@ def test_ambiguous_aggregate_response_fails_closed(value, expected_error):
         _read(_FakeOpener(value))
 
 
+@pytest.mark.parametrize("raw", [
+    b'{"columnNames":["type","COUNT(*)"],"values":[["Load",7]],"values":[["Xhr",2]]}',
+    b'{"columnNames":["type","COUNT(*)"],"values":[["Load",7]],"values":[["Load",7]]}',
+    b'{"columnNames":["type","COUNT(*)"],"values":[["Load",7]],"extrapolationLevel":1,"extrapolationLevel":4}',
+    b'{"columnNames":["type","COUNT(*)"],"values":[["Load",7]],"metadata":{"source":"a","source":"a"}}',
+])
+def test_usql_duplicate_response_keys_cannot_publish_ambiguous_aggregates(raw):
+    fake = _FakeOpener(raw)
+    with pytest.raises(ValueError, match="response JSON invalid"):
+        _read(fake)
+    assert len(fake.requests) == 1
+
+
 def test_invalid_http_json_and_oversize_are_not_disclosed():
     cases = [
         _FakeOpener(code=403),
