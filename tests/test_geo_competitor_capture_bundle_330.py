@@ -382,3 +382,43 @@ def test_new_sidecar_created_during_manifest_preparation_prevents_publish(
     dest = tmp_path / "output"
     assert not list(dest.glob("COBS-*"))
     assert not list(dest.glob(".cobs-staging-*"))
+
+
+def test_public_competitor_sha256_fails_closed_if_bytes_grow_while_reading(
+    tmp_path, monkeypatch,
+):
+    # Stat at entry fits the budget; an expanding stream must not be hashed
+    # without an ongoing read limit. No HTTP or physical AUD is needed.
+    from io import BytesIO
+    source = tmp_path / "audit.db"
+    source.write_bytes(b"1234")
+    monkeypatch.setattr(capture, "_MAX_SOURCE_DB_BYTES", 8)
+    original_open = type(source).open
+
+    def expanding_open(path, *args, **kwargs):
+        if path == source:
+            return BytesIO(b"123456789")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(type(source), "open", expanding_open)
+    with pytest.raises(ValueError, match="grew beyond bounded"):
+        capture._physical_digest(source)
+
+
+def test_public_competitor_sha256_fails_closed_on_truncated_during_read(
+    tmp_path, monkeypatch,
+):
+    from io import BytesIO
+    source = tmp_path / "audit.db"
+    source.write_bytes(b"12345678")
+    monkeypatch.setattr(capture, "_MAX_SOURCE_DB_BYTES", 12)
+    original_open = type(source).open
+
+    def truncated_open(path, *args, **kwargs):
+        if path == source:
+            return BytesIO(b"1234")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(type(source), "open", truncated_open)
+    with pytest.raises(ValueError, match="changed size"):
+        capture._physical_digest(source)
