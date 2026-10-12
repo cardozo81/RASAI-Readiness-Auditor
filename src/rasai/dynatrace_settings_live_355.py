@@ -19,6 +19,16 @@ from rasai.dynatrace_effective_values_adapter_355 import (
     SCHEMA_TO_ACTION, extract_apdex_from_effective_values,
 )
 
+
+def _unique_settings_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Reject duplicate keys anywhere in authenticated Settings API JSON."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("ambiguous duplicate Settings API JSON key")
+        result[key] = value
+    return result
+
 _MAX_BODY = 1024 * 1024
 _TENANT = re.compile(r"^[a-z0-9-]{1,80}\.live\.dynatrace\.com$", re.ASCII)
 
@@ -128,7 +138,7 @@ def read_live_dynatrace_apdex_settings(
     if len(raw) > _MAX_BODY:
         raise ValueError("Dynatrace settings response exceeds bounded size")
     try:
-        decoded = json.loads(raw)
+        decoded = json.loads(raw, object_pairs_hook=_unique_settings_json_object)
     except (UnicodeError, ValueError, TypeError):
         raise ValueError("Dynatrace Settings API response is not valid JSON") from None
     if not isinstance(decoded, dict):
