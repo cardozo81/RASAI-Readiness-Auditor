@@ -20,6 +20,16 @@ _SHA = re.compile(r"^[a-fA-F0-9]{64}$")
 _MAX_BYTES = 1024 * 1024
 
 
+def _unique_cons_manifest_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Do not select the last of contradictory physical CONS JSON keys."""
+    out: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in out:
+            raise ValueError("duplicate CONS manifest JSON key")
+        out[key] = value
+    return out
+
+
 def build_cons_geo_advisory(cons_dir: Path, audits_root: Path) -> dict[str, Any]:
     """Reuse only explicit source AUD IDs of one CONS-3 manifest, never its db_path."""
     root = Path(audits_root)
@@ -41,7 +51,10 @@ def build_cons_geo_advisory(cons_dir: Path, audits_root: Path) -> dict[str, Any]
     ):
         raise ValueError("canonical CONS manifest/report missing or unsafe")
     try:
-        stored = json.loads(manifest.read_text(encoding="utf-8"))
+        stored = json.loads(
+            manifest.read_text(encoding="utf-8"),
+            object_pairs_hook=_unique_cons_manifest_keys,
+        )
     except (OSError, UnicodeError, ValueError) as exc:
         raise ValueError("cannot parse CONS manifest") from exc
     if not isinstance(stored, dict) or stored.get("cons_id") != cons.name:
