@@ -214,6 +214,10 @@ def inspect_geo_competitor_content(
             return abstain("SERP_OBSERVATION_SCHEMA_ND")
         if not _REQUIRED_CONTENT <= _columns(con, "serp_competitive_pages"):
             return abstain("CONTENT_EVIDENCE_SCHEMA_ND")
+        if not {"observation_id", "url"} <= _columns(con, "serp_results"):
+            # The persisted content table alone cannot prove that the
+            # competitor URL was actually returned by this SERP observation.
+            return abstain("SERP_RESULT_URL_PROVENANCE_ND")
         # The content ledger may have only observation_id, not audit_id.
         # Treat the observation ID as a *global* source key or fail closed:
         # a duplicate under a foreign AUD could otherwise inject its HTML.
@@ -244,6 +248,18 @@ def inspect_geo_competitor_content(
                 or not observed["query"].strip()
                 or not _parse_context_clock(observed["collected_at"])):
             return abstain("SERP_CONTEXT_NOT_PROVEN")
+        serp_result_rows = con.execute(
+            "SELECT url FROM serp_results WHERE observation_id=? LIMIT ?",
+            (observation_id, _MAX_ROWS * 20 + 1),
+        ).fetchall()
+        if len(serp_result_rows) > _MAX_ROWS * 20:
+            return abstain("SERP_RESULT_URL_VOLUME_EXCEEDED")
+        observed_serp_urls = {
+            _canonical_url(row[0]) for row in serp_result_rows
+        }
+        observed_serp_urls.discard("")
+        if not observed_serp_urls:
+            return abstain("SERP_RESULT_URL_PROVENANCE_ND")
         content_columns = _columns(con, "serp_competitive_pages")
         optional_fields = ", ".join(
             name if name in content_columns else "NULL AS " + name
@@ -280,6 +296,11 @@ def inspect_geo_competitor_content(
     customer = _page(customer_rows[0], expected)
     competitors = [_page(row, expected) for row in rows
                    if row["role"] == "COMPETITOR_CANDIDATE"]
+    for candidate in competitors:
+        candidate["serp_result_membership_proven"] = (
+            isinstance(candidate["requested_url"], str)
+            and _canonical_url(candidate["requested_url"]) in observed_serp_urls
+        )
     context = {key: observed[key] for key in
                ("query", "collected_at", "country", "region",
                 "language", "device", "engine")}
@@ -302,7 +323,8 @@ def inspect_geo_competitor_content(
         }
         seen_destinations = set()
         for candidate in competitors:
-            if candidate["content_evidence_status"] != "PERSISTED_HTML_FEATURES":
+            if (candidate["content_evidence_status"] != "PERSISTED_HTML_FEATURES"
+                    or candidate["serp_result_membership_proven"] is not True):
                 continue
             requested = _canonical_url(candidate["requested_url"])
             destination = _canonical_url(candidate["final_url"])

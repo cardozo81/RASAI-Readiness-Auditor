@@ -89,3 +89,30 @@ processamento retorna `AUD_SOURCE_CHANGED_DURING_READ`, sem publicar
 métricas ou criar artefatos. O hash prova estabilidade dos bytes lidos, não
 origem autêntica do fornecedor, captura no mesmo dispositivo, equivalência de
 idioma nem conteúdo principal renderizado. Os testes são offline e isolados.
+
+
+## Vinculação física da URL concorrente ao SERP (12/10/2026)
+
+Um registro `serp_competitive_pages` com `observation_id`
+e HTML atribuído não comprova, por si só, que a URL tenha aparecido
+nos resultados orgânicos daquela SERP. O comparador offline exige
+agora o inventário físico `serp_results(observation_id,url)` da
+mesma observação (máximo 800 entradas), normaliza as identidades
+por URL exata e só permite `comparisons[]` quando
+`requested_url` concorrente for um membro **realmente persistido**
+desse conjunto. O campo
+`competitors[].serp_result_membership_proven` indica essa prova.
+
+Um HTML com URL estrangeira, fora do conjunto, pode continuar
+descrito como atributo persistido, mas **não** entra no
+comparativo cliente × concorrente. Ausência/ambiguidade de
+tabela/população resulta em `SERP_RESULT_URL_PROVENANCE_ND`,
+sem qualquer ranking, ganho ou déficit inventado. O status
+de conteúdo primário continua `false`, inclusive quando há
+correspondência exata de URL; SERP não prova hidratação SPA,
+readiness de conteúdo, equivalência de localidade/dispositivo,
+resposta IA generativa nem causalidade.
+
+São verificações sobre AUD SQLite **somente leitura**;
+nenhum download, API comercial, score, persistência ou
+contrato de coletor foi alterado.
