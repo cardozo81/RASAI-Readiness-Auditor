@@ -138,3 +138,50 @@ def test_padded_control_or_backslash_url_cannot_become_verified_domain_source():
         assert result["reason"] == "UNVERIFIABLE_SINGLE_URL", repr(url)
         assert result["eligible"] is False
         assert result["audit_writes"] == result["provider_requests"] == 0
+
+
+def test_same_hostname_mixed_http_origins_abstain_without_score_claim():
+    first = _candidate("AUD-ONE", "https://example.org/seguro")
+    for different_origin in (
+        "http://example.org/vida",
+        "https://example.org:8443/vida",
+        "http://example.org:8080/vida",
+    ):
+        second = _candidate(
+            "AUD-TWO", different_origin,
+            timestamp="2026-10-09T11:00:00Z",
+        )
+        value = preview_same_domain_candidates((first, second))
+        assert value["eligible"] is False
+        assert value["reason"] == "DIFFERENT_URL_ORIGINS_UNVERIFIED"
+        assert value["origin"] is None and value["audits"] == []
+        assert value["audit_score_deltas_eligible"] is False
+        assert value["apdex_or_cwv_deltas_eligible"] is False
+        assert value["provider_requests"] == value["audit_writes"] == 0
+
+
+def test_default_https_port_normalizes_to_same_origin_without_score_delta():
+    a = _candidate("AUD-ONE", "https://example.org:443/a")
+    b = _candidate(
+        "AUD-TWO", "https://example.org/b",
+        timestamp="2026-10-09T11:00:00Z",
+    )
+    out = preview_same_domain_candidates((a, b))
+    assert out["eligible"] is True
+    assert out["hostname"] == "example.org"
+    assert out["origin"] == "https://example.org"
+    assert out["audits"][0]["url"] == "https://example.org/a"
+    assert out["url_universe_count"] == 2
+    assert out["page_level_trends_eligible"] is False
+
+
+def test_two_urls_same_explicit_nondefault_https_port_remain_advisory():
+    a = _candidate("AUD-ONE", "https://example.org:8443/a")
+    b = _candidate(
+        "AUD-TWO", "https://example.org:8443/b",
+        timestamp="2026-10-09T11:00:00Z",
+    )
+    out = preview_same_domain_candidates((a, b))
+    assert out["eligible"] is True
+    assert out["origin"] == "https://example.org:8443"
+    assert out["audit_score_deltas_eligible"] is False
