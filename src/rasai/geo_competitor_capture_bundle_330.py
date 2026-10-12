@@ -28,9 +28,17 @@ def _physical_digest(source: Path) -> str:
     if source.stat().st_size > _MAX_SOURCE_DB_BYTES:
         raise ValueError("AUD source exceeds bounded verification size")
     hash_ = sha256()
+    consumed = 0
     with source.open("rb") as handle:
         for segment in iter(lambda: handle.read(1024 * 1024), b""):
+            consumed += len(segment)
+            if consumed > _MAX_SOURCE_DB_BYTES:
+                raise ValueError("AUD source grew beyond bounded verification size")
             hash_.update(segment)
+    # A stat alone cannot attest a stable file: detect growth or truncation
+    # during either SHA-256 pass, not only a mismatch between the two passes.
+    if consumed != source.stat().st_size:
+        raise ValueError("AUD source changed size during digest")
     return hash_.hexdigest()
 
 
