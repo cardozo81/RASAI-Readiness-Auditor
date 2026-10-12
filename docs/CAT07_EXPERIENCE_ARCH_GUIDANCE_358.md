@@ -118,3 +118,22 @@ significa executar XHR Action como tarefa separada. URL/token/configuração
 Dynatrace e parâmetros fora da allowlist nunca são serializados nesse
 advisory. Testes de replay, sigilo e imutabilidade do audit.db por bytes
 acompanham os contratos unitários sem chamada ao provider.
+
+
+## CAT-07: proveniência física antes da interpretação (12/10/2026)
+
+O consumidor HTML da arquitetura **não abre** um `audit.db`
+symlinkado ou acompanhado de `-wal`, `-shm`, `-journal`.
+Em vez de invalidar toda a materialização de relatório, emite um
+bloco CAT-07 N/D explicando que a fonte não é estável. A leitura
+usa `mode=ro&immutable=1` e verifica novamente os sidecars após
+a consulta física. A duplicação de `page_snapshots.snapshot_id`
+entre páginas/AUDs invalida a proveniência da arquitetura individual:
+mesmo que um JOIN por `audit_id` encontre uma captura, o identificador
+não é rastreável unicamente.
+
+São regras somente da apresentação, sem modificar tabelas, os sensores
+M23/M25, thresholds, Dynatrace externo, ou snapshots já persistidos.
+Não se cria prova de mesma sessão de RUM, hidratação SPA ou conteúdo
+pronto. As fixtures SQLite simulam três journals, aparição concorrente
+de WAL e reutilização de ID, preservando bytes da AUD.
