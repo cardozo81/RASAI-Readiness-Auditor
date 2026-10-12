@@ -111,6 +111,48 @@ def test_311_cons_companion_fails_closed_on_unsafe_manifest(tmp_path, issue):
         build_cons_geo_advisory(cons, root)
 
 
+@pytest.mark.parametrize("duplicated_member", [
+    '"cons_id":"CONS-20261009-0001","cons_id":"CONS-FORGED"',
+    '"source_audits":[{"audit_id":"AUD-ALPHA"},{"audit_id":"AUD-BETA"}],'
+    '"source_audits":[{"audit_id":"AUD-ALPHA"},{"audit_id":"AUD-BETA"}]',
+    '"request_fingerprint":"' + "a" * 64 + '",'
+    '"request_fingerprint":"' + "a" * 64 + '"',
+    '"source_audits":[{"audit_id":"AUD-ALPHA","audit_id":"AUD-BETA"},'
+    '{"audit_id":"AUD-BETA"}]',
+])
+def test_311_duplicate_cons_manifest_keys_refuse_advisory_before_aud_reads(
+    tmp_path, monkeypatch, duplicated_member,
+):
+    """#311: key collisions in a local CONS file are not proof of source identity."""
+    root, cons = _cons(tmp_path)
+    from rasai import geo_cons_companion_311 as companion
+
+    # JSON fragment is valid but ambiguous; a permissive parser would
+    # select the final scalar/list/nested audit_id and continue.
+    raw = (
+        '{"report_format_version":"CONS-3",'
+        '"cons_id":"CONS-20261009-0001",'
+        '"request_fingerprint":"' + "a" * 64 + '",'
+        '"source_audits":[{"audit_id":"AUD-ALPHA"},'
+        '{"audit_id":"AUD-BETA"}],'
+        + duplicated_member + '}'
+    )
+    assert isinstance(json.loads(raw), dict)
+    (cons / "manifest.json").write_text(raw, encoding="utf-8")
+    originals = {str(p): sha256(p.read_bytes()).hexdigest()
+                 for p in root.rglob("*") if p.is_file()}
+    invoked = []
+    monkeypatch.setattr(
+        companion, "build_geo_longitudinal_preview",
+        lambda paths: invoked.append(paths),
+    )
+    with pytest.raises(ValueError, match="cannot parse CONS manifest"):
+        build_cons_geo_advisory(cons, root)
+    assert invoked == []
+    assert {str(p): sha256(p.read_bytes()).hexdigest()
+            for p in root.rglob("*") if p.is_file()} == originals
+
+
 def test_311_cons_companion_cli_html_does_not_change_cons_or_aud(tmp_path, capsys):
     root, cons = _cons(tmp_path)
     before = (cons / "manifest.json").read_bytes(), (cons / "report.html").read_bytes()
