@@ -381,6 +381,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.geo_supplement_inspection_309 import main as inspect_geo_supplements
         return inspect_geo_supplements(effective[1:])
 
+    if effective and effective[0] in {"dynatrace-rum-crosscheck", "dynatrace-rum-review"}:
+        # Two already captured JSONs, no external settings/USQL provider,
+        # synthetic Apdex, CLI secrets or audit/runtime initialization.
+        from rasai.dynatrace_population_crosscheck_355 import (
+            main as dynatrace_crosscheck_main,
+        )
+        return dynatrace_crosscheck_main(effective[1:])
+
     if effective and effective[0] == "dynatrace-apdex-review":
         # Optional offline RUM settings advisory, no tenant or provider access.
         # Execute before secrets/collector runtime initialization.

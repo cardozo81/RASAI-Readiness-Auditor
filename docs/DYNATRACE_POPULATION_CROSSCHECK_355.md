@@ -97,3 +97,25 @@ Nenhum score, perfil executável M23/M25, relatório de AUD
 ou contrato de RUM é alterado. Os testes cobrem escaping de
 campos arbitrários da exportação, estado N/D e integridade
 byte a byte dos arquivos de entrada.
+
+
+## Comando nativo offline para analistas RASAi (12/10/2026)
+
+Para conferir os dois JSONs já coletados, sem consultar tenant,
+carregar credenciais de integração nem executar M23/M25:
+
+```powershell
+rasai dynatrace-rum-crosscheck `
+  --settings-advisory-json .\settings_advisory.json `
+  --rum-population-json .\rum_actions.json `
+  --format html > revisao-dynatrace.html
+```
+
+`rasai dynatrace-rum-review` é alias da mesma rotina; `--format json`
+restitui exatamente a projeção consultiva versionada.
+O despacho ocorre **antes** de inicializar a auditoria ou carregar
+os segredos persistidos do console. Os arquivos locais continuam
+somente leitura. Não há injeção no CAT-07 histórico nem afirmação
+de mesma amostra RUM/Synthetic. A ausência de prova de
+market/browser/tenant/sessão mantém os campos correspondentes falsos
+ou N/D, sem criar recomendação numérica de thresholds.
