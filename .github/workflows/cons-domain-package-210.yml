@@ -5,6 +5,7 @@ on:
     paths:
       - 'src/rasai/consolidation/domain_comparative_package_210.py'
       - 'src/rasai/consolidation/domain_comparative_index_210.py'
+      - 'src/rasai/entrypoint.py'
       - 'tests/test_cons_domain_comparative_index_210.py'
       - 'docs/CONS_DOMAIN_COMPARATIVE_210.md'
       - '.github/workflows/cons-domain-package-210.yml'
@@ -13,6 +14,7 @@ on:
     paths:
       - 'src/rasai/consolidation/domain_comparative_package_210.py'
       - 'src/rasai/consolidation/domain_comparative_index_210.py'
+      - 'src/rasai/entrypoint.py'
       - 'tests/test_cons_domain_comparative_index_210.py'
       - '.github/workflows/cons-domain-package-210.yml'
 permissions:
