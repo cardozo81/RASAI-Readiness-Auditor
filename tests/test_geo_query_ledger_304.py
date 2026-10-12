@@ -124,6 +124,33 @@ def test_multiquery_without_per_source_mapping_abstains_without_guessing(tmp_pat
     assert (folder / "audit.db").read_bytes() == raw
 
 
+@pytest.mark.parametrize("mode", [
+    "oversized_padded_query_array", "unverified_binary_query_json",
+])
+def test_search_query_json_evidence_is_bounded_before_decoding(tmp_path, mode):
+    folder = _audit(tmp_path, multi=False)
+    db = folder / "audit.db"
+    # Both are decodable JSON in an unbounded json.loads call. The first
+    # carries >16KiB of padding; the second is SQLite BLOB, not JSON TEXT.
+    raw = (
+        " " * (16 * 1024 + 1) + '["seguro de vida"]'
+        if mode == "oversized_padded_query_array" else b'["seguro de vida"]'
+    )
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE perplexity_search_runs SET query_json=? WHERE run_id='PX-A'",
+            (raw,),
+        )
+    before = db.read_bytes()
+    out = inspect_geo_per_query(folder)
+    assert out["status"] == "NOT_COMPARABLE"
+    assert out["reason"] == "EXTERNAL_QUERY_JSON_INVALID"
+    assert out["queries"] == []
+    assert out["provider_requests"] == out["audit_writes"] == 0
+    assert out["source_audit_db_sha256"] is None
+    assert db.read_bytes() == before
+
+
 def test_single_query_legacy_columns_allow_descriptive_only(tmp_path):
     folder = _audit(tmp_path, multi=False, source_query_column=False)
     result = inspect_geo_per_query(folder)
