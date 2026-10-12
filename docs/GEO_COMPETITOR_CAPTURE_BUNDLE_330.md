@@ -106,3 +106,61 @@ O digest local demonstra estabilidade dos bytes observados
 entre verificações, mas não cria lock transacional com
 processos externos. A rotina permanece estritamente
 opt-in, isolada e não homologada como aquisição SaaS.
+
+
+## Captura opcional da URL auditada e confronto estático (#330)
+
+O modo existente `COMPETITOR_CANDIDATE` permanece inalterado:
+somente URLs presentes no SERP da própria AUD podem gerar um
+manifesto de concorrente `COBS` v1. O modo novo
+`--capture-role CUSTOMER` exige **uma única URL exata** na tabela
+`audit_targets` da mesma AUD COMPLETE; não exige que esse alvo
+apareça nos resultados SERP, pois ausência do alvo no SERP não
+impede obter sua página mediante consentimento próprio.
+
+```powershell
+python -m rasai.geo_competitor_capture_bundle_330 `
+  --audit-dir .\audits\AUD-EXEMPLO `
+  --serp-observation-id SERP-EXEMPLO `
+  --candidate-url https://cliente.example.org/pagina `
+  --capture-role CUSTOMER `
+  --output-root .\evidencias-competitivas `
+  --consent-host cliente.example.org `
+  --allow-public-html-requests
+```
+
+O resultado do alvo possui contrato separado
+`RASAI-COMPETITOR-CAPTURE-SIDECAR-330-002`, além de prova
+local da identidade da URL auditada e indicação explícita se
+ela constava ou não em `serp_results`. O v1 dos concorrentes,
+seus IDs e manifestos previamente publicados permanecem iguais.
+
+Com ambos os sidecars já obtidos (do alvo e de um concorrente),
+uma comparação **puramente offline e descritiva** pode ser feita
+sem novas consultas HTTP, IA ou alterações na AUD:
+
+```powershell
+python -m rasai.geo_competitor_pair_330 `
+  --audit-dir .\audits\AUD-EXEMPLO `
+  --customer-manifest .\evidencias-competitivas\COBS-ALVO\manifest.json `
+  --competitor-manifest .\evidencias-competitivas\COBS-CONCORRENTE\manifest.json
+```
+
+A função recusa pares com AUD física/hash divergentes,
+`observation_id`/consulta/escopo SERP diferentes, URLs do
+mesmo hostname, papéis ausentes, hashes de pacote adulterados,
+HTML não observado sob consentimento, relógio inválido ou
+capturas separadas por mais de 24h. A saída indica
+títulos, headings, tipos JSON-LD e contagem de palavras
+**observadas no HTML estático**, mas não transforma diferença
+de volume ou de metadados em lacuna de conteúdo principal,
+recomendação comercial, diagnóstico SEO/Apdex ou causalidade
+GEO. A equivalência de idioma, dispositivo, intenção,
+população e renderização permanece não comprovada.
+
+Captura HTTP exige autorização explícita e respeito a
+robots.txt; **comparação de manifests não acessa a rede**.
+Nenhum conteúdo HTML bruto, sessão individual ou token
+de terceiros é gravado. A etapa de comparação profunda
+com renderização equivalente permanece pendente e, sem
+evidência, deve aparecer N/D.
