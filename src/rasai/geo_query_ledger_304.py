@@ -301,6 +301,10 @@ def inspect_geo_per_query(
             source_by_query: dict[str, set[str]] = {
                 _query_key(q): set() for q in declared
             }
+            # A malformed persisted URL is a missing member of the physical
+            # sample, not a free reduction of its denominator. Scope failure
+            # to the explicitly attributed query; do not poison other queries.
+            invalid_source_queries: set[str] = set()
             # Missing per-source query is safe ONLY for a single-query run.
             # Source metadata is the unaltered additional attributes
             # persisted by the provider adapter. Require explicit *per-row*
@@ -348,6 +352,8 @@ def inspect_geo_per_query(
                     canonical = _canonical_url(item["url"])
                     if canonical:
                         source_by_query[key].add(canonical)
+                    else:
+                        invalid_source_queries.add(key)
             serp = con.execute(
                 "SELECT observation_id,query,collected_at,engine,country,region,"
                 "language,device FROM serp_observations "
@@ -366,6 +372,10 @@ def inspect_geo_per_query(
                     continue
                 if not source_by_query[qkey]:
                     row["reason"] = "NO_VALID_EXTERNAL_URL_DENOMINATOR"
+                    out["queries"].append(row)
+                    continue
+                if qkey in invalid_source_queries:
+                    row["reason"] = "EXTERNAL_SOURCE_URL_IDENTITY_UNVERIFIABLE"
                     out["queries"].append(row)
                     continue
                 candidates: list[tuple[float, datetime, sqlite3.Row]] = []
@@ -421,10 +431,15 @@ def inspect_geo_per_query(
                     row["reason"] = "SERP_RESULTS_VOLUME_EXCEEDED"
                     out["queries"].append(row)
                     continue
-                serp_urls = {_canonical_url(z[0]) for z in rows}
+                normalized_serp_urls = [_canonical_url(z[0]) for z in rows]
+                serp_urls = set(normalized_serp_urls)
                 serp_urls.discard("")
                 if not serp_urls:
                     row["reason"] = "NO_VALID_SERP_URL_DENOMINATOR"
+                    out["queries"].append(row)
+                    continue
+                if len(serp_urls) >= 1 and "" in normalized_serp_urls:
+                    row["reason"] = "SERP_SOURCE_URL_IDENTITY_UNVERIFIABLE"
                     out["queries"].append(row)
                     continue
                 px_urls = source_by_query[qkey]

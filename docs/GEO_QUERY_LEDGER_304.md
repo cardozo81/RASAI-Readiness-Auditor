@@ -237,3 +237,23 @@ rejeitados. Isso não prova equivalência do mercado, idioma,
 dispositivo ou intenção **externa** da Perplexity, cujas flags
 permanecem `false`; não altera scores, SERP runtime, coleta,
 persistência ou proveniência de nenhuma AUD.
+
+
+## Integridade dos denominadores por consulta (12/10/2026)
+
+O comparador consultivo não pode descartar silenciosamente uma URL de origem
+inválida e calcular taxas sobre as URLs restantes como se a amostra física
+estivesse completa. Se pelo menos uma URL persistida da Perplexity ou da
+observação SERP selecionada não possuir identidade HTTP(S) canônica válida,
+a consulta afetada retorna `NOT_COMPARABLE`, respectivamente
+`EXTERNAL_SOURCE_URL_IDENTITY_UNVERIFIABLE` ou
+`SERP_SOURCE_URL_IDENTITY_UNVERIFIABLE`. Denominadores, taxas e presença
+do alvo permanecem N/D; nenhuma URL é corrigida por heurística.
+
+A proteção é estritamente por consulta, depois da atribuição explícita das
+fontes; consultas independentes com URLs íntegros conservam apenas métricas
+`DESCRIPTIVE_ONLY`. Amostras inteiramente sem URL válida mantêm a
+classificação `NO_VALID_*_URL_DENOMINATOR` existente. Testes de regressão
+SQLite offline demonstram mistura de URLs válidas/inválidas, ausência de
+escritas, dupla checagem SHA-256 e preservação de consultas saudáveis.
+Não altera motor SERP, Search API, proveniência, coleta, GEO v8, score ou IA.
