@@ -162,6 +162,8 @@ def test_consented_robots_and_html_use_pinned_transport_no_external_io(monkeypat
         "https://example.org/seguro",
         query="seguro de vida", role="COMPETITOR_CANDIDATE",
         consented_hostnames=("example.org",), fetcher=client,
+        consent_purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW",
+        consented_operations=("GET_ROBOTS_TXT", "GET_STATIC_HTML"),
     )
     assert result["status"] == "STATIC_HTML_FEATURES_OBSERVED"
     assert result["provider_requests"] == 2

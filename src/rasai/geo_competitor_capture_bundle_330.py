@@ -73,6 +73,8 @@ def _payload(value: object) -> bytes:
 def capture_competitor_sidecar(
     audit_dir: Path, observation_id: str, candidate_url: str, *,
     output_root: Path, consented_hostnames: Sequence[str],
+    consent_purpose: str | None = None,
+    consented_operations: Sequence[str] = (),
     fetcher: PublicWebFetcher | None = None,
     role: str = "COMPETITOR_CANDIDATE",
 ) -> dict[str, Any]:
@@ -204,7 +206,10 @@ def capture_competitor_sidecar(
 
     capture = inspect_consented_public_html(
         candidate_url, query=original_query, role=role,
-        consented_hostnames=consented_hostnames, fetcher=fetcher,
+        consented_hostnames=consented_hostnames,
+        consent_purpose=consent_purpose,
+        consented_operations=consented_operations,
+        fetcher=fetcher,
     )
     # This check MUST run even if robots/HTTP returned an unobserved
     # status: otherwise an intervening AUD write is hidden as NOT_CAPTURED.
@@ -316,15 +321,39 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--consent-host", action="append", required=True)
+    parser.add_argument(
+        "--consent-purpose", choices=(
+            "AUD_CUSTOMER_STATIC_CONTENT_REVIEW",
+            "GEO_COMPETITOR_STATIC_CONTENT_REVIEW",
+        ),
+    )
+    parser.add_argument(
+        "--consent-operation", action="append",
+        choices=("GET_ROBOTS_TXT", "GET_STATIC_HTML"),
+    )
     parser.add_argument("--allow-public-html-requests", action="store_true")
     args = parser.parse_args(argv)
     if not args.allow_public_html_requests:
         parser.error("explicit --allow-public-html-requests is required")
+    expected_purpose = (
+        "AUD_CUSTOMER_STATIC_CONTENT_REVIEW"
+        if args.capture_role == "CUSTOMER"
+        else "GEO_COMPETITOR_STATIC_CONTENT_REVIEW"
+    )
+    if (
+        args.consent_purpose != expected_purpose
+        or args.consent_operation is None
+        or len(args.consent_operation) != 2
+        or set(args.consent_operation) != {"GET_ROBOTS_TXT", "GET_STATIC_HTML"}
+    ):
+        parser.error("explicit purpose and both GET operations are required")
     try:
         result = capture_competitor_sidecar(
             args.audit_dir, args.serp_observation_id, args.candidate_url,
             output_root=args.output_root, consented_hostnames=args.consent_host,
             role=args.capture_role,
+            consent_purpose=args.consent_purpose,
+            consented_operations=args.consent_operation,
         )
     except ValueError as exc:
         parser.error(str(exc))

@@ -66,3 +66,23 @@ resposta SPA e limites usam fake de transporte em memória.
 **Critério restante para encerrar #330:** persistência opcional versionada
 de coleta segura e consentida, política temporal/cookies/localidade,
 confronto renderizado com uma AUD autorizada e aceite de proveniência real.
+
+
+## Consentimento específico por finalidade e operação (#330)
+
+O fluxo live local requer, além de `--allow-public-html-requests` e
+`--consent-host` com hostname exato, dois escopos explícitos:
+a finalidade `--consent-purpose GEO_COMPETITOR_STATIC_CONTENT_REVIEW`
+para concorrente ou `AUD_CUSTOMER_STATIC_CONTENT_REVIEW` para
+a própria URL auditada; e ambas as operações individuais
+`--consent-operation GET_ROBOTS_TXT` e
+`--consent-operation GET_STATIC_HTML`.
+
+Ausência de finalidade, operação, role coerente ou hostname gera
+recusa antes de qualquer resolução DNS ou requisição HTTP. Não há
+consentimento curinga, POST, redirect, JavaScript ou crawling adicional.
+O gate abrange também o materializador opcional COBS que delega a
+essa mesma função. Esta etapa **não** altera contratos versionados
+de artefatos: os flags de autorização são verificados no limite de
+rede, mas não constituem registro de consentimento assinado,
+revogação ou governança de egress SaaS.

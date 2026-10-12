@@ -665,3 +665,39 @@ def test_pair_cli_read_only_without_network(tmp_path, monkeypatch, capsys):
     assert data["status"] == "DESCRIPTIVE_STATIC_HTML_ONLY"
     assert len(calls) == requests_before
     assert (folder / "audit.db").read_bytes() == original
+
+
+def test_real_cobs_fetch_gate_refuses_missing_operation_consent_before_dns_or_http(
+    tmp_path,
+):
+    from rasai.search_intelligence.content import PublicWebFetcher
+
+    folder = _audit(tmp_path)
+    before = (folder / "audit.db").read_bytes()
+    dns = []
+
+    def resolver(host, port):
+        dns.append((host, port))
+        pytest.fail("authorization must be resolved before DNS")
+
+    def transport(*args, **kwargs):
+        pytest.fail("authorization must be resolved before HTTP")
+
+    client = PublicWebFetcher(
+        max_redirects=0, resolver=resolver, opener=transport,
+    )
+    result = capture.capture_competitor_sidecar(
+        folder, _OBS, _URL,
+        output_root=tmp_path / "output",
+        consented_hostnames=("competitor.example.org",),
+        consent_purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW",
+        consented_operations=("GET_ROBOTS_TXT",),
+        fetcher=client,
+    )
+    assert result["status"] == "NOT_CAPTURED"
+    assert result["reason"] == "EXPLICIT_PURPOSE_OPERATION_CONSENT_MISSING"
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert dns == []
+    assert client.requests_used == 0
+    assert (folder / "audit.db").read_bytes() == before
+    assert not (tmp_path / "output").exists()
