@@ -111,6 +111,63 @@ def test_multiquery_explicit_source_mapping_yields_separate_denominators(tmp_pat
     assert not list(folder.glob("GEO-*"))
 
 
+@pytest.mark.parametrize(
+    ("origin", "malformed_url"),
+    [
+        ("perplexity", " https://example.org/shared"),
+        ("perplexity", "javascript:payload"),
+        ("serp", "https://user:secret@example.org/shared"),
+        ("serp", "not-an-http-url"),
+    ],
+)
+def test_partial_invalid_url_sample_abstains_only_affected_query(
+    tmp_path, origin, malformed_url,
+):
+    """#304: an invalid member cannot disappear from a published denominator."""
+    folder = _audit(tmp_path)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        if origin == "perplexity":
+            con.execute(
+                "UPDATE perplexity_search_sources SET url=? "
+                "WHERE run_id='PX-A' AND position=0",
+                (malformed_url,),
+            )
+        else:
+            con.execute(
+                "UPDATE serp_results SET url=? "
+                "WHERE observation_id='SERP-0' AND position=0",
+                (malformed_url,),
+            )
+    raw = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    rows = {row["query"]: row for row in result["queries"]}
+    invalid = rows["seguro bradesco"]
+    healthy = rows["seguro de vida"]
+    assert invalid["status"] == "NOT_COMPARABLE"
+    assert invalid["reason"] == (
+        "EXTERNAL_SOURCE_URL_IDENTITY_UNVERIFIABLE"
+        if origin == "perplexity"
+        else "SERP_SOURCE_URL_IDENTITY_UNVERIFIABLE"
+    )
+    for key in (
+        "common_urls", "serp_distinct_urls", "perplexity_distinct_urls",
+        "serp_only_urls", "perplexity_only_urls", "serp_overlap_rate",
+        "perplexity_overlap_rate", "jaccard_url_rate",
+    ):
+        assert invalid[key] is None
+    assert invalid["target_url_overlap_status"] == "N/D"
+    assert healthy["status"] == "DESCRIPTIVE_ONLY"
+    assert healthy["serp_distinct_urls"] == 3
+    assert healthy["perplexity_distinct_urls"] == 2
+    assert healthy["common_urls"] == 1
+    assert result["status"] == "DESCRIPTIVE_ONLY"
+    assert result["source_audit_db_integrity_guard"] == "DOUBLE_SHA256_MATCH"
+    assert result["source_audit_db_sha256"] == sha256(raw).hexdigest()
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert db.read_bytes() == raw
+
+
 def test_multiquery_without_per_source_mapping_abstains_without_guessing(tmp_path):
     folder = _audit(tmp_path, source_query_column=False)
     raw = (folder / "audit.db").read_bytes()
