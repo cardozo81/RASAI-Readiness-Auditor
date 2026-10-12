@@ -25,6 +25,17 @@ _AUD = re.compile(r"^AUD-[A-Za-z0-9-]{1,100}$")
 
 
 
+def _reject_unsealed_sqlite_source(db: Path) -> None:
+    """Reject uncheckpointed SQLite before publishing attempt evidence.
+
+    A read-only SQLite connection may still use/create WAL/SHM state.
+    An immutable reader ignores those journals; require their absence.
+    """
+    if any(Path(str(db) + suffix).exists()
+           for suffix in ("-wal", "-shm", "-journal")):
+        raise ValueError("AUD SQLite source has unverified WAL/SHM/journal")
+
+
 def _verified_console_window(
     con: sqlite3.Connection, audit_id: str, *, status: str, completion: str,
 ) -> tuple[float, float, float] | None:
@@ -182,7 +193,10 @@ def inspect_audit_attempts(aud_dir: Path) -> dict:
     db = root / "audit.db"
     if not db.is_file() or db.is_symlink():
         raise ValueError("AUD audit.db missing")
-    with sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True, timeout=2) as con:
+    _reject_unsealed_sqlite_source(db)
+    with sqlite3.connect(
+        db.resolve().as_uri() + "?mode=ro&immutable=1", uri=True, timeout=2,
+    ) as con:
         con.execute("PRAGMA query_only=ON")
         fields = {str(x[1]) for x in con.execute("PRAGMA table_info(audits)")}
         if not {"audit_id", "status", "completion_status"}.issubset(fields):
@@ -211,6 +225,9 @@ def inspect_audit_attempts(aud_dir: Path) -> dict:
         fulfillment_intervals = inspect_fulfillment_attempt_intervals(con, root.name, window)
     pipeline_step_timers = inspect_pipeline_step_timers(root, root.name, window)
     timeline = read_audit_attempt_timeline(db, root.name)
+    # The independent timeline reader might have observed a source that
+    # started a concurrent uncheckpointed write; abstain after its read.
+    _reject_unsealed_sqlite_source(db)
     stages = [asdict(x) for x in timeline.stages]
     return {
         "contract_version": "RASAI-READONLY-ATTEMPT-INSPECTION-001",

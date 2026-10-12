@@ -394,3 +394,43 @@ def test_m21_legacy_missing_attempt_key_is_nd_not_fake_sum(tmp_path):
     assert result["observed_http_request_sums_ms"] == {}
     assert result["http_request_telemetry"] == "NOT_VERIFIABLE"
     assert (root / "audit.db").read_bytes() == before
+
+
+@pytest.mark.parametrize("suffix", ["-wal", "-shm", "-journal"])
+def test_audit_attempts_rejects_live_sqlite_sidecars_without_open_or_mutation(
+    tmp_path, suffix,
+):
+    root = _fixture(tmp_path)
+    db = root / "audit.db"
+    sidecar = root / ("audit.db" + suffix)
+    sidecar.write_bytes(b"unverified-live-transaction")
+    before = db.read_bytes()
+    with pytest.raises(ValueError, match="unverified WAL/SHM/journal"):
+        inspect_audit_attempts(root)
+    assert db.read_bytes() == before
+    assert sidecar.read_bytes() == b"unverified-live-transaction"
+
+
+def test_audit_attempts_detects_new_sidecar_during_secondary_timeline_read(
+    tmp_path, monkeypatch,
+):
+    from rasai import audit_attempt_inspection_319 as module
+    root = _fixture(tmp_path)
+    db = root / "audit.db"
+    original = db.read_bytes()
+    real_timeline = module.read_audit_attempt_timeline
+    sidecar = root / "audit.db-wal"
+
+    def concurrent_uncheckpointed_writer(path, audit_id):
+        timeline = real_timeline(path, audit_id)
+        sidecar.write_bytes(b"arrived-during-timeline")
+        return timeline
+
+    monkeypatch.setattr(
+        module, "read_audit_attempt_timeline", concurrent_uncheckpointed_writer
+    )
+    with pytest.raises(ValueError, match="unverified WAL/SHM/journal"):
+        module.inspect_audit_attempts(root)
+    assert sidecar.read_bytes() == b"arrived-during-timeline"
+    assert db.read_bytes() == original
+    sidecar.unlink()
