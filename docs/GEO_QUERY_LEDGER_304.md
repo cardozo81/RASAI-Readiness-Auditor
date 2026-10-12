@@ -140,3 +140,33 @@ de query única mantêm a compatibilidade histórica.
 Nenhuma alteração em SERP, Perplexity Search, coletores,
 SARI/SCORE-GEO, scoring, AUD ou snapshot GEO histórico;
 o consumidor permanece estritamente offline e read-only.
+
+## Contrato v5: proveniência por resultado do adaptador Perplexity
+
+O adaptador canônico `search_intelligence.perplexity` conserva
+os atributos adicionais de cada elemento `results[]` do fornecedor
+em `perplexity_search_sources.source_metadata_json`. O consumidor
+offline `RASAI-GEO-PER-QUERY-304-ADVISORY-005` passou a aceitar
+uma **chave literal `query` dentro desse JSON por fonte** para
+atribuição das URLs à consulta correta, sem criar coluna, migrar AUD,
+invocar API ou alterar o motor homologado.
+
+O cálculo multi-query só fica disponível quando **todas** as fontes
+do run possuírem `query` explícita e válida, presente em
+`perplexity_search_runs.query_json`; metadados sem query, JSON
+malformado, tamanho excessivo ou divergência entre
+`source_metadata_json.query` e eventual coluna `query`
+invalidam a atribuição, com N/D em todos os denominadores.
+Metadados por fonte com mais de 4 KiB também são recusados por
+segurança. Em execução de consulta única, ausência do atributo
+ainda admite o vínculo pelo run único, mas qualquer declaração
+explícita contraditória invalida a associação.
+
+**Limite fundamental:** não há contrato oficial assumido de que a
+Perplexity Search API sempre retorna `results[].query`; quando
+o fornecedor não fornece esse atributo, esta mudança não o
+inventa por ordem, ranking, snippets, título ou posição. O atributo
+é a informação persistida pelo cliente a partir da resposta externa,
+não atestação independente de autenticidade, escopo de mercado,
+idioma, dispositivo, intenção ou citação em uma resposta de IA.
+Nenhum score, histórico GEO v8, SERP, SARI ou CONS é modificado.

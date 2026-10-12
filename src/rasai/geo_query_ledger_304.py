@@ -22,6 +22,33 @@ _MAX_QUERY_COUNT = 10
 _MAX_SOURCES = 500
 _MAX_SERP_ROWS = 200
 _MAX_AUD_BYTES = 256 * 1024 * 1024
+_MAX_SOURCE_METADATA_BYTES = 4096
+_INVALID_METADATA = object()
+
+
+def _explicit_source_query(metadata: object) -> str | None | object:
+    """Extract only a provider-persisted *per-result* query; no inference.
+
+    The source repository stores all additional result attributes in
+    source_metadata_json, including a query field *if* the provider returns
+    one. Missing metadata cannot prove multi-query attribution.
+    """
+    if metadata is None:
+        return None
+    if not isinstance(metadata, str) or len(metadata.encode("utf-8")) > _MAX_SOURCE_METADATA_BYTES:
+        return _INVALID_METADATA
+    try:
+        payload = json.loads(metadata)
+    except (TypeError, ValueError):
+        return _INVALID_METADATA
+    if not isinstance(payload, dict):
+        return _INVALID_METADATA
+    raw = payload.get("query")
+    if raw is None:
+        return None
+    if not isinstance(raw, str) or not raw.strip() or len(raw) > 300:
+        return _INVALID_METADATA
+    return raw
 _WINDOW = 86400
 _SCOPE = ("engine", "country", "region", "language", "device")
 
@@ -135,7 +162,7 @@ def inspect_geo_per_query(
         raise ValueError("invalid explicit branded-query declaration")
 
     out: dict[str, Any] = {
-        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-004",
+        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-005",
         "audit_id": root.name, "status": "NOT_COMPARABLE",
         "reason": None, "queries": [],
         "per_query_attribution_status": "NOT_VERIFIED",
@@ -248,6 +275,9 @@ def inspect_geo_per_query(
             sources = con.execute(
                 "SELECT url, " + (
                     "query" if "query" in source_columns else "NULL AS query"
+                ) + ", " + (
+                    "source_metadata_json" if "source_metadata_json" in source_columns
+                    else "NULL AS source_metadata_json"
                 ) + " FROM perplexity_search_sources WHERE run_id=? LIMIT ?",
                 (run["run_id"], _MAX_SOURCES + 1),
             ).fetchall()
@@ -257,28 +287,49 @@ def inspect_geo_per_query(
                 _query_key(q): set() for q in declared
             }
             # Missing per-source query is safe ONLY for a single-query run.
-            # A legacy single-query run owns its sources unambiguously if
-            # per-source provenance is absent. But if a populated per-source
-            # query explicitly contradicts that run, fail closed rather than
-            # overriding contrary evidence.
-            attributable = (
-                len(declared) == 1
-                and (
-                    "query" not in source_columns
-                    or all(
-                        item["query"] is None
-                        or _query_key(item["query"]) == _query_key(declared[0])
-                        for item in sources
+            # Source metadata is the unaltered additional attributes
+            # persisted by the provider adapter. Require explicit *per-row*
+            # mapping for every source in multi-query runs. If both a real
+            # column and metadata provide a query, contradictions abstain.
+            # Only single-query runs admit wholly unlabeled legacy rows.
+            labels: list[str | None] = []
+            contradictory = False
+            for item in sources:
+                direct = item["query"]
+                metadata = _explicit_source_query(item["source_metadata_json"])
+                if metadata is _INVALID_METADATA or (
+                    direct is not None
+                    and (not isinstance(direct, str) or not direct.strip()
+                         or len(direct) > 300)
+                ):
+                    contradictory = True
+                    break
+                if (direct is not None and metadata is not None
+                        and _query_key(direct) != _query_key(metadata)):
+                    contradictory = True
+                    break
+                labels.append(direct if direct is not None else metadata)
+            attributable = not contradictory and (
+                (
+                    len(declared) == 1
+                    and all(
+                        label is None or _query_key(label) == _query_key(declared[0])
+                        for label in labels
+                    )
+                ) or (
+                    len(declared) > 1 and len(labels) == len(sources)
+                    and all(
+                        label is not None and _query_key(label) in source_by_query
+                        for label in labels
                     )
                 )
-            ) or (
-                len(declared) > 1
-                and "query" in source_columns
-                and all(_query_key(item["query"]) in source_by_query for item in sources)
             )
             if attributable:
-                for item in sources:
-                    key = _query_key(declared[0]) if len(declared) == 1 else _query_key(item["query"])
+                for item, label in zip(sources, labels):
+                    key = (
+                        _query_key(declared[0]) if len(declared) == 1
+                        else _query_key(label)
+                    )
                     canonical = _canonical_url(item["url"])
                     if canonical:
                         source_by_query[key].add(canonical)

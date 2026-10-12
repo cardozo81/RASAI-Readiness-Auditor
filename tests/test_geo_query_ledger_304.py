@@ -246,7 +246,7 @@ def test_v2_exact_aud_target_is_visible_per_query_in_both_observed_url_sets(
     )
     original = (folder / "audit.db").read_bytes()
     result = inspect_geo_per_query(folder)
-    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-004"
+    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-005"
     assert result["status"] == "DESCRIPTIVE_ONLY"
     assert result["aud_target_scope"] == "SINGLE_EXACT_AUD_TARGET"
     assert result["aud_target_exact_url"] == "https://example.org/shared"
@@ -510,3 +510,137 @@ def test_v4_host_groups_are_nd_when_aud_target_is_ambiguous(tmp_path):
     assert row["serp_target_host_group"] is None
     assert row["external_target_host_group"] is None
     assert row["target_url_overlap_status"] == "N/D"
+
+
+def _provider_source_metadata(folder, *, mapped=True, with_query_column=False):
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "ALTER TABLE perplexity_search_sources "
+            "ADD COLUMN source_metadata_json TEXT"
+        )
+        for position in (0, 1, 10, 11):
+            query = "seguro bradesco" if position < 10 else "seguro de vida"
+            obj = {"query": query} if mapped else {"source": "perplexity"}
+            con.execute(
+                "UPDATE perplexity_search_sources SET source_metadata_json=? "
+                "WHERE position=?",
+                (json.dumps(obj), position),
+            )
+
+
+def test_v5_reads_real_repository_per_result_query_metadata_only_when_explicit(
+    tmp_path,
+):
+    folder = _audit(tmp_path, multi=True, source_query_column=False)
+    _provider_source_metadata(folder)
+    original = (folder / "audit.db").read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-005"
+    assert result["status"] == "DESCRIPTIVE_ONLY"
+    assert result["per_query_attribution_status"] == "PHYSICALLY_ATTRIBUTABLE"
+    assert len(result["queries"]) == 2
+    for row in result["queries"]:
+        assert row["status"] == "DESCRIPTIVE_ONLY"
+        assert row["perplexity_distinct_urls"] == 2
+        assert row["serp_distinct_urls"] == 3
+        assert row["common_urls"] == 1
+        assert row["jaccard_url_rate"] == .25
+        assert row["intent_equivalence_proven"] is False
+        assert row["ranking_or_generative_citation_proven"] is False
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert (folder / "audit.db").read_bytes() == original
+
+
+@pytest.mark.parametrize(
+    ("mutation", "label"),
+    [
+        ("unlabeled", "source"),
+        ("wrong-query", "query"),
+        ("malformed-json", "metadata-json"),
+        ("mixed-mapping", "query-row-missing"),
+    ],
+)
+def test_v5_refuses_unverifiable_or_bad_per_source_query_metadata(
+    tmp_path, mutation, label,
+):
+    folder = _audit(tmp_path, multi=True, source_query_column=False)
+    _provider_source_metadata(folder)
+    with sqlite3.connect(folder / "audit.db") as con:
+        if mutation == "unlabeled":
+            con.execute(
+                "UPDATE perplexity_search_sources "
+                "SET source_metadata_json=? WHERE position=0",
+                (json.dumps({"source": "perplexity"}),),
+            )
+        elif mutation == "wrong-query":
+            con.execute(
+                "UPDATE perplexity_search_sources "
+                "SET source_metadata_json=? WHERE position=0",
+                (json.dumps({"query": "not a declared query"}),),
+            )
+        elif mutation == "malformed-json":
+            con.execute(
+                "UPDATE perplexity_search_sources "
+                "SET source_metadata_json=? WHERE position=0",
+                ('{"query": invalid json',),
+            )
+        elif mutation == "mixed-mapping":
+            con.execute(
+                "UPDATE perplexity_search_sources "
+                "SET source_metadata_json=NULL WHERE position=0"
+            )
+    original = (folder / "audit.db").read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["per_query_attribution_status"] == "MULTI_QUERY_SOURCE_MAPPING_MISSING"
+    assert {row["reason"] for row in result["queries"]} == {
+        "PER_QUERY_SOURCE_ATTRIBUTION_UNPROVEN"
+    }
+    assert all(row["common_urls"] is None for row in result["queries"])
+    assert result["source_audit_db_sha256"] == sha256(original).hexdigest()
+    assert (folder / "audit.db").read_bytes() == original
+
+
+def test_v5_conflict_between_column_and_provider_metadata_abstains(tmp_path):
+    folder = _audit(tmp_path, multi=True, source_query_column=True)
+    _provider_source_metadata(folder)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "UPDATE perplexity_search_sources SET source_metadata_json=? "
+            "WHERE position=0",
+            (json.dumps({"query": "seguro de vida"}),),
+        )
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    assert all(row["common_urls"] is None for row in result["queries"])
+
+
+def test_v5_single_query_metadata_cannot_override_declared_run(tmp_path):
+    folder = _audit(tmp_path, multi=False, source_query_column=False)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "ALTER TABLE perplexity_search_sources "
+            "ADD COLUMN source_metadata_json TEXT"
+        )
+        con.execute(
+            "UPDATE perplexity_search_sources SET source_metadata_json=? "
+            "WHERE position=0",
+            (json.dumps({"query": "an unrelated query"}),),
+        )
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["queries"][0]["common_urls"] is None
+
+
+def test_v5_metadata_is_not_parsed_beyond_bounded_evidence_budget(tmp_path):
+    folder = _audit(tmp_path, multi=True, source_query_column=False)
+    _provider_source_metadata(folder)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "UPDATE perplexity_search_sources SET source_metadata_json=? "
+            "WHERE position=0",
+            (json.dumps({"query": "seguro bradesco", "noise": "x"*5000}),),
+        )
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    assert all(row["common_urls"] is None for row in result["queries"])
