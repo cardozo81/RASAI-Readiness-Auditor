@@ -194,6 +194,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--settings-advisory-json", type=Path, required=True)
     parser.add_argument("--rum-population-json", type=Path, required=True)
+    parser.add_argument(
+        "--format", choices=("json", "html"), default="json",
+        help="HTML is an offline advisory only, not an Apdex score.",
+    )
     args = parser.parse_args(argv)
     try:
         result = compare_dynatrace_settings_and_rum(
@@ -202,7 +206,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     except (ValueError, OSError) as exc:
         parser.error(str(exc))
-    print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))
+    if args.format == "html":
+        from rasai.dynatrace_population_crosscheck_html_355 import (
+            render_dynatrace_population_crosscheck_html,
+        )
+        print(render_dynatrace_population_crosscheck_html(result))
+    else:
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))
     return 0
 
 
