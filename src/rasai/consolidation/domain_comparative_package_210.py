@@ -33,6 +33,14 @@ def _source_sha256(path: Path, remaining_budget: int) -> tuple[str, int]:
     """Hash bounded physical source bytes; never use mtime as content proof."""
     if path.is_symlink() or path.parent.is_symlink() or not path.is_file():
         raise ValueError("unsafe AUD source encountered during SHA-256 verification")
+    # A bare audit.db digest cannot attest one stable SQLite snapshot while
+    # WAL/SHM/journal files exist. Recheck on BOTH SHA-256 passes because
+    # a transaction may begin after the indexed metadata reconciliation.
+    if any(
+        Path(str(path) + suffix).exists()
+        for suffix in ("-wal", "-shm", "-journal")
+    ):
+        raise ValueError("unsealed SQLite sidecars disallow CDOM byte attestation")
     size = path.stat().st_size
     if size > remaining_budget:
         raise ValueError("AUD bytes exceed local SHA-256 evidence budget")
