@@ -95,7 +95,12 @@ def _v8_physical_sources(root):
         con.executescript("""
             CREATE TABLE perplexity_search_sources(run_id TEXT, url TEXT);
             CREATE TABLE serp_results(observation_id TEXT, url TEXT);
+            CREATE TABLE audit_targets(audit_id TEXT, input_url TEXT);
         """)
+        con.execute(
+            "INSERT INTO audit_targets VALUES (?,?)",
+            (root.name, "https://example.org/seguro"),
+        )
         for url in (
             "https://example.org/seguro",
             "https://external-only.org/other",
@@ -200,6 +205,62 @@ def test_v8_over_budget_physical_source_sets_abstain_even_with_correct_counters(
         "audit_id": large.name, "reason": "GEO_SOURCE_PROVENANCE_UNVERIFIED",
     }]
     assert [(root / "audit.db").read_bytes() for root in (large, stable)] == original
+
+
+@pytest.mark.parametrize(
+    "forgery",
+    ("foreign_target", "false_alternative_state", "missing_target_source", "duplicate_target"),
+)
+def test_v8_target_claim_must_match_physical_aud_and_search_sources(
+    tmp_path, forgery,
+):
+    altered = audit(tmp_path, "AUD-V8-TARGET-FORGED", version="RASAI-GEO-OBSERVATION-8")
+    stable = audit(tmp_path, "AUD-V8-TARGET-STABLE", version="RASAI-GEO-OBSERVATION-8")
+    for root in (altered, stable):
+        _v8_physical_sources(root)
+    with sqlite3.connect(altered / "audit.db") as con:
+        snapshot = json.loads(con.execute(
+            "SELECT projection_json FROM geo_observation_runs"
+        ).fetchone()[0])
+        if forgery == "foreign_target":
+            # An exact Search URL is still not the audited customer's URL.
+            snapshot["target_observation"]["target_url"] = "https://external-only.org/other"
+        elif forgery == "false_alternative_state":
+            # An exact Search hit cannot be relabeled as merely alternative.
+            snapshot["target_observation"]["status"] = "DOMAIN_ALTERNATIVE_OBSERVED"
+        elif forgery == "duplicate_target":
+            # Two persisted target rows cannot prove a unique AUD target.
+            con.execute(
+                "INSERT INTO audit_targets VALUES (?, ?)",
+                (altered.name, "https://example.org/seguro"),
+            )
+        else:
+            # Keep all overlap metrics physically correct while inventing
+            # an EXACT_URL_OBSERVED state for a source set missing the URL.
+            con.execute(
+                "UPDATE perplexity_search_sources SET url=? WHERE url=?",
+                ("https://unrelated.org/missing-target", "https://example.org/seguro"),
+            )
+            snapshot["url_overlap_count"] = 0
+            snapshot["descriptive_overlap"].update(
+                common_urls=0, serp_only_count=3, perplexity_only_count=2,
+                serp_overlap_rate=0.0, perplexity_overlap_rate=0.0,
+                jaccard_url_rate=0.0,
+            )
+        con.execute(
+            "UPDATE geo_observation_runs SET projection_json=?",
+            (json.dumps(snapshot),),
+        )
+    originals = {root.name: (root / "audit.db").read_bytes()
+                 for root in (altered, stable)}
+    result = build_geo_longitudinal_preview([altered, stable])
+    assert result["audits_eligible"] == 1
+    assert result["excluded"] == [{
+        "audit_id": altered.name, "reason": "GEO_SOURCE_PROVENANCE_UNVERIFIED",
+    }]
+    assert result["timelines"][0]["observations"][0]["audit_id"] == stable.name
+    assert all((root / "audit.db").read_bytes() == originals[root.name]
+               for root in (altered, stable))
 
 
 def test_v8_source_drift_and_tampered_overlap_abstain_without_rewrite(tmp_path):
