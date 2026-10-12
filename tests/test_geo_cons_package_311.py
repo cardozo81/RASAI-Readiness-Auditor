@@ -248,3 +248,66 @@ def test_sidecar_created_during_second_projection_is_rejected(
     with pytest.raises(ValueError, match="gained SQLite sidecars"):
         module.materialize_cons_geo_companion(cons, root)
     assert not (root / "consolidated-geo-companions").exists()
+
+
+def test_cons_report_modified_during_staging_never_gets_stale_gcomp(
+    tmp_path, monkeypatch,
+):
+    root, cons = _cons(tmp_path)
+    source_digests = _hashes(root)
+    original_write = Path.write_bytes
+    seen = {"staging_reports": 0}
+
+    def change_cons_after_staging_report(self, data):
+        count = original_write(self, data)
+        if self.name == "report.html" and self.parent.name.startswith(
+            ".gcomp-staging-"
+        ):
+            seen["staging_reports"] += 1
+            (cons / "report.html").write_text(
+                "<!doctype html><h1>Changed before publication</h1>",
+                encoding="utf-8",
+            )
+        return count
+
+    monkeypatch.setattr(Path, "write_bytes", change_cons_after_staging_report)
+    with pytest.raises(ValueError, match="CONS source changed"):
+        module.materialize_cons_geo_companion(cons, root)
+    assert seen["staging_reports"] == 1
+    destination = root / "consolidated-geo-companions"
+    assert not list(destination.glob("GCOMP-*"))
+    assert not list(destination.glob(".gcomp-staging-*"))
+    assert all(
+        sha256(Path(path).read_bytes()).hexdigest() == digest
+        for path, digest in source_digests.items()
+        if path != str(cons / "report.html")
+    )
+
+
+def test_new_aud_journal_during_gcomp_staging_aborts_atomic_publish(
+    tmp_path, monkeypatch,
+):
+    root, cons = _cons(tmp_path)
+    source_digest = sha256((root / "AUD-LEFT" / "audit.db").read_bytes()).hexdigest()
+    original_write = Path.write_bytes
+    calls = {"n": 0}
+
+    def add_journal_after_staging_file(self, data):
+        saved = original_write(self, data)
+        if self.name == "report.html" and self.parent.name.startswith(
+            ".gcomp-staging-"
+        ):
+            calls["n"] += 1
+            original_write(
+                root / "AUD-LEFT" / "audit.db-journal", b"concurrent SQLite write"
+            )
+        return saved
+
+    monkeypatch.setattr(Path, "write_bytes", add_journal_after_staging_file)
+    with pytest.raises(ValueError, match="gained SQLite sidecars"):
+        module.materialize_cons_geo_companion(cons, root)
+    assert calls["n"] == 1
+    destination = root / "consolidated-geo-companions"
+    assert not list(destination.glob("GCOMP-*"))
+    assert not list(destination.glob(".gcomp-staging-*"))
+    assert sha256((root / "AUD-LEFT" / "audit.db").read_bytes()).hexdigest() == source_digest

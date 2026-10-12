@@ -68,3 +68,21 @@ sem novas requisições de IA/Perplexity/SERP nem replay de coleta.
 O contrato `RASAI-CONS-GEO-COMPANION-PACKAGE-311-001` continua
 compatível: esta correção de integridade não reescreve manifestos
 GCOMP históricos nem converte tendências N/D em métricas.
+
+
+## Verificação imediatamente antes da publicação (#311)
+
+A integridade das fontes CONS/AUD não é garantida apenas
+pela comparação inicial da prévia: processos externos podem
+alterar `CONS-*/report.html` ou criar um journal SQLite
+durante a escrita dos arquivos temporários `GCOMP`.
+O publicador agora chama novamente `reverify_sources()`
+**após** escrever os arquivos de staging e **antes** do
+`os.rename` atômico. A mudança ou perda de integridade
+rejeita a publicação e remove os arquivos temporários.
+
+Fixtures físicas reproduzem uma alteração no relatório CONS
+e o aparecimento de `audit.db-journal` exatamente entre
+a serialização e o rename, sem emitir pacote inconsistente.
+Isto não constitui lock concorrente global nem substitui
+comprovação de equivalência metodológica entre observações GEO.
