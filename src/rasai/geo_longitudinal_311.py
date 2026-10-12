@@ -25,6 +25,7 @@ _CONTRACTS = frozenset({
 })
 _SCOPE_KEYS = ("engine", "country", "region", "language", "device")
 _MAX_AUD_DB_HASH_BYTES = 256 * 1024 * 1024
+_MAX_V8_SOURCE_URL_ROWS = 500
 
 
 def _aware(raw: object) -> datetime | None:
@@ -47,12 +48,20 @@ def _v8_source_counts_match(
     A count in a signed-looking snapshot is not proof that the physical
     Search/SERP rows still support that number.
     """
+    # A valid v8 projection must not require an unbounded, attacker-sized
+    # multi-table read. Reject an oversized physical population before
+    # materializing URL sets, even if its JSON counters are internally valid.
     px_rows = con.execute(
-        "SELECT url FROM perplexity_search_sources WHERE run_id=?", (run_id,)
+        "SELECT url FROM perplexity_search_sources WHERE run_id=? LIMIT ?",
+        (run_id, _MAX_V8_SOURCE_URL_ROWS + 1),
     ).fetchall()
     serp_rows = con.execute(
-        "SELECT url FROM serp_results WHERE observation_id=?", (serp_id,)
+        "SELECT url FROM serp_results WHERE observation_id=? LIMIT ?",
+        (serp_id, _MAX_V8_SOURCE_URL_ROWS + 1),
     ).fetchall()
+    if (len(px_rows) > _MAX_V8_SOURCE_URL_ROWS
+            or len(serp_rows) > _MAX_V8_SOURCE_URL_ROWS):
+        return False
     px = {_canonical_url(row[0]) for row in px_rows}
     serp = {_canonical_url(row[0]) for row in serp_rows}
     px.discard("")
