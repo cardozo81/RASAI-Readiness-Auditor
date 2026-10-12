@@ -26,9 +26,17 @@ def _file_digest(path: Path) -> str:
     if path.stat().st_size > _MAX_SOURCE_BYTES:
         raise ValueError("source file exceeds verification limit")
     digest = sha256()
+    consumed = 0
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            consumed += len(chunk)
+            if consumed > _MAX_SOURCE_BYTES:
+                raise ValueError("source grew beyond verification byte limit")
             digest.update(chunk)
+    # A source may grow or truncate after the preliminary stat. Hashing
+    # different physical bytes must never attest a stable CONS/AUD input.
+    if consumed != path.stat().st_size:
+        raise ValueError("source size changed during verification")
     return digest.hexdigest()
 
 

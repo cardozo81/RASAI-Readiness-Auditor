@@ -311,3 +311,30 @@ def test_new_aud_journal_during_gcomp_staging_aborts_atomic_publish(
     assert not list(destination.glob("GCOMP-*"))
     assert not list(destination.glob(".gcomp-staging-*"))
     assert sha256((root / "AUD-LEFT" / "audit.db").read_bytes()).hexdigest() == source_digest
+
+
+@pytest.mark.parametrize(
+    ("actual", "observed", "message"),
+    [
+        (b"1234", b"123456789", "grew beyond verification byte limit"),
+        (b"12345678", b"1234", "size changed during verification"),
+    ],
+    ids=["concurrent-growth", "concurrent-truncation"],
+)
+def test_gcomp_digest_detects_size_race_during_bounded_physical_read(
+    tmp_path, monkeypatch, actual, observed, message,
+):
+    from io import BytesIO
+    path = tmp_path / "source-test.db"
+    path.write_bytes(actual)
+    monkeypatch.setattr(module, "_MAX_SOURCE_BYTES", 8)
+    original_open = Path.open
+
+    def transient_open(self, *args, **kwargs):
+        if self == path:
+            return BytesIO(observed)
+        return original_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", transient_open)
+    with pytest.raises(ValueError, match=message):
+        module._file_digest(path)
