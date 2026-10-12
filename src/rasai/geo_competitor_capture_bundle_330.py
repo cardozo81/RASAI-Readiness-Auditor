@@ -74,6 +74,7 @@ def capture_competitor_sidecar(
     audit_dir: Path, observation_id: str, candidate_url: str, *,
     output_root: Path, consented_hostnames: Sequence[str],
     fetcher: PublicWebFetcher | None = None,
+    role: str = "COMPETITOR_CANDIDATE",
 ) -> dict[str, Any]:
     """Produce immutable offline-review evidence from authorized public HTML.
 
@@ -81,6 +82,8 @@ def capture_competitor_sidecar(
     SERP result and exact observation. An in-flight AUD change invalidates
     provenance, including when the fetch itself is otherwise successful.
     """
+    if role not in {"CUSTOMER", "COMPETITOR_CANDIDATE"}:
+        raise ValueError("explicit supported capture role required")
     audit_dir = Path(audit_dir)
     db = audit_dir / "audit.db"
     if (not audit_dir.name.startswith("AUD-") or not audit_dir.is_dir()
@@ -172,10 +175,24 @@ def capture_competitor_sidecar(
                 "SELECT url FROM serp_results WHERE observation_id=? LIMIT 501",
                 (observation_id,),
             ).fetchall()
-            if len(urls) > 500 or not any(
+            if len(urls) > 500:
+                raise ValueError("SERP URL population exceeds permitted evidence limit")
+            in_observed_serp = any(
                 _canonical_url(row["url"]) == candidate for row in urls
-            ):
-                raise ValueError("candidate URL is not in persisted SERP evidence")
+            )
+            if role == "COMPETITOR_CANDIDATE":
+                if not in_observed_serp:
+                    raise ValueError("candidate URL is not in persisted SERP evidence")
+            else:
+                if not {"audit_id", "input_url"} <= _columns(con, "audit_targets"):
+                    raise ValueError("unique persisted AUD target not available")
+                targets = con.execute(
+                    "SELECT input_url FROM audit_targets WHERE audit_id=? LIMIT 2",
+                    (audit_dir.name,),
+                ).fetchall()
+                if (len(targets) != 1
+                        or _canonical_url(targets[0]["input_url"]) != candidate):
+                    raise ValueError("requested customer URL is not the unique AUD target")
             original_query = record["query"]
             scope = {
                 key: record[key] for key in
@@ -186,7 +203,7 @@ def capture_competitor_sidecar(
         raise ValueError("AUD/SERP source cannot be verified") from None
 
     capture = inspect_consented_public_html(
-        candidate_url, query=original_query, role="COMPETITOR_CANDIDATE",
+        candidate_url, query=original_query, role=role,
         consented_hostnames=consented_hostnames, fetcher=fetcher,
     )
     # This check MUST run even if robots/HTTP returned an unobserved
@@ -205,8 +222,23 @@ def capture_competitor_sidecar(
         }
     if capture.get("final_url") != candidate:
         raise ValueError("final fetched URL disagrees with authorized source")
+    if (capture.get("requested_url") != candidate
+            or capture.get("role") != role
+            or capture.get("robots_fetch_status") != "ALLOWED"
+            or capture.get("http_status") != 200
+            or capture.get("html_rendering") != "STATIC_HTTP_ONLY_NO_JS"):
+        raise ValueError("captured HTML provenance disagrees with authorized scope")
     manifest = {
-        "contract_version": "RASAI-COMPETITOR-CAPTURE-SIDECAR-330-001",
+        "contract_version": (
+            "RASAI-COMPETITOR-CAPTURE-SIDECAR-330-002"
+            if role == "CUSTOMER"
+            else "RASAI-COMPETITOR-CAPTURE-SIDECAR-330-001"
+        ),
+        **({
+            "source_role": "CUSTOMER",
+            "source_target_exact_url": candidate,
+            "source_serp_result_membership_proven": in_observed_serp,
+        } if role == "CUSTOMER" else {}),
         "source_audit_id": audit_dir.name,
         "source_audit_db_sha256": digest_before,
         "source_serp_observation_id": observation_id,
@@ -276,6 +308,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--audit-dir", type=Path, required=True)
     parser.add_argument("--serp-observation-id", required=True)
     parser.add_argument("--candidate-url", required=True)
+    parser.add_argument(
+        "--capture-role", choices=("COMPETITOR_CANDIDATE", "CUSTOMER"),
+        default="COMPETITOR_CANDIDATE",
+        help="CUSTOMER requires the unique exact audit target; competitor "
+             "requires the candidate in the observed SERP.",
+    )
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--consent-host", action="append", required=True)
     parser.add_argument("--allow-public-html-requests", action="store_true")
@@ -286,6 +324,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = capture_competitor_sidecar(
             args.audit_dir, args.serp_observation_id, args.candidate_url,
             output_root=args.output_root, consented_hostnames=args.consent_host,
+            role=args.capture_role,
         )
     except ValueError as exc:
         parser.error(str(exc))
