@@ -317,6 +317,59 @@ def test_319_fulfillment_wrapper_intervals_are_not_physical_stage_durations(tmp_
     assert sha256(db.read_bytes()).hexdigest() == before
 
 
+@pytest.mark.parametrize("unverified_status", [
+    "PENDING", "RUNNING", "WAITING_FOR_DATA", "UNRECOGNIZED", "SUCCESS ",
+])
+def test_319_nonterminal_or_unknown_attempt_status_never_proves_elapsed_time(
+    tmp_path, unverified_status,
+):
+    """#319: elapsed timestamps alone do not make a WKA attempt terminal."""
+    root, db = make_aud(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE audit_fulfillment_work_items(
+                work_item_id TEXT PRIMARY KEY, audit_id TEXT, component TEXT
+            );
+            CREATE TABLE audit_fulfillment_attempts(
+                attempt_id TEXT PRIMARY KEY, audit_id TEXT, work_item_id TEXT,
+                reprocess_id TEXT, started_at TEXT, finished_at TEXT, status TEXT
+            );
+        """)
+        con.execute(
+            "INSERT INTO audit_fulfillment_work_items VALUES (?,?,?)",
+            ("WORK", AUD, "CAPTURE"),
+        )
+        con.executemany(
+            "INSERT INTO audit_fulfillment_attempts VALUES (?,?,?,?,?,?,?)",
+            [
+                ("INVALID", AUD, "WORK", None,
+                 "2026-10-08T10:01:00Z", "2026-10-08T10:02:00Z",
+                 unverified_status),
+                ("VALID", AUD, "WORK", None,
+                 "2026-10-08T10:03:00Z", "2026-10-08T10:04:00Z",
+                 "FAILED_RETRYABLE"),
+            ],
+        )
+    original = db.read_bytes()
+    projection = inspect_audit_attempts(root)["fulfillment_attempt_temporal_evidence"]
+    assert projection["status"] == "ATTEMPT_INTERVALS_WITH_LIMITATIONS"
+    assert projection["attempts_total"] == 2
+    groups = {row["temporal_scope"]: row for row in projection["by_component"]}
+    unverified = groups["WINDOW_UNVERIFIED"]
+    assert unverified["attempts"] == 1
+    assert unverified["verified_intervals"] == 0
+    assert unverified["unknown_intervals"] == 1
+    assert unverified["summed_elapsed_ms"] is None
+    assert unverified["union_elapsed_ms"] is None
+    valid = groups["WITHIN_VERIFIED_CONSOLE_WINDOW"]
+    assert valid["attempts"] == valid["verified_intervals"] == 1
+    assert valid["summed_elapsed_ms"] == 60000
+    assert valid["union_elapsed_ms"] == 60000
+    assert projection["physical_stage_duration_available"] is False
+    assert projection["provider_requests"] == projection["audit_writes"] == 0
+    assert db.read_bytes() == original
+
+
 def test_319_missing_fulfillment_tables_and_partial_aud_abstain(tmp_path):
     (tmp_path / "missing").mkdir()
     root, db = make_aud(tmp_path / "missing")
