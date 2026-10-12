@@ -366,7 +366,12 @@ def _historical_audit(
             return None
         # This optional stage projection reads existing, aud-scoped AI telemetry
         # only. It never requests a provider and does not materialize results.
-        timeline = read_audit_attempt_timeline(database, audit_id)
+        # This is a COMPLETE, checkpointed historical AUD, never a running
+        # console read. The second ledger reader must observe the same
+        # immutable bare SQLite source as this first metadata reader.
+        timeline = read_audit_attempt_timeline(
+            database, audit_id, sealed_source=True,
+        )
         # The stage union may be individually shorter than AUD duration while
         # physically occurring entirely outside the observed console session.
         # Never use such activity to forecast in-session stage latency.

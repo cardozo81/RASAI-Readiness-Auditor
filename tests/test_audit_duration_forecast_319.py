@@ -522,8 +522,9 @@ def test_forecast_excludes_aud_if_journal_appears_during_projection(
     original = source.read_bytes()
     reader = mod.read_audit_attempt_timeline
 
-    def concurrent_journal(database, audit_id):
-        result = reader(database, audit_id)
+    def concurrent_journal(database, audit_id, *, sealed_source=False):
+        assert sealed_source is True
+        result = reader(database, audit_id, sealed_source=sealed_source)
         if Path(database) == source:
             Path(str(source) + "-wal").write_bytes(b"concurrent writer")
         return result
@@ -545,8 +546,9 @@ def test_forecast_excludes_aud_if_file_mtime_moves_during_projection(
     original = source.read_bytes()
     reader = mod.read_audit_attempt_timeline
 
-    def concurrent_metadata_change(database, audit_id):
-        result = reader(database, audit_id)
+    def concurrent_metadata_change(database, audit_id, *, sealed_source=False):
+        assert sealed_source is True
+        result = reader(database, audit_id, sealed_source=sealed_source)
         if Path(database) == source:
             metadata = source.stat()
             os.utime(
@@ -559,3 +561,33 @@ def test_forecast_excludes_aud_if_file_mtime_moves_during_projection(
     assert projection.sample_runs == 4
     assert projection.total is None
     assert source.read_bytes() == original
+
+
+def test_historical_duration_ai_reader_uses_sealed_snapshot_mode_only(
+    tmp_path, monkeypatch,
+):
+    from rasai import audit_duration_forecast_319 as mod
+
+    paths = [_audit(tmp_path, i) for i in range(5)]
+    before = {str(p): p.read_bytes() for p in paths}
+    old = mod.read_audit_attempt_timeline
+    seen = []
+
+    def verified_historical_reader(db, audit_id, *, sealed_source=False):
+        seen.append((Path(db), audit_id, sealed_source))
+        assert sealed_source is True
+        return old(db, audit_id, sealed_source=sealed_source)
+
+    monkeypatch.setattr(
+        mod, "read_audit_attempt_timeline", verified_historical_reader,
+    )
+    projection = forecast_local_duration(_state(tmp_path))
+    assert projection.available and projection.sample_runs == 5
+    assert len(seen) == 5
+    assert set(p for p, _, sealed in seen if sealed) == set(paths)
+    assert {str(p): p.read_bytes() for p in paths} == before
+    assert all(
+        not any(Path(str(p) + ext).exists()
+                for ext in ("-wal", "-shm", "-journal"))
+        for p in paths
+    )

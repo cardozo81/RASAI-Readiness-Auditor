@@ -257,3 +257,24 @@ modificação de arquivo sem sidecar ao final, banco acima do limite
 e a compatibilidade dos leitores legados. O hash detecta mutações
 durante a inspeção, mas não constitui lock global ou autenticação
 criptográfica prévia da origem do arquivo.
+
+
+## Segundo leitor imutável do forecast histórico (#319)
+
+O forecast ex ante consulta apenas AUDs locais **fisicamente
+estabilizadas e logicamente completas**. Seu leitor principal já
+abria `mode=ro&immutable=1`; agora a leitura secundária dos
+ledgers M18/M20 usa
+`read_audit_attempt_timeline(..., sealed_source=True)`,
+herdando a rejeição de symlink e `audit.db-wal`,
+`audit.db-shm` ou `audit.db-journal` antes e depois da leitura.
+O forecast mantém ainda seu guard existente de identidade/mtime/
+tamanho e ausência de sidecars após todos os consumidores.
+
+Os testes de sidecar criado durante a leitura e de mudança de
+mtime continuam isolados e foram adaptados para provar que
+`sealed_source=True` é usado nos cinco históricos elegíveis.
+Nenhum consumidor de AUD em andamento foi alterado. Isso evita
+leitura física heterogênea, mas não autentica o provedor nem
+converte wrappers em relógios exclusivos de etapa; a previsão
+permanece histórica e não altera preços, timeout ou motores.
