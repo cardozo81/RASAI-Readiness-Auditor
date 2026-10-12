@@ -116,9 +116,13 @@ def _ai_attempt_scope_breakdown(
         fields = tuple(str(column[0]) for column in cursor.description)
         for row in cursor:
             data = dict(zip(fields, row))
-            attempt = str(data.get("attempt_id") or "")
-            if attempt in seen:
-                continue
+            attempt = str(data.get("attempt_id") or "").strip()
+            if not attempt or attempt in seen:
+                # Do not silently omit a duplicated billable attempt from
+                # the physical AI/cost cohort; no total is trustworthy.
+                raise ValueError(
+                    "ambiguous AI attempt_id in physical " + table + " ledger"
+                )
             seen.add(attempt)
             start = _time(data.get("started_at"))
             stop = _time(data.get("finished_at"))
