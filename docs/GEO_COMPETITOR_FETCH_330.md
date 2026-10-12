@@ -86,3 +86,26 @@ essa mesma função. Esta etapa **não** altera contratos versionados
 de artefatos: os flags de autorização são verificados no limite de
 rede, mas não constituem registro de consentimento assinado,
 revogação ou governança de egress SaaS.
+
+
+## CLI pública de captura HTML (12/10/2026)
+
+`rasai competitor-html-review` despacha para este módulo **antes**
+dos instaladores de auditoria, integração, provedor ou segredos.
+Continua exigindo as mesmas flags explícitas de autorização:
+hostname, papel, finalidade, duas operações GET e autorização de
+requisições públicas. Exemplo:
+
+```powershell
+rasai competitor-html-review --url https://example.com/pagina `
+  --query "seguro de vida" --role COMPETITOR_CANDIDATE `
+  --consent-host example.com `
+  --consent-purpose GEO_COMPETITOR_STATIC_CONTENT_REVIEW `
+  --consent-operation GET_ROBOTS_TXT `
+  --consent-operation GET_STATIC_HTML `
+  --allow-public-html-requests
+```
+
+Não faz parte de uma AUD automática e não coleta nada se faltar
+consentimento. O retorno é inventário efêmero, não prova de
+renderização SPA nem autorização legal do destino.
