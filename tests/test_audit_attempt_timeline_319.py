@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import sqlite3
 
+import pytest
+
 from rasai.audit_attempt_timeline import read_audit_attempt_timeline
 
 
@@ -237,4 +239,43 @@ def test_timeline_same_attempt_id_in_distinct_auds_is_not_source_collision(
     result = read_audit_attempt_timeline(db, "AUD-A")
     assert result.attempts == 1
     assert result.provider_observed_usd == .01
+    assert db.read_bytes() == original
+
+
+@pytest.mark.parametrize("suffix", ("-wal", "-shm", "-journal"))
+def test_immutable_timeline_opt_in_abstains_before_reading_unsealed_sqlite(
+    tmp_path, suffix,
+):
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute("CREATE TABLE ai_provider_attempts(attempt_id TEXT, audit_id TEXT)")
+    original = db.read_bytes()
+    journal = tmp_path / ("audit.db" + suffix)
+    journal.write_bytes(b"uncheckpointed")
+    with pytest.raises(ValueError, match="unverified WAL/SHM/journal"):
+        read_audit_attempt_timeline(db, "AUD-SELF", sealed_source=True)
+    assert db.read_bytes() == original
+    assert journal.read_bytes() == b"uncheckpointed"
+
+
+def test_immutable_timeline_opt_in_does_not_change_normal_read_only_semantics(
+    tmp_path,
+):
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE ai_provider_attempts("
+            "attempt_id TEXT, audit_id TEXT, operation TEXT, "
+            "started_at TEXT, finished_at TEXT)"
+        )
+        con.execute(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?)",
+            ("ID-1", "AUD-SELF", "DIRECTED_ANALYSIS",
+             "2026-10-12T10:00:00Z", "2026-10-12T10:00:01Z"),
+        )
+    original = db.read_bytes()
+    sealed = read_audit_attempt_timeline(db, "AUD-SELF", sealed_source=True)
+    legacy = read_audit_attempt_timeline(db, "AUD-SELF")
+    assert sealed == legacy
+    assert sealed.attempts == 1
     assert db.read_bytes() == original

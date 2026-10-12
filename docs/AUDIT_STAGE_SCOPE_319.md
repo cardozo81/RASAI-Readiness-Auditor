@@ -236,3 +236,24 @@ contém tentativas duplicadas com custos diferentes e comprovam
 preservação byte a byte. Nenhum preço, duração, timeout,
 seletor AUTO, sensor M23/M25, estrutura de ledger ou
 previsão ex ante foi modificado.
+
+
+## Selo físico do leitor `audit-attempts` (12/10/2026)
+
+Para a inspeção **offline** de uma única AUD, a cronologia econômica
+M18/M20 passa a utilizar `read_audit_attempt_timeline(...,
+sealed_source=True)`, abrindo a conexão com `mode=ro&immutable=1`
+após rejeitar `-wal`, `-shm`, `-journal` e symlink. O leitor
+reconfere os sidecars ao encerrar. Os consumidores que podem operar
+sobre a AUD **em andamento** conservam explicitamente o modo
+`mode=ro` anterior; nenhum motor ou console foi alterado.
+
+A projeção `rasai audit-attempts` calcula SHA-256 do arquivo físico
+(mais tamanho, até 1 GiB) **antes** de consultar metadados, ledgers,
+fulfillment e timers e novamente após encerrar os readers. Se os
+bytes mudam, a inspeção aborta e não publica resultados parciais ou
+somatórios de custo. Os testes simulam WAL antes do read,
+modificação de arquivo sem sidecar ao final, banco acima do limite
+e a compatibilidade dos leitores legados. O hash detecta mutações
+durante a inspeção, mas não constitui lock global ou autenticação
+criptográfica prévia da origem do arquivo.

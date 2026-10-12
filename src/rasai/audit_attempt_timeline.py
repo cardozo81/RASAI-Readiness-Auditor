@@ -154,10 +154,29 @@ def _stage(name: str, rows: list[dict]) -> TimelineStage:
     )
 
 
-def read_audit_attempt_timeline(database: Path, audit_id: str) -> AuditAttemptTimeline:
-    """Read both economic ledgers ONCE each; never mutate the audited package."""
+def _sealed_timeline_source(db: Path) -> None:
+    if (
+        db.is_symlink() or not db.is_file()
+        or any(Path(str(db) + ending).exists()
+               for ending in ("-wal", "-shm", "-journal"))
+    ):
+        raise ValueError("AI attempt timeline SQLite source has unverified WAL/SHM/journal")
+
+
+def read_audit_attempt_timeline(
+    database: Path, audit_id: str, *, sealed_source: bool = False,
+) -> AuditAttemptTimeline:
+    """Read both economic ledgers once. Opt in to immutable sealed-AUD mode.
+
+    Existing running-console/forecast callers retain their historical
+    mode=ro semantics. Physical offline inspectors require sealed_source.
+    """
     database = Path(database)
-    uri = f"file:{database.resolve().as_posix()}?mode=ro"
+    if sealed_source:
+        _sealed_timeline_source(database)
+    uri = database.resolve().as_uri() + (
+        "?mode=ro&immutable=1" if sealed_source else "?mode=ro"
+    )
     connection = sqlite3.connect(uri, uri=True, timeout=5)
     connection.row_factory = sqlite3.Row
     try:
@@ -190,7 +209,7 @@ def read_audit_attempt_timeline(database: Path, audit_id: str) -> AuditAttemptTi
                 all_rows.append(row)
         stages = tuple(_stage(key, groups[key]) for key in sorted(groups))
         total = _stage("ALL_ATTEMPTS", all_rows)
-        return AuditAttemptTimeline(
+        result = AuditAttemptTimeline(
             audit_id=audit_id,
             stages=stages,
             attempts=total.attempts,
@@ -204,3 +223,6 @@ def read_audit_attempt_timeline(database: Path, audit_id: str) -> AuditAttemptTi
         )
     finally:
         connection.close()
+    if sealed_source:
+        _sealed_timeline_source(database)
+    return result

@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 from dataclasses import asdict
+from hashlib import sha256
 import json
 import math
 from pathlib import Path
@@ -22,6 +23,7 @@ from rasai.audit_fulfillment_timing_319 import inspect_fulfillment_attempt_inter
 from rasai.audit_step_timer_inspection_319 import inspect_pipeline_step_timers
 
 _AUD = re.compile(r"^AUD-[A-Za-z0-9-]{1,100}$")
+_MAX_SOURCE_BYTES = 1024 * 1024 * 1024
 
 
 
@@ -34,6 +36,28 @@ def _reject_unsealed_sqlite_source(db: Path) -> None:
     if any(Path(str(db) + suffix).exists()
            for suffix in ("-wal", "-shm", "-journal")):
         raise ValueError("AUD SQLite source has unverified WAL/SHM/journal")
+
+
+def _source_fingerprint(db: Path) -> tuple[str, int]:
+    """Bounded SHA-256 of the physical source, not a SQLite snapshot claim."""
+    _reject_unsealed_sqlite_source(db)
+    if db.is_symlink() or not db.is_file():
+        raise ValueError("AUD SQLite source is not a regular file")
+    size = db.stat().st_size
+    if size > _MAX_SOURCE_BYTES:
+        raise ValueError("AUD SQLite source exceeds bounded verification limit")
+    digest = sha256()
+    total = 0
+    with db.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            total += len(chunk)
+            if total > _MAX_SOURCE_BYTES:
+                raise ValueError("AUD SQLite source changed during physical inspection")
+            digest.update(chunk)
+    if total != size or db.stat().st_size != size:
+        raise ValueError("AUD SQLite source changed during physical inspection")
+    _reject_unsealed_sqlite_source(db)
+    return digest.hexdigest(), size
 
 
 def _verified_console_window(
@@ -197,7 +221,7 @@ def inspect_audit_attempts(aud_dir: Path) -> dict:
     db = root / "audit.db"
     if not db.is_file() or db.is_symlink():
         raise ValueError("AUD audit.db missing")
-    _reject_unsealed_sqlite_source(db)
+    source_before = _source_fingerprint(db)
     with sqlite3.connect(
         db.resolve().as_uri() + "?mode=ro&immutable=1", uri=True, timeout=2,
     ) as con:
@@ -228,10 +252,13 @@ def inspect_audit_attempts(aud_dir: Path) -> dict:
         http_request_sums = _m21_http_request_sums(con, root.name)
         fulfillment_intervals = inspect_fulfillment_attempt_intervals(con, root.name, window)
     pipeline_step_timers = inspect_pipeline_step_timers(root, root.name, window)
-    timeline = read_audit_attempt_timeline(db, root.name)
-    # The independent timeline reader might have observed a source that
-    # started a concurrent uncheckpointed write; abstain after its read.
-    _reject_unsealed_sqlite_source(db)
+    timeline = read_audit_attempt_timeline(
+        db, root.name, sealed_source=True,
+    )
+    # An uncheckpointed journal or changes to the bare SQLite bytes during
+    # any of the three readers invalidate the combined physical projection.
+    if _source_fingerprint(db) != source_before:
+        raise ValueError("AUD SQLite source changed during physical inspection")
     stages = [asdict(x) for x in timeline.stages]
     return {
         "contract_version": "RASAI-READONLY-ATTEMPT-INSPECTION-001",
