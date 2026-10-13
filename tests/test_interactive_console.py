@@ -548,3 +548,88 @@ def test_partial_post_run_offers_reprocess_for_current_audit_id(monkeypatch) -> 
         assert "R. Reprocessar pendências desta auditoria" in rendered
         assert "[APTO]" in rendered
         assert called == [audit_id]
+
+
+def test_319_console_projection_records_apdex_workload_without_credentials(tmp_path):
+    """Console-only JSON extension; no new schema, AI call, or exposed tenant."""
+    import json
+    from rasai.console_m23 import State as ApdexConsoleState
+    from rasai.console_apdex_duration_scope_319 import (
+        NAVIGATION_FIELDS, EXPERIENCE_FIELDS,
+    )
+
+    workspace = tmp_path / "AUD-APDEX319"
+    workspace.mkdir()
+    with sqlite3.connect(workspace / "audit.db") as connection:
+        connection.execute("CREATE TABLE audits(audit_id TEXT PRIMARY KEY)")
+        connection.execute("INSERT INTO audits VALUES ('AUD-APDEX319')")
+
+    state = ApdexConsoleState(
+        audits_root=str(tmp_path), audit_id=workspace.name,
+        target="https://example.com", max_pages=1,
+        synthetic_apdex=True, apdex_experience=True,
+        apdex_threshold=3.5, apdex_samples=45,
+        apdex_experience_samples=90, apdex_experience_architecture="SPA",
+        dynatrace_base_url="https://private-observability.example",
+        dynatrace_application_id="SECRET-APPLICATION-319",
+        apdex_dynatrace_config_json='{"secret":"NEVER_PERSIST_319"}',
+    )
+    estimate = estimate_exposure(state)
+    assert persist_execution_projection(
+        workspace, state, estimate,
+        projected_at="2026-10-13T11:00:00-03:00",
+        started_at="2026-10-13T11:00:01-03:00",
+        finished_at="2026-10-13T11:01:01-03:00",
+        duration_ms=60000,
+    )
+    with sqlite3.connect(workspace / "audit.db") as connection:
+        (raw,) = connection.execute(
+            "SELECT configuration FROM console_execution_projections "
+            "WHERE audit_id='AUD-APDEX319'"
+        ).fetchone()
+        fields = {row[1] for row in connection.execute(
+            "PRAGMA table_info(console_execution_projections)"
+        )}
+    payload = json.loads(raw)
+    assert payload["synthetic_apdex"] is True
+    assert payload["apdex_experience"] is True
+    assert payload["synthetic_apdex_workload"] == {
+        key: getattr(state, key) for key in NAVIGATION_FIELDS
+    }
+    assert payload["apdex_experience_workload"] == {
+        key: getattr(state, key) for key in EXPERIENCE_FIELDS
+    }
+    assert "apdex_experience_architecture" not in fields
+    assert "synthetic_apdex_workload" not in fields
+    assert "SECRET-APPLICATION-319" not in raw
+    assert "NEVER_PERSIST_319" not in raw
+    assert "private-observability" not in raw
+
+
+def test_319_base_console_state_records_disabled_apdex_without_guessing(tmp_path):
+    import json
+    workspace = tmp_path / "AUD-BASE319"
+    workspace.mkdir()
+    with sqlite3.connect(workspace / "audit.db") as connection:
+        connection.execute("CREATE TABLE audits(audit_id TEXT PRIMARY KEY)")
+        connection.execute("INSERT INTO audits VALUES ('AUD-BASE319')")
+    state = State(
+        audits_root=str(tmp_path), audit_id=workspace.name,
+        target="https://example.com", max_pages=1,
+    )
+    assert persist_execution_projection(
+        workspace, state, estimate_exposure(state),
+        projected_at="2026-10-13T11:00:00-03:00",
+        started_at="2026-10-13T11:00:01-03:00",
+        finished_at="2026-10-13T11:01:01-03:00",
+        duration_ms=60000,
+    )
+    with sqlite3.connect(workspace / "audit.db") as con:
+        (raw,) = con.execute(
+            "SELECT configuration FROM console_execution_projections"
+        ).fetchone()
+    scope = json.loads(raw)
+    assert scope["synthetic_apdex"] is False
+    assert scope["apdex_experience"] is False
+    assert "synthetic_apdex_workload" not in scope
+    assert "apdex_experience_workload" not in scope

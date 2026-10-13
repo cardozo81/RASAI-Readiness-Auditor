@@ -510,3 +510,42 @@ Fixtures SQLite fisicas validam ausencia de flag em cinco AUDs,
 M23/M25 ativos, booleanos futuros coincidentes, diferenca de carga
 em uma fonte e integridade read-only. Nao modifica orquestrador,
 medicoes M23/M25, timers, precos, CI de motores ou captura real.
+
+
+## Snapshot consultivo da carga Apdex para coortes futuras (#319, 13/10/2026)
+
+O writer ja existente do console, `persist_execution_projection`, agora acrescenta
+ao **objeto JSON** `console_execution_projections.configuration` os
+booleanos `synthetic_apdex` e `apdex_experience`. Para cada modulo
+habilitado, acrescenta o respectivo mapa de parametros
+`synthetic_apdex_workload` ou `apdex_experience_workload`, com campos
+tipados da configuracao do console (amostras, maximo de tentativas/paginas,
+thresholds, atraso, concorrencia e, quando pertinente, KPM, modo e
+arquitetura declarada). Nenhuma coluna, indice ou tabela nova e criada.
+O console nao armazena token Dynatrace, credencial de provider,
+`dynatrace_base_url`, `dynatrace_application_id` ou JSON integral da
+configuracao Dynatrace nesse mapa.
+
+O leitor historico exige **igualdade exata de nomes, tipos e valores**
+dos parametros de um modulo Apdex ativo no estado atual. Flags sozinhas
+nao autorizam previsao: escopo sem mapa completo, com valor ausente,
+campo extra ou tipo trocado produz fonte nao elegivel. Um mesmo modulo
+com `samples=45` e `samples=90` nao e tratado como mesma carga,
+assim como arquiteturas declaradas distintas em CAT-07. O objeto do
+modulo desabilitado nao e requerido para fontes anteriores; o aviso
+sobre ausencia de comprovacao retroativa permanece.
+
+**Limite metodologico:** esse JSON registra parametros declarados no
+estado do console na persistencia. Nao comprova quantidade fisica de
+amostras coletadas, uso de presets de browser efetivos, fidelidade da
+execucao a parametros, identidade temporal de cada action nem
+equivalencia estatistica. Mesmo cinco AUDs com igualdade de escopo
+continuam produzindo percentis historicos descritivos, nao SLA ou
+garantia prospectiva. A selecao ainda exige AUD COMPLETE, tempos
+consistentes e as demais barreiras fisicas anteriores.
+
+Fixtures validam captura em SQLite temporario pela funcao de console,
+ausencia de segredos e alteracao de schema, correspondencia estrita,
+rejeicao de uma fonte com parametros contraditorios e garantia
+read-only do forecast. O runtime de M23/M25, SERP, IA e a base
+de auditorias historicas permanecem inalterados.
