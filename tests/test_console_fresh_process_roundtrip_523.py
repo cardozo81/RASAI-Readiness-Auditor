@@ -11,8 +11,6 @@ from pathlib import Path
 import subprocess
 import sys
 
-from rasai.console_config import is_secret
-from rasai.console_provider_environment import refresh_specs
 
 
 _CHILD = r"""
@@ -25,6 +23,8 @@ from rasai import console_settings
 from rasai.console_complete_persistence import install
 from rasai.console_search_intelligence import SearchConsoleState
 from rasai.console_ui_refactor import _install_search_persistence
+from rasai.console_config import is_secret
+from rasai.console_provider_environment import refresh_specs
 
 _install_search_persistence()
 install()
@@ -52,7 +52,11 @@ if operation == "save":
     os.environ["RASAI_PERPLEXITY_ENABLED"] = "true"
     os.environ["PERPLEXITY_API_KEY"] = "FAKE_SECRET_MUST_NOT_PERSIST"
     console_settings.save_console_config(state)
-    result = {"typed": console_settings._state_values(state)}
+    result = {"typed": console_settings._state_values(state),
+              "registered_nonsecret_names": sorted(
+                  spec.name for spec in refresh_specs()
+                  if not spec.sensitive and not is_secret(spec.name)
+              )}
 elif operation == "load":
     loaded = console_settings.load_console_config(state)
     console_settings.sync_nonsecret_runtime_environment(state)
@@ -122,12 +126,9 @@ def test_fresh_process_roundtrip_apdex_serp_and_explicit_perplexity_optin(tmp_pa
     parsed = ConfigParser(interpolation=None)
     parsed.optionxform = str
     parsed.read(ini, encoding="utf-8")
-    specs = refresh_specs()
-    expected = {
-        spec.name for spec in specs
-        if not spec.sensitive and not is_secret(spec.name)
-    }
-    assert set(parsed["environment"]) == expected
+    # The live registry is composed inside the console process; testing an
+    # uncomposed pytest interpreter can produce a different allowlist.
+    assert set(parsed["environment"]) == set(first["registered_nonsecret_names"])
     assert parsed.get("environment", "RASAI_SERP_MAX_REQUESTS") == "17"
     assert parsed.get("environment", "RASAI_PERPLEXITY_ENABLED") == "true"
     assert parsed.get("synthetic_apdex_experience", "architecture") == "HYDRATED"
