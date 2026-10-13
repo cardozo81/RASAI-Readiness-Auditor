@@ -47,6 +47,36 @@ def render_geo_longitudinal_html(preview: Mapping[str, Any]) -> str:
         "; elegíveis: ", _value(preview.get("audits_eligible")),
         "; excluídas: ", _value(len(rejected)), ".</p></section>",
     ]
+    coverage = preview.get("observation_coverage")
+    if isinstance(coverage, Mapping):
+        by_reason = coverage.get("excluded_auds_by_reason")
+        by_reason = by_reason if isinstance(by_reason, Mapping) else {}
+        parts.extend([
+            "<section><h2>Cobertura observacional e abstenções</h2>",
+            "<p>Coortes de escopo físico distintas: ",
+            _value(coverage.get("distinct_observed_scope_cohorts")),
+            "; coortes com somente uma AUD: ",
+            _value(coverage.get("single_observation_cohorts")),
+            "; coortes com duas ou mais observações: ",
+            _value(coverage.get("multi_observation_cohorts_unverified_trend")),
+            "; AUDs pertencentes a estas últimas: ",
+            _value(coverage.get("eligible_auds_in_multi_observation_cohorts")),
+            ".</p><p><strong>Coortes com tendência GEO calibrada: N/D.</strong> "
+            "Os agrupamentos com múltiplas AUDs permanecem somente observacionais: "
+            "não há prova de amostragem, intenção ou mercado externo equivalentes.</p>",
+        ])
+        if by_reason:
+            parts.extend([
+                "<table><thead><tr><th>Motivo de exclusão (qualidade de fonte)</th>",
+                "<th>Quantidade de AUDs</th></tr></thead><tbody>",
+            ])
+            for reason, count in sorted(by_reason.items()):
+                parts.extend([
+                    "<tr><td>", _value(reason), "</td><td>",
+                    _value(count), "</td></tr>",
+                ])
+            parts.append("</tbody></table>")
+        parts.append("</section>")
     if rejected:
         parts.extend([
             "<section><h2>Auditorias excluídas</h2><table><thead><tr>",
