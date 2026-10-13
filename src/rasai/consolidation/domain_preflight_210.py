@@ -6,11 +6,10 @@ scores between disjoint page universes. It performs no IO or service calls.
 """
 from __future__ import annotations
 
-from datetime import timezone
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlsplit
 
-from rasai.time_contract import parse_timestamp
 from rasai.consolidation.selection import AuditCandidate
 
 _CONTRACT = "RASAI-CONS-DOMAIN-PREFLIGHT-210-1"
@@ -100,9 +99,14 @@ def assess_same_domain_pair(
     ):
         return {**base, "reason": "SOURCE_AUD_NOT_COMPLETE"}
     try:
-        a = parse_timestamp(first.event_time)
-        b = parse_timestamp(second.event_time)
-        if a.tzinfo is None or b.tzinfo is None:
+        # Unlike the general historical parser, this cross-URL feasibility
+        # gate cannot silently assume UTC for timezone-naive input.
+        a = datetime.fromisoformat(str(first.event_time).replace("Z", "+00:00"))
+        b = datetime.fromisoformat(str(second.event_time).replace("Z", "+00:00"))
+        if (
+            a.tzinfo is None or a.utcoffset() is None
+            or b.tzinfo is None or b.utcoffset() is None
+        ):
             return {**base, "reason": "CHRONOLOGY_UNVERIFIABLE"}
         a = a.astimezone(timezone.utc)
         b = b.astimezone(timezone.utc)
