@@ -163,3 +163,87 @@ def test_311_cons_companion_cli_html_does_not_change_cons_or_aud(tmp_path, capsy
     assert "Esta visualização não faz parte de um CONS-* canônico" in html
     assert (cons / "manifest.json").read_bytes() == before[0]
     assert (cons / "report.html").read_bytes() == before[1]
+
+
+@pytest.mark.parametrize("constant", ["NaN", "Infinity", "-Infinity"])
+def test_311_manifest_rejects_non_json_constants_before_any_aud_read(
+    tmp_path, monkeypatch, constant,
+):
+    """Invalid unreferenced nested numbers still disqualify a physical manifest."""
+    root, cons = _cons(tmp_path)
+    manifest = cons / "manifest.json"
+    text = manifest.read_text(encoding="utf-8")
+    manifest.write_text(
+        text[:-1] + ', "future_data":{"sample":' + constant + '}}',
+        encoding="utf-8",
+    )
+    physical = {str(p): p.read_bytes() for p in root.rglob("*") if p.is_file()}
+    from rasai import geo_cons_companion_311 as companion
+    calls = []
+    monkeypatch.setattr(
+        companion, "build_geo_longitudinal_preview",
+        lambda paths: calls.append(paths),
+    )
+    with pytest.raises(ValueError, match="cannot parse CONS manifest"):
+        build_cons_geo_advisory(cons, root)
+    assert calls == []
+    assert {str(p): p.read_bytes() for p in root.rglob("*") if p.is_file()} == physical
+
+
+def test_311_cons_manifest_replaced_during_read_is_rejected_without_aud_access(
+    tmp_path, monkeypatch,
+):
+    root, cons = _cons(tmp_path)
+    manifest = cons / "manifest.json"
+    original_open = Path.open
+    from rasai import geo_cons_companion_311 as companion
+    visited = []
+    monkeypatch.setattr(
+        companion, "build_geo_longitudinal_preview",
+        lambda paths: visited.append(paths),
+    )
+    changed = []
+
+    def swap_before_open(self, mode="r", *args, **kwargs):
+        if self == manifest and mode == "rb" and not changed:
+            changed.append(True)
+            # Change size while preserving syntactically valid JSON.
+            manifest.write_text(
+                manifest.read_text(encoding="utf-8") + " ",
+                encoding="utf-8",
+            )
+        return original_open(self, mode, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", swap_before_open)
+    with pytest.raises(ValueError, match="cannot parse CONS manifest"):
+        build_cons_geo_advisory(cons, root)
+    assert changed and visited == []
+
+
+def test_311_cons_manifest_above_byte_budget_is_never_parsed(tmp_path, monkeypatch):
+    root, cons = _cons(tmp_path)
+    from rasai import geo_cons_companion_311 as companion
+    oversized = (cons / "manifest.json")
+    oversized.write_text(" " * (1024 * 1024 + 1), encoding="utf-8")
+    called = []
+    monkeypatch.setattr(
+        companion, "build_geo_longitudinal_preview",
+        lambda paths: called.append(paths),
+    )
+    with pytest.raises(ValueError, match="unsafe"):
+        build_cons_geo_advisory(cons, root)
+    assert called == []
+
+
+def test_311_cons_manifest_stat_gate_preserves_successful_offline_projection(
+    tmp_path,
+):
+    root, cons = _cons(tmp_path)
+    before = {str(p): p.read_bytes() for p in root.rglob("*") if p.is_file()}
+    outcome = build_cons_geo_advisory(cons, root)
+    assert outcome["audits_requested"] == 2
+    assert outcome["audits_eligible"] == 0
+    assert outcome["cons_reference"]["manifest_cryptographically_attested"] is False
+    assert outcome["cons_reference"]["native_cons_report_modified"] is False
+    assert outcome["provider_requests"] == outcome["audit_writes"] == 0
+    assert {str(p): p.read_bytes() for p in root.rglob("*") if p.is_file()} == before

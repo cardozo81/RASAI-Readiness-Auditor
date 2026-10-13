@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 from typing import Any, Sequence
@@ -28,6 +29,39 @@ def _unique_cons_manifest_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
             raise ValueError("duplicate CONS manifest JSON key")
         out[key] = value
     return out
+
+
+def _reject_manifest_non_json_constant(_: str) -> None:
+    """Python's NaN/Infinity extensions are not an attested CONS manifest."""
+    raise ValueError("nonstandard number in CONS manifest")
+
+
+def _verified_manifest_text(manifest: Path) -> str:
+    """Bounded, descriptor-checked read of the current physical CONS manifest.
+
+    The manifest remains unsigned and mutable: this guard only rejects
+    changes observable during one read, without claiming authentic CONS data.
+    """
+    if manifest.is_symlink() or not manifest.is_file():
+        raise ValueError("unsafe CONS manifest source")
+    before = manifest.stat()
+    if before.st_size > _MAX_BYTES:
+        raise ValueError("CONS manifest exceeds byte budget")
+    with manifest.open("rb") as stream:
+        descriptor = os.fstat(stream.fileno())
+        data = stream.read(_MAX_BYTES + 1)
+    after = manifest.stat()
+    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
+    if (
+        manifest.is_symlink() or len(data) > _MAX_BYTES
+        or len(data) != before.st_size
+        or any(
+            getattr(before, field) != getattr(entry, field)
+            for entry in (descriptor, after) for field in fields
+        )
+    ):
+        raise ValueError("CONS manifest changed during read")
+    return data.decode("utf-8")
 
 
 def build_cons_geo_advisory(cons_dir: Path, audits_root: Path) -> dict[str, Any]:
@@ -52,8 +86,9 @@ def build_cons_geo_advisory(cons_dir: Path, audits_root: Path) -> dict[str, Any]
         raise ValueError("canonical CONS manifest/report missing or unsafe")
     try:
         stored = json.loads(
-            manifest.read_text(encoding="utf-8"),
+            _verified_manifest_text(manifest),
             object_pairs_hook=_unique_cons_manifest_keys,
+            parse_constant=_reject_manifest_non_json_constant,
         )
     except (OSError, UnicodeError, ValueError) as exc:
         raise ValueError("cannot parse CONS manifest") from exc
