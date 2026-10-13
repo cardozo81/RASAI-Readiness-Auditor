@@ -1371,3 +1371,88 @@ def test_v10_legacy_render_and_stale_source_never_promote_host_metrics():
     assert "777" not in html
     assert "99.00%" not in html
     assert "Hosts comuns</td><td>N/D" in html
+
+
+def test_v11_same_length_atomic_source_replacement_before_descriptor_abstains(
+    tmp_path, monkeypatch,
+):
+    """Matching bytes and size are insufficient if stat/open cross inodes."""
+    import os
+
+    folder = _audit(tmp_path, multi=False)
+    database = folder / "audit.db"
+    original_bytes = database.read_bytes()
+    replacement = tmp_path / "other-sealed-audit.db"
+    replacement.write_bytes(original_bytes)
+    original_open = Path.open
+    swaps = []
+
+    def replaced_before_descriptor_open(self, *args, **kwargs):
+        if self == database and args and args[0] == "rb":
+            if not swaps:
+                os.replace(replacement, database)
+                swaps.append(True)
+        return original_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", replaced_before_descriptor_open)
+    result = inspect_geo_per_query(folder)
+    assert swaps == [True]
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "SOURCE_SCHEMA_OR_READ_FAILURE"
+    assert result["queries"] == []
+    assert result["source_audit_db_integrity_guard"] == "UNVERIFIED"
+    assert result["source_audit_db_sha256"] is None
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert database.read_bytes() == original_bytes
+
+
+def test_v11_same_size_source_mtime_drift_during_hash_abstains(
+    tmp_path, monkeypatch,
+):
+    """Physical metadata change is a seal failure even when SHA stays equal."""
+    import os
+
+    folder = _audit(tmp_path, multi=False)
+    database = folder / "audit.db"
+    original_bytes = database.read_bytes()
+    original_open = Path.open
+    updates = []
+
+    class MutatingReader:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return self.stream.__exit__(*args)
+
+        def fileno(self):
+            return self.stream.fileno()
+
+        def read(self, size):
+            if not updates:
+                metadata = database.stat()
+                os.utime(
+                    database,
+                    ns=(metadata.st_atime_ns, metadata.st_mtime_ns + 30_000_000_000),
+                )
+                updates.append(True)
+            return self.stream.read(size)
+
+    def change_metadata_after_open(self, *args, **kwargs):
+        stream = original_open(self, *args, **kwargs)
+        if self == database and args and args[0] == "rb":
+            return MutatingReader(stream)
+        return stream
+
+    monkeypatch.setattr(Path, "open", change_metadata_after_open)
+    result = inspect_geo_per_query(folder)
+    assert updates == [True]
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "SOURCE_SCHEMA_OR_READ_FAILURE"
+    assert result["queries"] == []
+    assert result["source_audit_db_sha256"] is None
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert database.read_bytes() == original_bytes
