@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import sqlite3
 
@@ -1373,6 +1374,10 @@ def test_v10_legacy_render_and_stale_source_never_promote_host_metrics():
     assert "Hosts comuns</td><td>N/D" in html
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="Windows SQLite may hold native handle preventing atomic os.replace",
+)
 def test_v11_same_length_atomic_source_replacement_before_descriptor_abstains(
     tmp_path, monkeypatch,
 ):
@@ -1453,4 +1458,38 @@ def test_v11_same_size_source_mtime_drift_during_hash_abstains(
     assert result["queries"] == []
     assert result["source_audit_db_sha256"] is None
     assert result["provider_requests"] == result["audit_writes"] == 0
+    assert database.read_bytes() == original_bytes
+
+
+def test_v11_path_inode_drift_during_hash_detected_on_windows_and_posix(
+    tmp_path, monkeypatch,
+):
+    """Deterministic cross-platform stat/open/post-read identity mismatch."""
+    from types import SimpleNamespace
+
+    folder = _audit(tmp_path, multi=False)
+    database = folder / "audit.db"
+    original_bytes = database.read_bytes()
+    real_stat = Path.stat
+    calls = []
+
+    def changed_path_stat(self, *args, **kwargs):
+        stat = real_stat(self, *args, **kwargs)
+        if self == database:
+            calls.append(True)
+            # First is Path.is_file(), next is the pre-open stat.
+            # After the descriptor was already verified, the path points
+            # at a distinct inode of the same size/mtime in the simulation.
+            if len(calls) >= 3:
+                return SimpleNamespace(
+                    st_dev=stat.st_dev, st_ino=stat.st_ino + 1,
+                    st_size=stat.st_size, st_mtime_ns=stat.st_mtime_ns,
+                    st_ctime_ns=stat.st_ctime_ns,
+                )
+        return stat
+
+    monkeypatch.setattr(Path, "stat", changed_path_stat)
+    with pytest.raises(ValueError, match="physical identity changed"):
+        ledger._audit_digest(database)
+    assert len(calls) >= 3
     assert database.read_bytes() == original_bytes
