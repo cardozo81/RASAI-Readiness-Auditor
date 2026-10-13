@@ -767,6 +767,40 @@ def _render_menu_extension(state: SearchConsoleState) -> None:
     print("   Termos são transitórios da sessão; credenciais/provider/limites continuam em E.")
 
 
+def _begin_post_core_progress(
+    state: SearchConsoleState,
+    *,
+    operation: str,
+    label: str,
+    service: str,
+    core_status: str,
+) -> None:
+    """Project optional post-core work without reusing the core's terminal 100%.
+
+    The core execution has already finished. Its measured completion is not a
+    measurement of the optional API request, GEO refresh, or report refresh.
+    This presentation-only status deliberately does not map back to the
+    pre-analysis external collection phase of the canonical pipeline.
+    """
+    from rasai import console_runtime
+
+    state.status = "POST_CORE_ENRICHMENT"
+    state.operation = operation
+    console_runtime.clear_runtime_progress(state)
+    console_runtime.set_runtime_progress(
+        state,
+        label,
+        None,
+        detail="AUD core encerrada; enriquecimento externo opcional em execução",
+        exact=False,
+        detail_rows=(
+            ("AUD core", f"encerrada ({core_status})"),
+            ("Serviço", service),
+            ("Pipeline total", "não mensurável durante o enriquecimento pós-core"),
+        ),
+    )
+
+
 def install(console_module: ModuleType) -> None:
     """Install Search Intelligence into the existing console without reimplementing it."""
 
@@ -848,8 +882,13 @@ def install(console_module: ModuleType) -> None:
                 state.search_last_detail = f"não foi possível resolver o domínio pós-auditoria: {exc}"
                 any_limitation = True
             else:
-                state.status = "SEARCH_INTELLIGENCE"
-                state.operation = "API:SERP"
+                _begin_post_core_progress(
+                    state,
+                    operation="API:SERP",
+                    label="Pesquisa externa opcional pós-core",
+                    service="SERP",
+                    core_status=previous_status,
+                )
                 try:
                     console_module.render_header(state)
                     print(
@@ -862,16 +901,23 @@ def install(console_module: ModuleType) -> None:
                     any_limitation = True
 
         if state.perplexity_queries:
-            state.status = "SEARCH_INTELLIGENCE"
-            state.operation = "API:PERPLEXITY_SEARCH"
-            try:
-                console_module.render_header(state)
-                print(
-                    f"Perplexity Search Intelligence: consultando "
-                    f"{len(state.perplexity_queries)} query(s) como pesquisa externa..."
+            # Disabled configuration is not an in-flight remote request.
+            if perplexity_enabled():
+                _begin_post_core_progress(
+                    state,
+                    operation="API:PERPLEXITY_SEARCH",
+                    label="Pesquisa externa opcional: Perplexity",
+                    service="Perplexity Search API",
+                    core_status=previous_status,
                 )
-            except Exception:
-                pass
+                try:
+                    console_module.render_header(state)
+                    print(
+                        f"Perplexity Search Intelligence: processando "
+                        f"{len(state.perplexity_queries)} query(s) opcionais..."
+                    )
+                except Exception:
+                    pass
             # Perplexity is optional advisory enrichment. Contain even an
             # unexpected adapter exception so the AUD status and canonical
             # collection/AI/persistence results remain unchanged.
@@ -890,6 +936,32 @@ def install(console_module: ModuleType) -> None:
         else:
             state.status = previous_status
             state.operation = "LOCAL:DONE"
+
+        if state.search_queries or state.perplexity_queries:
+            # Recover the core's terminal projection only *after* the optional
+            # calls (including re-projection) have ended. Keep the core's own
+            # outcome distinct from advisory Perplexity success/failure.
+            from rasai import console_runtime
+
+            terminal_label = (
+                "Concluído com limitações"
+                if state.status == "COMPLETE_WITH_LIMITATIONS"
+                else "Concluído"
+                if state.status == "COMPLETE"
+                else "Execução encerrada"
+            )
+            console_runtime.set_runtime_progress(
+                state,
+                terminal_label,
+                100.0,
+                exact=True,
+                detail="processamento operacional encerrado; confira os estados da AUD e das integrações",
+                detail_rows=(
+                    ("AUD core", previous_status),
+                    ("SERP", str(state.search_last_status)),
+                    ("Perplexity", str(state.perplexity_last_status)),
+                ),
+            )
         return code
 
     def usage(state: SearchConsoleState) -> None:
