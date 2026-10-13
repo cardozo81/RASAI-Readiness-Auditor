@@ -333,8 +333,17 @@ def explain_dynatrace_apdex_pt_br(result: Mapping[str, Any]) -> dict[str, Any]:
     supplied = result.get("observed_kpm", {})
     if not isinstance(supplied, Mapping):
         supplied = {}
+    # A provenance label alone is not an authenticated HTTP observation:
+    # the offline advisory can be invoked with arbitrary operator-supplied
+    # metadata. Require the positive, internally set CLI read result and
+    # exact read-scope contract before using the word "consultados".
     authenticated_settings = (
         result.get("settings_provenance") == "LIVE_DYNATRACE_SETTINGS_API_EFFECTIVE_VALUES"
+        and result.get("input_source") == "AUTHENTICATED_LIVE_DYNATRACE_EFFECTIVE_VALUES"
+        and result.get("scope_provenance") == "AUTHENTICATED_SETTINGS_API_SCOPE_NOT_RUM_EVENTS"
+        and result.get("actual_dynatrace_tenant_consulted") is True
+        and type(result.get("dynatrace_provider_requests")) is int
+        and result["dynatrace_provider_requests"] == 1
     )
     return {
         "conclusao": _STATUS_PT_BR.get(

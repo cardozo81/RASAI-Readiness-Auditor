@@ -352,3 +352,28 @@ verificam que a lista de KPMs não vira uma prescrição e que
 os bytes `audit.db` permanecem idênticos após renderização.
 A validação live/autorizada, URL/device/janela e população RUM
 continua pendente no gate humano da issue.
+
+## Rastreabilidade da consulta live na orientação humana (#355)
+
+A redação `Valores efetivos consultados no tenant` só é utilizada na
+projeção em português quando o comando de leitura registra
+**conjuntamente** os campos de escopo/transport:
+`settings_provenance=LIVE_DYNATRACE_SETTINGS_API_EFFECTIVE_VALUES`,
+`input_source=AUTHENTICATED_LIVE_DYNATRACE_EFFECTIVE_VALUES`,
+`scope_provenance=AUTHENTICATED_SETTINGS_API_SCOPE_NOT_RUM_EVENTS`,
+`actual_dynatrace_tenant_consulted=true` e
+`dynatrace_provider_requests=1` (inteiro, não booleano).
+
+O objeto de resultado do advisory também pode ser instanciado a
+partir de um JSON fornecido pelo operador. Portanto a mera presença
+do texto `LIVE_DYNATRACE_SETTINGS_API_EFFECTIVE_VALUES` **não**
+atesta uma consulta. Se o conjunto de campos estiver incompleto,
+o texto permanece `Configuração fornecida pelo operador, não
+verificada no tenant`, sem fingir que HTTP ou RUM foi observado.
+
+A CLI agora insere o fato da consulta e contagem **antes** de compor
+a mensagem humana. Mesmo com consulta real, Settings API apresenta
+configuração do tenant, não prova população de ações Load/XHR/Custom,
+mesma página/dispositivo/janela, scores nem renderização final.
+Testes isolados exercitam combinações inconsistentes e o caminho
+positivo, sem rede ou credenciais.
