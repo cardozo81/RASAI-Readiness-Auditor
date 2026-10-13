@@ -92,6 +92,29 @@ def _host_group(urls: set[str], target: str) -> dict[str, int]:
     }
 
 
+def _host_overlap(serp_urls: set[str], external_urls: set[str]) -> dict[str, int | float]:
+    """Observed exact-host intersection; NOT eTLD+1, market share or citations.
+
+    Called only after every member of both physical URL sets has passed
+    canonical HTTP(S) identity validation and query/temporal attribution.
+    A host is a URL hostname, so www/apex remain distinct populations.
+    """
+    serp_hosts = {urlsplit(url).hostname for url in serp_urls}
+    external_hosts = {urlsplit(url).hostname for url in external_urls}
+    shared = len(serp_hosts & external_hosts)
+    union = len(serp_hosts | external_hosts)
+    return {
+        "serp_distinct_hosts": len(serp_hosts),
+        "external_distinct_hosts": len(external_hosts),
+        "common_hosts": shared,
+        "serp_only_hosts": len(serp_hosts - external_hosts),
+        "external_only_hosts": len(external_hosts - serp_hosts),
+        "serp_host_overlap_rate": round(shared / len(serp_hosts), 4),
+        "external_host_overlap_rate": round(shared / len(external_hosts), 4),
+        "jaccard_host_rate": round(shared / union, 4),
+    }
+
+
 def _audit_digest(path: Path) -> tuple[str, int]:
     """Bounded local source seal, never a claim of provider authenticity."""
     if path.is_symlink() or not path.is_file():
@@ -151,6 +174,7 @@ def _row(query: str, classification: str, reason: str) -> dict[str, Any]:
         "target_url_exact_in_serp": None,
         "target_url_exact_in_perplexity": None,
         "target_url_overlap_status": "N/D",
+        "host_overlap": None,
         "serp_target_host_group": None,
         "external_target_host_group": None,
         "external_market_language_device_equivalence_proven": False,
@@ -186,7 +210,7 @@ def inspect_geo_per_query(
         raise ValueError("invalid explicit branded-query declaration")
 
     out: dict[str, Any] = {
-        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-005",
+        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-006",
         "audit_id": root.name, "status": "NOT_COMPARABLE",
         "reason": None, "queries": [],
         "per_query_attribution_status": "NOT_VERIFIED",
@@ -507,6 +531,7 @@ def inspect_geo_per_query(
                     serp_overlap_rate=round(common / len(serp_urls), 4),
                     perplexity_overlap_rate=round(common / len(px_urls), 4),
                     jaccard_url_rate=round(common / union, 4),
+                    host_overlap=_host_overlap(serp_urls, px_urls),
                 )
                 if target is not None:
                     in_serp = target in serp_urls

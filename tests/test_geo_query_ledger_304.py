@@ -330,7 +330,7 @@ def test_v2_exact_aud_target_is_visible_per_query_in_both_observed_url_sets(
     )
     original = (folder / "audit.db").read_bytes()
     result = inspect_geo_per_query(folder)
-    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-005"
+    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-006"
     assert result["status"] == "DESCRIPTIVE_ONLY"
     assert result["aud_target_scope"] == "SINGLE_EXACT_AUD_TARGET"
     assert result["aud_target_exact_url"] == "https://example.org/shared"
@@ -708,7 +708,7 @@ def test_v5_reads_real_repository_per_result_query_metadata_only_when_explicit(
     _provider_source_metadata(folder)
     original = (folder / "audit.db").read_bytes()
     result = inspect_geo_per_query(folder)
-    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-005"
+    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-006"
     assert result["status"] == "DESCRIPTIVE_ONLY"
     assert result["per_query_attribution_status"] == "PHYSICALLY_ATTRIBUTABLE"
     assert len(result["queries"]) == 2
@@ -1012,7 +1012,7 @@ def test_public_cli_geo_query_ledger_and_html_do_not_bootstrap_audit_or_ai(
     ]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["contract_version"] == (
-        "RASAI-GEO-PER-QUERY-304-ADVISORY-005"
+        "RASAI-GEO-PER-QUERY-304-ADVISORY-006"
     )
     assert payload["provider_requests"] == payload["audit_writes"] == 0
     assert source.read_bytes() == initial
@@ -1248,3 +1248,126 @@ def test_v9_per_source_query_metadata_rejects_non_json_numbers_and_ambiguous_key
     assert evidence["source_audit_db_integrity_guard"] == "DOUBLE_SHA256_MATCH"
     assert evidence["provider_requests"] == evidence["audit_writes"] == 0
     assert (folder / "audit.db").read_bytes() == before
+
+
+def test_v10_per_query_exact_hostname_overlap_is_observed_not_market_equivalence(
+    tmp_path,
+):
+    """Physical URL sets are compared after per-query attribution, not snippets."""
+    folder = _audit(tmp_path, multi=True)
+    db = folder / "audit.db"
+    before = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-006"
+    assert result["status"] == "DESCRIPTIVE_ONLY"
+    assert len(result["queries"]) == 2
+    for row in result["queries"]:
+        assert row["host_overlap"] == {
+            "serp_distinct_hosts": 3,
+            "external_distinct_hosts": 2,
+            "common_hosts": 1,
+            "serp_only_hosts": 2,
+            "external_only_hosts": 1,
+            "serp_host_overlap_rate": 0.3333,
+            "external_host_overlap_rate": 0.5,
+            "jaccard_host_rate": 0.25,
+        }
+        assert row["external_market_language_device_equivalence_proven"] is False
+        assert row["ranking_or_generative_citation_proven"] is False
+    assert result["source_audit_db_sha256"] == sha256(before).hexdigest()
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert db.read_bytes() == before
+
+
+def test_v10_www_apex_distinct_while_url_port_does_not_change_hostname(
+    tmp_path,
+):
+    folder = _audit(tmp_path, multi=False)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE perplexity_search_sources SET url=? "
+            "WHERE run_id='PX-A' AND position=1",
+            ("https://www.example.org/page",),
+        )
+        con.execute(
+            "INSERT INTO serp_results VALUES (?,?,?)",
+            ("SERP-0", 21, "https://example.org:8443/port"),
+        )
+    before = db.read_bytes()
+    row = inspect_geo_per_query(folder)["queries"][0]
+    assert row["status"] == "DESCRIPTIVE_ONLY"
+    # SERP distinct URLs increase, but example.org:8443 shares the
+    # hostname example.org; www.example.org does not.
+    assert row["serp_distinct_urls"] == 4
+    assert row["host_overlap"] == {
+        "serp_distinct_hosts": 3,
+        "external_distinct_hosts": 2,
+        "common_hosts": 1,
+        "serp_only_hosts": 2,
+        "external_only_hosts": 1,
+        "serp_host_overlap_rate": 0.3333,
+        "external_host_overlap_rate": 0.5,
+        "jaccard_host_rate": 0.25,
+    }
+    assert db.read_bytes() == before
+
+
+def test_v10_unproven_source_mapping_or_invalid_member_never_yields_host_rates(
+    tmp_path,
+):
+    folder = _audit(tmp_path, multi=True, source_query_column=False)
+    missing = inspect_geo_per_query(folder)
+    assert all(row["host_overlap"] is None for row in missing["queries"])
+    from rasai.geo_query_ledger_html_304 import render_geo_query_ledger_html
+    html = render_geo_query_ledger_html(missing)
+    assert "Hosts distintos SERP</td><td>N/D" in html
+    assert "Interseção de hosts observados" in html
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "ALTER TABLE perplexity_search_sources ADD COLUMN query TEXT"
+        )
+        for position in (0, 1, 10, 11):
+            query = "seguro bradesco" if position < 10 else "seguro de vida"
+            con.execute(
+                "UPDATE perplexity_search_sources SET query=? WHERE position=?",
+                (query, position),
+            )
+        con.execute(
+            "UPDATE perplexity_search_sources SET url=? WHERE position=0",
+            ("javascript:non-http",),
+        )
+    before = (folder / "audit.db").read_bytes()
+    limited = inspect_geo_per_query(folder)
+    by_query = {row["query"]: row for row in limited["queries"]}
+    assert by_query["seguro bradesco"]["host_overlap"] is None
+    assert by_query["seguro de vida"]["host_overlap"] is not None
+    html = render_geo_query_ledger_html(limited)
+    assert "Hosts distintos SERP</td><td>3</td>" in html
+    assert (folder / "audit.db").read_bytes() == before
+
+
+def test_v10_legacy_render_and_stale_source_never_promote_host_metrics():
+    from rasai.geo_query_ledger_html_304 import render_geo_query_ledger_html
+    legacy = {
+        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-005",
+        "status": "DESCRIPTIVE_ONLY",
+        "audit_id": "AUD-GEO304",
+        "source_audit_db_integrity_guard": "DOUBLE_SHA256_MATCH",
+        "queries": [{"query": "x", "status": "DESCRIPTIVE_ONLY",
+                     "declared_query_class": "UNCLASSIFIED"}],
+    }
+    assert "Hosts distintos SERP</td><td>N/D" in render_geo_query_ledger_html(legacy)
+    upgraded = {
+        **legacy,
+        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-006",
+        "source_audit_db_integrity_guard": "UNVERIFIED",
+        "queries": [{**legacy["queries"][0], "host_overlap": {
+            "common_hosts": 777,
+            "serp_host_overlap_rate": 0.99,
+        }}],
+    }
+    html = render_geo_query_ledger_html(upgraded)
+    assert "777" not in html
+    assert "99.00%" not in html
+    assert "Hosts comuns</td><td>N/D" in html

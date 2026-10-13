@@ -11,6 +11,7 @@ from typing import Any, Mapping
 
 _SUPPORTED = {
     "RASAI-GEO-PER-QUERY-304-ADVISORY-005",
+    "RASAI-GEO-PER-QUERY-304-ADVISORY-006",
 }
 _SCOPE = ("engine", "country", "region", "language", "device")
 
@@ -136,6 +137,25 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
                 ("URL auditada no Search API", "target_url_exact_in_perplexity"),
             ]
         )
+        host_overlap = entry.get("host_overlap") if row_admissible else None
+        def host_value(key: str, formatter: Any) -> str:
+            if not isinstance(host_overlap, Mapping):
+                return "N/D"
+            return formatter(host_overlap.get(key))
+        host_metrics = (
+            ("Hosts distintos SERP", "serp_distinct_hosts", _count),
+            ("Hosts distintos Search API", "external_distinct_hosts", _count),
+            ("Hosts comuns", "common_hosts", _count),
+            ("Hosts exclusivos SERP", "serp_only_hosts", _count),
+            ("Hosts exclusivos Search API", "external_only_hosts", _count),
+            ("Sobreposição de hosts SERP", "serp_host_overlap_rate", _rate),
+            ("Sobreposição de hosts Search API", "external_host_overlap_rate", _rate),
+            ("Jaccard de hosts exatos", "jaccard_host_rate", _rate),
+        )
+        host_metrics_html = "".join(
+            _table_row([escape(label, quote=True), host_value(key, formatter)])
+            for label, key, formatter in host_metrics
+        )
         segments = [
             "<section class='query'>",
             f"<h2>{query}</h2>",
@@ -149,7 +169,12 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
             "</table><p class='muted'>Estado: ",
             _safe(entry.get("target_url_overlap_status"))
             if row_admissible else "N/D",
-            "</p></div></div></section>",
+            "</p></div></div>",
+            "<h3>Interseção de hosts observados (sem inferir concorrência)</h3>",
+            "<table>", host_metrics_html, "</table>",
+            "<p class='muted'>Hostname exato: www e apex não são equivalentes; "
+            "portas e protocolos distintos podem compartilhar hostname. "
+            "Não é participação de mercado, ranking ou citação.</p></section>",
         ]
         snippets.append("".join(segments))
 

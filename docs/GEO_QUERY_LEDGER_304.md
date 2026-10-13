@@ -355,3 +355,39 @@ nenhuma chamada adicional aos provedores. Testes físicos reproduzem
 as três constantes não JSON e duplicações tanto na raiz quanto
 em objetos aninhados. O guard **não** comprova mercado, dispositivo,
 idioma, intenção nem ranking da fonte externa.
+
+
+## Contrato v6 - interseção de hostnames observados, por consulta (13/10/2026)
+
+O contrato consultivo `RASAI-GEO-PER-QUERY-304-ADVISORY-006` acrescenta
+`host_overlap` a cada linha `DESCRIPTIVE_ONLY`, **somente após**
+vínculo físico por query, validação de todas as URLs HTTP(S) das duas
+fontes, escopo SERP elegível na janela e selo local do SQLite em duas
+leituras. O objeto contém `serp_distinct_hosts`,
+`external_distinct_hosts`, `common_hosts`, `serp_only_hosts`,
+`external_only_hosts`, taxas relativas de interseção de hosts por
+fonte e Jaccard de hosts distintos. O HTML apresenta o resultado como
+**interseção de hostnames exatos**, separado da interseção de URLs.
+
+A normalização de identidade de URLs permanece v8 e **não mudou**.
+Hostnames são derivados somente das URLs já verificadas: `www.example.org`
+e `example.org` são hosts diferentes; portas e esquemas diferentes
+podem pertencer ao mesmo hostname. Não há normalização eTLD+1,
+agrupamento corporativo de concorrentes nem inferência de citação,
+posição, menção, intenção, demanda, representatividade de amostra,
+idioma, localização ou dispositivo externos. URL repetida no mesmo
+host não cria host adicional.
+
+Se a fonte por query não for atribuível, a URL de qualquer amostra
+pertinente for inválida, o escopo SERP não for comprovável ou a
+integridade física falhar, `host_overlap=null` (N/D). A tabela HTML
+exige o mesmo gate global de fonte e linha usado pelas taxas por URL;
+não apresenta números remanescentes após falha de selo. A visualização
+mantém suporte a objetos v5 anteriores, sem inventar esse campo
+retroativamente.
+
+Testes SQLite físicos incluem multiquery, hosts exatos versus www,
+portas distintas, rejeição de URL inválida, ausência de mapeamento e
+abstenção após falha de proveniência. Sem novas chamadas externas,
+captura de concorrente, escrita em AUD, alteração do produtor GEO,
+SARI/SCORE-GEO, CONS, relatório canônico ou motores homologados.
