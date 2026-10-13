@@ -292,3 +292,19 @@ Eles seguem em `WINDOW_UNVERIFIED`, com intervalos `N/D`, sem representar
 cronômetro exclusivo de etapa ou alimentar forecast/custo. Testes offline
 SQLite preservam as tentativas terminais e recusam as não comprovadas,
 sem alterar ledger, writer, motor, preço ou execução.
+
+
+## Unicidade física da AUD no forecast histórico (12/10/2026)
+
+O leitor consultivo de duração histórica só admite no conjunto de treino
+uma fonte cujo `audit.db` contenha **uma única linha física** na tabela
+`audits`, com identidade igual ao diretório `AUD-*` e estado
+`COMPLETED/COMPLETE`. Filtrar previamente pelo ID esperado ocultaria
+outra linha de ciclo de vida estrangeira e poderia contaminar a amostra
+usada para mediana, P90 e backtests. Um banco com duas linhas distintas
+é excluído por completo; as demais AUDs permanecem elegíveis. Teste
+isolado compara uma coorte de cinco AUDs válidas com quatro após inserir
+uma linha estrangeira apenas em uma fonte, comprovando previsão N/D
+quando o mínimo de cinco fontes íntegros deixa de ser atendido.
+Esta verificação não altera os bancos fonte, o ledger de fulfillment,
+o console operacional nem os preços ou tempos persistidos.
