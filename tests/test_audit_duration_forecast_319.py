@@ -21,6 +21,19 @@ from rasai.audit_duration_forecast_319 import (
 from rasai.console_cost_confirmation import _render_forecast
 from rasai.cost_forecast import CostForecast
 
+from rasai.console_apdex_duration_scope_319 import (
+    NAVIGATION_FIELDS, EXPERIENCE_FIELDS, apdex_duration_scope,
+)
+from rasai.console_m23 import State as ApdexConsoleState
+
+
+def _configured_apdex_fields(state):
+    reference = ApdexConsoleState()
+    for field in (*NAVIGATION_FIELDS, *EXPERIENCE_FIELDS):
+        setattr(state, field, getattr(reference, field))
+    return state
+
+
 
 def _state(root: Path):
     return SimpleNamespace(
@@ -754,21 +767,20 @@ def test_explicit_historical_apdex_booleans_allow_only_matching_workloads(
 ):
     """Future opt-in physical flags can support a cohort; conflicting runs cannot."""
     databases = [_audit(tmp_path, i) for i in range(5)]
+    state = _configured_apdex_fields(_state(tmp_path))
+    state.synthetic_apdex = True
+    state.apdex_experience = False
     for db in databases:
         with sqlite3.connect(db) as con:
             (text,) = con.execute(
                 "SELECT configuration FROM console_execution_projections"
             ).fetchone()
             payload = json.loads(text)
-            payload["synthetic_apdex"] = True
-            payload["apdex_experience"] = False
+            payload.update(apdex_duration_scope(state))
             con.execute(
                 "UPDATE console_execution_projections SET configuration=?",
                 (json.dumps(payload),),
             )
-    state = _state(tmp_path)
-    state.synthetic_apdex = True
-    state.apdex_experience = False
     expected = forecast_local_duration(state)
     assert expected.available and expected.sample_runs == 5
 
@@ -808,3 +820,86 @@ def test_legacy_disabled_apdex_scope_remains_allowed_but_explicit_true_excluded(
             (json.dumps(payload),),
         )
     assert forecast_local_duration(state).sample_runs == 4
+
+
+@pytest.mark.parametrize(
+    ("module_flag", "intensity_key", "new_value"),
+    [
+        ("synthetic_apdex", "apdex_samples", 245),
+        ("synthetic_apdex", "apdex_concurrency", 5),
+        ("apdex_experience", "apdex_experience_samples", 180),
+        ("apdex_experience", "apdex_experience_kpm", "LARGEST_CONTENTFUL_PAINT"),
+        ("apdex_experience", "apdex_experience_settle", 8.5),
+        ("apdex_experience", "apdex_experience_architecture", "SPA"),
+    ],
+)
+def test_workload_parameters_must_match_before_duration_prediction(
+    tmp_path, module_flag, intensity_key, new_value,
+):
+    state = _configured_apdex_fields(_state(tmp_path))
+    setattr(state, module_flag, True)
+    databases = [_audit(tmp_path, i) for i in range(5)]
+    for db in databases:
+        with sqlite3.connect(db) as con:
+            (config,) = con.execute(
+                "SELECT configuration FROM console_execution_projections"
+            ).fetchone()
+            body = json.loads(config)
+            body.update(apdex_duration_scope(state))
+            con.execute(
+                "UPDATE console_execution_projections SET configuration=?",
+                (json.dumps(body),),
+            )
+    original = [db.read_bytes() for db in databases]
+    projection = forecast_local_duration(state)
+    assert projection.available and projection.sample_runs == 5
+    setattr(state, intensity_key, new_value)
+    different = forecast_local_duration(state)
+    assert different.sample_runs == 0
+    assert not different.available
+    assert [db.read_bytes() for db in databases] == original
+
+
+@pytest.mark.parametrize("tamper", [
+    "workload_missing", "workload_missing_field", "workload_forged_type",
+    "workload_extra_field",
+])
+def test_apdex_duration_missing_or_malformed_fingerprint_is_not_estimated(
+    tmp_path, tamper,
+):
+    state = _configured_apdex_fields(_state(tmp_path))
+    state.synthetic_apdex = True
+    databases = [_audit(tmp_path, i) for i in range(5)]
+    for db in databases:
+        with sqlite3.connect(db) as con:
+            (config,) = con.execute(
+                "SELECT configuration FROM console_execution_projections"
+            ).fetchone()
+            body = json.loads(config)
+            body.update(apdex_duration_scope(state))
+            con.execute(
+                "UPDATE console_execution_projections SET configuration=?",
+                (json.dumps(body),),
+            )
+    assert forecast_local_duration(state).available
+    with sqlite3.connect(databases[4]) as con:
+        (config,) = con.execute(
+            "SELECT configuration FROM console_execution_projections"
+        ).fetchone()
+        body = json.loads(config)
+        if tamper == "workload_missing":
+            body.pop("synthetic_apdex_workload")
+        elif tamper == "workload_missing_field":
+            body["synthetic_apdex_workload"].pop("apdex_samples")
+        elif tamper == "workload_forged_type":
+            body["synthetic_apdex_workload"]["apdex_samples"] = True
+        elif tamper == "workload_extra_field":
+            body["synthetic_apdex_workload"]["secret"] = "invalid"
+        con.execute(
+            "UPDATE console_execution_projections SET configuration=?",
+            (json.dumps(body),),
+        )
+    before = [db.read_bytes() for db in databases]
+    result = forecast_local_duration(state)
+    assert result.sample_runs == 4 and not result.available
+    assert [db.read_bytes() for db in databases] == before
