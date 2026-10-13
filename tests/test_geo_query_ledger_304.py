@@ -464,7 +464,11 @@ def test_v3_change_during_immutable_projection_discards_numeric_metrics(
     assert result["status"] == "NOT_COMPARABLE"
     assert result["reason"] == "AUD_SOURCE_CHANGED_DURING_READ"
     assert result["queries"] == []
+    assert result["per_query_attribution_status"] == "NOT_VERIFIED"
+    assert result["aud_target_scope"] == "NO_UNIQUE_CANONICAL_TARGET"
+    assert result["aud_target_exact_url"] is None
     assert result["source_audit_db_sha256"] is None
+    assert result["source_audit_db_bytes_verified"] is None
     assert result["source_audit_db_integrity_guard"] == "UNVERIFIED"
 
 
@@ -524,6 +528,12 @@ def test_v3_new_sqlite_journal_during_projection_discards_overlap(
     assert outcome["status"] == "NOT_COMPARABLE"
     assert outcome["reason"] == "AUD_SQLITE_SIDECAR_APPEARED_DURING_READ"
     assert outcome["queries"] == []
+    assert outcome["per_query_attribution_status"] == "NOT_VERIFIED"
+    assert outcome["aud_target_scope"] == "NO_UNIQUE_CANONICAL_TARGET"
+    assert outcome["aud_target_exact_url"] is None
+    assert outcome["source_audit_db_sha256"] is None
+    assert outcome["source_audit_db_bytes_verified"] is None
+    assert outcome["source_audit_db_integrity_guard"] == "UNVERIFIED"
     assert calls["count"] == 1
 
 
