@@ -120,3 +120,15 @@ de MIME já adotada pelo leitor USQL. Testes com transporte falso validam
 respostas aceitas/recusadas sem acesso real ao Dynatrace.
 Não modifica endpoint, permissões, threshold, interpretação arquitetural,
 M23/M25, banco AUD ou score.
+
+
+## Constantes não JSON no corpo Settings (12/10/2026)
+
+O leitor live da Settings API recusa tokens `NaN`, `Infinity` e
+`-Infinity`, aceitos como extensão pelo decoder padrão Python apesar
+de não integrarem a especificação JSON. Uma resposta com esses tokens,
+mesmo em campos adicionais, não pode ser promovida a configuração
+efetiva autenticada. O erro é categorizado como JSON inválido e não
+inclui token, tenant ou valores comerciais. Três cenários de transporte
+falso exercitam o contrato sem rede real, banco AUD ou alteração de
+thresholds, M23/M25 e interpretação de RUM.
