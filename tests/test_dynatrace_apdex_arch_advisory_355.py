@@ -473,6 +473,92 @@ def test_offline_effective_values_cli_is_read_only_with_explicit_unverified_scop
         ])
 
 
+@pytest.mark.parametrize(
+    ("architecture", "soft", "async_seen", "expected_types"),
+    [
+        ("CSR_SPA", True, True, ["load_actions", "xhr_actions"]),
+        ("HYDRATED", True, True, ["load_actions", "xhr_actions"]),
+        ("MIXED", True, False, ["load_actions", "xhr_actions"]),
+        ("STATIC_OR_SSR", False, False, ["load_actions"]),
+        ("CSR_SPA", None, None, ["load_actions"]),
+    ],
+)
+def test_pt_br_kpm_profiles_are_architecture_contextual_not_applied_defaults(
+    architecture, soft, async_seen, expected_types,
+):
+    from rasai.dynatrace_apdex_arch_advisory_355 import (
+        explain_dynatrace_apdex_pt_br,
+        KPM_BY_ACTION,
+    )
+    declared = _config(xhr=True, count=3) if async_seen else _config()
+    advisory = assess(
+        architecture=architecture,
+        architecture_evidence_id="M6-DECLARED-OFFLINE",
+        soft_navigation_observed=soft,
+        async_requests_observed=async_seen,
+        settings=declared,
+    )
+    projected = explain_dynatrace_apdex_pt_br(advisory)
+    review = projected["revisao_de_perfis_por_arquitetura"]
+    assert review["status"] == "CONTEXTUAL_KPM_OPTIONS_NOT_VERIFIED_RECOMMENDATION"
+    assert [p["action_type"] for p in review["profiles"]] == expected_types
+    assert review["settings_auto_applied"] is False
+    assert review["numeric_thresholds"] is None
+    for profile in review["profiles"]:
+        assert profile["vendor_valid_kpm_options"] == sorted(
+            KPM_BY_ACTION[profile["action_type"]]
+        )
+        assert profile["prescribed_kpm"] is None
+        assert profile["prescribed_tolerated_seconds"] is None
+        assert profile["prescribed_frustrating_seconds"] is None
+    assert advisory["dynatrace_provider_requests"] == 0
+    assert advisory["synthetic_m23_m25_changed"] is False
+    assert advisory["new_apdex_score"] is None
+
+
+def test_pt_br_kpm_profiles_do_not_label_absent_xhr_as_disabled_capture():
+    from rasai.dynatrace_apdex_arch_advisory_355 import (
+        explain_dynatrace_apdex_pt_br,
+    )
+    advisory = _assess(settings=_config(), architecture="CSR_SPA")
+    out = explain_dynatrace_apdex_pt_br(advisory)
+    xhr = next(
+        item for item in out["revisao_de_perfis_por_arquitetura"]["profiles"]
+        if item["action_type"] == "xhr_actions"
+    )
+    assert xhr["configuration_presence"] == (
+        "KPM_NOT_PROVIDED_NOT_PROOF_OF_DISABLED_CAPTURE"
+    )
+    assert xhr["configured_kpm"] is None
+    assert xhr["review"] == "REVIEW_RUM_XHR_CAPTURE_AND_ACTION_COVERAGE"
+
+
+def test_pt_br_kpm_profile_custom_action_and_unknown_architecture_abstain():
+    from rasai.dynatrace_apdex_arch_advisory_355 import (
+        explain_dynatrace_apdex_pt_br,
+    )
+    settings = _config(xhr=True, count=5)
+    settings["custom_actions"] = {
+        "kpm": "USER_ACTION_DURATION",
+        "thresholds": _thresholds(),
+    }
+    known = explain_dynatrace_apdex_pt_br(
+        _assess(settings=settings, architecture="HYDRATED")
+    )
+    custom = known["revisao_de_perfis_por_arquitetura"]["profiles"][-1]
+    assert custom["action_type"] == "custom_actions"
+    assert custom["vendor_valid_kpm_options"] == ["USER_ACTION_DURATION"]
+    assert custom["configured_kpm"] == "USER_ACTION_DURATION"
+    unknown = explain_dynatrace_apdex_pt_br(
+        _assess(settings=settings, architecture="UNKNOWN")
+    )
+    guidance = unknown["revisao_de_perfis_por_arquitetura"]
+    assert guidance["status"] == "ARCHITECTURE_NOT_VERIFIED"
+    assert guidance["profiles"] == []
+    assert guidance["settings_auto_applied"] is False
+    assert guidance["numeric_thresholds"] is None
+
+
 def test_pt_br_advisory_spa_load_only_never_claims_captured_xhr():
     from rasai.dynatrace_apdex_arch_advisory_355 import explain_dynatrace_apdex_pt_br
     verdict = _assess(settings=_config())
