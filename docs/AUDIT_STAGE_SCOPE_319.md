@@ -308,3 +308,20 @@ uma linha estrangeira apenas em uma fonte, comprovando previsão N/D
 quando o mínimo de cinco fontes íntegros deixa de ser atendido.
 Esta verificação não altera os bancos fonte, o ledger de fulfillment,
 o console operacional nem os preços ou tempos persistidos.
+
+
+## Ambiguidade de escopo no JSON da configuração histórica (12/10/2026)
+
+O forecast de duração somente aceita uma AUD histórica quando
+`console_execution_projections.configuration` é um objeto JSON
+inequívoco: **qualquer chave duplicada** invalida a elegibilidade
+daquela fonte. O decoder padrão Python manteria silenciosamente
+a última declaração, permitindo que parâmetros conflitantes como
+`device`, `input_mode`, `web_max_pages` ou
+`content_remediation` fossem mascarados por um valor comparável.
+Uma coorte de cinco AUDs que contém uma configuração física ambígua
+passa a ter apenas quatro fontes elegíveis, retornando previsão N/D
+pelo limite mínimo do forecast, em vez de publicar P90 enganoso.
+Quatro fixtures SQLite validam a exclusão seletiva, sem redes,
+escritas do leitor, ajuste pós-fato de pricing ou alteração do
+motor de auditoria.

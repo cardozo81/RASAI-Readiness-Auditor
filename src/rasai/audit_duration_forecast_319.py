@@ -156,6 +156,18 @@ def _time(value: Any) -> datetime | None:
         return None
 
 
+def _unique_history_config_keys(
+    pairs: list[tuple[str, Any]],
+) -> dict[str, Any]:
+    """Reject ambiguous source scope rather than Python's last-key-wins."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicated physical forecast configuration key")
+        result[key] = value
+    return result
+
+
 def _strictly_comparable(current: Any, historical: Mapping[str, Any]) -> bool:
     # The existing forecast comparison allows missing legacy fields for monetary
     # usage. Wall-time is more sensitive to configuration, so fail closed here.
@@ -323,7 +335,10 @@ def _historical_audit(
         if audit_id != database.parent.name:
             return None
         try:
-            config = json.loads(str(row["configuration"]))
+            config = json.loads(
+                str(row["configuration"]),
+                object_pairs_hook=_unique_history_config_keys,
+            )
         except (ValueError, TypeError):
             return None
         if not isinstance(config, dict) or not _strictly_comparable(state, config):
