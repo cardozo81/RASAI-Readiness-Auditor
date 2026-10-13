@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 import math
+import os
 from pathlib import Path
 import re
 from typing import Any
@@ -85,9 +86,7 @@ def inspect_pipeline_step_timers(
             return result
         with path.open("rb") as stream:
             data = stream.read(_MAX_BYTES + 1)
-            read_stat = stream.fileno()
-            import os
-            descriptor_stat = os.fstat(read_stat)
+            descriptor_stat = os.fstat(stream.fileno())
         end_stat = path.stat()
     except OSError:
         result["status"] = "LOG_READ_UNAVAILABLE"
