@@ -615,6 +615,12 @@ def _save_configuration(state: State) -> bool:
         render_header(state)
         print(paint(f"Configuração salva em: {path}", GREEN, bold=True))
         print(paint("Chaves/API tokens não são gravados no INI por segurança.", YELLOW))
+        if hasattr(state, "perplexity_queries"):
+            print(paint(
+                "Perplexity Search: queries e modo WEB/FAST NÃO são salvos no INI; "
+                "cada nova AUD exige nova solicitação/autorização explícita.",
+                YELLOW,
+            ))
         input("\nENTER para continuar...")
         return True
     except (OSError, UnicodeError, ValueError) as exc:
