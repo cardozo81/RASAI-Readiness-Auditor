@@ -29,6 +29,11 @@ def _unique_settings_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]
         result[key] = value
     return result
 
+
+def _reject_non_json_number(token: str) -> None:
+    """Python's permissive JSON decoder otherwise accepts NaN/Infinity."""
+    raise ValueError("non-JSON numeric constant in Settings API response")
+
 _MAX_BODY = 1024 * 1024
 _TENANT = re.compile(r"^[a-z0-9-]{1,80}\.live\.dynatrace\.com$", re.ASCII)
 
@@ -146,7 +151,10 @@ def read_live_dynatrace_apdex_settings(
     if len(raw) > _MAX_BODY:
         raise ValueError("Dynatrace settings response exceeds bounded size")
     try:
-        decoded = json.loads(raw, object_pairs_hook=_unique_settings_json_object)
+        decoded = json.loads(
+            raw, object_pairs_hook=_unique_settings_json_object,
+            parse_constant=_reject_non_json_number,
+        )
     except (UnicodeError, ValueError, TypeError):
         raise ValueError("Dynatrace Settings API response is not valid JSON") from None
     if not isinstance(decoded, dict):
