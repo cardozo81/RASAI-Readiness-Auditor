@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections import Counter
 from decimal import Decimal, InvalidOperation
 from html import escape
+from math import isfinite
 import json
 from pathlib import Path
 import sqlite3
@@ -18,6 +19,17 @@ def _decimal(value: Any) -> Decimal:
         return Decimal(str(value or 0))
     except (InvalidOperation, ValueError, TypeError):
         return Decimal("0")
+
+
+def _finite_signed_amount(value: Any) -> float | None:
+    """Allow negative deviations, not nonfinite or boolean financial claims."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return number if isfinite(number) else None
 
 
 def _money(value: Any, currency: str = "USD") -> str:
@@ -501,27 +513,37 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
     body += i._section("integrations", "Outras integrações", i._table(("Serviço", "Data/hora", "Origem da execução", "Resultado", "Tentativas", "Sucessos", "Duração", "Detalhe"), int_rows, empty="Nenhuma integração externa reconhecida foi persistida.", sortable=bool(int_rows), page_size=10 if len(int_rows) > 10 else None) + "".join(int_modals))
 
     if forecast:
-        expected_raw = forecast.get("expected_cost")
-        actual_raw = forecast.get("actual_cost")
-        deviation_raw = forecast.get("deviation_amount")
-        percent_raw = forecast.get("deviation_percent")
+        from rasai.audit_cost_explain import _number
+        expected_raw = _number(forecast.get("expected_cost"))
+        actual_raw = _number(forecast.get("actual_cost"))
+        deviation_raw = _finite_signed_amount(forecast.get("deviation_amount"))
+        percent_raw = _finite_signed_amount(forecast.get("deviation_percent"))
+        low = _number(forecast.get("likely_low"))
+        high = _number(forecast.get("likely_high"))
+        potential = _number(forecast.get("potential"))
         single = monetary.single_currency
         comparable_aggregate = (
             single is not None
             and single[0] == forecast_currency
             and actual_raw is not None
+            and _number(single[1]) is not None
         )
         reconciled = (
             comparable_aggregate
-            and abs(_decimal(actual_raw) - _decimal(single[1])) <= Decimal("0.00000001")
+            and abs(actual_raw - float(single[1])) <= 0.00000001
         )
         cost_html = "<div class='metric-grid'>"
         cost_html += i._metric("Custo esperado", i._money_display(expected_raw, forecast_currency))
         cost_html += i._metric("Custo pós-execução", i._money_display(actual_raw, forecast_currency), "valor persistido pela confirmação de custo")
         cost_html += i._metric("Desvio monetário", i._signed_money_display(deviation_raw, forecast_currency) if deviation_raw is not None else "Não calculável")
-        cost_html += i._metric("Desvio percentual", f"{float(percent_raw):+.2f}%" if percent_raw is not None else "Não calculável")
-        cost_html += i._metric("Faixa provável", i._money_range_display(forecast.get("likely_low"), forecast.get("likely_high"), forecast_currency))
-        cost_html += i._metric("Cenário potencial (P90)", i._money_display(forecast.get("potential"), forecast_currency))
+        cost_html += i._metric("Desvio percentual", f"{percent_raw:+.2f}%" if percent_raw is not None else "Não calculável")
+        cost_html += i._metric(
+            "Faixa provável",
+            i._money_range_display(low, high, forecast_currency)
+            if low is not None and high is not None and low <= high
+            else "Não calculável",
+        )
+        cost_html += i._metric("Cenário potencial (P90)", i._money_display(potential, forecast_currency))
         cost_html += i._metric("Confiança da previsão", i._level_label(forecast.get("confidence")))
         cost_html += i._metric("Classificação", i._level_label(forecast.get("status")))
         cost_html += "</div>"
