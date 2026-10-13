@@ -232,9 +232,13 @@ def test_apdex_preflight_rejects_bad_operator_apdex_without_echoing_values(tmp_p
         state.apdex_threshold = 2.0
         ini = tmp_path / "bad-apdex.ini"
         console_settings.save_console_config(state, ini)
-        text = ini.read_text(encoding="utf-8")
-        text = text.replace("threshold_seconds = 2\n", "threshold_seconds = invalid-value\n")
-        ini.write_text(text, encoding="utf-8")
+        from configparser import ConfigParser
+        parser = ConfigParser(interpolation=None)
+        parser.optionxform = str
+        parser.read(ini, encoding="utf-8")
+        parser.set("synthetic_apdex", "threshold_seconds", "invalid-value")
+        with ini.open("w", encoding="utf-8") as stream:
+            parser.write(stream)
         before = ini.read_bytes()
         outcome = inspect_apdex_consumers(ini, environ={})
         assert outcome["status"] in {
