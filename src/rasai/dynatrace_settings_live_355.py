@@ -45,7 +45,7 @@ def _tenant_endpoint(base_url: str) -> str:
     if (
         not isinstance(base_url, str) or base_url != base_url.strip()
         or any(ord(char) < 32 or ord(char) == 127 for char in base_url)
-        or "\\\\" in base_url
+        or chr(92) in base_url
     ):
         raise ValueError("Dynatrace environment URL is invalid")
     try:
