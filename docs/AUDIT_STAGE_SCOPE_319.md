@@ -372,3 +372,17 @@ A malformed `actual_cost` cannot be converted to zero and reported
 as reconciled with an otherwise valid zero-valued ledger.
 The original persisted forecast is never rewritten, no pricing rule
 is recalculated and the raw technical artifacts remain unchanged.
+
+
+## Fonte fisica univoca para o inventario audit-attempts (13/10/2026)
+
+O inspetor de tentativas de IA exige exatamente uma linha fisica na
+tabela `audits` de cada `audit.db`, com `audit_id` igual ao nome da
+pasta da AUD. A simples existencia de uma linha com o identificador
+esperado nao torna confiavel uma base que tambem contem outro ciclo
+de vida estrangeiro. Nesse caso a consulta falha antes de publicar
+tentativas, custos, relogios ou escopos, e o CLI retorna erro de uso
+sem traceback. A interface de inspecao Python continua levantando
+`ValueError` para clientes agentes. Tests SQLite em memoria e arquivo
+fisico verificam recusa e bytes inalterados. O gate nao altera as
+AUDs historicas nem os motores de coleta.
