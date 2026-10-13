@@ -39,7 +39,7 @@ def _exists(con: sqlite3.Connection, table: str) -> bool:
 def read_perplexity_search_usage(workspace: Path | None, audit_id: str) -> SearchUsage | None:
     """Return only physically persisted Search API evidence for this AUD.
 
-    Missing/legacy schemas are not converted to fabricated zeros. An invalid
+    Missing or incompatible schemas are not converted to fabricated zeros. An invalid
     query payload marks its count unavailable, without suppressing the run.
     """
     if workspace is None or not str(audit_id).strip():
