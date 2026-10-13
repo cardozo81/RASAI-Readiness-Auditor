@@ -196,8 +196,14 @@ def _strictly_comparable(current: Any, historical: Mapping[str, Any]) -> bool:
     # needs explicit persisted evidence; a historically enabled scope cannot
     # silently enter a baseline where it is disabled now. Legacy absent flags
     # remain admissible only for a current disabled/default scope.
+    # Legacy console_execution_projections.configuration omits whether
+    # CAT-06/CAT-07 synthetic Apdex ran. Such rows must NOT seed an ex-ante
+    # duration forecast when either optional workload is enabled now.
+    # Explicitly recorded future booleans may be compared normally. Do not
+    # infer a historical enabled flag from the present state or catalog labels.
     for flag in ("improvement_enabled", "search_ai_competitive",
-                 "technical_remediation"):
+                 "technical_remediation", "synthetic_apdex",
+                 "apdex_experience"):
         current_value = getattr(current, flag, False)
         if type(current_value) is not bool:
             return False
@@ -476,6 +482,13 @@ def forecast_local_duration(
                 f"Sem previsao de duracao: {count}/{_MIN_RUNS} AUDs concluidas "
                 "com configuracao registrada compativel, mesmo numero de paginas "
                 "e intervalo fisico consistente.",
+                *(
+                    ("CAT-06/CAT-07 ativo: snapshots historicos sem flag "
+                     "explicita de Apdex nao provam carga comparavel; N/D.",)
+                    if (getattr(state, "synthetic_apdex", False) is True
+                        or getattr(state, "apdex_experience", False) is True)
+                    else ()
+                ),
             ),
         )
     wall_values = [a[0] for a in eligible]
@@ -511,6 +524,10 @@ def forecast_local_duration(
             "servico: NAO sao wall-clock do M21, nem aditivos a IA ou a AUD.",
             "Flag opcional nao presente na configuracao historica impede "
             "comparacao quando solicitada; etapas opcionais externas ficam fora.",
+            "O JSON legado de duracao nao documenta se CAT-06/CAT-07 "
+            "foram executados. Amostras sem essas flags somente sao "
+            "toleradas para escopo atual desabilitado; isto nao comprova "
+            "equivalencia retroativa do trabalho historico.",
         ),
     )
 
