@@ -26,7 +26,16 @@ _METRIC_POLICY = {
 
 def _origin(value: str) -> tuple[str, str, int] | None:
     """Normalize exact host/origin, never guess organization/eTLD+1."""
-    if not isinstance(value, str) or not value.strip():
+    # urlsplit strips embedded TAB, LF and CR on recent Python versions.
+    # Refuse such input *before* parsing; otherwise separate physical URL
+    # identities could be silently merged into one host/document.
+    if (
+        not isinstance(value, str)
+        or not value or len(value) > 2048
+        or value != value.strip()
+        or any(ord(ch) < 32 or ord(ch) == 127 for ch in value)
+        or "\\" in value
+    ):
         return None
     try:
         url = urlsplit(value)
@@ -35,6 +44,8 @@ def _origin(value: str) -> tuple[str, str, int] | None:
             scheme not in {"http", "https"}
             or not url.hostname or url.username is not None
             or url.password is not None
+            or "@" in url.netloc
+            or "%" in url.netloc
             or not url.path.startswith("/")
             and url.path != ""
         ):
@@ -51,9 +62,15 @@ def _origin(value: str) -> tuple[str, str, int] | None:
 
 
 def _document_identity(value: str, origin: tuple[str, str, int]) -> tuple:
-    """Fragment identifiers do not define independent fetched documents."""
+    """Use fragment route as a distinct SPA universe; ignore plain anchors.
+
+    An ordinary #section is the same fetched document. In contrast #/route
+    and #!/route are client-side routing identities, NOT longitudinal copies
+    of the same page. Their content is still unverified without rendering.
+    """
     parsed = urlsplit(value)
-    return origin, parsed.path or "/", parsed.query
+    route = parsed.fragment if parsed.fragment.startswith(("/", "!/")) else ""
+    return origin, parsed.path or "/", parsed.query, route
 
 
 def assess_same_domain_pair(
