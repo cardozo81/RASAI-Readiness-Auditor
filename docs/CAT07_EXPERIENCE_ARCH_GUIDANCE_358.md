@@ -137,3 +137,24 @@ M23/M25, thresholds, Dynatrace externo, ou snapshots já persistidos.
 Não se cria prova de mesma sessão de RUM, hidratação SPA ou conteúdo
 pronto. As fixtures SQLite simulam três journals, aparição concorrente
 de WAL e reutilização de ID, preservando bytes da AUD.
+
+
+## Abstencao em alteracao fisica observavel do SQLite CAT-07 (#358)
+
+O consumer consultivo `cat07_architecture_advice_html` passou a verificar
+que `audit.db` pertence a um arquivo regular em diretorio fisico,
+sem links simbolicos no arquivo ou em seu ancestral imediato.
+Antes de abrir o banco somente leitura, registra os identificadores
+`st_dev`, `st_ino`, `st_size` e `st_mtime_ns`; apos finalizar
+a leitura por `ro&immutable=1`, exige o mesmo conjunto de metadados
+e ausencia de WAL/SHM/journal. Mudanca observavel, origem inexistente
+ou substituicao de caminho devolve o bloco CAT-07 explicitamente N/D,
+sem conservar arquitetura ou configuracao positiva extraida de uma
+possivel fonte mista.
+
+O controle nao altera M23/M25, snapshot, CLI, banco, score ou
+coleta. Trata-se de verificacao economica de metadados, **nao**
+assinatura criptografica da AUD nem prova de ausencia de escrita
+maliciosa com estatisticas preservadas. Testes isolados simulam
+drift durante a leitura, fonte inexistente e ancestral com symlink,
+sem gravar na fonte historica ou acessar Dynatrace.
