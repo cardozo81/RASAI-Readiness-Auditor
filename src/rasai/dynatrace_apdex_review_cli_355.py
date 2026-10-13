@@ -40,12 +40,25 @@ def _load_offline_snapshot(path: Path) -> object:
     """Bounded UTF-8 physical read; never authenticate a partial/changed file."""
     if path.is_symlink() or not path.is_file():
         raise ValueError("settings JSON must be a regular local file <= 1 MiB")
-    size = path.stat().st_size
-    if size > _MAX_SNAPSHOT_BYTES:
+    before = path.stat()
+    if before.st_size > _MAX_SNAPSHOT_BYTES:
         raise ValueError("settings JSON must be a regular local file <= 1 MiB")
     with path.open("rb") as stream:
+        try:
+            opened = os.fstat(stream.fileno())
+        except (OSError, AttributeError, ValueError) as exc:
+            raise ValueError("settings JSON changed during physical read") from exc
         raw = stream.read(_MAX_SNAPSHOT_BYTES + 1)
-    if len(raw) != size or path.stat().st_size != size or path.is_symlink():
+    after = path.stat()
+    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
+    if (
+        path.is_symlink() or len(raw) > _MAX_SNAPSHOT_BYTES
+        or len(raw) != before.st_size
+        or any(
+            getattr(before, field) != getattr(reference, field)
+            for reference in (opened, after) for field in fields
+        )
+    ):
         raise ValueError("settings JSON changed during physical read")
     return json.loads(
         raw.decode("utf-8"),
