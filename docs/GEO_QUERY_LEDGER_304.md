@@ -271,3 +271,21 @@ requisições ou escrita. Testes offline com stream truncado e crescimento
 simulado demonstram o fail-closed, com bytes do SQLite original intactos.
 Este controle não prova autenticidade de provedores nem modifica os
 coletores, o ledger persistido, o GEO v8 ou sua normalização.
+
+
+## Abstenção em falha de integridade tardia (12/10/2026)
+
+Uma falha no segundo SHA-256 ou na leitura SQLite pode ocorrer
+**depois** de o comparador calcular taxas por consulta, mas **antes** de
+comprovar que a origem física permaneceu íntegra. O tratamento de erros
+agora aplica uma abstenção integral: `status=NOT_COMPARABLE`,
+`queries=[]`, atribuição `NOT_VERIFIED`, identidade do alvo `N/D`
+e fingerprint físico `UNVERIFIED`. Nenhuma taxa, presença de URL
+auditada ou percentual previamente projetado é mantido em um caminho
+de exceção.
+
+Três regressões SQLite offline forçam falhas tardias de leitura/validação
+(`ValueError`, `OSError` e `sqlite3.OperationalError`), conservam o
+banco AUD byte a byte e demonstram ausência de publicação de métricas.
+O controle não altera a evidência persistida, os produtores SERP/Perplexity,
+o relatório GEO canônico ou pontuações.

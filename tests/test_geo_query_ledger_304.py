@@ -468,6 +468,44 @@ def test_v3_change_during_immutable_projection_discards_numeric_metrics(
     assert result["source_audit_db_integrity_guard"] == "UNVERIFIED"
 
 
+@pytest.mark.parametrize(
+    "failure_type", [ValueError, OSError, sqlite3.OperationalError],
+)
+def test_v3_late_integrity_exception_never_leaks_projected_overlap(
+    tmp_path, monkeypatch, failure_type,
+):
+    """#304: any exception in the second physical seal clears all rates."""
+    folder = _audit(tmp_path, multi=False)
+    _set_physical_aud_targets(
+        folder, [(folder.name, "https://example.org/shared")]
+    )
+    db = folder / "audit.db"
+    original_bytes = db.read_bytes()
+    physical_digest = ledger._audit_digest
+    calls = []
+
+    def fail_only_after_query_projection(path):
+        calls.append(path)
+        if len(calls) == 2:
+            raise failure_type("physical seal lost after projection")
+        return physical_digest(path)
+
+    monkeypatch.setattr(ledger, "_audit_digest", fail_only_after_query_projection)
+    result = inspect_geo_per_query(folder)
+    assert len(calls) == 2
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "SOURCE_SCHEMA_OR_READ_FAILURE"
+    assert result["queries"] == []
+    assert result["per_query_attribution_status"] == "NOT_VERIFIED"
+    assert result["aud_target_scope"] == "NO_UNIQUE_CANONICAL_TARGET"
+    assert result["aud_target_exact_url"] is None
+    assert result["source_audit_db_sha256"] is None
+    assert result["source_audit_db_bytes_verified"] is None
+    assert result["source_audit_db_integrity_guard"] == "UNVERIFIED"
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert db.read_bytes() == original_bytes
+
+
 def test_v3_new_sqlite_journal_during_projection_discards_overlap(
     tmp_path, monkeypatch,
 ):
