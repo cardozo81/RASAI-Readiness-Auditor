@@ -126,3 +126,16 @@ controlada apenas na segunda leitura verificam recusa antes da publicação,
 ausência de requisições comerciais e preservação byte a byte das fontes.
 A verificação SHA-256 e os gates anteriores/posteriores de publicação permanecem.
 Nenhum arquivo CONS-3, AUD ou índice é alterado.
+
+
+## Consistência do tamanho físico em ambas as extremidades do SHA-256 (12/10/2026)
+
+O leitor local `_file_digest` exige, além do limite de bytes, que
+**tamanho inicial = bytes efetivamente lidos = tamanho final**. Uma
+truncagem ou ampliação de `manifest.json`, `report.html` ou
+`audit.db` entre o primeiro `stat` e a abertura do stream não pode
+ser aceita apenas porque o novo tamanho final coincide com a quantidade
+lida. A recusa ocorre antes da publicação do companion GCOMP; não
+modifica nenhum pacote CONS-3 ou AUD e não comprova autenticidade
+externa. Duas regressões isoladas substituem bytes físicos justamente
+nesse intervalo e verificam o bloqueio, sem rede ou coleta.

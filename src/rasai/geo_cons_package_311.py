@@ -25,7 +25,8 @@ _MAX_SOURCE_BYTES = 256 * 1024 * 1024
 def _file_digest(path: Path) -> str:
     if path.is_symlink() or not path.is_file():
         raise ValueError("source file unavailable or linked")
-    if path.stat().st_size > _MAX_SOURCE_BYTES:
+    original_size = path.stat().st_size
+    if original_size > _MAX_SOURCE_BYTES:
         raise ValueError("source file exceeds verification limit")
     digest = sha256()
     consumed = 0
@@ -37,7 +38,7 @@ def _file_digest(path: Path) -> str:
             digest.update(chunk)
     # A source may grow or truncate after the preliminary stat. Hashing
     # different physical bytes must never attest a stable CONS/AUD input.
-    if consumed != path.stat().st_size:
+    if consumed != original_size or path.stat().st_size != original_size:
         raise ValueError("source size changed during verification")
     return digest.hexdigest()
 
