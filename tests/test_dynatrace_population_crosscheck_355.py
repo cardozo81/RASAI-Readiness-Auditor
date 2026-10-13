@@ -155,6 +155,86 @@ def test_ssr_load_and_unknown_are_noncausal():
     ]
 
 
+@pytest.mark.parametrize("input_kind", ("settings", "rum"))
+@pytest.mark.parametrize("collision", ("duplicate_root", "duplicate_nested", "non_json_number"))
+def test_offline_crosscheck_cli_rejects_ambiguous_source_json(
+    tmp_path, capsys, input_kind, collision,
+):
+    """#355: offline JSON supplied by an operator cannot authenticate itself."""
+    settings_path = tmp_path / "settings.json"
+    rum_path = tmp_path / "rum.json"
+    original_settings = json.dumps(_settings())
+    original_rum = json.dumps(_rum())
+    raw = original_settings if input_kind == "settings" else original_rum
+    if collision == "duplicate_root":
+        duplicate = (
+            '"contract_version":"FORGED",'
+            + raw[1:]
+        )
+        raw = "{" + duplicate
+    elif collision == "duplicate_nested":
+        key = (
+            '"declared_application_scope": '
+            if input_kind == "settings" else '"xhr": '
+        )
+        assert key in raw
+        raw = raw.replace(key, key + (
+            '"APPLICATION-OTHER", ' if input_kind == "settings" else '999, '
+        ), 1)
+    else:
+        raw = raw[:-1] + ',"unverified":NaN}'
+    assert isinstance(json.loads(raw), dict)
+    settings_path.write_text(
+        raw if input_kind == "settings" else original_settings,
+        encoding="utf-8",
+    )
+    rum_path.write_text(
+        raw if input_kind == "rum" else original_rum,
+        encoding="utf-8",
+    )
+    originals = (settings_path.read_bytes(), rum_path.read_bytes())
+    with pytest.raises(SystemExit) as err:
+        main([
+            "--settings-advisory-json", str(settings_path),
+            "--rum-population-json", str(rum_path),
+        ])
+    assert err.value.code == 2
+    assert (settings_path.read_bytes(), rum_path.read_bytes()) == originals
+    assert "JSON evidence unreadable or invalid" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("fault", ("truncated_stream", "oversized_stream"))
+def test_offline_crosscheck_rejects_stream_size_mismatch(
+    tmp_path, monkeypatch, fault,
+):
+    """#355: the initial filesystem length, read bytes and final length agree."""
+    from io import BytesIO
+    from pathlib import Path
+    from rasai.dynatrace_population_crosscheck_355 import _load
+
+    file = tmp_path / "rum.json"
+    physical = json.dumps(_rum()).encode("utf-8")
+    file.write_bytes(physical)
+    original_open = Path.open
+    observed = (
+        physical[:-6] if fault == "truncated_stream"
+        else physical + b"      "
+    )
+    opens = []
+    def fake_open(self, mode="r", *args, **kwargs):
+        if self == file and mode == "rb":
+            opens.append(1)
+            return BytesIO(observed)
+        return original_open(self, mode, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", fake_open)
+    with pytest.raises(ValueError, match="JSON evidence unreadable or invalid"):
+        _load(file, 256 * 1024)
+    assert opens == [1]
+    with original_open(file, "rb") as handle:
+        assert handle.read() == physical
+
+
 def test_offline_cli_reads_bounded_json_without_network_or_mutation(tmp_path, capsys):
     a = tmp_path / "settings.json"
     b = tmp_path / "rum.json"
