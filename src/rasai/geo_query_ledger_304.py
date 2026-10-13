@@ -201,7 +201,18 @@ def inspect_geo_per_query(
         ),
     }
     def abstain(reason: str) -> dict[str, Any]:
+        # A late source read/SQLite error can occur after query rates have
+        # been computed but before the final physical source seal. Never
+        # publish those metrics or an unverified target on an error path.
+        out["status"] = "NOT_COMPARABLE"
         out["reason"] = reason
+        out["queries"] = []
+        out["per_query_attribution_status"] = "NOT_VERIFIED"
+        out["aud_target_scope"] = "NO_UNIQUE_CANONICAL_TARGET"
+        out["aud_target_exact_url"] = None
+        out["source_audit_db_sha256"] = None
+        out["source_audit_db_bytes_verified"] = None
+        out["source_audit_db_integrity_guard"] = "UNVERIFIED"
         return out
     try:
         # immutable=1 does not lock the physical SQLite bytes. A source may
