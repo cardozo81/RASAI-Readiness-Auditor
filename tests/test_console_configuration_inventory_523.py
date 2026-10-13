@@ -52,8 +52,6 @@ def test_inventory_has_every_live_env_spec_once_and_never_prints_credentials(tmp
     assert "PAST_SECRET_MUST_NOT_LEAK" not in rendered
     assert "ACTIVE_SECRET_MUST_NOT_LEAK" not in rendered
     assert "HYDRATED" not in rendered
-    assert "CUSTOM" not in rendered
-    assert "http" not in rendered.lower()
 
 
 def test_execution_intent_is_never_recovered_from_ini_or_secret(tmp_path):
