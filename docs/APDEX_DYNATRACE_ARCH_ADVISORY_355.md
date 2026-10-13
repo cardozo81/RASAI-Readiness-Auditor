@@ -377,3 +377,24 @@ configuração do tenant, não prova população de ações Load/XHR/Custom,
 mesma página/dispositivo/janela, scores nem renderização final.
 Testes isolados exercitam combinações inconsistentes e o caminho
 positivo, sem rede ou credenciais.
+
+
+## Gate fisico de export offline em arquivo (#355, 13/10/2026)
+
+O CLI `dynatrace-apdex-review` agora compara identidade, tamanho,
+modificacao e alteracao do arquivo antes da abertura, durante a leitura
+pelo descriptor real e apos encerrar a leitura. O gate abrange
+`st_dev`, `st_ino`, `st_size`, `st_mtime_ns` e `st_ctime_ns`,
+alem da quantidade de bytes realmente lida e do limite de 1 MiB.
+Uma substituicao atomica ou regravacao in-place com **mesmo comprimento**
+nao pode mais passar como a fonte original apenas porque `st_size`
+coincide. Uma leitura cujo stream nao permite inspecao fisica tambem
+deve falhar de forma conservadora.
+
+Isso nao autentica um tenant Dynatrace, nao comprova consentimento,
+nao e assinatura digital do export e nao atesta que os parametros
+estavam ativos na mesma janela da observacao de arquitetura.
+Os fatos de RUM e seus limiares permanecem somente declarativos
+quando o arquivo e fornecido offline. Testes isolados simulam
+substituicao atomica e alteracao in-place sem mudanca de tamanho;
+nao fazem chamadas Dynatrace, M23/M25, escrita em AUD ou scoring.
