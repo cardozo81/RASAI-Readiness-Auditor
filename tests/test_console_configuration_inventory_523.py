@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from rasai.console_config import is_secret
@@ -154,3 +155,90 @@ def test_absent_file_does_not_fabricate_missing_ini_alerts(tmp_path):
     assert result["file_readable"] is False
     assert result["typed_ini_coverage"]["missing_derived_names"] == []
     assert result["typed_ini_coverage"]["missing_non_derived_names"] == []
+
+
+def test_optional_apdex_preflight_checks_real_m23_m25_without_starting_aud(tmp_path):
+    from unittest.mock import patch
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+    from rasai import console_settings
+
+    _install_search_persistence()
+    install()
+    ini = tmp_path / "effective.ini"
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        state.device = "desktop"
+        state.synthetic_apdex = True
+        state.apdex_threshold = 2.1
+        state.apdex_samples = 5
+        state.apdex_max_attempts = 8
+        state.apdex_timeout = 48.0
+        state.apdex_delay = 1.25
+        state.apdex_concurrency = 2
+        state.apdex_experience = True
+        state.apdex_experience_samples = 7
+        state.apdex_experience_max_attempts = 10
+        state.apdex_experience_kpm = "USER_ACTION_DURATION"
+        state.apdex_experience_satisfied = 2.5
+        state.apdex_experience_frustrated = 9.0
+        state.apdex_experience_xhr_capture = False
+        state.apdex_experience_fetch_capture = True
+        console_settings.save_console_config(state, ini)
+        before = ini.read_bytes()
+        before_env = dict(os.environ)
+
+        outcome = inspect_apdex_consumers(ini, environ={})
+        assert outcome["status"] == "ADAPTERS_VALIDATED_OFFLINE"
+        assert outcome["active_m23"] is True
+        assert outcome["active_m25"] is True
+        assert outcome["single_device_enforced"] is True
+        assert outcome["load_warning_count"] == 0
+        assert outcome["external_requests"] == outcome["audit_writes"] == 0
+        assert outcome["values_exposed"] is False
+        assert outcome["collector_execution_verified"] is False
+        assert outcome["dynatrace_live_verified"] is False
+        assert os.environ == before_env
+        assert ini.read_bytes() == before
+        assert main(["--ini", str(ini), "--verify-apdex"]) == 0
+        # The CLI normally produces JSON; this call never modifies operator input.
+        assert ini.read_bytes() == before
+
+
+def test_apdex_preflight_missing_source_never_creates_file(tmp_path):
+    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+    ini = tmp_path / "no-config.ini"
+    result = inspect_apdex_consumers(ini)
+    assert result["status"] == "SOURCE_UNAVAILABLE"
+    assert result["active_m23"] is None
+    assert result["audit_writes"] == result["external_requests"] == 0
+    assert not ini.exists()
+
+
+def test_apdex_preflight_rejects_bad_operator_apdex_without_echoing_values(tmp_path):
+    from unittest.mock import patch
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+    from rasai import console_settings
+    _install_search_persistence()
+    install()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        state.synthetic_apdex = True
+        state.apdex_threshold = 2.0
+        ini = tmp_path / "bad-apdex.ini"
+        console_settings.save_console_config(state, ini)
+        text = ini.read_text(encoding="utf-8")
+        text = text.replace("threshold_seconds = 2\n", "threshold_seconds = invalid-value\n")
+        ini.write_text(text, encoding="utf-8")
+        before = ini.read_bytes()
+        outcome = inspect_apdex_consumers(ini, environ={})
+        assert outcome["status"] in {
+            "ADAPTERS_PARTIAL_LOAD_WARNINGS", "CONFIG_OR_ADAPTER_INVALID"
+        }
+        assert "invalid-value" not in json.dumps(outcome)
+        assert ini.read_bytes() == before
