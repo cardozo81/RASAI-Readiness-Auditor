@@ -180,6 +180,63 @@ def test_v8_large_or_binary_json_abstains_without_decoding_unbounded_evidence(
                for root in (altered, stable))
 
 
+@pytest.mark.parametrize(
+    "duplicate_site",
+    ("root_audit_id", "nested_target_query", "nested_serp_denominator"),
+)
+def test_v8_duplicate_snapshot_json_keys_refuse_longitudinal_observation(
+    tmp_path, duplicate_site,
+):
+    """#311: last-key-wins in physical GEO v8 JSON cannot prove provenance."""
+    altered = audit(
+        tmp_path, "AUD-V8-AMBIGUOUS", version="RASAI-GEO-OBSERVATION-8",
+    )
+    intact = audit(
+        tmp_path, "AUD-V8-INTACT", version="RASAI-GEO-OBSERVATION-8",
+    )
+    for root in (altered, intact):
+        _v8_physical_sources(root)
+    db = altered / "audit.db"
+    with sqlite3.connect(db) as con:
+        raw = con.execute(
+            "SELECT projection_json FROM geo_observation_runs"
+        ).fetchone()[0]
+        if duplicate_site == "root_audit_id":
+            invalid = '{"audit_id":"AUD-FORGED",' + raw[1:]
+        elif duplicate_site == "nested_target_query":
+            invalid = raw.replace(
+                '"target_observation": {',
+                '"target_observation": {"query": "forged-query", ',
+                1,
+            )
+        else:
+            invalid = raw.replace(
+                '"descriptive_overlap": {',
+                '"descriptive_overlap": {"serp_denominator": 999, ',
+                1,
+            )
+        assert invalid != raw
+        # The formerly permissive decoder resolves to the apparently
+        # consistent *last* key, hiding the forged earlier assertion.
+        assert json.loads(invalid) == json.loads(raw)
+        con.execute(
+            "UPDATE geo_observation_runs SET projection_json=?",
+            (invalid,),
+        )
+    before = {root.name: (root / "audit.db").read_bytes()
+              for root in (altered, intact)}
+    projection = build_geo_longitudinal_preview([altered, intact])
+    assert projection["audits_eligible"] == 1
+    assert projection["excluded"] == [{
+        "audit_id": altered.name, "reason": "GEO_PROJECTION_INVALID",
+    }]
+    assert projection["timelines"][0]["observations"][0]["audit_id"] == intact.name
+    assert projection["timelines"][0]["trend_rate"] is None
+    assert projection["provider_requests"] == projection["audit_writes"] == 0
+    assert all((root / "audit.db").read_bytes() == before[root.name]
+               for root in (altered, intact))
+
+
 def test_v8_source_observation_counts_are_reconciled_against_physical_sets(tmp_path):
     first = audit(tmp_path, "AUD-V8-ONE", version="RASAI-GEO-OBSERVATION-8")
     second = audit(tmp_path, "AUD-V8-TWO", version="RASAI-GEO-OBSERVATION-8")
