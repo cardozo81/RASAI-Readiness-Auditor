@@ -628,8 +628,8 @@ def test_inventory_posix_same_size_rewrite_with_restored_mtime_abstains(
 
     operator_ini = tmp_path / "operator.ini"
     original = (
-        b"[environment]\\nRASAI_SERP_MAX_REQUESTS=7\\n"
-        b"OPENAI_API_KEY=SECRET_NOT_IN_REPORT\\n"
+        b"[environment]\nRASAI_SERP_MAX_REQUESTS=7\n"
+        b"OPENAI_API_KEY=SECRET_NOT_IN_REPORT\n"
     )
     operator_ini.write_bytes(original)
     original_stat = operator_ini.stat()
