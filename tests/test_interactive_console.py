@@ -653,6 +653,7 @@ def test_319_console_projection_records_optional_workload_flags_without_query_se
         audits_root=str(tmp_path), audit_id=folder.name,
         target="https://example.org", max_pages=1,
         technical_remediation=True, search_ai_competitive=True,
+        search_compare_content=True,
         search_queries=("EXTERNAL_PRIVATE_QUERY_DO_NOT_PERSIST",),
     )
     # The actual interactive State composes optional flags across console
@@ -675,6 +676,8 @@ def test_319_console_projection_records_optional_workload_flags_without_query_se
     settings = loads(raw)
     assert settings["improvement_enabled"] is True
     assert settings["search_ai_competitive"] is True
+    assert settings["search_ai_competitive_workload"]["query_count"] == 1
+    assert settings["search_ai_competitive_workload"]["compare_content"] is True
     assert settings["technical_remediation"] is True
     assert settings["synthetic_apdex"] is False
     assert settings["apdex_experience"] is False
