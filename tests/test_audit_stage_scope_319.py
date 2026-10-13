@@ -669,3 +669,74 @@ def test_319_metrics_wrapper_timer_projection_never_claims_exclusive_clock(
     assert db.read_bytes() == original_db
     if case != "missing":
         assert log.read_bytes() == original_log
+
+
+def test_319_phase_wrapper_distribution_never_sums_overlapping_operations(tmp_path):
+    import json
+    root, db = make_aud(tmp_path)
+    logs = root / "logs"
+    logs.mkdir()
+    source = logs / "audit.log"
+    events = [
+        {"event": "AUDIT_PIPELINE_STEP_FINISHED", "audit_id": AUD,
+         "timestamp": "2026-10-08T10:05:00Z", "phase": "COLLECTION",
+         "step_key": "RENDER", "duration_ms": 120000, "status": "SUCCESS"},
+        {"event": "AUDIT_PIPELINE_STEP_FINISHED", "audit_id": AUD,
+         "timestamp": "2026-10-08T10:05:30Z", "phase": "COLLECTION",
+         "step_key": "EXTRACT", "duration_ms": 90000, "status": "SUCCESS"},
+        {"event": "AUDIT_PIPELINE_STEP_FINISHED", "audit_id": AUD,
+         "timestamp": "2026-10-08T10:06:00Z", "phase": "PERF",
+         "step_key": "PSI", "duration_ms": 10000, "status": "ERROR"},
+        {"event": "AUDIT_PIPELINE_STEP_FINISHED", "audit_id": AUD,
+         "timestamp": "2026-10-08T10:26:00Z", "phase": "COLLECTION",
+         "step_key": "CONTINUATION", "duration_ms": 30000, "status": "SUCCESS"},
+        {"event": "AUDIT_PIPELINE_STEP_FINISHED", "audit_id": FOREIGN,
+         "timestamp": "2026-10-08T10:07:00Z", "phase": "COLLECTION",
+         "step_key": "FOREIGN", "duration_ms": 999999, "status": "SUCCESS"},
+    ]
+    source.write_text("".join(json.dumps(event) + "\n" for event in events), encoding="utf-8")
+    before = (db.read_bytes(), source.read_bytes())
+    output = inspect_audit_attempts(root)
+    wrappers = output["pipeline_step_timer_evidence"]
+    assert wrappers["status"] == "OBSERVED_UNSEALED_WRAPPER_TIMERS"
+    assert wrappers["phase_summary_measurement"] == "WRAPPER_MIN_MAX_NOT_STAGE_WALL_CLOCK"
+    assert wrappers["exclusive_stage_wall_clock_proven"] is False
+    assert output["non_ai_stages_measured"] is False
+    phases = wrappers["by_phase"]
+    assert len(phases) == 3
+    inside = next(row for row in phases if row["phase"] == "COLLECTION"
+                  and row["console_window_placement"] == "WITHIN_VERIFIED_WINDOW_UNSEALED")
+    assert inside["wrapper_count"] == 2
+    assert inside["success_count"] == 2 and inside["error_count"] == 0
+    assert inside["min_observed_wrapper_ms"] == 90000
+    assert inside["max_observed_wrapper_ms"] == 120000
+    assert inside["exclusive_phase_wall_clock_ms"] is None
+    assert inside["physical_execution_identity_verified"] is False
+    later = next(row for row in phases if row["phase"] == "COLLECTION"
+                 and row["console_window_placement"] == "NOT_PROVEN_IN_INITIAL_WINDOW")
+    assert later["wrapper_count"] == 1
+    assert later["min_observed_wrapper_ms"] == later["max_observed_wrapper_ms"] == 30000
+    perf = next(row for row in phases if row["phase"] == "PERF")
+    assert perf["error_count"] == 1 and perf["success_count"] == 0
+    assert wrappers["provider_requests"] == wrappers["audit_writes"] == 0
+    assert (db.read_bytes(), source.read_bytes()) == before
+
+
+def test_319_corrupt_step_log_never_publishes_phase_summary(tmp_path):
+    import json
+    from rasai.audit_step_timer_inspection_319 import inspect_pipeline_step_timers
+
+    root, db = make_aud(tmp_path)
+    log_dir = root / "logs"
+    log_dir.mkdir()
+    path = log_dir / "audit.log"
+    event = {"event": "AUDIT_PIPELINE_STEP_FINISHED", "audit_id": AUD,
+             "timestamp": "2026-10-08T10:05:00Z", "phase": "COLLECTION",
+             "step_key": "RENDER", "duration_ms": 2000, "status": "SUCCESS"}
+    path.write_text(json.dumps(event) + "\n" + "invalid-json\n", encoding="utf-8")
+    original = (db.read_bytes(), path.read_bytes())
+    evidence = inspect_pipeline_step_timers(root, AUD, None)
+    assert evidence["status"] == "LOG_JSON_INVALID"
+    assert evidence["by_step"] == []
+    assert evidence["by_phase"] == []
+    assert (db.read_bytes(), path.read_bytes()) == original
