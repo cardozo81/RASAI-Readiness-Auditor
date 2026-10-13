@@ -28,6 +28,20 @@ def _nondefault_apdex_state() -> SearchConsoleState:
     state = SearchConsoleState()
     # Explicit operator configuration, not historical defaults.
     state.device = "desktop"
+    state.target = "https://example.test/consulta"
+    state.project = "Projeto QA"
+    state.market = "BR"
+    state.language = "pt-BR"
+    state.max_pages = 3
+    state.ai_timeout = 183.0
+    state.ai_max_cycles = 2
+    state.ai_cycle_delay = 0.5
+    state.content_remediation = True
+    state.web_performance = True
+    state.web_max_pages = 2
+    state.web_timeout = 133.0
+    state.field_source = "crux"
+    state.lighthouse_categories = "performance,accessibility"
     state.synthetic_apdex = True
     state.apdex_threshold = 2.1
     state.apdex_samples = 7
@@ -92,8 +106,8 @@ def test_apdex_all_fields_roundtrip_new_process_and_effective_executor_environme
         assert result.created is False
         assert not result.warnings, result.warnings
         restored = console_settings._state_values(after)
-        for section in ("synthetic_apdex", "synthetic_apdex_experience", "search_intelligence"):
-            assert restored[section] == saved[section], section
+        for section, values in saved.items():
+            assert restored[section] == values, section
         assert after.perplexity_queries == ()
         assert after.perplexity_search_type == "web"
         assert after.device == "desktop"
