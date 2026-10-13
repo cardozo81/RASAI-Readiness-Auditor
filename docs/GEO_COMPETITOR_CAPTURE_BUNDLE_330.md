@@ -241,3 +241,29 @@ comparação do cliente e concorrente. Quatro fixtures locais com manifests
 fisicamente re-hashados demonstram abstenção e integridade byte a byte
 da AUD, sem DNS, HTTP comercial ou alteração de score. O contrato de
 captura/consentimento, renderização e comparabilidade permanece igual.
+
+## Cruzamento lexical estático entre alvo e concorrente (#330)
+
+O comparador offline `geo_competitor_pair_330` acrescenta conjuntos
+exatos, ordenados e sem duplicatas de texto dos `headings` e de
+`query_body_terms` identificados nas duas capturas COBS:
+`observed_heading_text_both/customer_only/competitor_only` e
+`observed_query_body_terms_both/customer_only/competitor_only`.
+As entradas são os campos previamente materializados no manifesto
+vinculado fisicamente ao SHA-256 da AUD e da evidência SERP - não há
+outra coleta, scraping automático nem nova autorização inferida.
+
+A comparação é **literal**, sem normalização de idioma, caixa,
+sinônimos ou semântica: `Cobertura` e `cobertura` são observações
+diferentes, e um termo ausente pode decorrer de truncamento, JavaScript,
+template, robots, abstração do extrator ou da população. O campo
+`static_text_intersection_method=EXACT_OBSERVED_STRINGS_NO_SEMANTIC_MATCH`
+descreve o contrato. As flags
+`static_text_differences_are_editorial_gaps=false`,
+`rendered_or_primary_content_verified=false` e as proteções
+existentes continuam proibindo atribuir déficit editorial, relevância,
+intenções equivalentes, participação GEO ou melhoria de score.
+
+Não muda contratos/identificadores dos sidecars COBS nem o gerador
+produtivo de GEO/CONS. Testes físicos e de rehash validam as diferenças
+sem adulterar `audit.db` e sem qualquer solicitação HTTP/IA.

@@ -626,6 +626,15 @@ def test_customer_competitor_pair_compares_only_sealed_static_metadata(
     assert result["title_exact_text_equal"] is False
     assert result["observed_jsonld_types_both"] == ["Product"]
     assert result["observed_jsonld_types_competitor_only"] == ["FAQPage"]
+    assert result["observed_heading_text_both"] == []
+    assert result["observed_heading_text_customer_only"] == ["Assistência", "Cobertura"]
+    assert result["observed_heading_text_competitor_only"] == ["Proteção"]
+    assert result["observed_query_body_terms_both"] == ["vida"]
+    assert result["observed_query_body_terms_customer_only"] == ["seguro"]
+    assert result["observed_query_body_terms_competitor_only"] == []
+    assert result["static_text_intersection_method"] == "EXACT_OBSERVED_STRINGS_NO_SEMANTIC_MATCH"
+    assert result["static_text_differences_are_editorial_gaps"] is False
+    assert result["rendered_or_primary_content_verified"] is False
     assert result["primary_content_comparison_eligible"] is False
     assert result["editorial_gap_claim_eligible"] is False
     assert result["word_count_delta_eligible"] is False
@@ -895,3 +904,31 @@ def test_real_cobs_fetch_gate_refuses_missing_operation_consent_before_dns_or_ht
     assert client.requests_used == 0
     assert (folder / "audit.db").read_bytes() == before
     assert not (tmp_path / "output").exists()
+
+
+def test_cobs_static_text_is_exact_case_sensitive_lexical_only(tmp_path, monkeypatch):
+    """A static heading case change is not inferred to be a semantic match."""
+    from pathlib import Path
+    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+
+    folder, customer, competitor, before, calls = _pair_capture(tmp_path, monkeypatch)
+    manifest = json.loads(Path(competitor["manifest_path"]).read_text(encoding="utf-8"))
+    manifest["capture"]["headings"] = ["cobertura", "Proteção", "Proteção"]
+    manifest["capture"]["query_body_terms"] = ["VIDA", "VIDA", "seguro"]
+    data = capture._payload(manifest)
+    package = "COBS-" + sha256(data).hexdigest()[:32].upper()
+    path = tmp_path / "renamed-cobs" / package / "manifest.json"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(data)
+    result = compare_cobs_static_pair(folder, customer["manifest_path"], path)
+    assert result["observed_heading_text_both"] == []
+    assert result["observed_heading_text_customer_only"] == ["Assistência", "Cobertura"]
+    assert result["observed_heading_text_competitor_only"] == ["Proteção", "cobertura"]
+    assert result["observed_query_body_terms_both"] == ["seguro"]
+    assert result["observed_query_body_terms_customer_only"] == ["vida"]
+    assert result["observed_query_body_terms_competitor_only"] == ["VIDA"]
+    assert result["editorial_gap_claim_eligible"] is False
+    assert result["word_count_delta_eligible"] is False
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert (folder / "audit.db").read_bytes() == before
+    assert [role for _, role in calls] == ["CUSTOMER", "COMPETITOR_CANDIDATE"]

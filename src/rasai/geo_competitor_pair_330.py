@@ -248,6 +248,25 @@ def compare_cobs_static_pair(
     # differences. The only cross-source observations here are metadata sets.
     customer_types = set(customer_facts["jsonld_types"])
     competitor_types = set(competitor_facts["jsonld_types"])
+    # These sets describe EXACT strings found in two authorized static HTML
+    # fetches. They are neither hydrated/primary content nor locale-normalized
+    # concepts. Do not turn unmatched terms into editorial deficits.
+    descriptive_text: dict[str, list[str]] = {}
+    for source_key, label in (
+        ("headings", "heading_text"),
+        ("query_body_terms", "query_body_terms"),
+    ):
+        customer_terms = set(customer_facts[source_key])
+        competitor_terms = set(competitor_facts[source_key])
+        descriptive_text[f"observed_{label}_both"] = sorted(
+            customer_terms & competitor_terms
+        )
+        descriptive_text[f"observed_{label}_customer_only"] = sorted(
+            customer_terms - competitor_terms
+        )
+        descriptive_text[f"observed_{label}_competitor_only"] = sorted(
+            competitor_terms - customer_terms
+        )
     result = {
         "contract_version": "RASAI-COBS-STATIC-METADATA-PAIR-330-001",
         "status": "DESCRIPTIVE_STATIC_HTML_ONLY",
@@ -263,6 +282,10 @@ def compare_cobs_static_pair(
         "observed_jsonld_types_both": sorted(customer_types & competitor_types),
         "observed_jsonld_types_customer_only": sorted(customer_types - competitor_types),
         "observed_jsonld_types_competitor_only": sorted(competitor_types - customer_types),
+        **descriptive_text,
+        "static_text_intersection_method": "EXACT_OBSERVED_STRINGS_NO_SEMANTIC_MATCH",
+        "static_text_differences_are_editorial_gaps": False,
+        "rendered_or_primary_content_verified": False,
         "primary_content_comparison_eligible": False,
         "localisation_equivalence_proven": False,
         "device_equivalence_proven": False,
@@ -276,7 +299,9 @@ def compare_cobs_static_pair(
             "These are two authorized static HTTP feature inventories, not "
             "rendered/primary text, equal locale or device, generative citations, "
             "same intent or comparable commercial completeness. Metadata "
-            "differences are observations only, not deficits or priorities."
+            "differences are observations only, not deficits or priorities. "
+            "Exact heading/query-term matches are lexical static HTML "
+            "observations, not semantic equivalence or content strategy."
         ),
     }
     if (any(Path(str(db) + x).exists() for x in ("-wal", "-shm", "-journal"))
