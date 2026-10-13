@@ -131,6 +131,14 @@ def read_live_dynatrace_apdex_settings(
         with client.open(request, timeout=timeout_seconds) as response:
             if response.getcode() != 200:
                 raise ValueError("Dynatrace Settings API did not return HTTP 200")
+            # A successful JSON-shaped body is not proof that Settings 2.0
+            # returned its documented JSON media type. Keep the same strict
+            # boundary as the opt-in USQL aggregate reader.
+            media = str(response.headers.get("Content-Type", "")).split(
+                ";", 1
+            )[0].strip().casefold()
+            if media != "application/json":
+                raise ValueError("Dynatrace Settings API response is not JSON")
             raw = response.read(_MAX_BODY + 1)
     except (HTTPError, URLError, OSError, TimeoutError) as exc:
         # Never leak request headers, tenant URL, token or remote error body.
