@@ -425,3 +425,21 @@ estranho à AUD e limite de 4.000 eventos continuam fail-closed, sem
 resumo parcial. Testes físicos cobrem sobreposição, operação após AUD,
 falha de operação, identidade da AUD e integridade de bytes.
 Nenhum novo temporizador foi inserido no pipeline homologado.
+
+## Leitura de JSONL sob concorrência (endurecimento #319)
+
+O `logs/audit.log` é operacional, mutável e não selado. Ao inspecionar
+cronômetros, o leitor compara `st_dev/st_ino/st_size/st_mtime_ns`
+antes da leitura, do descriptor físico aberto e do caminho depois
+da leitura. Também verifica o tamanho efetivamente lido e recusa
+um symlink detectado após a operação.
+
+Se houver crescimento, truncamento ou substituição observável durante
+essa janela, publica `LOG_CHANGED_DURING_READ` com `by_step=[]` e
+`by_phase=[]` (N/D), sem inferir uma lista completa a partir de prefixo
+válido. Isso não torna o log selado, nem garante ausência de alteração
+fora da janela inspecionada.
+
+Fixture focal reproduz append concorrente de uma linha JSON válida
+no instante do `open`. Mesmo assim nenhum cronômetro parcial é
+publicado e o `audit.db` original permanece byte-for-byte intacto.
