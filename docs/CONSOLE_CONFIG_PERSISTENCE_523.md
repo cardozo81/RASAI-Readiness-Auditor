@@ -210,7 +210,7 @@ perfis compartilhados de Apdex. Os grupos de classificação são:
   dispositivo potencialmente utilizado por ambos.
 - `CAT07_DECLARATIVE_INPUT_NOT_M25_MEASUREMENT`: arquitetura informada
   e modo de calibração são declarações, não índices medidos pelo M25.
-- `LEGACY_INERT_DEVICE_MIX_DERIVED_FROM_CONSOLE_DEVICE`: a mistura
+- `INERT_DEVICE_MIX_DERIVED_FROM_CONSOLE_DEVICE`: a mistura
   histórica não reativa dispositivo múltiplo.
 - `NOT_MAPPED_NO_CONSUMER_INFERENCE`: nenhum consumidor foi identificado
   por este inventário de Apdex; **não** significa variável órfã.
@@ -227,3 +227,8 @@ O comando opcional `--verify-apdex` valida os adapters com valores
 efetivos em memória isolada, não altera essas flags como se fosse
 telemetria executiva por variável. Credenciais externas e outras
 categorias permanecem não mapeadas nesta etapa.
+
+A mistura histórica inerte aparece nos contratos do adapter CLI, mas não
+faz parte do conjunto atual de variáveis editáveis do registro do console.
+Isso não configura falta de persistência e não deve ser introduzido no
+INI apenas para satisfazer uma contagem estática do inventário.
