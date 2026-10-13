@@ -311,3 +311,20 @@ Consultas que contêm `%23` **codificado** continuam sendo query strings
 normais, sem interpretação como fragmento. Fixtures isoladas cobrem
 fragments distintos, vazio, simples e query codificada; nenhuma alteração
 no seletor CONS produtivo, na captura, em scores, Apdex, CWV ou IA.
+
+
+## Leitura completa do SHA-256 na modalidade CDOM v2 (12/10/2026)
+
+O materializador CDOM v2 (opção `--verify-source-bytes`) somente
+atesta bytes locais quando a contagem **efetivamente lida** coincide
+com o tamanho do `audit.db` físico registrado antes e depois da leitura.
+Também rejeita sidecars SQLite WAL/SHM/journal que apareçam durante o
+streaming. Duas leituras que devolvam um hash igual de um stream truncado
+não comprovam o conteúdo completo da origem. A falha aborta o pacote
+antes da criação de `consolidated-domain`, sem escrita nas AUDs ou
+CONS nativo. Dois testes com streams truncados e acrescidos de bytes
+confirmam a recusa e a preservação do arquivo de origem.
+
+A verificação SHA-256 permanece prova de identidade dos bytes locais,
+não prova autoria, frescor remoto, comparabilidade de scores/Apdex ou
+legitimidade de uma consolidação longitudinal entre URLs diferentes.

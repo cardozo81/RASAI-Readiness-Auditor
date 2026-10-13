@@ -514,6 +514,43 @@ def test_cdom_v2_abstains_when_source_bytes_change_before_publication(
     assert not (root / "consolidated-domain").exists()
 
 
+@pytest.mark.parametrize("stream_mode", ("truncated", "grown"))
+def test_cdom_v2_refuses_partial_or_overlong_source_hash_stream(
+    tmp_path, monkeypatch, stream_mode,
+):
+    """#210: two matching digests of incomplete bytes prove no physical AUD."""
+    from io import BytesIO
+
+    root, idx = _index(tmp_path)
+    _physical_sources(root, idx)
+    source = root / "AUD-ONE" / "audit.db"
+    original_open = Path.open
+    with original_open(source, "rb") as handle:
+        physical = handle.read()
+    injected = (
+        physical[:-16] if stream_mode == "truncated"
+        else physical + b"UNOBSERVED_TRAILING_BYTES"
+    )
+    assert len(injected) != len(physical)
+    opened = []
+
+    def simulated_reader(self, mode="r", *args, **kwargs):
+        if self == source and mode == "rb":
+            opened.append(self)
+            return BytesIO(injected)
+        return original_open(self, mode, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", simulated_reader)
+    with pytest.raises(ValueError, match="size changed during local SHA-256"):
+        materialize_same_domain_package(
+            root, ("AUD-ONE", "AUD-TWO"), verify_source_bytes=True,
+        )
+    assert len(opened) == 1
+    assert not (root / "consolidated-domain").exists()
+    with original_open(source, "rb") as handle:
+        assert handle.read() == physical
+
+
 def test_cdom_v2_digest_budget_fail_closed_without_materialization(
     tmp_path, monkeypatch,
 ):

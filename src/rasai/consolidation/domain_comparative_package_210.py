@@ -52,6 +52,15 @@ def _source_sha256(path: Path, remaining_budget: int) -> tuple[str, int]:
             if consumed > remaining_budget:
                 raise ValueError("AUD bytes changed beyond verification budget")
             digest.update(chunk)
+    # Two identical partial streams are not two complete physical proofs.
+    # Ensure the hashed byte count still describes the on-disk AUD file.
+    if consumed != size or path.stat().st_size != size:
+        raise ValueError("AUD source size changed during local SHA-256 read")
+    if any(
+        Path(str(path) + suffix).exists()
+        for suffix in ("-wal", "-shm", "-journal")
+    ):
+        raise ValueError("unsealed SQLite sidecars appeared during CDOM byte attestation")
     return digest.hexdigest(), consumed
 
 
