@@ -837,3 +837,56 @@ def test_native_domain_comparative_and_cdom_package_cli_separated_from_cons(
     assert not (root / "consolidated").exists()
     assert all(sha256(Path(p).read_bytes()).hexdigest() == digest
                for p, digest in original.items())
+
+
+@pytest.mark.parametrize("mutation", ("mtime-drift", "late-wal", "same-bytes-replace"))
+@pytest.mark.parametrize("verify_source", (False, True))
+def test_index_mutation_after_read_before_domain_result_abstains(
+    tmp_path, monkeypatch, mutation, verify_source,
+):
+    """An immutable query does not seal the SQLite index until publication."""
+    root, index = _index(tmp_path)
+    if verify_source:
+        _physical_sources(root, index)
+    original = index.read_bytes()
+    previous = index.stat()
+    preview = domain_index.preview_same_domain_candidates
+
+    def change_index_after_query(candidates):
+        result = preview(candidates)
+        if mutation == "mtime-drift":
+            os.utime(index, ns=(previous.st_atime_ns,
+                                previous.st_mtime_ns + 3_000_000_000))
+        elif mutation == "late-wal":
+            Path(str(index) + "-wal").write_bytes(b"UNSEALED-ACTIVE-JOURNAL")
+        else:
+            alternate = index.with_name("alternate-index.db")
+            alternate.write_bytes(original)
+            os.replace(alternate, index)
+        return result
+
+    monkeypatch.setattr(domain_index, "preview_same_domain_candidates",
+                        change_index_after_query)
+    with pytest.raises(ValueError, match="analytical index changed"):
+        domain_preview_from_index(
+            root, ("AUD-ONE", "AUD-TWO"),
+            verify_source_metadata=verify_source,
+        )
+    assert index.read_bytes() == original
+    assert not (root / "consolidated").exists()
+
+
+def test_index_snapshot_is_not_affected_by_read_only_preview(tmp_path):
+    root, index = _index(tmp_path)
+    before = index.read_bytes()
+    source = index.stat()
+    result = domain_preview_from_index(root, ("AUD-ONE", "AUD-TWO"))
+    after = index.stat()
+    assert result["comparison_mode"] == "SAME_DOMAIN_COMPARATIVE"
+    assert after.st_dev == source.st_dev
+    assert after.st_ino == source.st_ino
+    assert after.st_size == source.st_size
+    assert after.st_mtime_ns == source.st_mtime_ns
+    assert index.read_bytes() == before
+    assert all(not Path(str(index) + suffix).exists()
+               for suffix in ("-wal", "-shm", "-journal"))
