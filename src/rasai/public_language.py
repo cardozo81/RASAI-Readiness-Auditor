@@ -238,7 +238,6 @@ SUPPLEMENTAL_PUBLIC_LABELS: dict[str, str] = {
     # Console status values.
     "STARTING": "Iniciando",
     "FINALIZING": "Finalizando auditoria",
-    "POST_CORE_ENRICHMENT": "Enriquecimento opcional pós-auditoria em execução",
     "REPROCESSING": "Reprocessando auditoria",
     "REPROCESS_FAILED": "Falha no reprocessamento",
     "PRECHECK_FAILED": "Pré-verificação falhou",
