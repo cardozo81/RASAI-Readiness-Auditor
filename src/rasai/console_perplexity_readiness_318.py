@@ -63,6 +63,11 @@ def inspect_perplexity_readiness(
         "query_count": len(requests),
         "mode": kind,
         "optional_filters_configured": filters,
+        "query_persistence_scope": "SESSION_ONLY_NOT_SAVED_TO_INI",
+        "mode_persistence_scope": "SESSION_ONLY_NOT_SAVED_TO_INI",
+        "global_filters_scope": "ENVIRONMENT_OR_INI_INDEPENDENT_OF_PER_AUD_OPT_IN",
+        "persisted_configuration_loss_proven": False,
+        "per_aud_paid_consent_restored": False,
         "status": status,
         "executable_request_pending": enabled and key_present and valid_queries and kind in {"WEB", "FAST"},
     }
@@ -81,5 +86,8 @@ def render_perplexity_readiness(state: Any, *, brief: bool = False) -> None:
         print(f"  Filtros adicionais   : {data['optional_filters_configured']} definido(s); opcionais")
     print("  Para solicitar: Preparar auditoria > CAT-05 > P. Perplexity >")
     print("    1. Definir queries ou 6. Copiar termos SERP com autorização.")
+    print("  Queries e modo Perplexity pertencem somente à sessão/esta AUD;")
+    print("  salvar INI não persiste a solicitação nem a restaura na próxima sessão.")
+    print("  Filtros globais, credencial e ativação são independentes dessa solicitação.")
     print("  Habilitação e chave NÃO executam pesquisa. Queries SERP não são herdadas.")
     print("  Pesquisa Perplexity pode consumir quota/custo e depende de aceite explícito.")

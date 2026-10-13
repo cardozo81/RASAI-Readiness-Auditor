@@ -18,16 +18,51 @@ from rasai.console_config_path import canonical_console_config_path
 from rasai.console_provider_environment import refresh_specs
 
 
-def _safe_ini(path: Path) -> ConfigParser | None:
+def _ini_with_status(path: Path) -> tuple[ConfigParser | None, str]:
+    """Metadata-only physical-source inspection with bounded immutable read.
+
+    The file can change concurrently; only report a loaded INI if its
+    opened descriptor and path metadata still match the pre-read source.
+    This is not a cryptographic seal or effective-consumer verification.
+    """
     parser = ConfigParser(interpolation=None)
     parser.optionxform = str
     try:
-        if not path.is_file() or path.stat().st_size > 2_000_000:
-            return None
-        with path.open(encoding="utf-8") as stream:
-            parser.read_file(stream)
-    except (OSError, UnicodeError, ConfigError):
-        return None
+        if path.is_symlink():
+            return None, "SOURCE_SYMLINK_DISALLOWED"
+        if not path.is_file():
+            return None, "SOURCE_NOT_FOUND_OR_NOT_A_FILE"
+        before = path.stat()
+        if before.st_size > 2_000_000:
+            return None, "SOURCE_TOO_LARGE"
+        with path.open("rb") as stream:
+            import os as _os
+            descriptor = _os.fstat(stream.fileno())
+            data = stream.read(2_000_001)
+        after = path.stat()
+        fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+        if (
+            path.is_symlink()
+            or any(
+                getattr(before, field) != getattr(other, field)
+                for other in (descriptor, after) for field in fields
+            )
+            or len(data) != before.st_size
+        ):
+            return None, "SOURCE_CHANGED_DURING_READ"
+        if len(data) > 2_000_000:
+            return None, "SOURCE_TOO_LARGE"
+        parser.read_string(data.decode("utf-8"))
+    except (OSError, UnicodeError):
+        return None, "SOURCE_UNREADABLE"
+    except ConfigError:
+        return None, "SOURCE_INVALID_INI"
+    return parser, "SOURCE_PARSED_NO_RUNTIME_CONSUMER_PROOF"
+
+
+def _safe_ini(path: Path) -> ConfigParser | None:
+    """Compatibility inspection helper; do not expose source values."""
+    parser, _ = _ini_with_status(path)
     return parser
 
 
@@ -99,7 +134,7 @@ def inventory(
     install_complete_persistence()
     environment = os.environ if environ is None else environ
     file = Path(path) if path is not None else canonical_console_config_path(env=environment)
-    parser = _safe_ini(file)
+    parser, ini_status = _ini_with_status(file)
 
     specs = refresh_specs()
     consumer_affinities = _declared_apdex_consumer_surface()
@@ -203,6 +238,8 @@ def inventory(
         },
         "execution_inputs": execution_inputs,
         "file_readable": parser is not None,
+        "ini_source_status": ini_status,
+        "ini_source_status_is_execution_proof": False,
         "metadata_only": True,
         "values_exposed": False,
         "live_consumers_verified": False,
