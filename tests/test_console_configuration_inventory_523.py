@@ -40,7 +40,9 @@ def test_inventory_has_every_live_env_spec_once_and_never_prints_credentials(tmp
             assert row["scope"] == "INI_AND_SESSION"
 
     by_name = {entry["name"]: entry for entry in mapped}
-    assert by_name["RASAI_SERP_MAX_REQUESTS"]["status"] == "SESSION_OVERRIDES_INI"
+    assert by_name["RASAI_SERP_MAX_REQUESTS"]["status"] == (
+        "SESSION_DIFFERS_FROM_INI_EFFECTIVE_PRIORITY_UNVERIFIED"
+    )
     assert by_name["OPENAI_API_KEY"]["status"] == "SECRET_PRESENT"
     typed = {entry["name"]: entry for entry in result["typed_state_fields"]}
     assert typed["synthetic_apdex_experience.architecture"]["ini_present"] is True

@@ -39,7 +39,7 @@ def _origin(key: str, parser: ConfigParser | None, environ: Mapping[str, str]) -
     )
     from_session = str(environ.get(key) or "").strip()
     if from_session and from_ini and from_session != from_ini:
-        return "SESSION_OVERRIDES_INI"
+        return "SESSION_DIFFERS_FROM_INI_EFFECTIVE_PRIORITY_UNVERIFIED"
     if from_session and from_ini:
         return "SESSION_EQUALS_INI"
     if from_session:
