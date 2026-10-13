@@ -324,3 +324,59 @@ def test_apdex_preflight_does_not_call_shared_m25_setter(tmp_path, monkeypatch):
         response = inspect_apdex_consumers(path, environ={})
         assert response["status"] == "ADAPTERS_VALIDATED_OFFLINE"
         assert response["active_m25"] is True
+
+
+def test_all_registry_variables_have_explicit_nonclaiming_adapter_affinity(tmp_path):
+    """Source CLI constants are navigational hints, not executed-consumer proof."""
+    from rasai import m23_cli, m25_cli
+    from rasai.console_configuration_inventory_523 import _declared_apdex_consumer_surface
+
+    hints = _declared_apdex_consumer_surface()
+    assert set(m25_cli.M25_ENV_NAMES).issubset(hints)
+    assert set(m23_cli.profile_environment_names()).issubset(hints)
+    assert hints["RASAI_APDEX_THRESHOLD_SECONDS"] == (
+        "M23_CLI_INPUT_CANDIDATE_NOT_EXECUTION_PROOF"
+    )
+    assert hints["RASAI_APDEX_EXPERIENCE_KPM"] == (
+        "M25_CLI_INPUT_CANDIDATE_NOT_EXECUTION_PROOF"
+    )
+    assert hints["RASAI_APDEX_EXPERIENCE_ARCHITECTURE"] == (
+        "CAT07_DECLARATIVE_INPUT_NOT_M25_MEASUREMENT"
+    )
+    assert hints["RASAI_APDEX_EXPERIENCE_PROFILE_MODE"] == (
+        "CAT07_DECLARATIVE_INPUT_NOT_M25_MEASUREMENT"
+    )
+    assert hints["RASAI_APDEX_EXPERIENCE_DEVICE_MIX"] == (
+        "INERT_DEVICE_MIX_DERIVED_FROM_CONSOLE_DEVICE"
+    )
+
+    ini = tmp_path / "operator.ini"
+    ini.write_text("[environment]\nOPENAI_API_KEY = SHOULD_NOT_LEAK\n", encoding="utf-8")
+    result = inventory(path=ini, environ={"OPENAI_API_KEY": "SECRET_TEST"})
+    rows = result["environment_variables"]
+    assert len(rows) == result["registry_size"] == len(refresh_specs())
+    assert all(row["declared_adapter_surface"] for row in rows)
+    assert all(row["declared_adapter_surface_is_execution_proof"] is False for row in rows)
+    assert all(row["runtime_consumer"] == "NOT_PROVEN_BY_REGISTRY" for row in rows)
+    coverage = result["apdex_adapter_surface_coverage"]
+    assert coverage["mapped_registry_variables"] + coverage["unmapped_registry_variables"] == len(rows)
+    assert coverage["mapped_registry_variables"] > 0
+    assert coverage["unmapped_registry_variables"] > 0
+    assert coverage["execution_or_aud_snapshot_coverage_proven"] is False
+    as_rows = {row["name"]: row for row in rows}
+    assert as_rows["RASAI_APDEX_THRESHOLD_SECONDS"]["declared_adapter_surface"] == (
+        "M23_CLI_INPUT_CANDIDATE_NOT_EXECUTION_PROOF"
+    )
+    assert as_rows["RASAI_APDEX_EXPERIENCE_ARCHITECTURE"]["declared_adapter_surface"] == (
+        "CAT07_DECLARATIVE_INPUT_NOT_M25_MEASUREMENT"
+    )
+    # The inert historical device mix is intentionally absent from the
+    # live EnvironmentSpec registry, not a lost execution setting.
+    assert "RASAI_APDEX_EXPERIENCE_DEVICE_MIX" not in as_rows
+    assert as_rows["OPENAI_API_KEY"]["declared_adapter_surface"] == (
+        "NOT_MAPPED_NO_CONSUMER_INFERENCE"
+    )
+    rendered = json.dumps(result)
+    assert "SHOULD_NOT_LEAK" not in rendered
+    assert "SECRET_TEST" not in rendered
+    assert ini.read_text(encoding="utf-8").endswith("SHOULD_NOT_LEAK\n")

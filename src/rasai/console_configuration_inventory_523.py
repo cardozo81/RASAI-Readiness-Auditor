@@ -49,6 +49,41 @@ def _origin(key: str, parser: ConfigParser | None, environ: Mapping[str, str]) -
     return "RUNTIME_DEFAULT_OR_ABSENT"
 
 
+
+def _declared_apdex_consumer_surface() -> dict[str, str]:
+    """Classify source-declared adapter INPUTS, not real executed consumers.
+
+    This map is derived from actual M23/M25 CLI constants. It deliberately
+    does not turn registry metadata into a claim about executed collectors,
+    persisted AUD snapshots, paid integrations, or operator authorization.
+    """
+    from rasai import m23_cli, m25_cli
+
+    navigation = (
+        m23_cli.APDEX_ENABLED_ENV,
+        m23_cli.APDEX_THRESHOLD_ENV,
+        m23_cli.APDEX_SAMPLES_ENV,
+        m23_cli.APDEX_MAX_ATTEMPTS_ENV,
+        m23_cli.APDEX_MAX_PAGES_ENV,
+        m23_cli.APDEX_TIMEOUT_ENV,
+        m23_cli.APDEX_DELAY_ENV,
+        m23_cli.APDEX_CONCURRENCY_ENV,
+    )
+    declared: dict[str, str] = {}
+    for name in navigation:
+        declared[name] = "M23_CLI_INPUT_CANDIDATE_NOT_EXECUTION_PROOF"
+    for name in m25_cli.M25_ENV_NAMES:
+        if name in (m25_cli.UX_ARCHITECTURE_ENV, m25_cli.UX_PROFILE_MODE_ENV):
+            declared[name] = "CAT07_DECLARATIVE_INPUT_NOT_M25_MEASUREMENT"
+        elif name == m25_cli.UX_DEVICE_MIX_ENV:
+            declared[name] = "INERT_DEVICE_MIX_DERIVED_FROM_CONSOLE_DEVICE"
+        else:
+            declared[name] = "M25_CLI_INPUT_CANDIDATE_NOT_EXECUTION_PROOF"
+    for name in m23_cli.profile_environment_names():
+        declared[name] = "SHARED_APDEX_PROFILE_INPUT_NOT_EXECUTION_PROOF"
+    return declared
+
+
 def inventory(
     *,
     path: Path | None = None,
@@ -67,6 +102,7 @@ def inventory(
     parser = _safe_ini(file)
 
     specs = refresh_specs()
+    consumer_affinities = _declared_apdex_consumer_surface()
     seen: set[str] = set()
     variables = []
     for spec in specs:
@@ -87,6 +123,10 @@ def inventory(
                 "SECRET_PRESENT" if str(environment.get(key) or "").strip() else "SECRET_ABSENT"
             ) if sensitive else _origin(key, parser, environment),
             "runtime_consumer": "NOT_PROVEN_BY_REGISTRY",
+            "declared_adapter_surface": consumer_affinities.get(
+                key, "NOT_MAPPED_NO_CONSUMER_INFERENCE"
+            ),
+            "declared_adapter_surface_is_execution_proof": False,
             "audit_snapshot": "AUD_DEPENDENT_NOT_INFERRED",
         })
     # These are execution inputs, NOT EnvironmentSpecs. No values ever emitted.
@@ -142,6 +182,17 @@ def inventory(
         "contract": "RASAI-CONSOLE-CONFIG-INVENTORY-523-1",
         "registry_size": len(specs),
         "environment_variables": variables,
+        "apdex_adapter_surface_coverage": {
+            "mapped_registry_variables": sum(
+                item["declared_adapter_surface"] != "NOT_MAPPED_NO_CONSUMER_INFERENCE"
+                for item in variables
+            ),
+            "unmapped_registry_variables": sum(
+                item["declared_adapter_surface"] == "NOT_MAPPED_NO_CONSUMER_INFERENCE"
+                for item in variables
+            ),
+            "execution_or_aud_snapshot_coverage_proven": False,
+        },
         "typed_state_fields": state_fields,
         "typed_ini_coverage": {
             "total": len(state_fields),

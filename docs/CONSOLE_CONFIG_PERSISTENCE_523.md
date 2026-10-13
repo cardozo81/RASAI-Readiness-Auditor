@@ -194,3 +194,41 @@ comportamento da auditoria normal.
 A CLI de inventário é projetada para uso em processo separado do
 console; não utilizar o diagnóstico para justificar concorrência
 entre configuração e auditoria ativa no mesmo processo.
+
+## Classificação das superfícies consumidoras M23/M25 (#523)
+
+O inventário geral das `EnvironmentSpec` agora inclui a propriedade
+`declared_adapter_surface`, calculada dinamicamente a partir das
+constantes existentes dos módulos `m23_cli`, `m25_cli` e dos
+perfis compartilhados de Apdex. Os grupos de classificação são:
+
+- `M23_CLI_INPUT_CANDIDATE_NOT_EXECUTION_PROOF`: parâmetro conhecido
+  da configuração de navegação.
+- `M25_CLI_INPUT_CANDIDATE_NOT_EXECUTION_PROOF`: parâmetro conhecido
+  da configuração de experiência.
+- `SHARED_APDEX_PROFILE_INPUT_NOT_EXECUTION_PROOF`: preset de
+  dispositivo potencialmente utilizado por ambos.
+- `CAT07_DECLARATIVE_INPUT_NOT_M25_MEASUREMENT`: arquitetura informada
+  e modo de calibração são declarações, não índices medidos pelo M25.
+- `INERT_DEVICE_MIX_DERIVED_FROM_CONSOLE_DEVICE`: a mistura
+  histórica não reativa dispositivo múltiplo.
+- `NOT_MAPPED_NO_CONSUMER_INFERENCE`: nenhum consumidor foi identificado
+  por este inventário de Apdex; **não** significa variável órfã.
+
+O resumo `apdex_adapter_surface_coverage` informa quantas variáveis
+do registro caem em cada universo, sem exibir valores nem credenciais.
+`runtime_consumer=NOT_PROVEN_BY_REGISTRY` e a flag
+`execution_or_aud_snapshot_coverage_proven=false` permanecem
+intencionalmente: uma constante de interface **não prova** que o
+parâmetro foi usado na AUD, nem que uma opção desabilitada participou
+de uma coleta.
+
+O comando opcional `--verify-apdex` valida os adapters com valores
+efetivos em memória isolada, não altera essas flags como se fosse
+telemetria executiva por variável. Credenciais externas e outras
+categorias permanecem não mapeadas nesta etapa.
+
+A mistura histórica inerte aparece nos contratos do adapter CLI, mas não
+faz parte do conjunto atual de variáveis editáveis do registro do console.
+Isso não configura falta de persistência e não deve ser introduzido no
+INI apenas para satisfazer uma contagem estática do inventário.
