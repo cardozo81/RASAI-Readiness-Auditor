@@ -81,7 +81,7 @@ comando consulta `RASAI_CONSOLE_INI` ou o caminho relativo ao diretório atual.
 
 A matriz enumera **cada variável atualmente registrada** e destaca
 categoria, sensibilidade, escopo, elegibilidade para INI, existência de valor
-somente como marcador e precedência `SESSION_OVERRIDES_INI`, quando aplicável.
+somente como marcador e diferença `SESSION_DIFFERS_FROM_INI_EFFECTIVE_PRIORITY_UNVERIFIED`, quando aplicável; a origem efetiva depende do consumidor.
 Nunca contém valores, tokens, paths do operador, URLs concretas, queries ou
 consentimento. Há seções adicionais para todos os campos tipados em
 `console_settings._state_values` e para queries SERP/Perplexity.
@@ -129,3 +129,19 @@ disponíveis como inputs de calibração/advisory, mas **não são campos
 nativos de `ExperienceApdexConfig`** e não devem ser descritos como
 medidos pelo motor. O teste não invoca browser, Dynatrace, Search API,
 IA nem gera AUD, e restaura o pending M25 depois de verificar o contrato.
+
+## Diferença de valores não prova precedência (13/10/2026)
+
+Um valor não secreto presente simultaneamente no processo e no INI com
+textos distintos não garante que o processo seja o vencedor efetivo.
+O consumidor pode re-projetar um campo tipado do INI ao preparar a execução.
+
+Fixture: `RASAI_APDEX_EXPERIENCE_ARCHITECTURE` com processo `HYDRATED`,
+seção `environment` do INI `STATIC_OR_SSR` e seção tipada da mesma
+fonte `CSR_SPA`. O carregamento mantém inicialmente o processo, mas
+`sync_nonsecret_runtime_environment` re-projeta o estado tipado e o
+valor efetivo passa a `CSR_SPA`. Por isso, o resumo do console conta
+**divergências de valores**, e não `overrides` cujo efeito não comprovou.
+
+A mudança é apenas na linguagem/diagnóstico offline; não muda a
+prioridade real nem o comportamento dos adapters e motores.
