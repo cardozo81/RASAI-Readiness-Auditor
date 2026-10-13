@@ -6,25 +6,30 @@ on:
     paths:
       - 'src/rasai/cat07_architecture_reporting_358.py'
       - 'src/rasai/console_perplexity_readiness_318.py'
+      - 'src/rasai/console_search_scope_presentation.py'
       - 'src/rasai/integration_diagnostics_console.py'
       - 'src/rasai/console_catalog_ui.py'
       - 'src/rasai/console_ui_catalog.py'
       - 'src/rasai/console_search_parameter_menu.py'
       - 'tests/test_cat07_architecture_integration_358.py'
       - 'tests/test_console_perplexity_readiness_318.py'
+      - 'tests/test_console_search_scope_presentation.py'
       - 'docs/PERPLEXITY_SEARCH_INTELLIGENCE.md'
+      - 'docs/CONSOLE_CONFIG_PERSISTENCE_523.md'
       - '.github/workflows/cat07-perplexity-ux-318-378.yml'
   push:
     branches: [main]
     paths:
       - 'src/rasai/cat07_architecture_reporting_358.py'
       - 'src/rasai/console_perplexity_readiness_318.py'
+      - 'src/rasai/console_search_scope_presentation.py'
       - 'src/rasai/integration_diagnostics_console.py'
       - 'src/rasai/console_catalog_ui.py'
       - 'src/rasai/console_ui_catalog.py'
       - 'src/rasai/console_search_parameter_menu.py'
       - 'tests/test_cat07_architecture_integration_358.py'
       - 'tests/test_console_perplexity_readiness_318.py'
+      - 'tests/test_console_search_scope_presentation.py'
       - '.github/workflows/cat07-perplexity-ux-318-378.yml'
 
 permissions:
@@ -50,6 +55,7 @@ jobs:
           python -m compileall -q
           src/rasai/cat07_architecture_reporting_358.py
           src/rasai/console_perplexity_readiness_318.py
+          src/rasai/console_search_scope_presentation.py
           src/rasai/integration_diagnostics_console.py
           src/rasai/console_catalog_ui.py
           src/rasai/console_ui_catalog.py

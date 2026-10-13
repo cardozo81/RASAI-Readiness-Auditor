@@ -376,3 +376,33 @@ nenhum refresh de OAuth e bytes originais
 inalterados. O patch não modifica a configuração
 de GSC nem altera política de consentimento,
 janela, provider, runtime ou AUD física.
+
+
+## Transparencia CAT-05 na tela de escopo da AUD (#523, 13/10/2026)
+
+A tela principal de escopo CAT-05 agora identifica, junto dos
+inputs de Perplexity, que **queries e modo WEB/FAST pertencem
+somente a sessao atual e NAO sao salvos no INI**. Informa
+expressamente que a proxima sessao / proxima AUD exige
+nova definicao e confirmacao. Esse contexto independe
+de ter chave, habilitacao ou filtros globais presentes;
+a tela nao interpreta configuracao tecnica como
+consentimento faturavel.
+
+O renderer ja existia, mas nao mostrava ali a politica
+de persistencia conhecida pela tela especifica de
+readiness e pelo ato de salvar. A alteracao somente
+acrescenta informacao de UI, sem ler o arquivo do
+operador, modificar politica de salvamento, copia de
+SERP, selecionar provider, agendar consulta ou tocar
+em motor de coleta.
+
+Regressao isolada cria um INI temporario com SERP
+reutilizavel e Perplexity configurada na sessao
+original, reabre em novo state e verifica: SERP
+permanece; queries e modo Perplexity voltam ao
+estado nao solicitado; CAT-05 comunica a exclusao;
+token e termos Perplexity nao vazam para INI/UI.
+Bytes do arquivo continuam imutaveis no load/render.
+O gate humano de caminho real Windows ainda e
+necessario para homologacao da #523.
