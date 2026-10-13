@@ -11,7 +11,7 @@ from configparser import Error as ConfigError
 from hashlib import sha256
 import os
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, gettempdir
 from typing import Mapping, Any
 
 
@@ -55,6 +55,9 @@ def inspect_apdex_consumers(
     digest = sha256(original_bytes).digest()
 
     environment_before = dict(os.environ)
+    # Resolve a writable scratch directory before injecting an isolated
+    # environment that may intentionally omit Windows TEMP/TMP variables.
+    scratch_directory = gettempdir()
     try:
         # Restore the caller's exact environment whether or not the adapter
         # validation succeeds. Explicit caller env is a test-only substitute.
@@ -66,7 +69,7 @@ def inspect_apdex_consumers(
         # Operate on an owned temporary byte-for-byte copy. A deletion or
         # race on the original file can never trigger the loader's
         # missing-file auto-create behavior on the operator's real path.
-        with TemporaryDirectory(prefix="rasai-apdex-config-523-") as tmp:
+        with TemporaryDirectory(prefix="rasai-apdex-config-523-", dir=scratch_directory) as tmp:
             copy = Path(tmp) / "operator.ini"
             copy.write_bytes(original_bytes)
             state = SearchConsoleState()
