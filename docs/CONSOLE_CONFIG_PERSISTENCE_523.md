@@ -256,3 +256,30 @@ a abertura de outra sessão nunca transfere autorização financeira de
 nova pesquisa. A redação do console não inicia pesquisas.
 Testes reproduzem INI válido, ausente, inválido, grande demais,
 symlink e append concorrente, sem mostrar segredos ou alterar a AUD.
+
+
+## Gate novo: save/reopen entre interpretadores independentes (#523)
+
+O teste `tests/test_console_fresh_process_roundtrip_523.py` executa dois
+processos Python distintos, com ambiente controlado e `RASAI_CONSOLE_INI`
+apontando para um arquivo temporário descartável. O primeiro processo
+configura CAT-06/CAT-07, arquitetura HYDRATED, perfil CUSTOM, SERP e
+habilitação global Perplexity; grava o INI e encerra. O segundo processo
+reabre a mesma fonte, compara a representação **de todos os campos tipados**
+ao snapshot de salvamento, projeta os overrides não secretos e passa
+a configuração real dos adapters M23/M25 ao preflight offline existente.
+
+O teste calcula o conjunto completo de nomes públicos não secretos a partir
+de `refresh_specs()` e verifica as chaves persistidas, sem cardinalidade
+fixa. Garante que chave Perplexity fictícia e queries de consentimento
+não entram no INI; ao iniciar outro processo, o modo transiente volta a
+WEB e não existe solicitação paga herdada. O próprio INI não deve sofrer
+nenhuma mutação na leitura. CI de configuração Linux e console Windows
+incluem esse teste.
+
+**Limites:** essa fixture demonstra o contrato do processo isolado, não
+a identidade física do INI real usado no Windows, o consumo por coletores
+remunerados, a amostra da AUD nem tenant Dynatrace. As flags do inventário
+continuam `NOT_PROVEN_BY_REGISTRY` quando não houver evidência física de
+consumo. Não dispensar o smoke humano consolidado de save/reopen no sistema
+do operador; não solicitar AUD paga somente para reproduzir esse teste.
