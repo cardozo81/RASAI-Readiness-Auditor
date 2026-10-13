@@ -113,3 +113,19 @@ O diagnóstico `typed_ini_coverage` separa campos derivados ausentes de
 lacunas de campos não derivados. Ambas são apenas metadados; o inventário
 não certifica uso pelo motor, integridade da AUD ou autorização comercial.
 Fixture física reproduz a presença de 70 de 71 campos em teste offline.
+
+## Prova de consumo físico do contrato M23/M25 (offline)
+
+Teste direcionado `test_saved_apdex_inputs_are_consumed_by_real_m23_m25_config_adapters_without_aud`
+verifica o trajeto `save INI -> load state -> sync runtime environment ->
+argparse real -> configured_apdex -> M25 pending_config` em um ambiente
+isolado. A asserção final examina **as estruturas efetivamente
+consumidas** pelos adapters de M23/M25, não apenas igualdade de strings.
+Abrange T, amostras, tentativas, timeout, delay, concorrência, device
+canônico, KPM, thresholds, escopo e captura de erros JS/XHR/Fetch.
+
+Arquitetura declarada `CSR_SPA` e modo `CUSTOM` também permanecem
+disponíveis como inputs de calibração/advisory, mas **não são campos
+nativos de `ExperienceApdexConfig`** e não devem ser descritos como
+medidos pelo motor. O teste não invoca browser, Dynatrace, Search API,
+IA nem gera AUD, e restaura o pending M25 depois de verificar o contrato.
