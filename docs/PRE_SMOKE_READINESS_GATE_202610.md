@@ -80,6 +80,10 @@ Validar, nos HTMLs gerados, os pontos abaixo:
   catalogo; regiao/idioma/device/intent nao inferidos.
 - `cat-06.html` e `cat-07.html`: Apdex sintetico separado de
   configuracao/acoes Dynatrace RUM, sem troca automatica de thresholds.
+  Conferir no CAT-07 a tabela consultiva de KPMs Load/XHR/Custom
+  por arquitetura: arquitetura UNKNOWN -> N/D; nao confundir opcoes
+  suportadas pelo vendor com configuracao efetiva, populacao RUM,
+  recomendacao numerica ou atualizacao automatica do tenant.
 - `cat-08.html`, `cat-09.html` e `directed-analysis.html`:
   conteudo de IA associado a achados reais, limites de evidencia claros,
   estados de indisponibilidade explicitos e elementos responsivos.
