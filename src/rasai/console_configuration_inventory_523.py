@@ -109,22 +109,47 @@ def inventory(
     ]
     state = SearchConsoleState()
     state_fields = []
+    # The experience device mix is computed from console.device on both save
+    # and load. Its absence in older INIs does not represent an operator input
+    # lost on restore; never suggest copying an obsolete multi-device value.
+    derived_state = frozenset({("synthetic_apdex_experience", "device_mix")})
     for section, options in console_settings._state_values(state).items():
         for option in options:
+            present = bool(parser is not None and parser.has_option(section, option))
+            derived = (section, option) in derived_state
             state_fields.append({
                 "name": f"{section}.{option}",
                 "scope": (
-                    "INI_EXECUTION_INPUT" if section == "search_intelligence"
+                    "DERIVED_FROM_CONSOLE_DEVICE" if derived
+                    else "INI_EXECUTION_INPUT" if section == "search_intelligence"
                     else "INI_TYPED_STATE"
                 ),
                 "ini_section": section,
-                "ini_present": bool(parser is not None and parser.has_option(section, option)),
+                "ini_present": present,
+                "missing_ini_is_effective_config_loss": (
+                    False if derived else None
+                ),
             })
+    missing = [
+        field["name"] for field in state_fields
+        if not field["ini_present"] and field["scope"] != "DERIVED_FROM_CONSOLE_DEVICE"
+    ]
+    derived_missing = [
+        field["name"] for field in state_fields
+        if not field["ini_present"] and field["scope"] == "DERIVED_FROM_CONSOLE_DEVICE"
+    ]
     return {
         "contract": "RASAI-CONSOLE-CONFIG-INVENTORY-523-1",
         "registry_size": len(specs),
         "environment_variables": variables,
         "typed_state_fields": state_fields,
+        "typed_ini_coverage": {
+            "total": len(state_fields),
+            "present": sum(1 for item in state_fields if item["ini_present"]),
+            "missing_non_derived_names": missing if parser is not None else [],
+            "missing_derived_names": derived_missing if parser is not None else [],
+            "missing_non_derived_is_execution_failure_proven": False,
+        },
         "execution_inputs": execution_inputs,
         "file_readable": parser is not None,
         "metadata_only": True,
