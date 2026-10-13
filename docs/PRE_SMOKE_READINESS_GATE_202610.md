@@ -46,9 +46,26 @@ $aud = Join-Path $auditRoot $auditId
 if (-not (Test-Path -LiteralPath (Join-Path $aud "audit.db") -PathType Leaf)) {
     throw "audit.db nao encontrado na pasta AUD selecionada: $aud"
 }
+$db = Join-Path $aud "audit.db"
+$before = (Get-FileHash -LiteralPath $db -Algorithm SHA256).Hash
 $out = Join-Path $env:TEMP ("RASAI-REPORTS-SMOKE-" + (Get-Date -Format "yyyyMMddHHmmss"))
 .\.venv\Scripts\rasai.exe rematerialize-report --audit-dir $aud --output-root $out
+if ($LASTEXITCODE -ne 0) {
+    throw "Rematerializacao recusada: nenhum relatorio publicado. Conservar a AUD original."
+}
+$report = Join-Path (Join-Path $out $auditId) "report-catalog\index.html"
+if (-not (Test-Path -LiteralPath $report -PathType Leaf)) {
+    throw "Manifestacao de sucesso sem HTML publicado: $report"
+}
+$after = (Get-FileHash -LiteralPath $db -Algorithm SHA256).Hash
+if ($before -ne $after) {
+    throw "Integridade violada: SHA-256 do audit.db original mudou"
+}
 .\.venv\Scripts\rasai.exe audit-attempts $aud
+if ($LASTEXITCODE -ne 0) {
+    throw "Inspecao de tentativas indisponivel: nao declarar smoke verde"
+}
+Write-Host "Relatorio confirmado:" $report
 ```
 
 A pasta informada deve ser a subpasta fisica da AUD dentro de
@@ -59,6 +76,14 @@ aparecer na lista ou nao contiver audit.db, nao execute o smoke:
 localize primeiro a origem real, sem copiar, mover, recriar ou apagar
 os artefatos existentes. O comando audit-attempts retorna agora
 erro de uso legivel (exit code 2) quando nao encontra a base.
+
+**Falha nao equivale a entrega:** criar `$out` ou imprimir manualmente
+`Relatorios gerados em: $out` apos o erro nao comprova que algum
+HTML foi publicado. A verificacao requer **exit code 0**, arquivo real
+`report-catalog/index.html` e SHA do audit.db de origem identico.
+Uma AUD `COMPLETE_WITH_LIMITATIONS` pode gerar relatorio `PRELIMINARY`;
+nao atribuir `COMPLETE` a esse estado logico nem usar sua cronologia
+como janela fisica completa para a issue #319.
 
 Ambos os comandos sao publicos e somente leitura de origem. O primeiro
 recria os HTMLs em copia, sem executar novos coletores. O segundo

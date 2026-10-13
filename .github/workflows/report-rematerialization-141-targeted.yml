@@ -5,12 +5,14 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/report_rematerialization.py'
+      - 'src/rasai/report_completion.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_report_rematerialization_141.py'
       - '.github/workflows/report-rematerialization-141-targeted.yml'
   pull_request:
     paths:
       - 'src/rasai/report_rematerialization.py'
+      - 'src/rasai/report_completion.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_report_rematerialization_141.py'
       - '.github/workflows/report-rematerialization-141-targeted.yml'
@@ -21,8 +23,13 @@ permissions:
 
 jobs:
   report-only-141:
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
+    name: report-only-141 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

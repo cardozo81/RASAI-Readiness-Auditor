@@ -21,6 +21,35 @@ operação se recusa a sobrescrever saídas preexistentes. O caminho de saída
 não pode estar dentro da AUD de origem. Para nova tentativa, use uma
 pasta de saída nova, preservando a anterior como evidência.
 
+## Regressao read-only em replay de GEO (#521, 13/10/2026)
+
+A auditoria historica `AUD-03340B284300443B984601C476B9BF88`
+reproduziu recusa de publicacao porque o staging recebeu o sidecar
+`artifacts/geo-extraction-quality.json` e uma alteracao fisica em
+`audit.db`. Isso **nao** prova corrupcao da origem: o SHA-256
+original antes e depois permaneceu identico. A recusa de publicacao
+funcionou como projetado, mas o entrypoint de re-renderizacao
+invocava dois finalizadores mutaveis do `report_completion`.
+
+`rematerialize-report` agora chama
+`materialize_catalog_report_projection(read_only=True)`. No modo
+read-only, o renderizador nao cria observacao GEO no SQLite nem
+materializa sidecar de qualidade de extracao. O modo default
+`read_only=False` conserva a geracao de evidencias derivadas na
+execucao canonica e no RPR. O relatorio offline deve consumir apenas
+dados **ja persistidos**; ausencia do sidecar nao deve ser tratada como
+uma observacao negativa nem preenchida retroativamente. Nenhum
+motor GEO, coleta, IA, SERP, M23/M25, pontuacao ou persistencia de
+AUD original foi modificado.
+
+A checagem de inventario apos a renderizacao continua obrigatoria
+tanto para staging quanto para fonte. Se qualquer renderizador futuro
+escrever acidentalmente no banco, a saida inteira sera recusada.
+O operador so pode confirmar publicacao quando o CLI retornar
+exit code 0 **e** `<output-root>/<AUD-ID>/report-catalog/index.html`
+realmente existir. Se a AUD tem `COMPLETE_WITH_LIMITATIONS`, o
+report continua `PRELIMINARY` conforme o estado persistido.
+
 ## Garantias de fronteira
 
 1. Ler a AUD com SQLite no modo somente leitura para validar a identidade.

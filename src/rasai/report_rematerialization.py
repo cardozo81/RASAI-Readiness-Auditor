@@ -191,7 +191,7 @@ def rematerialize(*, audit_dir: str | Path, output_root: str | Path) -> Path:
         workspace = AuditWorkspace.open(stage)
         with _forbid_network():
             outcome = report_completion.materialize_catalog_report_projection(
-                audit_id=audit_id, workspace=workspace,
+                audit_id=audit_id, workspace=workspace, read_only=True,
             )
         if outcome.renderer_errors:
             raise RuntimeError("Projecao canonica falhou: " + "; ".join(outcome.renderer_errors))
