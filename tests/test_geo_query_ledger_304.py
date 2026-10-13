@@ -1095,3 +1095,68 @@ def test_v5_two_same_scope_serp_observations_choose_closest_physical_time(
     assert result["queries"][0]["observation_gap_seconds"] == 120
     assert result["queries"][0]["serp_scope"]["country"] == "BR"
     assert (folder / "audit.db").read_bytes() == original
+
+
+@pytest.mark.parametrize(
+    "missing_scope",
+    ["engine", "country", "region", "language", "device"],
+)
+def test_v6_incomplete_in_window_scope_cannot_be_hidden_by_valid_serp_sample(
+    tmp_path, missing_scope,
+):
+    """An in-window OBSERVED_API sibling with absent scope cannot be cherry-picked away."""
+    folder = _audit(tmp_path, multi=True)
+    with sqlite3.connect(folder / "audit.db") as con:
+        keys = (
+            "observation_id", "audit_id", "query", "collected_at",
+            "observation_status", "data_mode", "engine", "country",
+            "region", "language", "device",
+        )
+        row = dict(zip(keys, con.execute(
+            "SELECT * FROM serp_observations WHERE observation_id='SERP-0'"
+        ).fetchone()))
+        row["observation_id"] = "SERP-MISSING-SCOPE"
+        row["collected_at"] = "2026-10-10T12:01:00Z"
+        row[missing_scope] = None
+        con.execute(
+            "INSERT INTO serp_observations VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            tuple(row[key] for key in keys),
+        )
+        con.execute(
+            "INSERT INTO serp_results VALUES (?,?,?)",
+            ("SERP-MISSING-SCOPE", 0, "https://example.org/shared"),
+        )
+    source = folder / "audit.db"
+    original = source.read_bytes()
+    outcome = inspect_geo_per_query(folder)
+    assert outcome["status"] == "DESCRIPTIVE_ONLY"
+    assert outcome["per_query_attribution_status"] == "PHYSICALLY_ATTRIBUTABLE"
+    first, second = outcome["queries"]
+    assert first["status"] == "NOT_COMPARABLE"
+    assert first["reason"] == "SERP_SCOPE_INCOMPLETE_ALONGSIDE_VERIFIED_SAMPLE"
+    assert first["serp_observation_id"] is None
+    assert first["common_urls"] is None
+    assert first["jaccard_url_rate"] is None
+    assert first["serp_overlap_rate"] is None
+    assert first["serp_scope"] is None
+    assert second["status"] == "DESCRIPTIVE_ONLY"
+    assert second["common_urls"] == 1
+    assert outcome["source_audit_db_integrity_guard"] == "DOUBLE_SHA256_MATCH"
+    assert source.read_bytes() == original
+
+
+def test_v6_out_of_window_missing_scope_does_not_poison_valid_sample(tmp_path):
+    folder = _audit(tmp_path, multi=False)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "INSERT INTO serp_observations "
+            "SELECT 'OUT-OF-WINDOW',audit_id,query,'2026-09-01T12:00:00Z',"
+            "observation_status,data_mode,NULL,country,region,language,device "
+            "FROM serp_observations WHERE observation_id='SERP-0'"
+        )
+    original = (folder / "audit.db").read_bytes()
+    outcome = inspect_geo_per_query(folder)
+    assert outcome["status"] == "DESCRIPTIVE_ONLY"
+    assert outcome["queries"][0]["status"] == "DESCRIPTIVE_ONLY"
+    assert outcome["queries"][0]["common_urls"] == 1
+    assert (folder / "audit.db").read_bytes() == original
