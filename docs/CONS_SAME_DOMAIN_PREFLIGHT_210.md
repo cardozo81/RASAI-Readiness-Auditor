@@ -52,3 +52,24 @@ de métricas, proveniência física de cada AUD e autorização do operador.
 Não foi alterado índice, leitura de SQLite, score, seleção existente,
 orquestrador, pipeline ou motor homologado. Os testes de elegibilidade
 funcionam sem AUD, rede, IA, bancos ou credenciais reais.
+
+## Identidade de rotas SPA e URL bruta (#210)
+
+O preflight puramente consultivo agora diferencia `#secao` (ancora da
+mesma pagina fisica) de `#/rota` e `#!/rota` (possiveis rotas SPA).
+Duas URLs com rotas hash diferentes podem ser inventariadas como
+universos de pagina distintos sob o mesmo host, mas **nao** como
+observacoes longitudinais da mesma pagina. Mesmo nesses casos,
+`source_attestation_verified=false`: somente renderizacao equivalente,
+URL final e amostras fisicas poderiam provar o conteudo real da rota.
+
+O parse recusa antecipadamente tabs, quebras de linha, controles,
+backslash, whitespace nas bordas, URLs maiores que 2048 caracteres e
+autoridades ambiguas com `@` ou percent-encoding. Isso evita que
+`urlsplit` normalize caracteres que poderiam transformar URLs
+distintas em uma origem aparentemente identica. A restricao nao
+altera selecao nem geracao do CONS produtivo.
+
+Testes direcionados cobrem SPA `#/...`, `#!/...`, ancoras comuns
+e URLs adversariais, mantendo `new_cons_generated=false`, zero
+provider requests e nenhum delta de score autorizado.
