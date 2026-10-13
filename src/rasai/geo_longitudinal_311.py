@@ -30,6 +30,18 @@ _MAX_V8_QUERY_JSON_BYTES = 16 * 1024
 _MAX_V8_PROJECTION_JSON_BYTES = 4 * 1024 * 1024
 
 
+def _unique_v8_projection_keys(
+    pairs: list[tuple[str, Any]],
+) -> dict[str, Any]:
+    """Do not use last-key-wins for a physically attested GEO v8 snapshot."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate GEO v8 projection JSON key")
+        result[key] = value
+    return result
+
+
 def _aware(raw: object) -> datetime | None:
     try:
         if not isinstance(raw, str) or not raw.strip():
@@ -323,7 +335,13 @@ def _one_unsealed(root: Path) -> tuple[dict[str, Any] | None, str | None]:
     ):
         return None, "GEO_PROJECTION_INVALID"
     try:
-        projection = json.loads(raw_projection)
+        projection = (
+            json.loads(
+                raw_projection, object_pairs_hook=_unique_v8_projection_keys,
+            )
+            if stored["contract_version"] == "RASAI-GEO-OBSERVATION-8"
+            else json.loads(raw_projection)
+        )
     except (TypeError, ValueError):
         return None, "GEO_PROJECTION_INVALID"
     if not isinstance(projection, dict):

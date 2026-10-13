@@ -225,3 +225,18 @@ históricos v5-v7, não altera a normalização do produtor GEO, não escreve
 AUD/CONS nem realiza chamadas externas. Quatro fixtures físicas SQLite
 verificam fontes inválidas SERP/Search com métricas coerentemente
 recalculadas, abstenção e integridade byte a byte das AUDs.
+
+
+## Ambiguidade de chaves JSON no snapshot GEO v8 (12/10/2026)
+
+A prévia longitudinal read-only recusa snapshots `geo_observation_runs.projection_json`
+do contrato v8 contendo **qualquer chave JSON duplicada**, inclusive em
+objetos internos de alvo ou denominadores SERP × Search API. Um parser que
+escolhe a última chave pode ocultar uma declaração contraditória mesmo
+quando os campos aceitos parecem coincidir com as tabelas físicas.
+A AUD afetada é excluída com `GEO_PROJECTION_INVALID`; demais AUDs
+mantêm a elegibilidade verificada, sem tendências numéricas inventadas.
+A validação de snapshots v5-v7 mantém a semântica anterior e não é
+reinterpretada retroativamente. Três fixtures SQLite demonstram recusa
+de duplicações raiz e aninhadas, preservação byte a byte de fontes e
+zero requisições/escritas.
