@@ -164,8 +164,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="List the RASAi console registry and safe INI/session provenance offline."
     )
     parser.add_argument("--ini", type=Path, help="optional configuration file for metadata inspection")
+    parser.add_argument(
+        "--verify-apdex", action="store_true",
+        help="offline M23/M25 adapter validation on an isolated INI copy; no audit or APIs",
+    )
     args = parser.parse_args(argv)
-    print(json.dumps(inventory(path=args.ini), ensure_ascii=False, indent=2, sort_keys=True))
+    report = inventory(path=args.ini)
+    if args.verify_apdex:
+        from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+        selected = args.ini if args.ini is not None else canonical_console_config_path()
+        report["apdex_offline_consumer_preflight"] = inspect_apdex_consumers(selected)
+    print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 
 
