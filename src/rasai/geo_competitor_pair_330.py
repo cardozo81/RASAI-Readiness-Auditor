@@ -324,6 +324,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--audit-dir", type=Path, required=True)
     parser.add_argument("--customer-manifest", type=Path, required=True)
     parser.add_argument("--competitor-manifest", type=Path, required=True)
+    parser.add_argument(
+        "--format", choices=("json", "html"), default="json",
+        help="Standalone advisory: HTML never changes COBS/AUD or executes HTTP.",
+    )
     args = parser.parse_args(argv)
     try:
         result = compare_cobs_static_pair(
@@ -331,7 +335,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     except (ValueError, OSError, TypeError, KeyError) as exc:
         parser.error(str(exc))
-    print(json.dumps(result, sort_keys=True, indent=2, ensure_ascii=False))
+    if args.format == "html":
+        from rasai.geo_competitor_pair_html_330 import render_cobs_static_pair_html
+        print(render_cobs_static_pair_html(result))
+    else:
+        print(json.dumps(result, sort_keys=True, indent=2, ensure_ascii=False))
     return 0
 
 
