@@ -478,3 +478,35 @@ simbolico prova que a raiz original continua elegivel e que o alias
 retorna 0 fontes e previsao N/D. Nenhum arquivo historico e alterado
 e a regra nao cria protecao criptografica contra mudancas no diretorio
 enquanto uma varredura estiver em andamento.
+
+
+## Protecao contra previsao de duracao Apdex nao comprovado (#319)
+
+A configuracao historica persistida em
+`console_execution_projections.configuration` inclui parametros de
+console/IA/Web Performance, mas o esquema legado nao registra se CAT-06
+(`synthetic_apdex`) ou CAT-07 (`apdex_experience`) estavam ativos.
+Um forecast de uma nova AUD com Apdex ativo nao pode usar
+automaticamente o historico como se fosse carga equivalente.
+
+O leitor consultivo `audit_duration_forecast_319` passou a exigir
+flag booleana explicita e coincidente no JSON historico para cada
+carga Apdex **ativa** na nova AUD. A ausencia no legado implica
+exclusao daquela observacao. Se nao sobrarem cinco AUDs comparaveis,
+a previsao e N/D, explicando a falta de comprovacao do escopo.
+Valores explicitos distintos tambem excluem a fonte. JSON legado sem
+esses campos continua elegivel somente quando o estado atual declara
+Apdex desabilitado; isso **nao certifica** que as auditorias historicas
+tinham Apdex desligado, e a limitacao aparece nas notas exibidas.
+
+Essa camada nao introduz informacao inexistente nem declara
+previsibilidade por arquitetura/threshold/perfil apenas pela
+correspondencia da flag. Para liberar forecasts de Apdex com evidencias
+suficientes, o esquema/produtor do snapshot futuro deve ser ampliado
+por decisao tecnica propria, incluindo variaveis de carga relevantes
+e verificacao posterior; nenhum `audit.db` historico e reescrito aqui.
+
+Fixtures SQLite fisicas validam ausencia de flag em cinco AUDs,
+M23/M25 ativos, booleanos futuros coincidentes, diferenca de carga
+em uma fonte e integridade read-only. Nao modifica orquestrador,
+medicoes M23/M25, timers, precos, CI de motores ou captura real.
