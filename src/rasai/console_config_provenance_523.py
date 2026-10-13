@@ -83,7 +83,7 @@ def render_provenance(summary: ConfigurationProvenance) -> str:
         return (
             f"Configuração INI: {summary.file_status} | "
             f"{summary.persisted_public} variáveis públicas inventariadas | "
-            f"{summary.session_overrides} override(s) da sessão sobre o INI"
+            f"{summary.session_overrides} divergência(s) sessão/INI (prioridade efetiva depende do campo)"
             + (f" | {summary.invalid_entries} entrada(s) ignoradas" if summary.invalid_entries else "")
         )
     return f"Configuração INI: {summary.file_status}"
