@@ -10,6 +10,7 @@ from contextlib import closing
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import sqlite3
 from typing import Any, Mapping, Sequence
@@ -116,26 +117,45 @@ def _host_overlap(serp_urls: set[str], external_urls: set[str]) -> dict[str, int
 
 
 def _audit_digest(path: Path) -> tuple[str, int]:
-    """Bounded local source seal, never a claim of provider authenticity."""
+    """Bounded physical SQLite seal, not proof of source/provider identity.
+
+    The digest is taken from the opened descriptor, not from an unchecked
+    path whose inode may change between stat/open/read. Require the opened
+    file and the post-read pathname to refer to the original physical
+    source. POSIX ctime guards in-place same-size metadata changes; on
+    Windows creation time differs between stat APIs and cannot be used.
+    """
     if path.is_symlink() or not path.is_file():
         raise ValueError("AUD source changed to unsafe path")
-    size = path.stat().st_size
-    if size > _MAX_AUD_BYTES:
+    before = path.stat()
+    if before.st_size > _MAX_AUD_BYTES or before.st_size < 0:
         raise ValueError("AUD source exceeds bounded verification budget")
     digest = sha256()
     read_bytes = 0
     with path.open("rb") as handle:
+        try:
+            opened = os.fstat(handle.fileno())
+        except (OSError, ValueError, AttributeError):
+            raise ValueError("AUD source cannot verify opened descriptor") from None
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             read_bytes += len(chunk)
             if read_bytes > _MAX_AUD_BYTES:
                 raise ValueError("AUD source changed beyond verification budget")
             digest.update(chunk)
-    # Require exactly the physical bytes measured before opening the stream:
-    # a truncated read or concurrent size change cannot attest provenance.
-    if read_bytes != size or path.stat().st_size != size:
-        raise ValueError("AUD source size changed during physical verification")
+    after = path.stat()
+    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    if os.name != "nt":
+        fields += ("st_ctime_ns",)
+    if (
+        path.is_symlink()
+        or read_bytes != before.st_size
+        or any(
+            getattr(before, key) != getattr(candidate, key)
+            for candidate in (opened, after) for key in fields
+        )
+    ):
+        raise ValueError("AUD source physical identity changed during verification")
     return digest.hexdigest(), read_bytes
-
 
 def _columns(con: sqlite3.Connection, table: str) -> set[str]:
     return {str(row[1]) for row in con.execute(f"PRAGMA table_info({table})")}
