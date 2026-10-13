@@ -669,3 +669,38 @@ def test_historical_duration_ai_reader_uses_sealed_snapshot_mode_only(
                 for ext in ("-wal", "-shm", "-journal"))
         for p in paths
     )
+
+
+@pytest.mark.parametrize("non_json_token", ["NaN", "Infinity", "-Infinity"])
+def test_duration_forecast_abstains_from_non_json_history_numbers(
+    tmp_path, non_json_token,
+):
+    """Python's permissive NaN/Infinity extension cannot attest an AUD scope."""
+    state = _state(tmp_path)
+    databases = [_audit(tmp_path, i) for i in range(5)]
+    assert forecast_local_duration(state).available
+    corrupted = databases[0]
+    with sqlite3.connect(corrupted) as con:
+        raw = con.execute(
+            "SELECT configuration FROM console_execution_projections"
+        ).fetchone()[0]
+        # The permissive decoder accepts even a nested foreign numeric
+        # field, thereby admitting a physically non-JSON scope as training.
+        bad = raw[:-1] + ',"auxiliary":{"telemetry":' + non_json_token + '}}'
+        assert json.loads(bad)["auxiliary"]["telemetry"] is not None
+        con.execute(
+            "UPDATE console_execution_projections SET configuration=?",
+            (bad,),
+        )
+    before = {str(p): sha256(p.read_bytes()).hexdigest() for p in databases}
+    assert _historical_audit(corrupted, state, 1) is None
+    result = forecast_local_duration(state)
+    assert result.sample_runs == 4
+    assert not result.available
+    assert result.total is None
+    assert result.ai_stages == ()
+    assert result.http_request_stages == ()
+    assert result.total_p90_backtest is None
+    assert result.forward_p90_backtest is None
+    assert "4/5" in " ".join(result.notes)
+    assert {str(p): sha256(p.read_bytes()).hexdigest() for p in databases} == before
