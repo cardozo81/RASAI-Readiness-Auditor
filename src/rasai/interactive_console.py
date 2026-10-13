@@ -680,6 +680,9 @@ def _artifact_action(state: State, action: str) -> None:
 def _render_actual_usage(state: State) -> None:
     workspace, _ = artifact_status(state)
     usage = actual_usage(workspace)
+    from rasai.console_search_usage_319 import read_perplexity_search_usage
+
+    search_usage = read_perplexity_search_usage(workspace, state.audit_id)
     synthetic = actual_m23_usage(workspace)
     coverage = load_collection_coverage(workspace)
     print("\n" + title_text("CONSUMO E COBERTURA REAL PERSISTIDOS"))
@@ -687,21 +690,42 @@ def _render_actual_usage(state: State) -> None:
     if usage is None:
         print(paint("Telemetria IA/Web Performance indisponível para esta auditoria.", YELLOW))
     else:
-        print(f"Tentativas IA       : {usage.ai_attempts} (sucesso: {usage.ai_successes})")
+        if (
+            search_usage is not None
+            and search_usage.envelope_attempts is not None
+            and search_usage.envelope_successes is not None
+            and usage.ai_attempts >= search_usage.envelope_attempts
+            and usage.ai_successes >= search_usage.envelope_successes
+        ):
+            print("IA GENERATIVA - consumo separado da pesquisa externa")
+            print(
+                f"Tentativas IA       : {usage.ai_attempts - search_usage.envelope_attempts} "
+                f"(sucesso: {usage.ai_successes - search_usage.envelope_successes})"
+            )
+        else:
+            print(f"Tentativas IA       : {usage.ai_attempts} (sucesso: {usage.ai_successes})")
+            if search_usage is not None:
+                print("Desagregação IA/Busca : não comprovável com o ledger desta AUD")
         print(f"Tokens input        : {usage.input_tokens:,}")
         print(f"Tokens input cache  : {usage.cached_input_tokens:,}")
         print(f"Tokens output       : {usage.output_tokens:,}")
         print(f"Tokens reasoning    : {usage.reasoning_tokens:,}")
         print(f"Tokens total        : {paint(f'{usage.total_tokens:,}', CYAN, bold=True)}")
-        if usage.native_usage:
+        native_for_ai = tuple(
+            (unit, quantity)
+            for unit, quantity in usage.native_usage
+            if search_usage is None or unit != "PERPLEXITY_SEARCH_REQUEST"
+        )
+        if native_for_ai:
             rendered_native = " | ".join(
                 f"{quantity:g} {humanize_native_usage_unit(unit, quantity)}"
-                for unit, quantity in usage.native_usage
+                for unit, quantity in native_for_ai
             )
             print(f"Uso nativo IA       : {paint(rendered_native, CYAN, bold=True)}")
         if usage.costs:
             rendered_costs = " | ".join(f"{currency} {amount:.8f}" for currency, amount in usage.costs)
-            print(f"Custo IA estimado   : {paint(rendered_costs, YELLOW, bold=True)}")
+            cost_label = "Custo IA + pesquisa " if search_usage is not None else "Custo IA estimado   "
+            print(f"{cost_label}: {paint(rendered_costs, YELLOW, bold=True)}")
         elif usage.ai_attempts:
             print("Custo IA estimado   : não disponível com dados de pricing/tokens persistidos")
         else:
@@ -715,6 +739,54 @@ def _render_actual_usage(state: State) -> None:
                 YELLOW,
                 bold=True,
             ))
+        if search_usage is not None:
+            print("\nSEARCH INTELLIGENCE EXTERNA - Perplexity Search API")
+            print(f"Execuções registradas: {search_usage.runs}")
+            print(
+                "Tentativas Search   : "
+                + (
+                    str(search_usage.envelope_attempts)
+                    if search_usage.envelope_attempts is not None else "não demonstráveis no ledger"
+                )
+            )
+            print(f"Requests Search     : {search_usage.requests:g}")
+            print(
+                "Queries Search      : "
+                + (str(search_usage.queries) if search_usage.queries is not None else "não verificáveis")
+            )
+            print(
+                "Fontes Search       : "
+                + (str(search_usage.sources) if search_usage.sources is not None else "não verificáveis")
+            )
+            if search_usage.estimated_costs:
+                print(
+                    "Custo Search        : "
+                    + " | ".join(
+                        f"{currency} {amount:.8f}"
+                        for currency, amount in search_usage.estimated_costs
+                    )
+                )
+            if search_usage.unpriced_runs:
+                print(f"Preço Search ausente: {search_usage.unpriced_runs} execução(ões) sem custo estimável")
+            if usage.costs and search_usage.unpriced_runs == 0:
+                combined = dict(usage.costs)
+                independent = dict(search_usage.estimated_costs)
+                if all(
+                    currency in combined and combined[currency] + 1e-8 >= cost
+                    for currency, cost in independent.items()
+                ):
+                    residual = {
+                        currency: max(0.0, amount - independent.get(currency, 0.0))
+                        for currency, amount in combined.items()
+                    }
+                    print(
+                        "Custo IA sem Search : "
+                        + " | ".join(
+                            f"{currency} {amount:.8f}"
+                            for currency, amount in sorted(residual.items())
+                        )
+                    )
+            print("Busca externa é pesquisa, não inferência generativa nem token LLM.")
         if usage.web_external_calls:
             services = ", ".join(f"{service}={count}" for service, count in usage.web_services)
             print(f"Chamadas Web Perf.  : {usage.web_external_calls} ({services})")
