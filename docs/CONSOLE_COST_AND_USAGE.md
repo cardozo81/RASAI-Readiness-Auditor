@@ -176,3 +176,31 @@ Sem sessão completa verificada, todas são `UNCERTAIN_TIME_OR_SCOPE`.
 Essas coortes não ajustam a previsão ex ante, não identificam fases
 físicas não instrumentadas e não alteram preços, scores, manifests ou
 qualquer evidência original.
+
+
+## Separação de uso generativo e Perplexity Search API (#319)
+
+Quando a auditoria contém `perplexity_search_runs` verificáveis, o console
+apresenta a pesquisa externa separadamente das tentativas generativas.
+A tentativa `RASAI-PERPLEXITY-SEARCH-1` em `ai_provider_attempts` é
+**envelope de telemetria**, não inferência LLM. Ela é descontada apenas da
+**projeção visual** das tentativas e sucessos generativos, nunca do ledger.
+
+- Pesquisas: requisições nativas `PERPLEXITY_SEARCH_REQUEST`, número de
+  queries em `query_json`, fontes em `perplexity_search_sources` e custo
+  observado da execução armazenado em `perplexity_search_runs`.
+- Geração: tentativas, sucessos e tokens obtidos dos ledgers de IA, excluindo
+  visualmente o envelope conhecido da Search API. O custo combinado continua
+  indicado, junto do custo Search e da diferença monetária somente quando
+  existir evidência suficiente.
+- Sem `perplexity_search_runs`: a apresentação legada permanece inalterada.
+  Sem schema/ledger para desagregação: o console indica que a separação não
+  pode ser demonstrada, sem fabricar números.
+- Consulta via SQLite somente leitura, restrita ao `audit_id`. Falhas e
+  artefatos antigos não se tornam novos sucessos ou estimativas inventadas.
+
+A correção altera exclusivamente a camada de apresentação. Não muda custos
+canônicos, native ledgers, critérios de elegibilidade, datas, tokens,
+orquestrador `AI=auto`, consentimento, motores SERP/Perplexity/GEO nem scoring.
+A comparabilidade entre previsto e observado continua condicionada ao
+fulfillment dos requisitos obrigatórios da auditoria.
