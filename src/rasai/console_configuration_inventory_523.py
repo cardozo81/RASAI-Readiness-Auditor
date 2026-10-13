@@ -119,6 +119,37 @@ def _declared_apdex_consumer_surface() -> dict[str, str]:
     return declared
 
 
+def _declared_search_consumer_surface() -> dict[str, str]:
+    """Only statically declared SERP config and Perplexity readiness inputs.
+
+    SERP config's canonical env names are read by SerpRuntimeConfig; they
+    are NOT proof of a real provider request. Perplexity activation/key and
+    optional filters are recognized by its readiness layer, which does not
+    authorize a paid request or inherit per-AUD consent.
+    """
+    from rasai.search_intelligence.config import (
+        SERP_ENV_NAMES, SERP_PROVIDER_KEY_ENVS,
+    )
+    from rasai.search_intelligence.perplexity import API_KEY_ENV
+    from rasai.console_perplexity_readiness_318 import _FILTERS
+
+    result: dict[str, str] = {}
+    secret_keys = set(SERP_PROVIDER_KEY_ENVS)
+    for name in SERP_ENV_NAMES:
+        result[name] = (
+            "SERP_PROVIDER_SECRET_DECLARED_NOT_REQUEST_PROOF"
+            if name in secret_keys
+            else "SERP_CONFIG_INPUT_DECLARED_NOT_REQUEST_PROOF"
+        )
+    result[API_KEY_ENV] = "PERPLEXITY_KEY_READINESS_NOT_REQUEST_CONSENT"
+    result["RASAI_PERPLEXITY_ENABLED"] = (
+        "PERPLEXITY_ACTIVATION_READINESS_NOT_PER_AUD_CONSENT"
+    )
+    for name in _FILTERS:
+        result[name] = "PERPLEXITY_FILTER_READINESS_NOT_PROVIDER_USE_PROOF"
+    return result
+
+
 def inventory(
     *,
     path: Path | None = None,
@@ -137,7 +168,9 @@ def inventory(
     parser, ini_status = _ini_with_status(file)
 
     specs = refresh_specs()
-    consumer_affinities = _declared_apdex_consumer_surface()
+    apdex_affinities = _declared_apdex_consumer_surface()
+    search_affinities = _declared_search_consumer_surface()
+    consumer_affinities = {**search_affinities, **apdex_affinities}
     seen: set[str] = set()
     variables = []
     for spec in specs:
@@ -219,14 +252,23 @@ def inventory(
         "environment_variables": variables,
         "apdex_adapter_surface_coverage": {
             "mapped_registry_variables": sum(
-                item["declared_adapter_surface"] != "NOT_MAPPED_NO_CONSUMER_INFERENCE"
-                for item in variables
+                item["name"] in apdex_affinities for item in variables
             ),
             "unmapped_registry_variables": sum(
-                item["declared_adapter_surface"] == "NOT_MAPPED_NO_CONSUMER_INFERENCE"
-                for item in variables
+                item["name"] not in apdex_affinities for item in variables
             ),
             "execution_or_aud_snapshot_coverage_proven": False,
+        },
+        "search_adapter_surface_coverage": {
+            "mapped_registry_variables": sum(
+                item["name"] in search_affinities for item in variables
+            ),
+            "unmapped_registry_variables": sum(
+                item["name"] not in search_affinities for item in variables
+            ),
+            "per_aud_provider_consent_proven": False,
+            "real_provider_request_coverage_proven": False,
+            "source": "SERP_RUNTIME_CONFIG_AND_PERPLEXITY_READINESS_DECLARATIONS",
         },
         "typed_state_fields": state_fields,
         "typed_ini_coverage": {

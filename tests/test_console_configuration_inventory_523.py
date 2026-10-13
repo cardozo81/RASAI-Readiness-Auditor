@@ -459,3 +459,90 @@ def test_ini_inventory_refuses_symlinked_file_without_following_target(tmp_path)
     assert data["file_readable"] is False
     assert "TARGET_SECRET_NEVER_EMITTED" not in json.dumps(data)
     assert target.is_file()
+
+
+def test_search_affinity_is_source_declared_and_never_claims_live_execution(
+    tmp_path, monkeypatch,
+):
+    """SERP config inputs and Perplexity opt-in are never provider telemetry."""
+    from rasai.search_intelligence.config import (
+        SERP_ENV_NAMES, SERP_PROVIDER_KEY_ENVS,
+    )
+    from rasai.search_intelligence.perplexity import API_KEY_ENV
+    from rasai.console_perplexity_readiness_318 import _FILTERS
+    from rasai.console_configuration_inventory_523 import (
+        _declared_search_consumer_surface,
+    )
+    from urllib import request
+
+    monkeypatch.setattr(
+        request, "urlopen",
+        lambda *a, **k: (_ for _ in ()).throw(
+            AssertionError("metadata inventory may not contact a provider")
+        ),
+    )
+    surface = _declared_search_consumer_surface()
+    assert set(SERP_ENV_NAMES) <= set(surface)
+    assert all(
+        surface[key] == "SERP_PROVIDER_SECRET_DECLARED_NOT_REQUEST_PROOF"
+        for key in SERP_PROVIDER_KEY_ENVS
+    )
+    assert all(
+        surface[key] == "SERP_CONFIG_INPUT_DECLARED_NOT_REQUEST_PROOF"
+        for key in set(SERP_ENV_NAMES) - set(SERP_PROVIDER_KEY_ENVS)
+    )
+    assert surface[API_KEY_ENV] == "PERPLEXITY_KEY_READINESS_NOT_REQUEST_CONSENT"
+    assert surface["RASAI_PERPLEXITY_ENABLED"] == (
+        "PERPLEXITY_ACTIVATION_READINESS_NOT_PER_AUD_CONSENT"
+    )
+    assert set(_FILTERS) <= set(surface)
+
+    filename = tmp_path / "operator.ini"
+    filename.write_text(
+        "[environment]\n"
+        "RASAI_SERP_MAX_REQUESTS = 7\n"
+        "RASAI_PERPLEXITY_ENABLED = true\n"
+        "PERPLEXITY_API_KEY = SECRET_IN_INI_MUST_NOT_LEAK\n",
+        encoding="utf-8",
+    )
+    before = filename.read_bytes()
+    report = inventory(path=filename, environ={
+        "PERPLEXITY_API_KEY": "ACTIVE_KEY_MUST_NOT_LEAK",
+        "RASAI_SERP_MAX_REQUESTS": "12",
+    })
+    rows = {row["name"]: row for row in report["environment_variables"]}
+    assert rows["RASAI_SERP_MAX_REQUESTS"]["declared_adapter_surface"] == (
+        "SERP_CONFIG_INPUT_DECLARED_NOT_REQUEST_PROOF"
+    )
+    assert rows["RASAI_PERPLEXITY_ENABLED"]["declared_adapter_surface"] == (
+        "PERPLEXITY_ACTIVATION_READINESS_NOT_PER_AUD_CONSENT"
+    )
+    assert rows[API_KEY_ENV]["declared_adapter_surface"] == (
+        "PERPLEXITY_KEY_READINESS_NOT_REQUEST_CONSENT"
+    )
+    assert rows[API_KEY_ENV]["sensitive"] is True
+    assert rows[API_KEY_ENV]["persist_ini"] is False
+    assert rows[API_KEY_ENV]["runtime_consumer"] == "NOT_PROVEN_BY_REGISTRY"
+    assert rows["RASAI_PERPLEXITY_ENABLED"]["runtime_consumer"] == (
+        "NOT_PROVEN_BY_REGISTRY"
+    )
+    assert report["search_adapter_surface_coverage"][
+        "mapped_registry_variables"
+    ] > 0
+    assert (
+        report["search_adapter_surface_coverage"]["mapped_registry_variables"]
+        + report["search_adapter_surface_coverage"]["unmapped_registry_variables"]
+        == report["registry_size"]
+    )
+    assert report["search_adapter_surface_coverage"][
+        "real_provider_request_coverage_proven"
+    ] is False
+    assert report["search_adapter_surface_coverage"][
+        "per_aud_provider_consent_proven"
+    ] is False
+    assert report["execution_inputs"][1]["new_audit_consent_inherited"] is False
+    assert report["metadata_only"] is True
+    assert filename.read_bytes() == before
+    rendered = json.dumps(report)
+    assert "SECRET_IN_INI_MUST_NOT_LEAK" not in rendered
+    assert "ACTIVE_KEY_MUST_NOT_LEAK" not in rendered
