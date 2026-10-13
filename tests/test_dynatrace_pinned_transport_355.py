@@ -331,3 +331,82 @@ def test_both_live_readers_use_pinned_default_path_with_only_memory_io(monkeypat
     assert b"Api-Token SETTINGS-READ-GRANT" in wire
     assert b"Api-Token USQL-READ-GRANT" in wire
     assert b"8.8.4.4" not in wire
+
+
+@pytest.mark.parametrize(
+    ("length_policy", "expected_error", "reads"),
+    [
+        ("exact", None, 1),
+        ("absent", None, 1),
+        ("understated", "response length mismatch", 1),
+        ("overstated", "response length mismatch", 1),
+        ("non_numeric", "content length invalid", 0),
+        ("ambiguous", "content length invalid", 0),
+        ("unbounded", "exceeds bounded size", 0),
+    ],
+)
+def test_355_live_settings_refuses_truncated_or_ambiguous_http_body_length(
+    length_policy, expected_error, reads,
+):
+    """A parseable partial HTTP body cannot be authenticated as a whole page."""
+    raw = b'{"items":[],"totalCount":0}'
+
+    class Reply:
+        def __init__(self):
+            self.reads = 0
+            self.headers = {"Content-Type": "application/json"}
+            length = {
+                "exact": str(len(raw)),
+                "understated": str(len(raw) - 1),
+                "overstated": str(len(raw) + 7),
+                "non_numeric": "invalid",
+                "ambiguous": f"{len(raw)},{len(raw)}",
+                "unbounded": str(1024 * 1024 + 1),
+            }.get(length_policy)
+            if length is not None:
+                self.headers["Content-Length"] = length
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def getcode(self):
+            return 200
+
+        def read(self, size):
+            self.reads += 1
+            assert size == 1024 * 1024 + 1
+            return raw[:size]
+
+    class MemoryOpener:
+        def __init__(self):
+            self.requests = []
+            self.response = Reply()
+
+        def open(self, request, timeout):
+            self.requests.append((request, timeout))
+            return self.response
+
+    opener = MemoryOpener()
+    params = {
+        "base_url": _BASE,
+        "application_scope": _APP,
+        "api_token": "DO-NOT-RENDER-TEST-TOKEN",
+        "opener": opener,
+    }
+    if expected_error:
+        with pytest.raises(ValueError, match=expected_error) as caught:
+            settings.read_live_dynatrace_apdex_settings(**params)
+        assert "DO-NOT-RENDER-TEST-TOKEN" not in str(caught.value)
+        assert _BASE not in str(caught.value)
+    else:
+        result = settings.read_live_dynatrace_apdex_settings(**params)
+        assert result["settings_provenance"] == (
+            "LIVE_DYNATRACE_SETTINGS_API_EFFECTIVE_VALUES"
+        )
+        assert result["actual_dynatrace_tenant_consulted"] is True
+        assert result["rum_action_population_verified"] is False
+    assert len(opener.requests) == 1
+    assert opener.response.reads == reads
