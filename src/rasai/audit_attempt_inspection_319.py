@@ -237,17 +237,19 @@ def inspect_audit_attempts(aud_dir: Path) -> dict:
         fields = {str(x[1]) for x in con.execute("PRAGMA table_info(audits)")}
         if not {"audit_id", "status", "completion_status"}.issubset(fields):
             raise ValueError("AUD metadata schema unavailable")
+        # A physical per-AUD SQLite package must contain exactly one
+        # lifecycle identity. Filtering by the expected ID first conceals
+        # foreign/ambiguous AUD metadata while presenting a verified ledger.
         rows = con.execute(
-            "SELECT status, completion_status FROM audits WHERE audit_id=?",
-            (root.name,),
+            "SELECT audit_id, status, completion_status FROM audits LIMIT 2"
         ).fetchall()
-        if len(rows) != 1:
+        if len(rows) != 1 or rows[0][0] != root.name:
             raise ValueError("AUD identity not verified against audit.db")
         if con.execute("PRAGMA quick_check").fetchone()[0] != "ok":
             raise ValueError("AUD database integrity is not verified")
         if con.execute("PRAGMA foreign_key_check").fetchone() is not None:
             raise ValueError("AUD database foreign keys inconsistent")
-        status, completion = rows[0]
+        _, status, completion = rows[0]
         window = _verified_console_window(
             con, root.name,
             status=str(status or ""), completion=str(completion or ""),
