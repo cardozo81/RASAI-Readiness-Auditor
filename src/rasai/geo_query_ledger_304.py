@@ -502,24 +502,10 @@ def inspect_geo_per_query(
                 out["reason"] = "NO_QUERY_WITH_VERIFIED_SOURCE_DENOMINATORS"
             if any(Path(str(db) + suffix).exists()
                    for suffix in ("-wal", "-shm", "-journal")):
-                return {
-                    **out,
-                    "status": "NOT_COMPARABLE",
-                    "reason": "AUD_SQLITE_SIDECAR_APPEARED_DURING_READ",
-                    "queries": [],
-                    "aud_target_scope": "NO_UNIQUE_CANONICAL_TARGET",
-                    "aud_target_exact_url": None,
-                }
+                return abstain("AUD_SQLITE_SIDECAR_APPEARED_DURING_READ")
             digest_after, size_after = _audit_digest(db)
             if digest_before != digest_after or size_before != size_after:
-                return {
-                    **out,
-                    "status": "NOT_COMPARABLE",
-                    "reason": "AUD_SOURCE_CHANGED_DURING_READ",
-                    "queries": [],
-                    "aud_target_scope": "NO_UNIQUE_CANONICAL_TARGET",
-                    "aud_target_exact_url": None,
-                }
+                return abstain("AUD_SOURCE_CHANGED_DURING_READ")
             out["source_audit_db_sha256"] = digest_before
             out["source_audit_db_bytes_verified"] = size_before
             out["source_audit_db_integrity_guard"] = "DOUBLE_SHA256_MATCH"
