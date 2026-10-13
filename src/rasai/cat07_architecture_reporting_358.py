@@ -199,10 +199,21 @@ def _unsealed_cat07_advisory() -> str:
 
 def _unsealed_sqlite_source(db: Path) -> bool:
     return (
-        db.is_symlink()
+        db.is_symlink() or db.parent.is_symlink()
         or any(Path(str(db) + suffix).exists()
                for suffix in ("-wal", "-shm", "-journal"))
     )
+
+
+def _source_stamp(db: Path) -> tuple[int, int, int, int] | None:
+    """Inexpensive physical metadata gate, not a SHA-256 source seal."""
+    try:
+        stat = db.stat()
+        if not db.is_file() or db.is_symlink() or db.parent.is_symlink():
+            return None
+        return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns)
+    except OSError:
+        return None
 
 
 def cat07_architecture_advice_html(
@@ -213,13 +224,16 @@ def cat07_architecture_advice_html(
     db = Path(database)
     if _unsealed_sqlite_source(db):
         return _unsealed_cat07_advisory()
+    before_stamp = _source_stamp(db)
+    if before_stamp is None:
+        return _unsealed_cat07_advisory()
     with sqlite3.connect(db.resolve().as_uri() + "?mode=ro&immutable=1", uri=True) as con:
         con.execute("PRAGMA query_only=ON")
         architecture, provenance, note = _observed_architecture(con, audit_id)
         run = _run_config(con, audit_id)
     # Do not publish a positive architectural conclusion if an AUD writer
     # added a journal during the read; the bare source is not attested.
-    if _unsealed_sqlite_source(db):
+    if _unsealed_sqlite_source(db) or _source_stamp(db) != before_stamp:
         return _unsealed_cat07_advisory()
     config = {
         "kpm": run.get("kpm"),
