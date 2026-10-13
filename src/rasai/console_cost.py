@@ -12,6 +12,7 @@ from rasai.ai_cost_policy import PRICING_VERSION, resolve_price, runtime_pricing
 from rasai.cli import validate_target
 from rasai.console_config import State, provider_capabilities
 from rasai.console_apdex_duration_scope_319 import apdex_duration_scope
+from rasai.console_search_duration_scope_319 import search_ai_duration_scope
 from rasai.provider_registry import auto_provider_ids, get_provider_registration
 from rasai.url_utils import normalize_url
 
@@ -523,6 +524,7 @@ def persist_execution_projection(
     # Additive JSON-only, non-secret console scope. No canonical AUD schema,
     # M23/M25 configuration or historical projection is changed.
     configuration.update(apdex_duration_scope(state))
+    configuration.update(search_ai_duration_scope(state))
     try:
         connection = sqlite3.connect(database, timeout=1.0)
         try:

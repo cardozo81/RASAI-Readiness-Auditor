@@ -18,6 +18,7 @@ from typing import Any, Mapping
 
 from rasai.audit_attempt_timeline import read_audit_attempt_timeline
 from rasai.console_apdex_duration_scope_319 import comparable_apdex_duration_scope
+from rasai.console_search_duration_scope_319 import comparable_search_ai_duration_scope
 
 
 _MIN_RUNS = 5
@@ -217,7 +218,8 @@ def _strictly_comparable(current: Any, historical: Mapping[str, Any]) -> bool:
             return False
     # Physical flags alone are not evidence of equal synthetic load.
     # Active M23/M25 sessions additionally require exact typed parameters.
-    return comparable_apdex_duration_scope(current, historical)
+    return (comparable_apdex_duration_scope(current, historical)
+            and comparable_search_ai_duration_scope(current, historical))
 
 
 def _m21_http_request_sums(conn: sqlite3.Connection, audit_id: str) -> dict[str, float]:

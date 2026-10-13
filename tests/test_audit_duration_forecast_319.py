@@ -915,6 +915,22 @@ def test_319_optional_console_bool_must_be_explicit_in_new_physical_cohort(
     physical = [_audit(tmp_path, index) for index in range(5)]
     state = _state(tmp_path)
     setattr(state, enabled_flag, True)
+    if enabled_flag == "search_ai_competitive":
+        # CAT-05 requires a real declared shape; same enabled flag alone
+        # no longer counts as equal execution work.
+        state.search_queries = ("seguro de vida", "seguro viagem")
+        state.search_depth = 20
+        state.search_device = "mobile"
+        state.market = "BR"
+        state.language = "pt-BR"
+        state.search_region = ""
+        state.search_compare_content = True
+        state.search_competitive = True
+        state.search_max_content_pages = 3
+        state.search_content_timeout_seconds = 10.0
+        state.search_content_max_bytes = 2_000_000
+        state.search_content_max_redirects = 5
+        state.search_ymyl_mode = "AUTO"
     before = [db.read_bytes() for db in physical]
     old = forecast_local_duration(state)
     assert old.sample_runs == 0
@@ -928,6 +944,9 @@ def test_319_optional_console_bool_must_be_explicit_in_new_physical_cohort(
             ).fetchone()
             config = json.loads(raw)
             config[enabled_flag] = True
+            if enabled_flag == "search_ai_competitive":
+                from rasai.console_search_duration_scope_319 import search_ai_duration_scope
+                config.update(search_ai_duration_scope(state))
             for sibling in (
                 "improvement_enabled", "search_ai_competitive",
                 "technical_remediation",
