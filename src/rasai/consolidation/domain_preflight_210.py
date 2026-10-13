@@ -50,6 +50,12 @@ def _origin(value: str) -> tuple[str, str, int] | None:
         return None
 
 
+def _document_identity(value: str, origin: tuple[str, str, int]) -> tuple:
+    """Fragment identifiers do not define independent fetched documents."""
+    parsed = urlsplit(value)
+    return origin, parsed.path or "/", parsed.query
+
+
 def assess_same_domain_pair(
     first: AuditCandidate,
     second: AuditCandidate,
@@ -86,14 +92,20 @@ def assess_same_domain_pair(
         return {**base, "reason": "EXACT_HOST_MISMATCH"}
     if left != right:
         return {**base, "reason": "DIFFERENT_SCHEME_OR_PORT"}
-    if first.url == second.url:
+    if _document_identity(first.url, left) == _document_identity(second.url, right):
         return {**base, "reason": "SAME_URL_USE_EXISTING_LONGITUDINAL_CONS"}
-    if not first.device or first.device.upper() not in {"MOBILE", "DESKTOP"}:
+    if (
+        not isinstance(first.device, str)
+        or not isinstance(second.device, str)
+        or first.device.upper() not in {"MOBILE", "DESKTOP"}
+        or second.device.upper() not in {"MOBILE", "DESKTOP"}
+    ):
         return {**base, "reason": "DEVICE_NOT_PROVEN"}
     if first.device.upper() != second.device.upper():
         return {**base, "reason": "DEVICE_MISMATCH"}
     if (
-        first.status.upper() != "COMPLETED" or second.status.upper() != "COMPLETED"
+        not isinstance(first.status, str) or not isinstance(second.status, str)
+        or first.status.upper() != "COMPLETED" or second.status.upper() != "COMPLETED"
         or first.completion_status != "COMPLETE"
         or second.completion_status != "COMPLETE"
     ):
