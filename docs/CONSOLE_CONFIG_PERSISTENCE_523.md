@@ -159,8 +159,9 @@ A implementação:
    load nunca crie nem substitua um INI do operador durante uma corrida;
 3. restaura estado tipado, projeta o ambiente e chama apenas
    `configured_apdex` + o handoff de `ExperienceApdexConfig`;
-4. verifica o SHA-256 físico da fonte, retoma o ambiente original e limpa
-   o handoff M25 antes do retorno;
+4. verifica o SHA-256 físico da fonte, retoma o ambiente original e **nunca grava nem limpa** o handoff
+   M25 global; a configuração que o adapter tentaria entregar é capturada
+   em um callback local somente durante a inspeção;
 5. publica somente `status`, ativação M23/M25, device único coerente,
    quantidade de avisos e flags de limites metodológicos.
 
@@ -171,3 +172,25 @@ configuração parcial/default; não garante restauração exata.
 Arquivos ausentes ou inválidos devolvem N/D ou erro tipado, sem revelar
 conteúdo de campos. O comando convencional **sem** `--verify-apdex`
 mantém o comportamento anterior: inventário puramente de metadados.
+
+## Proteção do handoff M25 em processo (13/10/2026)
+
+Uma validação offline não pode sobrescrever nem limpar uma configuração
+M25 de uma auditoria pendente. O preflight anterior invocava
+`m23_cli.configured_apdex`, que tem o efeito colateral legítimo de
+gravar a configuração M25 em `m25_runtime.set_pending_config`,
+e por fim limpava o handoff global. Isso era incompatível com a
+promessa de inspeção read-only quando a função era importada em
+um processo que já mantinha M25 preparado.
+
+O leitor agora intercepta **apenas no escopo da chamada** o ponto
+de handoff do adapter, valida e captura as mesmas configurações em
+memória local. Não grava nem reseta o estado global. Testes direcionados
+preservam a **identidade** de uma configuração M25 preexistente nos
+casos de sucesso, arquivo ausente e INI inválido; também falham caso
+o setter global seja chamado. Não altera código de M23/M25 nem o
+comportamento da auditoria normal.
+
+A CLI de inventário é projetada para uso em processo separado do
+console; não utilizar o diagnóstico para justificar concorrência
+entre configuração e auditoria ativa no mesmo processo.
