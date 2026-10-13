@@ -61,7 +61,7 @@ def _ini_with_status(path: Path) -> tuple[ConfigParser | None, str]:
 
 
 def _safe_ini(path: Path) -> ConfigParser | None:
-    """Legacy in-process inspection helper; do not expose source values."""
+    """Compatibility inspection helper; do not expose source values."""
     parser, _ = _ini_with_status(path)
     return parser
 
