@@ -394,6 +394,7 @@ def inspect_geo_per_query(
                     out["queries"].append(row)
                     continue
                 candidates: list[tuple[float, datetime, sqlite3.Row]] = []
+                incomplete_scope_in_window = False
                 for obs in serp:
                     if _query_key(obs["query"]) != qkey:
                         continue
@@ -402,8 +403,17 @@ def inspect_geo_per_query(
                     if gap is None or gap > _WINDOW or when is None:
                         continue
                     if not all(isinstance(obs[s], str) and obs[s].strip() for s in _SCOPE):
+                        incomplete_scope_in_window = True
                         continue
                     candidates.append((gap, when, obs))
+                # A nearer valid sample must not mask another observed
+                # in-window population with missing engine/market/device
+                # provenance. A partially scoped sibling prevents declaring
+                # a unique physically comparable sample for this query.
+                if incomplete_scope_in_window and candidates:
+                    row["reason"] = "SERP_SCOPE_INCOMPLETE_ALONGSIDE_VERIFIED_SAMPLE"
+                    out["queries"].append(row)
+                    continue
                 if not candidates:
                     row["reason"] = "NO_COMPARABLE_OBSERVED_SERP_SCOPE_WITHIN_24H"
                     out["queries"].append(row)
