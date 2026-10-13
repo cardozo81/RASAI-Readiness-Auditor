@@ -259,6 +259,41 @@ def test_live_settings_only_accepts_documented_json_response_media_type(
     assert "PRIVATE-SETTINGS-TOKEN" not in fake.requests[0][0].full_url
 
 
+@pytest.mark.parametrize("non_json_number", ["NaN", "Infinity", "-Infinity"])
+def test_live_settings_rejects_nonstandard_json_numeric_constants(
+    non_json_number,
+):
+    """#355: Python decoder extensions may not attest Settings API JSON."""
+    malformed = (
+        '{"items":[],"totalCount":0,"ignored":'
+        + non_json_number + '}'
+    )
+
+    class Reply:
+        headers = {"Content-Type": "application/json"}
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def getcode(self): return 200
+        def read(self, size): return malformed.encode("utf-8")[:size]
+
+    class MemoryOpener:
+        def __init__(self): self.calls = []
+        def open(self, request, timeout):
+            self.calls.append((request, timeout))
+            return Reply()
+
+    fake = MemoryOpener()
+    with pytest.raises(ValueError, match="Settings API response is not valid JSON") as exc:
+        settings.read_live_dynatrace_apdex_settings(
+            base_url=_BASE, application_scope=_APP,
+            api_token="PRIVATE-SETTINGS-TOKEN", opener=fake,
+        )
+    assert len(fake.calls) == 1
+    assert fake.calls[0][1] == 10
+    assert "PRIVATE-SETTINGS-TOKEN" not in str(exc.value)
+    assert _BASE not in str(exc.value)
+
+
 def test_both_live_readers_use_pinned_default_path_with_only_memory_io(monkeypatch):
     sockets, sni, destinations = _network(monkeypatch)
     cls = DynatracePinnedOpener
