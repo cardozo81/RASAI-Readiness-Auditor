@@ -779,3 +779,70 @@ def test_355_live_message_requires_all_cli_transport_scope_contract_fields():
     assert "Valores efetivos consultados" in rendering["limite_metodologico"]
     assert "não comprova captura" in rendering["limite_metodologico"]
     assert "mesma amostra" in rendering["limite_metodologico"]
+
+
+def test_355_same_size_atomic_snapshot_swap_between_stat_and_open_is_rejected(
+    tmp_path, monkeypatch,
+):
+    """Bytes matching old size do not prove the opened file is the inspected one."""
+    import os
+    from pathlib import Path
+    from rasai.dynatrace_apdex_review_cli_355 import _load_offline_snapshot
+
+    path = tmp_path / "dynatrace.json"
+    before = json.dumps(_config(xhr=False), sort_keys=True).encode("utf-8")
+    path.write_bytes(before)
+    alternate = tmp_path / "alternate.json"
+    replacement = before.replace(b"VISUALLY_COMPLETE", b"USER_ACTION_DURAT")
+    assert replacement != before and len(replacement) == len(before)
+    alternate.write_bytes(replacement)
+    normal_open = Path.open
+    replaced = []
+
+    def swap_file_before_open(self, mode="r", *args, **kwargs):
+        if self == path and mode == "rb" and not replaced:
+            os.replace(alternate, path)
+            replaced.append(True)
+        return normal_open(self, mode, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", swap_file_before_open)
+    with pytest.raises(ValueError, match="settings JSON changed during physical read"):
+        _load_offline_snapshot(path)
+    assert replaced == [True]
+    with normal_open(path, "rb") as source:
+        assert source.read() == replacement
+
+
+def test_355_same_length_in_place_rewrite_during_snapshot_open_is_rejected(
+    tmp_path, monkeypatch,
+):
+    """The source may be edited in place without changing its byte count."""
+    import os
+    from pathlib import Path
+    from rasai.dynatrace_apdex_review_cli_355 import _load_offline_snapshot
+
+    path = tmp_path / "dynatrace-in-place.json"
+    original = json.dumps(_config(xhr=True), sort_keys=True).encode("utf-8")
+    replacement = original.replace(b"VISUALLY_COMPLETE", b"USER_ACTION_DURAT")
+    assert replacement != original and len(replacement) == len(original)
+    path.write_bytes(original)
+    initial = path.stat()
+    normal_open = Path.open
+    modified = []
+
+    def update_before_open(self, mode="r", *args, **kwargs):
+        if self == path and mode == "rb" and not modified:
+            # Rewrite file in place, preserving size. Set mtime explicitly to
+            # a different value so the source-drift assertion is deterministic
+            # even on coarse timestamp file systems.
+            path.write_bytes(replacement)
+            os.utime(path, ns=(initial.st_atime_ns, initial.st_mtime_ns + 2_000_000_000))
+            modified.append(True)
+        return normal_open(self, mode, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", update_before_open)
+    with pytest.raises(ValueError, match="settings JSON changed during physical read"):
+        _load_offline_snapshot(path)
+    assert modified == [True]
+    with normal_open(path, "rb") as source:
+        assert source.read() == replacement
