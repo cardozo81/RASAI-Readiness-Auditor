@@ -436,3 +436,38 @@ A validacao nao le nem salva INI do operador,
 nao inicia AUD, M23/M25, GSC ou chamadas externas;
 como antes, estatisticas locais nao demonstram
 consumo real da configuracao pelo runtime.
+
+
+## Inventario declarado do bootstrap principal (#523)
+
+A matriz offline agora identifica inputs diretamente
+reconhecidos por `console_config.apply_environment_defaults`:
+contexto de dispositivo, timeout, ciclos e delay de IA,
+flags de remediacao, habilitacao e limites Web Performance,
+fonte de campo, categorias Lighthouse e nomes declarados
+para o contexto de conteudo. Cada entrada permanece
+um **candidato de configuracao inicial**, nao comprovacao
+de execucao do M21, de uma AI, de consumo de credito
+ou de persistencia de snapshot da AUD.
+
+A classificacao tem grupos distintos:
+`CONSOLE_DEVICE_INPUT_NOT_EXECUTION_PROOF`,
+`CONSOLE_AI_CONTROL_INPUT_NOT_PROVIDER_PROOF`,
+`CONSOLE_WEB_PERFORMANCE_INPUT_NOT_M21_PROOF` e
+`CONSOLE_CONTENT_CONTEXT_INPUT_NOT_AI_EXECUTION_PROOF`.
+A coluna `runtime_consumer` continua
+`NOT_PROVEN_BY_REGISTRY` e a nova contagem
+`console_core_adapter_surface_coverage` expõe explicitamente
+`runtime_device_or_provider_execution_proven=false`
+e `actual_web_performance_or_ai_usage_proven=false`.
+
+A fixture cobre os nomes publicos efetivamente
+declarados no bootstrap e sua leitura pelo parser real
+de defaults, sem rodar executor, provedor, crawler
+ou Web Performance. A leitura do INI usa apenas
+arquivo temporario e confirma que chave ficticia
+do provider nao aparece no JSON, nem a fonte
+e alterada. A lista de catalogo segue dinamica;
+nomes que nao possuem comprovacao de afinidade
+continuam classificados como nao mapeados, sem
+forcar inferencia de consumer.

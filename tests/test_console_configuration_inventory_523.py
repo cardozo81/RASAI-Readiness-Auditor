@@ -661,3 +661,88 @@ def test_inventory_posix_same_size_rewrite_with_restored_mtime_abstains(
     assert report["typed_ini_coverage"]["missing_non_derived_names"] == []
     assert "SECRET_NOT_IN_REPORT" not in json.dumps(report)
     assert b"RASAI_SERP_MAX_REQUESTS=8" in operator_ini.read_bytes()
+
+
+def test_523_core_console_runtime_input_affinity_is_static_and_safe(
+    tmp_path, monkeypatch,
+):
+    """Real bootstrap keys are inventoried, never misreported as used by M21/AI."""
+    import socket
+    from rasai import console_config as core
+    from rasai.console_configuration_inventory_523 import (
+        _declared_console_core_surface,
+    )
+
+    core_map = _declared_console_core_surface()
+    assert all(key.startswith("RASAI_") for key in core_map)
+    assert core.AI_TIMEOUT_ENV in core_map
+    assert core.AI_MAX_CYCLES_ENV in core_map
+    assert core.AI_CYCLE_DELAY_ENV in core_map
+    assert core.WEB_PERFORMANCE_TIMEOUT_ENV in core_map
+    assert set(core.CONTENT_CONTEXT_ENV_NAMES).issubset(core_map)
+    assert core_map["RASAI_DEVICE_CONTEXT"] == (
+        "CONSOLE_DEVICE_INPUT_NOT_EXECUTION_PROOF"
+    )
+    assert core_map["RASAI_WEB_PERFORMANCE"] == (
+        "CONSOLE_WEB_PERFORMANCE_INPUT_NOT_M21_PROOF"
+    )
+    assert core_map["RASAI_AI_CONTENT_REMEDIATION"] == (
+        "CONSOLE_AI_CONTROL_INPUT_NOT_PROVIDER_PROOF"
+    )
+    assert "OPENAI_API_KEY" not in core_map  # No provider consent inference.
+
+    session = {
+        "RASAI_DEVICE_CONTEXT": "desktop",
+        "RASAI_WEB_PERFORMANCE": "true",
+        "RASAI_WEB_PERFORMANCE_MAX_PAGES": "2",
+        "RASAI_WEB_PERFORMANCE_FIELD_SOURCE": "crux",
+        core.WEB_PERFORMANCE_TIMEOUT_ENV: "33",
+        core.AI_TIMEOUT_ENV: "127",
+        core.AI_MAX_CYCLES_ENV: "2",
+        core.AI_CYCLE_DELAY_ENV: "0.5",
+        "OPENAI_API_KEY": "NEVER_ECHO_CORE_API_KEY_523",
+    }
+    # Confirm the fields are genuinely recognized by the existing
+    # parser; do not call any runtime engine or provider.
+    state = core.State()
+    assert core.apply_environment_defaults(
+        state, env=session, names=set(session),
+    ) == ()
+    assert state.device == "desktop"
+    assert state.web_performance is True
+    assert state.web_max_pages == 2
+    assert state.field_source == "crux"
+    assert state.ai_timeout == 127
+
+    def no_network(*_args, **_kwargs):
+        raise AssertionError("inventory may not establish live provider use")
+    monkeypatch.setattr(socket, "create_connection", no_network)
+    source = tmp_path / "core-configuration.ini"
+    source.write_text(
+        "[environment]\nRASAI_WEB_PERFORMANCE=true\n"
+        "OPENAI_API_KEY=SHOULD_NOT_BE_IN_OUTPUT\n",
+        encoding="utf-8",
+    )
+    original = source.read_bytes()
+    report = inventory(path=source, environ=session)
+    coverage = report["console_core_adapter_surface_coverage"]
+    assert coverage["source"] == (
+        "CONSOLE_CONFIG_APPLY_ENVIRONMENT_DEFAULTS_DECLARATIONS"
+    )
+    assert coverage["mapped_registry_variables"] > 0
+    assert (
+        coverage["mapped_registry_variables"]
+        + coverage["unmapped_registry_variables"]
+    ) == report["registry_size"]
+    assert coverage["runtime_device_or_provider_execution_proven"] is False
+    assert coverage["actual_web_performance_or_ai_usage_proven"] is False
+    rows = {r["name"]: r for r in report["environment_variables"]}
+    for key in core_map:
+        if key in rows:
+            assert rows[key]["declared_adapter_surface"] == core_map[key]
+            assert rows[key]["runtime_consumer"] == "NOT_PROVEN_BY_REGISTRY"
+            assert rows[key]["declared_adapter_surface_is_execution_proof"] is False
+    assert rows["OPENAI_API_KEY"]["sensitive"] is True
+    assert "NEVER_ECHO_CORE_API_KEY_523" not in json.dumps(report)
+    assert "SHOULD_NOT_BE_IN_OUTPUT" not in json.dumps(report)
+    assert source.read_bytes() == original

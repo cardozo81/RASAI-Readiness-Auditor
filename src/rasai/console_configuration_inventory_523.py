@@ -191,6 +191,36 @@ def _declared_gsc_consumer_surface() -> dict[str, str]:
     return result
 
 
+
+def _declared_console_core_surface() -> dict[str, str]:
+    """Only settings read by the current console bootstrap/default parser.
+
+    These constants and input keys occur in console_config.apply_environment_defaults,
+    not in a measured M21, provider, AI-orchestrator or report execution.
+    Classifying their origin closes a static inventory gap without asserting
+    that a local INI was applied by a live engine or a paid request occurred.
+    """
+    from rasai import console_config as core
+
+    declared: dict[str, str] = {
+        "RASAI_DEVICE_CONTEXT": "CONSOLE_DEVICE_INPUT_NOT_EXECUTION_PROOF",
+        core.AI_TIMEOUT_ENV: "CONSOLE_AI_CONTROL_INPUT_NOT_PROVIDER_PROOF",
+        core.AI_MAX_CYCLES_ENV: "CONSOLE_AI_CONTROL_INPUT_NOT_PROVIDER_PROOF",
+        core.AI_CYCLE_DELAY_ENV: "CONSOLE_AI_CONTROL_INPUT_NOT_PROVIDER_PROOF",
+        "RASAI_AI_CONTENT_REMEDIATION": "CONSOLE_AI_CONTROL_INPUT_NOT_PROVIDER_PROOF",
+        "RASAI_AI_TECHNICAL_REMEDIATION": "CONSOLE_AI_CONTROL_INPUT_NOT_PROVIDER_PROOF",
+        "RASAI_WEB_PERFORMANCE": "CONSOLE_WEB_PERFORMANCE_INPUT_NOT_M21_PROOF",
+        "RASAI_WEB_PERFORMANCE_MAX_PAGES": "CONSOLE_WEB_PERFORMANCE_INPUT_NOT_M21_PROOF",
+        core.WEB_PERFORMANCE_TIMEOUT_ENV: "CONSOLE_WEB_PERFORMANCE_INPUT_NOT_M21_PROOF",
+        "RASAI_WEB_PERFORMANCE_FIELD_SOURCE": "CONSOLE_WEB_PERFORMANCE_INPUT_NOT_M21_PROOF",
+        "RASAI_LIGHTHOUSE_CATEGORIES": "CONSOLE_WEB_PERFORMANCE_INPUT_NOT_M21_PROOF",
+    }
+    declared.update({
+        name: "CONSOLE_CONTENT_CONTEXT_INPUT_NOT_AI_EXECUTION_PROOF"
+        for name in core.CONTENT_CONTEXT_ENV_NAMES
+    })
+    return declared
+
 def inventory(
     *,
     path: Path | None = None,
@@ -212,8 +242,10 @@ def inventory(
     apdex_affinities = _declared_apdex_consumer_surface()
     search_affinities = _declared_search_consumer_surface()
     gsc_affinities = _declared_gsc_consumer_surface()
+    console_core_affinities = _declared_console_core_surface()
     consumer_affinities = {
-        **gsc_affinities, **search_affinities, **apdex_affinities,
+        **console_core_affinities, **gsc_affinities,
+        **search_affinities, **apdex_affinities,
     }
     seen: set[str] = set()
     variables = []
@@ -313,6 +345,17 @@ def inventory(
             "per_aud_provider_consent_proven": False,
             "real_provider_request_coverage_proven": False,
             "source": "SERP_RUNTIME_CONFIG_AND_PERPLEXITY_READINESS_DECLARATIONS",
+        },
+        "console_core_adapter_surface_coverage": {
+            "mapped_registry_variables": sum(
+                item["name"] in console_core_affinities for item in variables
+            ),
+            "unmapped_registry_variables": sum(
+                item["name"] not in console_core_affinities for item in variables
+            ),
+            "runtime_device_or_provider_execution_proven": False,
+            "actual_web_performance_or_ai_usage_proven": False,
+            "source": "CONSOLE_CONFIG_APPLY_ENVIRONMENT_DEFAULTS_DECLARATIONS",
         },
         "gsc_adapter_surface_coverage": {
             "mapped_registry_variables": sum(
