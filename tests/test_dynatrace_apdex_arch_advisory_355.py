@@ -311,6 +311,80 @@ def _effective_values_export():
     }
 
 
+@pytest.mark.parametrize("file_mode", ["settings", "effective_values"])
+@pytest.mark.parametrize("defect", ["root_duplicate", "nested_duplicate", "non_json_number"])
+def test_offline_review_rejects_ambiguous_local_settings_json(
+    tmp_path, capsys, file_mode, defect,
+):
+    """#355: no last-key-wins or Python NaN extensions in local user exports."""
+    from rasai.dynatrace_apdex_review_cli_355 import main
+
+    payload = (
+        _config(xhr=True)
+        if file_mode == "settings" else _effective_values_export()
+    )
+    raw = json.dumps(payload)
+    if defect == "root_duplicate":
+        raw = ('{"load_actions":null,' + raw[1:] if file_mode == "settings"
+               else '{"items":[],' + raw[1:])
+    elif defect == "nested_duplicate":
+        assert '"kpm":' in raw
+        raw = raw.replace('"kpm":', '"kpm":"INVALID", "kpm":', 1)
+    else:
+        raw = raw[:-1] + ',"extra":NaN}'
+    assert isinstance(json.loads(raw), dict)
+    source = tmp_path / "settings-export.json"
+    source.write_text(raw, encoding="utf-8")
+    original = source.read_bytes()
+    arguments = [
+        "--architecture", "CSR_SPA",
+        "--architecture-evidence-id", "M6-LOCAL-ONLY",
+    ]
+    if file_mode == "settings":
+        arguments += ["--settings-json", str(source)]
+    else:
+        arguments += [
+            "--effective-values-json", str(source),
+            "--application-scope", "APPLICATION-ABC123",
+        ]
+    with pytest.raises(SystemExit) as failure:
+        main(arguments)
+    assert failure.value.code == 2
+    assert "settings JSON cannot be read or parsed" in capsys.readouterr().err
+    assert source.read_bytes() == original
+
+
+@pytest.mark.parametrize("defect", ["short_stream", "extra_stream"])
+def test_offline_review_rejects_incomplete_physical_settings_read(
+    tmp_path, monkeypatch, defect,
+):
+    from io import BytesIO
+    from pathlib import Path
+    from rasai.dynatrace_apdex_review_cli_355 import _load_offline_snapshot
+
+    path = tmp_path / "settings-export.json"
+    original = json.dumps(_config()).encode("utf-8")
+    path.write_bytes(original)
+    injected = (
+        original[:-7] if defect == "short_stream" else original + b"  "
+    )
+    normal_open = Path.open
+    opened = []
+
+    def simulated_open(self, mode="r", *args, **kwargs):
+        if self == path and mode == "rb":
+            opened.append(1)
+            return BytesIO(injected)
+        return normal_open(self, mode, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", simulated_open)
+    with pytest.raises(ValueError, match="settings JSON changed during physical read"):
+        _load_offline_snapshot(path)
+    assert opened == [1]
+    with normal_open(path, "rb") as file:
+        assert file.read() == original
+
+
 def test_effective_values_export_offline_advisory_no_fabricated_action_counts():
     from rasai.dynatrace_effective_values_adapter_355 import (
         extract_apdex_from_effective_values,

@@ -283,3 +283,17 @@ Valores inválidos ou sem tipo numérico inteiro resultam em erro
 fail-closed. Por isso, as `action_counts` são quantidades reportadas
 pela API, não volume físico comprovado de eventos de um mesmo browser.
 Fonte: https://docs.dynatrace.com/docs/dynatrace-api/environment-api/rum/user-sessions/table
+
+
+## Local JSON review input guard (13/10/2026)
+
+The offline `dynatrace-apdex-review` command now applies the same
+strict evidence boundary as the offline Settings/RUM comparison.
+Both `--settings-json` and `--effective-values-json` require a
+regular file of at most 1 MiB, complete byte-level reading at unchanged
+initial/final size, valid UTF-8, no duplicate JSON keys at any depth
+and no Python-specific `NaN` or `Infinity` constants. A malformed
+file fails before generating any architecture or threshold advice.
+Synthetic M23/M25, live Dynatrace requests, persisted AUD/CONS data
+and score computation are not involved. Eight isolated fixture cases
+cover both input modes and physical short/extra reads.
