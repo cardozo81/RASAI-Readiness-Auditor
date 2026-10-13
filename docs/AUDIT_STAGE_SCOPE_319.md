@@ -359,3 +359,16 @@ duplicar custo de chamadas direcionadas e sem sugerir invoice.
 Testes locais exercitam moedas mistas, conciliacao, divergencia
 persistida e escopo direcionado, sem alterar a base SQL original
 durante a renderizacao e sem executar qualquer IA.
+
+
+## Persisted finance validation in the final report (13/10/2026)
+
+The final IA/integrations HTML now checks the finite, nonnegative
+nature of forecast monetary totals and interval endpoints before
+displaying them or claiming reconciliation. It preserves legitimate
+negative *deviations* as signed arithmetic, while invalid/nonfinite
+deviation values show N/D rather than `nan%` or `Infinity`.
+A malformed `actual_cost` cannot be converted to zero and reported
+as reconciled with an otherwise valid zero-valued ledger.
+The original persisted forecast is never rewritten, no pricing rule
+is recalculated and the raw technical artifacts remain unchanged.
