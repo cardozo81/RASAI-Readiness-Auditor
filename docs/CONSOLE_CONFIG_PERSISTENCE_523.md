@@ -345,3 +345,34 @@ Isto reduz a lacuna de **inventario estatico** da #523; nao
 substitui o gate de restore real Windows, nem a validacao de
 consumo por coletor, nem uma decisao de produto sobre drafts
 Perplexity nao autorizados.
+
+
+## Escopo declarado GSC, OAuth e política Search Analytics (#523)
+
+O inventário offline passou a mapear também os nomes
+de ambiente efetivamente declarados por gsc_scope,
+gsc_oauth e standards_gsc_policy, mantendo separado
+o catálogo GSC de SERP e Perplexity.
+A propriedade, o controle de ativação, a credencial
+OAuth e os limites/janela de Search Analytics
+possuem classificações distintas.
+
+Estar declarado nesse código, no INI ou na sessão
+**não** autentica uma propriedade GSC, token OAuth,
+cobertura da URL, dados finalizados ou uma
+consulta à API. Por isso, o resumo
+gsc_adapter_surface_coverage informa
+authenticated_property_coverage_proven=false e
+actual_gsc_api_read_coverage_proven=false.
+A coluna runtime_consumer continua
+NOT_PROVEN_BY_REGISTRY. Se GSC for desabilitado
+ou sem escopo de propriedade comprovado, não
+se deve interpretar a presença de chave como
+solicitação de dados.
+
+Testes em fonte INI temporária verificam metadados
+sem conteúdo de token, nenhuma consulta de API,
+nenhum refresh de OAuth e bytes originais
+inalterados. O patch não modifica a configuração
+de GSC nem altera política de consentimento,
+janela, provider, runtime ou AUD física.
