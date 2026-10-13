@@ -729,3 +729,82 @@ def test_duration_forecast_does_not_follow_symlinked_history_root(tmp_path):
     assert _historical_audit(alias / databases[0].parent.name / "audit.db",
                              _state(alias), 1) is None
     assert {str(db): sha256(db.read_bytes()).hexdigest() for db in databases} == original
+
+
+@pytest.mark.parametrize("active_apdex", ("synthetic_apdex", "apdex_experience"))
+def test_active_apdex_never_uses_legacy_history_with_unrecorded_workload(
+    tmp_path, active_apdex,
+):
+    """Old physical console projections cannot prove Apdex cohort equality."""
+    databases = [_audit(tmp_path, i) for i in range(5)]
+    before = [sha256(db.read_bytes()).hexdigest() for db in databases]
+    baseline = _state(tmp_path)
+    assert forecast_local_duration(baseline).available
+    setattr(baseline, active_apdex, True)
+    projection = forecast_local_duration(baseline)
+    assert not projection.available
+    assert projection.sample_runs == 0
+    assert projection.total is None
+    assert "Apdex" in " ".join(projection.notes)
+    assert [sha256(db.read_bytes()).hexdigest() for db in databases] == before
+
+
+def test_explicit_historical_apdex_booleans_allow_only_matching_workloads(
+    tmp_path,
+):
+    """Future opt-in physical flags can support a cohort; conflicting runs cannot."""
+    databases = [_audit(tmp_path, i) for i in range(5)]
+    for db in databases:
+        with sqlite3.connect(db) as con:
+            (text,) = con.execute(
+                "SELECT configuration FROM console_execution_projections"
+            ).fetchone()
+            payload = json.loads(text)
+            payload["synthetic_apdex"] = True
+            payload["apdex_experience"] = False
+            con.execute(
+                "UPDATE console_execution_projections SET configuration=?",
+                (json.dumps(payload),),
+            )
+    state = _state(tmp_path)
+    state.synthetic_apdex = True
+    state.apdex_experience = False
+    expected = forecast_local_duration(state)
+    assert expected.available and expected.sample_runs == 5
+
+    # A mismatched M23-enabled cohort member must not cross the boundary.
+    with sqlite3.connect(databases[4]) as con:
+        (text,) = con.execute(
+            "SELECT configuration FROM console_execution_projections"
+        ).fetchone()
+        payload = json.loads(text)
+        payload["synthetic_apdex"] = False
+        con.execute(
+            "UPDATE console_execution_projections SET configuration=?",
+            (json.dumps(payload),),
+        )
+    original = [db.read_bytes() for db in databases]
+    filtered = forecast_local_duration(state)
+    assert not filtered.available and filtered.sample_runs == 4
+    assert [db.read_bytes() for db in databases] == original
+
+
+def test_legacy_disabled_apdex_scope_remains_allowed_but_explicit_true_excluded(
+    tmp_path,
+):
+    databases = [_audit(tmp_path, i) for i in range(5)]
+    state = _state(tmp_path)
+    state.synthetic_apdex = False
+    state.apdex_experience = False
+    assert forecast_local_duration(state).available
+    with sqlite3.connect(databases[0]) as con:
+        (text,) = con.execute(
+            "SELECT configuration FROM console_execution_projections"
+        ).fetchone()
+        payload = json.loads(text)
+        payload["synthetic_apdex"] = True
+        con.execute(
+            "UPDATE console_execution_projections SET configuration=?",
+            (json.dumps(payload),),
+        )
+    assert forecast_local_duration(state).sample_runs == 4
