@@ -402,3 +402,26 @@ A malformed `actual_cost` cannot be converted to zero and reported
 as reconciled with an otherwise valid zero-valued ledger.
 The original persisted forecast is never rewritten, no pricing rule
 is recalculated and the raw technical artifacts remain unchanged.
+
+## Distribuição conservadora dos wrappers por fase (#319)
+
+O inspector `pipeline_step_timer_evidence.by_phase` agrupa observações
+válidas por **fase declarada e posição temporal**, mantendo separadas
+aquelas dentro da janela inicial e aquelas sem vínculo comprovado
+(continuação/RPR). Para cada grupo informa quantidade de invólucros,
+sucessos, erros e os limites mínimo/máximo das durações individuais
+monotônicas. O `metrics.html` apresenta esses limites em quadro separado
+da lista individual para facilitar a inspeção do desempenho.
+
+**Não calcular soma, união, P90 de fase nem duração exclusiva:** logs
+operacionais não possuem identidade selada de execução nem provam
+ausência de operações aninhadas/concorrentes. Mesmo que duas operações
+declaradas sob uma fase tenham duração 120 s e 90 s, isso não autoriza
+concluir 210 s de tempo daquela fase. O campo
+`exclusive_phase_wall_clock_ms` permanece `null` em todos os grupos.
+
+As fontes seguem não seladas. JSONL inválido, clock malformado, evento
+estranho à AUD e limite de 4.000 eventos continuam fail-closed, sem
+resumo parcial. Testes físicos cobrem sobreposição, operação após AUD,
+falha de operação, identidade da AUD e integridade de bytes.
+Nenhum novo temporizador foi inserido no pipeline homologado.

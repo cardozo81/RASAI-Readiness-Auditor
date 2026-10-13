@@ -58,6 +58,8 @@ def inspect_pipeline_step_timers(
         "operational_log_sealed_evidence": False,
         "stage_forecast_calibrated": False,
         "by_step": [],
+        "by_phase": [],
+        "phase_summary_measurement": "WRAPPER_MIN_MAX_NOT_STAGE_WALL_CLOCK",
         "provider_requests": 0,
         "audit_writes": 0,
         "limitations": (
@@ -151,9 +153,34 @@ def inspect_pipeline_step_timers(
             ),
         })
     if steps:
+        # Distribution bounds, not summed phase clocks. No immutable
+        # execution ID ties nested/concurrent wrappers to exclusive stages.
+        grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        for step in steps:
+            scope = (step["phase"], step["console_window_placement"])
+            grouped.setdefault(scope, []).append(step)
+        phase_rows = []
+        for (phase, placement), members in sorted(grouped.items()):
+            durations = [row["observed_monotonic_wrapper_ms"] for row in members]
+            phase_rows.append({
+                "phase": phase,
+                "console_window_placement": placement,
+                "wrapper_count": len(members),
+                "success_count": sum(
+                    row["operation_status"] == "SUCCESS" for row in members
+                ),
+                "error_count": sum(
+                    row["operation_status"] == "ERROR" for row in members
+                ),
+                "min_observed_wrapper_ms": min(durations),
+                "max_observed_wrapper_ms": max(durations),
+                "exclusive_phase_wall_clock_ms": None,
+                "physical_execution_identity_verified": False,
+            })
         result["status"] = "OBSERVED_UNSEALED_WRAPPER_TIMERS"
         result["physical_wrapper_timer_observed"] = True
         result["by_step"] = steps
+        result["by_phase"] = phase_rows
     else:
         result["status"] = "NO_PIPELINE_STEP_TIMERS"
     return result

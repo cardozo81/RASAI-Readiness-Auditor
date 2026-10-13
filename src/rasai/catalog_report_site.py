@@ -203,6 +203,7 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
     if measured is not None:
         timer_status = timers.get("status", "NOT_AVAILABLE")
         timer_rows = []
+        phase_summary_rows = []
         if timer_status == "OBSERVED_UNSEALED_WRAPPER_TIMERS":
             placement = {
                 "WITHIN_VERIFIED_WINDOW_UNSEALED": "Na janela verificada (log não selado)",
@@ -216,6 +217,18 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
                     f'{item["observed_monotonic_wrapper_ms"] / 1000:.2f} s',
                     placement.get(item["console_window_placement"], "N/D"),
                     item["recorded_at_utc"],
+                ))
+            for item in timers.get("by_phase", []):
+                # A range summarizes individual wrappers; it is not the
+                # elapsed duration, union, or forecast of a physical phase.
+                phase_summary_rows.append((
+                    item["phase"].replace("_", " ").title(),
+                    placement.get(item["console_window_placement"], "N/D"),
+                    item["wrapper_count"],
+                    item["success_count"],
+                    item["error_count"],
+                    f'{item["min_observed_wrapper_ms"] / 1000:.2f}–{item["max_observed_wrapper_ms"] / 1000:.2f} s',
+                    "N/D - não medido",
                 ))
         body += _section(
             "pipeline-wrapper-timers-319",
@@ -236,6 +249,20 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
                 ) if timer_rows else
                 "<p>Tempos operacionais: N/D (nenhum log válido e completo "
                 "com eventos verificáveis da AUD).</p>"
+            )
+            + (
+                "<h4>Distribuição dos invólucros por fase (não tempo da fase)</h4>"
+                "<p>As faixas mínima e máxima descrevem operações individuais "
+                "declaradas na mesma fase/posição. A soma, a duração exclusiva "
+                "e a execução física da fase permanecem N/D, pois não há "
+                "identidade selada nem prova de ausência de paralelismo.</p>"
+                + _table(
+                    ("Fase declarada", "Posição temporal", "Operações",
+                     "Sucesso", "Erro", "Faixa individual observada",
+                     "Duração física exclusiva da fase"),
+                    phase_summary_rows,
+                )
+                if phase_summary_rows else ""
             ),
         )
     # #319: expose M21 HTTP timing that has ALREADY been independently
