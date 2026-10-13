@@ -51,7 +51,12 @@ def _verified_manifest_text(manifest: Path) -> str:
         descriptor = os.fstat(stream.fileno())
         data = stream.read(_MAX_BYTES + 1)
     after = manifest.stat()
-    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
+    # On Windows, fstat()/Path.stat() can disagree on st_ctime_ns
+    # (creation time), even for the same unmodified file. Preserve the
+    # cross-platform file identity/length/mtime consistency guards.
+    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    if os.name != "nt":
+        fields += ("st_ctime_ns",)
     if (
         manifest.is_symlink() or len(data) > _MAX_BYTES
         or len(data) != before.st_size
