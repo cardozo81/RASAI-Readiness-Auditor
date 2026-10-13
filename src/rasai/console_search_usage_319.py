@@ -6,6 +6,7 @@ it is NOT a generative inference. This projection never changes those ledgers.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from contextlib import closing
 import json
 import math
 from pathlib import Path
@@ -47,7 +48,7 @@ def read_perplexity_search_usage(workspace: Path | None, audit_id: str) -> Searc
     if not database.is_file():
         return None
     try:
-        with sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True, timeout=0.5) as con:
+        with closing(sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True, timeout=0.5)) as con:
             con.execute("PRAGMA query_only=ON")
             if not _exists(con, "perplexity_search_runs"):
                 return None
