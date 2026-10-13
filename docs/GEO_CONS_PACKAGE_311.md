@@ -112,3 +112,17 @@ A segunda chamada com as mesmas fontes retorna `IDEMPOTENT_EXISTING`
 quando bytes e manifestos permanecem idênticos. O pacote continua
 separado em `consolidated-geo-companions/GCOMP-*`, e não promove
 `trend_conclusion=N/D` a tendência calibrada ou métrica CONS-3.
+
+
+## Segundo parse físico do manifest CONS (12/10/2026)
+
+O materializador GCOMP consulta o companion GEO em modo read-only e, em
+seguida, lê novamente o `manifest.json` canônico para compor seu pacote de
+hashes. Esse **segundo parse** aplica a mesma rejeição de chaves JSON duplicadas
+do leitor consultivo, inclusive `source_audits` e `audit_id` aninhados.
+Um manifesto alterado ou ambíguo entre as leituras não pode trocar
+silenciosamente a lista de AUDs dentro do pacote. Três testes com substituição
+controlada apenas na segunda leitura verificam recusa antes da publicação,
+ausência de requisições comerciais e preservação byte a byte das fontes.
+A verificação SHA-256 e os gates anteriores/posteriores de publicação permanecem.
+Nenhum arquivo CONS-3, AUD ou índice é alterado.
