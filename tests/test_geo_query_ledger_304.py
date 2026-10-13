@@ -1482,6 +1482,7 @@ def test_v11_path_inode_drift_during_hash_detected_on_windows_and_posix(
             # at a distinct inode of the same size/mtime in the simulation.
             if len(calls) >= 3:
                 return SimpleNamespace(
+                    st_mode=stat.st_mode,
                     st_dev=stat.st_dev, st_ino=stat.st_ino + 1,
                     st_size=stat.st_size, st_mtime_ns=stat.st_mtime_ns,
                     st_ctime_ns=stat.st_ctime_ns,
