@@ -327,7 +327,12 @@ def render_header(state: State) -> None:
     clear_screen()
     print("=" * 100)
     print(PRODUCT_DISPLAY_NAME)
-    print(f"Status      : {paint(console_status_label(state.status), status_color(state.status), bold=True)}")
+    status_text = (
+        "Enriquecimento opcional pós-auditoria em execução"
+        if str(state.status).upper() == "POST_CORE_ENRICHMENT"
+        else console_status_label(state.status)
+    )
+    print(f"Status      : {paint(status_text, status_color(state.status), bold=True)}")
     print(f"URL         : {state.current_url}")
     print(f"Dispositivo : {paint(state.current_device, CYAN)}")
     print(f"Operação    : {paint(console_operation_label(state.operation), _operation_color(state.operation), bold=True)}")
