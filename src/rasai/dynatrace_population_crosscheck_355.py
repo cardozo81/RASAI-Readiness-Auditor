@@ -188,17 +188,42 @@ def compare_dynatrace_settings_and_rum(
     }
 
 
+def _unique_evidence_json_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """A local export with duplicated scope/count fields is not evidence."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate evidence JSON field")
+        result[key] = value
+    return result
+
+
+def _reject_nonstandard_json_constant(value: str) -> None:
+    raise ValueError("nonstandard evidence JSON number")
+
+
 def _load(path: Path, max_bytes: int) -> Mapping[str, Any]:
-    if path.is_symlink() or not path.is_file() or path.stat().st_size > max_bytes:
+    """Read exactly one bounded local UTF-8 file, never a changed subset."""
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("bounded regular JSON evidence file required")
+    initial_size = path.stat().st_size
+    if initial_size > max_bytes:
         raise ValueError("bounded regular JSON evidence file required")
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, ValueError):
+        with path.open("rb") as handle:
+            raw = handle.read(max_bytes + 1)
+        if len(raw) != initial_size or path.stat().st_size != initial_size:
+            raise ValueError("evidence size changed during physical read")
+        value = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=_unique_evidence_json_pairs,
+            parse_constant=_reject_nonstandard_json_constant,
+        )
+    except (OSError, UnicodeError, ValueError, TypeError):
         raise ValueError("JSON evidence unreadable or invalid") from None
     if not isinstance(value, dict):
         raise ValueError("JSON evidence object required")
     return value
-
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
