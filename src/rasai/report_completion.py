@@ -87,25 +87,33 @@ def materialize_catalog_report_projection(
     *,
     audit_id: str,
     workspace: AuditWorkspace,
+    read_only: bool = False,
 ) -> AuditReportCompletion:
-    """Materialize and verify only the supported ``report-catalog/`` projection."""
+    """Materialize catalog HTML; read_only forbids late GEO evidence writers.
+
+    Initial AUD execution and mutable RPR/complement intentionally retain
+    their existing GEO advisory persistence. Offline rematerialization must
+    project only previously persisted evidence, never create a new snapshot.
+    """
     from rasai.catalog_report_site import catalog_report_is_fresh, materialize_catalog_report_site
 
     errors: list[str] = []
-    # Derive advisory evidence once from the persisted provider observation;
-    # RPR/complement never re-queries a paid API during report materialization.
-    try:
-        from rasai.geo_observation import materialize_geo_observation
-        materialize_geo_observation(Path(workspace.database), audit_id)
-    except Exception:
-        # Optional analytics must not demote previously valid catalogs.
-        pass
-    try:
-        from rasai.geo_extraction_quality import materialize_extraction_quality
-        materialize_extraction_quality(Path(workspace.root))
-    except (OSError, ValueError, UnicodeError):
-        # Advisory sidecar cannot change successful canonical extraction.
-        pass
+    # Only the explicitly mutable AUD/RPR workflow may create GEO-derived
+    # evidence. Offline report replay must not write to audit.db nor create
+    # sidecars when older AUDs lack them. Missing data remains N/D.
+    if not read_only:
+        try:
+            from rasai.geo_observation import materialize_geo_observation
+            materialize_geo_observation(Path(workspace.database), audit_id)
+        except Exception:
+            # Optional analytics must not demote previously valid catalogs.
+            pass
+        try:
+            from rasai.geo_extraction_quality import materialize_extraction_quality
+            materialize_extraction_quality(Path(workspace.root))
+        except (OSError, ValueError, UnicodeError):
+            # Advisory sidecar cannot change successful canonical extraction.
+            pass
     try:
         materialize_catalog_report_site(audit_id=audit_id, workspace=workspace)
     except Exception as exc:
