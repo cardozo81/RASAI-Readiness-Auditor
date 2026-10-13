@@ -79,13 +79,30 @@ def inspect_pipeline_step_timers(
     if not path.is_file():
         return result
     try:
-        if path.stat().st_size > _MAX_BYTES:
+        start_stat = path.stat()
+        if start_stat.st_size > _MAX_BYTES:
             result["status"] = "LOG_TOO_LARGE"
             return result
         with path.open("rb") as stream:
             data = stream.read(_MAX_BYTES + 1)
+            read_stat = stream.fileno()
+            import os
+            descriptor_stat = os.fstat(read_stat)
+        end_stat = path.stat()
     except OSError:
         result["status"] = "LOG_READ_UNAVAILABLE"
+        return result
+    # The operational log is mutable and unsealed. A concurrent append,
+    # replacement or truncate makes a partial read unsafe for any
+    # apparently complete phase/step inference. Abstain without rows.
+    stat_fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    if (
+        any(getattr(start_stat, key) != getattr(end_stat, key) for key in stat_fields)
+        or any(getattr(start_stat, key) != getattr(descriptor_stat, key) for key in stat_fields)
+        or len(data) != start_stat.st_size
+        or path.is_symlink()
+    ):
+        result["status"] = "LOG_CHANGED_DURING_READ"
         return result
     if len(data) > _MAX_BYTES:
         result["status"] = "LOG_TOO_LARGE"
