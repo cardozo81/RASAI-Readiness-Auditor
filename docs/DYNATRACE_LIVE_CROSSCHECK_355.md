@@ -105,3 +105,18 @@ resposta ambígua é rejeitada antes da projeção, com mensagem genérica que
 não expõe token ou tenant. Testes com resposta HTTP simulada verificam
 objetos raiz e aninhados; nenhuma alteração do endpoint, TLS, token,
 permissões, M23/M25 ou dados de AUD/CONS.
+
+
+## Contrato HTTP da resposta Settings 2.0 (12/10/2026)
+
+O leitor live de Settings API exige HTTP 200 **e** media type
+`application/json` (aceitando apenas parâmetros opcionais como
+`charset=UTF-8`). Respostas com `text/html`, `application/problem+json`,
+`application/vnd.api+json`, `application/jsonp` ou `Content-Type` ausente
+não são tratadas como dados da configuração Apdex, **mesmo que o corpo
+contenha JSON sintaticamente válido**. A rejeição ocorre antes de ler o
+corpo, com diagnóstico genérico sem vazar tenant/token. É a mesma fronteira
+de MIME já adotada pelo leitor USQL. Testes com transporte falso validam
+respostas aceitas/recusadas sem acesso real ao Dynatrace.
+Não modifica endpoint, permissões, threshold, interpretação arquitetural,
+M23/M25, banco AUD ou score.
