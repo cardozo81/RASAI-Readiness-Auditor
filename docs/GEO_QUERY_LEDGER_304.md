@@ -317,3 +317,20 @@ fora da janela temporal. Os testes físicos usam SQLite somente leitura,
 conferem os bytes do `audit.db` e não invocam SERP/Perplexity nem GEO live.
 Ela não prova equivalência de mercado, idioma, device ou intenção dos resultados
 externos Perplexity: os critérios metodológicos remanescentes da issue ficam abertos.
+
+## Relógio SERP com proveniência incompleta (#304, 13/10/2026)
+
+Um comparativo por consulta não pode selecionar apenas observações SERP
+com timestamp verificável e ocultar uma observação física da **mesma
+query** cujo `collected_at` seja nulo, inválido ou sem offset UTC.
+Sem esse relógio, não se pode comprovar se o registro estava fora da
+janela de 24 horas. O contrato read-only devolve
+`SERP_CHRONOLOGY_UNVERIFIABLE_FOR_QUERY` sem calcular interseções ou
+denominadores para a consulta atingida. Outras queries com clocks íntegros
+continuam descritivas; observações com relógios válidos e fora da janela
+não afetam a seleção.
+
+A contenção é restrita ao leitor GEO observacional, com fixtures
+SQLite imutáveis, nenhum novo request e nenhuma alteração de score,
+coleta, SERP ou Search API. Não comprova equivalência de mercado/idioma
+do provedor externo e não conclui a issue #304.
