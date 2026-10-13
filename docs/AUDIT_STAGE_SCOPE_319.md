@@ -463,3 +463,18 @@ ficam N/D, sem imputação e sem alterar o histórico monetário,
 preços, cálculo de score ou tempo registrado. Fixtures SQLite
 verificam três constantes inválidas, exclusão seletiva e preservação
 física dos bancos originais, sem chamadas externas.
+
+## Escopo fisico da raiz de historico (#319)
+
+O forecast de duracao nao percorre raizes de auditoria que sejam
+symlinks. A verificacao ocorre antes da varredura de `AUD-*`
+e e repetida no leitor individual para o ancestral imediato
+`audit.db -> AUD-* -> audits_root`. Uma raiz ligada a outro
+repositorio poderia importar inadvertidamente um historico externo,
+mas nao fornece prova de identidade para a previa local.
+
+Uma fixture com cinco AUDs completas sob a raiz fisica e um alias
+simbolico prova que a raiz original continua elegivel e que o alias
+retorna 0 fontes e previsao N/D. Nenhum arquivo historico e alterado
+e a regra nao cria protecao criptografica contra mudancas no diretorio
+enquanto uma varredura estiver em andamento.
