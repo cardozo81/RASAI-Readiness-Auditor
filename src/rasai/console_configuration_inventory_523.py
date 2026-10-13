@@ -262,6 +262,10 @@ def inventory(
             "sensitive": sensitive,
             "scope": "OS_SECRET_OR_SESSION" if sensitive else "INI_AND_SESSION",
             "persist_ini": not sensitive,
+            "secret_present_in_ini_violation": bool(
+                sensitive and parser is not None
+                and parser.has_option("environment", key)
+            ),
             "runtime_default_declared": spec.default is not None,
             "status": (
                 "SECRET_PRESENT" if str(environment.get(key) or "").strip() else "SECRET_ABSENT"
@@ -326,6 +330,10 @@ def inventory(
         "contract": "RASAI-CONSOLE-CONFIG-INVENTORY-523-1",
         "registry_size": len(specs),
         "environment_variables": variables,
+        "secret_ini_policy_violations": sum(
+            1 for item in variables if item["secret_present_in_ini_violation"]
+        ),
+        "secret_ini_scan_complete": parser is not None,
         "apdex_adapter_surface_coverage": {
             "mapped_registry_variables": sum(
                 item["name"] in apdex_affinities for item in variables
