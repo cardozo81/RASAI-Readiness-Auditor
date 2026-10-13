@@ -903,3 +903,57 @@ def test_apdex_duration_missing_or_malformed_fingerprint_is_not_estimated(
     result = forecast_local_duration(state)
     assert result.sample_runs == 4 and not result.available
     assert [db.read_bytes() for db in databases] == before
+
+
+@pytest.mark.parametrize("enabled_flag", (
+    "improvement_enabled", "search_ai_competitive", "technical_remediation",
+))
+def test_319_optional_console_bool_must_be_explicit_in_new_physical_cohort(
+    tmp_path, enabled_flag,
+):
+    """New console snapshots enable only exact observed optional scopes."""
+    physical = [_audit(tmp_path, index) for index in range(5)]
+    state = _state(tmp_path)
+    setattr(state, enabled_flag, True)
+    before = [db.read_bytes() for db in physical]
+    old = forecast_local_duration(state)
+    assert old.sample_runs == 0
+    assert not old.available
+    assert [db.read_bytes() for db in physical] == before
+
+    for db in physical:
+        with sqlite3.connect(db) as con:
+            (raw,) = con.execute(
+                "SELECT configuration FROM console_execution_projections"
+            ).fetchone()
+            config = json.loads(raw)
+            config[enabled_flag] = True
+            for sibling in (
+                "improvement_enabled", "search_ai_competitive",
+                "technical_remediation",
+            ):
+                config.setdefault(sibling, False)
+            con.execute(
+                "UPDATE console_execution_projections SET configuration=?",
+                (json.dumps(config, sort_keys=True),),
+            )
+    verified = [db.read_bytes() for db in physical]
+    forecast = forecast_local_duration(state)
+    assert forecast.available and forecast.sample_runs == 5
+    assert forecast.total is not None
+    assert [db.read_bytes() for db in physical] == verified
+
+    with sqlite3.connect(physical[4]) as con:
+        (raw,) = con.execute(
+            "SELECT configuration FROM console_execution_projections"
+        ).fetchone()
+        config = json.loads(raw)
+        config[enabled_flag] = "true"
+        con.execute(
+            "UPDATE console_execution_projections SET configuration=?",
+            (json.dumps(config, sort_keys=True),),
+        )
+    dirty = [db.read_bytes() for db in physical]
+    rejected = forecast_local_duration(state)
+    assert not rejected.available and rejected.sample_runs == 4
+    assert [db.read_bytes() for db in physical] == dirty

@@ -633,3 +633,67 @@ def test_319_base_console_state_records_disabled_apdex_without_guessing(tmp_path
     assert scope["apdex_experience"] is False
     assert "synthetic_apdex_workload" not in scope
     assert "apdex_experience_workload" not in scope
+
+
+def test_319_console_projection_records_optional_workload_flags_without_query_secrets(tmp_path):
+    """Future complete AUDs can prove optional workload state in duration cohorts."""
+    from dataclasses import fields
+    from json import loads
+    from types import SimpleNamespace
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.audit_duration_forecast_319 import _strictly_comparable
+
+    folder = tmp_path / "AUD-WORKLOAD319"
+    folder.mkdir()
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute("CREATE TABLE audits(audit_id TEXT PRIMARY KEY)")
+        con.execute("INSERT INTO audits VALUES (?)", (folder.name,))
+
+    base = SearchConsoleState(
+        audits_root=str(tmp_path), audit_id=folder.name,
+        target="https://example.org", max_pages=1,
+        technical_remediation=True, search_ai_competitive=True,
+        search_queries=("EXTERNAL_PRIVATE_QUERY_DO_NOT_PERSIST",),
+    )
+    # The actual interactive State composes optional flags across console
+    # extensions. Simulate that final state without changing console engines.
+    state = SimpleNamespace(**{
+        field.name: getattr(base, field.name) for field in fields(base)
+    })
+    state.improvement_enabled = True
+    assert persist_execution_projection(
+        folder, state, estimate_exposure(state),
+        projected_at="2026-10-13T11:00:00-03:00",
+        started_at="2026-10-13T11:00:01-03:00",
+        finished_at="2026-10-13T11:01:01-03:00",
+        duration_ms=60_000,
+    )
+    with sqlite3.connect(folder / "audit.db") as con:
+        (raw,) = con.execute(
+            "SELECT configuration FROM console_execution_projections"
+        ).fetchone()
+    settings = loads(raw)
+    assert settings["improvement_enabled"] is True
+    assert settings["search_ai_competitive"] is True
+    assert settings["technical_remediation"] is True
+    assert settings["synthetic_apdex"] is False
+    assert settings["apdex_experience"] is False
+    assert _strictly_comparable(state, settings)
+    assert "EXTERNAL_PRIVATE_QUERY_DO_NOT_PERSIST" not in raw
+    assert "search_queries" not in raw
+    assert "perplexity_queries" not in raw
+
+    state.improvement_enabled = "true"  # Untrusted nonboolean must not be cast.
+    assert persist_execution_projection(
+        folder, state, estimate_exposure(state),
+        projected_at="2026-10-13T11:00:00-03:00",
+        started_at="2026-10-13T11:00:01-03:00",
+        finished_at="2026-10-13T11:01:01-03:00",
+        duration_ms=60_000,
+    )
+    with sqlite3.connect(folder / "audit.db") as con:
+        (raw,) = con.execute(
+            "SELECT configuration FROM console_execution_projections"
+        ).fetchone()
+    assert "improvement_enabled" not in loads(raw)
+    assert not _strictly_comparable(state, loads(raw))

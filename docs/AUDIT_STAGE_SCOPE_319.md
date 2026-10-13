@@ -549,3 +549,32 @@ ausencia de segredos e alteracao de schema, correspondencia estrita,
 rejeicao de uma fonte com parametros contraditorios e garantia
 read-only do forecast. O runtime de M23/M25, SERP, IA e a base
 de auditorias historicas permanecem inalterados.
+
+
+## Flags reais das etapas opcionais para o forecast (#319, 13/10/2026)
+
+O produtor `console_cost.persist_execution_projection` agora persiste no JSON
+`console_execution_projections.configuration` o estado **booleano e
+explicitamente presente** de `improvement_enabled`,
+`search_ai_competitive` e `technical_remediation`, alem dos fingerprints
+CAT-06/CAT-07 que ja eram registrados por `apdex_duration_scope`.
+
+A comparacao conservadora do forecast exige o mesmo estado das flags em
+cada AUD da coorte. Um modulo ativo na auditoria solicitada nao permite
+usar AUDs anteriores sem a respectiva flag; `"true"`, `1`, `null`
+e outros tipos nao sao reinterpretados como booleanos. Os parametros
+especificos do Apdex continuam exigindo correspondencia exata; flags
+nao substituem comprovacao de duracao fisica, fase ou comparabilidade
+de populacao. AUDs anteriores nao sao regravadas.
+
+O registro consiste somente em tres booleanos de habilitacao, sem
+pesquisas textuais, segredos, chave de provider, payload Perplexity,
+URL Dynatrace ou novas colunas no SQLite. A inclusao dos metadados
+**nao liga** os modulos e nao altera seus coletores ou custos.
+
+Regressoes fisicas isoladas exercitam a escrita real da projecao
+em SQLite, demonstram ausencia de termos de pesquisa no JSON,
+recusam flag nao booleana e verificam coortes de cinco AUDs
+concluidas com configuracoes opcionais iguais/divergentes.
+O forecast segue apenas descritivo: percentis historicos nao
+sao SLA; AI em paralelo nao pode ser somada como tempo de parede.
