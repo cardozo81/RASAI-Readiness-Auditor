@@ -999,6 +999,9 @@ def _menu(state: State) -> str:
     config_state = paint("ALTERAÇÕES NÃO SALVAS", YELLOW, bold=True) if is_dirty(state) else paint("SALVO", GREEN, bold=True)
     print("CONFIGURAÇÃO DA AUDITORIA\n")
     print(f"Arquivo INI: {path or '<não resolvido>'} | {config_state} | credenciais: sessão/Windows User; nunca no INI")
+    from rasai.console_config_provenance_523 import inspect_configuration, render_provenance
+    print(render_provenance(inspect_configuration(path)))
+    print("Perplexity: queries e tipo são transitórios; restaurar chave/ativação não autoriza pesquisa paga.")
     print("Exposição financeira potencial: " + paint(estimate.level, cost_color(estimate.level), bold=True))
     if estimate.min_pages == estimate.max_pages:
         print(f"Volume prévio: {estimate.min_pages} página(s) conhecida(s) × {estimate.device_contexts} contexto(s) de dispositivo")
