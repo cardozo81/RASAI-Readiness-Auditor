@@ -1,7 +1,6 @@
 """Issue #523: physical fresh-process console save/load/Apdex adapter gate.
 
-Runs two short-lived Python processes against a disposable INI.  No AUD,
-browser, vendor request, credential store or operator configuration is touched.
+Runs separate short-lived Python processes against a disposable INI. The\noptional projection check creates only a synthetic temporary SQLite AUD. No\nproduction AUD, browser, vendor request or operator configuration is touched.
 """
 from __future__ import annotations
 
@@ -117,7 +116,6 @@ elif operation == "project":
             for value in ("PERPLEXITY_API_KEY", "dynatrace_base_url",
                           "dynatrace_application_id", "apdex_dynatrace_config_json")
         ),
-        "source_ini_unmodified": True,
     }
 else:
     raise ValueError("unsupported test operation")
