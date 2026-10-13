@@ -347,7 +347,7 @@ def test_all_registry_variables_have_explicit_nonclaiming_adapter_affinity(tmp_p
         "CAT07_DECLARATIVE_INPUT_NOT_M25_MEASUREMENT"
     )
     assert hints["RASAI_APDEX_EXPERIENCE_DEVICE_MIX"] == (
-        "LEGACY_INERT_DEVICE_MIX_DERIVED_FROM_CONSOLE_DEVICE"
+        "INERT_DEVICE_MIX_DERIVED_FROM_CONSOLE_DEVICE"
     )
 
     ini = tmp_path / "operator.ini"
@@ -370,9 +370,9 @@ def test_all_registry_variables_have_explicit_nonclaiming_adapter_affinity(tmp_p
     assert as_rows["RASAI_APDEX_EXPERIENCE_ARCHITECTURE"]["declared_adapter_surface"] == (
         "CAT07_DECLARATIVE_INPUT_NOT_M25_MEASUREMENT"
     )
-    assert as_rows["RASAI_APDEX_EXPERIENCE_DEVICE_MIX"]["declared_adapter_surface"] == (
-        "LEGACY_INERT_DEVICE_MIX_DERIVED_FROM_CONSOLE_DEVICE"
-    )
+    # The inert historical device mix is intentionally absent from the
+    # live EnvironmentSpec registry, not a lost execution setting.
+    assert "RASAI_APDEX_EXPERIENCE_DEVICE_MIX" not in as_rows
     assert as_rows["OPENAI_API_KEY"]["declared_adapter_surface"] == (
         "NOT_MAPPED_NO_CONSUMER_INFERENCE"
     )
