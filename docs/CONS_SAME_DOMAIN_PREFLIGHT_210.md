@@ -1,4 +1,4 @@
-# Issue #210 — elegibilidade para comparação de URLs distintas sob mesmo host
+# Issue #210 - elegibilidade para comparação de URLs distintas sob mesmo host
 
 ## Modos que não podem ser confundidos
 
