@@ -145,3 +145,29 @@ valor efetivo passa a `CSR_SPA`. Por isso, o resumo do console conta
 
 A mudança é apenas na linguagem/diagnóstico offline; não muda a
 prioridade real nem o comportamento dos adapters e motores.
+
+## Preflight de consumo Apdex sem auditoria (opt-in, 13/10/2026)
+
+O comando `python -m rasai.console_configuration_inventory_523 --verify-apdex`
+habilita validação extra, **sem coletar dados**. O caminho de configuração
+pode ser fornecido pelo argumento `--ini`; caso contrário, segue
+`RASAI_CONSOLE_INI` ou o caminho canônico habitual.
+
+A implementação:
+1. verifica que a origem existe, não é symlink e mede no máximo 2 MB;
+2. lê bytes e usa uma **cópia temporária própria**, para que a rotina de
+   load nunca crie nem substitua um INI do operador durante uma corrida;
+3. restaura estado tipado, projeta o ambiente e chama apenas
+   `configured_apdex` + o handoff de `ExperienceApdexConfig`;
+4. verifica o SHA-256 físico da fonte, retoma o ambiente original e limpa
+   o handoff M25 antes do retorno;
+5. publica somente `status`, ativação M23/M25, device único coerente,
+   quantidade de avisos e flags de limites metodológicos.
+
+O valor `ADAPTERS_VALIDATED_OFFLINE` **não** equivale a execução de
+coleta, tempo de página, validação Dynatrace live ou consumos cobrados.
+`ADAPTERS_PARTIAL_LOAD_WARNINGS` significa que o adapter aceitou uma
+configuração parcial/default; não garante restauração exata.
+Arquivos ausentes ou inválidos devolvem N/D ou erro tipado, sem revelar
+conteúdo de campos. O comando convencional **sem** `--verify-apdex`
+mantém o comportamento anterior: inventário puramente de metadados.
