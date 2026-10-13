@@ -105,6 +105,8 @@ def assess_dynatrace_apdex_architecture(
         "contract_version": VERSION,
         "architecture": architecture,
         "architecture_evidence_id": architecture_evidence_id,
+        "soft_navigation_observed": soft_navigation_observed,
+        "async_requests_observed": async_requests_observed,
         "settings_provenance": "NOT_VERIFIED_BY_RASAI",
         "method": "EXTERNAL_RUM_CONFIG_ADVISORY_NOT_SYNTHETIC_APDEX",
         "status": "NOT_EVALUABLE",
