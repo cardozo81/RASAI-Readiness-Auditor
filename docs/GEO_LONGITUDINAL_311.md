@@ -261,3 +261,29 @@ comprovam amostragem comparável do provedor externo nem causalidade.
 O motivo de exclusão permanece uma classificação do leitor, não
 diagnóstico da URL. O produto CONS-3, seus dados, scores,
 manifestos e relatórios são preservados sem escrita.
+
+
+## Leitura fisica estrita do manifesto CONS (#311, 13/10/2026)
+
+O companion `geo_cons_companion_311` continua estritamente offline, sem
+injetar resultados em `CONS-3`. Sua entrada `manifest.json` agora
+passa por leitura limitada a 1 MiB com conferencia do arquivo antes da
+abertura, do descriptor aberto e do caminho depois da leitura. A
+comparacao inclui identidade do arquivo, tamanho, mtime e ctime, alem
+da quantidade de bytes realmente obtida. Crescimento, substituicao,
+symlink ou arquivo maior que o limite impedem qualquer selecao de
+AUDs para comparacao consultiva. O JSON tambem passa a rejeitar
+`NaN`, `Infinity` e `-Infinity`, inclusive em membros que a
+versao atual do companion nao consome.
+
+Essas barreiras nao assinam o manifesto, nao validam
+criptograficamente sua procedencia nem provam que o report CONS
+representa todos os documentos originais. Limitam inconsistencias
+observaveis durante uma leitura; alteracoes posteriores continuam
+fora da janela de verificacao. Nao fazem chamadas a provedores ou
+escritas no manifesto, no relatorio CONS ou nas AUDs.
+
+Testes locais simulam mudanca fisica entre o stat e a abertura,
+arquivo maior que o budget, constantes JSON nao padronizadas e
+manifesto estavel, conferindo ausencia de leitura de AUD diante
+das entradas invalidas e preservacao dos bytes originais do fixture.
