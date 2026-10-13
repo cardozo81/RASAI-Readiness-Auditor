@@ -52,7 +52,8 @@ def _stub_canonical(monkeypatch, *, freshness: str) -> list[str]:
     monkeypatch.setattr(remat, "_check_composition", lambda: calls.append("composed"))
     monkeypatch.setattr(site, "verify_catalog_report_package", lambda root: (True, ()))
 
-    def fake_projection(*, audit_id, workspace):
+    def fake_projection(*, audit_id, workspace, read_only=False):
+        assert read_only is True  # CLI replay must never run mutable GEO finalizers.
         calls.append("project")
         assert audit_id == AUD
         report = workspace.root / "report-catalog"
@@ -205,3 +206,143 @@ def test_rematerialization_allows_transient_shm_change_in_staging(
     assert entry.is_file()
     assert calls == ["install", "composed", "project"]
     assert (root / "audit.db-shm").read_bytes() == b"source-shm"
+
+
+def test_read_only_projection_skips_both_geo_evidence_writers_but_normal_does_not(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """The GEO DB and sidecar mutation paths remain opt-in for AUD/RPR only."""
+    from rasai import report_completion, geo_observation, geo_extraction_quality
+
+    root = _source(tmp_path)
+    workspace = SimpleNamespace(root=root, database=root / "audit.db")
+    calls: list[str] = []
+
+    def geo_db_writer(_db, _aud):
+        calls.append("geo-db")
+
+    def quality_sidecar_writer(_root):
+        calls.append("geo-sidecar")
+
+    monkeypatch.setattr(geo_observation, "materialize_geo_observation", geo_db_writer)
+    monkeypatch.setattr(geo_extraction_quality, "materialize_extraction_quality", quality_sidecar_writer)
+    monkeypatch.setattr(site, "materialize_catalog_report_site", lambda **_kwargs: None)
+    monkeypatch.setattr(site, "catalog_report_is_fresh", lambda **_kwargs: True)
+    before = remat._input_files(root)
+    replay = report_completion.materialize_catalog_report_projection(
+        audit_id=AUD, workspace=workspace, read_only=True,
+    )
+    assert replay.renderer_errors == ()
+    assert calls == []
+    assert remat._input_files(root) == before
+
+    normal = report_completion.materialize_catalog_report_projection(
+        audit_id=AUD, workspace=workspace,
+    )
+    assert normal.renderer_errors == ()
+    assert calls == ["geo-db", "geo-sidecar"]
+    assert remat._input_files(root) == before
+
+
+def test_rematerialize_copy_with_geo_capable_source_is_evidence_only(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """Legacy GEO rows and M4 text cannot be rematerialized into NEW evidence."""
+    from rasai import entrypoint, report_completion, geo_observation, geo_extraction_quality
+
+    source = _source(tmp_path)
+    source_db = source / "audit.db"
+    with sqlite3.connect(source_db) as con:
+        con.executescript("""
+            CREATE TABLE perplexity_search_runs(
+                run_id TEXT PRIMARY KEY, audit_id TEXT, query_json TEXT,
+                search_type TEXT, status TEXT, started_at TEXT
+            );
+            CREATE TABLE perplexity_search_sources(
+                run_id TEXT, position INTEGER, url TEXT, title TEXT,
+                snippet TEXT, source_date TEXT, last_updated TEXT
+            );
+            INSERT INTO perplexity_search_runs VALUES(
+                'RUN-OLD', 'AUD-141-ISOLATED', '["seguro de vida"]',
+                'web', 'SUCCESS', '2026-10-09T10:00:00+00:00'
+            );
+            INSERT INTO perplexity_search_sources VALUES(
+                'RUN-OLD', 1, 'https://example.org/seguro',
+                'Exemplo', 'Trecho', NULL, NULL
+            );
+        """)
+    main = source / "artifacts" / "extraction" / "SNP-OLD" / "main_content.txt"
+    main.parent.mkdir(parents=True)
+    main.write_text("Produtos Dental Residencial Vida Viagem Menu Buscar", encoding="utf-8")
+    before = remat._input_files(source)
+    assert "artifacts/geo-extraction-quality.json" not in before
+    assert "audit.db" in before
+
+    calls = []
+    monkeypatch.setattr(entrypoint, "_install_audit_runtime", lambda: None)
+    monkeypatch.setattr(remat, "_check_composition", lambda: None)
+    monkeypatch.setattr(site, "verify_catalog_report_package", lambda _root: (True, ()))
+
+    # Use the real completion boundary (not a stub) to enforce read_only;
+    # only the HTML writer is mocked to isolate the contract.
+    def html_writer(*, audit_id, workspace):
+        calls.append("html")
+        report = workspace.root / "report-catalog"
+        report.mkdir(exist_ok=True)
+        (report / "index.html").write_text("partial", encoding="utf-8")
+        (report / "manifest.json").write_text(json.dumps({
+            "freshness": "PRELIMINARY",
+            "source_fingerprint": site._source_fingerprint(workspace.database),
+            "audit_snapshot": {
+                "source_logical_sha256": site._sqlite_logical_digest(workspace.database),
+            },
+        }), encoding="utf-8")
+        return report
+
+    monkeypatch.setattr(site, "materialize_catalog_report_site", html_writer)
+    monkeypatch.setattr(site, "catalog_report_is_fresh", lambda **_kwargs: True)
+    def unexpected_geo_writer(*_args, **_kwargs):
+        raise AssertionError("read-only report called a mutable GEO producer")
+    monkeypatch.setattr(geo_observation, "materialize_geo_observation", unexpected_geo_writer)
+    monkeypatch.setattr(geo_extraction_quality, "materialize_extraction_quality",
+                        unexpected_geo_writer)
+
+    entry = remat.rematerialize(
+        audit_dir=source, output_root=tmp_path / "new-reports",
+    )
+    assert calls == ["html"]
+    assert entry.read_text(encoding="utf-8") == "partial"
+    dest_root = entry.parent.parent
+    assert before == remat._input_files(source)
+    assert before == remat._input_files(dest_root)
+    assert not (dest_root / "artifacts" / "geo-extraction-quality.json").exists()
+    with sqlite3.connect(dest_root / "audit.db") as con:
+        assert con.execute(
+            "SELECT name FROM sqlite_master WHERE name='geo_observation_runs'"
+        ).fetchone() is None
+
+
+def test_read_only_rematerialization_fails_closed_on_unexpected_staging_db_write(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """Even a future accidentally-mutating HTML renderer cannot publish."""
+    root = _source(tmp_path)
+    _stub_canonical(monkeypatch, freshness="PRELIMINARY")
+    from rasai import report_completion
+
+    original = report_completion.materialize_catalog_report_projection
+
+    def bad_renderer(*, audit_id, workspace, read_only=False):
+        with sqlite3.connect(workspace.database) as con:
+            con.execute("CREATE TABLE unintended_report_write (id INTEGER)")
+        return original(audit_id=audit_id, workspace=workspace, read_only=read_only)
+
+    monkeypatch.setattr(
+        report_completion, "materialize_catalog_report_projection", bad_renderer,
+    )
+    before = remat._input_files(root)
+    output = tmp_path / "new-reports"
+    with pytest.raises(RuntimeError, match=r"staging;.*alterados=audit.db"):
+        remat.rematerialize(audit_dir=root, output_root=output)
+    assert not (output / AUD).exists()
+    assert before == remat._input_files(root)
