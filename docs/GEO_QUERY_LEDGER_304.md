@@ -289,3 +289,16 @@ Três regressões SQLite offline forçam falhas tardias de leitura/validação
 banco AUD byte a byte e demonstram ausência de publicação de métricas.
 O controle não altera a evidência persistida, os produtores SERP/Perplexity,
 o relatório GEO canônico ou pontuações.
+
+
+## Consistencia da proveniencia apos falhas fisicas explicitas (12/10/2026)
+
+A verificacao final SERP × Search API podia detectar um SQLite WAL/SHM/journal
+novo ou SHA-256 diferente e descartar as taxas, mantendo entretanto a
+afirmacao de atribuicao `PHYSICALLY_ATTRIBUTABLE` calculada antes da falha.
+Agora ambos os caminhos aplicam a mesma abstencao integral dos erros de
+leitura tardios, preservando apenas o motivo especifico da falha.
+O resultado e `NOT_COMPARABLE`, `queries=[]`, atribuicao `NOT_VERIFIED`,
+identidade do alvo N/D e fingerprint `UNVERIFIED`. Duas regressoes
+offline exercitam source drift e sidecar surgido no intervalo, sem alterar
+motores, custos ou fatos persistidos.
