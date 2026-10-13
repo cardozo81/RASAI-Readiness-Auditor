@@ -367,6 +367,55 @@ def test_forecast_rejects_physical_aud_with_foreign_lifecycle_metadata(
     assert {str(db): sha256(db.read_bytes()).hexdigest() for db in dbs} == originals
 
 
+@pytest.mark.parametrize(
+    ("duplicate_key", "conflicting_value"),
+    [
+        ("device", "DESKTOP"),
+        ("input_mode", "SITEMAP"),
+        ("web_max_pages", 3),
+        ("content_remediation", True),
+    ],
+)
+def test_forecast_excludes_contradictory_duplicate_config_json_keys(
+    tmp_path, duplicate_key, conflicting_value,
+):
+    """#319: last-key-wins cannot hide ambiguous historical workload scope."""
+    state = _state(tmp_path)
+    databases = [_audit(tmp_path, i) for i in range(5)]
+    assert forecast_local_duration(state).sample_runs == 5
+
+    db = databases[0]
+    with sqlite3.connect(db) as con:
+        raw = con.execute(
+            "SELECT configuration FROM console_execution_projections"
+        ).fetchone()[0]
+        ambiguous = (
+            "{" + json.dumps(duplicate_key) + ":"
+            + json.dumps(conflicting_value) + "," + raw[1:]
+        )
+        # The permissive decoder would silently select the original,
+        # matching setting from the latter duplicate key.
+        assert json.loads(ambiguous) == json.loads(raw)
+        con.execute(
+            "UPDATE console_execution_projections SET configuration=?",
+            (ambiguous,),
+        )
+
+    hashes = {str(path): sha256(path.read_bytes()).hexdigest()
+              for path in databases}
+    assert _historical_audit(db, state, 1) is None
+    result = forecast_local_duration(state)
+    assert result.available is False
+    assert result.sample_runs == 4
+    assert result.total is None
+    assert result.ai_stages == ()
+    assert result.total_p90_backtest is None
+    assert result.forward_p90_backtest is None
+    assert "4/5" in " ".join(result.notes)
+    assert {str(path): sha256(path.read_bytes()).hexdigest()
+            for path in databases} == hashes
+
+
 def test_completed_but_logically_partial_never_enters_forecast_cohort(tmp_path):
     # Lifecycle COMPLETED can coexist with a partial diagnostic outcome.
     # A status-only filter would falsely learn from this incomplete sample.
