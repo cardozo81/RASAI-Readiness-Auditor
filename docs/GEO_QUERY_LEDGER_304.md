@@ -334,3 +334,24 @@ A contenção é restrita ao leitor GEO observacional, com fixtures
 SQLite imutáveis, nenhum novo request e nenhuma alteração de score,
 coleta, SERP ou Search API. Não comprova equivalência de mercado/idioma
 do provedor externo e não conclui a issue #304.
+
+## JSON físico estrito nos metadados por fonte (#304)
+
+Para uma execução Search API com múltiplas consultas, o vínculo de
+cada fonte com sua consulta depende de um campo explícito `query`
+persistido em `source_metadata_json` (ou da coluna física própria).
+O leitor recusa **qualquer chave JSON duplicada** na estrutura,
+inclusive aninhada, e as extensões numéricas inválidas `NaN`,
+`Infinity`, `-Infinity` aceitas por alguns decoders permissivos.
+Não se escolhe arbitrariamente a última das chaves duplicadas nem
+se utiliza um objeto fora da especificação JSON para afirmar a origem
+de um resultado.
+
+Se houver metadado inválido em uma fonte do run multiquery, o status
+de atribuição permanece `MULTI_QUERY_SOURCE_MAPPING_MISSING` e
+as métricas de sobreposição ficam N/D. O arquivo `audit.db` original
+é examinado em modo read-only com dupla verificação SHA-256 e
+nenhuma chamada adicional aos provedores. Testes físicos reproduzem
+as três constantes não JSON e duplicações tanto na raiz quanto
+em objetos aninhados. O guard **não** comprova mercado, dispositivo,
+idioma, intenção nem ranking da fonte externa.

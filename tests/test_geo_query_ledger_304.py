@@ -1212,3 +1212,39 @@ def test_v7_out_of_window_verified_clock_remains_excluded(tmp_path):
     assert outcome["status"] == "DESCRIPTIVE_ONLY"
     assert outcome["queries"][0]["common_urls"] == 1
     assert (folder / "audit.db").read_bytes() == saved
+
+
+@pytest.mark.parametrize("raw_metadata", [
+    '{"query":"seguro bradesco","elapsed_ms":NaN}',
+    '{"query":"seguro bradesco","score":Infinity}',
+    '{"query":"seguro bradesco","score":-Infinity}',
+    '{"query":"seguro bradesco","nested":{"score":NaN}}',
+    '{"query":"seguro bradesco","source":"one","source":"two"}',
+    '{"query":"seguro bradesco","nested":{"id":1,"id":2}}',
+])
+def test_v9_per_source_query_metadata_rejects_non_json_numbers_and_ambiguous_keys(
+    tmp_path, raw_metadata,
+):
+    """Malformed provider metadata may not certify multi-query attribution."""
+    folder = _audit(tmp_path, multi=True, source_query_column=False)
+    _provider_source_metadata(folder)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "UPDATE perplexity_search_sources SET source_metadata_json=? "
+            "WHERE position=0", (raw_metadata,),
+        )
+    before = (folder / "audit.db").read_bytes()
+    evidence = inspect_geo_per_query(folder)
+    assert evidence["status"] == "NOT_COMPARABLE"
+    assert evidence["per_query_attribution_status"] == "MULTI_QUERY_SOURCE_MAPPING_MISSING"
+    assert all(
+        row["status"] == "NOT_COMPARABLE"
+        and row["reason"] == "PER_QUERY_SOURCE_ATTRIBUTION_UNPROVEN"
+        and row["common_urls"] is None
+        and row["jaccard_url_rate"] is None
+        for row in evidence["queries"]
+    )
+    assert evidence["source_audit_db_sha256"] == sha256(before).hexdigest()
+    assert evidence["source_audit_db_integrity_guard"] == "DOUBLE_SHA256_MATCH"
+    assert evidence["provider_requests"] == evidence["audit_writes"] == 0
+    assert (folder / "audit.db").read_bytes() == before
