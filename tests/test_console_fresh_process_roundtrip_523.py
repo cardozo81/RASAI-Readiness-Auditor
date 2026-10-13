@@ -1,7 +1,6 @@
 """Issue #523: physical fresh-process console save/load/Apdex adapter gate.
 
-Runs two short-lived Python processes against a disposable INI.  No AUD,
-browser, vendor request, credential store or operator configuration is touched.
+Runs separate short-lived Python processes against a disposable INI. The\noptional projection check creates only a synthetic temporary SQLite AUD. No\nproduction AUD, browser, vendor request or operator configuration is touched.
 """
 from __future__ import annotations
 
@@ -72,6 +71,51 @@ elif operation == "load":
         "serp_max_requests": os.environ.get("RASAI_SERP_MAX_REQUESTS"),
         "perplexity_enabled": os.environ.get("RASAI_PERPLEXITY_ENABLED"),
         "apdex_preflight": preflight,
+    }
+elif operation == "project":
+    # A third, independent interpreter proves the restored state reaches
+    # the real console projection writer, without launching an audit.
+    import sqlite3
+    from rasai.console_cost import persist_execution_projection, estimate_exposure
+    from rasai.console_apdex_duration_scope_319 import comparable_apdex_duration_scope
+    loaded = console_settings.load_console_config(state)
+    assert not loaded.created and not loaded.warnings
+    workspace = Path(report_path).parent / "AUD-OFFLINE-523"
+    workspace.mkdir()
+    with sqlite3.connect(workspace / "audit.db") as con:
+        con.execute("CREATE TABLE audits(audit_id TEXT PRIMARY KEY)")
+        con.execute("INSERT INTO audits VALUES ('AUD-OFFLINE-523')")
+    state.audit_id = workspace.name
+    state.target = "https://example.org"
+    state.max_pages = 1
+    successful = persist_execution_projection(
+        workspace, state, estimate_exposure(state),
+        projected_at="2026-10-13T10:00:00-03:00",
+        started_at="2026-10-13T10:00:01-03:00",
+        finished_at="2026-10-13T10:01:01-03:00",
+        duration_ms=60000,
+    )
+    with sqlite3.connect(workspace / "audit.db") as con:
+        (raw,) = con.execute(
+            "SELECT configuration FROM console_execution_projections"
+        ).fetchone()
+    actual = json.loads(raw)
+    matched = comparable_apdex_duration_scope(state, actual)
+    state.apdex_samples += 1
+    mismatched = comparable_apdex_duration_scope(state, actual)
+    result = {
+        "projection_written": successful,
+        "flags": [actual.get("synthetic_apdex"), actual.get("apdex_experience")],
+        "apdex_samples": actual["synthetic_apdex_workload"]["apdex_samples"],
+        "experience_architecture":
+            actual["apdex_experience_workload"]["apdex_experience_architecture"],
+        "workload_match": matched,
+        "different_load_rejected": not mismatched,
+        "forbidden_keys_absent": all(
+            value not in raw
+            for value in ("PERPLEXITY_API_KEY", "dynatrace_base_url",
+                          "dynatrace_application_id", "apdex_dynatrace_config_json")
+        ),
     }
 else:
     raise ValueError("unsupported test operation")
@@ -158,3 +202,30 @@ def test_fresh_process_roundtrip_apdex_serp_and_explicit_perplexity_optin(tmp_pa
     assert preflight["audit_writes"] == 0
     assert preflight["collector_execution_verified"] is False
     assert ini.read_bytes() == original_bytes
+
+
+def test_three_independent_python_processes_bridge_saved_apdex_to_console_projection(
+    tmp_path,
+):
+    """#523: save, restore and real snapshot writer across fresh interpreters."""
+    root = Path(__file__).resolve().parents[1]
+    ini = tmp_path / "three-process-config.ini"
+    env = _isolated_python_env(root, ini)
+    first = _run_child("save", tmp_path / "saved.json", root, env)
+    source_bytes = ini.read_bytes()
+    second = _run_child("load", tmp_path / "loaded.json", root, env)
+    assert second["typed"] == first["typed"]
+    final = _run_child("project", tmp_path / "projected.json", root, env)
+    assert final["projection_written"] is True
+    assert final["flags"] == [True, True]
+    assert final["apdex_samples"] == 7
+    assert final["experience_architecture"] == "HYDRATED"
+    assert final["workload_match"] is True
+    assert final["different_load_rejected"] is True
+    assert final["forbidden_keys_absent"] is True
+    assert ini.read_bytes() == source_bytes
+    assert b"FAKE_SECRET_MUST_NOT_PERSIST" not in source_bytes
+    # Only the disposable report JSON and synthetic local audit.db are new.
+    workspace = tmp_path / "AUD-OFFLINE-523"
+    assert (workspace / "audit.db").is_file()
+    assert not (workspace / "artifacts").exists()
