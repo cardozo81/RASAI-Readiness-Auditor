@@ -43,7 +43,8 @@ def test_secret_safe_shadowing_and_unknown_keys_are_counted_not_displayed(tmp_pa
     assert result.session_overrides == 1
     assert result.invalid_entries == 2
     printed = render_provenance(result)
-    assert "override(s)" in printed
+    assert "divergência(s)" in printed
+    assert "prioridade efetiva depende do campo" in printed
     assert "NEVER_SHOW" not in printed
     assert "REAL_SECRET" not in printed
     assert "OPENAI_API_KEY" not in printed
