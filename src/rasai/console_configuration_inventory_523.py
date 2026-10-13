@@ -150,6 +150,42 @@ def _declared_search_consumer_surface() -> dict[str, str]:
     return result
 
 
+def _declared_gsc_consumer_surface() -> dict[str, str]:
+    """Map source-declared GSC scope/OAuth/policy inputs without HTTP.
+
+    References real constants in GSC scope, OAuth and Search Analytics policy.
+    Presence of those keys does not prove OAuth access, property matching,
+    data-finality or a GSC API call for the current AUD.
+    """
+    from rasai import gsc_scope, gsc_oauth, standards_gsc_policy
+
+    gate = (gsc_scope.GSC_ENABLED_ENV, gsc_scope.GSC_SITE_URL_ENV)
+    oauth = (
+        gsc_oauth.ACCESS_TOKEN_ENV,
+        gsc_oauth.CLIENT_ID_ENV,
+        gsc_oauth.CLIENT_SECRET_ENV,
+        gsc_oauth.REFRESH_TOKEN_ENV,
+    )
+    policy = (
+        standards_gsc_policy.GSC_SEARCH_ANALYTICS_DAYS_ENV,
+        standards_gsc_policy.GSC_SEARCH_MAX_ROWS_ENV,
+        standards_gsc_policy.GSC_FINAL_DATA_LAG_DAYS_ENV,
+    )
+    result = {
+        name: "GSC_SCOPE_DECLARED_NOT_PROPERTY_OR_API_PROOF"
+        for name in gate
+    }
+    result.update({
+        name: "GSC_OAUTH_INPUT_DECLARED_NOT_AUTHENTICATION_PROOF"
+        for name in oauth
+    })
+    result.update({
+        name: "GSC_ANALYTICS_POLICY_DECLARED_NOT_DATA_FINALITY_PROOF"
+        for name in policy
+    })
+    return result
+
+
 def inventory(
     *,
     path: Path | None = None,
@@ -170,7 +206,10 @@ def inventory(
     specs = refresh_specs()
     apdex_affinities = _declared_apdex_consumer_surface()
     search_affinities = _declared_search_consumer_surface()
-    consumer_affinities = {**search_affinities, **apdex_affinities}
+    gsc_affinities = _declared_gsc_consumer_surface()
+    consumer_affinities = {
+        **gsc_affinities, **search_affinities, **apdex_affinities,
+    }
     seen: set[str] = set()
     variables = []
     for spec in specs:
@@ -269,6 +308,17 @@ def inventory(
             "per_aud_provider_consent_proven": False,
             "real_provider_request_coverage_proven": False,
             "source": "SERP_RUNTIME_CONFIG_AND_PERPLEXITY_READINESS_DECLARATIONS",
+        },
+        "gsc_adapter_surface_coverage": {
+            "mapped_registry_variables": sum(
+                item["name"] in gsc_affinities for item in variables
+            ),
+            "unmapped_registry_variables": sum(
+                item["name"] not in gsc_affinities for item in variables
+            ),
+            "authenticated_property_coverage_proven": False,
+            "actual_gsc_api_read_coverage_proven": False,
+            "source": "GSC_SCOPE_OAUTH_AND_ANALYTICS_POLICY_DECLARATIONS",
         },
         "typed_state_fields": state_fields,
         "typed_ini_coverage": {
