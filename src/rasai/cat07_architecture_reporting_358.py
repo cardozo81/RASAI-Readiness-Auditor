@@ -129,6 +129,60 @@ def _run_config(con: sqlite3.Connection, audit_id: str) -> Mapping[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _dynatrace_rum_kpm_reference_html(architecture: str) -> str:
+    """Static vendor action-type options, not evidence of tenant configuration.
+
+    #355: translate an observed M6 architecture into a checklist for a future
+    RUM review. Never promote M25 Synthetic KPM to a Dynatrace RUM setting,
+    invent a numeric threshold or infer that XHR/Fetch is instrumented.
+    """
+    from rasai.dynatrace_apdex_arch_advisory_355 import KPM_BY_ACTION
+
+    title = "<h4>Referência de KPMs Dynatrace RUM por tipo de ação (não aplicada)</h4>"
+    if architecture not in ("CSR_SPA", "HYDRATED", "MIXED", "STATIC_OR_SSR"):
+        return (
+            title + "<p>Seleção por arquitetura: N/D (arquitetura da página "
+            "não comprovada). Nenhuma configuração de Load, XHR ou Custom "
+            "do tenant foi consultada nesta auditoria.</p>"
+        )
+    soft_route_context = architecture in ("CSR_SPA", "HYDRATED", "MIXED")
+    contexts = (
+        ("load_actions", "Load", "Verificar ações de carregamento inicial do documento."),
+        (
+            "xhr_actions", "XHR",
+            "Investigar soft navigation e ações XHR/Fetch antes de selecionar a KPM."
+            if soft_route_context else
+            "Somente considerar se ações XHR/Fetch forem efetivamente observadas.",
+        ),
+        (
+            "custom_actions", "Custom",
+            "Somente considerar com instrumentação Custom explicitamente comprovada.",
+        ),
+    )
+    rows = "".join(
+        "<tr><td>" + escape(label) + "</td><td>" + escape(context)
+        + "</td><td>" + escape(", ".join(sorted(KPM_BY_ACTION[key])))
+        + "</td><td>N/D (tenant não consultado)</td></tr>"
+        for key, label, context in contexts
+    )
+    return (
+        title
+        + "<p>Lista de métricas <strong>admitidas pelo esquema do fornecedor</strong>, "
+        "não métrica recomendada ou configurada. A arquitetura observada na "
+        "captura do RASAi não comprova navegação por rota, população de ações "
+        "Dynatrace, captura XHR/Fetch, dispositivo ou janela equivalentes. "
+        "Uma SPA pode possuir ações Load e XHR legítimas; a existência "
+        "da arquitetura não obriga trocar a KPM Load por XHR. "
+        "<strong>KPM configurada no tenant: N/D; thresholds e fallback: N/D.</strong> "
+        "O Apdex Synthetic M23/M25 permanece independente.</p>"
+        + "<details><summary>Consultar KPMs possíveis por Load, XHR e Custom</summary>"
+        "<div class='table-wrap'><table><thead><tr>"
+        "<th>Tipo de ação RUM</th><th>Critério para revisão</th>"
+        "<th>KPMs previstas no esquema Dynatrace</th><th>Configuração comprovada</th>"
+        "</tr></thead><tbody>" + rows + "</tbody></table></div></details>"
+    )
+
+
 def _unsealed_cat07_advisory() -> str:
     """Abstain without touching a live/symlinked SQLite source."""
     return (
@@ -227,6 +281,7 @@ def cat07_architecture_advice_html(
         "equivalência com Dynatrace RUM. Um Apdex alto pode não representar "
         "uma transição SPA ou hidratação completa.</p>",
     ]
+    parts.append(_dynatrace_rum_kpm_reference_html(architecture))
     # Context is whitelisted from the persisted M25 run, never from the
     # console process, old INI, vendor JSON, credentials or inferred defaults.
     recorded = guidance["effective_recorded_run_context"]
