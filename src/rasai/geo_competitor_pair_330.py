@@ -52,6 +52,11 @@ def _reject_duplicate_manifest_keys(
     return result
 
 
+def _reject_non_json_cobs_constant(token: str) -> None:
+    """Do not attest manifests containing Python's nonstandard NaN/Infinity."""
+    raise ValueError("non-JSON numeric constant in COBS manifest")
+
+
 def _read_manifest(path: Path) -> Mapping[str, Any]:
     if path.name != "manifest.json" or path.is_symlink() or not path.is_file():
         raise ValueError("physical COBS manifest file required")
@@ -66,7 +71,10 @@ def _read_manifest(path: Path) -> Mapping[str, Any]:
     if path.parent.name != package_id:
         raise ValueError("COBS package ID does not match manifest bytes")
     try:
-        payload = json.loads(raw, object_pairs_hook=_reject_duplicate_manifest_keys)
+        payload = json.loads(
+            raw, object_pairs_hook=_reject_duplicate_manifest_keys,
+            parse_constant=_reject_non_json_cobs_constant,
+        )
     except (UnicodeError, ValueError, TypeError):
         raise ValueError("COBS manifest JSON invalid") from None
     if not isinstance(payload, dict):

@@ -228,3 +228,16 @@ do candidato após a verificação SERP e confirmam abstenção, banco AUD
 imutável e ausência de solicitações HTTP adicionais. A proteção não
 torna a comparação de HTML estático uma prova de conteúdo primário,
 renderização SPA, equivalência de dispositivo ou lacuna editorial.
+
+
+## Constantes inválidas no JSON de manifests COBS (12/10/2026)
+
+Um sidecar content-addressed não é evidência JSON válida apenas porque
+seus bytes foram re-hashados para um novo ID. O leitor consultivo COBS
+agora recusa os tokens `NaN`, `Infinity` e `-Infinity`, aceitos pelo
+decoder Python como extensão mas não pela especificação JSON. A
+rejeição alcança campos raiz e aninhados de captura, antes de qualquer
+comparação do cliente e concorrente. Quatro fixtures locais com manifests
+fisicamente re-hashados demonstram abstenção e integridade byte a byte
+da AUD, sem DNS, HTTP comercial ou alteração de score. O contrato de
+captura/consentimento, renderização e comparabilidade permanece igual.
