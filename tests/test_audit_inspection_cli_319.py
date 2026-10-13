@@ -95,6 +95,38 @@ def test_audit_attempts_cli_never_installs_provider_runtime(tmp_path, capsys, mo
     assert main([str(root)]) == 0
 
 
+def test_cli_missing_audit_uses_actionable_error_not_traceback(
+    tmp_path, capsys,
+):
+    from rasai import entrypoint
+
+    missing = tmp_path / "audits" / "AUD-NOT-PRESENT"
+    for dispatch in (
+        lambda: main([str(missing)]),
+        lambda: entrypoint.main(["audit-attempts", str(missing)]),
+    ):
+        with pytest.raises(SystemExit) as caught:
+            dispatch()
+        assert caught.value.code == 2
+        printed = capsys.readouterr()
+        assert printed.out == ""
+        assert "AUD audit.db missing" in printed.err
+        assert "diretório audits" in printed.err
+        assert "Traceback" not in printed.err
+    assert not missing.exists()
+
+
+def test_cli_rejects_invalid_aud_identity_without_traceback(tmp_path, capsys):
+    invalid = tmp_path / "CAMINHO" / "PARA" / "NOMEDIRETORIO"
+    with pytest.raises(SystemExit) as caught:
+        main([str(invalid)])
+    assert caught.value.code == 2
+    printed = capsys.readouterr()
+    assert "AUD não verificável" in printed.err
+    assert "Traceback" not in printed.err
+    assert not invalid.exists()
+
+
 def test_unverified_or_missing_aud_fails_without_files(tmp_path):
     root = _fixture(tmp_path)
     with pytest.raises(ValueError, match="audit.db missing"):

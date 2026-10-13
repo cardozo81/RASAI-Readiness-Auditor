@@ -333,9 +333,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("audit_dir", type=Path)
     args = parser.parse_args(argv)
+    try:
+        result = inspect_audit_attempts(args.audit_dir)
+    except ValueError as exc:
+        # The public read-only CLI must not expose a Python traceback for a
+        # missing/invalid AUD path. Keep the raising inspection API intact for
+        # agent callers and test fixtures.
+        if str(exc) == "AUD audit.db missing":
+            parser.error(
+                "AUD audit.db missing. Informe a pasta real AUD-... "
+                "dentro do diretório audits; não use um caminho de exemplo."
+            )
+        parser.error(f"AUD não verificável: {exc}")
+    except (OSError, sqlite3.Error):
+        parser.error("AUD indisponível ou banco SQLite não verificável")
     print(json.dumps(
-        inspect_audit_attempts(args.audit_dir),
-        indent=2, ensure_ascii=False, sort_keys=True, allow_nan=False,
+        result, indent=2, ensure_ascii=False, sort_keys=True, allow_nan=False,
     ))
     return 0
 
