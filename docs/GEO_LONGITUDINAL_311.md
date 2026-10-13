@@ -240,3 +240,24 @@ A validação de snapshots v5-v7 mantém a semântica anterior e não é
 reinterpretada retroativamente. Três fixtures SQLite demonstram recusa
 de duplicações raiz e aninhadas, preservação byte a byte de fontes e
 zero requisições/escritas.
+
+## Cobertura de elegibilidade no relatório companion (13/10/2026)
+
+O inventário JSON read-only inclui `observation_coverage`, calculado
+somente sobre as AUDs físicas previamente aceitas/rejeitadas pelo
+mesmo gate GEO:
+- número de coortes distintas de URL, consulta, método e escopo SERP;
+- coortes com uma única observação versus aquelas com duas ou mais;
+- quantidade de AUDs elegíveis pertencentes a coortes com pelo menos
+  duas observações;
+- contagem determinística por motivo de exclusão da AUD.
+
+O HTML standalone apresenta esses números como qualidade de
+evidência, sem converter agrupamento em evolução de performance.
+`calibrated_geo_trend_cohorts=0` e
+`market_device_intent_sampling_equivalence_proven=false` são fixos,
+pois múltiplas observações de mesmo escopo persistido **não**
+comprovam amostragem comparável do provedor externo nem causalidade.
+O motivo de exclusão permanece uma classificação do leitor, não
+diagnóstico da URL. O produto CONS-3, seus dados, scores,
+manifestos e relatórios são preservados sem escrita.

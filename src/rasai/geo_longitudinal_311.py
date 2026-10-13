@@ -545,8 +545,28 @@ def build_geo_longitudinal_preview(audit_dirs: Sequence[Path]) -> dict[str, Any]
                 "market share, improvement or deterioration."
             ),
         })
+    exclusion_reasons: dict[str, int] = {}
+    for item in rejected:
+        reason = item["reason"]
+        exclusion_reasons[reason] = exclusion_reasons.get(reason, 0) + 1
+    multiple = [
+        group for group in timelines if len(group["observations"]) >= 2
+    ]
+    coverage = {
+        "distinct_observed_scope_cohorts": len(timelines),
+        "single_observation_cohorts": len(timelines) - len(multiple),
+        "multi_observation_cohorts_unverified_trend": len(multiple),
+        "eligible_auds_in_multi_observation_cohorts": sum(
+            len(group["observations"]) for group in multiple
+        ),
+        "excluded_auds_by_reason": dict(sorted(exclusion_reasons.items())),
+        "market_device_intent_sampling_equivalence_proven": False,
+        "calibrated_geo_trend_cohorts": 0,
+        "reason_counts_are_eligibility_only": True,
+    }
     return {
         "contract_version": "RASAI-GEO-LONGITUDINAL-ADVISORY-001",
+        "observation_coverage": coverage,
         "audits_requested": len(audit_dirs),
         "audits_eligible": sum(len(items) for items in groups.values()),
         "excluded": rejected,
