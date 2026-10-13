@@ -446,3 +446,21 @@ token, tenant de origem ou cabecalho Authorization.
 Essa protecao nao habilita requests por conta propria
 nem altera metricas, engine, AUD ou configuracao
 Dynatrace persistida.
+
+
+## Ajuste cross-platform do gate fisico do export (#355)
+
+A CI Windows do comparador offline revelou que o `st_ctime_ns`
+de `os.fstat` e `Path.stat` pode divergir no mesmo arquivo
+que nao sofreu escrita, pois no Windows representa
+creation time e nao tem a mesma semantica do POSIX.
+O leitor agora compara nesses dois momentos
+`st_dev`, `st_ino`, `st_size` e `st_mtime_ns`
+em todas as plataformas; `st_ctime_ns` continua sendo
+verificado adicionalmente apenas em sistemas POSIX.
+
+A protecao contra swap de arquivo, truncamento e
+regravacao de igual comprimento continua exercitada
+pelos testes fisicos; o gate nao presume que metadados
+de arquivo substituam assinatura criptografica
+ou provem legitimidade do tenant.
