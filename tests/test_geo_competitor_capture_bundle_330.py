@@ -1002,7 +1002,7 @@ def test_cobs_html_renderer_escapes_external_text_without_links_or_markup(
     assert "&lt;svg onload=alert(330)&gt;" in html
     assert "&lt;a href=&quot;javascript:alert(330)&quot;&gt;" in html
     assert "Content-Security-Policy" in html
-    assert "editorial" in html.lower()
+    assert "lacunas editoriais" in html.lower()
     assert len(calls) == 2
 
 
