@@ -735,3 +735,47 @@ def test_cli_live_settings_requires_opt_in_and_keeps_no_secrets(tmp_path, monkey
     assert payload["rasai_same_page_device_time_verified"] is False
     assert "Valores efetivos consultados" in payload["analyst_guidance_pt_br"]["limite_metodologico"]
     assert "SENSITIVE_NEVER_RENDER" not in json.dumps(payload)
+
+
+@pytest.mark.parametrize("incomplete", [
+    {"settings_provenance": "LIVE_DYNATRACE_SETTINGS_API_EFFECTIVE_VALUES"},
+    {"settings_provenance": "LIVE_DYNATRACE_SETTINGS_API_EFFECTIVE_VALUES",
+     "actual_dynatrace_tenant_consulted": True},
+    {"settings_provenance": "LIVE_DYNATRACE_SETTINGS_API_EFFECTIVE_VALUES",
+     "actual_dynatrace_tenant_consulted": True, "dynatrace_provider_requests": 1},
+    {"settings_provenance": "LIVE_DYNATRACE_SETTINGS_API_EFFECTIVE_VALUES",
+     "actual_dynatrace_tenant_consulted": True, "dynatrace_provider_requests": 1,
+     "input_source": "AUTHENTICATED_LIVE_DYNATRACE_EFFECTIVE_VALUES"},
+    {"settings_provenance": "LIVE_DYNATRACE_SETTINGS_API_EFFECTIVE_VALUES",
+     "actual_dynatrace_tenant_consulted": True, "dynatrace_provider_requests": True,
+     "input_source": "AUTHENTICATED_LIVE_DYNATRACE_EFFECTIVE_VALUES",
+     "scope_provenance": "AUTHENTICATED_SETTINGS_API_SCOPE_NOT_RUM_EVENTS"},
+])
+def test_355_operator_provenance_string_does_not_certify_live_tenant_read(incomplete):
+    from rasai.dynatrace_apdex_arch_advisory_355 import explain_dynatrace_apdex_pt_br
+
+    answer = _assess()
+    answer.update(incomplete)
+    before = deepcopy(answer)
+    description = explain_dynatrace_apdex_pt_br(answer)
+    assert "não verificada no tenant" in description["limite_metodologico"]
+    assert "Valores efetivos consultados" not in description["limite_metodologico"]
+    assert answer == before
+    assert answer["dynatrace_provider_requests"] in (0, 1, True)
+
+
+def test_355_live_message_requires_all_cli_transport_scope_contract_fields():
+    from rasai.dynatrace_apdex_arch_advisory_355 import explain_dynatrace_apdex_pt_br
+
+    answer = _assess()
+    answer.update({
+        "input_source": "AUTHENTICATED_LIVE_DYNATRACE_EFFECTIVE_VALUES",
+        "scope_provenance": "AUTHENTICATED_SETTINGS_API_SCOPE_NOT_RUM_EVENTS",
+        "settings_provenance": "LIVE_DYNATRACE_SETTINGS_API_EFFECTIVE_VALUES",
+        "actual_dynatrace_tenant_consulted": True,
+        "dynatrace_provider_requests": 1,
+    })
+    rendering = explain_dynatrace_apdex_pt_br(answer)
+    assert "Valores efetivos consultados" in rendering["limite_metodologico"]
+    assert "não comprova captura" in rendering["limite_metodologico"]
+    assert "mesma amostra" in rendering["limite_metodologico"]
