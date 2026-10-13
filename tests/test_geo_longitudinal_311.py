@@ -506,6 +506,16 @@ def test_two_comparable_provenance_records_stay_observational_not_trend(tmp_path
     result = build_geo_longitudinal_preview([newer, older])
     assert result["audits_eligible"] == 2
     assert result["excluded"] == []
+    assert result["observation_coverage"] == {
+        "distinct_observed_scope_cohorts": 1,
+        "single_observation_cohorts": 0,
+        "multi_observation_cohorts_unverified_trend": 1,
+        "eligible_auds_in_multi_observation_cohorts": 2,
+        "excluded_auds_by_reason": {},
+        "market_device_intent_sampling_equivalence_proven": False,
+        "calibrated_geo_trend_cohorts": 0,
+        "reason_counts_are_eligibility_only": True,
+    }
     assert result["provider_requests"] == 0 and result["audit_writes"] == 0
     assert len(result["timelines"]) == 1
     timeline = result["timelines"][0]
@@ -529,6 +539,9 @@ def test_mixed_query_url_locale_device_and_mode_form_separate_groups(tmp_path):
     ])
     assert result["audits_eligible"] == 6
     assert len(result["timelines"]) == 6
+    assert result["observation_coverage"]["single_observation_cohorts"] == 6
+    assert result["observation_coverage"]["multi_observation_cohorts_unverified_trend"] == 0
+    assert result["observation_coverage"]["eligible_auds_in_multi_observation_cohorts"] == 0
     assert all(x["status"] == "SINGLE_OBSERVATION" for x in result["timelines"])
     assert all(x["trend_rate"] is None for x in result["timelines"])
 
@@ -545,6 +558,15 @@ def test_legacy_partial_missing_scope_and_censored_sources_abstain(tmp_path):
     assert reasons["AUD-PARTIAL"] == "AUD_COMPLETION_NOT_COMPLETE"
     assert reasons["AUD-LOCALE"] == "SERP_SCOPE_INCOMPLETE"
     assert reasons["AUD-CENSORED"] == "URL_DENOMINATOR_OR_COMPARABILITY_UNPROVEN"
+    coverage = result["observation_coverage"]
+    assert coverage["distinct_observed_scope_cohorts"] == 0
+    assert coverage["excluded_auds_by_reason"] == {
+        "AUD_COMPLETION_NOT_COMPLETE": 1,
+        "GEO_LEGACY_OR_UNSUPPORTED_VERSION": 1,
+        "SERP_SCOPE_INCOMPLETE": 1,
+        "URL_DENOMINATOR_OR_COMPARABILITY_UNPROVEN": 1,
+    }
+    assert coverage["calibrated_geo_trend_cohorts"] == 0
 
 
 def test_invalid_denominator_and_unmatched_source_instant_abstain(tmp_path):
@@ -931,6 +953,9 @@ def test_html_companion_is_escaped_observational_and_never_writes_aud_or_cons(
     assert "AUD-HTML-LEFT" in html and "AUD-HTML-RIGHT" in html
     assert "OBSERVATIONAL_SEQUENCE_ONLY" in html
     assert "tendência: <strong>N/D</strong>" in html
+    assert "Cobertura observacional e abstenções" in html
+    assert "coortes com duas ou mais observações: 1" in html
+    assert "Coortes com tendência GEO calibrada: N/D" in html
     assert "&lt;img src=x onerror=alert(1)&gt;" in html
     assert "<img src=x onerror=alert(1)>" not in html
     assert "&lt;script&gt;unexpected()&lt;/script&gt;" in html
@@ -953,6 +978,8 @@ def test_html_companion_explicitly_shows_rejected_and_empty_groups(
     assert "<th>Motivo verificável</th>" in html
     assert "AUD-LEGACY-NO-DATABASE" in html
     assert "AUD_DATABASE_MISSING" in html
+    assert "Cobertura observacional e abstenções" in html
+    assert "<th>Quantidade de AUDs</th>" in html
     assert "SINGLE_OBSERVATION" in html
     assert "tendência: <strong>N/D</strong>" in html
     assert "provider_requests" not in html  # does not invent commercial measurements
