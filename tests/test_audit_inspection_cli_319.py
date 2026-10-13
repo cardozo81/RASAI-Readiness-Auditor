@@ -140,6 +140,44 @@ def test_unverified_or_missing_aud_fails_without_files(tmp_path):
     assert not (tmp_path / "AUD-NO-DB").exists()
 
 
+def test_inspector_refuses_foreign_lifecycle_row_even_with_expected_aud_present(
+    tmp_path,
+):
+    """#319: filter-by-audit-id must not conceal a second lifecycle identity."""
+    root = _fixture(tmp_path)
+    db = root / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "INSERT INTO audits(audit_id, status, completion_status) "
+            "VALUES ('AUD-ANOTHER-PHYSICAL-AUD','COMPLETED','COMPLETE')"
+        )
+    before = db.read_bytes()
+    with pytest.raises(ValueError, match="AUD identity not verified"):
+        inspect_audit_attempts(root)
+    assert db.read_bytes() == before
+
+
+def test_cli_foreign_aud_lifecycle_uses_bounded_error_not_traceback(
+    tmp_path, capsys,
+):
+    root = _fixture(tmp_path)
+    db = root / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "INSERT INTO audits(audit_id, status, completion_status) "
+            "VALUES ('AUD-ANOTHER-PHYSICAL-AUD','COMPLETED','COMPLETE')"
+        )
+    before = db.read_bytes()
+    with pytest.raises(SystemExit) as caught:
+        main([str(root)])
+    assert caught.value.code == 2
+    text = capsys.readouterr()
+    assert "AUD identity not verified" in text.err
+    assert "Traceback" not in text.err
+    assert text.out == ""
+    assert db.read_bytes() == before
+
+
 def test_partial_aud_still_explicitly_identified_as_not_complete(tmp_path):
     root = _fixture(tmp_path)
     with sqlite3.connect(root / "audit.db") as con:
