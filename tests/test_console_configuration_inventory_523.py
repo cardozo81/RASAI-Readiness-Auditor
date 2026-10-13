@@ -546,3 +546,72 @@ def test_search_affinity_is_source_declared_and_never_claims_live_execution(
     rendered = json.dumps(report)
     assert "SECRET_IN_INI_MUST_NOT_LEAK" not in rendered
     assert "ACTIVE_KEY_MUST_NOT_LEAK" not in rendered
+
+
+def test_gsc_affinity_is_code_declaration_not_property_or_oauth_proof(
+    tmp_path, monkeypatch,
+):
+    """Audit GSC source constants but never refresh tokens or query an API."""
+    from rasai import gsc_scope, gsc_oauth, standards_gsc_policy
+    from rasai.console_configuration_inventory_523 import (
+        _declared_gsc_consumer_surface,
+    )
+
+    monkeypatch.setattr(
+        gsc_oauth, "resolve_access_token",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("inventory may not resolve OAuth tokens")
+        ),
+    )
+    hints = _declared_gsc_consumer_surface()
+    assert hints[gsc_scope.GSC_ENABLED_ENV] == (
+        "GSC_SCOPE_DECLARED_NOT_PROPERTY_OR_API_PROOF"
+    )
+    assert hints[gsc_scope.GSC_SITE_URL_ENV] == (
+        "GSC_SCOPE_DECLARED_NOT_PROPERTY_OR_API_PROOF"
+    )
+    for secret in (
+        gsc_oauth.ACCESS_TOKEN_ENV, gsc_oauth.CLIENT_SECRET_ENV,
+        gsc_oauth.REFRESH_TOKEN_ENV,
+    ):
+        assert hints[secret] == (
+            "GSC_OAUTH_INPUT_DECLARED_NOT_AUTHENTICATION_PROOF"
+        )
+    assert hints[standards_gsc_policy.GSC_SEARCH_MAX_ROWS_ENV] == (
+        "GSC_ANALYTICS_POLICY_DECLARED_NOT_DATA_FINALITY_PROOF"
+    )
+    target = tmp_path / "gsc.ini"
+    target.write_text(
+        "[environment]\n"
+        "RASAI_GSC_ENABLED = true\n"
+        "RASAI_GSC_SEARCH_MAX_ROWS = 100\n"
+        "RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN = OLD_OAUTH_SECRET\n",
+        encoding="utf-8",
+    )
+    previous = target.read_bytes()
+    report = inventory(path=target, environ={
+        "RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN": "NEW_OAUTH_SECRET",
+    })
+    by_name = {r["name"]: r for r in report["environment_variables"]}
+    assert by_name[gsc_scope.GSC_ENABLED_ENV]["declared_adapter_surface"] == (
+        "GSC_SCOPE_DECLARED_NOT_PROPERTY_OR_API_PROOF"
+    )
+    assert by_name[gsc_oauth.ACCESS_TOKEN_ENV]["declared_adapter_surface"] == (
+        "GSC_OAUTH_INPUT_DECLARED_NOT_AUTHENTICATION_PROOF"
+    )
+    assert by_name[gsc_oauth.ACCESS_TOKEN_ENV]["runtime_consumer"] == (
+        "NOT_PROVEN_BY_REGISTRY"
+    )
+    assert by_name[gsc_oauth.ACCESS_TOKEN_ENV]["persist_ini"] is False
+    coverage = report["gsc_adapter_surface_coverage"]
+    assert coverage["mapped_registry_variables"] > 0
+    assert coverage["mapped_registry_variables"] + coverage[
+        "unmapped_registry_variables"
+    ] == report["registry_size"]
+    assert coverage["authenticated_property_coverage_proven"] is False
+    assert coverage["actual_gsc_api_read_coverage_proven"] is False
+    assert report["metadata_only"] is True
+    assert target.read_bytes() == previous
+    rendered = json.dumps(report)
+    assert "OLD_OAUTH_SECRET" not in rendered
+    assert "NEW_OAUTH_SECRET" not in rendered
