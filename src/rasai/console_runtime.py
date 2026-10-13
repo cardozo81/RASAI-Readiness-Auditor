@@ -327,7 +327,12 @@ def render_header(state: State) -> None:
     clear_screen()
     print("=" * 100)
     print(PRODUCT_DISPLAY_NAME)
-    print(f"Status      : {paint(console_status_label(state.status), status_color(state.status), bold=True)}")
+    status_text = (
+        "Enriquecimento opcional pós-auditoria em execução"
+        if str(state.status).upper() == "POST_CORE_ENRICHMENT"
+        else console_status_label(state.status)
+    )
+    print(f"Status      : {paint(status_text, status_color(state.status), bold=True)}")
     print(f"URL         : {state.current_url}")
     print(f"Dispositivo : {paint(state.current_device, CYAN)}")
     print(f"Operação    : {paint(console_operation_label(state.operation), _operation_color(state.operation), bold=True)}")
@@ -337,8 +342,9 @@ def render_header(state: State) -> None:
     if timing:
         started, finished, duration = timing
         print(f"Início      : {started}")
-        print(f"Fim         : {finished}")
-        print(f"Duração     : {paint(duration, CYAN, bold=True)}")
+        post_core = str(state.status).upper() == "POST_CORE_ENRICHMENT"
+        print(f"{'Fim core' if post_core else 'Fim':<12}: {finished}")
+        print(f"{'Duração core' if post_core else 'Duração':<12}: {paint(duration, CYAN, bold=True)}")
     progress = runtime_progress_summary(state)
     if progress and not _CANONICAL_PROGRESS_PRESENTATION:
         print(f"Etapa       : {paint(progress.label, CYAN, bold=True)}")
