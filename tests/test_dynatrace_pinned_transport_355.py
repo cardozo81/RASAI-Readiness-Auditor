@@ -180,6 +180,7 @@ def test_live_settings_duplicate_json_keys_are_rejected_without_claiming_scope(
 ):
     """#355: root/nested last-key-wins may not forge effective settings."""
     class Reply:
+        headers = {"Content-Type": "application/json"}
         def __enter__(self): return self
         def __exit__(self, *_): return False
         def getcode(self): return 200
@@ -201,6 +202,61 @@ def test_live_settings_duplicate_json_keys_are_rejected_without_claiming_scope(
     assert fake.requests[0][1] == 10
     assert "PRIVATE-SETTINGS-TOKEN" not in str(err.value)
     assert _BASE not in str(err.value)
+
+
+@pytest.mark.parametrize(
+    ("media", "accepted"),
+    [
+        ("application/json", True),
+        ("Application/JSON; charset=UTF-8", True),
+        ("text/html", False),
+        ("application/problem+json", False),
+        ("application/vnd.api+json", False),
+        ("application/jsonp", False),
+        ("", False),
+    ],
+)
+def test_live_settings_only_accepts_documented_json_response_media_type(
+    media, accepted,
+):
+    """#355: MIME identity is verified, not inferred from JSON-shaped body."""
+    class Reply:
+        headers = {"Content-Type": media}
+        def __init__(self): self.reads = 0
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def getcode(self): return 200
+        def read(self, size):
+            self.reads += 1
+            return b'{"items":[],"totalCount":0}'
+
+    class InMemoryTransport:
+        def __init__(self):
+            self.requests = []
+            self.response = Reply()
+        def open(self, request, timeout):
+            self.requests.append((request, timeout))
+            return self.response
+
+    fake = InMemoryTransport()
+    args = dict(
+        base_url=_BASE, application_scope=_APP,
+        api_token="PRIVATE-SETTINGS-TOKEN", opener=fake,
+    )
+    if accepted:
+        out = settings.read_live_dynatrace_apdex_settings(**args)
+        assert out["actual_dynatrace_tenant_consulted"] is True
+        assert out["dynatrace_provider_requests"] == 1
+        assert fake.response.reads == 1
+    else:
+        with pytest.raises(ValueError, match="Settings API response is not JSON") as exc:
+            settings.read_live_dynatrace_apdex_settings(**args)
+        assert fake.response.reads == 0
+        assert "PRIVATE-SETTINGS-TOKEN" not in str(exc.value)
+        assert _BASE not in str(exc.value)
+    assert len(fake.requests) == 1
+    assert fake.requests[0][1] == 10
+    assert "PRIVATE-SETTINGS-TOKEN" not in fake.requests[0][0].full_url
 
 
 def test_both_live_readers_use_pinned_default_path_with_only_memory_io(monkeypatch):
