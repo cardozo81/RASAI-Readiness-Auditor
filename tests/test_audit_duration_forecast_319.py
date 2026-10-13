@@ -704,3 +704,28 @@ def test_duration_forecast_abstains_from_non_json_history_numbers(
     assert result.forward_p90_backtest is None
     assert "4/5" in " ".join(result.notes)
     assert {str(p): sha256(p.read_bytes()).hexdigest() for p in databases} == before
+
+
+def test_duration_forecast_does_not_follow_symlinked_history_root(tmp_path):
+    """Even an apparently complete history cannot be sourced via a linked root."""
+    real_root = tmp_path / "physical"
+    real_root.mkdir()
+    databases = [_audit(real_root, i) for i in range(5)]
+    assert forecast_local_duration(_state(real_root)).sample_runs == 5
+    original = {str(db): sha256(db.read_bytes()).hexdigest() for db in databases}
+    alias = tmp_path / "linked-audits"
+    try:
+        alias.symlink_to(real_root, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"directory symlink not permitted on this platform: {exc}")
+
+    first = forecast_local_duration(_state(alias))
+    assert first.sample_runs == 0
+    assert first.total is None
+    assert first.ai_stages == ()
+    assert first.http_request_stages == ()
+    assert first.total_p90_backtest is None
+    assert first.forward_p90_backtest is None
+    assert _historical_audit(alias / databases[0].parent.name / "audit.db",
+                             _state(alias), 1) is None
+    assert {str(db): sha256(db.read_bytes()).hexdigest() for db in databases} == original
