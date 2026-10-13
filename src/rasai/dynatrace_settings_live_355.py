@@ -144,7 +144,26 @@ def read_live_dynatrace_apdex_settings(
             )[0].strip().casefold()
             if media != "application/json":
                 raise ValueError("Dynatrace Settings API response is not JSON")
+            # A fully parseable JSON prefix of a truncated HTTP response is
+            # not authoritative tenant configuration. If the server supplies
+            # Content-Length, require exact bounded entity-body bytes.
+            # Reject malformed/ambiguous lengths *before* allocating a body.
+            expected_raw = response.headers.get("Content-Length")
+            expected = None
+            if expected_raw is not None:
+                if (
+                    not isinstance(expected_raw, str)
+                    or not expected_raw.isascii()
+                    or not expected_raw.isdecimal()
+                    or len(expected_raw) > 12
+                ):
+                    raise ValueError("Dynatrace Settings API content length invalid")
+                expected = int(expected_raw)
+                if expected > _MAX_BODY:
+                    raise ValueError("Dynatrace settings response exceeds bounded size")
             raw = response.read(_MAX_BODY + 1)
+            if expected is not None and len(raw) != expected:
+                raise ValueError("Dynatrace Settings API response length mismatch")
     except (HTTPError, URLError, OSError, TimeoutError) as exc:
         # Never leak request headers, tenant URL, token or remote error body.
         raise ValueError("Dynatrace Settings API unavailable or refused read-only request") from None
