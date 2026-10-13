@@ -100,6 +100,11 @@ def render_search_scope(state: Any) -> None:
     info("Solicitação", "SOLICITADA" if perplexity_queries else "NÃO SOLICITADA")
     info("Quantidade de queries", len(perplexity_queries))
     info("Tipo", perplexity_type)
+    # Persisting the reusable SERP scope must never imply that a new AUD
+    # inherited paid Perplexity consent. Queries and WEB/FAST belong only
+    # to this console session; the INI intentionally excludes both.
+    info("Persistência de queries e modo", "SOMENTE SESSÃO - NÃO SALVOS NO INI")
+    info("Nova sessão / nova AUD", "Solicitar queries e confirmar novamente")
     info(
         "Credencial",
         "CONFIGURADA" if perplexity_status["configured"] else "NÃO CONFIGURADA",
