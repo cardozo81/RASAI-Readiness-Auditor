@@ -425,3 +425,24 @@ e duplicado em formato de lista, confirmando ausencia
 de rede comercial e de novas gravacoes. Como antes,
 corpo completo nao comprova observabilidade de XHR,
 acao Custom ou equivalencia com M25.
+
+
+## Identidade literal do tenant Dynatrace (#355, 13/10/2026)
+
+A validacao pre-egress do endereco SaaS agora rejeita caracteres
+de controle ASCII e barra invertida **antes** de chamar
+`urlsplit`. Versoes suportadas de Python podem remover TAB,
+CR e LF embutidos na URL; nesse caso, um texto de tenant
+ambiguo poderia ser aceito como o nome HTTPS canonico
+apos normalizacao silenciosa. O adaptador passa a exigir
+origem literal sem controles, preservando as restricoes
+existentes de host `.live.dynatrace.com`, HTTPS, sem
+credenciais inline, porta customizada, path ou fragmento.
+
+Testes sem DNS/TCP ou tenant real rejeitam controles
+embutidos em posicoes internas de host, inclusive
+TAB/CR/LF, NUL, DEL e backslash. Erros nao incluem
+token, tenant de origem ou cabecalho Authorization.
+Essa protecao nao habilita requests por conta propria
+nem altera metricas, engine, AUD ou configuracao
+Dynatrace persistida.
