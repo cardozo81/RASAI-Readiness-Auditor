@@ -69,3 +69,30 @@ serviços externos. **Não comprova por si só:** carga produtiva Dynatrace,
 consentimento humano em ambiente Windows, equivalência de uma AUD histórica
 ou consistência de medição sintética em uma página real. Esses são gates
 distintos; não devem ser marcados como aprovados apenas por CI.
+
+## Inventário completo do registro de variáveis (#523)
+
+O comando local `python -m rasai.console_configuration_inventory_523`
+gera JSON **somente de metadados**, utilizando o `EnvironmentSpec` real,
+a lista de campos tipados do console e os inputs de execução conhecidos.
+`--ini caminho/rasai-console.ini` permite observar um arquivo específico
+sem editá-lo. Para reproduzir a seleção do boot sem fornecer caminho, o
+comando consulta `RASAI_CONSOLE_INI` ou o caminho relativo ao diretório atual.
+
+A matriz enumera **cada variável atualmente registrada** e destaca
+categoria, sensibilidade, escopo, elegibilidade para INI, existência de valor
+somente como marcador e precedência `SESSION_OVERRIDES_INI`, quando aplicável.
+Nunca contém valores, tokens, paths do operador, URLs concretas, queries ou
+consentimento. Há seções adicionais para todos os campos tipados em
+`console_settings._state_values` e para queries SERP/Perplexity.
+
+**Limite declarado:** presença no registry não prova que a variável foi
+consumida por um motor, que entrou no snapshot selado da AUD nem que foi
+efetivamente respeitada pelo provider. Esses campos aparecem como
+`NOT_PROVEN_BY_REGISTRY` ou `AUD_DEPENDENT_NOT_INFERRED`, em vez de
+serem certificados por inferência. A comprovação por execução real permanece
+um gate separado.
+
+Testes isolados Linux/Windows verificam cardinalidade e unicidade do registro,
+marcadores de segredo/INI, proteção de conteúdo sensível, shadowing, invocação
+CLI somente-leitura e exclusão de autorização Perplexity.
