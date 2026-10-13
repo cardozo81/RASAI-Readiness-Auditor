@@ -484,17 +484,17 @@ enquanto uma varredura estiver em andamento.
 
 A configuracao historica persistida em
 `console_execution_projections.configuration` inclui parametros de
-console/IA/Web Performance, mas o esquema legado nao registra se CAT-06
+console/IA/Web Performance, mas o esquema anterior nao registra se CAT-06
 (`synthetic_apdex`) ou CAT-07 (`apdex_experience`) estavam ativos.
 Um forecast de uma nova AUD com Apdex ativo nao pode usar
 automaticamente o historico como se fosse carga equivalente.
 
 O leitor consultivo `audit_duration_forecast_319` passou a exigir
 flag booleana explicita e coincidente no JSON historico para cada
-carga Apdex **ativa** na nova AUD. A ausencia no legado implica
+carga Apdex **ativa** na nova AUD. A ausencia no anterior implica
 exclusao daquela observacao. Se nao sobrarem cinco AUDs comparaveis,
 a previsao e N/D, explicando a falta de comprovacao do escopo.
-Valores explicitos distintos tambem excluem a fonte. JSON legado sem
+Valores explicitos distintos tambem excluem a fonte. JSON anterior sem
 esses campos continua elegivel somente quando o estado atual declara
 Apdex desabilitado; isso **nao certifica** que as auditorias historicas
 tinham Apdex desligado, e a limitacao aparece nas notas exibidas.
