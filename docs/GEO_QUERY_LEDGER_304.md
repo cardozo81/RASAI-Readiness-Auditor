@@ -416,11 +416,15 @@ de 256 MiB continuam rejeitados.
 
 As falhas continuam usando a politica fail-closed do
 ledger: nenhuma taxa ou host-overlap pode ser emitida
-se o selo fisico nao for integro. As fixtures trocam
+se o selo fisico nao for integro. As fixtures POSIX trocam
 um banco SQLite sintetico por arquivo de mesmo tamanho
-antes da abertura e alteram somente o mtime durante
-o hash; ambos devem resultar em N/D, mesmo que as
-strings persistidas tenham permanecido identicas.
+antes da abertura; em Windows a substituicao fisica
+de um SQLite pode ser negada pelo bloqueio de handles,
+portanto uma fixture deterministica em ambas as plataformas
+simula uma mudanca de inode entre descritor e stat final.
+Outra fixture altera somente o mtime durante o hash.
+Cada divergencia invalida o selo, mesmo que as strings
+persistidas tenham permanecido identicas.
 
 Nao modifica schema nem produtores de resultados,
 SERP/Perplexity, motores homologados, report canonico,
