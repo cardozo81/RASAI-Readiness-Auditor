@@ -410,3 +410,33 @@ def test_355_live_settings_refuses_truncated_or_ambiguous_http_body_length(
         assert result["rum_action_population_verified"] is False
     assert len(opener.requests) == 1
     assert opener.response.reads == reads
+
+
+@pytest.mark.parametrize("bad_tenant_url", [
+    _BASE.replace("tenant", "te\nnant"),
+    _BASE.replace("tenant", "te\rnant"),
+    _BASE.replace("tenant", "te\tnant"),
+    _BASE.replace("tenant", "te\\nant"),
+    _BASE.replace("tenant", "te" + chr(0) + "nant"),
+    _BASE.replace("tenant", "te" + chr(127) + "nant"),
+])
+def test_355_tenant_control_characters_fail_before_token_egress(
+    bad_tenant_url, monkeypatch,
+):
+    """urlsplit would silently drop some controls; raw input is untrusted."""
+    assert bad_tenant_url != _BASE
+    calls = []
+
+    class NeverNetwork:
+        def open(self, *_args, **_kwargs):
+            calls.append(True)
+            pytest.fail("ambiguous tenant URL must not receive the API token")
+
+    with pytest.raises(ValueError, match="environment URL is invalid") as exc:
+        settings.read_live_dynatrace_apdex_settings(
+            base_url=bad_tenant_url, application_scope=_APP,
+            api_token="NO-EXFIL-SETTINGS-SECRET", opener=NeverNetwork(),
+        )
+    assert calls == []
+    assert "NO-EXFIL-SETTINGS-SECRET" not in str(exc.value)
+    assert _BASE not in str(exc.value)
