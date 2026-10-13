@@ -148,3 +148,70 @@ def test_aware_offsets_same_absolute_instant_are_not_a_chronological_pair():
     b = candidate("AUD-B", "https://www.example.org/product-b",
                   time="2026-10-08T08:00:00-03:00")
     assert assess_same_domain_pair(a, b)["reason"] == "CHRONOLOGY_NOT_ORDERABLE"
+
+
+@pytest.mark.parametrize(
+    ("older_url", "newer_url"),
+    [
+        ("https://example.org/app#/products/a", "https://example.org/app#/products/b"),
+        ("https://example.org/app#!/products/a", "https://example.org/app#!/products/b"),
+        ("https://example.org/app#overview", "https://example.org/app#/products/b"),
+        ("https://example.org/app#overview", "https://example.org/app#!/products/b"),
+    ],
+)
+def test_spa_hash_routes_are_distinct_page_universes_without_content_claims(
+    older_url, newer_url,
+):
+    first = candidate("AUD-SPA1", older_url)
+    second = candidate("AUD-SPA2", newer_url, time="2026-10-09T12:00:00Z")
+    result = assess_same_domain_pair(first, second)
+    assert result["status"] == "ELIGIBLE_FOR_DESCRIPTIVE_SAME_HOST_REVIEW_ONLY"
+    assert result["reason"] == "NO_CROSS_URL_LONGITUDINAL_INFERENCE"
+    assert result["page_level_deltas_allowed"] is False
+    assert result["audit_score_trend_allowed"] is False
+    assert result["source_attestation_verified"] is False
+    assert result["provider_requests"] == result["source_audit_writes"] == 0
+
+
+@pytest.mark.parametrize(
+    ("older_url", "newer_url"),
+    [
+        ("https://example.org/app#/products/a", "https://example.org/app#/products/a"),
+        ("https://example.org/app#!/products/a", "https://example.org/app#!/products/a"),
+        ("https://example.org/app#section1", "https://example.org/app#section2"),
+        ("https://example.org/app#section1", "https://example.org/app"),
+    ],
+)
+def test_same_spa_route_or_ordinary_fragment_never_count_as_distinct_pages(
+    older_url, newer_url,
+):
+    a = candidate("AUD-SPA1", older_url)
+    b = candidate("AUD-SPA2", newer_url, time="2026-10-09T12:00:00Z")
+    result = assess_same_domain_pair(a, b)
+    assert result["status"] == "NOT_ELIGIBLE"
+    assert result["reason"] == "SAME_URL_USE_EXISTING_LONGITUDINAL_CONS"
+
+
+@pytest.mark.parametrize("untrusted_url", [
+    " https://example.org/new",
+    "https://example.org/new ",
+    "https://example.org/pa\\th",
+    "https://example.org/new\tstep",
+    "https://example.org/new\nstep",
+    "https://example.org/new\rstep",
+    "https://example.org/new\x00",
+    "https://example.org:443\\@evil.example/new",
+    "https://example.org%2Eevil.example/new",
+    "https://user@example.org/new",
+    "https://example.org/new#section\x7f",
+    "https://example.org/" + "a" * 2100,
+])
+def test_preflight_rejects_ambiguous_url_before_urlsplit_normalization(untrusted_url):
+    first = candidate("AUD-ORIGIN", "https://example.org/old")
+    second = candidate("AUD-NEW", untrusted_url, time="2026-10-09T12:00:00Z")
+    result = assess_same_domain_pair(first, second)
+    assert result["status"] == "NOT_ELIGIBLE"
+    assert result["reason"] == "SINGLE_URL_ORIGIN_INVALID"
+    assert result["metric_comparison_executed"] is False
+    assert result["new_cons_generated"] is False
+    assert result["provider_requests"] == result["source_audit_writes"] == 0
