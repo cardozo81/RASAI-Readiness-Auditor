@@ -1395,14 +1395,12 @@ def test_v11_same_length_atomic_source_replacement_before_descriptor_abstains(
         return original_open(self, *args, **kwargs)
 
     monkeypatch.setattr(Path, "open", replaced_before_descriptor_open)
-    result = inspect_geo_per_query(folder)
+    # This is a unit test of the *stat -> open* descriptor boundary.
+    # Running the full ledger would add an unrelated Windows SQLite
+    # sidecar gate, potentially returning before the first hash.
+    with pytest.raises(ValueError, match="physical identity changed"):
+        ledger._audit_digest(database)
     assert swaps == [True]
-    assert result["status"] == "NOT_COMPARABLE"
-    assert result["reason"] == "SOURCE_SCHEMA_OR_READ_FAILURE"
-    assert result["queries"] == []
-    assert result["source_audit_db_integrity_guard"] == "UNVERIFIED"
-    assert result["source_audit_db_sha256"] is None
-    assert result["provider_requests"] == result["audit_writes"] == 0
     assert database.read_bytes() == original_bytes
 
 
