@@ -862,7 +862,16 @@ def test_index_mutation_after_read_before_domain_result_abstains(
         else:
             alternate = index.with_name("alternate-index.db")
             alternate.write_bytes(original)
-            os.replace(alternate, index)
+            try:
+                os.replace(alternate, index)
+            except PermissionError:
+                if os.name != "nt":
+                    raise
+                # SQLite/Windows may retain a pending OS file lease even
+                # after connection.close(). Rejecting physical replacement
+                # prevents the attack itself; this scenario is not
+                # executable under that host's filesystem semantics.
+                pytest.skip("Windows refused atomic replacement of an SQLite index")
         return result
 
     monkeypatch.setattr(domain_index, "preview_same_domain_candidates",
