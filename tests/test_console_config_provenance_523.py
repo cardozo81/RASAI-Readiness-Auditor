@@ -168,3 +168,31 @@ print(json.dumps({
     assert data["queries"] == []
     assert data["perplexity_mode"] == "web"
     assert path.read_bytes() == digest_before
+
+
+def test_typed_ini_can_win_over_prior_process_environment_on_runtime_sync(tmp_path):
+    """Observe precedence physically instead of interpreting raw env conflicts."""
+    from unittest.mock import patch
+
+    path = tmp_path / "typed-priority.ini"
+    path.write_text(
+        "[environment]\nRASAI_APDEX_EXPERIENCE_ARCHITECTURE = STATIC_OR_SSR\n"
+        "[synthetic_apdex_experience]\narchitecture = CSR_SPA\n",
+        encoding="utf-8",
+    )
+    key = "RASAI_APDEX_EXPERIENCE_ARCHITECTURE"
+    with patch.dict(os.environ, {key: "HYDRATED"}, clear=True):
+        metadata = inspect_configuration(path)
+        assert metadata.session_overrides == 1
+        display = render_provenance(metadata)
+        assert "prioridade efetiva depende do campo" in display
+        assert "HYDRATED" not in display
+        assert "STATIC_OR_SSR" not in display
+
+        state = SearchConsoleState()
+        result = console_settings.load_console_config(state, path)
+        assert not result.warnings, result.warnings
+        assert os.environ[key] == "HYDRATED"  # load preserves explicit process env
+        assert state.apdex_experience_architecture == "CSR_SPA"
+        console_settings.sync_nonsecret_runtime_environment(state)
+        assert os.environ[key] == "CSR_SPA"  # typed INI state reprojects at run
