@@ -96,3 +96,20 @@ um gate separado.
 Testes isolados Linux/Windows verificam cardinalidade e unicidade do registro,
 marcadores de segredo/INI, proteção de conteúdo sensível, shadowing, invocação
 CLI somente-leitura e exclusão de autorização Perplexity.
+
+## Inventário físico fornecido pelo operador (13/10/2026)
+
+A execução local do inventário registrou 189 variáveis (165 públicas e
+24 sensíveis), sendo 138 públicas presentes no INI e 27 sem valor efetivo.
+Entre 71 campos tipados, somente
+`synthetic_apdex_experience.device_mix` está ausente do INI.
+
+Essa ausência é **derivada**, não perda comprovada: `device_mix` é calculado
+via `canonical_single_device_mix(state.device)` tanto na projeção quanto
+na restauração canônica. Não se deve restaurar um mix independente de um
+INI antigo como autorização de dispositivo múltiplo.
+
+O diagnóstico `typed_ini_coverage` separa campos derivados ausentes de
+lacunas de campos não derivados. Ambas são apenas metadados; o inventário
+não certifica uso pelo motor, integridade da AUD ou autorização comercial.
+Fixture física reproduz a presença de 70 de 71 campos em teste offline.
