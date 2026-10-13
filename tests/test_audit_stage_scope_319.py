@@ -747,3 +747,47 @@ def test_319_corrupt_step_log_never_publishes_phase_summary(tmp_path):
     assert evidence["by_step"] == []
     assert evidence["by_phase"] == []
     assert (db.read_bytes(), path.read_bytes()) == original
+
+
+def test_319_log_appended_during_read_abstains_and_keeps_source_aud_immutable(
+    tmp_path, monkeypatch,
+):
+    """A concurrently growing operational log cannot publish partial phase timers."""
+    import json
+    from pathlib import Path
+    from rasai.audit_step_timer_inspection_319 import inspect_pipeline_step_timers
+
+    root, db = make_aud(tmp_path)
+    directory = root / "logs"
+    directory.mkdir()
+    log = directory / "audit.log"
+    event = {
+        "event": "AUDIT_PIPELINE_STEP_FINISHED",
+        "audit_id": AUD,
+        "timestamp": "2026-10-08T10:05:00Z",
+        "phase": "COLLECTION",
+        "step_key": "RENDER",
+        "duration_ms": 2000,
+        "status": "SUCCESS",
+    }
+    log.write_text(json.dumps(event) + "\n", encoding="utf-8")
+    db_before = db.read_bytes()
+    original_open = Path.open
+    changed = []
+
+    def append_on_read(self, mode="r", *args, **kwargs):
+        if self == log and mode == "rb" and not changed:
+            changed.append(True)
+            with original_open(self, "ab") as writer:
+                writer.write((json.dumps({**event, "step_key": "NEW"}) + "\n").encode())
+        return original_open(self, mode, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", append_on_read)
+    response = inspect_pipeline_step_timers(root, AUD, None)
+    assert changed
+    assert response["status"] == "LOG_CHANGED_DURING_READ"
+    assert response["by_step"] == []
+    assert response["by_phase"] == []
+    assert response["exclusive_stage_wall_clock_proven"] is False
+    assert response["provider_requests"] == response["audit_writes"] == 0
+    assert db.read_bytes() == db_before
