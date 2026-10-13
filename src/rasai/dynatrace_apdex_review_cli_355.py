@@ -50,7 +50,13 @@ def _load_offline_snapshot(path: Path) -> object:
             raise ValueError("settings JSON changed during physical read") from exc
         raw = stream.read(_MAX_SNAPSHOT_BYTES + 1)
     after = path.stat()
-    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
+    # On Windows st_ctime_ns is creation time and is not always
+    # identical between a path stat and the opened file descriptor,
+    # even with unchanged bytes. Use portable dev/inode/size/mtime;
+    # retain the POSIX ctime drift guard where it is consistent.
+    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    if os.name != "nt":
+        fields += ("st_ctime_ns",)
     if (
         path.is_symlink() or len(raw) > _MAX_SNAPSHOT_BYTES
         or len(raw) != before.st_size

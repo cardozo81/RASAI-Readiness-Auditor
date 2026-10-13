@@ -39,7 +39,14 @@ _TENANT = re.compile(r"^[a-z0-9-]{1,80}\.live\.dynatrace\.com$", re.ASCII)
 
 
 def _tenant_endpoint(base_url: str) -> str:
-    if not isinstance(base_url, str) or base_url != base_url.strip():
+    # urlsplit strips embedded TAB/CR/LF in supported Python versions.
+    # Deny ambiguous operator-provided URLs before any normalization or
+    # authenticated request; an exact tenant URL is part of the trust gate.
+    if (
+        not isinstance(base_url, str) or base_url != base_url.strip()
+        or any(ord(char) < 32 or ord(char) == 127 for char in base_url)
+        or chr(92) in base_url
+    ):
         raise ValueError("Dynatrace environment URL is invalid")
     try:
         parsed = urlsplit(base_url)
