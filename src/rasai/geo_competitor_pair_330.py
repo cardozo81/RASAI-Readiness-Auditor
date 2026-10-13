@@ -242,6 +242,15 @@ def compare_cobs_static_pair(
     gap = abs((customer_time - competitor_time).total_seconds())
     if gap > _MAX_WINDOW_SECONDS:
         raise ValueError("static HTML captures are outside permitted 24h window")
+    serp_time = _time(customer["source_serp_collected_at"])
+    assert serp_time is not None  # Already checked against the physical SERP row.
+    serp_customer_gap = abs((serp_time - customer_time).total_seconds())
+    serp_competitor_gap = abs((serp_time - competitor_time).total_seconds())
+    serp_window = (
+        "BOTH_CAPTURES_WITHIN_24H_OF_SERP"
+        if max(serp_customer_gap, serp_competitor_gap) <= _MAX_WINDOW_SECONDS
+        else "SERP_CAPTURE_TEMPORAL_SCOPE_NOT_COMPARABLE"
+    )
     customer_facts = _facts(customer)
     competitor_facts = _facts(competitor)
     # Never coerce missing or synthetic primary content into editorial
@@ -276,6 +285,10 @@ def compare_cobs_static_pair(
         "source_serp_query": customer["source_serp_query"],
         "source_serp_scope": customer["source_serp_scope"],
         "html_capture_gap_seconds": gap,
+        "serp_to_customer_html_gap_seconds": serp_customer_gap,
+        "serp_to_competitor_html_gap_seconds": serp_competitor_gap,
+        "serp_capture_temporal_scope": serp_window,
+        "serp_and_html_same_population_proven": False,
         "customer": customer_facts,
         "competitor": competitor_facts,
         "title_exact_text_equal": customer_facts["title"] == competitor_facts["title"],
@@ -301,7 +314,9 @@ def compare_cobs_static_pair(
             "same intent or comparable commercial completeness. Metadata "
             "differences are observations only, not deficits or priorities. "
             "Exact heading/query-term matches are lexical static HTML "
-            "observations, not semantic equivalence or content strategy."
+            "observations, not semantic equivalence or content strategy. "
+            "SERP observation and later captures may be temporally distant; "
+            "even a 24h window cannot prove the same provider population."
         ),
     }
     if (any(Path(str(db) + x).exists() for x in ("-wal", "-shm", "-journal"))

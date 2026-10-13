@@ -310,3 +310,43 @@ HTML malicioso e rejeicao de projecoes forjadas. O aprofundamento
 renderizado de SPA continua condicionando coleta consentida,
 comparabilidade de contexto e conteudo primario validado; este HTML
 nao satisfaz aquele gate.
+
+
+## Comando publico e distancia temporal da SERP (#330, 13/10/2026)
+
+O comparador consultivo agora e acessivel diretamente pela CLI principal:
+
+```powershell
+rasai competitor-pair --audit-dir .\audits\AUD-EXEMPLO `
+  --customer-manifest .\evidencias\COBS-CLIENTE\manifest.json `
+  --competitor-manifest .\evidencias\COBS-CANDIDATO\manifest.json `
+  --format html
+```
+
+`rasai competitor-static-report` e um alias. Ambos despacham
+antes do bootstrap de auditoria, IA, segredos e coletores;
+`--format json` continua sendo o padrao.
+
+O comparador informa agora `serp_to_customer_html_gap_seconds`
+e `serp_to_competitor_html_gap_seconds`, calculados em UTC entre
+o instante SERP fisicamente confirmado na AUD e o instante de cada
+captura HTML dos respectivos sidecars. A classificacao
+`serp_capture_temporal_scope` distingue capturas em ate 24h
+da observacao SERP de capturas fora desse periodo. O HTML
+apresenta os intervalos e avisa quando um dos sidecars nao e
+contemporaneo da SERP, mesmo que as duas capturas sejam
+contemporaneas entre si.
+
+**Atencao:** diferenca menor ou igual a 24h nao comprova
+equivalencia de amostra, ranking, contexto de navegador, dispositivo
+ou idioma do fornecedor. O campo
+`serp_and_html_same_population_proven=false` nunca e elevado
+apenas por proximidade temporal. Fora da janela, a comparacao
+dos conjuntos lexicais estaticos continua **descritiva**, nao
+transforma ausencia em lacuna ou permite recomendacoes causais.
+Um objeto externo adulterado que reivindique equivalencia
+de populacao e rejeitado pelo renderer.
+
+Os testes usam exclusivamente sidecars COBS/SQLite sinteticos e
+conteudo local re-hashado, sem DNS, HTTP, browser, IA ou alteracoes
+na AUD, no CONS, no runtime SERP ou no GEO homologado.

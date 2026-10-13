@@ -619,6 +619,10 @@ def test_customer_competitor_pair_compares_only_sealed_static_metadata(
     assert result["source_audit_db_sha256"] == sha256(original).hexdigest()
     assert result["source_serp_observation_id"] == _OBS
     assert result["html_capture_gap_seconds"] == 3600
+    assert result["serp_to_customer_html_gap_seconds"] == 900
+    assert result["serp_to_competitor_html_gap_seconds"] == 4500
+    assert result["serp_capture_temporal_scope"] == "BOTH_CAPTURES_WITHIN_24H_OF_SERP"
+    assert result["serp_and_html_same_population_proven"] is False
     assert result["customer"]["url"] == _TARGET_URL
     assert result["competitor"]["url"] == _URL
     assert result["customer"]["title"] == "Meu seguro"
@@ -1036,3 +1040,89 @@ def test_cobs_html_never_promotes_forged_score_or_unverified_content(
         value.pop("customer")
     with pytest.raises(ValueError):
         render_cobs_static_pair_html(value)
+
+
+def test_cobs_public_competitor_pair_route_never_bootstraps_audit_or_egress(
+    tmp_path, monkeypatch, capsys,
+):
+    from rasai import entrypoint
+    folder, customer, competitor, db_bytes, calls = _pair_capture(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        entrypoint, "_install_audit_runtime",
+        lambda: pytest.fail("competitor-pair must not bootstrap audit runtime"),
+    )
+    params = [
+        "--audit-dir", str(folder),
+        "--customer-manifest", customer["manifest_path"],
+        "--competitor-manifest", competitor["manifest_path"],
+    ]
+    prior = len(calls)
+    assert entrypoint.main(["competitor-pair", *params]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["status"] == "DESCRIPTIVE_STATIC_HTML_ONLY"
+    assert data["serp_to_customer_html_gap_seconds"] == 900
+    assert data["serp_to_competitor_html_gap_seconds"] == 4500
+    assert data["serp_and_html_same_population_proven"] is False
+    assert entrypoint.main(["competitor-static-report", *params, "--format", "html"]) == 0
+    html = capsys.readouterr().out
+    assert "Comparacao lexical observacional" in html
+    assert "SERP - alvo: 900s; SERP - concorrente: 4500s" in html
+    assert "sem equivalencia de populacao comprovada" in html
+    assert len(calls) == prior
+    assert (folder / "audit.db").read_bytes() == db_bytes
+
+
+def test_cobs_pair_discloses_remote_serp_to_html_window_without_editorial_claims(
+    tmp_path, monkeypatch,
+):
+    from pathlib import Path
+    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair_html_330 import render_cobs_static_pair_html
+    folder, customer, competitor, db_bytes, calls = _pair_capture(tmp_path, monkeypatch)
+    old_customer = Path(customer["manifest_path"])
+    old_competitor = Path(competitor["manifest_path"])
+    raw_before = (old_customer.read_bytes(), old_competitor.read_bytes())
+    count = len(calls)
+
+    def redate(manifest_file, stamp):
+        item = json.loads(Path(manifest_file).read_text(encoding="utf-8"))
+        item["capture"]["html_fetch_timestamp"] = stamp
+        payload = capture._payload(item)
+        identifier = "COBS-" + sha256(payload).hexdigest()[:32].upper()
+        destination = tmp_path / "redated" / identifier / "manifest.json"
+        destination.parent.mkdir(parents=True)
+        destination.write_bytes(payload)
+        return destination
+
+    late_customer = redate(old_customer, "2026-10-20T10:15:00Z")
+    late_competitor = redate(old_competitor, "2026-10-20T11:15:00Z")
+    result = compare_cobs_static_pair(folder, late_customer, late_competitor)
+    assert result["html_capture_gap_seconds"] == 3600
+    assert result["serp_capture_temporal_scope"] == (
+        "SERP_CAPTURE_TEMPORAL_SCOPE_NOT_COMPARABLE"
+    )
+    assert result["serp_to_customer_html_gap_seconds"] > 24 * 3600
+    assert result["serp_to_competitor_html_gap_seconds"] > 24 * 3600
+    assert result["serp_and_html_same_population_proven"] is False
+    assert result["primary_content_comparison_eligible"] is False
+    assert result["static_text_differences_are_editorial_gaps"] is False
+    html = render_cobs_static_pair_html(result)
+    assert "fora da janela SERP de 24h" in html
+    assert "lacunas editoriais comprovadas" in html
+    assert len(calls) == count
+    assert (folder / "audit.db").read_bytes() == db_bytes
+    assert (old_customer.read_bytes(), old_competitor.read_bytes()) == raw_before
+
+
+def test_cobs_html_renderer_rejects_claim_of_same_serp_html_population(
+    tmp_path, monkeypatch,
+):
+    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair_html_330 import render_cobs_static_pair_html
+    folder, customer, competitor, _, _ = _pair_capture(tmp_path, monkeypatch)
+    projected = compare_cobs_static_pair(
+        folder, customer["manifest_path"], competitor["manifest_path"],
+    )
+    projected["serp_and_html_same_population_proven"] = True
+    with pytest.raises(ValueError, match="cannot claim equal SERP"):
+        render_cobs_static_pair_html(projected)

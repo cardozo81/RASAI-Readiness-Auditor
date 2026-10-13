@@ -394,6 +394,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.geo_competitor_capture_bundle_330 import main as cobs_capture_main
         return cobs_capture_main(effective[1:])
 
+    if effective and effective[0] in {"competitor-pair", "competitor-static-report"}:
+        # COBS static comparison is a source-verified, strictly offline
+        # advisory. Never install collection, AI or active HTTP consumers.
+        from rasai.geo_competitor_pair_330 import main as cobs_pair_main
+        return cobs_pair_main(effective[1:])
+
     if effective and effective[0] in {"dynatrace-rum-crosscheck", "dynatrace-rum-review"}:
         # Two already captured JSONs, no external settings/USQL provider,
         # synthetic Apdex, CLI secrets or audit/runtime initialization.

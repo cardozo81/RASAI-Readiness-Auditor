@@ -86,6 +86,8 @@ def test_second_cons_manifest_read_rejects_ambiguous_json_before_gcomp_output(
     root, cons = _cons(tmp_path)
     canonical = cons / "manifest.json"
     before = _hashes(root)
+    # The first preview read uses a physical descriptor; the next read_text
+    # belongs to the packaging revalidation and must reject conflicts.
     original_read_text = Path.read_text
     seen = {"n": 0}
 
@@ -94,7 +96,7 @@ def test_second_cons_manifest_read_rejects_ambiguous_json_before_gcomp_output(
         if self != canonical:
             return raw
         seen["n"] += 1
-        if seen["n"] != 2:
+        if seen["n"] != 1:
             return raw
         if collision == "nested_audit_id":
             forged = raw.replace(
@@ -114,7 +116,7 @@ def test_second_cons_manifest_read_rejects_ambiguous_json_before_gcomp_output(
     monkeypatch.setattr(Path, "read_text", conflicting_second_read)
     with pytest.raises(ValueError, match="CONS source manifest JSON invalid"):
         module.materialize_cons_geo_companion(cons, root)
-    assert seen["n"] == 2
+    assert seen["n"] == 1
     assert not (root / "consolidated-geo-companions").exists()
     assert _hashes(root) == before
 

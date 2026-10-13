@@ -110,6 +110,8 @@ def render_cobs_static_pair_html(projection: Mapping[str, Any]) -> str:
         or projection["audit_writes"] != 0
     ):
         raise ValueError("COBS HTML must be offline and read-only")
+    if projection.get("serp_and_html_same_population_proven") is True:
+        raise ValueError("COBS cannot claim equal SERP and HTML sample populations")
     gap = projection.get("html_capture_gap_seconds")
     if (
         type(gap) not in (int, float) or not math.isfinite(gap)
@@ -127,6 +129,25 @@ def render_cobs_static_pair_html(projection: Mapping[str, Any]) -> str:
             or _count(facts.get("word_count_observed_static")) == "N/D"
         ):
             raise ValueError("COBS static HTML facts invalid")
+    # The source/HTML timing is an observational context flag, not
+    # a population-equivalence certificate. Older pair projections show N/D.
+    gaps = (
+        projection.get("serp_to_customer_html_gap_seconds"),
+        projection.get("serp_to_competitor_html_gap_seconds"),
+    )
+    if all(type(value) in (int, float) and math.isfinite(value) and value >= 0
+           for value in gaps):
+        chronology = (
+            f"SERP - alvo: {gaps[0]:.0f}s; SERP - concorrente: {gaps[1]:.0f}s"
+        )
+    else:
+        chronology = "N/D"
+    if projection.get("serp_capture_temporal_scope") == "BOTH_CAPTURES_WITHIN_24H_OF_SERP":
+        time_status = "Capturas em ate 24h da SERP, sem equivalencia de populacao comprovada"
+    elif projection.get("serp_capture_temporal_scope") == "SERP_CAPTURE_TEMPORAL_SCOPE_NOT_COMPARABLE":
+        time_status = "Pelo menos uma captura fora da janela SERP de 24h; escopo temporal nao comparavel"
+    else:
+        time_status = "Proximidade temporal da SERP N/D"
     source = _safe(projection.get("source_audit_id"))
     observation = _safe(projection.get("source_serp_observation_id"))
     scope = projection.get("source_serp_scope")
@@ -162,6 +183,7 @@ def render_cobs_static_pair_html(projection: Mapping[str, Any]) -> str:
         f"<p><strong>AUD:</strong> {source} &middot; <strong>SERP:</strong> {observation}</p>",
         f"<p class='muted'>Escopo SERP: {scope_text}</p>",
         f"<p class='muted'>Intervalo entre capturas: {gap:.0f} segundos. Proximidade nao prova equivalencia de intencao, idioma, dispositivo ou sessao.</p>",
+        f"<p class='muted'>Relogio SERP vs capturas: {escape(chronology)}. {escape(time_status)}.</p>",
         "</header>",
         "<p class='warning'><strong>Limite de inferencia:</strong> somente texto e metadados do HTML estatico coletado. "
         "Elementos ausentes na extracao NAO sao lacunas editoriais comprovadas; "
