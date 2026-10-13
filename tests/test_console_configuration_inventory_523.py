@@ -92,8 +92,10 @@ def test_derived_apdex_device_mix_missing_does_not_count_as_lost_setting(tmp_pat
     """Physical inventory from the operator had only device_mix omitted (70/71)."""
     from rasai.console_search_intelligence import SearchConsoleState
     from rasai.console_complete_persistence import install
+    from rasai.console_ui_refactor import _install_search_persistence
     from rasai import console_settings
 
+    _install_search_persistence()
     install()
     state = SearchConsoleState()
     state.device = "desktop"
@@ -126,8 +128,10 @@ def test_derived_apdex_device_mix_missing_does_not_count_as_lost_setting(tmp_pat
 def test_non_derived_absent_ini_field_is_a_gap_not_asserted_runtime_failure(tmp_path):
     from rasai.console_search_intelligence import SearchConsoleState
     from rasai.console_complete_persistence import install
+    from rasai.console_ui_refactor import _install_search_persistence
     from rasai import console_settings
 
+    _install_search_persistence()
     install()
     parser = console_settings._parser_for_state(SearchConsoleState())
     parser.remove_option("synthetic_apdex_experience", "architecture")
