@@ -250,7 +250,7 @@ exatos, ordenados e sem duplicatas de texto dos `headings` e de
 `observed_heading_text_both/customer_only/competitor_only` e
 `observed_query_body_terms_both/customer_only/competitor_only`.
 As entradas são os campos previamente materializados no manifesto
-vinculado fisicamente ao SHA-256 da AUD e da evidência SERP — não há
+vinculado fisicamente ao SHA-256 da AUD e da evidência SERP - não há
 outra coleta, scraping automático nem nova autorização inferida.
 
 A comparação é **literal**, sem normalização de idioma, caixa,
