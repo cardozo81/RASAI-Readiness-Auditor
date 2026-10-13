@@ -140,7 +140,7 @@ def test_consolidated_usage_respects_provider_total_and_currency_boundaries(tmp_
     assert summary.costs == (("EUR", 0.2), ("USD", 0.1))
 
 
-def test_ai_integrations_projects_mixed_currency_without_implicit_fx(tmp_path) -> None:
+def _two_priced_ai_attempts_fixture(tmp_path):
     database = tmp_path / "audit.db"
     connection = sqlite3.connect(database)
     try:
@@ -208,6 +208,11 @@ def test_ai_integrations_projects_mixed_currency_without_implicit_fx(tmp_path) -
         fulfillment={"processing_status": "COMPLETE"},
     )
 
+    return database, data
+
+
+def test_ai_integrations_projects_mixed_currency_without_implicit_fx(tmp_path) -> None:
+    database, data = _two_priced_ai_attempts_fixture(tmp_path)
     html = _ai_integrations_body(database, data)
 
     assert "Custo observado" in html
@@ -218,3 +223,61 @@ def test_ai_integrations_projects_mixed_currency_without_implicit_fx(tmp_path) -
     assert "EUR/USD" not in html
     assert "Tokens totais" in html
     assert ">200<" in html
+
+
+def test_final_report_explains_point_deviation_without_false_currency_conversion(
+    tmp_path, monkeypatch,
+) -> None:
+    from rasai import catalog_report_integrations as i
+
+    database, data = _two_priced_ai_attempts_fixture(tmp_path)
+    original_bytes = database.read_bytes()
+    forecast = {
+        "currency": "USD", "expected_cost": 0.2, "actual_cost": 0.3,
+        "likely_low": 0.1, "likely_high": 0.4, "potential": 0.5,
+        "status": "CRÍTICO", "confidence": "MODERADA",
+    }
+    monkeypatch.setattr(i, "_cost_forecast", lambda *_: forecast)
+
+    # A successful multi-currency ledger is still not a USD total.
+    mixed = _ai_integrations_body(database, data)
+    assert "Moedas dos custos" in mixed
+    assert "Posição do custo na faixa histórica: N/D" in mixed
+    assert "dentro da faixa histórica provável" not in mixed
+    assert "Desvio frente à estimativa pontual persistida" not in mixed
+
+    # Same sample, physically priced in USD, can now be reconciled.
+    with sqlite3.connect(database) as con:
+        con.execute(
+            "UPDATE ai_provider_attempts SET cost_currency='USD' "
+            "WHERE provider='ANTHROPIC'"
+        )
+    after_normalization = database.read_bytes()
+    matched = _ai_integrations_body(database, data)
+    assert "dentro da faixa histórica provável" in matched
+    assert "Desvio frente à estimativa pontual persistida: +50.00%" in matched
+    assert "não constitui fatura" in matched
+
+    # An explicitly persisted total inconsistent with the ledger is
+    # not a legitimate forecast interval comparison.
+    forecast["actual_cost"] = 0.1
+    unreconciled = _ai_integrations_body(database, data)
+    assert "Posição do custo na faixa histórica: N/D" in unreconciled
+    assert "Desvio frente à estimativa pontual persistida" not in unreconciled
+
+    # A directed/post-AUD call cannot be retrofitted into the central
+    # pre-execution expected-cost population.
+    forecast["actual_cost"] = 0.3
+    with sqlite3.connect(database) as con:
+        con.execute(
+            "UPDATE ai_provider_attempts SET "
+            "semantic_contract_version='DIRECTED-ANALYSIS-001' "
+            "WHERE provider='OPENAI'"
+        )
+    after_directed = database.read_bytes()
+    directed = _ai_integrations_body(database, data)
+    assert "1 tentativa(s) de análise complementar/direcionada" in directed
+    assert "Posição do custo na faixa histórica: N/D" in directed
+    assert "Desvio frente à estimativa pontual persistida" not in directed
+    assert database.read_bytes() == after_directed
+    assert original_bytes != after_normalization
