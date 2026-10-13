@@ -380,3 +380,82 @@ def test_all_registry_variables_have_explicit_nonclaiming_adapter_affinity(tmp_p
     assert "SHOULD_NOT_LEAK" not in rendered
     assert "SECRET_TEST" not in rendered
     assert ini.read_text(encoding="utf-8").endswith("SHOULD_NOT_LEAK\n")
+
+
+def test_ini_inventory_reports_physical_source_condition_without_disclosing_values(tmp_path):
+    from rasai.console_configuration_inventory_523 import inventory
+
+    missing = inventory(path=tmp_path / "never-created.ini", environ={})
+    assert missing["ini_source_status"] == "SOURCE_NOT_FOUND_OR_NOT_A_FILE"
+    assert missing["file_readable"] is False
+    assert missing["typed_ini_coverage"]["missing_non_derived_names"] == []
+
+    invalid = tmp_path / "invalid.ini"
+    invalid.write_text("[broken secret\npassword=MUST_NOT_LEAK", encoding="utf-8")
+    result = inventory(path=invalid, environ={})
+    assert result["ini_source_status"] == "SOURCE_INVALID_INI"
+    assert result["file_readable"] is False
+    assert "MUST_NOT_LEAK" not in json.dumps(result)
+
+    oversized = tmp_path / "oversized.ini"
+    oversized.write_bytes(b"[environment]\n" + b"X" * 2_000_000)
+    large = inventory(path=oversized, environ={})
+    assert large["ini_source_status"] == "SOURCE_TOO_LARGE"
+    assert large["file_readable"] is False
+
+    good = tmp_path / "good.ini"
+    good.write_text("[environment]\nOPENAI_API_KEY=MUST_STAY_SECRET\n", encoding="utf-8")
+    ok = inventory(path=good, environ={})
+    assert ok["ini_source_status"] == "SOURCE_PARSED_NO_RUNTIME_CONSUMER_PROOF"
+    assert ok["file_readable"] is True
+    assert ok["ini_source_status_is_execution_proof"] is False
+    assert "MUST_STAY_SECRET" not in json.dumps(ok)
+
+
+def test_ini_inventory_abstains_if_file_changes_while_opening(tmp_path, monkeypatch):
+    """A mutable INI is not a reliable source for a metadata inventory."""
+    from rasai.console_configuration_inventory_523 import inventory
+
+    operator_ini = tmp_path / "operator.ini"
+    operator_ini.write_text(
+        "[environment]\nRASAI_SERP_MAX_REQUESTS=7\n"
+        "OPENAI_API_KEY=ABSOLUTELY_NOT_TO_LEAK\n", encoding="utf-8"
+    )
+    original_open = Path.open
+    appended = []
+
+    def racing_open(self, mode="r", *args, **kwargs):
+        if self == operator_ini and mode == "rb" and not appended:
+            with original_open(self, "ab") as stream:
+                stream.write(b"RASAI_PERPLEXITY_ENABLED=true\n")
+            appended.append(True)
+        return original_open(self, mode, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", racing_open)
+    response = inventory(path=operator_ini, environ={})
+    assert appended
+    assert response["ini_source_status"] == "SOURCE_CHANGED_DURING_READ"
+    assert response["file_readable"] is False
+    assert response["typed_ini_coverage"]["missing_non_derived_names"] == []
+    assert "ABSOLUTELY_NOT_TO_LEAK" not in json.dumps(response)
+
+
+def test_ini_inventory_refuses_symlinked_file_without_following_target(tmp_path):
+    from rasai.console_configuration_inventory_523 import inventory
+
+    target = tmp_path / "private.ini"
+    target.write_text(
+        "[environment]\nOPENAI_API_KEY=TARGET_SECRET_NEVER_EMITTED\n",
+        encoding="utf-8",
+    )
+    link = tmp_path / "operator.ini"
+    import pytest
+    try:
+        link.symlink_to(target)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"symlink not permitted by platform: {exc}")
+    data = inventory(path=link, environ={})
+    assert data["ini_source_status"] == "SOURCE_SYMLINK_DISALLOWED"
+    assert data["file_readable"] is False
+    assert "TARGET_SECRET_NEVER_EMITTED" not in json.dumps(data)
+    assert target.is_file()
