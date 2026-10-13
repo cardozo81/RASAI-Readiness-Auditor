@@ -39,10 +39,13 @@ def inspect_configuration(
     if path is None:
         return ConfigurationProvenance("NÃO RESOLVIDO", 0, 0, 0)
     path = Path(path)
-    if not path.is_file():
-        return empty
-    if path.stat().st_size > 2_000_000:
-        return ConfigurationProvenance("NÃO INSPECIONADO: limite de tamanho", 0, 0, 0)
+    try:
+        if not path.is_file():
+            return empty
+        if path.stat().st_size > 2_000_000:
+            return ConfigurationProvenance("NÃO INSPECIONADO: limite de tamanho", 0, 0, 0)
+    except OSError:
+        return ConfigurationProvenance("INDISPONÍVEL", 0, 0, 0)
     specs = {
         spec.name
         for spec in refresh_specs()
