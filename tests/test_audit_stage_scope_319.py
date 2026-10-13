@@ -655,7 +655,8 @@ def test_319_metrics_wrapper_timer_projection_never_claims_exclusive_clock(
     assert "999.00 s" not in timers_html  # other AUD is never included
     if case in ("valid", "partial"):
         assert "Distribuição dos invólucros por fase" in timers_html
-        assert "Duração física exclusiva da fase" in timers_html
+        # The test mocks _table to rows-only, so headers are deliberately absent.
+        assert "N/D - não medido" in timers_html
         assert "não tempo da fase" in timers_html
     else:
         assert "Distribuição dos invólucros por fase" not in timers_html
