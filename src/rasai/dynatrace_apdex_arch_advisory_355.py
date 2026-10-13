@@ -105,6 +105,8 @@ def assess_dynatrace_apdex_architecture(
         "contract_version": VERSION,
         "architecture": architecture,
         "architecture_evidence_id": architecture_evidence_id,
+        "soft_navigation_observed": soft_navigation_observed,
+        "async_requests_observed": async_requests_observed,
         "settings_provenance": "NOT_VERIFIED_BY_RASAI",
         "method": "EXTERNAL_RUM_CONFIG_ADVISORY_NOT_SYNTHETIC_APDEX",
         "status": "NOT_EVALUABLE",
@@ -239,6 +241,77 @@ _REASON_PT_BR = {
 }
 
 
+
+def _architecture_action_review(result: Mapping[str, Any]) -> dict[str, Any]:
+    """Contextual Dynatrace KPM *options*, not applied settings or defaults.
+
+    A SPA does not eliminate the initial Load action. No KPM or numeric
+    threshold can be prescribed from architecture alone.
+    """
+    architecture = result.get("architecture")
+    observed = result.get("observed_kpm")
+    configured = observed if isinstance(observed, Mapping) else {}
+    if architecture not in ARCHITECTURES or architecture == "UNKNOWN":
+        return {
+            "status": "ARCHITECTURE_NOT_VERIFIED",
+            "profiles": [],
+            "numeric_thresholds": None,
+            "settings_auto_applied": False,
+        }
+
+    requirements: list[tuple[str, str, str]] = [
+        (
+            "load_actions", "INITIAL_DOCUMENT_NAVIGATION",
+            "CHECK_DOCUMENT_LOAD_IF_INSTRUMENTED",
+        ),
+    ]
+    # XHR/Fetch-triggered client-side routes require their own population
+    # review only when both the soft route and async trigger are declared.
+    if architecture in ("CSR_SPA", "HYDRATED", "MIXED"):
+        if (result.get("soft_navigation_observed") is True
+                and result.get("async_requests_observed") is True):
+            requirements.append((
+                "xhr_actions", "ASYNC_CLIENT_SIDE_ROUTE",
+                "REVIEW_RUM_XHR_CAPTURE_AND_ACTION_COVERAGE",
+            ))
+        elif result.get("soft_navigation_observed") is True:
+            requirements.append((
+                "xhr_actions", "POSSIBLE_CLIENT_SIDE_ROUTE",
+                "CONFIRM_XHR_FETCH_OR_CUSTOM_ACTION_BEFORE_KPM_SELECTION",
+            ))
+    if "custom_actions" in configured:
+        requirements.append((
+            "custom_actions", "OPERATOR_INSTRUMENTED_INTERACTION",
+            "REVIEW_CUSTOM_ACTION_INSTRUMENTATION",
+        ))
+    profiles: list[dict[str, Any]] = []
+    for category, use_case, review in requirements:
+        current = configured.get(category)
+        profiles.append({
+            "action_type": category,
+            "use_case": use_case,
+            "review": review,
+            "configuration_presence": (
+                "KPM_DECLARED_IN_INPUT"
+                if isinstance(current, str) and current in KPM_BY_ACTION[category]
+                else "KPM_NOT_PROVIDED_NOT_PROOF_OF_DISABLED_CAPTURE"
+            ),
+            "configured_kpm": (
+                current if isinstance(current, str)
+                and current in KPM_BY_ACTION[category] else None
+            ),
+            "vendor_valid_kpm_options": sorted(KPM_BY_ACTION[category]),
+            "prescribed_kpm": None,
+            "prescribed_tolerated_seconds": None,
+            "prescribed_frustrating_seconds": None,
+        })
+    return {
+        "status": "CONTEXTUAL_KPM_OPTIONS_NOT_VERIFIED_RECOMMENDATION",
+        "profiles": profiles,
+        "numeric_thresholds": None,
+        "settings_auto_applied": False,
+    }
+
 def explain_dynatrace_apdex_pt_br(result: Mapping[str, Any]) -> dict[str, Any]:
     """Produce a safe, readable advisory from a verdict, never from tenant data.
 
@@ -282,6 +355,7 @@ def explain_dynatrace_apdex_pt_br(result: Mapping[str, Any]) -> dict[str, Any]:
         },
         "motivos": formatted_reasons,
         "proximos_passos": list(result.get("review_actions") or ()),
+        "revisao_de_perfis_por_arquitetura": _architecture_action_review(result),
         "limite_metodologico": (
             ("Valores efetivos consultados no tenant via Settings API; "
              if authenticated_settings else

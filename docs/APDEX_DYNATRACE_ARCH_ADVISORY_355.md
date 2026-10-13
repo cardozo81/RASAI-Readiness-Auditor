@@ -297,3 +297,30 @@ file fails before generating any architecture or threshold advice.
 Synthetic M23/M25, live Dynatrace requests, persisted AUD/CONS data
 and score computation are not involved. Eight isolated fixture cases
 cover both input modes and physical short/extra reads.
+
+
+## Guia KPM contextual por arquitetura, sem defaults numericos (13/10/2026)
+
+A saida `analyst_guidance_pt_br.revisao_de_perfis_por_arquitetura`
+apresenta os tipos de acao que merecem exame na configuracao RUM
+declarada. Um site CSR_SPA, HYDRATED ou MIXED preserva o perfil
+Load da navegacao inicial e acrescenta revisao de XHR quando a
+transicao client-side e seu gatilho async foram informados. Se a
+transicao nao tem gatilho async comprovado, o guia pede confirmar
+XHR/Fetch ou instrumentacao Custom antes de selecionar KPM. SSR
+com navegacao de documento nao recebe por padrao perfil XHR.
+Um perfil Custom aparece quando ha configuracao Custom declarada;
+arquitetura UNKNOWN nao recebe recomendacao.
+
+Cada perfil informa KPM configurada (quando declarada e valida)
+e as opcoes enumeradas pelo contrato Dynatrace para o tipo de acao.
+`prescribed_kpm` e limiares numericos permanecem N/D:
+nao existe um limite universal de tolerancia/frustracao determinado
+apenas pela arquitetura, nem esta leitura substitui Settings API,
+RUM live, URL/device/janela reais, objetivo de experiencia ou
+interacao explicitamente instrumentada. A falta de um perfil XHR
+na fonte nao comprova que a captura esteja desabilitada.
+
+A saida e somente consultiva. Nenhum parametro e aplicado ao
+Dynatrace, M23/M25 Synthetic, score ou banco AUD/CONS. Tests offline
+cobrem SPA, SSR, mixed, hydrated, Custom e arquitetura desconhecida.
