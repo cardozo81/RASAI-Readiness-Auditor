@@ -257,3 +257,17 @@ classificação `NO_VALID_*_URL_DENOMINATOR` existente. Testes de regressão
 SQLite offline demonstram mistura de URLs válidas/inválidas, ausência de
 escritas, dupla checagem SHA-256 e preservação de consultas saudáveis.
 Não altera motor SERP, Search API, proveniência, coleta, GEO v8, score ou IA.
+
+
+## Integridade do streaming SHA-256 físico (12/10/2026)
+
+A prévia GEO por consulta recusa uma verificação física quando a quantidade
+de bytes realmente lida para SHA-256 diverge do tamanho do `audit.db`
+medido imediatamente antes, ou quando o tamanho físico mudou após a
+leitura. Duas leituras que obtenham o **mesmo hash parcial** não atestam a
+população física completa da AUD. O consumidor retorna
+`SOURCE_SCHEMA_OR_READ_FAILURE`, sem métricas de consulta, scores,
+requisições ou escrita. Testes offline com stream truncado e crescimento
+simulado demonstram o fail-closed, com bytes do SQLite original intactos.
+Este controle não prova autenticidade de provedores nem modifica os
+coletores, o ledger persistido, o GEO v8 ou sua normalização.
