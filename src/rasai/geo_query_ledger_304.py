@@ -28,10 +28,18 @@ _INVALID_METADATA = object()
 
 
 def _reject_duplicated_source_query(pairs: list[tuple[str, object]]) -> dict[str, object]:
-    """JSON's default last-key-wins rule must not select a fabricated query."""
-    if sum(key == "query" for key, _ in pairs) > 1:
-        raise ValueError("ambiguous duplicate per-source query key")
+    """Never parse ambiguous provider metadata with last-key-wins semantics."""
+    seen: set[str] = set()
+    for key, _ in pairs:
+        if key in seen:
+            raise ValueError("ambiguous duplicate per-source metadata key")
+        seen.add(key)
     return dict(pairs)
+
+
+def _reject_non_json_source_constant(token: str) -> None:
+    """Python's NaN/Infinity extensions are not physical JSON evidence."""
+    raise ValueError("nonstandard JSON numeric constant in source metadata")
 
 
 def _explicit_source_query(metadata: object) -> str | None | object:
@@ -46,7 +54,11 @@ def _explicit_source_query(metadata: object) -> str | None | object:
     if not isinstance(metadata, str) or len(metadata.encode("utf-8")) > _MAX_SOURCE_METADATA_BYTES:
         return _INVALID_METADATA
     try:
-        payload = json.loads(metadata, object_pairs_hook=_reject_duplicated_source_query)
+        payload = json.loads(
+            metadata,
+            object_pairs_hook=_reject_duplicated_source_query,
+            parse_constant=_reject_non_json_source_constant,
+        )
     except (TypeError, ValueError):
         return _INVALID_METADATA
     if not isinstance(payload, dict):
