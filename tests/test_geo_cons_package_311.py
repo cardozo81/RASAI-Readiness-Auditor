@@ -86,7 +86,9 @@ def test_second_cons_manifest_read_rejects_ambiguous_json_before_gcomp_output(
     root, cons = _cons(tmp_path)
     canonical = cons / "manifest.json"
     before = _hashes(root)
-    # The first preview read uses a physical descriptor; the next read_text\n    # belongs to the packaging revalidation and must reject conflicts.\n    original_read_text = Path.read_text
+    # The first preview read uses a physical descriptor; the next read_text
+    # belongs to the packaging revalidation and must reject conflicts.
+    original_read_text = Path.read_text
     seen = {"n": 0}
 
     def conflicting_second_read(self, *args, **kwargs):
