@@ -439,6 +439,7 @@ def test_pt_br_offline_cli_explains_unknown_without_ever_claiming_real_rum(
 def test_settings_read_live_adapter_uses_exact_scoped_get_and_not_redirects():
     from rasai.dynatrace_settings_live_355 import read_live_dynatrace_apdex_settings
     class Reply:
+        headers = {"Content-Type": "application/json; charset=utf-8"}
         def __enter__(self):
             return self
         def __exit__(self, *_):
@@ -517,6 +518,7 @@ def test_settings_read_missing_token_bad_scope_and_pagination_no_false_success()
             )
 
     class Paged:
+        headers = {"Content-Type": "application/json"}
         def __init__(self, payload):
             self.payload = payload
         def __enter__(self):
