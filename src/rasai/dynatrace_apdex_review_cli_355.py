@@ -22,6 +22,38 @@ _FLAG_MAP = {"observed": True, "not-observed": False, "unknown": None}
 _MAX_SNAPSHOT_BYTES = 1024 * 1024
 
 
+def _unique_snapshot_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """A local Settings export with duplicate fields has no unique meaning."""
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate local Settings JSON key")
+        result[key] = value
+    return result
+
+
+def _reject_snapshot_constant(token: str) -> None:
+    raise ValueError("non-JSON numeric constant in local Settings export")
+
+
+def _load_offline_snapshot(path: Path) -> object:
+    """Bounded UTF-8 physical read; never authenticate a partial/changed file."""
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("settings JSON must be a regular local file <= 1 MiB")
+    size = path.stat().st_size
+    if size > _MAX_SNAPSHOT_BYTES:
+        raise ValueError("settings JSON must be a regular local file <= 1 MiB")
+    with path.open("rb") as stream:
+        raw = stream.read(_MAX_SNAPSHOT_BYTES + 1)
+    if len(raw) != size or path.stat().st_size != size or path.is_symlink():
+        raise ValueError("settings JSON changed during physical read")
+    return json.loads(
+        raw.decode("utf-8"),
+        object_pairs_hook=_unique_snapshot_keys,
+        parse_constant=_reject_snapshot_constant,
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Offline Dynatrace RUM Load/XHR/Custom Apdex advisory; no account access."
@@ -86,12 +118,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     input_path = args.settings_json or args.effective_values_json
     if input_path is not None:
         try:
-            if input_path.is_symlink() or not input_path.is_file() or (
-                input_path.stat().st_size > _MAX_SNAPSHOT_BYTES
-            ):
-                parser.error("settings JSON must be a regular local file <= 1 MiB")
-            supplied = json.loads(input_path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeError, ValueError):
+            supplied = _load_offline_snapshot(input_path)
+        except (OSError, UnicodeError, ValueError, TypeError):
             parser.error("settings JSON cannot be read or parsed")
         if not isinstance(supplied, dict):
             parser.error("settings JSON must contain an object")
