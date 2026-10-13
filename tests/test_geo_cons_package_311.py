@@ -383,6 +383,40 @@ def test_gcomp_digest_detects_size_race_during_bounded_physical_read(
         module._file_digest(path)
 
 
+@pytest.mark.parametrize(
+    ("before_bytes", "after_bytes"),
+    [
+        (b"observed-full-payload", b"short"),
+        (b"short", b"observed-full-payload"),
+    ],
+    ids=["physical-truncation-inside-open", "physical-growth-inside-open"],
+)
+def test_gcomp_sha_refuses_file_replacement_between_initial_stat_and_open(
+    tmp_path, monkeypatch, before_bytes, after_bytes,
+):
+    """#311: matching final size and read length cannot erase initial size."""
+    path = tmp_path / "source-race.db"
+    path.write_bytes(before_bytes)
+    original_open = Path.open
+    switched = []
+
+    def racing_open(self, mode="r", *args, **kwargs):
+        if self == path and mode == "rb" and not switched:
+            switched.append(True)
+            with original_open(self, "wb") as target:
+                target.write(after_bytes)
+        return original_open(self, mode, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "open", racing_open)
+        with pytest.raises(ValueError, match="source size changed during verification"):
+            module._file_digest(path)
+
+    assert switched == [True]
+    assert path.read_bytes() == after_bytes
+    assert not list(tmp_path.glob("*.tmp"))
+
+
 def test_native_geo_cons_commands_preserve_cons_and_require_package_opt_in(
     tmp_path, capsys, monkeypatch,
 ):
