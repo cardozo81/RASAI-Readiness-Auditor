@@ -524,6 +524,7 @@ def persist_execution_projection(
     # Additive JSON-only, non-secret console scope. No canonical AUD schema,
     # M23/M25 configuration or historical projection is changed.
     configuration.update(apdex_duration_scope(state))
+    configuration.update(search_ai_duration_scope(state))
     try:
         connection = sqlite3.connect(database, timeout=1.0)
         try:
