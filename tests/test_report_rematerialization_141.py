@@ -189,9 +189,12 @@ def test_rematerialization_allows_transient_shm_change_in_staging(
 
     original_projection = report_completion.materialize_catalog_report_projection
 
-    def projection_with_shm_change(*, audit_id, workspace):
+    def projection_with_shm_change(*, audit_id, workspace, read_only=False):
+        assert read_only is True
         (workspace.root / "audit.db-shm").write_bytes(b"reader-mutated-shm")
-        return original_projection(audit_id=audit_id, workspace=workspace)
+        return original_projection(
+            audit_id=audit_id, workspace=workspace, read_only=read_only,
+        )
 
     monkeypatch.setattr(
         report_completion,
