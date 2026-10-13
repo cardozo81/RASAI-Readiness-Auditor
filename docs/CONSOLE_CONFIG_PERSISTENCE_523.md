@@ -283,3 +283,27 @@ remunerados, a amostra da AUD nem tenant Dynatrace. As flags do inventário
 continuam `NOT_PROVEN_BY_REGISTRY` quando não houver evidência física de
 consumo. Não dispensar o smoke humano consolidado de save/reopen no sistema
 do operador; não solicitar AUD paga somente para reproduzir esse teste.
+
+
+## Ponte fisica entre RESTORE e projeção console (#523, 13/10/2026)
+
+A regressao `tests/test_console_fresh_process_roundtrip_523.py`
+agora exercita **tres interpretadores Python independentes**:
+(1) salvar configuracao do console em INI temporario,
+(2) restaurar em processo novo e validar adapters M23/M25 offline,
+(3) restaurar novamente em outro processo e executar apenas o writer
+real `console_cost.persist_execution_projection` contra banco SQLite
+sintetico temporario. O teste compara as flags CAT-06/CAT-07, numero
+de amostras e arquitetura declarada HYDRATED com os mapas
+`synthetic_apdex_workload` e `apdex_experience_workload` agora
+gravados no JSON do console. O comparador de duracao #319 deve aceitar
+os mesmos parametros e rejeitar alteracao do numero de amostras.
+
+A fonte INI deve permanecer byte a byte igual e nenhum segredo de
+Perplexity ou dados de credenciais Dynatrace pode entrar no objeto
+gravado. O fixture pode criar uma AUD sintetica **somente no diretorio
+temporario do teste**; nao executa browser, M23/M25, Search API,
+Dynatrace live, orquestracao, scoring nem modificacao de auditorias
+existentes. Essa validacao atesta compatibilidade offline de
+serializacao, restauracao e writer console, nao realizacao efetiva
+de amostras ou prova de consumidores externos live.
