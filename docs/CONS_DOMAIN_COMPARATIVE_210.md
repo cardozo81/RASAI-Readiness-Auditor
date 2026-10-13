@@ -328,3 +328,31 @@ confirmam a recusa e a preservação do arquivo de origem.
 A verificação SHA-256 permanece prova de identidade dos bytes locais,
 não prova autoria, frescor remoto, comparabilidade de scores/Apdex ou
 legitimidade de uma consolidação longitudinal entre URLs diferentes.
+
+
+## Estabilidade fisica do indice analitico em previas #210 (13/10/2026)
+
+A previa domain_preview_from_index consulta a base local
+.rasai/consolidated-index.db em modo SQLite ro&immutable=1, mas
+esse modo nao bloqueia substituicao fisica do arquivo ou surgimento
+de WAL enquanto as fontes AUD sao verificadas. Foi acrescentada
+verificacao de st_dev, st_ino, st_size e st_mtime_ns antes da
+consulta e **depois de construir o resultado**. Qualquer alteracao,
+symlink ou sidecar -wal/-shm/-journal aparecendo nesse intervalo
+bloqueia a emissao da previa.
+
+Os descritores SQLite abertos pela previa e pela conferencia
+opt-in de AUDs sao agora fechados explicitamente com
+contextlib.closing, inclusive em excecoes, evitando reter
+handles no Windows. A mudanca nao atualiza o indice,
+nao abre modo de escrita, nao gera CONS nativo e nao
+promove fingerprint por metadados a autenticacao de bytes.
+
+Testes fisicos temporarios simulam substituicao atomica
+por indice de conteudo identico, mudanca de mtime e
+surgimento tardio de WAL, com e sem conferencia da AUD
+original. A previa deve recusar todos os casos.
+A fonte original da AUD e os motores homologados
+permanecem inalterados. Para autenticacao forte de
+conteudo, usar o contrato CDOM-v2 com hashes fisicos
+ja existente; a previa analitica nao atesta isso.
