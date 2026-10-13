@@ -307,3 +307,41 @@ Dynatrace live, orquestracao, scoring nem modificacao de auditorias
 existentes. Essa validacao atesta compatibilidade offline de
 serializacao, restauracao e writer console, nao realizacao efetiva
 de amostras ou prova de consumidores externos live.
+
+
+## Inventario de afinidade declarada SERP e Perplexity (#523, 13/10/2026)
+
+A matriz offline console_configuration_inventory_523.py passa a
+classificar, alem de M23/M25, as entradas de configuracao
+declaradas em search_intelligence.config.SERP_ENV_NAMES e
+SERP_PROVIDER_KEY_ENVS, mais a chave, a habilitacao e os filtros
+reconhecidos pela camada de readiness Perplexity.
+
+As classificacoes sao apenas **afinidades de codigo**:
+SERP_CONFIG_INPUT_DECLARED_NOT_REQUEST_PROOF,
+SERP_PROVIDER_SECRET_DECLARED_NOT_REQUEST_PROOF,
+PERPLEXITY_KEY_READINESS_NOT_REQUEST_CONSENT,
+PERPLEXITY_ACTIVATION_READINESS_NOT_PER_AUD_CONSENT e
+PERPLEXITY_FILTER_READINESS_NOT_PROVIDER_USE_PROOF.
+Nenhuma transforma uma variavel cadastrada no console em
+requisicao SERP/Perplexity fisicamente observada, sucesso de integracao
+ou opt-in faturavel transferido de outra AUD. O campo runtime_consumer
+permanece NOT_PROVEN_BY_REGISTRY sem execucao rastreada,
+e os controles per_aud_provider_consent_proven e
+real_provider_request_coverage_proven permanecem falsos.
+
+O campo search_adapter_surface_coverage conta mapeados e nao
+mapeados contra o catalogo completo; a cobertura
+apdex_adapter_surface_coverage segue **especifica de Apdex**
+e nao infla contagem ao mapear variaveis de busca. O inventario
+continua somente metadados: nao mostra strings de queries,
+valores de filtros, credenciais, URL de tenant ou path do operador.
+O teste focal usa um INI temporario com segredo ficticio, compara
+bytes antes/depois, bloqueia chamadas HTTP e confirma que a
+presenca de chave/ativacao nao herda consentimento Perplexity
+nem prova consumo efetivo.
+
+Isto reduz a lacuna de **inventario estatico** da #523; nao
+substitui o gate de restore real Windows, nem a validacao de
+consumo por coletor, nem uma decisao de produto sobre drafts
+Perplexity nao autorizados.
