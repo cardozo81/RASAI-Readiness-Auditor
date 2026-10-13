@@ -578,3 +578,37 @@ recusam flag nao booleana e verificam coortes de cinco AUDs
 concluidas com configuracoes opcionais iguais/divergentes.
 O forecast segue apenas descritivo: percentis historicos nao
 sao SLA; AI em paralelo nao pode ser somada como tempo de parede.
+
+
+## Fingerprint tipado da carga competitiva CAT-05 (#319)
+
+Igualdade da flag `search_ai_competitive=true` entre auditorias
+nao prova que o trabalho solicitado foi semelhante: duas AUDs podem
+ter contagens de consultas, profundidades ou budgets de extracao
+radicalmente distintos. O forecast de duracao agora **exige**
+`search_ai_competitive_workload` completo e tipado quando a
+analise competitiva com IA esta habilitada. O produtor registra
+somente a forma declarada e limitada do trabalho: contagem de
+queries, profundidade SERP, dispositivo, mercado/idioma,
+presenca de regiao, filtros booleanos de comparacao,
+limites de paginas, bytes e redirects, timeout e modo YMYL.
+`search_queries` e texto de `search_region` **nao entram**
+na configuracao persistida. Dados ausentes, tipos nao
+conformes, valores fora dos limites e mapas com campos
+extras produzem uma coorte nao comparavel, N/D.
+
+Esses valores nao atestam a lista de URLs retornada,
+identidade semantica de consultas, chamadas efetivamente
+realizadas, hardware, modelo IA escolhido ou tempo de
+requisicao comercial. A coorte continua sendo um conjunto
+de AUDs com carga **declarada semelhante**, nao garantia
+de execucao identica. A consulta real, fontes, amostragem,
+latencia de provider e termos de busca continuam privados
+dos metadados de duracao.
+
+O contrato vale somente para novos registros, sem
+reescrever fontes anteriores. Suite isolada verifica
+o produtor e consumidor, tipo/forma completos, mudancas
+de budgets e ausencia de termos de pesquisa e localidade
+no snapshot. Nenhum SERP, Perplexity, M23/M25, scores
+ou AUD produtiva e executado.
