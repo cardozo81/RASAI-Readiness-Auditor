@@ -357,7 +357,7 @@ em objetos aninhados. O guard **não** comprova mercado, dispositivo,
 idioma, intenção nem ranking da fonte externa.
 
 
-## Contrato v6 — interseção de hostnames observados, por consulta (13/10/2026)
+## Contrato v6 - interseção de hostnames observados, por consulta (13/10/2026)
 
 O contrato consultivo `RASAI-GEO-PER-QUERY-304-ADVISORY-006` acrescenta
 `host_overlap` a cada linha `DESCRIPTIVE_ONLY`, **somente após**
