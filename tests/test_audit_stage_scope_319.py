@@ -596,3 +596,76 @@ def test_319_partial_aud_does_not_promote_wrapper_to_initial_session(tmp_path):
     event = response["pipeline_step_timer_evidence"]["by_step"][0]
     assert event["console_window_placement"] == "NOT_PROVEN_IN_INITIAL_WINDOW"
     assert response["non_ai_stages_measured"] is False
+
+
+@pytest.mark.parametrize("case", ("valid", "corrupt", "missing", "partial"))
+def test_319_metrics_wrapper_timer_projection_never_claims_exclusive_clock(
+    tmp_path, monkeypatch, case,
+):
+    """Expose actual wrapper observations, but no partial JSONL or phase claims."""
+    import json
+    from rasai import catalog_report_site as report
+
+    root, db = make_aud(
+        tmp_path, completion="PARTIAL_RETRYABLE" if case == "partial" else "COMPLETE"
+    )
+    event = {
+        "event": "AUDIT_PIPELINE_STEP_FINISHED",
+        "audit_id": AUD,
+        "timestamp": "2026-10-08T10:05:00Z",
+        "phase": "COLLECTION",
+        "step_key": "RENDER",
+        "duration_ms": 2000,
+        "status": "SUCCESS",
+    }
+    if case != "missing":
+        directory = root / "logs"
+        directory.mkdir()
+        log = directory / "audit.log"
+        events = [json.dumps(event) + "\n"]
+        if case == "valid":
+            events += [
+                json.dumps({**event, "audit_id": FOREIGN, "duration_ms": 999000}) + "\n",
+                json.dumps({**event, "timestamp": "2026-10-08T10:26:00Z",
+                            "step_key": "POST_AUD", "duration_ms": 3000}) + "\n",
+            ]
+        if case == "corrupt":
+            events += ["broken JSONL\n"]
+        log.write_text("".join(events), encoding="utf-8")
+        original_log = log.read_bytes()
+    original_db = db.read_bytes()
+
+    monkeypatch.setattr(report, "_audit_hero", lambda *_args: "")
+    monkeypatch.setattr(report, "_catalog_metrics", lambda *_args: {})
+    monkeypatch.setattr(report, "_catalog_metric_rows", lambda *_args: [])
+    monkeypatch.setattr(
+        report, "_section",
+        lambda key, title, body:
+            "<section id='" + key + "'><h2>" + title + "</h2>" + body + "</section>",
+    )
+    monkeypatch.setattr(
+        report, "_table",
+        lambda _headers, rows, **_kwargs: repr(rows),
+    )
+    html = report._metrics_body(db, SimpleNamespace(scores=[], audit_id=AUD))
+    timers_html = html.split("pipeline-wrapper-timers-319", 1)[1].split("</section>", 1)[0]
+    assert "Cronômetros operacionais dos invólucros do pipeline" in timers_html
+    assert "não tempos exclusivos" in timers_html
+    assert "não comprova identidade de execução" in timers_html
+    assert "999.00 s" not in timers_html  # other AUD is never included
+    if case in ("valid", "partial"):
+        assert "2.00 s" in timers_html
+        assert "Sucesso" in timers_html
+        if case == "valid":
+            assert "3.00 s" in timers_html
+            assert "Na janela verificada (log não selado)" in timers_html
+            assert "Vínculo à sessão inicial não comprovado" in timers_html
+        else:
+            assert "Na janela verificada (log não selado)" not in timers_html
+            assert "Vínculo à sessão inicial não comprovado" in timers_html
+    else:
+        assert "Tempos operacionais: N/D" in timers_html
+        assert "2.00 s" not in timers_html  # corrupt log does not leak partial events
+    assert db.read_bytes() == original_db
+    if case != "missing":
+        assert log.read_bytes() == original_log
