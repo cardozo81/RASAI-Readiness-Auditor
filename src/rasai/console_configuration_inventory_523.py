@@ -76,7 +76,7 @@ def _declared_apdex_consumer_surface() -> dict[str, str]:
         if name in (m25_cli.UX_ARCHITECTURE_ENV, m25_cli.UX_PROFILE_MODE_ENV):
             declared[name] = "CAT07_DECLARATIVE_INPUT_NOT_M25_MEASUREMENT"
         elif name == m25_cli.UX_DEVICE_MIX_ENV:
-            declared[name] = "LEGACY_INERT_DEVICE_MIX_DERIVED_FROM_CONSOLE_DEVICE"
+            declared[name] = "INERT_DEVICE_MIX_DERIVED_FROM_CONSOLE_DEVICE"
         else:
             declared[name] = "M25_CLI_INPUT_CANDIDATE_NOT_EXECUTION_PROOF"
     for name in m23_cli.profile_environment_names():
