@@ -406,3 +406,33 @@ token e termos Perplexity nao vazam para INI/UI.
 Bytes do arquivo continuam imutaveis no load/render.
 O gate humano de caminho real Windows ainda e
 necessario para homologacao da #523.
+
+
+## Inventario INI: regravacao fisica de mesmo tamanho (#523)
+
+O leitor **somente de metadados** ja conferia
+`st_dev`, `st_ino`, `st_size` e `st_mtime_ns`
+antes da leitura, no descritor realmente aberto
+e apos a leitura. Em POSIX passa a conferir tambem
+`st_ctime_ns`, para rejeitar regravacoes in-place
+de **mesmo comprimento**, mesmo se o mtime
+foi restaurado pelo processo concorrente.
+
+Em Windows `st_ctime_ns` e creation time e nao
+tem semantica/consistencia garantida entre
+`Path.stat` e `os.fstat`; ele nao participa
+da comparacao, preservando as protecoes portaveis
+anteriores e evitando falso positivo.
+O retorno continua `SOURCE_CHANGED_DURING_READ`
+e `file_readable=false` quando o gate falha;
+nenhum dado de configuracao pode ser apresentado
+como inventariado a partir de uma fonte fisicamente
+contraditoria.
+
+A regressao POSIX em `tmp_path` altera somente
+um parametro de SERP, mantendo bytes totais e
+mtime, sem expor o secret ficticio da fixture.
+A validacao nao le nem salva INI do operador,
+nao inicia AUD, M23/M25, GSC ou chamadas externas;
+como antes, estatisticas locais nao demonstram
+consumo real da configuracao pelo runtime.
