@@ -341,13 +341,17 @@ def _historical_audit(
             return None
         if not {"audit_id", "page_id"}.issubset(page_columns):
             return None
-        audit = conn.execute(
-            "SELECT status, completion_status FROM audits WHERE audit_id=?",
-            (audit_id,),
-        ).fetchone()
+        # A per-AUD database must have exactly one physical lifecycle row.
+        # Filtering by the expected ID first would hide foreign/duplicate
+        # metadata and could admit an ambiguous package into a P90 cohort.
+        audits = conn.execute(
+            "SELECT audit_id, status, completion_status FROM audits LIMIT 2"
+        ).fetchall()
+        if len(audits) != 1 or audits[0]["audit_id"] != audit_id:
+            return None
+        audit = audits[0]
         if (
-            not audit
-            or str(audit["status"] or "").strip().upper() != "COMPLETED"
+            str(audit["status"] or "").strip().upper() != "COMPLETED"
             or str(audit["completion_status"] or "").strip().upper() != "COMPLETE"
         ):
             return None
