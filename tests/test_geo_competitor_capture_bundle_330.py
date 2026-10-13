@@ -932,3 +932,107 @@ def test_cobs_static_text_is_exact_case_sensitive_lexical_only(tmp_path, monkeyp
     assert result["provider_requests"] == result["audit_writes"] == 0
     assert (folder / "audit.db").read_bytes() == before
     assert [role for _, role in calls] == ["CUSTOMER", "COMPETITOR_CANDIDATE"]
+
+
+def test_cobs_pair_standalone_html_is_escaped_and_no_new_http_or_aud_writes(
+    tmp_path, monkeypatch, capsys,
+):
+    from pathlib import Path
+    from rasai.geo_competitor_pair_330 import main as compare_cli
+    folder, target, competitor, db_bytes, calls = _pair_capture(
+        tmp_path, monkeypatch,
+    )
+    first = Path(target["manifest_path"])
+    second = Path(competitor["manifest_path"])
+    first_bytes, second_bytes = first.read_bytes(), second.read_bytes()
+    count = len(calls)
+    assert compare_cli([
+        "--audit-dir", str(folder),
+        "--customer-manifest", str(first),
+        "--competitor-manifest", str(second),
+        "--format", "html",
+    ]) == 0
+    page = capsys.readouterr().out
+    assert "<!doctype html>" in page
+    assert "lang='pt-BR'" in page
+    assert "Comparacao lexical observacional - COBS" in page
+    assert "URL auditada - extrato estatico" in page
+    assert "URL concorrente - extrato estatico" in page
+    assert "Intersecoes lexicais exatas" in page
+    assert "Tipos JSON-LD" in page
+    assert "Mesmo conjunto" not in page  # No inferred content equivalence.
+    assert "Assistência" in page
+    assert "FAQPage" in page
+    assert "3600 segundos" in page
+    assert "grid-template-columns:1fr 1fr" in page
+    assert "@media(max-width:720px)" in page
+    assert "@media print" in page
+    assert "<script" not in page
+    assert "Sem JS, DNS, HTTP, IA" in page
+    assert len(calls) == count
+    assert (folder / "audit.db").read_bytes() == db_bytes
+    assert first.read_bytes() == first_bytes and second.read_bytes() == second_bytes
+    assert not (folder / "report-catalog").exists()
+
+
+def test_cobs_html_renderer_escapes_external_text_without_links_or_markup(
+    tmp_path, monkeypatch,
+):
+    from copy import deepcopy
+    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair_html_330 import render_cobs_static_pair_html
+    folder, customer, competitor, _, calls = _pair_capture(tmp_path, monkeypatch)
+    verified = compare_cobs_static_pair(
+        folder, customer["manifest_path"], competitor["manifest_path"],
+    )
+    injected = deepcopy(verified)
+    tag = '<img src=x onerror="alert(330)">'
+    injected["customer"]["title"] = tag
+    injected["competitor"]["headings"] = ["<script>alert(330)</script>"]
+    injected["observed_heading_text_competitor_only"] = [
+        "<svg onload=alert(330)>",
+    ]
+    injected["observed_jsonld_types_both"] = ['<a href="javascript:alert(330)">X</a>']
+    html = render_cobs_static_pair_html(injected)
+    assert tag not in html
+    assert "<script>alert" not in html
+    assert "<svg onload" not in html
+    assert 'href="javascript:' not in html
+    assert "&lt;img src=x onerror=&quot;alert(330)&quot;&gt;" in html
+    assert "&lt;svg onload=alert(330)&gt;" in html
+    assert "&lt;a href=&quot;javascript:alert(330)&quot;&gt;" in html
+    assert "Content-Security-Policy" in html
+    assert "editorial" in html.lower()
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("tamper", [
+    "fake_score", "fake_primary", "fake_write", "infinite_gap",
+    "wrong_version", "wrong_status", "missing_customer",
+])
+def test_cobs_html_never_promotes_forged_score_or_unverified_content(
+    tmp_path, monkeypatch, tamper,
+):
+    from copy import deepcopy
+    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair_html_330 import render_cobs_static_pair_html
+    folder, customer, competitor, _, _ = _pair_capture(tmp_path, monkeypatch)
+    value = deepcopy(compare_cobs_static_pair(
+        folder, customer["manifest_path"], competitor["manifest_path"],
+    ))
+    if tamper == "fake_score":
+        value["editorial_gap_claim_eligible"] = True
+    elif tamper == "fake_primary":
+        value["rendered_or_primary_content_verified"] = True
+    elif tamper == "fake_write":
+        value["audit_writes"] = 1
+    elif tamper == "infinite_gap":
+        value["html_capture_gap_seconds"] = float("inf")
+    elif tamper == "wrong_version":
+        value["contract_version"] = "COBS-INVENTED"
+    elif tamper == "wrong_status":
+        value["status"] = "EDITORIAL_GAP_PROVEN"
+    else:
+        value.pop("customer")
+    with pytest.raises(ValueError):
+        render_cobs_static_pair_html(value)
