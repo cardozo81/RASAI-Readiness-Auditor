@@ -7,9 +7,11 @@ The result never contains concrete paths, settings, URLs, queries or secrets.
 from __future__ import annotations
 
 import argparse
+from configparser import Error as ConfigError
 from hashlib import sha256
 import os
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Mapping, Any
 
 
@@ -61,16 +63,22 @@ def inspect_apdex_consumers(
             os.environ.update(environ)
         _install_search_persistence()
         install_persistence()
-        state = SearchConsoleState()
-        result = console_settings.load_console_config(state, candidate)
-        if result.created:
-            return {**base, "status": "SOURCE_UNAVAILABLE"}
-        parser = argparse.ArgumentParser(add_help=False)
-        register_apdex_arguments(parser)
-        console_settings.sync_nonsecret_runtime_environment(state)
-        executor_env = dict(os.environ)
-        navigation = configured_apdex(parser.parse_args([]), env=executor_env)
-        experience = peek_pending_config()
+        # Operate on an owned temporary byte-for-byte copy. A deletion or
+        # race on the original file can never trigger the loader's
+        # missing-file auto-create behavior on the operator's real path.
+        with TemporaryDirectory(prefix="rasai-apdex-config-523-") as tmp:
+            copy = Path(tmp) / "operator.ini"
+            copy.write_bytes(original_bytes)
+            state = SearchConsoleState()
+            result = console_settings.load_console_config(state, copy)
+            if result.created:
+                return {**base, "status": "SOURCE_UNAVAILABLE"}
+            parser = argparse.ArgumentParser(add_help=False)
+            register_apdex_arguments(parser)
+            console_settings.sync_nonsecret_runtime_environment(state)
+            executor_env = dict(os.environ)
+            navigation = configured_apdex(parser.parse_args([]), env=executor_env)
+            experience = peek_pending_config()
         try:
             if sha256(candidate.read_bytes()).digest() != digest:
                 return {**base, "status": "SOURCE_CHANGED"}
@@ -78,7 +86,7 @@ def inspect_apdex_consumers(
             return {**base, "status": "SOURCE_CHANGED"}
         return {
             **base,
-            "status": "ADAPTERS_VALIDATED_WITH_LOAD_WARNINGS" if result.warnings else "ADAPTERS_VALIDATED_OFFLINE",
+            "status": "ADAPTERS_PARTIAL_LOAD_WARNINGS" if result.warnings else "ADAPTERS_VALIDATED_OFFLINE",
             "active_m23": bool(navigation.enabled),
             "active_m25": bool(experience.enabled),
             "single_device_enforced": (
@@ -87,7 +95,7 @@ def inspect_apdex_consumers(
             ),
             "load_warning_count": len(result.warnings),
         }
-    except (OSError, ValueError, TypeError, OverflowError):
+    except (OSError, UnicodeError, ConfigError, ValueError, TypeError, OverflowError):
         return {**base, "status": "CONFIG_OR_ADAPTER_INVALID"}
     finally:
         os.environ.clear()
