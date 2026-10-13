@@ -115,3 +115,36 @@ def test_equal_origin_with_explicit_standard_https_port_can_be_reviewed():
     assert assess_same_domain_pair(a, b)["status"] == (
         "ELIGIBLE_FOR_DESCRIPTIVE_SAME_HOST_REVIEW_ONLY"
     )
+
+
+@pytest.mark.parametrize(
+    "candidate_url",
+    [
+        "https://www.example.org/product-a#reviews",
+        "https://www.example.org:443/product-a#section",
+        "https://WWW.EXAMPLE.ORG./product-a#other",
+    ],
+)
+def test_html_fragments_do_not_create_independent_page_universes(candidate_url):
+    a = candidate("AUD-A", "https://www.example.org/product-a")
+    b = candidate("AUD-B", candidate_url, time="2026-10-09T12:00:00Z")
+    result = assess_same_domain_pair(a, b)
+    assert result["status"] == "NOT_ELIGIBLE"
+    assert result["reason"] == "SAME_URL_USE_EXISTING_LONGITUDINAL_CONS"
+
+
+def test_incorrect_python_types_in_source_candidate_fail_closed():
+    a = candidate("AUD-A", "https://www.example.org/product-a")
+    b = replace(candidate("AUD-B", "https://www.example.org/product-b",
+                          time="2026-10-09T12:00:00Z"), device=None)
+    assert assess_same_domain_pair(a, b)["reason"] == "DEVICE_NOT_PROVEN"
+    assert assess_same_domain_pair(a, None)["reason"] == "CANDIDATE_SOURCE_NOT_PROVEN"
+    wrong_status = replace(b, device="MOBILE", status=None)
+    assert assess_same_domain_pair(a, wrong_status)["reason"] == "SOURCE_AUD_NOT_COMPLETE"
+
+
+def test_aware_offsets_same_absolute_instant_are_not_a_chronological_pair():
+    a = candidate("AUD-A", "https://www.example.org/product-a")
+    b = candidate("AUD-B", "https://www.example.org/product-b",
+                  time="2026-10-08T08:00:00-03:00")
+    assert assess_same_domain_pair(a, b)["reason"] == "CHRONOLOGY_NOT_ORDERABLE"
