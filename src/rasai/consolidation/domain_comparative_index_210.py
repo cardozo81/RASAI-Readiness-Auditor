@@ -6,6 +6,7 @@ authoritative freshness attestation of audit.db sources.
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import json
 from pathlib import Path
 import re
@@ -20,6 +21,18 @@ from rasai.consolidation.selection import AuditCandidate
 _AUD = re.compile(r"^AUD-[A-Za-z0-9-]{1,100}$")
 _SOURCE_FINGERPRINT = re.compile(r"^[a-fA-F0-9]{64}$")
 _SCHEMA_VERSION = 1
+
+
+def _index_stamp(index: Path) -> tuple[int, int, int, int] | None:
+    """Physical identity only; not a cryptographic byte seal."""
+    try:
+        if index.is_symlink() or index.parent.is_symlink() or not index.is_file():
+            return None
+        stat = index.stat()
+        return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns)
+    except OSError:
+        return None
+
 
 
 def _verify_indexed_source(
@@ -44,10 +57,10 @@ def _verify_indexed_source(
         raise ValueError("physical AUD source has unverified SQLite sidecars")
     if source_file_fingerprint(source) != index_fingerprint.lower():
         raise ValueError("indexed AUD source metadata fingerprint mismatch")
-    with sqlite3.connect(
+    with closing(sqlite3.connect(
         source.resolve().as_uri() + "?mode=ro&immutable=1",
         uri=True, timeout=2,
-    ) as con:
+    )) as con:
         con.execute("PRAGMA query_only=ON")
         required = {"audit_id", "status", "completion_status"}
         if not required.issubset(_columns(con, "audits")):
@@ -97,7 +110,14 @@ def domain_preview_from_index(
     if any((db.parent / (db.name + suffix)).exists() for suffix in ("-wal", "-shm", "-journal")):
         raise ValueError("analytical index has active or unverified SQLite sidecars")
 
-    with sqlite3.connect(db.resolve().as_uri() + "?mode=ro&immutable=1", uri=True, timeout=3) as con:
+    # immutable=1 is not a physical file lock. Do not use index rows when
+    # the file identity/mtime changes before completing the full preview.
+    index_before = _index_stamp(db)
+    if index_before is None:
+        raise ValueError("analytical index physical source not stable")
+    with closing(sqlite3.connect(
+        db.resolve().as_uri() + "?mode=ro&immutable=1", uri=True, timeout=3,
+    )) as con:
         con.row_factory = sqlite3.Row
         con.execute("PRAGMA query_only=ON")
         version = con.execute("PRAGMA user_version").fetchone()[0]
@@ -189,6 +209,12 @@ def domain_preview_from_index(
             "Não é relatório CONS nem série temporal da mesma URL."
         ),
     }
+    if (
+        _index_stamp(db) != index_before
+        or any(Path(str(db) + suffix).exists()
+               for suffix in ("-wal", "-shm", "-journal"))
+    ):
+        raise ValueError("analytical index changed during read-only preview")
     return result
 
 
