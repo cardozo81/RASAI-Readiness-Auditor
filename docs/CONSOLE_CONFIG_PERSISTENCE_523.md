@@ -1,4 +1,4 @@
-# RASAi — contrato de persistência de configurações do console (#523)
+# RASAi - contrato de persistência de configurações do console (#523)
 
 ## Escopo e fontes verificáveis
 
@@ -23,7 +23,7 @@ Os valores não sensíveis persistidos provêm de
 | Chaves, tokens, senhas, DSNs com credenciais | Secret store / ambiente protegido | **Não gravados no INI** | Conforme mecanismo seguro, independente do INI | Não |
 | Seleção explícita de chamadas potencialmente faturáveis | Interação/autorização da AUD corrente | Controle de execução e evidências da AUD | Não transferível entre AUDs | Somente para a AUD autorizada |
 
-## CAT-06 / CAT-07 — round-trip e execução efetiva
+## CAT-06 / CAT-07 - round-trip e execução efetiva
 
 O teste isolado `tests/test_console_persistence_matrix_523.py` exercita
 valores **não default** para os parâmetros de Navigation Apdex e Experience
