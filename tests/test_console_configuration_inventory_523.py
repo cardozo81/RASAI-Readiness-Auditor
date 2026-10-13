@@ -719,8 +719,8 @@ def test_523_core_console_runtime_input_affinity_is_static_and_safe(
     monkeypatch.setattr(socket, "create_connection", no_network)
     source = tmp_path / "core-configuration.ini"
     source.write_text(
-        "[environment]\\nRASAI_WEB_PERFORMANCE=true\\n"
-        "OPENAI_API_KEY=SHOULD_NOT_BE_IN_OUTPUT\\n",
+        "[environment]\nRASAI_WEB_PERFORMANCE=true\n"
+        "OPENAI_API_KEY=SHOULD_NOT_BE_IN_OUTPUT\n",
         encoding="utf-8",
     )
     original = source.read_bytes()
