@@ -324,3 +324,31 @@ na fonte nao comprova que a captura esteja desabilitada.
 A saida e somente consultiva. Nenhum parametro e aplicado ao
 Dynatrace, M23/M25 Synthetic, score ou banco AUD/CONS. Tests offline
 cobrem SPA, SSR, mixed, hydrated, Custom e arquitetura desconhecida.
+
+
+## Projeção de referência na página CAT-07 (13/10/2026)
+
+`cat-07.html`, por meio do aconselhamento arquitetural read-only,
+passa a trazer uma seção expansível **Referência de KPMs Dynatrace RUM
+por tipo de ação (não aplicada)** quando a arquitetura única é
+identificada na captura M6 da AUD. O menu mostra os enums aceitos pelo
+fornecedor para Load, XHR e Custom, consumindo o contrato determinístico
+`KPM_BY_ACTION` já utilizado pelo advisory #355, sem defaults de métricas
+ou limites numéricos.
+
+Para CSR_SPA, HYDRATED e MIXED, Load é avaliado no carregamento inicial;
+XHR é somente **candidato à investigação** caso soft navigation e
+instrumentação XHR/Fetch sejam efetivamente comprovadas. Para
+STATIC_OR_SSR, XHR não é presumido. Custom pressupõe instrumentação
+explicitamente comprovada. `UNKNOWN` resulta em orientação N/D, sem
+tabela de seleção contextual. O relatório não acessa o tenant nem afirma
+que uma KPM ou população real foi observada: configuração vigente,
+thresholds e fallback Dynatrace permanecem **N/D**.
+
+A nova projeção é independente dos valores Synthetic M23/M25,
+não modifica AUD, score, configuração ou chamadas de rede.
+As fixtures abrangem as quatro arquiteturas conhecidas e UNKNOWN,
+verificam que a lista de KPMs não vira uma prescrição e que
+os bytes `audit.db` permanecem idênticos após renderização.
+A validação live/autorizada, URL/device/janela e população RUM
+continua pendente no gate humano da issue.
