@@ -338,6 +338,35 @@ def test_console_monetary_preview_stays_intact_with_separate_duration_layer(tmp_
 
 
 
+def test_forecast_rejects_physical_aud_with_foreign_lifecycle_metadata(
+    tmp_path,
+):
+    """#319: selecting a valid row must not hide a second foreign AUD identity."""
+    state = _state(tmp_path)
+    dbs = [_audit(tmp_path, i, duration=600_000 + 1000 * i) for i in range(5)]
+    initial = forecast_local_duration(state, target_pages=1)
+    assert initial.available and initial.sample_runs == 5
+
+    corrupted = dbs[0]
+    with sqlite3.connect(corrupted) as con:
+        con.execute(
+            "INSERT INTO audits(audit_id,status,completion_status) "
+            "VALUES ('AUD-FOREIGN-IDENTITY','COMPLETED','COMPLETE')"
+        )
+    originals = {str(db): sha256(db.read_bytes()).hexdigest() for db in dbs}
+    assert _historical_audit(corrupted, state, 1) is None
+
+    projection = forecast_local_duration(state, target_pages=1)
+    assert projection.available is False
+    assert projection.sample_runs == 4
+    assert projection.total is None
+    assert projection.ai_stages == ()
+    assert projection.total_p90_backtest is None
+    assert projection.forward_p90_backtest is None
+    assert "4/5" in " ".join(projection.notes)
+    assert {str(db): sha256(db.read_bytes()).hexdigest() for db in dbs} == originals
+
+
 def test_completed_but_logically_partial_never_enters_forecast_cohort(tmp_path):
     # Lifecycle COMPLETED can coexist with a partial diagnostic outcome.
     # A status-only filter would falsely learn from this incomplete sample.
