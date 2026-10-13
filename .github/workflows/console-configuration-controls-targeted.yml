@@ -20,6 +20,7 @@ on:
       - 'tests/test_console_persistence_matrix_523.py'
       - 'tests/test_console_config_provenance_523.py'
       - 'src/rasai/console_configuration_inventory_523.py'
+      - 'src/rasai/console_apdex_effective_validation_523.py'
       - 'tests/test_console_configuration_inventory_523.py'
       - 'src/rasai/console_config_provenance_523.py'
       - 'src/rasai/interactive_console.py'
