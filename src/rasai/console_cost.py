@@ -508,6 +508,18 @@ def persist_execution_projection(
         "field_source": state.field_source,
         "max_pages": state.max_pages,
     }
+    # Record the *actual* optional console workload gates for this execution.
+    # Until now the duration estimator refused any active optional workload
+    # because the historical producer omitted these flags altogether. Never
+    # coerce None/string/missing state to False: unknown remains unrecorded
+    # and the read-only estimator abstains instead of claiming comparability.
+    # This persists only booleans, never query content or provider secrets.
+    for optional_flag in (
+        "improvement_enabled", "search_ai_competitive", "technical_remediation",
+    ):
+        value = getattr(state, optional_flag, None)
+        if type(value) is bool:
+            configuration[optional_flag] = value
     # Additive JSON-only, non-secret console scope. No canonical AUD schema,
     # M23/M25 configuration or historical projection is changed.
     configuration.update(apdex_duration_scope(state))
