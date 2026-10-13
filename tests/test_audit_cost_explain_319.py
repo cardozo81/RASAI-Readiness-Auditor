@@ -48,6 +48,41 @@ def test_absent_or_invalid_forecast_does_not_invent_cost():
     assert "dentro da faixa" not in html
 
 
+import pytest
+
+
+@pytest.mark.parametrize("invalid", [-0.01, float("-inf"), True])
+def test_invalid_observed_cost_is_not_reported_inside_forecast_range(invalid):
+    html = forecast_readout(
+        {"expected_cost": .1, "likely_low": 0, "likely_high": .2,
+         "potential": .3},
+        observed_total=invalid, priced_attempts=1, total_attempts=1,
+    )
+    assert "Posição do custo na faixa histórica: N/D" in html
+    assert "dentro da faixa histórica provável" not in html
+    assert "Desvio frente à estimativa pontual" not in html
+
+
+@pytest.mark.parametrize("invalid_field", ["expected_cost", "likely_low", "likely_high"])
+def test_negative_forecast_money_never_produces_false_interval_claim(
+    invalid_field,
+):
+    forecast = {
+        "expected_cost": .1, "likely_low": .05,
+        "likely_high": .2, "potential": .3,
+    }
+    forecast[invalid_field] = -1
+    html = forecast_readout(
+        forecast, observed_total=.15, priced_attempts=1, total_attempts=1,
+    )
+    if invalid_field in ("likely_low", "likely_high"):
+        assert "Posição do custo na faixa histórica: N/D" in html
+        assert "dentro da faixa histórica provável" not in html
+    else:
+        assert "Desvio frente à estimativa pontual" not in html
+    assert "nan%" not in html.lower()
+
+
 def test_explicit_zero_value_is_covered_and_no_other_aud_leaks(tmp_path):
     db = tmp_path / "audit.db"
     with sqlite3.connect(db) as con:
