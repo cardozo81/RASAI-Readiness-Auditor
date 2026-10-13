@@ -269,7 +269,7 @@ O companion `geo_cons_companion_311` continua estritamente offline, sem
 injetar resultados em `CONS-3`. Sua entrada `manifest.json` agora
 passa por leitura limitada a 1 MiB com conferencia do arquivo antes da
 abertura, do descriptor aberto e do caminho depois da leitura. A
-comparacao inclui identidade do arquivo, tamanho, mtime e ctime, alem
+comparacao inclui identidade do arquivo, tamanho e mtime, alem
 da quantidade de bytes realmente obtida. Crescimento, substituicao,
 symlink ou arquivo maior que o limite impedem qualquer selecao de
 AUDs para comparacao consultiva. O JSON tambem passa a rejeitar
@@ -287,3 +287,24 @@ Testes locais simulam mudanca fisica entre o stat e a abertura,
 arquivo maior que o budget, constantes JSON nao padronizadas e
 manifesto estavel, conferindo ausencia de leitura de AUD diante
 das entradas invalidas e preservacao dos bytes originais do fixture.
+
+
+## Compatibilidade Windows do selo de manifesto CONS (#311, 13/10/2026)
+
+Na leitura fisica do `manifest.json`, a verificacao de `st_ctime_ns`
+e aplicada em sistemas POSIX. No Windows, esse campo pode representar
+creation time e divergir entre `fstat` do descritor e `Path.stat`
+do caminho para o mesmo arquivo estavel. Um falso positivo
+`CONS manifest changed during read` interrompia a geracao do
+companion GCOMP no job de CI Windows. O leitor preserva nesse sistema
+os controles `st_dev`, `st_ino`, `st_size`, `st_mtime_ns`,
+leitura limitada e verificacao de symlink; nao confunde birth time
+com uma alteracao de conteudo. Em POSIX, o gate de ctime continua.
+
+A regressao de JSON ambiguo do pacote GCOMP agora intercepta
+a segunda leitura fisica, nao o segundo `Path.read_text` (a primeira
+e realizada com `Path.open('rb')` e checagem do descritor).
+Com isso, substituicoes contraditorias de `cons_id`,
+`source_audits` ou `audit_id` continuam bloqueadas antes
+de materializar um novo artefato. Nenhuma alteracao no CONS
+nativo, nos motores ou em auditorias historicas.
