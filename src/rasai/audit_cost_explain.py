@@ -12,12 +12,15 @@ from typing import Any, Mapping
 
 
 def _number(value: Any) -> float | None:
+    """Costs are finite, nonnegative amounts; booleans are not prices."""
+    if isinstance(value, bool):
+        return None
     try:
         if value is None or str(value).strip() == "":
             return None
         number = float(value)
-        return number if isfinite(number) else None
-    except (ValueError, TypeError):
+        return number if isfinite(number) and number >= 0 else None
+    except (ValueError, TypeError, OverflowError):
         return None
 
 

@@ -325,3 +325,16 @@ pelo limite mínimo do forecast, em vez de publicar P90 enganoso.
 Quatro fixtures SQLite validam a exclusão seletiva, sem redes,
 escritas do leitor, ajuste pós-fato de pricing ou alteração do
 motor de auditoria.
+
+
+## Validade dos valores monetarios no explicador (12/10/2026)
+
+O explicador consultivo do forecast de custo somente considera
+montantes finitos e nao negativos. Valores booleanos, negativos ou
+infinitos nao representam despesas monetarias verificadas e devem
+resultar em posicao de faixa N/D e ausencia de desvio percentual
+calculado sobre esse valor. Um custo zero explicito permanece valido
+quando o ledger comprova cobertura monetaria, e o rotulo de desvio
+pontual continua distinto do intervalo historico. Testes isolados
+nao recalculam precos, estimativas nem tokens e nao fazem consultas
+a provedores.
