@@ -14,7 +14,9 @@ import shutil
 import tempfile
 from typing import Any, Sequence
 
-from rasai.geo_cons_companion_311 import build_cons_geo_advisory
+from rasai.geo_cons_companion_311 import (
+    build_cons_geo_advisory, _unique_cons_manifest_keys,
+)
 from rasai.geo_longitudinal_html_311 import render_geo_longitudinal_html
 
 _MAX_SOURCE_BYTES = 256 * 1024 * 1024
@@ -68,7 +70,17 @@ def materialize_cons_geo_companion(
     report = cons / "report.html"
     source_manifest_digest = _file_digest(canonical)
     source_report_digest = _file_digest(report)
-    doc = json.loads(canonical.read_text(encoding="utf-8"))
+    # A second independent manifest read must reject the same ambiguous JSON
+    # rejected by the preview, including nested source AUD key collisions.
+    # Otherwise a concurrent or injected second read can change the source
+    # inventory after its first authenticated-looking interpretation.
+    try:
+        doc = json.loads(
+            canonical.read_text(encoding="utf-8"),
+            object_pairs_hook=_unique_cons_manifest_keys,
+        )
+    except (UnicodeError, ValueError, TypeError):
+        raise ValueError("CONS source manifest JSON invalid during packaging") from None
     source_ids = [item["audit_id"] for item in doc["source_audits"]]
     file_hashes: dict[str, str | None] = {}
     for audit_id in source_ids:

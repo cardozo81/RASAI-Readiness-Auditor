@@ -76,6 +76,49 @@ def test_versioned_geo_package_is_idempotent_and_does_not_rewrite_cons(tmp_path)
     assert list((root/"consolidated").glob("CONS-*")) == [cons]
 
 
+@pytest.mark.parametrize("collision", [
+    "cons_id", "source_audits", "nested_audit_id",
+])
+def test_second_cons_manifest_read_rejects_ambiguous_json_before_gcomp_output(
+    tmp_path, monkeypatch, collision,
+):
+    """#311: preview and package must not disagree on physical source identity."""
+    root, cons = _cons(tmp_path)
+    canonical = cons / "manifest.json"
+    before = _hashes(root)
+    original_read_text = Path.read_text
+    seen = {"n": 0}
+
+    def conflicting_second_read(self, *args, **kwargs):
+        raw = original_read_text(self, *args, **kwargs)
+        if self != canonical:
+            return raw
+        seen["n"] += 1
+        if seen["n"] != 2:
+            return raw
+        if collision == "nested_audit_id":
+            forged = raw.replace(
+                '"audit_id": "AUD-LEFT"',
+                '"audit_id": "AUD-LEFT", "audit_id": "AUD-OTHER"',
+            )
+        elif collision == "cons_id":
+            forged = raw[:-1] + ',"cons_id":"CONS-OTHER"}'
+        else:
+            forged = (
+                raw[:-1] + ',"source_audits":['
+                '{"audit_id":"AUD-LEFT"},{"audit_id":"AUD-MISSING"}]}'
+            )
+        assert isinstance(json.loads(forged), dict)
+        return forged
+
+    monkeypatch.setattr(Path, "read_text", conflicting_second_read)
+    with pytest.raises(ValueError, match="CONS source manifest JSON invalid"):
+        module.materialize_cons_geo_companion(cons, root)
+    assert seen["n"] == 2
+    assert not (root / "consolidated-geo-companions").exists()
+    assert _hashes(root) == before
+
+
 def test_absent_source_aud_is_explicit_nd_not_forged(tmp_path):
     root, cons = _cons(tmp_path, missing_second=True)
     item = module.materialize_cons_geo_companion(cons, root)
