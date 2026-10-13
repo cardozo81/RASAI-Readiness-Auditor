@@ -595,3 +595,67 @@ def test_355_cat07_without_architecture_proof_does_not_publish_kpm_options(tmp_p
     assert "Consultar KPMs possíveis" not in section
     assert "CUMULATIVE_LAYOUT_SHIFT" not in section
     assert db.read_bytes() == before
+
+
+def test_cat07_source_metadata_drift_during_sqlite_projection_abstains(
+    tmp_path, monkeypatch,
+):
+    """A second matching sidecar check cannot certify an altered AUD source."""
+    from rasai import cat07_architecture_reporting_358 as presentation
+    db = tmp_path / "audit.db"
+    _db(db, cfg={"kpm": "USER_ACTION_DURATION",
+                 "satisfied_threshold_seconds": 3.0,
+                 "frustrated_threshold_seconds": 12.0})
+    physical = db.read_bytes()
+    original = presentation._source_stamp
+    seen = []
+
+    def substituted_stamp(path):
+        value = original(path)
+        if path == db:
+            seen.append(True)
+            if len(seen) == 2 and value is not None:
+                return (*value[:3], value[3] + 2_000_000_000)
+        return value
+
+    monkeypatch.setattr(presentation, "_source_stamp", substituted_stamp)
+    html = presentation.cat07_architecture_advice_html(db, "AUD-1")
+    assert seen == [True, True]
+    assert "Fonte SQLite não estável" in html
+    assert "snapshot <code>SNP-1</code>" not in html
+    assert "Adequação ao objetivo medido" not in html
+    assert db.read_bytes() == physical
+
+
+def test_cat07_missing_source_does_not_create_sqlite_or_infer_architecture(tmp_path):
+    absent = tmp_path / "missing.db"
+    html = cat07_architecture_advice_html(absent, "AUD-1")
+    assert "Fonte SQLite não estável" in html
+    assert "Configuração efetiva:</strong> N/D" in html
+    assert not absent.exists()
+
+
+def test_cat07_directory_symlink_cannot_expose_unrelated_aud_advisory(
+    tmp_path, monkeypatch,
+):
+    from rasai import cat07_architecture_reporting_358 as presentation
+    physical = tmp_path / "physical"
+    physical.mkdir()
+    db = physical / "audit.db"
+    _db(db, cfg={"kpm": "USER_ACTION_DURATION",
+                 "satisfied_threshold_seconds": 3.0,
+                 "frustrated_threshold_seconds": 12.0})
+    alias = tmp_path / "alias"
+    try:
+        alias.symlink_to(physical, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"cannot create symlink: {exc}")
+    raw = db.read_bytes()
+    monkeypatch.setattr(
+        presentation.sqlite3, "connect",
+        lambda *a, **kw: pytest.fail("must not open a symlinked AUD source"),
+    )
+    html = presentation.cat07_architecture_advice_html(alias / "audit.db", "AUD-1")
+    assert "Fonte SQLite não estável" in html
+    assert "snapshot <code>SNP-1</code>" not in html
+    assert db.read_bytes() == raw
