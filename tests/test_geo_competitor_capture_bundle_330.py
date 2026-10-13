@@ -721,6 +721,51 @@ def test_cobs_pair_refuses_rehashed_manifest_with_duplicate_json_keys(
     assert (folder / "audit.db").read_bytes() == original
 
 
+@pytest.mark.parametrize(
+    ("token", "site"),
+    [
+        ("NaN", "root"),
+        ("Infinity", "root"),
+        ("-Infinity", "root"),
+        ("NaN", "capture"),
+    ],
+)
+def test_cobs_pair_rejects_rehashed_manifest_with_non_json_constants(
+    tmp_path, monkeypatch, token, site,
+):
+    """#330: SHA rehashing cannot turn invalid JSON into valid COBS evidence."""
+    from pathlib import Path
+    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+
+    folder, customer, competitor, aud_bytes, calls = _pair_capture(
+        tmp_path, monkeypatch,
+    )
+    raw = Path(competitor["manifest_path"]).read_bytes()
+    number = token.encode("ascii")
+    if site == "root":
+        raw = raw.rstrip()[:-1] + b', "unverified": ' + number + b"}"
+    else:
+        raw = raw.replace(
+            b'"capture": {',
+            b'"capture": {"unverified": ' + number + b",",
+            1,
+        )
+    # Python's permissive JSON decoder accepts the nonstandard tokens,
+    # whereas physical COBS JSON must be strictly conformant.
+    assert isinstance(json.loads(raw), dict)
+    package_id = "COBS-" + sha256(raw).hexdigest()[:32].upper()
+    suspect = tmp_path / "invalid-json-sidecars" / package_id / "manifest.json"
+    suspect.parent.mkdir(parents=True)
+    suspect.write_bytes(raw)
+    prior_requests = len(calls)
+    with pytest.raises(ValueError, match="COBS manifest JSON invalid"):
+        compare_cobs_static_pair(
+            folder, customer["manifest_path"], suspect,
+        )
+    assert len(calls) == prior_requests
+    assert (folder / "audit.db").read_bytes() == aud_bytes
+
+
 def test_cobs_pair_fails_on_changed_physical_aud(tmp_path, monkeypatch):
     from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
     folder, target, competitor, _, _ = _pair_capture(tmp_path, monkeypatch)
