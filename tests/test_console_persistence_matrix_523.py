@@ -185,3 +185,80 @@ def test_legacy_ini_does_not_auto_authorize_optional_perplexity(tmp_path) -> Non
         assert state.perplexity_last_status == "NOT_REQUESTED"
         # Activation restored, but intent for a new paid request remains absent.
         assert os.environ.get("RASAI_PERPLEXITY_ENABLED") == "true"
+
+
+def test_saved_apdex_inputs_are_consumed_by_real_m23_m25_config_adapters_without_aud(tmp_path) -> None:
+    """Prove consumption after restore, not merely an environment string roundtrip."""
+    import argparse
+    from rasai.m23_cli import configured_apdex, register_apdex_arguments
+    from rasai.m25_runtime import peek_pending_config, set_pending_config
+    from rasai.m25_apdex_experience import ExperienceApdexConfig
+
+    _install_config_contract()
+    with patch.dict(os.environ, {}, clear=True):
+        before = _nondefault_apdex_state()
+        # This scenario tests the custom offline KPM path, never Dynatrace live.
+        before.apdex_dynatrace_import = False
+        before.dynatrace_base_url = ""
+        before.dynatrace_application_id = ""
+        before.apdex_dynatrace_config_json = ""
+        before.apdex_experience_profile_mode = "CUSTOM"
+        before.apdex_experience_kpm = "USER_ACTION_DURATION"
+        before.apdex_experience_satisfied = 2.5
+        before.apdex_experience_frustrated = 9.0
+        path = tmp_path / "restored.ini"
+        console_settings.save_console_config(before, path)
+        physical_before = path.read_bytes()
+        os.environ.clear()
+
+        after = SearchConsoleState()
+        result = console_settings.load_console_config(after, path)
+        assert result.warnings == ()
+        assert after.apdex_experience_architecture == "CSR_SPA"
+        assert after.apdex_experience_profile_mode == "CUSTOM"
+        console_settings.sync_nonsecret_runtime_environment(after)
+        env = dict(os.environ)
+
+        cli = argparse.ArgumentParser()
+        register_apdex_arguments(cli)
+        arguments = cli.parse_args([])
+        try:
+            navigation = configured_apdex(arguments, env=env)
+            experience = peek_pending_config()
+            assert navigation.enabled is True
+            assert navigation.threshold_seconds == 2.1
+            assert navigation.target_valid_samples == 7
+            assert navigation.max_attempts_per_context == 13
+            assert navigation.max_pages == 2
+            assert navigation.timeout_seconds == 48.0
+            assert navigation.delay_seconds == 1.5
+            assert navigation.concurrency == 2
+
+            assert experience.enabled is True
+            assert experience.target_samples_per_page == 9
+            assert experience.max_attempts_per_page == 17
+            assert experience.max_pages == 2
+            assert experience.device_mix_dict() == {"DESKTOP": 100.0}
+            assert experience.session_mode == "warm"
+            assert experience.kpm == "USER_ACTION_DURATION"
+            assert experience.satisfied_threshold_seconds == 2.5
+            assert experience.frustrated_threshold_seconds == 9.0
+            assert experience.errors_affect_apdex is False
+            assert experience.javascript_errors_affect_apdex is False
+            assert experience.request_errors_affect_apdex is True
+            assert experience.console_errors_affect_apdex is False
+            assert experience.javascript_error_capture is True
+            assert experience.xhr_capture is False
+            assert experience.fetch_capture is True
+            assert experience.console_error_capture is False
+            assert experience.max_error_details == 8
+            assert experience.error_scope == "first-party"
+            assert experience.settle_seconds == 4.5
+            assert experience.delay_seconds == 1.25
+            assert experience.concurrency == 2
+            assert experience.dynatrace_import is False
+            assert env["RASAI_APDEX_EXPERIENCE_ARCHITECTURE"] == "CSR_SPA"
+            assert env["RASAI_APDEX_EXPERIENCE_PROFILE_MODE"] == "CUSTOM"
+            assert physical_before == path.read_bytes()
+        finally:
+            set_pending_config(ExperienceApdexConfig(enabled=False))
