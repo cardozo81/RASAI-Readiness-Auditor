@@ -302,3 +302,18 @@ O resultado e `NOT_COMPARABLE`, `queries=[]`, atribuicao `NOT_VERIFIED`,
 identidade do alvo N/D e fingerprint `UNVERIFIED`. Duas regressoes
 offline exercitam source drift e sidecar surgido no intervalo, sem alterar
 motores, custos ou fatos persistidos.
+
+## Proteção adicional de provenance SERP (#304, 13/10/2026)
+
+Se duas amostras SERP observadas da mesma query aparecem na janela de 24h,
+mas uma delas não fornece o escopo completo de engine, país, região, idioma
+ou dispositivo, o comparativo daquela query retorna
+`SERP_SCOPE_INCOMPLETE_ALONGSIDE_VERIFIED_SAMPLE` e nenhum valor numérico.
+A amostra íntegra mais próxima não pode ocultar a existência de outra amostra
+real incompleta e mudar silenciosamente a população analisada.
+
+Essa contenção não contamina consultas independentes e não considera amostras
+fora da janela temporal. Os testes físicos usam SQLite somente leitura,
+conferem os bytes do `audit.db` e não invocam SERP/Perplexity nem GEO live.
+Ela não prova equivalência de mercado, idioma, device ou intenção dos resultados
+externos Perplexity: os critérios metodológicos remanescentes da issue ficam abertos.
