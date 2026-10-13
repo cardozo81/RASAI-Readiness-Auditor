@@ -195,6 +195,49 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
                 wrapper_rows,
             ),
         )
+    # #319: render existing operational wrapper timers as a SEPARATE
+    # low-trust diagnostic surface. Never mix these events with sealed
+    # fulfillment evidence, exclusive phase wall-clock, AI or HTTP sums.
+    # Corrupt/incomplete JSONL must not leak partially decoded durations.
+    timers = (measured or {}).get("pipeline_step_timer_evidence") or {}
+    if measured is not None:
+        timer_status = timers.get("status", "NOT_AVAILABLE")
+        timer_rows = []
+        if timer_status == "OBSERVED_UNSEALED_WRAPPER_TIMERS":
+            placement = {
+                "WITHIN_VERIFIED_WINDOW_UNSEALED": "Na janela verificada (log não selado)",
+                "NOT_PROVEN_IN_INITIAL_WINDOW": "Vínculo à sessão inicial não comprovado",
+            }
+            for item in timers.get("by_step", []):
+                timer_rows.append((
+                    item["phase"].replace("_", " ").title(),
+                    item["step_key"].replace("_", " ").title(),
+                    "Sucesso" if item["operation_status"] == "SUCCESS" else "Erro",
+                    f'{item["observed_monotonic_wrapper_ms"] / 1000:.2f} s',
+                    placement.get(item["console_window_placement"], "N/D"),
+                    item["recorded_at_utc"],
+                ))
+        body += _section(
+            "pipeline-wrapper-timers-319",
+            "Cronômetros operacionais dos invólucros do pipeline",
+            "<p>Fonte: logs/audit.log da própria AUD. São durações monotônicas "
+            "observadas no invólucro de cada operação, não tempos exclusivos "
+            "de fases nem evidência selada. Operações podem se sobrepor, "
+            "aninharem-se ou pertencer a continuação/reprocessamento; "
+            "a posição temporal não comprova identidade de execução. "
+            "Não somar os valores, não subtrair do total da AUD nem usar "
+            "para estimar custo, Apdex ou duração futura. "
+            "Se o log estiver ausente ou inválido, os tempos ficam N/D.</p>"
+            + (
+                _table(
+                    ("Fase declarada", "Operação", "Resultado",
+                     "Duração observada do wrapper", "Posição temporal", "Registro UTC"),
+                    timer_rows,
+                ) if timer_rows else
+                "<p>Tempos operacionais: N/D (nenhum log válido e completo "
+                "com eventos verificáveis da AUD).</p>"
+            ),
+        )
     # #319: expose M21 HTTP timing that has ALREADY been independently
     # validated for the original AUD. Request sums are neither physical
     # PSI/CrUX stage clocks nor components to add to the AUD wall duration.

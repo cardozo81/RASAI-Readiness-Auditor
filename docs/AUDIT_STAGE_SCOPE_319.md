@@ -138,6 +138,36 @@ mas não homologa overhead de sensor de conteúdo nem previsão
 ex ante de custos e tempos por etapa.
 
 
+## Projeção dos cronômetros operacionais na página metrics.html (13/10/2026)
+
+A página final `metrics.html` passa a apresentar em seção própria os eventos
+`pipeline_step_timer_evidence` **já inspecionados** pelo leitor read-only
+`audit-attempts`. Cada linha apresenta fase declarada, operação, resultado,
+duração monotônica observada do wrapper, posição temporal e timestamp UTC.
+A projeção apenas lê o arquivo `logs/audit.log` da AUD atual: não dispara
+coleta, não modifica logs/bancos, não acrescenta sensores e não recalcula
+qualquer métrica física, previsão ou score.
+
+O relatório diferencia a localização na janela da AUD COMPLETED/COMPLETE
+(`WITHIN_VERIFIED_WINDOW_UNSEALED`) dos eventos cuja correspondência com
+a sessão inicial **não foi provada**. Uma AUD parcial não recebe atribuição
+positiva, ainda que o relógio do evento seja compatível com a janela de
+outra execução.
+
+Quando o log não existe, excede limites ou contém JSONL inválido, a seção
+indica **N/D**, sem publicar durações parcialmente decodificadas. Eventos
+com `audit_id` diferente não são incluídos. A tabela é estritamente
+diagnóstica: o log é operacional, não selado; passos podem estar aninhados,
+falhar, ocorrer em paralelo ou representar continuação/RPR. **Não somar
+as durações nem calcular tempo exclusivo/residual por etapa.** A fonte
+`pipeline_step_timer_evidence` não altera
+`non_ai_stages_measured=false`.
+
+Teste dirigido: `tests/test_audit_stage_scope_319.py`, quatro cenários
+com evidência válida, JSONL corrompido após evento válido, log ausente
+e estado lógico `PARTIAL_RETRYABLE`; confirma exclusão de outra AUD,
+ausência de falso tempo físico e bytes originais intactos.
+
 ## Replay cronologico pre-execucao de P90 (#319)
 
 A prévia de `audit_duration_forecast_319.py` mantém o backtest
