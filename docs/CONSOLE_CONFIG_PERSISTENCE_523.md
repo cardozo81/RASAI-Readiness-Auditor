@@ -232,3 +232,27 @@ A mistura histórica inerte aparece nos contratos do adapter CLI, mas não
 faz parte do conjunto atual de variáveis editáveis do registro do console.
 Isso não configura falta de persistência e não deve ser introduzido no
 INI apenas para satisfazer uma contagem estática do inventário.
+
+## Estado fisico do arquivo e consentimento Perplexity (#523)
+
+A inspeção offline `python -m rasai.console_configuration_inventory_523`
+agora comunica `ini_source_status` sem imprimir o caminho nem os valores:
+`SOURCE_PARSED_NO_RUNTIME_CONSUMER_PROOF`,
+`SOURCE_NOT_FOUND_OR_NOT_A_FILE`, `SOURCE_TOO_LARGE`,
+`SOURCE_SYMLINK_DISALLOWED`, `SOURCE_INVALID_INI`,
+`SOURCE_UNREADABLE` ou `SOURCE_CHANGED_DURING_READ`.
+Uma origem legível não prova que o console atual a carregou, que o
+operador salvou alterações, nem que a AUD consumiu seus parâmetros.
+O inspector verifica identidade/tamanho/mtime do arquivo, seu
+descriptor aberto e a leitura limitada a 2 MB, recusando mudança
+observável durante a leitura. Isso não é um selo criptográfico.
+
+O quadro Perplexity na preparação da AUD diferencia explicitamente
+as **queries e o modo**, que são transitórios da sessão e NÃO são
+persistidos no INI, dos filtros globais, chave e habilitação. O aviso
+"NÃO SOLICITADA" não demonstra perda de configurações globais.
+O novo campo `per_aud_paid_consent_restored=false` esclarece que
+a abertura de outra sessão nunca transfere autorização financeira de
+nova pesquisa. A redação do console não inicia pesquisas.
+Testes reproduzem INI válido, ausente, inválido, grande demais,
+symlink e append concorrente, sem mostrar segredos ou alterar a AUD.
