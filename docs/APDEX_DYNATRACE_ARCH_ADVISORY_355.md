@@ -398,3 +398,30 @@ Os fatos de RUM e seus limiares permanecem somente declarativos
 quando o arquivo e fornecido offline. Testes isolados simulam
 substituicao atomica e alteracao in-place sem mudanca de tamanho;
 nao fazem chamadas Dynatrace, M23/M25, escrita em AUD ou scoring.
+
+
+## Completude declarada do HTTP Settings API live (#355, 13/10/2026)
+
+A chamada opt-in `read_live_dynatrace_apdex_settings` limita
+a resposta HTTP da Settings API a 1 MiB e valida JSON, schema
+e aplicacao selecionada. Quando o servidor fornece
+`Content-Length`, o adapter agora verifica o formato decimal
+estrito e o teto **antes de ler o corpo**, comparando depois
+o numero declarado de bytes com a quantidade efetivamente
+recebida. Conteudo completo e JSON parseavel, porem menor
+do que o comprimento anunciado, nao pode ser publicado como
+configuracao Dynatrace autenticada. Cabecalho ambiguo ou
+nao numerico tambem interrompe a interpretacao. Sem
+`Content-Length`, o limite e as demais verificacoes seguem
+inalterados.
+
+O controle nao dispara nova requisicao, nao pagina e nao
+consulta eventos RUM; o tenant e as credenciais nao aparecem
+na mensagem de erro. O contrato do endpoint, consentimento
+e transporte SaaS HTTPS pinado permanece o mesmo.
+Testes em memoria exercitam resposta valida, cabecalho
+ausente, comprimento menor/maior, excedente, malformado
+e duplicado em formato de lista, confirmando ausencia
+de rede comercial e de novas gravacoes. Como antes,
+corpo completo nao comprova observabilidade de XHR,
+acao Custom ou equivalencia com M25.
