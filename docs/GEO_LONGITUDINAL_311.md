@@ -236,7 +236,7 @@ escolhe a última chave pode ocultar uma declaração contraditória mesmo
 quando os campos aceitos parecem coincidir com as tabelas físicas.
 A AUD afetada é excluída com `GEO_PROJECTION_INVALID`; demais AUDs
 mantêm a elegibilidade verificada, sem tendências numéricas inventadas.
-A validação de snapshots v5–v7 mantém a semântica anterior e não é
+A validação de snapshots v5-v7 mantém a semântica anterior e não é
 reinterpretada retroativamente. Três fixtures SQLite demonstram recusa
 de duplicações raiz e aninhadas, preservação byte a byte de fontes e
 zero requisições/escritas.
