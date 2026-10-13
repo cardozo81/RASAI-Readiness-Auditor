@@ -304,6 +304,7 @@ def _historical_audit(
     # foreign package with a matching audit_id into the forecast.
     if (
         database.is_symlink() or database.parent.is_symlink()
+        or database.parent.parent.is_symlink()
         or any(
             Path(str(database) + suffix).exists()
             for suffix in ("-wal", "-shm", "-journal")
@@ -447,7 +448,7 @@ def forecast_local_duration(
     The total is based solely on a complete console-observed AUD duration.
     """
     root = Path(str(getattr(state, "audits_root", "audits")))
-    if target_pages < 1 or not root.is_dir():
+    if target_pages < 1 or root.is_symlink() or not root.is_dir():
         return AuditDurationForecast(0, None, (), notes=("Sem historico local comparavel.",))
     try:
         databases = sorted(
