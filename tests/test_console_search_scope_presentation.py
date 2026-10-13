@@ -74,4 +74,54 @@ def test_cat05_scope_exposes_perplexity_as_independent_external_research(monkeyp
     assert "NÃO CONFIGURADA" in rendered
     assert "não substitui SERP observada" in rendered
     assert "não entra no scoring" in rendered
+    assert "Persistência de queries e modo" in rendered
+    assert "SOMENTE SESSÃO - NÃO SALVOS NO INI" in rendered
+    assert "Solicitar queries e confirmar novamente" in rendered
 
+
+
+def test_cat05_scope_after_ini_restore_explains_intent_not_inherited(tmp_path, monkeypatch):
+    """#523: saving reusable SERP must not silently restore paid Perplexity."""
+    from rasai import console_settings
+    from rasai.console_complete_persistence import install as install_persistence
+    from rasai.console_ui_refactor import _install_search_persistence
+
+    _install_search_persistence()
+    install_persistence()
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "NEVER_PRINT_OPERATOR_TOKEN_523")
+
+    source = SearchConsoleState(
+        target="https://example.org/policy",
+        search_queries=("insurance BR",),
+        perplexity_queries=("PRIVATE_PAID_QUERY_523",),
+        perplexity_search_type="fast",
+    )
+    ini = tmp_path / "operator.ini"
+    console_settings.save_console_config(source, ini)
+    original = ini.read_bytes()
+    assert b"PRIVATE_PAID_QUERY_523" not in original
+    assert b"NEVER_PRINT_OPERATOR_TOKEN_523" not in original
+
+    fresh = SearchConsoleState()
+    loaded = console_settings.load_console_config(fresh, ini)
+    assert not loaded.warnings
+    assert fresh.search_queries == ("insurance BR",)
+    assert fresh.perplexity_queries == ()
+    assert fresh.perplexity_search_type == "web"
+    assert ini.read_bytes() == original
+
+    output = StringIO()
+    with patch(
+        "rasai.console_catalog_plan.raw_capability_status",
+        return_value=("NÃO CONFIGURADO", "GSC opcional"),
+    ), redirect_stdout(output):
+        render_search_scope(fresh)
+    visible = output.getvalue()
+    assert "SOMENTE SESSÃO - NÃO SALVOS NO INI" in visible
+    assert "Solicitar queries e confirmar novamente" in visible
+    assert "NÃO SOLICITADA" in visible
+    assert "Quantidade de queries" in visible
+    assert "PRIVATE_PAID_QUERY_523" not in visible
+    assert "NEVER_PRINT_OPERATOR_TOKEN_523" not in visible
+    assert ini.read_bytes() == original
