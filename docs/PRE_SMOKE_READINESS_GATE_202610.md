@@ -38,11 +38,27 @@ disponiveis, e execute uma unica rematerializacao em pasta de saida
 nova. Nao usar este comando para corrigir a origem.
 
 ```powershell
-$aud = ".\audits\AUD-EXEMPLO"
+$auditRoot = Join-Path (Get-Location) "audits"
+Get-ChildItem -LiteralPath $auditRoot -Directory -Filter "AUD-*" |
+    Select-Object Name, FullName
+$auditId = Read-Host "Informe o Audit ID existente na lista acima (AUD-...)"
+$aud = Join-Path $auditRoot $auditId
+if (-not (Test-Path -LiteralPath (Join-Path $aud "audit.db") -PathType Leaf)) {
+    throw "audit.db nao encontrado na pasta AUD selecionada: $aud"
+}
 $out = Join-Path $env:TEMP ("RASAI-REPORTS-SMOKE-" + (Get-Date -Format "yyyyMMddHHmmss"))
 .\.venv\Scripts\rasai.exe rematerialize-report --audit-dir $aud --output-root $out
 .\.venv\Scripts\rasai.exe audit-attempts $aud
 ```
+
+A pasta informada deve ser a subpasta fisica da AUD dentro de
+C:\IA-PROJETOS\github\RASAI-Readiness-Auditor\audits (ou do
+auditRoot configurado localmente), nunca C:\CAMINHO\PARA\...
+nem o diretorio audits desacompanhado de Audit ID. Se a AUD nao
+aparecer na lista ou nao contiver audit.db, nao execute o smoke:
+localize primeiro a origem real, sem copiar, mover, recriar ou apagar
+os artefatos existentes. O comando audit-attempts retorna agora
+erro de uso legivel (exit code 2) quando nao encontra a base.
 
 Ambos os comandos sao publicos e somente leitura de origem. O primeiro
 recria os HTMLs em copia, sem executar novos coletores. O segundo
