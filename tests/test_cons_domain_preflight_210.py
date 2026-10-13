@@ -76,7 +76,7 @@ def test_scope_guards_block_same_org_inferences(changed_url, reason):
     ("changes", "reason"),
     [
         ({"device": "DESKTOP"}, "DEVICE_MISMATCH"),
-        ({"device": "TABLET"}, "DEVICE_MISMATCH"),
+        ({"device": "TABLET"}, "DEVICE_NOT_PROVEN"),
         ({"status": "RUNNING"}, "SOURCE_AUD_NOT_COMPLETE"),
         ({"completion_status": "PARTIAL_RETRYABLE"}, "SOURCE_AUD_NOT_COMPLETE"),
         ({"event_time": "not-a-date"}, "CHRONOLOGY_UNVERIFIABLE"),
