@@ -168,6 +168,11 @@ def _unique_history_config_keys(
     return result
 
 
+def _reject_non_json_history_constant(token: str) -> None:
+    """NaN/Infinity are Python decoder extensions, never valid stored JSON."""
+    raise ValueError("nonstandard numeric constant in history configuration")
+
+
 def _strictly_comparable(current: Any, historical: Mapping[str, Any]) -> bool:
     # The existing forecast comparison allows missing legacy fields for monetary
     # usage. Wall-time is more sensitive to configuration, so fail closed here.
@@ -338,6 +343,7 @@ def _historical_audit(
             config = json.loads(
                 str(row["configuration"]),
                 object_pairs_hook=_unique_history_config_keys,
+                parse_constant=_reject_non_json_history_constant,
             )
         except (ValueError, TypeError):
             return None

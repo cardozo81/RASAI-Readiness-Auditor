@@ -443,3 +443,23 @@ fora da janela inspecionada.
 Fixture focal reproduz append concorrente de uma linha JSON válida
 no instante do `open`. Mesmo assim nenhum cronômetro parcial é
 publicado e o `audit.db` original permanece byte-for-byte intacto.
+
+## JSON estrito nos perfis de duração histórica (#319)
+
+O forecast `audit_duration_forecast_319` usa configurações históricas
+gravadas em `console_execution_projections.configuration` para
+selecionar coortes físicas comparáveis. Um arquivo SQLite ser íntegro
+não implica que todo texto armazenado nele seja JSON padronizado.
+
+Agora o parser rejeita `NaN`, `Infinity` e `-Infinity`
+independentemente de onde apareçam, inclusive em objetos aninhados.
+O `json.loads` permissivo do Python aceitaria essas extensões e
+poderia incluir uma AUD com configuração sintaticamente inválida no
+histórico de duração. O mesmo gate já recusa chaves duplicadas.
+
+Quando uma fonte é inválida, somente ela é excluída da amostra.
+Se restarem quatro das cinco AUDs exigidas, duração, P90 e backtests
+ficam N/D, sem imputação e sem alterar o histórico monetário,
+preços, cálculo de score ou tempo registrado. Fixtures SQLite
+verificam três constantes inválidas, exclusão seletiva e preservação
+física dos bancos originais, sem chamadas externas.
