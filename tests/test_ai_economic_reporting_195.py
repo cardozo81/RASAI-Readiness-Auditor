@@ -258,6 +258,31 @@ def test_final_report_explains_point_deviation_without_false_currency_conversion
     assert "Desvio frente à estimativa pontual persistida: +50.00%" in matched
     assert "não constitui fatura" in matched
 
+    # Persisted fields cannot coerce INVALID -> 0 or surface NaN/Infinity
+    # as a forecast percentage, P90 or monetary total in the human report.
+    forecast.update(
+        actual_cost="NOT_A_COST",
+        deviation_amount=float("inf"),
+        deviation_percent=float("nan"),
+        likely_low=-1.0,
+        potential=float("inf"),
+    )
+    invalid = _ai_integrations_body(database, data)
+    assert "Não calculável" in invalid
+    assert "não possui um único total monetário comparável" in invalid
+    assert "O custo pós-execução persistido coincide" not in invalid
+    assert "nan%" not in invalid.lower()
+    assert "USD nan" not in invalid
+    assert "USD inf" not in invalid
+    assert "Posição do custo na faixa histórica: N/D" in invalid
+    forecast.update(
+        actual_cost=0.3,
+        deviation_amount=0.1,
+        deviation_percent=50.0,
+        likely_low=0.1,
+        potential=0.5,
+    )
+
     # An explicitly persisted total inconsistent with the ledger is
     # not a legitimate forecast interval comparison.
     forecast["actual_cost"] = 0.1
