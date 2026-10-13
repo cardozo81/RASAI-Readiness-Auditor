@@ -178,9 +178,12 @@ def test_offline_crosscheck_cli_rejects_ambiguous_source_json(
             if input_kind == "settings" else '"xhr": '
         )
         assert key in raw
-        raw = raw.replace(key, key + (
-            '"APPLICATION-OTHER", ' if input_kind == "settings" else '999, '
-        ), 1)
+        raw = raw.replace(
+            key,
+            ('"declared_application_scope": "APPLICATION-OTHER", '
+             if input_kind == "settings" else '"xhr": 999, ') + key,
+            1,
+        )
     else:
         raw = raw[:-1] + ',"unverified":NaN}'
     assert isinstance(json.loads(raw), dict)
