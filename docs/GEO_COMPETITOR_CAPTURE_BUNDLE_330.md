@@ -210,3 +210,21 @@ hostname, período e proveniência. Sem alvo único comprovado, este
 controle adicional não inventa uma identidade nem homologa a
 comparabilidade. Testes SQLite físicos positivos/negativos sem
 requisições comerciais, banco original intacto.
+
+
+## Revalidação física dos dois manifests durante a comparação (12/10/2026)
+
+O comparador consultivo `geo_competitor_pair_330` verifica o vínculo dos
+sidecars COBS ao SHA-256 da AUD e aos registros SERP persistidos. Além da
+validação inicial de cada `manifest.json` content-addressed, agora
+**relê e verifica os dois manifests ao final**, antes de disponibilizar
+diferenças descritivas. Uma substituição, troca por symlink ou alteração
+do conteúdo físico entre o primeiro parse e o cálculo da comparação
+invalida a prova de proveniência e gera erro; não se publica resultado
+sobre evidência que deixou de corresponder aos artefatos em disco.
+
+Os testes isolados alteram deliberadamente o manifesto do cliente ou
+do candidato após a verificação SERP e confirmam abstenção, banco AUD
+imutável e ausência de solicitações HTTP adicionais. A proteção não
+torna a comparação de HTML estático uma prova de conteúdo primário,
+renderização SPA, equivalência de dispositivo ou lacuna editorial.

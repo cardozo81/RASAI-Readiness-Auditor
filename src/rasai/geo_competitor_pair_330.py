@@ -274,6 +274,13 @@ def compare_cobs_static_pair(
     if (any(Path(str(db) + x).exists() for x in ("-wal", "-shm", "-journal"))
             or db.is_symlink() or _physical_digest(db) != before):
         raise ValueError("physical AUD changed during COBS pair inspection")
+    # Source sidecars are physical inputs too. A package may be swapped,
+    # relinked or rewritten while the SQLite evidence is being verified.
+    # Recheck both content-addressed manifests before returning derived
+    # metadata, rather than attesting only the AUD's stable bytes.
+    if (_read_manifest(Path(customer_manifest)) != customer
+            or _read_manifest(Path(competitor_manifest)) != competitor):
+        raise ValueError("COBS source manifests changed during pair inspection")
     return result
 
 

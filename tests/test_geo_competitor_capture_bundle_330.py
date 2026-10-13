@@ -762,6 +762,45 @@ def test_cobs_pair_rejects_manifest_byte_tampering_before_reading_facts(
     assert (folder / "audit.db").read_bytes() == original
 
 
+@pytest.mark.parametrize("altered_role", ("CUSTOMER", "COMPETITOR_CANDIDATE"))
+def test_cobs_pair_refuses_source_manifest_change_during_sqlite_verification(
+    tmp_path, monkeypatch, altered_role,
+):
+    """#330: a second seal prevents stale comparisons after sidecar mutation."""
+    from pathlib import Path
+    from rasai import geo_competitor_pair_330 as pair
+
+    folder, target, competitor, original, calls = _pair_capture(
+        tmp_path, monkeypatch,
+    )
+    target_path = Path(target["manifest_path"])
+    competitor_path = Path(competitor["manifest_path"])
+    suspect = target_path if altered_role == "CUSTOMER" else competitor_path
+    untouched = competitor_path if altered_role == "CUSTOMER" else target_path
+    untouched_bytes = untouched.read_bytes()
+    requests_before = len(calls)
+
+    verify_original = pair._verify_physical_serp_pair
+    invocations = []
+    def modify_after_first_manifest_checks(*args, **kwargs):
+        verify_original(*args, **kwargs)
+        invocations.append(True)
+        # Simulate a sidecar physically changed after its valid initial
+        # read but before the final post-SQLite source integrity gate.
+        suspect.write_bytes(suspect.read_bytes() + b" ")
+
+    monkeypatch.setattr(
+        pair, "_verify_physical_serp_pair",
+        modify_after_first_manifest_checks,
+    )
+    with pytest.raises(ValueError, match="COBS package ID does not match"):
+        pair.compare_cobs_static_pair(folder, target_path, competitor_path)
+    assert invocations == [True]
+    assert len(calls) == requests_before
+    assert (folder / "audit.db").read_bytes() == original
+    assert untouched.read_bytes() == untouched_bytes
+
+
 def test_pair_cli_read_only_without_network(tmp_path, monkeypatch, capsys):
     from rasai.geo_competitor_pair_330 import main as pair_main
     folder, target, competitor, original, calls = _pair_capture(tmp_path, monkeypatch)
