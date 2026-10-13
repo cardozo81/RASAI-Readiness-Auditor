@@ -267,3 +267,46 @@ intenções equivalentes, participação GEO ou melhoria de score.
 Não muda contratos/identificadores dos sidecars COBS nem o gerador
 produtivo de GEO/CONS. Testes físicos e de rehash validam as diferenças
 sem adulterar `audit.db` e sem qualquer solicitação HTTP/IA.
+
+
+## Pagina HTML consultiva de comparacao COBS (#330, 13/10/2026)
+
+O comparador offline admite `--format html` para produzir um
+documento HTML estatico e responsivo, totalmente separado de
+`report.html`, `report-catalog`, CONS, SARI e SCORE-GEO.
+O padrao continua `--format json`.
+
+```powershell
+python -m rasai.geo_competitor_pair_330 `
+  --audit-dir .\audits\AUD-EXEMPLO `
+  --customer-manifest .\evidencias\COBS-CLIENTE\manifest.json `
+  --competitor-manifest .\evidencias\COBS-CANDIDATO\manifest.json `
+  --format html > cobs-comparacao-consultiva.html
+```
+
+A pagina apresenta dois quadros de metadados HTTPS fisicamente
+observados (URL exata, `title`, palavras no HTML estatico,
+timestamp e SHA-256), headings, tipos JSON-LD e termos de consulta
+extraidos. Os conjuntos `both/customer_only/competitor_only`
+sao exibidos explicitamente como **intersecoes lexicais exatas**
+e nao como diferencas semanticas ou lacunas editoriais. O escopo SERP,
+ID de origem e intervalo entre capturas sao informativos, sem
+alegar o mesmo browser, idioma, dispositivo ou intencao.
+
+O renderizador exige contrato observacional conhecido,
+`DESCRIPTIVE_STATIC_HTML_ONLY`, origem SHA-256 e as flags de
+insuficiencia de prova da comparacao: ausencia de conteudo primario
+renderizado, de autorizacao para afirmar lacuna de conteudo, de
+paridade de populacao e de citacao gerativa. Um objeto com flag
+positiva ou escrita/requests falsamente declarados nao recebe HTML.
+Todo texto externo e escapado; nao sao gerados links executaveis,
+JavaScript ou requisicoes de recursos externos. Layout para mobile
+e impressao. A visualizacao nao cria artefatos dentro da AUD; a
+gravacao opcional por redirecionamento e escolha do operador.
+
+Testes SQLite/COBS locais verificam renderizacao genuina, ausencia
+de novos HTTP/IA, integridade dos manifests e `audit.db`, escape de
+HTML malicioso e rejeicao de projecoes forjadas. O aprofundamento
+renderizado de SPA continua condicionando coleta consentida,
+comparabilidade de contexto e conteudo primario validado; este HTML
+nao satisfaz aquele gate.
