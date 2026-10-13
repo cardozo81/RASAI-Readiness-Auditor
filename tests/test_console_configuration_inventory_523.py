@@ -246,3 +246,81 @@ def test_apdex_preflight_rejects_bad_operator_apdex_without_echoing_values(tmp_p
         }
         assert "invalid-value" not in json.dumps(outcome)
         assert ini.read_bytes() == before
+
+
+def test_apdex_readonly_preflight_preserves_existing_m25_handoff_even_on_error(tmp_path):
+    """An offline inspection cannot cancel a pending production M25 task."""
+    from unittest.mock import patch
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+    from rasai.m25_apdex_experience import ExperienceApdexConfig
+    from rasai.m25_runtime import peek_pending_config, set_pending_config
+    from rasai import console_settings
+
+    _install_search_persistence()
+    install()
+    path = tmp_path / "persisted.ini"
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        state.device = "mobile"
+        state.apdex_experience = True
+        state.apdex_experience_samples = 7
+        state.apdex_experience_max_attempts = 10
+        console_settings.save_console_config(state, path)
+        source_bytes = path.read_bytes()
+
+        original = peek_pending_config()
+        real_pending = ExperienceApdexConfig(
+            enabled=True,
+            target_samples_per_page=9,
+            max_attempts_per_page=13,
+            device_mix=(("DESKTOP", 100.0),),
+            satisfied_threshold_seconds=2.0,
+            frustrated_threshold_seconds=8.0,
+        )
+        set_pending_config(real_pending)
+        try:
+            assert peek_pending_config() is real_pending
+            success = inspect_apdex_consumers(path, environ={})
+            assert success["status"] == "ADAPTERS_VALIDATED_OFFLINE"
+            assert success["active_m25"] is True
+            assert peek_pending_config() is real_pending
+
+            missing = inspect_apdex_consumers(tmp_path / "missing.ini", environ={})
+            assert missing["status"] == "SOURCE_UNAVAILABLE"
+            assert peek_pending_config() is real_pending
+
+            broken = tmp_path / "broken.ini"
+            broken.write_bytes(b"[broken invalid ini")
+            invalid = inspect_apdex_consumers(broken, environ={})
+            assert invalid["status"] == "CONFIG_OR_ADAPTER_INVALID"
+            assert peek_pending_config() is real_pending
+            assert path.read_bytes() == source_bytes
+        finally:
+            set_pending_config(original)
+
+
+def test_apdex_preflight_does_not_call_shared_m25_setter(tmp_path, monkeypatch):
+    """The adapter still executes, but its one-shot write is locally captured."""
+    from unittest.mock import patch
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+    from rasai import console_settings, m25_runtime
+
+    _install_search_persistence()
+    install()
+    with patch.dict(os.environ, {}, clear=True):
+        path = tmp_path / "fresh.ini"
+        state = SearchConsoleState()
+        state.apdex_experience = True
+        console_settings.save_console_config(state, path)
+        def reject_shared_set(_config):
+            raise AssertionError("inspector must never write process-global M25 pending state")
+        monkeypatch.setattr(m25_runtime, "set_pending_config", reject_shared_set)
+        response = inspect_apdex_consumers(path, environ={})
+        assert response["status"] == "ADAPTERS_VALIDATED_OFFLINE"
+        assert response["active_m25"] is True

@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 from tempfile import TemporaryDirectory, gettempdir
 from typing import Mapping, Any
+from unittest.mock import patch
 
 
 def inspect_apdex_consumers(
@@ -25,9 +26,9 @@ def inspect_apdex_consumers(
     from rasai.console_ui_refactor import _install_search_persistence
     from rasai.console_complete_persistence import install as install_persistence
     from rasai import console_settings
-    from rasai.m23_cli import configured_apdex, register_apdex_arguments
+    from rasai import m23_cli
+    from rasai.m23_cli import register_apdex_arguments
     from rasai.m25_apdex_experience import ExperienceApdexConfig
-    from rasai.m25_runtime import peek_pending_config, set_pending_config
 
     base: dict[str, Any] = {
         "contract": "RASAI-APDEX-CONSUMER-PREFLIGHT-523-1",
@@ -80,8 +81,24 @@ def inspect_apdex_consumers(
             register_apdex_arguments(parser)
             console_settings.sync_nonsecret_runtime_environment(state)
             executor_env = dict(os.environ)
-            navigation = configured_apdex(parser.parse_args([]), env=executor_env)
-            experience = peek_pending_config()
+            # configured_apdex normally resets and replaces the one-shot
+            # process-global M25 pending config. A read-only inspector must
+            # NEVER consume or even temporarily overwrite a real audit's
+            # handoff. Capture the same adapter's resolved configuration
+            # locally rather than routing its write to the shared runtime.
+            captured: list[ExperienceApdexConfig] = []
+            def capture_only(config: ExperienceApdexConfig) -> None:
+                captured.append(
+                    config.validate() if config.enabled
+                    else ExperienceApdexConfig(enabled=False)
+                )
+            with patch.object(m23_cli, "set_pending_config", capture_only):
+                navigation = m23_cli.configured_apdex(
+                    parser.parse_args([]), env=executor_env
+                )
+            if len(captured) != 2:
+                return {**base, "status": "CONFIG_OR_ADAPTER_INVALID"}
+            experience = captured[-1]
         try:
             if sha256(candidate.read_bytes()).digest() != digest:
                 return {**base, "status": "SOURCE_CHANGED"}
@@ -103,4 +120,5 @@ def inspect_apdex_consumers(
     finally:
         os.environ.clear()
         os.environ.update(environment_before)
-        set_pending_config(ExperienceApdexConfig(enabled=False))
+        # No global M25 pending config was changed; there is nothing to
+        # reset. In particular, do not clear a pre-existing paid AUD handoff.
