@@ -615,3 +615,49 @@ def test_gsc_affinity_is_code_declaration_not_property_or_oauth_proof(
     rendered = json.dumps(report)
     assert "OLD_OAUTH_SECRET" not in rendered
     assert "NEW_OAUTH_SECRET" not in rendered
+
+
+def test_inventory_posix_same_size_rewrite_with_restored_mtime_abstains(
+    tmp_path, monkeypatch,
+):
+    """#523: metadata inventory may not certify in-place edited INI as sealed."""
+    import pytest
+
+    if os.name == "nt":
+        pytest.skip("Windows creation time is not POSIX ctime")
+
+    operator_ini = tmp_path / "operator.ini"
+    original = (
+        b"[environment]\\nRASAI_SERP_MAX_REQUESTS=7\\n"
+        b"OPENAI_API_KEY=SECRET_NOT_IN_REPORT\\n"
+    )
+    operator_ini.write_bytes(original)
+    original_stat = operator_ini.stat()
+    real_open = Path.open
+    rewritten = []
+
+    def rewrite_after_first_open(self, mode="r", *args, **kwargs):
+        stream = real_open(self, mode, *args, **kwargs)
+        if self == operator_ini and mode == "rb" and not rewritten:
+            with real_open(self, "r+b") as writer:
+                writer.seek(original.index(b"RASAI_SERP_MAX_REQUESTS=7"))
+                writer.write(b"RASAI_SERP_MAX_REQUESTS=8")
+            os.utime(
+                operator_ini,
+                ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+            )
+            rewritten.append(True)
+        return stream
+
+    monkeypatch.setattr(Path, "open", rewrite_after_first_open)
+    report = inventory(path=operator_ini, environ={})
+    assert rewritten == [True]
+    after = operator_ini.stat()
+    assert after.st_size == original_stat.st_size
+    assert after.st_mtime_ns == original_stat.st_mtime_ns
+    assert after.st_ctime_ns != original_stat.st_ctime_ns
+    assert report["ini_source_status"] == "SOURCE_CHANGED_DURING_READ"
+    assert report["file_readable"] is False
+    assert report["typed_ini_coverage"]["missing_non_derived_names"] == []
+    assert "SECRET_NOT_IN_REPORT" not in json.dumps(report)
+    assert b"RASAI_SERP_MAX_REQUESTS=8" in operator_ini.read_bytes()
