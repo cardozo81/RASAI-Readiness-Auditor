@@ -391,3 +391,44 @@ portas distintas, rejeição de URL inválida, ausência de mapeamento e
 abstenção após falha de proveniência. Sem novas chamadas externas,
 captura de concorrente, escrita em AUD, alteração do produtor GEO,
 SARI/SCORE-GEO, CONS, relatório canônico ou motores homologados.
+
+
+## Gate fisico do descriptor no ledger SERP x Perplexity (#304)
+
+O ledger offline dependia de dois hashes SHA-256 de
+`audit.db`, com verificacao de comprimento. O tamanho,
+porem, nao detecta uma substituicao atomica do caminho
+entre `stat` e `open` quando ambos os arquivos
+possuem o mesmo comprimento; dois arquivos diferentes
+tambem podem ter exatamente os mesmos bytes, sem que
+isso garanta continuidade de identidade fisica.
+
+Cada leitura do selo agora confere `st_dev`, `st_ino`,
+`st_size` e `st_mtime_ns` para: o caminho **antes**
+de abrir, o descritor fisicamente aberto (via
+`os.fstat`) e o caminho **apos** terminar a leitura.
+Em POSIX, `st_ctime_ns` adiciona uma verificacao de
+mudanca de metadados durante a leitura; em Windows,
+o campo corresponde a creation time e nao e comparado
+entre as duas APIs para evitar falso positivo
+conhecido. Symlink, leitura parcial e crescimento acima
+de 256 MiB continuam rejeitados.
+
+As falhas continuam usando a politica fail-closed do
+ledger: nenhuma taxa ou host-overlap pode ser emitida
+se o selo fisico nao for integro. As fixtures POSIX trocam
+um banco SQLite sintetico por arquivo de mesmo tamanho
+antes da abertura; em Windows a substituicao fisica
+de um SQLite pode ser negada pelo bloqueio de handles,
+portanto uma fixture deterministica em ambas as plataformas
+simula uma mudanca de inode entre descritor e stat final.
+Outra fixture altera somente o mtime durante o hash.
+Cada divergencia invalida o selo, mesmo que as strings
+persistidas tenham permanecido identicas.
+
+Nao modifica schema nem produtores de resultados,
+SERP/Perplexity, motores homologados, report canonico,
+SARI/SCORE-GEO ou auditorias existentes. Como antes,
+o hash local verifica reproducibilidade de bytes, nao
+autenticidade de provedor, consentimento ou
+mesmo universo de observacao temporal.
