@@ -41,6 +41,11 @@ def _ini_with_status(path: Path) -> tuple[ConfigParser | None, str]:
             data = stream.read(2_000_001)
         after = path.stat()
         fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+        # POSIX ctime detects a same-length in-place rewrite even when
+        # mtime is restored. Windows creation time can differ between
+        # stat(path) and fstat(descriptor), so it is not comparable there.
+        if os.name != "nt":
+            fields += ("st_ctime_ns",)
         if (
             path.is_symlink()
             or any(
