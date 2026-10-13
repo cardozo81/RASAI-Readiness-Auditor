@@ -489,6 +489,47 @@ def test_v3_new_sqlite_journal_during_projection_discards_overlap(
     assert calls["count"] == 1
 
 
+@pytest.mark.parametrize(
+    "inconsistent_stream",
+    ("short_read", "unexpected_growth"),
+)
+def test_v3_sha_stream_length_must_match_physical_aud_size(
+    tmp_path, monkeypatch, inconsistent_stream,
+):
+    """#304: two matching partial digests cannot prove full-source integrity."""
+    from io import BytesIO
+
+    folder = _audit(tmp_path, multi=False)
+    db = folder / "audit.db"
+    original_open = Path.open
+    with original_open(db, "rb") as src:
+        source_bytes = src.read()
+    injected = (
+        source_bytes[:-16] if inconsistent_stream == "short_read"
+        else source_bytes + b"UNEXPECTED_PHYSICAL_GROWTH"
+    )
+    assert len(injected) != len(source_bytes)
+
+    observed_opens = []
+    def inconsistent_reader(self, *args, **kwargs):
+        if self == db and args and args[0] == "rb":
+            observed_opens.append(self)
+            return BytesIO(injected)
+        return original_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", inconsistent_reader)
+    result = inspect_geo_per_query(folder)
+    assert len(observed_opens) == 1
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "SOURCE_SCHEMA_OR_READ_FAILURE"
+    assert result["queries"] == []
+    assert result["source_audit_db_sha256"] is None
+    assert result["source_audit_db_integrity_guard"] == "UNVERIFIED"
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    with original_open(db, "rb") as src:
+        assert src.read() == source_bytes
+
+
 def test_v3_bounded_local_sha_budget_abstains_without_promoting_overlap(
     tmp_path, monkeypatch,
 ):

@@ -95,6 +95,10 @@ def _audit_digest(path: Path) -> tuple[str, int]:
             if read_bytes > _MAX_AUD_BYTES:
                 raise ValueError("AUD source changed beyond verification budget")
             digest.update(chunk)
+    # Require exactly the physical bytes measured before opening the stream:
+    # a truncated read or concurrent size change cannot attest provenance.
+    if read_bytes != size or path.stat().st_size != size:
+        raise ValueError("AUD source size changed during physical verification")
     return digest.hexdigest(), read_bytes
 
 
