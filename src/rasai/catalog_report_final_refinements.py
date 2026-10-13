@@ -543,6 +543,39 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
             cost_html += f"<div class='notice warn'>{int(forecast.get('unpriced_ai_attempts') or 0)} tentativa(s) de IA não possuem preço monetário conhecido e permanecem fora do total.</div>"
     else:
         cost_html = "<div class='metric-grid'>" + i._metric("Custo observado", summary_cost, "custo técnico contabilizado; sem conversão cambial implícita") + i._metric("Previsão pré-execução", "Não persistida") + "</div><div class='notice'>Sem previsão persistida, o relatório não inventa custo esperado, desvio ou faixa histórica.</div>"
+    if forecast:
+        # #319: make the conservative point-vs-interval interpretation
+        # visible in the *final* report. Never sum currencies or extrapolate
+        # an incomplete ledger into the pre-AUD forecast population.
+        from rasai.audit_cost_explain import _number, forecast_readout
+
+        money_single = monetary.single_currency
+        observed_comparable = (
+            _number(money_single[1])
+            if money_single is not None and money_single[0] == forecast_currency
+            else None
+        )
+        persisted_actual = _number(forecast.get("actual_cost"))
+        verified_reconciliation = (
+            observed_comparable is not None
+            and persisted_actual is not None
+            and abs(observed_comparable - persisted_actual) <= 0.00000001
+        )
+        directed_count = sum(
+            "DIRECTED" in " ".join(
+                str(attempt.get(key) or "").upper()
+                for key in ("operation", "ai_task_id", "contract", "purpose")
+            )
+            for attempt in attempts
+        )
+        cost_html += forecast_readout(
+            forecast,
+            observed_total=observed_comparable if verified_reconciliation else None,
+            priced_attempts=max(0, len(attempts) - monetary.unpriced_attempts),
+            total_attempts=len(attempts),
+            optional_attempts=directed_count,
+            comparable_currency=verified_reconciliation,
+        )
     body += i._section("cost", "Previsão × custo técnico", cost_html)
     body += i._section("principles", "Como ler esta página", "<div class='grid'><div class='card'><h3>CATs</h3><p>Mostram o resultado funcional produzido. Não repetem tokens, solicitações/respostas e custos.</p></div><div class='card'><h3>IA e integrações</h3><p>Centraliza a telemetria e a comunicação externa de cada tentativa e explica quais dados funcionais participaram de cada chamada.</p></div><div class='card'><h3>Segurança</h3><p>Segredos, tokens de autenticação e credenciais são removidos antes da projeção. Conteúdo ausente no log não é reconstruído.</p></div></div>")
     return body

@@ -338,3 +338,24 @@ quando o ledger comprova cobertura monetaria, e o rotulo de desvio
 pontual continua distinto do intervalo historico. Testes isolados
 nao recalculam precos, estimativas nem tokens e nao fazem consultas
 a provedores.
+
+
+## Interpretacao financeira na pagina final IA e integracoes (12/10/2026)
+
+A pagina final `ai-integrations.html` agora inclui a leitura
+observacional de custo ja disponivel em `audit_cost_explain.forecast_readout`.
+Quando ha cobertura monetaria completa em uma unica moeda compativel
+com a previsao, e o valor agregado das tentativas coincide com o
+valor pos-execucao persistido, a pagina distingue o desvio frente
+a estimativa pontual da posicao dentro/fora da faixa historica.
+O rotulo de severidade persistido nao e recalculado.
+
+Se ha varias moedas, total inconsistente, tentativas sem preco
+ou analise direcionada/complementar cuja inclusao no escopo
+pre-auditoria nao foi comprovada, a posicao na faixa permanece N/D
+e nao se publica delta com atribuicao economica indevida. A pagina
+mantem o custo e a moeda individuais, sem conversao cambial, sem
+duplicar custo de chamadas direcionadas e sem sugerir invoice.
+Testes locais exercitam moedas mistas, conciliacao, divergencia
+persistida e escopo direcionado, sem alterar a base SQL original
+durante a renderizacao e sem executar qualquer IA.
