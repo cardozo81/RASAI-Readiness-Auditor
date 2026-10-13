@@ -138,3 +138,17 @@ A lógica mantém `USQL` opt-in e sem novas requisições,
 não supõe amostra bruta sem extrapolação e não deduz
 cobertura de XHR/soft navigation na aplicação SPA nem
 equivalência entre RUM real e a auditoria Synthetic.
+
+
+## Ingestao offline de evidencia JSON antes do smoke humano (12/10/2026)
+
+O comando de comparacao de Settings 2.0 com RUM USQL usa apenas arquivos
+locais fornecidos pelo operador. O leitor agora recusa chaves JSON
+duplicadas (inclusive em objetos aninhados), constantes nao JSON
+`NaN`/`Infinity` e qualquer divergencia entre tamanho fisico inicial,
+bytes efetivamente lidos e tamanho final. A leitura e limitada a 1 MiB
+para o advisory Settings e 256 KiB para a populacao RUM, inclusive se
+o arquivo crescer durante a abertura. Os testes nao acessam Dynatrace,
+nao autenticam o tenant, nao medem novas user actions e nao alteram
+Apdex M23/M25 ou scores. A rejeicao permanece local e anterior a
+qualquer pretensao de equivalencia da amostra.
