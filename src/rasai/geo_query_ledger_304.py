@@ -395,17 +395,28 @@ def inspect_geo_per_query(
                     continue
                 candidates: list[tuple[float, datetime, sqlite3.Row]] = []
                 incomplete_scope_in_window = False
+                unverified_clock_same_query = False
                 for obs in serp:
                     if _query_key(obs["query"]) != qkey:
                         continue
                     gap = _temporal_gap_seconds(run["started_at"], obs["collected_at"])
                     when = _utc(obs["collected_at"])
-                    if gap is None or gap > _WINDOW or when is None:
+                    if gap is None or when is None:
+                        # A matching physical SERP observation without a
+                        # verifiable UTC clock could be inside this run's
+                        # window. Do not silently select another sample.
+                        unverified_clock_same_query = True
+                        continue
+                    if gap > _WINDOW:
                         continue
                     if not all(isinstance(obs[s], str) and obs[s].strip() for s in _SCOPE):
                         incomplete_scope_in_window = True
                         continue
                     candidates.append((gap, when, obs))
+                if unverified_clock_same_query:
+                    row["reason"] = "SERP_CHRONOLOGY_UNVERIFIABLE_FOR_QUERY"
+                    out["queries"].append(row)
+                    continue
                 # A nearer valid sample must not mask another observed
                 # in-window population with missing engine/market/device
                 # provenance. A partially scoped sibling prevents declaring

@@ -1160,3 +1160,55 @@ def test_v6_out_of_window_missing_scope_does_not_poison_valid_sample(tmp_path):
     assert outcome["queries"][0]["status"] == "DESCRIPTIVE_ONLY"
     assert outcome["queries"][0]["common_urls"] == 1
     assert (folder / "audit.db").read_bytes() == original
+
+
+@pytest.mark.parametrize(
+    "invalid_clock",
+    ["2026-10-10T12:01:00", "not-a-timestamp", None],
+)
+def test_v7_unverifiable_serp_clock_same_query_abstains_without_cherry_pick(
+    tmp_path, invalid_clock,
+):
+    folder = _audit(tmp_path, multi=True)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "INSERT INTO serp_observations "
+            "SELECT 'UNVERIFIED-CLOCK',audit_id,query,?,"
+            "observation_status,data_mode,engine,country,region,language,device "
+            "FROM serp_observations WHERE observation_id='SERP-0'",
+            (invalid_clock,),
+        )
+        con.execute(
+            "INSERT INTO serp_results VALUES (?,?,?)",
+            ("UNVERIFIED-CLOCK", 0, "https://example.org/shared"),
+        )
+    saved = (folder / "audit.db").read_bytes()
+    outcome = inspect_geo_per_query(folder)
+    assert outcome["status"] == "DESCRIPTIVE_ONLY"
+    first, second = outcome["queries"]
+    assert first["query"] == "seguro bradesco"
+    assert first["status"] == "NOT_COMPARABLE"
+    assert first["reason"] == "SERP_CHRONOLOGY_UNVERIFIABLE_FOR_QUERY"
+    assert first["serp_observation_id"] is None
+    assert first["common_urls"] is None
+    assert first["jaccard_url_rate"] is None
+    assert second["status"] == "DESCRIPTIVE_ONLY"
+    assert second["common_urls"] == 1
+    assert outcome["source_audit_db_integrity_guard"] == "DOUBLE_SHA256_MATCH"
+    assert (folder / "audit.db").read_bytes() == saved
+
+
+def test_v7_out_of_window_verified_clock_remains_excluded(tmp_path):
+    folder = _audit(tmp_path, multi=False)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "INSERT INTO serp_observations "
+            "SELECT 'OUT-WINDOW-VERIFIED',audit_id,query,'2026-07-01T12:00:00Z',"
+            "observation_status,data_mode,engine,country,region,language,device "
+            "FROM serp_observations WHERE observation_id='SERP-0'"
+        )
+    saved = (folder / "audit.db").read_bytes()
+    outcome = inspect_geo_per_query(folder)
+    assert outcome["status"] == "DESCRIPTIVE_ONLY"
+    assert outcome["queries"][0]["common_urls"] == 1
+    assert (folder / "audit.db").read_bytes() == saved
