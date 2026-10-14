@@ -188,9 +188,12 @@ def _strictly_comparable(current: Any, historical: Mapping[str, Any]) -> bool:
             if type(wanted) is bool or type(old) is bool:
                 return False
             try:
-                if int(wanted) != int(old):
+                values = (float(wanted), float(old))
+                if any(not math.isfinite(v) or not v.is_integer() or v <= 0 for v in values):
                     return False
-            except (ValueError, TypeError):
+                if values[0] != values[1]:
+                    return False
+            except (ValueError, TypeError, OverflowError):
                 return False
         elif field in {"content_remediation", "web_performance"}:
             if type(wanted) is not bool or type(old) is not bool or wanted != old:
