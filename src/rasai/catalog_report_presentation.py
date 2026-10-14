@@ -1,4 +1,5 @@
 """Human-facing labels and shared visual helpers."""
+from math import isfinite
 from rasai.catalog_report_model import *  # noqa: F401,F403
 from rasai.time_contract import localize_html_timestamps
 from rasai.catalog_report_public_labels import public_label, public_text
@@ -700,6 +701,18 @@ def _score_value(row: Mapping[str,Any]) -> str:
         return _plain(row.get("value")) or _EMPTY
 
 
+def _score_coverage_label(value: Any) -> str:
+    """Render a source ratio as a percent while retaining its exact numeric form."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return "Não determinada"
+    if not isfinite(number) or not 0 <= number <= 1:
+        return "Não determinada"
+    percent = f"{number * 100:.1f}".replace(".", ",")
+    return f"{percent}% (fração {number:.6f})"
+
+
 def _score_table(data: _ReportData, *, include_overall: bool=True, context: str|None=None) -> str:
     rows=[]
     for row in sorted(data.scores,key=lambda x:(str(x.get("device","")),str(x.get("dimension","")))):
@@ -714,7 +727,7 @@ def _score_table(data: _ReportData, *, include_overall: bool=True, context: str|
         value="Não aplicável" if structured_absent else _result_value(score_value,_score_result_tone(score_value))
         confidence="Não aplicável - nenhum dado estruturado foi observado" if structured_absent else _confidence_label(row.get("confidence"))
         dimension_label = public_label(dim) or _DIMENSION_LABELS.get(dim,dim.replace("_"," ").title())
-        rows.append((dimension_label,_device_label(row.get("device")),value,row.get("coverage",_EMPTY),confidence,_status_label(row.get("consolidation_status")),row.get("scoring_version",_EMPTY)))
+        rows.append((dimension_label,_device_label(row.get("device")),value,_score_coverage_label(row.get("coverage")),confidence,_status_label(row.get("consolidation_status")),row.get("scoring_version",_EMPTY)))
     return _table(("Indicador","Contexto","Valor","Cobertura","Confiança","Consolidação","Método"),rows)
 
 
