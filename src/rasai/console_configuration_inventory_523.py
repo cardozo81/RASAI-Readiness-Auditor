@@ -277,6 +277,15 @@ def inventory(
             "declared_adapter_surface_is_execution_proof": False,
             "audit_snapshot": "AUD_DEPENDENT_NOT_INFERRED",
         })
+    # Secrets may exist in INI under keys omitted from the current registry.
+    # Report a count only; never expose arbitrary (potentially sensitive) names.
+    unregistered_secret_ini_keys = (
+        sum(
+            1 for key in parser.options("environment")
+            if key not in seen and is_secret(key)
+        )
+        if parser is not None and parser.has_section("environment") else 0
+    )
     # These are execution inputs, NOT EnvironmentSpecs. No values ever emitted.
     execution_inputs = [
         {
@@ -334,6 +343,7 @@ def inventory(
             1 for item in variables if item["secret_present_in_ini_violation"]
         ),
         "secret_ini_scan_complete": parser is not None,
+        "unregistered_secret_ini_key_count": unregistered_secret_ini_keys,
         "apdex_adapter_surface_coverage": {
             "mapped_registry_variables": sum(
                 item["name"] in apdex_affinities for item in variables
