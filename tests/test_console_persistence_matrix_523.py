@@ -386,9 +386,9 @@ def test_malformed_perplexity_draft_never_becomes_paid_request(tmp_path):
     _install_config_contract()
     path = tmp_path / "invalid.ini"
     path.write_text(
-        "[perplexity_draft]\\nqueries = um;dois;três;quatro;cinco;seis\\n"
-        "search_type = unknown\\n"
-        "[environment]\\nRASAI_PERPLEXITY_ENABLED = true\\n",
+        "[perplexity_draft]\nqueries = um;dois;três;quatro;cinco;seis\n"
+        "search_type = unknown\n"
+        "[environment]\nRASAI_PERPLEXITY_ENABLED = true\n",
         encoding="utf-8",
     )
     with patch.dict(os.environ, {}, clear=True):
