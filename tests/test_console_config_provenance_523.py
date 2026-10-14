@@ -139,6 +139,8 @@ print(json.dumps({
     'nav': [state.synthetic_apdex,state.apdex_samples,state.apdex_max_attempts],
     'queries': state.perplexity_queries,
     'perplexity_mode': state.perplexity_search_type,
+    'draft': state.perplexity_draft_queries,
+    'draft_mode': state.perplexity_draft_search_type,
     'env_arch': projection['RASAI_APDEX_EXPERIENCE_ARCHITECTURE'],
     'env_profile': projection['RASAI_APDEX_EXPERIENCE_PROFILE_MODE'],
 }))
@@ -149,7 +151,7 @@ print(json.dumps({
     )
     assert str(path) in a.stdout
     digest_before = path.read_bytes()
-    assert b"do not authorize next run" not in digest_before
+    assert b"do not authorize next run" in digest_before
     assert b"perplexity_queries" not in digest_before
     b = subprocess.run(
         [sys.executable, "-c", read_code], cwd=tmp_path, env=safe,
@@ -167,6 +169,8 @@ print(json.dumps({
     assert data["nav"] == [True, 5, 7]
     assert data["queries"] == []
     assert data["perplexity_mode"] == "web"
+    assert data["draft"] == ["do not authorize next run"]
+    assert data["draft_mode"] == "fast"
     assert path.read_bytes() == digest_before
 
 
