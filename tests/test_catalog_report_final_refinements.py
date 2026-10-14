@@ -296,6 +296,38 @@ def test_serp_depth_warns_only_for_one_physically_scoped_observation(tmp_path: P
 
 
 
+
+def test_sari_partial_dimension_is_visible_beside_high_aggregated_confidence() -> None:
+    from rasai.catalog_report_governance import _sari_partial_dimension_notice
+
+    scores = [
+        {
+            "dimension": "OVERALL_READINESS", "device": "MOBILE",
+            "coverage": 0.974737, "confidence": "HIGH",
+            "consolidation_status": "CONSOLIDATED",
+        },
+        {
+            "dimension": "CONTENT_VALUE", "device": "MOBILE",
+            "coverage": 0.7, "confidence": "LOW",
+            "consolidation_status": "PARTIAL",
+        },
+        {
+            "dimension": "DISCOVERY_ACCESS", "device": "MOBILE",
+            "coverage": 1.0, "confidence": "HIGH",
+            "consolidation_status": "CONSOLIDATED",
+        },
+    ]
+    html = _sari_partial_dimension_notice(scores)
+    assert "Dimensões com medição parcial ou confiança baixa" in html
+    assert "Valor do conteúdo" in html
+    assert "70,0% (fração 0.700000)" in html
+    assert "Baixa" in html
+    assert "Parcial" in html
+    assert "Acesso e descoberta" not in html
+    assert _sari_partial_dimension_notice([scores[0], scores[2]]) == ""
+
+
+
 def test_lighthouse_one_is_one_out_of_100_not_100(tmp_path: Path) -> None:
     database = tmp_path / "audit.db"
     con = sqlite3.connect(database)
