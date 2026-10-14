@@ -27,7 +27,7 @@ def draft_pending_confirmation(state: Any) -> bool:
     return bool(
         info["configuration_ready"]
         and info["saved_draft_available"]
-        and info["configured_source"] == "INI/RASCUNHO"
+        and info["configured_source"] in {"INI/RASCUNHO", "SESSÃO"}
     )
 
 
