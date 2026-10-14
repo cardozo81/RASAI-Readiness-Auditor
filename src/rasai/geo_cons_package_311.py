@@ -36,13 +36,22 @@ def _file_digest(path: Path) -> str:
     digest = sha256()
     consumed = 0
     with path.open("rb") as handle:
-        opened = os.fstat(handle.fileno())
+        try:
+            opened = os.fstat(handle.fileno())
+        except (OSError, ValueError, AttributeError):
+            # Synthetic streams cannot attest descriptor identity. Read only
+            # to classify growth/truncation, then fail closed.
+            opened = None
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             consumed += len(chunk)
             if consumed > _MAX_SOURCE_BYTES:
                 raise ValueError("source grew beyond verification byte limit")
             digest.update(chunk)
     after = path.stat()
+    if consumed != before.st_size or after.st_size != before.st_size:
+        raise ValueError("source size changed during verification")
+    if opened is None:
+        raise ValueError("source opened descriptor identity not verifiable")
     fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
     if os.name != "nt":
         fields += ("st_ctime_ns",)
