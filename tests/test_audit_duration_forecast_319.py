@@ -1017,3 +1017,19 @@ def test_integer_text_page_scope_remains_comparable(tmp_path):
         "field_source": "NONE", "max_pages": "1", "web_max_pages": 1,
     }
     assert _strictly_comparable(state, config) is True
+
+
+def test_large_adjacent_integer_page_counts_never_alias_via_float(tmp_path):
+    from rasai.audit_duration_forecast_319 import _strictly_comparable
+    state = _state(tmp_path)
+    state.max_pages = 9007199254740992
+    config = {
+        "input_mode": "URL", "device": "MOBILE",
+        "ai_provider": "auto", "ai_model": "",
+        "content_remediation": False, "web_performance": True,
+        "field_source": "NONE", "max_pages": 9007199254740993,
+        "web_max_pages": 1,
+    }
+    assert _strictly_comparable(state, config) is False
+    config["max_pages"] = "9007199254740992"
+    assert _strictly_comparable(state, config) is True
