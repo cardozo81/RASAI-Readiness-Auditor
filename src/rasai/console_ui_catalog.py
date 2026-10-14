@@ -328,8 +328,8 @@ def catalog_menu(console_module: ModuleType, state: Any, *, view: str, title: st
                 + " (chave/flag não autorizam pesquisa)",
                 YELLOW if px["enabled"] and not px["queries_requested"] else DIM,
             ))
-            if px["configuration_ready"] and not px["queries_requested"]:
-                print("  CAT-05 > P > 9: solicitar rascunho; autorização por AUD obrigatória.")
+            if px["draft_awaits_run_confirmation"]:
+                print("  Rascunho pronto: ao iniciar AUD, será solicitado aceite Perplexity.")
         _rows(state, rows, mode == "owner" and search_rows is None)
         if not rows: print(paint("\nNenhuma configuração corresponde ao filtro atual.", DIM))
         section("AÇÕES")
