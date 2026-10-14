@@ -359,13 +359,27 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
             )
             px = inspect_perplexity_readiness(state)
             print(paint(
-                "Perplexity externa         : " + px["status"],
+                "Perplexity configuração   : " + px["configuration_status"]
+                + f" | {px['configured_query_count']} query(s) "
+                + f"{px['configured_mode']} | origem={px['configured_source']}",
+                DIM if px["configuration_ready"] else YELLOW,
+            ))
+            for index, term in enumerate(px["configured_queries"], 1):
+                print(paint(f"  Query configurada {index}      : {term}", DIM))
+            print(paint(
+                "Perplexity nesta AUD      : " + px["status"],
                 YELLOW if px["enabled"] and not px["queries_requested"] else DIM,
             ))
-            if px["enabled"] and px["credential_configured"] and not px["queries_requested"]:
+            if px["configuration_ready"] and not px["queries_requested"]:
                 print(paint(
-                    "  Chave e ativação não solicitam pesquisa: CAT-05 > P > "
-                    "1. Queries ou 6. Copiar SERP (opt-in e potencial custo).",
+                    "  Configuração apta, porém ainda não solicitada nesta AUD. "
+                    "CAT-05 > P > 9 > R > S; execução sujeita ao gate financeiro.",
+                    YELLOW,
+                ))
+            elif not px["queries_requested"]:
+                print(paint(
+                    "  Para configurar: CAT-05 > P > 1 (queries) ou 6 (copiar SERP). "
+                    "Chave e ativação não autorizam pesquisa.",
                     YELLOW,
                 ))
         if (ai_required(state) or ai_optional(state)) and ai_provider_readiness(state)[0]:
