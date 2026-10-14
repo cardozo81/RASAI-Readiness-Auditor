@@ -44,7 +44,11 @@ def inspect_perplexity_readiness(
             getattr(state, "perplexity_draft_search_type", "web") or "web"
         ).strip().upper()
     )
-    configured_source = "SESSÃO" if requested else "INI/RASCUNHO" if draft else "NENHUMA"
+    configured_source = (
+        "SESSÃO" if requested or (
+            draft and bool(getattr(state, "perplexity_draft_modified_in_session", False))
+        ) else "INI/RASCUNHO" if draft else "NENHUMA"
+    )
     configured_valid = (
         1 <= len(configured_queries) <= 5
         and all(isinstance(q, str) and bool(q.strip()) for q in configured_queries)
