@@ -76,7 +76,7 @@ def test_cat05_scope_exposes_perplexity_as_independent_external_research(monkeyp
     assert "não entra no scoring" in rendered
     assert "Persistência de queries e modo" in rendered
     assert "RASCUNHO INI - SEM COBRANÇA NO LOAD" in rendered
-    assert "CONFIRMAR PERPLEXITY AO EXECUTAR" in rendered
+    assert "CAT-05 > P > 9: reutilizar manualmente" in rendered
 
 
 
