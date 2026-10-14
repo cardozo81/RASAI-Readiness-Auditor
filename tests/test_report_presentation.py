@@ -7,6 +7,18 @@ from rasai.score_geo_004 import FEATURE_ORDER, GROUP_WEIGHTS
 
 
 class ReportPresentationTests(unittest.TestCase):
+    def test_escaped_dom_markup_and_text_are_literal_evidence(self) -> None:
+        escaped_dom = (
+            "&lt;input id=&quot;LIFEShowcase-GTM-GTM_CPF&quot; "
+            "data-component-type=&quot;DYNAMIC_SCRIPT_INJECTION&quot;&gt;"
+            "&lt;div&gt;GTM_CPF&lt;/div&gt;"
+        )
+        html = "<p>HTTP_ACQUISITION_INCOMPLETE</p><div class='pre'>" + escaped_dom + "</div>"
+        rendered = humanize_report_html(html, page_name="cat-09.html")
+        self.assertIn("Aquisição HTTP incompleta", rendered)
+        self.assertIn(escaped_dom, rendered)
+        self.assertNotIn("Condição técnica não catalogada", rendered)
+
     def test_humanizes_only_primary_visible_machine_values(self) -> None:
         html = (
             "<table><tr>"
