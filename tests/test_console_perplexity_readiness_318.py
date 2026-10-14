@@ -185,3 +185,93 @@ def test_invalid_query_list_never_promises_executable_paid_search():
     )
     assert valid["queries_valid"] is True
     assert valid["executable_request_pending"] is True
+
+def test_persisted_draft_is_configuration_ready_but_not_an_execution_request() -> None:
+    state = _state(
+        perplexity_draft_queries=("posso ter seguro de vida familiar",),
+        perplexity_draft_search_type="fast",
+        search_queries=("termo SERP separado",),
+    )
+    original = vars(state).copy()
+    info = inspect_perplexity_readiness(state, environment={
+        "PERPLEXITY_API_KEY": "opaque-private-key",
+        "RASAI_PERPLEXITY_ENABLED": "true",
+    })
+    assert info["configuration_ready"] is True
+    assert info["configuration_status"] == "APTA PARA SOLICITAÇÃO"
+    assert info["configured_source"] == "INI/RASCUNHO"
+    assert info["configured_queries"] == ("posso ter seguro de vida familiar",)
+    assert info["configured_mode"] == "FAST"
+    assert info["status"] == "NÃO SOLICITADA - RASCUNHO APTO (CAT-05 > P > 9)"
+    assert info["queries_requested"] is False
+    assert info["executable_request_pending"] is False
+    assert info["per_aud_paid_consent_restored"] is False
+    assert vars(state) == original
+    assert "opaque-private-key" not in str(info)
+
+
+def test_session_edits_override_loaded_perplexity_draft_in_configuration_view() -> None:
+    state = _state(
+        perplexity_draft_queries=("termo do INI",),
+        perplexity_draft_search_type="fast",
+    )
+    env = {
+        "PERPLEXITY_API_KEY": "opaque-private-key",
+        "RASAI_PERPLEXITY_ENABLED": "true",
+    }
+    state.perplexity_queries = ("termo corrigido nesta sessão",)
+    state.perplexity_search_type = "web"
+    info = inspect_perplexity_readiness(state, environment=env)
+    assert info["configuration_ready"] is True
+    assert info["configured_source"] == "SESSÃO"
+    assert info["configured_queries"] == ("termo corrigido nesta sessão",)
+    assert info["configured_mode"] == "WEB"
+    assert info["status"] == "SOLICITADA - SUJEITA À CONFIRMAÇÃO DE EXECUÇÃO"
+    assert info["saved_draft_query_count"] == 1
+
+
+def test_draft_requires_enabled_and_credential_and_valid_mode() -> None:
+    state = _state(
+        perplexity_draft_queries=("seguro familiar",),
+        perplexity_draft_search_type="fast",
+    )
+    disabled = inspect_perplexity_readiness(state, environment={
+        "PERPLEXITY_API_KEY": "secret",
+        "RASAI_PERPLEXITY_ENABLED": "false",
+    })
+    missing = inspect_perplexity_readiness(state, environment={
+        "RASAI_PERPLEXITY_ENABLED": "true",
+    })
+    assert disabled["configuration_status"] == "DESABILITADA"
+    assert missing["configuration_status"] == "CREDENCIAL AUSENTE"
+    assert not disabled["configuration_ready"]
+    assert not missing["configuration_ready"]
+    assert not disabled["executable_request_pending"]
+    assert not missing["executable_request_pending"]
+
+    state.perplexity_draft_search_type = "bad"
+    invalid = inspect_perplexity_readiness(state, environment={
+        "PERPLEXITY_API_KEY": "secret", "RASAI_PERPLEXITY_ENABLED": "true",
+    })
+    assert not invalid["configuration_ready"]
+    assert invalid["configuration_status"] == "QUERIES/MODO INVÁLIDOS"
+    assert not invalid["executable_request_pending"]
+
+
+def test_draft_readiness_render_displays_saved_terms_without_secret(monkeypatch) -> None:
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "DONT_DISPLAY_SECRET")
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    state = _state(
+        perplexity_draft_queries=("seguro de vida familiar",),
+        perplexity_draft_search_type="fast",
+    )
+    out = StringIO()
+    with redirect_stdout(out):
+        render_perplexity_readiness(state)
+    message = out.getvalue()
+    assert "APTA PARA SOLICITAÇÃO" in message
+    assert "seguro de vida familiar" in message
+    assert "INI/RASCUNHO" in message
+    assert "9. Reutilizar rascunho salvo" in message
+    assert "NÃO SOLICITADA" in message
+    assert "DONT_DISPLAY_SECRET" not in message
