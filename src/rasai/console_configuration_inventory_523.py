@@ -313,6 +313,16 @@ def inventory(
             "scope": "SESSION_ONLY_EXECUTION_OPT_IN",
             "new_audit_consent_inherited": False,
         },
+        {
+            "name": "perplexity_draft.queries",
+            "scope": "REUSABLE_INI_DRAFT_NO_EXECUTION_INTENT",
+            "new_audit_consent_inherited": False,
+        },
+        {
+            "name": "perplexity_draft.search_type",
+            "scope": "REUSABLE_INI_DRAFT_NO_EXECUTION_INTENT",
+            "new_audit_consent_inherited": False,
+        },
     ]
     state = SearchConsoleState()
     state_fields = []
