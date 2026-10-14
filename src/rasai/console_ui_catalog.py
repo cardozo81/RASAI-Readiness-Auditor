@@ -316,10 +316,20 @@ def catalog_menu(console_module: ModuleType, state: Any, *, view: str, title: st
             from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
             px = inspect_perplexity_readiness(state)
             print(paint(
+                "Perplexity configuração: " + px["configuration_status"]
+                + f" | {px['configured_query_count']} query(s)"
+                + f" | {px['configured_mode']} | {px['configured_source']}",
+                DIM if px["configuration_ready"] else YELLOW,
+            ))
+            for index, term in enumerate(px["configured_queries"], 1):
+                print(paint(f"  Query configurada {index}: {term}", DIM))
+            print(paint(
                 "Perplexity externa nesta AUD: " + px["status"]
-                + " (configurar chave/flag NÃO configura queries)",
+                + " (chave/flag não autorizam pesquisa)",
                 YELLOW if px["enabled"] and not px["queries_requested"] else DIM,
             ))
+            if px["configuration_ready"] and not px["queries_requested"]:
+                print("  CAT-05 > P > 9: solicitar rascunho; autorização por AUD obrigatória.")
         _rows(state, rows, mode == "owner" and search_rows is None)
         if not rows: print(paint("\nNenhuma configuração corresponde ao filtro atual.", DIM))
         section("AÇÕES")
