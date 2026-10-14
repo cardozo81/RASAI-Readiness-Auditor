@@ -328,6 +328,43 @@ def test_sari_partial_dimension_is_visible_beside_high_aggregated_confidence() -
 
 
 
+
+def test_optional_seo_evidence_policy_distinguishes_absence_from_harm() -> None:
+    from rasai.optional_seo_policy_602 import classify_seo_evidence as classify
+
+    assert classify("BR-GEO-017", '{"state":"ABSENT"}') == "OPTIONAL_ABSENCE"
+    assert classify("BR-GEO-017", '{"state":"OBTAINED"}') == "AVAILABLE"
+    assert classify("BR-GEO-017", '{"state":"NETWORK_ERROR"}') == "UNKNOWN"
+    assert classify("BR-GEO-013", '{"canonicals":[]}') == "OPTIONAL_ABSENCE"
+    assert classify(
+        "BR-GEO-013",
+        '{"declared":["/a","/b"],"invalid":[],"normalized":["https://x.test/a","https://x.test/b"]}',
+    ) == "OBSERVED_CONFLICT"
+    assert classify(
+        "BR-GEO-013",
+        '{"declared":["/a"],"invalid":[],"normalized":["https://x.test/a"]}',
+    ) == "AVAILABLE"
+    assert classify(
+        "BR-GEO-013",
+        '{"declared":["bad"],"invalid":["bad"],"normalized":[]}',
+    ) == "OBSERVED_CONFLICT"
+    assert classify("BR-GEO-003", '{"sitemaps":[{"state":"ABSENT"}]}') == "OPTIONAL_ABSENCE"
+    assert classify("BR-GEO-003", '{"sitemaps":[{"state":"INVALID"}]}') == "OBSERVED_CONFLICT"
+    assert classify("BR-GEO-003", '{"sitemaps":[{"state":"HTTP_ERROR"}]}') == "UNKNOWN"
+    assert classify("BR-GEO-003", '{"sitemaps":[{"state":"NETWORK_ERROR"}]}') == "UNKNOWN"
+    assert classify("BR-GEO-003", '{"sitemaps":[]}') == "UNKNOWN"
+    assert classify(
+        "BR-GEO-003", '{"sitemaps":[{"state":"OBTAINED"},{"state":"ABSENT"}]}',
+    ) == "AVAILABLE"
+    assert classify("BR-GEO-003", '{"sitemaps":[{"state":"ABSENT"}],"sitemaps":[]}') == "UNKNOWN"
+    assert classify("BR-GEO-013", '{"canonicals":NaN}') == "UNKNOWN"
+    assert classify("BR-GEO-013", '{"canonicals":null}') == "UNKNOWN"
+    assert classify("BR-GEO-003", "{}") == "UNKNOWN"
+    assert classify("BR-GEO-999", '{"state":"ABSENT"}') == "UNKNOWN"
+    assert classify("BR-GEO-017", "x" * 16385) == "UNKNOWN"
+
+
+
 def test_lighthouse_one_is_one_out_of_100_not_100(tmp_path: Path) -> None:
     database = tmp_path / "audit.db"
     con = sqlite3.connect(database)
