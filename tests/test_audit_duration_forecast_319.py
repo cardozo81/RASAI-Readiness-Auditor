@@ -992,3 +992,28 @@ def test_boolean_historical_page_count_never_matches_numeric_scope(tmp_path, val
     config["max_pages"] = 1
     state.max_pages = value
     assert _strictly_comparable(state, config) is False
+
+
+@pytest.mark.parametrize("value", [1.5, "1.9", float("nan"), float("inf"), 0, -1])
+def test_fractional_nonfinite_or_nonpositive_page_counts_abstain(tmp_path, value):
+    from rasai.audit_duration_forecast_319 import _strictly_comparable
+    state = _state(tmp_path)
+    config = {
+        "input_mode": "URL", "device": "MOBILE",
+        "ai_provider": "auto", "ai_model": "",
+        "content_remediation": False, "web_performance": True,
+        "field_source": "NONE", "max_pages": value, "web_max_pages": 1,
+    }
+    assert _strictly_comparable(state, config) is False
+
+
+def test_integer_text_page_scope_remains_comparable(tmp_path):
+    from rasai.audit_duration_forecast_319 import _strictly_comparable
+    state = _state(tmp_path)
+    config = {
+        "input_mode": "URL", "device": "MOBILE",
+        "ai_provider": "auto", "ai_model": "",
+        "content_remediation": False, "web_performance": True,
+        "field_source": "NONE", "max_pages": "1", "web_max_pages": 1,
+    }
+    assert _strictly_comparable(state, config) is True
