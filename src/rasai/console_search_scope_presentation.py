@@ -97,13 +97,13 @@ def render_search_scope(state: Any) -> None:
     ).strip().upper()
     perplexity_status = perplexity_configuration_status()
     ready, detail = validate_perplexity_readiness(state)
-    info("Solicitação", "SOLICITADA" if perplexity_queries else "NÃO SOLICITADA")
+    from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
+    px = inspect_perplexity_readiness(state)
+    info("Solicitação", px["status"] if not perplexity_queries else "SOLICITADA")
     info("Quantidade de queries", len(perplexity_queries))
     info("Tipo", perplexity_type)
     # Saved inputs remain inert; at launch they may be explicitly approved.
     draft = tuple(getattr(state, "perplexity_draft_queries", ()) or ())
-    from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
-    px = inspect_perplexity_readiness(state)
     info("Persistência de queries e modo", "RASCUNHO INI - SEM COBRANÇA NO LOAD")
     info("Rascunho disponível", f"{len(draft)} query(s) | não autorizado")
     info(
