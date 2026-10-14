@@ -2,6 +2,7 @@
 from rasai.catalog_report_page import *  # noqa: F401,F403
 
 import sqlite3
+from math import isfinite
 
 from rasai.browser_render_failure import render_failure_public_detail
 
@@ -154,6 +155,20 @@ def _overview_body(database: Path, data: _ReportData) -> str:
     return body
 
 
+
+def _sari_coverage_public(value: Any) -> str:
+    """Display SARI coverage in human units without changing the stored ratio."""
+    try:
+        ratio = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return "Não determinada"
+    if not isfinite(ratio) or not 0.0 <= ratio <= 1.0:
+        return "Não determinada"
+    percentage = f"{ratio * 100:.1f}".replace(".", ",")
+    # Keep the canonical fraction for traceability to the physical scores row.
+    return f"{percentage}% (fração {ratio:.6f})"
+
+
 def _sari_body(data: _ReportData) -> str:
     from rasai.catalog_report_public_labels import public_contract_label
     overall=[r for r in data.scores if _norm(r.get("dimension"))=="OVERALL_READINESS"]
@@ -162,7 +177,7 @@ def _sari_body(data: _ReportData) -> str:
             f"Índice de Prontidão · {_device_label(r.get('device'))}",
             _score_value(r),
             _score_result_tone(_score_value(r)),
-            f"Cobertura {r.get('coverage','-')} · Confiança {_confidence_label(r.get('confidence'))}",
+            f"Cobertura {_sari_coverage_public(r.get('coverage'))} · Confiança {_confidence_label(r.get('confidence'))}",
         )
         for r in overall
     )
@@ -174,7 +189,7 @@ def _sari_body(data: _ReportData) -> str:
     versions=sorted({str(r.get("scoring_version")) for r in data.scores if r.get("scoring_version")})
     body=_audit_hero(data,"Search & AI Readiness Index - Índice de Prontidão Search & IA","Índice persistido de prontidão, versão pública 001, com cobertura, confiança, dimensões e limitações. ID técnico: SARI-001. O HTML não recalcula o índice.")
     body+=_outline((("result","Resultado"),("composition","Composição"),("limitations","Limitações"),("method","Método")))
-    body+=_section("result","Resultado geral",f"<div class='metric-grid'>{cards or _metric('Índice de Prontidão','Sem pontuação persistida')}</div><div class='notice'>O valor deve ser lido junto de cobertura, confiança e condições de validação persistidas.</div>")
+    body+=_section("result","Resultado geral",f"<div class='metric-grid'>{cards or _metric('Índice de Prontidão','Sem pontuação persistida')}</div><div class='notice'>O SARI é um índice proprietário do RASAi, calculado sobre o escopo efetivamente auditado. A confiança expressa a força da avaliação no contrato de regras, não um intervalo de confiança estatística, nem certificação de indexação, posição no Google, inclusão em respostas generativas, desempenho, conformidade WCAG ou conformidade regulatória. O valor deve ser lido junto de cobertura, estados de cada dimensão e condições de validação persistidas.</div>")
     body+=_section("composition","Composição e dimensões",_score_table(data,include_overall=False))
     body+=_section("limitations","Limitações e critérios críticos persistidos",_table(("Contexto","Limitação / gate"),limitations,empty="Nenhuma limitação serializada foi encontrada."))
     body+=_section("method","Método aplicado",f"<div class='metric-grid'>{_metric('Versão pública','001')}{_metric('Contrato técnico',', '.join(versions) or '-')}{_metric('Fonte do valor','Pontuação persistida da auditoria')}{_metric('Recalcula no HTML?','Não')}</div><p>Pesos, fórmulas e condições de validação pertencem ao Método de Pontuação de Prontidão persistido. Consulte <a href='methodology.html'>Método de Pontuação de Prontidão</a>.</p>")
