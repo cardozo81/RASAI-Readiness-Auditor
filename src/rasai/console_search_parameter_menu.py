@@ -198,8 +198,8 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
         f"{px_view['configured_query_count']} query(s) {px_view['configured_mode']} | "
         f"origem {px_view['configured_source']}"
     )
-    if px_view["saved_draft_available"] and not px_view["queries_requested"]:
-        print("   Rascunho recuperado: P > 9 para solicitar nesta AUD (confirmação necessária).")
+    if px_view["draft_awaits_run_confirmation"]:
+        print("   Query salva preparada: ao iniciar AUD será solicitado aceite Perplexity.")
     print("   Pesquisa externa advisory; independente de SERP e sem efeito em scoring/evidência determinística.")
     print("\nD. Não solicitar SERP nesta execução (limpa os termos)")
     print("V. Voltar")
@@ -557,8 +557,11 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         print(f"  Readiness             : {'APTA' if ready else 'CONFIGURAR'}")
         print(f"  Execução próxima AUD  : {px['status']}")
         if not px["queries_requested"]:
-            if px["saved_draft_available"]:
-                print("  PARA EXECUTAR: opção 9 > R > S (confirmar solicitação nesta AUD).")
+            if px["draft_awaits_run_confirmation"]:
+                print("  PARA EXECUTAR: use R no plano; será solicitado aceite Perplexity.")
+                print("  A opção 9 continua disponível para ativação antecipada, se preferir.")
+            elif px["saved_draft_available"]:
+                print("  Solicitação ignorada nesta AUD; use 9 para reativar manualmente.")
             else:
                 print("  PARA CONFIGURAR: definir queries (1) ou copiar SERP com autorização (6).")
         print("  País, idioma, domínio, recência e limites adicionais são opcionais.")
