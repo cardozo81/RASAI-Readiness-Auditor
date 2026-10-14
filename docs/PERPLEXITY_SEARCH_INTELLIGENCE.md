@@ -787,3 +787,11 @@ consultar o inventário da intenção sem reenvio automático. É uma proteção
 contra vazamento indireto de credenciais, detalhes de URL e respostas
 externas inseridos no texto de uma exceção. A falha não altera a
 integridade da AUD original nem autoriza nova cobrança por retry.
+
+### Contrato de rascunho persistido sem consentimento (#523, 14/10/2026)
+
+A opção **Salvar configuração** agora grava `[perplexity_draft]` com `queries` e `search_type` WEB/FAST, permitindo recuperar os termos entre sessões, como os termos SERP. Ao reabrir o console, os valores são **somente rascunho**. O estado de pedido faturável permanece `NOT_REQUESTED`: não existe execução implícita por causa de INI, key, ativação, consultas SERP ou rascunho.
+
+O menu **CAT-05 > P > 9** apresenta rascunho e permite (R) solicitar explicitamente seu uso na AUD corrente, seguido dos gates financeiros já existentes, ou (C) apagar o rascunho na sessão e salvar a exclusão posteriormente. O modo selecionado no rascunho só é transferido ao estado de execução após confirmação afirmativa. Em nenhum cenário a restauração do INI reexecuta uma consulta ou recupera uma autorização antiga. Queries não são secrets técnicos, mas podem conter informação sensível: o arquivo local requer proteção adequada.
+
+Este contrato substitui descrições históricas de queries WEB/FAST estritamente não persistíveis; o pedido de execução continua transitório por segurança.
