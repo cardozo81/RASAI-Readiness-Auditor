@@ -23,23 +23,47 @@ _MAX_SOURCE_BYTES = 256 * 1024 * 1024
 
 
 def _file_digest(path: Path) -> str:
+    """Verify opened CONS/AUD source identity as well as SHA-256 bytes.
+
+    Equal file size is not evidence against an in-place write or path swap.
+    POSIX ctime guards same-size writes; Windows ctime can mean creation time.
+    """
     if path.is_symlink() or not path.is_file():
         raise ValueError("source file unavailable or linked")
-    original_size = path.stat().st_size
-    if original_size > _MAX_SOURCE_BYTES:
+    before = path.stat()
+    if before.st_size > _MAX_SOURCE_BYTES or before.st_size < 0:
         raise ValueError("source file exceeds verification limit")
     digest = sha256()
     consumed = 0
     with path.open("rb") as handle:
+        try:
+            opened = os.fstat(handle.fileno())
+        except (OSError, ValueError, AttributeError):
+            # Synthetic streams cannot attest descriptor identity. Read only
+            # to classify growth/truncation, then fail closed.
+            opened = None
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             consumed += len(chunk)
             if consumed > _MAX_SOURCE_BYTES:
                 raise ValueError("source grew beyond verification byte limit")
             digest.update(chunk)
-    # A source may grow or truncate after the preliminary stat. Hashing
-    # different physical bytes must never attest a stable CONS/AUD input.
-    if consumed != original_size or path.stat().st_size != original_size:
+    after = path.stat()
+    if consumed != before.st_size or after.st_size != before.st_size:
         raise ValueError("source size changed during verification")
+    if opened is None:
+        raise ValueError("source opened descriptor identity not verifiable")
+    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    if os.name != "nt":
+        fields += ("st_ctime_ns",)
+    if (
+        path.is_symlink()
+        or consumed != before.st_size
+        or any(
+            getattr(before, key) != getattr(candidate, key)
+            for candidate in (opened, after) for key in fields
+        )
+    ):
+        raise ValueError("source identity changed during verification")
     return digest.hexdigest()
 
 
