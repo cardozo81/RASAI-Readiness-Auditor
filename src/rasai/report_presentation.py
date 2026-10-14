@@ -669,10 +669,14 @@ def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
         if blocked_depth:
             output.append(part)
             continue
-        for fragment in _ESCAPED_DOM_TAG_RE.split(part):
-            # The HTML source is already escaped for safe display. Translating
-            # GTM_CPF within id=&quot;...&quot; would falsify captured evidence.
-            if fragment.startswith("&lt;") and fragment.endswith("&gt;"):
+        fragments = _ESCAPED_DOM_TAG_RE.split(part)
+        for index, fragment in enumerate(fragments):
+            # Escaped DOM tags *and text between them* are literal source
+            # evidence. Never rewrite attributes or DOM text nodes. Ordinary
+            # report prose outside these regions remains humanized.
+            literal_tag = index % 2 == 1
+            literal_dom_text = 0 < index < len(fragments) - 1
+            if literal_tag or literal_dom_text:
                 output.append(fragment)
                 continue
             visible = localize_visible_timestamps(fragment)
