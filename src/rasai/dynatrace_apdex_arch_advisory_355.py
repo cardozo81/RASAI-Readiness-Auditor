@@ -56,7 +56,9 @@ def _validate_settings(value: Mapping[str, Any]) -> tuple[str, ...]:
         if not isinstance(category, Mapping):
             failures.append(key + ":INVALID_ACTION_CONFIGURATION")
             continue
-        metric = category.get("kpm", "USER_ACTION_DURATION" if key == "custom_actions" else None)
+        # KPM semantics may be fixed by Dynatrace for Custom actions, but
+        # an absent field is not an observed configured value in this export.
+        metric = category.get("kpm")
         if not isinstance(metric, str) or metric not in valid_metrics:
             failures.append(key + ":KPM_NOT_SUPPORTED_FOR_ACTION_TYPE")
         if not _valid_limits(category.get("thresholds"), _MAIN_THRESHOLD_KEYS):
@@ -140,7 +142,7 @@ def assess_dynatrace_apdex_architecture(
         output["reasons"].extend(invalid)
         return output
     output["observed_kpm"] = {
-        category: cfg.get("kpm", "USER_ACTION_DURATION")
+        category: cfg["kpm"]
         for category, cfg in settings.items()
         if category in KPM_BY_ACTION and isinstance(cfg, Mapping)
     }
