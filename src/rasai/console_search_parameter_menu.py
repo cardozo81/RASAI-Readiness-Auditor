@@ -354,6 +354,7 @@ def _edit_perplexity_type(search_module: ModuleType, state: Any) -> None:
         else:
             # Changing WEB/FAST in a draft does not request a provider call.
             state.perplexity_draft_search_type = values[raw]
+            state.perplexity_draft_modified_in_session = True
     elif raw != "V":
         print("  Opção inválida: use 1, 2 ou V.")
 
