@@ -4,10 +4,69 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import subprocess
+import sys
 
 from rasai.console_config import is_secret
 from rasai.console_configuration_inventory_523 import inventory, main
 from rasai.console_provider_environment import refresh_specs
+
+
+
+def test_apdex_state_survives_save_then_load_in_fresh_python_process(tmp_path):
+    """#523: verify an actual interpreter boundary, not only State round trips."""
+    from rasai.console_m23 import State
+    from rasai.console_settings import save_console_config
+
+    ini = tmp_path / "roundtrip-apdex.ini"
+    state = State()
+    state.apdex_experience = True
+    state.apdex_experience_architecture = "CSR_SPA"
+    state.apdex_experience_profile_mode = "CUSTOM"
+    state.apdex_experience_kpm = "DOM_INTERACTIVE"
+    state.apdex_experience_satisfied = 5.0
+    state.apdex_experience_frustrated = 20.0
+    save_console_config(state, ini)
+    source = ini.read_bytes()
+
+    script = (
+        "import json,sys; "
+        "from pathlib import Path; "
+        "from rasai.console_m23 import State; "
+        "from rasai.console_settings import load_console_config; "
+        "s=State(); r=load_console_config(s,Path(sys.argv[1])); "
+        "print(json.dumps({'architecture':s.apdex_experience_architecture,"
+        "'profile_mode':s.apdex_experience_profile_mode,"
+        "'kpm':s.apdex_experience_kpm,'satisfied':s.apdex_experience_satisfied,"
+        "'frustrated':s.apdex_experience_frustrated,"
+        "'perplexity_intent':bool(getattr(s,'perplexity_queries',()))}))"
+    )
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in {
+            "RASAI_APDEX_EXPERIENCE_ARCHITECTURE",
+            "RASAI_APDEX_EXPERIENCE_PROFILE_MODE",
+            "RASAI_APDEX_EXPERIENCE_KPM",
+            "RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS",
+            "RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS",
+        }
+    }
+    completed = subprocess.run(
+        [sys.executable, "-c", script, str(ini)],
+        env=env, capture_output=True, text=True, check=True, timeout=30,
+    )
+    restored = json.loads(completed.stdout)
+    assert restored == {
+        "architecture": "CSR_SPA",
+        "profile_mode": "CUSTOM",
+        "kpm": "DOM_INTERACTIVE",
+        "satisfied": 5.0,
+        "frustrated": 20.0,
+        "perplexity_intent": False,
+    }
+    assert ini.read_bytes() == source
+
 
 
 def test_inventory_has_every_live_env_spec_once_and_never_prints_credentials(tmp_path):
