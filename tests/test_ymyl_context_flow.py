@@ -84,6 +84,57 @@ def test_faq_duplicated_panel_ids_and_aria_attributes_are_ambiguous() -> None:
 
 
 
+
+def test_faq_paired_dom_text_does_not_certify_click_or_crawler_discovery() -> None:
+    from rasai.faq_transition_policy_601 import compare_faq_dom_views as compare
+
+    url = "https://example.test/seguro"
+    before = (
+        '<button aria-controls="faq-life" aria-expanded="false">'
+        'Pergunta frequente</button>'
+    )
+    later = (
+        '<button aria-controls="faq-life" aria-expanded="true">'
+        'Pergunta frequente</button><div id="faq-life">Resposta no DOM posterior</div>'
+    )
+    result = compare(
+        before, later, target_id="faq-life",
+        before_url=url, later_url=url,
+    )
+    assert result["status"] == "DESCRIPTIVE_SNAPSHOT_PAIR_ONLY"
+    assert result["before_state"] == "COLLAPSED_UNMOUNTED"
+    assert result["later_state"] == "EXPANDED_DOM_TEXT"
+    assert result["reason"] == "TEXT_PRESENT_IN_LATER_DOM_NOT_CLICK_PROOF"
+    assert not result["action_or_click_verified"]
+    assert not result["crawler_discovery_verified"]
+    assert not result["editorial_answer_absence_proven"]
+    assert not result["score_change_authorized"]
+
+
+def test_faq_paired_dom_abstains_on_wrong_url_and_ambiguous_panel() -> None:
+    from rasai.faq_transition_policy_601 import compare_faq_dom_views as compare
+
+    pre = '<button aria-controls="faq-x" aria-expanded="false">Q</button>'
+    post = (
+        '<button aria-controls="faq-x" aria-expanded="true">Q</button>'
+        '<div id="faq-x">Um</div><div id="faq-x">Dois</div>'
+    )
+    params = {"target_id": "faq-x", "before_url": "https://example.test/a",
+              "later_url": "https://example.test/a"}
+    assert compare(pre, post, **params)["reason"] == "DOM_CONTROL_OR_PANEL_AMBIGUOUS"
+    assert compare(
+        pre, post, **{**params, "later_url": "https://example.test/b"},
+    )["status"] == "NOT_COMPARABLE"
+    assert compare(
+        pre, '<button aria-controls="faq-x" aria-expanded="false">Q</button>',
+        **params,
+    )["reason"] == "LATER_PANEL_NOT_EXPANDED"
+    empty = '<button aria-controls="faq-x" aria-expanded="true">Q</button>'
+    assert compare(pre, empty, **params)["reason"] == "LATER_DOM_WITHOUT_RECOVERABLE_TEXT"
+    assert compare(pre, empty, **params)["editorial_answer_absence_proven"] is False
+
+
+
 def test_faq_readonly_report_does_not_claim_editorial_absence(tmp_path: Path) -> None:
     db = tmp_path / "audit.db"
     artifact = tmp_path / "artifacts" / "rendered" / "P1" / "mobile" / "S1.html"
