@@ -441,7 +441,7 @@ def test_perplexity_submenu_distinguishes_loaded_draft_ready_from_requested(monk
     assert "Configuração         : APTA PARA SOLICITAÇÃO" in rendered
     assert "Queries configuradas : 1 | modo=FAST" in rendered
     assert "posso ter seguro de vida familiar" in rendered
-    assert "Solicitação           : NÃO SOLICITADA" in rendered
+    assert "Solicitação           : PREPARADA" in rendered
     assert "PARA EXECUTAR: use R no plano" in rendered
     assert "PREPARADA - CONFIRMAR PERPLEXITY AO EXECUTAR AUD" in rendered
     assert state.perplexity_queries == ()
