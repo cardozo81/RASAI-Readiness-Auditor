@@ -487,3 +487,19 @@ Testes de processo isolado, restauração não faturável, anterior, modos, leit
 A leitura do console é exclusivamente *read-only* e diferencia **viabilidade de configuração** de **solicitação de execução**. Em `console_perplexity_readiness_318.inspect_perplexity_readiness`, os termos ativos na sessão (`perplexity_queries`, `perplexity_search_type`) prevalecem na apresentação; se não houver solicitação ativa, a tela exibe os termos do `[perplexity_draft]` restaurados por `console_settings.load_console_config`. Credencial configurada, ativação habilitada, 1 a 5 queries válidas e WEB/FAST válido tornam a **configuração APTA PARA SOLICITAÇÃO**. É uma prontidão de parâmetros, não validação da credencial no endpoint nem concessão de consentimento.
 
 A tela principal `INÍCIO > PREPARAR AUDITORIA`, o editor Perplexity do CAT-05 e `6. Todas as configurações` apresentam configuração, origem (sessão/INI), modo e queries disponíveis separadamente do estado `NÃO SOLICITADA` ou `SOLICITADA`. Um rascunho pronto informa a ação `CAT-05 > P > 9 > R > S`, sujeita à confirmação financeira. A simples leitura do INI nunca promove `perplexity_draft_queries` a `perplexity_queries`, nunca provoca Search API nem altera SERP. Configuração `APTA` não é garantia de sucesso de execução remota.
+
+## Contrato de preparação automática com aceite no lançamento (#595, 14/10/2026)
+
+Quando o console carrega `[perplexity_draft]` válido (1 a 5 queries, modo WEB/FAST), possui credencial Perplexity, integração habilitada e CAT-05 selecionado, o plano mostra **PREPARADA - CONFIRMAR PERPLEXITY AO EXECUTAR AUD**, com os termos disponíveis do INI e sem exigir passagem manual por `CAT-05 > P > 9 > R > S`. O carregamento sozinho não ativa `perplexity_queries`, não executa HTTP nem transmite autorização financeira.
+
+Ao pressionar `R. Executar auditoria`, o console abre gate contextual antes do gate financeiro geral:
+
+- `C`: inclui as queries do INI nesta AUD exclusivamente depois desse aceite explícito; a confirmação geral de custo/IA permanece obrigatória.
+- `N`: continua a auditoria **sem** Perplexity.
+- `V`: volta ao plano **sem** iniciar AUD.
+  
+Este gate é adicional e distinto de `C=usar IA` ou `N=não usar IA` da IA generativa, pois Perplexity Search API não é equivalente ao provider canônico de LLM e pode possuir preço desconhecido. Nenhuma decisão sobre custos da IA canônica aprova implicitamente Perplexity. Se a AUD for cancelada no gate geral, não há pesquisa Perplexity.
+
+Os campos ativos `perplexity_queries`/`perplexity_search_type` são definidos **temporariamente durante o run autorizado**, restaurados no final, inclusive em erro; o próximo run exige novo aceite. A opção `D` no CAT-05 desabilita a proposta **na AUD corrente** e não apaga o rascunho salvo no INI; `9 > C` seguido de salvar remove o rascunho. Se uma solicitação explícita já foi feita na sessão (`9 > R > S` ou edição de query), não se oferece gate duplicado. Não altera motor Perplexity nem SERP, coleta, scoring, SQLite ou relatórios.
+
+Referências anteriores neste documento ao caminho obrigatório `P > 9` deixam de representar o fluxo preferencial. A opção 9 continua disponível para controle manual, mas o caminho principal passa a ser **carregar INI → preparar AUD → R → confirmar Perplexity → confirmação financeira geral**.
