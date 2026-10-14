@@ -122,7 +122,7 @@ def test_cat05_scope_after_ini_restore_explains_intent_not_inherited(tmp_path, m
     visible = output.getvalue()
     assert "RASCUNHO INI - SEM COBRANÇA NO LOAD" in visible
     assert "CONFIRMAR PERPLEXITY AO EXECUTAR" in visible
-    assert "NÃO SOLICITADA" in visible
+    assert "PREPARADA - CONFIRMAR PERPLEXITY AO EXECUTAR AUD" in visible
     assert "Quantidade de queries" in visible
     assert "PRIVATE_PAID_QUERY_523" not in visible
     assert "NEVER_PRINT_OPERATOR_TOKEN_523" not in visible
