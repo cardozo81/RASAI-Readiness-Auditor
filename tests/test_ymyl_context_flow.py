@@ -32,8 +32,25 @@ def test_faq_snapshot_distinguishes_collapsed_unmounted_from_absent_answer() -> 
         'aria-expanded="false">Plano de cobertura</a>'
     )
     assert inspect_faq_html(html) == {
-        "controls": 2, "collapsed": 2, "unmounted": 1, "mounted": 1
+        "controls": 2, "collapsed": 2, "unmounted": 1, "mounted": 1,
+        "mounted_with_text": 1, "mounted_without_text": 0,
     }
+
+
+
+def test_faq_mounted_empty_panel_is_not_called_answered() -> None:
+    html = (
+        '<button aria-controls="faq-1" aria-expanded="false">Pergunta?</button>'
+        '<div id="faq-1"><script>var answer = "not visible"</script>'
+        '<span> </span></div>'
+        '<button aria-controls="faq-2" aria-expanded="false">Pergunta dois?</button>'
+        '<div id="faq-2"><span>Resposta recuperável</span></div>'
+    )
+    assert inspect_faq_html(html) == {
+        "controls": 2, "collapsed": 2, "unmounted": 0, "mounted": 2,
+        "mounted_with_text": 1, "mounted_without_text": 1,
+    }
+
 
 
 def test_faq_readonly_report_does_not_claim_editorial_absence(tmp_path: Path) -> None:
