@@ -27,6 +27,7 @@ class _AccordionParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.ids: set[str] = set()
+        self.id_counts: dict[str, int] = {}
         self.ids_with_dom_text: set[str] = set()
         self.controls: list[tuple[str, str]] = []
         self._open: list[tuple[str, str]] = []
@@ -36,9 +37,15 @@ class _AccordionParser(HTMLParser):
         element_id = str(props.get("id") or "").strip()
         if element_id:
             self.ids.add(element_id)
-        target = str(props.get("aria-controls") or "").strip()
-        expanded = str(props.get("aria-expanded") or "").strip().lower()
-        if target and expanded in {"true", "false"} and _FAQ_CONTEXT.search(target):
+            self.id_counts[element_id] = self.id_counts.get(element_id, 0) + 1
+        targets = [value for name, value in attrs if name == "aria-controls"]
+        expanded_values = [value for name, value in attrs if name == "aria-expanded"]
+        target = str(targets[0] or "").strip() if len(targets) == 1 else ""
+        expanded = (
+            str(expanded_values[0] or "").strip().lower()
+            if len(expanded_values) == 1 else "ambiguous"
+        )
+        if target and _FAQ_CONTEXT.search(target):
             self.controls.append((target, expanded))
         if tag not in _VOID_TAGS:
             self._open.append((tag, element_id))
@@ -68,11 +75,24 @@ class _AccordionParser(HTMLParser):
 def inspect_faq_html(html: str) -> dict[str, int]:
     parser = _AccordionParser()
     parser.feed(html)
-    # Count each target once, never multiply UI clones of the same control.
-    controls = dict(parser.controls)
-    collapsed = [target for target, expanded in controls.items() if expanded == "false"]
+    # A last-write-wins dictionary would invent a single truth if duplicate
+    # controls disagree about expanded state or multiple nodes share an id.
+    states: dict[str, set[str]] = {}
+    for target, expanded in parser.controls:
+        states.setdefault(target, set()).add(expanded)
+    ambiguous = {
+        target for target, expanded_states in states.items()
+        if len(expanded_states) != 1
+        or not expanded_states.issubset({"true", "false"})
+        or parser.id_counts.get(target, 0) > 1
+    }
+    collapsed = [
+        target for target, values in states.items()
+        if target not in ambiguous and values == {"false"}
+    ]
     return {
-        "controls": len(controls),
+        "controls": len(states),
+        "ambiguous": len(ambiguous),
         "collapsed": len(collapsed),
         "unmounted": sum(target not in parser.ids for target in collapsed),
         "mounted": sum(target in parser.ids for target in collapsed),
@@ -125,6 +145,7 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
     if not observations:
         return ""
     total = sum(item["controls"] for item in observations)
+    ambiguous = sum(item["ambiguous"] for item in observations)
     collapsed = sum(item["collapsed"] for item in observations)
     unmounted = sum(item["unmounted"] for item in observations)
     mounted = sum(item["mounted"] for item in observations)
@@ -132,24 +153,28 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
     mounted_without_text = sum(item["mounted_without_text"] for item in observations)
     provenance = "".join(
         "<tr><td><code>" + escape(snapshot_id) + "</code></td>"
-        + f"<td>{counts['controls']}</td><td>{counts['collapsed']}</td>"
-        + f"<td>{counts['unmounted']}</td><td>{counts['mounted_with_text']}</td>"
+        + f"<td>{counts['controls']}</td><td>{counts['ambiguous']}</td>"
+        + f"<td>{counts['collapsed']}</td><td>{counts['unmounted']}</td>"
+        + f"<td>{counts['mounted_with_text']}</td>"
         + f"<td>{counts['mounted_without_text']}</td></tr>"
         for snapshot_id, counts in sources
     )
     return (
         "<div class='subsection' data-contract='FAQ-OBSERVATION-601-001'>"
         "<h3>FAQ interativo — limite da captura</h3>"
-        f"<p>Foram identificados {total} controle(s) associados a FAQ, "
-        f"{collapsed} recolhido(s); entre estes, {unmounted} painel(is) "
+        f"<p>Foram identificados {total} alvo(s) distintos associados a FAQ, "
+        f"{ambiguous} com estado/ID ambíguo(s) e {collapsed} recolhido(s) sem ambiguidade; "
+        f"entre estes, {unmounted} painel(is) "
         f"não estavam presentes no DOM capturado e {mounted} tinham um alvo no DOM "
         f"({mounted_with_text} com texto recuperável no DOM e {mounted_without_text} sem texto recuperável).</p>"
         "<details><summary>Proveniência por captura</summary>"
         "<div class='table-wrap'><table><thead><tr><th>Snapshot ID</th><th>FAQ</th>"
-        "<th>Recolhidos</th><th>Painéis ausentes</th><th>Com texto DOM</th>"
+        "<th>Ambíguos</th><th>Recolhidos</th><th>Painéis ausentes</th><th>Com texto DOM</th>"
         "<th>Sem texto DOM</th></tr></thead><tbody>"
         + provenance + "</tbody></table></div></details>"
-        "<p class='muted'>A existência de texto em painel recolhido significa somente que ele "
+        "<p class='muted'>IDs duplicados, estados contraditórios ou controles malformados "
+        "são classificados como ambíguos e não entram nas contagens de painéis. "
+        "A existência de texto em painel recolhido significa somente que ele "
         "estava no DOM desta captura; não comprova que fosse visível, indexado ou correto. "
         "A auditoria não abriu esses controles nesta observação. "
         "Painel não materializado não prova ausência editorial de resposta. "
