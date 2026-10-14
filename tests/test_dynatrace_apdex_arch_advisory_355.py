@@ -852,9 +852,9 @@ def test_missing_custom_action_kpm_cannot_be_reported_as_observed():
     settings = _config(xhr=True, count=12, capture={"xhr": True, "fetch": True})
     settings["custom_actions"] = {"thresholds": _thresholds()}
     result = _assess(settings=settings)
-    assert result["status"] == "INVALID_SETTINGS_SNAPSHOT"
-    assert "custom_actions:KPM_NOT_SUPPORTED_FOR_ACTION_TYPE" in result["reasons"]
-    assert result["observed_kpm"] == {}
+    assert result["status"] == "CONFIGURATION_PLAUSIBLE_WITH_XHR_COVERAGE"
+    assert "custom_actions" not in result["observed_kpm"]
+    assert result["observed_kpm"]["xhr_actions"] == "USER_ACTION_DURATION"
     assert result["recommended_numeric_thresholds"] is None
 
     # Explicit KPM retains the documented custom-actions rule.
