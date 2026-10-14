@@ -1494,3 +1494,35 @@ def test_v11_path_inode_drift_during_hash_detected_on_windows_and_posix(
         ledger._audit_digest(database)
     assert len(calls) >= 3
     assert database.read_bytes() == original_bytes
+
+
+def test_html_target_host_alternatives_require_verified_source_and_row(tmp_path):
+    from rasai.geo_query_ledger_html_304 import render_geo_query_ledger_html
+
+    folder = _audit(tmp_path, multi=False)
+    _set_physical_aud_targets(folder, [
+        ("AUD-GEO304", "https://example.org/shared"),
+    ])
+    projection = inspect_geo_per_query(folder)
+    assert projection["status"] == "DESCRIPTIVE_ONLY"
+    row = projection["queries"][0]
+    assert row["serp_target_host_group"] is not None
+    rendered = render_geo_query_ledger_html(projection)
+    assert "Alternativas ao hostname da URL auditada" in rendered
+    assert "SERP: URLs alternativas no hostname do alvo" in rendered
+    assert "Search API: Hostnames distintos fora do alvo" in rendered
+    assert "N/D" not in rendered.split("Alternativas ao hostname da URL auditada")[1].split("</table>")[0]
+
+    # An unverified physical seal cannot disclose stale group counts.
+    projection["source_audit_db_integrity_guard"] = "UNVERIFIED"
+    masked = render_geo_query_ledger_html(projection)
+    group = masked.split("Alternativas ao hostname da URL auditada")[1].split("</table>")[0]
+    assert "<td>N/D</td>" in group
+    assert "<td>1</td>" not in group
+    # Individual abstention must also mask counts on a sealed projection.
+    projection["source_audit_db_integrity_guard"] = "DOUBLE_SHA256_MATCH"
+    row["status"] = "NOT_COMPARABLE"
+    group = render_geo_query_ledger_html(projection).split(
+        "Alternativas ao hostname da URL auditada"
+    )[1].split("</table>")[0]
+    assert "<td>N/D</td>" in group
