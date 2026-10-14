@@ -69,6 +69,7 @@ def classify_claim(
         and effective_from <= at_date <= effective_until
         and reviewed_on <= at_date
         and str(review.get("product_scope") or "") == product_scope
+        and str(review.get("claim_text") or "").strip() == claim
         and bool(str(review.get("document_version") or "").strip())
         and bool(str(review.get("issuer") or "").strip())
         and bool(str(review.get("reviewer_receipt_id") or "").strip())
