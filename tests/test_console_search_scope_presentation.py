@@ -75,8 +75,8 @@ def test_cat05_scope_exposes_perplexity_as_independent_external_research(monkeyp
     assert "não substitui SERP observada" in rendered
     assert "não entra no scoring" in rendered
     assert "Persistência de queries e modo" in rendered
-    assert "SOMENTE SESSÃO - NÃO SALVOS NO INI" in rendered
-    assert "Solicitar queries e confirmar novamente" in rendered
+    assert "RASCUNHO INI - SEM SOLICITAÇÃO AUTOMÁTICA" in rendered
+    assert "reutilizar e confirmar novamente" in rendered
 
 
 
@@ -100,7 +100,7 @@ def test_cat05_scope_after_ini_restore_explains_intent_not_inherited(tmp_path, m
     ini = tmp_path / "operator.ini"
     console_settings.save_console_config(source, ini)
     original = ini.read_bytes()
-    assert b"PRIVATE_PAID_QUERY_523" not in original
+    assert b"PRIVATE_PAID_QUERY_523" in original
     assert b"NEVER_PRINT_OPERATOR_TOKEN_523" not in original
 
     fresh = SearchConsoleState()
@@ -109,6 +109,8 @@ def test_cat05_scope_after_ini_restore_explains_intent_not_inherited(tmp_path, m
     assert fresh.search_queries == ("insurance BR",)
     assert fresh.perplexity_queries == ()
     assert fresh.perplexity_search_type == "web"
+    assert fresh.perplexity_draft_queries == ("PRIVATE_PAID_QUERY_523",)
+    assert fresh.perplexity_draft_search_type == "fast"
     assert ini.read_bytes() == original
 
     output = StringIO()
@@ -118,8 +120,8 @@ def test_cat05_scope_after_ini_restore_explains_intent_not_inherited(tmp_path, m
     ), redirect_stdout(output):
         render_search_scope(fresh)
     visible = output.getvalue()
-    assert "SOMENTE SESSÃO - NÃO SALVOS NO INI" in visible
-    assert "Solicitar queries e confirmar novamente" in visible
+    assert "RASCUNHO INI - SEM SOLICITAÇÃO AUTOMÁTICA" in visible
+    assert "reutilizar e confirmar novamente" in visible
     assert "NÃO SOLICITADA" in visible
     assert "Quantidade de queries" in visible
     assert "PRIVATE_PAID_QUERY_523" not in visible
