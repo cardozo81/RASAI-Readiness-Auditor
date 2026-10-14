@@ -71,11 +71,20 @@ def _safe_ini(path: Path) -> ConfigParser | None:
     return parser
 
 
+def _explicit_environment_keys(parser: ConfigParser | None) -> frozenset[str]:
+    """Only physical [environment] assignments, excluding [DEFAULT] inheritance."""
+    if parser is None or not parser.has_section("environment"):
+        return frozenset()
+    # ConfigParser.has_option/items/get merge [DEFAULT], which would fabricate
+    # persisted environment provenance and false positives for secret placement.
+    return frozenset(parser._sections["environment"])
+
+
 def _origin(key: str, parser: ConfigParser | None, environ: Mapping[str, str]) -> str:
     """Return only provenance, not the setting, for registered nonsecret vars."""
     from_ini = (
         parser.get("environment", key, fallback="").strip()
-        if parser is not None else ""
+        if key in _explicit_environment_keys(parser) else ""
     )
     from_session = str(environ.get(key) or "").strip()
     if from_session and from_ini and from_session != from_ini:
@@ -248,6 +257,7 @@ def inventory(
         **search_affinities, **apdex_affinities,
     }
     seen: set[str] = set()
+    explicit_ini_keys = _explicit_environment_keys(parser)
     variables = []
     for spec in specs:
         key = str(spec.name)
@@ -264,7 +274,7 @@ def inventory(
             "persist_ini": not sensitive,
             "secret_present_in_ini_violation": bool(
                 sensitive and parser is not None
-                and parser.has_option("environment", key)
+                and key in explicit_ini_keys
             ),
             "runtime_default_declared": spec.default is not None,
             "status": (
@@ -281,7 +291,7 @@ def inventory(
     # Report a count only; never expose arbitrary (potentially sensitive) names.
     unregistered_secret_ini_keys = (
         sum(
-            1 for key in parser.options("environment")
+            1 for key in explicit_ini_keys
             if key not in seen and is_secret(key)
         )
         if parser is not None and parser.has_section("environment") else 0

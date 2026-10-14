@@ -58,3 +58,25 @@ def test_unregistered_secret_scan_does_not_claim_clean_when_ini_missing(tmp_path
     result = inventory(path=tmp_path / "absent.ini", environ={})
     assert result["secret_ini_scan_complete"] is False
     assert result["unregistered_secret_ini_key_count"] == 0
+
+def test_default_section_is_not_a_physical_environment_assignment(tmp_path):
+    ini = tmp_path / "defaults.ini"
+    ini.write_text(
+        "[DEFAULT]\n"
+        "OPENAI_API_KEY=INHERITED_SECRET\n"
+        "RASAI_SERP_MAX_REQUESTS=7\n"
+        "LEGACY_EXTERNAL_CREDENTIAL=INHERITED_FAKE\n"
+        "[environment]\n"
+        "RASAI_WEB_PERFORMANCE=true\n",
+        encoding="utf-8",
+    )
+    report = inventory(path=ini, environ={})
+    rows = {item["name"]: item for item in report["environment_variables"]}
+    assert report["secret_ini_scan_complete"] is True
+    assert report["secret_ini_policy_violations"] == 0
+    assert report["unregistered_secret_ini_key_count"] == 0
+    assert rows["OPENAI_API_KEY"]["secret_present_in_ini_violation"] is False
+    assert rows["RASAI_SERP_MAX_REQUESTS"]["status"] == "RUNTIME_DEFAULT_OR_ABSENT"
+    assert rows["RASAI_WEB_PERFORMANCE"]["status"] == "INI"
+    assert "INHERITED_SECRET" not in json.dumps(report)
+    assert "INHERITED_FAKE" not in json.dumps(report)
