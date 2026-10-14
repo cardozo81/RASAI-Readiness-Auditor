@@ -129,6 +129,18 @@ def test_perplexity_failed_terminal_run_overrides_success_attempt(tmp_path: Path
     assert rows[0][3] == "Falha final"
 
 
+
+def test_sari_coverage_is_explicitly_percentual_and_traceable() -> None:
+    from rasai.catalog_report_governance import _sari_coverage_public
+
+    assert _sari_coverage_public(0.974737) == "97,5% (fração 0.974737)"
+    assert _sari_coverage_public(0.7) == "70,0% (fração 0.700000)"
+    assert _sari_coverage_public(None) == "Não determinada"
+    assert _sari_coverage_public("NaN") == "Não determinada"
+    assert _sari_coverage_public(1.01) == "Não determinada"
+
+
+
 def test_lighthouse_one_is_one_out_of_100_not_100(tmp_path: Path) -> None:
     database = tmp_path / "audit.db"
     con = sqlite3.connect(database)
