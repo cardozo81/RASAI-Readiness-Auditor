@@ -966,3 +966,13 @@ def test_different_serp_urls_same_final_destination_remain_deduplicated(
     assert len(out["comparisons"]) == 1
     assert out["provider_requests"] == out["audit_writes"] == 0
     assert db.read_bytes() == original
+
+
+def test_jsonld_type_must_not_be_truncated_into_false_persisted_fact(tmp_path):
+    from rasai.geo_competitor_content_provenance_330 import _optional_jsonld_types
+    oversized = "Schema" + "X" * 120
+    assert _optional_jsonld_types(json.dumps([oversized])) is None
+    assert _optional_jsonld_types(json.dumps(["FAQPage", "Product"])) == [
+        "FAQPage", "Product",
+    ]
+    assert _optional_jsonld_types(json.dumps(["X" * 120])) == ["X" * 120]
