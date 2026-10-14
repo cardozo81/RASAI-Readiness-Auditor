@@ -39,9 +39,9 @@ def test_inventory_secret_scan_abstains_when_source_unreadable(tmp_path):
 def test_unregistered_secret_like_ini_key_is_counted_without_disclosure(tmp_path):
     path = tmp_path / "legacy.ini"
     path.write_text(
-        "[environment]\\n"
-        "LEGACY_EXTERNAL_CREDENTIAL=PRIVATE_FAKE_VALUE\\n"
-        "RASAI_SERP_MAX_REQUESTS=7\\n",
+        "[environment]\n"
+        "LEGACY_EXTERNAL_CREDENTIAL=PRIVATE_FAKE_VALUE\n"
+        "RASAI_SERP_MAX_REQUESTS=7\n",
         encoding="utf-8",
     )
     original = path.read_bytes()
