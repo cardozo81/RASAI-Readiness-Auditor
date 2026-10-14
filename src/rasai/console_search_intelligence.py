@@ -66,6 +66,7 @@ class SearchConsoleState(BaseState):
     perplexity_draft_search_type: str = "web"
     # Opt-out only for the current AUD; neither request nor skip is persisted.
     perplexity_skip_draft_this_aud: bool = False
+    perplexity_draft_modified_in_session: bool = False
     geo_ai_requested: bool = False
     perplexity_last_status: str = "NOT_REQUESTED"
     perplexity_last_detail: str = ""
