@@ -6,7 +6,6 @@ and a response available only after a click is not proved accessible to crawlers
 """
 from __future__ import annotations
 
-from html import escape
 from html.parser import HTMLParser
 from pathlib import Path
 import re
