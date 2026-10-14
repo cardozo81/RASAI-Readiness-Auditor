@@ -346,3 +346,57 @@ def test_truncated_operator_ini_abstains_without_partial_activation(tmp_path):
         assert result.created is False
         assert result.warnings
         assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
+
+def test_saved_perplexity_draft_survives_unrelated_save_without_optin(tmp_path):
+    """Saving other settings after reboot does not silently discard the draft."""
+    from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
+
+    _install_config_contract()
+    path = tmp_path / "persisted.ini"
+    with patch.dict(os.environ, {}, clear=True):
+        original = SearchConsoleState(
+            perplexity_queries=("seguro família", "seguro carro"),
+            perplexity_search_type="fast",
+        )
+        console_settings.save_console_config(original, path)
+        restored = SearchConsoleState()
+        console_settings.load_console_config(restored, path)
+        assert restored.perplexity_queries == ()
+        assert restored.perplexity_draft_queries == ("seguro família", "seguro carro")
+        assert restored.perplexity_draft_search_type == "fast"
+        readiness = inspect_perplexity_readiness(
+            restored, environment={"RASAI_PERPLEXITY_ENABLED": "true",
+                                   "PERPLEXITY_API_KEY": "fake"}
+        )
+        assert readiness["saved_draft_available"] is True
+        assert readiness["queries_requested"] is False
+        assert readiness["executable_request_pending"] is False
+
+        restored.project = "Projeto novo"
+        console_settings.save_console_config(restored, path)
+        third = SearchConsoleState()
+        console_settings.load_console_config(third, path)
+        assert third.perplexity_draft_queries == ("seguro família", "seguro carro")
+        assert third.perplexity_draft_search_type == "fast"
+        assert third.perplexity_queries == ()
+        assert third.perplexity_last_status == "NOT_REQUESTED"
+
+
+def test_malformed_perplexity_draft_never_becomes_paid_request(tmp_path):
+    _install_config_contract()
+    path = tmp_path / "invalid.ini"
+    path.write_text(
+        "[perplexity_draft]\\nqueries = um;dois;três;quatro;cinco;seis\\n"
+        "search_type = unknown\\n"
+        "[environment]\\nRASAI_PERPLEXITY_ENABLED = true\\n",
+        encoding="utf-8",
+    )
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        result = console_settings.load_console_config(state, path)
+        assert result.warnings
+        assert state.perplexity_queries == ()
+        assert state.perplexity_draft_queries == ()
+        assert state.perplexity_last_status == "NOT_REQUESTED"
+        assert state.perplexity_draft_search_type == "web"
+
