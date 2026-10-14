@@ -44,7 +44,11 @@ def inspect_perplexity_readiness(
             getattr(state, "perplexity_draft_search_type", "web") or "web"
         ).strip().upper()
     )
-    configured_source = "SESSÃO" if requested else "INI/RASCUNHO" if draft else "NENHUMA"
+    configured_source = (
+        "SESSÃO" if requested or (
+            draft and bool(getattr(state, "perplexity_draft_modified_in_session", False))
+        ) else "INI/RASCUNHO" if draft else "NENHUMA"
+    )
     configured_valid = (
         1 <= len(configured_queries) <= 5
         and all(isinstance(q, str) and bool(q.strip()) for q in configured_queries)
@@ -60,6 +64,10 @@ def inspect_perplexity_readiness(
     enabled = bool(active)
     filters = sum(bool(str(env.get(name) or "").strip()) for name in _FILTERS)
     configuration_ready = enabled and key_present and configured_valid
+    skip_current = bool(getattr(state, "perplexity_skip_draft_this_aud", False))
+    draft_awaits_run_confirmation = (
+        configuration_ready and bool(draft) and not requested and not skip_current
+    )
     if not enabled:
         configuration_status = "DESABILITADA"
     elif not key_present:
@@ -76,9 +84,10 @@ def inspect_perplexity_readiness(
         status = "CREDENCIAL AUSENTE - NENHUMA PESQUISA"
     elif not requested:
         status = (
-            "NÃO SOLICITADA - RASCUNHO APTO (CAT-05 > P > 9)"
-            if configuration_ready
-            else "NÃO SOLICITADA - DEFINIR QUERIES NO CAT-05"
+            "PREPARADA - CONFIRMAR PERPLEXITY AO EXECUTAR AUD"
+            if draft_awaits_run_confirmation
+            else "NÃO SOLICITADA - EXCLUÍDA NESTA AUD"
+            if skip_current else "NÃO SOLICITADA - DEFINIR QUERIES NO CAT-05"
         )
     elif not valid_queries:
         status = "QUERIES INVÁLIDAS - CORRIGIR NO CAT-05"
@@ -99,6 +108,7 @@ def inspect_perplexity_readiness(
         "configured_source": configured_source,
         "configuration_ready": configuration_ready,
         "configuration_status": configuration_status,
+        "draft_awaits_run_confirmation": draft_awaits_run_confirmation,
         "optional_filters_configured": filters,
         "query_persistence_scope": "SESSION_ONLY_REQUEST_WITH_REUSABLE_INI_DRAFT",
         "mode_persistence_scope": "SESSION_ONLY_REQUEST_WITH_REUSABLE_INI_DRAFT",
@@ -121,7 +131,10 @@ def render_perplexity_readiness(state: Any, *, brief: bool = False) -> None:
     print("\nPERPLEXITY - PREPARAÇÃO DA PESQUISA EXTERNA")
     print(f"  Integração           : {'HABILITADA' if data['enabled'] else 'DESABILITADA'}")
     print(f"  Credencial           : {'CONFIGURADA' if data['credential_configured'] else 'AUSENTE'}")
-    print(f"  Pesquisa nesta AUD   : {'SOLICITADA' if data['queries_requested'] else 'NÃO SOLICITADA'}")
+    print(
+        f"  Pesquisa nesta AUD   : "
+        f"{'SOLICITADA' if data['queries_requested'] else data['status']}"
+    )
     print(f"  Queries / modo       : {data['query_count']} / {data['mode']} (solicitação)")
     print(
         f"  Configuração         : {data['configuration_status']} | "
@@ -137,7 +150,10 @@ def render_perplexity_readiness(state: Any, *, brief: bool = False) -> None:
     if not brief:
         print(f"  Filtros adicionais   : {data['optional_filters_configured']} definido(s); opcionais")
     print("  Para solicitar: Preparar auditoria > CAT-05 > P. Perplexity >")
-    if data["saved_draft_available"] and not data["queries_requested"]:
+    if data["draft_awaits_run_confirmation"]:
+        print("    R. Iniciar AUD: confirmar uso da Perplexity antes das chamadas externas.")
+        print("    Ou 9. Solicitar explicitamente agora no CAT-05.")
+    elif data["saved_draft_available"] and not data["queries_requested"]:
         print("    9. Reutilizar rascunho salvo, com confirmação explícita.")
     else:
         print("    1. Definir queries ou 6. Copiar termos SERP com autorização.")
@@ -145,8 +161,8 @@ def render_perplexity_readiness(state: Any, *, brief: bool = False) -> None:
         f"  Rascunho no INI     : {data['saved_draft_query_count']} query(s) | "
         f"{data['saved_draft_mode']} | não autorizado"
     )
-    print("  Salvar INI preserva queries/modo como rascunho, não a solicitação.")
-    print("  Para reutilizar: CAT-05 > P > 9; confirme para cada nova AUD.")
+    print("  Salvar INI preserva queries/modo; executar AUD confirma uso Perplexity por AUD.")
+    print("  O rascunho é proposto na execução; CAT-05 > P > 9 é opcional.")
     print("  Filtros globais, credencial e ativação são independentes dessa solicitação.")
     print("  Habilitação e chave NÃO executam pesquisa. Queries SERP não são herdadas.")
     print("  Pesquisa Perplexity pode consumir quota/custo e depende de aceite explícito.")

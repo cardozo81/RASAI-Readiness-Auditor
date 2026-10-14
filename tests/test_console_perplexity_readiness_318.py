@@ -94,7 +94,7 @@ def test_render_has_explicit_operator_instruction_but_no_secret(monkeypatch):
     assert "NÃO SOLICITADA" in result
     assert "CAT-05" in result and "queries" in result.lower()
     assert "Filtros adicionais" in result and "opcionais" in result
-    assert "Salvar INI preserva queries/modo como rascunho" in result
+    assert "Salvar INI preserva queries/modo" in result
     assert "Filtros globais, credencial e ativação" in result
     assert "não autorizado" in result
     assert "private-fixture-do-not-display" not in result
@@ -202,7 +202,8 @@ def test_persisted_draft_is_configuration_ready_but_not_an_execution_request() -
     assert info["configured_source"] == "INI/RASCUNHO"
     assert info["configured_queries"] == ("posso ter seguro de vida familiar",)
     assert info["configured_mode"] == "FAST"
-    assert info["status"] == "NÃO SOLICITADA - RASCUNHO APTO (CAT-05 > P > 9)"
+    assert info["status"] == "PREPARADA - CONFIRMAR PERPLEXITY AO EXECUTAR AUD"
+    assert info["draft_awaits_run_confirmation"] is True
     assert info["queries_requested"] is False
     assert info["executable_request_pending"] is False
     assert info["per_aud_paid_consent_restored"] is False
@@ -272,6 +273,6 @@ def test_draft_readiness_render_displays_saved_terms_without_secret(monkeypatch)
     assert "APTA PARA SOLICITAÇÃO" in message
     assert "seguro de vida familiar" in message
     assert "INI/RASCUNHO" in message
-    assert "9. Reutilizar rascunho salvo" in message
-    assert "NÃO SOLICITADA" in message
+    assert "R. Iniciar AUD: confirmar uso da Perplexity" in message
+    assert "PREPARADA" in message
     assert "DONT_DISPLAY_SECRET" not in message

@@ -97,14 +97,20 @@ def render_search_scope(state: Any) -> None:
     ).strip().upper()
     perplexity_status = perplexity_configuration_status()
     ready, detail = validate_perplexity_readiness(state)
-    info("Solicitação", "SOLICITADA" if perplexity_queries else "NÃO SOLICITADA")
+    from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
+    px = inspect_perplexity_readiness(state)
+    info("Solicitação", px["status"] if not perplexity_queries else "SOLICITADA")
     info("Quantidade de queries", len(perplexity_queries))
     info("Tipo", perplexity_type)
-    # Saved inputs are inert until explicitly requested for this new AUD.
+    # Saved inputs remain inert; at launch they may be explicitly approved.
     draft = tuple(getattr(state, "perplexity_draft_queries", ()) or ())
-    info("Persistência de queries e modo", "RASCUNHO INI - SEM SOLICITAÇÃO AUTOMÁTICA")
+    info("Persistência de queries e modo", "RASCUNHO INI - SEM COBRANÇA NO LOAD")
     info("Rascunho disponível", f"{len(draft)} query(s) | não autorizado")
-    info("Nova sessão / nova AUD", "CAT-05 > P > 9: reutilizar e confirmar novamente")
+    info(
+        "Nova sessão / nova AUD",
+        "CONFIRMAR PERPLEXITY AO EXECUTAR" if px["draft_awaits_run_confirmation"]
+        else "CAT-05 > P > 9: reutilizar manualmente, se desejado",
+    )
     info(
         "Credencial",
         "CONFIGURADA" if perplexity_status["configured"] else "NÃO CONFIGURADA",

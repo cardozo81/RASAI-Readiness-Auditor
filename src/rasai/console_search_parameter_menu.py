@@ -198,8 +198,8 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
         f"{px_view['configured_query_count']} query(s) {px_view['configured_mode']} | "
         f"origem {px_view['configured_source']}"
     )
-    if px_view["saved_draft_available"] and not px_view["queries_requested"]:
-        print("   Rascunho recuperado: P > 9 para solicitar nesta AUD (confirmação necessária).")
+    if px_view["draft_awaits_run_confirmation"]:
+        print("   Query salva preparada: ao iniciar AUD será solicitado aceite Perplexity.")
     print("   Pesquisa externa advisory; independente de SERP e sem efeito em scoring/evidência determinística.")
     print("\nD. Não solicitar SERP nesta execução (limpa os termos)")
     print("V. Voltar")
@@ -233,7 +233,9 @@ def _mark_perplexity_pending(search_module: ModuleType, state: Any) -> None:
 
 def _edit_perplexity_queries(search_module: ModuleType, state: Any) -> None:
     maximum = int(search_module.PERPLEXITY_MAX_QUERIES)
-    current = tuple(getattr(state, "perplexity_queries", ()) or ())
+    current = tuple(getattr(state, "perplexity_queries", ()) or ()) or tuple(
+        getattr(state, "perplexity_draft_queries", ()) or ()
+    )
     print("\nQUERIES PERPLEXITY")
     print(
         "  Informe de 1 a "
@@ -245,10 +247,11 @@ def _edit_perplexity_queries(search_module: ModuleType, state: Any) -> None:
         + (f" [{'; '.join(current)}]" if current else "")
         + ": "
     ).strip()
-    if raw.upper() == "V":
+    if raw.upper() in {"V", ""}:
         return
     if raw.upper() == "LIMPAR":
         state.perplexity_queries = ()
+        state.perplexity_skip_draft_this_aud = True
         _mark_perplexity_pending(search_module, state)
         return
     queries = search_module.parse_search_terms(raw)
@@ -259,6 +262,7 @@ def _edit_perplexity_queries(search_module: ModuleType, state: Any) -> None:
         print(f"  Valor inválido: use de 1 a {maximum} queries.")
         return
     state.perplexity_queries = queries
+    state.perplexity_skip_draft_this_aud = False
     _mark_perplexity_pending(search_module, state)
 
 
@@ -283,12 +287,14 @@ def _manage_perplexity_draft(search_module: ModuleType, state: Any) -> None:
             return
         state.perplexity_queries = draft
         state.perplexity_search_type = mode
+        state.perplexity_skip_draft_this_aud = False
         _mark_perplexity_pending(search_module, state)
     elif operation == "C":
         confirm = input("Limpar rascunho salvo e solicitação atual [S/N]: ").strip().upper()
         if confirm == "S":
             state.perplexity_draft_queries = ()
             state.perplexity_draft_search_type = "web"
+            state.perplexity_skip_draft_this_aud = True
             state.perplexity_queries = ()
             state.perplexity_search_type = "web"
             _mark_perplexity_pending(search_module, state)
@@ -322,12 +328,18 @@ def _copy_serp_terms_to_perplexity(search_module: ModuleType, state: Any) -> Non
         print("  Sem autorização: nenhuma query Perplexity foi modificada.")
         return
     state.perplexity_queries = source
+    state.perplexity_skip_draft_this_aud = False
     _mark_perplexity_pending(search_module, state)
 
 
 def _edit_perplexity_type(search_module: ModuleType, state: Any) -> None:
+    active_queries = tuple(getattr(state, "perplexity_queries", ()) or ())
     current = str(
-        getattr(state, "perplexity_search_type", "web") or "web"
+        getattr(
+            state,
+            "perplexity_search_type" if active_queries else "perplexity_draft_search_type",
+            "web",
+        ) or "web"
     ).strip().casefold()
     print("\nTIPO DE BUSCA PERPLEXITY")
     print("  1. WEB  — pesquisa web padrão")
@@ -336,8 +348,13 @@ def _edit_perplexity_type(search_module: ModuleType, state: Any) -> None:
     raw = input("Escolha [1-2/V]: ").strip().upper()
     values = {"1": "web", "2": "fast"}
     if raw in values:
-        state.perplexity_search_type = values[raw]
-        _mark_perplexity_pending(search_module, state)
+        if active_queries:
+            state.perplexity_search_type = values[raw]
+            _mark_perplexity_pending(search_module, state)
+        else:
+            # Changing WEB/FAST in a draft does not request a provider call.
+            state.perplexity_draft_search_type = values[raw]
+            state.perplexity_draft_modified_in_session = True
     elif raw != "V":
         print("  Opção inválida: use 1, 2 ou V.")
 
@@ -517,7 +534,10 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         )
         from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
         px = inspect_perplexity_readiness(state)
-        print(f"  Solicitação           : {'SOLICITADA' if queries else 'NÃO SOLICITADA'}")
+        print(
+            f"  Solicitação           : "
+            f"{'SOLICITADA' if queries else px['status']}"
+        )
         print(
             f"  Configuração         : {px['configuration_status']} | "
             f"origem={px['configured_source']}"
@@ -538,7 +558,7 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         )
         print(f"  Queries               : {len(queries)}"
               + (f" | {'; '.join(queries)}" if queries else ""))
-        print(f"  Tipo                  : {search_type}")
+        print(f"  Tipo                  : {px['configured_mode']}")
         print(
             "  Credencial            : "
             + ("CONFIGURADA" if status["configured"] else "NÃO CONFIGURADA")
@@ -553,8 +573,11 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         print(f"  Readiness             : {'APTA' if ready else 'CONFIGURAR'}")
         print(f"  Execução próxima AUD  : {px['status']}")
         if not px["queries_requested"]:
-            if px["saved_draft_available"]:
-                print("  PARA EXECUTAR: opção 9 > R > S (confirmar solicitação nesta AUD).")
+            if px["draft_awaits_run_confirmation"]:
+                print("  PARA EXECUTAR: use R no plano; será solicitado aceite Perplexity.")
+                print("  A opção 9 continua disponível para ativação antecipada, se preferir.")
+            elif px["saved_draft_available"]:
+                print("  Solicitação ignorada nesta AUD; use 9 para reativar manualmente.")
             else:
                 print("  PARA CONFIGURAR: definir queries (1) ou copiar SERP com autorização (6).")
         print("  País, idioma, domínio, recência e limites adicionais são opcionais.")
@@ -564,7 +587,9 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             brazil = search_module._explicit_brazil_scope(
                 str(getattr(state, "search_region", "") or "")
             )
-            options = resolve_request_options(explicit_brazil=brazil, search_type=search_type.lower())
+            options = resolve_request_options(
+                explicit_brazil=brazil, search_type=px["configured_mode"].lower()
+            )
             country = options.get("country", "sem restrição")
             languages = ",".join(options.get("search_language_filter", [])) or "sem restrição"
             count = options.get("max_results", 10)
@@ -592,6 +617,7 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             return
         if raw == "D":
             state.perplexity_queries = ()
+            state.perplexity_skip_draft_this_aud = True
             _mark_perplexity_pending(search_module, state)
             _set_feedback(state, "Perplexity não será solicitada na próxima execução.")
             continue

@@ -370,13 +370,16 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
                 "Perplexity nesta AUD      : " + px["status"],
                 YELLOW if px["enabled"] and not px["queries_requested"] else DIM,
             ))
-            if px["configuration_ready"] and not px["queries_requested"]:
+            if px["draft_awaits_run_confirmation"]:
                 print(paint(
-                    "  Configuração apta, porém ainda não solicitada nesta AUD. "
-                    "CAT-05 > P > 9 > R > S; execução sujeita ao gate financeiro.",
+                    "  Queries do INI já preparadas: ao executar, confirme a Perplexity "
+                    "em gate próprio antes da confirmação financeira geral. "
+                    "Nenhuma pesquisa ocorre sem aceite.",
                     YELLOW,
                 ))
-            elif not px["queries_requested"]:
+            elif not px["queries_requested"] and not bool(
+                getattr(state, "perplexity_skip_draft_this_aud", False)
+            ):
                 print(paint(
                     "  Para configurar: CAT-05 > P > 1 (queries) ou 6 (copiar SERP). "
                     "Chave e ativação não autorizam pesquisa.",

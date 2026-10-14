@@ -453,8 +453,9 @@ def test_preparation_shows_perplexity_saved_configuration_ready_after_ini_load(
     assert "Query configurada 1" in view
     assert "posso ter seguro de vida familiar" in view
     assert "INI/RASCUNHO" in view
-    assert "Perplexity nesta AUD      : NÃO SOLICITADA - RASCUNHO APTO" in view
-    assert "CAT-05 > P > 9 > R > S" in view
+    assert "Perplexity nesta AUD      : PREPARADA - CONFIRMAR PERPLEXITY AO EXECUTAR AUD" in view
+    assert "Queries do INI já preparadas: ao executar" in view
+    assert "CAT-05 > P > 9 > R > S" not in view
     assert "private-secret-do-not-render" not in view
 
     # A same-process edit must immediately change the visible configuration.

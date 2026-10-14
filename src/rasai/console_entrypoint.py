@@ -23,6 +23,7 @@ from rasai.console_audit_workflow import install as install_console_audit_workfl
 from rasai.console_cancellation_runtime import install as install_console_cancellation_runtime
 from rasai.console_config_path import prepare_console_config
 from rasai.console_cost_confirmation import install as install_cost_confirmation
+from rasai.console_perplexity_run_gate_595 import install as install_perplexity_run_gate
 from rasai.console_detail_presentation import install as install_console_detail_presentation
 from rasai.console_environment_reset import install_ai_secret_cancellation, install_environment_reset
 from rasai.console_execution_profile_readiness import install as install_execution_profile_readiness
@@ -190,6 +191,9 @@ def main() -> int:
     install_governed_report_projection()
     # Keep active-AUD exclusion outside all console reprocess adapters.
     install_audit_resume_runtime()
+    # Outermost provider opt-in: loaded draft is proposed at launch only, never
+    # promoted by opening an INI, visiting a menu, or saving a configuration.
+    install_perplexity_run_gate(interactive_console)
     return interactive_console.main()
 
 

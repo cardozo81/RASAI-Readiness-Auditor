@@ -75,8 +75,8 @@ def test_cat05_scope_exposes_perplexity_as_independent_external_research(monkeyp
     assert "não substitui SERP observada" in rendered
     assert "não entra no scoring" in rendered
     assert "Persistência de queries e modo" in rendered
-    assert "RASCUNHO INI - SEM SOLICITAÇÃO AUTOMÁTICA" in rendered
-    assert "reutilizar e confirmar novamente" in rendered
+    assert "RASCUNHO INI - SEM COBRANÇA NO LOAD" in rendered
+    assert "CAT-05 > P > 9: reutilizar manualmente" in rendered
 
 
 
@@ -120,9 +120,9 @@ def test_cat05_scope_after_ini_restore_explains_intent_not_inherited(tmp_path, m
     ), redirect_stdout(output):
         render_search_scope(fresh)
     visible = output.getvalue()
-    assert "RASCUNHO INI - SEM SOLICITAÇÃO AUTOMÁTICA" in visible
-    assert "reutilizar e confirmar novamente" in visible
-    assert "NÃO SOLICITADA" in visible
+    assert "RASCUNHO INI - SEM COBRANÇA NO LOAD" in visible
+    assert "CONFIRMAR PERPLEXITY AO EXECUTAR" in visible
+    assert "PREPARADA - CONFIRMAR PERPLEXITY AO EXECUTAR AUD" in visible
     assert "Quantidade de queries" in visible
     assert "PRIVATE_PAID_QUERY_523" not in visible
     assert "NEVER_PRINT_OPERATOR_TOKEN_523" not in visible
