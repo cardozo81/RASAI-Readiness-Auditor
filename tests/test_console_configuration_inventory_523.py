@@ -69,6 +69,94 @@ def test_apdex_state_survives_save_then_load_in_fresh_python_process(tmp_path):
 
 
 
+
+def test_full_apdex_groups_and_effective_adapter_projection_cross_process(tmp_path):
+    """#523: all M23/M25 typed INI values and declared CLI env inputs."""
+    from rasai.console_m23 import State
+    from rasai.console_settings import (
+        _runtime_environment_projection, _state_values, save_console_config,
+    )
+
+    state = State()
+    state.synthetic_apdex = True
+    state.apdex_threshold = 4.5
+    state.apdex_samples = 13
+    state.apdex_max_attempts = 17
+    state.apdex_max_pages = 1
+    state.apdex_timeout = 48.0
+    state.apdex_delay = 0.25
+    state.apdex_concurrency = 2
+    state.apdex_experience = True
+    state.apdex_experience_architecture = "HYDRATED"
+    state.apdex_experience_profile_mode = "CUSTOM"
+    state.apdex_experience_session_mode = "warm"
+    state.apdex_experience_kpm = "USER_ACTION_DURATION"
+    state.apdex_experience_samples = 14
+    state.apdex_experience_max_attempts = 17
+    state.apdex_experience_max_pages = 1
+    state.apdex_experience_satisfied = 4.0
+    state.apdex_experience_frustrated = 16.0
+    state.apdex_experience_errors = True
+    state.apdex_experience_javascript_errors = False
+    state.apdex_experience_request_errors = True
+    state.apdex_experience_console_errors = False
+    state.apdex_experience_javascript_capture = True
+    state.apdex_experience_xhr_capture = False
+    state.apdex_experience_fetch_capture = True
+    state.apdex_experience_console_capture = False
+    state.apdex_experience_max_error_details = 18
+    state.apdex_experience_error_scope = "first-party"
+    state.apdex_experience_settle = 2.75
+    state.apdex_experience_delay = 0.25
+    state.apdex_experience_concurrency = 2
+    state.apdex_dynatrace_import = False
+
+    ini = tmp_path / "isolated-apdex.ini"
+    before_env = os.environ.copy()
+    try:
+        save_console_config(state, ini)
+        expected_typed = {
+            section: _state_values(state)[section]
+            for section in ("synthetic_apdex", "synthetic_apdex_experience")
+        }
+        expected_projection = {
+            key: value for key, value in _runtime_environment_projection(state).items()
+            if key == "RASAI_SYNTHETIC_APDEX" or key.startswith("RASAI_APDEX_")
+        }
+        source_bytes = ini.read_bytes()
+        child_code = (
+            "import json,sys;from pathlib import Path;"
+            "from rasai.console_m23 import State;"
+            "from rasai.console_settings import load_console_config,"
+            "_state_values,_runtime_environment_projection;"
+            "s=State();load_console_config(s,Path(sys.argv[1]));"
+            "p=_runtime_environment_projection(s);"
+            "print(json.dumps({'typed':{k:_state_values(s)[k] for k in "
+            "('synthetic_apdex','synthetic_apdex_experience')},"
+            "'projection':{k:v for k,v in p.items() if k=='RASAI_SYNTHETIC_APDEX'"
+            " or k.startswith('RASAI_APDEX_')},"
+            "'perplexity_intent':bool(getattr(s,'perplexity_queries',()))}))"
+        )
+        child_env = {
+            k: v for k, v in before_env.items()
+            if k != "RASAI_SYNTHETIC_APDEX"
+            and not k.startswith(("RASAI_APDEX_", "RASAI_DYNATRACE_"))
+        }
+        completed = subprocess.run(
+            [sys.executable, "-c", child_code, str(ini)],
+            env=child_env, check=True, capture_output=True, text=True, timeout=30,
+        )
+        restored = json.loads(completed.stdout)
+        assert restored["typed"] == expected_typed
+        assert restored["projection"] == expected_projection
+        assert restored["perplexity_intent"] is False
+        assert ini.read_bytes() == source_bytes
+    finally:
+        os.environ.clear()
+        os.environ.update(before_env)
+
+
+
 def test_inventory_has_every_live_env_spec_once_and_never_prints_credentials(tmp_path):
     path = tmp_path / "audit.ini"
     path.write_text(
