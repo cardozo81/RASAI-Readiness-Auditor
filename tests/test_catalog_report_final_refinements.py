@@ -256,6 +256,46 @@ def test_overview_scope_does_not_represent_origin_as_url_or_partial_as_complete(
 
 
 
+
+def test_serp_depth_warns_only_for_one_physically_scoped_observation(tmp_path: Path) -> None:
+    from rasai.catalog_report_governance import (
+        _overview_measurement_scope_notice, _overview_serp_depth,
+    )
+
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE serp_observations("
+            "observation_id TEXT,audit_id TEXT,requested_depth INTEGER)"
+        )
+        con.execute(
+            "CREATE TABLE serp_results("
+            "observation_id TEXT,position INTEGER)"
+        )
+        con.execute(
+            "INSERT INTO serp_observations VALUES ('SERP-1','AUD-1',20)"
+        )
+        con.executemany(
+            "INSERT INTO serp_results VALUES('SERP-1',?)",
+            [(index,) for index in range(1, 10)],
+        )
+    before = db.read_bytes()
+    assert _overview_serp_depth(db, "AUD-1") == (9, 20)
+    summary = _overview_measurement_scope_notice(
+        {}, {}, serp_depth=_overview_serp_depth(db, "AUD-1"),
+    )
+    assert "9 de 20 posições solicitadas" in summary
+    assert "não representa participação de mercado" in summary
+    assert _overview_serp_depth(db, "OTHER-AUD") is None
+    assert db.read_bytes() == before
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "INSERT INTO serp_observations VALUES('SERP-2','AUD-1',20)"
+        )
+    assert _overview_serp_depth(db, "AUD-1") is None
+
+
+
 def test_lighthouse_one_is_one_out_of_100_not_100(tmp_path: Path) -> None:
     database = tmp_path / "audit.db"
     con = sqlite3.connect(database)
