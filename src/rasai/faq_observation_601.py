@@ -6,6 +6,7 @@ and a response available only after a click is not proved accessible to crawlers
 """
 from __future__ import annotations
 
+from html import escape
 from html.parser import HTMLParser
 from pathlib import Path
 import re
@@ -101,15 +102,16 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
     try:
         with sqlite3.connect(database) as connection:
             rows = connection.execute(
-                "SELECT s.rendered_artifact_ref FROM page_snapshots s "
+                "SELECT s.snapshot_id,s.rendered_artifact_ref FROM page_snapshots s "
                 "JOIN pages p ON p.page_id=s.page_id "
                 "WHERE p.audit_id=? ORDER BY s.snapshot_id LIMIT ?",
                 (audit_id, _MAX_SNAPSHOTS),
             ).fetchall()
     except sqlite3.OperationalError:
         return ""
-    observations = []
-    for (ref,) in rows:
+    observations: list[dict[str, int]] = []
+    sources: list[tuple[str, dict[str, int]]] = []
+    for snapshot_id, ref in rows:
         try:
             rendered = _safe_rendered_file(root, ref)
             if rendered is None:
@@ -119,6 +121,7 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
             continue
         if counts["controls"]:
             observations.append(counts)
+            sources.append((str(snapshot_id or "-"), counts))
     if not observations:
         return ""
     total = sum(item["controls"] for item in observations)
@@ -127,6 +130,13 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
     mounted = sum(item["mounted"] for item in observations)
     mounted_with_text = sum(item["mounted_with_text"] for item in observations)
     mounted_without_text = sum(item["mounted_without_text"] for item in observations)
+    provenance = "".join(
+        "<tr><td><code>" + escape(snapshot_id) + "</code></td>"
+        + f"<td>{counts['controls']}</td><td>{counts['collapsed']}</td>"
+        + f"<td>{counts['unmounted']}</td><td>{counts['mounted_with_text']}</td>"
+        + f"<td>{counts['mounted_without_text']}</td></tr>"
+        for snapshot_id, counts in sources
+    )
     return (
         "<div class='subsection' data-contract='FAQ-OBSERVATION-601-001'>"
         "<h3>FAQ interativo — limite da captura</h3>"
@@ -134,6 +144,11 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
         f"{collapsed} recolhido(s); entre estes, {unmounted} painel(is) "
         f"não estavam presentes no DOM capturado e {mounted} tinham um alvo no DOM "
         f"({mounted_with_text} com texto recuperável no DOM e {mounted_without_text} sem texto recuperável).</p>"
+        "<details><summary>Proveniência por captura</summary>"
+        "<div class='table-wrap'><table><thead><tr><th>Snapshot ID</th><th>FAQ</th>"
+        "<th>Recolhidos</th><th>Painéis ausentes</th><th>Com texto DOM</th>"
+        "<th>Sem texto DOM</th></tr></thead><tbody>"
+        + provenance + "</tbody></table></div></details>"
         "<p class='muted'>A existência de texto em painel recolhido significa somente que ele "
         "estava no DOM desta captura; não comprova que fosse visível, indexado ou correto. "
         "A auditoria não abriu esses controles nesta observação. "
