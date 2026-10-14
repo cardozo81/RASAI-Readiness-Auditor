@@ -284,6 +284,10 @@ def test_cat03_explains_user_parameterization_and_content_change(tmp_path: Path)
     assert "parametrização do usuário foi respeitada" in html
     assert "SC-P11, SC-P12 e SC-P13" in html
     assert "Há lacunas YMYL acionáveis" in html
+    assert "Exatidão contratual ou regulatória das alegações" in html
+    assert "Não verificada nesta análise" in html
+    assert "não equivale a uma alegação corroborada por documento oficial" in html
+    assert "não significa que a alegação seja falsa" in html
     ai_execution_state.clear_current_ai_execution()
 
 
