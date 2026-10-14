@@ -210,6 +210,16 @@ def test_catalog_score_table_humanizes_consolidation() -> None:
     assert "Baixa" in html
     assert "Não consolidado" in html
     assert "Not Consolidated" not in html
+    assert "40,0% (fração 0.400000)" in html
+
+
+def test_sari_dimensional_coverage_keeps_low_scope_explicit() -> None:
+    from rasai.catalog_report_presentation import _score_coverage_label
+
+    assert _score_coverage_label(0.7) == "70,0% (fração 0.700000)"
+    assert _score_coverage_label(0.974737) == "97,5% (fração 0.974737)"
+    for invalid in (None, -0.1, 1.1, float("nan"), "unknown"):
+        assert _score_coverage_label(invalid) == "Não determinada"
 
 
 def test_canonical_scoring_row_is_humanized() -> None:
