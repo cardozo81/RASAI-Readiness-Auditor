@@ -184,7 +184,8 @@ def _strictly_comparable(current: Any, historical: Mapping[str, Any]) -> bool:
             return False
         wanted = getattr(current, field)
         old = historical[field]
-        if field == "max_pages":
+        if field in {"max_pages", "web_max_pages"}:
+            # Physical page budgets must be positive integral values.
             # bool is an int subclass: True must not equal one page.
             if type(wanted) is bool or type(old) is bool:
                 return False
