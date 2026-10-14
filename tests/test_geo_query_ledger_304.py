@@ -879,6 +879,8 @@ def test_cli_optional_html_is_escaped_responsive_and_byte_read_only(
     assert "@media(max-width:680px)" in html
     assert "@media print" in html
     assert "URLs distintas SERP" in html
+    assert "Comparabilidade externa não comprovada" in html
+    assert "sem equivalência provada de país, idioma" in html
     assert "33.33%" in html
     assert "50.00%" in html
     assert sha256((folder / "audit.db").read_bytes()).hexdigest() == before
@@ -892,6 +894,7 @@ def test_html_abstains_for_multiquery_unattributed_and_invalid_target(tmp_path, 
     html = capsys.readouterr().out
     assert "N/D - comparabilidade não demonstrada" in html
     assert "PER_QUERY_SOURCE_ATTRIBUTION_UNPROVEN" in html
+    assert "Comparabilidade externa não comprovada:" not in html
     assert "URLs distintas SERP" in html
     assert "33.33%" not in html
     assert (folder / "audit.db").read_bytes() == raw

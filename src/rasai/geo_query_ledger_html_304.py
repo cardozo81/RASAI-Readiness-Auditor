@@ -182,6 +182,16 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
             f"<p class='meta'>{kind} · {result_label}</p>",
             reason,
             f"<p class='scope'>Escopo SERP observado: {scope_text}</p>",
+            (
+                "<p class='missing' data-contract='GEO-MARKET-COMPARABILITY-304'>"
+                "<strong>Comparabilidade externa não comprovada:</strong> "
+                "as interseções numéricas abaixo refletem apenas URLs efetivamente "
+                "observadas em cada fonte, sem equivalência provada de país, idioma, "
+                "dispositivo ou intenção entre SERP e Search API. Não interpretar "
+                "como concordância de posicionamento, participação de mercado ou "
+                "presença em respostas gerativas.</p>"
+                if row_admissible else ""
+            ),
             "<div class='columns'><div><h3>Conjuntos de fontes URL</h3><table>",
             metrics_html,
             "</table></div><div><h3>URL auditada (identidade exata)</h3><table>",
