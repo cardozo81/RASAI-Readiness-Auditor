@@ -77,7 +77,7 @@ def _nondefault_apdex_state() -> SearchConsoleState:
     state.dynatrace_base_url = "https://dynatrace.example.test"
     state.dynatrace_application_id = "APPLICATION-523"
     state.apdex_dynatrace_config_json = '{"load_action":"VISUALLY_COMPLETE"}'
-    # SERP is an explicitly reusable input; Perplexity is not.
+    # Both SERP and Perplexity terms can be saved; only Perplexity intent is transient.
     state.search_queries = ("teste seguro",)
     state.search_region = "Brasil"
     state.search_depth = 17
@@ -95,9 +95,10 @@ def test_apdex_all_fields_roundtrip_new_process_and_effective_executor_environme
         projected_before = console_settings._runtime_environment_projection(before)
         console_settings.save_console_config(before, path)
         text = path.read_text(encoding="utf-8")
-        assert "paid-intent-must-not-survive" not in text
+        assert "[perplexity_draft]" in text
+        assert "queries = paid-intent-must-not-survive" in text
+        assert "search_type = fast" in text
         assert "perplexity_queries" not in text
-        assert "perplexity_search_type" not in text
 
         # Simulate a new process (not just a new dataclass in the same env).
         os.environ.clear()
@@ -110,6 +111,8 @@ def test_apdex_all_fields_roundtrip_new_process_and_effective_executor_environme
             assert restored[section] == values, section
         assert after.perplexity_queries == ()
         assert after.perplexity_search_type == "web"
+        assert after.perplexity_draft_queries == ("paid-intent-must-not-survive",)
+        assert after.perplexity_draft_search_type == "fast"
         assert after.device == "desktop"
 
         # Verify actual state->executor environment projection, not only INI text.
@@ -146,7 +149,7 @@ def test_registry_complete_ini_and_sensitive_values_excluded(tmp_path) -> None:
             assert parser.has_option("synthetic_apdex_experience", option)
 
 
-def test_save_console_explicitly_discloses_perplexity_intent_not_persisted(tmp_path) -> None:
+def test_save_console_discloses_perplexity_draft_without_inherited_intent(tmp_path) -> None:
     from rasai import interactive_console as console
 
     state = _nondefault_apdex_state()
@@ -160,8 +163,9 @@ def test_save_console_explicitly_discloses_perplexity_intent_not_persisted(tmp_p
         assert console._save_configuration(state) is True
     message = output.getvalue()
     assert "Perplexity Search" in message
-    assert "NÃO são salvos" in message
-    assert "nova solicitação/autorização explícita" in message
+    assert "RASCUNHO no INI" in message
+    assert "não serão solicitados automaticamente" in message
+    assert "CAT-05 > P > 9" in message
 
 
 def test_legacy_ini_does_not_auto_authorize_optional_perplexity(tmp_path) -> None:
