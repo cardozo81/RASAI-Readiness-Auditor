@@ -156,6 +156,65 @@ def _safe_ai_row(database: Any, table: str, audit_id: str) -> dict[str, Any] | N
         connection.close()
 
 
+
+def _terminal_external_run_status(
+    database: Any,
+    audit_id: str,
+    attempt: Mapping[str, Any],
+) -> str | None:
+    """Use only an unambiguous persisted run associated with the same attempt.
+
+    Directed Analysis has no attempt_id in its run schema: accept only one
+    run for this AUD and the same provider. Perplexity has an explicit
+    attempt_id, which must match; never infer from timestamps or latest row.
+    """
+    operation = str(attempt.get("operation") or "").strip().upper()
+    provider = str(attempt.get("provider") or "").strip().upper()
+    attempt_id = str(attempt.get("attempt_id") or "").strip()
+    if operation == "DIRECTED_ANALYSIS":
+        table = "directed_analysis_runs"
+        required = {"audit_id", "status", "provider"}
+        clause = "audit_id=?"
+        params: tuple[str, ...] = (audit_id,)
+    elif (
+        operation == "SEARCH_INTELLIGENCE"
+        and provider == "PERPLEXITY"
+        and str(attempt.get("surface") or "").strip().upper() == "SEARCH_API"
+        and attempt_id
+    ):
+        table = "perplexity_search_runs"
+        required = {"audit_id", "attempt_id", "provider", "surface", "status"}
+        clause = "audit_id=? AND attempt_id=?"
+        params = (audit_id, attempt_id)
+    else:
+        return None
+    connection = sqlite3.connect(database)
+    connection.row_factory = sqlite3.Row
+    try:
+        columns = {
+            str(row[1])
+            for row in connection.execute(f"PRAGMA table_info({table})")
+        }
+        if not required.issubset(columns):
+            return None
+        rows = connection.execute(
+            f"SELECT * FROM {table} WHERE {clause} LIMIT 2", params,
+        ).fetchall()
+        if len(rows) != 1:
+            return None
+        run = dict(rows[0])
+        if str(run.get("provider") or "").strip().upper() != provider:
+            return None
+        if table == "perplexity_search_runs":
+            if str(run.get("surface") or "").strip().upper() != "SEARCH_API":
+                return None
+        return str(run.get("status") or "").strip().upper() or None
+    except sqlite3.OperationalError:
+        return None
+    finally:
+        connection.close()
+
+
 def _safe_ai_tasks(database: Any, audit_id: str) -> dict[str, dict[str, Any]]:
     connection = sqlite3.connect(database)
     connection.row_factory = sqlite3.Row
@@ -246,6 +305,13 @@ def _ai_chain_rows(
             persisted_provider = improvement.get("provider")
         elif final_status in (None, "") and contract.startswith("M20-CONTENT-REMEDIATION") and remediation:
             final_status = remediation.get("status")
+        elif final_status in (None, ""):
+            # Standalone directed/Perplexity attempts have no ai_task_id.
+            # Resolve their terminal state from the correct physical run,
+            # never from a SUCCESS attempt alone or a run of another AUD.
+            final_status = _terminal_external_run_status(
+                database, audit_id, ordered[0],
+            )
 
         normalized_final = str(final_status or "").strip().upper()
         successful = [
