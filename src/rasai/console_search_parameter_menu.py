@@ -249,6 +249,7 @@ def _edit_perplexity_queries(search_module: ModuleType, state: Any) -> None:
         return
     if raw.upper() == "LIMPAR":
         state.perplexity_queries = ()
+        state.perplexity_skip_draft_this_aud = True
         _mark_perplexity_pending(search_module, state)
         return
     queries = search_module.parse_search_terms(raw)
@@ -259,6 +260,7 @@ def _edit_perplexity_queries(search_module: ModuleType, state: Any) -> None:
         print(f"  Valor inválido: use de 1 a {maximum} queries.")
         return
     state.perplexity_queries = queries
+    state.perplexity_skip_draft_this_aud = False
     _mark_perplexity_pending(search_module, state)
 
 
@@ -283,12 +285,14 @@ def _manage_perplexity_draft(search_module: ModuleType, state: Any) -> None:
             return
         state.perplexity_queries = draft
         state.perplexity_search_type = mode
+        state.perplexity_skip_draft_this_aud = False
         _mark_perplexity_pending(search_module, state)
     elif operation == "C":
         confirm = input("Limpar rascunho salvo e solicitação atual [S/N]: ").strip().upper()
         if confirm == "S":
             state.perplexity_draft_queries = ()
             state.perplexity_draft_search_type = "web"
+            state.perplexity_skip_draft_this_aud = True
             state.perplexity_queries = ()
             state.perplexity_search_type = "web"
             _mark_perplexity_pending(search_module, state)
@@ -592,6 +596,7 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             return
         if raw == "D":
             state.perplexity_queries = ()
+            state.perplexity_skip_draft_this_aud = True
             _mark_perplexity_pending(search_module, state)
             _set_feedback(state, "Perplexity não será solicitada na próxima execução.")
             continue
