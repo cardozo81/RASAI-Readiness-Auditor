@@ -521,7 +521,10 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         )
         from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
         px = inspect_perplexity_readiness(state)
-        print(f"  Solicitação           : {'SOLICITADA' if queries else 'NÃO SOLICITADA'}")
+        print(
+            f"  Solicitação           : "
+            f"{'SOLICITADA' if queries else px['status']}"
+        )
         print(
             f"  Configuração         : {px['configuration_status']} | "
             f"origem={px['configured_source']}"
