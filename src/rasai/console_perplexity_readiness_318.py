@@ -127,7 +127,10 @@ def render_perplexity_readiness(state: Any, *, brief: bool = False) -> None:
     print("\nPERPLEXITY - PREPARAÇÃO DA PESQUISA EXTERNA")
     print(f"  Integração           : {'HABILITADA' if data['enabled'] else 'DESABILITADA'}")
     print(f"  Credencial           : {'CONFIGURADA' if data['credential_configured'] else 'AUSENTE'}")
-    print(f"  Pesquisa nesta AUD   : {'SOLICITADA' if data['queries_requested'] else 'NÃO SOLICITADA'}")
+    print(
+        f"  Pesquisa nesta AUD   : "
+        f"{'SOLICITADA' if data['queries_requested'] else data['status']}"
+    )
     print(f"  Queries / modo       : {data['query_count']} / {data['mode']} (solicitação)")
     print(
         f"  Configuração         : {data['configuration_status']} | "
