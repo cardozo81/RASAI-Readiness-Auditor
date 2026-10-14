@@ -40,11 +40,14 @@ def _valid_limits(value: object, keys: tuple[str, str]) -> bool:
         first, last = (value[k] for k in keys)
     except KeyError:
         return False
-    return (
-        type(first) in (int, float) and type(last) in (int, float)
-        and math.isfinite(first) and math.isfinite(last)
-        and 0 < first < last
-    )
+    if type(first) not in (int, float) or type(last) not in (int, float):
+        return False
+    try:
+        return (math.isfinite(first) and math.isfinite(last)
+                and 0 < first < last)
+    except OverflowError:
+        # Python float coercion of enormous JSON integers is not finite evidence.
+        return False
 
 
 def _validate_settings(value: Mapping[str, Any]) -> tuple[str, ...]:
