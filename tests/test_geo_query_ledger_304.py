@@ -1526,3 +1526,11 @@ def test_html_target_host_alternatives_require_verified_source_and_row(tmp_path)
         "Alternativas ao hostname da URL auditada"
     )[1].split("</table>")[0]
     assert "<td>N/D</td>" in group
+
+
+def test_html_count_display_obeys_bounded_physical_geo_source_budget():
+    from rasai.geo_query_ledger_html_304 import _count
+    assert _count(500) == "500"
+    assert _count(0) == "0"
+    for invalid in (-1, 501, 10 ** 400, True, False, "7", 1.0):
+        assert _count(invalid) == "N/D"

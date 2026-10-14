@@ -26,7 +26,9 @@ def _safe(value: object, *, empty: str = "N/D") -> str:
 
 
 def _count(value: object) -> str:
-    return _safe(value) if type(value) is int and value >= 0 else "N/D"
+    # #304 physical input limits: at most 500 external source rows and 200 SERP rows.
+    # A presentation-only projection cannot authenticate arbitrary count inflation.
+    return _safe(value) if type(value) is int and 0 <= value <= 500 else "N/D"
 
 
 def _rate(value: object) -> str:
