@@ -180,3 +180,20 @@ def test_exception_does_not_leak_paid_consent_or_mutate_saved_draft(monkeypatch)
     assert state.perplexity_search_type == "web"
     assert state.perplexity_last_status == "NOT_REQUESTED"
     assert state.perplexity_draft_queries == ("seguro para família",)
+
+def test_in_session_draft_mode_override_preserves_launch_offer(monkeypatch):
+    state = configured(monkeypatch)
+    state.perplexity_draft_modified_in_session = True
+    state.perplexity_draft_search_type = "web"
+    assert draft_pending_confirmation(state)
+    observed = []
+    run = wrap_run(lambda current: observed.append(
+        (current.perplexity_queries, current.perplexity_search_type)
+    ) or 0)
+    monkeypatch.setattr("builtins.input", lambda prompt="": "C")
+    with redirect_stdout(StringIO()):
+        assert run(state) == 0
+    assert observed == [(("seguro para família",), "web")]
+    assert state.perplexity_queries == ()
+    assert state.perplexity_draft_modified_in_session is True
+
