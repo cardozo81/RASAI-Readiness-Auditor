@@ -124,10 +124,43 @@ def _diagnostic_state_section(database: Path, data: _ReportData, integrity: str)
     return _section("diagnostic", "Estado do diagnóstico", content)
 
 
+def _overview_measurement_scope_notice(
+    web: Mapping[str, Any] | None,
+    catalog_statuses: Mapping[str, str],
+) -> str:
+    """Describe only persisted sampling/scope limitations, never re-score."""
+    details: list[str] = []
+    if (
+        isinstance(web, Mapping)
+        and str(web.get("field_scope") or "").strip().upper() == "ORIGIN"
+        and any(web.get(key) is not None for key in ("lcp_p75_ms", "inp_p75_ms", "cls_p75"))
+    ):
+        details.append(
+            "Os Core Web Vitals de campo exibidos para CAT-04 correspondem ao "
+            "agregado da origem (ORIGIN), não necessariamente à URL auditada. "
+            "Lighthouse de laboratório e CrUX de campo medem universos diferentes."
+        )
+    if str(catalog_statuses.get("CAT-06") or "").strip().casefold() in {"partial", "parcial"}:
+        details.append(
+            "O CAT-06 apresenta resultado parcial apesar da conclusão operacional "
+            "da auditoria. Consulte amostras válidas e limite de população na "
+            "página específica; pipeline concluído não significa amostra suficiente."
+        )
+    if not details:
+        return ""
+    return (
+        "<div class='notice warn' data-contract='OVERVIEW-SCOPE-600'>"
+        "<strong>Limites de interpretação das medições:</strong> "
+        + " ".join(details) + "</div>"
+    )
+
+
 def _overview_body(database: Path, data: _ReportData) -> str:
     rows=[]
+    catalog_statuses: dict[str, str] = {}
     for catalog in CATALOGS:
         status,tone,detail=_catalog_status(database,data,catalog.id)
+        catalog_statuses[catalog.id] = str(status)
         page=CATALOG_PAGE_BY_ID[catalog.id]
         rows.append((_Html(f"<a href='{escape(page.filename)}'><strong>{escape(catalog.id)} · {escape(catalog.label)}</strong></a>"),_Html(_badge(status,tone)),detail))
     indexes=[]
@@ -151,6 +184,10 @@ def _overview_body(database: Path, data: _ReportData) -> str:
     body+=_outline(outline)
     body+=diagnostic
     body+=_section("catalogs","Catálogos da auditoria",_table(("Catálogo","Estado","Interpretação"),rows,sortable=True))
+    from rasai.catalog_report_metrics import _web_observation
+    body+=_overview_measurement_scope_notice(
+        _web_observation(database, data.audit_id), catalog_statuses,
+    )
     body+=_section("indices","Índices e métricas evidentes",_table(("Indicador","Valor","Contexto","Tipo","Confiança"),indexes,empty="Nenhum índice ou métrica reconhecido foi persistido.",sortable=bool(indexes))+"<p class='muted'>O inventário metodológico completo está em <a href='metrics.html'>Índices e métricas</a>.</p>")
     from rasai.optional_seo_interpretation_602 import optional_seo_notice_html
     body+=optional_seo_notice_html(database, data.audit_id)
