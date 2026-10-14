@@ -976,3 +976,9 @@ def test_jsonld_type_must_not_be_truncated_into_false_persisted_fact(tmp_path):
         "FAQPage", "Product",
     ]
     assert _optional_jsonld_types(json.dumps(["X" * 120])) == ["X" * 120]
+
+
+def test_jsonld_repeated_type_cannot_inflate_observed_schema_inventory():
+    from rasai.geo_competitor_content_provenance_330 import _optional_jsonld_types
+    assert _optional_jsonld_types('["Product","Product"]') is None
+    assert _optional_jsonld_types('["Product","FAQPage"]') == ["Product", "FAQPage"]

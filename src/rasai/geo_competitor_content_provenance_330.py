@@ -89,7 +89,8 @@ def _optional_jsonld_types(raw: object) -> list[str] | None:
         return None
     if (not isinstance(parsed, list) or len(parsed) > 20
             or any(not isinstance(value, str) or not value.strip()
-                   or len(value) > 120 for value in parsed)):
+                   or len(value) > 120 for value in parsed)
+            or len(set(parsed)) != len(parsed)):
         return None
     return parsed
 
