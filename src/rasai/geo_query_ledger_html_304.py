@@ -156,6 +156,24 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
             _table_row([escape(label, quote=True), host_value(key, formatter)])
             for label, key, formatter in host_metrics
         )
+        # Persisted host groups describe alternative URLs, not competitors.
+        # A source integrity or row comparability failure must hide counts.
+        group_rows = []
+        for label, field in (
+            ("SERP", "serp_target_host_group"),
+            ("Search API", "external_target_host_group"),
+        ):
+            group = entry.get(field) if row_admissible else None
+            for description, key in (
+                ("URLs alternativas no hostname do alvo", "same_host_alternative_urls"),
+                ("URLs observadas em outros hostnames", "other_host_distinct_urls"),
+                ("Hostnames distintos fora do alvo", "other_distinct_hosts"),
+            ):
+                group_rows.append(_table_row([
+                    escape(f"{label}: {description}", quote=True),
+                    _count(group.get(key)) if isinstance(group, Mapping) else "N/D",
+                ]))
+        group_html = "".join(group_rows)
         segments = [
             "<section class='query'>",
             f"<h2>{query}</h2>",
@@ -172,6 +190,8 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
             "</p></div></div>",
             "<h3>Interseção de hosts observados (sem inferir concorrência)</h3>",
             "<table>", host_metrics_html, "</table>",
+            "<h3>Alternativas ao hostname da URL auditada</h3>",
+            "<table>", group_html, "</table>",
             "<p class='muted'>Hostname exato: www e apex não são equivalentes; "
             "portas e protocolos distintos podem compartilhar hostname. "
             "Não é participação de mercado, ranking ou citação.</p></section>",
