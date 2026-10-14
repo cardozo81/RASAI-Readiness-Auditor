@@ -1,4 +1,4 @@
-# ADR — sinais SEO opcionais, evidências e efeito no SCORE-GEO (#602)
+# ADR - sinais SEO opcionais, evidências e efeito no SCORE-GEO (#602)
 
 Status: **avaliação metodológica aberta; nenhum novo contrato de pontuação aprovado neste documento**.
 
