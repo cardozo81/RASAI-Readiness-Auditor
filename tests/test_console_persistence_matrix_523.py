@@ -304,3 +304,41 @@ def test_console_loader_explicit_environment_overrides_default(tmp_path):
         result = console_settings.load_console_config(SearchConsoleState(), ini)
         assert not result.created
         assert os.environ["RASAI_SERP_MAX_REQUESTS"] == "11"
+
+
+def test_malformed_operator_ini_does_not_crash_or_leak_secret(tmp_path):
+    _install_config_contract()
+    path = tmp_path / "bad.ini"
+    secret = "SHOULD_NOT_ECHO_OPERATOR_VALUE"
+    path.write_text(
+        "[environment]\nRASAI_SERP_MAX_REQUESTS=3\n"
+        "RASAI_SERP_MAX_REQUESTS=" + secret + "\n",
+        encoding="utf-8",
+    )
+    original_bytes = path.read_bytes()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        original_device = state.device
+        result = console_settings.load_console_config(state, path)
+        assert result.created is False
+        assert len(result.warnings) == 1
+        assert "DuplicateOptionError" in result.warnings[0]
+        assert secret not in str(result.warnings)
+        assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
+        assert state.device == original_device
+    assert path.read_bytes() == original_bytes
+
+
+def test_truncated_operator_ini_abstains_without_partial_activation(tmp_path):
+    _install_config_contract()
+    path = tmp_path / "unfinished.ini"
+    path.write_text(
+        "[environment]\nRASAI_SERP_MAX_REQUESTS=5\n"
+        "[synthetic_apdex_experience\narchitecture=CSR_SPA\n",
+        encoding="utf-8",
+    )
+    with patch.dict(os.environ, {}, clear=True):
+        result = console_settings.load_console_config(SearchConsoleState(), path)
+        assert result.created is False
+        assert result.warnings
+        assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
