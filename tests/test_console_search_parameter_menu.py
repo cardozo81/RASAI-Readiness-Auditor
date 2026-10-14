@@ -465,7 +465,9 @@ def test_loaded_perplexity_draft_type_edit_is_inert(monkeypatch):
     )
     rendered = _run(state, ["P", "2", "1", "V", "V"])
     assert state.perplexity_draft_search_type == "web"
+    assert state.perplexity_draft_modified_in_session is True
     assert state.perplexity_queries == ()
+    assert "origem=SESSÃO" in rendered
     assert "Queries configuradas : 1 | modo=WEB" in rendered
     assert "seguro para família" in rendered
 
