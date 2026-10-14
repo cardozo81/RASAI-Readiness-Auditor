@@ -58,8 +58,12 @@ class SearchConsoleState(BaseState):
     search_last_detail: str = ""
     search_last_report: str = ""
     search_last_duration_seconds: float | None = None
+    # Explicit request for this process/AUD; NEVER restored by loading the INI.
     perplexity_queries: tuple[str, ...] = ()
     perplexity_search_type: str = "web"
+    # Reusable non-secret drafting inputs, without paid-request intent.
+    perplexity_draft_queries: tuple[str, ...] = ()
+    perplexity_draft_search_type: str = "web"
     geo_ai_requested: bool = False
     perplexity_last_status: str = "NOT_REQUESTED"
     perplexity_last_detail: str = ""

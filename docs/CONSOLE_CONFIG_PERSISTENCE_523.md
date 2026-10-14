@@ -19,7 +19,7 @@ Os valores não sensíveis persistidos provêm de
 | Geral, IA, modelos, Web Performance, CAT-06, CAT-07 e Dynatrace não secreto | Estado tipado do console | Seções específicas do INI e projeção do ambiente | Sim, se válido | Não; depende do plano/consentimento vigente |
 | Variáveis públicas não secretas adicionais (SERP, GSC, providers, limites, catálogos, flags, relatórios) | Registro canônico de ambiente | `[environment]` no INI | Sim, respeitando precedência | Não |
 | Termos/filtros de execução SERP | `SearchConsoleState`, extensão de persistência SERP | `[search_intelligence]` | Sim, conforme política SERP existente | Sujeito aos gates da AUD atual |
-| Queries e modo WEB/FAST da Perplexity Search API | Entradas transitórias `SearchConsoleState` | **Não gravados** | **Não** | **Nunca por restauração** |
+| Queries e WEB/FAST Perplexity | Pedido transitório + rascunho reutilizável de `SearchConsoleState` | `[perplexity_draft]` (somente dados, sem opt-in) | **Sim, somente rascunho** | **Nunca por restauração**; exige CAT-05 > P > 9 e confirmação financeira |
 | Chaves, tokens, senhas, DSNs com credenciais | Secret store / ambiente protegido | **Não gravados no INI** | Conforme mecanismo seguro, independente do INI | Não |
 | Seleção explícita de chamadas potencialmente faturáveis | Interação/autorização da AUD corrente | Controle de execução e evidências da AUD | Não transferível entre AUDs | Somente para a AUD autorizada |
 
@@ -60,7 +60,7 @@ comprova que o serviço externo está habilitado ou acessível.
   testes de save/reopen e na análise de incidentes.
 - A Perplexity não é provider do seletor generativo `AI=auto`.
   Ativação, credencial e filtros não representam solicitação de pesquisa;
-  queries e WEB/FAST não são transportados à nova AUD.
+  queries e WEB/FAST são transportados **somente como rascunho inerte** à nova sessão; solicitação e confirmação comercial não são restauradas.
 
 ## Limites de homologação
 
@@ -471,3 +471,13 @@ e alterada. A lista de catalogo segue dinamica;
 nomes que nao possuem comprovacao de afinidade
 continuam classificados como nao mapeados, sem
 forcar inferencia de consumer.
+
+## Contrato atual: rascunho Perplexity opcional (#523, 14/10/2026)
+
+Este contrato substitui afirmações históricas acima que diziam que queries e WEB/FAST não são gravados. Quando o operador salva o INI com uma solicitação Perplexity explicitamente configurada, a seção `[perplexity_draft]` persiste `queries` (1..5) e `search_type` (web/fast), assim como o SERP possui uma seção própria. A ausência da seção é compatível com INI anterior. Nenhum token, chave, consentimento, intenção comercial ou status `PENDING` é persistido neste bloco.
+
+No **reboot**, `perplexity_queries=()`, `perplexity_search_type=web` e `perplexity_last_status=NOT_REQUESTED`. Somente `perplexity_draft_queries` e `perplexity_draft_search_type` são restaurados; a tela pode exibir rascunho disponível, mas não configura pesquisa. O operador usa **CAT-05 > P > 9 > R > S** para solicitar os termos previamente salvos na auditoria corrente e passa pelos gates financeiros normais. **Opção D** cancela só a intenção corrente; o rascunho permanece para reutilização. Para remover, **9 > C > S**, seguido de **Salvar configuração**; nenhuma operação dessas chama Search API.
+
+Se o operador alterar uma query e salvar, o rascunho gravado será a query ativa recém-definida. Salvar outra configuração numa sessão reaberta sem autorizar pesquisa Perplexity conserva o rascunho existente. Valores inválidos de modo ou lista geram avisos no load e não habilitam requisições. Dados de queries são conteúdo local potencialmente sensível: não colocar credenciais/PII nesse rascunho e proteger acesso ao INI.
+
+Testes de processo isolado, restauração não faturável, anterior, modos, leitura inválida, apagamento e confirmação explícita são gates técnicos; uma auditoria real não é necessária para homologar o save/reopen. As referências históricas à não persistência das queries neste documento permanecem apenas como registro do comportamento anterior.

@@ -18,6 +18,11 @@ on:
       - 'tests/test_console_configuration_registry_and_catalog_actions.py'
       - 'tests/test_console_configuration_transaction.py'
       - 'tests/test_console_persistence_matrix_523.py'
+      - 'tests/test_console_search_parameter_menu.py'
+      - 'src/rasai/console_search_parameter_menu.py'
+      - 'src/rasai/console_perplexity_readiness_318.py'
+      - 'src/rasai/console_search_intelligence.py'
+      - 'src/rasai/console_ui_refactor.py'
       - 'tests/test_console_config_provenance_523.py'
       - 'src/rasai/console_configuration_inventory_523.py'
       - 'src/rasai/console_apdex_effective_validation_523.py'
@@ -54,7 +59,7 @@ jobs:
           python -m compileall -q             src/rasai/configuration_registry.py             src/rasai/system_defaults.py             src/rasai/console_settings.py             src/rasai/console_ui_catalog.py             src/rasai/console_catalog_plan.py             src/rasai/console_catalog_ui.py             src/rasai/console_audit_catalog_extension.py
       - name: Run isolated affected tests
         run: |
-          python -m pytest -q             tests/test_console_configuration_registry_and_catalog_actions.py             tests/test_console_configuration_transaction.py             tests/test_console_persistence_matrix_523.py             tests/test_console_config_provenance_523.py             tests/test_console_configuration_inventory_523.py             tests/test_console_inventory_secret_policy_523.py             tests/test_console_fresh_process_roundtrip_523.py             tests/test_system_defaults.py             tests/test_console_catalog_workflow.py             tests/test_audit_catalog_extension.py             tests/test_console_launcher_contract.py
+          python -m pytest -q             tests/test_console_configuration_registry_and_catalog_actions.py             tests/test_console_configuration_transaction.py             tests/test_console_persistence_matrix_523.py             tests/test_console_search_parameter_menu.py             tests/test_console_perplexity_readiness_318.py             tests/test_console_search_scope_presentation.py             tests/test_console_complete_persistence.py             tests/test_console_config_provenance_523.py             tests/test_console_configuration_inventory_523.py             tests/test_console_inventory_secret_policy_523.py             tests/test_console_fresh_process_roundtrip_523.py             tests/test_system_defaults.py             tests/test_console_catalog_workflow.py             tests/test_audit_catalog_extension.py             tests/test_console_launcher_contract.py
       - name: Bootstrap full local console composition
         run: |
           python - <<'PY'

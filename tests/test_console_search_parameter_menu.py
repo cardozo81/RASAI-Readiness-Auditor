@@ -377,3 +377,56 @@ def test_perplexity_credential_action_reuses_canonical_secret_editor(monkeypatch
 
     assert seen == ["PERPLEXITY_API_KEY"]
 
+def test_perplexity_saved_draft_reuse_requires_explicit_confirmation(monkeypatch):
+    from rasai.console_search_parameter_menu import _manage_perplexity_draft
+    from rasai import console_search_intelligence as search
+
+    state = SearchConsoleState(
+        perplexity_draft_queries=("seguro de vida",),
+        perplexity_draft_search_type="fast",
+    )
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "fake-test-only")
+    answers = iter(("R", "N"))
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+    _manage_perplexity_draft(search, state)
+    assert state.perplexity_queries == ()
+    assert state.perplexity_last_status == "NOT_REQUESTED"
+
+    answers = iter(("R", "S"))
+    _manage_perplexity_draft(search, state)
+    assert state.perplexity_queries == ("seguro de vida",)
+    assert state.perplexity_search_type == "fast"
+    assert state.perplexity_last_status == "PENDING"
+
+
+def test_clearing_saved_draft_requires_separate_ini_save(monkeypatch, tmp_path):
+    from rasai.console_search_parameter_menu import _manage_perplexity_draft
+    from rasai import console_search_intelligence as search, console_settings
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+
+    _install_search_persistence()
+    install()
+    state = SearchConsoleState(
+        perplexity_queries=("seguro de vida",),
+        perplexity_search_type="fast",
+    )
+    path = tmp_path / "console.ini"
+    console_settings.save_console_config(state, path)
+    old_bytes = path.read_bytes()
+    restored = SearchConsoleState()
+    console_settings.load_console_config(restored, path)
+    assert restored.perplexity_draft_queries == ("seguro de vida",)
+    answers = iter(("C", "S"))
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+    _manage_perplexity_draft(search, restored)
+    assert restored.perplexity_draft_queries == ()
+    assert restored.perplexity_queries == ()
+    assert path.read_bytes() == old_bytes
+    console_settings.save_console_config(restored, path)
+    latest = SearchConsoleState()
+    console_settings.load_console_config(latest, path)
+    assert latest.perplexity_draft_queries == ()
+    assert latest.perplexity_queries == ()
+

@@ -34,8 +34,9 @@ def test_key_and_enabled_are_not_billable_request() -> None:
     assert info["credential_configured"] is True
     assert info["queries_requested"] is False
     assert info["executable_request_pending"] is False
-    assert info["query_persistence_scope"] == "SESSION_ONLY_NOT_SAVED_TO_INI"
-    assert info["mode_persistence_scope"] == "SESSION_ONLY_NOT_SAVED_TO_INI"
+    assert info["query_persistence_scope"] == "SESSION_ONLY_REQUEST_WITH_REUSABLE_INI_DRAFT"
+    assert info["mode_persistence_scope"] == "SESSION_ONLY_REQUEST_WITH_REUSABLE_INI_DRAFT"
+    assert info["saved_draft_available"] is False
     assert info["global_filters_scope"] == "ENVIRONMENT_OR_INI_INDEPENDENT_OF_PER_AUD_OPT_IN"
     assert info["persisted_configuration_loss_proven"] is False
     assert info["per_aud_paid_consent_restored"] is False
@@ -93,9 +94,9 @@ def test_render_has_explicit_operator_instruction_but_no_secret(monkeypatch):
     assert "NÃO SOLICITADA" in result
     assert "CAT-05" in result and "queries" in result.lower()
     assert "Filtros adicionais" in result and "opcionais" in result
-    assert "salvar INI não persiste" in result
+    assert "Salvar INI preserva queries/modo como rascunho" in result
     assert "Filtros globais, credencial e ativação" in result
-    assert "somente à sessão/esta AUD" in result
+    assert "não autorizado" in result
     assert "private-fixture-do-not-display" not in result
 
 

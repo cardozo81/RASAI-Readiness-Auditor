@@ -616,9 +616,16 @@ def _save_configuration(state: State) -> bool:
         print(paint(f"Configuração salva em: {path}", GREEN, bold=True))
         print(paint("Chaves/API tokens não são gravados no INI por segurança.", YELLOW))
         if hasattr(state, "perplexity_queries"):
+            active_queries = tuple(state.perplexity_queries or ())
+            if active_queries and hasattr(state, "perplexity_draft_queries"):
+                # The writer persisted these exact terms as a draft.
+                # Do not propagate execution intent to a new process.
+                state.perplexity_draft_queries = active_queries
+                state.perplexity_draft_search_type = state.perplexity_search_type
             print(paint(
-                "Perplexity Search: queries e modo WEB/FAST NÃO são salvos no INI; "
-                "cada nova AUD exige nova solicitação/autorização explícita.",
+                "Perplexity Search: queries e WEB/FAST salvos como RASCUNHO no INI; "
+                "não serão solicitados automaticamente na próxima sessão/AUD. "
+                "Use CAT-05 > P > 9 para reutilizar com confirmação explícita.",
                 YELLOW,
             ))
         input("\nENTER para continuar...")

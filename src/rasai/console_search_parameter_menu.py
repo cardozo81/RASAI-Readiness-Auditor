@@ -253,6 +253,41 @@ def _edit_perplexity_queries(search_module: ModuleType, state: Any) -> None:
     _mark_perplexity_pending(search_module, state)
 
 
+def _manage_perplexity_draft(search_module: ModuleType, state: Any) -> None:
+    """Explicitly reuse or clear inert saved inputs, never hydrate paid consent."""
+    draft = tuple(getattr(state, "perplexity_draft_queries", ()) or ())
+    mode = str(getattr(state, "perplexity_draft_search_type", "web") or "web").lower()
+    if not draft:
+        print("  Nenhum rascunho Perplexity salvo. Defina queries na opção 1 e salve.")
+        return
+    print(f"  Rascunho local: {len(draft)} query(s), {mode.upper()}.")
+    print("  R. Solicitar as queries salvas nesta AUD (requer autorização financeira posterior)")
+    print("  C. Apagar o rascunho (salve a configuração para persistir a remoção)")
+    print("  V. Voltar sem modificar")
+    operation = input("Escolha [R/C/V]: ").strip().upper()
+    if operation == "R":
+        confirm = input(
+            "Solicitar explicitamente a pesquisa Perplexity nesta AUD [S/N]: "
+        ).strip().upper()
+        if confirm != "S":
+            print("  Rascunho não ativado. Nenhuma pesquisa foi solicitada.")
+            return
+        state.perplexity_queries = draft
+        state.perplexity_search_type = mode
+        _mark_perplexity_pending(search_module, state)
+    elif operation == "C":
+        confirm = input("Limpar rascunho salvo e solicitação atual [S/N]: ").strip().upper()
+        if confirm == "S":
+            state.perplexity_draft_queries = ()
+            state.perplexity_draft_search_type = "web"
+            state.perplexity_queries = ()
+            state.perplexity_search_type = "web"
+            _mark_perplexity_pending(search_module, state)
+            print("  Rascunho limpo na sessão. Use Salvar para atualizar o INI.")
+    elif operation != "V":
+        print("  Opção inválida: use R, C ou V.")
+
+
 def _copy_serp_terms_to_perplexity(search_module: ModuleType, state: Any) -> None:
     """Copy only on affirmative opt-in; SERP request intent is never inherited."""
     source = tuple(getattr(state, "search_queries", ()) or ())
@@ -472,6 +507,14 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             "ou evidência determinística."
         )
         print(f"  Solicitação           : {'SOLICITADA' if queries else 'NÃO SOLICITADA'}")
+        draft = tuple(getattr(state, "perplexity_draft_queries", ()) or ())
+        draft_mode = str(
+            getattr(state, "perplexity_draft_search_type", "web") or "web"
+        ).upper()
+        print(
+            f"  Rascunho INI          : {len(draft)} query(s) | {draft_mode} | "
+            "NÃO AUTORIZADO para execução"
+        )
         print(f"  Queries               : {len(queries)}"
               + (f" | {'; '.join(queries)}" if queries else ""))
         print(f"  Tipo                  : {search_type}")
@@ -518,6 +561,7 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         print("6. Copiar termos SERP para pesquisa Perplexity (confirmação faturável)")
         print("7. Complemento GEO externo em AUD COMPLETE existente (não altera AUD)")
         print("8. Consultar complementos GEO existentes (somente leitura, sem cobrança)")
+        print("9. Reutilizar/limpar rascunho Perplexity salvo (solicitação explícita)")
         print(f"  Síntese GEO por IA    : {'SOLICITADA' if bool(getattr(state, 'geo_ai_requested', False)) else 'NÃO SOLICITADA'}")
         print("D. Não solicitar Perplexity nesta execução")
         print("V. Voltar ao CAT-05")
@@ -543,6 +587,8 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             _external_geo_supplement(state)
         elif raw == "8":
             _review_external_geo_supplements()
+        elif raw == "9":
+            _manage_perplexity_draft(search_module, state)
         elif raw == "5":
             requested = input(
                 "Solicitar análise GEO por IA canônica? Pode consumir quota/custo. [S/N]: "

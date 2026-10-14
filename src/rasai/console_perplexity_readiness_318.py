@@ -32,6 +32,7 @@ def inspect_perplexity_readiness(
     active = perplexity_enabled(env)
     key_present = bool(str(env.get("PERPLEXITY_API_KEY") or "").strip())
     requests = tuple(getattr(state, "perplexity_queries", ()) or ())
+    draft = tuple(getattr(state, "perplexity_draft_queries", ()) or ())
     kind = str(getattr(state, "perplexity_search_type", "web") or "web").strip().upper()
     requested = bool(requests)
     # Display readiness must never promise an executable Search API request
@@ -63,8 +64,13 @@ def inspect_perplexity_readiness(
         "query_count": len(requests),
         "mode": kind,
         "optional_filters_configured": filters,
-        "query_persistence_scope": "SESSION_ONLY_NOT_SAVED_TO_INI",
-        "mode_persistence_scope": "SESSION_ONLY_NOT_SAVED_TO_INI",
+        "query_persistence_scope": "SESSION_ONLY_REQUEST_WITH_REUSABLE_INI_DRAFT",
+        "mode_persistence_scope": "SESSION_ONLY_REQUEST_WITH_REUSABLE_INI_DRAFT",
+        "saved_draft_available": bool(draft),
+        "saved_draft_query_count": len(draft),
+        "saved_draft_mode": str(
+            getattr(state, "perplexity_draft_search_type", "web") or "web"
+        ).upper(),
         "global_filters_scope": "ENVIRONMENT_OR_INI_INDEPENDENT_OF_PER_AUD_OPT_IN",
         "persisted_configuration_loss_proven": False,
         "per_aud_paid_consent_restored": False,
@@ -86,8 +92,12 @@ def render_perplexity_readiness(state: Any, *, brief: bool = False) -> None:
         print(f"  Filtros adicionais   : {data['optional_filters_configured']} definido(s); opcionais")
     print("  Para solicitar: Preparar auditoria > CAT-05 > P. Perplexity >")
     print("    1. Definir queries ou 6. Copiar termos SERP com autorização.")
-    print("  Queries e modo Perplexity pertencem somente à sessão/esta AUD;")
-    print("  salvar INI não persiste a solicitação nem a restaura na próxima sessão.")
+    print(
+        f"  Rascunho no INI     : {data['saved_draft_query_count']} query(s) | "
+        f"{data['saved_draft_mode']} | não autorizado"
+    )
+    print("  Salvar INI preserva queries/modo como rascunho, não a solicitação.")
+    print("  Para reutilizar: CAT-05 > P > 9; confirme para cada nova AUD.")
     print("  Filtros globais, credencial e ativação são independentes dessa solicitação.")
     print("  Habilitação e chave NÃO executam pesquisa. Queries SERP não são herdadas.")
     print("  Pesquisa Perplexity pode consumir quota/custo e depende de aceite explícito.")

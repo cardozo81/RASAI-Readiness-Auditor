@@ -92,7 +92,7 @@ def test_cli_prints_only_json_and_has_no_file_writes(tmp_path, capsys):
 
 
 def test_derived_apdex_device_mix_missing_does_not_count_as_lost_setting(tmp_path):
-    """Physical inventory from the operator had only device_mix omitted (70/71)."""
+    """Device mix is the sole derived field absent from a generated inventory."""
     from rasai.console_search_intelligence import SearchConsoleState
     from rasai.console_complete_persistence import install
     from rasai.console_ui_refactor import _install_search_persistence
@@ -111,8 +111,9 @@ def test_derived_apdex_device_mix_missing_does_not_count_as_lost_setting(tmp_pat
 
     result = inventory(path=path, environ={})
     coverage = result["typed_ini_coverage"]
-    assert coverage["total"] == 71
-    assert coverage["present"] == 70
+    expected_count = sum(len(values) for values in console_settings._state_values(state).values())
+    assert coverage["total"] == expected_count
+    assert coverage["present"] == expected_count - 1
     assert coverage["missing_derived_names"] == [
         "synthetic_apdex_experience.device_mix"
     ]
