@@ -63,7 +63,11 @@ def install(console_module: ModuleType) -> None:
 
     def run(state: Any) -> int:
         if not draft_pending_confirmation(state):
-            return int(original_run(state) or 0)
+            try:
+                return int(original_run(state) or 0)
+            finally:
+                # D/LIMPAR cancels only this AUD, not later ones in the session.
+                state.perplexity_skip_draft_this_aud = False
         selection = confirm_draft_for_this_aud(state)
         if selection == "V":
             # Existing post-run decline flow must not render a new AUD.
@@ -78,7 +82,10 @@ def install(console_module: ModuleType) -> None:
         # The operator may skip an optional paid provider while still approving
         # deterministic AUD / AI costs in the canonical monetary gate.
         if selection == "N":
-            return int(original_run(state) or 0)
+            try:
+                return int(original_run(state) or 0)
+            finally:
+                state.perplexity_skip_draft_this_aud = False
 
         prior_queries = state.perplexity_queries
         prior_mode = state.perplexity_search_type
