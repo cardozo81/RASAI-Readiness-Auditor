@@ -469,3 +469,26 @@ def test_native_geo_cons_commands_preserve_cons_and_require_package_opt_in(
     assert all(sha256(Path(path).read_bytes()).hexdigest() == digest
                for path, digest in before.items())
     assert list((root / "consolidated").glob("CONS-*")) == [cons]
+
+
+def test_geo_cons_file_seal_rejects_changed_open_descriptor_identity(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    src = tmp_path / "safe-source.db"
+    src.write_bytes(b"same-length-evidence")
+    original = src.read_bytes()
+    assert module._file_digest(src) == sha256(original).hexdigest()
+    actual_fstat = module.os.fstat
+
+    def changed_identity(fd):
+        info = actual_fstat(fd)
+        return SimpleNamespace(
+            st_dev=info.st_dev, st_ino=info.st_ino + 1,
+            st_size=info.st_size, st_mtime_ns=info.st_mtime_ns,
+            st_ctime_ns=info.st_ctime_ns,
+        )
+
+    with monkeypatch.context() as m:
+        m.setattr(module.os, "fstat", changed_identity)
+        with pytest.raises(ValueError, match="identity changed"):
+            module._file_digest(src)
+    assert src.read_bytes() == original
