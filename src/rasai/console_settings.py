@@ -500,7 +500,9 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
         return ConfigLoadResult(source, False, (f"não foi possível ler {source}: {type(exc).__name__}",))
     if parser.has_section("environment"):
         allowed = set(_known_nonsecret_environment_names())
-        for name, raw in parser.items("environment", raw=True):
+        # ConfigParser.items() silently merges [DEFAULT]. Only physical keys
+        # placed in [environment] are operator environment assignments.
+        for name, raw in parser._sections["environment"].items():
             if name not in allowed:
                 warnings.append(f"environment.{name}: variável não reconhecida ou não persistível")
                 continue
@@ -508,7 +510,9 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
     for section, values in _state_values(state).items():
         if not parser.has_section(section): continue
         for option in values:
-            if option == "config_version" or not parser.has_option(section, option): continue
+            # has_option() inherits [DEFAULT], which must not overwrite
+            # typed state without an explicit assignment in this section.
+            if option == "config_version" or option not in parser._sections[section]: continue
             if section == "presentation" and option == "timezone" and external_timezone:
                 continue
             raw = parser.get(section, option, raw=True)
