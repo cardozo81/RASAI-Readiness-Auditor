@@ -574,6 +574,10 @@ def public_label(value: str) -> str:
 
 
 _TAG_SPLIT_RE = re.compile(r"(<[^>]+>)", flags=re.DOTALL)
+# Escaped DOM markup is literal evidence, not editorial text. It is produced
+# as &lt;tag ...&gt; inside report cells, where the generic HTML tag guard does
+# not apply. Never humanize identifiers, URLs or attributes inside it.
+_ESCAPED_DOM_TAG_RE = re.compile(r"(&lt;/?[A-Za-z][^<>]*?&gt;)", flags=re.IGNORECASE | re.DOTALL)
 _PUBLIC_TOKEN_VALUES = tuple(
     sorted(set(_PUBLIC_LABELS) | set(SUPPLEMENTAL_PUBLIC_LABELS), key=len, reverse=True)
 )
@@ -665,16 +669,22 @@ def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
         if blocked_depth:
             output.append(part)
             continue
-        visible = localize_visible_timestamps(part)
-        visible = visible.replace("\u2014", "-").replace("\u2013", "-")
-        # Translate the complete known Chromium diagnostic, not only ERR_ABORTED:
-        # otherwise the final pass produces the invalid prefix "net::" plus prose.
-        visible = re.sub(
-            r"\bnet::ERR_ABORTED\b",
-            "Requisição interrompida pelo navegador",
-            visible,
-            flags=re.IGNORECASE,
-        )
-        visible = _standalone_concept_label(visible, page_name=page_name)
-        output.append(_PUBLIC_TOKEN_RE.sub(_public_token_replacement, visible))
+        for fragment in _ESCAPED_DOM_TAG_RE.split(part):
+            # The HTML source is already escaped for safe display. Translating
+            # GTM_CPF within id=&quot;...&quot; would falsify captured evidence.
+            if fragment.startswith("&lt;") and fragment.endswith("&gt;"):
+                output.append(fragment)
+                continue
+            visible = localize_visible_timestamps(fragment)
+            visible = visible.replace("\u2014", "-").replace("\u2013", "-")
+            # Translate the complete known Chromium diagnostic, not only ERR_ABORTED:
+            # otherwise the final pass produces the invalid prefix "net::" plus prose.
+            visible = re.sub(
+                r"\bnet::ERR_ABORTED\b",
+                "Requisição interrompida pelo navegador",
+                visible,
+                flags=re.IGNORECASE,
+            )
+            visible = _standalone_concept_label(visible, page_name=page_name)
+            output.append(_PUBLIC_TOKEN_RE.sub(_public_token_replacement, visible))
     return _VISIBLE_VALUE_RE.sub(isolated, "".join(output))
