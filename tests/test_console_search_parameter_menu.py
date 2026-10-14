@@ -455,3 +455,17 @@ def test_perplexity_submenu_distinguishes_loaded_draft_ready_from_requested(monk
     assert state.perplexity_queries == ("posso ter seguro de vida familiar",)
     assert state.perplexity_draft_queries == ("posso ter seguro de vida familiar",)
     assert "secret-do-not-print" not in rendered
+
+def test_loaded_perplexity_draft_type_edit_is_inert(monkeypatch):
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "fake-private-key")
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    state = SearchConsoleState(
+        perplexity_draft_queries=("seguro para família",),
+        perplexity_draft_search_type="fast",
+    )
+    rendered = _run(state, ["P", "2", "1", "V", "V"])
+    assert state.perplexity_draft_search_type == "web"
+    assert state.perplexity_queries == ()
+    assert "Queries configuradas : 1 | modo=WEB" in rendered
+    assert "seguro para família" in rendered
+
