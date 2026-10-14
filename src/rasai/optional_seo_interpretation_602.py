@@ -6,10 +6,11 @@ They are not a counterfactual score, an alternative scorer or a vendor rule.
 from __future__ import annotations
 
 from html import escape
-import json
 from math import isfinite
 import sqlite3
 from typing import Any
+
+from rasai.optional_seo_policy_602 import classify_seo_evidence
 
 _OPTIONAL_RULES = {
     "BR-GEO-003": ("Sitemap convencional não observado", "DISCOVERY_ACCESS"),
@@ -19,26 +20,8 @@ _OPTIONAL_RULES = {
 
 
 def _isolated_optional_absence(rule_id: str, raw: Any) -> bool:
-    try:
-        value = json.loads(str(raw or ""))
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return False
-    if not isinstance(value, dict):
-        return False
-    if rule_id == "BR-GEO-003":
-        sitemaps = value.get("sitemaps")
-        return (
-            isinstance(sitemaps, list) and bool(sitemaps)
-            and all(
-                isinstance(item, dict) and item.get("state") == "ABSENT"
-                for item in sitemaps
-            )
-        )
-    if rule_id == "BR-GEO-017":
-        return value.get("state") == "ABSENT"
-    if rule_id == "BR-GEO-013":
-        return value.get("canonicals") == []
-    return False
+    # Fail closed on malformed, duplicate-key or unknown provider evidence.
+    return classify_seo_evidence(rule_id, raw) == "OPTIONAL_ABSENCE"
 
 
 def optional_seo_penalties(database: Any, audit_id: str) -> list[dict[str, Any]]:
