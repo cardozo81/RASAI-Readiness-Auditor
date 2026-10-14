@@ -157,9 +157,50 @@ def _install_search_persistence() -> None:
                 "ai_competitive": "true" if bool(getattr(state, "search_ai_competitive", False)) else "false",
                 "ymyl_mode": str(getattr(state, "search_ymyl_mode", "AUTO") or "AUTO").upper(),
             }
+        if hasattr(state, "perplexity_draft_queries"):
+            # Persist terms as a DRAFT only. Active intent is never hydrated
+            # by the INI loader, nor transferred to a later AUD.
+            active = tuple(getattr(state, "perplexity_queries", ()) or ())
+            draft = tuple(getattr(state, "perplexity_draft_queries", ()) or ())
+            terms = active if active else draft
+            mode = (
+                getattr(state, "perplexity_search_type", "web")
+                if active else getattr(state, "perplexity_draft_search_type", "web")
+            )
+            from rasai.console_search_intelligence import parse_search_terms
+            if len(terms) > 5 or any(
+                not isinstance(term, str) or not term.strip() for term in terms
+            ):
+                raise ValueError("perplexity_draft: queries inválidas")
+            if parse_search_terms("; ".join(terms)) != terms:
+                raise ValueError("perplexity_draft: queries não canônicas")
+            mode = str(mode or "web").strip().lower()
+            if mode not in {"web", "fast"}:
+                raise ValueError("perplexity_draft: modo inválido")
+            result["perplexity_draft"] = {
+                "queries": "; ".join(terms),
+                "search_type": mode,
+            }
         return result
 
     def assign(state: Any, section_name: str, option: str, raw: str):
+        if section_name == "perplexity_draft":
+            if not hasattr(state, "perplexity_draft_queries"):
+                return None
+            if option == "queries":
+                from rasai.console_search_intelligence import parse_search_terms
+                if len(raw) > 10_000:
+                    raise ValueError("perplexity_draft: tamanho inválido")
+                terms = parse_search_terms(raw)
+                if len(terms) > 5:
+                    raise ValueError("perplexity_draft: máximo de cinco queries")
+                state.perplexity_draft_queries = terms
+            elif option == "search_type":
+                mode = raw.strip().lower()
+                if mode not in {"web", "fast"}:
+                    raise ValueError("perplexity_draft: modo inválido")
+                state.perplexity_draft_search_type = mode
+            return None
         if section_name != "search_intelligence":
             return old_assign(state, section_name, option, raw)
         if not hasattr(state, "search_queries"):
