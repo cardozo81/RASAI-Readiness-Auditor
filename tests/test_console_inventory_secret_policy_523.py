@@ -80,3 +80,20 @@ def test_default_section_is_not_a_physical_environment_assignment(tmp_path):
     assert rows["RASAI_WEB_PERFORMANCE"]["status"] == "INI"
     assert "INHERITED_SECRET" not in json.dumps(report)
     assert "INHERITED_FAKE" not in json.dumps(report)
+
+def test_default_section_does_not_fabricate_typed_cat07_persistence(tmp_path):
+    ini = tmp_path / "typed-default.ini"
+    ini.write_text(
+        "[DEFAULT]\n"
+        "architecture=CSR_SPA\n"
+        "[synthetic_apdex_experience]\n"
+        "profile_mode=CUSTOM\n",
+        encoding="utf-8",
+    )
+    before = ini.read_bytes()
+    result = inventory(path=ini, environ={})
+    fields = {row["name"]: row for row in result["typed_state_fields"]}
+    assert fields["synthetic_apdex_experience.architecture"]["ini_present"] is False
+    assert fields["synthetic_apdex_experience.profile_mode"]["ini_present"] is True
+    assert "synthetic_apdex_experience.architecture" in result["typed_ini_coverage"]["missing_non_derived_names"]
+    assert ini.read_bytes() == before
