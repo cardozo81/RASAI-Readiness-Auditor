@@ -67,6 +67,8 @@ elif operation == "load":
         "warnings": list(loaded.warnings),
         "perplexity_queries_empty": not state.perplexity_queries,
         "perplexity_search_type": state.perplexity_search_type,
+        "draft_queries": state.perplexity_draft_queries,
+        "draft_mode": state.perplexity_draft_search_type,
         "perplexity_api_key_present": bool(os.environ.get("PERPLEXITY_API_KEY")),
         "serp_max_requests": os.environ.get("RASAI_SERP_MAX_REQUESTS"),
         "perplexity_enabled": os.environ.get("RASAI_PERPLEXITY_ENABLED"),
@@ -178,7 +180,8 @@ def test_fresh_process_roundtrip_apdex_serp_and_explicit_perplexity_optin(tmp_pa
     assert parsed.get("synthetic_apdex_experience", "architecture") == "HYDRATED"
     assert parsed.get("synthetic_apdex_experience", "profile_mode") == "CUSTOM"
     assert b"FAKE_SECRET_MUST_NOT_PERSIST" not in original_bytes
-    assert b"never persist paid search consent" not in original_bytes
+    assert parsed.get("perplexity_draft", "queries") == "never persist paid search consent"
+    assert parsed.get("perplexity_draft", "search_type") == "fast"
     assert b"PERPLEXITY_API_KEY" not in original_bytes
     assert b"perplexity_queries" not in original_bytes
 
@@ -192,6 +195,8 @@ def test_fresh_process_roundtrip_apdex_serp_and_explicit_perplexity_optin(tmp_pa
     assert second["perplexity_enabled"] == "true"
     assert second["perplexity_queries_empty"] is True
     assert second["perplexity_search_type"] == "web"
+    assert second["draft_queries"] == ["never persist paid search consent"]
+    assert second["draft_mode"] == "fast"
     assert second["perplexity_api_key_present"] is False
     preflight = second["apdex_preflight"]
     assert preflight["status"] == "ADAPTERS_VALIDATED_OFFLINE"
