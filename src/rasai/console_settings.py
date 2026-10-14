@@ -6,7 +6,7 @@ secrets and credential-bearing DSNs are intentionally environment/session-only.
 """
 from __future__ import annotations
 
-from configparser import ConfigParser
+from configparser import ConfigParser, Error as ConfigError
 from dataclasses import dataclass
 import io
 import os
@@ -496,7 +496,10 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
     parser.optionxform = str
     try:
         with source.open("r", encoding="utf-8") as stream: parser.read_file(stream)
-    except (OSError, UnicodeError) as exc:
+    except (OSError, UnicodeError, ConfigError) as exc:
+        # An operator INI can be truncated or contain duplicate entries.
+        # Keep state and environment unchanged rather than abort console startup
+        # or partially applying an invalid document. Do not echo source values.
         return ConfigLoadResult(source, False, (f"não foi possível ler {source}: {type(exc).__name__}",))
     if parser.has_section("environment"):
         allowed = set(_known_nonsecret_environment_names())

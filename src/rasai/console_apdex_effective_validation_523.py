@@ -77,6 +77,10 @@ def inspect_apdex_consumers(
             result = console_settings.load_console_config(state, copy)
             if result.created:
                 return {**base, "status": "SOURCE_UNAVAILABLE"}
+            # Loader now reports malformed INI as a safe warning instead of
+            # raising. Such a source is not a partially usable adapter config.
+            if any("não foi possível ler " in warning for warning in result.warnings):
+                return {**base, "status": "CONFIG_OR_ADAPTER_INVALID"}
             parser = argparse.ArgumentParser(add_help=False)
             register_apdex_arguments(parser)
             console_settings.sync_nonsecret_runtime_environment(state)
