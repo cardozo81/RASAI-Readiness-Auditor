@@ -16,7 +16,64 @@ from rasai.accepted_audit_refinements import (
     _ymyl_analysis_context_html,
 )
 from rasai.semantic_coherence_reporting import _ymyl_alignment_html
+from rasai.faq_observation_601 import faq_observation_html, inspect_faq_html
 from rasai import catalog_report_analysis
+
+
+
+def test_faq_snapshot_distinguishes_collapsed_unmounted_from_absent_answer() -> None:
+    html = (
+        '<a role="button" aria-controls="FrequentlyAsked-question1" '
+        'aria-expanded="false">Pergunta um</a>'
+        '<a role="button" aria-controls="FrequentlyAsked-question2" '
+        'aria-expanded="false">Pergunta dois</a>'
+        '<div id="FrequentlyAsked-question2">Resposta existente no DOM</div>'
+        '<a role="button" aria-controls="OtherAccordion-1" '
+        'aria-expanded="false">Plano de cobertura</a>'
+    )
+    assert inspect_faq_html(html) == {
+        "controls": 2, "collapsed": 2, "unmounted": 1, "mounted": 1
+    }
+
+
+def test_faq_readonly_report_does_not_claim_editorial_absence(tmp_path: Path) -> None:
+    db = tmp_path / "audit.db"
+    artifact = tmp_path / "artifacts" / "rendered" / "P1" / "mobile" / "S1.html"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text(
+        '<a role="button" aria-controls="FrequentlyAsked-q1" '
+        'aria-expanded="false">Uma pergunta</a>', encoding="utf-8",
+    )
+    with sqlite3.connect(db) as connection:
+        connection.execute("CREATE TABLE pages(page_id TEXT, audit_id TEXT)")
+        connection.execute(
+            "CREATE TABLE page_snapshots("
+            "snapshot_id TEXT, page_id TEXT, rendered_artifact_ref TEXT)"
+        )
+        connection.execute("INSERT INTO pages VALUES('P1','AUD-1')")
+        connection.execute(
+            "INSERT INTO page_snapshots VALUES(?,?,?)",
+            ("S1", "P1", "artifacts/rendered/P1/mobile/S1.html"),
+        )
+    previous_db = db.read_bytes()
+    previous_html = artifact.read_bytes()
+    report = faq_observation_html(db, "AUD-1")
+    assert "1 painel(is) não estavam presentes no DOM" in report
+    assert "não prova ausência editorial" in report
+    assert "também não comprova acesso sem interação" in report
+    assert "não altera BR-GEO-039, BR-GEO-049" in report
+    assert db.read_bytes() == previous_db
+    assert artifact.read_bytes() == previous_html
+    assert faq_observation_html(db, "AUD-OTHER") == ""
+
+
+def test_faq_diagnostic_rejects_out_of_root_artifact(tmp_path: Path) -> None:
+    from rasai.faq_observation_601 import _safe_rendered_file
+
+    outside = tmp_path.parent / "outside-faq.html"
+    assert _safe_rendered_file(tmp_path, "../outside-faq.html") is None
+    assert _safe_rendered_file(tmp_path, "artifacts/rendered/../outside-faq.html") is None
+
 
 
 def _database(tmp_path: Path) -> Path:

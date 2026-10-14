@@ -447,8 +447,10 @@ def install() -> None:
     from rasai import catalog_report_evidence as evidence
     from rasai import catalog_report_page as page
     original=evidence._semantic_html
+    from rasai.faq_observation_601 import faq_observation_html
+
     def semantic_html_with_coherence(database: Any,data: Any) -> str:
-        return _context_html(evidence,database,data.audit_id)+_auto_interpretation_html(evidence,database,data.audit_id)+_ymyl_alignment_html(evidence,database,data.audit_id)+_property_summary_html(evidence,database,data.audit_id)+_page_summary_html(evidence,database,data.audit_id)+_semantic_assessments_html(evidence,database,data.audit_id)+original(database,data)
+        return _context_html(evidence,database,data.audit_id)+_auto_interpretation_html(evidence,database,data.audit_id)+_ymyl_alignment_html(evidence,database,data.audit_id)+faq_observation_html(database,data.audit_id)+_property_summary_html(evidence,database,data.audit_id)+_page_summary_html(evidence,database,data.audit_id)+_semantic_assessments_html(evidence,database,data.audit_id)+original(database,data)
     evidence._semantic_html=semantic_html_with_coherence
     page._semantic_html=semantic_html_with_coherence
     _INSTALLED=True
