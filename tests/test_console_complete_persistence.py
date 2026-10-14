@@ -92,7 +92,8 @@ def test_save_materializes_search_inputs_and_all_safe_environment_settings(tmp_p
     assert "secret-serp" not in text
     assert "secret-gsc" not in text
     assert "secret-perplexity" not in text
-    assert "external advisory query" not in text
+    assert parser.get("perplexity_draft", "queries") == "external advisory query"
+    assert parser.get("perplexity_draft", "search_type") == "fast"
     assert "perplexity_queries" not in text
 
     # Loading the generated INI must not turn the optional default TOML into an explicit
@@ -100,4 +101,8 @@ def test_save_materializes_search_inputs_and_all_safe_environment_settings(tmp_p
     monkeypatch.delenv("RASAI_CONFIG", raising=False)
     restored = SearchConsoleState()
     console_settings.load_console_config(restored, destination)
+    assert restored.perplexity_draft_queries == ("external advisory query",)
+    assert restored.perplexity_draft_search_type == "fast"
+    assert restored.perplexity_queries == ()
+    assert restored.perplexity_search_type == "web"
     assert "RASAI_CONFIG" not in os.environ
