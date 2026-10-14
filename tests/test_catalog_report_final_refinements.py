@@ -197,6 +197,33 @@ def test_optional_seo_reconciliation_is_readonly_and_does_not_recompute_scores(t
 
 
 
+
+def test_sari_exec_tone_uses_persisted_readiness_gate_not_high_number() -> None:
+    from rasai.catalog_report_governance import _sari_public_tone
+
+    base = {
+        "dimension": "OVERALL_READINESS",
+        "value": 86.484962,
+        "coverage": 0.974737,
+        "confidence": "HIGH",
+        "consolidation_status": "CONSOLIDATED",
+    }
+    attention = {
+        **base, "limitations": json.dumps([
+            "READINESS_STATUS:ATTENTION",
+            "CRITICAL_GATE:DISCOVERY:WARNING",
+        ]),
+    }
+    ready = {**base, "limitations": json.dumps(["READINESS_STATUS:READY"])}
+    unknown = {**base, "limitations": "[]"}
+    assert _sari_public_tone(attention) == "warn"
+    assert _sari_public_tone(ready) == "good"
+    assert _sari_public_tone(unknown) == "neutral"
+    assert _sari_public_tone({**ready, "confidence": "LOW"}) == "warn"
+    assert base["value"] == 86.484962
+
+
+
 def test_lighthouse_one_is_one_out_of_100_not_100(tmp_path: Path) -> None:
     database = tmp_path / "audit.db"
     con = sqlite3.connect(database)

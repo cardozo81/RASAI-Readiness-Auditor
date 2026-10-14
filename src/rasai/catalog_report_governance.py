@@ -137,7 +137,8 @@ def _overview_body(database: Path, data: _ReportData) -> str:
         ctx="SARI" if dim=="OVERALL_READINESS" else _DIMENSION_CONTEXT.get(dim,"")
         link="sari.html" if dim=="OVERALL_READINESS" else CATALOG_PAGE_BY_ID[ctx].filename if ctx in CATALOG_PAGE_BY_ID else "metrics.html"
         score_value=_score_value(r)
-        indexes.append((_Html(f"<a href='{link}'>{escape(label)}</a>"),_result_value(score_value,_score_result_tone(score_value)),_device_label(r.get("device")),"Índice",_confidence_label(r.get("confidence"))))
+        tone = _sari_public_tone(r) if dim == "OVERALL_READINESS" else _score_result_tone(score_value)
+        indexes.append((_Html(f"<a href='{link}'>{escape(label)}</a>"),_result_value(score_value,tone),_device_label(r.get("device")),"Índice",_confidence_label(r.get("confidence"))))
     for cid in ("CAT-04","CAT-06","CAT-07"):
         for name,value,kind in _catalog_metric_rows(cid,_catalog_metrics(database,data,cid)):
             indexes.append((_Html(f"<a href='{CATALOG_PAGE_BY_ID[cid].filename}'>{escape(str(name))}</a>"),value,CATALOG_BY_ID[cid].label,kind,"-"))
@@ -156,6 +157,20 @@ def _overview_body(database: Path, data: _ReportData) -> str:
     body+=_section("integrity","Integridade e proveniência",f"<div class='metric-grid'>{_metric('Plano da execução',integrity)}{_metric('Fonte de verdade','Dados persistidos da auditoria')}{_metric('Contrato do relatório',CATALOG_REPORT_CONTRACT_VERSION)}</div><div class='notice'>O relatório organiza dados já persistidos. Ele não executa nova captura, integração, IA ou cálculo de pontuação.</div>")
     return body
 
+
+
+def _sari_public_tone(row: Any) -> str:
+    """Use the persisted readiness gates, never numeric quality alone."""
+    from rasai.sari_readiness_presentation import public_readiness_condition
+
+    condition, _status, _quality = public_readiness_condition(row)
+    return {
+        "expected": "good",
+        "near": "warn",
+        "below": "low",
+        "critical": "bad",
+        "neutral": "neutral",
+    }.get(condition, "neutral")
 
 
 def _sari_coverage_public(value: Any) -> str:
@@ -178,7 +193,7 @@ def _sari_body(data: _ReportData) -> str:
         _metric_result(
             f"Índice de Prontidão · {_device_label(r.get('device'))}",
             _score_value(r),
-            _score_result_tone(_score_value(r)),
+            _sari_public_tone(r),
             f"Cobertura {_sari_coverage_public(r.get('coverage'))} · Confiança {_confidence_label(r.get('confidence'))}",
         )
         for r in overall
