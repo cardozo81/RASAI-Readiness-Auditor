@@ -862,3 +862,14 @@ def test_missing_custom_action_kpm_cannot_be_reported_as_observed():
     supported = _assess(settings=settings)
     assert supported["status"] == "CONFIGURATION_PLAUSIBLE_WITH_XHR_COVERAGE"
     assert supported["observed_kpm"]["custom_actions"] == "USER_ACTION_DURATION"
+
+
+@pytest.mark.parametrize("which", ["toleratedThresholdSeconds", "frustratingThresholdSeconds"])
+def test_oversized_json_integer_threshold_abstains_without_overflow(which):
+    conf = _config()
+    conf["load_actions"]["thresholds"][which] = 10 ** 400
+    out = _assess(settings=conf)
+    assert out["status"] == "INVALID_SETTINGS_SNAPSHOT"
+    assert "load_actions:INVALID_APDEX_THRESHOLDS" in out["reasons"]
+    assert out["observed_kpm"] == {}
+    assert out["new_apdex_score"] is None
