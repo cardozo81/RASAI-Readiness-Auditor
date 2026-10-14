@@ -1043,3 +1043,31 @@ def test_noninteger_requested_page_scope_must_abstain(tmp_path, invalid_target):
     result = forecast_local_duration(state, target_pages=invalid_target)
     assert result.available is False
     assert result.sample_runs == 0
+
+
+@pytest.mark.parametrize("bad_budget", [True, False, 1.5, "1.9", 0, -2, float("nan"), float("inf")])
+def test_web_page_budget_must_be_integral_positive_in_duration_cohort(tmp_path, bad_budget):
+    from rasai.audit_duration_forecast_319 import _strictly_comparable
+    state = _state(tmp_path)
+    config = {
+        "input_mode": "URL", "device": "MOBILE", "ai_provider": "auto",
+        "ai_model": "", "content_remediation": False,
+        "web_performance": True, "field_source": "NONE",
+        "max_pages": 1, "web_max_pages": bad_budget,
+    }
+    assert _strictly_comparable(state, config) is False
+
+
+def test_web_page_budget_uses_exact_integer_identity(tmp_path):
+    from rasai.audit_duration_forecast_319 import _strictly_comparable
+    state = _state(tmp_path)
+    state.web_max_pages = 9007199254740992
+    config = {
+        "input_mode": "URL", "device": "MOBILE", "ai_provider": "auto",
+        "ai_model": "", "content_remediation": False,
+        "web_performance": True, "field_source": "NONE",
+        "max_pages": 1, "web_max_pages": 9007199254740993,
+    }
+    assert _strictly_comparable(state, config) is False
+    config["web_max_pages"] = "9007199254740992"
+    assert _strictly_comparable(state, config) is True
