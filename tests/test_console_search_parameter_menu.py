@@ -430,3 +430,28 @@ def test_clearing_saved_draft_requires_separate_ini_save(monkeypatch, tmp_path):
     assert latest.perplexity_draft_queries == ()
     assert latest.perplexity_queries == ()
 
+def test_perplexity_submenu_distinguishes_loaded_draft_ready_from_requested(monkeypatch):
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "secret-do-not-print")
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    state = SearchConsoleState(
+        perplexity_draft_queries=("posso ter seguro de vida familiar",),
+        perplexity_draft_search_type="fast",
+    )
+    rendered = _run(state, ["P", "V", "V"])
+    assert "Configuração         : APTA PARA SOLICITAÇÃO" in rendered
+    assert "Queries configuradas : 1 | modo=FAST" in rendered
+    assert "posso ter seguro de vida familiar" in rendered
+    assert "Solicitação           : NÃO SOLICITADA" in rendered
+    assert "PARA EXECUTAR: opção 9 > R > S" in rendered
+    assert "NÃO SOLICITADA - RASCUNHO APTO" in rendered
+    assert state.perplexity_queries == ()
+    assert "secret-do-not-print" not in rendered
+
+    # Opt-in mutates only the current AUD, preserving the stored draft.
+    rendered = _run(state, ["P", "9", "R", "S", "V", "V"])
+    assert "Configuração         : APTA PARA SOLICITAÇÃO | origem=SESSÃO" in rendered
+    assert "Solicitação           : SOLICITADA" in rendered
+    assert "Queries configuradas : 1 | modo=FAST" in rendered
+    assert state.perplexity_queries == ("posso ter seguro de vida familiar",)
+    assert state.perplexity_draft_queries == ("posso ter seguro de vida familiar",)
+    assert "secret-do-not-print" not in rendered

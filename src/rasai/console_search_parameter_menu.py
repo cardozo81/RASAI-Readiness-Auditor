@@ -176,6 +176,8 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
         print(f"   Impacto projetado         : {projected}/{config.max_requests} requests no teto conservador")
     else:
         print("   Solicitação               : NÃO SOLICITADA enquanto não houver termos")
+    from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
+    px_view = inspect_perplexity_readiness(state)
     perplexity_queries = tuple(getattr(state, "perplexity_queries", ()) or ())
     perplexity_type = str(
         getattr(state, "perplexity_search_type", "web") or "web"
@@ -191,6 +193,13 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
     from rasai.console_search_intelligence import perplexity_enabled
     px_activation = "ATIVA" if perplexity_enabled() else "DESATIVADA"
     print(f"\nP. Perplexity externa      : {px_activation} | {px_request} | {px_credential}")
+    print(
+        f"   Configuração: {px_view['configuration_status']} | "
+        f"{px_view['configured_query_count']} query(s) {px_view['configured_mode']} | "
+        f"origem {px_view['configured_source']}"
+    )
+    if px_view["saved_draft_available"] and not px_view["queries_requested"]:
+        print("   Rascunho recuperado: P > 9 para solicitar nesta AUD (confirmação necessária).")
     print("   Pesquisa externa advisory; independente de SERP e sem efeito em scoring/evidência determinística.")
     print("\nD. Não solicitar SERP nesta execução (limpa os termos)")
     print("V. Voltar")
@@ -506,7 +515,19 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             "  Advisory e independente de SERP: não altera scoring, SARI, CAT score "
             "ou evidência determinística."
         )
+        from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
+        px = inspect_perplexity_readiness(state)
         print(f"  Solicitação           : {'SOLICITADA' if queries else 'NÃO SOLICITADA'}")
+        print(
+            f"  Configuração         : {px['configuration_status']} | "
+            f"origem={px['configured_source']}"
+        )
+        print(
+            f"  Queries configuradas : {px['configured_query_count']} | "
+            f"modo={px['configured_mode']}"
+        )
+        for index, term in enumerate(px["configured_queries"], 1):
+            print(f"    {index}. {term}")
         draft = tuple(getattr(state, "perplexity_draft_queries", ()) or ())
         draft_mode = str(
             getattr(state, "perplexity_draft_search_type", "web") or "web"
@@ -530,12 +551,12 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         print(f"  Flag                  : {activation_raw or 'ausente (compatibilidade: true)'}")
         print(f"  Efetiva nesta AUD     : {'SIM' if effective else 'NÃO'}")
         print(f"  Readiness             : {'APTA' if ready else 'CONFIGURAR'}")
-        from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
-        px = inspect_perplexity_readiness(state)
         print(f"  Execução próxima AUD  : {px['status']}")
         if not px["queries_requested"]:
-            print("  AÇÃO NECESSÁRIA: definir queries nesta tela (1) ou copiar "
-                  "termos SERP com autorização (6).")
+            if px["saved_draft_available"]:
+                print("  PARA EXECUTAR: opção 9 > R > S (confirmar solicitação nesta AUD).")
+            else:
+                print("  PARA CONFIGURAR: definir queries (1) ou copiar SERP com autorização (6).")
         print("  País, idioma, domínio, recência e limites adicionais são opcionais.")
         print(f"  Detalhe               : {detail}")
         from rasai.search_intelligence.perplexity_request_policy import resolve_request_options
@@ -548,10 +569,11 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             languages = ",".join(options.get("search_language_filter", [])) or "sem restrição"
             count = options.get("max_results", 10)
             optional = sorted(set(options) - {"country", "search_language_filter", "max_results"})
-            print(f"  Escopo desta AUD      : país={country} | idioma={languages} | fontes={count}")
+            scope_label = "Escopo desta AUD" if px["queries_requested"] else "Escopo potencial"
+            print(f"  {scope_label:<21}: país={country} | idioma={languages} | fontes={count}")
             print("  Filtros adicionais   : " + (", ".join(optional) if optional else "nenhum"))
         except ValueError as exc:
-            print(f"  Escopo desta AUD      : INVÁLIDO — {exc}")
+            print(f"  Escopo potencial      : INVÁLIDO — {exc}")
         print("  Ajuste de filtros    : menu 5 ou 6 > Perplexity Search Intelligence")
         print("\n1. Definir/alterar queries")
         print("2. Escolher WEB/FAST")
@@ -602,7 +624,7 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             else:
                 print("  Escolha S ou N.")
         else:
-            print("  Opção inválida: use 1, 2, 3, 4, 5, 6, 7, 8, D ou V.")
+            print("  Opção inválida: use 1 a 9, D ou V.")
 
 
 def _edit_terms(search_module: ModuleType, state: Any, config: SerpRuntimeConfig) -> None:

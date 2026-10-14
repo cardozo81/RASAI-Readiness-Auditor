@@ -35,6 +35,21 @@ def inspect_perplexity_readiness(
     draft = tuple(getattr(state, "perplexity_draft_queries", ()) or ())
     kind = str(getattr(state, "perplexity_search_type", "web") or "web").strip().upper()
     requested = bool(requests)
+    # Configuration viability and a billable request are separate dimensions.
+    # Current session edits take priority over the loaded INI draft for display;
+    # neither the draft nor SERP terms can create execution intent.
+    configured_queries = requests if requested else draft
+    configured_mode = (
+        kind if requested else str(
+            getattr(state, "perplexity_draft_search_type", "web") or "web"
+        ).strip().upper()
+    )
+    configured_source = "SESSÃO" if requested else "INI/RASCUNHO" if draft else "NENHUMA"
+    configured_valid = (
+        1 <= len(configured_queries) <= 5
+        and all(isinstance(q, str) and bool(q.strip()) for q in configured_queries)
+        and configured_mode in {"WEB", "FAST"}
+    )
     # Display readiness must never promise an executable Search API request
     # for a malformed/incomplete per-AUD query list. The runtime validates
     # the same 1..5 boundary; the console remains read-only here.
@@ -44,12 +59,27 @@ def inspect_perplexity_readiness(
     )
     enabled = bool(active)
     filters = sum(bool(str(env.get(name) or "").strip()) for name in _FILTERS)
+    configuration_ready = enabled and key_present and configured_valid
+    if not enabled:
+        configuration_status = "DESABILITADA"
+    elif not key_present:
+        configuration_status = "CREDENCIAL AUSENTE"
+    elif not configured_queries:
+        configuration_status = "SEM QUERIES CONFIGURADAS"
+    elif not configured_valid:
+        configuration_status = "QUERIES/MODO INVÁLIDOS"
+    else:
+        configuration_status = "APTA PARA SOLICITAÇÃO"
     if not enabled:
         status = "DESABILITADA - NENHUMA PESQUISA"
     elif not key_present:
         status = "CREDENCIAL AUSENTE - NENHUMA PESQUISA"
     elif not requested:
-        status = "NÃO SOLICITADA - DEFINIR QUERIES NO CAT-05"
+        status = (
+            "NÃO SOLICITADA - RASCUNHO APTO (CAT-05 > P > 9)"
+            if configuration_ready
+            else "NÃO SOLICITADA - DEFINIR QUERIES NO CAT-05"
+        )
     elif not valid_queries:
         status = "QUERIES INVÁLIDAS - CORRIGIR NO CAT-05"
     elif kind not in {"WEB", "FAST"}:
@@ -63,6 +93,12 @@ def inspect_perplexity_readiness(
         "queries_valid": valid_queries,
         "query_count": len(requests),
         "mode": kind,
+        "configured_queries": configured_queries,
+        "configured_query_count": len(configured_queries),
+        "configured_mode": configured_mode,
+        "configured_source": configured_source,
+        "configuration_ready": configuration_ready,
+        "configuration_status": configuration_status,
         "optional_filters_configured": filters,
         "query_persistence_scope": "SESSION_ONLY_REQUEST_WITH_REUSABLE_INI_DRAFT",
         "mode_persistence_scope": "SESSION_ONLY_REQUEST_WITH_REUSABLE_INI_DRAFT",
@@ -86,12 +122,25 @@ def render_perplexity_readiness(state: Any, *, brief: bool = False) -> None:
     print(f"  Integração           : {'HABILITADA' if data['enabled'] else 'DESABILITADA'}")
     print(f"  Credencial           : {'CONFIGURADA' if data['credential_configured'] else 'AUSENTE'}")
     print(f"  Pesquisa nesta AUD   : {'SOLICITADA' if data['queries_requested'] else 'NÃO SOLICITADA'}")
-    print(f"  Queries / modo       : {data['query_count']} / {data['mode']}")
+    print(f"  Queries / modo       : {data['query_count']} / {data['mode']} (solicitação)")
+    print(
+        f"  Configuração         : {data['configuration_status']} | "
+        f"origem={data['configured_source']}"
+    )
+    print(
+        f"  Termos disponíveis   : {data['configured_query_count']} | "
+        f"{data['configured_mode']}"
+    )
+    for term in data["configured_queries"]:
+        print(f"    - {term}")
     print(f"  Situação             : {data['status']}")
     if not brief:
         print(f"  Filtros adicionais   : {data['optional_filters_configured']} definido(s); opcionais")
     print("  Para solicitar: Preparar auditoria > CAT-05 > P. Perplexity >")
-    print("    1. Definir queries ou 6. Copiar termos SERP com autorização.")
+    if data["saved_draft_available"] and not data["queries_requested"]:
+        print("    9. Reutilizar rascunho salvo, com confirmação explícita.")
+    else:
+        print("    1. Definir queries ou 6. Copiar termos SERP com autorização.")
     print(
         f"  Rascunho no INI     : {data['saved_draft_query_count']} query(s) | "
         f"{data['saved_draft_mode']} | não autorizado"
