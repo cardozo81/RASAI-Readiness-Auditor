@@ -79,6 +79,9 @@ def test_faq_readonly_report_does_not_claim_editorial_absence(tmp_path: Path) ->
     assert "não prova ausência editorial" in report
     assert "também não comprova acesso sem interação" in report
     assert "não altera BR-GEO-039, BR-GEO-049" in report
+    assert "Proveniência por captura" in report
+    assert "<code>S1</code>" in report
+    assert "<td>1</td><td>1</td><td>1</td>" in report
     assert db.read_bytes() == previous_db
     assert artifact.read_bytes() == previous_html
     assert faq_observation_html(db, "AUD-OTHER") == ""
