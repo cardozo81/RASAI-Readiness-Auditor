@@ -474,7 +474,7 @@ forcar inferencia de consumer.
 
 ## Contrato atual: rascunho Perplexity opcional (#523, 14/10/2026)
 
-Este contrato substitui afirmações históricas acima que diziam que queries e WEB/FAST não são gravados. Quando o operador salva o INI com uma solicitação Perplexity explicitamente configurada, a seção `[perplexity_draft]` persiste `queries` (1..5) e `search_type` (web/fast), assim como o SERP possui uma seção própria. A ausência da seção é compatível com INI legado. Nenhum token, chave, consentimento, intenção comercial ou status `PENDING` é persistido neste bloco.
+Este contrato substitui afirmações históricas acima que diziam que queries e WEB/FAST não são gravados. Quando o operador salva o INI com uma solicitação Perplexity explicitamente configurada, a seção `[perplexity_draft]` persiste `queries` (1..5) e `search_type` (web/fast), assim como o SERP possui uma seção própria. A ausência da seção é compatível com INI anterior. Nenhum token, chave, consentimento, intenção comercial ou status `PENDING` é persistido neste bloco.
 
 No **reboot**, `perplexity_queries=()`, `perplexity_search_type=web` e `perplexity_last_status=NOT_REQUESTED`. Somente `perplexity_draft_queries` e `perplexity_draft_search_type` são restaurados; a tela pode exibir rascunho disponível, mas não configura pesquisa. O operador usa **CAT-05 > P > 9 > R > S** para solicitar os termos previamente salvos na auditoria corrente e passa pelos gates financeiros normais. **Opção D** cancela só a intenção corrente; o rascunho permanece para reutilização. Para remover, **9 > C > S**, seguido de **Salvar configuração**; nenhuma operação dessas chama Search API.
 
