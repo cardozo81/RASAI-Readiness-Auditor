@@ -233,7 +233,9 @@ def _mark_perplexity_pending(search_module: ModuleType, state: Any) -> None:
 
 def _edit_perplexity_queries(search_module: ModuleType, state: Any) -> None:
     maximum = int(search_module.PERPLEXITY_MAX_QUERIES)
-    current = tuple(getattr(state, "perplexity_queries", ()) or ())
+    current = tuple(getattr(state, "perplexity_queries", ()) or ()) or tuple(
+        getattr(state, "perplexity_draft_queries", ()) or ()
+    )
     print("\nQUERIES PERPLEXITY")
     print(
         "  Informe de 1 a "
@@ -245,7 +247,7 @@ def _edit_perplexity_queries(search_module: ModuleType, state: Any) -> None:
         + (f" [{'; '.join(current)}]" if current else "")
         + ": "
     ).strip()
-    if raw.upper() == "V":
+    if raw.upper() in {"V", ""}:
         return
     if raw.upper() == "LIMPAR":
         state.perplexity_queries = ()
@@ -326,12 +328,18 @@ def _copy_serp_terms_to_perplexity(search_module: ModuleType, state: Any) -> Non
         print("  Sem autorização: nenhuma query Perplexity foi modificada.")
         return
     state.perplexity_queries = source
+    state.perplexity_skip_draft_this_aud = False
     _mark_perplexity_pending(search_module, state)
 
 
 def _edit_perplexity_type(search_module: ModuleType, state: Any) -> None:
+    active_queries = tuple(getattr(state, "perplexity_queries", ()) or ())
     current = str(
-        getattr(state, "perplexity_search_type", "web") or "web"
+        getattr(
+            state,
+            "perplexity_search_type" if active_queries else "perplexity_draft_search_type",
+            "web",
+        ) or "web"
     ).strip().casefold()
     print("\nTIPO DE BUSCA PERPLEXITY")
     print("  1. WEB  — pesquisa web padrão")
@@ -340,8 +348,12 @@ def _edit_perplexity_type(search_module: ModuleType, state: Any) -> None:
     raw = input("Escolha [1-2/V]: ").strip().upper()
     values = {"1": "web", "2": "fast"}
     if raw in values:
-        state.perplexity_search_type = values[raw]
-        _mark_perplexity_pending(search_module, state)
+        if active_queries:
+            state.perplexity_search_type = values[raw]
+            _mark_perplexity_pending(search_module, state)
+        else:
+            # Changing WEB/FAST in a draft does not request a provider call.
+            state.perplexity_draft_search_type = values[raw]
     elif raw != "V":
         print("  Opção inválida: use 1, 2 ou V.")
 
@@ -545,7 +557,7 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         )
         print(f"  Queries               : {len(queries)}"
               + (f" | {'; '.join(queries)}" if queries else ""))
-        print(f"  Tipo                  : {search_type}")
+        print(f"  Tipo                  : {px['configured_mode']}")
         print(
             "  Credencial            : "
             + ("CONFIGURADA" if status["configured"] else "NÃO CONFIGURADA")
@@ -574,7 +586,9 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             brazil = search_module._explicit_brazil_scope(
                 str(getattr(state, "search_region", "") or "")
             )
-            options = resolve_request_options(explicit_brazil=brazil, search_type=search_type.lower())
+            options = resolve_request_options(
+                explicit_brazil=brazil, search_type=px["configured_mode"].lower()
+            )
             country = options.get("country", "sem restrição")
             languages = ",".join(options.get("search_language_filter", [])) or "sem restrição"
             count = options.get("max_results", 10)
