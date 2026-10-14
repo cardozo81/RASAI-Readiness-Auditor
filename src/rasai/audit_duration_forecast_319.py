@@ -468,7 +468,7 @@ def forecast_local_duration(
     The total is based solely on a complete console-observed AUD duration.
     """
     root = Path(str(getattr(state, "audits_root", "audits")))
-    if target_pages < 1 or root.is_symlink() or not root.is_dir():
+    if type(target_pages) is not int or target_pages < 1 or root.is_symlink() or not root.is_dir():
         return AuditDurationForecast(0, None, (), notes=("Sem historico local comparavel.",))
     try:
         databases = sorted(
