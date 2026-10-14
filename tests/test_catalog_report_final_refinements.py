@@ -224,6 +224,26 @@ def test_sari_exec_tone_uses_persisted_readiness_gate_not_high_number() -> None:
 
 
 
+
+def test_overview_scope_does_not_represent_origin_as_url_or_partial_as_complete() -> None:
+    from rasai.catalog_report_governance import _overview_measurement_scope_notice
+
+    html = _overview_measurement_scope_notice(
+        {"field_scope": "ORIGIN", "lcp_p75_ms": 4357.0, "inp_p75_ms": 415.0},
+        {"CAT-06": "Parcial"},
+    )
+    assert "agregado da origem (ORIGIN), não necessariamente à URL auditada" in html
+    assert "Lighthouse de laboratório e CrUX de campo medem universos diferentes" in html
+    assert "CAT-06 apresenta resultado parcial" in html
+    assert "pipeline concluído não significa amostra suficiente" in html
+    assert _overview_measurement_scope_notice(
+        {"field_scope": "URL", "lcp_p75_ms": 3000.0},
+        {"CAT-06": "Concluído"},
+    ) == ""
+    assert _overview_measurement_scope_notice({}, {}) == ""
+
+
+
 def test_lighthouse_one_is_one_out_of_100_not_100(tmp_path: Path) -> None:
     database = tmp_path / "audit.db"
     con = sqlite3.connect(database)
