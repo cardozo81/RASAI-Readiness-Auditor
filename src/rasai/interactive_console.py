@@ -949,7 +949,24 @@ def _post_run_actions(state: State) -> bool:
         print(f" I. Abrir relatório HTML   [{availability_badge(bool(report))}]")
         print(" V. Voltar ao menu")
         print(" Q. Sair")
-        choice = input("Escolha: ").strip().upper()
+        try:
+            choice = input("Escolha: ").strip().upper()
+        except OSError as exc:
+            # After the audit has returned, the Windows console host can
+            # invalidate its standard-input handle (WinError 6). No next menu
+            # can accept commands through the same broken handle. Terminate
+            # the console gracefully without rerunning or mutating the AUD.
+            if getattr(exc, "winerror", None) != 6:
+                raise
+            print(
+                "\n[AVISO] Entrada do terminal Windows indisponível (WinError 6). "
+                "Encerrando o console sem iniciar outra auditoria."
+            )
+            print(
+                "Acesse a pasta/relatório existente para verificar a conclusão; "
+                "reabra o console para novas ações."
+            )
+            return True
         if choice == "Q":
             if _confirm_exit(state):
                 return True
