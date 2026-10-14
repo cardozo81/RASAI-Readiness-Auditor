@@ -279,6 +279,39 @@ def _sari_coverage_public(value: Any) -> str:
     return f"{percentage}% (fração {ratio:.6f})"
 
 
+def _sari_partial_dimension_notice(scores: Sequence[Mapping[str, Any]]) -> str:
+    """Surface measured partial dimensions without modifying the overall score."""
+    rows = []
+    for row in scores:
+        dimension = str(row.get("dimension") or "")
+        if not dimension or dimension == "OVERALL_READINESS":
+            continue
+        confidence = str(row.get("confidence") or "").upper()
+        consolidation = str(row.get("consolidation_status") or "").upper()
+        if confidence != "LOW" and consolidation != "PARTIAL":
+            continue
+        label = public_label(dimension) or _DIMENSION_LABELS.get(dimension, dimension)
+        rows.append((
+            label,
+            _device_label(row.get("device")),
+            _sari_coverage_public(row.get("coverage")),
+            _confidence_label(confidence),
+            _status_label(consolidation),
+        ))
+    if not rows:
+        return ""
+    return (
+        "<div class='notice warn' data-contract='SARI-PARTIAL-DIMENSIONS-600'>"
+        "<strong>Dimensões com medição parcial ou confiança baixa:</strong> "
+        "confiança alta no agregado não implica confiança alta em todas as "
+        "dimensões. Priorize a leitura de cada contexto antes da decisão.</div>"
+        + _table(
+            ("Dimensão", "Dispositivo", "Cobertura", "Confiança", "Consolidação"),
+            rows, sortable=bool(rows),
+        )
+    )
+
+
 def _sari_body(data: _ReportData) -> str:
     from rasai.catalog_report_public_labels import public_contract_label
     overall=[r for r in data.scores if _norm(r.get("dimension"))=="OVERALL_READINESS"]
@@ -300,7 +333,7 @@ def _sari_body(data: _ReportData) -> str:
     body=_audit_hero(data,"Search & AI Readiness Index - Índice de Prontidão Search & IA","Índice persistido de prontidão, versão pública 001, com cobertura, confiança, dimensões e limitações. ID técnico: SARI-001. O HTML não recalcula o índice.")
     body+=_outline((("result","Resultado"),("composition","Composição"),("limitations","Limitações"),("method","Método")))
     body+=_section("result","Resultado geral",f"<div class='metric-grid'>{cards or _metric('Índice de Prontidão','Sem pontuação persistida')}</div><div class='notice'>O SARI é um índice proprietário do RASAi, calculado sobre o escopo efetivamente auditado. A confiança expressa a força da avaliação no contrato de regras, não um intervalo de confiança estatística, nem certificação de indexação, posição no Google, inclusão em respostas generativas, desempenho, conformidade WCAG ou conformidade regulatória. O valor deve ser lido junto de cobertura, estados de cada dimensão e condições de validação persistidas.</div>")
-    body+=_section("composition","Composição e dimensões",_score_table(data,include_overall=False))
+    body+=_section("composition","Composição e dimensões",_sari_partial_dimension_notice(data.scores)+_score_table(data,include_overall=False))
     body+=_section("limitations","Limitações e critérios críticos persistidos",_table(("Contexto","Limitação / gate"),limitations,empty="Nenhuma limitação serializada foi encontrada."))
     body+=_section("method","Método aplicado",f"<div class='metric-grid'>{_metric('Versão pública','001')}{_metric('Contrato técnico',', '.join(versions) or '-')}{_metric('Fonte do valor','Pontuação persistida da auditoria')}{_metric('Recalcula no HTML?','Não')}</div><p>Pesos, fórmulas e condições de validação pertencem ao Método de Pontuação de Prontidão persistido. Consulte <a href='methodology.html'>Método de Pontuação de Prontidão</a>.</p>")
     return body
