@@ -96,6 +96,64 @@ def test_faq_diagnostic_rejects_out_of_root_artifact(tmp_path: Path) -> None:
 
 
 
+
+def test_claim_verification_requires_attested_primary_source_exact_scope_and_version() -> None:
+    from datetime import date
+    from hashlib import sha256
+    from rasai.claim_source_verification_603 import classify_claim
+
+    payload = "Condições do produto: ativação após 24 horas. Documento de teste.".encode("utf-8")
+    when = date(2026, 10, 14)
+    claim = "ativação em 24 horas"
+    receipt = {
+        "source_url": "https://example.test/condicoes-oficiais",
+        "document_sha256": sha256(payload).hexdigest(),
+        "effective_from": "2026-01-01",
+        "effective_until": "2026-12-31",
+        "reviewed_on": "2026-10-10",
+        "product_scope": "SEG-VIDA-X",
+        "claim_text": claim,
+        "document_version": "2026-01",
+        "issuer": "Seguradora de teste",
+        "reviewer_receipt_id": "REV-001",
+        "independent_source_authenticity_verified": True,
+        "matched_excerpt": "ativação após 24 horas",
+        "review_decision": "CORROBORATES",
+    }
+    kwargs = {
+        "product_scope": "SEG-VIDA-X",
+        "at_date": when,
+        "primary_bytes": payload,
+    }
+    verified = classify_claim(claim, review=receipt, **kwargs)
+    assert verified == {
+        "state": "CLAIM_CORROBORATED",
+        "basis": "INDEPENDENT_VERSIONED_SOURCE_REVIEW",
+    }
+    for altered in (
+        {"product_scope": "OTHER-PRODUCT"},
+        {"document_sha256": "invalid"},
+        {"effective_until": "2025-01-01"},
+        {"matched_excerpt": "not present in physical bytes"},
+        {"independent_source_authenticity_verified": False},
+        {"claim_text": "outra afirmação"},
+        {"reviewer_receipt_id": ""},
+        {"source_url": "http://example.test/unsafe"},
+    ):
+        source = {**receipt, **altered}
+        assert classify_claim(claim, review=source, **kwargs)["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    assert classify_claim(claim, product_scope="SEG-VIDA-X", at_date=when)["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    assert classify_claim(
+        claim, product_scope="SEG-VIDA-X", at_date=when,
+        external_validation_required=False,
+    )["state"] == "CLAIM_OBSERVED"
+    contradiction = classify_claim(
+        claim, review={**receipt, "review_decision": "CONTRADICTS"}, **kwargs,
+    )
+    assert contradiction["state"] == "CLAIM_CONTRADICTED_WITH_VERSIONED_SOURCE"
+
+
+
 def _database(tmp_path: Path) -> Path:
     database = tmp_path / "audit.db"
     connection = sqlite3.connect(database)
