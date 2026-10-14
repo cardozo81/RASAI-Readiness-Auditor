@@ -63,7 +63,8 @@ def optional_seo_penalties(database: Any, audit_id: str) -> list[dict[str, Any]]
     for row in rows:
         rule_id = str(row["rule_id"])
         if (
-            str(row["result"] or "").upper() != "WARNING"
+            str(row["scoring_version"] or "") != "SCORE-GEO-004"
+            or str(row["result"] or "").upper() != "WARNING"
             or not _isolated_optional_absence(rule_id, row["observed_value"])
             or str(row["dimension"]) != _OPTIONAL_RULES[rule_id][1]
         ):
