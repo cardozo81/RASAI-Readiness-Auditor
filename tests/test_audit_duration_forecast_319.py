@@ -1033,3 +1033,13 @@ def test_large_adjacent_integer_page_counts_never_alias_via_float(tmp_path):
     assert _strictly_comparable(state, config) is False
     config["max_pages"] = "9007199254740992"
     assert _strictly_comparable(state, config) is True
+
+
+@pytest.mark.parametrize("invalid_target", [True, False, 1.0, 1.5, "1", None])
+def test_noninteger_requested_page_scope_must_abstain(tmp_path, invalid_target):
+    state = _state(tmp_path)
+    for index in range(5):
+        _audit(tmp_path, index)
+    result = forecast_local_duration(state, target_pages=invalid_target)
+    assert result.available is False
+    assert result.sample_runs == 0
