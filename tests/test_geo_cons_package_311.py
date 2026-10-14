@@ -86,13 +86,13 @@ def test_second_cons_manifest_read_rejects_ambiguous_json_before_gcomp_output(
     root, cons = _cons(tmp_path)
     canonical = cons / "manifest.json"
     before = _hashes(root)
-    # The first preview read uses a physical descriptor; the next read_text
-    # belongs to the packaging revalidation and must reject conflicts.
-    original_read_text = Path.read_text
+    # Preview reads the descriptor through companion; the second independent
+    # packaging pass uses the imported bounded verification helper.
+    original_verified_read = module._verified_manifest_text
     seen = {"n": 0}
 
-    def conflicting_second_read(self, *args, **kwargs):
-        raw = original_read_text(self, *args, **kwargs)
+    def conflicting_second_read(self):
+        raw = original_verified_read(self)
         if self != canonical:
             return raw
         seen["n"] += 1
@@ -113,7 +113,7 @@ def test_second_cons_manifest_read_rejects_ambiguous_json_before_gcomp_output(
         assert isinstance(json.loads(forged), dict)
         return forged
 
-    monkeypatch.setattr(Path, "read_text", conflicting_second_read)
+    monkeypatch.setattr(module, "_verified_manifest_text", conflicting_second_read)
     with pytest.raises(ValueError, match="CONS source manifest JSON invalid"):
         module.materialize_cons_geo_companion(cons, root)
     assert seen["n"] == 1
@@ -492,3 +492,28 @@ def test_geo_cons_file_seal_rejects_changed_open_descriptor_identity(tmp_path, m
         with pytest.raises(ValueError, match="identity changed"):
             module._file_digest(src)
     assert src.read_bytes() == original
+
+
+def test_geo_cons_package_second_manifest_read_uses_bounded_verified_reader(
+    tmp_path, monkeypatch,
+):
+    root, cons = _cons(tmp_path)
+    physical = cons / "manifest.json"
+    original = physical.read_bytes()
+    from rasai import geo_cons_companion_311 as companion
+    verified = companion._verified_manifest_text
+    reads = []
+
+    def guarded(path):
+        reads.append(path)
+        if len(reads) == 2:
+            raise ValueError("CONS manifest changed during read")
+        return verified(path)
+
+    monkeypatch.setattr(module, "_verified_manifest_text", guarded)
+    monkeypatch.setattr(companion, "_verified_manifest_text", guarded)
+    with pytest.raises(ValueError, match="CONS source manifest JSON invalid during packaging"):
+        module.materialize_cons_geo_companion(cons, root)
+    assert reads == [physical, physical]
+    assert physical.read_bytes() == original
+    assert not (root / "consolidated-geo-companions").exists()

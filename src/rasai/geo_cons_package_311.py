@@ -16,6 +16,7 @@ from typing import Any, Sequence
 
 from rasai.geo_cons_companion_311 import (
     build_cons_geo_advisory, _unique_cons_manifest_keys,
+    _verified_manifest_text, _reject_manifest_non_json_constant,
 )
 from rasai.geo_longitudinal_html_311 import render_geo_longitudinal_html
 
@@ -101,8 +102,9 @@ def materialize_cons_geo_companion(
     # inventory after its first authenticated-looking interpretation.
     try:
         doc = json.loads(
-            canonical.read_text(encoding="utf-8"),
+            _verified_manifest_text(canonical),
             object_pairs_hook=_unique_cons_manifest_keys,
+            parse_constant=_reject_manifest_non_json_constant,
         )
     except (UnicodeError, ValueError, TypeError):
         raise ValueError("CONS source manifest JSON invalid during packaging") from None
