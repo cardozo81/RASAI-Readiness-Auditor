@@ -11,6 +11,7 @@ from rasai.catalog_report_adherence import install_catalog_report_adherence
 from rasai.catalog_report_analysis import _ux_profile_execution_html
 from rasai.catalog_report_final_refinements import (
     _ai_integrations_body,
+    _ai_chain_rows,
     _ai_totals,
     _apdex_samples_html,
     _attempt_input_detail,
@@ -28,6 +29,104 @@ from rasai.catalog_report_site import (
     catalog_report_is_fresh,
     materialize_catalog_report_site,
 )
+
+
+
+def test_directed_and_perplexity_final_runs_are_resolved_from_physical_evidence(tmp_path: Path) -> None:
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE directed_analysis_runs("
+            "audit_id TEXT, provider TEXT, status TEXT)"
+        )
+        con.execute(
+            "CREATE TABLE perplexity_search_runs("
+            "audit_id TEXT, attempt_id TEXT, provider TEXT, surface TEXT, status TEXT)"
+        )
+        con.execute(
+            "INSERT INTO directed_analysis_runs VALUES ('AUD-1','OPENAI','COMPLETE')"
+        )
+        con.execute(
+            "INSERT INTO perplexity_search_runs VALUES "
+            "('AUD-1','AIPX-1','PERPLEXITY','SEARCH_API','SUCCESS')"
+        )
+    source = db.read_bytes()
+    attempts = [
+        {
+            "attempt_id": "AI-1", "ai_task_id": None,
+            "contract": "DIRECTED-ANALYSIS-001", "operation": "DIRECTED_ANALYSIS",
+            "provider": "OPENAI", "status": "SUCCESS",
+        },
+        {
+            "attempt_id": "AIPX-1", "ai_task_id": None,
+            "contract": "RASAI-PERPLEXITY-SEARCH-1", "operation": "SEARCH_INTELLIGENCE",
+            "surface": "SEARCH_API", "provider": "PERPLEXITY", "status": "SUCCESS",
+        },
+    ]
+    rows = _ai_chain_rows(db, "AUD-1", attempts)
+    assert len(rows) == 2
+    assert all(row[1] == "Concluído" and row[3] == "Concluída" for row in rows)
+    assert db.read_bytes() == source
+
+
+def test_external_run_status_fails_closed_without_unambiguous_match(tmp_path: Path) -> None:
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE directed_analysis_runs("
+            "audit_id TEXT, provider TEXT, status TEXT)"
+        )
+        con.execute(
+            "CREATE TABLE perplexity_search_runs("
+            "audit_id TEXT, attempt_id TEXT, provider TEXT, surface TEXT, status TEXT)"
+        )
+        con.execute(
+            "INSERT INTO directed_analysis_runs VALUES ('AUD-1','OPENAI','COMPLETE')"
+        )
+        con.execute(
+            "INSERT INTO directed_analysis_runs VALUES ('AUD-1','OPENAI','COMPLETE')"
+        )
+        con.execute(
+            "INSERT INTO perplexity_search_runs VALUES "
+            "('AUD-1','OTHER-ATTEMPT','PERPLEXITY','SEARCH_API','SUCCESS')"
+        )
+    attempts = [
+        {
+            "attempt_id": "DIRECT-1", "contract": "DIRECTED-ANALYSIS-001",
+            "operation": "DIRECTED_ANALYSIS", "provider": "OPENAI",
+            "status": "SUCCESS",
+        },
+        {
+            "attempt_id": "AIPX-1", "contract": "RASAI-PERPLEXITY-SEARCH-1",
+            "operation": "SEARCH_INTELLIGENCE", "surface": "SEARCH_API",
+            "provider": "PERPLEXITY", "status": "SUCCESS",
+        },
+    ]
+    rows = _ai_chain_rows(db, "AUD-1", attempts)
+    assert len(rows) == 2
+    assert all(row[1] == "Estado final não persistido" for row in rows)
+
+
+def test_perplexity_failed_terminal_run_overrides_success_attempt(tmp_path: Path) -> None:
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE perplexity_search_runs("
+            "audit_id TEXT, attempt_id TEXT, provider TEXT, surface TEXT, status TEXT)"
+        )
+        con.execute(
+            "INSERT INTO perplexity_search_runs VALUES "
+            "('AUD-1','AIPX-1','PERPLEXITY','SEARCH_API','FAILED')"
+        )
+    rows = _ai_chain_rows(db, "AUD-1", [
+        {
+            "attempt_id": "AIPX-1", "contract": "RASAI-PERPLEXITY-SEARCH-1",
+            "operation": "SEARCH_INTELLIGENCE", "surface": "SEARCH_API",
+            "provider": "PERPLEXITY", "status": "SUCCESS",
+        }
+    ])
+    assert rows[0][1] == "Falha"
+    assert rows[0][3] == "Falha final"
 
 
 def test_lighthouse_one_is_one_out_of_100_not_100(tmp_path: Path) -> None:
