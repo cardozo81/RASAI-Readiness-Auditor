@@ -262,3 +262,45 @@ def test_saved_apdex_inputs_are_consumed_by_real_m23_m25_config_adapters_without
             assert physical_before == path.read_bytes()
         finally:
             set_pending_config(ExperienceApdexConfig(enabled=False))
+
+
+def test_console_loader_does_not_apply_inherited_ini_default_values(tmp_path):
+    _install_config_contract()
+    ini = tmp_path / "operator-defaults.ini"
+    ini.write_text(
+        "[DEFAULT]\n"
+        "RASAI_SERP_MAX_REQUESTS=777\n"
+        "architecture=CSR_SPA\n"
+        "[environment]\n"
+        "RASAI_WEB_PERFORMANCE=true\n"
+        "[synthetic_apdex_experience]\n"
+        "profile_mode=CUSTOM\n",
+        encoding="utf-8",
+    )
+    original = ini.read_bytes()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        original_architecture = state.apdex_experience_architecture
+        result = console_settings.load_console_config(state, ini)
+        assert not result.created
+        assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
+        assert os.environ["RASAI_WEB_PERFORMANCE"] == "true"
+        assert state.apdex_experience_architecture == original_architecture
+        assert state.apdex_experience_profile_mode == "CUSTOM"
+    assert ini.read_bytes() == original
+
+
+def test_console_loader_explicit_environment_overrides_default(tmp_path):
+    _install_config_contract()
+    ini = tmp_path / "explicit-operator.ini"
+    ini.write_text(
+        "[DEFAULT]\n"
+        "RASAI_SERP_MAX_REQUESTS=777\n"
+        "[environment]\n"
+        "RASAI_SERP_MAX_REQUESTS=11\n",
+        encoding="utf-8",
+    )
+    with patch.dict(os.environ, {}, clear=True):
+        result = console_settings.load_console_config(SearchConsoleState(), ini)
+        assert not result.created
+        assert os.environ["RASAI_SERP_MAX_REQUESTS"] == "11"
