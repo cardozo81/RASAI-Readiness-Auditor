@@ -44,8 +44,6 @@ def test_unregistered_secret_like_ini_key_is_counted_without_disclosure(tmp_path
         "RASAI_SERP_MAX_REQUESTS=7\\n",
         encoding="utf-8",
     )
-    # Ensure the fixture is a physical INI rather than escaped literal lines.
-    path.write_text(path.read_text(encoding="utf-8").replace("\\\\n", "\\n"), encoding="utf-8")
     original = path.read_bytes()
     result = inventory(path=path, environ={})
     assert result["secret_ini_scan_complete"] is True
