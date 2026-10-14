@@ -322,7 +322,11 @@ def inventory(
     derived_state = frozenset({("synthetic_apdex_experience", "device_mix")})
     for section, options in console_settings._state_values(state).items():
         for option in options:
-            present = bool(parser is not None and parser.has_option(section, option))
+            present = bool(
+                parser is not None
+                and parser.has_section(section)
+                and option in parser._sections[section]
+            )
             derived = (section, option) in derived_state
             state_fields.append({
                 "name": f"{section}.{option}",
