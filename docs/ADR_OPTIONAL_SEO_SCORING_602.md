@@ -59,6 +59,6 @@ A projeção de descontos opcionais reutiliza esse classificador, evitando aceit
 - `SENSITIVITY_OPTIONAL_ABSENCE_PASS`: cenário extremo que trata somente ausência opcional estritamente comprovada como PASS;
 - `SENSITIVITY_OPTIONAL_ABSENCE_NOT_APPLICABLE`: cenário extremo que trata somente essas ausências como NOT_APPLICABLE e deixa o motor efetuar sua normalização de denominador/cobertura.
 
-O laboratório expõe por dimensão e overall os campos `value`, `coverage`, `confidence`, `consolidation_status` e marcadores de readiness/gates. Os dois últimos cenários **não** são recomendação de implementação nem uma versão SCORE-GEO-005 aprovada: PASS pode dar prêmio imerecido e NOT_APPLICABLE pode reduzir cobertura e aumentar incerteza. Comparar as três projeções expõe efeitos colaterais sem substituir metodologia.
+O laboratório expõe por dimensão e overall os campos `value`, `coverage`, `confidence`, `consolidation_status` e marcadores de readiness/gates. Os dois últimos cenários **não** são recomendação de implementação nem uma versão novo contrato de pontuação aprovada: PASS pode dar prêmio imerecido e NOT_APPLICABLE pode reduzir cobertura e aumentar incerteza. Comparar as três projeções expõe efeitos colaterais sem substituir metodologia.
 
 O laboratório é offline, restrito a uma única AUD/dispositivo, recusa ID físico duplicado, não persiste scores nem altera RuleExecutions. A decisão final da issue #602 continua aberta até um novo contrato versionado, golden real da AUD de 14/10, critérios de revisão técnica e paridade de histórico.
