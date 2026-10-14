@@ -846,3 +846,19 @@ def test_355_same_length_in_place_rewrite_during_snapshot_open_is_rejected(
     assert modified == [True]
     with normal_open(path, "rb") as source:
         assert source.read() == replacement
+
+
+def test_missing_custom_action_kpm_cannot_be_reported_as_observed():
+    settings = _config(xhr=True, count=12, capture={"xhr": True, "fetch": True})
+    settings["custom_actions"] = {"thresholds": _thresholds()}
+    result = _assess(settings=settings)
+    assert result["status"] == "CONFIGURATION_PLAUSIBLE_WITH_XHR_COVERAGE"
+    assert "custom_actions" not in result["observed_kpm"]
+    assert result["observed_kpm"]["xhr_actions"] == "USER_ACTION_DURATION"
+    assert result["recommended_numeric_thresholds"] is None
+
+    # Explicit KPM retains the documented custom-actions rule.
+    settings["custom_actions"]["kpm"] = "USER_ACTION_DURATION"
+    supported = _assess(settings=settings)
+    assert supported["status"] == "CONFIGURATION_PLAUSIBLE_WITH_XHR_COVERAGE"
+    assert supported["observed_kpm"]["custom_actions"] == "USER_ACTION_DURATION"
