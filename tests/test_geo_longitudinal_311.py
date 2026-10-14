@@ -1152,3 +1152,23 @@ def test_longitudinal_no_mutation_of_eligible_sources_after_hash_seal(tmp_path):
     assert value["excluded"] == []
     assert [(db / "audit.db").read_bytes() for db in (left, right)] == original
     assert all(not list(db.glob("audit.db-*")) for db in (left, right))
+
+
+def test_v8_extreme_overlap_integer_abstains_without_float_overflow(tmp_path):
+    invalid = audit(tmp_path, "AUD-V8-RATE-INVALID", version="RASAI-GEO-OBSERVATION-8")
+    valid = audit(tmp_path, "AUD-V8-RATE-VALID", version="RASAI-GEO-OBSERVATION-8")
+    for root in (invalid, valid):
+        _v8_physical_sources(root)
+    db = invalid / "audit.db"
+    with sqlite3.connect(db) as con:
+        raw = con.execute("SELECT projection_json FROM geo_observation_runs").fetchone()[0]
+        projection = json.loads(raw)
+        projection["descriptive_overlap"]["serp_overlap_rate"] = 10 ** 400
+        con.execute("UPDATE geo_observation_runs SET projection_json=?", (
+            json.dumps(projection), 
+        ))
+    original = db.read_bytes()
+    result = build_geo_longitudinal_preview((invalid, valid))
+    assert result["audits_eligible"] == 1
+    assert {"audit_id": invalid.name, "reason": "GEO_SOURCE_PROVENANCE_UNVERIFIED"} in result["excluded"]
+    assert db.read_bytes() == original

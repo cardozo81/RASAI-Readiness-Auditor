@@ -137,7 +137,8 @@ def _v8_source_counts_match(
         )
         and all(
             type(overlap.get(key)) in (int, float)
-            and float(overlap[key]) == value
+            and 0 <= overlap[key] <= 1
+            and overlap[key] == value
             for key, value in expected_rates.items()
         )
         and type(projection.get("serp_url_count")) is int
