@@ -8,6 +8,7 @@ residual or a sum of parallel provider call durations.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from datetime import datetime, timezone
 from pathlib import Path
 import json
@@ -188,12 +189,14 @@ def _strictly_comparable(current: Any, historical: Mapping[str, Any]) -> bool:
             if type(wanted) is bool or type(old) is bool:
                 return False
             try:
-                values = (float(wanted), float(old))
-                if any(not math.isfinite(v) or not v.is_integer() or v <= 0 for v in values):
+                # Float conversion rounds adjacent integers above 2**53.
+                # The cohort key must compare exact integral page counts.
+                values = (Decimal(str(wanted)), Decimal(str(old)))
+                if any(not v.is_finite() or v != v.to_integral_value() or v <= 0 for v in values):
                     return False
                 if values[0] != values[1]:
                     return False
-            except (ValueError, TypeError, OverflowError):
+            except (InvalidOperation, ValueError, TypeError, OverflowError):
                 return False
         elif field in {"content_remediation", "web_performance"}:
             if type(wanted) is not bool or type(old) is not bool or wanted != old:
