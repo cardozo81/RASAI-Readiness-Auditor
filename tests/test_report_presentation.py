@@ -7,6 +7,27 @@ from rasai.score_geo_004 import FEATURE_ORDER, GROUP_WEIGHTS
 
 
 class ReportPresentationTests(unittest.TestCase):
+    def test_technical_vendor_kpms_survive_public_humanization(self) -> None:
+        from rasai.cat07_architecture_reporting_358 import _dynatrace_rum_kpm_reference_html
+
+        html = _dynatrace_rum_kpm_reference_html("CSR_SPA")
+        rendered = humanize_report_html(html, page_name="cat-07.html")
+        self.assertIn("<code>XHR</code>", rendered)
+        self.assertIn("<code>Load</code>", rendered)
+        self.assertIn("<code>Custom</code>", rendered)
+        self.assertIn("<code>USER_ACTION_DURATION</code>", rendered)
+        self.assertNotIn("Condição técnica não catalogada", rendered)
+
+    def test_perplexity_modes_are_preserved_as_code(self) -> None:
+        html = (
+            "<table><tr><td><code>FAST</code></td><td><code>WEB</code></td>"
+            "<td>SUCCESS</td></tr></table>"
+        )
+        rendered = humanize_report_html(html, page_name="geo.html")
+        self.assertIn("<code>FAST</code>", rendered)
+        self.assertIn("<code>WEB</code>", rendered)
+        self.assertIn("<td>Concluído</td>", rendered)
+
     def test_escaped_dom_markup_and_text_are_literal_evidence(self) -> None:
         escaped_dom = (
             "&lt;input id=&quot;LIFEShowcase-GTM-GTM_CPF&quot; "
