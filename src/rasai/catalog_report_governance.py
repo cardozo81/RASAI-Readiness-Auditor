@@ -124,11 +124,36 @@ def _diagnostic_state_section(database: Path, data: _ReportData, integrity: str)
     return _section("diagnostic", "Estado do diagnóstico", content)
 
 
+def _overview_serp_depth(database: Path, audit_id: str) -> tuple[int, int] | None:
+    """Scope a depth gap to precisely one persisted SERP observation."""
+    try:
+        with sqlite3.connect(database) as con:
+            observed = con.execute(
+                "SELECT observation_id,requested_depth FROM serp_observations "
+                "WHERE audit_id=? LIMIT 2", (audit_id,),
+            ).fetchall()
+            if len(observed) != 1:
+                return None
+            observation_id, depth = observed[0]
+            expected = int(depth)
+            if not observation_id or not 0 < expected <= 1000:
+                return None
+            measured = con.execute(
+                "SELECT COUNT(*) FROM serp_results WHERE observation_id=?",
+                (observation_id,),
+            ).fetchone()
+            returned = int(measured[0]) if measured else 0
+            return (returned, expected) if 0 <= returned < expected else None
+    except (sqlite3.Error, TypeError, ValueError, OverflowError):
+        return None
+
+
 def _overview_measurement_scope_notice(
     web: Mapping[str, Any] | None,
     catalog_statuses: Mapping[str, str],
     *,
     overall_scores: Sequence[Mapping[str, Any]] = (),
+    serp_depth: tuple[int, int] | None = None,
 ) -> str:
     """Describe only persisted sampling/scope limitations, never re-score."""
     details: list[str] = []
@@ -167,6 +192,14 @@ def _overview_measurement_scope_notice(
             "da auditoria. Consulte amostras válidas e limite de população na "
             "página específica; pipeline concluído não significa amostra suficiente."
         )
+    if serp_depth is not None:
+        collected, requested = serp_depth
+        if 0 <= collected < requested:
+            details.append(
+                f"A consulta SERP retornou {collected} de {requested} posições solicitadas. "
+                "Essa profundidade parcial não representa participação de mercado, "
+                "cobertura de todas as consultas nem posições não observadas."
+            )
     if not details:
         return ""
     return (
@@ -209,6 +242,7 @@ def _overview_body(database: Path, data: _ReportData) -> str:
     body+=_overview_measurement_scope_notice(
         _web_observation(database, data.audit_id), catalog_statuses,
         overall_scores=data.scores,
+        serp_depth=_overview_serp_depth(database, data.audit_id),
     )
     body+=_section("indices","Índices e métricas evidentes",_table(("Indicador","Valor","Contexto","Tipo","Confiança"),indexes,empty="Nenhum índice ou métrica reconhecido foi persistido.",sortable=bool(indexes))+"<p class='muted'>O inventário metodológico completo está em <a href='metrics.html'>Índices e métricas</a>.</p>")
     from rasai.optional_seo_interpretation_602 import optional_seo_notice_html
