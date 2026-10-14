@@ -436,6 +436,7 @@ def test_preparation_shows_perplexity_saved_configuration_ready_after_ini_load(
     assert fresh.perplexity_draft_queries == ("posso ter seguro de vida familiar",)
     assert fresh.perplexity_draft_search_type == "fast"
     assert fresh.perplexity_queries == ()
+    workflow.set_selected_catalog_ids(fresh, ["CAT-05"])
 
     monkeypatch.setenv("PERPLEXITY_API_KEY", "private-secret-do-not-render")
     monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
