@@ -492,3 +492,28 @@ def test_geo_cons_file_seal_rejects_changed_open_descriptor_identity(tmp_path, m
         with pytest.raises(ValueError, match="identity changed"):
             module._file_digest(src)
     assert src.read_bytes() == original
+
+
+def test_geo_cons_package_second_manifest_read_uses_bounded_verified_reader(
+    tmp_path, monkeypatch,
+):
+    root, cons = _cons(tmp_path)
+    physical = cons / "manifest.json"
+    original = physical.read_bytes()
+    from rasai import geo_cons_companion_311 as companion
+    verified = companion._verified_manifest_text
+    reads = []
+
+    def guarded(path):
+        reads.append(path)
+        if len(reads) == 2:
+            raise ValueError("CONS manifest changed during read")
+        return verified(path)
+
+    monkeypatch.setattr(module, "_verified_manifest_text", guarded)
+    monkeypatch.setattr(companion, "_verified_manifest_text", guarded)
+    with pytest.raises(ValueError, match="CONS source manifest JSON invalid during packaging"):
+        module.materialize_cons_geo_companion(cons, root)
+    assert reads == [physical, physical]
+    assert physical.read_bytes() == original
+    assert not (root / "consolidated-geo-companions").exists()
