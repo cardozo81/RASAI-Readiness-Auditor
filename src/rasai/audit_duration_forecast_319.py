@@ -184,6 +184,9 @@ def _strictly_comparable(current: Any, historical: Mapping[str, Any]) -> bool:
         wanted = getattr(current, field)
         old = historical[field]
         if field == "max_pages":
+            # bool is an int subclass: True must not equal one page.
+            if type(wanted) is bool or type(old) is bool:
+                return False
             try:
                 if int(wanted) != int(old):
                     return False

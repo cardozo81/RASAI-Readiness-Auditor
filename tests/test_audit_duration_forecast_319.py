@@ -976,3 +976,19 @@ def test_319_optional_console_bool_must_be_explicit_in_new_physical_cohort(
     rejected = forecast_local_duration(state)
     assert not rejected.available and rejected.sample_runs == 4
     assert [db.read_bytes() for db in physical] == dirty
+
+
+@pytest.mark.parametrize("value", [True, False])
+def test_boolean_historical_page_count_never_matches_numeric_scope(tmp_path, value):
+    from rasai.audit_duration_forecast_319 import _strictly_comparable
+    state = _state(tmp_path)
+    config = {
+        "input_mode": "URL", "device": "MOBILE",
+        "ai_provider": "auto", "ai_model": "",
+        "content_remediation": False, "web_performance": True,
+        "field_source": "NONE", "max_pages": value, "web_max_pages": 1,
+    }
+    assert _strictly_comparable(state, config) is False
+    config["max_pages"] = 1
+    state.max_pages = value
+    assert _strictly_comparable(state, config) is False
