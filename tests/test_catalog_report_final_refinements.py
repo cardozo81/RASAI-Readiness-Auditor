@@ -241,6 +241,18 @@ def test_overview_scope_does_not_represent_origin_as_url_or_partial_as_complete(
         {"CAT-06": "Concluído"},
     ) == ""
     assert _overview_measurement_scope_notice({}, {}) == ""
+    score = [{"dimension": "OVERALL_READINESS", "value": 86.5}]
+    conflict = _overview_measurement_scope_notice(
+        {"performance_score": 1}, {}, overall_scores=score,
+    )
+    assert "SARI acima de 75/100 coexiste" in conflict
+    assert "desempenho Lighthouse de laboratório baixo" in conflict
+    assert _overview_measurement_scope_notice(
+        {"performance_score": 80}, {}, overall_scores=score,
+    ) == ""
+    assert _overview_measurement_scope_notice(
+        {"performance_score": 1}, {}, overall_scores=[],
+    ) == ""
 
 
 

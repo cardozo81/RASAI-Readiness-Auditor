@@ -127,6 +127,8 @@ def _diagnostic_state_section(database: Path, data: _ReportData, integrity: str)
 def _overview_measurement_scope_notice(
     web: Mapping[str, Any] | None,
     catalog_statuses: Mapping[str, str],
+    *,
+    overall_scores: Sequence[Mapping[str, Any]] = (),
 ) -> str:
     """Describe only persisted sampling/scope limitations, never re-score."""
     details: list[str] = []
@@ -139,6 +141,25 @@ def _overview_measurement_scope_notice(
             "Os Core Web Vitals de campo exibidos para CAT-04 correspondem ao "
             "agregado da origem (ORIGIN), não necessariamente à URL auditada. "
             "Lighthouse de laboratório e CrUX de campo medem universos diferentes."
+        )
+    # A SARI score and a lab Lighthouse score measure different contracts.
+    # Warn on a large documented divergence without changing either number.
+    try:
+        lab = float(web.get("performance_score")) if isinstance(web, Mapping) else float("nan")
+        high_sari = any(
+            str(row.get("dimension") or "") == "OVERALL_READINESS"
+            and float(row.get("value")) >= 75
+            for row in overall_scores
+            if row.get("value") is not None
+        )
+    except (TypeError, ValueError, OverflowError):
+        high_sari = False
+        lab = float("nan")
+    if isfinite(lab) and 0 <= lab <= 40 and high_sari:
+        details.append(
+            "O SARI acima de 75/100 coexiste com desempenho Lighthouse de laboratório "
+            "baixo (até 40/100). São indicadores distintos: nota elevada no método "
+            "de prontidão não representa aprovação global da experiência."
         )
     if str(catalog_statuses.get("CAT-06") or "").strip().casefold() in {"partial", "parcial"}:
         details.append(
@@ -187,6 +208,7 @@ def _overview_body(database: Path, data: _ReportData) -> str:
     from rasai.catalog_report_metrics import _web_observation
     body+=_overview_measurement_scope_notice(
         _web_observation(database, data.audit_id), catalog_statuses,
+        overall_scores=data.scores,
     )
     body+=_section("indices","Índices e métricas evidentes",_table(("Indicador","Valor","Contexto","Tipo","Confiança"),indexes,empty="Nenhum índice ou métrica reconhecido foi persistido.",sortable=bool(indexes))+"<p class='muted'>O inventário metodológico completo está em <a href='metrics.html'>Índices e métricas</a>.</p>")
     from rasai.optional_seo_interpretation_602 import optional_seo_notice_html
