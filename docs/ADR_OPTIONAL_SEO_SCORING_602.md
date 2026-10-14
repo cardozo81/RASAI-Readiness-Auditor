@@ -49,3 +49,16 @@ Esse passo corrige o risco de **interpretação** enquanto a mudança de políti
 O módulo `rasai.optional_seo_policy_602.classify_seo_evidence` materializa os quatro estados **exclusivamente interpretativos** `OPTIONAL_ABSENCE`, `OBSERVED_CONFLICT`, `AVAILABLE`, `UNKNOWN` para os `observed_value` físicos de BR-GEO-003, BR-GEO-013 e BR-GEO-017. JSON com chaves repetidas, literais não padrão, erro de rede, tipo desconhecido ou prova parcial gera `UNKNOWN` - não sinal de ausência comprovada. Sitemap inválido e canonical conflitante são distinguíveis de ausência convencional. Um `robots.txt` presente não comprova permissão de bots, que segue regra independente BR-GEO-018.
 
 A projeção de descontos opcionais reutiliza esse classificador, evitando aceitar JSON ambíguo como prova. **Nenhuma regra do M5 ou peso SCORE-GEO-004 foi alterado.** O classificador não decide se uma oportunidade opcional deve sair da fórmula de scoring; essa decisão exige versão nova, backtest por dimensões, coverage, confidence e gates. A conclusão de #602 continua condicionada a esses critérios.
+
+
+## Laboratório determinístico de sensibilidade (sem publicação de score)
+
+`rasai.optional_seo_score_scenarios_602.preview_optional_seo_policy_sensitivity` recebe RuleExecutions em memória da mesma AUD e compara três cálculos pelo motor atual, com os mesmos agrupamentos e pesos:
+
+- `CANONICAL_SCORE_GEO_004`: interpretação canônica **sem alteração**;
+- `SENSITIVITY_OPTIONAL_ABSENCE_PASS`: cenário extremo que trata somente ausência opcional estritamente comprovada como PASS;
+- `SENSITIVITY_OPTIONAL_ABSENCE_NOT_APPLICABLE`: cenário extremo que trata somente essas ausências como NOT_APPLICABLE e deixa o motor efetuar sua normalização de denominador/cobertura.
+
+O laboratório expõe por dimensão e overall os campos `value`, `coverage`, `confidence`, `consolidation_status` e marcadores de readiness/gates. Os dois últimos cenários **não** são recomendação de implementação nem uma versão SCORE-GEO-005 aprovada: PASS pode dar prêmio imerecido e NOT_APPLICABLE pode reduzir cobertura e aumentar incerteza. Comparar as três projeções expõe efeitos colaterais sem substituir metodologia.
+
+O laboratório é offline, restrito a uma única AUD/dispositivo, recusa ID físico duplicado, não persiste scores nem altera RuleExecutions. A decisão final da issue #602 continua aberta até um novo contrato versionado, golden real da AUD de 14/10, critérios de revisão técnica e paridade de histórico.
