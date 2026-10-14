@@ -413,3 +413,57 @@ def test_cat05_competitive_ai_is_suppressed_only_in_execution_when_optional_ai_i
 
     assert state.search_ai_competitive is True
     assert state.ai_provider == "auto"
+
+def test_preparation_shows_perplexity_saved_configuration_ready_after_ini_load(
+    tmp_path, monkeypatch,
+) -> None:
+    """The real typed loader feeds the next-AUD presentation, not paid intent."""
+    from rasai import console_settings
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install as install_persistence
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    _install_search_persistence()
+    install_persistence()
+    ini = tmp_path / "rasai-console.ini"
+    source = SearchConsoleState()
+    source.perplexity_queries = ("posso ter seguro de vida familiar",)
+    source.perplexity_search_type = "fast"
+    console_settings.save_console_config(source, ini)
+    fresh = SearchConsoleState()
+    loaded = console_settings.load_console_config(fresh, ini)
+    assert not loaded.warnings
+    assert fresh.perplexity_draft_queries == ("posso ter seguro de vida familiar",)
+    assert fresh.perplexity_draft_search_type == "fast"
+    assert fresh.perplexity_queries == ()
+
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "private-secret-do-not-render")
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    console = ModuleType("prep_loaded_perplexity")
+    console.render_header = lambda state: None
+    console._execution_readiness = lambda state: (True, "apta")
+    console._configure = lambda state, choice: None
+    monkeypatch.setattr(builtins, "input", lambda prompt="": "V")
+    out = StringIO()
+    with redirect_stdout(out):
+        assert workflow.preparation_menu(console, fresh) == "V"
+    view = out.getvalue()
+    assert "Perplexity configuração   : APTA PARA SOLICITAÇÃO" in view
+    assert "Query configurada 1" in view
+    assert "posso ter seguro de vida familiar" in view
+    assert "INI/RASCUNHO" in view
+    assert "Perplexity nesta AUD      : NÃO SOLICITADA - RASCUNHO APTO" in view
+    assert "CAT-05 > P > 9 > R > S" in view
+    assert "private-secret-do-not-render" not in view
+
+    # A same-process edit must immediately change the visible configuration.
+    fresh.perplexity_queries = ("seguro família alterado na sessão",)
+    fresh.perplexity_search_type = "web"
+    out = StringIO()
+    with redirect_stdout(out):
+        assert workflow.preparation_menu(console, fresh) == "V"
+    active_view = out.getvalue()
+    assert "origem=SESSÃO" in active_view
+    assert "seguro família alterado na sessão" in active_view
+    assert "Perplexity nesta AUD      : SOLICITADA" in active_view
+    assert "private-secret-do-not-render" not in active_view
