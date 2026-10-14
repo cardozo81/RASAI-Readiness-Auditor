@@ -27,6 +27,108 @@ def _m2(*, robots: RobotsState, sitemaps: tuple[SitemapState, ...]):
     )
 
 
+
+def test_optional_seo_scenarios_recompute_score_coverage_confidence_and_gates_in_memory() -> None:
+    from datetime import datetime, timezone
+
+    from rasai.domain import DeviceContext, RuleExecution
+    from rasai.optional_seo_score_scenarios_602 import (
+        preview_optional_seo_policy_sensitivity,
+    )
+    from rasai.scoring_v004 import ScoreGeo004Engine
+
+    audit_id = "AUD-SENSITIVITY-1"
+    def row(number, rule, data):
+        return RuleExecution(
+            rule_execution_id=f"RULE-{number}",
+            audit_id=audit_id,
+            rule_id=rule,
+            rule_version="fixture",
+            page_id=None,
+            snapshot_id=None,
+            device=DeviceContext.MOBILE,
+            result=RuleResult.WARNING,
+            observed_value=data,
+            expected_condition="fixture",
+            evidence_ids=(),
+            executed_at=datetime(2026, 10, 14, tzinfo=timezone.utc),
+        )
+    rules = (
+        row(1, "BR-GEO-003", {"sitemaps": [{"state": "ABSENT"}]}),
+        row(2, "BR-GEO-017", {"state": "ABSENT"}),
+        row(3, "BR-GEO-013", {"canonicals": []}),
+    )
+    source = tuple((x.rule_execution_id, x.result, x.observed_value) for x in rules)
+    result = preview_optional_seo_policy_sensitivity(
+        audit_id, rules, device=DeviceContext.MOBILE,
+    )
+    assert result["optional_absence_executions"] == 3
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert result["new_scoring_version_approved"] is False
+    baseline = result["scenarios"]["CANONICAL_SCORE_GEO_004"]
+    pass_only = result["scenarios"]["SENSITIVITY_OPTIONAL_ABSENCE_PASS"]
+    not_applicable = result["scenarios"]["SENSITIVITY_OPTIONAL_ABSENCE_NOT_APPLICABLE"]
+    canonical = ScoreGeo004Engine().score(
+        audit_id=audit_id, executions=rules, devices=(DeviceContext.MOBILE,),
+    )
+    assert baseline["DISCOVERY_ACCESS"]["value"] == pytest.approx(
+        next(s.value for s in canonical.scores if s.dimension == "DISCOVERY_ACCESS")
+    )
+    assert pass_only["DISCOVERY_ACCESS"]["value"] > baseline["DISCOVERY_ACCESS"]["value"]
+    assert pass_only["INDEXABILITY"]["value"] > baseline["INDEXABILITY"]["value"]
+    assert not_applicable["DISCOVERY_ACCESS"]["coverage"] != baseline["DISCOVERY_ACCESS"]["coverage"]
+    assert "confidence" in not_applicable["OVERALL_READINESS"]
+    assert "readiness_limitations" in not_applicable["OVERALL_READINESS"]
+    assert source == tuple((x.rule_execution_id, x.result, x.observed_value) for x in rules)
+
+
+def test_optional_seo_scenario_malformed_and_conflict_never_promote_to_pass() -> None:
+    from datetime import datetime, timezone
+
+    from rasai.domain import DeviceContext, RuleExecution
+    from rasai.optional_seo_score_scenarios_602 import (
+        preview_optional_seo_policy_sensitivity,
+    )
+
+    def row(audit, identifier, raw):
+        return RuleExecution(
+            rule_execution_id=identifier,
+            audit_id=audit,
+            rule_id="BR-GEO-013",
+            rule_version="fixture",
+            page_id=None,
+            snapshot_id=None,
+            device=DeviceContext.MOBILE,
+            result=RuleResult.WARNING,
+            observed_value=raw,
+            expected_condition=None,
+            evidence_ids=(),
+            executed_at=datetime(2026, 10, 14, tzinfo=timezone.utc),
+        )
+    conflict = row(
+        "AUD-EXAMPLE", "RULE-A",
+        {"declared": ["/a", "/b"], "invalid": [], "normalized": [
+            "https://example.test/a", "https://example.test/b",
+        ]},
+    )
+    preview = preview_optional_seo_policy_sensitivity(
+        "AUD-EXAMPLE", (conflict,), device=DeviceContext.MOBILE,
+    )
+    assert preview["optional_absence_executions"] == 0
+    assert preview["scenarios"]["CANONICAL_SCORE_GEO_004"] == (
+        preview["scenarios"]["SENSITIVITY_OPTIONAL_ABSENCE_PASS"]
+    )
+    with pytest.raises(ValueError, match="ambiguous"):
+        preview_optional_seo_policy_sensitivity(
+            "AUD-EXAMPLE", (conflict, conflict), device=DeviceContext.MOBILE,
+        )
+    with pytest.raises(ValueError, match="audit scope"):
+        preview_optional_seo_policy_sensitivity(
+            "AUD-OTHER", (conflict,), device=DeviceContext.MOBILE,
+        )
+
+
+
 def test_absent_discovery_resources_are_not_positive_passes() -> None:
     m2 = _m2(robots=RobotsState.ABSENT, sitemaps=(SitemapState.ABSENT,))
     assert _evaluate_robots(m2).result is RuleResult.WARNING
