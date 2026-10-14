@@ -306,6 +306,11 @@ def _ymyl_alignment_html(evidence: Any, database: Any, audit_id: str) -> str:
             ymyl.get("content_change_label") or "Não determinável",
             "Derivada dos critérios YMYL persistidos",
         ),
+        (
+            "Exatidão contratual ou regulatória das alegações",
+            "Não verificada nesta análise",
+            "SC-P11/12/13 avaliam evidência editorial observável, não documentação oficial vigente",
+        ),
     ]
 
     details: list[tuple[Any, ...]] = []
@@ -338,9 +343,13 @@ def _ymyl_alignment_html(evidence: Any, database: Any, audit_id: str) -> str:
         + evidence._table(("Leitura", "Resultado", "Origem"), rows)
         + detail_html
         + "<p class='muted'>A configuração humana permanece canônica. Interpretações automáticas são inferência de IA "
-        "auditável e não sobrescrevem a configuração. A conclusão acima não declara conformidade legal ou regulatória; "
-        "quando houver lacunas evidence-bound, o mesmo contexto é encaminhado ao CAT-08 e suas recomendações aparecem "
-        "no CAT-09.</p></div>"
+        "auditável e não sobrescrevem a configuração. Uma alegação comercial observada não equivale a uma "
+        "alegação corroborada por documento oficial. A avaliação de qualificação, autoria e atualidade do conteúdo "
+        "não valida exatidão contratual, versão vigente de condições gerais nem registro regulatório do produto. "
+        "Mesmo que a página forneça um link para documentação contratual, esse link não comprova que seu conteúdo "
+        "tenha sido conferido nesta execução. Ausência dessa verificação não significa que a alegação seja falsa "
+        "ou que exista infração regulatória. Quando houver lacunas baseadas em evidência observada, o contexto é "
+        "encaminhado ao CAT-08 e suas recomendações aparecem no CAT-09.</p></div>"
     )
 
 
