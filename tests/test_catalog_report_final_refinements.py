@@ -141,6 +141,62 @@ def test_sari_coverage_is_explicitly_percentual_and_traceable() -> None:
 
 
 
+
+def test_optional_seo_reconciliation_is_readonly_and_does_not_recompute_scores(tmp_path: Path) -> None:
+    from rasai.optional_seo_interpretation_602 import (
+        optional_seo_notice_html, optional_seo_penalties,
+    )
+
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE scores("
+            "score_id TEXT,audit_id TEXT,dimension TEXT,device TEXT,scoring_version TEXT)"
+        )
+        con.execute(
+            "CREATE TABLE rule_executions(rule_execution_id TEXT,observed_value TEXT)"
+        )
+        con.execute(
+            "CREATE TABLE score_contributions("
+            "score_id TEXT,rule_execution_id TEXT,rule_id TEXT,"
+            "dimension TEXT,device TEXT,weight REAL,result_factor REAL,result TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO scores VALUES(?,?,?,?,?)",
+            [
+                ("DISC", "AUD-1", "DISCOVERY_ACCESS", "MOBILE", "SCORE-GEO-004"),
+                ("INDEX", "AUD-1", "INDEXABILITY", "MOBILE", "SCORE-GEO-004"),
+            ],
+        )
+        con.executemany(
+            "INSERT INTO rule_executions VALUES(?,?)",
+            [
+                ("R3", '{"sitemaps":[{"state":"ABSENT","url":"https://example.test/sitemap.xml"}]}'),
+                ("R17", '{"state":"ABSENT","url":"https://example.test/robots.txt"}'),
+                ("R13", '{"canonicals":[]}'),
+                ("RX", '{"sitemaps":[{"state":"INVALID"}]}'),
+            ],
+        )
+        con.executemany(
+            "INSERT INTO score_contributions VALUES(?,?,?,?,?,?,?,?)",
+            [
+                ("DISC", "R3", "BR-GEO-003", "DISCOVERY_ACCESS", "MOBILE", 0.0485, 0.8, "WARNING"),
+                ("DISC", "R17", "BR-GEO-017", "DISCOVERY_ACCESS", "MOBILE", 0.1455, 0.6, "WARNING"),
+                ("INDEX", "R13", "BR-GEO-013", "INDEXABILITY", "MOBILE", 0.30, 0.5, "WARNING"),
+                ("DISC", "RX", "BR-GEO-003", "DISCOVERY_ACCESS", "MOBILE", 0.01, 0.8, "WARNING"),
+            ],
+        )
+    original = db.read_bytes()
+    result = optional_seo_penalties(db, "AUD-1")
+    assert [(x["rule_id"], x["isolated_discount_points"]) for x in result] == [
+        ("BR-GEO-003", 0.97), ("BR-GEO-013", 15.0), ("BR-GEO-017", 5.82)
+    ]
+    assert "não</strong> uma projeção de novo índice SARI" in optional_seo_notice_html(db, "AUD-1")
+    assert optional_seo_penalties(db, "AUD-OTHER") == []
+    assert db.read_bytes() == original
+
+
+
 def test_lighthouse_one_is_one_out_of_100_not_100(tmp_path: Path) -> None:
     database = tmp_path / "audit.db"
     con = sqlite3.connect(database)
