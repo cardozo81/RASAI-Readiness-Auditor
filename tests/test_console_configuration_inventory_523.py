@@ -746,3 +746,103 @@ def test_523_core_console_runtime_input_affinity_is_static_and_safe(
     assert "NEVER_ECHO_CORE_API_KEY_523" not in json.dumps(report)
     assert "SHOULD_NOT_BE_IN_OUTPUT" not in json.dumps(report)
     assert source.read_bytes() == original
+
+def test_apdex_preflight_rejects_identical_byte_inode_swap(tmp_path, monkeypatch):
+    """An INI swapped *during* read cannot be certified by its SHA alone."""
+    import pytest
+    from unittest.mock import patch
+    from rasai import console_settings
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+
+    if os.name == "nt":
+        pytest.skip("Windows can forbid os.replace while file descriptor is open")
+    _install_search_persistence()
+    install()
+    candidate = tmp_path / "apdex.ini"
+    replacement = tmp_path / "replacement.ini"
+    with patch.dict(os.environ, {}, clear=True):
+        console_settings.save_console_config(SearchConsoleState(), candidate)
+        initial = candidate.read_bytes()
+        replacement.write_bytes(initial)
+        original_open = Path.open
+        swapped = [False]
+
+        def replace_after_open(self, *args, **kwargs):
+            stream = original_open(self, *args, **kwargs)
+            if self == candidate and args and args[0] == "rb" and not swapped[0]:
+                os.replace(replacement, candidate)
+                swapped[0] = True
+            return stream
+
+        monkeypatch.setattr(Path, "open", replace_after_open)
+        outcome = inspect_apdex_consumers(candidate, environ={})
+        assert swapped[0]
+        assert outcome["status"] == "SOURCE_CHANGED"
+        assert candidate.read_bytes() == initial
+        assert outcome["audit_writes"] == outcome["external_requests"] == 0
+
+
+def test_apdex_preflight_rejects_same_content_swap_after_adapter(tmp_path, monkeypatch):
+    """Even after a clean initial read, a new inode invalidates the result."""
+    import pytest
+    from unittest.mock import patch
+    from rasai import console_settings, m23_cli
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+
+    if os.name == "nt":
+        pytest.skip("POSIX-only source replacement scenario")
+    _install_search_persistence()
+    install()
+    candidate = tmp_path / "apdex.ini"
+    replacement = tmp_path / "replacement.ini"
+    with patch.dict(os.environ, {}, clear=True):
+        console_settings.save_console_config(SearchConsoleState(), candidate)
+        original_bytes = candidate.read_bytes()
+        replacement.write_bytes(original_bytes)
+        original_adapter = m23_cli.configured_apdex
+        swapped = [False]
+
+        def adapter_then_swap(*args, **kwargs):
+            result = original_adapter(*args, **kwargs)
+            if not swapped[0]:
+                os.replace(replacement, candidate)
+                swapped[0] = True
+            return result
+
+        monkeypatch.setattr(m23_cli, "configured_apdex", adapter_then_swap)
+        outcome = inspect_apdex_consumers(candidate, environ={})
+        assert swapped[0]
+        assert outcome["status"] == "SOURCE_CHANGED"
+        assert candidate.read_bytes() == original_bytes
+        assert outcome["audit_writes"] == outcome["external_requests"] == 0
+
+
+def test_apdex_preflight_rejects_descriptor_identity_mismatch_cross_platform(tmp_path):
+    """Stat versus fstat mismatch must be fail-closed on Linux and Windows."""
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    from rasai import console_apdex_effective_validation_523 as inspector
+
+    candidate = tmp_path / "operator.ini"
+    candidate.write_bytes(b"[environment]\\n")
+    original_fstat = os.fstat
+
+    def wrong_inode(fd):
+        source = original_fstat(fd)
+        fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
+        values = {key: getattr(source, key) for key in fields}
+        values["st_ino"] += 1
+        return SimpleNamespace(**values)
+
+    with patch.object(inspector.os, "fstat", wrong_inode):
+        contents, identity, status = inspector._verified_source(candidate)
+    assert contents is None and identity is None
+    assert status == "SOURCE_CHANGED"
+    assert candidate.read_bytes() == b"[environment]\\n"
+

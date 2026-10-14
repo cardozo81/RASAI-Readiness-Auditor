@@ -16,6 +16,44 @@ from typing import Mapping, Any
 from unittest.mock import patch
 
 
+_SOURCE_LIMIT = 2_000_000
+
+
+def _verified_source(path: Path) -> tuple[bytes | None, tuple[int, ...] | None, str]:
+    """Bound an INI read and tie its bytes to one physical file identity.
+
+    Path and opened descriptor must agree before and after the read. Windows
+    creation time is deliberately excluded: it may differ for stat/fstat.
+    """
+    try:
+        if path.is_symlink() or not path.is_file():
+            return None, None, "SOURCE_UNAVAILABLE"
+        before = path.stat()
+        if before.st_size > _SOURCE_LIMIT:
+            return None, None, "SOURCE_UNAVAILABLE"
+        with path.open("rb") as stream:
+            descriptor = os.fstat(stream.fileno())
+            data = stream.read(_SOURCE_LIMIT + 1)
+        after = path.stat()
+        fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+        if os.name != "nt":
+            fields += ("st_ctime_ns",)
+        if (
+            path.is_symlink()
+            or any(
+                getattr(before, field) != getattr(other, field)
+                for other in (descriptor, after) for field in fields
+            )
+            or len(data) != before.st_size
+        ):
+            return None, None, "SOURCE_CHANGED"
+        if len(data) > _SOURCE_LIMIT:
+            return None, None, "SOURCE_UNAVAILABLE"
+        return data, tuple(getattr(after, field) for field in fields), "READY"
+    except OSError:
+        return None, None, "SOURCE_UNAVAILABLE"
+
+
 def inspect_apdex_consumers(
     path: Path,
     *,
@@ -44,15 +82,10 @@ def inspect_apdex_consumers(
         "dynatrace_live_verified": False,
     }
     candidate = Path(path)
-    try:
-        if (candidate.is_symlink() or not candidate.is_file()
-                or candidate.stat().st_size > 2_000_000):
-            return {**base, "status": "SOURCE_UNAVAILABLE"}
-        original_bytes = candidate.read_bytes()
-    except OSError:
-        return {**base, "status": "SOURCE_UNAVAILABLE"}
-    if len(original_bytes) > 2_000_000:
-        return {**base, "status": "SOURCE_UNAVAILABLE"}
+    original_bytes, original_identity, source_status = _verified_source(candidate)
+    if source_status != "READY":
+        return {**base, "status": source_status}
+    assert original_bytes is not None and original_identity is not None
     digest = sha256(original_bytes).digest()
 
     environment_before = dict(os.environ)
@@ -103,10 +136,15 @@ def inspect_apdex_consumers(
             if len(captured) != 2:
                 return {**base, "status": "CONFIG_OR_ADAPTER_INVALID"}
             experience = captured[-1]
-        try:
-            if sha256(candidate.read_bytes()).digest() != digest:
-                return {**base, "status": "SOURCE_CHANGED"}
-        except OSError:
+        # A digest alone cannot detect replacement with identical bytes.
+        # Recheck the bounded original source and its physical identity.
+        current_bytes, current_identity, current_status = _verified_source(candidate)
+        if (
+            current_status != "READY"
+            or current_identity != original_identity
+            or current_bytes is None
+            or sha256(current_bytes).digest() != digest
+        ):
             return {**base, "status": "SOURCE_CHANGED"}
         return {
             **base,
