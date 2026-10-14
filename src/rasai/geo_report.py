@@ -547,10 +547,12 @@ def geo_body(database: Path, audit_id: str) -> str:
         except (TypeError, ValueError):
             queries = "(registro indisponível)"
         qs = "; ".join(map(str, queries)) if isinstance(queries, list) else str(queries)
+        # Preserve the provider's declared Search API mode literally. A
+        # machine label is not editorial status text to be humanized.
         summary += "<tr>" + "".join(
             f"<td>{escape(str(value or '-'))}</td>"
-            for value in (run["run_id"], qs, run["status"], run["search_type"])
-        ) + "</tr>"
+            for value in (run["run_id"], qs, run["status"])
+        ) + "<td><code>" + escape(str(run["search_type"] or "-")) + "</code></td></tr>"
     summary += "</tbody></table>"
     latest_status = (
         str(current.get("status") or "UNAVAILABLE").upper()

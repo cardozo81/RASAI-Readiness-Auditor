@@ -160,8 +160,11 @@ def _dynatrace_rum_kpm_reference_html(architecture: str) -> str:
         ),
     )
     rows = "".join(
-        "<tr><td>" + escape(label) + "</td><td>" + escape(context)
-        + "</td><td>" + escape(", ".join(sorted(KPM_BY_ACTION[key])))
+        "<tr><td><code>" + escape(label) + "</code></td><td>" + escape(context)
+        + "</td><td>" + ", ".join(
+            "<code>" + escape(kpm) + "</code>"
+            for kpm in sorted(KPM_BY_ACTION[key])
+        )
         + "</td><td>N/D (tenant não consultado)</td></tr>"
         for key, label, context in contexts
     )
