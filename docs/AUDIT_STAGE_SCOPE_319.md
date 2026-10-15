@@ -612,3 +612,11 @@ o produtor e consumidor, tipo/forma completos, mudancas
 de budgets e ausencia de termos de pesquisa e localidade
 no snapshot. Nenhum SERP, Perplexity, M23/M25, scores
 ou AUD produtiva e executado.
+
+## Cobertura explícita do custo observado por bucket e fase (15/10/2026)
+
+O leitor de fronteira `audit_ai_completion_boundary_319` já distinguia o valor de custo observado do provedor do preço estimado post-hoc, mas publicava `provider_observed_cost_usd=0` tanto quando não havia registro monetário do provedor quanto quando ele efetivamente registrava custo zero. A soma isolada era ambígua e não constituía prova de gratuidade ou de invoice.
+
+A projeção consultiva acrescenta, em cada bucket temporal e em cada estágio IA, os campos `provider_observed_cost_attempts` (quantidade de tentativas com custo observado em USD válido), `provider_observed_cost_available` (existe ao menos uma observação) e `provider_observed_cost_complete` (todas as tentativas desse grupo têm observação válida, com pelo menos uma tentativa). O valor numérico anterior não muda, preservando leitores existentes. Zero observado com cobertura e zero sem cobertura deixam de ser indistinguíveis. Cobertura parcial **não** autoriza interpretar a soma como custo total do grupo.
+
+O classificador reaproveita o contador existente de `audit_attempt_timeline._stage`, sem leitura de fonte adicional, mudança do ledger, do preço, do orçamento ou do orquestrador. Testes específicos usam AUDs SQLite fictícias com zero comprovado, ausência de observação e mistura parcial, além de verificar SHA-256 do banco inalterado. Essas métricas **não** resolvem a falta de clocks exclusivos das fases não-IA e não comprovam cobrança faturada.
