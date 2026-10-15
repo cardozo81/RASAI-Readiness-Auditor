@@ -74,6 +74,29 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
 #roadmap dialog.rasai-modal[id^='directed-roadmap-phase-'] details{break-inside:auto}
 }
 
+/* #633 shared navigation: mobile disclosure only when JS is available.
+   Without JS every one of the canonical links remains visible. */
+.report-skip-link{position:fixed;left:12px;top:-80px;z-index:200;background:#fff;color:var(--ink);padding:10px 14px;border:2px solid var(--cyan);border-radius:8px}
+.report-skip-link:focus{top:10px}
+.report-mobile-header{display:none}
+.report-breadcrumbs{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px;color:var(--muted);font-size:.77rem}
+.report-breadcrumbs a{color:var(--blue)}
+.report-breadcrumbs .report-current-page{font-weight:650;color:var(--ink)}
+:where(a,button,summary,[tabindex]):focus-visible{outline:3px solid #16938d;outline-offset:3px}
+.app-nav :where(a,button):focus-visible{outline-color:#a2fff1}
+@media(max-width:900px){
+  .report-mobile-header{position:sticky;top:0;z-index:25;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 14px;background:var(--nav-bg);color:#fff}
+  .report-mobile-brand{font-size:.88rem;font-weight:750;color:#fff;text-decoration:none}
+  .report-menu-button{border:1px solid #7d9caa;background:var(--nav-hover);border-radius:9px;color:#fff;padding:8px 14px;font:inherit;font-size:.8rem;cursor:pointer}
+  .report-menu-button[aria-expanded='true']{background:#205366}
+  .report-menu-enhanced .app-nav{display:none}
+  .report-menu-enhanced.report-menu-open .app-nav{display:flex;top:49px;z-index:24}
+}
+@media print{
+  .report-mobile-header,.report-skip-link{display:none!important}
+  .report-breadcrumbs{font-size:9pt;margin:0 0 8mm;color:#303d45}
+}
+
 /* #328: segment CAT-06/CAT-07 explanations without hiding source tables. */
 .cat-apdex-readable{
   margin:16px 0;
@@ -118,28 +141,6 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
 }
 
 
-/* #633 shared navigation: mobile disclosure only when JS is available.
-   Without JS every one of the canonical links remains visible. */
-.report-skip-link{position:fixed;left:12px;top:-80px;z-index:200;background:#fff;color:var(--ink);padding:10px 14px;border:2px solid var(--cyan);border-radius:8px}
-.report-skip-link:focus{top:10px}
-.report-mobile-header{display:none}
-.report-breadcrumbs{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px;color:var(--muted);font-size:.77rem}
-.report-breadcrumbs a{color:var(--blue)}
-.report-breadcrumbs .report-current-page{font-weight:650;color:var(--ink)}
-:where(a,button,summary,[tabindex]):focus-visible{outline:3px solid #16938d;outline-offset:3px}
-.app-nav :where(a,button):focus-visible{outline-color:#a2fff1}
-@media(max-width:900px){
-  .report-mobile-header{position:sticky;top:0;z-index:25;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 14px;background:var(--nav-bg);color:#fff}
-  .report-mobile-brand{font-size:.88rem;font-weight:750;color:#fff;text-decoration:none}
-  .report-menu-button{border:1px solid #7d9caa;background:var(--nav-hover);border-radius:9px;color:#fff;padding:8px 14px;font:inherit;font-size:.8rem;cursor:pointer}
-  .report-menu-button[aria-expanded='true']{background:#205366}
-  .report-menu-enhanced .app-nav{display:none}
-  .report-menu-enhanced.report-menu-open .app-nav{display:flex;top:49px;z-index:24}
-}
-@media print{
-  .report-mobile-header,.report-skip-link{display:none!important}
-  .report-breadcrumbs{font-size:9pt;margin:0 0 8mm;color:#303d45}
-}
 
 """
 
