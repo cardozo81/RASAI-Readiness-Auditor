@@ -11,7 +11,7 @@ import pytest
 from rasai import console_apdex_configuration as ui
 from rasai import console_environment
 from rasai import console_settings
-from rasai.cat07_architecture_reporting_358 import cat07_architecture_advice_html
+from rasai.cat07_architecture_reporting import cat07_architecture_advice_html
 from rasai.console_m23 import State, validate_env_value
 from rasai.m25_cli import UX_ARCHITECTURE_ENV, UX_PROFILE_MODE_ENV
 
@@ -474,7 +474,7 @@ def test_cat07_legacy_policy_does_not_inherit_host_defaults(tmp_path):
 def test_cat07_abstains_on_unsealed_sqlite_without_opening_aud(
     tmp_path, monkeypatch, suffix,
 ):
-    from rasai import cat07_architecture_reporting_358 as presentation
+    from rasai import cat07_architecture_reporting as presentation
 
     db = tmp_path / "audit.db"
     _db(db, cfg={"kpm": "USER_ACTION_DURATION",
@@ -530,7 +530,7 @@ def test_cat07_cannot_attribute_duplicate_foreign_snapshot_id_to_current_aud(
 def test_cat07_rejects_new_sqlite_sidecar_appearing_during_projection(
     tmp_path, monkeypatch,
 ):
-    from rasai import cat07_architecture_reporting_358 as presentation
+    from rasai import cat07_architecture_reporting as presentation
     db = tmp_path / "audit.db"
     _db(db, cfg={"kpm": "USER_ACTION_DURATION",
                  "satisfied_threshold_seconds": 3.0,
@@ -601,7 +601,7 @@ def test_cat07_source_metadata_drift_during_sqlite_projection_abstains(
     tmp_path, monkeypatch,
 ):
     """A second matching sidecar check cannot certify an altered AUD source."""
-    from rasai import cat07_architecture_reporting_358 as presentation
+    from rasai import cat07_architecture_reporting as presentation
     db = tmp_path / "audit.db"
     _db(db, cfg={"kpm": "USER_ACTION_DURATION",
                  "satisfied_threshold_seconds": 3.0,
@@ -638,7 +638,7 @@ def test_cat07_missing_source_does_not_create_sqlite_or_infer_architecture(tmp_p
 def test_cat07_directory_symlink_cannot_expose_unrelated_aud_advisory(
     tmp_path, monkeypatch,
 ):
-    from rasai import cat07_architecture_reporting_358 as presentation
+    from rasai import cat07_architecture_reporting as presentation
     physical = tmp_path / "physical"
     physical.mkdir()
     db = physical / "audit.db"

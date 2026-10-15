@@ -11,7 +11,7 @@ import json
 import sqlite3
 
 from rasai.geo_catalog_context import catalog_geo_context, geo_surface_context
-from rasai.geo_snapshot_context_308 import persisted_geo_scope
+from rasai.geo_snapshot_context import persisted_geo_scope
 
 
 def _prepare(path, *, status="SUCCESS", newer_failure=False, invalid=False):

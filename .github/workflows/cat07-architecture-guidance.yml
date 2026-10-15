@@ -9,7 +9,7 @@ on:
       - 'src/rasai/console_settings.py'
       - 'src/rasai/console_environment.py'
       - 'src/rasai/console_apdex_configuration.py'
-      - 'src/rasai/cat07_architecture_reporting_358.py'
+      - 'src/rasai/cat07_architecture_reporting.py'
       - 'src/rasai/catalog_report_page.py'
       - 'tests/test_cat07_architecture_integration.py'
       - 'tests/test_experience_architecture_guidance.py'

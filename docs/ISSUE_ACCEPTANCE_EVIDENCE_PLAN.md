@@ -40,7 +40,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 ### Issue #319 - P2 · PARTIALLY_IMPLEMENTED
 
-**Já presente / evidência técnica:** `audit-attempts`, `audit_fulfillment_timing_319`, cronômetros de logs operacionais, forecasts, exclusão de custos Directed/Search opcionais (PR #629).
+**Já presente / evidência técnica:** `audit-attempts`, `audit_fulfillment_timing`, cronômetros de logs operacionais, forecasts, exclusão de custos Directed/Search opcionais (PR #629).
 
 **Critério residual e risco:** Clocks exclusivos confiáveis de todas as etapas não-IA, atribuição financeira por fase e separação correta entre soma das tarefas e wall-time; histórico real não comprova toda a partição.
 

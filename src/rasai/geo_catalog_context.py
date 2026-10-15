@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import sqlite3
 
-from rasai.geo_snapshot_context_308 import geo_snapshot_context_html
+from rasai.geo_snapshot_context import geo_snapshot_context_html
 from rasai.geo_temporal_provenance import (
     _UNVERIFIABLE, _columns, _last_temporally_verified,
 )

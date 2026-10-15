@@ -2,7 +2,7 @@
 
 ## O que a projeção exibe
 
-O motor `geo_snapshot_context_308.py` é um consumidor **estritamente
+O motor `geo_snapshot_context.py` é um consumidor **estritamente
 read-only** de `geo_observation_runs`, limitado à própria `audit_id`.
 Ele não executa pesquisa, IA, análise, relatório ou RPR, não recalcula
 índices e não faz alterações em `audit.db`.

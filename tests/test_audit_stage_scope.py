@@ -534,7 +534,7 @@ def test_319_duplicate_pipeline_json_event_keys_never_become_timer_evidence(
     tmp_path, name, first_key,
 ):
     import json
-    from rasai.audit_step_timer_inspection_319 import inspect_pipeline_step_timers
+    from rasai.audit_step_timer_inspection import inspect_pipeline_step_timers
     root, db = make_aud(tmp_path)
     directory = root / "logs"
     directory.mkdir()
@@ -559,7 +559,7 @@ def test_319_duplicate_pipeline_json_event_keys_never_become_timer_evidence(
 
 def test_319_invalid_or_missing_pipeline_log_fails_closed(tmp_path):
     import json
-    from rasai.audit_step_timer_inspection_319 import inspect_pipeline_step_timers
+    from rasai.audit_step_timer_inspection import inspect_pipeline_step_timers
     root, db = make_aud(tmp_path)
     assert inspect_pipeline_step_timers(root, AUD, None)["status"] == "NOT_AVAILABLE"
     assert not (root / "logs").exists()
@@ -731,7 +731,7 @@ def test_319_phase_wrapper_distribution_never_sums_overlapping_operations(tmp_pa
 
 def test_319_corrupt_step_log_never_publishes_phase_summary(tmp_path):
     import json
-    from rasai.audit_step_timer_inspection_319 import inspect_pipeline_step_timers
+    from rasai.audit_step_timer_inspection import inspect_pipeline_step_timers
 
     root, db = make_aud(tmp_path)
     log_dir = root / "logs"
@@ -755,7 +755,7 @@ def test_319_log_appended_during_read_abstains_and_keeps_source_aud_immutable(
     """A concurrently growing operational log cannot publish partial phase timers."""
     import json
     from pathlib import Path
-    from rasai.audit_step_timer_inspection_319 import inspect_pipeline_step_timers
+    from rasai.audit_step_timer_inspection import inspect_pipeline_step_timers
 
     root, db = make_aud(tmp_path)
     directory = root / "logs"

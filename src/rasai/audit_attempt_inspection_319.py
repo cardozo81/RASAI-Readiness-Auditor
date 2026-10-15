@@ -19,8 +19,8 @@ from typing import Sequence
 
 from rasai.audit_attempt_timeline import _group, _stage, _time, read_audit_attempt_timeline
 from rasai.audit_duration_forecast_319 import _m21_http_request_sums
-from rasai.audit_fulfillment_timing_319 import inspect_fulfillment_attempt_intervals
-from rasai.audit_step_timer_inspection_319 import inspect_pipeline_step_timers
+from rasai.audit_fulfillment_timing import inspect_fulfillment_attempt_intervals
+from rasai.audit_step_timer_inspection import inspect_pipeline_step_timers
 
 _AUD = re.compile(r"^AUD-[A-Za-z0-9-]{1,100}$")
 _MAX_SOURCE_BYTES = 1024 * 1024 * 1024

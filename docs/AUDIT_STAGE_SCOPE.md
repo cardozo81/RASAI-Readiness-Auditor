@@ -312,7 +312,7 @@ permanece histórica e não altera preços, timeout ou motores.
 
 ## Estados do fulfillment e legitimidade de intervalos (12/10/2026)
 
-O leitor consultivo de tentativas `audit_fulfillment_timing_319` considera
+O leitor consultivo de tentativas `audit_fulfillment_timing` considera
 intervalo temporal verificado somente se houver início/fim válidos **e** o
 status persistido pertencer à lista fechada de resultados finais de tentativa:
 `SUCCESS`, `FAILED_RETRYABLE`, `FAILED_PERMANENT` ou `BLOCKED`.

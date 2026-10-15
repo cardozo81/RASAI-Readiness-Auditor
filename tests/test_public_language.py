@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 
 from rasai.dynatrace_apdex_arch_advisory_355 import explain_dynatrace_apdex_pt_br
-from rasai.cat07_architecture_reporting_358 import _REASON_LABELS
+from rasai.cat07_architecture_reporting import _REASON_LABELS
 
 
 ROOT = Path(__file__).resolve().parents[1] / "src" / "rasai"
@@ -24,7 +24,7 @@ def test_known_console_and_metrics_public_copy_is_functional_not_module_codes():
             "São durações das solicitações de análise por IA",
             "São durações por tentativa nas bases M18/M20",
         ),
-        "cat07_architecture_reporting_358.py": (
+        "cat07_architecture_reporting.py": (
             "Rastreabilidade da arquitetura identificada",
             "Rastreabilidade da arquitetura M6",
         ),
