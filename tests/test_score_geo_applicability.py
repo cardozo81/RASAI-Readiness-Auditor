@@ -11,7 +11,7 @@ import unittest
 from rasai.domain import DeviceContext, RuleExecution, RuleResult, new_id
 from rasai.m7 import execute_m7
 from rasai.persistence import AuditPersistence, AuditWorkspace
-from rasai.score_geo_004 import SCORING_VERSION
+from rasai.score_geo import SCORING_VERSION
 from rasai.scoring import ConsolidationStatus, ScoringEngine
 from rasai.semantic import OpenAIProvider, SEMANTIC_RULE_IDS
 from tests.test_m7_semantic_provider import _fixture

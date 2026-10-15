@@ -4,7 +4,7 @@ from __future__ import annotations
 from rasai.catalog_report_presentation import _table
 from rasai.catalog_report_search_trust import _contract_rows
 from rasai.report_presentation import SCORING_CONCEPT_LABELS, humanize_report_html
-from rasai.score_geo_004 import RULE_SCORING_CONTRACT
+from rasai.score_geo import RULE_SCORING_CONTRACT
 from rasai.semantic_coherence_reporting import (
     _semantic_provider_origin, _semantic_scoring_group_label,
 )
