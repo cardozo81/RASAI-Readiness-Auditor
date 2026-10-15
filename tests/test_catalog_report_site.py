@@ -324,7 +324,7 @@ def test_new_shared_report_shell_navigation_is_accessible_in_all_canonical_pages
         assert "href='css/site.css'" in html
 
     css = (report / "css" / "site.css").read_text(encoding="utf-8")
-    assert "--nav-bg:#0c2533" in css
+    assert "--nav-bg:#102f3d" in css
     assert "--ink:#142d3d" in css
     assert "--cyan:#087a77" in css
     assert ".report-menu-enhanced .app-nav{display:none}" in css
@@ -383,17 +383,43 @@ def test_objective_cards_are_only_navigational_and_never_add_up_repeat_actions(t
         fulfillment={},
     )
     html = directed_analysis_body(database, data)
-    assert html.count("class='directed-goal-link'") == 2
-    assert "directed-intervention-groups" in html
-    assert "prioridades registradas nas ações" in html
+    # Seven stable PoC perspectives are present even when the fixture has no
+    # actions for six of them: zero linked actions is not zero findings.
+    assert html.count("class='directed-goal-link'") == 7
+    assert html.count("class='directed-goal-details' id='goal-") == 7
+    assert html.count("href='#goal-") == 7
+    assert "id='goal-descoberta'" in html
+    assert "Nenhuma ação da Análise Direcionada foi vinculada" in html
     assert "Uma mesma ação pode apoiar vários objetivos" in html
     assert "não são aditivas" in html
-    assert "<strong>1</strong><small>ação(ões) vinculada(s) neste objetivo" in html
-    assert "<strong>2</strong><small>ação(ões) vinculada(s) neste objetivo" in html
-    assert html.count("class='directed-goal-details' id='goal-") == 2
-    assert html.count("href='#goal-") == 2
-    assert html.count("ACT-1") == 0  # internal IDs remain in evidence, not new metric labels
+    # DISCOVERY_ACCESS and INDEXABILITY must not count ACT-1 twice.
+    assert "goal-descoberta" in html
+    assert "2</strong><small>ações vinculadas" in html
+    assert html.count("class='directed-operational-item'") == 2
+    assert "O que foi observado" in html
+    assert "Onde intervir" in html
+    assert "O que fazer" in html
+    assert "Como validar" in html
+    assert "Proveniência" in html
+    assert "ACT-1" not in html  # evidence IDs are not promoted to visible metrics
     assert "Corrigir informação" in html and "Validar evidência" in html
+    # Old direct links hashed from dimension values remain anchorable.
+    from hashlib import sha256
+    legacy = "goal-" + sha256(b"INDEXABILITY").hexdigest()[:12]
+    assert f"id='{legacy}'" in html
+
+
+def test_report_633_objective_dialog_is_progressive_and_printable() -> None:
+    from rasai.catalog_report_style import _CSS, _JS
+    assert "report-objectives-enhanced" in _CSS
+    assert "details.directed-goal-details{display:block!important}" in _CSS
+    assert ".directed-operational-facts" in _CSS
+    assert "objectiveDialog.showModal()" in _JS
+    assert "marker.replaceWith(body)" in _JS  # exact node reused, not cloned
+    assert "window.addEventListener('beforeprint'" in _JS
+    assert "const goal=resolveObjective(target)" in _JS
+    assert "window.addEventListener('popstate',openHash)" in _JS
+
 
 
 def test_overview_new_experience_is_an_index_not_a_second_report(tmp_path: Path) -> None:
