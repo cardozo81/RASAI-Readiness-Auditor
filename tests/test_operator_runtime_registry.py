@@ -280,7 +280,7 @@ def test_save_aborts_when_physical_ini_changes_during_serialization(
     ini = tmp_path / "operator-copy.ini"
     if preexisting:
         _write_ini(ini, {"RASAI_SECURITY_HEADERS": "false"})
-    changed = b"[environment]\\nRASAI_UNREGISTERED_FUTURE_OPTION = state-change\\n"
+    changed = b"[environment]\nRASAI_UNREGISTERED_FUTURE_OPTION = state-change\n"
     original_parser = console_settings._parser_for_state
     number_of_calls = 0
 
