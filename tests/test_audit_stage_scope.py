@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from rasai.audit_attempt_inspection_319 import (
+from rasai.audit_attempt_inspection import (
     inspect_audit_attempts, inspect_ai_stage_scope,
 )
 

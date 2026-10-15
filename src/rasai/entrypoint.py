@@ -373,7 +373,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if effective and effective[0] == "audit-attempts":
         # Read-only local audit M18/M20 timeline; never activate provider runtime.
-        from rasai.audit_attempt_inspection_319 import main as inspect_attempts
+        from rasai.audit_attempt_inspection import main as inspect_attempts
         return inspect_attempts(effective[1:])
 
     if effective and effective[0] == "geo-supplements":

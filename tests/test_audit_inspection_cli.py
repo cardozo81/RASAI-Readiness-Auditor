@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from rasai.audit_attempt_inspection_319 import inspect_audit_attempts, main
+from rasai.audit_attempt_inspection import inspect_audit_attempts, main
 
 
 def _fixture(tmp_path):
@@ -446,7 +446,7 @@ def test_audit_attempts_rejects_live_sqlite_sidecars_without_open_or_mutation(
 def test_audit_attempts_detects_new_sidecar_during_secondary_timeline_read(
     tmp_path, monkeypatch,
 ):
-    from rasai import audit_attempt_inspection_319 as module
+    from rasai import audit_attempt_inspection as module
     root = _fixture(tmp_path)
     db = root / "audit.db"
     original = db.read_bytes()
@@ -516,7 +516,7 @@ def test_inspector_refuses_duplicate_remediation_attempt_ids(
 def test_inspector_detects_physical_db_change_without_wal_during_second_read(
     tmp_path, monkeypatch,
 ):
-    from rasai import audit_attempt_inspection_319 as module
+    from rasai import audit_attempt_inspection as module
     root = _fixture(tmp_path)
     db = root / "audit.db"
     original = db.read_bytes()
@@ -544,7 +544,7 @@ def test_inspector_detects_physical_db_change_without_wal_during_second_read(
 def test_inspector_rejects_oversized_source_without_opening_sqlite(
     tmp_path, monkeypatch,
 ):
-    from rasai import audit_attempt_inspection_319 as module
+    from rasai import audit_attempt_inspection as module
     root = _fixture(tmp_path)
     db = root / "audit.db"
     previous = module._MAX_SOURCE_BYTES

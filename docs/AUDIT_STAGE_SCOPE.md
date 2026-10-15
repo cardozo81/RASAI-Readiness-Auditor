@@ -2,7 +2,7 @@
 
 ## Entrega técnica
 
-O módulo de inspeção read-only `audit_attempt_inspection_319.py` passa a
+O módulo de inspeção read-only `audit_attempt_inspection.py` passa a
 devolver `ai_attempt_execution_scope.by_stage`: partição por etapa declarada
 e posição temporal de cada tentativa em relação à única sessão do console
 que pode ser comprovada como `COMPLETED/COMPLETE`. O relatório
