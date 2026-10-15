@@ -183,3 +183,26 @@ def test_new_interpreter_can_read_saved_runtime_inputs(tmp_path: Path) -> None:
         "timezone": "America/Sao_Paulo",
     }
     assert sha256(path.read_bytes()).hexdigest() == baseline
+
+
+@pytest.mark.parametrize("unknown", [
+    "RASAI_UNREGISTERED_FUTURE_OPTION",
+    "RASAI_FUTURE_PRIVATE_TOKEN",
+])
+def test_save_refuses_to_discard_unknown_ini_entries_without_leaking_them(
+    tmp_path: Path, unknown: str
+) -> None:
+    _install_search_persistence()
+    install_complete_persistence()
+    ini = tmp_path / "operator-copy.ini"
+    private_marker = "DO_NOT_ECHO_IN_PUBLIC_ERRORS"
+    _write_ini(ini, {unknown: private_marker, **RUNTIME_INPUTS})
+    before = ini.read_bytes()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        with pytest.raises(ValueError, match="configuracoes desconhecidas") as caught:
+            console_settings.save_console_config(state, ini)
+        assert os.environ == {}
+    assert ini.read_bytes() == before
+    assert unknown not in str(caught.value)
+    assert private_marker not in str(caught.value)
