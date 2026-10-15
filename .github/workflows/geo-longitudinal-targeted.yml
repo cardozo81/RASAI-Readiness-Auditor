@@ -12,7 +12,7 @@ on:
       - 'src/rasai/geo_observation.py'
       - 'tests/test_geo_longitudinal_311.py'
       - 'docs/GEO_LONGITUDINAL.md'
-      - '.github/workflows/geo-longitudinal-311-targeted.yml'
+      - '.github/workflows/geo-longitudinal-targeted.yml'
   workflow_dispatch:
 permissions:
   contents: read

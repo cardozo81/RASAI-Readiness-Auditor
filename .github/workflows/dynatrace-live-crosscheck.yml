@@ -9,7 +9,7 @@ on:
       - 'tests/test_dynatrace_pinned_transport_355.py'
       - 'tests/test_dynatrace_live_crosscheck_355.py'
       - 'docs/DYNATRACE_LIVE_CROSSCHECK.md'
-      - '.github/workflows/dynatrace-live-crosscheck-355.yml'
+      - '.github/workflows/dynatrace-live-crosscheck.yml'
   push:
     branches: [main]
     paths:
@@ -18,7 +18,7 @@ on:
       - 'src/rasai/dynatrace_rum_population_355.py'
       - 'tests/test_dynatrace_pinned_transport_355.py'
       - 'tests/test_dynatrace_live_crosscheck_355.py'
-      - '.github/workflows/dynatrace-live-crosscheck-355.yml'
+      - '.github/workflows/dynatrace-live-crosscheck.yml'
 permissions:
   contents: read
 jobs:
