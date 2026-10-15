@@ -2,7 +2,7 @@
 
 ## Status real
 
-`src/rasai/readiness_matched_pilot_322.py` adiciona um avaliador
+`src/rasai/readiness_matched_pilot.py` adiciona um avaliador
 **puramente read-only** de pares de execuções locais control/probe.
 Ele pode ser utilizado após medir diferentes amostras de navegação
 equivalentes com a sonda experimental de conteúdo. O avaliador não
@@ -25,7 +25,7 @@ e não substituem orçamento de produção aprovado.
 ### Exemplo de análise offline
 
 ```powershell
-.\.venv\Scripts\python.exe -m rasai.readiness_matched_pilot_322 `
+.\.venv\Scripts\python.exe -m rasai.readiness_matched_pilot `
   --json .\readiness-pairs.json `
   --budget-ms 30 `
   --min-pairs 5

@@ -161,7 +161,7 @@ de overhead. Gate físico de #322 permanece aberto.
 
 ## Piloto com Chromium físico e custo observável #322 (09/10/2026)
 
-Adicionado `readiness_probe_cost_pilot_322.py` com
+Adicionado `readiness_probe_cost_pilot.py` com
 `measure_existing_playwright_probe_cost`. A rotina recebe exclusivamente
 o **objeto `page` já existente**, a origem `time.monotonic_ns` e o instante
 de load capturados pelo consumidor na **mesma execução física de teste**.

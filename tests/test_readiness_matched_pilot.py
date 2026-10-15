@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from rasai.readiness_matched_pilot_322 import (
+from rasai.readiness_matched_pilot import (
     assess_matched_readiness_pilot, main,
 )
 

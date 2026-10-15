@@ -5,7 +5,7 @@ from dataclasses import asdict
 
 import pytest
 
-from rasai.readiness_probe_cost_pilot_322 import measure_existing_playwright_probe_cost
+from rasai.readiness_probe_cost_pilot import measure_existing_playwright_probe_cost
 
 READY = {
     "main_text_characters": 400,
@@ -140,7 +140,7 @@ def test_bad_budget_is_rejected_before_any_dom_call(value):
 
 
 def test_not_a_production_gateway_module():
-    from rasai import readiness_probe_cost_pilot_322 as module
+    from rasai import readiness_probe_cost_pilot as module
     for name in ("sqlite3", "requests", "httpx", "execute_m25_experience",
                  "m23_apdex", "persist_current_configuration"):
         assert name not in module.__dict__
