@@ -137,6 +137,23 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
 @media(max-width:700px){.report-reading-map{grid-template-columns:minmax(0,1fr)}.report-reading-step{grid-template-columns:38px minmax(0,1fr);padding:18px 0}}
 @media print{.report-reading-map{grid-template-columns:repeat(2,minmax(0,1fr))}.report-reading-step{break-inside:avoid}}
 
+/* #633 snapshot drill-down: canonical ink/secondary ink/blue palette,
+   explicit labels (not color-only), keyboard focus and AA contrast. */
+.report-snapshot-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))}
+.report-snapshot-metric{display:flex;flex-direction:column;gap:5px;min-width:0;background:var(--card);transition:border-color .15s ease}
+.report-snapshot-metric:hover,.report-snapshot-metric:focus-within{border-color:var(--blue)}
+.report-snapshot-metric>small:first-child{color:var(--secondary-ink);font-weight:650}
+.report-snapshot-metric>strong{color:var(--ink);font-size:1.12rem;font-variant-numeric:tabular-nums}
+.report-snapshot-metric>small:nth-of-type(2){color:var(--secondary-ink);line-height:1.5;flex:1}
+.report-snapshot-cta{display:block;color:var(--blue);font-size:.79rem;font-weight:700;line-height:1.4;margin-top:12px;padding-top:9px;border-top:1px solid var(--line);text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.report-snapshot-cta:hover{text-decoration-thickness:2px}
+.report-priority-filter{display:flex;align-items:baseline;justify-content:space-between;gap:9px 18px;flex-wrap:wrap;margin:12px 0;padding:12px 14px;background:#f2f6ff;border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:7px;color:var(--ink)}
+.report-priority-filter strong{font-size:.89rem}
+.report-priority-filter a{color:var(--blue);font-weight:700}
+#metric-lighthouse-performance,#metric-field-lcp-p75{scroll-margin-top:95px}
+#metric-lighthouse-performance:target,#metric-field-lcp-p75:target{display:inline-block;background:#f2f6ff;outline:2px solid var(--blue);outline-offset:3px;border-radius:2px}
+@media print{.report-snapshot-cta,.report-priority-filter{display:none!important}table[data-interactive-table='true'] tbody tr{display:table-row!important}}
+
 /* #633 objectives become a readable evidence index, not another card dashboard. */
 .directed-goal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 22px;border-top:1px solid var(--line)}
 .directed-goal-link{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:4px 14px;padding:17px 2px;border:0;border-bottom:1px solid var(--line);background:transparent;box-shadow:none;color:var(--ink);text-decoration:none}
@@ -372,6 +389,31 @@ document.querySelectorAll('table[data-interactive-table="true"]').forEach((table
   const sortable=table.dataset.sortable==='true';
   const wrap=table.closest('.table-wrap'); const controls=wrap&&wrap.nextElementSibling&&wrap.nextElementSibling.classList.contains('table-controls')?wrap.nextElementSibling:null;
   const info=controls?controls.querySelector('.table-page-info'):null; const prev=controls?controls.querySelector('[data-table-prev]'):null; const next=controls?controls.querySelector('[data-table-next]'):null;
+  // #633: query-driven view over the ORIGINAL actions. Filtering is reversible
+  // and never rewrites source data, governance, ordering or priority values.
+  const priorityRequest=new URLSearchParams(window.location.search).get('priority');
+  const actionCatalog=!!table.closest('#actions')&&!!table.querySelector('[data-action-priority]');
+  const priorityFilter=actionCatalog&&['HIGH','UNDEFINED'].includes(priorityRequest)?priorityRequest:null;
+  if(priorityFilter){
+    rows=original.filter((row)=>{
+      const marker=row.querySelector('[data-action-priority]');
+      const raw=marker?marker.getAttribute('data-action-priority'):'';
+      return priorityFilter==='HIGH'?raw==='HIGH':raw==='';
+    });
+    if(wrap){
+      const banner=document.createElement('div');
+      banner.className='report-priority-filter';
+      banner.setAttribute('role','status');
+      const label=document.createElement('strong');
+      const category=priorityFilter==='HIGH'?'Prioridade alta':'Prioridade não definida';
+      label.textContent=category+' · '+rows.length+' de '+original.length+' ações registradas';
+      const all=document.createElement('a');
+      all.href='directed-analysis.html#actions';
+      all.textContent='Ver todas as ações';
+      banner.append(label,all);
+      wrap.before(banner);
+    }
+  }
   const render=()=>{
     original.forEach((row)=>{row.style.display='none';});
     const totalPages=size?Math.max(1,Math.ceil(rows.length/size)):1; page=Math.min(Math.max(page,1),totalPages);
