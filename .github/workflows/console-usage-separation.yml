@@ -6,7 +6,7 @@ on:
     paths:
       - 'src/rasai/console_search_usage_319.py'
       - 'src/rasai/interactive_console.py'
-      - 'tests/test_console_search_usage_319.py'
+      - 'tests/test_console_search_usage.py'
       - 'docs/CONSOLE_COST_AND_USAGE.md'
       - '.github/workflows/console-usage-separation.yml'
   push:
@@ -14,7 +14,7 @@ on:
     paths:
       - 'src/rasai/console_search_usage_319.py'
       - 'src/rasai/interactive_console.py'
-      - 'tests/test_console_search_usage_319.py'
+      - 'tests/test_console_search_usage.py'
       - 'docs/CONSOLE_COST_AND_USAGE.md'
       - '.github/workflows/console-usage-separation.yml'
   workflow_dispatch:
@@ -38,4 +38,4 @@ jobs:
       - name: Install RASAi and test runner
         run: python -m pip install -e . pytest
       - name: Validate isolated read-only usage projection
-        run: python -m pytest -q tests/test_console_search_usage_319.py
+        run: python -m pytest -q tests/test_console_search_usage.py

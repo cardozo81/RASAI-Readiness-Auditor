@@ -41,5 +41,5 @@ jobs:
           tests/test_console_execution_gate_composition.py
           tests/test_console_cost_confirmation.py
           tests/test_console_first_run_cost_preview.py
-          tests/test_console_apdex_navigation_380.py
+          tests/test_console_apdex_navigation.py
           tests/test_console_apdex_cancel_transaction.py

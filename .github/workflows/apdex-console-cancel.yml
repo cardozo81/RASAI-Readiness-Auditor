@@ -36,5 +36,5 @@ jobs:
           tests/test_console_apdex_cancel_transaction.py
           tests/test_console_ui_refactor.py::test_apdex_edit_keeps_mix_inherited_when_mix_is_unchanged
           tests/test_console_ui_refactor.py::test_apdex_edit_cannot_reactivate_device_mix_override
-          tests/test_cat07_architecture_integration_358.py::test_rejected_guided_preview_restores_state_and_environment
+          tests/test_cat07_architecture_integration.py::test_rejected_guided_preview_restores_state_and_environment
           tests/test_console_input_navigation_contract.py::test_apdex_edit_restores_previous_values_when_cancelled_mid_form

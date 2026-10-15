@@ -8,7 +8,7 @@ on:
       - 'src/rasai/dynatrace_effective_values_adapter_355.py'
       - 'src/rasai/dynatrace_apdex_review_cli_355.py'
       - 'src/rasai/dynatrace_settings_live_355.py'
-      - 'tests/test_dynatrace_pinned_transport_355.py'
+      - 'tests/test_dynatrace_pinned_transport.py'
       - 'tests/test_dynatrace_apdex_arch_advisory.py'
       - 'docs/APDEX_DYNATRACE_ARCH_ADVISORY.md'
       - '.github/workflows/dynatrace-apdex-advisory-targeted.yml'
@@ -19,7 +19,7 @@ on:
       - 'src/rasai/dynatrace_effective_values_adapter_355.py'
       - 'src/rasai/dynatrace_apdex_review_cli_355.py'
       - 'src/rasai/dynatrace_settings_live_355.py'
-      - 'tests/test_dynatrace_pinned_transport_355.py'
+      - 'tests/test_dynatrace_pinned_transport.py'
       - 'tests/test_dynatrace_apdex_arch_advisory.py'
       - '.github/workflows/dynatrace-apdex-advisory-targeted.yml'
 
@@ -47,5 +47,5 @@ jobs:
         run: >-
           python -m pytest -q
           tests/test_dynatrace_apdex_arch_advisory.py
-          tests/test_dynatrace_pinned_transport_355.py
+          tests/test_dynatrace_pinned_transport.py
           tests/test_apdex_content_readiness_322.py

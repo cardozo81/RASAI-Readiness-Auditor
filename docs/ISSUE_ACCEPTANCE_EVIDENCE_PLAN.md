@@ -46,7 +46,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Executar inspeção read-only em AUD física estabilizada; construir cobertura por fase distinguindo OBSERVED/UNVERIFIED/N/D. Somente se houver fonte física segura, adicionar pontos de observabilidade nas bordas do runtime sem alterar lógica orquestradora; nunca inferir duração exclusiva por subtração.
 
-**Testes selecionados (planejados, não executados aqui):** `rasai audit-attempts <AUD_DIR>`; `python -m pytest -q tests/test_audit_stage_scope_319.py tests/test_audit_attempt_timeline_319.py tests/test_audit_duration_forecast_319.py tests/test_audit_cost_explain_319.py tests/test_cost_forecast.py`.
+**Testes selecionados (planejados, não executados aqui):** `rasai audit-attempts <AUD_DIR>`; `python -m pytest -q tests/test_audit_stage_scope_319.py tests/test_audit_attempt_timeline_319.py tests/test_audit_duration_forecast_319.py tests/test_audit_cost_explain.py tests/test_cost_forecast.py`.
 
 **Prova exigida para fechamento:** Reconciliação das 8 tentativas IA (M18 + remediação), momentos overlapped, custos por operação, expected/observed e P90 não-teto, cobertura por fase; N/D preservado quando relógio ausente; no duplicate-cost. Fechar com equivalência comprovada console/prévia/relatório e cobertura exigível demonstrada.
 
@@ -142,7 +142,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Primeiro executar comparadores offline com export/snapshot autorizado, confirmar KPM/threshold/fallback por action e contexto de coorte; no gate autorizado, executar somente consulta RUM read-only no tenant controlado, sem inventar settings nem alterar M23/M25.
 
-**Testes selecionados (planejados, não executados aqui):** `rasai dynatrace-rum-crosscheck` com snapshots locais verificados; `python -m pytest -q tests/test_dynatrace_apdex_arch_advisory.py tests/test_dynatrace_population_crosscheck.py tests/test_dynatrace_live_crosscheck.py tests/test_cat07_architecture_integration_358.py`.
+**Testes selecionados (planejados, não executados aqui):** `rasai dynatrace-rum-crosscheck` com snapshots locais verificados; `python -m pytest -q tests/test_dynatrace_apdex_arch_advisory.py tests/test_dynatrace_population_crosscheck.py tests/test_dynatrace_live_crosscheck.py tests/test_cat07_architecture_integration.py`.
 
 **Prova exigida para fechamento:** Settings snapshot físico e metadados tenant/app + USQL action populations com janela temporal; captura do CAT-07 `N/D` quando não obtido, distinção load vs SPA route e método Synthetic; homologação humana do crosscheck real exigida no contrato.
 
@@ -166,7 +166,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Conferir gates e condições das filhas #355, #358 e relação consultiva com #523; separar entregas de advisory aprováveis sem RUM de alegações que requerem tenant real. Não reabrir #322 como atalho e não alterar M23/M25.
 
-**Testes selecionados (planejados, não executados aqui):** `python -m pytest -q tests/test_cat07_architecture_integration_358.py tests/test_dynatrace_apdex_arch_advisory.py tests/test_m25_dynatrace_compat_defaults.py`.
+**Testes selecionados (planejados, não executados aqui):** `python -m pytest -q tests/test_cat07_architecture_integration.py tests/test_dynatrace_apdex_arch_advisory.py tests/test_m25_dynatrace_compat_defaults.py`.
 
 **Prova exigida para fechamento:** Matriz dos critérios do épico com ponte para evidências #355/#523 e histórico de PRs, CAT-07 real read-only, aceites exigíveis. Fechar somente o épico contratualmente completo, sem condicionar parte independente ao sensor opt-in.
 

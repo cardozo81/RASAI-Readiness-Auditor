@@ -37,4 +37,4 @@ jobs:
         run: >-
           python -m pytest -q
           tests/test_report_section_readability.py
-          tests/test_cat07_architecture_integration_358.py
+          tests/test_cat07_architecture_integration.py
