@@ -8,7 +8,7 @@ import sqlite3
 from typing import Any
 
 from rasai.external_sari import MAX_OVERALL_IMPACT_POINTS, MIN_OBSERVED_URL_RATIO, RULE_ID
-from rasai.score_geo_004 import GROUP_WEIGHTS
+from rasai.score_geo import GROUP_WEIGHTS
 
 _MARKER = "RASAI_EXTERNAL_SARI_CORROBORATION"
 _GROUP_ID = "EXTERNAL_CRAWL_CORROBORATION"

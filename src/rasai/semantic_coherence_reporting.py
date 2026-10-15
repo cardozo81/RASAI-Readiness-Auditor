@@ -7,7 +7,7 @@ import json
 import sqlite3
 from typing import Any
 
-from rasai.score_geo_004 import DIMENSION_WEIGHTS, RULE_SCORING_CONTRACT
+from rasai.score_geo import DIMENSION_WEIGHTS, RULE_SCORING_CONTRACT
 from rasai.semantic_coherence import PAGE_COHERENCE_CRITERIA, PROPERTY_COHERENCE_CRITERIA
 from rasai.catalog_report_public_labels import public_label
 from rasai.report_presentation import SCORING_CONCEPT_LABELS

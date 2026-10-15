@@ -16,7 +16,7 @@ from rasai.observability.store import observability_database_path
 import sqlite3
 from typing import Any
 
-from rasai.score_geo_004 import SCORING_VERSION
+from rasai.score_geo import SCORING_VERSION
 
 _DETERMINISTIC_RULES = frozenset(
     [f"BR-GEO-{number:03d}" for number in range(1, 28)]

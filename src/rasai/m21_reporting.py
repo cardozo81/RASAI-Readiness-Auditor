@@ -11,7 +11,7 @@ from typing import Any
 from rasai.m22_quality_domains import enrich_m22_domain_reports
 from rasai.persistence import AuditWorkspace
 from rasai.report_navigation import normalize_report_navigation, render_report_navigation
-from rasai.score_geo_004 import SCORING_VERSION
+from rasai.score_geo import SCORING_VERSION
 
 PERFORMANCE_FILE = "web-performance.html"
 
