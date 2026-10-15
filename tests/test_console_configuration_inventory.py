@@ -310,7 +310,7 @@ def test_optional_apdex_preflight_checks_real_m23_m25_without_starting_aud(tmp_p
     from rasai.console_search_intelligence import SearchConsoleState
     from rasai.console_ui_refactor import _install_search_persistence
     from rasai.console_complete_persistence import install
-    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+    from rasai.console_apdex_effective_validation import inspect_apdex_consumers
     from rasai import console_settings
 
     _install_search_persistence()
@@ -356,7 +356,7 @@ def test_optional_apdex_preflight_checks_real_m23_m25_without_starting_aud(tmp_p
 
 
 def test_apdex_preflight_missing_source_never_creates_file(tmp_path):
-    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+    from rasai.console_apdex_effective_validation import inspect_apdex_consumers
     ini = tmp_path / "no-config.ini"
     result = inspect_apdex_consumers(ini)
     assert result["status"] == "SOURCE_UNAVAILABLE"
@@ -370,7 +370,7 @@ def test_apdex_preflight_rejects_bad_operator_apdex_without_echoing_values(tmp_p
     from rasai.console_search_intelligence import SearchConsoleState
     from rasai.console_ui_refactor import _install_search_persistence
     from rasai.console_complete_persistence import install
-    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+    from rasai.console_apdex_effective_validation import inspect_apdex_consumers
     from rasai import console_settings
     _install_search_persistence()
     install()
@@ -402,7 +402,7 @@ def test_apdex_readonly_preflight_preserves_existing_m25_handoff_even_on_error(t
     from rasai.console_search_intelligence import SearchConsoleState
     from rasai.console_ui_refactor import _install_search_persistence
     from rasai.console_complete_persistence import install
-    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+    from rasai.console_apdex_effective_validation import inspect_apdex_consumers
     from rasai.m25_apdex_experience import ExperienceApdexConfig
     from rasai.m25_runtime import peek_pending_config, set_pending_config
     from rasai import console_settings
@@ -456,7 +456,7 @@ def test_apdex_preflight_does_not_call_shared_m25_setter(tmp_path, monkeypatch):
     from rasai.console_search_intelligence import SearchConsoleState
     from rasai.console_ui_refactor import _install_search_persistence
     from rasai.console_complete_persistence import install
-    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+    from rasai.console_apdex_effective_validation import inspect_apdex_consumers
     from rasai import console_settings, m25_runtime
 
     _install_search_persistence()
@@ -903,7 +903,7 @@ def test_apdex_preflight_rejects_identical_byte_inode_swap(tmp_path, monkeypatch
     from rasai.console_search_intelligence import SearchConsoleState
     from rasai.console_ui_refactor import _install_search_persistence
     from rasai.console_complete_persistence import install
-    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+    from rasai.console_apdex_effective_validation import inspect_apdex_consumers
 
     if os.name == "nt":
         pytest.skip("Windows can forbid os.replace while file descriptor is open")
@@ -941,7 +941,7 @@ def test_apdex_preflight_rejects_same_content_swap_after_adapter(tmp_path, monke
     from rasai.console_search_intelligence import SearchConsoleState
     from rasai.console_ui_refactor import _install_search_persistence
     from rasai.console_complete_persistence import install
-    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+    from rasai.console_apdex_effective_validation import inspect_apdex_consumers
 
     if os.name == "nt":
         pytest.skip("POSIX-only source replacement scenario")
@@ -975,7 +975,7 @@ def test_apdex_preflight_rejects_descriptor_identity_mismatch_cross_platform(tmp
     """Stat versus fstat mismatch must be fail-closed on Linux and Windows."""
     from types import SimpleNamespace
     from unittest.mock import patch
-    from rasai import console_apdex_effective_validation_523 as inspector
+    from rasai import console_apdex_effective_validation as inspector
 
     candidate = tmp_path / "operator.ini"
     candidate.write_bytes(b"[environment]\\n")
@@ -997,7 +997,7 @@ def test_apdex_preflight_rejects_descriptor_identity_mismatch_cross_platform(tmp
 
 
 def test_apdex_load_warning_categories_are_sanitized_and_exhaustive():
-    from rasai.console_apdex_effective_validation_523 import _classify_load_warnings
+    from rasai.console_apdex_effective_validation import _classify_load_warnings
 
     warnings = [
         "environment.NOT_A_REAL_VAR: variável não reconhecida ou não persistível",
@@ -1020,12 +1020,12 @@ def test_apdex_load_warning_categories_are_sanitized_and_exhaustive():
 
 
 def test_apdex_load_warning_categories_empty():
-    from rasai.console_apdex_effective_validation_523 import _classify_load_warnings
+    from rasai.console_apdex_effective_validation import _classify_load_warnings
     assert sum(_classify_load_warnings([]).values()) == 0
 
 
 def test_rejected_environment_warning_reasons_are_non_disclosing():
-    from rasai.console_apdex_effective_validation_523 import (
+    from rasai.console_apdex_effective_validation import (
         _classify_environment_warning_reasons,
     )
 
@@ -1053,7 +1053,7 @@ def test_apdex_preflight_classifies_rejected_environment_without_read_write_leak
     tmp_path,
 ):
     from unittest.mock import patch
-    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+    from rasai.console_apdex_effective_validation import inspect_apdex_consumers
 
     path = tmp_path / "operator.ini"
     path.write_text(

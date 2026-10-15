@@ -441,7 +441,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     report = inventory(path=args.ini)
     if args.verify_apdex:
-        from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+        from rasai.console_apdex_effective_validation import inspect_apdex_consumers
         selected = args.ini if args.ini is not None else canonical_console_config_path()
         report["apdex_offline_consumer_preflight"] = inspect_apdex_consumers(selected)
     print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))

@@ -49,7 +49,7 @@ nem capacidade de interação do usuário.
 
 ## Implementação aditiva
 
-`rasai.dynatrace_apdex_arch_advisory_355.assess_dynatrace_apdex_architecture`
+`rasai.dynatrace_apdex_arch_advisory.assess_dynatrace_apdex_architecture`
 é uma função puramente determinística que recebe explicitamente:
 arquitetura, ID de evidência da classificação, presença de soft
 navigation e gatilho XHR/Fetch, e um snapshot **fornecido pelo chamador**

@@ -59,7 +59,7 @@ if operation == "save":
 elif operation == "load":
     loaded = console_settings.load_console_config(state)
     console_settings.sync_nonsecret_runtime_environment(state)
-    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+    from rasai.console_apdex_effective_validation import inspect_apdex_consumers
     preflight = inspect_apdex_consumers(loaded.path, environ={})
     result = {
         "typed": console_settings._state_values(state),

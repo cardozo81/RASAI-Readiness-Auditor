@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from rasai.dynatrace_apdex_arch_advisory_355 import (
+from rasai.dynatrace_apdex_arch_advisory import (
     assess_dynatrace_apdex_architecture as assess,
 )
 
@@ -198,7 +198,7 @@ def test_custom_actions_only_allow_user_action_duration():
 
 
 def test_no_homologated_apdex_runtime_dependency():
-    from rasai import dynatrace_apdex_arch_advisory_355 as module
+    from rasai import dynatrace_apdex_arch_advisory as module
     assert not any(name in module.__dict__ for name in (
         "m23_apdex", "m25_apdex_experience", "requests", "httpx",
         "sqlite3", "AuditWorkspace", "build_provider",
@@ -486,7 +486,7 @@ def test_offline_effective_values_cli_is_read_only_with_explicit_unverified_scop
 def test_pt_br_kpm_profiles_are_architecture_contextual_not_applied_defaults(
     architecture, soft, async_seen, expected_types,
 ):
-    from rasai.dynatrace_apdex_arch_advisory_355 import (
+    from rasai.dynatrace_apdex_arch_advisory import (
         explain_dynatrace_apdex_pt_br,
         KPM_BY_ACTION,
     )
@@ -517,7 +517,7 @@ def test_pt_br_kpm_profiles_are_architecture_contextual_not_applied_defaults(
 
 
 def test_pt_br_kpm_profiles_do_not_label_absent_xhr_as_disabled_capture():
-    from rasai.dynatrace_apdex_arch_advisory_355 import (
+    from rasai.dynatrace_apdex_arch_advisory import (
         explain_dynatrace_apdex_pt_br,
     )
     advisory = _assess(settings=_config(), architecture="CSR_SPA")
@@ -534,7 +534,7 @@ def test_pt_br_kpm_profiles_do_not_label_absent_xhr_as_disabled_capture():
 
 
 def test_pt_br_kpm_profile_custom_action_and_unknown_architecture_abstain():
-    from rasai.dynatrace_apdex_arch_advisory_355 import (
+    from rasai.dynatrace_apdex_arch_advisory import (
         explain_dynatrace_apdex_pt_br,
     )
     settings = _config(xhr=True, count=5)
@@ -560,7 +560,7 @@ def test_pt_br_kpm_profile_custom_action_and_unknown_architecture_abstain():
 
 
 def test_pt_br_advisory_spa_load_only_never_claims_captured_xhr():
-    from rasai.dynatrace_apdex_arch_advisory_355 import explain_dynatrace_apdex_pt_br
+    from rasai.dynatrace_apdex_arch_advisory import explain_dynatrace_apdex_pt_br
     verdict = _assess(settings=_config())
     explanation = explain_dynatrace_apdex_pt_br(verdict)
     assert explanation["conclusao"] == "Cobertura das ações não comprovada"
@@ -572,7 +572,7 @@ def test_pt_br_advisory_spa_load_only_never_claims_captured_xhr():
 
 
 def test_pt_br_advisory_rejects_fabricated_metrics_and_surfaces_threshold_reasons():
-    from rasai.dynatrace_apdex_arch_advisory_355 import explain_dynatrace_apdex_pt_br
+    from rasai.dynatrace_apdex_arch_advisory import explain_dynatrace_apdex_pt_br
     cfg = _config(xhr=True)
     cfg["xhr_actions"]["kpm"] = "SPEED_INDEX"
     invalid = _assess(settings=cfg)
@@ -752,7 +752,7 @@ def test_cli_live_settings_requires_opt_in_and_keeps_no_secrets(tmp_path, monkey
      "scope_provenance": "AUTHENTICATED_SETTINGS_API_SCOPE_NOT_RUM_EVENTS"},
 ])
 def test_355_operator_provenance_string_does_not_certify_live_tenant_read(incomplete):
-    from rasai.dynatrace_apdex_arch_advisory_355 import explain_dynatrace_apdex_pt_br
+    from rasai.dynatrace_apdex_arch_advisory import explain_dynatrace_apdex_pt_br
 
     answer = _assess()
     answer.update(incomplete)
@@ -765,7 +765,7 @@ def test_355_operator_provenance_string_does_not_certify_live_tenant_read(incomp
 
 
 def test_355_live_message_requires_all_cli_transport_scope_contract_fields():
-    from rasai.dynatrace_apdex_arch_advisory_355 import explain_dynatrace_apdex_pt_br
+    from rasai.dynatrace_apdex_arch_advisory import explain_dynatrace_apdex_pt_br
 
     answer = _assess()
     answer.update({

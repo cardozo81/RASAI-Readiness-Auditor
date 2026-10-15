@@ -136,7 +136,7 @@ def _dynatrace_rum_kpm_reference_html(architecture: str) -> str:
     RUM review. Never promote M25 Synthetic KPM to a Dynatrace RUM setting,
     invent a numeric threshold or infer that XHR/Fetch is instrumented.
     """
-    from rasai.dynatrace_apdex_arch_advisory_355 import KPM_BY_ACTION
+    from rasai.dynatrace_apdex_arch_advisory import KPM_BY_ACTION
 
     title = "<h4>Referência de KPMs Dynatrace RUM por tipo de ação (não aplicada)</h4>"
     if architecture not in ("CSR_SPA", "HYDRATED", "MIXED", "STATIC_OR_SSR"):

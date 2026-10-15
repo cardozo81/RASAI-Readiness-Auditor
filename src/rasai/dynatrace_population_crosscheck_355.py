@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from rasai.dynatrace_apdex_arch_advisory_355 import (
+from rasai.dynatrace_apdex_arch_advisory import (
     KPM_BY_ACTION, VERSION as _SETTINGS_ADVISORY_VERSION,
 )
 from rasai.dynatrace_rum_population_355 import _APPLICATION_ID, _DEVICE

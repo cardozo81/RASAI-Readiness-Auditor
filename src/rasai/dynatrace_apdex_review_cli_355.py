@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 from typing import Sequence
 
-from rasai.dynatrace_apdex_arch_advisory_355 import (
+from rasai.dynatrace_apdex_arch_advisory import (
     ARCHITECTURES, assess_dynatrace_apdex_architecture,
     explain_dynatrace_apdex_pt_br,
 )

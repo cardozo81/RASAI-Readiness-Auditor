@@ -2,7 +2,7 @@
 from pathlib import Path
 import re
 
-from rasai.dynatrace_apdex_arch_advisory_355 import explain_dynatrace_apdex_pt_br
+from rasai.dynatrace_apdex_arch_advisory import explain_dynatrace_apdex_pt_br
 from rasai.cat07_architecture_reporting import _REASON_LABELS
 
 
