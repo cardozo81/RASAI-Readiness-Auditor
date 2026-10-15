@@ -140,13 +140,44 @@ def _action_target_contexts(
     actions: Sequence[Mapping[str,Any]],
 ) -> dict[str,dict[str,str]]:
     """Resolve human-safe action targets only from already-persisted evidence."""
-    security_actions=[
+    # Present a target only when a field in the original source identifies it.
+    # This is a read-only lookup, not a geographic/DOM inference. SQL table
+    # names and selectors are a fixed allowlist, never user-supplied.
+    contexts: dict[str, dict[str, str]] = {}
+    target_specs = (
+        ("CONTENT_AI", "content_remediation_suggestions", "suggestion_id",
+         "target_location", "Local descrito na recomendação",
+         "Localização textual persistida; pode não corresponder a um seletor exato."),
+        ("DEEP_ANALYSIS", "improvement_intelligence_recommendations",
+         "recommendation_id", "selector", "Seletor CSS registrado",
+         "Seletor da análise profunda; validar no DOM antes de alterar."),
+        ("DETERMINISTIC", "recommendations", "recommendation_id",
+         "target_selector", "Seletor técnico registrado",
+         "Seletor do registro de origem, não verificado novamente pelo relatório."),
+    )
+    for kind, table, id_key, target_key, title, note in target_specs:
+        source_rows = _rows(connection, table, audit_id)
+        sources = {
+            str(row.get(id_key) or ""): row for row in source_rows
+        }
+        for action in actions:
+            if _norm(action.get("source_kind")) != kind:
+                continue
+            source = sources.get(str(action.get("source_id") or ""), {})
+            target_value = str(source.get(target_key) or "").strip()
+            if target_value:
+                contexts[str(action.get("action_id") or "")] = {
+                    "label": title + ": " + target_value,
+                    "note": note,
+                }
+
+    security_actions = [
         action for action in actions
-        if _norm(action.get("source_kind"))=="SECURITY_REMEDIATION"
+        if _norm(action.get("source_kind")) == "SECURITY_REMEDIATION"
         and str(action.get("source_id") or "").strip()
     ]
     if not security_actions:
-        return {}
+        return contexts
     try:
         remediations={
             str(row["remediation_id"]):dict(row)
@@ -171,7 +202,7 @@ def _action_target_contexts(
             ).fetchall()
         ]
     except sqlite3.Error:
-        return {}
+        return contexts
 
     resource_for_finding: dict[str,dict[str,Any]]={}
     for finding_id,finding in findings.items():
@@ -195,7 +226,6 @@ def _action_target_contexts(
                 resource_for_finding[finding_id]=resource
                 break
 
-    contexts: dict[str,dict[str,str]]={}
     for action in security_actions:
         action_id=str(action.get("action_id") or "")
         remediation=remediations.get(str(action.get("source_id") or ""))
