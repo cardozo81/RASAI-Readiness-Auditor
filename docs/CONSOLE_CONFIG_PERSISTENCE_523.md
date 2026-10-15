@@ -503,3 +503,10 @@ Este gate é adicional e distinto de `C=usar IA` ou `N=não usar IA` da IA gener
 Os campos ativos `perplexity_queries`/`perplexity_search_type` são definidos **temporariamente durante o run autorizado**, restaurados no final, inclusive em erro; o próximo run exige novo aceite. A opção `D` no CAT-05 desabilita a proposta **na AUD corrente** e não apaga o rascunho salvo no INI; `9 > C` seguido de salvar remove o rascunho. Se uma solicitação explícita já foi feita na sessão (`9 > R > S` ou edição de query), não se oferece gate duplicado. Não altera motor Perplexity nem SERP, coleta, scoring, SQLite ou relatórios.
 
 Referências anteriores neste documento ao caminho obrigatório `P > 9` deixam de representar o fluxo preferencial. A opção 9 continua disponível para controle manual, mas o caminho principal passa a ser **carregar INI → preparar AUD → R → confirmar Perplexity → confirmação financeira geral**.
+
+
+## Proveniência secret-safe: indício de credencial indevida no INI (#523)
+
+A inspeção somente de leitura `console_config_provenance_523.inspect_configuration` reporta a **quantidade** de entradas potencialmente secretas encontradas no inventário `[environment]` do INI, de acordo com o catálogo sensível e o predicado de segredo. Nunca imprime nome ou valor, não migra o segredo para o ambiente/registro Windows e não o preserva num relatório. A saída apresenta alerta de revisão local, não informação sensível. Caminhos simbólicos são recusados em vez de seguir apontamentos para arquivos privados arbitrários.
+
+O indicador `private_entries_in_ini` tem semântica estrita: contagem de chaves com aparência/contrato de segredo em um arquivo existente, **não** prova que a credencial seja válida nem revela quem a inseriu. O campo não reautoriza Perplexity nem atualiza a execução em andamento. Testes usam fixture com valor sentinela e verificam ausência completa desse valor no texto renderizado.
