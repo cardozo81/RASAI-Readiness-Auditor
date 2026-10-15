@@ -1,4 +1,4 @@
-# RASAi — Plano de evidências e conclusão das issues elegíveis
+# RASAi - Plano de evidências e conclusão das issues elegíveis
 
 > Checkpoint verificado em 15/10/2026: `main@d91bf6eb89bc5570464c69323c44b673655bcafa`; 15 issues abertas ≥ #301; PRs abertas: 0; CI final 17/17 checks e 12/12 workflows push SUCCESS. Este documento **é plano**, não relatório de testes executados neste ciclo.
 
@@ -26,7 +26,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 ## Direcionamento individual e gates
 
-### Issue #523 — P1 · IMPLEMENTED_NOT_PROVEN + PARTIALLY_IMPLEMENTED
+### Issue #523 - P1 · IMPLEMENTED_NOT_PROVEN + PARTIALLY_IMPLEMENTED
 
 **Já presente / evidência técnica:** `console_configuration_inventory_523`, `console_config_provenance_523`, testes de save/load em processos independentes, projeção M23/M25, draft Perplexity não autorizativo.
 
@@ -38,7 +38,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Prova exigida para fechamento:** CSV/JSON secret-safe de 100% do registry (categoria, source, persistência, origem, loader, consumidor, precedência e resultado), round-trip não default em 2 processos, comparação de efeitos em adapters, prova Windows específica sem credenciais reais. Fechar só com matriz completa e gate Windows pertinente.
 
-### Issue #319 — P1 · PARTIALLY_IMPLEMENTED
+### Issue #319 - P1 · PARTIALLY_IMPLEMENTED
 
 **Já presente / evidência técnica:** `audit-attempts`, `audit_fulfillment_timing_319`, cronômetros de logs operacionais, forecasts, exclusão de custos Directed/Search opcionais (PR #629).
 
@@ -50,7 +50,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Prova exigida para fechamento:** Reconciliação das 8 tentativas IA (M18 + remediação), momentos overlapped, custos por operação, expected/observed e P90 não-teto, cobertura por fase; N/D preservado quando relógio ausente; no duplicate-cost. Fechar com equivalência comprovada console/prévia/relatório e cobertura exigível demonstrada.
 
-### Issue #602 — P1 · IMPLEMENTED_NOT_PROVEN + NEEDS_DECISION
+### Issue #602 - P1 · IMPLEMENTED_NOT_PROVEN + NEEDS_DECISION
 
 **Já presente / evidência técnica:** Classificador opcional/contradição/desconhecido, ADR, laboratório in-memory, CLI read-only `optional_seo_audit_replay_602` sem alterar SCORE-GEO-004.
 
@@ -62,7 +62,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Prova exigida para fechamento:** Golden da AUD com 59 rule executions e score persistido 86,484962, comparação BR-GEO-003/013/017 e matriz de delta por dimensão, política aprovada e contrato versionado, replays idempotentes, nenhuma alteração da AUD original. Sem decisão: issue OPEN.
 
-### Issue #601 — P1 · PARTIALLY_IMPLEMENTED + BLOCKED_AUTH
+### Issue #601 - P1 · PARTIALLY_IMPLEMENTED + BLOCKED_AUTH
 
 **Já presente / evidência técnica:** Classificador de transição FAQ no DOM e `faq_interaction_receipt_601` HMAC, com guard `crawler_discovery_verified=false`; testes em `test_ymyl_context_flow.py`.
 
@@ -74,7 +74,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Prova exigida para fechamento:** Fixtures reais autorizadas e rastreáveis com recibos íntegros do mesmo alvo e URL, distinção de estados read-only, relatório sem alegar ausência editorial ou indexação sem prova; score histórico intacto. Qualquer alteração numérica depende de contrato/versionamento próprio.
 
-### Issue #600 — P1 · IMPLEMENTED_NOT_PROVEN + GATED
+### Issue #600 - P1 · IMPLEMENTED_NOT_PROVEN + GATED
 
 **Já presente / evidência técnica:** SARI/overview com cobertura percentual/fração, scope ORIGIN versus URL, Lighthouse/CrUX/Apdex com ressalvas, destaque LOW/PARTIAL e SERP 9/20, após PRs #620/#621 e UX #633.
 
@@ -86,7 +86,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Prova exigida para fechamento:** Capturas/asserções da apresentação do 86,5 HIGH e coverage 97,5%, dimensão CONTENT_VALUE LOW/PARTIAL, ORIGIN vs URL, 9/20 SERP; gate semântico #601/#602 formalmente reconciliado. Não exigir performance real boa como condição do SARI.
 
-### Issue #603 — P2 · PARTIALLY_IMPLEMENTED + BLOCKED_EXTERNAL
+### Issue #603 - P2 · PARTIALLY_IMPLEMENTED + BLOCKED_EXTERNAL
 
 **Já presente / evidência técnica:** Classificador de claims, recibo de revisor HMAC e CLI importador offline, mensagem `official_regulator_source_verified=false` até autenticidade independente.
 
@@ -98,7 +98,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Prova exigida para fechamento:** Dossiê de fonte primária autenticada e recebimento sob autorização, prova por claim/versão/escopo, teste de ausência de credencial no INI, relatório `CLAIM_UNVERIFIED_EXTERNAL` na falta de fonte. Sem documento/revisor externo, não fechar se a aceitação exige corroboração.
 
-### Issue #304 — P1 · PARTIALLY_IMPLEMENTED + BLOCKED_EXTERNAL
+### Issue #304 - P1 · PARTIALLY_IMPLEMENTED + BLOCKED_EXTERNAL
 
 **Já presente / evidência técnica:** GEO OBSERVATION v8, `geo_query_ledger_304`, URL exata/host alternativo, denominadores e abstenções, N/D por query sem proveniência, UI descritiva.
 
@@ -110,7 +110,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Prova exigida para fechamento:** Amostra de pares com request IDs, query, intent, país/idioma/device/collected_at e hashes físicos, denominadores válidos, multi-query positivo/negativo. Sem provider comparável, aceitar apenas alegação descritiva, não certificar ranking/share/citação.
 
-### Issue #311 — P3 · PARTIALLY_IMPLEMENTED + NEEDS_DECISION
+### Issue #311 - P3 · PARTIALLY_IMPLEMENTED + NEEDS_DECISION
 
 **Já presente / evidência técnica:** `geo-longitudinal`, `geo_cons_companion_311`, pacote derivado e preflight seguro, trends N/D, CONS-3 intocado.
 
@@ -122,7 +122,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Prova exigida para fechamento:** Proveniência por coorte, mesma URL/query/mercado/método/versão, série N/D quando não homogênea, package source hashes, contrato CONS aprovado, teste de fingerprints e não alteração de CONS-3. Sem metodologia: OPEN.
 
-### Issue #330 — P3 · PARTIALLY_IMPLEMENTED + BLOCKED_AUTH
+### Issue #330 - P3 · PARTIALLY_IMPLEMENTED + BLOCKED_AUTH
 
 **Já presente / evidência técnica:** Coleta HTTP opcional gated por consent-host/robots, transporte pinado, evidência content/bundle/sidecar e comparação read-only; docs com nomes estáveis pós PR #643.
 
@@ -134,7 +134,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Prova exigida para fechamento:** Fixtures HTTP de shell vazio/robots/403/redirect/SPA; para aceite externo obter consentimento por alvo, log autorizado de egress, URL inicial/final mesma origem autorizada, hash HTML renderizado, captura principal e provenance com observation_id; sem opt-in não navegar.
 
-### Issue #355 — P2 · IMPLEMENTED_NOT_PROVEN + BLOCKED_EXTERNAL
+### Issue #355 - P2 · IMPLEMENTED_NOT_PROVEN + BLOCKED_EXTERNAL
 
 **Já presente / evidência técnica:** Advisory arquitetura, Settings 2.0, RUM USQL, crosschecks offline/live opt-in e transporte pinado; CAT-07 diferencia RUM vs Synthetic.
 
@@ -146,7 +146,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Prova exigida para fechamento:** Settings snapshot físico e metadados tenant/app + USQL action populations com janela temporal; captura do CAT-07 `N/D` quando não obtido, distinção load vs SPA route e método Synthetic; homologação humana do crosscheck real exigida no contrato.
 
-### Issue #322 — EXCEÇÃO · BLOCKED_AUTH / EXPERIMENTAL
+### Issue #322 - EXCEÇÃO · BLOCKED_AUTH / EXPERIMENTAL
 
 **Já presente / evidência técnica:** Sidecar experimental offline, Playwright pilot e A/B de overhead; sem conexão ao gateway M25 e sem ativação produtiva.
 
@@ -158,7 +158,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Prova exigida para fechamento:** Para uma futura autorização: identidade física page/sample/clock, baseline e overhead, aceitação feature gate, não alteração M23/M25. Estado OPEN até lá.
 
-### Issue #357 — EPIC/P2 · EPIC_GATED
+### Issue #357 - EPIC/P2 · EPIC_GATED
 
 **Já presente / evidência técnica:** Perfis consultivos de arquitetura/CAT-07, interface de presets e observabilidade Dynatrace independente com testes; #321 e #324 históricas concluídas.
 
@@ -170,7 +170,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Prova exigida para fechamento:** Matriz dos critérios do épico com ponte para evidências #355/#523 e histórico de PRs, CAT-07 real read-only, aceites exigíveis. Fechar somente o épico contratualmente completo, sem condicionar parte independente ao sensor opt-in.
 
-### Issue #301 — EPIC/P1 · EPIC_GATED
+### Issue #301 - EPIC/P1 · EPIC_GATED
 
 **Já presente / evidência técnica:** Pipeline GEO observacional, Perplexity opt-in, relatório GEO e integrações aprovadas no recorte da AUD; release #310 encerrada.
 
@@ -182,9 +182,9 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Prova exigida para fechamento:** Rastreabilidade de cada filha obrigatória, evidência de fontes, fechamento de #304 quando contratualmente possível, paridade geo.html e motor preservado. Aceitar descritivo com N/D apenas se contrato do épico permitir explicitamente; se não, OPEN.
 
-### Issue #604 — EPIC/P1 · EPIC_GATED
+### Issue #604 - EPIC/P1 · EPIC_GATED
 
-**Já presente / evidência técnica:** Predecessores #597/#598/#599 concluídos e PRs de interpretação / indicadores integradas; #600–#603 seguem parcial/condicionado.
+**Já presente / evidência técnica:** Predecessores #597/#598/#599 concluídos e PRs de interpretação / indicadores integradas; #600-#603 seguem parcial/condicionado.
 
 **Critério residual e risco:** Gate de política #601/#602, claim assurance #603 e aprovação executiva #600 sem declarar score factual externamente validado.
 
@@ -192,13 +192,13 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Testes selecionados (planejados, não executados aqui):** Executar testes direcionados das filhas; smoke visual consolidado uma única vez após gates e PRs integradas, sem nova AUD paga.
 
-**Prova exigida para fechamento:** Matriz fechada #597–#603, commits/PRs, release read-only, hash AUD, CI final, aceite humano apenas onde expressamente exigido; então fechar épico.
+**Prova exigida para fechamento:** Matriz fechada #597-#603, commits/PRs, release read-only, hash AUD, CI final, aceite humano apenas onde expressamente exigido; então fechar épico.
 
-### Issue #639 — P3 · PARTIALLY_IMPLEMENTED
+### Issue #639 - P3 · PARTIALLY_IMPLEMENTED
 
 **Já presente / evidência técnica:** Gate incremental de novos paths (#640), migração documental (#641/#642/#643) e docs de política; 238 caminhos numéricos por inventário de árvore não truncada.
 
-**Critério residual e risco:** Inventário de ID opaco não coberto por regex, referências por categoria, exceções públicas/externas e 238 paths legados ainda não migrados.
+**Critério residual e risco:** Inventário de ID opaco não coberto por regex, referências por categoria, exceções públicas/externas e 238 paths anteriores ainda não migrados.
 
 **Implementação ou verificação direcionada:** Por lotes semânticos em mesma branch integradora: docs restantes (28), workflows (55), scripts (1), testes (94), módulos src (60). Antes de cada rename gerar grafo de imports/CLI/workflows/docs, atualizar referências de CI e entradas documentadas; preferir git mv e nenhuma alteração de bytes quando possível.
 
@@ -210,7 +210,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 1. Fixar SHA do HEAD e localizar evidência imutável antes de qualquer replay. Na análise de AUD, usar **cópia isolada**, SQLite `immutable=1`/read-only quando suportado; rejeitar WAL/SHM/journal pendentes; gerar SHA-256 antes/depois de `audit.db`.
 2. Executar **apenas** pytest/CLI do recorte afetado, mais gates de contrato diretamente relevantes; não executar matriz manual completa. A PR aciona checks regulares do GitHub.
-3. Preservar o resultado do fluxo legado como golden em paridade; nunca reinterpretar versão histórica nova a partir de estado metodológico atual. Quando mudança numérica de score for necessária, nova versão, ADR, backtest, fixture negativa/positiva e aceite decisório explícito.
+3. Preservar o resultado do fluxo anteriores como golden em paridade; nunca reinterpretar versão histórica nova a partir de estado metodológico atual. Quando mudança numérica de score for necessária, nova versão, ADR, backtest, fixture negativa/positiva e aceite decisório explícito.
 4. Integrar a PR apenas com checks obrigatórios verdes; confirmar HEAD final e workflows push separadamente. Diferenciar falha de startup de contêiner de falha de testes; reexecutar apenas job de infra afetado.
 5. Fechar issue como `COMPLETED` **somente** com todos os critérios exigíveis comprovados na `main`, testes e provas necessárias, nenhuma homologação/decisão humana obrigatória faltante.
 6. Se faltar apenas prova externa/autorização, registrar exatamente fonte, escopo, responsável, custo e critério de desbloqueio; prosseguir nas demais issues. Épicos não são concluídos por encerramento administrativo, UX previamente aprovada ou quantidade de commits.
@@ -221,4 +221,4 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 - **#357:** o advisory de arquitetura é independente do sensor experimental #322; manter o gate próprio #355 e a compatibilidade de configuração #523. #322 não é autorização de alterar motores.
 - **#523:** documentação histórica anterior sobre queries Perplexity não persistirem foi **substituída** pelo contrato posterior de `[perplexity_draft]`, que persiste somente rascunho não autorizativo. Não classificar draft restaurado como consentimento.
 - **#600:** as correções de apresentação #633 não constituem prova de scores novos; o cálculo canônico pode permanecer numericamente inalterado enquanto falta decisão de semântica #601/#602.
-- **#639:** política incremental verifica novos nomes, não certifica migração dos 238 legados. Renomear arquivos históricos não tem prioridade sobre falhas P1 ou gates físico/metodológicos.
+- **#639:** política incremental verifica novos nomes, não certifica migração dos 238 anteriores. Renomear arquivos históricos não tem prioridade sobre falhas P1 ou gates físico/metodológicos.
