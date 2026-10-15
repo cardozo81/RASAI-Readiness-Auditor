@@ -24,4 +24,4 @@ jobs:
       - run: |
           python -m pip install -e . pytest
           python -m compileall -q src/rasai/apdex_content_readiness_observation.py
-          python -m pytest -q tests/test_apdex_content_readiness_322.py tests/test_apdex_report_cohesion_329.py tests/test_apdex_sampling_reliability_327.py
+          python -m pytest -q tests/test_apdex_content_readiness_322.py tests/test_apdex_report_cohesion.py tests/test_apdex_sampling_reliability.py

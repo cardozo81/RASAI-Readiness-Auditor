@@ -35,7 +35,7 @@ on:
       - 'docs/REPORTING_AI_USAGE.md'
       - 'docs/AI_PRICING_CONFIGURATION.md'
       - 'tests/test_ai_economic_telemetry.py'
-      - 'tests/test_audit_attempt_timeline_319.py'
+      - 'tests/test_audit_attempt_timeline.py'
       - 'tests/test_ai_economic_reporting_195.py'
       - '.github/workflows/ai-economic-telemetry-195-targeted.yml'
   workflow_dispatch:
@@ -93,7 +93,7 @@ jobs:
         run: >-
           pytest -q
           tests/test_ai_economic_telemetry.py
-          tests/test_audit_attempt_timeline_319.py
+          tests/test_audit_attempt_timeline.py
           tests/test_ai_cost_policy.py
           tests/test_ai_native_usage_pricing.py
           tests/test_cost_forecast.py
