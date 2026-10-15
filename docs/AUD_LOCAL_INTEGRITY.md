@@ -23,7 +23,7 @@ atualizada**, execute:
 
 ```powershell
 $python = ".\.venv\Scripts\python.exe"
-& $python -m rasai.audit_integrity_review_375 `
+& $python -m rasai.audit_integrity_review `
     --audit-dir ".\audits\AUD-3C3DD03BD7DC4A3082747AD28D545DBA" `
     --expected-ai-attempts 8 `
     --expected-web-calls 1 `

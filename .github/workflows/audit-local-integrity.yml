@@ -6,7 +6,7 @@ on:
     paths:
       - 'src/rasai/console_cost_confirmation.py'
       - 'src/rasai/console_apdex_configuration.py'
-      - 'src/rasai/audit_integrity_review_375.py'
+      - 'src/rasai/audit_integrity_review.py'
       - 'tests/test_console_cost_confirmation.py'
       - 'tests/test_cat07_architecture_integration.py'
       - 'tests/test_audit_integrity_review.py'
@@ -17,7 +17,7 @@ on:
     paths:
       - 'src/rasai/console_cost_confirmation.py'
       - 'src/rasai/console_apdex_configuration.py'
-      - 'src/rasai/audit_integrity_review_375.py'
+      - 'src/rasai/audit_integrity_review.py'
       - 'tests/test_console_cost_confirmation.py'
       - 'tests/test_cat07_architecture_integration.py'
       - 'tests/test_audit_integrity_review.py'
@@ -46,7 +46,7 @@ jobs:
           python -m compileall -q
           src/rasai/console_cost_confirmation.py
           src/rasai/console_apdex_configuration.py
-          src/rasai/audit_integrity_review_375.py
+          src/rasai/audit_integrity_review.py
       - name: Local deterministic regression no providers
         run: >-
           python -m pytest -q

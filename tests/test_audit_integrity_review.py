@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import sqlite3
 
-from rasai.audit_integrity_review_375 import inspect_audit_integrity, main
+from rasai.audit_integrity_review import inspect_audit_integrity, main
 
 
 AUD = "AUD-TEST0012345678"
