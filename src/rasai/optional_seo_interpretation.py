@@ -10,7 +10,7 @@ from math import isfinite
 import sqlite3
 from typing import Any
 
-from rasai.optional_seo_policy_602 import classify_seo_evidence
+from rasai.optional_seo_policy import classify_seo_evidence
 
 _OPTIONAL_RULES = {
     "BR-GEO-003": ("Sitemap convencional não observado", "DISCOVERY_ACCESS"),

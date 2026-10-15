@@ -46,7 +46,7 @@ Esse passo corrige o risco de **interpretação** enquanto a mudança de políti
 
 ## Progresso de implementação - classificação de evidência (14/10/2026)
 
-O módulo `rasai.optional_seo_policy_602.classify_seo_evidence` materializa os quatro estados **exclusivamente interpretativos** `OPTIONAL_ABSENCE`, `OBSERVED_CONFLICT`, `AVAILABLE`, `UNKNOWN` para os `observed_value` físicos de BR-GEO-003, BR-GEO-013 e BR-GEO-017. JSON com chaves repetidas, literais não padrão, erro de rede, tipo desconhecido ou prova parcial gera `UNKNOWN` - não sinal de ausência comprovada. Sitemap inválido e canonical conflitante são distinguíveis de ausência convencional. Um `robots.txt` presente não comprova permissão de bots, que segue regra independente BR-GEO-018.
+O módulo `rasai.optional_seo_policy.classify_seo_evidence` materializa os quatro estados **exclusivamente interpretativos** `OPTIONAL_ABSENCE`, `OBSERVED_CONFLICT`, `AVAILABLE`, `UNKNOWN` para os `observed_value` físicos de BR-GEO-003, BR-GEO-013 e BR-GEO-017. JSON com chaves repetidas, literais não padrão, erro de rede, tipo desconhecido ou prova parcial gera `UNKNOWN` - não sinal de ausência comprovada. Sitemap inválido e canonical conflitante são distinguíveis de ausência convencional. Um `robots.txt` presente não comprova permissão de bots, que segue regra independente BR-GEO-018.
 
 A projeção de descontos opcionais reutiliza esse classificador, evitando aceitar JSON ambíguo como prova. **Nenhuma regra do M5 ou peso SCORE-GEO-004 foi alterado.** O classificador não decide se uma oportunidade opcional deve sair da fórmula de scoring; essa decisão exige versão nova, backtest por dimensões, coverage, confidence e gates. A conclusão de #602 continua condicionada a esses critérios.
 

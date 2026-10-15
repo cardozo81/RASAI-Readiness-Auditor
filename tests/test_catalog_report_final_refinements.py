@@ -330,7 +330,7 @@ def test_sari_partial_dimension_is_visible_beside_high_aggregated_confidence() -
 
 
 def test_optional_seo_evidence_policy_distinguishes_absence_from_harm() -> None:
-    from rasai.optional_seo_policy_602 import classify_seo_evidence as classify
+    from rasai.optional_seo_policy import classify_seo_evidence as classify
 
     assert classify("BR-GEO-017", '{"state":"ABSENT"}') == "OPTIONAL_ABSENCE"
     assert classify("BR-GEO-017", '{"state":"OBTAINED"}') == "AVAILABLE"
