@@ -8,8 +8,11 @@ from __future__ import annotations
 
 from configparser import ConfigParser, Error as ConfigError
 from dataclasses import dataclass
+from hashlib import sha256
 import io
 import os
+import stat
+from tempfile import mkstemp
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -297,50 +300,91 @@ def _parser_for_state(state: Any) -> ConfigParser:
     return parser
 
 
-def _guard_existing_ini_before_save(destination: Path) -> None:
-    """Fail closed rather than silently discard unsupported operator entries.
-
-    The old saver rewrites [environment] from current specs and would lose
-    unknown values. This gate inspects only physical key names; it does not
-    display, migrate, hydrate or log the content of unsupported settings.
-    """
-    if destination.is_symlink():
-        raise ValueError("INI simbolico: salvar somente em arquivo regular")
-    if not destination.exists():
-        return
-    if not destination.is_file() or destination.stat().st_size > 2_000_000:
+def _existing_ini_snapshot(destination: Path) -> tuple[tuple[int, ...], bytes] | None:
+    """Read a bounded physical INI and fingerprint its identity without logging data."""
+    try:
+        info = destination.lstat()
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise ValueError("INI existente nao pode ser inspecionado com seguranca") from exc
+    if not stat.S_ISREG(info.st_mode) or info.st_size > 2_000_000:
         raise ValueError("INI existente nao pode ser substituido com seguranca")
+    try:
+        data = destination.read_bytes()
+        after = destination.lstat()
+    except OSError as exc:
+        raise ValueError("INI existente nao pode ser lido com seguranca") from exc
+    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    before_identity = tuple(getattr(info, field) for field in fields)
+    after_identity = tuple(getattr(after, field) for field in fields)
+    if (
+        not stat.S_ISREG(after.st_mode)
+        or len(data) > 2_000_000
+        or len(data) != info.st_size
+        or before_identity != after_identity
+    ):
+        raise ValueError("INI existente mudou durante a leitura; preserve a origem")
+    return (*after_identity, sha256(data).digest()), data
+
+
+def _guard_existing_ini_before_save(
+    destination: Path, state: Any
+) -> tuple[int, ...] | tuple[object, ...] | None:
+    """Reject lossy replacement of an operator INI, including unknown typed data.
+
+    Only declared schema keys may be reserialized. Existing values are not
+    copied to logs; other integrations must reconcile their schema explicitly.
+    Return a physical+content fingerprint for an optimistic compare on commit.
+    """
+    snapshot = _existing_ini_snapshot(destination)
+    if snapshot is None:
+        return None
+    identity, payload = snapshot
     parser = ConfigParser(interpolation=None)
     parser.optionxform = str
     try:
-        with destination.open("r", encoding="utf-8") as stream:
-            parser.read_file(stream)
-    except (OSError, UnicodeError, ConfigError) as exc:
-        raise ValueError("INI existente invalido ou ilegivel; preserve a origem") from exc
-    allowed = set(_known_nonsecret_environment_names())
-    unknown = set(parser._sections.get("environment", {})) - allowed
-    if unknown:
-        raise ValueError(
-            "INI contem configuracoes desconhecidas ou nao persistiveis; "
-            "preserve uma copia e reconcilie antes de salvar"
-        )
+        parser.read_file(io.StringIO(payload.decode("utf-8")))
+    except (UnicodeError, ConfigError) as exc:
+        raise ValueError("INI existente invalido; preserve a origem") from exc
+    expected = _parser_for_state(state)
+    if parser.defaults():
+        raise ValueError("INI contem configuracoes DEFAULT nao persistiveis")
+    for section, values in parser._sections.items():
+        allowed = expected._sections.get(section)
+        if allowed is None or set(values) - set(allowed):
+            raise ValueError(
+                "INI contem configuracoes desconhecidas ou nao persistiveis; "
+                "preserve uma copia e reconcilie antes de salvar"
+            )
+    return identity
 
 
 def save_console_config(state: Any, path: Path | None = None) -> Path:
     destination = path or resolve_config_path()
-    _guard_existing_ini_before_save(destination)
+    initial_identity = _guard_existing_ini_before_save(destination, state)
     sync_nonsecret_runtime_environment(state)
     destination.parent.mkdir(parents=True, exist_ok=True)
     parser = _parser_for_state(state)
     stream = io.StringIO()
-    stream.write("; RASAi interactive console settings\n")
-    stream.write("; All explicit non-secret overrides exposed by the console are persisted.\n")
-    stream.write("; API keys, bearer tokens, passwords, session secrets and credential-bearing DSNs are NOT persisted.\n")
-    stream.write("; Use environment variables, OS persistence or the SaaS secret mechanism for credentials.\n\n")
+    stream.write("; RASAi interactive console settings\\n")
+    stream.write("; All explicit non-secret overrides exposed by the console are persisted.\\n")
+    stream.write("; API keys, bearer tokens, passwords, session secrets and credential-bearing DSNs are NOT persisted.\\n")
+    stream.write("; Use environment variables, OS persistence or the SaaS secret mechanism for credentials.\\n\\n")
     parser.write(stream)
-    temporary = destination.with_name(destination.name + ".tmp")
-    temporary.write_text(stream.getvalue(), encoding="utf-8", newline="\n")
-    os.replace(temporary, destination)
+    descriptor, temporary = mkstemp(
+        prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+    )
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\\n") as output:
+            output.write(stream.getvalue())
+        current = _existing_ini_snapshot(destination)
+        current_identity = current[0] if current is not None else None
+        if current_identity != initial_identity:
+            raise ValueError("INI de origem mudou durante o save; preserve a origem")
+        os.replace(temporary, destination)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
     if hasattr(state, "config_path"):
         state.config_path = str(destination)
     if hasattr(state, "config_dirty"):
