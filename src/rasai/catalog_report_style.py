@@ -158,6 +158,13 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
 @media(max-width:700px){.directed-intervention-group{border-bottom:1px solid var(--line)}}
 @media print{.directed-intervention-group{break-inside:avoid}}
 
+/* Shared method/source sequence: no decorative cards or duplicate navigation. */
+.report-evidence-chain{list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px;padding:0;margin:12px 0;border-top:1px solid var(--line)}
+.report-evidence-chain li{min-width:0;display:grid;grid-template-columns:40px minmax(0,1fr);gap:10px;padding:18px 3px;border-bottom:1px solid var(--line)}
+.report-evidence-chain h3{font-size:1rem;margin:0 0 6px}
+.report-evidence-chain p{color:var(--secondary-ink);font-size:.84rem;line-height:1.6;margin:0}
+@media(max-width:740px){.report-evidence-chain{grid-template-columns:minmax(0,1fr)}}
+@media print{.report-evidence-chain li{break-inside:avoid}}
 /* #633 PoC reading model: objective -> problem -> location -> execution -> validation -> evidence. */
 .directed-goal-alias{display:block;height:0;overflow:hidden;scroll-margin-top:76px}
 .report-objectives-enhanced details.directed-goal-details{display:none}
