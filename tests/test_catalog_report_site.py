@@ -394,7 +394,7 @@ def test_objective_cards_are_only_navigational_and_never_add_up_repeat_actions(t
     assert "não são aditivas" in html
     # DISCOVERY_ACCESS and INDEXABILITY must not count ACT-1 twice.
     assert "goal-descoberta" in html
-    assert "2</strong><small>ações vinculadas" in html
+    assert "0 aceita(s) · 2 associada(s)</small>" in html
     assert html.count("class='directed-operational-item'") == 2
     assert "O que foi observado" in html
     assert "Onde intervir" in html
@@ -407,6 +407,28 @@ def test_objective_cards_are_only_navigational_and_never_add_up_repeat_actions(t
     from hashlib import sha256
     legacy = "goal-" + sha256(b"INDEXABILITY").hexdigest()[:12]
     assert f"id='{legacy}'" in html
+
+
+def test_633_governance_is_matched_only_by_persisted_source(tmp_path: Path) -> None:
+    from rasai.directed_analysis_reporting import _governance_for_action
+    governance = {
+        ("CONTENT_AI", "SRC-1"): {
+            "source_kind": "CONTENT_AI", "source_id": "SRC-1",
+            "decision": "ACCEPTED", "target_class": "TARGET_SITE",
+        },
+        ("DEEP_ANALYSIS", "SRC-2"): {
+            "source_kind": "DEEP_ANALYSIS", "source_id": "SRC-2",
+            "decision": "VERIFY_DECIDE", "target_class": "EXTERNAL_PROVIDER",
+        },
+    }
+    accepted = {"source_kind": "CONTENT_AI", "source_id": "SRC-1"}
+    verify = {"source_kind": "DEEP_ANALYSIS", "source_id": "SRC-2"}
+    unmatched = {"source_kind": "SECURITY_REMEDIATION", "source_id": "SRC-1"}
+    assert _governance_for_action(accepted, governance) == ("Aceita", "Site auditado")
+    assert _governance_for_action(verify, governance) == (
+        "Verificar / decidir", "Fornecedor externo"
+    )
+    assert _governance_for_action(unmatched, governance)[0] == "Sem decisão casada"
 
 
 def test_report_633_objective_dialog_is_progressive_and_printable() -> None:
