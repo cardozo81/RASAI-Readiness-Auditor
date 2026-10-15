@@ -532,7 +532,7 @@ def test_console_paid_action_rejects_missing_key_before_requesting_aud_path(
 def test_supplement_lifecycle_inspector_without_new_cost_or_aud_changes(
     tmp_path, monkeypatch, capsys,
 ):
-    from rasai.geo_supplement_inspection_309 import inspect_geo_supplements
+    from rasai.geo_supplement_inspection import inspect_geo_supplements
     from rasai import entrypoint
     workspace, aud = source(tmp_path, monkeypatch)
     original = workspace.database.read_bytes()
@@ -589,7 +589,7 @@ def test_supplement_lifecycle_inspector_without_new_cost_or_aud_changes(
 def test_supplement_lifecycle_exposes_ambiguous_and_invalid_without_html(
     tmp_path, monkeypatch,
 ):
-    from rasai.geo_supplement_inspection_309 import inspect_geo_supplements
+    from rasai.geo_supplement_inspection import inspect_geo_supplements
     workspace, aud = source(tmp_path, monkeypatch)
     created = run(
         workspace, audit_id=aud, intent_id="tampered-cli-fixture",
@@ -623,7 +623,7 @@ def test_verified_http_failure_is_not_reported_as_successful_search(
     tmp_path, monkeypatch,
 ):
     """Integrity of an error ledger never implies a successful GEO observation."""
-    from rasai.geo_supplement_inspection_309 import inspect_geo_supplements
+    from rasai.geo_supplement_inspection import inspect_geo_supplements
     workspace, aud = source(tmp_path, monkeypatch)
     original = workspace.database.read_bytes()
     result = run(
@@ -652,7 +652,7 @@ def test_rehashed_manifest_cannot_launder_fabricated_evidence(
     tmp_path, monkeypatch, field,
 ):
     """A rehashed derived JSON must still match the source SQLite ledger."""
-    from rasai.geo_supplement_inspection_309 import inspect_geo_supplements
+    from rasai.geo_supplement_inspection import inspect_geo_supplements
     workspace, aud = source(tmp_path, monkeypatch)
     result = run(
         workspace, audit_id=aud, intent_id=f"forged-{field}",
@@ -703,7 +703,7 @@ def test_rehashed_billability_claim_must_match_canonical_provider_ledger(
     tmp_path, monkeypatch,
 ):
     """Neither a valid manifest hash nor result.json can assert invented free billing."""
-    from rasai.geo_supplement_inspection_309 import inspect_geo_supplements
+    from rasai.geo_supplement_inspection import inspect_geo_supplements
     workspace, aud = source(tmp_path, monkeypatch)
     created = run(
         workspace, audit_id=aud, intent_id="false-no-charge-claim",
@@ -798,7 +798,7 @@ def test_rehashed_sqlite_and_result_cannot_launder_inverted_provider_clock(
     """Even a matching forged SQLite ledger and rehashed manifest is not a
     chronological observation; preserve source AUD and prohibit a resend.
     """
-    from rasai.geo_supplement_inspection_309 import inspect_geo_supplements
+    from rasai.geo_supplement_inspection import inspect_geo_supplements
     workspace, aud = source(tmp_path, monkeypatch)
     original_db = workspace.database.read_bytes()
     created = run(
@@ -902,7 +902,7 @@ def test_external_geo_economics_cannot_be_forged_by_rehashing_manifest(
     tmp_path, monkeypatch, field, forged,
 ):
     """Result economics must match the derived canonical SQLite ledger."""
-    from rasai.geo_supplement_inspection_309 import inspect_geo_supplements
+    from rasai.geo_supplement_inspection import inspect_geo_supplements
     workspace, aud = source(tmp_path, monkeypatch)
     original_db = workspace.database.read_bytes()
     intent_id = "economics-proof-" + field.replace("_", "-") + (

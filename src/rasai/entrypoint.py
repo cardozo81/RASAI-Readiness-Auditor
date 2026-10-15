@@ -378,7 +378,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if effective and effective[0] == "geo-supplements":
         # Independent post-AUD GEO evidence inspection is never billable.
-        from rasai.geo_supplement_inspection_309 import main as inspect_geo_supplements
+        from rasai.geo_supplement_inspection import main as inspect_geo_supplements
         return inspect_geo_supplements(effective[1:])
 
     if effective and effective[0] == "competitor-html-review":
