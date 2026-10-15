@@ -1002,8 +1002,17 @@ def directed_analysis_body(database: Any, data: Any) -> str:
     for action in actions:
         modal_id,modal=_action_modal(action,by_id,target_by_id,governance_by_source)
         dimensions_list=_json(action.get("affected_dimensions_json"),[])
+        # The source-row marker allows the report table to expose exactly
+        # the persisted priorities requested from the overview. No duplicate
+        # or recomputed strategic action is created.
+        priority_raw = action.get("priority")
+        action_title = _Html(
+            "<span data-action-priority='" +
+            escape("" if priority_raw is None else str(priority_raw), quote=True) +
+            "'>" + escape(str(action.get("title") or "-")) + "</span>"
+        )
         action_rows.append((
-            action.get("title") or "-",
+            action_title,
             _action_target_label(action,target_by_id),
             _level_label(action.get("priority")) if action.get("priority") else "Não consolidada",
             _level_label(action.get("effort")) if action.get("effort") else "Não consolidado",
@@ -1022,7 +1031,10 @@ def directed_analysis_body(database: Any, data: Any) -> str:
             empty="Nenhuma ação foi materializada.",
             sortable=bool(action_rows),
             page_size=10 if len(action_rows)>10 else None,
-        )+"".join(modals),
+        )+"".join(modals)
+        + "<noscript><p class='notice'>O filtro de prioridade dos links do "
+        "retrato da auditoria requer JavaScript. Sem JavaScript, a tabela "
+        "original apresenta todas as ocorrências, sem excluir informações.</p></noscript>",
     )
 
     trace_rows=[]
