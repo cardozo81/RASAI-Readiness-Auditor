@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Mapping
 
 from rasai.console_config import is_secret
-from rasai.console_configuration_inventory_523 import _ini_with_status
+from rasai.console_configuration_inventory import _ini_with_status
 from rasai.console_provider_environment import refresh_specs
 
 

@@ -26,7 +26,7 @@ on:
       - 'src/rasai/console_search_intelligence.py'
       - 'src/rasai/console_ui_refactor.py'
       - 'tests/test_console_config_provenance.py'
-      - 'src/rasai/console_configuration_inventory_523.py'
+      - 'src/rasai/console_configuration_inventory.py'
       - 'src/rasai/console_apdex_effective_validation.py'
       - 'tests/test_console_configuration_inventory.py'
       - 'tests/test_console_inventory_secret_policy.py'

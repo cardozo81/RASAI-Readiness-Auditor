@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 from rasai.console_config import is_secret
-from rasai.console_configuration_inventory_523 import inventory, main
+from rasai.console_configuration_inventory import inventory, main
 from rasai.console_provider_environment import refresh_specs
 
 
@@ -477,7 +477,7 @@ def test_apdex_preflight_does_not_call_shared_m25_setter(tmp_path, monkeypatch):
 def test_all_registry_variables_have_explicit_nonclaiming_adapter_affinity(tmp_path):
     """Source CLI constants are navigational hints, not executed-consumer proof."""
     from rasai import m23_cli, m25_cli
-    from rasai.console_configuration_inventory_523 import _declared_apdex_consumer_surface
+    from rasai.console_configuration_inventory import _declared_apdex_consumer_surface
 
     hints = _declared_apdex_consumer_surface()
     assert set(m25_cli.M25_ENV_NAMES).issubset(hints)
@@ -531,7 +531,7 @@ def test_all_registry_variables_have_explicit_nonclaiming_adapter_affinity(tmp_p
 
 
 def test_ini_inventory_reports_physical_source_condition_without_disclosing_values(tmp_path):
-    from rasai.console_configuration_inventory_523 import inventory
+    from rasai.console_configuration_inventory import inventory
 
     missing = inventory(path=tmp_path / "never-created.ini", environ={})
     assert missing["ini_source_status"] == "SOURCE_NOT_FOUND_OR_NOT_A_FILE"
@@ -562,7 +562,7 @@ def test_ini_inventory_reports_physical_source_condition_without_disclosing_valu
 
 def test_ini_inventory_abstains_if_file_changes_while_opening(tmp_path, monkeypatch):
     """A mutable INI is not a reliable source for a metadata inventory."""
-    from rasai.console_configuration_inventory_523 import inventory
+    from rasai.console_configuration_inventory import inventory
 
     operator_ini = tmp_path / "operator.ini"
     operator_ini.write_text(
@@ -589,7 +589,7 @@ def test_ini_inventory_abstains_if_file_changes_while_opening(tmp_path, monkeypa
 
 
 def test_ini_inventory_refuses_symlinked_file_without_following_target(tmp_path):
-    from rasai.console_configuration_inventory_523 import inventory
+    from rasai.console_configuration_inventory import inventory
 
     target = tmp_path / "private.ini"
     target.write_text(
@@ -618,7 +618,7 @@ def test_search_affinity_is_source_declared_and_never_claims_live_execution(
     )
     from rasai.search_intelligence.perplexity import API_KEY_ENV
     from rasai.console_perplexity_readiness import _FILTERS
-    from rasai.console_configuration_inventory_523 import (
+    from rasai.console_configuration_inventory import (
         _declared_search_consumer_surface,
     )
     from urllib import request
@@ -701,7 +701,7 @@ def test_gsc_affinity_is_code_declaration_not_property_or_oauth_proof(
 ):
     """Audit GSC source constants but never refresh tokens or query an API."""
     from rasai import gsc_scope, gsc_oauth, standards_gsc_policy
-    from rasai.console_configuration_inventory_523 import (
+    from rasai.console_configuration_inventory import (
         _declared_gsc_consumer_surface,
     )
 
@@ -817,7 +817,7 @@ def test_523_core_console_runtime_input_affinity_is_static_and_safe(
     """Real bootstrap keys are inventoried, never misreported as used by M21/AI."""
     import socket
     from rasai import console_config as core
-    from rasai.console_configuration_inventory_523 import (
+    from rasai.console_configuration_inventory import (
         _declared_console_core_surface,
     )
 

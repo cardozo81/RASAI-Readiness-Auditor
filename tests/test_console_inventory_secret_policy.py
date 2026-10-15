@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 
-from rasai.console_configuration_inventory_523 import inventory
+from rasai.console_configuration_inventory import inventory
 
 
 def test_inventory_flags_secret_keys_in_ini_without_disclosing_values(tmp_path):

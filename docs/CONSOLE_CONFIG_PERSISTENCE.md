@@ -72,7 +72,7 @@ distintos; não devem ser marcados como aprovados apenas por CI.
 
 ## Inventário completo do registro de variáveis (#523)
 
-O comando local `python -m rasai.console_configuration_inventory_523`
+O comando local `python -m rasai.console_configuration_inventory`
 gera JSON **somente de metadados**, utilizando o `EnvironmentSpec` real,
 a lista de campos tipados do console e os inputs de execução conhecidos.
 `--ini caminho/rasai-console.ini` permite observar um arquivo específico
@@ -148,7 +148,7 @@ prioridade real nem o comportamento dos adapters e motores.
 
 ## Preflight de consumo Apdex sem auditoria (opt-in, 13/10/2026)
 
-O comando `python -m rasai.console_configuration_inventory_523 --verify-apdex`
+O comando `python -m rasai.console_configuration_inventory --verify-apdex`
 habilita validação extra, **sem coletar dados**. O caminho de configuração
 pode ser fornecido pelo argumento `--ini`; caso contrário, segue
 `RASAI_CONSOLE_INI` ou o caminho canônico habitual.
@@ -235,7 +235,7 @@ INI apenas para satisfazer uma contagem estática do inventário.
 
 ## Estado fisico do arquivo e consentimento Perplexity (#523)
 
-A inspeção offline `python -m rasai.console_configuration_inventory_523`
+A inspeção offline `python -m rasai.console_configuration_inventory`
 agora comunica `ini_source_status` sem imprimir o caminho nem os valores:
 `SOURCE_PARSED_NO_RUNTIME_CONSUMER_PROOF`,
 `SOURCE_NOT_FOUND_OR_NOT_A_FILE`, `SOURCE_TOO_LARGE`,
@@ -311,7 +311,7 @@ de amostras ou prova de consumidores externos live.
 
 ## Inventario de afinidade declarada SERP e Perplexity (#523, 13/10/2026)
 
-A matriz offline console_configuration_inventory_523.py passa a
+A matriz offline console_configuration_inventory.py passa a
 classificar, alem de M23/M25, as entradas de configuracao
 declaradas em search_intelligence.config.SERP_ENV_NAMES e
 SERP_PROVIDER_KEY_ENVS, mais a chave, a habilitacao e os filtros

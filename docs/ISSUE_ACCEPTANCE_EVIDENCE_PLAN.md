@@ -28,13 +28,13 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 ### Issue #523 - P2 · IMPLEMENTED_NOT_PROVEN + PARTIALLY_IMPLEMENTED
 
-**Já presente / evidência técnica:** `console_configuration_inventory_523`, `console_config_provenance`, testes de save/load em processos independentes, projeção M23/M25, draft Perplexity não autorizativo.
+**Já presente / evidência técnica:** `console_configuration_inventory`, `console_config_provenance`, testes de save/load em processos independentes, projeção M23/M25, draft Perplexity não autorizativo.
 
 **Critério residual e risco:** Matriz de todos os consumidores/runtime, precedência efetiva variável a variável, paridade completa de categoria e smoke humano Windows ainda sem certificado.
 
 **Implementação ou verificação direcionada:** Gerar inventário metadata-only sobre INI temporário; confrontar cada EnvironmentSpec e campo tipado com loader/serializador/consumidor; criar apenas adapters/tests faltantes, sem tocar M23/M25. Usar relatório de exceções por variável, não alegar paridade de secret execution-only.
 
-**Testes selecionados (planejados, não executados aqui):** `python -m rasai.console_configuration_inventory_523 --ini <INI_TEMP> --verify-apdex`; `python -m pytest -q tests/test_console_configuration_inventory.py tests/test_console_fresh_process_roundtrip.py tests/test_console_persistence_matrix.py tests/test_console_config_provenance.py`.
+**Testes selecionados (planejados, não executados aqui):** `python -m rasai.console_configuration_inventory --ini <INI_TEMP> --verify-apdex`; `python -m pytest -q tests/test_console_configuration_inventory.py tests/test_console_fresh_process_roundtrip.py tests/test_console_persistence_matrix.py tests/test_console_config_provenance.py`.
 
 **Prova exigida para fechamento:** CSV/JSON secret-safe de 100% do registry (categoria, source, persistência, origem, loader, consumidor, precedência e resultado), round-trip não default em 2 processos, comparação de efeitos em adapters, prova Windows específica sem credenciais reais. Fechar só com matriz completa e gate Windows pertinente.
 
