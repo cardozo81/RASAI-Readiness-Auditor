@@ -64,3 +64,23 @@ Não modificar `CONS-*` nesta issue. Não introduzir bibliotecas de CDN obrigat�
 ## Política de liberação
 
 Issue #633 controla a demanda, branch `feat/633-report-ux-unified` é a ÚNICA branch de execução. PR futuro: DRAFT, sem auto-merge. Exigir evidência de CI direcionado e screenshots antes/depois; **somente aceite humano explícito** habilita merge. Uma validação automática positiva nunca equivale a aceite humano.
+
+
+## Emenda de reconciliação — 14/10/2026
+
+Esta seção prevalece sobre a proibição absoluta anterior de recursos remotos. **CDN é permitido, não obrigatório**, somente quando agrega melhoria demonstrável e com mitigação explícita: versões fixas, licença verificada, avaliação de CSP/SRI (quando aplicáveis), fallback funcional e visual, ausência de exfiltração de dados, e navegação/conteúdo essenciais disponíveis sem dependência de rede. Abertura em `file://`, apresentação via endpoints atuais e impressão seguem obrigatórias. Não introduzir SPA ou alterações no SaaS/console.
+
+### Sequência operacional e gates
+
+1. Conciliar o HEAD de `main` e `feat/633-report-ux-unified`: no diagnóstico inicial, `main` = `290a1db105d07f49168ebde33998c1fefea4e61b` e a branch = `e05f1f3703824b0193a31f3016b5ef7055c4977c` (um commit à frente e quatro atrás). Verificar novamente no momento da integração. Não copiar código de subsistemas externos para esta demanda.
+2. Congelar baseline real de 19 páginas, inventariando por página e seção: conteúdos, métricas, tabelas, gráficos, estados, identificadores, links, âncoras, evidências, modais e resultados governados. A ausência de um artefato PoC não autoriza inventar dados.
+3. Gerar o menu de `CATALOG_REPORT_PAGES` por um único helper compartilhado; preservar grupo, ordenação, página ativa e destinos, com fallback sem JavaScript.
+4. Construir design system e aplicar a todas as páginas canônicas, mantendo associação entre observação, regra, interpretação, recomendação, ação e validação sem inferir causalidade ou novos números.
+5. Documentar proveniência das projeções por objetivo, intervenção e alvo. Uma intervenção pode aparecer vinculada a objetivos distintos, mas sua identidade e contagem global continuam únicas.
+6. Comparar o baseline com rematerialização em pasta separada e inspeções de desktop, tablet, mobile, teclado, contrastes e A4; validar os fluxos `file://` e HTTP, integridade de snapshot/manifest/hash e ausência de escrita no banco.
+7. Exigir testes direcionados e revisão do diff para demonstrar que somente projeção HTML, CSS, JS, seus testes e documentação foram tocados.
+8. Apresentar evidências e único PR DRAFT para aceite humano explícito. **Sem auto-merge, merge ou fechamento antecipado.**
+
+**Nota metodológica:** WCAG 2.2 AA constitui referência para verificações automatizadas e humanas; CI verde, screenshots ou auditoria automatizada não certificam conformidade integral.
+
+**Restrição de revisão:** a remoção de estilos ou scripts exige prova de que estão órfãos em todas as 19 páginas e não afetam impressão, navegação, links diretos ou modos suportados.
