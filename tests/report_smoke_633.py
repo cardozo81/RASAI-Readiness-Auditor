@@ -197,8 +197,11 @@ def _screenshots(report: Path, out: Path, *, pages: tuple[str, ...]) -> dict[str
                                 "() => !document.querySelector('dialog.directed-objective-dialog[open]')",
                                 timeout=3000,
                             )
-                            if not first_goal.evaluate("(el) => document.activeElement === el"):
-                                raise ValueError("objective dialog did not restore focus")
+                            page.wait_for_function(
+                                "() => document.activeElement === "
+                                "document.querySelector('#objectives a.directed-goal-link')",
+                                timeout=3000,
+                            )
 
                         if page.locator("#actions .directed-intervention-group").count() and not page.locator("#actions table").count():
                             raise ValueError("intervention summary lost canonical action table")
