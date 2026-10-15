@@ -215,7 +215,7 @@ def test_unified_report_633_core_color_pairs_meet_wcag_aa_text_contrast() -> Non
 
     root = re.search(r":root\{([^}]+)\}", _CSS)
     assert root is not None
-    tokens = dict(re.findall(r"--([\\w-]+):(#(?:[0-9A-Fa-f]{6}))", root.group(1)))
+    tokens = dict(re.findall(r"--([\w-]+):(#(?:[0-9A-Fa-f]{6}))", root.group(1)))
     for required in ("ink", "muted", "nav-bg", "bg", "blue", "cyan"):
         assert required in tokens
 
