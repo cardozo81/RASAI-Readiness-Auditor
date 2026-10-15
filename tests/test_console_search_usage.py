@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 from rasai.console_cost import ActualUsage
 from rasai.console_search_intelligence import SearchConsoleState
-from rasai.console_search_usage_319 import SearchUsage, read_perplexity_search_usage
+from rasai.console_search_usage import SearchUsage, read_perplexity_search_usage
 
 
 def _fixture(tmp_path: Path, *, corrupt: bool = False, source_table: bool = True) -> Path:

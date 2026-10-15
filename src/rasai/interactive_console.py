@@ -687,7 +687,7 @@ def _artifact_action(state: State, action: str) -> None:
 def _render_actual_usage(state: State) -> None:
     workspace, _ = artifact_status(state)
     usage = actual_usage(workspace)
-    from rasai.console_search_usage_319 import read_perplexity_search_usage
+    from rasai.console_search_usage import read_perplexity_search_usage
 
     search_usage = read_perplexity_search_usage(workspace, state.audit_id)
     synthetic = actual_m23_usage(workspace)

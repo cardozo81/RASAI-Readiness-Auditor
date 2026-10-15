@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'src/rasai/console_search_usage_319.py'
+      - 'src/rasai/console_search_usage.py'
       - 'src/rasai/interactive_console.py'
       - 'tests/test_console_search_usage.py'
       - 'docs/CONSOLE_COST_AND_USAGE.md'
@@ -12,7 +12,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'src/rasai/console_search_usage_319.py'
+      - 'src/rasai/console_search_usage.py'
       - 'src/rasai/interactive_console.py'
       - 'tests/test_console_search_usage.py'
       - 'docs/CONSOLE_COST_AND_USAGE.md'
