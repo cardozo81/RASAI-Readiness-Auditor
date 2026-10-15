@@ -317,6 +317,11 @@ def test_overview_new_experience_is_an_index_not_a_second_report(tmp_path: Path)
     assert set(page.name for page in report.glob("*.html")) == set(CATALOG_REPORT_FILENAMES)
     assert overview.count("Índices e métricas evidentes") >= 1
     assert "74.2" in (report / "sari.html").read_text(encoding="utf-8")
+    directed = (report / "directed-analysis.html").read_text(encoding="utf-8")
+    for section in ("summary", "transversal", "roadmap", "objectives", "actions",
+                    "traceability", "limitations"):
+        assert f"id='{section}'" in directed
+    assert "Nenhuma análise direcionada foi materializada" in directed
 
 
 def test_sari_and_metrics_use_persisted_values_without_recalculation(tmp_path: Path) -> None:
