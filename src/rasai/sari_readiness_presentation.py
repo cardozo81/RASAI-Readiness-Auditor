@@ -161,7 +161,7 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
             f"<h3>{escape(label)}</h3>"
             f"<p><strong>{escape(readiness_label)}</strong></p>"
             f"<p>Qualidade medida: <strong>{escape(score)}</strong> · {escape(quality_label)}</p>"
-            f"<p>Coverage {escape(coverage)} · Confidence {escape(confidence)} · Consolidation {escape(consolidation)}</p>"
+            f"<p>Coverage {escape(coverage)} (fração canônica {float(_row_value(row, 'coverage', 0.0)):.6f}) · Confidence {escape(confidence)} · Consolidation {escape(consolidation)}</p>"
             f"<p>Critical readiness: <strong>{escape(readiness)}</strong>"
             + (f" · {escape(gate_detail)}" if gate_detail else "")
             + "</p></article>"
@@ -177,6 +177,7 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
         "e leitura dos Critical Readiness Gates. Portanto, uma nota acima de 90 não é apresentada isoladamente como "
         "readiness excelente quando a medição está parcial/não consolidada ou quando Discovery, Indexability ou Extraction "
         "estão BLOCKED/UNKNOWN.</p>"
+        "<p class='notice'>Confiança e cobertura avaliam o contrato SARI, não representam intervalo estatístico, experiência real, desempenho de laboratório, posição SERP ou citação generativa. Métricas externas e dimensões de baixa cobertura devem ser analisadas separadamente.</p>"
         "<div class='grid'>" + "".join(cards) + "</div>"
         "<div class='notice'><strong>Integrações externas:</strong> erro de provider/API/coleta não é defeito do website e "
         "não gera penalidade artificial no SARI. Um finding técnico externo só participa do score quando existe uma BR-GEO "
