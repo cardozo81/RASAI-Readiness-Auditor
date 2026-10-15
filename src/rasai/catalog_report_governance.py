@@ -209,6 +209,39 @@ def _overview_measurement_scope_notice(
     )
 
 
+def _experience_paths_633() -> str:
+    """Navigation-only projections of the canonical 19 report destinations.
+
+    These cards do not replicate findings, actions, scores or underlying
+    report bodies. Destinations are checked against the canonical page registry.
+    """
+    canonical={page.filename for page in CATALOG_REPORT_PAGES}
+    paths=(
+        ("Por objetivo", "Organize intervenções pelas dimensões analisadas, sem somar ações repetidas.", "directed-analysis.html", "objectives"),
+        ("Plano de ação", "Fases e dependências da Análise Direcionada, quando materializadas.", "directed-analysis.html", "roadmap"),
+        ("Intervenções técnicas", "Examine recomendações governadas no catálogo de correções.", "cat-09.html", None),
+        ("Alvos e ocorrências", "Consulte os registros e seus alvos, com referência à fonte técnica.", "directed-analysis.html", "actions"),
+        ("Search e IA", "Observações GEO e limitações de consultas e presença pesquisada.", "geo.html", None),
+        ("Fontes e métodos", "Critérios de medição, transparência e evidência da auditoria.", "methodology.html", None),
+    )
+    cards=[]
+    for label,description,filename,anchor in paths:
+        if filename not in canonical:
+            raise ValueError("navigation-only experience points outside report contract")
+        href=filename+("#"+anchor if anchor else "")
+        cards.append(
+            "<a class='card report-experience-card' href='"+escape(href,quote=True)+"'>"
+            "<strong>"+escape(label)+"</strong><span>"+escape(description)+"</span>"
+            "<small>Explorar seção ›</small></a>"
+        )
+    return (
+        "<p class='section-lead'>Escolha um caminho de leitura. Os atalhos usam "
+        "as mesmas páginas e os mesmos dados canônicos desta auditoria; "
+        "não são diagnósticos adicionais.</p>"
+        "<div class='report-experience-grid'>"+"".join(cards)+"</div>"
+    )
+
+
 def _overview_body(database: Path, data: _ReportData) -> str:
     rows=[]
     catalog_statuses: dict[str, str] = {}
@@ -235,8 +268,9 @@ def _overview_body(database: Path, data: _ReportData) -> str:
     if diagnostic:
         outline=(("diagnostic","Estado do diagnóstico"),)+outline
     body=_audit_hero(data,"Visão geral por catálogos","Resumo do plano congelado e dos resultados persistidos, mantendo coleta, análise e remediação em responsabilidades distintas.")
-    body+=_outline(outline)
+    body+=_outline((("experience","Navegar por objetivo"),)+outline)
     body+=diagnostic
+    body+=_section("experience","Explore a auditoria por objetivo",_experience_paths_633())
     body+=_section("catalogs","Catálogos da auditoria",_table(("Catálogo","Estado","Interpretação"),rows,sortable=True))
     from rasai.catalog_report_metrics import _web_observation
     body+=_overview_measurement_scope_notice(
