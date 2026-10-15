@@ -16,7 +16,7 @@ from rasai.configuration_value_labels import configuration_value_choice, configu
 from rasai.console_confirmation_contract import confirm_sensitive
 from rasai.console_input_contract import EditCancelled, prompt_number, prompt_text, prompt_yes_no
 from rasai.console_m23 import State, config_from_state, experience_from_state, synthetic_load_summary
-from rasai.experience_architecture_guidance_358 import resolve_experience_architecture_guidance
+from rasai.experience_architecture_guidance import resolve_experience_architecture_guidance
 from rasai.device_context import canonical_single_device_mix
 from rasai.console_ui import DIM, YELLOW, paint
 from rasai.m25_cli import (

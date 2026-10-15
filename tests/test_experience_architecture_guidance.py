@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from rasai.experience_architecture_guidance_358 import (
+from rasai.experience_architecture_guidance import (
     resolve_experience_architecture_guidance as resolve,
 )
 
@@ -172,7 +172,7 @@ def test_source_fields_do_not_accept_m6_without_snapshot_page_device_proof():
 
 
 def test_no_runtime_or_transport_imports_and_no_modified_input():
-    from rasai import experience_architecture_guidance_358 as module
+    from rasai import experience_architecture_guidance as module
     assert not any(name in module.__dict__ for name in (
         "sqlite3", "urlopen", "requests", "httpx", "m25_apdex_experience",
         "m23_apdex", "AuditWorkspace", "provider_factory",

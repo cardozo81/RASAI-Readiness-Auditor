@@ -1,7 +1,7 @@
 # #358 - Contrato determinístico de orientação CAT-07 por arquitetura
 
 A função `resolve_experience_architecture_guidance` em
-`src/rasai/experience_architecture_guidance_358.py` é uma camada
+`src/rasai/experience_architecture_guidance.py` é uma camada
 **somente de interpretação**, sem escrita em AUD, mudança de Apdex M25,
 nova configuração efetiva, XHR/Custom Action ou chamada comercial.
 

@@ -12,7 +12,7 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Mapping
 
-from rasai.experience_architecture_guidance_358 import (
+from rasai.experience_architecture_guidance import (
     RECORDED_CONTEXT_FIELDS,
     resolve_experience_architecture_guidance,
 )
