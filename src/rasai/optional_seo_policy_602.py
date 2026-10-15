@@ -39,6 +39,10 @@ def classify_seo_evidence(rule_id: str, observed_value: Any) -> str:
 
     if rule_id == "BR-GEO-017":
         state = data.get("state")
+        # An HTTP/acquisition error is not affirmative proof of an
+        # intentionally absent optional robots file.
+        if data.get("error") not in (None, ""):
+            return "UNKNOWN"
         if state == "ABSENT":
             return "OPTIONAL_ABSENCE"
         if state == "OBTAINED":
@@ -52,6 +56,8 @@ def classify_seo_evidence(rule_id: str, observed_value: Any) -> str:
         states: list[str] = []
         for row in rows:
             if not isinstance(row, Mapping) or not isinstance(row.get("state"), str):
+                return "UNKNOWN"
+            if row.get("error") not in (None, ""):
                 return "UNKNOWN"
             states.append(row["state"])
         if "NETWORK_ERROR" in states:
@@ -71,6 +77,13 @@ def classify_seo_evidence(rule_id: str, observed_value: Any) -> str:
     # invalid declaration is different, observed technical evidence.
     missing = data.get("canonicals")
     if missing == []:
+        # A self-contradictory record (empty declared canonicals plus
+        # another explicit invalid or normalized declaration) is UNKNOWN,
+        # not a harmless optional omission.
+        if any(data.get(key) not in (None, []) for key in (
+            "declared", "invalid", "normalized",
+        )):
+            return "UNKNOWN"
         return "OPTIONAL_ABSENCE"
     invalid = data.get("invalid")
     normalized = data.get("normalized")

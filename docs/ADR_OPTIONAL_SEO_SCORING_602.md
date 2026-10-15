@@ -75,3 +75,8 @@ python -m rasai.optional_seo_audit_replay_602 /caminho/para/AUD-ID --device MOBI
 O replay exige uma única AUD válida, `audit.db` regular, sem arquivos SQLite journal/WAL/SHM, escopo de uma AUD e até 4.000 regras físicas. Confere `quick_check` e integridade referencial, calcula SHA-256 do arquivo antes/depois e **aborta** caso o score canônico recalcado pelo SCORE-GEO-004 não coincida com os campos persistidos de cada dimensão e overall (valor, cobertura, confiança, consolidação e versão). Só depois expõe cenários de sensibilidade não oficiais. Nunca grava dados e não autoriza mudanças de pontuação.
 
 Esse gate deve ser rodado em **cópia isolada do ZIP da AUD real** para concluir o backtest físico; uma fixture sintetizada não substitui validação sobre a amostra de 14/10. Antes de eventual mudança pública também são necessários parecer normativo, goldens e testes de compatibilidade da nova versão. Não executar replay em AUD operacional com sidecars/journals ativos.
+
+
+## Regra conservadora de consistência física
+
+A classificação read-only agora exige que a evidência de `ABSENT` em `robots.txt`/`sitemap` não contenha falha simultânea de aquisição. Ausência canônica com `canonicals=[]` tampouco pode coexistir com `invalid`, `normalized` ou `declared` não vazios e ser promovida a ausência opcional confirmada. Registros contraditórios ficam `UNKNOWN` para avaliação posterior; não são interpretados como prova de indisponibilidade global nem como defeito confirmado. O comportamento preserva o contrato SCORE-GEO-004 e impede que o laboratório de simulação inclua fatos ambíguos na coorte de ausência opcional.
