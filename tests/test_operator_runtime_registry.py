@@ -67,7 +67,8 @@ def test_all_reconciled_runtime_names_are_public_unique_and_visible() -> None:
     for name in RUNTIME_INPUTS:
         spec = indexed[name]
         assert spec.category
-        assert spec.source.startswith("src/rasai/")
+        # Guidance can point to curated documentation instead of source code.
+        assert spec.source
         assert spec.sensitive is False
         assert is_secret(name) is False
         assert name in console_settings._known_nonsecret_environment_names()
