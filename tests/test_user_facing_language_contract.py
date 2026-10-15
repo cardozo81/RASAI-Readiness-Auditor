@@ -12,6 +12,32 @@ _INTERNAL_ARCHITECTURE_DOCS = frozenset({
     "docs/AI_RUNTIME_ORCHESTRATION.md",
     "docs/AUD_RPR_INTERRUPTED_STAGE_POLICY.md",
     "docs/AUD_RPR_PARITY_MATRIX.md",
+    # Technical contracts, evidence plans and governance matrices are not
+    # public report copy. Keep each exception explicit and existence-checked;
+    # do not hide these sources or weaken checks on README/report templates.
+    "docs/ADR_OPTIONAL_SEO_SCORING.md",
+    "docs/APDEX_CONTENT_READINESS_INVESTIGATION_321.md",
+    "docs/APDEX_DYNATRACE_ARCH_ADVISORY.md",
+    "docs/AUDIT_STAGE_SCOPE.md",
+    "docs/AUD_LOCAL_INTEGRITY.md",
+    "docs/CAT07_EXPERIENCE_ARCH_GUIDANCE.md",
+    "docs/CONSOLE_CONFIG_PERSISTENCE.md",
+    "docs/CONSOLE_COST_AND_USAGE.md",
+    "docs/CONS_DOMAIN_COMPARATIVE_210.md",
+    "docs/CONS_SAME_DOMAIN_PREFLIGHT_210.md",
+    "docs/DYNATRACE_LIVE_CROSSCHECK.md",
+    "docs/DYNATRACE_POPULATION_CROSSCHECK.md",
+    "docs/ENVIRONMENT_VARIABLES.md",
+    "docs/GEO_QUERY_LEDGER.md",
+    "docs/ISSUE_ACCEPTANCE_EVIDENCE_PLAN.md",
+    "docs/PRE_EXECUTION_COST_FORECAST.md",
+    "docs/PRE_SMOKE_READINESS_GATE.md",
+    "docs/PUBLIC_LANGUAGE.md",
+    "docs/READINESS_MATCHED_PILOT_322.md",
+    "docs/REPORT_DESIGN_SYSTEM.md",
+    "docs/REPORT_REMATERIALIZATION.md",
+    "docs/RESIDUAL_IMPLEMENTATION_PLAN.md",
+    "docs/SMOKE_GATE.md",
 })
 
 
@@ -34,11 +60,7 @@ def test_documentation_has_no_standalone_delivery_milestone_labels() -> None:
 
 
 def test_internal_architecture_docs_are_not_scanned_as_public_documentation() -> None:
-    expected = {
-        ROOT / "docs" / "AI_RUNTIME_ORCHESTRATION.md",
-        ROOT / "docs" / "AUD_RPR_INTERRUPTED_STAGE_POLICY.md",
-        ROOT / "docs" / "AUD_RPR_PARITY_MATRIX.md",
-    }
+    expected = {ROOT / relative for relative in _INTERNAL_ARCHITECTURE_DOCS}
     public_paths = set(_public_documentation_paths())
     assert all(path.exists() for path in expected)
     assert all(path not in public_paths for path in expected)
