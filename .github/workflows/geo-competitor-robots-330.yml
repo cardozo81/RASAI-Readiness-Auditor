@@ -8,7 +8,7 @@ on:
       - 'src/rasai/geo_competitor_pinned_egress_330.py'
       - 'tests/test_geo_competitor_fetch_330.py'
       - 'tests/test_geo_competitor_pinned_egress_330.py'
-      - 'docs/GEO_COMPETITOR_FETCH_330.md'
+      - 'docs/GEO_COMPETITOR_FETCH.md'
       - '.github/workflows/geo-competitor-robots-330.yml'
   push:
     branches: [main]
