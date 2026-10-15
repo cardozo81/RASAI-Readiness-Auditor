@@ -723,6 +723,34 @@ def directed_analysis_body(database: Any, data: Any) -> str:
     ) if objective_cards else ""
     body+=_section("objectives","Visões por objetivo",objective_index+"".join(objective_blocks) or "<div class='notice'>Nenhuma dimensão estratégica foi materializada.</div>")
 
+    # Editorial bridge: organize persisted interventions by their existing
+    # priority label; never infer priority from absent values or recompute it.
+    intervention_groups = {}
+    for action in actions:
+        priority = (_level_label(action.get("priority"))
+                    if action.get("priority") else "Não consolidada")
+        intervention_groups.setdefault(priority, []).append(action)
+    group_order = ("Crítica", "Crítico", "Alta", "Alto", "Média", "Médio",
+                   "Baixa", "Baixo", "Não consolidada")
+    ordered_groups = sorted(
+        intervention_groups.items(),
+        key=lambda item: (group_order.index(item[0])
+                          if item[0] in group_order else len(group_order), item[0]),
+    )
+    intervention_overview = (
+        "<div class='directed-intervention-groups' "
+        "aria-label='Distribuição das intervenções por prioridade persistida'>"
+        + "".join(
+            "<div class='directed-intervention-group'><span>"
+            + escape(label) + "</span><strong>" + str(len(members))
+            + "</strong><small>ação(ões) persistida(s)</small></div>"
+            for label, members in ordered_groups
+        ) + "</div>"
+        "<p class='section-lead'>A distribuição utiliza exclusivamente as "
+        "prioridades registradas nas ações e não representa um novo score. "
+        "Cada ação integra somente sua própria faixa de prioridade.</p>"
+    ) if actions else ""
+
     action_rows=[];modals=[]
     for action in actions:
         modal_id,modal=_action_modal(action,by_id,target_by_id)
@@ -739,7 +767,7 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         modals.append(modal)
     body+=_section(
         "actions","Ações estratégicas",
-        "<p class='section-lead'>Intervenções documentadas: cada linha corresponde a uma ação persistida, sem deduplicar ocorrências. Consulte prioridade, esforço e confiança na mesma linha; abra o detalhe para contexto, evidências e proveniência. Quando o título se repete, use <strong>Alvo / ocorrência</strong> para identificar exatamente qual cookie, recurso ou registro deve ser tratado.</p>"
+        intervention_overview + "<p class='section-lead'>Intervenções documentadas: cada linha corresponde a uma ação persistida, sem deduplicar ocorrências. Consulte prioridade, esforço e confiança na mesma linha; abra o detalhe para contexto, evidências e proveniência. Quando o título se repete, use <strong>Alvo / ocorrência</strong> para identificar exatamente qual cookie, recurso ou registro deve ser tratado.</p>"
         +_table(
             ("Ação","Alvo / ocorrência","Prioridade","Esforço","Confiança","Dimensões","Detalhe"),
             action_rows,
