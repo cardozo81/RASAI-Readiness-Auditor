@@ -11,7 +11,7 @@ on:
       - 'tests/test_audit_duration_forecast_319.py'
       - 'tests/test_console_search_duration_scope_319.py'
       - 'docs/PRE_EXECUTION_COST_FORECAST.md'
-      - '.github/workflows/duration-forecast-319-targeted.yml'
+      - '.github/workflows/duration-forecast-targeted.yml'
   workflow_dispatch:
 
 permissions:

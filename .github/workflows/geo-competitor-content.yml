@@ -6,13 +6,13 @@ on:
       - 'src/rasai/geo_competitor_content_provenance_330.py'
       - 'tests/test_geo_competitor_content_provenance_330.py'
       - 'docs/GEO_COMPETITOR_CONTENT_PROVENANCE.md'
-      - '.github/workflows/geo-competitor-content-330.yml'
+      - '.github/workflows/geo-competitor-content.yml'
   push:
     branches: [main]
     paths:
       - 'src/rasai/geo_competitor_content_provenance_330.py'
       - 'tests/test_geo_competitor_content_provenance_330.py'
-      - '.github/workflows/geo-competitor-content-330.yml'
+      - '.github/workflows/geo-competitor-content.yml'
 permissions:
   contents: read
 jobs:

@@ -8,7 +8,7 @@ on:
       - 'src/rasai/interactive_console.py'
       - 'tests/test_console_search_usage_319.py'
       - 'docs/CONSOLE_COST_AND_USAGE.md'
-      - '.github/workflows/console-usage-separation-319.yml'
+      - '.github/workflows/console-usage-separation.yml'
   push:
     branches: [main]
     paths:
@@ -16,7 +16,7 @@ on:
       - 'src/rasai/interactive_console.py'
       - 'tests/test_console_search_usage_319.py'
       - 'docs/CONSOLE_COST_AND_USAGE.md'
-      - '.github/workflows/console-usage-separation-319.yml'
+      - '.github/workflows/console-usage-separation.yml'
   workflow_dispatch:
 
 permissions:

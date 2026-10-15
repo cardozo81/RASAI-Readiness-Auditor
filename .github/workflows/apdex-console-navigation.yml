@@ -7,7 +7,7 @@ on:
       - 'src/rasai/system_defaults.py'
       - 'src/rasai/console_apdex_configuration.py'
       - 'tests/test_console_apdex_navigation_380.py'
-      - '.github/workflows/apdex-console-navigation-380.yml'
+      - '.github/workflows/apdex-console-navigation.yml'
   workflow_dispatch:
 
 permissions:

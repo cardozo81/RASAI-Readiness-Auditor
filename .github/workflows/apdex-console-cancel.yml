@@ -6,7 +6,7 @@ on:
     paths:
       - 'src/rasai/console_ui_refactor.py'
       - 'tests/test_console_apdex_cancel_transaction_381.py'
-      - '.github/workflows/apdex-console-cancel-381.yml'
+      - '.github/workflows/apdex-console-cancel.yml'
   workflow_dispatch:
 
 permissions:

@@ -8,7 +8,7 @@ on:
       - 'src/rasai/entrypoint.py'
       - 'tests/test_dynatrace_population_crosscheck_355.py'
       - 'docs/DYNATRACE_POPULATION_CROSSCHECK.md'
-      - '.github/workflows/dynatrace-crosscheck-355.yml'
+      - '.github/workflows/dynatrace-crosscheck.yml'
   push:
     branches: [main]
     paths:
@@ -16,7 +16,7 @@ on:
       - 'src/rasai/dynatrace_population_crosscheck_html_355.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_dynatrace_population_crosscheck_355.py'
-      - '.github/workflows/dynatrace-crosscheck-355.yml'
+      - '.github/workflows/dynatrace-crosscheck.yml'
 permissions:
   contents: read
 jobs:

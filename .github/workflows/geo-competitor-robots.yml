@@ -9,7 +9,7 @@ on:
       - 'tests/test_geo_competitor_fetch_330.py'
       - 'tests/test_geo_competitor_pinned_egress_330.py'
       - 'docs/GEO_COMPETITOR_FETCH.md'
-      - '.github/workflows/geo-competitor-robots-330.yml'
+      - '.github/workflows/geo-competitor-robots.yml'
   push:
     branches: [main]
     paths:
@@ -18,7 +18,7 @@ on:
       - 'src/rasai/geo_competitor_pinned_egress_330.py'
       - 'tests/test_geo_competitor_fetch_330.py'
       - 'tests/test_geo_competitor_pinned_egress_330.py'
-      - '.github/workflows/geo-competitor-robots-330.yml'
+      - '.github/workflows/geo-competitor-robots.yml'
 permissions:
   contents: read
 jobs:

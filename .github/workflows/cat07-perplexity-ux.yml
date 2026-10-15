@@ -16,7 +16,7 @@ on:
       - 'tests/test_console_search_scope_presentation.py'
       - 'docs/PERPLEXITY_SEARCH_INTELLIGENCE.md'
       - 'docs/CONSOLE_CONFIG_PERSISTENCE.md'
-      - '.github/workflows/cat07-perplexity-ux-318-378.yml'
+      - '.github/workflows/cat07-perplexity-ux.yml'
   push:
     branches: [main]
     paths:
@@ -30,7 +30,7 @@ on:
       - 'tests/test_cat07_architecture_integration_358.py'
       - 'tests/test_console_perplexity_readiness_318.py'
       - 'tests/test_console_search_scope_presentation.py'
-      - '.github/workflows/cat07-perplexity-ux-318-378.yml'
+      - '.github/workflows/cat07-perplexity-ux.yml'
 
 permissions:
   contents: read

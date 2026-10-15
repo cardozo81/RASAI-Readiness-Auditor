@@ -7,7 +7,7 @@ on:
       - 'src/rasai/catalog_report_style.py'
       - 'tests/test_directed_roadmap_layout_334.py'
       - 'tests/test_issue_54_directed_analysis_target_context.py'
-      - '.github/workflows/directed-roadmap-ux-334.yml'
+      - '.github/workflows/directed-roadmap-ux.yml'
   workflow_dispatch:
 
 permissions:

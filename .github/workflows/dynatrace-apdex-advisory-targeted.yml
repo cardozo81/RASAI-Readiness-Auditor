@@ -11,7 +11,7 @@ on:
       - 'tests/test_dynatrace_pinned_transport_355.py'
       - 'tests/test_dynatrace_apdex_arch_advisory_355.py'
       - 'docs/APDEX_DYNATRACE_ARCH_ADVISORY.md'
-      - '.github/workflows/dynatrace-apdex-advisory-355-targeted.yml'
+      - '.github/workflows/dynatrace-apdex-advisory-targeted.yml'
   push:
     branches: [main]
     paths:
@@ -21,7 +21,7 @@ on:
       - 'src/rasai/dynatrace_settings_live_355.py'
       - 'tests/test_dynatrace_pinned_transport_355.py'
       - 'tests/test_dynatrace_apdex_arch_advisory_355.py'
-      - '.github/workflows/dynatrace-apdex-advisory-355-targeted.yml'
+      - '.github/workflows/dynatrace-apdex-advisory-targeted.yml'
 
 permissions:
   contents: read
