@@ -69,9 +69,8 @@ def _classify_load_warnings(warnings: tuple[str, ...] | list[str]) -> dict[str, 
         "other_unclassified": 0,
     }
     from rasai import console_settings
-    known_sections = set(console_settings._state_values(
-        __import__("rasai.console_search_intelligence", fromlist=["SearchConsoleState"]).SearchConsoleState()
-    ))
+    from rasai.console_search_intelligence import SearchConsoleState
+    known_sections = set(console_settings._state_values(SearchConsoleState()))
     for warning in warnings:
         if warning.startswith("não foi possível ler "):
             category = "unreadable_ini"
