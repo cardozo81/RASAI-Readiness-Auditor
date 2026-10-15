@@ -297,9 +297,39 @@ def _parser_for_state(state: Any) -> ConfigParser:
     return parser
 
 
+def _guard_existing_ini_before_save(destination: Path) -> None:
+    """Fail closed rather than silently discard unsupported operator entries.
+
+    The old saver rewrites [environment] from current specs and would lose
+    unknown values. This gate inspects only physical key names; it does not
+    display, migrate, hydrate or log the content of unsupported settings.
+    """
+    if destination.is_symlink():
+        raise ValueError("INI simbolico: salvar somente em arquivo regular")
+    if not destination.exists():
+        return
+    if not destination.is_file() or destination.stat().st_size > 2_000_000:
+        raise ValueError("INI existente nao pode ser substituido com seguranca")
+    parser = ConfigParser(interpolation=None)
+    parser.optionxform = str
+    try:
+        with destination.open("r", encoding="utf-8") as stream:
+            parser.read_file(stream)
+    except (OSError, UnicodeError, ConfigError) as exc:
+        raise ValueError("INI existente invalido ou ilegivel; preserve a origem") from exc
+    allowed = set(_known_nonsecret_environment_names())
+    unknown = set(parser._sections.get("environment", {})) - allowed
+    if unknown:
+        raise ValueError(
+            "INI contem configuracoes desconhecidas ou nao persistiveis; "
+            "preserve uma copia e reconcilie antes de salvar"
+        )
+
+
 def save_console_config(state: Any, path: Path | None = None) -> Path:
-    sync_nonsecret_runtime_environment(state)
     destination = path or resolve_config_path()
+    _guard_existing_ini_before_save(destination)
+    sync_nonsecret_runtime_environment(state)
     destination.parent.mkdir(parents=True, exist_ok=True)
     parser = _parser_for_state(state)
     stream = io.StringIO()
