@@ -410,6 +410,89 @@ def test_signed_claim_review_receipt_authenticates_entire_context_before_corrob(
     assert "trusted_key" not in repr(result)
 
 
+
+def test_offline_claim_receipt_cli_requires_trusted_environment_and_no_mutation(
+    tmp_path: Path, monkeypatch, capsys,
+) -> None:
+    import hmac
+    import json
+    from hashlib import sha256
+    from rasai.claim_review_import_cli_603 import main as verify_cli
+
+    key = b"test-verified-primary-review-signer-2026-secret"
+    claim = "ativação em 24 horas"
+    raw = "Condições do produto: ativação após 24 horas.".encode("utf-8")
+    claim_file, source_file, review_file = (
+        tmp_path / "claim.txt",
+        tmp_path / "source.txt",
+        tmp_path / "receipt.json",
+    )
+    claim_file.write_text(claim, encoding="utf-8")
+    source_file.write_bytes(raw)
+    fields = {
+        "source_url": "https://example.test/source",
+        "document_sha256": sha256(raw).hexdigest(),
+        "effective_from": "2026-01-01",
+        "effective_until": "2026-12-31",
+        "reviewed_on": "2026-10-10",
+        "product_scope": "VIDA-2026",
+        "claim_text": claim,
+        "document_version": "2026-01",
+        "issuer": "Emissor de teste",
+        "reviewer_receipt_id": "RCP-019",
+        "reviewer_id": "REVIEWER-APPROVED",
+        "matched_excerpt": "ativação após 24 horas",
+        "review_decision": "CORROBORATES",
+        "independent_source_authenticity_verified": True,
+    }
+    signed = json.dumps(
+        fields, ensure_ascii=False, sort_keys=True,
+        separators=(",", ":"), allow_nan=False,
+    ).encode("utf-8")
+    receipt_mac = hmac.new(key, signed, sha256).hexdigest()
+    review_file.write_text(
+        json.dumps({"review": fields, "mac": receipt_mac}),
+        encoding="utf-8",
+    )
+    sources = [item.read_bytes() for item in (claim_file, source_file, review_file)]
+    argv = [
+        "--claim-file", str(claim_file),
+        "--document-file", str(source_file),
+        "--receipt-file", str(review_file),
+        "--product-scope", "VIDA-2026",
+        "--at-date", "2026-10-14",
+    ]
+    monkeypatch.setenv("RASAI_CLAIM_REVIEW_HMAC_KEY_HEX", key.hex())
+    monkeypatch.setenv("RASAI_CLAIM_REVIEWER_ALLOWLIST", "REVIEWER-APPROVED")
+    assert verify_cli(argv) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["state"] == "CLAIM_CORROBORATED"
+    assert result["basis"] == "INDEPENDENT_VERSIONED_SOURCE_REVIEW"
+    assert not result["official_regulator_source_verified"]
+    assert not result["legal_compliance_certified"]
+    assert result["file_writes"] == result["provider_requests"] == 0
+    assert all(
+        item.read_bytes() == original
+        for item, original in zip((claim_file, source_file, review_file), sources)
+    )
+
+    monkeypatch.delenv("RASAI_CLAIM_REVIEW_HMAC_KEY_HEX")
+    assert verify_cli(argv) == 0
+    failed = json.loads(capsys.readouterr().out)
+    assert failed["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    assert "RASAI_CLAIM_REVIEW_HMAC_KEY_HEX" not in str(failed)
+
+    monkeypatch.setenv("RASAI_CLAIM_REVIEW_HMAC_KEY_HEX", key.hex())
+    review_file.write_text(
+        '{"review":{"reviewer_id":"A","reviewer_id":"B"},"mac":"bad"}',
+        encoding="utf-8",
+    )
+    assert verify_cli(argv) == 0
+    failed_duplicate = json.loads(capsys.readouterr().out)
+    assert failed_duplicate["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+
+
+
 def _database(tmp_path: Path) -> Path:
     database = tmp_path / "audit.db"
     connection = sqlite3.connect(database)
