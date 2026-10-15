@@ -210,35 +210,55 @@ def _overview_measurement_scope_notice(
 
 
 def _experience_paths_633() -> str:
-    """Navigation-only projections of the canonical 19 report destinations.
+    """An ordered reading map of canonical evidence, never another report.
 
-    These cards do not replicate findings, actions, scores or underlying
-    report bodies. Destinations are checked against the canonical page registry.
+    The map does not synthesize findings or counts. All destinations belong to
+    the existing report contract and preserve their original detailed content.
     """
-    canonical={page.filename for page in CATALOG_REPORT_PAGES}
-    paths=(
-        ("Por objetivo", "Organize intervenções pelas dimensões analisadas, sem somar ações repetidas.", "directed-analysis.html", "objectives"),
-        ("Plano de ação", "Fases e dependências da Análise Direcionada, quando materializadas.", "directed-analysis.html", "roadmap"),
-        ("Intervenções técnicas", "Examine recomendações governadas no catálogo de correções.", "cat-09.html", None),
-        ("Alvos e ocorrências", "Consulte os registros e seus alvos, com referência à fonte técnica.", "directed-analysis.html", "actions"),
-        ("Search e IA", "Observações GEO e limitações de consultas e presença pesquisada.", "geo.html", None),
-        ("Fontes e métodos", "Critérios de medição, transparência e evidência da auditoria.", "methodology.html", None),
+    canonical = {page.filename for page in CATALOG_REPORT_PAGES}
+    journeys = (
+        ("01", "Entender o diagnóstico", "Situação, dimensões e critérios de leitura",
+         ("Resumo e estado da auditoria", "index.html", "catalogs"),
+         ("Indicadores e limites das medições", "metrics.html", None)),
+        ("02", "Explorar objetivos", "Ler as ações conforme suas dimensões declaradas",
+         ("Ações por objetivo", "directed-analysis.html", "objectives"),
+         ("Plano e dependências", "directed-analysis.html", "roadmap")),
+        ("03", "Examinar intervenções", "Conferir a ação persistida, seu alvo e a evidência",
+         ("Ações e rastreabilidade", "directed-analysis.html", "actions"),
+         ("Intervenções técnicas do CAT-09", "cat-09.html", None)),
+        ("04", "Validar evidências", "Conferir origem, método e limitações",
+         ("Captura e contexto", "capture-context.html", None),
+         ("Evidências de execução", "execution-evidence.html", None)),
+        ("05", "Interpretar Search e IA", "Separar observações, inferências e métricas",
+         ("Resultados GEO", "geo.html", None),
+         ("Integrações de IA", "ai-integrations.html", None)),
+        ("06", "Conferir metodologia", "Localizar critérios e proveniência sem perder detalhes",
+         ("Metodologia", "methodology.html", None),
+         ("SARI", "sari.html", None)),
     )
-    cards=[]
-    for label,description,filename,anchor in paths:
-        if filename not in canonical:
-            raise ValueError("navigation-only experience points outside report contract")
-        href=filename+("#"+anchor if anchor else "")
-        cards.append(
-            "<a class='card report-experience-card' href='"+escape(href,quote=True)+"'>"
-            "<strong>"+escape(label)+"</strong><span>"+escape(description)+"</span>"
-            "<small>Explorar seção ›</small></a>"
+    sections = []
+    for number, title, description, *links in journeys:
+        entries = []
+        for label, filename, anchor in links:
+            if filename not in canonical:
+                raise ValueError("reading map points outside report contract")
+            href = filename + ("#" + anchor if anchor else "")
+            entries.append(
+                "<li><a href='" + escape(href, quote=True) + "'>"
+                + escape(label) + "</a></li>"
+            )
+        sections.append(
+            "<li class='report-reading-step'><div class='report-reading-number'>"
+            + number + "</div><div class='report-reading-content'><h3>"
+            + escape(title) + "</h3><p>" + escape(description)
+            + "</p><ul class='report-reading-links'>" + "".join(entries)
+            + "</ul></div></li>"
         )
     return (
-        "<p class='section-lead'>Escolha um caminho de leitura. Os atalhos usam "
-        "as mesmas páginas e os mesmos dados canônicos desta auditoria; "
-        "não são diagnósticos adicionais.</p>"
-        "<div class='report-experience-grid'>"+"".join(cards)+"</div>"
+        "<p class='section-lead'>Percurso de interpretação: do estado observado "
+        "às intervenções, evidências e limites de medição. Cada etapa abre "
+        "exatamente as páginas canônicas; não cria resultados adicionais.</p>"
+        "<ol class='report-reading-map'>" + "".join(sections) + "</ol>"
     )
 
 
