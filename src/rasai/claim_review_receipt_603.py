@@ -52,7 +52,8 @@ def verify_claim_review_receipt(
         or not receipt_mac or len(receipt_mac) != 64
         or set(receipt) != _RECEIPT_FIELDS
         or receipt.get("independent_source_authenticity_verified") is not True
-        or receipt.get("reviewer_id") not in trusted_reviewer_ids
+        or not isinstance(receipt.get("reviewer_id"), str)
+        or receipt["reviewer_id"] not in trusted_reviewer_ids
     ):
         return fallback
     if any(not isinstance(value, (str, bool)) for value in receipt.values()):
