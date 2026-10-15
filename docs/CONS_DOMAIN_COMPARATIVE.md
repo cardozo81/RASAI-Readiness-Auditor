@@ -73,12 +73,12 @@ não uma tendência por mesma página; o CONS produtivo permanece inalterado.
 
 ## Entrada operacional somente leitura do índice existente
 
-Além do resolvedor puro, `consolidation.domain_comparative_index_210`
+Além do resolvedor puro, `consolidation.domain_comparative_index`
 permite selecionar duas ou mais AUDs já materializadas no índice
 analítico local. Exemplo:
 
 ```powershell
-.\.venv\Scripts\python.exe -m rasai.consolidation.domain_comparative_index_210 `
+.\.venv\Scripts\python.exe -m rasai.consolidation.domain_comparative_index `
   --audits-root .\audits `
   --audit-id AUD-PRIMEIRA `
   --audit-id AUD-SEGUNDA
@@ -117,7 +117,7 @@ cria arquivos nem altera pacote CONS, hashes, report-catalog ou AUD.
 
 Exemplo:
 ```powershell
-.\.venv\Scripts\python.exe -m rasai.consolidation.domain_comparative_index_210 `
+.\.venv\Scripts\python.exe -m rasai.consolidation.domain_comparative_index `
   --audits-root .\audits --audit-id AUD-PRIMEIRA `
   --audit-id AUD-SEGUNDA --format html
 ```
@@ -141,7 +141,7 @@ não são preenchidos nem migrados.
 Exemplo:
 
 ```powershell
-.\.venv\Scripts\python.exe -m rasai.consolidation.domain_comparative_index_210 `
+.\.venv\Scripts\python.exe -m rasai.consolidation.domain_comparative_index `
   --audits-root .\audits --audit-id AUD-PRIMEIRA --audit-id AUD-SEGUNDA `
   --verify-source-metadata --format html
 ```
@@ -166,7 +166,7 @@ física do índice contra as AUDs de origem e recusa fontes
 incompatíveis, alteradas ou inseguras.
 
 ```powershell
-python -m rasai.consolidation.domain_comparative_package_210 `
+python -m rasai.consolidation.domain_comparative_package `
   --audits-root .\audits --audit-id AUD-PRIMEIRA --audit-id AUD-SEGUNDA `
   --write-domain-package
 ```
@@ -198,7 +198,7 @@ O modo CDOM original `CONS-DOMAIN-COMPARATIVE-1` e os pacotes
 incluindo `source_file_sha256` para cada `audit.db`.
 
 ```powershell
-python -m rasai.consolidation.domain_comparative_package_210 `
+python -m rasai.consolidation.domain_comparative_package `
   --audits-root .\audits --audit-id AUD-PRIMEIRA --audit-id AUD-SEGUNDA `
   --write-domain-package --verify-source-bytes
 ```

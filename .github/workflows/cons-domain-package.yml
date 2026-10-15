@@ -3,9 +3,9 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'src/rasai/consolidation/domain_comparative_package_210.py'
+      - 'src/rasai/consolidation/domain_comparative_package.py'
       - 'src/rasai/consolidation/domain_comparative_preview.py'
-      - 'src/rasai/consolidation/domain_comparative_index_210.py'
+      - 'src/rasai/consolidation/domain_comparative_index.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_cons_domain_comparative_index.py'
       - 'docs/CONS_DOMAIN_COMPARATIVE.md'
@@ -13,9 +13,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'src/rasai/consolidation/domain_comparative_package_210.py'
+      - 'src/rasai/consolidation/domain_comparative_package.py'
       - 'src/rasai/consolidation/domain_comparative_preview.py'
-      - 'src/rasai/consolidation/domain_comparative_index_210.py'
+      - 'src/rasai/consolidation/domain_comparative_index.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_cons_domain_comparative_index.py'
       - '.github/workflows/cons-domain-package.yml'

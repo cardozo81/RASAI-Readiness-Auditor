@@ -9,12 +9,12 @@ import sqlite3
 
 import pytest
 
-from rasai.consolidation.domain_comparative_index_210 import (
+from rasai.consolidation.domain_comparative_index import (
     domain_preview_from_index, main,
 )
-from rasai.consolidation import domain_comparative_index_210 as domain_index
+from rasai.consolidation import domain_comparative_index as domain_index
 from rasai.consolidation.reader import source_file_fingerprint
-from rasai.consolidation.domain_comparative_package_210 import (
+from rasai.consolidation.domain_comparative_package import (
     materialize_same_domain_package, main as package_cli,
 )
 
@@ -414,7 +414,7 @@ def test_cdom_package_refuses_modified_existing_report(tmp_path):
 
 
 def test_cdom_rejects_source_changes_between_preview_and_package(tmp_path, monkeypatch):
-    from rasai.consolidation import domain_comparative_package_210 as module
+    from rasai.consolidation import domain_comparative_package as module
     root, idx = _index(tmp_path)
     _physical_sources(root, idx)
     original = module.source_file_fingerprint
@@ -494,7 +494,7 @@ def test_cdom_v2_opt_in_local_source_bytes_pin_does_not_rewrite_v1(tmp_path):
 def test_cdom_v2_abstains_when_source_bytes_change_before_publication(
     tmp_path, monkeypatch,
 ):
-    from rasai.consolidation import domain_comparative_package_210 as mod
+    from rasai.consolidation import domain_comparative_package as mod
     root, idx = _index(tmp_path)
     _physical_sources(root, idx)
     old = mod._source_sha256
@@ -554,7 +554,7 @@ def test_cdom_v2_refuses_partial_or_overlong_source_hash_stream(
 def test_cdom_v2_digest_budget_fail_closed_without_materialization(
     tmp_path, monkeypatch,
 ):
-    from rasai.consolidation import domain_comparative_package_210 as mod
+    from rasai.consolidation import domain_comparative_package as mod
     root, idx = _index(tmp_path)
     _physical_sources(root, idx)
     monkeypatch.setattr(mod, "_MAX_HASH_BYTES_TOTAL", 64)
@@ -585,7 +585,7 @@ def test_cdom_v2_cli_opt_in_with_crypto_file_digest(tmp_path, capsys):
 def test_cdom_v2_refuses_sqlite_sidecar_created_between_digest_passes(
     tmp_path, monkeypatch, sidecar_suffix,
 ):
-    from rasai.consolidation import domain_comparative_package_210 as mod
+    from rasai.consolidation import domain_comparative_package as mod
     root, idx = _index(tmp_path)
     _physical_sources(root, idx)
     original = {
@@ -712,7 +712,7 @@ def test_device_identity_from_source_matches_index_without_extra_writes(
 def test_cdom_publication_aborts_if_sqlite_sidecar_appears_during_staging(
     tmp_path, monkeypatch, verify_bytes,
 ):
-    from rasai.consolidation import domain_comparative_package_210 as mod
+    from rasai.consolidation import domain_comparative_package as mod
     root, idx = _index(tmp_path)
     _physical_sources(root, idx)
     original = {
@@ -752,7 +752,7 @@ def test_cdom_publication_aborts_if_sqlite_sidecar_appears_during_staging(
 def test_cdom_v2_rechecks_changed_source_after_staging_before_atomic_publish(
     tmp_path, monkeypatch,
 ):
-    from rasai.consolidation import domain_comparative_package_210 as mod
+    from rasai.consolidation import domain_comparative_package as mod
     root, idx = _index(tmp_path)
     _physical_sources(root, idx)
     changed_db = root / "AUD-TWO" / "audit.db"
