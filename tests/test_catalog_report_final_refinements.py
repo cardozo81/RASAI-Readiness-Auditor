@@ -336,6 +336,17 @@ def test_optional_seo_evidence_policy_distinguishes_absence_from_harm() -> None:
     assert classify("BR-GEO-017", '{"state":"OBTAINED"}') == "AVAILABLE"
     assert classify("BR-GEO-017", '{"state":"NETWORK_ERROR"}') == "UNKNOWN"
     assert classify("BR-GEO-013", '{"canonicals":[]}') == "OPTIONAL_ABSENCE"
+    assert classify("BR-GEO-013", '{"canonicals":[],"invalid":["bad"]}') == "UNKNOWN"
+    assert classify(
+        "BR-GEO-013", '{"canonicals":[],"declared":["/a"],"normalized":[]}',
+    ) == "UNKNOWN"
+    assert classify(
+        "BR-GEO-017", '{"state":"ABSENT","error":"timeout"}',
+    ) == "UNKNOWN"
+    assert classify(
+        "BR-GEO-003",
+        '{"sitemaps":[{"state":"ABSENT","error":"DNS failure"}]}',
+    ) == "UNKNOWN"
     assert classify(
         "BR-GEO-013",
         '{"declared":["/a","/b"],"invalid":[],"normalized":["https://x.test/a","https://x.test/b"]}',
