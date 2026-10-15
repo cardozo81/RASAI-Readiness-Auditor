@@ -564,9 +564,11 @@ def test_633_lighthouse_persisted_score_contract_never_normalizes_twice(tmp_path
     report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
     overview = (report / "index.html").read_text(encoding="utf-8")
     cat04 = (report / "cat-04.html").read_text(encoding="utf-8")
+    cat07 = (report / "cat-07.html").read_text(encoding="utf-8")
     assert "1/100" in overview and "100/100" not in overview
     assert "class='result-value bad'>1/100</strong>" in overview
     assert "1 / 100" in cat04
+    assert "1 / 100" in cat07  # contextual CAT-07 cross-read carries the unit
 
 
 def test_633_design_system_neutral_panels_and_contextual_accents() -> None:
