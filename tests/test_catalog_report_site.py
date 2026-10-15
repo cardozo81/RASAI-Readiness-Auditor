@@ -248,7 +248,11 @@ def test_unified_report_633_core_color_pairs_meet_wcag_aa_text_contrast() -> Non
 
 def test_report_633_baseline_guard_does_not_lose_nontabular_evidence() -> None:
     """A design-only diff cannot silently delete prose, targets or source links."""
-    from report_smoke_633 import _Tables, _check_table_parity
+    from runpy import run_path
+
+    smoke = run_path(str(Path(__file__).with_name("report_smoke_633.py")))
+    _Tables = smoke["_Tables"]
+    _check_table_parity = smoke["_check_table_parity"]
 
     def record(html: str):
         parsed = _Tables()
