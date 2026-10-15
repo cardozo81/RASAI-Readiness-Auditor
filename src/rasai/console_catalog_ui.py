@@ -354,7 +354,7 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
         for line in ai_lines:
             print(paint(f"  {line}", DIM))
         if any(item.id == "CAT-05" for item in selected):
-            from rasai.console_perplexity_readiness_318 import (
+            from rasai.console_perplexity_readiness import (
                 inspect_perplexity_readiness,
             )
             px = inspect_perplexity_readiness(state)

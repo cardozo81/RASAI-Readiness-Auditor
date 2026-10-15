@@ -5,7 +5,7 @@ from contextlib import redirect_stdout
 from io import StringIO
 from types import ModuleType, SimpleNamespace
 
-from rasai.console_perplexity_readiness_318 import (
+from rasai.console_perplexity_readiness import (
     inspect_perplexity_readiness,
     render_perplexity_readiness,
 )

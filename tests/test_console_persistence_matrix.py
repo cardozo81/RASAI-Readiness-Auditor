@@ -349,7 +349,7 @@ def test_truncated_operator_ini_abstains_without_partial_activation(tmp_path):
 
 def test_saved_perplexity_draft_survives_unrelated_save_without_optin(tmp_path):
     """Saving other settings after reboot does not silently discard the draft."""
-    from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
+    from rasai.console_perplexity_readiness import inspect_perplexity_readiness
 
     _install_config_contract()
     path = tmp_path / "persisted.ini"

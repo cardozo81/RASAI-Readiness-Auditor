@@ -19,7 +19,7 @@ def draft_pending_confirmation(state: Any) -> bool:
     if bool(getattr(state, "perplexity_skip_draft_this_aud", False)):
         return False
     from rasai.console_catalog_plan import selected_catalog_ids
-    from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
+    from rasai.console_perplexity_readiness import inspect_perplexity_readiness
 
     if "CAT-05" not in selected_catalog_ids(state):
         return False

@@ -313,7 +313,7 @@ def catalog_menu(console_module: ModuleType, state: Any, *, view: str, title: st
                 f"{getattr(state, 'audits_root', 'audits')}"
             )
             print(paint("   Usa o mesmo editor e a mesma persistência da preparação da auditoria.", DIM))
-            from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
+            from rasai.console_perplexity_readiness import inspect_perplexity_readiness
             px = inspect_perplexity_readiness(state)
             print(paint(
                 "Perplexity configuração: " + px["configuration_status"]

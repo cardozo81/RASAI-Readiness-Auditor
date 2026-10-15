@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/cat07_architecture_reporting.py'
-      - 'src/rasai/console_perplexity_readiness_318.py'
+      - 'src/rasai/console_perplexity_readiness.py'
       - 'src/rasai/console_search_scope_presentation.py'
       - 'src/rasai/integration_diagnostics_console.py'
       - 'src/rasai/console_catalog_ui.py'
@@ -21,7 +21,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/cat07_architecture_reporting.py'
-      - 'src/rasai/console_perplexity_readiness_318.py'
+      - 'src/rasai/console_perplexity_readiness.py'
       - 'src/rasai/console_search_scope_presentation.py'
       - 'src/rasai/integration_diagnostics_console.py'
       - 'src/rasai/console_catalog_ui.py'
@@ -54,7 +54,7 @@ jobs:
         run: >-
           python -m compileall -q
           src/rasai/cat07_architecture_reporting.py
-          src/rasai/console_perplexity_readiness_318.py
+          src/rasai/console_perplexity_readiness.py
           src/rasai/console_search_scope_presentation.py
           src/rasai/integration_diagnostics_console.py
           src/rasai/console_catalog_ui.py

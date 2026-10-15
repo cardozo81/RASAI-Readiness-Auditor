@@ -617,7 +617,7 @@ def test_search_affinity_is_source_declared_and_never_claims_live_execution(
         SERP_ENV_NAMES, SERP_PROVIDER_KEY_ENVS,
     )
     from rasai.search_intelligence.perplexity import API_KEY_ENV
-    from rasai.console_perplexity_readiness_318 import _FILTERS
+    from rasai.console_perplexity_readiness import _FILTERS
     from rasai.console_configuration_inventory_523 import (
         _declared_search_consumer_surface,
     )

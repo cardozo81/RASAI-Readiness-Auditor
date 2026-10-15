@@ -145,7 +145,7 @@ def _declared_search_consumer_surface() -> dict[str, str]:
         SERP_ENV_NAMES, SERP_PROVIDER_KEY_ENVS,
     )
     from rasai.search_intelligence.perplexity import API_KEY_ENV
-    from rasai.console_perplexity_readiness_318 import _FILTERS
+    from rasai.console_perplexity_readiness import _FILTERS
 
     result: dict[str, str] = {}
     secret_keys = set(SERP_PROVIDER_KEY_ENVS)

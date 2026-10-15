@@ -8,7 +8,7 @@ from types import ModuleType
 import pytest
 
 from rasai.console_catalog_plan import _PLANS, set_selected_catalog_ids
-from rasai.console_perplexity_run_gate_595 import (
+from rasai.console_perplexity_run_gate import (
     confirm_draft_for_this_aud, draft_pending_confirmation, install,
 )
 from rasai.console_search_intelligence import SearchConsoleState
