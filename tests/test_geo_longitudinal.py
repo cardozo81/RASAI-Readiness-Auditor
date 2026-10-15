@@ -8,7 +8,7 @@ import sqlite3
 
 import pytest
 
-from rasai.geo_longitudinal_311 import build_geo_longitudinal_preview, main
+from rasai.geo_longitudinal import build_geo_longitudinal_preview, main
 
 
 def audit(
@@ -1068,7 +1068,7 @@ def test_longitudinal_rejects_unsealed_sqlite_sidecars_before_read(
 def test_longitudinal_abstains_when_db_changes_between_snapshot_and_source_reads(
     tmp_path, monkeypatch,
 ):
-    from rasai import geo_longitudinal_311 as module
+    from rasai import geo_longitudinal as module
     moving = audit(tmp_path, "AUD-MOVING-SOURCE")
     stable = audit(tmp_path, "AUD-STABLE-SOURCE")
     original = (moving / "audit.db").read_bytes()
@@ -1094,7 +1094,7 @@ def test_longitudinal_abstains_when_db_changes_between_snapshot_and_source_reads
 def test_longitudinal_abstains_on_new_wal_after_independent_source_reads(
     tmp_path, monkeypatch,
 ):
-    from rasai import geo_longitudinal_311 as module
+    from rasai import geo_longitudinal as module
     moving = audit(tmp_path, "AUD-SIDECAR-DURING-READ")
     stable = audit(tmp_path, "AUD-UNCHANGED")
     original = (moving / "audit.db").read_bytes()
@@ -1119,7 +1119,7 @@ def test_longitudinal_abstains_on_new_wal_after_independent_source_reads(
 def test_longitudinal_rejects_source_over_hash_budget_without_querying_sqlite(
     tmp_path, monkeypatch,
 ):
-    from rasai import geo_longitudinal_311 as module
+    from rasai import geo_longitudinal as module
     large = audit(tmp_path, "AUD-OVER-BYTE-BUDGET")
     stable = audit(tmp_path, "AUD-IN-BUDGET")
     db = large / "audit.db"

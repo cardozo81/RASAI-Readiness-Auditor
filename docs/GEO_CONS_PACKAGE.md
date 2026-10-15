@@ -6,7 +6,7 @@ GCOMP-<fingerprint>/{manifest.json,report.html}`.
 
 A entrada é o manifesto de um relatório `CONS-3` já existente,
 com 2 a 100 IDs de AUD explicitamente indicados, mesma seleção
-read-only da prévia `geo_cons_companion_311`. Não lê caminhos
+read-only da prévia `geo_cons_companion`. Não lê caminhos
 arbitrários do manifesto: cada base fonte é procurada somente em
 `audits_root/AUD-.../audit.db`. A ausência de GEO verificável
 resulta em exclusão com motivo e resultado N/D, não em

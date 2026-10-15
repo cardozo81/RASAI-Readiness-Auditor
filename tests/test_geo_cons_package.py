@@ -500,7 +500,7 @@ def test_geo_cons_package_second_manifest_read_uses_bounded_verified_reader(
     root, cons = _cons(tmp_path)
     physical = cons / "manifest.json"
     original = physical.read_bytes()
-    from rasai import geo_cons_companion_311 as companion
+    from rasai import geo_cons_companion as companion
     verified = companion._verified_manifest_text
     reads = []
 

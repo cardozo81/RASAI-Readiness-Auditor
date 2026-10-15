@@ -12,7 +12,7 @@ corresponda a citação em respostas generativas.
 Em um ambiente RASAi instalado:
 
 ```powershell
-.\.venv\Scripts\python.exe -m rasai.geo_longitudinal_311 `C:\audits\AUD-EXEMPLO-1` `C:\audits\AUD-EXEMPLO-2`
+.\.venv\Scripts\python.exe -m rasai.geo_longitudinal `C:\audits\AUD-EXEMPLO-1` `C:\audits\AUD-EXEMPLO-2`
 ```
 
 Saída JSON em stdout, sem gravação no disco. O usuário fornece
@@ -71,7 +71,7 @@ Exemplo no PowerShell:
 .\.venv\Scripts\python.exe -m rasai geo-longitudinal "C:\audits\AUD-1" "C:\audits\AUD-2"
 ```
 
-O comando especializado `python -m rasai.geo_longitudinal_311` continua
+O comando especializado `python -m rasai.geo_longitudinal` continua
 suportado e produz o mesmo JSON. Workflow de regressão testa ambos
 em Windows e Linux; não testa provedores comerciais nem instrumentação
 real de navegadores.
@@ -265,7 +265,7 @@ manifestos e relatórios são preservados sem escrita.
 
 ## Leitura fisica estrita do manifesto CONS (#311, 13/10/2026)
 
-O companion `geo_cons_companion_311` continua estritamente offline, sem
+O companion `geo_cons_companion` continua estritamente offline, sem
 injetar resultados em `CONS-3`. Sua entrada `manifest.json` agora
 passa por leitura limitada a 1 MiB com conferencia do arquivo antes da
 abertura, do descriptor aberto e do caminho depois da leitura. A

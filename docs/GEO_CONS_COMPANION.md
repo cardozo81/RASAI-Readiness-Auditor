@@ -2,7 +2,7 @@
 
 ## Contrato implementado
 
-`rasai.geo_cons_companion_311.build_cons_geo_advisory` recebe o diretório
+`rasai.geo_cons_companion.build_cons_geo_advisory` recebe o diretório
 local de um `CONS-*` e a raiz das auditorias originais. Lê o
 `manifest.json` de CONS-3 e utiliza **exclusivamente os identificadores
 `source_audits[*].audit_id`** para selecionar as AUDs. Não utiliza
@@ -11,13 +11,13 @@ Perplexity, RPR, consolidação, IA ou rematerialização e não escreve
 nenhum arquivo.
 
 O componente encaminha as AUDs ao inventário longitudinal
-`geo_longitudinal_311.build_geo_longitudinal_preview` já homologado,
+`geo_longitudinal.build_geo_longitudinal_preview` já homologado,
 reutilizando exatamente a elegibilidade GEO, a proveniência,
 comparabilidade, deduplicação e os filtros conservadores de snapshots.
 Saída opcional JSON/HTML standalone:
 
 ```powershell
-.\.venv\Scripts\python.exe -m rasai.geo_cons_companion_311 `
+.\.venv\Scripts\python.exe -m rasai.geo_cons_companion `
   --audits-root .\audits `
   --cons-dir .\audits\consolidated\CONS-REFERENCIA `
   --format html

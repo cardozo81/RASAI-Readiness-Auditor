@@ -112,7 +112,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 ### Issue #311 - P3 · PARTIALLY_IMPLEMENTED + NEEDS_DECISION
 
-**Já presente / evidência técnica:** `geo-longitudinal`, `geo_cons_companion_311`, pacote derivado e preflight seguro, trends N/D, CONS-3 intocado.
+**Já presente / evidência técnica:** `geo-longitudinal`, `geo_cons_companion`, pacote derivado e preflight seguro, trends N/D, CONS-3 intocado.
 
 **Critério residual e risco:** Zero coortes elegíveis na revisão histórica de 21 AUDs; falta contrato metodológico aprovado e integração nativa ao CONS, caso autorizada.
 

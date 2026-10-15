@@ -8,7 +8,7 @@ import sqlite3
 
 import pytest
 
-from rasai.geo_cons_companion_311 import build_cons_geo_advisory, main
+from rasai.geo_cons_companion import build_cons_geo_advisory, main
 
 
 def _cons(tmp_path, *, source=None):
@@ -65,7 +65,7 @@ def test_311_cons_companion_respects_positive_preview_output_without_promoting_t
     tmp_path, monkeypatch,
 ):
     root, cons = _cons(tmp_path)
-    from rasai import geo_cons_companion_311 as companion
+    from rasai import geo_cons_companion as companion
     def proof(paths):
         assert [p.name for p in paths] == ["AUD-ALPHA", "AUD-BETA"]
         assert all(p.parent == root for p in paths)
@@ -125,7 +125,7 @@ def test_311_duplicate_cons_manifest_keys_refuse_advisory_before_aud_reads(
 ):
     """#311: key collisions in a local CONS file are not proof of source identity."""
     root, cons = _cons(tmp_path)
-    from rasai import geo_cons_companion_311 as companion
+    from rasai import geo_cons_companion as companion
 
     # JSON fragment is valid but ambiguous; a permissive parser would
     # select the final scalar/list/nested audit_id and continue.
@@ -178,7 +178,7 @@ def test_311_manifest_rejects_non_json_constants_before_any_aud_read(
         encoding="utf-8",
     )
     physical = {str(p): p.read_bytes() for p in root.rglob("*") if p.is_file()}
-    from rasai import geo_cons_companion_311 as companion
+    from rasai import geo_cons_companion as companion
     calls = []
     monkeypatch.setattr(
         companion, "build_geo_longitudinal_preview",
@@ -196,7 +196,7 @@ def test_311_cons_manifest_replaced_during_read_is_rejected_without_aud_access(
     root, cons = _cons(tmp_path)
     manifest = cons / "manifest.json"
     original_open = Path.open
-    from rasai import geo_cons_companion_311 as companion
+    from rasai import geo_cons_companion as companion
     visited = []
     monkeypatch.setattr(
         companion, "build_geo_longitudinal_preview",
@@ -222,7 +222,7 @@ def test_311_cons_manifest_replaced_during_read_is_rejected_without_aud_access(
 
 def test_311_cons_manifest_above_byte_budget_is_never_parsed(tmp_path, monkeypatch):
     root, cons = _cons(tmp_path)
-    from rasai import geo_cons_companion_311 as companion
+    from rasai import geo_cons_companion as companion
     oversized = (cons / "manifest.json")
     oversized.write_text(" " * (1024 * 1024 + 1), encoding="utf-8")
     called = []

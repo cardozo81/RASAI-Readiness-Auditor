@@ -13,7 +13,7 @@ from pathlib import Path
 import re
 from typing import Any, Sequence
 
-from rasai.geo_longitudinal_311 import build_geo_longitudinal_preview
+from rasai.geo_longitudinal import build_geo_longitudinal_preview
 
 _AUD = re.compile(r"^AUD-[A-Za-z0-9-]{1,100}$")
 _CONS = re.compile(r"^CONS-[A-Za-z0-9-]{1,100}$")

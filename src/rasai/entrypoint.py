@@ -350,7 +350,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if effective and effective[0] == "geo-cons-review":
         # Consult one existing CONS selection without changing CONS-3,
         # historical GEO snapshots or the audit/provider runtime.
-        from rasai.geo_cons_companion_311 import main as geo_cons_review_main
+        from rasai.geo_cons_companion import main as geo_cons_review_main
         return geo_cons_review_main(effective[1:])
 
     if effective and effective[0] == "geo-cons-package":
@@ -368,7 +368,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if effective and effective[0] in {"geo-longitudinal", "geo-history"}:
         # Standalone read-only observational inventory. Must execute BEFORE
         # installers / secrets / collector and AI runtime bootstrap.
-        from rasai.geo_longitudinal_311 import main as geo_history_main
+        from rasai.geo_longitudinal import main as geo_history_main
         return geo_history_main(effective[1:])
 
     if effective and effective[0] == "audit-attempts":

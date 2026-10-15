@@ -14,7 +14,7 @@ import shutil
 import tempfile
 from typing import Any, Sequence
 
-from rasai.geo_cons_companion_311 import (
+from rasai.geo_cons_companion import (
     build_cons_geo_advisory, _unique_cons_manifest_keys,
     _verified_manifest_text, _reject_manifest_non_json_constant,
 )
