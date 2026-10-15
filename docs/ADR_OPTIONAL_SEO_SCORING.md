@@ -53,7 +53,7 @@ A projeção de descontos opcionais reutiliza esse classificador, evitando aceit
 
 ## Laboratório determinístico de sensibilidade (sem publicação de score)
 
-`rasai.optional_seo_score_scenarios_602.preview_optional_seo_policy_sensitivity` recebe RuleExecutions em memória da mesma AUD e compara três cálculos pelo motor atual, com os mesmos agrupamentos e pesos:
+`rasai.optional_seo_score_scenarios.preview_optional_seo_policy_sensitivity` recebe RuleExecutions em memória da mesma AUD e compara três cálculos pelo motor atual, com os mesmos agrupamentos e pesos:
 
 - `CANONICAL_SCORE_GEO_004`: interpretação canônica **sem alteração**;
 - `SENSITIVITY_OPTIONAL_ABSENCE_PASS`: cenário extremo que trata somente ausência opcional estritamente comprovada como PASS;

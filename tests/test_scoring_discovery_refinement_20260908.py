@@ -32,7 +32,7 @@ def test_optional_seo_scenarios_recompute_score_coverage_confidence_and_gates_in
     from datetime import datetime, timezone
 
     from rasai.domain import DeviceContext, RuleExecution
-    from rasai.optional_seo_score_scenarios_602 import (
+    from rasai.optional_seo_score_scenarios import (
         preview_optional_seo_policy_sensitivity,
     )
     from rasai.scoring_v004 import ScoreGeo004Engine
@@ -86,7 +86,7 @@ def test_optional_seo_scenario_malformed_and_conflict_never_promote_to_pass() ->
     from datetime import datetime, timezone
 
     from rasai.domain import DeviceContext, RuleExecution
-    from rasai.optional_seo_score_scenarios_602 import (
+    from rasai.optional_seo_score_scenarios import (
         preview_optional_seo_policy_sensitivity,
     )
 

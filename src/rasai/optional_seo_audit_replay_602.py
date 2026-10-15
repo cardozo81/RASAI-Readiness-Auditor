@@ -15,7 +15,7 @@ import sqlite3
 from typing import Any, Sequence
 
 from rasai.domain import DeviceContext, RuleExecution, RuleResult
-from rasai.optional_seo_score_scenarios_602 import preview_optional_seo_policy_sensitivity
+from rasai.optional_seo_score_scenarios import preview_optional_seo_policy_sensitivity
 
 _MAX_DB_BYTES = 256 * 1024 * 1024
 _MAX_ROWS = 4000
