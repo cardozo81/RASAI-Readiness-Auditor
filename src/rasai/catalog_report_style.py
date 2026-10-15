@@ -145,6 +145,17 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
 @media(max-width:700px){.report-reading-map{grid-template-columns:minmax(0,1fr)}.report-reading-step{grid-template-columns:38px minmax(0,1fr);padding:18px 0}}
 @media print{.report-reading-map{grid-template-columns:repeat(2,minmax(0,1fr))}.report-reading-step{break-inside:avoid}}
 
+/* #633 objectives become a readable evidence index, not another card dashboard. */
+.directed-goal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 22px;border-top:1px solid var(--line)}
+.directed-goal-link{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:4px 14px;padding:17px 2px;border:0;border-bottom:1px solid var(--line);background:transparent;box-shadow:none;color:var(--ink);text-decoration:none}
+.directed-goal-link:hover,.directed-goal-link:focus-visible{box-shadow:none;background:#f4faf9;border-top-color:transparent}
+.directed-goal-link .directed-goal-name{grid-column:1;font-size:.95rem}
+.directed-goal-link strong{grid-column:2;grid-row:1/span 2;font-size:1.45rem;color:var(--green)}
+.directed-goal-link small{grid-column:1;color:var(--secondary-ink)}
+.directed-goal-link .directed-goal-cta{grid-column:1/-1;margin:5px 0 0;padding:0;font-size:.76rem}
+@media(max-width:700px){.directed-goal-grid{grid-template-columns:minmax(0,1fr)}}
+@media print{.directed-goal-grid{display:none}}
+
 /* #633 overview navigation adds routes, not duplicate measurements. */
 .report-experience-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px;margin:14px 0}
 .report-experience-card{display:flex;flex-direction:column;gap:8px;text-decoration:none;color:var(--ink);border-top:3px solid var(--cyan);transition:transform .16s,box-shadow .16s}
