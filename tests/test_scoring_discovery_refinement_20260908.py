@@ -129,6 +129,96 @@ def test_optional_seo_scenario_malformed_and_conflict_never_promote_to_pass() ->
 
 
 
+
+def test_optional_policy_replay_requires_exact_persisted_sari_parity(tmp_path) -> None:
+    import json
+    import sqlite3
+    from datetime import datetime, timezone
+
+    from rasai.domain import DeviceContext, RuleExecution
+    from rasai.optional_seo_audit_replay_602 import replay_optional_seo_from_audit
+    from rasai.scoring_v004 import ScoreGeo004Engine
+
+    folder = tmp_path / "AUD-SCENARIO1"
+    folder.mkdir()
+    db = folder / "audit.db"
+    stamp = datetime(2026, 10, 14, 10, 0, tzinfo=timezone.utc)
+    fixtures = (
+        RuleExecution(
+            rule_execution_id=f"RULE-{number}", audit_id=folder.name,
+            rule_id=rule_id, rule_version="fixture", page_id=None,
+            snapshot_id=None, device=DeviceContext.MOBILE,
+            result=RuleResult.WARNING, observed_value=evidence,
+            expected_condition=None, evidence_ids=(), executed_at=stamp,
+        )
+        for number, (rule_id, evidence) in enumerate(
+            (
+                ("BR-GEO-003", {"sitemaps": [{"state": "ABSENT"}]}),
+                ("BR-GEO-017", {"state": "ABSENT"}),
+                ("BR-GEO-013", {"canonicals": []}),
+            ),
+            start=1,
+        )
+    )
+    records = tuple(fixtures)
+    calculated = ScoreGeo004Engine().score(
+        audit_id=folder.name, executions=records, devices=(DeviceContext.MOBILE,),
+    )
+    with sqlite3.connect(db) as con:
+        con.execute("CREATE TABLE audits(audit_id TEXT)")
+        con.execute("INSERT INTO audits VALUES (?)", (folder.name,))
+        con.execute(
+            "CREATE TABLE rule_executions("
+            "rule_execution_id TEXT,audit_id TEXT,rule_id TEXT,rule_version TEXT,"
+            "page_id TEXT,snapshot_id TEXT,device TEXT,result TEXT,"
+            "observed_value TEXT,expected_condition TEXT,evidence_ids TEXT,"
+            "executed_at TEXT,error TEXT)"
+        )
+        con.execute(
+            "CREATE TABLE scores(dimension TEXT,value REAL,coverage REAL,"
+            "confidence TEXT,consolidation_status TEXT,scoring_version TEXT,"
+            "audit_id TEXT,device TEXT)"
+        )
+        for record in records:
+            con.execute(
+                "INSERT INTO rule_executions VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    record.rule_execution_id, record.audit_id, record.rule_id,
+                    record.rule_version, record.page_id, record.snapshot_id,
+                    record.device.value, record.result.value,
+                    json.dumps(record.observed_value), record.expected_condition,
+                    json.dumps(record.evidence_ids), record.executed_at.isoformat(),
+                    record.error,
+                ),
+            )
+        for score in (*calculated.scores, calculated.overall_by_device[DeviceContext.MOBILE]):
+            con.execute(
+                "INSERT INTO scores VALUES(?,?,?,?,?,?,?,?)",
+                (
+                    score.dimension, score.value, score.coverage,
+                    score.confidence.value, score.consolidation_status.value,
+                    score.scoring_version, folder.name, score.device.value,
+                ),
+            )
+    original = db.read_bytes()
+    verified = replay_optional_seo_from_audit(folder)
+    assert verified["source_audit_db_replay_parity"] == "VERIFIED_SCORE_GEO_004"
+    assert verified["optional_absence_executions"] == 3
+    assert verified["provider_requests"] == verified["audit_writes"] == 0
+    assert verified["published_score_mutated"] is False
+    assert db.read_bytes() == original
+
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE scores SET value=75 WHERE dimension='INDEXABILITY'"
+        )
+    tampered = db.read_bytes()
+    with pytest.raises(ValueError, match="baseline numeric parity"):
+        replay_optional_seo_from_audit(folder)
+    assert db.read_bytes() == tampered
+
+
+
 def test_absent_discovery_resources_are_not_positive_passes() -> None:
     m2 = _m2(robots=RobotsState.ABSENT, sitemaps=(SitemapState.ABSENT,))
     assert _evaluate_robots(m2).result is RuleResult.WARNING
