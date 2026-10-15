@@ -497,3 +497,11 @@ def test_geo_context_is_built_from_same_aud_findings_and_only_its_catalog(tmp_pa
     assert "GEO-CAT1" not in cat3
     assert "GEO-OTHER" not in cat1
     assert "NÃO REVELAR OUTRA AUD" not in cat1
+
+
+def test_report_633_long_monospace_card_identifiers_wrap_without_global_overflow() -> None:
+    """Real-AUD mobile capture cards may contain long, unbroken evidence IDs."""
+    from rasai.catalog_report_style import _CSS
+
+    assert ".card .muted.mono{overflow-wrap:anywhere;word-break:break-word;white-space:normal}" in _CSS
+    assert ".table-wrap{overflow:auto;" in _CSS
