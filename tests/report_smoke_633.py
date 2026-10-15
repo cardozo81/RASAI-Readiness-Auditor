@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from hashlib import sha256
 from html.parser import HTMLParser
 import json
 from pathlib import Path
@@ -116,6 +117,15 @@ def _check_table_parity(before: dict[str, Any], after: dict[str, Any]) -> None:
                     raise ValueError(
                         f"preexisting {field} fragment or link removed from report: {page}"
                     )
+
+
+def _physical_report_hashes(directory: Path) -> dict[str, str]:
+    """Detect accidental modification of canonical report files during smoke."""
+    return {
+        str(path.relative_to(directory)): sha256(path.read_bytes()).hexdigest()
+        for path in sorted(directory.rglob("*"))
+        if path.is_file()
+    }
 
 
 def _screenshots(report: Path, out: Path, *, pages: tuple[str, ...]) -> dict[str, Any]:
@@ -230,6 +240,18 @@ def main() -> int:
     if bool(args.report_dir) == bool(args.make_synthetic_fixture):
         parser.error("choose exactly one of --report-dir or --make-synthetic-fixture")
     output = args.output_dir.resolve()
+    if not args.make_synthetic_fixture:
+        source_report = args.report_dir.resolve()
+        source_audit = source_report.parent
+        if output == source_audit or source_audit in output.parents:
+            parser.error("smoke output must be outside the source AUD directory")
+    if args.baseline_report_dir:
+        baseline = args.baseline_report_dir.resolve()
+        if (
+            (not args.make_synthetic_fixture and baseline == args.report_dir.resolve())
+            or output == baseline or baseline in output.parents
+        ):
+            parser.error("baseline and candidate must differ; output must not overwrite baseline")
     output.mkdir(parents=True, exist_ok=True)
     if args.make_synthetic_fixture:
         # Fixture uses synthetic test-only data, never real customer material.
@@ -242,6 +264,12 @@ def main() -> int:
         report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
     else:
         report = args.report_dir.resolve()
+    immutable_before = _physical_report_hashes(report)
+    source_db = report.parent / "audit.db"
+    db_before = (
+        sha256(source_db.read_bytes()).hexdigest()
+        if source_db.is_file() else None
+    )
     valid, errors = verify_catalog_report_package(report)
     if not valid:
         raise ValueError("report package not verified: " + "; ".join(errors))
@@ -252,6 +280,10 @@ def main() -> int:
     captures = _screenshots(
         report, output, pages=tuple(p.filename for p in CATALOG_REPORT_PAGES),
     )
+    if _physical_report_hashes(report) != immutable_before:
+        raise ValueError("source report files changed during offline smoke")
+    if db_before is not None and sha256(source_db.read_bytes()).hexdigest() != db_before:
+        raise ValueError("source audit.db changed during offline smoke")
     summary = {
         "contract": "RASAI-REPORT-UX-SMOKE-633-001",
         "report_source": "TEST_SYNTHETIC" if args.make_synthetic_fixture else "OPERATOR_ISOLATED_REPORT",
@@ -260,6 +292,12 @@ def main() -> int:
             "VERIFIED_AGAINST_PROVIDED_BASELINE" if args.baseline_report_dir
             else "BASELINE_NOT_PROVIDED"
         ),
+        "all_visible_content_parity": (
+            "VERIFIED_AGAINST_PROVIDED_BASELINE" if args.baseline_report_dir
+            else "BASELINE_NOT_PROVIDED"
+        ),
+        "source_files_unchanged": True,
+        "source_audit_db_sha256_unchanged": db_before is not None,
         "page_count": len(latest),
         "browser_captures": captures,
         "manual_visual_acceptance": "PENDING",
