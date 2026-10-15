@@ -97,6 +97,15 @@ def _render_forecast(forecast: CostForecast, *, state: Any | None = None) -> Non
     )
     print(f"Confiança            : {paint(forecast.confidence, GREEN if forecast.confidence in {'BOA', 'ALTA'} else YELLOW, bold=True)}")
     print(f"Reprecificação atual : {forecast.repriced_share * 100:.0f}% das chamadas conhecidas")
+    print(
+        paint(
+            "Escopo da prévia: auditoria principal. Custos de Análise Direcionada "
+            "e Search API Perplexity solicitados separadamente não entram no "
+            "histórico comparável do plano inicial; exigem avaliação própria. "
+            "P90 é percentil histórico, não teto de cobrança.",
+            DIM,
+        )
+    )
     for note in forecast.notes:
         print(paint(f"Observação           : {note}", DIM))
     if state is not None:
