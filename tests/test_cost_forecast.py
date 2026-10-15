@@ -11,6 +11,85 @@ from rasai.cost_forecast import (
 from rasai.web.cost_forecast_ui import inject_cost_forecast_ui
 
 
+
+def test_local_core_forecast_excludes_separately_authorized_directed_and_search(tmp_path) -> None:
+    """#319: a provider match does not make optional post-AUD work core cost."""
+    import sqlite3
+
+    from rasai.cost_forecast import _read_local_run
+
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript(
+            "CREATE TABLE audits(audit_id TEXT,created_at TEXT);"
+            "INSERT INTO audits VALUES('AUD-319','2026-10-14T20:30:00Z');"
+            "CREATE TABLE pages(page_id TEXT);"
+            "INSERT INTO pages VALUES('P1');"
+            "CREATE TABLE ai_provider_attempts("
+            "operation TEXT,semantic_contract_version TEXT,"
+            "provider TEXT,model TEXT,status TEXT,"
+            "estimated_cost REAL,cost_currency TEXT);"
+            "CREATE TABLE content_remediation_attempts("
+            "provider TEXT,model TEXT,status TEXT,"
+            "estimated_cost REAL,cost_currency TEXT);"
+        )
+        con.executemany(
+            "INSERT INTO ai_provider_attempts VALUES(?,?,?,?,?,?,?)",
+            [
+                ("SEMANTIC_M7", "M18-SEMANTIC-22-v1", "", "", "SUCCESS", 0.03, "USD"),
+                ("DIRECTED_ANALYSIS", "DIRECTED-ANALYSIS-001", "", "", "SUCCESS", 0.07, "USD"),
+                ("SEARCH_INTELLIGENCE", "RASAI-PERPLEXITY-SEARCH-1", "", "", "SUCCESS", 0.05, "USD"),
+                (None, "DIRECTED-ANALYSIS-LEGACY", "", "", "SUCCESS", 0.09, "USD"),
+            ],
+        )
+        con.execute(
+            "INSERT INTO content_remediation_attempts VALUES(?,?,?,?,?)",
+            ("", "", "SUCCESS", 0.02, "USD"),
+        )
+    state = SimpleNamespace(
+        ai_provider="auto", ai_model=None, improvement_enabled=False,
+        content_remediation=True, search_ai_competitive=False,
+    )
+    before = db.read_bytes()
+    result = _read_local_run(state, db)
+    assert result is not None
+    assert result.known_calls == 2
+    assert result.billable_cost == 0.05
+    assert result.success_cost == 0.05
+    assert db.read_bytes() == before
+
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "DELETE FROM ai_provider_attempts WHERE operation='SEMANTIC_M7'"
+        )
+        con.execute("DELETE FROM content_remediation_attempts")
+    assert _read_local_run(state, db) is None
+
+
+def test_directed_operation_exclusion_does_not_capture_core_remediation() -> None:
+    from rasai.cost_forecast import _is_separately_authorized_ai_cost as separate
+
+    assert separate({
+        "operation": "DIRECTED_ANALYSIS", "semantic_contract_version": "ANY",
+    })
+    assert separate({
+        "operation": None, "semantic_contract_version": "DIRECTED-ANALYSIS-001",
+    })
+    assert separate({
+        "operation": "SEARCH_INTELLIGENCE",
+        "semantic_contract_version": "RASAI-PERPLEXITY-SEARCH-1",
+    })
+    assert not separate({
+        "operation": "TECHNICAL_AI",
+        "semantic_contract_version": "M24-TECHNICAL-REMEDIATION-v2",
+    })
+    assert not separate({
+        "operation": "REQUEST_REMEDIATION",
+        "semantic_contract_version": "REQUEST-REMEDIATION-001",
+    })
+
+
+
 def test_forecast_uses_success_baseline_and_all_billable_calls() -> None:
     forecast = _forecast_from_runs(
         (
