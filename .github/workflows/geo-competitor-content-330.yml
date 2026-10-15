@@ -5,7 +5,7 @@ on:
     paths:
       - 'src/rasai/geo_competitor_content_provenance_330.py'
       - 'tests/test_geo_competitor_content_provenance_330.py'
-      - 'docs/GEO_COMPETITOR_CONTENT_PROVENANCE_330.md'
+      - 'docs/GEO_COMPETITOR_CONTENT_PROVENANCE.md'
       - '.github/workflows/geo-competitor-content-330.yml'
   push:
     branches: [main]
