@@ -22,6 +22,7 @@ class ConfigurationProvenance:
     session_overrides: int
     invalid_entries: int
     private_values_excluded: bool = True
+    private_entries_in_ini: int = 0
 
 
 def inspect_configuration(
@@ -40,16 +41,22 @@ def inspect_configuration(
         return ConfigurationProvenance("NÃO RESOLVIDO", 0, 0, 0)
     path = Path(path)
     try:
+        if path.is_symlink():
+            return ConfigurationProvenance("NÃO INSPECIONADO: caminho simbólico", 0, 0, 0)
         if not path.is_file():
             return empty
         if path.stat().st_size > 2_000_000:
             return ConfigurationProvenance("NÃO INSPECIONADO: limite de tamanho", 0, 0, 0)
     except OSError:
         return ConfigurationProvenance("INDISPONÍVEL", 0, 0, 0)
+    registered = tuple(refresh_specs())
     specs = {
-        spec.name
-        for spec in refresh_specs()
+        spec.name for spec in registered
         if not spec.sensitive and not is_secret(spec.name)
+    }
+    sensitive_specs = {
+        spec.name for spec in registered
+        if spec.sensitive or is_secret(spec.name)
     }
     parser = ConfigParser(interpolation=None)
     parser.optionxform = str
@@ -74,6 +81,10 @@ def inspect_configuration(
         len(valid),
         conflicts,
         len(saved) - len(valid),
+        private_entries_in_ini=sum(
+            key in sensitive_specs or is_secret(key)
+            for key in saved
+        ),
     )
 
 
@@ -85,5 +96,10 @@ def render_provenance(summary: ConfigurationProvenance) -> str:
             f"{summary.persisted_public} variáveis públicas inventariadas | "
             f"{summary.session_overrides} divergência(s) sessão/INI (prioridade efetiva depende do campo)"
             + (f" | {summary.invalid_entries} entrada(s) ignoradas" if summary.invalid_entries else "")
+            + (
+                f" | ATENÇÃO: {summary.private_entries_in_ini} entrada(s) "
+                "potencialmente sensível(is) no INI; revisar sem divulgar valores"
+                if summary.private_entries_in_ini else ""
+            )
         )
     return f"Configuração INI: {summary.file_status}"

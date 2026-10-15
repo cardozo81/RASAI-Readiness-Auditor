@@ -42,7 +42,9 @@ def test_secret_safe_shadowing_and_unknown_keys_are_counted_not_displayed(tmp_pa
     assert result.persisted_public == 1
     assert result.session_overrides == 1
     assert result.invalid_entries == 2
+    assert result.private_entries_in_ini == 1
     printed = render_provenance(result)
+    assert "potencialmente sensível" in printed
     assert "divergência(s)" in printed
     assert "prioridade efetiva depende do campo" in printed
     assert "NEVER_SHOW" not in printed
@@ -61,6 +63,23 @@ def test_missing_invalid_and_malformed_ini_abstain(tmp_path):
     empty = tmp_path / "empty.ini"
     empty.write_text("[console]\ntarget=https://example.test\n", encoding="utf-8")
     assert "sem inventário" in inspect_configuration(empty).file_status
+
+
+
+def test_configuration_provenance_refuses_symlink_ini_source_when_supported(tmp_path):
+    source = tmp_path / "private.ini"
+    source.write_text("[environment]\\nOPENAI_API_KEY=secret-value\\n", encoding="utf-8")
+    link = tmp_path / "redirect.ini"
+    try:
+        link.symlink_to(source)
+    except (OSError, NotImplementedError):
+        return  # Windows test runner may lack symlink creation privileges.
+    inspected = inspect_configuration(link, env={})
+    assert inspected.file_status == "NÃO INSPECIONADO: caminho simbólico"
+    assert inspected.persisted_public == 0
+    assert inspected.private_entries_in_ini == 0
+    assert "secret-value" not in render_provenance(inspected)
+
 
 
 def test_canonical_save_and_reopen_in_separate_python_process_with_unchanged_ini(tmp_path, monkeypatch):
