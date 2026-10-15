@@ -39,6 +39,19 @@ def _module(calls: list[str]) -> ModuleType:
     return module
 
 
+
+def test_cost_preview_separates_optional_directed_and_perplexity_from_core_history() -> None:
+    output = StringIO()
+    with redirect_stdout(output):
+        console_cost_confirmation._render_forecast(_forecast())
+    rendered = output.getvalue()
+    assert "auditoria principal" in rendered
+    assert "Análise Direcionada" in rendered
+    assert "Search API Perplexity" in rendered
+    assert "P90 é percentil histórico, não teto de cobrança" in rendered
+
+
+
 def test_financial_screen_exposes_execution_modes_without_redundant_confirmation(monkeypatch) -> None:
     output = StringIO()
     monkeypatch.setattr("builtins.input", lambda prompt="": "V")
