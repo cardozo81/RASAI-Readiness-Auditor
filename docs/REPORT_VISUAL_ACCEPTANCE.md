@@ -1,6 +1,6 @@
 # #633 - Execução do smoke humano no relatório canônico
 
-Este procedimento aplica-se **somente à branch de redesenho do PR #637** e a uma **cópia isolada** de uma AUD existente. Não executar uma nova auditoria, não sobrescrever a pasta original, não iniciar integração paga e não fazer merge antes do aceite humano.
+**Gate humano:** APROVADO expressamente pelo operador em 15/10/2026 para a apresentação atualizada no PR #637, após smoke sobre cópia isolada da auditoria. O procedimento permanece útil para regressões futuras; não executar nova auditoria, não sobrescrever a pasta original, nem iniciar integrações pagas. O merge foi autorizado mediante verificações técnicas.
 
 ## Baseline físico disponibilizado para análise
 
