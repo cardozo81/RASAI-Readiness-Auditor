@@ -88,8 +88,48 @@ _CATEGORY_GUIDANCE: dict[str, tuple[str, ...]] = {
 }
 
 
+# Runtime configuration names reconciled from real operator INI and consumers.
+# Deliberately explicit: do not allowlist arbitrary RASAI_* names or secrets.
+_ADDITIONAL_RUNTIME_INPUTS = (
+    ("RASAI_AI_ANALYSIS_LANGUAGE", "IA - modelos e reasoning", "tag BCP-47 ou auto", (), "src/rasai/improvement_intelligence.py"),
+    ("RASAI_AI_MODELS_FILE", "IA - modelos e reasoning", "caminho de arquivo", (), "src/rasai/ai_model_catalog.py"),
+    ("RASAI_AI_MODELS_SOURCE", "IA - modelos e reasoning", "enum", ("factory", "file", "auto"), "src/rasai/ai_model_catalog.py"),
+    ("RASAI_AI_PRICING_FILE", "IA - pricing", "caminho de arquivo", (), "src/rasai/ai_pricing_catalog.py"),
+    ("RASAI_AI_PRICING_SOURCE", "IA - pricing", "enum", ("factory", "file", "auto"), "src/rasai/ai_pricing_catalog.py"),
+    ("RASAI_AI_TASK_PROFILES_FILE", "IA - modelos e reasoning", "caminho de arquivo", (), "src/rasai/ai_task_profiles.py"),
+    ("RASAI_AI_TASK_PROFILES_SOURCE", "IA - modelos e reasoning", "enum", ("factory", "file", "auto"), "src/rasai/ai_task_profiles.py"),
+    ("RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_ID", "Search Intelligence / Observability", "OAuth client ID publico", (), "src/rasai/gsc_oauth.py"),
+    ("RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS", "IA - modelos e reasoning", "numero > 0", (), "src/rasai/improvement_intelligence.py"),
+    ("RASAI_IMPROVEMENT_DOMAINS", "IA - modelos e reasoning", "lista CSV", (), "src/rasai/improvement_intelligence.py"),
+    ("RASAI_IMPROVEMENT_INTELLIGENCE", "IA - modelos e reasoning", "booleano", ("true", "false"), "src/rasai/improvement_intelligence.py"),
+    ("RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS", "IA - modelos e reasoning", "inteiro > 0", (), "src/rasai/improvement_intelligence.py"),
+    ("RASAI_PASSIVE_SECURITY", "Aplicação e execução", "booleano", ("true", "false"), "src/rasai/passive_security.py"),
+    ("RASAI_PRESENTATION_TIMEZONE", "Aplicação e execução", "timezone IANA", (), "src/rasai/time_contract.py"),
+    ("RASAI_SECURITY_CISA_KEV", "Aplicação e execução", "booleano", ("true", "false"), "src/rasai/passive_security.py"),
+    ("RASAI_SECURITY_COOKIES", "Aplicação e execução", "booleano", ("true", "false"), "src/rasai/passive_security.py"),
+    ("RASAI_SECURITY_EXTERNAL_TIMEOUT_SECONDS", "Aplicação e execução", "numero > 0", (), "src/rasai/passive_security.py"),
+    ("RASAI_SECURITY_HEADERS", "Aplicação e execução", "booleano", ("true", "false"), "src/rasai/passive_security.py"),
+    ("RASAI_SECURITY_OSV", "Aplicação e execução", "booleano", ("true", "false"), "src/rasai/passive_security.py"),
+    ("RASAI_SECURITY_RESOURCES", "Aplicação e execução", "booleano", ("true", "false"), "src/rasai/passive_security.py"),
+    ("RASAI_SECURITY_RUNTIME_CORRELATION", "Aplicação e execução", "booleano", ("true", "false"), "src/rasai/passive_security.py"),
+    ("RASAI_SECURITY_THIRD_PARTY", "Aplicação e execução", "booleano", ("true", "false"), "src/rasai/passive_security.py"),
+)
+
 def _build_specs() -> tuple[EnvironmentSpec, ...]:
     specs = list(base_environment.SPECS)
+    existing = {spec.name for spec in specs}
+    specs.extend(
+        EnvironmentSpec(
+            name=name,
+            category=category,
+            purpose=f"Configuracao operacional lida por {source}.",
+            value_type=value_type,
+            accepted=accepted,
+            source=source,
+        )
+        for name, category, value_type, accepted, source in _ADDITIONAL_RUNTIME_INPUTS
+        if name not in existing
+    )
     by_name = {spec.name: index for index, spec in enumerate(specs)}
 
     provider_index = by_name.get(SERP_PROVIDER_ENV)
@@ -158,15 +198,15 @@ def environment_specs() -> tuple[EnvironmentSpec, ...]:
 
 def refresh_specs() -> tuple[EnvironmentSpec, ...]:
     global ENV_NAMES, SPECS, SPEC_BY_NAME, CATEGORIES
-    ENV_NAMES = base_environment.ENV_NAMES
     CATEGORIES = base_environment.CATEGORIES
     SPECS = environment_specs()
+    ENV_NAMES = tuple(spec.name for spec in SPECS)
     SPEC_BY_NAME = {spec.name: spec for spec in SPECS}
     return SPECS
 
 
-ENV_NAMES = base_environment.ENV_NAMES
 SPECS = environment_specs()
+ENV_NAMES = tuple(spec.name for spec in SPECS)
 SPEC_BY_NAME = {spec.name: spec for spec in SPECS}
 
 
