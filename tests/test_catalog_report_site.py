@@ -514,6 +514,29 @@ def test_overview_new_experience_is_an_index_not_a_second_report(tmp_path: Path)
     assert "Nenhuma análise direcionada foi materializada" in directed
 
 
+def test_633_all_pages_share_method_reading_patterns(tmp_path: Path) -> None:
+    from rasai.catalog_report_style import _CSS
+    workspace, _ = _workspace(tmp_path)
+    report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
+    assert len(tuple(report.glob("*.html"))) == 19
+    for page in CATALOG_REPORT_PAGES:
+        body = (report / page.filename).read_text(encoding="utf-8")
+        assert "href='css/site.css'" in body
+        assert body.count("data-shared-report-menu=") == 1
+        assert "id='report-main'" in body
+    method = (report / "methodology.html").read_text(encoding="utf-8")
+    assert "Separação das interpretações" in method
+    assert "report-evidence-chain" in method
+    assert "CrUX" in method
+    assert "Governança" in method
+    assert "Sem extrapolar amostras sintéticas" in method
+    assert _CSS.count(":root{") == 1
+    assert "report-experience-grid" not in _CSS
+    assert _CSS.count(".directed-goal-grid{") == 1
+    assert "--radius:8px" in _CSS
+
+
+
 def test_sari_and_metrics_use_persisted_values_without_recalculation(tmp_path: Path) -> None:
     workspace, _non_catalog = _workspace(tmp_path)
     report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
