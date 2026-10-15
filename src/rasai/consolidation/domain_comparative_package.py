@@ -19,7 +19,7 @@ from typing import Any, Sequence
 from rasai.consolidation.domain_comparative_html import (
     render_same_domain_advisory_html,
 )
-from rasai.consolidation.domain_comparative_index_210 import (
+from rasai.consolidation.domain_comparative_index import (
     domain_preview_from_index,
 )
 from rasai.consolidation.reader import source_file_fingerprint
