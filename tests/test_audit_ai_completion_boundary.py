@@ -7,7 +7,7 @@ import sqlite3
 
 import pytest
 
-from rasai.audit_ai_completion_boundary_319 import (
+from rasai.audit_ai_completion_boundary import (
     inspect_ai_audit_boundary, main,
 )
 

@@ -3,14 +3,14 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'src/rasai/audit_ai_completion_boundary_319.py'
+      - 'src/rasai/audit_ai_completion_boundary.py'
       - 'tests/test_audit_ai_completion_boundary.py'
       - 'docs/AUD_AI_COMPLETION_BOUNDARY.md'
       - '.github/workflows/aud-ai-completion-boundary.yml'
   push:
     branches: [main]
     paths:
-      - 'src/rasai/audit_ai_completion_boundary_319.py'
+      - 'src/rasai/audit_ai_completion_boundary.py'
       - 'tests/test_audit_ai_completion_boundary.py'
       - '.github/workflows/aud-ai-completion-boundary.yml'
 permissions:

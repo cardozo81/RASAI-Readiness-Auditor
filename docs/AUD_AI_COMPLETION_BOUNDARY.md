@@ -1,6 +1,6 @@
 # #319 - Separação pós-fato das chamadas IA pela janela física da AUD
 
-O consumidor `python -m rasai.audit_ai_completion_boundary_319`
+O consumidor `python -m rasai.audit_ai_completion_boundary`
 utiliza somente metadados já persistidos em `audit.db`. Nenhuma IA,
 coletor, provider de pricing, report writer, SERP, RPR ou CONS é acionado.
 
@@ -43,7 +43,7 @@ nem demonstra que custos pós-AUD integraram o orçamento da AUD central.
 Exemplo de uso sem rede:
 
 ```powershell
-python -m rasai.audit_ai_completion_boundary_319 `
+python -m rasai.audit_ai_completion_boundary `
   --audit-db .\audits\AUD-EXEMPLO\audit.db --audit-id AUD-EXEMPLO
 ```
 
