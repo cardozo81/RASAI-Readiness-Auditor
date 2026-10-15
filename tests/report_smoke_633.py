@@ -145,7 +145,11 @@ def _screenshots(report: Path, out: Path, *, pages: tuple[str, ...]) -> dict[str
                 )
                 for name in pages:
                     page = context.new_page()
+                    script_failures: list[str] = []
+                    page.on("pageerror", lambda _error: script_failures.append("error"))
                     page.goto((report / name).resolve().as_uri(), wait_until="load")
+                    if script_failures:
+                        raise ValueError(f"offline report JavaScript failed: {device}/{name}")
                     if page.locator("[data-shared-report-menu]").count() != 1:
                         raise ValueError(f"missing unique canonical navigation: {name}")
                     if page.locator("nav[aria-label='Relatórios'] a").count() != 19:
@@ -173,6 +177,14 @@ def _screenshots(report: Path, out: Path, *, pages: tuple[str, ...]) -> dict[str
                         page.keyboard.press("Escape")
                         if toggle.get_attribute("aria-expanded") != "false":
                             raise ValueError("mobile menu did not close via Escape")
+                        page.evaluate(
+                            """() => {
+                                location.hash = '%ZZ';
+                                window.dispatchEvent(new Event('hashchange'));
+                            }"""
+                        )
+                        if script_failures:
+                            raise ValueError("malformed deep link interrupted the report UI")
                     if device == "desktop" and name in {
                         "index.html", "directed-analysis.html", "cat-07.html",
                     }:
@@ -186,6 +198,14 @@ def _screenshots(report: Path, out: Path, *, pages: tuple[str, ...]) -> dict[str
             nojs = browser.new_context(
                 viewport={"width": 390, "height": 844},
                 java_script_enabled=False,
+            )
+            nojs.route(
+                "**/*",
+                lambda route: (
+                    route.continue_()
+                    if route.request.url.startswith("file://")
+                    else route.abort()
+                ),
             )
             page = nojs.new_page()
             page.goto((report / "index.html").resolve().as_uri(), wait_until="load")
