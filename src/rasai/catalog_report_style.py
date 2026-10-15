@@ -97,6 +97,31 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
   .report-breadcrumbs{font-size:9pt;margin:0 0 8mm;color:#303d45}
 }
 
+/* #633: objective index is an access path, never a replacement for action tables. */
+.directed-goal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,235px),1fr));gap:12px;margin:12px 0 20px}
+.directed-goal-link{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;border-top:3px solid var(--cyan);text-decoration:none;color:var(--ink);transition:box-shadow .15s,border-color .15s}
+.directed-goal-link:hover,.directed-goal-link:focus-visible{box-shadow:0 7px 24px rgba(12,37,51,.12);border-top-color:#065b59}
+.directed-goal-name{font-weight:750;font-size:.92rem}
+.directed-goal-link strong{font-size:1.8rem;line-height:1;color:var(--cyan);font-variant-numeric:tabular-nums}
+.directed-goal-link small{color:var(--muted)}
+.directed-goal-cta{margin-top:auto;padding-top:7px;color:var(--blue);font-weight:650;font-size:.77rem}
+.directed-goal-details{scroll-margin-top:76px}
+.directed-goal-details:target{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(8,122,119,.12)}
+.directed-goal-details .table-wrap{max-width:100%}
+@media(max-width:900px){
+  .report-menu-enhanced.report-menu-open::before{content:'';position:fixed;inset:0;background:rgba(7,27,39,.52);z-index:23}
+  .report-menu-enhanced.report-menu-open .app-nav{display:block;position:fixed;top:49px;left:0;right:auto;bottom:0;width:min(360px,92vw);max-height:calc(100dvh - 49px);padding:18px 13px;overflow-y:auto;z-index:24;box-shadow:4px 12px 30px rgba(0,0,0,.24)}
+  .report-menu-enhanced.report-menu-open .app-nav nav{display:block;min-width:0}
+  .report-menu-enhanced.report-menu-open .brand,.report-menu-enhanced.report-menu-open .nav-group{display:block}
+  .report-menu-enhanced.report-menu-open .app-nav a{margin:3px 0;padding:10px 12px}
+  .report-menu-enhanced.report-menu-open body{overflow:hidden}
+}
+@media print{
+  .directed-goal-grid{display:none}
+  .directed-goal-details{break-inside:auto}
+  .directed-goal-details:not([open])>.detail-body{display:block!important}
+}
+
 /* #328: segment CAT-06/CAT-07 explanations without hiding source tables. */
 .cat-apdex-readable{
   margin:16px 0;
