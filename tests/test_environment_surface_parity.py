@@ -53,6 +53,11 @@ _NON_PUBLIC_EXECUTION_ENV = frozenset(
         "RASAI_AI_MODEL",
         "RASAI_AI_REASONING",
         "RASAI_APDEX_EXPERIENCE_DEVICE_MIX",
+        # Single-invocation, independently provisioned signed-review importer
+        # credentials. Never expose these as persistable console settings or
+        # restore them into another audit's environment.
+        "RASAI_CLAIM_REVIEW_HMAC_KEY_HEX",
+        "RASAI_CLAIM_REVIEWER_ALLOWLIST",
     }
 )
 _NON_PUBLIC_RUNTIME_ENV = _NON_PUBLIC_FEATURE_LOCAL_AI_ENV | _NON_PUBLIC_EXECUTION_ENV
