@@ -320,7 +320,7 @@ def test_same_domain_html_is_read_only_responsive_and_printable(tmp_path, capsys
 
 
 def test_same_domain_html_escapes_all_dynamic_audit_fields(tmp_path):
-    from rasai.consolidation.domain_comparative_html_210 import (
+    from rasai.consolidation.domain_comparative_html import (
         render_same_domain_advisory_html as render,
     )
     root, db = _index(tmp_path)

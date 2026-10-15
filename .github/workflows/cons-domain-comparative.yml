@@ -5,7 +5,7 @@ on:
     paths:
       - 'src/rasai/consolidation/domain_comparative_preview_210.py'
       - 'src/rasai/consolidation/domain_comparative_index_210.py'
-      - 'src/rasai/consolidation/domain_comparative_html_210.py'
+      - 'src/rasai/consolidation/domain_comparative_html.py'
       - 'tests/test_cons_domain_comparative.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_cons_domain_comparative_index.py'
@@ -16,7 +16,7 @@ on:
     paths:
       - 'src/rasai/consolidation/domain_comparative_preview_210.py'
       - 'src/rasai/consolidation/domain_comparative_index_210.py'
-      - 'src/rasai/consolidation/domain_comparative_html_210.py'
+      - 'src/rasai/consolidation/domain_comparative_html.py'
       - 'tests/test_cons_domain_comparative.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_cons_domain_comparative_index.py'

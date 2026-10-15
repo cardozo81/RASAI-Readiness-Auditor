@@ -238,7 +238,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (ValueError, sqlite3.DatabaseError, OSError) as exc:
         parser.error(str(exc))
     if args.format == "html":
-        from rasai.consolidation.domain_comparative_html_210 import render_same_domain_advisory_html
+        from rasai.consolidation.domain_comparative_html import render_same_domain_advisory_html
         print(render_same_domain_advisory_html(result))
     else:
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
