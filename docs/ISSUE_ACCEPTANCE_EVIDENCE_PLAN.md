@@ -230,3 +230,27 @@ As instruções das seções acima foram concebidas antes do gate físico. O est
 - **#523:** documentação histórica anterior sobre queries Perplexity não persistirem foi **substituída** pelo contrato posterior de `[perplexity_draft]`, que persiste somente rascunho não autorizativo. Não classificar draft restaurado como consentimento.
 - **#600:** as correções de apresentação #633 não constituem prova de scores novos; o cálculo canônico pode permanecer numericamente inalterado enquanto falta decisão de semântica #601/#602.
 - **#639:** política incremental verifica novos nomes, não certifica migração dos 238 anteriores. Renomear arquivos históricos não tem prioridade sobre falhas P1 ou gates físico/metodológicos.
+
+
+## Reconciliação de issues e gates — checkpoint do HEAD 6001e1eca0a8 (15/10/2026)
+
+**Escopo confirmado:** #639, #600–#604, #523, #357, #355, #330, #322, #319, #311, #304 e épico #301 continuam OPEN; #210 e quatro issues de número menor que #301 permanecem fora deste ciclo. Não tratar épicos como concluídos antes de seus filhos mandatórios. O inventário da árvore Git do HEAD informado está completo (`truncated=false`), com 0 paths sob a regex numérica histórica, mas esse número **não** prova aliases externos, contratos CLI ou formas não numéricas de ID.
+
+**Gate de integração da PR #645:** HEAD 6001e1eca0a80ff806e13d228e830512c92878df; DRAFT, não integrada; `main@beb5cc8c5e287ecee6e869779881702efb74eb07` preservada. Consulta de CI deste HEAD identificou 78 runs: 73 queued e 5 pending, nenhum SUCCESS comprovado no último checkpoint. Portanto **não integrar** até checks obrigatórios verdes e aceite humano exigido; risco baixo da mudança de algoritmo não implica risco baixo de compatibilidade de módulo importável. Executar verificações de imports CLI público, workflow path e testes direcionados para os 22 módulos migrados, com prioridade elevada a SCORE-GEO e console.
+
+| Issue | Prova ou intervenção técnica seguinte | Restrição de encerramento |
+|---|---|---|
+| #639 | CI do HEAD final, varredura não numérica, contratos `python -m` / imports externos, exceções documentadas | Não fechar só pela contagem zero |
+| #523 | Matriz efetiva INI/sessão, cópia isolada save/reopen e novo processo Windows | Não salvar INI operacional nem considerar fixture prova física |
+| #319 | Cronômetros exclusivos não-IA e projeção read-only de custo observado versus estimado | Não somar estágios paralelos nem inferir invoice |
+| #600 | Contrato de cobertura/confiança na apresentação e diferenciação ORIGIN/URL | Depende da honestidade semântica #601 e política vigente #602 |
+| #601 | Fixture FAQ com DOM pré/pós interação segura e estado não verificado | Não alterar scores históricos nem declarar indexação por clique |
+| #602 | Parecer normativo e versão nova somente caso haja recalibração | Golden de sensibilidade não é autorização de política |
+| #603 | Proveniência versionada e classificação fail-closed das claims | Sem documentação externa não afirmar conformidade |
+| #304 | Comparabilidade por consulta/tempo/região e abstention multi-query | Não inferir equivalência sem denominador e provenance |
+| #311 / #330 | Comprovar limites de comparabilidade longitudinal e de conteúdo concorrente | Não projetar dados externos como evidência da AUD original |
+| #355 / #357 | Cobertura Dynatrace por categoria e arquitetura com proveniência real | Não converter aconselhamento em RUM observado |
+| #322 | Evidência de prontidão do conteúdo separada de load | Preservar M23/M25 |
+| #301 / #604 | Reconciliar dependências e filhos obrigatórios | Não encerrar épico enquanto existir gate mandatório |
+
+**Ordem de execução após os gates de compatibilidade:** (1) provas técnicas #639; (2) #600/#601/#603 read-only e fixtures, em paralelo lógico com #319/#304; (3) gates físicos #523, normativo #602, dados reais #355; (4) épicos por dependência. Revisar CI apenas em checkpoints, não disparar manualmente 78 workflows.
