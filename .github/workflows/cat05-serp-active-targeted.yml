@@ -5,7 +5,7 @@ on:
     paths:
       - "src/rasai/catalog_report_search_trust.py"
       - "tests/test_catalog_report_search_trust.py"
-      - ".github/workflows/cat05-serp-active-129-targeted.yml"
+      - ".github/workflows/cat05-serp-active-targeted.yml"
   workflow_dispatch:
 
 permissions:

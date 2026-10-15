@@ -5,13 +5,13 @@ on:
     paths:
       - 'src/rasai/console_catalog_plan.py'
       - 'tests/test_console_catalog_configuration_refinements.py'
-      - '.github/workflows/catalog-deselect-148.yml'
+      - '.github/workflows/catalog-deselect.yml'
   push:
     branches: [main]
     paths:
       - 'src/rasai/console_catalog_plan.py'
       - 'tests/test_console_catalog_configuration_refinements.py'
-      - '.github/workflows/catalog-deselect-148.yml'
+      - '.github/workflows/catalog-deselect.yml'
   workflow_dispatch:
 
 permissions:

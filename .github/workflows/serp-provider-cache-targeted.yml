@@ -15,7 +15,7 @@ on:
       - 'tests/test_accepted_audit_refinements.py'
       - 'tests/test_environment_surface_parity.py'
       - 'docs/SERP_CACHE_FRESHNESS.md'
-      - '.github/workflows/serp-provider-cache-129-targeted.yml'
+      - '.github/workflows/serp-provider-cache-targeted.yml'
   workflow_dispatch:
 
 permissions:

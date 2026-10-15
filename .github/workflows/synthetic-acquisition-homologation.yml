@@ -12,7 +12,7 @@ on:
       - 'tests/test_synthetic_acquisition_reprocess_206.py'
       - 'tests/test_synthetic_acquisition_homologation_207.py'
       - 'docs/SYNTHETIC_ACQUISITION_HOMOLOGATION.md'
-      - '.github/workflows/synthetic-acquisition-homologation-207.yml'
+      - '.github/workflows/synthetic-acquisition-homologation.yml'
   push:
     branches: [main]
     paths:
@@ -25,7 +25,7 @@ on:
       - 'tests/test_synthetic_acquisition_reprocess_206.py'
       - 'tests/test_synthetic_acquisition_homologation_207.py'
       - 'docs/SYNTHETIC_ACQUISITION_HOMOLOGATION.md'
-      - '.github/workflows/synthetic-acquisition-homologation-207.yml'
+      - '.github/workflows/synthetic-acquisition-homologation.yml'
   workflow_dispatch:
 
 permissions:

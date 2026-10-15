@@ -12,7 +12,7 @@ on:
       - "tests/test_synthetic_acquisition_reprocess_206.py"
       - "docs/AUD_RPR_INTERRUPTED_STAGE_POLICY.md"
       - "docs/AUDIT_REPROCESSING.md"
-      - ".github/workflows/interrupted-stage-restart-127-targeted.yml"
+      - ".github/workflows/interrupted-stage-restart-targeted.yml"
   workflow_dispatch:
 
 jobs:

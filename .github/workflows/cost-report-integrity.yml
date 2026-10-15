@@ -7,7 +7,7 @@ on:
     paths:
       - 'src/rasai/console_cost_confirmation.py'
       - 'tests/test_console_cost_confirmation.py'
-      - '.github/workflows/cost-report-integrity-152.yml'
+      - '.github/workflows/cost-report-integrity.yml'
 
 permissions:
   contents: read

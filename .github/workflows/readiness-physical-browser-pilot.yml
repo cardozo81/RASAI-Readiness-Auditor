@@ -10,7 +10,7 @@ on:
       - 'src/rasai/playwright_primary_content_probe_322.py'
       - 'tests/test_readiness_probe_cost_pilot_322.py'
       - 'tests/test_playwright_real_browser_readiness_322.py'
-      - '.github/workflows/readiness-physical-browser-pilot-322.yml'
+      - '.github/workflows/readiness-physical-browser-pilot.yml'
   push:
     branches: [main]
     paths:
@@ -20,7 +20,7 @@ on:
       - 'src/rasai/playwright_primary_content_probe_322.py'
       - 'tests/test_readiness_probe_cost_pilot_322.py'
       - 'tests/test_playwright_real_browser_readiness_322.py'
-      - '.github/workflows/readiness-physical-browser-pilot-322.yml'
+      - '.github/workflows/readiness-physical-browser-pilot.yml'
   workflow_dispatch:
 
 permissions:

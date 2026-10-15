@@ -8,14 +8,14 @@ on:
       - 'src/rasai/report_completion.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_report_rematerialization_141.py'
-      - '.github/workflows/report-rematerialization-141-targeted.yml'
+      - '.github/workflows/report-rematerialization-targeted.yml'
   pull_request:
     paths:
       - 'src/rasai/report_rematerialization.py'
       - 'src/rasai/report_completion.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_report_rematerialization_141.py'
-      - '.github/workflows/report-rematerialization-141-targeted.yml'
+      - '.github/workflows/report-rematerialization-targeted.yml'
   workflow_dispatch:
 
 permissions:

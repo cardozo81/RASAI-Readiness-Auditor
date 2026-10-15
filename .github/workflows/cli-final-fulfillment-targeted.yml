@@ -6,13 +6,13 @@ on:
     paths:
       - 'src/rasai/cli.py'
       - 'tests/test_m21_cli_fail_open.py'
-      - '.github/workflows/cli-final-fulfillment-245-targeted.yml'
+      - '.github/workflows/cli-final-fulfillment-targeted.yml'
   push:
     branches: [main]
     paths:
       - 'src/rasai/cli.py'
       - 'tests/test_m21_cli_fail_open.py'
-      - '.github/workflows/cli-final-fulfillment-245-targeted.yml'
+      - '.github/workflows/cli-final-fulfillment-targeted.yml'
   workflow_dispatch:
 
 permissions:

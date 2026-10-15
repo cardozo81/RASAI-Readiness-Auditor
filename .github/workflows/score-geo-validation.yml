@@ -10,7 +10,7 @@ on:
       - 'docs/**'
       - 'README.md'
       - 'pyproject.toml'
-      - '.github/workflows/score-geo-004-validation.yml'
+      - '.github/workflows/score-geo-validation.yml'
   pull_request:
     branches:
       - main

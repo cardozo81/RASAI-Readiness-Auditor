@@ -11,7 +11,7 @@ on:
       - 'src/rasai/catalog_report_final_refinements.py'
       - 'src/rasai/ai_dependency_reporting.py'
       - 'tests/test_report_residual_typed_fields_109.py'
-      - '.github/workflows/report-residual-typed-109.yml'
+      - '.github/workflows/report-residual-typed.yml'
   push:
     branches: [main]
     paths:
@@ -23,7 +23,7 @@ on:
       - 'src/rasai/catalog_report_final_refinements.py'
       - 'src/rasai/ai_dependency_reporting.py'
       - 'tests/test_report_residual_typed_fields_109.py'
-      - '.github/workflows/report-residual-typed-109.yml'
+      - '.github/workflows/report-residual-typed.yml'
   workflow_dispatch:
 
 permissions:

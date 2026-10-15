@@ -12,7 +12,7 @@ on:
       - 'tests/test_m23_interrupted_resume.py'
       - 'tests/test_reprocess_accounting_108.py'
       - 'tests/test_issue_166_rpr_semantic_success_idempotency.py'
-      - '.github/workflows/reprocess-accounting-108-targeted.yml'
+      - '.github/workflows/reprocess-accounting-targeted.yml'
   workflow_dispatch:
 
 permissions:

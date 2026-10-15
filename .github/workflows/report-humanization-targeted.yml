@@ -10,7 +10,7 @@ on:
       - 'src/rasai/catalog_report_presentation.py'
       - 'src/rasai/public_language.py'
       - 'tests/test_report_humanization_109.py'
-      - '.github/workflows/report-humanization-109-targeted.yml'
+      - '.github/workflows/report-humanization-targeted.yml'
   workflow_dispatch:
 
 permissions:

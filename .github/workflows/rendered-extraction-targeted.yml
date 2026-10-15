@@ -7,7 +7,7 @@ on:
       - 'src/rasai/m4.py'
       - 'src/rasai/public_language.py'
       - 'tests/test_rendered_extraction_upgrade_121.py'
-      - '.github/workflows/rendered-extraction-121-targeted.yml'
+      - '.github/workflows/rendered-extraction-targeted.yml'
   workflow_dispatch:
 
 permissions:

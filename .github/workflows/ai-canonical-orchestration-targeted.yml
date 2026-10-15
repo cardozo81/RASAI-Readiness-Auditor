@@ -41,7 +41,7 @@ on:
       - 'tests/test_issue_43_reprocess_ai_timeout.py'
       - 'tests/test_request_remediation_canonical_190.py'
       - 'tests/test_aud722_regressions.py'
-      - '.github/workflows/ai-canonical-orchestration-190-targeted.yml'
+      - '.github/workflows/ai-canonical-orchestration-targeted.yml'
   workflow_dispatch:
 
 permissions:

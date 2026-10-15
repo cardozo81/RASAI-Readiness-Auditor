@@ -10,7 +10,7 @@ on:
       - 'tests/test_playwright_primary_content_probe_322.py'
       - 'tests/test_apdex_content_readiness_322.py'
       - 'docs/APDEX_CONTENT_READINESS_INVESTIGATION.md'
-      - '.github/workflows/content-readiness-probe-322-targeted.yml'
+      - '.github/workflows/content-readiness-probe-targeted.yml'
   workflow_dispatch:
 
 permissions:

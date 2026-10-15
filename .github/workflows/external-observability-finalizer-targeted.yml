@@ -5,7 +5,7 @@ on:
     paths:
       - "src/rasai/external_observability_runtime.py"
       - "tests/test_external_observability_finalizer_138.py"
-      - ".github/workflows/external-observability-finalizer-138-targeted.yml"
+      - ".github/workflows/external-observability-finalizer-targeted.yml"
   workflow_dispatch:
 
 permissions:

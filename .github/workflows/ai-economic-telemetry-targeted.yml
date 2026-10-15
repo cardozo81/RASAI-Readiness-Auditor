@@ -37,7 +37,7 @@ on:
       - 'tests/test_ai_economic_telemetry.py'
       - 'tests/test_audit_attempt_timeline.py'
       - 'tests/test_ai_economic_reporting_195.py'
-      - '.github/workflows/ai-economic-telemetry-195-targeted.yml'
+      - '.github/workflows/ai-economic-telemetry-targeted.yml'
   workflow_dispatch:
 
 permissions:

@@ -4,7 +4,7 @@ on:
     paths:
       - 'src/rasai/search_audit_runtime.py'
       - 'tests/test_search_aud_diagnostic_132.py'
-      - '.github/workflows/search-aud-diagnostic-132-targeted.yml'
+      - '.github/workflows/search-aud-diagnostic-targeted.yml'
   workflow_dispatch:
 permissions:
   contents: read

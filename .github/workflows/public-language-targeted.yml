@@ -9,7 +9,7 @@ on:
       - 'docs/AI_RUNTIME_ORCHESTRATION.md'
       - 'docs/AUD_RPR_INTERRUPTED_STAGE_POLICY.md'
       - 'tests/test_user_facing_language_contract.py'
-      - '.github/workflows/public-language-120-targeted.yml'
+      - '.github/workflows/public-language-targeted.yml'
   workflow_dispatch:
 
 permissions:

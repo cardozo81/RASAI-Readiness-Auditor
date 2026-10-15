@@ -1,33 +1,31 @@
-name: CONS same-domain advisory 210 isolated
+name: CONS domain CDOM package 210
 on:
   pull_request:
     branches: [main]
     paths:
+      - 'src/rasai/consolidation/domain_comparative_package_210.py'
       - 'src/rasai/consolidation/domain_comparative_preview_210.py'
       - 'src/rasai/consolidation/domain_comparative_index_210.py'
-      - 'src/rasai/consolidation/domain_comparative_html_210.py'
-      - 'tests/test_cons_domain_comparative_210.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_cons_domain_comparative_index_210.py'
       - 'docs/CONS_DOMAIN_COMPARATIVE.md'
-      - '.github/workflows/cons-domain-comparative-210.yml'
+      - '.github/workflows/cons-domain-package.yml'
   push:
     branches: [main]
     paths:
+      - 'src/rasai/consolidation/domain_comparative_package_210.py'
       - 'src/rasai/consolidation/domain_comparative_preview_210.py'
       - 'src/rasai/consolidation/domain_comparative_index_210.py'
-      - 'src/rasai/consolidation/domain_comparative_html_210.py'
-      - 'tests/test_cons_domain_comparative_210.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_cons_domain_comparative_index_210.py'
-      - '.github/workflows/cons-domain-comparative-210.yml'
+      - '.github/workflows/cons-domain-package.yml'
 permissions:
   contents: read
 jobs:
-  same-domain-contract:
-    name: CONS domain safety (${{ matrix.os }})
+  cdom-safe-package:
+    name: CDOM idempotent package (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 12
     strategy:
       fail-fast: false
       matrix:
@@ -37,7 +35,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install project and pytest
+      - name: Install package and pytest
         run: python -m pip install -e . pytest
-      - name: Same-domain advisory only; no full CONS audit
-        run: python -m pytest -q tests/test_cons_domain_comparative_210.py tests/test_cons_domain_comparative_index_210.py
+      - name: Isolated same-host index and CDOM package contracts
+        run: python -m pytest -q tests/test_cons_domain_comparative_index_210.py tests/test_cons_domain_comparative_210.py

@@ -7,7 +7,7 @@ on:
       - 'src/rasai/consolidation/domain_preflight_210.py'
       - 'src/rasai/consolidation/selection.py'
       - 'tests/test_cons_domain_preflight_210.py'
-      - '.github/workflows/cons-domain-preflight-210.yml'
+      - '.github/workflows/cons-domain-preflight.yml'
   workflow_dispatch:
 
 permissions:
