@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/dynatrace_apdex_arch_advisory_355.py'
-      - 'src/rasai/dynatrace_effective_values_adapter_355.py'
+      - 'src/rasai/dynatrace_effective_values_adapter.py'
       - 'src/rasai/dynatrace_apdex_review_cli_355.py'
       - 'src/rasai/dynatrace_settings_live_355.py'
       - 'tests/test_dynatrace_pinned_transport.py'
@@ -16,7 +16,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/dynatrace_apdex_arch_advisory_355.py'
-      - 'src/rasai/dynatrace_effective_values_adapter_355.py'
+      - 'src/rasai/dynatrace_effective_values_adapter.py'
       - 'src/rasai/dynatrace_apdex_review_cli_355.py'
       - 'src/rasai/dynatrace_settings_live_355.py'
       - 'tests/test_dynatrace_pinned_transport.py'

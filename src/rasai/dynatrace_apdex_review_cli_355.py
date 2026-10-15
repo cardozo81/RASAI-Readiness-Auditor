@@ -15,7 +15,7 @@ from rasai.dynatrace_apdex_arch_advisory_355 import (
     ARCHITECTURES, assess_dynatrace_apdex_architecture,
     explain_dynatrace_apdex_pt_br,
 )
-from rasai.dynatrace_effective_values_adapter_355 import extract_apdex_from_effective_values
+from rasai.dynatrace_effective_values_adapter import extract_apdex_from_effective_values
 from rasai.dynatrace_settings_live_355 import read_live_dynatrace_apdex_settings
 
 _FLAG_MAP = {"observed": True, "not-observed": False, "unknown": None}

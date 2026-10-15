@@ -386,7 +386,7 @@ def test_offline_review_rejects_incomplete_physical_settings_read(
 
 
 def test_effective_values_export_offline_advisory_no_fabricated_action_counts():
-    from rasai.dynatrace_effective_values_adapter_355 import (
+    from rasai.dynatrace_effective_values_adapter import (
         extract_apdex_from_effective_values,
     )
     supplied = _effective_values_export()
@@ -414,7 +414,7 @@ def test_effective_values_export_offline_advisory_no_fabricated_action_counts():
     "not_a_list", "empty_value", "invalid_scope",
 ])
 def test_effective_values_export_malformed_data_abstains(variant):
-    from rasai.dynatrace_effective_values_adapter_355 import (
+    from rasai.dynatrace_effective_values_adapter import (
         extract_apdex_from_effective_values,
     )
     value = _effective_values_export()
