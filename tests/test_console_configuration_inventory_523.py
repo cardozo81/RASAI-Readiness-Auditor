@@ -994,3 +994,31 @@ def test_apdex_preflight_rejects_descriptor_identity_mismatch_cross_platform(tmp
     assert status == "SOURCE_CHANGED"
     assert candidate.read_bytes() == b"[environment]\\n"
 
+
+
+def test_apdex_load_warning_categories_are_sanitized_and_exhaustive():
+    from rasai.console_apdex_effective_validation_523 import _classify_load_warnings
+
+    warnings = [
+        "environment.NOT_A_REAL_VAR: variável não reconhecida ou não persistível",
+        "console.device: invalid sensitive candidate",
+        "RASAI_PRESENTATION_TIMEZONE: invalid private timezone",
+        "não foi possível ler C:/sensitive/operator.ini: ConfigError",
+        "unrecognized private diagnostic data",
+    ]
+    classified = _classify_load_warnings(warnings)
+    assert classified == {
+        "unknown_or_nonpersistible_environment": 1,
+        "invalid_typed_state": 1,
+        "invalid_presentation_timezone": 1,
+        "unreadable_ini": 1,
+        "other_unclassified": 1,
+    }
+    assert sum(classified.values()) == len(warnings)
+    assert not any("sensitive" in str(value) or "NOT_A_REAL_VAR" in str(value)
+                   for value in classified.values())
+
+
+def test_apdex_load_warning_categories_empty():
+    from rasai.console_apdex_effective_validation_523 import _classify_load_warnings
+    assert sum(_classify_load_warnings([]).values()) == 0
