@@ -105,7 +105,7 @@ def replay_optional_seo_from_audit(
         executions = tuple(_row_to_execution(row) for row in rows)
         persisted = con.execute(
             "SELECT dimension, value, coverage, confidence, consolidation_status, "
-            "scoring_version FROM scores WHERE audit_id=? AND device=?",
+            "scoring_version, limitations FROM scores WHERE audit_id=? AND device=?",
             (root.name, device.value),
         ).fetchall()
     if not persisted:
@@ -134,6 +134,22 @@ def replay_optional_seo_from_audit(
         for field in ("confidence", "consolidation_status"):
             if actual[field] != expected[field]:
                 raise ValueError("replayed baseline quality contract mismatch")
+        if name == "OVERALL_READINESS":
+            try:
+                persisted_limits = json.loads(expected["limitations"])
+            except (TypeError, ValueError) as exc:
+                raise ValueError("persisted readiness gate evidence invalid") from exc
+            if (
+                not isinstance(persisted_limits, list)
+                or any(not isinstance(item, str) for item in persisted_limits)
+            ):
+                raise ValueError("persisted readiness gate evidence invalid")
+            persisted_gates = [
+                item for item in persisted_limits
+                if item.startswith(("READINESS_STATUS:", "CRITICAL_GATE:"))
+            ]
+            if persisted_gates != actual["readiness_limitations"]:
+                raise ValueError("replayed readiness gate parity failed")
     if original != _read_hash(db):
         raise ValueError("physical AUD changed during replay")
     return {
