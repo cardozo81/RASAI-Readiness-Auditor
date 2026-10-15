@@ -127,6 +127,24 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
    overflow in .table-wrap and keep the full identifier selectable. */
 .card .muted.mono{overflow-wrap:anywhere;word-break:break-word;white-space:normal}
 
+/* #633 restrained analytical surfaces and reading order. */
+:root{--radius:8px;--shadow:0 1px 2px rgba(12,37,51,.035);--line:#dce5e7;--bg:#f4f7f7;--nav-bg:#102f3d;--nav-hover:#1b4551}
+.hero,.panel{border-radius:10px;box-shadow:none}
+.card,.metric,.notice,details,.table-wrap{border-radius:7px;box-shadow:none}
+.panel h2{letter-spacing:-.012em}
+.card{border-left:1px solid var(--line)}
+.directed-goal-link,.report-experience-card{border-top:1px solid var(--line)}
+.report-reading-map{list-style:none;padding:0;margin:16px 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 22px;border-top:1px solid var(--line)}
+.report-reading-step{display:grid;grid-template-columns:46px minmax(0,1fr);gap:12px;padding:22px 4px 24px;border-bottom:1px solid var(--line);min-width:0}
+.report-reading-number{font-size:1rem;font-weight:750;font-variant-numeric:tabular-nums;color:var(--green);letter-spacing:.04em}
+.report-reading-content{min-width:0}
+.report-reading-content h3{font-size:1.05rem;margin:0 0 5px;color:var(--ink)}
+.report-reading-content p{margin:0 0 13px;color:var(--secondary-ink);font-size:.87rem}
+.report-reading-links{margin:0;padding-left:18px;display:grid;gap:8px}
+.report-reading-links a{font-weight:600;overflow-wrap:anywhere}
+@media(max-width:700px){.report-reading-map{grid-template-columns:minmax(0,1fr)}.report-reading-step{grid-template-columns:38px minmax(0,1fr);padding:18px 0}}
+@media print{.report-reading-map{grid-template-columns:repeat(2,minmax(0,1fr))}.report-reading-step{break-inside:avoid}}
+
 /* #633 overview navigation adds routes, not duplicate measurements. */
 .report-experience-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px;margin:14px 0}
 .report-experience-card{display:flex;flex-direction:column;gap:8px;text-decoration:none;color:var(--ink);border-top:3px solid var(--cyan);transition:transform .16s,box-shadow .16s}
