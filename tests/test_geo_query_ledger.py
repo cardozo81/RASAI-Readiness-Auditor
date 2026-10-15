@@ -9,8 +9,8 @@ import sqlite3
 
 import pytest
 
-from rasai.geo_query_ledger_304 import inspect_geo_per_query, main
-from rasai import geo_query_ledger_304 as ledger
+from rasai.geo_query_ledger import inspect_geo_per_query, main
+from rasai import geo_query_ledger as ledger
 
 
 def _audit(tmp_path: Path, *, multi=True, source_query_column=True) -> Path:

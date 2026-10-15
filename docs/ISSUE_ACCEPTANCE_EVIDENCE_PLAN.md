@@ -100,7 +100,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 ### Issue #304 - P1 · PARTIALLY_IMPLEMENTED + BLOCKED_EXTERNAL
 
-**Já presente / evidência técnica:** GEO OBSERVATION v8, `geo_query_ledger_304`, URL exata/host alternativo, denominadores e abstenções, N/D por query sem proveniência, UI descritiva.
+**Já presente / evidência técnica:** GEO OBSERVATION v8, `geo_query_ledger`, URL exata/host alternativo, denominadores e abstenções, N/D por query sem proveniência, UI descritiva.
 
 **Critério residual e risco:** Prova de equivalência externa de mercado, idioma, dispositivo, intenção/branded e tempo Perplexity × SERP; validação de fonte física sem paid calls neste ciclo.
 

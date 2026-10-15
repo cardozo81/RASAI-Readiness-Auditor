@@ -1,6 +1,6 @@
 # #304 - Inventário GEO por consulta com atribuição física
 
-O consumidor local `python -m rasai.geo_query_ledger_304 AUD-...` é
+O consumidor local `python -m rasai.geo_query_ledger AUD-...` é
 **consultivo, estritamente offline e read-only**. Não altera os snapshots
 `RASAI-GEO-OBSERVATION-8`, não cria relatórios de auditoria nem modifica
 M23/M25, SARI, SCORE-GEO, Search API, SERP runtime, orquestrador ou CONS.
@@ -43,7 +43,7 @@ priorização automática ou tendência longitudinal é permitido.
 Exemplo local, sem rede:
 
 ```powershell
-python -m rasai.geo_query_ledger_304 `
+python -m rasai.geo_query_ledger `
   .\audits\AUD-EXEMPLO `
   --declared-branded-query "seguro bradesco"
 ```
@@ -180,7 +180,7 @@ com `--format html`. A opção padrão continua sendo `--format json`;
 nenhuma resposta do provedor ou tabela da AUD é modificada.
 
 ```powershell
-python -m rasai.geo_query_ledger_304 .\audits\AUD-EXEMPLO --format html > geo-por-consulta.html
+python -m rasai.geo_query_ledger .\audits\AUD-EXEMPLO --format html > geo-por-consulta.html
 ```
 
 A visualização separa explicitamente denominadores, interseção,
@@ -212,7 +212,7 @@ rasai geo-query-report .\audits\AUD-EXEMPLO --format json
 A saída HTML é um documento acessível e independente para leitura humana,
 **não** uma escrita em `report-catalog/geo.html`, nem uma mutação de
 relatório já homologado. O roteador apenas delega ao consumer físico
-`geo_query_ledger_304`. A comparação por consulta continua
+`geo_query_ledger`. A comparação por consulta continua
 `DESCRIPTIVE_ONLY`/N/D e não prova mesma população de mercado, idioma,
 device, intenção, nem citação generativa. Não dispara Search API/IA.
 
