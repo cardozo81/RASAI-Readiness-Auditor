@@ -374,6 +374,7 @@ def _decision_snapshot_poc_633(
         )
     return (
         "<p class='section-lead'>Indicadores independentes e ações já persistidas. "
+        "Os números não compõem um novo índice nem certificam conformidade. "
         "Cada cartão oferece acesso ao detalhe correspondente, sem criar novos dados "
         "ou pontuações. Laboratório, campo e prontidão mantêm escopos próprios.</p>"
         "<div class='metric-grid report-snapshot-grid'>" + "".join(metrics) + "</div>"
