@@ -1,6 +1,6 @@
 # #633 - Redesenho unificado: baseline e contrato da primeira etapa
 
-**Status:** implementação visual parcial em branch exclusiva, aguardando implementação das demais experiências e, ao final, validação humana. Este arquivo **não** constitui aceite de release ou substituto de smoke.
+**Status:** implementação em revisão após reprovação visual da AUD real; aceite humano pendente. Este documento acompanha iterações e não constitui homologação. Este arquivo **não** constitui aceite de release ou substituto de smoke.
 
 ## Escopo imutável
 
@@ -23,3 +23,18 @@ Teste físico local de materialização com 19 páginas, links na ordem do contr
 ## Gate de merge
 
 **Nunca integrar na `main` nem fechar a issue #633** antes do aceite humano explícito exigido pela própria issue. CI verde valida apenas regressões programáticas, não suficiência visual. Manter um único PR em estado **DRAFT** com esta branch exclusiva. Não modificar motores, console, web portal, banco, score, providers ou contratos da AUD.
+
+## Iteração pós-smoke real (15/10/2026)
+
+O smoke físico automatizado da AUD de referência verificou 19 páginas, mobile/tablet/desktop e imutabilidade da AUD após correção de identificador técnico longo. **O usuário reprovou a qualidade visual e a organização informacional**: cartões de acesso rápido não equivalem à arquitetura da PoC “Nova experiência”.
+
+Nesta revisão, `index.html#experience` deixa de ser uma grade de atalhos e passa a oferecer um **percurso de leitura em seis etapas**, com objetivo de leitura, contextualização e vínculos para os relatórios existentes: diagnóstico → objetivos → intervenções → evidências → Search/IA → metodologia. Esta estrutura é somente projeção de navegação: não produz métricas, achados ou avaliações adicionais. O CSS compartilha geometria mais contida e remove destaque lateral decorativo dos cartões gerais. Todos os dados originais devem permanecer nas páginas canônicas.
+
+**Limitação:** não houve acesso aos arquivos completos da PoC visual nesta sessão; portanto, não se declara paridade visual ou estrutural integral com ela. A página de ações por objetivo mantém grupos e detalhamento existentes, que requerem apreciação humana comparativa. O baseline de conteúdo equivalente não foi fornecido: `data_row_parity` e `all_visible_content_parity` devem permanecer sem certificação até comparação válida.
+
+### Gates obrigatórios após alterações
+
+- Confirmar CI do **novo HEAD**; falha ou execução pendente impede novo handoff.
+- Reexecutar rematerialização isolada e `tests/report_smoke_633.py` na AUD real, sem coletar dados.
+- Inspecionar as 19 páginas, em especial intervenções, objetivos, navegação de dados densos, mobile e A4.
+- Obter **novo aceite explícito** do responsável sobre o HEAD revisado; PR #637 fica DRAFT até então.
