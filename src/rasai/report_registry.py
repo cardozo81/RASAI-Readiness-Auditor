@@ -19,7 +19,7 @@ from rasai.report_contract import (
     REPORT_SURFACES,
     surface_by_filename,
 )
-from rasai.score_geo_004 import (
+from rasai.score_geo import (
     DIMENSION_WEIGHTS,
     MACRO_COMPONENTS,
     OVERALL_AGGREGATION_VERSION,
@@ -162,7 +162,7 @@ def _patch_current_dimension_vocabulary() -> None:
         report_presentation,
         report_site,
         reporting,
-        score_geo_004_reporting,
+        score_geo_reporting,
     )
 
     current_pt = "Acesso e descoberta"
@@ -176,8 +176,8 @@ def _patch_current_dimension_vocabulary() -> None:
         mapping["DISCOVERY_ACCESS"] = current_pt
         mapping["TECHNICAL_ACCESSIBILITY"] = current_pt
 
-    score_geo_004_reporting._DIMENSION_LABELS["DISCOVERY_ACCESS"] = current_en
-    score_geo_004_reporting._DIMENSION_LABELS["TECHNICAL_ACCESSIBILITY"] = current_en
+    score_geo_reporting._DIMENSION_LABELS["DISCOVERY_ACCESS"] = current_en
+    score_geo_reporting._DIMENSION_LABELS["TECHNICAL_ACCESSIBILITY"] = current_en
     report_presentation.SCORING_CONCEPT_LABELS["DISCOVERY_ACCESS"] = current_en
     report_presentation.SCORING_CONCEPT_LABELS["TECHNICAL_ACCESSIBILITY"] = current_en
     report_presentation._PUBLIC_LABELS["DISCOVERY_ACCESS"] = current_en

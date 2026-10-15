@@ -449,7 +449,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.m26_cli import main as visibility_main
         return visibility_main(effective[1:])
     if effective and effective[0] == "scoring":
-        from rasai.score_geo_004_cli import main as scoring_main
+        from rasai.score_geo_cli import main as scoring_main
         return scoring_main(effective[1:])
     if effective and effective[0] == "monitor":
         from rasai.monitoring.cli import main as monitoring_main

@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from rasai.domain import DeviceContext, RuleExecution, RuleResult
-from rasai.score_geo_004 import FEATURE_ORDER, SCORING_VERSION
+from rasai.score_geo import FEATURE_ORDER, SCORING_VERSION
 from rasai.scoring import DIMENSIONS, ScoringEngine, ScoringResult
 
 

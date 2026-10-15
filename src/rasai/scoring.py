@@ -8,7 +8,7 @@ from enum import StrEnum
 from typing import Iterable
 
 from rasai.domain import DeviceContext, RuleExecution, RuleResult, new_id, utc_now
-from rasai.score_geo_004 import (
+from rasai.score_geo import (
     CRITICAL_DIMENSIONS,
     CRITICAL_GATES,
     DIMENSION_WEIGHTS,

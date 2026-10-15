@@ -11,7 +11,7 @@ from rasai.persistence import AuditWorkspace
 from rasai.report_contract import REPORT_CONTRACT_VERSION, SARI_VERSION
 from rasai.report_presentation import public_label
 from rasai.catalog_report_public_labels import public_label as human_label
-from rasai.score_geo_004 import (
+from rasai.score_geo import (
     DIMENSION_WEIGHTS,
     FEATURE_ORDER,
     MIN_OVERALL_COVERAGE,

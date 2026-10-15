@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import argparse
 
-from rasai.score_geo_004 import (
+from rasai.score_geo import (
     FEATURE_ORDER,
     MIN_OVERALL_COVERAGE,
     MIN_PARTIAL_COVERAGE,
