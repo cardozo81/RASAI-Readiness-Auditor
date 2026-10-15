@@ -529,8 +529,8 @@ def test_633_snapshot_drilldowns_match_persisted_observations_and_priority_count
         "directed-analysis.html?priority=UNDEFINED#actions",
     ):
         assert f"href='{destination}'" in overview
-    assert "100/100" in overview  # original normalized 1.0 is 100/100, not 1/100
-    assert "1.0/100" not in overview
+    assert "1/100" in overview  # M21 stored 1.0 ON 0..100, not 100/100
+    assert "100/100" not in overview
     assert "Ver 5 ações" in overview
     assert "Ver 2 ações de prioridade alta" in overview
     assert "Ver 2 ações sem prioridade" in overview
@@ -538,6 +538,34 @@ def test_633_snapshot_drilldowns_match_persisted_observations_and_priority_count
     assert "id='metric-lighthouse-performance'" in cat04
     assert "id='metric-field-lcp-p75'" in cat04
     assert overview.count("class='metric report-snapshot-metric'") == 6
+
+
+def test_633_lighthouse_persisted_score_contract_never_normalizes_twice(tmp_path: Path) -> None:
+    """M21 stores the Lighthouse API (0..1) * 100 in the database.
+
+    Both the snapshot and CAT-04 must show 1.0 persisted as 1/100;
+    scaling this record again would falsely assert optimal performance.
+    """
+    from rasai.catalog_report_governance import _lighthouse_score_display_633
+    from rasai.catalog_report_metrics import _web_metric_rows
+
+    assert _lighthouse_score_display_633(1.0) == "1/100"
+    assert _lighthouse_score_display_633(0.75) == "0.75/100"
+    assert _lighthouse_score_display_633(100.0) == "100/100"
+    assert _lighthouse_score_display_633(74.2) == "74.2/100"
+
+    workspace, _ = _workspace(tmp_path)
+    with sqlite3.connect(workspace.database) as con:
+        con.execute("UPDATE web_performance_observations SET performance_score=1.0")
+    metrics = _web_metric_rows(workspace.database, AUDIT_ID)
+    lighthouse = next(row for row in metrics if row[0] == "Lighthouse · Desempenho")
+    assert lighthouse[1] == "1 / 100"
+
+    report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
+    overview = (report / "index.html").read_text(encoding="utf-8")
+    cat04 = (report / "cat-04.html").read_text(encoding="utf-8")
+    assert "1/100" in overview and "100/100" not in overview
+    assert "1 / 100" in cat04
 
 
 def test_633_priority_filter_is_reversible_and_print_preserves_every_row() -> None:
