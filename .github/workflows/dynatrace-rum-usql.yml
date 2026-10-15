@@ -4,7 +4,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/dynatrace_rum_population.py'
-      - 'src/rasai/dynatrace_settings_live_355.py'
+      - 'src/rasai/dynatrace_settings_live.py'
       - 'tests/test_dynatrace_pinned_transport.py'
       - 'tests/test_dynatrace_rum_population.py'
       - 'docs/APDEX_DYNATRACE_ARCH_ADVISORY.md'
@@ -13,7 +13,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/dynatrace_rum_population.py'
-      - 'src/rasai/dynatrace_settings_live_355.py'
+      - 'src/rasai/dynatrace_settings_live.py'
       - 'tests/test_dynatrace_pinned_transport.py'
       - 'tests/test_dynatrace_rum_population.py'
       - '.github/workflows/dynatrace-rum-usql.yml'

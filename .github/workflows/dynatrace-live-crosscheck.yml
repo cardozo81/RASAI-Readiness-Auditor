@@ -4,7 +4,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/dynatrace_live_crosscheck_355.py'
-      - 'src/rasai/dynatrace_settings_live_355.py'
+      - 'src/rasai/dynatrace_settings_live.py'
       - 'src/rasai/dynatrace_rum_population.py'
       - 'tests/test_dynatrace_pinned_transport.py'
       - 'tests/test_dynatrace_live_crosscheck.py'
@@ -14,7 +14,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/dynatrace_live_crosscheck_355.py'
-      - 'src/rasai/dynatrace_settings_live_355.py'
+      - 'src/rasai/dynatrace_settings_live.py'
       - 'src/rasai/dynatrace_rum_population.py'
       - 'tests/test_dynatrace_pinned_transport.py'
       - 'tests/test_dynatrace_live_crosscheck.py'

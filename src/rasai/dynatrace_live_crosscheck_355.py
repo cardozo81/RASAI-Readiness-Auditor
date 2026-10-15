@@ -21,7 +21,7 @@ from rasai.dynatrace_population_crosscheck_355 import (
 from rasai.dynatrace_rum_population import (
     _APPLICATION_ID, _DEVICE, read_live_dynatrace_action_population,
 )
-from rasai.dynatrace_settings_live_355 import (
+from rasai.dynatrace_settings_live import (
     _tenant_endpoint, read_live_dynatrace_apdex_settings,
 )
 from rasai.geo_observation import _canonical_url

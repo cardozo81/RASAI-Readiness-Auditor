@@ -16,7 +16,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request
 
-from rasai.dynatrace_settings_live_355 import DynatracePinnedOpener, _tenant_endpoint
+from rasai.dynatrace_settings_live import DynatracePinnedOpener, _tenant_endpoint
 from rasai.geo_observation import _canonical_url
 
 _APPLICATION_ID = re.compile(r"^APPLICATION-[A-F0-9]{16}$")

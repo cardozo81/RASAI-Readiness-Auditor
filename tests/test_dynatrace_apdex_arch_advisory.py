@@ -597,7 +597,7 @@ def test_pt_br_offline_cli_explains_unknown_without_ever_claiming_real_rum(
 
 
 def test_settings_read_live_adapter_uses_exact_scoped_get_and_not_redirects():
-    from rasai.dynatrace_settings_live_355 import read_live_dynatrace_apdex_settings
+    from rasai.dynatrace_settings_live import read_live_dynatrace_apdex_settings
     class Reply:
         headers = {"Content-Type": "application/json; charset=utf-8"}
         def __enter__(self):
@@ -652,7 +652,7 @@ def test_settings_read_live_adapter_uses_exact_scoped_get_and_not_redirects():
     "https://127.0.0.1",
 ])
 def test_settings_read_rejects_unsafe_environment_before_network(url):
-    from rasai.dynatrace_settings_live_355 import read_live_dynatrace_apdex_settings
+    from rasai.dynatrace_settings_live import read_live_dynatrace_apdex_settings
     class NoNetwork:
         def open(self, *_args, **_kwargs):
             pytest.fail("invalid request reached transport")
@@ -664,7 +664,7 @@ def test_settings_read_rejects_unsafe_environment_before_network(url):
 
 
 def test_settings_read_missing_token_bad_scope_and_pagination_no_false_success():
-    from rasai.dynatrace_settings_live_355 import read_live_dynatrace_apdex_settings
+    from rasai.dynatrace_settings_live import read_live_dynatrace_apdex_settings
     class Never:
         def open(self, *_args, **_kwargs):
             pytest.fail("unexpected outbound call")

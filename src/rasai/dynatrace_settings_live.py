@@ -13,9 +13,9 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request
 
-from rasai.geo_competitor_pinned_egress import PublicWebPinnedOpener
+from rasai.geo_competitor_pinned_egress_330 import PublicWebPinnedOpener
 
-from rasai.dynatrace_effective_values_adapter import (
+from rasai.dynatrace_effective_values_adapter_355 import (
     SCHEMA_TO_ACTION, extract_apdex_from_effective_values,
 )
 
@@ -119,7 +119,7 @@ def read_live_dynatrace_apdex_settings(
         raise ValueError("Dynatrace request timeout outside allowed bounds")
     # Validate application scope before any request; this pure adapter has
     # no side effects and performs the same guard as the offline parser.
-    from rasai.dynatrace_effective_values_adapter import (
+    from rasai.dynatrace_effective_values_adapter_355 import (
         extract_apdex_from_effective_values as parse,
     )
     parse({"items": [], "totalCount": 0}, declared_application_scope=application_scope)
