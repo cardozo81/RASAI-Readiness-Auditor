@@ -568,6 +568,23 @@ def directed_analysis_body(database: Any, data: Any) -> str:
             "<div class='notice warn'><strong>Análise Direcionada não materializada.</strong> "
             "Os dados técnicos continuam disponíveis nos CATs. Esta página não executa IA nem coleta durante a renderização.</div>",
         )
+        # The canonical overview links directly to these destinations. Preserve
+        # their section anchors even when the optional run does not exist, but
+        # do not invent any action, finding, intent, priority or score.
+        for section_id,title in (
+            ("transversal","Maior ganho transversal"),
+            ("roadmap","Plano de ação"),
+            ("objectives","Visões por objetivo"),
+            ("actions","Ações estratégicas"),
+            ("traceability","Rastreabilidade"),
+            ("limitations","Limitações"),
+        ):
+            body+=_section(
+                section_id,title,
+                "<div class='notice'>Nenhuma análise direcionada foi materializada "
+                "para esta auditoria. Consulte os resultados técnicos dos CATs; "
+                "nenhuma ação ou conclusão foi inferida nesta seção.</div>",
+            )
         return body
 
     status=_directed_status(run.get("status"))
