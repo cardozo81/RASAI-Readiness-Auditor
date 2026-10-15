@@ -12,8 +12,8 @@ from hashlib import sha256
 import json
 from typing import Any, Mapping
 
-from rasai.faq_observation_601 import _MAX_HTML_BYTES
-from rasai.faq_transition_policy_601 import compare_faq_dom_views
+from rasai.faq_observation import _MAX_HTML_BYTES
+from rasai.faq_transition_policy import compare_faq_dom_views
 
 _FIELDS = frozenset({
     "receipt_id", "collector_id", "target_id", "document_url",

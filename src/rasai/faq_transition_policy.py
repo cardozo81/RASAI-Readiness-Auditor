@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import urlsplit
 
-from rasai.faq_observation_601 import _AccordionParser, _FAQ_CONTEXT, _MAX_HTML_BYTES
+from rasai.faq_observation import _AccordionParser, _FAQ_CONTEXT, _MAX_HTML_BYTES
 
 
 def _state(html: str, target: str) -> str:

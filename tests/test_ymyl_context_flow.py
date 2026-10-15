@@ -16,7 +16,7 @@ from rasai.accepted_audit_refinements import (
     _ymyl_analysis_context_html,
 )
 from rasai.semantic_coherence_reporting import _ymyl_alignment_html
-from rasai.faq_observation_601 import faq_observation_html, inspect_faq_html
+from rasai.faq_observation import faq_observation_html, inspect_faq_html
 from rasai import catalog_report_analysis
 
 
@@ -91,7 +91,7 @@ def test_opted_in_faq_receipt_requires_signed_collector_source_and_matching_dom(
     import json
     from hashlib import sha256
 
-    from rasai.faq_interaction_receipt_601 import verify_faq_interaction_receipt
+    from rasai.faq_interaction_receipt import verify_faq_interaction_receipt
 
     key = b"separately-configured-test-collector-key-2026"
     before = '<button aria-controls="faq-x" aria-expanded="false">Pergunta</button>'
@@ -174,7 +174,7 @@ def test_opted_in_faq_receipt_requires_signed_collector_source_and_matching_dom(
 
 
 def test_faq_paired_dom_text_does_not_certify_click_or_crawler_discovery() -> None:
-    from rasai.faq_transition_policy_601 import compare_faq_dom_views as compare
+    from rasai.faq_transition_policy import compare_faq_dom_views as compare
 
     url = "https://example.test/seguro"
     before = (
@@ -200,7 +200,7 @@ def test_faq_paired_dom_text_does_not_certify_click_or_crawler_discovery() -> No
 
 
 def test_faq_paired_dom_abstains_on_wrong_url_and_ambiguous_panel() -> None:
-    from rasai.faq_transition_policy_601 import compare_faq_dom_views as compare
+    from rasai.faq_transition_policy import compare_faq_dom_views as compare
 
     pre = '<button aria-controls="faq-x" aria-expanded="false">Q</button>'
     post = (
@@ -258,7 +258,7 @@ def test_faq_readonly_report_does_not_claim_editorial_absence(tmp_path: Path) ->
 
 
 def test_faq_diagnostic_rejects_out_of_root_artifact(tmp_path: Path) -> None:
-    from rasai.faq_observation_601 import _safe_rendered_file
+    from rasai.faq_observation import _safe_rendered_file
 
     outside = tmp_path.parent / "outside-faq.html"
     assert _safe_rendered_file(tmp_path, "../outside-faq.html") is None

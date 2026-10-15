@@ -64,7 +64,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 ### Issue #601 - P1 · PARTIALLY_IMPLEMENTED + BLOCKED_AUTH
 
-**Já presente / evidência técnica:** Classificador de transição FAQ no DOM e `faq_interaction_receipt_601` HMAC, com guard `crawler_discovery_verified=false`; testes em `test_ymyl_context_flow.py`.
+**Já presente / evidência técnica:** Classificador de transição FAQ no DOM e `faq_interaction_receipt` HMAC, com guard `crawler_discovery_verified=false`; testes em `test_ymyl_context_flow.py`.
 
 **Critério residual e risco:** Coletor browser opt-in seguro com gesto real em contexto isolado, prova DOM pré/pós em mesmo alvo, matriz lazy-mount e decisão metodológica versionada BR-GEO-039/049.
 
