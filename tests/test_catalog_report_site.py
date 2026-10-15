@@ -399,7 +399,8 @@ def test_overview_new_experience_is_an_index_not_a_second_report(tmp_path: Path)
     report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
     overview = (report / "index.html").read_text(encoding="utf-8")
     assert overview.count("id='experience'") == 1
-    assert overview.count("class='card report-experience-card'") == 6
+    assert overview.count("class='report-reading-step'") == 6
+    assert "Percurso de interpretação" in overview
     for destination in (
         "directed-analysis.html#objectives",
         "directed-analysis.html#roadmap",
@@ -409,7 +410,7 @@ def test_overview_new_experience_is_an_index_not_a_second_report(tmp_path: Path)
         "methodology.html",
     ):
         assert f"href='{destination}'" in overview
-    assert "não são diagnósticos adicionais" in overview
+    assert "não cria resultados adicionais" in overview
     assert set(page.name for page in report.glob("*.html")) == set(CATALOG_REPORT_FILENAMES)
     assert overview.count("Índices e métricas evidentes") >= 1
     assert "74.2" in (report / "sari.html").read_text(encoding="utf-8")
@@ -505,3 +506,17 @@ def test_report_633_long_monospace_card_identifiers_wrap_without_global_overflow
 
     assert ".card .muted.mono{overflow-wrap:anywhere;word-break:break-word;white-space:normal}" in _CSS
     assert ".table-wrap{overflow:auto;" in _CSS
+
+
+def test_633_reading_map_retains_canonical_destinations_and_compact_visual_tokens(tmp_path: Path) -> None:
+    workspace, _ = _workspace(tmp_path)
+    report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
+    html = (report / "index.html").read_text(encoding="utf-8")
+    assert "class='report-reading-map'" in html
+    assert html.count("class='report-reading-step'") == 6
+    assert "capture-context.html" in html
+    assert "execution-evidence.html" in html
+    assert "ai-integrations.html" in html
+    from rasai.catalog_report_style import _CSS
+    assert ".report-reading-map{" in _CSS
+    assert "--radius:8px" in _CSS
