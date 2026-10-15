@@ -54,6 +54,48 @@ def test_secret_safe_shadowing_and_unknown_keys_are_counted_not_displayed(tmp_pa
     assert "UNREGISTERED_KEY" not in printed
 
 
+def test_default_section_is_not_a_persisted_environment_assignment(tmp_path):
+    """Counts must reflect only physical [environment] keys, not [DEFAULT]."""
+    path = tmp_path / "inherited.ini"
+    path.write_text(
+        "[DEFAULT]\n"
+        "OPENAI_API_KEY = SHOULD_NOT_BE_COUNTED\n"
+        "RASAI_SERP_MAX_REQUESTS = 99\n"
+        "UNREGISTERED_SECRET = SHOULD_NOT_BE_COUNTED\n"
+        "[environment]\n"
+        "RASAI_SERP_MAX_REQUESTS = 12\n",
+        encoding="utf-8",
+    )
+    before = path.read_bytes()
+    result = inspect_configuration(
+        path, env={"RASAI_SERP_MAX_REQUESTS": "12"},
+    )
+    assert result.file_status == "LIDO: arquivo existente"
+    assert result.persisted_public == 1
+    assert result.session_overrides == 0
+    assert result.private_entries_in_ini == 0
+    assert result.invalid_entries == 0
+    assert "SHOULD_NOT_BE_COUNTED" not in render_provenance(result)
+    assert path.read_bytes() == before
+
+
+def test_provenance_abstains_if_file_changes_during_bounded_read(tmp_path, monkeypatch):
+    """A file race must not be mistaken for a loaded configuration."""
+    from rasai import console_config_provenance_523 as module
+
+    path = tmp_path / "race.ini"
+    path.write_text("[environment]\nRASAI_SERP_MAX_REQUESTS=12\n", encoding="utf-8")
+    monkeypatch.setattr(
+        module, "_ini_with_status",
+        lambda _path: (None, "SOURCE_CHANGED_DURING_READ"),
+    )
+    result = inspect_configuration(path, env={})
+    assert "alterado durante leitura" in result.file_status
+    assert result.persisted_public == 0
+    assert result.session_overrides == 0
+    assert result.private_entries_in_ini == 0
+
+
 def test_missing_invalid_and_malformed_ini_abstain(tmp_path):
     assert inspect_configuration(None).file_status == "NÃO RESOLVIDO"
     assert inspect_configuration(tmp_path / "none.ini").file_status == "AUSENTE"
