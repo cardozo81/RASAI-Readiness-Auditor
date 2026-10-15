@@ -664,7 +664,25 @@ def directed_analysis_body(database: Any, data: Any) -> str:
             if key:
                 dimensions.setdefault(key,[]).append((action,item))
     objective_blocks=[]
+    objective_cards=[]
     for key,items in sorted(dimensions.items(),key=lambda kv:_dimension_label(kv[0])):
+        # An action can affect multiple objectives: each objective counts
+        # distinct action IDs only within its own dimension. These values
+        # are intentionally never summed to form an overall action count.
+        goal_id="goal-"+sha256(key.encode("utf-8")).hexdigest()[:12]
+        distinct_action_ids={
+            str(action.get("action_id"))
+            for action,_impact in items
+            if action.get("action_id")
+        }
+        objective_cards.append(
+            "<a class='card directed-goal-link' href='#"+goal_id+"'>"
+            "<span class='directed-goal-name'>"+escape(_dimension_label(key))+"</span>"
+            "<strong>"+str(len(distinct_action_ids))+"</strong>"
+            "<small>ação(ões) vinculada(s) neste objetivo</small>"
+            "<span class='directed-goal-cta'>Explorar ações e evidências ›</span>"
+            "</a>"
+        )
         rows=[]
         for action,impact in items:
             rows.append((
@@ -676,11 +694,17 @@ def directed_analysis_body(database: Any, data: Any) -> str:
                 _confidence_label(action.get("confidence")) if action.get("confidence") else "Não consolidada",
             ))
         objective_blocks.append(
-            "<details><summary>"+escape(_dimension_label(key))+"</summary><div class='detail-body'>"
+            "<details class='directed-goal-details' id='"+goal_id+"'><summary>"+escape(_dimension_label(key))+"</summary><div class='detail-body'>"
             +_table(("Ação","Alvo / ocorrência","Ganho","Prioridade","Esforço","Confiança"),rows)
             +"</div></details>"
         )
-    body+=_section("objectives","Visões por objetivo","".join(objective_blocks) or "<div class='notice'>Nenhuma dimensão estratégica foi materializada.</div>")
+    objective_index=(
+        "<p class='section-lead'>Os objetivos reúnem referências já persistidas. "
+        "Uma mesma ação pode apoiar vários objetivos; as quantidades dos cartões "
+        "não são aditivas e não substituem as ocorrências individuais.</p>"
+        "<div class='directed-goal-grid'>"+ "".join(objective_cards) +"</div>"
+    ) if objective_cards else ""
+    body+=_section("objectives","Visões por objetivo",objective_index+"".join(objective_blocks) or "<div class='notice'>Nenhuma dimensão estratégica foi materializada.</div>")
 
     action_rows=[];modals=[]
     for action in actions:
