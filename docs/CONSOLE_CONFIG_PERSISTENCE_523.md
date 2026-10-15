@@ -510,3 +510,39 @@ Referências anteriores neste documento ao caminho obrigatório `P > 9` deixam d
 A inspeção somente de leitura `console_config_provenance_523.inspect_configuration` reporta a **quantidade** de entradas potencialmente secretas encontradas no inventário `[environment]` do INI, de acordo com o catálogo sensível e o predicado de segredo. Nunca imprime nome ou valor, não migra o segredo para o ambiente/registro Windows e não o preserva num relatório. A saída apresenta alerta de revisão local, não informação sensível. Caminhos simbólicos são recusados em vez de seguir apontamentos para arquivos privados arbitrários.
 
 O indicador `private_entries_in_ini` tem semântica estrita: contagem de chaves com aparência/contrato de segredo em um arquivo existente, **não** prova que a credencial seja válida nem revela quem a inseriu. O campo não reautoriza Perplexity nem atualiza a execução em andamento. Testes usam fixture com valor sentinela e verificam ausência completa desse valor no texto renderizado.
+
+## Reconciliacao de entradas operacionais historicas (15/10/2026)
+
+O checkpoint Windows do operador, no HEAD anterior ao patch, leu com seguranca
+um INI contendo 22 chaves publicas/desconhecidas pelo registry; todas estavam
+preenchidas, todas possuíam referencias literais em Python e a leitura manteve
+o SHA-256 da origem. Um nome foi intencionalmente mascarado pelo diagnostico.
+Isso **nao** comprova por si so que cada runtime executou a funcionalidade.
+
+No contrato atual, `load_console_config` rejeitava esses nomes da secao
+`[environment]`; `save_console_config` reconstruia a secao exclusivamente a
+partir do registry e poderia perder silenciosamente as entradas. O patch
+reconcilia explicitamente entradas conhecidas de catálogos de modelos, precos
+e perfis IA, Improvement Intelligence, OAuth GSC Client ID, timezone de
+apresentacao e opcoes de seguranca passiva. Essa allowlist **nao** expande
+secrets, consents, nem habilita provedores: valores continuam sendo
+configuracoes, e nao comprovantes de execucao. A opcao de cookies de
+seguranca e um booleano de analise, nao conteudo de cookies. Client ID de GSC
+e publico; client secret e refresh token continuam fora do INI.
+
+O loader continua rejeitando nomes fora do registry. Como defesa adicional,
+o saver agora recusa sobrescrever um INI fisico que contem entradas de
+`[environment]` nao reconhecidas ou nao persistiveis, inclusive secrets,
+sem exibir nomes ou valores. A decisao e conservadora: preservar e
+reconciliar uma copia segura antes de salvar a origem; nao promover chaves
+futuras por prefixo. O novo teste de regressao usa apenas INIs
+sinteticos temporarios, realiza `load -> consumer read-only -> save -> reopen`,
+verifica o isolamento de sessao/INI, rejeicao de chaves desconhecidas,
+validacao dos tipos e reabertura em interpretador separado. O catalogo de
+modelos/precos/perfis e os consumidores de Improvement Intelligence,
+seguranca passiva e estado OAuth sao verificados sem chamada externa.
+
+O sucesso desses testes e da CI **nao substitui** o smoke Windows sobre uma
+copia fisica da configuracao do operador na revisao ja corrigida. Um save
+no INI original continua proibido enquanto sua politica de backup,
+integridade, precedencia e ausencia de avisos nao tiver sido confirmada.
