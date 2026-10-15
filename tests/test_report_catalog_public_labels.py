@@ -12,7 +12,7 @@ from rasai.catalog_report_presentation import (
     _temporal_mode_label,
     _translated_text,
 )
-from rasai.score_geo_004_reporting import _score_row
+from rasai.score_geo_reporting import _score_row
 from rasai.semantic import semantic_output_language_directive
 
 

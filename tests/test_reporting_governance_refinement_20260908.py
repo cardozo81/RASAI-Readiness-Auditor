@@ -19,7 +19,7 @@ def test_scoring_contract_explains_bounded_ai_and_reference_inputs_are_tuple() -
     assert refs.inputs == ("fontes metodológicas e referências públicas",)
 
 def test_scoring_report_materializes_human_rule_criterion_and_group() -> None:
-    text = Path("src/rasai/score_geo_004_reporting.py").read_text(encoding="utf-8")
+    text = Path("src/rasai/score_geo_reporting.py").read_text(encoding="utf-8")
     assert "<th>Critério</th>" in text
     assert "<th>Grupo</th>" in text
     assert "Contribuição efetiva" in text
