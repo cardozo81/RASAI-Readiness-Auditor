@@ -1,4 +1,4 @@
-# #633 — Redesenho unificado: baseline e contrato da primeira etapa
+# #633 - Redesenho unificado: baseline e contrato da primeira etapa
 
 **Status:** implementação visual parcial em branch exclusiva, aguardando implementação das demais experiências e, ao final, validação humana. Este arquivo **não** constitui aceite de release ou substituto de smoke.
 
