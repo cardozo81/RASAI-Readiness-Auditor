@@ -534,7 +534,7 @@ def test_633_snapshot_drilldowns_match_persisted_observations_and_priority_count
     assert "Ver 5 ações" in overview
     assert "Ver 2 ações de prioridade alta" in overview
     assert "Ver 2 ações sem prioridade" in overview
-    assert "escopo ORIGIN" in overview
+    assert "Domínio / origem" in overview  # public-label translation of ORIGIN
     assert "id='metric-lighthouse-performance'" in cat04
     assert "id='metric-field-lcp-p75'" in cat04
     assert overview.count("class='metric report-snapshot-metric'") == 6
