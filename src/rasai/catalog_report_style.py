@@ -276,15 +276,19 @@ if(document.querySelector('details.directed-goal-details')&&typeof HTMLDialogEle
   document.body.appendChild(objectiveDialog);
   document.documentElement.classList.add('report-objectives-enhanced');
   objectiveDialog.addEventListener('close',()=>{
-    if(!activeObjective)return;
-    const {source,body,marker,trigger}=activeObjective;
-    marker.replaceWith(body);
-    source.removeAttribute('data-goal-in-dialog');
-    objectiveDialog.querySelector('[data-objective-dialog-body]').replaceChildren();
-    activeObjective=null;
-    if(trigger&&trigger.isConnected)trigger.focus({preventScroll:true});
+    // A previous close event may still be queued after opening another goal.
+    if(!objectiveDialog.open)restoreObjective();
   });
 }
+const restoreObjective=()=>{
+  if(!activeObjective)return;
+  const {source,body,marker,trigger}=activeObjective;
+  marker.replaceWith(body);
+  source.removeAttribute('data-goal-in-dialog');
+  objectiveDialog.querySelector('[data-objective-dialog-body]').replaceChildren();
+  activeObjective=null;
+  if(trigger&&trigger.isConnected)trigger.focus({preventScroll:true});
+};
 const resolveObjective=(element)=>{
   if(!element)return null;
   return element.matches('details.directed-goal-details')?element:element.closest('details.directed-goal-details');
@@ -296,7 +300,7 @@ const openObjective=(source,trigger=null)=>{
     return true;
   }
   if(activeObjective&&activeObjective.source===source)return true;
-  if(objectiveDialog.open)objectiveDialog.close();
+  if(objectiveDialog.open){objectiveDialog.close();restoreObjective();}
   const body=source.querySelector(':scope > .detail-body');
   if(!body){source.open=true;return true;}
   const marker=document.createComment('original persisted objective detail position');
@@ -313,11 +317,11 @@ const openObjective=(source,trigger=null)=>{
 const openHash=()=>{
   let id='';
   try{id=decodeURIComponent((location.hash||'').replace(/^#/,'')).trim();}catch(_error){return;}
-  if(!id)return;
-  const target=document.getElementById(id);if(!target)return;
+  const target=id?document.getElementById(id):null;
   const goal=resolveObjective(target);
   if(goal){openObjective(goal);return;}
-  open(id);
+  if(objectiveDialog&&objectiveDialog.open){objectiveDialog.close();restoreObjective();}
+  if(target)open(id);
 };
 document.addEventListener('click',(event)=>{
   const goalLink=event.target.closest('a[href^="#goal-"]');
@@ -341,7 +345,7 @@ document.addEventListener('click',(event)=>{
 window.addEventListener('hashchange',openHash);
 window.addEventListener('popstate',openHash);
 openHash();
-window.addEventListener('beforeprint',()=>{if(objectiveDialog&&objectiveDialog.open)objectiveDialog.close();});
+window.addEventListener('beforeprint',()=>{if(objectiveDialog&&objectiveDialog.open){objectiveDialog.close();restoreObjective();}});
 document.addEventListener('click',(event)=>{
   const dlg=event.target;
   if(typeof HTMLDialogElement!=='undefined'&&dlg instanceof HTMLDialogElement&&dlg.classList.contains('rasai-modal')){
