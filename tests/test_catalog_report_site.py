@@ -298,6 +298,27 @@ def test_objective_cards_are_only_navigational_and_never_add_up_repeat_actions(t
     assert "Corrigir informação" in html and "Validar evidência" in html
 
 
+def test_overview_new_experience_is_an_index_not_a_second_report(tmp_path: Path) -> None:
+    workspace, _ = _workspace(tmp_path)
+    report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
+    overview = (report / "index.html").read_text(encoding="utf-8")
+    assert overview.count("id='experience'") == 1
+    assert overview.count("class='card report-experience-card'") == 6
+    for destination in (
+        "directed-analysis.html#objectives",
+        "directed-analysis.html#roadmap",
+        "directed-analysis.html#actions",
+        "cat-09.html",
+        "geo.html",
+        "methodology.html",
+    ):
+        assert f"href='{destination}'" in overview
+    assert "não são diagnósticos adicionais" in overview
+    assert set(page.name for page in report.glob("*.html")) == set(CATALOG_REPORT_FILENAMES)
+    assert overview.count("Índices e métricas evidentes") >= 1
+    assert "74.2" in (report / "sari.html").read_text(encoding="utf-8")
+
+
 def test_sari_and_metrics_use_persisted_values_without_recalculation(tmp_path: Path) -> None:
     workspace, _non_catalog = _workspace(tmp_path)
     report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
