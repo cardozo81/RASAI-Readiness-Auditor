@@ -205,6 +205,58 @@ def test_every_new_page_uses_the_same_menu_and_one_active_item(tmp_path: Path) -
 
 
 
+
+def test_report_633_baseline_guard_does_not_lose_nontabular_evidence() -> None:
+    """A design-only diff cannot silently delete prose, targets or source links."""
+    from report_smoke_633 import _Tables, _check_table_parity
+
+    def record(html: str):
+        parsed = _Tables()
+        parsed.feed(html)
+        from collections import Counter
+
+        return {
+            "table_row_inventory": dict(Counter(parsed.rows)),
+            "section_ids": parsed.sections,
+            "element_ids": parsed.ids,
+            "local_links": dict(Counter(parsed.local_links)),
+            "visible_text": dict(Counter(parsed.content_fragments)),
+            "dialog_count": parsed.dialogs,
+        }
+
+    old = (
+        "<html><body><main>"
+        "<section id='findings'><h2>Ocorrências físicas</h2>"
+        "<p id='evidence-4'>Fonte identificada</p>"
+        "<a href='cat-09.html#action-1'>Intervenção persistida</a>"
+        "<table><tr><td>EV-123</td><td>Observado</td></tr></table>"
+        "</section><dialog id='finding-detail'>Detalhe técnico preservado</dialog>"
+        "</main></body></html>"
+    )
+    additive = old.replace(
+        "<section id='findings'>",
+        "<nav class='breadcrumbs'>Nova experiência</nav><section id='findings'>",
+    )
+    _check_table_parity({"cat-03.html": record(old)}, {"cat-03.html": record(additive)})
+    for removed, changed in (
+        ("Fonte identificada", "Resumo sem fonte"),
+        ("cat-09.html#action-1", "cat-09.html"),
+        ("id='evidence-4'", "id='evidence-other'"),
+        ("Detalhe técnico preservado", "Detalhe indisponível"),
+    ):
+        candidate = old.replace(removed, changed)
+        try:
+            _check_table_parity(
+                {"cat-03.html": record(old)},
+                {"cat-03.html": record(candidate)},
+            )
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("physical report baseline regression accepted: " + removed)
+
+
+
 def test_new_shared_report_shell_navigation_is_accessible_in_all_canonical_pages(tmp_path: Path) -> None:
     """#633: one DOM nav, one disclosure, no second route or hidden static content."""
     workspace, _non_catalog = _workspace(tmp_path)
