@@ -11,7 +11,7 @@ import pytest
 from rasai.apdex_content_readiness_observation import (
     PrimaryContentReadiness, STRICT_PROVENANCE_VERSION,
 )
-from rasai.apdex_readiness_sidecar_322 import (
+from rasai.apdex_readiness_sidecar import (
     read_readiness_sidecar, write_readiness_sidecar,
 )
 
@@ -169,7 +169,7 @@ def test_interrupted_atomic_publication_never_exposes_partial_final_json(
     tmp_path, monkeypatch,
 ):
     source = aud(tmp_path)
-    from rasai import apdex_readiness_sidecar_322 as storage
+    from rasai import apdex_readiness_sidecar as storage
 
     def no_link(*_args, **_kwargs):
         raise OSError("simulated filesystem publication failure")

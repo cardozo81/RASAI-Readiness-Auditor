@@ -91,7 +91,7 @@ homologados. O smoke humano da UI anterior não substitui esse gate.
 
 ## Persistência advisory **fora da AUD** (#322) - pós-merge 09/10/2026
 
-`apdex_readiness_sidecar_322.py` acrescenta um armazenamento isolado e
+`apdex_readiness_sidecar.py` acrescenta um armazenamento isolado e
 não instalado no coletor. O consumidor fornece explicitamente uma
 `PrimaryContentReadiness` **strict provenance v2**. Após a AUD estar
 logicamente `COMPLETED/COMPLETE`, íntegra e com `report-catalog` vigente
