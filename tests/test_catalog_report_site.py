@@ -206,6 +206,46 @@ def test_every_new_page_uses_the_same_menu_and_one_active_item(tmp_path: Path) -
 
 
 
+
+def test_unified_report_633_core_color_pairs_meet_wcag_aa_text_contrast() -> None:
+    """Offline verification of typography/identity colors, not a full AX audit."""
+    import re
+
+    from rasai.catalog_report_style import _CSS
+
+    root = re.search(r":root\{([^}]+)\}", _CSS)
+    assert root is not None
+    tokens = dict(re.findall(r"--([\\w-]+):(#(?:[0-9A-Fa-f]{6}))", root.group(1)))
+    for required in ("ink", "muted", "nav-bg", "bg", "blue", "cyan"):
+        assert required in tokens
+
+    def luminance(color: str) -> float:
+        rgb = (int(color[index:index + 2], 16) / 255 for index in (1, 3, 5))
+        channels = tuple(
+            value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+            for value in rgb
+        )
+        return sum(weight * part for weight, part in zip((0.2126, 0.7152, 0.0722), channels))
+
+    def contrast(foreground: str, background: str) -> float:
+        a, b = luminance(foreground), luminance(background)
+        return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+
+    for foreground, background in (
+        (tokens["ink"], tokens["bg"]),
+        (tokens["muted"], "#ffffff"),
+        (tokens["blue"], "#ffffff"),
+        (tokens["cyan"], "#ffffff"),
+        ("#ffffff", tokens["nav-bg"]),
+        ("#8798ae", tokens["nav-bg"]),
+        ("#875411", "#fff3d7"),
+    ):
+        assert contrast(foreground, background) >= 4.5, (
+            f"WCAG AA text contrast below 4.5:1 for {foreground}/{background}"
+        )
+
+
+
 def test_report_633_baseline_guard_does_not_lose_nontabular_evidence() -> None:
     """A design-only diff cannot silently delete prose, targets or source links."""
     from report_smoke_633 import _Tables, _check_table_parity
