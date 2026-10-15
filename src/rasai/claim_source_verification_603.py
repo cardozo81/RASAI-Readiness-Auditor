@@ -43,7 +43,9 @@ def classify_claim(
     )
     fallback = {"state": state, "basis": "NO_VERIFIED_PRIMARY_SOURCE"}
     claim = str(claim_text or "").strip()
-    if not claim or not product_scope or not isinstance(at_date, date):
+    # Datetime is a date subclass, but cannot be safely compared to parsed dates.
+    # Invalid caller input must abstain rather than crash the report consumer.
+    if not claim or not product_scope or type(at_date) is not date:
         return fallback
     if not isinstance(primary_bytes, bytes) or not 0 < len(primary_bytes) <= _MAX_DOCUMENT_BYTES:
         return fallback

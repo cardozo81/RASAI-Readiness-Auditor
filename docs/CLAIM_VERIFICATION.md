@@ -28,6 +28,13 @@ Fixtures determinísticas cobrem fonte ausente, digest divergente, claim de outr
 
 O módulo `claim_review_receipt_603.verify_claim_review_receipt` exige um recibo de revisão **assinado via HMAC-SHA256**, uma chave de verificação confiável com ao menos 32 bytes obtida exclusivamente de contexto privado do operador/revisor e uma lista de identificadores de revisores autorizados. Assina-se a serialização JSON canônica de **todos** os campos permitidos (hash do documento, escopo/produto, claim literal, data/vigência, URL, emissor, versão, trecho correspondente, decisão e revisor/recibo). Qualquer alteração, assinatura inválida, campo inesperado ou revisor não autorizado devolve `CLAIM_UNVERIFIED_EXTERNAL` sem promover o resultado.
 
+Além do MAC, o verificador recusa identificador de revisor vazio ou composto somente por espaços,
+mesmo quando uma allowlist externa estiver incorretamente configurada para aceitá-lo.
+O classificador exige `datetime.date` puro em `at_date`: objetos `datetime` não são
+datas de avaliação compatíveis com a vigência documental e resultam em
+`CLAIM_UNVERIFIED_EXTERNAL` (fail-closed), sem exceção de comparação.
+Essas proteções não substituem autenticação de fonte, autorização externa ou
+homologação regulatória.
 Esse módulo **somente verifica** o MAC de recibos criados por um sistema **independente e autorizado**. Ele não fornece função de assinatura pública nem extrai chave de ambientes auditados. Não deve ser chamado por código que aceite `trusted_key` ou `trusted_reviewer_ids` do website auditado, JSON de LLM ou da mesma solicitação externa. A credencial não é persistida nem exibida; a validação é local e offline. Um recibo autêntico prova apenas que o emissor confiável atestou aquela revisão; não comprova por si só legitimidade da entidade SUSEP ou conformidade jurídica. A autenticação inicial do revisor e da fonte primária permanece dependência externa antes de promover qualquer claim do relatório.
 
 O contrato de classificação anterior permanece disponível para testes e consumidores internos, **mas não deve receber diretamente dados não confiáveis com `independent_source_authenticity_verified=True`**. Integradores devem ingressar por esta etapa autenticada. Nenhum relatório atual é automaticamente enriquecido ou reescrito.

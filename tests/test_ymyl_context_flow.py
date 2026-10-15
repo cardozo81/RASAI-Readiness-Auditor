@@ -300,6 +300,17 @@ def test_claim_verification_requires_attested_primary_source_exact_scope_and_ver
         "state": "CLAIM_CORROBORATED",
         "basis": "INDEPENDENT_VERSIONED_SOURCE_REVIEW",
     }
+    # Datetime subclasses date but must not raise on comparison with date-only
+    # source validity intervals or promote unsupported input to corroboration.
+    from datetime import datetime
+    assert classify_claim(
+        claim, review=receipt,
+        **{**kwargs, "at_date": datetime(2026, 10, 14, 0, 0)},
+    ) == {
+        "state": "CLAIM_UNVERIFIED_EXTERNAL",
+        "basis": "NO_VERIFIED_PRIMARY_SOURCE",
+    }
+
     for altered in (
         {"product_scope": "OTHER-PRODUCT"},
         {"document_sha256": "invalid"},
@@ -375,6 +386,19 @@ def test_signed_claim_review_receipt_authenticates_entire_context_before_corrob(
         "state": "CLAIM_CORROBORATED",
         "basis": "INDEPENDENT_VERSIONED_SOURCE_REVIEW",
     }
+
+    # A malformed allowlist must never authorize a blank reviewer identity,
+    # even if a MAC was otherwise valid for the forged empty identifier.
+    for empty_id in ("", "   "):
+        blank = {**receipt, "reviewer_id": empty_id}
+        denied = verify_claim_review_receipt(
+            claim, receipt=blank, receipt_mac=mac(blank),
+            **{**fields, "trusted_reviewer_ids": frozenset({empty_id})},
+        )
+        assert denied == {
+            "state": "CLAIM_UNVERIFIED_EXTERNAL",
+            "basis": "NO_AUTHENTICATED_REVIEW_RECEIPT",
+        }
 
     for tampered in (
         {**receipt, "review_decision": "CONTRADICTS"},
