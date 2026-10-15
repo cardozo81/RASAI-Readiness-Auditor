@@ -6,7 +6,7 @@ on:
       - 'src/rasai/geo_competitor_capture_bundle_330.py'
       - 'src/rasai/entrypoint.py'
       - 'src/rasai/geo_competitor_pair_330.py'
-      - 'src/rasai/geo_competitor_pair_html_330.py'
+      - 'src/rasai/geo_competitor_pair_html.py'
       - 'tests/test_geo_competitor_capture_bundle.py'
       - 'docs/GEO_COMPETITOR_CAPTURE_BUNDLE.md'
       - '.github/workflows/geo-competitor-cobs.yml'
@@ -16,7 +16,7 @@ on:
       - 'src/rasai/geo_competitor_capture_bundle_330.py'
       - 'src/rasai/entrypoint.py'
       - 'src/rasai/geo_competitor_pair_330.py'
-      - 'src/rasai/geo_competitor_pair_html_330.py'
+      - 'src/rasai/geo_competitor_pair_html.py'
       - 'tests/test_geo_competitor_capture_bundle.py'
       - '.github/workflows/geo-competitor-cobs.yml'
 permissions:

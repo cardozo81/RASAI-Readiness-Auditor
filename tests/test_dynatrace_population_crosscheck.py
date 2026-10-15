@@ -316,7 +316,7 @@ def test_v2_rum_scope_metadata_must_be_complete_and_consistent(mutator, reason):
 def test_offline_crosscheck_html_explains_spa_xhr_and_extrapolation(
     tmp_path, capsys,
 ):
-    from rasai.dynatrace_population_crosscheck_html_355 import (
+    from rasai.dynatrace_population_crosscheck_html import (
         render_dynatrace_population_crosscheck_html,
     )
     settings = _settings()
@@ -348,7 +348,7 @@ def test_offline_crosscheck_html_explains_spa_xhr_and_extrapolation(
 
 
 def test_dynatrace_html_rejects_false_status_and_respects_nd(tmp_path):
-    from rasai.dynatrace_population_crosscheck_html_355 import (
+    from rasai.dynatrace_population_crosscheck_html import (
         render_dynatrace_population_crosscheck_html as render,
     )
     out = compare(_settings(), _rum())
@@ -416,7 +416,7 @@ def test_offline_crosscheck_rejects_empty_kpm_snapshot_without_counts(tmp_path, 
 
 
 def test_offline_crosscheck_html_does_not_expose_untrusted_kpm_payload():
-    from rasai.dynatrace_population_crosscheck_html_355 import (
+    from rasai.dynatrace_population_crosscheck_html import (
         render_dynatrace_population_crosscheck_html,
     )
     settings = _settings()

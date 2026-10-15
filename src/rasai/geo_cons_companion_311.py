@@ -148,7 +148,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (ValueError, OSError) as exc:
         parser.error(str(exc))
     if args.format == "html":
-        from rasai.geo_longitudinal_html_311 import render_geo_longitudinal_html
+        from rasai.geo_longitudinal_html import render_geo_longitudinal_html
         print(render_geo_longitudinal_html(value))
     else:
         print(json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True))

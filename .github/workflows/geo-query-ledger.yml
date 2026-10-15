@@ -4,7 +4,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/geo_query_ledger_304.py'
-      - 'src/rasai/geo_query_ledger_html_304.py'
+      - 'src/rasai/geo_query_ledger_html.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_geo_query_ledger.py'
       - 'docs/GEO_QUERY_LEDGER.md'
@@ -13,7 +13,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/geo_query_ledger_304.py'
-      - 'src/rasai/geo_query_ledger_html_304.py'
+      - 'src/rasai/geo_query_ledger_html.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_geo_query_ledger.py'
       - '.github/workflows/geo-query-ledger.yml'

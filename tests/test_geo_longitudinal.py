@@ -969,7 +969,7 @@ def test_html_companion_is_escaped_observational_and_never_writes_aud_or_cons(
 def test_html_companion_explicitly_shows_rejected_and_empty_groups(
     tmp_path, capsys,
 ):
-    from rasai.geo_longitudinal_html_311 import render_geo_longitudinal_html
+    from rasai.geo_longitudinal_html import render_geo_longitudinal_html
     first = audit(tmp_path, "AUD-WITH-GEO")
     second = tmp_path / "AUD-LEGACY-NO-DATABASE"
     second.mkdir()

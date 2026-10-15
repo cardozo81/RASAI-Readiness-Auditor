@@ -901,7 +901,7 @@ def test_html_abstains_for_multiquery_unattributed_and_invalid_target(tmp_path, 
 
 
 def test_html_renderer_refuses_bad_contract_and_handles_untrusted_rows():
-    from rasai.geo_query_ledger_html_304 import render_geo_query_ledger_html
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
     with pytest.raises(ValueError, match="unsupported"):
         render_geo_query_ledger_html({"contract_version": "WRONG", "queries": []})
     with pytest.raises(ValueError, match="malformed"):
@@ -949,7 +949,7 @@ def test_html_global_source_gate_never_leaks_stale_verified_row(
     global_status, source_guard,
 ):
     """Rows from a failed global source gate cannot become positive evidence."""
-    from rasai.geo_query_ledger_html_304 import render_geo_query_ledger_html
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
 
     projection = {
         "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-005",
@@ -1323,7 +1323,7 @@ def test_v10_unproven_source_mapping_or_invalid_member_never_yields_host_rates(
     folder = _audit(tmp_path, multi=True, source_query_column=False)
     missing = inspect_geo_per_query(folder)
     assert all(row["host_overlap"] is None for row in missing["queries"])
-    from rasai.geo_query_ledger_html_304 import render_geo_query_ledger_html
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
     html = render_geo_query_ledger_html(missing)
     assert "Hosts distintos SERP</td><td>N/D" in html
     assert "Interseção de hosts observados" in html
@@ -1352,7 +1352,7 @@ def test_v10_unproven_source_mapping_or_invalid_member_never_yields_host_rates(
 
 
 def test_v10_legacy_render_and_stale_source_never_promote_host_metrics():
-    from rasai.geo_query_ledger_html_304 import render_geo_query_ledger_html
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
     legacy = {
         "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-005",
         "status": "DESCRIPTIVE_ONLY",
@@ -1500,7 +1500,7 @@ def test_v11_path_inode_drift_during_hash_detected_on_windows_and_posix(
 
 
 def test_html_target_host_alternatives_require_verified_source_and_row(tmp_path):
-    from rasai.geo_query_ledger_html_304 import render_geo_query_ledger_html
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
 
     folder = _audit(tmp_path, multi=False)
     _set_physical_aud_targets(folder, [
@@ -1532,7 +1532,7 @@ def test_html_target_host_alternatives_require_verified_source_and_row(tmp_path)
 
 
 def test_html_count_display_obeys_bounded_physical_geo_source_budget():
-    from rasai.geo_query_ledger_html_304 import _count
+    from rasai.geo_query_ledger_html import _count
     assert _count(500) == "500"
     assert _count(0) == "0"
     for invalid in (-1, 501, 10 ** 400, True, False, "7", 1.0):

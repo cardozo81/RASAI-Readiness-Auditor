@@ -613,7 +613,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ValueError as exc:
         parser.error(str(exc))
     if args.format == "html":
-        from rasai.geo_query_ledger_html_304 import render_geo_query_ledger_html
+        from rasai.geo_query_ledger_html import render_geo_query_ledger_html
         print(render_geo_query_ledger_html(outcome))
     else:
         print(json.dumps(outcome, ensure_ascii=False, sort_keys=True, indent=2))

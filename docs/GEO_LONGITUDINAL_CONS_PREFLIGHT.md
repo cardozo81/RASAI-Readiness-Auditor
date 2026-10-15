@@ -13,7 +13,7 @@
 - `_render_html` is the canonical CONS presentation. Its sections describe
   existing SARI, scores, performance, Apdex, findings, reliability and sources.
 - `src/rasai/geo_longitudinal_311.py` and
-  `src/rasai/geo_longitudinal_html_311.py` already provide standalone
+  `src/rasai/geo_longitudinal_html.py` already provide standalone
   read-only advisory JSON/HTML, not a CONS-3 fragment or a calibrated trend.
 
 This inventory is based on inspected source contracts, not on an executed

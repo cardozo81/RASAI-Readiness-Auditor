@@ -244,7 +244,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (ValueError, OSError) as exc:
         parser.error(str(exc))
     if args.format == "html":
-        from rasai.dynatrace_population_crosscheck_html_355 import (
+        from rasai.dynatrace_population_crosscheck_html import (
             render_dynatrace_population_crosscheck_html,
         )
         print(render_dynatrace_population_crosscheck_html(result))

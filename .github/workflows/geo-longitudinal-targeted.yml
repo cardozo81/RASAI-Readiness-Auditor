@@ -4,7 +4,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/geo_longitudinal_311.py'
-      - 'src/rasai/geo_longitudinal_html_311.py'
+      - 'src/rasai/geo_longitudinal_html.py'
       - 'src/rasai/geo_cons_companion_311.py'
       - 'tests/test_geo_cons_companion.py'
       - 'docs/GEO_CONS_COMPANION.md'

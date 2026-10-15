@@ -351,7 +351,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (ValueError, OSError, TypeError, KeyError) as exc:
         parser.error(str(exc))
     if args.format == "html":
-        from rasai.geo_competitor_pair_html_330 import render_cobs_static_pair_html
+        from rasai.geo_competitor_pair_html import render_cobs_static_pair_html
         print(render_cobs_static_pair_html(result))
     else:
         print(json.dumps(result, sort_keys=True, indent=2, ensure_ascii=False))

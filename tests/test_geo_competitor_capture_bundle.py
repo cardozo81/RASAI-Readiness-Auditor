@@ -984,7 +984,7 @@ def test_cobs_html_renderer_escapes_external_text_without_links_or_markup(
 ):
     from copy import deepcopy
     from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
-    from rasai.geo_competitor_pair_html_330 import render_cobs_static_pair_html
+    from rasai.geo_competitor_pair_html import render_cobs_static_pair_html
     folder, customer, competitor, _, calls = _pair_capture(tmp_path, monkeypatch)
     verified = compare_cobs_static_pair(
         folder, customer["manifest_path"], competitor["manifest_path"],
@@ -1019,7 +1019,7 @@ def test_cobs_html_never_promotes_forged_score_or_unverified_content(
 ):
     from copy import deepcopy
     from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
-    from rasai.geo_competitor_pair_html_330 import render_cobs_static_pair_html
+    from rasai.geo_competitor_pair_html import render_cobs_static_pair_html
     folder, customer, competitor, _, _ = _pair_capture(tmp_path, monkeypatch)
     value = deepcopy(compare_cobs_static_pair(
         folder, customer["manifest_path"], competitor["manifest_path"],
@@ -1077,7 +1077,7 @@ def test_cobs_pair_discloses_remote_serp_to_html_window_without_editorial_claims
 ):
     from pathlib import Path
     from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
-    from rasai.geo_competitor_pair_html_330 import render_cobs_static_pair_html
+    from rasai.geo_competitor_pair_html import render_cobs_static_pair_html
     folder, customer, competitor, db_bytes, calls = _pair_capture(tmp_path, monkeypatch)
     old_customer = Path(customer["manifest_path"])
     old_competitor = Path(competitor["manifest_path"])
@@ -1118,7 +1118,7 @@ def test_cobs_html_renderer_rejects_claim_of_same_serp_html_population(
     tmp_path, monkeypatch,
 ):
     from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
-    from rasai.geo_competitor_pair_html_330 import render_cobs_static_pair_html
+    from rasai.geo_competitor_pair_html import render_cobs_static_pair_html
     folder, customer, competitor, _, _ = _pair_capture(tmp_path, monkeypatch)
     projected = compare_cobs_static_pair(
         folder, customer["manifest_path"], competitor["manifest_path"],

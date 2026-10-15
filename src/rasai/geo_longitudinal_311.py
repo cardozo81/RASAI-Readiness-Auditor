@@ -589,7 +589,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     result = build_geo_longitudinal_preview(args.audit_dirs)
     if args.format == "html":
-        from rasai.geo_longitudinal_html_311 import render_geo_longitudinal_html
+        from rasai.geo_longitudinal_html import render_geo_longitudinal_html
         print(render_geo_longitudinal_html(result))
     else:
         print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))

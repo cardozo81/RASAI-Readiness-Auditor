@@ -18,7 +18,7 @@ from rasai.geo_cons_companion_311 import (
     build_cons_geo_advisory, _unique_cons_manifest_keys,
     _verified_manifest_text, _reject_manifest_non_json_constant,
 )
-from rasai.geo_longitudinal_html_311 import render_geo_longitudinal_html
+from rasai.geo_longitudinal_html import render_geo_longitudinal_html
 
 _MAX_SOURCE_BYTES = 256 * 1024 * 1024
 
