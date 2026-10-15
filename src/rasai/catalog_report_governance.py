@@ -263,10 +263,37 @@ def _experience_paths_633() -> str:
     )
 
 
+def _snapshot_indicator_633(
+    label: str, value: Any, note: str, destination: str, action_label: str,
+) -> str:
+    """Read-only summary with an explicit, source-bound drill-down."""
+    return (
+        "<div class='metric report-snapshot-metric'>"
+        "<small>" + escape(label) + "</small>"
+        "<strong>" + _display_value(value) + "</strong>"
+        "<small>" + escape(note) + "</small>"
+        "<a class='report-snapshot-cta' href='" + escape(destination, quote=True) + "'>"
+        + escape(action_label) + " <span aria-hidden='true'>→</span></a></div>"
+    )
+
+
+def _lighthouse_score_display_633(raw: Any) -> str:
+    """Use CAT-04's existing 0..1 normalized Lighthouse presentation contract."""
+    try:
+        value = float(raw)
+    except (ValueError, TypeError):
+        return str(raw) + "/100"
+    if not isfinite(value):
+        return str(raw) + "/100"
+    if 0 <= value <= 1:
+        value *= 100
+    return f"{value:g}/100"
+
+
 def _decision_snapshot_poc_633(
     database: Path, data: _ReportData,
 ) -> str:
-    """Executive projections of independent persisted facts, never a composite score."""
+    """Independent persisted facts with traceable targets, never a new score."""
     from rasai.catalog_report_metrics import _web_observation
 
     metrics: list[str] = []
@@ -276,24 +303,30 @@ def _decision_snapshot_poc_633(
          and row.get("value") is not None), None,
     )
     if overall is not None:
-        metrics.append(_metric(
+        metrics.append(_snapshot_indicator_633(
             "SARI · prontidão",
             _score_value(overall),
             "Índice próprio; não mede performance Lighthouse.",
+            "sari.html#composition",
+            "Ver dimensões e composição",
         ))
     web = _web_observation(database, data.audit_id)
     if isinstance(web, Mapping) and web.get("performance_score") is not None:
-        metrics.append(_metric(
+        metrics.append(_snapshot_indicator_633(
             "Lighthouse · desempenho",
-            str(web["performance_score"]) + "/100",
+            _lighthouse_score_display_633(web["performance_score"]),
             "Medição de laboratório; distinta de SARI e CrUX.",
+            "cat-04.html#metric-lighthouse-performance",
+            "Ver resultado e evidências",
         ))
     if isinstance(web, Mapping) and web.get("lcp_p75_ms") is not None:
         raw_scope = str(web.get("field_scope") or "não declarado").upper()
-        metrics.append(_metric(
+        metrics.append(_snapshot_indicator_633(
             "CrUX · LCP p75",
             str(web["lcp_p75_ms"]) + " ms",
             "Métrica de campo, escopo " + raw_scope + "; não atribuir à URL quando ORIGIN.",
+            "cat-04.html#metric-field-lcp-p75",
+            "Ver medição e escopo",
         ))
     counts: tuple[int, int, int] | None = None
     try:
@@ -316,9 +349,23 @@ def _decision_snapshot_poc_633(
     if counts is not None:
         total, high, unspecified = counts
         metrics.extend((
-            _metric("Ações direcionadas", total, "Ocorrências registradas; não são problemas únicos."),
-            _metric("Prioridade alta", high, "Prioridade já persistida, não recalculada."),
-            _metric("Prioridade não definida", unspecified, "Ausência de classificação não equivale a baixa prioridade."),
+            _snapshot_indicator_633(
+                "Ações direcionadas", total,
+                "Ocorrências registradas; não são problemas únicos.",
+                "directed-analysis.html#actions", f"Ver {total} ações",
+            ),
+            _snapshot_indicator_633(
+                "Prioridade alta", high,
+                "Prioridade já persistida, não recalculada.",
+                "directed-analysis.html?priority=HIGH#actions",
+                f"Ver {high} ações de prioridade alta",
+            ),
+            _snapshot_indicator_633(
+                "Prioridade não definida", unspecified,
+                "Ausência de classificação não equivale a baixa prioridade.",
+                "directed-analysis.html?priority=UNDEFINED#actions",
+                f"Ver {unspecified} ações sem prioridade",
+            ),
         ))
     if not metrics:
         return (
@@ -327,16 +374,14 @@ def _decision_snapshot_poc_633(
         )
     return (
         "<p class='section-lead'>Indicadores independentes e ações já persistidas. "
-        "Os números não compõem um novo índice e não certificam conformidade; "
-        "os resultados de laboratório, campo e prontidão mantêm escopos próprios.</p>"
-        "<div class='metric-grid'>" + "".join(metrics) + "</div>"
+        "Cada cartão oferece acesso ao detalhe correspondente, sem criar novos dados "
+        "ou pontuações. Laboratório, campo e prontidão mantêm escopos próprios.</p>"
+        "<div class='metric-grid report-snapshot-grid'>" + "".join(metrics) + "</div>"
         "<p class='section-lead'>"
         "<a href='directed-analysis.html#objectives'>Ler por objetivo</a>"
-        " · <a href='directed-analysis.html#actions'>Localizar o que corrigir e como validar</a>"
         " · <a href='methodology.html'>Ver método e limitações</a>"
         "</p>"
     )
-
 
 def _overview_body(database: Path, data: _ReportData) -> str:
     rows=[]
