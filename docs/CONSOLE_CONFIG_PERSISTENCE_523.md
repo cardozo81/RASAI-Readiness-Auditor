@@ -546,3 +546,31 @@ O sucesso desses testes e da CI **nao substitui** o smoke Windows sobre uma
 copia fisica da configuracao do operador na revisao ja corrigida. Um save
 no INI original continua proibido enquanto sua politica de backup,
 integridade, precedencia e ausencia de avisos nao tiver sido confirmada.
+
+## Protecao contra substituicao destrutiva do INI (15/10/2026)
+
+A proteção de save agora inclui **todas as seções e opções fisicamente
+declaradas**, não apenas `[environment]`. Uma seção desconhecida,
+opção tipada não reconhecida ou entrada `[DEFAULT]` não é descartada
+silenciosamente: o save é bloqueado com mensagem genérica sem revelar
+nome, caminho ou valor. A allowlist é derivada do serializador real
+`_parser_for_state(state)` já composto pelos módulos do console, e
+nunca da presença arbitrária de `RASAI_*`.
+
+Para reduzir a janela de substituição incorreta, o writer compara antes
+do commit o tamanho, identidade física (device/inode), mtime e SHA-256
+da origem. Arquivo criado, removido, modificado ou substituído durante
+o preparo causa recusa antes de `os.replace`. Para destinos novos o
+contrato exige que continuem ausentes ate a etapa de commit.
+A gravação é feita em arquivo temporário **único** no mesmo diretório
+com nome não previsível e rename atômico; resíduos são removidos no
+fim, inclusive após erro.
+
+Essa proteção é uma verificação otimista, **não uma transação com lock**:
+modificações durante a curta janela entre a rechecagem final e o
+rename não podem ser totalmente excluídas sem um mecanismo de lock
+específico por plataforma. O teste de regressão cobre entradas
+desconhecidas em seções tipadas e `[DEFAULT]`, mudança da fonte
+durante serialização e arquivo temporário legado já existente, usando
+somente fixtures locais sem chamadas externas. O resultado não autoriza
+salvar o INI original do operador sem o gate Windows consolidado.
