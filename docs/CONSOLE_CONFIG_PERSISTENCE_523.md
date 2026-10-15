@@ -571,6 +571,6 @@ modificações durante a curta janela entre a rechecagem final e o
 rename não podem ser totalmente excluídas sem um mecanismo de lock
 específico por plataforma. O teste de regressão cobre entradas
 desconhecidas em seções tipadas e `[DEFAULT]`, mudança da fonte
-durante serialização e arquivo temporário legado já existente, usando
+durante serialização e arquivo temporário de nome previsível já existente, usando
 somente fixtures locais sem chamadas externas. O resultado não autoriza
 salvar o INI original do operador sem o gate Windows consolidado.
