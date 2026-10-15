@@ -148,3 +148,74 @@ def assess_same_domain_pair(
         "status": "ELIGIBLE_FOR_DESCRIPTIVE_SAME_HOST_REVIEW_ONLY",
         "reason": "NO_CROSS_URL_LONGITUDINAL_INFERENCE",
     }
+
+
+def preview_authorized_same_host_candidates(
+    index: Any,
+    *,
+    reference_audit_id: str,
+    allowed_audit_ids: tuple[str, ...],
+    max_candidates: int = 100,
+) -> dict[str, Any]:
+    """Read-only, separately authorized discovery for a *descriptive* mode.
+
+    A successful result is not a CONS selection: it never permits a score
+    difference, an Apdex trend, or a new consolidated report. Require a
+    nonempty explicit scope; implicit index-wide enumeration is prohibited.
+    """
+    from rasai.consolidation.selection import candidate_audits
+
+    if (
+        not isinstance(reference_audit_id, str)
+        or not reference_audit_id.startswith("AUD-")
+        or not isinstance(allowed_audit_ids, tuple)
+        or not allowed_audit_ids
+        or len(allowed_audit_ids) > 200
+        or any(not isinstance(item, str) or not item.startswith("AUD-")
+               for item in allowed_audit_ids)
+        or reference_audit_id not in allowed_audit_ids
+        or type(max_candidates) is not int
+        or not 1 <= max_candidates <= 100
+    ):
+        raise ValueError("explicit, bounded AUD authorization required")
+    candidates = candidate_audits(
+        index, allowed_audit_ids=allowed_audit_ids,
+    )
+    if len(candidates) > 200:
+        raise ValueError("authorized candidate population exceeds budget")
+    reference = next(
+        (item for item in candidates if item.audit_id == reference_audit_id), None,
+    )
+    if reference is None:
+        raise ValueError("reference AUD not eligible in authorized indexed cohort")
+    outcomes: list[dict[str, Any]] = []
+    for item in candidates:
+        if item.audit_id == reference_audit_id:
+            continue
+        review = assess_same_domain_pair(reference, item)
+        if review["status"] != "ELIGIBLE_FOR_DESCRIPTIVE_SAME_HOST_REVIEW_ONLY":
+            continue
+        outcomes.append({
+            "audit_id": item.audit_id,
+            "url": item.url,
+            "device": item.device,
+            "event_time": item.event_time,
+            "review_status": review["status"],
+            "metric_comparability": review["metric_comparability"],
+        })
+        if len(outcomes) > max_candidates:
+            raise ValueError("eligible descriptive candidate population exceeds budget")
+    return {
+        "contract_version": "RASAI-CONS-DOMAIN-CANDIDATES-210-001",
+        "status": "DESCRIPTIVE_ELIGIBILITY_ONLY",
+        "reference_audit_id": reference.audit_id,
+        "reference_url": reference.url,
+        "candidates": outcomes,
+        "candidate_count": len(outcomes),
+        "source_attestation_verified": False,
+        "new_cons_generated": False,
+        "source_audit_writes": 0,
+        "provider_requests": 0,
+        "cross_url_scoring_allowed": False,
+        "same_url_selection_unchanged": True,
+    }
