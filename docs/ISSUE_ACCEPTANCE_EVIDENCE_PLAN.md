@@ -28,7 +28,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 ### Issue #523 - P2 · IMPLEMENTED_NOT_PROVEN + PARTIALLY_IMPLEMENTED
 
-**Já presente / evidência técnica:** `console_configuration_inventory_523`, `console_config_provenance_523`, testes de save/load em processos independentes, projeção M23/M25, draft Perplexity não autorizativo.
+**Já presente / evidência técnica:** `console_configuration_inventory_523`, `console_config_provenance`, testes de save/load em processos independentes, projeção M23/M25, draft Perplexity não autorizativo.
 
 **Critério residual e risco:** Matriz de todos os consumidores/runtime, precedência efetiva variável a variável, paridade completa de categoria e smoke humano Windows ainda sem certificado.
 

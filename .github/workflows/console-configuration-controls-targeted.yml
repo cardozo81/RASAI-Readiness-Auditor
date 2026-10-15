@@ -31,7 +31,7 @@ on:
       - 'tests/test_console_configuration_inventory.py'
       - 'tests/test_console_inventory_secret_policy.py'
       - 'tests/test_console_fresh_process_roundtrip.py'
-      - 'src/rasai/console_config_provenance_523.py'
+      - 'src/rasai/console_config_provenance.py'
       - 'src/rasai/interactive_console.py'
       - 'src/rasai/console_perplexity_run_gate_595.py'
       - 'tests/test_console_perplexity_run_gate.py'

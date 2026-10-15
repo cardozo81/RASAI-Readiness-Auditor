@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 from rasai.console_config_path import canonical_console_config_path, prepare_console_config
-from rasai.console_config_provenance_523 import inspect_configuration, render_provenance
+from rasai.console_config_provenance import inspect_configuration, render_provenance
 from rasai.console_search_intelligence import SearchConsoleState
 from rasai.console_ui_refactor import _install_search_persistence
 from rasai.console_complete_persistence import install as install_complete_persistence
@@ -81,7 +81,7 @@ def test_default_section_is_not_a_persisted_environment_assignment(tmp_path):
 
 def test_provenance_abstains_if_file_changes_during_bounded_read(tmp_path, monkeypatch):
     """A file race must not be mistaken for a loaded configuration."""
-    from rasai import console_config_provenance_523 as module
+    from rasai import console_config_provenance as module
 
     path = tmp_path / "race.ini"
     path.write_text("[environment]\nRASAI_SERP_MAX_REQUESTS=12\n", encoding="utf-8")

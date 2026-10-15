@@ -507,7 +507,7 @@ Referências anteriores neste documento ao caminho obrigatório `P > 9` deixam d
 
 ## Proveniência secret-safe: indício de credencial indevida no INI (#523)
 
-A inspeção somente de leitura `console_config_provenance_523.inspect_configuration` reporta a **quantidade** de entradas potencialmente secretas encontradas no inventário `[environment]` do INI, de acordo com o catálogo sensível e o predicado de segredo. Nunca imprime nome ou valor, não migra o segredo para o ambiente/registro Windows e não o preserva num relatório. A saída apresenta alerta de revisão local, não informação sensível. Caminhos simbólicos são recusados em vez de seguir apontamentos para arquivos privados arbitrários.
+A inspeção somente de leitura `console_config_provenance.inspect_configuration` reporta a **quantidade** de entradas potencialmente secretas encontradas no inventário `[environment]` do INI, de acordo com o catálogo sensível e o predicado de segredo. Nunca imprime nome ou valor, não migra o segredo para o ambiente/registro Windows e não o preserva num relatório. A saída apresenta alerta de revisão local, não informação sensível. Caminhos simbólicos são recusados em vez de seguir apontamentos para arquivos privados arbitrários.
 
 O indicador `private_entries_in_ini` tem semântica estrita: contagem de chaves com aparência/contrato de segredo em um arquivo existente, **não** prova que a credencial seja válida nem revela quem a inseriu. O campo não reautoriza Perplexity nem atualiza a execução em andamento. Testes usam fixture com valor sentinela e verificam ausência completa desse valor no texto renderizado.
 
