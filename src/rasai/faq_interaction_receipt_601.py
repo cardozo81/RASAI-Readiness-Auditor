@@ -66,7 +66,8 @@ def verify_faq_interaction_receipt(
         or not isinstance(receipt_mac, str) or len(receipt_mac) != 64
         or not isinstance(trusted_key, bytes) or len(trusted_key) < 32
         or not isinstance(permitted_collector_ids, frozenset)
-        or receipt.get("collector_id") not in permitted_collector_ids
+        or not isinstance(receipt.get("collector_id"), str)
+        or receipt["collector_id"] not in permitted_collector_ids
         or receipt.get("target_opt_in") is not True
         or receipt.get("isolated_unauthenticated_context") is not True
         or receipt.get("network_blocked_after_load") is not True
@@ -76,8 +77,11 @@ def verify_faq_interaction_receipt(
         or not isinstance(before_html, str) or not isinstance(later_html, str)
     ):
         return unverified
-    original = before_html.encode("utf-8")
-    updated = later_html.encode("utf-8")
+    try:
+        original = before_html.encode("utf-8")
+        updated = later_html.encode("utf-8")
+    except UnicodeError:
+        return unverified
     if not original or not updated or max(len(original), len(updated)) > _MAX_HTML_BYTES:
         return unverified
     if (
