@@ -147,6 +147,22 @@ def _web_performance_diagnostics_html(database: Path, data: _ReportData) -> str:
 def _catalog_results_html(database: Path, data: _ReportData, catalog_id: str) -> str:
     metrics=_catalog_metrics(database,data,catalog_id)
     display_metrics=_catalog_metric_rows(catalog_id,metrics)
+    if catalog_id == "CAT-04":
+        # #633: durable anchors on the original evidence rows, not duplicated
+        # numbers in overview cards. Anchor exists only if the metric exists.
+        metric_anchors = {
+            "Lighthouse · Desempenho": "metric-lighthouse-performance",
+            "LCP de campo (p75)": "metric-field-lcp-p75",
+        }
+        display_metrics = [
+            (
+                _Html("<span id='" + metric_anchors[str(name)] + "'>"
+                      + escape(str(name)) + "</span>")
+                if str(name) in metric_anchors else name,
+                value, kind,
+            )
+            for name, value, kind in display_metrics
+        ]
     base=_table(("Indicador","Valor","Tipo"),display_metrics,empty="Nenhum índice ou métrica principal foi materializado neste contexto.")
     if catalog_id=="CAT-01":
         return base+"<div class='subsection'><h3>Arquivos e descoberta</h3>"+_discovery_html(database,data)+"</div><div class='subsection'><h3>Padrões e compatibilidade web</h3>"+_standards_summary(database,data)+"</div><div class='subsection'><h3>Runtime compartilhado</h3><p class='section-lead'>A captura de navegador/runtime é evidência transversal. Diagnóstico de segurança, third-party, mixed content e correlação de falhas de runtime pertencem ao <a href='cat-10.html'>CAT-10 · Segurança passiva</a>; a telemetria bruta permanece disponível em Governança.</p></div>"
