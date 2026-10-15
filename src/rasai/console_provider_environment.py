@@ -221,33 +221,36 @@ def _validate(name: str, raw: str) -> str:
         return value
     if name in {entry[0] for entry in _ADDITIONAL_RUNTIME_INPUTS}:
         from rasai.time_contract import validate_presentation_timezone
-        spec = SPEC_BY_NAME[name]
+        # Use the explicit validation contract rather than mutable UI metadata:
+        # console plug-ins may enrich a spec after registry composition.
+        definition = next(row for row in _ADDITIONAL_RUNTIME_INPUTS if row[0] == name)
+        expected_type, expected_choices = definition[2], definition[3]
         candidate = str(raw).strip()
         if not candidate:
             raise ValueError("valor vazio; remova o override em vez de gravar vazio")
-        if spec.accepted:
+        if expected_choices:
             canonical = candidate.casefold()
-            if canonical not in spec.accepted:
-                raise ValueError("use " + ", ".join(spec.accepted))
+            if canonical not in expected_choices:
+                raise ValueError("use " + ", ".join(expected_choices))
             return canonical
-        if spec.value_type == "inteiro > 0":
+        if expected_type == "inteiro > 0":
             if int(candidate) <= 0:
                 raise ValueError("use inteiro > 0")
-        elif spec.value_type == "numero > 0":
+        elif expected_type == "numero > 0":
             from math import isfinite
             number = float(candidate)
             if not isfinite(number) or number <= 0:
                 raise ValueError("use numero finito > 0")
-        elif spec.value_type == "timezone IANA":
+        elif expected_type == "timezone IANA":
             return validate_presentation_timezone(candidate)
-        elif spec.value_type == "inteiro 1..100":
+        elif expected_type == "inteiro 1..100":
             count = int(candidate)
             if not 1 <= count <= 100:
                 raise ValueError("use inteiro 1..100")
-        elif spec.value_type == "lista CSV" and name == "RASAI_IMPROVEMENT_DOMAINS":
+        elif expected_type == "lista CSV" and name == "RASAI_IMPROVEMENT_DOMAINS":
             from rasai.improvement_intelligence import parse_domains
             return ",".join(parse_domains(candidate))
-        elif spec.value_type == "tag BCP-47 ou auto":
+        elif expected_type == "tag BCP-47 ou auto":
             from rasai.improvement_intelligence import validate_analysis_language
             return validate_analysis_language(candidate)
         return candidate
