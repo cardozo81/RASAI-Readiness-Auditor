@@ -26,9 +26,25 @@ class _Tables(HTMLParser):
         self.rows: list[str] = []
         self.dialogs = 0
         self.sections: list[str] = []
+        self.ids: list[str] = []
+        self.local_links: list[str] = []
+        self.content_fragments: list[str] = []
+        self.in_main = 0
+        self.ignored_text = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attributes = dict(attrs)
+        if tag == "main":
+            self.in_main += 1
+        if self.in_main and tag in {"script", "style"}:
+            self.ignored_text += 1
+        if self.in_main:
+            if attributes.get("id"):
+                self.ids.append(str(attributes["id"]))
+            for key in ("href", "src"):
+                target = attributes.get(key)
+                if target and not re.match(r"^(?:https?:|data:|mailto:|tel:)", target, re.I):
+                    self.local_links.append(str(target))
         if tag == "section" and attributes.get("id"):
             self.sections.append(str(attributes["id"]))
         if tag == "dialog":
@@ -39,6 +55,10 @@ class _Tables(HTMLParser):
             self.row = []
 
     def handle_endtag(self, tag: str) -> None:
+        if self.in_main and tag in {"script", "style"}:
+            self.ignored_text = max(0, self.ignored_text - 1)
+        if tag == "main":
+            self.in_main = max(0, self.in_main - 1)
         if tag == "tr" and self.row is not None:
             self.rows.append(" ".join(" ".join(self.row).split()))
             self.row = None
@@ -46,6 +66,10 @@ class _Tables(HTMLParser):
             self.depth = max(0, self.depth - 1)
 
     def handle_data(self, data: str) -> None:
+        if self.in_main and not self.ignored_text:
+            fragment = " ".join(data.split())
+            if fragment:
+                self.content_fragments.append(fragment)
         if self.row is not None:
             self.row.append(data)
 
@@ -67,6 +91,9 @@ def inventory(directory: Path) -> dict[str, Any]:
             "table_rows": len(table.rows),
             "table_row_inventory": dict(Counter(table.rows)),
             "section_ids": table.sections,
+            "element_ids": table.ids,
+            "local_links": dict(Counter(table.local_links)),
+            "visible_text": dict(Counter(table.content_fragments)),
             "dialog_count": table.dialogs,
             "menu_count": html.count("data-shared-report-menu="),
         }
@@ -81,6 +108,14 @@ def _check_table_parity(before: dict[str, Any], after: dict[str, Any]) -> None:
             raise ValueError(f"preexisting section anchor removed: {page}")
         if before[page]["dialog_count"] != after[page]["dialog_count"]:
             raise ValueError(f"preexisting detail dialog altered: {page}")
+        if not set(before[page]["element_ids"]).issubset(after[page]["element_ids"]):
+            raise ValueError(f"preexisting evidence anchor or target removed: {page}")
+        for field in ("local_links", "visible_text"):
+            for fragment, count in before[page][field].items():
+                if after[page][field].get(fragment, 0) < count:
+                    raise ValueError(
+                        f"preexisting {field} fragment or link removed from report: {page}"
+                    )
 
 
 def _screenshots(report: Path, out: Path, *, pages: tuple[str, ...]) -> dict[str, Any]:
