@@ -41,11 +41,11 @@ Para comparar **linhas de tabela, seções e quantidade de diálogos** com um re
 6. **Rastreabilidade e integridade:** arquivo `smoke-summary.json` precisa declarar `manifest_integrity=VERIFIED`, `page_count=19`, `javascript_disabled_mobile_navigation=true` e `objective_dialog_open_close_focus_hash=true` e `objective_nojs_source_visible=true`. Não abrir dados privados em URLs públicas.
 7. **Aceite:** registrar no PR #637 aprovação/reprovação objetiva com referência ao HEAD SHA da branch, dispositivos verificados, pendências e amostra. **CI verde, captura sintética e esta documentação não equivalem a aprovação humana**.
 
-## Gate direcionado adicional — cartões de `index.html#snapshot` (15/10/2026)
+## Gate direcionado adicional - cartões de `index.html#snapshot` (15/10/2026)
 
 A última inspeção aprovou a geometria do retrato e solicitou **acesso inequívoco ao detalhamento de cada indicador**, além de cores da paleta em contraste acessível. Na cópia isolada recém-rematerializada, validar especificamente:
 
-1. Cada cartão apresenta um CTA **legível e focável por teclado**; acionar o CTA de **SARI** abre a composição já persistida; **Lighthouse** e **CrUX LCP p75** abrem diretamente as linhas correspondentes em `cat-04.html#results`, sem confundir laboratório e campo. **Contrato correto:** a API Lighthouse entrega 0–1, mas o banco RASAi já persiste 0–100. Se `performance_score=1.0` na AUD, o relatório deve mostrar **1/100** — nunca **100/100**. Conferir idêntica leitura no CAT-04 e no CAT-07.
+1. Cada cartão apresenta um CTA **legível e focável por teclado**; acionar o CTA de **SARI** abre a composição já persistida; **Lighthouse** e **CrUX LCP p75** abrem diretamente as linhas correspondentes em `cat-04.html#results`, sem confundir laboratório e campo. **Contrato correto:** a API Lighthouse entrega 0-1, mas o banco RASAi já persiste 0-100. Se `performance_score=1.0` na AUD, o relatório deve mostrar **1/100** - nunca **100/100**. Conferir idêntica leitura no CAT-04 e no CAT-07.
 2. **Ações direcionadas** abre a tabela integral de ocorrências, sem sumarizar títulos iguais como uma única ocorrência.
 3. **Prioridade alta** abre `directed-analysis.html?priority=HIGH#actions` com apenas as ocorrências cujo campo persistido é exatamente `HIGH`. Na AUD de referência, o retrato anteriormente indicava **19**; a página deve exibir a mesma quantidade filtrada, informando o total **60**.
 4. **Prioridade não definida** abre `?priority=UNDEFINED#actions` com somente prioridades `NULL` ou vazias. Na AUD de referência, o retrato indicava **7**; conferir sua listagem e o total **60**. Testar `Ver todas as ações` e comprovar que as demais linhas e seus modais não foram perdidos.
@@ -60,6 +60,6 @@ A entrega técnica é **pronta para smoke** quando o CI do HEAD da PR Draft esti
 
 ### Revalidação factual pós-feedback (15/10/2026)
 
-Antes de liberar o retrato, comparar no pacote isolado (sem recalcular) o valor Lighthouse do dashboard com CAT-04 e CAT-07. O score baixo de laboratório **não se transforma em aprovação** por parecer `1.0` na escala 0–1: a normalização da API já ocorreu durante a persistência. Confirmar se as notas de SARI e CrUX preservam seus domínios e dispositivos/escopos, sem derivar prontidão diretamente do score Lighthouse. Inspecionar também as 19 páginas com a revisão do Design System: superfícies neutras, bordas consistentes, GEO sem faixas alternadas e CAT-07 sem fundo azul ornamental.
+Antes de liberar o retrato, comparar no pacote isolado (sem recalcular) o valor Lighthouse do dashboard com CAT-04 e CAT-07. O score baixo de laboratório **não se transforma em aprovação** por parecer `1.0` na escala 0-1: a normalização da API já ocorreu durante a persistência. Confirmar se as notas de SARI e CrUX preservam seus domínios e dispositivos/escopos, sem derivar prontidão diretamente do score Lighthouse. Inspecionar também as 19 páginas com a revisão do Design System: superfícies neutras, bordas consistentes, GEO sem faixas alternadas e CAT-07 sem fundo azul ornamental.
 
 **Status:** alteração corretiva de apresentação implementada, smoke sintético direcionado necessário e aceite visual humano permanece pendente. Esta intervenção não constitui homologação de fatos adicionais não comparados com a AUD original.
