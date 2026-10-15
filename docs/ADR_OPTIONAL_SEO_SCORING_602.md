@@ -62,3 +62,16 @@ A projeção de descontos opcionais reutiliza esse classificador, evitando aceit
 O laboratório expõe por dimensão e overall os campos `value`, `coverage`, `confidence`, `consolidation_status` e marcadores de readiness/gates. Os dois últimos cenários **não** são recomendação de implementação nem uma versão novo contrato de pontuação aprovada: PASS pode dar prêmio imerecido e NOT_APPLICABLE pode reduzir cobertura e aumentar incerteza. Comparar as três projeções expõe efeitos colaterais sem substituir metodologia.
 
 O laboratório é offline, restrito a uma única AUD/dispositivo, recusa ID físico duplicado, não persiste scores nem altera RuleExecutions. A decisão final da issue #602 continua aberta até um novo contrato versionado, golden real da AUD de 14/10, critérios de revisão técnica e paridade de histórico.
+
+
+## Replay físico sem mutação (CLI, gate histórico)
+
+Para a cópia já extraída de uma AUD de teste, a inspeção é apenas de leitura:
+
+```bash
+python -m rasai.optional_seo_audit_replay_602 /caminho/para/AUD-ID --device MOBILE
+```
+
+O replay exige uma única AUD válida, `audit.db` regular, sem arquivos SQLite journal/WAL/SHM, escopo de uma AUD e até 4.000 regras físicas. Confere `quick_check` e integridade referencial, calcula SHA-256 do arquivo antes/depois e **aborta** caso o score canônico recalcado pelo SCORE-GEO-004 não coincida com os campos persistidos de cada dimensão e overall (valor, cobertura, confiança, consolidação e versão). Só depois expõe cenários de sensibilidade não oficiais. Nunca grava dados e não autoriza mudanças de pontuação.
+
+Esse gate deve ser rodado em **cópia isolada do ZIP da AUD real** para concluir o backtest físico; uma fixture sintetizada não substitui validação sobre a amostra de 14/10. Antes de eventual mudança pública também são necessários parecer normativo, goldens e testes de compatibilidade da nova versão. Não executar replay em AUD operacional com sidecars/journals ativos.
