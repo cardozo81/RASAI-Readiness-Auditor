@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 from typing import Any, Sequence
 
-from rasai.claim_review_receipt_603 import verify_claim_review_receipt
+from rasai.claim_review_receipt import verify_claim_review_receipt
 
 _MAX_DOCUMENT = 4_000_000
 _MAX_TEXT = 8192

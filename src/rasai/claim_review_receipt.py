@@ -2,7 +2,7 @@
 
 A checksum of the document and a boolean in site/AI output are not authority.
 Only a receipt MAC validated against a separate trusted key and reviewer identity
-can be submitted to claim_source_verification_603 for documentary comparison.
+can be submitted to claim_source_verification for documentary comparison.
 The key is injected by a trusted caller; never sourced from the audited website.
 No signer, network client, secrets storage or regulatory certification here.
 """
@@ -13,7 +13,7 @@ import json
 from hashlib import sha256
 from typing import Any, Mapping
 
-from rasai.claim_source_verification_603 import classify_claim
+from rasai.claim_source_verification import classify_claim
 
 _RECEIPT_FIELDS = frozenset({
     "source_url", "document_sha256", "effective_from", "effective_until",

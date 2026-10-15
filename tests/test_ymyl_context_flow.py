@@ -270,7 +270,7 @@ def test_faq_diagnostic_rejects_out_of_root_artifact(tmp_path: Path) -> None:
 def test_claim_verification_requires_attested_primary_source_exact_scope_and_version() -> None:
     from datetime import date
     from hashlib import sha256
-    from rasai.claim_source_verification_603 import classify_claim
+    from rasai.claim_source_verification import classify_claim
 
     payload = "Condições do produto: ativação após 24 horas. Documento de teste.".encode("utf-8")
     when = date(2026, 10, 14)
@@ -342,7 +342,7 @@ def test_signed_claim_review_receipt_authenticates_entire_context_before_corrob(
     from datetime import date
     from hashlib import sha256
 
-    from rasai.claim_review_receipt_603 import verify_claim_review_receipt
+    from rasai.claim_review_receipt import verify_claim_review_receipt
 
     key = b"independent-review-fixture-signing-key-2026"
     allow = frozenset({"REVIEWER-APPROVED-1"})
@@ -441,7 +441,7 @@ def test_offline_claim_receipt_cli_requires_trusted_environment_and_no_mutation(
     import hmac
     import json
     from hashlib import sha256
-    from rasai.claim_review_import_cli_603 import main as verify_cli
+    from rasai.claim_review_import_cli import main as verify_cli
 
     key = b"test-verified-primary-review-signer-2026-secret"
     claim = "ativação em 24 horas"

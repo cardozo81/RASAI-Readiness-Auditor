@@ -2,7 +2,7 @@
 
 ## Fronteira de confiança
 
-`rasai.claim_source_verification_603.classify_claim` é um contrato determinístico offline de revisão, sem rede, sem alteração no audit.db e sem alegar conformidade SUSEP ou certificação. **O relatório da AUD permanece em `CLAIM_UNVERIFIED_EXTERNAL`** quando não houver comprovação independente da fonte primária. Link, título, PDF não aberto, metadados autodeclarados da página auditada ou resultado de IA **não autorizam** `CLAIM_CORROBORATED`.
+`rasai.claim_source_verification.classify_claim` é um contrato determinístico offline de revisão, sem rede, sem alteração no audit.db e sem alegar conformidade SUSEP ou certificação. **O relatório da AUD permanece em `CLAIM_UNVERIFIED_EXTERNAL`** quando não houver comprovação independente da fonte primária. Link, título, PDF não aberto, metadados autodeclarados da página auditada ou resultado de IA **não autorizam** `CLAIM_CORROBORATED`.
 
 Estados previstos:
 
@@ -26,7 +26,7 @@ Fixtures determinísticas cobrem fonte ausente, digest divergente, claim de outr
 
 ## Recibo de revisão autenticado (#603, segunda fronteira de confiança)
 
-O módulo `claim_review_receipt_603.verify_claim_review_receipt` exige um recibo de revisão **assinado via HMAC-SHA256**, uma chave de verificação confiável com ao menos 32 bytes obtida exclusivamente de contexto privado do operador/revisor e uma lista de identificadores de revisores autorizados. Assina-se a serialização JSON canônica de **todos** os campos permitidos (hash do documento, escopo/produto, claim literal, data/vigência, URL, emissor, versão, trecho correspondente, decisão e revisor/recibo). Qualquer alteração, assinatura inválida, campo inesperado ou revisor não autorizado devolve `CLAIM_UNVERIFIED_EXTERNAL` sem promover o resultado.
+O módulo `claim_review_receipt.verify_claim_review_receipt` exige um recibo de revisão **assinado via HMAC-SHA256**, uma chave de verificação confiável com ao menos 32 bytes obtida exclusivamente de contexto privado do operador/revisor e uma lista de identificadores de revisores autorizados. Assina-se a serialização JSON canônica de **todos** os campos permitidos (hash do documento, escopo/produto, claim literal, data/vigência, URL, emissor, versão, trecho correspondente, decisão e revisor/recibo). Qualquer alteração, assinatura inválida, campo inesperado ou revisor não autorizado devolve `CLAIM_UNVERIFIED_EXTERNAL` sem promover o resultado.
 
 Além do MAC, o verificador recusa identificador de revisor vazio ou composto somente por espaços,
 mesmo quando uma allowlist externa estiver incorretamente configurada para aceitá-lo.
@@ -42,7 +42,7 @@ O contrato de classificação anterior permanece disponível para testes e consu
 
 ## Ferramenta operacional sem rede (leitura de recibos assinados)
 
-`python -m rasai.claim_review_import_cli_603 --claim-file <claim.txt> --document-file <document.txt> --receipt-file <receipt.json> --product-scope <produto> --at-date AAAA-MM-DD` lê três arquivos locais de tamanho limitado, sem criar/alterar uma AUD ou chamar qualquer serviço. A chave HMAC em hexadecimal deve ser fornecida **fora dos arquivos**, somente ao processo de verificação, via `RASAI_CLAIM_REVIEW_HMAC_KEY_HEX`, e os IDs autorizados via `RASAI_CLAIM_REVIEWER_ALLOWLIST`. Nunca fornecer segredo como argumento de shell nem dentro do recibo ou site; no ambiente operacional usar secret store apropriado e remover a variável ao concluir.
+`python -m rasai.claim_review_import_cli --claim-file <claim.txt> --document-file <document.txt> --receipt-file <receipt.json> --product-scope <produto> --at-date AAAA-MM-DD` lê três arquivos locais de tamanho limitado, sem criar/alterar uma AUD ou chamar qualquer serviço. A chave HMAC em hexadecimal deve ser fornecida **fora dos arquivos**, somente ao processo de verificação, via `RASAI_CLAIM_REVIEW_HMAC_KEY_HEX`, e os IDs autorizados via `RASAI_CLAIM_REVIEWER_ALLOWLIST`. Nunca fornecer segredo como argumento de shell nem dentro do recibo ou site; no ambiente operacional usar secret store apropriado e remover a variável ao concluir.
 
 `receipt.json` deve conter exatamente `{"review": <campos revisionados>, "mac": "<HMAC SHA256 hex>" }`. Chaves JSON duplicadas, NaN, recibo truncado, arquivos simbólicos, documento de origem divergente, revisor não autorizado ou ausência de segredo ⇒ `CLAIM_UNVERIFIED_EXTERNAL`. O comando só escreve um JSON-resumo em stdout com estado, base e ressalvas fixas: `official_regulator_source_verified=false`, `legal_compliance_certified=false`, `file_writes=0`, `provider_requests=0`. Esses campos são intencionalmente separados do estado documental: a assinatura atesta revisão, **não** aprovação SUSEP.
 
