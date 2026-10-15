@@ -125,7 +125,7 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
 .report-mobile-header{display:none}
 .report-breadcrumbs{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px;color:var(--muted);font-size:.77rem}
 .report-breadcrumbs a{color:var(--blue)}
-.report-breadcrumbs [aria-current='page']{font-weight:650;color:var(--ink)}
+.report-breadcrumbs .report-current-page{font-weight:650;color:var(--ink)}
 :where(a,button,summary,[tabindex]):focus-visible{outline:3px solid #16938d;outline-offset:3px}
 .app-nav :where(a,button):focus-visible{outline-color:#a2fff1}
 @media(max-width:900px){
