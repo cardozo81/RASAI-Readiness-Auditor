@@ -6,7 +6,7 @@ on:
       - 'src/rasai/geo_cons_package_311.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_geo_cons_package_311.py'
-      - 'docs/GEO_CONS_PACKAGE_311.md'
+      - 'docs/GEO_CONS_PACKAGE.md'
       - '.github/workflows/geo-cons-package-311.yml'
   push:
     branches: [main]

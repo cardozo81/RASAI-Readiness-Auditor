@@ -8,7 +8,7 @@ on:
       - 'src/rasai/dynatrace_rum_population_355.py'
       - 'tests/test_dynatrace_pinned_transport_355.py'
       - 'tests/test_dynatrace_live_crosscheck_355.py'
-      - 'docs/DYNATRACE_LIVE_CROSSCHECK_355.md'
+      - 'docs/DYNATRACE_LIVE_CROSSCHECK.md'
       - '.github/workflows/dynatrace-live-crosscheck-355.yml'
   push:
     branches: [main]

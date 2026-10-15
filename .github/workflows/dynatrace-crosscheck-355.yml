@@ -7,7 +7,7 @@ on:
       - 'src/rasai/dynatrace_population_crosscheck_html_355.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_dynatrace_population_crosscheck_355.py'
-      - 'docs/DYNATRACE_POPULATION_CROSSCHECK_355.md'
+      - 'docs/DYNATRACE_POPULATION_CROSSCHECK.md'
       - '.github/workflows/dynatrace-crosscheck-355.yml'
   push:
     branches: [main]

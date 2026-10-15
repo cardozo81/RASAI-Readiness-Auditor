@@ -384,7 +384,7 @@ A opcao **7** aceita o caminho de uma **AUD COMPLETE existente** e solicita quer
 
 O suplemento fica fora da pasta original da AUD, em `<audits-root>/.rasai-geo-supplements/<audit_id>/<intent-hash>/`. Contem `intent.json`, `result.json`, `supplement.html`, `evidence/audit.db` e `manifest.json` proprios. Um mesmo `intent_id` e escopo retorna o pacote existente sem novo HTTP. Intencao iniciada e nao finalizada **nao deve ser reenviada automaticamente**, pois timeout de rede pode ter faturamento desconhecido. Novo `intent_id` configura uma nova requisicao que exige novo aceite.
 
-Antes da extensao, sao verificadas a situacao `COMPLETE`, a integridade SQLite/FK e o pacote `report-catalog` original. O pacote e manifestos **originais nao sao atualizados**; o suplemento externo apresenta proveniencia e hash de vinculo. Resultados posteriores nao sao promovidos ao score ou reclassificados como observacoes historicas da AUD. O contrato da fronteira e o estudo de reuso estao em [ADR_PERPLEXITY_SEARCH_REUSE_323.md](ADR_PERPLEXITY_SEARCH_REUSE_323.md).
+Antes da extensao, sao verificadas a situacao `COMPLETE`, a integridade SQLite/FK e o pacote `report-catalog` original. O pacote e manifestos **originais nao sao atualizados**; o suplemento externo apresenta proveniencia e hash de vinculo. Resultados posteriores nao sao promovidos ao score ou reclassificados como observacoes historicas da AUD. O contrato da fronteira e o estudo de reuso estao em [ADR_PERPLEXITY_SEARCH_REUSE.md](ADR_PERPLEXITY_SEARCH_REUSE.md).
 
 **Limite:** executar a consulta real ainda depende de autorizacao humana explicita no console; a suite automatizada usa transporte fake sem consumo de API paga.
 

@@ -10,7 +10,7 @@ on:
       - 'tests/test_console_cost_confirmation.py'
       - 'tests/test_cat07_architecture_integration_358.py'
       - 'tests/test_audit_integrity_review_375.py'
-      - 'docs/AUD_LOCAL_INTEGRITY_375.md'
+      - 'docs/AUD_LOCAL_INTEGRITY.md'
       - '.github/workflows/audit-local-integrity-374-375.yml'
   push:
     branches: [main]

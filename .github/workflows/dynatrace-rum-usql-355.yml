@@ -7,7 +7,7 @@ on:
       - 'src/rasai/dynatrace_settings_live_355.py'
       - 'tests/test_dynatrace_pinned_transport_355.py'
       - 'tests/test_dynatrace_rum_population_355.py'
-      - 'docs/APDEX_DYNATRACE_ARCH_ADVISORY_355.md'
+      - 'docs/APDEX_DYNATRACE_ARCH_ADVISORY.md'
       - '.github/workflows/dynatrace-rum-usql-355.yml'
   push:
     branches: [main]
