@@ -6,7 +6,7 @@ on:
     paths:
       - 'src/rasai/consolidation/domain_preflight_210.py'
       - 'src/rasai/consolidation/selection.py'
-      - 'tests/test_cons_domain_preflight_210.py'
+      - 'tests/test_cons_domain_preflight.py'
       - '.github/workflows/cons-domain-preflight.yml'
   workflow_dispatch:
 
@@ -29,4 +29,4 @@ jobs:
       - name: Install application and test runner
         run: python -m pip install -e . pytest
       - name: Test read-only comparison eligibility only
-        run: python -m pytest -q tests/test_cons_domain_preflight_210.py
+        run: python -m pytest -q tests/test_cons_domain_preflight.py

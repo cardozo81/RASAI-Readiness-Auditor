@@ -6,7 +6,7 @@ on:
       - 'src/rasai/semantic_coherence_reporting.py'
       - 'src/rasai/report_presentation.py'
       - 'src/rasai/catalog_report_search_trust.py'
-      - 'tests/test_report_humanization_109_semantic_serp.py'
+      - 'tests/test_report_humanization_semantic_serp.py'
       - '.github/workflows/report-humanization-semantic-serp.yml'
   push:
     branches: [main]
@@ -14,7 +14,7 @@ on:
       - 'src/rasai/semantic_coherence_reporting.py'
       - 'src/rasai/report_presentation.py'
       - 'src/rasai/catalog_report_search_trust.py'
-      - 'tests/test_report_humanization_109_semantic_serp.py'
+      - 'tests/test_report_humanization_semantic_serp.py'
       - '.github/workflows/report-humanization-semantic-serp.yml'
   workflow_dispatch:
 
@@ -32,4 +32,4 @@ jobs:
           python-version: '3.13'
       - run: python -m pip install -e . pytest
       - name: Only typed CAT-03/05 surfaces
-        run: python -m pytest -q tests/test_report_humanization_109_semantic_serp.py
+        run: python -m pytest -q tests/test_report_humanization_semantic_serp.py

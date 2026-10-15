@@ -19,7 +19,7 @@ on:
       - 'src/rasai/system_defaults.py'
       - 'src/rasai/console_profile_capability_architecture.py'
       - 'src/rasai/execution_capabilities.py'
-      - 'tests/test_apdex_catalog_independence_150.py'
+      - 'tests/test_apdex_catalog_independence.py'
       - 'tests/test_console_catalog_configuration_refinements.py'
       - 'tests/test_m25_console_integration.py'
       - 'tests/test_worker_execution.py'
@@ -44,7 +44,7 @@ on:
       - 'src/rasai/system_defaults.py'
       - 'src/rasai/console_profile_capability_architecture.py'
       - 'src/rasai/execution_capabilities.py'
-      - 'tests/test_apdex_catalog_independence_150.py'
+      - 'tests/test_apdex_catalog_independence.py'
       - 'tests/test_console_catalog_configuration_refinements.py'
       - 'tests/test_m25_console_integration.py'
       - 'tests/test_worker_execution.py'
@@ -70,7 +70,7 @@ jobs:
         run: |
           python -m pytest -q \
             tests/test_synthetic_acquisition_runtime.py \
-            tests/test_apdex_catalog_independence_150.py \
+            tests/test_apdex_catalog_independence.py \
             tests/test_console_catalog_configuration_refinements.py::test_catalog_selection_round_trips_through_console_ini \
             tests/test_console_catalog_configuration_refinements.py::test_remove_navigation_apdex_preserves_independent_experience_and_returns \
             tests/test_console_catalog_configuration_refinements.py::test_remove_experience_apdex_preserves_navigation_catalog \

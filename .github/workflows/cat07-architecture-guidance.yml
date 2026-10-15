@@ -48,5 +48,5 @@ jobs:
           tests/test_experience_architecture_guidance.py
           tests/test_cat07_architecture_integration.py
           tests/test_console_settings.py
-          tests/test_catalog_population_apdex_227.py
+          tests/test_catalog_population_apdex.py
           tests/test_m25_dynatrace_compat_defaults.py

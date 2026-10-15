@@ -58,7 +58,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Reproduzir score canônico sobre cópia isolada, comparar bytes SHA-256 antes/depois e overall/dimensões/gates/coverage/confidence; gerar cenários sem promover a produção. Submeter ADR/efeitos a gate metodológico. Somente após decisão, implementar versão nova e migração de leitura histórica não destrutiva.
 
-**Testes selecionados (planejados, não executados aqui):** `python -m rasai.optional_seo_audit_replay_602 <AUD_COPIA> --device MOBILE`; `python -m pytest -q tests/test_scoring_discovery_refinement_20260908.py tests/test_score_geo_004.py tests/test_score_geo_004_applicability.py`.
+**Testes selecionados (planejados, não executados aqui):** `python -m rasai.optional_seo_audit_replay_602 <AUD_COPIA> --device MOBILE`; `python -m pytest -q tests/test_scoring_discovery_refinement_20260908.py tests/test_score_geo.py tests/test_score_geo_applicability.py`.
 
 **Prova exigida para fechamento:** Golden da AUD com 59 rule executions e score persistido 86,484962, comparação BR-GEO-003/013/017 e matriz de delta por dimensão, política aprovada e contrato versionado, replays idempotentes, nenhuma alteração da AUD original. Sem decisão: issue OPEN.
 
@@ -154,7 +154,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Não implementar nem ativar no atual ciclo sem autorização específica expressa. Consultar resultados históricos como informação; não bloquear advisory autônomo #355/#357 pela ausência do sensor opcional.
 
-**Testes selecionados (planejados, não executados aqui):** Somente as regressões existentes `tests/test_apdex_content_readiness_322.py`, `tests/test_playwright_primary_content_probe_322.py`, `tests/test_readiness_matched_pilot_322.py` se algum contrato externo ao escopo for tocado (não previsto).
+**Testes selecionados (planejados, não executados aqui):** Somente as regressões existentes `tests/test_apdex_content_readiness.py`, `tests/test_playwright_primary_content_probe.py`, `tests/test_readiness_matched_pilot.py` se algum contrato externo ao escopo for tocado (não previsto).
 
 **Prova exigida para fechamento:** Para uma futura autorização: identidade física page/sample/clock, baseline e overhead, aceitação feature gate, não alteração M23/M25. Estado OPEN até lá.
 

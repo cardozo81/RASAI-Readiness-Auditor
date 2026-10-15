@@ -6,9 +6,9 @@ on:
       - 'src/rasai/consolidation/domain_comparative_preview_210.py'
       - 'src/rasai/consolidation/domain_comparative_index_210.py'
       - 'src/rasai/consolidation/domain_comparative_html_210.py'
-      - 'tests/test_cons_domain_comparative_210.py'
+      - 'tests/test_cons_domain_comparative.py'
       - 'src/rasai/entrypoint.py'
-      - 'tests/test_cons_domain_comparative_index_210.py'
+      - 'tests/test_cons_domain_comparative_index.py'
       - 'docs/CONS_DOMAIN_COMPARATIVE.md'
       - '.github/workflows/cons-domain-comparative.yml'
   push:
@@ -17,9 +17,9 @@ on:
       - 'src/rasai/consolidation/domain_comparative_preview_210.py'
       - 'src/rasai/consolidation/domain_comparative_index_210.py'
       - 'src/rasai/consolidation/domain_comparative_html_210.py'
-      - 'tests/test_cons_domain_comparative_210.py'
+      - 'tests/test_cons_domain_comparative.py'
       - 'src/rasai/entrypoint.py'
-      - 'tests/test_cons_domain_comparative_index_210.py'
+      - 'tests/test_cons_domain_comparative_index.py'
       - '.github/workflows/cons-domain-comparative.yml'
 permissions:
   contents: read
@@ -40,4 +40,4 @@ jobs:
       - name: Install project and pytest
         run: python -m pip install -e . pytest
       - name: Same-domain advisory only; no full CONS audit
-        run: python -m pytest -q tests/test_cons_domain_comparative_210.py tests/test_cons_domain_comparative_index_210.py
+        run: python -m pytest -q tests/test_cons_domain_comparative.py tests/test_cons_domain_comparative_index.py

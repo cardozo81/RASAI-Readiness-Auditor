@@ -14,7 +14,7 @@ on:
       - 'src/rasai/m16_root_cause.py'
       - 'src/rasai/m17_precision.py'
       - 'tests/test_recommendation_governance.py'
-      - 'tests/test_issue_253_structured_data_absence_remediation.py'
+      - 'tests/test_structured_data_absence_remediation.py'
       - 'tests/test_cat09_w3c_remediation.py'
       - 'tests/test_search_competitive_ai.py'
       - 'tests/test_competitive_acquisition_policy.py'
@@ -26,7 +26,7 @@ on:
       - 'tests/test_cat03_auto_projection.py'
       - 'tests/test_catalog_report_search_trust.py'
       - 'tests/test_catalog_status_causality.py'
-      - 'tests/test_catalog_population_apdex_227.py'
+      - 'tests/test_catalog_population_apdex.py'
       - 'tests/test_w3c_catalog_detail.py'
       - 'tests/test_standards_css_validation.py'
       - 'src/rasai/observability/external_sources.py'
@@ -40,7 +40,7 @@ on:
       - 'src/rasai/editorial_risk_context.py'
       - 'src/rasai/selective_optional_reprocess.py'
       - 'tests/test_report_catalog_public_labels.py'
-      - 'tests/test_issue_246_catalog_source_dependencies.py'
+      - 'tests/test_catalog_source_dependencies.py'
       - 'tests/test_catalog_report_package_integrity.py'
       - 'tests/test_catalog_source_inventory.py'
       - 'tests/test_catalog_report_assurance.py'
@@ -61,7 +61,7 @@ on:
       - 'src/rasai/m16_root_cause.py'
       - 'src/rasai/m17_precision.py'
       - 'tests/test_recommendation_governance.py'
-      - 'tests/test_issue_253_structured_data_absence_remediation.py'
+      - 'tests/test_structured_data_absence_remediation.py'
       - 'tests/test_cat09_w3c_remediation.py'
       - 'tests/test_search_competitive_ai.py'
       - 'tests/test_competitive_acquisition_policy.py'
@@ -73,7 +73,7 @@ on:
       - 'tests/test_cat03_auto_projection.py'
       - 'tests/test_catalog_report_search_trust.py'
       - 'tests/test_catalog_status_causality.py'
-      - 'tests/test_catalog_population_apdex_227.py'
+      - 'tests/test_catalog_population_apdex.py'
       - 'tests/test_w3c_catalog_detail.py'
       - 'tests/test_standards_css_validation.py'
       - 'src/rasai/observability/external_sources.py'
@@ -87,7 +87,7 @@ on:
       - 'src/rasai/editorial_risk_context.py'
       - 'src/rasai/selective_optional_reprocess.py'
       - 'tests/test_report_catalog_public_labels.py'
-      - 'tests/test_issue_246_catalog_source_dependencies.py'
+      - 'tests/test_catalog_source_dependencies.py'
       - 'tests/test_catalog_report_package_integrity.py'
       - 'tests/test_catalog_source_inventory.py'
       - 'tests/test_catalog_report_assurance.py'
@@ -115,9 +115,9 @@ jobs:
         run: >-
           pytest -q
           tests/test_report_catalog_public_labels.py
-          tests/test_issue_246_catalog_source_dependencies.py
+          tests/test_catalog_source_dependencies.py
           tests/test_recommendation_governance.py
-          tests/test_issue_253_structured_data_absence_remediation.py
+          tests/test_structured_data_absence_remediation.py
           tests/test_catalog_report_assurance.py
           tests/test_report_numeric_zero.py
           tests/test_apdex_sampling_reliability.py
@@ -128,7 +128,7 @@ jobs:
           tests/test_w3c_catalog_detail.py
           tests/test_catalog_report_search_trust.py
           tests/test_catalog_status_causality.py
-          tests/test_catalog_population_apdex_227.py
+          tests/test_catalog_population_apdex.py
           tests/test_search_competitive_ai.py
           tests/test_competitive_acquisition_policy.py
           tests/test_cat09_w3c_remediation.py

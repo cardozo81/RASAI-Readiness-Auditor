@@ -5,14 +5,14 @@ on:
     paths:
       - 'src/rasai/catalog_report_analysis.py'
       - 'src/rasai/catalog_report_adherence.py'
-      - 'tests/test_nav_browser_diagnostic_labels_109.py'
+      - 'tests/test_nav_browser_diagnostic_labels.py'
       - '.github/workflows/cat06-browser-labels.yml'
   push:
     branches: [main]
     paths:
       - 'src/rasai/catalog_report_analysis.py'
       - 'src/rasai/catalog_report_adherence.py'
-      - 'tests/test_nav_browser_diagnostic_labels_109.py'
+      - 'tests/test_nav_browser_diagnostic_labels.py'
       - '.github/workflows/cat06-browser-labels.yml'
   workflow_dispatch:
 
@@ -30,4 +30,4 @@ jobs:
           python-version: '3.13'
       - run: python -m pip install -e . pytest
       - name: Only changed CAT-06 renderer
-        run: python -m pytest -q tests/test_nav_browser_diagnostic_labels_109.py
+        run: python -m pytest -q tests/test_nav_browser_diagnostic_labels.py

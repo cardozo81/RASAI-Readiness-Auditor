@@ -9,8 +9,8 @@ on:
       - 'src/rasai/m23_apdex.py'
       - 'src/rasai/m25_apdex_experience.py'
       - 'tests/test_synthetic_acquisition_runtime.py'
-      - 'tests/test_synthetic_acquisition_reprocess_206.py'
-      - 'tests/test_synthetic_acquisition_homologation_207.py'
+      - 'tests/test_synthetic_acquisition_reprocess.py'
+      - 'tests/test_synthetic_acquisition_homologation.py'
       - 'docs/SYNTHETIC_ACQUISITION_HOMOLOGATION.md'
       - '.github/workflows/synthetic-acquisition-homologation.yml'
   push:
@@ -22,8 +22,8 @@ on:
       - 'src/rasai/m23_apdex.py'
       - 'src/rasai/m25_apdex_experience.py'
       - 'tests/test_synthetic_acquisition_runtime.py'
-      - 'tests/test_synthetic_acquisition_reprocess_206.py'
-      - 'tests/test_synthetic_acquisition_homologation_207.py'
+      - 'tests/test_synthetic_acquisition_reprocess.py'
+      - 'tests/test_synthetic_acquisition_homologation.py'
       - 'docs/SYNTHETIC_ACQUISITION_HOMOLOGATION.md'
       - '.github/workflows/synthetic-acquisition-homologation.yml'
   workflow_dispatch:
@@ -45,6 +45,6 @@ jobs:
       - name: Statistical parity, replay and physical workload gate
         run: |
           python -m pytest -q \
-            tests/test_synthetic_acquisition_homologation_207.py \
+            tests/test_synthetic_acquisition_homologation.py \
             tests/test_synthetic_acquisition_runtime.py \
-            tests/test_synthetic_acquisition_reprocess_206.py
+            tests/test_synthetic_acquisition_reprocess.py

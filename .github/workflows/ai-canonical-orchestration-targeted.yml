@@ -34,12 +34,12 @@ on:
       - 'src/rasai/console_environment.py'
       - 'src/rasai/ai_provider_console_management.py'
       - 'src/rasai/config/rasai-defaults.ini'
-      - 'tests/test_ai_canonical_orchestration_190.py'
-      - 'tests/test_ai_orchestration_190_characterization.py'
+      - 'tests/test_ai_canonical_orchestration.py'
+      - 'tests/test_ai_orchestration_characterization.py'
       - 'tests/test_ai_runtime_orchestration.py'
       - 'tests/test_ai_retry_fallback_observability.py'
       - 'tests/test_issue_43_reprocess_ai_timeout.py'
-      - 'tests/test_request_remediation_canonical_190.py'
+      - 'tests/test_request_remediation_canonical.py'
       - 'tests/test_aud722_regressions.py'
       - '.github/workflows/ai-canonical-orchestration-targeted.yml'
   workflow_dispatch:
@@ -98,19 +98,19 @@ jobs:
       - name: Canonical cycle, health and adapter matrix
         run: >-
           pytest -q
-          tests/test_ai_canonical_orchestration_190.py
-          tests/test_ai_orchestration_190_characterization.py
+          tests/test_ai_canonical_orchestration.py
+          tests/test_ai_orchestration_characterization.py
           tests/test_ai_runtime_orchestration.py
           tests/test_ai_retry_fallback_observability.py
           tests/test_accepted_audit_refinements.py
-          tests/test_request_remediation_canonical_190.py
+          tests/test_request_remediation_canonical.py
           tests/test_provider_extensions.py
           tests/test_m18_multi_ai_provider.py
 
       - name: Governed partial and AUD/RPR parity
         run: >-
           pytest -q
-          tests/test_issue_164_ai_evidence_snapshot.py
+          tests/test_ai_evidence_snapshot.py
           tests/test_governed_ai_pipeline.py
           tests/test_issue_43_reprocess_ai_timeout.py
           tests/test_governed_reprocess_dependencies.py

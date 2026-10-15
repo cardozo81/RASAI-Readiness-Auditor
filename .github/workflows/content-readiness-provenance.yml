@@ -4,7 +4,7 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/apdex_content_readiness_observation.py'
-      - 'tests/test_apdex_content_readiness_322.py'
+      - 'tests/test_apdex_content_readiness.py'
       - 'docs/APDEX_CONTENT_READINESS_INVESTIGATION.md'
       - '.github/workflows/content-readiness-provenance.yml'
   workflow_dispatch:
@@ -24,4 +24,4 @@ jobs:
       - run: |
           python -m pip install -e . pytest
           python -m compileall -q src/rasai/apdex_content_readiness_observation.py
-          python -m pytest -q tests/test_apdex_content_readiness_322.py tests/test_apdex_report_cohesion.py tests/test_apdex_sampling_reliability.py
+          python -m pytest -q tests/test_apdex_content_readiness.py tests/test_apdex_report_cohesion.py tests/test_apdex_sampling_reliability.py
