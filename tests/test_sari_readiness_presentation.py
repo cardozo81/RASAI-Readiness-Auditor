@@ -69,3 +69,23 @@ def test_readiness_panel_explains_integration_errors_do_not_become_site_failures
     assert "Nota medida não substitui readiness operacional" in html
     assert "erro de provider/API/coleta não é defeito do website" in html
     assert "mapeamento explícito" in html
+
+
+def test_executive_panel_preserves_canonical_fraction_and_limits_confidence_claim() -> None:
+    row = _row(value=86.484962, status="ATTENTION", discovery_gate="WARNING")
+    row["coverage"] = 0.974737
+    html = operational_readiness_panel({"scores": [row]})
+    assert "Coverage 97.5% (fração canônica 0.974737)" in html
+    assert "não representam intervalo estatístico" in html
+    assert "posição SERP ou citação generativa" in html
+    assert "86.5/100" in html
+
+
+def test_executive_panel_does_not_silently_promote_partial_dimension() -> None:
+    overall = _row(value=86.484962, status="ATTENTION")
+    dimension = dict(overall, dimension="CONTENT_VALUE", coverage=0.7,
+                     confidence="LOW", consolidation_status="PARTIAL")
+    html = operational_readiness_panel({"scores": [overall, dimension]})
+    assert "qualidade do universo efetivamente avaliado" in html
+    assert "dimensões de baixa cobertura devem ser analisadas separadamente" in html
+    assert "Confidence HIGH" in html  # Stored global confidence is not rewritten.
