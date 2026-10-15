@@ -54,6 +54,41 @@ def _verified_source(path: Path) -> tuple[bytes | None, tuple[int, ...] | None, 
         return None, None, "SOURCE_UNAVAILABLE"
 
 
+def _classify_load_warnings(warnings: tuple[str, ...] | list[str]) -> dict[str, int]:
+    """Aggregate loader warnings without returning raw keys, paths or values.
+
+    Categories follow console_settings.load_console_config's public warning
+    sources. Unknown formats remain unclassified; counts are not assertions
+    that a setting was lost or that an Apdex engine executed.
+    """
+    counts = {
+        "unknown_or_nonpersistible_environment": 0,
+        "invalid_typed_state": 0,
+        "invalid_presentation_timezone": 0,
+        "unreadable_ini": 0,
+        "other_unclassified": 0,
+    }
+    from rasai import console_settings
+    known_sections = set(console_settings._state_values(
+        __import__("rasai.console_search_intelligence", fromlist=["SearchConsoleState"]).SearchConsoleState()
+    ))
+    for warning in warnings:
+        if warning.startswith("não foi possível ler "):
+            category = "unreadable_ini"
+        elif warning.startswith("environment.") and warning.endswith(
+            ": variável não reconhecida ou não persistível"
+        ):
+            category = "unknown_or_nonpersistible_environment"
+        elif warning.startswith("RASAI_PRESENTATION_TIMEZONE:"):
+            category = "invalid_presentation_timezone"
+        elif any(warning.startswith(section + ".") for section in known_sections):
+            category = "invalid_typed_state"
+        else:
+            category = "other_unclassified"
+        counts[category] += 1
+    return counts
+
+
 def inspect_apdex_consumers(
     path: Path,
     *,
@@ -75,6 +110,7 @@ def inspect_apdex_consumers(
         "active_m25": None,
         "single_device_enforced": None,
         "load_warning_count": None,
+        "load_warning_categories": None,
         "external_requests": 0,
         "audit_writes": 0,
         "values_exposed": False,
@@ -156,6 +192,7 @@ def inspect_apdex_consumers(
                 if experience.enabled else None
             ),
             "load_warning_count": len(result.warnings),
+            "load_warning_categories": _classify_load_warnings(result.warnings),
         }
     except (OSError, UnicodeError, ConfigError, ValueError, TypeError, OverflowError):
         return {**base, "status": "CONFIG_OR_ADAPTER_INVALID"}
