@@ -422,6 +422,49 @@ def test_report_633_objective_dialog_is_progressive_and_printable() -> None:
 
 
 
+def test_633_persisted_target_locations_do_not_infer_ownership(tmp_path: Path) -> None:
+    from rasai.directed_analysis_reporting import _action_target_contexts, _action_target_label
+    db = tmp_path / "targets.db"
+    with sqlite3.connect(db) as con:
+        con.executescript(
+            "CREATE TABLE content_remediation_suggestions ("
+            "audit_id TEXT, suggestion_id TEXT, target_location TEXT);"
+            "CREATE TABLE improvement_intelligence_recommendations ("
+            "audit_id TEXT, recommendation_id TEXT, selector TEXT);"
+        )
+        con.execute(
+            "INSERT INTO content_remediation_suggestions VALUES (?,?,?)",
+            (AUDIT_ID, "SUG-1", "Seção de coberturas antes de contratar"),
+        )
+        con.execute(
+            "INSERT INTO improvement_intelligence_recommendations VALUES (?,?,?)",
+            (AUDIT_ID, "REC-2", "a.logo > img"),
+        )
+        con.row_factory = sqlite3.Row
+        actions = [
+            {"action_id": "ACT-1", "source_kind": "CONTENT_AI", "source_id": "SUG-1"},
+            {"action_id": "ACT-2", "source_kind": "DEEP_ANALYSIS", "source_id": "REC-2"},
+            {"action_id": "ACT-3", "source_kind": "CONTENT_AI", "source_id": "SUG-MISSING"},
+        ]
+        contexts = _action_target_contexts(con, AUDIT_ID, actions)
+        assert "Seção de coberturas" in _action_target_label(actions[0], contexts)
+        assert "Seletor CSS registrado" in _action_target_label(actions[1], contexts)
+        assert _action_target_label(actions[2], contexts) == "-"
+        assert len(contexts) == 2
+
+
+def test_633_overview_executive_facts_are_independent_and_source_bound(tmp_path: Path) -> None:
+    workspace, _ = _workspace(tmp_path)
+    report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
+    overview = (report / "index.html").read_text(encoding="utf-8")
+    assert "id='snapshot'" in overview
+    assert "O retrato da auditoria" in overview
+    assert "Os números não compõem um novo índice" in overview
+    assert "directed-analysis.html#actions" in overview
+    assert "Lighthouse" in overview or "SARI" in overview
+    assert set(page.name for page in report.glob("*.html")) == set(CATALOG_REPORT_FILENAMES)
+
+
 def test_overview_new_experience_is_an_index_not_a_second_report(tmp_path: Path) -> None:
     workspace, _ = _workspace(tmp_path)
     report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
