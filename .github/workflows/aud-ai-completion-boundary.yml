@@ -4,14 +4,14 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/audit_ai_completion_boundary_319.py'
-      - 'tests/test_audit_ai_completion_boundary_319.py'
+      - 'tests/test_audit_ai_completion_boundary.py'
       - 'docs/AUD_AI_COMPLETION_BOUNDARY.md'
       - '.github/workflows/aud-ai-completion-boundary.yml'
   push:
     branches: [main]
     paths:
       - 'src/rasai/audit_ai_completion_boundary_319.py'
-      - 'tests/test_audit_ai_completion_boundary_319.py'
+      - 'tests/test_audit_ai_completion_boundary.py'
       - '.github/workflows/aud-ai-completion-boundary.yml'
 permissions:
   contents: read
@@ -32,4 +32,4 @@ jobs:
       - name: Install package and pytest
         run: python -m pip install -e . pytest
       - name: Focused offline attempt chronology
-        run: python -m pytest -q tests/test_audit_ai_completion_boundary_319.py tests/test_audit_attempt_timeline_319.py
+        run: python -m pytest -q tests/test_audit_ai_completion_boundary.py tests/test_audit_attempt_timeline_319.py

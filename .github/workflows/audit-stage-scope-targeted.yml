@@ -9,7 +9,7 @@ on:
       - src/rasai/audit_step_timer_inspection_319.py
       - src/rasai/audit_fulfillment_timing_319.py
       - src/rasai/catalog_report_site.py
-      - tests/test_audit_stage_scope_319.py
+      - tests/test_audit_stage_scope.py
       - tests/test_audit_inspection_cli.py
       - docs/AUDIT_STAGE_SCOPE.md
       - .github/workflows/audit-stage-scope-targeted.yml
@@ -29,4 +29,4 @@ jobs:
         with:
           python-version: '3.13'
       - run: python -m pip install -e . pytest
-      - run: python -m pytest -q tests/test_audit_stage_scope_319.py tests/test_audit_inspection_cli.py tests/test_audit_attempt_timeline_319.py tests/test_audit_cost_explain.py
+      - run: python -m pytest -q tests/test_audit_stage_scope.py tests/test_audit_inspection_cli.py tests/test_audit_attempt_timeline_319.py tests/test_audit_cost_explain.py

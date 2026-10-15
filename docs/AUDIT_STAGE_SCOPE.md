@@ -163,7 +163,7 @@ as durações nem calcular tempo exclusivo/residual por etapa.** A fonte
 `pipeline_step_timer_evidence` não altera
 `non_ai_stages_measured=false`.
 
-Teste dirigido: `tests/test_audit_stage_scope_319.py`, quatro cenários
+Teste dirigido: `tests/test_audit_stage_scope.py`, quatro cenários
 com evidência válida, JSONL corrompido após evento válido, log ausente
 e estado lógico `PARTIAL_RETRYABLE`; confirma exclusão de outra AUD,
 ausência de falso tempo físico e bytes originais intactos.

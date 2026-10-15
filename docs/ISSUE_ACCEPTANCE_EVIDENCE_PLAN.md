@@ -46,7 +46,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Executar inspeção read-only em AUD física estabilizada; construir cobertura por fase distinguindo OBSERVED/UNVERIFIED/N/D. Somente se houver fonte física segura, adicionar pontos de observabilidade nas bordas do runtime sem alterar lógica orquestradora; nunca inferir duração exclusiva por subtração.
 
-**Testes selecionados (planejados, não executados aqui):** `rasai audit-attempts <AUD_DIR>`; `python -m pytest -q tests/test_audit_stage_scope_319.py tests/test_audit_attempt_timeline_319.py tests/test_audit_duration_forecast_319.py tests/test_audit_cost_explain.py tests/test_cost_forecast.py`.
+**Testes selecionados (planejados, não executados aqui):** `rasai audit-attempts <AUD_DIR>`; `python -m pytest -q tests/test_audit_stage_scope.py tests/test_audit_attempt_timeline_319.py tests/test_audit_duration_forecast.py tests/test_audit_cost_explain.py tests/test_cost_forecast.py`.
 
 **Prova exigida para fechamento:** Reconciliação das 8 tentativas IA (M18 + remediação), momentos overlapped, custos por operação, expected/observed e P90 não-teto, cobertura por fase; N/D preservado quando relógio ausente; no duplicate-cost. Fechar com equivalência comprovada console/prévia/relatório e cobertura exigível demonstrada.
 
