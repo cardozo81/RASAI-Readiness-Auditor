@@ -82,6 +82,16 @@ def test_core_vs_post_aud_is_evidence_based_and_prevents_parallel_double_count(t
     assert during["overlap_ms"] == 60000
     assert during["posthoc_estimated_cost_usd"] == .05
     assert post["provider_observed_cost_usd"] == .035
+    assert post["provider_observed_cost_attempts"] == 1
+    assert post["provider_observed_cost_available"] is True
+    assert post["provider_observed_cost_complete"] is True
+    assert post["stages"]["DIRECTED_ANALYSIS"]["provider_observed_cost_attempts"] == 1
+    assert post["stages"]["DIRECTED_ANALYSIS"]["provider_observed_cost_complete"] is True
+    assert during["provider_observed_cost_usd"] == 0
+    assert during["provider_observed_cost_attempts"] == 0
+    assert during["provider_observed_cost_available"] is False
+    assert during["provider_observed_cost_complete"] is False
+    assert during["stages"]["COMPETITIVE_AI"]["provider_observed_cost_available"] is False
     assert post["posthoc_estimated_cost_usd"] == 0
     assert "DIRECTED_ANALYSIS" in post["stages"]
     assert crossing["provider_observed_cost_usd"] == .08
@@ -95,6 +105,30 @@ def test_core_vs_post_aud_is_evidence_based_and_prevents_parallel_double_count(t
     assert result["non_ai_stages_measured"] is False
     assert result["provider_requests"] == result["audit_writes"] == 0
     assert sha256(db.read_bytes()).hexdigest() == before
+
+
+def test_provider_reported_zero_is_distinct_from_missing_and_partial_coverage(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE ai_provider_attempts SET observed_cost=0, "
+            "observed_cost_currency='USD' WHERE attempt_id='A1'"
+        )
+    original = sha256(db.read_bytes()).hexdigest()
+    report = inspect_ai_audit_boundary(db, "AUD-T")
+    during = report["buckets"][0]
+    assert during["attempts"] == 2
+    assert during["provider_observed_cost_usd"] == 0
+    assert during["provider_observed_cost_attempts"] == 1
+    assert during["provider_observed_cost_available"] is True
+    assert during["provider_observed_cost_complete"] is False
+    stages = during["stages"]
+    assert stages["IMPROVEMENT_INTELLIGENCE"]["provider_observed_cost_usd"] == 0
+    assert stages["IMPROVEMENT_INTELLIGENCE"]["provider_observed_cost_attempts"] == 1
+    assert stages["IMPROVEMENT_INTELLIGENCE"]["provider_observed_cost_available"] is True
+    assert stages["IMPROVEMENT_INTELLIGENCE"]["provider_observed_cost_complete"] is True
+    assert stages["COMPETITIVE_AI"]["provider_observed_cost_available"] is False
+    assert sha256(db.read_bytes()).hexdigest() == original
 
 
 def test_missing_or_foreign_aud_not_made_comparable(tmp_path):
@@ -149,6 +183,9 @@ def test_optional_price_columns_are_unpriced_not_zero_cost(tmp_path):
     assert result["status"] == "DESCRIPTIVE_ONLY"
     assert result["buckets"][2]["unknown_price_attempts"] == 1
     assert result["buckets"][2]["provider_observed_cost_usd"] == 0
+    assert result["buckets"][2]["provider_observed_cost_attempts"] == 0
+    assert result["buckets"][2]["provider_observed_cost_available"] is False
+    assert result["buckets"][2]["provider_observed_cost_complete"] is False
 
 
 def test_reject_linked_missing_or_sidecar_sqlite(tmp_path):
