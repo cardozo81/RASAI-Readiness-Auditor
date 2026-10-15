@@ -39,7 +39,7 @@ Para uma nova versão SCORE-GEO, antes de alterar pesos/avaliação:
 
 ## Entrega executável parcial
 
-O módulo `rasai.optional_seo_interpretation_602` compara somente os registros físicos `rule_executions` e `score_contributions` da mesma AUD e expõe, na visão executiva, descontos **já persistidos** para ausência isolada comprovada; nunca estima um novo score, reescreve dados, lê configuração do operador ou efetua rede.
+O módulo `rasai.optional_seo_interpretation` compara somente os registros físicos `rule_executions` e `score_contributions` da mesma AUD e expõe, na visão executiva, descontos **já persistidos** para ausência isolada comprovada; nunca estima um novo score, reescreve dados, lê configuração do operador ou efetua rede.
 
 Esse passo corrige o risco de **interpretação** enquanto a mudança de política de pontuação permanece aberta para decisão versionada.
 

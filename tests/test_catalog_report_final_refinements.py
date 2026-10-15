@@ -143,7 +143,7 @@ def test_sari_coverage_is_explicitly_percentual_and_traceable() -> None:
 
 
 def test_optional_seo_reconciliation_is_readonly_and_does_not_recompute_scores(tmp_path: Path) -> None:
-    from rasai.optional_seo_interpretation_602 import (
+    from rasai.optional_seo_interpretation import (
         optional_seo_notice_html, optional_seo_penalties,
     )
 
