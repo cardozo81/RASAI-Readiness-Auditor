@@ -26,7 +26,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 ## Direcionamento individual e gates
 
-### Issue #523 - P1 · IMPLEMENTED_NOT_PROVEN + PARTIALLY_IMPLEMENTED
+### Issue #523 - P2 · IMPLEMENTED_NOT_PROVEN + PARTIALLY_IMPLEMENTED
 
 **Já presente / evidência técnica:** `console_configuration_inventory_523`, `console_config_provenance_523`, testes de save/load em processos independentes, projeção M23/M25, draft Perplexity não autorizativo.
 
@@ -38,7 +38,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Prova exigida para fechamento:** CSV/JSON secret-safe de 100% do registry (categoria, source, persistência, origem, loader, consumidor, precedência e resultado), round-trip não default em 2 processos, comparação de efeitos em adapters, prova Windows específica sem credenciais reais. Fechar só com matriz completa e gate Windows pertinente.
 
-### Issue #319 - P1 · PARTIALLY_IMPLEMENTED
+### Issue #319 - P2 · PARTIALLY_IMPLEMENTED
 
 **Já presente / evidência técnica:** `audit-attempts`, `audit_fulfillment_timing_319`, cronômetros de logs operacionais, forecasts, exclusão de custos Directed/Search opcionais (PR #629).
 
@@ -54,7 +54,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Já presente / evidência técnica:** Classificador opcional/contradição/desconhecido, ADR, laboratório in-memory, CLI read-only `optional_seo_audit_replay_602` sem alterar SCORE-GEO-004.
 
-**Critério residual e risco:** Replay físico golden sobre cópia estável da AUD de 14/10 ainda não executado com novo código; decisão explícita de finalidade/política e versão de score para mudança numérica.
+**Critério residual e risco:** Replay físico golden sobre cópia estável da AUD de 14/10 executado em Windows e aprovado em 15/10/2026; permanece a decisão explícita de finalidade/política e versão de score para mudança numérica.
 
 **Implementação ou verificação direcionada:** Reproduzir score canônico sobre cópia isolada, comparar bytes SHA-256 antes/depois e overall/dimensões/gates/coverage/confidence; gerar cenários sem promover a produção. Submeter ADR/efeitos a gate metodológico. Somente após decisão, implementar versão nova e migração de leitura histórica não destrutiva.
 
@@ -214,6 +214,14 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 4. Integrar a PR apenas com checks obrigatórios verdes; confirmar HEAD final e workflows push separadamente. Diferenciar falha de startup de contêiner de falha de testes; reexecutar apenas job de infra afetado.
 5. Fechar issue como `COMPLETED` **somente** com todos os critérios exigíveis comprovados na `main`, testes e provas necessárias, nenhuma homologação/decisão humana obrigatória faltante.
 6. Se faltar apenas prova externa/autorização, registrar exatamente fonte, escopo, responsável, custo e critério de desbloqueio; prosseguir nas demais issues. Épicos não são concluídos por encerramento administrativo, UX previamente aprovada ou quantidade de commits.
+
+## Evidência física posterior ao plano (15/10/2026)
+
+As instruções das seções acima foram concebidas antes do gate físico. O estado de aceite abaixo substitui exclusivamente as lacunas cuja comprovação foi efetivamente apresentada pelo operador; não substitui os requisitos remanescentes.
+
+- **#523 — branch/CI:** preflight de `main@beb5cc8c5e287ecee6e869779881702efb74eb07` em Windows: `41 passed, 4 skipped`; `registry_size=189`, campos tipados `72/73` com único campo derivado `synthetic_apdex_experience.device_mix`, zero violações secret/INI, zero requests, zero escritas em AUD. Na branch `chore/acceptance-evidence-reconciliation@8058bbbb`, o operador executou os quatro arquivos de regressão: `43 passed, 4 skipped`, e o preflight relatou `load_warning_count=22`, todos `unknown_or_nonpersistible_environment`; as outras quatro categorias tiveram zero. O inventário não demonstrou origem/consumidor de 100% dos campos. Um refinamento sanitizado da causa dos avisos foi adicionado à PR #645 e ainda precisa de CI e preflight físico **sobre o novo HEAD**. Manter OPEN até reconciliação dos rejeitados, matriz efetiva e smoke save/reopen.
+- **#319 — Windows físico:** `140 passed, 3 skipped` nas regressões direcionadas; oito tentativas de IA (incluindo Content Remediation), `641249,761 ms` acumulados e `812189 ms` de duração física de sessão. `US$ 0,153062004` é estimativa post-hoc, não cobrança observada. Persistem `non_ai_stages_measured=false` e ausência de cronômetros exclusivos físicos das fases não-IA; não somar durações sobrepostas. Manter OPEN.
+- **#602 — golden físico aprovado:** cópia isolada `AUD-EAFBFF6E3F6E415CB0DD41F561B5B2DF`, 59 rule executions, replay `VERIFIED_SCORE_GEO_004`, hash antes/depois do banco `036EC79119C937540A29DAD0571607D0F24F5B404C31D11ADEE4FF44760274C3`. Score canônico 86,484962 / ATTENTION, sem alteração dos índices ou dados. Cenários `OPTIONAL_ABSENCE_NOT_APPLICABLE=89,800752` e `OPTIONAL_ABSENCE_PASS=89,958647` são apenas simulações, não política aprovada. `19 passed` em regressões focais; manter OPEN até decisão metodológica e versionamento, caso aplicável.
 
 ## Pontos de governança corrigidos na reconciliação
 
