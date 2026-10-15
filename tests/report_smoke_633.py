@@ -291,6 +291,62 @@ def _screenshots(report: Path, out: Path, *, pages: tuple[str, ...]) -> dict[str
                 goal_probe.close()
             captures["objective_dialog_open_close_focus_hash"] = True
 
+            # #633: the overview priority links must expose ONLY the exact
+            # persisted subset, without deleting any table row or changing
+            # the original inventory. Verify offline navigation with file://.
+            priority_fixture = out / "priority-filter-smoke.html"
+            priority_fixture.write_text(
+                "<!doctype html><html lang='pt-BR'><body>"
+                "<section id='actions'><div class='table-wrap'>"
+                "<table data-interactive-table='true' data-sortable='true' data-page-size='2'>"
+                "<thead><tr><th>Ação</th></tr></thead><tbody>"
+                "<tr><td><span data-action-priority='HIGH'>Alta A</span></td></tr>"
+                "<tr><td><span data-action-priority='LOW'>Baixa B</span></td></tr>"
+                "<tr><td><span data-action-priority=''>Não definida C</span></td></tr>"
+                "<tr><td><span data-action-priority='HIGH'>Alta D</span></td></tr>"
+                "</tbody></table></div><div class='table-controls'>"
+                "<button data-table-prev>Anterior</button>"
+                "<span class='table-page-info'></span>"
+                "<button data-table-next>Próxima</button>"
+                "</div></section><script>" + _JS + "</script></body></html>",
+                encoding="utf-8",
+            )
+            priority_probe = browser.new_page()
+            try:
+                for priority, expected, fragments in (
+                    ("HIGH", 2, ("Alta A", "Alta D")),
+                    ("UNDEFINED", 1, ("Não definida C",)),
+                ):
+                    priority_probe.goto(
+                        priority_fixture.resolve().as_uri()
+                        + "?priority=" + priority + "#actions",
+                        wait_until="load",
+                    )
+                    visible_rows = priority_probe.locator("#actions tbody tr:visible")
+                    if visible_rows.count() != expected:
+                        raise ValueError("priority drill-down returned an incorrect subset")
+                    titles = visible_rows.all_inner_texts()
+                    if any(not any(part in title for title in titles) for part in fragments):
+                        raise ValueError("priority drill-down lost a matching action")
+                    if priority_probe.locator("#actions tbody tr").count() != 4:
+                        raise ValueError("priority filter deleted an original action")
+                    if priority_probe.get_by_text("Ver todas as ações").count() != 1:
+                        raise ValueError("priority filter has no reversible clear action")
+                    banner = priority_probe.locator(".report-priority-filter")
+                    if f"{expected} de 4" not in banner.inner_text():
+                        raise ValueError("priority filter count differs from displayed rows")
+                priority_probe.goto(
+                    priority_fixture.resolve().as_uri() + "#actions",
+                    wait_until="load",
+                )
+                if priority_probe.locator(".report-priority-filter").count():
+                    raise ValueError("priority filter remained active without a query")
+                if priority_probe.locator("#actions tbody tr").count() != 4:
+                    raise ValueError("full action catalog no longer contains every action")
+            finally:
+                priority_probe.close()
+            captures["priority_drilldown_exact_and_reversible"] = True
+
             nojs = browser.new_context(
                 viewport={"width": 390, "height": 844},
                 java_script_enabled=False,
