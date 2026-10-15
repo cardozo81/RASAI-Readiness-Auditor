@@ -238,6 +238,66 @@ def test_new_shared_report_shell_navigation_is_accessible_in_all_canonical_pages
 
 
 
+def test_objective_cards_are_only_navigational_and_never_add_up_repeat_actions(tmp_path: Path) -> None:
+    """Repeated action IDs in different objectives remain one physical action."""
+    from rasai.directed_analysis_reporting import directed_analysis_body
+
+    database = tmp_path / "audit.db"
+    with sqlite3.connect(database) as con:
+        con.execute(
+            "CREATE TABLE directed_analysis_runs("
+            "audit_id TEXT, status TEXT, strategic_summary_json TEXT,"
+            "roadmap_json TEXT, limitations_json TEXT)"
+        )
+        con.execute(
+            "CREATE TABLE directed_analysis_actions("
+            "audit_id TEXT, action_id TEXT, title TEXT,"
+            "affected_dimensions_json TEXT, priority TEXT, effort TEXT,"
+            "confidence TEXT)"
+        )
+        con.execute(
+            "INSERT INTO directed_analysis_runs VALUES(?,?,?,?,?)",
+            (AUDIT_ID, "COMPLETE", "{}", "[]", "[]"),
+        )
+        con.executemany(
+            "INSERT INTO directed_analysis_actions VALUES(?,?,?,?,?,?,?)",
+            [
+                (
+                    AUDIT_ID, "ACT-1", "Corrigir informação",
+                    json.dumps([
+                        {"dimension": "DISCOVERY_ACCESS", "expected_gain": "HIGH"},
+                        {"dimension": "INDEXABILITY", "expected_gain": "MEDIUM"},
+                    ]),
+                    "HIGH", "MEDIUM", "MEDIUM",
+                ),
+                (
+                    AUDIT_ID, "ACT-2", "Validar evidência",
+                    json.dumps([
+                        {"dimension": "INDEXABILITY", "expected_gain": "LOW"},
+                    ]),
+                    "MEDIUM", "LOW", "MEDIUM",
+                ),
+            ],
+        )
+    data = SimpleNamespace(
+        audit_id=AUDIT_ID,
+        targets=("https://example.test/seguro",),
+        audit={"project_name": "Projeto de teste", "status": "COMPLETE"},
+        selected=(),
+        fulfillment={},
+    )
+    html = directed_analysis_body(database, data)
+    assert html.count("class='card directed-goal-link'") == 2
+    assert "Uma mesma ação pode apoiar vários objetivos" in html
+    assert "não são aditivas" in html
+    assert "<strong>1</strong><small>ação(ões) vinculada(s) neste objetivo" in html
+    assert "<strong>2</strong><small>ação(ões) vinculada(s) neste objetivo" in html
+    assert html.count("class='directed-goal-details' id='goal-") == 2
+    assert html.count("href='#goal-") == 2
+    assert html.count("ACT-1") == 0  # internal IDs remain in evidence, not new metric labels
+    assert "Corrigir informação" in html and "Validar evidência" in html
+
+
 def test_sari_and_metrics_use_persisted_values_without_recalculation(tmp_path: Path) -> None:
     workspace, _non_catalog = _workspace(tmp_path)
     report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
