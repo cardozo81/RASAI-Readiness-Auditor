@@ -11,7 +11,7 @@ on:
       - 'src/rasai/dynatrace_apdex_arch_advisory_355.py'
       - 'tests/test_public_language_377.py'
       - 'tests/test_cat07_architecture_integration_358.py'
-      - 'docs/PUBLIC_LANGUAGE_377.md'
+      - 'docs/PUBLIC_LANGUAGE.md'
       - 'docs/CONSOLE_COST_AND_USAGE.md'
       - '.github/workflows/public-language-377.yml'
   push:
