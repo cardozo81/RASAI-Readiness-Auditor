@@ -216,7 +216,7 @@ def test_new_shared_report_shell_navigation_is_accessible_in_all_canonical_pages
         html = (report / page.filename).read_text(encoding="utf-8")
         assert html.count("data-shared-report-menu=") == 1
         assert html.count("id='report-primary-navigation'") == 1
-        assert html.count("data-report-menu-toggle") == 1
+        assert html.count(" data-report-menu-toggle aria-controls") == 1
         assert "aria-controls='report-primary-navigation'" in html
         assert "aria-expanded='false'" in html
         assert "href='#report-main'" in html
