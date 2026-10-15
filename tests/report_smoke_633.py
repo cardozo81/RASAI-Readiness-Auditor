@@ -215,32 +215,54 @@ def _screenshots(report: Path, out: Path, *, pages: tuple[str, ...]) -> dict[str
                 context.close()
                 captures[device] = {"viewport": f"{width}x{height}", "screenshots": len(pages)}
 
-            # #633: goal cards point to native <details> controls; their
-            # anchor must reveal the existing rows, not scroll to a closed panel.
-            # A standalone synthetic fixture avoids writing to the AUD/report.
+            # #633: one persisted HTML detail node powers either an accessible
+            # contextual dialog with JS or native details without JS.
             from rasai.catalog_report_style import _JS
             goal_probe = browser.new_page()
             try:
                 goal_probe.set_content(
                     "<!doctype html><html lang='pt-BR'><body>"
-                    "<a href='#goal-smoke'>Explorar objetivo</a>"
+                    "<a class='directed-goal-link' href='#goal-smoke'>Explorar objetivo</a>"
                     "<details id='goal-smoke' class='directed-goal-details'>"
                     "<summary>Objetivo persistido</summary>"
-                    "<p>Detalhe persistido de teste</p></details>"
+                    "<div class='detail-body'><p>Detalhe persistido de teste</p></div></details>"
                     "<script>" + _JS + "</script></body></html>"
                 )
-                if goal_probe.locator("#goal-smoke").evaluate("(el) => el.open"):
-                    raise ValueError("goal panel unexpectedly expanded before navigation")
                 goal_probe.locator("a[href='#goal-smoke']").click()
                 goal_probe.wait_for_function(
-                    "() => document.getElementById('goal-smoke').open",
-                    timeout=2000,
+                    "() => !!document.querySelector('dialog.directed-objective-dialog[open]')",
+                    timeout=3000,
                 )
                 if not goal_probe.get_by_text("Detalhe persistido de teste").is_visible():
-                    raise ValueError("goal deep link failed to reveal original content")
+                    raise ValueError("objective modal failed to render persisted detail")
+                if goal_probe.locator("#goal-smoke > .detail-body").count():
+                    raise ValueError("objective dialog cloned source data instead of moving it")
+                goal_probe.keyboard.press("Escape")
+                goal_probe.wait_for_function(
+                    "() => !document.querySelector('dialog.directed-objective-dialog[open]') "
+                    "&& !!document.querySelector('#goal-smoke > .detail-body')",
+                    timeout=3000,
+                )
+                if not goal_probe.locator("a[href='#goal-smoke']").evaluate("(el) => document.activeElement === el"):
+                    raise ValueError("objective modal failed to restore trigger focus")
+                goal_probe.evaluate(
+                    """() => {
+                      history.replaceState(null,'','#objectives');
+                      location.hash='#goal-smoke';
+                    }"""
+                )
+                goal_probe.wait_for_function(
+                    "() => !!document.querySelector('dialog.directed-objective-dialog[open]')",
+                    timeout=3000,
+                )
+                goal_probe.locator("[data-modal-close]").click()
+                goal_probe.wait_for_function(
+                    "() => !!document.querySelector('#goal-smoke > .detail-body')",
+                    timeout=3000,
+                )
             finally:
                 goal_probe.close()
-            captures["objective_deep_link_expands_details"] = True
+            captures["objective_dialog_open_close_focus_hash"] = True
 
             nojs = browser.new_context(
                 viewport={"width": 390, "height": 844},
@@ -262,6 +284,26 @@ def _screenshots(report: Path, out: Path, *, pages: tuple[str, ...]) -> dict[str
             if not visible:
                 raise ValueError("canonical navigation hidden with JavaScript disabled")
             captures["javascript_disabled_mobile_navigation"] = True
+            # With JS disabled, objective content must remain in a native
+            # disclosure, without relying on an empty dialog.
+            fallback = browser.new_context(
+                java_script_enabled=False,
+                viewport={"width": 390, "height": 844},
+            )
+            fallback_page = fallback.new_page()
+            try:
+                fallback_page.set_content(
+                    "<details class='directed-goal-details' id='goal-fallback'>"
+                    "<summary>Objetivo acessível</summary>"
+                    "<div class='detail-body'>Conteúdo integral persistido</div></details>"
+                )
+                fallback_page.locator("#goal-fallback summary").click()
+                if not fallback_page.get_by_text("Conteúdo integral persistido").is_visible():
+                    raise ValueError("native objective detail inaccessible without JavaScript")
+            finally:
+                fallback.close()
+            captures["objective_nojs_source_visible"] = True
+
         finally:
             browser.close()
     return captures
