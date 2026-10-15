@@ -61,7 +61,7 @@ A projeção de descontos opcionais reutiliza esse classificador, evitando aceit
 
 O laboratório expõe por dimensão e overall os campos `value`, `coverage`, `confidence`, `consolidation_status` e marcadores de readiness/gates. Os dois últimos cenários **não** são recomendação de implementação nem uma versão novo contrato de pontuação aprovada: PASS pode dar prêmio imerecido e NOT_APPLICABLE pode reduzir cobertura e aumentar incerteza. Comparar as três projeções expõe efeitos colaterais sem substituir metodologia.
 
-O laboratório é offline, restrito a uma única AUD/dispositivo, recusa ID físico duplicado, não persiste scores nem altera RuleExecutions. A decisão final da issue #602 continua aberta até um novo contrato versionado, golden real da AUD de 14/10, critérios de revisão técnica e paridade de histórico.
+O laboratório é offline, restrito a uma única AUD/dispositivo, recusa ID físico duplicado, não persiste scores nem altera RuleExecutions. A decisão final da issue #602 continua aberta até decisão normativa e, se houver alteração numérica, novo contrato versionado e paridade de compatibilidade. O golden físico da AUD de 14/10 já foi comprovado no Windows em 15/10/2026, sem aprovação de nova política.
 
 
 ## Replay físico sem mutação (CLI, gate histórico)
@@ -74,7 +74,13 @@ python -m rasai.optional_seo_audit_replay_602 /caminho/para/AUD-ID --device MOBI
 
 O replay exige uma única AUD válida, `audit.db` regular, sem arquivos SQLite journal/WAL/SHM, escopo de uma AUD e até 4.000 regras físicas. Confere `quick_check` e integridade referencial, calcula SHA-256 do arquivo antes/depois e **aborta** caso o score canônico recalcado pelo SCORE-GEO-004 não coincida com os campos persistidos de cada dimensão e overall (valor, cobertura, confiança, consolidação e versão). Só depois expõe cenários de sensibilidade não oficiais. Nunca grava dados e não autoriza mudanças de pontuação.
 
-Esse gate deve ser rodado em **cópia isolada do ZIP da AUD real** para concluir o backtest físico; uma fixture sintetizada não substitui validação sobre a amostra de 14/10. Antes de eventual mudança pública também são necessários parecer normativo, goldens e testes de compatibilidade da nova versão. Não executar replay em AUD operacional com sidecars/journals ativos.
+### Resultado efetivo do golden físico - 15/10/2026
+
+O operador executou a CLI em **cópia estável e isolada** da AUD `AUD-EAFBFF6E3F6E415CB0DD41F561B5B2DF` no Windows, no baseline `main@beb5cc8c5e287ecee6e869779881702efb74eb07`. Foram verificadas **59 rule executions**, paridade `VERIFIED_SCORE_GEO_004`, **zero requests, zero escritas em AUD** e `published_score_mutated=false`. O SHA-256 de `audit.db` antes e depois foi `036ec79119c937540a29dad0571607d0f24f5b404c31d11adee4ff44760274c3`.
+
+O score canônico foi **86,484962 (ATTENTION)**, com cobertura **0,974737**. Cenários exploratórios: `OPTIONAL_ABSENCE_NOT_APPLICABLE = 89,800752 (READY)` e `OPTIONAL_ABSENCE_PASS = 89,958647 (READY)`. O resultado é **sensibilidade, não aprovação metodológica**. Testes pontuais do replay/scoring: **19 passed**. Logs estão no diretório de evidência local do operador e não foram incorporados neste documento.
+
+O **gate de replay físico da amostra de 14/10 está cumprido** para o código e a cópia acima. Antes de mudar SCORE-GEO-004 são obrigatórios parecer normativo, contrato/versão nova quando aplicável, regressões e teste de compatibilidade histórica. Não usar a AUD operacional com sidecars/journals ativos nem mutar os scores existentes.
 
 
 ## Regra conservadora de consistência física
