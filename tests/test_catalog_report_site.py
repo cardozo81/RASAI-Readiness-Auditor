@@ -405,6 +405,10 @@ def test_objective_cards_are_only_navigational_and_never_add_up_repeat_actions(t
     assert "Proveniência" in html
     assert "ACT-1" not in html  # evidence IDs are not promoted to visible metrics
     assert "Corrigir informação" in html and "Validar evidência" in html
+    assert "data-action-priority='HIGH'" in html
+    assert "data-action-priority='MEDIUM'" in html
+    assert "O filtro de prioridade dos links do" in html
+    assert html.count("data-action-priority=") == 2
     # Old direct links hashed from dimension values remain anchorable.
     from hashlib import sha256
     legacy = "goal-" + sha256(b"INDEXABILITY").hexdigest()[:12]
@@ -487,6 +491,76 @@ def test_633_overview_executive_facts_are_independent_and_source_bound(tmp_path:
     assert "directed-analysis.html#actions" in overview
     assert "Lighthouse" in overview or "SARI" in overview
     assert set(page.name for page in report.glob("*.html")) == set(CATALOG_REPORT_FILENAMES)
+
+
+def test_633_snapshot_drilldowns_match_persisted_observations_and_priority_counts(tmp_path: Path) -> None:
+    """Each overview card leads to the existing source, including exact action subsets."""
+    workspace, _ = _workspace(tmp_path)
+    with sqlite3.connect(workspace.database) as con:
+        con.execute("ALTER TABLE web_performance_observations ADD COLUMN lcp_p75_ms REAL")
+        con.execute("ALTER TABLE web_performance_observations ADD COLUMN field_scope TEXT")
+        con.execute(
+            "UPDATE web_performance_observations "
+            "SET performance_score=1.0,lcp_p75_ms=4357.0,field_scope='ORIGIN'"
+        )
+        con.execute(
+            "CREATE TABLE directed_analysis_actions("
+            "audit_id TEXT,action_id TEXT,priority TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO directed_analysis_actions VALUES(?,?,?)",
+            [
+                (AUDIT_ID, "ACT-A", "HIGH"),
+                (AUDIT_ID, "ACT-B", "HIGH"),
+                (AUDIT_ID, "ACT-C", "LOW"),
+                (AUDIT_ID, "ACT-D", None),
+                (AUDIT_ID, "ACT-E", ""),
+            ],
+        )
+    report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
+    overview = (report / "index.html").read_text(encoding="utf-8")
+    cat04 = (report / "cat-04.html").read_text(encoding="utf-8")
+    for destination in (
+        "sari.html#composition",
+        "cat-04.html#metric-lighthouse-performance",
+        "cat-04.html#metric-field-lcp-p75",
+        "directed-analysis.html#actions",
+        "directed-analysis.html?priority=HIGH#actions",
+        "directed-analysis.html?priority=UNDEFINED#actions",
+    ):
+        assert f"href='{destination}'" in overview
+    assert "100/100" in overview  # original normalized 1.0 is 100/100, not 1/100
+    assert "1.0/100" not in overview
+    assert "Ver 5 ações" in overview
+    assert "Ver 2 ações de prioridade alta" in overview
+    assert "Ver 2 ações sem prioridade" in overview
+    assert "escopo ORIGIN" in overview
+    assert "id='metric-lighthouse-performance'" in cat04
+    assert "id='metric-field-lcp-p75'" in cat04
+    assert overview.count("class='metric report-snapshot-metric'") == 6
+
+
+def test_633_priority_filter_is_reversible_and_print_preserves_every_row() -> None:
+    from rasai.catalog_report_style import _CSS, _JS
+
+    assert "new URLSearchParams(window.location.search).get('priority')" in _JS
+    assert "priorityFilter==='HIGH'?raw==='HIGH':raw===''" in _JS
+    assert "original.filter((row)" in _JS
+    assert "Ver todas as ações" in _JS
+    assert "table[data-interactive-table='true'] tbody tr{display:table-row!important}" in _CSS
+
+    # AA body and card text against a white report surface, including links.
+    def luminance(value: str) -> float:
+        rgb = [int(value[pos:pos+2], 16) / 255 for pos in (1, 3, 5)]
+        linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb]
+        return sum(component * weight for component, weight in zip(
+            linear, (0.2126, 0.7152, 0.0722),
+        ))
+
+    for foreground in ("#3159a8", "#445c69", "#546c78", "#142d3d"):
+        foreground_lum = luminance(foreground)
+        background_lum = luminance("#ffffff")
+        assert (background_lum + 0.05) / (foreground_lum + 0.05) >= 4.5
 
 
 def test_overview_new_experience_is_an_index_not_a_second_report(tmp_path: Path) -> None:
