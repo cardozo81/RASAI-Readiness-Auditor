@@ -1,10 +1,10 @@
 # #355 - Conferência local entre configuração Dynatrace e população USQL
 
-O módulo `python -m rasai.dynatrace_population_crosscheck_355`
+O módulo `python -m rasai.dynatrace_population_crosscheck`
 é um consumidor **offline, sem rede**, de dois JSONs já obtidos
 por rotinas independentes:
 
-1. `dynatrace_apdex_review_cli_355`: configurações KPM/thresholds
+1. `dynatrace_apdex_review_cli`: configurações KPM/thresholds
    para Load, XHR e Custom actions, provenientes de Settings API
    autenticada ou JSON fornecido pelo operador.
 2. `dynatrace_rum_population`: resultado agregado de USQL
@@ -33,7 +33,7 @@ Regras de diagnóstico:
   relatório RASAi é ajustado por este crosscheck.
 
 ```powershell
-python -m rasai.dynatrace_population_crosscheck_355 `
+python -m rasai.dynatrace_population_crosscheck `
   --settings-advisory-json .\settings_advisory.json `
   --rum-population-json .\rum_actions.json
 ```
@@ -77,7 +77,7 @@ agora pode ser apresentado por `--format html`, mantendo JSON
 como formato padrão e sem executar qualquer nova chamada Dynatrace:
 
 ```powershell
-python -m rasai.dynatrace_population_crosscheck_355 `
+python -m rasai.dynatrace_population_crosscheck `
   --settings-advisory-json .\settings_advisory.json `
   --rum-population-json .\rum_actions.json `
   --format html > revisao-dynatrace.html

@@ -15,7 +15,7 @@ from rasai.dynatrace_apdex_arch_advisory import (
     ARCHITECTURES, assess_dynatrace_apdex_architecture,
     explain_dynatrace_apdex_pt_br,
 )
-from rasai.dynatrace_population_crosscheck_355 import (
+from rasai.dynatrace_population_crosscheck import (
     compare_dynatrace_settings_and_rum,
 )
 from rasai.dynatrace_rum_population import (

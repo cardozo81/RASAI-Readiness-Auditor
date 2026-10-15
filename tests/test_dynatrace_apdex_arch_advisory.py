@@ -239,7 +239,7 @@ def test_offline_dynatrace_apdex_cli_uses_operator_json_without_runtime_bootstra
 
 
 def test_offline_dynatrace_apdex_cli_absent_settings_fail_closed(tmp_path, capsys):
-    from rasai.dynatrace_apdex_review_cli_355 import main
+    from rasai.dynatrace_apdex_review_cli import main
     import json
     assert main([
         "--architecture", "STATIC_OR_SSR",
@@ -317,7 +317,7 @@ def test_offline_review_rejects_ambiguous_local_settings_json(
     tmp_path, capsys, file_mode, defect,
 ):
     """#355: no last-key-wins or Python NaN extensions in local user exports."""
-    from rasai.dynatrace_apdex_review_cli_355 import main
+    from rasai.dynatrace_apdex_review_cli import main
 
     payload = (
         _config(xhr=True)
@@ -360,7 +360,7 @@ def test_offline_review_rejects_incomplete_physical_settings_read(
 ):
     from io import BytesIO
     from pathlib import Path
-    from rasai.dynatrace_apdex_review_cli_355 import _load_offline_snapshot
+    from rasai.dynatrace_apdex_review_cli import _load_offline_snapshot
 
     path = tmp_path / "settings-export.json"
     original = json.dumps(_config()).encode("utf-8")
@@ -441,7 +441,7 @@ def test_effective_values_export_malformed_data_abstains(variant):
 def test_offline_effective_values_cli_is_read_only_with_explicit_unverified_scope(
     tmp_path, capsys, monkeypatch,
 ):
-    from rasai.dynatrace_apdex_review_cli_355 import main
+    from rasai.dynatrace_apdex_review_cli import main
     path = tmp_path / "effective.json"
     path.write_text(json.dumps(_effective_values_export()), encoding="utf-8")
     import socket
@@ -585,7 +585,7 @@ def test_pt_br_advisory_rejects_fabricated_metrics_and_surfaces_threshold_reason
 def test_pt_br_offline_cli_explains_unknown_without_ever_claiming_real_rum(
     tmp_path, capsys,
 ):
-    from rasai.dynatrace_apdex_review_cli_355 import main
+    from rasai.dynatrace_apdex_review_cli import main
     assert main(["--architecture", "UNKNOWN"]) == 0
     payload = json.loads(capsys.readouterr().out)
     message = payload["analyst_guidance_pt_br"]
@@ -703,8 +703,8 @@ def test_settings_read_missing_token_bad_scope_and_pagination_no_false_success()
 
 
 def test_cli_live_settings_requires_opt_in_and_keeps_no_secrets(tmp_path, monkeypatch, capsys):
-    from rasai.dynatrace_apdex_review_cli_355 import main
-    from rasai import dynatrace_apdex_review_cli_355 as cli
+    from rasai.dynatrace_apdex_review_cli import main
+    from rasai import dynatrace_apdex_review_cli as cli
     monkeypatch.setenv("DYNATRACE_API_TOKEN", "SENSITIVE_NEVER_RENDER")
     calls = []
     def fake_read(**kwargs):
@@ -787,7 +787,7 @@ def test_355_same_size_atomic_snapshot_swap_between_stat_and_open_is_rejected(
     """Bytes matching old size do not prove the opened file is the inspected one."""
     import os
     from pathlib import Path
-    from rasai.dynatrace_apdex_review_cli_355 import _load_offline_snapshot
+    from rasai.dynatrace_apdex_review_cli import _load_offline_snapshot
 
     path = tmp_path / "dynatrace.json"
     before = json.dumps(_config(xhr=False), sort_keys=True).encode("utf-8")
@@ -819,7 +819,7 @@ def test_355_same_length_in_place_rewrite_during_snapshot_open_is_rejected(
     """The source may be edited in place without changing its byte count."""
     import os
     from pathlib import Path
-    from rasai.dynatrace_apdex_review_cli_355 import _load_offline_snapshot
+    from rasai.dynatrace_apdex_review_cli import _load_offline_snapshot
 
     path = tmp_path / "dynatrace-in-place.json"
     original = json.dumps(_config(xhr=True), sort_keys=True).encode("utf-8")

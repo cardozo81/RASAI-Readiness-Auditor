@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from rasai.dynatrace_population_crosscheck_355 import (
+from rasai.dynatrace_population_crosscheck import (
     compare_dynatrace_settings_and_rum as compare,
     main,
 )
@@ -213,7 +213,7 @@ def test_offline_crosscheck_rejects_stream_size_mismatch(
     """#355: the initial filesystem length, read bytes and final length agree."""
     from io import BytesIO
     from pathlib import Path
-    from rasai.dynatrace_population_crosscheck_355 import _load
+    from rasai.dynatrace_population_crosscheck import _load
 
     file = tmp_path / "rum.json"
     physical = json.dumps(_rum()).encode("utf-8")

@@ -403,7 +403,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if effective and effective[0] in {"dynatrace-rum-crosscheck", "dynatrace-rum-review"}:
         # Two already captured JSONs, no external settings/USQL provider,
         # synthetic Apdex, CLI secrets or audit/runtime initialization.
-        from rasai.dynatrace_population_crosscheck_355 import (
+        from rasai.dynatrace_population_crosscheck import (
             main as dynatrace_crosscheck_main,
         )
         return dynatrace_crosscheck_main(effective[1:])
@@ -411,7 +411,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if effective and effective[0] == "dynatrace-apdex-review":
         # Optional offline RUM settings advisory, no tenant or provider access.
         # Execute before secrets/collector runtime initialization.
-        from rasai.dynatrace_apdex_review_cli_355 import main as dynatrace_review
+        from rasai.dynatrace_apdex_review_cli import main as dynatrace_review
         return dynatrace_review(effective[1:])
 
     if effective and effective[0] == "rematerialize-report":

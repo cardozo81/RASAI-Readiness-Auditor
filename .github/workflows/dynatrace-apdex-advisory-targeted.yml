@@ -6,7 +6,7 @@ on:
     paths:
       - 'src/rasai/dynatrace_apdex_arch_advisory.py'
       - 'src/rasai/dynatrace_effective_values_adapter.py'
-      - 'src/rasai/dynatrace_apdex_review_cli_355.py'
+      - 'src/rasai/dynatrace_apdex_review_cli.py'
       - 'src/rasai/dynatrace_settings_live.py'
       - 'tests/test_dynatrace_pinned_transport.py'
       - 'tests/test_dynatrace_apdex_arch_advisory.py'
@@ -17,7 +17,7 @@ on:
     paths:
       - 'src/rasai/dynatrace_apdex_arch_advisory.py'
       - 'src/rasai/dynatrace_effective_values_adapter.py'
-      - 'src/rasai/dynatrace_apdex_review_cli_355.py'
+      - 'src/rasai/dynatrace_apdex_review_cli.py'
       - 'src/rasai/dynatrace_settings_live.py'
       - 'tests/test_dynatrace_pinned_transport.py'
       - 'tests/test_dynatrace_apdex_arch_advisory.py'

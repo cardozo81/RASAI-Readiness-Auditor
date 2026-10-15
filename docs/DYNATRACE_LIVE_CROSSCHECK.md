@@ -1,6 +1,6 @@
 # #355 - Conferência simultânea e explícita de Settings e USQL Dynatrace
 
-O consumidor `python -m rasai.dynatrace_live_crosscheck_355` une
+O consumidor `python -m rasai.dynatrace_live_crosscheck` une
 os dois adaptadores já disponíveis (Settings API v2 e RUM Classic USQL)
 **na mesma chamada de comando**, com um único tenant Dynatrace SaaS,
 application ID e janela de ação. Ele não acessa o Dynatrace por padrão:
@@ -40,7 +40,7 @@ bancos, AUD, CONS, snapshots ou saída de produção.
 Exemplo (executa duas chamadas externas **somente** quando aprovado):
 
 ```powershell
-python -m rasai.dynatrace_live_crosscheck_355 `
+python -m rasai.dynatrace_live_crosscheck `
   --live-base-url https://abc123.live.dynatrace.com `
   --application-id APPLICATION-0123456789ABCDEF `
   --target-url https://example.org/produto `

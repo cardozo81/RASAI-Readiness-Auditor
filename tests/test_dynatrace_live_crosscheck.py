@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from rasai.dynatrace_live_crosscheck_355 import (
+from rasai.dynatrace_live_crosscheck import (
     inspect_live_dynatrace_apdex_coverage, main,
 )
 
