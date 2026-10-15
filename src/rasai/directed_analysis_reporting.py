@@ -693,11 +693,11 @@ def directed_analysis_body(database: Any, data: Any) -> str:
             if action.get("action_id")
         }
         objective_cards.append(
-            "<a class='card directed-goal-link' href='#"+goal_id+"'>"
+            "<a class='directed-goal-link' href='#"+goal_id+"'>"
             "<span class='directed-goal-name'>"+escape(_dimension_label(key))+"</span>"
             "<strong>"+str(len(distinct_action_ids))+"</strong>"
             "<small>ação(ões) vinculada(s) neste objetivo</small>"
-            "<span class='directed-goal-cta'>Explorar ações e evidências ›</span>"
+            "<span class='directed-goal-cta'>Ver intervenções e alvos vinculados ›</span>"
             "</a>"
         )
         rows=[]
@@ -717,9 +717,9 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         )
     objective_index=(
         "<p class='section-lead'>Os objetivos reúnem referências já persistidas. "
-        "Uma mesma ação pode apoiar vários objetivos; as quantidades dos cartões "
+        "Uma mesma ação pode apoiar vários objetivos; as quantidades por dimensão "
         "não são aditivas e não substituem as ocorrências individuais.</p>"
-        "<div class='directed-goal-grid'>"+ "".join(objective_cards) +"</div>"
+        "<div class='directed-goal-grid' aria-label='Dimensões com intervenções persistidas'>"+ "".join(objective_cards) +"</div>"
     ) if objective_cards else ""
     body+=_section("objectives","Visões por objetivo",objective_index+"".join(objective_blocks) or "<div class='notice'>Nenhuma dimensão estratégica foi materializada.</div>")
 
@@ -739,7 +739,7 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         modals.append(modal)
     body+=_section(
         "actions","Ações estratégicas",
-        "<p class='section-lead'>Cada linha corresponde a uma ação persistida. Quando o título se repete, use <strong>Alvo / ocorrência</strong> para identificar exatamente qual cookie, recurso ou registro deve ser tratado.</p>"
+        "<p class='section-lead'>Intervenções documentadas: cada linha corresponde a uma ação persistida, sem deduplicar ocorrências. Consulte prioridade, esforço e confiança na mesma linha; abra o detalhe para contexto, evidências e proveniência. Quando o título se repete, use <strong>Alvo / ocorrência</strong> para identificar exatamente qual cookie, recurso ou registro deve ser tratado.</p>"
         +_table(
             ("Ação","Alvo / ocorrência","Prioridade","Esforço","Confiança","Dimensões","Detalhe"),
             action_rows,
