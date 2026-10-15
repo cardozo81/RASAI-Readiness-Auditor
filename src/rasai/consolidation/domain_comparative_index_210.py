@@ -14,7 +14,7 @@ import sqlite3
 from typing import Sequence
 from urllib.parse import urlsplit
 
-from rasai.consolidation.domain_comparative_preview_210 import preview_same_domain_candidates
+from rasai.consolidation.domain_comparative_preview import preview_same_domain_candidates
 from rasai.consolidation.reader import _audit_urls, _columns, _devices, source_file_fingerprint
 from rasai.consolidation.selection import AuditCandidate
 

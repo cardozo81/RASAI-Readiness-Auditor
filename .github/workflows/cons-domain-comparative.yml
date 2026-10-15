@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'src/rasai/consolidation/domain_comparative_preview_210.py'
+      - 'src/rasai/consolidation/domain_comparative_preview.py'
       - 'src/rasai/consolidation/domain_comparative_index_210.py'
       - 'src/rasai/consolidation/domain_comparative_html.py'
       - 'tests/test_cons_domain_comparative.py'
@@ -14,7 +14,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'src/rasai/consolidation/domain_comparative_preview_210.py'
+      - 'src/rasai/consolidation/domain_comparative_preview.py'
       - 'src/rasai/consolidation/domain_comparative_index_210.py'
       - 'src/rasai/consolidation/domain_comparative_html.py'
       - 'tests/test_cons_domain_comparative.py'

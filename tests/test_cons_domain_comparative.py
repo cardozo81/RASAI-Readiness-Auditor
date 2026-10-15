@@ -5,7 +5,7 @@ from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
-from rasai.consolidation.domain_comparative_preview_210 import preview_same_domain_candidates
+from rasai.consolidation.domain_comparative_preview import preview_same_domain_candidates
 from rasai.consolidation.selection import AuditCandidate
 
 
@@ -115,7 +115,7 @@ def test_invalid_unsafe_urls_and_count_limits_fail_closed():
 
 
 def test_no_external_call_or_materialization_imported():
-    from rasai.consolidation import domain_comparative_preview_210 as module
+    from rasai.consolidation import domain_comparative_preview as module
     assert not any(name in module.__dict__ for name in (
         "requests", "httpx", "sqlite3", "AuditWorkspace", "materialize_geo_observation",
     ))

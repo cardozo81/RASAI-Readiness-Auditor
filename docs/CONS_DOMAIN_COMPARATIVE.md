@@ -12,7 +12,7 @@ para um eventual modo **SAME_DOMAIN_COMPARATIVE** sem confundi-lo com
 ## Entrada e saída
 
 A função
-`rasai.consolidation.domain_comparative_preview_210.preview_same_domain_candidates`
+`rasai.consolidation.domain_comparative_preview.preview_same_domain_candidates`
 recebe de dois a cem `AuditCandidate` produzidos pelo índice analítico
 existente e não faz descoberta, indexação, coleta, consulta externa ou
 materialização. Sua saída é JSON-compatível, versão
