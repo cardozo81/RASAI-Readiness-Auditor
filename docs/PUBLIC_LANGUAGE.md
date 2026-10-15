@@ -22,7 +22,7 @@
 
 ## Exceções deliberadas
 
-**Documentação técnica:** `docs/AUDIT_STAGE_SCOPE_319.md`,
+**Documentação técnica:** `docs/AUDIT_STAGE_SCOPE.md`,
 `docs/CONS_DOMAIN_COMPARATIVE_210.md`,
 `docs/CAT07_EXPERIENCE_ARCH_GUIDANCE.md` e
 `docs/AI_RUNTIME_ORCHESTRATION.md` continuam com IDs M* porque

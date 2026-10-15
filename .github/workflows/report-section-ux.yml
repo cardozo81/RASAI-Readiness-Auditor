@@ -7,14 +7,14 @@ on:
       - 'src/rasai/catalog_report_style.py'
       - 'tests/test_report_section_readability_328.py'
       - 'docs/REPORT_SECTION_UX.md'
-      - '.github/workflows/report-section-ux-328.yml'
+      - '.github/workflows/report-section-ux.yml'
   push:
     branches: [main]
     paths:
       - 'src/rasai/catalog_report_page.py'
       - 'src/rasai/catalog_report_style.py'
       - 'tests/test_report_section_readability_328.py'
-      - '.github/workflows/report-section-ux-328.yml'
+      - '.github/workflows/report-section-ux.yml'
 permissions:
   contents: read
 jobs:

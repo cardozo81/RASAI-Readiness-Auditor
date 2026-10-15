@@ -15,7 +15,7 @@ on:
       - 'tests/test_console_perplexity_readiness_318.py'
       - 'tests/test_console_search_scope_presentation.py'
       - 'docs/PERPLEXITY_SEARCH_INTELLIGENCE.md'
-      - 'docs/CONSOLE_CONFIG_PERSISTENCE_523.md'
+      - 'docs/CONSOLE_CONFIG_PERSISTENCE.md'
       - '.github/workflows/cat07-perplexity-ux-318-378.yml'
   push:
     branches: [main]

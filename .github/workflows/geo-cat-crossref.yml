@@ -8,14 +8,14 @@ on:
       - 'tests/test_geo_snapshot_context_308_309.py'
       - 'tests/test_geo_catalog_context_308.py'
       - 'docs/GEO_CATALOG_CONTEXT.md'
-      - '.github/workflows/geo-cat-crossref-308-309.yml'
+      - '.github/workflows/geo-cat-crossref.yml'
   push:
     branches: [main]
     paths:
       - 'src/rasai/geo_snapshot_context_308.py'
       - 'src/rasai/geo_catalog_context.py'
       - 'tests/test_geo_snapshot_context_308_309.py'
-      - '.github/workflows/geo-cat-crossref-308-309.yml'
+      - '.github/workflows/geo-cat-crossref.yml'
 permissions:
   contents: read
 jobs:

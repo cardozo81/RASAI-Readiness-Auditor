@@ -6,13 +6,13 @@ on:
       - 'src/rasai/audit_ai_completion_boundary_319.py'
       - 'tests/test_audit_ai_completion_boundary_319.py'
       - 'docs/AUD_AI_COMPLETION_BOUNDARY.md'
-      - '.github/workflows/aud-ai-completion-boundary-319.yml'
+      - '.github/workflows/aud-ai-completion-boundary.yml'
   push:
     branches: [main]
     paths:
       - 'src/rasai/audit_ai_completion_boundary_319.py'
       - 'tests/test_audit_ai_completion_boundary_319.py'
-      - '.github/workflows/aud-ai-completion-boundary-319.yml'
+      - '.github/workflows/aud-ai-completion-boundary.yml'
 permissions:
   contents: read
 jobs:

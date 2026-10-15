@@ -11,8 +11,8 @@ on:
       - src/rasai/catalog_report_site.py
       - tests/test_audit_stage_scope_319.py
       - tests/test_audit_inspection_cli_319.py
-      - docs/AUDIT_STAGE_SCOPE_319.md
-      - .github/workflows/audit-stage-scope-319-targeted.yml
+      - docs/AUDIT_STAGE_SCOPE.md
+      - .github/workflows/audit-stage-scope-targeted.yml
 permissions:
   contents: read
 jobs:
