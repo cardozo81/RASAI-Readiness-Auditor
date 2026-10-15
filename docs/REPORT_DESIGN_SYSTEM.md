@@ -1,6 +1,6 @@
 # #633 - Redesenho unificado: baseline e contrato da primeira etapa
 
-**Status:** implementação em revisão após reprovação visual da AUD real; aceite humano pendente. Este documento acompanha iterações e não constitui homologação. Este arquivo **não** constitui aceite de release ou substituto de smoke.
+**Estado atual:** código aprovado expressamente pelo operador em 15/10/2026 após rematerialização isolada e revisão das correções de Lighthouse, UX e superfícies. Gate técnico direcionado verde. Integração de PR #637 em `main` autorizada, condicionada a checagens CI e rastreabilidade do merge; o aceite não é certificação geral de conformidade ou prova comparativa de baseline ausente. Informações de andamento abaixo registram os checkpoints históricos.
 
 ## Escopo imutável
 
