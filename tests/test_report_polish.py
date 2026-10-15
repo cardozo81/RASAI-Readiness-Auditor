@@ -40,10 +40,11 @@ def test_canonical_report_order_follows_reading_flow() -> None:
     ]
     assert filenames == expected
 
-def test_documentation_declares_development_not_prior_public_releases() -> None:
+def test_documentation_distinguishes_published_release_from_current_contract() -> None:
     docs_index = (ROOT / "docs/README.md").read_text(encoding="utf-8")
-    assert "desenvolvimento e validação" in docs_index
-    assert "não corresponde" not in docs_index.lower() or "release" not in docs_index.lower()
+    assert "release pública final `v0.5.0`" in docs_index
+    assert "baseline publicada" in docs_index
+    assert "evolução pós-release" in docs_index
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "docs/README.md" in readme
 

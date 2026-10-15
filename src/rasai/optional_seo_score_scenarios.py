@@ -10,7 +10,7 @@ from dataclasses import replace
 from typing import Any, Iterable
 
 from rasai.domain import DeviceContext, RuleExecution, RuleResult
-from rasai.optional_seo_policy_602 import classify_seo_evidence
+from rasai.optional_seo_policy import classify_seo_evidence
 from rasai.scoring_v004 import ScoreGeo004Engine
 
 _MAX_RULES = 10000
