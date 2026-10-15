@@ -1022,6 +1022,8 @@ def test_apdex_load_warning_categories_are_sanitized_and_exhaustive():
 def test_apdex_load_warning_categories_empty():
     from rasai.console_apdex_effective_validation_523 import _classify_load_warnings
     assert sum(_classify_load_warnings([]).values()) == 0
+
+
 def test_rejected_environment_warning_reasons_are_non_disclosing():
     from rasai.console_apdex_effective_validation_523 import (
         _classify_environment_warning_reasons,
@@ -1055,10 +1057,10 @@ def test_apdex_preflight_classifies_rejected_environment_without_read_write_leak
 
     path = tmp_path / "operator.ini"
     path.write_text(
-        "[environment]\\n"
-        "OPENAI_API_KEY = NEVER_ECHO_PRIVATE_SECRET\\n"
-        "LEGACY_PRIVATE_TOKEN = NEVER_ECHO_OLD_SECRET\\n"
-        "RASAI_RETIRED_INPUT = NEVER_ECHO_SETTING\\n",
+        "[environment]\n"
+        "OPENAI_API_KEY = NEVER_ECHO_PRIVATE_SECRET\n"
+        "LEGACY_PRIVATE_TOKEN = NEVER_ECHO_OLD_SECRET\n"
+        "RASAI_RETIRED_INPUT = NEVER_ECHO_SETTING\n",
         encoding="utf-8",
     )
     before = path.read_bytes()
