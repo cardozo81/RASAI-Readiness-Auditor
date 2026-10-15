@@ -219,6 +219,31 @@ def _validate(name: str, raw: str) -> str:
         if value not in set(allowed):
             raise ValueError("use " + ", ".join(allowed))
         return value
+    if name in {entry[0] for entry in _ADDITIONAL_RUNTIME_INPUTS}:
+        from rasai.time_contract import validate_presentation_timezone
+        spec = SPEC_BY_NAME[name]
+        candidate = str(raw).strip()
+        if not candidate:
+            raise ValueError("valor vazio; remova o override em vez de gravar vazio")
+        if spec.accepted:
+            canonical = candidate.casefold()
+            if canonical not in spec.accepted:
+                raise ValueError("use " + ", ".join(spec.accepted))
+            return canonical
+        if spec.value_type == "inteiro > 0":
+            if int(candidate) <= 0:
+                raise ValueError("use inteiro > 0")
+        elif spec.value_type == "numero > 0":
+            from math import isfinite
+            number = float(candidate)
+            if not isfinite(number) or number <= 0:
+                raise ValueError("use numero finito > 0")
+        elif spec.value_type == "timezone IANA":
+            return validate_presentation_timezone(candidate)
+        elif spec.value_type == "tag BCP-47 ou auto":
+            from rasai.improvement_intelligence import validate_analysis_language
+            return validate_analysis_language(candidate)
+        return candidate
     return base_environment._validate(name, raw)
 
 
