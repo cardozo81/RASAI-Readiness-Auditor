@@ -341,7 +341,7 @@ def _cat07_methodology_summary_html(database: Path, data: _ReportData) -> str:
             continue
         lighthouse_rows.append((
             _device_label(row.get("device")),
-            _fmt_number(performance,"/ 100") if performance is not None else "-",
+            (_fmt_number(performance) + " / 100") if performance is not None else "-",
             _fmt_number(lcp,"ms") if lcp is not None else "-",
             _friendly_service(row.get("strategy") or "PAGESPEED_INSIGHTS"),
         ))
