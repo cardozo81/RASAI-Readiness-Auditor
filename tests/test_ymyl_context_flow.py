@@ -85,6 +85,94 @@ def test_faq_duplicated_panel_ids_and_aria_attributes_are_ambiguous() -> None:
 
 
 
+
+def test_opted_in_faq_receipt_requires_signed_collector_source_and_matching_dom() -> None:
+    import hmac
+    import json
+    from hashlib import sha256
+
+    from rasai.faq_interaction_receipt_601 import verify_faq_interaction_receipt
+
+    key = b"separately-configured-test-collector-key-2026"
+    before = '<button aria-controls="faq-x" aria-expanded="false">Pergunta</button>'
+    later = (
+        '<button aria-controls="faq-x" aria-expanded="true">Pergunta</button>'
+        '<div id="faq-x">Resposta efetivamente no DOM após ação.</div>'
+    )
+    receipt = {
+        "receipt_id": "FAQ-EV-1",
+        "collector_id": "COLLECTOR-APPROVED",
+        "target_id": "faq-x",
+        "document_url": "https://example.test/seguro",
+        "before_sha256": sha256(before.encode("utf-8")).hexdigest(),
+        "after_sha256": sha256(later.encode("utf-8")).hexdigest(),
+        "before_utc": "2026-10-14T20:00:00Z",
+        "after_utc": "2026-10-14T20:00:01Z",
+        "action": "FAQ_DISCLOSURE_BUTTON_CLICK",
+        "target_opt_in": True,
+        "isolated_unauthenticated_context": True,
+        "network_blocked_after_load": True,
+    }
+    def mac(r):
+        encoded = json.dumps(
+            r, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+        return hmac.new(key, encoded, sha256).hexdigest()
+
+    inputs = {
+        "trusted_key": key,
+        "permitted_collector_ids": frozenset({"COLLECTOR-APPROVED"}),
+    }
+    valid = mac(receipt)
+    observed = verify_faq_interaction_receipt(
+        before, later, receipt=receipt, receipt_mac=valid, **inputs,
+    )
+    assert observed["status"] == "ATTESTED_ISOLATED_FAQ_INTERACTION_OBSERVATION"
+    assert observed["action_attested_by_trusted_collector"] is True
+    assert observed["text_recoverable_after_action"] is True
+    assert observed["before_state"] == "COLLAPSED_UNMOUNTED"
+    assert observed["later_state"] == "EXPANDED_DOM_TEXT"
+    assert not observed["crawler_discovery_verified"]
+    assert not observed["score_change_authorized"]
+    assert observed["audit_writes"] == observed["new_audit_requests"] == 0
+
+    for tampered in (
+        {**receipt, "after_sha256": "0" * 64},
+        {**receipt, "target_opt_in": False},
+        {**receipt, "collector_id": "COLLECTOR-UNAUTHORIZED"},
+        {**receipt, "collector_id": []},
+        {**receipt, "after_utc": "2026-10-14T20:20:00Z"},
+        {**receipt, "network_blocked_after_load": False},
+        {**receipt, "target_id": "faq-other"},
+        {**receipt, "extra": "untrusted"},
+    ):
+        out = verify_faq_interaction_receipt(
+            before, later, receipt=tampered, receipt_mac=valid, **inputs,
+        )
+        assert out["status"] == "INTERACTION_NOT_ATTESTED"
+        assert not out["action_attested_by_trusted_collector"]
+    assert verify_faq_interaction_receipt(
+        before, later, receipt=receipt, receipt_mac="0" * 64, **inputs,
+    )["status"] == "INTERACTION_NOT_ATTESTED"
+    assert verify_faq_interaction_receipt(
+        before, later + " ", receipt=receipt, receipt_mac=valid, **inputs,
+    )["status"] == "INTERACTION_NOT_ATTESTED"
+
+    no_answer = '<button aria-controls="faq-x" aria-expanded="true">Pergunta</button>'
+    none_receipt = {
+        **receipt, "after_sha256": sha256(no_answer.encode()).hexdigest(),
+    }
+    observed_none = verify_faq_interaction_receipt(
+        before, no_answer, receipt=none_receipt,
+        receipt_mac=mac(none_receipt), **inputs,
+    )
+    assert observed_none["status"] == "ATTESTED_ISOLATED_FAQ_INTERACTION_OBSERVATION"
+    assert not observed_none["text_recoverable_after_action"]
+    assert not observed_none["editorial_answer_absence_proven"]
+
+
+
 def test_faq_paired_dom_text_does_not_certify_click_or_crawler_discovery() -> None:
     from rasai.faq_transition_policy_601 import compare_faq_dom_views as compare
 
