@@ -330,7 +330,7 @@ def _existing_ini_snapshot(destination: Path) -> tuple[tuple[int, ...], bytes] |
 
 def _guard_existing_ini_before_save(
     destination: Path, state: Any
-) -> tuple[int, ...] | tuple[object, ...] | None:
+) -> tuple[object, ...] | None:
     """Reject lossy replacement of an operator INI, including unknown typed data.
 
     Only declared schema keys may be reserialized. Existing values are not
@@ -367,16 +367,16 @@ def save_console_config(state: Any, path: Path | None = None) -> Path:
     destination.parent.mkdir(parents=True, exist_ok=True)
     parser = _parser_for_state(state)
     stream = io.StringIO()
-    stream.write("; RASAi interactive console settings\\n")
-    stream.write("; All explicit non-secret overrides exposed by the console are persisted.\\n")
-    stream.write("; API keys, bearer tokens, passwords, session secrets and credential-bearing DSNs are NOT persisted.\\n")
-    stream.write("; Use environment variables, OS persistence or the SaaS secret mechanism for credentials.\\n\\n")
+    stream.write("; RASAi interactive console settings\n")
+    stream.write("; All explicit non-secret overrides exposed by the console are persisted.\n")
+    stream.write("; API keys, bearer tokens, passwords, session secrets and credential-bearing DSNs are NOT persisted.\n")
+    stream.write("; Use environment variables, OS persistence or the SaaS secret mechanism for credentials.\n\n")
     parser.write(stream)
     descriptor, temporary = mkstemp(
         prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
     )
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\\n") as output:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as output:
             output.write(stream.getvalue())
         current = _existing_ini_snapshot(destination)
         current_identity = current[0] if current is not None else None
