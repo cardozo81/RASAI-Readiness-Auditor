@@ -278,15 +278,18 @@ def _snapshot_indicator_633(
 
 
 def _lighthouse_score_display_633(raw: Any) -> str:
-    """Use CAT-04's existing 0..1 normalized Lighthouse presentation contract."""
+    """Persisted Lighthouse scores are ALREADY on 0..100 (M21 contract).
+
+    An observation with performance_score=1.0 means 1/100, not 100/100.
+    The upstream PageSpeed raw API score 0..1 was scaled during collection;
+    projection must never scale a persisted score a second time.
+    """
     try:
         value = float(raw)
     except (ValueError, TypeError):
         return str(raw) + "/100"
     if not isfinite(value):
         return str(raw) + "/100"
-    if 0 <= value <= 1:
-        value *= 100
     return f"{value:g}/100"
 
 
@@ -315,7 +318,7 @@ def _decision_snapshot_poc_633(
         metrics.append(_snapshot_indicator_633(
             "Lighthouse · desempenho",
             _lighthouse_score_display_633(web["performance_score"]),
-            "Medição de laboratório; distinta de SARI e CrUX.",
+            "Score já persistido em 0–100; laboratório, distinto de SARI e CrUX.",
             "cat-04.html#metric-lighthouse-performance",
             "Ver resultado e evidências",
         ))
