@@ -24,7 +24,7 @@ $smoke = Join-Path $env:TEMP "rasai-633-smoke"
 .\.venv\Scripts\python.exe -m rasai rematerialize-report --audit-dir $aud --output-root $out
 
 $candidate = Join-Path $out "AUD-EAFBFF6E3F6E415CB0DD41F561B5B2DF\report-catalog"
-.\.venv\Scripts\python.exe tests\report_smoke_633.py --report-dir $candidate --output-dir $smoke
+.\.venv\Scripts\python.exe tests\report_catalog_visual_smoke.py --report-dir $candidate --output-dir $smoke
 ```
 
 A rematerialização publica **somente** em `$out`; os bytes da AUD fonte devem permanecer intactos. O comando Playwright verifica o pacote autocontido, as 19 páginas, menu único com item ativo, comportamento `file://`, viewport sem overflow global, funcionamento de abrir/fechar menu mobile, modal de objetivos com contagem e foco, deep-link, navegação sem JS, e produz capturas desktop/tablet/mobile para cada página (incluindo `objective-modal-open.png` nas páginas com objetivos) e PDFs A4 de index/Análise Direcionada/CAT-07.

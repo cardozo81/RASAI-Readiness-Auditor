@@ -35,7 +35,7 @@ Nesta revisão, `index.html#experience` deixa de ser uma grade de atalhos e pass
 ### Gates obrigatórios após alterações
 
 - Confirmar CI do **novo HEAD**; falha ou execução pendente impede novo handoff.
-- Reexecutar rematerialização isolada e `tests/report_smoke_633.py` na AUD real, sem coletar dados.
+- Reexecutar rematerialização isolada e `tests/report_catalog_visual_smoke.py` na AUD real, sem coletar dados.
 - Inspecionar as 19 páginas, em especial intervenções, objetivos, navegação de dados densos, mobile e A4.
 - Obter **novo aceite explícito** do responsável sobre o HEAD revisado; PR #637 fica DRAFT até então.
 
@@ -98,7 +98,7 @@ A seção `directed-analysis.html#targets` indexa cada ação uma única vez pel
 - **Errata validada após novo feedback humano:** a documentação e o código anteriores confundiram a escala da API Lighthouse (0-1) com a escala **já persistida** no banco RASAi (0-100). Segundo o contrato M21 (`docs/LIGHTHOUSE_WEB_QUALITY.md` e `m21_web_performance._parse_lighthouse`), `performance_score=1.0` no `audit.db` significa **1/100**, e não 100/100. O retrato e os indicadores originais CAT-04 passam a projetar diretamente os valores persistidos, sem multiplicação adicional. A versão anterior (HEAD `d9fa940...`) tinha uma representação indevidamente otimista, rejeitada e corrigida na mesma branch. Nenhum valor persistido, motor, fórmula ou medição foi alterado; SARI, Lighthouse e CrUX mantêm contratos distintos.
 - O CSS usa os tokens `--ink`, `--secondary-ink`, `--blue`, `--line` e `--card`; links têm texto explícito e sublinhado, foco de teclado, estado de hover sem depender exclusivamente de cor. Testes pontuais verificam contraste mínimo **WCAG AA 4,5:1** para os principais textos do cartão sobre branco. Não se afirma auditoria WCAG integral de todo o relatório.
 
-**Gate específico desta iteração:** executar **somente** `tests/test_catalog_report_site.py`, `tests/test_report_section_readability_328.py` e `tests/report_smoke_633.py` (fluxo `Report 633 offline visual smoke`); não reexecutar suites de coleta/IA/scoring ou todos os workflows do repositório por alterações confinadas à apresentação. A verificação automatizada é complementar ao smoke humano com a AUD real.
+**Gate específico desta iteração:** executar **somente** `tests/test_catalog_report_site.py`, `tests/test_report_section_readability_328.py` e `tests/report_catalog_visual_smoke.py` (fluxo `Report 633 offline visual smoke`); não reexecutar suites de coleta/IA/scoring ou todos os workflows do repositório por alterações confinadas à apresentação. A verificação automatizada é complementar ao smoke humano com a AUD real.
 
 ## Revisão visual de superfícies e bordas (15/10/2026)
 

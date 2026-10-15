@@ -1,4 +1,4 @@
-name: Report 633 offline visual smoke
+name: Report catalog offline visual smoke
 
 on:
   pull_request:
@@ -6,8 +6,9 @@ on:
       - "src/rasai/catalog_report_*.py"
       - "src/rasai/directed_analysis_reporting.py"
       - "tests/test_catalog_report_site.py"
-      - "tests/report_smoke_633.py"
-      - ".github/workflows/report-ux-633-visual-smoke.yml"
+      - "tests/report_catalog_visual_smoke.py"
+      - "src/rasai/geo_report.py"
+      - ".github/workflows/report-catalog-visual-smoke.yml"
   workflow_dispatch:
 
 permissions:
@@ -33,12 +34,12 @@ jobs:
           python -m pytest -q tests/test_catalog_report_site.py tests/test_report_section_readability_328.py
       - name: Materialize offline synthetic report and capture mobile desktop print
         run: |
-          python tests/report_smoke_633.py --make-synthetic-fixture --output-dir "${{ runner.temp }}/rasai-report-633"
+          python tests/report_catalog_visual_smoke.py --make-synthetic-fixture --output-dir "${{ runner.temp }}/rasai-catalog-report"
       - name: Publish synthetic screenshots and report for human visual review
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rasai-633-offline-report-smoke
-          path: ${{ runner.temp }}/rasai-report-633/
+          name: rasai-catalog-report-smoke
+          path: ${{ runner.temp }}/rasai-catalog-report/
           retention-days: 14
           if-no-files-found: warn

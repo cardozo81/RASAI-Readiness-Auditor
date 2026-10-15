@@ -250,7 +250,7 @@ def test_report_633_baseline_guard_does_not_lose_nontabular_evidence() -> None:
     """A design-only diff cannot silently delete prose, targets or source links."""
     from runpy import run_path
 
-    smoke = run_path(str(Path(__file__).with_name("report_smoke_633.py")))
+    smoke = run_path(str(Path(__file__).with_name("report_catalog_visual_smoke.py")))
     _Tables = smoke["_Tables"]
     _check_table_parity = smoke["_check_table_parity"]
 
