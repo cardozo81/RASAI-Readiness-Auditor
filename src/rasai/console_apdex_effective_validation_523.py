@@ -88,6 +88,43 @@ def _classify_load_warnings(warnings: tuple[str, ...] | list[str]) -> dict[str, 
     return counts
 
 
+def _classify_environment_warning_reasons(
+    warnings: tuple[str, ...] | list[str],
+) -> dict[str, int]:
+    """Explain rejected environment keys without emitting their names or values.
+
+    The loader rejects keys outside its current non-secret catalog allowlist.
+    A removed/unknown key is not necessarily a lost effective setting.
+    These counts are diagnostic only, not evidence of runtime consumption.
+    """
+    from rasai.console_config import is_secret
+    from rasai.console_provider_environment import refresh_specs
+
+    catalog = {spec.name for spec in refresh_specs()}
+    reasons = {
+        "registered_but_excluded": 0,
+        "unregistered_secret_pattern": 0,
+        "unregistered_name": 0,
+        "empty_name": 0,
+    }
+    prefix = "environment."
+    suffix = ": variável não reconhecida ou não persistível"
+    for warning in warnings:
+        if not (warning.startswith(prefix) and warning.endswith(suffix)):
+            continue
+        name = warning[len(prefix):-len(suffix)]
+        if not name:
+            reason = "empty_name"
+        elif name in catalog:
+            reason = "registered_but_excluded"
+        elif is_secret(name):
+            reason = "unregistered_secret_pattern"
+        else:
+            reason = "unregistered_name"
+        reasons[reason] += 1
+    return reasons
+
+
 def inspect_apdex_consumers(
     path: Path,
     *,
@@ -110,6 +147,7 @@ def inspect_apdex_consumers(
         "single_device_enforced": None,
         "load_warning_count": None,
         "load_warning_categories": None,
+        "load_warning_environment_reasons": None,
         "external_requests": 0,
         "audit_writes": 0,
         "values_exposed": False,
@@ -192,6 +230,9 @@ def inspect_apdex_consumers(
             ),
             "load_warning_count": len(result.warnings),
             "load_warning_categories": _classify_load_warnings(result.warnings),
+            "load_warning_environment_reasons": _classify_environment_warning_reasons(
+                result.warnings
+            ),
         }
     except (OSError, UnicodeError, ConfigError, ValueError, TypeError, OverflowError):
         return {**base, "status": "CONFIG_OR_ADAPTER_INVALID"}
