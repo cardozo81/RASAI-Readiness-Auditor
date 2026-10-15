@@ -242,12 +242,93 @@ if(menuButton&&menu){
   document.addEventListener('keydown',(event)=>{if(event.key==='Escape'&&menuButton.getAttribute('aria-expanded')==='true'){setOpen(false);menuButton.focus();}});
 }
 const open=(id)=>{const el=document.getElementById(id);if(el&&typeof el.showModal==='function'&&!el.open)el.showModal();};
-const openHash=()=>{let id='';try{id=decodeURIComponent((location.hash||'').replace(/^#/,'')).trim();}catch(_error){return;}if(!id)return;const target=document.getElementById(id);if(!target)return;if(target.matches('details.directed-goal-details')){target.open=true;return;}open(id);};
-document.addEventListener('click',(event)=>{const trigger=event.target.closest('[data-modal-open]');if(trigger){event.preventDefault();open(trigger.getAttribute('data-modal-open'));return;}const closer=event.target.closest('[data-modal-close]');if(closer){event.preventDefault();const dlg=closer.closest('dialog');if(dlg)dlg.close();}});
+
+// #633: one HTML detail source is progressively enhanced into a contextual
+// dialog. Moving its existing node avoids cloning action/evidence data.
+// Without JavaScript (or dialog support), native details stay accessible.
+let objectiveDialog=null;
+let activeObjective=null;
+if(document.querySelector('details.directed-goal-details')&&typeof HTMLDialogElement!=='undefined'&&typeof HTMLDialogElement.prototype.showModal==='function'){
+  objectiveDialog=document.createElement('dialog');
+  objectiveDialog.className='rasai-modal directed-objective-dialog';
+  objectiveDialog.setAttribute('aria-labelledby','directed-objective-dialog-title');
+  objectiveDialog.innerHTML="<div class='modal-head'><div><h2 id='directed-objective-dialog-title'></h2><p>Intervenções e evidências persistidas · leitura por objetivo</p></div><button type='button' class='modal-close' data-modal-close aria-label='Fechar detalhe do objetivo'>Fechar ×</button></div><div class='modal-body' data-objective-dialog-body></div>";
+  document.body.appendChild(objectiveDialog);
+  document.documentElement.classList.add('report-objectives-enhanced');
+  objectiveDialog.addEventListener('close',()=>{
+    if(!activeObjective)return;
+    const {source,body,marker,trigger}=activeObjective;
+    marker.replaceWith(body);
+    source.removeAttribute('data-goal-in-dialog');
+    objectiveDialog.querySelector('[data-objective-dialog-body]').replaceChildren();
+    activeObjective=null;
+    if(trigger&&trigger.isConnected)trigger.focus({preventScroll:true});
+  });
+}
+const resolveObjective=(element)=>{
+  if(!element)return null;
+  return element.matches('details.directed-goal-details')?element:element.closest('details.directed-goal-details');
+};
+const openObjective=(source,trigger=null)=>{
+  if(!source)return false;
+  if(!objectiveDialog){
+    source.open=true;
+    return true;
+  }
+  if(activeObjective&&activeObjective.source===source)return true;
+  if(objectiveDialog.open)objectiveDialog.close();
+  const body=source.querySelector(':scope > .detail-body');
+  if(!body){source.open=true;return true;}
+  const marker=document.createComment('original persisted objective detail position');
+  body.before(marker);
+  objectiveDialog.querySelector('[data-objective-dialog-body]').appendChild(body);
+  objectiveDialog.querySelector('#directed-objective-dialog-title').textContent=source.querySelector('summary')?.textContent||'Detalhamento por objetivo';
+  source.setAttribute('data-goal-in-dialog','true');
+  source.open=false;
+  activeObjective={source,body,marker,trigger:trigger||document.querySelector('a[href="#'+source.id+'"]')};
+  objectiveDialog.showModal();
+  objectiveDialog.querySelector('[data-modal-close]').focus();
+  return true;
+};
+const openHash=()=>{
+  let id='';
+  try{id=decodeURIComponent((location.hash||'').replace(/^#/,'')).trim();}catch(_error){return;}
+  if(!id)return;
+  const target=document.getElementById(id);if(!target)return;
+  const goal=resolveObjective(target);
+  if(goal){openObjective(goal);return;}
+  open(id);
+};
+document.addEventListener('click',(event)=>{
+  const goalLink=event.target.closest('a[href^="#goal-"]');
+  if(goalLink){
+    let id='';
+    try{id=decodeURIComponent(goalLink.getAttribute('href').slice(1));}catch(_error){return;}
+    const target=document.getElementById(id);
+    const goal=resolveObjective(target);
+    if(goal){
+      event.preventDefault();
+      if(location.hash!=='#'+id)history.pushState(null,'','#'+encodeURIComponent(id));
+      openObjective(goal,goalLink);
+      return;
+    }
+  }
+  const trigger=event.target.closest('[data-modal-open]');
+  if(trigger){event.preventDefault();open(trigger.getAttribute('data-modal-open'));return;}
+  const closer=event.target.closest('[data-modal-close]');
+  if(closer){event.preventDefault();const dlg=closer.closest('dialog');if(dlg)dlg.close();}
+});
 window.addEventListener('hashchange',openHash);
+window.addEventListener('popstate',openHash);
 openHash();
-document.addEventListener('cancel',(event)=>{if(event.target.matches('dialog.rasai-modal'))event.target.close();});
-document.addEventListener('click',(event)=>{const dlg=event.target;if(dlg instanceof HTMLDialogElement&&dlg.classList.contains('rasai-modal')){const rect=dlg.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)dlg.close();}});
+window.addEventListener('beforeprint',()=>{if(objectiveDialog&&objectiveDialog.open)objectiveDialog.close();});
+document.addEventListener('click',(event)=>{
+  const dlg=event.target;
+  if(typeof HTMLDialogElement!=='undefined'&&dlg instanceof HTMLDialogElement&&dlg.classList.contains('rasai-modal')){
+    const rect=dlg.getBoundingClientRect();
+    if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)dlg.close();
+  }
+});
 
 const normalizeSortValue=(input)=>{
   const value=(input||'').trim();
