@@ -236,6 +236,92 @@ def test_claim_verification_requires_attested_primary_source_exact_scope_and_ver
 
 
 
+
+def test_signed_claim_review_receipt_authenticates_entire_context_before_corrob() -> None:
+    import hmac
+    import json
+    from datetime import date
+    from hashlib import sha256
+
+    from rasai.claim_review_receipt_603 import verify_claim_review_receipt
+
+    key = b"independent-review-fixture-signing-key-2026"
+    allow = frozenset({"REVIEWER-APPROVED-1"})
+    claim = "ativação em 24 horas"
+    document = "Condições do produto: ativação após 24 horas.".encode("utf-8")
+    receipt = {
+        "source_url": "https://example.test/primary-v1",
+        "document_sha256": sha256(document).hexdigest(),
+        "effective_from": "2026-01-01",
+        "effective_until": "2026-12-31",
+        "reviewed_on": "2026-10-10",
+        "product_scope": "VIDA-2026",
+        "claim_text": claim,
+        "document_version": "2026-01",
+        "issuer": "Emissor de teste",
+        "reviewer_receipt_id": "RCP-019",
+        "reviewer_id": "REVIEWER-APPROVED-1",
+        "matched_excerpt": "ativação após 24 horas",
+        "review_decision": "CORROBORATES",
+        "independent_source_authenticity_verified": True,
+    }
+    def mac(review: dict) -> str:
+        payload = json.dumps(
+            review, ensure_ascii=False, sort_keys=True,
+            separators=(",", ":"), allow_nan=False,
+        ).encode("utf-8")
+        return hmac.new(key, payload, sha256).hexdigest()
+
+    valid = mac(receipt)
+    fields = {
+        "product_scope": "VIDA-2026",
+        "at_date": date(2026, 10, 14),
+        "primary_bytes": document,
+        "trusted_key": key,
+        "trusted_reviewer_ids": allow,
+    }
+    result = verify_claim_review_receipt(
+        claim, receipt=receipt, receipt_mac=valid, **fields,
+    )
+    assert result == {
+        "state": "CLAIM_CORROBORATED",
+        "basis": "INDEPENDENT_VERSIONED_SOURCE_REVIEW",
+    }
+
+    for tampered in (
+        {**receipt, "review_decision": "CONTRADICTS"},
+        {**receipt, "document_version": "2026-02"},
+        {**receipt, "reviewer_id": "REVIEWER-OTHER"},
+        {**receipt, "product_scope": "OTHER"},
+        {**receipt, "independent_source_authenticity_verified": False},
+        {**receipt, "extra_field": "untrusted"},
+    ):
+        denied = verify_claim_review_receipt(
+            claim, receipt=tampered, receipt_mac=valid, **fields,
+        )
+        assert denied["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+        assert denied["basis"] == "NO_AUTHENTICATED_REVIEW_RECEIPT"
+    assert verify_claim_review_receipt(
+        claim, receipt=receipt, receipt_mac="0" * 64, **fields,
+    )["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    assert verify_claim_review_receipt(
+        claim, receipt=receipt, receipt_mac=valid,
+        **{**fields, "trusted_key": b""},
+    )["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    assert verify_claim_review_receipt(
+        claim, receipt=receipt, receipt_mac=valid,
+        **{**fields, "primary_bytes": b"substituted-document"},
+    )["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    assert verify_claim_review_receipt(
+        claim, receipt=receipt, receipt_mac=valid,
+        **{**fields, "at_date": date(2027, 1, 1)},
+    )["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    assert verify_claim_review_receipt(
+        "other claim", receipt=receipt, receipt_mac=valid, **fields,
+    )["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    assert "trusted_key" not in repr(result)
+
+
 def _database(tmp_path: Path) -> Path:
     database = tmp_path / "audit.db"
     connection = sqlite3.connect(database)
