@@ -177,7 +177,7 @@ def test_optional_policy_replay_requires_exact_persisted_sari_parity(tmp_path) -
         con.execute(
             "CREATE TABLE scores(dimension TEXT,value REAL,coverage REAL,"
             "confidence TEXT,consolidation_status TEXT,scoring_version TEXT,"
-            "audit_id TEXT,device TEXT)"
+            "audit_id TEXT,device TEXT,limitations TEXT)"
         )
         for record in records:
             con.execute(
@@ -193,11 +193,12 @@ def test_optional_policy_replay_requires_exact_persisted_sari_parity(tmp_path) -
             )
         for score in (*calculated.scores, calculated.overall_by_device[DeviceContext.MOBILE]):
             con.execute(
-                "INSERT INTO scores VALUES(?,?,?,?,?,?,?,?)",
+                "INSERT INTO scores VALUES(?,?,?,?,?,?,?,?,?)",
                 (
                     score.dimension, score.value, score.coverage,
                     score.confidence.value, score.consolidation_status.value,
                     score.scoring_version, folder.name, score.device.value,
+                    json.dumps(score.limitations),
                 ),
             )
     original = db.read_bytes()
@@ -216,6 +217,20 @@ def test_optional_policy_replay_requires_exact_persisted_sari_parity(tmp_path) -
     with pytest.raises(ValueError, match="baseline numeric parity"):
         replay_optional_seo_from_audit(folder)
     assert db.read_bytes() == tampered
+
+    # Even if the raw score matches, changing readiness status must not
+    # pass the physical contract parity gate.
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE scores SET value=? WHERE dimension='INDEXABILITY'",
+            (next(x.value for x in calculated.scores if x.dimension == "INDEXABILITY"),),
+        )
+        con.execute(
+            "UPDATE scores SET limitations=? WHERE dimension='OVERALL_READINESS'",
+            (json.dumps(["READINESS_STATUS:READY", "CRITICAL_GATE:INDEXABILITY:PASS"]),),
+        )
+    with pytest.raises(ValueError, match="readiness gate parity"):
+        replay_optional_seo_from_audit(folder)
 
 
 
