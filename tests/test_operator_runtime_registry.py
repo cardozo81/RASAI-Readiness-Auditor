@@ -127,6 +127,24 @@ def test_real_loader_saver_and_consumers_restore_all_reconciled_inputs(tmp_path:
         assert pricing_runtime_settings(env=os.environ, cwd=tmp_path)[0] == "auto"
         assert task_profile_runtime_settings(env=os.environ, cwd=tmp_path)[0] == "auto"
 
+        from rasai.improvement_intelligence import (
+            ImprovementConfig, configured_analysis_language,
+        )
+        improvement = ImprovementConfig.from_environment(os.environ)
+        assert improvement.enabled is False
+        assert improvement.timeout_seconds == 51
+        assert improvement.max_recommendations == 13
+        assert improvement.domains == ("TECHNICAL_HTML", "CONTENT")
+        assert configured_analysis_language(os.environ) == "pt-BR"
+
+        from rasai.passive_security import enabled, external_timeout
+        assert enabled(os.environ) is True
+        assert external_timeout(os.environ) == 19.0
+
+        from rasai.gsc_oauth import MODE_INCOMPLETE, credential_state
+        # OAuth client ID is public configuration, not proof of OAuth consent.
+        assert credential_state(os.environ).mode == MODE_INCOMPLETE
+
         console_settings.save_console_config(state, path)
         parser = ConfigParser(interpolation=None)
         parser.optionxform = str
