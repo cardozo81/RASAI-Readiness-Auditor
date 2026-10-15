@@ -27,7 +27,7 @@ CURRENT_METHOD_DOCS = (
     "docs/OUTPUTS_AND_ARTIFACTS.md",
     "docs/REPORT_GUIDE.md",
     "docs/SCORING_GUIDE.md",
-    "docs/SCORE_GEO_004.md",
+    "docs/SCORE_GEO.md",
     "docs/SARI_READINESS_INDEX.md",
     "docs/CLI_REFERENCE.md",
     "docs/specification/00_SPEC_INDEX.md",

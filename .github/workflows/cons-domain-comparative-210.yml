@@ -9,7 +9,7 @@ on:
       - 'tests/test_cons_domain_comparative_210.py'
       - 'src/rasai/entrypoint.py'
       - 'tests/test_cons_domain_comparative_index_210.py'
-      - 'docs/CONS_DOMAIN_COMPARATIVE_210.md'
+      - 'docs/CONS_DOMAIN_COMPARATIVE.md'
       - '.github/workflows/cons-domain-comparative-210.yml'
   push:
     branches: [main]

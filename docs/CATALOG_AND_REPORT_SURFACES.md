@@ -324,7 +324,7 @@ Regras comuns:
 
 **Rastreabilidade:** IDs técnicos `SARI-001`, `SCORE-GEO-004`, registros de pontuação, contribuições, regras e evidências.
 
-**Aprofundamento técnico:** `SARI_READINESS_INDEX.md`, `SCORE_GEO_004.md` e `SCORING_GUIDE.md`.
+**Aprofundamento técnico:** `SARI_READINESS_INDEX.md`, `SCORE_GEO.md` e `SCORING_GUIDE.md`.
 
 ## Análise Direcionada
 
@@ -444,7 +444,7 @@ Regras comuns:
 
 **Rastreabilidade:** `SCORE-GEO-004`, versões auxiliares de pesos/gates e IDs metodológicos.
 
-**Aprofundamento técnico:** `SCORE_GEO_004.md`, `SCORING_GUIDE.md` e `SARI_READINESS_INDEX.md`.
+**Aprofundamento técnico:** `SCORE_GEO.md`, `SCORING_GUIDE.md` e `SARI_READINESS_INDEX.md`.
 
 ## Índices e métricas
 

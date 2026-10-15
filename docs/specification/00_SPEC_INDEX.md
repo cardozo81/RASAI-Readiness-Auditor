@@ -88,7 +88,7 @@ Princípios:
 - IA não calcula diretamente o score;
 - mudança metodologicamente incompatível exige nova `scoring_version`.
 
-Detalhes: `05_SCORING_MODEL.md`, `../SCORE_GEO_004.md`, `../SCORING_GUIDE.md` e `../SARI_EXTERNAL_CRAWL_CORROBORATION.md`.
+Detalhes: `05_SCORING_MODEL.md`, `../SCORE_GEO.md`, `../SCORING_GUIDE.md` e `../SARI_EXTERNAL_CRAWL_CORROBORATION.md`.
 
 ## 5. CATALOG-REPORT-002
 

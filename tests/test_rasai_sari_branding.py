@@ -27,5 +27,5 @@ def test_primary_cli_entrypoints_are_rasai_only() -> None:
 
 def test_public_documentation_uses_current_contract() -> None:
     assert Path("docs/SARI_READINESS_INDEX.md").is_file()
-    assert Path("docs/SCORE_GEO_004.md").is_file()
+    assert Path("docs/SCORE_GEO.md").is_file()
     assert Path("docs/BRANDING.md").is_file()

@@ -5,7 +5,7 @@ on:
     paths:
       - 'src/rasai/apdex_content_readiness_observation.py'
       - 'tests/test_apdex_content_readiness_322.py'
-      - 'docs/APDEX_CONTENT_READINESS_INVESTIGATION_321.md'
+      - 'docs/APDEX_CONTENT_READINESS_INVESTIGATION.md'
       - '.github/workflows/content-readiness-provenance-322.yml'
   workflow_dispatch:
 
