@@ -7,11 +7,11 @@ on:
       - 'src/rasai/geo_longitudinal_html_311.py'
       - 'src/rasai/geo_cons_companion_311.py'
       - 'tests/test_geo_cons_companion_311.py'
-      - 'docs/GEO_CONS_COMPANION_311.md'
+      - 'docs/GEO_CONS_COMPANION.md'
       - 'src/rasai/entrypoint.py'
       - 'src/rasai/geo_observation.py'
       - 'tests/test_geo_longitudinal_311.py'
-      - 'docs/GEO_LONGITUDINAL_311.md'
+      - 'docs/GEO_LONGITUDINAL.md'
       - '.github/workflows/geo-longitudinal-311-targeted.yml'
   workflow_dispatch:
 permissions:

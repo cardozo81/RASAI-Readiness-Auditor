@@ -48,7 +48,7 @@ Para eventual integração nativa é necessária versão explícita do
 contrato de CONS que inclua os dados GEO no fingerprint e na política
 de invalidação de cache, sem implicar comparabilidade da Search API.
 O tema está também detalhado em
-`docs/GEO_LONGITUDINAL_CONS_PREFLIGHT_311.md`.
+`docs/GEO_LONGITUDINAL_CONS_PREFLIGHT.md`.
 
 Testes: seleção de fontes, relatório sem GEO, conjunto positivo
 simulado apenas para verificar o encaminhamento, isolamento

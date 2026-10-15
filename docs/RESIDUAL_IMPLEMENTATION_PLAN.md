@@ -144,5 +144,5 @@ Perplexity. #310 e os épicos seguem abertos; #328/#330/#311/#210,
   monotônico fornecidos por futuro gateway, apenas com testes fake;
   **sem hook instalado em M23/M25**, sem nova amostra nem índice.
 - **#310:** roteiro de smoke humano mínimo em
-  `docs/SMOKE_GATE_310_20261009.md`, sem repetir a AUD completa;
+  `docs/SMOKE_GATE.md`, sem repetir a AUD completa;
   não confundir CI da branch com aceite humano do pacote e do console.
