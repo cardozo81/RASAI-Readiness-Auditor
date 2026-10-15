@@ -10,7 +10,7 @@ from urllib.request import Request
 
 import pytest
 
-from rasai import dynatrace_rum_population_355 as rum
+from rasai import dynatrace_rum_population as rum
 from rasai import dynatrace_settings_live_355 as settings
 from rasai.dynatrace_settings_live_355 import DynatracePinnedOpener
 

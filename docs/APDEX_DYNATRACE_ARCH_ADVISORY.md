@@ -219,7 +219,7 @@ https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/objects/g
 
 ## Consulta de população de Load/Xhr/Custom na RUM Classic (#355)
 
-O adaptador `python -m rasai.dynatrace_rum_population_355` é
+O adaptador `python -m rasai.dynatrace_rum_population` é
 **independente e opcional**, separado do Settings API 2.0 e de M25.
 Um único GET ao endpoint oficial `/api/v1/userSessionQueryLanguage/table`
 consulta **somente** `COUNT(*)` agrupado por `type` em `useraction`,
@@ -247,7 +247,7 @@ com filtros explícitos e exatos de `internalApplicationId`,
 Exemplo controlado com token já provisionado:
 
 ```powershell
-python -m rasai.dynatrace_rum_population_355 `
+python -m rasai.dynatrace_rum_population `
   --live-base-url https://tenant-example.live.dynatrace.com `
   --application-id APPLICATION-1234567890ABCDEF `
   --target-url https://www.example.com/pagina `

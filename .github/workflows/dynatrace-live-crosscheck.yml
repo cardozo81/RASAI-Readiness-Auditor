@@ -5,7 +5,7 @@ on:
     paths:
       - 'src/rasai/dynatrace_live_crosscheck_355.py'
       - 'src/rasai/dynatrace_settings_live_355.py'
-      - 'src/rasai/dynatrace_rum_population_355.py'
+      - 'src/rasai/dynatrace_rum_population.py'
       - 'tests/test_dynatrace_pinned_transport.py'
       - 'tests/test_dynatrace_live_crosscheck.py'
       - 'docs/DYNATRACE_LIVE_CROSSCHECK.md'
@@ -15,7 +15,7 @@ on:
     paths:
       - 'src/rasai/dynatrace_live_crosscheck_355.py'
       - 'src/rasai/dynatrace_settings_live_355.py'
-      - 'src/rasai/dynatrace_rum_population_355.py'
+      - 'src/rasai/dynatrace_rum_population.py'
       - 'tests/test_dynatrace_pinned_transport.py'
       - 'tests/test_dynatrace_live_crosscheck.py'
       - '.github/workflows/dynatrace-live-crosscheck.yml'

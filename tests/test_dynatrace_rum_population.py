@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
-from rasai.dynatrace_rum_population_355 import (
+from rasai.dynatrace_rum_population import (
     read_live_dynatrace_action_population as read_counts, main,
 )
 

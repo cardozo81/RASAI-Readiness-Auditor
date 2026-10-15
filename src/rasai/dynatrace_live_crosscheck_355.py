@@ -18,7 +18,7 @@ from rasai.dynatrace_apdex_arch_advisory import (
 from rasai.dynatrace_population_crosscheck_355 import (
     compare_dynatrace_settings_and_rum,
 )
-from rasai.dynatrace_rum_population_355 import (
+from rasai.dynatrace_rum_population import (
     _APPLICATION_ID, _DEVICE, read_live_dynatrace_action_population,
 )
 from rasai.dynatrace_settings_live_355 import (

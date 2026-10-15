@@ -7,7 +7,7 @@ por rotinas independentes:
 1. `dynatrace_apdex_review_cli_355`: configurações KPM/thresholds
    para Load, XHR e Custom actions, provenientes de Settings API
    autenticada ou JSON fornecido pelo operador.
-2. `dynatrace_rum_population_355`: resultado agregado de USQL
+2. `dynatrace_rum_population`: resultado agregado de USQL
    para uma aplicação, URL, dispositivo e janela UTC informados,
    contendo contagens, estado de extrapolação e limitações de RUM.
 
