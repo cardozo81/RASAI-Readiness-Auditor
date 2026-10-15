@@ -34,7 +34,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Gerar inventário metadata-only sobre INI temporário; confrontar cada EnvironmentSpec e campo tipado com loader/serializador/consumidor; criar apenas adapters/tests faltantes, sem tocar M23/M25. Usar relatório de exceções por variável, não alegar paridade de secret execution-only.
 
-**Testes selecionados (planejados, não executados aqui):** `python -m rasai.console_configuration_inventory_523 --ini <INI_TEMP> --verify-apdex`; `python -m pytest -q tests/test_console_configuration_inventory_523.py tests/test_console_fresh_process_roundtrip_523.py tests/test_console_persistence_matrix_523.py tests/test_console_config_provenance_523.py`.
+**Testes selecionados (planejados, não executados aqui):** `python -m rasai.console_configuration_inventory_523 --ini <INI_TEMP> --verify-apdex`; `python -m pytest -q tests/test_console_configuration_inventory.py tests/test_console_fresh_process_roundtrip.py tests/test_console_persistence_matrix.py tests/test_console_config_provenance.py`.
 
 **Prova exigida para fechamento:** CSV/JSON secret-safe de 100% do registry (categoria, source, persistência, origem, loader, consumidor, precedência e resultado), round-trip não default em 2 processos, comparação de efeitos em adapters, prova Windows específica sem credenciais reais. Fechar só com matriz completa e gate Windows pertinente.
 

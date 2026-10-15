@@ -25,7 +25,7 @@ Os valores não sensíveis persistidos provêm de
 
 ## CAT-06 / CAT-07 - round-trip e execução efetiva
 
-O teste isolado `tests/test_console_persistence_matrix_523.py` exercita
+O teste isolado `tests/test_console_persistence_matrix.py` exercita
 valores **não default** para os parâmetros de Navigation Apdex e Experience
 Apdex, inclusive arquitetura `CSR_SPA`, perfil `DYNATRACE_GUIDED`, KPM,
 Satisfied/Frustrated, erros JavaScript/XHR/Fetch/console, limiares,
@@ -260,7 +260,7 @@ symlink e append concorrente, sem mostrar segredos ou alterar a AUD.
 
 ## Gate novo: save/reopen entre interpretadores independentes (#523)
 
-O teste `tests/test_console_fresh_process_roundtrip_523.py` executa dois
+O teste `tests/test_console_fresh_process_roundtrip.py` executa dois
 processos Python distintos, com ambiente controlado e `RASAI_CONSOLE_INI`
 apontando para um arquivo temporário descartável. O primeiro processo
 configura CAT-06/CAT-07, arquitetura HYDRATED, perfil CUSTOM, SERP e
@@ -287,7 +287,7 @@ do operador; não solicitar AUD paga somente para reproduzir esse teste.
 
 ## Ponte fisica entre RESTORE e projeção console (#523, 13/10/2026)
 
-A regressao `tests/test_console_fresh_process_roundtrip_523.py`
+A regressao `tests/test_console_fresh_process_roundtrip.py`
 agora exercita **tres interpretadores Python independentes**:
 (1) salvar configuracao do console em INI temporario,
 (2) restaurar em processo novo e validar adapters M23/M25 offline,
