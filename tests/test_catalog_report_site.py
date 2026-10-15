@@ -565,7 +565,32 @@ def test_633_lighthouse_persisted_score_contract_never_normalizes_twice(tmp_path
     overview = (report / "index.html").read_text(encoding="utf-8")
     cat04 = (report / "cat-04.html").read_text(encoding="utf-8")
     assert "1/100" in overview and "100/100" not in overview
+    assert "class='result-value bad'>1/100</strong>" in overview
     assert "1 / 100" in cat04
+
+
+def test_633_design_system_neutral_panels_and_contextual_accents() -> None:
+    """One subdued visual grammar across all 19 reports, including GEO/CAT-07."""
+    import inspect
+    from rasai.catalog_report_style import _CSS
+    from rasai.geo_report import geo_body
+
+    assert "--surface-subtle:#f8fafb" in _CSS
+    assert "--line-strong:#c6d5db" in _CSS
+    assert ".notice{border:1px solid var(--line);background:var(--surface-subtle)" in _CSS
+    assert ".notice.warn{border-color:#e6cfaa" in _CSS
+    assert ".notice.bad{border-color:#e9c6c3" in _CSS
+    assert ".notice.good{border-color:#beddd1" in _CSS
+    assert ".ref{display:inline-flex;" in _CSS
+    assert "background:transparent;color:var(--blue)" in _CSS
+    assert "[data-contract='CAT07-ARCHITECTURE-358']" in _CSS
+    assert "background:var(--surface-subtle);" in _CSS
+    geo_markup_source = inspect.getsource(geo_body)
+    assert "--geo-border:var(--line" in geo_markup_source
+    assert "--geo-surface:var(--card" in geo_markup_source
+    assert "section:nth-of-type(even)" not in geo_markup_source
+    assert "border-left:4px" not in geo_markup_source
+    assert "box-shadow:none" in geo_markup_source
 
 
 def test_633_priority_filter_is_reversible_and_print_preserves_every_row() -> None:
