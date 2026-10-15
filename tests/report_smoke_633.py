@@ -176,6 +176,30 @@ def _screenshots(report: Path, out: Path, *, pages: tuple[str, ...]) -> dict[str
                         details = page.locator("#objectives details.directed-goal-details").count()
                         if goals != details:
                             raise ValueError("objective index and evidence details diverged")
+                        if goals:
+                            first_goal = page.locator("#objectives a.directed-goal-link").first
+                            number = int(first_goal.locator("strong").inner_text().strip())
+                            first_goal.click()
+                            opened = page.locator("dialog.directed-objective-dialog[open]")
+                            opened.wait_for(state="visible", timeout=3000)
+                            actual = opened.locator(".directed-operational-item").count()
+                            if actual != number:
+                                raise ValueError(
+                                    f"objective dialog count mismatch: {actual} of {number}"
+                                )
+                            if number and not opened.get_by_text("Onde intervir").count():
+                                raise ValueError("operational detail lost target context")
+                            modal_shot = out / "screenshots" / device / "objective-modal-open.png"
+                            modal_shot.parent.mkdir(parents=True, exist_ok=True)
+                            opened.screenshot(path=str(modal_shot), animations="disabled")
+                            page.keyboard.press("Escape")
+                            page.wait_for_function(
+                                "() => !document.querySelector('dialog.directed-objective-dialog[open]')",
+                                timeout=3000,
+                            )
+                            if not first_goal.evaluate("(el) => document.activeElement === el"):
+                                raise ValueError("objective dialog did not restore focus")
+
                         if page.locator("#actions .directed-intervention-group").count() and not page.locator("#actions table").count():
                             raise ValueError("intervention summary lost canonical action table")
                     # Horizontal overflow within dense tables is permitted; the
