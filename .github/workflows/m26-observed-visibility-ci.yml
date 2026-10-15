@@ -4,7 +4,21 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - 'src/rasai/m26_*.py'
+      - 'src/rasai/entrypoint.py'
+      - 'src/rasai/__main__.py'
+      - 'src/rasai/observability/**'
+      - 'tests/test_m26_*.py'
+      - 'tests/test_cli_provider_extensions.py'
+      - 'tests/test_m23_integration.py'
+      - 'pyproject.toml'
+      - '.github/workflows/m26-observed-visibility-ci.yml'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

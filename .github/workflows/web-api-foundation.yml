@@ -19,8 +19,10 @@ on:
       - 'tests/test_execution_queue.py'
       - 'pyproject.toml'
       - '.github/workflows/web-api-foundation.yml'
-      - 'docs/**'
-      - 'README.md'
+      - 'docs/WEB*.md'
+      - 'docs/API*.md'
+      - 'docs/SAAS*.md'
+      - 'docs/PLATFORM*.md'
   push:
     branches: [main]
     paths:
@@ -39,8 +41,14 @@ on:
       - 'tests/test_execution_queue.py'
       - 'pyproject.toml'
       - '.github/workflows/web-api-foundation.yml'
-      - 'docs/**'
-      - 'README.md'
+      - 'docs/WEB*.md'
+      - 'docs/API*.md'
+      - 'docs/SAAS*.md'
+      - 'docs/PLATFORM*.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

@@ -4,7 +4,31 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - 'src/rasai/monitoring/**'
+      - 'src/rasai/observability/**'
+      - 'src/rasai/quality/**'
+      - 'src/rasai/report_registry.py'
+      - 'src/rasai/score_geo_004*.py'
+      - 'src/rasai/scoring_v004.py'
+      - 'src/rasai/entrypoint.py'
+      - 'src/rasai/console_entrypoint.py'
+      - 'tests/test_monitoring_*.py'
+      - 'tests/test_observability_*.py'
+      - 'tests/test_quality_*.py'
+      - 'tests/test_release_gate_*.py'
+      - 'tests/test_change_impact_genai_semantics.py'
+      - 'tests/test_crux_scope_hardening.py'
+      - 'tests/test_gsc_*.py'
+      - 'tests/test_score_geo_004*.py'
+      - 'tests/test_report_registry_and_method_docs.py'
+      - 'pyproject.toml'
+      - '.github/workflows/monitoring-observability-ci.yml'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

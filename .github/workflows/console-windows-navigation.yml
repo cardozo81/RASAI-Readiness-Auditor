@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
     paths:
-      - 'docs/**/*.md'
       - 'src/rasai/audit_catalog.py'
       - 'src/rasai/console_*.py'
       - 'src/rasai/interactive_console.py'
@@ -20,7 +19,6 @@ on:
       - '.github/workflows/console-windows-navigation.yml'
   pull_request:
     paths:
-      - 'docs/**/*.md'
       - 'src/rasai/audit_catalog.py'
       - 'src/rasai/console_*.py'
       - 'src/rasai/interactive_console.py'
@@ -35,6 +33,10 @@ on:
       - 'tests/test_integration_diagnostics.py'
       - '.github/workflows/console-windows-navigation.yml'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

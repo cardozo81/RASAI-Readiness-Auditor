@@ -4,7 +4,28 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - 'src/rasai/m23_*.py'
+      - 'src/rasai/m25_*.py'
+      - 'src/rasai/synthetic_*.py'
+      - 'src/rasai/apdex_*.py'
+      - 'src/rasai/console_m23.py'
+      - 'src/rasai/console_settings.py'
+      - 'src/rasai/console_apdex_*.py'
+      - 'src/rasai/worker.py'
+      - 'src/rasai/audit_execution_contract.py'
+      - 'tests/test_m23_*.py'
+      - 'tests/test_m25_*.py'
+      - 'tests/test_synthetic_*.py'
+      - 'tests/test_apdex_content_readiness_322.py'
+      - 'tests/test_catalog_report_final_refinements.py'
+      - 'pyproject.toml'
+      - '.github/workflows/m25-validation.yml'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
