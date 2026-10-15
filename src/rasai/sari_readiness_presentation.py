@@ -206,7 +206,7 @@ def _reporting_overall_card(reporting: Any, scores: list[Any], device: str) -> s
     raw_value = _row_value(row, "value")
     condition, readiness_label, quality_label = public_readiness_condition(row)
     css = _score_card_class(condition)
-    coverage = f"{float(_row_value(row, 'coverage', 0.0)) * 100:.0f}%"
+    coverage = f"{float(_row_value(row, 'coverage', 0.0)) * 100:.1f}%"
     confidence_raw = str(_row_value(row, "confidence", "UNAVAILABLE"))
     confidence = reporting._STATUS_LABELS.get(confidence_raw, confidence_raw)
     consolidation_raw = str(_row_value(row, "consolidation_status", "NOT_CONSOLIDATED"))
@@ -223,13 +223,13 @@ def _reporting_overall_card(reporting: Any, scores: list[Any], device: str) -> s
         f"<p class='intro'><strong>Qualidade do universo medido:</strong> {escape(quality_label)}. "
         "A badge acima é a conclusão de readiness e prevalece sobre a leitura isolada da nota."
         + (f" Gates não-PASS: {escape(gate_detail)}." if gate_detail else "")
-        + "</p>"
+        + " Confiança classifica evidências e cobertura do contrato SARI; não certifica experiência, performance ou presença em buscadores e IA.</p>"
     )
     return (
         f"<article class='score-card {css}'><div class='label'>{label} - {reporting.PUBLIC_METHOD_VERSION}</div>"
         f"{score_markup}<span class='score-band-label {condition}'>{escape(readiness_label)}</span>"
         "<div class='score-meta'>"
-        f"<div><small>Cobertura</small><strong>{escape(coverage)}</strong></div>"
+        f"<div><small>Cobertura</small><strong title='Fração canônica: {float(_row_value(row, 'coverage', 0.0)):.6f}'>{escape(coverage)}</strong></div>"
         f"<div><small>Confiança</small><strong>{escape(confidence)}</strong></div>"
         f"<div><small>Consolidação</small><strong>{escape(consolidation)}</strong></div>"
         f"<div><small>Readiness</small><strong>{escape(readiness)}</strong></div>"
@@ -274,7 +274,7 @@ def _site_overall_card(report_site: Any, scores: list[Any], device: str) -> str:
     confidence = report_site._STATUS_LABELS.get(confidence_raw, confidence_raw)
     consolidation_raw = str(_row_value(row, "consolidation_status", "NOT_CONSOLIDATED"))
     consolidation = report_site._STATUS_LABELS.get(consolidation_raw, consolidation_raw)
-    coverage = f"{float(_row_value(row, 'coverage', 0.0)) * 100:.0f}%"
+    coverage = f"{float(_row_value(row, 'coverage', 0.0)) * 100:.1f}%"
     gate_detail = _gate_detail(gates)
     detail = (
         f"<p class='intro'><strong>Qualidade medida:</strong> {escape(quality_label)}. "
@@ -288,7 +288,7 @@ def _site_overall_card(report_site: Any, scores: list[Any], device: str) -> str:
         f"<span class='badge info'>Qualidade {escape(quality_label)}</span> "
         f"{report_site._confidence_badge(confidence_raw)}</div>"
         "<div class='score-meta'>"
-        f"<div><small>Coverage</small><strong>{escape(coverage)}</strong></div>"
+        f"<div><small>Coverage</small><strong title='Canonical fraction: {float(_row_value(row, 'coverage', 0.0)):.6f}'>{escape(coverage)}</strong></div>"
         f"<div><small>Confidence</small><strong>{escape(confidence)}</strong></div>"
         f"<div><small>Consolidação</small><strong>{escape(consolidation)}</strong></div>"
         "</div>" + detail + "</article>"
