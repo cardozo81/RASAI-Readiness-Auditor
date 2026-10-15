@@ -356,7 +356,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if effective and effective[0] == "geo-cons-package":
         # Explicit --write-geo-companion is still required; output is a
         # separately versioned GCOMP package, never a canonical CONS mutation.
-        from rasai.geo_cons_package_311 import main as geo_cons_package_main
+        from rasai.geo_cons_package import main as geo_cons_package_main
         return geo_cons_package_main(effective[1:])
 
     if effective and effective[0] in {"geo-query-ledger", "geo-query-report"}:

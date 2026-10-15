@@ -1,6 +1,6 @@
 # #311 - Pacote GEO consultivo derivado de uma seleção CONS
 
-O comando `python -m rasai.geo_cons_package_311` produz um artefato
+O comando `python -m rasai.geo_cons_package` produz um artefato
 **independente** em `audits_root/consolidated-geo-companions/
 GCOMP-<fingerprint>/{manifest.json,report.html}`.
 
@@ -35,7 +35,7 @@ Limites explícitos:
 Exemplo offline com habilitação explícita:
 
 ```powershell
-python -m rasai.geo_cons_package_311 `
+python -m rasai.geo_cons_package `
   --audits-root .\audits `
   --cons-dir .\audits\consolidated\CONS-EXEMPLO `
   --write-geo-companion

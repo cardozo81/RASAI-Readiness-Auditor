@@ -8,7 +8,7 @@ import sqlite3
 
 import pytest
 
-from rasai import geo_cons_package_311 as module
+from rasai import geo_cons_package as module
 
 
 def _cons(tmp_path, *, missing_second=False):

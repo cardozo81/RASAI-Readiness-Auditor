@@ -69,7 +69,7 @@ O laboratório é offline, restrito a uma única AUD/dispositivo, recusa ID fís
 Para a cópia já extraída de uma AUD de teste, a inspeção é apenas de leitura:
 
 ```bash
-python -m rasai.optional_seo_audit_replay_602 /caminho/para/AUD-ID --device MOBILE
+python -m rasai.optional_seo_audit_replay /caminho/para/AUD-ID --device MOBILE
 ```
 
 O replay exige uma única AUD válida, `audit.db` regular, sem arquivos SQLite journal/WAL/SHM, escopo de uma AUD e até 4.000 regras físicas. Confere `quick_check` e integridade referencial, calcula SHA-256 do arquivo antes/depois e **aborta** caso o score canônico recalcado pelo SCORE-GEO-004 não coincida com os campos persistidos de cada dimensão e overall (valor, cobertura, confiança, consolidação e versão). Só depois expõe cenários de sensibilidade não oficiais. Nunca grava dados e não autoriza mudanças de pontuação.

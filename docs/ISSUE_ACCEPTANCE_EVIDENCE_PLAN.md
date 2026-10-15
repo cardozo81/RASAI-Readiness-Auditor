@@ -52,13 +52,13 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 ### Issue #602 - P1 · IMPLEMENTED_NOT_PROVEN + NEEDS_DECISION
 
-**Já presente / evidência técnica:** Classificador opcional/contradição/desconhecido, ADR, laboratório in-memory, CLI read-only `optional_seo_audit_replay_602` sem alterar SCORE-GEO-004.
+**Já presente / evidência técnica:** Classificador opcional/contradição/desconhecido, ADR, laboratório in-memory, CLI read-only `optional_seo_audit_replay` sem alterar SCORE-GEO-004.
 
 **Critério residual e risco:** Replay físico golden sobre cópia estável da AUD de 14/10 executado em Windows e aprovado em 15/10/2026; permanece a decisão explícita de finalidade/política e versão de score para mudança numérica.
 
 **Implementação ou verificação direcionada:** Reproduzir score canônico sobre cópia isolada, comparar bytes SHA-256 antes/depois e overall/dimensões/gates/coverage/confidence; gerar cenários sem promover a produção. Submeter ADR/efeitos a gate metodológico. Somente após decisão, implementar versão nova e migração de leitura histórica não destrutiva.
 
-**Testes selecionados (planejados, não executados aqui):** `python -m rasai.optional_seo_audit_replay_602 <AUD_COPIA> --device MOBILE`; `python -m pytest -q tests/test_scoring_discovery_refinement_20260908.py tests/test_score_geo.py tests/test_score_geo_applicability.py`.
+**Testes selecionados (planejados, não executados aqui):** `python -m rasai.optional_seo_audit_replay <AUD_COPIA> --device MOBILE`; `python -m pytest -q tests/test_scoring_discovery_refinement_20260908.py tests/test_score_geo.py tests/test_score_geo_applicability.py`.
 
 **Prova exigida para fechamento:** Golden da AUD com 59 rule executions e score persistido 86,484962, comparação BR-GEO-003/013/017 e matriz de delta por dimensão, política aprovada e contrato versionado, replays idempotentes, nenhuma alteração da AUD original. Sem decisão: issue OPEN.
 

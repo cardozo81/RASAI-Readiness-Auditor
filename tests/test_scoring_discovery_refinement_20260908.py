@@ -136,7 +136,7 @@ def test_optional_policy_replay_requires_exact_persisted_sari_parity(tmp_path) -
     from datetime import datetime, timezone
 
     from rasai.domain import DeviceContext, RuleExecution
-    from rasai.optional_seo_audit_replay_602 import replay_optional_seo_from_audit
+    from rasai.optional_seo_audit_replay import replay_optional_seo_from_audit
     from rasai.scoring_v004 import ScoreGeo004Engine
 
     folder = tmp_path / "AUD-SCENARIO1"
