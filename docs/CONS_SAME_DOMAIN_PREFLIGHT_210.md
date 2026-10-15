@@ -73,3 +73,12 @@ altera selecao nem geracao do CONS produtivo.
 Testes direcionados cobrem SPA `#/...`, `#!/...`, ancoras comuns
 e URLs adversariais, mantendo `new_cons_generated=false`, zero
 provider requests e nenhum delta de score autorizado.
+
+
+## Descoberta condicionada por conjunto explícito de AUDs autorizadas
+
+`preview_authorized_same_host_candidates(index, reference_audit_id=..., allowed_audit_ids=(...), max_candidates=100)` usa o índice analítico existente para identificar **somente** outras AUDs de uma lista autorizada, com URL única e mesmo host/origem/dispositivo, mas páginas distintas. A origem é reconstruída da URL física indexada, jamais de equivalência por domínio organizacional, e cada par passa por `assess_same_domain_pair` com separação temporal.
+
+O retorno é um **inventário descritivo, não uma seleção CONS**, e não executa comparação de score entre universos de página, cálculo de deltas de experiência, geração de CONS nem chamadas externas. O conjunto permitido precisa ser informado pelo consumidor (não há enumeração implícita de todas as AUDs). O resultado registra `source_attestation_verified=False`: índice sozinho **não é selo probatório** da origem física, que precisa de gate posterior antes de efetiva publicação. O modo longitudinal por URL idêntica continua estrito e sem modificações.
+
+A validação offline usa índice sintético com uma referência, uma URL diferente do mesmo host, domínio externo e AUD não autorizada; exige ausência desta última até das leituras do índice e bloqueio de escopo ausente. #210 continua aberta para integração de UX/proveniência/controle de acesso físico e eventual modo CONS próprio, sem reclassificar isso como longitudinal homogêneo.

@@ -215,3 +215,83 @@ def test_preflight_rejects_ambiguous_url_before_urlsplit_normalization(untrusted
     assert result["metric_comparison_executed"] is False
     assert result["new_cons_generated"] is False
     assert result["provider_requests"] == result["source_audit_writes"] == 0
+
+
+class _AuthorizedIndexFixture:
+    def __init__(self):
+        self.urls = {
+            "AUD-REFERENCE": "https://example.org/service-a",
+            "AUD-ELIGIBLE": "https://example.org/service-b",
+            "AUD-FOREIGN": "https://another.example.org/service-b",
+            "AUD-NO-CONSENT": "https://example.org/private-offer",
+        }
+        self.read_calls = []
+
+    def candidate_audits(self, filters):
+        allowed = tuple(filters.audit_ids or ())
+        self.read_calls.append(("candidates", allowed))
+        return tuple(
+            {
+                "audit_id": audit_id, "url_count": 1,
+                "devices_json": '["MOBILE"]',
+                "status": "COMPLETED", "completion_status": "COMPLETE",
+                "event_time": f"2026-10-{10+index:02d}T11:00:00Z",
+            }
+            for index, audit_id in enumerate(self.urls)
+            if audit_id in allowed
+        )
+
+    def available_urls(self, filters):
+        audit_id, = filters.audit_ids
+        self.read_calls.append(("urls", audit_id))
+        return (self.urls[audit_id],)
+
+
+def test_same_host_candidate_discovery_requires_explicit_authorized_index_scope():
+    from rasai.consolidation.domain_preflight_210 import (
+        preview_authorized_same_host_candidates,
+    )
+
+    index = _AuthorizedIndexFixture()
+    result = preview_authorized_same_host_candidates(
+        index,
+        reference_audit_id="AUD-REFERENCE",
+        allowed_audit_ids=("AUD-REFERENCE", "AUD-ELIGIBLE", "AUD-FOREIGN"),
+    )
+    assert result["candidate_count"] == 1
+    assert result["candidates"][0]["audit_id"] == "AUD-ELIGIBLE"
+    assert result["candidates"][0]["url"] == "https://example.org/service-b"
+    assert result["candidates"][0]["metric_comparability"]["scores"] == (
+        "NOT_COMPARABLE_DIFFERENT_URL_UNIVERSES"
+    )
+    assert not result["cross_url_scoring_allowed"]
+    assert not result["new_cons_generated"]
+    assert not result["source_attestation_verified"]
+    assert result["provider_requests"] == result["source_audit_writes"] == 0
+    assert result["same_url_selection_unchanged"]
+    assert ("candidates", ("AUD-REFERENCE", "AUD-ELIGIBLE", "AUD-FOREIGN")) in index.read_calls
+    assert not any("AUD-NO-CONSENT" in str(call) for call in index.read_calls)
+
+
+def test_same_host_candidate_discovery_fails_closed_on_unbounded_scope():
+    from rasai.consolidation.domain_preflight_210 import (
+        preview_authorized_same_host_candidates as preview,
+    )
+
+    index = _AuthorizedIndexFixture()
+    with pytest.raises(ValueError, match="authorization"):
+        preview(index, reference_audit_id="AUD-REFERENCE", allowed_audit_ids=())
+    with pytest.raises(ValueError, match="authorization"):
+        preview(index, reference_audit_id="AUD-REFERENCE",
+                allowed_audit_ids=("AUD-ELIGIBLE",))
+    with pytest.raises(ValueError, match="authorization"):
+        preview(index, reference_audit_id="AUD-REFERENCE",
+                allowed_audit_ids=("AUD-REFERENCE", "AUD-ELIGIBLE"),
+                max_candidates=0)
+    with pytest.raises(ValueError, match="reference AUD"):
+        preview(index, reference_audit_id="AUD-MISSING",
+                allowed_audit_ids=("AUD-MISSING", "AUD-ELIGIBLE"))
+    assert index.read_calls == [
+        ("candidates", ("AUD-MISSING", "AUD-ELIGIBLE")),
+        ("urls", "AUD-ELIGIBLE"),
+    ]
