@@ -532,7 +532,7 @@ def test_633_all_pages_share_method_reading_patterns(tmp_path: Path) -> None:
     assert "Sem extrapolar amostras sintéticas" in method
     assert _CSS.count(":root{") == 1
     assert "report-experience-grid" not in _CSS
-    assert _CSS.count(".directed-goal-grid{") == 1
+    assert _CSS.count(".directed-goal-grid{display:grid;") == 1
     assert "--radius:8px" in _CSS
 
 
