@@ -7,7 +7,7 @@ import sqlite3
 
 import pytest
 
-from rasai.geo_competitor_content_provenance_330 import (
+from rasai.geo_competitor_content_provenance import (
     inspect_geo_competitor_content, main,
 )
 
@@ -529,7 +529,7 @@ def test_optional_content_aud_scoping_blocks_foreign_rows(tmp_path):
 def test_mutating_physical_aud_while_evaluating_cannot_return_content_metrics(
     tmp_path, monkeypatch,
 ):
-    from rasai import geo_competitor_content_provenance_330 as module
+    from rasai import geo_competitor_content_provenance as module
     db = _db(tmp_path)
     original = module._page
     triggered = []
@@ -969,7 +969,7 @@ def test_different_serp_urls_same_final_destination_remain_deduplicated(
 
 
 def test_jsonld_type_must_not_be_truncated_into_false_persisted_fact(tmp_path):
-    from rasai.geo_competitor_content_provenance_330 import _optional_jsonld_types
+    from rasai.geo_competitor_content_provenance import _optional_jsonld_types
     oversized = "Schema" + "X" * 120
     assert _optional_jsonld_types(json.dumps([oversized])) is None
     assert _optional_jsonld_types(json.dumps(["FAQPage", "Product"])) == [
@@ -979,6 +979,6 @@ def test_jsonld_type_must_not_be_truncated_into_false_persisted_fact(tmp_path):
 
 
 def test_jsonld_repeated_type_cannot_inflate_observed_schema_inventory():
-    from rasai.geo_competitor_content_provenance_330 import _optional_jsonld_types
+    from rasai.geo_competitor_content_provenance import _optional_jsonld_types
     assert _optional_jsonld_types('["Product","Product"]') is None
     assert _optional_jsonld_types('["Product","FAQPage"]') == ["Product", "FAQPage"]
