@@ -58,16 +58,14 @@ def test_default_section_is_not_a_persisted_environment_assignment(tmp_path):
     """Counts must reflect only physical [environment] keys, not [DEFAULT]."""
     path = tmp_path / "inherited.ini"
     path.write_text(
-        "[DEFAULT]\\n"
-        "OPENAI_API_KEY = SHOULD_NOT_BE_COUNTED\\n"
-        "RASAI_SERP_MAX_REQUESTS = 99\\n"
-        "UNREGISTERED_SECRET = SHOULD_NOT_BE_COUNTED\\n"
-        "[environment]\\n"
-        "RASAI_SERP_MAX_REQUESTS = 12\\n",
+        "[DEFAULT]\n"
+        "OPENAI_API_KEY = SHOULD_NOT_BE_COUNTED\n"
+        "RASAI_SERP_MAX_REQUESTS = 99\n"
+        "UNREGISTERED_SECRET = SHOULD_NOT_BE_COUNTED\n"
+        "[environment]\n"
+        "RASAI_SERP_MAX_REQUESTS = 12\n",
         encoding="utf-8",
     )
-    # Ensure the actual file content has newlines, not literal backslash-n.
-    path.write_text(path.read_text(encoding="utf-8").replace("\\\\n", "\\n"), encoding="utf-8")
     before = path.read_bytes()
     result = inspect_configuration(
         path, env={"RASAI_SERP_MAX_REQUESTS": "12"},
@@ -86,7 +84,7 @@ def test_provenance_abstains_if_file_changes_during_bounded_read(tmp_path, monke
     from rasai import console_config_provenance_523 as module
 
     path = tmp_path / "race.ini"
-    path.write_text("[environment]\\nRASAI_SERP_MAX_REQUESTS=12\\n", encoding="utf-8")
+    path.write_text("[environment]\nRASAI_SERP_MAX_REQUESTS=12\n", encoding="utf-8")
     monkeypatch.setattr(
         module, "_ini_with_status",
         lambda _path: (None, "SOURCE_CHANGED_DURING_READ"),
