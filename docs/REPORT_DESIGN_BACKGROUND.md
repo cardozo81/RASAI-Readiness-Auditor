@@ -60,7 +60,7 @@ A implementação NÃO copia o `index.html` da PoC, `relatorios-originais/`, sna
 
 Para cada objetivo: exibir status obtido, intervenções identificadas, limitações da fonte, alvos sustentados e links para evidências. Uma ação pode pertencer a mais de um objetivo, mas seu `action_id` permanece único; contagens por objetivo são não aditivas. Preservar estados `ACCEPTED`, `VERIFY_DECIDE`, `REJECTED`.
 
-Novas auditorias operam com **uma única URL de entrada**. Não desenhar UI de múltiplas URLs ou TXT, e não alterar seu legado nesta issue. Histórico continua legível.
+Novas auditorias operam com **uma única URL de entrada**. Não desenhar UI de múltiplas URLs ou TXT, e não alterar seu anterior nesta issue. Histórico continua legível.
 
 ## Cobertura e revisão
 
@@ -68,7 +68,7 @@ A interface final deve conter exatamente as páginas públicas do contrato vigen
 
 Comparar renderização antes/depois usando uma AUD real já persistida em ambiente de teste, em uma **nova pasta de rematerialização**, sem gravar na fonte nem executar auditoria, APIs ou IA. Verificar inventários de seções/tabelas/contagens, impressão A4, desktop/mobile, `file://`, sem JS, entrega via Web API e integridade `manifest.json`/SHA/snapshot.
 
-Não modificar `CONS-*` nesta issue. Não introduzir bibliotecas de CDN obrigatórias. Remover somente CSS/JS legado efetivamente sem referências, com testes que provem ausência de regressão.
+Não modificar `CONS-*` nesta issue. Não introduzir bibliotecas de CDN obrigatórias. Remover somente CSS/JS anterior efetivamente sem referências, com testes que provem ausência de regressão.
 
 ## Política de liberação
 
