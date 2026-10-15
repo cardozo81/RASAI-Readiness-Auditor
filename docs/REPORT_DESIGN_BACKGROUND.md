@@ -1,4 +1,13 @@
-# RASAi — Contrato de redesign visual HTML (#633)
+# Histórico de decisões da arquitetura visual dos relatórios
+
+> Documento de contexto técnico e evolução da proposta. Não é o contrato operacional vigente.
+> Regras de implementação, revisão e smoke atualizadas estão nos documentos
+> `docs/REPORT_DESIGN_SYSTEM.md` e `docs/REPORT_VISUAL_ACCEPTANCE.md`
+> introduzidos na implementação aprovada pelo operador.
+> A referência a uma única branch de trabalho abaixo é histórica; não cria impedimento
+> para sua integração e encerramento após aprovação humana.
+
+# RASAi - Contrato de redesign visual HTML (#633)
 
 **Estado:** referência de implementação na branch exclusiva `feat/633-report-ux-unified`. **Não autoriza merge.**  
 **Escopo:** somente projeção HTML da auditoria individual `<AUD>/report-catalog/`; código, testes e documentação do renderer. Nenhum motor, console, banco, provider ou fluxo alterado.
@@ -30,7 +39,7 @@ A implementação NÃO copia o `index.html` da PoC, `relatorios-originais/`, sna
 
 ### Shell e navegação
 
-- Contrato de páginas: `src/rasai/catalog_report_contract.py` — `CATALOG_REPORT_PAGES`.
+- Contrato de páginas: `src/rasai/catalog_report_contract.py` - `CATALOG_REPORT_PAGES`.
 - Renderização e navegação: `src/rasai/catalog_report_presentation.py` já define `_navigation(current)`; consolidar/reutilizar, não criar geradores concorrentes.
 - Entrada do pacote: `src/rasai/catalog_report_site.py`, com rotinas de fingerprint, snapshot, manifest e verificação: **não alterar sem necessidade de integração estritamente visual e teste de invariantes**.
 - CSS: recurso canônico `css/site.css`, referenciado pelo pacote e pela abertura via Web API. Evitar dependência de CSS/JS remoto; `file://` deve operar offline.
@@ -66,7 +75,7 @@ Não modificar `CONS-*` nesta issue. Não introduzir bibliotecas de CDN obrigat�
 Issue #633 controla a demanda, branch `feat/633-report-ux-unified` é a ÚNICA branch de execução. PR futuro: DRAFT, sem auto-merge. Exigir evidência de CI direcionado e screenshots antes/depois; **somente aceite humano explícito** habilita merge. Uma validação automática positiva nunca equivale a aceite humano.
 
 
-## Emenda de reconciliação — 14/10/2026
+## Emenda de reconciliação - 14/10/2026
 
 Esta seção prevalece sobre a proibição absoluta anterior de recursos remotos. **CDN é permitido, não obrigatório**, somente quando agrega melhoria demonstrável e com mitigação explícita: versões fixas, licença verificada, avaliação de CSP/SRI (quando aplicáveis), fallback funcional e visual, ausência de exfiltração de dados, e navegação/conteúdo essenciais disponíveis sem dependência de rede. Abertura em `file://`, apresentação via endpoints atuais e impressão seguem obrigatórias. Não introduzir SPA ou alterações no SaaS/console.
 
