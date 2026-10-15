@@ -428,6 +428,64 @@ def _action_modal(
     return modal_id,_modal(modal_id,action.get("title") or "Ação estratégica","Análise Direcionada · ação estratégica",body)
 
 
+def _directed_operational_item(
+    action: Mapping[str, Any],
+    target_by_id: Mapping[str, Mapping[str, str]],
+    impacts: Sequence[Mapping[str, Any]],
+) -> str:
+    """Project persisted action facts as an actionable, traceable reading unit.
+
+    Every value is a read-only projection; no governance, target or gain is
+    synthesized. The full canonical strategic action remains in #actions.
+    """
+    guidance = _json(action.get("implementation_guidance_json"), [])
+    validation = _json(action.get("validation_steps_json"), [])
+    guidance_list = guidance if isinstance(guidance, list) else []
+    validation_list = validation if isinstance(validation, list) else []
+    def instructions(items: Sequence[Any], missing: str) -> str:
+        if not items:
+            return "<span class='muted'>" + escape(missing) + "</span>"
+        return "<ol>" + "".join("<li>" + escape(str(item)) + "</li>" for item in items) + "</ol>"
+    target = _action_target_label(action, target_by_id)
+    if target == "-":
+        target = "Alvo específico não determinado nesta projeção; consulte a origem técnica."
+    dims = ", ".join(
+        _dimension_label(item.get("dimension")) + " (" + _gain_label(item.get("expected_gain")) + ")"
+        for item in impacts
+    )
+    meta = " · ".join((
+        "Prioridade: " + (_level_label(action.get("priority")) if action.get("priority") else "não consolidada"),
+        "Esforço: " + (_level_label(action.get("effort")) if action.get("effort") else "não consolidado"),
+        "Confiança: " + (_confidence_label(action.get("confidence")) if action.get("confidence") else "não consolidada"),
+    ))
+    refs = (
+        "<div><dt>Proveniência</dt><dd>" +
+        str(_links(action.get("source_refs_json"), label_prefix="Origem")) +
+        str(_links(action.get("evidence_refs_json"), label_prefix="Evidência")) +
+        str(_links(action.get("remediation_refs_json"), label_prefix="Correção")) +
+        "</dd></div>"
+    )
+    return (
+        "<article class='directed-operational-item'>"
+        "<h3>" + escape(str(action.get("title") or "Ação registrada")) + "</h3>"
+        "<p class='directed-operational-meta'>" + escape(meta) + "</p>"
+        "<dl class='directed-operational-facts'>"
+        "<div><dt>O que foi observado</dt><dd>" +
+        escape(str(action.get("reason") or "Justificativa não registrada nesta ação.")) +
+        "</dd></div>"
+        "<div><dt>Onde intervir</dt><dd>" + escape(target) + "</dd></div>"
+        "<div><dt>O que fazer</dt><dd>" +
+        instructions(guidance_list, "Orientação não consolidada; consulte a remediação técnica.") +
+        "</dd></div>"
+        "<div><dt>Como validar</dt><dd>" +
+        instructions(validation_list, "Etapas não consolidadas; consulte a fonte técnica.") +
+        "</dd></div>"
+        "<div><dt>Dimensões persistidas</dt><dd>" + escape(dims or "Não classificadas") + "</dd></div>"
+        + refs +
+        "</dl></article>"
+    )
+
+
 def _roadmap_phase_cards(
     roadmap: Any,
     by_id: Mapping[str, Mapping[str, Any]],
@@ -672,56 +730,126 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         _roadmap_phase_cards(roadmap, by_id, target_by_id),
     )
 
-    dimensions={}
+    # #633 / PoC: objective perspectives are presentation classifications only.
+    # A persisted action can support several objectives, never a new action or score.
+    # Do not infer Discovery from generic SEO or Security from best practices.
+    _DIRECTED_POC_OBJECTIVES = (
+        ("performance", "Performance", "Carregamento, renderização e recursos.",
+         ("PERFORMANCE",)),
+        ("acessibilidade", "Acessibilidade", "Barreiras de acesso e elementos afetados.",
+         ("ACCESSIBILITY",)),
+        ("conteudo", "Conteúdo e semântica", "Clareza editorial, HTML e estrutura semântica.",
+         ("CONTENT", "SEMANTICS", "STRUCTURED_DATA", "YMYL", "HTML_CSS")),
+        ("descoberta", "Descoberta e indexabilidade", "Crawling, descoberta e acesso à indexação.",
+         ("CRAWLABILITY", "INDEXABILITY", "DISCOVERY_ACCESS")),
+        ("searchia", "Search e IA", "Evidências de descoberta e busca assistida por IA.",
+         ("GEO_SEARCH_AI", "SEO", "COMPETITIVE_INTELLIGENCE")),
+        ("experiencia", "Experiência", "Navegação sintética e experiência observada.",
+         ("EXPERIENCE", "APDEX_NAVIGATION", "APDEX_EXPERIENCE")),
+        ("seguranca", "Segurança passiva", "Configuração e riscos passivamente observados.",
+         ("SECURITY", "VULNERABILITIES")),
+    )
+    raw_dimensions: dict[str, list[tuple[Mapping[str,Any], Mapping[str,Any]]]] = {}
+    by_objective: dict[str, list[tuple[Mapping[str,Any], list[Mapping[str,Any]]]]] = {}
+    assigned_ids: set[str] = set()
     for action in actions:
-        for item in _json(action.get("affected_dimensions_json"),[]):
-            if not isinstance(item,Mapping):
-                continue
-            key=str(item.get("dimension") or "")
-            if key:
-                dimensions.setdefault(key,[]).append((action,item))
-    objective_blocks=[]
-    objective_cards=[]
-    for key,items in sorted(dimensions.items(),key=lambda kv:_dimension_label(kv[0])):
-        # An action can affect multiple objectives: each objective counts
-        # distinct action IDs only within its own dimension. These values
-        # are intentionally never summed to form an overall action count.
-        goal_id="goal-"+sha256(key.encode("utf-8")).hexdigest()[:12]
-        distinct_action_ids={
-            str(action.get("action_id"))
-            for action,_impact in items
-            if action.get("action_id")
-        }
-        objective_cards.append(
-            "<a class='directed-goal-link' href='#"+goal_id+"'>"
-            "<span class='directed-goal-name'>"+escape(_dimension_label(key))+"</span>"
-            "<strong>"+str(len(distinct_action_ids))+"</strong>"
-            "<small>ação(ões) vinculada(s) neste objetivo</small>"
-            "<span class='directed-goal-cta'>Ver intervenções e alvos vinculados ›</span>"
-            "</a>"
+        dimensions_json = _json(action.get("affected_dimensions_json"), [])
+        declared = [
+            item for item in dimensions_json
+            if isinstance(item, Mapping) and str(item.get("dimension") or "").strip()
+        ] if isinstance(dimensions_json, list) else []
+        action_identity = str(action.get("action_id") or id(action))
+        for impact in declared:
+            raw_dimensions.setdefault(_norm(impact.get("dimension")), []).append((action, impact))
+        for key, _title, _description, keys in _DIRECTED_POC_OBJECTIVES:
+            relevant = [item for item in declared if _norm(item.get("dimension")) in keys]
+            if relevant:
+                by_objective.setdefault(key, []).append((action, relevant))
+                assigned_ids.add(action_identity)
+        if action_identity not in assigned_ids:
+            by_objective.setdefault("nao-classificado", []).append((action, declared))
+
+    goal_cards: list[str] = []
+    goal_blocks: list[str] = []
+    objective_definitions = list(_DIRECTED_POC_OBJECTIVES)
+    if by_objective.get("nao-classificado"):
+        objective_definitions.append((
+            "nao-classificado", "Sem objetivo temático classificado",
+            "Ações sem dimensões vinculáveis com segurança às sete perspectivas.",
+            (),
+        ))
+    # The previous hash IDs are retained as aliases to their thematic view.
+    # They remain deep-linkable without duplicating an entire action inventory.
+    legacy_aliases: dict[str, list[str]] = {}
+    for dimension in raw_dimensions:
+        chosen = next(
+            (key for key, _title, _desc, keys in _DIRECTED_POC_OBJECTIVES
+             if dimension in keys),
+            "nao-classificado",
         )
-        rows=[]
-        for action,impact in items:
-            rows.append((
-                action.get("title") or "-",
-                _action_target_label(action,target_by_id),
-                _gain_label(impact.get("expected_gain")),
-                _level_label(action.get("priority")) if action.get("priority") else "Não consolidada",
-                _level_label(action.get("effort")) if action.get("effort") else "Não consolidado",
-                _confidence_label(action.get("confidence")) if action.get("confidence") else "Não consolidada",
-            ))
-        objective_blocks.append(
-            "<details class='directed-goal-details' id='"+goal_id+"'><summary>"+escape(_dimension_label(key))+"</summary><div class='detail-body'>"
-            +_table(("Ação","Alvo / ocorrência","Ganho","Prioridade","Esforço","Confiança"),rows)
-            +"</div></details>"
+        alias = "goal-" + sha256(dimension.encode("utf-8")).hexdigest()[:12]
+        legacy_aliases.setdefault(chosen, []).append(alias)
+    for key, title, description, _keys in objective_definitions:
+        occurrences = by_objective.get(key, [])
+        seen_actions: set[str] = set()
+        unique: list[tuple[Mapping[str,Any], list[Mapping[str,Any]]]] = []
+        for action, impacts in occurrences:
+            identity = str(action.get("action_id") or id(action))
+            if identity not in seen_actions:
+                seen_actions.add(identity)
+                unique.append((action, impacts))
+        goal_id = "goal-" + key
+        count = len(unique)
+        goal_cards.append(
+            "<a class='directed-goal-link' href='#" + goal_id + "'>"
+            "<span class='directed-goal-name'>" + escape(title) + "</span>"
+            "<strong>" + str(count) + "</strong>"
+            "<small>" + ("ação vinculada" if count == 1 else "ações vinculadas") + "</small>"
+            "<span class='directed-goal-cta'>"
+            + ("Consultar intervenções e evidências ›" if count else "Consultar limites da classificação ›")
+            + "</span></a>"
         )
-    objective_index=(
-        "<p class='section-lead'>Os objetivos reúnem referências já persistidas. "
+        aliases = "".join(
+            "<span class='directed-goal-alias' id='" + alias + "'></span>"
+            for alias in legacy_aliases.get(key, ())
+            if alias != goal_id
+        )
+        preview = (
+            "<p class='section-lead'>" + escape(description)
+            + " Esta perspectiva não substitui os resultados técnicos dos catálogos.</p>"
+            "<p class='directed-goal-count'><strong>" + str(count)
+            + "</strong> ação(ões) com associação sustentada por dimensão persistida. "
+            "Os totais entre objetivos não são aditivos.</p>"
+        )
+        if unique:
+            preview += "<div class='directed-operational-list'>" + "".join(
+                _directed_operational_item(action, target_by_id, impacts)
+                for action, impacts in unique
+            ) + "</div>"
+        else:
+            preview += (
+                "<div class='notice'>Nenhuma ação da Análise Direcionada foi vinculada "
+                "a esta perspectiva. Isso não significa ausência de problemas; "
+                "consulte os resultados e as limitações dos catálogos.</div>"
+            )
+        goal_blocks.append(
+            "<details class='directed-goal-details' id='" + goal_id + "'>"
+            "<summary>" + escape(title) + " · " + str(count) + " ação(ões)</summary>"
+            + aliases + "<div class='detail-body'>" + preview + "</div></details>"
+        )
+    objective_index = (
+        "<p class='section-lead'>Sete perspectivas de leitura da PoC, projetadas "
+        "exclusivamente das dimensões das ações persistidas. "
         "Uma mesma ação pode apoiar vários objetivos; as quantidades por dimensão "
-        "não são aditivas e não substituem as ocorrências individuais.</p>"
-        "<div class='directed-goal-grid' aria-label='Dimensões com intervenções persistidas'>"+ "".join(objective_cards) +"</div>"
-    ) if objective_cards else ""
-    body+=_section("objectives","Visões por objetivo",objective_index+"".join(objective_blocks) or "<div class='notice'>Nenhuma dimensão estratégica foi materializada.</div>")
+        "não são aditivas e não substituem as ocorrências individuais. "
+        "Uma perspectiva sem ações não certifica ausência de problemas.</p>"
+        "<div class='directed-goal-grid' aria-label='Objetivos de melhoria'>"
+        + "".join(goal_cards) + "</div>"
+    )
+    body += _section(
+        "objectives", "Visões por objetivo",
+        objective_index + "".join(goal_blocks),
+    )
 
     # Editorial bridge: organize persisted interventions by their existing
     # priority label; never infer priority from absent values or recompute it.
