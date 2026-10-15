@@ -59,6 +59,11 @@ def _render_bucket(kind: str, rows: list[tuple[str, dict]]) -> dict[str, Any]:
             if total.overlapping_duration_ms is not None else None
         ),
         "provider_observed_cost_usd": round(total.priced_usd_provider_observed, 9),
+        "provider_observed_cost_attempts": total.observed_cost_attempts,
+        "provider_observed_cost_available": total.observed_cost_attempts > 0,
+        "provider_observed_cost_complete": (
+            total.attempts > 0 and total.observed_cost_attempts == total.attempts
+        ),
         "posthoc_estimated_cost_usd": round(total.priced_usd_estimate, 9),
         "unknown_price_attempts": total.unpriced_attempts,
         "unknown_timing_attempts": total.unknown_intervals,
@@ -67,6 +72,11 @@ def _render_bucket(kind: str, rows: list[tuple[str, dict]]) -> dict[str, Any]:
                 "attempts": metric.attempts,
                 "sum_call_durations_ms": round(metric.summed_duration_ms, 3),
                 "provider_observed_cost_usd": round(metric.priced_usd_provider_observed, 9),
+                "provider_observed_cost_attempts": metric.observed_cost_attempts,
+                "provider_observed_cost_available": metric.observed_cost_attempts > 0,
+                "provider_observed_cost_complete": (
+                    metric.attempts > 0 and metric.observed_cost_attempts == metric.attempts
+                ),
                 "posthoc_estimated_cost_usd": round(metric.priced_usd_estimate, 9),
                 "unknown_price_attempts": metric.unpriced_attempts,
             } for label, metric in stages.items()
