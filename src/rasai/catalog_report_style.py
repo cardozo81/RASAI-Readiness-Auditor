@@ -34,7 +34,7 @@ from rasai.catalog_report_contract import (
 
 
 _CSS = r"""
-:root{--nav:286px;--nav-bg:#0c2533;--nav-hover:#113444;--bg:#f3f6f6;--card:#fff;--ink:#142d3d;--secondary-ink:#445c69;--muted:#546c78;--light-muted:#596c76;--line:#e1e9e9;--blue:#3159a8;--green:#087a77;--amber:#875411;--orange:#94551e;--red:#b33b3b;--cyan:#087a77;--radius:14px;--shadow:0 1px 3px rgba(16,44,52,.07)}
+:root{--nav:286px;--nav-bg:#102f3d;--nav-hover:#1b4551;--bg:#f4f7f7;--card:#fff;--ink:#142d3d;--secondary-ink:#445c69;--muted:#546c78;--light-muted:#596c76;--line:#dce5e7;--blue:#3159a8;--green:#087a77;--amber:#875411;--orange:#94551e;--red:#b33b3b;--cyan:#087a77;--radius:8px;--shadow:0 1px 2px rgba(12,37,51,.035)}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}a{color:var(--blue)}
 .app-nav{position:fixed;inset:0 auto 0 0;width:var(--nav);overflow:auto;padding:20px 14px;background:var(--nav-bg);color:#d6dfeb}.brand{padding:0 9px 15px;border-bottom:1px solid #2b3547;margin-bottom:12px}.brand small{display:block;color:#93a4ba;text-transform:uppercase;letter-spacing:.1em;font-size:.68rem}.brand strong{display:block;color:#fff;margin-top:4px;font-size:.76rem;font-weight:600;line-height:1.35;overflow-wrap:anywhere}.nav-group{margin:14px 9px 5px;color:#8798ae;font-size:.66rem;text-transform:uppercase;letter-spacing:.1em}.app-nav a{display:block;color:#cbd5e1;text-decoration:none;padding:8px 10px;margin:3px 0;border-radius:8px;font-size:.82rem}.app-nav a:hover,.app-nav a:focus,.app-nav a.active{background:var(--nav-hover);color:#fff}.translation-mark{display:inline-flex;align-items:center;justify-content:center;margin-left:4px;font-size:.72em;cursor:help;opacity:.72;vertical-align:baseline}.external-link{overflow-wrap:anywhere;word-break:break-word}.external-link:hover,.external-link:focus{text-decoration-thickness:2px}
 .app-main{margin-left:var(--nav);width:calc(100% - var(--nav));max-width:1500px;padding:28px 34px 60px}.hero,.panel,.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}.hero{padding:24px 26px;margin-bottom:16px}.hero .eyebrow{font-size:.66rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600}.kicker{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700}.hero h1{font-size:clamp(1.7rem,2.3vw,2.3rem);line-height:1.15;margin:.28rem 0 .6rem}.hero p{color:#4b5565;max-width:1000px}.panel{padding:19px 21px;margin:14px 0}.panel h2{font-size:1.26rem;margin:.15rem 0 .75rem}.panel h3{font-size:1rem;margin:.2rem 0 .55rem}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:11px}.card{padding:14px}.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:9px}.metric{background:#fbfcfe;border:1px solid var(--line);border-radius:10px;padding:11px}.metric small{display:block;color:var(--muted);font-size:.7rem}.metric strong{display:block;margin-top:3px;overflow-wrap:anywhere}
@@ -97,16 +97,9 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
   .report-breadcrumbs{font-size:9pt;margin:0 0 8mm;color:#303d45}
 }
 
-/* #633: objective index is an access path, never a replacement for action tables. */
-.directed-goal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,235px),1fr));gap:12px;margin:12px 0 20px}
-.directed-goal-link{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;border-top:3px solid var(--cyan);text-decoration:none;color:var(--ink);transition:box-shadow .15s,border-color .15s}
-.directed-goal-link:hover,.directed-goal-link:focus-visible{box-shadow:0 7px 24px rgba(12,37,51,.12);border-top-color:#065b59}
-.directed-goal-name{font-weight:750;font-size:.92rem}
-.directed-goal-link strong{font-size:1.8rem;line-height:1;color:var(--cyan);font-variant-numeric:tabular-nums}
-.directed-goal-link small{color:var(--muted)}
-.directed-goal-cta{margin-top:auto;padding-top:7px;color:var(--blue);font-weight:650;font-size:.77rem}
+/* #633: objectives remain native HTML until JS enhances them as a dialog. */
 .directed-goal-details{scroll-margin-top:76px}
-.directed-goal-details:target{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(8,122,119,.12)}
+.directed-goal-details:target{border-color:var(--cyan)}
 .directed-goal-details .table-wrap{max-width:100%}
 @media(max-width:900px){
   .report-menu-enhanced.report-menu-open::before{content:'';position:fixed;inset:0;background:rgba(7,27,39,.52);z-index:23}
@@ -114,12 +107,12 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
   .report-menu-enhanced.report-menu-open .app-nav nav{display:block;min-width:0}
   .report-menu-enhanced.report-menu-open .brand,.report-menu-enhanced.report-menu-open .nav-group{display:block}
   .report-menu-enhanced.report-menu-open .app-nav a{margin:3px 0;padding:10px 12px}
-  .report-menu-enhanced.report-menu-open body{overflow:hidden}
 }
 @media print{
-  .directed-goal-grid{display:none}
-  .directed-goal-details{break-inside:auto}
+  .directed-goal-grid{display:none!important}
+  .directed-goal-details{display:block!important;break-inside:auto}
   .directed-goal-details:not([open])>.detail-body{display:block!important}
+  .directed-goal-details>summary{font-size:13pt}
 }
 
 /* #633 real-AUD mobile capture context: long technical identifiers must wrap
@@ -128,7 +121,6 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
 .card .muted.mono{overflow-wrap:anywhere;word-break:break-word;white-space:normal}
 
 /* #633 restrained analytical surfaces and reading order. */
-:root{--radius:8px;--shadow:0 1px 2px rgba(12,37,51,.035);--line:#dce5e7;--bg:#f4f7f7;--nav-bg:#102f3d;--nav-hover:#1b4551}
 .hero,.panel{border-radius:10px;box-shadow:none}
 .card,.metric,.notice,details,.table-wrap{border-radius:7px;box-shadow:none}
 .panel h2{letter-spacing:-.012em}
@@ -166,14 +158,35 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
 @media(max-width:700px){.directed-intervention-group{border-bottom:1px solid var(--line)}}
 @media print{.directed-intervention-group{break-inside:avoid}}
 
-/* #633 overview navigation adds routes, not duplicate measurements. */
-.report-experience-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px;margin:14px 0}
-.report-experience-card{display:flex;flex-direction:column;gap:8px;text-decoration:none;color:var(--ink);border-top:3px solid var(--cyan);transition:transform .16s,box-shadow .16s}
-.report-experience-card strong{font-size:1rem}
-.report-experience-card span{color:var(--secondary-ink);font-size:.84rem;flex:1}
-.report-experience-card small{color:var(--blue);font-size:.76rem;font-weight:700}
-.report-experience-card:hover,.report-experience-card:focus-visible{transform:translateY(-2px);box-shadow:0 8px 26px rgba(12,37,51,.13)}
-@media print{.report-experience-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.report-experience-card{break-inside:avoid;box-shadow:none!important;transform:none!important}}
+/* #633 PoC reading model: objective -> problem -> location -> execution -> validation -> evidence. */
+.directed-goal-alias{display:block;height:0;overflow:hidden;scroll-margin-top:76px}
+.report-objectives-enhanced details.directed-goal-details{display:none}
+.directed-operational-list{border-top:1px solid var(--line)}
+.directed-operational-item{min-width:0;padding:23px 0;border-bottom:1px solid var(--line);break-inside:avoid}
+.directed-operational-item h3{font-size:1.02rem;line-height:1.4;overflow-wrap:anywhere;margin:0 0 7px}
+.directed-operational-meta{color:var(--secondary-ink);font-size:.79rem;margin:0 0 12px;line-height:1.6}
+.directed-operational-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px;margin:0}
+.directed-operational-facts>div{min-width:0}
+.directed-operational-facts dt{font-size:.72rem;font-weight:750;text-transform:uppercase;letter-spacing:.035em;color:var(--secondary-ink);margin:0 0 4px}
+.directed-operational-facts dd{font-size:.84rem;color:var(--ink);line-height:1.6;margin:0;overflow-wrap:anywhere;white-space:pre-wrap}
+.directed-operational-facts dd ol{margin:2px 0;padding-left:19px;white-space:normal}
+.directed-operational-facts dd li+li{margin-top:4px}
+.directed-operational-facts .ref{margin:3px 5px 3px 0;white-space:normal}
+.directed-goal-count{border-bottom:1px solid var(--line);padding:8px 0 14px;color:var(--muted)}
+.directed-goal-count strong{font-size:1.3rem;color:var(--ink)}
+dialog.directed-objective-dialog{width:min(1100px,calc(100vw - 26px));max-height:92dvh}
+dialog.directed-objective-dialog .modal-body{max-height:calc(92dvh - 112px)}
+@media(max-width:760px){
+  .directed-operational-facts{grid-template-columns:minmax(0,1fr);gap:12px}
+  dialog.directed-objective-dialog .modal-head{padding:14px}
+  dialog.directed-objective-dialog .modal-body{padding:14px}
+}
+@media print{
+  .report-objectives-enhanced details.directed-goal-details{display:block!important}
+  .directed-goal-details .detail-body{display:block!important;visibility:visible!important}
+  .directed-operational-item{break-inside:auto}
+  .directed-operational-facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 
 /* #328: segment CAT-06/CAT-07 explanations without hiding source tables. */
 .cat-apdex-readable{
@@ -181,8 +194,8 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
   padding:17px 20px;
   min-width:0;
   border:1px solid var(--line);
-  border-left:3px solid #526fc2;
-  border-radius:11px;
+  border-left:1px solid var(--line);
+  border-radius:8px;
   background:#fff;
 }
 .cat-apdex-readable>h3{
