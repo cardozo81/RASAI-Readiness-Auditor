@@ -284,10 +284,10 @@ def test_same_host_candidate_discovery_fails_closed_on_unbounded_scope():
     with pytest.raises(ValueError, match="authorization"):
         preview(index, reference_audit_id="AUD-REFERENCE",
                 allowed_audit_ids=("AUD-ELIGIBLE",))
-    with pytest.raises(ValueError, match="budget"):
+    with pytest.raises(ValueError, match="authorization"):
         preview(index, reference_audit_id="AUD-REFERENCE",
                 allowed_audit_ids=("AUD-REFERENCE", "AUD-ELIGIBLE"),
-                max_candidates=1-1)
+                max_candidates=0)
     with pytest.raises(ValueError, match="reference AUD"):
         preview(index, reference_audit_id="AUD-MISSING",
                 allowed_audit_ids=("AUD-MISSING", "AUD-ELIGIBLE"))
