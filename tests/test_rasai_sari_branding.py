@@ -7,7 +7,7 @@ from rasai.branding import (
     PUBLIC_INDEX_VERSION,
 )
 from rasai.catalog_report_contract import CATALOG_REPORT_DIR
-from rasai.score_geo_004 import SCORING_VERSION
+from rasai.score_geo import SCORING_VERSION
 
 
 def test_public_branding_contract() -> None:

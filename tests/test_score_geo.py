@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from rasai.domain import DeviceContext, RuleExecution, RuleResult
-from rasai.score_geo_004 import OVERALL_AGGREGATION_VERSION, SCORING_VERSION
+from rasai.score_geo import OVERALL_AGGREGATION_VERSION, SCORING_VERSION
 from rasai.scoring import ConsolidationStatus
 from rasai.scoring_v004 import ScoreGeo004Engine
 

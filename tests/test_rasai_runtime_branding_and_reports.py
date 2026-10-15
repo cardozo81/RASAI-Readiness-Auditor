@@ -9,7 +9,7 @@ from rasai.consolidation.index import ConsolidationIndex
 from rasai.platform import default_platform_database
 from rasai.report_navigation import render_report_navigation
 from rasai.runtime_paths import runtime_directory
-from rasai.score_geo_004_reporting import _score_reason
+from rasai.score_geo_reporting import _score_reason
 
 
 class RasaiRuntimeBrandingTests(unittest.TestCase):

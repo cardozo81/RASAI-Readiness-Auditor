@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from rasai.report_presentation import SCORING_CONCEPT_LABELS, humanize_report_html, public_label
-from rasai.score_geo_004 import FEATURE_ORDER, GROUP_WEIGHTS
+from rasai.score_geo import FEATURE_ORDER, GROUP_WEIGHTS
 
 
 class ReportPresentationTests(unittest.TestCase):
