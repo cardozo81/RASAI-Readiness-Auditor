@@ -72,6 +72,19 @@ def git_new_paths(base: str, head: str) -> list[str]:
     return parse_added_or_renamed(proc.stdout)
 
 
+def git_all_paths(head: str) -> list[str]:
+    """Enumerate the complete committed Git tree, without index search."""
+    proc = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", "-z", head],
+        check=True,
+        capture_output=True,
+    )
+    return [
+        path.decode("utf-8", "surrogateescape")
+        for path in proc.stdout.split(b"\0") if path
+    ]
+
+
 def check(paths: list[str]) -> list[str]:
     return sorted(
         path for path in paths
@@ -81,11 +94,14 @@ def check(paths: list[str]) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base", required=True, help="Verified Git base commit")
+    parser.add_argument("--base", help="Verified Git base commit for incremental checks")
+    parser.add_argument("--full-tree", action="store_true", help="Scan every path in the committed HEAD tree")
     parser.add_argument("--head", default="HEAD", help="Commit to validate")
     args = parser.parse_args(argv)
     try:
-        paths = git_new_paths(args.base, args.head)
+        if not args.full_tree and not args.base:
+            parser.error("--base is required unless --full-tree is set")
+        paths = git_all_paths(args.head) if args.full_tree else git_new_paths(args.base, args.head)
     except (OSError, ValueError, subprocess.CalledProcessError) as exc:
         print(f"Cannot evaluate filenames: {exc}", file=sys.stderr)
         return 2
@@ -99,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
         for path in invalid:
             print(f"  {path}", file=sys.stderr)
         return 1
-    print(f"Filename policy PASS: {len(paths)} newly introduced/renamed paths checked.")
+    print(f"Filename policy PASS: {len(paths)} {'committed' if args.full_tree else 'newly introduced/renamed'} paths checked.")
     return 0
 
 
@@ -154,6 +170,22 @@ def test_malformed_diff_fails_closed() -> None:
         pass
     else:
         raise AssertionError("Incomplete rename must fail closed")
+
+
+def test_complete_tree_parser_is_safe_and_returns_all_paths(monkeypatch) -> None:
+    class Result:
+        stdout = b"src/rasai/safe.py\0docs/historical_639.md\0"
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen["command"] = command
+        assert kwargs["check"] and kwargs["capture_output"]
+        return Result()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    paths = git_all_paths("HEAD")
+    assert seen["command"] == ["git", "ls-tree", "-r", "--name-only", "-z", "HEAD"]
+    assert check(paths) == ["docs/historical_639.md"]
 
 
 if __name__ == "__main__":
