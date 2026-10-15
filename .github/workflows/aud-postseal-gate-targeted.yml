@@ -4,7 +4,7 @@ on:
     paths:
       - 'src/rasai/audit_runner.py'
       - 'tests/test_shared_collection_ai_gate.py'
-      - '.github/workflows/aud-postseal-gate-136-targeted.yml'
+      - '.github/workflows/aud-postseal-gate-targeted.yml'
   workflow_dispatch:
 permissions:
   contents: read

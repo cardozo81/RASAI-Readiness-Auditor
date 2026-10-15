@@ -5,13 +5,13 @@ on:
     paths:
       - 'src/rasai/catalog_report_evidence.py'
       - 'tests/test_semantic_summary_provenance_109.py'
-      - '.github/workflows/cat03-semantic-summary-109.yml'
+      - '.github/workflows/cat03-semantic-summary.yml'
   push:
     branches: [main]
     paths:
       - 'src/rasai/catalog_report_evidence.py'
       - 'tests/test_semantic_summary_provenance_109.py'
-      - '.github/workflows/cat03-semantic-summary-109.yml'
+      - '.github/workflows/cat03-semantic-summary.yml'
   workflow_dispatch:
 
 permissions:

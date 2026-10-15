@@ -13,7 +13,7 @@ on:
       - 'src/rasai/catalog_report_integrations.py'
       - 'src/rasai/catalog_report_final_refinements.py'
       - 'tests/test_ai_audit_boundary_regressions.py'
-      - '.github/workflows/ai-audit-boundary-199-200-targeted.yml'
+      - '.github/workflows/ai-audit-boundary-targeted.yml'
   workflow_dispatch:
 
 permissions:

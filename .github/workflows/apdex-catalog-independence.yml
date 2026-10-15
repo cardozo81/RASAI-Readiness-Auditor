@@ -24,7 +24,7 @@ on:
       - 'tests/test_m25_console_integration.py'
       - 'tests/test_worker_execution.py'
       - 'tests/test_system_defaults.py'
-      - '.github/workflows/apdex-catalog-independence-150.yml'
+      - '.github/workflows/apdex-catalog-independence.yml'
   push:
     branches: [main]
     paths:
@@ -49,7 +49,7 @@ on:
       - 'tests/test_m25_console_integration.py'
       - 'tests/test_worker_execution.py'
       - 'tests/test_system_defaults.py'
-      - '.github/workflows/apdex-catalog-independence-150.yml'
+      - '.github/workflows/apdex-catalog-independence.yml'
   workflow_dispatch:
 
 permissions:

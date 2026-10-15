@@ -4,7 +4,7 @@ on:
     paths:
       - 'src/rasai/catalog_report_assurance.py'
       - 'tests/test_cat08_no_ai_assurance_133.py'
-      - '.github/workflows/cat08-no-ai-assurance-133-targeted.yml'
+      - '.github/workflows/cat08-no-ai-assurance-targeted.yml'
   workflow_dispatch:
 permissions:
   contents: read

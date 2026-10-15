@@ -6,14 +6,14 @@ on:
       - 'src/rasai/catalog_report_analysis.py'
       - 'src/rasai/catalog_report_adherence.py'
       - 'tests/test_nav_browser_diagnostic_labels_109.py'
-      - '.github/workflows/cat06-browser-labels-109.yml'
+      - '.github/workflows/cat06-browser-labels.yml'
   push:
     branches: [main]
     paths:
       - 'src/rasai/catalog_report_analysis.py'
       - 'src/rasai/catalog_report_adherence.py'
       - 'tests/test_nav_browser_diagnostic_labels_109.py'
-      - '.github/workflows/cat06-browser-labels-109.yml'
+      - '.github/workflows/cat06-browser-labels.yml'
   workflow_dispatch:
 
 permissions:

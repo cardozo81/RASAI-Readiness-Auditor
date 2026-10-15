@@ -11,7 +11,7 @@ MILESTONE = re.compile(r"(?<![\w-])M\d{1,2}(?![\w-])")
 _INTERNAL_ARCHITECTURE_DOCS = frozenset({
     "docs/AI_RUNTIME_ORCHESTRATION.md",
     "docs/AUD_RPR_INTERRUPTED_STAGE_POLICY.md",
-    "docs/AUD_RPR_PARITY_MATRIX_110.md",
+    "docs/AUD_RPR_PARITY_MATRIX.md",
 })
 
 
@@ -37,7 +37,7 @@ def test_internal_architecture_docs_are_not_scanned_as_public_documentation() ->
     expected = {
         ROOT / "docs" / "AI_RUNTIME_ORCHESTRATION.md",
         ROOT / "docs" / "AUD_RPR_INTERRUPTED_STAGE_POLICY.md",
-        ROOT / "docs" / "AUD_RPR_PARITY_MATRIX_110.md",
+        ROOT / "docs" / "AUD_RPR_PARITY_MATRIX.md",
     }
     public_paths = set(_public_documentation_paths())
     assert all(path.exists() for path in expected)
