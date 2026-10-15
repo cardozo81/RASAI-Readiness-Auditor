@@ -13,7 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request
 
-from rasai.geo_competitor_pinned_egress_330 import PublicWebPinnedOpener
+from rasai.geo_competitor_pinned_egress import PublicWebPinnedOpener
 
 from rasai.dynatrace_effective_values_adapter import (
     SCHEMA_TO_ACTION, extract_apdex_from_effective_values,

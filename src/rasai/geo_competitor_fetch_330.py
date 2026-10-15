@@ -18,7 +18,7 @@ from rasai.search_intelligence.content import (
     ContentFetchStatus, PublicWebFetcher, PublicWebBlocked,
     _validate_public_url, extract_page_features,
 )
-from rasai.geo_competitor_pinned_egress_330 import PublicWebPinnedOpener
+from rasai.geo_competitor_pinned_egress import PublicWebPinnedOpener
 from rasai.url_utils import InvalidUrl
 
 

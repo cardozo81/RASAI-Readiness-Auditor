@@ -5,7 +5,7 @@ on:
     paths:
       - 'src/rasai/geo_competitor_fetch_330.py'
       - 'src/rasai/entrypoint.py'
-      - 'src/rasai/geo_competitor_pinned_egress_330.py'
+      - 'src/rasai/geo_competitor_pinned_egress.py'
       - 'tests/test_geo_competitor_fetch.py'
       - 'tests/test_geo_competitor_pinned_egress.py'
       - 'docs/GEO_COMPETITOR_FETCH.md'
@@ -15,7 +15,7 @@ on:
     paths:
       - 'src/rasai/geo_competitor_fetch_330.py'
       - 'src/rasai/entrypoint.py'
-      - 'src/rasai/geo_competitor_pinned_egress_330.py'
+      - 'src/rasai/geo_competitor_pinned_egress.py'
       - 'tests/test_geo_competitor_fetch.py'
       - 'tests/test_geo_competitor_pinned_egress.py'
       - '.github/workflows/geo-competitor-robots.yml'
