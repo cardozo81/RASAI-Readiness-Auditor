@@ -122,6 +122,15 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
   .directed-goal-details:not([open])>.detail-body{display:block!important}
 }
 
+/* #633 overview navigation adds routes, not duplicate measurements. */
+.report-experience-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px;margin:14px 0}
+.report-experience-card{display:flex;flex-direction:column;gap:8px;text-decoration:none;color:var(--ink);border-top:3px solid var(--cyan);transition:transform .16s,box-shadow .16s}
+.report-experience-card strong{font-size:1rem}
+.report-experience-card span{color:var(--secondary-ink);font-size:.84rem;flex:1}
+.report-experience-card small{color:var(--blue);font-size:.76rem;font-weight:700}
+.report-experience-card:hover,.report-experience-card:focus-visible{transform:translateY(-2px);box-shadow:0 8px 26px rgba(12,37,51,.13)}
+@media print{.report-experience-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.report-experience-card{break-inside:avoid;box-shadow:none!important;transform:none!important}}
+
 /* #328: segment CAT-06/CAT-07 explanations without hiding source tables. */
 .cat-apdex-readable{
   margin:16px 0;
