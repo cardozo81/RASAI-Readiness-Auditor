@@ -102,7 +102,7 @@ _ADDITIONAL_RUNTIME_INPUTS = (
     ("RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS", "IA - modelos e reasoning", "numero > 0", (), "src/rasai/improvement_intelligence.py"),
     ("RASAI_IMPROVEMENT_DOMAINS", "IA - modelos e reasoning", "lista CSV", (), "src/rasai/improvement_intelligence.py"),
     ("RASAI_IMPROVEMENT_INTELLIGENCE", "IA - modelos e reasoning", "booleano", ("true", "false"), "src/rasai/improvement_intelligence.py"),
-    ("RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS", "IA - modelos e reasoning", "inteiro > 0", (), "src/rasai/improvement_intelligence.py"),
+    ("RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS", "IA - modelos e reasoning", "inteiro 1..100", (), "src/rasai/improvement_intelligence.py"),
     ("RASAI_PASSIVE_SECURITY", "Aplicação e execução", "booleano", ("true", "false"), "src/rasai/passive_security.py"),
     ("RASAI_PRESENTATION_TIMEZONE", "Aplicação e execução", "timezone IANA", (), "src/rasai/time_contract.py"),
     ("RASAI_SECURITY_CISA_KEV", "Aplicação e execução", "booleano", ("true", "false"), "src/rasai/passive_security.py"),
@@ -240,6 +240,13 @@ def _validate(name: str, raw: str) -> str:
                 raise ValueError("use numero finito > 0")
         elif spec.value_type == "timezone IANA":
             return validate_presentation_timezone(candidate)
+        elif spec.value_type == "inteiro 1..100":
+            count = int(candidate)
+            if not 1 <= count <= 100:
+                raise ValueError("use inteiro 1..100")
+        elif spec.value_type == "lista CSV" and name == "RASAI_IMPROVEMENT_DOMAINS":
+            from rasai.improvement_intelligence import parse_domains
+            return ",".join(parse_domains(candidate))
         elif spec.value_type == "tag BCP-47 ou auto":
             from rasai.improvement_intelligence import validate_analysis_language
             return validate_analysis_language(candidate)
