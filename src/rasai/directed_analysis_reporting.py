@@ -403,10 +403,35 @@ def _links(values: Any, *, label_prefix: str) -> _Html:
     return _Html("<div class='pill-list'>"+"".join(links)+"</div>" if links else "<span class='muted'>Sem referência aplicável.</span>")
 
 
+def _governance_for_action(
+    action: Mapping[str, Any],
+    by_source: Mapping[tuple[str, str], Mapping[str, Any]],
+) -> tuple[str, str]:
+    """Report only the governance decision and target persisted for this source."""
+    key = (_norm(action.get("source_kind")), str(action.get("source_id") or ""))
+    row = by_source.get(key)
+    if not row:
+        return "Sem decisão casada", "Responsabilidade não consolidada nesta fonte"
+    decision = {
+        "ACCEPTED": "Aceita",
+        "VERIFY_DECIDE": "Verificar / decidir",
+        "REJECTED": "Rejeitada",
+    }.get(_norm(row.get("decision")), "Decisão indeterminada")
+    target = {
+        "TARGET_SITE": "Site auditado",
+        "EXTERNAL_PROVIDER": "Fornecedor externo",
+        "ENVIRONMENTAL": "Ambiente",
+        "INFORMATIONAL": "Informativa",
+        "AUDITOR_INTERNAL": "Auditor / interno",
+    }.get(_norm(row.get("target_class")), "Responsabilidade não determinada")
+    return decision, target
+
+
 def _action_modal(
     action: Mapping[str,Any],
     by_id: Mapping[str,Mapping[str,Any]],
     target_by_id: Mapping[str,Mapping[str,str]],
+    governance_by_source: Mapping[tuple[str, str], Mapping[str, Any]] | None = None,
 ) -> str:
     action_id=str(action.get("action_id") or "")
     title_token=re.sub(r"[^a-z0-9_-]+","-",str(action.get("title") or "acao").casefold()).strip("-") or "acao"
@@ -430,6 +455,9 @@ def _action_modal(
     pairs=[("Alvo / ocorrência",target_context.get("label") or "Consulte a origem técnica persistida.")]
     if target_context.get("note"):
         pairs.append(("Como interpretar esta ocorrência",target_context.get("note")))
+    if governance_by_source is not None:
+        decision, owner = _governance_for_action(action, governance_by_source)
+        pairs.extend((("Decisão de governança", decision), ("Responsável / classe de alvo", owner)))
     pairs.extend((
         ("Por que agir",action.get("reason") or "-"),
         ("Objetivo principal",action.get("primary_objective") or "Não consolidado pela IA"),
@@ -462,6 +490,7 @@ def _directed_operational_item(
     action: Mapping[str, Any],
     target_by_id: Mapping[str, Mapping[str, str]],
     impacts: Sequence[Mapping[str, Any]],
+    governance_by_source: Mapping[tuple[str, str], Mapping[str, Any]],
 ) -> str:
     """Project persisted action facts as an actionable, traceable reading unit.
 
@@ -483,7 +512,10 @@ def _directed_operational_item(
         _dimension_label(item.get("dimension")) + " (" + _gain_label(item.get("expected_gain")) + ")"
         for item in impacts
     )
+    decision, owner = _governance_for_action(action, governance_by_source)
     meta = " · ".join((
+        "Governança: " + decision,
+        "Alvo: " + owner,
         "Prioridade: " + (_level_label(action.get("priority")) if action.get("priority") else "não consolidada"),
         "Esforço: " + (_level_label(action.get("effort")) if action.get("effort") else "não consolidado"),
         "Confiança: " + (_confidence_label(action.get("confidence")) if action.get("confidence") else "não consolidada"),
@@ -631,6 +663,10 @@ def directed_analysis_body(database: Any, data: Any) -> str:
     try:
         run=_one(connection,"directed_analysis_runs",data.audit_id)
         actions=_rows(connection,"directed_analysis_actions",data.audit_id)
+        governance_by_source = {
+            (_norm(row.get("source_kind")), str(row.get("source_id") or "")): row
+            for row in _rows(connection, "recommendation_governance", data.audit_id)
+        }
         target_by_id=_action_target_contexts(connection,data.audit_id,actions)
     finally:
         connection.close()
@@ -830,11 +866,16 @@ def directed_analysis_body(database: Any, data: Any) -> str:
                 unique.append((action, impacts))
         goal_id = "goal-" + key
         count = len(unique)
+        accepted = sum(
+            _governance_for_action(action, governance_by_source)[0] == "Aceita"
+            for action, _impacts in unique
+        )
         goal_cards.append(
             "<a class='directed-goal-link' href='#" + goal_id + "'>"
             "<span class='directed-goal-name'>" + escape(title) + "</span>"
             "<strong>" + str(count) + "</strong>"
-            "<small>" + ("ação vinculada" if count == 1 else "ações vinculadas") + "</small>"
+            "<small>" + str(accepted) + " aceita(s) · "
+            + str(count) + " associada(s)</small>"
             "<span class='directed-goal-cta'>"
             + ("Consultar intervenções e evidências ›" if count else "Consultar limites da classificação ›")
             + "</span></a>"
@@ -853,7 +894,7 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         )
         if unique:
             preview += "<div class='directed-operational-list'>" + "".join(
-                _directed_operational_item(action, target_by_id, impacts)
+                _directed_operational_item(action, target_by_id, impacts, governance_by_source)
                 for action, impacts in unique
             ) + "</div>"
         else:
@@ -911,7 +952,7 @@ def directed_analysis_body(database: Any, data: Any) -> str:
 
     action_rows=[];modals=[]
     for action in actions:
-        modal_id,modal=_action_modal(action,by_id,target_by_id)
+        modal_id,modal=_action_modal(action,by_id,target_by_id,governance_by_source)
         dimensions_list=_json(action.get("affected_dimensions_json"),[])
         action_rows.append((
             action.get("title") or "-",
@@ -920,6 +961,7 @@ def directed_analysis_body(database: Any, data: Any) -> str:
             _level_label(action.get("effort")) if action.get("effort") else "Não consolidado",
             _confidence_label(action.get("confidence")) if action.get("confidence") else "Não consolidada",
             len(dimensions_list) if isinstance(dimensions_list,list) else 0,
+            _governance_for_action(action, governance_by_source)[0],
             _modal_button(modal_id,"Ver estratégia"),
         ))
         modals.append(modal)
@@ -927,7 +969,7 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         "actions","Ações estratégicas",
         intervention_overview + "<p class='section-lead'>Intervenções documentadas: cada linha corresponde a uma ação persistida, sem deduplicar ocorrências. Consulte prioridade, esforço e confiança na mesma linha; abra o detalhe para contexto, evidências e proveniência. Quando o título se repete, use <strong>Alvo / ocorrência</strong> para identificar exatamente qual cookie, recurso ou registro deve ser tratado.</p>"
         +_table(
-            ("Ação","Alvo / ocorrência","Prioridade","Esforço","Confiança","Dimensões","Detalhe"),
+            ("Ação","Alvo / ocorrência","Prioridade","Esforço","Confiança","Dimensões","Governança","Detalhe"),
             action_rows,
             empty="Nenhuma ação foi materializada.",
             sortable=bool(action_rows),
