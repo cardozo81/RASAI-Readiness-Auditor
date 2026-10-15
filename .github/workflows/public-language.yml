@@ -9,7 +9,7 @@ on:
       - 'src/rasai/catalog_report_site.py'
       - 'src/rasai/cat07_architecture_reporting_358.py'
       - 'src/rasai/dynatrace_apdex_arch_advisory_355.py'
-      - 'tests/test_public_language_377.py'
+      - 'tests/test_public_language.py'
       - 'tests/test_cat07_architecture_integration_358.py'
       - 'docs/PUBLIC_LANGUAGE.md'
       - 'docs/CONSOLE_COST_AND_USAGE.md'
@@ -22,7 +22,7 @@ on:
       - 'src/rasai/catalog_report_site.py'
       - 'src/rasai/cat07_architecture_reporting_358.py'
       - 'src/rasai/dynatrace_apdex_arch_advisory_355.py'
-      - 'tests/test_public_language_377.py'
+      - 'tests/test_public_language.py'
       - '.github/workflows/public-language.yml'
 permissions:
   contents: read
@@ -45,5 +45,5 @@ jobs:
       - name: Focused public copy and CAT-07 evidence guards
         run: >-
           python -m pytest -q
-          tests/test_public_language_377.py
+          tests/test_public_language.py
           tests/test_cat07_architecture_integration_358.py

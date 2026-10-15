@@ -5,7 +5,7 @@ on:
     paths:
       - 'src/rasai/catalog_report_page.py'
       - 'src/rasai/catalog_report_style.py'
-      - 'tests/test_report_section_readability_328.py'
+      - 'tests/test_report_section_readability.py'
       - 'docs/REPORT_SECTION_UX.md'
       - '.github/workflows/report-section-ux.yml'
   push:
@@ -13,7 +13,7 @@ on:
     paths:
       - 'src/rasai/catalog_report_page.py'
       - 'src/rasai/catalog_report_style.py'
-      - 'tests/test_report_section_readability_328.py'
+      - 'tests/test_report_section_readability.py'
       - '.github/workflows/report-section-ux.yml'
 permissions:
   contents: read
@@ -36,5 +36,5 @@ jobs:
       - name: Focused section markup and CAT-07 boundary
         run: >-
           python -m pytest -q
-          tests/test_report_section_readability_328.py
+          tests/test_report_section_readability.py
           tests/test_cat07_architecture_integration_358.py

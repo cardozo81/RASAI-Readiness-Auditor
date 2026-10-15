@@ -106,7 +106,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Inspecionar ledger físico já persistido por query, declarar matriz das dimensões de comparabilidade que o provider realmente entrega. Implementar somente atributos observados/adapters, nunca inferir o que a API não retorna; caso contrato de provider não ofereça equivalência, reportar NOT_VERIFIABLE e manter métricas DESCRIPTIVE_ONLY.
 
-**Testes selecionados (planejados, não executados aqui):** `rasai geo-query-ledger <AUD_DIR> --format json`; `python -m pytest -q tests/test_geo_query_ledger_304.py tests/test_geo_observation.py tests/test_geo_report.py`.
+**Testes selecionados (planejados, não executados aqui):** `rasai geo-query-ledger <AUD_DIR> --format json`; `python -m pytest -q tests/test_geo_query_ledger.py tests/test_geo_observation.py tests/test_geo_report.py`.
 
 **Prova exigida para fechamento:** Amostra de pares com request IDs, query, intent, país/idioma/device/collected_at e hashes físicos, denominadores válidos, multi-query positivo/negativo. Sem provider comparável, aceitar apenas alegação descritiva, não certificar ranking/share/citação.
 
@@ -178,7 +178,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Reconstruir checklist somente das filhas originalmente integrantes do épico e do escopo residual ativo; classificar cada relação como BLOCKER/RELATED/ROADMAP, exigir prova GEO por consulta e gates comerciais sem chamadas automáticas. #311/#330 não devem ampliar retroativamente aceite do release #310.
 
-**Testes selecionados (planejados, não executados aqui):** `python -m pytest -q tests/test_geo_observation.py tests/test_geo_query_ledger_304.py tests/test_geo_report.py tests/test_perplexity_search_intelligence.py`.
+**Testes selecionados (planejados, não executados aqui):** `python -m pytest -q tests/test_geo_observation.py tests/test_geo_query_ledger.py tests/test_geo_report.py tests/test_perplexity_search_intelligence.py`.
 
 **Prova exigida para fechamento:** Rastreabilidade de cada filha obrigatória, evidência de fontes, fechamento de #304 quando contratualmente possível, paridade geo.html e motor preservado. Aceitar descritivo com N/D apenas se contrato do épico permitir explicitamente; se não, OPEN.
 
