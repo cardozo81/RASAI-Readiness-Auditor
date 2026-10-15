@@ -815,25 +815,36 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         ("seguranca", "Segurança passiva", "Configuração e riscos passivamente observados.",
          ("SECURITY", "VULNERABILITIES")),
     )
-    raw_dimensions: dict[str, list[tuple[Mapping[str,Any], Mapping[str,Any]]]] = {}
+    # Raw names are retained for historic #goal-<sha256(raw-dimension)> links.
+    # Only preferred existing perspectives are kept; no duplicate row cache.
+    legacy_dimension_goals: dict[str, str] = {}
     by_objective: dict[str, list[tuple[Mapping[str,Any], list[Mapping[str,Any]]]]] = {}
-    assigned_ids: set[str] = set()
     for action in actions:
         dimensions_json = _json(action.get("affected_dimensions_json"), [])
         declared = [
             item for item in dimensions_json
             if isinstance(item, Mapping) and str(item.get("dimension") or "").strip()
         ] if isinstance(dimensions_json, list) else []
-        action_identity = str(action.get("action_id") or id(action))
-        for impact in declared:
-            raw_dimensions.setdefault(_norm(impact.get("dimension")), []).append((action, impact))
+        matched_keys: list[str] = []
         for key, _title, _description, keys in _DIRECTED_POC_OBJECTIVES:
             relevant = [item for item in declared if _norm(item.get("dimension")) in keys]
             if relevant:
                 by_objective.setdefault(key, []).append((action, relevant))
-                assigned_ids.add(action_identity)
-        if action_identity not in assigned_ids:
+                matched_keys.append(key)
+        if not matched_keys:
             by_objective.setdefault("nao-classificado", []).append((action, declared))
+        for impact in declared:
+            raw_dimension = str(impact.get("dimension"))
+            normalized = _norm(raw_dimension)
+            explicit = next(
+                (key for key, _title, _description, keys in _DIRECTED_POC_OBJECTIVES
+                 if normalized in keys),
+                None,
+            )
+            legacy_dimension_goals.setdefault(
+                raw_dimension,
+                explicit or (matched_keys[0] if matched_keys else "nao-classificado"),
+            )
 
     goal_cards: list[str] = []
     goal_blocks: list[str] = []
@@ -847,13 +858,8 @@ def directed_analysis_body(database: Any, data: Any) -> str:
     # The previous hash IDs are retained as aliases to their thematic view.
     # They remain deep-linkable without duplicating an entire action inventory.
     legacy_aliases: dict[str, list[str]] = {}
-    for dimension in raw_dimensions:
-        chosen = next(
-            (key for key, _title, _desc, keys in _DIRECTED_POC_OBJECTIVES
-             if dimension in keys),
-            "nao-classificado",
-        )
-        alias = "goal-" + sha256(dimension.encode("utf-8")).hexdigest()[:12]
+    for raw_dimension, chosen in legacy_dimension_goals.items():
+        alias = "goal-" + sha256(raw_dimension.encode("utf-8")).hexdigest()[:12]
         legacy_aliases.setdefault(chosen, []).append(alias)
     for key, title, description, _keys in objective_definitions:
         occurrences = by_objective.get(key, [])
