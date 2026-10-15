@@ -35,6 +35,6 @@ jobs:
           tests/test_device_context_capture.py
           tests/test_render_materiality.py
           tests/test_m6_javascript_spa.py
-          tests/test_issue_56_runtime_intelligence.py
+          tests/test_runtime_intelligence.py
           tests/test_core_reprocessing.py
           tests/test_catalog_report_contract.py

@@ -38,7 +38,7 @@ on:
       - 'tests/test_ai_orchestration_characterization.py'
       - 'tests/test_ai_runtime_orchestration.py'
       - 'tests/test_ai_retry_fallback_observability.py'
-      - 'tests/test_issue_43_reprocess_ai_timeout.py'
+      - 'tests/test_reprocess_ai_timeout.py'
       - 'tests/test_request_remediation_canonical.py'
       - 'tests/test_aud722_regressions.py'
       - '.github/workflows/ai-canonical-orchestration-targeted.yml'
@@ -112,9 +112,9 @@ jobs:
           pytest -q
           tests/test_ai_evidence_snapshot.py
           tests/test_governed_ai_pipeline.py
-          tests/test_issue_43_reprocess_ai_timeout.py
+          tests/test_reprocess_ai_timeout.py
           tests/test_governed_reprocess_dependencies.py
-          tests/test_issue_66_execution_reprocess_parity.py
+          tests/test_execution_reprocess_parity.py
           tests/test_aud722_regressions.py
 
       - name: Configuration, console and pricing boundaries
