@@ -122,6 +122,11 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
   .directed-goal-details:not([open])>.detail-body{display:block!important}
 }
 
+/* #633 real-AUD mobile capture context: long technical identifiers must wrap
+   inside their card without expanding the document viewport. Preserve table
+   overflow in .table-wrap and keep the full identifier selectable. */
+.card .muted.mono{overflow-wrap:anywhere;word-break:break-word;white-space:normal}
+
 /* #633 overview navigation adds routes, not duplicate measurements. */
 .report-experience-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px;margin:14px 0}
 .report-experience-card{display:flex;flex-direction:column;gap:8px;text-decoration:none;color:var(--ink);border-top:3px solid var(--cyan);transition:transform .16s,box-shadow .16s}
