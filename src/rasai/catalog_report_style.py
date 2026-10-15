@@ -198,7 +198,7 @@ if(menuButton&&menu){
   document.addEventListener('keydown',(event)=>{if(event.key==='Escape'&&menuButton.getAttribute('aria-expanded')==='true'){setOpen(false);menuButton.focus();}});
 }
 const open=(id)=>{const el=document.getElementById(id);if(el&&typeof el.showModal==='function'&&!el.open)el.showModal();};
-const openHash=()=>{let id='';try{id=decodeURIComponent((location.hash||'').replace(/^#/,'')).trim();}catch(_error){return;}if(id)open(id);};
+const openHash=()=>{let id='';try{id=decodeURIComponent((location.hash||'').replace(/^#/,'')).trim();}catch(_error){return;}if(!id)return;const target=document.getElementById(id);if(!target)return;if(target.matches('details.directed-goal-details')){target.open=true;return;}open(id);};
 document.addEventListener('click',(event)=>{const trigger=event.target.closest('[data-modal-open]');if(trigger){event.preventDefault();open(trigger.getAttribute('data-modal-open'));return;}const closer=event.target.closest('[data-modal-close]');if(closer){event.preventDefault();const dlg=closer.closest('dialog');if(dlg)dlg.close();}});
 window.addEventListener('hashchange',openHash);
 openHash();
