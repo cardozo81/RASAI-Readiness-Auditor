@@ -38,7 +38,7 @@ Para comparar **linhas de tabela, seções e quantidade de diálogos** com um re
 3. **Análise Direcionada:** conferir cartões de objetivos como índices navegáveis e **não aditivos**; cruzar ação, ocorrência, alvo, roadmap, modal, fontes e referências CAT-09. Verificar ausência de ações inventadas em AUD sem síntese.
 4. **Dashboard e GEO:** os atalhos da nova experiência apontam às páginas existentes e não criam um segundo resultado. Não confundir SARI com Lighthouse, Web Vitals, Apdex ou SERP/IA.
 5. **Impressão A4:** validar PDFs em `print` e, se necessário, imprimir os HTMLs densos para verificar diálogos, listas, roadmap, tabelas e corte de página.
-6. **Rastreabilidade e integridade:** arquivo `smoke-summary.json` precisa declarar `manifest_integrity=VERIFIED`, `page_count=19`, `javascript_disabled_mobile_navigation=true`. Não abrir dados privados em URLs públicas.
+6. **Rastreabilidade e integridade:** arquivo `smoke-summary.json` precisa declarar `manifest_integrity=VERIFIED`, `page_count=19`, `javascript_disabled_mobile_navigation=true` e `objective_deep_link_expands_details=true`. Não abrir dados privados em URLs públicas.
 7. **Aceite:** registrar no PR #637 aprovação/reprovação objetiva com referência ao HEAD SHA da branch, dispositivos verificados, pendências e amostra. **CI verde, captura sintética e esta documentação não equivalem a aprovação humana**.
 
 ## Encerramento e governança
