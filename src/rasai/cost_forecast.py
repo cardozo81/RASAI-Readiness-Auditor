@@ -242,6 +242,31 @@ def _improvement_history(connection: sqlite3.Connection) -> tuple[str | None, st
     )
 
 
+_POST_AUD_FINANCIAL_OPERATIONS = frozenset({
+    "DIRECTED_ANALYSIS", "SEARCH_INTELLIGENCE",
+})
+_POST_AUD_FINANCIAL_CONTRACT_PREFIXES = (
+    "DIRECTED-ANALYSIS", "RASAI-PERPLEXITY-SEARCH",
+)
+
+
+def _is_separately_authorized_ai_cost(row: Mapping[str, Any]) -> bool:
+    """Exclude explicitly optional/post-AUD provider costs from core forecast.
+
+    In the physical M18 ledger, a Directed Analysis or Search API attempt can
+    share the same provider/model as a primary audit. Selecting records only
+    by provider silently puts post-AUD spending into the next AUD forecast.
+    Unknown legacy operations remain subject to other existing compatibility
+    checks; do not infer activity kind from timestamp alone.
+    """
+    operation = str(_value(row, "operation") or "").strip().upper()
+    contract = str(_value(row, "semantic_contract_version") or "").strip().upper()
+    return (
+        operation in _POST_AUD_FINANCIAL_OPERATIONS
+        or contract.startswith(_POST_AUD_FINANCIAL_CONTRACT_PREFIXES)
+    )
+
+
 def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
     selection = str(getattr(state, "ai_provider", "none")).casefold()
     selected_provider, selected_model = _provider(selection, getattr(state, "ai_model", None))
@@ -287,6 +312,8 @@ def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
         known = repriced = 0
         currency: str | None = None
         for family, row in rows:
+            if family == "semantic" and _is_separately_authorized_ai_cost(row):
+                continue
             provider, model = str(_value(row, "provider") or "").upper(), str(_value(row, "model") or "")
             contract = str(_value(row, "semantic_contract_version") or "").upper()
             is_improvement = (
