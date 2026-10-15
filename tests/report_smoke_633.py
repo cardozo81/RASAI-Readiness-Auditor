@@ -205,6 +205,33 @@ def _screenshots(report: Path, out: Path, *, pages: tuple[str, ...]) -> dict[str
                 context.close()
                 captures[device] = {"viewport": f"{width}x{height}", "screenshots": len(pages)}
 
+            # #633: goal cards point to native <details> controls; their
+            # anchor must reveal the existing rows, not scroll to a closed panel.
+            # A standalone synthetic fixture avoids writing to the AUD/report.
+            from rasai.catalog_report_style import _JS
+            goal_probe = browser.new_page()
+            try:
+                goal_probe.set_content(
+                    "<!doctype html><html lang='pt-BR'><body>"
+                    "<a href='#goal-smoke'>Explorar objetivo</a>"
+                    "<details id='goal-smoke' class='directed-goal-details'>"
+                    "<summary>Objetivo persistido</summary>"
+                    "<p>Detalhe persistido de teste</p></details>"
+                    "<script>" + _JS + "</script></body></html>"
+                )
+                if goal_probe.locator("#goal-smoke").evaluate("(el) => el.open"):
+                    raise ValueError("goal panel unexpectedly expanded before navigation")
+                goal_probe.locator("a[href='#goal-smoke']").click()
+                goal_probe.wait_for_function(
+                    "() => document.getElementById('goal-smoke').open",
+                    timeout=2000,
+                )
+                if not goal_probe.get_by_text("Detalhe persistido de teste").is_visible():
+                    raise ValueError("goal deep link failed to reveal original content")
+            finally:
+                goal_probe.close()
+            captures["objective_deep_link_expands_details"] = True
+
             nojs = browser.new_context(
                 viewport={"width": 390, "height": 844},
                 java_script_enabled=False,
