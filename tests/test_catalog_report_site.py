@@ -204,6 +204,40 @@ def test_every_new_page_uses_the_same_menu_and_one_active_item(tmp_path: Path) -
         assert positions == sorted(positions)
 
 
+
+def test_new_shared_report_shell_navigation_is_accessible_in_all_canonical_pages(tmp_path: Path) -> None:
+    """#633: one DOM nav, one disclosure, no second route or hidden static content."""
+    workspace, _non_catalog = _workspace(tmp_path)
+    report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
+    assert len(CATALOG_REPORT_PAGES) == 19
+    expected_links = set(page.filename for page in CATALOG_REPORT_PAGES)
+    assert expected_links == set(file.name for file in report.glob("*.html"))
+    for page in CATALOG_REPORT_PAGES:
+        html = (report / page.filename).read_text(encoding="utf-8")
+        assert html.count("data-shared-report-menu=") == 1
+        assert html.count("id='report-primary-navigation'") == 1
+        assert html.count("data-report-menu-toggle") == 1
+        assert "aria-controls='report-primary-navigation'" in html
+        assert "aria-expanded='false'" in html
+        assert "href='#report-main'" in html
+        assert "id='report-main'" in html
+        assert "class='report-breadcrumbs'" in html
+        assert "aria-label='Caminho de navegação'" in html
+        assert html.count("aria-current='page'") == 1
+        assert "src='https://" not in html
+        assert "href='css/site.css'" in html
+
+    css = (report / "css" / "site.css").read_text(encoding="utf-8")
+    assert "--nav-bg:#0c2533" in css
+    assert "--ink:#142d3d" in css
+    assert "--cyan:#087a77" in css
+    assert ".report-menu-enhanced .app-nav{display:none}" in css
+    assert ".report-menu-enhanced.report-menu-open .app-nav{display:flex" in css
+    assert ".report-skip-link:focus{top:10px}" in css
+    assert "@media print" in css
+
+
+
 def test_sari_and_metrics_use_persisted_values_without_recalculation(tmp_path: Path) -> None:
     workspace, _non_catalog = _workspace(tmp_path)
     report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
