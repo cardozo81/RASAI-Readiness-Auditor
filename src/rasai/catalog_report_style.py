@@ -156,6 +156,16 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
 @media(max-width:700px){.directed-goal-grid{grid-template-columns:minmax(0,1fr)}}
 @media print{.directed-goal-grid{display:none}}
 
+/* #633 structured interventions: neutral grouping, no inferred scoring. */
+.directed-intervention-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,165px),1fr));gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:14px 0}
+.directed-intervention-group{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:3px 12px;padding:14px 16px;border-right:1px solid var(--line);min-width:0}
+.directed-intervention-group:last-child{border-right:0}
+.directed-intervention-group span{font-weight:650;overflow-wrap:anywhere}
+.directed-intervention-group strong{font-size:1.25rem;color:var(--ink);font-variant-numeric:tabular-nums}
+.directed-intervention-group small{grid-column:1/-1;color:var(--muted)}
+@media(max-width:700px){.directed-intervention-group{border-bottom:1px solid var(--line)}}
+@media print{.directed-intervention-group{break-inside:avoid}}
+
 /* #633 overview navigation adds routes, not duplicate measurements. */
 .report-experience-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px;margin:14px 0}
 .report-experience-card{display:flex;flex-direction:column;gap:8px;text-decoration:none;color:var(--ink);border-top:3px solid var(--cyan);transition:transform .16s,box-shadow .16s}
