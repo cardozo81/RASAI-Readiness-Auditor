@@ -243,3 +243,71 @@ def test_apdex_preflight_accepts_reconciled_legacy_inputs_without_real_aud(
     assert report["external_requests"] == report["audit_writes"] == 0
     assert report["values_exposed"] is False
     assert sha256(ini.read_bytes()).hexdigest() == original
+
+
+@pytest.mark.parametrize("kind", ["unknown_section", "unknown_typed_option", "default"])
+def test_save_preserves_unrecognized_typed_ini_content(
+    tmp_path: Path, kind: str
+) -> None:
+    _install_search_persistence()
+    install_complete_persistence()
+    ini = tmp_path / "operator-copy.ini"
+    parser = ConfigParser(interpolation=None)
+    parser.optionxform = str
+    parser["environment"] = {"RASAI_SECURITY_HEADERS": "false"}
+    if kind == "unknown_section":
+        parser["future_plugin"] = {"new_setting": "PRIVATE_FIXTURE"}
+    elif kind == "unknown_typed_option":
+        parser["console"] = {"unsupported_state": "PRIVATE_FIXTURE"}
+    else:
+        parser["DEFAULT"] = {"unsupported_global": "PRIVATE_FIXTURE"}
+    with ini.open("w", encoding="utf-8") as stream:
+        parser.write(stream)
+    before = ini.read_bytes()
+    with patch.dict(os.environ, {}, clear=True):
+        with pytest.raises(ValueError) as caught:
+            console_settings.save_console_config(SearchConsoleState(), ini)
+    assert "PRIVATE_FIXTURE" not in str(caught.value)
+    assert ini.read_bytes() == before
+
+
+@pytest.mark.parametrize("preexisting", [True, False])
+def test_save_aborts_when_physical_ini_changes_during_serialization(
+    tmp_path: Path, monkeypatch, preexisting: bool
+) -> None:
+    _install_search_persistence()
+    install_complete_persistence()
+    ini = tmp_path / "operator-copy.ini"
+    if preexisting:
+        _write_ini(ini, {"RASAI_SECURITY_HEADERS": "false"})
+    changed = b"[environment]\\nRASAI_UNREGISTERED_FUTURE_OPTION = state-change\\n"
+    original_parser = console_settings._parser_for_state
+    number_of_calls = 0
+
+    def intervening_edit(state):
+        nonlocal number_of_calls
+        number_of_calls += 1
+        result = original_parser(state)
+        # First call occurs during the save guard, second during output generation.
+        if (preexisting and number_of_calls == 2) or not preexisting:
+            ini.write_bytes(changed)
+        return result
+
+    monkeypatch.setattr(console_settings, "_parser_for_state", intervening_edit)
+    with patch.dict(os.environ, {}, clear=True):
+        with pytest.raises(ValueError, match="origem mudou durante o save"):
+            console_settings.save_console_config(SearchConsoleState(), ini)
+    assert ini.read_bytes() == changed
+    assert list(tmp_path.glob(".*.tmp")) == []
+
+
+def test_save_does_not_touch_old_predictable_tmp_sibling(tmp_path: Path) -> None:
+    _install_search_persistence()
+    install_complete_persistence()
+    ini = tmp_path / "operator-copy.ini"
+    stale = tmp_path / "operator-copy.ini.tmp"
+    stale.write_text("other process state", encoding="utf-8")
+    with patch.dict(os.environ, {}, clear=True):
+        console_settings.save_console_config(SearchConsoleState(), ini)
+    assert stale.read_text(encoding="utf-8") == "other process state"
+    assert ini.is_file()
