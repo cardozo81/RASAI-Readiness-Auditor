@@ -383,7 +383,7 @@ def test_objective_cards_are_only_navigational_and_never_add_up_repeat_actions(t
         fulfillment={},
     )
     html = directed_analysis_body(database, data)
-    assert html.count("class='card directed-goal-link'") == 2
+    assert html.count("class='directed-goal-link'") == 2
     assert "Uma mesma ação pode apoiar vários objetivos" in html
     assert "não são aditivas" in html
     assert "<strong>1</strong><small>ação(ões) vinculada(s) neste objetivo" in html
