@@ -225,3 +225,21 @@ def test_save_refuses_to_discard_unknown_ini_entries_without_leaking_them(
     assert ini.read_bytes() == before
     assert unknown not in str(caught.value)
     assert private_marker not in str(caught.value)
+
+
+def test_apdex_preflight_accepts_reconciled_legacy_inputs_without_real_aud(
+    tmp_path: Path,
+) -> None:
+    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+    ini = tmp_path / "operator-copy.ini"
+    _write_ini(ini, RUNTIME_INPUTS)
+    original = sha256(ini.read_bytes()).hexdigest()
+    with patch.dict(os.environ, {}, clear=True):
+        report = inspect_apdex_consumers(ini, environ={})
+    assert report["status"] == "ADAPTERS_VALIDATED_OFFLINE"
+    assert report["load_warning_count"] == 0
+    assert sum(report["load_warning_categories"].values()) == 0
+    assert sum(report["load_warning_environment_reasons"].values()) == 0
+    assert report["external_requests"] == report["audit_writes"] == 0
+    assert report["values_exposed"] is False
+    assert sha256(ini.read_bytes()).hexdigest() == original
