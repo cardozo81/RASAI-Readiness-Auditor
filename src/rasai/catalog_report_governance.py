@@ -265,12 +265,14 @@ def _experience_paths_633() -> str:
 
 def _snapshot_indicator_633(
     label: str, value: Any, note: str, destination: str, action_label: str,
+    *, tone: str = "neutral",
 ) -> str:
-    """Read-only summary with an explicit, source-bound drill-down."""
+    """Read-only summary with source-bound drill-down and existing result tone."""
+    result_tone = tone if tone in {"good", "warn", "low", "bad", "neutral"} else "neutral"
     return (
         "<div class='metric report-snapshot-metric'>"
         "<small>" + escape(label) + "</small>"
-        "<strong>" + _display_value(value) + "</strong>"
+        "<strong class='result-value " + result_tone + "'>" + _display_value(value) + "</strong>"
         "<small>" + escape(note) + "</small>"
         "<a class='report-snapshot-cta' href='" + escape(destination, quote=True) + "'>"
         + escape(action_label) + " <span aria-hidden='true'>→</span></a></div>"
@@ -312,6 +314,7 @@ def _decision_snapshot_poc_633(
             "Índice próprio; não mede performance Lighthouse.",
             "sari.html#composition",
             "Ver dimensões e composição",
+            tone=_sari_public_tone(overall),
         ))
     web = _web_observation(database, data.audit_id)
     if isinstance(web, Mapping) and web.get("performance_score") is not None:
@@ -321,6 +324,7 @@ def _decision_snapshot_poc_633(
             "Score já persistido em 0–100; laboratório, distinto de SARI e CrUX.",
             "cat-04.html#metric-lighthouse-performance",
             "Ver resultado e evidências",
+            tone=_catalog_metric_tone("CAT-04","Lighthouse · Desempenho",web["performance_score"]),
         ))
     if isinstance(web, Mapping) and web.get("lcp_p75_ms") is not None:
         raw_scope = str(web.get("field_scope") or "não declarado").upper()
@@ -330,6 +334,7 @@ def _decision_snapshot_poc_633(
             "Métrica de campo, escopo " + raw_scope + "; não atribuir à URL quando ORIGIN.",
             "cat-04.html#metric-field-lcp-p75",
             "Ver medição e escopo",
+            tone=_catalog_metric_tone("CAT-04","LCP de campo (p75)",web["lcp_p75_ms"]),
         ))
     counts: tuple[int, int, int] | None = None
     try:
