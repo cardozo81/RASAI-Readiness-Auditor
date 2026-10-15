@@ -168,6 +168,16 @@ def _screenshots(report: Path, out: Path, *, pages: tuple[str, ...]) -> dict[str
                         raise ValueError(f"ambiguous selected menu page: {name}")
                     if page.locator("#report-main").count() != 1:
                         raise ValueError(f"missing main landmark: {name}")
+                    if name == "index.html":
+                        if page.locator("#experience .report-reading-step").count() != 6:
+                            raise ValueError("missing six-stage analytical reading map")
+                    if name == "directed-analysis.html":
+                        goals = page.locator("#objectives a.directed-goal-link").count()
+                        details = page.locator("#objectives details.directed-goal-details").count()
+                        if goals != details:
+                            raise ValueError("objective index and evidence details diverged")
+                        if page.locator("#actions .directed-intervention-group").count() and not page.locator("#actions table").count():
+                            raise ValueError("intervention summary lost canonical action table")
                     # Horizontal overflow within dense tables is permitted; the
                     # viewport/document shell itself should never overflow.
                     if page.evaluate("document.documentElement.scrollWidth > innerWidth + 2"):
