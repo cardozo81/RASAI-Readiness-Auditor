@@ -140,13 +140,44 @@ def _action_target_contexts(
     actions: Sequence[Mapping[str,Any]],
 ) -> dict[str,dict[str,str]]:
     """Resolve human-safe action targets only from already-persisted evidence."""
-    security_actions=[
+    # Present a target only when a field in the original source identifies it.
+    # This is a read-only lookup, not a geographic/DOM inference. SQL table
+    # names and selectors are a fixed allowlist, never user-supplied.
+    contexts: dict[str, dict[str, str]] = {}
+    target_specs = (
+        ("CONTENT_AI", "content_remediation_suggestions", "suggestion_id",
+         "target_location", "Local descrito na recomendação",
+         "Localização textual persistida; pode não corresponder a um seletor exato."),
+        ("DEEP_ANALYSIS", "improvement_intelligence_recommendations",
+         "recommendation_id", "selector", "Seletor CSS registrado",
+         "Seletor da análise profunda; validar no DOM antes de alterar."),
+        ("DETERMINISTIC", "recommendations", "recommendation_id",
+         "target_selector", "Seletor técnico registrado",
+         "Seletor do registro de origem, não verificado novamente pelo relatório."),
+    )
+    for kind, table, id_key, target_key, title, note in target_specs:
+        source_rows = _rows(connection, table, audit_id)
+        sources = {
+            str(row.get(id_key) or ""): row for row in source_rows
+        }
+        for action in actions:
+            if _norm(action.get("source_kind")) != kind:
+                continue
+            source = sources.get(str(action.get("source_id") or ""), {})
+            target_value = str(source.get(target_key) or "").strip()
+            if target_value:
+                contexts[str(action.get("action_id") or "")] = {
+                    "label": title + ": " + target_value,
+                    "note": note,
+                }
+
+    security_actions = [
         action for action in actions
-        if _norm(action.get("source_kind"))=="SECURITY_REMEDIATION"
+        if _norm(action.get("source_kind")) == "SECURITY_REMEDIATION"
         and str(action.get("source_id") or "").strip()
     ]
     if not security_actions:
-        return {}
+        return contexts
     try:
         remediations={
             str(row["remediation_id"]):dict(row)
@@ -171,7 +202,7 @@ def _action_target_contexts(
             ).fetchall()
         ]
     except sqlite3.Error:
-        return {}
+        return contexts
 
     resource_for_finding: dict[str,dict[str,Any]]={}
     for finding_id,finding in findings.items():
@@ -195,7 +226,6 @@ def _action_target_contexts(
                 resource_for_finding[finding_id]=resource
                 break
 
-    contexts: dict[str,dict[str,str]]={}
     for action in security_actions:
         action_id=str(action.get("action_id") or "")
         remediation=remediations.get(str(action.get("source_id") or ""))
@@ -373,10 +403,35 @@ def _links(values: Any, *, label_prefix: str) -> _Html:
     return _Html("<div class='pill-list'>"+"".join(links)+"</div>" if links else "<span class='muted'>Sem referência aplicável.</span>")
 
 
+def _governance_for_action(
+    action: Mapping[str, Any],
+    by_source: Mapping[tuple[str, str], Mapping[str, Any]],
+) -> tuple[str, str]:
+    """Report only the governance decision and target persisted for this source."""
+    key = (_norm(action.get("source_kind")), str(action.get("source_id") or ""))
+    row = by_source.get(key)
+    if not row:
+        return "Sem decisão casada", "Responsabilidade não consolidada nesta fonte"
+    decision = {
+        "ACCEPTED": "Aceita",
+        "VERIFY_DECIDE": "Verificar / decidir",
+        "REJECTED": "Rejeitada",
+    }.get(_norm(row.get("decision")), "Decisão indeterminada")
+    target = {
+        "TARGET_SITE": "Site auditado",
+        "EXTERNAL_PROVIDER": "Fornecedor externo",
+        "ENVIRONMENTAL": "Ambiente",
+        "INFORMATIONAL": "Informativa",
+        "AUDITOR_INTERNAL": "Auditor / interno",
+    }.get(_norm(row.get("target_class")), "Responsabilidade não determinada")
+    return decision, target
+
+
 def _action_modal(
     action: Mapping[str,Any],
     by_id: Mapping[str,Mapping[str,Any]],
     target_by_id: Mapping[str,Mapping[str,str]],
+    governance_by_source: Mapping[tuple[str, str], Mapping[str, Any]] | None = None,
 ) -> str:
     action_id=str(action.get("action_id") or "")
     title_token=re.sub(r"[^a-z0-9_-]+","-",str(action.get("title") or "acao").casefold()).strip("-") or "acao"
@@ -400,6 +455,9 @@ def _action_modal(
     pairs=[("Alvo / ocorrência",target_context.get("label") or "Consulte a origem técnica persistida.")]
     if target_context.get("note"):
         pairs.append(("Como interpretar esta ocorrência",target_context.get("note")))
+    if governance_by_source is not None:
+        decision, owner = _governance_for_action(action, governance_by_source)
+        pairs.extend((("Decisão de governança", decision), ("Responsável / classe de alvo", owner)))
     pairs.extend((
         ("Por que agir",action.get("reason") or "-"),
         ("Objetivo principal",action.get("primary_objective") or "Não consolidado pela IA"),
@@ -426,6 +484,68 @@ def _action_modal(
     body+="<h3>Correção técnica / remediação</h3>"+str(_links(remediation_refs,label_prefix="Remediação"))
     body+="<div class='notice'>Os links são construídos pelo RASAi a partir de referências persistidas e seções estáveis dos CATs. A IA não cria nomes de arquivo, anchors ou identificadores de evidência.</div>"
     return modal_id,_modal(modal_id,action.get("title") or "Ação estratégica","Análise Direcionada · ação estratégica",body)
+
+
+def _directed_operational_item(
+    action: Mapping[str, Any],
+    target_by_id: Mapping[str, Mapping[str, str]],
+    impacts: Sequence[Mapping[str, Any]],
+    governance_by_source: Mapping[tuple[str, str], Mapping[str, Any]],
+) -> str:
+    """Project persisted action facts as an actionable, traceable reading unit.
+
+    Every value is a read-only projection; no governance, target or gain is
+    synthesized. The full canonical strategic action remains in #actions.
+    """
+    guidance = _json(action.get("implementation_guidance_json"), [])
+    validation = _json(action.get("validation_steps_json"), [])
+    guidance_list = guidance if isinstance(guidance, list) else []
+    validation_list = validation if isinstance(validation, list) else []
+    def instructions(items: Sequence[Any], missing: str) -> str:
+        if not items:
+            return "<span class='muted'>" + escape(missing) + "</span>"
+        return "<ol>" + "".join("<li>" + escape(str(item)) + "</li>" for item in items) + "</ol>"
+    target = _action_target_label(action, target_by_id)
+    if target == "-":
+        target = "Alvo específico não determinado nesta projeção; consulte a origem técnica."
+    dims = ", ".join(
+        _dimension_label(item.get("dimension")) + " (" + _gain_label(item.get("expected_gain")) + ")"
+        for item in impacts
+    )
+    decision, owner = _governance_for_action(action, governance_by_source)
+    meta = " · ".join((
+        "Governança: " + decision,
+        "Alvo: " + owner,
+        "Prioridade: " + (_level_label(action.get("priority")) if action.get("priority") else "não consolidada"),
+        "Esforço: " + (_level_label(action.get("effort")) if action.get("effort") else "não consolidado"),
+        "Confiança: " + (_confidence_label(action.get("confidence")) if action.get("confidence") else "não consolidada"),
+    ))
+    refs = (
+        "<div><dt>Proveniência</dt><dd>" +
+        str(_links(action.get("source_refs_json"), label_prefix="Origem")) +
+        str(_links(action.get("evidence_refs_json"), label_prefix="Evidência")) +
+        str(_links(action.get("remediation_refs_json"), label_prefix="Correção")) +
+        "</dd></div>"
+    )
+    return (
+        "<article class='directed-operational-item'>"
+        "<h3>" + escape(str(action.get("title") or "Ação registrada")) + "</h3>"
+        "<p class='directed-operational-meta'>" + escape(meta) + "</p>"
+        "<dl class='directed-operational-facts'>"
+        "<div><dt>O que foi observado</dt><dd>" +
+        escape(str(action.get("reason") or "Justificativa não registrada nesta ação.")) +
+        "</dd></div>"
+        "<div><dt>Onde intervir</dt><dd>" + escape(target) + "</dd></div>"
+        "<div><dt>O que fazer</dt><dd>" +
+        instructions(guidance_list, "Orientação não consolidada; consulte a remediação técnica.") +
+        "</dd></div>"
+        "<div><dt>Como validar</dt><dd>" +
+        instructions(validation_list, "Etapas não consolidadas; consulte a fonte técnica.") +
+        "</dd></div>"
+        "<div><dt>Dimensões persistidas</dt><dd>" + escape(dims or "Não classificadas") + "</dd></div>"
+        + refs +
+        "</dl></article>"
+    )
 
 
 def _roadmap_phase_cards(
@@ -543,6 +663,10 @@ def directed_analysis_body(database: Any, data: Any) -> str:
     try:
         run=_one(connection,"directed_analysis_runs",data.audit_id)
         actions=_rows(connection,"directed_analysis_actions",data.audit_id)
+        governance_by_source = {
+            (_norm(row.get("source_kind")), str(row.get("source_id") or "")): row
+            for row in _rows(connection, "recommendation_governance", data.audit_id)
+        }
         target_by_id=_action_target_contexts(connection,data.audit_id,actions)
     finally:
         connection.close()
@@ -557,6 +681,7 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         ("transversal","Maior ganho transversal"),
         ("roadmap","Plano de ação"),
         ("objectives","Visões por objetivo"),
+        ("targets","Por URL / alvo"),
         ("actions","Ações"),
         ("traceability","Rastreabilidade"),
         ("limitations","Limitações"),
@@ -568,6 +693,24 @@ def directed_analysis_body(database: Any, data: Any) -> str:
             "<div class='notice warn'><strong>Análise Direcionada não materializada.</strong> "
             "Os dados técnicos continuam disponíveis nos CATs. Esta página não executa IA nem coleta durante a renderização.</div>",
         )
+        # The canonical overview links directly to these destinations. Preserve
+        # their section anchors even when the optional run does not exist, but
+        # do not invent any action, finding, intent, priority or score.
+        for section_id,title in (
+            ("transversal","Maior ganho transversal"),
+            ("roadmap","Plano de ação"),
+            ("objectives","Visões por objetivo"),
+            ("targets","Por URL / alvo"),
+            ("actions","Ações estratégicas"),
+            ("traceability","Rastreabilidade"),
+            ("limitations","Limitações"),
+        ):
+            body+=_section(
+                section_id,title,
+                "<div class='notice'>Nenhuma análise direcionada foi materializada "
+                "para esta auditoria. Consulte os resultados técnicos dos CATs; "
+                "nenhuma ação ou conclusão foi inferida nesta seção.</div>",
+            )
         return body
 
     status=_directed_status(run.get("status"))
@@ -655,57 +798,243 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         _roadmap_phase_cards(roadmap, by_id, target_by_id),
     )
 
-    dimensions={}
+    # #633 / PoC: objective perspectives are presentation classifications only.
+    # A persisted action can support several objectives, never a new action or score.
+    # Do not infer Discovery from generic SEO or Security from best practices.
+    _DIRECTED_POC_OBJECTIVES = (
+        ("performance", "Performance", "Carregamento, renderização e recursos.",
+         ("PERFORMANCE",)),
+        ("acessibilidade", "Acessibilidade", "Barreiras de acesso e elementos afetados.",
+         ("ACCESSIBILITY",)),
+        ("conteudo", "Conteúdo e semântica", "Clareza editorial, HTML e estrutura semântica.",
+         ("CONTENT", "SEMANTICS", "STRUCTURED_DATA", "YMYL", "HTML_CSS")),
+        ("descoberta", "Descoberta e indexabilidade", "Crawling, descoberta e acesso à indexação.",
+         ("CRAWLABILITY", "INDEXABILITY", "DISCOVERY_ACCESS")),
+        ("searchia", "Search e IA", "Evidências de descoberta e busca assistida por IA.",
+         ("GEO_SEARCH_AI", "SEO", "COMPETITIVE_INTELLIGENCE")),
+        ("experiencia", "Experiência", "Navegação sintética e experiência observada.",
+         ("EXPERIENCE", "APDEX_NAVIGATION", "APDEX_EXPERIENCE")),
+        ("seguranca", "Segurança passiva", "Configuração e riscos passivamente observados.",
+         ("SECURITY", "VULNERABILITIES")),
+    )
+    # Raw names are retained for historic #goal-<sha256(raw-dimension)> links.
+    # Only preferred existing perspectives are kept; no duplicate row cache.
+    legacy_dimension_goals: dict[str, str] = {}
+    by_objective: dict[str, list[tuple[Mapping[str,Any], list[Mapping[str,Any]]]]] = {}
     for action in actions:
-        for item in _json(action.get("affected_dimensions_json"),[]):
-            if not isinstance(item,Mapping):
-                continue
-            key=str(item.get("dimension") or "")
-            if key:
-                dimensions.setdefault(key,[]).append((action,item))
-    objective_blocks=[]
-    for key,items in sorted(dimensions.items(),key=lambda kv:_dimension_label(kv[0])):
-        rows=[]
-        for action,impact in items:
-            rows.append((
-                action.get("title") or "-",
-                _action_target_label(action,target_by_id),
-                _gain_label(impact.get("expected_gain")),
-                _level_label(action.get("priority")) if action.get("priority") else "Não consolidada",
-                _level_label(action.get("effort")) if action.get("effort") else "Não consolidado",
-                _confidence_label(action.get("confidence")) if action.get("confidence") else "Não consolidada",
-            ))
-        objective_blocks.append(
-            "<details><summary>"+escape(_dimension_label(key))+"</summary><div class='detail-body'>"
-            +_table(("Ação","Alvo / ocorrência","Ganho","Prioridade","Esforço","Confiança"),rows)
-            +"</div></details>"
+        dimensions_json = _json(action.get("affected_dimensions_json"), [])
+        declared = [
+            item for item in dimensions_json
+            if isinstance(item, Mapping) and str(item.get("dimension") or "").strip()
+        ] if isinstance(dimensions_json, list) else []
+        matched_keys: list[str] = []
+        for key, _title, _description, keys in _DIRECTED_POC_OBJECTIVES:
+            relevant = [item for item in declared if _norm(item.get("dimension")) in keys]
+            if relevant:
+                by_objective.setdefault(key, []).append((action, relevant))
+                matched_keys.append(key)
+        if not matched_keys:
+            by_objective.setdefault("nao-classificado", []).append((action, declared))
+        for impact in declared:
+            raw_dimension = str(impact.get("dimension"))
+            normalized = _norm(raw_dimension)
+            explicit = next(
+                (key for key, _title, _description, keys in _DIRECTED_POC_OBJECTIVES
+                 if normalized in keys),
+                None,
+            )
+            legacy_dimension_goals.setdefault(
+                raw_dimension,
+                explicit or (matched_keys[0] if matched_keys else "nao-classificado"),
+            )
+
+    goal_cards: list[str] = []
+    goal_blocks: list[str] = []
+    objective_definitions = list(_DIRECTED_POC_OBJECTIVES)
+    if by_objective.get("nao-classificado"):
+        objective_definitions.append((
+            "nao-classificado", "Sem objetivo temático classificado",
+            "Ações sem dimensões vinculáveis com segurança às sete perspectivas.",
+            (),
+        ))
+    # The previous hash IDs are retained as aliases to their thematic view.
+    # They remain deep-linkable without duplicating an entire action inventory.
+    legacy_aliases: dict[str, list[str]] = {}
+    for raw_dimension, chosen in legacy_dimension_goals.items():
+        alias = "goal-" + sha256(raw_dimension.encode("utf-8")).hexdigest()[:12]
+        legacy_aliases.setdefault(chosen, []).append(alias)
+    for key, title, description, _keys in objective_definitions:
+        occurrences = by_objective.get(key, [])
+        seen_actions: set[str] = set()
+        unique: list[tuple[Mapping[str,Any], list[Mapping[str,Any]]]] = []
+        for action, impacts in occurrences:
+            identity = str(action.get("action_id") or id(action))
+            if identity not in seen_actions:
+                seen_actions.add(identity)
+                unique.append((action, impacts))
+        goal_id = "goal-" + key
+        count = len(unique)
+        accepted = sum(
+            _governance_for_action(action, governance_by_source)[0] == "Aceita"
+            for action, _impacts in unique
         )
-    body+=_section("objectives","Visões por objetivo","".join(objective_blocks) or "<div class='notice'>Nenhuma dimensão estratégica foi materializada.</div>")
+        goal_cards.append(
+            "<a class='directed-goal-link' href='#" + goal_id + "'>"
+            "<span class='directed-goal-name'>" + escape(title) + "</span>"
+            "<strong>" + str(count) + "</strong>"
+            "<small>" + str(accepted) + " aceita(s) · "
+            + str(count) + " associada(s)</small>"
+            "<span class='directed-goal-cta'>"
+            + ("Consultar intervenções e evidências ›" if count else "Consultar limites da classificação ›")
+            + "</span></a>"
+        )
+        aliases = "".join(
+            "<span class='directed-goal-alias' id='" + alias + "'></span>"
+            for alias in legacy_aliases.get(key, ())
+            if alias != goal_id
+        )
+        preview = (
+            "<p class='section-lead'>" + escape(description)
+            + " Esta perspectiva não substitui os resultados técnicos dos catálogos.</p>"
+            "<p class='directed-goal-count'><strong>" + str(count)
+            + "</strong> ação(ões) com associação sustentada por dimensão persistida. "
+            "Os totais entre objetivos não são aditivos.</p>"
+        )
+        if unique:
+            preview += "<div class='directed-operational-list'>" + "".join(
+                _directed_operational_item(action, target_by_id, impacts, governance_by_source)
+                for action, impacts in unique
+            ) + "</div>"
+        else:
+            preview += (
+                "<div class='notice'>Nenhuma ação da Análise Direcionada foi vinculada "
+                "a esta perspectiva. Isso não significa ausência de problemas; "
+                "consulte os resultados e as limitações dos catálogos.</div>"
+            )
+        goal_blocks.append(
+            "<details class='directed-goal-details' id='" + goal_id + "'>"
+            "<summary>" + escape(title) + " · " + str(count) + " ação(ões)</summary>"
+            + aliases + "<div class='detail-body'>" + preview + "</div></details>"
+        )
+    objective_index = (
+        "<p class='section-lead'>Sete perspectivas de leitura da PoC, projetadas "
+        "exclusivamente das dimensões das ações persistidas. "
+        "Uma mesma ação pode apoiar vários objetivos; as quantidades por dimensão "
+        "não são aditivas e não substituem as ocorrências individuais. "
+        "Uma perspectiva sem ações não certifica ausência de problemas.</p>"
+        "<div class='directed-goal-grid' aria-label='Objetivos de melhoria'>"
+        + "".join(goal_cards) + "</div>"
+    )
+    body += _section(
+        "objectives", "Visões por objetivo",
+        objective_index + "".join(goal_blocks),
+    )
+
+    # PoC "Por URL / alvo": use persisted location, selector or resource only.
+    # A target label is not a causal deduplication or a new diagnosis.
+    target_groups: dict[str, list[Mapping[str, Any]]] = {}
+    for action in actions:
+        known_target = _action_target_label(action, target_by_id)
+        target_name = (
+            known_target if known_target != "-"
+            else "Alvo específico não determinado nos registros vinculados"
+        )
+        target_groups.setdefault(target_name, []).append(action)
+    target_rows: list[tuple[Any, ...]] = []
+    for label, members in sorted(
+        target_groups.items(), key=lambda item: (-len(item[1]), item[0].casefold())
+    ):
+        accepted = sum(
+            _governance_for_action(action, governance_by_source)[0] == "Aceita"
+            for action in members
+        )
+        titles = [str(action.get("title") or "Ação registrada") for action in members]
+        sample = "; ".join(titles[:4])
+        if len(titles) > 4:
+            sample += f"; +{len(titles)-4} ação(ões) — ver inventário integral"
+        target_rows.append((label, len(members), accepted, sample))
+    target_index = (
+        "<p class='section-lead'>Agrupamento de leitura por localização "
+        "declarada na fonte. Cookies, recursos externos, seletores e descrições "
+        "editoriais não equivalem automaticamente a alterações diretas na URL. "
+        "Sem localização registrada, o alvo permanece indeterminado. "
+        "Os títulos são amostras; todas as ocorrências continuam disponíveis "
+        "em <a href='#actions'>Ações estratégicas</a>.</p>"
+        + _table(
+            ("Alvo / localização declarada", "Ações relacionadas",
+             "Decisões aceitas", "Intervenções (até 4 por grupo)"),
+            target_rows,
+            empty="Nenhum alvo vinculado a ação persistida nesta auditoria.",
+            sortable=bool(target_rows),
+        )
+    )
+    body += _section("targets", "Por URL / alvo", target_index)
+
+    # Editorial bridge: organize persisted interventions by their existing
+    # priority label; never infer priority from absent values or recompute it.
+    intervention_groups = {}
+    for action in actions:
+        priority = (_level_label(action.get("priority"))
+                    if action.get("priority") else "Não consolidada")
+        intervention_groups.setdefault(priority, []).append(action)
+    group_order = ("Crítica", "Crítico", "Alta", "Alto", "Média", "Médio",
+                   "Baixa", "Baixo", "Não consolidada")
+    ordered_groups = sorted(
+        intervention_groups.items(),
+        key=lambda item: (group_order.index(item[0])
+                          if item[0] in group_order else len(group_order), item[0]),
+    )
+    intervention_overview = (
+        "<div class='directed-intervention-groups' "
+        "aria-label='Distribuição das intervenções por prioridade persistida'>"
+        + "".join(
+            "<div class='directed-intervention-group'><span>"
+            + escape(label) + "</span><strong>" + str(len(members))
+            + "</strong><small>ação(ões) persistida(s)</small></div>"
+            for label, members in ordered_groups
+        ) + "</div>"
+        "<p class='section-lead'>A distribuição utiliza exclusivamente as "
+        "prioridades registradas nas ações e não representa um novo score. "
+        "Cada ação integra somente sua própria faixa de prioridade.</p>"
+    ) if actions else ""
 
     action_rows=[];modals=[]
     for action in actions:
-        modal_id,modal=_action_modal(action,by_id,target_by_id)
+        modal_id,modal=_action_modal(action,by_id,target_by_id,governance_by_source)
         dimensions_list=_json(action.get("affected_dimensions_json"),[])
+        # The source-row marker allows the report table to expose exactly
+        # the persisted priorities requested from the overview. No duplicate
+        # or recomputed strategic action is created.
+        priority_raw = action.get("priority")
+        action_title = _Html(
+            "<span data-action-priority='" +
+            escape("" if priority_raw is None else str(priority_raw), quote=True) +
+            "'>" + escape(str(action.get("title") or "-")) + "</span>"
+        )
         action_rows.append((
-            action.get("title") or "-",
+            action_title,
             _action_target_label(action,target_by_id),
             _level_label(action.get("priority")) if action.get("priority") else "Não consolidada",
             _level_label(action.get("effort")) if action.get("effort") else "Não consolidado",
             _confidence_label(action.get("confidence")) if action.get("confidence") else "Não consolidada",
             len(dimensions_list) if isinstance(dimensions_list,list) else 0,
+            _governance_for_action(action, governance_by_source)[0],
             _modal_button(modal_id,"Ver estratégia"),
         ))
         modals.append(modal)
     body+=_section(
         "actions","Ações estratégicas",
-        "<p class='section-lead'>Cada linha corresponde a uma ação persistida. Quando o título se repete, use <strong>Alvo / ocorrência</strong> para identificar exatamente qual cookie, recurso ou registro deve ser tratado.</p>"
+        intervention_overview + "<p class='section-lead'>Intervenções documentadas: cada linha corresponde a uma ação persistida, sem deduplicar ocorrências. Consulte prioridade, esforço e confiança na mesma linha; abra o detalhe para contexto, evidências e proveniência. Quando o título se repete, use <strong>Alvo / ocorrência</strong> para identificar exatamente qual cookie, recurso ou registro deve ser tratado.</p>"
         +_table(
-            ("Ação","Alvo / ocorrência","Prioridade","Esforço","Confiança","Dimensões","Detalhe"),
+            ("Ação","Alvo / ocorrência","Prioridade","Esforço","Confiança","Dimensões","Governança","Detalhe"),
             action_rows,
             empty="Nenhuma ação foi materializada.",
             sortable=bool(action_rows),
             page_size=10 if len(action_rows)>10 else None,
-        )+"".join(modals),
+        )+"".join(modals)
+        + "<noscript><p class='notice'>O filtro de prioridade dos links do "
+        "retrato da auditoria requer JavaScript. Sem JavaScript, a tabela "
+        "original apresenta todas as ocorrências, sem excluir informações.</p></noscript>",
     )
 
     trace_rows=[]

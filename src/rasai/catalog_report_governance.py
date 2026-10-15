@@ -209,6 +209,189 @@ def _overview_measurement_scope_notice(
     )
 
 
+def _experience_paths_633() -> str:
+    """An ordered reading map of canonical evidence, never another report.
+
+    The map does not synthesize findings or counts. All destinations belong to
+    the existing report contract and preserve their original detailed content.
+    """
+    canonical = {page.filename for page in CATALOG_REPORT_PAGES}
+    journeys = (
+        ("01", "Entender o diagnóstico", "Situação, dimensões e critérios de leitura",
+         ("Resumo e estado da auditoria", "index.html", "catalogs"),
+         ("Indicadores e limites das medições", "metrics.html", None)),
+        ("02", "Explorar objetivos", "Ler as ações conforme suas dimensões declaradas",
+         ("Ações por objetivo", "directed-analysis.html", "objectives"),
+         ("Plano e dependências", "directed-analysis.html", "roadmap")),
+        ("03", "Examinar intervenções", "Conferir a ação persistida, seu alvo e a evidência",
+         ("Ações e rastreabilidade", "directed-analysis.html", "actions"),
+         ("Por URL / alvo", "directed-analysis.html", "targets"),
+         ("Intervenções técnicas do CAT-09", "cat-09.html", None)),
+        ("04", "Validar evidências", "Conferir origem, método e limitações",
+         ("Captura e contexto", "capture-context.html", None),
+         ("Evidências de execução", "execution-evidence.html", None)),
+        ("05", "Interpretar Search e IA", "Separar observações, inferências e métricas",
+         ("Resultados GEO", "geo.html", None),
+         ("Integrações de IA", "ai-integrations.html", None)),
+        ("06", "Conferir metodologia", "Localizar critérios e proveniência sem perder detalhes",
+         ("Metodologia", "methodology.html", None),
+         ("SARI", "sari.html", None)),
+    )
+    sections = []
+    for number, title, description, *links in journeys:
+        entries = []
+        for label, filename, anchor in links:
+            if filename not in canonical:
+                raise ValueError("reading map points outside report contract")
+            href = filename + ("#" + anchor if anchor else "")
+            entries.append(
+                "<li><a href='" + escape(href, quote=True) + "'>"
+                + escape(label) + "</a></li>"
+            )
+        sections.append(
+            "<li class='report-reading-step'><div class='report-reading-number'>"
+            + number + "</div><div class='report-reading-content'><h3>"
+            + escape(title) + "</h3><p>" + escape(description)
+            + "</p><ul class='report-reading-links'>" + "".join(entries)
+            + "</ul></div></li>"
+        )
+    return (
+        "<p class='section-lead'>Percurso de interpretação: do estado observado "
+        "às intervenções, evidências e limites de medição. Cada etapa abre "
+        "exatamente as páginas canônicas; não cria resultados adicionais.</p>"
+        "<ol class='report-reading-map'>" + "".join(sections) + "</ol>"
+    )
+
+
+def _snapshot_indicator_633(
+    label: str, value: Any, note: str, destination: str, action_label: str,
+    *, tone: str = "neutral",
+) -> str:
+    """Read-only summary with source-bound drill-down and existing result tone."""
+    result_tone = tone if tone in {"good", "warn", "low", "bad", "neutral"} else "neutral"
+    return (
+        "<div class='metric report-snapshot-metric'>"
+        "<small>" + escape(label) + "</small>"
+        "<strong class='result-value " + result_tone + "'>" + _display_value(value) + "</strong>"
+        "<small>" + escape(note) + "</small>"
+        "<a class='report-snapshot-cta' href='" + escape(destination, quote=True) + "'>"
+        + escape(action_label) + " <span aria-hidden='true'>→</span></a></div>"
+    )
+
+
+def _lighthouse_score_display_633(raw: Any) -> str:
+    """Persisted Lighthouse scores are ALREADY on 0..100 (M21 contract).
+
+    An observation with performance_score=1.0 means 1/100, not 100/100.
+    The upstream PageSpeed raw API score 0..1 was scaled during collection;
+    projection must never scale a persisted score a second time.
+    """
+    try:
+        value = float(raw)
+    except (ValueError, TypeError):
+        return str(raw) + "/100"
+    if not isfinite(value):
+        return str(raw) + "/100"
+    return f"{value:g}/100"
+
+
+def _decision_snapshot_poc_633(
+    database: Path, data: _ReportData,
+) -> str:
+    """Independent persisted facts with traceable targets, never a new score."""
+    from rasai.catalog_report_metrics import _web_observation
+
+    metrics: list[str] = []
+    overall = next(
+        (row for row in data.scores
+         if str(row.get("dimension") or "") == "OVERALL_READINESS"
+         and row.get("value") is not None), None,
+    )
+    if overall is not None:
+        metrics.append(_snapshot_indicator_633(
+            "SARI · prontidão",
+            _score_value(overall),
+            "Índice próprio; não mede performance Lighthouse.",
+            "sari.html#composition",
+            "Ver dimensões e composição",
+            tone=_sari_public_tone(overall),
+        ))
+    web = _web_observation(database, data.audit_id)
+    if isinstance(web, Mapping) and web.get("performance_score") is not None:
+        metrics.append(_snapshot_indicator_633(
+            "Lighthouse · desempenho",
+            _lighthouse_score_display_633(web["performance_score"]),
+            "Score já persistido em 0–100; laboratório, distinto de SARI e CrUX.",
+            "cat-04.html#metric-lighthouse-performance",
+            "Ver resultado e evidências",
+            tone=_catalog_metric_tone("CAT-04","Lighthouse · Desempenho",web["performance_score"]),
+        ))
+    if isinstance(web, Mapping) and web.get("lcp_p75_ms") is not None:
+        raw_scope = str(web.get("field_scope") or "não declarado").upper()
+        metrics.append(_snapshot_indicator_633(
+            "CrUX · LCP p75",
+            str(web["lcp_p75_ms"]) + " ms",
+            "Métrica de campo, escopo " + raw_scope + "; não atribuir à URL quando ORIGIN.",
+            "cat-04.html#metric-field-lcp-p75",
+            "Ver medição e escopo",
+            tone=_catalog_metric_tone("CAT-04","LCP de campo (p75)",web["lcp_p75_ms"]),
+        ))
+    counts: tuple[int, int, int] | None = None
+    try:
+        with sqlite3.connect(database) as connection:
+            exists = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' "
+                "AND name='directed_analysis_actions'"
+            ).fetchone()
+            if exists:
+                row = connection.execute(
+                    """SELECT COUNT(*),
+                              SUM(CASE WHEN priority='HIGH' THEN 1 ELSE 0 END),
+                              SUM(CASE WHEN priority IS NULL OR priority='' THEN 1 ELSE 0 END)
+                       FROM directed_analysis_actions WHERE audit_id=?""",
+                    (data.audit_id,),
+                ).fetchone()
+                counts = tuple(int(value or 0) for value in row)
+    except sqlite3.Error:
+        counts = None
+    if counts is not None:
+        total, high, unspecified = counts
+        metrics.extend((
+            _snapshot_indicator_633(
+                "Ações direcionadas", total,
+                "Ocorrências registradas; não são problemas únicos.",
+                "directed-analysis.html#actions", f"Ver {total} ações",
+            ),
+            _snapshot_indicator_633(
+                "Prioridade alta", high,
+                "Prioridade já persistida, não recalculada.",
+                "directed-analysis.html?priority=HIGH#actions",
+                f"Ver {high} ações de prioridade alta",
+            ),
+            _snapshot_indicator_633(
+                "Prioridade não definida", unspecified,
+                "Ausência de classificação não equivale a baixa prioridade.",
+                "directed-analysis.html?priority=UNDEFINED#actions",
+                f"Ver {unspecified} ações sem prioridade",
+            ),
+        ))
+    if not metrics:
+        return (
+            "<div class='notice'>Não há métricas executivas correspondentes "
+            "materializadas. A ausência não é convertida em zero ou aprovação.</div>"
+        )
+    return (
+        "<p class='section-lead'>Indicadores independentes e ações já persistidas. "
+        "Os números não compõem um novo índice nem certificam conformidade. "
+        "Cada cartão oferece acesso ao detalhe correspondente, sem criar novos dados "
+        "ou pontuações. Laboratório, campo e prontidão mantêm escopos próprios.</p>"
+        "<div class='metric-grid report-snapshot-grid'>" + "".join(metrics) + "</div>"
+        "<p class='section-lead'>"
+        "<a href='directed-analysis.html#objectives'>Ler por objetivo</a>"
+        " · <a href='methodology.html'>Ver método e limitações</a>"
+        "</p>"
+    )
+
 def _overview_body(database: Path, data: _ReportData) -> str:
     rows=[]
     catalog_statuses: dict[str, str] = {}
@@ -231,12 +414,14 @@ def _overview_body(database: Path, data: _ReportData) -> str:
             indexes.append((_Html(f"<a href='{CATALOG_PAGE_BY_ID[cid].filename}'>{escape(str(name))}</a>"),value,CATALOG_BY_ID[cid].label,kind,"-"))
     integrity="Íntegro" if data.config_hash and data.computed_hash==data.config_hash else "Plano não encontrado" if not data.config_hash else "Integridade divergente"
     diagnostic=_diagnostic_state_section(database,data,integrity)
-    outline=(("catalogs","Catálogos"),("indices","Índices"),("integrity","Integridade"))
+    outline=(("snapshot","Retrato da auditoria"),("catalogs","Catálogos"),("indices","Índices"),("integrity","Integridade"))
     if diagnostic:
         outline=(("diagnostic","Estado do diagnóstico"),)+outline
     body=_audit_hero(data,"Visão geral por catálogos","Resumo do plano congelado e dos resultados persistidos, mantendo coleta, análise e remediação em responsabilidades distintas.")
-    body+=_outline(outline)
+    body+=_outline((("experience","Navegar por objetivo"),)+outline)
     body+=diagnostic
+    body+=_section("snapshot","O retrato da auditoria",_decision_snapshot_poc_633(database,data))
+    body+=_section("experience","Explore a auditoria por objetivo",_experience_paths_633())
     body+=_section("catalogs","Catálogos da auditoria",_table(("Catálogo","Estado","Interpretação"),rows,sortable=True))
     from rasai.catalog_report_metrics import _web_observation
     body+=_overview_measurement_scope_notice(

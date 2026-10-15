@@ -496,25 +496,63 @@ def geo_body(database: Path, audit_id: str) -> str:
     # Scoped component styling: no global report layout or engine changes.
     style = """
     <style>
-    .geo-view {--geo-border:#dbe4ee;--geo-surface:#fff;--geo-muted:#526579;
-      --geo-accent:#126b86;display:grid;gap:1.25rem;max-width:100%}
-    .geo-view > h1 {margin:.2rem 0 0;font-size:clamp(1.5rem,2.6vw,2rem);line-height:1.25}
-    .geo-view > p {color:var(--geo-muted);max-width:88ch;line-height:1.65;margin:0 0 .25rem}
-    .geo-view > section {background:var(--geo-surface);border:1px solid var(--geo-border);
-      border-left:4px solid var(--geo-accent);border-radius:12px;padding:1.3rem 1.5rem;
-      box-shadow:0 3px 14px rgba(20,42,66,.045);min-width:0}
-    .geo-view > section:nth-of-type(even) {border-left-color:#5774b9}
-    .geo-view section h2 {margin:0 0 .85rem;font-size:1.15rem;letter-spacing:-.01em}
+    /* #633: GEO participates in the same canonical report design tokens.
+       Its panels communicate content, not artificial section severity. */
+    .geo-view {
+      --geo-border:var(--line,#dce5e7);
+      --geo-surface:var(--card,#fff);
+      --geo-muted:var(--secondary-ink,#445c69);
+      display:grid;gap:14px;max-width:100%;min-width:0
+    }
+    .geo-view > h1 {
+      margin:.2rem 0 0;font-size:clamp(1.6rem,2.3vw,2.3rem);
+      line-height:1.2;letter-spacing:-.012em;color:var(--ink,#142d3d)
+    }
+    .geo-view > p {
+      color:var(--geo-muted);max-width:88ch;line-height:1.6;margin:0 0 .25rem
+    }
+    .geo-view > section {
+      background:var(--geo-surface);
+      border:1px solid var(--geo-border);
+      border-radius:10px;padding:19px 21px;
+      box-shadow:none;min-width:0
+    }
+    .geo-view section h2 {
+      margin:0 0 .75rem;font-size:1.26rem;letter-spacing:-.012em;
+      color:var(--ink,#142d3d)
+    }
     .geo-view section p {line-height:1.6;color:var(--geo-muted);margin:.65rem 0}
-    .geo-view section table {display:block;overflow-x:auto;width:100%;border-collapse:collapse}
-    .geo-view section th,.geo-view section td {padding:.75rem .8rem;text-align:left;
-      border-bottom:1px solid var(--geo-border);vertical-align:top;overflow-wrap:anywhere}
-    .geo-view section th {background:#eef4f9;color:#243f58;font-weight:650}
+    .geo-view section table {
+      display:block;overflow-x:auto;width:100%;border-collapse:collapse
+    }
+    .geo-view section th,.geo-view section td {
+      padding:9px 10px;text-align:left;
+      border-bottom:1px solid var(--geo-border);
+      vertical-align:top;overflow-wrap:anywhere
+    }
+    .geo-view section th {
+      background:var(--surface-subtle,#f8fafb);
+      color:var(--secondary-ink,#445c69);font-weight:650
+    }
     .geo-view section li {margin:.55rem 0;line-height:1.6}
-    .geo-view section a {text-underline-offset:3px}
-    .geo-view > section:focus-within {outline:2px solid #abd3e0;outline-offset:2px}
-    @media(max-width:650px){.geo-view{gap:.85rem}.geo-view>section{padding:1rem}
-      .geo-view section th,.geo-view section td{padding:.6rem;font-size:.9rem}}
+    .geo-view section a {
+      color:var(--blue,#3159a8);text-underline-offset:3px
+    }
+    .geo-view > section:focus-within {
+      border-color:var(--line-strong,#c6d5db)
+    }
+    @media(max-width:650px){
+      .geo-view{gap:12px}
+      .geo-view>section{padding:16px 14px}
+      .geo-view section th,.geo-view section td{padding:8px;font-size:.83rem}
+    }
+    @media print{
+      .geo-view > section{
+        box-shadow:none;background:#fff;border-color:var(--geo-border);
+        break-inside:auto
+      }
+      .geo-view section th{background:#fff}
+    }
     </style>
     """
     header = (

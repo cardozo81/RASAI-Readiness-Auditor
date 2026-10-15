@@ -25,13 +25,103 @@ from rasai.search_intelligence.freshness import require_valid_serp_freshness
 
 
 def _methodology_body(data: _ReportData) -> str:
-    versions=sorted({str(r.get("scoring_version")) for r in data.scores if r.get("scoring_version")})
-    body=_audit_hero(data,"Método de Pontuação de Prontidão","Como distinguir observação, índice, interpretação e recomendação sem confundir medição com opinião de IA.")
-    body+=_section("principles","Princípios de leitura","<div class='grid'><div class='card'><h3>Observação</h3><p>Fato capturado ou medido: HTTP, DOM, LCP, erro, arquivo, SERP.</p></div><div class='card'><h3>Índice</h3><p>Resultado agregado calculado por contrato, como o Índice de Prontidão Search & IA ou Apdex.</p></div><div class='card'><h3>Análise</h3><p>Interpretação/correlação persistida, determinística ou assistida por IA.</p></div><div class='card'><h3>Remediação</h3><p>Ação sugerida para corrigir ou melhorar um problema observado.</p></div></div>")
-    body+=_section("scoring","Método de Pontuação de Prontidão",f"<div class='metric-grid'>{_metric('Versão',', '.join(versions) or '-')}{_metric('Recalcula a pontuação?','Não')}{_metric('Fonte','Dados persistidos da auditoria')}</div>{_score_table(data)}")
-    body+=_section("ai","IA e determinismo","<p>IA pode interpretar, correlacionar, priorizar e sugerir. Ela não escolhe pesos nem reescreve uma medição determinística nesta projeção.</p>")
+    """PoC-style contract map of sources and limits; no interpretation is rerun."""
+    versions = sorted({
+        str(row.get("scoring_version"))
+        for row in data.scores if row.get("scoring_version")
+    })
+    body = _audit_hero(
+        data, "Fonte e método",
+        "Origem das medições, limites da interpretação e trilha até a evidência persistida.",
+    )
+    body += _outline((
+        ("principles", "Da evidência à intervenção"),
+        ("interpretation", "Como interpretar"),
+        ("scoring", "Pontuação"),
+        ("ai", "IA e determinismo"),
+    ))
+    steps = (
+        ("01", "Observação", "Fatos efetivamente capturados ou medidos; unidade, URL, "
+         "origem e dispositivo dependem da fonte."),
+        ("02", "Índice", "Resultado persistido segundo o contrato aplicável. "
+         "Índices independentes nunca são fundidos em score novo."),
+        ("03", "Análise", "Correlação e interpretação sustentadas por dados "
+         "persistidos, eventualmente com apoio consultivo de IA."),
+        ("04", "Remediação", "Intervenção recomendada com contexto de alvo, "
+         "orientação e validação somente quando os campos existem."),
+    )
+    body += _section(
+        "principles", "Da observação à validação",
+        "<p class='section-lead'>"
+        "Identifique primeiro o dado medido, depois a interpretação e, "
+        "quando existente, a intervenção. O relatório não cria fatos "
+        "ou vínculos causais que não constem da auditoria.</p>"
+        "<ol class='report-evidence-chain'>" + "".join(
+            "<li><span class='report-reading-number'>" + number + "</span>"
+            "<div><h3>" + escape(title) + "</h3><p>" + escape(detail)
+            + "</p></div></li>"
+            for number, title, detail in steps
+        ) + "</ol>",
+    )
+    families = (
+        ("SARI", "Índice proprietário de prontidão.",
+         "Não equivale a nota Lighthouse nem aprovação universal.",
+         "sari.html"),
+        ("Performance", "Lighthouse (laboratório) e CrUX (campo).",
+         "Amostras e escopos URL/ORIGIN não são intercambiáveis.",
+         "cat-04.html"),
+        ("Apdex", "Métrica conforme amostras, perfil e arquitetura da AUD.",
+         "Sem extrapolar amostras sintéticas para todos os usuários.",
+         "cat-06.html"),
+        ("Acessibilidade", "Verificações automatizadas e evidências da captura.",
+         "Não constitui certificação WCAG.",
+         "cat-02.html"),
+        ("Search e IA", "Observações de busca, GEO e inferência registrada.",
+         "Não declarar citação, posicionamento ou audiência sem medição.",
+         "geo.html"),
+        ("Governança", "Decisões e atribuição de escopo persistidas.",
+         "Ação sem decisão casada não é automaticamente aceita.",
+         "cat-09.html"),
+        ("IA", "Análise consultiva, provedor e modelo quando registrados.",
+         "Não transforma sugestão em observação determinística.",
+         "ai-integrations.html"),
+        ("Alvos", "URL auditada, elemento, recurso externo ou origem.",
+         "Não atribuir ao site intervenção sob escopo de terceiro sem prova.",
+         "capture-context.html"),
+    )
+    body += _section(
+        "interpretation", "Separação das interpretações",
+        "<p class='section-lead'>O mesmo resultado pode participar de várias "
+        "visões sem ser contado novamente como ocorrência independente.</p>"
+        + _table(
+            ("Família", "Fonte e significado", "Limite da conclusão", "Detalhamento"),
+            [
+                (name, source, limit,
+                 _Html("<a href='" + escape(href, quote=True) + "'>Consultar evidência ↗</a>"))
+                for name, source, limit, href in families
+            ],
+        ),
+    )
+    body += _section(
+        "scoring", "Método de Pontuação de Prontidão",
+        "<div class='metric-grid'>"
+        + _metric("Versão", ", ".join(versions) or "Não registrada")
+        + _metric("Recalcula a pontuação?", "Não")
+        + _metric("Fonte", "Dados persistidos da auditoria")
+        + "</div>"
+        + _score_table(data),
+    )
+    body += _section(
+        "ai", "IA e determinismo",
+        "<p>A IA pode interpretar, correlacionar, priorizar e sugerir "
+        "quando executada e persistida. Ela não escolhe pesos nem altera "
+        "uma medição determinística nesta projeção.</p>"
+        "<p>Consulte os registros originais em "
+        "<a href='execution-evidence.html'>Evidências de execução</a> "
+        "e <a href='ai-integrations.html'>IA e integrações</a>. "
+        "Uma evidência ausente continua ausente, não reprovada.</p>",
+    )
     return body
-
 
 def _metrics_body(database: Path, data: _ReportData) -> str:
     rows=[]

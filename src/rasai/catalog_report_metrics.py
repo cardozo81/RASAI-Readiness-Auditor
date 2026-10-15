@@ -47,7 +47,9 @@ def _web_metric_rows(
         value=row[field]
         if field.endswith("_score"):
             try:
-                n=float(value); value=f"{n*100:.0f} / 100" if 0<=n<=1 else f"{n:.0f} / 100"
+                # M21 persisted categories are 0..100 already. Small scores
+                # (notably 1.0) must never be multiplied by 100 at report time.
+                n=float(value); value=f"{n:g} / 100"
             except (TypeError,ValueError):value=str(value)
         else:value=_fmt_number(value,unit)
         out.append((label,value,"Medição persistida"))
