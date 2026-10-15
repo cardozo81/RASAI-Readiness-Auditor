@@ -118,7 +118,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Decidir se o escopo aceitável é companion consultivo ou tendência medida; construir 2+ AUDs genuinamente comparáveis (não fabricar). Se integração nativa for aprovada, produzir contrato CONS versionado, fingerprint e testes de idempotência e limites; não inserir taxas não equivalentes.
 
-**Testes selecionados (planejados, não executados aqui):** `rasai geo-longitudinal <AUD_A> <AUD_B>`; `python -m pytest -q tests/test_geo_longitudinal_311.py tests/test_geo_cons_companion_311.py tests/test_geo_cons_package.py`.
+**Testes selecionados (planejados, não executados aqui):** `rasai geo-longitudinal <AUD_A> <AUD_B>`; `python -m pytest -q tests/test_geo_longitudinal.py tests/test_geo_cons_companion.py tests/test_geo_cons_package.py`.
 
 **Prova exigida para fechamento:** Proveniência por coorte, mesma URL/query/mercado/método/versão, série N/D quando não homogênea, package source hashes, contrato CONS aprovado, teste de fingerprints e não alteração de CONS-3. Sem metodologia: OPEN.
 
@@ -142,7 +142,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Primeiro executar comparadores offline com export/snapshot autorizado, confirmar KPM/threshold/fallback por action e contexto de coorte; no gate autorizado, executar somente consulta RUM read-only no tenant controlado, sem inventar settings nem alterar M23/M25.
 
-**Testes selecionados (planejados, não executados aqui):** `rasai dynatrace-rum-crosscheck` com snapshots locais verificados; `python -m pytest -q tests/test_dynatrace_apdex_arch_advisory_355.py tests/test_dynatrace_population_crosscheck.py tests/test_dynatrace_live_crosscheck.py tests/test_cat07_architecture_integration_358.py`.
+**Testes selecionados (planejados, não executados aqui):** `rasai dynatrace-rum-crosscheck` com snapshots locais verificados; `python -m pytest -q tests/test_dynatrace_apdex_arch_advisory.py tests/test_dynatrace_population_crosscheck.py tests/test_dynatrace_live_crosscheck.py tests/test_cat07_architecture_integration_358.py`.
 
 **Prova exigida para fechamento:** Settings snapshot físico e metadados tenant/app + USQL action populations com janela temporal; captura do CAT-07 `N/D` quando não obtido, distinção load vs SPA route e método Synthetic; homologação humana do crosscheck real exigida no contrato.
 
@@ -166,7 +166,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Conferir gates e condições das filhas #355, #358 e relação consultiva com #523; separar entregas de advisory aprováveis sem RUM de alegações que requerem tenant real. Não reabrir #322 como atalho e não alterar M23/M25.
 
-**Testes selecionados (planejados, não executados aqui):** `python -m pytest -q tests/test_cat07_architecture_integration_358.py tests/test_dynatrace_apdex_arch_advisory_355.py tests/test_m25_dynatrace_compat_defaults.py`.
+**Testes selecionados (planejados, não executados aqui):** `python -m pytest -q tests/test_cat07_architecture_integration_358.py tests/test_dynatrace_apdex_arch_advisory.py tests/test_m25_dynatrace_compat_defaults.py`.
 
 **Prova exigida para fechamento:** Matriz dos critérios do épico com ponte para evidências #355/#523 e histórico de PRs, CAT-07 real read-only, aceites exigíveis. Fechar somente o épico contratualmente completo, sem condicionar parte independente ao sensor opt-in.
 

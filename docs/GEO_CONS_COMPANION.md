@@ -54,7 +54,7 @@ Testes: seleção de fontes, relatório sem GEO, conjunto positivo
 simulado apenas para verificar o encaminhamento, isolamento
 de caminhos maliciosos, duplicações, ausência de escrita,
 e fluxo HTML. As fixtures positivas GEO multi-AUD existentes
-permanecem na suíte `test_geo_longitudinal_311.py`.
+permanecem na suíte `test_geo_longitudinal.py`.
 
 
 ## Chaves duplicadas no manifest CONS (12/10/2026)

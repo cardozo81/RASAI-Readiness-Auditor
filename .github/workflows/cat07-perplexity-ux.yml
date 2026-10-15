@@ -68,6 +68,6 @@ jobs:
           tests/test_console_search_parameter_menu.py
           tests/test_console_integration_diagnostics_route.py
           tests/test_console_search_scope_presentation.py
-          tests/test_perplexity_serp_copy_318.py
+          tests/test_perplexity_serp_copy.py
           tests/test_report_catalog_public_labels.py
           tests/test_public_report_pipeline_milestone_safety.py

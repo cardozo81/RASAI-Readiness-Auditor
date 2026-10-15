@@ -16,9 +16,9 @@ on:
       - 'tests/test_perplexity_search_intelligence.py'
       - 'tests/test_console_search_intelligence.py'
       - 'tests/test_console_post_core_progress.py'
-      - 'tests/test_perplexity_request_policy_317.py'
-      - 'tests/test_perplexity_serp_copy_318.py'
-      - 'tests/test_geo_post_audit_complement_318.py'
+      - 'tests/test_perplexity_request_policy.py'
+      - 'tests/test_perplexity_serp_copy.py'
+      - 'tests/test_geo_post_audit_complement.py'
       - 'src/rasai/geo_post_audit_complement.py'
       - 'tests/test_provider_registry.py'
       - 'docs/AI_PRICING_CONFIGURATION.md'
@@ -51,9 +51,9 @@ on:
       - 'tests/test_perplexity_search_intelligence.py'
       - 'tests/test_console_search_intelligence.py'
       - 'tests/test_console_post_core_progress.py'
-      - 'tests/test_perplexity_request_policy_317.py'
-      - 'tests/test_perplexity_serp_copy_318.py'
-      - 'tests/test_geo_post_audit_complement_318.py'
+      - 'tests/test_perplexity_request_policy.py'
+      - 'tests/test_perplexity_serp_copy.py'
+      - 'tests/test_geo_post_audit_complement.py'
       - 'src/rasai/geo_post_audit_complement.py'
       - 'docs/AI_PRICING_CONFIGURATION.md'
       - 'docs/AI_RUNTIME_ORCHESTRATION.md'
@@ -115,9 +115,9 @@ jobs:
             tests/test_ai_cost_policy.py \
             tests/test_m9_scoring.py \
             tests/test_perplexity_activation_flag.py \
-            tests/test_perplexity_request_policy_317.py \
-            tests/test_perplexity_serp_copy_318.py \
-            tests/test_geo_post_audit_complement_318.py \
+            tests/test_perplexity_request_policy.py \
+            tests/test_perplexity_serp_copy.py \
+            tests/test_geo_post_audit_complement.py \
             tests/test_geo_observation.py \
             tests/test_geo_report.py \
             tests/test_geo_baseline_without_perplexity.py \

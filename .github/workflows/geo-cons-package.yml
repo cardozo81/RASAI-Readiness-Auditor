@@ -34,4 +34,4 @@ jobs:
       - name: Install package and pytest
         run: python -m pip install -e . pytest
       - name: Test isolated GEO CONS sidecar and existing read-only companion
-        run: python -m pytest -q tests/test_geo_cons_package.py tests/test_geo_cons_companion_311.py
+        run: python -m pytest -q tests/test_geo_cons_package.py tests/test_geo_cons_companion.py
