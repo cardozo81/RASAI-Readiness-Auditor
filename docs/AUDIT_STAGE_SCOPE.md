@@ -170,7 +170,7 @@ ausência de falso tempo físico e bytes originais intactos.
 
 ## Replay cronologico pre-execucao de P90 (#319)
 
-A prévia de `audit_duration_forecast_319.py` mantém o backtest
+A prévia de `audit_duration_forecast.py` mantém o backtest
 retrospectivo leave-one-out como descritor secundário, sem alterar
 preço, orquestrador, motor de coleta, cálculo de tempo histórico nem
 o contrato já materializado. Um **segundo diagnóstico**,
@@ -446,7 +446,7 @@ publicado e o `audit.db` original permanece byte-for-byte intacto.
 
 ## JSON estrito nos perfis de duração histórica (#319)
 
-O forecast `audit_duration_forecast_319` usa configurações históricas
+O forecast `audit_duration_forecast` usa configurações históricas
 gravadas em `console_execution_projections.configuration` para
 selecionar coortes físicas comparáveis. Um arquivo SQLite ser íntegro
 não implica que todo texto armazenado nele seja JSON padronizado.
@@ -489,7 +489,7 @@ console/IA/Web Performance, mas o esquema anterior nao registra se CAT-06
 Um forecast de uma nova AUD com Apdex ativo nao pode usar
 automaticamente o historico como se fosse carga equivalente.
 
-O leitor consultivo `audit_duration_forecast_319` passou a exigir
+O leitor consultivo `audit_duration_forecast` passou a exigir
 flag booleana explicita e coincidente no JSON historico para cada
 carga Apdex **ativa** na nova AUD. A ausencia no anterior implica
 exclusao daquela observacao. Se nao sobrarem cinco AUDs comparaveis,

@@ -111,7 +111,7 @@ def _render_forecast(forecast: CostForecast, *, state: Any | None = None) -> Non
     if state is not None:
         # Advisory-only duration preview: no execution, provider call or database write.
         # A monetary sample is NOT evidence of comparable wall-time observations.
-        from rasai.audit_duration_forecast_319 import (
+        from rasai.audit_duration_forecast import (
             forecast_local_duration, format_duration_preview,
         )
 

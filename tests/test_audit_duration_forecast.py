@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from rasai.audit_duration_forecast_319 import (
+from rasai.audit_duration_forecast import (
     _historical_audit,
     forecast_local_duration,
     format_duration_preview,
@@ -606,7 +606,7 @@ def test_forecast_rejects_active_sqlite_sidecar_and_preserves_aud_bytes(
 def test_forecast_excludes_aud_if_journal_appears_during_projection(
     tmp_path, monkeypatch,
 ):
-    from rasai import audit_duration_forecast_319 as mod
+    from rasai import audit_duration_forecast as mod
 
     databases = [_audit(tmp_path, i) for i in range(5)]
     source = databases[4]
@@ -630,7 +630,7 @@ def test_forecast_excludes_aud_if_journal_appears_during_projection(
 def test_forecast_excludes_aud_if_file_mtime_moves_during_projection(
     tmp_path, monkeypatch,
 ):
-    from rasai import audit_duration_forecast_319 as mod
+    from rasai import audit_duration_forecast as mod
 
     databases = [_audit(tmp_path, i) for i in range(5)]
     source = databases[4]
@@ -657,7 +657,7 @@ def test_forecast_excludes_aud_if_file_mtime_moves_during_projection(
 def test_historical_duration_ai_reader_uses_sealed_snapshot_mode_only(
     tmp_path, monkeypatch,
 ):
-    from rasai import audit_duration_forecast_319 as mod
+    from rasai import audit_duration_forecast as mod
 
     paths = [_audit(tmp_path, i) for i in range(5)]
     before = {str(p): p.read_bytes() for p in paths}
@@ -980,7 +980,7 @@ def test_319_optional_console_bool_must_be_explicit_in_new_physical_cohort(
 
 @pytest.mark.parametrize("value", [True, False])
 def test_boolean_historical_page_count_never_matches_numeric_scope(tmp_path, value):
-    from rasai.audit_duration_forecast_319 import _strictly_comparable
+    from rasai.audit_duration_forecast import _strictly_comparable
     state = _state(tmp_path)
     config = {
         "input_mode": "URL", "device": "MOBILE",
@@ -996,7 +996,7 @@ def test_boolean_historical_page_count_never_matches_numeric_scope(tmp_path, val
 
 @pytest.mark.parametrize("value", [1.5, "1.9", float("nan"), float("inf"), 0, -1])
 def test_fractional_nonfinite_or_nonpositive_page_counts_abstain(tmp_path, value):
-    from rasai.audit_duration_forecast_319 import _strictly_comparable
+    from rasai.audit_duration_forecast import _strictly_comparable
     state = _state(tmp_path)
     config = {
         "input_mode": "URL", "device": "MOBILE",
@@ -1008,7 +1008,7 @@ def test_fractional_nonfinite_or_nonpositive_page_counts_abstain(tmp_path, value
 
 
 def test_integer_text_page_scope_remains_comparable(tmp_path):
-    from rasai.audit_duration_forecast_319 import _strictly_comparable
+    from rasai.audit_duration_forecast import _strictly_comparable
     state = _state(tmp_path)
     config = {
         "input_mode": "URL", "device": "MOBILE",
@@ -1020,7 +1020,7 @@ def test_integer_text_page_scope_remains_comparable(tmp_path):
 
 
 def test_large_adjacent_integer_page_counts_never_alias_via_float(tmp_path):
-    from rasai.audit_duration_forecast_319 import _strictly_comparable
+    from rasai.audit_duration_forecast import _strictly_comparable
     state = _state(tmp_path)
     state.max_pages = 9007199254740992
     config = {
@@ -1047,7 +1047,7 @@ def test_noninteger_requested_page_scope_must_abstain(tmp_path, invalid_target):
 
 @pytest.mark.parametrize("bad_budget", [True, False, 1.5, "1.9", 0, -2, float("nan"), float("inf")])
 def test_web_page_budget_must_be_integral_positive_in_duration_cohort(tmp_path, bad_budget):
-    from rasai.audit_duration_forecast_319 import _strictly_comparable
+    from rasai.audit_duration_forecast import _strictly_comparable
     state = _state(tmp_path)
     config = {
         "input_mode": "URL", "device": "MOBILE", "ai_provider": "auto",
@@ -1059,7 +1059,7 @@ def test_web_page_budget_must_be_integral_positive_in_duration_cohort(tmp_path, 
 
 
 def test_web_page_budget_uses_exact_integer_identity(tmp_path):
-    from rasai.audit_duration_forecast_319 import _strictly_comparable
+    from rasai.audit_duration_forecast import _strictly_comparable
     state = _state(tmp_path)
     state.web_max_pages = 9007199254740992
     config = {

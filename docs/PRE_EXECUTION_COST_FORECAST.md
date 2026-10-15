@@ -70,7 +70,7 @@ SERP, PageSpeed, CrUX e outras integrações permanecem fora da decisão monetá
 ## Observabilidade de duração antes da auditoria - #319 (incremental)
 
 O console apresenta uma projeção **separada da previsão financeira**: o
-módulo `audit_duration_forecast_319.py` lê apenas bancos `AUD-*/audit.db`
+módulo `audit_duration_forecast.py` lê apenas bancos `AUD-*/audit.db`
 no modo `ro`, até 200 AUDs, sem internet, IA, novas amostras, alterações
 de materialização ou execução física. Isso não representa uma previsão
 precisa de tempo de conclusão.

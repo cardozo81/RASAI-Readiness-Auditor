@@ -641,7 +641,7 @@ def test_319_console_projection_records_optional_workload_flags_without_query_se
     from json import loads
     from types import SimpleNamespace
     from rasai.console_search_intelligence import SearchConsoleState
-    from rasai.audit_duration_forecast_319 import _strictly_comparable
+    from rasai.audit_duration_forecast import _strictly_comparable
 
     folder = tmp_path / "AUD-WORKLOAD319"
     folder.mkdir()
