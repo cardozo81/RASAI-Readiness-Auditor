@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from rasai.geo_competitor_fetch_330 import (
+from rasai.geo_competitor_fetch import (
     inspect_consented_public_html, main,
 )
 from rasai.search_intelligence.content import PublicWebFetcher
@@ -230,7 +230,7 @@ def test_native_competitor_html_entrypoint_routes_scope_without_audit_bootstrap(
     capsys, monkeypatch,
 ):
     from rasai import entrypoint
-    from rasai import geo_competitor_fetch_330 as module
+    from rasai import geo_competitor_fetch as module
 
     monkeypatch.setattr(
         entrypoint, "_install_audit_runtime",
@@ -280,7 +280,7 @@ def test_native_cobs_capture_requires_purpose_operations_before_source_or_networ
     tmp_path, capsys, monkeypatch,
 ):
     from rasai import entrypoint
-    from rasai import geo_competitor_capture_bundle_330 as module
+    from rasai import geo_competitor_capture_bundle as module
 
     monkeypatch.setattr(
         entrypoint, "_install_audit_runtime",

@@ -1,7 +1,7 @@
 # #330 - Consulta HTML pública isolada, com consentimento e robots.txt
 
 Módulo local **opcional**, separado do coletor homologado:
-`python -m rasai.geo_competitor_fetch_330`. Não é ativado no pipeline,
+`python -m rasai.geo_competitor_fetch`. Não é ativado no pipeline,
 não grava banco de AUD, não chama LLM nem substitui o consumidor read-only
 `geo_competitor_content_provenance`.
 
@@ -28,7 +28,7 @@ HTTP nem DNS.
 Exemplo de diagnóstico **com rede e autorização explícita**:
 
 ```powershell
-python -m rasai.geo_competitor_fetch_330 `
+python -m rasai.geo_competitor_fetch `
   --url https://www.exemplo-publico.com/pagina `
   --query "seguro de vida" `
   --role COMPETITOR_CANDIDATE `

@@ -8,7 +8,7 @@ from urllib.request import Request
 
 import pytest
 
-from rasai.geo_competitor_fetch_330 import inspect_consented_public_html
+from rasai.geo_competitor_fetch import inspect_consented_public_html
 from rasai.geo_competitor_pinned_egress import PublicWebPinnedOpener
 from rasai.search_intelligence.content import (
     ContentFetchStatus, PublicWebFetcher,

@@ -3,9 +3,9 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'src/rasai/geo_competitor_capture_bundle_330.py'
+      - 'src/rasai/geo_competitor_capture_bundle.py'
       - 'src/rasai/entrypoint.py'
-      - 'src/rasai/geo_competitor_pair_330.py'
+      - 'src/rasai/geo_competitor_pair.py'
       - 'src/rasai/geo_competitor_pair_html.py'
       - 'tests/test_geo_competitor_capture_bundle.py'
       - 'docs/GEO_COMPETITOR_CAPTURE_BUNDLE.md'
@@ -13,9 +13,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'src/rasai/geo_competitor_capture_bundle_330.py'
+      - 'src/rasai/geo_competitor_capture_bundle.py'
       - 'src/rasai/entrypoint.py'
-      - 'src/rasai/geo_competitor_pair_330.py'
+      - 'src/rasai/geo_competitor_pair.py'
       - 'src/rasai/geo_competitor_pair_html.py'
       - 'tests/test_geo_competitor_capture_bundle.py'
       - '.github/workflows/geo-competitor-cobs.yml'

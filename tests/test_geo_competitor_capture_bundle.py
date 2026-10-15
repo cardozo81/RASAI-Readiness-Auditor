@@ -7,7 +7,7 @@ import sqlite3
 
 import pytest
 
-from rasai import geo_competitor_capture_bundle_330 as capture
+from rasai import geo_competitor_capture_bundle as capture
 
 
 _URL = "https://competitor.example.org/seguro"
@@ -574,7 +574,7 @@ def test_customer_capture_rejects_mismatched_transport_role_and_requested_url(
 
 
 def _pair_capture(tmp_path, monkeypatch, *, gap_hours=1):
-    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair import compare_cobs_static_pair
     folder = _audit(tmp_path)
     _add_aud_targets(folder, [(folder.name, _TARGET_URL)])
     original = (folder / "audit.db").read_bytes()
@@ -608,7 +608,7 @@ def _pair_capture(tmp_path, monkeypatch, *, gap_hours=1):
 def test_customer_competitor_pair_compares_only_sealed_static_metadata(
     tmp_path, monkeypatch,
 ):
-    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair import compare_cobs_static_pair
     folder, target, competitor, original, calls = _pair_capture(tmp_path, monkeypatch)
     assert [role for _, role in calls] == ["CUSTOMER", "COMPETITOR_CANDIDATE"]
     result = compare_cobs_static_pair(
@@ -656,7 +656,7 @@ def test_cobs_pair_refuses_rehashed_manifest_without_physical_serp_binding(
     tmp_path, monkeypatch, mutation,
 ):
     from pathlib import Path
-    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair import compare_cobs_static_pair
     folder, target, competitor, original, calls = _pair_capture(tmp_path, monkeypatch)
     customer = json.loads(Path(target["manifest_path"]).read_text(encoding="utf-8"))
     candidate = json.loads(Path(competitor["manifest_path"]).read_text(encoding="utf-8"))
@@ -701,7 +701,7 @@ def test_cobs_pair_refuses_rehashed_manifest_with_duplicate_json_keys(
     tmp_path, monkeypatch, duplicate,
 ):
     from pathlib import Path
-    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair import compare_cobs_static_pair
     folder, target, competitor, original, calls = _pair_capture(tmp_path, monkeypatch)
     candidate = json.loads(Path(competitor["manifest_path"]).read_text(encoding="utf-8"))
     raw = capture._payload(candidate)
@@ -748,7 +748,7 @@ def test_cobs_pair_rejects_rehashed_manifest_with_non_json_constants(
 ):
     """#330: SHA rehashing cannot turn invalid JSON into valid COBS evidence."""
     from pathlib import Path
-    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair import compare_cobs_static_pair
 
     folder, customer, competitor, aud_bytes, calls = _pair_capture(
         tmp_path, monkeypatch,
@@ -780,7 +780,7 @@ def test_cobs_pair_rejects_rehashed_manifest_with_non_json_constants(
 
 
 def test_cobs_pair_fails_on_changed_physical_aud(tmp_path, monkeypatch):
-    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair import compare_cobs_static_pair
     folder, target, competitor, _, _ = _pair_capture(tmp_path, monkeypatch)
     with sqlite3.connect(folder / "audit.db") as con:
         con.execute("UPDATE audits SET completion_status='PARTIAL_RETRYABLE'")
@@ -791,7 +791,7 @@ def test_cobs_pair_fails_on_changed_physical_aud(tmp_path, monkeypatch):
 
 
 def test_cobs_pair_rejects_stale_capture_and_reversed_roles(tmp_path, monkeypatch):
-    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair import compare_cobs_static_pair
     folder, target, competitor, _, _ = _pair_capture(
         tmp_path, monkeypatch, gap_hours=48,
     )
@@ -809,7 +809,7 @@ def test_cobs_pair_rejects_manifest_byte_tampering_before_reading_facts(
     tmp_path, monkeypatch,
 ):
     from pathlib import Path
-    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair import compare_cobs_static_pair
     folder, target, competitor, original, _ = _pair_capture(tmp_path, monkeypatch)
     suspect = Path(competitor["manifest_path"])
     suspect.write_bytes(suspect.read_bytes() + b" ")
@@ -826,7 +826,7 @@ def test_cobs_pair_refuses_source_manifest_change_during_sqlite_verification(
 ):
     """#330: a second seal prevents stale comparisons after sidecar mutation."""
     from pathlib import Path
-    from rasai import geo_competitor_pair_330 as pair
+    from rasai import geo_competitor_pair as pair
 
     folder, target, competitor, original, calls = _pair_capture(
         tmp_path, monkeypatch,
@@ -860,7 +860,7 @@ def test_cobs_pair_refuses_source_manifest_change_during_sqlite_verification(
 
 
 def test_pair_cli_read_only_without_network(tmp_path, monkeypatch, capsys):
-    from rasai.geo_competitor_pair_330 import main as pair_main
+    from rasai.geo_competitor_pair import main as pair_main
     folder, target, competitor, original, calls = _pair_capture(tmp_path, monkeypatch)
     requests_before = len(calls)
     assert pair_main([
@@ -913,7 +913,7 @@ def test_real_cobs_fetch_gate_refuses_missing_operation_consent_before_dns_or_ht
 def test_cobs_static_text_is_exact_case_sensitive_lexical_only(tmp_path, monkeypatch):
     """A static heading case change is not inferred to be a semantic match."""
     from pathlib import Path
-    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair import compare_cobs_static_pair
 
     folder, customer, competitor, before, calls = _pair_capture(tmp_path, monkeypatch)
     manifest = json.loads(Path(competitor["manifest_path"]).read_text(encoding="utf-8"))
@@ -942,7 +942,7 @@ def test_cobs_pair_standalone_html_is_escaped_and_no_new_http_or_aud_writes(
     tmp_path, monkeypatch, capsys,
 ):
     from pathlib import Path
-    from rasai.geo_competitor_pair_330 import main as compare_cli
+    from rasai.geo_competitor_pair import main as compare_cli
     folder, target, competitor, db_bytes, calls = _pair_capture(
         tmp_path, monkeypatch,
     )
@@ -983,7 +983,7 @@ def test_cobs_html_renderer_escapes_external_text_without_links_or_markup(
     tmp_path, monkeypatch,
 ):
     from copy import deepcopy
-    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair import compare_cobs_static_pair
     from rasai.geo_competitor_pair_html import render_cobs_static_pair_html
     folder, customer, competitor, _, calls = _pair_capture(tmp_path, monkeypatch)
     verified = compare_cobs_static_pair(
@@ -1018,7 +1018,7 @@ def test_cobs_html_never_promotes_forged_score_or_unverified_content(
     tmp_path, monkeypatch, tamper,
 ):
     from copy import deepcopy
-    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair import compare_cobs_static_pair
     from rasai.geo_competitor_pair_html import render_cobs_static_pair_html
     folder, customer, competitor, _, _ = _pair_capture(tmp_path, monkeypatch)
     value = deepcopy(compare_cobs_static_pair(
@@ -1076,7 +1076,7 @@ def test_cobs_pair_discloses_remote_serp_to_html_window_without_editorial_claims
     tmp_path, monkeypatch,
 ):
     from pathlib import Path
-    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair import compare_cobs_static_pair
     from rasai.geo_competitor_pair_html import render_cobs_static_pair_html
     folder, customer, competitor, db_bytes, calls = _pair_capture(tmp_path, monkeypatch)
     old_customer = Path(customer["manifest_path"])
@@ -1117,7 +1117,7 @@ def test_cobs_pair_discloses_remote_serp_to_html_window_without_editorial_claims
 def test_cobs_html_renderer_rejects_claim_of_same_serp_html_population(
     tmp_path, monkeypatch,
 ):
-    from rasai.geo_competitor_pair_330 import compare_cobs_static_pair
+    from rasai.geo_competitor_pair import compare_cobs_static_pair
     from rasai.geo_competitor_pair_html import render_cobs_static_pair_html
     folder, customer, competitor, _, _ = _pair_capture(tmp_path, monkeypatch)
     projected = compare_cobs_static_pair(

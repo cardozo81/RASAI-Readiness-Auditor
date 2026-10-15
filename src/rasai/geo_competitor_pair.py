@@ -16,7 +16,7 @@ import sqlite3
 from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 
-from rasai.geo_competitor_capture_bundle_330 import _physical_digest
+from rasai.geo_competitor_capture_bundle import _physical_digest
 from rasai.geo_observation import _canonical_url
 
 

@@ -385,19 +385,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         # Standalone consent-gated static HTML/robots inspection. No AUD,
         # providers or report side effects; all network requires explicit
         # per-host, per-purpose and per-operation authorization.
-        from rasai.geo_competitor_fetch_330 import main as competitor_html_main
+        from rasai.geo_competitor_fetch import main as competitor_html_main
         return competitor_html_main(effective[1:])
 
     if effective and effective[0] == "competitor-capture":
         # COBS packages remain separately versioned and strictly opt-in.
         # Never activate the canonical collectors or modify source AUD.
-        from rasai.geo_competitor_capture_bundle_330 import main as cobs_capture_main
+        from rasai.geo_competitor_capture_bundle import main as cobs_capture_main
         return cobs_capture_main(effective[1:])
 
     if effective and effective[0] in {"competitor-pair", "competitor-static-report"}:
         # COBS static comparison is a source-verified, strictly offline
         # advisory. Never install collection, AI or active HTTP consumers.
-        from rasai.geo_competitor_pair_330 import main as cobs_pair_main
+        from rasai.geo_competitor_pair import main as cobs_pair_main
         return cobs_pair_main(effective[1:])
 
     if effective and effective[0] in {"dynatrace-rum-crosscheck", "dynatrace-rum-review"}:

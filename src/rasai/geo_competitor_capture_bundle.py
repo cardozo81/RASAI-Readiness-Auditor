@@ -17,7 +17,7 @@ import sqlite3
 import tempfile
 from typing import Any, Sequence
 
-from rasai.geo_competitor_fetch_330 import inspect_consented_public_html
+from rasai.geo_competitor_fetch import inspect_consented_public_html
 from rasai.geo_observation import _canonical_url
 from rasai.search_intelligence.content import PublicWebFetcher
 

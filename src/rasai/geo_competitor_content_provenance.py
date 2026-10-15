@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 from typing import Any, Sequence
 
 from rasai.geo_observation import _canonical_url
-from rasai.geo_competitor_capture_bundle_330 import _physical_digest
+from rasai.geo_competitor_capture_bundle import _physical_digest
 from rasai.search_intelligence.content import query_terms
 
 _SHA256 = re.compile(r"^[a-fA-F0-9]{64}$")
