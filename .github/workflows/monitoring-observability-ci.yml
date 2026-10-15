@@ -9,7 +9,7 @@ on:
       - 'src/rasai/observability/**'
       - 'src/rasai/quality/**'
       - 'src/rasai/report_registry.py'
-      - 'src/rasai/score_geo_004*.py'
+      - 'src/rasai/score_geo*.py'
       - 'src/rasai/scoring_v004.py'
       - 'src/rasai/entrypoint.py'
       - 'src/rasai/console_entrypoint.py'
@@ -20,7 +20,7 @@ on:
       - 'tests/test_change_impact_genai_semantics.py'
       - 'tests/test_crux_scope_hardening.py'
       - 'tests/test_gsc_*.py'
-      - 'tests/test_score_geo_004*.py'
+      - 'tests/test_score_geo*.py'
       - 'tests/test_report_registry_and_method_docs.py'
       - 'pyproject.toml'
       - '.github/workflows/monitoring-observability-ci.yml'
@@ -56,9 +56,9 @@ jobs:
             src/rasai/monitoring \
             src/rasai/observability \
             src/rasai/quality \
-            src/rasai/score_geo_004.py \
+            src/rasai/score_geo.py \
             src/rasai/scoring_v004.py \
-            src/rasai/score_geo_004_cli.py
+            src/rasai/score_geo_cli.py
       - name: Directed monitoring observability and quality tests
         run: |
           python -m pytest -q \
