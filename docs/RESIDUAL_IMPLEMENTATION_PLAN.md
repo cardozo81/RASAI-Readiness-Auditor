@@ -139,7 +139,7 @@ Perplexity. #310 e os épicos seguem abertos; #328/#330/#311/#210,
 - **#304:** relatório GEO v4 exibe N/D para sobreposição quando não houver
   comparabilidade temporal válida; não converte ausência de métrica em
   zero interseção. Snapshots legados permanecem explicitamente históricos.
-- **#322:** adapter opt-in `playwright_primary_content_probe_322.py`
+- **#322:** adapter opt-in `playwright_primary_content_probe.py`
   disponível para estudo com o mesmo objeto de página e cronômetro
   monotônico fornecidos por futuro gateway, apenas com testes fake;
   **sem hook instalado em M23/M25**, sem nova amostra nem índice.

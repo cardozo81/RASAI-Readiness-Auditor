@@ -1,7 +1,7 @@
 """#322: focused fake-Playwright safety tests; no navigation, AI, network, SQLite."""
 from __future__ import annotations
 
-from rasai.playwright_primary_content_probe_322 import observe_existing_playwright_page
+from rasai.playwright_primary_content_probe import observe_existing_playwright_page
 
 
 class Clock:

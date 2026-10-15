@@ -58,7 +58,7 @@ com autorização humana explícita, janela curta e armazenamento independente.
 
 ## Adapter isolado de observação no mesmo page - #322 (09/10/2026)
 
-O módulo `playwright_primary_content_probe_322.py` adiciona a função
+O módulo `playwright_primary_content_probe.py` adiciona a função
 `observe_existing_playwright_page` **opt-in**, aplicada somente a um objeto
 `page` fornecido explicitamente por um consumidor que já detenha aquela
 sessão de navegador. Recebe do **mesmo sample** a origem

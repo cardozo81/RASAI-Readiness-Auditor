@@ -13,7 +13,7 @@ import time
 from typing import Any, Callable
 
 from rasai.apdex_content_readiness_observation import PrimaryContentReadiness
-from rasai.playwright_primary_content_probe_322 import observe_existing_playwright_page
+from rasai.playwright_primary_content_probe import observe_existing_playwright_page
 
 VERSION = "RASAI-READINESS-PHYSICAL-PROBE-PILOT-001"
 
