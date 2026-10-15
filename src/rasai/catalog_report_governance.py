@@ -262,6 +262,81 @@ def _experience_paths_633() -> str:
     )
 
 
+def _decision_snapshot_poc_633(
+    database: Path, data: _ReportData,
+) -> str:
+    """Executive projections of independent persisted facts, never a composite score."""
+    from rasai.catalog_report_metrics import _web_observation
+
+    metrics: list[str] = []
+    overall = next(
+        (row for row in data.scores
+         if str(row.get("dimension") or "") == "OVERALL_READINESS"
+         and row.get("value") is not None), None,
+    )
+    if overall is not None:
+        metrics.append(_metric(
+            "SARI · prontidão",
+            _score_value(overall),
+            "Índice próprio; não mede performance Lighthouse.",
+        ))
+    web = _web_observation(database, data.audit_id)
+    if isinstance(web, Mapping) and web.get("performance_score") is not None:
+        metrics.append(_metric(
+            "Lighthouse · desempenho",
+            str(web["performance_score"]) + "/100",
+            "Medição de laboratório; distinta de SARI e CrUX.",
+        ))
+    if isinstance(web, Mapping) and web.get("lcp_p75_ms") is not None:
+        raw_scope = str(web.get("field_scope") or "não declarado").upper()
+        metrics.append(_metric(
+            "CrUX · LCP p75",
+            str(web["lcp_p75_ms"]) + " ms",
+            "Métrica de campo, escopo " + raw_scope + "; não atribuir à URL quando ORIGIN.",
+        ))
+    counts: tuple[int, int, int] | None = None
+    try:
+        with sqlite3.connect(database) as connection:
+            exists = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' "
+                "AND name='directed_analysis_actions'"
+            ).fetchone()
+            if exists:
+                row = connection.execute(
+                    """SELECT COUNT(*),
+                              SUM(CASE WHEN priority='HIGH' THEN 1 ELSE 0 END),
+                              SUM(CASE WHEN priority IS NULL OR priority='' THEN 1 ELSE 0 END)
+                       FROM directed_analysis_actions WHERE audit_id=?""",
+                    (data.audit_id,),
+                ).fetchone()
+                counts = tuple(int(value or 0) for value in row)
+    except sqlite3.Error:
+        counts = None
+    if counts is not None:
+        total, high, unspecified = counts
+        metrics.extend((
+            _metric("Ações direcionadas", total, "Ocorrências registradas; não são problemas únicos."),
+            _metric("Prioridade alta", high, "Prioridade já persistida, não recalculada."),
+            _metric("Prioridade não definida", unspecified, "Ausência de classificação não equivale a baixa prioridade."),
+        ))
+    if not metrics:
+        return (
+            "<div class='notice'>Não há métricas executivas correspondentes "
+            "materializadas. A ausência não é convertida em zero ou aprovação.</div>"
+        )
+    return (
+        "<p class='section-lead'>Indicadores independentes e ações já persistidas. "
+        "Os números não compõem um novo índice e não certificam conformidade; "
+        "os resultados de laboratório, campo e prontidão mantêm escopos próprios.</p>"
+        "<div class='metric-grid'>" + "".join(metrics) + "</div>"
+        "<p class='section-lead'>"
+        "<a href='directed-analysis.html#objectives'>Ler por objetivo</a>"
+        " · <a href='directed-analysis.html#actions'>Localizar o que corrigir e como validar</a>"
+        " · <a href='methodology.html'>Ver método e limitações</a>"
+        "</p>"
+    )
+
+
 def _overview_body(database: Path, data: _ReportData) -> str:
     rows=[]
     catalog_statuses: dict[str, str] = {}
@@ -284,12 +359,13 @@ def _overview_body(database: Path, data: _ReportData) -> str:
             indexes.append((_Html(f"<a href='{CATALOG_PAGE_BY_ID[cid].filename}'>{escape(str(name))}</a>"),value,CATALOG_BY_ID[cid].label,kind,"-"))
     integrity="Íntegro" if data.config_hash and data.computed_hash==data.config_hash else "Plano não encontrado" if not data.config_hash else "Integridade divergente"
     diagnostic=_diagnostic_state_section(database,data,integrity)
-    outline=(("catalogs","Catálogos"),("indices","Índices"),("integrity","Integridade"))
+    outline=(("snapshot","Retrato da auditoria"),("catalogs","Catálogos"),("indices","Índices"),("integrity","Integridade"))
     if diagnostic:
         outline=(("diagnostic","Estado do diagnóstico"),)+outline
     body=_audit_hero(data,"Visão geral por catálogos","Resumo do plano congelado e dos resultados persistidos, mantendo coleta, análise e remediação em responsabilidades distintas.")
     body+=_outline((("experience","Navegar por objetivo"),)+outline)
     body+=diagnostic
+    body+=_section("snapshot","O retrato da auditoria",_decision_snapshot_poc_633(database,data))
     body+=_section("experience","Explore a auditoria por objetivo",_experience_paths_633())
     body+=_section("catalogs","Catálogos da auditoria",_table(("Catálogo","Estado","Interpretação"),rows,sortable=True))
     from rasai.catalog_report_metrics import _web_observation
