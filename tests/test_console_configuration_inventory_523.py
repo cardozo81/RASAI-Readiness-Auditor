@@ -1022,3 +1022,65 @@ def test_apdex_load_warning_categories_are_sanitized_and_exhaustive():
 def test_apdex_load_warning_categories_empty():
     from rasai.console_apdex_effective_validation_523 import _classify_load_warnings
     assert sum(_classify_load_warnings([]).values()) == 0
+def test_rejected_environment_warning_reasons_are_non_disclosing():
+    from rasai.console_apdex_effective_validation_523 import (
+        _classify_environment_warning_reasons,
+    )
+
+    warnings = [
+        "environment.OPENAI_API_KEY: variável não reconhecida ou não persistível",
+        "environment.LEGACY_PRIVATE_TOKEN: variável não reconhecida ou não persistível",
+        "environment.RASAI_RETIRED_INPUT: variável não reconhecida ou não persistível",
+        "environment.: variável não reconhecida ou não persistível",
+        "console.device: invalid and irrelevant",
+    ]
+    result = _classify_environment_warning_reasons(warnings)
+    assert result == {
+        "registered_but_excluded": 1,
+        "unregistered_secret_pattern": 1,
+        "unregistered_name": 1,
+        "empty_name": 1,
+    }
+    rendered = json.dumps(result)
+    for forbidden in ("OPENAI_API_KEY", "LEGACY_PRIVATE_TOKEN", "RASAI_RETIRED_INPUT"):
+        assert forbidden not in rendered
+    assert all(value == 0 for value in _classify_environment_warning_reasons([]).values())
+
+
+def test_apdex_preflight_classifies_rejected_environment_without_read_write_leak(
+    tmp_path,
+):
+    from unittest.mock import patch
+    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+
+    path = tmp_path / "operator.ini"
+    path.write_text(
+        "[environment]\\n"
+        "OPENAI_API_KEY = NEVER_ECHO_PRIVATE_SECRET\\n"
+        "LEGACY_PRIVATE_TOKEN = NEVER_ECHO_OLD_SECRET\\n"
+        "RASAI_RETIRED_INPUT = NEVER_ECHO_SETTING\\n",
+        encoding="utf-8",
+    )
+    before = path.read_bytes()
+    with patch.dict(os.environ, {}, clear=True):
+        result = inspect_apdex_consumers(path, environ={})
+    assert result["status"] == "ADAPTERS_PARTIAL_LOAD_WARNINGS"
+    assert result["load_warning_count"] == 3
+    assert result["load_warning_categories"]["unknown_or_nonpersistible_environment"] == 3
+    assert result["load_warning_environment_reasons"] == {
+        "registered_but_excluded": 1,
+        "unregistered_secret_pattern": 1,
+        "unregistered_name": 1,
+        "empty_name": 0,
+    }
+    assert sum(result["load_warning_environment_reasons"].values()) == 3
+    assert result["external_requests"] == result["audit_writes"] == 0
+    assert result["values_exposed"] is False
+    assert path.read_bytes() == before
+    rendered = json.dumps(result)
+    for forbidden in (
+        "OPENAI_API_KEY", "LEGACY_PRIVATE_TOKEN", "RASAI_RETIRED_INPUT",
+        "NEVER_ECHO",
+    ):
+        assert forbidden not in rendered
+
