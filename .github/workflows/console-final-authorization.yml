@@ -7,7 +7,7 @@ on:
       - 'src/rasai/console_cost_confirmation.py'
       - 'src/rasai/console_first_run_cost_preview.py'
       - 'tests/test_console_execution_gate_composition_374.py'
-      - '.github/workflows/console-final-authorization-374.yml'
+      - '.github/workflows/console-final-authorization.yml'
   workflow_dispatch:
 
 permissions:
@@ -42,4 +42,4 @@ jobs:
           tests/test_console_cost_confirmation.py
           tests/test_console_first_run_cost_preview.py
           tests/test_console_apdex_navigation_380.py
-          tests/test_console_apdex_cancel_transaction_381.py
+          tests/test_console_apdex_cancel_transaction.py

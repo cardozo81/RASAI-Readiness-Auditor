@@ -5,7 +5,7 @@ on:
     paths:
       - 'src/rasai/geo_cons_package_311.py'
       - 'src/rasai/entrypoint.py'
-      - 'tests/test_geo_cons_package_311.py'
+      - 'tests/test_geo_cons_package.py'
       - 'docs/GEO_CONS_PACKAGE.md'
       - '.github/workflows/geo-cons-package.yml'
   push:
@@ -13,7 +13,7 @@ on:
     paths:
       - 'src/rasai/geo_cons_package_311.py'
       - 'src/rasai/entrypoint.py'
-      - 'tests/test_geo_cons_package_311.py'
+      - 'tests/test_geo_cons_package.py'
       - '.github/workflows/geo-cons-package.yml'
 permissions:
   contents: read
@@ -34,4 +34,4 @@ jobs:
       - name: Install package and pytest
         run: python -m pip install -e . pytest
       - name: Test isolated GEO CONS sidecar and existing read-only companion
-        run: python -m pytest -q tests/test_geo_cons_package_311.py tests/test_geo_cons_companion_311.py
+        run: python -m pytest -q tests/test_geo_cons_package.py tests/test_geo_cons_companion_311.py

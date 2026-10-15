@@ -11,7 +11,7 @@ on:
       - 'tests/test_cat07_architecture_integration_358.py'
       - 'tests/test_audit_integrity_review_375.py'
       - 'docs/AUD_LOCAL_INTEGRITY.md'
-      - '.github/workflows/audit-local-integrity-374-375.yml'
+      - '.github/workflows/audit-local-integrity.yml'
   push:
     branches: [main]
     paths:
@@ -21,7 +21,7 @@ on:
       - 'tests/test_console_cost_confirmation.py'
       - 'tests/test_cat07_architecture_integration_358.py'
       - 'tests/test_audit_integrity_review_375.py'
-      - '.github/workflows/audit-local-integrity-374-375.yml'
+      - '.github/workflows/audit-local-integrity.yml'
 
 permissions:
   contents: read

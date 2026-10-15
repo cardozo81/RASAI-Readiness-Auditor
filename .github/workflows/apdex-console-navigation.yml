@@ -39,6 +39,6 @@ jobs:
         run: >-
           python -m pytest -q
           tests/test_console_apdex_navigation_380.py
-          tests/test_console_apdex_cancel_transaction_381.py
+          tests/test_console_apdex_cancel_transaction.py
           tests/test_console_input_navigation_contract.py::test_apdex_edit_restores_previous_values_when_cancelled_mid_form
           tests/test_cat07_architecture_integration_358.py::test_rejected_guided_preview_restores_state_and_environment

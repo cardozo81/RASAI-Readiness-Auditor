@@ -12,14 +12,14 @@ on:
       - 'src/rasai/cat07_architecture_reporting_358.py'
       - 'src/rasai/catalog_report_page.py'
       - 'tests/test_cat07_architecture_integration_358.py'
-      - 'tests/test_experience_architecture_guidance_358.py'
+      - 'tests/test_experience_architecture_guidance.py'
       - 'docs/CAT07_EXPERIENCE_ARCH_GUIDANCE.md'
       - '.github/workflows/cat07-architecture-guidance.yml'
   push:
     branches: [main]
     paths:
       - 'src/rasai/experience_architecture_guidance_358.py'
-      - 'tests/test_experience_architecture_guidance_358.py'
+      - 'tests/test_experience_architecture_guidance.py'
       - '.github/workflows/cat07-architecture-guidance.yml'
 
 permissions:
@@ -45,7 +45,7 @@ jobs:
       - name: Pure architecture guidance and existing M25 reference defaults
         run: >-
           python -m pytest -q
-          tests/test_experience_architecture_guidance_358.py
+          tests/test_experience_architecture_guidance.py
           tests/test_cat07_architecture_integration_358.py
           tests/test_console_settings.py
           tests/test_catalog_population_apdex_227.py
