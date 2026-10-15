@@ -7,7 +7,7 @@ Permanece totalmente inalterado em `consolidation.selection.resolve_selection`.
 
 **Comparativo por domínio** ainda NÃO está disponível no gerador CONS.
 O novo `assess_same_domain_pair`, em
-`consolidation/domain_preflight_210.py`, é apenas uma avaliação offline
+`consolidation/domain_preflight.py`, é apenas uma avaliação offline
 **sem IO**, usando dois `AuditCandidate` previamente autorizados.
 O retorno `ELIGIBLE_FOR_DESCRIPTIVE_SAME_HOST_REVIEW_ONLY` não concede
 permissão de acesso nem implementa uma série temporal/score.

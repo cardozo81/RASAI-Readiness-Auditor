@@ -5,7 +5,7 @@ from dataclasses import replace
 import pytest
 
 from rasai.consolidation.selection import AuditCandidate
-from rasai.consolidation.domain_preflight_210 import assess_same_domain_pair
+from rasai.consolidation.domain_preflight import assess_same_domain_pair
 
 
 def candidate(audit_id, url, *, device="MOBILE", time="2026-10-08T11:00:00Z"):
@@ -248,7 +248,7 @@ class _AuthorizedIndexFixture:
 
 
 def test_same_host_candidate_discovery_requires_explicit_authorized_index_scope():
-    from rasai.consolidation.domain_preflight_210 import (
+    from rasai.consolidation.domain_preflight import (
         preview_authorized_same_host_candidates,
     )
 
@@ -274,7 +274,7 @@ def test_same_host_candidate_discovery_requires_explicit_authorized_index_scope(
 
 
 def test_same_host_candidate_discovery_fails_closed_on_unbounded_scope():
-    from rasai.consolidation.domain_preflight_210 import (
+    from rasai.consolidation.domain_preflight import (
         preview_authorized_same_host_candidates as preview,
     )
 

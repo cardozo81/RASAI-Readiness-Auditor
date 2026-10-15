@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'src/rasai/consolidation/domain_preflight_210.py'
+      - 'src/rasai/consolidation/domain_preflight.py'
       - 'src/rasai/consolidation/selection.py'
       - 'tests/test_cons_domain_preflight.py'
       - '.github/workflows/cons-domain-preflight.yml'
