@@ -21,7 +21,7 @@ from rasai.audit_duration_forecast_319 import (
 from rasai.console_cost_confirmation import _render_forecast
 from rasai.cost_forecast import CostForecast
 
-from rasai.console_apdex_duration_scope_319 import (
+from rasai.console_apdex_duration_scope import (
     NAVIGATION_FIELDS, EXPERIENCE_FIELDS, apdex_duration_scope,
 )
 from rasai.console_m23 import State as ApdexConsoleState
@@ -945,7 +945,7 @@ def test_319_optional_console_bool_must_be_explicit_in_new_physical_cohort(
             config = json.loads(raw)
             config[enabled_flag] = True
             if enabled_flag == "search_ai_competitive":
-                from rasai.console_search_duration_scope_319 import search_ai_duration_scope
+                from rasai.console_search_duration_scope import search_ai_duration_scope
                 config.update(search_ai_duration_scope(state))
             for sibling in (
                 "improvement_enabled", "search_ai_competitive",

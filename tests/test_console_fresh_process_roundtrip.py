@@ -79,7 +79,7 @@ elif operation == "project":
     # the real console projection writer, without launching an audit.
     import sqlite3
     from rasai.console_cost import persist_execution_projection, estimate_exposure
-    from rasai.console_apdex_duration_scope_319 import comparable_apdex_duration_scope
+    from rasai.console_apdex_duration_scope import comparable_apdex_duration_scope
     loaded = console_settings.load_console_config(state)
     assert not loaded.created and not loaded.warnings
     workspace = Path(report_path).parent / "AUD-OFFLINE-523"

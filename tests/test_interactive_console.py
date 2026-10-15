@@ -554,7 +554,7 @@ def test_319_console_projection_records_apdex_workload_without_credentials(tmp_p
     """Console-only JSON extension; no new schema, AI call, or exposed tenant."""
     import json
     from rasai.console_m23 import State as ApdexConsoleState
-    from rasai.console_apdex_duration_scope_319 import (
+    from rasai.console_apdex_duration_scope import (
         NAVIGATION_FIELDS, EXPERIENCE_FIELDS,
     )
 

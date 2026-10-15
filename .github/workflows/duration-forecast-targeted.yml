@@ -5,7 +5,7 @@ on:
     paths:
       - 'src/rasai/audit_duration_forecast_319.py'
       - 'src/rasai/console_cost.py'
-      - 'src/rasai/console_search_duration_scope_319.py'
+      - 'src/rasai/console_search_duration_scope.py'
       - 'src/rasai/console_cost_confirmation.py'
       - 'src/rasai/console_first_run_cost_preview.py'
       - 'tests/test_audit_duration_forecast.py'
@@ -30,5 +30,5 @@ jobs:
       - name: Install and run focused tests without provider calls
         run: |
           python -m pip install -e . pytest
-          python -m compileall -q src/rasai/audit_duration_forecast_319.py src/rasai/console_search_duration_scope_319.py src/rasai/console_cost_confirmation.py src/rasai/console_first_run_cost_preview.py
+          python -m compileall -q src/rasai/audit_duration_forecast_319.py src/rasai/console_search_duration_scope.py src/rasai/console_cost_confirmation.py src/rasai/console_first_run_cost_preview.py
           python -m pytest -q tests/test_console_search_duration_scope.py tests/test_audit_duration_forecast.py tests/test_audit_attempt_timeline.py tests/test_audit_cost_explain.py tests/test_cost_forecast.py tests/test_console_cost_confirmation.py tests/test_console_first_run_cost_preview.py

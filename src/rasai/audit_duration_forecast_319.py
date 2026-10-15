@@ -18,8 +18,8 @@ from statistics import median
 from typing import Any, Mapping
 
 from rasai.audit_attempt_timeline import read_audit_attempt_timeline
-from rasai.console_apdex_duration_scope_319 import comparable_apdex_duration_scope
-from rasai.console_search_duration_scope_319 import comparable_search_ai_duration_scope
+from rasai.console_apdex_duration_scope import comparable_apdex_duration_scope
+from rasai.console_search_duration_scope import comparable_search_ai_duration_scope
 
 
 _MIN_RUNS = 5

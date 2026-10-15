@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from rasai.console_search_duration_scope_319 import (
+from rasai.console_search_duration_scope import (
     comparable_search_ai_duration_scope, search_ai_duration_scope,
 )
 
