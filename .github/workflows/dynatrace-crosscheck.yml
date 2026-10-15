@@ -6,7 +6,7 @@ on:
       - 'src/rasai/dynatrace_population_crosscheck_355.py'
       - 'src/rasai/dynatrace_population_crosscheck_html_355.py'
       - 'src/rasai/entrypoint.py'
-      - 'tests/test_dynatrace_population_crosscheck_355.py'
+      - 'tests/test_dynatrace_population_crosscheck.py'
       - 'docs/DYNATRACE_POPULATION_CROSSCHECK.md'
       - '.github/workflows/dynatrace-crosscheck.yml'
   push:
@@ -15,7 +15,7 @@ on:
       - 'src/rasai/dynatrace_population_crosscheck_355.py'
       - 'src/rasai/dynatrace_population_crosscheck_html_355.py'
       - 'src/rasai/entrypoint.py'
-      - 'tests/test_dynatrace_population_crosscheck_355.py'
+      - 'tests/test_dynatrace_population_crosscheck.py'
       - '.github/workflows/dynatrace-crosscheck.yml'
 permissions:
   contents: read
@@ -36,4 +36,4 @@ jobs:
       - name: Install package and pytest
         run: python -m pip install -e . pytest
       - name: Test pure offline settings and USQL crosscheck
-        run: python -m pytest -q tests/test_dynatrace_population_crosscheck_355.py tests/test_dynatrace_rum_population_355.py
+        run: python -m pytest -q tests/test_dynatrace_population_crosscheck.py tests/test_dynatrace_rum_population_355.py

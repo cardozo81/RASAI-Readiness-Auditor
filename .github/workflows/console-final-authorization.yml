@@ -6,7 +6,7 @@ on:
     paths:
       - 'src/rasai/console_cost_confirmation.py'
       - 'src/rasai/console_first_run_cost_preview.py'
-      - 'tests/test_console_execution_gate_composition_374.py'
+      - 'tests/test_console_execution_gate_composition.py'
       - '.github/workflows/console-final-authorization.yml'
   workflow_dispatch:
 
@@ -34,11 +34,11 @@ jobs:
           python -m py_compile
           src/rasai/console_cost_confirmation.py
           src/rasai/console_first_run_cost_preview.py
-          tests/test_console_execution_gate_composition_374.py
+          tests/test_console_execution_gate_composition.py
       - name: Deterministic authorization and preceding Apdex cancellation regressions
         run: >-
           python -m pytest -q
-          tests/test_console_execution_gate_composition_374.py
+          tests/test_console_execution_gate_composition.py
           tests/test_console_cost_confirmation.py
           tests/test_console_first_run_cost_preview.py
           tests/test_console_apdex_navigation_380.py

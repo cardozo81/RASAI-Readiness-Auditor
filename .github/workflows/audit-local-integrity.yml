@@ -9,7 +9,7 @@ on:
       - 'src/rasai/audit_integrity_review_375.py'
       - 'tests/test_console_cost_confirmation.py'
       - 'tests/test_cat07_architecture_integration_358.py'
-      - 'tests/test_audit_integrity_review_375.py'
+      - 'tests/test_audit_integrity_review.py'
       - 'docs/AUD_LOCAL_INTEGRITY.md'
       - '.github/workflows/audit-local-integrity.yml'
   push:
@@ -20,7 +20,7 @@ on:
       - 'src/rasai/audit_integrity_review_375.py'
       - 'tests/test_console_cost_confirmation.py'
       - 'tests/test_cat07_architecture_integration_358.py'
-      - 'tests/test_audit_integrity_review_375.py'
+      - 'tests/test_audit_integrity_review.py'
       - '.github/workflows/audit-local-integrity.yml'
 
 permissions:
@@ -52,5 +52,5 @@ jobs:
           python -m pytest -q
           tests/test_console_cost_confirmation.py
           tests/test_cat07_architecture_integration_358.py
-          tests/test_audit_integrity_review_375.py
+          tests/test_audit_integrity_review.py
           tests/test_catalog_report_package_integrity.py

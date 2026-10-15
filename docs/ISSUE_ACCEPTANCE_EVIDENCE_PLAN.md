@@ -130,7 +130,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Implementar política de consentimento opt-in revogável independente do auditor principal, limites por host/finalidade, trilha de escopo e cancelamento; pipeline de captura JS autorizada isolado e estados `N/D` para shell/timeout/robots; preservar materialização existente.
 
-**Testes selecionados (planejados, não executados aqui):** `python -m pytest -q tests/test_geo_competitor_fetch_330.py tests/test_geo_competitor_pinned_egress_330.py tests/test_geo_competitor_content_provenance.py tests/test_geo_competitor_capture_bundle_330.py`.
+**Testes selecionados (planejados, não executados aqui):** `python -m pytest -q tests/test_geo_competitor_fetch.py tests/test_geo_competitor_pinned_egress.py tests/test_geo_competitor_content_provenance.py tests/test_geo_competitor_capture_bundle.py`.
 
 **Prova exigida para fechamento:** Fixtures HTTP de shell vazio/robots/403/redirect/SPA; para aceite externo obter consentimento por alvo, log autorizado de egress, URL inicial/final mesma origem autorizada, hash HTML renderizado, captura principal e provenance com observation_id; sem opt-in não navegar.
 
@@ -142,7 +142,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Primeiro executar comparadores offline com export/snapshot autorizado, confirmar KPM/threshold/fallback por action e contexto de coorte; no gate autorizado, executar somente consulta RUM read-only no tenant controlado, sem inventar settings nem alterar M23/M25.
 
-**Testes selecionados (planejados, não executados aqui):** `rasai dynatrace-rum-crosscheck` com snapshots locais verificados; `python -m pytest -q tests/test_dynatrace_apdex_arch_advisory_355.py tests/test_dynatrace_population_crosscheck_355.py tests/test_dynatrace_live_crosscheck.py tests/test_cat07_architecture_integration_358.py`.
+**Testes selecionados (planejados, não executados aqui):** `rasai dynatrace-rum-crosscheck` com snapshots locais verificados; `python -m pytest -q tests/test_dynatrace_apdex_arch_advisory_355.py tests/test_dynatrace_population_crosscheck.py tests/test_dynatrace_live_crosscheck.py tests/test_cat07_architecture_integration_358.py`.
 
 **Prova exigida para fechamento:** Settings snapshot físico e metadados tenant/app + USQL action populations com janela temporal; captura do CAT-07 `N/D` quando não obtido, distinção load vs SPA route e método Synthetic; homologação humana do crosscheck real exigida no contrato.
 

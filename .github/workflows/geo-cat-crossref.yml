@@ -6,7 +6,7 @@ on:
       - 'src/rasai/geo_snapshot_context_308.py'
       - 'src/rasai/geo_catalog_context.py'
       - 'tests/test_geo_snapshot_context_308_309.py'
-      - 'tests/test_geo_catalog_context_308.py'
+      - 'tests/test_geo_catalog_context.py'
       - 'docs/GEO_CATALOG_CONTEXT.md'
       - '.github/workflows/geo-cat-crossref.yml'
   push:
@@ -37,5 +37,5 @@ jobs:
         run: >-
           python -m pytest -q
           tests/test_geo_snapshot_context_308_309.py
-          tests/test_geo_catalog_context_308.py
-          tests/test_geo_lifecycle_309.py
+          tests/test_geo_catalog_context.py
+          tests/test_geo_lifecycle.py

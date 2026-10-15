@@ -15,7 +15,7 @@ on:
       - 'src/rasai/catalog_report_model.py'
       - 'tests/test_perplexity_search_intelligence.py'
       - 'tests/test_console_search_intelligence.py'
-      - 'tests/test_console_post_core_progress_524.py'
+      - 'tests/test_console_post_core_progress.py'
       - 'tests/test_perplexity_request_policy_317.py'
       - 'tests/test_perplexity_serp_copy_318.py'
       - 'tests/test_geo_post_audit_complement_318.py'
@@ -50,7 +50,7 @@ on:
       - 'src/rasai/catalog_report_model.py'
       - 'tests/test_perplexity_search_intelligence.py'
       - 'tests/test_console_search_intelligence.py'
-      - 'tests/test_console_post_core_progress_524.py'
+      - 'tests/test_console_post_core_progress.py'
       - 'tests/test_perplexity_request_policy_317.py'
       - 'tests/test_perplexity_serp_copy_318.py'
       - 'tests/test_geo_post_audit_complement_318.py'
@@ -109,7 +109,7 @@ jobs:
           python -m pytest -q \
             tests/test_perplexity_search_intelligence.py \
             tests/test_console_search_intelligence.py \
-            tests/test_console_post_core_progress_524.py \
+            tests/test_console_post_core_progress.py \
             tests/test_provider_registry.py \
             tests/test_ai_native_usage_pricing.py \
             tests/test_ai_cost_policy.py \
@@ -122,5 +122,5 @@ jobs:
             tests/test_geo_report.py \
             tests/test_geo_baseline_without_perplexity.py \
             tests/test_geo_ai.py \
-            tests/test_competitive_empty_content_313.py \
+            tests/test_competitive_empty_content.py \
             tests/test_geo_extraction_quality.py
