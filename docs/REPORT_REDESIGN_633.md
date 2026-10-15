@@ -83,3 +83,7 @@ Nesta revisão, `index.html#experience` deixa de ser uma grade de atalhos e pass
 - A mesma identidade de navegação e CSS continua aplicada a todas as páginas por `CATALOG_REPORT_PAGES` e `_shell`. Não se cria novo `index`, URL ou página de “originais”.
 - O baseline equivalente de paridade textual/data_row ainda não foi fornecido. CI sintético pode verificar integridade e contratos, não certificação integral com AUD real.
 - **Status de release:** implementação técnica em verificação até 19 checks obrigatórios verdes no HEAD final e smoke físico da AUD isolada. Qualquer regressão corrige-se na mesma branch. **PR #637 permanece DRAFT; #633 OPEN; sem merge.**
+
+### Mapa por URL / alvo
+
+A seção `directed-analysis.html#targets` indexa cada ação uma única vez pelo alvo disponível na fonte: local editorial, seletor, ocorrência técnica CAT-10 ou explicitamente indeterminado. Informa contagens e decisões de governança comprovadas, até quatro títulos por agrupamento e o número de títulos adicionais no inventário integral `#actions`. Não cria uma página HTML nova nem atribui recursos externos ao site sem evidência. Uma mesma ação pode constar de mais de um objetivo, mas somente de um grupo de alvo.

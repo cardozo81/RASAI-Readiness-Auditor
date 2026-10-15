@@ -389,6 +389,8 @@ def test_objective_cards_are_only_navigational_and_never_add_up_repeat_actions(t
     assert html.count("class='directed-goal-details' id='goal-") == 7
     assert html.count("href='#goal-") == 7
     assert "id='goal-descoberta'" in html
+    assert "id='targets'" in html
+    assert "Alvo / localização declarada" in html
     assert "Nenhuma ação da Análise Direcionada foi vinculada" in html
     assert "Uma mesma ação pode apoiar vários objetivos" in html
     assert "não são aditivas" in html
@@ -509,7 +511,7 @@ def test_overview_new_experience_is_an_index_not_a_second_report(tmp_path: Path)
     assert "74.2" in (report / "sari.html").read_text(encoding="utf-8")
     directed = (report / "directed-analysis.html").read_text(encoding="utf-8")
     for section in ("summary", "transversal", "roadmap", "objectives", "actions",
-                    "traceability", "limitations"):
+                    "targets", "traceability", "limitations"):
         assert f"id='{section}'" in directed
     assert "Nenhuma análise direcionada foi materializada" in directed
 

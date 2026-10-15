@@ -681,6 +681,7 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         ("transversal","Maior ganho transversal"),
         ("roadmap","Plano de ação"),
         ("objectives","Visões por objetivo"),
+        ("targets","Por URL / alvo"),
         ("actions","Ações"),
         ("traceability","Rastreabilidade"),
         ("limitations","Limitações"),
@@ -699,6 +700,7 @@ def directed_analysis_body(database: Any, data: Any) -> str:
             ("transversal","Maior ganho transversal"),
             ("roadmap","Plano de ação"),
             ("objectives","Visões por objetivo"),
+            ("targets","Por URL / alvo"),
             ("actions","Ações estratégicas"),
             ("traceability","Rastreabilidade"),
             ("limitations","Limitações"),
@@ -927,6 +929,46 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         "objectives", "Visões por objetivo",
         objective_index + "".join(goal_blocks),
     )
+
+    # PoC "Por URL / alvo": use persisted location, selector or resource only.
+    # A target label is not a causal deduplication or a new diagnosis.
+    target_groups: dict[str, list[Mapping[str, Any]]] = {}
+    for action in actions:
+        known_target = _action_target_label(action, target_by_id)
+        target_name = (
+            known_target if known_target != "-"
+            else "Alvo específico não determinado nos registros vinculados"
+        )
+        target_groups.setdefault(target_name, []).append(action)
+    target_rows: list[tuple[Any, ...]] = []
+    for label, members in sorted(
+        target_groups.items(), key=lambda item: (-len(item[1]), item[0].casefold())
+    ):
+        accepted = sum(
+            _governance_for_action(action, governance_by_source)[0] == "Aceita"
+            for action in members
+        )
+        titles = [str(action.get("title") or "Ação registrada") for action in members]
+        sample = "; ".join(titles[:4])
+        if len(titles) > 4:
+            sample += f"; +{len(titles)-4} ação(ões) — ver inventário integral"
+        target_rows.append((label, len(members), accepted, sample))
+    target_index = (
+        "<p class='section-lead'>Agrupamento de leitura por localização "
+        "declarada na fonte. Cookies, recursos externos, seletores e descrições "
+        "editoriais não equivalem automaticamente a alterações diretas na URL. "
+        "Sem localização registrada, o alvo permanece indeterminado. "
+        "Os títulos são amostras; todas as ocorrências continuam disponíveis "
+        "em <a href='#actions'>Ações estratégicas</a>.</p>"
+        + _table(
+            ("Alvo / localização declarada", "Ações relacionadas",
+             "Decisões aceitas", "Intervenções (até 4 por grupo)"),
+            target_rows,
+            empty="Nenhum alvo vinculado a ação persistida nesta auditoria.",
+            sortable=bool(target_rows),
+        )
+    )
+    body += _section("targets", "Por URL / alvo", target_index)
 
     # Editorial bridge: organize persisted interventions by their existing
     # priority label; never infer priority from absent values or recompute it.

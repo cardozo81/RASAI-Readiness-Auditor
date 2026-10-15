@@ -225,6 +225,7 @@ def _experience_paths_633() -> str:
          ("Plano e dependências", "directed-analysis.html", "roadmap")),
         ("03", "Examinar intervenções", "Conferir a ação persistida, seu alvo e a evidência",
          ("Ações e rastreabilidade", "directed-analysis.html", "actions"),
+         ("Por URL / alvo", "directed-analysis.html", "targets"),
          ("Intervenções técnicas do CAT-09", "cat-09.html", None)),
         ("04", "Validar evidências", "Conferir origem, método e limitações",
          ("Captura e contexto", "capture-context.html", None),
