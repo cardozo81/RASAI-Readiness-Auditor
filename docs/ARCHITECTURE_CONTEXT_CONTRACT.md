@@ -69,3 +69,12 @@ exige o mesmo identificador de auditoria, recusa campos e chaves JSON duplicadas
 versões incompatíveis e seleção inválida. Não executa I/O ou persistência real.
 O contrato não presume consentimento para serviços faturáveis e não altera
 índices, configuração do operador ou evidências físicas.
+
+## Integração com o registro canônico da auditoria (adaptador)
+
+O adaptador `architecture_choice_audit_adapter.py` inclui a escolha de forma
+opcional no mesmo objeto de configuração que recebe a assinatura SHA-256
+já utilizada pelo RASAi. Não cria tabela paralela nem modifica o registro de
+uma auditoria existente. Ausência da escolha mantém o JSON e o hash originais;
+leitura com hash divergente é recusada. A ativação na execução real ainda
+exige conexão explícita com o ponto de captura do estado e testes ponta a ponta.
