@@ -4,7 +4,7 @@ Status: procedimento controlado pre-smoke, read-only quando possivel.
 Este documento nao declara homologadas as issues em que faltam dados reais
 de provedores, comparabilidade amostral ou decisao metodologica.
 
-## Gate B consolidado da PR #645 — adendo operacional (16/10/2026)
+## Gate B consolidado da PR #645 - adendo operacional (16/10/2026)
 
 Este roteiro substitui orientacoes historicas de `main` no pre-merge. Fonte de
 gates independentes: [SMOKE_READINESS_GATE.md](SMOKE_READINESS_GATE.md).
