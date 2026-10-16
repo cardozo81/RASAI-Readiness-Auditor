@@ -44,7 +44,7 @@ A aprovação exploratória **não** é aceite executivo, não fecha épicos met
 - Suites relevantes Linux/Windows, segurança e **todos os required checks do HEAD final** efetivamente verdes; inspecionar job/log de falhas e proteções.
 - Paridade e integridade de banco, manifestos, hashes e relatórios (inclusive dados ocultos/escapados), score canônico e dados históricos preservados.
 - Reconciliação **por requisito** de cada issue elegível `>= #301`; fechar apenas tickets 100% aceitos e comprovados. Pendência metodológica/externa mantém seu ticket OPEN e não é mascarada como PASS.
-- ADR, versionamento e aprovação explícita para alterações de SCORE-GEO/SARI/M23/M25 ou propagação arquitetural que mudem método. Política arquitetural transversal #646 é evolução rastreada e **não bloqueia o Gate A** sem defeito específico comprovado.
+- ADR, versionamento e aprovação explícita para alterações de SCORE-GEO/SARI/Navigation Apdex/Experience Apdex ou propagação arquitetural que mudem método. Política arquitetural transversal #646 é evolução rastreada e **não bloqueia o Gate A** sem defeito específico comprovado.
 - Gates físicos/externos que de fato integrem o aceite: round-trip isolado Windows/INI (#523), FAQ SPA sem interação indevida (#601), conteúdo legal oficial versionado quando exigível (#603), comparação SERP × Perplexity realmente equivalente (#304), Dynatrace RUM representativo (#355/#357), amostra same-sample browser (#322).
 - Smoke humano homologatório quando previsto, PR retirada de Draft somente ao completar aceite e merge controlado; validar `main` **depois** da integração.
 

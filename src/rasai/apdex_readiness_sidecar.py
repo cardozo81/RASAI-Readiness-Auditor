@@ -236,18 +236,26 @@ def read_readiness_sidecar(aud_dir: Path, sidecar_path: Path) -> dict:
             raw, object_pairs_hook=_unique_json_keys,
             parse_constant=_reject_non_json_constant,
         )
-        if not isinstance(obj, dict) or any(
-            obj.get(name) != required
-            for name, required in {
-                "contract_version": SIDECAR_VERSION,
-                "audit_id": audit_id,
-                "source_audit_db_sha256": db_sha,
-                "source_report_manifest_sha256": manifest_sha,
-                "advisory_only": True,
-                "measurement_provenance": "PRODUCER_DECLARED_SAME_SAMPLE",
-            }.items()
-        ):
-            raise ValueError("sidecar source or contract mismatch")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("invalid sidecar encoding") from exc
+    if not isinstance(obj, dict):
+        raise ValueError("invalid sidecar encoding")
+    # Distinguish a well-formed, immutable sidecar bound to a different
+    # physical source from an invalid JSON/observation encoding. Do not
+    # translate this intentional source-binding rejection in the parser catch.
+    if any(
+        obj.get(name) != required
+        for name, required in {
+            "contract_version": SIDECAR_VERSION,
+            "audit_id": audit_id,
+            "source_audit_db_sha256": db_sha,
+            "source_report_manifest_sha256": manifest_sha,
+            "advisory_only": True,
+            "measurement_provenance": "PRODUCER_DECLARED_SAME_SAMPLE",
+        }.items()
+    ):
+        raise ValueError("sidecar source or contract mismatch")
+    try:
         obs = obj.get("observation")
         if not isinstance(obs, dict):
             raise ValueError("invalid sidecar observation")
