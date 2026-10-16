@@ -88,3 +88,12 @@ def test_faq_read_only_projection_refuses_symlinked_database(tmp_path) -> None:
         return
     assert faq_observation_html(alias, "AUD-OTHER") == ""
     assert source.is_file()
+
+
+def test_faq_read_only_projection_abstains_on_corrupt_sqlite(tmp_path) -> None:
+    from rasai.faq_observation import faq_observation_html
+    db = tmp_path / "corrupt.db"
+    db.write_bytes(b"not-a-sqlite-database")
+    before = db.read_bytes()
+    assert faq_observation_html(db, "AUD-CORRUPT") == ""
+    assert db.read_bytes() == before
