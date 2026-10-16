@@ -261,3 +261,13 @@ def test_typed_ini_can_win_over_prior_process_environment_on_runtime_sync(tmp_pa
         assert state.apdex_experience_architecture == "CSR_SPA"
         console_settings.sync_nonsecret_runtime_environment(state)
         assert os.environ[key] == "CSR_SPA"  # typed INI state reprojects at run
+
+
+def test_windows_utf8_bom_ini_is_inspected_without_mutation(tmp_path):
+    path = tmp_path / "windows.ini"
+    path.write_bytes(b"\xef\xbb\xbf[environment]\nRASAI_SERP_MAX_REQUESTS=12\n")
+    original = path.read_bytes()
+    result = inspect_configuration(path, env={})
+    assert result.file_status == "LIDO: arquivo existente"
+    assert result.persisted_public == 1
+    assert path.read_bytes() == original
