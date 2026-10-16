@@ -208,15 +208,10 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
         confidence = str(_row_value(row, "confidence", "UNAVAILABLE")).upper()
         if consolidation == "CONSOLIDATED" and confidence in {"HIGH", "MEDIUM"}:
             continue
-        try:
-            fraction = float(_row_value(row, "coverage", 0.0))
-        except (TypeError, ValueError):
-            fraction = 0.0
-        if not math.isfinite(fraction):
-            fraction = 0.0
+        percent, canonical = _coverage_display(row)
         dimension_notes.append(
-            f"<li>{escape(dimension)}: cobertura {fraction * 100:.1f}% "
-            f"(fração canônica {fraction:.6f}), confiança {escape(confidence)}, "
+            f"<li>{escape(dimension)}: cobertura {percent} "
+            f"(fração canônica {canonical}), confiança {escape(confidence)}, "
             f"consolidação {escape(consolidation)}.</li>"
         )
     dimension_notice = (
