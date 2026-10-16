@@ -31,8 +31,12 @@ def test_offline_sandbox_uses_no_network_no_mounts_and_nonroot():
 def test_preflight_requires_locally_resolved_immutable_oci_image(monkeypatch):
     monkeypatch.setattr("rasai.architecture_isolated_capture.shutil.which",
                         lambda name: "/usr/bin/docker")
+    def fake_run(argv, **kwargs):
+        if argv[1] == "context":
+            return SimpleNamespace(returncode=0, stdout="unix:///var/run/docker.sock")
+        return SimpleNamespace(returncode=0, stdout=DIGEST)
     with patch("rasai.architecture_isolated_capture.subprocess.run",
-               return_value=SimpleNamespace(returncode=0, stdout=DIGEST)) as runner:
+               side_effect=fake_run) as runner:
         assert inspect_local_image() == DIGEST
     assert runner.call_args.args[0] == [
         "/usr/bin/docker", "image", "inspect", "--format", "{{.Id}}", OFFLINE_IMAGE
@@ -125,3 +129,44 @@ def test_deprecated_guard_flag_alone_does_not_trigger_capture(monkeypatch):
         result = capture_public_architecture("https://example.org/", DeviceContext.MOBILE)
     assert result.quality_reason == "SAFE_EGRESS_NOT_CONFIGURED"
     resolver.assert_not_called()
+
+
+def test_remote_docker_daemon_rejected_before_inspecting_image(monkeypatch):
+    monkeypatch.setattr("rasai.architecture_isolated_capture.shutil.which",
+                        lambda name: "/usr/bin/docker")
+    monkeypatch.setenv("DOCKER_HOST", "tcp://192.168.1.20:2375")
+    with patch("rasai.architecture_isolated_capture.subprocess.run") as run:
+        assert inspect_local_image() is None
+    run.assert_not_called()
+
+
+def test_remote_docker_context_rejected_before_inspecting_image(monkeypatch):
+    monkeypatch.setattr("rasai.architecture_isolated_capture.shutil.which",
+                        lambda name: "/usr/bin/docker")
+    monkeypatch.delenv("DOCKER_HOST", raising=False)
+    with patch("rasai.architecture_isolated_capture.subprocess.run",
+               return_value=SimpleNamespace(returncode=0, stdout="ssh://server.example")) as run:
+        assert inspect_local_image() is None
+    assert run.call_count == 1
+    assert run.call_args.args[0][1:3] == ["context", "inspect"]
+
+
+def test_physical_isolation_probe_requires_all_socket_checks(monkeypatch):
+    from rasai.architecture_isolation_smoke import verify_isolation
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.inspect_local_image",
+                        lambda: DIGEST)
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.shutil.which",
+                        lambda cmd: "docker")
+    def runner(argv, **kwargs):
+        assert "--network=none" in argv
+        assert "--entrypoint=python" in argv
+        assert argv[-3] == DIGEST
+        assert argv[-2] == "-c"
+        return SimpleNamespace(returncode=0, stdout=json.dumps({
+            name: True for name in ("public_ipv4", "private_ipv4",
+            "link_local_metadata", "loopback", "private_ipv6",
+            "loopback_ipv6", "external_dns")
+        }))
+    with patch("rasai.architecture_isolation_smoke.subprocess.run",
+               side_effect=runner):
+        assert all(verify_isolation().values())

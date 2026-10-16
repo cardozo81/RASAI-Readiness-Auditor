@@ -143,3 +143,15 @@ resultar \`UNKNOWN\` por falta de recursos, sem fallback nativo.
    Registrar versão, classificação, motivo de abstenção e ausência de AUD.
 7. Ao terminar, desfazer a variável de sessão. Não gravar no INI nem autorizar
    provedores de IA. Não converter testes sintéticos em prova física.
+
+
+**Comprovação física negativa (antes de liberar a opção 8):**
+\`\`\`powershell
+py -3.13 -m rasai.architecture_isolation_smoke
+\`\`\`
+A saída esperada é \`OCI_NETWORK_ISOLATION_BLOCKED\` para os sete testes
+de DNS e sockets públicos/privados/metadata/loopback (IPv4 e IPv6). Se mostrar
+\`OCI_NETWORK_ISOLATION_NOT_ATTESTED\`, o diagnóstico externo deve continuar
+bloqueado. Executar novamente após mudanças de Docker daemon, imagem ou host.
+O preflight recusa daemons remotos via DOCKER_HOST ou contexto Docker SSH/TCP;
+a imagem é executada pelo digest local para evitar troca de tag.

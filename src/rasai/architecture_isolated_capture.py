@@ -35,7 +35,20 @@ def inspect_local_image() -> str | None:
     docker = shutil.which("docker")
     if docker is None:
         return None
+    # A configured remote daemon can copy page captures outside this machine,
+    # irrespective of --network none in that remote container. Reject both a
+    # remote DOCKER_HOST override and a remote selected Docker context.
+    host_override = os.environ.get("DOCKER_HOST", "").strip()
+    if host_override and not host_override.startswith(("unix://", "npipe://")):
+        return None
     try:
+        context = subprocess.run(
+            [docker, "context", "inspect", "--format", "{{.Endpoints.docker.Host}}"],
+            capture_output=True, text=True, timeout=10, check=False,
+        )
+        host = context.stdout.strip()
+        if context.returncode != 0 or not host.startswith(("unix://", "npipe://")):
+            return None
         result = subprocess.run(
             [docker, "image", "inspect", "--format", "{{.Id}}", OFFLINE_IMAGE],
             capture_output=True, text=True, timeout=10, check=False,
