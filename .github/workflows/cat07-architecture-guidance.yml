@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'src/rasai/experience_architecture_guidance_358.py'
+      - 'src/rasai/experience_architecture_guidance.py'
       - 'src/rasai/console_m23.py'
       - 'src/rasai/m25_cli.py'
       - 'src/rasai/console_settings.py'
@@ -18,7 +18,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'src/rasai/experience_architecture_guidance_358.py'
+      - 'src/rasai/experience_architecture_guidance.py'
       - 'tests/test_experience_architecture_guidance.py'
       - '.github/workflows/cat07-architecture-guidance.yml'
 

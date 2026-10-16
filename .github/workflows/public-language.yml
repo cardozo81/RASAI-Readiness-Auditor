@@ -4,11 +4,11 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/console_search_intelligence.py'
-      - 'src/rasai/audit_attempt_inspection_319.py'
+      - 'src/rasai/audit_attempt_inspection.py'
       - 'src/rasai/console_apdex_configuration.py'
       - 'src/rasai/catalog_report_site.py'
       - 'src/rasai/cat07_architecture_reporting.py'
-      - 'src/rasai/dynatrace_apdex_arch_advisory_355.py'
+      - 'src/rasai/dynatrace_apdex_arch_advisory.py'
       - 'tests/test_public_language.py'
       - 'tests/test_cat07_architecture_integration.py'
       - 'docs/PUBLIC_LANGUAGE.md'
@@ -18,10 +18,10 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/console_search_intelligence.py'
-      - 'src/rasai/audit_attempt_inspection_319.py'
+      - 'src/rasai/audit_attempt_inspection.py'
       - 'src/rasai/catalog_report_site.py'
       - 'src/rasai/cat07_architecture_reporting.py'
-      - 'src/rasai/dynatrace_apdex_arch_advisory_355.py'
+      - 'src/rasai/dynatrace_apdex_arch_advisory.py'
       - 'tests/test_public_language.py'
       - '.github/workflows/public-language.yml'
 permissions:
