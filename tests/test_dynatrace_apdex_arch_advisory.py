@@ -889,3 +889,24 @@ def test_dynatrace_action_counts_cannot_be_unbounded_claims() -> None:
     assert result["status"] == "INVALID_SETTINGS_SNAPSHOT"
     assert "action_counts:INVALID_POPULATION" in result["reasons"]
     assert result["new_apdex_score"] is None
+
+
+@pytest.mark.parametrize("bad_timeout", [True, 0, -1, float("nan"), float("inf"), "10"])
+def test_live_settings_timeout_rejected_before_provider_request(bad_timeout):
+    from rasai.dynatrace_settings_live import read_live_dynatrace_apdex_settings
+    with pytest.raises(ValueError, match="timeout"):
+        read_live_dynatrace_apdex_settings(
+            base_url="https://tenant.live.dynatrace.com",
+            application_scope="APPLICATION-1234567890ABCDEF",
+            api_token="fake-offline-test-token", timeout_seconds=bad_timeout,
+        )
+
+
+def test_live_settings_token_control_character_rejected_before_provider_request():
+    from rasai.dynatrace_settings_live import read_live_dynatrace_apdex_settings
+    with pytest.raises(ValueError, match="token"):
+        read_live_dynatrace_apdex_settings(
+            base_url="https://tenant.live.dynatrace.com",
+            application_scope="APPLICATION-1234567890ABCDEF",
+            api_token="not-a-valid\ttoken", timeout_seconds=10,
+        )
