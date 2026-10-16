@@ -1553,3 +1553,9 @@ def test_host_overlap_preserves_separate_hostname_denominators() -> None:
     assert out["serp_distinct_hosts"] == 2
     assert out["common_hosts"] == 1
     assert out["jaccard_host_rate"] == 0.5
+
+
+@pytest.mark.parametrize("bad", ["javascript:alert(1)", "https://user:secret@hostname.test/a", " https://hostname.test/a", "nonsense"])
+def test_304_host_overlap_rejects_invalid_url_identity(bad) -> None:
+    with pytest.raises(ValueError, match="canonical HTTP"):
+        ledger._host_overlap({"https://valid.test/a"}, {bad})
