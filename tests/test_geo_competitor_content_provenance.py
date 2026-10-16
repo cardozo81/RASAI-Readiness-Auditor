@@ -994,3 +994,19 @@ def test_malformed_serp_member_cannot_be_silently_removed_from_comparison(tmp_pa
     assert value["status"] == "SERP_RESULT_URL_IDENTITY_UNVERIFIABLE"
     assert value["comparisons"] == []
     assert db.read_bytes() == original
+
+
+@pytest.mark.parametrize("code", [201, 202, 204, 206, 304])
+def test_non_200_html_response_cannot_prove_full_competitor_content(tmp_path, code):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_competitive_pages SET http_status=? "
+            "WHERE observation_id=? AND role=?",
+            (code, "SERP-1", "COMPETITOR_CANDIDATE"),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert result["status"] == "CONTENT_EVIDENCE_NOT_COMPARABLE"
+    assert result["comparisons"] == []
+    assert db.read_bytes() == before
