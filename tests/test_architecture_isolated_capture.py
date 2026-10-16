@@ -110,6 +110,8 @@ def test_container_failure_abstains_without_ungated_browser(monkeypatch):
                         lambda: DIGEST)
     monkeypatch.setattr("rasai.architecture_isolated_capture.shutil.which",
                         lambda _cmd: "docker")
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_isolation",
+                        lambda **kwargs: {"network_none": True})
     monkeypatch.setattr("rasai.architecture_isolated_capture._validate_public_url",
                         lambda url, _resolver: url)
     with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch, patch(
