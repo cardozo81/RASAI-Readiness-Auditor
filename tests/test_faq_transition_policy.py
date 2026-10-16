@@ -97,3 +97,31 @@ def test_faq_read_only_projection_abstains_on_corrupt_sqlite(tmp_path) -> None:
     before = db.read_bytes()
     assert faq_observation_html(db, "AUD-CORRUPT") == ""
     assert db.read_bytes() == before
+
+
+def test_faq_observer_does_not_open_uncheckpointed_sqlite(tmp_path) -> None:
+    from rasai.faq_observation import faq_observation_html
+    import sqlite3
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute("CREATE TABLE pages(page_id TEXT, audit_id TEXT)")
+    journal = tmp_path / "audit.db-wal"
+    journal.write_bytes(b"pending")
+    assert faq_observation_html(db, "AUD-PENDING") == ""
+    assert journal.read_bytes() == b"pending"
+
+
+def test_faq_observer_refuses_symlinked_rendered_evidence(tmp_path) -> None:
+    from rasai.faq_observation import _safe_rendered_file
+    root = tmp_path / "AUD-LOCAL"
+    evidence = root / "artifacts" / "rendered"
+    evidence.mkdir(parents=True)
+    real = evidence / "physical.html"
+    real.write_text("<h1>FAQ</h1>", encoding="utf-8")
+    alias = evidence / "alias.html"
+    try:
+        alias.symlink_to(real)
+    except (OSError, NotImplementedError):
+        return
+    assert _safe_rendered_file(root, "artifacts/rendered/alias.html") is None
+    assert _safe_rendered_file(root, "artifacts/rendered/physical.html") == real
