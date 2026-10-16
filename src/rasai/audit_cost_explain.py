@@ -112,11 +112,11 @@ def forecast_readout(
             result += "<p>Desvio frente à estimativa pontual: N/D (amplitude não representável).</p>"
         else:
             result += (
-            "<p>Desvio frente à estimativa pontual persistida: "
-            + escape(f"{delta:+.2f}%")
-            + ". Trata-se de uma razão aritmética; o rótulo de severidade "
-            "decorre da política existente.</p>"
-        )
+                "<p>Desvio frente à estimativa pontual persistida: "
+                + escape(f"{delta:+.2f}%")
+                + ". Trata-se de uma razão aritmética; o rótulo de severidade "
+                "decorre da política existente.</p>"
+            )
     if p90 is not None:
         result += (
             "<p>O cenário P90 é uma referência de cauda histórica, "
