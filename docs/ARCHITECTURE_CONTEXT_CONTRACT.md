@@ -88,3 +88,21 @@ assinatura da configuração. Sem este argumento, o conteúdo anterior é mantid
 sem campos adicionais. A interface de configuração do operador ainda não
 oferece essa escolha: nenhuma ativação implícita foi realizada. A observação
 da arquitetura segue independente da preferência e das pontuações.
+
+## Diagnóstico independente de arquitetura no console
+
+A opção 8 do menu principal é separada da seleção de arquitetura para a AUD.
+O controlador `console_architecture_discovery.py` utiliza URL e dispositivo da
+sessão e chama `architecture_probe.probe_architecture`, que delega toda a
+classificação a `architecture_discovery.assess_architecture`, a mesma função
+consumida pelo M6 e pelo caminho existente de reprocessamento. O diagnóstico
+não gera AUD, não processa CAT, não altera índices e não propaga AUTO/DECLARED.
+
+A aquisição leve usa somente HTTP público com limites de requisição e
+tamanho, e navegador Chromium com bloqueios para origens diferentes e
+destinos não públicos. **Limitação de segurança:** validar DNS antes da
+requisição não equivale a uma política de egress com IP fixado, portanto
+cenários com DNS rebinding exigem restrição adicional na rede/proxy antes da
+homologação de segurança para ambientes hostis. A evidência de testes offline
+não substitui smoke com navegador e destino reais; ausência de prova física
+resulta em `UNKNOWN`, não em arquitetura inferida.
