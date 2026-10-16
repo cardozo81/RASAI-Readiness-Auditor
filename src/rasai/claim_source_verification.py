@@ -59,6 +59,7 @@ def classify_claim(
         effective_from = date.fromisoformat(str(review.get("effective_from")))
         effective_until = date.fromisoformat(str(review.get("effective_until")))
         reviewed_on = date.fromisoformat(str(review.get("reviewed_on")))
+        collected_on = date.fromisoformat(str(review.get("collected_on")))
         decoded = primary_bytes.decode("utf-8")
         asserted_hash = str(review.get("document_sha256") or "").strip().lower()
         evidence = str(review.get("matched_excerpt") or "").strip()
@@ -69,7 +70,7 @@ def classify_claim(
         valid_url
         and asserted_hash == sha256(primary_bytes).hexdigest()
         and effective_from <= at_date <= effective_until
-        and reviewed_on <= at_date
+        and collected_on <= reviewed_on <= at_date
         and str(review.get("product_scope") or "") == product_scope
         and str(review.get("claim_text") or "").strip() == claim
         and bool(str(review.get("document_version") or "").strip())
