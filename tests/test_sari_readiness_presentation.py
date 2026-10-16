@@ -221,8 +221,8 @@ def test_device_cards_do_not_crash_on_nonfinite_coverage() -> None:
 def test_conflicting_gate_states_fail_closed() -> None:
     row = _row()
     row["limitations"] = json.dumps(["READINESS_STATUS:READY", "CRITICAL_GATE:DISCOVERY:BLOCKED", "CRITICAL_GATE:DISCOVERY:PASS"])
-    assert readiness_state(row)[0] == "UNKNOWN"
-    assert public_readiness_condition(row)[0] == "neutral"
+    assert readiness_state(row)[0] == "BLOCKED"
+    assert public_readiness_condition(row)[0] == "critical"
 
 
 def test_conflicting_aggregate_states_fail_closed() -> None:
