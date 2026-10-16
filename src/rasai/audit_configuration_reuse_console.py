@@ -464,11 +464,16 @@ def install(interactive_console: ModuleType) -> None:
             return original_run(state)
 
         source = _SESSION_SOURCE.get(id(state))
-        differences = changed_fields(source.configuration, effective) if source else ()
+        # The provenance diff must describe the same effective payload that
+        # is sealed for execution, including explicit architecture selection.
+        from rasai.architecture_choice_audit_adapter import prepare_audit_choice_configuration
+        choice = _ARCHITECTURE_SELECTION.get(id(state))
+        sealed_effective = prepare_audit_choice_configuration(effective, choice=choice)
+        differences = changed_fields(source.configuration, sealed_effective) if source else ()
         with configuration_context(
             kind=KIND_CONSOLE,
             configuration=effective,
-            architecture_choice=_ARCHITECTURE_SELECTION.get(id(state)),
+            architecture_choice=choice,
             source_audit_id=source.audit_id if source else None,
             source_configuration_hash=source.configuration_hash if source else None,
             changed_fields=differences,
