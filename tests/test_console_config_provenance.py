@@ -271,3 +271,16 @@ def test_windows_utf8_bom_ini_is_inspected_without_mutation(tmp_path):
     assert result.file_status == "LIDO: arquivo existente"
     assert result.persisted_public == 1
     assert path.read_bytes() == original
+
+
+def test_console_load_accepts_bom_ini_without_rewriting_source(tmp_path, monkeypatch):
+    path = tmp_path / "operator-bom.ini"
+    path.write_bytes(b"\xef\xbb\xbf[environment]\nRASAI_SERP_MAX_REQUESTS=12\n")
+    initial = path.read_bytes()
+    monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS", raising=False)
+    _install_search_persistence()
+    install_complete_persistence()
+    state = SearchConsoleState()
+    result = console_settings.load_console_config(state, path)
+    assert not any("não foi possível ler" in warning for warning in result.warnings)
+    assert path.read_bytes() == initial
