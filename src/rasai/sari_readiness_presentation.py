@@ -258,7 +258,7 @@ def _reporting_overall_card(reporting: Any, scores: list[Any], device: str) -> s
     raw_value = _safe_display_score(_row_value(row, "value"))
     condition, readiness_label, quality_label = public_readiness_condition(row)
     css = _score_card_class(condition)
-    coverage = f"{_coverage_fraction(row) * 100:.1f}%"
+    coverage, coverage_raw = _coverage_display(row)
     confidence_raw = str(_row_value(row, "confidence", "UNAVAILABLE"))
     confidence = reporting._STATUS_LABELS.get(confidence_raw, confidence_raw)
     consolidation_raw = str(_row_value(row, "consolidation_status", "NOT_CONSOLIDATED"))
@@ -326,7 +326,7 @@ def _site_overall_card(report_site: Any, scores: list[Any], device: str) -> str:
     confidence = report_site._STATUS_LABELS.get(confidence_raw, confidence_raw)
     consolidation_raw = str(_row_value(row, "consolidation_status", "NOT_CONSOLIDATED"))
     consolidation = report_site._STATUS_LABELS.get(consolidation_raw, consolidation_raw)
-    coverage = f"{_coverage_fraction(row) * 100:.1f}%"
+    coverage, coverage_raw = _coverage_display(row)
     gate_detail = _gate_detail(gates)
     detail = (
         f"<p class='intro'><strong>Qualidade medida:</strong> {escape(quality_label)}. "
