@@ -89,3 +89,11 @@ def test_executive_panel_does_not_silently_promote_partial_dimension() -> None:
     assert "qualidade do universo efetivamente avaliado" in html
     assert "dimensões de baixa cobertura devem ser analisadas separadamente" in html
     assert "Confidence HIGH" in html  # Stored global confidence is not rewritten.
+
+
+def test_blocked_readiness_remains_critical_with_partial_measurement() -> None:
+    row = _row(status="BLOCKED", discovery_gate="BLOCKED", consolidation="PARTIAL", confidence="LOW")
+    condition, label, quality = public_readiness_condition(row)
+    assert condition == "critical"
+    assert label == "Readiness bloqueada"
+    assert quality == "Excelente (90-100)"
