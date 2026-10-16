@@ -56,3 +56,24 @@ def test_no_dns_or_probe_without_network_gate(monkeypatch, capsys):
         architecture_preview_menu(console, state)
         probe.assert_not_called()
     assert 'Nenhuma consulta' in capsys.readouterr().out
+
+def test_architecture_explanation_is_evidence_bounded():
+    from rasai.console_architecture_discovery import describe_architecture_assessment
+    from rasai.architecture_discovery import assess_architecture
+    raw = "<html><main>Visible server content.</main></html>"
+    rendered = "<html><main>Visible server content. With hydrated text.</main></html>"
+    result = assess_architecture(raw_html=raw, rendered_html=rendered)
+    lines = describe_architecture_assessment(result)
+    assert any("Conteúdo principal RAW: presente" in line for line in lines)
+    assert any("Conteúdo principal renderizado: presente" in line for line in lines)
+    assert any("Alterações observadas: main_content" in line for line in lines)
+    assert any("uma URL e um dispositivo" in line for line in lines)
+
+
+def test_inconclusive_architecture_explanation_does_not_claim_evidence():
+    from rasai.console_architecture_discovery import describe_architecture_assessment
+    from rasai.architecture_discovery import assess_architecture
+    result = assess_architecture(raw_html=None, rendered_html=None, quality_reason="SAFE_EGRESS_NOT_CONFIGURED")
+    lines = describe_architecture_assessment(result)
+    assert any("UNKNOWN" in line for line in lines)
+    assert any("indisponível ou rejeitada" in line for line in lines)

@@ -9,6 +9,27 @@ from rasai.architecture_live_capture import capture_public_architecture
 from rasai.domain import DeviceContext
 
 
+def describe_architecture_assessment(result: Any) -> tuple[str, ...]:
+    """Explain only observations supported by the captured RAW/rendered comparison."""
+    lines = [
+        f"Arquitetura observada: {result.architecture.value}",
+        f"Versão do método: {result.method_version}",
+        f"Limitação: {result.limitation or 'Nenhuma identificada neste diagnóstico'}",
+    ]
+    comparison = result.comparison
+    if comparison is None:
+        lines.append("Evidência: comparação RAW/renderizada indisponível ou rejeitada.")
+    else:
+        lines.append(f"Conteúdo principal RAW: {'presente' if comparison.raw_main_content.strip() else 'ausente'}")
+        lines.append(f"Conteúdo principal renderizado: {'presente' if comparison.rendered_main_content.strip() else 'ausente'}")
+        lines.append(
+            "Alterações observadas: "
+            + (", ".join(comparison.changed_fields) if comparison.changed_fields else "nenhuma nos campos comparados")
+        )
+    lines.append("Escopo: uma URL e um dispositivo; diagnóstico preliminar, não uma certificação.")
+    return tuple(lines)
+
+
 def architecture_preview_menu(console: Any, state: Any) -> None:
     while True:
         console.render_header(state)
@@ -45,9 +66,8 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
             result = probe_architecture(
                 url, DeviceContext(device.upper()), capture=capture_public_architecture,
             )
-            print(f"Arquitetura observada: {result.architecture.value}")
-            print(f"Versão do método: {result.method_version}")
-            print(f"Limitação: {result.limitation or 'Nenhuma identificada neste diagnóstico'}")
+            for line in describe_architecture_assessment(result):
+                print(line)
             print("Esta observação não modifica a seleção nem os índices da AUD.")
         except (OSError, ValueError, RuntimeError) as exc:
             print(f"Não foi possível concluir a descoberta: {type(exc).__name__}")
