@@ -52,7 +52,9 @@ def test_invalid_explicit_choice_cannot_enter_handoff():
 
 
 def test_database_round_trip_uses_existing_configuration_table(tmp_path):
-    database = tmp_path / "audit.db"
+    audit_dir = tmp_path / "AUD-TEST"
+    audit_dir.mkdir()
+    database = audit_dir / "audit.db"
     with sqlite3.connect(database) as con:
         con.execute("CREATE TABLE audits (audit_id TEXT PRIMARY KEY)")
         con.execute("INSERT INTO audits VALUES ('AUD-TEST')")
