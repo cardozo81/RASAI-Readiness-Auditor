@@ -228,6 +228,23 @@ def _ownership_section(categories: str) -> str:
 </tbody></table></div><div class='notice'><strong>Regra de leitura:</strong> um score Lighthouse alto significa bom resultado apenas no conjunto de auditorias automatizadas daquela categoria e daquela execução. Agentic Browsing deve ser lido como experimental e version-dependent. Nenhum deles deve ser renomeado como score proprietário do RASAi.</div><p class='intro'>Categorias solicitadas nesta execução: <code>{escape(categories)}</code>.</p></section>"""
 
 
+def _field_scope_explanation(row: dict[str, Any]) -> str:
+    """CrUX population scope is not interchangeable with Lighthouse URL scope."""
+    scope = str(row.get("field_scope") or "").strip().upper()
+    if scope in {"ORIGIN", "ORIGIN_ONLY"}:
+        return ("<p class='notice warn'><strong>CrUX · escopo ORIGIN:</strong> "
+                "a amostra de campo representa a origem agregada, não medições "
+                "exclusivas da URL exibida. Comparar separadamente com o "
+                "Lighthouse de laboratório da página.</p>")
+    if scope == "URL":
+        return ("<p class='notice'><strong>CrUX · escopo URL:</strong> "
+                "a população de campo está vinculada à URL identificada pela "
+                "fonte; não equivale a uma sessão Lighthouse de laboratório.</p>")
+    return ("<p class='notice'><strong>CrUX · escopo não verificado:</strong> "
+            "não atribuir os percentis de campo à URL específica ou à origem "
+            "sem proveniência explícita.</p>")
+
+
 def _observation_card(row: dict[str, Any]) -> str:
     category_scores = (
         _metric("Performance · Lighthouse", _score(row.get("performance_score")))
@@ -245,7 +262,7 @@ def _observation_card(row: dict[str, Any]) -> str:
 <h4>Performance · métricas de laboratório associadas ao Lighthouse</h4><div class='metric-grid'>{_metric('FCP lab', _ms(row.get('fcp_lab_ms')))}{_metric('Speed Index', _ms(row.get('speed_index_lab_ms')))}{_metric('LCP lab', _ms(row.get('lcp_lab_ms')))}{_metric('TBT lab', _ms(row.get('tbt_lab_ms')))}{_metric('CLS lab', _number(row.get('cls_lab'), 3))}</div>
 <p class='intro'>FCP, Speed Index, LCP lab, TBT e CLS lab pertencem ao diagnóstico de <strong>Performance Lighthouse</strong>. Eles não são detalhes de Accessibility, Best Practices, SEO ou Agentic Browsing.</p>
 <h4>Core Web Vitals · dados reais CrUX</h4><div class='metric-grid'>{_metric('CWV', str(row.get('cwv_assessment') or '-'))}{_metric('LCP p75', _ms(row.get('lcp_p75_ms')))}{_metric('INP p75', _ms(row.get('inp_p75_ms')))}{_metric('CLS p75', _number(row.get('cls_p75'), 3))}{_metric('Escopo', str(row.get('field_scope') or '-'))}{_metric('Fonte', str(row.get('field_source') or '-'))}</div>
-{_cwv_explanation(row)}{_technical_details(row)}</article>"""
+{_field_scope_explanation(row)}{_cwv_explanation(row)}{_technical_details(row)}</article>"""
 
 
 def _category_checks(diagnostics: Any) -> str:
