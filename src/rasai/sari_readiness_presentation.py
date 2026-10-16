@@ -104,13 +104,7 @@ def readiness_state(row: Any) -> tuple[str, dict[str, str]]:
 
 def public_readiness_condition(row: Any) -> tuple[str, str, str]:
     """Return visual condition, primary readiness label and numeric-quality label."""
-    raw_value = _row_value(row, "value")
-    try:
-        value = None if raw_value is None else float(raw_value)
-    except (TypeError, ValueError, OverflowError):
-        value = None
-    if value is not None and not math.isfinite(value):
-        value = None
+    value = _safe_display_score(_row_value(row, "value"))
     quality_state, quality_label, quality_range = sari_band(value)
     quality_text = quality_label if quality_state == "neutral" else f"{quality_label} ({quality_range})"
 
@@ -147,7 +141,7 @@ def public_readiness_condition(row: Any) -> tuple[str, str, str]:
 def _safe_display_score(raw: Any) -> float | None:
     try:
         value = float(raw)
-        return value if math.isfinite(value) else None
+        return value if math.isfinite(value) and 0 <= value <= 100 else None
     except (TypeError, ValueError, OverflowError):
         return None
 
