@@ -51,3 +51,12 @@ Registry, segredos, banco de evidências ou configuração de execução.
 valor declarado residual. Registros explícitos malformados são recusados;
 sem downgrade silencioso. A passagem deste contrato para INI/sessão/snapshot
 exige outra fase de integração e teste de precedência por campo.
+
+## Precedência isolada de seleção
+
+A API pura `resolve_choice_precedence` avalia, nesta ordem, snapshot,
+sessão e configuração-base. Uma opção explícita `UNFORCED` na camada
+superior desativa a herança das camadas inferiores. Registros ausentes em
+todas as camadas mantêm `UNFORCED`; registros inválidos recusam a resolução
+sem fallback silencioso. O resolvedor não lê ou grava INI, SQLite ou sessão
+real. A aprovação de integração operacional permanece um gate separado.
