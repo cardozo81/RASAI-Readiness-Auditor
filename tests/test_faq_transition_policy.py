@@ -66,3 +66,25 @@ def test_multiple_idrefs_or_duplicate_aria_controls_are_ambiguous() -> None:
         )
         assert comparison["status"] == "NOT_COMPARABLE"
         assert comparison["reason"] == "DOM_CONTROL_OR_PANEL_AMBIGUOUS"
+
+
+def test_faq_read_only_projection_never_creates_missing_database(tmp_path) -> None:
+    from rasai.faq_observation import faq_observation_html
+    missing = tmp_path / "missing.db"
+    assert faq_observation_html(missing, "AUD-NO-DB") == ""
+    assert not missing.exists()
+
+
+def test_faq_read_only_projection_refuses_symlinked_database(tmp_path) -> None:
+    from rasai.faq_observation import faq_observation_html
+    import sqlite3
+    source = tmp_path / "real.db"
+    with sqlite3.connect(source) as con:
+        con.execute("CREATE TABLE pages(page_id TEXT, audit_id TEXT)")
+    alias = tmp_path / "redirect.db"
+    try:
+        alias.symlink_to(source)
+    except (OSError, NotImplementedError):
+        return
+    assert faq_observation_html(alias, "AUD-OTHER") == ""
+    assert source.is_file()
