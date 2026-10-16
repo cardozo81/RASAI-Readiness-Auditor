@@ -198,3 +198,20 @@ def test_invalid_types_cannot_be_treated_as_observed_content_ready():
         assert result.primary_content_ms is None
     # A well-typed, same-sample pair still has identical semantics.
     assert classify(**base).status == "OBSERVED"
+
+
+def test_duplicate_sample_timestamp_is_not_unique_observation() -> None:
+    result = observation(samples=[cp(500, 420), cp(500, 430), cp(650, 440)])
+    assert result.status == "ERROR"
+    assert result.reason == "out_of_order_checkpoints"
+    assert result.primary_content_ms is None
+
+
+def test_unbounded_declared_dom_character_counts_are_not_proof() -> None:
+    from dataclasses import replace
+    for field, count in (("main_text_characters", 10_000_001),
+                         ("heading_text_characters", 100_001)):
+        first = replace(cp(500, 450), **{field: count})
+        result = observation(samples=[first, cp(650, 450)])
+        assert result.status == "ERROR"
+        assert result.reason == "mixed_context_or_invalid_checkpoint"
