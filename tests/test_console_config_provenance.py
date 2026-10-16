@@ -284,3 +284,17 @@ def test_console_load_accepts_bom_ini_without_rewriting_source(tmp_path, monkeyp
     result = console_settings.load_console_config(state, path)
     assert not any("não foi possível ler" in warning for warning in result.warnings)
     assert path.read_bytes() == initial
+
+
+def test_guarded_save_accepts_known_bom_ini(tmp_path):
+    path = tmp_path / "operator-bom.ini"
+    _install_search_persistence()
+    install_complete_persistence()
+    state = SearchConsoleState()
+    console_settings.save_console_config(state, path)
+    path.write_bytes(bytes((239, 187, 191)) + path.read_bytes())
+    loaded = SearchConsoleState()
+    assert not console_settings.load_console_config(loaded, path).warnings
+    assert console_settings.save_console_config(loaded, path) == path
+    reloaded = SearchConsoleState()
+    assert not console_settings.load_console_config(reloaded, path).warnings
