@@ -506,7 +506,9 @@ def test_geo_cons_package_second_manifest_read_uses_bounded_verified_reader(
 
     def guarded(path):
         reads.append(path)
-        if len(reads) == 2:
+        # build_cons_geo_advisory performs two reads; the third is the
+        # independent packaging read that this regression must exercise.
+        if len(reads) == 3:
             raise ValueError("CONS manifest changed during read")
         return verified(path)
 
@@ -514,6 +516,6 @@ def test_geo_cons_package_second_manifest_read_uses_bounded_verified_reader(
     monkeypatch.setattr(companion, "_verified_manifest_text", guarded)
     with pytest.raises(ValueError, match="CONS source manifest JSON invalid during packaging"):
         module.materialize_cons_geo_companion(cons, root)
-    assert reads == [physical, physical]
+    assert reads == [physical, physical, physical]
     assert physical.read_bytes() == original
     assert not (root / "consolidated-geo-companions").exists()

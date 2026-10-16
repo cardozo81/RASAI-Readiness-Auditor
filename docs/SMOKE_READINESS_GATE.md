@@ -8,7 +8,7 @@ Toda liberação precisa indicar **SHA testado, executor/ambiente, comandos e re
 
 Este documento separa dois gates **independentes**. O Gate A é suficiente para iniciar **smoke humano exploratório isolado**, mesmo enquanto a CI integral ou questões externas de outras issues permanecem pendentes. O Gate B é obrigatório para homologação final e integração. Não usar pendências de Gate B para impedir indevidamente Gate A, nem promover Gate A a aprovação final.
 
-## Gate A — smoke exploratório isolado
+## Gate A - smoke exploratório isolado
 
 **Pré-requisitos obrigatórios, comprovados no mesmo HEAD:**
 
@@ -37,7 +37,7 @@ Se um teste focal falhar, corrigir sua causa e reexecutar o conjunto afetado; **
 
 A aprovação exploratória **não** é aceite executivo, não fecha épicos metodológicos, não autoriza merge e não declara SARI/Apdex/GEO recalibrados.
 
-## Gate B — homologação final e merge
+## Gate B - homologação final e merge
 
 **Todos** os requisitos seguintes precisam de evidência própria (se aplicáveis), sem “herdar PASS” de outro SHA:
 
@@ -56,7 +56,7 @@ Em 16/10/2026, no `d99aa9245220dd7e7c6f658d77d6442475c749ab`, a CI do SHA aprese
 
 Nenhuma afirmação deste documento converte leitura estática ou CI pendente em teste de runtime.
 
-## Gate A físico — Windows e smoke focal de restauração (16/10/2026)
+## Gate A físico - Windows e smoke focal de restauração (16/10/2026)
 
 - `21cacbe40e911b4957cf637004ecd88a25d4ca28`: 8 checks focais em Windows com exit 0; o primeiro smoke detectou defeito real: após **V** em “Restaurar padrões”, o console exigia indevidamente uma segunda decisão de gravação.
 - `98d89a5659c64f7d05371449a41bbc037d45f9c0`: correção do cancelamento implementada na PR #645. O operador executou o Gate A revisado no Windows: **9 checks reportados PASS**, incluindo `console_restore_navigation`; o smoke protegido confirmou `NETWORK_GUARD_ACTIVE`, `REGISTRY_WRITE_GUARD_ACTIVE` e **APROVADO** somente para o cenário **Sistema → Restaurar padrões → V** sem exibição do diálogo de persistência.

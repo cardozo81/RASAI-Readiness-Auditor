@@ -80,6 +80,6 @@ renomeado neste lote.** A conclusão integral exige inventário por
 dependência e redução das violações remanescentes a zero ou justificativa
 formal de exceção. O gate parcial não autoriza fechar a issue de migração.
 
-## Atualização da migração em PR aberta — 16/10/2026
+## Atualização da migração em PR aberta - 16/10/2026
 
 O parágrafo do primeiro lote acima descreve apenas o checkpoint inicial, **não** o estado corrente da PR. A comparação `main...chore/acceptance-evidence-reconciliation` retornou uma branch com 200 commits à frente e listagem limitada a 300 arquivos, dos quais **210** estão classificados como renomeados. Esse recorte mostra migração real de workflows e módulos e não deve ser tratado como inventário completo; a API limita a resposta e o número de paths remanescentes **não está comprovado como zero**. O aceite definitivo requer `git ls-tree -r --name-only -z HEAD`, o gate `--full-tree`, busca de referências e CI Linux/Windows, todos sobre o HEAD efetivamente integrado. Os 243 paths citados no baseline não devem ser subtraídos aritmeticamente dos 210 renames parciais.
