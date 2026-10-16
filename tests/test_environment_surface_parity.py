@@ -46,6 +46,8 @@ _NON_PUBLIC_EXECUTION_ENV = frozenset(
         # One-RPR operator opt-in, never canonical/persistable configuration:
         # forcing a paid SerpApi refresh must be set for that session explicitly.
         "RASAI_SERP_NO_CACHE_RPR",
+        # Deployment-only, non-persistable security assertion; not an operator preference.
+        "RASAI_ARCH_PROBE_EGRESS_GUARDED",
         # Compatibility fallbacks consumed by directed analysis. The public console
         # owns provider/model/reasoning through execution state and provider-specific
         # catalog settings rather than these generic environment aliases.
