@@ -47,7 +47,9 @@ def probe_architecture(
         raise ValueError("Probe final URL differs from the validated target")
     # Reject injected captures claiming usable evidence without valid public
     # target provenance. Inconclusive captures may return safely without DNS.
-    if observation.quality_reason is None:
+    if (observation.quality_reason is None
+            and observation.raw_html is not None
+            and observation.rendered_html is not None):
         _validate_public_url(target, _default_resolver)
     return assess_architecture(
         raw_html=observation.raw_html,

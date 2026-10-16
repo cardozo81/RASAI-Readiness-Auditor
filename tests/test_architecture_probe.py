@@ -40,3 +40,12 @@ def test_inconclusive_capture_does_not_resolve_dns():
     resolve.assert_not_called()
     assert result.architecture is ArchitectureClassification.UNKNOWN
     assert result.limitation == "SAFE_EGRESS_NOT_CONFIGURED"
+
+def test_missing_render_does_not_resolve_dns_or_claim_architecture():
+    target = "https://example.org/"
+    with patch("rasai.architecture_probe._default_resolver") as resolve:
+        result = probe_architecture(target, DeviceContext.MOBILE, capture=lambda url, device:
+            ProbeCaptures(url, url, device, "<main>raw</main>", None))
+    resolve.assert_not_called()
+    assert result.architecture is ArchitectureClassification.UNKNOWN
+    assert result.limitation == "RAW_OR_RENDERED_UNAVAILABLE"
