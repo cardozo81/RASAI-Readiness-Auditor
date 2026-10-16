@@ -99,7 +99,7 @@ def public_readiness_condition(row: Any) -> tuple[str, str, str]:
         return "critical", "Readiness bloqueada", quality_text
     if value is None:
         return "neutral", "Readiness não determinada", quality_text
-    if consolidation == "NOT_CONSOLIDATED" or confidence == "UNAVAILABLE":
+    if consolidation not in {"CONSOLIDATED", "PARTIAL"} or confidence not in {"HIGH", "MEDIUM", "LOW"}:
         return "neutral", "Readiness não consolidada", quality_text
     if readiness == "UNKNOWN":
         return "neutral", "Readiness indeterminada", quality_text
