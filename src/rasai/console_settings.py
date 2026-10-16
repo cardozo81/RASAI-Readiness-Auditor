@@ -569,7 +569,9 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
     parser = ConfigParser(interpolation=None)
     parser.optionxform = str
     try:
-        with source.open("r", encoding="utf-8") as stream: parser.read_file(stream)
+        # Windows editor BOM is accepted on read; saving still passes the
+        # separate loss-prevention guard for operator-owned INI contents.
+        with source.open("r", encoding="utf-8-sig") as stream: parser.read_file(stream)
     except (OSError, UnicodeError, ConfigError) as exc:
         # An operator INI can be truncated or contain duplicate entries.
         # Keep state and environment unchanged rather than abort console startup
