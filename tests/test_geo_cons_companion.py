@@ -247,3 +247,17 @@ def test_311_cons_manifest_stat_gate_preserves_successful_offline_projection(
     assert outcome["cons_reference"]["native_cons_report_modified"] is False
     assert outcome["provider_requests"] == outcome["audit_writes"] == 0
     assert {str(p): p.read_bytes() for p in root.rglob("*") if p.is_file()} == before
+
+
+def test_311_cons_manifest_change_during_source_reads_abstains(tmp_path, monkeypatch):
+    root, cons = _cons(tmp_path)
+    from rasai import geo_cons_companion as companion
+    manifest = cons / "manifest.json"
+    before = manifest.read_bytes()
+    def tamper_during_longitudinal(paths):
+        manifest.write_bytes(before + b" ")
+        return {"audits_requested": len(paths), "audits_eligible": 0}
+    monkeypatch.setattr(companion, "build_geo_longitudinal_preview", tamper_during_longitudinal)
+    with pytest.raises(ValueError, match="changed during source inspection"):
+        build_cons_geo_advisory(cons, root)
+    assert manifest.read_bytes() != before
