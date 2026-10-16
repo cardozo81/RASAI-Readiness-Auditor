@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 from rasai.architecture_choice import ArchitectureChoice
 from rasai.architecture_choice_audit_adapter import prepare_audit_choice_configuration
-from rasai.audit_configuration_reuse_console import _apply_settings
+from rasai.audit_configuration_reuse_console import _apply_settings, _ARCHITECTURE_SELECTION
 
 
 def _state():
@@ -22,7 +22,7 @@ def test_reuse_explicit_architecture_choice(monkeypatch):
         choice=ArchitectureChoice("DECLARED", "HYDRATED"),
     )
     assert _apply_settings(state, config, "AUD-TEST") == ()
-    assert state.architecture_choice == ArchitectureChoice("DECLARED", "HYDRATED")
+    assert _ARCHITECTURE_SELECTION[id(state)] == ArchitectureChoice("DECLARED", "HYDRATED")
 
 
 def test_reuse_legacy_source_clears_previous_architecture(monkeypatch):
@@ -33,4 +33,4 @@ def test_reuse_legacy_source_clears_previous_architecture(monkeypatch):
     state = _state()
     state.architecture_choice = ArchitectureChoice("AUTO")
     _apply_settings(state, {"settings": {}, "targets": ["https://example.org"]}, "AUD-OLD")
-    assert state.architecture_choice is None
+    assert id(state) not in _ARCHITECTURE_SELECTION
