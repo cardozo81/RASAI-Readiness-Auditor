@@ -97,3 +97,11 @@ def test_blocked_readiness_remains_critical_with_partial_measurement() -> None:
     assert condition == "critical"
     assert label == "Readiness bloqueada"
     assert quality == "Excelente (90-100)"
+
+
+def test_blocked_readiness_remains_critical_without_consolidated_confidence() -> None:
+    row = _row(status="BLOCKED", discovery_gate="BLOCKED", consolidation="NOT_CONSOLIDATED", confidence="UNAVAILABLE")
+    condition, label, quality = public_readiness_condition(row)
+    assert condition == "critical"
+    assert label == "Readiness bloqueada"
+    assert quality == "Excelente (90-100)"
