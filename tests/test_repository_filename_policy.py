@@ -195,11 +195,11 @@ def test_all_ci_workflows_reference_existing_literal_python_paths() -> None:
     missing: list[str] = []
     for workflow in sorted(workflows.glob("*.yml")):
         content = workflow.read_text(encoding="utf-8")
-        paths = set(re.findall(r"(?:src/rasai|tests)/[A-Za-z0-9_./*-]+\\.py\\b", content))
+        paths = set(re.findall(r"(?:src/rasai|tests)/[A-Za-z0-9_./*-]+\.py\b", content))
         for path in sorted(paths):
             if "*" not in path and not (root / path).is_file():
                 missing.append(f"{workflow.name}: {path}")
-    assert not missing, "\\n".join(missing)
+    assert not missing, "\n".join(missing)
 
 
 if __name__ == "__main__":
