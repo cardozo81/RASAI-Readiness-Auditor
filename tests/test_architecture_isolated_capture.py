@@ -63,7 +63,7 @@ def test_capture_preloaded_document_in_networkless_container(monkeypatch):
     html = b"<html><body><main>Visible server content.</main></body></html>"
     root = SimpleNamespace(
         status=ContentFetchStatus.OBSERVED, final_url="https://example.org/",
-        http_status=200, body=html, headers={"content-type": "text/html"},
+        http_status=200, body=html, headers={"content-type": "text/html", "content-security-policy": "default-src 'self'"},
     )
     monkeypatch.setattr("rasai.architecture_isolated_capture.inspect_local_image",
                         lambda: DIGEST)
@@ -83,6 +83,7 @@ def test_capture_preloaded_document_in_networkless_container(monkeypatch):
             bundle = json.loads(kwargs["input"])
             assert bundle["device"] == "mobile"
             assert len(bundle["resources"]) == 1
+            assert bundle["resources"][0]["response_headers"]["content-security-policy"] == "default-src 'self'"
             assert bundle["resources"][0]["url"] == "https://example.org/"
             return SimpleNamespace(
                 returncode=0, stdout=json.dumps({

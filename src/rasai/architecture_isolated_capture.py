@@ -82,9 +82,25 @@ def _encode_asset(url: str, document) -> dict:
             or not isinstance(document.body, bytes)
             or not content_type or "\r" in content_type or "\n" in content_type):
         raise ValueError("Pinned resource unavailable")
+    # Preserve relevant browser response policy. Stripping CSP from the replay
+    # could execute scripts forbidden on the real page and misclassify a site.
+    safe_headers = {}
+    for header in (
+        "content-type", "content-security-policy", "x-content-type-options",
+        "cross-origin-resource-policy", "cross-origin-opener-policy",
+        "cross-origin-embedder-policy", "referrer-policy",
+    ):
+        value = document.headers.get(header, "")
+        if value:
+            if not isinstance(value, str) or len(value) > 8192 or any(
+                ord(char) < 32 and char != "\t" for char in value
+            ):
+                raise ValueError("Unsupported HTTP response policy")
+            safe_headers[header] = value
     return {
         "url": url,
         "content_type": content_type,
+        "response_headers": safe_headers,
         "status": document.http_status,
         "body_b64": base64.b64encode(document.body).decode("ascii"),
     }

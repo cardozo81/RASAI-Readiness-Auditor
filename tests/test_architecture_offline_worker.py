@@ -56,3 +56,16 @@ def test_manifest_caps_total_body_and_resources():
     } for n in range(MAX_ENTRIES))
     with pytest.raises(ValueError):
         validate_bundle(candidate)
+
+
+def test_offline_manifest_retains_csp_and_rejects_header_injection():
+    candidate = bundle()
+    candidate["resources"][0]["response_headers"] = {
+        "content-type": "text/html",
+        "content-security-policy": "default-src 'self'; script-src 'none'",
+    }
+    _, _, table = validate_bundle(candidate)
+    assert table["https://example.org/"][3]["content-security-policy"].endswith("'none'")
+    candidate["resources"][0]["response_headers"]["content-security-policy"] = "abc\r\nset-cookie:bad"
+    with pytest.raises(ValueError, match="headers"):
+        validate_bundle(candidate)

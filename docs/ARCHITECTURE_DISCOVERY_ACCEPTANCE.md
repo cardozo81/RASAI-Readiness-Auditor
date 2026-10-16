@@ -163,3 +163,14 @@ ou DNS permitido, erro de daemon ou timeout impede a aquisição e retorna
 `OCI_NETWORK_ISOLATION_NOT_ATTESTED`. O teste manual continua recomendado
 como evidência operacional independente, mas uma flag de ambiente isolada
 não suprime esse gate.
+
+### Equivalência das políticas de resposta
+
+O bundle offline preserva cabeçalhos de segurança relevantes para a execução
+de scripts, incluindo `Content-Security-Policy`, `X-Content-Type-Options`,
+`Cross-Origin-Resource-Policy`, `Cross-Origin-Opener-Policy`,
+`Cross-Origin-Embedder-Policy` e `Referrer-Policy`. Não remover CSP do
+HTML reproduzido: executar JavaScript que o servidor original proibiria pode
+produzir uma classificação artificial. Cabeçalhos com CR/LF ou tamanho fora
+do limite são rejeitados; cookies e cabeçalhos hop-by-hop não são importados.
+A ausência de cookies e recursos de terceiros pode levar a abstenção legítima.
