@@ -1,6 +1,6 @@
 """Offline configuration-source inventory for RASAi operator audit (#523).
 
-Use: python -m rasai.console_configuration_inventory_523
+Use: python -m rasai.console_configuration_inventory
 The output is METADATA ONLY: never emits secret values, query content,
 credentials, concrete URLs, user paths, or session consent.
 """

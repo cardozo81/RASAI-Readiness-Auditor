@@ -56,7 +56,7 @@ def test_dynatrace_human_explanation_omits_internal_module_tokens():
 
 
 def test_audit_timing_inspector_explains_ia_http_without_internal_module_names(capsys):
-    from rasai.audit_attempt_inspection_319 import main
+    from rasai.audit_attempt_inspection import main
     import pytest
 
     with pytest.raises(SystemExit) as exc:
@@ -67,7 +67,7 @@ def test_audit_timing_inspector_explains_ia_http_without_internal_module_names(c
     assert "requisições HTTP" in rendered
     assert "M18/M20" not in rendered
     assert "M21" not in rendered
-    inspector = (ROOT / "audit_attempt_inspection_319.py").read_text(encoding="utf-8")
+    inspector = (ROOT / "audit_attempt_inspection.py").read_text(encoding="utf-8")
     assert "O recorte usa somente relógios das tentativas de análise" in inspector
     assert "Os tempos informados são somas verificadas" in inspector
     assert "Valores M21 são somas" not in inspector

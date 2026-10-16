@@ -230,7 +230,7 @@ def test_save_refuses_to_discard_unknown_ini_entries_without_leaking_them(
 def test_apdex_preflight_accepts_reconciled_legacy_inputs_without_real_aud(
     tmp_path: Path,
 ) -> None:
-    from rasai.console_apdex_effective_validation_523 import inspect_apdex_consumers
+    from rasai.console_apdex_effective_validation import inspect_apdex_consumers
     ini = tmp_path / "operator-copy.ini"
     _write_ini(ini, RUNTIME_INPUTS)
     original = sha256(ini.read_bytes()).hexdigest()

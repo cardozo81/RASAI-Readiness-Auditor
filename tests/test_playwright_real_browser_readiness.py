@@ -11,7 +11,7 @@ import time
 
 from playwright.sync_api import sync_playwright
 
-from rasai.readiness_probe_cost_pilot_322 import measure_existing_playwright_probe_cost
+from rasai.readiness_probe_cost_pilot import measure_existing_playwright_probe_cost
 
 BODY = " ".join(["Cobertura, condições e benefícios da apólice verificáveis."] * 10)
 

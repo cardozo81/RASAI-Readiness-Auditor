@@ -232,9 +232,9 @@ As instruções das seções acima foram concebidas antes do gate físico. O est
 - **#639:** política incremental verifica novos nomes, não certifica migração dos 238 anteriores. Renomear arquivos históricos não tem prioridade sobre falhas P1 ou gates físico/metodológicos.
 
 
-## Reconciliação de issues e gates — checkpoint do HEAD 6001e1eca0a8 (15/10/2026)
+## Reconciliação de issues e gates - checkpoint do HEAD 6001e1eca0a8 (15/10/2026)
 
-**Escopo confirmado:** #639, #600–#604, #523, #357, #355, #330, #322, #319, #311, #304 e épico #301 continuam OPEN; #210 e quatro issues de número menor que #301 permanecem fora deste ciclo. Não tratar épicos como concluídos antes de seus filhos mandatórios. O inventário da árvore Git do HEAD informado está completo (`truncated=false`), com 0 paths sob a regex numérica histórica, mas esse número **não** prova aliases externos, contratos CLI ou formas não numéricas de ID.
+**Escopo confirmado:** #639, #600-#604, #523, #357, #355, #330, #322, #319, #311, #304 e épico #301 continuam OPEN; #210 e quatro issues de número menor que #301 permanecem fora deste ciclo. Não tratar épicos como concluídos antes de seus filhos mandatórios. O inventário da árvore Git do HEAD informado está completo (`truncated=false`), com 0 paths sob a regex numérica histórica, mas esse número **não** prova aliases externos, contratos CLI ou formas não numéricas de ID.
 
 **Gate de integração da PR #645:** HEAD 6001e1eca0a80ff806e13d228e830512c92878df; DRAFT, não integrada; `main@beb5cc8c5e287ecee6e869779881702efb74eb07` preservada. Consulta de CI deste HEAD identificou 78 runs: 73 queued e 5 pending, nenhum SUCCESS comprovado no último checkpoint. Portanto **não integrar** até checks obrigatórios verdes e aceite humano exigido; risco baixo da mudança de algoritmo não implica risco baixo de compatibilidade de módulo importável. Executar verificações de imports CLI público, workflow path e testes direcionados para os 22 módulos migrados, com prioridade elevada a SCORE-GEO e console.
 
