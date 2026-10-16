@@ -36,7 +36,7 @@ on:
       - 'tests/test_ai_cost_policy.py'
       - 'tests/test_console_environment_guidance.py'
       - 'tests/test_m18_multi_ai_provider.py'
-      - 'tests/test_issue_257_copilot_diagnostic_causality.py'
+      - 'tests/test_copilot_diagnostic_causality.py'
       - 'tests/test_mistral_provider_consumers.py'
       - 'tests/test_cohere_provider.py'
       - 'tests/test_kimi_provider.py'
@@ -82,7 +82,7 @@ on:
       - 'tests/test_ai_cost_policy.py'
       - 'tests/test_console_environment_guidance.py'
       - 'tests/test_m18_multi_ai_provider.py'
-      - 'tests/test_issue_257_copilot_diagnostic_causality.py'
+      - 'tests/test_copilot_diagnostic_causality.py'
       - 'tests/test_mistral_provider_consumers.py'
       - 'tests/test_cohere_provider.py'
       - 'tests/test_kimi_provider.py'
@@ -142,7 +142,7 @@ jobs:
             tests/test_ai_cost_policy.py \
             tests/test_console_environment_guidance.py \
             tests/test_m18_multi_ai_provider.py \
-            tests/test_issue_257_copilot_diagnostic_causality.py \
+            tests/test_copilot_diagnostic_causality.py \
             tests/test_mistral_provider_consumers.py \
             tests/test_cohere_provider.py \
             tests/test_kimi_provider.py \

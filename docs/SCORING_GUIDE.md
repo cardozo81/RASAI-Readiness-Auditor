@@ -16,7 +16,7 @@ overall_aggregation = HIERARCHICAL_WEIGHTED_READINESS_V1
 
 O método é determinístico sobre RuleExecutions/evidências persistidas e não representa probabilidade de ranking ou citação.
 
-Contrato completo: [`SCORE_GEO_004.md`](SCORE_GEO_004.md).
+Contrato completo: [`SCORE_GEO.md`](SCORE_GEO.md).
 
 ## Dimensões e pesos
 

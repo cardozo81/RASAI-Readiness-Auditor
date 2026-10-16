@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from rasai.report_presentation import humanize_report_html
-from rasai.score_geo_004 import SCORING_VERSION
+from rasai.score_geo import SCORING_VERSION
 
 from .history import SearchHistoryComparison, SearchHistoryEvent
 

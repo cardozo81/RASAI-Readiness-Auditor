@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from html import escape
 import json
+import math
 from typing import Any
 
 from rasai.report_observation_reconciliation import (
@@ -22,6 +23,7 @@ from rasai.report_observation_reconciliation import (
 
 
 _VALID_READINESS = {"READY", "ATTENTION", "BLOCKED", "UNKNOWN"}
+_CRITICAL_GATES = frozenset({"DISCOVERY", "INDEXABILITY", "EXTRACTION"})
 
 
 def _row_value(row: Any, key: str, default: Any = None) -> Any:
@@ -55,36 +57,56 @@ def _limitations(row: Any) -> tuple[str, ...]:
 def readiness_state(row: Any) -> tuple[str, dict[str, str]]:
     """Return persisted readiness status and critical-gate states for one Overall row."""
     status = "UNKNOWN"
+    declared_statuses: set[str] = set()
     gates: dict[str, str] = {}
     for item in _limitations(row):
         if item.startswith("READINESS_STATUS:"):
             candidate = item.split(":", 1)[1].strip().upper()
             if candidate in _VALID_READINESS:
+                declared_statuses.add(candidate)
                 status = candidate
         elif item.startswith("CRITICAL_GATE:"):
             parts = item.split(":", 2)
             if len(parts) == 3:
-                gates[parts[1].strip().upper()] = parts[2].strip().upper()
+                gate = parts[1].strip().upper()
+                state = parts[2].strip().upper()
+                if gate:
+                    previous = gates.get(gate)
+                    gates[gate] = (
+                        state if previous is None or previous == state
+                        else "BLOCKED" if "BLOCKED" in {previous, state}
+                        else "UNKNOWN"
+                    )
 
-    # Defensive compatibility for a persisted row that has individual gates but no
-    # aggregate marker. Do not infer READY unless every persisted gate is PASS.
-    if status == "UNKNOWN" and gates:
+    if len(declared_statuses) > 1:
+        status = "UNKNOWN"
+    conflicting_status = len(declared_statuses) > 1
+
+    # A persisted critical gate takes precedence over the aggregate marker.
+    # Only derive a missing aggregate state from complete, recognized gate states.
+    if not gates:
+        return "UNKNOWN", gates
+    if gates:
         values = set(gates.values())
         if "BLOCKED" in values:
             status = "BLOCKED"
-        elif "UNKNOWN" in values:
+        elif "UNKNOWN" in values or values - {"PASS", "WARNING"}:
             status = "UNKNOWN"
-        elif "WARNING" in values:
+        elif not _CRITICAL_GATES.issubset(gates):
+            status = "UNKNOWN"
+        elif "WARNING" in values and status == "READY":
             status = "ATTENTION"
-        elif values and values <= {"PASS"}:
-            status = "READY"
+        elif status == "UNKNOWN" and not conflicting_status:
+            if "WARNING" in values:
+                status = "ATTENTION"
+            elif values == {"PASS"}:
+                status = "READY"
     return status, gates
 
 
 def public_readiness_condition(row: Any) -> tuple[str, str, str]:
     """Return visual condition, primary readiness label and numeric-quality label."""
-    raw_value = _row_value(row, "value")
-    value = None if raw_value is None else float(raw_value)
+    value = _safe_display_score(_row_value(row, "value"))
     quality_state, quality_label, quality_range = sari_band(value)
     quality_text = quality_label if quality_state == "neutral" else f"{quality_label} ({quality_range})"
 
@@ -92,16 +114,19 @@ def public_readiness_condition(row: Any) -> tuple[str, str, str]:
     confidence = str(_row_value(row, "confidence", "UNAVAILABLE")).upper()
     readiness, _gates = readiness_state(row)
 
-    if value is None:
-        return "neutral", "Readiness não determinada", quality_text
-    if consolidation == "NOT_CONSOLIDATED" or confidence == "UNAVAILABLE":
-        return "neutral", "Readiness não consolidada", quality_text
-    if consolidation == "PARTIAL" or confidence == "LOW":
-        return "near", "Readiness com medição parcial", quality_text
     if readiness == "BLOCKED":
         return "critical", "Readiness bloqueada", quality_text
+    if value is None:
+        return "neutral", "Readiness não determinada", quality_text
+    coverage = _coverage_fraction(row)
+    if coverage is None:
+        return "neutral", "Readiness com cobertura não verificada", quality_text
+    if consolidation not in {"CONSOLIDATED", "PARTIAL"} or confidence not in {"HIGH", "MEDIUM", "LOW"}:
+        return "neutral", "Readiness não consolidada", quality_text
     if readiness == "UNKNOWN":
         return "neutral", "Readiness indeterminada", quality_text
+    if consolidation == "PARTIAL" or confidence == "LOW" or coverage < 1.0:
+        return "near", "Readiness com medição parcial", quality_text
     if readiness == "ATTENTION":
         return "near", "Readiness requer atenção", quality_text
 
@@ -116,6 +141,33 @@ def public_readiness_condition(row: Any) -> tuple[str, str, str]:
     if quality_state == "critical":
         return "critical", "Readiness pronta, qualidade crítica", quality_text
     return "neutral", "Readiness indeterminada", quality_text
+
+
+def _safe_display_score(raw: Any) -> float | None:
+    if isinstance(raw, bool):
+        return None
+    try:
+        value = float(raw)
+        return value if math.isfinite(value) and 0 <= value <= 100 else None
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _coverage_fraction(row: Any) -> float | None:
+    """Invalid fractions are not observed zero coverage."""
+    raw = _row_value(row, "coverage", None)
+    if isinstance(raw, bool):
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return value if math.isfinite(value) and 0 <= value <= 1 else None
+
+
+def _coverage_display(row: Any) -> tuple[str, str]:
+    value = _coverage_fraction(row)
+    return ("N/D", "N/D") if value is None else (f"{value * 100:.1f}%", f"{value:.6f}")
 
 
 def _score_card_class(condition: str) -> str:
@@ -150,9 +202,9 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
         label = "Mobile" if device == "MOBILE" else "Desktop"
         condition, readiness_label, quality_label = public_readiness_condition(row)
         readiness, gates = readiness_state(row)
-        value = _row_value(row, "value")
+        value = _safe_display_score(_row_value(row, "value"))
         score = "-" if value is None else f"{float(value):.1f}/100"
-        coverage = f"{float(_row_value(row, 'coverage', 0.0)) * 100:.1f}%"
+        coverage, coverage_raw = _coverage_display(row)
         confidence = str(_row_value(row, "confidence", "UNAVAILABLE"))
         consolidation = str(_row_value(row, "consolidation_status", "NOT_CONSOLIDATED"))
         gate_detail = _gate_detail(gates)
@@ -161,13 +213,34 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
             f"<h3>{escape(label)}</h3>"
             f"<p><strong>{escape(readiness_label)}</strong></p>"
             f"<p>Qualidade medida: <strong>{escape(score)}</strong> · {escape(quality_label)}</p>"
-            f"<p>Coverage {escape(coverage)} · Confidence {escape(confidence)} · Consolidation {escape(consolidation)}</p>"
+            f"<p>Coverage {escape(coverage)} (fração canônica {coverage_raw}) · Confidence {escape(confidence)} · Consolidation {escape(consolidation)}</p>"
             f"<p>Critical readiness: <strong>{escape(readiness)}</strong>"
             + (f" · {escape(gate_detail)}" if gate_detail else "")
             + "</p></article>"
         )
     if not cards:
         return ""
+    dimension_notes: list[str] = []
+    for row in scores:
+        dimension = str(_row_value(row, "dimension", ""))
+        if dimension == "OVERALL_READINESS" or not dimension:
+            continue
+        consolidation = str(_row_value(row, "consolidation_status", "NOT_CONSOLIDATED")).upper()
+        confidence = str(_row_value(row, "confidence", "UNAVAILABLE")).upper()
+        if (consolidation == "CONSOLIDATED" and confidence in {"HIGH", "MEDIUM"}
+                and _coverage_fraction(row) == 1.0):
+            continue
+        percent, canonical = _coverage_display(row)
+        dimension_notes.append(
+            f"<li>{escape(dimension)}: cobertura {percent} "
+            f"(fração canônica {canonical}), confiança {escape(confidence)}, "
+            f"consolidação {escape(consolidation)}.</li>"
+        )
+    dimension_notice = (
+        "<div class='notice'><strong>Dimensões com evidência limitada:</strong><ul>"
+        + "".join(dimension_notes) + "</ul>O estado agregado não substitui a leitura por dimensão.</div>"
+        if dimension_notes else ""
+    )
     return (
         "<section id='sari-public-readiness-reading' class='panel' data-sari-public-readiness='true'>"
         "<div class='kicker'>Leitura executiva do SARI</div>"
@@ -177,8 +250,9 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
         "e leitura dos Critical Readiness Gates. Portanto, uma nota acima de 90 não é apresentada isoladamente como "
         "readiness excelente quando a medição está parcial/não consolidada ou quando Discovery, Indexability ou Extraction "
         "estão BLOCKED/UNKNOWN.</p>"
-        "<div class='grid'>" + "".join(cards) + "</div>"
-        "<div class='notice'><strong>Integrações externas:</strong> erro de provider/API/coleta não é defeito do website e "
+        "<p class='notice'>Confiança e cobertura avaliam o contrato SARI, não representam intervalo estatístico, experiência real, desempenho de laboratório, posição SERP ou citação generativa. Métricas externas e dimensões de baixa cobertura devem ser analisadas separadamente.</p>"
+        "<div class='grid'>" + "".join(cards) + "</div>" + dimension_notice
+        + "<div class='notice'><strong>Integrações externas:</strong> erro de provider/API/coleta não é defeito do website e "
         "não gera penalidade artificial no SARI. Um finding técnico externo só participa do score quando existe uma BR-GEO "
         "equivalente, mapeamento explícito e evidência persistida sem dupla pontuação.</div>"
         "</section>"
@@ -203,10 +277,10 @@ def _reporting_overall_card(reporting: Any, scores: list[Any], device: str) -> s
             "<p class='intro'>Overall não persistido.</p></article>"
         )
 
-    raw_value = _row_value(row, "value")
+    raw_value = _safe_display_score(_row_value(row, "value"))
     condition, readiness_label, quality_label = public_readiness_condition(row)
     css = _score_card_class(condition)
-    coverage = f"{float(_row_value(row, 'coverage', 0.0)) * 100:.0f}%"
+    coverage, coverage_raw = _coverage_display(row)
     confidence_raw = str(_row_value(row, "confidence", "UNAVAILABLE"))
     confidence = reporting._STATUS_LABELS.get(confidence_raw, confidence_raw)
     consolidation_raw = str(_row_value(row, "consolidation_status", "NOT_CONSOLIDATED"))
@@ -223,13 +297,13 @@ def _reporting_overall_card(reporting: Any, scores: list[Any], device: str) -> s
         f"<p class='intro'><strong>Qualidade do universo medido:</strong> {escape(quality_label)}. "
         "A badge acima é a conclusão de readiness e prevalece sobre a leitura isolada da nota."
         + (f" Gates não-PASS: {escape(gate_detail)}." if gate_detail else "")
-        + "</p>"
+        + " Confiança classifica evidências e cobertura do contrato SARI; não certifica experiência, performance ou presença em buscadores e IA.</p>"
     )
     return (
         f"<article class='score-card {css}'><div class='label'>{label} - {reporting.PUBLIC_METHOD_VERSION}</div>"
         f"{score_markup}<span class='score-band-label {condition}'>{escape(readiness_label)}</span>"
         "<div class='score-meta'>"
-        f"<div><small>Cobertura</small><strong>{escape(coverage)}</strong></div>"
+        f"<div><small>Cobertura</small><strong title='Fração canônica: {coverage_raw}'>{escape(coverage)}</strong></div>"
         f"<div><small>Confiança</small><strong>{escape(confidence)}</strong></div>"
         f"<div><small>Consolidação</small><strong>{escape(consolidation)}</strong></div>"
         f"<div><small>Readiness</small><strong>{escape(readiness)}</strong></div>"
@@ -264,7 +338,7 @@ def _site_overall_card(report_site: Any, scores: list[Any], device: str) -> str:
     condition, readiness_label, quality_label = public_readiness_condition(row)
     readiness, gates = readiness_state(row)
     css = _score_card_class(condition)
-    raw_value = _row_value(row, "value")
+    raw_value = _safe_display_score(_row_value(row, "value"))
     score_markup = (
         "<div class='score-number'>Não consolidado</div>"
         if raw_value is None
@@ -274,7 +348,7 @@ def _site_overall_card(report_site: Any, scores: list[Any], device: str) -> str:
     confidence = report_site._STATUS_LABELS.get(confidence_raw, confidence_raw)
     consolidation_raw = str(_row_value(row, "consolidation_status", "NOT_CONSOLIDATED"))
     consolidation = report_site._STATUS_LABELS.get(consolidation_raw, consolidation_raw)
-    coverage = f"{float(_row_value(row, 'coverage', 0.0)) * 100:.0f}%"
+    coverage, coverage_raw = _coverage_display(row)
     gate_detail = _gate_detail(gates)
     detail = (
         f"<p class='intro'><strong>Qualidade medida:</strong> {escape(quality_label)}. "
@@ -288,7 +362,7 @@ def _site_overall_card(report_site: Any, scores: list[Any], device: str) -> str:
         f"<span class='badge info'>Qualidade {escape(quality_label)}</span> "
         f"{report_site._confidence_badge(confidence_raw)}</div>"
         "<div class='score-meta'>"
-        f"<div><small>Coverage</small><strong>{escape(coverage)}</strong></div>"
+        f"<div><small>Coverage</small><strong title='Canonical fraction: {coverage_raw}'>{escape(coverage)}</strong></div>"
         f"<div><small>Confidence</small><strong>{escape(confidence)}</strong></div>"
         f"<div><small>Consolidação</small><strong>{escape(consolidation)}</strong></div>"
         "</div>" + detail + "</article>"

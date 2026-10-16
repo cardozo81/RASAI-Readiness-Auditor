@@ -42,7 +42,7 @@ from rasai.observability.external_sources import (
 )
 from rasai.observability.store import ObservabilityStore
 from rasai.persistence import AuditPersistence, AuditWorkspace
-from rasai.score_geo_004 import DIMENSION_WEIGHTS, GROUP_WEIGHTS
+from rasai.score_geo import DIMENSION_WEIGHTS, GROUP_WEIGHTS
 from rasai.secret_safety import redact_text
 from rasai.standards_service_registry import (
     DEFAULT_STANDARDS_TIMEOUT_SECONDS,

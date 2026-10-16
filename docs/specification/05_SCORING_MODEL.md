@@ -432,4 +432,4 @@ O contrato específico está em `../SARI_EXTERNAL_CRAWL_CORROBORATION.md`.
 - limitações;
 - compatibilidade metodológica dos dados persistidos.
 
-Detalhes operacionais: `docs/SCORE_GEO_004.md`, `docs/SCORING_GUIDE.md` e `docs/SARI_READINESS_INDEX.md`.
+Detalhes operacionais: `docs/SCORE_GEO.md`, `docs/SCORING_GUIDE.md` e `docs/SARI_READINESS_INDEX.md`.

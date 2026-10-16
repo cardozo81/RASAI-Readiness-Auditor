@@ -4,7 +4,28 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - 'src/rasai/m23_*.py'
+      - 'src/rasai/m25_*.py'
+      - 'src/rasai/synthetic_*.py'
+      - 'src/rasai/apdex_*.py'
+      - 'src/rasai/console_m23.py'
+      - 'src/rasai/console_settings.py'
+      - 'src/rasai/console_apdex_*.py'
+      - 'src/rasai/worker.py'
+      - 'src/rasai/audit_execution_contract.py'
+      - 'tests/test_m23_*.py'
+      - 'tests/test_m25_*.py'
+      - 'tests/test_synthetic_*.py'
+      - 'tests/test_apdex_content_readiness.py'
+      - 'tests/test_catalog_report_final_refinements.py'
+      - 'pyproject.toml'
+      - '.github/workflows/m25-validation.yml'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -40,16 +61,16 @@ jobs:
             src/rasai/console_m23.py \
             src/rasai/console_settings.py
       - name: CAT-07 user action boundary proof (#226)
-        run: python -m pytest -q -s tests/test_m25_user_action_boundary_226.py
+        run: python -m pytest -q -s tests/test_m25_user_action_boundary.py
       - name: M25 directed tests
         run: |
           python -m pytest -q \
             tests/test_m25_synthetic_user_experience.py \
             tests/test_m25_browser_e2e.py \
-            tests/test_synthetic_population_apdex_227.py \
+            tests/test_synthetic_population_apdex.py \
             tests/test_m25_console_integration.py \
             tests/test_catalog_report_final_refinements.py::test_cat07_table_pages_sorts_and_explains_error_forced_frustration
       - name: #322 advisory readiness contract (no browser)
-        run: python -m pytest -q tests/test_apdex_content_readiness_322.py
+        run: python -m pytest -q tests/test_apdex_content_readiness.py
       - name: M23 regression
         run: python -m pytest -q tests/test_m23_integration.py

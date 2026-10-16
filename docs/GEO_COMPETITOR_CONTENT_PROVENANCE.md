@@ -1,6 +1,6 @@
 # #330 - Evidência competitiva persistida (somente leitura)
 
-O módulo `rasai.geo_competitor_content_provenance_330` consome exclusivamente um
+O módulo `rasai.geo_competitor_content_provenance` consome exclusivamente um
 SQLite `audit.db` existente, com `PRAGMA query_only=ON`. Exige um ID de AUD,
 um ID de observação SERP e contexto válido com query, data com fuso horário
 e origem OBSERVED_API. Não faz chamadas HTTP, Perplexity ou IA.
@@ -18,7 +18,7 @@ A equivalência de contexto de Perplexity também não é inferida.
 
 Exemplo offline:
 
-    python -m rasai.geo_competitor_content_provenance_330 AUD-REFERENCIA/audit.db --audit-id AUD-REFERENCIA --serp-observation-id SERP-REFERENCIA
+    python -m rasai.geo_competitor_content_provenance AUD-REFERENCIA/audit.db --audit-id AUD-REFERENCIA --serp-observation-id SERP-REFERENCIA
 
 Limites restantes: novos candidatos exclusivos da Perplexity requerem
 opt-in próprio, regras robots, origem/URL, locale, dispositivo, custo e

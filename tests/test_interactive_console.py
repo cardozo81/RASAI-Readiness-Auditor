@@ -554,7 +554,7 @@ def test_319_console_projection_records_apdex_workload_without_credentials(tmp_p
     """Console-only JSON extension; no new schema, AI call, or exposed tenant."""
     import json
     from rasai.console_m23 import State as ApdexConsoleState
-    from rasai.console_apdex_duration_scope_319 import (
+    from rasai.console_apdex_duration_scope import (
         NAVIGATION_FIELDS, EXPERIENCE_FIELDS,
     )
 
@@ -641,7 +641,7 @@ def test_319_console_projection_records_optional_workload_flags_without_query_se
     from json import loads
     from types import SimpleNamespace
     from rasai.console_search_intelligence import SearchConsoleState
-    from rasai.audit_duration_forecast_319 import _strictly_comparable
+    from rasai.audit_duration_forecast import _strictly_comparable
 
     folder = tmp_path / "AUD-WORKLOAD319"
     folder.mkdir()

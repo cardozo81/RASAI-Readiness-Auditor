@@ -115,7 +115,7 @@ def test_runner_future_assessment_tracks_live_issue_1_not_unrelated_163() -> Non
 
 
 def test_aud_rpr_parity_matrix_is_historical_not_an_open_release_gate() -> None:
-    text = (ROOT / "docs/AUD_RPR_PARITY_MATRIX_110.md").read_text(encoding="utf-8")
+    text = (ROOT / "docs/AUD_RPR_PARITY_MATRIX.md").read_text(encoding="utf-8")
     folded = text.casefold()
     assert "registro histórico" in folded
     assert "#110 permanece aberta" not in text

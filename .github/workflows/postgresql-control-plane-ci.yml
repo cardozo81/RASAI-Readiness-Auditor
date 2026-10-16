@@ -20,8 +20,11 @@ on:
       - 'tests/test_saas_runtime_parity.py'
       - 'pyproject.toml'
       - '.github/workflows/postgresql-control-plane-ci.yml'
-      - 'docs/**'
-      - 'README.md'
+      - 'docs/POSTGRESQL*.md'
+      - 'docs/POSTGRES*.md'
+      - 'docs/SAAS*.md'
+      - 'docs/DATABASE*.md'
+      - 'docs/PLATFORM*.md'
   push:
     branches: [main]
     paths:
@@ -41,8 +44,15 @@ on:
       - 'tests/test_saas_runtime_parity.py'
       - 'pyproject.toml'
       - '.github/workflows/postgresql-control-plane-ci.yml'
-      - 'docs/**'
-      - 'README.md'
+      - 'docs/POSTGRESQL*.md'
+      - 'docs/POSTGRES*.md'
+      - 'docs/SAAS*.md'
+      - 'docs/DATABASE*.md'
+      - 'docs/PLATFORM*.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

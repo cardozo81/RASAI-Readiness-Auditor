@@ -76,7 +76,7 @@ Consulte também:
 
 - `SARI_READINESS_INDEX.md`;
 - `SCORING_GUIDE.md`;
-- `SCORE_GEO_004.md`.
+- `SCORE_GEO.md`.
 
 ### Coverage / Confidence / Consolidation
 

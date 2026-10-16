@@ -334,7 +334,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if effective and effective[0] == "domain-comparative":
         # Advisory only: existing analytical index and optional read-only
         # physical source check. Not a same-URL CONS-3 execution.
-        from rasai.consolidation.domain_comparative_index_210 import (
+        from rasai.consolidation.domain_comparative_index import (
             main as domain_preview_main,
         )
         return domain_preview_main(effective[1:])
@@ -342,7 +342,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if effective and effective[0] == "domain-package":
         # Explicit --write-domain-package remains mandatory in the
         # independent CDOM writer. Never activate the canonical CONS path.
-        from rasai.consolidation.domain_comparative_package_210 import (
+        from rasai.consolidation.domain_comparative_package import (
             main as domain_package_main,
         )
         return domain_package_main(effective[1:])
@@ -350,60 +350,60 @@ def main(argv: Sequence[str] | None = None) -> int:
     if effective and effective[0] == "geo-cons-review":
         # Consult one existing CONS selection without changing CONS-3,
         # historical GEO snapshots or the audit/provider runtime.
-        from rasai.geo_cons_companion_311 import main as geo_cons_review_main
+        from rasai.geo_cons_companion import main as geo_cons_review_main
         return geo_cons_review_main(effective[1:])
 
     if effective and effective[0] == "geo-cons-package":
         # Explicit --write-geo-companion is still required; output is a
         # separately versioned GCOMP package, never a canonical CONS mutation.
-        from rasai.geo_cons_package_311 import main as geo_cons_package_main
+        from rasai.geo_cons_package import main as geo_cons_package_main
         return geo_cons_package_main(effective[1:])
 
     if effective and effective[0] in {"geo-query-ledger", "geo-query-report"}:
         # Verified per-query SERP x Search source evidence and accessible HTML.
         # Dispatch before audit runtime, provider secret activation or collectors.
-        from rasai.geo_query_ledger_304 import main as geo_query_ledger_main
+        from rasai.geo_query_ledger import main as geo_query_ledger_main
         return geo_query_ledger_main(effective[1:])
 
     if effective and effective[0] in {"geo-longitudinal", "geo-history"}:
         # Standalone read-only observational inventory. Must execute BEFORE
         # installers / secrets / collector and AI runtime bootstrap.
-        from rasai.geo_longitudinal_311 import main as geo_history_main
+        from rasai.geo_longitudinal import main as geo_history_main
         return geo_history_main(effective[1:])
 
     if effective and effective[0] == "audit-attempts":
         # Read-only local audit M18/M20 timeline; never activate provider runtime.
-        from rasai.audit_attempt_inspection_319 import main as inspect_attempts
+        from rasai.audit_attempt_inspection import main as inspect_attempts
         return inspect_attempts(effective[1:])
 
     if effective and effective[0] == "geo-supplements":
         # Independent post-AUD GEO evidence inspection is never billable.
-        from rasai.geo_supplement_inspection_309 import main as inspect_geo_supplements
+        from rasai.geo_supplement_inspection import main as inspect_geo_supplements
         return inspect_geo_supplements(effective[1:])
 
     if effective and effective[0] == "competitor-html-review":
         # Standalone consent-gated static HTML/robots inspection. No AUD,
         # providers or report side effects; all network requires explicit
         # per-host, per-purpose and per-operation authorization.
-        from rasai.geo_competitor_fetch_330 import main as competitor_html_main
+        from rasai.geo_competitor_fetch import main as competitor_html_main
         return competitor_html_main(effective[1:])
 
     if effective and effective[0] == "competitor-capture":
         # COBS packages remain separately versioned and strictly opt-in.
         # Never activate the canonical collectors or modify source AUD.
-        from rasai.geo_competitor_capture_bundle_330 import main as cobs_capture_main
+        from rasai.geo_competitor_capture_bundle import main as cobs_capture_main
         return cobs_capture_main(effective[1:])
 
     if effective and effective[0] in {"competitor-pair", "competitor-static-report"}:
         # COBS static comparison is a source-verified, strictly offline
         # advisory. Never install collection, AI or active HTTP consumers.
-        from rasai.geo_competitor_pair_330 import main as cobs_pair_main
+        from rasai.geo_competitor_pair import main as cobs_pair_main
         return cobs_pair_main(effective[1:])
 
     if effective and effective[0] in {"dynatrace-rum-crosscheck", "dynatrace-rum-review"}:
         # Two already captured JSONs, no external settings/USQL provider,
         # synthetic Apdex, CLI secrets or audit/runtime initialization.
-        from rasai.dynatrace_population_crosscheck_355 import (
+        from rasai.dynatrace_population_crosscheck import (
             main as dynatrace_crosscheck_main,
         )
         return dynatrace_crosscheck_main(effective[1:])
@@ -411,7 +411,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if effective and effective[0] == "dynatrace-apdex-review":
         # Optional offline RUM settings advisory, no tenant or provider access.
         # Execute before secrets/collector runtime initialization.
-        from rasai.dynatrace_apdex_review_cli_355 import main as dynatrace_review
+        from rasai.dynatrace_apdex_review_cli import main as dynatrace_review
         return dynatrace_review(effective[1:])
 
     if effective and effective[0] == "rematerialize-report":
@@ -449,7 +449,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.m26_cli import main as visibility_main
         return visibility_main(effective[1:])
     if effective and effective[0] == "scoring":
-        from rasai.score_geo_004_cli import main as scoring_main
+        from rasai.score_geo_cli import main as scoring_main
         return scoring_main(effective[1:])
     if effective and effective[0] == "monitor":
         from rasai.monitoring.cli import main as monitoring_main

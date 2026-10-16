@@ -195,7 +195,7 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
     # optional completion/RPR or inclusion in the original cost forecast.
     # All evidence comes from the existing AUD database, verified read-only.
     try:
-        from rasai.audit_attempt_inspection_319 import inspect_audit_attempts
+        from rasai.audit_attempt_inspection import inspect_audit_attempts
         measured = inspect_audit_attempts(database.parent)
         scope = measured["ai_attempt_execution_scope"]
     except (OSError, ValueError, sqlite3.Error):

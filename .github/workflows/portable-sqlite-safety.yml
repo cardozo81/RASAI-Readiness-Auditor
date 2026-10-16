@@ -12,8 +12,10 @@ on:
       - 'tests/test_search_intelligence_monitoring.py'
       - 'pyproject.toml'
       - '.github/workflows/portable-sqlite-safety.yml'
-      - 'docs/**'
-      - 'README.md'
+      - 'docs/SQLITE*.md'
+      - 'docs/PORTABLE*.md'
+      - 'docs/PLATFORM*.md'
+      - 'docs/DATABASE*.md'
   push:
     branches: [main]
     paths:
@@ -25,8 +27,14 @@ on:
       - 'tests/test_search_intelligence_monitoring.py'
       - 'pyproject.toml'
       - '.github/workflows/portable-sqlite-safety.yml'
-      - 'docs/**'
-      - 'README.md'
+      - 'docs/SQLITE*.md'
+      - 'docs/PORTABLE*.md'
+      - 'docs/PLATFORM*.md'
+      - 'docs/DATABASE*.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

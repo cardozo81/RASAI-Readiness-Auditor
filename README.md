@@ -60,7 +60,7 @@ Para inspecionar o contrato atual:
 rasai scoring inspect
 ```
 
-Documentação: [docs/SCORE_GEO_004.md](docs/SCORE_GEO_004.md), [docs/SCORING_GUIDE.md](docs/SCORING_GUIDE.md) e [docs/SARI_READINESS_INDEX.md](docs/SARI_READINESS_INDEX.md).
+Documentação: [docs/SCORE_GEO.md](docs/SCORE_GEO.md), [docs/SCORING_GUIDE.md](docs/SCORING_GUIDE.md) e [docs/SARI_READINESS_INDEX.md](docs/SARI_READINESS_INDEX.md).
 
 Glossário e taxonomia: [docs/GLOSSARY.md](docs/GLOSSARY.md).
 
@@ -129,7 +129,7 @@ A AUD original é mantida intacta. O pacote produzido preserva
 `PRELIMINARY` quando a AUD possui pendências, mesmo que sua integridade estrutural
 seja elegível. Não executa `audit`, `reprocess`, derivação ou provider.
 Use uma pasta de saída diferente a cada execução. Detalhes: 
-[docs/REPORT_REMATERIALIZATION_141.md](docs/REPORT_REMATERIALIZATION_141.md).
+[docs/REPORT_REMATERIALIZATION.md](docs/REPORT_REMATERIALIZATION.md).
 
 
 ### Relatório consolidado longitudinal
@@ -361,7 +361,7 @@ Princípios:
 - [docs/OUTPUTS_AND_ARTIFACTS.md](docs/OUTPUTS_AND_ARTIFACTS.md)
 - [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md)
 - [docs/EXECUTION_SCHEDULING.md](docs/EXECUTION_SCHEDULING.md)
-- [docs/SCORE_GEO_004.md](docs/SCORE_GEO_004.md)
+- [docs/SCORE_GEO.md](docs/SCORE_GEO.md)
 - [docs/SCORING_GUIDE.md](docs/SCORING_GUIDE.md)
 - [docs/SARI_READINESS_INDEX.md](docs/SARI_READINESS_INDEX.md)
 - [docs/AI_GUIDE.md](docs/AI_GUIDE.md)

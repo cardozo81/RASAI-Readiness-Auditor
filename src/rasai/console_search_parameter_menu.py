@@ -176,7 +176,7 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
         print(f"   Impacto projetado         : {projected}/{config.max_requests} requests no teto conservador")
     else:
         print("   Solicitação               : NÃO SOLICITADA enquanto não houver termos")
-    from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
+    from rasai.console_perplexity_readiness import inspect_perplexity_readiness
     px_view = inspect_perplexity_readiness(state)
     perplexity_queries = tuple(getattr(state, "perplexity_queries", ()) or ())
     perplexity_type = str(
@@ -532,7 +532,7 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             "  Advisory e independente de SERP: não altera scoring, SARI, CAT score "
             "ou evidência determinística."
         )
-        from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
+        from rasai.console_perplexity_readiness import inspect_perplexity_readiness
         px = inspect_perplexity_readiness(state)
         print(
             f"  Solicitação           : "

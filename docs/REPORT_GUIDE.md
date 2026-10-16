@@ -355,7 +355,7 @@ Estados visuais específicos do domínio prevalecem sobre decoradores genéricos
 
 O catálogo de superfícies e a validação de completude usam `REPORT-CONTRACT-002`. `methodology.html` é a única superfície canônica de metodologia; a versão metodológica pertence a `scoring_version`, não ao filename. A regra estrutural vigente é: **toda superfície canônica possui HTML no mini-site final; dados e capacidades continuam opcionais conforme seus próprios contratos**.
 
-Detalhes complementares: [OUTPUTS_AND_ARTIFACTS.md](OUTPUTS_AND_ARTIFACTS.md), [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md), [SCORING_GUIDE.md](SCORING_GUIDE.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md), [SCORE_GEO_004.md](SCORE_GEO_004.md) e [CAPTURE_CONTEXT_MODEL.md](CAPTURE_CONTEXT_MODEL.md).
+Detalhes complementares: [OUTPUTS_AND_ARTIFACTS.md](OUTPUTS_AND_ARTIFACTS.md), [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md), [SCORING_GUIDE.md](SCORING_GUIDE.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md), [SCORE_GEO.md](SCORE_GEO.md) e [CAPTURE_CONTEXT_MODEL.md](CAPTURE_CONTEXT_MODEL.md).
 
 
 ## Cronologia das tentativas e prontidao de conteudo (#319 / #321 / #322)
@@ -364,4 +364,4 @@ Em `metrics.html`, quando existem registros, a tabela adicional de cronologia de
 
 No console, a cronologia e apresentada como observacao independente apos a AUD. Sua ausencia nao indica zero custo quando os registros estao incompletos. Chamadas Search API externas e analises direcionadas podem ser posteriores a conclusao inicial e devem ter temporalidade propria.
 
-O estudo [APDEX_CONTENT_READINESS_INVESTIGATION_321.md](APDEX_CONTENT_READINESS_INVESTIGATION_321.md) demonstra a diferenca entre evento `load`, tarefa de experiencia sintetica e materializacao de conteudo primario em uma SPA. Uma leitura de arquitetura `CSR_SPA`, `HYDRATED` ou `MIXED` **nao** modifica Apdex, pontuacao ou qualquer serie historica. Existe classificador advisory experimental `APP_PRIMARY_CONTENT_READINESS` com checkpoints monotônicos da **mesma amostra e contexto**, censura, opt-in e exclusoes explicitas. A sonda de navegador ainda nao esta integrada aos gateways homologados, portanto o relatorio **nao** atribui duracao ficticia de prontidao a amostras existentes.
+O estudo [APDEX_CONTENT_READINESS_INVESTIGATION.md](APDEX_CONTENT_READINESS_INVESTIGATION.md) demonstra a diferenca entre evento `load`, tarefa de experiencia sintetica e materializacao de conteudo primario em uma SPA. Uma leitura de arquitetura `CSR_SPA`, `HYDRATED` ou `MIXED` **nao** modifica Apdex, pontuacao ou qualquer serie historica. Existe classificador advisory experimental `APP_PRIMARY_CONTENT_READINESS` com checkpoints monotônicos da **mesma amostra e contexto**, censura, opt-in e exclusoes explicitas. A sonda de navegador ainda nao esta integrada aos gateways homologados, portanto o relatorio **nao** atribui duracao ficticia de prontidao a amostras existentes.

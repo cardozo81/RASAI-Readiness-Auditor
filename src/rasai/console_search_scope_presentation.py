@@ -97,7 +97,7 @@ def render_search_scope(state: Any) -> None:
     ).strip().upper()
     perplexity_status = perplexity_configuration_status()
     ready, detail = validate_perplexity_readiness(state)
-    from rasai.console_perplexity_readiness_318 import inspect_perplexity_readiness
+    from rasai.console_perplexity_readiness import inspect_perplexity_readiness
     px = inspect_perplexity_readiness(state)
     info("Solicitação", px["status"] if not perplexity_queries else "SOLICITADA")
     info("Quantidade de queries", len(perplexity_queries))

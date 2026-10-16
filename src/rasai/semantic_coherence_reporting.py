@@ -7,7 +7,7 @@ import json
 import sqlite3
 from typing import Any
 
-from rasai.score_geo_004 import DIMENSION_WEIGHTS, RULE_SCORING_CONTRACT
+from rasai.score_geo import DIMENSION_WEIGHTS, RULE_SCORING_CONTRACT
 from rasai.semantic_coherence import PAGE_COHERENCE_CRITERIA, PROPERTY_COHERENCE_CRITERIA
 from rasai.catalog_report_public_labels import public_label
 from rasai.report_presentation import SCORING_CONCEPT_LABELS
@@ -456,7 +456,7 @@ def install() -> None:
     from rasai import catalog_report_evidence as evidence
     from rasai import catalog_report_page as page
     original=evidence._semantic_html
-    from rasai.faq_observation_601 import faq_observation_html
+    from rasai.faq_observation import faq_observation_html
 
     def semantic_html_with_coherence(database: Any,data: Any) -> str:
         return _context_html(evidence,database,data.audit_id)+_auto_interpretation_html(evidence,database,data.audit_id)+_ymyl_alignment_html(evidence,database,data.audit_id)+faq_observation_html(database,data.audit_id)+_property_summary_html(evidence,database,data.audit_id)+_page_summary_html(evidence,database,data.audit_id)+_semantic_assessments_html(evidence,database,data.audit_id)+original(database,data)

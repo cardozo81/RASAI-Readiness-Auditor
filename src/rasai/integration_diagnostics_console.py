@@ -226,7 +226,7 @@ def _render_dependencies(state: Any, spec: diagnostics.IntegrationSpec) -> None:
             print(f" - {label}: {value} [{origin}]")
             print(paint(f"   Variável técnica: {name}", GRAY))
     if spec.id == "search:perplexity":
-        from rasai.console_perplexity_readiness_318 import render_perplexity_readiness
+        from rasai.console_perplexity_readiness import render_perplexity_readiness
         render_perplexity_readiness(state)
     if spec.probe_kind in _TARGETED_WEB_PROBE_KINDS:
         print("\nALVO DO TESTE DE INTEGRAÇÃO")

@@ -26,45 +26,45 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 ## Direcionamento individual e gates
 
-### Issue #523 - P1 · IMPLEMENTED_NOT_PROVEN + PARTIALLY_IMPLEMENTED
+### Issue #523 - P2 · IMPLEMENTED_NOT_PROVEN + PARTIALLY_IMPLEMENTED
 
-**Já presente / evidência técnica:** `console_configuration_inventory_523`, `console_config_provenance_523`, testes de save/load em processos independentes, projeção M23/M25, draft Perplexity não autorizativo.
+**Já presente / evidência técnica:** `console_configuration_inventory`, `console_config_provenance`, testes de save/load em processos independentes, projeção M23/M25, draft Perplexity não autorizativo.
 
 **Critério residual e risco:** Matriz de todos os consumidores/runtime, precedência efetiva variável a variável, paridade completa de categoria e smoke humano Windows ainda sem certificado.
 
 **Implementação ou verificação direcionada:** Gerar inventário metadata-only sobre INI temporário; confrontar cada EnvironmentSpec e campo tipado com loader/serializador/consumidor; criar apenas adapters/tests faltantes, sem tocar M23/M25. Usar relatório de exceções por variável, não alegar paridade de secret execution-only.
 
-**Testes selecionados (planejados, não executados aqui):** `python -m rasai.console_configuration_inventory_523 --ini <INI_TEMP> --verify-apdex`; `python -m pytest -q tests/test_console_configuration_inventory_523.py tests/test_console_fresh_process_roundtrip_523.py tests/test_console_persistence_matrix_523.py tests/test_console_config_provenance_523.py`.
+**Testes selecionados (planejados, não executados aqui):** `python -m rasai.console_configuration_inventory --ini <INI_TEMP> --verify-apdex`; `python -m pytest -q tests/test_console_configuration_inventory.py tests/test_console_fresh_process_roundtrip.py tests/test_console_persistence_matrix.py tests/test_console_config_provenance.py`.
 
 **Prova exigida para fechamento:** CSV/JSON secret-safe de 100% do registry (categoria, source, persistência, origem, loader, consumidor, precedência e resultado), round-trip não default em 2 processos, comparação de efeitos em adapters, prova Windows específica sem credenciais reais. Fechar só com matriz completa e gate Windows pertinente.
 
-### Issue #319 - P1 · PARTIALLY_IMPLEMENTED
+### Issue #319 - P2 · PARTIALLY_IMPLEMENTED
 
-**Já presente / evidência técnica:** `audit-attempts`, `audit_fulfillment_timing_319`, cronômetros de logs operacionais, forecasts, exclusão de custos Directed/Search opcionais (PR #629).
+**Já presente / evidência técnica:** `audit-attempts`, `audit_fulfillment_timing`, cronômetros de logs operacionais, forecasts, exclusão de custos Directed/Search opcionais (PR #629).
 
 **Critério residual e risco:** Clocks exclusivos confiáveis de todas as etapas não-IA, atribuição financeira por fase e separação correta entre soma das tarefas e wall-time; histórico real não comprova toda a partição.
 
 **Implementação ou verificação direcionada:** Executar inspeção read-only em AUD física estabilizada; construir cobertura por fase distinguindo OBSERVED/UNVERIFIED/N/D. Somente se houver fonte física segura, adicionar pontos de observabilidade nas bordas do runtime sem alterar lógica orquestradora; nunca inferir duração exclusiva por subtração.
 
-**Testes selecionados (planejados, não executados aqui):** `rasai audit-attempts <AUD_DIR>`; `python -m pytest -q tests/test_audit_stage_scope_319.py tests/test_audit_attempt_timeline_319.py tests/test_audit_duration_forecast_319.py tests/test_audit_cost_explain_319.py tests/test_cost_forecast.py`.
+**Testes selecionados (planejados, não executados aqui):** `rasai audit-attempts <AUD_DIR>`; `python -m pytest -q tests/test_audit_stage_scope.py tests/test_audit_attempt_timeline.py tests/test_audit_duration_forecast.py tests/test_audit_cost_explain.py tests/test_cost_forecast.py`.
 
 **Prova exigida para fechamento:** Reconciliação das 8 tentativas IA (M18 + remediação), momentos overlapped, custos por operação, expected/observed e P90 não-teto, cobertura por fase; N/D preservado quando relógio ausente; no duplicate-cost. Fechar com equivalência comprovada console/prévia/relatório e cobertura exigível demonstrada.
 
 ### Issue #602 - P1 · IMPLEMENTED_NOT_PROVEN + NEEDS_DECISION
 
-**Já presente / evidência técnica:** Classificador opcional/contradição/desconhecido, ADR, laboratório in-memory, CLI read-only `optional_seo_audit_replay_602` sem alterar SCORE-GEO-004.
+**Já presente / evidência técnica:** Classificador opcional/contradição/desconhecido, ADR, laboratório in-memory, CLI read-only `optional_seo_audit_replay` sem alterar SCORE-GEO-004.
 
-**Critério residual e risco:** Replay físico golden sobre cópia estável da AUD de 14/10 ainda não executado com novo código; decisão explícita de finalidade/política e versão de score para mudança numérica.
+**Critério residual e risco:** Replay físico golden sobre cópia estável da AUD de 14/10 executado em Windows e aprovado em 15/10/2026; permanece a decisão explícita de finalidade/política e versão de score para mudança numérica.
 
 **Implementação ou verificação direcionada:** Reproduzir score canônico sobre cópia isolada, comparar bytes SHA-256 antes/depois e overall/dimensões/gates/coverage/confidence; gerar cenários sem promover a produção. Submeter ADR/efeitos a gate metodológico. Somente após decisão, implementar versão nova e migração de leitura histórica não destrutiva.
 
-**Testes selecionados (planejados, não executados aqui):** `python -m rasai.optional_seo_audit_replay_602 <AUD_COPIA> --device MOBILE`; `python -m pytest -q tests/test_scoring_discovery_refinement_20260908.py tests/test_score_geo_004.py tests/test_score_geo_004_applicability.py`.
+**Testes selecionados (planejados, não executados aqui):** `python -m rasai.optional_seo_audit_replay <AUD_COPIA> --device MOBILE`; `python -m pytest -q tests/test_scoring_discovery_refinement.py tests/test_score_geo.py tests/test_score_geo_applicability.py`.
 
 **Prova exigida para fechamento:** Golden da AUD com 59 rule executions e score persistido 86,484962, comparação BR-GEO-003/013/017 e matriz de delta por dimensão, política aprovada e contrato versionado, replays idempotentes, nenhuma alteração da AUD original. Sem decisão: issue OPEN.
 
 ### Issue #601 - P1 · PARTIALLY_IMPLEMENTED + BLOCKED_AUTH
 
-**Já presente / evidência técnica:** Classificador de transição FAQ no DOM e `faq_interaction_receipt_601` HMAC, com guard `crawler_discovery_verified=false`; testes em `test_ymyl_context_flow.py`.
+**Já presente / evidência técnica:** Classificador de transição FAQ no DOM e `faq_interaction_receipt` HMAC, com guard `crawler_discovery_verified=false`; testes em `test_ymyl_context_flow.py`.
 
 **Critério residual e risco:** Coletor browser opt-in seguro com gesto real em contexto isolado, prova DOM pré/pós em mesmo alvo, matriz lazy-mount e decisão metodológica versionada BR-GEO-039/049.
 
@@ -100,25 +100,25 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 ### Issue #304 - P1 · PARTIALLY_IMPLEMENTED + BLOCKED_EXTERNAL
 
-**Já presente / evidência técnica:** GEO OBSERVATION v8, `geo_query_ledger_304`, URL exata/host alternativo, denominadores e abstenções, N/D por query sem proveniência, UI descritiva.
+**Já presente / evidência técnica:** GEO OBSERVATION v8, `geo_query_ledger`, URL exata/host alternativo, denominadores e abstenções, N/D por query sem proveniência, UI descritiva.
 
 **Critério residual e risco:** Prova de equivalência externa de mercado, idioma, dispositivo, intenção/branded e tempo Perplexity × SERP; validação de fonte física sem paid calls neste ciclo.
 
 **Implementação ou verificação direcionada:** Inspecionar ledger físico já persistido por query, declarar matriz das dimensões de comparabilidade que o provider realmente entrega. Implementar somente atributos observados/adapters, nunca inferir o que a API não retorna; caso contrato de provider não ofereça equivalência, reportar NOT_VERIFIABLE e manter métricas DESCRIPTIVE_ONLY.
 
-**Testes selecionados (planejados, não executados aqui):** `rasai geo-query-ledger <AUD_DIR> --format json`; `python -m pytest -q tests/test_geo_query_ledger_304.py tests/test_geo_observation.py tests/test_geo_report.py`.
+**Testes selecionados (planejados, não executados aqui):** `rasai geo-query-ledger <AUD_DIR> --format json`; `python -m pytest -q tests/test_geo_query_ledger.py tests/test_geo_observation.py tests/test_geo_report.py`.
 
 **Prova exigida para fechamento:** Amostra de pares com request IDs, query, intent, país/idioma/device/collected_at e hashes físicos, denominadores válidos, multi-query positivo/negativo. Sem provider comparável, aceitar apenas alegação descritiva, não certificar ranking/share/citação.
 
 ### Issue #311 - P3 · PARTIALLY_IMPLEMENTED + NEEDS_DECISION
 
-**Já presente / evidência técnica:** `geo-longitudinal`, `geo_cons_companion_311`, pacote derivado e preflight seguro, trends N/D, CONS-3 intocado.
+**Já presente / evidência técnica:** `geo-longitudinal`, `geo_cons_companion`, pacote derivado e preflight seguro, trends N/D, CONS-3 intocado.
 
 **Critério residual e risco:** Zero coortes elegíveis na revisão histórica de 21 AUDs; falta contrato metodológico aprovado e integração nativa ao CONS, caso autorizada.
 
 **Implementação ou verificação direcionada:** Decidir se o escopo aceitável é companion consultivo ou tendência medida; construir 2+ AUDs genuinamente comparáveis (não fabricar). Se integração nativa for aprovada, produzir contrato CONS versionado, fingerprint e testes de idempotência e limites; não inserir taxas não equivalentes.
 
-**Testes selecionados (planejados, não executados aqui):** `rasai geo-longitudinal <AUD_A> <AUD_B>`; `python -m pytest -q tests/test_geo_longitudinal_311.py tests/test_geo_cons_companion_311.py tests/test_geo_cons_package_311.py`.
+**Testes selecionados (planejados, não executados aqui):** `rasai geo-longitudinal <AUD_A> <AUD_B>`; `python -m pytest -q tests/test_geo_longitudinal.py tests/test_geo_cons_companion.py tests/test_geo_cons_package.py`.
 
 **Prova exigida para fechamento:** Proveniência por coorte, mesma URL/query/mercado/método/versão, série N/D quando não homogênea, package source hashes, contrato CONS aprovado, teste de fingerprints e não alteração de CONS-3. Sem metodologia: OPEN.
 
@@ -130,7 +130,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Implementar política de consentimento opt-in revogável independente do auditor principal, limites por host/finalidade, trilha de escopo e cancelamento; pipeline de captura JS autorizada isolado e estados `N/D` para shell/timeout/robots; preservar materialização existente.
 
-**Testes selecionados (planejados, não executados aqui):** `python -m pytest -q tests/test_geo_competitor_fetch_330.py tests/test_geo_competitor_pinned_egress_330.py tests/test_geo_competitor_content_provenance_330.py tests/test_geo_competitor_capture_bundle_330.py`.
+**Testes selecionados (planejados, não executados aqui):** `python -m pytest -q tests/test_geo_competitor_fetch.py tests/test_geo_competitor_pinned_egress.py tests/test_geo_competitor_content_provenance.py tests/test_geo_competitor_capture_bundle.py`.
 
 **Prova exigida para fechamento:** Fixtures HTTP de shell vazio/robots/403/redirect/SPA; para aceite externo obter consentimento por alvo, log autorizado de egress, URL inicial/final mesma origem autorizada, hash HTML renderizado, captura principal e provenance com observation_id; sem opt-in não navegar.
 
@@ -142,7 +142,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Primeiro executar comparadores offline com export/snapshot autorizado, confirmar KPM/threshold/fallback por action e contexto de coorte; no gate autorizado, executar somente consulta RUM read-only no tenant controlado, sem inventar settings nem alterar M23/M25.
 
-**Testes selecionados (planejados, não executados aqui):** `rasai dynatrace-rum-crosscheck` com snapshots locais verificados; `python -m pytest -q tests/test_dynatrace_apdex_arch_advisory_355.py tests/test_dynatrace_population_crosscheck_355.py tests/test_dynatrace_live_crosscheck_355.py tests/test_cat07_architecture_integration_358.py`.
+**Testes selecionados (planejados, não executados aqui):** `rasai dynatrace-rum-crosscheck` com snapshots locais verificados; `python -m pytest -q tests/test_dynatrace_apdex_arch_advisory.py tests/test_dynatrace_population_crosscheck.py tests/test_dynatrace_live_crosscheck.py tests/test_cat07_architecture_integration.py`.
 
 **Prova exigida para fechamento:** Settings snapshot físico e metadados tenant/app + USQL action populations com janela temporal; captura do CAT-07 `N/D` quando não obtido, distinção load vs SPA route e método Synthetic; homologação humana do crosscheck real exigida no contrato.
 
@@ -154,7 +154,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Não implementar nem ativar no atual ciclo sem autorização específica expressa. Consultar resultados históricos como informação; não bloquear advisory autônomo #355/#357 pela ausência do sensor opcional.
 
-**Testes selecionados (planejados, não executados aqui):** Somente as regressões existentes `tests/test_apdex_content_readiness_322.py`, `tests/test_playwright_primary_content_probe_322.py`, `tests/test_readiness_matched_pilot_322.py` se algum contrato externo ao escopo for tocado (não previsto).
+**Testes selecionados (planejados, não executados aqui):** Somente as regressões existentes `tests/test_apdex_content_readiness.py`, `tests/test_playwright_primary_content_probe.py`, `tests/test_readiness_matched_pilot.py` se algum contrato externo ao escopo for tocado (não previsto).
 
 **Prova exigida para fechamento:** Para uma futura autorização: identidade física page/sample/clock, baseline e overhead, aceitação feature gate, não alteração M23/M25. Estado OPEN até lá.
 
@@ -166,7 +166,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Conferir gates e condições das filhas #355, #358 e relação consultiva com #523; separar entregas de advisory aprováveis sem RUM de alegações que requerem tenant real. Não reabrir #322 como atalho e não alterar M23/M25.
 
-**Testes selecionados (planejados, não executados aqui):** `python -m pytest -q tests/test_cat07_architecture_integration_358.py tests/test_dynatrace_apdex_arch_advisory_355.py tests/test_m25_dynatrace_compat_defaults.py`.
+**Testes selecionados (planejados, não executados aqui):** `python -m pytest -q tests/test_cat07_architecture_integration.py tests/test_dynatrace_apdex_arch_advisory.py tests/test_m25_dynatrace_compat_defaults.py`.
 
 **Prova exigida para fechamento:** Matriz dos critérios do épico com ponte para evidências #355/#523 e histórico de PRs, CAT-07 real read-only, aceites exigíveis. Fechar somente o épico contratualmente completo, sem condicionar parte independente ao sensor opt-in.
 
@@ -178,7 +178,7 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 
 **Implementação ou verificação direcionada:** Reconstruir checklist somente das filhas originalmente integrantes do épico e do escopo residual ativo; classificar cada relação como BLOCKER/RELATED/ROADMAP, exigir prova GEO por consulta e gates comerciais sem chamadas automáticas. #311/#330 não devem ampliar retroativamente aceite do release #310.
 
-**Testes selecionados (planejados, não executados aqui):** `python -m pytest -q tests/test_geo_observation.py tests/test_geo_query_ledger_304.py tests/test_geo_report.py tests/test_perplexity_search_intelligence.py`.
+**Testes selecionados (planejados, não executados aqui):** `python -m pytest -q tests/test_geo_observation.py tests/test_geo_query_ledger.py tests/test_geo_report.py tests/test_perplexity_search_intelligence.py`.
 
 **Prova exigida para fechamento:** Rastreabilidade de cada filha obrigatória, evidência de fontes, fechamento de #304 quando contratualmente possível, paridade geo.html e motor preservado. Aceitar descritivo com N/D apenas se contrato do épico permitir explicitamente; se não, OPEN.
 
@@ -215,6 +215,14 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 5. Fechar issue como `COMPLETED` **somente** com todos os critérios exigíveis comprovados na `main`, testes e provas necessárias, nenhuma homologação/decisão humana obrigatória faltante.
 6. Se faltar apenas prova externa/autorização, registrar exatamente fonte, escopo, responsável, custo e critério de desbloqueio; prosseguir nas demais issues. Épicos não são concluídos por encerramento administrativo, UX previamente aprovada ou quantidade de commits.
 
+## Evidência física posterior ao plano (15/10/2026)
+
+As instruções das seções acima foram concebidas antes do gate físico. O estado de aceite abaixo substitui exclusivamente as lacunas cuja comprovação foi efetivamente apresentada pelo operador; não substitui os requisitos remanescentes.
+
+- **#523 - branch/CI:** preflight de `main@beb5cc8c5e287ecee6e869779881702efb74eb07` em Windows: `41 passed, 4 skipped`; `registry_size=189`, campos tipados `72/73` com único campo derivado `synthetic_apdex_experience.device_mix`, zero violações secret/INI, zero requests, zero escritas em AUD. Na branch `chore/acceptance-evidence-reconciliation@8058bbbb`, o operador executou os quatro arquivos de regressão: `43 passed, 4 skipped`, e o preflight relatou `load_warning_count=22`, todos `unknown_or_nonpersistible_environment`; as outras quatro categorias tiveram zero. O inventário não demonstrou origem/consumidor de 100% dos campos. Um refinamento sanitizado da causa dos avisos foi adicionado à PR #645 e ainda precisa de CI e preflight físico **sobre o novo HEAD**. Manter OPEN até reconciliação dos rejeitados, matriz efetiva e smoke save/reopen.
+- **#319 - Windows físico:** `140 passed, 3 skipped` nas regressões direcionadas; oito tentativas de IA (incluindo Content Remediation), `641249,761 ms` acumulados e `812189 ms` de duração física de sessão. `US$ 0,153062004` é estimativa post-hoc, não cobrança observada. Persistem `non_ai_stages_measured=false` e ausência de cronômetros exclusivos físicos das fases não-IA; não somar durações sobrepostas. Manter OPEN.
+- **#602 - golden físico aprovado:** cópia isolada `AUD-EAFBFF6E3F6E415CB0DD41F561B5B2DF`, 59 rule executions, replay `VERIFIED_SCORE_GEO_004`, hash antes/depois do banco `036EC79119C937540A29DAD0571607D0F24F5B404C31D11ADEE4FF44760274C3`. Score canônico 86,484962 / ATTENTION, sem alteração dos índices ou dados. Cenários `OPTIONAL_ABSENCE_NOT_APPLICABLE=89,800752` e `OPTIONAL_ABSENCE_PASS=89,958647` são apenas simulações, não política aprovada. `19 passed` em regressões focais; manter OPEN até decisão metodológica e versionamento, caso aplicável.
+
 ## Pontos de governança corrigidos na reconciliação
 
 - **#301:** #311 e #330 são roadmaps relacionados e não devem ser introduzidos retroativamente como gates obrigatórios do release GEO #310 já encerrado. Reconciliar os requisitos explícitos restantes do épico sem apagar #304.
@@ -222,3 +230,27 @@ Nenhuma célula deve ser preenchida como PROVEN apenas por indicação do plano 
 - **#523:** documentação histórica anterior sobre queries Perplexity não persistirem foi **substituída** pelo contrato posterior de `[perplexity_draft]`, que persiste somente rascunho não autorizativo. Não classificar draft restaurado como consentimento.
 - **#600:** as correções de apresentação #633 não constituem prova de scores novos; o cálculo canônico pode permanecer numericamente inalterado enquanto falta decisão de semântica #601/#602.
 - **#639:** política incremental verifica novos nomes, não certifica migração dos 238 anteriores. Renomear arquivos históricos não tem prioridade sobre falhas P1 ou gates físico/metodológicos.
+
+
+## Reconciliação de issues e gates - checkpoint do HEAD 6001e1eca0a8 (15/10/2026)
+
+**Escopo confirmado:** #639, #600-#604, #523, #357, #355, #330, #322, #319, #311, #304 e épico #301 continuam OPEN; #210 e quatro issues de número menor que #301 permanecem fora deste ciclo. Não tratar épicos como concluídos antes de seus filhos mandatórios. O inventário da árvore Git do HEAD informado está completo (`truncated=false`), com 0 paths sob a regex numérica histórica, mas esse número **não** prova aliases externos, contratos CLI ou formas não numéricas de ID.
+
+**Gate de integração da PR #645:** HEAD 6001e1eca0a80ff806e13d228e830512c92878df; DRAFT, não integrada; `main@beb5cc8c5e287ecee6e869779881702efb74eb07` preservada. Consulta de CI deste HEAD identificou 78 runs: 73 queued e 5 pending, nenhum SUCCESS comprovado no último checkpoint. Portanto **não integrar** até checks obrigatórios verdes e aceite humano exigido; risco baixo da mudança de algoritmo não implica risco baixo de compatibilidade de módulo importável. Executar verificações de imports CLI público, workflow path e testes direcionados para os 22 módulos migrados, com prioridade elevada a SCORE-GEO e console.
+
+| Issue | Prova ou intervenção técnica seguinte | Restrição de encerramento |
+|---|---|---|
+| #639 | CI do HEAD final, varredura não numérica, contratos `python -m` / imports externos, exceções documentadas | Não fechar só pela contagem zero |
+| #523 | Matriz efetiva INI/sessão, cópia isolada save/reopen e novo processo Windows | Não salvar INI operacional nem considerar fixture prova física |
+| #319 | Cronômetros exclusivos não-IA e projeção read-only de custo observado versus estimado | Não somar estágios paralelos nem inferir invoice |
+| #600 | Contrato de cobertura/confiança na apresentação e diferenciação ORIGIN/URL | Depende da honestidade semântica #601 e política vigente #602 |
+| #601 | Fixture FAQ com DOM pré/pós interação segura e estado não verificado | Não alterar scores históricos nem declarar indexação por clique |
+| #602 | Parecer normativo e versão nova somente caso haja recalibração | Golden de sensibilidade não é autorização de política |
+| #603 | Proveniência versionada e classificação fail-closed das claims | Sem documentação externa não afirmar conformidade |
+| #304 | Comparabilidade por consulta/tempo/região e abstention multi-query | Não inferir equivalência sem denominador e provenance |
+| #311 / #330 | Comprovar limites de comparabilidade longitudinal e de conteúdo concorrente | Não projetar dados externos como evidência da AUD original |
+| #355 / #357 | Cobertura Dynatrace por categoria e arquitetura com proveniência real | Não converter aconselhamento em RUM observado |
+| #322 | Evidência de prontidão do conteúdo separada de load | Preservar M23/M25 |
+| #301 / #604 | Reconciliar dependências e filhos obrigatórios | Não encerrar épico enquanto existir gate mandatório |
+
+**Ordem de execução após os gates de compatibilidade:** (1) provas técnicas #639; (2) #600/#601/#603 read-only e fixtures, em paralelo lógico com #319/#304; (3) gates físicos #523, normativo #602, dados reais #355; (4) épicos por dependência. Revisar CI apenas em checkpoints, não disparar manualmente 78 workflows.

@@ -11,6 +11,8 @@ from pathlib import Path
 import math
 import sqlite3
 
+_MAX_LEDGER_ROWS = 10000
+
 
 @dataclass(frozen=True, slots=True)
 class TimelineStage:
@@ -183,15 +185,20 @@ def read_audit_attempt_timeline(
         connection.execute("PRAGMA query_only=ON")
         groups: dict[str, list[dict]] = {}
         all_rows: list[dict] = []
+        # Attempt IDs are generated identities, not table-local row numbers.
+        # A collision across M18/M20 makes a complete economic census unsafe.
+        global_seen: set[str] = set()
         for table in ("ai_provider_attempts", "content_remediation_attempts"):
             if connection.execute(
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
             ).fetchone() is None:
                 continue
             rows = connection.execute(
-                f"SELECT * FROM {table} WHERE audit_id=?",
-                (audit_id,),
+                f"SELECT * FROM {table} WHERE audit_id=? LIMIT ?",
+                (audit_id, _MAX_LEDGER_ROWS + 1),
             ).fetchall()
+            if len(rows) > _MAX_LEDGER_ROWS or len(all_rows) + len(rows) > _MAX_LEDGER_ROWS:
+                raise ValueError("bounded AI attempt timeline ledger population exceeded")
             seen: set[str] = set()
             for raw in rows:
                 row = dict(raw)
@@ -203,7 +210,10 @@ def read_audit_attempt_timeline(
                     raise ValueError(
                         "ambiguous AI attempt_id in physical " + table + " ledger"
                     )
+                if key in global_seen:
+                    raise ValueError("ambiguous AI attempt_id across physical ledgers")
                 seen.add(key)
+                global_seen.add(key)
                 name = _group(row, table=table)
                 groups.setdefault(name, []).append(row)
                 all_rows.append(row)

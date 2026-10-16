@@ -4,7 +4,31 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - 'src/rasai/monitoring/**'
+      - 'src/rasai/observability/**'
+      - 'src/rasai/quality/**'
+      - 'src/rasai/report_registry.py'
+      - 'src/rasai/score_geo*.py'
+      - 'src/rasai/scoring_v004.py'
+      - 'src/rasai/entrypoint.py'
+      - 'src/rasai/console_entrypoint.py'
+      - 'tests/test_monitoring_*.py'
+      - 'tests/test_observability_*.py'
+      - 'tests/test_quality_*.py'
+      - 'tests/test_release_gate_*.py'
+      - 'tests/test_change_impact_genai_semantics.py'
+      - 'tests/test_crux_scope_hardening.py'
+      - 'tests/test_gsc_*.py'
+      - 'tests/test_score_geo*.py'
+      - 'tests/test_report_registry_and_method_docs.py'
+      - 'pyproject.toml'
+      - '.github/workflows/monitoring-observability-ci.yml'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -32,9 +56,9 @@ jobs:
             src/rasai/monitoring \
             src/rasai/observability \
             src/rasai/quality \
-            src/rasai/score_geo_004.py \
+            src/rasai/score_geo.py \
             src/rasai/scoring_v004.py \
-            src/rasai/score_geo_004_cli.py
+            src/rasai/score_geo_cli.py
       - name: Directed monitoring observability and quality tests
         run: |
           python -m pytest -q \
@@ -50,10 +74,10 @@ jobs:
             tests/test_gsc_inspection_failure_policy.py \
             tests/test_quality_actionable_priorities.py \
             tests/test_quality_filesystem_safety.py \
-            tests/test_score_geo_004.py \
+            tests/test_score_geo.py \
             tests/test_report_registry_and_method_docs.py
       - name: Existing scoring and observed visibility regressions
         run: |
           python -m pytest -q \
             tests/test_m26_observed_generative_visibility.py \
-            tests/test_score_geo_004_applicability.py
+            tests/test_score_geo_applicability.py

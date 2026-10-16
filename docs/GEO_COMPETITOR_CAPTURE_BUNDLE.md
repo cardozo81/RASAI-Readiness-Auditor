@@ -1,6 +1,6 @@
 # #330 - Manifesto de captura competitiva vinculado à SERP
 
-O adaptador `python -m rasai.geo_competitor_capture_bundle_330`
+O adaptador `python -m rasai.geo_competitor_capture_bundle`
 reutiliza o consumidor de HTML público com consentimento e robots.txt
 da #330, mas adiciona uma **saída local versionada e separada**. Nunca
 escreve na AUD original nem ativa o relatório produtivo GEO/CONS.
@@ -46,7 +46,7 @@ requerer descarte conforme política operacional de retenção.
 Exemplo opt-in, que faz requests públicos quando executado:
 
 ```powershell
-python -m rasai.geo_competitor_capture_bundle_330 `
+python -m rasai.geo_competitor_capture_bundle `
   --audit-dir .\audits\AUD-EXEMPLO `
   --serp-observation-id SERP-EXEMPLO `
   --candidate-url https://concorrente.exemplo.br/produto `
@@ -119,7 +119,7 @@ apareça nos resultados SERP, pois ausência do alvo no SERP não
 impede obter sua página mediante consentimento próprio.
 
 ```powershell
-python -m rasai.geo_competitor_capture_bundle_330 `
+python -m rasai.geo_competitor_capture_bundle `
   --audit-dir .\audits\AUD-EXEMPLO `
   --serp-observation-id SERP-EXEMPLO `
   --candidate-url https://cliente.example.org/pagina `
@@ -140,7 +140,7 @@ uma comparação **puramente offline e descritiva** pode ser feita
 sem novas consultas HTTP, IA ou alterações na AUD:
 
 ```powershell
-python -m rasai.geo_competitor_pair_330 `
+python -m rasai.geo_competitor_pair `
   --audit-dir .\audits\AUD-EXEMPLO `
   --customer-manifest .\evidencias-competitivas\COBS-ALVO\manifest.json `
   --competitor-manifest .\evidencias-competitivas\COBS-CONCORRENTE\manifest.json
@@ -189,7 +189,7 @@ homologa coleta automática, egress SaaS ou integração com o pipeline.
 `rasai competitor-capture` encaminha os argumentos ao
 materializador versionado isolado sem acionar o motor de auditoria.
 Além dos parâmetros de `python -m
-rasai.geo_competitor_capture_bundle_330`, permanecem obrigatórios
+rasai.geo_competitor_capture_bundle`, permanecem obrigatórios
 `--allow-public-html-requests`, `--consent-host` exato,
 `--consent-purpose` compatível com o papel, e ambas as flags
 `--consent-operation`. O comando não retira as proteções de
@@ -214,7 +214,7 @@ requisições comerciais, banco original intacto.
 
 ## Revalidação física dos dois manifests durante a comparação (12/10/2026)
 
-O comparador consultivo `geo_competitor_pair_330` verifica o vínculo dos
+O comparador consultivo `geo_competitor_pair` verifica o vínculo dos
 sidecars COBS ao SHA-256 da AUD e aos registros SERP persistidos. Além da
 validação inicial de cada `manifest.json` content-addressed, agora
 **relê e verifica os dois manifests ao final**, antes de disponibilizar
@@ -244,7 +244,7 @@ captura/consentimento, renderização e comparabilidade permanece igual.
 
 ## Cruzamento lexical estático entre alvo e concorrente (#330)
 
-O comparador offline `geo_competitor_pair_330` acrescenta conjuntos
+O comparador offline `geo_competitor_pair` acrescenta conjuntos
 exatos, ordenados e sem duplicatas de texto dos `headings` e de
 `query_body_terms` identificados nas duas capturas COBS:
 `observed_heading_text_both/customer_only/competitor_only` e
@@ -277,7 +277,7 @@ documento HTML estatico e responsivo, totalmente separado de
 O padrao continua `--format json`.
 
 ```powershell
-python -m rasai.geo_competitor_pair_330 `
+python -m rasai.geo_competitor_pair `
   --audit-dir .\audits\AUD-EXEMPLO `
   --customer-manifest .\evidencias\COBS-CLIENTE\manifest.json `
   --competitor-manifest .\evidencias\COBS-CANDIDATO\manifest.json `

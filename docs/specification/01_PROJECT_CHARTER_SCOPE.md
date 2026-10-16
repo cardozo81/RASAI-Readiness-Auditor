@@ -243,7 +243,7 @@ Características esperadas:
 
 ## 11. Dimensões de readiness
 
-O modelo vigente mantém dimensões metodológicas próprias do `SCORE-GEO-004`. A definição normativa dos pesos, aplicabilidade, cobertura, confiança e consolidação pertence a `05_SCORING_MODEL.md` e à documentação canônica `../SCORE_GEO_004.md`.
+O modelo vigente mantém dimensões metodológicas próprias do `SCORE-GEO-004`. A definição normativa dos pesos, aplicabilidade, cobertura, confiança e consolidação pertence a `05_SCORING_MODEL.md` e à documentação canônica `../SCORE_GEO.md`.
 
 Nenhuma lista resumida neste charter deve substituir o contrato de scoring versionado.
 

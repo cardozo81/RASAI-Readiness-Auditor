@@ -273,16 +273,25 @@ def restore_program_defaults(
     warnings.extend(apply_structured_defaults(state, include_presentation=True))
     warnings.extend(_apply_system_environment_defaults(force=True))
 
+    # A failed write does not mean that the restored state reached the INI.
+    # Other restore effects (session/Windows User) may already have happened,
+    # so surface partial completion and retain unsaved-change protection.
+    saved_to_ini = False
     try:
         saved = settings.save_console_config(state, destination)
+        saved_to_ini = True
     except (OSError, UnicodeError, ValueError) as exc:
         warnings.append(f"rasai-console.ini: {type(exc).__name__}: {exc}")
         saved = destination
 
+    complete = saved_to_ini and not warnings
     set_config_path(state, saved)
-    mark_dirty(state, False)
+    mark_dirty(state, not complete)
     facade.refresh_specs()
-    state.operation = "LOCAL:RESTORE_SYSTEM_DEFAULTS"
+    state.operation = (
+        "LOCAL:RESTORE_SYSTEM_DEFAULTS"
+        if complete else "LOCAL:RESTORE_SYSTEM_DEFAULTS_PARTIAL"
+    )
     state.error = "; ".join(tuple(dict.fromkeys(warnings)))
     return RestoreDefaultsResult(
         nonsecret_session_removed,
@@ -369,16 +378,25 @@ def restore_catalog_defaults(
         )
     )
 
+    # A failed write does not mean that the restored state reached the INI.
+    # Other restore effects (session/Windows User) may already have happened,
+    # so surface partial completion and retain unsaved-change protection.
+    saved_to_ini = False
     try:
         saved = settings.save_console_config(state, destination)
+        saved_to_ini = True
     except (OSError, UnicodeError, ValueError) as exc:
         warnings.append(f"rasai-console.ini: {type(exc).__name__}: {exc}")
         saved = destination
 
+    complete = saved_to_ini and not warnings
     set_config_path(state, saved)
-    mark_dirty(state, False)
+    mark_dirty(state, not complete)
     facade.refresh_specs()
-    state.operation = f"LOCAL:RESTORE_CATALOG_DEFAULTS:{target}"
+    state.operation = (
+        f"LOCAL:RESTORE_CATALOG_DEFAULTS:{target}"
+        if complete else f"LOCAL:RESTORE_CATALOG_DEFAULTS_PARTIAL:{target}"
+    )
     state.error = "; ".join(tuple(dict.fromkeys(warnings)))
     return CatalogRestoreResult(
         target,
@@ -460,8 +478,12 @@ def _restore_menu(console_module: ModuleType, state: Any) -> None:
 
     result = restore_program_defaults(state, clear_credentials=clear_credentials)
     console_module.render_header(state)
-    print("PADRÕES RESTAURADOS\n")
-    print(f"INI reconstruído          : {result.path}")
+    if result.warnings:
+        print("RESTAURAÇÃO COM RESSALVAS — revise o estado efetivo e a gravação do INI\n")
+        print(f"Destino do INI           : {result.path}")
+    else:
+        print("PADRÕES RESTAURADOS\n")
+        print(f"INI reconstruído          : {result.path}")
     print(f"Overrides sessão removidos: {result.nonsecret_session_removed}")
     if os.name == "nt":
         print(f"Overrides Windows/User    : {result.nonsecret_user_removed}")

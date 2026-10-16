@@ -171,3 +171,28 @@ def test_audits_root_round_trips_through_existing_console_persistence(tmp_path) 
     console_settings.load_console_config(restored, destination)
 
     assert restored.audits_root == state.audits_root
+
+
+def test_restore_catalog_failed_ini_save_keeps_dirty_and_exposes_partial(
+    monkeypatch, tmp_path,
+) -> None:
+    from rasai.console_session import is_dirty, mark_dirty
+
+    _install_configuration_surface()
+
+    def fail_save(*_args, **_kwargs):
+        raise OSError("synthetic destination unavailable")
+
+    monkeypatch.setattr(console_settings, "save_console_config", fail_save)
+    monkeypatch.setattr("rasai.system_defaults.machine_environment_value", lambda name: None)
+    monkeypatch.setattr("rasai.system_defaults.user_environment_value", lambda name: None)
+    state = SearchConsoleState()
+    mark_dirty(state, False)
+    destination = tmp_path / "missing.ini"
+    result = restore_catalog_defaults(state, "CAT-07", path=destination)
+    assert result.path == destination
+    assert not destination.exists()
+    assert any("rasai-console.ini: OSError" in message for message in result.warnings)
+    assert state.operation == "LOCAL:RESTORE_CATALOG_DEFAULTS_PARTIAL:CAT-07"
+    assert is_dirty(state) is True
+    assert "rasai-console.ini: OSError" in state.error

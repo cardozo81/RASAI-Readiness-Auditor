@@ -9,7 +9,9 @@ TEXT_SUFFIXES = {
     ".py", ".md", ".toml", ".yml", ".yaml", ".json", ".txt", ".cmd",
     ".ps1", ".ini", ".cfg", ".html", ".css", ".js", ".xml", ".csv",
 }
-EXCLUDED_DIRS = {".git", ".venv", "node_modules", "__pycache__", ".pytest_cache"}
+# Runtime audit exports are evidence, not version-controlled public documentation.
+# Never rewrite or enforce current copy conventions on historical captures.
+EXCLUDED_DIRS = {".git", ".venv", "node_modules", "__pycache__", ".pytest_cache", "audits"}
 
 
 def _legacy_namespace_tokens() -> tuple[str, ...]:
@@ -34,6 +36,13 @@ def _old_product_geo_labels() -> tuple[str, ...]:
 def _included(path: Path) -> bool:
     relative = path.relative_to(ROOT)
     return not any(part in EXCLUDED_DIRS for part in relative.parts)
+
+
+def test_runtime_audit_artifacts_are_outside_source_naming_policy() -> None:
+    assert not _included(ROOT / "audits" / "AUD-EXAMPLE" / "report-catalog" / "index.html")
+    assert not _included(ROOT / "audits" / "consolidated" / "CONS-EXAMPLE" / "report.html")
+    assert _included(ROOT / "docs" / "README.md")
+    assert _included(ROOT / "src" / "rasai" / "entrypoint.py")
 
 
 def test_obsolete_product_namespace_is_absent_from_repository() -> None:

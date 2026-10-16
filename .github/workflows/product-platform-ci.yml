@@ -5,22 +5,44 @@ on:
     branches:
       - main
     paths:
-      - 'src/rasai/**'
-      - 'tests/**'
-      - 'docs/**'
-      - 'README.md'
+      - 'src/rasai/platform/**'
+      - 'src/rasai/entrypoint.py'
+      - 'src/rasai/__init__.py'
+      - 'src/rasai/monitoring/**'
+      - 'src/rasai/observability/**'
+      - 'src/rasai/quality/**'
+      - 'tests/test_rasai_namespace_contract.py'
+      - 'tests/test_product_platform_architecture.py'
+      - 'tests/test_monitoring_observability.py'
+      - 'tests/test_quality_observability_hardening.py'
+      - 'docs/PRODUCT_PLATFORM*.md'
+      - 'docs/PLATFORM*.md'
+      - 'docs/SAAS*.md'
       - 'pyproject.toml'
       - '.github/workflows/product-platform-ci.yml'
   push:
     branches:
       - main
     paths:
-      - 'src/rasai/**'
-      - 'tests/**'
-      - 'docs/**'
-      - 'README.md'
+      - 'src/rasai/platform/**'
+      - 'src/rasai/entrypoint.py'
+      - 'src/rasai/__init__.py'
+      - 'src/rasai/monitoring/**'
+      - 'src/rasai/observability/**'
+      - 'src/rasai/quality/**'
+      - 'tests/test_rasai_namespace_contract.py'
+      - 'tests/test_product_platform_architecture.py'
+      - 'tests/test_monitoring_observability.py'
+      - 'tests/test_quality_observability_hardening.py'
+      - 'docs/PRODUCT_PLATFORM*.md'
+      - 'docs/PLATFORM*.md'
+      - 'docs/SAAS*.md'
       - 'pyproject.toml'
       - '.github/workflows/product-platform-ci.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

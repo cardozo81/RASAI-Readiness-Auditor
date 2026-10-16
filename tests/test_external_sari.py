@@ -6,7 +6,7 @@ import pytest
 
 from rasai.domain import DeviceContext, RuleExecution, RuleResult
 from rasai.external_sari import MAX_OVERALL_IMPACT_POINTS, _safe_public_simple_url
-from rasai.score_geo_004 import (
+from rasai.score_geo import (
     CRITICAL_GATES,
     DIMENSION_WEIGHTS,
     EVIDENCE_ROLE_EXTERNAL_CORROBORATIVE,

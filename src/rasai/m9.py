@@ -8,7 +8,7 @@ from rasai.content_value import materialize_content_value_executions
 from rasai.domain import EvidenceType, RuleExecution, RuleResult, new_id, utc_now
 from rasai.evidence import EvidenceManager
 from rasai.persistence import AuditPersistence, AuditWorkspace
-from rasai.score_geo_004 import OVERALL_AGGREGATION_VERSION, SCORING_VERSION
+from rasai.score_geo import OVERALL_AGGREGATION_VERSION, SCORING_VERSION
 from rasai.scoring import ScoringResult
 from rasai.scoring_persistence import ScoringPersistence
 from rasai.scoring_v004 import ScoreGeo004Engine

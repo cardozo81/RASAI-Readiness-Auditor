@@ -1,0 +1,39 @@
+name: GEO per-query ledger 304
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/geo_query_ledger.py'
+      - 'src/rasai/geo_query_ledger_html.py'
+      - 'src/rasai/entrypoint.py'
+      - 'tests/test_geo_query_ledger.py'
+      - 'docs/GEO_QUERY_LEDGER.md'
+      - '.github/workflows/geo-query-ledger.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/geo_query_ledger.py'
+      - 'src/rasai/geo_query_ledger_html.py'
+      - 'src/rasai/entrypoint.py'
+      - 'tests/test_geo_query_ledger.py'
+      - '.github/workflows/geo-query-ledger.yml'
+permissions:
+  contents: read
+jobs:
+  geo-query-ledger:
+    name: Offline per-query GEO provenance (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package and pytest
+        run: python -m pip install -e . pytest
+      - name: Targeted physical SQLite GEO query ledger tests
+        run: python -m pytest -q tests/test_geo_query_ledger.py

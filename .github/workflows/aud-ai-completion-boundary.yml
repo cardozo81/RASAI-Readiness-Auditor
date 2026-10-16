@@ -1,0 +1,35 @@
+name: Audit completion AI economics 319
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/audit_ai_completion_boundary.py'
+      - 'tests/test_audit_ai_completion_boundary.py'
+      - 'docs/AUD_AI_COMPLETION_BOUNDARY.md'
+      - '.github/workflows/aud-ai-completion-boundary.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/audit_ai_completion_boundary.py'
+      - 'tests/test_audit_ai_completion_boundary.py'
+      - '.github/workflows/aud-ai-completion-boundary.yml'
+permissions:
+  contents: read
+jobs:
+  ai-economics-boundary:
+    name: AI/AUD completion chronology (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package and pytest
+        run: python -m pip install -e . pytest
+      - name: Focused offline attempt chronology
+        run: python -m pytest -q tests/test_audit_ai_completion_boundary.py tests/test_audit_attempt_timeline.py

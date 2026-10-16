@@ -79,3 +79,32 @@ sintéticos e a verificação no CI. **Nenhum dos 243 paths históricos foi
 renomeado neste lote.** A conclusão integral exige inventário por
 dependência e redução das violações remanescentes a zero ou justificativa
 formal de exceção. O gate parcial não autoriza fechar a issue de migração.
+
+## Atualização da migração em PR aberta - 16/10/2026
+
+O parágrafo do primeiro lote acima descreve apenas o checkpoint inicial, **não** o estado corrente da PR. A comparação `main...chore/acceptance-evidence-reconciliation` retornou uma branch com 200 commits à frente e listagem limitada a 300 arquivos, dos quais **210** estão classificados como renomeados. Esse recorte mostra migração real de workflows e módulos e não deve ser tratado como inventário completo; a API limita a resposta e o número de paths remanescentes **não está comprovado como zero**. O aceite definitivo requer `git ls-tree -r --name-only -z HEAD`, o gate `--full-tree`, busca de referências e CI Linux/Windows, todos sobre o HEAD efetivamente integrado. Os 243 paths citados no baseline não devem ser subtraídos aritmeticamente dos 210 renames parciais.
+
+## Fronteira de compatibilidade após a migração
+
+Os contratos de distribuição que o projeto publica explicitamente em
+`pyproject.toml` são o pacote `rasai-readiness-auditor`, o namespace Python
+`rasai` e os comandos `rasai` e `rasai-console`. Os entrypoints chamam,
+respectivamente, `rasai.entrypoint:main` e
+`rasai.console_entrypoint:main`. O teste
+`tests/test_rasai_namespace_contract.py` protege esses nomes.
+
+A importabilidade de um módulo sob `src/rasai/` **não estabelece**, por si
+só, uma API pública estável. Renomeações de módulos internos exigem revisão
+das referências no repositório e execução dos testes de seus consumidores.
+Compatibilidade de consumidores externos conhecidos deve ser inventariada
+separadamente: nome do consumidor, versão, import/CLI efetivamente utilizado,
+contrato publicado e teste de migração ou decisão de descontinuação. Não
+introduzir aliases para imports históricos hipotéticos sem consumidor
+identificado e contrato verificável.
+
+Os verificadores de filenames, namespaces e workflows e a CI verde atestam
+apenas a superfície coberta pelos testes. Não certificam scripts não
+versionados do operador, imports dinâmicos de terceiros ou clientes externos.
+O inventário por padrão de nomes não comprova ausência de nomes opacos que
+não correspondam à regex. Uma issue de migração só poderá ser fechada após
+reconciliar expressamente essas fronteiras e os critérios de aceite integrais.

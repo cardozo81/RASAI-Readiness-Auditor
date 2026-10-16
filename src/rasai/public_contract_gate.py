@@ -14,8 +14,8 @@ from rasai.catalog_report_contract import (
     CATALOG_REPORT_PAGES,
 )
 from rasai.indicator_provenance import enrich_indicator_provenance_html
-from rasai.score_geo_004 import SCORING_VERSION
-from rasai.score_geo_004_cli import main as scoring_cli_main
+from rasai.score_geo import SCORING_VERSION
+from rasai.score_geo_cli import main as scoring_cli_main
 
 
 EXPECTED_SCORING_VERSION = "SCORE-GEO-004"
@@ -27,7 +27,7 @@ CURRENT_METHOD_DOCS = (
     "docs/OUTPUTS_AND_ARTIFACTS.md",
     "docs/REPORT_GUIDE.md",
     "docs/SCORING_GUIDE.md",
-    "docs/SCORE_GEO_004.md",
+    "docs/SCORE_GEO.md",
     "docs/SARI_READINESS_INDEX.md",
     "docs/CLI_REFERENCE.md",
     "docs/specification/00_SPEC_INDEX.md",

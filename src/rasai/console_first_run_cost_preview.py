@@ -50,7 +50,7 @@ def _render_fallback(forecast: CostForecast, exposure: ExposureEstimate, *, stat
     for note in forecast.notes:
         print(paint(f"Motivo histórico     : {note}", DIM))
     if state is not None:
-        from rasai.audit_duration_forecast_319 import (
+        from rasai.audit_duration_forecast import (
             forecast_local_duration, format_duration_preview,
         )
         from rasai.console_cost import _configured_page_range

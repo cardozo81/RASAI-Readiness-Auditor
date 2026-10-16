@@ -37,7 +37,7 @@ Regras podem declarar `OFFICIAL`, `STANDARD` ou `HEURISTIC`. Regras de integrida
 
 O manifesto vigente mapeia explicitamente regra -> dimensão -> `scoring_group` -> papel de evidência. O peso de um grupo é fixo e distribuído entre páginas/escopos aplicáveis; quantidade de páginas não multiplica o peso metodológico.
 
-Detalhes: [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`SARI_READINESS_INDEX.md`](SARI_READINESS_INDEX.md), [`SCORE_GEO_004.md`](SCORE_GEO_004.md) e [`SARI_EXTERNAL_CRAWL_CORROBORATION.md`](SARI_EXTERNAL_CRAWL_CORROBORATION.md).
+Detalhes: [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`SARI_READINESS_INDEX.md`](SARI_READINESS_INDEX.md), [`SCORE_GEO.md`](SCORE_GEO.md) e [`SARI_EXTERNAL_CRAWL_CORROBORATION.md`](SARI_EXTERNAL_CRAWL_CORROBORATION.md).
 
 ## Catálogo
 

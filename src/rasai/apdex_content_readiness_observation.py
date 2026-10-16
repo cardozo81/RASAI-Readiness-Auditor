@@ -129,13 +129,13 @@ def classify_primary_content_readiness(
         or type(sample.main_text_characters) is not int
         or type(sample.heading_text_characters) is not int
         or type(sample.skeleton_present) is not bool
-        or sample.main_text_characters < 0
-        or sample.heading_text_characters < 0
+        or not 0 <= sample.main_text_characters <= 10_000_000
+        or not 0 <= sample.heading_text_characters <= 100_000
         for sample in checkpoints
     ):
         return result("ERROR", "mixed_context_or_invalid_checkpoint")
     times = [sample.since_navigation_ms for sample in checkpoints]
-    if times != sorted(times):
+    if times != sorted(times) or len(set(times)) != len(times):
         return result("ERROR", "out_of_order_checkpoints")
     if not checkpoints:
         return result("TIMEOUT" if window_expired else "NOT_OBSERVED", "no_checkpoints")

@@ -3,12 +3,12 @@ from __future__ import annotations
 import unittest
 
 from rasai.report_presentation import SCORING_CONCEPT_LABELS, humanize_report_html, public_label
-from rasai.score_geo_004 import FEATURE_ORDER, GROUP_WEIGHTS
+from rasai.score_geo import FEATURE_ORDER, GROUP_WEIGHTS
 
 
 class ReportPresentationTests(unittest.TestCase):
     def test_technical_vendor_kpms_survive_public_humanization(self) -> None:
-        from rasai.cat07_architecture_reporting_358 import _dynatrace_rum_kpm_reference_html
+        from rasai.cat07_architecture_reporting import _dynatrace_rum_kpm_reference_html
 
         html = _dynatrace_rum_kpm_reference_html("CSR_SPA")
         rendered = humanize_report_html(html, page_name="cat-07.html")

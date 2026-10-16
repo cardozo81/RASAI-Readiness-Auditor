@@ -72,7 +72,10 @@ def _restore_catalog_action(console_module: ModuleType, state: Any, catalog: Aud
         return
 
     result = restore_catalog_defaults(state, catalog.id)
-    print("\nRestauração concluída.")
+    print(
+        "\nRestauração com ressalvas; confirme se o INI foi salvo."
+        if result.warnings else "\nRestauração concluída."
+    )
     print(f"Catálogo               : {result.catalog_id}")
     print(f"Exclusivas restauradas : {len(result.restored_names)}")
     print(f"Compartilhadas mantidas: {len(result.shared_preserved)}")
@@ -354,7 +357,7 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
         for line in ai_lines:
             print(paint(f"  {line}", DIM))
         if any(item.id == "CAT-05" for item in selected):
-            from rasai.console_perplexity_readiness_318 import (
+            from rasai.console_perplexity_readiness import (
                 inspect_perplexity_readiness,
             )
             px = inspect_perplexity_readiness(state)

@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 import tempfile
 
-from rasai.score_geo_004 import FEATURE_ORDER, SCORING_VERSION
-from rasai.score_geo_004_reporting import _dimension_list
+from rasai.score_geo import FEATURE_ORDER, SCORING_VERSION
+from rasai.score_geo_reporting import _dimension_list
 
 
 def _page(body: str) -> str:
