@@ -69,6 +69,8 @@ def test_capture_preloaded_document_in_networkless_container(monkeypatch):
                         lambda: DIGEST)
     monkeypatch.setattr("rasai.architecture_isolated_capture.shutil.which",
                         lambda cmd: "docker")
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_isolation",
+                        lambda **kwargs: {"network_none": True})
     monkeypatch.setattr("rasai.architecture_isolated_capture._validate_public_url",
                         lambda url, _resolver: url)
     with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch:
@@ -170,3 +172,23 @@ def test_physical_isolation_probe_requires_all_socket_checks(monkeypatch):
     with patch("rasai.architecture_isolation_smoke.subprocess.run",
                side_effect=runner):
         assert all(verify_isolation().values())
+
+
+def test_unattested_oci_container_refuses_dns_and_http(monkeypatch):
+    from rasai.architecture_isolation_smoke import verify_isolation
+    monkeypatch.setattr("rasai.architecture_isolated_capture.inspect_local_image",
+                        lambda: DIGEST)
+    monkeypatch.setattr("rasai.architecture_isolated_capture.shutil.which",
+                        lambda _: "docker")
+    def failure(**kwargs):
+        raise RuntimeError("Unattested sockets")
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_isolation", failure)
+    with patch("rasai.architecture_isolated_capture._default_resolver") as dns, patch(
+        "rasai.architecture_isolated_capture.PublicWebFetcher"
+    ) as fetch:
+        result = capture_isolated_public_architecture(
+            "https://example.org/", DeviceContext.MOBILE
+        )
+    assert result.quality_reason == "OCI_NETWORK_ISOLATION_NOT_ATTESTED"
+    dns.assert_not_called()
+    fetch.assert_not_called()

@@ -155,3 +155,11 @@ de DNS e sockets públicos/privados/metadata/loopback (IPv4 e IPv6). Se mostrar
 bloqueado. Executar novamente após mudanças de Docker daemon, imagem ou host.
 O preflight recusa daemons remotos via DOCKER_HOST ou contexto Docker SSH/TCP;
 a imagem é executada pelo digest local para evitar troca de tag.
+
+**Gate automático obrigatório:** a opção 8 não se limita a encontrar a imagem
+local. Antes de qualquer DNS/HTTP do site, executa no **mesmo digest OCI**
+os sete probes negativos de rede usados pelo teste físico. Qualquer socket
+ou DNS permitido, erro de daemon ou timeout impede a aquisição e retorna
+`OCI_NETWORK_ISOLATION_NOT_ATTESTED`. O teste manual continua recomendado
+como evidência operacional independente, mas uma flag de ambiente isolada
+não suprime esse gate.

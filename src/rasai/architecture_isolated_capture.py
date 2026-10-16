@@ -141,6 +141,13 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
     docker = shutil.which("docker")
     if docker is None:
         return ProbeCaptures(url, url, device, None, None, "OCI_RUNTIME_NOT_AVAILABLE")
+    # A local image alone is not network attestation. Denied socket/DNS probes
+    # must pass in the exact immutable image before any site DNS is attempted.
+    try:
+        from rasai.architecture_isolation_smoke import verify_isolation
+        verify_isolation(digest=digest, docker=docker)
+    except (RuntimeError, OSError, ValueError, subprocess.TimeoutExpired):
+        return ProbeCaptures(url, url, device, None, None, "OCI_NETWORK_ISOLATION_NOT_ATTESTED")
     try:
         target = _validate_public_url(normalize_url(url), _default_resolver)
     except (ValueError, OSError):

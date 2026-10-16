@@ -44,9 +44,9 @@ print(json.dumps(blocked, sort_keys=True))
 """
 
 
-def verify_isolation() -> dict[str, bool]:
-    digest = inspect_local_image()
-    docker = shutil.which("docker")
+def verify_isolation(*, digest: str | None = None, docker: str | None = None) -> dict[str, bool]:
+    digest = digest if digest is not None else inspect_local_image()
+    docker = docker if docker is not None else shutil.which("docker")
     if digest is None or docker is None:
         raise RuntimeError("Local OCI image/daemon not verified")
     command = sandbox_command(docker, digest)

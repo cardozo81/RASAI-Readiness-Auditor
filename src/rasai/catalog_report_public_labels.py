@@ -794,6 +794,7 @@ PUBLIC_VALUE_LABELS.update({
     "ISOLATED_NAVIGATION_NOT_ATTESTED": "Navegação isolada não comprovada",
     "ISOLATED_RENDER_LIMIT": "Limite de renderização isolada excedido",
     "ISOLATED_RESOURCES_BLOCKED": "Recursos necessários bloqueados no navegador isolado",
+    "OCI_NETWORK_ISOLATION_NOT_ATTESTED": "Isolamento de rede do contêiner não comprovado",
     "OCI_IMAGE_NOT_AVAILABLE": "Imagem de isolamento OCI não disponível",
     "OCI_RUNTIME_NOT_AVAILABLE": "Executor OCI local não disponível",
     "PUBLIC_TARGET_REJECTED": "Destino público rejeitado",
