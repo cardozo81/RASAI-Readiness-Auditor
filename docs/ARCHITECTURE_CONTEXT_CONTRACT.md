@@ -106,3 +106,15 @@ cenários com DNS rebinding exigem restrição adicional na rede/proxy antes da
 homologação de segurança para ambientes hostis. A evidência de testes offline
 não substitui smoke com navegador e destino reais; ausência de prova física
 resulta em `UNKNOWN`, não em arquitetura inferida.
+
+### Segurança da captura prévia
+
+A sondagem física externa fica **desabilitada por padrão** quando o ambiente não
+indica a existência de controle de saída de rede. A variável de implantação
+`RASAI_ARCH_PROBE_EGRESS_GUARDED=1` libera a tentativa somente para ambientes
+com bloqueio de destinos internos/privados também **na camada de rede**; declarar
+a variável sem realmente configurar esse bloqueio não é uma garantia de segurança.
+Sem essa condição, o diagnóstico retorna inconclusivo sem abrir conexão. O
+operador não deve precisar configurar essa variável para usar o restante do
+RASAi. É uma medida de proteção até existir transporte com destino fixado e
+verificação de rede comprovada. Nenhum serviço pago é habilitado por esse sinal.
