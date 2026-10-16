@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 
+from rasai.geo_competitor_pinned_egress import PublicWebPinnedOpener
 from rasai.architecture_probe import ProbeCaptures
 from rasai.domain import DeviceContext
 from rasai.rendering import DESKTOP_PROFILE, MOBILE_PROFILE
@@ -22,7 +23,7 @@ def capture_public_architecture(url: str, device: DeviceContext) -> ProbeCapture
     if os.environ.get('RASAI_ARCH_PROBE_EGRESS_GUARDED') != '1':
         return ProbeCaptures(str(url), str(url), device, None, None, 'SAFE_EGRESS_NOT_CONFIGURED')
     target = _validate_public_url(normalize_url(url), _default_resolver)
-    fetch = PublicWebFetcher(timeout_seconds=8.0, max_redirects=0, max_bytes=1_000_000)
+    fetch = PublicWebFetcher(timeout_seconds=8.0, max_redirects=0, max_bytes=1_000_000, opener=PublicWebPinnedOpener())
     document = fetch.fetch(target)
     if document.status != ContentFetchStatus.OBSERVED or document.final_url != target:
         return ProbeCaptures(target, target, device, None, None, "HTTP_CAPTURE_UNAVAILABLE")
