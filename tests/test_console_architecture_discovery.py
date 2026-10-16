@@ -11,6 +11,7 @@ def test_home_preview_uses_existing_target_without_touching_audit(monkeypatch, c
     state = SimpleNamespace(target="https://example.org/", device="mobile")
     console = SimpleNamespace(render_header=lambda _: None,
                               _configure=lambda *_: (_ for _ in ()).throw(AssertionError("unexpected edit")))
+    monkeypatch.setenv('RASAI_ARCH_PROBE_EGRESS_GUARDED', '1')
     answers = iter(["1", "", "V"])
     monkeypatch.setattr("builtins.input", lambda *args: next(answers))
     with patch("rasai.console_architecture_discovery.probe_architecture",
@@ -40,3 +41,18 @@ def test_home_preview_edit_delegates_to_canonical_console(monkeypatch):
     monkeypatch.setattr("builtins.input", lambda *args: next(answers))
     architecture_preview_menu(console, state)
     assert choices == ["1", "3"]
+
+
+def test_no_dns_or_probe_without_network_gate(monkeypatch, capsys):
+    from rasai.console_architecture_discovery import architecture_preview_menu
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    monkeypatch.delenv('RASAI_ARCH_PROBE_EGRESS_GUARDED', raising=False)
+    state = SimpleNamespace(target='https://example.org/', device='mobile')
+    console = SimpleNamespace(render_header=lambda _: None)
+    answers = iter(['1', '', 'V'])
+    monkeypatch.setattr('builtins.input', lambda *args: next(answers))
+    with patch('rasai.console_architecture_discovery.probe_architecture') as probe:
+        architecture_preview_menu(console, state)
+        probe.assert_not_called()
+    assert 'Nenhuma consulta' in capsys.readouterr().out

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any
+import os
 
 from rasai.architecture_probe import probe_architecture
 from rasai.architecture_live_capture import capture_public_architecture
@@ -34,6 +35,11 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
         if not url or device not in {"mobile", "desktop"}:
             print("Informe uma URL e um dispositivo válidos na preparação da auditoria.")
             input("ENTER para continuar...")
+            continue
+        if os.environ.get('RASAI_ARCH_PROBE_EGRESS_GUARDED') != '1':
+            print('Diagnóstico inconclusivo: proteção de acesso à rede não configurada.')
+            print('Nenhuma consulta ao site ou DNS foi realizada.')
+            input('ENTER para voltar...')
             continue
         try:
             result = probe_architecture(
