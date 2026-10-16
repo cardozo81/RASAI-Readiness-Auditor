@@ -52,4 +52,4 @@ jobs:
           tests/test_rasai_sari_branding.py::test_public_documentation_uses_current_contract
 
       - name: Architecture advisory context tests
-        run: pytest -q tests/test_architecture_discovery.py tests/test_architecture_probe.py tests/test_architecture_context.py tests/test_architecture_observation_reader.py tests/test_architecture_choice.py tests/test_architecture_choice_precedence.py tests/test_architecture_choice_snapshot.py tests/test_architecture_choice_audit_adapter.py tests/test_architecture_choice_runtime.py tests/test_architecture_choice_console_restore.py tests/test_m24_architecture.py
+        run: pytest -q tests/test_architecture_discovery.py tests/test_architecture_probe.py tests/test_console_architecture_discovery.py tests/test_architecture_context.py tests/test_architecture_observation_reader.py tests/test_architecture_choice.py tests/test_architecture_choice_precedence.py tests/test_architecture_choice_snapshot.py tests/test_architecture_choice_audit_adapter.py tests/test_architecture_choice_runtime.py tests/test_architecture_choice_console_restore.py tests/test_m24_architecture.py
