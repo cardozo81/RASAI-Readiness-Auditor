@@ -38,3 +38,16 @@ calibração da confiança foi aprovado. Não presume SSR distinguível de está
 - Integrar apenas consumidores consultivos explicitamente autorizados, com
   provenance e indicação de divergência; manter scores históricos imutáveis.
 - Executar testes focais e CI no HEAD da branch antes do merge.
+
+## Escolha versionada isolada (F2 parcial)
+
+O módulo `architecture_choice.py` implementa serialização pura e validação
+estrita de `AUTO`, `DECLARED` e `UNFORCED`. Ausência em registros antigos
+resulta em `UNFORCED`, sem alterar o comportamento histórico. O método
+`write_choice` cria uma cópia do mapeamento recebido; não acessa o INI,
+Registry, segredos, banco de evidências ou configuração de execução.
+
+`DECLARED` exige classe concreta, enquanto `AUTO` e `UNFORCED` recusam
+valor declarado residual. Registros explícitos malformados são recusados;
+sem downgrade silencioso. A passagem deste contrato para INI/sessão/snapshot
+exige outra fase de integração e teste de precedência por campo.
