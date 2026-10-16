@@ -11,6 +11,8 @@ from pathlib import Path
 import math
 import sqlite3
 
+_MAX_LEDGER_ROWS = 10000
+
 
 @dataclass(frozen=True, slots=True)
 class TimelineStage:
@@ -192,9 +194,11 @@ def read_audit_attempt_timeline(
             ).fetchone() is None:
                 continue
             rows = connection.execute(
-                f"SELECT * FROM {table} WHERE audit_id=?",
-                (audit_id,),
+                f"SELECT * FROM {table} WHERE audit_id=? LIMIT ?",
+                (audit_id, _MAX_LEDGER_ROWS + 1),
             ).fetchall()
+            if len(rows) > _MAX_LEDGER_ROWS or len(all_rows) + len(rows) > _MAX_LEDGER_ROWS:
+                raise ValueError("bounded AI attempt timeline ledger population exceeded")
             seen: set[str] = set()
             for raw in rows:
                 row = dict(raw)
