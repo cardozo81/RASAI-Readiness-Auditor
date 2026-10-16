@@ -161,3 +161,13 @@ def test_partial_dimension_is_explicit_without_changing_aggregate() -> None:
     assert "confiança LOW, consolidação PARTIAL" in html
     assert "O estado agregado não substitui a leitura por dimensão." in html
     assert "86.5/100" in html
+
+
+def test_nonfinite_dimension_coverage_is_not_rendered_as_nan() -> None:
+    overall = _row()
+    dimension = dict(overall, dimension="CONTENT_VALUE", coverage=float("nan"),
+                     confidence="LOW", consolidation_status="PARTIAL")
+    html = operational_readiness_panel({"scores": [overall, dimension]})
+    assert "CONTENT_VALUE: cobertura 0.0%" in html
+    assert "fração canônica 0.000000" in html
+    assert "nan%" not in html.lower()
