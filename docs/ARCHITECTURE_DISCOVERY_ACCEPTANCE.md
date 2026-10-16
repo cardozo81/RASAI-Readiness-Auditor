@@ -80,3 +80,19 @@ dos critérios funcionais e de segurança, incluindo o smoke humano.
 - Recursos diferentes de GET, URLs não públicas, origens diferentes e solicitações que ultrapassem o orçamento são abortados.
 - WebSockets são interceptados no contexto com `route_web_socket` e fechados sem `connect()`. Qualquer bloqueio impede classificação conclusiva.
 - **Não constitui atestado de firewall/egress:** tráfego nativo do Chromium, redirecionamentos e WebRTC ainda exigem contenção verificável em camada de rede. A flag `RASAI_ARCH_PROBE_EGRESS_GUARDED` não instala essa contenção.
+
+### Captura HTTP do navegador via transporte fixado
+
+O navegador **não** usa `route.continue_` ou `route.fetch` para recursos HTTP.
+Todo GET permitido é respondido via `route.fulfill` com bytes recuperados pelo
+transporte Python `PublicWebPinnedOpener`, que fixa o IP público da conexão,
+mantém SNI/certificado do host e recusa redirects. A primeira navegação usa
+exatamente os bytes RAW já coletados, evitando segunda leitura com HTML divergente.
+O orçamento de recursos é limitado a 30 requisições e 3 MB de corpo somado;
+qualquer recurso bloqueado torna o diagnóstico inconclusivo. Cookies recebidos
+não são transferidos pelo replay e recursos cross-origin são rejeitados, o que
+pode impedir a classificação de sites que dependem de CDN e APIs externas.
+
+**Permanece um bloqueio:** HTTP intermediado não prova que o processo Chromium
+esteja isolado para outras pilhas nativas, especialmente WebRTC. Só executor
+com restrições efetivas de rede atestadas pode realizar a captura externa.

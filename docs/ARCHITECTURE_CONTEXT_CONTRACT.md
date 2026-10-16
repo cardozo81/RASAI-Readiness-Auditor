@@ -136,3 +136,13 @@ continua condicionada a uma política efetiva e externa de saída de rede, além
 da indicação de sua existência. Sem esse ambiente, o diagnóstico retorna
 inconclusivo e não realiza consulta externa. Testes de contrato não substituem
 captura real em ambiente protegido.
+
+### Proveniência de bytes na prévia renderizada
+
+Para evitar reconsulta direta por DNS/HTTP do Chromium, a opção 8 usa
+`BrowserContext.route` e entrega os corpos de respostas HTTP do transporte
+público fixado por IP via `route.fulfill`. O HTML de navegação é a própria
+captura RAW inicial (mesmo snapshot); recursos adicionais têm limite agregado.
+Respostas com redirects, identidade final divergente, MIME ausente ou erro
+abstêm, sem fallback para tráfego nativo. A prevenção de DNS rebinding via
+replay HTTP **não** certifica ausência de WebRTC/outro egress Chromium.

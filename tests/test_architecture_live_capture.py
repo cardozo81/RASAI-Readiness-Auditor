@@ -56,7 +56,11 @@ class _FakeRoute:
         self.action = "abort"
 
     def continue_(self):
-        self.action = "continue"
+        raise AssertionError("Native Chromium egress must never be permitted")
+
+    def fulfill(self, *, status, body, headers):
+        self.action = "fulfill"
+        self.response = (status, body, headers)
 
 
 class _FakeWebSocket:
@@ -108,7 +112,19 @@ def test_browser_route_refuses_post_cross_origin_private_and_excess(monkeypatch)
     from rasai.architecture_live_capture import install_architecture_browser_routes
     ctx = _FakeBrowserContext()
     with patch("rasai.architecture_live_capture._validate_public_url", side_effect=lambda url, _resolver: url):
-        gate = install_architecture_browser_routes(ctx, "https://example.org/", max_requests=2)
+        from types import SimpleNamespace
+        resource = SimpleNamespace(
+            status="OBSERVED", final_url="https://example.org/script.js",
+            http_status=200, body=b"console.log('ok')",
+            headers={"content-type": "application/javascript"},
+        )
+        class FakeFetcher:
+            def fetch(self, _url):
+                return resource
+        gate = install_architecture_browser_routes(
+            ctx, "https://example.org/", max_requests=2,
+            resource_fetcher=FakeFetcher(),
+        )
         handler = ctx.routes[0][1]
         same = _FakeRoute("https://example.org/script.js")
         handler(same)
@@ -116,7 +132,7 @@ def test_browser_route_refuses_post_cross_origin_private_and_excess(monkeypatch)
         handler(post)
         cross = _FakeRoute("https://attacker.example.org/")
         handler(cross)
-    assert same.action == "continue"
+    assert same.action == "fulfill"
     assert post.action == cross.action == "abort"
     assert gate.requested == 3
     assert gate.blocked == 2
@@ -142,3 +158,95 @@ def test_browser_guard_registration_does_not_suffice_as_egress_proof():
     assert gate.blocked == 0
     # The external egress attestation remains mandatory. This API only
     # bounds/blocks application requests, not Chromium's native sockets.
+
+
+def test_root_navigation_uses_existing_pinned_snapshot_without_second_fetch(monkeypatch):
+    from rasai.architecture_live_capture import install_architecture_browser_routes
+    from types import SimpleNamespace
+    source = SimpleNamespace(
+        status="OBSERVED", final_url="https://example.org/",
+        http_status=200, body=b"<html><main>same bytes</main></html>",
+        headers={"content-type": "text/html; charset=utf-8",
+                 "set-cookie": "session=secret",
+                 "content-security-policy": "default-src 'self'"},
+    )
+    class ExplodingFetcher:
+        def fetch(self, _url):
+            raise AssertionError("Do not refetch the initial document")
+    ctx = _FakeBrowserContext()
+    with patch("rasai.architecture_live_capture._validate_public_url", side_effect=lambda url, _resolver: url):
+        install_architecture_browser_routes(
+            ctx, "https://example.org/", initial_document=source,
+            resource_fetcher=ExplodingFetcher(),
+        )
+        navigation = _FakeRoute("https://example.org/")
+        ctx.routes[0][1](navigation)
+    assert navigation.action == "fulfill"
+    status, body, headers = navigation.response
+    assert status == 200 and body == source.body
+    assert headers["content-security-policy"] == "default-src 'self'"
+    assert "set-cookie" not in headers
+
+
+def test_pinned_resource_enforces_response_identity_and_global_byte_budget(monkeypatch):
+    from rasai.architecture_live_capture import install_architecture_browser_routes
+    from types import SimpleNamespace
+    responses = [
+        SimpleNamespace(status="OBSERVED", final_url="https://example.org/a.js",
+                        http_status=200, body=b"12345",
+                        headers={"content-type": "text/javascript"}),
+        SimpleNamespace(status="OBSERVED", final_url="https://example.org/b.js",
+                        http_status=200, body=b"67890",
+                        headers={"content-type": "text/javascript"}),
+        SimpleNamespace(status="OBSERVED", final_url="https://example.org/other",
+                        http_status=200, body=b"1",
+                        headers={"content-type": "text/javascript"}),
+    ]
+    class Fetcher:
+        def fetch(self, _url):
+            return responses.pop(0)
+    ctx = _FakeBrowserContext()
+    with patch("rasai.architecture_live_capture._validate_public_url", side_effect=lambda url, _resolver: url):
+        gate = install_architecture_browser_routes(
+            ctx, "https://example.org/", resource_fetcher=Fetcher(), max_total_bytes=8,
+        )
+        first, second, third = (
+            _FakeRoute("https://example.org/a.js"),
+            _FakeRoute("https://example.org/b.js"),
+            _FakeRoute("https://example.org/c.js"),
+        )
+        for request in (first, second, third):
+            ctx.routes[0][1](request)
+    assert first.action == "fulfill"
+    assert second.action == "abort"  # total would exceed 8 bytes
+    assert third.action == "abort"   # final URL identity does not match
+    assert gate.blocked == 2
+
+
+def test_browser_pinned_fetcher_default_has_no_redirects_and_numeric_ip(monkeypatch):
+    from rasai.architecture_live_capture import install_architecture_browser_routes
+    from rasai.geo_competitor_pinned_egress import PublicWebPinnedOpener
+    ctx = _FakeBrowserContext()
+    install_architecture_browser_routes(ctx, "https://example.org/")
+    handler = ctx.routes[0][1]
+    fetcher = handler.__closure__
+    assert fetcher  # Browser safety is enforced by the closure-bound transport.
+    # Never enable native routing: this is a deliberate contract even when
+    # a browser DNS preflight resolves a public IP.
+    assert "continue_" not in handler.__code__.co_names
+    assert "fetch" in handler.__code__.co_names
+
+
+def test_fetch_failure_aborts_instead_of_native_fallback(monkeypatch):
+    from rasai.architecture_live_capture import install_architecture_browser_routes
+    class FailedFetcher:
+        def fetch(self, _url):
+            raise OSError("simulated network failure")
+    ctx = _FakeBrowserContext()
+    with patch("rasai.architecture_live_capture._validate_public_url", side_effect=lambda url, _resolver: url):
+        gate = install_architecture_browser_routes(
+            ctx, "https://example.org/", resource_fetcher=FailedFetcher()
+        )
+        route = _FakeRoute("https://example.org/a.js")
+        ctx.routes[0][1](route)
+    assert route.action == "abort" and gate.blocked == 1
