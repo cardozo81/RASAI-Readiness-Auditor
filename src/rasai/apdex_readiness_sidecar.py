@@ -31,6 +31,19 @@ _STATES = frozenset({
 })
 
 
+def _unique_json_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate sidecar JSON key")
+        result[key] = value
+    return result
+
+
+def _reject_non_json_constant(token: str) -> None:
+    raise ValueError("nonstandard sidecar JSON numeric constant")
+
+
 def _sha(path: Path) -> str:
     digest = sha256()
     with path.open("rb") as stream:
@@ -219,7 +232,10 @@ def read_readiness_sidecar(aud_dir: Path, sidecar_path: Path) -> dict:
     if sha256(raw).hexdigest() + ".json" != sidecar_path.name:
         raise ValueError("sidecar SHA-256 mismatch")
     try:
-        obj = json.loads(raw)
+        obj = json.loads(
+            raw, object_pairs_hook=_unique_json_keys,
+            parse_constant=_reject_non_json_constant,
+        )
         if not isinstance(obj, dict) or any(
             obj.get(name) != required
             for name, required in {
@@ -236,6 +252,6 @@ def read_readiness_sidecar(aud_dir: Path, sidecar_path: Path) -> dict:
         if not isinstance(obs, dict):
             raise ValueError("invalid sidecar observation")
         _valid(PrimaryContentReadiness(**obs))
-    except (TypeError, KeyError, json.JSONDecodeError) as exc:
+    except (TypeError, KeyError, ValueError) as exc:
         raise ValueError("invalid sidecar encoding") from exc
     return obj
