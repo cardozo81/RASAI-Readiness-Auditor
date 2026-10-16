@@ -1,4 +1,4 @@
-# Aceite consolidado — descoberta e contexto arquitetural
+# Aceite consolidado - descoberta e contexto arquitetural
 
 ## Gate técnico automatizado
 
