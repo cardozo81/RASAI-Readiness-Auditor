@@ -77,3 +77,35 @@ def test_inconclusive_architecture_explanation_does_not_claim_evidence():
     lines = describe_architecture_assessment(result)
     assert any("UNKNOWN" in line for line in lines)
     assert any("indisponível ou rejeitada" in line for line in lines)
+
+
+def test_preview_without_egress_preserves_existing_audit_database(tmp_path, monkeypatch):
+    """Offline preview neither calls collectors nor changes existing AUD bytes."""
+    import sqlite3
+    from hashlib import sha256
+
+    root = tmp_path / "audits"
+    folder = root / "AUD-smoke"
+    folder.mkdir(parents=True)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute("CREATE TABLE checkpoints (name TEXT NOT NULL)")
+        con.execute("INSERT INTO checkpoints(name) VALUES (?)", ("original",))
+        con.commit()
+    original_bytes = db.read_bytes()
+    original_files = sorted(p.relative_to(root).as_posix() for p in root.rglob("*"))
+    assert original_files == ["AUD-smoke", "AUD-smoke/audit.db"]
+
+    state = SimpleNamespace(target="https://example.org/", device="mobile", audits_root=root)
+    console = SimpleNamespace(render_header=lambda _state: None,
+                              _configure=lambda *_: (_ for _ in ()).throw(AssertionError("no editor expected")))
+    monkeypatch.delenv("RASAI_ARCH_PROBE_EGRESS_GUARDED", raising=False)
+    answers = iter(["1", "", "V"])
+    monkeypatch.setattr("builtins.input", lambda *_: next(answers))
+    with patch("rasai.console_architecture_discovery.probe_architecture",
+               side_effect=AssertionError("offline preview cannot open acquisition")) as probe:
+        architecture_preview_menu(console, state)
+    probe.assert_not_called()
+    assert db.read_bytes() == original_bytes
+    assert sha256(db.read_bytes()).digest() == sha256(original_bytes).digest()
+    assert sorted(p.relative_to(root).as_posix() for p in root.rglob("*")) == original_files
