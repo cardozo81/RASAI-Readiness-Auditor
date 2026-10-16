@@ -91,3 +91,13 @@ def test_legacy_missing_classification_column_does_not_infer_static(tmp_path: Pa
     data = _load("AUD-1", SimpleNamespace(database=database, root=tmp_path))
     assert data["architectures"] == []
     assert "Arquitetura não determinada" in _architecture_section(data["architectures"])
+
+
+def test_architecture_projection_labels_observation_not_effective_profile(tmp_path: Path) -> None:
+    database = _db(tmp_path)
+    data = _load("AUD-1", SimpleNamespace(database=database, root=tmp_path))
+    html = _architecture_section(data["architectures"])
+    assert html.count("descoberta automática registrada nesta captura") == 5
+    assert html.count("não propagada a parâmetros de coleta ou índices") == 5
+    assert html.count("Configuração declarada:</strong> N/D") == 5
+    assert "arquitetura aplicada automaticamente" not in html.lower()

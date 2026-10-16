@@ -240,6 +240,14 @@ def _architecture_section(rows: list[dict[str, Any]]) -> str:
                 "<p class='intro'>Sem evidência suficiente para identificar "
                 "a arquitetura nesta captura.</p>" if raw == "UNKNOWN" else ""
             )
+            # This projects the stored M6 observation only. Neither user-selected
+            # architecture nor effective consumer parameters are inferred here.
+            source_note = (
+                "<p class='intro'><strong>Origem:</strong> descoberta automática "
+                "registrada nesta captura. <strong>Aplicação:</strong> não "
+                "propagada a parâmetros de coleta ou índices. "
+                "<strong>Configuração declarada:</strong> N/D.</p>"
+            )
             cards.append(
                 "<article class='page-card'><div class='panel-head'><div>"
                 "<h3>" + escape(_architecture_label(raw)) + "</h3></div>"
@@ -248,7 +256,7 @@ def _architecture_section(rows: list[dict[str, Any]]) -> str:
                 + escape(requested) + "</p>" + detail
                 + "<p><strong>Identificador da captura:</strong> <code>"
                 + escape(str(row.get("snapshot_id") or "-"))
-                + "</code></p>" + limitation + "</article>"
+                + "</code></p>" + limitation + source_note + "</article>"
             )
         body = "".join(cards)
     return (
