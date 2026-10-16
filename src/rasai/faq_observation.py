@@ -140,7 +140,7 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
                 "WHERE p.audit_id=? ORDER BY s.snapshot_id LIMIT ?",
                 (audit_id, _MAX_SNAPSHOTS),
             ).fetchall()
-    except sqlite3.OperationalError:
+    except sqlite3.Error:
         return ""
     observations: list[dict[str, int]] = []
     sources: list[tuple[str, dict[str, int]]] = []
