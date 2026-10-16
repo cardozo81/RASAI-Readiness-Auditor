@@ -123,7 +123,12 @@ def build_cons_geo_advisory(cons_dir: Path, audits_root: Path) -> dict[str, Any]
         if path.is_symlink() or path.resolve().parent != root.resolve():
             raise ValueError("untrusted AUD source path")
         paths.append(path)
+    manifest_snapshot = _verified_manifest_text(manifest)
     preview = build_geo_longitudinal_preview(paths)
+    # The CONSULTED CONS manifest may be replaced while source AUDs are read.
+    # Do not associate the resulting advisory with an inconsistent source list.
+    if _verified_manifest_text(manifest) != manifest_snapshot:
+        raise ValueError("CONS manifest changed during source inspection")
     preview["cons_reference"] = {
         "cons_id": cons.name,
         "manifest_request_fingerprint": stored["request_fingerprint"],
