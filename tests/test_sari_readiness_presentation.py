@@ -142,3 +142,10 @@ def test_ready_aggregate_with_warning_gate_requires_attention() -> None:
     row = _row(status="READY", discovery_gate="WARNING")
     assert readiness_state(row)[0] == "ATTENTION"
     assert public_readiness_condition(row)[1] == "Readiness requer atenção"
+
+
+def test_unrecognized_measurement_states_fail_closed() -> None:
+    for consolidation, confidence in (("UNRECOGNIZED", "HIGH"), ("CONSOLIDATED", "UNRECOGNIZED"), ("", "HIGH")):
+        condition, label, _ = public_readiness_condition(_row(consolidation=consolidation, confidence=confidence))
+        assert condition == "neutral"
+        assert label == "Readiness não consolidada"
