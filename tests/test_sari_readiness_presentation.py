@@ -266,3 +266,27 @@ def test_boolean_coverage_is_unavailable_not_one_hundred_percent() -> None:
     row["coverage"] = True
     html = operational_readiness_panel({"scores": [row]})
     assert "Coverage N/D (fração canônica N/D)" in html
+
+
+def test_high_score_with_partial_coverage_does_not_claim_ready() -> None:
+    row = _row()
+    row["coverage"] = 0.7
+    condition, label, quality = public_readiness_condition(row)
+    assert condition == "near"
+    assert label == "Readiness com medição parcial"
+    assert quality == "Excelente (90-100)"
+
+
+def test_high_score_with_unverifiable_coverage_does_not_claim_ready() -> None:
+    for coverage in (None, True, float("nan"), 2.0):
+        row = _row()
+        row["coverage"] = coverage
+        condition, label, _ = public_readiness_condition(row)
+        assert condition == "neutral"
+        assert label == "Readiness com cobertura não verificada"
+
+
+def test_blocked_gate_remains_blocked_with_unavailable_coverage() -> None:
+    row = _row(status="BLOCKED", discovery_gate="BLOCKED")
+    row["coverage"] = None
+    assert public_readiness_condition(row)[0] == "critical"
