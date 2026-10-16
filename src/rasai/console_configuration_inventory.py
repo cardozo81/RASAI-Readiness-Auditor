@@ -57,7 +57,9 @@ def _ini_with_status(path: Path) -> tuple[ConfigParser | None, str]:
             return None, "SOURCE_CHANGED_DURING_READ"
         if len(data) > 2_000_000:
             return None, "SOURCE_TOO_LARGE"
-        parser.read_string(data.decode("utf-8"))
+        # Windows-created UTF-8 INI may include a BOM; do not mistake it
+        # for an invalid section or mutate the operator-owned source.
+        parser.read_string(data.decode("utf-8-sig"))
     except (OSError, UnicodeError):
         return None, "SOURCE_UNREADABLE"
     except ConfigError:
