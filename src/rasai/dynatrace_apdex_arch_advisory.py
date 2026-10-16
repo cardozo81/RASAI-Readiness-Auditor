@@ -89,7 +89,7 @@ def _validate_settings(value: Mapping[str, Any]) -> tuple[str, ...]:
         not isinstance(counts, Mapping)
         or any(
             key in counts
-            and (type(counts[key]) is not int or counts[key] < 0)
+            and (type(counts[key]) is not int or not 0 <= counts[key] <= 100_000_000)
             for key in ("load", "xhr", "custom")
         )
     ):
