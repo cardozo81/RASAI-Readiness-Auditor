@@ -31,3 +31,25 @@ def test_capture_failure_abstains_without_invoking_analyzer():
 def test_missing_render_abstains():
     value = assess_architecture(raw_html="<main>content</main>", rendered_html=None)
     assert value.architecture is ArchitectureClassification.UNKNOWN
+
+
+def test_spa_content_materializes_only_after_render():
+    raw = "<html><body><main></main></body></html>"
+    rendered = "<html><body><main><p>Material client-rendered content visible on this page.</p></main></body></html>"
+    result = assess_architecture(raw_html=raw, rendered_html=rendered)
+    assert result.architecture is ArchitectureClassification.CSR_SPA
+    assert result.comparison is not None
+
+
+def test_hydrated_content_adds_to_server_content():
+    raw = "<html><body><main><p>Material server-delivered product description.</p></main></body></html>"
+    rendered = "<html><body><main><p>Material server-delivered product description. Updated by the client.</p></main></body></html>"
+    result = assess_architecture(raw_html=raw, rendered_html=rendered)
+    assert result.architecture is ArchitectureClassification.HYDRATED
+
+
+def test_different_material_raw_and_rendered_content_is_mixed():
+    raw = "<html><body><main><p>Catalog information in the server document.</p></main></body></html>"
+    rendered = "<html><body><main><p>Different information inserted by client rendering.</p></main></body></html>"
+    result = assess_architecture(raw_html=raw, rendered_html=rendered)
+    assert result.architecture is ArchitectureClassification.MIXED
