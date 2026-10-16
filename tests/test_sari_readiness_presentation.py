@@ -229,3 +229,16 @@ def test_conflicting_aggregate_states_fail_closed() -> None:
     row = _row()
     row["limitations"] = json.dumps(["READINESS_STATUS:READY", "READINESS_STATUS:BLOCKED", "READINESS_STATUS:READY", "CRITICAL_GATE:DISCOVERY:PASS"])
     assert readiness_state(row)[0] == "UNKNOWN"
+
+
+def test_partial_critical_gate_inventory_cannot_certify_ready() -> None:
+    row = _row()
+    row["limitations"] = json.dumps(["READINESS_STATUS:READY", "CRITICAL_GATE:DISCOVERY:PASS"])
+    assert readiness_state(row)[0] == "UNKNOWN"
+    assert public_readiness_condition(row)[1] == "Readiness indeterminada"
+
+
+def test_single_blocked_gate_still_blocks_without_complete_inventory() -> None:
+    row = _row()
+    row["limitations"] = json.dumps(["READINESS_STATUS:READY", "CRITICAL_GATE:DISCOVERY:BLOCKED"])
+    assert readiness_state(row)[0] == "BLOCKED"
