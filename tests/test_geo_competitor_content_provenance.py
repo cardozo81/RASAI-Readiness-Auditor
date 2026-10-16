@@ -982,3 +982,15 @@ def test_jsonld_repeated_type_cannot_inflate_observed_schema_inventory():
     from rasai.geo_competitor_content_provenance import _optional_jsonld_types
     assert _optional_jsonld_types('["Product","Product"]') is None
     assert _optional_jsonld_types('["Product","FAQPage"]') == ["Product", "FAQPage"]
+
+
+@pytest.mark.parametrize("invalid", ["javascript:alert(1)", " https://malformed.test/", "https://user:secret@competitor.test/"])
+def test_malformed_serp_member_cannot_be_silently_removed_from_comparison(tmp_path, invalid):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute("INSERT INTO serp_results VALUES (?,?,?)", ("SERP-1", 2, invalid))
+    original = db.read_bytes()
+    value = inspect_geo_competitor_content(db, "AUD-1", "SERP-1")
+    assert value["status"] == "SERP_RESULT_URL_IDENTITY_UNVERIFIABLE"
+    assert value["comparisons"] == []
+    assert db.read_bytes() == original
