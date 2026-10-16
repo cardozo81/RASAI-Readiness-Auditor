@@ -96,3 +96,30 @@ pode impedir a classificação de sites que dependem de CDN e APIs externas.
 **Permanece um bloqueio:** HTTP intermediado não prova que o processo Chromium
 esteja isolado para outras pilhas nativas, especialmente WebRTC. Só executor
 com restrições efetivas de rede atestadas pode realizar a captura externa.
+
+### Executor OCI isolado, opt-in (em implementação e homologação)
+
+O caminho \`RASAI_ARCH_PROBE_OFFLINE_CONTAINER=1\` substitui o uso da variável
+legada \`RASAI_ARCH_PROBE_EGRESS_GUARDED\` na opção 8. A variável legada,
+isoladamente, **nunca** libera o Chromium no host. Sem opt-in, conserva-se
+a abstenção sem DNS/HTTP. Com opt-in, o processo primeiro verifica que a imagem
+OCI local \`rasai-architecture-offline:local\` existe (sem consultar a rede).
+Somente após isso coleta HTML/recursos via \`PublicWebPinnedOpener\`. O browser
+recebe somente um bundle limitado via stdin em \`docker run --network=none\`,
+sem host mounts ou acesso ao Docker daemon, usuário não-root, filesystem read-only,
+capabilities removidas, CPU/memória/pids limitados, imagem referenciada pelo
+digest local e \`--pull=never\`. Recursos ausentes, externos e falhas abstêm.
+
+Construção a partir do código auditado:
+\`\`\`powershell
+docker build -f Dockerfile.architecture-offline -t rasai-architecture-offline:local .
+\`\`\`
+O build baixa dependências e Chromium gratuitos, exige Docker funcional e
+acesso à Internet **apenas durante o build**. Não há instalação automática,
+execução de auditoria, alteração em INI, nem uso de API comercial.
+
+**Limite de aceite:** testes unitários e CI não constituem prova física de
+\`--network=none\` no host/daemon do operador. Exigir execução real da matriz
+de rede, inspeção do comando efetivo e revisão do isolamento antes de permitir
+uso operacional. Sites dependentes de CDN, cookies ou APIs de terceiros podem
+resultar \`UNKNOWN\` por falta de recursos, sem fallback nativo.

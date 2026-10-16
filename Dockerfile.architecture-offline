@@ -8,6 +8,6 @@ COPY src/ /app/src/
 RUN python -m pip install --no-cache-dir . \
     && python -m playwright install --with-deps chromium \
     && chmod -R a+rX /ms-playwright /app
-RUN useradd --system --uid 10001 --create-home sandboxuser
+RUN useradd --system --uid 10001 --user-group --create-home sandboxuser
 USER 10001:10001
 ENTRYPOINT ["python", "-m", "rasai.architecture_offline_worker"]

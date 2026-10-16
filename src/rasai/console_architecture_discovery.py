@@ -57,7 +57,7 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
             print("Informe uma URL e um dispositivo válidos na preparação da auditoria.")
             input("ENTER para continuar...")
             continue
-        if os.environ.get('RASAI_ARCH_PROBE_EGRESS_GUARDED') != '1':
+        if os.environ.get('RASAI_ARCH_PROBE_OFFLINE_CONTAINER') != '1':
             print('Diagnóstico inconclusivo: proteção de acesso à rede não configurada.')
             print('Nenhuma consulta ao site ou DNS foi realizada.')
             input('ENTER para voltar...')

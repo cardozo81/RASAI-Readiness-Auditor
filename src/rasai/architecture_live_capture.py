@@ -119,57 +119,12 @@ def install_architecture_browser_routes(
 
 
 def capture_public_architecture(url: str, device: DeviceContext) -> ProbeCaptures:
-    # An application-level DNS check does not prevent DNS rebinding between
-    # resolution and connect. Explicit network-grade egress controls are required.
-    # Until they are configured and verified, do not contact the target at all.
-    if os.environ.get('RASAI_ARCH_PROBE_EGRESS_GUARDED') != '1':
-        return ProbeCaptures(str(url), str(url), device, None, None, 'SAFE_EGRESS_NOT_CONFIGURED')
-    target = _validate_public_url(normalize_url(url), _default_resolver)
-    fetch = PublicWebFetcher(timeout_seconds=8.0, max_redirects=0, max_bytes=1_000_000, opener=PublicWebPinnedOpener())
-    document = fetch.fetch(target)
-    if document.status != ContentFetchStatus.OBSERVED or document.final_url != target:
-        return ProbeCaptures(target, target, device, None, None, "HTTP_CAPTURE_UNAVAILABLE")
-    if document.http_status is None or not 200 <= document.http_status < 300:
-        return ProbeCaptures(target, target, device, None, None, "HTTP_STATUS_NOT_SUCCESSFUL")
-    if "text/html" not in document.headers.get("content-type", "").lower():
-        return ProbeCaptures(target, target, device, None, None, "NON_HTML_RESPONSE")
-    raw = document.body.decode("utf-8", errors="replace")
-    if len(raw) > 1_000_000:
-        return ProbeCaptures(target, target, device, None, None, "RAW_HTML_LIMIT")
+    """Safe default: never launch network-capable Chromium in the host process.
 
-    # Same browser-device profiles as canonical audit rendering. Browser
-    # navigation remains independent: no M2/M3/M6 or AUD persistence.
-    from playwright.sync_api import Error as PlaywrightError, TimeoutError as PlaywrightTimeoutError, sync_playwright
-    profile = DESKTOP_PROFILE if device is DeviceContext.DESKTOP else MOBILE_PROFILE
-    try:
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
-            try:
-                context = browser.new_context(**profile.context_options, service_workers='block')
-                try:
-                    # Install guards before creating any page; popups and
-                    # WebSockets must not escape page-local request routing.
-                    gate = install_architecture_browser_routes(context, target, initial_document=document)
-                    page = context.new_page()
-                    response = page.goto(target, wait_until="domcontentloaded", timeout=12_000)
-                    # Match the bounded wait used by the audit renderer.
-                    # A fixed 350 ms delay can miss ordinary client hydration.
-                    try:
-                        page.wait_for_load_state("networkidle", timeout=2_000)
-                    except PlaywrightTimeoutError:
-                        pass
-                    final_url = normalize_url(page.url)
-                    if final_url != target or response is None or not 200 <= response.status < 300:
-                        return ProbeCaptures(target, target, device, raw, None, "RENDER_NAVIGATION_NOT_ATTESTED")
-                    rendered = page.content()
-                    if gate.blocked:
-                        return ProbeCaptures(target, target, device, raw, rendered, "BROWSER_REQUESTS_BLOCKED_OR_TRUNCATED")
-                    if len(rendered) > 1_000_000:
-                        return ProbeCaptures(target, target, device, raw, None, "RENDER_HTML_LIMIT")
-                    return ProbeCaptures(target, target, device, raw, rendered)
-                finally:
-                    context.close()
-            finally:
-                browser.close()
-    except (PlaywrightError, PlaywrightTimeoutError, OSError, ValueError):
-        return ProbeCaptures(target, target, device, raw, None, "BROWSER_CAPTURE_UNAVAILABLE")
+    The old EGRESS_GUARDED flag is intentionally insufficient. The explicitly
+    installed OCI renderer enforces --network none for the browser.
+    """
+    if os.environ.get("RASAI_ARCH_PROBE_OFFLINE_CONTAINER") == "1":
+        from rasai.architecture_isolated_capture import capture_isolated_public_architecture
+        return capture_isolated_public_architecture(url, device)
+    return ProbeCaptures(str(url), str(url), device, None, None, "SAFE_EGRESS_NOT_CONFIGURED")

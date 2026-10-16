@@ -26,19 +26,22 @@ def test_guarded_egress_requires_exact_opt_in(monkeypatch):
     fetch.assert_not_called()
 
 
-def test_guarded_http_uses_pinned_ip_transport(monkeypatch):
-    from rasai.geo_competitor_pinned_egress import PublicWebPinnedOpener
+def test_legacy_flag_cannot_launch_native_browser(monkeypatch):
     monkeypatch.setenv("RASAI_ARCH_PROBE_EGRESS_GUARDED", "1")
-    with patch("rasai.architecture_live_capture._validate_public_url", side_effect=lambda url, resolver: url), patch(
-        "rasai.architecture_live_capture.PublicWebFetcher"
-    ) as fetch:
-        fetch.return_value.fetch.return_value.status = "BLOCKED"
-        fetch.return_value.fetch.return_value.final_url = None
-        value = capture_public_architecture("https://example.org/", DeviceContext.MOBILE)
-    assert value.quality_reason == "HTTP_CAPTURE_UNAVAILABLE"
-    assert isinstance(fetch.call_args.kwargs["opener"], PublicWebPinnedOpener)
-    assert fetch.call_args.kwargs["max_redirects"] == 0
-    assert fetch.call_args.kwargs["max_bytes"] == 1_000_000
+    monkeypatch.delenv("RASAI_ARCH_PROBE_OFFLINE_CONTAINER", raising=False)
+    with patch("rasai.architecture_live_capture._default_resolver") as resolver:
+        result = capture_public_architecture("https://example.org/", DeviceContext.MOBILE)
+    assert result.quality_reason == "SAFE_EGRESS_NOT_CONFIGURED"
+    resolver.assert_not_called()
+
+
+def test_explicit_sandbox_flag_delegates_without_native_chromium(monkeypatch):
+    monkeypatch.setenv("RASAI_ARCH_PROBE_OFFLINE_CONTAINER", "1")
+    with patch("rasai.architecture_isolated_capture.capture_isolated_public_architecture") as capture:
+        capture.return_value = "isolated"
+        assert capture_public_architecture("https://example.org/", DeviceContext.MOBILE) == "isolated"
+    capture.assert_called_once()
+
 
 
 class _FakeRequest:
