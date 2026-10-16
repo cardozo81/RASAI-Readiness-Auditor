@@ -223,7 +223,8 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
             continue
         consolidation = str(_row_value(row, "consolidation_status", "NOT_CONSOLIDATED")).upper()
         confidence = str(_row_value(row, "confidence", "UNAVAILABLE")).upper()
-        if consolidation == "CONSOLIDATED" and confidence in {"HIGH", "MEDIUM"}:
+        if (consolidation == "CONSOLIDATED" and confidence in {"HIGH", "MEDIUM"}
+                and _coverage_fraction(row) == 1.0):
             continue
         percent, canonical = _coverage_display(row)
         dimension_notes.append(
