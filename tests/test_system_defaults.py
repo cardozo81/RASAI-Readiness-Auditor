@@ -277,4 +277,3 @@ def test_restore_program_defaults_failed_save_is_partial_and_keeps_unsaved_state
         assert state.operation == "LOCAL:RESTORE_SYSTEM_DEFAULTS_PARTIAL"
         assert is_dirty(state) is True
         assert "rasai-console.ini: OSError" in state.error
-

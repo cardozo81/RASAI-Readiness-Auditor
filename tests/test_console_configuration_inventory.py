@@ -1085,4 +1085,3 @@ def test_apdex_preflight_classifies_rejected_environment_without_read_write_leak
         "NEVER_ECHO",
     ):
         assert forbidden not in rendered
-

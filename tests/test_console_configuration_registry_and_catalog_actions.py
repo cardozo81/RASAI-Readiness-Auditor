@@ -196,4 +196,3 @@ def test_restore_catalog_failed_ini_save_keeps_dirty_and_exposes_partial(
     assert state.operation == "LOCAL:RESTORE_CATALOG_DEFAULTS_PARTIAL:CAT-07"
     assert is_dirty(state) is True
     assert "rasai-console.ini: OSError" in state.error
-
