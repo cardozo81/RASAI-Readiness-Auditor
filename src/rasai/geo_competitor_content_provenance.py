@@ -288,10 +288,13 @@ def inspect_geo_competitor_content(
         ).fetchall()
         if len(serp_result_rows) > _MAX_ROWS * 20:
             return abstain("SERP_RESULT_URL_VOLUME_EXCEEDED")
-        observed_serp_urls = {
-            _canonical_url(row[0]) for row in serp_result_rows
-        }
-        observed_serp_urls.discard("")
+        normalized_serp_urls = [_canonical_url(row[0]) for row in serp_result_rows]
+        # A partially malformed SERP cohort cannot establish the exact
+        # competitor source universe; dropping an invalid row hides a bad
+        # denominator or a potentially competing source identity.
+        if "" in normalized_serp_urls:
+            return abstain("SERP_RESULT_URL_IDENTITY_UNVERIFIABLE")
+        observed_serp_urls = set(normalized_serp_urls)
         if not observed_serp_urls:
             return abstain("SERP_RESULT_URL_PROVENANCE_ND")
         # A 'CUSTOMER' role in the HTML feature ledger is a label, not
