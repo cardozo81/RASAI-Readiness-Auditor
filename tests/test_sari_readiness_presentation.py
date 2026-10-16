@@ -120,3 +120,9 @@ def test_blocked_readiness_is_visible_without_numeric_score() -> None:
     condition, label, _quality = public_readiness_condition(row)
     assert condition == "critical"
     assert label == "Readiness bloqueada"
+
+
+def test_persisted_blocked_gate_takes_precedence_over_ready_marker() -> None:
+    row = _row(status="READY", discovery_gate="BLOCKED")
+    assert readiness_state(row)[0] == "BLOCKED"
+    assert public_readiness_condition(row)[0] == "critical"
