@@ -41,18 +41,22 @@ def capture_public_architecture(url: str, device: DeviceContext) -> ProbeCapture
                 try:
                     page = context.new_page()
                     requested = [0]
+                    blocked = [0]
                     def guarded(route):
                         requested[0] += 1
                         if requested[0] > 30:
+                            blocked[0] += 1
                             route.abort()
                             return
                         try:
                             candidate = _validate_public_url(route.request.url, _default_resolver)
                             if normalized_origin(candidate) != normalized_origin(target):
+                                blocked[0] += 1
                                 route.abort()
                             else:
                                 route.continue_()
                         except (ValueError, OSError):
+                            blocked[0] += 1
                             route.abort()
                     page.route("**/*", guarded)
                     response = page.goto(target, wait_until="domcontentloaded", timeout=12_000)
@@ -61,6 +65,8 @@ def capture_public_architecture(url: str, device: DeviceContext) -> ProbeCapture
                     if final_url != target or response is None or not 200 <= response.status < 300:
                         return ProbeCaptures(target, target, device, raw, None, "RENDER_NAVIGATION_NOT_ATTESTED")
                     rendered = page.content()
+                    if blocked[0]:
+                        return ProbeCaptures(target, target, device, raw, rendered, "BROWSER_REQUESTS_BLOCKED_OR_TRUNCATED")
                     if len(rendered) > 1_000_000:
                         return ProbeCaptures(target, target, device, raw, None, "RENDER_HTML_LIMIT")
                     return ProbeCaptures(target, target, device, raw, rendered)
