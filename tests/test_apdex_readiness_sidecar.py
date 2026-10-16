@@ -215,3 +215,15 @@ def test_322_rejects_oversized_sidecar_before_json_parsing(tmp_path):
     path.write_bytes(b" " * (64 * 1024 + 1))
     with pytest.raises(ValueError, match="bounded size"):
         read_readiness_sidecar(source, path)
+
+
+@pytest.mark.parametrize("status", ["OBSERVED", "NOT_OBSERVED", "TIMEOUT"])
+def test_322_cannot_claim_censored_or_measured_probe_without_load_clock(tmp_path, status):
+    source = aud(tmp_path)
+    updates = {"status": status, "load_ms": None}
+    if status != "OBSERVED":
+        updates.update(primary_content_ms=None, post_load_delta_ms=None,
+                       reason="window_censored")
+    with pytest.raises(ValueError, match="same-sample load boundary"):
+        write_readiness_sidecar(source, observed(**updates))
+    assert not (tmp_path / ".rasai-readiness-sidecars").exists()
