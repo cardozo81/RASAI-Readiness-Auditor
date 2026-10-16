@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from html import escape
 import json
+import math
 from typing import Any
 
 from rasai.report_observation_reconciliation import (
@@ -183,6 +184,8 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
         try:
             fraction = float(_row_value(row, "coverage", 0.0))
         except (TypeError, ValueError):
+            fraction = 0.0
+        if not math.isfinite(fraction):
             fraction = 0.0
         dimension_notes.append(
             f"<li>{escape(dimension)}: cobertura {fraction * 100:.1f}% "
