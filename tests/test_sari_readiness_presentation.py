@@ -192,5 +192,12 @@ def test_invalid_overall_coverage_never_renders_nan_or_crashes() -> None:
         row = _row()
         row["coverage"] = invalid
         html = operational_readiness_panel({"scores": [row]})
-        assert "Coverage 0.0% (fração canônica 0.000000)" in html
+        assert "Coverage N/D (fração canônica N/D)" in html
         assert "nan%" not in html.lower()
+
+
+def test_observed_zero_coverage_remains_distinct_from_invalid_coverage() -> None:
+    row = _row()
+    row["coverage"] = 0.0
+    html = operational_readiness_panel({"scores": [row]})
+    assert "Coverage 0.0% (fração canônica 0.000000)" in html
