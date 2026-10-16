@@ -881,3 +881,11 @@ def test_malformed_architecture_input_abstains(invalid):
     assert result["status"] == "NOT_EVALUABLE"
     assert result["reasons"] == ["ARCHITECTURE_NOT_PROVEN"]
     assert result["new_apdex_score"] is None
+
+
+def test_dynatrace_action_counts_cannot_be_unbounded_claims() -> None:
+    config = _config(xhr=True, count=100_000_001)
+    result = _assess(settings=config)
+    assert result["status"] == "INVALID_SETTINGS_SNAPSHOT"
+    assert "action_counts:INVALID_POPULATION" in result["reasons"]
+    assert result["new_apdex_score"] is None
