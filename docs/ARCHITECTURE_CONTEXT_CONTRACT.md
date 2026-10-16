@@ -9,7 +9,9 @@ observação física, escolha declarada, modo e aplicação por consumidor. O co
 de consumidores autorizados é fornecido explicitamente pelo chamador; o default
 é vazio, portanto nenhum consumidor herda arquitetura automaticamente.
 Isso **não é** aprovação de novos consumidores. O contrato recusa evidência
-ausente, contraditória, sem identificador ou de outra URL/device/snapshot.
+ausente, contraditória, sem identificador ou de outra AUD/página/URL solicitada/URL final/device/snapshot. Identidades
+opcionais ausentes em dados legados não satisfazem uma solicitação com
+AUD/página/URL final explícitas; não existe inferência por domínio.
 
 ## Matriz de elegibilidade provisória (não constitui aprovação)
 
