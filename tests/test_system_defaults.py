@@ -252,3 +252,29 @@ def test_restore_preserves_or_clears_credentials_only_when_selected() -> None:
         assert result.warnings == ()
         assert "OPENAI_API_KEY" not in os.environ
         assert "OPENAI_API_KEY" not in second_path.read_text(encoding="utf-8")
+
+
+def test_restore_program_defaults_failed_save_is_partial_and_keeps_unsaved_state(
+    monkeypatch, tmp_path,
+) -> None:
+    from rasai import console_settings
+    from rasai.console_session import is_dirty, mark_dirty
+
+    def fail_save(*_args, **_kwargs):
+        raise OSError("synthetic destination unavailable")
+
+    monkeypatch.setattr(console_settings, "save_console_config", fail_save)
+    monkeypatch.setattr("rasai.system_defaults.machine_environment_value", lambda name: None)
+    monkeypatch.setattr("rasai.system_defaults.user_environment_value", lambda name: None)
+    destination = tmp_path / "missing.ini"
+    with patch.dict(os.environ, {}, clear=True):
+        state = State()
+        mark_dirty(state, False)
+        result = restore_program_defaults(state, clear_credentials=False, path=destination)
+        assert result.path == destination
+        assert not destination.exists()
+        assert any("rasai-console.ini: OSError" in message for message in result.warnings)
+        assert state.operation == "LOCAL:RESTORE_SYSTEM_DEFAULTS_PARTIAL"
+        assert is_dirty(state) is True
+        assert "rasai-console.ini: OSError" in state.error
+

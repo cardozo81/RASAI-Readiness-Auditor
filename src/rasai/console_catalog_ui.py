@@ -72,7 +72,10 @@ def _restore_catalog_action(console_module: ModuleType, state: Any, catalog: Aud
         return
 
     result = restore_catalog_defaults(state, catalog.id)
-    print("\nRestauração concluída.")
+    print(
+        "\nRestauração com ressalvas; confirme se o INI foi salvo."
+        if result.warnings else "\nRestauração concluída."
+    )
     print(f"Catálogo               : {result.catalog_id}")
     print(f"Exclusivas restauradas : {len(result.restored_names)}")
     print(f"Compartilhadas mantidas: {len(result.shared_preserved)}")

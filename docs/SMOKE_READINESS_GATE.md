@@ -55,3 +55,11 @@ Questões não pertencentes ao escopo da PR podem continuar em roadmap, mas nenh
 Em 16/10/2026, no `d99aa9245220dd7e7c6f658d77d6442475c749ab`, a CI do SHA apresentava **77 workflow runs queued e 2 pending**, sem resultado conclusivo. Uma validação **estática** leu 1.474 paths versionados (0 basenames proibidas) e 86 workflows (0 referências Python literais positivas inexistentes); preservado 1 guard negativo intencional. **Não houve `compileall`, imports, `pytest` nem execução do smoke demonstrados por essa inspeção.** Consequentemente, naquele checkpoint, Gate A = **NÃO COMPROVADO** e Gate B = **PENDENTE**. Nova leitura do HEAD e dos checks é obrigatória antes de qualquer decisão.
 
 Nenhuma afirmação deste documento converte leitura estática ou CI pendente em teste de runtime.
+
+## Gate A físico — Windows e smoke focal de restauração (16/10/2026)
+
+- `21cacbe40e911b4957cf637004ecd88a25d4ca28`: 8 checks focais em Windows com exit 0; o primeiro smoke detectou defeito real: após **V** em “Restaurar padrões”, o console exigia indevidamente uma segunda decisão de gravação.
+- `98d89a5659c64f7d05371449a41bbc037d45f9c0`: correção do cancelamento implementada na PR #645. O operador executou o Gate A revisado no Windows: **9 checks reportados PASS**, incluindo `console_restore_navigation`; o smoke protegido confirmou `NETWORK_GUARD_ACTIVE`, `REGISTRY_WRITE_GUARD_ACTIVE` e **APROVADO** somente para o cenário **Sistema → Restaurar padrões → V** sem exibição do diálogo de persistência.
+- Este resultado aprova o fluxo humano **focal**, não a experiência completa, a preservação do Windows/User sob restauração real, o save/reopen de INI físico, os relatórios ou o Gate B. Arquivos físicos de registro e logs do novo smoke ainda não foram inspecionados. Não atribuir aceite transversal à issue #523.
+- Há risco independente: restauração confirmada pode alterar valores **Windows/User** mesmo quando o INI aponta para arquivo temporário; manter ações de restauração efetiva fora do roteiro exploratório. Guards no processo Python não substituem sandbox de sistema operacional.
+- Qualquer commit **posterior** a esse SHA exige prova de execução focal no novo HEAD antes de promover novo aceite. A PR permanece **DRAFT / NO MERGE** enquanto a CI requerida e os aceites por issue não estiverem concluídos.
