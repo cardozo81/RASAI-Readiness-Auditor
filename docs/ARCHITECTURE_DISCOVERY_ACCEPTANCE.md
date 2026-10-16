@@ -123,3 +123,23 @@ execução de auditoria, alteração em INI, nem uso de API comercial.
 de rede, inspeção do comando efetivo e revisão do isolamento antes de permitir
 uso operacional. Sites dependentes de CDN, cookies ou APIs de terceiros podem
 resultar \`UNKNOWN\` por falta de recursos, sem fallback nativo.
+
+### Passos operacionais para smoke OCI
+
+1. Atualizar a branch e verificar que a árvore Git está limpa.
+2. Conferir o Docker Desktop/Engine e o acesso a um daemon **local**. Revisar a
+   política de redes do host e do Docker antes de confiar no isolamento.
+3. Construir a imagem local a partir do código revisado, sem credenciais:
+   \`docker build -f Dockerfile.architecture-offline -t rasai-architecture-offline:local .\`
+4. Executar um diagnóstico de isolamento do daemon/container e observar que
+   o container com \`--network none\` não alcança destinos públicos, privados,
+   DNS, loopback do host ou metadata. O processo de browser nunca herda volume,
+   rede host, docker.sock nem credenciais.
+5. Em uma **sessão de homologação isolada**, definir temporariamente
+   \`RASAI_ARCH_PROBE_OFFLINE_CONTAINER=1\`; manter a flag legada desativada.
+   Se a imagem faltar, a execução deve ser inconclusiva **antes de DNS**.
+6. Apenas depois do gate do item 4, testar uma URL pública autorizada de cada
+   classe (estática, SPA, hidratada, mista e falhas), em mobile e desktop.
+   Registrar versão, classificação, motivo de abstenção e ausência de AUD.
+7. Ao terminar, desfazer a variável de sessão. Não gravar no INI nem autorizar
+   provedores de IA. Não converter testes sintéticos em prova física.
