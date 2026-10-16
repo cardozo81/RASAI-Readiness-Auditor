@@ -166,7 +166,7 @@ def _page(row: sqlite3.Row, expected_terms: tuple[str, ...]) -> dict[str, Any]:
         media_type in {"text/html", "application/xhtml+xml"}
         and lexical_body_matches
         and str(row["fetch_status"]).upper() == "OBSERVED"
-        and type(row["http_status"]) is int and 200 <= row["http_status"] < 300
+        and type(row["http_status"]) is int and row["http_status"] == 200
         and isinstance(row["content_sha256"], str)
         and bool(_SHA256.fullmatch(row["content_sha256"]))
         and type(row["bytes_read"]) is int and row["bytes_read"] > 0
