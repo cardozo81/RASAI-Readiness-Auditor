@@ -49,3 +49,9 @@ def test_missing_render_does_not_resolve_dns_or_claim_architecture():
     resolve.assert_not_called()
     assert result.architecture is ArchitectureClassification.UNKNOWN
     assert result.limitation == "RAW_OR_RENDERED_UNAVAILABLE"
+
+def test_capture_requested_url_cannot_be_substituted():
+    target = "https://example.org/"
+    with pytest.raises(ValueError, match="identity"):
+        probe_architecture(target, DeviceContext.MOBILE, capture=lambda _url, device:
+            ProbeCaptures("https://other.example.org/", target, device, None, None, "BLOCKED"))

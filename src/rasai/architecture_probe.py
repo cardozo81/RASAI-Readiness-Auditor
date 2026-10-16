@@ -38,7 +38,7 @@ def probe_architecture(
     # guarded capture owns network validation for externally acquired data.
     target = normalize_url(url)
     observation = capture(target, device)
-    if observation.requested_url != target or observation.device != device:
+    if normalize_url(observation.requested_url) != target or observation.device != device:
         raise ValueError("Probe capture identity mismatch")
     final_url = normalize_url(observation.final_url)
     if final_url != target:
