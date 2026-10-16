@@ -574,3 +574,7 @@ desconhecidas em seções tipadas e `[DEFAULT]`, mudança da fonte
 durante serialização e arquivo temporário de nome previsível já existente, usando
 somente fixtures locais sem chamadas externas. O resultado não autoriza
 salvar o INI original do operador sem o gate Windows consolidado.
+
+## Compatibilidade de INI UTF-8 com BOM no Windows
+
+A leitura do console e o inventário read-only reconhecem o prefixo UTF-8 BOM sem alterar o arquivo. O guard de `save_console_config` também interpreta o BOM para validar opções conhecidas e preservar as demais restrições: se houver seção, opção, segredo ou dado desconhecido, o save continua recusado. Um **save explícito** reserializa o INI no formato canônico UTF-8 sem BOM, após a validação de origem física. Isso não constitui evidência de round-trip no equipamento do operador; há fixtures temporárias separadas da fonte real.
