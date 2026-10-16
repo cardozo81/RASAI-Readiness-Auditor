@@ -74,6 +74,8 @@ def readiness_state(row: Any) -> tuple[str, dict[str, str]]:
             status = "BLOCKED"
         elif "UNKNOWN" in values or values - {"PASS", "WARNING"}:
             status = "UNKNOWN"
+        elif "WARNING" in values and status == "READY":
+            status = "ATTENTION"
         elif status == "UNKNOWN":
             if "WARNING" in values:
                 status = "ATTENTION"
