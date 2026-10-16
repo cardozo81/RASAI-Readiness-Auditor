@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import json
+import math
 import os
 import re
 from typing import Any, Sequence
@@ -69,9 +70,11 @@ def read_live_dynatrace_action_population(
         raise ValueError("explicit bounded UTC start/end milliseconds are required")
     if (not isinstance(api_token, str) or not api_token
             or api_token != api_token.strip()
-            or any(c in api_token for c in "\r\n")):
+            or any(ord(char) < 32 or ord(char) == 127 for char in api_token)):
         raise ValueError("Dynatrace DTAQLAccess token not configured")
-    if type(timeout_seconds) not in (int, float) or not 0 < timeout_seconds <= 10:
+    if (type(timeout_seconds) not in (int, float)
+            or not math.isfinite(timeout_seconds)
+            or not 0 < timeout_seconds <= 10):
         raise ValueError("Dynatrace USQL timeout outside permitted bounds")
 
     # Exact-query matching, never wildcard LIKE. No raw useraction rows:
