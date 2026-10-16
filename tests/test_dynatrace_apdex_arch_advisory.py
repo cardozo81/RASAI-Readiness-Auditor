@@ -873,3 +873,11 @@ def test_oversized_json_integer_threshold_abstains_without_overflow(which):
     assert "load_actions:INVALID_APDEX_THRESHOLDS" in out["reasons"]
     assert out["observed_kpm"] == {}
     assert out["new_apdex_score"] is None
+
+
+@pytest.mark.parametrize("invalid", [[], {}, {"class": "CSR_SPA"}, 123])
+def test_malformed_architecture_input_abstains(invalid):
+    result = _assess(architecture=invalid)
+    assert result["status"] == "NOT_EVALUABLE"
+    assert result["reasons"] == ["ARCHITECTURE_NOT_PROVEN"]
+    assert result["new_apdex_score"] is None
