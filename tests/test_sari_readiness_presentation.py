@@ -290,3 +290,10 @@ def test_blocked_gate_remains_blocked_with_unavailable_coverage() -> None:
     row = _row(status="BLOCKED", discovery_gate="BLOCKED")
     row["coverage"] = None
     assert public_readiness_condition(row)[0] == "critical"
+
+
+def test_ready_claim_without_any_persisted_gate_does_not_certify() -> None:
+    row = _row()
+    row["limitations"] = json.dumps(["READINESS_STATUS:READY"])
+    assert readiness_state(row)[0] == "UNKNOWN"
+    assert public_readiness_condition(row)[0] == "neutral"
