@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from contextlib import closing
 import json
+import math
 import re
 from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
@@ -112,10 +113,12 @@ def read_live_dynatrace_apdex_settings(
     endpoint = _tenant_endpoint(base_url)
     if (
         not isinstance(api_token, str) or not api_token or api_token != api_token.strip()
-        or "\n" in api_token or "\r" in api_token
+        or any(ord(char) < 32 or ord(char) == 127 for char in api_token)
     ):
         raise ValueError("Dynatrace settings.read API token not configured")
-    if timeout_seconds <= 0 or timeout_seconds > 30:
+    if (type(timeout_seconds) not in (int, float)
+            or not math.isfinite(timeout_seconds)
+            or not 0 < timeout_seconds <= 30):
         raise ValueError("Dynatrace request timeout outside allowed bounds")
     # Validate application scope before any request; this pure adapter has
     # no side effects and performs the same guard as the offline parser.
