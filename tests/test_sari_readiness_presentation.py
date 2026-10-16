@@ -149,3 +149,15 @@ def test_unrecognized_measurement_states_fail_closed() -> None:
         condition, label, _ = public_readiness_condition(_row(consolidation=consolidation, confidence=confidence))
         assert condition == "neutral"
         assert label == "Readiness não consolidada"
+
+
+def test_partial_dimension_is_explicit_without_changing_aggregate() -> None:
+    overall = _row(value=86.484962, confidence="HIGH", consolidation="CONSOLIDATED")
+    dimension = dict(overall, dimension="CONTENT_VALUE", coverage=0.7,
+                     confidence="LOW", consolidation_status="PARTIAL")
+    html = operational_readiness_panel({"scores": [overall, dimension]})
+    assert "CONTENT_VALUE: cobertura 70.0%" in html
+    assert "fração canônica 0.700000" in html
+    assert "confiança LOW, consolidação PARTIAL" in html
+    assert "O estado agregado não substitui a leitura por dimensão." in html
+    assert "86.5/100" in html
