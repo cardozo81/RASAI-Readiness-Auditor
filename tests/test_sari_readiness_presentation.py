@@ -171,3 +171,10 @@ def test_nonfinite_dimension_coverage_is_not_rendered_as_nan() -> None:
     assert "CONTENT_VALUE: cobertura 0.0%" in html
     assert "fração canônica 0.000000" in html
     assert "nan%" not in html.lower()
+
+
+def test_invalid_overall_score_fails_closed() -> None:
+    for invalid in ("not-a-score", float("nan"), float("inf")):
+        condition, label, _ = public_readiness_condition(_row(value=invalid))
+        assert condition == "neutral"
+        assert label == "Readiness não determinada"
