@@ -1537,3 +1537,19 @@ def test_html_count_display_obeys_bounded_physical_geo_source_budget():
     assert _count(0) == "0"
     for invalid in (-1, 501, 10 ** 400, True, False, "7", 1.0):
         assert _count(invalid) == "N/D"
+
+
+def test_host_overlap_requires_two_nonempty_observed_populations() -> None:
+    for serp, external in ((set(), {"https://example.test/a"}), ({"https://example.test/a"}, set()), (set(), set())):
+        with pytest.raises(ValueError, match="both observed source populations"):
+            ledger._host_overlap(serp, external)
+
+
+def test_host_overlap_preserves_separate_hostname_denominators() -> None:
+    out = ledger._host_overlap(
+        {"https://example.test/a", "https://www.example.test/b"},
+        {"https://example.test/c"},
+    )
+    assert out["serp_distinct_hosts"] == 2
+    assert out["common_hosts"] == 1
+    assert out["jaccard_host_rate"] == 0.5
