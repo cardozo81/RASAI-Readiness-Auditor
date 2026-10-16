@@ -1,32 +1,57 @@
-# Gate técnico de liberação para smoke humano
+# Gates independentes de smoke e aceite da PR de reconciliação
 
-## Estado e semântica
+## Escopo, origem e regra de prova
 
-**NÃO LIBERADO** no HEAD da PR #645 verificado em 16/10/2026. O GitHub Actions retornou apenas workflows `queued` / `pending`, sem check `success` neste HEAD. Uma inspeção estática focal em 16 arquivos alterados confirmou ausência de marcadores de conflito e nomes duplicados de testes, mas **não** compilou os módulos Python nem executou `pytest`. O runner necessário não estava disponível neste ambiente para uso local (sem resolução externa do GitHub); não é permitido apresentar essa inspeção como teste verde.
+Branch única: `chore/acceptance-evidence-reconciliation` · PR #645.
 
-O gate aplica-se à **mesma branch** `chore/acceptance-evidence-reconciliation` e à PR #645; commits posteriores invalidam os resultados de um HEAD anterior.
+Toda liberação precisa indicar **SHA testado, executor/ambiente, comandos e resultados efetivamente observados**. Resultados de outro SHA não aprovam o HEAD atual. `queued`/`pending` não significam sucesso nem falha de código; inspeção estática não equivale a `compileall`, importação efetiva, `pytest` ou execução de GitHub Actions.
 
-## Comandos reprodutíveis no checkout da PR
+Este documento separa dois gates **independentes**. O Gate A é suficiente para iniciar **smoke humano exploratório isolado**, mesmo enquanto a CI integral ou questões externas de outras issues permanecem pendentes. O Gate B é obrigatório para homologação final e integração. Não usar pendências de Gate B para impedir indevidamente Gate A, nem promover Gate A a aprovação final.
+
+## Gate A — smoke exploratório isolado
+
+**Pré-requisitos obrigatórios, comprovados no mesmo HEAD:**
+
+1. `python -m compileall -q src/rasai tests` sem erro, com Python/venv compatível com o projeto.
+2. Importação **executada** dos entrypoints envolvidos (console, relatório, SARI e serviços usados no roteiro); nenhuma inicialização faturável ou mutação de AUD como efeito colateral.
+3. `pytest` focal efetivamente verde para SARI/critério de readiness, governança de relatório, FAQ, persistência de configuração e política de paths. Ajustar a seleção à árvore do SHA e ao roteiro; completar com GEO/SQLite/Dynatrace quando diretamente exercitados.
+4. `git diff --check origin/main...HEAD`, integridade dos paths de workflow/nomes versionados e ausência de conflitos de merge.
+5. Nenhuma falha crítica conhecida que torne inseguros os fluxos exatos do smoke.
+
+**Sequência reprodutível em checkout isolado** (exemplos, não resultados):
 
 ```bash
 python -m compileall -q src/rasai tests
-git diff --check origin/main...HEAD
-python -m pytest -q tests/test_sari_readiness_presentation.py tests/test_faq_transition_policy.py tests/test_optional_seo_policy_errors.py tests/test_claim_collection_provenance.py
-python -m pytest -q tests/test_audit_attempt_timeline.py tests/test_audit_cost_explain.py tests/test_console_config_provenance.py
-python -m pytest -q tests/test_geo_query_ledger.py tests/test_geo_competitor_content_provenance.py tests/test_geo_cons_companion.py
-python -m pytest -q tests/test_apdex_content_readiness.py tests/test_apdex_readiness_sidecar.py
-python -m pytest -q tests/test_dynatrace_apdex_arch_advisory.py tests/test_dynatrace_rum_population.py tests/test_m21_field_scope_presentation.py
+python -c "import rasai.sari_readiness_presentation; import rasai.catalog_report_governance"
+python -m pytest -q tests/test_sari_readiness_presentation.py tests/test_catalog_report_final_refinements.py
+python -m pytest -q tests/test_catalog_report_site.py tests/test_faq_transition_policy.py
+python -m pytest -q tests/test_console_config_provenance.py tests/test_console_complete_persistence.py
 python -m pytest -q tests/test_repository_filename_policy.py
-python tests/test_repository_filename_policy.py --base origin/main --head HEAD
+python tests/test_repository_filename_policy.py --full-tree --head HEAD
+git diff --check origin/main...HEAD
 ```
 
-Após corrigir qualquer falha focal, exigir execução verde dos checks **obrigatórios** Linux/Windows e segurança do HEAD final no GitHub, não apenas de commits anteriores. Avaliar separadamente requisitos de prova física Windows/INI, interação FAQ autorizada, autenticidade de documentos externos, Dynatrace RUM realmente representativo e comparabilidade GEO. Fixtures/fake network não substituem essas fontes.
+Se um teste focal falhar, corrigir sua causa e reexecutar o conjunto afetado; **não liberar** um pacote comprovadamente inexecutável. Se não houver executor, marcar `NÃO EXECUTADO` e manter Gate A **NÃO COMPROVADO**; não substituir runtime por inspeção de fonte.
 
-## Regras de liberação
+**Após aprovação objetiva do Gate A:** declarar “APTO A SMOKE EXPLORATÓRIO”, citar SHA + testes + ambiente + limitações e fornecer roteiro Windows em **cópia da branch**, nunca na `main`/INI/AUD originais. Usar INI temporário e AUD sintética ou cópia read-only selada; abrir console, navegar/preparar auditoria sem execução paga, renderizar relatórios, verificar SARI/FAQ/GEO/arquitetura quando houver evidências. Capturar erros e artefatos redigidos sem credenciais. Nenhum provider pago, rede externa faturável, nova AUD comercial, reprocessamento destrutivo ou gravação no INI original sem aprovação específica.
 
-1. Nenhum `SyntaxError`, `ImportError`, erro de contrato, regressão focal ou check obrigatório vermelho.
-2. Nenhum score/catálogo SARI/SCORE-GEO/Apdex/CONS histórico alterado indevidamente. Provar integridade e paridade do pacote em AUD de teste selada, mantendo dados originais intactos.
-3. Reconciliar individualmente todas as issues elegíveis >= #301; se um aceite depende de fonte externa, registrar como não demonstrado e não simular aprovação.
-4. Somente após o gate técnico comprovadamente verde anunciar pacote **apto para smoke humano**. Isso não é homologação final nem autorização automática de merge se houver condições adicionais.
+A aprovação exploratória **não** é aceite executivo, não fecha épicos metodológicos, não autoriza merge e não declara SARI/Apdex/GEO recalibrados.
 
-**Status atual:** PENDENTE de execução técnica real, de CI verde e dos critérios externos aplicáveis; não utilizar este documento como certificado de aceite.
+## Gate B — homologação final e merge
+
+**Todos** os requisitos seguintes precisam de evidência própria (se aplicáveis), sem “herdar PASS” de outro SHA:
+
+- Suites relevantes Linux/Windows, segurança e **todos os required checks do HEAD final** efetivamente verdes; inspecionar job/log de falhas e proteções.
+- Paridade e integridade de banco, manifestos, hashes e relatórios (inclusive dados ocultos/escapados), score canônico e dados históricos preservados.
+- Reconciliação **por requisito** de cada issue elegível `>= #301`; fechar apenas tickets 100% aceitos e comprovados. Pendência metodológica/externa mantém seu ticket OPEN e não é mascarada como PASS.
+- ADR, versionamento e aprovação explícita para alterações de SCORE-GEO/SARI/M23/M25 ou propagação arquitetural que mudem método. Política arquitetural transversal #646 é evolução rastreada e **não bloqueia o Gate A** sem defeito específico comprovado.
+- Gates físicos/externos que de fato integrem o aceite: round-trip isolado Windows/INI (#523), FAQ SPA sem interação indevida (#601), conteúdo legal oficial versionado quando exigível (#603), comparação SERP × Perplexity realmente equivalente (#304), Dynatrace RUM representativo (#355/#357), amostra same-sample browser (#322).
+- Smoke humano homologatório quando previsto, PR retirada de Draft somente ao completar aceite e merge controlado; validar `main` **depois** da integração.
+
+Questões não pertencentes ao escopo da PR podem continuar em roadmap, mas nenhum aceite da PR ou de issue pode ser declarado completo se seus próprios critérios ainda dependerem delas. Toda exceção exige justificativa explícita, não desativação de gates críticos.
+
+## Estado factual da última inspeção registrada
+
+Em 16/10/2026, no `d99aa9245220dd7e7c6f658d77d6442475c749ab`, a CI do SHA apresentava **77 workflow runs queued e 2 pending**, sem resultado conclusivo. Uma validação **estática** leu 1.474 paths versionados (0 basenames proibidas) e 86 workflows (0 referências Python literais positivas inexistentes); preservado 1 guard negativo intencional. **Não houve `compileall`, imports, `pytest` nem execução do smoke demonstrados por essa inspeção.** Consequentemente, naquele checkpoint, Gate A = **NÃO COMPROVADO** e Gate B = **PENDENTE**. Nova leitura do HEAD e dos checks é obrigatória antes de qualquer decisão.
+
+Nenhuma afirmação deste documento converte leitura estática ou CI pendente em teste de runtime.
