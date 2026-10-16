@@ -7,6 +7,8 @@ network-grade DNS rebinding protection must also enforce outbound filtering.
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
+from typing import Any, Callable
 
 from rasai.geo_competitor_pinned_egress import PublicWebPinnedOpener
 from rasai.architecture_probe import ProbeCaptures
@@ -14,6 +16,60 @@ from rasai.domain import DeviceContext
 from rasai.rendering import DESKTOP_PROFILE, MOBILE_PROFILE
 from rasai.search_intelligence.content import PublicWebFetcher, ContentFetchStatus, _validate_public_url, _default_resolver
 from rasai.url_utils import normalize_url, normalized_origin
+
+
+@dataclass(slots=True)
+class BrowserRequestGate:
+    """Request counters are evidence limits, not a host/network firewall."""
+    requested: int = 0
+    blocked: int = 0
+
+
+def install_architecture_browser_routes(
+    context: Any,
+    target: str,
+    *,
+    resolver: Callable[..., Any] = _default_resolver,
+    max_requests: int = 30,
+) -> BrowserRequestGate:
+    """Route every page (including first popup requests) before navigation.
+
+    No WebSocket may reach a server, and only same-origin public GETs can be
+    delegated to the *separately network-isolated* browser. This does NOT pin
+    browser DNS connections and cannot replace network-grade egress isolation.
+    """
+    gate = BrowserRequestGate()
+
+    def blocked_http(route: Any) -> None:
+        gate.blocked += 1
+        route.abort()
+
+    def guarded_http(route: Any) -> None:
+        gate.requested += 1
+        if gate.requested > max_requests or route.request.method != "GET":
+            blocked_http(route)
+            return
+        try:
+            candidate = _validate_public_url(route.request.url, resolver)
+            if normalized_origin(candidate) != normalized_origin(target):
+                blocked_http(route)
+                return
+        except (ValueError, OSError):
+            blocked_http(route)
+            return
+        route.continue_()
+
+    def guarded_websocket(socket_route: Any) -> None:
+        gate.blocked += 1
+        # Do not call connect(): the socket stays entirely in the browser.
+        socket_route.close()
+
+    # page.route() misses the first request of a popup. Context-wide routing
+    # covers all ordinary HTTP requests of the isolated browser context.
+    context.route("**/*", guarded_http)
+    context.route_web_socket("**/*", guarded_websocket)
+    return gate
+
 
 
 def capture_public_architecture(url: str, device: DeviceContext) -> ProbeCaptures:
@@ -45,26 +101,10 @@ def capture_public_architecture(url: str, device: DeviceContext) -> ProbeCapture
             try:
                 context = browser.new_context(**profile.context_options, service_workers='block')
                 try:
+                    # Install guards before creating any page; popups and
+                    # WebSockets must not escape page-local request routing.
+                    gate = install_architecture_browser_routes(context, target)
                     page = context.new_page()
-                    requested = [0]
-                    blocked = [0]
-                    def guarded(route):
-                        requested[0] += 1
-                        if requested[0] > 30:
-                            blocked[0] += 1
-                            route.abort()
-                            return
-                        try:
-                            candidate = _validate_public_url(route.request.url, _default_resolver)
-                            if normalized_origin(candidate) != normalized_origin(target):
-                                blocked[0] += 1
-                                route.abort()
-                            else:
-                                route.continue_()
-                        except (ValueError, OSError):
-                            blocked[0] += 1
-                            route.abort()
-                    page.route("**/*", guarded)
                     response = page.goto(target, wait_until="domcontentloaded", timeout=12_000)
                     # Match the bounded wait used by the audit renderer.
                     # A fixed 350 ms delay can miss ordinary client hydration.
@@ -76,7 +116,7 @@ def capture_public_architecture(url: str, device: DeviceContext) -> ProbeCapture
                     if final_url != target or response is None or not 200 <= response.status < 300:
                         return ProbeCaptures(target, target, device, raw, None, "RENDER_NAVIGATION_NOT_ATTESTED")
                     rendered = page.content()
-                    if blocked[0]:
+                    if gate.blocked:
                         return ProbeCaptures(target, target, device, raw, rendered, "BROWSER_REQUESTS_BLOCKED_OR_TRUNCATED")
                     if len(rendered) > 1_000_000:
                         return ProbeCaptures(target, target, device, raw, None, "RENDER_HTML_LIMIT")

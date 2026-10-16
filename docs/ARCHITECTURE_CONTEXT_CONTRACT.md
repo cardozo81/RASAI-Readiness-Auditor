@@ -126,6 +126,8 @@ de saída pública com **endereço IP de conexão fixado após validação**, se
 redirecionamentos, e mantém a validação de certificado/SNI do hostname original.
 Essa garantia aplica-se à captura HTTP, **não** a toda a navegação Chromium.
 
+O navegador agora instala roteamento HTTP no contexto **antes de criar páginas**, alcançando também a primeira requisição de popups; operações HTTP diferentes de GET são negadas. WebSockets são fechados via `route_web_socket` antes de abrir conexão. Isso melhora o bloqueio na aplicação, **mas não prova isolamento de DNS, redirects internos ou WebRTC**, e a guarda de rede externa permanece obrigatória.
+
 O navegador usa limite de requisições, bloqueio de destinos não públicos e de
 origens diferentes, impede service workers e aguarda a estabilização da
 renderização por um intervalo limitado. Essas medidas não comprovam, sozinhas,

@@ -73,3 +73,10 @@ resultados por cenário, lista de defeitos, conclusão `APROVADO` ou
 
 **Regra de merge:** manter a PR como Draft e as issues abertas até aprovação
 dos critérios funcionais e de segurança, incluindo o smoke humano.
+
+### Mitigações do browser implementadas no processo
+
+- A interceptação HTTP passa a ser registrada no `BrowserContext` **antes da criação da página**, cobrindo inclusive o primeiro request de popups; `page.route` não cobria essa situação.
+- Recursos diferentes de GET, URLs não públicas, origens diferentes e solicitações que ultrapassem o orçamento são abortados.
+- WebSockets são interceptados no contexto com `route_web_socket` e fechados sem `connect()`. Qualquer bloqueio impede classificação conclusiva.
+- **Não constitui atestado de firewall/egress:** tráfego nativo do Chromium, redirecionamentos e WebRTC ainda exigem contenção verificável em camada de rede. A flag `RASAI_ARCH_PROBE_EGRESS_GUARDED` não instala essa contenção.
