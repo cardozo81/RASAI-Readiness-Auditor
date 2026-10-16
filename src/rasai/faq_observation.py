@@ -127,9 +127,13 @@ def _safe_rendered_file(root: Path, ref: Any) -> Path | None:
 
 def faq_observation_html(database: Any, audit_id: str) -> str:
     """Only add a factually bounded, non-scoring CAT-03 diagnostic."""
-    root = Path(database).parent
+    source = Path(database)
+    root = source.parent
+    if source.is_symlink() or not source.is_file():
+        return ""
     try:
-        with sqlite3.connect(database) as connection:
+        with sqlite3.connect(source.resolve().as_uri() + "?mode=ro", uri=True) as connection:
+            connection.execute("PRAGMA query_only=ON")
             rows = connection.execute(
                 "SELECT s.snapshot_id,s.rendered_artifact_ref FROM page_snapshots s "
                 "JOIN pages p ON p.page_id=s.page_id "
