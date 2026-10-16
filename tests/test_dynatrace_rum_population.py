@@ -281,3 +281,18 @@ def test_usql_duplicate_action_after_normalization_refuses_ambiguous_total(types
     with pytest.raises(ValueError, match="action count row is invalid"):
         _read(fake)
     assert len(fake.requests) == 1
+
+
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), float("-inf"), "10", True])
+def test_usql_nonfinite_or_invalid_timeout_fails_before_http(invalid):
+    fake = _FakeOpener()
+    with pytest.raises(ValueError, match="timeout"):
+        _read(fake, timeout_seconds=invalid)
+    assert fake.requests == []
+
+
+def test_usql_api_token_header_controls_fail_before_http():
+    fake = _FakeOpener()
+    with pytest.raises(ValueError, match="token"):
+        _read(fake, api_token="fake\ttoken")
+    assert fake.requests == []
