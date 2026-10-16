@@ -108,7 +108,10 @@ def forecast_readout(
         )
     if expected is not None and expected > 0 and coverage_complete and not has_optional and observed is not None:
         delta = (observed - expected) * 100 / expected
-        result += (
+        if not isfinite(delta):
+            result += "<p>Desvio frente à estimativa pontual: N/D (amplitude não representável).</p>"
+        else:
+            result += (
             "<p>Desvio frente à estimativa pontual persistida: "
             + escape(f"{delta:+.2f}%")
             + ". Trata-se de uma razão aritmética; o rótulo de severidade "
