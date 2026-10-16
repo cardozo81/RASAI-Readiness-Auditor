@@ -391,6 +391,22 @@ def _load_source(state: Any, console_module: ModuleType | None = None) -> None:
     load_source_configuration(state, audit_id, console_module=console_module)
 
 
+def describe_session_architecture_choice(state: Any) -> str:
+    """Visible session selection; never present a declaration as measured fact."""
+    from rasai.architecture_choice import ArchitectureChoice
+
+    selected = _ARCHITECTURE_SELECTION.get(id(state))
+    if selected is None:
+        return "NÃO SELECIONADA (padrão anterior; sem aplicação automática)"
+    if not isinstance(selected, ArchitectureChoice):
+        raise ValueError("Invalid session architecture selection")
+    if selected.mode == "UNFORCED":
+        return "SEM FORÇAR (escolha explícita; sem aplicação automática)"
+    if selected.mode == "AUTO":
+        return "AUTOMÁTICA (depende de evidência e consumidor autorizado)"
+    return f"DECLARADA: {selected.declared_architecture} (informada, não descoberta)"
+
+
 def install(interactive_console: ModuleType) -> None:
     """Install a top-level reuse shortcut and bind the final console execution state."""
     global _INSTALLED
@@ -411,6 +427,7 @@ def install(interactive_console: ModuleType) -> None:
             if prompt == "Escolha: ":
                 print("L. Carregar configuração de AUD [NOVA EXECUÇÃO]")
                 print("Y. Arquitetura para esta auditoria [SEM ALTERAR OS ÍNDICES]")
+                print("   Atual: " + describe_session_architecture_choice(state))
             return original_input(prompt)
 
         builtins.input = input_with_hint
@@ -423,6 +440,7 @@ def install(interactive_console: ModuleType) -> None:
         if choice == "Y":
             from rasai.architecture_choice import ArchitectureChoice
             print("Arquitetura da auditoria (opção consultiva; não modifica pontuação)")
+            print("Seleção atual: " + describe_session_architecture_choice(state))
             print("1. Sem forçar arquitetura")
             print("2. Automática, baseada na descoberta")
             print("3. Definida por você")

@@ -146,3 +146,12 @@ captura RAW inicial (mesmo snapshot); recursos adicionais têm limite agregado.
 Respostas com redirects, identidade final divergente, MIME ausente ou erro
 abstêm, sem fallback para tráfego nativo. A prevenção de DNS rebinding via
 replay HTTP **não** certifica ausência de WebRTC/outro egress Chromium.
+
+### Transparência da escolha no console
+
+O menu de preparação exibe a opção arquitetural **atual da sessão**, sem
+confundi-la com a observação física. O estado sem escolha explícita aparece como
+"NÃO SELECIONADA", `UNFORCED` como "SEM FORÇAR", `AUTO` depende de evidência
+e consumidor autorizado, e `DECLARED` mostra a classe acompanhada de
+"informada, não descoberta". A apresentação não altera INI, scores, coleta,
+snapshot nem dá autorização a consumidores adicionais.

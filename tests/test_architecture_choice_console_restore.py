@@ -53,3 +53,47 @@ def test_failed_restore_does_not_replace_architecture_choice(monkeypatch):
         assert _ARCHITECTURE_SELECTION[id(state)] == prior
     finally:
         _ARCHITECTURE_SELECTION.pop(id(state), None)
+
+
+def test_architecture_session_label_never_claims_declaration_was_observed():
+    from rasai.audit_configuration_reuse_console import describe_session_architecture_choice
+    state = _state()
+    assert "NÃO SELECIONADA" in describe_session_architecture_choice(state)
+    try:
+        _ARCHITECTURE_SELECTION[id(state)] = ArchitectureChoice("DECLARED", "CSR_SPA")
+        label = describe_session_architecture_choice(state)
+        assert "CSR_SPA" in label and "informada, não descoberta" in label
+        _ARCHITECTURE_SELECTION[id(state)] = ArchitectureChoice("AUTO")
+        assert "evidência" in describe_session_architecture_choice(state)
+        _ARCHITECTURE_SELECTION[id(state)] = ArchitectureChoice("UNFORCED")
+        assert "SEM FORÇAR" in describe_session_architecture_choice(state)
+    finally:
+        _ARCHITECTURE_SELECTION.pop(id(state), None)
+
+
+def test_selector_displays_current_choice_and_cancel_preserves_it(monkeypatch, capsys):
+    import builtins
+    from types import ModuleType
+    from rasai import audit_configuration_reuse_console as adapter
+
+    console = ModuleType("isolated_architecture_choice_console")
+    console._menu = lambda _state: builtins.input("Escolha: ")
+    console._configure = lambda *_args: None
+    console.run_audit_from_console = lambda _state: 0
+    monkeypatch.setattr(adapter, "_INSTALLED", False)
+    adapter.install(console)
+    state = _state()
+    try:
+        adapter._ARCHITECTURE_SELECTION[id(state)] = ArchitectureChoice(
+            "DECLARED", "HYDRATED"
+        )
+        monkeypatch.setattr(builtins, "input", lambda _prompt="": "V")
+        assert console._menu(state) == "V"
+        assert "DECLARADA: HYDRATED (informada, não descoberta)" in capsys.readouterr().out
+        console._configure(state, "Y")
+        assert adapter._ARCHITECTURE_SELECTION[id(state)] == ArchitectureChoice(
+            "DECLARED", "HYDRATED"
+        )
+        assert "Seleção atual: DECLARADA: HYDRATED" in capsys.readouterr().out
+    finally:
+        adapter._ARCHITECTURE_SELECTION.pop(id(state), None)
