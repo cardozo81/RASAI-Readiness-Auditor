@@ -70,7 +70,12 @@ def readiness_state(row: Any) -> tuple[str, dict[str, str]]:
                 gate = parts[1].strip().upper()
                 state = parts[2].strip().upper()
                 if gate:
-                    gates[gate] = state if gate not in gates or gates[gate] == state else "UNKNOWN"
+                    previous = gates.get(gate)
+                    gates[gate] = (
+                        state if previous is None or previous == state
+                        else "BLOCKED" if "BLOCKED" in {previous, state}
+                        else "UNKNOWN"
+                    )
 
     if len(declared_statuses) > 1:
         status = "UNKNOWN"
