@@ -50,7 +50,8 @@ def verify_claim_review_receipt(
         or not isinstance(trusted_key, bytes) or len(trusted_key) < 32
         or not isinstance(trusted_reviewer_ids, frozenset)
         or not receipt_mac or len(receipt_mac) != 64
-        or set(receipt) != _RECEIPT_FIELDS
+        or not _RECEIPT_FIELDS.issubset(receipt)
+        or set(receipt) - _RECEIPT_FIELDS - {"collected_on"}
         or receipt.get("independent_source_authenticity_verified") is not True
         or not isinstance(receipt.get("reviewer_id"), str)
         or not receipt["reviewer_id"].strip()
