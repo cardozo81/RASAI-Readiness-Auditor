@@ -295,3 +295,18 @@ def test_duplicate_attempt_id_across_ai_ledgers_refuses_ambiguous_total(tmp_path
     with pytest.raises(ValueError, match="across physical ledgers"):
         read_audit_attempt_timeline(db, "AUD-LOCAL")
     assert db.read_bytes() == original
+
+
+def test_timeline_abstains_before_materializing_unbounded_attempt_population(tmp_path):
+    from rasai import audit_attempt_timeline as module
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute("CREATE TABLE ai_provider_attempts(attempt_id TEXT, audit_id TEXT)")
+        con.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?)",
+            ((f"ID-{index}", "AUD-MANY") for index in range(module._MAX_LEDGER_ROWS + 1)),
+        )
+    original = db.read_bytes()
+    with pytest.raises(ValueError, match="population exceeded"):
+        read_audit_attempt_timeline(db, "AUD-MANY")
+    assert db.read_bytes() == original
