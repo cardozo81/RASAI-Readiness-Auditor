@@ -24,6 +24,11 @@ def _number(value: Any) -> float | None:
         return None
 
 
+def _count(value: Any) -> int | None:
+    """Counts must be physical nonnegative integers, never coerced flags."""
+    return value if type(value) is int and 0 <= value <= 1_000_000 else None
+
+
 def forecast_readout(
     forecast: Mapping[str, Any] | None, *,
     observed_total: float | None,
@@ -43,10 +48,12 @@ def forecast_readout(
     high = _number(forecast.get("likely_high"))
     p90 = _number(forecast.get("potential"))
     observed = _number(observed_total)
-    count = max(int(total_attempts), 0)
-    priced = max(0, min(int(priced_attempts), count))
-    coverage_complete = count > 0 and priced == count and comparable_currency
-    has_optional = optional_attempts > 0
+    count = _count(total_attempts)
+    priced = _count(priced_attempts)
+    optional = _count(optional_attempts)
+    counts_valid = count is not None and priced is not None and optional is not None and priced <= count
+    coverage_complete = bool(counts_valid and count > 0 and priced == count and comparable_currency)
+    has_optional = optional is not None and optional > 0
     result = (
         "<div class='notice'><strong>Interpretação da previsão:</strong> "
         "a classe de desvio compara o realizado com a estimativa pontual; "
@@ -57,11 +64,14 @@ def forecast_readout(
     )
     if has_optional:
         result += (
-            "<div class='notice warn'>Há " + str(optional_attempts)
+            "<div class='notice warn'>Há " + str(optional)
             + " tentativa(s) de análise complementar/direcionada. "
             "Sem prova de que a previsão pré-auditoria as incluiu, "
             "não comparar o total combinado com a faixa ou previsão central.</div>"
         )
+    if not counts_valid:
+        result += ("<div class='notice warn'>Contagens de tentativas inválidas ou "
+                   "inconsistentes; comparação econômica indisponível.</div>")
     if not comparable_currency:
         result += (
             "<div class='notice warn'>Moedas dos custos individuais e da "
@@ -71,7 +81,7 @@ def forecast_readout(
     if not coverage_complete:
         result += (
             "<div class='notice warn'>Cobertura monetária incompleta: "
-            + str(priced) + "/" + str(count)
+            + str(priced if priced is not None else "N/D") + "/" + str(count if count is not None else "N/D")
             + " tentativa(s) possuem valor monetário contabilizado. "
             "Não concluir precisão ou desvio do custo total.</div>"
         )
