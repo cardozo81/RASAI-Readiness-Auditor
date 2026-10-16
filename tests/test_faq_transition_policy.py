@@ -39,3 +39,13 @@ def test_cross_url_snapshots_cannot_be_compared() -> None:
         before_url=URL, later_url="https://other.test/faq",
     )
     assert result["status"] == "NOT_COMPARABLE"
+
+
+def test_duplicate_controls_are_ambiguous_in_observation() -> None:
+    from rasai.faq_observation import inspect_faq_html
+
+    result = inspect_faq_html(_html(False, 2))
+    assert result["controls"] == 1
+    assert result["ambiguous"] == 1
+    assert result["collapsed"] == 0
+    assert result["unmounted"] == 0
