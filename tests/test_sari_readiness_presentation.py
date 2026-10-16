@@ -126,3 +126,13 @@ def test_persisted_blocked_gate_takes_precedence_over_ready_marker() -> None:
     row = _row(status="READY", discovery_gate="BLOCKED")
     assert readiness_state(row)[0] == "BLOCKED"
     assert public_readiness_condition(row)[0] == "critical"
+
+
+def test_unknown_gate_value_fails_closed() -> None:
+    row = _row(status="READY", discovery_gate="NOT_CHECKED")
+    assert readiness_state(row)[0] == "UNKNOWN"
+
+
+def test_warning_gate_without_aggregate_status_requires_attention() -> None:
+    row = _row(status="UNKNOWN", discovery_gate="WARNING")
+    assert readiness_state(row)[0] == "ATTENTION"
