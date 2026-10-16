@@ -78,11 +78,14 @@ def inspect_faq_html(html: str) -> dict[str, int]:
     # A last-write-wins dictionary would invent a single truth if duplicate
     # controls disagree about expanded state or multiple nodes share an id.
     states: dict[str, set[str]] = {}
+    control_counts: dict[str, int] = {}
     for target, expanded in parser.controls:
         states.setdefault(target, set()).add(expanded)
+        control_counts[target] = control_counts.get(target, 0) + 1
     ambiguous = {
         target for target, expanded_states in states.items()
-        if len(expanded_states) != 1
+        if control_counts[target] != 1
+        or len(expanded_states) != 1
         or not expanded_states.issubset({"true", "false"})
         or parser.id_counts.get(target, 0) > 1
     }
