@@ -37,7 +37,7 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
             continue
         try:
             result = probe_architecture(
-                url, DeviceContext(device), capture=capture_public_architecture,
+                url, DeviceContext(device.upper()), capture=capture_public_architecture,
             )
             print(f"Arquitetura observada: {result.architecture.value}")
             print(f"Versão do método: {result.method_version}")
