@@ -196,3 +196,22 @@ def test_report_catalog_symlink_refused(tmp_path):
         pytest.skip("directory symlink unavailable")
     with pytest.raises(ValueError, match="sealed source"):
         write_readiness_sidecar(source, observed())
+
+
+@pytest.mark.parametrize("suffix", ["-wal", "-shm", "-journal"])
+def test_322_rejects_live_sqlite_sidecars_before_advisory_write(tmp_path, suffix):
+    source = aud(tmp_path)
+    journal = source / ("audit.db" + suffix)
+    journal.write_bytes(b"uncheckpointed")
+    with pytest.raises(ValueError, match="live transaction sidecars"):
+        write_readiness_sidecar(source, observed())
+    assert journal.read_bytes() == b"uncheckpointed"
+    assert not (tmp_path / ".rasai-readiness-sidecars").exists()
+
+
+def test_322_rejects_oversized_sidecar_before_json_parsing(tmp_path):
+    source = aud(tmp_path)
+    path = write_readiness_sidecar(source, observed())
+    path.write_bytes(b" " * (64 * 1024 + 1))
+    with pytest.raises(ValueError, match="bounded size"):
+        read_readiness_sidecar(source, path)
