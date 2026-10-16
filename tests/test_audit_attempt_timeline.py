@@ -279,3 +279,19 @@ def test_immutable_timeline_opt_in_does_not_change_normal_read_only_semantics(
     assert sealed == legacy
     assert sealed.attempts == 1
     assert db.read_bytes() == original
+
+
+def test_duplicate_attempt_id_across_ai_ledgers_refuses_ambiguous_total(tmp_path):
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        for table in ("ai_provider_attempts", "content_remediation_attempts"):
+            con.execute(f"CREATE TABLE {table}(attempt_id TEXT, audit_id TEXT, operation TEXT, started_at TEXT, finished_at TEXT)")
+            con.execute(
+                f"INSERT INTO {table} VALUES (?,?,?,?,?)",
+                ("SHARED", "AUD-LOCAL", "IMPROVEMENT_INTELLIGENCE",
+                 "2026-10-12T10:00:00Z", "2026-10-12T10:00:02Z"),
+            )
+    original = db.read_bytes()
+    with pytest.raises(ValueError, match="across physical ledgers"):
+        read_audit_attempt_timeline(db, "AUD-LOCAL")
+    assert db.read_bytes() == original
