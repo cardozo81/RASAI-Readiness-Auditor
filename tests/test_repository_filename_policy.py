@@ -203,7 +203,7 @@ def test_all_ci_workflows_reference_existing_literal_python_paths() -> None:
             # ABSENT. Such negative guards are not references to run/import.
             lines = [line.strip() for line in content.splitlines() if path in line]
             absent_guard = re.compile(
-                r"\\btest\\s+-[fe]\\s+" + re.escape(path) + r"(?:[;\\s]|$)"
+                r"\btest\s+-[fe]\s+" + re.escape(path) + r"(?:[;\s]|$)"
             )
             if lines and all(absent_guard.search(line) for line in lines):
                 continue
