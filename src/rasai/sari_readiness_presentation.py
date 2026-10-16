@@ -252,7 +252,7 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
         "estão BLOCKED/UNKNOWN.</p>"
         "<p class='notice'>Confiança e cobertura avaliam o contrato SARI, não representam intervalo estatístico, experiência real, desempenho de laboratório, posição SERP ou citação generativa. Métricas externas e dimensões de baixa cobertura devem ser analisadas separadamente.</p>"
         "<div class='grid'>" + "".join(cards) + "</div>" + dimension_notice
-        "<div class='notice'><strong>Integrações externas:</strong> erro de provider/API/coleta não é defeito do website e "
+        + "<div class='notice'><strong>Integrações externas:</strong> erro de provider/API/coleta não é defeito do website e "
         "não gera penalidade artificial no SARI. Um finding técnico externo só participa do score quando existe uma BR-GEO "
         "equivalente, mapeamento explícito e evidência persistida sem dupla pontuação.</div>"
         "</section>"
