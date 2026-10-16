@@ -118,3 +118,19 @@ Sem essa condição, o diagnóstico retorna inconclusivo sem abrir conexão. O
 operador não deve precisar configurar essa variável para usar o restante do
 RASAi. É uma medida de proteção até existir transporte com destino fixado e
 verificação de rede comprovada. Nenhum serviço pago é habilitado por esse sinal.
+
+### Separação de garantias entre HTTP e Chromium
+
+O transporte HTTP bruto da descoberta independente utiliza o mesmo componente
+de saída pública com **endereço IP de conexão fixado após validação**, sem
+redirecionamentos, e mantém a validação de certificado/SNI do hostname original.
+Essa garantia aplica-se à captura HTTP, **não** a toda a navegação Chromium.
+
+O navegador usa limite de requisições, bloqueio de destinos não públicos e de
+origens diferentes, impede service workers e aguarda a estabilização da
+renderização por um intervalo limitado. Essas medidas não comprovam, sozinhas,
+proteção contra troca de DNS após a verificação. Portanto a navegação física
+continua condicionada a uma política efetiva e externa de saída de rede, além
+da indicação de sua existência. Sem esse ambiente, o diagnóstico retorna
+inconclusivo e não realiza consulta externa. Testes de contrato não substituem
+captura real em ambiente protegido.
