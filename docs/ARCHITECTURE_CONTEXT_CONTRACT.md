@@ -22,7 +22,7 @@ AUD/página/URL final explícitas; não existe inferência por domínio.
 | CAT-01..CAT-08: parâmetros de coleta | PRE_COLLECTION_ONLY | Sem herança |
 | SARI e SCORE-GEO | METHOD_CHANGE_REQUIRES_ADR | Sem herança |
 | Apdex e thresholds | METHOD_CHANGE_REQUIRES_ADR | Sem herança |
-| M23 e M25 | METHOD_CHANGE_REQUIRES_ADR | Sem herança |
+| índice sintético de navegação e índice sintético de experiência | METHOD_CHANGE_REQUIRES_ADR | Sem herança |
 | Relatórios: fatos históricos | INAPPLICABLE | Somente fatos originais |
 
 Antes de habilitar um consumidor: identificar seu owner, fase, fonte física,
@@ -32,7 +32,7 @@ calibração da confiança foi aprovado. Não presume SSR distinguível de está
 
 ## Próximos gates
 
-- Inventariar classes e chaves reais em M6/M24 e mapear os consumidores exatos.
+- Inventariar classes e chaves reais em módulo de descoberta/relatório de rastreamento e mapear os consumidores exatos.
 - Definir o contrato de precedência INI/sessão/snapshot sem tocar o INI do operador.
 - Testar round-trip de configuração isolada e perfis antigos.
 - Integrar apenas consumidores consultivos explicitamente autorizados, com

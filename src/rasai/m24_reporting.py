@@ -240,7 +240,7 @@ def _architecture_section(rows: list[dict[str, Any]]) -> str:
                 "<p class='intro'>Sem evidência suficiente para identificar "
                 "a arquitetura nesta captura.</p>" if raw == "UNKNOWN" else ""
             )
-            # This projects the stored M6 observation only. Neither user-selected
+            # This projects the persisted discovery observation only. Neither user-selected
             # architecture nor effective consumer parameters are inferred here.
             source_note = (
                 "<p class='intro'><strong>Origem:</strong> descoberta automática "
