@@ -4,11 +4,75 @@ Status: procedimento controlado pre-smoke, read-only quando possivel.
 Este documento nao declara homologadas as issues em que faltam dados reais
 de provedores, comparabilidade amostral ou decisao metodologica.
 
+## Gate B consolidado da PR #645 — adendo operacional (16/10/2026)
+
+Este roteiro substitui orientacoes historicas de `main` no pre-merge. Fonte de
+gates independentes: [SMOKE_READINESS_GATE.md](SMOKE_READINESS_GATE.md).
+Uma leitura do GitHub em 16/10/2026 identificou
+`c5af57d9a97eeb2dd4b6966a72cfcc08d5d8b23c`, PR DRAFT e
+79 workflow runs SUCCESS (API de PR, primeira pagina). Isso nao e
+resultado de Windows no mesmo HEAD ou aceite visual.
+
+**Execucao autonomica antes de apresentar ao operador:**
+1. Fixar HEAD, conferir PR DRAFT, arvore limpa e required checks.
+2. Registrar por criterio: modulo/commit, teste e SHA, evidencia fisica,
+   classe de prova, risco residual, decisao KEEP_OPEN/CLOSE.
+3. Executar testes focais somente se nao cobertos por CI vigente ou se
+   houver alteracao funcional real; nao reexecutar 79 workflows apenas por
+   documentacao.
+4. Em Windows, conferir INI temporario (sem save/restauracao reais),
+   caminhos de navegacao/cancelamento e integridade de AUD existente.
+5. Rematerializar somente em destino novo, comparar 19 relatorios e
+   hashes da fonte antes/depois. Integridade estrutural sintetica sem
+   baseline completo nao equivale a aceite visual.
+6. Sem fontes autorizadas, registrar N/D para SERP/Perplexity, FAQ
+   pos-clique, claims oficiais, Dynatrace e longitudinal.
+7. Gate B final depende de aceite humano consolidado. Nao executar merge
+   enquanto DRAFT e enquanto gates obrigatorios nao comprovados.
+
+**Matriz das 16 issues abertas elegiveis, no checkpoint acima:**
+
+| Issue | Situacao de evidencia | Residual / proxima prova |
+| --- | --- | --- |
+| #301 | EPIC / OPEN | Aceites das filhas GEO e provas reais |
+| #304 | PARTIAL / OPEN | Equivalencia fisica SERP x Perplexity ou N/D |
+| #311 | PARTIAL / OPEN | Coortes fisicas comparaveis e metodo CONS |
+| #319 | PARTIAL / OPEN | Cronometros fisicos por etapa e custos reconciliados |
+| #322 | EXPERIMENTAL / OPEN | Mesmo sample, overhead e contrato sem M23/M25 |
+| #330 | PARTIAL / OPEN | Autorizacao, HTML concorrente real e SPA |
+| #355 | PARTIAL / OPEN | RUM tenant/populacao Load/XHR/Custom autorizados |
+| #357 | EPIC / OPEN | Aceites arquiteturais/Dynatrace relacionados |
+| #523 | PARTIAL / OPEN | Inventario completo e round-trip Windows INI |
+| #600 | PARTIAL / OPEN | Leitura SARI/ORIGIN e aceite visual em AUD real |
+| #601 | PARTIAL / OPEN | DOM FAQ pre/pos autorizado e contrato |
+| #602 | NEEDS_DECISION / OPEN | ADR/versionamento/golden antes de recalibrar |
+| #603 | BLOCKED_EXTERNAL / OPEN | Fonte primaria e recibo versionado por claim |
+| #604 | EPIC / OPEN | Filhas P1/P2, integridade e aceite decisorio |
+| #639 | PARTIAL / OPEN | Paths/imports/contratos em Linux e Windows |
+| #646 | NEEDS_DECISION / OPEN | Descoberta separada de declaracao e propagacao |
+
+**Criterio de classificacao:** CI verde demonstra exclusivamente o escopo
+do workflow. O estado PARTIAL nao significa falha funcional. Nao fechar
+issues por presuncao de completude nem exigir fonte paga para validar
+apresentacao N/D. Conservar bytes e hashes das AUDs originais.
+
+**Pacote unico de evidencia Windows:** salvar externamente ao repositorio
+(a) HEAD e status Git; (b) manifests de checks e hashes antes/depois;
+(c) log de `compileall`/imports/pytest apenas quando executados;
+(d) matriz de 16 criterios com resultado PASS/FAIL/N/D e razao;
+(e) capturas das 19 paginas, identificador do baseline homologado
+e divergencias; (f) testes de cancelamento e INI temporario
+sem restauracao efetiva; (g) aprovacoes humanas por escopo.
+Nao expor credenciais, banco original ou payload de terceiros.
+
+---
+
 ## 1. Invariantes antes do smoke
 
-- Usar somente a branch `main`, sem PR aberta nem modificacoes locais
-  que possam contaminar a evidencia da execucao.
-- As issues #1, #127, #192 e #322 estao excluidas da implementacao.
+- Antes do merge, validar a branch `chore/acceptance-evidence-reconciliation` (PR #645) em SHA fixado, sem modificacoes locais.
+  A `main` e validada separadamente somente depois de merge aprovado.
+- Escopo de reconciliacao: issues abertas >= #301; #322 admite apenas instrumentacao experimental isolada, sem hook em M23/M25 nem alteracao de indices.
+- #1, #127, #192 e #210 permanecem fora do escopo de implementacao.
 - Nenhum teste automatizado pre-smoke deve executar provedores comerciais,
   disparar nova AUD nem modificar bancos e artefatos originais.
 - As ferramentas consultivas de #210, #304, #311, #319, #330 e #355 nao
@@ -20,9 +84,9 @@ de provedores, comparabilidade amostral ou decisao metodologica.
 
 ```powershell
 cd C:\IA-PROJETOS\github\RASAI-Readiness-Auditor
-git switch main
 git fetch origin --prune
-git pull --ff-only origin main
+git switch chore/acceptance-evidence-reconciliation
+git pull --ff-only origin chore/acceptance-evidence-reconciliation
 git status --short
 git rev-parse HEAD
 ```
@@ -151,7 +215,7 @@ continuam abertas ate verificacao dos criterios faltantes.
 
 ## 6. Evidencias de retorno
 
-Registrar o SHA de `main`, Audit ID, URL/dispositivo sem dados pessoais,
+Registrar o SHA exato da branch PR #645, Audit ID, URL/dispositivo sem dados pessoais,
 estado logico e os checks efetivamente realizados. Anexar somente
 capturas redigidas de `report-catalog/`, mensagens do console e,
 quando aplicavel, hashes/contagem de arquivos. Nunca publicar banco
