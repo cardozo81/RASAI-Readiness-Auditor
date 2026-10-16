@@ -102,6 +102,11 @@ def _host_overlap(serp_urls: set[str], external_urls: set[str]) -> dict[str, int
     """
     if not serp_urls or not external_urls:
         raise ValueError("both observed source populations are required")
+    # A reusable helper must not turn an invalid URL into hostname=None,
+    # which would create a fabricated shared-host intersection.
+    if any(_canonical_url(url) != url or not urlsplit(url).hostname
+           for url in serp_urls | external_urls):
+        raise ValueError("physical URL identity is not canonical HTTP(S)")
     serp_hosts = {urlsplit(url).hostname for url in serp_urls}
     external_hosts = {urlsplit(url).hostname for url in external_urls}
     shared = len(serp_hosts & external_hosts)
