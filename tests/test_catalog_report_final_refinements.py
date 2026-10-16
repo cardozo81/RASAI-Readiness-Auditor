@@ -201,28 +201,44 @@ def test_optional_seo_reconciliation_is_readonly_and_does_not_recompute_scores(t
 def test_sari_exec_tone_uses_persisted_readiness_gate_not_high_number() -> None:
     from rasai.catalog_report_governance import _sari_public_tone
 
+    # The executive badge must require a complete physical critical-gate
+    # inventory AND full measurement coverage. A persisted READY marker
+    # alone must not be promoted to a verified public readiness claim.
     base = {
         "dimension": "OVERALL_READINESS",
         "value": 86.484962,
-        "coverage": 0.974737,
+        "coverage": 1.0,
         "confidence": "HIGH",
         "consolidation_status": "CONSOLIDATED",
     }
+    passed = [
+        "CRITICAL_GATE:DISCOVERY:PASS",
+        "CRITICAL_GATE:INDEXABILITY:PASS",
+        "CRITICAL_GATE:EXTRACTION:PASS",
+    ]
     attention = {
-        **base, "limitations": json.dumps([
+        **base,
+        "limitations": json.dumps([
             "READINESS_STATUS:ATTENTION",
             "CRITICAL_GATE:DISCOVERY:WARNING",
+            "CRITICAL_GATE:INDEXABILITY:PASS",
+            "CRITICAL_GATE:EXTRACTION:PASS",
         ]),
     }
-    ready = {**base, "limitations": json.dumps(["READINESS_STATUS:READY"])}
+    ready = {
+        **base,
+        "limitations": json.dumps(["READINESS_STATUS:READY", *passed]),
+    }
     unknown = {**base, "limitations": "[]"}
+    unsupported_ready = {**base, "limitations": json.dumps(["READINESS_STATUS:READY"])}
+    partial = {**ready, "coverage": 0.974737}
     assert _sari_public_tone(attention) == "warn"
     assert _sari_public_tone(ready) == "good"
     assert _sari_public_tone(unknown) == "neutral"
+    assert _sari_public_tone(unsupported_ready) == "neutral"
+    assert _sari_public_tone(partial) == "warn"
     assert _sari_public_tone({**ready, "confidence": "LOW"}) == "warn"
     assert base["value"] == 86.484962
-
-
 
 
 def test_overview_scope_does_not_represent_origin_as_url_or_partial_as_complete() -> None:
