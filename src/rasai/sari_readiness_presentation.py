@@ -84,6 +84,8 @@ def readiness_state(row: Any) -> tuple[str, dict[str, str]]:
 
     # A persisted critical gate takes precedence over the aggregate marker.
     # Only derive a missing aggregate state from complete, recognized gate states.
+    if not gates:
+        return "UNKNOWN", gates
     if gates:
         values = set(gates.values())
         if "BLOCKED" in values:
