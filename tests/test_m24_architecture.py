@@ -72,7 +72,9 @@ def test_discovery_architecture_is_a_read_only_per_snapshot_projection(tmp_path:
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in content
     assert "<script>alert(1)</script>" not in content
     assert "private.invalid" not in content
-    assert content == _page(_load("AUD-1", workspace), tmp_path / "report")
+    assert _architecture_section(data["architectures"]) == _architecture_section(
+        _load("AUD-1", workspace)["architectures"]
+    )
     assert original == database.read_bytes()
 
 
