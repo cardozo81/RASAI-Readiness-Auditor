@@ -40,13 +40,19 @@ class _AccordionParser(HTMLParser):
             self.id_counts[element_id] = self.id_counts.get(element_id, 0) + 1
         targets = [value for name, value in attrs if name == "aria-controls"]
         expanded_values = [value for name, value in attrs if name == "aria-expanded"]
-        target = str(targets[0] or "").strip() if len(targets) == 1 else ""
         expanded = (
             str(expanded_values[0] or "").strip().lower()
             if len(expanded_values) == 1 else "ambiguous"
         )
-        if target and _FAQ_CONTEXT.search(target):
-            self.controls.append((target, expanded))
+        # One aria-controls attribute can contain multiple IDREFs. They do
+        # not identify one uniquely attributable FAQ panel. Duplicate HTML
+        # attributes are likewise ambiguous, never silently ignored.
+        for raw in targets:
+            parts = str(raw or "").split()
+            for target in dict.fromkeys(parts):
+                if _FAQ_CONTEXT.search(target):
+                    state = expanded if len(targets) == 1 and len(parts) == 1 else "ambiguous"
+                    self.controls.append((target, state))
         if tag not in _VOID_TAGS:
             self._open.append((tag, element_id))
 
