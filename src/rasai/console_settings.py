@@ -344,7 +344,7 @@ def _guard_existing_ini_before_save(
     parser = ConfigParser(interpolation=None)
     parser.optionxform = str
     try:
-        parser.read_file(io.StringIO(payload.decode("utf-8")))
+        parser.read_file(io.StringIO(payload.decode("utf-8-sig")))
     except (UnicodeError, ConfigError) as exc:
         raise ValueError("INI existente invalido; preserve a origem") from exc
     expected = _parser_for_state(state)
