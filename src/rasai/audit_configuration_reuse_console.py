@@ -420,6 +420,7 @@ def install(interactive_console: ModuleType) -> None:
         with configuration_context(
             kind=KIND_CONSOLE,
             configuration=effective,
+            architecture_choice=getattr(state, "architecture_choice", None),
             source_audit_id=source.audit_id if source else None,
             source_configuration_hash=source.configuration_hash if source else None,
             changed_fields=differences,
