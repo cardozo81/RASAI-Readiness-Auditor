@@ -19,6 +19,7 @@ from rasai.audit_configuration_reuse_runtime import configuration_context
 
 _INSTALLED = False
 _SESSION_SOURCE: dict[int, ReusableAuditConfiguration] = {}
+_ARCHITECTURE_SELECTION: dict[int, object] = {}
 
 
 def _search_execution_settings(state: Any) -> dict[str, Any] | None:
@@ -256,9 +257,9 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
         choice = read_sealed_audit_choice(
             configuration, expected_hash=configuration_hash(configuration)
         ).choice
-        state.architecture_choice = choice
-    elif hasattr(state, "architecture_choice"):
-        state.architecture_choice = None
+        _ARCHITECTURE_SELECTION[id(state)] = choice
+    else:
+        _ARCHITECTURE_SELECTION.pop(id(state), None)
 
     warnings: list[str] = []
     allowed_environment = set(console_settings._known_nonsecret_environment_names())
@@ -406,6 +407,7 @@ def install(interactive_console: ModuleType) -> None:
         def input_with_hint(prompt: str = "") -> str:
             if prompt == "Escolha: ":
                 print("L. Carregar configuração de AUD [NOVA EXECUÇÃO]")
+                print("Y. Arquitetura para esta auditoria [SEM ALTERAR OS ÍNDICES]")
             return original_input(prompt)
 
         builtins.input = input_with_hint
@@ -415,6 +417,39 @@ def install(interactive_console: ModuleType) -> None:
             builtins.input = original_input
 
     def configure_with_reuse(state: Any, choice: str) -> None:
+        if choice == "Y":
+            from rasai.architecture_choice import ArchitectureChoice
+            print("Arquitetura da auditoria (opção consultiva; não modifica pontuação)")
+            print("1. Sem forçar arquitetura")
+            print("2. Automática, baseada na descoberta")
+            print("3. Definida por você")
+            selected = builtins.input("Opção (V para voltar): ").strip().upper()
+            if selected in {"V", ""}:
+                return
+            if selected == "1":
+                selection = ArchitectureChoice("UNFORCED")
+            elif selected == "2":
+                selection = ArchitectureChoice("AUTO")
+            elif selected == "3":
+                options = {
+                    "1": "STATIC_OR_SSR", "2": "HYDRATED",
+                    "3": "CSR_SPA", "4": "MIXED",
+                }
+                print("1. Estática ou renderizada no servidor")
+                print("2. Renderizada com hidratação")
+                print("3. Aplicação de página única (SPA)")
+                print("4. Arquitetura mista")
+                arch = options.get(builtins.input("Tipo (V para voltar): ").strip())
+                if arch is None:
+                    return
+                selection = ArchitectureChoice("DECLARED", arch)
+            else:
+                return
+            _ARCHITECTURE_SELECTION[id(state)] = selection
+            from rasai.console_session import mark_dirty
+            mark_dirty(state)
+            state.error = "Preferência de arquitetura registrada para esta sessão; os índices não foram alterados."
+            return
         if choice == "L":
             _load_source(state, console_module=interactive_console)
             return
@@ -433,7 +468,7 @@ def install(interactive_console: ModuleType) -> None:
         with configuration_context(
             kind=KIND_CONSOLE,
             configuration=effective,
-            architecture_choice=getattr(state, "architecture_choice", None),
+            architecture_choice=_ARCHITECTURE_SELECTION.get(id(state)),
             source_audit_id=source.audit_id if source else None,
             source_configuration_hash=source.configuration_hash if source else None,
             changed_fields=differences,
