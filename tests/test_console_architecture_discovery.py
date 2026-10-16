@@ -60,8 +60,8 @@ def test_no_dns_or_probe_without_network_gate(monkeypatch, capsys):
 def test_architecture_explanation_is_evidence_bounded():
     from rasai.console_architecture_discovery import describe_architecture_assessment
     from rasai.architecture_discovery import assess_architecture
-    raw = "<html><main>Visible server content.</main></html>"
-    rendered = "<html><main>Visible server content. With hydrated text.</main></html>"
+    raw = "<html><body><main><h1>Page</h1><p>Visible server content present.</p></main></body></html>"
+    rendered = "<html><body><main><h1>Page</h1><p>Visible server content present. With hydrated text.</p></main></body></html>"
     result = assess_architecture(raw_html=raw, rendered_html=rendered)
     lines = describe_architecture_assessment(result)
     assert any("Conteúdo principal RAW: presente" in line for line in lines)
