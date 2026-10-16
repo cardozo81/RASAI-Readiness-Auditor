@@ -49,3 +49,20 @@ def test_duplicate_controls_are_ambiguous_in_observation() -> None:
     assert result["ambiguous"] == 1
     assert result["collapsed"] == 0
     assert result["unmounted"] == 0
+
+
+def test_multiple_idrefs_or_duplicate_aria_controls_are_ambiguous() -> None:
+    from rasai.faq_observation import inspect_faq_html
+    for control in (
+        '<button aria-controls="faq-one faq-two" aria-expanded="false">Q</button>',
+        '<button aria-controls="faq-one" aria-controls="faq-two" aria-expanded="false">Q</button>',
+    ):
+        observed = inspect_faq_html(control)
+        assert observed["controls"] == 2
+        assert observed["ambiguous"] == 2
+        assert observed["collapsed"] == 0
+        comparison = compare_faq_dom_views(
+            control, control, target_id="faq-one", before_url=URL, later_url=URL,
+        )
+        assert comparison["status"] == "NOT_COMPARABLE"
+        assert comparison["reason"] == "DOM_CONTROL_OR_PANEL_AMBIGUOUS"
