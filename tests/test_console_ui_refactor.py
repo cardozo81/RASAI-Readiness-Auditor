@@ -127,6 +127,48 @@ def test_inherited_experience_mix_is_not_materialized_as_override(tmp_path) -> N
     assert not parser.has_option("synthetic_apdex_experience", "device_mix")
 
 
+
+@pytest.mark.parametrize(
+    "restore_operation",
+    ("LOCAL:RESTORE_SYSTEM_DEFAULTS_CANCELLED", "LOCAL:RESTORE_SYSTEM_DEFAULTS"),
+)
+def test_system_defaults_restore_does_not_prompt_for_second_save(
+    monkeypatch, restore_operation: str,
+) -> None:
+    """System restore owns its confirmation/save, and V never leads to a second menu."""
+    console = ModuleType("test_console_system_defaults_cancel_routing")
+    calls: list[str] = []
+    state = ApdexConsoleState()
+    state.operation = "LOCAL:MENU"
+    initial_mix = getattr(state, "apdex_experience_device_mix", None)
+    initial_fingerprint = ui._fingerprint(state)
+
+    def restore(current, choice: str) -> None:
+        assert choice == "D"
+        calls.append("restore")
+        if restore_operation == "LOCAL:RESTORE_SYSTEM_DEFAULTS":
+            current.project = "restored project"
+        current.operation = restore_operation
+
+    console._configure = restore
+    console.mark_dirty = lambda current, value=True: None
+    console._save_configuration = lambda current: calls.append("save")
+    monkeypatch.setattr(
+        builtins, "input",
+        lambda prompt="": pytest.fail("Restore D must not show a second persistence prompt"),
+    )
+
+    ui._install_configure_persistence(console)
+    console._configure(state, "D")
+    assert calls == ["restore"]
+    assert state.operation == restore_operation
+    assert getattr(state, "apdex_experience_device_mix", None) == initial_mix
+    if restore_operation.endswith("_CANCELLED"):
+        assert ui._fingerprint(state) == initial_fingerprint
+    else:
+        assert ui._get_meta(state, "saved_fingerprint", None) == ui._fingerprint(state)
+
+
 def test_apdex_edit_keeps_mix_inherited_when_mix_is_unchanged(monkeypatch) -> None:
     console = ModuleType("test_console_ui_refactor_apdex_inherited")
     console._configure = lambda state, choice: setattr(

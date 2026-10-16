@@ -429,6 +429,17 @@ def _install_configure_persistence(console: ModuleType) -> None:
     original, old_mark = console._configure, console.mark_dirty
 
     def configure(state: Any, choice: str):
+        # System defaults is an independent, confirmed action. A V/cancel must
+        # return directly to the console, never open a second persistence menu.
+        # In particular, _ensure_mix may otherwise change the fingerprint even
+        # when the operator cancelled the restore without changing settings.
+        if choice == "D":
+            original(state, choice)
+            if getattr(state, "operation", None) == "LOCAL:RESTORE_SYSTEM_DEFAULTS":
+                # The canonical restore already saved its own INI. Keep the
+                # generic change tracker aligned without prompting to save again.
+                _set_meta(state, "saved_fingerprint", _fingerprint(state))
+            return
         before = _fingerprint(state)
         # The APDEX editor is transactional, but the compatibility mix is normalized
         # by this outer wrapper BEFORE the editor takes its own rollback snapshot.
