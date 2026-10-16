@@ -242,3 +242,12 @@ def test_single_blocked_gate_still_blocks_without_complete_inventory() -> None:
     row = _row()
     row["limitations"] = json.dumps(["READINESS_STATUS:READY", "CRITICAL_GATE:DISCOVERY:BLOCKED"])
     assert readiness_state(row)[0] == "BLOCKED"
+
+
+def test_partial_dimension_coverage_is_disclosed_even_if_confidence_high() -> None:
+    overall = _row()
+    dimension = dict(overall, dimension="CONTENT_VALUE", coverage=0.7,
+                     confidence="HIGH", consolidation_status="CONSOLIDATED")
+    html = operational_readiness_panel({"scores": [overall, dimension]})
+    assert "CONTENT_VALUE: cobertura 70.0%" in html
+    assert "confiança HIGH, consolidação CONSOLIDATED" in html
