@@ -130,7 +130,7 @@ def assess_dynatrace_apdex_architecture(
         "audit_writes": 0,
         "synthetic_m23_m25_changed": False,
     }
-    if architecture not in ARCHITECTURES or architecture == "UNKNOWN":
+    if not isinstance(architecture, str) or architecture not in ARCHITECTURES or architecture == "UNKNOWN":
         output["reasons"].append("ARCHITECTURE_NOT_PROVEN")
         return output
     if not isinstance(architecture_evidence_id, str) or not architecture_evidence_id.strip():
