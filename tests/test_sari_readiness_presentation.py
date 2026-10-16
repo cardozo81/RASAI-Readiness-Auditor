@@ -185,3 +185,12 @@ def test_invalid_overall_values_are_safe_in_public_html() -> None:
         html = operational_readiness_panel({"scores": [_row(value=invalid)]})
         assert "Qualidade medida: <strong>-</strong>" in html
         assert "Readiness não determinada" in html
+
+
+def test_invalid_overall_coverage_never_renders_nan_or_crashes() -> None:
+    for invalid in ("invalid", float("nan"), float("inf"), -1.0, 2.0):
+        row = _row()
+        row["coverage"] = invalid
+        html = operational_readiness_panel({"scores": [row]})
+        assert "Coverage 0.0% (fração canônica 0.000000)" in html
+        assert "nan%" not in html.lower()
