@@ -17,7 +17,7 @@ def _state(html: str, target: str) -> str:
     parser = _AccordionParser()
     parser.feed(html)
     states = [value for controlled, value in parser.controls if controlled == target]
-    if not states or len(set(states)) != 1 or states[0] not in {"true", "false"}:
+    if len(states) != 1 or states[0] not in {"true", "false"}:
         return "AMBIGUOUS_OR_MISSING_CONTROL"
     if parser.id_counts.get(target, 0) > 1:
         return "AMBIGUOUS_PANEL_ID"
