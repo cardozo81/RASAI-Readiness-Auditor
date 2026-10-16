@@ -117,8 +117,9 @@ def _safe_rendered_file(root: Path, ref: Any) -> Path | None:
     relative = str(ref or "").replace("\\", "/")
     if not relative.startswith("artifacts/rendered/"):
         return None
-    candidate = (root / relative).resolve()
-    if not candidate.is_relative_to(root.resolve()) or not candidate.is_file():
+    source = root / relative
+    candidate = source.resolve()
+    if source.is_symlink() or not candidate.is_relative_to(root.resolve()) or not candidate.is_file():
         return None
     if candidate.stat().st_size > _MAX_HTML_BYTES:
         return None
@@ -129,7 +130,10 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
     """Only add a factually bounded, non-scoring CAT-03 diagnostic."""
     source = Path(database)
     root = source.parent
-    if source.is_symlink() or not source.is_file():
+    if (source.is_symlink() or not source.is_file() or any(
+        (source.parent / (source.name + suffix)).exists()
+        for suffix in ("-wal", "-shm", "-journal")
+    )):
         return ""
     try:
         with sqlite3.connect(source.resolve().as_uri() + "?mode=ro", uri=True) as connection:
