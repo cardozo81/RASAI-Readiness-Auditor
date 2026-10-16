@@ -112,7 +112,8 @@ def _valid(observation: PrimaryContentReadiness) -> dict:
     for key in ("load_ms", "primary_content_ms", "post_load_delta_ms"):
         val = row[key]
         if val is not None and (
-            type(val) not in (int, float) or not math.isfinite(val) or val < 0
+            type(val) not in (int, float) or not math.isfinite(val)
+            or not 0 <= val <= 48 * 60 * 60 * 1000
         ):
             raise ValueError("invalid physical readiness timestamp")
     if row["status"] in {"OBSERVED", "NOT_OBSERVED", "TIMEOUT"} and row["load_ms"] is None:
