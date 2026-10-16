@@ -43,7 +43,7 @@ def capture_public_architecture(url: str, device: DeviceContext) -> ProbeCapture
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
             try:
-                context = browser.new_context(**profile.context_options)
+                context = browser.new_context(**profile.context_options, service_workers='block')
                 try:
                     page = context.new_page()
                     requested = [0]
@@ -66,7 +66,12 @@ def capture_public_architecture(url: str, device: DeviceContext) -> ProbeCapture
                             route.abort()
                     page.route("**/*", guarded)
                     response = page.goto(target, wait_until="domcontentloaded", timeout=12_000)
-                    page.wait_for_timeout(350)
+                    # Match the bounded wait used by the audit renderer.
+                    # A fixed 350 ms delay can miss ordinary client hydration.
+                    try:
+                        page.wait_for_load_state("networkidle", timeout=2_000)
+                    except PlaywrightTimeoutError:
+                        pass
                     final_url = normalize_url(page.url)
                     if final_url != target or response is None or not 200 <= response.status < 300:
                         return ProbeCaptures(target, target, device, raw, None, "RENDER_NAVIGATION_NOT_ATTESTED")
