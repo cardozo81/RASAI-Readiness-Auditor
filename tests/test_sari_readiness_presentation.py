@@ -259,3 +259,10 @@ def test_out_of_contract_scores_cannot_be_presented_as_ready() -> None:
         condition, label, _ = public_readiness_condition(row)
         assert condition == "neutral"
         assert label == "Readiness não determinada"
+
+
+def test_boolean_coverage_is_unavailable_not_one_hundred_percent() -> None:
+    row = _row()
+    row["coverage"] = True
+    html = operational_readiness_panel({"scores": [row]})
+    assert "Coverage N/D (fração canônica N/D)" in html
