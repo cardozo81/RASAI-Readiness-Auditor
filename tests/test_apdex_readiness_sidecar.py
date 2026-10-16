@@ -234,3 +234,14 @@ def test_322_unbounded_elapsed_clock_is_rejected(tmp_path, key):
     source = aud(tmp_path)
     with pytest.raises(ValueError, match="invalid physical readiness timestamp"):
         write_readiness_sidecar(source, observed(**{key: 48 * 60 * 60 * 1000 + 1}))
+
+
+def test_322_rejects_unbounded_source_hash_budget_without_mutation(tmp_path, monkeypatch):
+    from rasai import apdex_readiness_sidecar as module
+    source = aud(tmp_path)
+    original = (source / "audit.db").read_bytes()
+    monkeypatch.setattr(module, "_MAX_AUD_SOURCE_BYTES", 1)
+    with pytest.raises(ValueError, match="bounded integrity budget"):
+        write_readiness_sidecar(source, observed())
+    assert (source / "audit.db").read_bytes() == original
+    assert not (tmp_path / ".rasai-readiness-sidecars").exists()
