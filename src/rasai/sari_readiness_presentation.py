@@ -116,11 +116,14 @@ def public_readiness_condition(row: Any) -> tuple[str, str, str]:
         return "critical", "Readiness bloqueada", quality_text
     if value is None:
         return "neutral", "Readiness não determinada", quality_text
+    coverage = _coverage_fraction(row)
+    if coverage is None:
+        return "neutral", "Readiness com cobertura não verificada", quality_text
     if consolidation not in {"CONSOLIDATED", "PARTIAL"} or confidence not in {"HIGH", "MEDIUM", "LOW"}:
         return "neutral", "Readiness não consolidada", quality_text
     if readiness == "UNKNOWN":
         return "neutral", "Readiness indeterminada", quality_text
-    if consolidation == "PARTIAL" or confidence == "LOW":
+    if consolidation == "PARTIAL" or confidence == "LOW" or coverage < 1.0:
         return "near", "Readiness com medição parcial", quality_text
     if readiness == "ATTENTION":
         return "near", "Readiness requer atenção", quality_text
