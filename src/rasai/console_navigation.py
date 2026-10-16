@@ -435,6 +435,7 @@ def install(console_module: ModuleType) -> None:
             print("5. Integrações e serviços")
             print("6. Todas as configurações")
             print("7. Sistema / restaurar padrões")
+            print("8. Descobrir arquitetura da aplicação")
             print("?. Ajuda")
             print("Q. Sair")
             choice = input("Escolha: ").strip().upper()
@@ -471,6 +472,10 @@ def install(console_module: ModuleType) -> None:
                 continue
             if choice == "7":
                 return "D"
+            if choice == "8":
+                from rasai.console_architecture_discovery import architecture_preview_menu
+                architecture_preview_menu(console_module, state)
+                continue
             if choice == "?":
                 return "H"
             if choice == "Q":
