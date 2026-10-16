@@ -22,6 +22,8 @@ import tempfile
 from typing import Any, Iterator, Mapping
 
 from rasai.audit_configuration_reuse import KIND_CONSOLE, persist_audit_configuration
+from rasai.architecture_choice import ArchitectureChoice
+from rasai.architecture_choice_audit_adapter import prepare_audit_choice_configuration
 
 _HANDOFF_ENV = "_RASAI_AUD_CONFIGURATION_HANDOFF"
 _HANDOFF_SCHEMA_VERSION = 1
@@ -170,11 +172,14 @@ def configuration_context(
     changed_fields: tuple[str, ...] = (),
     execution_series_id: str | None = None,
     scope: Mapping[str, Any] | None = None,
+    architecture_choice: ArchitectureChoice | None = None,
 ) -> Iterator[None]:
     """Bind one execution's effective, secret-free configuration to its finalizer."""
     pending = PendingAuditConfiguration(
         kind=kind,
-        configuration=dict(configuration),
+        configuration=prepare_audit_choice_configuration(
+            configuration, choice=architecture_choice
+        ),
         source_audit_id=source_audit_id,
         source_configuration_hash=source_configuration_hash,
         changed_fields=tuple(changed_fields),
