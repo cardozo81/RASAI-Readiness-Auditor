@@ -88,3 +88,32 @@ def test_missing_evidence_reference_abstains():
     obs = ArchitectureObservation("HYDRATED", "https://example.org/a",
                                   "mobile", "snapshot-a", "")
     assert resolve(observations=(obs,)).effective_architecture is None
+
+def test_explicit_audit_page_and_final_url_identity():
+    obs = ArchitectureObservation(
+        "HYDRATED", "https://example.org/a", "mobile", "snapshot-a", "artifact-1",
+        audit_id="AUD-A", page_id="PAGE-A", final_url="https://example.org/redirect",
+    )
+    matching = resolve(observations=(obs,), audit_id="AUD-A", page_id="PAGE-A",
+                       final_url="https://example.org/redirect")
+    assert matching.effective_architecture == "HYDRATED"
+    for field, value in (
+        ("audit_id", "AUD-B"), ("page_id", "PAGE-B"),
+        ("final_url", "https://example.org/other"),
+    ):
+        request = dict(audit_id="AUD-A", page_id="PAGE-A",
+                       final_url="https://example.org/redirect")
+        request[field] = value
+        assert resolve(observations=(obs,), **request).effective_architecture is None
+
+
+def test_legacy_unscoped_observation_not_promoted_to_explicit_audit():
+    assert resolve(audit_id="AUD-A").effective_architecture is None
+
+
+def test_blank_evidence_reference_is_not_physical_proof():
+    obs = ArchitectureObservation("CSR_SPA", "https://example.org/a",
+                                  "mobile", "snapshot-a", "  ")
+    result = resolve(observations=(obs,))
+    assert result.effective_architecture is None
+    assert result.evidence_ref is None

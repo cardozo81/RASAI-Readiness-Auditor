@@ -21,6 +21,9 @@ class ArchitectureObservation:
     device: str
     snapshot_id: str
     evidence_ref: str
+    audit_id: str = ""
+    page_id: str = ""
+    final_url: str = ""
 
 
 @dataclass(frozen=True)
@@ -47,6 +50,9 @@ def resolve_architecture(
     device: str,
     snapshot_id: str,
     consumer_id: str,
+    audit_id: str = "",
+    page_id: str = "",
+    final_url: str = "",
     advisory_consumers: frozenset[str] = frozenset(),
     phase: Literal["PRE_COLLECTION", "POST_COLLECTION"] = "POST_COLLECTION",
 ) -> ArchitectureContext:
@@ -63,14 +69,18 @@ def resolve_architecture(
         raise ValueError("DECLARED requires a concrete architecture")
     if phase not in {"PRE_COLLECTION", "POST_COLLECTION"}:
         raise ValueError("Unknown execution phase")
-    if not requested_url or not device or not snapshot_id or not consumer_id:
+    if not all(isinstance(x, str) and x.strip() for x in (requested_url, device, snapshot_id, consumer_id)):
         raise ValueError("Context identity must be nonempty")
 
+    # Legacy observations without these optional identities may only serve an
+    # equally legacy request. Never silently project across an explicitly scoped AUD.
     matches = tuple(o for o in observations if
                     o.requested_url == requested_url and
-                    o.device == device and o.snapshot_id == snapshot_id)
+                    o.device == device and o.snapshot_id == snapshot_id and
+                    o.audit_id == audit_id and o.page_id == page_id and
+                    o.final_url == final_url)
     valid = (len(matches) == 1 and matches[0].architecture in CLASSES
-             and bool(matches[0].evidence_ref))
+             and isinstance(matches[0].evidence_ref, str) and bool(matches[0].evidence_ref.strip()))
     observed = matches[0].architecture if valid else "UNKNOWN"
     evidence = matches[0].evidence_ref if valid else None
     discrepancy = (mode == "DECLARED" and valid and observed != "UNKNOWN"
