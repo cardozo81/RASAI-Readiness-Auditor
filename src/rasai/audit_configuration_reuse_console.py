@@ -12,6 +12,7 @@ from rasai.audit_configuration_reuse import (
     KIND_CONSOLE,
     ReusableAuditConfiguration,
     changed_fields,
+    configuration_hash,
     load_reusable_audit_configuration,
 )
 from rasai.audit_configuration_reuse_runtime import configuration_context
@@ -246,6 +247,18 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
             f"{source_audit_id}: configuração histórica possui {len(targets)} targets; "
             "novas AUDs exigem exatamente uma URL. Selecione uma URL explicitamente antes de executar."
         )
+
+    # Restore only the audited, canonical architecture choice. Historical
+    # configurations without the field never invent an operator preference.
+    from rasai.architecture_choice import CHOICE_KEY, read_choice
+    if CHOICE_KEY in configuration:
+        from rasai.architecture_choice_audit_adapter import read_sealed_audit_choice
+        choice = read_sealed_audit_choice(
+            configuration, expected_hash=configuration_hash(configuration)
+        ).choice
+        state.architecture_choice = choice
+    elif hasattr(state, "architecture_choice"):
+        state.architecture_choice = None
 
     warnings: list[str] = []
     allowed_environment = set(console_settings._known_nonsecret_environment_names())
