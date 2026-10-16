@@ -78,3 +78,13 @@ já utilizada pelo RASAi. Não cria tabela paralela nem modifica o registro de
 uma auditoria existente. Ausência da escolha mantém o JSON e o hash originais;
 leitura com hash divergente é recusada. A ativação na execução real ainda
 exige conexão explícita com o ponto de captura do estado e testes ponta a ponta.
+
+## Caminho de execução opcional
+
+`configuration_context` aceita agora `architecture_choice` opcional e somente
+validado. Uma escolha explícita percorre o transporte seguro de configuração
+para o subprocesso e o registro canônico da auditoria, protegido pela mesma
+assinatura da configuração. Sem este argumento, o conteúdo anterior é mantido
+sem campos adicionais. A interface de configuração do operador ainda não
+oferece essa escolha: nenhuma ativação implícita foi realizada. A observação
+da arquitetura segue independente da preferência e das pontuações.
