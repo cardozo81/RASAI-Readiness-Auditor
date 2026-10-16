@@ -139,6 +139,8 @@ def public_readiness_condition(row: Any) -> tuple[str, str, str]:
 
 
 def _safe_display_score(raw: Any) -> float | None:
+    if isinstance(raw, bool):
+        return None
     try:
         value = float(raw)
         return value if math.isfinite(value) and 0 <= value <= 100 else None
