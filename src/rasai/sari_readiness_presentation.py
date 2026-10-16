@@ -23,6 +23,7 @@ from rasai.report_observation_reconciliation import (
 
 
 _VALID_READINESS = {"READY", "ATTENTION", "BLOCKED", "UNKNOWN"}
+_CRITICAL_GATES = frozenset({"DISCOVERY", "INDEXABILITY", "EXTRACTION"})
 
 
 def _row_value(row: Any, key: str, default: Any = None) -> Any:
@@ -88,6 +89,8 @@ def readiness_state(row: Any) -> tuple[str, dict[str, str]]:
         if "BLOCKED" in values:
             status = "BLOCKED"
         elif "UNKNOWN" in values or values - {"PASS", "WARNING"}:
+            status = "UNKNOWN"
+        elif not _CRITICAL_GATES.issubset(gates):
             status = "UNKNOWN"
         elif "WARNING" in values and status == "READY":
             status = "ATTENTION"
