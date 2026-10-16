@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from html import escape
 import json
+import math
 from pathlib import Path
 import sqlite3
 from typing import Any
@@ -437,7 +438,10 @@ def _cwv_explanation(row: dict[str, Any]) -> str:
         return "<div class='notice warn'><strong>CWV: não aprovado.</strong> Ao menos uma das três métricas disponíveis excede o threshold de boa experiência no p75.</div>"
     if status == "INCOMPLETE":
         return "<div class='notice'><strong>CWV: avaliação incompleta.</strong> Não classificar ausência de amostra de uma métrica como falha do site.</div>"
-    return "<div class='notice'><strong>CWV: não disponível.</strong> CrUX pode não possuir amostra suficiente para esta URL/form factor.</div>"
+    return ("<div class='notice'><strong>CWV: não disponível.</strong> "
+            "Não foi comprovada uma população de campo suficiente para o escopo "
+            "de URL ou ORIGIN informado pela fonte; ausência de amostra não "
+            "demonstra falha da página.</div>")
 
 
 def _technical_details(row: dict[str, Any]) -> str:
@@ -445,7 +449,20 @@ def _technical_details(row: dict[str, Any]) -> str:
 
 
 def _average_score(observations: list[dict[str, Any]], key: str) -> float | None:
-    values = [float(row[key]) for row in observations if row.get(key) is not None]
+    values: list[float] = []
+    for row in observations:
+        raw = row.get(key)
+        if raw is None:
+            continue
+        if isinstance(raw, bool):
+            return None
+        try:
+            score = float(raw)
+        except (ValueError, TypeError, OverflowError):
+            return None
+        if not math.isfinite(score) or not 0 <= score <= 100:
+            return None
+        values.append(score)
     return sum(values) / len(values) if values else None
 
 
