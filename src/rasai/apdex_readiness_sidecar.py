@@ -115,6 +115,8 @@ def _valid(observation: PrimaryContentReadiness) -> dict:
             type(val) not in (int, float) or not math.isfinite(val) or val < 0
         ):
             raise ValueError("invalid physical readiness timestamp")
+    if row["status"] in {"OBSERVED", "NOT_OBSERVED", "TIMEOUT"} and row["load_ms"] is None:
+        raise ValueError("same-sample load boundary required for readiness probe")
     if row["status"] == "OBSERVED":
         start, ready, delta = (
             row["load_ms"], row["primary_content_ms"], row["post_load_delta_ms"],
