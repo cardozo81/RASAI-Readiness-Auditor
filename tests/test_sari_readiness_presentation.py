@@ -168,8 +168,8 @@ def test_nonfinite_dimension_coverage_is_not_rendered_as_nan() -> None:
     dimension = dict(overall, dimension="CONTENT_VALUE", coverage=float("nan"),
                      confidence="LOW", consolidation_status="PARTIAL")
     html = operational_readiness_panel({"scores": [overall, dimension]})
-    assert "CONTENT_VALUE: cobertura 0.0%" in html
-    assert "fração canônica 0.000000" in html
+    assert "CONTENT_VALUE: cobertura N/D" in html
+    assert "fração canônica N/D" in html
     assert "nan%" not in html.lower()
 
 
