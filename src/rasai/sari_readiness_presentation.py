@@ -171,6 +171,29 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
         )
     if not cards:
         return ""
+    dimension_notes: list[str] = []
+    for row in scores:
+        dimension = str(_row_value(row, "dimension", ""))
+        if dimension == "OVERALL_READINESS" or not dimension:
+            continue
+        consolidation = str(_row_value(row, "consolidation_status", "NOT_CONSOLIDATED")).upper()
+        confidence = str(_row_value(row, "confidence", "UNAVAILABLE")).upper()
+        if consolidation == "CONSOLIDATED" and confidence in {"HIGH", "MEDIUM"}:
+            continue
+        try:
+            fraction = float(_row_value(row, "coverage", 0.0))
+        except (TypeError, ValueError):
+            fraction = 0.0
+        dimension_notes.append(
+            f"<li>{escape(dimension)}: cobertura {fraction * 100:.1f}% "
+            f"(fração canônica {fraction:.6f}), confiança {escape(confidence)}, "
+            f"consolidação {escape(consolidation)}.</li>"
+        )
+    dimension_notice = (
+        "<div class='notice'><strong>Dimensões com evidência limitada:</strong><ul>"
+        + "".join(dimension_notes) + "</ul>O estado agregado não substitui a leitura por dimensão.</div>"
+        if dimension_notes else ""
+    )
     return (
         "<section id='sari-public-readiness-reading' class='panel' data-sari-public-readiness='true'>"
         "<div class='kicker'>Leitura executiva do SARI</div>"
@@ -181,7 +204,7 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
         "readiness excelente quando a medição está parcial/não consolidada ou quando Discovery, Indexability ou Extraction "
         "estão BLOCKED/UNKNOWN.</p>"
         "<p class='notice'>Confiança e cobertura avaliam o contrato SARI, não representam intervalo estatístico, experiência real, desempenho de laboratório, posição SERP ou citação generativa. Métricas externas e dimensões de baixa cobertura devem ser analisadas separadamente.</p>"
-        "<div class='grid'>" + "".join(cards) + "</div>"
+        "<div class='grid'>" + "".join(cards) + "</div>" + dimension_notice
         "<div class='notice'><strong>Integrações externas:</strong> erro de provider/API/coleta não é defeito do website e "
         "não gera penalidade artificial no SARI. Um finding técnico externo só participa do score quando existe uma BR-GEO "
         "equivalente, mapeamento explícito e evidência persistida sem dupla pontuação.</div>"
