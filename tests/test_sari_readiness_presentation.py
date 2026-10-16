@@ -113,3 +113,10 @@ def test_unknown_critical_gate_is_not_presented_as_only_partial_coverage() -> No
     assert condition == "neutral"
     assert label == "Readiness indeterminada"
     assert quality == "Excelente (90-100)"
+
+
+def test_blocked_readiness_is_visible_without_numeric_score() -> None:
+    row = _row(value=None, status="BLOCKED", discovery_gate="BLOCKED")
+    condition, label, _quality = public_readiness_condition(row)
+    assert condition == "critical"
+    assert label == "Readiness bloqueada"
