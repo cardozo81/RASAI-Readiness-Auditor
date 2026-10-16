@@ -90,8 +90,9 @@ def build_cons_geo_advisory(cons_dir: Path, audits_root: Path) -> dict[str, Any]
     ):
         raise ValueError("canonical CONS manifest/report missing or unsafe")
     try:
+        manifest_snapshot = _verified_manifest_text(manifest)
         stored = json.loads(
-            _verified_manifest_text(manifest),
+            manifest_snapshot,
             object_pairs_hook=_unique_cons_manifest_keys,
             parse_constant=_reject_manifest_non_json_constant,
         )
@@ -123,7 +124,6 @@ def build_cons_geo_advisory(cons_dir: Path, audits_root: Path) -> dict[str, Any]
         if path.is_symlink() or path.resolve().parent != root.resolve():
             raise ValueError("untrusted AUD source path")
         paths.append(path)
-    manifest_snapshot = _verified_manifest_text(manifest)
     preview = build_geo_longitudinal_preview(paths)
     # The CONSULTED CONS manifest may be replaced while source AUDs are read.
     # Do not associate the resulting advisory with an inconsistent source list.
