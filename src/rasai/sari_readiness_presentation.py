@@ -135,13 +135,18 @@ def _safe_display_score(raw: Any) -> float | None:
         return None
 
 
-def _coverage_fraction(row: Any) -> float:
-    """A presentation fraction must never propagate malformed or nonfinite data."""
+def _coverage_fraction(row: Any) -> float | None:
+    """Invalid fractions are not observed zero coverage."""
     try:
-        value = float(_row_value(row, "coverage", 0.0))
+        value = float(_row_value(row, "coverage", None))
     except (TypeError, ValueError, OverflowError):
-        return 0.0
-    return value if math.isfinite(value) and 0 <= value <= 1 else 0.0
+        return None
+    return value if math.isfinite(value) and 0 <= value <= 1 else None
+
+
+def _coverage_display(row: Any) -> tuple[str, str]:
+    value = _coverage_fraction(row)
+    return ("N/D", "N/D") if value is None else (f"{value * 100:.1f}%", f"{value:.6f}")
 
 
 def _score_card_class(condition: str) -> str:
@@ -178,7 +183,7 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
         readiness, gates = readiness_state(row)
         value = _safe_display_score(_row_value(row, "value"))
         score = "-" if value is None else f"{float(value):.1f}/100"
-        coverage = f"{_coverage_fraction(row) * 100:.1f}%"
+        coverage, coverage_raw = _coverage_display(row)
         confidence = str(_row_value(row, "confidence", "UNAVAILABLE"))
         consolidation = str(_row_value(row, "consolidation_status", "NOT_CONSOLIDATED"))
         gate_detail = _gate_detail(gates)
@@ -187,7 +192,7 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
             f"<h3>{escape(label)}</h3>"
             f"<p><strong>{escape(readiness_label)}</strong></p>"
             f"<p>Qualidade medida: <strong>{escape(score)}</strong> · {escape(quality_label)}</p>"
-            f"<p>Coverage {escape(coverage)} (fração canônica {_coverage_fraction(row):.6f}) · Confidence {escape(confidence)} · Consolidation {escape(consolidation)}</p>"
+            f"<p>Coverage {escape(coverage)} (fração canônica {coverage_raw}) · Confidence {escape(confidence)} · Consolidation {escape(consolidation)}</p>"
             f"<p>Critical readiness: <strong>{escape(readiness)}</strong>"
             + (f" · {escape(gate_detail)}" if gate_detail else "")
             + "</p></article>"
@@ -281,7 +286,7 @@ def _reporting_overall_card(reporting: Any, scores: list[Any], device: str) -> s
         f"<article class='score-card {css}'><div class='label'>{label} - {reporting.PUBLIC_METHOD_VERSION}</div>"
         f"{score_markup}<span class='score-band-label {condition}'>{escape(readiness_label)}</span>"
         "<div class='score-meta'>"
-        f"<div><small>Cobertura</small><strong title='Fração canônica: {_coverage_fraction(row):.6f}'>{escape(coverage)}</strong></div>"
+        f"<div><small>Cobertura</small><strong title='Fração canônica: {coverage_raw}'>{escape(coverage)}</strong></div>"
         f"<div><small>Confiança</small><strong>{escape(confidence)}</strong></div>"
         f"<div><small>Consolidação</small><strong>{escape(consolidation)}</strong></div>"
         f"<div><small>Readiness</small><strong>{escape(readiness)}</strong></div>"
@@ -340,7 +345,7 @@ def _site_overall_card(report_site: Any, scores: list[Any], device: str) -> str:
         f"<span class='badge info'>Qualidade {escape(quality_label)}</span> "
         f"{report_site._confidence_badge(confidence_raw)}</div>"
         "<div class='score-meta'>"
-        f"<div><small>Coverage</small><strong title='Canonical fraction: {_coverage_fraction(row):.6f}'>{escape(coverage)}</strong></div>"
+        f"<div><small>Coverage</small><strong title='Canonical fraction: {coverage_raw}'>{escape(coverage)}</strong></div>"
         f"<div><small>Confidence</small><strong>{escape(confidence)}</strong></div>"
         f"<div><small>Consolidação</small><strong>{escape(consolidation)}</strong></div>"
         "</div>" + detail + "</article>"
