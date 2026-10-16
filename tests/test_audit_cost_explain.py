@@ -153,3 +153,12 @@ def test_more_priced_than_total_does_not_claim_full_coverage():
     )
     assert "Contagens de tentativas inválidas" in html
     assert "Posição do custo na faixa histórica: N/D" in html
+
+
+def test_unrepresentable_cost_deviation_is_not_reported_as_infinite() -> None:
+    html = forecast_readout(
+        {"expected_cost": 1e-300, "likely_low": 0, "likely_high": 1e308},
+        observed_total=1e308, priced_attempts=1, total_attempts=1,
+    )
+    assert "amplitude não representável" in html
+    assert "+inf%" not in html.lower()
