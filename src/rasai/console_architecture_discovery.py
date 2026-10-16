@@ -7,6 +7,7 @@ import os
 from rasai.architecture_probe import probe_architecture
 from rasai.architecture_live_capture import capture_public_architecture
 from rasai.domain import DeviceContext
+from rasai.catalog_report_public_labels import public_label
 
 
 def describe_architecture_assessment(result: Any) -> tuple[str, ...]:
@@ -14,7 +15,7 @@ def describe_architecture_assessment(result: Any) -> tuple[str, ...]:
     lines = [
         f"Arquitetura observada: {result.architecture.value}",
         f"Versão do método: {result.method_version}",
-        f"Limitação: {result.limitation or 'Nenhuma identificada neste diagnóstico'}",
+        f"Limitação: {public_label(result.limitation) or result.limitation or 'Nenhuma identificada neste diagnóstico'}",
     ]
     comparison = result.comparison
     if comparison is None:

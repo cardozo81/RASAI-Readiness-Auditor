@@ -109,3 +109,14 @@ def test_preview_without_egress_preserves_existing_audit_database(tmp_path, monk
     assert db.read_bytes() == original_bytes
     assert sha256(db.read_bytes()).digest() == sha256(original_bytes).digest()
     assert sorted(p.relative_to(root).as_posix() for p in root.rglob("*")) == original_files
+
+
+def test_offline_oci_rejection_uses_human_facing_reason():
+    from rasai.console_architecture_discovery import describe_architecture_assessment
+    from rasai.architecture_discovery import assess_architecture
+    value = assess_architecture(
+        raw_html=None, rendered_html=None, quality_reason="OCI_NETWORK_ISOLATION_NOT_ATTESTED",
+    )
+    text = "\n".join(describe_architecture_assessment(value))
+    assert "Isolamento de rede do contêiner não comprovado" in text
+    assert "OCI_NETWORK_ISOLATION_NOT_ATTESTED" not in text
