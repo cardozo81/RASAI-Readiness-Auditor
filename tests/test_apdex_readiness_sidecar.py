@@ -245,3 +245,21 @@ def test_322_rejects_unbounded_source_hash_budget_without_mutation(tmp_path, mon
         write_readiness_sidecar(source, observed())
     assert (source / "audit.db").read_bytes() == original
     assert not (tmp_path / ".rasai-readiness-sidecars").exists()
+
+
+@pytest.mark.parametrize("alteration", ["duplicate", "non_json_number"])
+def test_322_rehashed_ambiguous_json_is_not_trusted_sidecar(tmp_path, alteration):
+    source = aud(tmp_path)
+    original = write_readiness_sidecar(source, observed())
+    payload = original.read_bytes().decode("utf-8")
+    if alteration == "duplicate":
+        corrupt = payload.replace('"audit_id":', '"audit_id":"AUD-FORGED","audit_id":', 1)
+    else:
+        corrupt = payload.rstrip()[:-1] + ',"unsupported_future_metric":NaN}\n'
+    assert corrupt != payload
+    data = corrupt.encode("utf-8")
+    forged = original.parent / (sha256(data).hexdigest() + ".json")
+    forged.write_bytes(data)
+    with pytest.raises(ValueError, match="invalid sidecar encoding"):
+        read_readiness_sidecar(source, forged)
+    assert original.read_bytes().decode("utf-8") == payload
