@@ -227,3 +227,10 @@ def test_322_cannot_claim_censored_or_measured_probe_without_load_clock(tmp_path
     with pytest.raises(ValueError, match="same-sample load boundary"):
         write_readiness_sidecar(source, observed(**updates))
     assert not (tmp_path / ".rasai-readiness-sidecars").exists()
+
+
+@pytest.mark.parametrize("key", ["load_ms", "primary_content_ms", "post_load_delta_ms"])
+def test_322_unbounded_elapsed_clock_is_rejected(tmp_path, key):
+    source = aud(tmp_path)
+    with pytest.raises(ValueError, match="invalid physical readiness timestamp"):
+        write_readiness_sidecar(source, observed(**{key: 48 * 60 * 60 * 1000 + 1}))
