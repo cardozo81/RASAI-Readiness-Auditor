@@ -127,6 +127,14 @@ def public_readiness_condition(row: Any) -> tuple[str, str, str]:
     return "neutral", "Readiness indeterminada", quality_text
 
 
+def _safe_display_score(raw: Any) -> float | None:
+    try:
+        value = float(raw)
+        return value if math.isfinite(value) else None
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
 def _score_card_class(condition: str) -> str:
     return {
         "expected": "good",
@@ -159,7 +167,7 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
         label = "Mobile" if device == "MOBILE" else "Desktop"
         condition, readiness_label, quality_label = public_readiness_condition(row)
         readiness, gates = readiness_state(row)
-        value = _row_value(row, "value")
+        value = _safe_display_score(_row_value(row, "value"))
         score = "-" if value is None else f"{float(value):.1f}/100"
         coverage = f"{float(_row_value(row, 'coverage', 0.0)) * 100:.1f}%"
         confidence = str(_row_value(row, "confidence", "UNAVAILABLE"))
@@ -238,7 +246,7 @@ def _reporting_overall_card(reporting: Any, scores: list[Any], device: str) -> s
             "<p class='intro'>Overall não persistido.</p></article>"
         )
 
-    raw_value = _row_value(row, "value")
+    raw_value = _safe_display_score(_row_value(row, "value"))
     condition, readiness_label, quality_label = public_readiness_condition(row)
     css = _score_card_class(condition)
     coverage = f"{float(_row_value(row, 'coverage', 0.0)) * 100:.1f}%"
@@ -299,7 +307,7 @@ def _site_overall_card(report_site: Any, scores: list[Any], device: str) -> str:
     condition, readiness_label, quality_label = public_readiness_condition(row)
     readiness, gates = readiness_state(row)
     css = _score_card_class(condition)
-    raw_value = _row_value(row, "value")
+    raw_value = _safe_display_score(_row_value(row, "value"))
     score_markup = (
         "<div class='score-number'>Não consolidado</div>"
         if raw_value is None
