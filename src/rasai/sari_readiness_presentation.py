@@ -150,8 +150,11 @@ def _safe_display_score(raw: Any) -> float | None:
 
 def _coverage_fraction(row: Any) -> float | None:
     """Invalid fractions are not observed zero coverage."""
+    raw = _row_value(row, "coverage", None)
+    if isinstance(raw, bool):
+        return None
     try:
-        value = float(_row_value(row, "coverage", None))
+        value = float(raw)
     except (TypeError, ValueError, OverflowError):
         return None
     return value if math.isfinite(value) and 0 <= value <= 1 else None
