@@ -216,3 +216,16 @@ def test_device_cards_do_not_crash_on_nonfinite_coverage() -> None:
     assert "Fração canônica: N/D" in executive
     assert "Canonical fraction: N/D" in device
     assert "nan%" not in executive.lower() and "nan%" not in device.lower()
+
+
+def test_conflicting_gate_states_fail_closed() -> None:
+    row = _row()
+    row["limitations"] = json.dumps(["READINESS_STATUS:READY", "CRITICAL_GATE:DISCOVERY:BLOCKED", "CRITICAL_GATE:DISCOVERY:PASS"])
+    assert readiness_state(row)[0] == "UNKNOWN"
+    assert public_readiness_condition(row)[0] == "neutral"
+
+
+def test_conflicting_aggregate_states_fail_closed() -> None:
+    row = _row()
+    row["limitations"] = json.dumps(["READINESS_STATUS:READY", "READINESS_STATUS:BLOCKED", "READINESS_STATUS:READY", "CRITICAL_GATE:DISCOVERY:PASS"])
+    assert readiness_state(row)[0] == "UNKNOWN"
