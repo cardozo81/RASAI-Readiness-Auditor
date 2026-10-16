@@ -51,6 +51,8 @@ def _original(aud_dir: Path) -> tuple[str, str, str]:
         or not db.is_file() or not manifest.is_file()
     ):
         raise ValueError("sealed source audit.db and manifest required")
+    if any(Path(str(db) + suffix).exists() for suffix in ("-wal", "-shm", "-journal")):
+        raise ValueError("sealed AUD SQLite has live transaction sidecars")
     # An AUD flagged COMPLETE is not sufficient: its packaged HTML/evidence
     # must also be fresh and cryptographically consistent with the source.
     from rasai.catalog_report_site import catalog_report_is_fresh
@@ -202,7 +204,11 @@ def read_readiness_sidecar(aud_dir: Path, sidecar_path: Path) -> dict:
         or not re.fullmatch(r"[0-9a-f]{64}\.json", sidecar_path.name)
     ):
         raise ValueError("sidecar path outside sealed AUD scope")
+    if not sidecar_path.is_file() or sidecar_path.stat().st_size > 64 * 1024:
+        raise ValueError("sidecar source missing or exceeds bounded size")
     raw = sidecar_path.read_bytes()
+    if len(raw) > 64 * 1024:
+        raise ValueError("sidecar changed beyond bounded size")
     if sha256(raw).hexdigest() + ".json" != sidecar_path.name:
         raise ValueError("sidecar SHA-256 mismatch")
     try:
