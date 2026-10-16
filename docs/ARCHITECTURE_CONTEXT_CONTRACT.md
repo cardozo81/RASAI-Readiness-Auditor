@@ -95,7 +95,7 @@ A opção 8 do menu principal é separada da seleção de arquitetura para a AUD
 O controlador `console_architecture_discovery.py` utiliza URL e dispositivo da
 sessão e chama `architecture_probe.probe_architecture`, que delega toda a
 classificação a `architecture_discovery.assess_architecture`, a mesma função
-consumida pelo M6 e pelo caminho existente de reprocessamento. O diagnóstico
+consumida pelo módulo de diagnóstico JavaScript da auditoria e pelo caminho de reprocessamento. O diagnóstico
 não gera AUD, não processa CAT, não altera índices e não propaga AUTO/DECLARED.
 
 A aquisição leve usa somente HTTP público com limites de requisição e
