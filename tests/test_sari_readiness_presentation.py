@@ -201,3 +201,18 @@ def test_observed_zero_coverage_remains_distinct_from_invalid_coverage() -> None
     row["coverage"] = 0.0
     html = operational_readiness_panel({"scores": [row]})
     assert "Coverage 0.0% (fração canônica 0.000000)" in html
+
+
+def test_device_cards_do_not_crash_on_nonfinite_coverage() -> None:
+    from types import SimpleNamespace
+    from rasai.sari_readiness_presentation import _reporting_overall_card, _site_overall_card
+    row = _row()
+    row["coverage"] = float("nan")
+    reporting = SimpleNamespace(PUBLIC_METHOD_VERSION="SARI", _STATUS_LABELS={})
+    site = SimpleNamespace(_STATUS_LABELS={}, _device_label=lambda _: "Mobile",
+                           _confidence_badge=lambda _: "<span>Confidence</span>")
+    executive = _reporting_overall_card(reporting, [row], "MOBILE")
+    device = _site_overall_card(site, [row], "MOBILE")
+    assert "Fração canônica: N/D" in executive
+    assert "Canonical fraction: N/D" in device
+    assert "nan%" not in executive.lower() and "nan%" not in device.lower()
