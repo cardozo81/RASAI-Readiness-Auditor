@@ -197,8 +197,17 @@ def test_all_ci_workflows_reference_existing_literal_python_paths() -> None:
         content = workflow.read_text(encoding="utf-8")
         paths = set(re.findall(r"(?:src/rasai|tests)/[A-Za-z0-9_./*-]+\.py\b", content))
         for path in sorted(paths):
-            if "*" not in path and not (root / path).is_file():
-                missing.append(f"{workflow.name}: {path}")
+            if "*" in path or (root / path).is_file():
+                continue
+            # A workflow may intentionally assert an obsolete renderer is
+            # ABSENT. Such negative guards are not references to run/import.
+            lines = [line.strip() for line in content.splitlines() if path in line]
+            absent_guard = re.compile(
+                r"\\btest\\s+-[fe]\\s+" + re.escape(path) + r"(?:[;\\s]|$)"
+            )
+            if lines and all(absent_guard.search(line) for line in lines):
+                continue
+            missing.append(f"{workflow.name}: {path}")
     assert not missing, "\n".join(missing)
 
 
