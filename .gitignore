@@ -1,5 +1,6 @@
 # Local Python/runtime artifacts
 .venv/
+.venv-backup-*/
 __pycache__/
 *.py[cod]
 *.egg-info/
