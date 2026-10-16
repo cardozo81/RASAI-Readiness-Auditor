@@ -178,3 +178,10 @@ def test_invalid_overall_score_fails_closed() -> None:
         condition, label, _ = public_readiness_condition(_row(value=invalid))
         assert condition == "neutral"
         assert label == "Readiness não determinada"
+
+
+def test_invalid_overall_values_are_safe_in_public_html() -> None:
+    for invalid in ("invalid", float("nan"), float("inf")):
+        html = operational_readiness_panel({"scores": [_row(value=invalid)]})
+        assert "Qualidade medida: <strong>-</strong>" in html
+        assert "Readiness não determinada" in html
