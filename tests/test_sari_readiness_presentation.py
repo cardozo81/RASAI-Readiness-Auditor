@@ -136,3 +136,9 @@ def test_unknown_gate_value_fails_closed() -> None:
 def test_warning_gate_without_aggregate_status_requires_attention() -> None:
     row = _row(status="UNKNOWN", discovery_gate="WARNING")
     assert readiness_state(row)[0] == "ATTENTION"
+
+
+def test_ready_aggregate_with_warning_gate_requires_attention() -> None:
+    row = _row(status="READY", discovery_gate="WARNING")
+    assert readiness_state(row)[0] == "ATTENTION"
+    assert public_readiness_condition(row)[1] == "Readiness requer atenção"
