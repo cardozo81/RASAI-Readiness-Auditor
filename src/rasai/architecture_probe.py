@@ -34,15 +34,21 @@ def probe_architecture(
     """One canonical assessment; caller supplies a guarded acquisition transport."""
     if device not in {DeviceContext.MOBILE, DeviceContext.DESKTOP}:
         raise ValueError("Unsupported probe device")
-    target = _validate_public_url(normalize_url(url), _default_resolver)
+    # Avoid DNS preflight before a transport-level fail-closed gate. The
+    # guarded capture owns network validation for externally acquired data.
+    target = normalize_url(url)
     observation = capture(target, device)
     if observation.requested_url != target or observation.device != device:
         raise ValueError("Probe capture identity mismatch")
-    final_url = _validate_public_url(observation.final_url, _default_resolver)
+    final_url = normalize_url(observation.final_url)
     if final_url != target:
         # No follow-through across a change of origin without a separate
         # audited redirect transport guarantee.
         raise ValueError("Probe final URL differs from the validated target")
+    # Reject injected captures claiming usable evidence without valid public
+    # target provenance. Inconclusive captures may return safely without DNS.
+    if observation.quality_reason is None:
+        _validate_public_url(target, _default_resolver)
     return assess_architecture(
         raw_html=observation.raw_html,
         rendered_html=observation.rendered_html,

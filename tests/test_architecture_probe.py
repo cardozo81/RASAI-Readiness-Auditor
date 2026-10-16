@@ -31,3 +31,12 @@ def test_unvalidated_redirect_fails_closed():
         with pytest.raises(ValueError, match="final URL"):
             probe_architecture(target, DeviceContext.MOBILE, capture=lambda url, device:
                 ProbeCaptures(url, "https://other.example.org/", device, "", ""))
+
+def test_inconclusive_capture_does_not_resolve_dns():
+    target = "https://example.org/"
+    with patch("rasai.architecture_probe._default_resolver") as resolve:
+        result = probe_architecture(target, DeviceContext.MOBILE, capture=lambda url, device:
+            ProbeCaptures(url, url, device, None, None, "SAFE_EGRESS_NOT_CONFIGURED"))
+    resolve.assert_not_called()
+    assert result.architecture is ArchitectureClassification.UNKNOWN
+    assert result.limitation == "SAFE_EGRESS_NOT_CONFIGURED"
