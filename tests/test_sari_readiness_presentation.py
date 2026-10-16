@@ -251,3 +251,11 @@ def test_partial_dimension_coverage_is_disclosed_even_if_confidence_high() -> No
     html = operational_readiness_panel({"scores": [overall, dimension]})
     assert "CONTENT_VALUE: cobertura 70.0%" in html
     assert "confiança HIGH, consolidação CONSOLIDATED" in html
+
+
+def test_out_of_contract_scores_cannot_be_presented_as_ready() -> None:
+    for value in (-0.1, 100.1, 10000, True):
+        row = _row(value=value)
+        condition, label, _ = public_readiness_condition(row)
+        assert condition == "neutral"
+        assert label == "Readiness não determinada"
