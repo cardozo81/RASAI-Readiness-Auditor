@@ -32,6 +32,8 @@ def _utc(value: object) -> datetime | None:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
         if parsed.tzinfo is None or parsed.utcoffset() is None:
             return None
+        if parsed.utcoffset().total_seconds() != 0:
+            return None
         return parsed.astimezone(timezone.utc)
     except (TypeError, ValueError, OverflowError):
         return None
