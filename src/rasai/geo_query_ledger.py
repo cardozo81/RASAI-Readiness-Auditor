@@ -100,6 +100,8 @@ def _host_overlap(serp_urls: set[str], external_urls: set[str]) -> dict[str, int
     canonical HTTP(S) identity validation and query/temporal attribution.
     A host is a URL hostname, so www/apex remain distinct populations.
     """
+    if not serp_urls or not external_urls:
+        raise ValueError("both observed source populations are required")
     serp_hosts = {urlsplit(url).hostname for url in serp_urls}
     external_hosts = {urlsplit(url).hostname for url in external_urls}
     shared = len(serp_hosts & external_hosts)
