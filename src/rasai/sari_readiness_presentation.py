@@ -66,24 +66,19 @@ def readiness_state(row: Any) -> tuple[str, dict[str, str]]:
             if len(parts) == 3:
                 gates[parts[1].strip().upper()] = parts[2].strip().upper()
 
-    # Defensive compatibility for a persisted row that has individual gates but no
-    # aggregate marker. Do not infer READY unless every persisted gate is PASS.
-    # Explicit READY/ATTENTION cannot override an independently persisted
-    # critical BLOCKED/UNKNOWN gate; otherwise the public badge can mislead.
-    if gates and any(value == "BLOCKED" for value in gates.values()):
-        status = "BLOCKED"
-    elif gates and any(value == "UNKNOWN" for value in gates.values()):
-        status = "UNKNOWN"
-    if status == "UNKNOWN" and gates:
+    # A persisted critical gate takes precedence over the aggregate marker.
+    # Only derive a missing aggregate state from complete, recognized gate states.
+    if gates:
         values = set(gates.values())
         if "BLOCKED" in values:
             status = "BLOCKED"
-        elif "UNKNOWN" in values:
+        elif "UNKNOWN" in values or values - {"PASS", "WARNING"}:
             status = "UNKNOWN"
-        elif "WARNING" in values:
-            status = "ATTENTION"
-        elif values and values <= {"PASS"}:
-            status = "READY"
+        elif status == "UNKNOWN":
+            if "WARNING" in values:
+                status = "ATTENTION"
+            elif values == {"PASS"}:
+                status = "READY"
     return status, gates
 
 
