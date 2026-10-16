@@ -251,15 +251,14 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
 
     # Restore only the audited, canonical architecture choice. Historical
     # configurations without the field never invent an operator preference.
-    from rasai.architecture_choice import CHOICE_KEY, read_choice
+    from rasai.architecture_choice import CHOICE_KEY
+    choice = None
     if CHOICE_KEY in configuration:
         from rasai.architecture_choice_audit_adapter import read_sealed_audit_choice
         choice = read_sealed_audit_choice(
             configuration, expected_hash=configuration_hash(configuration)
         ).choice
-        _ARCHITECTURE_SELECTION[id(state)] = choice
-    else:
-        _ARCHITECTURE_SELECTION.pop(id(state), None)
+    # Do not mutate the selected policy until the rest of the restore succeeds.
 
     warnings: list[str] = []
     allowed_environment = set(console_settings._known_nonsecret_environment_names())
@@ -295,6 +294,10 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
     state.target = targets[0]
 
     console_settings.sync_nonsecret_runtime_environment(state)
+    if choice is None:
+        _ARCHITECTURE_SELECTION.pop(id(state), None)
+    else:
+        _ARCHITECTURE_SELECTION[id(state)] = choice
     return tuple(warnings)
 
 

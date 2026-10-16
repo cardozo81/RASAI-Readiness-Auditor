@@ -34,3 +34,22 @@ def test_reuse_legacy_source_clears_previous_architecture(monkeypatch):
     state.architecture_choice = ArchitectureChoice("AUTO")
     _apply_settings(state, {"settings": {}, "targets": ["https://example.org"]}, "AUD-OLD")
     assert id(state) not in _ARCHITECTURE_SELECTION
+
+
+def test_failed_restore_does_not_replace_architecture_choice(monkeypatch):
+    from rasai import console_settings
+    import pytest
+    monkeypatch.setattr(console_settings, "_known_nonsecret_environment_names", lambda: ())
+    state = _state()
+    prior = ArchitectureChoice("AUTO")
+    _ARCHITECTURE_SELECTION[id(state)] = prior
+    config = prepare_audit_choice_configuration(
+        {"settings": {"environment": "not-a-mapping"}, "targets": ["https://example.org/"]},
+        choice=ArchitectureChoice("DECLARED", "HYDRATED"),
+    )
+    try:
+        with pytest.raises(ValueError, match="environment"):
+            _apply_settings(state, config, "AUD-INVALID")
+        assert _ARCHITECTURE_SELECTION[id(state)] == prior
+    finally:
+        _ARCHITECTURE_SELECTION.pop(id(state), None)
