@@ -36,6 +36,10 @@ def classify_seo_evidence(rule_id: str, observed_value: Any) -> str:
         data = observed_value
     if not isinstance(data, Mapping):
         return "UNKNOWN"
+    # A top-level acquisition/provider error must not be interpreted as
+    # evidence of optional absence, even when empty default arrays are present.
+    if data.get("error") not in (None, ""):
+        return "UNKNOWN"
 
     if rule_id == "BR-GEO-017":
         state = data.get("state")
