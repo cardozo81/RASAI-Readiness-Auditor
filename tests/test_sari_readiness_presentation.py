@@ -105,3 +105,11 @@ def test_blocked_readiness_remains_critical_without_consolidated_confidence() ->
     assert condition == "critical"
     assert label == "Readiness bloqueada"
     assert quality == "Excelente (90-100)"
+
+
+def test_unknown_critical_gate_is_not_presented_as_only_partial_coverage() -> None:
+    row = _row(status="UNKNOWN", discovery_gate="UNKNOWN", consolidation="PARTIAL", confidence="LOW")
+    condition, label, quality = public_readiness_condition(row)
+    assert condition == "neutral"
+    assert label == "Readiness indeterminada"
+    assert quality == "Excelente (90-100)"
