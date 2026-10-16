@@ -183,6 +183,9 @@ def read_audit_attempt_timeline(
         connection.execute("PRAGMA query_only=ON")
         groups: dict[str, list[dict]] = {}
         all_rows: list[dict] = []
+        # Attempt IDs are generated identities, not table-local row numbers.
+        # A collision across M18/M20 makes a complete economic census unsafe.
+        global_seen: set[str] = set()
         for table in ("ai_provider_attempts", "content_remediation_attempts"):
             if connection.execute(
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
@@ -203,7 +206,10 @@ def read_audit_attempt_timeline(
                     raise ValueError(
                         "ambiguous AI attempt_id in physical " + table + " ledger"
                     )
+                if key in global_seen:
+                    raise ValueError("ambiguous AI attempt_id across physical ledgers")
                 seen.add(key)
+                global_seen.add(key)
                 name = _group(row, table=table)
                 groups.setdefault(name, []).append(row)
                 all_rows.append(row)
