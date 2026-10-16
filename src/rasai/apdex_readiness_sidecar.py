@@ -24,6 +24,7 @@ from rasai.apdex_content_readiness_observation import (
 )
 
 SIDECAR_VERSION = "RASAI-PRIMARY-CONTENT-READINESS-SIDECAR-001"
+_MAX_AUD_SOURCE_BYTES = 256 * 1024 * 1024
 _AUD_ID = re.compile(r"^AUD-[A-Za-z0-9-]{1,100}$")
 _STATES = frozenset({
     "OBSERVED", "NOT_OBSERVED", "TIMEOUT", "NOT_APPLICABLE", "ERROR",
@@ -51,6 +52,9 @@ def _original(aud_dir: Path) -> tuple[str, str, str]:
         or not db.is_file() or not manifest.is_file()
     ):
         raise ValueError("sealed source audit.db and manifest required")
+    if (db.stat().st_size > _MAX_AUD_SOURCE_BYTES
+            or manifest.stat().st_size > 32 * 1024 * 1024):
+        raise ValueError("sealed AUD source exceeds bounded integrity budget")
     if any(Path(str(db) + suffix).exists() for suffix in ("-wal", "-shm", "-journal")):
         raise ValueError("sealed AUD SQLite has live transaction sidecars")
     # An AUD flagged COMPLETE is not sufficient: its packaged HTML/evidence
