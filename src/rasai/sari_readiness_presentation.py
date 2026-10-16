@@ -56,15 +56,14 @@ def _limitations(row: Any) -> tuple[str, ...]:
 def readiness_state(row: Any) -> tuple[str, dict[str, str]]:
     """Return persisted readiness status and critical-gate states for one Overall row."""
     status = "UNKNOWN"
+    declared_statuses: set[str] = set()
     gates: dict[str, str] = {}
     for item in _limitations(row):
         if item.startswith("READINESS_STATUS:"):
             candidate = item.split(":", 1)[1].strip().upper()
             if candidate in _VALID_READINESS:
-                if status != "UNKNOWN" and status != candidate:
-                    status = "UNKNOWN"
-                else:
-                    status = candidate
+                declared_statuses.add(candidate)
+                status = candidate
         elif item.startswith("CRITICAL_GATE:"):
             parts = item.split(":", 2)
             if len(parts) == 3:
@@ -72,6 +71,10 @@ def readiness_state(row: Any) -> tuple[str, dict[str, str]]:
                 state = parts[2].strip().upper()
                 if gate:
                     gates[gate] = state if gate not in gates or gates[gate] == state else "UNKNOWN"
+
+    if len(declared_statuses) > 1:
+        status = "UNKNOWN"
+    conflicting_status = len(declared_statuses) > 1
 
     # A persisted critical gate takes precedence over the aggregate marker.
     # Only derive a missing aggregate state from complete, recognized gate states.
@@ -83,7 +86,7 @@ def readiness_state(row: Any) -> tuple[str, dict[str, str]]:
             status = "UNKNOWN"
         elif "WARNING" in values and status == "READY":
             status = "ATTENTION"
-        elif status == "UNKNOWN":
+        elif status == "UNKNOWN" and not conflicting_status:
             if "WARNING" in values:
                 status = "ATTENTION"
             elif values == {"PASS"}:
