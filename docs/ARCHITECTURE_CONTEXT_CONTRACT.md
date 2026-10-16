@@ -60,3 +60,12 @@ superior desativa a herança das camadas inferiores. Registros ausentes em
 todas as camadas mantêm `UNFORCED`; registros inválidos recusam a resolução
 sem fallback silencioso. O resolvedor não lê ou grava INI, SQLite ou sessão
 real. A aprovação de integração operacional permanece um gate separado.
+
+## Congelamento e restauração isolados
+
+O codec `architecture_choice_snapshot.py` produz um registro JSON versionado,
+identificado por AUD, usando a precedência previamente validada. A restauração
+exige o mesmo identificador de auditoria, recusa campos e chaves JSON duplicadas,
+versões incompatíveis e seleção inválida. Não executa I/O ou persistência real.
+O contrato não presume consentimento para serviços faturáveis e não altera
+índices, configuração do operador ou evidências físicas.
