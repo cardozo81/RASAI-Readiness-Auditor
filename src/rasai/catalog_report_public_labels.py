@@ -785,3 +785,18 @@ def public_contract_label(value: Any) -> str:
     return public_label(raw) or _dynamic_cause_label(head) or safe_visible_fallback(raw)
 
 __all__ = ["PUBLIC_VALUE_LABELS", "PUBLIC_PHRASE_LABELS", "public_label", "public_text", "public_contract_label"]
+
+# Isolated architecture renderer: technical reason codes have human-facing
+# translations even when they are emitted by a networkless worker.
+PUBLIC_VALUE_LABELS.update({
+    "ISOLATED_BROWSER_UNAVAILABLE": "Navegador isolado indisponível",
+    "ISOLATED_MANIFEST_INVALID": "Pacote de captura isolada inválido",
+    "ISOLATED_NAVIGATION_NOT_ATTESTED": "Navegação isolada não comprovada",
+    "ISOLATED_RENDER_LIMIT": "Limite de renderização isolada excedido",
+    "ISOLATED_RESOURCES_BLOCKED": "Recursos necessários bloqueados no navegador isolado",
+    "OCI_IMAGE_NOT_AVAILABLE": "Imagem de isolamento OCI não disponível",
+    "OCI_RUNTIME_NOT_AVAILABLE": "Executor OCI local não disponível",
+    "PUBLIC_TARGET_REJECTED": "Destino público rejeitado",
+    "PUBLIC_HTML_UNAVAILABLE": "HTML público indisponível para análise",
+    "ISOLATED_RENDER_INCONCLUSIVE": "Renderização isolada inconclusiva",
+})
