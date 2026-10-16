@@ -129,3 +129,27 @@ def test_mixed_currency_does_not_claim_forecast_range():
     )
     assert "Moedas dos custos" in html
     assert "dentro da faixa histórica provável" not in html
+
+
+@pytest.mark.parametrize("invalid", [None, "2", -1, True, 1.5, float("inf")])
+def test_invalid_attempt_counts_abstain_from_cost_accuracy(invalid):
+    forecast = {"expected_cost": 0.1, "likely_low": 0, "likely_high": 0.2}
+    for counts in ({"priced_attempts": invalid, "total_attempts": 2},
+                   {"priced_attempts": 2, "total_attempts": invalid},
+                   {"priced_attempts": 2, "total_attempts": 2, "optional_attempts": invalid}):
+        html = forecast_readout(forecast, observed_total=0.12,
+                                priced_attempts=counts["priced_attempts"],
+                                total_attempts=counts["total_attempts"],
+                                optional_attempts=counts.get("optional_attempts", 0))
+        assert "Contagens de tentativas inválidas" in html
+        assert "Posição do custo na faixa histórica: N/D" in html
+        assert "Desvio frente à estimativa pontual" not in html
+
+
+def test_more_priced_than_total_does_not_claim_full_coverage():
+    html = forecast_readout(
+        {"expected_cost": 0.1, "likely_low": 0, "likely_high": 0.2},
+        observed_total=0.15, priced_attempts=3, total_attempts=2,
+    )
+    assert "Contagens de tentativas inválidas" in html
+    assert "Posição do custo na faixa histórica: N/D" in html
