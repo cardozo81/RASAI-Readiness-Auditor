@@ -61,11 +61,17 @@ def readiness_state(row: Any) -> tuple[str, dict[str, str]]:
         if item.startswith("READINESS_STATUS:"):
             candidate = item.split(":", 1)[1].strip().upper()
             if candidate in _VALID_READINESS:
-                status = candidate
+                if status != "UNKNOWN" and status != candidate:
+                    status = "UNKNOWN"
+                else:
+                    status = candidate
         elif item.startswith("CRITICAL_GATE:"):
             parts = item.split(":", 2)
             if len(parts) == 3:
-                gates[parts[1].strip().upper()] = parts[2].strip().upper()
+                gate = parts[1].strip().upper()
+                state = parts[2].strip().upper()
+                if gate:
+                    gates[gate] = state if gate not in gates or gates[gate] == state else "UNKNOWN"
 
     # A persisted critical gate takes precedence over the aggregate marker.
     # Only derive a missing aggregate state from complete, recognized gate states.
