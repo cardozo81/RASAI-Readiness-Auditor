@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 import os
+from dataclasses import fields, is_dataclass
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Mapping
@@ -266,38 +267,60 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
     if not isinstance(environment, Mapping):
         raise ValueError("snapshot de console possui seção environment inválida")
 
-    # Historical non-secret settings override the current non-secret session only after
-    # the operator explicitly chooses to load that AUD. Secrets remain outside this
-    # allowlist and continue resolved from the current OS/session.
-    for name in allowed_environment:
-        raw = environment.get(name)
-        if raw is None or not str(raw).strip():
-            os.environ.pop(name, None)
-        else:
-            os.environ[name] = str(raw).strip()
+    # Preserve the process-session projection until all steps succeed.
+    # No second persistence source is created, and secrets stay in memory.
+    previous_environment = dict(os.environ)
+    previous_state = {}
+    if is_dataclass(state):
+        previous_state.update({item.name: getattr(state, item.name)
+                               for item in fields(state)})
+    if hasattr(state, "__dict__"):
+        previous_state.update(vars(state))
 
-    for section, known_values in console_settings._state_values(state).items():
-        values = raw_settings.get(section, {})
-        if not isinstance(values, Mapping):
-            continue
-        for option in known_values:
-            if option == "config_version" or option not in values:
+    try:
+        # Historical non-secret settings override the current non-secret session only after
+        # the operator explicitly chooses to load that AUD. Secrets remain outside this
+        # allowlist and continue resolved from the current OS/session.
+        for name in allowed_environment:
+            raw = environment.get(name)
+            if raw is None or not str(raw).strip():
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = str(raw).strip()
+
+        for section, known_values in console_settings._state_values(state).items():
+            values = raw_settings.get(section, {})
+            if not isinstance(values, Mapping):
                 continue
-            try:
-                console_settings._assign(state, section, option, str(values[option]))
-            except (TypeError, ValueError) as exc:
-                warnings.append(f"{section}.{option}: {exc}")
+            for option in known_values:
+                if option == "config_version" or option not in values:
+                    continue
+                try:
+                    console_settings._assign(state, section, option, str(values[option]))
+                except (TypeError, ValueError) as exc:
+                    warnings.append(f"{section}.{option}: {exc}")
 
-    _apply_search_settings(state, configuration, warnings)
+        _apply_search_settings(state, configuration, warnings)
 
-    state.input_mode = "url"
-    state.target = targets[0]
+        state.input_mode = "url"
+        state.target = targets[0]
 
-    console_settings.sync_nonsecret_runtime_environment(state)
-    if choice is None:
-        _ARCHITECTURE_SELECTION.pop(id(state), None)
-    else:
-        _ARCHITECTURE_SELECTION[id(state)] = choice
+        console_settings.sync_nonsecret_runtime_environment(state)
+        if choice is None:
+            _ARCHITECTURE_SELECTION.pop(id(state), None)
+        else:
+            _ARCHITECTURE_SELECTION[id(state)] = choice
+    except BaseException:
+        # A rejected restore must not leave a mixture of two AUD configurations.
+        for name in set(previous_environment) | set(os.environ):
+            if os.environ.get(name) != previous_environment.get(name):
+                if name in previous_environment:
+                    os.environ[name] = previous_environment[name]
+                else:
+                    os.environ.pop(name, None)
+        for name, value in previous_state.items():
+            setattr(state, name, value)
+        raise
     return tuple(warnings)
 
 

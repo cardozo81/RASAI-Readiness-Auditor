@@ -97,3 +97,42 @@ def test_selector_displays_current_choice_and_cancel_preserves_it(monkeypatch, c
         assert "Seleção atual: DECLARADA: HYDRATED" in capsys.readouterr().out
     finally:
         adapter._ARCHITECTURE_SELECTION.pop(id(state), None)
+
+
+def test_failed_runtime_reprojection_rolls_back_session_and_environment(monkeypatch):
+    """A rejected source cannot partially replace the live operator state."""
+    import os
+    import pytest
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai import console_settings
+
+    state = SearchConsoleState()
+    state.target = "https://operator.example/"
+    state.device = "mobile"
+    state.search_queries = ("current query stays local",)
+    original_target, original_device = state.target, state.device
+    original_queries = state.search_queries
+    key = "RASAI_APDEX_SAMPLES_PER_CONTEXT"
+    monkeypatch.setenv(key, "13")
+    original_env = os.environ[key]
+    config = {
+        "targets": ["https://source.example/"],
+        "settings": {
+            "console": {"device": "desktop"},
+            "environment": {key: "17"},
+        },
+        "search_intelligence": {"queries": ["imported query"], "enabled": True},
+    }
+
+    def fail_sync(_state):
+        os.environ[key] = "999"
+        raise ValueError("synthetic runtime projection rejected")
+
+    monkeypatch.setattr(console_settings, "sync_nonsecret_runtime_environment", fail_sync)
+    with pytest.raises(ValueError, match="runtime projection rejected"):
+        _apply_settings(state, config, "AUD-TEST")
+    assert state.target == original_target
+    assert state.device == original_device
+    assert state.search_queries == original_queries
+    assert os.environ[key] == original_env
+    assert id(state) not in _ARCHITECTURE_SELECTION
