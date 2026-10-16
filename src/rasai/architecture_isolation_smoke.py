@@ -34,6 +34,22 @@ for label, host, port in targets:
     else:
         sock.close()
         blocked[label] = False
+# WebRTC and native browser traffic may use UDP, which a TCP-only test
+# does not exercise. A networkless namespace has no route for any of these.
+for label, host, family in (
+    ("udp_public_ipv4", "1.1.1.1", socket.AF_INET),
+    ("udp_private_ipv4", "10.0.0.1", socket.AF_INET),
+    ("udp_metadata_ipv4", "169.254.169.254", socket.AF_INET),
+    ("udp_private_ipv6", "fd00::1", socket.AF_INET6),
+):
+    with socket.socket(family, socket.SOCK_DGRAM) as datagram:
+        datagram.settimeout(0.5)
+        try:
+            datagram.sendto(b"RASAI-NETWORKLESS-TEST", (host, 443))
+        except OSError:
+            blocked[label] = True
+        else:
+            blocked[label] = False
 try:
     addresses = socket.getaddrinfo("www.example.org", 443)
 except OSError:
@@ -59,7 +75,7 @@ def verify_isolation(*, digest: str | None = None, docker: str | None = None) ->
     if completed.returncode != 0 or len(completed.stdout) > 4096:
         raise RuntimeError("Isolated network test did not complete")
     evidence = json.loads(completed.stdout)
-    if (not isinstance(evidence, dict) or len(evidence) != 7
+    if (not isinstance(evidence, dict) or len(evidence) != 11
             or not all(value is True for value in evidence.values())):
         raise RuntimeError("Container network isolation was not proved")
     return evidence

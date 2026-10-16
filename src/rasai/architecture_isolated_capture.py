@@ -137,7 +137,7 @@ def sandbox_command(docker: str, digest: str) -> list[str]:
         raise ValueError("OCI image identifier must be a verified local digest")
     return [
         docker, "run", "--rm", "--interactive", "--pull=never",
-        "--network=none", "--read-only", "--cap-drop=ALL",
+        "--network=none", "--read-only", "--cap-drop=ALL", "--log-driver=none",
         "--security-opt=no-new-privileges", "--pids-limit=128",
         "--memory=1g", "--cpus=1", "--user=10001:10001",
         "--tmpfs=/tmp:rw,nosuid,nodev,size=128m",

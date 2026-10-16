@@ -21,7 +21,7 @@ def test_offline_sandbox_uses_no_network_no_mounts_and_nonroot():
     assert "--cap-drop=ALL" in args
     assert "--security-opt=no-new-privileges" in args
     assert "--user=10001:10001" in args
-    assert "--pull=never" in args
+    assert "--pull=never" in args and "--log-driver=none" in args
     assert "--memory=1g" in args and "--pids-limit=128" in args
     assert not any(arg.startswith(("-v", "--volume", "--mount",
                                     "--privileged", "--network=host")) for arg in args)
@@ -170,7 +170,8 @@ def test_physical_isolation_probe_requires_all_socket_checks(monkeypatch):
         return SimpleNamespace(returncode=0, stdout=json.dumps({
             name: True for name in ("public_ipv4", "private_ipv4",
             "link_local_metadata", "loopback", "private_ipv6",
-            "loopback_ipv6", "external_dns")
+            "loopback_ipv6", "external_dns", "udp_public_ipv4",
+            "udp_private_ipv4", "udp_metadata_ipv4", "udp_private_ipv6")
         }))
     with patch("rasai.architecture_isolation_smoke.subprocess.run",
                side_effect=runner):

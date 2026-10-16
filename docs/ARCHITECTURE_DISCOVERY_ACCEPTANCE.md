@@ -149,7 +149,7 @@ resultar \`UNKNOWN\` por falta de recursos, sem fallback nativo.
 \`\`\`powershell
 py -3.13 -m rasai.architecture_isolation_smoke
 \`\`\`
-A saída esperada é \`OCI_NETWORK_ISOLATION_BLOCKED\` para os sete testes
+A saída esperada é \`OCI_NETWORK_ISOLATION_BLOCKED\` para os onze testes
 de DNS e sockets públicos/privados/metadata/loopback (IPv4 e IPv6). Se mostrar
 \`OCI_NETWORK_ISOLATION_NOT_ATTESTED\`, o diagnóstico externo deve continuar
 bloqueado. Executar novamente após mudanças de Docker daemon, imagem ou host.
@@ -158,7 +158,7 @@ a imagem é executada pelo digest local para evitar troca de tag.
 
 **Gate automático obrigatório:** a opção 8 não se limita a encontrar a imagem
 local. Antes de qualquer DNS/HTTP do site, executa no **mesmo digest OCI**
-os sete probes negativos de rede usados pelo teste físico. Qualquer socket
+os onze probes negativos de rede usados pelo teste físico. Qualquer socket
 ou DNS permitido, erro de daemon ou timeout impede a aquisição e retorna
 `OCI_NETWORK_ISOLATION_NOT_ATTESTED`. O teste manual continua recomendado
 como evidência operacional independente, mas uma flag de ambiente isolada
@@ -174,3 +174,10 @@ HTML reproduzido: executar JavaScript que o servidor original proibiria pode
 produzir uma classificação artificial. Cabeçalhos com CR/LF ou tamanho fora
 do limite são rejeitados; cookies e cabeçalhos hop-by-hop não são importados.
 A ausência de cookies e recursos de terceiros pode levar a abstenção legítima.
+
+O diagnóstico de rede inclui agora **quatro tentativas UDP** (IPv4 público,
+IPv4 privado, metadata/link-local e IPv6 privado) além de TCP e DNS. Com
+`--network none` todas devem falhar por ausência de rota. Não é prova
+independente contra comprometimento do daemon/host, mas evita tratar
+bloqueio apenas TCP como cobertura WebRTC. O contêiner usa
+`--log-driver=none` para não persistir o bundle no daemon.
