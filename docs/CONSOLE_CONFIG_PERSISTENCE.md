@@ -578,3 +578,29 @@ salvar o INI original do operador sem o gate Windows consolidado.
 ## Compatibilidade de INI UTF-8 com BOM no Windows
 
 A leitura do console e o inventário read-only reconhecem o prefixo UTF-8 BOM sem alterar o arquivo. O guard de `save_console_config` também interpreta o BOM para validar opções conhecidas e preservar as demais restrições: se houver seção, opção, segredo ou dado desconhecido, o save continua recusado. Um **save explícito** reserializa o INI no formato canônico UTF-8 sem BOM, após a validação de origem física. Isso não constitui evidência de round-trip no equipamento do operador; há fixtures temporárias separadas da fonte real.
+
+## Gate de homologação de restauração em Windows
+
+A prova automatizada `tests/test_console_fresh_process_roundtrip.py` executa
+processos Python independentes em INI e SQLite **descartáveis** e valida o
+consumo M23/M25 por seus adapters. Isso comprova o contrato offline de
+serialização/restauração/projeção coberto pelas fixtures, **não** a identidade
+do arquivo INI efetivamente usado em cada estação Windows ou o consumo de
+todas as integrações externas.
+
+A homologação física residual deve usar Python compatível com
+`pyproject.toml` (`>=3.13,<3.14`), ambiente isolado funcional e configuração
+não sensível **descartável** por meio de `RASAI_CONSOLE_INI` explícito.
+Critério: identificar o arquivo efetivo sem expor dados sensíveis; salvar uma
+configuração não default; encerrar o console; iniciar processo novo; comparar
+arquivo, UI, estado restaurado e projeção efetiva; demonstrar precedência de
+overrides e ausência de autorização Perplexity/serviços remunerados.
+Não sobrescrever, corrigir ou migrar o INI real, Registry, secrets ou AUDs do
+operador somente para satisfazer esse gate. O valor derivado
+`synthetic_apdex_experience.device_mix` continua fora da matriz de campos
+independentes a restaurar.
+
+Resultados automatizados verdes não devem ser rotulados como homologação
+Windows real; por outro lado, a inexistência desse smoke não invalida os
+round-trips entre processos já executados com sucesso. Reportar as duas
+provas como estados distintos até o aceite final.
