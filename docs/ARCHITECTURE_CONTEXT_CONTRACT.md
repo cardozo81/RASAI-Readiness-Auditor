@@ -1,4 +1,4 @@
-# Contexto arquitetural consultivo — contrato inicial
+# Contexto arquitetural consultivo - contrato inicial
 
 Este contrato é **F1 / resolução isolada e read-only**, vinculado à issue #646.
 Nenhuma integração no planejamento da auditoria, catálogo, score, modelo de IA,
