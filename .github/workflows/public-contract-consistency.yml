@@ -52,4 +52,4 @@ jobs:
           tests/test_rasai_sari_branding.py::test_public_documentation_uses_current_contract
 
       - name: Architecture advisory context tests
-        run: pytest -q tests/test_architecture_context.py
+        run: pytest -q tests/test_architecture_context.py tests/test_architecture_observation_reader.py
