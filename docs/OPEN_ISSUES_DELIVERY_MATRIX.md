@@ -189,3 +189,19 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
 - #301 remains dependent on physically comparable SERP/Perplexity
   observations. A successful parser test cannot establish external
   market, freshness, language or search intent equivalence.
+
+
+### Censura explicita de cobertura economica por estagio
+
+- #319: o relatorio metodologico agora apresenta valores monetarios da
+  telemetria de IA com denominadores de tentativas. Montantes observados
+  pelo provedor e estimativas posteriores ao uso sao expostos
+  separadamente com contagem e denominador; zero observado e permitido.
+  Ausencia de informacao ou contagem impossivel devolve N/D em vez
+  de apresentar somatoria parcial como cobertura integral.
+- A suite `tests/test_audit_cost_explain.py` cobre soma parcial,
+  zero observado, ausencia e censo impossivel. Nenhuma fatura e inferida
+  nem o forecast original e sobrescrito.
+- Permanecem pendentes paridade de duracoes ativas em AUD real,
+  forecast de fase com cronometro comparavel e aceite completo da
+  interface console/previsao/HTML.
