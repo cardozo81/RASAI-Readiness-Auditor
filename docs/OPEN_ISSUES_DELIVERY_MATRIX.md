@@ -296,3 +296,18 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
   prioritario, sem dupla contagem de tokens de raciocinio.
 - O contrato permanece sem alteracao de faturamento, scores ou AUD
   historica; CI do novo HEAD exige nova verificacao integral.
+
+
+### Integridade de consumidores de IA e projeção dinâmica da configuração
+
+- #319: o total de tokens informado explicitamente pelo provedor
+  agora prevalece se válido. Quando presente e corrompido, a execução
+  abstém; não usa silenciosamente a soma de campos secundários.
+  Casos negativos adicionais distinguem total ausente de inválido.
+- #523: a projeção viva de estado do console para variáveis de
+  ambiente valida JSON Dynatrace antes de aplicar qualquer variável.
+  Campos de credenciais aninhados são rejeitados antes de mutação do
+  ambiente, em paridade com o save/load de INI. Prova negativa e
+  positiva em `tests/test_console_persistence_matrix.py`.
+- A aprovação do CI e o aceite operacional ainda dependem da validação
+  completa do HEAD; nenhuma API de provedor foi acionada nesses ensaios.
