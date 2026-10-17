@@ -132,3 +132,20 @@ def test_corrupt_estimated_and_legacy_costs_abstain_but_real_zero_is_allowed() -
         assert economic.attempt_monetary_cost({
             field: 0.0, "cost_currency": "USD",
         })[0] == 0.0
+
+
+def test_token_counters_do_not_truncate_fractional_or_clamp_negative_usage():
+    """Invalid physical token observations cannot be silently rewritten."""
+    for invalid in (-3, 2.5, True, float("nan"), float("inf"), "-1", "2.5"):
+        assert economic.canonical_total_tokens({
+            "total_tokens": invalid, "input_tokens": None, "output_tokens": None,
+        }) is None
+    assert economic.canonical_total_tokens({
+        "total_tokens": None, "input_tokens": -3, "output_tokens": 7,
+    }) == 7
+    assert economic.canonical_total_tokens({
+        "total_tokens": "12", "input_tokens": 3, "output_tokens": 4,
+    }) == 12
+    assert economic.canonical_total_tokens({
+        "total_tokens": 0, "input_tokens": 3, "output_tokens": 4,
+    }) == 0
