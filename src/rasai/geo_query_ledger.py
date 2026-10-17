@@ -67,7 +67,8 @@ def _explicit_source_query(metadata: object) -> str | None | object:
     raw = payload.get("query")
     if raw is None:
         return None
-    if not isinstance(raw, str) or not raw.strip() or len(raw) > 300:
+    if (not isinstance(raw, str) or not raw.strip() or len(raw) > 300
+            or raw != raw.strip() or any(ord(char) < 32 or ord(char) == 127 for char in raw)):
         return _INVALID_METADATA
     return raw
 _WINDOW = 86400
