@@ -360,8 +360,40 @@ def _guard_existing_ini_before_save(
     return identity
 
 
+def _reject_secret_bearing_dynatrace_json(state: Any) -> None:
+    """Never serialize credential fields embedded in an otherwise public JSON."""
+    import json
+    import re
+
+    raw = str(getattr(state, "apdex_dynatrace_config_json", "") or "").strip()
+    if not raw:
+        return
+    try:
+        parsed = json.loads(raw)
+    except (ValueError, TypeError):
+        # Preserve legacy opaque values; the consumer performs structural validation.
+        return
+    secret_keys = frozenset({
+        "token", "api_token", "access_token", "refresh_token", "bearer_token",
+        "api_key", "apikey", "password", "passwd", "client_secret",
+        "authorization", "credentials", "secret",
+    })
+    def has_secret(value: Any) -> bool:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                canonical = re.sub(r"(?<!^)(?=[A-Z])", "_", str(key)).replace("-", "_").casefold()
+                if canonical in secret_keys or has_secret(child):
+                    return True
+        elif isinstance(value, list):
+            return any(has_secret(child) for child in value)
+        return False
+    if has_secret(parsed):
+        raise ValueError("Dynatrace JSON contem campos de credencial nao persistiveis")
+
+
 def save_console_config(state: Any, path: Path | None = None) -> Path:
     destination = path or resolve_config_path()
+    _reject_secret_bearing_dynatrace_json(state)
     initial_identity = _guard_existing_ini_before_save(destination, state)
     # Save is a logical transaction for both the INI and the in-process
     # projection. Persisting may fail due to disk/permissions/races; a failed

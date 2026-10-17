@@ -624,3 +624,26 @@ def test_restored_ai_catalog_selectors_reach_real_offline_loaders(
         assert getattr(module, loader_name)(env=dict(os.environ), cwd=tmp_path)
         assert ini.read_bytes() == before
         assert not target.exists()
+
+
+@pytest.mark.parametrize("secret_key", ["api_token", "password", "clientSecret", "Authorization"])
+def test_dynatrace_export_with_embedded_credentials_is_not_written_to_ini(
+    tmp_path, secret_key,
+):
+    """Typed non-secret JSON may not smuggle credentials into the operator INI."""
+    import json
+    _install_config_contract()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        state.apdex_dynatrace_config_json = json.dumps({
+            "load_action": "VISUALLY_COMPLETE",
+            "nested": [{secret_key: "NO_PERSIST_SECRET_VALUE"}],
+        })
+        path = tmp_path / "operator.ini"
+        with pytest.raises(ValueError, match="credencial nao persistiveis"):
+            console_settings.save_console_config(state, path)
+        assert not path.exists()
+        assert "NO_PERSIST_SECRET_VALUE" not in str(os.environ)
+        state.apdex_dynatrace_config_json = '{"load_action":"VISUALLY_COMPLETE"}'
+        console_settings.save_console_config(state, path)
+        assert "NO_PERSIST_SECRET_VALUE" not in path.read_text(encoding="utf-8")
