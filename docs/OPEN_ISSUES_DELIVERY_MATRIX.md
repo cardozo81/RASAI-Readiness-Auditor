@@ -380,3 +380,35 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
 - #304: consultas persistidas em `perplexity_search_runs.query_json` com espacos perifericos ou caracteres ASCII de controle sao rejeitadas como `EXTERNAL_QUERY_SET_AMBIGUOUS` antes de atribuir resultados a coortes SERP. Alteracao consultiva, sem provider, escrita AUD ou mudanca SCORE-GEO.
 - Commits: `1f0b90ac` (validacao) e `7504e645` (cinco regressoes de consultas adversariais). Fonte SQLite de fixture preservada durante a leitura.
 - Esta entrega nao comprova equivalencia de intencao, mercado ou consultas externas reais e nao encerra #304 nem #301. Exige CI do HEAD final.
+
+
+### Lote de integridade observacional - 17/10/2026
+
+- **#304 / #301:** rotulos de consulta em `serp_observations.query` deixam de ser associados a coortes por normalizacao silenciosa quando contem espacos perifericos/caracteres de controle. Caso a identidade pareca corresponder mas esteja malformada, a linha recebe `SERP_QUERY_IDENTITY_UNVERIFIABLE`, sem ser substituida por outra coleta selecionada. Commits `4ed15b0f`, `16919701`, `4ab57452`, com fixtures SQLite e preservacao dos bytes na leitura. Sem alterar fontes, fornecedores ou score.
+- **#646:** `resolve_architecture` exige que a referencia da evidencia seja canonica, sem espacos perifericos/caracteres de controle; referencias ambiguas devolvem abstencao, sem propagar arquitetura a consumidores operacionais. Commits `434dcf68`, `7c62a54b`, com regressoes negativas.
+- **#523:** os campos CAT-06/CAT-07 foram aceitos no Windows pelo operador; o HEAD `d464429e57c35b9f9ff02f9142c39f622363972f` obteve 26/26 workflows SUCCESS antes deste lote. Esse gate prova os adaptadores M23/M25 nas fixtures, mas nao uma AUD executada.
+- **#355:** fechada por aceite expresso sem tenant, sem reabrir gap de acesso. Nenhum restante do escopo #301..#646 sera fechado por inferencia de CI ou por estimativas de progresso.
+- **Gate atual:** conferir os 26 workflows do novo HEAD. Ainda nao ha evidencia de aceitacao integral de #301/#304/#646.
+
+#### Indicador de gestao - estimativas sem aceite formal
+
+Percentuais abaixo sao **estimativas de escopo residual para planejamento**, nao fracoes de requisitos formalmente contados. Margem estimada pelo menos +/-10 pontos percentuais, maior em epicos. Nao usar estes valores para fechamento automatico.
+
+| Issue | Residual estimado | Pendencia principal |
+|---|---:|---|
+| #301 | 40% | Coortes GEO comparaveis e reconciliacao do epico |
+| #304 | 30% | Observacao real SERP/Search com escopo temporal e intencao demonstrados |
+| #311 | 40% | Aceite longitudinal CONS/proveniencia fim-a-fim |
+| #319 | 25% | Previsao e duracao por fase e interface console/HTML em AUD real |
+| #322 | 40% | Interacao FAQ na mesma amostra fisica de navegador |
+| #330 | 35% | Consentimento, concorrentes e coortes de observacao real |
+| #357 | 35% | Epico Apdex: consolidar dependencias e metodo sem tenant #355 |
+| #523 | 15% | Inventario transversal/consumo dos campos e precedencia |
+| #600 | 20% | Aceite SARI/interpretabilidade em AUD real |
+| #601 | 30% | Integracao FAQ com recibo fisico na mesma amostra |
+| #602 | 40% | ADR normativa, pesos versionados e golden diferencial |
+| #603 | 35% | Documento oficial e prova de escopo/proveniencia |
+| #604 | 30% | Reconciliar criterios integrados de confianca |
+| #639 | 10% | Contratos publicos e gate pos-merge autorizado |
+| #646 | 15% | Descoberta real autorizada e contrato F3 de consumidores |
+| #355 | 0% | Fechada por aceite expresso sem tenant |
