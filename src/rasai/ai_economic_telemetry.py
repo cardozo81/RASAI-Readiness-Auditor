@@ -48,12 +48,12 @@ def _value(source: Any, key: str) -> Any:
 
 
 def _integer(value: Any) -> int | None:
-    if value is None or isinstance(value, bool):
-        return None
-    try:
-        return max(int(value), 0)
-    except (TypeError, ValueError):
-        return None
+    """Accept exact, nonnegative token counts; never truncate or clamp usage."""
+    if type(value) is int:
+        return value if value >= 0 else None
+    if isinstance(value, str) and value.isascii() and value.isdecimal():
+        return int(value)
+    return None
 
 
 def _currency(value: Any) -> str | None:
