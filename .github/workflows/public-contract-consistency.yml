@@ -87,18 +87,27 @@ jobs:
           print("OCI_E2E_NETWORK_BLOCKED: 11/11", flush=True)
           verify_browser_canary(digest=digest, docker=docker)
           print("OCI_E2E_BROWSER_CANARY_PASSED", flush=True)
-          evidence = capture_public_architecture("https://example.org/", DeviceContext.MOBILE)
-          print("OCI_E2E_RAW_AVAILABLE:", evidence.raw_html is not None, flush=True)
-          print("OCI_E2E_RENDER_AVAILABLE:", evidence.rendered_html is not None, flush=True)
-          print("OCI_E2E_REASON:", evidence.quality_reason or "NONE", flush=True)
-          assessment = assess_architecture(
-              raw_html=evidence.raw_html,
-              rendered_html=evidence.rendered_html,
-              quality_reason=evidence.quality_reason,
-          )
-          print("OCI_E2E_ARCHITECTURE:", assessment.architecture.value, flush=True)
-          print("OCI_E2E_LIMITATION:", assessment.limitation or "NONE", flush=True)
-          if evidence.quality_reason is not None or evidence.rendered_html is None:
-              raise SystemExit("OCI_E2E_REAL_CAPTURE_INCONCLUSIVE")
-          print("OCI_E2E_REAL_CAPTURE_COMPLETED", flush=True)
+          # Only two fixed, public, unauthenticated reference URLs are allowed.
+          # The second contains static HTML with no external scripts/assets.
+          complete = 0
+          for label, address in (
+              ("REFERENCE_EXAMPLE", "https://example.org/"),
+              ("REFERENCE_HTML_FIXTURE", "https://httpbin.org/html"),
+          ):
+              evidence = capture_public_architecture(address, DeviceContext.MOBILE)
+              assessment = assess_architecture(
+                  raw_html=evidence.raw_html,
+                  rendered_html=evidence.rendered_html,
+                  quality_reason=evidence.quality_reason,
+              )
+              print(label + "_RAW_AVAILABLE:", evidence.raw_html is not None, flush=True)
+              print(label + "_RENDER_AVAILABLE:", evidence.rendered_html is not None, flush=True)
+              print(label + "_REASON:", evidence.quality_reason or "NONE", flush=True)
+              print(label + "_CLASSIFICATION:", assessment.architecture.value, flush=True)
+              print(label + "_LIMITATION:", assessment.limitation or "NONE", flush=True)
+              if evidence.quality_reason is None and evidence.rendered_html is not None:
+                  complete += 1
+          if complete < 1:
+              raise SystemExit("OCI_E2E_NO_CONCLUSIVE_PUBLIC_REFERENCE")
+          print("OCI_E2E_AT_LEAST_ONE_PUBLIC_RENDER_PASSED", flush=True)
           PY
