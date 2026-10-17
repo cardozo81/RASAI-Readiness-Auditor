@@ -594,7 +594,9 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
     elif key == ("synthetic_apdex_experience", "dynatrace_import"): state.apdex_dynatrace_import = _parse_bool(raw)
     elif key == ("synthetic_apdex_experience", "dynatrace_base_url"): state.dynatrace_base_url = raw.strip()
     elif key == ("synthetic_apdex_experience", "dynatrace_application_id"): state.dynatrace_application_id = raw.strip()
-    elif key == ("synthetic_apdex_experience", "dynatrace_config_json"): state.apdex_dynatrace_config_json = raw.strip()
+    elif key == ("synthetic_apdex_experience", "dynatrace_config_json"):
+        _reject_secret_bearing_dynatrace_json(raw)
+        state.apdex_dynatrace_config_json = raw.strip()
 
 
 def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResult:
@@ -640,6 +642,12 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
             if name not in allowed:
                 warnings.append(f"environment.{name}: variável não reconhecida ou não persistível")
                 continue
+            if name == DYNATRACE_CONFIG_JSON_ENV:
+                try:
+                    _reject_secret_bearing_dynatrace_json(raw)
+                except ValueError:
+                    warnings.append("Dynatrace JSON nao persistivel")
+                    continue
             if not (os.environ.get(name) or "").strip() and raw.strip(): os.environ[name] = raw.strip()
     for section, values in _state_values(state).items():
         if not parser.has_section(section): continue
