@@ -336,3 +336,16 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
   assegura que nem infinito nem total parcial possam ser publicados.
 - Estas verificacoes nao substituem prova ponta a ponta de duracao,
   calibracao de custo ou evidencia de pagamento de fornecedor.
+
+
+### Limites operacionais no JSON de configuração Dynatrace
+
+- #523: campos Dynatrace JSON do console têm limite de 64 KiB de
+  caracteres e tratamento fail-closed de profundidade excessiva,
+  tanto no parse quanto no exame recursivo de credenciais.
+  Conteúdo malicioso não escreve INI; preserva o contrato de
+  não persistir tokens, senhas ou segredos de autenticação.
+  Fixtures locais incluem profundidade 1.400 e payload >64 KiB.
+- A proteção de configuração não certifica conexão RUM real,
+  disponibilidade de credenciais nem aderência operacional dos
+  demais consumidores no Windows.
