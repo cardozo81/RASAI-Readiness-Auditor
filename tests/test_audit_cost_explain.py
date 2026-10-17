@@ -183,3 +183,17 @@ def test_report_ai_stage_monetary_amounts_expose_denominators():
     assert _timeline_monetary_coverage(0.25, 1, 3) == "0.250000 (1/3 tentativas)"
     assert _timeline_monetary_coverage(0.0, 0, 3).startswith("N/D")
     assert _timeline_monetary_coverage(1.0, 4, 3).startswith("N/D")
+
+
+def test_report_stage_monetary_readout_abstains_on_invalid_numeric_values():
+    from rasai.catalog_report_site import _timeline_monetary_coverage
+
+    for amount in (float("nan"), float("inf"), float("-inf"), -0.1, True, "0.2", None):
+        assert _timeline_monetary_coverage(amount, 1, 2) == (
+            "N/D (valor monetario invalido)"
+        )
+    for count, total in ((True, 2), (1, True), (-1, 2), (3, 2), (1, 0)):
+        assert _timeline_monetary_coverage(0.1, count, total) == (
+            "N/D (cobertura monetaria inconsistente)"
+        )
+    assert _timeline_monetary_coverage(0.0, 1, 1) == "0.000000 (1/1 tentativas)"
