@@ -108,6 +108,10 @@ jobs:
               print(label + "_REASON:", evidence.quality_reason or "NONE", flush=True)
               print(label + "_CLASSIFICATION:", assessment.architecture.value, flush=True)
               print(label + "_LIMITATION:", assessment.limitation or "NONE", flush=True)
+              if label == "REFERENCE_EXAMPLE" and (
+                  evidence.quality_reason is not None or evidence.rendered_html is None
+              ):
+                  raise SystemExit("OCI_E2E_EXAMPLE_RENDER_REGRESSION")
               if evidence.quality_reason is None and evidence.rendered_html is not None:
                   complete += 1
           if complete < 1:
