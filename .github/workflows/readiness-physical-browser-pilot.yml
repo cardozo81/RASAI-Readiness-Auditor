@@ -5,20 +5,24 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/readiness_probe_cost_pilot.py'
+      - 'src/rasai/faq_existing_page_pilot.py'
       - 'src/rasai/readiness_matched_pilot.py'
       - 'tests/test_readiness_matched_pilot.py'
       - 'src/rasai/playwright_primary_content_probe.py'
       - 'tests/test_readiness_probe_cost_pilot.py'
+      - 'tests/test_faq_existing_page_pilot.py'
       - 'tests/test_playwright_real_browser_readiness.py'
       - '.github/workflows/readiness-physical-browser-pilot.yml'
   push:
     branches: [main]
     paths:
       - 'src/rasai/readiness_probe_cost_pilot.py'
+      - 'src/rasai/faq_existing_page_pilot.py'
       - 'src/rasai/readiness_matched_pilot.py'
       - 'tests/test_readiness_matched_pilot.py'
       - 'src/rasai/playwright_primary_content_probe.py'
       - 'tests/test_readiness_probe_cost_pilot.py'
+      - 'tests/test_faq_existing_page_pilot.py'
       - 'tests/test_playwright_real_browser_readiness.py'
       - '.github/workflows/readiness-physical-browser-pilot.yml'
   workflow_dispatch:
@@ -63,4 +67,4 @@ jobs:
       - name: Run offline same-browser-sample DOM tests (no site/network/provider)
         env:
           RASAI_322_CHROME_CHANNEL: chrome
-        run: python -m pytest -q tests/test_playwright_real_browser_readiness.py
+        run: python -m pytest -q tests/test_playwright_real_browser_readiness.py tests/test_faq_existing_page_pilot.py
