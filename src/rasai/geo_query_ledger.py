@@ -406,7 +406,8 @@ def inspect_geo_per_query(
                 if metadata is _INVALID_METADATA or (
                     direct is not None
                     and (not isinstance(direct, str) or not direct.strip()
-                         or len(direct) > 300)
+                         or len(direct) > 300 or direct != direct.strip()
+                         or any(ord(char) < 32 or ord(char) == 127 for char in direct))
                 ):
                     contradictory = True
                     break
