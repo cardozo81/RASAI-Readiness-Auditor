@@ -394,3 +394,61 @@ def test_invalid_resource_url_reports_specific_safe_reason():
     with pytest.raises(ArchitectureAssetFailure) as raised:
         _bundle_resources("https://example.org/", root, markup)
     assert raised.value.reason == "OCI_ASSET_URL_REJECTED"
+
+
+def test_inline_data_favicon_does_not_require_http_replay():
+    from rasai.architecture_isolated_capture import (
+        _AssetReferences, _bundle_resources, ContentFetchStatus,
+    )
+    markup = ('<html><head><link rel="icon" '
+              'href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%3E">'
+              '</head><main>Static content</main></html>')
+    root = SimpleNamespace(
+        status=ContentFetchStatus.OBSERVED,
+        final_url="https://example.org/", http_status=200,
+        body=markup.encode(), headers={"content-type": "text/html"},
+    )
+    parsed = _AssetReferences()
+    parsed.feed(markup)
+    assert parsed.urls == []
+    assert [item["url"] for item in _bundle_resources("https://example.org/", root, markup)] == [
+        "https://example.org/"
+    ]
+
+
+def test_inline_exemption_never_applies_to_script_or_stylesheet():
+    from rasai.architecture_isolated_capture import (
+        _bundle_resources, ArchitectureAssetFailure, ContentFetchStatus,
+    )
+    import pytest
+    examples = (
+        '<script src="data:text/javascript,alert(1)"></script>',
+        '<link rel="stylesheet" href="data:text/css,body%7B%7D">',
+        '<link rel="icon stylesheet" href="data:text/css,body%7B%7D">',
+        '<link rel="icon" href="javascript:alert(1)">',
+    )
+    for reference in examples:
+        markup = "<html><main>Text</main>" + reference + "</html>"
+        root = SimpleNamespace(
+            status=ContentFetchStatus.OBSERVED,
+            final_url="https://example.org/", http_status=200,
+            body=markup.encode(), headers={"content-type": "text/html"},
+        )
+        with pytest.raises(ArchitectureAssetFailure, match="OCI_ASSET_URL_REJECTED"):
+            _bundle_resources("https://example.org/", root, markup)
+
+
+def test_remote_favicon_is_still_subject_to_origin_policy():
+    from rasai.architecture_isolated_capture import (
+        _bundle_resources, ArchitectureAssetFailure, ContentFetchStatus,
+    )
+    import pytest
+    markup = ('<html><main>Text</main><link rel="icon" '
+              'href="https://cdn.example.net/icon.svg"></html>')
+    root = SimpleNamespace(
+        status=ContentFetchStatus.OBSERVED,
+        final_url="https://example.org/", http_status=200,
+        body=markup.encode(), headers={"content-type": "text/html"},
+    )
+    with pytest.raises(ArchitectureAssetFailure, match="OCI_EXTERNAL_ASSET_REQUIRED"):
+        _bundle_resources("https://example.org/", root, markup)
