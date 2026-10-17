@@ -246,15 +246,20 @@ def _m21_http_request_sums(conn: sqlite3.Connection, audit_id: str) -> dict[str,
             # Without a physical attempt key, summing requests may count
             # the same operation multiple times. Do not infer uniqueness.
             return {}
+        # A pathological ledger must not turn an advisory console preview
+        # into unbounded work or publish a silently truncated total.
         rows = conn.execute(
             "SELECT attempt_id, service, duration_ms "
-            "FROM web_performance_attempts WHERE audit_id=?",
+            "FROM web_performance_attempts WHERE audit_id=? LIMIT 10001",
             (audit_id,),
         )
+        observations = rows.fetchall()
+        if len(observations) > 10000:
+            return {}
         totals: dict[str, float] = {}
         rejected: set[str] = set()
         seen: dict[str, str] = {}
-        for attempt_id, service, duration in rows:
+        for attempt_id, service, duration in observations:
             name = str(service or "").strip().upper()
             if name not in {"PAGESPEED_INSIGHTS", "CRUX_API"}:
                 continue
