@@ -1617,3 +1617,22 @@ def test_persisted_query_cohort_rejects_padding_and_controls(tmp_path, bad_query
     assert result["queries"] == []
     assert result["provider_requests"] == result["audit_writes"] == 0
     assert db.read_bytes() == before
+
+@pytest.mark.parametrize("bad_query", [
+    " seguro de vida", "seguro de vida ", "seguro\\nvida",
+    "seguro\\tvida", "seguro\\x00vida",
+])
+def test_per_source_direct_query_rejects_padding_and_controls(tmp_path, bad_query):
+    folder = _audit(tmp_path, multi=False)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE perplexity_search_sources SET query=?",
+            (bad_query,),
+        )
+    original = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["per_query_attribution_status"] == "NOT_VERIFIED"
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert db.read_bytes() == original
