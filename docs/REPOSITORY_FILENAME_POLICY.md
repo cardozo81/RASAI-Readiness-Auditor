@@ -114,7 +114,7 @@ reconciliar expressamente essas fronteiras e os critérios de aceite integrais.
 A verificação independente pela GitHub Git Trees API no HEAD
 `98c73e95f46fe68670ace6016979532e9a91404e` enumerou **1.509
 arquivos versionados**, sem truncamento, e encontrou **zero** ocorrências
-do padrão numérico legado. A allowlist de exceções continua vazia.
+do padrão numérico anterior. A allowlist de exceções continua vazia.
 
 A partir desta reconciliação, a suíte
 `tests/test_repository_filename_policy.py` também varre
