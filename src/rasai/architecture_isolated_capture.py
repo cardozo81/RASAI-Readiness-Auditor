@@ -77,9 +77,17 @@ class _AssetReferences(HTMLParser):
         if tag in {"script", "img", "source", "iframe"} and attributes.get("src"):
             self.urls.append(attributes["src"])
         elif tag == "link" and attributes.get("href"):
-            relations = (attributes.get("rel") or "").lower().split()
-            if set(relations) & {"stylesheet", "preload", "modulepreload", "icon"}:
-                self.urls.append(attributes["href"])
+            relations = set((attributes.get("rel") or "").lower().split())
+            relevant = relations & {"stylesheet", "preload", "modulepreload", "icon"}
+            if relevant:
+                reference = attributes["href"]
+                # Inline data: favicons are image-only document metadata.
+                # They have no HTTP endpoint to pin and keeping their original
+                # HTML preserves browser fidelity without enabling egress.
+                # Never exempt executable script, style, or preload references.
+                if relevant == {"icon"} and reference.lstrip().lower().startswith("data:"):
+                    return
+                self.urls.append(reference)
 
 
 def _encode_asset(url: str, document) -> dict:
