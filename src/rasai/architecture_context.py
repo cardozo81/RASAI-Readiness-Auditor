@@ -82,7 +82,10 @@ def resolve_architecture(
 
     # Legacy observations without these optional identities may only serve an
     # equally legacy request. Never silently project across an explicitly scoped AUD.
+    # Source rows are untrusted: malformed/foreign entries must not crash
+    # the read-only resolver or widen the scope of a legitimate snapshot.
     matches = tuple(o for o in observations if
+                    isinstance(o, ArchitectureObservation) and
                     o.requested_url == requested_url and
                     o.device == device and o.snapshot_id == snapshot_id and
                     o.audit_id == audit_id and o.page_id == page_id and
