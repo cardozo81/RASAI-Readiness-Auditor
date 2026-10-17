@@ -257,3 +257,29 @@ de referências, sem coletar logs de HTML, URL de recurso ou credenciais:
 `link_icon:data = 1` e `script:https = 1`. A URI exata não deve ser
 registrada em logs de CI. Classificações com recursos essenciais bloqueados
 devem continuar como `UNKNOWN`, e não como `STATIC_OR_SSR`.
+
+### Matriz física isolada de classificação (sem sites externos)
+
+A suíte `tests/architecture_offline_classification_matrix.py` executa oito
+cenários artificiais em uma imagem OCI local, após os testes negativos TCP,
+UDP e DNS e o canário Chromium. São quatro classes do classificador
+`architecture-observation-v1`, cada uma executada em mobile e desktop:
+`STATIC_OR_SSR`, `CSR_SPA`, `HYDRATED` e `MIXED`.
+
+A matriz entrega um bundle de HTML/JS local ao Chromium através de stdin;
+não consulta DNS nem site externo e não cria AUD. Os scripts artificiais
+modificam o elemento `main` de forma determinística, para verificar que
+a comparação RAW/DOM realmente classifica o efeito observado. Resultado
+esperado do teste físico: `OCI_MATRIX_ALL_8_PASSED`.
+
+Execução local facultativa após construir e validar a mesma imagem:
+```powershell
+.\.venv\Scripts\python.exe -m tests.architecture_offline_classification_matrix
+```
+
+**Limite:** testes sintéticos provam a execução do classificador nas condições
+construídas, não a arquitetura real de qualquer framework/site. Na captura
+pública de referência, a classificação `HYDRATED` para `example.org` é uma
+observação **do método v1**, não confirmação independente de que o site use
+hydration framework. A matriz física externa com páginas reais heterogêneas
+ainda exige amostras adequadas e evidências/limitações explícitas.
