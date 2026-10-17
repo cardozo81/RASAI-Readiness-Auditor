@@ -73,8 +73,11 @@ def canonical_total_tokens(source: Any) -> int | None:
     and is never added again.
     """
 
-    total = _integer(_value(source, "total_tokens"))
-    if total is not None:
+    raw_total = _value(source, "total_tokens")
+    total = _integer(raw_total)
+    if raw_total is not None:
+        # A present but corrupt provider total is not permission to
+        # substitute a derived total from a different accounting basis.
         return total
     raw_input = _value(source, "input_tokens")
     raw_output = _value(source, "output_tokens")
