@@ -349,3 +349,10 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
 - A proteção de configuração não certifica conexão RUM real,
   disponibilidade de credenciais nem aderência operacional dos
   demais consumidores no Windows.
+
+
+### Correção de portabilidade do teste de persistência — 17/10/2026
+
+- **#523 / CI Windows:** no HEAD `01e0983`, o workflow `Windows Console Navigation` terminou com falha de infraestrutura de teste: um identificador pytest gerado automaticamente a partir de JSON adversarial de 65.537 caracteres excedeu o limite de 32.767 caracteres das variáveis de ambiente do Windows; os erros subsequentes de teardown foram efeitos secundários. Outros 25 workflows do mesmo HEAD concluíram com sucesso.
+- **Correção:** commit `9dfb820d812289a417eb5fa699732cebc1cdee11` aplica IDs curtos aos dois casos de JSON adversarial em `tests/test_console_persistence_matrix.py`, preservando integralmente os payloads, os testes negativos e a recusa de persistência de conteúdo excessivo. Nenhum runtime, motor, score ou contrato de segurança foi alterado.
+- **Gate ainda em aberto:** o novo HEAD disparou workflows de CI, inicialmente enfileirados. Não registrar PASS até observar a conclusão do job Windows e dos demais gates obrigatórios. #523 permanece aberta até prova de todos os consumidores e critérios de aceite.
