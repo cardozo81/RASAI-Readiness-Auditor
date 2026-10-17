@@ -709,3 +709,21 @@ def test_runtime_projection_rejects_dynatrace_secret_without_partial_environment
         assert os.environ.get("RASAI_DYNATRACE_CONFIG_JSON") == (
             '{"load_action":"VISUALLY_COMPLETE"}'
         )
+
+
+@pytest.mark.parametrize("unsafe_json", [
+    "[" * 1400 + "0" + "]" * 1400,
+    '{"safe":"' + ("a" * 65537) + '"}',
+])
+def test_oversized_or_excessively_nested_dynatrace_config_never_writes_ini(
+    tmp_path, unsafe_json,
+):
+    """Operator-provided JSON stays bounded and cannot crash credential scanning."""
+    _install_config_contract()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        state.apdex_dynatrace_config_json = unsafe_json
+        destination = tmp_path / "operator.ini"
+        with pytest.raises(ValueError, match="Dynatrace JSON excede"):
+            console_settings.save_console_config(state, destination)
+        assert not destination.exists()
