@@ -1061,8 +1061,35 @@ def install(console_module: ModuleType) -> None:
                         )
                         print(
                             "  Nota               : tempos simultâneos não são aditivos; "
-                            "não inclui captura/PSI/Apdex; valores não são fatura."
+                            "tentativas IA não medem captura/PSI/Apdex; valores não são fatura."
                         )
+                    # Read-only non-AI observability belongs to the same AUD
+                    # scope, but HTTP request sums are not stage wall-clock.
+                    from rasai.audit_duration_forecast import _m21_http_request_sums
+                    with sqlite3.connect(
+                        Path(workspace.database).resolve().as_uri() + "?mode=ro",
+                        uri=True, timeout=0.5,
+                    ) as stage_conn:
+                        stage_conn.execute("PRAGMA query_only=ON")
+                        http_sums = _m21_http_request_sums(stage_conn, state.audit_id)
+                    if http_sums:
+                        print("  Performance HTTP   : durações observadas por serviço (não tempo total da fase)")
+                        for service, duration_ms in sorted(http_sums.items()):
+                            print(f"    {service}: {duration_ms / 1000:.1f}s acumulados em requests")
+                    # Operational timers cannot prove exclusive phase times,
+                    # and lack a signed execution identity. Show only bounded
+                    # observational evidence, never forecast or additive totals.
+                    from rasai.audit_step_timer_inspection import inspect_pipeline_step_timers
+                    wrappers = inspect_pipeline_step_timers(Path(root), state.audit_id, None)
+                    if wrappers["status"] == "OBSERVED_UNSEALED_WRAPPER_TIMERS":
+                        print("  Pipeline operacional: intervalos de wrappers (log não selado)")
+                        for phase in wrappers["by_phase"]:
+                            print(
+                                f"    {phase['phase']}: {phase['wrapper_count']} wrapper(s), "
+                                f"mín {phase['min_observed_wrapper_ms'] / 1000:.1f}s, "
+                                f"máx {phase['max_observed_wrapper_ms'] / 1000:.1f}s; "
+                                "não representa wall-clock exclusivo"
+                            )
             except (OSError, ValueError, sqlite3.Error):
                 pass
 
