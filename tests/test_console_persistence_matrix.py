@@ -727,3 +727,51 @@ def test_oversized_or_excessively_nested_dynatrace_config_never_writes_ini(
         with pytest.raises(ValueError, match="Dynatrace JSON excede"):
             console_settings.save_console_config(state, destination)
         assert not destination.exists()
+
+
+def test_human_smoke_values_reach_m23_m25_real_config_adapters_without_aud(tmp_path):
+    """#523: validate the actual 10->11 human-smoke samples across save/restart/runner."""
+    import argparse
+    from rasai.m23_cli import configured_apdex, register_apdex_arguments
+    from rasai.m25_runtime import peek_pending_config, set_pending_config
+    from rasai.m25_apdex_experience import ExperienceApdexConfig
+
+    _install_config_contract()
+    with patch.dict(os.environ, {}, clear=True):
+        state = _nondefault_apdex_state()
+        state.apdex_samples = 11
+        state.apdex_experience_samples = 11
+        state.apdex_experience_architecture = "STATIC_OR_SSR"
+        state.apdex_experience_profile_mode = "CUSTOM"
+        state.apdex_dynatrace_import = False
+        state.dynatrace_base_url = ""
+        state.dynatrace_application_id = ""
+        state.apdex_dynatrace_config_json = ""
+        state.apdex_experience_kpm = "USER_ACTION_DURATION"
+
+        ini = tmp_path / "human-smoke.ini"
+        console_settings.save_console_config(state, ini)
+        original = ini.read_bytes()
+        os.environ.clear()
+        restored = SearchConsoleState()
+        loaded = console_settings.load_console_config(restored, ini)
+        assert not loaded.warnings
+        assert restored.apdex_samples == 11
+        assert restored.apdex_experience_samples == 11
+        assert restored.apdex_experience_architecture == "STATIC_OR_SSR"
+        assert restored.apdex_experience_profile_mode == "CUSTOM"
+        console_settings.sync_nonsecret_runtime_environment(restored)
+        env = dict(os.environ)
+        assert env["RASAI_APDEX_EXPERIENCE_ARCHITECTURE"] == "STATIC_OR_SSR"
+        assert env["RASAI_APDEX_EXPERIENCE_PROFILE_MODE"] == "CUSTOM"
+
+        parser = argparse.ArgumentParser()
+        register_apdex_arguments(parser)
+        try:
+            navigation = configured_apdex(parser.parse_args([]), env=env)
+            experience = peek_pending_config()
+            assert navigation.target_valid_samples == 11
+            assert experience.target_samples_per_page == 11
+        finally:
+            set_pending_config(ExperienceApdexConfig(enabled=False))
+        assert ini.read_bytes() == original
