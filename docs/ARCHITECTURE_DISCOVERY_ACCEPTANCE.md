@@ -245,7 +245,7 @@ próprio documento**, não possui endpoint HTTP(S) para consulta segura e não
 deve ser convertido em uma URL de rede.
 
 O adaptador de pré-coleta ignora **somente favicons com `rel=icon` e
-`href=data:`** na lista de requisições HTTP, preservando o conteúdo original
+`href=data:image/...`** na lista de requisições HTTP, preservando o conteúdo original
 no HTML enviado ao Chromium sem rede. Scripts, CSS, preloads e referências
 a endpoints externos continuam sujeitos às regras anteriores; uma URI
 `data:` de script ou stylesheet não recebe essa exceção. Assim, evita-se
