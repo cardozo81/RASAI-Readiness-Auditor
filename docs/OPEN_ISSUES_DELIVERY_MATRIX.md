@@ -386,7 +386,7 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
 
 - **#304 / #301:** rotulos de consulta em `serp_observations.query` deixam de ser associados a coortes por normalizacao silenciosa quando contem espacos perifericos/caracteres de controle. Caso a identidade pareca corresponder mas esteja malformada, a linha recebe `SERP_QUERY_IDENTITY_UNVERIFIABLE`, sem ser substituida por outra coleta selecionada. Commits `4ed15b0f`, `16919701`, `4ab57452`, com fixtures SQLite e preservacao dos bytes na leitura. Sem alterar fontes, fornecedores ou score.
 - **#646:** `resolve_architecture` exige que a referencia da evidencia seja canonica, sem espacos perifericos/caracteres de controle; referencias ambiguas devolvem abstencao, sem propagar arquitetura a consumidores operacionais. Commits `434dcf68`, `7c62a54b`, com regressoes negativas.
-- **#523:** os campos CAT-06/CAT-07 foram aceitos no Windows pelo operador; o HEAD `d464429e57c35b9f9ff02f9142c39f622363972f` obteve 26/26 workflows SUCCESS antes deste lote. Esse gate prova os adaptadores M23/M25 nas fixtures, mas nao uma AUD executada.
+- **#523:** os campos CAT-06/CAT-07 foram aceitos no Windows pelo operador; o HEAD `d464429e57c35b9f9ff02f9142c39f622363972f` obteve 26/26 workflows SUCCESS antes deste lote. Esse gate prova os adaptadores Apdex de navegação e experiência nas fixtures, mas nao uma AUD executada.
 - **#355:** fechada por aceite expresso sem tenant, sem reabrir gap de acesso. Nenhum restante do escopo #301..#646 sera fechado por inferencia de CI ou por estimativas de progresso.
 - **Gate atual:** conferir os 26 workflows do novo HEAD. Ainda nao ha evidencia de aceitacao integral de #301/#304/#646.
 
