@@ -1063,22 +1063,30 @@ def install(console_module: ModuleType) -> None:
                             "  Nota               : tempos simultâneos não são aditivos; "
                             "tentativas IA não medem captura/PSI/Apdex; valores não são fatura."
                         )
-                    # Read-only non-AI observability belongs to the same AUD
-                    # scope, but HTTP request sums are not stage wall-clock.
-                    from rasai.audit_duration_forecast import _m21_http_request_sums
-                    with sqlite3.connect(
-                        Path(workspace.database).resolve().as_uri() + "?mode=ro",
-                        uri=True, timeout=0.5,
-                    ) as stage_conn:
-                        stage_conn.execute("PRAGMA query_only=ON")
-                        http_sums = _m21_http_request_sums(stage_conn, state.audit_id)
-                    if http_sums:
-                        print("  Performance HTTP   : durações observadas por serviço (não tempo total da fase)")
-                        for service, duration_ms in sorted(http_sums.items()):
-                            print(f"    {service}: {duration_ms / 1000:.1f}s acumulados em requests")
-                    # Operational timers cannot prove exclusive phase times,
-                    # and lack a signed execution identity. Show only bounded
-                    # observational evidence, never forecast or additive totals.
+                    # #319: advisory telemetry must not turn the usage
+                    # screen into an unbounded DB reader or follow symlinks.
+                    db_path = Path(workspace.database)
+                    if db_path.is_symlink() or not db_path.is_file():
+                        print("  Performance HTTP   : N/D (fonte AUD indisponível)")
+                    else:
+                        from rasai.audit_duration_forecast import _m21_http_request_sums
+                        try:
+                            with sqlite3.connect(
+                                db_path.resolve().as_uri() + "?mode=ro",
+                                uri=True, timeout=0.5,
+                            ) as stage_conn:
+                                stage_conn.execute("PRAGMA query_only=ON")
+                                http_sums = _m21_http_request_sums(stage_conn, state.audit_id)
+                        except (OSError, ValueError, sqlite3.Error):
+                            http_sums = {}
+                        if http_sums:
+                            print("  Performance HTTP   : durações observadas por serviço (não tempo total da fase)")
+                            for service, duration_ms in sorted(http_sums.items()):
+                                print(f"    {service}: {duration_ms / 1000:.1f}s acumulados em requests")
+                        else:
+                            print("  Performance HTTP   : N/D (sem tentativas físicas elegíveis)")
+                    # Independent operational log evidence remains available
+                    # even when the M21 SQLite source cannot be read.
                     from rasai.audit_step_timer_inspection import inspect_pipeline_step_timers
                     wrappers = inspect_pipeline_step_timers(Path(root), state.audit_id, None)
                     if wrappers["status"] == "OBSERVED_UNSEALED_WRAPPER_TIMERS":
@@ -1090,6 +1098,8 @@ def install(console_module: ModuleType) -> None:
                                 f"máx {phase['max_observed_wrapper_ms'] / 1000:.1f}s; "
                                 "não representa wall-clock exclusivo"
                             )
+                    else:
+                        print("  Pipeline operacional: N/D (cronômetros não verificáveis)")
             except (OSError, ValueError, sqlite3.Error):
                 pass
 
