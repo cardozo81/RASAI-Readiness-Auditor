@@ -586,5 +586,14 @@ def format_duration_preview(projection: AuditDurationForecast) -> tuple[str, ...
             f"HTTP {stage.label}: tempo acumulado de requests, mediana "
             f"{seconds(stage.median_ms)} ({stage.sample_runs} AUDs; nao wall-clock)"
         )
+    # Do not fabricate per-stage estimates from the total AUD wall clock.
+    # These phases have no independently comparable physical duration samples
+    # in the current projection, even when a total forecast exists.
+    lines.append(
+        "Fases sem previsao fisica independente: captura, PageSpeed, Apdex, "
+        "analise competitiva e geracao do relatorio = N/D por fase. "
+        "Nao distribuir o tempo total proporcionalmente nem somar tempos "
+        "de chamadas paralelas como duracao sequencial."
+    )
     lines.extend(projection.notes)
     return tuple(lines)
