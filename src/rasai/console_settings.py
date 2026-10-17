@@ -663,14 +663,17 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
             # Do not revive an older INI value on console startup.
             if name not in os.environ and raw.strip():
                 os.environ[name] = raw.strip()
-    # The INI may contain literal credentials or unknown keys. These are
-    # never loaded into the runtime, even if a future adapter expands the
-    # state registry. Surface a safe diagnostic without revealing values.
+    # Optional console adapters may own additional legitimate sections that
+    # are loaded after this base adapter. Do not warn about every such section:
+    # that incorrectly marks valid fresh-process round trips as broken.
+    # Warn only if an unowned section has an explicitly secret-like key.
+    from rasai.console_config import is_secret
+    owned_sections = set(_state_values(state)) | {"environment"}
     for section in parser.sections():
-        if section == "environment":
-            continue
-        if section not in _state_values(state):
-            warnings.append(f"{section}: seção não reconhecida ou não persistível")
+        if section not in owned_sections and any(
+            is_secret(option) for option in parser._sections[section]
+        ):
+            warnings.append(f"{section}: campo sensível em seção não reconhecida")
     for section, values in _state_values(state).items():
         if not parser.has_section(section): continue
         for option in values:
