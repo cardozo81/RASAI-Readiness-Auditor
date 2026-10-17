@@ -156,7 +156,7 @@ e consumidor autorizado, e `DECLARED` mostra a classe acompanhada de
 "informada, não descoberta". A apresentação não altera INI, scores, coleta,
 snapshot nem dá autorização a consumidores adicionais.
 
-## Matriz de política consultiva e identidade — gate complementar
+## Matriz de política consultiva e identidade - gate complementar
 
 `tests/test_architecture_context_policy_matrix.py` percorre a matriz
 `AUTO / DECLARED / UNFORCED` × cinco arquiteturas observáveis
