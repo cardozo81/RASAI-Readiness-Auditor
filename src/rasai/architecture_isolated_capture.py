@@ -85,7 +85,10 @@ class _AssetReferences(HTMLParser):
                 # They have no HTTP endpoint to pin and keeping their original
                 # HTML preserves browser fidelity without enabling egress.
                 # Never exempt executable script, style, or preload references.
-                if relevant == {"icon"} and reference.lstrip().lower().startswith("data:image/"):
+                if relevant == {"icon"} and (
+                    reference.lstrip().lower().startswith("data:image/")
+                    or reference.strip().lower() == "data:,"
+                ):
                     return
                 self.urls.append(reference)
 
