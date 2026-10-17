@@ -27,6 +27,7 @@ def test_every_registered_public_setting_rehydrates_in_new_python_process(tmp_pa
     install_complete_persistence()
     names = {spec.name for spec in refresh_specs()
              if not spec.sensitive and not is_secret(spec.name)}
+    outer_environment = dict(os.environ)
     with patch.dict(os.environ, {}, clear=True):
         settings = SearchConsoleState()
         settings.device = "desktop"
@@ -74,12 +75,12 @@ assert state.perplexity_draft_queries == ("saved-draft-not-authorized",)
 print(json.dumps({"missing":missing,"unexpected":unexpected,
                   "count":len(stored),"nonsecret":True},sort_keys=True))
 """
-        # An isolated Python process without inherited RASAI or provider keys.
-        parent = dict(os.environ)
+        # A new process with Windows/Python bootstrap variables only, no RASAI/provider secrets.
         child_env = {
-            name: value for name, value in parent.items()
-            if not name.startswith(("RASAI_", "PERPLEXITY_", "DYNATRACE_"))
-            and not any(token in name for token in ("API_KEY", "TOKEN", "SECRET", "PASSWORD"))
+            name: value for name, value in outer_environment.items()
+            if name.upper() in {"SYSTEMROOT", "WINDIR", "PATH", "PATHEXT",
+                                "TEMP", "TMP", "HOME", "USERPROFILE",
+                                "VIRTUAL_ENV", "PYTHONPATH"}
         }
         completed = subprocess.run(
             [sys.executable, "-c", code, str(path)],
