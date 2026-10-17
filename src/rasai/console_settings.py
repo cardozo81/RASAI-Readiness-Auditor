@@ -659,7 +659,10 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
                 except ValueError:
                     warnings.append("Dynatrace JSON nao persistivel")
                     continue
-            # A deliberately empty session override is still an override; do\n            # not silently revive an older INI value on console startup.\n            if name not in os.environ and raw.strip():\n                os.environ[name] = raw.strip()
+            # A deliberately empty session override is still an override.
+            # Do not revive an older INI value on console startup.
+            if name not in os.environ and raw.strip():
+                os.environ[name] = raw.strip()
     for section, values in _state_values(state).items():
         if not parser.has_section(section): continue
         for option in values:
