@@ -1034,7 +1034,7 @@ def install(console_module: ModuleType) -> None:
                             )
                             estimate_label = (
                                 f"{stage.priced_usd_estimate:.6f} USD"
-                                if stage.attempts > stage.unpriced_attempts
+                                if stage.attempts - stage.observed_cost_attempts - stage.unpriced_attempts > 0
                                 else "N/D"
                             )
                             print(
