@@ -322,3 +322,17 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
   `TypeError` nao tratado. Testes dirigidos cobrem cada entrada.
 - Nao ha elevacao de evidencias a score, nova AUD, alteracao de Apdex
   ou habilitacao de consumidores F3 sem matriz normativa.
+
+
+### Protecao de overflow na contabilidade de IA
+
+- #319: a derivacao `input_tokens + output_tokens` agora verifica
+  novamente o limite de dezoito digitos depois da soma. Dois
+  componentes validos nao podem gerar um total excessivo.
+- #319: quando o total acumulado de uma moeda transborda para infinito,
+  o bucket inteiro e omitido e seus registros sao reportados como
+  nao precificaveis; outras moedas, com valores finitos, sao preservadas.
+  Zero monetario legitimo segue permitido. Fixture adversarial
+  assegura que nem infinito nem total parcial possam ser publicados.
+- Estas verificacoes nao substituem prova ponta a ponta de duracao,
+  calibracao de custo ou evidencia de pagamento de fornecedor.
