@@ -155,11 +155,11 @@ def test_nonhashable_architecture_values_cannot_break_advisory_policy(malformed)
             mode=malformed, declared_architecture=None,
             observations=(), **args,
         )
-    with pytest.raises(ValueError, match="Unknown declared architecture"):
+    expected = ("DECLARED requires a concrete architecture"
+                if malformed is None else "Unknown declared architecture")
+    with pytest.raises(ValueError, match=expected):
         resolve_architecture(
-            mode="AUTO", declared_architecture=malformed,
-            observations=(), **args,
-        ) if malformed is not None else resolve_architecture(
-            mode="DECLARED", declared_architecture=None,
+            mode="DECLARED" if malformed is None else "AUTO",
+            declared_architecture=malformed,
             observations=(), **args,
         )
