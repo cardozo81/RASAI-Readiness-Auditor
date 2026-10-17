@@ -23,3 +23,29 @@ A implementação presente é um contrato interpretativo read-only com testes de
 Após a verificação, o classificador read-only compara os estados visíveis no DOM e informa `text_recoverable_after_action` ou ausência **no DOM posterior**. O resultado `ATTESTED_ISOLATED_FAQ_INTERACTION_OBSERVATION` é **atestado pelo coletor**, não validação humana, certificação de acessibilidade, disponibilidade a crawlers ou autorização para alterar SCORE-GEO. Se o painel se expande mas não materializa resposta, isso **não prova ausência editorial**. O módulo não clica, não navega, não lê cookies e não realiza requests: uma futura integração Playwright só poderá assinar recibos após cumprir isolamento e bloqueios prometidos.
 
 #601 continua aberta para a implementação/homologação do coletor Playwright opt-in, replay de gesto físico, matriz SPA/lazy mount e decisão de scoring versionada.
+
+
+## Piloto Playwright de pagina existente (isolado e sem atestado)
+
+`faq_existing_page_pilot.inspect_existing_page_faq` recebe uma pagina
+Playwright **ja carregada** pelo chamador. Exige opt-in afirmativo e
+reconhecimento do isolamento, um unico tab no contexto e nenhum service
+worker em execucao. So seleciona um `button[aria-controls]` com
+identidade unica, fechado antes do gesto; aborta novas requisicoes HTTP
+durante o clique e reavalia DOM e URL no **mesmo objeto page**. Mudanca
+de URL, popup, controles ambiguos ou DOM excessivo produzem abstencao.
+
+O piloto nao abre navegador, nao navega, nao usa provedor de IA, nao
+escreve AUD e nao altera scores. O output devolve hashes dos DOMs,
+estados de antes/depois e limitacoes, **nunca o HTML bruto**. A rota de
+bloqueio e removida ao sair. Este isolamento local nao comprova ausencia
+de trafego WebSocket, uma sessao produtiva de mesma amostra nem coleta
+por crawler. O piloto nao assina recibos e nao promove sua observacao
+a atestado de coletor independente.
+
+`tests/test_faq_existing_page_pilot.py` executa um navegador Chrome
+real de runner contra um documento de fixture interceptado localmente:
+opt-out preserva DOM, opt-in revela resposta apos clique, URL nao muda
+e nenhum destino externo e acessado. A suite integra o workflow de
+piloto fisico isolado. Essa prova offline nao equivale a teste do
+website-alvo ou homologacao de acessibilidade.

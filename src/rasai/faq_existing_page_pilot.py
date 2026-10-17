@@ -75,6 +75,12 @@ def inspect_existing_page_faq(
         if (len(controls) != 1
                 or controls[0].get_attribute("aria-expanded") != "false"):
             return {**result, "reason": "AMBIGUOUS_OR_ALREADY_OPEN_CONTROL"}
+        if (
+            controls[0].get_attribute("form") is not None
+            or controls[0].get_attribute("formaction") is not None
+            or controls[0].evaluate("(button) => Boolean(button.closest('form'))")
+        ):
+            return {**result, "reason": "UNSAFE_FORM_CONTROL"}
         controls[0].click(timeout=1500)
         if page.url != original_url or len(context.pages) != 1:
             return {**result, "reason": "NAVIGATION_OR_POPUP_AFTER_ACTION",

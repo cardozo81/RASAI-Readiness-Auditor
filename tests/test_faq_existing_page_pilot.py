@@ -63,6 +63,17 @@ def test_offline_browser_faq_disclosure_only_after_opt_in_on_same_page():
             assert observed["audit_writes"] == 0
             assert seen == [_URL]
             assert page.url == _URL
+            page.set_content(
+                '<form><button aria-controls="faq-answer" aria-expanded="false">'
+                'Nao clicar</button></form>'
+            )
+            blocked = inspect_existing_page_faq(
+                page, target_id="faq-answer", explicit_opt_in=True,
+                isolated_context_acknowledged=True,
+            )
+            assert blocked["status"] == "NOT_OBSERVED"
+            assert blocked["reason"] == "UNSAFE_FORM_CONTROL"
+            assert page.locator("button").get_attribute("aria-expanded") == "false"
             context.close()
         finally:
             browser.close()

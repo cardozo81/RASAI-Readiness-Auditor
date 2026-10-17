@@ -146,3 +146,18 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
   allowlist equivocada; caso negativo offline, sem navegador/rede.
 - Nenhuma das duas protecoes certifica coleta real, mesmo snapshot ou
   cobertura integral. Issues permanecem abertas ate aceite correspondente.
+
+
+### Piloto fisico FAQ e inventario de catalogos de IA
+
+- #601: novo piloto isolado `faq_existing_page_pilot` exercita botao
+  FAQ no mesmo objeto Playwright com opt-in e bloqueio temporario
+  de novos HTTPs. Teste em Chrome offline usa pagina fixture;
+  nao atesta contexto M25, crawler, fonte externa nem scoring.
+- #523: inventario de configuracao agora declara seletor e arquivo
+  dos catalogos de modelos, precificacao e perfis de tarefas de IA.
+  Metadados continuam `NOT_PROVEN_BY_REGISTRY`, e nao inferem
+  chamadas comerciais nem cobranca.
+- Todos os criterios dependentes de observacao real ou de fontes
+  externas permanecem abertos. A aprovacao da metodologia nao
+  autoriza alteracao silenciosa de indices canonicos.

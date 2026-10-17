@@ -18,6 +18,7 @@ PUBLIC_VALUE_LABELS: dict[str, str] = {
     "AMBIGUOUS_OR_ALREADY_OPEN_CONTROL": "Controle FAQ ambiguo ou ja expandido",
     "BROWSER_ACTION_OR_INSPECTION_FAILED": "Interacao ou inspecao de navegador falhou",
     "NAVIGATION_OR_POPUP_AFTER_ACTION": "Navegacao ou nova janela durante interacao",
+    "UNSAFE_FORM_CONTROL": "Controle associado a formulario fora do clique seguro",
     # Ciclo de vida da auditoria e estados operacionais públicos.
     "CREATED": "Criado",
     "INITIALIZING": "Inicializando",
