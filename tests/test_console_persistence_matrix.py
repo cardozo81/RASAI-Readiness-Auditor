@@ -714,7 +714,7 @@ def test_runtime_projection_rejects_dynatrace_secret_without_partial_environment
 @pytest.mark.parametrize("unsafe_json", [
     "[" * 1400 + "0" + "]" * 1400,
     '{"safe":"' + ("a" * 65537) + '"}',
-])
+], ids=["deeply-nested-json", "oversized-json"])
 def test_oversized_or_excessively_nested_dynatrace_config_never_writes_ini(
     tmp_path, unsafe_json,
 ):
