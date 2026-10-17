@@ -47,6 +47,19 @@ def render_geo_longitudinal_html(preview: Mapping[str, Any]) -> str:
         "; elegíveis: ", _value(preview.get("audits_eligible")),
         "; excluídas: ", _value(len(rejected)), ".</p></section>",
     ]
+    cons_ref = preview.get("cons_reference")
+    if isinstance(cons_ref, Mapping):
+        parts.extend([
+            "<section><h2>Vinculo consultivo ao consolidado</h2>",
+            "<p>Identificador CONS: <code>", _value(cons_ref.get("cons_id")),
+            "</code>; hash do pedido do consolidado: <code>",
+            _value(cons_ref.get("manifest_request_fingerprint")), "</code>.</p>",
+            "<p>Esta leitura usa apenas a relacao de AUDs declaradas no",
+            " manifesto e nao modifica relatorio, fonte, indices ou metadados",
+            " do consolidado. Sem atestado criptografico independente.",
+            " O inventario e consultivo, nao integracao nativa CONS.</p>",
+            "</section>",
+        ])
     coverage = preview.get("observation_coverage")
     if isinstance(coverage, Mapping):
         by_reason = coverage.get("excluded_auds_by_reason")
