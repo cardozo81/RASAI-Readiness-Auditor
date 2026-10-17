@@ -1637,3 +1637,25 @@ def test_per_source_direct_query_rejects_padding_and_controls(tmp_path, bad_quer
     assert result["queries"][0]["reason"] == "PER_QUERY_SOURCE_ATTRIBUTION_UNPROVEN"
     assert result["provider_requests"] == result["audit_writes"] == 0
     assert db.read_bytes() == original
+
+
+@pytest.mark.parametrize("bad_query", [
+    " seguro de vida", "seguro de vida ", "seguro\nvida", "seguro\tvida",
+])
+def test_serp_noncanonical_query_identity_abstains_without_cherry_picking(tmp_path, bad_query):
+    folder = _audit(tmp_path, multi=False)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_observations SET query=?",
+            (bad_query,),
+        )
+    original = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    # A malformed same-cohort observation cannot be used for URL intersection.
+    assert result["queries"][0]["status"] == "NOT_COMPARABLE"
+    if bad_query.strip().casefold() == "seguro de vida":
+        assert result["queries"][0]["reason"] == "SERP_QUERY_IDENTITY_UNVERIFIABLE"
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert db.read_bytes() == original
