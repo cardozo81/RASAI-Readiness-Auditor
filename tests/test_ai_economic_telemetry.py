@@ -160,3 +160,15 @@ def test_excessive_numeric_token_text_abstains_before_integer_conversion():
     assert economic.canonical_total_tokens({
         "input_tokens": massive, "output_tokens": "3",
     }) == 3
+
+
+def test_malformed_currency_is_not_aggregated_as_a_monetary_total():
+    for currency in ("USD\\rINJECT", "USDD", "12A", "€UR", True, {"code": "USD"}):
+        summary = economic.aggregate_attempt_costs([{
+            "observed_cost": 0.2, "observed_cost_currency": currency,
+        }])
+        assert summary.totals == ()
+        assert summary.unpriced_attempts == 1
+    assert economic.aggregate_attempt_costs([{
+        "observed_cost": 0.2, "observed_cost_currency": "usd",
+    }]).totals == (("USD", 0.2),)
