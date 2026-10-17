@@ -184,3 +184,24 @@ de IA. A matriz é contratual e read-only; apenas a apresentação
 descritiva das observações arquiteturais existentes nos relatórios é autorizada no
 contrato atual. A promoção a consumidor operacional exige ADR e
 aprovação metodológica específicos antes de alterar execução/score.
+
+## Transparência aditiva da escolha selada na página de rastreamento
+
+A projeção descritiva da arquitetura pode exibir, além da classificação M6
+já existente, a **seleção da própria AUD** quando ela foi congelada em
+`audit_execution_configurations` com hash canônico verificável. O adaptador
+`m24_reporting._read_report_architecture_choice` lê a escolha com
+`read_sealed_audit_choice`; não lê a opção atual de outra sessão, não grava
+no banco, não altera HTML preexistente e não habilita nenhum consumidor de
+pontuação. `DECLARED` é identificada como informação do operador; o
+relatório indica divergência quando for diferente da observação M6 conhecida.
+`AUTO` e `UNFORCED` aparecem como seleção, **não como arquitetura medida**.
+
+AUD legada, sem escolha explícita, mantém a indicação anterior N/D. Config
+com hash inválido não fornece uma escolha inferida e recebe aviso
+"não verificável". Os testes verificam as duas condições, o conteúdo
+HTML original, tratamento de discrepância e bytes de SQLite imutáveis.
+
+Isso é **transparência consultiva de F2 no consumidor descritivo já existente**,
+não propagação operacional F3 a índices, coletores, APDEX ou IA. A aprovação
+metodológica desses demais consumidores continua separada.
