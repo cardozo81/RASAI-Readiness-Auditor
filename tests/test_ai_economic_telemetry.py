@@ -193,3 +193,16 @@ def test_explicit_invalid_total_never_falls_back_to_partial_provider_components(
     assert economic.canonical_total_tokens({
         "total_tokens": None, "input_tokens": 4, "output_tokens": 5,
     }) == 9
+
+
+def test_derived_token_total_abstains_when_valid_components_exceed_joint_budget():
+    maximum = 999_999_999_999_999_999
+    assert economic.canonical_total_tokens({
+        "total_tokens": None, "input_tokens": maximum, "output_tokens": 1,
+    }) is None
+    assert economic.canonical_total_tokens({
+        "input_tokens": maximum - 1, "output_tokens": 1,
+    }) == maximum
+    assert economic.canonical_total_tokens({
+        "input_tokens": 0, "output_tokens": 0,
+    }) == 0
