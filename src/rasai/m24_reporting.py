@@ -287,11 +287,17 @@ def _architecture_section(
             )
             # This projects the persisted discovery observation only. Neither user-selected
             # architecture nor effective consumer parameters are inferred here.
+            # A sealed declared value replaces N/D; it never replaces the
+            # physical architecture observation shown in the card title.
+            declaration = (
+                escape(str(choice.declared_architecture)) + " (informada pelo operador)"
+                if choice is not None and choice.mode == "DECLARED" else "N/D"
+            )
             source_note = (
                 "<p class='intro'><strong>Origem:</strong> descoberta automática "
                 "registrada nesta captura. <strong>Aplicação:</strong> não "
                 "propagada a parâmetros de coleta ou índices. "
-                "<strong>Configuração declarada:</strong> N/D.</p>"
+                "<strong>Configuração declarada:</strong> " + declaration + ".</p>"
             )
             if choice_status == "INTEGRITY_NOT_VERIFIED":
                 source_note += (
@@ -300,26 +306,28 @@ def _architecture_section(
                     "Nenhum valor declarado foi inferido.</p>"
                 )
             elif choice is not None:
-                # Additive disclosure only: preserve all existing observation
-                # content and never treat an operator choice as a measured fact.
-                selected = (
-                    "AUTO (consultiva)" if choice.mode == "AUTO" else
-                    "SEM FORÇAR" if choice.mode == "UNFORCED" else
-                    str(choice.declared_architecture) + " (informada pelo operador)"
-                )
+                # Declared information is already visible above: do not show
+                # a second duplicate card value or contradict N/D.
                 disagreement = (
                     choice.mode == "DECLARED" and raw != "UNKNOWN"
                     and raw != choice.declared_architecture
                 )
-                note = (
-                    " Divergência com a observação desta captura; não substitui "
-                    "a evidência física." if disagreement else ""
-                )
-                source_note += (
-                    "<p class='intro'><strong>Seleção arquitetural desta AUD:</strong> "
-                    + escape(selected) + "." + note
-                    + " Sem aplicação automática em índices ou coletores.</p>"
-                )
+                if disagreement:
+                    source_note += (
+                        "<p class='intro'>Divergência entre arquitetura informada "
+                        "e observada nesta captura; a declaração não substitui "
+                        "a evidência física.</p>"
+                    )
+                elif choice.mode != "DECLARED":
+                    selected = (
+                        "AUTO (consultiva)" if choice.mode == "AUTO"
+                        else "SEM FORÇAR"
+                    )
+                    source_note += (
+                        "<p class='intro'><strong>Seleção arquitetural desta AUD:</strong> "
+                        + escape(selected) + ". Sem aplicação automática "
+                        "em índices ou coletores.</p>"
+                    )
             cards.append(
                 "<article class='page-card'><div class='panel-head'><div>"
                 "<h3>" + escape(_architecture_label(raw)) + "</h3></div>"

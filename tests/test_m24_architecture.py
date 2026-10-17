@@ -124,9 +124,9 @@ def test_architecture_report_discloses_sealed_choice_without_replacing_observati
     result = _load("AUD-1", SimpleNamespace(database=db, root=tmp_path))
     html = _page(result, tmp_path / "report")
     assert result["architecture_choice_status"] == "SEALED_SELECTION"
-    assert html.count("Seleção arquitetural desta AUD:") == 5
-    assert html.count("HYDRATED (informada pelo operador)") == 5
-    assert html.count("Divergência com a observação") == 3
+    assert html.count("Seleção arquitetural desta AUD:") == 0
+    assert html.count("Configuração declarada:</strong> HYDRATED (informada pelo operador)") == 5
+    assert html.count("Divergência entre arquitetura informada") == 3
     assert html.count("não propagada a parâmetros de coleta ou índices") == 5
     assert "arquitetura aplicada automaticamente" not in html.lower()
     assert stored.configuration_hash
