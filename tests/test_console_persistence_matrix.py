@@ -660,3 +660,29 @@ def test_dynatrace_secret_hidden_in_environment_json_cannot_be_saved(tmp_path):
         with pytest.raises(ValueError, match="credencial nao persistiveis"):
             console_settings.save_console_config(state, path)
         assert not path.exists()
+
+
+def test_malicious_dynatrace_json_in_ini_does_not_restore_secret(tmp_path):
+    """A tampered INI cannot populate state or process environment with embedded keys."""
+    from configparser import ConfigParser
+    import json
+    _install_config_contract()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        path = tmp_path / "tampered.ini"
+        console_settings.save_console_config(state, path)
+        cfg = ConfigParser(interpolation=None)
+        cfg.optionxform = str
+        cfg.read(path, encoding="utf-8")
+        secret = json.dumps({"nested": {"api_token": "MUST_NOT_REHYDRATE"}})
+        cfg["environment"]["RASAI_DYNATRACE_CONFIG_JSON"] = secret
+        cfg["synthetic_apdex_experience"]["dynatrace_config_json"] = secret
+        with path.open("w", encoding="utf-8") as out:
+            cfg.write(out)
+        before = path.read_bytes()
+        restored = SearchConsoleState()
+        result = console_settings.load_console_config(restored, path)
+        assert result.warnings
+        assert restored.apdex_dynatrace_config_json != secret
+        assert os.environ.get("RASAI_DYNATRACE_CONFIG_JSON") != secret
+        assert path.read_bytes() == before
