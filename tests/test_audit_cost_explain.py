@@ -162,3 +162,15 @@ def test_unrepresentable_cost_deviation_is_not_reported_as_infinite() -> None:
     )
     assert "amplitude não representável" in html
     assert "+inf%" not in html.lower()
+
+
+def test_optional_attempt_count_exceeding_total_cannot_be_reported_as_valid():
+    html = forecast_readout(
+        {"expected_cost": 0.1, "likely_low": 0.05, "likely_high": 0.2},
+        observed_total=0.12, priced_attempts=2, total_attempts=2,
+        optional_attempts=3,
+    )
+    assert "Contagens de tentativas inválidas" in html
+    assert "Posição do custo na faixa histórica: N/D" in html
+    assert "Há 3 tentativa" not in html
+    assert "Desvio frente à estimativa pontual" not in html

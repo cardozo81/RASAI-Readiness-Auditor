@@ -153,7 +153,7 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
 - #601: novo piloto isolado `faq_existing_page_pilot` exercita botao
   FAQ no mesmo objeto Playwright com opt-in e bloqueio temporario
   de novos HTTPs. Teste em Chrome offline usa pagina fixture;
-  nao atesta contexto M25, crawler, fonte externa nem scoring.
+  nao atesta a mesma amostra da experiencia sintetica, descoberta por crawler, fonte externa nem pontuacao.
 - #523: inventario de configuracao agora declara seletor e arquivo
   dos catalogos de modelos, precificacao e perfis de tarefas de IA.
   Metadados continuam `NOT_PROVEN_BY_REGISTRY`, e nao inferem

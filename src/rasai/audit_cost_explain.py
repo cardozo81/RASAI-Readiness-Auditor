@@ -51,9 +51,9 @@ def forecast_readout(
     count = _count(total_attempts)
     priced = _count(priced_attempts)
     optional = _count(optional_attempts)
-    counts_valid = count is not None and priced is not None and optional is not None and priced <= count
+    counts_valid = count is not None and priced is not None and optional is not None and priced <= count and optional <= count
     coverage_complete = bool(counts_valid and count > 0 and priced == count and comparable_currency)
-    has_optional = optional is not None and optional > 0
+    has_optional = bool(counts_valid and optional is not None and optional > 0)
     result = (
         "<div class='notice'><strong>Interpretação da previsão:</strong> "
         "a classe de desvio compara o realizado com a estimativa pontual; "
