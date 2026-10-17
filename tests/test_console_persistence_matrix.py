@@ -587,3 +587,40 @@ def test_saved_passive_security_controls_reach_actual_offline_runtime_policy(
         assert os.environ["RASAI_SECURITY_OSV"] == "false"
         assert os.environ["RASAI_SECURITY_CISA_KEV"] == "false"
         assert path.read_bytes() == original
+
+
+@pytest.mark.parametrize(
+    ("module_name", "source_key", "file_key", "settings_name", "loader_name"),
+    [
+        ("rasai.ai_model_catalog", "RASAI_AI_MODELS_SOURCE",
+         "RASAI_AI_MODELS_FILE", "model_runtime_settings", "load_model_catalog"),
+        ("rasai.ai_pricing_catalog", "RASAI_AI_PRICING_SOURCE",
+         "RASAI_AI_PRICING_FILE", "pricing_runtime_settings", "load_pricing_catalog"),
+        ("rasai.ai_task_profiles", "RASAI_AI_TASK_PROFILES_SOURCE",
+         "RASAI_AI_TASK_PROFILES_FILE", "task_profile_runtime_settings",
+         "load_task_profile_catalog"),
+    ],
+)
+def test_restored_ai_catalog_selectors_reach_real_offline_loaders(
+    tmp_path, module_name, source_key, file_key, settings_name, loader_name,
+):
+    """Prove restored catalog selections reach actual consumers without network."""
+    from importlib import import_module
+
+    _install_config_contract()
+    target = tmp_path / "absent-catalog.toml"
+    with patch.dict(os.environ, {}, clear=True):
+        os.environ.update({source_key: "auto", file_key: str(target)})
+        ini = tmp_path / "catalog.ini"
+        console_settings.save_console_config(SearchConsoleState(), ini)
+        before = ini.read_bytes()
+        os.environ.clear()
+        result = console_settings.load_console_config(SearchConsoleState(), ini)
+        assert not result.created and result.warnings == ()
+        module = import_module(module_name)
+        source, path = getattr(module, settings_name)(env=dict(os.environ), cwd=tmp_path)
+        assert source == "auto" and path == target.resolve()
+        # Missing optional override falls back to factory: never a provider call.
+        assert getattr(module, loader_name)(env=dict(os.environ), cwd=tmp_path)
+        assert ini.read_bytes() == before
+        assert not target.exists()
