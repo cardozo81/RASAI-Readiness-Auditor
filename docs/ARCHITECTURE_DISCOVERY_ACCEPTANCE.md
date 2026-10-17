@@ -236,3 +236,24 @@ framework do site. O fluxo mantém `UNKNOWN` e não modifica AUD.
 Antes de repetir um smoke real, sincronizar HEAD local da PR e manter o
 mesmo digest OCI cuja integridade/isolamento passou. Não é necessário
 reconstruir a imagem se o conteúdo do worker e Dockerfile não mudou.
+
+### Favicon embutido por URI data: na observação isolada
+
+O HTML de referência de `https://example.org/` contém um
+`<link rel="icon">` com URI `data:`. Esse recurso está **embutido no
+próprio documento**, não possui endpoint HTTP(S) para consulta segura e não
+deve ser convertido em uma URL de rede.
+
+O adaptador de pré-coleta ignora **somente favicons com `rel=icon` e
+`href=data:`** na lista de requisições HTTP, preservando o conteúdo original
+no HTML enviado ao Chromium sem rede. Scripts, CSS, preloads e referências
+a endpoints externos continuam sujeitos às regras anteriores; uma URI
+`data:` de script ou stylesheet não recebe essa exceção. Assim, evita-se
+falsa rejeição de um metadado visual sem declarar que conteúdo dinâmico ou
+recursos de terceiros foram reproduzidos.
+
+Evidência da causa: o smoke OCI opt-in registrou apenas a categoria/quantidade
+de referências, sem coletar logs de HTML, URL de recurso ou credenciais:
+`link_icon:data = 1` e `script:https = 1`. A URI exata não deve ser
+registrada em logs de CI. Classificações com recursos essenciais bloqueados
+devem continuar como `UNKNOWN`, e não como `STATIC_OR_SSR`.
