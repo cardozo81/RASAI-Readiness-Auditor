@@ -324,6 +324,23 @@ def test_m21_http_request_totals_are_separate_from_audit_wall_clock(tmp_path):
     assert "Captura, Apdex, analise competitiva" in content
 
 
+def test_m21_http_request_census_abstains_when_population_exceeds_limit(tmp_path):
+    from rasai.audit_duration_forecast import _m21_http_request_sums
+
+    database = tmp_path / "attempts.db"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "CREATE TABLE web_performance_attempts "
+            "(attempt_id TEXT, audit_id TEXT, service TEXT, duration_ms REAL)"
+        )
+        connection.executemany(
+            "INSERT INTO web_performance_attempts VALUES (?, ?, ?, ?)",
+            ((f"REQ-{i}", "AUD-1", "PAGESPEED_INSIGHTS", 10)
+             for i in range(10001))
+        )
+        assert _m21_http_request_sums(connection, "AUD-1") == {}
+
+
 def test_m21_http_request_abstains_from_missing_or_invalid_cohort_timings(tmp_path):
     for i in range(5):
         _audit(tmp_path, i, with_http=i != 4, invalid_http=i == 2)
