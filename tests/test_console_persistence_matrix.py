@@ -400,3 +400,47 @@ def test_malformed_perplexity_draft_never_becomes_paid_request(tmp_path):
         assert state.perplexity_last_status == "NOT_REQUESTED"
         assert state.perplexity_draft_search_type == "web"
 
+
+
+
+def test_saved_serp_controls_reach_real_runtime_adapter_after_restart_without_requests(
+    tmp_path,
+):
+    """A saved public SERP setting must reach its canonical consumer, not just INI."""
+    from rasai.search_intelligence.config import SerpRuntimeConfig
+
+    _install_config_contract()
+    configured = {
+        "RASAI_SERP_MODE": "disabled",
+        "RASAI_SERP_PROVIDER": "serpapi",
+        "RASAI_SERP_MAX_QUERIES": "3",
+        "RASAI_SERP_MAX_REQUESTS": "5",
+        "RASAI_SERP_MAX_DEPTH": "12",
+        "RASAI_SERP_MAX_COMPETITORS": "2",
+        "RASAI_SERP_TIMEOUT_SECONDS": "9.5",
+        "RASAI_SERP_RETRIES": "0",
+        "RASAI_SERP_MIN_INTERVAL_SECONDS": "0.75",
+    }
+    with patch.dict(os.environ, {}, clear=True):
+        os.environ.update(configured)
+        path = tmp_path / "serp.ini"
+        console_settings.save_console_config(SearchConsoleState(), path)
+        original = path.read_bytes()
+        # Simulate an independently started process with no caller authorization.
+        os.environ.clear()
+        after = SearchConsoleState()
+        restored = console_settings.load_console_config(after, path)
+        assert restored.warnings == () and restored.created is False
+        runtime = SerpRuntimeConfig.from_environment(dict(os.environ))
+        assert runtime.mode == "disabled"
+        assert runtime.provider == "serpapi"
+        assert runtime.max_queries == 3
+        assert runtime.max_requests == 5
+        assert runtime.max_depth == 12
+        assert runtime.max_competitors == 2
+        assert runtime.timeout_seconds == 9.5
+        assert runtime.retries == 0
+        assert runtime.min_interval_seconds == 0.75
+        assert runtime.force_refresh is False
+        assert after.perplexity_queries == ()
+        assert path.read_bytes() == original
