@@ -775,3 +775,26 @@ def test_human_smoke_values_reach_m23_m25_real_config_adapters_without_aud(tmp_p
         finally:
             set_pending_config(ExperienceApdexConfig(enabled=False))
         assert ini.read_bytes() == original
+
+
+@pytest.mark.parametrize("windows_override", ["7", "19"])
+def test_external_environment_precedence_over_saved_ini_survives_new_load(
+    tmp_path, windows_override
+):
+    """#523: an explicit Windows/user variable must not be shadowed by INI."""
+    _install_config_contract()
+    ini = tmp_path / "operator.ini"
+    ini.write_text(
+        "[environment]\n"
+        "RASAI_SERP_MAX_REQUESTS = 11\n",
+        encoding="utf-8",
+    )
+    original = ini.read_bytes()
+    with patch.dict(
+        os.environ, {"RASAI_SERP_MAX_REQUESTS": windows_override}, clear=True
+    ):
+        result = console_settings.load_console_config(SearchConsoleState(), ini)
+        assert not result.created
+        assert not result.warnings
+        assert os.environ["RASAI_SERP_MAX_REQUESTS"] == windows_override
+    assert ini.read_bytes() == original
