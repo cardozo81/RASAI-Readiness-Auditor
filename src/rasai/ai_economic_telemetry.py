@@ -50,7 +50,7 @@ def _value(source: Any, key: str) -> Any:
 def _integer(value: Any) -> int | None:
     """Accept exact, nonnegative token counts; never truncate or clamp usage."""
     if type(value) is int:
-        return value if value >= 0 else None
+        return value if 0 <= value <= 999_999_999_999_999_999 else None
     if (isinstance(value, str) and 0 < len(value) <= 18
             and value.isascii() and value.isdecimal()):
         return int(value)
