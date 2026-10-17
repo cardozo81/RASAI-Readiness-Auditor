@@ -24,6 +24,15 @@ from rasai.geo_report import geo_body
 from rasai.search_intelligence.freshness import require_valid_serp_freshness
 
 
+def _timeline_monetary_coverage(amount: float, count: int, total: int) -> str:
+    """Expose observed money and its actual attempt denominator together."""
+    if not isinstance(count, int) or not isinstance(total, int) or count < 0 or total <= 0 or count > total:
+        return "N/D (cobertura monetaria inconsistente)"
+    if count == 0:
+        return "N/D (nenhuma tentativa com este tipo de valor)"
+    return f"{amount:.6f} ({count}/{total} tentativas)"
+
+
 def _methodology_body(data: _ReportData) -> str:
     """PoC-style contract map of sources and limits; no interpretation is rerun."""
     versions = sorted({
@@ -168,9 +177,15 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
                 stage.attempts,
                 f"{stage.summed_duration_ms / 1000:.2f} s",
                 active,
-                f"{stage.priced_usd_estimate:.6f}",
-                (f"{stage.priced_usd_provider_observed:.6f}" if stage.observed_cost_attempts
-                 else "N/D (provider não informou)"),
+                _timeline_monetary_coverage(
+                    stage.priced_usd_estimate,
+                    stage.attempts - stage.observed_cost_attempts - stage.unpriced_attempts,
+                    stage.attempts,
+                ),
+                _timeline_monetary_coverage(
+                    stage.priced_usd_provider_observed,
+                    stage.observed_cost_attempts, stage.attempts,
+                ),
                 f"intervalos desconhecidos={stage.unknown_intervals}; sem preço={stage.unpriced_attempts}",
             ))
         body+=_section(
