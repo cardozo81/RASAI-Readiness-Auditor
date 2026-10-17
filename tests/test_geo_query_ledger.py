@@ -1633,6 +1633,7 @@ def test_per_source_direct_query_rejects_padding_and_controls(tmp_path, bad_quer
     original = db.read_bytes()
     result = inspect_geo_per_query(folder)
     assert result["status"] == "NOT_COMPARABLE"
-    assert result["per_query_attribution_status"] == "NOT_VERIFIED"
+    assert result["per_query_attribution_status"] == "MULTI_QUERY_SOURCE_MAPPING_MISSING"
+    assert result["queries"][0]["reason"] == "PER_QUERY_SOURCE_ATTRIBUTION_UNPROVEN"
     assert result["provider_requests"] == result["audit_writes"] == 0
     assert db.read_bytes() == original
