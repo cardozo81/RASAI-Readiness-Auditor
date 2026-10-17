@@ -20,7 +20,7 @@ conclusão dos critérios de aceitação.
 | #319 - Tempo e custos por estágio | Ledger IA unificado, proteção de duplicidade e métricas read-only | Exibição completa por fase no console/preview/relatório e estimativa probabilística honesta | Duração observada de tarefas concorrentes não constitui wall-time aditivo; previsão ex ante não dispõe dos tokens futuros |
 | #322 - Prontidão pós-load | Sidecar experimental selado e validações de integridade | Sensor real no **mesmo navegador/amostra** de navegação e autorização de instrumentação | Prova de tempo no mesmo sample e não regressão do Apdex não obtida; não modificar coletor homologado sem aceite |
 | #330 - Conteúdo concorrente | Comparação apenas de HTML já capturado, com URL/HTTP/proveniência rígidos | Coleta opcional, autorizada e delimitada por URL concorrente; amostras heterogêneas | Robots, privacidade, custos e evidência de permissão; snippets não comprovam conteúdo completo |
-| #355 - Dynatrace RUM | Validação fail-closed de ações Load/XHR/Custom, KPM, timeout, headers e thresholds | Snapshot real de tenant, ação, dispositivo e janela compatíveis; aceite de acesso | Ambiente Dynatrace/credenciais e consentimento externo não disponibilizados; não presumir equivalência a Synthetic |
+| #355 - Dynatrace RUM | Contratos fail-closed, fixtures e CI offline; aceite explícito do operador em 17/10/2026 | Nenhum gate de tenant real nesta entrega (dispensado) | APROVADO POR ACEITE EXCEPCIONAL; sem alegação de leitura RUM real; eventual defeito futuro será nova issue de bug |
 | #357 - Épico Apdex arquitetura | Presets e orientação CAT-07 consultiva; contratos de arquitetura sem alterar índices | Aceites de #322 e #355 e comparabilidade por arquitetura | Uma classe SPA observada não autoriza trocar thresholds ou recalcular Apdex |
 | #523 - Configuração/persistência | INI completo em processo novo, segurança de origem/rollback, Windows/User HKCU descartável, SERP/APDEX consumer tests | Vincular e testar cada variável pública com seu consumidor de efeito real; integrações externas isoladas | Round-trip de registro não é prova universal de operação; consentimento/segredos do operador não podem ser simulados |
 | #600 - Segurança SARI | Cobertura, escopo ORIGIN/URL, gates e avisos de confiança em apresentação | Aceite decisório com dados reais, resolver dependências #601/#602 | Alto score contratual não certifica UX real; itens opcionais e FAQ ainda têm método pendente |
@@ -47,7 +47,7 @@ conclusão dos critérios de aceitação.
 | #319 | IMPLEMENTAÇÃO PENDENTE | Projeção por fase em console/prévia/relatório, com campos não medidos explícitos | Avaliação de UX com AUD real depois do código | Não |
 | #322 | EVIDÊNCIA/VALIDAÇÃO PENDENTE | Fixture e isolamento opt-in podem ser ampliados sem coletor principal | Mesmo snapshot/navegador e segurança de medição física | Não |
 | #330 | ROADMAP NÃO AUTORIZADO | Apenas evidências já capturadas; não ativar coleta concorrente | Permissão de escopo, privacidade e protocolo de amostras | Não |
-| #355 | ACESSO EXTERNO PENDENTE | Negativos offline e matriz de equivalência são possíveis | Tenant Dynatrace e ações RUM reais da mesma janela | Não |
+| #355 | A - ACEITE EXCEPCIONAL | Contratos offline e CI aprovados; sem tenant real por decisão expressa | Nenhuma ação humana/tenant exigido | Sim - por dispensa explícita do gate físico |
 | #357 | EPIC DEPENDENTE | Contratos consultivos e integração documental | Aceites de #322/#355 e perfil por arquitetura aprovado | Não |
 | #523 | IMPLEMENTAÇÃO PENDENTE | Catalogar e provar efeito dos demais adaptadores registrados; parte Improvement/fuso validada no HEAD | Integrações pagas/credenciais somente onde indispensáveis | Não |
 | #600 | IMPLEMENTAÇÃO/VALIDAÇÃO PENDENTE | Provar consistência transversal de confiança e avisos | Coorte de auditorias reais e dependência #601/#602 | Não |
@@ -100,7 +100,7 @@ consultivo continua fail-closed.
 ## Resumo de bloqueios
 
 As issues #311/#330 são **roadmap explícito**, não defeitos a serem
-forçados nos coletores atuais; #322/#355 dependem de mensuração física
+forçados nos coletores atuais; #322 depende de mensuração física
 ou fonte Dynatrace real; #602/#646 dependem de ADR normativa; #603
 depende de documento externo com prova de versão e escopo; #304/#301
 exigem comparabilidade observacional; #639 depende de compatibilidade
@@ -356,3 +356,12 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
 - **#523 / CI Windows:** no HEAD `01e0983`, o workflow `Windows Console Navigation` terminou com falha de infraestrutura de teste: um identificador pytest gerado automaticamente a partir de JSON adversarial de 65.537 caracteres excedeu o limite de 32.767 caracteres das variáveis de ambiente do Windows; os erros subsequentes de teardown foram efeitos secundários. Outros 25 workflows do mesmo HEAD concluíram com sucesso.
 - **Correção:** commit `9dfb820d812289a417eb5fa699732cebc1cdee11` aplica IDs curtos aos dois casos de JSON adversarial em `tests/test_console_persistence_matrix.py`, preservando integralmente os payloads, os testes negativos e a recusa de persistência de conteúdo excessivo. Nenhum runtime, motor, score ou contrato de segurança foi alterado.
 - **Gate ainda em aberto:** o novo HEAD disparou workflows de CI, inicialmente enfileirados. Não registrar PASS até observar a conclusão do job Windows e dos demais gates obrigatórios. #523 permanece aberta até prova de todos os consumidores e critérios de aceite.
+
+
+### Decisão superveniente - Dynatrace #355 (17/10/2026)
+
+- O operador aprovou o escopo offline e dispensou definitivamente a validação física em tenant Dynatrace para esta entrega. O tenant **não será fornecido**. A ausência de tenant não figura como gap, bloqueio, pendência, gate de merge ou necessidade de intervenção humana da #355.
+- Prova disponível: fixtures e CI offline, 26/26 workflows SUCCESS no HEAD `bd837a75c5cecdd53b408aeb3d081c280685b266`. Não foi observada integração RUM real, e nenhuma fonte/medição externa deve ser fabricada.
+- Critério de aceite revisado: #355 aprovada por exceção deliberada de homologação externa; erros concretos encontrados no futuro serão tratados em **nova issue de bug**, sem dívida retroativa presumida.
+- O vínculo da #357 com #355 passa a ser considerado satisfeito no que respeita ao aceite administrativo da #355; demais critérios de #357 permanecem independentes (especialmente #322 e a metodologia Apdex).
+- Esta decisão prevalece sobre as referências históricas acima que exigiam tenant como condição para fechar #355.
