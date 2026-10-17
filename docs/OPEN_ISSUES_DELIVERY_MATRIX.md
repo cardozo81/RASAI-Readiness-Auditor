@@ -31,6 +31,35 @@ conclusão dos critérios de aceitação.
 | #639 - Nomes versionados | 1.509 arquivos varridos via Git Trees API com zero padrões numéricos legados; gate incremental existente | Novo gate total da árvore + conferir compatibilidade e `main` após merge | Zero tokens numéricos não comprova nomes opacos ou consumidores externos não versionados |
 | #646 - Governança arquitetural | F1/F2 e matriz read-only de proveniência, registro selado e relatório consultivo | ADR de F3 + autorização da matriz de consumidores e golden/performance | AUTO/DECLARED não pode alterar índice, coletor, Apdex ou IA por autoautorização |
 
+## Reconciliação incremental — 17/10/2026
+
+**HEAD validado:** `02d7cc92df267380b9fa98444e32f7ebc5faf270`; GitHub Actions **19/19 SUCCESS**, incluindo `Console configuration controls targeted`, `Windows Console Navigation`, `Audit Fulfillment and Reprocessing` e `Public Contract Consistency`. A PR #647 permanece **DRAFT/OPEN**, sem merge. Esta comprovação cobre exclusivamente o código presente no HEAD; não é aceite funcional integral das issues.
+
+**Implementação adicional comprovada neste ciclo:** #523 ganhou testes parametrizados de restauração de INI e consumo por `ImprovementConfig.from_environment` (enabled, máximo de recomendações, timeout, idioma) e `configured_presentation_timezone` (três fusos). A suíte de configuração passou no CI. O catálogo completo de consumidores ainda não foi exaurido; não concluir #523 por esses ensaios.
+
+### Matriz de decisão e entregas residuais
+
+| Issue | Classificação ativa | Residual de código independente | Evidência/decisão humana faltante | Pode fechar? |
+| --- | --- | --- | --- | --- |
+| #301 | EPIC DEPENDENTE | Conciliar critérios de #304 com apresentação GEO | Coorte SERP e Search API comparável | Não |
+| #304 | IMPLEMENTAÇÃO/EVIDÊNCIA PENDENTE | Testar proveniência e abstenção em agregações restantes | Query, intenção, mercado, janela e denominadores pareados reais | Não |
+| #311 | ROADMAP NÃO AUTORIZADO | Apenas contrato read-only permitido; não integrar CONS operacional | Aprovação de metodologia longitudinal e escopo P3 | Não |
+| #319 | IMPLEMENTAÇÃO PENDENTE | Projeção por fase em console/prévia/relatório, com campos não medidos explícitos | Avaliação de UX com AUD real depois do código | Não |
+| #322 | EVIDÊNCIA/VALIDAÇÃO PENDENTE | Fixture e isolamento opt-in podem ser ampliados sem coletor principal | Mesmo snapshot/navegador e segurança de medição física | Não |
+| #330 | ROADMAP NÃO AUTORIZADO | Apenas evidências já capturadas; não ativar coleta concorrente | Permissão de escopo, privacidade e protocolo de amostras | Não |
+| #355 | ACESSO EXTERNO PENDENTE | Negativos offline e matriz de equivalência são possíveis | Tenant Dynatrace e ações RUM reais da mesma janela | Não |
+| #357 | EPIC DEPENDENTE | Contratos consultivos e integração documental | Aceites de #322/#355 e perfil por arquitetura aprovado | Não |
+| #523 | IMPLEMENTAÇÃO PENDENTE | Catalogar e provar efeito dos demais adaptadores registrados; parte Improvement/fuso validada no HEAD | Integrações pagas/credenciais somente onde indispensáveis | Não |
+| #600 | IMPLEMENTAÇÃO/VALIDAÇÃO PENDENTE | Provar consistência transversal de confiança e avisos | Coorte de auditorias reais e dependência #601/#602 | Não |
+| #601 | EVIDÊNCIA/MÉTODO PENDENTE | Fixture offline de clique FAQ sem tráfego externo | Smoke same-snapshot e política de penalização aprovada | Não |
+| #602 | DECISÃO METODOLÓGICA PENDENTE | ADR e golden diferencial sem ativar pesos | Aprovação de SCORE-GEO e comparabilidade histórica | Não |
+| #603 | EVIDÊNCIA REGULATÓRIA PENDENTE | Schema e estado de abstenção/proveniência podem ser reforçados | Documento oficial vigente e revisão especializada | Não |
+| #604 | EPIC DEPENDENTE | Reconciliação de relatórios SARI/FAQ/SEO/claims | Aceites integrais de #600–#603 | Não |
+| #639 | VALIDAÇÃO PENDENTE | Compatibilidade dos imports/paths históricos quando houver defeito demonstrado | Prova dos consumidores externos e main pós-merge | Não |
+| #646 | DECISÃO METODOLÓGICA PENDENTE | Guardrails/ADR F3 e testes negativos adicionais | Matriz F3 de consumidores autorizada | Não |
+
+**Categorias não exclusivas:** um item com bloqueio humano também pode conter tarefa técnica independente. Não transformar bloqueio de metodologia em autorização implícita para alterar scoring, coleta, IA, Apdex ou histórico. **Nenhuma destas 16 issues está comprovadamente pronta para fechamento.** Não há testes físicos nem chamadas a provedores externos novos neste ciclo.
+
 ## Regras de execução
 
 - Uma única branch e PR; sem merge enquanto critérios de escopos distintos estiverem pendentes.
