@@ -373,3 +373,10 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
 - **#523:** o inventario somente-leitura `console_config_provenance.inspect_configuration` diferencia sobreposicao de sessao explicitamente vazia de variavel realmente nao fornecida; o status nao afirma qual precedencia efetiva sera aplicada pelo consumidor. Commits `9049b4c8` e `5e70cb48` (teste de arquivo INI real). Nao foi modificado o loader, os mecanismos de secret ou a configuracao do operador.
 - **#355:** aprovada e fechada conforme dispensa expressa de tenant Dynatrace registrada na propria issue; seu bloqueio externo nao deve reaparecer nas classificacoes atuais. Contratos offline nao sao prova de observacao RUM real.
 - **CI:** aguardar conclusao dos workflows no HEAD final desta matriz antes de atribuir PASS. O conjunto nao prova duracao/projecao por fase em AUD real (#319), nem o round-trip de todos os consumidores/configuracoes (#523); ambas permanecem abertas.
+
+
+### Integridade do conjunto de consultas GEO - 17/10/2026
+
+- #304: consultas persistidas em `perplexity_search_runs.query_json` com espacos perifericos ou caracteres ASCII de controle sao rejeitadas como `EXTERNAL_QUERY_SET_AMBIGUOUS` antes de atribuir resultados a coortes SERP. Alteracao consultiva, sem provider, escrita AUD ou mudanca SCORE-GEO.
+- Commits: `1f0b90ac` (validacao) e `7504e645` (cinco regressoes de consultas adversariais). Fonte SQLite de fixture preservada durante a leitura.
+- Esta entrega nao comprova equivalencia de intencao, mercado ou consultas externas reais e nao encerra #304 nem #301. Exige CI do HEAD final.
