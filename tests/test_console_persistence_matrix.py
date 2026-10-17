@@ -647,3 +647,17 @@ def test_dynatrace_export_with_embedded_credentials_is_not_written_to_ini(
         state.apdex_dynatrace_config_json = '{"load_action":"VISUALLY_COMPLETE"}'
         console_settings.save_console_config(state, path)
         assert "NO_PERSIST_SECRET_VALUE" not in path.read_text(encoding="utf-8")
+
+
+def test_dynatrace_secret_hidden_in_environment_json_cannot_be_saved(tmp_path):
+    """The registry nonsecret label cannot override a credential-bearing value."""
+    with patch.dict(os.environ, {}, clear=True):
+        os.environ["RASAI_DYNATRACE_CONFIG_JSON"] = (
+            '{"settings":{"API_KEY":"DONT_SAVE_THIS_SECRET"}}'
+        )
+        state = SearchConsoleState()
+        path = tmp_path / "safe.ini"
+        with pytest.raises(ValueError, match="credencial nao persistiveis"):
+            console_settings.save_console_config(state, path)
+        assert not path.exists()
+        assert state.config_dirty is True or not hasattr(state, "config_dirty")
