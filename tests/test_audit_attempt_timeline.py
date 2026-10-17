@@ -379,3 +379,23 @@ def test_eight_physical_ai_attempts_include_content_remediation_without_extra_au
     }
     assert abs(result.posthoc_estimated_usd - .09) < 1e-9
     assert database.read_bytes() == original
+
+
+@pytest.mark.parametrize("bad_id", [" A1", "A1 ", "A\n1", "A\t1"])
+def test_noncanonical_ai_ledger_attempt_identity_refuses_cost_census(tmp_path, bad_id):
+    """Never turn two physical attempt identities into the same normalized ID."""
+    database = tmp_path / "audit.db"
+    with sqlite3.connect(database) as con:
+        con.execute(
+            "CREATE TABLE ai_provider_attempts ("
+            "attempt_id TEXT, audit_id TEXT, operation TEXT, "
+            "started_at TEXT, finished_at TEXT, duration_ms INTEGER)"
+        )
+        con.execute(
+            "INSERT INTO ai_provider_attempts VALUES (?, ?, ?, ?, ?, ?)",
+            (bad_id, "AUD-A", "OTHER_AI", None, None, 1000),
+        )
+    before = database.read_bytes()
+    with pytest.raises(ValueError, match="ambiguous AI attempt_id"):
+        read_audit_attempt_timeline(database, "AUD-A")
+    assert database.read_bytes() == before
