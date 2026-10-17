@@ -1071,10 +1071,14 @@ def install(console_module: ModuleType) -> None:
                     else:
                         from rasai.audit_duration_forecast import _m21_http_request_sums
                         try:
-                            with sqlite3.connect(
+                            # sqlite3.Connection.__exit__ commits/rolls back but
+                            # does NOT close the file handle. Use closing() so
+                            # Windows can release the AUD database immediately.
+                            from contextlib import closing
+                            with closing(sqlite3.connect(
                                 db_path.resolve().as_uri() + "?mode=ro",
                                 uri=True, timeout=0.5,
-                            ) as stage_conn:
+                            )) as stage_conn:
                                 stage_conn.execute("PRAGMA query_only=ON")
                                 http_sums = _m21_http_request_sums(stage_conn, state.audit_id)
                         except (OSError, ValueError, sqlite3.Error):
