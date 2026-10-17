@@ -176,3 +176,16 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
 - This is partial proof; a new versioned normative score contract,
   accepted weighting table and real comparative evidence are not
   inferred from general roadmap approval. #602 stays open.
+
+
+### GEO source attribution hardening
+
+- #304: the independent per-result query metadata parser rejects padded
+  query values and control characters, rather than silently assigning
+  physical results to an ambiguous market/query cohort. An offline
+  adversarial test covers LF, TAB, NUL and surrounding whitespace, with
+  one accepted positive example. No change to scoring, stored AUD data
+  or provider calls.
+- #301 remains dependent on physically comparable SERP/Perplexity
+  observations. A successful parser test cannot establish external
+  market, freshness, language or search intent equivalence.
