@@ -367,8 +367,15 @@ def _reject_secret_bearing_dynatrace_json(value: Any) -> None:
     raw = str(value or "").strip()
     if not raw:
         return
+    # This operator-controlled field is persisted and projected repeatedly.
+    # Bound JSON size/depth so a malicious value cannot exhaust console memory
+    # or recursion during the credential walk.
+    if len(raw) > 65536:
+        raise ValueError("Dynatrace JSON excede limite de configuracao")
     try:
         parsed = json.loads(raw)
+    except RecursionError as exc:
+        raise ValueError("Dynatrace JSON excede profundidade segura") from exc
     except (ValueError, TypeError):
         # Preserve opaque values; the consumer performs structural validation.
         return
