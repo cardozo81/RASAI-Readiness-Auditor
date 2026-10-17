@@ -626,7 +626,7 @@ def test_restored_ai_catalog_selectors_reach_real_offline_loaders(
         assert not target.exists()
 
 
-@pytest.mark.parametrize("secret_key", ["api_token", "password", "clientSecret", "Authorization"])
+@pytest.mark.parametrize("secret_key", ["api_token", "API_KEY", "password", "clientSecret", "Authorization"])
 def test_dynatrace_export_with_embedded_credentials_is_not_written_to_ini(
     tmp_path, secret_key,
 ):
