@@ -363,28 +363,41 @@ def _guard_existing_ini_before_save(
 def save_console_config(state: Any, path: Path | None = None) -> Path:
     destination = path or resolve_config_path()
     initial_identity = _guard_existing_ini_before_save(destination, state)
-    sync_nonsecret_runtime_environment(state)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    parser = _parser_for_state(state)
-    stream = io.StringIO()
-    stream.write("; RASAi interactive console settings\n")
-    stream.write("; All explicit non-secret overrides exposed by the console are persisted.\n")
-    stream.write("; API keys, bearer tokens, passwords, session secrets and credential-bearing DSNs are NOT persisted.\n")
-    stream.write("; Use environment variables, OS persistence or the SaaS secret mechanism for credentials.\n\n")
-    parser.write(stream)
-    descriptor, temporary = mkstemp(
-        prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
-    )
+    # Save is a logical transaction for both the INI and the in-process
+    # projection. Persisting may fail due to disk/permissions/races; a failed
+    # save must not advertise unsaved runtime values as successfully applied.
+    projection = _runtime_environment_projection(state)
+    previous_environment = {name: os.environ.get(name) for name in projection}
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as output:
-            output.write(stream.getvalue())
-        current = _existing_ini_snapshot(destination)
-        current_identity = current[0] if current is not None else None
-        if current_identity != initial_identity:
-            raise ValueError("INI de origem mudou durante o save; preserve a origem")
-        os.replace(temporary, destination)
-    finally:
-        Path(temporary).unlink(missing_ok=True)
+        sync_nonsecret_runtime_environment(state)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        parser = _parser_for_state(state)
+        stream = io.StringIO()
+        stream.write("; RASAi interactive console settings\n")
+        stream.write("; All explicit non-secret overrides exposed by the console are persisted.\n")
+        stream.write("; API keys, bearer tokens, passwords, session secrets and credential-bearing DSNs are NOT persisted.\n")
+        stream.write("; Use environment variables, OS persistence or the SaaS secret mechanism for credentials.\n\n")
+        parser.write(stream)
+        descriptor, temporary = mkstemp(
+            prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+        )
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as output:
+                output.write(stream.getvalue())
+            current = _existing_ini_snapshot(destination)
+            current_identity = current[0] if current is not None else None
+            if current_identity != initial_identity:
+                raise ValueError("INI de origem mudou durante o save; preserve a origem")
+            os.replace(temporary, destination)
+        finally:
+            Path(temporary).unlink(missing_ok=True)
+    except Exception:
+        for name, previous in previous_environment.items():
+            if previous is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = previous
+        raise
     if hasattr(state, "config_path"):
         state.config_path = str(destination)
     if hasattr(state, "config_dirty"):
