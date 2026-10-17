@@ -149,3 +149,14 @@ def test_token_counters_do_not_truncate_fractional_or_clamp_negative_usage():
     assert economic.canonical_total_tokens({
         "total_tokens": 0, "input_tokens": 3, "output_tokens": 4,
     }) == 0
+
+
+def test_excessive_numeric_token_text_abstains_before_integer_conversion():
+    """Untrusted provider usage cannot exhaust Python's integer conversion budget."""
+    massive = "9" * 5000
+    assert economic.canonical_total_tokens({
+        "total_tokens": massive, "input_tokens": None, "output_tokens": None,
+    }) is None
+    assert economic.canonical_total_tokens({
+        "input_tokens": massive, "output_tokens": "3",
+    }) == 3
