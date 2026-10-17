@@ -21,8 +21,13 @@ def test_reuse_explicit_architecture_choice(monkeypatch):
         {"settings": {}, "targets": ["https://example.org"]},
         choice=ArchitectureChoice("DECLARED", "HYDRATED"),
     )
-    assert _apply_settings(state, config, "AUD-TEST") == ()
-    assert _ARCHITECTURE_SELECTION[id(state)] == ArchitectureChoice("DECLARED", "HYDRATED")
+    try:
+        assert _apply_settings(state, config, "AUD-TEST") == ()
+        assert _ARCHITECTURE_SELECTION[id(state)] == ArchitectureChoice("DECLARED", "HYDRATED")
+    finally:
+        # The adapter maintains process-session mappings. Do not leak the
+        # state id between tests, where Python may reuse it for a new object.
+        _ARCHITECTURE_SELECTION.pop(id(state), None)
 
 
 def test_reuse_legacy_source_clears_previous_architecture(monkeypatch):
