@@ -217,3 +217,22 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
 - A exposicao e apenas do inventario de AUDs listado pelo CONS,
   nao constitui verificacao independente da assinatura de origem,
   calibracao longitudinal ou publicacao nativa no CONS.
+
+
+### Leitura executiva e mapeamento de timezone no registry
+
+- #600: os cards SARI mantem todos os numeros e enums brutos, mas
+  explicam em portugues Cobertura, Confianca contratual, Consolidacao
+  e Gates criticos. E somente melhoria de interpretabilidade e
+  nao altera score, pesos, evidencia ou HTMLs de outros catalogos.
+- #523: o registro de configuracao identifica o consumidor declarado
+  da zona IANA de apresentacao; o mapeamento nao reivindica alteracao
+  de timestamps historicos nem execucao real do consumidor.
+- #639: a varredura da arvore Git integral no SHA b7d1021
+  verificou 1513 blobs, resposta Git nao truncada e zero nomes em
+  violacao dos tres padroes versionados em
+  `tests/test_repository_filename_policy.py`. Ainda faltam
+  contratos externos e verificacao de main apos merge autorizado.
+- Gates de aceite de #600, #523 e #639 permanecem abertos ate
+  evidencia fisica/externa correspondente. O CI valida os contratos
+  automatizados; ele nao substitui o aceite do operador.
