@@ -311,3 +311,14 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
   positiva em `tests/test_console_persistence_matrix.py`.
 - A aprovação do CI e o aceite operacional ainda dependem da validação
   completa do HEAD; nenhuma API de provedor foi acionada nesses ensaios.
+
+
+### Rejeicao tipada de valores arquiteturais malformados
+
+- #646: o resolvedor puramente consultivo retorna UNKNOWN/N/D
+  quando uma observacao tipada contem classe invalida ou nao-hashable
+  (lista, dicionario etc.). Modos e declaracoes do operador com
+  tipos inadequados geram erro de contrato controlado em vez de
+  `TypeError` nao tratado. Testes dirigidos cobrem cada entrada.
+- Nao ha elevacao de evidencias a score, nova AUD, alteracao de Apdex
+  ou habilitacao de consumidores F3 sem matriz normativa.
