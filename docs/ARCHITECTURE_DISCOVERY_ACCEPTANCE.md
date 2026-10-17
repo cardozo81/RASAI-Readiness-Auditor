@@ -196,3 +196,19 @@ preserva `ISOLATED_BROWSER_UNAVAILABLE`, `ISOLATED_RESOURCES_BLOCKED`,
 genérica. Nunca exibir stdout bruto, stderr, HTML, cookies ou tokens no console.
 Essa diferenciação não autoriza afrouxar a proteção nem concluir a captura
 real sem comparar RAW/DOM.
+
+Para isolar o problema de Chromium sem consultar o site, execute **após atualizar
+o código local**:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai.architecture_isolation_smoke --browser
+```
+
+Essa opção primeiro executa o bloqueio de rede e depois renderiza uma página
+**sintética** na mesma imagem OCI. Os únicos resultados possíveis do teste
+são `OCI_BROWSER_CANARY_PASSED` ou
+`OCI_BROWSER_CANARY_FAILED` (eventualmente acompanhado de um código
+técnico da lista fixa); nunca imprime Docker stderr, HTML externo ou secrets.
+Se falhar, não executar a descoberta externa até diagnosticar o contêiner.
+**A imagem não precisa ser reconstruída para esse teste se a versão do worker
+não tiver mudado; o Python do host precisa estar atualizado.**

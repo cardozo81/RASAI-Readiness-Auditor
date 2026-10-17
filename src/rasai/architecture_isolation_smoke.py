@@ -109,7 +109,20 @@ def verify_browser_canary(*, digest: str, docker: str) -> None:
         text=True, timeout=25, check=False,
     )
     if completed.returncode != 0 or len(completed.stdout) > 100_000:
-        raise RuntimeError("Browser canary process failed")
+        # Only a finite, worker-owned diagnostic vocabulary may be printed,
+        # because Docker stderr and source/user data are untrusted.
+        if completed.returncode == 2 and len(completed.stdout) <= 4096:
+            try:
+                reason = json.loads(completed.stdout).get("reason")
+            except (ValueError, AttributeError, TypeError):
+                reason = None
+            if reason in {
+                "ISOLATED_BROWSER_UNAVAILABLE", "ISOLATED_MANIFEST_INVALID",
+                "ISOLATED_NAVIGATION_NOT_ATTESTED", "ISOLATED_RENDER_LIMIT",
+                "ISOLATED_RESOURCES_BLOCKED",
+            }:
+                raise RuntimeError("CANARY_" + reason)
+        raise RuntimeError("CANARY_EXECUTION_FAILED")
     result = json.loads(completed.stdout)
     if (not isinstance(result, dict)
             or set(result) != {"rendered_html", "reason"}
@@ -120,12 +133,33 @@ def verify_browser_canary(*, digest: str, docker: str) -> None:
 
 
 def main() -> int:
+    import sys
+    if sys.argv[1:] not in ([], ["--browser"]):
+        print("OCI_SMOKE_OPTION_INVALID")
+        return 2
     try:
         result = verify_isolation()
     except (RuntimeError, OSError, ValueError, subprocess.TimeoutExpired):
         print("OCI_NETWORK_ISOLATION_NOT_ATTESTED")
         return 2
     print("OCI_NETWORK_ISOLATION_BLOCKED: " + json.dumps(result, sort_keys=True))
+    if sys.argv[1:] == ["--browser"]:
+        digest, docker = inspect_local_image(), shutil.which("docker")
+        if digest is None or docker is None:
+            print("OCI_BROWSER_CANARY_FAILED")
+            return 2
+        try:
+            verify_browser_canary(digest=digest, docker=docker)
+        except RuntimeError as exc:
+            if str(exc).startswith("CANARY_"):
+                print("OCI_BROWSER_CANARY_FAILED: " + str(exc))
+            else:
+                print("OCI_BROWSER_CANARY_FAILED")
+            return 2
+        except (OSError, ValueError, subprocess.TimeoutExpired):
+            print("OCI_BROWSER_CANARY_FAILED")
+            return 2
+        print("OCI_BROWSER_CANARY_PASSED")
     return 0
 
 

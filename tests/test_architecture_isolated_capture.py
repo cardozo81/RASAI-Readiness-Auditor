@@ -126,7 +126,7 @@ def test_container_failure_abstains_without_ungated_browser(monkeypatch):
         result = capture_isolated_public_architecture(
             "https://example.org/", DeviceContext.DESKTOP
         )
-    assert result.quality_reason == "ISOLATED_RENDER_INCONCLUSIVE"
+    assert result.quality_reason == "OCI_WORKER_PROCESS_FAILED"
     assert result.rendered_html is None
 
 
@@ -292,3 +292,18 @@ def test_worker_failure_does_not_disclose_untrusted_stderr(monkeypatch):
         result = capture_isolated_public_architecture("https://example.org/", DeviceContext.MOBILE)
     assert result.quality_reason == "OCI_WORKER_PROCESS_FAILED"
     assert "operator-secret" not in result.quality_reason
+
+
+def test_canary_exposes_only_safe_enum_on_worker_failure():
+    from rasai.architecture_isolation_smoke import verify_browser_canary
+    value = SimpleNamespace(returncode=2, stdout=json.dumps({
+        "rendered_html": None, "reason": "ISOLATED_BROWSER_UNAVAILABLE",
+    }), stderr="untrusted-data")
+    import pytest
+    with patch("rasai.architecture_isolation_smoke.subprocess.run", return_value=value):
+        with pytest.raises(RuntimeError, match="CANARY_ISOLATED_BROWSER_UNAVAILABLE"):
+            verify_browser_canary(digest=DIGEST, docker="docker")
+    value.stdout = json.dumps({"rendered_html": None, "reason": "SECRET_PLACEHOLDER"})
+    with patch("rasai.architecture_isolation_smoke.subprocess.run", return_value=value):
+        with pytest.raises(RuntimeError, match="CANARY_EXECUTION_FAILED"):
+            verify_browser_canary(digest=DIGEST, docker="docker")
