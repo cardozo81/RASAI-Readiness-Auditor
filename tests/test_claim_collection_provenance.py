@@ -71,3 +71,20 @@ def test_collection_date_is_included_in_signed_receipt() -> None:
     assert verify_claim_review_receipt(
         receipt=edited, receipt_mac=_mac(edited), **kwargs,
     )["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+
+
+def test_regulated_claim_scope_cannot_be_blank_or_padded_even_with_signed_receipt():
+    """Documentary corroboration requires an exact nonblank product identity."""
+    for scope in (" ", "product-A "):
+        receipt = {**_receipt(), "product_scope": scope}
+        result = classify_claim(
+            CLAIM, product_scope=scope, at_date=AS_OF,
+            primary_bytes=DOCUMENT, review=receipt,
+        )
+        assert result["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+        signed = verify_claim_review_receipt(
+            CLAIM, product_scope=scope, at_date=AS_OF,
+            primary_bytes=DOCUMENT, receipt=receipt, receipt_mac=_mac(receipt),
+            trusted_key=KEY, trusted_reviewer_ids=frozenset({"trusted-reviewer"}),
+        )
+        assert signed["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
