@@ -69,9 +69,9 @@ def resolve_architecture(
     Fail closed on missing/conflicting physical evidence. A declared choice
     never replaces measured facts; pre-collection AUTO does not infer from M6.
     """
-    if mode not in {"AUTO", "DECLARED", "UNFORCED"}:
+    if not isinstance(mode, str) or mode not in {"AUTO", "DECLARED", "UNFORCED"}:
         raise ValueError("Unknown architecture mode")
-    if declared_architecture is not None and declared_architecture not in CLASSES:
+    if declared_architecture is not None and (not isinstance(declared_architecture, str) or declared_architecture not in CLASSES):
         raise ValueError("Unknown declared architecture")
     if mode == "DECLARED" and (declared_architecture is None or declared_architecture == "UNKNOWN"):
         raise ValueError("DECLARED requires a concrete architecture")
@@ -90,7 +90,8 @@ def resolve_architecture(
                     o.device == device and o.snapshot_id == snapshot_id and
                     o.audit_id == audit_id and o.page_id == page_id and
                     o.final_url == final_url)
-    valid = (len(matches) == 1 and matches[0].architecture in CLASSES
+    valid = (len(matches) == 1 and isinstance(matches[0].architecture, str)
+             and matches[0].architecture in CLASSES
              and isinstance(matches[0].evidence_ref, str) and bool(matches[0].evidence_ref.strip()))
     observed = matches[0].architecture if valid else "UNKNOWN"
     evidence = matches[0].evidence_ref if valid else None
