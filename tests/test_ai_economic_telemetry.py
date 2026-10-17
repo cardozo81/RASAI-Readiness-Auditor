@@ -182,3 +182,14 @@ def test_unbounded_integer_token_usage_also_abstains():
     assert economic.canonical_total_tokens({
         "input_tokens": 10 ** 100, "output_tokens": 3,
     }) is None
+
+
+def test_explicit_invalid_total_never_falls_back_to_partial_provider_components():
+    for invalid in (-1, 1.5, True, "not-a-number", "9" * 5000):
+        assert economic.canonical_total_tokens({
+            "total_tokens": invalid, "input_tokens": 4, "output_tokens": 5,
+        }) is None
+    # An actual absent total may be derived from both valid components.
+    assert economic.canonical_total_tokens({
+        "total_tokens": None, "input_tokens": 4, "output_tokens": 5,
+    }) == 9
