@@ -81,6 +81,44 @@ def verify_isolation(*, digest: str | None = None, docker: str | None = None) ->
     return evidence
 
 
+
+def verify_browser_canary(*, digest: str, docker: str) -> None:
+    """Run a deterministic offline Chromium smoke before contacting a real site.
+
+    Uses the exact immutable image/CLI restrictions as the actual render,
+    but only a synthetic HTML document. stdout is a small, validated status;
+    stderr is never shown, logged or returned to the operator.
+    """
+    import base64
+    from rasai.architecture_isolated_capture import sandbox_command
+
+    html = b"<html><body><main>rasai-offline-canary</main></body></html>"
+    manifest = json.dumps({
+        "url": "https://example.org/",
+        "device": "mobile",
+        "resources": [{
+            "url": "https://example.org/",
+            "status": 200,
+            "content_type": "text/html",
+            "response_headers": {"content-type": "text/html"},
+            "body_b64": base64.b64encode(html).decode("ascii"),
+        }],
+    }, separators=(",", ":"))
+    completed = subprocess.run(
+        sandbox_command(docker, digest), input=manifest, capture_output=True,
+        text=True, timeout=25, check=False,
+    )
+    if completed.returncode != 0 or len(completed.stdout) > 100_000:
+        raise RuntimeError("Browser canary process failed")
+    result = json.loads(completed.stdout)
+    if (not isinstance(result, dict)
+            or set(result) != {"rendered_html", "reason"}
+            or result["reason"] is not None
+            or not isinstance(result["rendered_html"], str)
+            or "rasai-offline-canary" not in result["rendered_html"]):
+        raise RuntimeError("Browser canary did not render synthetic HTML")
+
+
 def main() -> int:
     try:
         result = verify_isolation()

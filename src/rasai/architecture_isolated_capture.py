@@ -164,6 +164,13 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
         verify_isolation(digest=digest, docker=docker)
     except (RuntimeError, OSError, ValueError, subprocess.TimeoutExpired):
         return ProbeCaptures(url, url, device, None, None, "OCI_NETWORK_ISOLATION_NOT_ATTESTED")
+    # Network isolation tests do not exercise Chromium. Prove the same
+    # immutable image can render a synthetic local bundle with no network.
+    try:
+        from rasai.architecture_isolation_smoke import verify_browser_canary
+        verify_browser_canary(digest=digest, docker=docker)
+    except (RuntimeError, OSError, ValueError, subprocess.TimeoutExpired):
+        return ProbeCaptures(url, url, device, None, None, "OCI_BROWSER_CANARY_FAILED")
     try:
         target = _validate_public_url(normalize_url(url), _default_resolver)
     except (ValueError, OSError):
@@ -193,7 +200,7 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
             text=True, timeout=40, check=False,
         )
         if finished.returncode not in {0, 2} or len(finished.stdout) > 1_500_000:
-            raise ValueError("Offline renderer rejected")
+            return ProbeCaptures(target, target, device, raw, None, "OCI_WORKER_PROCESS_FAILED")
         result = json.loads(finished.stdout)
         if (not isinstance(result, dict)
                 or set(result) != {"rendered_html", "reason"}
@@ -205,6 +212,16 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
             raise ValueError("Invalid offline renderer response")
         if finished.returncode == 0 and result["reason"] is None and result["rendered_html"] is not None:
             return ProbeCaptures(target, target, device, raw, result["rendered_html"])
+        # Only server-owned, documented reason codes; never propagate browser
+        # exception text, source HTML, headers, Docker stderr or arbitrary URLs.
+        supported = {
+            "ISOLATED_BROWSER_UNAVAILABLE", "ISOLATED_MANIFEST_INVALID",
+            "ISOLATED_NAVIGATION_NOT_ATTESTED", "ISOLATED_RENDER_LIMIT",
+            "ISOLATED_RESOURCES_BLOCKED",
+        }
+        reason = result["reason"]
+        if finished.returncode == 2 and reason in supported and result["rendered_html"] is None:
+            return ProbeCaptures(target, target, device, raw, None, reason)
         return ProbeCaptures(target, target, device, raw, None, "ISOLATED_RENDER_INCONCLUSIVE")
     except (ValueError, OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
         return ProbeCaptures(target, target, device, raw, None, "ISOLATED_RENDER_INCONCLUSIVE")

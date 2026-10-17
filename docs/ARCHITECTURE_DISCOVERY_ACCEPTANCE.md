@@ -181,3 +181,18 @@ IPv4 privado, metadata/link-local e IPv6 privado) além de TCP e DNS. Com
 independente contra comprometimento do daemon/host, mas evita tratar
 bloqueio apenas TCP como cobertura WebRTC. O contêiner usa
 `--log-driver=none` para não persistir o bundle no daemon.
+
+### Diagnóstico de abstenção na captura externa
+
+Após provar o bloqueio de rede, o RASAi agora executa um **canário de renderização
+totalmente sintético** dentro da mesma imagem OCI e sob as mesmas restrições,
+**antes de consultar o DNS do site**. O canário usa HTML local e não aciona
+provedores pagos. Se não produzir DOM com marcador esperado, o diagnóstico
+retorna `OCI_BROWSER_CANARY_FAILED`, separadamente da falha de rede.
+O processo worker só retorna códigos de motivo conhecidos; o host agora
+preserva `ISOLATED_BROWSER_UNAVAILABLE`, `ISOLATED_RESOURCES_BLOCKED`,
+`ISOLATED_NAVIGATION_NOT_ATTESTED`, `ISOLATED_RENDER_LIMIT` ou
+`ISOLATED_MANIFEST_INVALID`, em vez de colapsá-los sempre em uma mensagem
+genérica. Nunca exibir stdout bruto, stderr, HTML, cookies ou tokens no console.
+Essa diferenciação não autoriza afrouxar a proteção nem concluir a captura
+real sem comparar RAW/DOM.

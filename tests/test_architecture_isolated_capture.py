@@ -71,6 +71,8 @@ def test_capture_preloaded_document_in_networkless_container(monkeypatch):
                         lambda cmd: "docker")
     monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_isolation",
                         lambda **kwargs: {"network_none": True})
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_browser_canary",
+                        lambda **kwargs: None)
     monkeypatch.setattr("rasai.architecture_isolated_capture._validate_public_url",
                         lambda url, _resolver: url)
     with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch:
@@ -112,6 +114,8 @@ def test_container_failure_abstains_without_ungated_browser(monkeypatch):
                         lambda _cmd: "docker")
     monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_isolation",
                         lambda **kwargs: {"network_none": True})
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_browser_canary",
+                        lambda **kwargs: None)
     monkeypatch.setattr("rasai.architecture_isolated_capture._validate_public_url",
                         lambda url, _resolver: url)
     with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch, patch(
@@ -196,3 +200,95 @@ def test_unattested_oci_container_refuses_dns_and_http(monkeypatch):
     assert result.quality_reason == "OCI_NETWORK_ISOLATION_NOT_ATTESTED"
     dns.assert_not_called()
     fetch.assert_not_called()
+
+
+def test_browser_canary_is_networkless_and_uses_bounded_synthetic_html():
+    from rasai.architecture_isolation_smoke import verify_browser_canary
+    def fake_run(command, **kwargs):
+        assert "--network=none" in command
+        assert "--read-only" in command
+        assert "--pull=never" in command
+        assert DIGEST == command[-1]
+        manifest = json.loads(kwargs["input"])
+        assert manifest["url"] == "https://example.org/"
+        assert "rasai-offline-canary" in __import__("base64").b64decode(
+            manifest["resources"][0]["body_b64"]
+        ).decode()
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps({
+                "reason": None,
+                "rendered_html": "<html><main>rasai-offline-canary</main></html>",
+            }),
+        )
+    with patch("rasai.architecture_isolation_smoke.subprocess.run", side_effect=fake_run):
+        verify_browser_canary(digest=DIGEST, docker="docker")
+
+
+def test_browser_canary_failure_blocks_site_dns(monkeypatch):
+    monkeypatch.setattr("rasai.architecture_isolated_capture.inspect_local_image", lambda: DIGEST)
+    monkeypatch.setattr("rasai.architecture_isolated_capture.shutil.which", lambda _: "docker")
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_isolation", lambda **kwargs: {})
+    def abort(**kwargs):
+        raise RuntimeError("synthetic renderer unavailable")
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_browser_canary", abort)
+    with patch("rasai.architecture_isolated_capture._default_resolver") as resolver, patch(
+        "rasai.architecture_isolated_capture.PublicWebFetcher"
+    ) as fetch:
+        result = capture_isolated_public_architecture("https://example.org/", DeviceContext.MOBILE)
+    assert result.quality_reason == "OCI_BROWSER_CANARY_FAILED"
+    assert result.raw_html is None and result.rendered_html is None
+    resolver.assert_not_called()
+    fetch.assert_not_called()
+
+
+def test_renderer_bounded_reason_is_preserved_instead_of_generic_inconclusive(monkeypatch):
+    from rasai.architecture_isolated_capture import ContentFetchStatus
+    root = SimpleNamespace(
+        status=ContentFetchStatus.OBSERVED,
+        final_url="https://example.org/", http_status=200,
+        body=b"<html><main>static</main></html>",
+        headers={"content-type": "text/html"},
+    )
+    monkeypatch.setattr("rasai.architecture_isolated_capture.inspect_local_image", lambda: DIGEST)
+    monkeypatch.setattr("rasai.architecture_isolated_capture.shutil.which", lambda _: "docker")
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_isolation", lambda **kwargs: {})
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_browser_canary", lambda **kwargs: None)
+    monkeypatch.setattr(
+        "rasai.architecture_isolated_capture._validate_public_url", lambda url, _r: url
+    )
+    with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch, patch(
+        "rasai.architecture_isolated_capture.subprocess.run",
+        return_value=SimpleNamespace(
+            returncode=2, stdout=json.dumps({
+                "rendered_html": None, "reason": "ISOLATED_RESOURCES_BLOCKED",
+            }),
+        ),
+    ):
+        fetch.return_value.fetch.return_value = root
+        result = capture_isolated_public_architecture("https://example.org/", DeviceContext.MOBILE)
+    assert result.quality_reason == "ISOLATED_RESOURCES_BLOCKED"
+    assert result.rendered_html is None
+
+
+def test_worker_failure_does_not_disclose_untrusted_stderr(monkeypatch):
+    from rasai.architecture_isolated_capture import ContentFetchStatus
+    root = SimpleNamespace(
+        status=ContentFetchStatus.OBSERVED,
+        final_url="https://example.org/", http_status=200,
+        body=b"<html><main>static</main></html>",
+        headers={"content-type": "text/html"},
+    )
+    monkeypatch.setattr("rasai.architecture_isolated_capture.inspect_local_image", lambda: DIGEST)
+    monkeypatch.setattr("rasai.architecture_isolated_capture.shutil.which", lambda _: "docker")
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_isolation", lambda **kwargs: {})
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_browser_canary", lambda **kwargs: None)
+    monkeypatch.setattr("rasai.architecture_isolated_capture._validate_public_url", lambda url, _r: url)
+    with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch, patch(
+        "rasai.architecture_isolated_capture.subprocess.run",
+        return_value=SimpleNamespace(returncode=125, stdout="", stderr="operator-secret"),
+    ):
+        fetch.return_value.fetch.return_value = root
+        result = capture_isolated_public_architecture("https://example.org/", DeviceContext.MOBILE)
+    assert result.quality_reason == "OCI_WORKER_PROCESS_FAILED"
+    assert "operator-secret" not in result.quality_reason
