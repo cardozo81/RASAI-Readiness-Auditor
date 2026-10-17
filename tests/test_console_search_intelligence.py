@@ -336,6 +336,7 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
             # The reader is mocked: no real SQLite connection or Windows
             # file handle may survive fixture teardown.
             db = root / "audit.db"
+            db.touch()  # Exists physically, but mock connection owns no file handle.
             module = ModuleType("non_ai_usage_console")
             module._menu = lambda state: "V"
             module._configure = lambda state, choice: None
@@ -372,6 +373,21 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
             self.assertIn("COLLECTION: 2 wrapper(s), mín 1.2s, máx 2.7s", rendered)
             self.assertIn("não representa wall-clock exclusivo", rendered)
             self.assertIn("log não selado", rendered)
+            # M21 loss is not allowed to hide independent wrapper telemetry.
+            db.unlink()
+            with patch.object(console_search, "audit_workspace", return_value=root), (
+                patch.object(console_search.AuditWorkspace, "open",
+                             return_value=SimpleNamespace(database=db))
+            ), patch.object(
+                audit_attempt_timeline, "read_audit_attempt_timeline",
+                return_value=SimpleNamespace(attempts=0),
+            ), patch.object(
+                audit_step_timer_inspection, "inspect_pipeline_step_timers",
+                return_value=observed,
+            ), redirect_stdout(StringIO()) as fallback:
+                module._render_actual_usage(state)
+            self.assertIn("Performance HTTP   : N/D", fallback.getvalue())
+            self.assertIn("COLLECTION: 2 wrapper(s)", fallback.getvalue())
 
 
 
