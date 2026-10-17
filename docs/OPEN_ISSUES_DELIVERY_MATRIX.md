@@ -365,3 +365,11 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
 - Critério de aceite revisado: #355 aprovada por exceção deliberada de homologação externa; erros concretos encontrados no futuro serão tratados em **nova issue de bug**, sem dívida retroativa presumida.
 - O vínculo da #357 com #355 passa a ser considerado satisfeito no que respeita ao aceite administrativo da #355; demais critérios de #357 permanecem independentes (especialmente #322 e a metodologia Apdex).
 - Esta decisão prevalece sobre as referências históricas acima que exigiam tenant como condição para fechar #355.
+
+
+### Lote de estabilizacao #319 e #523 - 17/10/2026
+
+- **#319:** em `audit_cost_explain.forecast_readout`, envelope de forecast com tipo nao mapeavel nao causa excecao na geracao de HTML; a declaracao de moedas comparaveis exige booleano literal `True`, nao um inteiro ou string truthy. Ausencia/integridade desconhecida retorna N/D e preserva custos originais. Commits `6ceb5996` e `c6f6bcb0`. Fixtures adversariais nao realizam consultas comerciais nem alteram AUD ou precificacao.
+- **#523:** o inventario somente-leitura `console_config_provenance.inspect_configuration` diferencia sobreposicao de sessao explicitamente vazia de variavel realmente nao fornecida; o status nao afirma qual precedencia efetiva sera aplicada pelo consumidor. Commits `9049b4c8` e `5e70cb48` (teste de arquivo INI real). Nao foi modificado o loader, os mecanismos de secret ou a configuracao do operador.
+- **#355:** aprovada e fechada conforme dispensa expressa de tenant Dynatrace registrada na propria issue; seu bloqueio externo nao deve reaparecer nas classificacoes atuais. Contratos offline nao sao prova de observacao RUM real.
+- **CI:** aguardar conclusao dos workflows no HEAD final desta matriz antes de atribuir PASS. O conjunto nao prova duracao/projecao por fase em AUD real (#319), nem o round-trip de todos os consumidores/configuracoes (#523); ambas permanecem abertas.
