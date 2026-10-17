@@ -35,6 +35,7 @@ on:
       - 'src/rasai/standards_metrics.py'
       - 'src/rasai/score_geo_reporting.py'
       - 'src/rasai/optional_seo_interpretation.py'
+      - 'src/rasai/optional_seo_audit_replay.py'
       - 'src/rasai/semantic.py'
       - 'src/rasai/accepted_audit_refinements.py'
       - 'src/rasai/improvement_intelligence.py'
@@ -50,6 +51,7 @@ on:
       - 'tests/test_catalog_report_final_refinements.py'
       - 'tests/test_cat03_ptbr_labels.py'
       - 'tests/test_ymyl_context_flow.py'
+      - 'tests/test_optional_seo_policy_errors.py'
       - 'tests/test_claim_collection_provenance.py'
       - 'tests/test_improvement_fulfillment_effective_config.py'
       - '.github/workflows/report-catalog-targeted.yml'
@@ -86,6 +88,7 @@ on:
       - 'src/rasai/standards_metrics.py'
       - 'src/rasai/score_geo_reporting.py'
       - 'src/rasai/optional_seo_interpretation.py'
+      - 'src/rasai/optional_seo_audit_replay.py'
       - 'src/rasai/semantic.py'
       - 'src/rasai/accepted_audit_refinements.py'
       - 'src/rasai/improvement_intelligence.py'
@@ -101,6 +104,7 @@ on:
       - 'tests/test_catalog_report_final_refinements.py'
       - 'tests/test_cat03_ptbr_labels.py'
       - 'tests/test_ymyl_context_flow.py'
+      - 'tests/test_optional_seo_policy_errors.py'
       - 'tests/test_claim_collection_provenance.py'
       - 'tests/test_improvement_fulfillment_effective_config.py'
   workflow_dispatch:
@@ -145,5 +149,6 @@ jobs:
           tests/test_catalog_report_final_refinements.py
           tests/test_cat03_ptbr_labels.py
           tests/test_ymyl_context_flow.py
+          tests/test_optional_seo_policy_errors.py
           tests/test_claim_collection_provenance.py
           tests/test_improvement_fulfillment_effective_config.py
