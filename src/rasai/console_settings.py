@@ -582,10 +582,16 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
     parser = ConfigParser(interpolation=None)
     parser.optionxform = str
     try:
-        # Windows editor BOM is accepted on read; saving still passes the
-        # separate loss-prevention guard for operator-owned INI contents.
-        with source.open("r", encoding="utf-8-sig") as stream: parser.read_file(stream)
-    except (OSError, UnicodeError, ConfigError) as exc:
+        # Verify source identity and bounded bytes before applying any settings.
+        # This is the same non-writing guard used by the save path: never follow
+        # operator INI symlinks or trust an oversized/concurrently changed file.
+        snapshot = _existing_ini_snapshot(source)
+        if snapshot is None:
+            return ConfigLoadResult(source, False, ("INI ausente durante a leitura",))
+        # Decode the verified bytes (not a second open of a potentially changed
+        # path). Windows UTF-8 BOM remains supported and source bytes untouched.
+        parser.read_string(snapshot[1].decode("utf-8-sig"))
+    except (ValueError, OSError, UnicodeError, ConfigError) as exc:
         # An operator INI can be truncated or contain duplicate entries.
         # Keep state and environment unchanged rather than abort console startup
         # or partially applying an invalid document. Do not echo source values.
