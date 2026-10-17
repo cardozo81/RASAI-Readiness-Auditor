@@ -499,3 +499,58 @@ def test_saved_gsc_scope_policy_reaches_real_consumer_without_oauth_or_requests(
         assert final_data_lag_days(os.environ[GSC_FINAL_DATA_LAG_DAYS_ENV]) == 5
         assert restored.perplexity_queries == ()
         assert path.read_bytes() == data_before
+
+
+@pytest.mark.parametrize(
+    ("requested", "maximum", "timeout", "language"),
+    [
+        ("false", 11, 42.5, "pt-BR"),
+        ("true", 27, 73.5, "en-US"),
+    ],
+)
+def test_saved_improvement_runtime_contract_consumes_nondefault_fields_without_provider(
+    tmp_path, requested, maximum, timeout, language,
+):
+    """The actual improvement adapter receives restored settings without an AI call."""
+    from rasai.improvement_intelligence import ImprovementConfig
+
+    _install_config_contract()
+    with patch.dict(os.environ, {}, clear=True):
+        os.environ.update({
+            "RASAI_IMPROVEMENT_INTELLIGENCE": requested,
+            "RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS": str(maximum),
+            "RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS": str(timeout),
+            "RASAI_AI_ANALYSIS_LANGUAGE": language,
+        })
+        path = tmp_path / "improvement.ini"
+        console_settings.save_console_config(SearchConsoleState(), path)
+        immutable = path.read_bytes()
+        os.environ.clear()
+        result = console_settings.load_console_config(SearchConsoleState(), path)
+        assert result.warnings == ()
+        assert not result.created
+        effective = ImprovementConfig.from_environment(dict(os.environ))
+        assert effective.enabled == (requested == "true")
+        assert effective.max_recommendations == maximum
+        assert effective.timeout_seconds == timeout
+        assert effective.language == language
+        assert effective.provider in {"", "none"}
+        assert path.read_bytes() == immutable
+
+
+@pytest.mark.parametrize("timezone", ["America/Sao_Paulo", "UTC", "Europe/Lisbon"])
+def test_saved_presentation_timezone_reaches_canonical_consumer(tmp_path, timezone):
+    """INI restoration must affect the effective timezone, not just file contents."""
+    from rasai.time_contract import configured_presentation_timezone
+
+    _install_config_contract()
+    with patch.dict(os.environ, {}, clear=True):
+        os.environ["RASAI_PRESENTATION_TIMEZONE"] = timezone
+        path = tmp_path / "timezone.ini"
+        console_settings.save_console_config(SearchConsoleState(), path)
+        immutable = path.read_bytes()
+        os.environ.clear()
+        result = console_settings.load_console_config(SearchConsoleState(), path)
+        assert result.warnings == ()
+        assert configured_presentation_timezone(dict(os.environ)) == timezone
+        assert path.read_bytes() == immutable
