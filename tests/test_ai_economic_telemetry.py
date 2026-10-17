@@ -172,3 +172,12 @@ def test_malformed_currency_is_not_aggregated_as_a_monetary_total():
     assert economic.aggregate_attempt_costs([{
         "observed_cost": 0.2, "observed_cost_currency": "usd",
     }]).totals == (("USD", 0.2),)
+
+
+def test_unbounded_integer_token_usage_also_abstains():
+    assert economic.canonical_total_tokens({
+        "total_tokens": 10 ** 100, "input_tokens": None, "output_tokens": None,
+    }) is None
+    assert economic.canonical_total_tokens({
+        "input_tokens": 10 ** 100, "output_tokens": 3,
+    }) is None
