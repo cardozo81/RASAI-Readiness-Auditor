@@ -1126,3 +1126,45 @@ def test_cobs_html_renderer_rejects_claim_of_same_serp_html_population(
     projected["serp_and_html_same_population_proven"] = True
     with pytest.raises(ValueError, match="cannot claim equal SERP"):
         render_cobs_static_pair_html(projected)
+
+
+def test_same_size_aud_rewrite_during_digest_abstains(tmp_path, monkeypatch):
+    """Descriptor/path consistency is required even when total bytes are unchanged."""
+    from pathlib import Path
+    import os
+
+    source = tmp_path / "audit.db"
+    source.write_bytes(b"stable-bytes")
+    raw_open = Path.open
+    mutated = []
+
+    class Reading:
+        def __init__(self, handle):
+            self.handle = handle
+        def __enter__(self):
+            self.handle.__enter__()
+            return self
+        def __exit__(self, *args):
+            return self.handle.__exit__(*args)
+        def __getattr__(self, key):
+            return getattr(self.handle, key)
+        def read(self, n=-1):
+            chunk = self.handle.read(n)
+            if chunk and not mutated:
+                mutated.append(True)
+                stamp = source.stat()
+                with raw_open(source, "r+b") as writer:
+                    writer.write(b"X")
+                os.utime(source, ns=(stamp.st_atime_ns, stamp.st_mtime_ns + 10000000))
+            return chunk
+
+    def intercepted(path, *args, **kwargs):
+        stream = raw_open(path, *args, **kwargs)
+        if path == source and args and args[0] == "rb":
+            return Reading(stream)
+        return stream
+
+    monkeypatch.setattr(Path, "open", intercepted)
+    with pytest.raises(ValueError, match="AUD source changed during digest"):
+        capture._physical_digest(source)
+    assert mutated

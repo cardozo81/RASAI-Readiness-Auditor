@@ -25,21 +25,32 @@ _MAX_SOURCE_DB_BYTES = 256 * 1024 * 1024
 
 
 def _physical_digest(source: Path) -> str:
-    if source.stat().st_size > _MAX_SOURCE_DB_BYTES:
+    """Hash stable source bytes and reject same-size replacement during reading."""
+    if source.is_symlink() or not source.is_file():
+        raise ValueError("unsafe AUD source")
+    before = source.stat()
+    if before.st_size > _MAX_SOURCE_DB_BYTES:
         raise ValueError("AUD source exceeds bounded verification size")
-    hash_ = sha256()
+    digest = sha256()
     consumed = 0
     with source.open("rb") as handle:
+        opened = os.fstat(handle.fileno())
         for segment in iter(lambda: handle.read(1024 * 1024), b""):
             consumed += len(segment)
             if consumed > _MAX_SOURCE_DB_BYTES:
                 raise ValueError("AUD source grew beyond bounded verification size")
-            hash_.update(segment)
-    # A stat alone cannot attest a stable file: detect growth or truncation
-    # during either SHA-256 pass, not only a mismatch between the two passes.
-    if consumed != source.stat().st_size:
-        raise ValueError("AUD source changed size during digest")
-    return hash_.hexdigest()
+            digest.update(segment)
+    after = source.stat()
+    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    if os.name != "nt":
+        fields += ("st_ctime_ns",)
+    if (
+        source.is_symlink() or consumed != before.st_size
+        or any(getattr(before, field) != getattr(observed, field)
+               for observed in (opened, after) for field in fields)
+    ):
+        raise ValueError("AUD source changed during digest")
+    return digest.hexdigest()
 
 
 def _assert_aud_still_sealed(source: Path, digest: str) -> None:
