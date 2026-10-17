@@ -51,7 +51,8 @@ def _integer(value: Any) -> int | None:
     """Accept exact, nonnegative token counts; never truncate or clamp usage."""
     if type(value) is int:
         return value if value >= 0 else None
-    if isinstance(value, str) and value.isascii() and value.isdecimal():
+    if (isinstance(value, str) and 0 < len(value) <= 18
+            and value.isascii() and value.isdecimal()):
         return int(value)
     return None
 
