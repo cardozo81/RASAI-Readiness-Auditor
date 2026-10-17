@@ -6,6 +6,18 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    # Observacao fisica de FAQ em navegador isolado e sem atestado externo.
+    "NOT_OBSERVED": "Nao observado",
+    "LOCAL_FAQ_ACTION_OBSERVED_NOT_ATTESTED": "Interacao local de FAQ observada sem atestado externo",
+    "OPT_IN_OR_ISOLATION_NOT_PROVEN": "Consentimento ou isolamento do navegador nao comprovado",
+    "BROWSER_CONTEXT_NOT_ISOLATED": "Contexto do navegador nao isolado",
+    "DOCUMENT_IDENTITY_UNVERIFIABLE": "Identidade da pagina nao verificavel",
+    "DOM_EXCEEDS_LIMIT": "DOM anterior excede limite de leitura",
+    "DOM_EXCEEDS_LIMIT_AFTER_ACTION": "DOM posterior excede limite de leitura",
+    "TOO_MANY_CONTROLS": "Controles demais para inspecao segura",
+    "AMBIGUOUS_OR_ALREADY_OPEN_CONTROL": "Controle FAQ ambiguo ou ja expandido",
+    "BROWSER_ACTION_OR_INSPECTION_FAILED": "Interacao ou inspecao de navegador falhou",
+    "NAVIGATION_OR_POPUP_AFTER_ACTION": "Navegacao ou nova janela durante interacao",
     # Ciclo de vida da auditoria e estados operacionais públicos.
     "CREATED": "Criado",
     "INITIALIZING": "Inicializando",
