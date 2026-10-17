@@ -1,4 +1,4 @@
-# Decisão arquitetural — consumidores e metodologia consultiva
+# Decisão arquitetural - consumidores e metodologia consultiva
 
 Status: **contrato conservador aprovado para evolução incremental**, 17/10/2026.
 Escopo: arquitetura F3, evidências GEO/SARI, SEO opcional e roadmaps
@@ -31,7 +31,7 @@ ou autorização de coleta externa irrestrita.
 7. Os roadmaps GEO longitudinal/concorrentes passam a ter autorização de
    planejamento e implementação local isolada. Coleta live e integração
    operacional exigem budgets, consentimento do alvo, segurança e teste
-   de não regressão — independentemente da aprovação de roadmap.
+   de não regressão - independentemente da aprovação de roadmap.
 
 ## Gates de adoção operacional
 
