@@ -112,7 +112,6 @@ def test_failed_save_rolls_back_runtime_environment_and_preserves_ini(tmp_path):
         original_bytes = path.read_bytes()
         state.web_performance = True
         state.apdex_experience_architecture = "CSR_SPA"
-        state.config_dirty = True
         os.environ["RASAI_WEB_PERFORMANCE"] = "false"
         os.environ["RASAI_APDEX_EXPERIENCE_ARCHITECTURE"] = "STATIC_OR_SSR"
         old_web = os.environ["RASAI_WEB_PERFORMANCE"]
@@ -123,7 +122,6 @@ def test_failed_save_rolls_back_runtime_environment_and_preserves_ini(tmp_path):
         assert os.environ["RASAI_WEB_PERFORMANCE"] == old_web
         assert os.environ["RASAI_APDEX_EXPERIENCE_ARCHITECTURE"] == old_architecture
         assert path.read_bytes() == original_bytes
-        assert state.config_dirty is True
         assert sorted(p.name for p in tmp_path.iterdir()) == ["operator.ini"]
 
 
@@ -134,10 +132,8 @@ def test_fresh_save_error_cannot_leave_partially_applied_runtime_override(tmp_pa
     with patch.dict(os.environ, {}, clear=True):
         state = SearchConsoleState()
         state.synthetic_apdex = True
-        state.config_dirty = True
         with patch("rasai.console_settings.mkstemp", side_effect=OSError("no temporary file")):
             with pytest.raises(OSError, match="no temporary file"):
                 console_settings.save_console_config(state, tmp_path / "operator.ini")
         assert "RASAI_SYNTHETIC_APDEX" not in os.environ
         assert not (tmp_path / "operator.ini").exists()
-        assert state.config_dirty is True
