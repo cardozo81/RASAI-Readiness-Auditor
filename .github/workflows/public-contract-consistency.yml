@@ -53,3 +53,52 @@ jobs:
 
       - name: Architecture advisory context tests
         run: pytest -q tests/test_architecture_discovery.py tests/test_architecture_probe.py tests/test_architecture_live_capture.py tests/test_architecture_offline_worker.py tests/test_architecture_isolated_capture.py tests/test_console_architecture_discovery.py tests/test_architecture_context.py tests/test_architecture_observation_reader.py tests/test_architecture_choice.py tests/test_architecture_choice_precedence.py tests/test_architecture_choice_snapshot.py tests/test_architecture_choice_audit_adapter.py tests/test_architecture_choice_runtime.py tests/test_architecture_choice_console_restore.py tests/test_m24_architecture.py
+
+      - name: Opt-in isolated OCI end-to-end probe
+        if: github.event_name == 'pull_request'
+        shell: bash
+        timeout-minutes: 15
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          msg="$(git show -s --format=%s "$PR_HEAD_SHA")"
+          if [[ "$msg" != *"[oci-architecture-smoke]"* ]]; then
+            echo "OCI_E2E_SKIPPED: explicit one-commit marker absent"
+            exit 0
+          fi
+          echo "OCI_E2E_ENABLED: synthetic and public-site smoke; no audit, keys or third-party providers"
+          docker build -f Dockerfile.architecture-offline -t rasai-architecture-offline:local .
+          RASAI_ARCH_PROBE_OFFLINE_CONTAINER=1 python - <<'PY'
+          from rasai.architecture_isolation_smoke import verify_isolation, verify_browser_canary
+          from rasai.architecture_isolated_capture import inspect_local_image
+          from rasai.architecture_live_capture import capture_public_architecture
+          from rasai.architecture_discovery import assess_architecture
+          from rasai.domain import DeviceContext
+          import shutil
+
+          digest = inspect_local_image()
+          docker = shutil.which("docker")
+          if digest is None or docker is None:
+              raise SystemExit("OCI_E2E_NOT_ATTESTED: missing verified local image/daemon")
+          checks = verify_isolation(digest=digest, docker=docker)
+          if len(checks) != 11 or not all(checks.values()):
+              raise SystemExit("OCI_E2E_NOT_ATTESTED: isolation")
+          print("OCI_E2E_NETWORK_BLOCKED: 11/11", flush=True)
+          verify_browser_canary(digest=digest, docker=docker)
+          print("OCI_E2E_BROWSER_CANARY_PASSED", flush=True)
+          evidence = capture_public_architecture("https://example.org/", DeviceContext.MOBILE)
+          print("OCI_E2E_RAW_AVAILABLE:", evidence.raw_html is not None, flush=True)
+          print("OCI_E2E_RENDER_AVAILABLE:", evidence.rendered_html is not None, flush=True)
+          print("OCI_E2E_REASON:", evidence.quality_reason or "NONE", flush=True)
+          assessment = assess_architecture(
+              raw_html=evidence.raw_html,
+              rendered_html=evidence.rendered_html,
+              quality_reason=evidence.quality_reason,
+          )
+          print("OCI_E2E_ARCHITECTURE:", assessment.architecture.value, flush=True)
+          print("OCI_E2E_LIMITATION:", assessment.limitation or "NONE", flush=True)
+          if evidence.quality_reason is not None or evidence.rendered_html is None:
+              raise SystemExit("OCI_E2E_REAL_CAPTURE_INCONCLUSIVE")
+          print("OCI_E2E_REAL_CAPTURE_COMPLETED", flush=True)
+          PY
