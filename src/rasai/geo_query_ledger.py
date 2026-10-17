@@ -367,7 +367,9 @@ def inspect_geo_per_query(
             if (not isinstance(declared, list)
                     or not 1 <= len(declared) <= _MAX_QUERY_COUNT
                     or any(not isinstance(q, str) or not q.strip()
-                           or len(q) > 300 for q in declared)
+                           or len(q) > 300 or q != q.strip()
+                           or any(ord(char) < 32 or ord(char) == 127 for char in q)
+                           for q in declared)
                     or len({_query_key(q) for q in declared}) != len(declared)):
                 return abstain("EXTERNAL_QUERY_SET_AMBIGUOUS")
             if not set(brands) <= {_query_key(q) for q in declared}:
