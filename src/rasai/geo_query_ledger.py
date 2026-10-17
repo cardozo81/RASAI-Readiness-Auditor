@@ -469,6 +469,7 @@ def inspect_geo_per_query(
                 candidates: list[tuple[float, datetime, sqlite3.Row]] = []
                 incomplete_scope_in_window = False
                 unverified_clock_same_query = False
+                unverified_identity_same_query = False
                 for obs in serp:
                     if _query_key(obs["query"]) != qkey:
                         continue
@@ -478,7 +479,7 @@ def inspect_geo_per_query(
                     if (not isinstance(observed_query, str)
                             or observed_query != observed_query.strip()
                             or any(ord(ch) < 32 or ord(ch) == 127 for ch in observed_query)):
-                        unverified_clock_same_query = True
+                        unverified_identity_same_query = True
                         continue
                     gap = _temporal_gap_seconds(run["started_at"], obs["collected_at"])
                     when = _utc(obs["collected_at"])
@@ -494,6 +495,10 @@ def inspect_geo_per_query(
                         incomplete_scope_in_window = True
                         continue
                     candidates.append((gap, when, obs))
+                if unverified_identity_same_query:
+                    row["reason"] = "SERP_QUERY_IDENTITY_UNVERIFIABLE"
+                    out["queries"].append(row)
+                    continue
                 if unverified_clock_same_query:
                     row["reason"] = "SERP_CHRONOLOGY_UNVERIFIABLE_FOR_QUERY"
                     out["queries"].append(row)
