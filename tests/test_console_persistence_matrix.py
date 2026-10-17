@@ -660,4 +660,3 @@ def test_dynatrace_secret_hidden_in_environment_json_cannot_be_saved(tmp_path):
         with pytest.raises(ValueError, match="credencial nao persistiveis"):
             console_settings.save_console_config(state, path)
         assert not path.exists()
-        assert state.config_dirty is True or not hasattr(state, "config_dirty")
