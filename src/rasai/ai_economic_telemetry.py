@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from math import isfinite
 from typing import Any, Iterable, Mapping
 
 from rasai.ai_cost_policy import (
@@ -168,9 +169,19 @@ def forecast_candidate_cost(
     )
 
 
+def _valid_monetary_amount(raw: Any) -> float | None:
+    """Reject corrupted costs rather than publishing negative or nonfinite totals."""
+    try:
+        if isinstance(raw, bool):
+            return None
+        value = float(raw)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return value if isfinite(value) and value >= 0 else None
+
+
 def attempt_monetary_cost(attempt: Any) -> tuple[float | None, str | None, str]:
     """Return one persisted monetary value without inventing exchange rates."""
-
     observed = _value(attempt, "observed_cost")
     if observed not in (None, ""):
         currency = (
@@ -179,26 +190,26 @@ def attempt_monetary_cost(attempt: Any) -> tuple[float | None, str | None, str]:
             or _value(attempt, "currency")
         )
         normalized_currency = _currency(currency)
-        try:
-            return float(observed), normalized_currency, "PROVIDER_OBSERVED"
-        except (TypeError, ValueError):
-            return None, normalized_currency, "INVALID"
+        value = _valid_monetary_amount(observed)
+        return value, normalized_currency, (
+            "PROVIDER_OBSERVED" if value is not None else "INVALID"
+        )
 
     estimated = _value(attempt, "estimated_cost")
     if estimated not in (None, ""):
         currency = _value(attempt, "cost_currency") or _value(attempt, "currency")
         normalized_currency = _currency(currency)
-        try:
-            return float(estimated), normalized_currency, "USAGE_DERIVED_ESTIMATE"
-        except (TypeError, ValueError):
-            return None, normalized_currency, "INVALID"
+        value = _valid_monetary_amount(estimated)
+        return value, normalized_currency, (
+            "USAGE_DERIVED_ESTIMATE" if value is not None else "INVALID"
+        )
 
     legacy = _value(attempt, "estimated_cost_usd")
     if legacy not in (None, ""):
-        try:
-            return float(legacy), "USD", "LEGACY_USAGE_DERIVED_ESTIMATE"
-        except (TypeError, ValueError):
-            return None, "USD", "INVALID"
+        value = _valid_monetary_amount(legacy)
+        return value, "USD", (
+            "LEGACY_USAGE_DERIVED_ESTIMATE" if value is not None else "INVALID"
+        )
     return None, None, "UNPRICED"
 
 

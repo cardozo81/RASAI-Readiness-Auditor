@@ -98,3 +98,37 @@ def test_price_provider_usage_is_the_operational_delegate(monkeypatch) -> None:
         "runtime_conditions": {"region": "GLOBAL", "service_tier": "STANDARD"},
         "surface": "SEMANTIC",
     }
+
+
+def test_invalid_money_never_becomes_numeric_aggregate_or_falls_back() -> None:
+    """Malformed provider observations cannot be replaced by a lower-priority estimate."""
+    for invalid in (float("nan"), float("inf"), float("-inf"), -0.1, True, "not-money"):
+        amount, currency, basis = economic.attempt_monetary_cost({
+            "input_tokens": 7,
+            "observed_cost": invalid,
+            "observed_cost_currency": "USD",
+            "estimated_cost": 0.25,
+            "cost_currency": "USD",
+        })
+        assert amount is None
+        assert currency == "USD"
+        assert basis == "INVALID"
+        aggregate = economic.aggregate_attempt_costs([{
+            "input_tokens": 7, "observed_cost": invalid,
+            "observed_cost_currency": "USD", "estimated_cost": 0.25,
+        }])
+        assert aggregate.totals == ()
+        assert aggregate.unpriced_attempts == 1
+
+
+def test_corrupt_estimated_and_legacy_costs_abstain_but_real_zero_is_allowed() -> None:
+    for field in ("estimated_cost", "estimated_cost_usd"):
+        for invalid in (float("nan"), float("inf"), -1, "bad"):
+            amount, _currency, basis = economic.attempt_monetary_cost({
+                field: invalid, "cost_currency": "USD",
+            })
+            assert amount is None
+            assert basis == "INVALID"
+        assert economic.attempt_monetary_cost({
+            field: 0.0, "cost_currency": "USD",
+        })[0] == 0.0
