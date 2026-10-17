@@ -58,8 +58,11 @@ def _integer(value: Any) -> int | None:
 
 
 def _currency(value: Any) -> str | None:
-    text = str(value or "").strip()
-    return text.upper() or None
+    """Only canonical three-letter monetary denominations can be aggregated."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip().upper()
+    return text if len(text) == 3 and text.isascii() and text.isalpha() else None
 
 
 def canonical_total_tokens(source: Any) -> int | None:
