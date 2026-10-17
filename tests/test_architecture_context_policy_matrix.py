@@ -129,3 +129,37 @@ def test_untrusted_architecture_rows_are_ignored_without_promoting_foreign_data(
     invalid = resolve_architecture(observations=(None, {}, "untrusted"), **shared)
     assert invalid.effective_architecture is None
     assert invalid.abstention_reason == "MISSING_CONFLICTING_OR_INVALID_EVIDENCE"
+
+
+@pytest.mark.parametrize("malformed", [{}, [], 7, None])
+def test_nonhashable_architecture_values_cannot_break_advisory_policy(malformed):
+    """Provider or persistence corruption must abstain, not raise a TypeError."""
+    valid_type = ArchitectureObservation(
+        malformed, TARGET, "mobile", "snapshot-a", "evidence-a",
+        audit_id="AUD-A", page_id="PAGE-A", final_url=FINAL,
+    )
+    args = dict(
+        requested_url=TARGET, device="mobile", snapshot_id="snapshot-a",
+        audit_id="AUD-A", page_id="PAGE-A", final_url=FINAL,
+        consumer_id="descriptive_report", advisory_consumers=ADVISORY,
+    )
+    context = resolve_architecture(
+        mode="AUTO", declared_architecture=None,
+        observations=(valid_type,), **args,
+    )
+    assert context.effective_architecture is None
+    assert context.observed_architecture == "UNKNOWN"
+    assert context.abstention_reason == "MISSING_CONFLICTING_OR_INVALID_EVIDENCE"
+    with pytest.raises(ValueError, match="Unknown architecture mode"):
+        resolve_architecture(
+            mode=malformed, declared_architecture=None,
+            observations=(), **args,
+        )
+    with pytest.raises(ValueError, match="Unknown declared architecture"):
+        resolve_architecture(
+            mode="AUTO", declared_architecture=malformed,
+            observations=(), **args,
+        ) if malformed is not None else resolve_architecture(
+            mode="DECLARED", declared_architecture=None,
+            observations=(), **args,
+        )
