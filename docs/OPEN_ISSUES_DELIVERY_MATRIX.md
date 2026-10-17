@@ -236,3 +236,16 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
 - Gates de aceite de #600, #523 e #639 permanecem abertos ate
   evidencia fisica/externa correspondente. O CI valida os contratos
   automatizados; ele nao substitui o aceite do operador.
+
+
+### Validação monetária adicional do relatório de IA
+
+- #319: a projeção HTML por etapa agora recusa montantes monetários
+  inválidos (NaN, Infinity, negativo, bool, string ou ausência) mesmo
+  quando o denominador de tentativas aparenta estar completo. O
+  resultado é N/D explícito em vez de renderizar valores financeiros
+  incorretos. Tipos booleanos em contagens também não são aceitos.
+- Regressão dirigida em `tests/test_audit_cost_explain.py`,
+  preservando zero monetário legítimo e as frações de cobertura.
+- Não muda contabilização, preço dos fornecedores ou estimativas.
+  Persistem as provas físicas e de cobertura total previstas na #319.
