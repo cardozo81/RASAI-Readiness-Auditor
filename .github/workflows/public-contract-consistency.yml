@@ -90,8 +90,9 @@ jobs:
           from tests.architecture_offline_classification_matrix import run_matrix
           run_matrix(docker=docker, digest=digest)
           print("OCI_MATRIX_ALL_8_PASSED", flush=True)
-          # Only two fixed, public, unauthenticated reference URLs are allowed.
-          # The second contains static HTML with no external scripts/assets.
+          # Two fixed, public, unauthenticated references; this opt-in gate
+          # exercises the exact offline favicon policy and four-class matrix.
+          # The second reference contains static HTML with no external assets.
           complete = 0
           for label, address in (
               ("REFERENCE_EXAMPLE", "https://example.org/"),
