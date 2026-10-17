@@ -11,6 +11,8 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from rasai import console_settings
 from rasai.console_complete_persistence import install as install_complete_persistence
 from rasai.console_config import is_secret
