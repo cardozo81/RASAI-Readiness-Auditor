@@ -197,3 +197,24 @@ def test_report_stage_monetary_readout_abstains_on_invalid_numeric_values():
             "N/D (cobertura monetaria inconsistente)"
         )
     assert _timeline_monetary_coverage(0.0, 1, 1) == "0.000000 (1/1 tentativas)"
+
+
+@pytest.mark.parametrize("malformed", [[], "invalid", 1, True, (1, 2)])
+def test_malformed_forecast_container_does_not_break_report_or_invent_price(malformed):
+    html = forecast_readout(
+        malformed, observed_total=0.15, priced_attempts=2, total_attempts=2,
+    )
+    assert "Sem previsão financeira prévia persistida" in html
+    assert "dentro da faixa histórica provável" not in html
+
+
+@pytest.mark.parametrize("unverified", [None, 1, "true", [], {}])
+def test_currency_equivalence_must_be_explicit_true(unverified):
+    html = forecast_readout(
+        {"expected_cost": 0.1, "likely_low": 0, "likely_high": 0.3},
+        observed_total=0.15, priced_attempts=1, total_attempts=1,
+        comparable_currency=unverified,
+    )
+    assert "Moedas dos custos" in html
+    assert "Posição do custo na faixa histórica: N/D" in html
+    assert "Desvio frente à estimativa pontual" not in html
