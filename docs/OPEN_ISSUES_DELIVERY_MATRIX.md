@@ -60,6 +60,31 @@ conclusão dos critérios de aceitação.
 
 **Categorias não exclusivas:** um item com bloqueio humano também pode conter tarefa técnica independente. Não transformar bloqueio de metodologia em autorização implícita para alterar scoring, coleta, IA, Apdex ou histórico. **Nenhuma destas 16 issues está comprovadamente pronta para fechamento.** Não há testes físicos nem chamadas a provedores externos novos neste ciclo.
 
+## Autorização adicional — 17/10/2026
+
+O operador autorizou o avanço dos roadmaps (#311/#330) e da frente
+metodológica (#602/#646). Isso retira a classificação de **ausência de
+autorização de planejamento/implementação segura**, mas **não fornece**
+parâmetros normativos para recalibração de score, nem concede credenciais,
+consentimento de terceiros ou datasets físicos. A política concretamente
+aplicável e os gates estão registrados em
+[ARCHITECTURE_AND_SCORING_DECISION.md](ARCHITECTURE_AND_SCORING_DECISION.md).
+Não reclassificar essas issues como completas. A versão do contrato
+consultivo continua fail-closed.
+
+### Prova técnica incrementada
+
+- #523: teste parametrizado de restore INI para os consumidores reais de
+  ativação e timeout de `passive_security`, sem feed remoto; além dos
+  cenários anteriores de Improvement Intelligence, timezone, SERP, GSC e Apdex.
+- #311/#330: autorização de roadmap recebida; implementação operacional
+  e coleta externa continuam por provar; estes itens deixam de ser
+  simplesmente "roadmap não autorizado".
+- #602/#646: autorização metodológica genérica recebida; **não** equivale
+  a valores de ponderação, thresholds, matriz de consumidores F3 aprovada
+  individualmente ou evidência de comparabilidade.
+- Demais issues: matriz anterior permanece válida, até prova adicional.
+
 ## Regras de execução
 
 - Uma única branch e PR; sem merge enquanto critérios de escopos distintos estiverem pendentes.

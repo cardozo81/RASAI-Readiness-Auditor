@@ -554,3 +554,36 @@ def test_saved_presentation_timezone_reaches_canonical_consumer(tmp_path, timezo
         assert result.warnings == ()
         assert configured_presentation_timezone(dict(os.environ)) == timezone
         assert path.read_bytes() == immutable
+
+
+@pytest.mark.parametrize(
+    ("requested", "timeout", "expected"),
+    [("true", "7.25", True), ("false", "31.5", False)],
+)
+def test_saved_passive_security_controls_reach_actual_offline_runtime_policy(
+    tmp_path, requested, timeout, expected,
+):
+    """Cross the real INI loader and consumer without collecting or invoking services."""
+    from rasai.passive_security import enabled, external_timeout
+
+    _install_config_contract()
+    with patch.dict(os.environ, {}, clear=True):
+        os.environ.update({
+            "RASAI_PASSIVE_SECURITY": requested,
+            "RASAI_SECURITY_EXTERNAL_TIMEOUT_SECONDS": timeout,
+            "RASAI_SECURITY_OSV": "false",
+            "RASAI_SECURITY_CISA_KEV": "false",
+        })
+        path = tmp_path / "security.ini"
+        console_settings.save_console_config(SearchConsoleState(), path)
+        original = path.read_bytes()
+        os.environ.clear()
+        result = console_settings.load_console_config(SearchConsoleState(), path)
+        assert result.warnings == ()
+        assert not result.created
+        assert enabled(dict(os.environ)) is expected
+        assert external_timeout(dict(os.environ)) == float(timeout)
+        # Remote feeds remain hard-disabled; neither function performs I/O.
+        assert os.environ["RASAI_SECURITY_OSV"] == "false"
+        assert os.environ["RASAI_SECURITY_CISA_KEV"] == "false"
+        assert path.read_bytes() == original
