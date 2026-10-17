@@ -84,6 +84,10 @@ def resolve_architecture(
     # equally legacy request. Never silently project across an explicitly scoped AUD.
     # Source rows are untrusted: malformed/foreign entries must not crash
     # the read-only resolver or widen the scope of a legitimate snapshot.
+    # Persisted evidence containers may themselves be absent or malformed.
+    # Reject them as no observations rather than throwing during projection.
+    if not isinstance(observations, (tuple, list)):
+        observations = ()
     matches = tuple(o for o in observations if
                     isinstance(o, ArchitectureObservation) and
                     o.requested_url == requested_url and
