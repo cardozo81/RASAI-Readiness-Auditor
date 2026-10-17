@@ -247,6 +247,8 @@ def aggregate_attempt_costs(attempts: Iterable[Any]) -> MonetaryAggregate:
     """Aggregate attempt costs by currency and preserve unpriced observations."""
 
     totals: dict[str, float] = {}
+    priced_counts: dict[str, int] = {}
+    overflow_currencies: set[str] = set()
     unpriced = 0
     for attempt in attempts:
         amount, currency, _basis = attempt_monetary_cost(attempt)
@@ -255,7 +257,20 @@ def aggregate_attempt_costs(attempts: Iterable[Any]) -> MonetaryAggregate:
                 unpriced += 1
             continue
         code = currency.upper()
-        totals[code] = totals.get(code, 0.0) + float(amount)
+        if code in overflow_currencies:
+            unpriced += 1
+            continue
+        combined = totals.get(code, 0.0) + float(amount)
+        if not isfinite(combined):
+            # Do not publish a partial currency total after floating overflow.
+            # Every previously aggregated attempt in this currency loses its
+            # independently reportable total, including the overflowing one.
+            unpriced += priced_counts.pop(code, 0) + 1
+            totals.pop(code, None)
+            overflow_currencies.add(code)
+            continue
+        totals[code] = combined
+        priced_counts[code] = priced_counts.get(code, 0) + 1
     return MonetaryAggregate(
         totals=tuple((currency, round(amount, 10)) for currency, amount in sorted(totals.items())),
         unpriced_attempts=unpriced,
