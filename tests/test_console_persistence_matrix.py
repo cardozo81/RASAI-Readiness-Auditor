@@ -686,3 +686,26 @@ def test_malicious_dynatrace_json_in_ini_does_not_restore_secret(tmp_path):
         assert restored.apdex_dynatrace_config_json != secret
         assert os.environ.get("RASAI_DYNATRACE_CONFIG_JSON") != secret
         assert path.read_bytes() == before
+
+
+def test_runtime_projection_rejects_dynatrace_secret_without_partial_environment(
+    monkeypatch,
+):
+    """INI and live runtime export use the same reject-before-write contract."""
+    import json
+
+    _install_config_contract()
+    state = SearchConsoleState()
+    state.apdex_dynatrace_config_json = json.dumps({
+        "safe": {"nested": [{"access_token": "PROJECTION_SECRET_NEVER_SET"}]}
+    })
+    baseline = dict(os.environ)
+    with pytest.raises(ValueError, match="credencial nao persistiveis"):
+        console_settings.sync_nonsecret_runtime_environment(state)
+    assert dict(os.environ) == baseline
+    state.apdex_dynatrace_config_json = '{"load_action":"VISUALLY_COMPLETE"}'
+    with patch.dict(os.environ, {}, clear=True):
+        console_settings.sync_nonsecret_runtime_environment(state)
+        assert os.environ.get("RASAI_DYNATRACE_CONFIG_JSON") == (
+            '{"load_action":"VISUALLY_COMPLETE"}'
+        )
