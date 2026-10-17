@@ -12,8 +12,8 @@ def resolve(**overrides):
         observations=(ArchitectureObservation("CSR_SPA", "https://example.org/a",
                     "mobile", "snapshot-a", "evidence-a"),),
         requested_url="https://example.org/a", device="mobile",
-        snapshot_id="snapshot-a", consumer_id="advice",
-        advisory_consumers=frozenset({"advice"}),
+        snapshot_id="snapshot-a", consumer_id="descriptive_report",
+        advisory_consumers=frozenset({"descriptive_report"}),
     )
     params.update(overrides)
     return resolve_architecture(**params)
@@ -117,3 +117,29 @@ def test_blank_evidence_reference_is_not_physical_proof():
     result = resolve(observations=(obs,))
     assert result.effective_architecture is None
     assert result.evidence_ref is None
+
+
+@pytest.mark.parametrize("unauthorized_consumer", [
+    "sari", "score_geo", "apdex", "synthetic_navigation", "synthetic_experience",
+    "ai_recommendation", "crawler", "collector", "advice", "unknown",
+])
+@pytest.mark.parametrize("selected_mode", ["AUTO", "DECLARED", "UNFORCED"])
+def test_caller_cannot_expand_methodological_consumer_allowlist(
+    unauthorized_consumer, selected_mode,
+):
+    """The caller's claimed allowlist cannot bypass the central F3 policy."""
+    value = resolve(
+        mode=selected_mode,
+        declared_architecture="CSR_SPA" if selected_mode == "DECLARED" else None,
+        consumer_id=unauthorized_consumer,
+        advisory_consumers=frozenset({unauthorized_consumer}),
+    )
+    assert value.effective_architecture is None
+    assert value.applicability == "INAPPLICABLE"
+    assert value.abstention_reason == "CONSUMER_NOT_APPROVED"
+
+
+def test_can_narrow_but_never_self_authorize_descriptive_policy():
+    result = resolve(advisory_consumers=frozenset())
+    assert result.effective_architecture is None
+    assert result.abstention_reason == "CONSUMER_NOT_APPROVED"

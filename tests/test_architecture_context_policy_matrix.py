@@ -97,3 +97,15 @@ def test_duplicate_same_snapshot_observations_abstain_even_if_agree():
     )
     assert value.effective_architecture is None
     assert value.abstention_reason == "MISSING_CONFLICTING_OR_INVALID_EVIDENCE"
+
+
+
+def test_approved_advisory_ids_are_fixed_and_no_score_consumer_is_allowed():
+    from rasai.architecture_context import APPROVED_ADVISORY_CONSUMERS
+    assert APPROVED_ADVISORY_CONSUMERS == frozenset({
+        "descriptive_report", "m6_read_only_diagnostic",
+    })
+    assert not APPROVED_ADVISORY_CONSUMERS.intersection({
+        "sari", "score_geo", "apdex", "synthetic_navigation",
+        "synthetic_experience", "ai_recommendation", "crawler",
+    })

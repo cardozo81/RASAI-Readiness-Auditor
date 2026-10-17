@@ -12,6 +12,14 @@ Mode = Literal["AUTO", "DECLARED", "UNFORCED"]
 Applicability = Literal["ADVISORY_SAFE", "INAPPLICABLE"]
 CLASSES = frozenset({"STATIC_OR_SSR", "HYDRATED", "CSR_SPA", "MIXED", "UNKNOWN"})
 CONTRACT_VERSION = "architecture-context-v1"
+# Fixed, audited descriptive-only consumers. Callers may narrow this set,
+# never expand it by supplying their own consumer ID as an allowlist entry.
+# All collection, scoring, Apdex and AI consumers remain ineligible until
+# an independently reviewed and versioned methodological contract exists.
+APPROVED_ADVISORY_CONSUMERS = frozenset({
+    "descriptive_report",
+    "m6_read_only_diagnostic",
+})
 
 
 @dataclass(frozen=True)
@@ -85,7 +93,10 @@ def resolve_architecture(
     evidence = matches[0].evidence_ref if valid else None
     discrepancy = (mode == "DECLARED" and valid and observed != "UNKNOWN"
                    and observed != declared_architecture)
-    eligible = consumer_id in advisory_consumers
+    eligible = (
+        consumer_id in APPROVED_ADVISORY_CONSUMERS
+        and consumer_id in advisory_consumers
+    )
     reason = None
     source = "UNFORCED"
     effective = None

@@ -205,3 +205,26 @@ HTML original, tratamento de discrepância e bytes de SQLite imutáveis.
 Isso é **transparência consultiva de F2 no consumidor descritivo já existente**,
 não propagação operacional F3 a índices, coletores, APDEX ou IA. A aprovação
 metodológica desses demais consumidores continua separada.
+
+## Bloqueio canônico de ampliação da allowlist por consumidor
+
+A resolução de contexto exige **duas condições** para liberar um uso
+estritamente descritivo: o identificador está no conjunto fixo
+`APPROVED_ADVISORY_CONSUMERS` do módulo `architecture_context` **e**
+o chamador o incluiu na sua lista local (que apenas restringe permissões).
+O conjunto fixo contém somente `descriptive_report` e
+`m6_read_only_diagnostic`. Identificadores de índices, escore, Apdex,
+coleta, navegação sintética e recomendações de IA continuam `INAPPLICABLE`,
+mesmo que o chamador tente incluí-los em `advisory_consumers`.
+
+Esta proteção reduz o risco de uma integração F3 ser ativada por
+parametrização local sem revisão. O teste simula a autoautorização
+de dez consumidores não aprovados em AUTO/DECLARED/UNFORCED e
+comprova a abstenção antes de qualquer efeito de execução. Mudança
+futura nesse conjunto exige ADR, contrato versionado, teste de
+paridade histórica e autorização metodológica explícita.
+
+**Estado atual de F3:** os únicos consumidores liberados são de
+apresentação/diagnóstico; nenhum índice, collector, Apdex ou IA é
+liberado. Isto constitui uma política executável de **não propagação**,
+não uma alegação de aprovação metodológica de propagação operacional.
