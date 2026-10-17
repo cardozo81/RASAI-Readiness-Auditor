@@ -174,3 +174,12 @@ def test_optional_attempt_count_exceeding_total_cannot_be_reported_as_valid():
     assert "Posição do custo na faixa histórica: N/D" in html
     assert "Há 3 tentativa" not in html
     assert "Desvio frente à estimativa pontual" not in html
+
+
+def test_report_ai_stage_monetary_amounts_expose_denominators():
+    from rasai.catalog_report_site import _timeline_monetary_coverage
+
+    assert _timeline_monetary_coverage(0.0, 2, 2) == "0.000000 (2/2 tentativas)"
+    assert _timeline_monetary_coverage(0.25, 1, 3) == "0.250000 (1/3 tentativas)"
+    assert _timeline_monetary_coverage(0.0, 0, 3).startswith("N/D")
+    assert _timeline_monetary_coverage(1.0, 4, 3).startswith("N/D")
