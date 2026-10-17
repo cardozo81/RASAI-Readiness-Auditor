@@ -310,3 +310,20 @@ def test_timeline_abstains_before_materializing_unbounded_attempt_population(tmp
     with pytest.raises(ValueError, match="population exceeded"):
         read_audit_attempt_timeline(db, "AUD-MANY")
     assert db.read_bytes() == original
+
+
+@pytest.mark.parametrize("nonphysical_duration", [True, False])
+def test_boolean_duration_never_counts_as_elapsed_milliseconds(nonphysical_duration):
+    """An invalid ledger clock cannot silently become one millisecond."""
+    from rasai.audit_attempt_timeline import _stage
+
+    stage = _stage("OTHER_AI", [{
+        "started_at": None, "finished_at": None,
+        "duration_ms": nonphysical_duration,
+        "observed_cost": None, "estimated_cost": None,
+    }])
+    assert stage.attempts == 1
+    assert stage.unknown_intervals == 1
+    assert stage.summed_duration_ms == 0
+    assert stage.union_active_ms is None
+    assert stage.unpriced_attempts == 1
