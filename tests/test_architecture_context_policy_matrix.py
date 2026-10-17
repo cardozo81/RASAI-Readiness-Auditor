@@ -109,3 +109,23 @@ def test_approved_advisory_ids_are_fixed_and_no_score_consumer_is_allowed():
         "sari", "score_geo", "apdex", "synthetic_navigation",
         "synthetic_experience", "ai_recommendation", "crawler",
     })
+
+
+def test_untrusted_architecture_rows_are_ignored_without_promoting_foreign_data():
+    """Malformed source rows do not crash the pure advisory resolver."""
+    good = ArchitectureObservation(
+        "HYDRATED", TARGET, "mobile", "snapshot-a", "evidence-a",
+        audit_id="AUD-A", page_id="PAGE-A", final_url=FINAL,
+    )
+    shared = dict(
+        mode="AUTO", declared_architecture=None, requested_url=TARGET,
+        device="mobile", snapshot_id="snapshot-a", audit_id="AUD-A",
+        page_id="PAGE-A", final_url=FINAL, consumer_id="descriptive_report",
+        advisory_consumers=ADVISORY,
+    )
+    value = resolve_architecture(observations=(None, {}, good, "untrusted"), **shared)
+    assert value.effective_architecture == "HYDRATED"
+    assert value.evidence_ref == "evidence-a"
+    invalid = resolve_architecture(observations=(None, {}, "untrusted"), **shared)
+    assert invalid.effective_architecture is None
+    assert invalid.abstention_reason == "MISSING_CONFLICTING_OR_INVALID_EVIDENCE"
