@@ -360,12 +360,11 @@ def _guard_existing_ini_before_save(
     return identity
 
 
-def _reject_secret_bearing_dynatrace_json(state: Any) -> None:
+def _reject_secret_bearing_dynatrace_json(value: Any) -> None:
     """Never serialize credential fields embedded in an otherwise public JSON."""
     import json
-    import re
 
-    raw = str(getattr(state, "apdex_dynatrace_config_json", "") or "").strip()
+    raw = str(value or "").strip()
     if not raw:
         return
     try:
@@ -393,7 +392,8 @@ def _reject_secret_bearing_dynatrace_json(state: Any) -> None:
 
 def save_console_config(state: Any, path: Path | None = None) -> Path:
     destination = path or resolve_config_path()
-    _reject_secret_bearing_dynatrace_json(state)
+    _reject_secret_bearing_dynatrace_json(getattr(state, "apdex_dynatrace_config_json", ""))
+    _reject_secret_bearing_dynatrace_json(os.environ.get(DYNATRACE_CONFIG_JSON_ENV))
     initial_identity = _guard_existing_ini_before_save(destination, state)
     # Save is a logical transaction for both the INI and the in-process
     # projection. Persisting may fail due to disk/permissions/races; a failed
