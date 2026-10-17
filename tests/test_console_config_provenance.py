@@ -393,3 +393,24 @@ def test_explicit_empty_session_value_is_not_mistaken_for_absent_override(tmp_pa
     assert empty.session_overrides == 1
     assert "12" not in render_provenance(empty)
     assert path.read_bytes() == original
+
+
+def test_ini_environment_precedence_preserves_explicit_empty_session_override(
+    tmp_path, monkeypatch,
+):
+    """#523: presence, not truthiness, decides session > INI precedence."""
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    path = tmp_path / "precedence.ini"
+    path.write_text(
+        "[environment]\nRASAI_SERP_MAX_REQUESTS=12\n",
+        encoding="utf-8",
+    )
+    for initial, expected in ((None, "12"), ("", ""), ("7", "7")):
+        if initial is None:
+            monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS", raising=False)
+        else:
+            monkeypatch.setenv("RASAI_SERP_MAX_REQUESTS", initial)
+        result = console_settings.load_console_config(SearchConsoleState(), path)
+        assert not result.warnings
+        assert os.environ.get("RASAI_SERP_MAX_REQUESTS") == expected
