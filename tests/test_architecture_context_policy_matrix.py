@@ -179,3 +179,21 @@ def test_malformed_observation_container_abstains_without_exception(malformed_ro
     assert result.observed_architecture == "UNKNOWN"
     assert result.evidence_ref is None
     assert result.abstention_reason == "MISSING_CONFLICTING_OR_INVALID_EVIDENCE"
+
+
+@pytest.mark.parametrize("bad_ref", [" ref-01", "ref-01 ", "ref\n01", "ref\t01"])
+def test_noncanonical_physical_architecture_evidence_ref_abstains(bad_ref):
+    observation = ArchitectureObservation(
+        "HYDRATED", TARGET, "mobile", "snapshot-a", bad_ref,
+        audit_id="AUD-A", page_id="PAGE-A", final_url=FINAL,
+    )
+    result = resolve_architecture(
+        mode="AUTO", declared_architecture=None,
+        observations=(observation,), requested_url=TARGET, device="mobile",
+        snapshot_id="snapshot-a", audit_id="AUD-A", page_id="PAGE-A",
+        final_url=FINAL, consumer_id="descriptive_report",
+        advisory_consumers=ADVISORY,
+    )
+    assert result.effective_architecture is None
+    assert result.evidence_ref is None
+    assert result.abstention_reason == "MISSING_CONFLICTING_OR_INVALID_EVIDENCE"
