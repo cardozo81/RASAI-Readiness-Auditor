@@ -54,7 +54,11 @@ def test_every_registered_public_setting_rehydrates_in_new_python_process(tmp_pa
 import json,os,sys
 from pathlib import Path
 from rasai.console_search_intelligence import SearchConsoleState
+from rasai.console_ui_refactor import _install_search_persistence
+from rasai.console_complete_persistence import install as install_complete_persistence
 from rasai.console_settings import load_console_config, _state_values
+_install_search_persistence()
+install_complete_persistence()
 state = SearchConsoleState()
 loaded = load_console_config(state, Path(sys.argv[1]))
 from configparser import ConfigParser
