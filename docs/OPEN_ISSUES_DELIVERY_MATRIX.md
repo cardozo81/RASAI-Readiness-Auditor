@@ -111,3 +111,25 @@ enquanto não houver o aceite competente.
 **Sem inferência de fechamento:** todas as 16 issues identificadas
 permanecem abertas nesta triagem. Este registro não concede aceite
 humano nem altera dados históricos.
+
+
+## Reconciliacao tecnica complementar
+
+No ciclo corrente a PR #647 incorporou reforcos offline em quatro issues,
+sem alterar AUD, scoring ou integracoes comerciais:
+
+- #319: integridade fisica do audit.db durante leitura de telemetria;
+  SHA 3f2c19f, 22/22 checks aprovados.
+- #523: inventario de entradas de seguranca passiva e Improvement,
+  alem de teste real de configuracao restaurada nos loaders de modelo,
+  pricing e perfis de IA; SHAs 9d84eeb e 0e04703, 22/22 cada.
+- #330: digest de origem concorrente com protecao contra alteracao
+  de mesmo tamanho; correcoes nos SHAs 1368596 e 4db42c5.
+- #603: recibo documental com rejeicao de escopo de produto em branco
+  ou com espacos perifericos; SHA 7f4933d.
+
+Essas entregas nao satisfazem sozinhas os aceites integrais. #319
+ainda requer apresentacao completa e prova de estimativas; #523
+requer cobertura de todos os consumidores; #330 depende de coortes e
+consentimento para dados reais; #603 requer fonte primaria vigente
+e revisao independente. Nenhuma issue foi encerrada neste ciclo.
