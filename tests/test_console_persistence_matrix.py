@@ -444,3 +444,56 @@ def test_saved_serp_controls_reach_real_runtime_adapter_after_restart_without_re
         assert runtime.force_refresh is False
         assert after.perplexity_queries == ()
         assert path.read_bytes() == original
+
+
+
+@pytest.mark.parametrize(("requested", "expected_state"), [
+    ("false", "DISABLED"),
+    ("true", "NOT_CONFIGURED"),
+])
+def test_saved_gsc_scope_policy_reaches_real_consumer_without_oauth_or_requests(
+    tmp_path, requested, expected_state,
+):
+    """Configuration is effective; persisted site URL is not OAuth consent."""
+    from rasai.gsc_scope import (
+        assess_gsc_target, gsc_request_mode,
+        GSC_ENABLED_ENV, GSC_SITE_URL_ENV, GSC_TOKEN_ENV,
+    )
+    from rasai.standards_gsc_policy import (
+        GSC_SEARCH_ANALYTICS_DAYS_ENV, GSC_SEARCH_MAX_ROWS_ENV,
+        GSC_FINAL_DATA_LAG_DAYS_ENV, search_analytics_days,
+        search_max_rows, final_data_lag_days,
+    )
+
+    _install_config_contract()
+    configured = {
+        GSC_ENABLED_ENV: requested,
+        GSC_SITE_URL_ENV: "sc-domain:example.org",
+        GSC_SEARCH_ANALYTICS_DAYS_ENV: "7",
+        GSC_SEARCH_MAX_ROWS_ENV: "97",
+        GSC_FINAL_DATA_LAG_DAYS_ENV: "5",
+    }
+    with patch.dict(os.environ, {}, clear=True):
+        os.environ.update(configured)
+        path = tmp_path / "gsc-policy.ini"
+        console_settings.save_console_config(SearchConsoleState(), path)
+        data_before = path.read_bytes()
+        # A fresh process must not inherit provider credentials or tokens.
+        os.environ.clear()
+        restored = SearchConsoleState()
+        result = console_settings.load_console_config(restored, path)
+        assert result.warnings == () and result.created is False
+        assert GSC_TOKEN_ENV not in os.environ
+        assert gsc_request_mode(os.environ) == (
+            "disabled" if requested == "false" else "required"
+        )
+        scope = assess_gsc_target("https://www.example.org/test", dict(os.environ))
+        assert scope.state == expected_state
+        assert not scope.eligible
+        assert scope.token_present is False
+        assert scope.blocking == (requested == "true")
+        assert search_analytics_days(os.environ[GSC_SEARCH_ANALYTICS_DAYS_ENV]) == 7
+        assert search_max_rows(os.environ[GSC_SEARCH_MAX_ROWS_ENV]) == 97
+        assert final_data_lag_days(os.environ[GSC_FINAL_DATA_LAG_DAYS_ENV]) == 5
+        assert restored.perplexity_queries == ()
+        assert path.read_bytes() == data_before
