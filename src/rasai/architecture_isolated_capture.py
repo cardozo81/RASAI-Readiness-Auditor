@@ -30,6 +30,14 @@ MAX_ASSETS = 24
 MAX_BUNDLE_BYTES = 4_500_000
 
 
+class ArchitectureAssetFailure(ValueError):
+    """Bounded resource failure code. Never hold page URLs or content."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
 def inspect_local_image() -> str | None:
     """Verify a locally built OCI image before performing any DNS or HTTP."""
     docker = shutil.which("docker")
@@ -81,7 +89,7 @@ def _encode_asset(url: str, document) -> dict:
             or not 200 <= document.http_status < 300
             or not isinstance(document.body, bytes)
             or not content_type or "\r" in content_type or "\n" in content_type):
-        raise ValueError("Pinned resource unavailable")
+        raise ArchitectureAssetFailure("OCI_ASSET_UNAVAILABLE")
     # Preserve relevant browser response policy. Stripping CSP from the replay
     # could execute scripts forbidden on the real page and misclassify a site.
     safe_headers = {}
@@ -95,7 +103,7 @@ def _encode_asset(url: str, document) -> dict:
             if not isinstance(value, str) or len(value) > 8192 or any(
                 ord(char) < 32 and char != "\t" for char in value
             ):
-                raise ValueError("Unsupported HTTP response policy")
+                raise ArchitectureAssetFailure("OCI_ASSET_POLICY_REJECTED")
             safe_headers[header] = value
     return {
         "url": url,
@@ -111,7 +119,7 @@ def _bundle_resources(target: str, root, raw: str) -> list[dict]:
     parser = _AssetReferences()
     parser.feed(raw)
     if len(parser.urls) > MAX_ASSETS:
-        raise ValueError("Too many architecture page resources")
+        raise ArchitectureAssetFailure("OCI_ASSET_COUNT_LIMIT")
     fetcher = PublicWebFetcher(
         timeout_seconds=4.0, max_redirects=0, max_bytes=500_000,
         opener=PublicWebPinnedOpener(),
@@ -119,12 +127,15 @@ def _bundle_resources(target: str, root, raw: str) -> list[dict]:
     assets = [root_record]
     seen = {target}
     for reference in parser.urls:
-        candidate = normalize_url(urljoin(target, reference))
+        try:
+            candidate = normalize_url(urljoin(target, reference))
+        except ValueError as exc:
+            raise ArchitectureAssetFailure("OCI_ASSET_URL_REJECTED") from exc
         if candidate in seen:
             continue
         # Fail closed if the page needs third-party JS/CSS/fonts.
         if normalized_origin(candidate) != normalized_origin(target):
-            raise ValueError("External page resources cannot be replayed offline")
+            raise ArchitectureAssetFailure("OCI_EXTERNAL_ASSET_REQUIRED")
         seen.add(candidate)
         _validate_public_url(candidate, _default_resolver)
         assets.append(_encode_asset(candidate, fetcher.fetch(candidate)))
@@ -190,6 +201,8 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
     # Preserve only bounded reason codes; never expose URLs, HTML or stderr.
     try:
         resources = _bundle_resources(target, document, raw)
+    except ArchitectureAssetFailure as exc:
+        return ProbeCaptures(target, target, device, raw, None, exc.reason)
     except (ValueError, OSError):
         return ProbeCaptures(target, target, device, raw, None, "OCI_ASSET_BUNDLE_REJECTED")
     try:
