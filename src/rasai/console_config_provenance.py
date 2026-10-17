@@ -83,8 +83,8 @@ def inspect_configuration(
     overrides = env if env is not None else os.environ
     conflicts = sum(
         1 for name, value in valid.items()
-        if (overrides.get(name) or "").strip()
-        and (overrides.get(name) or "").strip() != value.strip()
+        if name in overrides and isinstance(overrides[name], str)
+        and overrides[name].strip() != value.strip()
     )
     return ConfigurationProvenance(
         "LIDO: arquivo existente",
