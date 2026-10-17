@@ -371,7 +371,7 @@ def _reject_secret_bearing_dynatrace_json(state: Any) -> None:
     try:
         parsed = json.loads(raw)
     except (ValueError, TypeError):
-        # Preserve legacy opaque values; the consumer performs structural validation.
+        # Preserve opaque values; the consumer performs structural validation.
         return
     secret_keys = frozenset({
         "token", "api_token", "access_token", "refresh_token", "bearer_token",
