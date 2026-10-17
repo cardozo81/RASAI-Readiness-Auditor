@@ -179,8 +179,8 @@ da captura. O pipeline de reprocessamento já compartilha
 canônico, sem gravar AUD.
 
 **Limite metodológico do F3:** estas provas **não** aprovam alterar
-SARI, SCORE-GEO, Apdex/M23/M25, thresholds nem novos consumidores
+SARI, SCORE-GEO, Apdex, execução sintética, thresholds nem novos consumidores
 de IA. A matriz é contratual e read-only; apenas a apresentação
-descritiva dos fatos M6 existentes nos relatórios é autorizada no
+descritiva das observações arquiteturais existentes nos relatórios é autorizada no
 contrato atual. A promoção a consumidor operacional exige ADR e
 aprovação metodológica específicos antes de alterar execução/score.
