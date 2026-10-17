@@ -212,3 +212,27 @@ técnico da lista fixa); nunca imprime Docker stderr, HTML externo ou secrets.
 Se falhar, não executar a descoberta externa até diagnosticar o contêiner.
 **A imagem não precisa ser reconstruída para esse teste se a versão do worker
 não tiver mudado; o Python do host precisa estar atualizado.**
+
+### Falha no exemplo externo após canário aprovado
+
+Caso o operador obtenha `OCI_BROWSER_CANARY_PASSED`, mas o menu 8 retorne
+`UNKNOWN` sem comparação RAW/DOM, **não** classificar como falha do
+Chromium nem afirmar que o site é SPA. O Chromium sintético passou, mas a
+página real pode exigir recursos inacessíveis, conter referências externas,
+ultrapassar o orçamento, falhar no processo de replay ou exceder timeout.
+
+O adaptador agora distingue no console três estágios antes ocultos pelo
+motivo genérico `ISOLATED_RENDER_INCONCLUSIVE`:
+
+- `OCI_ASSET_BUNDLE_REJECTED`: preparação segura de recursos da página
+  rejeitada (pode ser recurso externo ou não disponível). Não fazer fallback
+  para requisitar recursos não autorizados.
+- `OCI_WORKER_TIMEOUT`: processo de renderização excedeu seu tempo total.
+- `OCI_WORKER_OUTPUT_INVALID`: resposta do worker ausente, inválida ou
+  incompatível. Não mostrar stdout/stderr, URLs ou HTML bruto para diagnosticar.
+  
+Os códigos são limitações da observação física, não classificação do
+framework do site. O fluxo mantém `UNKNOWN` e não modifica AUD.
+Antes de repetir um smoke real, sincronizar HEAD local da PR e manter o
+mesmo digest OCI cuja integridade/isolamento passou. Não é necessário
+reconstruir a imagem se o conteúdo do worker e Dockerfile não mudou.
