@@ -13,7 +13,7 @@ ou autorização de coleta externa irrestrita.
    `descriptive_report` e `m6_read_only_diagnostic` podem receber contexto
    efetivo sob a política `APPROVED_ADVISORY_CONSUMERS`.
 2. F3 é elegível para desenho de contratos e fixtures, **não** para ativação
-   automática em coleta, M5, SARI, SCORE-GEO, Apdex ou IA. O conjunto
+   automática em coleta, avaliação de prontidão, SARI, SCORE-GEO, Apdex ou IA. O conjunto
    de consumidores operacionais é vazio nesta versão da política.
 3. Para sinais opcionais robots/canonical/sitemap, conservar o motor SCORE-GEO
    vigente até existir tabela versionada de deltas/pesos, critérios de amostra
