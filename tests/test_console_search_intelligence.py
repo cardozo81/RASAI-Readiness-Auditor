@@ -333,9 +333,9 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "AUD-TEST"
             root.mkdir()
+            # The reader is mocked: no real SQLite connection or Windows
+            # file handle may survive fixture teardown.
             db = root / "audit.db"
-            with sqlite3.connect(db):
-                pass
             module = ModuleType("non_ai_usage_console")
             module._menu = lambda state: "V"
             module._configure = lambda state, choice: None
@@ -356,7 +356,7 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
             with patch.object(console_search, "audit_workspace", return_value=root), (
                 patch.object(console_search.AuditWorkspace, "open",
                              return_value=SimpleNamespace(database=db))
-            ), patch.object(
+            ), patch.object(console_search.sqlite3, "connect"), patch.object(
                 audit_attempt_timeline, "read_audit_attempt_timeline",
                 return_value=SimpleNamespace(attempts=0),
             ), patch.object(
