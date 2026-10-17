@@ -472,6 +472,14 @@ def inspect_geo_per_query(
                 for obs in serp:
                     if _query_key(obs["query"]) != qkey:
                         continue
+                    # A persisted SERP label with padding or controls is not
+                    # an exact physical member of the requested query cohort.
+                    observed_query = obs["query"]
+                    if (not isinstance(observed_query, str)
+                            or observed_query != observed_query.strip()
+                            or any(ord(ch) < 32 or ord(ch) == 127 for ch in observed_query)):
+                        unverified_clock_same_query = True
+                        continue
                     gap = _temporal_gap_seconds(run["started_at"], obs["collected_at"])
                     when = _utc(obs["collected_at"])
                     if gap is None or when is None:
