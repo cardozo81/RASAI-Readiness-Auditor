@@ -142,7 +142,7 @@ def test_token_counters_do_not_truncate_fractional_or_clamp_negative_usage():
         }) is None
     assert economic.canonical_total_tokens({
         "total_tokens": None, "input_tokens": -3, "output_tokens": 7,
-    }) == 7
+    }) is None
     assert economic.canonical_total_tokens({
         "total_tokens": "12", "input_tokens": 3, "output_tokens": 4,
     }) == 12
@@ -159,7 +159,7 @@ def test_excessive_numeric_token_text_abstains_before_integer_conversion():
     }) is None
     assert economic.canonical_total_tokens({
         "input_tokens": massive, "output_tokens": "3",
-    }) == 3
+    }) is None
 
 
 def test_malformed_currency_is_not_aggregated_as_a_monetary_total():
