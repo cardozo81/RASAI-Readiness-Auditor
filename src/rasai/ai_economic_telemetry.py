@@ -90,7 +90,9 @@ def canonical_total_tokens(source: Any) -> int | None:
         return None
     if input_tokens is None and output_tokens is None:
         return None
-    return int(input_tokens or 0) + int(output_tokens or 0)
+    derived = int(input_tokens or 0) + int(output_tokens or 0)
+    # Two bounded fields can still overflow the canonical token budget.
+    return derived if derived <= 999_999_999_999_999_999 else None
 
 
 def price_usage(
