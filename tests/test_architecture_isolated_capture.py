@@ -307,3 +307,53 @@ def test_canary_exposes_only_safe_enum_on_worker_failure():
     with patch("rasai.architecture_isolation_smoke.subprocess.run", return_value=value):
         with pytest.raises(RuntimeError, match="CANARY_EXECUTION_FAILED"):
             verify_browser_canary(digest=DIGEST, docker="docker")
+
+
+
+def test_html_asset_failure_is_diagnosed_before_docker_execution(monkeypatch):
+    from rasai.architecture_isolated_capture import ContentFetchStatus
+    root = SimpleNamespace(
+        status=ContentFetchStatus.OBSERVED,
+        final_url="https://example.org/", http_status=200,
+        body=b"<html><main>static</main></html>",
+        headers={"content-type": "text/html"},
+    )
+    monkeypatch.setattr("rasai.architecture_isolated_capture.inspect_local_image", lambda: DIGEST)
+    monkeypatch.setattr("rasai.architecture_isolated_capture.shutil.which", lambda _: "docker")
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_isolation", lambda **_: {})
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_browser_canary", lambda **_: None)
+    monkeypatch.setattr("rasai.architecture_isolated_capture._validate_public_url", lambda url, _: url)
+    with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch, patch(
+        "rasai.architecture_isolated_capture._bundle_resources",
+        side_effect=ValueError("resources fail closed"),
+    ), patch("rasai.architecture_isolated_capture.subprocess.run") as run:
+        fetch.return_value.fetch.return_value = root
+        result = capture_isolated_public_architecture("https://example.org/", DeviceContext.MOBILE)
+    assert result.quality_reason == "OCI_ASSET_BUNDLE_REJECTED"
+    run.assert_not_called()
+
+
+def test_render_timeout_and_invalid_output_remain_distinct(monkeypatch):
+    from rasai.architecture_isolated_capture import ContentFetchStatus
+    import subprocess
+    root = SimpleNamespace(
+        status=ContentFetchStatus.OBSERVED,
+        final_url="https://example.org/", http_status=200,
+        body=b"<html><main>static</main></html>",
+        headers={"content-type": "text/html"},
+    )
+    monkeypatch.setattr("rasai.architecture_isolated_capture.inspect_local_image", lambda: DIGEST)
+    monkeypatch.setattr("rasai.architecture_isolated_capture.shutil.which", lambda _: "docker")
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_isolation", lambda **_: {})
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_browser_canary", lambda **_: None)
+    monkeypatch.setattr("rasai.architecture_isolated_capture._validate_public_url", lambda url, _: url)
+    with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch:
+        fetch.return_value.fetch.return_value = root
+        with patch("rasai.architecture_isolated_capture.subprocess.run",
+                   side_effect=subprocess.TimeoutExpired(cmd="docker", timeout=40)):
+            timed_out = capture_isolated_public_architecture("https://example.org/", DeviceContext.MOBILE)
+        with patch("rasai.architecture_isolated_capture.subprocess.run",
+                   return_value=SimpleNamespace(returncode=2, stdout="{", stderr="do not print")):
+            invalid = capture_isolated_public_architecture("https://example.org/", DeviceContext.MOBILE)
+    assert timed_out.quality_reason == "OCI_WORKER_TIMEOUT"
+    assert invalid.quality_reason == "OCI_WORKER_OUTPUT_INVALID"
