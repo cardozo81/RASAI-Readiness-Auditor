@@ -426,6 +426,7 @@ def test_inline_exemption_never_applies_to_script_or_stylesheet():
         '<link rel="stylesheet" href="data:text/css,body%7B%7D">',
         '<link rel="icon stylesheet" href="data:text/css,body%7B%7D">',
         '<link rel="icon" href="javascript:alert(1)">',
+        '<link rel="icon" href="data:text/javascript,alert(1)">',
     )
     for reference in examples:
         markup = "<html><main>Text</main>" + reference + "</html>"
