@@ -381,8 +381,8 @@ def _reject_secret_bearing_dynatrace_json(state: Any) -> None:
     def has_secret(value: Any) -> bool:
         if isinstance(value, dict):
             for key, child in value.items():
-                canonical = re.sub(r"(?<!^)(?=[A-Z])", "_", str(key)).replace("-", "_").casefold()
-                if canonical in secret_keys or has_secret(child):
+                canonical = "".join(char for char in str(key).casefold() if char.isalnum())
+                if canonical in {"".join(char for char in candidate if char.isalnum()) for candidate in secret_keys} or has_secret(child):
                     return True
         elif isinstance(value, list):
             return any(has_secret(child) for child in value)
