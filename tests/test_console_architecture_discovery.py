@@ -1,5 +1,6 @@
 """Standalone preview must not invoke the audit engine or change architecture choice."""
 from types import SimpleNamespace
+import pytest
 from unittest.mock import patch
 
 from rasai.architecture_discovery import ArchitectureAssessment
@@ -120,3 +121,136 @@ def test_offline_oci_rejection_uses_human_facing_reason():
     text = "\n".join(describe_architecture_assessment(value))
     assert "Isolamento de rede do contêiner não comprovado" in text
     assert "OCI_NETWORK_ISOLATION_NOT_ATTESTED" not in text
+
+
+@pytest.mark.parametrize(
+    ("device", "rendered_suffix", "expected"),
+    [
+        ("mobile", "", "STATIC_OR_SSR"),
+        ("desktop", "", "STATIC_OR_SSR"),
+        ("mobile", " Client-rendered complementary description.", "HYDRATED"),
+        ("desktop", " Client-rendered complementary description.", "HYDRATED"),
+    ],
+)
+def test_windows_console_preview_canonical_raw_dom_without_aud_mutation(
+    tmp_path, monkeypatch, capsys, device, rendered_suffix, expected,
+):
+    """Hosted Windows contract: menu 8 consumes canonical classification, no real egress.
+
+    The physical OCI/Linux public-site smoke is independent. This checks the
+    actual console menu -> probe -> assessor path using bounded known captures.
+    """
+    import hashlib
+    import sqlite3
+    from rasai.architecture_probe import ProbeCaptures
+    from rasai.domain import DeviceContext
+
+    audits = tmp_path / "audits"
+    audit_folder = audits / "AUD-existing"
+    audit_folder.mkdir(parents=True)
+    db = audit_folder / "audit.db"
+    with sqlite3.connect(db) as conn:
+        conn.execute("CREATE TABLE audit_marker (value TEXT NOT NULL)")
+        conn.execute("INSERT INTO audit_marker VALUES ('original')")
+        conn.commit()
+    before_bytes = hashlib.sha256(db.read_bytes()).hexdigest()
+    before_files = sorted(p.relative_to(audits).as_posix() for p in audits.rglob("*"))
+
+    raw = "<html><body><main>Visible server content.</main></body></html>"
+    rendered = (
+        "<html><body><main>Visible server content."
+        + rendered_suffix
+        + "</main></body></html>"
+    )
+    observed = []
+    def captured(url, requested_device):
+        observed.append((url, requested_device))
+        return ProbeCaptures(url, url, requested_device, raw, rendered)
+
+    state = SimpleNamespace(
+        target="https://example.org/", device=device, audits_root=audits,
+    )
+    console = SimpleNamespace(
+        render_header=lambda *_: None,
+        _configure=lambda *_: (_ for _ in ()).throw(
+            AssertionError("preview must not change configuration")
+        ),
+    )
+    monkeypatch.setenv("RASAI_ARCH_PROBE_OFFLINE_CONTAINER", "1")
+    monkeypatch.setenv("RASAI_ARCH_PROBE_EGRESS_GUARDED", "0")
+    answers = iter(["1", "", "V"])
+    monkeypatch.setattr("builtins.input", lambda *_: next(answers))
+    with patch(
+        "rasai.console_architecture_discovery.capture_public_architecture",
+        side_effect=captured,
+    ) as capture, patch(
+        "rasai.architecture_probe._validate_public_url",
+        side_effect=lambda url, _resolver: url,
+    ) as validated, patch(
+        "rasai.architecture_probe._default_resolver",
+    ) as network_resolver:
+        architecture_preview_menu(console, state)
+
+    output = capsys.readouterr().out
+    assert f"Arquitetura observada: {expected}" in output
+    assert "Conteúdo principal RAW: presente" in output
+    assert "Conteúdo principal renderizado: presente" in output
+    assert "Versão do método: architecture-observation-v1" in output
+    assert "Esta observação não modifica a seleção nem os índices da AUD." in output
+    assert observed == [("https://example.org/", DeviceContext(device.upper()))]
+    capture.assert_called_once()
+    validated.assert_called_once()
+    network_resolver.assert_not_called()
+    assert state.target == "https://example.org/" and state.device == device
+    assert hashlib.sha256(db.read_bytes()).hexdigest() == before_bytes
+    assert sorted(p.relative_to(audits).as_posix() for p in audits.rglob("*")) == before_files
+
+
+def test_windows_preview_rejects_unrendered_live_capture_without_aud_mutation(
+    tmp_path, monkeypatch, capsys,
+):
+    """Real probe/assessor fail closed when the isolated capture declines."""
+    import sqlite3
+    from rasai.architecture_probe import ProbeCaptures
+    from rasai.domain import DeviceContext
+
+    folder = tmp_path / "AUD-original"
+    folder.mkdir()
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as conn:
+        conn.execute("CREATE TABLE markers (label TEXT NOT NULL)")
+        conn.execute("INSERT INTO markers VALUES ('original')")
+        conn.commit()
+    bytes_before = db.read_bytes()
+    state = SimpleNamespace(
+        target="https://example.org/", device="mobile", audits_root=tmp_path,
+    )
+    console = SimpleNamespace(
+        render_header=lambda *_: None,
+        _configure=lambda *_: (_ for _ in ()).throw(
+            AssertionError("preview cannot configure an AUD")
+        ),
+    )
+    monkeypatch.setenv("RASAI_ARCH_PROBE_OFFLINE_CONTAINER", "1")
+    answers = iter(["1", "", "V"])
+    monkeypatch.setattr("builtins.input", lambda *_: next(answers))
+    with patch(
+        "rasai.console_architecture_discovery.capture_public_architecture",
+        return_value=ProbeCaptures(
+            "https://example.org/", "https://example.org/", DeviceContext.MOBILE,
+            "<html><main>Visible server content.</main></html>",
+            None, "OCI_ASSET_URL_REJECTED",
+        ),
+    ) as capture, patch("rasai.architecture_probe._default_resolver") as resolver:
+        architecture_preview_menu(console, state)
+
+    output = capsys.readouterr().out
+    assert "Arquitetura observada: UNKNOWN" in output
+    assert "Referência de recurso HTML inválida ou não autorizada" in output
+    assert "Evidência: comparação RAW/renderizada indisponível ou rejeitada." in output
+    capture.assert_called_once()
+    resolver.assert_not_called()
+    assert db.read_bytes() == bytes_before
+    assert sorted(p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("*")) == [
+        "AUD-original", "AUD-original/audit.db",
+    ]
