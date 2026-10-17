@@ -393,7 +393,11 @@ def _reject_secret_bearing_dynatrace_json(value: Any) -> None:
         elif isinstance(value, list):
             return any(has_secret(child) for child in value)
         return False
-    if has_secret(parsed):
+    try:
+        contains_secret = has_secret(parsed)
+    except RecursionError as exc:
+        raise ValueError("Dynatrace JSON excede profundidade segura") from exc
+    if contains_secret:
         raise ValueError("Dynatrace JSON contem campos de credencial nao persistiveis")
 
 
