@@ -67,7 +67,7 @@ def _source_fingerprint(db: Path) -> tuple[str, int]:
     ):
         raise ValueError("AUD SQLite source changed during physical inspection")
     _reject_unsealed_sqlite_source(db)
-    return digest.hexdigest(), size
+    return digest.hexdigest(), before.st_size
 
 
 def _verified_console_window(
