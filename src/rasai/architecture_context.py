@@ -96,7 +96,11 @@ def resolve_architecture(
                     o.final_url == final_url)
     valid = (len(matches) == 1 and isinstance(matches[0].architecture, str)
              and matches[0].architecture in CLASSES
-             and isinstance(matches[0].evidence_ref, str) and bool(matches[0].evidence_ref.strip()))
+             and isinstance(matches[0].evidence_ref, str)
+             and bool(matches[0].evidence_ref.strip())
+             and matches[0].evidence_ref == matches[0].evidence_ref.strip()
+             and not any(ord(ch) < 32 or ord(ch) == 127
+                         for ch in matches[0].evidence_ref))
     observed = matches[0].architecture if valid else "UNKNOWN"
     evidence = matches[0].evidence_ref if valid else None
     discrepancy = (mode == "DECLARED" and valid and observed != "UNKNOWN"
