@@ -155,3 +155,32 @@ confundi-la com a observação física. O estado sem escolha explícita aparece 
 e consumidor autorizado, e `DECLARED` mostra a classe acompanhada de
 "informada, não descoberta". A apresentação não altera INI, scores, coleta,
 snapshot nem dá autorização a consumidores adicionais.
+
+## Matriz de política consultiva e identidade — gate complementar
+
+`tests/test_architecture_context_policy_matrix.py` percorre a matriz
+`AUTO / DECLARED / UNFORCED` × cinco arquiteturas observáveis
+× fases `PRE_COLLECTION / POST_COLLECTION` × consumidor
+descritivo autorizado ou índice não autorizado × dispositivos
+`mobile / desktop`. Em todos os casos, a proveniência
+`audit_id / page_id / requested_url / final_url / device / snapshot_id`
+é mantida, e consumidores fora da allowlist **nunca** recebem
+`effective_architecture`. Observações `UNKNOWN`, conflitantes,
+duplicadas ou referentes a outro escopo não são promovidas à
+descoberta automática. A escolha declarada é identificada como
+`USER_DECLARED`, não como evidência observada.
+
+Em `tests/test_m6_javascript_spa.py`, o caso existente de AUD sintética
+agora inclui um *spy* que comprova chamada real de
+`m6.execute_m6 -> assess_architecture` com os próprios bytes RAW/DOM
+da captura. O pipeline de reprocessamento já compartilha
+`m6.execute_m6_snapshot_scope`. A opção 8 conserva o
+`architecture_probe.probe_architecture -> assess_architecture`
+canônico, sem gravar AUD.
+
+**Limite metodológico do F3:** estas provas **não** aprovam alterar
+SARI, SCORE-GEO, Apdex/M23/M25, thresholds nem novos consumidores
+de IA. A matriz é contratual e read-only; apenas a apresentação
+descritiva dos fatos M6 existentes nos relatórios é autorizada no
+contrato atual. A promoção a consumidor operacional exige ADR e
+aprovação metodológica específicos antes de alterar execução/score.

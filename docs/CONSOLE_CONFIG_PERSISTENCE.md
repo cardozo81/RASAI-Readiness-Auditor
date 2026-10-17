@@ -604,3 +604,33 @@ Resultados automatizados verdes não devem ser rotulados como homologação
 Windows real; por outro lado, a inexistência desse smoke não invalida os
 round-trips entre processos já executados com sucesso. Reportar as duas
 provas como estados distintos até o aceite final.
+
+## Gate adicional de restauração completa e atomicidade da sessão
+
+A suíte `tests/test_console_registry_new_process_roundtrip.py` verifica em
+**processo Python independente** todos os nomes públicos do catálogo vivo
+`refresh_specs()`. Ela compara a cardinalidade do catálogo com todas as
+chaves de `[environment]` persistidas, carrega novo estado sem herdar
+variáveis RASAI/chaves de provedor da sessão anterior, confirma igualdade dos
+valores públicos não vazios, restaura o input tipado CAT-07
+`CSR_SPA/DYNATRACE_GUIDED` e mantém queries Perplexity somente como
+rascunho **sem autorização de execução**. A fonte INI deve permanecer
+inalterada em bytes. As variáveis de bootstrap do Python/Windows são
+preservadas para evitar falsear falhas de importação no subprocesso.
+
+A gravação `save_console_config` também passa a tratar a projeção do
+**ambiente do próprio processo** como parte da operação de salvamento:
+se a preparação, temporário ou `os.replace` falhar, a sessão restaura
+cada variável projetada ao valor original, inclusive ausências anteriores.
+O INI antigo permanece intacto e o arquivo temporário é removido. Isso
+não afirma transação distribuída com Windows Registry, ambiente global
+ou processos externos: somente `os.environ` no processo atual e escrita
+atômica de um INI são cobertos.
+
+**Fronteiras do aceite:** a prova integral do registro demonstra
+`save -> new process -> load` e seus valores tipados, não invocação de
+todos os consumidores reais: SERP, CAT-06/07 e demais adaptadores possuem
+gates separados. Não inferir consentimento de integração paga nem
+homologação de Dynatrace live a partir de uma variável em INI. O
+inventário `console_configuration_inventory` deve continuar
+indicando `NOT_PROVEN_BY_REGISTRY` onde não há teste de consumidor.
