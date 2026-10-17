@@ -663,6 +663,14 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
             # Do not revive an older INI value on console startup.
             if name not in os.environ and raw.strip():
                 os.environ[name] = raw.strip()
+    # The INI may contain literal credentials or unknown keys. These are
+    # never loaded into the runtime, even if a future adapter expands the
+    # state registry. Surface a safe diagnostic without revealing values.
+    for section in parser.sections():
+        if section == "environment":
+            continue
+        if section not in _state_values(state):
+            warnings.append(f"{section}: seção não reconhecida ou não persistível")
     for section, values in _state_values(state).items():
         if not parser.has_section(section): continue
         for option in values:
