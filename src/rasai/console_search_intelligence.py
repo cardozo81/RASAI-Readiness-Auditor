@@ -1025,6 +1025,25 @@ def install(console_module: ModuleType) -> None:
                             f"soma {timeline.summed_duration_ms / 1000:.1f}s | "
                             "ativo não calculável (intervalos incompletos)"
                         )
+                        # #319: expose the already recorded per-stage cost/time,
+                        # without treating concurrent attempts as serial AUD wall time.
+                        for stage in timeline.stages:
+                            active_label = (
+                                f"{stage.union_active_ms / 1000:.1f}s"
+                                if stage.union_active_ms is not None else "N/D"
+                            )
+                            estimate_label = (
+                                f"{stage.priced_usd_estimate:.6f} USD"
+                                if stage.attempts > stage.unpriced_attempts
+                                else "N/D"
+                            )
+                            print(
+                                f"  Etapa {stage.name.replace('_', ' ').title()}: "
+                                f"{stage.attempts} tentativa(s) | "
+                                f"soma {stage.summed_duration_ms / 1000:.1f}s | "
+                                f"ativo {active_label} | "
+                                f"estimativa pós-uso {estimate_label}"
+                            )
                         provider_coverage = sum(
                             stage.observed_cost_attempts for stage in timeline.stages
                         )
