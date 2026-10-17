@@ -384,7 +384,7 @@ def test_console_load_dangling_symlink_is_not_treated_as_missing_ini(tmp_path, m
 def test_explicit_empty_session_value_is_not_mistaken_for_absent_override(tmp_path):
     """Provenance must distinguish an explicitly empty input from no input."""
     path = tmp_path / "session-empty.ini"
-    path.write_text("[environment]\\nRASAI_SERP_MAX_REQUESTS=12\\n", encoding="utf-8")
+    path.write_text("[environment]\nRASAI_SERP_MAX_REQUESTS=12\n", encoding="utf-8")
     original = path.read_bytes()
     absent = inspect_configuration(path, env={})
     empty = inspect_configuration(path, env={"RASAI_SERP_MAX_REQUESTS": ""})
