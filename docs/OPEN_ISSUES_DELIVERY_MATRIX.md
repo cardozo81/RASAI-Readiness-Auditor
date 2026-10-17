@@ -266,3 +266,20 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
 - Nenhum desses guards autoriza alteracao de scoring, KPM, Apdex,
   formula longitudinal ou aplicacao de arquitetura descoberta
   retroativamente a um coletor.
+
+
+### Protecoes de integridade da telemetria economica
+
+- #319: contadores de tokens agora aceitam somente inteiros exatos
+  nao-negativos ou strings decimais ASCII limitadas a dezoito digitos.
+  Dados fracionarios, negativos, flags, infinitos e inteiros textuais
+  gigantes resultam em N/D, em vez de truncamento, coerção ou falha.
+- #319: denominacoes monetarias de custos persistidos devem ser
+  rotulos alfabeticos ASCII de tres letras; valores malformados nao
+  integram o somatorio. Nao sao introduzidas taxas de cambio.
+- #646: entradas de origem de arquitetura com tipos inesperados sao
+  ignoradas pelo contrato consultivo puro; sem uma observacao valida,
+  o contexto falha fechado, sem alterar parametros de coleta e scores.
+- Fixtures adversariais estao em `tests/test_ai_economic_telemetry.py`
+  e `tests/test_architecture_context_policy_matrix.py`. Os gates de
+  aceite operacional dos dois tickets permanecem abertos.
