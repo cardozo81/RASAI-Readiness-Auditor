@@ -186,8 +186,13 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
             or "text/html" not in document.headers.get("content-type", "").lower()):
         return ProbeCaptures(target, target, device, None, None, "PUBLIC_HTML_UNAVAILABLE")
     raw = document.body.decode("utf-8", errors="replace")
+    # Distinguish unsafe/unavailable HTML resources from Chromium failures.
+    # Preserve only bounded reason codes; never expose URLs, HTML or stderr.
     try:
         resources = _bundle_resources(target, document, raw)
+    except (ValueError, OSError):
+        return ProbeCaptures(target, target, device, raw, None, "OCI_ASSET_BUNDLE_REJECTED")
+    try:
         payload = json.dumps({
             "url": target, "device": device.value.lower(), "resources": resources,
         }, separators=(",", ":"), ensure_ascii=False)
@@ -223,5 +228,9 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
         if finished.returncode == 2 and reason in supported and result["rendered_html"] is None:
             return ProbeCaptures(target, target, device, raw, None, reason)
         return ProbeCaptures(target, target, device, raw, None, "ISOLATED_RENDER_INCONCLUSIVE")
-    except (ValueError, OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
-        return ProbeCaptures(target, target, device, raw, None, "ISOLATED_RENDER_INCONCLUSIVE")
+    except subprocess.TimeoutExpired:
+        return ProbeCaptures(target, target, device, raw, None, "OCI_WORKER_TIMEOUT")
+    except (ValueError, json.JSONDecodeError):
+        return ProbeCaptures(target, target, device, raw, None, "OCI_WORKER_OUTPUT_INVALID")
+    except OSError:
+        return ProbeCaptures(target, target, device, raw, None, "OCI_WORKER_PROCESS_FAILED")
