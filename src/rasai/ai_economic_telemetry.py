@@ -76,8 +76,15 @@ def canonical_total_tokens(source: Any) -> int | None:
     total = _integer(_value(source, "total_tokens"))
     if total is not None:
         return total
-    input_tokens = _integer(_value(source, "input_tokens"))
-    output_tokens = _integer(_value(source, "output_tokens"))
+    raw_input = _value(source, "input_tokens")
+    raw_output = _value(source, "output_tokens")
+    input_tokens = _integer(raw_input)
+    output_tokens = _integer(raw_output)
+    # An explicit invalid count is not an absent count. Deriving a
+    # deceptively low total from the remaining field misstates usage.
+    if ((raw_input is not None and input_tokens is None)
+            or (raw_output is not None and output_tokens is None)):
+        return None
     if input_tokens is None and output_tokens is None:
         return None
     return int(input_tokens or 0) + int(output_tokens or 0)
