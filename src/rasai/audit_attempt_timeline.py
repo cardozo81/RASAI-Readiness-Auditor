@@ -106,7 +106,7 @@ def _stage(name: str, rows: list[dict]) -> TimelineStage:
             # When timestamps are incomplete, retain the available duration for
             # summed telemetry, but do not claim a calculable interval union.
             duration = row.get("duration_ms")
-            if duration is not None:
+            if duration is not None and not isinstance(duration, bool):
                 try:
                     value = float(duration)
                     if math.isfinite(value) and value >= 0:
