@@ -107,6 +107,46 @@ jobs:
               print(label + "_LIMITATION:", assessment.limitation or "NONE", flush=True)
               if evidence.quality_reason is None and evidence.rendered_html is not None:
                   complete += 1
+          # Diagnostic metadata only: count URI scheme + HTML role. Never
+          # print a resource path, hostname, HTML, header, or response body.
+          from html.parser import HTMLParser
+          from collections import Counter
+          from urllib.parse import urljoin, urlsplit
+          from rasai.search_intelligence.content import PublicWebFetcher
+          from rasai.geo_competitor_pinned_egress import PublicWebPinnedOpener
+          class Metadata(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.roles = Counter()
+              def handle_starttag(self, tag, attrs):
+                  fields = dict(attrs)
+                  kind, reference = None, None
+                  if tag in ("script", "img", "source", "iframe"):
+                      kind, reference = tag, fields.get("src")
+                  elif tag == "link":
+                      rel = (fields.get("rel") or "").lower().split()
+                      matched = set(rel) & {"stylesheet", "preload", "modulepreload", "icon"}
+                      if matched:
+                          kind, reference = "link_" + sorted(matched)[0], fields.get("href")
+                  if kind and reference:
+                      scheme = urlsplit(urljoin("https://example.org/", reference)).scheme.lower()
+                      safe = scheme if scheme in {"http", "https", "data", "blob", "javascript"} else "other"
+                      self.roles[(kind, safe)] += 1
+          source = PublicWebFetcher(
+              timeout_seconds=8, max_redirects=0, max_bytes=1_000_000,
+              opener=PublicWebPinnedOpener(),
+          ).fetch("https://example.org/")
+          if source.body:
+              metadata = Metadata()
+              metadata.feed(source.body.decode("utf-8", errors="replace"))
+              print(
+                  "OCI_E2E_ASSET_ROLE_SCHEMES:",
+                  sorted((f"{kind}:{scheme}", count)
+                         for (kind, scheme), count in metadata.roles.items()),
+                  flush=True,
+              )
+          else:
+              print("OCI_E2E_ASSET_ROLE_SCHEMES: RAW_UNAVAILABLE", flush=True)
           if complete < 1:
               raise SystemExit("OCI_E2E_NO_CONCLUSIVE_PUBLIC_REFERENCE")
           print("OCI_E2E_AT_LEAST_ONE_PUBLIC_RENDER_PASSED", flush=True)
