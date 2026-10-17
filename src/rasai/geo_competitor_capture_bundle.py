@@ -34,7 +34,12 @@ def _physical_digest(source: Path) -> str:
     digest = sha256()
     consumed = 0
     with source.open("rb") as handle:
-        opened = os.fstat(handle.fileno())
+        try:
+            opened = os.fstat(handle.fileno())
+        except (OSError, ValueError, AttributeError):
+            # Synthetic input streams still undergo byte budgeting and size
+            # validation; they cannot attest descriptor identity.
+            opened = None
         for segment in iter(lambda: handle.read(1024 * 1024), b""):
             consumed += len(segment)
             if consumed > _MAX_SOURCE_DB_BYTES:
@@ -44,8 +49,10 @@ def _physical_digest(source: Path) -> str:
     fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
     if os.name != "nt":
         fields += ("st_ctime_ns",)
+    if consumed != before.st_size:
+        raise ValueError("AUD source changed size during digest")
     if (
-        source.is_symlink() or consumed != before.st_size
+        opened is None or source.is_symlink()
         or any(getattr(before, field) != getattr(observed, field)
                for observed in (opened, after) for field in fields)
     ):
