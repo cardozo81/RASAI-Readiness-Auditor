@@ -1586,3 +1586,13 @@ def test_304_host_group_keeps_www_distinct_from_apex_without_fabricated_alias():
         "other_host_distinct_urls": 2,
         "other_distinct_hosts": 2,
     }
+
+
+def test_query_metadata_controls_and_padding_abstain_before_attribution():
+    """Only a physical canonical per-result query may join a SERP cohort."""
+    from rasai.geo_query_ledger import _explicit_source_query, _INVALID_METADATA
+
+    for raw in (" padded", "padded ", "a\\nb", "a\\tb", "\\u0000query", ""):
+        payload = __import__("json").dumps({"query": raw})
+        assert _explicit_source_query(payload) is _INVALID_METADATA
+    assert _explicit_source_query('{"query":"brand coverage"}') == "brand coverage"
