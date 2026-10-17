@@ -270,6 +270,20 @@ def _declared_security_and_improvement_surface() -> dict[str, str]:
     return result
 
 
+def _declared_ai_catalog_surface() -> dict[str, str]:
+    """Only canonical AI catalog selectors, never provider-use evidence."""
+    from rasai import ai_model_catalog, ai_pricing_catalog, ai_task_profiles
+
+    return {
+        ai_model_catalog.MODEL_SOURCE_ENV: "MODEL_SOURCE_DECLARED_NOT_PROVIDER_USE",
+        ai_model_catalog.MODEL_FILE_ENV: "MODEL_FILE_DECLARED_NOT_PROVIDER_USE",
+        ai_pricing_catalog.PRICING_SOURCE_ENV: "PRICING_SOURCE_DECLARED_NOT_BILLING",
+        ai_pricing_catalog.PRICING_FILE_ENV: "PRICING_FILE_DECLARED_NOT_BILLING",
+        ai_task_profiles.PROFILE_SOURCE_ENV: "PROFILE_SOURCE_DECLARED_NOT_AI_USE",
+        ai_task_profiles.PROFILE_FILE_ENV: "PROFILE_FILE_DECLARED_NOT_AI_USE",
+    }
+
+
 def inventory(
     *,
     path: Path | None = None,
@@ -293,7 +307,9 @@ def inventory(
     gsc_affinities = _declared_gsc_consumer_surface()
     console_core_affinities = _declared_console_core_surface()
     security_improvement_affinities = _declared_security_and_improvement_surface()
+    ai_catalog_affinities = _declared_ai_catalog_surface()
     consumer_affinities = {
+        **ai_catalog_affinities,
         **security_improvement_affinities,
         **console_core_affinities, **gsc_affinities,
         **search_affinities, **apdex_affinities,
@@ -429,6 +445,13 @@ def inventory(
             "per_aud_provider_consent_proven": False,
             "real_provider_request_coverage_proven": False,
             "source": "SERP_RUNTIME_CONFIG_AND_PERPLEXITY_READINESS_DECLARATIONS",
+        },
+        "ai_catalog_adapter_surface_coverage": {
+            "mapped_registry_variables": sum(
+                item["name"] in ai_catalog_affinities for item in variables
+            ),
+            "catalog_load_or_provider_use_proven": False,
+            "pricing_or_bill_proven": False,
         },
         "security_improvement_adapter_surface_coverage": {
             "mapped_registry_variables": sum(

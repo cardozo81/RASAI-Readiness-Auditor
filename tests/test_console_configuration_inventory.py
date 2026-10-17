@@ -1109,3 +1109,28 @@ def test_security_and_improvement_declared_adapters_are_not_runtime_proof(tmp_pa
     assert not status["external_security_feeds_or_ai_provider_calls_proven"]
     assert not status["security_snapshot_or_improvement_execution_proven"]
     assert not (tmp_path / "no-operator.ini").exists()
+
+
+def test_ai_catalog_runtime_selectors_are_declared_without_execution_proof(tmp_path):
+    from rasai import ai_model_catalog, ai_pricing_catalog, ai_task_profiles
+
+    result = inventory(path=tmp_path / "not-created.ini", environ={})
+    rows = {item["name"]: item for item in result["environment_variables"]}
+    names = (
+        ai_model_catalog.MODEL_SOURCE_ENV, ai_model_catalog.MODEL_FILE_ENV,
+        ai_pricing_catalog.PRICING_SOURCE_ENV, ai_pricing_catalog.PRICING_FILE_ENV,
+        ai_task_profiles.PROFILE_SOURCE_ENV, ai_task_profiles.PROFILE_FILE_ENV,
+    )
+    for name in names:
+        assert rows[name]["declared_adapter_surface"] != (
+            "NOT_MAPPED_NO_CONSUMER_INFERENCE"
+        )
+        assert rows[name]["runtime_consumer"] == "NOT_PROVEN_BY_REGISTRY"
+        assert rows[name]["declared_adapter_surface_is_execution_proof"] is False
+    assert result["ai_catalog_adapter_surface_coverage"][
+        "mapped_registry_variables"
+    ] == len(names)
+    assert result["ai_catalog_adapter_surface_coverage"][
+        "catalog_load_or_provider_use_proven"
+    ] is False
+    assert not (tmp_path / "not-created.ini").exists()
