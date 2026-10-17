@@ -357,3 +357,40 @@ def test_render_timeout_and_invalid_output_remain_distinct(monkeypatch):
             invalid = capture_isolated_public_architecture("https://example.org/", DeviceContext.MOBILE)
     assert timed_out.quality_reason == "OCI_WORKER_TIMEOUT"
     assert invalid.quality_reason == "OCI_WORKER_OUTPUT_INVALID"
+
+
+
+def test_cross_origin_script_reports_specific_safe_resource_reason():
+    import pytest
+    from rasai.architecture_isolated_capture import (
+        _bundle_resources, ArchitectureAssetFailure, ContentFetchStatus,
+    )
+    markup = '<html><main>Fixture</main><script src="https://cdn.example.net/app.js"></script></html>'
+    root = SimpleNamespace(
+        status=ContentFetchStatus.OBSERVED,
+        final_url="https://example.org/",
+        http_status=200,
+        body=markup.encode(),
+        headers={"content-type": "text/html"},
+    )
+    with pytest.raises(ArchitectureAssetFailure) as raised:
+        _bundle_resources("https://example.org/", root, markup)
+    assert raised.value.reason == "OCI_EXTERNAL_ASSET_REQUIRED"
+
+
+def test_invalid_resource_url_reports_specific_safe_reason():
+    import pytest
+    from rasai.architecture_isolated_capture import (
+        _bundle_resources, ArchitectureAssetFailure, ContentFetchStatus,
+    )
+    markup = '<html><main>Fixture</main><script src="javascript:alert(1)"></script></html>'
+    root = SimpleNamespace(
+        status=ContentFetchStatus.OBSERVED,
+        final_url="https://example.org/",
+        http_status=200,
+        body=markup.encode(),
+        headers={"content-type": "text/html"},
+    )
+    with pytest.raises(ArchitectureAssetFailure) as raised:
+        _bundle_resources("https://example.org/", root, markup)
+    assert raised.value.reason == "OCI_ASSET_URL_REJECTED"
