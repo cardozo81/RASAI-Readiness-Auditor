@@ -414,3 +414,20 @@ def test_ini_environment_precedence_preserves_explicit_empty_session_override(
         result = console_settings.load_console_config(SearchConsoleState(), path)
         assert not result.warnings
         assert os.environ.get("RASAI_SERP_MAX_REQUESTS") == expected
+
+
+def test_console_load_reports_unknown_ini_section_without_leaking_values(
+    tmp_path, monkeypatch,
+):
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    ini = tmp_path / "unknown-section.ini"
+    ini.write_text(
+        "[unexpected_private_section]\nTOKEN=DO_NOT_DISCLOSE_523\n"
+        "[environment]\nRASAI_SERP_MAX_REQUESTS=9\n", encoding="utf-8",
+    )
+    monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS", raising=False)
+    result = console_settings.load_console_config(SearchConsoleState(), ini)
+    assert any("unexpected_private_section" in note for note in result.warnings)
+    assert "DO_NOT_DISCLOSE_523" not in repr(result.warnings)
+    assert os.environ["RASAI_SERP_MAX_REQUESTS"] == "9"
