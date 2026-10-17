@@ -26,10 +26,18 @@ from rasai.search_intelligence.freshness import require_valid_serp_freshness
 
 def _timeline_monetary_coverage(amount: float, count: int, total: int) -> str:
     """Expose observed money and its actual attempt denominator together."""
-    if not isinstance(count, int) or not isinstance(total, int) or count < 0 or total <= 0 or count > total:
+    from math import isfinite
+
+    if (type(count) is not int or type(total) is not int
+            or count < 0 or total <= 0 or count > total):
         return "N/D (cobertura monetaria inconsistente)"
     if count == 0:
         return "N/D (nenhuma tentativa com este tipo de valor)"
+    # Reject invalid values even when the attempt census is otherwise valid.
+    # Printing NaN, Infinity, a negative charge or a coerced bool would turn
+    # corrupted ledger metadata into a plausible financial observation.
+    if type(amount) not in (int, float) or not isfinite(amount) or amount < 0:
+        return "N/D (valor monetario invalido)"
     return f"{amount:.6f} ({count}/{total} tentativas)"
 
 
