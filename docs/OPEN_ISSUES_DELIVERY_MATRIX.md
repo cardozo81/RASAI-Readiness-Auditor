@@ -205,3 +205,15 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
 - Permanecem pendentes paridade de duracoes ativas em AUD real,
   forecast de fase com cronometro comparavel e aceite completo da
   interface console/previsao/HTML.
+
+
+### Proveniencia do CONS consultivo no HTML longitudinal
+
+- #311: o HTML independente apresentado pelo companion CONS-3 agora
+  explicita o ID do consolidado e o fingerprint do manifesto a partir
+  do bloco `cons_reference`, sem ocultar o limite de atestado.
+  A regressao comprava que report.html e manifest.json existentes
+  permanecem intactos e os campos de referencia aparecem na pagina.
+- A exposicao e apenas do inventario de AUDs listado pelo CONS,
+  nao constitui verificacao independente da assinatura de origem,
+  calibracao longitudinal ou publicacao nativa no CONS.
