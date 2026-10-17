@@ -1596,3 +1596,24 @@ def test_query_metadata_controls_and_padding_abstain_before_attribution():
         payload = __import__("json").dumps({"query": raw})
         assert _explicit_source_query(payload) is _INVALID_METADATA
     assert _explicit_source_query('{"query":"brand coverage"}') == "brand coverage"
+
+
+@pytest.mark.parametrize("bad_query", [
+    " seguro de vida", "seguro de vida ", "seguro\nvida",
+    "seguro\tvida", "seguro\x00vida",
+])
+def test_persisted_query_cohort_rejects_padding_and_controls(tmp_path, bad_query):
+    folder = _audit(tmp_path, multi=False)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE perplexity_search_runs SET query_json=?",
+            (json.dumps([bad_query]),),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "EXTERNAL_QUERY_SET_AMBIGUOUS"
+    assert result["queries"] == []
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert db.read_bytes() == before
