@@ -232,6 +232,44 @@ def _declared_console_core_surface() -> dict[str, str]:
     })
     return declared
 
+def _declared_security_and_improvement_surface() -> dict[str, str]:
+    """Declare real adapter inputs; do not imply security feed or AI execution."""
+    from rasai import passive_security, improvement_intelligence as improvement
+
+    security = (
+        passive_security.ENABLED_ENV,
+        passive_security.HEADERS_ENV,
+        passive_security.COOKIES_ENV,
+        passive_security.RESOURCES_ENV,
+        passive_security.THIRD_PARTY_ENV,
+        passive_security.RUNTIME_ENV,
+        passive_security.OSV_ENV,
+        passive_security.KEV_ENV,
+        passive_security.EXTERNAL_TIMEOUT_ENV,
+    )
+    result = {
+        name: "PASSIVE_SECURITY_INPUT_DECLARED_NOT_COLLECTION_PROOF"
+        for name in security
+    }
+    improvement_inputs = (
+        improvement.ENABLED_ENV,
+        improvement.PROVIDER_ENV,
+        improvement.MODEL_ENV,
+        improvement.REASONING_ENV,
+        improvement.DOMAINS_ENV,
+        improvement.MAX_RECOMMENDATIONS_ENV,
+        improvement.TIMEOUT_ENV,
+    )
+    result.update({
+        name: "IMPROVEMENT_INPUT_DECLARED_NOT_PROVIDER_EXECUTION_PROOF"
+        for name in improvement_inputs
+    })
+    result[improvement.AI_ANALYSIS_LANGUAGE_ENV] = (
+        "IMPROVEMENT_LANGUAGE_INPUT_NOT_PROVIDER_EXECUTION_PROOF"
+    )
+    return result
+
+
 def inventory(
     *,
     path: Path | None = None,
@@ -254,7 +292,9 @@ def inventory(
     search_affinities = _declared_search_consumer_surface()
     gsc_affinities = _declared_gsc_consumer_surface()
     console_core_affinities = _declared_console_core_surface()
+    security_improvement_affinities = _declared_security_and_improvement_surface()
     consumer_affinities = {
+        **security_improvement_affinities,
         **console_core_affinities, **gsc_affinities,
         **search_affinities, **apdex_affinities,
     }
@@ -389,6 +429,14 @@ def inventory(
             "per_aud_provider_consent_proven": False,
             "real_provider_request_coverage_proven": False,
             "source": "SERP_RUNTIME_CONFIG_AND_PERPLEXITY_READINESS_DECLARATIONS",
+        },
+        "security_improvement_adapter_surface_coverage": {
+            "mapped_registry_variables": sum(
+                item["name"] in security_improvement_affinities for item in variables
+            ),
+            "external_security_feeds_or_ai_provider_calls_proven": False,
+            "security_snapshot_or_improvement_execution_proven": False,
+            "source": "PASSIVE_SECURITY_AND_IMPROVEMENT_CONFIG_DECLARATIONS",
         },
         "console_core_adapter_surface_coverage": {
             "mapped_registry_variables": sum(

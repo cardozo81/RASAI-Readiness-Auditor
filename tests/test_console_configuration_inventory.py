@@ -1085,3 +1085,27 @@ def test_apdex_preflight_classifies_rejected_environment_without_read_write_leak
         "NEVER_ECHO",
     ):
         assert forbidden not in rendered
+
+
+def test_security_and_improvement_declared_adapters_are_not_runtime_proof(tmp_path):
+    """Contract inventory comes from actual constants; no external access is executed."""
+    from rasai import passive_security, improvement_intelligence as improvement
+
+    result = inventory(path=tmp_path / "no-operator.ini", environ={})
+    rows = {row["name"]: row for row in result["environment_variables"]}
+    for name in (
+        passive_security.ENABLED_ENV, passive_security.EXTERNAL_TIMEOUT_ENV,
+        passive_security.OSV_ENV, passive_security.KEV_ENV,
+        improvement.ENABLED_ENV, improvement.MAX_RECOMMENDATIONS_ENV,
+        improvement.TIMEOUT_ENV, improvement.AI_ANALYSIS_LANGUAGE_ENV,
+    ):
+        assert rows[name]["declared_adapter_surface"] != (
+            "NOT_MAPPED_NO_CONSUMER_INFERENCE"
+        )
+        assert rows[name]["runtime_consumer"] == "NOT_PROVEN_BY_REGISTRY"
+        assert rows[name]["declared_adapter_surface_is_execution_proof"] is False
+    status = result["security_improvement_adapter_surface_coverage"]
+    assert status["mapped_registry_variables"] >= 8
+    assert not status["external_security_feeds_or_ai_provider_calls_proven"]
+    assert not status["security_snapshot_or_improvement_execution_proven"]
+    assert not (tmp_path / "no-operator.ini").exists()
