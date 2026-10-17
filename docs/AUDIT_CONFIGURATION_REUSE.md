@@ -261,3 +261,13 @@ O recurso não altera:
 - regra de que apenas AUD final e elegível participa da consolidação geral.
 
 Falha ou ausência de snapshot não altera o resultado analítico já persistido do AUD. Ela apenas impede que aquele AUD seja usado como fonte de configuração.
+
+## Rollback em falha de restauração
+
+No console, a restauração da configuração de AUD é transacional quanto às
+atribuições da sessão e às projeções de variáveis de ambiente **do processo**:
+uma exceção durante a reidratação ou sincronização restaura os valores anteriores.
+Campos opcionais rejeitados com avisos continuam seguindo a política vigente de
+avisos e não representam rejeição integral. A operação não grava INI nem modifica
+a AUD de origem. Os testes usam estado e ambiente sintéticos; a conferência do
+Windows/User Registry continua com aceite separado.

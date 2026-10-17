@@ -69,13 +69,14 @@ def verify_faq_interaction_receipt(
         or not isinstance(trusted_key, bytes) or len(trusted_key) < 32
         or not isinstance(permitted_collector_ids, frozenset)
         or not isinstance(receipt.get("collector_id"), str)
+        or not receipt["collector_id"].strip()
         or receipt["collector_id"] not in permitted_collector_ids
         or receipt.get("target_opt_in") is not True
         or receipt.get("isolated_unauthenticated_context") is not True
         or receipt.get("network_blocked_after_load") is not True
         or receipt.get("action") != _ACTION
         or not isinstance(receipt.get("receipt_id"), str)
-        or not receipt["receipt_id"]
+        or not receipt["receipt_id"].strip()
         or not isinstance(before_html, str) or not isinstance(later_html, str)
     ):
         return unverified

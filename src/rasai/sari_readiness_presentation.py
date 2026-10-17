@@ -213,8 +213,8 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
             f"<h3>{escape(label)}</h3>"
             f"<p><strong>{escape(readiness_label)}</strong></p>"
             f"<p>Qualidade medida: <strong>{escape(score)}</strong> · {escape(quality_label)}</p>"
-            f"<p>Coverage {escape(coverage)} (fração canônica {coverage_raw}) · Confidence {escape(confidence)} · Consolidation {escape(consolidation)}</p>"
-            f"<p>Critical readiness: <strong>{escape(readiness)}</strong>"
+            f"<p>Cobertura {escape(coverage)} (fração canônica {coverage_raw}) · Confiança contratual {escape(confidence)} · Consolidação {escape(consolidation)}</p>"
+            f"<p>Gates críticos de prontidão: <strong>{escape(readiness)}</strong>"
             + (f" · {escape(gate_detail)}" if gate_detail else "")
             + "</p></article>"
         )

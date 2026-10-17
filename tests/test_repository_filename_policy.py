@@ -188,6 +188,20 @@ def test_complete_tree_parser_is_safe_and_returns_all_paths(monkeypatch) -> None
     assert check(paths) == ["docs/historical_639.md"]
 
 
+
+def test_entire_committed_tree_has_zero_unapproved_tracking_filename_ids() -> None:
+    """A green incremental diff does not excuse regressions in the whole tree."""
+    paths = git_all_paths("HEAD")
+    assert paths, "The committed checkout must contain repository files"
+    assert not PUBLIC_CONTRACT_EXCEPTIONS, (
+        "Any new public-name exemption requires its own reviewed contract"
+    )
+    violations = check(paths)
+    assert not violations, (
+        f"Tracking IDs in {len(violations)} of {len(paths)} versioned paths:\n"
+        + "\n".join(violations[:40])
+    )
+
 def test_all_ci_workflows_reference_existing_literal_python_paths() -> None:
     """Renamed files must not leave silent CI paths filters or test commands."""
     root = Path(__file__).resolve().parents[1]

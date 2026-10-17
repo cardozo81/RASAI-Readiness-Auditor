@@ -554,3 +554,44 @@ def test_inspector_rejects_oversized_source_without_opening_sqlite(
         module.inspect_audit_attempts(root)
     assert db.read_bytes() == original
     assert previous > db.stat().st_size
+
+
+def test_physical_inspector_refuses_in_place_same_size_source_mutation(tmp_path, monkeypatch):
+    """A changed inode metadata stamp fails closed even when byte count is identical."""
+    from rasai import audit_attempt_inspection as inspection
+    root = _fixture(tmp_path)
+    db = root / "audit.db"
+    original_open = __import__("pathlib").Path.open
+    changed = {"done": False}
+
+    class MutatingReader:
+        def __init__(self, handle):
+            self.handle = handle
+        def __enter__(self):
+            self.handle.__enter__()
+            return self
+        def __exit__(self, *args):
+            return self.handle.__exit__(*args)
+        def __getattr__(self, key):
+            return getattr(self.handle, key)
+        def read(self, size=-1):
+            data = self.handle.read(size)
+            if data and not changed["done"]:
+                changed["done"] = True
+                with original_open(db, "r+b") as writer:
+                    writer.seek(0)
+                    first = writer.read(1)
+                    writer.seek(0)
+                    writer.write(bytes([first[0] ^ 1]))
+            return data
+
+    def intercepted_open(path, *args, **kwargs):
+        handle = original_open(path, *args, **kwargs)
+        if path == db and args and args[0] == "rb":
+            return MutatingReader(handle)
+        return handle
+
+    monkeypatch.setattr(__import__("pathlib").Path, "open", intercepted_open)
+    with pytest.raises(ValueError, match="changed during physical inspection"):
+        inspection._source_fingerprint(db)
+    assert changed["done"]

@@ -6,6 +6,19 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    # Observacao fisica de FAQ em navegador isolado e sem atestado externo.
+    "NOT_OBSERVED": "Nao observado",
+    "LOCAL_FAQ_ACTION_OBSERVED_NOT_ATTESTED": "Interacao local de FAQ observada sem atestado externo",
+    "OPT_IN_OR_ISOLATION_NOT_PROVEN": "Consentimento ou isolamento do navegador nao comprovado",
+    "BROWSER_CONTEXT_NOT_ISOLATED": "Contexto do navegador nao isolado",
+    "DOCUMENT_IDENTITY_UNVERIFIABLE": "Identidade da pagina nao verificavel",
+    "DOM_EXCEEDS_LIMIT": "DOM anterior excede limite de leitura",
+    "DOM_EXCEEDS_LIMIT_AFTER_ACTION": "DOM posterior excede limite de leitura",
+    "TOO_MANY_CONTROLS": "Controles demais para inspecao segura",
+    "AMBIGUOUS_OR_ALREADY_OPEN_CONTROL": "Controle FAQ ambiguo ou ja expandido",
+    "BROWSER_ACTION_OR_INSPECTION_FAILED": "Interacao ou inspecao de navegador falhou",
+    "NAVIGATION_OR_POPUP_AFTER_ACTION": "Navegacao ou nova janela durante interacao",
+    "UNSAFE_FORM_CONTROL": "Controle associado a formulario fora do clique seguro",
     # Ciclo de vida da auditoria e estados operacionais públicos.
     "CREATED": "Criado",
     "INITIALIZING": "Inicializando",
@@ -51,6 +64,10 @@ PUBLIC_VALUE_LABELS: dict[str, str] = {
     "OPTIONAL_IMPROVEMENT": "Melhoria opcional",
     "NO_ACTION": "Nenhuma ação necessária",
     "INSUFFICIENT_EVIDENCE": "Evidência insuficiente",
+    "CONSUMER_NOT_APPROVED": "Uso arquitetural não autorizado para este consumidor",
+    "MISSING_CONFLICTING_OR_INVALID_EVIDENCE": "Evidência arquitetural ausente, conflitante ou inválida",
+    "OBSERVATION_NOT_AVAILABLE_BEFORE_COLLECTION": "Descoberta ainda indisponível antes da coleta",
+    "UNKNOWN_OBSERVED_ARCHITECTURE": "Arquitetura observada não determinada",
     "ORIGIN": "Domínio / origem",
     "DEVICE_SNAPSHOT": "Dispositivo / captura",
     "PROFILE_MEASUREMENT": "Medição por perfil",
@@ -781,3 +798,29 @@ def public_contract_label(value: Any) -> str:
     return public_label(raw) or _dynamic_cause_label(head) or safe_visible_fallback(raw)
 
 __all__ = ["PUBLIC_VALUE_LABELS", "PUBLIC_PHRASE_LABELS", "public_label", "public_text", "public_contract_label"]
+
+# Isolated architecture renderer: technical reason codes have human-facing
+# translations even when they are emitted by a networkless worker.
+PUBLIC_VALUE_LABELS.update({
+    "ISOLATED_BROWSER_UNAVAILABLE": "Navegador isolado indisponível",
+    "ISOLATED_MANIFEST_INVALID": "Pacote de captura isolada inválido",
+    "ISOLATED_NAVIGATION_NOT_ATTESTED": "Navegação isolada não comprovada",
+    "ISOLATED_RENDER_LIMIT": "Limite de renderização isolada excedido",
+    "ISOLATED_RESOURCES_BLOCKED": "Recursos necessários bloqueados no navegador isolado",
+    "OCI_NETWORK_ISOLATION_NOT_ATTESTED": "Isolamento de rede do contêiner não comprovado",
+    "OCI_ASSET_UNAVAILABLE": "Recurso solicitado pela página não pôde ser obtido com segurança",
+    "OCI_ASSET_POLICY_REJECTED": "Política de segurança do recurso incompatível com a reprodução isolada",
+    "OCI_ASSET_COUNT_LIMIT": "Página excede o limite de recursos permitido na análise",
+    "OCI_EXTERNAL_ASSET_REQUIRED": "A página depende de um recurso externo à origem não permitido na captura isolada",
+    "OCI_ASSET_URL_REJECTED": "Referência de recurso HTML inválida ou não autorizada",
+    "OCI_ASSET_BUNDLE_REJECTED": "Recurso HTML indisponível, externo ou incompatível com a reprodução isolada",
+    "OCI_WORKER_TIMEOUT": "Tempo limite da renderização isolada excedido",
+    "OCI_WORKER_OUTPUT_INVALID": "Resposta do renderizador isolado inválida",
+    "OCI_BROWSER_CANARY_FAILED": "O navegador isolado não conseguiu renderizar a página sintética de verificação",
+    "OCI_WORKER_PROCESS_FAILED": "Processo de renderização OCI não concluiu corretamente",
+    "OCI_IMAGE_NOT_AVAILABLE": "Imagem de isolamento OCI não disponível",
+    "OCI_RUNTIME_NOT_AVAILABLE": "Executor OCI local não disponível",
+    "PUBLIC_TARGET_REJECTED": "Destino público rejeitado",
+    "PUBLIC_HTML_UNAVAILABLE": "HTML público indisponível para análise",
+    "ISOLATED_RENDER_INCONCLUSIVE": "Renderização isolada inconclusiva",
+})

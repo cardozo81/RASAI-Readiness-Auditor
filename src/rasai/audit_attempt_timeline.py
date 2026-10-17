@@ -106,7 +106,7 @@ def _stage(name: str, rows: list[dict]) -> TimelineStage:
             # When timestamps are incomplete, retain the available duration for
             # summed telemetry, but do not claim a calculable interval union.
             duration = row.get("duration_ms")
-            if duration is not None:
+            if duration is not None and not isinstance(duration, bool):
                 try:
                     value = float(duration)
                     if math.isfinite(value) and value >= 0:
@@ -206,7 +206,10 @@ def read_audit_attempt_timeline(
                 # A physical duplicate is not a second observation and not
                 # an ignorable row. Silently dropping it understates cost and
                 # time; refuse the entire ambiguous ledger instead.
-                if not key or key in seen:
+                if (not key or key in seen
+                        or not isinstance(row.get("attempt_id"), str)
+                        or row["attempt_id"] != key
+                        or any(ord(ch) < 32 or ord(ch) == 127 for ch in key)):
                     raise ValueError(
                         "ambiguous AI attempt_id in physical " + table + " ledger"
                     )

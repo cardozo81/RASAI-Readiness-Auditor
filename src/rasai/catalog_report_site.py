@@ -24,6 +24,23 @@ from rasai.geo_report import geo_body
 from rasai.search_intelligence.freshness import require_valid_serp_freshness
 
 
+def _timeline_monetary_coverage(amount: float, count: int, total: int) -> str:
+    """Expose observed money and its actual attempt denominator together."""
+    from math import isfinite
+
+    if (type(count) is not int or type(total) is not int
+            or count < 0 or total <= 0 or count > total):
+        return "N/D (cobertura monetaria inconsistente)"
+    if count == 0:
+        return "N/D (nenhuma tentativa com este tipo de valor)"
+    # Reject invalid values even when the attempt census is otherwise valid.
+    # Printing NaN, Infinity, a negative charge or a coerced bool would turn
+    # corrupted ledger metadata into a plausible financial observation.
+    if type(amount) not in (int, float) or not isfinite(amount) or amount < 0:
+        return "N/D (valor monetario invalido)"
+    return f"{amount:.6f} ({count}/{total} tentativas)"
+
+
 def _methodology_body(data: _ReportData) -> str:
     """PoC-style contract map of sources and limits; no interpretation is rerun."""
     versions = sorted({
@@ -168,9 +185,15 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
                 stage.attempts,
                 f"{stage.summed_duration_ms / 1000:.2f} s",
                 active,
-                f"{stage.priced_usd_estimate:.6f}",
-                (f"{stage.priced_usd_provider_observed:.6f}" if stage.observed_cost_attempts
-                 else "N/D (provider não informou)"),
+                _timeline_monetary_coverage(
+                    stage.priced_usd_estimate,
+                    stage.attempts - stage.observed_cost_attempts - stage.unpriced_attempts,
+                    stage.attempts,
+                ),
+                _timeline_monetary_coverage(
+                    stage.priced_usd_provider_observed,
+                    stage.observed_cost_attempts, stage.attempts,
+                ),
                 f"intervalos desconhecidos={stage.unknown_intervals}; sem preço={stage.unpriced_attempts}",
             ))
         body+=_section(

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 import os
+from dataclasses import fields, is_dataclass
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Mapping
@@ -12,12 +13,14 @@ from rasai.audit_configuration_reuse import (
     KIND_CONSOLE,
     ReusableAuditConfiguration,
     changed_fields,
+    configuration_hash,
     load_reusable_audit_configuration,
 )
 from rasai.audit_configuration_reuse_runtime import configuration_context
 
 _INSTALLED = False
 _SESSION_SOURCE: dict[int, ReusableAuditConfiguration] = {}
+_ARCHITECTURE_SELECTION: dict[int, object] = {}
 
 
 def _search_execution_settings(state: Any) -> dict[str, Any] | None:
@@ -247,40 +250,77 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
             "novas AUDs exigem exatamente uma URL. Selecione uma URL explicitamente antes de executar."
         )
 
+    # Restore only the audited, canonical architecture choice. Historical
+    # configurations without the field never invent an operator preference.
+    from rasai.architecture_choice import CHOICE_KEY
+    choice = None
+    if CHOICE_KEY in configuration:
+        from rasai.architecture_choice_audit_adapter import read_sealed_audit_choice
+        choice = read_sealed_audit_choice(
+            configuration, expected_hash=configuration_hash(configuration)
+        ).choice
+    # Do not mutate the selected policy until the rest of the restore succeeds.
+
     warnings: list[str] = []
     allowed_environment = set(console_settings._known_nonsecret_environment_names())
     environment = raw_settings.get("environment", {})
     if not isinstance(environment, Mapping):
         raise ValueError("snapshot de console possui seção environment inválida")
 
-    # Historical non-secret settings override the current non-secret session only after
-    # the operator explicitly chooses to load that AUD. Secrets remain outside this
-    # allowlist and continue resolved from the current OS/session.
-    for name in allowed_environment:
-        raw = environment.get(name)
-        if raw is None or not str(raw).strip():
-            os.environ.pop(name, None)
-        else:
-            os.environ[name] = str(raw).strip()
+    # Preserve the process-session projection until all steps succeed.
+    # No second persistence source is created, and secrets stay in memory.
+    previous_environment = dict(os.environ)
+    previous_state = {}
+    if is_dataclass(state):
+        previous_state.update({item.name: getattr(state, item.name)
+                               for item in fields(state)})
+    if hasattr(state, "__dict__"):
+        previous_state.update(vars(state))
 
-    for section, known_values in console_settings._state_values(state).items():
-        values = raw_settings.get(section, {})
-        if not isinstance(values, Mapping):
-            continue
-        for option in known_values:
-            if option == "config_version" or option not in values:
+    try:
+        # Historical non-secret settings override the current non-secret session only after
+        # the operator explicitly chooses to load that AUD. Secrets remain outside this
+        # allowlist and continue resolved from the current OS/session.
+        for name in allowed_environment:
+            raw = environment.get(name)
+            if raw is None or not str(raw).strip():
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = str(raw).strip()
+
+        for section, known_values in console_settings._state_values(state).items():
+            values = raw_settings.get(section, {})
+            if not isinstance(values, Mapping):
                 continue
-            try:
-                console_settings._assign(state, section, option, str(values[option]))
-            except (TypeError, ValueError) as exc:
-                warnings.append(f"{section}.{option}: {exc}")
+            for option in known_values:
+                if option == "config_version" or option not in values:
+                    continue
+                try:
+                    console_settings._assign(state, section, option, str(values[option]))
+                except (TypeError, ValueError) as exc:
+                    warnings.append(f"{section}.{option}: {exc}")
 
-    _apply_search_settings(state, configuration, warnings)
+        _apply_search_settings(state, configuration, warnings)
 
-    state.input_mode = "url"
-    state.target = targets[0]
+        state.input_mode = "url"
+        state.target = targets[0]
 
-    console_settings.sync_nonsecret_runtime_environment(state)
+        console_settings.sync_nonsecret_runtime_environment(state)
+        if choice is None:
+            _ARCHITECTURE_SELECTION.pop(id(state), None)
+        else:
+            _ARCHITECTURE_SELECTION[id(state)] = choice
+    except BaseException:
+        # A rejected restore must not leave a mixture of two AUD configurations.
+        for name in set(previous_environment) | set(os.environ):
+            if os.environ.get(name) != previous_environment.get(name):
+                if name in previous_environment:
+                    os.environ[name] = previous_environment[name]
+                else:
+                    os.environ.pop(name, None)
+        for name, value in previous_state.items():
+            setattr(state, name, value)
+        raise
     return tuple(warnings)
 
 
@@ -374,6 +414,22 @@ def _load_source(state: Any, console_module: ModuleType | None = None) -> None:
     load_source_configuration(state, audit_id, console_module=console_module)
 
 
+def describe_session_architecture_choice(state: Any) -> str:
+    """Visible session selection; never present a declaration as measured fact."""
+    from rasai.architecture_choice import ArchitectureChoice
+
+    selected = _ARCHITECTURE_SELECTION.get(id(state))
+    if selected is None:
+        return "NÃO SELECIONADA (padrão anterior; sem aplicação automática)"
+    if not isinstance(selected, ArchitectureChoice):
+        raise ValueError("Invalid session architecture selection")
+    if selected.mode == "UNFORCED":
+        return "SEM FORÇAR (escolha explícita; sem aplicação automática)"
+    if selected.mode == "AUTO":
+        return "AUTOMÁTICA (depende de evidência e consumidor autorizado)"
+    return f"DECLARADA: {selected.declared_architecture} (informada, não descoberta)"
+
+
 def install(interactive_console: ModuleType) -> None:
     """Install a top-level reuse shortcut and bind the final console execution state."""
     global _INSTALLED
@@ -393,6 +449,8 @@ def install(interactive_console: ModuleType) -> None:
         def input_with_hint(prompt: str = "") -> str:
             if prompt == "Escolha: ":
                 print("L. Carregar configuração de AUD [NOVA EXECUÇÃO]")
+                print("Y. Arquitetura para esta auditoria [SEM ALTERAR OS ÍNDICES]")
+                print("   Atual: " + describe_session_architecture_choice(state))
             return original_input(prompt)
 
         builtins.input = input_with_hint
@@ -402,6 +460,40 @@ def install(interactive_console: ModuleType) -> None:
             builtins.input = original_input
 
     def configure_with_reuse(state: Any, choice: str) -> None:
+        if choice == "Y":
+            from rasai.architecture_choice import ArchitectureChoice
+            print("Arquitetura da auditoria (opção consultiva; não modifica pontuação)")
+            print("Seleção atual: " + describe_session_architecture_choice(state))
+            print("1. Sem forçar arquitetura")
+            print("2. Automática, baseada na descoberta")
+            print("3. Definida por você")
+            selected = builtins.input("Opção (V para voltar): ").strip().upper()
+            if selected in {"V", ""}:
+                return
+            if selected == "1":
+                selection = ArchitectureChoice("UNFORCED")
+            elif selected == "2":
+                selection = ArchitectureChoice("AUTO")
+            elif selected == "3":
+                options = {
+                    "1": "STATIC_OR_SSR", "2": "HYDRATED",
+                    "3": "CSR_SPA", "4": "MIXED",
+                }
+                print("1. Estática ou renderizada no servidor")
+                print("2. Renderizada com hidratação")
+                print("3. Aplicação de página única (SPA)")
+                print("4. Arquitetura mista")
+                arch = options.get(builtins.input("Tipo (V para voltar): ").strip())
+                if arch is None:
+                    return
+                selection = ArchitectureChoice("DECLARED", arch)
+            else:
+                return
+            _ARCHITECTURE_SELECTION[id(state)] = selection
+            from rasai.console_session import mark_dirty
+            mark_dirty(state)
+            state.error = "Preferência de arquitetura registrada para esta sessão; os índices não foram alterados."
+            return
         if choice == "L":
             _load_source(state, console_module=interactive_console)
             return
@@ -416,10 +508,16 @@ def install(interactive_console: ModuleType) -> None:
             return original_run(state)
 
         source = _SESSION_SOURCE.get(id(state))
-        differences = changed_fields(source.configuration, effective) if source else ()
+        # The provenance diff must describe the same effective payload that
+        # is sealed for execution, including explicit architecture selection.
+        from rasai.architecture_choice_audit_adapter import prepare_audit_choice_configuration
+        choice = _ARCHITECTURE_SELECTION.get(id(state))
+        sealed_effective = prepare_audit_choice_configuration(effective, choice=choice)
+        differences = changed_fields(source.configuration, sealed_effective) if source else ()
         with configuration_context(
             kind=KIND_CONSOLE,
             configuration=effective,
+            architecture_choice=choice,
             source_audit_id=source.audit_id if source else None,
             source_configuration_hash=source.configuration_hash if source else None,
             changed_fields=differences,

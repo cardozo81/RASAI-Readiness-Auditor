@@ -67,7 +67,8 @@ def _explicit_source_query(metadata: object) -> str | None | object:
     raw = payload.get("query")
     if raw is None:
         return None
-    if not isinstance(raw, str) or not raw.strip() or len(raw) > 300:
+    if (not isinstance(raw, str) or not raw.strip() or len(raw) > 300
+            or raw != raw.strip() or any(ord(char) < 32 or ord(char) == 127 for char in raw)):
         return _INVALID_METADATA
     return raw
 _WINDOW = 86400
@@ -80,6 +81,12 @@ def _host_group(urls: set[str], target: str) -> dict[str, int]:
     A www host is NOT the same as its apex without a persisted redirect.
     The v8 URL canonicalizer already rejected ambiguous source identities.
     """
+    # Defensive contract for callers other than the current ledger adapter.
+    # An invalid or ambiguous hostname must never enter observed counts.
+    if _canonical_url(target) != target or not urlsplit(target).hostname:
+        raise ValueError("target URL identity is not canonical HTTP(S)")
+    if any(_canonical_url(url) != url or not urlsplit(url).hostname for url in urls):
+        raise ValueError("source URL identity is not canonical HTTP(S)")
     hostname = urlsplit(target).hostname
     same_host = {url for url in urls if urlsplit(url).hostname == hostname}
     competitors = {
@@ -360,7 +367,9 @@ def inspect_geo_per_query(
             if (not isinstance(declared, list)
                     or not 1 <= len(declared) <= _MAX_QUERY_COUNT
                     or any(not isinstance(q, str) or not q.strip()
-                           or len(q) > 300 for q in declared)
+                           or len(q) > 300 or q != q.strip()
+                           or any(ord(char) < 32 or ord(char) == 127 for char in q)
+                           for q in declared)
                     or len({_query_key(q) for q in declared}) != len(declared)):
                 return abstain("EXTERNAL_QUERY_SET_AMBIGUOUS")
             if not set(brands) <= {_query_key(q) for q in declared}:
@@ -397,7 +406,8 @@ def inspect_geo_per_query(
                 if metadata is _INVALID_METADATA or (
                     direct is not None
                     and (not isinstance(direct, str) or not direct.strip()
-                         or len(direct) > 300)
+                         or len(direct) > 300 or direct != direct.strip()
+                         or any(ord(char) < 32 or ord(char) == 127 for char in direct))
                 ):
                     contradictory = True
                     break
@@ -459,8 +469,17 @@ def inspect_geo_per_query(
                 candidates: list[tuple[float, datetime, sqlite3.Row]] = []
                 incomplete_scope_in_window = False
                 unverified_clock_same_query = False
+                unverified_identity_same_query = False
                 for obs in serp:
                     if _query_key(obs["query"]) != qkey:
+                        continue
+                    # A persisted SERP label with padding or controls is not
+                    # an exact physical member of the requested query cohort.
+                    observed_query = obs["query"]
+                    if (not isinstance(observed_query, str)
+                            or observed_query != observed_query.strip()
+                            or any(ord(ch) < 32 or ord(ch) == 127 for ch in observed_query)):
+                        unverified_identity_same_query = True
                         continue
                     gap = _temporal_gap_seconds(run["started_at"], obs["collected_at"])
                     when = _utc(obs["collected_at"])
@@ -476,6 +495,10 @@ def inspect_geo_per_query(
                         incomplete_scope_in_window = True
                         continue
                     candidates.append((gap, when, obs))
+                if unverified_identity_same_query:
+                    row["reason"] = "SERP_QUERY_IDENTITY_UNVERIFIABLE"
+                    out["queries"].append(row)
+                    continue
                 if unverified_clock_same_query:
                     row["reason"] = "SERP_CHRONOLOGY_UNVERIFIABLE_FOR_QUERY"
                     out["queries"].append(row)

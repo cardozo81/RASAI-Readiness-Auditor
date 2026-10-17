@@ -108,3 +108,26 @@ versionados do operador, imports dinâmicos de terceiros ou clientes externos.
 O inventário por padrão de nomes não comprova ausência de nomes opacos que
 não correspondam à regex. Uma issue de migração só poderá ser fechada após
 reconciliar expressamente essas fronteiras e os critérios de aceite integrais.
+
+## Estado verificável da árvore completa
+
+A verificação independente pela GitHub Git Trees API no HEAD
+`98c73e95f46fe68670ace6016979532e9a91404e` enumerou **1.509
+arquivos versionados**, sem truncamento, e encontrou **zero** ocorrências
+do padrão numérico anterior. A allowlist de exceções continua vazia.
+
+A partir desta reconciliação, a suíte
+`tests/test_repository_filename_policy.py` também varre
+**toda a árvore Git do HEAD** em execução normal do pytest, além do
+gate incremental já existente. Assim, uma futura introdução de um
+basename de issue/PR/data reprova a execução mesmo quando não houver
+uma comparação incremental disponível.
+
+**Limite da comprovação:** a regex protege tokens de tracking
+numéricos, prefixos issue/PR e datas. Não demonstra ausência de todos
+os nomes opacos alfanuméricos; consumidor externo não versionado e
+compatibilidade com scripts particulares exigem inventário separado.
+O requisito de conferir `main` após merge não pode ser satisfeito
+antes do próprio merge. Portanto, a issue de migração só deve ser
+encerrada quando a verificação pós-integração e a avaliação de
+compatibilidade externa estiverem concluídas.

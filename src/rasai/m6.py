@@ -19,6 +19,7 @@ from rasai.domain import (
 )
 from rasai.evidence import EvidenceManager
 from rasai.javascript_spa import JavascriptSpaAnalyzer, LazyProbe, StateComparison
+from rasai.architecture_discovery import assess_architecture
 from rasai.m2 import M2ExecutionResult
 from rasai.m3 import M3ExecutionResult
 from rasai.m4 import M4ExecutionResult
@@ -100,12 +101,12 @@ def execute_m6_snapshot_scope(
     raw_html = _read(workspace, snapshot.raw_artifact_ref)
     rendered_html = _read(workspace, snapshot.rendered_artifact_ref)
     quality_reason = capture_quality_block_reason(snapshot.browser_metadata)
-    comparison = (
-        analyzer.compare(raw_html, rendered_html)
-        if quality_reason is None and raw_html is not None and rendered_html is not None
-        else None
+    assessment = assess_architecture(
+        raw_html=raw_html, rendered_html=rendered_html,
+        quality_reason=quality_reason, analyzer=analyzer,
     )
-    classification = comparison.architecture if comparison is not None else ArchitectureClassification.UNKNOWN
+    comparison = assessment.comparison
+    classification = assessment.architecture
     writer.update(snapshot_id, classification)
 
     evaluations: dict[str, RuleEvaluation] = {

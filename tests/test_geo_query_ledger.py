@@ -1559,3 +1559,103 @@ def test_host_overlap_preserves_separate_hostname_denominators() -> None:
 def test_304_host_overlap_rejects_invalid_url_identity(bad) -> None:
     with pytest.raises(ValueError, match="canonical HTTP"):
         ledger._host_overlap({"https://valid.test/a"}, {bad})
+
+
+
+@pytest.mark.parametrize("malformed", [
+    "javascript:window.open('x')",
+    "https://user:password@example.test/",
+    " https://example.test/a",
+    "not-a-url",
+])
+def test_304_host_group_abstains_for_uncanonical_target_and_members(malformed):
+    """No invalid URL should contribute to a hostname denominator."""
+    with pytest.raises(ValueError, match="canonical HTTP"):
+        ledger._host_group({"https://valid.test/a"}, malformed)
+    with pytest.raises(ValueError, match="canonical HTTP"):
+        ledger._host_group({malformed, "https://valid.test/a"}, "https://valid.test/")
+
+
+def test_304_host_group_keeps_www_distinct_from_apex_without_fabricated_alias():
+    result = ledger._host_group(
+        {"https://example.test/a", "https://www.example.test/a", "https://other.test/a"},
+        "https://example.test/",
+    )
+    assert result == {
+        "same_host_alternative_urls": 1,
+        "other_host_distinct_urls": 2,
+        "other_distinct_hosts": 2,
+    }
+
+
+def test_query_metadata_controls_and_padding_abstain_before_attribution():
+    """Only a physical canonical per-result query may join a SERP cohort."""
+    from rasai.geo_query_ledger import _explicit_source_query, _INVALID_METADATA
+
+    for raw in (" padded", "padded ", "a" + chr(10) + "b", "a" + chr(9) + "b", chr(0) + "query", ""):
+        payload = __import__("json").dumps({"query": raw})
+        assert _explicit_source_query(payload) is _INVALID_METADATA
+    assert _explicit_source_query('{"query":"brand coverage"}') == "brand coverage"
+
+
+@pytest.mark.parametrize("bad_query", [
+    " seguro de vida", "seguro de vida ", "seguro\nvida",
+    "seguro\tvida", "seguro\x00vida",
+])
+def test_persisted_query_cohort_rejects_padding_and_controls(tmp_path, bad_query):
+    folder = _audit(tmp_path, multi=False)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE perplexity_search_runs SET query_json=?",
+            (json.dumps([bad_query]),),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "EXTERNAL_QUERY_SET_AMBIGUOUS"
+    assert result["queries"] == []
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert db.read_bytes() == before
+
+@pytest.mark.parametrize("bad_query", [
+    " seguro de vida", "seguro de vida ", "seguro\\nvida",
+    "seguro\\tvida", "seguro\\x00vida",
+])
+def test_per_source_direct_query_rejects_padding_and_controls(tmp_path, bad_query):
+    folder = _audit(tmp_path, multi=False)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE perplexity_search_sources SET query=?",
+            (bad_query,),
+        )
+    original = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["per_query_attribution_status"] == "MULTI_QUERY_SOURCE_MAPPING_MISSING"
+    assert result["queries"][0]["reason"] == "PER_QUERY_SOURCE_ATTRIBUTION_UNPROVEN"
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert db.read_bytes() == original
+
+
+@pytest.mark.parametrize("bad_query", [
+    " seguro de vida", "seguro de vida ", "seguro\nvida", "seguro\tvida",
+])
+def test_serp_noncanonical_query_identity_abstains_without_cherry_picking(tmp_path, bad_query):
+    folder = _audit(tmp_path, multi=False)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_observations SET query=?",
+            (bad_query,),
+        )
+    original = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    # A malformed same-cohort observation cannot be used for URL intersection.
+    assert result["queries"][0]["status"] == "NOT_COMPARABLE"
+    if bad_query.strip().casefold() == "seguro de vida":
+        assert result["queries"][0]["reason"] == "SERP_QUERY_IDENTITY_UNVERIFIABLE"
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert db.read_bytes() == original

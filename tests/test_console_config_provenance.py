@@ -298,3 +298,98 @@ def test_guarded_save_accepts_known_bom_ini(tmp_path):
     assert console_settings.save_console_config(loaded, path) == path
     reloaded = SearchConsoleState()
     assert not console_settings.load_console_config(reloaded, path).warnings
+
+
+def test_console_load_refuses_symlink_without_modifying_state_or_source(tmp_path, monkeypatch):
+    """A startup config cannot follow a symlink to unrelated operator data."""
+    from rasai.console_search_intelligence import SearchConsoleState
+    real = tmp_path / "real.ini"
+    real.write_text("[environment]\nRASAI_SERP_MAX_REQUESTS=37\n", encoding="utf-8")
+    link = tmp_path / "console.ini"
+    try:
+        link.symlink_to(real)
+    except (OSError, NotImplementedError):
+        import pytest
+        pytest.skip("symlinks unavailable on this platform")
+    source_before = real.read_bytes()
+    monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS", raising=False)
+    state = SearchConsoleState()
+    prior = state.device
+    result = console_settings.load_console_config(state, link)
+    assert not result.created
+    assert result.warnings
+    assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
+    assert state.device == prior
+    assert real.read_bytes() == source_before
+    assert link.is_symlink()
+
+
+def test_console_load_refuses_oversized_ini_without_side_effects(tmp_path, monkeypatch):
+    """Reader rejects files beyond the existing 2MB source guard."""
+    from rasai.console_search_intelligence import SearchConsoleState
+    path = tmp_path / "too-large.ini"
+    path.write_bytes(b"[environment]\nRASAI_SERP_MAX_REQUESTS=4\n" +
+                     b";" * 2_000_001)
+    source_before = path.stat().st_size
+    monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS", raising=False)
+    state = SearchConsoleState()
+    original_device = state.device
+    result = console_settings.load_console_config(state, path)
+    assert result.warnings and result.created is False
+    assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
+    assert state.device == original_device
+    assert path.stat().st_size == source_before
+
+
+def test_console_load_refuses_changed_source_before_any_environment_activation(
+    tmp_path, monkeypatch,
+):
+    """Source identity race on read fails closed instead of partially loading."""
+    from rasai.console_search_intelligence import SearchConsoleState
+    from unittest.mock import patch
+    path = tmp_path / "unstable.ini"
+    path.write_text("[environment]\nRASAI_SERP_MAX_REQUESTS=22\n", encoding="utf-8")
+    original = path.read_bytes()
+    monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS", raising=False)
+    state = SearchConsoleState()
+    with patch("rasai.console_settings._existing_ini_snapshot",
+               side_effect=ValueError("source changed during read")):
+        result = console_settings.load_console_config(state, path)
+    assert result.warnings and not result.created
+    assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
+    assert path.read_bytes() == original
+
+
+
+def test_console_load_dangling_symlink_is_not_treated_as_missing_ini(tmp_path, monkeypatch):
+    """Reject even a broken link before the create-default path."""
+    from rasai.console_search_intelligence import SearchConsoleState
+    import pytest
+
+    link = tmp_path / "dangling.ini"
+    try:
+        link.symlink_to(tmp_path / "missing.ini")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks unavailable")
+    assert not link.exists() and link.is_symlink()
+    state = SearchConsoleState()
+    monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS", raising=False)
+    result = console_settings.load_console_config(state, link)
+    assert not result.created and result.warnings
+    assert link.is_symlink()
+    assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
+    assert not (tmp_path / "missing.ini").exists()
+
+
+def test_explicit_empty_session_value_is_not_mistaken_for_absent_override(tmp_path):
+    """Provenance must distinguish an explicitly empty input from no input."""
+    path = tmp_path / "session-empty.ini"
+    path.write_text("[environment]\nRASAI_SERP_MAX_REQUESTS=12\n", encoding="utf-8")
+    original = path.read_bytes()
+    absent = inspect_configuration(path, env={})
+    empty = inspect_configuration(path, env={"RASAI_SERP_MAX_REQUESTS": ""})
+    assert absent.persisted_public == 1
+    assert absent.session_overrides == 0
+    assert empty.session_overrides == 1
+    assert "12" not in render_provenance(empty)
+    assert path.read_bytes() == original

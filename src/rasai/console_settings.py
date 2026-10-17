@@ -360,31 +360,87 @@ def _guard_existing_ini_before_save(
     return identity
 
 
+def _reject_secret_bearing_dynatrace_json(value: Any) -> None:
+    """Never serialize credential fields embedded in an otherwise public JSON."""
+    import json
+
+    raw = str(value or "").strip()
+    if not raw:
+        return
+    # This operator-controlled field is persisted and projected repeatedly.
+    # Bound JSON size/depth so a malicious value cannot exhaust console memory
+    # or recursion during the credential walk.
+    if len(raw) > 65536:
+        raise ValueError("Dynatrace JSON excede limite de configuracao")
+    try:
+        parsed = json.loads(raw)
+    except RecursionError as exc:
+        raise ValueError("Dynatrace JSON excede profundidade segura") from exc
+    except (ValueError, TypeError):
+        # Preserve opaque values; the consumer performs structural validation.
+        return
+    secret_keys = frozenset({
+        "token", "api_token", "access_token", "refresh_token", "bearer_token",
+        "api_key", "apikey", "password", "passwd", "client_secret",
+        "authorization", "credentials", "secret",
+    })
+    def has_secret(value: Any) -> bool:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                canonical = "".join(char for char in str(key).casefold() if char.isalnum())
+                if canonical in {"".join(char for char in candidate if char.isalnum()) for candidate in secret_keys} or has_secret(child):
+                    return True
+        elif isinstance(value, list):
+            return any(has_secret(child) for child in value)
+        return False
+    try:
+        contains_secret = has_secret(parsed)
+    except RecursionError as exc:
+        raise ValueError("Dynatrace JSON excede profundidade segura") from exc
+    if contains_secret:
+        raise ValueError("Dynatrace JSON contem campos de credencial nao persistiveis")
+
+
 def save_console_config(state: Any, path: Path | None = None) -> Path:
     destination = path or resolve_config_path()
+    _reject_secret_bearing_dynatrace_json(getattr(state, "apdex_dynatrace_config_json", ""))
+    _reject_secret_bearing_dynatrace_json(os.environ.get(DYNATRACE_CONFIG_JSON_ENV))
     initial_identity = _guard_existing_ini_before_save(destination, state)
-    sync_nonsecret_runtime_environment(state)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    parser = _parser_for_state(state)
-    stream = io.StringIO()
-    stream.write("; RASAi interactive console settings\n")
-    stream.write("; All explicit non-secret overrides exposed by the console are persisted.\n")
-    stream.write("; API keys, bearer tokens, passwords, session secrets and credential-bearing DSNs are NOT persisted.\n")
-    stream.write("; Use environment variables, OS persistence or the SaaS secret mechanism for credentials.\n\n")
-    parser.write(stream)
-    descriptor, temporary = mkstemp(
-        prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
-    )
+    # Save is a logical transaction for both the INI and the in-process
+    # projection. Persisting may fail due to disk/permissions/races; a failed
+    # save must not advertise unsaved runtime values as successfully applied.
+    projection = _runtime_environment_projection(state)
+    previous_environment = {name: os.environ.get(name) for name in projection}
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as output:
-            output.write(stream.getvalue())
-        current = _existing_ini_snapshot(destination)
-        current_identity = current[0] if current is not None else None
-        if current_identity != initial_identity:
-            raise ValueError("INI de origem mudou durante o save; preserve a origem")
-        os.replace(temporary, destination)
-    finally:
-        Path(temporary).unlink(missing_ok=True)
+        sync_nonsecret_runtime_environment(state)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        parser = _parser_for_state(state)
+        stream = io.StringIO()
+        stream.write("; RASAi interactive console settings\n")
+        stream.write("; All explicit non-secret overrides exposed by the console are persisted.\n")
+        stream.write("; API keys, bearer tokens, passwords, session secrets and credential-bearing DSNs are NOT persisted.\n")
+        stream.write("; Use environment variables, OS persistence or the SaaS secret mechanism for credentials.\n\n")
+        parser.write(stream)
+        descriptor, temporary = mkstemp(
+            prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+        )
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as output:
+                output.write(stream.getvalue())
+            current = _existing_ini_snapshot(destination)
+            current_identity = current[0] if current is not None else None
+            if current_identity != initial_identity:
+                raise ValueError("INI de origem mudou durante o save; preserve a origem")
+            os.replace(temporary, destination)
+        finally:
+            Path(temporary).unlink(missing_ok=True)
+    except Exception:
+        for name, previous in previous_environment.items():
+            if previous is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = previous
+        raise
     if hasattr(state, "config_path"):
         state.config_path = str(destination)
     if hasattr(state, "config_dirty"):
@@ -549,11 +605,17 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
     elif key == ("synthetic_apdex_experience", "dynatrace_import"): state.apdex_dynatrace_import = _parse_bool(raw)
     elif key == ("synthetic_apdex_experience", "dynatrace_base_url"): state.dynatrace_base_url = raw.strip()
     elif key == ("synthetic_apdex_experience", "dynatrace_application_id"): state.dynatrace_application_id = raw.strip()
-    elif key == ("synthetic_apdex_experience", "dynatrace_config_json"): state.apdex_dynatrace_config_json = raw.strip()
+    elif key == ("synthetic_apdex_experience", "dynatrace_config_json"):
+        _reject_secret_bearing_dynatrace_json(raw)
+        state.apdex_dynatrace_config_json = raw.strip()
 
 
 def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResult:
-    source = path or resolve_config_path()
+    source = Path(path) if path is not None else resolve_config_path()
+    # A dangling symlink does not satisfy exists(); never interpret it as a
+    # missing file that should be created. Console boot must fail closed.
+    if source.is_symlink():
+        return ConfigLoadResult(source, False, ("INI simbólico não autorizado",))
     warnings: list[str] = []
     external_timezone = (os.environ.get(PRESENTATION_TIMEZONE_ENV) or "").strip()
     if external_timezone:
@@ -569,10 +631,16 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
     parser = ConfigParser(interpolation=None)
     parser.optionxform = str
     try:
-        # Windows editor BOM is accepted on read; saving still passes the
-        # separate loss-prevention guard for operator-owned INI contents.
-        with source.open("r", encoding="utf-8-sig") as stream: parser.read_file(stream)
-    except (OSError, UnicodeError, ConfigError) as exc:
+        # Verify source identity and bounded bytes before applying any settings.
+        # This is the same non-writing guard used by the save path: never follow
+        # operator INI symlinks or trust an oversized/concurrently changed file.
+        snapshot = _existing_ini_snapshot(source)
+        if snapshot is None:
+            return ConfigLoadResult(source, False, ("INI ausente durante a leitura",))
+        # Decode the verified bytes (not a second open of a potentially changed
+        # path). Windows UTF-8 BOM remains supported and source bytes untouched.
+        parser.read_string(snapshot[1].decode("utf-8-sig"))
+    except (ValueError, OSError, UnicodeError, ConfigError) as exc:
         # An operator INI can be truncated or contain duplicate entries.
         # Keep state and environment unchanged rather than abort console startup
         # or partially applying an invalid document. Do not echo source values.
@@ -585,6 +653,12 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
             if name not in allowed:
                 warnings.append(f"environment.{name}: variável não reconhecida ou não persistível")
                 continue
+            if name == DYNATRACE_CONFIG_JSON_ENV:
+                try:
+                    _reject_secret_bearing_dynatrace_json(raw)
+                except ValueError:
+                    warnings.append("Dynatrace JSON nao persistivel")
+                    continue
             if not (os.environ.get(name) or "").strip() and raw.strip(): os.environ[name] = raw.strip()
     for section, values in _state_values(state).items():
         if not parser.has_section(section): continue
@@ -607,6 +681,9 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
 def sync_nonsecret_runtime_environment(state: Any) -> None:
     """Project all effective non-secret console settings into adapter environment."""
     projection = _runtime_environment_projection(state)
+    # The runtime projection is as sensitive as INI save/load: never export
+    # nested credential fields from an operator-supplied JSON snapshot.
+    _reject_secret_bearing_dynatrace_json(projection.get(DYNATRACE_CONFIG_JSON_ENV))
     for name, value in projection.items():
         if value: os.environ[name] = value
         else: os.environ.pop(name, None)
