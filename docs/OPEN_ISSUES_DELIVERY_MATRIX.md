@@ -161,3 +161,18 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
 - Todos os criterios dependentes de observacao real ou de fontes
   externas permanecem abertos. A aprovacao da metodologia nao
   autoriza alteracao silenciosa de indices canonicos.
+
+
+### Read-only sensitivity replay integrity (current batch)
+
+- #602: `optional_seo_audit_replay._read_hash` verifies the physical
+  source descriptor, inode identity, size and last-modified timestamp
+  before/after SHA-256 of `audit.db`. A same-byte-count mutation during
+  reading fails closed; a targeted offline regression ensures it.
+  The check remains read-only and does not alter SCORE-GEO-004,
+  published SARI, historical scores, or optional-signal weights.
+- `report-catalog-targeted.yml` now includes the negative regression
+  and activates when the replay reader changes.
+- This is partial proof; a new versioned normative score contract,
+  accepted weighting table and real comparative evidence are not
+  inferred from general roadmap approval. #602 stays open.
