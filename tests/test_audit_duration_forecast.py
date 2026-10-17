@@ -319,6 +319,9 @@ def test_m21_http_request_totals_are_separate_from_audit_wall_clock(tmp_path):
     assert "HTTP PAGESPEED_INSIGHTS" in content
     assert "nao wall-clock" in content
     assert "NAO sao wall-clock" in content
+    assert "requests HTTP medidos acima" in content
+    assert "duracao wall-clock da fase = N/D" in content
+    assert "Captura, Apdex, analise competitiva" in content
 
 
 def test_m21_http_request_abstains_from_missing_or_invalid_cohort_timings(tmp_path):
