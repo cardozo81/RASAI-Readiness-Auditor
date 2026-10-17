@@ -165,6 +165,7 @@ def test_excessive_numeric_token_text_abstains_before_integer_conversion():
 def test_malformed_currency_is_not_aggregated_as_a_monetary_total():
     for currency in ("USD\\rINJECT", "USDD", "12A", "€UR", True, {"code": "USD"}):
         summary = economic.aggregate_attempt_costs([{
+            "input_tokens": 1, "output_tokens": 1,
             "observed_cost": 0.2, "observed_cost_currency": currency,
         }])
         assert summary.totals == ()
