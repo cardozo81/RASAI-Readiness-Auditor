@@ -142,12 +142,18 @@ def _read_report_architecture_choice(
     Missing/legacy config is not guessed from session or global INI. Corrupted
     records are never projected as a user-declared fact; no config is persisted.
     """
-    row = _one(
-        connection,
-        "SELECT configuration_json,configuration_hash "
-        "FROM audit_execution_configurations WHERE audit_id=?",
-        (audit_id,),
-    )
+    try:
+        row = _one(
+            connection,
+            "SELECT configuration_json,configuration_hash "
+            "FROM audit_execution_configurations WHERE audit_id=?",
+            (audit_id,),
+        )
+    except sqlite3.OperationalError as exc:
+        # Legacy/partially migrated tables cannot establish a valid hash.
+        if "no such column" not in str(exc).casefold():
+            raise
+        return None, "INTEGRITY_NOT_VERIFIED"
     if row is None:
         return None, "LEGACY_ABSENT"
     try:

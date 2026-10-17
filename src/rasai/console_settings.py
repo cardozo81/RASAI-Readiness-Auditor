@@ -566,7 +566,11 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
 
 
 def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResult:
-    source = path or resolve_config_path()
+    source = Path(path) if path is not None else resolve_config_path()
+    # A dangling symlink does not satisfy exists(); never interpret it as a
+    # missing file that should be created. Console boot must fail closed.
+    if source.is_symlink():
+        return ConfigLoadResult(source, False, ("INI simbólico não autorizado",))
     warnings: list[str] = []
     external_timezone = (os.environ.get(PRESENTATION_TIMEZONE_ENV) or "").strip()
     if external_timezone:

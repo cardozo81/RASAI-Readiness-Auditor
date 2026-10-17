@@ -168,3 +168,22 @@ def test_architecture_report_legacy_mode_has_no_extra_choice_claim(tmp_path):
     html = _page(result, tmp_path / "report")
     assert html.count("Configuração declarada:</strong> N/D") == 5
     assert "Seleção arquitetural desta AUD:" not in html
+
+
+
+def test_architecture_report_legacy_config_table_without_hash_stays_readable(tmp_path):
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute("CREATE TABLE audit_execution_configurations "
+                    "(audit_id TEXT PRIMARY KEY, configuration_json TEXT)")
+        con.execute(
+            "INSERT INTO audit_execution_configurations VALUES (?,?)",
+            ("AUD-1", '{"architecture_choice":{"mode":"DECLARED","declared_architecture":"CSR_SPA"}}'),
+        )
+    original = db.read_bytes()
+    result = _load("AUD-1", SimpleNamespace(database=db, root=tmp_path))
+    html = _page(result, tmp_path / "report")
+    assert result["architecture_choice"] is None
+    assert result["architecture_choice_status"] == "INTEGRITY_NOT_VERIFIED"
+    assert "CSR_SPA (informada pelo operador)" not in html
+    assert db.read_bytes() == original

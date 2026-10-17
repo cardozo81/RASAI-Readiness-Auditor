@@ -358,3 +358,24 @@ def test_console_load_refuses_changed_source_before_any_environment_activation(
     assert result.warnings and not result.created
     assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
     assert path.read_bytes() == original
+
+
+
+def test_console_load_dangling_symlink_is_not_treated_as_missing_ini(tmp_path, monkeypatch):
+    """Reject even a broken link before the create-default path."""
+    from rasai.console_search_intelligence import SearchConsoleState
+    import pytest
+
+    link = tmp_path / "dangling.ini"
+    try:
+        link.symlink_to(tmp_path / "missing.ini")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks unavailable")
+    assert not link.exists() and link.is_symlink()
+    state = SearchConsoleState()
+    monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS", raising=False)
+    result = console_settings.load_console_config(state, link)
+    assert not result.created and result.warnings
+    assert link.is_symlink()
+    assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
+    assert not (tmp_path / "missing.ini").exists()
