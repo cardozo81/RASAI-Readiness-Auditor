@@ -206,3 +206,18 @@ def test_derived_token_total_abstains_when_valid_components_exceed_joint_budget(
     assert economic.canonical_total_tokens({
         "input_tokens": 0, "output_tokens": 0,
     }) == 0
+
+
+def test_currency_bucket_overflow_never_publishes_infinite_or_partial_total():
+    attempts = [
+        {"input_tokens": 1, "observed_cost": 1e308, "observed_cost_currency": "USD"},
+        {"input_tokens": 1, "observed_cost": 1e308, "observed_cost_currency": "USD"},
+        {"input_tokens": 1, "observed_cost": 0.5, "observed_cost_currency": "EUR"},
+        {"input_tokens": 1, "observed_cost": 2.0, "observed_cost_currency": "USD"},
+    ]
+    aggregate = economic.aggregate_attempt_costs(attempts)
+    assert aggregate.totals == (("EUR", 0.5),)
+    assert aggregate.unpriced_attempts == 3
+    assert economic.aggregate_attempt_costs([
+        {"observed_cost": 0.0, "observed_cost_currency": "USD"}
+    ]).totals == (("USD", 0.0),)
