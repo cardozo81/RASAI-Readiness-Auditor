@@ -1071,3 +1071,22 @@ def test_web_page_budget_uses_exact_integer_identity(tmp_path):
     assert _strictly_comparable(state, config) is False
     config["web_max_pages"] = "9007199254740992"
     assert _strictly_comparable(state, config) is True
+
+
+def test_duration_preview_discloses_missing_non_ai_stage_forecasts_without_guessing():
+    from rasai.audit_duration_forecast import (
+        AuditDurationForecast, DurationRange, format_duration_preview,
+    )
+
+    total = DurationRange("TOTAL", 5, 800000.0, 750000.0, 900000.0, 1000000.0)
+    projection = AuditDurationForecast(
+        sample_runs=5, total=total, ai_stages=(), http_request_stages=(),
+    )
+    lines = format_duration_preview(projection)
+    assert any("Duracao total histor." in line for line in lines)
+    assert any(
+        "captura" in line and "PageSpeed" in line
+        and "Apdex" in line and "N/D por fase" in line
+        for line in lines
+    )
+    assert not any("mediana 0.0s" in line for line in lines)
