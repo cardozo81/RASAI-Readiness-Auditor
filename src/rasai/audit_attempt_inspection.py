@@ -12,6 +12,7 @@ from dataclasses import asdict
 from hashlib import sha256
 import json
 import math
+import os
 from pathlib import Path
 import re
 import sqlite3
@@ -44,18 +45,26 @@ def _source_fingerprint(db: Path) -> tuple[str, int]:
     _reject_unsealed_sqlite_source(db)
     if db.is_symlink() or not db.is_file():
         raise ValueError("AUD SQLite source is not a regular file")
-    size = db.stat().st_size
-    if size > _MAX_SOURCE_BYTES:
+    before = db.stat()
+    if before.st_size > _MAX_SOURCE_BYTES:
         raise ValueError("AUD SQLite source exceeds bounded verification limit")
     digest = sha256()
     total = 0
     with db.open("rb") as stream:
+        opened = os.fstat(stream.fileno())
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             total += len(chunk)
             if total > _MAX_SOURCE_BYTES:
                 raise ValueError("AUD SQLite source changed during physical inspection")
             digest.update(chunk)
-    if total != size or db.stat().st_size != size:
+    after = db.stat()
+    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    if (
+        db.is_symlink()
+        or total != before.st_size
+        or any(getattr(before, field) != getattr(observed, field)
+               for observed in (opened, after) for field in fields)
+    ):
         raise ValueError("AUD SQLite source changed during physical inspection")
     _reject_unsealed_sqlite_source(db)
     return digest.hexdigest(), size
