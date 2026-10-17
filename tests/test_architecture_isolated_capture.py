@@ -453,3 +453,19 @@ def test_remote_favicon_is_still_subject_to_origin_policy():
     )
     with pytest.raises(ArchitectureAssetFailure, match="OCI_EXTERNAL_ASSET_REQUIRED"):
         _bundle_resources("https://example.org/", root, markup)
+
+
+def test_empty_data_favicon_sentinel_is_preserved_without_network_resource():
+    from rasai.architecture_isolated_capture import (
+        _AssetReferences, _bundle_resources, ContentFetchStatus,
+    )
+    markup = '<html><head><link rel="icon" href="data:,"></head><main>Content.</main></html>'
+    root = SimpleNamespace(
+        status=ContentFetchStatus.OBSERVED,
+        final_url="https://example.org/", http_status=200,
+        body=markup.encode("utf-8"), headers={"content-type": "text/html"},
+    )
+    reader = _AssetReferences()
+    reader.feed(markup)
+    assert reader.urls == []
+    assert len(_bundle_resources("https://example.org/", root, markup)) == 1
