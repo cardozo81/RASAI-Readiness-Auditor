@@ -670,6 +670,9 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
 def sync_nonsecret_runtime_environment(state: Any) -> None:
     """Project all effective non-secret console settings into adapter environment."""
     projection = _runtime_environment_projection(state)
+    # The runtime projection is as sensitive as INI save/load: never export
+    # nested credential fields from an operator-supplied JSON snapshot.
+    _reject_secret_bearing_dynatrace_json(projection.get(DYNATRACE_CONFIG_JSON_ENV))
     for name, value in projection.items():
         if value: os.environ[name] = value
         else: os.environ.pop(name, None)
