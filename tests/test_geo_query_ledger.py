@@ -1559,3 +1559,30 @@ def test_host_overlap_preserves_separate_hostname_denominators() -> None:
 def test_304_host_overlap_rejects_invalid_url_identity(bad) -> None:
     with pytest.raises(ValueError, match="canonical HTTP"):
         ledger._host_overlap({"https://valid.test/a"}, {bad})
+
+
+
+@pytest.mark.parametrize("malformed", [
+    "javascript:window.open('x')",
+    "https://user:password@example.test/",
+    " https://example.test/a",
+    "not-a-url",
+])
+def test_304_host_group_abstains_for_uncanonical_target_and_members(malformed):
+    """No invalid URL should contribute to a hostname denominator."""
+    with pytest.raises(ValueError, match="canonical HTTP"):
+        ledger._host_group({"https://valid.test/a"}, malformed)
+    with pytest.raises(ValueError, match="canonical HTTP"):
+        ledger._host_group({malformed, "https://valid.test/a"}, "https://valid.test/")
+
+
+def test_304_host_group_keeps_www_distinct_from_apex_without_fabricated_alias():
+    result = ledger._host_group(
+        {"https://example.test/a", "https://www.example.test/a", "https://other.test/a"},
+        "https://example.test/",
+    )
+    assert result == {
+        "same_host_alternative_urls": 1,
+        "other_host_distinct_urls": 2,
+        "other_distinct_hosts": 2,
+    }

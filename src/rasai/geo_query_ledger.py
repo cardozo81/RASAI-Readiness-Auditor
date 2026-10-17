@@ -80,6 +80,12 @@ def _host_group(urls: set[str], target: str) -> dict[str, int]:
     A www host is NOT the same as its apex without a persisted redirect.
     The v8 URL canonicalizer already rejected ambiguous source identities.
     """
+    # Defensive contract for callers other than the current ledger adapter.
+    # An invalid or ambiguous hostname must never enter observed counts.
+    if _canonical_url(target) != target or not urlsplit(target).hostname:
+        raise ValueError("target URL identity is not canonical HTTP(S)")
+    if any(_canonical_url(url) != url or not urlsplit(url).hostname for url in urls):
+        raise ValueError("source URL identity is not canonical HTTP(S)")
     hostname = urlsplit(target).hostname
     same_host = {url for url in urls if urlsplit(url).hostname == hostname}
     competitors = {
