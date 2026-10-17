@@ -283,3 +283,16 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
 - Fixtures adversariais estao em `tests/test_ai_economic_telemetry.py`
   e `tests/test_architecture_context_policy_matrix.py`. Os gates de
   aceite operacional dos dois tickets permanecem abertos.
+
+
+### Escopo de deducao de total de tokens
+
+- #319: quando `total_tokens` nao esta disponivel, o total so pode
+  ser derivado de `input_tokens + output_tokens` se todos os campos
+  explicitamente presentes forem validos. Valor negativo, fracionario,
+  ou texto decimal acima do limite provoca abstencao; nao se reinterpreta
+  a metade valida como total do provedor.
+- O caminho preferencial `total_tokens` explicito e validado continua
+  prioritario, sem dupla contagem de tokens de raciocinio.
+- O contrato permanece sem alteracao de faturamento, scores ou AUD
+  historica; CI do novo HEAD exige nova verificacao integral.
