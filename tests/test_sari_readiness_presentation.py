@@ -75,7 +75,7 @@ def test_executive_panel_preserves_canonical_fraction_and_limits_confidence_clai
     row = _row(value=86.484962, status="ATTENTION", discovery_gate="WARNING")
     row["coverage"] = 0.974737
     html = operational_readiness_panel({"scores": [row]})
-    assert "Coverage 97.5% (fração canônica 0.974737)" in html
+    assert "Cobertura 97.5% (fração canônica 0.974737)" in html
     assert "não representam intervalo estatístico" in html
     assert "posição SERP ou citação generativa" in html
     assert "86.5/100" in html
@@ -88,7 +88,7 @@ def test_executive_panel_does_not_silently_promote_partial_dimension() -> None:
     html = operational_readiness_panel({"scores": [overall, dimension]})
     assert "qualidade do universo efetivamente avaliado" in html
     assert "dimensões de baixa cobertura devem ser analisadas separadamente" in html
-    assert "Confidence HIGH" in html  # Stored global confidence is not rewritten.
+    assert "Confiança contratual HIGH" in html  # Stored global confidence is not rewritten.
 
 
 def test_blocked_readiness_remains_critical_with_partial_measurement() -> None:
@@ -192,7 +192,7 @@ def test_invalid_overall_coverage_never_renders_nan_or_crashes() -> None:
         row = _row()
         row["coverage"] = invalid
         html = operational_readiness_panel({"scores": [row]})
-        assert "Coverage N/D (fração canônica N/D)" in html
+        assert "Cobertura N/D (fração canônica N/D)" in html
         assert "nan%" not in html.lower()
 
 
@@ -200,7 +200,7 @@ def test_observed_zero_coverage_remains_distinct_from_invalid_coverage() -> None
     row = _row()
     row["coverage"] = 0.0
     html = operational_readiness_panel({"scores": [row]})
-    assert "Coverage 0.0% (fração canônica 0.000000)" in html
+    assert "Cobertura 0.0% (fração canônica 0.000000)" in html
 
 
 def test_device_cards_do_not_crash_on_nonfinite_coverage() -> None:
@@ -265,7 +265,7 @@ def test_boolean_coverage_is_unavailable_not_one_hundred_percent() -> None:
     row = _row()
     row["coverage"] = True
     html = operational_readiness_panel({"scores": [row]})
-    assert "Coverage N/D (fração canônica N/D)" in html
+    assert "Cobertura N/D (fração canônica N/D)" in html
 
 
 def test_high_score_with_partial_coverage_does_not_claim_ready() -> None:

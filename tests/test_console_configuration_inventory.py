@@ -1134,3 +1134,17 @@ def test_ai_catalog_runtime_selectors_are_declared_without_execution_proof(tmp_p
         "catalog_load_or_provider_use_proven"
     ] is False
     assert not (tmp_path / "not-created.ini").exists()
+
+
+def test_presentation_timezone_adapter_declared_without_clock_mutation_claim(tmp_path):
+    from rasai.time_contract import PRESENTATION_TIMEZONE_ENV
+
+    result = inventory(path=tmp_path / "none.ini", environ={})
+    row = next(item for item in result["environment_variables"]
+               if item["name"] == PRESENTATION_TIMEZONE_ENV)
+    assert row["declared_adapter_surface"] == (
+        "PRESENTATION_FORMAT_INPUT_NOT_PERSISTED_CLOCK_CHANGE"
+    )
+    assert row["runtime_consumer"] == "NOT_PROVEN_BY_REGISTRY"
+    assert row["declared_adapter_surface_is_execution_proof"] is False
+    assert not (tmp_path / "none.ini").exists()

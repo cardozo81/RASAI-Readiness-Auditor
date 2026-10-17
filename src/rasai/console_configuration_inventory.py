@@ -284,6 +284,16 @@ def _declared_ai_catalog_surface() -> dict[str, str]:
     }
 
 
+def _declared_presentation_surface() -> dict[str, str]:
+    """The presentation timezone consumer cannot mutate persisted AUD clocks."""
+    from rasai.time_contract import PRESENTATION_TIMEZONE_ENV
+
+    return {
+        PRESENTATION_TIMEZONE_ENV:
+        "PRESENTATION_FORMAT_INPUT_NOT_PERSISTED_CLOCK_CHANGE"
+    }
+
+
 def inventory(
     *,
     path: Path | None = None,
@@ -308,7 +318,9 @@ def inventory(
     console_core_affinities = _declared_console_core_surface()
     security_improvement_affinities = _declared_security_and_improvement_surface()
     ai_catalog_affinities = _declared_ai_catalog_surface()
+    presentation_affinities = _declared_presentation_surface()
     consumer_affinities = {
+        **presentation_affinities,
         **ai_catalog_affinities,
         **security_improvement_affinities,
         **console_core_affinities, **gsc_affinities,
