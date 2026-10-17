@@ -12,6 +12,8 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+
+import pytest
 from unittest.mock import patch
 
 from rasai.console_search_intelligence import SearchConsoleState
@@ -96,3 +98,46 @@ print(json.dumps({"missing":missing,"unexpected":unexpected,
         assert restored["missing"] == [], restored["missing"]
         assert restored["unexpected"] == [], restored["unexpected"]
         assert path.read_bytes() == original
+
+
+
+def test_failed_save_rolls_back_runtime_environment_and_preserves_ini(tmp_path):
+    """A failed atomic file replacement cannot commit an environment mutation."""
+    _install_search_persistence()
+    install_complete_persistence()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        path = tmp_path / "operator.ini"
+        console_settings.save_console_config(state, path)
+        original_bytes = path.read_bytes()
+        state.web_performance = True
+        state.apdex_experience_architecture = "CSR_SPA"
+        state.config_dirty = True
+        os.environ["RASAI_WEB_PERFORMANCE"] = "false"
+        os.environ["RASAI_APDEX_EXPERIENCE_ARCHITECTURE"] = "STATIC_OR_SSR"
+        old_web = os.environ["RASAI_WEB_PERFORMANCE"]
+        old_architecture = os.environ["RASAI_APDEX_EXPERIENCE_ARCHITECTURE"]
+        with patch("rasai.console_settings.os.replace", side_effect=OSError("simulated disk error")):
+            with pytest.raises(OSError, match="simulated disk error"):
+                console_settings.save_console_config(state, path)
+        assert os.environ["RASAI_WEB_PERFORMANCE"] == old_web
+        assert os.environ["RASAI_APDEX_EXPERIENCE_ARCHITECTURE"] == old_architecture
+        assert path.read_bytes() == original_bytes
+        assert state.config_dirty is True
+        assert sorted(p.name for p in tmp_path.iterdir()) == ["operator.ini"]
+
+
+def test_fresh_save_error_cannot_leave_partially_applied_runtime_override(tmp_path):
+    """Even a missing writable parent must not alter the ambient session."""
+    _install_search_persistence()
+    install_complete_persistence()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        state.synthetic_apdex = True
+        state.config_dirty = True
+        with patch("rasai.console_settings.mkstemp", side_effect=OSError("no temporary file")):
+            with pytest.raises(OSError, match="no temporary file"):
+                console_settings.save_console_config(state, tmp_path / "operator.ini")
+        assert "RASAI_SYNTHETIC_APDEX" not in os.environ
+        assert not (tmp_path / "operator.ini").exists()
+        assert state.config_dirty is True
