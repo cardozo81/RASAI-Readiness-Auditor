@@ -249,3 +249,20 @@ e revisao independente. Nenhuma issue foi encerrada neste ciclo.
   preservando zero monetário legítimo e as frações de cobertura.
 - Não muda contabilização, preço dos fornecedores ou estimativas.
   Persistem as provas físicas e de cobertura total previstas na #319.
+
+
+### Guardas adversariais de contadores de IA e snapshots de arquitetura
+
+- #319: `ai_economic_telemetry.canonical_total_tokens` recusa
+  contagens negativas, fracionarias, booleanas ou nao-finitas,
+  sem truncar para inteiro nem transformar negativos em zero.
+  Zero fisico e representacoes decimais inteiras sao mantidos.
+  Regressoes offline cobrem totals, input e output.
+- #646: `architecture_context.resolve_architecture` agora ignora
+  linhas de evidencia com tipo estranho junto a snapshots validos.
+  Linhas malformadas isoladas levam a abstencao, nunca crash
+  nem promocao de contexto alheio ao audit/page/device/snapshot.
+  A matriz de elegibilidade continua estritamente consultiva.
+- Nenhum desses guards autoriza alteracao de scoring, KPM, Apdex,
+  formula longitudinal ou aplicacao de arquitetura descoberta
+  retroativamente a um coletor.
