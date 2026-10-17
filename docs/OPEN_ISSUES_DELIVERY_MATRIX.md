@@ -133,3 +133,16 @@ ainda requer apresentacao completa e prova de estimativas; #523
 requer cobertura de todos os consumidores; #330 depende de coortes e
 consentimento para dados reais; #603 requer fonte primaria vigente
 e revisao independente. Nenhuma issue foi encerrada neste ciclo.
+
+
+### Verificacoes de persistencia e FAQ - 17/10/2026
+
+- #523: o carregamento de INI tambem recusa JSON Dynatrace contendo
+  campos de credenciais aninhados, tanto em ambiente quanto em estado
+  tipado; fixture de arquivo adulterado comprova recusa e preservacao
+  dos bytes de origem. Implementacao na PR #647.
+- #601: a validacao de recibos de interacao FAQ exige identificadores
+  nao vazios de coletor e recibo, sem aceitar apenas espacos em uma
+  allowlist equivocada; caso negativo offline, sem navegador/rede.
+- Nenhuma das duas protecoes certifica coleta real, mesmo snapshot ou
+  cobertura integral. Issues permanecem abertas ate aceite correspondente.
