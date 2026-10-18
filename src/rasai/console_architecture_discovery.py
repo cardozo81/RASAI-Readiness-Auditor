@@ -80,20 +80,42 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
             print("Os demais catálogos e recursos permanecem disponíveis.")
             input("ENTER para voltar...")
             continue
-        if mode == STATIC:
-            try:
-                from rasai.architecture_static_capture import capture_static_public_architecture
-                result = probe_architecture(
-                    url, DeviceContext(device.upper()),
-                    capture=capture_static_public_architecture,
-                )
-                for line in describe_architecture_assessment(result):
+        from rasai.architecture_acquisition_service import run_optional_discovery
+        from rasai.architecture_static_capture import capture_static_public_architecture
+        from rasai.architecture_isolated_capture import capture_isolated_public_architecture
+        from rasai.runtime_prerequisites import prepare_prerequisite
+
+        def request_consent(message: str) -> bool:
+            print(message)
+            return input("Autorizar? [S/N]: ").strip().upper() == "S"
+
+        try:
+            # Explicit legacy environment mode remains available for offline
+            # validation, but all interactive choices use the canonical service.
+            manual_oci = os.environ.get("RASAI_ARCH_PROBE_OFFLINE_CONTAINER") == "1"
+            execution = run_optional_discovery(
+                url, DeviceContext(device.upper()), mode=mode,
+                consent=request_consent,
+                static_capture=capture_static_public_architecture,
+                dynamic_capture=(capture_public_architecture if manual_oci
+                                 else capture_isolated_public_architecture),
+                prepare=(lambda *_args, **_kwargs: type("Prepared", (), {"ready": True})())
+                if manual_oci else prepare_prerequisite,
+            )
+            if not execution.executed:
+                print("Descoberta indisponível ou recusada: " + str(execution.reason))
+                print("Os demais catálogos continuam disponíveis.")
+                print("Nenhuma alteração foi feita na auditoria.")
+            else:
+                for line in describe_architecture_assessment(execution.assessment):
                     print(line)
-                print("Modo básico: nenhum navegador executado; classificação dinâmica não comprovada.")
+                if mode == STATIC:
+                    print("Modo básico: nenhum navegador executado; classificação dinâmica não comprovada.")
                 print("Esta observação não modifica a seleção nem os índices da AUD.")
-            except (OSError, ValueError, RuntimeError) as exc:
-                print(f"Não foi possível concluir a coleta básica: {type(exc).__name__}")
-            input("ENTER para voltar...")
+        except (OSError, ValueError, RuntimeError) as exc:
+            print(f"Não foi possível concluir a descoberta: {type(exc).__name__}")
+            print("Nenhuma alteração foi feita na auditoria.")
+        input("ENTER para voltar...")
             continue
         # Shared on-demand prerequisite API: do not launch Docker at startup,
         # set OS environment variables, or require manual build commands.
