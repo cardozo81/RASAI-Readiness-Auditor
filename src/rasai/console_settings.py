@@ -10,6 +10,7 @@ from configparser import ConfigParser, Error as ConfigError
 from dataclasses import dataclass
 from hashlib import sha256
 import io
+import math
 import os
 import stat
 from tempfile import mkstemp
@@ -457,7 +458,7 @@ def _parse_bool(value: str) -> bool:
 
 def _positive_float(raw: str, *, label: str) -> float:
     value = float(raw)
-    if value <= 0: raise ValueError(f"{label}: use número > 0")
+    if not math.isfinite(value) or value <= 0: raise ValueError(f"{label}: use número finito > 0")
     return value
 
 
@@ -496,7 +497,7 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
         state.ai_max_cycles = value
     elif key == ("ai", "cycle_delay_seconds"):
         value = float(raw)
-        if not 0 <= value <= 300: raise ValueError("ai.cycle_delay_seconds: use número entre 0 e 300")
+        if not math.isfinite(value) or not 0 <= value <= 300: raise ValueError("ai.cycle_delay_seconds: use número finito entre 0 e 300")
         state.ai_cycle_delay = value
     elif key == ("ai", "content_remediation"): state.content_remediation = _parse_bool(raw)
     elif key == ("ai", "technical_remediation"): state.technical_remediation = _parse_bool(raw)
@@ -528,7 +529,7 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
     elif key == ("synthetic_apdex", "timeout_seconds"): state.apdex_timeout = _positive_float(raw, label="synthetic_apdex.timeout_seconds")
     elif key == ("synthetic_apdex", "delay_seconds"):
         value = float(raw)
-        if value < 0: raise ValueError("use número >= 0")
+        if not math.isfinite(value) or value < 0: raise ValueError("use número finito >= 0")
         state.apdex_delay = value
     elif key == ("synthetic_apdex", "concurrency"):
         value = int(raw)
@@ -595,7 +596,7 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
     elif key == ("synthetic_apdex_experience", "settle_seconds"): state.apdex_experience_settle = _positive_float(raw, label="M25 settle_seconds")
     elif key == ("synthetic_apdex_experience", "delay_seconds"):
         value = float(raw)
-        if value < 0: raise ValueError("use número >= 0")
+        if not math.isfinite(value) or value < 0: raise ValueError("use número finito >= 0")
         state.apdex_experience_delay = value
     elif key == ("synthetic_apdex_experience", "concurrency"):
         value = int(raw)
