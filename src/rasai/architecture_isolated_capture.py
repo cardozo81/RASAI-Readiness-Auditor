@@ -23,7 +23,7 @@ from rasai.geo_competitor_pinned_egress import PublicWebPinnedOpener
 from rasai.search_intelligence.content import (
     ContentFetchStatus, PublicWebFetcher, _validate_public_url, _default_resolver,
 )
-from rasai.url_utils import normalize_url, normalized_origin
+from rasai.url_utils import normalize_url
 
 OFFLINE_IMAGE = "rasai-architecture-offline:local"
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -166,7 +166,12 @@ def _bundle_resources(target: str, root, raw: str) -> list[dict]:
     )
     assets = [root_record]
     for candidate in candidates:
-        _validate_public_url(candidate, _default_resolver)
+        # Revalidate immediately before each host-side request: reject a
+        # destination whose DNS/public eligibility changed since inventory.
+        try:
+            _validate_public_url(candidate, _default_resolver)
+        except (ValueError, OSError) as exc:
+            raise ArchitectureAssetFailure("OCI_CROSS_ORIGIN_ASSET_REJECTED") from exc
         assets.append(_encode_asset(candidate, fetcher.fetch(candidate)))
     return assets
 
