@@ -96,6 +96,7 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
             execution = run_optional_discovery(
                 url, DeviceContext(device.upper()), mode=mode,
                 consent=request_consent,
+                probe=probe_architecture,
                 static_capture=capture_static_public_architecture,
                 dynamic_capture=(capture_public_architecture if manual_oci
                                  else capture_isolated_public_architecture),
