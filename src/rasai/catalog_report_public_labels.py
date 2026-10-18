@@ -6,6 +6,13 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    "PUBLIC_REDIRECT_NOT_FOLLOWED": "Redirecionamento não seguido pela política de segurança; URL final não atestada",
+    "PUBLIC_HTML_SIZE_LIMIT": "HTML excede o limite de bytes permitido",
+    "PUBLIC_DESTINATION_REJECTED": "Destino público rejeitado pela política de rede",
+    "PUBLIC_TRANSPORT_UNAVAILABLE": "Coleta HTTP indisponível (rede, timeout, TLS ou redirecionamento não concluído)",
+    "PUBLIC_HTTP_NOT_SUCCESS": "Servidor retornou HTTP sem sucesso",
+    "PUBLIC_FINAL_URL_MISMATCH": "URL final não corresponde ao destino autorizado",
+    "PUBLIC_RESPONSE_NOT_HTML": "Resposta pública não é HTML",
     # Observacao fisica de FAQ em navegador isolado e sem atestado externo.
     "NOT_OBSERVED": "Nao observado",
     "LOCAL_FAQ_ACTION_OBSERVED_NOT_ATTESTED": "Interacao local de FAQ observada sem atestado externo",
