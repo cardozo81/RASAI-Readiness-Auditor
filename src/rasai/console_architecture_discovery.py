@@ -107,6 +107,11 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
             )
             if not prepared.ready:
                 messages = {
+                    "DOCKER_PERMISSION_DENIED": (
+                        "Docker local detectado, mas sem permissão de acesso. "
+                        "Verifique o acesso ao Docker Desktop antes de tentar novamente; "
+                        "nenhuma imagem será construída e os demais catálogos continuam disponíveis."
+                    ),
                     "DOCKER_DAEMON_UNAVAILABLE": (
                         "Docker está instalado, mas o serviço local não respondeu. "
                         "Inicie o Docker Desktop e tente novamente; os demais "
