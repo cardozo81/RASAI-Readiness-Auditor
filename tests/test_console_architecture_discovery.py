@@ -311,3 +311,30 @@ def test_menu_refused_preparation_does_not_run_probe(monkeypatch, capsys):
         architecture_preview_menu(console, state)
     probe.assert_not_called()
     assert "demais catálogos" in capsys.readouterr().out
+
+
+def test_skip_mode_does_not_probe_or_prepare_docker(monkeypatch, capsys):
+    from rasai.architecture_acquisition_preferences import SKIP
+    monkeypatch.setattr("rasai.console_architecture_discovery.read_mode", lambda: SKIP)
+    state = SimpleNamespace(target="https://example.org/", device="mobile")
+    console = SimpleNamespace(render_header=lambda _: None)
+    responses = iter(["1", "", "V"])
+    monkeypatch.setattr("builtins.input", lambda *_: next(responses))
+    with patch("rasai.console_architecture_discovery.probe_architecture") as probe, patch(
+        "rasai.runtime_prerequisites.prepare_prerequisite"
+    ) as prepare:
+        architecture_preview_menu(console, state)
+    probe.assert_not_called()
+    prepare.assert_not_called()
+    assert "não executada por escolha" in capsys.readouterr().out
+
+
+def test_operator_can_select_and_persist_skip_mode(monkeypatch):
+    from rasai.architecture_acquisition_preferences import SKIP
+    state = SimpleNamespace(target="https://example.org/", device="mobile")
+    console = SimpleNamespace(render_header=lambda _: None)
+    responses = iter(["4", "3", "V"])
+    monkeypatch.setattr("builtins.input", lambda *_: next(responses))
+    with patch("rasai.console_architecture_discovery.write_mode") as write:
+        architecture_preview_menu(console, state)
+    write.assert_called_once_with(SKIP)
