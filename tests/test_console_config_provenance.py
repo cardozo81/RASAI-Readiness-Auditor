@@ -450,3 +450,23 @@ def test_invalid_restored_typed_value_marks_configuration_unsaved(tmp_path):
     result = console_settings.load_console_config(fresh, valid)
     assert result.warnings == ()
     assert fresh.config_dirty is False
+
+
+def test_console_ini_rejects_nonfinite_runtime_delays_and_timeouts(tmp_path):
+    """#523/#357: NaN and infinity cannot enter runtime configuration."""
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    for section, option, invalid in (
+        ("ai", "timeout_seconds", "nan"),
+        ("ai", "cycle_delay_seconds", "nan"),
+        ("web_performance", "timeout_seconds", "inf"),
+        ("synthetic_apdex", "delay_seconds", "-inf"),
+        ("synthetic_apdex_experience", "delay_seconds", "nan"),
+        ("synthetic_apdex_experience", "settle_seconds", "inf"),
+    ):
+        ini = tmp_path / "nonfinite.ini"
+        ini.write_text(f"[{section}]\n{option}={invalid}\n", encoding="utf-8")
+        state = SearchConsoleState()
+        result = console_settings.load_console_config(state, ini)
+        assert any(note.startswith(f"{section}.{option}:") for note in result.warnings)
+        assert state.config_dirty is True
