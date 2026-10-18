@@ -11,7 +11,7 @@ import json
 import sys
 from typing import Any
 
-from rasai.url_utils import normalize_url, normalized_origin
+from rasai.url_utils import normalize_url
 
 MAX_MANIFEST_BYTES = 5_000_000
 MAX_RENDER_BYTES = 1_000_000
