@@ -412,3 +412,71 @@ Percentuais abaixo sao **estimativas de escopo residual para planejamento**, nao
 | #639 | 10% | Contratos publicos e gate pos-merge autorizado |
 | #646 | 15% | Descoberta real autorizada e contrato F3 de consumidores |
 | #355 | 0% | Fechada por aceite expresso sem tenant |
+
+
+## Diagnóstico de causa raiz e correção do fluxo — 17/10/2026
+
+**Evidência do HEAD:** `87c0e944cf45c1d7715866753386f9947550e5e6`;
+PR #647 permanece DRAFT; **28/28 workflows SUCCESS**. O produto não está
+provadamente 100% concluído: 15 issues abertas têm critérios independentes
+ainda não satisfeitos. Não converter sucesso do CI em aceite de produto.
+
+### Causas identificadas
+
+1. **Unidade errada de entrega:** cada correção pequena provocou commits e
+   nova execução de aproximadamente 28 workflows, sem encerrar critérios
+   integrais de nenhuma issue. O indicador relatado (percentual gerencial
+   médio) permaneceu 70,7%, mesmo com novos commits.
+2. **Escopos heterogêneos misturados:** a matriz reúne lacunas de código,
+   homologações físicas, decisões normativas, coortes externas, épicos e
+   gate pós-merge. Uma regressão unitária não satisfaz esses aceites.
+3. **Ausência de critério objetivo de pronto por issue:** CI verde foi
+   repetidamente tratado como aproximação de aceite; não há equivalência.
+4. **Revalidação cumulativa:** filtros `pull_request.paths` avaliam o diff
+   acumulado da PR; commits mínimos sucessivos podem disparar praticamente
+   todos os workflows novamente. Não enfraquecer safeguards para ocultar o
+   problema de granularidade.
+5. **Dependências externas intransponíveis apenas por commit:** #304/#301
+   precisam de coortes observacionais comparáveis; #311 depende de
+   aprovação metodológica específica; #322/#601 de amostra física
+   autorizada; #602 de versão de scoring e golden; #603 de fonte primária
+   vigente; #639 de gate posterior ao merge; #646 de matriz F3 aprovada.
+   A autorização genérica de roadmap não substitui esses requisitos.
+
+### Regra operacional substitutiva (bloqueio de microentregas)
+
+- Antes de editar código, produzir **por issue** uma lista fechada de
+  critérios `DONE_VERIFIED | CODE_MISSING | EVIDENCE_MISSING |
+  HUMAN_DECISION | POST_MERGE`, com local de implementação e prova.
+- Selecionar somente critérios `CODE_MISSING` que possam terminar em
+  evidência de aceite no mesmo pacote. Não priorizar reforços periféricos
+  enquanto houver lacunas funcionais aceitas e independentes.
+- Agrupar alterações relacionadas de código e testes **antes** de publicar;
+  preferir um commit por entrega transversal, desde que a ferramenta
+  assegure preservação da árvore. Não criar commits para mero status de CI.
+- Executar testes focais em cada domínio alterado e um único gate
+  consolidado de PR. Uma falha reproduzida deve ser corrigida antes de
+  expandir escopo; jamais reclassificar uma suíte vermelha como verde.
+- **Fechamento:** encerrar somente a issue com todos os critérios aceitos,
+  evidências vinculadas e sem `HUMAN_DECISION`/`POST_MERGE` bloqueante.
+  Épicos fecham após os critérios próprios e dependências satisfeitas.
+- **Relatório:** apresentar dois numeradores separados: (a) issues
+  encerradas / 15 iniciais; (b) critérios de aceite verificados / critérios
+  totais inventariados. Nunca atribuir aumento fictício à média de
+  percentuais históricos por criar commits ou executar CI.
+- **Não fazer merge automaticamente** da PR #647 e não reabrir os motores
+  homologados nem iniciar serviços externos faturáveis.
+
+### Priorização de fechamento verificável
+
+| Lote | Alvo | Critério de ganho concreto | Restrição |
+| --- | --- | --- | --- |
+| 1 | #523, #319, #600 | Concluir consumidores e apresentação + fixtures de aceite, não apenas defensivos | Smoke externo somente se indispensável |
+| 2 | #646, #357, #322 | Concluir F3 estritamente nos consumidores aprovados e comprová-los | F3 não é autorização para mudar scorer/Apdex |
+| 3 | #601, #602, #603, #604 | Fechar integrações offline; separar ADR, fonte primária e clique físico | Sem afirmar conformidade sem fonte |
+| 4 | #301, #304, #311, #330 | Entregar comparabilidade somente para coortes equivalentes e evidências rastreáveis | Sem inventar observações |
+| Pós-merge | #639 | Validar árvore/imports no `main` integrado | Merge requer autorização do operador |
+
+Este diagnóstico é uma **correção de governança e priorização**, não a
+implementação dos residuais. Até serem cumpridos critérios de aceite novos,
+**evolução de conclusão verificável = 0 p.p. e issues fechadas = 0**.
