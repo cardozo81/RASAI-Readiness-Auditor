@@ -687,8 +687,15 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
             except (ValueError, TypeError) as exc: warnings.append(f"{section}.{option}: {exc}")
     if not (os.environ.get(PRESENTATION_TIMEZONE_ENV) or "").strip():
         os.environ[PRESENTATION_TIMEZONE_ENV] = DEFAULT_PRESENTATION_TIMEZONE
-    if hasattr(state, "config_path"): state.config_path = str(source)
-    if hasattr(state, "config_dirty"): state.config_dirty = False
+    if hasattr(state, "config_path"):
+        state.config_path = str(source)
+    # The loaded session cannot be represented as "saved" after an invalid
+    # typed value: an operator must explicitly inspect and save corrections.
+    if hasattr(state, "config_dirty"):
+        state.config_dirty = any(
+            note.startswith(tuple(f"{section}." for section in _state_values(state)))
+            for note in warnings
+        )
     return ConfigLoadResult(source, False, tuple(warnings))
 
 
