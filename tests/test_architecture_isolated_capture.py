@@ -485,7 +485,7 @@ def test_public_html_failure_reasons_are_specific_and_do_not_open_browser(monkey
         (ContentFetchStatus.ERROR, 301, "TOO_MANY_REDIRECTS", "PUBLIC_REDIRECT_NOT_FOLLOWED"),
         (ContentFetchStatus.ERROR, 200, "CONTENT_BODY_LIMIT", "PUBLIC_HTML_SIZE_LIMIT"),
         (ContentFetchStatus.BLOCKED, None, "PUBLIC_WEB_DESTINATION_BLOCKED", "PUBLIC_DESTINATION_REJECTED"),
-        (ContentFetchStatus.UNAVAILABLE, None, "CONTENT_TIMEOUT", "PUBLIC_TRANSPORT_UNAVAILABLE"),
+        (ContentFetchStatus.UNAVAILABLE, None, "CONTENT_TIMEOUT", "PUBLIC_TIMEOUT"),
         (ContentFetchStatus.OBSERVED, 403, None, "PUBLIC_HTTP_NOT_SUCCESS"),
         (ContentFetchStatus.OBSERVED, 200, None, "PUBLIC_RESPONSE_NOT_HTML"),
     )
