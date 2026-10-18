@@ -148,8 +148,12 @@ def _bundle_resources(target: str, root, raw: str) -> list[dict]:
             candidate = normalize_url(urljoin(target, reference))
         except ValueError as exc:
             raise ArchitectureAssetFailure("OCI_ASSET_URL_REJECTED") from exc
-        if normalized_origin(candidate) != normalized_origin(target):
-            raise ArchitectureAssetFailure("OCI_EXTERNAL_ASSET_REQUIRED")
+        # Cross-origin assets are permitted only as bounded host-fetched public
+        # resources. The networkless browser never fetches them itself.
+        try:
+            _validate_public_url(candidate, _default_resolver)
+        except (ValueError, OSError) as exc:
+            raise ArchitectureAssetFailure("OCI_CROSS_ORIGIN_ASSET_REJECTED") from exc
         if candidate in seen:
             continue
         seen.add(candidate)
