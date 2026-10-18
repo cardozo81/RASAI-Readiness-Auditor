@@ -56,7 +56,6 @@ def validate_bundle(payload: object) -> tuple[str, str, dict[str, tuple[bytes, s
             raise ValueError("Invalid offline resource headers")
         if (not isinstance(url, str) or len(url) > 2048
                 or normalize_url(url) != url
-                or normalized_origin(url) != normalized_origin(target)
                 or url in table or not isinstance(body_text, str)
                 or not isinstance(mime, str) or not 0 < len(mime) < 256
                 or "\r" in mime or "\n" in mime
