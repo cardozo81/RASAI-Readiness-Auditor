@@ -137,3 +137,36 @@ def test_auto_audit_adapter_reuses_canonical_service_without_altering_configurat
     assert received == [("https://example.org/", DeviceContext.MOBILE, STATIC)]
     assert snapshot == {"targets": ["https://example.org/"]}
     assert frozen["architecture_choice"]["mode"] == "AUTO"
+
+
+def test_reprocess_reads_historical_choice_without_any_network(monkeypatch):
+    from types import SimpleNamespace
+    from rasai.architecture_choice import ArchitectureChoice
+    from rasai.architecture_choice_audit_adapter import (
+        read_architecture_choice_for_reprocess, prepare_audit_choice_configuration,
+    )
+    from rasai.audit_configuration_reuse import configuration_hash
+    snapshot = prepare_audit_choice_configuration(
+        {"targets": ["https://example.org/"]}, choice=ArchitectureChoice("AUTO"),
+    )
+    stored = SimpleNamespace(configuration=snapshot,
+                             configuration_hash=configuration_hash(snapshot))
+    calls = []
+
+    def read(root, audit_id):
+        calls.append((root, audit_id))
+        return stored
+
+    monkeypatch.setattr("rasai.audit_configuration_reuse.load_reusable_audit_configuration", read)
+    resolved = read_architecture_choice_for_reprocess("/tmp/rasai-audits", "aud-123")
+    assert resolved.choice.mode == "AUTO"
+    assert resolved.explicitly_configured
+    assert calls == [("/tmp/rasai-audits", "aud-123")]
+
+
+def test_reprocess_historical_choice_abstains_when_unavailable(monkeypatch):
+    from rasai.architecture_choice_audit_adapter import read_architecture_choice_for_reprocess
+    def missing(*args):
+        raise FileNotFoundError("historical configuration unavailable")
+    monkeypatch.setattr("rasai.audit_configuration_reuse.load_reusable_audit_configuration", missing)
+    assert read_architecture_choice_for_reprocess("/tmp/rasai-audits", "aud-123") is None
