@@ -90,7 +90,7 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
             return input("Autorizar? [S/N]: ").strip().upper() == "S"
 
         try:
-            # Explicit legacy environment mode remains available for offline
+            # Explicit test environment mode remains available for offline
             # validation, but all interactive choices use the canonical service.
             manual_oci = os.environ.get("RASAI_ARCH_PROBE_OFFLINE_CONTAINER") == "1"
             execution = run_optional_discovery(
