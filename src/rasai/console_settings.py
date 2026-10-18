@@ -699,8 +699,15 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
     # The loaded session cannot be represented as "saved" after an invalid
     # typed value: an operator must explicitly inspect and save corrections.
     if hasattr(state, "config_dirty"):
+        # Any rejected persisted input requires operator reconciliation before
+        # the UI can truthfully claim the current settings are fully restored.
+        # Do not treat benign explanatory notices as a failed restore.
+        typed_prefixes = tuple(f"{section}." for section in _state_values(state))
         state.config_dirty = any(
-            note.startswith(tuple(f"{section}." for section in _state_values(state)))
+            note.startswith(typed_prefixes)
+            or note.startswith("environment.")
+            or note.endswith(": campo sensível em seção não reconhecida")
+            or note == "Dynatrace JSON nao persistivel"
             for note in warnings
         )
     return ConfigLoadResult(source, False, tuple(warnings))
