@@ -414,7 +414,7 @@ Percentuais abaixo sao **estimativas de escopo residual para planejamento**, nao
 | #355 | 0% | Fechada por aceite expresso sem tenant |
 
 
-## Diagnóstico de causa raiz e correção do fluxo — 17/10/2026
+## Diagnóstico de causa raiz e correção do fluxo - 17/10/2026
 
 **Evidência do HEAD:** `87c0e944cf45c1d7715866753386f9947550e5e6`;
 PR #647 permanece DRAFT; **28/28 workflows SUCCESS**. O produto não está
