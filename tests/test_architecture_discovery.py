@@ -53,3 +53,28 @@ def test_different_material_raw_and_rendered_content_is_mixed():
     rendered = "<html><body><main><p>Different information inserted by client rendering.</p></main></body></html>"
     result = assess_architecture(raw_html=raw, rendered_html=rendered)
     assert result.architecture is ArchitectureClassification.MIXED
+
+
+def test_partial_raw_evidence_survives_cross_origin_resource_refusal():
+    from rasai.architecture_discovery import assess_architecture
+    from rasai.console_architecture_discovery import describe_architecture_assessment
+    result = assess_architecture(
+        raw_html="<html><main>Verified server HTML</main></html>",
+        rendered_html=None, quality_reason="OCI_EXTERNAL_ASSET_REQUIRED",
+    )
+    assert result.architecture.value == "UNKNOWN"
+    assert result.raw_available is True
+    assert result.rendered_available is False
+    output = "\\n".join(describe_architecture_assessment(result))
+    assert "HTML RAW: obtido" in output
+    assert "DOM renderizado: não comprovado" in output
+    assert "comparação RAW/renderizada indisponível" in output
+
+
+def test_absent_raw_never_invents_partial_http_evidence():
+    from rasai.architecture_discovery import assess_architecture
+    from rasai.console_architecture_discovery import describe_architecture_assessment
+    result = assess_architecture(raw_html=None, rendered_html=None,
+                                 quality_reason="PUBLIC_HTTP_NOT_SUCCESS")
+    assert not result.raw_available and not result.rendered_available
+    assert "HTML RAW: não comprovado" in "\\n".join(describe_architecture_assessment(result))
