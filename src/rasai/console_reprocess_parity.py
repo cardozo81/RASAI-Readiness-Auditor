@@ -306,6 +306,14 @@ def render_reprocess_preparation(
         )
     print(f"Pendentes/bloqueados : {len(pending)}")
     print(f"Sucessos preservados : {len(successes)}")
+    from rasai.architecture_choice_audit_adapter import read_architecture_choice_for_reprocess
+    stored_architecture = read_architecture_choice_for_reprocess(
+        current_reprocess_audits_root(state), audit_id,
+    )
+    if stored_architecture is not None and stored_architecture.explicitly_configured:
+        print("Arquitetura na AUD   : " + stored_architecture.choice.mode
+              + " (escolha histórica; não executa descoberta de rede)")
+
 
     print("\n" + title_text("ESCOPO DESTA TENTATIVA"))
     print("-" * 100)
