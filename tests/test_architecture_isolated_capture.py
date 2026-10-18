@@ -504,3 +504,64 @@ def test_public_html_failure_reasons_are_specific_and_do_not_open_browser(monkey
         assert result.quality_reason == expected
         assert result.rendered_html is None
         docker_run.assert_not_called()
+
+
+def test_duplicate_resource_references_consume_one_slot_and_one_fetch(monkeypatch):
+    """Repeated resource references must not consume the 24-resource budget."""
+    from rasai.architecture_isolated_capture import _bundle_resources, ContentFetchStatus
+    root_url = "https://example.org/"
+    asset_url = "https://example.org/site.css"
+    markup = "<html><head>" + (
+        '<link rel="stylesheet" href="/site.css">' * 80
+    ) + "</head><main>Valid</main></html>"
+    def doc(url, payload=b"<style>body{color:black}</style>", mime="text/css"):
+        return SimpleNamespace(
+            status=ContentFetchStatus.OBSERVED, final_url=url, http_status=200,
+            body=payload, headers={"content-type": mime},
+        )
+    root = doc(root_url, markup.encode(), "text/html")
+    monkeypatch.setattr("rasai.architecture_isolated_capture._validate_public_url",
+                        lambda url, _: url)
+    with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch:
+        fetch.return_value.fetch.return_value = doc(asset_url)
+        items = _bundle_resources(root_url, root, markup)
+    assert [item["url"] for item in items] == [root_url, asset_url]
+    fetch.return_value.fetch.assert_called_once_with(asset_url)
+
+
+def test_unique_resource_limit_refuses_before_network_or_partial_replay(monkeypatch):
+    """The cap is strict for unique resources; even the 25th is not fetched."""
+    from rasai.architecture_isolated_capture import (
+        _bundle_resources, ArchitectureAssetFailure, ContentFetchStatus, MAX_ASSETS,
+    )
+    import pytest
+    root_url = "https://example.org/"
+    markup = "<main>Example</main>" + "".join(
+        f'<script src="/resource-{i}.js"></script>' for i in range(MAX_ASSETS + 1)
+    )
+    root = SimpleNamespace(
+        status=ContentFetchStatus.OBSERVED, final_url=root_url,
+        http_status=200, body=markup.encode(), headers={"content-type": "text/html"},
+    )
+    with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch:
+        with pytest.raises(ArchitectureAssetFailure, match="OCI_ASSET_COUNT_LIMIT"):
+            _bundle_resources(root_url, root, markup)
+    fetch.return_value.fetch.assert_not_called()
+
+
+def test_unsafe_resource_is_rejected_even_when_reference_is_repeated(monkeypatch):
+    """An unsafe reference cannot be hidden by deduplicating the asset list."""
+    from rasai.architecture_isolated_capture import (
+        _bundle_resources, ArchitectureAssetFailure, ContentFetchStatus,
+    )
+    import pytest
+    root_url = "https://example.org/"
+    markup = ('<script src="https://cdn.example.net/app.js"></script>' * 40)
+    root = SimpleNamespace(
+        status=ContentFetchStatus.OBSERVED, final_url=root_url,
+        http_status=200, body=markup.encode(), headers={"content-type": "text/html"},
+    )
+    with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch:
+        with pytest.raises(ArchitectureAssetFailure, match="OCI_EXTERNAL_ASSET_REQUIRED"):
+            _bundle_resources(root_url, root, markup)
+    fetch.return_value.fetch.assert_not_called()
