@@ -106,3 +106,40 @@ def test_save_materializes_search_inputs_and_all_safe_environment_settings(tmp_p
     assert restored.perplexity_queries == ()
     assert restored.perplexity_search_type == "web"
     assert "RASAI_CONFIG" not in os.environ
+
+
+def test_every_persisted_typed_setting_has_an_explicit_restore_consumer():
+    """#523: inventory every typed INI key against its actual load dispatcher.
+
+    This catches a newly serialized field that would otherwise be silently
+    discarded after restarting the console. Exclude config_version: it is a
+    schema marker, not a runtime input.
+    """
+    import ast
+    import inspect
+    import textwrap
+
+    install_complete_persistence()
+    state = SearchConsoleState()
+    persisted = {
+        (section, key)
+        for section, options in console_settings._state_values(state).items()
+        for key in options
+        if key != "config_version"
+    }
+    tree = ast.parse(textwrap.dedent(inspect.getsource(console_settings._assign)))
+    dispatched = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Compare) or len(node.ops) != 1:
+            continue
+        if not isinstance(node.ops[0], ast.Eq):
+            continue
+        for expression in (node.left, *node.comparators):
+            if isinstance(expression, ast.Tuple) and len(expression.elts) == 2:
+                elements = expression.elts
+                if all(isinstance(part, ast.Constant) and isinstance(part.value, str)
+                       for part in elements):
+                    dispatched.add(tuple(part.value for part in elements))
+    assert persisted <= dispatched, (
+        "Typed INI keys without a restore consumer: " + repr(sorted(persisted - dispatched))
+    )
