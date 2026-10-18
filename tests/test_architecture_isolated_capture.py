@@ -565,3 +565,62 @@ def test_unsafe_resource_is_rejected_even_when_reference_is_repeated(monkeypatch
         with pytest.raises(ArchitectureAssetFailure, match="OCI_EXTERNAL_ASSET_REQUIRED"):
             _bundle_resources(root_url, root, markup)
     fetch.return_value.fetch.assert_not_called()
+
+
+def test_three_human_smoke_urls_have_distinct_deterministic_diagnostics(monkeypatch):
+    """Regression fixtures for #646; NEVER fetch or assert live-site behavior.
+
+    Each supplied URL is associated with a simulated failure condition. This
+    exercises public diagnostic separation, not claims about current sites.
+    Real HTTP must be confirmed in one later authorized Windows smoke.
+    """
+    from rasai.architecture_isolated_capture import ContentFetchStatus
+    from rasai.architecture_probe import probe_architecture
+    from rasai.console_architecture_discovery import describe_architecture_assessment
+
+    cases = (
+        ("https://loja.bradescoseguros.com.br/seguro-de-vida",
+         ContentFetchStatus.OBSERVED, 200, None,
+         "OCI_ASSET_COUNT_LIMIT", "Página excede"),
+        ("https://mdsgroup.com/",
+         ContentFetchStatus.OBSERVED, 403, None,
+         "PUBLIC_HTTP_NOT_SUCCESS", "HTTP"),
+        ("https://google.com/",
+         ContentFetchStatus.ERROR, 301, "TOO_MANY_REDIRECTS",
+         "PUBLIC_REDIRECT_NOT_FOLLOWED", "Redirecionamento"),
+    )
+    monkeypatch.setattr("rasai.architecture_isolated_capture.inspect_local_image",
+                        lambda: DIGEST)
+    monkeypatch.setattr("rasai.architecture_isolated_capture.shutil.which",
+                        lambda _: "docker")
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_isolation",
+                        lambda **_: {})
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_browser_canary",
+                        lambda **_: None)
+    monkeypatch.setattr("rasai.architecture_isolated_capture._validate_public_url",
+                        lambda url, _: url)
+    for url, status, code, error, expected, text in cases:
+        document = SimpleNamespace(
+            status=status, http_status=code, error_code=error, final_url=url,
+            headers={"content-type": "text/html"},
+            body=b"<main>Example</main>",
+        )
+        with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch, patch(
+            "rasai.architecture_isolated_capture._bundle_resources",
+            side_effect=ValueError("asset fixture unavailable")
+            if expected == "OCI_ASSET_COUNT_LIMIT" else None,
+        ) as bundler, patch(
+            "rasai.architecture_isolated_capture.subprocess.run"
+        ) as docker_run:
+            fetch.return_value.fetch.return_value = document
+            if expected == "OCI_ASSET_COUNT_LIMIT":
+                from rasai.architecture_isolated_capture import ArchitectureAssetFailure
+                bundler.side_effect = ArchitectureAssetFailure(expected)
+            observed = probe_architecture(
+                url, DeviceContext.MOBILE,
+                capture=capture_isolated_public_architecture,
+            )
+        assert observed.architecture.value == "UNKNOWN"
+        assert observed.limitation == expected
+        assert text in "\n".join(describe_architecture_assessment(observed))
+        docker_run.assert_not_called()
