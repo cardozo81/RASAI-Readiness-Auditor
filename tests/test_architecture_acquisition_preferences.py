@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from rasai.architecture_acquisition_preferences import (
-    STATIC, DYNAMIC, read_mode, write_mode, preference_path,
+    STATIC, DYNAMIC, SKIP, read_mode, write_mode, preference_path,
 )
 from rasai.architecture_static_capture import capture_static_public_architecture
 from rasai.architecture_probe import probe_architecture
@@ -67,3 +67,12 @@ def test_static_rejects_redirects_without_browser_fallback(monkeypatch):
         observation = capture_static_public_architecture(url, DeviceContext.MOBILE)
     assert observation.quality_reason == "PUBLIC_REDIRECT_NOT_FOLLOWED"
     assert observation.rendered_html is None
+
+
+def test_skip_choice_persists_across_sessions_and_is_reversible(tmp_path):
+    write_mode(SKIP, tmp_path)
+    assert read_mode(tmp_path) == SKIP
+    write_mode(DYNAMIC, tmp_path)
+    assert read_mode(tmp_path) == DYNAMIC
+    write_mode(STATIC, tmp_path)
+    assert read_mode(tmp_path) == STATIC
