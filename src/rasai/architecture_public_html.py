@@ -19,6 +19,12 @@ def public_html_failure(document, target: str) -> str | None:
         return "PUBLIC_REDIRECT_NOT_FOLLOWED"
     if error == "CONTENT_BODY_LIMIT":
         return "PUBLIC_HTML_SIZE_LIMIT"
+    if error == "CONTENT_TIMEOUT":
+        return "PUBLIC_TIMEOUT"
+    if error == "CONTENT_TLS_ERROR":
+        return "PUBLIC_TLS_FAILURE"
+    if error == "CONTENT_NETWORK_ERROR":
+        return "PUBLIC_NETWORK_FAILURE"
     if document.status == ContentFetchStatus.BLOCKED:
         return "PUBLIC_DESTINATION_REJECTED"
     if document.status != ContentFetchStatus.OBSERVED:
