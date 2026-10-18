@@ -8,6 +8,7 @@ from rasai.architecture_probe import probe_architecture
 from rasai.architecture_live_capture import capture_public_architecture
 from rasai.domain import DeviceContext
 from rasai.catalog_report_public_labels import public_label
+from rasai.architecture_acquisition_preferences import STATIC, DYNAMIC, read_mode, write_mode
 
 
 def describe_architecture_assessment(result: Any) -> tuple[str, ...]:
@@ -39,9 +40,12 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
         print("a auditoria realizará sua própria descoberta.")
         print(f"URL: {getattr(state, 'target', '') or '<não informada>'}")
         print(f"Dispositivo: {getattr(state, 'device', 'mobile')}")
+        mode = read_mode()
+        print("Modo de descoberta: " + ("Básica (sem Docker)" if mode == STATIC else "Dinâmica (Docker isolado)"))
         print("1. Executar descoberta")
         print("2. Alterar URL")
         print("3. Alterar dispositivo")
+        print("4. Alterar modo de descoberta")
         print("V. Voltar")
         choice = input("Escolha: ").strip().upper()
         if choice == "V":
@@ -50,6 +54,18 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
             print("A alteração também será utilizada na preparação da próxima auditoria.")
             console._configure(state, "1" if choice == "2" else "3")
             continue
+        if choice == "4":
+            print("1. Básica: HTML público, sem Docker, classificação limitada")
+            print("2. Dinâmica: HTML e navegador isolado, Docker necessário")
+            selection = input("Modo [1/2/V]: ").strip().upper()
+            if selection in {"1", "2"}:
+                try:
+                    write_mode(STATIC if selection == "1" else DYNAMIC)
+                except OSError:
+                    print("Não foi possível salvar a preferência local.")
+                else:
+                    print("Modo salvo. Pode ser alterado novamente a qualquer momento.")
+            continue
         if choice != "1":
             continue
         url = str(getattr(state, "target", "") or "").strip()
@@ -57,6 +73,21 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
         if not url or device not in {"mobile", "desktop"}:
             print("Informe uma URL e um dispositivo válidos na preparação da auditoria.")
             input("ENTER para continuar...")
+            continue
+        if mode == STATIC:
+            try:
+                from rasai.architecture_static_capture import capture_static_public_architecture
+                result = probe_architecture(
+                    url, DeviceContext(device.upper()),
+                    capture=capture_static_public_architecture,
+                )
+                for line in describe_architecture_assessment(result):
+                    print(line)
+                print("Modo básico: nenhum navegador executado; classificação dinâmica não comprovada.")
+                print("Esta observação não modifica a seleção nem os índices da AUD.")
+            except (OSError, ValueError, RuntimeError) as exc:
+                print(f"Não foi possível concluir a coleta básica: {type(exc).__name__}")
+            input("ENTER para voltar...")
             continue
         # Shared on-demand prerequisite API: do not launch Docker at startup,
         # set OS environment variables, or require manual build commands.
