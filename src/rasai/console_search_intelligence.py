@@ -42,6 +42,9 @@ from rasai.search_intelligence.runtime import (
 class SearchConsoleState(BaseState):
     """Add transient Search Intelligence input to the existing console state."""
 
+    # Explicitly tracks partial/invalid INI restores in this slotted state.
+    config_dirty: bool = False
+
     search_queries: tuple[str, ...] = ()
     search_depth: int = 20
     search_region: str = ""
