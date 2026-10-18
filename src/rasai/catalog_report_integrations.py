@@ -610,12 +610,28 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
         )
     ]
     if directed:
-        directed_value = sum(float(attempt_costs[i] or 0) for i in directed)
+        # Missing cost must not become a false USD 0.000000 for an optional
+        # post-AUD operation. Mixed/unknown currencies also abstain.
+        from rasai.audit_cost_explain import _number
+        directed_prices = [_number(attempt_costs[i]) for i in directed]
+        directed_currencies = {
+            str(attempts[i].get("observed_cost_currency")
+                or attempts[i].get("cost_currency") or "").upper()
+            for i in directed
+        }
+        directed_covered = sum(value is not None for value in directed_prices)
+        if directed_covered == len(directed) and directed_currencies == {"USD"}:
+            directed_label = "USD " + f"{sum(directed_prices):.6f}"
+        else:
+            directed_label = (
+                f"N/D (preços observados em {directed_covered}/{len(directed)} "
+                "tentativas; moeda homogênea USD não comprovada)"
+            )
         cost_html += (
             "<div class='notice'>Desagregação de análises direcionadas: "
-            + str(len(directed)) + " tentativa(s), USD "
-            + f"{directed_value:.6f}"
-            + " em custos técnicos já incluídos no total; "
+            + str(len(directed)) + " tentativa(s), "
+            + directed_label
+            + " em custos técnicos já considerados no total quando contabilizados; "
             "não somar novamente. A previsão original pode ter escopo distinto.</div>"
         )
     forecast_currency = str(forecast.get("currency") or "USD").upper() if forecast else "USD"
