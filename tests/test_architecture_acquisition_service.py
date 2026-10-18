@@ -107,3 +107,33 @@ def test_dynamic_prerequisite_failure_abstains_before_site_capture():
     assert result.reason == "OPTIONAL_PREREQUISITE_UNAVAILABLE"
     assert result.assessment.architecture.value == "UNKNOWN"
     capture.assert_not_called()
+
+
+def test_auto_audit_adapter_reuses_canonical_service_without_altering_configuration(monkeypatch):
+    from rasai.architecture_choice_audit_adapter import (
+        observe_auto_architecture_before_audit, prepare_audit_choice_configuration,
+    )
+    from rasai.architecture_choice import ArchitectureChoice
+    from rasai.architecture_acquisition_service import DiscoveryExecution
+    from rasai.architecture_discovery import assess_architecture
+    from rasai.architecture_acquisition_preferences import STATIC
+    from rasai.domain import DeviceContext
+    snapshot = {"targets": ["https://example.org/"]}
+    frozen = prepare_audit_choice_configuration(snapshot, choice=ArchitectureChoice("AUTO"))
+    received = []
+    expected = DiscoveryExecution(True, STATIC, assess_architecture(
+        raw_html="<main>HTML</main>", rendered_html=None,
+        quality_reason="STATIC_MODE_NO_RENDERED_DOM"), "STATIC_MODE_NO_RENDERED_DOM")
+
+    def fake_service(url, device, *, mode, consent):
+        received.append((url, device, mode))
+        return expected
+
+    monkeypatch.setattr("rasai.architecture_acquisition_service.run_optional_discovery", fake_service)
+    result = observe_auto_architecture_before_audit(
+        "https://example.org/", DeviceContext.MOBILE,
+        mode=STATIC, consent=lambda _: False)
+    assert result is expected
+    assert received == [("https://example.org/", DeviceContext.MOBILE, STATIC)]
+    assert snapshot == {"targets": ["https://example.org/"]}
+    assert frozen["architecture_choice"]["mode"] == "AUTO"
