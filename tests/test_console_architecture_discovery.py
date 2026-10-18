@@ -6,6 +6,13 @@ from unittest.mock import patch
 from rasai.architecture_discovery import ArchitectureAssessment
 from rasai.console_architecture_discovery import architecture_preview_menu
 from rasai.domain import ArchitectureClassification
+from rasai.architecture_acquisition_preferences import DYNAMIC
+
+
+@pytest.fixture(autouse=True)
+def isolated_dynamic_mode(monkeypatch):
+    """Existing console contracts exercise the dynamic backend unless overridden."""
+    monkeypatch.setattr("rasai.console_architecture_discovery.read_mode", lambda: DYNAMIC)
 
 
 def test_home_preview_uses_existing_target_without_touching_audit(monkeypatch, capsys):
