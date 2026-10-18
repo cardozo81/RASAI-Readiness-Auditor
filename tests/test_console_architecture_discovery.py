@@ -53,7 +53,11 @@ def test_no_dns_or_probe_without_network_gate(monkeypatch, capsys):
     console = SimpleNamespace(render_header=lambda _: None)
     answers = iter(['1', '', 'V'])
     monkeypatch.setattr('builtins.input', lambda *args: next(answers))
-    with patch('rasai.console_architecture_discovery.probe_architecture') as probe:
+    from rasai.runtime_prerequisites import PrerequisiteResult
+    with patch('rasai.runtime_prerequisites.prepare_prerequisite',
+               return_value=PrerequisiteResult(False, "DOCKER_INSTALL_REQUIRED")), patch(
+        'rasai.console_architecture_discovery.probe_architecture'
+    ) as probe:
         architecture_preview_menu(console, state)
         probe.assert_not_called()
     assert 'Nenhuma consulta' in capsys.readouterr().out
@@ -103,8 +107,12 @@ def test_preview_without_egress_preserves_existing_audit_database(tmp_path, monk
     monkeypatch.delenv("RASAI_ARCH_PROBE_EGRESS_GUARDED", raising=False)
     answers = iter(["1", "", "V"])
     monkeypatch.setattr("builtins.input", lambda *_: next(answers))
-    with patch("rasai.console_architecture_discovery.probe_architecture",
-               side_effect=AssertionError("offline preview cannot open acquisition")) as probe:
+    from rasai.runtime_prerequisites import PrerequisiteResult
+    with patch("rasai.runtime_prerequisites.prepare_prerequisite",
+               return_value=PrerequisiteResult(False, "DOCKER_INSTALL_REQUIRED")), patch(
+        "rasai.console_architecture_discovery.probe_architecture",
+        side_effect=AssertionError("offline preview cannot open acquisition")
+    ) as probe:
         architecture_preview_menu(console, state)
     probe.assert_not_called()
     assert db.read_bytes() == original_bytes
@@ -254,3 +262,45 @@ def test_windows_preview_rejects_unrendered_live_capture_without_aud_mutation(
     assert sorted(p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("*")) == [
         "AUD-original", "AUD-original/audit.db",
     ]
+
+
+def test_menu_auto_prepared_executor_needs_no_flag_and_no_manual_commands(monkeypatch, capsys):
+    from rasai.runtime_prerequisites import PrerequisiteResult
+    from rasai.architecture_probe import ProbeCaptures
+    from rasai.domain import DeviceContext
+    state = SimpleNamespace(target="https://example.org/", device="mobile")
+    console = SimpleNamespace(render_header=lambda _: None)
+    monkeypatch.delenv("RASAI_ARCH_PROBE_OFFLINE_CONTAINER", raising=False)
+    answers = iter(["1", "", "V"])
+    monkeypatch.setattr("builtins.input", lambda *_: next(answers))
+    def captures(url, device):
+        return ProbeCaptures(
+            url, url, device, "<main>Visible static content</main>",
+            "<main>Visible static content</main>",
+        )
+    with patch("rasai.runtime_prerequisites.prepare_prerequisite",
+               return_value=PrerequisiteResult(True, "PREREQUISITE_READY")) as gate, patch(
+        "rasai.console_architecture_discovery.probe_architecture",
+        return_value=ArchitectureAssessment(ArchitectureClassification.STATIC_OR_SSR, None, None),
+    ) as probe:
+        architecture_preview_menu(console, state)
+    assert gate.call_count == 1
+    assert probe.call_count == 1
+    assert probe.call_args.kwargs["capture"].__name__ == "capture_isolated_public_architecture"
+    assert "STATIC_OR_SSR" in capsys.readouterr().out
+
+
+def test_menu_refused_preparation_does_not_run_probe(monkeypatch, capsys):
+    from rasai.runtime_prerequisites import PrerequisiteResult
+    state = SimpleNamespace(target="https://example.org/", device="mobile")
+    console = SimpleNamespace(render_header=lambda _: None)
+    monkeypatch.delenv("RASAI_ARCH_PROBE_OFFLINE_CONTAINER", raising=False)
+    answers = iter(["1", "", "V"])
+    monkeypatch.setattr("builtins.input", lambda *_: next(answers))
+    with patch("rasai.runtime_prerequisites.prepare_prerequisite",
+               return_value=PrerequisiteResult(False, "PREREQUISITE_DECLINED")), patch(
+        "rasai.console_architecture_discovery.probe_architecture"
+    ) as probe:
+        architecture_preview_menu(console, state)
+    probe.assert_not_called()
+    assert "demais catálogos" in capsys.readouterr().out
