@@ -37,7 +37,7 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
         console.render_header(state)
         print("INÍCIO > DESCOBRIR ARQUITETURA")
         print("Diagnóstico preliminar. Não altera a configuração de arquitetura;")
-        print("a auditoria realizará sua própria descoberta.")
+        print("A execução da auditoria mantém sua configuração independente.")
         print(f"URL: {getattr(state, 'target', '') or '<não informada>'}")
         print(f"Dispositivo: {getattr(state, 'device', 'mobile')}")
         mode = read_mode()
@@ -106,7 +106,8 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
             if not execution.executed:
                 print("Descoberta indisponível ou recusada: " + str(execution.reason))
                 print("Os demais catálogos continuam disponíveis.")
-                print("Nenhuma consulta ao site ou DNS foi realizada.")
+                if execution.reason not in {"OPTIONAL_DISCOVERY_UNAVAILABLE"}:
+                    print("Nenhuma consulta ao site ou DNS foi realizada.")
                 print("Nenhuma alteração foi feita na auditoria.")
             else:
                 for line in describe_architecture_assessment(execution.assessment):
