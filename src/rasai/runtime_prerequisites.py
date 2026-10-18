@@ -45,6 +45,12 @@ def prepare_prerequisite(
     docker = shutil.which("docker")
     if docker is None:
         return PrerequisiteResult(False, "DOCKER_INSTALL_REQUIRED")
+    # An image build transfers project sources to the selected Docker daemon.
+    # Reject a remote daemon BEFORE asking for consent or invoking build.
+    # Reuse the same transport policy enforced by inspect_local_image().
+    from rasai.architecture_isolated_capture import local_docker_transport
+    if not local_docker_transport(docker):
+        return PrerequisiteResult(False, "DOCKER_LOCAL_DAEMON_REQUIRED")
     root = (source_root or Path(__file__).resolve().parents[2]).resolve()
     dockerfile = root / "Dockerfile.architecture-offline"
     if not dockerfile.is_file() or not (root / "pyproject.toml").is_file():
