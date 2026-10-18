@@ -470,3 +470,20 @@ def test_console_ini_rejects_nonfinite_runtime_delays_and_timeouts(tmp_path):
         result = console_settings.load_console_config(state, ini)
         assert any(note.startswith(f"{section}.{option}:") for note in result.warnings)
         assert state.config_dirty is True
+
+
+def test_unknown_owned_ini_option_warns_and_marks_state_dirty(tmp_path):
+    """#523: typed options omitted by the registry cannot appear restored."""
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    ini = tmp_path / "unknown-typed.ini"
+    ini.write_text(
+        "[console]\nmax_pages=4\nobsolete_setting=DO_NOT_LEAK_523\n",
+        encoding="utf-8",
+    )
+    state = SearchConsoleState()
+    result = console_settings.load_console_config(state, ini)
+    assert any(note.startswith("console.obsolete_setting:") for note in result.warnings)
+    assert "DO_NOT_LEAK_523" not in repr(result.warnings)
+    assert state.max_pages == 4
+    assert state.config_dirty is True
