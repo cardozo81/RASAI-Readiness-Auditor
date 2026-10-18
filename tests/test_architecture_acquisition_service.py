@@ -72,3 +72,25 @@ def test_dynamic_ready_dispatches_only_canonical_probe():
     assert result.executed
     assert result.assessment.architecture.value == "STATIC_OR_SSR"
     capture.assert_called_once()
+
+
+def test_static_network_failure_abstains_without_docker_or_global_failure():
+    result = run_optional_discovery(
+        URL, DEVICE, mode=STATIC, consent=lambda _: False,
+        static_capture=Mock(side_effect=OSError("private network details")),
+        prepare=Mock(side_effect=AssertionError("no Docker")),
+    )
+    assert not result.executed
+    assert result.reason == "OPTIONAL_DISCOVERY_UNAVAILABLE"
+    assert result.assessment.architecture.value == "UNKNOWN"
+
+
+def test_dynamic_worker_failure_abstains_after_ready_prerequisite():
+    result = run_optional_discovery(
+        URL, DEVICE, mode=DYNAMIC, consent=lambda _: True,
+        prepare=lambda *_args, **_kwargs: SimpleNamespace(ready=True),
+        dynamic_capture=Mock(side_effect=RuntimeError("worker error with private details")),
+    )
+    assert not result.executed
+    assert result.reason == "OPTIONAL_DISCOVERY_UNAVAILABLE"
+    assert result.assessment.architecture.value == "UNKNOWN"
