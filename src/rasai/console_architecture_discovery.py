@@ -58,14 +58,53 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
             print("Informe uma URL e um dispositivo válidos na preparação da auditoria.")
             input("ENTER para continuar...")
             continue
-        if os.environ.get('RASAI_ARCH_PROBE_OFFLINE_CONTAINER') != '1':
-            print('Diagnóstico inconclusivo: proteção de acesso à rede não configurada.')
-            print('Nenhuma consulta ao site ou DNS foi realizada.')
-            input('ENTER para voltar...')
-            continue
+        # Shared on-demand prerequisite API: do not launch Docker at startup,
+        # set OS environment variables, or require manual build commands.
+        from rasai.runtime_prerequisites import (
+            ARCHITECTURE_BROWSER, prepare_prerequisite,
+        )
+        def request_consent(message: str) -> bool:
+            print(message)
+            return input("Autorizar? [S/N]: ").strip().upper() == "S"
+
+        # Keep the existing explicit opt-in working during transition; all
+        # normal interactive usage uses the same prerequisite manager.
+        manual_oci = os.environ.get("RASAI_ARCH_PROBE_OFFLINE_CONTAINER") == "1"
+        if not manual_oci:
+            prepared = prepare_prerequisite(
+                ARCHITECTURE_BROWSER, consent=request_consent,
+            )
+            if not prepared.ready:
+                messages = {
+                    "DOCKER_INSTALL_REQUIRED": (
+                        "Docker Desktop não está instalado. A instalação deve ser "
+                        "autorizada no instalador do sistema; o restante do RASAi "
+                        "continua disponível."
+                    ),
+                    "PREREQUISITE_DECLINED": (
+                        "Preparação recusada. Apenas a descoberta dinâmica ficará "
+                        "indisponível; os demais catálogos continuam disponíveis."
+                    ),
+                    "OCI_BUILD_SOURCE_UNAVAILABLE": (
+                        "Os arquivos locais necessários ao executor não estão disponíveis."
+                    ),
+                    "OCI_BUILD_FAILED": (
+                        "Não foi possível preparar o navegador isolado. "
+                        "Os demais recursos do RASAi permanecem disponíveis."
+                    ),
+                }
+                print(messages.get(prepared.reason, "Pré-requisito indisponível."))
+                print("Nenhuma consulta ao site ou DNS foi realizada.")
+                input("ENTER para voltar...")
+                continue
         try:
+            if manual_oci:
+                capture = capture_public_architecture
+            else:
+                from rasai.architecture_isolated_capture import capture_isolated_public_architecture
+                capture = capture_isolated_public_architecture
             result = probe_architecture(
-                url, DeviceContext(device.upper()), capture=capture_public_architecture,
+                url, DeviceContext(device.upper()), capture=capture,
             )
             for line in describe_architecture_assessment(result):
                 print(line)
