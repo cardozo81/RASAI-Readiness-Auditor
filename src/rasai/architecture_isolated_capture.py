@@ -39,25 +39,32 @@ class ArchitectureAssetFailure(ValueError):
         self.reason = reason
 
 
-def inspect_local_image() -> str | None:
-    """Verify a locally built OCI image before performing any DNS or HTTP."""
-    docker = shutil.which("docker")
-    if docker is None:
-        return None
-    # A configured remote daemon can copy page captures outside this machine,
-    # irrespective of --network none in that remote container. Reject both a
-    # remote DOCKER_HOST override and a remote selected Docker context.
+def local_docker_transport(docker: str) -> bool:
+    """Reject remote daemons before transferring sources or page evidence."""
     host_override = os.environ.get("DOCKER_HOST", "").strip()
     if host_override and not host_override.startswith(("unix://", "npipe://")):
-        return None
+        return False
     try:
         context = subprocess.run(
             [docker, "context", "inspect", "--format", "{{.Endpoints.docker.Host}}"],
             capture_output=True, text=True, timeout=10, check=False,
         )
-        host = context.stdout.strip()
-        if context.returncode != 0 or not host.startswith(("unix://", "npipe://")):
-            return None
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return (
+        context.returncode == 0
+        and context.stdout.strip().startswith(("unix://", "npipe://"))
+    )
+
+
+def inspect_local_image() -> str | None:
+    """Verify a locally built OCI image before performing any DNS or HTTP."""
+    docker = shutil.which("docker")
+    if docker is None:
+        return None
+    if not local_docker_transport(docker):
+        return None
+    try:
         result = subprocess.run(
             [docker, "image", "inspect", "--format", "{{.Id}}", OFFLINE_IMAGE],
             capture_output=True, text=True, timeout=10, check=False,
