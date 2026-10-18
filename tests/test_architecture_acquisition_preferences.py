@@ -41,7 +41,7 @@ def test_static_fetch_never_invokes_container_or_claims_classification(monkeypat
     with patch("rasai.architecture_static_capture.PublicWebFetcher") as fetch, patch(
         "rasai.architecture_probe._default_resolver"
     ) as validate_dns, patch(
-        "rasai.architecture_static_capture.subprocess.run", create=True
+        "subprocess.run"
     ) as docker:
         fetch.return_value.fetch.return_value = root
         result = probe_architecture(
