@@ -622,3 +622,31 @@ def test_three_human_smoke_urls_have_distinct_deterministic_diagnostics(monkeypa
         assert observed.limitation == expected
         assert text in "\n".join(describe_architecture_assessment(observed))
         docker_run.assert_not_called()
+
+
+def test_cross_origin_asset_revalidation_refuses_dns_change_before_fetch(monkeypatch):
+    """Asset public on inventory but private before request must fail closed."""
+    from rasai.architecture_isolated_capture import (
+        _bundle_resources, ArchitectureAssetFailure, ContentFetchStatus,
+    )
+    import pytest
+    url = "https://example.org/"
+    asset = "https://cdn.example.net/app.js"
+    raw = '<main>Example</main><script src="' + asset + '"></script>'
+    root = SimpleNamespace(status=ContentFetchStatus.OBSERVED, final_url=url,
+                           http_status=200, body=raw.encode(),
+                           headers={"content-type": "text/html"})
+    calls = []
+
+    def public_check(candidate, resolver):
+        calls.append(candidate)
+        if candidate == asset and calls.count(asset) == 2:
+            raise ValueError("destination changed to private address")
+        return candidate
+
+    monkeypatch.setattr("rasai.architecture_isolated_capture._validate_public_url", public_check)
+    with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch:
+        with pytest.raises(ArchitectureAssetFailure, match="OCI_CROSS_ORIGIN_ASSET_REJECTED"):
+            _bundle_resources(url, root, raw)
+        fetch.return_value.fetch.assert_not_called()
+    assert calls == [asset, asset]
