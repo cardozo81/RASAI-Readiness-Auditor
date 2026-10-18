@@ -6,6 +6,7 @@ carry the extra top-level key without introducing a parallel source of truth.
 from __future__ import annotations
 
 from typing import Any, Mapping, Callable, TYPE_CHECKING
+from pathlib import Path
 
 if TYPE_CHECKING:
     from rasai.domain import DeviceContext
@@ -62,3 +63,21 @@ def observe_auto_architecture_before_audit(
     """
     from rasai.architecture_acquisition_service import run_optional_discovery
     return run_optional_discovery(url, device, mode=mode, consent=consent)
+
+
+def read_architecture_choice_for_reprocess(
+    audits_root: "str | Path", audit_id: str,
+) -> ResolvedChoice | None:
+    """Read only the sealed choice for RPR/complements; never reacquire a site.
+
+    Absence of a historical configuration is legitimate. Corrupted or modified
+    snapshots are not promoted to observed architecture evidence.
+    """
+    from rasai.audit_configuration_reuse import load_reusable_audit_configuration
+    try:
+        saved = load_reusable_audit_configuration(audits_root, audit_id)
+        return read_sealed_audit_choice(
+            saved.configuration, expected_hash=saved.configuration_hash,
+        )
+    except (FileNotFoundError, OSError, ValueError, KeyError, TypeError):
+        return None
