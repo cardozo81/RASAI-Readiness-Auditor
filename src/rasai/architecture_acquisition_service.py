@@ -62,7 +62,13 @@ def run_optional_discovery(
         from rasai.runtime_prerequisites import prepare_prerequisite
         prepare = prepare_prerequisite
     from rasai.runtime_prerequisites import ARCHITECTURE_BROWSER
-    readiness = prepare(ARCHITECTURE_BROWSER, consent=consent)
+    try:
+        readiness = prepare(ARCHITECTURE_BROWSER, consent=consent)
+    except (OSError, RuntimeError):
+        return DiscoveryExecution(False, mode, assess_architecture(
+            raw_html=None, rendered_html=None,
+            quality_reason="OPTIONAL_PREREQUISITE_UNAVAILABLE",
+        ), "OPTIONAL_PREREQUISITE_UNAVAILABLE")
     if not readiness.ready:
         code = readiness.reason
         return DiscoveryExecution(False, mode, assess_architecture(
