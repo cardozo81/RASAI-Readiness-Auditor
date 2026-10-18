@@ -31,12 +31,14 @@ def run_optional_discovery(
     static_capture: Callable[[str, DeviceContext], ProbeCaptures] | None = None,
     dynamic_capture: Callable[[str, DeviceContext], ProbeCaptures] | None = None,
     prepare: Callable[..., object] | None = None,
+    probe: Callable[..., ArchitectureAssessment] | None = None,
 ) -> DiscoveryExecution:
     """Run only the requested optional capability; refuse unsafe fallback.
 
     The returned assessment is consultative. No score, collector selection,
     database or IA task is modified. Callers may safely omit this result.
     """
+    probe_runner = probe or probe_architecture
     if mode not in {STATIC, DYNAMIC, SKIP}:
         raise ValueError("Unsupported architecture acquisition mode")
     if mode == SKIP:
@@ -49,7 +51,7 @@ def run_optional_discovery(
             from rasai.architecture_static_capture import capture_static_public_architecture
             static_capture = capture_static_public_architecture
         try:
-            assessment = probe_architecture(url, device, capture=static_capture)
+            assessment = probe_runner(url, device, capture=static_capture)
         except (OSError, RuntimeError):
             return DiscoveryExecution(False, mode, assess_architecture(
                 raw_html=None, rendered_html=None,
@@ -70,7 +72,7 @@ def run_optional_discovery(
         from rasai.architecture_isolated_capture import capture_isolated_public_architecture
         dynamic_capture = capture_isolated_public_architecture
     try:
-        assessment = probe_architecture(url, device, capture=dynamic_capture)
+        assessment = probe_runner(url, device, capture=dynamic_capture)
     except (OSError, RuntimeError):
         return DiscoveryExecution(False, mode, assess_architecture(
             raw_html=None, rendered_html=None,
