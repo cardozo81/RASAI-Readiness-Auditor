@@ -469,3 +469,38 @@ def test_empty_data_favicon_sentinel_is_preserved_without_network_resource():
     reader.feed(markup)
     assert reader.urls == []
     assert len(_bundle_resources("https://example.org/", root, markup)) == 1
+
+
+def test_public_html_failure_reasons_are_specific_and_do_not_open_browser(monkeypatch):
+    """#646: a redirect/HTTP failure cannot be mistaken for arbitrary HTML outage."""
+    from rasai.architecture_isolated_capture import ContentFetchStatus
+
+    monkeypatch.setattr("rasai.architecture_isolated_capture.inspect_local_image", lambda: DIGEST)
+    monkeypatch.setattr("rasai.architecture_isolated_capture.shutil.which", lambda _: "docker")
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_isolation", lambda **_: {})
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_browser_canary", lambda **_: None)
+    monkeypatch.setattr("rasai.architecture_isolated_capture._validate_public_url", lambda url, _: url)
+
+    cases = (
+        (ContentFetchStatus.ERROR, 301, "TOO_MANY_REDIRECTS", "PUBLIC_REDIRECT_NOT_FOLLOWED"),
+        (ContentFetchStatus.ERROR, 200, "CONTENT_BODY_LIMIT", "PUBLIC_HTML_SIZE_LIMIT"),
+        (ContentFetchStatus.BLOCKED, None, "PUBLIC_WEB_DESTINATION_BLOCKED", "PUBLIC_DESTINATION_REJECTED"),
+        (ContentFetchStatus.UNAVAILABLE, None, "CONTENT_TIMEOUT", "PUBLIC_TRANSPORT_UNAVAILABLE"),
+        (ContentFetchStatus.OBSERVED, 403, None, "PUBLIC_HTTP_NOT_SUCCESS"),
+        (ContentFetchStatus.OBSERVED, 200, None, "PUBLIC_RESPONSE_NOT_HTML"),
+    )
+    for status, code, error, expected in cases:
+        document = SimpleNamespace(
+            status=status, final_url="https://example.org/", http_status=code,
+            error_code=error, body=b"", headers={"content-type": "application/json"},
+        )
+        with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch, patch(
+            "rasai.architecture_isolated_capture.subprocess.run"
+        ) as docker_run:
+            fetch.return_value.fetch.return_value = document
+            result = capture_isolated_public_architecture(
+                "https://example.org/", DeviceContext.MOBILE
+            )
+        assert result.quality_reason == expected
+        assert result.rendered_html is None
+        docker_run.assert_not_called()
