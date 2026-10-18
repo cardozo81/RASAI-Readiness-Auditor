@@ -62,6 +62,11 @@ def prepare_prerequisite(
     except (OSError, subprocess.TimeoutExpired):
         return PrerequisiteResult(False, "DOCKER_DAEMON_UNAVAILABLE")
     if daemon.returncode != 0 or not daemon.stdout.strip():
+        # Only interpret the stable permission marker; never return stderr,
+        # which may include local paths, usernames or daemon details.
+        diagnostic = str(getattr(daemon, "stderr", "") or "").lower()
+        if "permission denied" in diagnostic or "access is denied" in diagnostic:
+            return PrerequisiteResult(False, "DOCKER_PERMISSION_DENIED")
         return PrerequisiteResult(False, "DOCKER_DAEMON_UNAVAILABLE")
     root = (source_root or Path(__file__).resolve().parents[2]).resolve()
     dockerfile = root / "Dockerfile.architecture-offline"
