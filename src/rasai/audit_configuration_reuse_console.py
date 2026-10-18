@@ -513,6 +513,26 @@ def install(interactive_console: ModuleType) -> None:
         from rasai.architecture_choice_audit_adapter import prepare_audit_choice_configuration
         choice = _ARCHITECTURE_SELECTION.get(id(state))
         sealed_effective = prepare_audit_choice_configuration(effective, choice=choice)
+        # Advisory AUTO discovery is a separate operation: never part of the
+        # sealed configuration, scoring, audit capture, RPR or complements.
+        if getattr(choice, "mode", None) == "AUTO" and len(targets) == 1:
+            from rasai.architecture_acquisition_preferences import read_mode, SKIP
+            acquisition_mode = read_mode()
+            if acquisition_mode != SKIP:
+                from rasai.domain import DeviceContext
+                from rasai.architecture_choice_audit_adapter import observe_auto_architecture_before_audit
+                try:
+                    device = DeviceContext(str(getattr(state, "device", "MOBILE")).upper())
+                    observed = observe_auto_architecture_before_audit(
+                        targets[0], device, mode=acquisition_mode,
+                        consent=lambda _: False,  # AUD must never install Docker.
+                    )
+                    print("Descoberta consultiva na nova AUD: "
+                          + observed.assessment.architecture.value)
+                    if observed.assessment.limitation:
+                        print("Limitação da descoberta: " + observed.assessment.limitation)
+                except (OSError, RuntimeError, ValueError):
+                    print("Descoberta consultiva indisponível; AUD independente preservada.")
         differences = changed_fields(source.configuration, sealed_effective) if source else ()
         with configuration_context(
             kind=KIND_CONSOLE,
