@@ -119,6 +119,10 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
                     "OCI_BUILD_SOURCE_UNAVAILABLE": (
                         "Os arquivos locais necessários ao executor não estão disponíveis."
                     ),
+                    "DOCKER_LOCAL_DAEMON_REQUIRED": (
+                        "Docker aponta para um serviço remoto ou não verificável. "
+                        "A preparação exige Docker local; nenhum arquivo foi enviado."
+                    ),
                     "OCI_BUILD_FAILED": (
                         "Não foi possível preparar o navegador isolado. "
                         "Os demais recursos do RASAi permanecem disponíveis."
