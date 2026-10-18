@@ -676,7 +676,13 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
         ):
             warnings.append(f"{section}: campo sensível em seção não reconhecida")
     for section, values in _state_values(state).items():
-        if not parser.has_section(section): continue
+        if not parser.has_section(section):
+            continue
+        # Unknown options in owned typed sections are not consumed and must
+        # not be reported as successfully restored or silently dropped.
+        for option in parser._sections[section]:
+            if option not in values:
+                warnings.append(f"{section}.{option}: opção não reconhecida ou não persistível")
         for option in values:
             # has_option() inherits [DEFAULT], which must not overwrite
             # typed state without an explicit assignment in this section.
