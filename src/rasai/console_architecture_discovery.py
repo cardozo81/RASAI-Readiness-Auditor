@@ -106,6 +106,7 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
             if not execution.executed:
                 print("Descoberta indisponível ou recusada: " + str(execution.reason))
                 print("Os demais catálogos continuam disponíveis.")
+                print("Nenhuma consulta ao site ou DNS foi realizada.")
                 print("Nenhuma alteração foi feita na auditoria.")
             else:
                 for line in describe_architecture_assessment(execution.assessment):
