@@ -487,3 +487,37 @@ def test_unknown_owned_ini_option_warns_and_marks_state_dirty(tmp_path):
     assert "DO_NOT_LEAK_523" not in repr(result.warnings)
     assert state.max_pages == 4
     assert state.config_dirty is True
+
+
+def test_unpersistible_environment_input_marks_config_dirty_without_exposing_value(
+    tmp_path, monkeypatch,
+):
+    """#523: silently ignored environment fields must not look fully restored."""
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    path = tmp_path / "unsupported-environment.ini"
+    path.write_text(
+        "[environment]\nRASAI_UNKNOWN_RUNTIME_OPTION=private-fixture-523\n",
+        encoding="utf-8",
+    )
+    state = SearchConsoleState()
+    result = console_settings.load_console_config(state, path)
+    assert any("environment.RASAI_UNKNOWN_RUNTIME_OPTION" in w for w in result.warnings)
+    assert "private-fixture-523" not in repr(result.warnings)
+    assert state.config_dirty is True
+
+
+def test_sensitive_unknown_ini_section_marks_config_dirty(tmp_path):
+    """#523: unsafe extension section requires reconciliation, not clean status."""
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    path = tmp_path / "secret-extension.ini"
+    path.write_text(
+        "[unknown_extension]\nAPI_TOKEN=synthetic-do-not-print\n",
+        encoding="utf-8",
+    )
+    state = SearchConsoleState()
+    result = console_settings.load_console_config(state, path)
+    assert result.warnings
+    assert "synthetic-do-not-print" not in repr(result.warnings)
+    assert state.config_dirty is True
