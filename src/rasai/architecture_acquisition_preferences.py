@@ -11,7 +11,8 @@ from pathlib import Path
 
 STATIC = "STATIC"
 DYNAMIC = "DYNAMIC"
-OPTIONS = frozenset((STATIC, DYNAMIC))
+SKIP = "SKIP"
+OPTIONS = frozenset((STATIC, DYNAMIC, SKIP))
 VERSION = 1
 
 
@@ -40,7 +41,7 @@ def read_mode(root: Path | None = None) -> str:
 
 
 def write_mode(mode: str, root: Path | None = None) -> None:
-    if mode not in OPTIONS:
+    if not isinstance(mode, str) or mode not in OPTIONS:
         raise ValueError("Unsupported discovery acquisition mode")
     target = preference_path(root)
     target.parent.mkdir(parents=True, exist_ok=True)
