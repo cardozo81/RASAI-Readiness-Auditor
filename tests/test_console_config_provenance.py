@@ -431,3 +431,22 @@ def test_console_load_reports_unknown_ini_section_without_leaking_values(
     assert any("unexpected_private_section" in note for note in result.warnings)
     assert "DO_NOT_DISCLOSE_523" not in repr(result.warnings)
     assert os.environ["RASAI_SERP_MAX_REQUESTS"] == "9"
+
+
+def test_invalid_restored_typed_value_marks_configuration_unsaved(tmp_path):
+    """#523: partial typed restoration must not claim a clean saved state."""
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    ini = tmp_path / "invalid-pages.ini"
+    ini.write_text("[console]\nmax_pages=not-a-number\n", encoding="utf-8")
+    state = SearchConsoleState()
+    result = console_settings.load_console_config(state, ini)
+    assert any("console.max_pages" in note for note in result.warnings)
+    assert state.config_dirty is True
+
+    valid = tmp_path / "valid-pages.ini"
+    valid.write_text("[console]\nmax_pages=4\n", encoding="utf-8")
+    fresh = SearchConsoleState()
+    result = console_settings.load_console_config(fresh, valid)
+    assert result.warnings == ()
+    assert fresh.config_dirty is False
