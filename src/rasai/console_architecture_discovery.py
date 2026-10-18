@@ -8,7 +8,7 @@ from rasai.architecture_probe import probe_architecture
 from rasai.architecture_live_capture import capture_public_architecture
 from rasai.domain import DeviceContext
 from rasai.catalog_report_public_labels import public_label
-from rasai.architecture_acquisition_preferences import STATIC, DYNAMIC, read_mode, write_mode
+from rasai.architecture_acquisition_preferences import STATIC, DYNAMIC, SKIP, read_mode, write_mode
 
 
 def describe_architecture_assessment(result: Any) -> tuple[str, ...]:
@@ -41,7 +41,7 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
         print(f"URL: {getattr(state, 'target', '') or '<não informada>'}")
         print(f"Dispositivo: {getattr(state, 'device', 'mobile')}")
         mode = read_mode()
-        print("Modo de descoberta: " + ("Básica (sem Docker)" if mode == STATIC else "Dinâmica (Docker isolado)"))
+        print("Modo de descoberta: " + ({STATIC: "Básica (sem Docker)", DYNAMIC: "Dinâmica (Docker isolado)", SKIP: "Não executar descoberta"}.get(mode, "Básica (sem Docker)")))
         print("1. Executar descoberta")
         print("2. Alterar URL")
         print("3. Alterar dispositivo")
@@ -57,10 +57,11 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
         if choice == "4":
             print("1. Básica: HTML público, sem Docker, classificação limitada")
             print("2. Dinâmica: HTML e navegador isolado, Docker necessário")
-            selection = input("Modo [1/2/V]: ").strip().upper()
-            if selection in {"1", "2"}:
+            print("3. Não executar descoberta neste momento")
+            selection = input("Modo [1/2/3/V]: ").strip().upper()
+            if selection in {"1", "2", "3"}:
                 try:
-                    write_mode(STATIC if selection == "1" else DYNAMIC)
+                    write_mode({"1": STATIC, "2": DYNAMIC, "3": SKIP}[selection])
                 except OSError:
                     print("Não foi possível salvar a preferência local.")
                 else:
@@ -73,6 +74,11 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
         if not url or device not in {"mobile", "desktop"}:
             print("Informe uma URL e um dispositivo válidos na preparação da auditoria.")
             input("ENTER para continuar...")
+            continue
+        if mode == SKIP:
+            print("Descoberta não executada por escolha do usuário.")
+            print("Os demais catálogos e recursos permanecem disponíveis.")
+            input("ENTER para voltar...")
             continue
         if mode == STATIC:
             try:
