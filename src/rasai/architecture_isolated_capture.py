@@ -16,6 +16,7 @@ import subprocess
 from html.parser import HTMLParser
 from urllib.parse import urljoin
 
+from rasai.architecture_public_html import public_html_failure
 from rasai.architecture_probe import ProbeCaptures
 from rasai.domain import DeviceContext
 from rasai.geo_competitor_pinned_egress import PublicWebPinnedOpener
@@ -208,27 +209,9 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
         opener=PublicWebPinnedOpener(),
     )
     document = fetcher.fetch(target)
-    # Report bounded reasons instead of collapsing redirects, HTTP failures,
-    # oversized documents and unavailable transport into a generic HTML error.
-    # Never reveal response body, redirect Location, internal URL or exception.
-    error = str(getattr(document, "error_code", "") or "")
-    status = getattr(document, "http_status", None)
-    if error == "TOO_MANY_REDIRECTS":
-        return ProbeCaptures(target, target, device, None, None, "PUBLIC_REDIRECT_NOT_FOLLOWED")
-    if error == "CONTENT_BODY_LIMIT":
-        return ProbeCaptures(target, target, device, None, None, "PUBLIC_HTML_SIZE_LIMIT")
-    if document.status == ContentFetchStatus.BLOCKED:
-        return ProbeCaptures(target, target, device, None, None, "PUBLIC_DESTINATION_REJECTED")
-    if document.status != ContentFetchStatus.OBSERVED:
-        return ProbeCaptures(target, target, device, None, None, "PUBLIC_TRANSPORT_UNAVAILABLE")
-    if isinstance(status, int) and 300 <= status < 400:
-        return ProbeCaptures(target, target, device, None, None, "PUBLIC_REDIRECT_NOT_FOLLOWED")
-    if status is None or not 200 <= status < 300:
-        return ProbeCaptures(target, target, device, None, None, "PUBLIC_HTTP_NOT_SUCCESS")
-    if document.final_url != target:
-        return ProbeCaptures(target, target, device, None, None, "PUBLIC_FINAL_URL_MISMATCH")
-    if "text/html" not in document.headers.get("content-type", "").lower():
-        return ProbeCaptures(target, target, device, None, None, "PUBLIC_RESPONSE_NOT_HTML")
+    reason = public_html_failure(document, target)
+    if reason is not None:
+        return ProbeCaptures(target, target, device, None, None, reason)
     raw = document.body.decode("utf-8", errors="replace")
     # Distinguish unsafe/unavailable HTML resources from Chromium failures.
     # Preserve only bounded reason codes; never expose URLs, HTML or stderr.
