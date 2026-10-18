@@ -360,22 +360,24 @@ def test_render_timeout_and_invalid_output_remain_distinct(monkeypatch):
 
 
 
-def test_cross_origin_script_reports_specific_safe_resource_reason():
-    import pytest
-    from rasai.architecture_isolated_capture import (
-        _bundle_resources, ArchitectureAssetFailure, ContentFetchStatus,
-    )
-    markup = '<html><main>Fixture</main><script src="https://cdn.example.net/app.js"></script></html>'
-    root = SimpleNamespace(
-        status=ContentFetchStatus.OBSERVED,
-        final_url="https://example.org/",
-        http_status=200,
-        body=markup.encode(),
-        headers={"content-type": "text/html"},
-    )
-    with pytest.raises(ArchitectureAssetFailure) as raised:
-        _bundle_resources("https://example.org/", root, markup)
-    assert raised.value.reason == "OCI_EXTERNAL_ASSET_REQUIRED"
+def test_cross_origin_script_public_asset_is_host_fetched_and_replayed(monkeypatch):
+    from rasai.architecture_isolated_capture import _bundle_resources, ContentFetchStatus
+    target = "https://example.org/"
+    asset = "https://cdn.example.net/app.js"
+    markup = '<html><main>Fixture</main><script src="' + asset + '"></script></html>'
+    root = SimpleNamespace(status=ContentFetchStatus.OBSERVED,
+                           final_url=target, http_status=200,
+                           body=markup.encode(), headers={"content-type": "text/html"})
+    resource = SimpleNamespace(status=ContentFetchStatus.OBSERVED,
+                               final_url=asset, http_status=200,
+                               body=b"console.log(1)", headers={"content-type": "text/javascript"})
+    monkeypatch.setattr("rasai.architecture_isolated_capture._validate_public_url",
+                        lambda url, _: url)
+    with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch:
+        fetch.return_value.fetch.return_value = resource
+        result = _bundle_resources(target, root, markup)
+    assert [a["url"] for a in result] == [target, asset]
+    fetch.return_value.fetch.assert_called_once_with(asset)
 
 
 def test_invalid_resource_url_reports_specific_safe_reason():
@@ -439,20 +441,19 @@ def test_inline_exemption_never_applies_to_script_or_stylesheet():
             _bundle_resources("https://example.org/", root, markup)
 
 
-def test_remote_favicon_is_still_subject_to_origin_policy():
+def test_private_favicon_destination_is_rejected_before_network(monkeypatch):
     from rasai.architecture_isolated_capture import (
         _bundle_resources, ArchitectureAssetFailure, ContentFetchStatus,
     )
     import pytest
-    markup = ('<html><main>Text</main><link rel="icon" '
-              'href="https://cdn.example.net/icon.svg"></html>')
-    root = SimpleNamespace(
-        status=ContentFetchStatus.OBSERVED,
-        final_url="https://example.org/", http_status=200,
-        body=markup.encode(), headers={"content-type": "text/html"},
-    )
-    with pytest.raises(ArchitectureAssetFailure, match="OCI_EXTERNAL_ASSET_REQUIRED"):
-        _bundle_resources("https://example.org/", root, markup)
+    markup = '<html><link rel="icon" href="http://127.0.0.1/icon.svg"></html>'
+    root = SimpleNamespace(status=ContentFetchStatus.OBSERVED,
+                           final_url="https://example.org/", http_status=200,
+                           body=markup.encode(), headers={"content-type": "text/html"})
+    with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch:
+        with pytest.raises(ArchitectureAssetFailure, match="OCI_CROSS_ORIGIN_ASSET_REJECTED"):
+            _bundle_resources("https://example.org/", root, markup)
+    fetch.assert_not_called()
 
 
 def test_empty_data_favicon_sentinel_is_preserved_without_network_resource():
@@ -549,22 +550,19 @@ def test_unique_resource_limit_refuses_before_network_or_partial_replay(monkeypa
     fetch.return_value.fetch.assert_not_called()
 
 
-def test_unsafe_resource_is_rejected_even_when_reference_is_repeated(monkeypatch):
-    """An unsafe reference cannot be hidden by deduplicating the asset list."""
+def test_invalid_cross_origin_resource_is_rejected_even_when_repeated(monkeypatch):
     from rasai.architecture_isolated_capture import (
         _bundle_resources, ArchitectureAssetFailure, ContentFetchStatus,
     )
     import pytest
     root_url = "https://example.org/"
-    markup = ('<script src="https://cdn.example.net/app.js"></script>' * 40)
-    root = SimpleNamespace(
-        status=ContentFetchStatus.OBSERVED, final_url=root_url,
-        http_status=200, body=markup.encode(), headers={"content-type": "text/html"},
-    )
+    markup = ('<script src="http://127.0.0.1/private.js"></script>' * 40)
+    root = SimpleNamespace(status=ContentFetchStatus.OBSERVED, final_url=root_url,
+                           http_status=200, body=markup.encode(), headers={"content-type": "text/html"})
     with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch:
-        with pytest.raises(ArchitectureAssetFailure, match="OCI_EXTERNAL_ASSET_REQUIRED"):
+        with pytest.raises(ArchitectureAssetFailure, match="OCI_CROSS_ORIGIN_ASSET_REJECTED"):
             _bundle_resources(root_url, root, markup)
-    fetch.return_value.fetch.assert_not_called()
+    fetch.assert_not_called()
 
 
 def test_three_human_smoke_urls_have_distinct_deterministic_diagnostics(monkeypatch):
