@@ -6,6 +6,7 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    "STATIC_MODE_NO_RENDERED_DOM": "Modo básico: HTML público observado, sem renderização JavaScript; arquitetura inconclusiva",
     "PUBLIC_REDIRECT_NOT_FOLLOWED": "Redirecionamento não seguido pela política de segurança; URL final não atestada",
     "PUBLIC_HTML_SIZE_LIMIT": "HTML excede o limite de bytes permitido",
     "PUBLIC_DESTINATION_REJECTED": "Destino público rejeitado pela política de rede",
