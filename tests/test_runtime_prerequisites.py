@@ -58,7 +58,7 @@ def test_consented_build_reuses_single_fixed_image(tmp_path):
         "rasai.architecture_isolated_capture.local_docker_transport", return_value=True
     ), patch("rasai.runtime_prerequisites.shutil.which", return_value="docker"
     ), patch("rasai.runtime_prerequisites.subprocess.run",
-             return_value=SimpleNamespace(returncode=0)) as run:
+             side_effect=[SimpleNamespace(returncode=0, stdout="29.8.2"), SimpleNamespace(returncode=0)] ) as run:
         result = prepare_prerequisite(
             ARCHITECTURE_BROWSER, consent=allow, source_root=tmp_path,
         )
@@ -76,7 +76,7 @@ def test_failed_build_cannot_claim_ready(tmp_path):
         "rasai.architecture_isolated_capture.local_docker_transport", return_value=True
     ), patch("rasai.runtime_prerequisites.shutil.which", return_value="docker"
     ), patch("rasai.runtime_prerequisites.subprocess.run",
-             return_value=SimpleNamespace(returncode=1)):
+             side_effect=[SimpleNamespace(returncode=0, stdout="29.8.2"), SimpleNamespace(returncode=1)] ):
         result = prepare_prerequisite(
             ARCHITECTURE_BROWSER, consent=lambda _: True, source_root=tmp_path,
         )
@@ -109,3 +109,45 @@ def test_remote_docker_cannot_build_or_prompt(tmp_path):
     assert not result.ready
     assert result.reason == "DOCKER_LOCAL_DAEMON_REQUIRED"
     run.assert_not_called()
+
+
+def test_stopped_daemon_never_requests_consent_or_build(tmp_path):
+    (tmp_path / "Dockerfile.architecture-offline").write_text("FROM scratch")
+    (tmp_path / "pyproject.toml").write_text("[build-system]")
+    with patch("rasai.architecture_isolated_capture.inspect_local_image",
+               return_value=None), patch(
+        "rasai.architecture_isolated_capture.local_docker_transport",
+        return_value=True
+    ), patch("rasai.runtime_prerequisites.shutil.which",
+             return_value="docker"), patch(
+        "rasai.runtime_prerequisites.subprocess.run",
+        return_value=SimpleNamespace(returncode=1, stdout="", stderr="private daemon details")
+    ) as run:
+        result = prepare_prerequisite(
+            ARCHITECTURE_BROWSER,
+            consent=lambda _: (_ for _ in ()).throw(AssertionError("unexpected consent")),
+            source_root=tmp_path,
+        )
+    assert result.reason == "DOCKER_DAEMON_UNAVAILABLE" and not result.ready
+    assert run.call_count == 1
+    assert run.call_args.args[0][1] == "info"
+
+
+def test_daemon_timeout_cannot_trigger_build(tmp_path):
+    import subprocess
+    with patch("rasai.architecture_isolated_capture.inspect_local_image",
+               return_value=None), patch(
+        "rasai.architecture_isolated_capture.local_docker_transport",
+        return_value=True
+    ), patch("rasai.runtime_prerequisites.shutil.which",
+             return_value="docker"), patch(
+        "rasai.runtime_prerequisites.subprocess.run",
+        side_effect=subprocess.TimeoutExpired(cmd="docker info", timeout=10)
+    ) as run:
+        result = prepare_prerequisite(
+            ARCHITECTURE_BROWSER,
+            consent=lambda _: (_ for _ in ()).throw(AssertionError("unexpected consent")),
+            source_root=tmp_path,
+        )
+    assert result.reason == "DOCKER_DAEMON_UNAVAILABLE" and not result.changed
+    assert run.call_count == 1
