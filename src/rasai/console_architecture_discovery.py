@@ -20,6 +20,8 @@ def describe_architecture_assessment(result: Any) -> tuple[str, ...]:
     ]
     comparison = result.comparison
     if comparison is None:
+        lines.append("HTML RAW: " + ("obtido" if getattr(result, "raw_available", False) else "não comprovado"))
+        lines.append("DOM renderizado: " + ("obtido" if getattr(result, "rendered_available", False) else "não comprovado"))
         lines.append("Evidência: comparação RAW/renderizada indisponível ou rejeitada.")
     else:
         lines.append(f"Conteúdo principal RAW: {'presente' if comparison.raw_main_content.strip() else 'ausente'}")
