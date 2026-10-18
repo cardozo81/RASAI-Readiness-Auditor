@@ -5,7 +5,11 @@ carry the extra top-level key without introducing a parallel source of truth.
 """
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Any, Mapping, Callable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from rasai.domain import DeviceContext
+    from rasai.architecture_acquisition_service import DiscoveryExecution
 
 from rasai.architecture_choice import ArchitectureChoice, CHOICE_KEY, read_choice, write_choice
 from rasai.architecture_choice_precedence import ResolvedChoice, resolve_choice_precedence
@@ -44,3 +48,17 @@ def read_sealed_audit_choice(
     if configuration_hash(configuration) != expected_hash:
         raise ValueError("Audit configuration fingerprint mismatch")
     return resolve_choice_precedence(snapshot=configuration)
+
+
+def observe_auto_architecture_before_audit(
+    url: str, device: "DeviceContext", *, mode: str,
+    consent: "Callable[[str], bool]",
+) -> "DiscoveryExecution":
+    """Advisory-only AUTO discovery for a new AUD; never change its sealed config.
+
+    The menu 8 preference controls acquisition, not the declared audit choice.
+    The caller must explicitly select AUTO, and invoke this only for a new AUD,
+    never silently during RPR or complementary processing.
+    """
+    from rasai.architecture_acquisition_service import run_optional_discovery
+    return run_optional_discovery(url, device, mode=mode, consent=consent)
