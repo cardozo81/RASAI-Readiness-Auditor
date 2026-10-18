@@ -19,6 +19,8 @@ class ArchitectureAssessment:
     comparison: StateComparison | None
     limitation: str | None
     method_version: str = METHOD_VERSION
+    raw_available: bool = False
+    rendered_available: bool = False
 
 
 def assess_architecture(
@@ -30,12 +32,18 @@ def assess_architecture(
 ) -> ArchitectureAssessment:
     """Return a conservative classification; never fetch or persist data."""
     if quality_reason:
-        return ArchitectureAssessment(ArchitectureClassification.UNKNOWN, None, quality_reason)
+        return ArchitectureAssessment(ArchitectureClassification.UNKNOWN, None, quality_reason,
+                                      raw_available=raw_html is not None,
+                                      rendered_available=rendered_html is not None)
     if raw_html is None or rendered_html is None:
-        return ArchitectureAssessment(ArchitectureClassification.UNKNOWN, None, "RAW_OR_RENDERED_UNAVAILABLE")
+        return ArchitectureAssessment(ArchitectureClassification.UNKNOWN, None, "RAW_OR_RENDERED_UNAVAILABLE",
+                                      raw_available=raw_html is not None,
+                                      rendered_available=rendered_html is not None)
     comparison = (analyzer or JavascriptSpaAnalyzer()).compare(raw_html, rendered_html)
     if not comparison.raw_main_content.strip() and not comparison.rendered_main_content.strip():
         # No material content: the original classifier could label an empty
         # document STATIC_OR_SSR; classification requires positive evidence.
-        return ArchitectureAssessment(ArchitectureClassification.UNKNOWN, comparison, "MAIN_CONTENT_NOT_IDENTIFIED")
-    return ArchitectureAssessment(comparison.architecture, comparison, None)
+        return ArchitectureAssessment(ArchitectureClassification.UNKNOWN, comparison, "MAIN_CONTENT_NOT_IDENTIFIED",
+                                      raw_available=True, rendered_available=True)
+    return ArchitectureAssessment(comparison.architecture, comparison, None,
+                                  raw_available=True, rendered_available=True)
