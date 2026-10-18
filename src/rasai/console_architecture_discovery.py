@@ -107,6 +107,11 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
             )
             if not prepared.ready:
                 messages = {
+                    "DOCKER_DAEMON_UNAVAILABLE": (
+                        "Docker está instalado, mas o serviço local não respondeu. "
+                        "Inicie o Docker Desktop e tente novamente; os demais "
+                        "catálogos permanecem disponíveis."
+                    ),
                     "DOCKER_INSTALL_REQUIRED": (
                         "Docker Desktop não está instalado. A instalação deve ser "
                         "autorizada no instalador do sistema; o restante do RASAi "
