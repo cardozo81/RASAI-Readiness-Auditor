@@ -60,8 +60,8 @@ def test_dynamic_refusal_never_starts_browser_or_http():
 
 def test_dynamic_ready_dispatches_only_canonical_probe():
     capture = Mock(return_value=ProbeCaptures(
-        URL, URL, DEVICE, "<main>Server content</main>",
-        "<main>Server content</main>",
+        URL, URL, DEVICE, "<html><body><main><h1>Page</h1><p>Visible server content present.</p></main></body></html>",
+        "<html><body><main><h1>Page</h1><p>Visible server content present.</p></main></body></html>",
     ))
     prepare = Mock(return_value=SimpleNamespace(ready=True, reason="PREREQUISITE_READY"))
     with patch("rasai.architecture_probe._validate_public_url", side_effect=lambda url, _: url):
