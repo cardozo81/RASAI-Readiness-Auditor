@@ -48,7 +48,13 @@ def run_optional_discovery(
         if static_capture is None:
             from rasai.architecture_static_capture import capture_static_public_architecture
             static_capture = capture_static_public_architecture
-        assessment = probe_architecture(url, device, capture=static_capture)
+        try:
+            assessment = probe_architecture(url, device, capture=static_capture)
+        except (OSError, RuntimeError):
+            return DiscoveryExecution(False, mode, assess_architecture(
+                raw_html=None, rendered_html=None,
+                quality_reason="OPTIONAL_DISCOVERY_UNAVAILABLE",
+            ), "OPTIONAL_DISCOVERY_UNAVAILABLE")
         return DiscoveryExecution(True, mode, assessment, assessment.limitation)
     if prepare is None:
         from rasai.runtime_prerequisites import prepare_prerequisite
@@ -63,5 +69,11 @@ def run_optional_discovery(
     if dynamic_capture is None:
         from rasai.architecture_isolated_capture import capture_isolated_public_architecture
         dynamic_capture = capture_isolated_public_architecture
-    assessment = probe_architecture(url, device, capture=dynamic_capture)
+    try:
+        assessment = probe_architecture(url, device, capture=dynamic_capture)
+    except (OSError, RuntimeError):
+        return DiscoveryExecution(False, mode, assess_architecture(
+            raw_html=None, rendered_html=None,
+            quality_reason="OPTIONAL_DISCOVERY_UNAVAILABLE",
+        ), "OPTIONAL_DISCOVERY_UNAVAILABLE")
     return DiscoveryExecution(True, mode, assessment, assessment.limitation)
