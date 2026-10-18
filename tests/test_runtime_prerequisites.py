@@ -151,3 +151,43 @@ def test_daemon_timeout_cannot_trigger_build(tmp_path):
         )
     assert result.reason == "DOCKER_DAEMON_UNAVAILABLE" and not result.changed
     assert run.call_count == 1
+
+
+def test_docker_permission_denied_is_safe_and_does_not_build(tmp_path):
+    with patch("rasai.architecture_isolated_capture.inspect_local_image",
+               return_value=None), patch(
+        "rasai.architecture_isolated_capture.local_docker_transport",
+        return_value=True
+    ), patch("rasai.runtime_prerequisites.shutil.which",
+             return_value="docker"), patch(
+        "rasai.runtime_prerequisites.subprocess.run",
+        return_value=SimpleNamespace(returncode=1, stdout="",
+                                     stderr="permission denied: confidential host path")
+    ) as run:
+        result = prepare_prerequisite(
+            ARCHITECTURE_BROWSER,
+            consent=lambda _: (_ for _ in ()).throw(AssertionError("no consent")),
+            source_root=tmp_path,
+        )
+    assert result.reason == "DOCKER_PERMISSION_DENIED"
+    assert not result.ready and not result.changed
+    assert run.call_count == 1
+    assert run.call_args.args[0][1] == "info"
+
+
+def test_daemon_generic_error_never_leaks_stderr(tmp_path):
+    with patch("rasai.architecture_isolated_capture.inspect_local_image",
+               return_value=None), patch(
+        "rasai.architecture_isolated_capture.local_docker_transport",
+        return_value=True
+    ), patch("rasai.runtime_prerequisites.shutil.which",
+             return_value="docker"), patch(
+        "rasai.runtime_prerequisites.subprocess.run",
+        return_value=SimpleNamespace(returncode=1, stdout="",
+                                     stderr="internal daemon error: sensitive identifier")
+    ):
+        result = prepare_prerequisite(
+            ARCHITECTURE_BROWSER, consent=lambda _: True, source_root=tmp_path,
+        )
+    assert result.reason == "DOCKER_DAEMON_UNAVAILABLE"
+    assert "sensitive" not in result.reason
