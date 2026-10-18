@@ -36,7 +36,7 @@ def read_mode(root: Path | None = None) -> str:
         return STATIC
     if type(obj["version"]) is not int or obj["version"] != VERSION:
         return STATIC
-    return obj["mode"] if obj["mode"] in OPTIONS else STATIC
+    return obj["mode"] if isinstance(obj["mode"], str) and obj["mode"] in OPTIONS else STATIC
 
 
 def write_mode(mode: str, root: Path | None = None) -> None:
