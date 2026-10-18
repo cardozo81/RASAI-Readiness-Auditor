@@ -51,6 +51,18 @@ def prepare_prerequisite(
     from rasai.architecture_isolated_capture import local_docker_transport
     if not local_docker_transport(docker):
         return PrerequisiteResult(False, "DOCKER_LOCAL_DAEMON_REQUIRED")
+    # Check daemon reachability before consent/build; a stopped daemon must not
+    # produce a misleading installation prompt or start a costly build.
+    try:
+        daemon = subprocess.run(
+            [docker, "info", "--format", "{{.ServerVersion}}"],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            timeout=10, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return PrerequisiteResult(False, "DOCKER_DAEMON_UNAVAILABLE")
+    if daemon.returncode != 0 or not daemon.stdout.strip():
+        return PrerequisiteResult(False, "DOCKER_DAEMON_UNAVAILABLE")
     root = (source_root or Path(__file__).resolve().parents[2]).resolve()
     dockerfile = root / "Dockerfile.architecture-offline"
     if not dockerfile.is_file() or not (root / "pyproject.toml").is_file():
