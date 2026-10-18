@@ -129,25 +129,31 @@ def _bundle_resources(target: str, root, raw: str) -> list[dict]:
     root_record = _encode_asset(target, root)
     parser = _AssetReferences()
     parser.feed(raw)
-    if len(parser.urls) > MAX_ASSETS:
-        raise ArchitectureAssetFailure("OCI_ASSET_COUNT_LIMIT")
-    fetcher = PublicWebFetcher(
-        timeout_seconds=4.0, max_redirects=0, max_bytes=500_000,
-        opener=PublicWebPinnedOpener(),
-    )
-    assets = [root_record]
+    # Count unique fetchable resources, not HTML reference occurrences.
+    # Shared bundles can be repeated dozens of times without increasing
+    # network exposure. Inspect every reference before using the budget:
+    # duplicates cannot hide an unsafe destination or malformed URL.
+    candidates: list[str] = []
     seen = {target}
     for reference in parser.urls:
         try:
             candidate = normalize_url(urljoin(target, reference))
         except ValueError as exc:
             raise ArchitectureAssetFailure("OCI_ASSET_URL_REJECTED") from exc
-        if candidate in seen:
-            continue
-        # Fail closed if the page needs third-party JS/CSS/fonts.
         if normalized_origin(candidate) != normalized_origin(target):
             raise ArchitectureAssetFailure("OCI_EXTERNAL_ASSET_REQUIRED")
+        if candidate in seen:
+            continue
         seen.add(candidate)
+        candidates.append(candidate)
+        if len(candidates) > MAX_ASSETS:
+            raise ArchitectureAssetFailure("OCI_ASSET_COUNT_LIMIT")
+    fetcher = PublicWebFetcher(
+        timeout_seconds=4.0, max_redirects=0, max_bytes=500_000,
+        opener=PublicWebPinnedOpener(),
+    )
+    assets = [root_record]
+    for candidate in candidates:
         _validate_public_url(candidate, _default_resolver)
         assets.append(_encode_asset(candidate, fetcher.fetch(candidate)))
     return assets
