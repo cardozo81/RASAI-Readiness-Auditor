@@ -94,3 +94,16 @@ def test_dynamic_worker_failure_abstains_after_ready_prerequisite():
     assert not result.executed
     assert result.reason == "OPTIONAL_DISCOVERY_UNAVAILABLE"
     assert result.assessment.architecture.value == "UNKNOWN"
+
+
+def test_dynamic_prerequisite_failure_abstains_before_site_capture():
+    capture = Mock(side_effect=AssertionError("no network or Docker renderer"))
+    result = run_optional_discovery(
+        URL, DEVICE, mode=DYNAMIC, consent=lambda _: False,
+        prepare=Mock(side_effect=OSError("private Docker daemon details")),
+        dynamic_capture=capture,
+    )
+    assert not result.executed
+    assert result.reason == "OPTIONAL_PREREQUISITE_UNAVAILABLE"
+    assert result.assessment.architecture.value == "UNKNOWN"
+    capture.assert_not_called()
