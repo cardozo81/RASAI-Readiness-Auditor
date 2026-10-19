@@ -998,3 +998,22 @@ genericamente aos demais catálogos sem prova de necessidade e não
 altera o modo de execução do GSC, tokens OAuth ou os motores.
 Testes com SQLite inexistente não são necessários: o escopo é apenas
 arquivo temporário INI, ambiente de processo e restauração segura.
+
+
+### Aplicação coesa das preferências GSC durante o load (#523)
+
+Se o INI contiver um conjunto de configurações GSC novo com qualquer
+valor inválido (por exemplo, `REQUIRED=true` + propriedade válida
+mas teto de linhas fora dos limites), a restauração deixa **todo o
+grupo GSC novo inaplicado**, e não somente o campo recusado. Isso
+evita ativação parcial de coleta que não corresponde à intenção salva.
+É emitido warning por chave sem valores e aviso do grupo; outras
+variáveis reconhecidas são processadas normalmente.
+
+Overrides de sessão explicitamente presentes continuam prioritários:
+um valor existente para determinada chave não é rebaixado pelo INI
+anterior, e não participa da pré-validação do valor de INI que seria
+ignorado. O preflight GSC segue sendo um diagnóstico **offline**, não
+um autorizador de OAuth/Google. Testes incluem grupo inválido sem
+ativação parcial, restauração física intacta, e override de sessão
+preexistente, sem rede nem auditoria.

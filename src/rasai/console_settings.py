@@ -700,6 +700,28 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
         return ConfigLoadResult(source, False, (f"não foi possível ler {source}: {type(exc).__name__}",))
     if parser.has_section("environment"):
         allowed = set(_known_nonsecret_environment_names())
+        # Validate all *applicable* GSC inputs before restoring any of them.
+        # Applying mode/property and rejecting only rows/days after the fact
+        # would enable a different GSC request policy than the operator saved.
+        # The in-memory session override is authoritative for its own key.
+        gsc_names = _gsc_nonsecret_names()
+        gsc_candidate: dict[str, str] = {}
+        gsc_group_valid = True
+        for name, raw in parser._sections["environment"].items():
+            if (name not in gsc_names or name not in allowed
+                    or name in os.environ or not raw.strip()):
+                continue
+            try:
+                gsc_candidate[name] = _canonical_gsc_value(name, raw)
+            except ValueError:
+                gsc_group_valid = False
+                warnings.append(
+                    f"environment.{name}: valor GSC inválido; conteúdo omitido"
+                )
+        if not gsc_group_valid:
+            warnings.append(
+                "environment.GSC: grupo GSC não aplicado por inconsistência no INI"
+            )
         # ConfigParser.items() silently merges [DEFAULT]. Only physical keys
         # placed in [environment] are operator environment assignments.
         for name, raw in parser._sections["environment"].items():
@@ -715,15 +737,11 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
             # A deliberately empty session override is still an override.
             # Do not revive an older INI value on console startup.
             if name not in os.environ and raw.strip():
-                if name in _gsc_nonsecret_names():
-                    try:
-                        canonical = _canonical_gsc_value(name, raw)
-                    except ValueError:
-                        warnings.append(
-                            f"environment.{name}: valor GSC inválido; conteúdo omitido"
-                        )
-                        continue
-                    os.environ[name] = canonical
+                if name in gsc_names:
+                    # A malformed member blocks the entire detached GSC
+                    # group, not unrelated valid core/environment fields.
+                    if gsc_group_valid:
+                        os.environ[name] = gsc_candidate[name]
                 else:
                     os.environ[name] = raw.strip()
     # Optional console adapters may own additional legitimate sections that

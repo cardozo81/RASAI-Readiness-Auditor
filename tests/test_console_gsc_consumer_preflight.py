@@ -252,3 +252,56 @@ def test_523_gsc_save_does_not_destroy_operator_ini_on_invalid_override(tmp_path
         del os.environ[GSC_FINAL_DATA_LAG_DAYS_ENV]
         console_settings.save_console_config(state, path)
         assert path.read_bytes() == before
+
+
+def test_523_gsc_invalid_member_must_abstain_entire_ini_group(tmp_path):
+    """Invalid row caps cannot partially enable REQUIRED GSC on reload."""
+    from rasai import console_settings, standards_gsc_policy as policy
+    from rasai.gsc_scope import GSC_ENABLED_ENV, GSC_SITE_URL_ENV
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    _install_search_persistence()
+    install()
+    physical_source = _ini(tmp_path, rows="50001")
+    saved = physical_source.read_bytes()
+    with patch.dict(os.environ, {"RASAI_EXTERNAL_SESSION_FLAG": "intact"}, clear=True):
+        state = SearchConsoleState()
+        outcome = console_settings.load_console_config(state, physical_source)
+        assert not outcome.created
+        assert state.config_dirty is True
+        assert any("environment.GSC: grupo GSC" in w for w in outcome.warnings)
+        for key in (
+            GSC_ENABLED_ENV, GSC_SITE_URL_ENV,
+            policy.GSC_SEARCH_ANALYTICS_DAYS_ENV,
+            policy.GSC_SEARCH_MAX_ROWS_ENV,
+            policy.GSC_FINAL_DATA_LAG_DAYS_ENV,
+        ):
+            assert key not in os.environ
+        assert os.environ["RASAI_EXTERNAL_SESSION_FLAG"] == "intact"
+        assert physical_source.read_bytes() == saved
+
+
+def test_523_gsc_override_precedence_preserved_for_existing_session_value(tmp_path):
+    """An intentional session override is not overwritten by an older INI."""
+    from rasai import console_settings, standards_gsc_policy as policy
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    _install_search_persistence()
+    install()
+    physical_source = _ini(tmp_path, rows="50001")
+    physical = physical_source.read_bytes()
+    with patch.dict(
+        os.environ, {policy.GSC_SEARCH_MAX_ROWS_ENV: "20"}, clear=True,
+    ):
+        state = SearchConsoleState()
+        result = console_settings.load_console_config(state, physical_source)
+        assert not result.created
+        assert not any("environment.GSC: grupo GSC" in x for x in result.warnings)
+        assert os.environ[policy.GSC_SEARCH_MAX_ROWS_ENV] == "20"
+        assert os.environ["RASAI_GSC_ENABLED"] == "true"
+        assert os.environ["RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL"] == (
+            "sc-domain:example.org"
+        )
+        assert physical_source.read_bytes() == physical
