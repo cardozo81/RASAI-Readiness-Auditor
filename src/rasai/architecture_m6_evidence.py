@@ -6,6 +6,8 @@ scoring, file mutation, new requests, or inference across URL/device/snapshot.
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
+from dataclasses import dataclass
+import hashlib
 import sqlite3
 
 from rasai.architecture_context import ArchitectureObservation, CLASSES
@@ -24,6 +26,55 @@ def _safe_artifact_reference(value: object) -> bool:
     path = PurePosixPath(value)
     return (not path.is_absolute() and len(parts) > 1
             and all(segment not in {"", ".", ".."} for segment in parts))
+
+
+@dataclass(frozen=True)
+class ArchitectureArtifactInspection:
+    """Physical inspection only: computed digests are NOT trusted manifest digests."""
+    status: str
+    raw_sha256: str | None = None
+    rendered_sha256: str | None = None
+    manifest_attested: bool = False
+
+
+def inspect_architecture_artifact_pair(
+    audits_root: str | Path, audit_id: str, raw_ref: str, rendered_ref: str,
+) -> ArchitectureArtifactInspection:
+    """Inspect a persisted pair without following symlinks or writing any files.
+
+    A freshly calculated digest cannot prove historic authenticity without an
+    independently anchored canonical hash. Never report attestation here.
+    """
+    normalized = normalize_audit_id(audit_id)
+    root = Path(audits_root).resolve()
+    workspace = root / normalized
+    if workspace.is_symlink() or not workspace.is_dir():
+        return ArchitectureArtifactInspection("WORKSPACE_UNAVAILABLE")
+    if not all(_safe_artifact_reference(x) and x.startswith("artifacts/")
+               for x in (raw_ref, rendered_ref)):
+        return ArchitectureArtifactInspection("INVALID_REFERENCE")
+    digests = []
+    for reference in (raw_ref, rendered_ref):
+        candidate = workspace / reference
+        try:
+            relative = candidate.relative_to(workspace)
+            current = workspace
+            for segment in relative.parts:
+                current = current / segment
+                if current.is_symlink():
+                    return ArchitectureArtifactInspection("UNSAFE_SYMLINK")
+            if not candidate.is_file() or not candidate.resolve().is_relative_to(workspace.resolve()):
+                return ArchitectureArtifactInspection("ARTIFACT_UNAVAILABLE")
+            digest = hashlib.sha256()
+            with candidate.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            digests.append(digest.hexdigest())
+        except (OSError, ValueError):
+            return ArchitectureArtifactInspection("ARTIFACT_UNAVAILABLE")
+    return ArchitectureArtifactInspection(
+        "PRESENT_UNATTESTED", digests[0], digests[1], False,
+    )
 
 def read_audit_architecture_observations(
     audits_root: str | Path, audit_id: str,
