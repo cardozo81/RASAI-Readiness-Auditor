@@ -181,3 +181,13 @@ Guardas negativas de existência não dispensam execuções positivas do mesmo
 arquivo em outra linha. O scanner foi reforçado com fixture de regressão
 real, mantendo cobertura de extensões YAML. Homologação humana Windows deve
 focar execução de CLI e persistência INI, não reproduzir testes de regex.
+
+## Pré-integração e gates finais
+
+O HEAD de trabalho `e580e2ec` foi verificado com 31 de 31 workflows
+SUCCESS em 19/10/2026. A conformidade de nomes, referências literais dos
+workflows e CLI/namespace protegidos pode ser aceita como evidência de
+pré-integração. A validação de `main` após merge continua condicionada à
+autorização do proprietário, e consumidores externos não versionados só
+podem ser afirmados compatíveis mediante evidência concreta. Não criar
+imports de compatibilidade hipotéticos nem reabrir nomes já estabilizados.

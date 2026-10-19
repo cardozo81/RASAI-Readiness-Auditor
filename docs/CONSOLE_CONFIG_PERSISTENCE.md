@@ -634,3 +634,12 @@ gates separados. Não inferir consentimento de integração paga nem
 homologação de Dynatrace live a partir de uma variável em INI. O
 inventário `console_configuration_inventory` deve continuar
 indicando `NOT_PROVEN_BY_REGISTRY` onde não há teste de consumidor.
+
+## Gate integrado de APDEX no novo processo
+
+A regressão do registro público também compara os valores serializados de
+todos os campos tipados `synthetic_apdex` e `synthetic_apdex_experience`
+com os valores reconstituídos no processo Python isolado. A única exclusão
+é `device_mix`, derivado do dispositivo canônico em vez de ser fonte de
+verdade independente. A prova cobre save/load e integridade de valores, não
+atesta a execução física de Dynatrace, navegador ou provedor externo.

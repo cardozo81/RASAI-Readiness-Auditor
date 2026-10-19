@@ -74,12 +74,26 @@ unexpected=[name for name,value in stored.items()
 assert loaded.created is False
 assert not loaded.warnings, len(loaded.warnings)
 typed=_state_values(state)
+# Assert APDEX serialized typed values survive in an independent process.
+apdex_mismatches=[]
+for section in ("synthetic_apdex", "synthetic_apdex_experience"):
+    for option, saved_value in parser[section].items():
+        if option == "device_mix":
+            continue
+        actual=typed[section].get(option)
+        if actual != saved_value:
+            apdex_mismatches.append({"section":section,"option":option,
+                                     "expected":saved_value,"actual":actual})
+assert not apdex_mismatches, apdex_mismatches
 assert typed["synthetic_apdex_experience"]["architecture"]=="CSR_SPA"
 assert typed["synthetic_apdex_experience"]["profile_mode"]=="DYNATRACE_GUIDED"
 assert state.perplexity_queries == ()
 assert state.perplexity_draft_queries == ("saved-draft-not-authorized",)
 print(json.dumps({"missing":missing,"unexpected":unexpected,
-                  "count":len(stored),"nonsecret":True},sort_keys=True))
+                  "count":len(stored),"apdex_fields_checked":sum(
+                      len(parser[section]) - (1 if section == "synthetic_apdex_experience" else 0)
+                      for section in ("synthetic_apdex","synthetic_apdex_experience")),
+                  "nonsecret":True},sort_keys=True))
 """
         # A new process with Windows/Python bootstrap variables only, no RASAI/provider secrets.
         child_env = {
@@ -95,6 +109,7 @@ print(json.dumps({"missing":missing,"unexpected":unexpected,
         )
         restored = json.loads(completed.stdout)
         assert restored["count"] == len(names)
+        assert restored["apdex_fields_checked"] >= 20
         assert restored["missing"] == [], restored["missing"]
         assert restored["unexpected"] == [], restored["unexpected"]
         assert path.read_bytes() == original
