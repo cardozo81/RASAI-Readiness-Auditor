@@ -50,8 +50,10 @@ def classify_claim(
             or type(at_date) is not date):
         # A missing/malformed claim is not an observed factual claim, even
         # when documentary validation was not requested for this context.
-        return {"state": "CLAIM_UNVERIFIED_EXTERNAL",
-                "basis": "INVALID_CLAIM_OR_SCOPE"}
+        return (fallback if external_validation_required else {
+            "state": "CLAIM_UNVERIFIED_EXTERNAL",
+            "basis": "INVALID_CLAIM_OR_SCOPE",
+        })
     if not isinstance(primary_bytes, bytes) or not 0 < len(primary_bytes) <= _MAX_DOCUMENT_BYTES:
         return fallback
     if not isinstance(review, Mapping):

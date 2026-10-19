@@ -154,7 +154,8 @@ def test_optional_seo_reconciliation_is_readonly_and_does_not_recompute_scores(t
             "score_id TEXT,audit_id TEXT,dimension TEXT,device TEXT,scoring_version TEXT)"
         )
         con.execute(
-            "CREATE TABLE rule_executions(rule_execution_id TEXT,observed_value TEXT)"
+            "CREATE TABLE rule_executions(rule_execution_id TEXT,audit_id TEXT,"
+            "rule_id TEXT,observed_value TEXT)"
         )
         con.execute(
             "CREATE TABLE score_contributions("
@@ -169,12 +170,12 @@ def test_optional_seo_reconciliation_is_readonly_and_does_not_recompute_scores(t
             ],
         )
         con.executemany(
-            "INSERT INTO rule_executions VALUES(?,?)",
+            "INSERT INTO rule_executions VALUES(?,?,?,?)",
             [
-                ("R3", '{"sitemaps":[{"state":"ABSENT","url":"https://example.test/sitemap.xml"}]}'),
-                ("R17", '{"state":"ABSENT","url":"https://example.test/robots.txt"}'),
-                ("R13", '{"canonicals":[]}'),
-                ("RX", '{"sitemaps":[{"state":"INVALID"}]}'),
+                ("R3", "AUD-1", "BR-GEO-003", '{"sitemaps":[{"state":"ABSENT","url":"https://example.test/sitemap.xml"}]}'),
+                ("R17", "AUD-1", "BR-GEO-017", '{"state":"ABSENT","url":"https://example.test/robots.txt"}'),
+                ("R13", "AUD-1", "BR-GEO-013", '{"canonicals":[]}'),
+                ("RX", "AUD-1", "BR-GEO-003", '{"sitemaps":[{"state":"INVALID"}]}'),
             ],
         )
         con.executemany(
