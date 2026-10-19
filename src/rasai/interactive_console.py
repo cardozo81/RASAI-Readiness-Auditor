@@ -605,11 +605,12 @@ def _execution_readiness(state: State) -> tuple[bool, str]:
 
 def _save_configuration(state: State) -> bool:
     try:
-        sync_nonsecret_runtime_environment(state)
+        # The canonical writer applies the runtime projection transactionally:
+        # if INI validation/replacement fails it restores the prior environment.
+        # An eager sync in this caller defeated that rollback on save errors.
         path = save_console_config(state, get_config_path(state))
         set_config_path(state, path)
         mark_dirty(state, False)
-        sync_nonsecret_runtime_environment(state)
         state.operation = "LOCAL:SAVE_CONFIG"
         state.error = ""
         render_header(state)

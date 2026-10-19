@@ -125,3 +125,25 @@ def test_malformed_typed_ini_warning_does_not_echo_original_value(tmp_path):
                    for w in result.warnings)
         assert state.config_dirty is True
     assert path.read_bytes() == before
+
+
+def test_interactive_save_error_does_not_apply_unsaved_runtime_overrides(tmp_path, monkeypatch):
+    from rasai import interactive_console
+
+    with patch.dict(os.environ, {}, clear=True):
+        ini = tmp_path / "existing-operator.ini"
+        state = interactive_console.State()
+        console_settings.save_console_config(state, ini)
+        original = ini.read_bytes()
+        state.web_performance = True
+        state.apdex_experience_architecture = "CSR_SPA"
+        os.environ["RASAI_WEB_PERFORMANCE"] = "false"
+        os.environ["RASAI_APDEX_EXPERIENCE_ARCHITECTURE"] = "STATIC_OR_SSR"
+        expected_environment = dict(os.environ)
+        monkeypatch.setattr(interactive_console, "get_config_path", lambda _state: ini)
+        with patch("rasai.console_settings.os.replace", side_effect=OSError("synthetic disk failure")):
+            assert interactive_console._save_configuration(state) is False
+        assert "falha ao salvar configuração" in state.error
+        assert os.environ == expected_environment
+        assert ini.read_bytes() == original
+        assert not list(tmp_path.glob(".*.tmp"))

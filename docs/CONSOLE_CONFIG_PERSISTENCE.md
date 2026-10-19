@@ -788,3 +788,14 @@ Erros de conversão de campos tipados incluem apenas a identificação estável
 da seção e da opção, sem expor o texto recebido ou a mensagem bruta de
 `int()`/`float()` em avisos de console. A sessão permanece marcada para
 reconciliação quando um campo é rejeitado. O leitor não altera a fonte.
+
+### Transação do salvamento pelo menu do console
+
+A ação interativa `_save_configuration` delega toda a sincronização ao
+`save_console_config` canônico. Sincronizar o ambiente **antes** do writer
+invalidava a proteção de rollback deste em caso de falha de gravação:
+valores não salvos podiam ficar ativos no processo. O writer agora é o
+único responsável por aplicar a projeção de runtime durante a transação,
+restaurando o ambiente anterior se a escrita atômica falhar. O teste
+focal injeta falha de disco usando INI descartável e verifica ambiente
+inalterado, bytes preservados e mensagem de erro no menu.
