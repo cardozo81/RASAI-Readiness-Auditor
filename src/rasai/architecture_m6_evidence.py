@@ -60,8 +60,15 @@ def read_audit_architecture_observations(
     observations = []
     seen = set()
     ambiguous = set()
+    snapshot_identities = {}
+    ambiguous_snapshots = set()
     for snapshot_id, page_id, device, requested, final, architecture, raw, rendered in rows:
         identity = (snapshot_id, page_id, device, requested, final)
+        # A snapshot ID is a physical identity within one AUD, not a
+        # reusable label for different pages, devices or target URLs.
+        if snapshot_id in snapshot_identities and snapshot_identities[snapshot_id] != identity:
+            ambiguous_snapshots.add(snapshot_id)
+        snapshot_identities[snapshot_id] = identity
         if identity in seen:
             ambiguous.add(identity)
         seen.add(identity)
@@ -79,4 +86,4 @@ def read_audit_architecture_observations(
     return tuple(o for o in observations if (
         o.snapshot_id, o.page_id, o.device,
         o.requested_url, o.final_url,
-    ) not in ambiguous)
+    ) not in ambiguous and o.snapshot_id not in ambiguous_snapshots)
