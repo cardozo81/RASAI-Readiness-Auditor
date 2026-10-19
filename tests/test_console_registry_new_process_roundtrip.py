@@ -116,6 +116,64 @@ print(json.dumps({"missing":missing,"unexpected":unexpected,
 
 
 
+def test_cat06_cat07_nondefault_roundtrip_and_runtime_projection(tmp_path):
+    """#523: operator changes must reach both restored session and runtime."""
+    _install_search_persistence()
+    install_complete_persistence()
+    with patch.dict(os.environ, {}, clear=True):
+        source = SearchConsoleState()
+        source.device = "desktop"
+        source.web_performance = True
+        source.web_max_pages = 3
+        source.web_timeout = 29.0
+        source.synthetic_apdex = True
+        source.apdex_samples = 4
+        source.apdex_max_attempts = 6
+        source.apdex_max_pages = 2
+        source.apdex_concurrency = 2
+        source.apdex_experience = True
+        source.apdex_experience_architecture = "CSR_SPA"
+        source.apdex_experience_profile_mode = "CUSTOM"
+        source.apdex_experience_xhr_capture = False
+        source.apdex_experience_fetch_capture = True
+        source.apdex_experience_console_capture = False
+        path = tmp_path / "cat06-cat07.ini"
+        console_settings.save_console_config(source, path)
+        first_bytes = path.read_bytes()
+        parser = ConfigParser(interpolation=None)
+        parser.optionxform = str
+        parser.read(path, encoding="utf-8")
+        expected = console_settings._state_values(source)
+
+        # Simulate an independent session without any inherited operator
+        # state or paid-service authorization.
+        with patch.dict(os.environ, {}, clear=True):
+            fresh = SearchConsoleState()
+            result = console_settings.load_console_config(fresh, path)
+            assert not result.created
+            assert not result.warnings, result.warnings
+            actual = console_settings._state_values(fresh)
+            for section in ("web_performance", "synthetic_apdex",
+                            "synthetic_apdex_experience"):
+                for key, value in expected[section].items():
+                    if key == "device_mix":
+                        continue  # Derived from the selected canonical device.
+                    assert actual[section][key] == value, (section, key)
+                    assert parser.get(section, key) == value
+
+            projected = console_settings._runtime_environment_projection(fresh)
+            for name in (
+                "RASAI_WEB_PERFORMANCE",
+                "RASAI_SYNTHETIC_APDEX",
+                "RASAI_APDEX_EXPERIENCE_ARCHITECTURE",
+            ):
+                assert os.environ.get(name) == projected.get(name), name
+
+            assert "PERPLEXITY_API_KEY" not in os.environ
+            assert "RASAI_DYNATRACE_API_TOKEN" not in os.environ
+            assert path.read_bytes() == first_bytes
+
+
 def test_failed_save_rolls_back_runtime_environment_and_preserves_ini(tmp_path):
     """A failed atomic file replacement cannot commit an environment mutation."""
     _install_search_persistence()

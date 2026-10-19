@@ -643,3 +643,12 @@ com os valores reconstituídos no processo Python isolado. A única exclusão
 é `device_mix`, derivado do dispositivo canônico em vez de ser fonte de
 verdade independente. A prova cobre save/load e integridade de valores, não
 atesta a execução física de Dynatrace, navegador ou provedor externo.
+
+## Aceite CAT-06/CAT-07 com parâmetros não-default
+
+Um teste end-to-end isolado prepara uma sessão com valores não-default de
+Web Performance e Apdex, grava INI temporário, inicia estado novo com ambiente
+limpo e confronta integralmente seções tipadas de CAT-06/CAT-07 e a projeção
+de ambiente do runner. Verifica que leitura não reescreve INI e que não
+surge token de integração paga. Isso elimina a lacuna de testar só valores
+default ou só alguns campos APDEX, sem alegar executar Dynatrace real.
