@@ -170,3 +170,24 @@ def test_reprocess_historical_choice_abstains_when_unavailable(monkeypatch):
         raise FileNotFoundError("historical configuration unavailable")
     monkeypatch.setattr("rasai.audit_configuration_reuse.load_reusable_audit_configuration", missing)
     assert read_architecture_choice_for_reprocess("/tmp/rasai-audits", "aud-123") is None
+
+
+def test_reprocess_historical_choice_rejects_modified_sealed_snapshot(monkeypatch):
+    """Never display a claimed historical architecture when its seal disagrees."""
+    from types import SimpleNamespace
+    from rasai.architecture_choice import ArchitectureChoice
+    from rasai.architecture_choice_audit_adapter import (
+        read_architecture_choice_for_reprocess, prepare_audit_choice_configuration,
+    )
+    from rasai.audit_configuration_reuse import configuration_hash
+    original = prepare_audit_choice_configuration(
+        {"targets": ["https://example.org/"]}, choice=ArchitectureChoice("AUTO"),
+    )
+    modified = dict(original, targets=["https://different.example.org/"])
+    saved = SimpleNamespace(configuration=modified,
+                            configuration_hash=configuration_hash(original))
+    monkeypatch.setattr(
+        "rasai.audit_configuration_reuse.load_reusable_audit_configuration",
+        lambda *_: saved,
+    )
+    assert read_architecture_choice_for_reprocess("/tmp/audits", "aud-123") is None
