@@ -781,3 +781,10 @@ estado tipado via `apply_environment_defaults` e
 diagnóstico `--reconcile-typed` diferencia uma chave vazia
 (`RUNTIME_PROJECTION_EMPTY`) de projeção preenchida. Nenhuma dessas
 classificações comprova uma medição real ou autoriza uma chamada paga.
+
+### Diagnóstico de INI inválido sem eco do valor
+
+Erros de conversão de campos tipados incluem apenas a identificação estável
+da seção e da opção, sem expor o texto recebido ou a mensagem bruta de
+`int()`/`float()` em avisos de console. A sessão permanece marcada para
+reconciliação quando um campo é rejeitado. O leitor não altera a fonte.

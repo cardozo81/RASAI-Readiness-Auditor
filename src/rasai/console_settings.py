@@ -713,8 +713,12 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
             if section == "presentation" and option == "timezone" and external_timezone:
                 continue
             raw = parser.get(section, option, raw=True)
-            try: _assign(state, section, option, raw)
-            except (ValueError, TypeError) as exc: warnings.append(f"{section}.{option}: {exc}")
+            try:
+                _assign(state, section, option, raw)
+            except (ValueError, TypeError, OverflowError):
+                # The exception text of int/float parsers can contain the
+                # operator's literal INI value. Keep only schema coordinates.
+                warnings.append(f"{section}.{option}: valor inválido; conteúdo omitido")
     if not (os.environ.get(PRESENTATION_TIMEZONE_ENV) or "").strip():
         os.environ[PRESENTATION_TIMEZONE_ENV] = DEFAULT_PRESENTATION_TIMEZONE
     if hasattr(state, "config_path"):

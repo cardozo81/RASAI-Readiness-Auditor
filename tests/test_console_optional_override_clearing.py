@@ -103,3 +103,25 @@ def test_clear_selected_provider_model_without_erasing_other_providers_or_secret
             assert reasoning not in os.environ
         assert os.environ["OTHER_PROVIDER_MODEL"] == "preserve"
         assert os.environ["PERPLEXITY_API_KEY"] == "no-external-requests"
+
+
+def test_malformed_typed_ini_warning_does_not_echo_original_value(tmp_path):
+    marker = "PRIVATE-INPUT-MARKER-ABCD"
+    path = tmp_path / "untrusted.ini"
+    path.write_text(
+        "[ai]\\nmax_cycles = " + marker + "\\n"
+        "[synthetic_apdex]\\nsamples_per_context = " + marker + "\\n",
+        encoding="utf-8",
+    )
+    before = path.read_bytes()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        result = console_settings.load_console_config(state, path)
+        assert result.created is False
+        assert len(result.warnings) == 2
+        assert marker not in str(result.warnings)
+        assert any(w.startswith("ai.max_cycles:") for w in result.warnings)
+        assert any(w.startswith("synthetic_apdex.samples_per_context:")
+                   for w in result.warnings)
+        assert state.config_dirty is True
+    assert path.read_bytes() == before
