@@ -4,6 +4,7 @@ from __future__ import annotations
 from hashlib import sha256
 from html import escape
 import json
+import sqlite3
 
 import pytest
 
@@ -40,6 +41,12 @@ def _package(tmp_path, projection, *, mutate_index=None, mutate_sari=None):
     root = tmp_path / "AUD-HTML-600"
     report = root / "report-catalog"
     report.mkdir(parents=True)
+    source_db = root / "audit.db"
+    with sqlite3.connect(source_db) as connection:
+        connection.execute("CREATE TABLE source_observation(value TEXT)")
+        connection.execute("INSERT INTO source_observation VALUES ('ORIGINAL')")
+    from rasai.catalog_report_site import _sqlite_logical_digest
+    physical_source_digest = _sqlite_logical_digest(source_db)
     full = decision_evidence_matrix_html(projection)
     sari = decision_evidence_matrix_html(decision_evidence_matrix(
         audit_id=root.name,
@@ -79,6 +86,10 @@ def _package(tmp_path, projection, *, mutate_index=None, mutate_sari=None):
     (report / "manifest.json").write_text(json.dumps({
         "audit_id": root.name, "freshness": "FINAL",
         "packaged_files": entries,
+        "audit_snapshot": {
+            "path": "integrity/audit-snapshot.db",
+            "source_logical_sha256": physical_source_digest,
+        },
     }), encoding="utf-8")
     return root
 
@@ -99,6 +110,7 @@ def test_html_matrix_matches_both_rendered_tables_only_after_package_gate(tmp_pa
     assert result["browser_inspection_verified"] is False
     assert result["external_requests"] == result["audit_writes"] == 0
     assert result["normative_acceptance"] is False
+    assert result["aud_source_snapshot_matches_report"] is True
     assert checked == [root / "report-catalog"]
     assert {name: (root / "report-catalog" / name).read_bytes()
             for name in before} == before
@@ -234,3 +246,50 @@ def test_600_empty_sari_population_never_receives_html_acceptance(tmp_path, monk
     assert result["browser_inspection_verified"] is False
     assert result["index_matrix_rows"] is None
     assert (root / "report-catalog" / "manifest.json").read_bytes() == before
+
+
+def test_600_report_package_cannot_attest_a_changed_origin_aud(tmp_path, monkeypatch):
+    from rasai import catalog_report_site
+    monkeypatch.setattr(catalog_report_site, "verify_catalog_report_package",
+                        lambda path: (True, ()))
+    projection = _projection()
+    root = _package(tmp_path, projection)
+    first = inspect_decision_html_parity(root, projection)
+    assert first["status"] == "HTML_MATRIX_PARITY_VERIFIED"
+    sqlite = root / "audit.db"
+    with sqlite3.connect(sqlite) as connection:
+        connection.execute("UPDATE source_observation SET value='CHANGED'")
+    stale = sqlite.read_bytes()
+    result = inspect_decision_html_parity(root, projection)
+    assert result["status"] == "AUD_REPORT_SOURCE_STALE"
+    assert result["aud_source_snapshot_matches_report"] is False
+    assert not result["normative_acceptance"]
+    assert sqlite.read_bytes() == stale
+
+
+def test_600_report_parity_requires_aud_snapshot_binding_and_sealed_origin(
+    tmp_path, monkeypatch,
+):
+    from rasai import catalog_report_site
+    monkeypatch.setattr(catalog_report_site, "verify_catalog_report_package",
+                        lambda path: (True, ()))
+    projection = _projection()
+    root = _package(tmp_path, projection)
+    manifest_file = root / "report-catalog" / "manifest.json"
+    metadata = json.loads(manifest_file.read_text(encoding="utf-8"))
+    digest = metadata.pop("audit_snapshot")
+    manifest_file.write_text(json.dumps(metadata), encoding="utf-8")
+    assert inspect_decision_html_parity(root, projection)["status"] == (
+        "AUD_REPORT_SOURCE_BINDING_ABSENT"
+    )
+    metadata["audit_snapshot"] = digest
+    manifest_file.write_text(json.dumps(metadata), encoding="utf-8")
+    sidecar = root / "audit.db-wal"
+    sidecar.write_bytes(b"active")
+    assert inspect_decision_html_parity(root, projection)["status"] == (
+        "AUD_SOURCE_NOT_SEALED"
+    )
+    sidecar.unlink()
+    assert inspect_decision_html_parity(root, projection)["status"] == (
+        "HTML_MATRIX_PARITY_VERIFIED"
+    )

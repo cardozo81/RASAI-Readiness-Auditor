@@ -88,3 +88,29 @@ vazio à condição de prontidão ou cobertura medida. Não impõe que a
 AUD tenha pontuação positiva e não altera scoring, geração do relatório
 ou seu uso exploratório: apenas o diagnóstico independente
 de aceite se abstém até existir população SARI verificável.
+
+
+### Paridade contra a AUD física atual, não apenas pacote autocoerente (#600/#604)
+
+O manifesto de `report-catalog` contém
+`audit_snapshot.source_logical_sha256` apurado quando o HTML foi
+materializado. O gate `--verify-html` agora confere esse digest com
+o estado **lógico efetivo** do `audit.db` da mesma AUD, por meio da
+função existente `catalog_report_site._sqlite_logical_digest`.
+A fonte deve estar fechada (sem `-wal/-shm/-journal`), não ser
+symlink, ser SQLite físico limitado e manter identidade/tamanho/mtime
+durante o cálculo. Estados de abstenção:
+`AUD_SOURCE_UNAVAILABLE`, `AUD_SOURCE_NOT_SEALED`,
+`AUD_REPORT_SOURCE_BINDING_ABSENT`,
+`AUD_REPORT_SOURCE_STALE` e
+`AUD_SOURCE_CHANGED_DURING_READ`.
+
+Uma cópia de relatório intacta, cujo SQLite original recebeu alterações
+**após** a geração do pacote, não pode reivindicar paridade de evidências
+de uma AUD atualizada: exige rematerialização autorizada do relatório
+ou inspeção histórica do snapshot pertinente. O diagnóstico não executa
+geração, rematerialização, score ou coleta; apenas lê. A comparação
+continua não significando OAuth/CrUX/browser ou aceite metodológico
+normativo. Fixtures físicas SQLite incluem source original, mutação
+pós-publicação, manifesto sem vínculo e WAL ativo. O custo do digest
+lógico só ocorre quando `--verify-html` é solicitado explicitamente.

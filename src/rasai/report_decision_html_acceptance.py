@@ -166,6 +166,7 @@ def inspect_decision_html_parity(
         "values_exposed": False, "browser_inspection_verified": False,
         "external_requests": 0, "audit_writes": 0,
         "scoring_modified": False, "normative_acceptance": False,
+        "aud_source_snapshot_matches_report": False,
     }
     if (not isinstance(projection, Mapping)
             or projection.get("status") != "DESCRIPTIVE_ONLY"
@@ -198,6 +199,36 @@ def inspect_decision_html_parity(
                 or manifest.get("audit_id") != root.name
                 or manifest.get("freshness") != "FINAL"):
             return {**base, "status": "REPORT_PACKAGE_AUD_MISMATCH"}
+        # A self-consistent package can still be STALE compared to its
+        # originating AUD. Verify the actual AUD's *logical* SQLite contents
+        # against the source digest recorded at report materialization.
+        # A digest of the report snapshot alone would not catch this.
+        origin_db = root / "audit.db"
+        if (origin_db.is_symlink() or not origin_db.is_file()
+                or not 0 < origin_db.stat().st_size <= 512 * 1024 * 1024):
+            return {**base, "status": "AUD_SOURCE_UNAVAILABLE"}
+        if any(Path(str(origin_db) + suffix).exists()
+               for suffix in ("-wal", "-shm", "-journal")):
+            return {**base, "status": "AUD_SOURCE_NOT_SEALED"}
+        source_record = manifest.get("audit_snapshot")
+        digest = (
+            source_record.get("source_logical_sha256")
+            if isinstance(source_record, dict) else None
+        )
+        if (not isinstance(digest, str) or len(digest) != 64
+                or any(ch not in "0123456789abcdef" for ch in digest)):
+            return {**base, "status": "AUD_REPORT_SOURCE_BINDING_ABSENT"}
+        from rasai.catalog_report_site import _sqlite_logical_digest
+        start = origin_db.stat()
+        if _sqlite_logical_digest(origin_db) != digest:
+            return {**base, "status": "AUD_REPORT_SOURCE_STALE"}
+        stop = origin_db.stat()
+        if (origin_db.is_symlink()
+                or any(getattr(start, name) != getattr(stop, name)
+                       for name in ("st_dev", "st_ino", "st_size", "st_mtime_ns"))
+                or any(Path(str(origin_db) + suffix).exists()
+                       for suffix in ("-wal", "-shm", "-journal"))):
+            return {**base, "status": "AUD_SOURCE_CHANGED_DURING_READ"}
         files = manifest.get("packaged_files")
         if not isinstance(files, list) or len(files) > 1000:
             return {**base, "status": "REPORT_PACKAGE_INTEGRITY_UNVERIFIED"}
@@ -249,8 +280,9 @@ def inspect_decision_html_parity(
         return {
             **base, "status": "HTML_MATRIX_PARITY_VERIFIED", **totals,
             "source": "SEALED_LOCAL_REPORT_PACKAGE_MATCHES_AUD_DECISION_PROJECTION",
+            "aud_source_snapshot_matches_report": True,
         }
-    except (OSError, TypeError, ValueError, UnicodeError, OverflowError):
+    except (OSError, TypeError, ValueError, UnicodeError, OverflowError, __import__("sqlite3").Error):
         return base
 
 
