@@ -1227,3 +1227,22 @@ arquitetura CAT-07 e GSC legítimo; **testes foram criados, ainda não
 executados**. Mantida prioridade exclusiva da #523 e a estratégia
 de executar somente o lote focal que acrescente evidência real
 devido à alteração de contratos.
+
+
+### Fail-closed de credenciais aninhadas no histórico de AUD (#523)
+
+Além de chaves secretas indevidamente guardadas no grupo
+`environment`, o reuso de uma AUD anterior também verifica **nomes
+sensíveis em seções tipadas** e configurações Dynatrace JSON com
+campos aninhados de credencial. A inspeção ocorre antes de tocar
+a nova sessão, usando a mesma barreira
+`console_settings._reject_secret_bearing_dynatrace_json` usada
+na escrita INI. Se a fonte antiga contiver um token em JSON, não se
+replica nem registra seu valor na nova AUD: erro de contrato
+com coordenada estática, sem dados sensíveis.
+
+Arquivos de auditoria selados e conteúdo histórico não são alterados.
+O comportamento legítimo de `profile_mode=DYNATRACE_IMPORTED`
+e arquivo JSON offline sem segredos permanece permitido; esta proteção
+não faz chamada à API Dynatrace e não obriga o operador a instalar
+pré-requisitos para outros catálogos.

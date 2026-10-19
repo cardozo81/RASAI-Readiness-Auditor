@@ -375,6 +375,30 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
     if not isinstance(environment, Mapping):
         raise ValueError("snapshot de console possui seção environment inválida")
 
+    # Historical payloads may predate the current anti-secret INI schema.
+    # Never treat an unexpected typed key as proof of executable settings or
+    # carry credential-bearing offline Dynatrace JSON to the next AUD.
+    from rasai.console_config import is_secret
+    for section, values in raw_settings.items():
+        if not isinstance(section, str):
+            raise ValueError("snapshot possui seção com identificador inválido")
+        if not isinstance(values, Mapping):
+            # Let the documented per-section legacy adapters decide whether
+            # the malformed but nonsecret section may be ignored.
+            continue
+        if any(not isinstance(key, str) or is_secret(key) for key in values):
+            raise ValueError("snapshot de AUD contém variável sensível ou inválida")
+        if section == "synthetic_apdex_experience":
+            raw_json = values.get("dynatrace_config_json")
+            if raw_json is not None:
+                try:
+                    console_settings._reject_secret_bearing_dynatrace_json(raw_json)
+                except (ValueError, TypeError, OverflowError):
+                    raise ValueError(
+                        "synthetic_apdex_experience.dynatrace_config_json: "
+                        "configuração histórica não reutilizável"
+                    ) from None
+
     # Preflight historical environment *before* mutating the current state.
     # Legacy snapshots with GSC limits/URL values outside the current policy
     # must be explicitly reconciled, not silently resumed under new defaults.

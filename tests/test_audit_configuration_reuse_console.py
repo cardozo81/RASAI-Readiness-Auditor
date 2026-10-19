@@ -600,3 +600,54 @@ def test_523_invalid_gsc_export_cannot_become_new_aud_snapshot(monkeypatch):
     with pytest.raises(ValueError, match="environment\\.RASAI_GSC_SEARCH_MAX_ROWS"):
         _export_settings(state, ("https://example.org/",))
     assert dict(os.environ) == before
+
+
+def test_523_reused_snapshot_rejects_nested_dynatrace_secret_before_mutation(
+    monkeypatch,
+):
+    """Sealed old snapshots must not restore credential-bearing offline JSON."""
+    import os
+    state = SearchConsoleState()
+    state.target = "https://still-current.example/"
+    state.apdex_experience_architecture = "AUTO"
+    initial_environment = dict(os.environ)
+    snapshot = {
+        "settings": {
+            "console": {"target": "https://source.example/"},
+            "synthetic_apdex_experience": {
+                "architecture": "CSR_SPA",
+                "dynatrace_config_json": json.dumps({
+                    "application": {"credential": {"api_key": "NEVER_ECHO"}},
+                }),
+            },
+        },
+        "targets": ["https://source.example/"],
+    }
+    with pytest.raises(ValueError) as err:
+        _apply_settings(state, snapshot, "AUD-SEALED-OLD")
+    assert "NEVER_ECHO" not in str(err.value)
+    assert "api_key" not in str(err.value)
+    assert state.target == "https://still-current.example/"
+    assert state.apdex_experience_architecture == "AUTO"
+    assert dict(os.environ) == initial_environment
+
+
+def test_523_reused_snapshot_rejects_secret_named_typed_field(monkeypatch):
+    import os
+    state = SearchConsoleState()
+    state.target = "https://current.example/"
+    prior = dict(os.environ)
+    payload = {
+        "settings": {
+            "synthetic_apdex_experience": {
+                "dynatrace_api_token": "HISTORICAL_CREDENTIAL",
+            }
+        },
+        "targets": ["https://source.example/"],
+    }
+    with pytest.raises(ValueError) as err:
+        _apply_settings(state, payload, "AUD-OLD")
+    assert "dynatrace_api_token" not in str(err.value)
+    assert "HISTORICAL_CREDENTIAL" not in str(err.value)
+    assert state.target == "https://current.example/"
+    assert dict(os.environ) == prior
