@@ -1,0 +1,60 @@
+# Elegibilidade de consumidores do contexto arquitetural
+
+## Contrato de implementação (issue #646)
+
+A arquitetura é uma **observação**, não um índice e não uma autorização
+para trocar coletores, coortes, perfis ou cálculos. A preferência local de
+aquisição (`STATIC`, `DYNAMIC`, `SKIP`) é independente da escolha
+selada da AUD (`AUTO`, `DECLARED`, `UNFORCED`).
+
+O leitor `architecture_m6_evidence.read_audit_architecture_observations`
+consulta as observações já persistidas por M6, em SQLite somente leitura.
+Um registro só é exposto como candidato se contiver identidade completa
+de AUD/página/snapshot/URL solicitada/URL final/dispositivo, classe válida
+e referências RAW e renderizada não vazias. Isso não equivale a verificar
+integridade criptográfica de cada artefato: a garantia final requer
+verificação do manifesto selado e a própria proveniência M6.
+
+`resolve_historical_architecture_for_consumer` faz a correlação consultiva
+de M6 e escolha selada, usando o resolvedor `architecture_context`.
+Não executa navegador, DNS, coleta, cálculo ou escrita. Escopo incompatível,
+dados duplicados, ausência de evidência ou escolha histórica indisponível
+devem resultar em abstenção.
+
+| Consumidor | Estado | Efeito permitido |
+| --- | --- | --- |
+| `descriptive_report` | ADVISORY_SAFE (somente com opt-in do chamador) | Descrever evidência com limitações |
+| `m6_read_only_diagnostic` | ADVISORY_SAFE (somente com opt-in do chamador) | Diagnóstico read-only |
+| CAT-01 a CAT-08 e CAT-10 | METHOD_CHANGE_REQUIRES_ADR | Nenhuma propagação funcional automática |
+| SARI / SCORE-GEO | METHOD_CHANGE_REQUIRES_ADR | Fórmulas e thresholds intactos |
+| Apdex / M23 / M25 | PRE_COLLECTION_ONLY / METHOD_CHANGE_REQUIRES_ADR | Nunca modificar coleta retroativamente |
+| IA e recomendações | INTERPRETATION_REVIEW_REQUIRED | Nenhuma nova execução/custo implícito |
+| Demais consumidores | INAPPLICABLE | Abster |
+
+F3 **não está liberada** pela existência deste inventário. Requer
+aprovação explícita por consumidor, ADR, golden/paridade histórica e
+versionamento do método. Nenhum consumidor de scoring é autorizado pelo
+allowlist atual.
+
+## Operações
+
+- **Nova AUD:** AUTO explícito pode consultar o serviço canônico; falha
+  opcional não impede os catálogos independentes. Resultados da prévia
+  não são persistidos como verdade M6 ou injetados na configuração selada.
+- **RPR:** mostra escolha histórica e contagem de observações M6 elegíveis,
+  sem novas consultas.
+- **Complemento:** só pode consultar o leitor read-only por padrão; uma nova
+  coleta exige operação e autorização explícitas, ainda pendentes de
+  integração no fluxo de complemento.
+- **Reclassificação:** resolver somente observações persistidas
+  inequivocamente vinculadas ao mesmo escopo de URL, dispositivo e snapshot.
+
+## Gates pendentes
+
+1. Validação end-to-end de nova AUD/RPR/complemento no Windows.
+2. Comprovação de artefatos M6 por hash/manifesto antes de elevá-los a
+   evidência reutilizável em relatórios.
+3. Matriz de consumidores aprovada por responsáveis e ADRs para F3.
+4. Persistência versionada do diagnóstico preliminar opcional, sem afetar
+   AUD selada e sem armazenar HTML/segredos indevidamente.
+5. Smoke dinâmico focal por URLs de controle, após gate CI.
