@@ -276,8 +276,8 @@ def test_workflow_reference_inventory_detects_a_positive_reference_inside_real_y
     workflows = tmp_path / ".github" / "workflows"
     workflows.mkdir(parents=True)
     (workflows / "mixed.yaml").write_text(
-        "name: test\\njobs:\\n  lint:\\n    steps:\\n"
-        "      - run: pytest tests/nonexistent.py\\n", encoding="utf-8"
+        "name: test\njobs:\n  lint:\n    steps:\n"
+        "      - run: pytest tests/nonexistent.py\n", encoding="utf-8"
     )
     assert missing_workflow_python_paths(tmp_path) == [
         "mixed.yaml: tests/nonexistent.py",
@@ -288,8 +288,8 @@ def test_workflow_reference_inventory_does_not_ignore_positive_and_negative_same
     workflows = tmp_path / ".github" / "workflows"
     workflows.mkdir(parents=True)
     (workflows / "mixed.yml").write_text(
-        "run: if test -f src/rasai/obsolete.py; then exit 1; fi\\n"
-        "run: python src/rasai/obsolete.py\\n", encoding="utf-8"
+        "run: if test -f src/rasai/obsolete.py; then exit 1; fi\n"
+        "run: python src/rasai/obsolete.py\n", encoding="utf-8"
     )
     assert missing_workflow_python_paths(tmp_path) == [
         "mixed.yml: src/rasai/obsolete.py",
