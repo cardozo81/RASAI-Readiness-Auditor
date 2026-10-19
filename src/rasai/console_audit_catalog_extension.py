@@ -315,6 +315,12 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
         state.device = audit_device
         if hasattr(state, "current_device"):
             state.current_device = audit_device.upper()
+    # Catalog extension must reuse historical, read-only architectural context;
+    # it never launches the optional discovery service or changes scoring.
+    from rasai.architecture_choice_audit_adapter import read_architecture_choice_for_reprocess
+    from rasai.architecture_m6_evidence import read_audit_architecture_observations
+    historical_choice = read_architecture_choice_for_reprocess(state.audits_root, audit_id)
+    historical_observations = read_audit_architecture_observations(state.audits_root, audit_id)
     bulk_notice = ""
 
     while True:
@@ -324,6 +330,10 @@ def complement_audit(console_module: Any, state: Any, audit_id: str) -> bool:
         print(f"Audit ID             : {audit_id}")
         print("Contrato inicial     : preservado; esta operação cria uma extensão aditiva RPR-*.")
         print("Regra                : catálogos existentes não podem ser removidos nem reconfigurados.")
+        if historical_choice is not None and historical_choice.explicitly_configured:
+            print("Arquitetura histórica: " + historical_choice.choice.mode + " (consultiva, sem recoleta)")
+        if historical_observations:
+            print(f"Evidências M6        : {len(historical_observations)} observação(ões) da AUD original")
         if warnings:
             print(paint("Atenção              : " + "; ".join(warnings), YELLOW))
         if state.error:
