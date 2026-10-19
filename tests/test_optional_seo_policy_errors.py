@@ -126,3 +126,81 @@ def test_optional_seo_projection_never_attributes_other_aud_rule_to_score(tmp_pa
     assert db.read_bytes() == physical
     (tmp_path / "audit.db-wal").write_bytes(b"uncheckpointed")
     assert optional_seo_penalties(db, "AUD-A") == []
+
+
+
+def test_602_full_policy_evidence_matrix_is_not_a_new_scoring_contract(tmp_path):
+    import sqlite3
+    from rasai.optional_seo_evidence_matrix import (
+        inspect_optional_seo_evidence, optional_seo_evidence_matrix_html,
+    )
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE scores(
+                score_id TEXT,audit_id TEXT,dimension TEXT,device TEXT,
+                scoring_version TEXT
+            );
+            CREATE TABLE rule_executions(
+                rule_execution_id TEXT,audit_id TEXT,rule_id TEXT,
+                observed_value TEXT
+            );
+            CREATE TABLE score_contributions(
+                score_id TEXT,rule_execution_id TEXT,rule_id TEXT,
+                dimension TEXT,device TEXT,result TEXT
+            );
+        """)
+        con.executemany("INSERT INTO scores VALUES (?,?,?,?,?)", [
+            ("S-D", "AUD-602", "DISCOVERY_ACCESS", "MOBILE", "SCORE-GEO-004"),
+            ("S-I", "AUD-602", "INDEXABILITY", "MOBILE", "SCORE-GEO-004"),
+        ])
+        con.executemany("INSERT INTO rule_executions VALUES (?,?,?,?)", [
+            ("R-ROBOTS", "AUD-602", "BR-GEO-017", '{"state":"ABSENT"}'),
+            ("R-SITEMAP", "AUD-602", "BR-GEO-003",
+             '{"sitemaps":[{"state":"OBTAINED"}]}'),
+            ("R-CANONICAL", "AUD-602", "BR-GEO-013",
+             '{"declared":["https://a.test","https://b.test"],'
+             '"normalized":["https://a.test","https://b.test"],'
+             '"invalid":[],"canonicals":["https://a.test","https://b.test"]}'),
+            ("R-FOREIGN", "OTHER-AUD", "BR-GEO-017", '{"state":"ABSENT"}'),
+        ])
+        con.executemany(
+            "INSERT INTO score_contributions VALUES (?,?,?,?,?,?)",
+            [
+                ("S-D", "R-ROBOTS", "BR-GEO-017", "DISCOVERY_ACCESS", "MOBILE", "WARNING"),
+                ("S-D", "R-SITEMAP", "BR-GEO-003", "DISCOVERY_ACCESS", "MOBILE", "PASS"),
+                ("S-I", "R-CANONICAL", "BR-GEO-013", "INDEXABILITY", "MOBILE", "WARNING"),
+                ("S-D", "R-FOREIGN", "BR-GEO-017", "DISCOVERY_ACCESS", "MOBILE", "WARNING"),
+            ],
+        )
+    original = db.read_bytes()
+    matrix = inspect_optional_seo_evidence(db, "AUD-602")
+    assert len(matrix) == 3
+    assert {row["evidence"] for row in matrix} == {
+        "Ausência opcional no escopo observado",
+        "Conflito técnico observado",
+        "Sinal encontrado no escopo observado",
+    }
+    assert {row["current_result"] for row in matrix} == {
+        "Advertência no contrato atual", "Aprovado no contrato atual",
+    }
+    html = optional_seo_evidence_matrix_html(db, "AUD-602")
+    assert "Evidências dos sinais SEO opcionais" in html
+    assert "SCORE-GEO-004" in html
+    assert "não é recalculado" in html
+    assert "R-FOREIGN" not in html
+    assert db.read_bytes() == original
+
+
+def test_602_optional_inventory_abstains_on_missing_or_uncheckpointed_sqlite(tmp_path):
+    from rasai.optional_seo_evidence_matrix import (
+        inspect_optional_seo_evidence, optional_seo_evidence_matrix_html,
+    )
+    missing = tmp_path / "audit.db"
+    assert inspect_optional_seo_evidence(missing, "AUD-602") == ()
+    assert not missing.exists()
+    missing.write_bytes(b"broken sqlite")
+    assert inspect_optional_seo_evidence(missing, "AUD-602") == ()
+    (tmp_path / "audit.db-shm").write_bytes(b"pending")
+    assert optional_seo_evidence_matrix_html(missing, "AUD-602") == ""
+    assert missing.read_bytes() == b"broken sqlite"

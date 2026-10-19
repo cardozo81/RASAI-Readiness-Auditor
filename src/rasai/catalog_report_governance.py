@@ -456,6 +456,8 @@ def _overview_body(database: Path, data: _ReportData) -> str:
     body+=_section("indices","Índices e métricas evidentes",_table(("Indicador","Valor","Contexto","Tipo","Confiança"),indexes,empty="Nenhum índice ou métrica reconhecido foi persistido.",sortable=bool(indexes))+"<p class='muted'>O inventário metodológico completo está em <a href='metrics.html'>Índices e métricas</a>.</p>")
     from rasai.optional_seo_interpretation import optional_seo_notice_html
     body+=optional_seo_notice_html(database, data.audit_id)
+    from rasai.optional_seo_evidence_matrix import optional_seo_evidence_matrix_html
+    body+=optional_seo_evidence_matrix_html(database, data.audit_id)
     body+=_section("integrity","Integridade e proveniência",f"<div class='metric-grid'>{_metric('Plano da execução',integrity)}{_metric('Fonte de verdade','Dados persistidos da auditoria')}{_metric('Contrato do relatório',CATALOG_REPORT_CONTRACT_VERSION)}</div><div class='notice'>O relatório organiza dados já persistidos. Ele não executa nova captura, integração, IA ou cálculo de pontuação.</div>")
     return body
 

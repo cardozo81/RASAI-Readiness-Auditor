@@ -86,3 +86,24 @@ O **gate de replay físico da amostra de 14/10 está cumprido** para o código e
 ## Regra conservadora de consistência física
 
 A classificação read-only agora exige que a evidência de `ABSENT` em `robots.txt`/`sitemap` não contenha falha simultânea de aquisição. Ausência canônica com `canonicals=[]` tampouco pode coexistir com `invalid`, `normalized` ou `declared` não vazios e ser promovida a ausência opcional confirmada. Registros contraditórios ficam `UNKNOWN` para avaliação posterior; não são interpretados como prova de indisponibilidade global nem como defeito confirmado. O comportamento preserva o contrato SCORE-GEO-004 e impede que o laboratório de simulação inclua fatos ambíguos na coorte de ausência opcional.
+
+
+## Inventário observacional sem alteração de versão - 19/10/2026
+
+A visão geral do relatório incorpora agora, além dos descontos isolados
+historicamente persistidos, uma matriz independente que discrimina as três
+regras em quatro classes exclusivamente interpretativas: sinal disponível,
+ausência opcional, conflito material observável e UNKNOWN. Cada linha traz
+a versão vigente SCORE-GEO-004, a AUD/RuleExecution fisicamente ligada e
+o resultado persistido da regra, sem copiar raw provider payload nem
+inventar desfecho de indexação ou frequência de URLs.
+
+O relatório não retira automaticamente pontos nem converte WARNING em
+PASS/NOT_APPLICABLE. A decisão normativa sobre neutralizar a ausência
+isolada permanece um gate explícito, pois mudaria pesos, coverage,
+confidence, readiness gates e SARI. O inventário não toma esse lugar,
+e não constitui uma proposta de SCORE-GEO-005 aprovada.
+
+Há fixture SQLite de múltiplos resultados/categorias e AUD cruzada, com
+prova de imutabilidade do arquivo de origem e abstenção com journaling
+pendente. Nada executa requisições externas.
