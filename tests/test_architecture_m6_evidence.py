@@ -277,3 +277,38 @@ def test_missing_artifact_never_becomes_a_trusted_digest(tmp_path):
     assert binding["raw_sha256"] is None
     assert binding["rendered_sha256"] is None
     assert binding["manifest_attested"] is False
+
+
+def test_m6_reader_refuses_tampered_canonically_bound_snapshot(tmp_path):
+    from rasai.architecture_m6_evidence import (
+        capture_artifact_binding, read_audit_architecture_observations,
+    )
+    import json
+    root = tmp_path / "audits"
+    workspace = root / "AUD-BIND"
+    (workspace / "artifacts").mkdir(parents=True)
+    raw = workspace / "artifacts" / "raw.html"
+    rendered = workspace / "artifacts" / "rendered.html"
+    raw.write_text("<html>raw</html>", encoding="utf-8")
+    rendered.write_text("<html>rendered</html>", encoding="utf-8")
+    binding = capture_artifact_binding(workspace, "artifacts/raw.html",
+                                       "artifacts/rendered.html")
+    with sqlite3.connect(workspace / "audit.db") as con:
+        con.execute("CREATE TABLE pages(page_id TEXT, audit_id TEXT)")
+        con.execute(
+            "CREATE TABLE page_snapshots("
+            "snapshot_id TEXT,page_id TEXT,device TEXT,requested_url TEXT,"
+            "final_url TEXT,architecture_classification TEXT,"
+            "raw_artifact_ref TEXT,rendered_artifact_ref TEXT,browser_metadata TEXT)"
+        )
+        con.execute("INSERT INTO pages VALUES ('P-1', 'AUD-BIND')")
+        con.execute(
+            "INSERT INTO page_snapshots VALUES (?,?,?,?,?,?,?,?,?)",
+            ("S-1", "P-1", "MOBILE", "https://example.org/",
+             "https://example.org/", "CSR_SPA", "artifacts/raw.html",
+             "artifacts/rendered.html", json.dumps({"architecture_artifact_binding": binding})),
+        )
+    result = read_audit_architecture_observations(root, "AUD-BIND")
+    assert len(result) == 1 and result[0].architecture == "CSR_SPA"
+    rendered.write_text("<html>tampered</html>", encoding="utf-8")
+    assert read_audit_architecture_observations(root, "AUD-BIND") == ()

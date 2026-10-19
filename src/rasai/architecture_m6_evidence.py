@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path, PurePosixPath
 from dataclasses import dataclass
 import hashlib
+import json
 import sqlite3
 
 from rasai.architecture_context import ArchitectureObservation, CLASSES
@@ -207,7 +208,8 @@ def read_audit_architecture_observations(
             rows = connection.execute(
                 """SELECT ps.snapshot_id, ps.page_id, ps.device,
                           ps.requested_url, ps.final_url, ps.architecture_classification,
-                          ps.raw_artifact_ref, ps.rendered_artifact_ref
+                          ps.raw_artifact_ref, ps.rendered_artifact_ref,
+                          ps.browser_metadata
                    FROM page_snapshots ps JOIN pages p ON ps.page_id=p.page_id
                    WHERE p.audit_id=?
                    ORDER BY ps.snapshot_id LIMIT ?""",
@@ -224,7 +226,7 @@ def read_audit_architecture_observations(
     ambiguous = set()
     snapshot_identities = {}
     ambiguous_snapshots = set()
-    for snapshot_id, page_id, device, requested, final, architecture, raw, rendered in rows:
+    for snapshot_id, page_id, device, requested, final, architecture, raw, rendered, metadata in rows:
         identity = (snapshot_id, page_id, device, requested, final)
         # A snapshot ID is a physical identity within one AUD, not a
         # reusable label for different pages, devices or target URLs.
@@ -240,6 +242,20 @@ def read_audit_architecture_observations(
                 or not _safe_artifact_reference(rendered)):
             # Never elevate an incomplete or duplicated RAW/rendered pair.
             continue
+        # A capture carrying the new canonical M3 binding is ineligible for
+        # advisory reuse if the persisted bytes no longer match. Legacy M6
+        # records without this extension retain their historical read-only
+        # behavior; never claim that they were independently attested.
+        try:
+            details = json.loads(metadata) if isinstance(metadata, str) else {}
+        except (ValueError, TypeError):
+            details = {}
+        if isinstance(details, dict) and "architecture_artifact_binding" in details:
+            if verify_artifact_binding(
+                root, normalized, raw, rendered,
+                details["architecture_artifact_binding"],
+            ) != "VERIFIED_EMBEDDED_DIGEST":
+                continue
         observations.append(ArchitectureObservation(
             architecture=architecture, requested_url=requested,
             final_url=final, device=device, snapshot_id=snapshot_id,
