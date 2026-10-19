@@ -76,10 +76,28 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Lê limites decisórios persistidos sem novas requisições ou escrita"
     )
     parser.add_argument("audit_directory", type=Path)
+    parser.add_argument(
+        "--verify-html", action="store_true",
+        help="conferir matriz decisória renderizada em HTML e manifesto do relatório",
+    )
     args = parser.parse_args(argv)
     projected = inspect_audit_decision_evidence(args.audit_directory)
+    if args.verify_html:
+        from rasai.report_decision_html_acceptance import inspect_decision_html_parity
+        projected = {
+            **projected,
+            "html_semantic_gate": inspect_decision_html_parity(
+                args.audit_directory, projected,
+            ),
+        }
     print(json.dumps(projected, ensure_ascii=False, sort_keys=True))
-    return 0 if projected.get("status") == "DESCRIPTIVE_ONLY" else 2
+    return 0 if (
+        projected.get("status") == "DESCRIPTIVE_ONLY"
+        and (
+            not args.verify_html
+            or projected["html_semantic_gate"]["status"] == "HTML_MATRIX_PARITY_VERIFIED"
+        )
+    ) else 2
 
 
 if __name__ == "__main__":

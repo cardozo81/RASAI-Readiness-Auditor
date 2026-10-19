@@ -34,3 +34,43 @@ Nenhum browser, IA, Search API, PageSpeed, reprocessamento, custo adicional ou e
 Na AUD de referência do dia 14/10/2026, conferir o score SARI e sua cobertura, Lighthouse separado de CrUX ORIGIN, estado de catálogos parciais, profundidade SERP realmente observada, descontos SEO opcionais e limitações explícitas de prova documental/generativa.
 
 Essa verificação não fecha automaticamente #601 (clique físico same-sample), #602 (decisão normativa sobre scoring), #603 (fonte primária vigente), nem o épico #604.
+
+
+## Gate offline de paridade dos relatórios HTML (#600/#604, 19/10/2026)
+
+Para uma AUD selada com pacote `report-catalog` já materializado, execute
+**somente quando o HTML já existir**:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai.report_decision_matrix_cli "audits\AUD-ID" --verify-html
+```
+
+Este modo é **opt-in**, não altera o CLI original nem materializa relatórios.
+O leitor reconstitui a matriz de decisão a partir de `audit.db` em
+`mode=ro&immutable=1` e exige a integridade integral do pacote pelo
+verificador canônico `verify_catalog_report_package`, manifesto com
+`audit_id` igual ao diretório e publicação `freshness=FINAL`. As páginas
+`index.html` e `sari.html` devem ser arquivos regulares, sem symlink,
+de no máximo 4 MiB cada, com digest físico igual ao SHA-256 registrado
+no manifesto. A análise interpreta o DOM HTML, não busca strings em
+scripts ou comentários: exige exatamente um bloco
+`data-contract=DECISION-EVIDENCE-604-001` nas seções
+`decision-matrix` (index) e `scope` (SARI), e compara **cada célula** da
+tabela visível com a projeção independente do SQLite. Em `sari.html`
+o subconjunto exigido é exclusivamente SARI e cobertura dimensional,
+sem transplantar dados CrUX/Apdex de outras populações.
+
+O resultado recebe `html_semantic_gate.status=HTML_MATRIX_PARITY_VERIFIED`
+quando ambos os conjuntos conferem ou códigos de abstenção quando o
+pacote, a fonte, o escopo ou as células divergem. O comando retorna exit 2
+quando a opção foi solicitada e a paridade não foi comprovada.
+A saída não imprime conteúdo do relatório, query, URL ou caminhos.
+Este gate prova apenas **integridade local e paridade tabular**;
+`browser_inspection_verified=false` e `normative_acceptance=false`
+continuam explícitos. Não autentica interpretação visual, leitura de
+outras seções, execução de coletores, representatividade estatística,
+documento regulatório real, SEO externo ou índice revisado.
+
+Quando o relatório físico não existir, não é necessário gerar nova AUD
+para executar o teste. A paridade pode ser validada por fixture local,
+sem simular falsamente uma evidência física do operador.
