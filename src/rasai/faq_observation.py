@@ -34,11 +34,17 @@ class _AccordionParser(HTMLParser):
         self._open: list[tuple[str, str]] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        props = dict(attrs)
-        element_id = str(props.get("id") or "").strip()
-        if element_id:
-            self.ids.add(element_id)
-            self.id_counts[element_id] = self.id_counts.get(element_id, 0) + 1
+        ids = [str(value).strip() for name, value in attrs
+               if name == "id" and value is not None and str(value).strip()]
+        # Duplicate id= attributes on the same node are as ambiguous as
+        # distinct nodes reusing one IDREF; dict(attrs) loses that evidence.
+        for candidate in ids:
+            self.ids.add(candidate)
+            self.id_counts[candidate] = (
+                self.id_counts.get(candidate, 0)
+                + (len(ids) if len(ids) > 1 else 1)
+            )
+        element_id = ids[0] if len(ids) == 1 else ""
         targets = [value for name, value in attrs if name == "aria-controls"]
         expanded_values = [value for name, value in attrs if name == "aria-expanded"]
         expanded = (
@@ -169,25 +175,58 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
                 "SELECT s.snapshot_id,s.rendered_artifact_ref FROM page_snapshots s "
                 "JOIN pages p ON p.page_id=s.page_id "
                 "WHERE p.audit_id=? ORDER BY s.snapshot_id LIMIT ?",
-                (audit_id, _MAX_SNAPSHOTS),
+                (audit_id, _MAX_SNAPSHOTS + 1),
             ).fetchall()
     except sqlite3.Error:
         return ""
+    incomplete = len(rows) > _MAX_SNAPSHOTS
+    rows = rows[:_MAX_SNAPSHOTS]
+    if not rows:
+        return ""
+    identities = [sid for sid, _ in rows]
+    if (any(not isinstance(sid, str) or not sid.strip()
+            for sid in identities)
+            or len(set(identities)) != len(identities)):
+        return (
+            "<div class='subsection' data-contract='FAQ-OBSERVATION-601-001'>"
+            "<h3>FAQ interativo — N/D</h3>"
+            "<p>Snapshot IDs ausentes ou duplicados: N/D. "
+            "Não inferir ausência editorial.</p></div>"
+        )
+    unreadable = 0
+    no_controls = 0
     observations: list[dict[str, int]] = []
     sources: list[tuple[str, dict[str, int]]] = []
     for snapshot_id, ref in rows:
         try:
             rendered = _safe_rendered_file(root, ref)
             if rendered is None:
+                unreadable += 1
                 continue
             counts = inspect_faq_dom_states(rendered.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, ValueError):
+            unreadable += 1
             continue
         if counts["controls"]:
             observations.append(counts)
-            sources.append((str(snapshot_id or "-"), counts))
+            sources.append((snapshot_id, counts))
+        else:
+            no_controls += 1
+    coverage = (
+        f"{len(rows)} captura(s) examinada(s), máximo {_MAX_SNAPSHOTS}; "
+        f"{len(observations)} com FAQ reconhecido; "
+        f"{no_controls} sem controle reconhecido; "
+        f"{unreadable} inacessível(is). "
+        + ("Há capturas adicionais fora do limite; cobertura parcial da AUD."
+           if incomplete else "Observação limitada aos snapshots físicos.")
+    )
     if not observations:
-        return ""
+        return (
+            "<div class='subsection' data-contract='FAQ-OBSERVATION-601-001'>"
+            "<h3>FAQ interativo — N/D</h3><p>" + escape(coverage) + "</p>"
+            "<p>FAQ não identificável nesta amostra; não comprova "
+            "ausência editorial ou ausência de resposta após clique.</p></div>"
+        )
     total = sum(item["controls"] for item in observations)
     ambiguous = sum(item["ambiguous"] for item in observations)
     collapsed = sum(item["collapsed"] for item in observations)
@@ -213,6 +252,7 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
     return (
         "<div class='subsection' data-contract='FAQ-OBSERVATION-601-001'>"
         "<h3>FAQ interativo — limite da captura</h3>"
+        "<p><strong>Cobertura física:</strong> " + escape(coverage) + "</p>"
         "<p><strong>Capacidade sem interação:</strong> somente texto "
         "persistido no DOM inicial pode ser observado; nenhuma consulta "
         "a crawler foi realizada. <strong>Disponibilidade após clique:</strong> "

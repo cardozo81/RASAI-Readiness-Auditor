@@ -122,3 +122,19 @@ A governança é materializada antes do fingerprint e do snapshot final de `repo
 - remediações agrupadas de requisições/runtime CAT-06/CAT-07.
 
 Orientações técnicas meramente informativas continuam podendo existir na trilha técnica sem serem promovidas automaticamente a obrigação do cliente.
+
+
+## FAQ/SPA: proveniência de conteúdo e de interação (#601)
+
+A ausência de respostas no snapshot sem interação não comprova ausência
+editorial; um painel com texto no DOM também não prova indexabilidade.
+O observador explicita cobertura física de snapshots legíveis e o limite
+de 12 capturas, abstendo quando IDs são duplicados. Recibos assinados de
+interação exigem alvo único `button` não submetível, fora de formulários,
+sem navegação ou manipuladores inline, além de autorização do operador,
+coletor confiável, bloqueio de rede e verificação dos hashes. Mesmo um
+recibo válido é prova limitada à observação pós-ação no ambiente isolado.
+
+O resultado não altera BR-GEO-039/049, SCORE-GEO-004 ou dados de AUDs
+históricas. Medir disponibilidade após clique e acessibilidade sem
+interação do crawler são contratos distintos.

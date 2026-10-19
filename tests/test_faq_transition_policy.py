@@ -216,3 +216,104 @@ def test_601_read_only_cat03_html_exposes_both_observation_scopes(tmp_path):
     assert "BR-GEO-039" in output and "BR-GEO-049" in output
     assert db.read_bytes() == db_before
     assert page.read_bytes() == html_before
+
+
+def test_601_repeated_id_attribute_is_not_a_unique_dom_panel():
+    from rasai.faq_observation import inspect_faq_dom_states
+    for panel in (
+        '<div id="faq-answer" id="faq-answer">Response</div>',
+        '<div id="faq-answer" id="faq-other">Response</div>',
+    ):
+        initial = (
+            '<button aria-controls="faq-answer" aria-expanded="false">Q</button>'
+            + panel
+        )
+        observed = inspect_faq_dom_states(initial)
+        assert observed["controls"] == 1
+        assert observed["ambiguous"] == 1
+        assert observed["collapsed"] == 0
+        later = initial.replace('aria-expanded="false"', 'aria-expanded="true"')
+        result = compare_faq_dom_views(
+            initial, later, target_id="faq-answer",
+            before_url=URL, later_url=URL,
+        )
+        assert result["status"] == "NOT_COMPARABLE"
+
+
+def test_601_faq_partial_coverage_and_unreadable_snapshots_are_disclosed(tmp_path):
+    import sqlite3
+    from rasai.faq_observation import faq_observation_html
+
+    root = tmp_path / "AUD-PARTIAL-FAQ"
+    evidence = root / "artifacts" / "rendered"
+    evidence.mkdir(parents=True)
+    (evidence / "s-00.html").write_text(
+        '<button aria-controls="faq-lazy" aria-expanded="false">Q</button>',
+        encoding="utf-8",
+    )
+    db = root / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript(
+            "CREATE TABLE pages(page_id TEXT, audit_id TEXT);"
+            "CREATE TABLE page_snapshots("
+            "snapshot_id TEXT, page_id TEXT, rendered_artifact_ref TEXT);"
+        )
+        con.execute("INSERT INTO pages VALUES ('P1','AUD-PARTIAL-FAQ')")
+        for number in range(14):
+            con.execute(
+                "INSERT INTO page_snapshots VALUES (?, ?, ?)",
+                (f"S-{number:02d}", "P1",
+                 f"artifacts/rendered/s-{number:02d}.html"),
+            )
+    original = db.read_bytes()
+    report = faq_observation_html(db, "AUD-PARTIAL-FAQ")
+    assert "Cobertura física" in report
+    assert "12 captura(s) examinada(s)" in report
+    assert "11 inacessível(is)" in report
+    assert "capturas adicionais fora do limite" in report
+    assert "BR-GEO-039" in report
+    assert db.read_bytes() == original
+
+
+def test_601_missing_faq_controls_are_nd_not_editorial_absence(tmp_path):
+    import sqlite3
+    from rasai.faq_observation import faq_observation_html
+    root = tmp_path / "AUD-EMPTY-FAQ"
+    rendered = root / "artifacts" / "rendered"
+    rendered.mkdir(parents=True)
+    (rendered / "page.html").write_text("<main>Other content</main>", encoding="utf-8")
+    db = root / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript(
+            "CREATE TABLE pages(page_id TEXT, audit_id TEXT);"
+            "CREATE TABLE page_snapshots("
+            "snapshot_id TEXT, page_id TEXT, rendered_artifact_ref TEXT);"
+            "INSERT INTO pages VALUES ('P1','AUD-EMPTY-FAQ');"
+            "INSERT INTO page_snapshots VALUES "
+            "('S1','P1','artifacts/rendered/page.html');"
+        )
+    original = db.read_bytes()
+    html = faq_observation_html(db, "AUD-EMPTY-FAQ")
+    assert "FAQ não identificável nesta amostra" in html
+    assert "não comprova ausência editorial" in html
+    assert db.read_bytes() == original
+
+
+def test_601_duplicate_snapshot_identity_cannot_produce_partial_faq_totals(tmp_path):
+    import sqlite3
+    from rasai.faq_observation import faq_observation_html
+    root = tmp_path / "AUD-DUP-FAQ"
+    root.mkdir()
+    db = root / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript(
+            "CREATE TABLE pages(page_id TEXT, audit_id TEXT);"
+            "CREATE TABLE page_snapshots("
+            "snapshot_id TEXT, page_id TEXT, rendered_artifact_ref TEXT);"
+            "INSERT INTO pages VALUES ('P1','AUD-DUP-FAQ');"
+            "INSERT INTO page_snapshots VALUES ('S1','P1','artifacts/rendered/a.html');"
+            "INSERT INTO page_snapshots VALUES ('S1','P1','artifacts/rendered/b.html');"
+        )
+    output = faq_observation_html(db, "AUD-DUP-FAQ")
+    assert "Snapshot IDs ausentes ou duplicados: N/D" in output
+    assert "Foram identificados" not in output

@@ -13,7 +13,9 @@ import json
 from typing import Any, Mapping
 
 from rasai.faq_observation import _MAX_HTML_BYTES
-from rasai.faq_transition_policy import compare_faq_dom_views
+from rasai.faq_transition_policy import (
+    compare_faq_dom_views, eligible_isolated_faq_disclosure,
+)
 
 _FIELDS = frozenset({
     "receipt_id", "collector_id", "target_id", "document_url",
@@ -111,6 +113,10 @@ def verify_faq_interaction_receipt(
             return unverified
     except (ValueError, TypeError, UnicodeError):
         return unverified
+    # A valid signature cannot make a submit button, link, form, event
+    # handler or ambiguous target safe for an isolated FAQ interaction.
+    if not eligible_isolated_faq_disclosure(before_html, receipt["target_id"]):
+        return {**unverified, "reason": "UNSAFE_OR_AMBIGUOUS_FAQ_ACTION_TARGET"}
     observed = compare_faq_dom_views(
         before_html, later_html,
         target_id=receipt.get("target_id"),
