@@ -11,6 +11,7 @@ from pathlib import Path
 if TYPE_CHECKING:
     from rasai.domain import DeviceContext
     from rasai.architecture_acquisition_service import DiscoveryExecution
+    from rasai.architecture_context import ArchitectureContext
 
 from rasai.architecture_choice import ArchitectureChoice, CHOICE_KEY, read_choice, write_choice
 from rasai.architecture_choice_precedence import ResolvedChoice, resolve_choice_precedence
@@ -81,3 +82,34 @@ def read_architecture_choice_for_reprocess(
         )
     except (FileNotFoundError, OSError, ValueError, KeyError, TypeError):
         return None
+
+
+def resolve_historical_architecture_for_consumer(
+    audits_root: "str | Path", audit_id: str, *,
+    requested_url: str, final_url: str, device: str,
+    page_id: str, snapshot_id: str, consumer_id: str,
+) -> "ArchitectureContext":
+    """Resolve persisted M6/choice exclusively for approved advisory consumers.
+
+    No network, reprocessing or complementary acquisition is performed.
+    A missing/tampered configuration abstains rather than inheriting preferences
+    from the current operator session.
+    """
+    from rasai.architecture_context import resolve_architecture
+    from rasai.architecture_m6_evidence import read_audit_architecture_observations
+
+    choice = read_architecture_choice_for_reprocess(audits_root, audit_id)
+    if choice is None:
+        mode, declared = "UNFORCED", None
+    else:
+        mode = choice.choice.mode
+        declared = choice.choice.declared_architecture
+    return resolve_architecture(
+        mode=mode, declared_architecture=declared,
+        observations=read_audit_architecture_observations(audits_root, audit_id),
+        requested_url=requested_url, final_url=final_url,
+        device=device, audit_id=audit_id, page_id=page_id,
+        snapshot_id=snapshot_id, consumer_id=consumer_id,
+        advisory_consumers=frozenset({"descriptive_report", "m6_read_only_diagnostic"}),
+        phase="POST_COLLECTION",
+    )
