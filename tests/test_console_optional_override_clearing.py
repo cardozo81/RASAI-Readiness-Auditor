@@ -57,9 +57,16 @@ def test_clear_optional_apdex_and_dynatrace_removes_stale_runtime_and_roundtrips
         assert parser.get("synthetic_apdex", "threshold_seconds") == ""
         for option in ("satisfied_seconds", "frustrated_seconds"):
             assert parser.get("synthetic_apdex_experience", option) == ""
-        for name in ("RASAI_APDEX_THRESHOLD_SECONDS", "RASAI_DYNATRACE_BASE_URL",
-                     "RASAI_DYNATRACE_APPLICATION_ID", "RASAI_DYNATRACE_CONFIG_JSON"):
-            assert parser.get("environment", name) == ""
+        previously_set = {
+            "RASAI_APDEX_THRESHOLD_SECONDS": "2.75",
+            "RASAI_DYNATRACE_BASE_URL": "https://tenant.example.invalid",
+            "RASAI_DYNATRACE_APPLICATION_ID": "offline-application",
+            "RASAI_DYNATRACE_CONFIG_JSON": '{"load_action":"VISUALLY_COMPLETE"}',
+        }
+        # A complete inventory may save safe registry defaults. It cannot
+        # retain the previous session values when typed fields are cleared.
+        for name, stale in previously_set.items():
+            assert parser.get("environment", name) != stale
 
         with patch.dict(os.environ, {}, clear=True):
             restored = SearchConsoleState()
