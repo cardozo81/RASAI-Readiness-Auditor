@@ -365,3 +365,25 @@ def test_corrupt_historical_console_section_is_rejected_without_mutation():
     with pytest.raises(ValueError, match="seção console válida"):
         _apply_settings(state, snapshot, "AUD-SOURCE")
     assert state.target == "https://current.example/"
+
+
+def test_historical_snapshot_without_console_section_remains_compatible(monkeypatch):
+    from rasai import console_settings
+    from types import SimpleNamespace
+    monkeypatch.setattr(console_settings, "_known_nonsecret_environment_names", lambda: ())
+    monkeypatch.setattr(console_settings, "_state_values", lambda state: {})
+    monkeypatch.setattr(console_settings, "sync_nonsecret_runtime_environment", lambda state: None)
+    state = SimpleNamespace(target="https://current.example", input_mode="file")
+    assert _apply_settings(state, {"settings": {}, "targets": ["https://legacy.example"]},
+                           "AUD-LEGACY") == ()
+    assert state.target == "https://legacy.example"
+    assert state.input_mode == "url"
+
+
+def test_explicitly_malformed_console_section_still_rejected():
+    state = SearchConsoleState()
+    original = state.target
+    config = {"settings": {"console": []}, "targets": ["https://example.org"]}
+    with pytest.raises(ValueError, match="seção console válida"):
+        _apply_settings(state, config, "AUD-BAD")
+    assert state.target == original

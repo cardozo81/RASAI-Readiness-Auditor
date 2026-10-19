@@ -287,7 +287,9 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
     # A historical snapshot must not silently restore a partial typed section.
     # Its explicit keys are applied independently below, but unknown sections
     # must not be treated as proof that the operator's current state was saved.
-    if not isinstance(raw_settings.get("console"), Mapping):
+    # Legacy snapshots may omit a typed console section entirely. Reject an
+    # explicitly malformed section without breaking historical reuse.
+    if "console" in raw_settings and not isinstance(raw_settings["console"], Mapping):
         raise ValueError("snapshot de console sem seção console válida")
     if any(not isinstance(value, str) for value in raw_targets):
         raise ValueError("snapshot de console possui target não textual")

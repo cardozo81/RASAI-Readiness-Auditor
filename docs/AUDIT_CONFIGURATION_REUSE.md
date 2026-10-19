@@ -297,3 +297,11 @@ explícita em outra sessão. Termos de busca de execução não são gravados no
 INI, mas são parte do snapshot reutilizável não secreto; não ativam Perplexity.
 Snapshot sem seção `console` válida é rejeitado antes de alterar a sessão.
 A regressão automatizada não substitui o smoke do console Windows.
+
+## Compatibilidade com snapshots históricos sem seção console
+
+Snapshots legados que não gravaram a seção `settings.console` continuam
+reutilizáveis. A ausência dessa seção não é classificada como corrupção;
+quando presente com tipo inválido, a restauração falha antes de mutar a
+sessão. A compatibilidade preserva a precedência de configuração selada
+e mantém separada a exigência de um round-trip completo nas novas AUDs.
