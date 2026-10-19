@@ -209,3 +209,28 @@ def test_cli_opt_in_requires_html_gate(monkeypatch, capsys, tmp_path):
     assert report_decision_matrix_cli.main([str(root), "--verify-html"]) == 2
     refused = json.loads(capsys.readouterr().out)
     assert refused["html_semantic_gate"]["status"] == "REPORT_HTML_SOURCE_UNVERIFIABLE"
+
+
+def test_600_empty_sari_population_never_receives_html_acceptance(tmp_path, monkeypatch):
+    from rasai import catalog_report_site
+    monkeypatch.setattr(catalog_report_site, "verify_catalog_report_package",
+                        lambda _: (True, ()))
+    # Even two HTML pages rendering the SAME lack of SARI evidence cannot
+    # legitimately prove SARI coverage/readiness.
+    projection = {
+        **_projection(),
+        "rows": [
+            row for row in _projection()["rows"]
+            if not str(row.get("indicator") or "").startswith("SARI /")
+            and row.get("indicator") != "SARI"
+            and row.get("indicator") != "Dimensões SARI com cobertura não integral"
+        ],
+    }
+    root = _package(tmp_path, projection)
+    before = (root / "report-catalog" / "manifest.json").read_bytes()
+    result = inspect_decision_html_parity(root, projection)
+    assert result["status"] == "SARI_PHYSICAL_EVIDENCE_ABSENT"
+    assert result["normative_acceptance"] is False
+    assert result["browser_inspection_verified"] is False
+    assert result["index_matrix_rows"] is None
+    assert (root / "report-catalog" / "manifest.json").read_bytes() == before

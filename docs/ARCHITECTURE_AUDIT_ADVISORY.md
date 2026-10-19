@@ -64,3 +64,27 @@ convertido em origem inventada. Fixtures de duas URLs com token de
 consulta, destino distinto, legado UNFORCED e bytes SQLite imutáveis
 cobrem a projeção. Aceite físico amplo do motor #646 continua sujeito
 aos gates separados do escopo original.
+
+
+## Limite de publicação: JSON do CLI sem segredos de URL (#646)
+
+A inspeção do F3 revelou uma assimetria: o relatório HTML retirava
+userinfo/query/fragmento de `requested_url` e `final_url`, mas
+`python -m rasai.architecture_audit_cli` ainda serializava as URLs
+físicas completas no JSON. Isso poderia publicar parâmetros de
+autenticação ou credenciais de navegação nos logs do operador.
+
+A projeção interna e `resolve_architecture` **permanecem intactos**,
+porque as URLs originais precisam ser comparadas byte a byte para
+vincular evidência ao snapshot correto. Somente no limite de publicação
+JSON o CLI agora remove userinfo, query values e fragmentos, usando a
+mesma sanitização do HTML. Acrescenta os metadados
+`url_exposure=SCHEME_HOST_PATH_ONLY_QUERY_REDACTED` e
+`raw_url_tokens_exposed=false`. Destino e divergência permanecem
+atribuídos à mesma AUD, page_id, snapshot_id e device; nada é
+gravado em AUD nem em configuração.
+
+A mudança torna mais conservadora a superfície pública do CLI,
+sem alterar o contrato de resolução arquitetural da fonte.
+Evidências com query/token continuam consultáveis somente na
+fonte local legítima; o relatório e JSON público não as reproduzem.

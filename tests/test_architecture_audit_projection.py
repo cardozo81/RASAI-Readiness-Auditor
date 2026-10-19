@@ -197,3 +197,46 @@ def test_646_architecture_report_escapes_urls_and_does_not_promote_redirect_to_f
     assert "não extrapolar" in result_html
     assert "não demonstra sozinha" in result_html
     assert all(row["effective_architecture"] is None for row in result["snapshots"])
+
+
+def test_646_cli_json_redacts_raw_query_and_userinfo_without_reclassifying_m6(
+    tmp_path, capsys,
+):
+    root, folder, database = _aud(tmp_path, mode="UNFORCED")
+    with sqlite3.connect(database) as con:
+        con.execute(
+            "UPDATE page_snapshots SET requested_url=?, final_url=? "
+            "WHERE snapshot_id='S-1'",
+            (
+                "https://user:PRIVATE_PASSWORD@example.org/a?"
+                "token=PRIVATE_REQUEST_TOKEN#PRIVATE_FRAG",
+                "https://api:PRIVATE_PASS@www.example.org/final?"
+                "sig=PRIVATE_FINAL_SIGNATURE#SECRET",
+            ),
+        )
+    before = database.read_bytes()
+    # The internal advisory projection keeps exact URLs for physical M6
+    # identity matching. The CLI publication boundary redacts only output.
+    physical = inspect_audit_architecture_context(root, "AUD-646")
+    assert physical["status"] == "ADVISORY_OBSERVED"
+    original = next(row for row in physical["snapshots"]
+                    if row["snapshot_id"] == "S-1")
+    assert "PRIVATE_REQUEST_TOKEN" in original["requested_url"]
+    assert original["final_target_differs_from_requested"] is True
+    assert main([str(folder), "--consumer-matrix"]) == 0
+    displayed = capsys.readouterr().out
+    for secret in (
+        "PRIVATE_PASSWORD", "PRIVATE_REQUEST_TOKEN", "PRIVATE_FRAG",
+        "PRIVATE_PASS", "PRIVATE_FINAL_SIGNATURE", "SECRET",
+    ):
+        assert secret not in displayed
+    cli = json.loads(displayed)
+    assert cli["raw_url_tokens_exposed"] is False
+    assert cli["url_exposure"] == "SCHEME_HOST_PATH_ONLY_QUERY_REDACTED"
+    row = next(record for record in cli["snapshots"] if record["snapshot_id"] == "S-1")
+    assert row["requested_url"].startswith("https://example.org/a?")
+    assert row["final_url"].startswith("https://www.example.org/final?")
+    assert "parâmetros omitidos" in row["final_url"]
+    assert row["selected_mode"] == "UNFORCED"
+    assert row["effective_architecture"] is None
+    assert database.read_bytes() == before

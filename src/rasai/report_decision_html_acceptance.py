@@ -218,6 +218,14 @@ def inspect_decision_html_parity(
             not isinstance(row, Mapping) for row in expected_rows
         ):
             return base
+        # A byte-for-byte matching report with no persisted SARI evidence
+        # is NOT sufficient proof of SARI coverage/readiness. It is a valid
+        # incomplete report but not an evidence-parity acceptance.
+        sari_expected = _expected(expected_rows, True)
+        if not sari_expected or not any(
+            row[0].startswith("SARI /") for row in sari_expected
+        ):
+            return {**base, "status": "SARI_PHYSICAL_EVIDENCE_ABSENT"}
         totals = {}
         for name, section, sari_only in (
             ("index.html", "decision-matrix", False),

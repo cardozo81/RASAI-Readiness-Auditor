@@ -74,3 +74,17 @@ documento regulatório real, SEO externo ou índice revisado.
 Quando o relatório físico não existir, não é necessário gerar nova AUD
 para executar o teste. A paridade pode ser validada por fixture local,
 sem simular falsamente uma evidência física do operador.
+
+
+### Abstenção obrigatória sem linha de prontidão SARI persistida (#600)
+
+O gate `--verify-html` distingue paridade tabular de evidência positiva:
+um par de páginas `index.html` e `sari.html` que renderiza
+corretamente uma matriz **sem nenhuma linha física SARI**
+não pode retornar `HTML_MATRIX_PARITY_VERIFIED`. Nesse cenário retorna
+`SARI_PHYSICAL_EVIDENCE_ABSENT` com aceitação normativa e inspeção
+visual ainda falsas. Isso evita elevar a integridade de um relatório
+vazio à condição de prontidão ou cobertura medida. Não impõe que a
+AUD tenha pontuação positiva e não altera scoring, geração do relatório
+ou seu uso exploratório: apenas o diagnóstico independente
+de aceite se abstém até existir população SARI verificável.
