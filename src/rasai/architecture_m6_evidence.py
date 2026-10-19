@@ -205,11 +205,13 @@ def read_audit_architecture_observations(
         )
         try:
             connection.execute("PRAGMA query_only=ON")
+            columns = {column[1] for column in connection.execute("PRAGMA table_info(page_snapshots)")}
+            metadata_column = "ps.browser_metadata" if "browser_metadata" in columns else "NULL"
             rows = connection.execute(
-                """SELECT ps.snapshot_id, ps.page_id, ps.device,
+                f"""SELECT ps.snapshot_id, ps.page_id, ps.device,
                           ps.requested_url, ps.final_url, ps.architecture_classification,
                           ps.raw_artifact_ref, ps.rendered_artifact_ref,
-                          ps.browser_metadata
+                          {metadata_column}
                    FROM page_snapshots ps JOIN pages p ON ps.page_id=p.page_id
                    WHERE p.audit_id=?
                    ORDER BY ps.snapshot_id LIMIT ?""",
