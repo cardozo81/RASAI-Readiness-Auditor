@@ -94,7 +94,7 @@ def test_523_gsc_invalid_bounds_secret_in_ini_and_bad_source_are_refused(tmp_pat
     with patch.dict(os.environ, {}, clear=True):
         source = _ini(tmp_path, rows="0")
         assert inspect_gsc_consumers(source, environ={})["status"] == (
-            "INI_OR_GSC_POLICY_INVALID"
+            "INI_LOAD_WARNINGS"
         )
         source = _ini(tmp_path)
         source.write_text(
@@ -201,3 +201,54 @@ def test_523_gsc_physical_ini_reload_preserves_saved_nonsecret_limits(tmp_path):
         report = inspect_gsc_consumers(source, environ={})
         assert report["status"] == "TARGET_NOT_PREPARED"
         assert report["canonical_gsc_ini_keys_restored"] is True
+
+
+def test_523_gsc_invalid_ini_value_is_rejected_before_environment_effect(tmp_path):
+    from rasai import console_settings
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai.standards_gsc_policy import GSC_SEARCH_MAX_ROWS_ENV
+
+    _install_search_persistence()
+    install()
+    source = _ini(tmp_path, rows="50001")
+    previous = source.read_bytes()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        load = console_settings.load_console_config(state, source)
+        assert not load.created
+        assert any("environment." + GSC_SEARCH_MAX_ROWS_ENV in warning
+                   for warning in load.warnings)
+        assert GSC_SEARCH_MAX_ROWS_ENV not in os.environ
+        assert state.config_dirty is True
+        assert source.read_bytes() == previous
+        summary = inspect_gsc_consumers(source, environ={})
+        assert summary["status"] == "INI_LOAD_WARNINGS"
+        assert summary["source_status"] == "READY"
+        assert source.read_bytes() == previous
+
+
+def test_523_gsc_save_does_not_destroy_operator_ini_on_invalid_override(tmp_path):
+    import pytest
+    from rasai import console_settings
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai.standards_gsc_policy import GSC_FINAL_DATA_LAG_DAYS_ENV
+
+    _install_search_persistence()
+    install()
+    path = tmp_path / "existing.ini"
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        state.target = "https://shop.example.org"
+        console_settings.save_console_config(state, path)
+        before = path.read_bytes()
+        os.environ[GSC_FINAL_DATA_LAG_DAYS_ENV] = "31"
+        with pytest.raises(ValueError, match="environment\\." + GSC_FINAL_DATA_LAG_DAYS_ENV):
+            console_settings.save_console_config(state, path)
+        assert path.read_bytes() == before
+        del os.environ[GSC_FINAL_DATA_LAG_DAYS_ENV]
+        console_settings.save_console_config(state, path)
+        assert path.read_bytes() == before

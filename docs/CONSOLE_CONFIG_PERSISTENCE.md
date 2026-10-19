@@ -977,3 +977,24 @@ do lado Google, autorização de chamada, escopo de dados ou frescor GSC.
 Fixtures novas verificam cobertura de registro, limites exatos,
 segredos em URL rejeitados, gravação e restauração sem perda de zeros
 e imutabilidade física do INI em cópia temporária.
+
+
+### Validação fail-closed também na leitura/gravação INI real (#523)
+
+O adapter `console_settings.load_console_config` agora reaproveita,
+**somente para as cinco chaves GSC não secretas**, a validação canônica
+do menu/consumer. Uma edição direta de INI fora dos limites (por
+exemplo 50.001 linhas ou atraso de 31 dias), ou uma URL de propriedade
+com userinfo/query/fragment, é recusada **antes da projeção no ambiente**,
+com warning por nome técnico sem divulgar valor. O console fica com
+`config_dirty=true` e não declara que a configuração foi restaurada
+completamente. O operador pode reconciliar explicitamente o arquivo,
+sem sobrescrever origem durante a leitura.
+
+O adapter `save_console_config` verifica os overrides GSC presentes
+na sessão **antes da transação de gravação**: valores inválidos não
+apagam nem reserializam o INI original. Essa barreira não é aplicada
+genericamente aos demais catálogos sem prova de necessidade e não
+altera o modo de execução do GSC, tokens OAuth ou os motores.
+Testes com SQLite inexistente não são necessários: o escopo é apenas
+arquivo temporário INI, ambiente de processo e restauração segura.

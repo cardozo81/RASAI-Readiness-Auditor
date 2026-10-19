@@ -106,6 +106,22 @@ def _optional(value: Any) -> str:
     return "" if value is None else str(value)
 
 
+def _gsc_nonsecret_names() -> frozenset[str]:
+    """Bounded GSC non-secret keys subject to the consumer's real validators."""
+    from rasai import gsc_scope, standards_gsc_policy
+    return frozenset({
+        gsc_scope.GSC_ENABLED_ENV,
+        gsc_scope.GSC_SITE_URL_ENV,
+        *standards_gsc_policy.environment_names(),
+    })
+
+
+def _canonical_gsc_value(name: str, raw: str) -> str:
+    from rasai.console_provider_environment import _validate
+
+    return _validate(name, raw)
+
+
 def _known_nonsecret_environment_names() -> tuple[str, ...]:
     # Lazy import avoids a module-import cycle while making the console catalog the
     # single persistence allowlist. EnvironmentSpec.sensitive also protects DSNs and
@@ -429,6 +445,19 @@ def save_console_config(state: Any, path: Path | None = None) -> Path:
     destination = path or resolve_config_path()
     _reject_secret_bearing_dynatrace_json(getattr(state, "apdex_dynatrace_config_json", ""))
     _reject_secret_bearing_dynatrace_json(os.environ.get(DYNATRACE_CONFIG_JSON_ENV))
+    # Do not persist syntactically recognized GSC values that the real
+    # consumer will refuse (or that hide credentials in a property URL).
+    # This applies to direct save as well as edits through the guided menu.
+    for name in _gsc_nonsecret_names():
+        raw = os.environ.get(name)
+        if raw is None or not raw.strip():
+            continue
+        try:
+            _canonical_gsc_value(name, raw)
+        except ValueError:
+            raise ValueError(
+                f"environment.{name}: valor GSC inválido; preservado INI original"
+            ) from None
     initial_identity = _guard_existing_ini_before_save(destination, state)
     # Save is a logical transaction for both the INI and the in-process
     # projection. Persisting may fail due to disk/permissions/races; a failed
@@ -686,7 +715,17 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
             # A deliberately empty session override is still an override.
             # Do not revive an older INI value on console startup.
             if name not in os.environ and raw.strip():
-                os.environ[name] = raw.strip()
+                if name in _gsc_nonsecret_names():
+                    try:
+                        canonical = _canonical_gsc_value(name, raw)
+                    except ValueError:
+                        warnings.append(
+                            f"environment.{name}: valor GSC inválido; conteúdo omitido"
+                        )
+                        continue
+                    os.environ[name] = canonical
+                else:
+                    os.environ[name] = raw.strip()
     # Optional console adapters may own additional legitimate sections that
     # are loaded after this base adapter. Do not warn about every such section:
     # that incorrectly marks valid fresh-process round trips as broken.
