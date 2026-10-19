@@ -13,6 +13,7 @@ _SUPPORTED = {
     "RASAI-GEO-PER-QUERY-304-ADVISORY-005",
     "RASAI-GEO-PER-QUERY-304-ADVISORY-006",
     "RASAI-GEO-PER-QUERY-304-ADVISORY-007",
+    "RASAI-GEO-PER-QUERY-304-ADVISORY-008",
 }
 _SCOPE = ("engine", "country", "region", "language", "device")
 
@@ -38,9 +39,18 @@ def _rate(value: object) -> str:
     return escape(f"{value * 100:.2f}%", quote=True)
 
 
+def _seconds(value: object) -> str:
+    return (
+        f"{value:.3f} s"
+        if type(value) in (int, float) and 0 <= value <= 86400
+        else "N/D"
+    )
+
+
 def _classification(value: object) -> str:
     return {
         "BRANDED_DECLARED": "Branded (declaração do operador)",
+        "NONBRANDED_DECLARED": "Non-branded (declaração do operador)",
         "UNCLASSIFIED": "Não classificada",
     }.get(value, "N/D")
 
@@ -184,6 +194,13 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
             reason,
             f"<p class='scope'>Escopo SERP observado: {scope_text}</p>",
             (
+                "<p class='scope'>Coletas físicas: SERP "
+                + _safe(entry.get("serp_collected_at")) + " · Search API "
+                + _safe(entry.get("external_run_started_at")) + "</p>"
+                if row_admissible and projection.get("contract_version") == "RASAI-GEO-PER-QUERY-304-ADVISORY-008"
+                else ""
+            ),
+            (
                 "<p class='missing' data-contract='GEO-MARKET-COMPARABILITY-304'>"
                 "<strong>Comparabilidade externa não comprovada:</strong> "
                 "as interseções numéricas abaixo refletem apenas URLs efetivamente "
@@ -215,7 +232,10 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
     # numerical field can be shown on failed global source authentication.
     recurrence = projection.get("recurrence")
     recurrence_html = ""
-    if projection.get("contract_version") == "RASAI-GEO-PER-QUERY-304-ADVISORY-007":
+    if projection.get("contract_version") in {
+        "RASAI-GEO-PER-QUERY-304-ADVISORY-007",
+        "RASAI-GEO-PER-QUERY-304-ADVISORY-008",
+    }:
         state = recurrence.get("status") if isinstance(recurrence, Mapping) else None
         if not admissible or state == "NOT_COMPARABLE" or state is None:
             recurrence_html = (
@@ -249,9 +269,18 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
                     _table_row([escape(label, quote=True), _count(recurrence.get(key))])
                     for label, key in fields
                 )
+                + (
+                    _table_row([
+                        "Amplitude temporal entre observações SERP",
+                        _seconds(recurrence.get("serp_inter_query_span_seconds")),
+                    ])
+                    if projection.get("contract_version") == "RASAI-GEO-PER-QUERY-304-ADVISORY-008"
+                    else ""
+                )
                 + "</table><p class='muted'>Recorrente significa presença da "
                 "mesma identidade URL ou hostname em pelo menos duas consultas "
-                "do mesmo run com escopo SERP uniforme e fonte por consulta "
+                "do mesmo run com escopo SERP uniforme, intervalo SERP até 24h "
+                "e fonte por consulta "
                 "verificada. Não é recorrência longitudinal, participação "
                 "de mercado, concorrência factual, posição SERP, nem citação "
                 "gerativa. Escopo externo Search API e intenção seguem "

@@ -459,3 +459,33 @@ ou causalidade. O novo painel HTML recusa métricas numéricas se o selo
 físico SQLite ou as consultas não forem integralmente admissíveis.
 A versão 006 permanece somente para leitura compatível de projeções
 previamente materializadas; o produtor publica 007.
+
+
+## Contrato consultivo 008 — coerência temporal e classes explícitas (19/10/2026)
+
+O contrato `RASAI-GEO-PER-QUERY-304-ADVISORY-008` preserva a comparação
+individual e o renderer legado 005/006/007. Há um defeito de comparabilidade
+em recorrência multiquery: duas observações SERP podem estar ambas até 24h
+da mesma execução Search API e, ainda assim, quase 48h separadas entre si.
+Agora a recorrência exige, além dos denominadores e cinco campos de escopo
+já verificados, **relógio de cada SERP** e amplitude máxima de **24 horas**
+entre todas as observações selecionadas. Sem relógio comprovado,
+`SERP_INTER_QUERY_CLOCK_UNVERIFIABLE`; acima de 24h,
+`SERP_INTER_QUERY_SPAN_EXCEEDS_24H`. Ambas são `NOT_COMPARABLE` e têm
+contagens nulas (N/D). Os resultados de cada consulta íntegra continuam
+descritivos e independentes. Uma coorte válida expõe
+`serp_inter_query_span_seconds`, além de `serp_collected_at` e
+`external_run_started_at` por linha.
+
+A opção `--declared-nonbranded-query "seguro de vida"` permite
+classificação editorial `NONBRANDED_DECLARED`, mas não trata ausência de
+marca `BRANDED_DECLARED` como prova de non-branded. A mesma query
+não pode receber ambas as classes; consultas não persistidas, duplicatas,
+espaços periféricos e controles são recusados. O campo
+`query_class_source=EXPLICIT_OPERATOR_DECLARATION` atesta somente
+origem editorial, **não intenção/mercado equivalentes entre provedores**.
+
+Tudo permanece offline e read-only; nenhuma fonte comercial foi chamada,
+nenhuma AUD ou score foi alterado e não há hipótese de participação de
+mercado ou citação gerativa. Novos testes sintéticos exigem execução
+direcionada no HEAD final; teste adicionado não constitui teste aprovado.

@@ -134,6 +134,7 @@ def _host_overlap(serp_urls: set[str], external_urls: set[str]) -> dict[str, int
 def _query_recurrence(
     observations: Mapping[str, tuple[tuple[str, ...], set[str], set[str]]],
     *, expected_queries: int, target: str | None,
+    serp_clocks: Mapping[str, datetime] | None = None,
 ) -> dict[str, Any]:
     """Within ONE persisted run: URL/hostname repeated in distinct queries.
 
@@ -145,6 +146,7 @@ def _query_recurrence(
         "status": "NOT_COMPARABLE",
         "reason": "MULTI_QUERY_VERIFIED_COHORT_INCOMPLETE",
         "verified_queries": None,
+        "serp_inter_query_span_seconds": None,
         "serp_recurrent_exact_urls": None,
         "external_recurrent_exact_urls": None,
         "cross_source_recurrent_exact_urls": None,
@@ -183,10 +185,24 @@ def _query_recurrence(
     s_hosts = {host for host, count in serp_hosts.items() if count >= 2}
     e_hosts = {host for host, count in external_hosts.items() if count >= 2}
     shared_hosts = s_hosts & e_hosts
+    # Individually valid 24h gaps to a shared Search API run can conceal
+    # SERP observations nearly 48h apart. Fail closed for cross-query rates.
+    if (serp_clocks is None or set(serp_clocks) != set(observations)
+            or any(
+                not isinstance(clock, datetime)
+                or clock.tzinfo is None or clock.utcoffset() is None
+                for clock in serp_clocks.values()
+            )):
+        return {**blank, "reason": "SERP_INTER_QUERY_CLOCK_UNVERIFIABLE"}
+    chronological = tuple(serp_clocks.values())
+    span = (max(chronological) - min(chronological)).total_seconds()
+    if span > _WINDOW:
+        return {**blank, "reason": "SERP_INTER_QUERY_SPAN_EXCEEDS_24H"}
     target_host = urlsplit(target).hostname if target else None
     return {
         **blank, "status": "OBSERVED_WITHIN_ONE_RUN", "reason": None,
         "verified_queries": expected_queries,
+        "serp_inter_query_span_seconds": span,
         "serp_recurrent_exact_urls": len(s_urls),
         "external_recurrent_exact_urls": len(e_urls),
         "cross_source_recurrent_exact_urls": len(s_urls & e_urls),
@@ -269,6 +285,7 @@ def _row(query: str, classification: str, reason: str) -> dict[str, Any]:
         "status": "NOT_COMPARABLE", "reason": reason,
         "serp_observation_id": None,
         "serp_scope": None, "observation_gap_seconds": None,
+        "serp_collected_at": None, "external_run_started_at": None,
         "perplexity_distinct_urls": None, "serp_distinct_urls": None,
         "common_urls": None, "serp_only_urls": None,
         "perplexity_only_urls": None,
@@ -288,6 +305,7 @@ def _row(query: str, classification: str, reason: str) -> dict[str, Any]:
 
 def inspect_geo_per_query(
     audit_dir: Path, *, declared_branded_queries: Sequence[str] = (),
+    declared_nonbranded_queries: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Return descriptive URL-set overlaps only with physical per-query linkage.
 
@@ -305,15 +323,28 @@ def inspect_geo_per_query(
         for suffix in ("-wal", "-shm", "-journal")
     ):
         raise ValueError("read-only AUD database without sidecars required")
-    if isinstance(declared_branded_queries, (str, bytes)):
+    if (isinstance(declared_branded_queries, (str, bytes))
+            or isinstance(declared_nonbranded_queries, (str, bytes))):
         raise ValueError("operator query classes must be a sequence")
-    brands = [_query_key(s) for s in declared_branded_queries]
-    if (len(brands) > _MAX_QUERY_COUNT or any(not x for x in brands)
-            or len(brands) != len(set(brands))):
-        raise ValueError("invalid explicit branded-query declaration")
+    def declared_keys(values: Sequence[str]) -> list[str]:
+        if len(values) > _MAX_QUERY_COUNT or any(
+            not isinstance(s, str) or not s or len(s) > 300
+            or s != s.strip() or any(ord(ch) < 32 or ord(ch) == 127 for ch in s)
+            for s in values
+        ):
+            raise ValueError("invalid explicit query-class declaration")
+        keys = [_query_key(s) for s in values]
+        if len(keys) != len(set(keys)):
+            raise ValueError("invalid explicit query-class declaration")
+        return keys
+
+    brands = declared_keys(declared_branded_queries)
+    nonbrands = declared_keys(declared_nonbranded_queries)
+    if set(brands) & set(nonbrands):
+        raise ValueError("conflicting explicit branded/nonbranded query classes")
 
     out: dict[str, Any] = {
-        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-007",
+        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-008",
         "audit_id": root.name, "status": "NOT_COMPARABLE",
         "reason": None, "queries": [],
         "per_query_attribution_status": "NOT_VERIFIED",
@@ -332,8 +363,8 @@ def inspect_geo_per_query(
             "Comparação descritiva de conjuntos de URLs persistidas, não "
             "participação em respostas gerativas, rank, causalidade, "
             "representatividade ou mesma intenção/mercado/dispositivo "
-            "entre SERP e Perplexity. Classificação branded é declaração "
-            "do operador, não inferência do provedor. Presença da URL "
+            "entre SERP e Perplexity. Classificação branded/nonbranded "
+            "é declaração do operador, não inferência do provedor. Presença da URL "
             "auditada em fontes retornadas não prova menção ou citação "
             "na resposta generativa. Domínio alternativo significa "
             "somente mesmo hostname exato, não equivalência www/apex."
@@ -445,8 +476,11 @@ def inspect_geo_per_query(
                            for q in declared)
                     or len({_query_key(q) for q in declared}) != len(declared)):
                 return abstain("EXTERNAL_QUERY_SET_AMBIGUOUS")
-            if not set(brands) <= {_query_key(q) for q in declared}:
+            observed_query_keys = {_query_key(q) for q in declared}
+            if not set(brands) <= observed_query_keys:
                 raise ValueError("declared branded-query not in persisted run")
+            if not set(nonbrands) <= observed_query_keys:
+                raise ValueError("declared nonbranded-query not in persisted run")
             sources = con.execute(
                 "SELECT url, " + (
                     "query" if "query" in source_columns else "NULL AS query"
@@ -527,9 +561,13 @@ def inspect_geo_per_query(
             recurrence_sources: dict[
                 str, tuple[tuple[str, ...], set[str], set[str]]
             ] = {}
+            recurrence_clocks: dict[str, datetime] = {}
             for query in declared:
                 qkey = _query_key(query)
-                class_name = "BRANDED_DECLARED" if qkey in brands else "UNCLASSIFIED"
+                class_name = (
+                    "BRANDED_DECLARED" if qkey in brands else
+                    "NONBRANDED_DECLARED" if qkey in nonbrands else "UNCLASSIFIED"
+                )
                 row = _row(query, class_name, "PER_QUERY_SOURCE_ATTRIBUTION_UNPROVEN")
                 if not attributable:
                     out["queries"].append(row)
@@ -612,7 +650,7 @@ def inspect_geo_per_query(
                     row["reason"] = "AMBIGUOUS_EQUIDISTANT_SERP_OBSERVATIONS"
                     out["queries"].append(row)
                     continue
-                gap, _, match = candidates[0]
+                gap, observed_at, match = candidates[0]
                 sid = match["observation_id"]
                 if con.execute(
                     "SELECT count(*) FROM serp_observations WHERE observation_id=?",
@@ -649,6 +687,8 @@ def inspect_geo_per_query(
                     serp_observation_id=sid,
                     serp_scope={s: str(match[s]).strip() for s in _SCOPE},
                     observation_gap_seconds=gap,
+                    serp_collected_at=match["collected_at"],
+                    external_run_started_at=run["started_at"],
                     perplexity_distinct_urls=len(px_urls),
                     serp_distinct_urls=len(serp_urls),
                     common_urls=common,
@@ -678,6 +718,7 @@ def inspect_geo_per_query(
                     tuple(str(match[field]).strip() for field in _SCOPE),
                     serp_urls, px_urls,
                 )
+                recurrence_clocks[qkey] = observed_at
                 out["queries"].append(row)
             out["per_query_attribution_status"] = (
                 "PHYSICALLY_ATTRIBUTABLE" if attributable else
@@ -699,11 +740,14 @@ def inspect_geo_per_query(
             out["source_audit_db_integrity_guard"] = "DOUBLE_SHA256_MATCH"
             out["recurrence"] = _query_recurrence(
                 recurrence_sources, expected_queries=len(declared), target=target,
+                serp_clocks=recurrence_clocks,
             )
             return out
     except (sqlite3.Error, OSError, ValueError, OverflowError) as exc:
         # The source may be an old/corrupt SQLite package. Never mutate it.
-        if isinstance(exc, ValueError) and "declared branded-query" in str(exc):
+        if isinstance(exc, ValueError) and (
+                "declared branded-query" in str(exc)
+                or "declared nonbranded-query" in str(exc)):
             raise
         return abstain("SOURCE_SCHEMA_OR_READ_FAILURE")
 
@@ -714,6 +758,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("audit_dir", type=Path)
     parser.add_argument("--declared-branded-query", action="append", default=[])
+    parser.add_argument("--declared-nonbranded-query", action="append", default=[])
     parser.add_argument(
         "--format", choices=("json", "html"), default="json",
         help="Offline advisory output only; HTML does not modify GEO reports.",
@@ -722,6 +767,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         outcome = inspect_geo_per_query(
             args.audit_dir, declared_branded_queries=args.declared_branded_query,
+            declared_nonbranded_queries=args.declared_nonbranded_query,
         )
     except ValueError as exc:
         parser.error(str(exc))
