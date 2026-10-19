@@ -142,3 +142,14 @@ O teste de política preserva identificadores curtos de módulos canônicos
 nos basenames versionados. Isto é apenas reconciliação de CI/paths:
 não comprova compatibilidade de importadores externos ou scripts Windows
 não versionados, que permanecem como gates explícitos de #639.
+
+## Evidência de compatibilidade em runners Windows
+
+Na reconciliação do HEAD `27b9729`, os workflows Windows Console Navigation
+e Audit Fulfillment and Reprocessing reprovaram a mesma regressão de teste
+na validação de caracteres de controle de consultas históricas. A correção
+é tratada na issue de configuração, não como renomeação de arquivo: nenhum
+nome de módulo, entrypoint ou arquivo histórico precisa ser modificado.
+O aceite de #639 continua condicionado à inspeção das referências reais e
+à conclusão dos gates do HEAD final, e não a uma interpretação de 29 workflows
+verdes como aprovação integral.

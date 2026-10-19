@@ -213,7 +213,7 @@ def test_historical_search_integer_accepts_exact_decimal_strings() -> None:
 @pytest.mark.parametrize("queries", [
     ["válida", None], ["válida", {"q": "other"}],
     ["válida", 42], ["x" * 501], ["q"] * 101,
-    ["input\\x00hidden"],
+    ["input\x00hidden"],
 ])
 def test_invalid_historical_query_payload_does_not_erase_session(queries) -> None:
     from rasai.audit_configuration_reuse_console import _apply_search_settings
@@ -454,3 +454,21 @@ def test_legacy_enabled_true_without_queries_does_not_activate_old_queries():
     assert state.search_queries == ()
     assert state.search_device == "desktop"
     assert not warnings
+
+
+def test_historical_query_validator_rejects_actual_nul_not_literal_escape():
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    state.search_queries = ("operator value",)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "enabled": True, "queries": ["unsafe" + chr(0) + "value"],
+    }}, warnings)
+    assert state.search_queries == ("operator value",)
+    assert any("queries" in item for item in warnings)
+    warnings.clear()
+    _apply_search_settings(state, {"search_intelligence": {
+        "enabled": True, "queries": [r"literal\\x00 is safe"],
+    }}, warnings)
+    assert not warnings
+    assert state.search_queries == (r"literal\\x00 is safe",)

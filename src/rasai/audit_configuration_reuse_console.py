@@ -171,7 +171,7 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
     if (has_queries and (not isinstance(raw_queries, list)
             or len(raw_queries) > 100
             or any(not isinstance(value, str) or len(value) > 500
-                   or any(ord(ch) < 32 and ch not in "\\t\\n\\r" for ch in value)
+                   or any(ord(ch) < 32 and ch not in "\t\n\r" for ch in value)
                    for value in raw_queries))):
         warnings.append("search_intelligence.queries: lista inválida")
         # An invalid historical payload must never erase the current session's

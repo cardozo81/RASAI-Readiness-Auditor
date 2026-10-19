@@ -322,3 +322,11 @@ A escolha explícita `enabled=false` continua desabilitando consultas,
 mesmo sem lista; outros campos válidos continuam restaurados. O contrato
 distingue ausência histórica de informação de uma instrução deliberada
 para apagar estado, preservando o funcionamento independente dos catálogos.
+
+## Regresso focal Windows de caracteres de controle
+
+Uma sequência de escape textual e o byte/caractere de controle correspondente
+não são equivalentes. A regressão exercita um NUL real, gerado sem gravá-lo no
+arquivo-fonte, e confirma a preservação da consulta do operador. Uma sequência
+literal de barra invertida e letras continua sendo texto normal. Este check
+não substitui os gates de console Windows nem altera consentimento de busca.
