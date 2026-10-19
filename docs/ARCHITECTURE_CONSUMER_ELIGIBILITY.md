@@ -99,3 +99,12 @@ limites de páginas, bytes e redirecionamentos. Frações como `2.9` e texto
 como `1e6` não são truncados silenciosamente; o campo da sessão atual
 é preservado com aviso. Inteiros decimais em texto continuam aceitos.
 Isso não altera escolhas de serviços externos nem concede opt-in.
+
+## Reutilização segura dos termos de Search Intelligence
+
+O snapshot de uma AUD pode restaurar consultas textuais não secretas, mas
+não pode converter objetos, números ou cargas de controle em novas queries.
+Uma lista inválida ou excessiva é recusada com aviso e preserva as consultas
+da sessão; listas válidas são normalizadas, deduplicadas e obedecem ao
+`enabled` explícito. Targets históricos não textuais impedem a restauração.
+Isso não modifica o opt-in de Perplexity, que permanece exclusivo da sessão.

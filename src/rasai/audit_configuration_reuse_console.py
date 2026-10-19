@@ -167,18 +167,21 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
         return
 
     raw_queries = search.get("queries", [])
-    if not isinstance(raw_queries, list):
+    if (not isinstance(raw_queries, list)
+            or len(raw_queries) > 100
+            or any(not isinstance(value, str) or len(value) > 500
+                   or any(ord(ch) < 32 and ch not in "\\t\\n\\r" for ch in value)
+                   for value in raw_queries)):
         warnings.append("search_intelligence.queries: lista inválida")
-        raw_queries = []
-    queries = tuple(
-        dict.fromkeys(
-            " ".join(str(value).strip().split())
-            for value in raw_queries
-            if str(value).strip()
-        )
-    )
-    enabled = _as_bool(search.get("enabled"), default=bool(queries))
-    state.search_queries = queries if enabled else ()
+        # An invalid historical payload must never erase the current session's
+        # explicit search inputs or convert arbitrary objects into paid queries.
+    else:
+        queries = tuple(dict.fromkeys(
+            " ".join(value.strip().split()) for value in raw_queries
+            if value.strip()
+        ))
+        enabled = _as_bool(search.get("enabled"), default=bool(queries))
+        state.search_queries = queries if enabled else ()
 
     try:
         candidate = search.get("depth", getattr(state, "search_depth", 20))
@@ -263,7 +266,9 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
     raw_targets = configuration.get("targets")
     if not isinstance(raw_settings, Mapping) or not isinstance(raw_targets, list) or not raw_targets:
         raise ValueError("snapshot de console incompleto: settings/targets ausentes")
-    targets = tuple(str(value).strip() for value in raw_targets if str(value).strip())
+    if any(not isinstance(value, str) for value in raw_targets):
+        raise ValueError("snapshot de console possui target não textual")
+    targets = tuple(value.strip() for value in raw_targets if value.strip())
     if not targets:
         raise ValueError("snapshot de console não possui targets válidos")
     if len(targets) != 1:

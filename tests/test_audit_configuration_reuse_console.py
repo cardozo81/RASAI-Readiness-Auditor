@@ -208,3 +208,46 @@ def test_historical_search_integer_accepts_exact_decimal_strings() -> None:
             state.search_content_max_bytes, state.search_content_max_redirects) == (
                 27, 4, 2_000_000, 0,
             )
+
+
+@pytest.mark.parametrize("queries", [
+    ["válida", None], ["válida", {"q": "other"}],
+    ["válida", 42], ["x" * 501], ["q"] * 101,
+    ["input\\x00hidden"],
+])
+def test_invalid_historical_query_payload_does_not_erase_session(queries) -> None:
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    state.search_queries = ("consulta existente",)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {"queries": queries}}, warnings)
+    assert state.search_queries == ("consulta existente",)
+    assert any("search_intelligence.queries" in warning for warning in warnings)
+
+
+def test_historical_queries_remain_opt_in_and_deduplicated() -> None:
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    state.search_queries = ("consulta anterior",)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "enabled": True, "queries": ["  seguro   auto  ", "seguro auto", " previdência "],
+    }}, warnings)
+    assert not warnings
+    assert state.search_queries == ("seguro auto", "previdência")
+    _apply_search_settings(state, {"search_intelligence": {
+        "enabled": False, "queries": ["seguro auto"],
+    }}, warnings)
+    assert state.search_queries == ()
+
+
+def test_historical_console_rejects_nonstr_targets_without_mutating_session() -> None:
+    state = State()
+    state.target = "https://example.com/original"
+    state.max_pages = 17
+    configuration = _export_settings(state, ("https://example.com/target",))
+    configuration["targets"] = [42]
+    with pytest.raises(ValueError, match="target não textual"):
+        _apply_settings(state, configuration, "AUD-SOURCE")
+    assert state.target == "https://example.com/original"
+    assert state.max_pages == 17
