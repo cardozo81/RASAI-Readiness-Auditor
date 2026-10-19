@@ -1017,3 +1017,47 @@ ignorado. O preflight GSC segue sendo um diagnóstico **offline**, não
 um autorizador de OAuth/Google. Testes incluem grupo inválido sem
 ativação parcial, restauração física intacta, e override de sessão
 preexistente, sem rede nem auditoria.
+
+
+## Gate único offline por issue #523 — abrangência + sem consentimento implícito
+
+O inventário possui agora um modo consolidado **opt-in**, evitando
+repetir manualmente os cinco diagnósticos independentes:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai.console_configuration_inventory `
+  --ini "C:\caminho\rasai-console.ini" --acceptance-523
+```
+
+Em **uma única invocação** o comando executa a reconciliação tipada,
+confere o round-trip do rascunho Perplexity em estado fresco
+(sem jamais reativar `perplexity_queries` ou STATUS de execução),
+e chama os validadores reais dos adapters CAT-06/07, core AI/Web, SERP
+e GSC. São utilizadas exclusivamente cópias INI efêmeras verificadas,
+sem gravar AUD, chamar Search API/GSC/IA/CrUX ou transportar tokens.
+Se também forem solicitados `--verify-core`, `--verify-search` etc.,
+o resultado já calculado é reutilizado em vez de executar o mesmo
+adapter duas vezes.
+
+`acceptance_523.status` distingue
+`OFFLINE_CONTRACTS_VERIFIED`,
+`OFFLINE_CONTRACTS_WITH_INTENTIONAL_ABSENCES`,
+`EXTERNAL_PREREQUISITE_OR_TARGET_MISSING` e
+`CONFIGURATION_CONTRACT_FAILURE`. Não se interpreta SERP sem queries
+ou Perplexity sem rascunho como regressão; GSC REQUIRED sem credencial
+continua dependente de decisão/configuração externa. O comando retorna
+exit code **2** se houver erro contratual ou pré-requisito pendente;
+caso contrário, **0** apenas para o gate **offline**. Em todos os casos,
+`issue_523_final_acceptance_proven=false` e
+`runner_execution_verified_by_this_run=false`: o smoke Windows real
+anterior não é refeito automaticamente nem é falsamente atestado.
+
+Foi corrigida outra perda efetiva de precedência no serializador
+completo: uma variável pública **explicitamente limpa** no ambiente
+da sessão (string vazia) não deve ressuscitar o default do registry
+ao salvar. O campo persiste vazio no INI; seu consumidor pode decidir
+o default no novo processo, mas o console não finge que o operador
+salvou o valor antigo. Ausência e reset explícito são diferenciados,
+mantendo defaults de knobs jamais configurados. Fixtures cobrem reset,
+override não vazio, rascunho WEB/FAST restaurado sem pesquisa, falhas
+reais vs pré-requisitos opcionais e exit code do gate isolado.

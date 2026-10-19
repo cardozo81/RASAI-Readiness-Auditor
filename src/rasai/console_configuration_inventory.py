@@ -520,6 +520,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--ini", type=Path, help="optional configuration file for metadata inspection")
     parser.add_argument(
+        "--acceptance-523", action="store_true",
+        help="one offline acceptance gate: typed state, Perplexity draft, Apdex, core, SERP, GSC",
+    )
+    parser.add_argument(
         "--verify-apdex", action="store_true",
         help="offline M23/M25 adapter validation on an isolated INI copy; no audit or APIs",
     )
@@ -561,8 +565,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.console_typed_reconciliation import inspect_typed_configuration
         selected = args.ini if args.ini is not None else canonical_console_config_path()
         report["typed_adapter_reconciliation"] = inspect_typed_configuration(selected)
+    if args.acceptance_523:
+        from rasai.console_acceptance_523 import inspect_console_acceptance
+        selected = args.ini if args.ini is not None else canonical_console_config_path()
+        gate = inspect_console_acceptance(selected, prior=report)
+        report["acceptance_523"] = gate
     print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
-    return 0
+    return 2 if args.acceptance_523 and report["acceptance_523"]["status"] not in {
+        "OFFLINE_CONTRACTS_VERIFIED", "OFFLINE_CONTRACTS_WITH_INTENTIONAL_ABSENCES",
+    } else 0
 
 
 if __name__ == "__main__":

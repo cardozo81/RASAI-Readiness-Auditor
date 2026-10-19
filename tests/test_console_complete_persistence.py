@@ -151,3 +151,40 @@ def test_every_base_typed_setting_has_an_explicit_restore_consumer():
         "Base typed INI fields without a restore consumer: "
         + repr(sorted(persisted - dispatched))
     )
+
+
+def test_523_explicit_empty_public_override_survives_save_and_new_process(tmp_path, monkeypatch):
+    """An explicit cleared nonsecret key must not be restored from defaults."""
+    ui._install_search_persistence()
+    install_complete_persistence()
+    monkeypatch.setenv("RASAI_SERP_MAX_REQUESTS", "")
+    monkeypatch.setenv("RASAI_GSC_ENABLED", "")
+    state = SearchConsoleState()
+    path = tmp_path / "empty-overrides.ini"
+    console_settings.save_console_config(state, path)
+    parser = ConfigParser(interpolation=None)
+    parser.optionxform = str
+    parser.read(path, encoding="utf-8")
+    assert parser.get("environment", "RASAI_SERP_MAX_REQUESTS") == ""
+    assert parser.get("environment", "RASAI_GSC_ENABLED") == ""
+    saved_bytes = path.read_bytes()
+    monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS")
+    monkeypatch.delenv("RASAI_GSC_ENABLED")
+    restored = SearchConsoleState()
+    outcome = console_settings.load_console_config(restored, path)
+    assert not outcome.warnings
+    assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
+    assert "RASAI_GSC_ENABLED" not in os.environ
+    assert path.read_bytes() == saved_bytes
+
+
+def test_523_explicit_nonempty_overrides_still_win_and_unset_defaults_remain(tmp_path, monkeypatch):
+    ui._install_search_persistence()
+    install_complete_persistence()
+    monkeypatch.setenv("RASAI_SERP_MAX_REQUESTS", "17")
+    state = SearchConsoleState()
+    first = console_settings._persisted_environment_values(state)
+    assert first["RASAI_SERP_MAX_REQUESTS"] == "17"
+    monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS")
+    second = console_settings._persisted_environment_values(state)
+    assert second["RASAI_SERP_MAX_REQUESTS"] != ""
