@@ -258,6 +258,20 @@ def read_audit_architecture_observations(
                 details["architecture_artifact_binding"],
             ) != "VERIFIED_EMBEDDED_DIGEST":
                 continue
+        if isinstance(details, dict) and "architecture_attestation" in details:
+            from rasai.architecture_attestation import verify_capture
+            binding = details.get("architecture_artifact_binding")
+            if not isinstance(binding, dict):
+                continue
+            try:
+                signed = verify_capture(
+                    normalized, page_id, snapshot_id, requested, final,
+                    device, binding, details["architecture_attestation"],
+                )
+            except ImportError:
+                signed = "TRUST_ANCHOR_UNAVAILABLE"
+            if signed != "ATTESTED_ED25519":
+                continue
         observations.append(ArchitectureObservation(
             architecture=architecture, requested_url=requested,
             final_url=final, device=device, snapshot_id=snapshot_id,

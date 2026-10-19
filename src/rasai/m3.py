@@ -116,6 +116,23 @@ def persist_render_capture(
     browser_metadata["architecture_artifact_binding"] = capture_artifact_binding(
         workspace.root, raw_artifact_ref, rendered_artifact_ref,
     )
+    # Optional independent Ed25519 signature over this snapshot's canonical
+    # capture identity and on-disk artifact hashes. No key => no signature;
+    # other audit catalogs remain available.
+    from rasai.architecture_attestation import sign_capture
+    if (browser_metadata["architecture_artifact_binding"].get("raw_sha256")
+            and browser_metadata["architecture_artifact_binding"].get("rendered_sha256")):
+        try:
+            signature = sign_capture(
+                str(getattr(page, "audit_id")), str(getattr(page, "page_id")),
+                active_snapshot_id, url,
+                render_result.final_url or acquisition.final_url, device.value,
+                browser_metadata["architecture_artifact_binding"],
+            )
+        except (OSError, ValueError, ImportError):
+            signature = None
+        if signature is not None:
+            browser_metadata["architecture_attestation"] = signature
     browser_metadata["render_succeeded"] = render_result.succeeded
     browser_metadata["visual_artifact_ref"] = visual_artifact_ref
     browser_metadata["audit_device_context"] = [item.value for item in audit_device_context]

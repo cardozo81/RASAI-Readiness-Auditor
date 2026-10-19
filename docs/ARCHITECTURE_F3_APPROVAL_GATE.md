@@ -1,36 +1,38 @@
-# RASAi - Gate de aprovação metodológica propagação metodológica (proposta, não aprovada)
+# Aprovação metodológica: contexto arquitetural consultivo
 
-**Estado: PROPOSED / BLOCKED-HUMAN.** Issue #646, branch `feat/acceptance-and-architecture-governance`.
+**Decisão aprovada pelo responsável do projeto:** o contexto arquitetural
+pode alimentar exclusivamente diagnósticos e relatórios descritivos, sem
+alterar índices, coleta, pontuação, coortes ou fórmulas.
 
-## Contratos existentes que NÃO exigem ADR de alteração de método
-A leitura inventário arquitetural é consultiva e a resolução seleção consultiva pode produzir recomendações
-descritivas nos consumidores explicitamente elegíveis
-(`descriptive_report` e `m6_read_only_diagnostic`). Identidade URL,
-device, página e snapshot devem coincidir. Em caso de dúvida, abster-se.
-O modo DECLARED não pode se apresentar como observação física.
+## Consumidores liberados
+- `descriptive_report`: descrição consultiva baseada em evidência elegível.
+- `m6_read_only_diagnostic`: inspeção de evidências e limitações.
 
-## Mudanças propagação metodológica que exigem decisão expressa
-Nenhuma descoberta automática ou declaração pode recalibrar silenciosamente
-SARI, SCORE-GEO, Apdex, coletores especializados, coortes, métricas, thresholds ou coleta
-de uma AUD já iniciada. Qualquer consumidor proposto para essas superfícies
-requer **uma ADR própria** contendo:
+A identidade física deve corresponder à URL solicitada e final,
+dispositivo, página e snapshot. Declaração do usuário não é uma observação
+física. Seleção não implica permissão de execução de qualquer integração.
 
-- ID do consumidor, owner, risco de regressão e aplicabilidade por fase.
-- Proveniência independente de evidência e regra de resolução para LEGACY/UNKNOWN.
-- Fórmulas e parâmetro antes/depois, golden/parity e versionamento de método.
-- Migração não destrutiva de auditorias antigas e estratégia de rollback.
-- Aprovação explícita do responsável metodológico antes de ligar a feature gate.
+## Superfícies não autorizadas
+SARI, SCORE-GEO, Apdex, métricas, coletores, parâmetros de auditoria,
+coortes e outros motores protegidos permanecem invariáveis. Qualquer
+mudança de método exigirá nova ADR individual, owner, golden/parity,
+versão de contrato, rollback e autorização explícita.
 
-## Decisão necessária
-Escolher consumidores específicos a autorizar, designar responsável e
-aprovar uma ADR individual após apresentação das provas. Até isso ocorrer:
-**propagação metodológica permanece inativa**. Nenhum estado `PASS` de CI concede autorização
-metodológica. Tampouco hashes embutidos no mesmo SQLite constituem atestação
-externa independente. Esta proposta não altera scores ou AUDs seladas.
+## Assinatura de evidência
+A estratégia Ed25519 foi aprovada. Uma chave privada gerenciada pelo
+operador, fora de INI e repositório, assina o par de hashes RAW/rendered
+e a identidade física do snapshot. A verificação exige uma chave pública
+fornecida de forma independente pelo operador. Alteração no artefato,
+identidade ou chave de confiança faz a evidência assinada falhar fechada.
+Sem chave configurada, o processamento dos demais catálogos continua.
 
-## Fechamento da #646
-Os gates F1/seleção consultiva e compatibilidade devem estar verdes no HEAD final.
-Atestação criptográfica independente exige uma âncora de confiança separada,
-controle e rotação de chaves/versionamento; não inserir credenciais no INI,
-HTML, repositório ou evidência. A questão de qual agente/autoridade assina
-a evidência requer aprovação de governança antes de ser tratada como prova.
+Configurações optativas: `RASAI_ARCHITECTURE_SIGNING_KEY_FILE`
+e `RASAI_ARCHITECTURE_VERIFY_KEY_FILE`. Não incluir os arquivos PEM no
+repositório, INI ou workspace AUD. Chaves de confiança antigas devem
+continuar disponíveis quando políticas de rotação determinarem validação
+de capturas assinadas anteriormente.
+
+## Limite
+A autenticação é relativa à chave pública que o operador confia.
+Capturas anteriores à habilitação permanecem sem assinatura, sem
+elevação retroativa. Nenhum ajuste de score decorre dessa decisão.
