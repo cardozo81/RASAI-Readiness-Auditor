@@ -202,35 +202,61 @@ def test_entire_committed_tree_has_zero_unapproved_tracking_filename_ids() -> No
         + "\n".join(violations[:40])
     )
 
-def test_all_ci_workflows_reference_existing_literal_python_paths() -> None:
-    """Renamed files must not leave silent CI paths filters or test commands."""
-    root = Path(__file__).resolve().parents[1]
+def missing_workflow_python_paths(root: Path) -> list[str]:
+    """Audit positive references across both Actions YAML extensions."""
     workflows = root / ".github" / "workflows"
     missing: list[str] = []
     for workflow in sorted(set(workflows.glob("*.yml")) | set(workflows.glob("*.yaml"))):
         content = workflow.read_text(encoding="utf-8")
-        paths = set(re.findall(r"(?:src/rasai|tests)/[A-Za-z0-9_./*-]+\.py\b", content))
+        paths = set(re.findall(r"(?:src/rasai|tests)/[A-Za-z0-9_./*-]+\\.py\\b", content))
         for path in sorted(paths):
             if "*" in path or (root / path).is_file():
                 continue
-            # A workflow may intentionally assert an obsolete renderer is
-            # ABSENT. Such negative guards are not references to run/import.
             lines = [line.strip() for line in content.splitlines() if path in line]
             absent_guard = re.compile(
-                r"\btest\s+-[fe]\s+" + re.escape(path) + r"(?:[;\s]|$)"
+                r"\\btest\\s+-[fe]\\s+" + re.escape(path) + r"(?:[;\\s]|$)"
             )
             if lines and all(absent_guard.search(line) for line in lines):
                 continue
             missing.append(f"{workflow.name}: {path}")
-    assert not missing, "\n".join(missing)
+    return missing
 
 
-def test_workflow_reference_inventory_accepts_yaml_extension(tmp_path, monkeypatch):
-    """Both Actions extensions must be included in the same path inventory."""
-    from pathlib import Path
-    source = Path(__file__).read_text(encoding="utf-8")
-    assert 'workflows.glob("*.yaml")' in source
-    assert 'workflows.glob("*.yml")' in source
+def test_all_ci_workflows_reference_existing_literal_python_paths() -> None:
+    root = Path(__file__).resolve().parents[1]
+    missing = missing_workflow_python_paths(root)
+    assert not missing, "\\n".join(missing)
+
+
+def test_workflow_reference_inventory_checks_yaml_and_yml(tmp_path) -> None:
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "one.yml").write_text(
+        "run: pytest tests/nonexistent_one.py\\n", encoding="utf-8"
+    )
+    (workflows / "two.yaml").write_text(
+        "run: python src/rasai/nonexistent_two.py\\n", encoding="utf-8"
+    )
+    assert missing_workflow_python_paths(tmp_path) == [
+        "one.yml: tests/nonexistent_one.py",
+        "two.yaml: src/rasai/nonexistent_two.py",
+    ]
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "nonexistent_one.py").write_text("", encoding="utf-8")
+    (tmp_path / "src" / "rasai").mkdir(parents=True)
+    (tmp_path / "src" / "rasai" / "nonexistent_two.py").write_text("", encoding="utf-8")
+    assert missing_workflow_python_paths(tmp_path) == []
+
+
+def test_workflow_reference_inventory_ignores_explicit_negative_guards(tmp_path) -> None:
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "negative.yaml").write_text(
+        "run: if test -f src/rasai/removed.py; then exit 1; fi\\n",
+        encoding="utf-8",
+    )
+    assert missing_workflow_python_paths(tmp_path) == []
+
 
 
 def test_repository_filename_policy_preserves_external_public_contract_names():

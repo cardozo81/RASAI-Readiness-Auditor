@@ -153,3 +153,13 @@ nome de módulo, entrypoint ou arquivo histórico precisa ser modificado.
 O aceite de #639 continua condicionado à inspeção das referências reais e
 à conclusão dos gates do HEAD final, e não a uma interpretação de 29 workflows
 verdes como aprovação integral.
+
+## Teste comportamental dos caminhos de workflows
+
+O inventário positivo de caminhos Python em Actions foi extraído para
+`missing_workflow_python_paths(root)`, permitindo validar em diretório
+isolado as duas extensões `.yml` e `.yaml`, arquivos realmente existentes
+e guardas negativos intencionais. Isso substitui a verificação anterior
+que apenas procurava literais no próprio código-fonte do teste.
+A inspeção não executa workflows, não cobre comandos construídos
+dinamicamente e não afirma compatibilidade de consumidores externos.
