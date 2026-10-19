@@ -110,6 +110,12 @@ def persist_render_capture(
         # Keep the same secret-safe response-control subset used by initial M3.
         "x_robots_tag": list(acquisition.header_values("X-Robots-Tag")),
     }
+    # Bind new M3 snapshots to canonical artifact bytes at persistence time.
+    # An embedded digest is not a separately authenticated AUD manifest.
+    from rasai.architecture_m6_evidence import capture_artifact_binding
+    browser_metadata["architecture_artifact_binding"] = capture_artifact_binding(
+        workspace.root, raw_artifact_ref, rendered_artifact_ref,
+    )
     browser_metadata["render_succeeded"] = render_result.succeeded
     browser_metadata["visual_artifact_ref"] = visual_artifact_ref
     browser_metadata["audit_device_context"] = [item.value for item in audit_device_context]

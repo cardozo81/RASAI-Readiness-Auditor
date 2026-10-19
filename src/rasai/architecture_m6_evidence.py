@@ -38,6 +38,66 @@ class ArchitectureArtifactInspection:
     manifest_attested: bool = False
 
 
+def capture_artifact_binding(
+    workspace: str | Path, raw_ref: str | None, rendered_ref: str | None,
+) -> dict[str, object]:
+    """Bind newly written canonical artifacts to a snapshot, without network.
+
+    Missing and unsafe files stay unverified; never create an attestation from
+    references alone. M3 stores this record in its existing SQLite metadata.
+    """
+    root = Path(workspace).resolve()
+    values: dict[str, str | None] = {}
+    for kind, ref in (("raw", raw_ref), ("rendered", rendered_ref)):
+        digest: str | None = None
+        if isinstance(ref, str) and ref.startswith("artifacts/") and _safe_artifact_reference(ref):
+            candidate = root / ref
+            try:
+                current = root
+                for component in candidate.relative_to(root).parts:
+                    current = current / component
+                    if current.is_symlink():
+                        raise ValueError("symlink")
+                if candidate.is_file() and candidate.stat().st_size <= MAX_ARTIFACT_BYTES:
+                    checksum = hashlib.sha256()
+                    size = 0
+                    with candidate.open("rb") as stream:
+                        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                            size += len(chunk)
+                            if size > MAX_ARTIFACT_BYTES:
+                                raise ValueError("oversized")
+                            checksum.update(chunk)
+                    digest = checksum.hexdigest()
+            except (OSError, ValueError):
+                digest = None
+        values[kind] = digest
+    return {"version": "m3-artifact-binding-v1", "raw_sha256": values["raw"],
+            "rendered_sha256": values["rendered"], "manifest_attested": False}
+
+
+def verify_artifact_binding(
+    audits_root: str | Path, audit_id: str, raw_ref: str | None,
+    rendered_ref: str | None, binding: object,
+) -> str:
+    """Verify a stored M3 snapshot binding against current canonical bytes."""
+    if not isinstance(binding, dict) or binding.get("version") != "m3-artifact-binding-v1":
+        return "UNVERIFIED_LEGACY"
+    if binding.get("manifest_attested") is not False:
+        return "UNTRUSTED_ATTESTATION"
+    if not any(binding.get(k) is not None for k in ("raw_sha256", "rendered_sha256")):
+        return "NO_CAPTURE_DIGEST"
+    computed = capture_artifact_binding(Path(audits_root) / normalize_audit_id(audit_id),
+                                        raw_ref, rendered_ref)
+    for name in ("raw_sha256", "rendered_sha256"):
+        expected = binding.get(name)
+        if expected is not None:
+            if not isinstance(expected, str) or len(expected) != 64:
+                return "DIGEST_MISMATCH"
+            if computed[name] != expected:
+                return "DIGEST_MISMATCH"
+    return "VERIFIED_EMBEDDED_DIGEST"
+
+
 def inspect_architecture_artifact_pair(
     audits_root: str | Path, audit_id: str, raw_ref: str, rendered_ref: str,
 ) -> ArchitectureArtifactInspection:

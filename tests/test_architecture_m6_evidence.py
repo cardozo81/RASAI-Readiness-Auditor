@@ -244,3 +244,36 @@ def test_physical_artifact_inspection_enforces_bounded_hashing(tmp_path, monkeyp
     assert result.status == "ARTIFACT_LIMIT_EXCEEDED"
     assert result.raw_sha256 is None
     assert result.manifest_attested is False
+
+
+def test_new_m3_artifact_binding_is_verifiable_without_modifying_evidence(tmp_path):
+    from rasai.architecture_m6_evidence import capture_artifact_binding, verify_artifact_binding
+    root = tmp_path / "audits"
+    workspace = root / "AUD-1"
+    (workspace / "artifacts").mkdir(parents=True)
+    raw = workspace / "artifacts" / "raw.html"
+    rendered = workspace / "artifacts" / "rendered.html"
+    raw.write_bytes(b"<main>raw</main>")
+    rendered.write_bytes(b"<main>rendered</main>")
+    before = (raw.read_bytes(), rendered.read_bytes())
+    binding = capture_artifact_binding(workspace, "artifacts/raw.html", "artifacts/rendered.html")
+    assert binding["raw_sha256"] and binding["rendered_sha256"]
+    assert binding["manifest_attested"] is False
+    assert verify_artifact_binding(root, "AUD-1", "artifacts/raw.html",
+                                   "artifacts/rendered.html", binding) == "VERIFIED_EMBEDDED_DIGEST"
+    assert (raw.read_bytes(), rendered.read_bytes()) == before
+    rendered.write_bytes(b"<main>modified</main>")
+    assert verify_artifact_binding(root, "AUD-1", "artifacts/raw.html",
+                                   "artifacts/rendered.html", binding) == "DIGEST_MISMATCH"
+    assert verify_artifact_binding(root, "AUD-1", "artifacts/raw.html",
+                                   "artifacts/rendered.html", {}) == "UNVERIFIED_LEGACY"
+
+
+def test_missing_artifact_never_becomes_a_trusted_digest(tmp_path):
+    from rasai.architecture_m6_evidence import capture_artifact_binding
+    workspace = tmp_path / "AUD-1"
+    workspace.mkdir()
+    binding = capture_artifact_binding(workspace, "artifacts/missing.html", None)
+    assert binding["raw_sha256"] is None
+    assert binding["rendered_sha256"] is None
+    assert binding["manifest_attested"] is False
