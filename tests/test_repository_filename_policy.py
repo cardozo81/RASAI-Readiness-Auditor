@@ -216,7 +216,9 @@ def missing_workflow_python_paths(root: Path) -> list[str]:
             absent_guard = re.compile(
                 r"\btest\s+-[fe]\s+" + re.escape(path) + r"(?:[;\s]|$)"
             )
-            if lines and all(absent_guard.search(line) for line in lines):
+            # Exempt only negative guard lines, not executable references elsewhere.
+            positive_lines = [line for line in lines if not absent_guard.search(line)]
+            if not positive_lines:
                 continue
             missing.append(f"{workflow.name}: {path}")
     return missing
@@ -268,8 +270,6 @@ def test_repository_filename_policy_preserves_external_public_contract_names():
     ])
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
 
 
 def test_workflow_reference_inventory_detects_a_positive_reference_inside_real_yaml(tmp_path):
@@ -294,3 +294,17 @@ def test_workflow_reference_inventory_does_not_ignore_positive_and_negative_same
     assert missing_workflow_python_paths(tmp_path) == [
         "mixed.yml: src/rasai/obsolete.py",
     ]
+
+
+def test_workflow_inventory_flags_positive_use_of_negatively_guarded_path(tmp_path):
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "mixed.yaml").write_text(
+        "run: if test -f src/rasai/missing.py; then exit 1; fi\n"
+        "run: python -m pytest src/rasai/missing.py\n", encoding="utf-8"
+    )
+    assert missing_workflow_python_paths(tmp_path) == ["mixed.yaml: src/rasai/missing.py"]
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

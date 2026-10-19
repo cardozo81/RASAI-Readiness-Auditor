@@ -174,3 +174,10 @@ YAML, preserva somente a exceção de guarda negativa e acrescenta caso
 misturando referência positiva e guarda negativa para o mesmo arquivo.
 O sucesso dos demais workflows não torna esta falha dispensável: o scanner
 passa a ser testado contra fixtures reais em vez de inspecionar seu código.
+
+## Gate conclusivo das referências positivas
+
+Guardas negativas de existência não dispensam execuções positivas do mesmo
+arquivo em outra linha. O scanner foi reforçado com fixture de regressão
+real, mantendo cobertura de extensões YAML. Homologação humana Windows deve
+focar execução de CLI e persistência INI, não reproduzir testes de regex.
