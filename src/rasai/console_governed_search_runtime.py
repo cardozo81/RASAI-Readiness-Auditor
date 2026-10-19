@@ -5,7 +5,9 @@ projects the persisted in-AUD result back into state after the subprocess comple
 """
 from __future__ import annotations
 
+from contextlib import closing
 from pathlib import Path
+import re
 import sqlite3
 from typing import Any, Sequence
 
@@ -60,38 +62,67 @@ def _append_search_args(
 
 
 def _project_result(state: Any) -> None:
+    """Project only a verified AUD-scoped status, never raw provider errors.
+
+    The child AUD may still own WAL activity while finishing. mode=ro
+    therefore reads committed SQLite state without mutable connection
+    permissions but does not misrepresent the DB as an immutable snapshot.
+    """
     audit_id = str(getattr(state, "audit_id", "") or "").strip()
-    if not audit_id:
+    if not re.fullmatch(r"AUD-[A-Za-z0-9][A-Za-z0-9-]{0,95}", audit_id):
         return
     root = Path(str(getattr(state, "audits_root", "audits") or "audits")) / audit_id
     database = root / "audit.db"
-    if not database.is_file():
-        return
-    connection = sqlite3.connect(database)
-    connection.row_factory = sqlite3.Row
     try:
-        try:
+        if (root.is_symlink() or not root.is_dir()
+                or database.is_symlink() or not database.is_file()
+                or not 0 < database.stat().st_size <= 512 * 1024 * 1024):
+            return
+        with closing(sqlite3.connect(
+            database.resolve().as_uri() + "?mode=ro",
+            uri=True, timeout=2,
+        )) as connection:
+            connection.execute("PRAGMA query_only=ON")
+            connection.row_factory = sqlite3.Row
             row = connection.execute(
-                """SELECT status,effective_result_ref,last_error_message
-                   FROM audit_fulfillment_work_items
+                """SELECT status FROM audit_fulfillment_work_items
                    WHERE audit_id=? AND component='SEARCH_INTELLIGENCE'
                    ORDER BY updated_at DESC,rowid DESC LIMIT 1""",
                 (audit_id,),
             ).fetchone()
-        except sqlite3.OperationalError:
-            row = None
-    finally:
-        connection.close()
+    except (sqlite3.Error, OSError, ValueError):
+        # A malformed or unavailable table is not proof Search was absent.
+        state.search_last_status = "UNAVAILABLE"
+        state.search_last_detail = "Estado da integração não verificável nesta AUD."
+        state.search_last_report = ""
+        return
+
     if row is None:
         state.search_last_status = "NOT_REQUESTED"
+        state.search_last_detail = "Nenhuma etapa Search Intelligence atribuível à AUD."
+        state.search_last_report = ""
         return
-    status = str(row["status"] or "UNKNOWN").upper()
-    state.search_last_status = (
-        "COMPLETE" if status == "SUCCESS" else "COMPLETE_WITH_LIMITATIONS"
+
+    status = str(row["status"] or "").upper()
+    from rasai.audit_fulfillment_timing import _FINISHED_STATES
+    if status == "SUCCESS":
+        state.search_last_status = "COMPLETE"
+        state.search_last_detail = "Etapa Search Intelligence concluída na AUD."
+    elif status in _FINISHED_STATES:
+        state.search_last_status = "COMPLETE_WITH_LIMITATIONS"
+        state.search_last_detail = "Etapa Search Intelligence encerrada com limitações."
+    else:
+        # RUNNING, PENDING or unknown must never appear as concluded.
+        state.search_last_status = "PENDING"
+        state.search_last_detail = "Etapa Search Intelligence sem estado terminal verificável."
+    report_root = root / "report-catalog"
+    catalog_page = report_root / "cat-05.html"
+    state.search_last_report = (
+        str(catalog_page) if (
+            not report_root.is_symlink() and not catalog_page.is_symlink()
+            and catalog_page.is_file()
+        ) else ""
     )
-    state.search_last_detail = str(row["last_error_message"] or "")
-    catalog_page = root / "report-catalog" / "cat-05.html"
-    state.search_last_report = str(catalog_page) if catalog_page.is_file() else ""
 
 
 def install(console_module: Any) -> None:

@@ -822,3 +822,29 @@ AUD, fornecedor nem processo de auditoria é executado. Portanto
 `cli_argv_is_real_execution=false` e `collector_execution_verified=false`
 continuam obrigatórios, mesmo com paridade positiva. O smoke Windows
 `SMOKE_523_SAVE_REOPEN_PASS` já aprovado não foi repetido.
+
+
+### Status pós-AUD da Search Intelligence sem criar ou editar SQLite (#523)
+
+O adaptador de apresentação `console_governed_search_runtime._project_result`
+passou a usar exclusivamente `sqlite3.connect(...?mode=ro, uri=True)` e
+`PRAGMA query_only=ON`, recusando caminho symlink, AUD ID não canônico,
+base inexistente ou desproporcional. A projeção pós-subprocesso pode ocorrer
+antes do checkpoint WAL; **não** afirmar fonte congelada nem bloquear WAL
+ativo, mas jamais solicitar permissão de escrita. Não há mais risco de
+`sqlite3.connect(path)` recriar a base numa corrida entre `is_file()`
+e o `connect()`. Erro de schema/conexão significa `UNAVAILABLE`, não
+`NOT_REQUESTED` enganoso.
+
+Estados não terminais (RUNNING, PENDING, desconhecidos) permanecem
+`PENDING`, em vez de virar `COMPLETE_WITH_LIMITATIONS` por falta de
+condição de término. Apenas SUCCESS ou estados terminais do contrato
+fulfillment são concluídos. Mensagens brutas de erro armazenadas no banco
+não são repassadas ao console, prevenindo vazamento acidental de token,
+URL ou payload. O status do catálogo permanece ligado à mesma AUD.
+
+Regras e testes sintéticos verificam banco ausente sem criação, estado
+externo de outra AUD, RUNNING versus falha terminal versus SUCCESS,
+symlink/caminho não canônico, erro de schema e imutabilidade. Não há
+nova coleta, provedor, atualização de índice ou alteração do runtime
+Search Intelligence do subprocesso.
