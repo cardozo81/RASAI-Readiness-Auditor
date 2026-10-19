@@ -58,3 +58,18 @@ allowlist atual.
 4. Persistência versionada do diagnóstico preliminar opcional, sem afetar
    AUD selada e sem armazenar HTML/segredos indevidamente.
 5. Smoke dinâmico focal por URLs de controle, após gate CI.
+
+
+## Diagnóstico físico sem atestado de manifesto
+
+A função `inspect_architecture_artifact_pair` lê exclusivamente arquivos de
+`artifacts/` dentro da AUD, recusa referências com travessia, symlinks,
+conteúdo ausente e caminhos externos, e calcula SHA-256 RAW/renderizado para
+diagnóstico. A saída `PRESENT_UNATTESTED` **não comprova** que esses bytes
+sejam os capturados originalmente: hashes calculados na hora não possuem
+âncora histórica independente. O atributo `manifest_attested` permanece
+sempre `false`. Esse diagnóstico não é prova para alterar scoring, promover
+um `UNKNOWN` ou desbloquear novos consumidores. Para autenticar o conteúdo
+será preciso vínculo verificável com um manifesto ou recibo canônico gerado
+durante a captura e preservado de modo compatível com AUDs históricas.
+
