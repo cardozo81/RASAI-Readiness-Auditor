@@ -37,7 +37,9 @@ _DISCLOSURE = (
     "wall-clock de fase. Custos técnicos observados ou estimados após a chamada "
     "não são faturas nem previsão inicial. Análise Direcionada e Search API "
     "opcionais não pertencem ao forecast central sem prova de inclusão. "
-    "Fases sem cronômetros exclusivos verificados permanecem N/D."
+    "Fases sem cronômetros exclusivos verificados permanecem N/D. "
+    "Tentativas do ledger de fulfillment incluem recuperações e trabalhos "
+    "que podem sobrepor IA/HTTP; não são fases exclusivas nem tempo não-IA."
 )
 
 
@@ -56,6 +58,7 @@ def _missing(reason: str) -> dict[str, Any]:
         "stages": [], "http_requests": [], "attempts": None,
         "total_summed_ms": None, "total_union_ms": None,
         "non_ai_stages": _NON_AI, "limitations": _DISCLOSURE,
+        "fulfillment": {"status": "NOT_AVAILABLE", "components": []},
         "provider_requests": 0, "audit_writes": 0,
     }
 
@@ -97,6 +100,8 @@ def inspect_stage_economics(database: Path, audit_id: str) -> dict[str, Any]:
         )) as connection:
             connection.execute("PRAGMA query_only=ON")
             http = _m21_http_request_sums(connection, audit_id)
+            from rasai.audit_fulfillment_stage_timing import fulfillment_attempt_intervals
+            work = fulfillment_attempt_intervals(connection, audit_id)
         return {
             "status": "READ_ONLY_OBSERVED" if timeline.attempts else "NO_AI_ATTEMPTS",
             "reason": None, "stages": stages,
@@ -108,6 +113,7 @@ def inspect_stage_economics(database: Path, audit_id: str) -> dict[str, Any]:
             "total_summed_ms": timeline.summed_duration_ms,
             "total_union_ms": timeline.union_active_ms,
             "non_ai_stages": _NON_AI, "limitations": _DISCLOSURE,
+            "fulfillment": work,
             "provider_requests": 0, "audit_writes": 0,
         }
     except (sqlite3.Error, OSError, ValueError, TypeError, OverflowError):
@@ -146,6 +152,21 @@ def stage_console_lines(projection: dict[str, Any]) -> tuple[str, ...]:
         lines.append("HTTP %s: soma de requests %s (não tempo de fase)." % (
             row["service"], _duration(row["summed_ms"]),
         ))
+    work = projection.get("fulfillment") or {}
+    if work.get("status") == "OBSERVED_NONEXCLUSIVE_WORK_INTERVALS":
+        lines.append(
+            "Tentativas do ledger de atividades (não exclusivas): "
+            + str(work.get("attempts")) + "."
+        )
+        for group in work.get("components", ()):
+            lines.append(
+                "Atividade %s: %s tentativa(s), %s cronometrada(s), "
+                "recuperações %s; soma %s, união %s (não tempo de fase)."
+                % (group["component"], group["attempts"],
+                   group["complete_time_intervals"],
+                   group["reprocess_attempts"], _duration(group["summed_ms"]),
+                   _duration(group["union_active_ms"]))
+            )
     lines.append("Sem tempo exclusivo: " + "; ".join(_NON_AI) + " = N/D.")
     lines.append(_DISCLOSURE)
     return tuple(lines)
@@ -165,6 +186,15 @@ def stage_report_html(projection: dict[str, Any]) -> str:
     for http in projection["http_requests"]:
         rows.append(("HTTP " + http["service"] + " (requests)", "N/D",
                      "N/D", _duration(http["summed_ms"]), "N/D"))
+    work = projection.get("fulfillment") or {}
+    if work.get("status") == "OBSERVED_NONEXCLUSIVE_WORK_INTERVALS":
+        for group in work.get("components", ()):
+            rows.append((
+                "Atividade registrada: " + group["component"]
+                + " (não exclusiva; recuperação %s)" % group["reprocess_attempts"],
+                str(group["attempts"]), _duration(group["union_active_ms"]),
+                _duration(group["summed_ms"]), "N/D",
+            ))
     rows.extend((name, "N/D", "N/D", "N/D", "N/D")
                 for name in projection["non_ai_stages"])
     cells = "".join(

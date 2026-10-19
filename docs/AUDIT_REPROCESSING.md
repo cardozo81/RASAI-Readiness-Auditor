@@ -586,3 +586,15 @@ Quando integração e IA dependente são selecionadas juntas, a integração é 
 O status operacional do RPR também é separado do fechamento lógico da AUD: um RPR pode concluir sua execução, resolver parte dos itens e deixar a AUD em `PARTIAL_RETRYABLE`. Itens não selecionados continuam pendentes sem serem classificados como falha daquela execução.
 
 Consulte [PARTIAL_DIAGNOSTIC_EXECUTION.md](PARTIAL_DIAGNOSTIC_EXECUTION.md).
+
+## Observabilidade retrospectiva de work-items sem reprocessar AUD
+
+A reconciliação post-hoc de #319 pode exibir tempos físicos em
+`audit_fulfillment_attempts` associados a cada work-item da mesma AUD,
+inclusive tentativas `RPR-*`. O registro só demonstra duração do
+intervalo começo/fim da atividade; não serve para atribuir duração
+exclusivamente a IA, captura, tráfego ou Apdex, nem para inferir progresso
+quando `finished_at` está ausente. Work-items podem sobrepor tentativas IA
+ou HTTP. O relatório é descritivo, somente-leitura e independe de decisão de
+nova execução. O mecanismo de seleção/reprocessamento mantém as mesmas
+operações e persistência homologadas.

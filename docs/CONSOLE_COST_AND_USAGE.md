@@ -227,3 +227,27 @@ comparável. Uma chamada Direcionada posterior não integra por inferência
 o orçamento da auditoria inicial. Dados observados por provedor não
 equivalem à fatura. A previsão histórica ex ante mantém sua metodologia,
 incerteza e tratamento de tarefas opcionais.
+
+## Tempos físicos de atividades de fulfillment - sem cronômetro exclusivo (#319)
+
+A projeção financeira read-only mostra agora, quando houver registros atribuíveis,
+as durações de `audit_fulfillment_attempts` vinculadas fisicamente à AUD e a
+`audit_fulfillment_work_items`. Cada `component` apresenta a população de
+tentativas, quantidade de intervalos de tempo comprovados, tentativas de
+reprocessamento, soma de durações e união de intervalos simultâneos.
+
+Essa população **não constitui medição exclusiva das fases técnicas**.
+Um work-item pode ter englobado execução de IA, chamada HTTP, coleta ou
+recuperação posterior. A soma dos work-items NÃO é tempo não-IA nem deve ser
+somada ao total IA, duração HTTP ou wall-clock da AUD. Quando uma tentativa
+não tem `finished_at` verificável, o tempo do componente é N/D e não zero
+falso. O ledger pode estar ausente em AUDs antigas: a apresentação continua
+funcionando sem criar tabela, reprocessar ou simular cronologia ausente.
+
+Todos os dados são apresentados no mesmo bloco de telemetria existente,
+sem alterar o modelo de duração do forecast, o índice Apdex ou preços.
+Os registros têm identificação de AUD e work-item cruzada, leitura de
+SQLite selado somente-leitura, orçamento de 10.000 tentativas e limite
+de 32 componentes. O conjunto completo falha fechado se houver
+identidade de AUD incongruente ou população truncada. O relatório deixa
+a fronteira não exclusiva explícita no texto e no cabeçalho do resultado.
