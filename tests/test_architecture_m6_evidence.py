@@ -230,3 +230,17 @@ def test_scoped_physical_snapshot_diagnostic_rejects_cross_url(tmp_path):
         tmp_path, "AUD-14", **dict(scope, requested_url="https://example.org/b"))
     assert bad.status == "MISSING_OR_AMBIGUOUS_IDENTITY"
     assert (folder / "audit.db").read_bytes() == before
+
+
+def test_physical_artifact_inspection_enforces_bounded_hashing(tmp_path, monkeypatch):
+    import rasai.architecture_m6_evidence as evidence
+    folder = tmp_path / "AUD-15" / "artifacts"
+    folder.mkdir(parents=True)
+    (folder / "raw.html").write_bytes(b"x" * 9)
+    (folder / "rendered.html").write_bytes(b"y" * 9)
+    monkeypatch.setattr(evidence, "MAX_ARTIFACT_BYTES", 8)
+    result = evidence.inspect_architecture_artifact_pair(
+        tmp_path, "AUD-15", "artifacts/raw.html", "artifacts/rendered.html")
+    assert result.status == "ARTIFACT_LIMIT_EXCEEDED"
+    assert result.raw_sha256 is None
+    assert result.manifest_attested is False

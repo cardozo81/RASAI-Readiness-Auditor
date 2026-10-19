@@ -14,6 +14,7 @@ from rasai.architecture_context import ArchitectureObservation, CLASSES
 from rasai.audit_configuration_reuse import normalize_audit_id
 
 MAX_OBSERVATIONS = 2000
+MAX_ARTIFACT_BYTES = 32 * 1024 * 1024
 
 
 def _safe_artifact_reference(value: object) -> bool:
@@ -65,9 +66,15 @@ def inspect_architecture_artifact_pair(
                     return ArchitectureArtifactInspection("UNSAFE_SYMLINK")
             if not candidate.is_file() or not candidate.resolve().is_relative_to(workspace.resolve()):
                 return ArchitectureArtifactInspection("ARTIFACT_UNAVAILABLE")
+            if candidate.stat().st_size > MAX_ARTIFACT_BYTES:
+                return ArchitectureArtifactInspection("ARTIFACT_LIMIT_EXCEEDED")
             digest = hashlib.sha256()
+            total = 0
             with candidate.open("rb") as stream:
                 for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    total += len(chunk)
+                    if total > MAX_ARTIFACT_BYTES:
+                        return ArchitectureArtifactInspection("ARTIFACT_LIMIT_EXCEEDED")
                     digest.update(chunk)
             digests.append(digest.hexdigest())
         except (OSError, ValueError):
