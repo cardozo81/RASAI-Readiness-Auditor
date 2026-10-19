@@ -157,3 +157,46 @@ def test_snapshot_id_reused_across_urls_abstains_for_both_scopes(tmp_path):
     original = (folder / "audit.db").read_bytes()
     assert read_audit_architecture_observations(tmp_path, "AUD-11") == ()
     assert (folder / "audit.db").read_bytes() == original
+
+
+def test_physical_artifact_inspection_is_explicitly_unattested(tmp_path):
+    from hashlib import sha256
+    from rasai.architecture_m6_evidence import inspect_architecture_artifact_pair
+    folder = tmp_path / "AUD-12"
+    (folder / "artifacts").mkdir(parents=True)
+    raw = folder / "artifacts" / "raw.html"
+    rendered = folder / "artifacts" / "rendered.html"
+    raw.write_bytes(b"<html>raw</html>")
+    rendered.write_bytes(b"<html>rendered</html>")
+    result = inspect_architecture_artifact_pair(
+        tmp_path, "AUD-12", "artifacts/raw.html", "artifacts/rendered.html")
+    assert result.status == "PRESENT_UNATTESTED"
+    assert result.manifest_attested is False
+    assert result.raw_sha256 == sha256(raw.read_bytes()).hexdigest()
+    assert result.rendered_sha256 == sha256(rendered.read_bytes()).hexdigest()
+    assert inspect_architecture_artifact_pair(
+        tmp_path, "AUD-12", "../secret", "artifacts/rendered.html"
+    ).status == "INVALID_REFERENCE"
+    rendered.unlink()
+    assert inspect_architecture_artifact_pair(
+        tmp_path, "AUD-12", "artifacts/raw.html", "artifacts/rendered.html"
+    ).status == "ARTIFACT_UNAVAILABLE"
+
+
+def test_physical_artifact_inspection_blocks_symlinks(tmp_path):
+    import os
+    import pytest
+    from rasai.architecture_m6_evidence import inspect_architecture_artifact_pair
+    folder = tmp_path / "AUD-13"
+    (folder / "artifacts").mkdir(parents=True)
+    (folder / "artifacts" / "safe.html").write_bytes(b"safe")
+    outside = tmp_path / "outside.html"
+    outside.write_bytes(b"secret")
+    try:
+        os.symlink(outside, folder / "artifacts" / "linked.html")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks not supported")
+    result = inspect_architecture_artifact_pair(
+        tmp_path, "AUD-13", "artifacts/safe.html", "artifacts/linked.html")
+    assert result.status == "UNSAFE_SYMLINK"
+    assert result.raw_sha256 is None
