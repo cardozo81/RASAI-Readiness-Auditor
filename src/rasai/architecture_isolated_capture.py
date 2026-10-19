@@ -17,7 +17,7 @@ from html.parser import HTMLParser
 from urllib.parse import urljoin
 
 from rasai.architecture_public_html import public_html_failure
-from rasai.architecture_probe import ProbeCaptures
+from rasai.architecture_probe import ProbeCaptures, with_capture_origin
 from rasai.domain import DeviceContext
 from rasai.geo_competitor_pinned_egress import PublicWebPinnedOpener
 from rasai.search_intelligence.content import (
@@ -261,7 +261,7 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
                      or len(result["rendered_html"]) > 1_000_000))):
             raise ValueError("Invalid offline renderer response")
         if finished.returncode == 0 and result["reason"] is None and result["rendered_html"] is not None:
-            return ProbeCaptures(target, target, device, raw, result["rendered_html"])
+            return with_capture_origin(ProbeCaptures(target, target, device, raw, result["rendered_html"]), transport="ISOLATED_OCI_RENDER")
         # Only server-owned, documented reason codes; never propagate browser
         # exception text, source HTML, headers, Docker stderr or arbitrary URLs.
         supported = {

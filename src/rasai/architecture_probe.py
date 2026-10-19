@@ -7,12 +7,25 @@ introduced as an accidental fallback.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 from typing import Callable
 
 from rasai.architecture_discovery import ArchitectureAssessment, assess_architecture
 from rasai.domain import DeviceContext
 from rasai.search_intelligence.content import _validate_public_url, _default_resolver
 from rasai.url_utils import normalize_url
+
+
+@dataclass(frozen=True)
+class CaptureOriginDigest:
+    """Capture-time checksum, never a sealed AUD/manifest attestation."""
+    transport: str
+    requested_url: str
+    final_url: str
+    device: str
+    raw_sha256: str | None
+    rendered_sha256: str | None
+    attested: bool = False
 
 
 @dataclass(frozen=True)
@@ -23,6 +36,27 @@ class ProbeCaptures:
     raw_html: str | None
     rendered_html: str | None
     quality_reason: str | None = None
+    origin: CaptureOriginDigest | None = None
+
+
+def with_capture_origin(capture: ProbeCaptures, *, transport: str) -> ProbeCaptures:
+    """Bind the just-acquired bytes to the capture identity before analysis."""
+    if transport not in {"PINNED_HTTP_STATIC", "ISOLATED_OCI_RENDER"}:
+        raise ValueError("Unknown capture transport")
+    if capture.origin is not None:
+        raise ValueError("Capture origin cannot be replaced")
+    def digest(value: str | None) -> str | None:
+        return hashlib.sha256(value.encode("utf-8")).hexdigest() if value is not None else None
+    origin = CaptureOriginDigest(
+        transport=transport, requested_url=capture.requested_url,
+        final_url=capture.final_url, device=capture.device.value,
+        raw_sha256=digest(capture.raw_html),
+        rendered_sha256=digest(capture.rendered_html),
+    )
+    return ProbeCaptures(
+        capture.requested_url, capture.final_url, capture.device,
+        capture.raw_html, capture.rendered_html, capture.quality_reason, origin,
+    )
 
 
 def probe_architecture(

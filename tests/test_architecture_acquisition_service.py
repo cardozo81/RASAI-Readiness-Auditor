@@ -191,3 +191,30 @@ def test_reprocess_historical_choice_rejects_modified_sealed_snapshot(monkeypatc
         lambda *_: saved,
     )
     assert read_architecture_choice_for_reprocess("/tmp/audits", "aud-123") is None
+
+
+def test_new_capture_origin_is_bound_before_classification_and_not_manifest_attested():
+    import hashlib
+    import pytest
+    from rasai.architecture_probe import ProbeCaptures, with_capture_origin
+    captured = ProbeCaptures(URL, URL, DEVICE, "<main>Hello</main>", "<main>Hello</main>")
+    stamped = with_capture_origin(captured, transport="ISOLATED_OCI_RENDER")
+    assert stamped.origin.transport == "ISOLATED_OCI_RENDER"
+    assert stamped.origin.requested_url == URL
+    assert stamped.origin.device == DEVICE.value
+    assert stamped.origin.raw_sha256 == hashlib.sha256(b"<main>Hello</main>").hexdigest()
+    assert stamped.origin.rendered_sha256 == stamped.origin.raw_sha256
+    assert stamped.origin.attested is False
+    assert captured.origin is None
+    with pytest.raises(ValueError, match="cannot be replaced"):
+        with_capture_origin(stamped, transport="ISOLATED_OCI_RENDER")
+
+
+def test_static_capture_origin_omits_unobserved_rendered_document():
+    from rasai.architecture_probe import ProbeCaptures, with_capture_origin
+    stamped = with_capture_origin(ProbeCaptures(
+        URL, URL, DEVICE, "<main>RAW</main>", None, "STATIC_MODE_NO_RENDERED_DOM",
+    ), transport="PINNED_HTTP_STATIC")
+    assert stamped.origin.raw_sha256 is not None
+    assert stamped.origin.rendered_sha256 is None
+    assert stamped.origin.attested is False

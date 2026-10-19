@@ -7,7 +7,7 @@ or labels the application STATIC_OR_SSR from a single network response.
 from __future__ import annotations
 
 from rasai.architecture_public_html import public_html_failure
-from rasai.architecture_probe import ProbeCaptures
+from rasai.architecture_probe import ProbeCaptures, with_capture_origin
 from rasai.domain import DeviceContext
 from rasai.geo_competitor_pinned_egress import PublicWebPinnedOpener
 from rasai.search_intelligence.content import (
@@ -30,8 +30,8 @@ def capture_static_public_architecture(url: str, device: DeviceContext) -> Probe
     reason = public_html_failure(document, target)
     if reason is None:
         # A valid RAW document is not proof of rendered DOM fidelity.
-        return ProbeCaptures(
+        return with_capture_origin(ProbeCaptures(
             target, target, device, document.body.decode("utf-8", errors="replace"),
             None, "STATIC_MODE_NO_RENDERED_DOM",
-        )
+        ), transport="PINNED_HTTP_STATIC")
     return ProbeCaptures(target, target, device, None, None, reason)
