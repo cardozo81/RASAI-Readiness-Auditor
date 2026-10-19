@@ -79,7 +79,7 @@ class _AccordionParser(HTMLParser):
             self.handle_endtag(tag)
 
 
-def inspect_faq_html(html: str) -> dict[str, int]:
+def inspect_faq_dom_states(html: str) -> dict[str, int]:
     parser = _AccordionParser()
     parser.feed(html)
     # A last-write-wins dictionary would invent a single truth if duplicate
@@ -131,6 +131,15 @@ def inspect_faq_html(html: str) -> dict[str, int]:
     }
 
 
+def inspect_faq_html(html: str) -> dict[str, int]:
+    """Original seven-field public contract retained for legacy callers."""
+    observed = inspect_faq_dom_states(html)
+    return {key: observed[key] for key in (
+        "controls", "ambiguous", "collapsed", "unmounted", "mounted",
+        "mounted_with_text", "mounted_without_text",
+    )}
+
+
 def _safe_rendered_file(root: Path, ref: Any) -> Path | None:
     relative = str(ref or "").replace("\\", "/")
     if not relative.startswith("artifacts/rendered/"):
@@ -171,7 +180,7 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
             rendered = _safe_rendered_file(root, ref)
             if rendered is None:
                 continue
-            counts = inspect_faq_html(rendered.read_text(encoding="utf-8"))
+            counts = inspect_faq_dom_states(rendered.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, ValueError):
             continue
         if counts["controls"]:

@@ -158,7 +158,7 @@ def test_faq_observation_closes_read_only_sqlite_handle(tmp_path, monkeypatch):
 
 
 def test_601_dom_initial_separates_closed_mounted_unmounted_and_open_cases():
-    from rasai.faq_observation import inspect_faq_html
+    from rasai.faq_observation import inspect_faq_dom_states
     html = (
         '<button aria-controls="faq-closed" aria-expanded="false">Q1</button>'
         '<div id="faq-closed" hidden>Answer present in captured DOM</div>'
@@ -169,7 +169,7 @@ def test_601_dom_initial_separates_closed_mounted_unmounted_and_open_cases():
         '<div id="faq-empty"></div>'
         '<button aria-controls="faq-open-lazy" aria-expanded="true">Q5</button>'
     )
-    result = inspect_faq_html(html)
+    result = inspect_faq_dom_states(html)
     assert result == {
         "controls": 5, "ambiguous": 0, "collapsed": 2,
         "unmounted": 1, "mounted": 1, "mounted_with_text": 1,
