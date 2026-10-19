@@ -125,3 +125,33 @@ def test_faq_observer_refuses_symlinked_rendered_evidence(tmp_path) -> None:
         return
     assert _safe_rendered_file(root, "artifacts/rendered/alias.html") is None
     assert _safe_rendered_file(root, "artifacts/rendered/physical.html") == real
+
+
+def test_faq_observation_closes_read_only_sqlite_handle(tmp_path, monkeypatch):
+    """Windows report presentation must not retain audit.db handles."""
+    import sqlite3
+    import rasai.faq_observation as observer
+
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute("CREATE TABLE pages(page_id TEXT, audit_id TEXT)")
+        con.execute("CREATE TABLE page_snapshots("
+                    "snapshot_id TEXT, rendered_artifact_ref TEXT, page_id TEXT)")
+    real_connect = sqlite3.connect
+    handles = []
+
+    class TrackingConnection(sqlite3.Connection):
+        closed_explicitly = False
+
+        def close(self):
+            self.closed_explicitly = True
+            return super().close()
+
+    def tracked_connect(*args, **kwargs):
+        connection = real_connect(*args, factory=TrackingConnection, **kwargs)
+        handles.append(connection)
+        return connection
+
+    monkeypatch.setattr(observer.sqlite3, "connect", tracked_connect)
+    assert observer.faq_observation_html(db, "AUD-TEST") == ""
+    assert len(handles) == 1 and handles[0].closed_explicitly

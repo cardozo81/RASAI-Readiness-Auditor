@@ -88,3 +88,27 @@ def test_regulated_claim_scope_cannot_be_blank_or_padded_even_with_signed_receip
             trusted_key=KEY, trusted_reviewer_ids=frozenset({"trusted-reviewer"}),
         )
         assert signed["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+
+
+def test_unverified_claim_mode_does_not_invent_observation_for_invalid_input():
+    """No documentary check is not proof that an empty claim was observed."""
+    for invalid_claim, invalid_scope, invalid_date in (
+        ("", "product-A", AS_OF),
+        ("   ", "product-A", AS_OF),
+        (CLAIM, "", AS_OF),
+        (CLAIM, "product-A ", AS_OF),
+        (CLAIM, "product-A", "2026-10-14"),
+    ):
+        result = classify_claim(
+            invalid_claim, product_scope=invalid_scope, at_date=invalid_date,
+            external_validation_required=False,
+        )
+        assert result == {
+            "state": "CLAIM_UNVERIFIED_EXTERNAL",
+            "basis": "INVALID_CLAIM_OR_SCOPE",
+        }
+    valid = classify_claim(
+        CLAIM, product_scope="product-A", at_date=AS_OF,
+        external_validation_required=False,
+    )
+    assert valid["state"] == "CLAIM_OBSERVED"

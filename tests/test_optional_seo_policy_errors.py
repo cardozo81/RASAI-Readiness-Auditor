@@ -68,3 +68,61 @@ def test_optional_replay_hash_rejects_same_size_mutation(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="AUD SQLite source changed"):
         _read_hash(path)
     assert mutated
+
+
+def test_optional_seo_projection_rejects_missing_and_symlinked_database(tmp_path):
+    """A presentation helper cannot create or follow an AUD database."""
+    from rasai.optional_seo_interpretation import optional_seo_penalties
+    missing = tmp_path / "missing.db"
+    assert optional_seo_penalties(missing, "AUD-A") == []
+    assert not missing.exists()
+    source = tmp_path / "physical.db"
+    source.write_bytes(b"not a database")
+    alias = tmp_path / "alias.db"
+    try:
+        alias.symlink_to(source)
+    except (OSError, NotImplementedError):
+        return
+    assert optional_seo_penalties(alias, "AUD-A") == []
+    assert source.read_bytes() == b"not a database"
+
+
+def test_optional_seo_projection_never_attributes_other_aud_rule_to_score(tmp_path):
+    """An otherwise valid absence from a foreign AUD is not this AUD's evidence."""
+    import sqlite3
+    from rasai.optional_seo_interpretation import optional_seo_penalties
+
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE scores (
+                score_id TEXT, audit_id TEXT, dimension TEXT, device TEXT,
+                scoring_version TEXT
+            );
+            CREATE TABLE rule_executions (
+                rule_execution_id TEXT, audit_id TEXT, rule_id TEXT,
+                observed_value TEXT
+            );
+            CREATE TABLE score_contributions (
+                score_id TEXT, rule_execution_id TEXT, rule_id TEXT,
+                dimension TEXT, device TEXT, weight REAL, result_factor REAL,
+                result TEXT
+            );
+        """)
+        con.execute("INSERT INTO scores VALUES (?,?,?,?,?)",
+                    ("S-A", "AUD-A", "INDEXABILITY", "MOBILE", "SCORE-GEO-004"))
+        con.executemany("INSERT INTO rule_executions VALUES (?,?,?,?)", [
+            ("R-A", "AUD-A", "BR-GEO-013", '{"canonicals":[]}'),
+            ("R-B", "AUD-OTHER", "BR-GEO-013", '{"canonicals":[]}'),
+        ])
+        con.executemany("INSERT INTO score_contributions VALUES (?,?,?,?,?,?,?,?)", [
+            ("S-A", "R-A", "BR-GEO-013", "INDEXABILITY", "MOBILE", .3, .5, "WARNING"),
+            ("S-A", "R-B", "BR-GEO-013", "INDEXABILITY", "MOBILE", .3, .5, "WARNING"),
+        ])
+    physical = db.read_bytes()
+    observed = optional_seo_penalties(db, "AUD-A")
+    assert len(observed) == 1
+    assert observed[0]["isolated_discount_points"] == 15.0
+    assert db.read_bytes() == physical
+    (tmp_path / "audit.db-wal").write_bytes(b"uncheckpointed")
+    assert optional_seo_penalties(db, "AUD-A") == []

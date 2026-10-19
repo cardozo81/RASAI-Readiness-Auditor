@@ -5,7 +5,9 @@ They are not a counterfactual score, an alternative scorer or a vendor rule.
 """
 from __future__ import annotations
 
+from contextlib import closing
 from html import escape
+from pathlib import Path
 from math import isfinite
 import sqlite3
 from typing import Any
@@ -26,21 +28,32 @@ def _isolated_optional_absence(rule_id: str, raw: Any) -> bool:
 
 def optional_seo_penalties(database: Any, audit_id: str) -> list[dict[str, Any]]:
     """Only verified absence + matching score contribution is reportable."""
+    # A report projection must never create audit.db or consume a mutable,
+    # cross-AUD, symlinked or uncheckpointed evidence source.
     try:
-        with sqlite3.connect(database) as con:
+        source = Path(database)
+        if (source.is_symlink() or not source.is_file()
+                or any(Path(str(source) + suffix).exists()
+                       for suffix in ("-wal", "-shm", "-journal"))):
+            return []
+        with closing(sqlite3.connect(
+            source.resolve().as_uri() + "?mode=ro", uri=True, timeout=2,
+        )) as con:
+            con.execute("PRAGMA query_only=ON")
             con.row_factory = sqlite3.Row
             rows = con.execute(
                 "SELECT c.rule_id,c.dimension,c.device,c.weight,c.result_factor,"
                 "c.result,r.observed_value,s.scoring_version "
                 "FROM score_contributions c "
-                "JOIN rule_executions r ON r.rule_execution_id=c.rule_execution_id "
                 "JOIN scores s ON s.score_id=c.score_id "
+                "JOIN rule_executions r ON r.rule_execution_id=c.rule_execution_id "
+                "AND r.audit_id=s.audit_id AND r.rule_id=c.rule_id "
                 "WHERE s.audit_id=? AND c.rule_id IN (?,?,?) AND "
                 "c.dimension=s.dimension AND c.device=s.device "
                 "ORDER BY c.rule_id,c.device",
                 (audit_id, *_OPTIONAL_RULES),
             ).fetchall()
-    except sqlite3.OperationalError:
+    except (sqlite3.Error, OSError, ValueError, TypeError):
         return []
     items: list[dict[str, Any]] = []
     for row in rows:

@@ -48,7 +48,10 @@ def classify_claim(
     if (not claim or not isinstance(product_scope, str)
             or not product_scope.strip() or product_scope != product_scope.strip()
             or type(at_date) is not date):
-        return fallback
+        # A missing/malformed claim is not an observed factual claim, even
+        # when documentary validation was not requested for this context.
+        return {"state": "CLAIM_UNVERIFIED_EXTERNAL",
+                "basis": "INVALID_CLAIM_OR_SCOPE"}
     if not isinstance(primary_bytes, bytes) or not 0 < len(primary_bytes) <= _MAX_DOCUMENT_BYTES:
         return fallback
     if not isinstance(review, Mapping):

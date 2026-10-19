@@ -6,6 +6,7 @@ and a response available only after a click is not proved accessible to crawlers
 """
 from __future__ import annotations
 
+from contextlib import closing
 from html import escape
 from html.parser import HTMLParser
 from pathlib import Path
@@ -136,7 +137,7 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
     )):
         return ""
     try:
-        with sqlite3.connect(source.resolve().as_uri() + "?mode=ro", uri=True) as connection:
+        with closing(sqlite3.connect(source.resolve().as_uri() + "?mode=ro", uri=True)) as connection:
             connection.execute("PRAGMA query_only=ON")
             rows = connection.execute(
                 "SELECT s.snapshot_id,s.rendered_artifact_ref FROM page_snapshots s "
