@@ -848,3 +848,37 @@ externo de outra AUD, RUNNING versus falha terminal versus SUCCESS,
 symlink/caminho não canônico, erro de schema e imutabilidade. Não há
 nova coleta, provedor, atualização de índice ou alteração do runtime
 Search Intelligence do subprocesso.
+
+
+### Gate offline de consumo Search + preservação de zero no snapshot (#523, 19/10/2026)
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai.console_configuration_inventory `
+  --ini "caminho\rasai-console.ini" --verify-search
+```
+
+O preflight opcional lê o INI físico regular com limite de 2 MiB e selo
+SHA-256/identidade antes e depois, cria cópia descartável, recarrega
+estado real pelo adapter tipado e monta o vetor de argumentos do console
+via `console_governed_search_runtime._append_search_args`. O parser real
+de `search_audit_runtime`/`cli_extensions` reinterpreta **localmente**
+todos os campos: queries, profundidade, dispositivo, região, competitivo,
+comparação HTTP, limites, IA competitiva e YMYL. Exige paridade integral
+dos valores restaurados ou retorna `CLI_ARGUMENTS_MISMATCH`. Uma
+combinação impossível (IA competitiva com comparação desligada) retorna
+`SEMANTIC_CONFIGURATION_CONFLICT`. Quando não há query salva, informa
+`NO_SEARCH_QUERY_INPUT`, não inventa intenção de Search API.
+`state_to_cli_parity_verified` **não** comprova chamada, autorização
+financeira, coleta, observações, reprocessamento nem resultados reais.
+
+Foi corrigida também a geração do snapshot `resume_options.search_intelligence`
+em `cli_extensions`: o padrão `int(value or default)` perdia os zeros
+explicitamente configurados em `search_max_content_pages=0` e
+`search_content_max_redirects=0`, convertendo-os indevidamente em
+3 páginas adicionais e 5 redirects no plano de recuperação. Agora os
+dois campos respeitam exatamente os zeros do CLI e preservam zeros
+inválidos de outros knobs positivos para validação, em vez de reparar
+silenciosamente. Isso evita ampliar o escopo de requests após um
+complemento/reprocessamento; não modifica o motor Search nem habilita
+recoleção. As fixtures cobrem zeros, flags, divergência deliberada de
+serializador, INI inconsistente, confidencialidade e ausência de escrita.

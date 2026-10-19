@@ -524,6 +524,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="offline M23/M25 adapter validation on an isolated INI copy; no audit or APIs",
     )
     parser.add_argument(
+        "--verify-search", action="store_true",
+        help="check SERP console INI -> governed AUD argv -> real CLI parser offline",
+    )
+    parser.add_argument(
         "--reconcile-typed", action="store_true",
         help="inspect declared typed INI adapters without loading it into the OS environment",
     )
@@ -533,6 +537,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.console_apdex_effective_validation import inspect_apdex_consumers
         selected = args.ini if args.ini is not None else canonical_console_config_path()
         report["apdex_offline_consumer_preflight"] = inspect_apdex_consumers(selected)
+    if args.verify_search:
+        from rasai.console_search_consumer_preflight import inspect_search_consumers
+        selected = args.ini if args.ini is not None else canonical_console_config_path()
+        report["search_offline_consumer_preflight"] = inspect_search_consumers(selected)
     if args.reconcile_typed:
         from rasai.console_typed_reconciliation import inspect_typed_configuration
         selected = args.ini if args.ini is not None else canonical_console_config_path()
