@@ -208,13 +208,13 @@ def missing_workflow_python_paths(root: Path) -> list[str]:
     missing: list[str] = []
     for workflow in sorted(set(workflows.glob("*.yml")) | set(workflows.glob("*.yaml"))):
         content = workflow.read_text(encoding="utf-8")
-        paths = set(re.findall(r"(?:src/rasai|tests)/[A-Za-z0-9_./*-]+\\.py\\b", content))
+        paths = set(re.findall(r"(?:src/rasai|tests)/[A-Za-z0-9_./*-]+\.py\b", content))
         for path in sorted(paths):
             if "*" in path or (root / path).is_file():
                 continue
             lines = [line.strip() for line in content.splitlines() if path in line]
             absent_guard = re.compile(
-                r"\\btest\\s+-[fe]\\s+" + re.escape(path) + r"(?:[;\\s]|$)"
+                r"\btest\s+-[fe]\s+" + re.escape(path) + r"(?:[;\s]|$)"
             )
             if lines and all(absent_guard.search(line) for line in lines):
                 continue
@@ -225,17 +225,17 @@ def missing_workflow_python_paths(root: Path) -> list[str]:
 def test_all_ci_workflows_reference_existing_literal_python_paths() -> None:
     root = Path(__file__).resolve().parents[1]
     missing = missing_workflow_python_paths(root)
-    assert not missing, "\\n".join(missing)
+    assert not missing, "\n".join(missing)
 
 
 def test_workflow_reference_inventory_checks_yaml_and_yml(tmp_path) -> None:
     workflows = tmp_path / ".github" / "workflows"
     workflows.mkdir(parents=True)
     (workflows / "one.yml").write_text(
-        "run: pytest tests/nonexistent_one.py\\n", encoding="utf-8"
+        "run: pytest tests/nonexistent_one.py\n", encoding="utf-8"
     )
     (workflows / "two.yaml").write_text(
-        "run: python src/rasai/nonexistent_two.py\\n", encoding="utf-8"
+        "run: python src/rasai/nonexistent_two.py\n", encoding="utf-8"
     )
     assert missing_workflow_python_paths(tmp_path) == [
         "one.yml: tests/nonexistent_one.py",
@@ -252,7 +252,7 @@ def test_workflow_reference_inventory_ignores_explicit_negative_guards(tmp_path)
     workflows = tmp_path / ".github" / "workflows"
     workflows.mkdir(parents=True)
     (workflows / "negative.yaml").write_text(
-        "run: if test -f src/rasai/removed.py; then exit 1; fi\\n",
+        "run: if test -f src/rasai/removed.py; then exit 1; fi\n",
         encoding="utf-8",
     )
     assert missing_workflow_python_paths(tmp_path) == []
@@ -270,3 +270,27 @@ def test_repository_filename_policy_preserves_external_public_contract_names():
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+def test_workflow_reference_inventory_detects_a_positive_reference_inside_real_yaml(tmp_path):
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "mixed.yaml").write_text(
+        "name: test\\njobs:\\n  lint:\\n    steps:\\n"
+        "      - run: pytest tests/nonexistent.py\\n", encoding="utf-8"
+    )
+    assert missing_workflow_python_paths(tmp_path) == [
+        "mixed.yaml: tests/nonexistent.py",
+    ]
+
+
+def test_workflow_reference_inventory_does_not_ignore_positive_and_negative_same_path(tmp_path):
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "mixed.yml").write_text(
+        "run: if test -f src/rasai/obsolete.py; then exit 1; fi\\n"
+        "run: python src/rasai/obsolete.py\\n", encoding="utf-8"
+    )
+    assert missing_workflow_python_paths(tmp_path) == [
+        "mixed.yml: src/rasai/obsolete.py",
+    ]

@@ -163,3 +163,14 @@ e guardas negativos intencionais. Isso substitui a verificação anterior
 que apenas procurava literais no próprio código-fonte do teste.
 A inspeção não executa workflows, não cobre comandos construídos
 dinamicamente e não afirma compatibilidade de consumidores externos.
+
+## Reconciliação de falha no gate de contratos
+
+O primeiro teste comportamental de caminhos CI falhou no HEAD
+`9e92c5d`: os escapes de expressão regular foram serializados em dobro,
+e portanto o inventário retornou zero referências mesmo diante de arquivos
+inexistentes. A correção restaura o regex funcional, valida ambos formatos
+YAML, preserva somente a exceção de guarda negativa e acrescenta caso
+misturando referência positiva e guarda negativa para o mesmo arquivo.
+O sucesso dos demais workflows não torna esta falha dispensável: o scanner
+passa a ser testado contra fixtures reais em vez de inspecionar seu código.
