@@ -319,3 +319,49 @@ def test_valid_historical_search_enabled_false_remains_explicit_opt_out():
     }}, warnings)
     assert not state.search_queries
     assert not warnings
+
+
+def test_configuration_round_trip_ini_then_historical_aud_snapshot(tmp_path, monkeypatch):
+    """Save, reopen fresh session, seal nonsecret execution inputs and reuse."""
+    from rasai.console_settings import save_console_config, load_console_config
+    source = SearchConsoleState()
+    source.audits_root = str(tmp_path / "audits")
+    source.target = "https://example.org/original"
+    source.project = "Roundtrip"
+    source.max_pages = 7
+    source.search_queries = ("  seguro auto ", "previdência")
+    source.search_depth = 18
+    source.search_device = "desktop"
+    source.search_region = "BR-RS"
+    source.search_compare_content = True
+    source.search_ai_competitive = False
+    ini = tmp_path / "rasai-console.ini"
+    save_console_config(source, ini)
+    assert ini.is_file()
+    fresh = SearchConsoleState()
+    loaded = load_console_config(fresh, ini)
+    assert not loaded.created
+    assert fresh.target == source.target
+    assert fresh.project == source.project
+    assert fresh.max_pages == source.max_pages
+    # Search queries remain execution-only in the console INI.
+    assert not fresh.search_queries
+    frozen = _export_settings(source, ("https://example.org/original",))
+    replacement = SearchConsoleState()
+    _apply_settings(replacement, frozen, "AUD-SOURCE")
+    assert replacement.target == source.target
+    assert replacement.search_queries == ("seguro auto", "previdência")
+    assert replacement.search_depth == source.search_depth
+    assert replacement.search_region == source.search_region
+    assert replacement.search_device == source.search_device
+    assert replacement.search_compare_content is True
+
+
+def test_corrupt_historical_console_section_is_rejected_without_mutation():
+    state = SearchConsoleState()
+    state.target = "https://current.example/"
+    snapshot = _export_settings(state, ("https://source.example/",))
+    snapshot["settings"]["console"] = []
+    with pytest.raises(ValueError, match="seção console válida"):
+        _apply_settings(state, snapshot, "AUD-SOURCE")
+    assert state.target == "https://current.example/"

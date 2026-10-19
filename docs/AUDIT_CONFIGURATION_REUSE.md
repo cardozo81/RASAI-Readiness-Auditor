@@ -288,3 +288,12 @@ números e valores ambiguamente representados não alteram queries da sessão
 nem ativam buscas por coerção. A escolha explícita `false` continua
 suprimindo queries do snapshot. `content_timeout_seconds` recusa booleanos
 e valores não finitos, preservando a configuração anterior com aviso.
+
+## Regressão integrada de configuração
+
+O contrato de aceite deve exercitar `save_console_config`, reabertura por
+`load_console_config`, exportação do snapshot de uma AUD e restauração
+explícita em outra sessão. Termos de busca de execução não são gravados no
+INI, mas são parte do snapshot reutilizável não secreto; não ativam Perplexity.
+Snapshot sem seção `console` válida é rejeitado antes de alterar a sessão.
+A regressão automatizada não substitui o smoke do console Windows.

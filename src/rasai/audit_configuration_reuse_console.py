@@ -284,6 +284,11 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
     raw_targets = configuration.get("targets")
     if not isinstance(raw_settings, Mapping) or not isinstance(raw_targets, list) or not raw_targets:
         raise ValueError("snapshot de console incompleto: settings/targets ausentes")
+    # A historical snapshot must not silently restore a partial typed section.
+    # Its explicit keys are applied independently below, but unknown sections
+    # must not be treated as proof that the operator's current state was saved.
+    if not isinstance(raw_settings.get("console"), Mapping):
+        raise ValueError("snapshot de console sem seção console válida")
     if any(not isinstance(value, str) for value in raw_targets):
         raise ValueError("snapshot de console possui target não textual")
     targets = tuple(value.strip() for value in raw_targets if value.strip())
