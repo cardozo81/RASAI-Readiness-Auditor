@@ -63,3 +63,35 @@ def test_ed25519_signature_uses_external_public_trust_anchor(tmp_path, monkeypat
     ))
     assert verify_capture(*_identity(), record) == "UNTRUSTED_SIGNER"
     assert not any("PRIVATE KEY" in json.dumps(record) for _ in (0,))
+
+
+def test_signature_stripping_is_not_accepted_with_trust_anchor(tmp_path, monkeypatch):
+    """A valid digest alone cannot replace an intentionally required signature."""
+    import sqlite3
+    from rasai.architecture_m6_evidence import read_audit_architecture_observations
+    directory = tmp_path / "AUD-SIGNED"
+    (directory / "artifacts").mkdir(parents=True)
+    raw = directory / "artifacts" / "raw.html"
+    rendered = directory / "artifacts" / "rendered.html"
+    raw.write_bytes(b"raw")
+    rendered.write_bytes(b"rendered")
+    from rasai.architecture_m6_evidence import capture_artifact_binding
+    binding = capture_artifact_binding(directory, "artifacts/raw.html",
+                                       "artifacts/rendered.html")
+    with sqlite3.connect(directory / "audit.db") as conn:
+        conn.execute("CREATE TABLE pages(page_id TEXT, audit_id TEXT)")
+        conn.execute(
+            "CREATE TABLE page_snapshots("
+            "snapshot_id TEXT, page_id TEXT, device TEXT, requested_url TEXT,"
+            "final_url TEXT, architecture_classification TEXT,"
+            "raw_artifact_ref TEXT, rendered_artifact_ref TEXT, browser_metadata TEXT)"
+        )
+        conn.execute("INSERT INTO pages VALUES ('P-1','AUD-SIGNED')")
+        conn.execute("INSERT INTO page_snapshots VALUES (?,?,?,?,?,?,?,?,?)",
+                     ("S-1", "P-1", "MOBILE", "https://example.org/",
+                      "https://example.org/", "HYDRATED",
+                      "artifacts/raw.html", "artifacts/rendered.html",
+                      json.dumps({"architecture_artifact_binding": binding})))
+    assert len(read_audit_architecture_observations(tmp_path, "AUD-SIGNED")) == 1
+    monkeypatch.setenv(VERIFY_KEY, str(tmp_path / "operator-public.pem"))
+    assert read_audit_architecture_observations(tmp_path, "AUD-SIGNED") == ()

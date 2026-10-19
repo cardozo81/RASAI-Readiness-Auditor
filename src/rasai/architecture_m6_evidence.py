@@ -272,6 +272,17 @@ def read_audit_architecture_observations(
                 signed = "TRUST_ANCHOR_UNAVAILABLE"
             if signed != "ATTESTED_ED25519":
                 continue
+        # If an independent public trust anchor is configured, records with
+        # an embedded digest MUST also carry a valid independent signature.
+        # Otherwise removing a signature from SQLite would silently downgrade
+        # an authenticated capture to a merely self-consistent digest.
+        from rasai.architecture_attestation import VERIFY_KEY
+        import os
+        if (os.environ.get(VERIFY_KEY)
+                and isinstance(details, dict)
+                and "architecture_artifact_binding" in details
+                and "architecture_attestation" not in details):
+            continue
         observations.append(ArchitectureObservation(
             architecture=architecture, requested_url=requested,
             final_url=final, device=device, snapshot_id=snapshot_id,
