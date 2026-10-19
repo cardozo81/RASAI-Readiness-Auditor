@@ -730,3 +730,35 @@ Cobertura focal: `tests/test_console_device_mix_migration.py`.
 Não há execução de AUD, navegação, Dynatrace ou APIs. O smoke real
 Windows deverá comprovar save de `desktop`, reabertura, CAT-06=7 e
 CAT-07=CSR_SPA; até lá o gate #523 permanece pendente.
+
+## Inventário de compatibilidade entre INI tipado e adapters (19/10/2026)
+
+O inventário offline recebe agora o sinal `--reconcile-typed`, que compara
+campos de `[console]`, `[ai]`, `[web_performance]`,
+`[synthetic_apdex]` e `[synthetic_apdex_experience]` contra o
+parser de estado tipado e a projeção declarativa de ambiente do console.
+A inspeção **não carrega o INI no ambiente do processo** e não modifica o
+arquivo do operador, nenhum secret store ou AUD. Exemplo:
+
+```powershell
+& ".\\.venv\\Scripts\\python.exe" -m rasai.console_configuration_inventory --ini ".\\rasai-console.ini" --reconcile-typed
+```
+
+A resposta acrescenta `typed_adapter_reconciliation`, com o contrato
+`RASAI-CONSOLE-TYPED-RECONCILIATION-523-001`; cada campo tipado recebe
+`DECLARED_RUNTIME_PROJECTION`, `ADAPTER_PARSED`,
+`RUNTIME_PROJECTION_ABSENT`, `INVALID_TYPED_VALUE`,
+`DERIVED_FROM_DEVICE`, `METADATA_NOT_RUNTIME_INPUT` ou
+`NOT_PERSISTED`. Registros não reconhecidos são contabilizados apenas
+em conjunto, sem divulgar seu nome ou conteúdo. Valor de URL, arquivo,
+query, JSON, token e modelo jamais é impresso. Campos de execução
+tarifável continuam sem herdar consentimento de uma AUD anterior.
+
+A projeção em memória **não demonstra** passagem ao subprocesso dos
+coletores, sucesso de navegação nem aceite do operador. Para isso permanece
+o contrato de configuração efetiva e a prova existente de
+save/novo processo/load/ambiente, incluindo o smoke Windows de
+`SMOKE_523_INI_PASS` já reportado. O diagnóstico deste modo não solicita
+reteste desse smoke. A presença de campo no registry não significa
+consumo comprovado no motor; não alterar M23/M25 por causa de uma
+divergência de preenchimento.

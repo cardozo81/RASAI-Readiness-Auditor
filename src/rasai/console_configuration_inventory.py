@@ -523,12 +523,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--verify-apdex", action="store_true",
         help="offline M23/M25 adapter validation on an isolated INI copy; no audit or APIs",
     )
+    parser.add_argument(
+        "--reconcile-typed", action="store_true",
+        help="inspect declared typed INI adapters without loading it into the OS environment",
+    )
     args = parser.parse_args(argv)
     report = inventory(path=args.ini)
     if args.verify_apdex:
         from rasai.console_apdex_effective_validation import inspect_apdex_consumers
         selected = args.ini if args.ini is not None else canonical_console_config_path()
         report["apdex_offline_consumer_preflight"] = inspect_apdex_consumers(selected)
+    if args.reconcile_typed:
+        from rasai.console_typed_reconciliation import inspect_typed_configuration
+        selected = args.ini if args.ini is not None else canonical_console_config_path()
+        report["typed_adapter_reconciliation"] = inspect_typed_configuration(selected)
     print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 
