@@ -129,3 +129,89 @@ def test_523_acceptance_readonly_missing_ini_fails_closed(tmp_path):
     assert result["provider_requests"] == result["audit_writes"] == 0
     assert result["source_ini_writes"] == 0
     assert not missing.exists()
+
+
+def test_523_outer_ini_generation_check_rejects_change_between_consumer_checks(
+    tmp_path, monkeypatch,
+):
+    import rasai.console_typed_reconciliation as typed
+    from rasai import console_acceptance_523
+    source = tmp_path / "changed.ini"
+    source.write_text("[console]\nconfig_version=1\n", encoding="utf-8")
+    # The gate must abstain even when every mocked adapter claims success:
+    # two successful local inspections cannot attest different generations.
+    all_ok = _base()
+    def changing_adapter(_path):
+        source.write_text("[console]\nconfig_version=2\n", encoding="utf-8")
+        return {"status": all_ok["typed"], "counts": {}, "invalid_typed_fields": 0}
+    monkeypatch.setattr(typed, "inspect_typed_configuration", changing_adapter)
+    previous = {
+        "apdex_offline_consumer_preflight": {"status": all_ok["apdex"]},
+        "core_offline_consumer_preflight": {"status": all_ok["core"]},
+        "search_offline_consumer_preflight": {"status": all_ok["search"]},
+        "gsc_offline_consumer_preflight": {"status": all_ok["gsc"]},
+        "typed_ini_coverage": {"missing_non_derived_names": []},
+    }
+    monkeypatch.setattr(
+        console_acceptance_523, "_perplexity_draft",
+        lambda _: {"status": all_ok["perplexity"]},
+    )
+    report = inspect_console_acceptance(source, prior=previous)
+    assert report["status"] == "INI_SOURCE_CHANGED_DURING_GATE"
+    assert report["source_generation_consistent"] is False
+    assert report["issue_523_final_acceptance_proven"] is False
+    assert report["values_exposed"] is False
+
+
+def test_523_legacy_missing_fields_are_incomplete_coverage_not_parser_defect(
+    tmp_path, monkeypatch,
+):
+    from rasai import console_acceptance_523
+    source = tmp_path / "legacy.ini"
+    source.write_text("[console]\nconfig_version=1\n", encoding="utf-8")
+    ok = _base()
+    monkeypatch.setattr(
+        console_acceptance_523, "_perplexity_draft",
+        lambda _: {"status": ok["perplexity"]},
+    )
+    previous = {
+        "typed_adapter_reconciliation": {
+            "status": ok["typed"], "counts": {}, "invalid_typed_fields": 0,
+        },
+        "apdex_offline_consumer_preflight": {"status": ok["apdex"]},
+        "core_offline_consumer_preflight": {"status": ok["core"]},
+        "search_offline_consumer_preflight": {"status": ok["search"]},
+        "gsc_offline_consumer_preflight": {"status": ok["gsc"]},
+        "typed_ini_coverage": {
+            "missing_non_derived_names": [
+                "synthetic_apdex_experience.architecture", "ai.max_cycles",
+            ],
+        },
+    }
+    result = inspect_console_acceptance(source, prior=previous)
+    assert result["status"] == "OFFLINE_LEGACY_TYPED_COVERAGE_PARTIAL"
+    assert result["legacy_typed_fields_unavailable"] == 2
+    assert result["source_generation_consistent"] is True
+    assert result["failed_consumer_names"] == []
+    assert result["issue_523_final_acceptance_proven"] is False
+
+
+def test_523_acceptance_abstains_for_source_symlink_before_running_any_adapter(
+    tmp_path, monkeypatch,
+):
+    from rasai import console_acceptance_523
+    source = tmp_path / "a.ini"
+    source.write_text("[console]\nconfig_version=1\n", encoding="utf-8")
+    link = tmp_path / "link.ini"
+    try:
+        link.symlink_to(source)
+    except (OSError, NotImplementedError):
+        return
+    monkeypatch.setattr(
+        console_acceptance_523, "_perplexity_draft",
+        lambda _: (_ for _ in ()).throw(AssertionError("must not run")),
+    )
+    result = inspect_console_acceptance(link)
+    assert result["status"] == "INI_SOURCE_UNVERIFIABLE"
+    assert result["source_generation_consistent"] is False
+    assert result["provider_requests"] == 0

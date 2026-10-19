@@ -1061,3 +1061,30 @@ salvou o valor antigo. Ausência e reset explícito são diferenciados,
 mantendo defaults de knobs jamais configurados. Fixtures cobrem reset,
 override não vazio, rascunho WEB/FAST restaurado sem pesquisa, falhas
 reais vs pré-requisitos opcionais e exit code do gate isolado.
+
+
+### Fonte física única e cobertura legada no gate #523
+
+O comando opt-in `--acceptance-523` exige agora que **todos os
+diagnósticos do lote** sejam atribuíveis à mesma geração de arquivo
+INI: verifica antes e depois a identidade física/tempo/tamanho e
+SHA-256 dos bytes originais, rejeitando `INI_SOURCE_CHANGED_DURING_GATE`
+mesmo que cada adapter isolado tenha retornado um status de sucesso.
+Symlink/arquivo ausente ou fora do limite retorna
+`INI_SOURCE_UNVERIFIABLE` antes de qualquer adapter.
+
+O inventário existente distingue valores legados ausentes de
+configuração inválida. Se um arquivo antigo omite campos tipados
+não derivados (ainda que os parsers apliquem defaults e não haja
+falha funcional), o gate registra a quantidade e
+`OFFLINE_LEGACY_TYPED_COVERAGE_PARTIAL` em vez de declarar cobertura
+**completa** de round-trip. Os estados antigos continuam executáveis
+conforme suas políticas; o diagnóstico não grava defaults no INI nem
+ativa catálogos para forçar aprovação. Essa abstenção retorna exit 2,
+solicitando reconciliação operacional se o objetivo é homologar toda a
+matriz de inputs, sem confundir legado com erro de parser.
+
+Os identificadores das variáveis ou valores faltantes não são
+serializados no bloco de aceite, apenas contagem e classificação.
+Compatibilidade com `--verify-*` foi preservada; resultados já
+calculados na mesma invocação são reutilizados, não repetidos.

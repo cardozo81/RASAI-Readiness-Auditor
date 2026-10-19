@@ -156,7 +156,13 @@ def classify_console_acceptance(
 def inspect_console_acceptance(
     path: Path, *, prior: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Execute every missing local adapter gate once, on source-preserving copies."""
+    """Gate all adapters on ONE verifiable physical INI generation.
+
+    Every individual consumer checks its own short read; without an outer
+    lease a file replaced between two checks could produce a passing report
+    that never described any single operator configuration. Source paths,
+    values and digests are deliberately absent from public output.
+    """
     from rasai.console_typed_reconciliation import inspect_typed_configuration
     from rasai.console_apdex_effective_validation import inspect_apdex_consumers
     from rasai.console_core_consumer_preflight import inspect_core_consumers
@@ -164,6 +170,22 @@ def inspect_console_acceptance(
     from rasai.console_gsc_consumer_preflight import inspect_gsc_consumers
 
     path = Path(path)
+    initial_bytes, initial_identity, initial_status = _verified_source(path)
+    if initial_status != "READY" or initial_bytes is None or initial_identity is None:
+        return {
+            "contract": _CONTRACT,
+            "status": "INI_SOURCE_UNVERIFIABLE",
+            "source_status": initial_status,
+            "consumer_status": {},
+            "source_generation_consistent": False,
+            "issue_523_final_acceptance_proven": False,
+            "real_windows_reopen_verified_by_this_run": False,
+            "runner_execution_verified_by_this_run": False,
+            "paid_external_use_authorized": False,
+            "values_exposed": False, "provider_requests": 0,
+            "audit_writes": 0, "source_ini_writes": 0,
+        }
+    generation_digest = sha256(initial_bytes).digest()
     previous = prior if isinstance(prior, Mapping) else {}
     runners = {
         "typed": ("typed_adapter_reconciliation", inspect_typed_configuration),
@@ -185,9 +207,51 @@ def inspect_console_acceptance(
         invalid_typed_fields=int(results["typed"].get("invalid_typed_fields") or 0),
         unknown_typed_fields=int(counts.get("UNRECOGNIZED_INPUT_COUNT") or 0),
     )
+    latest_bytes, latest_identity, latest_status = _verified_source(path)
+    consistent = (
+        latest_status == "READY"
+        and latest_identity == initial_identity
+        and latest_bytes is not None
+        and sha256(latest_bytes).digest() == generation_digest
+    )
+    if not consistent:
+        classified = {
+            **classified,
+            "status": "INI_SOURCE_CHANGED_DURING_GATE",
+            "issue_523_final_acceptance_proven": False,
+        }
+    # The inventory records physical coverage; older INIs may omit newer
+    # fields *legitimately*. That is not a parser defect, but cannot be
+    # represented as complete typed round-trip coverage.
+    coverage = previous.get("typed_ini_coverage")
+    if not isinstance(coverage, Mapping):
+        from rasai.console_configuration_inventory import inventory
+        coverage = inventory(path=path).get("typed_ini_coverage", {})
+    partial = (
+        isinstance(coverage, Mapping)
+        and isinstance(coverage.get("missing_non_derived_names"), list)
+        and bool(coverage["missing_non_derived_names"])
+    )
+    if consistent and partial and classified["status"] in {
+        "OFFLINE_CONTRACTS_VERIFIED",
+        "OFFLINE_CONTRACTS_WITH_INTENTIONAL_ABSENCES",
+    }:
+        classified = {
+            **classified,
+            "status": "OFFLINE_LEGACY_TYPED_COVERAGE_PARTIAL",
+        }
     return {
         "contract": _CONTRACT,
         **classified,
+        "source_generation_consistent": consistent,
+        "source_status": latest_status,
+        "legacy_typed_fields_unavailable": (
+            len(coverage["missing_non_derived_names"])
+            if isinstance(coverage, Mapping)
+            and isinstance(coverage.get("missing_non_derived_names"), list)
+            else None
+        ),
+        "legacy_typed_coverage_complete": not partial,
         "consumer_status": statuses,
         "typed_invalid_field_count": int(results["typed"].get("invalid_typed_fields") or 0),
         "typed_unrecognized_field_groups": int(counts.get("UNRECOGNIZED_INPUT_COUNT") or 0),
