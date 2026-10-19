@@ -1355,3 +1355,97 @@ def test_ai_semantic_session_fallback_is_projected_without_task_identity(tmp_pat
     assert "DEEPSEEK" in html
     assert "Quota ou crédito indisponível" in html
 
+
+
+
+def test_600_coverage_boolean_missing_and_partial_high_confidence_are_disclosed():
+    from rasai.catalog_report_governance import (
+        _sari_coverage_public, _sari_partial_dimension_notice,
+    )
+    for invalid in (True, False, "", "nan", "inf", -0.1, 1.1, None):
+        assert _sari_coverage_public(invalid) == "Não determinada"
+    assert _sari_coverage_public(0) == "0,0% (fração 0.000000)"
+    assert _sari_coverage_public(1) == "100,0% (fração 1.000000)"
+    rows = [
+        {
+            "dimension": "OVERALL_READINESS", "device": "MOBILE",
+            "coverage": 1.0, "confidence": "HIGH",
+            "consolidation_status": "CONSOLIDATED",
+        },
+        {
+            "dimension": "CONTENT_VALUE", "device": "MOBILE",
+            "coverage": 0.7, "confidence": "HIGH",
+            "consolidation_status": "CONSOLIDATED",
+        },
+        {
+            "dimension": "INDEXABILITY", "device": "MOBILE",
+            "coverage": True, "confidence": "HIGH",
+            "consolidation_status": "CONSOLIDATED",
+        },
+        {
+            "dimension": "DISCOVERY_ACCESS", "device": "MOBILE",
+            "coverage": 1.0, "confidence": "HIGH",
+            "consolidation_status": "CONSOLIDATED",
+        },
+    ]
+    html = _sari_partial_dimension_notice(rows)
+    assert "Valor do conteúdo" in html
+    assert "70,0% (fração 0.700000)" in html
+    assert "Indexabilidade" in html
+    assert "Não determinada" in html
+    assert "Acesso e descoberta" not in html
+
+
+def test_600_invalid_sari_rows_cannot_suppress_true_divergence_or_create_false_one():
+    from rasai.catalog_report_governance import _overview_measurement_scope_notice
+    valid = {"dimension": "OVERALL_READINESS", "value": 86.48}
+    invalid = {"dimension": "OVERALL_READINESS", "value": "invalid"}
+    bad = {"performance_score": 1}
+    observed = _overview_measurement_scope_notice(
+        bad, {}, overall_scores=(invalid, valid),
+    )
+    assert "SARI acima de 75/100 coexiste" in observed
+    for false_score in (True, False, -999, float("inf"), "NaN", 101):
+        assert _overview_measurement_scope_notice(
+            bad, {}, overall_scores=({"dimension": "OVERALL_READINESS",
+                                      "value": false_score},)
+        ) == ""
+    assert _overview_measurement_scope_notice(
+        {"performance_score": True}, {}, overall_scores=(valid,),
+    ) == ""
+
+
+def test_600_serp_depth_is_local_readonly_and_rejects_duplicate_foreign_identity(tmp_path):
+    from rasai.catalog_report_governance import _overview_serp_depth
+
+    db = tmp_path / "audit.db"
+    assert _overview_serp_depth(db, "AUD-MAIN") is None
+    assert not db.exists()
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE serp_observations("
+            "observation_id TEXT, audit_id TEXT, requested_depth INTEGER)"
+        )
+        con.execute(
+            "CREATE TABLE serp_results(observation_id TEXT, position INTEGER)"
+        )
+        con.execute(
+            "INSERT INTO serp_observations VALUES('SERP-COLLISION','AUD-MAIN',20)"
+        )
+        con.executemany(
+            "INSERT INTO serp_results VALUES('SERP-COLLISION',?)",
+            [(index,) for index in range(9)],
+        )
+    before = db.read_bytes()
+    assert _overview_serp_depth(db, "AUD-MAIN") == (9, 20)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "INSERT INTO serp_observations VALUES('SERP-COLLISION','AUD-FOREIGN',20)"
+        )
+    conflicting = db.read_bytes()
+    assert _overview_serp_depth(db, "AUD-MAIN") is None
+    assert db.read_bytes() == conflicting
+    (tmp_path / "audit.db-wal").write_bytes(b"unfinished")
+    assert _overview_serp_depth(db, "AUD-MAIN") is None
+    assert db.read_bytes() == conflicting
+    assert before != conflicting

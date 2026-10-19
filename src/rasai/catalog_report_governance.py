@@ -2,6 +2,7 @@
 from rasai.catalog_report_page import *  # noqa: F401,F403
 
 import sqlite3
+from contextlib import closing
 from math import isfinite
 
 from rasai.browser_render_failure import render_failure_public_detail
@@ -126,8 +127,19 @@ def _diagnostic_state_section(database: Path, data: _ReportData, integrity: str)
 
 def _overview_serp_depth(database: Path, audit_id: str) -> tuple[int, int] | None:
     """Scope a depth gap to precisely one persisted SERP observation."""
+    # Read-only report projection: never create missing SQLite, cross-join
+    # reused observation IDs, or trust a pending/uncheckpointed journal.
     try:
-        with sqlite3.connect(database) as con:
+        source = Path(database)
+        if (source.is_symlink() or not source.is_file() or any(
+            Path(str(source) + ending).exists()
+            for ending in ("-wal", "-shm", "-journal")
+        )):
+            return None
+        with closing(sqlite3.connect(
+            source.resolve().as_uri() + "?mode=ro", uri=True, timeout=2,
+        )) as con:
+            con.execute("PRAGMA query_only=ON")
             observed = con.execute(
                 "SELECT observation_id,requested_depth FROM serp_observations "
                 "WHERE audit_id=? LIMIT 2", (audit_id,),
@@ -138,13 +150,19 @@ def _overview_serp_depth(database: Path, audit_id: str) -> tuple[int, int] | Non
             expected = int(depth)
             if not observation_id or not 0 < expected <= 1000:
                 return None
+            identities = con.execute(
+                "SELECT audit_id FROM serp_observations "
+                "WHERE observation_id=? LIMIT 2", (observation_id,),
+            ).fetchall()
+            if len(identities) != 1 or identities[0][0] != audit_id:
+                return None
             measured = con.execute(
                 "SELECT COUNT(*) FROM serp_results WHERE observation_id=?",
                 (observation_id,),
             ).fetchone()
             returned = int(measured[0]) if measured else 0
             return (returned, expected) if 0 <= returned < expected else None
-    except (sqlite3.Error, TypeError, ValueError, OverflowError):
+    except (sqlite3.Error, OSError, TypeError, ValueError, OverflowError):
         return None
 
 
@@ -169,18 +187,24 @@ def _overview_measurement_scope_notice(
         )
     # A SARI score and a lab Lighthouse score measure different contracts.
     # Warn on a large documented divergence without changing either number.
-    try:
-        lab = float(web.get("performance_score")) if isinstance(web, Mapping) else float("nan")
-        high_sari = any(
-            str(row.get("dimension") or "") == "OVERALL_READINESS"
-            and float(row.get("value")) >= 75
-            for row in overall_scores
-            if row.get("value") is not None
-        )
-    except (TypeError, ValueError, OverflowError):
-        high_sari = False
-        lab = float("nan")
-    if isfinite(lab) and 0 <= lab <= 40 and high_sari:
+    def bounded_score(value: Any) -> float | None:
+        if value is None or isinstance(value, bool):
+            return None
+        try:
+            converted = float(value)
+        except (TypeError, ValueError, OverflowError):
+            return None
+        return converted if isfinite(converted) and 0 <= converted <= 100 else None
+
+    lab = bounded_score(web.get("performance_score")) if isinstance(web, Mapping) else None
+    high_sari = any(
+        isinstance(row, Mapping)
+        and str(row.get("dimension") or "") == "OVERALL_READINESS"
+        and (score := bounded_score(row.get("value"))) is not None
+        and score >= 75
+        for row in overall_scores
+    )
+    if lab is not None and lab <= 40 and high_sari:
         details.append(
             "O SARI acima de 75/100 coexiste com desempenho Lighthouse de laboratório "
             "baixo (até 40/100). São indicadores distintos: nota elevada no método "
@@ -453,6 +477,8 @@ def _sari_public_tone(row: Any) -> str:
 
 def _sari_coverage_public(value: Any) -> str:
     """Display SARI coverage in human units without changing the stored ratio."""
+    if value is None or isinstance(value, bool):
+        return "Não determinada"
     try:
         ratio = float(value)
     except (TypeError, ValueError, OverflowError):
@@ -473,13 +499,24 @@ def _sari_partial_dimension_notice(scores: Sequence[Mapping[str, Any]]) -> str:
             continue
         confidence = str(row.get("confidence") or "").upper()
         consolidation = str(row.get("consolidation_status") or "").upper()
-        if confidence != "LOW" and consolidation != "PARTIAL":
+        coverage = _sari_coverage_public(row.get("coverage"))
+        raw_coverage = row.get("coverage")
+        try:
+            fraction = (
+                float(raw_coverage)
+                if raw_coverage is not None and not isinstance(raw_coverage, bool)
+                else None
+            )
+        except (TypeError, ValueError, OverflowError):
+            fraction = None
+        full_coverage = fraction is not None and isfinite(fraction) and fraction == 1.0
+        if confidence != "LOW" and consolidation != "PARTIAL" and full_coverage:
             continue
         label = public_label(dimension) or _DIMENSION_LABELS.get(dimension, dimension)
         rows.append((
             label,
             _device_label(row.get("device")),
-            _sari_coverage_public(row.get("coverage")),
+            coverage,
             _confidence_label(confidence),
             _status_label(consolidation),
         ))
