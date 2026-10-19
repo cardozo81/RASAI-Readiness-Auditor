@@ -109,8 +109,8 @@ def test_malformed_typed_ini_warning_does_not_echo_original_value(tmp_path):
     marker = "PRIVATE-INPUT-MARKER-ABCD"
     path = tmp_path / "untrusted.ini"
     path.write_text(
-        "[ai]\\nmax_cycles = " + marker + "\\n"
-        "[synthetic_apdex]\\nsamples_per_context = " + marker + "\\n",
+        "[ai]\nmax_cycles = " + marker + "\n"
+        "[synthetic_apdex]\nsamples_per_context = " + marker + "\n",
         encoding="utf-8",
     )
     before = path.read_bytes()
