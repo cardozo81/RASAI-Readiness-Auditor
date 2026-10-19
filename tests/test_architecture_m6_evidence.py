@@ -200,3 +200,33 @@ def test_physical_artifact_inspection_blocks_symlinks(tmp_path):
         tmp_path, "AUD-13", "artifacts/safe.html", "artifacts/linked.html")
     assert result.status == "UNSAFE_SYMLINK"
     assert result.raw_sha256 is None
+
+
+def test_scoped_physical_snapshot_diagnostic_rejects_cross_url(tmp_path):
+    from rasai.architecture_m6_evidence import inspect_historical_snapshot_artifacts
+    folder = tmp_path / "AUD-14"
+    (folder / "artifacts").mkdir(parents=True)
+    (folder / "artifacts" / "raw.html").write_bytes(b"raw")
+    (folder / "artifacts" / "rendered.html").write_bytes(b"rendered")
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute("CREATE TABLE pages(page_id TEXT, audit_id TEXT)")
+        con.execute("""CREATE TABLE page_snapshots(
+            snapshot_id TEXT, page_id TEXT, device TEXT, requested_url TEXT,
+            final_url TEXT, architecture_classification TEXT,
+            raw_artifact_ref TEXT, rendered_artifact_ref TEXT)""")
+        con.execute("INSERT INTO pages VALUES ('P-14','AUD-14')")
+        con.execute("INSERT INTO page_snapshots VALUES (?,?,?,?,?,?,?,?)",
+                    ("S-14", "P-14", "MOBILE", "https://example.org/a",
+                     "https://example.org/a", "CSR_SPA",
+                     "artifacts/raw.html", "artifacts/rendered.html"))
+    before = (folder / "audit.db").read_bytes()
+    scope = dict(page_id="P-14", snapshot_id="S-14", device="MOBILE",
+                 requested_url="https://example.org/a",
+                 final_url="https://example.org/a")
+    good = inspect_historical_snapshot_artifacts(tmp_path, "AUD-14", **scope)
+    assert good.status == "PRESENT_UNATTESTED"
+    assert good.manifest_attested is False
+    bad = inspect_historical_snapshot_artifacts(
+        tmp_path, "AUD-14", **dict(scope, requested_url="https://example.org/b"))
+    assert bad.status == "MISSING_OR_AMBIGUOUS_IDENTITY"
+    assert (folder / "audit.db").read_bytes() == before
