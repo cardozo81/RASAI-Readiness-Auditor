@@ -414,3 +414,43 @@ def test_historical_search_boolean_flags_restore_only_explicit_values():
     assert state.search_competitive is False
     assert state.search_compare_content is True
     assert state.search_ai_competitive is True
+
+
+def test_legacy_search_snapshot_without_queries_preserves_operator_inputs():
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    state.search_queries = ("manual operator query",)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "depth": 21, "region": "BR",
+    }}, warnings)
+    assert not warnings
+    assert state.search_queries == ("manual operator query",)
+    assert state.search_depth == 21
+    assert state.search_region == "BR"
+
+
+def test_legacy_explicit_disable_clears_queries_even_without_list():
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    state.search_queries = ("manual operator query",)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "enabled": False, "depth": 16,
+    }}, warnings)
+    assert not warnings
+    assert state.search_queries == ()
+    assert state.search_depth == 16
+
+
+def test_legacy_enabled_true_without_queries_does_not_activate_old_queries():
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    state.search_queries = ()
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "enabled": True, "device": "desktop",
+    }}, warnings)
+    assert state.search_queries == ()
+    assert state.search_device == "desktop"
+    assert not warnings

@@ -313,3 +313,12 @@ exigem valores booleanos ou literais textuais reconhecidos. Entradas
 numéricas e objetos não são convertidos em políticas de execução; produzem
 aviso e preservam a configuração da sessão. A regra evita que um snapshot
 histórico inválido ative comparação de conteúdo ou análise assistida por IA.
+
+## Reconciliação de snapshots legados incompletos
+
+Um bloco `search_intelligence` histórico sem a chave `queries` não
+apaga as consultas explicitamente presentes na sessão nem fabrica opt-in.
+A escolha explícita `enabled=false` continua desabilitando consultas,
+mesmo sem lista; outros campos válidos continuam restaurados. O contrato
+distingue ausência histórica de informação de uma instrução deliberada
+para apagar estado, preservando o funcionamento independente dos catálogos.

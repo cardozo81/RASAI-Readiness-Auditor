@@ -166,12 +166,13 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
         warnings.append("search_intelligence: console atual não expõe Search Intelligence")
         return
 
+    has_queries = "queries" in search
     raw_queries = search.get("queries", [])
-    if (not isinstance(raw_queries, list)
+    if (has_queries and (not isinstance(raw_queries, list)
             or len(raw_queries) > 100
             or any(not isinstance(value, str) or len(value) > 500
                    or any(ord(ch) < 32 and ch not in "\\t\\n\\r" for ch in value)
-                   for value in raw_queries)):
+                   for value in raw_queries))):
         warnings.append("search_intelligence.queries: lista inválida")
         # An invalid historical payload must never erase the current session's
         # explicit search inputs or convert arbitrary objects into paid queries.
@@ -190,8 +191,12 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
         else:
             warnings.append("search_intelligence.enabled: valor inválido")
             enabled = None
-        if enabled is not None:
-            state.search_queries = queries if enabled else ()
+        if enabled is False:
+            state.search_queries = ()
+        elif enabled is True and has_queries:
+            state.search_queries = queries
+        # Legacy snapshots with no query list must not invent an opt-in or
+        # erase explicit operator queries merely because other fields exist.
 
     try:
         candidate = search.get("depth", getattr(state, "search_depth", 20))
