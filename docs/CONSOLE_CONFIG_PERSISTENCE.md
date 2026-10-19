@@ -799,3 +799,26 @@ valores não salvos podiam ficar ativos no processo. O writer agora é o
 restaurando o ambiente anterior se a escrita atômica falhar. O teste
 focal injeta falha de disco usando INI descartável e verifica ambiente
 inalterado, bytes preservados e mensagem de erro no menu.
+
+
+### Paridade entre serialização CLI e consumidores M23/M25 (#523, 19/10/2026)
+
+O diagnóstico opt-in `python -m rasai.console_configuration_inventory
+--ini <caminho> --verify-apdex` agora, além de inspecionar o INI físico
+em cópia descartável e invocar os adapters reais M23/M25, serializa
+**em memória** o estado restabelecido via `console_m23.append_m23_command`.
+O vetor de argumentos produzido é decodificado novamente pelo
+`m23_cli.register_apdex_arguments` e `configured_apdex` efetivos;
+as configurações tipadas resultantes de M23 e M25 devem coincidir
+integralmente com as resolvidas apenas pelo ambiente da execução.
+`cli_argv_parity_verified=true` prova somente esta paridade contratual.
+Uma divergência retorna `CLI_ARGV_CONTRACT_MISMATCH` e não silencia o erro.
+
+Parâmetros e argv potencialmente sensíveis (Dynatrace/base URL,
+JSON e caminhos) ficam em memória e nunca são impressos. O handoff
+global M25 continua intocado por captura local de `set_pending_config`,
+e `os.environ` é restaurado integralmente. Nenhum collector, Playwright,
+AUD, fornecedor nem processo de auditoria é executado. Portanto
+`cli_argv_is_real_execution=false` e `collector_execution_verified=false`
+continuam obrigatórios, mesmo com paridade positiva. O smoke Windows
+`SMOKE_523_SAVE_REOPEN_PASS` já aprovado não foi repetido.

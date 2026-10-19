@@ -343,6 +343,8 @@ def test_optional_apdex_preflight_checks_real_m23_m25_without_starting_aud(tmp_p
         assert outcome["active_m23"] is True
         assert outcome["active_m25"] is True
         assert outcome["single_device_enforced"] is True
+        assert outcome["cli_argv_parity_verified"] is True
+        assert outcome["cli_argv_is_real_execution"] is False
         assert outcome["load_warning_count"] == 0
         assert outcome["external_requests"] == outcome["audit_writes"] == 0
         assert outcome["values_exposed"] is False
@@ -1148,3 +1150,53 @@ def test_presentation_timezone_adapter_declared_without_clock_mutation_claim(tmp
     assert row["runtime_consumer"] == "NOT_PROVEN_BY_REGISTRY"
     assert row["declared_adapter_surface_is_execution_proof"] is False
     assert not (tmp_path / "none.ini").exists()
+
+
+def test_523_apdex_cli_argv_parity_without_running_collector(tmp_path):
+    """CLI argv has to survive its real parser and resolve the same M23/M25 config."""
+    from unittest.mock import patch
+    from rasai import console_settings, console_m23
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai.console_apdex_effective_validation import inspect_apdex_consumers
+
+    _install_search_persistence()
+    install()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        state.synthetic_apdex = False
+        state.apdex_experience = True
+        state.device = "mobile"
+        state.apdex_experience_kpm = "USER_ACTION_DURATION"
+        state.apdex_experience_satisfied = 2.5
+        state.apdex_experience_frustrated = 10.0
+        state.apdex_experience_xhr_capture = False
+        state.apdex_experience_fetch_capture = True
+        path = tmp_path / "safe.ini"
+        console_settings.save_console_config(state, path)
+        before = path.read_bytes()
+        os_before = dict(os.environ)
+        verified = inspect_apdex_consumers(path, environ={})
+        assert verified["status"] == "ADAPTERS_VALIDATED_OFFLINE"
+        assert verified["active_m23"] is False
+        assert verified["active_m25"] is True
+        assert verified["cli_argv_parity_verified"] is True
+        assert verified["cli_argv_is_real_execution"] is False
+        assert not verified["collector_execution_verified"]
+        assert os.environ == os_before
+        assert path.read_bytes() == before
+
+        real_append = console_m23.append_m23_command
+        def broken_serialization(command, current):
+            # A regression that drops the independent CAT-07 activation.
+            return ["--no-synthetic-apdex", "--no-apdex-experience"]
+        with patch.object(console_m23, "append_m23_command", broken_serialization):
+            rejected = inspect_apdex_consumers(path, environ={})
+        assert rejected["status"] == "CLI_ARGV_CONTRACT_MISMATCH"
+        assert rejected["cli_argv_parity_verified"] is False
+        assert rejected["active_m23"] is False
+        assert rejected["active_m25"] is True
+        assert not rejected["collector_execution_verified"]
+        assert path.read_bytes() == before
+        assert os.environ == os_before

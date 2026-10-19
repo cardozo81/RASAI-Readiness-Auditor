@@ -41,7 +41,9 @@ _DISCLOSURE = (
     "Tentativas do ledger de fulfillment incluem recuperações e trabalhos "
     "que podem sobrepor IA/HTTP; não são fases exclusivas nem tempo não-IA. "
     "Estados não terminais ou identidades incongruentes não comprovam duração, "
-    "mesmo que finished_at esteja preenchido."
+    "mesmo que finished_at esteja preenchido. A união temporal entre atividades "
+    "não é cronômetro exclusivo nem duração da AUD; intervalos sem registro "
+    "não comprovam ociosidade da auditoria."
 )
 
 
@@ -178,6 +180,25 @@ def stage_console_lines(projection: dict[str, Any]) -> tuple[str, ...]:
             "Tentativas do ledger de atividades (não exclusivas): "
             + str(work.get("attempts")) + "."
         )
+        envelope = work.get("attempt_envelope") or {}
+        if envelope.get("status") == "COMPLETE_RECORDED_ATTEMPT_COHORT":
+            lines.append(
+                "Envelope de tentativas fulfillment (não duração da AUD): "
+                "união ativa %s; soma %s; sobreposição %s; "
+                "intervalo entre primeira e última %s; lacunas entre "
+                "tentativas %s (outras atividades não medidas)." % (
+                    _duration(envelope.get("union_active_ms")),
+                    _duration(envelope.get("summed_attempt_ms")),
+                    _duration(envelope.get("overlap_attempt_ms")),
+                    _duration(envelope.get("observed_span_ms")),
+                    _duration(envelope.get("unobserved_gap_between_attempts_ms")),
+                )
+            )
+        else:
+            lines.append(
+                "Envelope fulfillment: N/D (tentativas com relógio "
+                "não terminal/incompleto); não inferir tempo total da AUD."
+            )
         for group in work.get("components", ()):
             lines.append(
                 "Atividade %s: %s tentativa(s), %s cronometrada(s), "
@@ -218,6 +239,25 @@ def stage_report_html(projection: dict[str, Any]) -> str:
         rows.append(("Atividades fulfillment: N/D (" + fulfillment_status + ")",
                      "N/D", "N/D", "N/D", "N/D"))
     if fulfillment_status == "OBSERVED_NONEXCLUSIVE_WORK_INTERVALS":
+        envelope = work.get("attempt_envelope") or {}
+        if envelope.get("status") == "COMPLETE_RECORDED_ATTEMPT_COHORT":
+            rows.append((
+                "Envelope de tentativas fulfillment (não duração da AUD; "
+                "sobreposição %s; intervalo %s; lacunas %s)"
+                % (
+                    _duration(envelope.get("overlap_attempt_ms")),
+                    _duration(envelope.get("observed_span_ms")),
+                    _duration(envelope.get("unobserved_gap_between_attempts_ms")),
+                ),
+                str(envelope.get("total_attempts")),
+                _duration(envelope.get("union_active_ms")),
+                _duration(envelope.get("summed_attempt_ms")), "N/D",
+            ))
+        else:
+            rows.append((
+                "Envelope fulfillment: N/D (cronologia incompleta)",
+                "N/D", "N/D", "N/D", "N/D",
+            ))
         for group in work.get("components", ()):
             rows.append((
                 "Atividade registrada: " + group["component"]

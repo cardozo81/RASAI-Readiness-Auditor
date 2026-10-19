@@ -153,6 +153,10 @@ def inspect_apdex_consumers(
         "values_exposed": False,
         "collector_execution_verified": False,
         "dynatrace_live_verified": False,
+        # Serialized argv -> real M23/M25 parser in a detached process
+        # projection. Never mistake this for a browser/collector execution.
+        "cli_argv_parity_verified": False,
+        "cli_argv_is_real_execution": False,
     }
     candidate = Path(path)
     original_bytes, original_identity, source_status = _verified_source(candidate)
@@ -209,6 +213,24 @@ def inspect_apdex_consumers(
             if len(captured) != 2:
                 return {**base, "status": "CONFIG_OR_ADAPTER_INVALID"}
             experience = captured[-1]
+            # Verify the actual console command serializer against the CLI
+            # parser/consumers, not just state -> projected environment.
+            # The serialized argv is held only in memory, never logged or
+            # included in the returned diagnostic (Dynatrace paths/JSON can
+            # be present as arguments).
+            from rasai.console_m23 import append_m23_command
+            serialized = append_m23_command([], state)
+            captured.clear()
+            replayed_navigation = m23_cli.configured_apdex(
+                parser.parse_args(serialized), env=executor_env,
+            )
+            if len(captured) != 2:
+                return {**base, "status": "CLI_ARGV_CONTRACT_INVALID"}
+            replayed_experience = captured[-1]
+            argv_matches = (
+                navigation == replayed_navigation
+                and experience == replayed_experience
+            )
         # A digest alone cannot detect replacement with identical bytes.
         # Recheck the bounded original source and its physical identity.
         current_bytes, current_identity, current_status = _verified_source(candidate)
@@ -221,7 +243,12 @@ def inspect_apdex_consumers(
             return {**base, "status": "SOURCE_CHANGED"}
         return {
             **base,
-            "status": "ADAPTERS_PARTIAL_LOAD_WARNINGS" if result.warnings else "ADAPTERS_VALIDATED_OFFLINE",
+            "status": (
+                "CLI_ARGV_CONTRACT_MISMATCH" if not argv_matches
+                else "ADAPTERS_PARTIAL_LOAD_WARNINGS" if result.warnings
+                else "ADAPTERS_VALIDATED_OFFLINE"
+            ),
+            "cli_argv_parity_verified": argv_matches,
             "active_m23": bool(navigation.enabled),
             "active_m25": bool(experience.enabled),
             "single_device_enforced": (

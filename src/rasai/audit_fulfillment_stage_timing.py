@@ -63,6 +63,7 @@ def fulfillment_attempt_intervals(
         recovery: dict[str, int] = defaultdict(int)
         unsuccessful: dict[str, int] = defaultdict(int)
         non_terminal: dict[str, int] = defaultdict(int)
+        cohort_intervals: list[tuple[float, float]] = []
         for attempt, component, started, finished, status, reprocess_id, work_aud, attempt_aud in rows:
             # A foreign/orphan work item or duplicated LEFT JOIN match must
             # invalidate the cohort, never vanish silently from denominators.
@@ -90,6 +91,7 @@ def fulfillment_attempt_intervals(
                 groups[component].append(None)
             else:
                 groups[component].append((first, last))
+                cohort_intervals.append((first, last))
             if not terminal:
                 non_terminal[component] += 1
             if reprocess_id is not None:
@@ -117,10 +119,46 @@ def fulfillment_attempt_intervals(
                 "exclusive_phase_timer": False,
                 "overlap_with_ai_or_http_possible": True,
             })
+        # Cross-component attempt envelope: the union across ALL work-item
+        # attempts (not the sum of per-component active times). Gaps between
+        # first and last attempt are not "idle AUD" since activity outside
+        # the fulfillment ledger may be unobserved.
+        all_timed = len(cohort_intervals) == len(rows)
+        if all_timed:
+            active = _interval_union(cohort_intervals)
+            summed_all = sum(end - start for start, end in cohort_intervals)
+            elapsed_span = (
+                max(end for _, end in cohort_intervals)
+                - min(start for start, _ in cohort_intervals)
+            )
+            envelope = {
+                "status": "COMPLETE_RECORDED_ATTEMPT_COHORT",
+                "attempts_with_timing": len(cohort_intervals),
+                "total_attempts": len(rows),
+                "summed_attempt_ms": summed_all,
+                "union_active_ms": active,
+                "overlap_attempt_ms": max(0.0, summed_all - active),
+                "observed_span_ms": elapsed_span,
+                "unobserved_gap_between_attempts_ms": max(0.0, elapsed_span - active),
+                "exclusive_audit_or_non_ai_wall_time_proven": False,
+            }
+        else:
+            envelope = {
+                "status": "INCOMPLETE_ATTEMPT_COHORT",
+                "attempts_with_timing": len(cohort_intervals),
+                "total_attempts": len(rows),
+                "summed_attempt_ms": None,
+                "union_active_ms": None,
+                "overlap_attempt_ms": None,
+                "observed_span_ms": None,
+                "unobserved_gap_between_attempts_ms": None,
+                "exclusive_audit_or_non_ai_wall_time_proven": False,
+            }
         return {
             **absent,
             "status": "OBSERVED_NONEXCLUSIVE_WORK_INTERVALS",
             "attempts": len(rows), "components": components,
+            "attempt_envelope": envelope,
             "posthoc_only": True,
             "work_outside_initial_audit_possible": True,
         }

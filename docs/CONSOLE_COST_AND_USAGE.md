@@ -293,3 +293,28 @@ mesmo número para outra URL, nem inferir tokens, tempo, custo ou
 consentimento de chamadas futuras. A prévia continua sem calcular
 custo total na ausência de consumo comparável, preservando o gate
 financeiro anterior à AUD. Nenhum orquestrador ou preço foi modificado.
+
+
+## Envelope temporal observado entre componentes fulfillment (#319, 19/10/2026)
+
+Além de durações por `component`, o leitor de
+`audit_fulfillment_attempts` monta um **envelope temporal único** sobre
+as tentativas válidas de trabalho da AUD, inclusive componentes distintos
+e RPR. Quando **todas** as tentativas possuem estados terminais e relógios
+positivos verificáveis, a união de intervalos evita somar tempo
+sobreposto; também informa soma física dos intervalos, sobreposição,
+amplitude do primeiro início ao último fim e lacunas sem tentativas
+registradas. Todos os indicadores dizem respeito **ao ledger de
+tentativas de trabalho**, não ao wall-clock completo da AUD.
+
+Se uma única tentativa é não terminal/sem relógio/duração inválida, o
+envelope inteiro apresenta `INCOMPLETE_ATTEMPT_COHORT` e métricas N/D
+(sem fabricar um total por subconjunto), enquanto a métrica própria
+dos componentes íntegros permanece. Lacunas entre tentativas podem conter
+HTTP, browser, relatório ou IA não registrada neste ledger e **não
+comprovam auditoria ociosa**. A sobreposição é interseção de tentativas,
+não concorrência exclusiva nem economia de tempo. O console e o HTML
+publicam essas ressalvas; nenhum motor, score ou token/custo é alterado.
+As fixtures físicas SQLite medem três intervalos (soma 4,25 s;
+união 3,75 s; sobreposição 0,50 s; amplitude 4,00 s;
+lacuna 0,25 s) e recusam cronologia parcial.

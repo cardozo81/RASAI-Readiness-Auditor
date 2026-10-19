@@ -57,6 +57,11 @@ def test_319_fulfillment_physical_attempts_are_nonexclusive_not_subtracted_from_
     assert components["CAT-04"]["complete_time_intervals"] == 0
     assert components["CAT-04"]["summed_ms"] is None
     assert components["CAT-04"]["unknown_time_intervals"] == 1
+    envelope = work["attempt_envelope"]
+    assert envelope["status"] == "INCOMPLETE_ATTEMPT_COHORT"
+    assert envelope["attempts_with_timing"] == 2
+    assert envelope["total_attempts"] == 3
+    assert envelope["union_active_ms"] is None
     assert "UNRELATED" not in components
     assert db.read_bytes() == original
     projection = inspect_stage_economics(db, "AUD-319")
@@ -184,3 +189,53 @@ def test_319_duplicate_join_or_noncanonical_identifier_abstains(tmp_path):
         assert outcome["status"] == "INCONSISTENT_AUD_IDENTITIES"
         assert outcome["components"] == []
         assert db.read_bytes() == before
+
+
+def test_319_cross_component_timeline_envelope_is_not_aud_walltime(tmp_path):
+    db = _source(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE audit_fulfillment_attempts "
+            "SET status='SUCCESS',finished_at='2026-10-08T15:00:04Z' "
+            "WHERE attempt_id='T-3'"
+        )
+    original = db.read_bytes()
+    with sqlite3.connect(db.resolve().as_uri() + "?mode=ro&immutable=1", uri=True) as con:
+        report = fulfillment_attempt_intervals(con, "AUD-319")
+    envelope = report["attempt_envelope"]
+    assert envelope["status"] == "COMPLETE_RECORDED_ATTEMPT_COHORT"
+    assert envelope["attempts_with_timing"] == 3
+    assert envelope["total_attempts"] == 3
+    assert envelope["summed_attempt_ms"] == 4250
+    assert envelope["union_active_ms"] == 3750
+    assert envelope["overlap_attempt_ms"] == 500
+    assert envelope["observed_span_ms"] == 4000
+    assert envelope["unobserved_gap_between_attempts_ms"] == 250
+    assert envelope["exclusive_audit_or_non_ai_wall_time_proven"] is False
+    timeline = inspect_stage_economics(db, "AUD-319")
+    assert timeline["fulfillment"]["attempt_envelope"] == envelope
+    console = "\n".join(stage_console_lines(timeline))
+    html = stage_report_html(timeline)
+    assert "união ativa 3.75 s" in console
+    assert "sobreposição 0.50 s" in console
+    assert "lacunas entre tentativas 0.25 s" in console
+    assert "Envelope de tentativas fulfillment" in html
+    assert "3.75 s" in html and "4.25 s" in html
+    assert "não duração da AUD" in html
+    assert db.read_bytes() == original
+
+
+def test_319_partial_work_cohort_must_not_display_total_duration(tmp_path):
+    db = _source(tmp_path)
+    original = db.read_bytes()
+    outcome = inspect_stage_economics(db, "AUD-319")
+    envelope = outcome["fulfillment"]["attempt_envelope"]
+    assert envelope["status"] == "INCOMPLETE_ATTEMPT_COHORT"
+    for key in (
+        "summed_attempt_ms", "union_active_ms", "overlap_attempt_ms",
+        "observed_span_ms", "unobserved_gap_between_attempts_ms",
+    ):
+        assert envelope[key] is None
+    assert "Envelope fulfillment: N/D" in "\n".join(stage_console_lines(outcome))
+    assert "Envelope fulfillment: N/D" in stage_report_html(outcome)
+    assert db.read_bytes() == original
