@@ -6,6 +6,7 @@ validated against an independently configured public key.
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import json
 import os
@@ -87,7 +88,7 @@ def verify_capture(audit_id: str, page_id: str, snapshot_id: str,
     try:
         from cryptography.hazmat.primitives import serialization
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-        from cryptography.exceptions import InvalidSignature
+        from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
         public = serialization.load_pem_public_key(Path(os.environ[VERIFY_KEY]).read_bytes())
         if not isinstance(public, Ed25519PublicKey):
             return "TRUST_ANCHOR_INVALID"
@@ -102,6 +103,7 @@ def verify_capture(audit_id: str, page_id: str, snapshot_id: str,
         payload = _payload(audit_id, page_id, snapshot_id, requested_url,
                            final_url, device, binding)
         public.verify(signature, _canonical(payload))
-    except (OSError, ValueError, TypeError, KeyError, InvalidSignature):
+    except (OSError, ValueError, TypeError, KeyError, InvalidSignature,
+            UnsupportedAlgorithm, binascii.Error):
         return "SIGNATURE_INVALID"
     return "ATTESTED_ED25519"

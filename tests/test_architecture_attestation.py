@@ -152,3 +152,20 @@ def test_signed_m6_evidence_is_verifiable_end_to_end(tmp_path, monkeypatch):
     assert len(read_audit_architecture_observations(tmp_path, "AUD-ATTEST")) == 1
     rendered.write_bytes(b"<main>tampered</main>")
     assert read_audit_architecture_observations(tmp_path, "AUD-ATTEST") == ()
+
+
+def test_malformed_signature_is_rejected_without_unhandled_exception(monkeypatch):
+    """Untrusted SQLite metadata must abstain even with malformed base64."""
+    pytest.importorskip("cryptography")
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from hashlib import sha256
+    key = Ed25519PrivateKey.generate()
+    public = key.public_key()
+    raw = public.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    monkeypatch.setenv(VERIFY_KEY, "/nonexistent/rasai-attestation.pem")
+    assert verify_capture(*_identity(), {
+        "version": "architecture-ed25519-v1",
+        "signature": "!!!not-valid-base64!!!",
+        "key_fingerprint": sha256(raw).hexdigest(),
+    }) == "SIGNATURE_INVALID"
