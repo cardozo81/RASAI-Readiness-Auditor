@@ -134,3 +134,26 @@ def test_historical_m6_rejects_unsafe_artifact_references(tmp_path):
     assert len(observations) == 1
     assert observations[0].snapshot_id == "S-good"
     assert (folder / "audit.db").read_bytes() == before
+
+
+def test_snapshot_id_reused_across_urls_abstains_for_both_scopes(tmp_path):
+    folder = tmp_path / "AUD-11"
+    folder.mkdir()
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute("CREATE TABLE pages(page_id TEXT, audit_id TEXT)")
+        con.execute("""CREATE TABLE page_snapshots(
+            snapshot_id TEXT, page_id TEXT, device TEXT, requested_url TEXT,
+            final_url TEXT, architecture_classification TEXT,
+            raw_artifact_ref TEXT, rendered_artifact_ref TEXT)""")
+        con.execute("INSERT INTO pages VALUES ('P-11','AUD-11')")
+        con.executemany("INSERT INTO page_snapshots VALUES (?,?,?,?,?,?,?,?)", [
+            ("S-11", "P-11", "MOBILE", url, url, arch,
+             "raw/a.html", "rendered/a.html")
+            for url, arch in [
+                ("https://example.org/a", "CSR_SPA"),
+                ("https://example.org/b", "STATIC_OR_SSR"),
+            ]
+        ])
+    original = (folder / "audit.db").read_bytes()
+    assert read_audit_architecture_observations(tmp_path, "AUD-11") == ()
+    assert (folder / "audit.db").read_bytes() == original
