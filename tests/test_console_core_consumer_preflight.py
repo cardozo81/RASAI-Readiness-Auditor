@@ -46,6 +46,7 @@ def test_523_core_web_ai_command_reaches_real_parsers_and_consumers(tmp_path):
         assert outcome["status"] == "CORE_CLI_PARITY_VERIFIED"
         assert outcome["typed_fields_to_cli_verified"] is True
         assert outcome["effective_ai_timeout_verified"] is True
+        assert outcome["effective_ai_cycle_policy_verified"] is True
         assert outcome["effective_web_config_verified"] is True
         assert outcome["web_external_prerequisite"] == "NOT_REQUIRED"
         assert outcome["configured_target_in_ini"] is True
@@ -112,3 +113,49 @@ def test_523_no_creation_symlink_and_invalid_ini_are_bounded(tmp_path):
     except (OSError, NotImplementedError):
         return
     assert inspect_core_consumers(shortcut)["status"] == "SOURCE_UNAVAILABLE"
+
+
+def test_523_canonical_ai_cycle_policy_receives_nondefault_session_values(tmp_path):
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai import console_settings
+    with patch.dict(os.environ, {}, clear=True):
+        _install_search_persistence()
+        install()
+        state = SearchConsoleState()
+        state.target = "https://example.test/policy"
+        state.ai_provider = "openai"
+        state.ai_max_cycles = 2
+        state.ai_cycle_delay = 3.5
+        ini = tmp_path / "policy.ini"
+        console_settings.save_console_config(state, ini)
+        before = ini.read_bytes()
+        result = inspect_core_consumers(ini, environ={})
+        assert result["status"] == "CORE_CLI_PARITY_VERIFIED"
+        assert result["effective_ai_cycle_policy_verified"] is True
+        assert result["physical_runtime_execution_verified"] is False
+        assert ini.read_bytes() == before
+
+
+def test_523_ai_cycle_preflight_catches_nonfinite_poison_without_writes(tmp_path):
+    from rasai import console_settings
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    with patch.dict(os.environ, {}, clear=True):
+        _install_search_persistence()
+        install()
+        state = SearchConsoleState()
+        state.target = "https://example.test/policy"
+        state.ai_provider = "openai"
+        path = tmp_path / "policy.ini"
+        console_settings.save_console_config(state, path)
+        ini = path.read_text(encoding="utf-8")
+        ini = ini.replace("cycle_delay_seconds = 60", "cycle_delay_seconds = inf")
+        path.write_text(ini, encoding="utf-8")
+        before = path.read_bytes()
+        result = inspect_core_consumers(path, environ={})
+        assert result["status"] in {"INI_OR_RUNTIME_INVALID", "INI_LOAD_WARNINGS"}
+        assert not result["effective_ai_cycle_policy_verified"]
+        assert path.read_bytes() == before

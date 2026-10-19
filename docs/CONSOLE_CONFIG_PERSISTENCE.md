@@ -917,3 +917,34 @@ de save/reopen já aprovado. Testes novos cobrem Web/IA não-default,
 CrUX sem credencial, destino não informado, mutação negativa de
 serializador, INI ilegível e symlink. Nenhuma fixture constitui por si
 prova de execução física de AI/M21/GSC ou contrato de consentimento.
+
+
+### Gate de configuração GSC e política de amostragem (#523, 19/10/2026)
+
+O inventário aceita `--verify-gsc`, opcional e combinável com
+`--verify-core --verify-search --verify-apdex`. Lê o INI em cópia
+descartável com identidade/digest físico, restabelece as entradas não
+secretas do operador e chama as funções **reais** de
+`gsc_scope.gsc_request_mode`, `gsc_scope.gsc_property_covers_url`,
+`gsc_oauth.credential_state` e limites de
+`standards_gsc_policy`. A conferência distingue configuração GSC
+REQUIRED/AUTO/DISABLED, cobertura estrutural da property frente à URL,
+OAuth bearer presente versus refresh credentials completos, e flags
+de amostragem Search Analytics. O default do target ausente não é
+promovido a escopo de property.
+
+Uma property `sc-domain:` ou URL-prefix compatível **não prova**
+a legitimidade do token ou que a conta possui aquela propriedade.
+`LOCAL_SCOPE_AND_OAUTH_CONFIG_VERIFIED` significa **somente paridade
+de configuração local**: `authenticated_property_access_verified=false`,
+`real_gsc_api_usage_verified=false`, `gsc_data_finality_verified=false`
+e `provider_requests=0` por contrato. Nenhum refresh token é trocado;
+nenhuma credencial, URL de alvo, property ou valor específico de
+configuração sai no JSON. A fonte e `os.environ` são preservados.
+
+O gate `--verify-core` também testa agora as entradas
+`RASAI_AI_MAX_CYCLES` e `RASAI_AI_CYCLE_DELAY_SECONDS` contra o
+construtor canônico `AiExecutionPolicy`, não apenas timeout de IA.
+Confirma validação do tipo/faixa, sem chamar provider nem esperar delay.
+Fixtures com source GSC/OAuth sintéticos e política IA fora do default
+foram adicionadas. Não requer nova AUD nem repetir smokes de 523.

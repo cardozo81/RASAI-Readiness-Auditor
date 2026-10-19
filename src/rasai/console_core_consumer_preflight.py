@@ -26,6 +26,7 @@ def inspect_core_consumers(
         "contract": CONTRACT, "status": "NOT_VERIFIABLE",
         "typed_fields_to_cli_verified": False,
         "effective_ai_timeout_verified": False,
+        "effective_ai_cycle_policy_verified": False,
         "effective_web_config_verified": False,
         "web_external_prerequisite": "NOT_EVALUATED",
         "configured_target_in_ini": False,
@@ -99,6 +100,19 @@ def inspect_core_consumers(
                 effective_ai_timeout = math.isclose(value, state.ai_timeout)
             # AI_TIMEOUT_ENV still traverses the runtime projection when
             # provider=none, but no provider consumes it in that scenario.
+            # Check the live canonical policy constructor without executing
+            # an AI need, invoking models or sleeping between cycles.
+            from rasai.ai_canonical_orchestration import (
+                AiExecutionPolicy, AI_MAX_CYCLES_ENV, AI_CYCLE_DELAY_ENV,
+            )
+            policy = AiExecutionPolicy(
+                max_cycles=int(os.environ[AI_MAX_CYCLES_ENV]),
+                cycle_delay_seconds=float(os.environ[AI_CYCLE_DELAY_ENV]),
+            )
+            ai_policy_match = (
+                policy.max_cycles == state.ai_max_cycles
+                and math.isclose(policy.cycle_delay_seconds, state.ai_cycle_delay)
+            )
             web_state = "DISABLED"
             web_match = False
             try:
@@ -125,7 +139,7 @@ def inspect_core_consumers(
                 # Most importantly, no fake CrUX key or paid consent is
                 # invented to force a green adapter preflight.
                 web_state = "UNVERIFIED"
-            verified = cli_match and web_match
+            verified = cli_match and web_match and ai_policy_match
         checked, final_identity, final_status = _verified_source(source)
         if (final_status != "READY" or identity != final_identity
                 or checked is None or sha256(checked).digest() != digest):
@@ -141,6 +155,7 @@ def inspect_core_consumers(
             ),
             "typed_fields_to_cli_verified": cli_match,
             "effective_ai_timeout_verified": effective_ai_timeout,
+            "effective_ai_cycle_policy_verified": ai_policy_match,
             "effective_web_config_verified": web_match,
             "web_external_prerequisite": web_state,
             "configured_target_in_ini": target_present,
