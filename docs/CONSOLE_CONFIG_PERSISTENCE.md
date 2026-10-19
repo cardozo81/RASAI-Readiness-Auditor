@@ -882,3 +882,38 @@ silenciosamente. Isso evita ampliar o escopo de requests após um
 complemento/reprocessamento; não modifica o motor Search nem habilita
 recoleção. As fixtures cobrem zeros, flags, divergência deliberada de
 serializador, INI inconsistente, confidencialidade e ausência de escrita.
+
+
+### Gate isolado de consumo dos adaptadores centrais IA/Web (#523)
+
+Com o mesmo INI físico de consulta da auditoria, sem reabrir menu nem
+realizar nova AUD, o inventário passa a oferecer:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai.console_configuration_inventory `
+  --ini "caminho\rasai-console.ini" --verify-core
+```
+
+O adaptador `console_core_consumer_preflight.inspect_core_consumers`
+lê bytes com identidade/SHA-256 limitados, hidrata um estado de console
+na cópia descartável, aplica sua projeção de variáveis **não secretas**,
+serializa o comando canônico por `console_config.build_command` e compara
+os campos AI/Web/escopo com `cli_extensions.build_parser`. Verifica
+o consumer real `cli._configured_web_performance` sem chamar PageSpeed,
+CrUX, navegador ou servidor; com IA selecionada, confirma somente a
+interpretação do timeout no adapter `cli._configured_ai_timeout_seconds`,
+**não a escolha efetiva de provider, modelo ou custo**.
+
+Quando Web=ON e field_source=crux sem chave externa de CrUX, informa
+`EXTERNAL_WEB_PREREQUISITE_UNVERIFIED`; não inventa chave API para
+satisfazer o teste. Uma configuração sem URL de destino é validável
+somente na camada CLI e retorna `CLI_PARITY_TARGET_NOT_SET` em vez de
+fingir autorização para nova AUD. Os resultados não contêm modelo,
+projeto, URL, argumentos do CLI, paths nem segredos; o INI original,
+a AUD e o ambiente do processo são preservados. Para execução humana,
+é possível compor `--verify-core --verify-search --verify-apdex` em um
+único inventário offline; não há necessidade de repetir o smoke real
+de save/reopen já aprovado. Testes novos cobrem Web/IA não-default,
+CrUX sem credencial, destino não informado, mutação negativa de
+serializador, INI ilegível e symlink. Nenhuma fixture constitui por si
+prova de execução física de AI/M21/GSC ou contrato de consentimento.

@@ -524,6 +524,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="offline M23/M25 adapter validation on an isolated INI copy; no audit or APIs",
     )
     parser.add_argument(
+        "--verify-core", action="store_true",
+        help="verify core AI/Web console INI -> real audit CLI consumer offline",
+    )
+    parser.add_argument(
         "--verify-search", action="store_true",
         help="check SERP console INI -> governed AUD argv -> real CLI parser offline",
     )
@@ -537,6 +541,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.console_apdex_effective_validation import inspect_apdex_consumers
         selected = args.ini if args.ini is not None else canonical_console_config_path()
         report["apdex_offline_consumer_preflight"] = inspect_apdex_consumers(selected)
+    if args.verify_core:
+        from rasai.console_core_consumer_preflight import inspect_core_consumers
+        selected = args.ini if args.ini is not None else canonical_console_config_path()
+        report["core_offline_consumer_preflight"] = inspect_core_consumers(selected)
     if args.verify_search:
         from rasai.console_search_consumer_preflight import inspect_search_consumers
         selected = args.ini if args.ini is not None else canonical_console_config_path()

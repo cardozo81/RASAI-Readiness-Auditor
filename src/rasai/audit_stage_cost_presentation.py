@@ -88,8 +88,16 @@ def inspect_stage_economics(database: Path, audit_id: str) -> dict[str, Any]:
                 "name": _STAGE_LABELS.get(stage.name, stage.name),
                 "operation": stage.name,
                 "attempts": stage.attempts,
-                "summed_ms": stage.summed_duration_ms,
+                "summed_ms": (
+                    stage.summed_duration_ms if not stage.unknown_intervals else None
+                ),
                 "active_ms": stage.union_active_ms,
+                "timing_complete": stage.unknown_intervals == 0,
+                # Raw subtotal is retained only as machine-readable partial
+                # evidence; never displayed as the full stage duration.
+                "partial_recorded_duration_ms": (
+                    stage.summed_duration_ms if stage.unknown_intervals else None
+                ),
                 "overlap_ms": stage.overlapping_duration_ms,
                 "unknown_intervals": stage.unknown_intervals,
                 "priced_attempts": covered,
@@ -114,8 +122,15 @@ def inspect_stage_economics(database: Path, audit_id: str) -> dict[str, Any]:
                 for name, value in sorted(http.items())
             ],
             "attempts": timeline.attempts,
-            "total_summed_ms": timeline.summed_duration_ms,
+            "total_summed_ms": (
+                timeline.summed_duration_ms if not timeline.unknown_intervals else None
+            ),
             "total_union_ms": timeline.union_active_ms,
+            "timing_complete": timeline.unknown_intervals == 0,
+            "unknown_ai_intervals": timeline.unknown_intervals,
+            "partial_recorded_duration_ms": (
+                timeline.summed_duration_ms if timeline.unknown_intervals else None
+            ),
             "non_ai_stages": _NON_AI, "limitations": _DISCLOSURE,
             "fulfillment": work,
             "provider_requests": 0, "audit_writes": 0,
@@ -159,6 +174,12 @@ def stage_console_lines(projection: dict[str, Any]) -> tuple[str, ...]:
             _duration(projection["total_union_ms"]),
         )
     ]
+    if projection.get("unknown_ai_intervals", 0):
+        lines.append(
+            "Relógios IA incompletos: %s tentativa(s) sem intervalo "
+            "verificável; soma total e união permanecem N/D."
+            % projection["unknown_ai_intervals"]
+        )
     for stage in projection["stages"]:
         lines.append("%s: %s chamada(s); ativo %s; soma %s; custo %s." % (
             stage["name"], stage["attempts"], _duration(stage["active_ms"]),
@@ -274,8 +295,17 @@ def stage_report_html(projection: dict[str, Any]) -> str:
                          for value in row) + "</tr>"
         for row in rows
     )
+    timing_notice = (
+        "<div class='notice warn'>Cronologia IA incompleta: "
+        + escape(str(projection.get("unknown_ai_intervals", 0)), quote=True)
+        + " tentativa(s) sem relógio atribuível; soma total N/D "
+        "e união ativa N/D. Preços podem ter cobertura independente "
+        "e não provam duração.</div>"
+        if projection.get("unknown_ai_intervals", 0) else ""
+    )
     return (
-        "<p>Tentativas IA de M18 e M20: <strong>%s</strong>; soma "
+        timing_notice
+        + "<p>Tentativas IA de M18 e M20: <strong>%s</strong>; soma "
         "<strong>%s</strong>; união ativa <strong>%s</strong>. "
         "União ativa não equivale a duração da AUD.</p>"
         "<div class='table-wrap'><table><thead><tr>"

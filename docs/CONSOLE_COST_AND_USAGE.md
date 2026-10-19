@@ -318,3 +318,26 @@ publicam essas ressalvas; nenhum motor, score ou token/custo é alterado.
 As fixtures físicas SQLite medem três intervalos (soma 4,25 s;
 união 3,75 s; sobreposição 0,50 s; amplitude 4,00 s;
 lacuna 0,25 s) e recusam cronologia parcial.
+
+
+## Gate de completude da cronometria de tentativas IA (#319, 19/10/2026)
+
+Uma etapa pode possuir custo estimado conhecido sem que exista intervalo
+físico de início/fim verificável. O leitor canônico continua preservando
+o subtotal bruto histórico das durações quando houver medição parcial;
+**o console/HTML não o apresenta como soma total**. A projeção de
+apresentação `inspect_stage_economics` passa a publicar
+`timing_complete=false`, `unknown_ai_intervals` e
+`total_summed_ms=null` quando **qualquer** tentativa IA de M18/M20
+carece de relógio válido. A mesma regra vale para cada etapa individual:
+`summed_ms=null`, `active_ms=null` e aviso de N/D. Para depuração
+estruturada, o subtotal aferido fica sob
+`partial_recorded_duration_ms` explicitamente nomeado, sem ser
+interpretado como tempo total nem como tempo não-IA.
+
+A cobertura monetária permanece independente do relógio: custo
+comprovadamente USD de tentativas sem timing não é descartado, tampouco
+é tratado como fatura ou execução adicional. Fixtures SQLite focais
+incluem uma coorte IA parcialmente cronometrada e outra integralmente
+medida. Nenhum ajuste em pricing, cronômetro de coletor, orquestrador,
+score ou previsão ex ante é realizado.

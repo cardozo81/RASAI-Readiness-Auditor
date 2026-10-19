@@ -399,3 +399,75 @@ def test_noncanonical_ai_ledger_attempt_identity_refuses_cost_census(tmp_path, b
     with pytest.raises(ValueError, match="ambiguous AI attempt_id"):
         read_audit_attempt_timeline(database, "AUD-A")
     assert database.read_bytes() == before
+
+
+def test_319_incomplete_ai_clocks_do_not_render_partial_sum_as_total(tmp_path):
+    """A priced attempt without timestamps is not a zero-second interval."""
+    from rasai.audit_stage_cost_presentation import (
+        inspect_stage_economics, stage_console_lines, stage_report_html,
+    )
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE ai_provider_attempts("
+            "attempt_id TEXT,audit_id TEXT,operation TEXT,"
+            "started_at TEXT,finished_at TEXT,duration_ms REAL,"
+            "estimated_cost REAL,cost_currency TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?)",
+            [
+                ("A-1", "AUD-PARTIAL-319", "IMPROVEMENT_INTELLIGENCE",
+                 "2026-10-19T10:00:00Z", "2026-10-19T10:00:02Z",
+                 2000, .02, "USD"),
+                ("A-2", "AUD-PARTIAL-319", "IMPROVEMENT_INTELLIGENCE",
+                 None, None, None, .03, "USD"),
+            ],
+        )
+    physical = db.read_bytes()
+    result = inspect_stage_economics(db, "AUD-PARTIAL-319")
+    assert result["status"] == "READ_ONLY_OBSERVED"
+    assert result["attempts"] == 2
+    assert result["unknown_ai_intervals"] == 1
+    assert result["timing_complete"] is False
+    assert result["total_summed_ms"] is None
+    assert result["total_union_ms"] is None
+    assert result["partial_recorded_duration_ms"] == 2000
+    assert len(result["stages"]) == 1
+    stage = result["stages"][0]
+    assert stage["summed_ms"] is None
+    assert stage["active_ms"] is None
+    assert stage["partial_recorded_duration_ms"] == 2000
+    assert stage["priced_attempts"] == 2
+    assert stage["usd_posthoc"] == .05
+    console = "\n".join(stage_console_lines(result))
+    html = stage_report_html(result)
+    assert "Relógios IA incompletos: 1" in console
+    assert "soma total N/D" in html
+    assert "Tempo ativo" in html
+    assert "0.00 s" not in html
+    assert db.read_bytes() == physical
+
+
+def test_319_full_ai_clocks_preserve_complete_stage_timing(tmp_path):
+    from rasai.audit_stage_cost_presentation import inspect_stage_economics
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE content_remediation_attempts("
+            "attempt_id TEXT,audit_id TEXT,started_at TEXT,finished_at TEXT,"
+            "estimated_cost REAL,cost_currency TEXT)"
+        )
+        con.execute(
+            "INSERT INTO content_remediation_attempts VALUES (?,?,?,?,?,?)",
+            ("R-1", "AUD-FULL-319",
+             "2026-10-19T10:00:00Z", "2026-10-19T10:00:02Z", .01, "USD"),
+        )
+    result = inspect_stage_economics(db, "AUD-FULL-319")
+    assert result["status"] == "READ_ONLY_OBSERVED"
+    assert result["unknown_ai_intervals"] == 0
+    assert result["timing_complete"] is True
+    assert result["total_summed_ms"] == 2000
+    assert result["total_union_ms"] == 2000
+    assert result["stages"][0]["summed_ms"] == 2000
+    assert result["stages"][0]["partial_recorded_duration_ms"] is None
