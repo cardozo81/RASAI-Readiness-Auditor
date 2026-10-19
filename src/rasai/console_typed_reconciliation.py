@@ -13,12 +13,9 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from rasai.console_configuration_inventory import _ini_with_status
+from rasai.time_contract import validate_presentation_timezone
 
 CONTRACT = "RASAI-CONSOLE-TYPED-RECONCILIATION-523-001"
-_TYPED = frozenset({
-    "console", "ai", "web_performance",
-    "synthetic_apdex", "synthetic_apdex_experience",
-})
 _CORE_RUNTIME = {
     ("console", "device"): "RASAI_DEVICE_CONTEXT",
     ("ai", "timeout_seconds"): "RASAI_AI_TIMEOUT_SECONDS",
@@ -96,8 +93,11 @@ def inspect_typed_configuration(ini_path: Path) -> dict[str, Any]:
     state = SearchConsoleState()
     current = console_settings._state_values(state)
     entries: list[dict[str, str | bool | None]] = []
+    # The installed console adapters own additional typed sections (SERP,
+    # Perplexity draft and presentation). Reconcile the entire live schema,
+    # not a stale five-section allowlist.
     for section in current:
-        if section not in _TYPED:
+        if section == "environment":
             continue
         physical = parser._sections.get(section, {})
         for option in current[section]:
@@ -113,7 +113,12 @@ def inspect_typed_configuration(ini_path: Path) -> dict[str, Any]:
                 try:
                     # The state is a detached object. Do not assign presentation
                     # timezone: that adapter writes os.environ.
-                    console_settings._assign(state, section, option, physical[option])
+                    if section == "presentation" and option == "timezone":
+                        # _assign writes os.environ; use its pure validator in a
+                        # metadata-only inspection of the operator's source.
+                        validate_presentation_timezone(physical[option])
+                    else:
+                        console_settings._assign(state, section, option, physical[option])
                 except (ValueError, TypeError, OverflowError):
                     kind = "INVALID_TYPED_VALUE"
                 else:
@@ -132,6 +137,35 @@ def inspect_typed_configuration(ini_path: Path) -> dict[str, Any]:
                 "source": "INI",
                 "runtime_projection_key": None, "runtime_input_proven": False,
                 "count": len(unrecognized),
+            })
+    # These physically persisted inputs cannot be safely round-tripped by
+    # the current loader/save guard. Unknown names and values are never echoed.
+    unowned_sections = set(parser.sections()) - set(current) - {"environment"}
+    if unowned_sections:
+        entries.append({
+            "field": "INI.[unrecognized-sections]",
+            "state": "UNRECOGNIZED_INPUT_COUNT",
+            "source": "INI", "runtime_projection_key": None,
+            "runtime_input_proven": False, "count": len(unowned_sections),
+        })
+    if parser.defaults():
+        entries.append({
+            "field": "DEFAULT.[unrecognized-fields]",
+            "state": "UNRECOGNIZED_INPUT_COUNT",
+            "source": "INI", "runtime_projection_key": None,
+            "runtime_input_proven": False, "count": len(parser.defaults()),
+        })
+    if parser.has_section("environment"):
+        allowed_environment = set(console_settings._known_nonsecret_environment_names())
+        unowned_environment = (
+            set(parser._sections["environment"]) - allowed_environment
+        )
+        if unowned_environment:
+            entries.append({
+                "field": "environment.[unrecognized-fields]",
+                "state": "UNRECOGNIZED_INPUT_COUNT",
+                "source": "INI", "runtime_projection_key": None,
+                "runtime_input_proven": False, "count": len(unowned_environment),
             })
     # The adapter's runtime projection is a second, independent contract.
     # Being syntactically projected is not proof of M23/M25 subprocess argv.

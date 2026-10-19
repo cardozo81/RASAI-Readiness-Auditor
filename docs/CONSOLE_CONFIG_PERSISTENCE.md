@@ -1265,3 +1265,30 @@ são executados. Os status `GSC_DISABLED_BY_CONFIGURATION` e os
 avisos de valores inválidos continuam preservados. Fixtures com
 normalização numérica, propriedade sombreada e zero requests
 foram acrescentadas, sem repetir os smokes anteriores.
+
+
+
+### #523 — Caminho canônico INI e abrangência de campos desconhecidos
+
+A resolução de `RASAI_CONSOLE_INI` agora normaliza somente o diretório-pai:
+o último componente preserva sua identidade física para os guards já
+existentes de leitura e gravação recusarem tanto *symlink* válido quanto
+link pendente. Antes, o `Path.resolve()` implícito podia seguir o link
+antes da inspeção, neutralizando a política de não modificar fontes do
+operador. Não há migração nem edição de INIs anteriores.
+
+A reconciliação `--reconcile-typed`, consumida por `--acceptance-523`,
+deixa de limitar o schema a cinco seções: também avalia as seções
+`presentation`, `search_intelligence` e `perplexity_draft` já
+registradas pelo console, além das futuras seções declaradas por
+`_state_values`. A validação de timezone é pura, sem tocar o ambiente
+do processo. Entradas físicas sem owner em seções reconhecidas,
+`environment`, `DEFAULT` ou seções desconhecidas bloqueiam o aceite
+offline, sem ecoar nomes arbitrários nem valores. Campos opcionais
+ausentes continuam tratados separadamente da divergência contratual.
+
+Foram adicionadas regressões focais de symlink via resolução implícita,
+cobertura SERP/rascunho/horário e recusa secret-safe de entradas
+desconhecidas. A evidência de execução pertence ao registro do teste
+focal, não a esta descrição de contrato. Nenhum smoke Windows
+anteriormente aprovado deve ser repetido por rotina.

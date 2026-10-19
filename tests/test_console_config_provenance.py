@@ -521,3 +521,43 @@ def test_sensitive_unknown_ini_section_marks_config_dirty(tmp_path):
     assert result.warnings
     assert "synthetic-do-not-print" not in repr(result.warnings)
     assert state.config_dirty is True
+
+
+
+def test_default_console_config_path_rejects_final_ini_symlink(tmp_path, monkeypatch):
+    """The implicit path must not resolve away the final symlink guard."""
+    import pytest
+    from unittest.mock import patch
+
+    for existing_target in (True, False):
+        target = tmp_path / ("present.ini" if existing_target else "missing.ini")
+        if existing_target:
+            target.write_text(
+                "[environment]\nRASAI_SERP_MAX_REQUESTS=37\n",
+                encoding="utf-8",
+            )
+        link = tmp_path / ("existing-link.ini" if existing_target else "dangling-link.ini")
+        try:
+            link.symlink_to(target)
+        except (OSError, NotImplementedError):
+            pytest.skip("symlinks unavailable on this platform")
+        before = target.read_bytes() if existing_target else None
+        assert canonical_console_config_path(
+            env={"RASAI_CONSOLE_INI": str(link)}, cwd=tmp_path
+        ) == link
+        fresh_env = {"RASAI_CONSOLE_INI": str(link)}
+        assert prepare_console_config(env=fresh_env, cwd=tmp_path) == link
+        assert fresh_env["RASAI_CONSOLE_INI"] == str(link)
+        with patch.dict(os.environ, {"RASAI_CONSOLE_INI": str(link)}, clear=True):
+            assert console_settings.resolve_config_path() == link
+            state = SearchConsoleState()
+            loaded = console_settings.load_console_config(state)
+            assert not loaded.created and loaded.warnings
+            assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
+            with pytest.raises(ValueError):
+                console_settings.save_console_config(state)
+        assert link.is_symlink()
+        if existing_target:
+            assert target.read_bytes() == before
+        else:
+            assert not target.exists()

@@ -95,7 +95,9 @@ def resolve_config_path(
     path = Path(configured).expanduser() if configured else base / DEFAULT_CONSOLE_INI
     if not path.is_absolute():
         path = base / path
-    return path.resolve()
+    # Resolve the directory only: symlink validation belongs to the
+    # physical INI reader/writer, not to path canonicalization.
+    return path.parent.resolve() / path.name
 
 
 def _bool_text(value: bool) -> str:
