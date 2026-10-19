@@ -5,7 +5,7 @@ scoring, file mutation, new requests, or inference across URL/device/snapshot.
 """
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import sqlite3
 
 from rasai.architecture_context import ArchitectureObservation, CLASSES
@@ -13,6 +13,17 @@ from rasai.audit_configuration_reuse import normalize_audit_id
 
 MAX_OBSERVATIONS = 2000
 
+
+def _safe_artifact_reference(value: object) -> bool:
+    """Validate syntax only; this does not attest integrity or manifest membership."""
+    if not isinstance(value, str) or not value or value != value.strip():
+        return False
+    if "\\" in value or ":" in value or any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+        return False
+    parts = value.split("/")
+    path = PurePosixPath(value)
+    return (not path.is_absolute() and len(parts) > 1
+            and all(segment not in {"", ".", ".."} for segment in parts))
 
 def read_audit_architecture_observations(
     audits_root: str | Path, audit_id: str,
@@ -56,8 +67,8 @@ def read_audit_architecture_observations(
         seen.add(identity)
         if (not all(isinstance(item, str) and item.strip() for item in identity)
                 or identity in ambiguous or architecture not in CLASSES
-                or not isinstance(raw, str) or not raw.strip()
-                or not isinstance(rendered, str) or not rendered.strip()):
+                or not _safe_artifact_reference(raw)
+                or not _safe_artifact_reference(rendered)):
             # Never elevate an incomplete or duplicated RAW/rendered pair.
             continue
         observations.append(ArchitectureObservation(
