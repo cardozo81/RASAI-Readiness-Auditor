@@ -251,3 +251,33 @@ def test_historical_console_rejects_nonstr_targets_without_mutating_session() ->
         _apply_settings(state, configuration, "AUD-SOURCE")
     assert state.target == "https://example.com/original"
     assert state.max_pages == 17
+
+
+@pytest.mark.parametrize("field,malformed", [
+    ("device", ["mobile"]), ("device", 123),
+    ("region", {"value": "BR"}), ("region", "x" * 201),
+    ("ymyl_mode", ["ON"]), ("ymyl_mode", 1),
+])
+def test_restored_search_text_fields_do_not_coerce_arbitrary_types(field, malformed):
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    key = {"device": "search_device", "region": "search_region",
+           "ymyl_mode": "search_ymyl_mode"}[field]
+    before = getattr(state, key)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {field: malformed}}, warnings)
+    assert getattr(state, key) == before
+    assert any(field in item for item in warnings)
+
+
+def test_restored_search_text_fields_accept_valid_values():
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "device": " DESKTOP ", "region": " BR-RS ", "ymyl_mode": " on ",
+    }}, warnings)
+    assert not warnings
+    assert state.search_device == "desktop"
+    assert state.search_region == "BR-RS"
+    assert state.search_ymyl_mode == "ON"

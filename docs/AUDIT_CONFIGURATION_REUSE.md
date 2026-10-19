@@ -271,3 +271,11 @@ Campos opcionais rejeitados com avisos continuam seguindo a política vigente de
 avisos e não representam rejeição integral. A operação não grava INI nem modifica
 a AUD de origem. Os testes usam estado e ambiente sintéticos; a conferência do
 Windows/User Registry continua com aceite separado.
+
+## Campos textuais do snapshot histórico
+
+A restauração de Search Intelligence valida os tipos de dispositivo,
+região e classificação YMYL antes de atribuir os valores da sessão.
+Objetos, listas e números não são convertidos implicitamente em strings;
+regiões acima de 200 caracteres são recusadas com aviso, preservando
+o valor vigente. A validação não altera a política de consentimento.

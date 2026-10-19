@@ -192,12 +192,16 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
     except (TypeError, ValueError, OverflowError):
         warnings.append("search_intelligence.depth: use inteiro > 0")
 
-    device = str(search.get("device", getattr(state, "search_device", "mobile"))).strip().casefold()
-    if device in {"mobile", "desktop"}:
-        state.search_device = device
+    raw_device = search.get("device", getattr(state, "search_device", "mobile"))
+    if isinstance(raw_device, str) and raw_device.strip().casefold() in {"mobile", "desktop"}:
+        state.search_device = raw_device.strip().casefold()
     else:
         warnings.append("search_intelligence.device: use mobile ou desktop")
-    state.search_region = str(search.get("region", "") or "").strip()
+    raw_region = search.get("region", "")
+    if isinstance(raw_region, str) and len(raw_region) <= 200:
+        state.search_region = raw_region.strip()
+    else:
+        warnings.append("search_intelligence.region: use texto até 200 caracteres")
     state.search_competitive = _as_bool(
         search.get("competitive"),
         default=bool(getattr(state, "search_competitive", True)),
@@ -241,7 +245,8 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
         state.search_content_max_redirects = value
     except (TypeError, ValueError, OverflowError):
         warnings.append("search_intelligence.content_max_redirects: use inteiro >= 0")
-    ymyl_mode = str(search.get("ymyl_mode", getattr(state, "search_ymyl_mode", "AUTO")) or "AUTO").strip().upper()
+    raw_ymyl = search.get("ymyl_mode", getattr(state, "search_ymyl_mode", "AUTO"))
+    ymyl_mode = raw_ymyl.strip().upper() if isinstance(raw_ymyl, str) else None
     if ymyl_mode in {"AUTO", "ON", "OFF"}:
         state.search_ymyl_mode = ymyl_mode
     else:
