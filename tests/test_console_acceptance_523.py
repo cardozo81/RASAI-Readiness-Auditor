@@ -188,6 +188,9 @@ def test_523_legacy_missing_fields_are_incomplete_coverage_not_parser_defect(
                 "synthetic_apdex_experience.architecture", "ai.max_cycles",
             ],
         },
+        "secret_ini_policy_violations": 0,
+        "unregistered_secret_ini_key_count": 0,
+        "file_readable": True,
     }
     result = inspect_console_acceptance(source, prior=previous)
     assert result["status"] == "OFFLINE_LEGACY_TYPED_COVERAGE_PARTIAL"
@@ -248,3 +251,48 @@ def test_523_unregistered_secret_ini_is_not_accepted_even_if_cached_adapters_pas
     assert "ini_secret_or_unreadable_source" in report["failed_consumer_names"]
     assert "NEVER_SHOW_THIS_CREDENTIAL" not in json.dumps(report)
     assert source.read_bytes() == before
+
+
+def test_523_full_saved_ini_acceptance_invokes_each_consumer_once_offline(
+    tmp_path, monkeypatch,
+):
+    """A single real INI and real adapters, not six fabricated PASS statuses."""
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai import console_settings
+    from rasai.console_configuration_inventory import inventory
+
+    with patch.dict(os.environ, {"RASAI_GSC_ENABLED": "false"}, clear=True):
+        _install_search_persistence()
+        install()
+        state = SearchConsoleState()
+        state.target = "https://example.test/fixture"
+        state.ai_provider = "none"
+        state.web_performance = False
+        state.synthetic_apdex = False
+        state.apdex_experience = False
+        state.search_queries = ()
+        state.perplexity_queries = ()
+        source = tmp_path / "operator.ini"
+        console_settings.save_console_config(state, source)
+        before = source.read_bytes()
+        environment_before = dict(os.environ)
+        meta = inventory(path=source)
+        # The adapter suite uses the same source and no remote endpoint.
+        report = inspect_console_acceptance(source, prior=meta)
+        assert report["source_generation_consistent"] is True
+        assert report["secret_ini_policy_violations_detected"] is False
+        assert report["legacy_typed_fields_unavailable"] == 0
+        assert report["failed_consumer_names"] == []
+        assert report["status"] == "OFFLINE_CONTRACTS_WITH_INTENTIONAL_ABSENCES"
+        assert report["consumer_status"]["typed"] == "TYPED_ADAPTERS_INSPECTED"
+        assert report["consumer_status"]["apdex"] == "ADAPTERS_VALIDATED_OFFLINE"
+        assert report["consumer_status"]["core"] == "CORE_CLI_PARITY_VERIFIED"
+        assert report["consumer_status"]["search"] == "NO_SEARCH_QUERY_INPUT"
+        assert report["consumer_status"]["gsc"] == "GSC_DISABLED_BY_CONFIGURATION"
+        assert report["consumer_status"]["perplexity"] == "NO_DRAFT_NO_EXECUTION_INTENT"
+        assert os.environ == environment_before
+        assert source.read_bytes() == before
+        assert report["paid_external_use_authorized"] is False
+        assert report["provider_requests"] == report["audit_writes"] == 0
