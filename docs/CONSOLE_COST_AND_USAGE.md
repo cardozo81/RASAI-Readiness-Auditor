@@ -341,3 +341,27 @@ comprovadamente USD de tentativas sem timing não é descartado, tampouco
 incluem uma coorte IA parcialmente cronometrada e outra integralmente
 medida. Nenhum ajuste em pricing, cronômetro de coletor, orquestrador,
 score ou previsão ex ante é realizado.
+
+
+## Separação econômica por coorte IA central versus análises opcionais (#319)
+
+A mesma projeção `inspect_stage_economics` soma custos pós-hoc
+**sem usar tokens de uma chamada duas vezes**, separando
+`CORE_RECORDED` (M18/M20 e demais operações com registro) de
+`OPTIONAL_DIRECTED_OR_SEARCH` (operações explícitas
+`DIRECTED_ANALYSIS` e tentativas rotuladas como `SEARCH_API`).
+Cada tentativa entra em exatamente uma coorte; uma análise que ocorreu
+na mesma AUD pode ser opcional e não constitui prova de inclusão
+ou exclusão no forecast originalmente congelado. As somas refletem
+apenas valores válidos em USD, provider-observed quando disponível,
+senão estimados retrospectivamente; **não são invoices**.
+
+Cada coorte apresenta número de tentativas, quantidade com custo e
+`amount_usd` somente se a cobertura de preços de todas as suas
+tentativas for integral. Caso contrário, publica N/D com denominador,
+sem apresentar soma parcial como custo total da coorte. Uma coorte
+sem tentativas não prova previsão de USD 0. HTML e console explicitam
+que o escopo da previsão inicial não foi comprovado. Fixtures SQLite
+demonstram 2 tentativas centrais (USD 0,10) e 2 opcionais (USD 0,04),
+com uma AUD estrangeira excluída, e caso de cobertura central parcial.
+Nenhum preço, política de cobranças ou autorização é alterado.

@@ -471,3 +471,100 @@ def test_319_full_ai_clocks_preserve_complete_stage_timing(tmp_path):
     assert result["total_union_ms"] == 2000
     assert result["stages"][0]["summed_ms"] == 2000
     assert result["stages"][0]["partial_recorded_duration_ms"] is None
+
+
+def test_319_cost_cohorts_split_central_vs_directed_and_search_without_double_count(tmp_path):
+    from rasai.audit_stage_cost_presentation import (
+        inspect_stage_economics, stage_console_lines, stage_report_html,
+    )
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE ai_provider_attempts("
+            "attempt_id TEXT,audit_id TEXT,operation TEXT,surface TEXT,"
+            "started_at TEXT,finished_at TEXT,"
+            "estimated_cost REAL,cost_currency TEXT,"
+            "observed_cost REAL,observed_cost_currency TEXT)"
+        )
+        con.execute(
+            "CREATE TABLE content_remediation_attempts("
+            "attempt_id TEXT,audit_id TEXT,operation TEXT,"
+            "started_at TEXT,finished_at TEXT,"
+            "estimated_cost REAL,cost_currency TEXT,"
+            "observed_cost REAL,observed_cost_currency TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?)",
+            [
+                ("CORE", "AUD-COST-319", "IMPROVEMENT_INTELLIGENCE", None,
+                 "2026-10-19T10:00:00Z", "2026-10-19T10:00:01Z",
+                 .02, "USD", None, None),
+                ("DIRECTED", "AUD-COST-319", "DIRECTED_ANALYSIS", None,
+                 "2026-10-19T10:00:01Z", "2026-10-19T10:00:02Z",
+                 .03, "USD", None, None),
+                ("SEARCH", "AUD-COST-319", "SERP_QUERY", "SEARCH_API",
+                 "2026-10-19T10:00:02Z", "2026-10-19T10:00:03Z",
+                 .01, "USD", None, None),
+                ("FOREIGN", "AUD-OTHER", "DIRECTED_ANALYSIS", None,
+                 "2026-10-19T10:00:00Z", "2026-10-19T10:00:01Z",
+                 99, "USD", None, None),
+            ],
+        )
+        con.execute(
+            "INSERT INTO content_remediation_attempts VALUES (?,?,?,?,?,?,?,?,?)",
+            ("M20", "AUD-COST-319", "CONTENT_REMEDIATION",
+             "2026-10-19T10:00:03Z", "2026-10-19T10:00:04Z",
+             None, None, .08, "USD"),
+        )
+    original = db.read_bytes()
+    result = inspect_stage_economics(db, "AUD-COST-319")
+    assert result["status"] == "READ_ONLY_OBSERVED"
+    groups = result["cost_cohorts"]
+    core = groups["CORE_RECORDED"]
+    extra = groups["OPTIONAL_DIRECTED_OR_SEARCH"]
+    assert core["attempts"] == 2 and core["priced_attempts"] == 2
+    assert extra["attempts"] == 2 and extra["priced_attempts"] == 2
+    assert core["status"] == extra["status"] == "FULL_USD_COST_COVERAGE"
+    assert abs(core["amount_usd"] - .1) < 1e-9
+    assert abs(extra["amount_usd"] - .04) < 1e-9
+    assert not core["same_population_as_initial_forecast_proven"]
+    assert not extra["is_provider_invoice"]
+    output = "\n".join(stage_console_lines(result))
+    html = stage_report_html(result)
+    assert "IA central registrada: USD 0.100000" in output
+    assert "Search API opcionais: USD 0.040000" in output
+    assert "USD 0.100000" in html and "USD 0.040000" in html
+    assert "não comparar automaticamente" in output
+    assert db.read_bytes() == original
+
+
+def test_319_cost_cohort_partial_coverage_never_invents_total(tmp_path):
+    from rasai.audit_stage_cost_presentation import inspect_stage_economics, stage_report_html
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE ai_provider_attempts("
+            "attempt_id TEXT,audit_id TEXT,operation TEXT,started_at TEXT,"
+            "finished_at TEXT,estimated_cost REAL,cost_currency TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?)",
+            [
+                ("C-1", "AUD-PARTIAL", "OTHER_AI",
+                 "2026-10-19T10:00:00Z", "2026-10-19T10:00:01Z", .01, "USD"),
+                ("C-2", "AUD-PARTIAL", "OTHER_AI",
+                 "2026-10-19T10:00:01Z", "2026-10-19T10:00:02Z", None, None),
+                ("O-1", "AUD-PARTIAL", "DIRECTED_ANALYSIS",
+                 "2026-10-19T10:00:02Z", "2026-10-19T10:00:03Z", .05, "USD"),
+            ],
+        )
+    projected = inspect_stage_economics(db, "AUD-PARTIAL")
+    core = projected["cost_cohorts"]["CORE_RECORDED"]
+    optional = projected["cost_cohorts"]["OPTIONAL_DIRECTED_OR_SEARCH"]
+    assert core["status"] == "COST_COVERAGE_INCOMPLETE"
+    assert core["amount_usd"] is None
+    assert core["attempts"] == 2 and core["priced_attempts"] == 1
+    assert optional["amount_usd"] == .05
+    html = stage_report_html(projected)
+    assert "N/D (cobertura USD 1/2)" in html
+    assert "USD 0.050000" in html

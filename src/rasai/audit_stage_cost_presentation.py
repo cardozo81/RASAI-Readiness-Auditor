@@ -24,6 +24,48 @@ _STAGE_LABELS = {
     "SEMANTIC_ANALYSIS": "Análise semântica · IA",
     "TECHNICAL_REMEDIATION": "Remediação técnica · IA",
 }
+_OPTIONAL_COST_OPERATIONS = frozenset({
+    "DIRECTED_ANALYSIS", "EXTERNAL_SEARCH_API",
+})
+
+
+def _cost_cohorts(stages: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Partition cost evidence, not time, into disjoint reporting cohorts.
+
+    Labels are observational: optional work in the same AUD is NOT proof
+    it was excluded from the original provider estimate. No double-counting
+    or retroactive repricing is permitted.
+    """
+    result = {}
+    for cohort in ("CORE_RECORDED", "OPTIONAL_DIRECTED_OR_SEARCH"):
+        selected = [
+            row for row in stages
+            if (row["operation"] in _OPTIONAL_COST_OPERATIONS)
+               == (cohort == "OPTIONAL_DIRECTED_OR_SEARCH")
+        ]
+        attempts = sum(row["attempts"] for row in selected)
+        priced = sum(row["priced_attempts"] for row in selected)
+        amount = sum(
+            row["usd_posthoc"] + row["usd_provider_observed"]
+            for row in selected
+        )
+        complete = priced == attempts and math.isfinite(amount) and amount >= 0
+        status = (
+            "NO_ATTEMPTS_RECORDED" if not attempts
+            else "FULL_USD_COST_COVERAGE" if complete
+            else "COST_COVERAGE_INCOMPLETE"
+        )
+        result[cohort] = {
+            "status": status,
+            "attempts": attempts,
+            "priced_attempts": priced,
+            "amount_usd": amount if complete and attempts else None,
+            "is_provider_invoice": False,
+            "same_population_as_initial_forecast_proven": False,
+        }
+    return result
+
+
 _NON_AI = (
     "Captura HTTP e renderização",
     "Desempenho web · duração da fase",
@@ -116,6 +158,7 @@ def inspect_stage_economics(database: Path, audit_id: str) -> dict[str, Any]:
             work = fulfillment_attempt_intervals(connection, audit_id)
         return {
             "status": "READ_ONLY_OBSERVED" if timeline.attempts else "NO_AI_ATTEMPTS",
+            "cost_cohorts": _cost_cohorts(stages),
             "reason": None, "stages": stages,
             "http_requests": [
                 {"service": name, "summed_ms": value}
@@ -165,6 +208,21 @@ def _fulfillment_status(work: dict[str, Any]) -> str:
     return value if type(value) is str and value in _FULFILLMENT_STATUSES else "NOT_VERIFIABLE"
 
 
+def _cohort_text(cohort: dict[str, Any]) -> str:
+    """Render a strictly observational USD amount or honest N/D."""
+    status = cohort.get("status")
+    if status == "FULL_USD_COST_COVERAGE":
+        amount = cohort.get("amount_usd")
+        if type(amount) in (int, float) and math.isfinite(amount) and amount >= 0:
+            return "USD %.6f" % amount
+    if status == "NO_ATTEMPTS_RECORDED":
+        return "sem tentativas registradas (não é previsão de USD 0)"
+    return "N/D (cobertura USD %s/%s)" % (
+        cohort.get("priced_attempts", "N/D"),
+        cohort.get("attempts", "N/D"),
+    )
+
+
 def stage_console_lines(projection: dict[str, Any]) -> tuple[str, ...]:
     if projection["status"] == "NOT_VERIFIABLE":
         return ("Tempos/custos por etapa: N/D (" + projection["reason"] + ")",)
@@ -185,6 +243,17 @@ def stage_console_lines(projection: dict[str, Any]) -> tuple[str, ...]:
             stage["name"], stage["attempts"], _duration(stage["active_ms"]),
             _duration(stage["summed_ms"]), _price(stage),
         ))
+    cohorts = projection.get("cost_cohorts") or {}
+    if cohorts:
+        lines.append(
+            "Custo pós-hoc IA central registrada: "
+            + _cohort_text(cohorts["CORE_RECORDED"]) + "."
+        )
+        lines.append(
+            "Custo pós-hoc análises direcionadas/Search API opcionais: "
+            + _cohort_text(cohorts["OPTIONAL_DIRECTED_OR_SEARCH"])
+            + "; universo distinto, não comparar automaticamente à previsão central."
+        )
     for row in projection["http_requests"]:
         lines.append("HTTP %s: soma de requests %s (não tempo de fase)." % (
             row["service"], _duration(row["summed_ms"]),
@@ -303,8 +372,24 @@ def stage_report_html(projection: dict[str, Any]) -> str:
         "e não provam duração.</div>"
         if projection.get("unknown_ai_intervals", 0) else ""
     )
+    cohorts = projection.get("cost_cohorts") or {}
+    if cohorts:
+        cost_notice = (
+            "<p><strong>Custo pós-hoc da execução central registrada:</strong> "
+            + escape(_cohort_text(cohorts["CORE_RECORDED"]), quote=True)
+            + ". <strong>Custo de análises direcionadas/Search API opcionais:</strong> "
+            + escape(
+                _cohort_text(cohorts["OPTIONAL_DIRECTED_OR_SEARCH"]),
+                quote=True,
+            )
+            + ". Coortes disjuntas entre si; o escopo da previsão pré-AUD "
+            "não foi demonstrado. Não representam fatura.</p>"
+        )
+    else:
+        cost_notice = ""
     return (
         timing_notice
+        + cost_notice
         + "<p>Tentativas IA de M18 e M20: <strong>%s</strong>; soma "
         "<strong>%s</strong>; união ativa <strong>%s</strong>. "
         "União ativa não equivale a duração da AUD.</p>"
