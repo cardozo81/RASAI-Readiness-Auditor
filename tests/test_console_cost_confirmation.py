@@ -580,3 +580,30 @@ def test_noncritical_cost_within_band_keeps_normal_single_disclaimer():
     assert len(outcome.notes) == 1
     assert outcome.deviation_percent is not None
     assert 2.49 < outcome.deviation_percent < 2.51
+
+
+
+def test_319_console_post_run_stage_readout_is_optional_and_no_payment(monkeypatch, tmp_path, capsys):
+    """The existing usage action reads only a physically present AUD source."""
+    import sqlite3
+    from rasai import console_cost_confirmation as module_under_test
+    from rasai.console_cost_confirmation import install
+    from types import ModuleType, SimpleNamespace
+
+    audit_dir = tmp_path / "AUD-319"
+    audit_dir.mkdir()
+    with sqlite3.connect(audit_dir / "audit.db") as con:
+        con.execute("CREATE TABLE audits(audit_id TEXT)")
+    console = ModuleType("isolated_stage_economics_319")
+    calls = []
+    console.run_audit_from_console = lambda state: 0
+    console._post_run_actions = lambda state: True
+    console._render_actual_usage = lambda state: calls.append(state.audit_id)
+    install(console)
+    state = SimpleNamespace(audit_id="AUD-319", audits_root=str(tmp_path))
+    console._render_actual_usage(state)
+    shown = capsys.readouterr().out
+    assert calls == ["AUD-319"]
+    assert "TEMPO E CUSTOS POR ETAPA" in shown
+    assert "N/D" in shown or "Sem tempo exclusivo" in shown
+    assert (audit_dir / "audit.db").is_file()

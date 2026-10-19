@@ -713,6 +713,26 @@ def install(console_module: ModuleType) -> None:
     def usage(state: Any) -> None:
         if callable(original_usage):
             original_usage(state)
+        # Read-only, post-AUD observation. Never execute provider calls or
+        # mistake a closed, uncheckpointed source for complete evidence.
+        from rasai.console_artifacts import audit_workspace
+        workspace = (
+            audit_workspace(state)
+            if getattr(state, "audit_id", None) and getattr(state, "audits_root", None)
+            else None
+        )
+        if workspace is not None:
+            db = Path(workspace) / "audit.db"
+            if db.is_file() and not db.is_symlink():
+                from rasai.audit_stage_cost_presentation import (
+                    inspect_stage_economics, stage_console_lines,
+                )
+                projection = inspect_stage_economics(
+                    db, str(getattr(state, "audit_id", "") or ""),
+                )
+                print("\n" + title_text("TEMPO E CUSTOS POR ETAPA — PÓS-AUD"))
+                for line in stage_console_lines(projection):
+                    print(paint(line, DIM))
         forecast = _FORECASTS.get(id(state))
         if forecast is None:
             return

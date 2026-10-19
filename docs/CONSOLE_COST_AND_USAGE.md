@@ -204,3 +204,26 @@ canônicos, native ledgers, critérios de elegibilidade, datas, tokens,
 orquestrador `AI=auto`, consentimento, motores SERP/Perplexity/GEO nem scoring.
 A comparabilidade entre previsto e observado continua condicionada ao
 fulfillment dos requisitos obrigatórios da auditoria.
+
+
+## Telemetria de tempo/custo por operação (#319)
+
+O relatório **IA e integrações > Tempos e custos por etapa** e a tela de
+consumo pós-AUD no console leem as duas tabelas físicas M18 e M20,
+sem executar nova auditoria e sem efetuar chamadas tarifáveis. São exibidas
+tentativas por operação (Improvement, Análise Direcionada opcional, análise
+semântica/técnica, conteúdo, concorrência e Search API opcional), custo USD
+quando integralmente precificado, duração acumulada e **união temporal ativa**.
+
+O leitor recusa arquivo ausente/symlink, WAL/SHM/journal pendente, tabela
+ilegível, IDs de tentativa duplicados, populações excedentes e estágio
+incontrolavelmente fragmentado. Nesse caso a interface exibe **N/D**;
+ausência de informação não é custo zero nem prova de conclusão.
+
+Os tempos de HTTP PageSpeed/CrUX apresentados são somas de requests, e
+**não** tempo exclusivo da fase. Captura, Apdex, extração e montagem do
+relatório continuam N/D para cronômetro exclusivo sem evidência física
+comparável. Uma chamada Direcionada posterior não integra por inferência
+o orçamento da auditoria inicial. Dados observados por provedor não
+equivalem à fatura. A previsão histórica ex ante mantém sua metodologia,
+incerteza e tratamento de tarefas opcionais.
