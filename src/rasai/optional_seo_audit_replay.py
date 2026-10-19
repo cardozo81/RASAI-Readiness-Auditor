@@ -176,10 +176,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Replay optional SEO policy scenarios offline")
     parser.add_argument("audit_dir", type=Path)
     parser.add_argument("--device", choices=("MOBILE", "DESKTOP"), default="MOBILE")
+    parser.add_argument("--format", choices=("scenarios", "decision-matrix"),
+                        default="scenarios")
     args = parser.parse_args(argv)
     result = replay_optional_seo_from_audit(
         args.audit_dir, device=DeviceContext(args.device),
     )
+    if args.format == "decision-matrix":
+        from rasai.optional_seo_policy_decision import build_optional_seo_decision_matrix
+        result = build_optional_seo_decision_matrix(result)
     print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 

@@ -107,3 +107,39 @@ e não constitui aprovação de novo contrato de pontuação.
 Há fixture SQLite de múltiplos resultados/categorias e AUD cruzada, com
 prova de imutabilidade do arquivo de origem e abstenção com journaling
 pendente. Nada executa requisições externas.
+
+
+## Pacote de decisão comparativa offline — 19/10/2026
+
+O replay físico/paridade já implementado pode emitir uma **matriz comparativa
+não normativa** sem executar novamente coletores nem gravar AUDs:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai.optional_seo_audit_replay `
+  .\audits\AUD-EXEMPLO --device MOBILE --format decision-matrix
+```
+
+O padrão do comando permanece `--format scenarios` para compatibilidade.
+A opção `decision-matrix` somente reorganiza o replay local, após o gate
+de integridade de origem SQLite e paridade exata com SCORE-GEO-004, em um
+contrato consultivo `RASAI-SEO-POLICY-DECISION-602-001`. Cada dimensão e
+`OVERALL_READINESS` apresentam a pontuação canônica e do cenário extremo,
+`delta_points`, coberturas e `delta_coverage_fraction`, confiança,
+consolidação e alterações dos marcadores de readiness/gates. Valores
+não finitos, fora do domínio e sem prova ficam N/D (`null`), jamais 0.
+Coortes e dimensões discrepantes, replay não paritário e selo físico ausente
+produzem recusa em vez de resultado parcialmente confiável.
+
+**Cuidado metodológico:** cenários PASS e NOT_APPLICABLE são apenas extremos
+de sensibilidade. Uma elevação de SARI em simulação não justifica aprovar
+penalizações novas, alterar a versão atual ou comparar historicamente notas
+como se usassem a mesma régua. Deltas por dimensão são não aditivos e
+normalizações/coverage/readiness gates podem alterar o agregado. A decisão
+de mudar classificação, pesos e contrato continua pendente de tabela
+normativa formal e aprovação específica. A matriz **não** é atualização de
+SCORE-GEO-004, nem evidência de eficácia SEO ou citação generativa.
+
+Fixtures sintéticas cobrem delta, cobertura/qualidade, mudança de gate,
+negação de fontes não paritárias e compatibilidade do CLI anterior.
+Testes incluídos não são considerados executados sem validação focal no
+SHA correspondente.
