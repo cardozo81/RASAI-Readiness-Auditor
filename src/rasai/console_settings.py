@@ -353,7 +353,23 @@ def _guard_existing_ini_before_save(
         raise ValueError("INI contem configuracoes DEFAULT nao persistiveis")
     for section, values in parser._sections.items():
         allowed = expected._sections.get(section)
-        if allowed is None or set(values) - set(allowed):
+        unexpected = set(values) - set(allowed or ())
+        # Before the first operator edit, older console writers could emit
+        # this derived compatibility field. New AUDs never own a device mix
+        # independently from [console].device; preserve legacy readability
+        # but permit its *validated* one-time removal during explicit save.
+        # All other unknown sections/options still fail closed.
+        if section == "synthetic_apdex_experience" and "device_mix" in unexpected:
+            try:
+                legacy_mix = values["device_mix"].strip()
+                if legacy_mix:
+                    parse_device_mix(legacy_mix)
+            except ValueError as exc:
+                raise ValueError(
+                    "INI legado contem device_mix invalido; preserve a origem"
+                ) from exc
+            unexpected.remove("device_mix")
+        if allowed is None or unexpected:
             raise ValueError(
                 "INI contem configuracoes desconhecidas ou nao persistiveis; "
                 "preserve uma copia e reconcilie antes de salvar"
