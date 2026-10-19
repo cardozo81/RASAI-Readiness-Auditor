@@ -1088,3 +1088,21 @@ Os identificadores das variáveis ou valores faltantes não são
 serializados no bloco de aceite, apenas contagem e classificação.
 Compatibilidade com `--verify-*` foi preservada; resultados já
 calculados na mesma invocação são reutilizados, não repetidos.
+
+
+### Correlação dos checks de fonte e política de secrets no lote (#523)
+
+A checagem do **mesmo INI físico** inclui agora o inventário, e não
+apenas os adaptadores. O digest/identidade final é conferido **depois**
+da inspeção de completude e da política de secrets, evitando declarar
+sucesso se um arquivo foi alterado durante a própria varredura.
+
+Um campo de credencial indevidamente presente em `[environment]`,
+inclusive nome não registrado no registry atual, impede o status de
+sucesso do gate (**`CONFIGURATION_CONTRACT_FAILURE`**), mesmo quando
+um consumidor isolado foi aprovado. A saída revela apenas o booleano
+`secret_ini_policy_violations_detected` e o identificador estático do
+tipo de falha; jamais inclui chave desconhecida ou seu valor.
+Conferência de fonte ausente foi alinhada a
+`INI_SOURCE_UNVERIFIABLE`. O diagnóstico não apaga, migra nem exibe
+o segredo, para preservar o arquivo do operador até reconciliação.

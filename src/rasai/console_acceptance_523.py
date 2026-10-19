@@ -207,6 +207,34 @@ def inspect_console_acceptance(
         invalid_typed_fields=int(results["typed"].get("invalid_typed_fields") or 0),
         unknown_typed_fields=int(counts.get("UNRECOGNIZED_INPUT_COUNT") or 0),
     )
+    # Inspect physical coverage AND forbidden secret entries *before*
+    # checking the final generation identity: the inventory itself reads
+    # the source and is part of the same atomic validation window.
+    source_meta = previous
+    if (
+        not isinstance(source_meta.get("typed_ini_coverage"), Mapping)
+        or "secret_ini_policy_violations" not in source_meta
+        or "unregistered_secret_ini_key_count" not in source_meta
+        or "file_readable" not in source_meta
+    ):
+        from rasai.console_configuration_inventory import inventory
+        try:
+            source_meta = inventory(path=path)
+        except (ValueError, OSError, TypeError):
+            source_meta = {}
+    coverage = source_meta.get("typed_ini_coverage", {})
+    secret_policy_violations = (
+        int(source_meta.get("secret_ini_policy_violations") or 0)
+        + int(source_meta.get("unregistered_secret_ini_key_count") or 0)
+    )
+    if secret_policy_violations or source_meta.get("file_readable") is not True:
+        classified = {
+            **classified,
+            "status": "CONFIGURATION_CONTRACT_FAILURE",
+            "failed_consumer_names": sorted(set(
+                classified["failed_consumer_names"]
+            ) | {"ini_secret_or_unreadable_source"}),
+        }
     latest_bytes, latest_identity, latest_status = _verified_source(path)
     consistent = (
         latest_status == "READY"
@@ -220,13 +248,6 @@ def inspect_console_acceptance(
             "status": "INI_SOURCE_CHANGED_DURING_GATE",
             "issue_523_final_acceptance_proven": False,
         }
-    # The inventory records physical coverage; older INIs may omit newer
-    # fields *legitimately*. That is not a parser defect, but cannot be
-    # represented as complete typed round-trip coverage.
-    coverage = previous.get("typed_ini_coverage")
-    if not isinstance(coverage, Mapping):
-        from rasai.console_configuration_inventory import inventory
-        coverage = inventory(path=path).get("typed_ini_coverage", {})
     partial = (
         isinstance(coverage, Mapping)
         and isinstance(coverage.get("missing_non_derived_names"), list)
@@ -245,6 +266,7 @@ def inspect_console_acceptance(
         **classified,
         "source_generation_consistent": consistent,
         "source_status": latest_status,
+        "secret_ini_policy_violations_detected": secret_policy_violations > 0,
         "legacy_typed_fields_unavailable": (
             len(coverage["missing_non_derived_names"])
             if isinstance(coverage, Mapping)

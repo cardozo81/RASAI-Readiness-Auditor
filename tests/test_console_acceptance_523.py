@@ -124,7 +124,8 @@ def test_523_inventory_optin_has_nonzero_exit_only_for_real_gate_failure(
 def test_523_acceptance_readonly_missing_ini_fails_closed(tmp_path):
     missing = tmp_path / "never-create.ini"
     result = inspect_console_acceptance(missing)
-    assert result["status"] == "CONFIGURATION_CONTRACT_FAILURE"
+    assert result["status"] == "INI_SOURCE_UNVERIFIABLE"
+    assert result["source_generation_consistent"] is False
     assert result["values_exposed"] is False
     assert result["provider_requests"] == result["audit_writes"] == 0
     assert result["source_ini_writes"] == 0
@@ -215,3 +216,35 @@ def test_523_acceptance_abstains_for_source_symlink_before_running_any_adapter(
     assert result["status"] == "INI_SOURCE_UNVERIFIABLE"
     assert result["source_generation_consistent"] is False
     assert result["provider_requests"] == 0
+
+
+def test_523_unregistered_secret_ini_is_not_accepted_even_if_cached_adapters_pass(
+    tmp_path, monkeypatch,
+):
+    from rasai import console_acceptance_523
+    source = tmp_path / "private.ini"
+    source.write_text(
+        "[environment]\nPERPLEXITY_API_KEY = NEVER_SHOW_THIS_CREDENTIAL\n",
+        encoding="utf-8",
+    )
+    statuses = _base()
+    previous = {
+        "typed_adapter_reconciliation": {
+            "status": statuses["typed"], "counts": {}, "invalid_typed_fields": 0,
+        },
+        "apdex_offline_consumer_preflight": {"status": statuses["apdex"]},
+        "core_offline_consumer_preflight": {"status": statuses["core"]},
+        "search_offline_consumer_preflight": {"status": statuses["search"]},
+        "gsc_offline_consumer_preflight": {"status": statuses["gsc"]},
+    }
+    monkeypatch.setattr(
+        console_acceptance_523, "_perplexity_draft",
+        lambda _: {"status": statuses["perplexity"]},
+    )
+    before = source.read_bytes()
+    report = inspect_console_acceptance(source, prior=previous)
+    assert report["status"] == "CONFIGURATION_CONTRACT_FAILURE"
+    assert report["secret_ini_policy_violations_detected"] is True
+    assert "ini_secret_or_unreadable_source" in report["failed_consumer_names"]
+    assert "NEVER_SHOW_THIS_CREDENTIAL" not in json.dumps(report)
+    assert source.read_bytes() == before
