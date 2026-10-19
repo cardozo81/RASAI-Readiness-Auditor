@@ -207,7 +207,7 @@ def test_all_ci_workflows_reference_existing_literal_python_paths() -> None:
     root = Path(__file__).resolve().parents[1]
     workflows = root / ".github" / "workflows"
     missing: list[str] = []
-    for workflow in sorted(workflows.glob("*.yml")):
+    for workflow in sorted(set(workflows.glob("*.yml")) | set(workflows.glob("*.yaml"))):
         content = workflow.read_text(encoding="utf-8")
         paths = set(re.findall(r"(?:src/rasai|tests)/[A-Za-z0-9_./*-]+\.py\b", content))
         for path in sorted(paths):
@@ -223,6 +223,23 @@ def test_all_ci_workflows_reference_existing_literal_python_paths() -> None:
                 continue
             missing.append(f"{workflow.name}: {path}")
     assert not missing, "\n".join(missing)
+
+
+def test_workflow_reference_inventory_accepts_yaml_extension(tmp_path, monkeypatch):
+    """Both Actions extensions must be included in the same path inventory."""
+    from pathlib import Path
+    source = Path(__file__).read_text(encoding="utf-8")
+    assert 'workflows.glob("*.yaml")' in source
+    assert 'workflows.glob("*.yml")' in source
+
+
+def test_repository_filename_policy_preserves_external_public_contract_names():
+    """Do not confuse short method/catalog IDs with tracking numbers."""
+    assert not check([
+        "src/rasai/m23.py", "src/rasai/m25.py",
+        "docs/REPORT_DESIGN_SYSTEM.md",
+        ".github/workflows/report-catalog-visual-smoke.yaml",
+    ])
 
 
 if __name__ == "__main__":

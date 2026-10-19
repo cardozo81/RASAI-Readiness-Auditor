@@ -131,3 +131,14 @@ O requisito de conferir `main` após merge não pode ser satisfeito
 antes do próprio merge. Portanto, a issue de migração só deve ser
 encerrada quando a verificação pós-integração e a avaliação de
 compatibilidade externa estiverem concluídas.
+
+## Reconciliação de compatibilidade na branch de aceitação
+
+O gate estático de referências literais em GitHub Actions agora inclui
+ambas as extensões `.yml` e `.yaml`, evitando uma lacuna no inventário
+sem renomear arquivos ou importar módulos históricos artificialmente.
+O teste de política preserva identificadores curtos de módulos canônicos
+(`m23`, `m25`) e nomes funcionais, enquanto proíbe IDs de tracking
+nos basenames versionados. Isto é apenas reconciliação de CI/paths:
+não comprova compatibilidade de importadores externos ou scripts Windows
+não versionados, que permanecem como gates explícitos de #639.
