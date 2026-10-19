@@ -77,6 +77,7 @@ def validate_bundle(payload: object) -> tuple[str, str, dict[str, tuple[bytes, s
 def render_bundle(target: str, device: str, table: dict[str, tuple[bytes, str, int, dict[str, str]]]) -> dict[str, Any]:
     from playwright.sync_api import Error as BrowserError, TimeoutError as BrowserTimeout, sync_playwright
     from rasai.rendering import DESKTOP_PROFILE, MOBILE_PROFILE
+    from rasai.architecture_dom_settle import wait_for_material_dom
 
     requested = [0]
     blocked = [0]
@@ -108,12 +109,17 @@ def render_bundle(target: str, device: str, table: dict[str, tuple[bytes, str, i
                     context.route_web_socket("**/*", offline_websocket)
                     page = context.new_page()
                     response = page.goto(target, wait_until="domcontentloaded", timeout=12_000)
-                    try:
-                        page.wait_for_load_state("networkidle", timeout=2_000)
-                    except BrowserTimeout:
-                        pass
                     if (response is None or not 200 <= response.status < 300
                             or normalize_url(page.url) != target):
+                        return {"rendered_html": None, "reason": "ISOLATED_NAVIGATION_NOT_ATTESTED"}
+                    # DOMContentLoaded and even networkidle may precede SPA
+                    # content or a delayed hydration update. Do not certify
+                    # the first visible frame. A bounded same-page materiality
+                    # window is cheaper and more targeted than networkidle.
+                    settle = wait_for_material_dom(page)
+                    if not settle.stable:
+                        return {"rendered_html": None, "reason": settle.reason}
+                    if normalize_url(page.url) != target:
                         return {"rendered_html": None, "reason": "ISOLATED_NAVIGATION_NOT_ATTESTED"}
                     rendered = page.content()
                     if len(rendered.encode("utf-8")) > MAX_RENDER_BYTES:

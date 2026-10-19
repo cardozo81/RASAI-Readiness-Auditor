@@ -28,3 +28,11 @@ O inventário em `architecture_consumer_eligibility.py` registra CAT-01..CAT-10,
 Fixtures offline com dois URLs/devices comprovam AUTO, DECLARED, UNFORCED, legado sem escolha, divergência entre M6 e escolha declarada, colisão de page_id entre AUDs, origem sem SQLite selado e imutabilidade. O teste não substitui prova de integridade de manifesto para uma AUD real. Histórico sem assinatura independente continua apenas consultivo e não é promovido a evidência normativa.
 
 O smoke real pode ser executado na AUD existente; ausência de M6 ou de opção congelada é resultado esperado N/D/UNFORCED, não erro ou motivo para iniciar uma nova coleta paga.
+
+## Projeção temporal de captura e transporte seguro (#646)
+
+A classificação na prévia não é um snapshot arbitrário da primeira pintura. O renderizador OCI reavalia o conteúdo main/article na MESMA página durante até 2,8 s depois de DOMContentLoaded; exige estabilidade textual sem skeleton/aria-busy por três amostras e observação mínima de 850 ms. Se conteúdo de SPA/hidratação ou redirect client-side ainda não se materializou, a evidência é inconclusiva, não positiva/negativa. Não altera timeout/configuração de M23/M25 nem adiciona índice de prontidão de conteúdo.
+
+A aquisição HTTP pode acompanhar dois redirecionamentos públicos, fixados por IP e validados independentemente. A classificação somente aceita cadeia final consistente no mesmo host ou variação www/ápice, sem downgrade HTTPS. Certificado TLS não validado impede a obtenção do conteúdo e NÃO é contornado. Redirect/handshake são fases de transporte; a janela de materialidade ocorre depois do DOMContentLoaded e não mascara tempo consumido em DNS, conexão ou TLS. A estabilidade observada não prova renderização global, indexação, ausência de WAF ou disponibilidade de crawler.
+
+O modo sem Docker apresenta sinais estruturais RAW limitados como observação parcial, mas nunca substitui comparação RAW/DOM e nunca atribui CSR_SPA/STATIC_OR_SSR com HTML isolado.

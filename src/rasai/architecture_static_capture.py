@@ -24,14 +24,17 @@ def capture_static_public_architecture(url: str, device: DeviceContext) -> Probe
     except (ValueError, OSError):
         return ProbeCaptures(url, url, device, None, None, "PUBLIC_TARGET_REJECTED")
     document = PublicWebFetcher(
-        timeout_seconds=8.0, max_redirects=0, max_bytes=1_000_000,
+        timeout_seconds=8.0, max_redirects=2, max_bytes=1_000_000,
         opener=PublicWebPinnedOpener(),
     ).fetch(target)
     reason = public_html_failure(document, target)
     if reason is None:
-        # A valid RAW document is not proof of rendered DOM fidelity.
+        # A valid RAW document is not proof of rendered DOM fidelity, even
+        # if the final host was www-related or TLS upgraded along the way.
         return with_capture_origin(ProbeCaptures(
-            target, target, device, document.body.decode("utf-8", errors="replace"),
+            target, document.final_url, device,
+            document.body.decode("utf-8", errors="replace"),
             None, "STATIC_MODE_NO_RENDERED_DOM",
+            redirect_chain=tuple(getattr(document, "redirects", ())),
         ), transport="PINNED_HTTP_STATIC")
     return ProbeCaptures(target, target, device, None, None, reason)

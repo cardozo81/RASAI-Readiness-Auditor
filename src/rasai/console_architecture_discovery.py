@@ -30,6 +30,42 @@ def describe_architecture_assessment(result: Any) -> tuple[str, ...]:
             "Alterações observadas: "
             + (", ".join(comparison.changed_fields) if comparison.changed_fields else "nenhuma nos campos comparados")
         )
+    raw = getattr(result, "raw_signals", None)
+    if raw is not None:
+        if raw.status == "RAW_STRUCTURAL_SIGNALS_OBSERVED":
+            lines.append("Sinais observados somente no HTML RAW (sem executar JavaScript):")
+            lines.append(
+                "  Conteúdo substantivo em main/article: "
+                + ("sim" if raw.raw_main_text_present else "não comprovado")
+            )
+            lines.append(
+                "  Elemento H1: " + ("presente" if raw.h1_present else "não observado")
+            )
+            lines.append(
+                "  Marcador de contêiner de aplicação: "
+                + ("presente" if raw.app_root_marker_present else "não observado")
+            )
+            lines.append(
+                "  Atributo estrutural de framework/hidratação: "
+                + ("presente" if raw.framework_attribute_present else "não observado")
+            )
+            lines.append(
+                "  Scripts em tags HTML: %s com src; %s inline."
+                % (raw.external_script_tags, raw.inline_script_tags)
+            )
+            lines.append(
+                "  Marcador de skeleton/placeholder: "
+                + ("presente" if raw.hidden_placeholder_present else "não observado")
+            )
+            lines.append(
+                "  Esses sinais não comprovam arquitetura SPA, SSR, hidratação "
+                "real, conteúdo pós-JS ou indexação. Classe permanece UNKNOWN "
+                "sem comparação com DOM renderizado."
+            )
+        else:
+            lines.append(
+                "Sinais estruturais RAW: N/D (HTML ausente ou orçamento excedido)."
+            )
     lines.append("Escopo: uma URL e um dispositivo; diagnóstico preliminar, não uma certificação.")
     return tuple(lines)
 

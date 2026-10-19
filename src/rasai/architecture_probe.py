@@ -26,6 +26,7 @@ class CaptureOriginDigest:
     raw_sha256: str | None
     rendered_sha256: str | None
     attested: bool = False
+    redirect_chain: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ class ProbeCaptures:
     rendered_html: str | None
     quality_reason: str | None = None
     origin: CaptureOriginDigest | None = None
+    redirect_chain: tuple[str, ...] = ()
 
 
 def with_capture_origin(capture: ProbeCaptures, *, transport: str) -> ProbeCaptures:
@@ -52,10 +54,12 @@ def with_capture_origin(capture: ProbeCaptures, *, transport: str) -> ProbeCaptu
         final_url=capture.final_url, device=capture.device.value,
         raw_sha256=digest(capture.raw_html),
         rendered_sha256=digest(capture.rendered_html),
+        redirect_chain=capture.redirect_chain,
     )
     return ProbeCaptures(
         capture.requested_url, capture.final_url, capture.device,
-        capture.raw_html, capture.rendered_html, capture.quality_reason, origin,
+        capture.raw_html, capture.rendered_html, capture.quality_reason,
+        origin, capture.redirect_chain,
     )
 
 
@@ -83,6 +87,7 @@ def probe_architecture(
                 or origin.requested_url != observation.requested_url
                 or origin.final_url != observation.final_url
                 or origin.device != device.value
+                or origin.redirect_chain != observation.redirect_chain
                 or origin.raw_sha256 != (
                     hashlib.sha256(observation.raw_html.encode("utf-8")).hexdigest()
                     if observation.raw_html is not None else None)
@@ -92,15 +97,20 @@ def probe_architecture(
             raise ValueError("Capture origin digest mismatch")
     final_url = normalize_url(observation.final_url)
     if final_url != target:
-        # No follow-through across a change of origin without a separate
-        # audited redirect transport guarantee.
-        raise ValueError("Probe final URL differs from the validated target")
+        from rasai.architecture_public_html import verified_public_redirect_chain
+        if (
+            observation.origin is None
+            or not verified_public_redirect_chain(
+                target, final_url, observation.redirect_chain,
+            )
+        ):
+            raise ValueError("Probe final URL differs from the validated target")
     # Reject injected captures claiming usable evidence without valid public
     # target provenance. Inconclusive captures may return safely without DNS.
     if (observation.quality_reason is None
             and observation.raw_html is not None
             and observation.rendered_html is not None):
-        _validate_public_url(target, _default_resolver)
+        _validate_public_url(final_url, _default_resolver)
     return assess_architecture(
         raw_html=observation.raw_html,
         rendered_html=observation.rendered_html,

@@ -221,25 +221,27 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
     except (ValueError, OSError):
         return ProbeCaptures(url, url, device, None, None, "PUBLIC_TARGET_REJECTED")
     fetcher = PublicWebFetcher(
-        timeout_seconds=8.0, max_redirects=0, max_bytes=1_000_000,
+        timeout_seconds=8.0, max_redirects=2, max_bytes=1_000_000,
         opener=PublicWebPinnedOpener(),
     )
     document = fetcher.fetch(target)
     reason = public_html_failure(document, target)
     if reason is not None:
         return ProbeCaptures(target, target, device, None, None, reason)
+    final_target = document.final_url
+    redirect_chain = tuple(getattr(document, "redirects", ()))
     raw = document.body.decode("utf-8", errors="replace")
     # Distinguish unsafe/unavailable HTML resources from Chromium failures.
     # Preserve only bounded reason codes; never expose URLs, HTML or stderr.
     try:
-        resources = _bundle_resources(target, document, raw)
+        resources = _bundle_resources(final_target, document, raw)
     except ArchitectureAssetFailure as exc:
         return ProbeCaptures(target, target, device, raw, None, exc.reason)
     except (ValueError, OSError):
         return ProbeCaptures(target, target, device, raw, None, "OCI_ASSET_BUNDLE_REJECTED")
     try:
         payload = json.dumps({
-            "url": target, "device": device.value.lower(), "resources": resources,
+            "url": final_target, "device": device.value.lower(), "resources": resources,
         }, separators=(",", ":"), ensure_ascii=False)
         if len(payload.encode("utf-8")) > MAX_BUNDLE_BYTES:
             raise ValueError("Offline manifest size cap")
@@ -261,7 +263,10 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
                      or len(result["rendered_html"]) > 1_000_000))):
             raise ValueError("Invalid offline renderer response")
         if finished.returncode == 0 and result["reason"] is None and result["rendered_html"] is not None:
-            return with_capture_origin(ProbeCaptures(target, target, device, raw, result["rendered_html"]), transport="ISOLATED_OCI_RENDER")
+            return with_capture_origin(ProbeCaptures(
+                target, final_target, device, raw, result["rendered_html"],
+                redirect_chain=redirect_chain,
+            ), transport="ISOLATED_OCI_RENDER")
         # Only server-owned, documented reason codes; never propagate browser
         # exception text, source HTML, headers, Docker stderr or arbitrary URLs.
         supported = {
