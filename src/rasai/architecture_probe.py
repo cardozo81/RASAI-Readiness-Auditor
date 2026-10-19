@@ -74,6 +74,22 @@ def probe_architecture(
     observation = capture(target, device)
     if normalize_url(observation.requested_url) != target or observation.device != device:
         raise ValueError("Probe capture identity mismatch")
+    # A capture-time digest must still match the bytes presented to the
+    # assessor. An origin record without an independently sealed AUD manifest
+    # is not an authenticity assertion and must never be promoted to one.
+    if observation.origin is not None:
+        origin = observation.origin
+        if (origin.attested
+                or origin.requested_url != observation.requested_url
+                or origin.final_url != observation.final_url
+                or origin.device != device.value
+                or origin.raw_sha256 != (
+                    hashlib.sha256(observation.raw_html.encode("utf-8")).hexdigest()
+                    if observation.raw_html is not None else None)
+                or origin.rendered_sha256 != (
+                    hashlib.sha256(observation.rendered_html.encode("utf-8")).hexdigest()
+                    if observation.rendered_html is not None else None)):
+            raise ValueError("Capture origin digest mismatch")
     final_url = normalize_url(observation.final_url)
     if final_url != target:
         # No follow-through across a change of origin without a separate

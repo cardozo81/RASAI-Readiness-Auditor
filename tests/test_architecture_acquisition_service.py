@@ -218,3 +218,27 @@ def test_static_capture_origin_omits_unobserved_rendered_document():
     assert stamped.origin.raw_sha256 is not None
     assert stamped.origin.rendered_sha256 is None
     assert stamped.origin.attested is False
+
+
+def test_probe_rejects_modified_capture_after_origin_stamping(monkeypatch):
+    from dataclasses import replace
+    import pytest
+    from rasai.architecture_probe import ProbeCaptures, with_capture_origin, probe_architecture
+    original = with_capture_origin(ProbeCaptures(
+        URL, URL, DEVICE, "<main>raw</main>", None, "STATIC_MODE_NO_RENDERED_DOM",
+    ), transport="PINNED_HTTP_STATIC")
+    tampered = replace(original, raw_html="<main>tampered</main>")
+    with pytest.raises(ValueError, match="Capture origin digest mismatch"):
+        probe_architecture(URL, DEVICE, capture=lambda *_: tampered)
+
+
+def test_probe_rejects_unsupported_pre_attested_capture():
+    from dataclasses import replace
+    import pytest
+    from rasai.architecture_probe import ProbeCaptures, with_capture_origin, probe_architecture
+    original = with_capture_origin(ProbeCaptures(
+        URL, URL, DEVICE, "<main>raw</main>", None, "STATIC_MODE_NO_RENDERED_DOM",
+    ), transport="PINNED_HTTP_STATIC")
+    forged = replace(original, origin=replace(original.origin, attested=True))
+    with pytest.raises(ValueError, match="Capture origin digest mismatch"):
+        probe_architecture(URL, DEVICE, capture=lambda *_: forged)
