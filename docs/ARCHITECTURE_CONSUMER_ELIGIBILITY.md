@@ -84,7 +84,7 @@ inspeciona os dois caminhos sob `artifacts/`. Divergências retornam
 `PRESENT_UNATTESTED`, **nunca** integridade histórica autenticada.
 Não habilita classificação, pontuação, reprocessamento ou recoleta adicionais.
 
-## Configuração histórica — campos numéricos
+## Configuração histórica - campos numéricos
 
 Ao restaurar uma configuração de AUD, campos inteiros de Search Intelligence
 rejeitam booleanos e valores não finitos (`NaN`, `Infinity`). Cada campo
