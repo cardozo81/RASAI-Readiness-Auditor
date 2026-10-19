@@ -66,6 +66,27 @@ def describe_architecture_assessment(result: Any) -> tuple[str, ...]:
             lines.append(
                 "Sinais estruturais RAW: N/D (HTML ausente ou orçamento excedido)."
             )
+    if getattr(result, "redirect_hops_reported", None) is not None:
+        hops = result.redirect_hops_reported
+        lines.append(
+            f"Transporte observado na captura: {hops} redirecionamento(s) HTTP."
+        )
+        if getattr(result, "protocol_transition", None) == "HTTP_TO_HTTPS":
+            lines.append(
+                "Mudança de protocolo observada: HTTP para HTTPS; "
+                "a validade TLS depende da coleta segura por destino."
+            )
+        lines.append(
+            "Origem da captura: "
+            + {
+                "PINNED_HTTP_STATIC": "HTTP público com transporte IP fixado",
+                "ISOLATED_OCI_RENDER": "HTTP fixado e renderização isolada sem rede",
+            }.get(getattr(result, "acquisition_transport", None), "N/D")
+        )
+        lines.append(
+            "Cadeia e destino foram reportados pelo transporte da captura; "
+            "o resumo não é certificação independente de domínio/certificado."
+        )
     lines.append("Escopo: uma URL e um dispositivo; diagnóstico preliminar, não uma certificação.")
     return tuple(lines)
 

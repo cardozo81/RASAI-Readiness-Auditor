@@ -155,3 +155,53 @@ def test_646_unproven_cross_host_or_https_downgrade_never_becomes_valid():
                 pass
             else:
                 raise AssertionError("Cross-host/downgrade classification not allowed")
+
+
+
+def test_646_late_spa_update_replaces_early_server_like_content_before_decision():
+    """Never certify an SSR-looking first paint at the 850ms checkpoint."""
+    initial = "Visible server content that will be replaced by client hydration."
+    final = "Different client-side document loaded later in the same page."
+    page = _TimedDomPage([
+        (0, _dom(initial)),
+        (1400, _dom(final)),
+    ])
+    result = wait_for_material_dom(page, time_source=lambda: page.ms / 1000)
+    assert result.stable
+    assert result.content_transitions >= 1
+    assert result.observed_ms >= 2600
+    assert page.ms >= 2600 and page.ms <= MAX_SETTLE_MS
+
+
+def test_646_materiality_censored_when_final_change_prevents_stable_tail():
+    page = _TimedDomPage([
+        (0, _dom("Initial server-looking text with a complete title")),
+        (2600, _dom("Late conflicting SPA update arrives too close to timeout")),
+    ])
+    result = wait_for_material_dom(page, time_source=lambda: page.ms / 1000)
+    assert not result.stable
+    assert result.reason == "ISOLATED_CONTENT_NOT_STABLE"
+    assert result.content_transitions == 1
+    assert result.observed_ms <= MAX_SETTLE_MS
+
+
+def test_646_redirect_transport_provenance_is_bounded_and_no_raw_urls_leak():
+    from rasai.console_architecture_discovery import describe_architecture_assessment
+    target = "http://example.org/private?key=operator-secret"
+    final = "https://example.org/private?key=operator-secret"
+    original = with_capture_origin(ProbeCaptures(
+        target, final, DeviceContext.MOBILE,
+        "<main>Server returned the physical document</main>", None,
+        "STATIC_MODE_NO_RENDERED_DOM", redirect_chain=(final,),
+    ), transport="PINNED_HTTP_STATIC")
+    with patch("rasai.architecture_probe._validate_public_url", side_effect=lambda url, _: url):
+        result = probe_architecture(target, DeviceContext.MOBILE, capture=lambda *_: original)
+    assert result.redirect_hops_reported == 1
+    assert result.protocol_transition == "HTTP_TO_HTTPS"
+    assert result.acquisition_transport == "PINNED_HTTP_STATIC"
+    text = "\n".join(describe_architecture_assessment(result))
+    assert "1 redirecionamento(s) HTTP" in text
+    assert "HTTP para HTTPS" in text
+    assert "operator-secret" not in text
+    assert "/private" not in text
+    assert result.architecture.value == "UNKNOWN"

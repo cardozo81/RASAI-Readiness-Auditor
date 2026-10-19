@@ -36,3 +36,9 @@ A classificação na prévia não é um snapshot arbitrário da primeira pintura
 A aquisição HTTP pode acompanhar dois redirecionamentos públicos, fixados por IP e validados independentemente. A classificação somente aceita cadeia final consistente no mesmo host ou variação www/ápice, sem downgrade HTTPS. Certificado TLS não validado impede a obtenção do conteúdo e NÃO é contornado. Redirect/handshake são fases de transporte; a janela de materialidade ocorre depois do DOMContentLoaded e não mascara tempo consumido em DNS, conexão ou TLS. A estabilidade observada não prova renderização global, indexação, ausência de WAF ou disponibilidade de crawler.
 
 O modo sem Docker apresenta sinais estruturais RAW limitados como observação parcial, mas nunca substitui comparação RAW/DOM e nunca atribui CSR_SPA/STATIC_OR_SSR com HTML isolado.
+
+## Censura de materialidade em substituições tardias (19/10/2026)
+
+O método consultivo espera até o fim da janela máxima de 2,8 s depois de DOMContentLoaded antes de classificar o DOM, pois uma sequência inicial de texto estável poderia ser substituída por SPA/hidratação tardia. O aceite requer três amostras finais de texto material coincidente e sem loading visível. Em caso de substituição muito próxima do limite, a arquitetura permanece UNKNOWN, preservando limitação de materialidade. Somente marcadores de loading visíveis interrompem a estabilidade. Não há mudança de sample, task, threshold, Apdex ou scoring homologado.
+
+Metadados limitados de redirecionamentos observados pela captura (quantidade, upgrade HTTP/HTTPS e transporte declarado) podem constar do console sem revelar caminhos, querystrings ou credenciais de páginas redirecionadas. Esses metadados não equivalem à certificação autônoma de TLS nem aprovação do destino por fonte externa.

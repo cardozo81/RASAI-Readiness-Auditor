@@ -6,9 +6,10 @@ introduced as an accidental fallback.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import hashlib
 from typing import Callable
+from urllib.parse import urlsplit
 
 from rasai.architecture_discovery import ArchitectureAssessment, assess_architecture
 from rasai.domain import DeviceContext
@@ -111,8 +112,25 @@ def probe_architecture(
             and observation.raw_html is not None
             and observation.rendered_html is not None):
         _validate_public_url(final_url, _default_resolver)
-    return assess_architecture(
+    assessment = assess_architecture(
         raw_html=observation.raw_html,
         rendered_html=observation.rendered_html,
         quality_reason=observation.quality_reason,
+    )
+    # The acquisition adapter owns this *reported* redirect metadata.
+    # Capture-time SHA does not imply an independently signed audit manifest.
+    # Present only bounded hop counts/protocols, not potentially secret URLs.
+    if observation.origin is None:
+        return assessment
+    before = urlsplit(target)
+    after = urlsplit(final_url)
+    transition = (
+        "HTTP_TO_HTTPS" if before.scheme == "http" and after.scheme == "https"
+        else "UNCHANGED"
+    )
+    return replace(
+        assessment,
+        redirect_hops_reported=len(observation.redirect_chain),
+        protocol_transition=transition,
+        acquisition_transport=observation.origin.transport,
     )

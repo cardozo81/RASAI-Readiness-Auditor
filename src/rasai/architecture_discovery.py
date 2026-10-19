@@ -23,6 +23,9 @@ class ArchitectureAssessment:
     raw_available: bool = False
     rendered_available: bool = False
     raw_signals: RawHtmlSignals | None = None
+    redirect_hops_reported: int | None = None
+    protocol_transition: str | None = None
+    acquisition_transport: str | None = None
 
 
 def assess_architecture(
