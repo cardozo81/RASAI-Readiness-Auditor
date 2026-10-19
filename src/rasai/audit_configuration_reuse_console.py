@@ -191,7 +191,7 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
         else:
             warnings.append("search_intelligence.enabled: valor inválido")
             enabled = None
-        if enabled is False:
+        if enabled is False and (has_queries or "enabled" in search):
             state.search_queries = ()
         elif enabled is True and has_queries:
             state.search_queries = queries
