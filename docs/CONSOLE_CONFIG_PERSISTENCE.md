@@ -652,3 +652,21 @@ limpo e confronta integralmente seções tipadas de CAT-06/CAT-07 e a projeção
 de ambiente do runner. Verifica que leitura não reescreve INI e que não
 surge token de integração paga. Isso elimina a lacuna de testar só valores
 default ou só alguns campos APDEX, sem alegar executar Dynatrace real.
+
+## Prova adicional: consumo offline efetivo CAT-06/CAT-07 (#523)
+
+A regressão em tests/test_console_registry_new_process_roundtrip.py
+compara valores não-default restaurados do INI com objetos finais dos
+adaptadores reais m23_cli.configured_apdex e m25_cli.configured_experience:
+limites, tentativas, timeouts, concorrência, thresholds, dispositivo canônico,
+flags de captura, impactos de erro e seus escopos. A única substituição é
+o handoff global M25, capturado em memória para não modificar AUD real.
+
+Um cenário independente desativa CAT-06 e confirma que CAT-07 permanece
+configurável e ativo. Arquitetura declarada e modo de perfil permanecem
+consultivos, sem alteração automática de fórmulas e metodologia do Apdex.
+
+Escopo comprovável: resolução offline real dos adaptadores após save/load
+em fixture temporária, sem navegação, serviço pago, IA, Dynatrace live ou
+artefatos do operador. A execução física e o smoke Windows permanecem
+gates distintos; não tratá-los como resultados já obtidos.

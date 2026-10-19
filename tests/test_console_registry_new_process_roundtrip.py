@@ -210,3 +210,145 @@ def test_fresh_save_error_cannot_leave_partially_applied_runtime_override(tmp_pa
                 console_settings.save_console_config(state, tmp_path / "operator.ini")
         assert "RASAI_SYNTHETIC_APDEX" not in os.environ
         assert not (tmp_path / "operator.ini").exists()
+
+def test_restored_cat06_cat07_fields_reach_real_cli_adapters(tmp_path):
+    """#523: assert effective M23/M25 objects, not merely INI and env text."""
+    from argparse import ArgumentParser
+    from rasai import m23_cli
+    from rasai.m23_cli import register_apdex_arguments
+
+    _install_search_persistence()
+    install_complete_persistence()
+    with patch.dict(os.environ, {}, clear=True):
+        source = SearchConsoleState()
+        source.device = "desktop"
+        source.synthetic_apdex = True
+        source.apdex_threshold = 2.0
+        source.apdex_samples = 7
+        source.apdex_max_attempts = 10
+        source.apdex_max_pages = 2
+        source.apdex_timeout = 35.0
+        source.apdex_delay = 1.0
+        source.apdex_concurrency = 2
+        source.apdex_experience = True
+        source.apdex_experience_samples = 7
+        source.apdex_experience_max_attempts = 10
+        source.apdex_experience_max_pages = 2
+        source.apdex_experience_session_mode = "warm"
+        source.apdex_experience_architecture = "HYDRATED"
+        source.apdex_experience_profile_mode = "CUSTOM"
+        source.apdex_experience_satisfied = 2.0
+        source.apdex_experience_frustrated = 8.0
+        source.apdex_experience_javascript_errors = False
+        source.apdex_experience_request_errors = True
+        source.apdex_experience_console_errors = False
+        source.apdex_experience_javascript_capture = True
+        source.apdex_experience_xhr_capture = False
+        source.apdex_experience_fetch_capture = True
+        source.apdex_experience_console_capture = False
+        source.apdex_experience_max_error_details = 3
+        source.apdex_experience_error_scope = "first-party"
+        source.apdex_experience_settle = 2.0
+        source.apdex_experience_delay = 1.0
+        source.apdex_experience_concurrency = 2
+        ini = tmp_path / "effective-adapters.ini"
+        console_settings.save_console_config(source, ini)
+        original = ini.read_bytes()
+        # A new environment must not inherit the saving session's overrides.
+        with patch.dict(os.environ, {}, clear=True):
+            restored = SearchConsoleState()
+            result = console_settings.load_console_config(restored, ini)
+            assert not result.created and not result.warnings
+            console_settings.sync_nonsecret_runtime_environment(restored)
+            runtime_env = dict(os.environ)
+            parser = ArgumentParser(add_help=False)
+            register_apdex_arguments(parser)
+            handoffs = []
+            with patch.object(m23_cli, "set_pending_config", handoffs.append):
+                navigation = m23_cli.configured_apdex(
+                    parser.parse_args([]), env=runtime_env
+                )
+            # Two handoffs (clear + effective) are intentional. Neither is
+            # allowed to change a global pending AUD during the test.
+            assert len(handoffs) == 2
+            experience = handoffs[-1]
+            assert navigation.enabled is True
+            assert navigation.threshold_seconds == 2.0
+            assert navigation.target_valid_samples == 7
+            assert navigation.max_attempts_per_context == 10
+            assert navigation.max_pages == 2
+            assert navigation.timeout_seconds == 35.0
+            assert navigation.delay_seconds == 1.0
+            assert navigation.concurrency == 2
+            assert experience.enabled is True
+            assert experience.target_samples_per_page == 7
+            assert experience.max_attempts_per_page == 10
+            assert experience.max_pages == 2
+            assert experience.device_mix_dict() == {"DESKTOP": 100.0}
+            assert experience.session_mode == "warm"
+            assert experience.satisfied_threshold_seconds == 2.0
+            assert experience.frustrated_threshold_seconds == 8.0
+            assert experience.javascript_errors_affect_apdex is False
+            assert experience.request_errors_affect_apdex is True
+            assert experience.console_errors_affect_apdex is False
+            assert experience.javascript_error_capture is True
+            assert experience.xhr_capture is False
+            assert experience.fetch_capture is True
+            assert experience.console_error_capture is False
+            assert experience.max_error_details == 3
+            assert experience.error_scope == "first-party"
+            assert experience.settle_seconds == 2.0
+            assert experience.delay_seconds == 1.0
+            assert experience.concurrency == 2
+            assert experience.dynatrace_import is False
+            # Advisory architecture/profile mode are not scoring knobs.
+            assert runtime_env["RASAI_APDEX_EXPERIENCE_ARCHITECTURE"] == "HYDRATED"
+            assert runtime_env["RASAI_APDEX_EXPERIENCE_PROFILE_MODE"] == "CUSTOM"
+            assert not hasattr(experience, "architecture")
+            assert not hasattr(experience, "profile_mode")
+            assert "PERPLEXITY_API_KEY" not in runtime_env
+            assert "RASAI_DYNATRACE_API_TOKEN" not in runtime_env
+            assert ini.read_bytes() == original
+
+
+def test_cat07_adapter_stays_enabled_with_cat06_off_after_restore(tmp_path):
+    """#523: CAT-07 is independently configurable without CAT-06."""
+    from argparse import ArgumentParser
+    from rasai import m23_cli
+    from rasai.m23_cli import register_apdex_arguments
+
+    _install_search_persistence()
+    install_complete_persistence()
+    with patch.dict(os.environ, {}, clear=True):
+        source = SearchConsoleState()
+        source.device = "mobile"
+        source.synthetic_apdex = False
+        source.apdex_threshold = None
+        source.apdex_experience = True
+        source.apdex_experience_samples = 4
+        source.apdex_experience_max_attempts = 6
+        source.apdex_experience_satisfied = 2.0
+        source.apdex_experience_frustrated = 8.0
+        ini = tmp_path / "independent-cat07.ini"
+        console_settings.save_console_config(source, ini)
+        original = ini.read_bytes()
+        with patch.dict(os.environ, {}, clear=True):
+            restored = SearchConsoleState()
+            loaded = console_settings.load_console_config(restored, ini)
+            assert not loaded.created and not loaded.warnings
+            console_settings.sync_nonsecret_runtime_environment(restored)
+            parser = ArgumentParser(add_help=False)
+            register_apdex_arguments(parser)
+            handoffs = []
+            with patch.object(m23_cli, "set_pending_config", handoffs.append):
+                navigation = m23_cli.configured_apdex(
+                    parser.parse_args([]), env=dict(os.environ)
+                )
+            assert navigation.enabled is False
+            assert navigation.threshold_seconds is None
+            assert len(handoffs) == 2
+            assert handoffs[-1].enabled is True
+            assert handoffs[-1].target_samples_per_page == 4
+            assert handoffs[-1].max_attempts_per_page == 6
+            assert handoffs[-1].device_mix_dict() == {"MOBILE": 100.0}
+            assert ini.read_bytes() == original
