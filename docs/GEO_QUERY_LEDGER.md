@@ -434,7 +434,7 @@ autenticidade de provedor, consentimento ou
 mesmo universo de observacao temporal.
 
 
-## Escopo consultivo 007 — recorrência entre consultas da mesma execução
+## Escopo consultivo 007 - recorrência entre consultas da mesma execução
 
 A projeção 007 acrescenta métricas de recorrência determinísticas **apenas
 entre duas ou mais consultas pertencentes ao mesmo run Search API**.

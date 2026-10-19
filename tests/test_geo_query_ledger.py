@@ -1016,7 +1016,7 @@ def test_public_cli_geo_query_ledger_and_html_do_not_bootstrap_audit_or_ai(
     ]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["contract_version"] == (
-        "RASAI-GEO-PER-QUERY-304-ADVISORY-006"
+        "RASAI-GEO-PER-QUERY-304-ADVISORY-007"
     )
     assert payload["provider_requests"] == payload["audit_writes"] == 0
     assert source.read_bytes() == initial

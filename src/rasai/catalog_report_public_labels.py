@@ -6,6 +6,13 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    # #304: advisory multi-query recurrence provenance and abstention labels.
+    "MULTI_QUERY_VERIFIED_COHORT_INCOMPLETE": "Coorte incompleta de consultas atribuíveis",
+    "ONE_QUERY_CANNOT_PROVE_RECURRENCE": "Uma consulta não prova recorrência",
+    "SERP_SCOPE_DIFFERS_ACROSS_QUERIES": "Escopo SERP diverge entre consultas",
+    "URL_IDENTITY_UNVERIFIABLE": "Identidade de URL sem comprovação",
+    "NOT_APPLICABLE_SINGLE_QUERY": "Não aplicável a consulta única",
+    "OBSERVED_WITHIN_ONE_RUN": "Observado dentro de uma única execução",
     "STATIC_MODE_NO_RENDERED_DOM": "Modo básico: HTML público observado, sem renderização JavaScript; arquitetura inconclusiva",
     "PUBLIC_REDIRECT_NOT_FOLLOWED": "Redirecionamento não seguido pela política de segurança; URL final não atestada",
     "PUBLIC_HTML_SIZE_LIMIT": "HTML excede o limite de bytes permitido",
