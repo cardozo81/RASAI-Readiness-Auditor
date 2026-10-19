@@ -106,3 +106,31 @@ def test_duplicate_m6_identity_abstains_instead_of_selecting_first(tmp_path):
                 for arch in ("CSR_SPA", "STATIC_OR_SSR")]
         con.executemany("INSERT INTO page_snapshots VALUES (?,?,?,?,?,?,?,?)", rows)
     assert read_audit_architecture_observations(root, "AUD-9") == ()
+
+
+def test_historical_m6_rejects_unsafe_artifact_references(tmp_path):
+    root = tmp_path / "audits"
+    folder = root / "AUD-10"
+    folder.mkdir(parents=True)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute("CREATE TABLE pages(page_id TEXT, audit_id TEXT)")
+        con.execute("""CREATE TABLE page_snapshots(
+            snapshot_id TEXT, page_id TEXT, device TEXT, requested_url TEXT,
+            final_url TEXT, architecture_classification TEXT,
+            raw_artifact_ref TEXT, rendered_artifact_ref TEXT)""")
+        con.execute("INSERT INTO pages VALUES ('P-10','AUD-10')")
+        bad_refs = ("../raw/a.html", "/tmp/raw/a.html", "C:/raw/a.html",
+                    "raw/../secret.html", "raw//a.html",
+                    "raw/\\\\secret.html", "raw/a.html\\n")
+        for i, ref in enumerate(bad_refs):
+            con.execute("INSERT INTO page_snapshots VALUES (?,?,?,?,?,?,?,?)",
+                        (f"S-{i}", "P-10", "MOBILE", "https://example.org/",
+                         "https://example.org/", "CSR_SPA", ref, "rendered/a.html"))
+        con.execute("INSERT INTO page_snapshots VALUES (?,?,?,?,?,?,?,?)",
+                    ("S-good", "P-10", "MOBILE", "https://example.org/",
+                     "https://example.org/", "CSR_SPA", "raw/a.html", "rendered/a.html"))
+    before = (folder / "audit.db").read_bytes()
+    observations = read_audit_architecture_observations(root, "AUD-10")
+    assert len(observations) == 1
+    assert observations[0].snapshot_id == "S-good"
+    assert (folder / "audit.db").read_bytes() == before
