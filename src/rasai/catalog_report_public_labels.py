@@ -6,6 +6,13 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    "TYPED_ADAPTERS_INSPECTED": "Campos tipados do INI examinados pelos adaptadores sem execução",
+    "OBSERVED_NONEXCLUSIVE_WORK_INTERVALS": "Intervalos de atividades registrados; não representam fases exclusivas",
+    "NO_RECORDED_ATTEMPTS": "Nenhuma tentativa de atividade registrada nesta AUD",
+    "POPULATION_LIMIT": "População de tentativas excede o limite de inspeção segura",
+    "INCONSISTENT_AUD_IDENTITIES": "Identidade física da AUD ou do trabalho inconsistente",
+    "TOO_MANY_COMPONENTS": "Quantidade de componentes acima do limite de inspeção",
+    "SCHEMA_OR_WORK_COHORT_UNVERIFIABLE": "Estrutura ou coorte de atividades sem comprovação",
     "DOCUMENTARY_SIDECAR_OBSERVED": "Registro documental experimental verificado contra hashes da AUD",
     "SOURCE_NOT_VERIFIABLE": "Origem ou vínculo do registro experimental não verificável",
     "ADVISORY_OBSERVED": "Contexto arquitetural observado somente para consulta",
