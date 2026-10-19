@@ -163,11 +163,14 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
     state.search_queries = queries if enabled else ()
 
     try:
-        depth = int(search.get("depth", getattr(state, "search_depth", 20)))
+        candidate = search.get("depth", getattr(state, "search_depth", 20))
+        if isinstance(candidate, bool):
+            raise ValueError
+        depth = int(candidate)
         if depth <= 0:
             raise ValueError
         state.search_depth = depth
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         warnings.append("search_intelligence.depth: use inteiro > 0")
 
     device = str(search.get("device", getattr(state, "search_device", "mobile"))).strip().casefold()
@@ -189,11 +192,14 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
         default=bool(getattr(state, "search_ai_competitive", False)),
     )
     try:
-        value = int(search.get("max_content_pages", getattr(state, "search_max_content_pages", 3)))
+        candidate = search.get("max_content_pages", getattr(state, "search_max_content_pages", 3))
+        if isinstance(candidate, bool):
+            raise ValueError
+        value = int(candidate)
         if value < 0:
             raise ValueError
         state.search_max_content_pages = value
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         warnings.append("search_intelligence.max_content_pages: use inteiro >= 0")
     try:
         value = float(search.get("content_timeout_seconds", getattr(state, "search_content_timeout_seconds", 10.0)))
@@ -203,18 +209,24 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
     except (TypeError, ValueError):
         warnings.append("search_intelligence.content_timeout_seconds: use número finito > 0")
     try:
-        value = int(search.get("content_max_bytes", getattr(state, "search_content_max_bytes", 2_000_000)))
+        candidate = search.get("content_max_bytes", getattr(state, "search_content_max_bytes", 2_000_000))
+        if isinstance(candidate, bool):
+            raise ValueError
+        value = int(candidate)
         if value <= 0:
             raise ValueError
         state.search_content_max_bytes = value
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         warnings.append("search_intelligence.content_max_bytes: use inteiro > 0")
     try:
-        value = int(search.get("content_max_redirects", getattr(state, "search_content_max_redirects", 5)))
+        candidate = search.get("content_max_redirects", getattr(state, "search_content_max_redirects", 5))
+        if isinstance(candidate, bool):
+            raise ValueError
+        value = int(candidate)
         if value < 0:
             raise ValueError
         state.search_content_max_redirects = value
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         warnings.append("search_intelligence.content_max_redirects: use inteiro >= 0")
     ymyl_mode = str(search.get("ymyl_mode", getattr(state, "search_ymyl_mode", "AUTO")) or "AUTO").strip().upper()
     if ymyl_mode in {"AUTO", "ON", "OFF"}:

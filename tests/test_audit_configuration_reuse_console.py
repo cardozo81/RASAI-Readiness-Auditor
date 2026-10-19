@@ -155,3 +155,22 @@ def test_loaded_ai_configuration_warns_when_current_credential_is_missing(monkey
     warnings = _dependency_warnings(state)
 
     assert any("IA/openai" in warning and "não configurada" in warning for warning in warnings)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("depth", float("inf")), ("depth", True),
+    ("max_content_pages", float("nan")), ("max_content_pages", True),
+    ("content_max_bytes", float("inf")), ("content_max_bytes", True),
+    ("content_max_redirects", float("nan")), ("content_max_redirects", False),
+])
+def test_invalid_historical_search_integer_keeps_current_setting(field, value) -> None:
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    name = {"depth": "search_depth", "max_content_pages": "search_max_content_pages",
+            "content_max_bytes": "search_content_max_bytes",
+            "content_max_redirects": "search_content_max_redirects"}[field]
+    previous = getattr(state, name)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {field: value}}, warnings)
+    assert getattr(state, name) == previous
+    assert any(field in warning for warning in warnings)

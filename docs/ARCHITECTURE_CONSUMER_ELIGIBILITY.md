@@ -83,3 +83,11 @@ inspeciona os dois caminhos sob `artifacts/`. Divergências retornam
 `MISSING_OR_AMBIGUOUS_IDENTITY`; existência de bytes retorna
 `PRESENT_UNATTESTED`, **nunca** integridade histórica autenticada.
 Não habilita classificação, pontuação, reprocessamento ou recoleta adicionais.
+
+## Configuração histórica — campos numéricos
+
+Ao restaurar uma configuração de AUD, campos inteiros de Search Intelligence
+rejeitam booleanos e valores não finitos (`NaN`, `Infinity`). Cada campo
+inválido preserva o valor vigente e gera aviso; o restante da restauração
+segue a precedência aprovada. Isso não autoriza consultas Perplexity nem
+muda o modo arquitetural selado.
