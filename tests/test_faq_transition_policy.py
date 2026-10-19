@@ -155,3 +155,64 @@ def test_faq_observation_closes_read_only_sqlite_handle(tmp_path, monkeypatch):
     monkeypatch.setattr(observer.sqlite3, "connect", tracked_connect)
     assert observer.faq_observation_html(db, "AUD-TEST") == ""
     assert len(handles) == 1 and handles[0].closed_explicitly
+
+
+def test_601_dom_initial_separates_closed_mounted_unmounted_and_open_cases():
+    from rasai.faq_observation import inspect_faq_html
+    html = (
+        '<button aria-controls="faq-closed" aria-expanded="false">Q1</button>'
+        '<div id="faq-closed" hidden>Answer present in captured DOM</div>'
+        '<button aria-controls="faq-lazy" aria-expanded="false">Q2</button>'
+        '<button aria-controls="faq-open" aria-expanded="true">Q3</button>'
+        '<section id="faq-open">Answer in already expanded DOM</section>'
+        '<button aria-controls="faq-empty" aria-expanded="true">Q4</button>'
+        '<div id="faq-empty"></div>'
+        '<button aria-controls="faq-open-lazy" aria-expanded="true">Q5</button>'
+    )
+    result = inspect_faq_html(html)
+    assert result == {
+        "controls": 5, "ambiguous": 0, "collapsed": 2,
+        "unmounted": 1, "mounted": 1, "mounted_with_text": 1,
+        "mounted_without_text": 0, "expanded": 3,
+        "expanded_with_text": 1, "expanded_without_text": 1,
+        "expanded_unmounted": 1,
+    }
+
+
+def test_601_read_only_cat03_html_exposes_both_observation_scopes(tmp_path):
+    from rasai.faq_observation import faq_observation_html
+    import sqlite3
+
+    aud = tmp_path / "AUD-601"
+    rendered = aud / "artifacts" / "rendered"
+    rendered.mkdir(parents=True)
+    page = rendered / "snapshot.html"
+    page.write_text(
+        '<button aria-controls="faq-lazy" aria-expanded="false">Q</button>'
+        '<button aria-controls="faq-onpage" aria-expanded="true">Q</button>'
+        '<div id="faq-onpage">A in DOM</div>',
+        encoding="utf-8",
+    )
+    db = aud / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript(
+            "CREATE TABLE pages(page_id TEXT, audit_id TEXT);"
+            "CREATE TABLE page_snapshots("
+            "snapshot_id TEXT, page_id TEXT, rendered_artifact_ref TEXT);"
+        )
+        con.execute("INSERT INTO pages VALUES('PAGE-1','AUD-601')")
+        con.execute(
+            "INSERT INTO page_snapshots VALUES(?,?,?)",
+            ("SNP-1", "PAGE-1", "artifacts/rendered/snapshot.html"),
+        )
+    db_before, html_before = db.read_bytes(), page.read_bytes()
+    output = faq_observation_html(db, "AUD-601")
+    assert "Capacidade sem interação" in output
+    assert "Disponibilidade após clique" in output
+    assert "N/D quando não existe recibo autenticado" in output
+    assert "Em estado expandido na captura havia 1 painel" in output
+    assert "1 com texto DOM" in output
+    assert "Painel não materializado não prova ausência editorial" in output
+    assert "BR-GEO-039" in output and "BR-GEO-049" in output
+    assert db.read_bytes() == db_before
+    assert page.read_bytes() == html_before

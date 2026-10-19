@@ -100,6 +100,10 @@ def inspect_faq_html(html: str) -> dict[str, int]:
         target for target, values in states.items()
         if target not in ambiguous and values == {"false"}
     ]
+    expanded = [
+        target for target, values in states.items()
+        if target not in ambiguous and values == {"true"}
+    ]
     return {
         "controls": len(states),
         "ambiguous": len(ambiguous),
@@ -110,6 +114,19 @@ def inspect_faq_html(html: str) -> dict[str, int]:
         "mounted_without_text": sum(
             target in parser.ids and target not in parser.ids_with_dom_text
             for target in collapsed
+        ),
+        # Expanded panels are still merely DOM state at the captured instant;
+        # they do not attest a physical click or that a crawler saw an answer.
+        "expanded": len(expanded),
+        "expanded_with_text": sum(
+            target in parser.ids_with_dom_text for target in expanded
+        ),
+        "expanded_without_text": sum(
+            target in parser.ids and target not in parser.ids_with_dom_text
+            for target in expanded
+        ),
+        "expanded_unmounted": sum(
+            target not in parser.ids for target in expanded
         ),
     }
 
@@ -169,26 +186,44 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
     mounted = sum(item["mounted"] for item in observations)
     mounted_with_text = sum(item["mounted_with_text"] for item in observations)
     mounted_without_text = sum(item["mounted_without_text"] for item in observations)
+    expanded = sum(item["expanded"] for item in observations)
+    expanded_with_text = sum(item["expanded_with_text"] for item in observations)
+    expanded_without_text = sum(item["expanded_without_text"] for item in observations)
+    expanded_unmounted = sum(item["expanded_unmounted"] for item in observations)
     provenance = "".join(
         "<tr><td><code>" + escape(snapshot_id) + "</code></td>"
         + f"<td>{counts['controls']}</td><td>{counts['ambiguous']}</td>"
         + f"<td>{counts['collapsed']}</td><td>{counts['unmounted']}</td>"
         + f"<td>{counts['mounted_with_text']}</td>"
-        + f"<td>{counts['mounted_without_text']}</td></tr>"
+        + f"<td>{counts['mounted_without_text']}</td>"
+        + f"<td>{counts['expanded']}</td>"
+        + f"<td>{counts['expanded_with_text']}</td>"
+        + f"<td>{counts['expanded_unmounted']}</td></tr>"
         for snapshot_id, counts in sources
     )
     return (
         "<div class='subsection' data-contract='FAQ-OBSERVATION-601-001'>"
         "<h3>FAQ interativo — limite da captura</h3>"
+        "<p><strong>Capacidade sem interação:</strong> somente texto "
+        "persistido no DOM inicial pode ser observado; nenhuma consulta "
+        "a crawler foi realizada. <strong>Disponibilidade após clique:</strong> "
+        "N/D quando não existe recibo autenticado de interação do mesmo "
+        "contexto físico. Não equiparar esses dois resultados.</p>"
         f"<p>Foram identificados {total} alvo(s) distintos associados a FAQ, "
         f"{ambiguous} com estado/ID ambíguo(s) e {collapsed} recolhido(s) sem ambiguidade; "
         f"entre estes, {unmounted} painel(is) "
         f"não estavam presentes no DOM capturado e {mounted} tinham um alvo no DOM "
-        f"({mounted_with_text} com texto recuperável no DOM e {mounted_without_text} sem texto recuperável).</p>"
+        f"({mounted_with_text} com texto recuperável no DOM e {mounted_without_text} sem texto recuperável). "
+        f"Em estado expandido na captura havia {expanded} painel(is): "
+        f"{expanded_with_text} com texto DOM, {expanded_without_text} sem texto DOM "
+        f"e {expanded_unmounted} sem painel montado. Estado expandido não "
+        "comprova gesto de clique nem visibilidade a mecanismos de busca.</p>"
         "<details><summary>Proveniência por captura</summary>"
         "<div class='table-wrap'><table><thead><tr><th>Snapshot ID</th><th>FAQ</th>"
         "<th>Ambíguos</th><th>Recolhidos</th><th>Painéis ausentes</th><th>Com texto DOM</th>"
-        "<th>Sem texto DOM</th></tr></thead><tbody>"
+        "<th>Sem texto DOM</th><th>Expandidos</th>"
+        "<th>Expandidos com texto</th><th>Expandidos sem painel</th>"
+        "</tr></thead><tbody>"
         + provenance + "</tbody></table></div></details>"
         "<p class='muted'>IDs duplicados, estados contraditórios ou controles malformados "
         "são classificados como ambíguos e não entram nas contagens de painéis. "

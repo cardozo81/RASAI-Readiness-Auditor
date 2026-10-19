@@ -49,3 +49,23 @@ opt-out preserva DOM, opt-in revela resposta apos clique, URL nao muda
 e nenhum destino externo e acessado. A suite integra o workflow de
 piloto fisico isolado. Essa prova offline nao equivale a teste do
 website-alvo ou homologacao de acessibilidade.
+
+
+## Ampliação funcional do relatório CAT-03 - estados de DOM (#601, 19/10)
+
+A leitura da captura canônica distingue agora controles recolhidos com texto
+montado, recolhidos sem painel, expandidos com texto, expandidos sem texto e
+expandidos sem painel montado, preservando ambiguidades. O painel consultivo
+exibe **dois resultados de natureza distinta**: texto recuperável no DOM
+sem interação e disponibilidade depois de um clique. Sem recibo independente
+de interação na amostra física, a segunda coluna permanece N/D.
+
+A indicação de "expandido" descreve atributo aria-expanded da captura,
+sem inferir que ocorreu clique, que o humano viu a resposta, ou que um
+crawler consegue indexá-la. HTML escondido mas montado demonstra apenas
+texto no DOM daquele snapshot. Ausência de um target aria-controls não
+prova inexistência editorial. Nenhuma regra BR-GEO-039/049, score SARI,
+SCORE-GEO, auditoria histórica ou motor de captura é alterado.
+
+Fixtures de leitura de DOM e SQLite real cobrem a matriz dos quatro estados,
+escopo por AUD e bytes inalterados de banco e HTML.
