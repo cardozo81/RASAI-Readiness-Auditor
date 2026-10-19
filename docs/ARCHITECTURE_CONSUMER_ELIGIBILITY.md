@@ -91,3 +91,11 @@ rejeitam booleanos e valores não finitos (`NaN`, `Infinity`). Cada campo
 inválido preserva o valor vigente e gera aviso; o restante da restauração
 segue a precedência aprovada. Isso não autoriza consultas Perplexity nem
 muda o modo arquitetural selado.
+
+## Integridade dos inteiros de Search Intelligence na reutilização de AUD
+
+A restauração de uma AUD exige valores inteiros exatos em profundidade,
+limites de páginas, bytes e redirecionamentos. Frações como `2.9` e texto
+como `1e6` não são truncados silenciosamente; o campo da sessão atual
+é preservado com aviso. Inteiros decimais em texto continuam aceitos.
+Isso não altera escolhas de serviços externos nem concede opt-in.

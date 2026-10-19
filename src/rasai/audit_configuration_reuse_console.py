@@ -137,6 +137,24 @@ def _as_bool(value: Any, *, default: bool) -> bool:
     return default
 
 
+def _strict_nonnegative_integer(value: Any) -> int:
+    """Reject bool, fractional values and non-finite numbers on AUD restore."""
+    if isinstance(value, bool):
+        raise ValueError("boolean is not an integer")
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value) or not value.is_integer():
+            raise ValueError("non-integral numeric value")
+        return int(value)
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped or not stripped.isascii() or not stripped.isdecimal():
+            raise ValueError("invalid decimal integer")
+        return int(stripped)
+    raise ValueError("unsupported integer type")
+
+
 def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warnings: list[str]) -> None:
     search = configuration.get("search_intelligence")
     if search is None:
@@ -164,9 +182,7 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
 
     try:
         candidate = search.get("depth", getattr(state, "search_depth", 20))
-        if isinstance(candidate, bool):
-            raise ValueError
-        depth = int(candidate)
+        depth = _strict_nonnegative_integer(candidate)
         if depth <= 0:
             raise ValueError
         state.search_depth = depth
@@ -193,9 +209,7 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
     )
     try:
         candidate = search.get("max_content_pages", getattr(state, "search_max_content_pages", 3))
-        if isinstance(candidate, bool):
-            raise ValueError
-        value = int(candidate)
+        value = _strict_nonnegative_integer(candidate)
         if value < 0:
             raise ValueError
         state.search_max_content_pages = value
@@ -210,9 +224,7 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
         warnings.append("search_intelligence.content_timeout_seconds: use número finito > 0")
     try:
         candidate = search.get("content_max_bytes", getattr(state, "search_content_max_bytes", 2_000_000))
-        if isinstance(candidate, bool):
-            raise ValueError
-        value = int(candidate)
+        value = _strict_nonnegative_integer(candidate)
         if value <= 0:
             raise ValueError
         state.search_content_max_bytes = value
@@ -220,9 +232,7 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
         warnings.append("search_intelligence.content_max_bytes: use inteiro > 0")
     try:
         candidate = search.get("content_max_redirects", getattr(state, "search_content_max_redirects", 5))
-        if isinstance(candidate, bool):
-            raise ValueError
-        value = int(candidate)
+        value = _strict_nonnegative_integer(candidate)
         if value < 0:
             raise ValueError
         state.search_content_max_redirects = value

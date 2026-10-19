@@ -174,3 +174,37 @@ def test_invalid_historical_search_integer_keeps_current_setting(field, value) -
     _apply_search_settings(state, {"search_intelligence": {field: value}}, warnings)
     assert getattr(state, name) == previous
     assert any(field in warning for warning in warnings)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("depth", 1.5), ("depth", "1.5"), ("depth", "-1"),
+    ("max_content_pages", 2.9), ("max_content_pages", object()),
+    ("content_max_bytes", "1e6"), ("content_max_bytes", 1.2),
+    ("content_max_redirects", 0.5), ("content_max_redirects", "2.0"),
+])
+def test_historical_search_integer_rejects_fractional_or_coerced_value(field, value) -> None:
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    name = {"depth": "search_depth", "max_content_pages": "search_max_content_pages",
+            "content_max_bytes": "search_content_max_bytes",
+            "content_max_redirects": "search_content_max_redirects"}[field]
+    prior = getattr(state, name)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {field: value}}, warnings)
+    assert getattr(state, name) == prior
+    assert any(field in message for message in warnings)
+
+
+def test_historical_search_integer_accepts_exact_decimal_strings() -> None:
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "depth": "27", "max_content_pages": 4.0,
+        "content_max_bytes": "2000000", "content_max_redirects": "0",
+    }}, warnings)
+    assert not warnings
+    assert (state.search_depth, state.search_max_content_pages,
+            state.search_content_max_bytes, state.search_content_max_redirects) == (
+                27, 4, 2_000_000, 0,
+            )
