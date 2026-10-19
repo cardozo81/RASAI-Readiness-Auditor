@@ -46,6 +46,15 @@ def inspect_audit_decision_evidence(audit_directory: Path) -> dict[str, Any]:
             if not data.audit or data.audit.get("audit_id") != audit_id:
                 return fallback
             web = _web_observation(db, audit_id, connection=connection)
+            # Use the SAME read-only catalog status resolver as index.html.
+            # A successful run is not a representative Apdex sample.
+            from rasai.catalog_report_catalog_state import _catalog_status
+            catalog_statuses = {
+                catalog_id: _catalog_status(
+                    db, data, catalog_id, connection=connection,
+                )[0]
+                for catalog_id in ("CAT-06", "CAT-07")
+            }
             scores = data.scores
         # Second projection checks its own SQLite sidecar evidence and
         # identities and returns N/D on ambiguous SERP observations.
@@ -53,6 +62,7 @@ def inspect_audit_decision_evidence(audit_directory: Path) -> dict[str, Any]:
         from rasai.optional_seo_interpretation import optional_seo_penalties
         projected = decision_evidence_matrix(
             audit_id=audit_id, scores=scores, web=web,
+            catalog_statuses=catalog_statuses,
             serp_depth=_overview_serp_depth(db, audit_id),
             optional_seo_discounts=optional_seo_penalties(db, audit_id),
         )

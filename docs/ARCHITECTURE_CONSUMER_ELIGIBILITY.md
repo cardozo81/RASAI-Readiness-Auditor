@@ -108,3 +108,10 @@ Uma lista inválida ou excessiva é recusada com aviso e preserva as consultas
 da sessão; listas válidas são normalizadas, deduplicadas e obedecem ao
 `enabled` explícito. Targets históricos não textuais impedem a restauração.
 Isso não modifica o opt-in de Perplexity, que permanece exclusivo da sessão.
+
+
+## Implementação F3 consultiva autorizada (19/10/2026)
+
+A fase F3 exclusivamente descritiva agora possui integração read-only em `index.html#architecture` e consulta por AUD via `python -m rasai.architecture_audit_cli /caminho/AUD-ID`. A matriz executável `architecture_consumer_eligibility.architecture_consumer_eligibility()` documenta consumidores e exige que somente `descriptive_report` e `m6_read_only_diagnostic` sejam ADVISORY_SAFE, tal como `architecture_context.APPROVED_ADVISORY_CONSUMERS`.
+
+As classificações `INTERPRETATION_SAFE`, `PRE_COLLECTION_ONLY`, `METHOD_CHANGE_REQUIRES_ADR` e `INAPPLICABLE` são classificações de elegibilidade *não executável*. A entrada do índice não ativa ajuste de métrica, autorização de IA, injeção em coletores ou mudança dos thresholds M23/M25. Os IDs externos da própria AUD são preservados; histórico `UNFORCED` não herda perfil do INI atual. Critérios operacionais pendentes continuam declarados nesta documentação. Especificação do mecanismo em [`ARCHITECTURE_AUDIT_ADVISORY.md`](ARCHITECTURE_AUDIT_ADVISORY.md).

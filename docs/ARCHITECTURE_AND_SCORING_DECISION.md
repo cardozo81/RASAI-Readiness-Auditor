@@ -42,3 +42,8 @@ ou autorização de coleta externa irrestrita.
 - Aprovação de tabela normativa concreta antes de mudar pontuação.
 
 Esta decisão **não modifica** índices nem executa integrações comerciais.
+
+
+## Entrega F3 descritiva por snapshot
+
+O projetor de relatório arquitetural e sua CLI foram integrados somente para consumidores aprovados. A descrição não é ativação de processamento automático por catálogo: `AUTO` observa M6 quando aplicável e `DECLARED` conserva a escolha congelada separada da descoberta medida. Falta de prova física/decisão metodológica não é contornada por esse painel. Consulte [`ARCHITECTURE_AUDIT_ADVISORY.md`](ARCHITECTURE_AUDIT_ADVISORY.md).

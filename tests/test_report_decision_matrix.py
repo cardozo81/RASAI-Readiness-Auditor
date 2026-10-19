@@ -152,6 +152,9 @@ def test_604_cli_reads_only_sealed_existing_aud_and_never_creates_database(
     assert projected["provider_requests"] == 0
     assert projected["audit_writes"] == 0
     assert projected["rows"][0]["observed"] == "86,5 / 100"
+    indicators = {row["indicator"]: row for row in projected["rows"]}
+    assert indicators["Apdex de navegação"]["observed"] == "INDETERMINADO"
+    assert indicators["Apdex de experiência"]["observed"] == "INDETERMINADO"
     assert main([str(aud)]) == 0
     cli = json.loads(capsys.readouterr().out)
     assert cli["status"] == "DESCRIPTIVE_ONLY"

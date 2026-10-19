@@ -438,7 +438,7 @@ def _overview_body(database: Path, data: _ReportData) -> str:
             indexes.append((_Html(f"<a href='{CATALOG_PAGE_BY_ID[cid].filename}'>{escape(str(name))}</a>"),value,CATALOG_BY_ID[cid].label,kind,"-"))
     integrity="Íntegro" if data.config_hash and data.computed_hash==data.config_hash else "Plano não encontrado" if not data.config_hash else "Integridade divergente"
     diagnostic=_diagnostic_state_section(database,data,integrity)
-    outline=(("snapshot","Retrato da auditoria"),("decision-matrix","Matriz decisória de evidências"),("catalogs","Catálogos"),("indices","Índices"),("integrity","Integridade"))
+    outline=(("snapshot","Retrato da auditoria"),("decision-matrix","Matriz decisória de evidências"),("architecture","Arquitetura observada e opção efetiva"),("catalogs","Catálogos"),("indices","Índices"),("integrity","Integridade"))
     if diagnostic:
         outline=(("diagnostic","Estado do diagnóstico"),)+outline
     body=_audit_hero(data,"Visão geral por catálogos","Resumo do plano congelado e dos resultados persistidos, mantendo coleta, análise e remediação em responsabilidades distintas.")
@@ -446,6 +446,18 @@ def _overview_body(database: Path, data: _ReportData) -> str:
     body+=diagnostic
     body+=_section("snapshot","O retrato da auditoria",_decision_snapshot_poc_633(database,data))
     body+=_section("experience","Explore a auditoria por objetivo",_experience_paths_633())
+    # #646: F3 allows one advisory-only consumer. No consumer inherits an
+    # architecture at runtime; historical M6 evidence is read, not re-run.
+    # Rendering the index must still work for incomplete/legacy SQLite
+    # fixtures that do not reside inside an AUD directory.
+    from rasai.architecture_audit_projection import inspect_audit_architecture_context
+    from rasai.architecture_audit_html import architecture_audit_context_html
+    if database.parent.name == data.audit_id:
+        arch_view = inspect_audit_architecture_context(database.parent.parent, data.audit_id)
+        body+=_section(
+            "architecture", "Arquitetura descoberta, declarada e efetiva",
+            architecture_audit_context_html(arch_view),
+        )
     body+=_section("catalogs","Catálogos da auditoria",_table(("Catálogo","Estado","Interpretação"),rows,sortable=True))
     from rasai.catalog_report_metrics import _web_observation
     from rasai.report_decision_matrix import (
