@@ -88,3 +88,21 @@ def test_historical_resolver_uses_same_scoped_advisory_policy(tmp_path, monkeypa
         tmp_path, "AUD-1", consumer_id="descriptive_report",
         **dict(identity, device="DESKTOP"))
     assert mismatched.effective_architecture is None
+
+
+def test_duplicate_m6_identity_abstains_instead_of_selecting_first(tmp_path):
+    root = tmp_path / "audits"
+    folder = root / "AUD-9"
+    folder.mkdir(parents=True)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute("CREATE TABLE pages(page_id TEXT, audit_id TEXT)")
+        con.execute("""CREATE TABLE page_snapshots(
+            snapshot_id TEXT, page_id TEXT, device TEXT, requested_url TEXT,
+            final_url TEXT, architecture_classification TEXT,
+            raw_artifact_ref TEXT, rendered_artifact_ref TEXT)""")
+        con.execute("INSERT INTO pages VALUES ('P-9', 'AUD-9')")
+        rows = [("S-9","P-9","MOBILE","https://example.org/",
+                 "https://example.org/", arch, "raw/a.html","render/a.html")
+                for arch in ("CSR_SPA", "STATIC_OR_SSR")]
+        con.executemany("INSERT INTO page_snapshots VALUES (?,?,?,?,?,?,?,?)", rows)
+    assert read_audit_architecture_observations(root, "AUD-9") == ()

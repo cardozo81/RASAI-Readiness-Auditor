@@ -48,18 +48,24 @@ def read_audit_architecture_observations(
         return ()
     observations = []
     seen = set()
+    ambiguous = set()
     for snapshot_id, page_id, device, requested, final, architecture, raw, rendered in rows:
         identity = (snapshot_id, page_id, device, requested, final)
+        if identity in seen:
+            ambiguous.add(identity)
+        seen.add(identity)
         if (not all(isinstance(item, str) and item.strip() for item in identity)
-                or identity in seen or architecture not in CLASSES
+                or identity in ambiguous or architecture not in CLASSES
                 or not isinstance(raw, str) or not raw.strip()
                 or not isinstance(rendered, str) or not rendered.strip()):
             # Never elevate an incomplete or duplicated RAW/rendered pair.
             continue
-        seen.add(identity)
         observations.append(ArchitectureObservation(
             architecture=architecture, requested_url=requested,
             final_url=final, device=device, snapshot_id=snapshot_id,
             evidence_ref=raw, audit_id=normalized, page_id=page_id,
         ))
-    return tuple(observations)
+    return tuple(o for o in observations if (
+        o.snapshot_id, o.page_id, o.device,
+        o.requested_url, o.final_url,
+    ) not in ambiguous)
