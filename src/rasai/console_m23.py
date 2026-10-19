@@ -51,6 +51,8 @@ from rasai.m25_cli import (
     DEFAULT_UX_SAMPLES,
     DEFAULT_UX_SESSION_MODE,
     DEFAULT_UX_XHR_CAPTURE,
+    DEFAULT_UX_SATISFIED_SECONDS,
+    DEFAULT_UX_FRUSTRATED_SECONDS,
     DEFAULT_UX_SETTLE_SECONDS,
     M25_ENV_NAMES,
     configured_experience,
@@ -302,8 +304,22 @@ def experience_from_state(state: State) -> ExperienceApdexConfig:
         device_mix=parse_device_mix(canonical_single_device_mix(state.device)),
         session_mode=state.apdex_experience_session_mode,
         kpm=state.apdex_experience_kpm,
-        satisfied_threshold_seconds=state.apdex_experience_satisfied,
-        frustrated_threshold_seconds=state.apdex_experience_frustrated,
+        # The typed menu legitimately stores None for a threshold not
+        # overridden by the operator. The executing M25 CLI resolves those
+        # same absent values to the canonical thresholds before validating.
+        # Resolve at the command-serialization boundary as well: otherwise
+        # --apdex-experience with untouched thresholds raises before argv
+        # can be produced, although the real M25 consumer accepts it.
+        satisfied_threshold_seconds=(
+            state.apdex_experience_satisfied
+            if state.apdex_experience_satisfied is not None
+            else DEFAULT_UX_SATISFIED_SECONDS
+        ),
+        frustrated_threshold_seconds=(
+            state.apdex_experience_frustrated
+            if state.apdex_experience_frustrated is not None
+            else DEFAULT_UX_FRUSTRATED_SECONDS
+        ),
         errors_affect_apdex=state.apdex_experience_errors,
         javascript_errors_affect_apdex=state.apdex_experience_javascript_errors,
         request_errors_affect_apdex=state.apdex_experience_request_errors,

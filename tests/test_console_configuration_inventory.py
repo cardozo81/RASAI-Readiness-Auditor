@@ -1242,3 +1242,51 @@ def test_523_both_apdex_cli_paths_must_stay_inside_shared_handoff_capture(
         assert result["active_m25"] is True
         assert peek_pending_config() is previous_handoff
         assert source.read_bytes() == before
+
+
+def test_523_apdex_default_thresholds_roundtrip_against_real_m25_cli(tmp_path):
+    """CAT-07 can be enabled without explicitly editing either time threshold.
+
+    Absence in console state is a request for the canonical CLI default,
+    not an invalid Time KPM. The command serializer must match the M25
+    configuration resolved from the runtime environment.
+    """
+    from unittest.mock import patch
+    from rasai import console_settings, m23_cli
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai.console_m23 import experience_from_state, append_m23_command
+    from rasai.m25_cli import (
+        DEFAULT_UX_SATISFIED_SECONDS, DEFAULT_UX_FRUSTRATED_SECONDS,
+    )
+    from rasai.m25_runtime import peek_pending_config
+    from rasai.console_apdex_effective_validation import inspect_apdex_consumers
+
+    _install_search_persistence()
+    install()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        state.synthetic_apdex = False
+        state.apdex_experience = True
+        state.device = "mobile"
+        assert state.apdex_experience_satisfied is None
+        assert state.apdex_experience_frustrated is None
+        expected = experience_from_state(state)
+        assert expected.satisfied_threshold_seconds == DEFAULT_UX_SATISFIED_SECONDS
+        assert expected.frustrated_threshold_seconds == DEFAULT_UX_FRUSTRATED_SECONDS
+        args = append_m23_command([], state)
+        assert "--apdex-experience" in args
+        assert "--apdex-experience-satisfied-seconds" in args
+        assert "--apdex-experience-frustrated-seconds" in args
+        original_pending = peek_pending_config()
+        source = tmp_path / "m25-defaults.ini"
+        console_settings.save_console_config(state, source)
+        physical = source.read_bytes()
+        result = inspect_apdex_consumers(source, environ={})
+        assert result["status"] == "ADAPTERS_VALIDATED_OFFLINE"
+        assert result["cli_argv_parity_verified"] is True
+        assert result["active_m23"] is False
+        assert result["active_m25"] is True
+        assert peek_pending_config() is original_pending
+        assert physical == source.read_bytes()

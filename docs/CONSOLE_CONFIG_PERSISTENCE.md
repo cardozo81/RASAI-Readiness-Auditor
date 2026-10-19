@@ -1133,3 +1133,28 @@ Este ajuste é pré-requisito para confiar no agregado
 `--acceptance-523`; nenhum resultado anterior do preflight
 CAT-06/CAT-07 deve ser chamado de PASS sem a validação focal
 desta correção.
+
+
+### CAT-07 habilitado com limiares não informados: defaults canônicos (#523)
+
+O smoke focal Windows da #523 registrou **13 PASS e 3 FAIL**,
+todos em cenários CAT-07 habilitado com limiares de satisfação/frustração
+não configurados no estado do console. O runtime `m25_cli.configured_experience`
+aceita esse estado e aplica `DEFAULT_UX_SATISFIED_SECONDS` /
+`DEFAULT_UX_FRUSTRATED_SECONDS`, porém
+`console_m23.experience_from_state` ainda enviava `None` diretamente
+para `ExperienceApdexConfig.validate()`, disparando exceção antes
+da serialização dos argumentos. O diagnóstico mascarava a causa sob
+`CONFIG_OR_ADAPTER_INVALID`. Isso representa **divergência operacional
+de configuração**, não deficiência do pytest ou da instalação Windows.
+
+O serializador do console agora utiliza os **mesmos valores canônicos
+de defaults do CLI** quando os dois campos estão explicitamente
+`None`, sem gravar esses defaults no INI, sem alterar valores
+escolhidos pelo operador e sem habilitar o CAT-06. O handoff M25 segue
+inteiramente interceptado durante os dois passes do preflight; nenhuma
+chamada externa, navegação ou coleta é executada. A nova regressão
+valida `experience_from_state`, argv e um INI real em cópia
+temporária, comparando o resultado de M25 e a identidade do handoff
+original. É necessária somente a repetição dos **três FAIL** do
+smoke focal, não dos testes previamente aprovados.
