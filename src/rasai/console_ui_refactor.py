@@ -140,10 +140,8 @@ def _install_search_persistence() -> None:
 
     def values(state: Any):
         result = old_values(state)
-        # Device mix is computed from [console].device, never persisted as a
-        # separate new-AUD setting. Include the very first save (before any
-        # editor has called _ensure_mix) to keep schema stable across edits.
-        result.get("synthetic_apdex_experience", {}).pop("device_mix", None)
+        if _mix_inherited(state):
+            result.get("synthetic_apdex_experience", {}).pop("device_mix", None)
         if hasattr(state, "search_queries"):
             result["search_intelligence"] = {
                 "queries": "; ".join(tuple(getattr(state, "search_queries", ()) or ())),

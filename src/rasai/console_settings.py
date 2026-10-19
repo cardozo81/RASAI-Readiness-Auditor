@@ -354,19 +354,18 @@ def _guard_existing_ini_before_save(
     for section, values in parser._sections.items():
         allowed = expected._sections.get(section)
         unexpected = set(values) - set(allowed or ())
-        # Before the first operator edit, older console writers could emit
-        # this derived compatibility field. New AUDs never own a device mix
-        # independently from [console].device; preserve legacy readability
-        # but permit its *validated* one-time removal during explicit save.
-        # All other unknown sections/options still fail closed.
+        # First-run INIs may include this historical derived transport field.
+        # An explicit device edit removes it from the current schema. Validate
+        # the compatibility value before safely migrating the known key; all
+        # other unrecognized keys and sections remain fail-closed.
         if section == "synthetic_apdex_experience" and "device_mix" in unexpected:
             try:
-                legacy_mix = values["device_mix"].strip()
-                if legacy_mix:
-                    parse_device_mix(legacy_mix)
+                compatibility_mix = values["device_mix"].strip()
+                if compatibility_mix:
+                    parse_device_mix(compatibility_mix)
             except ValueError as exc:
                 raise ValueError(
-                    "INI legado contem device_mix invalido; preserve a origem"
+                    "INI contem device_mix invalido; preserve a origem"
                 ) from exc
             unexpected.remove("device_mix")
         if allowed is None or unexpected:

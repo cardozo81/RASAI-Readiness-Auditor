@@ -700,28 +700,31 @@ selecionar `desktop`, salvar, reabrir e confirmar persistência
 (`[console] device=desktop`). Não classificar o smoke Windows como
 aprovado até observar esse novo resultado.
 
-## Correção do bloqueio Windows de save por device_mix legado (#523, 19/10/2026)
+## Correção do bloqueio Windows de save por device_mix derivado (#523, 19/10/2026)
 
-A evidência do operador registrou um `ValueError` ao escolher salvar o
-dispositivo `desktop` no INI temporário. O guard canônico de escrita
-recusou substituir um INI que continha opções ausentes do schema de
-gravação. A análise encontrou um caso reproduzível: o primeiro save
-podia serializar `synthetic_apdex_experience.device_mix` antes de
-`_ensure_mix` marcar o campo como derivado; um editor subsequente
-omitiria `device_mix` do schema, causando um conflito interno entre
-o primeiro save e o próximo. Isso explica um mecanismo concreto para
-o erro, mas **não confirma sem inspeção física** que era o único
-campo inesperado no arquivo Windows do operador.
+A evidência do operador registrou um `ValueError` ao escolher salvar
+o dispositivo `desktop` no INI temporário. O guard canônico impediu
+substituir um INI que continha opções ausentes do schema corrente.
 
-A regressão elimina esse campo em **todos** os novos saves pelo adaptador
-do console, inclusive o primeiro. INIs legados com `device_mix` bem
-formado são aceitos para uma migração *explícita* no próximo save: o
-valor é validado por `parse_device_mix` e removido da versão nova,
-porque a seleção do device da AUD vem exclusivamente de
-`[console].device`; o adapter rederiva o mix canônico em runtime.
-Nenhum outro campo ou seção desconhecido é automaticamente removido.
-Se o legado for inválido ou contiver outros desconhecidos, o guard
-continua fail-closed, sem alterar a origem.
+Foi identificado um mecanismo reproduzível na compatibilidade do
+`synthetic_apdex_experience.device_mix`: o primeiro save podia conter
+o campo de transporte; após a edição de device, `_ensure_mix` marca
+o valor como derivado e o serializador deixa de gravá-lo. O guard
+anterior tratava esse único campo conhecido como desconhecido e
+bloqueava a transição. A inspeção física do arquivo Windows é
+necessária somente se houver outros campos inesperados.
+
+A correção reconhece **exclusivamente** `device_mix` na seção
+`[synthetic_apdex_experience]`, valida o valor pelo parser canônico
+e permite a migração no próximo save explícito. Device pertence apenas
+a `[console].device`, e o mix da próxima AUD é recalculado em runtime.
+Se houver outros campos/seções sem contrato, ou `device_mix` inválido,
+a gravação continua bloqueada e a origem permanece intacta.
+
+O esquema de compatibilidade do **primeiro save** é mantido para
+não quebrar consumidores que inspecionam INIs de estado inicial.
+O fluxo após a edição já não persiste `device_mix` como opção
+operacional independente.
 
 Cobertura focal: `tests/test_console_device_mix_migration.py`.
 Não há execução de AUD, navegação, Dynatrace ou APIs. O smoke real

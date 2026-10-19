@@ -28,8 +28,8 @@ def _setup_contract():
     install_complete()
 
 
-def test_first_ini_save_never_writes_derived_device_mix(tmp_path):
-    """Operator's first save must use the same schema as all later saves."""
+def test_first_ini_save_migrates_derived_device_mix_after_edit(tmp_path):
+    """An initial compatibility field must not prevent the next operator save."""
     _setup_contract()
     with patch.dict(os.environ, {}, clear=True):
         state = SearchConsoleState()
@@ -38,7 +38,7 @@ def test_first_ini_save_never_writes_derived_device_mix(tmp_path):
 
         initial = _parser(path)
         assert initial.get("console", "device") == "mobile"
-        assert not initial.has_option("synthetic_apdex_experience", "device_mix")
+        assert initial.has_option("synthetic_apdex_experience", "device_mix")
 
         _ensure_mix(state)
         state.device = "desktop"
