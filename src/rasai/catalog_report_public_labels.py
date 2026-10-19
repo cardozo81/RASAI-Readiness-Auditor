@@ -6,6 +6,8 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    "MANIFEST_OR_TRUST_BOUNDARY_UNVERIFIABLE": "Manifesto ou limites de confiança sem comprovação",
+    "DOCUMENTARY_REVIEW_BATCH_OBSERVED": "Revisões documentais independentes verificadas individualmente",
     # #304: advisory multi-query recurrence provenance and abstention labels.
     "MULTI_QUERY_VERIFIED_COHORT_INCOMPLETE": "Coorte incompleta de consultas atribuíveis",
     "ONE_QUERY_CANNOT_PROVE_RECURRENCE": "Uma consulta não prova recorrência",

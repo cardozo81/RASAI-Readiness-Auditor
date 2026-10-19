@@ -102,7 +102,7 @@ O relatório não retira automaticamente pontos nem converte WARNING em
 PASS/NOT_APPLICABLE. A decisão normativa sobre neutralizar a ausência
 isolada permanece um gate explícito, pois mudaria pesos, coverage,
 confidence, readiness gates e SARI. O inventário não toma esse lugar,
-e não constitui uma proposta de SCORE-GEO-005 aprovada.
+e não constitui aprovação de novo contrato de pontuação.
 
 Há fixture SQLite de múltiplos resultados/categorias e AUD cruzada, com
 prova de imutabilidade do arquivo de origem e abstenção com journaling
