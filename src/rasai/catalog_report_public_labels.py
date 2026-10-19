@@ -6,6 +6,11 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    "ADVISORY_OBSERVED": "Contexto arquitetural observado somente para consulta",
+    "RAW_STRUCTURAL_SIGNALS_OBSERVED": "Sinais estruturais observados apenas no HTML inicial",
+    "RAW_HTML_UNAVAILABLE": "HTML inicial não disponível",
+    "RAW_HTML_INVALID_OR_OVERSIZE": "HTML inicial inválido ou acima do limite",
+    "RAW_HTML_STRUCTURE_UNVERIFIABLE": "Estrutura do HTML inicial não verificável",
     "MANIFEST_OR_TRUST_BOUNDARY_UNVERIFIABLE": "Manifesto ou limites de confiança sem comprovação",
     "DOCUMENTARY_REVIEW_BATCH_OBSERVED": "Revisões documentais independentes verificadas individualmente",
     # #304: advisory multi-query recurrence provenance and abstention labels.
