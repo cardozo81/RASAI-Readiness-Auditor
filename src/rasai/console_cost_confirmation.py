@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sqlite3
+import re
 from types import ModuleType
 from typing import Any
 
@@ -109,6 +110,18 @@ def _render_forecast(forecast: CostForecast, *, state: Any | None = None) -> Non
     for note in forecast.notes:
         print(paint(f"Observação           : {note}", DIM))
     if state is not None:
+        from rasai.audit_ai_workload_sensitivity import (
+            independent_ai_need_sensitivity,
+            format_independent_ai_need_sensitivity,
+        )
+        from rasai.console_cost import _configured_page_range
+        if all(hasattr(state, field) for field in ("input_mode", "target", "max_pages")):
+            min_pages, max_pages = _configured_page_range(state)
+            sensitivity = independent_ai_need_sensitivity(
+                state, min_pages=min_pages, max_pages=max_pages,
+            )
+            for line in format_independent_ai_need_sensitivity(sensitivity):
+                print(paint(line, DIM))
         # Advisory-only duration preview: no execution, provider call or database write.
         # A monetary sample is NOT evidence of comparable wall-time observations.
         from rasai.audit_duration_forecast import (
@@ -152,19 +165,36 @@ def _financial_execution_action(state: Any, console_module: ModuleType) -> str:
 
 
 def _actual_page_count(workspace: Any) -> int | None:
+    """Never attribute pages of a foreign AUD to the current cost outcome."""
     if workspace is None:
         return None
-    database = workspace / "audit.db"
-    if not database.is_file():
-        return None
     try:
-        connection = sqlite3.connect(f"file:{database.as_posix()}?mode=ro", uri=True, timeout=0.5)
-        try:
-            row = connection.execute("SELECT COUNT(*) FROM pages").fetchone()
-            return int(row[0] or 0) if row else 0
-        finally:
-            connection.close()
-    except sqlite3.Error:
+        root = Path(workspace)
+        audit_id = root.name
+        if not re.fullmatch(r"AUD-[A-Za-z0-9][A-Za-z0-9-]{0,95}", audit_id):
+            return None
+        database = root / "audit.db"
+        if root.is_symlink() or database.is_symlink() or not database.is_file():
+            return None
+        with sqlite3.connect(
+            database.resolve().as_uri() + "?mode=ro",
+            uri=True, timeout=0.5,
+        ) as connection:
+            connection.execute("PRAGMA query_only=ON")
+            fields = {
+                str(record[1])
+                for record in connection.execute("PRAGMA table_info(pages)")
+            }
+            if not {"audit_id", "page_id"}.issubset(fields):
+                return None
+            row = connection.execute(
+                "SELECT COUNT(*), COUNT(DISTINCT page_id) FROM pages "
+                "WHERE audit_id=?", (audit_id,),
+            ).fetchone()
+            if not row or row[0] != row[1]:
+                return None  # physical duplicate page identities
+            return int(row[0])
+    except (sqlite3.Error, OSError, ValueError):
         return None
 
 

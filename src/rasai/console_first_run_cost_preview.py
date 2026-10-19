@@ -39,6 +39,17 @@ def _render_fallback(forecast: CostForecast, exposure: ExposureEstimate, *, stat
     for reason in exposure.reasons:
         if reason.startswith("Cobertura da contagem de IA:"):
             print(paint("Cobertura            : " + reason, DIM))
+    if state is not None:
+        from rasai.audit_ai_workload_sensitivity import (
+            independent_ai_need_sensitivity,
+            format_independent_ai_need_sensitivity,
+        )
+        sensitivity = independent_ai_need_sensitivity(
+            state,
+            min_pages=exposure.min_pages, max_pages=exposure.max_pages,
+        )
+        for line in format_independent_ai_need_sensitivity(sensitivity):
+            print(paint(line, DIM))
     if exposure.pricing_lines:
         print("\nTarifas vigentes conhecidas para os providers/modelos elegíveis:")
         for line in exposure.pricing_lines:

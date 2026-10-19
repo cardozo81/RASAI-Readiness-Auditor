@@ -365,3 +365,34 @@ que o escopo da previsão inicial não foi comprovado. Fixtures SQLite
 demonstram 2 tentativas centrais (USD 0,10) e 2 opcionais (USD 0,04),
 com uma AUD estrangeira excluída, e caso de cobertura central parcial.
 Nenhum preço, política de cobranças ou autorização é alterado.
+
+
+## Sensibilidade de demanda IA para uma URL, sem inventar tokens (#319)
+
+Os dois caminhos da **prévia financeira** (com e sem histórico local)
+passam a apresentar um quadro consultivo quando o operador preparou
+**exatamente uma página conhecida**. São cenários **hipotéticos** de
+1, 8 e 16 necessidades independentes de IA. Uma execução com 8
+chamadas efetivas foi documentada em #319, mas a observação não torna
+8 uma média, piso, previsão nem frequência provável de auditorias.
+
+No provider **explícito**, a tela ilustra quantas tentativas poderiam
+ocorrer se *cada necessidade* consumisse todos os ciclos configurados;
+no provider AUTO, não inventa um teto porque o pool de candidatos e
+suas trocas pertencem ao estado de execução. Ambos preservam
+`future_token_total=null`, `future_cost_usd=null` e quantidades
+de findings/ações N/D. A simulação não concede autorização financeira,
+não ativa Comparative, Improvement, Directed Analysis ou Search API,
+e não altera o forecaster monetário, histórico, pricing, tokens,
+quantidade de ciclos ou seleção do motor.
+
+O resultado cobre a sensibilidade **operacional**, não uma nova
+calibração de intervalo P90. A fase com histórico insuficiente
+continua oferecendo escolha explícita executar com/sem IA/cancelar.
+A contagem de páginas de uso real no pós-AUD passa ainda a consultar
+somente linhas `pages.audit_id=nome da AUD` no banco da respectiva
+AUD, recusando legado sem atribuição e duplicatas físicas.
+Isso impede contabilização de páginas estrangeiras em comparações
+financeiras. Fixtures offline verificam single-URL, 8 necessidades,
+pool AUTO sem cap, múltiplas páginas, fontes SQLite ausentes e
+AUD estrangeira sem novas requisições.

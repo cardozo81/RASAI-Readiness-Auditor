@@ -124,3 +124,49 @@ def test_first_run_preview_labels_heuristic_attempt_count_not_as_global_cap(caps
     assert "Improvement" in displayed
     assert "Cobertura da contagem de IA" in displayed
     assert "não calculável com segurança" in displayed
+
+
+def test_319_single_url_eight_task_sensitivity_does_not_invent_dollars(capsys):
+    from rasai.audit_ai_workload_sensitivity import (
+        independent_ai_need_sensitivity,
+        format_independent_ai_need_sensitivity,
+    )
+    state = SimpleNamespace(ai_provider="openai", ai_max_cycles=3)
+    sensitivity = independent_ai_need_sensitivity(
+        state, min_pages=1, max_pages=1,
+    )
+    assert sensitivity["status"] == "ILLUSTRATIVE_NOT_FORECAST"
+    assert [row["independent_needs"] for row in sensitivity["independent_need_scenarios"]] == [1, 8, 16]
+    assert [row["illustrative_max_cycle_attempts"] for row in sensitivity["independent_need_scenarios"]] == [3, 24, 48]
+    assert sensitivity["future_cost_usd"] is None
+    assert sensitivity["future_token_total"] is None
+    assert sensitivity["paid_request_authorized"] is False
+    console_first_run_cost_preview._render_fallback(
+        CostForecast(False, False, source="test"),
+        _exposure(3), state=state,
+    )
+    output = capsys.readouterr().out
+    # If the test state lacks a page range, skip physical duration but the
+    # sensitivity uses the exposure's certified one-URL range.
+    assert "SENSIBILIDADE IA" in output
+    assert "8 necessidade(s) IA" in output
+    assert "até 24" in output
+    assert "USD futuros = N/D" in output
+    assert not sensitivity["provider_requests"]
+
+
+def test_319_auto_pool_and_multi_url_must_not_forge_attempt_caps():
+    from rasai.audit_ai_workload_sensitivity import independent_ai_need_sensitivity
+    auto = SimpleNamespace(ai_provider="auto", ai_max_cycles=3)
+    observed = independent_ai_need_sensitivity(
+        auto, min_pages=1, max_pages=1,
+    )
+    assert observed["status"] == "ILLUSTRATIVE_NOT_FORECAST"
+    assert all(row["illustrative_max_cycle_attempts"] is None
+               for row in observed["independent_need_scenarios"])
+    bigger = independent_ai_need_sensitivity(auto, min_pages=1, max_pages=10)
+    assert bigger["status"] == "NOT_SINGLE_PAGE_SCOPE"
+    none = independent_ai_need_sensitivity(
+        SimpleNamespace(ai_provider="none"), min_pages=1, max_pages=1,
+    )
+    assert none["status"] == "NOT_APPLICABLE"
