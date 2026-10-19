@@ -230,7 +230,11 @@ def decision_evidence_matrix_html(projection: Mapping[str, Any]) -> str:
             return "<div class='notice'>Reconciliação de evidências: N/D.</div>"
         html.append(
             "<tr>" + "".join(
-                "<td>" + escape(str(row.get(field) or "N/D"), quote=True) + "</td>"
+                "<td>" + (
+                    "<code>" + escape(str(row.get(field) or "N/D"), quote=True) + "</code>"
+                    if field == "source"
+                    else escape(str(row.get(field) or "N/D"), quote=True)
+                ) + "</td>"
                 for field in ("indicator", "observed", "scope", "source", "limitation")
             ) + "</tr>"
         )

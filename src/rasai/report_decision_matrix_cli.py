@@ -21,7 +21,7 @@ def inspect_audit_decision_evidence(audit_directory: Path) -> dict[str, Any]:
     fallback: dict[str, Any] = {
         "contract": "RASAI-DECISION-EVIDENCE-604-001",
         "status": "NOT_VERIFIABLE", "audit_id": None,
-        "reason": "SEALED_AUD_DATABASE_REQUIRED", "rows": [],
+        "reason": "Fonte SQLite da AUD indisponível ou não selada", "rows": [],
         "provider_requests": 0, "audit_writes": 0,
     }
     try:

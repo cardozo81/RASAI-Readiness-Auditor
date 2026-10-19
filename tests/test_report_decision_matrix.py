@@ -75,6 +75,7 @@ def test_604_actual_style_facts_have_separate_scope_and_never_become_new_score()
     rendered = decision_evidence_matrix_html(result)
     assert "Matriz" not in rendered  # the section title belongs to the caller
     assert "Escopo físico" in rendered
+    assert "<code>scores.OVERALL_READINESS</code>" in rendered
     assert "não comprova" in rendered.lower()
     assert "não equivalem a zero" in rendered
 
