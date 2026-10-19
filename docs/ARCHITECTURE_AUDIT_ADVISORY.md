@@ -42,3 +42,25 @@ O modo sem Docker apresenta sinais estruturais RAW limitados como observação p
 O método consultivo espera até o fim da janela máxima de 2,8 s depois de DOMContentLoaded antes de classificar o DOM, pois uma sequência inicial de texto estável poderia ser substituída por SPA/hidratação tardia. O aceite requer três amostras finais de texto material coincidente e sem loading visível. Em caso de substituição muito próxima do limite, a arquitetura permanece UNKNOWN, preservando limitação de materialidade. Somente marcadores de loading visíveis interrompem a estabilidade. Não há mudança de sample, task, threshold, Apdex ou scoring homologado.
 
 Metadados limitados de redirecionamentos observados pela captura (quantidade, upgrade HTTP/HTTPS e transporte declarado) podem constar do console sem revelar caminhos, querystrings ou credenciais de páginas redirecionadas. Esses metadados não equivalem à certificação autônoma de TLS nem aprovação do destino por fonte externa.
+
+
+## Destino efetivo por snapshot no relatório consultivo (#646, 19/10/2026)
+
+O painel F3 somente leitura passou a separar explicitamente **URL
+solicitada** e **URL final observada** na mesma amostra M6. A projeção
+inclui `final_target_differs_from_requested`, informação textual de
+identidade, sem inferência automática de causa ou novo classificador.
+A divergência não significa, por si só, que houve redirect HTTP: pode
+resultar de normalização, navegação observada ou contexto do transporte.
+Também não comprova certificado, WAF, DOM final ou disponibilidade de
+crawler. Não mistura URLs entre dispositivos/snapshots, não executa
+nova navegação e não altera o resolver canônico nem os índices M23/M25.
+
+Para proteção de credenciais de URL, a exibição de ambas as URLs no
+HTML apresenta apenas esquema, host, porta e caminho; remove userinfo,
+querystring e fragmento. O rastro físico permanece inalterado na AUD.
+Um `final_url` malformado é exibido como não verificável, nunca
+convertido em origem inventada. Fixtures de duas URLs com token de
+consulta, destino distinto, legado UNFORCED e bytes SQLite imutáveis
+cobrem a projeção. Aceite físico amplo do motor #646 continua sujeito
+aos gates separados do escopo original.

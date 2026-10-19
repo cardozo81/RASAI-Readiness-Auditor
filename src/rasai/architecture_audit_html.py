@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from html import escape
 from typing import Any, Mapping
+from urllib.parse import urlsplit, urlunsplit
 
 from rasai.architecture_audit_projection import VERSION
 
@@ -40,6 +41,29 @@ def _esc(value: object) -> str:
     return escape(str(value) if value is not None else "N/D", quote=True)
 
 
+def _public_url(value: object) -> str:
+    """Show scheme/host/path for provenance, never query, fragment or userinfo."""
+    if not isinstance(value, str) or not value:
+        return "N/D"
+    try:
+        parts = urlsplit(value)
+        host = parts.hostname
+        if parts.scheme not in {"http", "https"} or not host:
+            return "URL não verificável"
+        port = parts.port
+        if any(ord(char) < 32 or ord(char) == 127 for char in value):
+            return "URL não verificável"
+        authority = ("[" + host + "]" if ":" in host else host)
+        if port is not None:
+            authority += ":" + str(port)
+        return urlunsplit((
+            parts.scheme, authority, parts.path,
+            "[parâmetros omitidos]" if parts.query else "", "",
+        ))
+    except (TypeError, ValueError, UnicodeError):
+        return "URL não verificável"
+
+
 def architecture_audit_context_html(projection: Mapping[str, Any]) -> str:
     """Escape URL/ID literal and protect technical tokens from humanization."""
     if (not isinstance(projection, Mapping)
@@ -65,11 +89,19 @@ def architecture_audit_context_html(projection: Mapping[str, Any]) -> str:
             if row.get("discrepancy") is True
             else REASONS.get(reason, "Somente leitura consultiva, sem retroação")
         )
+        # A different final URL is factual provenance of the M6 snapshot,
+        # not proof of a particular redirect, certificate, origin or crawler.
+        if row.get("final_target_differs_from_requested") is True:
+            explanation += (
+                " URLs solicitada e final diferentes no mesmo snapshot; "
+                "não extrapolar a outros destinos nem inferir causa."
+            )
         items = (
             "<code>" + _esc(row.get("snapshot_id")) + "</code>",
             "<code>" + _esc(row.get("page_id")) + "</code>",
             "<code>" + _esc(row.get("device")) + "</code>",
-            "<code>" + _esc(row.get("requested_url")) + "</code>",
+            "<code>" + _esc(_public_url(row.get("requested_url"))) + "</code>",
+            "<code>" + _esc(_public_url(row.get("final_url"))) + "</code>",
             _esc(ARCH.get(expected, ARCH["UNKNOWN"])),
             _esc(ARCH.get(declared, "Não informada no plano")),
             _esc(ARCH.get(effective, "N/D (não aplicada)")),
@@ -93,12 +125,15 @@ def architecture_audit_context_html(projection: Mapping[str, Any]) -> str:
         "efetiva <strong>somente nesta análise consultiva</strong> são "
         "conceitos distintos. A classificação M6 não altera amostras anteriores, "
         "parametrização M23/M25, regras SCORE-GEO, SARI, IA nem Dynatrace. "
-        "Sem URL + dispositivo + snapshot inequívocos, o valor é N/D.</p>"
+        "Sem URL + dispositivo + snapshot inequívocos, o valor é N/D. "
+        "URLs são exibidas sem credenciais, parâmetros de consulta ou fragmentos; "
+        "diferença de destino não demonstra sozinha um mecanismo de redirect.</p>"
         "<details><summary>Ver contextos físicos de arquitetura ("
         + str(len(table))
         + " captura(s))</summary><div class='table-wrap'><table><thead><tr>"
         "<th>Snapshot</th><th>Página</th><th>Dispositivo</th>"
-        "<th>URL solicitada</th><th>Descoberta M6</th><th>Declarada</th>"
+        "<th>URL solicitada</th><th>URL final observada</th>"
+        "<th>Descoberta M6</th><th>Declarada</th>"
         "<th>Efetiva nesta análise</th><th>Fonte</th><th>Limite</th>"
         "</tr></thead><tbody>" + "".join(table)
         + "</tbody></table></div></details>"

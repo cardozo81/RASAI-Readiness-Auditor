@@ -128,6 +128,7 @@ def inspect_audit_architecture_context(
             rows.append({
                 "snapshot_id": snapshot_id, "page_id": page_id,
                 "device": device, "requested_url": requested, "final_url": final,
+                "final_target_differs_from_requested": requested != final,
                 "observed_architecture": resolved.observed_architecture,
                 "selected_mode": resolved.selected_mode,
                 "declared_architecture": resolved.declared_architecture,

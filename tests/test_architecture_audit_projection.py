@@ -149,3 +149,51 @@ def test_646_cli_offline_one_aud_and_consumer_eligibility(tmp_path, capsys):
     (folder / "audit.db-shm").write_bytes(b"pending")
     assert main([str(folder)]) == 2
     assert json.loads(capsys.readouterr().out)["status"] == "NOT_VERIFIABLE"
+
+
+def test_646_requested_vs_final_destination_is_visible_without_query_secrets(tmp_path):
+    root, folder, db = _aud(tmp_path, mode="AUTO")
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE page_snapshots SET requested_url=?, final_url=? "
+            "WHERE snapshot_id='S-1'",
+            (
+                "https://example.org/a?access_token=PRIVATE_REQUEST_TOKEN",
+                "https://www.example.org/final?authorization=PRIVATE_FINAL_TOKEN",
+            ),
+        )
+    before = db.read_bytes()
+    projected = inspect_audit_architecture_context(root, "AUD-646")
+    assert projected["status"] == "ADVISORY_OBSERVED"
+    row = next(r for r in projected["snapshots"] if r["snapshot_id"] == "S-1")
+    assert row["final_target_differs_from_requested"] is True
+    # Reclassification is allowed to abstain when physically matched evidence
+    # for the new URL cannot be established; no fallback from other snapshots.
+    page = architecture_audit_context_html(projected)
+    assert "URL final observada" in page
+    assert "https://example.org/a?" in page
+    assert "https://www.example.org/final?" in page
+    assert "parâmetros omitidos" in page
+    assert "PRIVATE_REQUEST_TOKEN" not in page
+    assert "PRIVATE_FINAL_TOKEN" not in page
+    assert "URLs solicitada e final diferentes" in page
+    assert db.read_bytes() == before
+
+
+def test_646_architecture_report_escapes_urls_and_does_not_promote_redirect_to_fact(tmp_path):
+    root, folder, db = _aud(tmp_path, mode="UNFORCED")
+    result = inspect_audit_architecture_context(root, "AUD-646")
+    assert result["status"] == "ADVISORY_OBSERVED"
+    detached = dict(result)
+    detached["snapshots"] = [dict(row) for row in result["snapshots"]]
+    detached["snapshots"][0]["final_url"] = (
+        "https://example.org/path?q=PRIVATE_SCRIPT"
+        "&track=%3Cscript%3E"
+    )
+    detached["snapshots"][0]["final_target_differs_from_requested"] = True
+    result_html = architecture_audit_context_html(detached)
+    assert "PRIVATE_SCRIPT" not in result_html
+    assert "<script>" not in result_html
+    assert "não extrapolar" in result_html
+    assert "não demonstra sozinha" in result_html
+    assert all(row["effective_architecture"] is None for row in result["snapshots"])
