@@ -1,6 +1,6 @@
 # Propagação consultiva do contexto arquitetural por AUD
 
-**Issue:** #646 — fase F3 somente nos consumidores já aprovados.
+**Issue:** #646 - fase F3 somente nos consumidores já aprovados.
 **Contrato:** architecture-audit-advisory-v1, resolvedor architecture-context-v1.
 
 ## Escopo implementado
