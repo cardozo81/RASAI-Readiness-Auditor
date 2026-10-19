@@ -1078,9 +1078,13 @@ def _menu(state: State) -> str:
 
 def main() -> int:
     state = State()
+    # The loader materializes the INI [environment] inventory into os.environ.
+    # Only genuine pre-load process/OS overrides may supersede typed INI state.
+    # Otherwise a stale inventory entry can reset an explicitly saved device,
+    # CAT-06 or CAT-07 value on every restart and the next save perpetuates it.
+    present_env = {name for name in ENV_NAMES if (os.environ.get(name) or "").strip()}
     loaded = load_console_config(state)
     set_config_path(state, loaded.path)
-    present_env = {name for name in ENV_NAMES if (os.environ.get(name) or "").strip()}
     issues = list(loaded.warnings)
     issues.extend(apply_environment_defaults(state, names=present_env))
     issues.extend(apply_m23_environment_defaults(state, names=present_env))

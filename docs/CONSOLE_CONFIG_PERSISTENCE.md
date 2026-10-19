@@ -670,3 +670,32 @@ Escopo comprovável: resolução offline real dos adaptadores após save/load
 em fixture temporária, sem navegação, serviço pago, IA, Dynatrace live ou
 artefatos do operador. A execução física e o smoke Windows permanecem
 gates distintos; não tratá-los como resultados já obtidos.
+
+## Regressão de precedência no bootstrap real do console (#523)
+
+O smoke Windows de 19/10/2026 evidenciou `DEVICE=mobile` no INI
+temporário após a escolha anterior de `desktop`, enquanto CAT-06
+`samples_per_context=7` e CAT-07 `architecture=CSR_SPA` foram gravados
+corretamente. Essa evidência **reprova o gate de dispositivo Windows**;
+não estabelece, isoladamente, em qual save o valor foi alterado.
+
+Na análise do bootstrap, `interactive_console.main` detectava overrides
+a partir de `os.environ` **depois** de `load_console_config`, que
+materializa a seção `[environment]` do próprio INI nesse dicionário.
+Assim, entradas antigas do inventário podiam ser tratadas incorretamente
+como overrides explícitos de Windows/processo e substituir campos tipados
+já restaurados de `[console]`, CAT-06 e CAT-07. Um save posterior
+perpetuava os valores substituídos.
+
+A correção captura a relação de variáveis externas **antes** do loader:
+valores de ambiente efetivamente preexistentes continuam prioritários,
+mas valores originados apenas do inventário do INI não sobrescrevem o
+estado tipado. Os testes `tests/test_console_bootstrap_ini_precedence.py`
+exercitam o bootstrap real com defaults de sistema, divergência física
+controlada entre seções, ausência de override externo e override externo
+explícito; não iniciam nenhuma AUD nem tráfego de rede.
+
+**Aceite residual:** reiniciar o RASAi no Windows com INI temporário,
+selecionar `desktop`, salvar, reabrir e confirmar persistência
+(`[console] device=desktop`). Não classificar o smoke Windows como
+aprovado até observar esse novo resultado.
