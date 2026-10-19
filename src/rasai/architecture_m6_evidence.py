@@ -1,4 +1,4 @@
-"""Read sealed M6 architecture evidence without any external acquisition or writes.
+"""Read persisted M6 architecture evidence without external acquisition or writes.
 
 An audit reprocess/complement may inspect this read-only inventory. No replay,
 scoring, file mutation, new requests, or inference across URL/device/snapshot.
@@ -18,8 +18,12 @@ def read_audit_architecture_observations(
     audits_root: str | Path, audit_id: str,
 ) -> tuple[ArchitectureObservation, ...]:
     normalized = normalize_audit_id(audit_id)
-    database = Path(audits_root) / normalized / "audit.db"
-    if not database.is_file() or database.is_symlink():
+    root = Path(audits_root).resolve()
+    workspace = root / normalized
+    database = workspace / "audit.db"
+    if (workspace.is_symlink() or database.is_symlink()
+            or not database.resolve().is_relative_to(root)
+            or not database.is_file()):
         return ()
     try:
         connection = sqlite3.connect(

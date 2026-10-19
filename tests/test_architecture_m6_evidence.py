@@ -48,3 +48,43 @@ def test_m6_history_abstains_if_rendered_evidence_missing(tmp_path):
                     ("S-2","P-2","MOBILE","https://example.org/",
                      "https://example.org/","CSR_SPA","raw/a.html",None))
     assert read_audit_architecture_observations(tmp_path, "AUD-2") == ()
+
+
+def test_m6_history_rejects_workspace_symlink(tmp_path):
+    import os
+    import pytest
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (tmp_path / "audits").mkdir()
+    try:
+        os.symlink(outside, tmp_path / "audits" / "AUD-3", target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink unavailable on host")
+    assert read_audit_architecture_observations(tmp_path / "audits", "AUD-3") == ()
+
+
+def test_historical_resolver_uses_same_scoped_advisory_policy(tmp_path, monkeypatch):
+    from rasai.architecture_choice_audit_adapter import resolve_historical_architecture_for_consumer
+    from rasai.architecture_context import ArchitectureObservation
+    from rasai.architecture_choice_precedence import ResolvedChoice
+    from rasai.architecture_choice import ArchitectureChoice
+    monkeypatch.setattr("rasai.architecture_choice_audit_adapter.read_architecture_choice_for_reprocess",
+                        lambda *_: ResolvedChoice(ArchitectureChoice("AUTO"), "SNAPSHOT", True))
+    obs = (ArchitectureObservation("CSR_SPA", "https://example.org/a", "MOBILE",
+                                   "S-1", "raw/a.html", audit_id="AUD-1",
+                                   page_id="P-1", final_url="https://example.org/a"),)
+    monkeypatch.setattr("rasai.architecture_m6_evidence.read_audit_architecture_observations",
+                        lambda *_: obs)
+    identity = dict(requested_url="https://example.org/a", final_url="https://example.org/a",
+                    device="MOBILE", page_id="P-1", snapshot_id="S-1")
+    allowed = resolve_historical_architecture_for_consumer(
+        tmp_path, "AUD-1", consumer_id="descriptive_report", **identity)
+    assert allowed.effective_architecture == "CSR_SPA"
+    denied = resolve_historical_architecture_for_consumer(
+        tmp_path, "AUD-1", consumer_id="scoring", **identity)
+    assert denied.effective_architecture is None
+    assert denied.abstention_reason == "CONSUMER_NOT_APPROVED"
+    mismatched = resolve_historical_architecture_for_consumer(
+        tmp_path, "AUD-1", consumer_id="descriptive_report",
+        **dict(identity, device="DESKTOP"))
+    assert mismatched.effective_architecture is None
