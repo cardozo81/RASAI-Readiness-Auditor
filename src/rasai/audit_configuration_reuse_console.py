@@ -180,8 +180,18 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
             " ".join(value.strip().split()) for value in raw_queries
             if value.strip()
         ))
-        enabled = _as_bool(search.get("enabled"), default=bool(queries))
-        state.search_queries = queries if enabled else ()
+        raw_enabled = search.get("enabled", bool(queries))
+        if isinstance(raw_enabled, bool):
+            enabled = raw_enabled
+        elif isinstance(raw_enabled, str) and raw_enabled.strip().casefold() in {
+            "1", "true", "yes", "on", "sim", "s", "0", "false", "no", "off", "nao", "não", "n"
+        }:
+            enabled = _as_bool(raw_enabled, default=False)
+        else:
+            warnings.append("search_intelligence.enabled: valor inválido")
+            enabled = None
+        if enabled is not None:
+            state.search_queries = queries if enabled else ()
 
     try:
         candidate = search.get("depth", getattr(state, "search_depth", 20))
@@ -223,7 +233,10 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
     except (TypeError, ValueError, OverflowError):
         warnings.append("search_intelligence.max_content_pages: use inteiro >= 0")
     try:
-        value = float(search.get("content_timeout_seconds", getattr(state, "search_content_timeout_seconds", 10.0)))
+        raw_timeout = search.get("content_timeout_seconds", getattr(state, "search_content_timeout_seconds", 10.0))
+        if isinstance(raw_timeout, bool):
+            raise ValueError
+        value = float(raw_timeout)
         if not math.isfinite(value) or value <= 0:
             raise ValueError
         state.search_content_timeout_seconds = value

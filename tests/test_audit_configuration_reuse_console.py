@@ -281,3 +281,41 @@ def test_restored_search_text_fields_accept_valid_values():
     assert state.search_device == "desktop"
     assert state.search_region == "BR-RS"
     assert state.search_ymyl_mode == "ON"
+
+
+@pytest.mark.parametrize("invalid", [None, 1, 0, [], {}, "maybe", "2"])
+def test_invalid_historical_search_enabled_never_changes_operator_queries(invalid):
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    state.search_queries = ("operador",)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "enabled": invalid, "queries": ["consulta externa"],
+    }}, warnings)
+    assert state.search_queries == ("operador",)
+    assert any("search_intelligence.enabled" in warning for warning in warnings)
+
+
+@pytest.mark.parametrize("invalid", [True, False, float("nan"), float("inf"), -2])
+def test_invalid_historical_search_timeout_preserves_current_value(invalid):
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    before = state.search_content_timeout_seconds
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "content_timeout_seconds": invalid,
+    }}, warnings)
+    assert state.search_content_timeout_seconds == before
+    assert any("content_timeout_seconds" in warning for warning in warnings)
+
+
+def test_valid_historical_search_enabled_false_remains_explicit_opt_out():
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    state.search_queries = ("sessão",)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "enabled": " false ", "queries": ["outra consulta"],
+    }}, warnings)
+    assert not state.search_queries
+    assert not warnings
