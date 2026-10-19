@@ -312,3 +312,58 @@ def test_m6_reader_refuses_tampered_canonically_bound_snapshot(tmp_path):
     assert len(result) == 1 and result[0].architecture == "CSR_SPA"
     rendered.write_text("<html>tampered</html>", encoding="utf-8")
     assert read_audit_architecture_observations(root, "AUD-BIND") == ()
+
+
+def test_legacy_schema_without_browser_metadata_remains_readable(tmp_path):
+    """A new binding column must never invalidate pre-existing M6 snapshots."""
+    import sqlite3
+    from rasai.architecture_m6_evidence import read_audit_architecture_observations
+    folder = tmp_path / "AUD-LEGACY"
+    folder.mkdir()
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute("CREATE TABLE pages(page_id TEXT, audit_id TEXT)")
+        con.execute(
+            "CREATE TABLE page_snapshots("
+            "snapshot_id TEXT,page_id TEXT,device TEXT,requested_url TEXT,"
+            "final_url TEXT,architecture_classification TEXT,"
+            "raw_artifact_ref TEXT,rendered_artifact_ref TEXT)"
+        )
+        con.execute("INSERT INTO pages VALUES ('P-1','AUD-LEGACY')")
+        con.execute(
+            "INSERT INTO page_snapshots VALUES (?,?,?,?,?,?,?,?)",
+            ("S-1", "P-1", "MOBILE", "https://example.org/",
+             "https://example.org/", "HYDRATED", "raw/a.html", "rendered/a.html"),
+        )
+    original = (folder / "audit.db").read_bytes()
+    observations = read_audit_architecture_observations(tmp_path, "AUD-LEGACY")
+    assert len(observations) == 1
+    assert observations[0].architecture == "HYDRATED"
+    assert (folder / "audit.db").read_bytes() == original
+
+
+def test_f2_rejects_embedded_binding_without_real_capture_digest(tmp_path):
+    """A metadata flag alone cannot authorize advisory architecture reuse."""
+    import json
+    import sqlite3
+    from rasai.architecture_m6_evidence import read_audit_architecture_observations
+    folder = tmp_path / "AUD-NODIGEST"
+    folder.mkdir()
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute("CREATE TABLE pages(page_id TEXT, audit_id TEXT)")
+        con.execute(
+            "CREATE TABLE page_snapshots("
+            "snapshot_id TEXT,page_id TEXT,device TEXT,requested_url TEXT,"
+            "final_url TEXT,architecture_classification TEXT,"
+            "raw_artifact_ref TEXT,rendered_artifact_ref TEXT,browser_metadata TEXT)"
+        )
+        con.execute("INSERT INTO pages VALUES ('P-1','AUD-NODIGEST')")
+        con.execute(
+            "INSERT INTO page_snapshots VALUES (?,?,?,?,?,?,?,?,?)",
+            ("S-1", "P-1", "MOBILE", "https://example.org/",
+             "https://example.org/", "HYDRATED", "raw/a.html",
+             "rendered/a.html", json.dumps({"architecture_artifact_binding": {
+                 "version": "m3-artifact-binding-v1", "raw_sha256": None,
+                 "rendered_sha256": None, "manifest_attested": False,
+             }})),
+        )
+    assert read_audit_architecture_observations(tmp_path, "AUD-NODIGEST") == ()
