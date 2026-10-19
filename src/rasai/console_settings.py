@@ -169,31 +169,39 @@ def _runtime_environment_projection(state: Any) -> dict[str, str]:
             UX_CONCURRENCY_ENV: str(int(getattr(state, "apdex_experience_concurrency", 1))),
             DYNATRACE_IMPORT_ENV: _bool_text(bool(getattr(state, "apdex_dynatrace_import", False))),
         })
-        if state.apdex_threshold is not None:
-            values["RASAI_APDEX_THRESHOLD_SECONDS"] = f"{float(state.apdex_threshold):g}"
-        else:
-            values.pop("RASAI_APDEX_THRESHOLD_SECONDS", None)
+        # An explicitly cleared typed option must evict its former session
+        # override; otherwise M23/M25 may consume stale values after the
+        # operator disabled or cleared the corresponding setting.
+        threshold = getattr(state, "apdex_threshold", None)
         satisfied = getattr(state, "apdex_experience_satisfied", None)
         frustrated = getattr(state, "apdex_experience_frustrated", None)
-        if satisfied is not None:
-            values[UX_SATISFIED_ENV] = f"{float(satisfied):g}"
-        if frustrated is not None:
-            values[UX_FRUSTRATED_ENV] = f"{float(frustrated):g}"
+        values["RASAI_APDEX_THRESHOLD_SECONDS"] = (
+            "" if threshold is None else f"{float(threshold):g}"
+        )
+        values[UX_SATISFIED_ENV] = (
+            "" if satisfied is None else f"{float(satisfied):g}"
+        )
+        values[UX_FRUSTRATED_ENV] = (
+            "" if frustrated is None else f"{float(frustrated):g}"
+        )
         for name, raw in (
             (DYNATRACE_BASE_URL_ENV, getattr(state, "dynatrace_base_url", "")),
             (DYNATRACE_APPLICATION_ID_ENV, getattr(state, "dynatrace_application_id", "")),
             (DYNATRACE_CONFIG_JSON_ENV, getattr(state, "apdex_dynatrace_config_json", "")),
         ):
-            if str(raw).strip():
-                values[name] = str(raw).strip()
+            values[name] = str(raw or "").strip()
     registration = get_provider_registration(str(state.ai_provider))
     if registration is not None:
-        if getattr(state, "ai_model", None):
-            values[registration.model_env] = str(state.ai_model)
-        if getattr(state, "ai_reasoning", None):
-            variable = provider_reasoning_env(registration.provider_name)
-            if variable:
-                values[variable] = str(state.ai_reasoning).upper()
+        # Only the selected provider is owned by the current typed choice.
+        # Preserve other providers and secrets during a provider change.
+        values[registration.model_env] = str(
+            getattr(state, "ai_model", None) or ""
+        ).strip()
+        variable = provider_reasoning_env(registration.provider_name)
+        if variable:
+            values[variable] = str(
+                getattr(state, "ai_reasoning", None) or ""
+            ).strip().upper()
     return values
 
 

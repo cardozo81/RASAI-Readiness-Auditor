@@ -40,6 +40,8 @@ _CORE_RUNTIME = {
     ("synthetic_apdex_experience", "architecture"): "RASAI_APDEX_EXPERIENCE_ARCHITECTURE",
     ("synthetic_apdex_experience", "profile_mode"): "RASAI_APDEX_EXPERIENCE_PROFILE_MODE",
     ("synthetic_apdex_experience", "kpm"): "RASAI_APDEX_EXPERIENCE_KPM",
+    ("synthetic_apdex_experience", "satisfied_seconds"): "RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS",
+    ("synthetic_apdex_experience", "frustrated_seconds"): "RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS",
     ("synthetic_apdex_experience", "errors_affect_apdex"): "RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT",
     ("synthetic_apdex_experience", "javascript_errors_affect_apdex"): "RASAI_APDEX_EXPERIENCE_JAVASCRIPT_ERRORS_AFFECT",
     ("synthetic_apdex_experience", "request_errors_affect_apdex"): "RASAI_APDEX_EXPERIENCE_REQUEST_ERRORS_AFFECT",
@@ -144,7 +146,10 @@ def inspect_typed_configuration(ini_path: Path) -> dict[str, Any]:
         if key is not None:
             entry["state"] = (
                 "DECLARED_RUNTIME_PROJECTION"
-                if key in projected else "RUNTIME_PROJECTION_ABSENT"
+                if str(projected.get(key, "")).strip() else (
+                    "RUNTIME_PROJECTION_EMPTY" if key in projected
+                    else "RUNTIME_PROJECTION_ABSENT"
+                )
             )
     counts = dict(sorted(Counter(item["state"] for item in entries).items()))
     return {

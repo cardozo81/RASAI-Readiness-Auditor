@@ -762,3 +762,22 @@ save/novo processo/load/ambiente, incluindo o smoke Windows de
 reteste desse smoke. A presença de campo no registry não significa
 consumo comprovado no motor; não alterar M23/M25 por causa de uma
 divergência de preenchimento.
+
+
+## Limpeza efetiva de opções tipadas opcionais (#523)
+
+Ao limpar um threshold opcional de CAT-06/CAT-07, um campo Dynatrace
+não secreto ou o modelo/reasoning do **provedor IA selecionado**, o console
+passa a projetar um valor vazio intencional. A sincronização remove o
+override residual de `os.environ`, em vez de deixar o valor da sessão
+anterior disponível ao executor. A alteração não remove credenciais, nem
+modifica configurações de outros provedores, contratos de scoring ou
+parâmetros da AUD já persistidos.
+
+No boot do console, os overrides externos reais devem ser aplicados ao
+estado tipado via `apply_environment_defaults` e
+`apply_m23_environment_defaults` antes da sincronização; o inventário
+`[environment]` originado do INI não substitui essa precedência. O
+diagnóstico `--reconcile-typed` diferencia uma chave vazia
+(`RUNTIME_PROJECTION_EMPTY`) de projeção preenchida. Nenhuma dessas
+classificações comprova uma medição real ou autoriza uma chamada paga.

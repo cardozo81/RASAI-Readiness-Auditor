@@ -85,3 +85,23 @@ def test_typed_ini_refuses_missing_symlink_and_invalid_encoding_without_writes(t
         return
     assert inspect_typed_configuration(link)["status"] == "NOT_VERIFIABLE"
     assert bad.read_bytes() == data
+
+
+def test_empty_optional_apdex_values_are_not_runtime_inputs(tmp_path):
+    source = tmp_path / "optional.ini"
+    source.write_text(
+        "[synthetic_apdex]\nthreshold_seconds =\n"
+        "[synthetic_apdex_experience]\nsatisfied_seconds =\nfrustrated_seconds =\n",
+        encoding="utf-8",
+    )
+    before = source.read_bytes()
+    result = inspect_typed_configuration(source)
+    fields = {row["field"]: row for row in result["fields"]}
+    for field in (
+        "synthetic_apdex.threshold_seconds",
+        "synthetic_apdex_experience.satisfied_seconds",
+        "synthetic_apdex_experience.frustrated_seconds",
+    ):
+        assert fields[field]["state"] == "RUNTIME_PROJECTION_EMPTY"
+        assert fields[field]["runtime_input_proven"] is False
+    assert source.read_bytes() == before
