@@ -472,3 +472,131 @@ def test_historical_query_validator_rejects_actual_nul_not_literal_escape():
     }}, warnings)
     assert not warnings
     assert state.search_queries == (r"literal\\x00 is safe",)
+
+
+@pytest.mark.parametrize("bad_name,bad_value", [
+    ("RASAI_GSC_SEARCH_MAX_ROWS", "50001"),
+    ("RASAI_GSC_SEARCH_ANALYTICS_DAYS", "32"),
+    ("RASAI_GSC_FINAL_DATA_LAG_DAYS", "31"),
+    ("RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL",
+     "https://operator:PRIVATE_SECRET@shop.example.org/?token=DO_NOT_SHOW"),
+    ("RASAI_GSC_ENABLED", "maybe"),
+])
+def test_523_reused_aud_gsc_policy_rejected_before_session_mutation(
+    bad_name, bad_value, monkeypatch,
+):
+    """A historical AUD cannot bypass the current saved-INI GSC policy."""
+    from rasai import console_settings
+    from rasai.audit_configuration_reuse_console import _apply_settings
+
+    monkeypatch.setenv("RASAI_GSC_ENABLED", "false")
+    monkeypatch.setenv("RASAI_GSC_SEARCH_MAX_ROWS", "7")
+    old_env = dict(__import__("os").environ)
+    state = SearchConsoleState()
+    state.target = "https://existing.example/"
+    state.project = "CURRENT"
+    state.max_pages = 11
+    snapshot = {
+        "settings": {
+            "console": {"max_pages": "99", "target": "https://bad.example/"},
+            "environment": {
+                "RASAI_GSC_ENABLED": "true",
+                bad_name: bad_value,
+            },
+        },
+        "targets": ["https://new.example/"],
+    }
+    with pytest.raises(ValueError, match="environment\\.|sensível"):
+        _apply_settings(state, snapshot, "AUD-HISTORICAL")
+    assert state.target == "https://existing.example/"
+    assert state.project == "CURRENT"
+    assert state.max_pages == 11
+    assert dict(__import__("os").environ) == old_env
+    assert "PRIVATE_SECRET" not in repr(snapshot["settings"]["console"])
+
+
+@pytest.mark.parametrize("secret_name", [
+    "PERPLEXITY_API_KEY", "DYNATRACE_API_TOKEN",
+    "RASAI_GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN",
+])
+def test_523_legacy_snapshot_secret_cannot_leak_into_new_session(
+    secret_name, monkeypatch,
+):
+    from rasai.audit_configuration_reuse_console import _apply_settings
+    import os
+    state = SearchConsoleState()
+    state.target = "https://current.example/"
+    old_environment = dict(os.environ)
+    snapshot = {
+        "settings": {
+            "environment": {secret_name: "PRIVATE_SNAPSHOT_TOKEN"},
+            "ai": {"provider": "none"},
+        },
+        "targets": ["https://new.example/"],
+    }
+    with pytest.raises(ValueError) as error:
+        _apply_settings(state, snapshot, "AUD-LEGACY")
+    assert "PRIVATE_SNAPSHOT_TOKEN" not in str(error.value)
+    assert secret_name not in str(error.value)
+    assert state.target == "https://current.example/"
+    assert dict(os.environ) == old_environment
+
+
+def test_523_valid_historical_gsc_configuration_restores_after_preview(
+    monkeypatch,
+):
+    import os
+    from rasai.audit_configuration_reuse_console import (
+        _apply_settings, _export_settings,
+    )
+    from rasai import console_settings
+
+    original = SearchConsoleState()
+    original.target = "https://shop.example.org/store"
+    original.apdex_experience_architecture = "CSR_SPA"
+    original.apdex_experience_profile_mode = "DYNATRACE_GUIDED"
+    original.apdex_experience_xhr_capture = False
+    original.apdex_experience_fetch_capture = True
+    original.apdex_experience_max_error_details = 9
+    original.apdex_experience_satisfied = 2.5
+    original.apdex_experience_frustrated = 9.0
+
+    with monkeypatch.context() as scope:
+        scope.setenv("RASAI_GSC_ENABLED", "true")
+        scope.setenv("RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL", "sc-domain:example.org")
+        scope.setenv("RASAI_GSC_SEARCH_MAX_ROWS", "42")
+        scope.setenv("RASAI_GSC_SEARCH_ANALYTICS_DAYS", "0")
+        scope.setenv("RASAI_GSC_FINAL_DATA_LAG_DAYS", "0")
+        initial_environment = dict(os.environ)
+        snapshot = _export_settings(original, ("https://shop.example.org/store",))
+        assert dict(os.environ) == initial_environment
+        assert "PERPLEXITY_API_KEY" not in str(snapshot)
+        replacement = SearchConsoleState()
+        replacement.target = "https://unrelated.example/"
+        warnings = _apply_settings(replacement, snapshot, "AUD-SOURCE")
+        assert not warnings
+        assert replacement.target == "https://shop.example.org/store"
+        assert replacement.apdex_experience_architecture == "CSR_SPA"
+        assert replacement.apdex_experience_profile_mode == "DYNATRACE_GUIDED"
+        assert replacement.apdex_experience_xhr_capture is False
+        assert replacement.apdex_experience_fetch_capture is True
+        assert replacement.apdex_experience_max_error_details == 9
+        assert replacement.apdex_experience_satisfied == 2.5
+        assert replacement.apdex_experience_frustrated == 9.0
+        assert os.environ["RASAI_GSC_ENABLED"] == "true"
+        assert os.environ["RASAI_GSC_SEARCH_MAX_ROWS"] == "42"
+        assert os.environ["RASAI_GSC_SEARCH_ANALYTICS_DAYS"] == "0"
+        assert os.environ["RASAI_GSC_FINAL_DATA_LAG_DAYS"] == "0"
+        assert os.environ["RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL"] == "sc-domain:example.org"
+
+
+def test_523_invalid_gsc_export_cannot_become_new_aud_snapshot(monkeypatch):
+    import os
+    from rasai.audit_configuration_reuse_console import _export_settings
+
+    state = SearchConsoleState()
+    monkeypatch.setenv("RASAI_GSC_SEARCH_MAX_ROWS", "50001")
+    before = dict(os.environ)
+    with pytest.raises(ValueError, match="environment\\.RASAI_GSC_SEARCH_MAX_ROWS"):
+        _export_settings(state, ("https://example.org/",))
+    assert dict(os.environ) == before

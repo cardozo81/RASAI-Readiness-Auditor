@@ -1188,3 +1188,42 @@ os adapters físicos sobre INI temporário sem URL, sem rede ou AUD.
 
 Essa correção é metodológica no diagnóstico do save/load; não
 adiciona requisito artificial de configurar o alvo antes de salvar.
+
+
+### #523 — Gate dos snapshots de AUD reaproveitados e impossibilidade de reativar GSC inválido
+
+A trilha `audit_configuration_reuse_console._apply_settings` permitia
+aplicar integralmente a seção `[environment]` de uma AUD histórica
+**sem os limites que já são exigidos no arquivo INI do console**.
+Por exemplo, uma AUD antiga com `RASAI_GSC_ENABLED=true` e
+`RASAI_GSC_SEARCH_MAX_ROWS=50001` poderia modificar a sessão antes
+de consultar o verdadeiro policy consumer, apesar de o save/load
+corrente rejeitar esse valor. O defeito só ocorria no caminho de
+reuso de configuração, complementar à issue #523.
+
+Agora `_validate_reused_environment` atua **antes de qualquer
+mutação da sessão**: declarações secretas não podem ser importadas
+de AUD anterior, os cinco inputs GSC reutilizáveis passam pelos
+mesmos validadores do INI/menu, valores não textuais deixam de ser
+coagidos silenciosamente e campos legados não reconhecidos permanecem
+inertes. A geração de snapshots futuros (`_export_settings`) aplica
+o mesmo gate antes de devolver o payload, com restauração do ambiente
+de processo em `finally`. Na falha, erro mostra apenas coordenada
+técnica de campo, nunca valores sensíveis ou o conteúdo de URLs.
+
+Foi eliminada ainda a possibilidade de `warnings` de campos
+tipados inválidos reproduzirem mensagens de `int()/float()/JSON`
+que incluíam valores brutos da AUD histórica; avisos agora são
+coordenadas de schema sem os valores. Inputs não secretos válidos
+continuam reaproveitáveis sob escolha explícita, inclusive os
+parâmetros CAT-07 `CSR_SPA`, Guided, limiares, captura de erros e
+os limites GSC com zeros canônicos. Nenhum consentimento faturável
+ou token histórico é transportado, e nenhum scorer, engine M23/M25,
+SQLite canônico ou AUD antiga foi alterado.
+
+O lote inclui regressões sintéticas para cinco GSC malformados,
+três segredos históricos, export fail-closed, rollback da sessão,
+arquitetura CAT-07 e GSC legítimo; **testes foram criados, ainda não
+executados**. Mantida prioridade exclusiva da #523 e a estratégia
+de executar somente o lote focal que acrescente evidência real
+devido à alteração de contratos.

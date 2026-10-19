@@ -56,6 +56,46 @@ def _restore_environment(snapshot: Mapping[str, tuple[bool, str | None]]) -> Non
             os.environ.pop(name, None)
 
 
+def _validate_reused_environment(environment: Mapping[str, Any]) -> dict[str, str]:
+    """Bound nonsecret reusable environment inputs before *any* state mutation.
+
+    Sealed historical configurations predate today's stricter INI validators.
+    A snapshot is evidence of former preferences, not authorization to
+    bypass the GSC policy, transport credentials, or import malformed URL
+    scopes in the current process. The operator's live secrets stay untouched.
+    """
+    from rasai import console_settings
+    from rasai.console_config import is_secret
+
+    allowed = set(console_settings._known_nonsecret_environment_names())
+    gsc_names = console_settings._gsc_nonsecret_names()
+    accepted: dict[str, str] = {}
+    for name, raw in environment.items():
+        if not isinstance(name, str) or is_secret(name):
+            # Never echo a potentially secret-bearing original key/value.
+            raise ValueError("snapshot de AUD contém variável sensível ou inválida")
+        if name not in allowed:
+            # Older snapshots may legitimately contain removed *nonsecret*
+            # knobs: ignore them, never promote to executable inputs.
+            continue
+        if raw is None or (isinstance(raw, str) and not raw.strip()):
+            continue
+        if not isinstance(raw, str):
+            raise ValueError(
+                f"environment.{name}: valor histórico não textual; conteúdo omitido"
+            )
+        candidate = raw.strip()
+        if name in gsc_names:
+            try:
+                candidate = console_settings._canonical_gsc_value(name, candidate)
+            except (ValueError, TypeError, OverflowError):
+                raise ValueError(
+                    f"environment.{name}: valor GSC inválido; conteúdo omitido"
+                ) from None
+        accepted[name] = candidate
+    return accepted
+
+
 def _export_settings(state: Any, targets: tuple[str, ...] | list[str]) -> dict[str, Any]:
     """Export one effective secret-free execution snapshot without changing the session.
 
@@ -76,6 +116,10 @@ def _export_settings(state: Any, targets: tuple[str, ...] | list[str]) -> dict[s
             section: {name: value for name, value in parser.items(section, raw=True)}
             for section in parser.sections()
         }
+        # Apply exactly the same GSC bounds as operator-INI restoration to a
+        # *new* reusable AUD snapshot. A malformed policy cannot become a
+        # sealed source for a future run just because it was in os.environ.
+        _validate_reused_environment(settings.get("environment", {}))
     finally:
         _restore_environment(environment_snapshot)
 
@@ -331,6 +375,11 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
     if not isinstance(environment, Mapping):
         raise ValueError("snapshot de console possui seção environment inválida")
 
+    # Preflight historical environment *before* mutating the current state.
+    # Legacy snapshots with GSC limits/URL values outside the current policy
+    # must be explicitly reconciled, not silently resumed under new defaults.
+    checked_environment = _validate_reused_environment(environment)
+
     # Preserve the process-session projection until all steps succeed.
     # No second persistence source is created, and secrets stay in memory.
     previous_environment = dict(os.environ)
@@ -346,11 +395,10 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
         # the operator explicitly chooses to load that AUD. Secrets remain outside this
         # allowlist and continue resolved from the current OS/session.
         for name in allowed_environment:
-            raw = environment.get(name)
-            if raw is None or not str(raw).strip():
+            if name not in checked_environment:
                 os.environ.pop(name, None)
             else:
-                os.environ[name] = str(raw).strip()
+                os.environ[name] = checked_environment[name]
 
         for section, known_values in console_settings._state_values(state).items():
             values = raw_settings.get(section, {})
@@ -361,8 +409,13 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
                     continue
                 try:
                     console_settings._assign(state, section, option, str(values[option]))
-                except (TypeError, ValueError) as exc:
-                    warnings.append(f"{section}.{option}: {exc}")
+                except (TypeError, ValueError, OverflowError):
+                    # Historic text/JSON may contain operator values in int(),
+                    # URL or adapter exception messages. Expose coordinates,
+                    # not the rejected value, credential or file path.
+                    warnings.append(
+                        f"{section}.{option}: valor histórico inválido; conteúdo omitido"
+                    )
 
         _apply_search_settings(state, configuration, warnings)
 
