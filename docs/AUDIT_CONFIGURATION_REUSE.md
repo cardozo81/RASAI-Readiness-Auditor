@@ -305,3 +305,11 @@ reutilizáveis. A ausência dessa seção não é classificada como corrupção;
 quando presente com tipo inválido, a restauração falha antes de mutar a
 sessão. A compatibilidade preserva a precedência de configuração selada
 e mantém separada a exigência de um round-trip completo nas novas AUDs.
+
+## Flags booleanas na restauração histórica
+
+As flags `competitive`, `compare_content` e `ai_competitive`
+exigem valores booleanos ou literais textuais reconhecidos. Entradas
+numéricas e objetos não são convertidos em políticas de execução; produzem
+aviso e preservam a configuração da sessão. A regra evita que um snapshot
+histórico inválido ative comparação de conteúdo ou análise assistida por IA.

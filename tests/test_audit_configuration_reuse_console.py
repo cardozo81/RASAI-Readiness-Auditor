@@ -387,3 +387,30 @@ def test_explicitly_malformed_console_section_still_rejected():
     with pytest.raises(ValueError, match="seção console válida"):
         _apply_settings(state, config, "AUD-BAD")
     assert state.target == original
+
+
+@pytest.mark.parametrize("field", ["competitive", "compare_content", "ai_competitive"])
+@pytest.mark.parametrize("invalid", [None, 2, [], {}, "maybe"])
+def test_historical_search_boolean_flags_reject_unsafe_coercion(field, invalid):
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    attribute = "search_" + field
+    previous = getattr(state, attribute)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {field: invalid}}, warnings)
+    assert getattr(state, attribute) is previous
+    assert any("search_intelligence." + field in note for note in warnings)
+
+
+def test_historical_search_boolean_flags_restore_only_explicit_values():
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "competitive": "false", "compare_content": "true",
+        "ai_competitive": "true",
+    }}, warnings)
+    assert not warnings
+    assert state.search_competitive is False
+    assert state.search_compare_content is True
+    assert state.search_ai_competitive is True

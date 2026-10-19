@@ -212,18 +212,25 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
         state.search_region = raw_region.strip()
     else:
         warnings.append("search_intelligence.region: use texto até 200 caracteres")
-    state.search_competitive = _as_bool(
-        search.get("competitive"),
-        default=bool(getattr(state, "search_competitive", True)),
-    )
-    state.search_compare_content = _as_bool(
-        search.get("compare_content"),
-        default=bool(getattr(state, "search_compare_content", False)),
-    )
-    state.search_ai_competitive = _as_bool(
-        search.get("ai_competitive"),
-        default=bool(getattr(state, "search_ai_competitive", False)),
-    )
+    # Explicit historical booleans never coerce arbitrary numeric or object
+    # values into a new execution policy.
+    for field, attribute, default in (
+        ("competitive", "search_competitive", True),
+        ("compare_content", "search_compare_content", False),
+        ("ai_competitive", "search_ai_competitive", False),
+    ):
+        raw = search.get(field, getattr(state, attribute, default))
+        if isinstance(raw, bool):
+            parsed = raw
+        elif isinstance(raw, str) and raw.strip().casefold() in {
+            "1", "true", "yes", "on", "sim", "s",
+            "0", "false", "no", "off", "nao", "não", "n",
+        }:
+            parsed = _as_bool(raw, default=default)
+        else:
+            warnings.append(f"search_intelligence.{field}: valor booleano inválido")
+            continue
+        setattr(state, attribute, parsed)
     try:
         candidate = search.get("max_content_pages", getattr(state, "search_max_content_pages", 3))
         value = _strict_nonnegative_integer(candidate)
