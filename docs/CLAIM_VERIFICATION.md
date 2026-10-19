@@ -51,3 +51,58 @@ A CLI é um adaptador para **fontes primárias já obtidas e autenticadas por um
 ## Proveniência temporal opcional de coleta
 
 Recibos assinados podem incluir `collected_on` (ISO `YYYY-MM-DD`), como dado adicional protegido pelo mesmo MAC. Quando fornecido, o classificador exige data válida e `collected_on <= reviewed_on <= at_date`; declaração posterior à revisão é rejeitada como `CLAIM_UNVERIFIED_EXTERNAL`. O campo é opcional para compatibilidade com recibos anteriores: **sua ausência não comprova data de coleta** e não supre a obrigação de cadeia documental quando exigida para o aceite externo. O conteúdo auditado e a IA não podem produzir nem autenticar esse campo. A verificação permanece documental, não regulatória.
+
+
+## Revisão documental em lote com proveniência por alegação (19/10/2026)
+
+A ferramenta offline `python -m rasai.claim_review_batch --manifest
+/caminho/packet/manifest.json --format html` suporta até 50 alegações em
+um único pacote de apresentação, com arquivos locais e recibos assinados
+**independentemente para cada alegação**. O comando também suporta
+`--format json`. Não é executado automaticamente na geração do CAT-03.
+
+A estrutura de manifesto (não assinada e não atestada como origem de AUD)
+é:
+
+```json
+{
+  "audit_id": "AUD-EXEMPLO",
+  "at_date": "2026-10-14",
+  "claims": [
+    {
+      "claim_id": "C-001",
+      "claim_file": "claim.txt",
+      "document_file": "conditions.txt",
+      "receipt_file": "receipt.json",
+      "product_scope": "produto-e-versao-especificos"
+    }
+  ]
+}
+```
+
+Cada `receipt.json` mantém o contrato de `claim_review_import_cli`, incluindo
+`review` e `mac` HMAC-SHA256 validado contra **chave confiável externa ao
+manifesto**. O revisor pertence à allowlist controlada pelo operador, recebida
+pelas variáveis privadas `RASAI_CLAIM_REVIEW_HMAC_KEY_HEX` e
+`RASAI_CLAIM_REVIEWER_ALLOWLIST`. Jamais incluir segredos no
+manifesto, na árvore de auditoria, no documento ou nos logs.
+
+Somente recibos autenticados, com escopo do produto, trecho literal, data
+de revisão, versão documental, SHA-256 e vigência comprováveis podem expor
+metadados de fonte e verificação documental. A apresentação separa
+`CLAIM_CORROBORATED`, `CLAIM_UNVERIFIED_EXTERNAL` e
+`CLAIM_CONTRADICTED_WITH_VERSIONED_SOURCE`; recibos inconsistentes
+permanecem não verificados. Texto literal da alegação e chaves de
+verificação não são exportados no relatório de lote.
+
+O manifesto impõe caminhos relativos seguros dentro de sua pasta; arquivos
+com links simbólicos, tráfego HTTP, arquivos excessivos, assinatura adulterada
+e revisor não autorizado não promovem verificação. A identificação
+`AUD-...` no manifesto **é declarada pelo operador**, sem prova de vínculo
+com a captura física da AUD. O relatório HTML é consultivo, autônomo e
+somente retornado em stdout. Não integra status no CAT-03 por inferência,
+não certifica emissor/SUSEP, não atualiza score ou auditoria histórica.
+
+A extensão atende o fluxo operacional local de múltiplas alegações; **o
+aceite integral de #603 permanece dependente** de fonte primária oficial
+vigente autenticada e ligação auditável ao texto da captura real.
