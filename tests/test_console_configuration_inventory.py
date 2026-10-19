@@ -1200,3 +1200,45 @@ def test_523_apdex_cli_argv_parity_without_running_collector(tmp_path):
         assert not rejected["collector_execution_verified"]
         assert path.read_bytes() == before
         assert os.environ == os_before
+
+
+def test_523_both_apdex_cli_paths_must_stay_inside_shared_handoff_capture(
+    tmp_path, monkeypatch,
+):
+    """The local parser replay must never call the process-global M25 writer."""
+    from unittest.mock import patch
+    from rasai import console_settings, m23_cli
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai.console_apdex_effective_validation import inspect_apdex_consumers
+    from rasai.m25_runtime import peek_pending_config
+
+    _install_search_persistence()
+    install()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        state.synthetic_apdex = False
+        state.apdex_experience = True
+        state.apdex_experience_samples = 7
+        state.apdex_experience_max_attempts = 9
+        source = tmp_path / "m25-protected.ini"
+        console_settings.save_console_config(state, source)
+        before = source.read_bytes()
+        previous_handoff = peek_pending_config()
+
+        def forbidden_global_write(_config):
+            raise AssertionError(
+                "A dry-run CLI replay must not set process-global M25 state"
+            )
+
+        # On entry m23_cli's writer is hostile; the inspector must capture
+        # BOTH calls. Its original binding is restored on exit.
+        with patch.object(m23_cli, "set_pending_config", forbidden_global_write):
+            result = inspect_apdex_consumers(source, environ={})
+        assert result["status"] == "ADAPTERS_VALIDATED_OFFLINE"
+        assert result["cli_argv_parity_verified"] is True
+        assert result["active_m23"] is False
+        assert result["active_m25"] is True
+        assert peek_pending_config() is previous_handoff
+        assert source.read_bytes() == before

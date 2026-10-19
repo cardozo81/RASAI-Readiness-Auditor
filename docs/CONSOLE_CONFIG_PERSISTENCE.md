@@ -1106,3 +1106,30 @@ tipo de falha; jamais inclui chave desconhecida ou seu valor.
 Conferência de fonte ausente foi alinhada a
 `INI_SOURCE_UNVERIFIABLE`. O diagnóstico não apaga, migra nem exibe
 o segredo, para preservar o arquivo do operador até reconciliação.
+
+
+### Correção crítica: a segunda interpretação M23/M25 não pode afetar AUD pendente (#523)
+
+A revisão do adapter `console_apdex_effective_validation.inspect_apdex_consumers`
+encontrou uma regressão anterior: a primeira chamada de
+`m23_cli.configured_apdex` usava captura local de
+`set_pending_config`, mas a segunda chamada, que repetia o
+parsing do vetor CLI, ocorria **após sair da proteção**. Além de
+produzir falso `CLI_ARGV_CONTRACT_INVALID` (lista de capturas vazia),
+a segunda execução podia atualizar a configuração pendente
+process-global do CAT-07. Essa é uma violação do contrato read-only.
+
+As **duas interpretações do mesmo consumo M23/M25** passaram a ficar
+no **mesmo contexto temporário de interceptação** e cada uma exige
+duas capturas (reset e experiência efetiva). O handoff global original
+não é lido, consumido ou substituído. A alteração fica restrita ao
+diagnóstico; não modifica os motores homologados nem o protocolo de
+execução real. Um teste de regressão instala um setter global
+deliberadamente proibido e confirma que tanto o parsing por
+ambiente quanto o replay por argv terminam com paridade, sem
+tocar a configuração pendente no processo.
+
+Este ajuste é pré-requisito para confiar no agregado
+`--acceptance-523`; nenhum resultado anterior do preflight
+CAT-06/CAT-07 deve ser chamado de PASS sem a validação focal
+desta correção.
