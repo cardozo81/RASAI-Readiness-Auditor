@@ -504,3 +504,10 @@ atribuída à AUD somente quando uma observação física possui identificador
 globalmente não ambíguo; bancos ausentes, fontes em mutação (WAL/SHM)
 ou identidades reutilizadas são abstenções, nunca contagem de posições.
 Isso não confirma a cobertura real das SERPs nem a experiência dos usuários.
+
+
+## Matriz executiva de universos de evidência
+
+O painel `Matriz decisória de evidências` na visão geral e o recorte metodológico da página SARI explicam por que um índice SARI elevado pode coexistir com Lighthouse baixo, métricas CrUX de ORIGIN, amostras Apdex parciais e SERP incompleta. Valores continuam físicos e independentes; nenhuma média cruzada ou recalibração do SCORE-GEO-004 é produzida. A confiança alta do método não comprova resultados externos de ranking, menção em IA ou conformidade regulatória.
+
+O diagnóstico read-only `python -m rasai.report_decision_matrix_cli /caminho/AUD-ID` permite confrontar a fonte SQLite selada e a apresentação. Contrato consultivo RASAI-DECISION-EVIDENCE-604-001; escopos e limites em [`REPORT_DECISION_MATRIX.md`](REPORT_DECISION_MATRIX.md).

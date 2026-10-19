@@ -1,0 +1,79 @@
+"""Offline, non-billable diagnostic of executive evidence scopes for one AUD.
+
+This CLI prints JSON only and does not invoke any catalog collector, browser,
+provider, report writer or scoring engine. Designed for a human smoke using an
+already exported sealed AUD, not a new audit.
+"""
+from __future__ import annotations
+
+import argparse
+from contextlib import closing
+import json
+from pathlib import Path
+import sqlite3
+from typing import Any, Sequence
+
+from rasai.report_decision_matrix import decision_evidence_matrix
+
+_MAX_DB_BYTES = 512 * 1024 * 1024
+
+def inspect_audit_decision_evidence(audit_directory: Path) -> dict[str, Any]:
+    fallback: dict[str, Any] = {
+        "contract": "RASAI-DECISION-EVIDENCE-604-001",
+        "status": "NOT_VERIFIABLE", "audit_id": None,
+        "reason": "SEALED_AUD_DATABASE_REQUIRED", "rows": [],
+        "provider_requests": 0, "audit_writes": 0,
+    }
+    try:
+        root = Path(audit_directory)
+        db = root / "audit.db"
+        if (root.is_symlink() or not root.is_dir() or not root.name.startswith("AUD-")
+                or db.is_symlink() or not db.is_file()
+                or not 0 < db.stat().st_size <= _MAX_DB_BYTES
+                or any(Path(str(db) + sidecar).exists()
+                       for sidecar in ("-wal", "-shm", "-journal"))):
+            return fallback
+        with closing(sqlite3.connect(
+            db.resolve().as_uri() + "?mode=ro&immutable=1",
+            uri=True, timeout=2,
+        )) as connection:
+            connection.execute("PRAGMA query_only=ON")
+            connection.row_factory = sqlite3.Row
+            from rasai.catalog_report_model import _load_data
+            from rasai.catalog_report_metrics import _web_observation
+            audit_id = root.name
+            data = _load_data(audit_id, db, connection=connection)
+            if not data.audit or data.audit.get("audit_id") != audit_id:
+                return fallback
+            web = _web_observation(db, audit_id, connection=connection)
+            scores = data.scores
+        # Second projection checks its own SQLite sidecar evidence and
+        # identities and returns N/D on ambiguous SERP observations.
+        from rasai.catalog_report_governance import _overview_serp_depth
+        from rasai.optional_seo_interpretation import optional_seo_penalties
+        projected = decision_evidence_matrix(
+            audit_id=audit_id, scores=scores, web=web,
+            serp_depth=_overview_serp_depth(db, audit_id),
+            optional_seo_discounts=optional_seo_penalties(db, audit_id),
+        )
+        return projected
+    except (sqlite3.Error, OSError, ValueError, TypeError, OverflowError, KeyError):
+        return fallback
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Lê limites decisórios persistidos sem novas requisições ou escrita"
+    )
+    parser.add_argument("audit_directory", type=Path)
+    args = parser.parse_args(argv)
+    projected = inspect_audit_decision_evidence(args.audit_directory)
+    print(json.dumps(projected, ensure_ascii=False, sort_keys=True))
+    return 0 if projected.get("status") == "DESCRIPTIVE_ONLY" else 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+
+__all__ = ["inspect_audit_decision_evidence", "main"]

@@ -438,7 +438,7 @@ def _overview_body(database: Path, data: _ReportData) -> str:
             indexes.append((_Html(f"<a href='{CATALOG_PAGE_BY_ID[cid].filename}'>{escape(str(name))}</a>"),value,CATALOG_BY_ID[cid].label,kind,"-"))
     integrity="Íntegro" if data.config_hash and data.computed_hash==data.config_hash else "Plano não encontrado" if not data.config_hash else "Integridade divergente"
     diagnostic=_diagnostic_state_section(database,data,integrity)
-    outline=(("snapshot","Retrato da auditoria"),("catalogs","Catálogos"),("indices","Índices"),("integrity","Integridade"))
+    outline=(("snapshot","Retrato da auditoria"),("decision-matrix","Matriz decisória de evidências"),("catalogs","Catálogos"),("indices","Índices"),("integrity","Integridade"))
     if diagnostic:
         outline=(("diagnostic","Estado do diagnóstico"),)+outline
     body=_audit_hero(data,"Visão geral por catálogos","Resumo do plano congelado e dos resultados persistidos, mantendo coleta, análise e remediação em responsabilidades distintas.")
@@ -448,10 +448,25 @@ def _overview_body(database: Path, data: _ReportData) -> str:
     body+=_section("experience","Explore a auditoria por objetivo",_experience_paths_633())
     body+=_section("catalogs","Catálogos da auditoria",_table(("Catálogo","Estado","Interpretação"),rows,sortable=True))
     from rasai.catalog_report_metrics import _web_observation
+    from rasai.report_decision_matrix import (
+        decision_evidence_matrix, decision_evidence_matrix_html,
+    )
+    web_observation = _web_observation(database, data.audit_id)
+    serp_depth = _overview_serp_depth(database, data.audit_id)
     body+=_overview_measurement_scope_notice(
-        _web_observation(database, data.audit_id), catalog_statuses,
-        overall_scores=data.scores,
-        serp_depth=_overview_serp_depth(database, data.audit_id),
+        web_observation, catalog_statuses,
+        overall_scores=data.scores, serp_depth=serp_depth,
+    )
+    from rasai.optional_seo_interpretation import optional_seo_penalties
+    scope_matrix = decision_evidence_matrix(
+        audit_id=data.audit_id, scores=data.scores,
+        web=web_observation, catalog_statuses=catalog_statuses,
+        serp_depth=serp_depth,
+        optional_seo_discounts=optional_seo_penalties(database, data.audit_id),
+    )
+    body+=_section(
+        "decision-matrix", "Matriz decisória de evidências",
+        decision_evidence_matrix_html(scope_matrix),
     )
     body+=_section("indices","Índices e métricas evidentes",_table(("Indicador","Valor","Contexto","Tipo","Confiança"),indexes,empty="Nenhum índice ou métrica reconhecido foi persistido.",sortable=bool(indexes))+"<p class='muted'>O inventário metodológico completo está em <a href='metrics.html'>Índices e métricas</a>.</p>")
     from rasai.optional_seo_interpretation import optional_seo_notice_html
@@ -555,9 +570,23 @@ def _sari_body(data: _ReportData) -> str:
             limitations.append((_device_label(r.get("device")),public_contract_label(item)))
     versions=sorted({str(r.get("scoring_version")) for r in data.scores if r.get("scoring_version")})
     body=_audit_hero(data,"Search & AI Readiness Index - Índice de Prontidão Search & IA","Índice persistido de prontidão, versão pública 001, com cobertura, confiança, dimensões e limitações. ID técnico: SARI-001. O HTML não recalcula o índice.")
-    body+=_outline((("result","Resultado"),("composition","Composição"),("limitations","Limitações"),("method","Método")))
+    body+=_outline((("result","Resultado"),("composition","Composição"),("scope","Universo medido"),("limitations","Limitações"),("method","Método")))
     body+=_section("result","Resultado geral",f"<div class='metric-grid'>{cards or _metric('Índice de Prontidão','Sem pontuação persistida')}</div><div class='notice'>O SARI é um índice proprietário do RASAi, calculado sobre o escopo efetivamente auditado. A confiança expressa a força da avaliação no contrato de regras, não um intervalo de confiança estatística, nem certificação de indexação, posição no Google, inclusão em respostas generativas, desempenho, conformidade WCAG ou conformidade regulatória. O valor deve ser lido junto de cobertura, estados de cada dimensão e condições de validação persistidas.</div>")
     body+=_section("composition","Composição e dimensões",_sari_partial_dimension_notice(data.scores)+_score_table(data,include_overall=False))
+    from rasai.report_decision_matrix import (
+        decision_evidence_matrix, decision_evidence_matrix_html,
+    )
+    body+=_section(
+        "scope", "Universo medido e limites de comparação",
+        decision_evidence_matrix_html(decision_evidence_matrix(
+            audit_id=data.audit_id, scores=data.scores,
+            include_external=False,
+        ))
+        + "<p class='muted'>Para o confronto entre SARI, CrUX, Lighthouse, "
+        "Apdex, SERP e verificações externas, consulte a "
+        "<a href='index.html#decision-matrix'>matriz decisória na visão geral</a>."
+        "</p>",
+    )
     body+=_section("limitations","Limitações e critérios críticos persistidos",_table(("Contexto","Limitação / gate"),limitations,empty="Nenhuma limitação serializada foi encontrada."))
     body+=_section("method","Método aplicado",f"<div class='metric-grid'>{_metric('Versão pública','001')}{_metric('Contrato técnico',', '.join(versions) or '-')}{_metric('Fonte do valor','Pontuação persistida da auditoria')}{_metric('Recalcula no HTML?','Não')}</div><p>Pesos, fórmulas e condições de validação pertencem ao Método de Pontuação de Prontidão persistido. Consulte <a href='methodology.html'>Método de Pontuação de Prontidão</a>.</p>")
     return body
