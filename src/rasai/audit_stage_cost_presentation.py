@@ -39,7 +39,9 @@ _DISCLOSURE = (
     "opcionais não pertencem ao forecast central sem prova de inclusão. "
     "Fases sem cronômetros exclusivos verificados permanecem N/D. "
     "Tentativas do ledger de fulfillment incluem recuperações e trabalhos "
-    "que podem sobrepor IA/HTTP; não são fases exclusivas nem tempo não-IA."
+    "que podem sobrepor IA/HTTP; não são fases exclusivas nem tempo não-IA. "
+    "Estados não terminais ou identidades incongruentes não comprovam duração, "
+    "mesmo que finished_at esteja preenchido."
 )
 
 
@@ -134,6 +136,18 @@ def _price(stage: dict[str, Any]) -> str:
     )
 
 
+_FULFILLMENT_STATUSES = frozenset({
+    "NOT_AVAILABLE", "POPULATION_LIMIT", "NO_RECORDED_ATTEMPTS",
+    "INCONSISTENT_AUD_IDENTITIES", "TOO_MANY_COMPONENTS",
+    "SCHEMA_OR_WORK_COHORT_UNVERIFIABLE", "OBSERVED_NONEXCLUSIVE_WORK_INTERVALS",
+})
+
+
+def _fulfillment_status(work: dict[str, Any]) -> str:
+    value = work.get("status")
+    return value if type(value) is str and value in _FULFILLMENT_STATUSES else "NOT_VERIFIABLE"
+
+
 def stage_console_lines(projection: dict[str, Any]) -> tuple[str, ...]:
     if projection["status"] == "NOT_VERIFIABLE":
         return ("Tempos/custos por etapa: N/D (" + projection["reason"] + ")",)
@@ -153,7 +167,13 @@ def stage_console_lines(projection: dict[str, Any]) -> tuple[str, ...]:
             row["service"], _duration(row["summed_ms"]),
         ))
     work = projection.get("fulfillment") or {}
-    if work.get("status") == "OBSERVED_NONEXCLUSIVE_WORK_INTERVALS":
+    fulfillment_status = _fulfillment_status(work)
+    if fulfillment_status == "NO_RECORDED_ATTEMPTS":
+        lines.append("Atividades fulfillment: nenhuma tentativa registrada nesta AUD.")
+    elif fulfillment_status != "OBSERVED_NONEXCLUSIVE_WORK_INTERVALS":
+        lines.append("Atividades fulfillment: N/D (" + fulfillment_status +
+                     "); não assumir duração zero.")
+    if fulfillment_status == "OBSERVED_NONEXCLUSIVE_WORK_INTERVALS":
         lines.append(
             "Tentativas do ledger de atividades (não exclusivas): "
             + str(work.get("attempts")) + "."
@@ -161,10 +181,13 @@ def stage_console_lines(projection: dict[str, Any]) -> tuple[str, ...]:
         for group in work.get("components", ()):
             lines.append(
                 "Atividade %s: %s tentativa(s), %s cronometrada(s), "
-                "recuperações %s; soma %s, união %s (não tempo de fase)."
+                "recuperações %s; não terminais %s; "
+                "soma %s, união %s (não tempo de fase)."
                 % (group["component"], group["attempts"],
                    group["complete_time_intervals"],
-                   group["reprocess_attempts"], _duration(group["summed_ms"]),
+                   group["reprocess_attempts"],
+                   group.get("non_terminal_attempts", 0),
+                   _duration(group["summed_ms"]),
                    _duration(group["union_active_ms"]))
             )
     lines.append("Sem tempo exclusivo: " + "; ".join(_NON_AI) + " = N/D.")
@@ -187,11 +210,20 @@ def stage_report_html(projection: dict[str, Any]) -> str:
         rows.append(("HTTP " + http["service"] + " (requests)", "N/D",
                      "N/D", _duration(http["summed_ms"]), "N/D"))
     work = projection.get("fulfillment") or {}
-    if work.get("status") == "OBSERVED_NONEXCLUSIVE_WORK_INTERVALS":
+    fulfillment_status = _fulfillment_status(work)
+    if fulfillment_status == "NO_RECORDED_ATTEMPTS":
+        rows.append(("Atividades fulfillment: nenhuma tentativa registrada",
+                     "0", "N/D", "N/D", "N/D"))
+    elif fulfillment_status != "OBSERVED_NONEXCLUSIVE_WORK_INTERVALS":
+        rows.append(("Atividades fulfillment: N/D (" + fulfillment_status + ")",
+                     "N/D", "N/D", "N/D", "N/D"))
+    if fulfillment_status == "OBSERVED_NONEXCLUSIVE_WORK_INTERVALS":
         for group in work.get("components", ()):
             rows.append((
                 "Atividade registrada: " + group["component"]
-                + " (não exclusiva; recuperação %s)" % group["reprocess_attempts"],
+                + " (não exclusiva; recuperação %s; não terminais %s)"
+                % (group["reprocess_attempts"],
+                   group.get("non_terminal_attempts", 0)),
                 str(group["attempts"]), _duration(group["union_active_ms"]),
                 _duration(group["summed_ms"]), "N/D",
             ))

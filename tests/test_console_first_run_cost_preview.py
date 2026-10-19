@@ -108,3 +108,19 @@ def test_no_ai_exposure_keeps_existing_silent_path(monkeypatch) -> None:
 
     assert module.run_audit_from_console(state) == 0
     assert calls == ["run"]
+
+
+def test_first_run_preview_labels_heuristic_attempt_count_not_as_global_cap(capsys):
+    forecast = CostForecast(False, False, source="test")
+    original = _exposure(3)
+    from dataclasses import replace
+    exposure = replace(original, reasons=(
+        "Cobertura da contagem de IA: há tarefas independentes fora do ciclo modelado.",
+    ))
+    console_first_run_cost_preview._render_fallback(forecast, exposure)
+    displayed = capsys.readouterr().out
+    assert "IA - ciclos modelados: 1-3" in displayed
+    assert "NÃO é teto global de IA" in displayed
+    assert "Improvement" in displayed
+    assert "Cobertura da contagem de IA" in displayed
+    assert "não calculável com segurança" in displayed

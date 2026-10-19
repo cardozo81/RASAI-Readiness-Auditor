@@ -11,6 +11,7 @@ from typing import Any
 import sqlite3
 
 from rasai.audit_attempt_timeline import _time, _interval_union
+from rasai.audit_fulfillment_timing import _FINISHED_STATES
 
 _MAX_ATTEMPTS = 10_000
 _MAX_COMPONENTS = 32
@@ -48,7 +49,8 @@ def fulfillment_attempt_intervals(
             "SELECT a.attempt_id, w.component, a.started_at, a.finished_at, "
             "a.status, a.reprocess_id, w.audit_id, a.audit_id "
             "FROM audit_fulfillment_attempts a "
-            "JOIN audit_fulfillment_work_items w ON w.work_item_id=a.work_item_id "
+            "LEFT JOIN audit_fulfillment_work_items w "
+            "ON w.work_item_id=a.work_item_id AND w.audit_id=a.audit_id "
             "WHERE a.audit_id=? ORDER BY a.attempt_id LIMIT ?",
             (audit_id, _MAX_ATTEMPTS + 1),
         ).fetchall()
@@ -60,25 +62,36 @@ def fulfillment_attempt_intervals(
         groups: dict[str, list[tuple[float, float] | None]] = defaultdict(list)
         recovery: dict[str, int] = defaultdict(int)
         unsuccessful: dict[str, int] = defaultdict(int)
+        non_terminal: dict[str, int] = defaultdict(int)
         for attempt, component, started, finished, status, reprocess_id, work_aud, attempt_aud in rows:
+            # A foreign/orphan work item or duplicated LEFT JOIN match must
+            # invalidate the cohort, never vanish silently from denominators.
             if (
-                not isinstance(attempt, str) or not attempt.strip()
+                not isinstance(attempt, str) or not attempt
+                or attempt != attempt.strip()
+                or any(ord(ch) < 32 or ord(ch) == 127 for ch in attempt)
                 or attempt in identified
-                or not isinstance(component, str) or not component.strip()
-                or len(component) > 120
+                or not isinstance(component, str) or not component
+                or component != component.strip() or len(component) > 120
+                or any(ord(ch) < 32 or ord(ch) == 127 for ch in component)
                 or work_aud != audit_id or attempt_aud != audit_id
             ):
                 return {**absent, "status": "INCONSISTENT_AUD_IDENTITIES"}
             identified.add(attempt)
             first = _time(started)
             last = _time(finished)
+            terminal = isinstance(status, str) and status in _FINISHED_STATES
+            # A filled finished_at is not proof that a RUNNING or unknown
+            # attempt terminated; zero-length clocks are also unverifiable.
             if (
-                first is None or last is None
-                or last < first or last - first > _MAX_INTERVAL_MS
+                not terminal or first is None or last is None
+                or last <= first or last - first > _MAX_INTERVAL_MS
             ):
                 groups[component].append(None)
             else:
                 groups[component].append((first, last))
+            if not terminal:
+                non_terminal[component] += 1
             if reprocess_id is not None:
                 recovery[component] += 1
             if status != "SUCCESS":
@@ -98,6 +111,7 @@ def fulfillment_attempt_intervals(
                 "unknown_time_intervals": len(samples) - len(available),
                 "reprocess_attempts": recovery[name],
                 "non_success_attempts": unsuccessful[name],
+                "non_terminal_attempts": non_terminal[name],
                 "summed_ms": summed,
                 "union_active_ms": union,
                 "exclusive_phase_timer": False,

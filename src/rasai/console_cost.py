@@ -250,6 +250,16 @@ def estimate_exposure(state: State) -> ExposureEstimate:
                 f"Provider explícito usa pool unitário e até {int(getattr(state, 'ai_max_cycles', 3) or 3)} "
                 "ciclo(s), com uma chamada externa por ciclo e sem retry oculto no adapter."
             )
+    if provider_count:
+        reasons.append(
+            "Cobertura da contagem de IA: os intervalos mínimo/máximo "
+            "são exposição heurística dos ciclos modelados para o contexto "
+            "atual, NÃO o teto global de chamadas da AUD. Improvement, "
+            "Competitive, Análise Direcionada pós-AUD e outras tarefas "
+            "independentes exigem escopo e orçamento próprios. Uma URL "
+            "pode produzir múltiplas tentativas com diferentes payloads, "
+            "retries, findings e custos; tokens futuros permanecem N/D."
+        )
     if state.content_remediation:
         reasons.append(
             "A remediação de conteúdo por IA pode acrescentar tentativas apenas quando houver findings elegíveis."

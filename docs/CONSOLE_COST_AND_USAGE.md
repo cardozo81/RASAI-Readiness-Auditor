@@ -251,3 +251,45 @@ SQLite selado somente-leitura, orçamento de 10.000 tentativas e limite
 de 32 componentes. O conjunto completo falha fechado se houver
 identidade de AUD incongruente ou população truncada. O relatório deixa
 a fronteira não exclusiva explícita no texto e no cabeçalho do resultado.
+
+
+## Reconciliação de identidade e estados das tentativas (#319)
+
+O leitor consultivo de atividades utiliza `LEFT JOIN` com a identidade
+da AUD e do work-item. Tentativas órfãs, referências a outra AUD e
+linhas multiplicadas por work-items duplicados invalidam o censo inteiro:
+nenhuma tentativa desaparece silenciosamente do denominador.
+
+Mesmo com `finished_at` presente, estados não terminais (`RUNNING`,
+`PENDING` ou desconhecidos) e intervalos de duração zero permanecem
+N/D, não prova de tempo físico. Somente estados terminais reconhecidos
+pelo contrato canônico de fulfillment e intervalos positivos podem contar.
+Uma falha terminal pode ter tempo medido sem equivaler a sucesso.
+A existência de um intervalo inválido torna a soma e união do componente
+N/D, com contadores de cobertura preservados.
+
+O console e o HTML passam a explicitar a abstenção por identidade,
+população ou schema; não a confundem com tempo zero. As regressões
+isoladas incluem órfãos, junção duplicada, caracteres de controle,
+estado não terminal com horário de fim e falha terminal. Nenhum
+serviço externo, nova AUD ou motor de score é acionado nesse diagnóstico.
+
+
+## Cobertura da estimativa inicial de chamadas IA (#319)
+
+A prévia sem histórico já informa faixa heurística de ciclos modelados
+por provider/contexto, mas **essa faixa não é limite global de tentativas
+nem de custo**: Improvement Intelligence, Competitive, análises
+direcionadas posteriores e operações de outras etapas podem gerar novas
+tentativas, sujeitas a decisões, findings, retries e controles próprios.
+O campo exibido passa a ser rotulado `IA - ciclos modelados`, em vez
+de um total genérico potencialmente interpretado como máximo da AUD.
+
+Como referência física **retrospectiva e não projeção para outros sites**,
+a AUD de 08/10/2026 descrita na issue #319 registrou sete tentativas
+`ai_provider_attempts` e uma `content_remediation_attempts` em uma
+URL: oito tentativas distintas. O resultado não autoriza transportar o
+mesmo número para outra URL, nem inferir tokens, tempo, custo ou
+consentimento de chamadas futuras. A prévia continua sem calcular
+custo total na ausência de consumo comparável, preservando o gate
+financeiro anterior à AUD. Nenhum orquestrador ou preço foi modificado.

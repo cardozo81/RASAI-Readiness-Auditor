@@ -96,6 +96,91 @@ def test_319_unknown_time_kept_nd_not_forced_to_zero(tmp_path):
     with sqlite3.connect(db.resolve().as_uri() + "?mode=ro&immutable=1", uri=True) as con:
         result = fulfillment_attempt_intervals(con, "AUD-319")
     components = {row["component"]: row for row in result["components"]}
-    assert components["CAPTURE_AND_RENDER"]["summed_ms"] == 1000
-    assert components["CAPTURE_AND_RENDER"]["union_active_ms"] == 1000
+    assert components["CAPTURE_AND_RENDER"]["summed_ms"] is None
+    assert components["CAPTURE_AND_RENDER"]["union_active_ms"] is None
+    assert components["CAPTURE_AND_RENDER"]["complete_time_intervals"] == 1
+    assert components["CAPTURE_AND_RENDER"]["unknown_time_intervals"] == 1
     assert components["CAT-04"]["summed_ms"] is None
+
+
+def test_319_orphan_work_item_is_not_dropped_from_physical_attempt_census(tmp_path):
+    db = _source(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "INSERT INTO audit_fulfillment_attempts VALUES "
+            "('ORPHAN','AUD-319','MISSING','2026-10-08T15:00:00Z',"
+            "'2026-10-08T15:00:01Z','SUCCESS',NULL)"
+        )
+    original = db.read_bytes()
+    with sqlite3.connect(db.resolve().as_uri() + "?mode=ro&immutable=1", uri=True) as con:
+        outcome = fulfillment_attempt_intervals(con, "AUD-319")
+    assert outcome["status"] == "INCONSISTENT_AUD_IDENTITIES"
+    assert outcome["attempts"] is None and outcome["components"] == []
+    report = inspect_stage_economics(db, "AUD-319")
+    assert report["fulfillment"]["status"] == "INCONSISTENT_AUD_IDENTITIES"
+    assert "Atividades fulfillment: N/D" in "\n".join(stage_console_lines(report))
+    assert "Atividades fulfillment: N/D" in stage_report_html(report)
+    assert db.read_bytes() == original
+
+
+def test_319_nonterminal_with_finished_clock_must_stay_nd(tmp_path):
+    db = _source(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE audit_fulfillment_attempts "
+            "SET finished_at='2026-10-08T15:00:04Z' WHERE attempt_id='T-3'"
+        )
+    with sqlite3.connect(db.resolve().as_uri() + "?mode=ro&immutable=1", uri=True) as con:
+        outcome = fulfillment_attempt_intervals(con, "AUD-319")
+    cat = {entry["component"]: entry for entry in outcome["components"]}["CAT-04"]
+    assert cat["non_terminal_attempts"] == 1
+    assert cat["complete_time_intervals"] == 0
+    assert cat["unknown_time_intervals"] == 1
+    assert cat["summed_ms"] is None and cat["union_active_ms"] is None
+
+
+def test_319_terminal_failed_attempt_is_timed_without_claiming_success(tmp_path):
+    db = _source(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE audit_fulfillment_attempts "
+            "SET status='FAILED_RETRYABLE', "
+            "finished_at='2026-10-08T15:00:04Z' WHERE attempt_id='T-3'"
+        )
+    with sqlite3.connect(db.resolve().as_uri() + "?mode=ro&immutable=1", uri=True) as con:
+        outcome = fulfillment_attempt_intervals(con, "AUD-319")
+    cat = {entry["component"]: entry for entry in outcome["components"]}["CAT-04"]
+    assert cat["non_success_attempts"] == 1
+    assert cat["non_terminal_attempts"] == 0
+    assert cat["complete_time_intervals"] == 1
+    assert cat["summed_ms"] == cat["union_active_ms"] == 2250
+
+
+def test_319_duplicate_join_or_noncanonical_identifier_abstains(tmp_path):
+    for variant in ("duplicate_work_item", "control_char", "padded_attempt"):
+        folder = tmp_path / variant
+        folder.mkdir()
+        db = _source(folder)
+        with sqlite3.connect(db) as con:
+            if variant == "duplicate_work_item":
+                con.execute(
+                    "INSERT INTO audit_fulfillment_work_items VALUES "
+                    "('W-1','AUD-319','CAPTURE_AND_RENDER')"
+                )
+            elif variant == "control_char":
+                con.execute(
+                    "UPDATE audit_fulfillment_work_items SET component=? "
+                    "WHERE work_item_id='W-1'",
+                    ("CAPTURE\x1b[2J",),
+                )
+            else:
+                con.execute(
+                    "UPDATE audit_fulfillment_attempts SET attempt_id=' T-1' "
+                    "WHERE attempt_id='T-1'"
+                )
+        before = db.read_bytes()
+        with sqlite3.connect(db.resolve().as_uri() + "?mode=ro&immutable=1", uri=True) as con:
+            outcome = fulfillment_attempt_intervals(con, "AUD-319")
+        assert outcome["status"] == "INCONSISTENT_AUD_IDENTITIES"
+        assert outcome["components"] == []
+        assert db.read_bytes() == before
