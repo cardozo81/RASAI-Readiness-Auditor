@@ -74,6 +74,7 @@ def test_523_perplexity_draft_from_ini_never_inherits_billable_intent(tmp_path):
         ini = tmp_path / "draft.ini"
         console_settings.save_console_config(state, ini)
         physical = ini.read_bytes()
+        environment_before = dict(os.environ)
         inspected = _perplexity_draft(ini)
         assert inspected["status"] == "DRAFT_RESTORED_NO_EXECUTION_INTENT"
         assert inspected["draft_count"] == 1
@@ -81,7 +82,9 @@ def test_523_perplexity_draft_from_ini_never_inherits_billable_intent(tmp_path):
         assert inspected["paid_request_inherited"] is False
         assert inspected["requests"] == inspected["audit_writes"] == 0
         assert "exemplo sem consentimento" not in json.dumps(inspected)
-        assert os.environ == {}
+        # Save legitimately projects nonsecret session state; the inspector
+        # must restore exactly that state, not replace it with an empty env.
+        assert os.environ == environment_before
         assert ini.read_bytes() == physical
 
         parser = ConfigParser(interpolation=None)
