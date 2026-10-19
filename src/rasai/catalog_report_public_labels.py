@@ -6,6 +6,8 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    "DOCUMENTARY_SIDECAR_OBSERVED": "Registro documental experimental verificado contra hashes da AUD",
+    "SOURCE_NOT_VERIFIABLE": "Origem ou vínculo do registro experimental não verificável",
     "ADVISORY_OBSERVED": "Contexto arquitetural observado somente para consulta",
     "RAW_STRUCTURAL_SIGNALS_OBSERVED": "Sinais estruturais observados apenas no HTML inicial",
     "RAW_HTML_UNAVAILABLE": "HTML inicial não disponível",

@@ -274,3 +274,7 @@ O contrato de perfil, pesos, provenance, incerteza, persistência e ativação e
 - Dynatrace - Apdex configuration for load actions: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions>
 - Dynatrace - Request errors: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-request-errors>
 - Dynatrace - Web application configuration API: <https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/web-application/post-web-application>
+
+## Fronteira de evidência de conteúdo principal
+
+O registro experimental de primário pronto é um documento **externo e opcional**, acessível por `python -m rasai.apdex_readiness_review_cli --audit-directory <AUD_DIR> --sidecar <SIDE_JSON>`, com saída JSON/HTML consultiva. A compatibilidade de hashes SQLite/manifesto não prova que o relógio declarado foi medido no mesmo contexto físico Playwright do CAT-07. Sem essa prova, não calcular diferenças entre amostras, não atribuir a SPA viés universal e não reclassificar Apdex ou séries históricas. O sidecar não é integrado ao HTML original da AUD nem dispara IA. Consulte `APDEX_CONTENT_READINESS_INVESTIGATION.md`.
