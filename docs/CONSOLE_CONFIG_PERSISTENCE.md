@@ -1158,3 +1158,33 @@ valida `experience_from_state`, argv e um INI real em cópia
 temporária, comparando o resultado de M25 e a identidade do handoff
 original. É necessária somente a repetição dos **três FAIL** do
 smoke focal, não dos testes previamente aprovados.
+
+
+### Estado válido PREPARAR sem URL: não bloquear aceite offline (#523)
+
+O smoke humano de 19/10/2026 do **INI real**, usando
+`--acceptance-523`, registrou `source_generation_consistent=true`,
+`legacy_typed_fields_unavailable=0`, nenhum consumidor em
+`failed_consumer_names`, mas `core=CLI_PARITY_TARGET_NOT_SET` e
+`gsc=TARGET_NOT_PREPARED`. Os dois códigos resultam do **mesmo**
+estado do operador: a URL de entrada ainda não foi informada.
+Não demonstram perda de configuração nem exigem nova URL fictícia,
+OAuth GSC ou chamadas comerciais para aprovar a persistência.
+
+O classificador do gate distingue agora os dois estados em
+`target_not_prepared_consumer_names=["core","gsc"]` e trata-os como
+**preparação intencional incompleta**, em vez de
+`external_prerequisite_consumer_names`. Isso permite
+`OFFLINE_CONTRACTS_WITH_INTENTIONAL_ABSENCES` (exit 0) quando
+todos os demais consumidores persistidos estão coerentes, inclusive
+Search/Perplexity não solicitados. Não altera os estados brutos
+dos consumidores, nem atribui `target_scope_execution_verified`,
+`issue_523_final_acceptance_proven` ou autorização de uso pago:
+esses campos continuam false. Se uma URL existir e GSC REQUIRED
+não tiver autenticação/property, o estado **continua bloqueante**;
+`EXTERNAL_WEB_PREREQUISITE_UNVERIFIED` também permanece pendente.
+Testes específicos exercitam tanto a classificação sem URL quanto
+os adapters físicos sobre INI temporário sem URL, sem rede ou AUD.
+
+Essa correção é metodológica no diagnóstico do save/load; não
+adiciona requisito artificial de configurar o alvo antes de salvar.

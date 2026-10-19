@@ -33,12 +33,17 @@ _INTENTIONALLY_ABSENT = {
     }),
     "perplexity": frozenset({"NO_DRAFT_NO_EXECUTION_INTENT"}),
 }
+# No target in a saved PREPARAR state is NOT an external prerequisite for
+# auditing configuration serialization. It prevents an actual per-URL GSC
+# scope check, but not the INI-to-CLI/default/consumer checks. Do not invent a
+# URL or mark provider access proven merely to make this gate return 0.
+_TARGET_NOT_PREPARED = {
+    "core": frozenset({"CLI_PARITY_TARGET_NOT_SET"}),
+    "gsc": frozenset({"TARGET_NOT_PREPARED"}),
+}
 _OUTSIDE_CONFIGURATION = {
-    "core": frozenset({
-        "CLI_PARITY_TARGET_NOT_SET", "EXTERNAL_WEB_PREREQUISITE_UNVERIFIED",
-    }),
+    "core": frozenset({"EXTERNAL_WEB_PREREQUISITE_UNVERIFIED"}),
     "gsc": frozenset({
-        "TARGET_NOT_PREPARED",
         "REQUIRED_OAUTH_NOT_CONFIGURED",
         "REQUIRED_PROPERTY_NOT_CONFIGURED",
     }),
@@ -121,13 +126,18 @@ def classify_console_acceptance(
     failed: list[str] = []
     missing_external: list[str] = []
     intentional: list[str] = []
+    unprepared_target: list[str] = []
     if invalid_typed_fields or unknown_typed_fields:
         failed.append("typed")
     for name in ("typed", "apdex", "core", "search", "gsc", "perplexity"):
         observed = statuses.get(name, "NOT_VERIFIABLE")
         if observed in _PASSED.get(name, ()):
             continue
-        if observed in _INTENTIONALLY_ABSENT.get(name, ()):
+        if observed in _TARGET_NOT_PREPARED.get(name, ()):
+            # Independent from missing OAuth / provider access, which are
+            # meaningful only for a URL that is actually prepared.
+            unprepared_target.append(name)
+        elif observed in _INTENTIONALLY_ABSENT.get(name, ()):
             intentional.append(name)
         elif observed in _OUTSIDE_CONFIGURATION.get(name, ()):
             missing_external.append(name)
@@ -137,7 +147,7 @@ def classify_console_acceptance(
         overall = "CONFIGURATION_CONTRACT_FAILURE"
     elif missing_external:
         overall = "EXTERNAL_PREREQUISITE_OR_TARGET_MISSING"
-    elif intentional:
+    elif intentional or unprepared_target:
         overall = "OFFLINE_CONTRACTS_WITH_INTENTIONAL_ABSENCES"
     else:
         overall = "OFFLINE_CONTRACTS_VERIFIED"
@@ -146,6 +156,8 @@ def classify_console_acceptance(
         "failed_consumer_names": sorted(failed),
         "external_prerequisite_consumer_names": sorted(missing_external),
         "intentionally_not_requested_consumer_names": sorted(intentional),
+        "target_not_prepared_consumer_names": sorted(unprepared_target),
+        "target_scope_execution_verified": False,
         "issue_523_final_acceptance_proven": False,
         "real_windows_reopen_verified_by_this_run": False,
         "runner_execution_verified_by_this_run": False,

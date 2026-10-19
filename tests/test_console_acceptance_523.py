@@ -40,6 +40,24 @@ def test_523_gate_separates_pass_optional_absence_external_and_defect():
         "gsc", "perplexity", "search",
     ]
 
+    # The operator may configure and save the INI before choosing a URL.
+    # It is not a missing external dependency of configuration persistence.
+    unprepared = dict(
+        original, core="CLI_PARITY_TARGET_NOT_SET", gsc="TARGET_NOT_PREPARED",
+        search="NO_SEARCH_QUERY_INPUT",
+        perplexity="NO_DRAFT_NO_EXECUTION_INTENT",
+    )
+    prepared_state = classify_console_acceptance(unprepared)
+    assert prepared_state["status"] == "OFFLINE_CONTRACTS_WITH_INTENTIONAL_ABSENCES"
+    assert prepared_state["failed_consumer_names"] == []
+    assert prepared_state["external_prerequisite_consumer_names"] == []
+    assert prepared_state["target_not_prepared_consumer_names"] == ["core", "gsc"]
+    assert prepared_state["intentionally_not_requested_consumer_names"] == [
+        "perplexity", "search",
+    ]
+    assert prepared_state["target_scope_execution_verified"] is False
+    assert prepared_state["issue_523_final_acceptance_proven"] is False
+
     missing = dict(original, core="EXTERNAL_WEB_PREREQUISITE_UNVERIFIED",
                    gsc="REQUIRED_OAUTH_NOT_CONFIGURED")
     external = classify_console_acceptance(missing)
@@ -296,3 +314,45 @@ def test_523_full_saved_ini_acceptance_invokes_each_consumer_once_offline(
         assert source.read_bytes() == before
         assert report["paid_external_use_authorized"] is False
         assert report["provider_requests"] == report["audit_writes"] == 0
+
+
+def test_523_real_ini_without_target_is_valid_preparation_not_provider_block(
+    tmp_path,
+):
+    """Read real consumers, not fabricated statuses; preserve the INI/env."""
+    from rasai import console_settings
+    from rasai.console_complete_persistence import install
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_configuration_inventory import inventory
+
+    with patch.dict(os.environ, {}, clear=True):
+        _install_search_persistence()
+        install()
+        state = SearchConsoleState()
+        state.target = ""
+        state.ai_provider = "none"
+        state.web_performance = False
+        state.synthetic_apdex = False
+        state.apdex_experience = False
+        state.search_queries = ()
+        state.perplexity_queries = ()
+        file = tmp_path / "preparar-sem-url.ini"
+        console_settings.save_console_config(state, file)
+        before_bytes = file.read_bytes()
+        before_env = dict(os.environ)
+        observed = inspect_console_acceptance(file, prior=inventory(path=file))
+        assert observed["consumer_status"]["core"] == "CLI_PARITY_TARGET_NOT_SET"
+        assert observed["consumer_status"]["gsc"] == "TARGET_NOT_PREPARED"
+        assert observed["status"] == "OFFLINE_CONTRACTS_WITH_INTENTIONAL_ABSENCES"
+        assert observed["target_not_prepared_consumer_names"] == ["core", "gsc"]
+        assert observed["external_prerequisite_consumer_names"] == []
+        assert observed["failed_consumer_names"] == []
+        assert observed["source_generation_consistent"] is True
+        assert observed["legacy_typed_fields_unavailable"] == 0
+        assert observed["target_scope_execution_verified"] is False
+        assert observed["issue_523_final_acceptance_proven"] is False
+        assert observed["paid_external_use_authorized"] is False
+        assert observed["provider_requests"] == observed["audit_writes"] == 0
+        assert file.read_bytes() == before_bytes
+        assert os.environ == before_env
