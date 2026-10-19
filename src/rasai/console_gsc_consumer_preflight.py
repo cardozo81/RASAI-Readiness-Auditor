@@ -59,6 +59,21 @@ def inspect_gsc_consumers(
         with TemporaryDirectory(prefix="rasai-gsc-preflight-523-") as folder:
             duplicate = Path(folder) / "detached.ini"
             duplicate.write_bytes(raw)
+            # A session's existing public GSC preference has precedence
+            # over the historical INI value for *that key*. Record it before
+            # loading so the parity gate does not falsely diagnose shadowing
+            # as a serializer defect.
+            explicit_session = {
+                name: os.environ[name]
+                for name in (
+                    gsc_scope.GSC_ENABLED_ENV,
+                    gsc_scope.GSC_SITE_URL_ENV,
+                    policy.GSC_SEARCH_ANALYTICS_DAYS_ENV,
+                    policy.GSC_SEARCH_MAX_ROWS_ENV,
+                    policy.GSC_FINAL_DATA_LAG_DAYS_ENV,
+                )
+                if name in os.environ
+            }
             state = SearchConsoleState()
             loaded = console_settings.load_console_config(state, duplicate)
             if loaded.created or loaded.warnings:
@@ -88,8 +103,17 @@ def inspect_gsc_consumers(
             parser = ConfigParser(interpolation=None)
             parser.optionxform = str
             parser.read_file(StringIO(raw.decode("utf-8-sig")))
+            # The loader canonically converts e.g. "00042" to "42", and
+            # may intentionally preserve an active session override. Match
+            # what the *real adapter* should have restored, not the raw
+            # representation in the INI, or valid settings produce false
+            # GSC_INI_ENV_NOT_RESTORED.
             gsc_explicit = {
-                name: raw_value.strip()
+                name: (
+                    explicit_session[name]
+                    if name in explicit_session
+                    else console_provider_environment._validate(name, raw_value.strip())
+                )
                 for name, raw_value in parser._sections.get("environment", {}).items()
                 if name in canonical_names and raw_value.strip()
             }

@@ -305,3 +305,41 @@ def test_523_gsc_override_precedence_preserved_for_existing_session_value(tmp_pa
             "sc-domain:example.org"
         )
         assert physical_source.read_bytes() == physical
+
+
+def test_523_gsc_canonical_ini_numbers_do_not_create_false_restore_error(tmp_path):
+    """Persisted 00042/00 is the same consumer value as canonical 42/0."""
+    from rasai.gsc_oauth import ACCESS_TOKEN_ENV
+    with patch.dict(os.environ, {}, clear=True):
+        path = _ini(tmp_path, enabled="true", days="00", rows="00042", lag="00")
+        physical = path.read_bytes()
+        report = inspect_gsc_consumers(
+            path, environ={ACCESS_TOKEN_ENV: "synthetic-local-only"}
+        )
+        assert report["status"] == "LOCAL_SCOPE_AND_OAUTH_CONFIG_VERIFIED"
+        assert report["canonical_gsc_ini_keys_restored"] is True
+        assert report["policy_bounds_verified"] is True
+        assert report["provider_requests"] == 0
+        assert "synthetic-local-only" not in json.dumps(report)
+        assert os.environ == {}
+        assert path.read_bytes() == physical
+
+
+def test_523_gsc_session_override_wins_over_different_valid_ini_value(tmp_path):
+    from rasai.gsc_scope import GSC_ENABLED_ENV, GSC_SITE_URL_ENV
+    from rasai import standards_gsc_policy as policy
+    source = _ini(tmp_path, enabled="true", rows="500")
+    before = source.read_bytes()
+    # Neither the unrequested GSC call nor any authentication is performed.
+    overrides = {
+        GSC_ENABLED_ENV: "false", GSC_SITE_URL_ENV: "sc-domain:other.org",
+        policy.GSC_SEARCH_MAX_ROWS_ENV: "7",
+    }
+    with patch.dict(os.environ, {}, clear=True):
+        outcome = inspect_gsc_consumers(source, environ=overrides)
+        assert outcome["status"] == "GSC_DISABLED_BY_CONFIGURATION"
+        assert outcome["canonical_gsc_ini_keys_restored"] is True
+        assert outcome["gsc_mode"] == "disabled"
+        assert outcome["provider_requests"] == 0
+        assert os.environ == {}
+        assert source.read_bytes() == before

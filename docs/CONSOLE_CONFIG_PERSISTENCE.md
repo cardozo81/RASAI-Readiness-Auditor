@@ -1246,3 +1246,22 @@ O comportamento legítimo de `profile_mode=DYNATRACE_IMPORTED`
 e arquivo JSON offline sem segredos permanece permitido; esta proteção
 não faz chamada à API Dynatrace e não obriga o operador a instalar
 pré-requisitos para outros catálogos.
+
+
+### Diferença de representação e shadowing legítimo GSC (#523)
+
+O gate `--verify-gsc` anteriormente comparava diretamente cada
+texto do INI com a variável efetiva do adapter após a restauração.
+Isso produzia falsa falha `GSC_INI_ENV_NOT_RESTORED` para limites
+legítimos como `00042` linhas (normalizado para `42`) ou `00`
+dias (normalizado para `0`), bem como quando o operador possuía
+um **override explícito de sessão** com precedência sobre o INI.
+
+A paridade GSC passa a comparar a saída efetiva com o valor que o
+próprio validador canônico do menu/INI efetivamente reidrata,
+respeitando overrides já presentes por chave. Os valores de origem
+não são publicados; a auditoria, propriedade GSC e OAuth remoto não
+são executados. Os status `GSC_DISABLED_BY_CONFIGURATION` e os
+avisos de valores inválidos continuam preservados. Fixtures com
+normalização numérica, propriedade sombreada e zero requests
+foram acrescentadas, sem repetir os smokes anteriores.
