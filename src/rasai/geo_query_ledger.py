@@ -6,6 +6,7 @@ changes, GEO snapshot backfills, or extrapolated query/intent attribution.
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from contextlib import closing
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -130,6 +131,74 @@ def _host_overlap(serp_urls: set[str], external_urls: set[str]) -> dict[str, int
     }
 
 
+def _query_recurrence(
+    observations: Mapping[str, tuple[tuple[str, ...], set[str], set[str]]],
+    *, expected_queries: int, target: str | None,
+) -> dict[str, Any]:
+    """Within ONE persisted run: URL/hostname repeated in distinct queries.
+
+    This is not longitudinal recurrence or evidence of equal external intent,
+    market, generative mention or competitors. No incomplete cohort may be
+    quietly ignored to inflate its recurrence denominator.
+    """
+    blank: dict[str, Any] = {
+        "status": "NOT_COMPARABLE",
+        "reason": "MULTI_QUERY_VERIFIED_COHORT_INCOMPLETE",
+        "verified_queries": None,
+        "serp_recurrent_exact_urls": None,
+        "external_recurrent_exact_urls": None,
+        "cross_source_recurrent_exact_urls": None,
+        "serp_recurrent_exact_hosts": None,
+        "external_recurrent_exact_hosts": None,
+        "cross_source_recurrent_exact_hosts": None,
+        "other_recurrent_cross_source_hosts": None,
+        "external_market_language_device_equivalence_proven": False,
+        "intent_equivalence_proven": False,
+        "longitudinal_recurrence_proven": False,
+    }
+    if expected_queries == 1:
+        return {**blank, "status": "NOT_APPLICABLE_SINGLE_QUERY",
+                "reason": "ONE_QUERY_CANNOT_PROVE_RECURRENCE"}
+    if expected_queries < 2 or len(observations) != expected_queries:
+        return blank
+    scopes = {scope for scope, _serp, _external in observations.values()}
+    if len(scopes) != 1:
+        return {**blank, "reason": "SERP_SCOPE_DIFFERS_ACROSS_QUERIES"}
+    serp_frequency: Counter[str] = Counter()
+    external_frequency: Counter[str] = Counter()
+    serp_hosts: Counter[str] = Counter()
+    external_hosts: Counter[str] = Counter()
+    for _scope, serp_urls, external_urls in observations.values():
+        if not serp_urls or not external_urls:
+            return blank
+        if any(_canonical_url(url) != url or not urlsplit(url).hostname
+               for url in serp_urls | external_urls):
+            return {**blank, "reason": "URL_IDENTITY_UNVERIFIABLE"}
+        serp_frequency.update(serp_urls)
+        external_frequency.update(external_urls)
+        serp_hosts.update({urlsplit(url).hostname for url in serp_urls})
+        external_hosts.update({urlsplit(url).hostname for url in external_urls})
+    s_urls = {url for url, count in serp_frequency.items() if count >= 2}
+    e_urls = {url for url, count in external_frequency.items() if count >= 2}
+    s_hosts = {host for host, count in serp_hosts.items() if count >= 2}
+    e_hosts = {host for host, count in external_hosts.items() if count >= 2}
+    shared_hosts = s_hosts & e_hosts
+    target_host = urlsplit(target).hostname if target else None
+    return {
+        **blank, "status": "OBSERVED_WITHIN_ONE_RUN", "reason": None,
+        "verified_queries": expected_queries,
+        "serp_recurrent_exact_urls": len(s_urls),
+        "external_recurrent_exact_urls": len(e_urls),
+        "cross_source_recurrent_exact_urls": len(s_urls & e_urls),
+        "serp_recurrent_exact_hosts": len(s_hosts),
+        "external_recurrent_exact_hosts": len(e_hosts),
+        "cross_source_recurrent_exact_hosts": len(shared_hosts),
+        "other_recurrent_cross_source_hosts": (
+            len(shared_hosts - {target_host}) if target_host else None
+        ),
+    }
+
+
 def _audit_digest(path: Path) -> tuple[str, int]:
     """Bounded physical SQLite seal, not proof of source/provider identity.
 
@@ -244,7 +313,7 @@ def inspect_geo_per_query(
         raise ValueError("invalid explicit branded-query declaration")
 
     out: dict[str, Any] = {
-        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-006",
+        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-007",
         "audit_id": root.name, "status": "NOT_COMPARABLE",
         "reason": None, "queries": [],
         "per_query_attribution_status": "NOT_VERIFIED",
@@ -258,6 +327,7 @@ def inspect_geo_per_query(
         "source_audit_db_sha256": None,
         "source_audit_db_bytes_verified": None,
         "source_audit_db_integrity_guard": "UNVERIFIED",
+        "recurrence": _query_recurrence({}, expected_queries=0, target=None),
         "limitations": (
             "Comparação descritiva de conjuntos de URLs persistidas, não "
             "participação em respostas gerativas, rank, causalidade, "
@@ -283,6 +353,9 @@ def inspect_geo_per_query(
         out["source_audit_db_sha256"] = None
         out["source_audit_db_bytes_verified"] = None
         out["source_audit_db_integrity_guard"] = "UNVERIFIED"
+        out["recurrence"] = _query_recurrence(
+            {}, expected_queries=0, target=None,
+        )
         return out
     try:
         # immutable=1 does not lock the physical SQLite bytes. A source may
@@ -451,6 +524,9 @@ def inspect_geo_per_query(
             ).fetchall()
             if len(serp) > _MAX_SERP_ROWS:
                 return abstain("SERP_OBSERVATION_VOLUME_EXCEEDED")
+            recurrence_sources: dict[
+                str, tuple[tuple[str, ...], set[str], set[str]]
+            ] = {}
             for query in declared:
                 qkey = _query_key(query)
                 class_name = "BRANDED_DECLARED" if qkey in brands else "UNCLASSIFIED"
@@ -598,6 +674,10 @@ def inspect_geo_per_query(
                             else "NEITHER_RETURNED_SOURCE_SET"
                         ),
                     )
+                recurrence_sources[qkey] = (
+                    tuple(str(match[field]).strip() for field in _SCOPE),
+                    serp_urls, px_urls,
+                )
                 out["queries"].append(row)
             out["per_query_attribution_status"] = (
                 "PHYSICALLY_ATTRIBUTABLE" if attributable else
@@ -617,6 +697,9 @@ def inspect_geo_per_query(
             out["source_audit_db_sha256"] = digest_before
             out["source_audit_db_bytes_verified"] = size_before
             out["source_audit_db_integrity_guard"] = "DOUBLE_SHA256_MATCH"
+            out["recurrence"] = _query_recurrence(
+                recurrence_sources, expected_queries=len(declared), target=target,
+            )
             return out
     except (sqlite3.Error, OSError, ValueError, OverflowError) as exc:
         # The source may be an old/corrupt SQLite package. Never mutate it.

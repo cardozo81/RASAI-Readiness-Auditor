@@ -12,6 +12,7 @@ from typing import Any, Mapping
 _SUPPORTED = {
     "RASAI-GEO-PER-QUERY-304-ADVISORY-005",
     "RASAI-GEO-PER-QUERY-304-ADVISORY-006",
+    "RASAI-GEO-PER-QUERY-304-ADVISORY-007",
 }
 _SCOPE = ("engine", "country", "region", "language", "device")
 
@@ -210,9 +211,56 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
         ]
         snippets.append("".join(segments))
 
-    body = "\n".join(snippets) if snippets else (
+    # New recurrence is only a within-run multi-query descriptor. No
+    # numerical field can be shown on failed global source authentication.
+    recurrence = projection.get("recurrence")
+    recurrence_html = ""
+    if projection.get("contract_version") == "RASAI-GEO-PER-QUERY-304-ADVISORY-007":
+        state = recurrence.get("status") if isinstance(recurrence, Mapping) else None
+        if not admissible or state == "NOT_COMPARABLE" or state is None:
+            recurrence_html = (
+                "<section class='query' data-contract='GEO-RECURRENCE-304'>"
+                "<h2>Recorrência entre consultas</h2>"
+                "<p>N/D — todas as consultas e escopos precisam ter fontes "
+                "e integridade verificáveis.</p></section>"
+            )
+        elif state == "NOT_APPLICABLE_SINGLE_QUERY":
+            recurrence_html = (
+                "<section class='query' data-contract='GEO-RECURRENCE-304'>"
+                "<h2>Recorrência entre consultas</h2>"
+                "<p>Não aplicável: somente uma consulta foi observada.</p></section>"
+            )
+        elif state == "OBSERVED_WITHIN_ONE_RUN":
+            fields = (
+                ("Consultas fisicamente comparadas", "verified_queries"),
+                ("URLs exatas recorrentes em SERP", "serp_recurrent_exact_urls"),
+                ("URLs exatas recorrentes em Search API", "external_recurrent_exact_urls"),
+                ("URLs recorrentes nas duas fontes", "cross_source_recurrent_exact_urls"),
+                ("Hostnames exatos recorrentes em SERP", "serp_recurrent_exact_hosts"),
+                ("Hostnames exatos recorrentes em Search API", "external_recurrent_exact_hosts"),
+                ("Hostnames recorrentes nas duas fontes", "cross_source_recurrent_exact_hosts"),
+                ("Hostnames recorrentes externos ao hostname auditado",
+                 "other_recurrent_cross_source_hosts"),
+            )
+            recurrence_html = (
+                "<section class='query' data-contract='GEO-RECURRENCE-304'>"
+                "<h2>Recorrência dentro do conjunto de consultas</h2><table>"
+                + "".join(
+                    _table_row([escape(label, quote=True), _count(recurrence.get(key))])
+                    for label, key in fields
+                )
+                + "</table><p class='muted'>Recorrente significa presença da "
+                "mesma identidade URL ou hostname em pelo menos duas consultas "
+                "do mesmo run com escopo SERP uniforme e fonte por consulta "
+                "verificada. Não é recorrência longitudinal, participação "
+                "de mercado, concorrência factual, posição SERP, nem citação "
+                "gerativa. Escopo externo Search API e intenção seguem "
+                "não comprovados como equivalentes.</p></section>"
+            )
+
+    body = recurrence_html + ("\n".join(snippets) if snippets else (
         "<p class='missing'>N/D - nenhuma consulta com proveniência suficiente.</p>"
-    )
+    ))
     summary = (
         "Somente observações descritivas. Não equivale a citação gerativa."
         if admissible else "N/D - comparabilidade não demonstrada."

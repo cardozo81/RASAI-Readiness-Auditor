@@ -331,7 +331,7 @@ def test_v2_exact_aud_target_is_visible_per_query_in_both_observed_url_sets(
     )
     original = (folder / "audit.db").read_bytes()
     result = inspect_geo_per_query(folder)
-    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-006"
+    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-007"
     assert result["status"] == "DESCRIPTIVE_ONLY"
     assert result["aud_target_scope"] == "SINGLE_EXACT_AUD_TARGET"
     assert result["aud_target_exact_url"] == "https://example.org/shared"
@@ -709,7 +709,7 @@ def test_v5_reads_real_repository_per_result_query_metadata_only_when_explicit(
     _provider_source_metadata(folder)
     original = (folder / "audit.db").read_bytes()
     result = inspect_geo_per_query(folder)
-    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-006"
+    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-007"
     assert result["status"] == "DESCRIPTIVE_ONLY"
     assert result["per_query_attribution_status"] == "PHYSICALLY_ATTRIBUTABLE"
     assert len(result["queries"]) == 2
@@ -1262,7 +1262,7 @@ def test_v10_per_query_exact_hostname_overlap_is_observed_not_market_equivalence
     db = folder / "audit.db"
     before = db.read_bytes()
     result = inspect_geo_per_query(folder)
-    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-006"
+    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-007"
     assert result["status"] == "DESCRIPTIVE_ONLY"
     assert len(result["queries"]) == 2
     for row in result["queries"]:
@@ -1659,3 +1659,107 @@ def test_serp_noncanonical_query_identity_abstains_without_cherry_picking(tmp_pa
         assert result["queries"][0]["reason"] == "SERP_QUERY_IDENTITY_UNVERIFIABLE"
     assert result["provider_requests"] == result["audit_writes"] == 0
     assert db.read_bytes() == original
+
+
+
+def test_304_multiquery_recurrence_is_only_observed_within_one_search_run(tmp_path):
+    """New metric has a real per-query source denominator, never a GEO share."""
+    folder = _audit(tmp_path)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE audit_targets (audit_id TEXT, input_url TEXT)"
+        )
+        con.execute(
+            "INSERT INTO audit_targets VALUES (?,?)",
+            ("AUD-GEO304", "https://example.org/shared"),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "DESCRIPTIVE_ONLY"
+    assert result["contract_version"].endswith("ADVISORY-007")
+    recurrent = result["recurrence"]
+    assert recurrent["status"] == "OBSERVED_WITHIN_ONE_RUN"
+    assert recurrent["verified_queries"] == 2
+    assert recurrent["serp_recurrent_exact_urls"] == 3
+    assert recurrent["external_recurrent_exact_urls"] == 1
+    assert recurrent["cross_source_recurrent_exact_urls"] == 1
+    assert recurrent["serp_recurrent_exact_hosts"] == 3
+    assert recurrent["external_recurrent_exact_hosts"] == 1
+    assert recurrent["cross_source_recurrent_exact_hosts"] == 1
+    assert recurrent["other_recurrent_cross_source_hosts"] == 0
+    assert recurrent["external_market_language_device_equivalence_proven"] is False
+    assert recurrent["intent_equivalence_proven"] is False
+    assert recurrent["longitudinal_recurrence_proven"] is False
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
+    html = render_geo_query_ledger_html(result)
+    assert "Recorrência dentro do conjunto de consultas" in html
+    assert "Hostnames recorrentes externos ao hostname auditado" in html
+    assert "recorrência longitudinal" in html
+    assert db.read_bytes() == before
+
+
+def test_304_recurrence_abstains_when_a_query_lacks_physical_source(tmp_path):
+    folder = _audit(tmp_path)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE perplexity_search_sources SET url='javascript:unsafe' "
+            "WHERE run_id='PX-A' AND position=0"
+        )
+    physical = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "DESCRIPTIVE_ONLY"  # other query is still valid
+    assert result["recurrence"]["status"] == "NOT_COMPARABLE"
+    assert result["recurrence"]["verified_queries"] is None
+    assert result["recurrence"]["cross_source_recurrent_exact_urls"] is None
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
+    assert "N/D — todas as consultas" in render_geo_query_ledger_html(result)
+    assert db.read_bytes() == physical
+
+
+def test_304_recurrence_different_serp_population_is_not_comparable(tmp_path):
+    folder = _audit(tmp_path)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_observations SET device='desktop' "
+            "WHERE observation_id='SERP-1'"
+        )
+    before = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert all(row["status"] == "DESCRIPTIVE_ONLY" for row in result["queries"])
+    assert result["recurrence"]["status"] == "NOT_COMPARABLE"
+    assert result["recurrence"]["reason"] == "SERP_SCOPE_DIFFERS_ACROSS_QUERIES"
+    assert result["recurrence"]["serp_recurrent_exact_urls"] is None
+    assert db.read_bytes() == before
+
+
+def test_304_single_query_recurrence_not_applicable_without_false_zero(tmp_path):
+    folder = _audit(tmp_path, multi=False)
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "DESCRIPTIVE_ONLY"
+    assert result["recurrence"]["status"] == "NOT_APPLICABLE_SINGLE_QUERY"
+    assert result["recurrence"]["verified_queries"] is None
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
+    assert "Não aplicável: somente uma consulta" in render_geo_query_ledger_html(result)
+
+
+def test_304_recurrence_invalid_canonical_identity_abstains_pure_helper():
+    from rasai.geo_query_ledger import _query_recurrence
+    trusted = (
+        ("google", "BR", "São Paulo", "pt-BR", "mobile"),
+        {"https://example.org/a"},
+        {"https://example.org/a"},
+    )
+    malformed = (
+        trusted[0], {"https://user:secret@example.org/a"},
+        {"https://example.org/a"},
+    )
+    result = _query_recurrence(
+        {"a": trusted, "b": malformed},
+        expected_queries=2, target="https://example.org/a",
+    )
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "URL_IDENTITY_UNVERIFIABLE"
+    assert result["cross_source_recurrent_exact_hosts"] is None

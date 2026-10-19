@@ -432,3 +432,30 @@ SARI/SCORE-GEO ou auditorias existentes. Como antes,
 o hash local verifica reproducibilidade de bytes, nao
 autenticidade de provedor, consentimento ou
 mesmo universo de observacao temporal.
+
+
+## Escopo consultivo 007 — recorrência entre consultas da mesma execução
+
+A projeção 007 acrescenta métricas de recorrência determinísticas **apenas
+entre duas ou mais consultas pertencentes ao mesmo run Search API**.
+Cada consulta precisa ter mapeamento físico inequívoco por fonte, denominadores
+SERP e Search API completos, URL HTTP(S) canônica, relógio verificável e
+escopo SERP idêntico (engine/country/region/language/device). Se qualquer
+consulta do conjunto faltar, a recorrência inteira é **N/D**; o overlap
+pontual de outra query íntegra continua disponível sem ser extrapolado.
+
+São contabilizadas URLs exatas e hostnames exatos presentes em pelo menos
+duas queries distintas por fonte; interseções recorrentes exigem a mesma
+identidade nos dois conjuntos. Hostname www e apex permanecem distintos.
+Sem uma URL-alvo única da AUD, a quantidade de hostnames recorrentes
+externos ao alvo é **N/D**, nunca concorrentes supostos. Uma query única
+produz **NOT_APPLICABLE_SINGLE_QUERY**, não 0%.
+
+O resultado é estritamente descritivo, limitado a um run e a um escopo SERP
+uniforme; a equivalência de mercado, idioma, dispositivo e intenção
+externos permanece não comprovada. Não representa tendência histórica,
+frequência de inclusão em respostas generativas, ranking, share de mercado
+ou causalidade. O novo painel HTML recusa métricas numéricas se o selo
+físico SQLite ou as consultas não forem integralmente admissíveis.
+A versão 006 permanece somente para leitura compatível de projeções
+previamente materializadas; o produtor publica 007.
