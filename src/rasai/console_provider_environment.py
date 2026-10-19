@@ -98,6 +98,14 @@ _ADDITIONAL_RUNTIME_INPUTS = (
     ("RASAI_AI_PRICING_SOURCE", "IA - pricing", "enum", ("factory", "file", "auto"), "src/rasai/ai_pricing_catalog.py"),
     ("RASAI_AI_TASK_PROFILES_FILE", "IA - modelos e reasoning", "caminho de arquivo", (), "src/rasai/ai_task_profiles.py"),
     ("RASAI_AI_TASK_PROFILES_SOURCE", "IA - modelos e reasoning", "enum", ("factory", "file", "auto"), "src/rasai/ai_task_profiles.py"),
+    # GSC's nonsecret inputs were listed as static consumers but absent
+    # from the canonical EnvironmentSpec persistence allowlist. The console
+    # silently skipped these legitimate INI values on reload (#523).
+    ("RASAI_GSC_ENABLED", "Search Intelligence / Observability", "booleano", ("true", "false"), "src/rasai/gsc_scope.py"),
+    ("RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL", "Search Intelligence / Observability", "propriedade GSC", (), "src/rasai/gsc_scope.py"),
+    ("RASAI_GSC_SEARCH_ANALYTICS_DAYS", "Search Intelligence / Observability", "inteiro 0..31", (), "src/rasai/standards_gsc_policy.py"),
+    ("RASAI_GSC_SEARCH_MAX_ROWS", "Search Intelligence / Observability", "inteiro 1..50000", (), "src/rasai/standards_gsc_policy.py"),
+    ("RASAI_GSC_FINAL_DATA_LAG_DAYS", "Search Intelligence / Observability", "inteiro 0..30", (), "src/rasai/standards_gsc_policy.py"),
     ("RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_ID", "Search Intelligence / Observability", "OAuth client ID publico", (), "src/rasai/gsc_oauth.py"),
     ("RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS", "IA - modelos e reasoning", "numero > 0", (), "src/rasai/improvement_intelligence.py"),
     ("RASAI_IMPROVEMENT_DOMAINS", "IA - modelos e reasoning", "lista CSV", (), "src/rasai/improvement_intelligence.py"),
@@ -211,6 +219,54 @@ SPEC_BY_NAME = {spec.name: spec for spec in SPECS}
 
 
 def _validate(name: str, raw: str) -> str:
+    if name in {
+        "RASAI_GSC_SEARCH_ANALYTICS_DAYS", "RASAI_GSC_SEARCH_MAX_ROWS",
+        "RASAI_GSC_FINAL_DATA_LAG_DAYS",
+    }:
+        # One shared bounded policy for the menu, INI and consumer.
+        # Integer parsing alone would accept negatives, 50k+ rows and
+        # silently over-collect from an operator's stored preference.
+        from rasai import standards_gsc_policy as gsc_policy
+        methods = {
+            gsc_policy.GSC_SEARCH_ANALYTICS_DAYS_ENV: gsc_policy.search_analytics_days,
+            gsc_policy.GSC_SEARCH_MAX_ROWS_ENV: gsc_policy.search_max_rows,
+            gsc_policy.GSC_FINAL_DATA_LAG_DAYS_ENV: gsc_policy.final_data_lag_days,
+        }
+        value = str(raw).strip()
+        if not value:
+            raise ValueError("valor vazio; remova o override em vez de gravar vazio")
+        # The shared policy only accepts bounded decimal integers after the
+        # canonical validator, never an accidental float/boolean surrogate.
+        if not value.isdecimal() or not value.isascii():
+            raise ValueError("use inteiro decimal não negativo")
+        return str(methods[name](value))
+    if name == "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL":
+        from urllib.parse import urlsplit
+        from rasai.gsc_scope import gsc_property_covers_url
+        value = str(raw).strip()
+        if not value or any(ord(char) < 33 or ord(char) == 127 for char in value):
+            raise ValueError("propriedade GSC vazia ou inválida")
+        if value.casefold().startswith("sc-domain:"):
+            # The runtime covers subdomains of the explicitly declared
+            # property. Do not persist a URL with a secret-like userinfo.
+            domain = value.split(":", 1)[1]
+            if (not domain or any(char in domain for char in "/\\@?#:")
+                    or domain.startswith(".") or domain.endswith(".")
+                    or ".." in domain):
+                raise ValueError("domínio da propriedade GSC inválido")
+        else:
+            parsed = urlsplit(value)
+            if (parsed.scheme not in {"http", "https"}
+                    or parsed.username is not None
+                    or parsed.password is not None
+                    or parsed.query or parsed.fragment):
+                raise ValueError("property URL-prefix não pode conter credenciais/query/fragmento")
+            # Parsing the port here also checks malformed authority.
+            _port = parsed.port
+        # Reuse the real runtime's structural property parser; the dummy
+        # target is never sent to Google or used to select an AUD.
+        gsc_property_covers_url(value, "https://example.invalid/")
+        return value
     if name == SERP_PROVIDER_ENV:
         value = str(raw).strip().casefold()
         if not value:

@@ -27,6 +27,7 @@ def inspect_gsc_consumers(
         "oauth_credentials_locally_configured": False,
         "property_scope_compatible": None,
         "policy_bounds_verified": False,
+        "canonical_gsc_ini_keys_restored": False,
         "target_prepared": False,
         "gsc_data_finality_verified": False,
         "authenticated_property_access_verified": False,
@@ -65,6 +66,37 @@ def inspect_gsc_consumers(
                         "source_status": "READY"}
 
             environment = dict(os.environ)
+            # An INI can be structurally parseable but not applied if the
+            # EnvironmentSpec inventory missed its keys. Only claim parity
+            # after checking the exact allowed nonsecret GSC assignments.
+            from configparser import ConfigParser
+            from io import StringIO
+            from rasai import console_provider_environment
+            canonical_names = frozenset({
+                gsc_scope.GSC_ENABLED_ENV, gsc_scope.GSC_SITE_URL_ENV,
+                policy.GSC_SEARCH_ANALYTICS_DAYS_ENV,
+                policy.GSC_SEARCH_MAX_ROWS_ENV,
+                policy.GSC_FINAL_DATA_LAG_DAYS_ENV,
+            })
+            canonical_registry = {
+                spec.name for spec in console_provider_environment.refresh_specs()
+                if not spec.sensitive
+            }
+            if not canonical_names.issubset(canonical_registry):
+                return {**base, "status": "GSC_REGISTRY_INCOMPLETE",
+                        "source_status": "READY"}
+            parser = ConfigParser(interpolation=None)
+            parser.optionxform = str
+            parser.read_file(StringIO(raw.decode("utf-8-sig")))
+            gsc_explicit = {
+                name: raw_value.strip()
+                for name, raw_value in parser._sections.get("environment", {}).items()
+                if name in canonical_names and raw_value.strip()
+            }
+            if any(environment.get(name) != value
+                   for name, value in gsc_explicit.items()):
+                return {**base, "status": "GSC_INI_ENV_NOT_RESTORED",
+                        "source_status": "READY"}
             mode = gsc_scope.gsc_request_mode(environment)
             oauth = gsc_oauth.credential_state(environment)
             if mode == gsc_scope.MODE_INVALID:
@@ -133,6 +165,7 @@ def inspect_gsc_consumers(
             "oauth_credentials_locally_configured": bool(oauth.configured),
             "property_scope_compatible": covered,
             "policy_bounds_verified": policy_verified,
+            "canonical_gsc_ini_keys_restored": True,
             "target_prepared": target_prepared,
         }
     except (OSError, ValueError, TypeError, OverflowError, UnicodeError):

@@ -39,6 +39,7 @@ def test_523_gsc_reuses_real_scope_and_policy_without_google_access(tmp_path, ca
         assert result["oauth_configuration_mode"] == "ACCESS_TOKEN"
         assert result["property_scope_compatible"] is True
         assert result["policy_bounds_verified"] is True
+        assert result["canonical_gsc_ini_keys_restored"] is True
         assert result["authenticated_property_access_verified"] is False
         assert result["gsc_data_finality_verified"] is False
         assert result["provider_requests"] == result["audit_writes"] == 0
@@ -122,3 +123,81 @@ def test_523_gsc_no_target_does_not_prove_property_scope(tmp_path):
     assert result["status"] == "TARGET_NOT_PREPARED"
     assert result["property_scope_compatible"] is None
     assert result["target_prepared"] is False
+
+
+def test_523_gsc_registry_is_complete_for_nonsecret_real_consumers():
+    from rasai import console_provider_environment as facade
+    from rasai.console_config import is_secret
+    from rasai.gsc_scope import GSC_ENABLED_ENV, GSC_SITE_URL_ENV
+    from rasai import standards_gsc_policy as policy
+
+    declared = {
+        GSC_ENABLED_ENV, GSC_SITE_URL_ENV,
+        *policy.environment_names(),
+    }
+    specs = {spec.name: spec for spec in facade.refresh_specs()}
+    assert declared.issubset(specs)
+    assert all(not specs[name].sensitive and not is_secret(name)
+               for name in declared)
+    # Never allow an OAuth access token or refresh token in operator INI.
+    from rasai.gsc_oauth import ACCESS_TOKEN_ENV, REFRESH_TOKEN_ENV
+    assert ACCESS_TOKEN_ENV not in declared and REFRESH_TOKEN_ENV not in declared
+
+
+def test_523_gsc_policy_validation_is_shared_with_real_runtime():
+    import pytest
+    from rasai.console_provider_environment import _validate
+    from rasai import standards_gsc_policy as policy
+    assert _validate(policy.GSC_SEARCH_ANALYTICS_DAYS_ENV, "0") == "0"
+    assert _validate(policy.GSC_SEARCH_MAX_ROWS_ENV, "50000") == "50000"
+    assert _validate(policy.GSC_FINAL_DATA_LAG_DAYS_ENV, "30") == "30"
+    for name, candidate in (
+        (policy.GSC_SEARCH_ANALYTICS_DAYS_ENV, "32"),
+        (policy.GSC_SEARCH_MAX_ROWS_ENV, "0"),
+        (policy.GSC_FINAL_DATA_LAG_DAYS_ENV, "31"),
+        (policy.GSC_SEARCH_MAX_ROWS_ENV, "-3"),
+        (policy.GSC_SEARCH_MAX_ROWS_ENV, "Infinity"),
+        (policy.GSC_SEARCH_MAX_ROWS_ENV, "7.5"),
+    ):
+        with pytest.raises(ValueError):
+            _validate(name, candidate)
+    with pytest.raises(ValueError):
+        _validate("RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL",
+                  "https://user:secret@shop.example.org/secret?token=x")
+    assert _validate("RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL",
+                     "sc-domain:example.org") == "sc-domain:example.org"
+
+
+def test_523_gsc_physical_ini_reload_preserves_saved_nonsecret_limits(tmp_path):
+    from rasai import console_settings
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai import standards_gsc_policy as policy
+    _install_search_persistence()
+    install()
+    from rasai.gsc_scope import GSC_ENABLED_ENV, GSC_SITE_URL_ENV
+
+    overrides = {
+        GSC_ENABLED_ENV: "true",
+        GSC_SITE_URL_ENV: "sc-domain:example.org",
+        policy.GSC_SEARCH_ANALYTICS_DAYS_ENV: "0",
+        policy.GSC_SEARCH_MAX_ROWS_ENV: "42",
+        policy.GSC_FINAL_DATA_LAG_DAYS_ENV: "0",
+    }
+    with patch.dict(os.environ, overrides, clear=True):
+        source = tmp_path / "save.ini"
+        console_settings.save_console_config(SearchConsoleState(), source)
+        saved = source.read_bytes()
+        assert b"RASAI_GSC_SEARCH_MAX_ROWS = 42" in saved
+        assert b"RASAI_GSC_SEARCH_ANALYTICS_DAYS = 0" in saved
+        os.environ.clear()
+        state = SearchConsoleState()
+        loaded = console_settings.load_console_config(state, source)
+        assert not loaded.created and not loaded.warnings
+        for name, value in overrides.items():
+            assert os.environ.get(name) == value
+        assert source.read_bytes() == saved
+        report = inspect_gsc_consumers(source, environ={})
+        assert report["status"] == "TARGET_NOT_PREPARED"
+        assert report["canonical_gsc_ini_keys_restored"] is True

@@ -948,3 +948,32 @@ construtor canônico `AiExecutionPolicy`, não apenas timeout de IA.
 Confirma validação do tipo/faixa, sem chamar provider nem esperar delay.
 Fixtures com source GSC/OAuth sintéticos e política IA fora do default
 foram adicionadas. Não requer nova AUD nem repetir smokes de 523.
+
+
+### Correção do registro de entrada GSC e aderência real ao INI (#523)
+
+A inspeção da implementação identificou uma lacuna concreta: o inventário
+documentava `RASAI_GSC_ENABLED`, `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL`
+e os três limites da Search Analytics como consumidores GSC, mas
+`console_provider_environment.refresh_specs()` não os incluía entre as
+variáveis **não secretas persistíveis**. Assim, a seção `[environment]`
+do INI ignorava esses ajustes durante a restauração e gerava avisos de
+variável não reconhecida; o preflight GSC publicado anteriormente não
+tinha como passar com um INI válido contendo essas chaves.
+
+O mesmo contrato canônico agora inclui os **cinco nomes** e usa
+diretamente os validadores de `standards_gsc_policy` para os limites
+0–31 dias de análise, 1–50.000 linhas e 0–30 dias de atraso.
+O valor zero permanece válido onde definido, sem ser convertido em
+default positivo. A propriedade `sc-domain:` ou URL-prefix HTTP(S)
+é verificada estruturalmente e seu campo não aceita userinfo,
+querystrings ou fragments que poderiam conter tokens.
+
+O `--verify-gsc` compara explicitamente as atribuições GSC do INI
+com as que foram realmente restauradas no ambiente do adapter, recusando
+`GSC_REGISTRY_INCOMPLETE` e `GSC_INI_ENV_NOT_RESTORED` quando cabível.
+São provas de serialização/consumo **local**, nunca prova de OAuth válido
+do lado Google, autorização de chamada, escopo de dados ou frescor GSC.
+Fixtures novas verificam cobertura de registro, limites exatos,
+segredos em URL rejeitados, gravação e restauração sem perda de zeros
+e imutabilidade física do INI em cópia temporária.
