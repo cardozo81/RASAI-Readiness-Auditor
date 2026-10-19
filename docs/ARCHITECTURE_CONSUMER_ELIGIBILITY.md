@@ -73,3 +73,13 @@ um `UNKNOWN` ou desbloquear novos consumidores. Para autenticar o conteúdo
 será preciso vínculo verificável com um manifesto ou recibo canônico gerado
 durante a captura e preservado de modo compatível com AUDs históricas.
 
+
+## Inspeção física por identidade persistida
+
+`inspect_historical_snapshot_artifacts` recebe AUD, página, snapshot, URL
+solicitada/final e dispositivo. A consulta SQLite é somente leitura, exige
+correspondência exata e snapshot sem duplicidade dentro da AUD. Só depois
+inspeciona os dois caminhos sob `artifacts/`. Divergências retornam
+`MISSING_OR_AMBIGUOUS_IDENTITY`; existência de bytes retorna
+`PRESENT_UNATTESTED`, **nunca** integridade histórica autenticada.
+Não habilita classificação, pontuação, reprocessamento ou recoleta adicionais.
