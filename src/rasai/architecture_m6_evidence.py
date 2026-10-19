@@ -76,6 +76,50 @@ def inspect_architecture_artifact_pair(
         "PRESENT_UNATTESTED", digests[0], digests[1], False,
     )
 
+
+def inspect_historical_snapshot_artifacts(
+    audits_root: str | Path, audit_id: str, *, page_id: str,
+    snapshot_id: str, requested_url: str, final_url: str, device: str,
+) -> ArchitectureArtifactInspection:
+    """Read-only physical diagnostic scoped to an unambiguous AUD snapshot."""
+    normalized = normalize_audit_id(audit_id)
+    root = Path(audits_root).resolve()
+    workspace = root / normalized
+    database = workspace / "audit.db"
+    identity = (page_id, snapshot_id, requested_url, final_url, device)
+    if not all(isinstance(v, str) and v.strip() for v in identity):
+        return ArchitectureArtifactInspection("INVALID_IDENTITY")
+    if (workspace.is_symlink() or database.is_symlink()
+            or not database.is_file()
+            or not database.resolve().is_relative_to(root)):
+        return ArchitectureArtifactInspection("WORKSPACE_UNAVAILABLE")
+    try:
+        with sqlite3.connect(database.resolve().as_uri() + "?mode=ro",
+                             uri=True, timeout=1.0) as con:
+            con.execute("PRAGMA query_only=ON")
+            rows = con.execute(
+                """SELECT ps.raw_artifact_ref, ps.rendered_artifact_ref
+                   FROM page_snapshots ps JOIN pages p ON p.page_id=ps.page_id
+                   WHERE p.audit_id=? AND ps.page_id=? AND ps.snapshot_id=?
+                     AND ps.requested_url=? AND ps.final_url=? AND ps.device=?
+                   LIMIT 2""",
+                (normalized, page_id, snapshot_id, requested_url, final_url, device),
+            ).fetchall()
+            count = con.execute(
+                """SELECT COUNT(*) FROM page_snapshots ps
+                   JOIN pages p ON p.page_id=ps.page_id
+                   WHERE p.audit_id=? AND ps.snapshot_id=?""",
+                (normalized, snapshot_id),
+            ).fetchone()[0]
+    except (OSError, sqlite3.Error, ValueError):
+        return ArchitectureArtifactInspection("DATABASE_UNAVAILABLE")
+    if len(rows) != 1 or count != 1:
+        return ArchitectureArtifactInspection("MISSING_OR_AMBIGUOUS_IDENTITY")
+    return inspect_architecture_artifact_pair(
+        root, normalized, rows[0][0], rows[0][1],
+    )
+
+
 def read_audit_architecture_observations(
     audits_root: str | Path, audit_id: str,
 ) -> tuple[ArchitectureObservation, ...]:
