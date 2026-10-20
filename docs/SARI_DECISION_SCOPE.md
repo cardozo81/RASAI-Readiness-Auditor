@@ -39,4 +39,4 @@ específica. Para `field_scope=URL`, identifica a URL observada pela
 fonte. Sem escopo verificável, usa **escopo não verificado** e não
 atribui indicadores à URL por inferência. A mesma tabela rotula scores e
 marcos lab como execução pontual. Não altera dados brutos, scores SARI,
-origens de amostragem, classificação CrUX nem coleta M21.
+origens de amostragem, classificação CrUX nem coleta módulo de observabilidade.

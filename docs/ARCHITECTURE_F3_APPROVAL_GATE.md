@@ -47,7 +47,7 @@ de 20/10/2026. A matriz deliberativa foi registrada na própria issue
 antes da aprovação. Este registro documenta o aceite do operador; **não
 é assinatura criptográfica nem homologação física**.
 **Questão deliberada:** permitir, nesta versão, que o diagnóstico de
-arquitetura M6 passe a comandar novos consumidores operacionais?
+arquitetura diagnóstico arquitetural passe a comandar novos consumidores operacionais?
 **Decisão:** **NÃO**. Permanecem autorizados somente
 `descriptive_report` e `m6_read_only_diagnostic`, já aprovados na #646.
 Esta ADR encerra a avaliação de expansão F3 **por veto**, não por
@@ -63,22 +63,22 @@ consumidores abaixo do segundo permanecem vetados nesta versão.
 
 | Consumidor | Owner funcional | Classe consultiva | Decisão e fundamento |
 | --- | --- | --- | --- |
-| `descriptive_report` | M24 / Relatório | ADVISORY_SAFE | MANTER: fatos descritivos com identidade da evidência. |
-| `m6_read_only_diagnostic` | M6 / Prévia | ADVISORY_SAFE | MANTER: inspeção local somente leitura. |
+| `descriptive_report` | relatórios técnicos / Relatório | ADVISORY_SAFE | MANTER: fatos descritivos com identidade da evidência. |
+| `m6_read_only_diagnostic` | diagnóstico arquitetural / Prévia | ADVISORY_SAFE | MANTER: inspeção local somente leitura. |
 | CAT-01 | Dados e recursos | INTERPRETATION_SAFE | VETAR: contrato por catálogo não aprovado. |
-| CAT-02 | Aquisição e rastreamento | PRE_COLLECTION_ONLY | VETAR: M6 pós-coleta não reabre aquisição. |
+| CAT-02 | Aquisição e rastreamento | PRE_COLLECTION_ONLY | VETAR: diagnóstico arquitetural pós-coleta não reabre aquisição. |
 | CAT-03 | Conteúdo e FAQ | INTERPRETATION_SAFE | VETAR: interação e método em #652/#651 não homologados. |
 | CAT-04 | Lighthouse / CrUX | INAPPLICABLE | VETAR: coortes URL/ORIGIN e campo/lab independentes. |
 | CAT-05 | SERP / GEO | INAPPLICABLE | VETAR: proveniência e comparabilidade externa #653 não demonstradas. |
 | CAT-06 | Apdex navegação | METHOD_CHANGE_REQUIRES_ADR | VETAR: T/4T, amostras e score protegidos. |
 | CAT-07 | Apdex experiência | METHOD_CHANGE_REQUIRES_ADR | VETAR: método de ações/amostragem protegido. |
 | CAT-08 | Improvement Intelligence | INTERPRETATION_SAFE | VETAR: nenhum novo contrato de interpretação aprovado. |
-| CAT-09 | Remediações | INTERPRETATION_SAFE | VETAR: não converter M6 em instrução operacional. |
-| CAT-10 | Segurança passiva | INAPPLICABLE | VETAR: evidência HTTP/DOM é independente de M6. |
+| CAT-09 | Remediações | INTERPRETATION_SAFE | VETAR: não converter diagnóstico arquitetural em instrução operacional. |
+| CAT-10 | Segurança passiva | INAPPLICABLE | VETAR: evidência HTTP/DOM é independente de diagnóstico arquitetural. |
 | SARI | Índice de prontidão | METHOD_CHANGE_REQUIRES_ADR | VETAR: preservação da fórmula/contrato vigentes. |
 | SCORE-GEO | Pesos e regras GEO | METHOD_CHANGE_REQUIRES_ADR | VETAR: sem recálculo/versão de método. |
-| M23 | Synthetic Navigation | PRE_COLLECTION_ONLY | VETAR: sem mutar coleta ou thresholds. |
-| M25 | Synthetic User Experience | PRE_COLLECTION_ONLY | VETAR: sem mutar tarefas, perfis ou histórico. |
+| Synthetic Navigation Apdex | Synthetic Navigation | PRE_COLLECTION_ONLY | VETAR: sem mutar coleta ou thresholds. |
+| Synthetic User Experience Apdex | Synthetic User Experience | PRE_COLLECTION_ONLY | VETAR: sem mutar tarefas, perfis ou histórico. |
 | IA | Motores atuais de IA | INAPPLICABLE | VETAR: sem chamadas, custos ou roteamento implícito. |
 | Dynatrace RUM | Tenant externo | INAPPLICABLE | VETAR: tenant e amostra externa independentes. |
 | CONS e demais relatórios operacionais | Consolidação / Reporting | SEM AUTORIZAÇÃO | VETAR: não alterar CONS, comparabilidade, score ou fonte. |
@@ -87,16 +87,16 @@ consumidores abaixo do segundo permanecem vetados nesta versão.
 
 A decisão **não** amplifica `APPROVED_ADVISORY_CONSUMERS`, não habilita
 feature gates, não modifica coleta, `page.goto`, thresholds, coortes,
-orquestração de IA, parâmetros pré-coleta, SARI, SCORE-GEO, M23/M25,
+orquestração de IA, parâmetros pré-coleta, SARI, SCORE-GEO, Synthetic Navigation Apdex/Synthetic User Experience Apdex,
 Apdex, CONS, hashes, configuração, AUD/RPR ou dados históricos. O
 diagnóstico `POST_COLLECTION` pode alimentar apenas os dois consumidores
-descritivos; `PRE_COLLECTION` não pode herdar resultados M6 ainda não
+descritivos; `PRE_COLLECTION` não pode herdar resultados diagnóstico arquitetural ainda não
 produzidos. Uma escolha `DECLARED` nunca equivale a prova observacional.
 
 **Alternativa rejeitada A:** liberar diretamente `INTERPRETATION_SAFE`,
 pois a classificação no inventário não é contrato validado para novos
 consumidores. **Alternativa rejeitada B:** expandir F3 para execução/coleta,
-pois M6 posterior não tem legitimidade temporal para parametrizar o passado.
+pois diagnóstico arquitetural posterior não tem legitimidade temporal para parametrizar o passado.
 **Alternativa rejeitada C:** alterar pesos e indicadores, pois exigiria
 decisão normativa individual, calibração, golden/parity, versão e aceites.
 
@@ -113,7 +113,7 @@ Os gates físicos já segregados na #655 permanecem independentes.
 
 Uma proposta futura para cada consumidor exigirá nova autorização explícita,
 owner, contrato e versão independentes, origem URL/device/snapshot,
-negativas para UNKNOWN/divergência/legado, opt-in, custo, golden/parity
+negativas para UNKNOWN/divergência/histórico, opt-in, custo, golden/parity
 e migração não destrutiva antes de qualquer mudança funcional. Nenhuma
 aprovação retroativa resulta desta decisão.
 

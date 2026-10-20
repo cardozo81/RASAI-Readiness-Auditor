@@ -230,7 +230,7 @@ liberado. Isto constitui uma política executável de **não propagação**,
 não uma alegação de aprovação metodológica de propagação operacional.
 
 
-## Leitura unificada da proveniência M6 — gate #646
+## Leitura unificada da proveniência diagnóstico arquitetural - gate #646
 
 A ponte `architecture_observation_reader.observed_architecture_for_snapshot`
 usa o leitor canônico `architecture_m6_evidence.read_audit_architecture_observations`,
@@ -242,6 +242,6 @@ Vínculos SHA-256 e Ed25519 continuam sujeitos ao mesmo gate; com âncora
 pública configurada, remover metadados/assinatura não promove arquitetura.
 Ausência de evidência produz `UNKNOWN` consultivo, nunca herança
 operacional de perfil ou mudança de índice. Não existe novo coletor nem
-mudança em score, M23/M25 ou AUD persistida.
+mudança em score, Synthetic Navigation Apdex/Synthetic User Experience Apdex ou AUD persistida.
 
-A ponte M6 rejeita ainda `snapshot_id` fisicamente repetido em `page_snapshots`, mesmo quando a linha duplicada pertence a outra página sem JOIN com a AUD; IDs de evidência não são resolvidos selecionando arbitrariamente a primeira linha retornada.
+A ponte diagnóstico arquitetural rejeita ainda `snapshot_id` fisicamente repetido em `page_snapshots`, mesmo quando a linha duplicada pertence a outra página sem JOIN com a AUD; IDs de evidência não são resolvidos selecionando arbitrariamente a primeira linha retornada.

@@ -112,8 +112,8 @@ vigente autenticada e ligação auditável ao texto da captura real.
 Na análise profunda, quando há **contexto YMYL ativo**, o bloco de
 interpretação separa evidências e sugestões editoriais da **confirmação de
 alegações comerciais**. O estado público informa explicitamente
-`CLAIM_UNVERIFIED_EXTERNAL` — **não validado contra documentação oficial
-vigente nesta projeção** — sem afirmar que a alegação é falsa ou que existe
+`CLAIM_UNVERIFIED_EXTERNAL` - **não validado contra documentação oficial
+vigente nesta projeção** - sem afirmar que a alegação é falsa ou que existe
 descumprimento contratual/regulatório. Em contexto não YMYL, o aviso não é
 inserido artificialmente.
 

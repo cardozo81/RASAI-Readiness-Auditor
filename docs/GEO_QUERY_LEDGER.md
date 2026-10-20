@@ -513,7 +513,7 @@ entre SERP e Perplexity. O contrato de coleta e o score não mudam;
 o acréscimo é compatível com o formato consultivo 008 existente.
 
 
-## Integração canônica de relatório — #304 / GEO por consulta
+## Integração canônica de relatório - #304 / GEO por consulta
 
 O consumidor `src/rasai/geo_query_ledger_report.py` expõe em `geo.html`,
 na mesma seção de interpretação GEO da AUD, uma matriz limitada a 10 consultas

@@ -310,7 +310,7 @@ RAW. PINNED_HTTP_STATIC atesta somente a aquisição HTTP, não o Chromium,
 a indexabilidade ou a qualidade da experiência. Redirecionamentos não
 verificáveis continuam recusados; o gate de F3 não foi alterado.
 
-## #601 — FAQ JSON-LD como fonte independente do DOM
+## #601 - FAQ JSON-LD como fonte independente do DOM
 
 O observador offline CAT-03 examina também scripts FAQPage em
 `application/ld+json` nos snapshots HTML já existentes, com orçamento

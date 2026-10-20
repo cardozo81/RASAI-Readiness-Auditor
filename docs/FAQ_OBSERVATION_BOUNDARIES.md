@@ -69,7 +69,7 @@ Os valores são texto escapado, não hiperlinks executáveis.
 
 Isso permite selecionar **qual snapshot concreto** exigiria um recibo
 assinado de interação, mas **não** o produz, não atesta clique nem liga
-automaticamente os hashes de um navegador posterior à coleta M3. Não
+automaticamente os hashes de um navegador posterior à coleta captura canônica. Não
 altera BR-GEO-039/049, nem permite recalcular scores já selados.
 A decisão de método e a autorização para obter recibo físico continuam
 gates separados. Essa projeção apenas lê SQLite e HTML locais.
