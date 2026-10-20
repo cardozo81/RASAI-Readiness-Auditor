@@ -101,6 +101,33 @@ def _host_group(urls: set[str], target: str) -> dict[str, int]:
     }
 
 
+def _target_source_distribution(urls: set[str], target: str) -> dict[str, int | float | str]:
+    """Partition one verified distinct-URL set; never infer rank or market share.
+
+    Exactly one target URL may belong to the set, regardless of duplicate
+    physical result rows. All other URLs are split by *exact* hostname.
+    Observational percentages have the current returned-URL set as denominator.
+    """
+    host_counts = _host_group(urls, target)
+    if not urls:
+        raise ValueError("an observed source URL denominator is required")
+    exact = int(target in urls)
+    alternative = host_counts["same_host_alternative_urls"]
+    other = host_counts["other_host_distinct_urls"]
+    if exact + alternative + other != len(urls):
+        raise ValueError("target URL set partition is incomplete")
+    return {
+        "denominator_distinct_urls": len(urls),
+        "exact_target_urls": exact,
+        "same_host_alternative_urls": alternative,
+        "other_host_urls": other,
+        "exact_target_url_rate": round(exact / len(urls), 4),
+        "same_host_alternative_url_rate": round(alternative / len(urls), 4),
+        "other_host_url_rate": round(other / len(urls), 4),
+        "interpretation": "OBSERVED_DISTINCT_RETURNED_URLS_ONLY",
+    }
+
+
 def _host_overlap(serp_urls: set[str], external_urls: set[str]) -> dict[str, int | float]:
     """Observed exact-host intersection; NOT eTLD+1, market share or citations.
 
@@ -297,6 +324,8 @@ def _row(query: str, classification: str, reason: str) -> dict[str, Any]:
         "host_overlap": None,
         "serp_target_host_group": None,
         "external_target_host_group": None,
+        "serp_target_url_distribution": None,
+        "external_target_url_distribution": None,
         "external_market_language_device_equivalence_proven": False,
         "intent_equivalence_proven": False,
         "ranking_or_generative_citation_proven": False,
@@ -707,6 +736,12 @@ def inspect_geo_per_query(
                         target_url_exact_in_perplexity=in_external,
                         serp_target_host_group=_host_group(serp_urls, target),
                         external_target_host_group=_host_group(px_urls, target),
+                        serp_target_url_distribution=_target_source_distribution(
+                            serp_urls, target,
+                        ),
+                        external_target_url_distribution=_target_source_distribution(
+                            px_urls, target,
+                        ),
                         target_url_overlap_status=(
                             "BOTH_SOURCE_SETS" if in_serp and in_external
                             else "SERP_SOURCE_SET_ONLY" if in_serp

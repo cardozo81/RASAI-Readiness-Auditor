@@ -1866,3 +1866,99 @@ def test_304_public_cli_nonbranded_readonly(tmp_path, capsys):
     assert result["queries"][0]["declared_query_class"] == "NONBRANDED_DECLARED"
     assert result["provider_requests"] == result["audit_writes"] == 0
     assert (folder / "audit.db").read_bytes() == before
+
+
+
+def test_304_target_url_distribution_reports_real_distinct_url_denominators(tmp_path):
+    """Returned-source composition is not SERP rank, market share or citations."""
+    folder = _audit(tmp_path, multi=False)
+    _set_physical_aud_targets(folder, [
+        ("AUD-GEO304", "https://example.org/shared"),
+    ])
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "INSERT INTO serp_results VALUES (?,?,?)",
+            ("SERP-0", 10, "https://example.org/other-product"),
+        )
+        con.execute(
+            "INSERT INTO serp_results VALUES (?,?,?)",
+            ("SERP-0", 11, "https://www.example.org/shared"),
+        )
+        con.execute(
+            "INSERT INTO perplexity_search_sources VALUES (?,?,?,?)",
+            ("PX-A", 88, "https://example.org/alternative", "seguro de vida"),
+        )
+    db = folder / "audit.db"
+    before = db.read_bytes()
+    report = inspect_geo_per_query(folder)
+    row = report["queries"][0]
+    assert row["status"] == "DESCRIPTIVE_ONLY"
+    s = row["serp_target_url_distribution"]
+    assert s == {
+        "denominator_distinct_urls": 5,
+        "exact_target_urls": 1,
+        "same_host_alternative_urls": 1,
+        "other_host_urls": 3,
+        "exact_target_url_rate": 0.2,
+        "same_host_alternative_url_rate": 0.2,
+        "other_host_url_rate": 0.6,
+        "interpretation": "OBSERVED_DISTINCT_RETURNED_URLS_ONLY",
+    }
+    e = row["external_target_url_distribution"]
+    assert e["denominator_distinct_urls"] == 3
+    assert e["exact_target_urls"] == 1
+    assert e["same_host_alternative_urls"] == 1
+    assert e["other_host_urls"] == 1
+    assert e["exact_target_url_rate"] == 0.3333
+    assert e["other_host_url_rate"] == 0.3333
+    assert row["ranking_or_generative_citation_proven"] is False
+    assert row["external_market_language_device_equivalence_proven"] is False
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
+    rendered = render_geo_query_ledger_html(report)
+    assert "Distribuição proporcional das URLs retornadas por fonte" in rendered
+    assert "SERP: Denominador de URLs distintas</td><td>5" in rendered
+    assert "SERP: Taxa de URL exata da AUD</td><td>20.00%" in rendered
+    assert "Search API: Taxa de URL exata da AUD</td><td>33.33%" in rendered
+    assert db.read_bytes() == before
+
+
+def test_304_target_distribution_fails_closed_for_missing_target_or_source_seal(tmp_path):
+    """Missing physical target and a failed source seal cannot become zero rates."""
+    folder = _audit(tmp_path, multi=False)
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
+    result = inspect_geo_per_query(folder)
+    assert result["queries"][0]["serp_target_url_distribution"] is None
+    assert result["queries"][0]["external_target_url_distribution"] is None
+    html = render_geo_query_ledger_html(result)
+    section = html.split("Distribuição proporcional das URLs retornadas por fonte")[1].split("</table>")[0]
+    assert "<td>N/D</td>" in section
+
+    _set_physical_aud_targets(folder, [
+        ("AUD-GEO304", "https://example.org/shared"),
+    ])
+    positive = inspect_geo_per_query(folder)
+    assert positive["queries"][0]["serp_target_url_distribution"] is not None
+    positive["source_audit_db_integrity_guard"] = "UNVERIFIED"
+    masked = render_geo_query_ledger_html(positive)
+    section = masked.split("Distribuição proporcional das URLs retornadas por fonte")[1].split("</table>")[0]
+    assert "<td>N/D</td>" in section
+    assert "20.00%" not in section
+
+
+def test_304_partition_does_not_merge_www_and_apex_or_bad_urls():
+    source = {
+        "https://example.test/a",
+        "https://example.test/b",
+        "https://www.example.test/a",
+    }
+    result = ledger._target_source_distribution(source, "https://example.test/a")
+    assert result["denominator_distinct_urls"] == 3
+    assert result["exact_target_urls"] == 1
+    assert result["same_host_alternative_urls"] == 1
+    assert result["other_host_urls"] == 1
+    for invalid in (
+        set(),
+        {"https://example.test/a", " https://example.test/b"},
+    ):
+        with pytest.raises(ValueError):
+            ledger._target_source_distribution(invalid, "https://example.test/a")

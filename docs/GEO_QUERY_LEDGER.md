@@ -489,3 +489,25 @@ Tudo permanece offline e read-only; nenhuma fonte comercial foi chamada,
 nenhuma AUD ou score foi alterado e não há hipótese de participação de
 mercado ou citação gerativa. Novos testes sintéticos exigem execução
 direcionada no HEAD final; teste adicionado não constitui teste aprovado.
+
+## Distribuição dos grupos de URLs por fonte (#304, observacional)
+
+O ledger atual acrescenta `serp_target_url_distribution` e
+`external_target_url_distribution` exclusivamente quando já existem
+**dois conjuntos de URLs fisicamente atribuídos à mesma consulta** e
+**uma única URL-alvo física e canônica da AUD**. Dentro de cada fonte,
+o denominador é o conjunto de **URLs distintas retornadas**, nunca
+número de posições solicitadas, impressões ou volume de buscas.
+
+A partição disjunta informa: (1) presença da URL exata da AUD (0 ou 1),
+(2) outras URLs do hostname exato, (3) URLs de outros hostnames.
+Há contagens e proporções de cada grupo, arredondadas a quatro casas.
+A soma das contagens precisa coincidir com o denominador. `www` e
+domínio raiz não são equivalentes; sem fonte, alvo ou selo físico o
+relatório publica **N/D**, não percentuais falsos.
+
+Os percentuais são uma **distribuição descritiva dos resultados recebidos**.
+Não são ranking, probabilidade de citação generativa, participação de
+mercado, tráfego, indexação ou equivalência de país/idioma/device/intent
+entre SERP e Perplexity. O contrato de coleta e o score não mudam;
+o acréscimo é compatível com o formato consultivo 008 existente.

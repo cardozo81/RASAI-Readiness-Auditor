@@ -187,6 +187,32 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
                     _count(group.get(key)) if isinstance(group, Mapping) else "N/D",
                 ]))
         group_html = "".join(group_rows)
+        distribution_rows: list[str] = []
+        for source_label, field in (
+            ("SERP", "serp_target_url_distribution"),
+            ("Search API", "external_target_url_distribution"),
+        ):
+            distribution = entry.get(field) if row_admissible else None
+            for description, key, formatter in (
+                ("Denominador de URLs distintas", "denominator_distinct_urls", _count),
+                ("URL exata da AUD", "exact_target_urls", _count),
+                ("Taxa de URL exata da AUD", "exact_target_url_rate", _rate),
+                ("Alternativas do mesmo hostname", "same_host_alternative_urls", _count),
+                ("Taxa de alternativas do mesmo hostname", "same_host_alternative_url_rate", _rate),
+                ("URLs de outros hostnames", "other_host_urls", _count),
+                ("Taxa de URLs de outros hostnames", "other_host_url_rate", _rate),
+            ):
+                value = (
+                    formatter(distribution.get(key))
+                    if isinstance(distribution, Mapping)
+                    and distribution.get("interpretation")
+                    == "OBSERVED_DISTINCT_RETURNED_URLS_ONLY"
+                    else "N/D"
+                )
+                distribution_rows.append(_table_row([
+                    escape(f"{source_label}: {description}", quote=True), value,
+                ]))
+        distribution_html = "".join(distribution_rows)
         segments = [
             "<section class='query'>",
             f"<h2>{query}</h2>",
@@ -220,6 +246,12 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
             "</p></div></div>",
             "<h3>Interseção de hosts observados (sem inferir concorrência)</h3>",
             "<table>", host_metrics_html, "</table>",
+            "<h3>Distribuição proporcional das URLs retornadas por fonte</h3>",
+            "<table>", distribution_html, "</table>",
+            "<p class='muted'>Denominador: URLs distintas efetivamente retornadas "
+            "por cada fonte, não número de buscas, impressões ou posições. "
+            "Porcentagens descritivas: NÃO são participação de mercado, "
+            "posição, citações generativas nem prova de equivalência SERP/Search API.</p>",
             "<h3>Alternativas ao hostname da URL auditada</h3>",
             "<table>", group_html, "</table>",
             "<p class='muted'>Hostname exato: www e apex não são equivalentes; "
