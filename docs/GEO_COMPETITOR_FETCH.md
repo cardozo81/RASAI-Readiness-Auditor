@@ -109,3 +109,46 @@ rasai competitor-html-review --url https://example.com/pagina `
 Não faz parte de uma AUD automática e não coleta nada se faltar
 consentimento. O retorno é inventário efêmero, não prova de
 renderização SPA nem autorização legal do destino.
+
+## Consentimento local durável e revogável (20/10/2026)
+
+O modo opt-in permanece baseado em hostname **exato**, papel, finalidade
+e as duas operações GET já aprovadas. Agora o operador pode optar por
+um registro local de eventos com concessão temporária de até 90 dias,
+revogação expressa e verificação offline **antes de qualquer DNS/HTTP**:
+
+```powershell
+python -m rasai.geo_competitor_consent `
+  --registry .\consent-cobs.json --host competitor.example.org `
+  --role COMPETITOR_CANDIDATE `
+  --purpose GEO_COMPETITOR_STATIC_CONTENT_REVIEW `
+  --action GRANT --expires-at 2026-11-10T00:00:00+00:00 --confirm
+python -m rasai.geo_competitor_consent `
+  --registry .\consent-cobs.json --host competitor.example.org `
+  --role COMPETITOR_CANDIDATE `
+  --purpose GEO_COMPETITOR_STATIC_CONTENT_REVIEW --action REVOKE --confirm
+```
+
+Para aplicar essa política local ao diagnóstico/captura, informar
+`--consent-registry .\consent-cobs.json` **além de**
+`--allow-public-html-requests`, `--consent-host`,
+`--consent-purpose` e ambas as `--consent-operation`. A opção
+`--consent-registry` é opt-in; sem ela, os flags explícitos já existentes
+continuam válidos, e um registro de consentimento não é imposto
+retroativamente. Quando informada, registro ausente, expirado, corrupto,
+com chave JSON duplicada ou revogado nega a coleta. A política é
+revalidada após robots e antes do GET de HTML; a captura COBS valida
+novamente antes de publicar um pacote derivado. Revogação não apaga
+artefatos capturados anteriormente e não cancela requisições já iniciadas.
+
+O arquivo JSON v1 é limitado a 512 eventos e 256 KiB, inclui sequência,
+papel, finalidade, tempo UTC, expiração e encadeamento de SHA-256, com
+gravação atômica e lock exclusivo local. O hash detecta alterações sem
+recomputação, mas **não autentica o operador**: quem pode reescrever
+o registro pode reencadear os hashes. Não equivale a licença, assinatura,
+consentimento jurídico ou enforcement SaaS multi-instância.
+Não armazenar o arquivo dentro de AUD/CONS/RPR. Coleta de HTML JS,
+SPA hidratada, cookie/login e egress gerenciado continuam **não
+implementados**, logo nenhum resultado estático pode ser promovido
+a prova de conteúdo principal. Não executar URL externa sem autorização
+independente do proprietário.

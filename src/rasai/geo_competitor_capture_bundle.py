@@ -18,6 +18,7 @@ import tempfile
 from typing import Any, Sequence
 
 from rasai.geo_competitor_fetch import inspect_consented_public_html
+from rasai.geo_competitor_consent import check_local_consent
 from rasai.geo_observation import _canonical_url
 from rasai.search_intelligence.content import PublicWebFetcher
 
@@ -95,6 +96,7 @@ def capture_competitor_sidecar(
     consented_operations: Sequence[str] = (),
     fetcher: PublicWebFetcher | None = None,
     role: str = "COMPETITOR_CANDIDATE",
+    consent_registry: Path | None = None,
 ) -> dict[str, Any]:
     """Produce immutable offline-review evidence from authorized public HTML.
 
@@ -241,6 +243,7 @@ def capture_competitor_sidecar(
         consent_purpose=consent_purpose,
         consented_operations=consented_operations,
         fetcher=fetcher,
+        **({"consent_registry": consent_registry} if consent_registry is not None else {}),
     )
     # This check MUST run even if robots/HTTP returned an unobserved
     # status: otherwise an intervening AUD write is hidden as NOT_CAPTURED.
@@ -256,6 +259,17 @@ def capture_competitor_sidecar(
             "provider_requests": capture.get("provider_requests", 0),
             "content_comparison_eligible": False,
         }
+    if consent_registry is not None:
+        from urllib.parse import urlsplit
+        try:
+            active = check_local_consent(
+                consent_registry, hostname=urlsplit(candidate).hostname,
+                role=role, purpose=consent_purpose,
+            )
+        except (ValueError, OSError) as exc:
+            raise ValueError("local consent changed after HTML acquisition") from exc
+        if active is None or active != capture.get("local_consent_event_sha256"):
+            raise ValueError("local consent revoked before evidence publication")
     if capture.get("final_url") != candidate:
         raise ValueError("final fetched URL disagrees with authorized source")
     if (capture.get("requested_url") != candidate
@@ -362,6 +376,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--consent-operation", action="append",
         choices=("GET_ROBOTS_TXT", "GET_STATIC_HTML"),
     )
+    parser.add_argument("--consent-registry", type=Path,
+                        help="optional revocable local grant ledger")
     parser.add_argument("--allow-public-html-requests", action="store_true")
     args = parser.parse_args(argv)
     if not args.allow_public_html_requests:
@@ -385,6 +401,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             role=args.capture_role,
             consent_purpose=args.consent_purpose,
             consented_operations=args.consent_operation,
+            **({"consent_registry": args.consent_registry}
+              if args.consent_registry is not None else {}),
         )
     except ValueError as exc:
         parser.error(str(exc))

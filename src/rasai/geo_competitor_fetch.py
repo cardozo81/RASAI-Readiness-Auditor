@@ -10,6 +10,7 @@ import argparse
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
+from pathlib import Path
 from typing import Any, Sequence
 from urllib.parse import urlsplit
 from urllib.robotparser import RobotFileParser
@@ -19,6 +20,7 @@ from rasai.search_intelligence.content import (
     _validate_public_url, extract_page_features,
 )
 from rasai.geo_competitor_pinned_egress import PublicWebPinnedOpener
+from rasai.geo_competitor_consent import check_local_consent
 from rasai.url_utils import InvalidUrl
 
 
@@ -37,6 +39,7 @@ def inspect_consented_public_html(
     consent_purpose: str | None = None,
     consented_operations: Sequence[str] = (),
     fetcher: PublicWebFetcher | None = None,
+    consent_registry: Path | None = None,
 ) -> dict[str, Any]:
     """Read robots first and return bounded HTML features, without persisting.
 
@@ -69,6 +72,8 @@ def inspect_consented_public_html(
         "html_rendering": "STATIC_HTTP_ONLY_NO_JS",
         "primary_content_proven": False,
         "provider_requests": 0, "audit_writes": 0,
+        "local_consent_event_sha256": None,
+        "local_consent_authority_attested": False,
         "score_changed": False, "limitations": (
             "Coleta opt-in somente local; robots.txt verificado por URL. "
             "HTML estático, sem JavaScript; render SPA, dispositivo, locale, "
@@ -123,6 +128,19 @@ def inspect_consented_public_html(
         or set(consented_operations) != _REQUIRED_OPERATIONS
     ):
         return outcome("EXPLICIT_PURPOSE_OPERATION_CONSENT_MISSING")
+    # Optional persistent host+role+purpose scope is enforced BEFORE DNS.
+    # Ephemeral CLI flags are still required and never override a revocation.
+    if consent_registry is not None:
+        try:
+            active = check_local_consent(
+                consent_registry, hostname=host.lower(), role=role,
+                purpose=consent_purpose,
+            )
+        except (ValueError, OSError):
+            return outcome("LOCAL_CONSENT_REGISTRY_UNVERIFIABLE")
+        if active is None:
+            return outcome("LOCAL_CONSENT_REVOKED_OR_NOT_GRANTED")
+        base["local_consent_event_sha256"] = active
     try:
         normalized = _validate_public_url(url, client.resolver)
     except (InvalidUrl, PublicWebBlocked, ValueError, OSError):
@@ -173,6 +191,20 @@ def inspect_consented_public_html(
     if not parser.can_fetch(_USER_AGENT, normalized):
         return outcome("ROBOTS_DISALLOWED", robots_fetch_status="DISALLOWED")
 
+    # A grant may be revoked while robots.txt is in flight. Check again
+    # before issuing the actual HTML request, not merely before robots.
+    if consent_registry is not None:
+        try:
+            current = check_local_consent(
+                consent_registry, hostname=host.lower(), role=role,
+                purpose=consent_purpose,
+            )
+        except (ValueError, OSError):
+            return outcome("LOCAL_CONSENT_REGISTRY_UNVERIFIABLE",
+                           robots_fetch_status="ALLOWED")
+        if current is None or current != base["local_consent_event_sha256"]:
+            return outcome("LOCAL_CONSENT_REVOKED_DURING_ROBOTS",
+                           robots_fetch_status="ALLOWED")
     observed_at = datetime.now(timezone.utc).isoformat()
     fetched = client.fetch(normalized)
     valid_html = (
@@ -225,6 +257,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--consent-operation", action="append",
         choices=tuple(sorted(_REQUIRED_OPERATIONS)),
     )
+    parser.add_argument("--consent-registry", type=Path,
+                        help="optional local revocable grant ledger")
     parser.add_argument("--allow-public-html-requests", action="store_true")
     args = parser.parse_args(argv)
     if not args.allow_public_html_requests:
@@ -242,6 +276,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             consented_hostnames=args.consent_host,
             consent_purpose=args.consent_purpose,
             consented_operations=args.consent_operation,
+            consent_registry=args.consent_registry,
         )
     except ValueError as exc:
         parser.error(str(exc))

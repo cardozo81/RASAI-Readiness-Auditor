@@ -1168,3 +1168,66 @@ def test_same_size_aud_rewrite_during_digest_abstains(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="AUD source changed during digest"):
         capture._physical_digest(source)
     assert mutated
+
+
+def test_capture_with_local_consent_denied_before_network(tmp_path, monkeypatch):
+    """The sidecar forwards revocable grant policy to the common HTTP gate."""
+    from datetime import datetime, timedelta, timezone
+    from rasai.geo_competitor_consent import record_local_consent
+
+    folder = _audit(tmp_path)
+    registry = tmp_path / "policy.json"
+    grant = record_local_consent(
+        registry, hostname="competitor.example.org",
+        role="COMPETITOR_CANDIDATE",
+        purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW", action="GRANT",
+        expires_at=(datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+        confirmed=True,
+    )
+    from rasai.geo_competitor_fetch import inspect_consented_public_html
+    seen = []
+    def fake(url, **kwargs):
+        seen.append(kwargs)
+        return _response(local_consent_event_sha256=grant)
+    monkeypatch.setattr(capture, "inspect_consented_public_html", fake)
+    first = _run(folder, tmp_path, consent_registry=registry,
+                 consent_purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW")
+    assert first["status"] == "MATERIALIZED"
+    assert seen[-1]["consent_registry"] == registry
+    before = (folder / "audit.db").read_bytes()
+    record_local_consent(
+        registry, hostname="competitor.example.org",
+        role="COMPETITOR_CANDIDATE",
+        purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW",
+        action="REVOKE", confirmed=True,
+    )
+    with pytest.raises(ValueError, match="consent revoked"):
+        _run(folder, tmp_path, consent_registry=registry,
+             consent_purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW")
+    assert (folder / "audit.db").read_bytes() == before
+
+
+def test_capture_revoked_mid_fetch_rejects_materialization(tmp_path, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from rasai.geo_competitor_consent import record_local_consent
+    folder = _audit(tmp_path)
+    registry = tmp_path / "consent.json"
+    grant = record_local_consent(
+        registry, hostname="competitor.example.org", role="COMPETITOR_CANDIDATE",
+        purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW", action="GRANT",
+        expires_at=(datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+        confirmed=True,
+    )
+    def revoke_after_capture(url, **kwargs):
+        record_local_consent(
+            registry, hostname="competitor.example.org",
+            role="COMPETITOR_CANDIDATE",
+            purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW",
+            action="REVOKE", confirmed=True,
+        )
+        return _response(local_consent_event_sha256=grant)
+    monkeypatch.setattr(capture, "inspect_consented_public_html", revoke_after_capture)
+    with pytest.raises(ValueError, match="consent revoked"):
+        _run(folder, tmp_path, consent_registry=registry,
+             consent_purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW")
+    assert not (tmp_path / "output").exists()

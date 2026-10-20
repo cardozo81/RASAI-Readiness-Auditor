@@ -350,3 +350,16 @@ de populacao e rejeitado pelo renderer.
 Os testes usam exclusivamente sidecars COBS/SQLite sinteticos e
 conteudo local re-hashado, sem DNS, HTTP, browser, IA ou alteracoes
 na AUD, no CONS, no runtime SERP ou no GEO homologado.
+
+## Registro local de consentimento revogável
+
+A CLI COBS de captura aceita `--consent-registry <arquivo>` como limite
+adicional **opt-in**: o consentimento persistido por hostname, papel e
+finalidade deve permanecer ativo antes do DNS, entre robots e HTML e
+antes da publicação do manifesto derivado. O campo
+`capture.local_consent_event_sha256` atribui ao pacote o evento local
+efetivamente utilizado, com
+`capture.local_consent_authority_attested=false`. A ausência de
+âncora de confiança independente não é ocultada. Consulte
+[GEO_COMPETITOR_FETCH.md](GEO_COMPETITOR_FETCH.md) para o grant/revoke
+offline e os limites de política, sem modificação de AUD selada.
