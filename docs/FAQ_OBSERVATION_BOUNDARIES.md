@@ -73,3 +73,30 @@ automaticamente os hashes de um navegador posterior à coleta M3. Não
 altera BR-GEO-039/049, nem permite recalcular scores já selados.
 A decisão de método e a autorização para obter recibo físico continuam
 gates separados. Essa projeção apenas lê SQLite e HTML locais.
+
+## Vínculo offline de recibo assinado × DOM da AUD (#601)
+
+A função `faq_aud_receipt_binding.inspect_faq_receipt_aud_binding` recebe
+**uma AUD local existente e um recibo externo já assinado**; não cria o recibo
+nem coleta páginas. A validação (i) autentica HMAC por chave/permissão de
+coletor fornecidas por fora da AUD; (ii) exige identidade única do snapshot
+`audit_id/page_id/snapshot_id/URL solicitada/URL final/device` em SQLite
+imutável e estável; (iii) compara **os mesmos bytes UTF-8** do DOM anterior
+assinado com o arquivo `rendered_artifact_ref` persistido; (iv) recusa
+identidade duplicada, URL/dispositivo divergentes, snapshot legado sem
+campos, arquivo ausente, symlink e SQLite com WAL/SHM/journal.
+
+Resultado de sucesso: `SIGNED_RECEIPT_MATCHES_PERSISTED_AUD_DOM_BYTES`.
+Significa **somente identidade dos bytes anteriores e da URL da captura
+assinada**, não que o coletor executou no mesmo browser/contexto/tempo da
+AUD. O recibo v1 não assina ID da AUD/snapshot/device nem traz âncora
+externa da cadeia histórica de artefatos; esses escopos continuam
+`same_aud_sample_verified=false`,
+`same_browser_session_verified=false` e
+`persisted_aud_artifact_independently_attested=false`.
+
+Sem consentimento para coleta nova, não há interação real a executar.
+A integração é estritamente consultiva: nenhum score, BR-GEO-039/049,
+motor, AUD ou reporte anterior é modificado. Mudança normativa continua
+dependendo de ADR e aprovação explícita; resultado N/D permanece correto
+quando o vínculo físico for impossível.

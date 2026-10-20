@@ -2,6 +2,9 @@
 
 The consumer does not click, navigate or run a browser. A signed receipt only
 attests the explicitly authorized collector's claim about an isolated action.
+For **optional offline** matching to a persisted AUD rendered DOM, use the
+separate faq_aud_receipt_binding.inspect_faq_receipt_aud_binding. Byte matching
+cannot attest the same browser session or independently authenticate the AUD.
 It never proves Googlebot visibility, editorial absence or score eligibility.
 """
 from __future__ import annotations
