@@ -34,6 +34,7 @@ def verify_claim_review_receipt(
     receipt_mac: str,
     trusted_key: bytes,
     trusted_reviewer_ids: frozenset[str],
+    require_collection_date: bool = False,
 ) -> dict[str, str]:
     """Fail closed on unsigned/untrusted/altered receipt or original document.
 
@@ -76,6 +77,7 @@ def verify_claim_review_receipt(
         claim_text, product_scope=product_scope, at_date=at_date,
         primary_bytes=primary_bytes, review=receipt,
         external_validation_required=True,
+        require_collection_date=require_collection_date,
     )
 
 

@@ -51,7 +51,8 @@ def render_claim_review_batch_html(projection: Mapping[str, Any]) -> str:
                 + "; Coleta: " + e(claim.get("collected_on"))
                 + "; Revisão: " + e(claim.get("reviewed_on"))
                 + "; Recibo: " + e(claim.get("reviewer_receipt_id"))
-                if authenticated else "N/D - não existe fonte primária autenticada"
+                if authenticated else ("N/D - não existe fonte primária autenticada; Motivo: "
+                      + e(claim.get("basis")))
             )
             binding = claim.get("audit_binding")
             link = (
@@ -90,7 +91,9 @@ def render_claim_review_batch_html(projection: Mapping[str, Any]) -> str:
         "<p>AUD (identidade declarada no manifesto; vínculo literal verificável "
         "por captura somente quando o modo físico foi solicitado e aprovado): " +
         e(projection.get("audit_id_operator_label_only") if admitted else "N/D")
-        + "</p>" + (
+        + "</p><p>Política de data de coleta documental: " +
+        e(projection.get("document_collection_date_policy") if admitted else "N/D")
+        + ". Quando exigida, sua ausência no recibo impede corroboração.</p>" + (
             "<p>Vínculo físico consultivo: " +
             e(projection.get("audit_binding_mode") if admitted else "NOT_VERIFIED")
             + ". Hash do SQLite AUD: " +

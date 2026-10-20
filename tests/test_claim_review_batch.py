@@ -360,3 +360,73 @@ def test_603_optin_cli_accepts_only_matching_aud_source(tmp_path, monkeypatch, c
     assert payload["audit_binding_mode"] == "OBSERVATIONAL_BINDING_CHECKED"
     assert payload["claims"][0]["audit_binding"]["snapshot_id"] == "SNP-SIGNED"
     assert list(root.glob("**/audit.db-*")) == []
+
+
+
+def test_603_optin_required_collection_date_abstains_without_changing_legacy(tmp_path):
+    """Material claims cannot promote a signed document with unknown collection date."""
+    folder = _fixture(tmp_path)
+    source = folder / "valid.json"
+    envelope = json.loads(source.read_text(encoding="utf-8"))
+    envelope["review"].pop("collected_on")
+    payload = json.dumps(
+        envelope["review"], ensure_ascii=False, sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    envelope["mac"] = hmac.new(KEY, payload, sha256).hexdigest()
+    source.write_text(json.dumps(envelope), encoding="utf-8")
+    original = inspect_claim_review_batch(
+        folder / "manifest.json", trusted_key=KEY,
+        trusted_reviewer_ids=REVIEWERS,
+    )
+    strict = inspect_claim_review_batch(
+        folder / "manifest.json", trusted_key=KEY,
+        trusted_reviewer_ids=REVIEWERS, require_collection_date=True,
+    )
+    legacy_rows = {row["claim_id"]: row for row in original["claims"]}
+    strict_rows = {row["claim_id"]: row for row in strict["claims"]}
+    assert original["document_collection_date_policy"] == "LEGACY_OPTIONAL"
+    assert strict["document_collection_date_policy"] == "REQUIRED"
+    assert legacy_rows["C-VALID"]["state"] == "CLAIM_CORROBORATED"
+    assert strict_rows["C-VALID"]["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    assert strict_rows["C-VALID"]["basis"] == "PRIMARY_COLLECTION_DATE_NOT_VERIFIED"
+    assert strict_rows["C-DISPUTED"]["state"] == "CLAIM_CONTRADICTED_WITH_VERSIONED_SOURCE"
+    assert "source_url_attested" not in strict_rows["C-VALID"]
+    assert "PRIMARY_COLLECTION_DATE_NOT_VERIFIED" in render_claim_review_batch_html(strict)
+
+
+def test_603_strict_policy_cli_and_single_receipt_respect_collection_provenance(
+    tmp_path, monkeypatch, capsys,
+):
+    from rasai.claim_review_import_cli import inspect_local_claim_receipt
+    folder = _fixture(tmp_path)
+    monkeypatch.setenv("RASAI_CLAIM_REVIEW_HMAC_KEY_HEX", KEY.hex())
+    monkeypatch.setenv("RASAI_CLAIM_REVIEWER_ALLOWLIST", "reviewer-1")
+    source = folder / "valid.json"
+    envelope = json.loads(source.read_text(encoding="utf-8"))
+    envelope["review"].pop("collected_on")
+    payload = json.dumps(
+        envelope["review"], ensure_ascii=False, sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    envelope["mac"] = hmac.new(KEY, payload, sha256).hexdigest()
+    source.write_text(json.dumps(envelope), encoding="utf-8")
+    checked = inspect_local_claim_receipt(
+        claim_file=folder / "claim.txt",
+        document_file=folder / "document.txt",
+        receipt_file=source,
+        product_scope="product-A", at_date=date(2026, 10, 14),
+        trusted_key=KEY, trusted_reviewer_ids=REVIEWERS,
+        require_collection_date=True,
+    )
+    assert checked["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    assert checked["basis"] == "PRIMARY_COLLECTION_DATE_NOT_VERIFIED"
+    code = main([
+        "--manifest", str(folder / "manifest.json"),
+        "--format", "json", "--require-collection-date",
+    ])
+    assert code == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["document_collection_date_policy"] == "REQUIRED"
+    assert result["claims"][0]["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    assert result["claims"][1]["state"] == "CLAIM_CONTRADICTED_WITH_VERSIONED_SOURCE"

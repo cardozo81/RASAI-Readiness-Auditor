@@ -30,6 +30,7 @@ def classify_claim(
     primary_bytes: bytes | None = None,
     review: Mapping[str, Any] | None = None,
     external_validation_required: bool = True,
+    require_collection_date: bool = False,
 ) -> dict[str, str]:
     """Require all independent source and reviewer fields, else abstain.
 
@@ -87,6 +88,14 @@ def classify_claim(
         decision = str(review.get("review_decision") or "").strip().upper()
     except (UnicodeError, ValueError, TypeError):
         return fallback
+    # Regulated/material reviews may demand the physical collection date.
+    # Keep historical receipts readable without treating missing collection
+    # evidence as verified when the strict review policy is requested.
+    if require_collection_date and collected_on is None:
+        return {
+            "state": "CLAIM_UNVERIFIED_EXTERNAL",
+            "basis": "PRIMARY_COLLECTION_DATE_NOT_VERIFIED",
+        }
     if not (
         valid_url
         and asserted_hash == sha256(primary_bytes).hexdigest()

@@ -64,6 +64,7 @@ def inspect_claim_review_batch(
     trusted_key: bytes,
     trusted_reviewer_ids: frozenset[str],
     audit_directory: Path | None = None,
+    require_collection_date: bool = False,
 ) -> dict[str, Any]:
     """Bounded batch of independently authenticated individual source reviews."""
     result: dict[str, Any] = {
@@ -72,6 +73,9 @@ def inspect_claim_review_batch(
         "reason": "MANIFEST_OR_TRUST_BOUNDARY_UNVERIFIABLE",
         "audit_id_operator_label_only": None,
         "audit_binding_mode": "NOT_REQUESTED",
+        "document_collection_date_policy": (
+            "REQUIRED" if require_collection_date else "LEGACY_OPTIONAL"
+        ),
         "audit_db_sha256": None,
         "claims_total": None,
         "claims": [],
@@ -158,12 +162,13 @@ def inspect_claim_review_batch(
                     receipt=envelope["review"], receipt_mac=envelope["mac"],
                     trusted_key=trusted_key,
                     trusted_reviewer_ids=trusted_reviewer_ids,
+                    require_collection_date=require_collection_date,
                 )
                 if reviewed["state"] not in {
                     "CLAIM_CORROBORATED",
                     "CLAIM_CONTRADICTED_WITH_VERSIONED_SOURCE",
                 }:
-                    entries.append(fallback)
+                    entries.append({**fallback, **reviewed})
                     continue
                 signed = envelope["review"]
                 entries.append({
@@ -231,6 +236,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--format", choices=("json", "html"), default="json")
     parser.add_argument("--audit-directory", type=Path, default=None,
                         help="Opt-in literal claim binding to a physical AUD (offline)")
+    parser.add_argument("--require-collection-date", action="store_true",
+                        help="Exigir data de coleta da fonte no recibo autenticado")
     args = parser.parse_args(argv)
     try:
         trusted_key = bytes.fromhex(
@@ -247,6 +254,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.manifest, trusted_key=trusted_key,
         trusted_reviewer_ids=reviewers,
         audit_directory=args.audit_directory,
+        require_collection_date=args.require_collection_date,
     )
     if args.format == "html":
         from rasai.claim_review_batch_html import render_claim_review_batch_html

@@ -174,3 +174,25 @@ O estado assinado continua condicionado a chave privada externa e revisor
 autorizado; nenhum segredo ou artefato é gravado no report-catalog e nenhuma
 regra BR-GEO/SARI é recalculada. A homologação contra fonte primária vigente
 permanece dependência externa da #603.
+
+
+
+## Política opt-in de exigência da data de coleta física (20/10/2026)
+
+Para revisão de alegações **materialmente relevantes**, a CLI individual
+`rasai.claim_review_import_cli` e a CLI de lote `rasai.claim_review_batch`
+aceitam `--require-collection-date`. A opção exige que o recibo assinado
+contenha `collected_on` válido (e não posterior à data da revisão).
+Um documento cujo recibo omita a data é classificado
+`CLAIM_UNVERIFIED_EXTERNAL`, motivo
+`PRIMARY_COLLECTION_DATE_NOT_VERIFIED`, mesmo que possua HMAC válido.
+Outras alegações completas permanecem independentes no lote.
+
+O lote explicita `document_collection_date_policy=REQUIRED`; o legado,
+que preserva interoperabilidade dos recibos emitidos anteriormente, informa
+`LEGACY_OPTIONAL`. **O modo legado não comprova data de coleta**; não deve ser
+usado como aceite de cadeia de custódia documental para alegações reguladas
+quando a data for material. A escolha do modo e a atestação da fonte oficial
+são atos do operador/revisor autorizado, nunca inferidos da página auditada,
+da IA ou do nome do produto. Esta mudança não consulta SUSEP ou qualquer
+provedor e não altera CAT-03, AUD, scoring, SARI nem revisão normativa.
