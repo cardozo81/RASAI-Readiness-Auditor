@@ -69,6 +69,34 @@ class ConsolidationDomainModeTests(unittest.TestCase):
                 with self.subTest(flags=flags), self.assertRaises(SystemExit):
                     consolidation_cli.main(["AUD-ONE", "AUD-TWO", *flags])
 
+    def test_top_level_domain_dispatch_avoids_audit_runtime_and_secrets(self) -> None:
+        from rasai import entrypoint
+
+        flags = (
+            ["--comparison-mode", "SAME_DOMAIN_COMPARATIVE"],
+            ["--comparison-mode=SAME_DOMAIN_COMPARATIVE"],
+        )
+        for option in flags:
+            with self.subTest(option=option), patch.object(
+                entrypoint, "_install_audit_runtime",
+                side_effect=AssertionError("CDOM cannot install audit/provider runtime"),
+            ), patch.object(
+                entrypoint, "_activate_persisted_cli_secrets",
+                side_effect=AssertionError("CDOM cannot activate provider secrets"),
+            ), patch(
+                "rasai.consolidation.domain_comparative_package.materialize_same_domain_package",
+                return_value=_OUTCOME,
+            ) as package, redirect_stdout(StringIO()):
+                result = entrypoint.main([
+                    "consolidate", "AUD-ONE", "AUD-TWO",
+                    *option, "--verify-source-bytes",
+                ])
+            self.assertEqual(result, 0)
+            package.assert_called_once_with(
+                Path("audits"), ("AUD-ONE", "AUD-TWO"),
+                verify_source_bytes=True,
+            )
+
     def test_console_requires_literal_confirmation_and_keeps_cdom_isolated(self) -> None:
         with patch.object(console, "_clear"), patch.object(console, "_pause"), patch(
             "builtins.input",

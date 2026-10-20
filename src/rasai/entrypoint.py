@@ -318,6 +318,21 @@ def _install_audit_runtime() -> None:
 
 def main(argv: Sequence[str] | None = None) -> int:
     effective = list(argv) if argv is not None else list(sys.argv[1:])
+    # A separate same-host CDOM comparison is not an AUD/CONS-3 operation.
+    # Dispatch before activating persisted provider secrets or installing
+    # the audit/IA runtime. Both argparse forms are accepted.
+    if effective and effective[0] in {"consolidate", "consolidated-report"}:
+        params = effective[1:]
+        domain_mode = any(
+            (part == "--comparison-mode" and index + 1 < len(params)
+             and params[index + 1] == "SAME_DOMAIN_COMPARATIVE")
+            or part == "--comparison-mode=SAME_DOMAIN_COMPARATIVE"
+            for index, part in enumerate(params)
+        )
+        if domain_mode:
+            from rasai.consolidation_cli import main as consolidated_domain_main
+            return consolidated_domain_main(params)
+
     scheduled_surface = bool(
         effective
         and (
