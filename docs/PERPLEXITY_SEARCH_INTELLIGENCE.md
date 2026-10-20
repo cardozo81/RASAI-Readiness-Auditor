@@ -795,3 +795,20 @@ A opção **Salvar configuração** agora grava `[perplexity_draft]` com `querie
 O menu **CAT-05 > P > 9** apresenta rascunho e permite (R) solicitar explicitamente seu uso na AUD corrente, seguido dos gates financeiros já existentes, ou (C) apagar o rascunho na sessão e salvar a exclusão posteriormente. O modo selecionado no rascunho só é transferido ao estado de execução após confirmação afirmativa. Em nenhum cenário a restauração do INI reexecuta uma consulta ou recupera uma autorização antiga. Queries não são secrets técnicos, mas podem conter informação sensível: o arquivo local requer proteção adequada.
 
 Este contrato substitui descrições históricas de queries WEB/FAST estritamente não persistíveis; o pedido de execução continua transitório por segurança.
+
+
+### Identidade das consultas e custo antes da requisição (#304)
+
+O adaptador da Perplexity Search API agora valida a **coorte de consultas
+explicitamente solicitada antes de abrir SQLite ou fazer uma chamada
+faturável**: nenhuma entrada vazia é descartada silenciosamente, todas
+precisam ser strings sem controles, o máximo por consulta é 300 caracteres
+na forma normalizada e consultas repetidas após colapsar whitespace e
+`casefold` são recusadas. A normalização usual de espaços é preservada,
+mas nunca mascara uma duplicação ou perde uma das consultas solicitadas.
+O contrato de rastreabilidade do ledger GEO #304 utiliza a mesma identidade
+case-insensitive, permanecendo N/D para ausência de atribuição
+**por fonte retornada**: a validação da entrada não é prova de equivalência
+de mercado, dispositivo ou intenção, nem justifica adicionar queries
+à resposta do provedor por inferência. Nenhuma pesquisa é iniciada
+por esta regra de pré-validação.

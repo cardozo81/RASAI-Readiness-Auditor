@@ -1962,3 +1962,13 @@ def test_304_partition_does_not_merge_www_and_apex_or_bad_urls():
     ):
         with pytest.raises(ValueError):
             ledger._target_source_distribution(invalid, "https://example.test/a")
+
+def test_304_request_query_validation_matches_offline_ledger_identity():
+    """A provider request must not create query_json the #304 ledger will reject."""
+    from rasai.search_intelligence.perplexity import _validate_queries
+    assert _validate_queries(("  Brand   Insurance ", "generic insurance")) == (
+        "Brand Insurance", "generic insurance",
+    )
+    for bad in (("Brand", "brand"), ("A", ""), ("A", "A "), ("A", "b\nc")):
+        with pytest.raises(ValueError):
+            _validate_queries(bad)

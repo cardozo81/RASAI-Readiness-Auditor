@@ -238,14 +238,35 @@ def _extract_error_shape(body: bytes) -> tuple[str | None, str | None]:
 
 
 def _validate_queries(query: str | Sequence[str]) -> tuple[str, ...]:
-    raw = (query,) if isinstance(query, str) else tuple(query)
-    normalized = tuple(" ".join(str(item).split()) for item in raw if str(item).strip())
-    if not normalized:
+    """Preserve the exact paid request cohort needed for #304 attribution.
+
+    Never drop an empty requested query or allow duplicate normalized members:
+    the persisted run would no longer identify a one-to-one physical search
+    population, while the provider call might already have been billed.
+    """
+    if isinstance(query, str):
+        raw = (query,)
+    elif isinstance(query, Sequence) and not isinstance(query, (bytes, bytearray)):
+        raw = tuple(query)
+    else:
+        raise ValueError("Perplexity queries must be a sequence of strings")
+    if not raw:
         raise ValueError("Perplexity Search API requires at least one query")
-    if len(normalized) > MAX_QUERIES_PER_REQUEST:
+    if len(raw) > MAX_QUERIES_PER_REQUEST:
         raise ValueError(
             f"Perplexity Search API accepts at most {MAX_QUERIES_PER_REQUEST} queries per request"
         )
+    if any(
+        not isinstance(item, str) or not item.strip()
+        or any(ord(char) < 32 or ord(char) == 127 for char in item)
+        for item in raw
+    ):
+        raise ValueError("Perplexity queries must contain only nonblank text")
+    normalized = tuple(" ".join(item.split()) for item in raw)
+    if any(len(item) > 300 for item in normalized):
+        raise ValueError("Perplexity query exceeds the canonical GEO ledger limit")
+    if len({item.casefold() for item in normalized}) != len(normalized):
+        raise ValueError("Perplexity query cohort contains duplicate normalized queries")
     return normalized
 
 

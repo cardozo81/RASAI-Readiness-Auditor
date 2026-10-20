@@ -443,3 +443,57 @@ def test_scoped_search_rejects_invalid_options_without_transport(tmp_path) -> No
             transport=forbidden,
         )
 
+
+@pytest.mark.parametrize("query", [
+    ("brand", " BRAND "),
+    ("one", ""),
+    ("one", None),
+    ("one", 42),
+    "not\nvalid",
+    ("one", "two\tbad"),
+    "x" * 301,
+    (),
+])
+def test_perplexity_query_identity_rejects_noncanonical_cohort_before_cost_or_write(
+    tmp_path, query,
+):
+    """#304: reject ambiguous paid queries before repository or HTTP changes."""
+    workspace = _workspace(tmp_path)
+    original = workspace.database.read_bytes()
+    calls = []
+
+    def forbidden(*args):
+        calls.append(args)
+        raise AssertionError("No request is allowed for an invalid cohort")
+
+    with pytest.raises(ValueError, match="quer|query|Query|Perplexity"):
+        execute_perplexity_search(
+            workspace, audit_id=AUDIT_ID, query=query,
+            env={API_KEY_ENV: "TEST_ONLY_PERPLEXITY_KEY"},
+            transport=forbidden,
+        )
+    assert not calls
+    assert workspace.database.read_bytes() == original
+
+
+def test_perplexity_query_identity_preserves_distinct_explicit_queries(tmp_path):
+    workspace = _workspace(tmp_path)
+    queries_seen = []
+
+    def transport(_url, _headers, body, _timeout):
+        queries_seen.append(json.loads(body)["query"])
+        return PerplexityHttpResponse(200, {}, b'{"results":[]}')
+
+    run = execute_perplexity_search(
+        workspace, audit_id=AUDIT_ID,
+        query=("  brand   insurance  ", "nonbrand insurance"),
+        env={API_KEY_ENV: "TEST_ONLY_PERPLEXITY_KEY"},
+        transport=transport,
+    )
+    assert run.status == "SUCCESS"
+    assert run.queries == ("brand insurance", "nonbrand insurance")
+    assert queries_seen == [["brand insurance", "nonbrand insurance"]]
+    assert len(_db_rows(
+        workspace, "SELECT run_id FROM perplexity_search_runs "
+        "WHERE run_id='" + run.run_id + "'",
+    )) == 1
