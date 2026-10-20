@@ -331,3 +331,37 @@ def test_sari_convergence_warning_reaches_executive_and_device_cards() -> None:
         assert "Lighthouse" in card
         assert "Core Web Vitals" in card
         assert "86.5" in card
+
+def test_explicit_unknown_status_with_pass_gates_never_promotes_ready() -> None:
+    """#600: explicit uncertainty cannot be overwritten by gate-only inference."""
+    row = _row(status="UNKNOWN")
+    assert readiness_state(row)[0] == "UNKNOWN"
+    assert public_readiness_condition(row)[:2] == (
+        "neutral", "Readiness indeterminada",
+    )
+
+
+def test_unrecognized_status_marker_with_pass_gates_fails_closed() -> None:
+    row = _row()
+    for limitations in (
+        ["READINESS_STATUS:UNRECOGNIZED"],
+        ["READINESS_STATUS:READY", "READINESS_STATUS:UNRECOGNIZED"],
+    ):
+        row["limitations"] = json.dumps(limitations + [
+            "CRITICAL_GATE:DISCOVERY:PASS",
+            "CRITICAL_GATE:INDEXABILITY:PASS",
+            "CRITICAL_GATE:EXTRACTION:PASS",
+        ])
+        assert readiness_state(row)[0] == "UNKNOWN"
+        assert public_readiness_condition(row)[0] == "neutral"
+
+
+def test_missing_status_marker_keeps_gate_only_legacy_inference() -> None:
+    row = _row()
+    row["limitations"] = json.dumps([
+        "CRITICAL_GATE:DISCOVERY:PASS",
+        "CRITICAL_GATE:INDEXABILITY:PASS",
+        "CRITICAL_GATE:EXTRACTION:PASS",
+    ])
+    assert readiness_state(row)[0] == "READY"
+    assert public_readiness_condition(row)[1] == "Readiness pronta"
