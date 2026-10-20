@@ -425,3 +425,30 @@ def test_m6_external_trust_anchor_cannot_be_bypassed_by_stripping_metadata(
     assert len(read_audit_architecture_observations(tmp_path, "AUD-META-STRIP")) == 1
     monkeypatch.setenv(VERIFY_KEY, "trusted-public-identity-is-configured")
     assert read_audit_architecture_observations(tmp_path, "AUD-META-STRIP") == ()
+
+def test_m6_advisory_reader_refuses_active_wal_without_creating_sidecars(tmp_path):
+    """#646: non-checkpointed M6 sources are not a trustworthy historical snapshot."""
+    root = tmp_path / "AUD-WAL"
+    root.mkdir()
+    with sqlite3.connect(root / "audit.db") as con:
+        con.execute("CREATE TABLE pages(page_id TEXT, audit_id TEXT)")
+        con.execute(
+            "CREATE TABLE page_snapshots("
+            "snapshot_id TEXT,page_id TEXT,device TEXT,requested_url TEXT,"
+            "final_url TEXT,architecture_classification TEXT,"
+            "raw_artifact_ref TEXT,rendered_artifact_ref TEXT)"
+        )
+        con.execute("INSERT INTO pages VALUES ('P','AUD-WAL')")
+        con.execute(
+            "INSERT INTO page_snapshots VALUES (?,?,?,?,?,?,?,?)",
+            ("S","P","MOBILE","https://example.org/","https://example.org/",
+             "CSR_SPA","artifacts/a.html","artifacts/b.html"),
+        )
+    before = (root / "audit.db").read_bytes()
+    sidecar = root / "audit.db-wal"
+    sidecar.write_bytes(b"not-checkpointed")
+    assert read_audit_architecture_observations(tmp_path, "AUD-WAL") == ()
+    assert sidecar.read_bytes() == b"not-checkpointed"
+    assert (root / "audit.db").read_bytes() == before
+    sidecar.unlink()
+    assert len(read_audit_architecture_observations(tmp_path, "AUD-WAL")) == 1

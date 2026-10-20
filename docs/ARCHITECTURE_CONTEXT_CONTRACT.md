@@ -228,3 +228,18 @@ paridade histórica e autorização metodológica explícita.
 apresentação/diagnóstico; nenhum índice, collector, Apdex ou IA é
 liberado. Isto constitui uma política executável de **não propagação**,
 não uma alegação de aprovação metodológica de propagação operacional.
+
+
+## Leitura unificada da proveniência M6 — gate #646
+
+A ponte `architecture_observation_reader.observed_architecture_for_snapshot`
+usa o leitor canônico `architecture_m6_evidence.read_audit_architecture_observations`,
+não mais SQL classificatório independente. Exige `AUD-*/audit.db` e identidade
+exata de URL pedida/final, dispositivo, página e snapshot. O leitor histórico
+rejeita SQLite ativo com WAL/SHM/journal, usa leitura `immutable=1` e
+confere a identidade física/mtime do banco antes e depois da inspeção.
+Vínculos SHA-256 e Ed25519 continuam sujeitos ao mesmo gate; com âncora
+pública configurada, remover metadados/assinatura não promove arquitetura.
+Ausência de evidência produz `UNKNOWN` consultivo, nunca herança
+operacional de perfil ou mudança de índice. Não existe novo coletor nem
+mudança em score, M23/M25 ou AUD persistida.

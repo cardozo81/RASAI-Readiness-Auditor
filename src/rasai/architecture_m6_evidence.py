@@ -9,6 +9,7 @@ from pathlib import Path, PurePosixPath
 from dataclasses import dataclass
 import hashlib
 import json
+import os
 import sqlite3
 
 from rasai.architecture_context import ArchitectureObservation, CLASSES
@@ -199,9 +200,36 @@ def read_audit_architecture_observations(
             or not database.resolve().is_relative_to(root)
             or not database.is_file()):
         return ()
+    sidecars = tuple(Path(str(database) + suffix) for suffix in (
+        "-wal", "-shm", "-journal",
+    ))
+    if any(path.exists() for path in sidecars):
+        return ()
+    try:
+        initial = database.stat()
+    except OSError:
+        return ()
+    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    if os.name != "nt":
+        fields += ("st_ctime_ns",)
+    seal = tuple(getattr(initial, field) for field in fields)
+
+    def unchanged() -> bool:
+        try:
+            current = database.stat()
+            return (
+                not database.is_symlink()
+                and not workspace.is_symlink()
+                and not any(path.exists() for path in sidecars)
+                and tuple(getattr(current, field) for field in fields) == seal
+            )
+        except OSError:
+            return False
+
     try:
         connection = sqlite3.connect(
-            database.resolve().as_uri() + "?mode=ro", uri=True, timeout=1.0,
+            database.resolve().as_uri() + "?mode=ro&immutable=1",
+            uri=True, timeout=1.0,
         )
         try:
             connection.execute("PRAGMA query_only=ON")
@@ -221,7 +249,7 @@ def read_audit_architecture_observations(
             connection.close()
     except (OSError, sqlite3.Error, ValueError):
         return ()
-    if len(rows) > MAX_OBSERVATIONS:
+    if not unchanged() or len(rows) > MAX_OBSERVATIONS:
         return ()
     observations = []
     seen = set()
@@ -294,6 +322,8 @@ def read_audit_architecture_observations(
             final_url=final, device=device, snapshot_id=snapshot_id,
             evidence_ref=raw, audit_id=normalized, page_id=page_id,
         ))
+    if not unchanged():
+        return ()
     return tuple(o for o in observations if (
         o.snapshot_id, o.page_id, o.device,
         o.requested_url, o.final_url,
