@@ -81,6 +81,7 @@ def test_search_preflight_catches_broken_console_serialization(tmp_path, monkeyp
 def test_search_preflight_rejects_cross_field_ai_policy_and_secrets(tmp_path):
     with patch.dict(os.environ, {}, clear=True):
         source = _source(tmp_path, ai=True, compare=False)
+        environment_after_setup = dict(os.environ)
         before = source.read_bytes()
         result = inspect_search_consumers(source, environ={})
         assert result["status"] == "SEMANTIC_CONFIGURATION_CONFLICT"
@@ -91,7 +92,10 @@ def test_search_preflight_rejects_cross_field_ai_policy_and_secrets(tmp_path):
         failed = inspect_search_consumers(source, environ={})
         assert failed["status"] == "CONFIG_ADAPTER_WARNINGS"
         assert "SENSITIVE_SHOULD_NOT_LEAK" not in json.dumps(failed)
-        assert os.environ == {}
+        # Fixture preparation initializes runtime defaults in this process.
+        # The preflight must preserve that exact environment, not assert that
+        # the synthetic fixture itself had no side effects.
+        assert os.environ == environment_after_setup
 
 
 def test_search_preflight_missing_symlink_corrupt_never_writes(tmp_path):

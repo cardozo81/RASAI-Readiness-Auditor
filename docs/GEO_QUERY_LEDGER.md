@@ -464,7 +464,7 @@ previamente materializadas; o produtor publica 007.
 ## Contrato consultivo 008  -  coerência temporal e classes explícitas (19/10/2026)
 
 O contrato `RASAI-GEO-PER-QUERY-304-ADVISORY-008` preserva a comparação
-individual e o renderer legado 005/006/007. Há um defeito de comparabilidade
+individual e as versões anteriores do renderer 005/006/007. Há um defeito de comparabilidade
 em recorrência multiquery: duas observações SERP podem estar ambas até 24h
 da mesma execução Search API e, ainda assim, quase 48h separadas entre si.
 Agora a recorrência exige, além dos denominadores e cinco campos de escopo

@@ -74,6 +74,31 @@ def test_offline_browser_faq_disclosure_only_after_opt_in_on_same_page():
             assert blocked["status"] == "NOT_OBSERVED"
             assert blocked["reason"] == "UNSAFE_FORM_CONTROL"
             assert page.locator("button").get_attribute("aria-expanded") == "false"
+            page.set_content(
+                '<button type="button" aria-controls="faq-answer" '
+                'aria-expanded="false" '
+                'onclick="document.body.dataset.clicked=\'true\'">'
+                'Nao executar handler inline</button>'
+            )
+            unsafe = inspect_existing_page_faq(
+                page, target_id="faq-answer", explicit_opt_in=True,
+                isolated_context_acknowledged=True,
+            )
+            assert unsafe["status"] == "NOT_OBSERVED"
+            assert unsafe["reason"] == "UNSAFE_OR_AMBIGUOUS_FAQ_ACTION_TARGET"
+            assert page.locator("body").get_attribute("data-clicked") is None
+            assert page.locator("button").get_attribute("aria-expanded") == "false"
+            page.set_content(
+                '<button type="submit" aria-controls="faq-answer" '
+                'aria-expanded="false">Nao submeter</button>'
+            )
+            submit = inspect_existing_page_faq(
+                page, target_id="faq-answer", explicit_opt_in=True,
+                isolated_context_acknowledged=True,
+            )
+            assert submit["status"] == "NOT_OBSERVED"
+            assert submit["reason"] == "UNSAFE_OR_AMBIGUOUS_FAQ_ACTION_TARGET"
+            assert page.locator("button").get_attribute("aria-expanded") == "false"
             context.close()
         finally:
             browser.close()

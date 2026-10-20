@@ -11,7 +11,9 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from rasai.faq_observation import _FAQ_CONTEXT, _MAX_HTML_BYTES
-from rasai.faq_transition_policy import compare_faq_dom_views
+from rasai.faq_transition_policy import (
+    compare_faq_dom_views, eligible_isolated_faq_disclosure,
+)
 
 
 def inspect_existing_page_faq(
@@ -81,6 +83,11 @@ def inspect_existing_page_faq(
             or controls[0].evaluate("(button) => Boolean(button.closest('form'))")
         ):
             return {**result, "reason": "UNSAFE_FORM_CONTROL"}
+        # The receipt verifier and the active click path must use exactly
+        # the same pre-action DOM eligibility: no inline handlers, implicit
+        # submit, duplicate attributes or ambiguous aria-controls.
+        if not eligible_isolated_faq_disclosure(before, target_id):
+            return {**result, "reason": "UNSAFE_OR_AMBIGUOUS_FAQ_ACTION_TARGET"}
         controls[0].click(timeout=1500)
         if page.url != original_url or len(context.pages) != 1:
             return {**result, "reason": "NAVIGATION_OR_POPUP_AFTER_ACTION",

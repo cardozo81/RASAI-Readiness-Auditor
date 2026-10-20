@@ -391,7 +391,7 @@ calibração de intervalo P90. A fase com histórico insuficiente
 continua oferecendo escolha explícita executar com/sem IA/cancelar.
 A contagem de páginas de uso real no pós-AUD passa ainda a consultar
 somente linhas `pages.audit_id=nome da AUD` no banco da respectiva
-AUD, recusando legado sem atribuição e duplicatas físicas.
+AUD, recusando registros anteriores sem atribuição e duplicatas físicas.
 Isso impede contabilização de páginas estrangeiras em comparações
 financeiras. Fixtures offline verificam single-URL, 8 necessidades,
 pool AUTO sem cap, múltiplas páginas, fontes SQLite ausentes e

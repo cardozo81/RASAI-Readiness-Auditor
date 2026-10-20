@@ -19,8 +19,15 @@ alvo, coletor permitido, execução isolada, bloqueio de rede após carga,
 dois hashes DOM e relógios físicos UTC. Complementarmente, somente
 `button` nativo único, não submetível, fora de formulário, sem
 `onclick`/handlers inline, `href`, `disabled` ou IDREF ambíguo
-pode qualificar. Isso é **pré-condição offline**, não implementação
-de clique, sandbox de browser ou prova independente de segurança.
+pode qualificar. A validação assinada é **pré-condição offline** e não substitui o
+piloto opcional de clique em uma página já carregada. O piloto
+`faq_existing_page_pilot.inspect_existing_page_faq` exige consentimento
+explícito, contexto de navegador isolado e bloqueio de novas requisições
+após o carregamento. Antes do clique, aplica a mesma elegibilidade do
+verificador de recibo: botão único, fora de formulário, sem
+`onclick`/handlers inline, submissão implícita ou atributos ambíguos.
+Seu resultado continua **não atestado**, sem vinculação comprovada
+à mesma amostra da AUD, sem prova para crawler e sem mudar o score.
 
 Uma resposta vista somente após ação atestada não prova que o
 Googlebot a obtenha sem interação. A projeção não altera scorer,
