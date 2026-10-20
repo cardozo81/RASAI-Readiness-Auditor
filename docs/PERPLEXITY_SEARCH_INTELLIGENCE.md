@@ -816,3 +816,7 @@ por esta regra de pré-validação.
 ### Proveniência literal de URLs devolvidas (#304)
 
 URLs retornadas pela Search API não são reparadas por `strip()` ou `str()` antes de serem persistidas. Campos não textuais, controles, espaços nas bordas, credenciais embutidas, backslash e porta inválida convertem a resposta em `INVALID_RESPONSE`, sem inventar correspondência entre fonte e URL auditada. Uma resposta HTTP 200 poderá continuar faturável; a correção não simula cobrança zero. Consultas válidas preservam URLs originais e sua interpretação GEO permanece observacional, sem alegar citação em resposta generativa.
+
+### JSON da resposta Search API sem ambiguidade (#304)
+
+O decodificador de resposta de sucesso rejeita chaves JSON repetidas em qualquer objeto (inclusive no item de URL individual e seus metadados) e constantes numéricas não conformes como NaN/Infinity. Não escolhe silenciosamente o último `url` ou `results` e não persiste citação inventada por um parser last-key-wins. Resposta HTTP 200 inválida continua classificada `INVALID_RESPONSE` com tentativa potencialmente faturada; nenhum índice ou AUD histórica é regravado.

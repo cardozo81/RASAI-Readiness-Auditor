@@ -314,11 +314,29 @@ def _source_from_payload(position: int, raw: Mapping[str, Any]) -> PerplexitySou
     )
 
 
+def _unambiguous_provider_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Never select the last conflicting provider field as physical evidence."""
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError("Perplexity response contains duplicate JSON keys")
+        value[key] = item
+    return value
+
+
+def _reject_provider_non_json_constant(token: str) -> None:
+    raise ValueError("Perplexity response contains a nonstandard JSON constant")
+
+
 def _parse_success_payload(
     body: bytes,
 ) -> tuple[str | None, tuple[PerplexitySource, ...]]:
     try:
-        payload = json.loads(body.decode("utf-8"))
+        payload = json.loads(
+            body.decode("utf-8"),
+            object_pairs_hook=_unambiguous_provider_object,
+            parse_constant=_reject_provider_non_json_constant,
+        )
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Perplexity returned malformed JSON") from exc
     if not isinstance(payload, Mapping):

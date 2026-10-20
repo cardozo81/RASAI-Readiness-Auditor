@@ -525,3 +525,24 @@ def test_304_provider_source_url_is_not_silently_repaired(tmp_path, invalid_url)
     assert run.sources == ()
     assert run.native_usage[0].billable is True
     assert _db_rows(workspace, "SELECT * FROM perplexity_search_sources") == []
+
+
+@pytest.mark.parametrize("provider_json", [
+    '{"results":[{"url":"https://example.org/a","url":"https://other.org/b"}]}',
+    '{"results":[],"results":[{"url":"https://other.org/b"}]}',
+    '{"results":[{"url":"https://example.org/a","metadata":{"scope":1,"scope":2}}]}',
+    '{"results":[{"url":"https://example.org/a","signal":NaN}]}',
+    '{"results":[{"url":"https://example.org/a","signal":Infinity}]}',
+])
+def test_304_provider_ambiguous_json_never_becomes_citable_source(tmp_path, provider_json):
+    workspace = _workspace(tmp_path)
+    def transport(*_args):
+        return PerplexityHttpResponse(200, {}, provider_json.encode("utf-8"))
+    run = execute_perplexity_search(
+        workspace, audit_id=AUDIT_ID, query="legitimate",
+        env={API_KEY_ENV: "TEST_ONLY_PERPLEXITY_KEY"}, transport=transport,
+    )
+    assert run.status == "INVALID_RESPONSE"
+    assert run.native_usage[0].billable is True
+    assert run.sources == ()
+    assert _db_rows(workspace, "SELECT * FROM perplexity_search_sources") == []
