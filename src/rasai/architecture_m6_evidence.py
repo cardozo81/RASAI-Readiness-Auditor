@@ -317,7 +317,6 @@ def read_audit_architecture_observations(
         # require a valid signature; stripping the entire metadata object
         # must not downgrade a signed capture to legacy/unsigned evidence.
         from rasai.architecture_attestation import VERIFY_KEY
-        import os
         if os.environ.get(VERIFY_KEY) and "architecture_attestation" not in details:
             continue
         observations.append(ArchitectureObservation(
