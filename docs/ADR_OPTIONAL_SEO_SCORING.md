@@ -1,6 +1,42 @@
 # ADR - sinais SEO opcionais, evidências e efeito no SCORE-GEO (#602)
 
-Status: **avaliação metodológica aberta; nenhum novo contrato de pontuação aprovado neste documento**.
+Status: **decisão de implementação pré-produção aplicada ao SCORE-GEO-005 em 19/10/2026**. Os registros históricos abaixo documentam a avaliação anterior; não são o status vigente.
+
+## Decisão implementada: método prospectivo SCORE-GEO-005
+
+Aprovação de continuidade da estratégia de execução, no ciclo atual sem PRD,
+adotando a decisão técnica conservadora **NOT_APPLICABLE para ausência opcional
+comprovada**, nunca PASS automático. O método permanece privado e
+determinístico, não pretende replicar algoritmo do Google.
+
+| Regra | Evidência suficiente | Consequência no SCORE-GEO-005 |
+| --- | --- | --- |
+| BR-GEO-003 | somentes sitemaps convencionalmente consultados ausentes e nenhuma falha de aquisição | NOT_APPLICABLE; nenhum crédito por ausência |
+| BR-GEO-013 | nenhuma canonical presente no snapshot válido | NOT_APPLICABLE; nenhum crédito por ausência |
+| BR-GEO-017 | robots.txt fisicamente ausente, sem erro de rede | NOT_APPLICABLE; nenhum crédito por ausência |
+| As três | conflito/erro material documentado | preservar FAIL/WARNING/UNKNOWN conforme M5 |
+| BR-GEO-018 | bloqueio efetivo de crawler | contrato separado, sem neutralização |
+
+O adaptador `scoring_v005.ScoreGeo005Engine` reinterpreta a evidência
+imutável na memória **somente para scoring**. `RuleExecution` de M5
+não é alterada; não reescrever AUD de testes em SCORE-GEO-004. O
+adapter `ScoreGeo004Engine` continua reabrível com versão 004 para
+verificação histórica e golden before/after. Pesos de dimensões, grupos,
+gates e classes de evidência permanecem exatamente os mesmos: apenas o
+universo de regras aplicáveis muda, com efeitos próprios em Coverage,
+Confidence, Consolidation e condições de readiness.
+
+**Golden diferencial:** o replay `optional_seo_audit_replay` permanece
+canônico em 004 e compara à alternativa `SENSITIVITY_OPTIONAL_ABSENCE_NOT_APPLICABLE`.
+O novo scorer deve reproduzir os mesmos valores, coberturas e estados
+dessa alternativa, sem alterar o baseline físico. A AUD de referência
+teve 86,484962 no método 004 e 89,800752 no cenário N/A apenas como
+comparativo previamente executado; não assumir equivalência para outras AUDs.
+
+**Gate proporcional:** esta alteração modifica a interpretação numérica
+do scoring; executar testes focais do novo scorer, o teste determinístico
+SCORE-GEO-004 e o teste de paridade antes de declarar homologação.
+Uma execução de CI só deve ser atribuída ao SHA em que realmente ocorreu.
 
 ## Evidência física de 14/10/2026
 

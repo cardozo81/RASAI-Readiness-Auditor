@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from rasai.domain import DeviceContext, RuleExecution, RuleResult
-from rasai.score_geo import FEATURE_ORDER, SCORING_VERSION
+from rasai.score_geo import FEATURE_ORDER
 from rasai.scoring import DIMENSIONS, ScoringEngine, ScoringResult
 
 
@@ -64,11 +64,11 @@ class ScoreGeo004Engine:
             devices=devices,
         )
         dimensions = tuple(
-            replace(score, scoring_version=SCORING_VERSION)
+            replace(score, scoring_version="SCORE-GEO-004")
             for score in calculated.scores
         )
         overall = {
-            device: replace(score, scoring_version=SCORING_VERSION)
+            device: replace(score, scoring_version="SCORE-GEO-004")
             for device, score in calculated.overall_by_device.items()
         }
         return ScoringResult(dimensions, calculated.contributions, overall)

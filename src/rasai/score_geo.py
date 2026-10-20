@@ -1,7 +1,6 @@
-"""Canonical pre-release contract for SARI-001 / SCORE-GEO-004.
+"""Canonical pre-release contract for SARI-001 / SCORE-GEO-005.
 
-SCORE-GEO-004 remains the sole runtime scoring identifier while RASAi is still in
-pre-production. This module is the single source of truth for the current
+SCORE-GEO-005 is the current pre-production scoring identifier. This module is the single source of truth for the current
 hierarchical weighting model, rule-to-group mapping, evidence precedence and
 critical readiness gates.
 
@@ -19,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-SCORING_VERSION = "SCORE-GEO-004"
+SCORING_VERSION = "SCORE-GEO-005"
 OVERALL_AGGREGATION_VERSION = "HIERARCHICAL_WEIGHTED_READINESS_V1"
 DIMENSION_WEIGHT_VERSION = "SARI_DIMENSION_WEIGHTS_V1"
 GROUP_WEIGHT_VERSION = "SARI_GROUP_WEIGHTS_V1"
