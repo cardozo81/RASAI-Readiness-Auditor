@@ -40,3 +40,19 @@ somente se uma coleta opt-in física for necessária para esclarecer
 um caso que não possa ser decidido com os artefatos já registrados.
 Qualquer alteração de peso/regra BR-GEO-039/049 depende de ADR e
 versão metodológica próprias; nunca regravar scores históricos.
+
+## Observação tardia de FAQ SPA (contrato do piloto)
+
+Depois do único clique elegível, `faq_existing_page_pilot` admite no máximo
+900 ms adicionais de estabilização **somente do DOM da página já carregada**.
+A espera exige que o botão observado esteja expandido e que o painel de mesmo
+ID possua texto materializado. Ela não dispara nova navegação nem permite
+tráfego HTTP após o clique; a rota temporária bloqueia novas requisições.
+Um timeout não equivale a resposta editorial inexistente: o DOM final ainda
+é inspecionado pelo comparador e pode permanecer inconclusivo.
+
+No caminho de sucesso, o piloto devolve os hashes SHA-256 do HTML anterior e
+posterior e os instantes UTC observados; não se trata de recibo assinado.
+Falha de inspeção *após* o clique declara `action_performed=true`, evitando
+afirmar que nenhuma ação ocorreu. A saída **não** atesta mesma amostra da AUD,
+visibilidade por crawler, conformidade ou permissão de alterar score.

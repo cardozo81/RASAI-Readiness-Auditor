@@ -6,6 +6,7 @@ This is local diagnostic evidence, never crawler visibility or SARI scoring.
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from hashlib import sha256
 from typing import Any
 from urllib.parse import urlsplit
@@ -60,9 +61,11 @@ def inspect_existing_page_faq(
         route.abort()
 
     route_attached = False
+    action_performed = False
     try:
         context.route("**/*", abort_new_request)
         route_attached = True
+        before_utc = datetime.now(timezone.utc).isoformat()
         before = page.content()
         if len(before.encode("utf-8")) > _MAX_HTML_BYTES:
             return {**result, "reason": "DOM_EXCEEDS_LIMIT"}
@@ -89,9 +92,34 @@ def inspect_existing_page_faq(
         if not eligible_isolated_faq_disclosure(before, target_id):
             return {**result, "reason": "UNSAFE_OR_AMBIGUOUS_FAQ_ACTION_TARGET"}
         controls[0].click(timeout=1500)
+        action_performed = True
         if page.url != original_url or len(context.pages) != 1:
             return {**result, "reason": "NAVIGATION_OR_POPUP_AFTER_ACTION",
                     "action_performed": True}
+        # A CSR accordion may mount content after the click event returns.
+        # Permit a short bounded in-document settle period without navigating,
+        # permitting network requests or assuming the response will exist.
+        # A timeout remains descriptive: the post-action DOM is still recorded.
+        settle_timed_out = False
+        try:
+            page.wait_for_function(
+                """target => {
+                    const button = Array.from(document.querySelectorAll('button[aria-controls]'))
+                        .find(node => node.getAttribute('aria-controls') === target);
+                    const panel = document.getElementById(target);
+                    return button?.getAttribute('aria-expanded') === 'true'
+                        && Boolean(panel?.textContent?.trim());
+                }""",
+                arg=target_id, timeout=900, polling=50,
+            )
+        except Exception as exc:
+            if type(exc).__name__ != "TimeoutError":
+                raise
+            settle_timed_out = True
+        if page.url != original_url or len(context.pages) != 1:
+            return {**result, "reason": "NAVIGATION_OR_POPUP_AFTER_ACTION",
+                    "action_performed": True}
+        after_utc = datetime.now(timezone.utc).isoformat()
         after = page.content()
         if len(after.encode("utf-8")) > _MAX_HTML_BYTES:
             return {**result, "reason": "DOM_EXCEEDS_LIMIT_AFTER_ACTION",
@@ -113,9 +141,14 @@ def inspect_existing_page_faq(
             "after_state": comparison["later_state"],
             "before_sha256": sha256(before.encode("utf-8")).hexdigest(),
             "after_sha256": sha256(after.encode("utf-8")).hexdigest(),
+            "before_utc": before_utc,
+            "after_utc": after_utc,
+            "faq_settle_timeout_ms": 900,
+            "faq_settle_timed_out": settle_timed_out,
         }
     except Exception:
-        return {**result, "reason": "BROWSER_ACTION_OR_INSPECTION_FAILED"}
+        return {**result, "reason": "BROWSER_ACTION_OR_INSPECTION_FAILED",
+                "action_performed": action_performed}
     finally:
         if route_attached:
             try:
