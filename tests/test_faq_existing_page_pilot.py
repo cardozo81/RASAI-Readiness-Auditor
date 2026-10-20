@@ -159,7 +159,15 @@ document.querySelector('button').addEventListener('click', () => {
 
 
 def test_delayed_faq_without_answer_does_not_claim_materialized_text():
-    """#601: a bounded timeout is not proof of editorial absence."""
+    """#601: bounded wait expiry is not proof of editorial absence."""
+    html = """<!doctype html><html><body>
+<button type="button" aria-controls="faq-answer" aria-expanded="false">
+Sem resposta</button>
+<script>
+document.querySelector("button").addEventListener("click", () => {
+    document.querySelector("button").setAttribute("aria-expanded", "true");
+});
+</script></body></html>"""
     with sync_playwright() as pw:
         browser = pw.chromium.launch(
             channel=os.environ.get("RASAI_322_CHROME_CHANNEL") or None,
@@ -167,17 +175,49 @@ def test_delayed_faq_without_answer_does_not_claim_materialized_text():
         )
         try:
             context = browser.new_context(service_workers="block")
-            context.route("**/*", lambda route: route.abort())
+            requests = []
+            def fixture_route(route):
+                requests.append(route.request.url)
+                if route.request.url == _URL:
+                    route.fulfill(status=200, content_type="text/html", body=html)
+                else:
+                    route.abort()
+            context.route("**/*", fixture_route)
+            page = context.new_page()
+            page.goto(_URL, wait_until="load")
+            output = inspect_existing_page_faq(
+                page, target_id="faq-answer",
+                explicit_opt_in=True, isolated_context_acknowledged=True,
+            )
+            assert output["status"] == "LOCAL_FAQ_ACTION_OBSERVED_NOT_ATTESTED"
+            assert output["reason"] == "LATER_DOM_WITHOUT_RECOVERABLE_TEXT"
+            assert output["before_state"] == "COLLAPSED_UNMOUNTED"
+            assert output["after_state"] == "EXPANDED_UNMOUNTED"
+            assert output["faq_settle_timed_out"] is True
+            assert output["faq_settle_timeout_ms"] == 900
+            assert output["action_performed"] is True
+            assert output["crawler_discovery_verified"] is False
+            assert output["score_change_authorized"] is False
+            assert requests == [_URL]
+            context.close()
+        finally:
+            browser.close()
+
+
+def test_faq_action_requires_verifiable_http_document_identity():
+    """A DOM-only about:blank fixture never becomes an authorized click."""
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            channel=os.environ.get("RASAI_322_CHROME_CHANNEL") or None,
+            headless=True,
+        )
+        try:
+            context = browser.new_context(service_workers="block")
             page = context.new_page()
             page.set_content(
                 '<button type="button" aria-controls="faq-answer" '
                 'aria-expanded="false">Sem resposta</button>'
-                '<script>document.querySelector("button").addEventListener('
-                '"click", () => {document.querySelector("button").'
-                'setAttribute("aria-expanded", "true");});</script>'
             )
-            # about:blank has no verified physical page identity. The pilot
-            # must decline before interacting, regardless of its DOM content.
             output = inspect_existing_page_faq(
                 page, target_id="faq-answer",
                 explicit_opt_in=True, isolated_context_acknowledged=True,
