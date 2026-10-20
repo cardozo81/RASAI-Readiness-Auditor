@@ -188,9 +188,9 @@ Um documento cujo recibo omita a data é classificado
 `PRIMARY_COLLECTION_DATE_NOT_VERIFIED`, mesmo que possua HMAC válido.
 Outras alegações completas permanecem independentes no lote.
 
-O lote explicita `document_collection_date_policy=REQUIRED`; o legado,
+O lote explicita `document_collection_date_policy=REQUIRED`; o anterior,
 que preserva interoperabilidade dos recibos emitidos anteriormente, informa
-`LEGACY_OPTIONAL`. **O modo legado não comprova data de coleta**; não deve ser
+`LEGACY_OPTIONAL`. **O modo anterior não comprova data de coleta**; não deve ser
 usado como aceite de cadeia de custódia documental para alegações reguladas
 quando a data for material. A escolha do modo e a atestação da fonte oficial
 são atos do operador/revisor autorizado, nunca inferidos da página auditada,
