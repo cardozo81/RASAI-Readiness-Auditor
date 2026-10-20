@@ -1,11 +1,12 @@
 # ADR-FAQ-001 - fronteira observacional e escolha normativa BR-GEO-039/049
 
-**Estado:** PROPOSTA CONSERVADORA - DECISÃO HUMANA DE MÉTODO PENDENTE.
+**Estado:** APROVADA - OPÇÃO A, preservação normativa (20/10/2026).
+**Aceite formal:** operador aprovou expressamente `#651 seguir com a recomendação da opção A.`
+**Versão da decisão:** `ADR-FAQ-001 v1`; método vigente `SCORE-GEO-005` não muda.
 **Origem:** issue #651 (sucessora normativa de #601).
 **Escopo:** preservar a distinção entre observação de DOM e avaliação
 determinística sem promover comportamento de crawler ou reescrever AUD.
-**Importante:** este documento **não** aprova mudança de pontuação nem
-substitui a deliberação específica do operador solicitada na issue.
+**Decisão vinculante:** não alterar pontuação, histórico, pesos, fatores, estados de regra ou consumidores. Não representa homologação física de clique.
 
 ## Estados observacionais distintos de decisão de regra
 
@@ -20,9 +21,9 @@ substitui a deliberação específica do operador solicitada na issue.
 | Inexistência editorial alegada sem prova independente | NOT_VERIFIED no parecer consultivo | FAIL regulatório/editorial por ausência no DOM |
 | Fonte editorial independente e exaustiva que prova ausência | Elegível a parecer separado com proveniência | Reclassificação retroativa automática de scoring |
 
-### Opções normativas abertas à aprovação humana
+### Alternativas deliberadas
 
-**A - Preservar status/fator/weight atuais (recomendação conservadora).**
+**A - APROVADA: preservar status/fator/weight atuais.**
 Manter sem alteração a interpretação de resultados determinísticos
 `BR-GEO-039` e `BR-GEO-049` no contrato vigente SCORE-GEO-005.
 Observações sem prova suficiente continuam consultivas como
@@ -32,14 +33,14 @@ automaticamente transformadas em novos resultados de regra.
 Não recalcular, migrar, reabrir ou reclassificar AUD anterior.
 Não há nova versão numérica de score por decisão sem alteração.
 
-**B - Nova abstenção normativa em vez de WARNING.**
+**B - NÃO ADOTADA: nova abstenção normativa em vez de WARNING.**
 Exigiria nova versão de método e regra por condição, com
 normalização de peso, Coverage/Confidence, readiness gates e SARI,
 migração não destrutiva, golden/parity para múltiplas AUDs.
 Uma classe de observação UNKNOWN não pode ser equiparada
 automaticamente a `RuleResult.UNKNOWN` de novo motor.
 
-**C - Alterar fatores/pesos, condições ou FAIL/PASS.**
+**C - NÃO ADOTADA: alterar fatores/pesos, condições ou FAIL/PASS.**
 Exigiria calibração, fonte da definição de resposta editorial,
 análise antes/depois de score por dimensão e Overall,
 regressões, versão nova, regra de histórico e aceite humano expresso.
@@ -54,12 +55,27 @@ confirma a fronteira observacional em vigor nas funções
 não prova que a pessoa interagiu na mesma amostra original;
 a homologação física dessa condição permanece na #652.
 
-**Para aprovar esta ADR:** o responsável deve decidir especificamente
-qual alternativa A/B/C prevalece e, se B/C, indicar política exata de
-status/fator/peso/versão e gates de compatibilidade. Aprovação genérica
-para implementar backlog não escolhe resultados metodológicos.
-A issue #651 **permanece aberta** até tal deliberação e evidência
-suficiente. A #601 observacional já encerrada não é reaberta.
+### Efeito normativo e critérios de saída
 
-**Limite:** nenhum teste ou novo classificador normativo foi executado
-por esta proposta; o arquivo é apenas a preparação da decisão.
+A autorização formal escolheu **A**. Para BR-GEO-039/049 permanecem os
+status já produzidos por regras determinísticas: `WARNING` recebe
+`warning_factor=0.50`; `UNKNOWN` e `ERROR` de **RuleResult** seguem
+não avaliados no denominador medido e afetam Coverage conforme contrato.
+`UNKNOWN`/`NOT_VERIFIED` como evidência de FAQ são **observacionais**,
+sem conversão automática em resultado de regra, PASS, FAIL ou WARNING.
+DOM posterior a clique não prova indexação, e DOM sem resposta inicial
+não prova ausência editorial.
+
+Esta aprovação **não constitui alteração de método**: versão SCORE-GEO-005
+mantida, sem recalibração de scores, migração ou replay; SCORE-GEO-004
+histórico permanece reproduzível. Teste de paridade de regra WARNING,
+Coverage e pontuação da mesma entrada sem opções SEO alteradas em
+`tests/test_score_geo_v005_optional_seo.py` é gate focal; a CI do
+commit correspondente precisa ser comprovada antes de encerrar #651.
+Evidência real de clique no mesmo browser da AUD continua exigência
+**independente da #652**.
+
+Como nenhuma regra ou fator mudou, versão nova de scoring, golden de
+pontuação alterada e migração de AUD são **não aplicáveis** por decisão
+explícita; não afirmar que foram implementados. Qualquer mudança futura
+exige ADR, versão de scorer, golden e consentimento próprios.

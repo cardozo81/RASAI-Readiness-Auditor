@@ -102,3 +102,48 @@ def test_005_optionally_absent_robots_sitemap_canonical_no_pass_credit():
         assert effective.observed_value["source_rule_result"] == "WARNING"
         assert source.result is RuleResult.WARNING
         assert _effective_v005_execution(effective) == effective
+
+
+def test_faq_normative_option_a_keeps_existing_warning_semantics():
+    """No FAQ advisory-only observation may mutate 039/049 score inputs."""
+    from rasai.score_geo import rule_contract
+    from rasai.faq_transition_policy import compare_faq_dom_views
+
+    for rule, group in (
+        ("BR-GEO-039", "PRIMARY_ANSWERS"),
+        ("BR-GEO-049", "INTENT_GAPS"),
+    ):
+        contract = rule_contract(rule)
+        assert contract.warning_factor == 0.5
+        assert contract.scoring_group == group
+
+    observed = compare_faq_dom_views(
+        '<button aria-controls="faq-answer" aria-expanded="false">FAQ</button>',
+        '<button aria-controls="faq-answer" aria-expanded="true">FAQ</button>'
+        '<div id="faq-answer">Resposta observada depois</div>',
+        target_id="faq-answer",
+        before_url="https://example.test/faq",
+        later_url="https://example.test/faq",
+    )
+    assert observed["status"] == "DESCRIPTIVE_SNAPSHOT_PAIR_ONLY"
+    assert observed["score_change_authorized"] is False
+    assert observed["crawler_discovery_verified"] is False
+    assert observed["editorial_answer_absence_proven"] is False
+
+    persisted = (
+        _row(1, "BR-GEO-038", RuleResult.PASS, {}),
+        _row(2, "BR-GEO-039", RuleResult.WARNING, {}),
+        _row(3, "BR-GEO-048", RuleResult.PASS, {}),
+        _row(4, "BR-GEO-049", RuleResult.WARNING, {}),
+    )
+    assert _values(_score(persisted, 5)) == _values(_score(persisted, 4))
+    assert persisted[1].result is RuleResult.WARNING
+    assert persisted[3].result is RuleResult.WARNING
+
+    not_evidenced = (
+        _row(1, "BR-GEO-038", RuleResult.PASS, {}),
+        _row(2, "BR-GEO-039", RuleResult.UNKNOWN, {}),
+        _row(3, "BR-GEO-048", RuleResult.PASS, {}),
+        _row(4, "BR-GEO-049", RuleResult.UNKNOWN, {}),
+    )
+    assert _values(_score(not_evidenced, 5)) != _values(_score(persisted, 5))

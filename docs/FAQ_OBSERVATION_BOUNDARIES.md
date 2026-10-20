@@ -103,8 +103,10 @@ quando o vínculo físico for impossível.
 
 ## Referência para decisão normativa segregada - #651
 
-A observação do DOM continua somente consultiva. A política de
-status, fatores e pesos de BR-GEO-039/049 depende da decisão formal
-na proposta [ADR_FAQ_NORMATIVE_SEMANTICS.md](ADR_FAQ_NORMATIVE_SEMANTICS.md).
-A referência não autoriza mudar SCORE-GEO-005 nem reprocessar
-AUDs anteriores e não elimina a prova física independente de #652.
+A observação do DOM continua somente consultiva. A alternativa A foi
+**aprovada em 20/10/2026** na
+[ADR_FAQ_NORMATIVE_SEMANTICS.md](ADR_FAQ_NORMATIVE_SEMANTICS.md).
+BR-GEO-039/049 conservam status, fatores e pesos de SCORE-GEO-005.
+Observação UNKNOWN/NOT_VERIFIED não se transforma automaticamente em
+novo status de regra. Não reprocessar AUDs anteriores. A prova física
+de clique na mesma amostra da AUD segue independente na #652.
