@@ -67,15 +67,23 @@ def _package(tmp_path, projection, *, mutate_index=None, mutate_sari=None):
         full = mutate_index(full)
     if mutate_sari:
         sari = mutate_sari(sari)
+    # The real catalog_report_presentation._shell humanizes the finished
+    # document, after constructing the matrix. A synthetic package containing
+    # raw MOBILE tokens is not a representative generated HTML package.
+    from rasai.report_presentation import humanize_report_html
+
     for name, section, content in (
         ("index.html", "decision-matrix", full),
         ("sari.html", "scope", sari),
     ):
-        (report / name).write_text(
+        html = (
             "<html><head><script>const fake = '"
             "DECISION-EVIDENCE-604-001';</script></head>"
             "<body><main id='report-main'><section id='" + section + "'>"
-            + content + "</section></main></body></html>",
+            + content + "</section></main></body></html>"
+        )
+        (report / name).write_text(
+            humanize_report_html(html, page_name=name),
             encoding="utf-8",
         )
     entries = [
@@ -305,21 +313,12 @@ def test_600_humanized_report_cells_match_physical_index_and_sari_without_losing
     the same visible vocabulary but reject a changed numeric/scope cell.
     """
     from rasai import catalog_report_site
-    from rasai.report_presentation import humanize_report_html
     monkeypatch.setattr(
         catalog_report_site, "verify_catalog_report_package",
         lambda path: (True, ()),
     )
     projection = _projection()
-    root = _package(
-        tmp_path, projection,
-        mutate_index=lambda html: humanize_report_html(
-            html, page_name="index.html",
-        ),
-        mutate_sari=lambda html: humanize_report_html(
-            html, page_name="sari.html",
-        ),
-    )
+    root = _package(tmp_path, projection)
     index_html = (root / "report-catalog" / "index.html").read_text(
         encoding="utf-8",
     )
@@ -350,7 +349,6 @@ def test_600_humanization_does_not_normalize_canonical_source_identifiers(
     tmp_path, monkeypatch,
 ):
     from rasai import catalog_report_site
-    from rasai.report_presentation import humanize_report_html
     monkeypatch.setattr(
         catalog_report_site, "verify_catalog_report_package",
         lambda path: (True, ()),
@@ -358,15 +356,10 @@ def test_600_humanization_does_not_normalize_canonical_source_identifiers(
     original = _projection()
     root = _package(
         tmp_path, original,
-        mutate_index=lambda html: humanize_report_html(
-            html, page_name="index.html",
-        ).replace(
+        mutate_index=lambda html: html.replace(
             "<code>scores.OVERALL_READINESS</code>",
             "<code>scores.CONTENT_VALUE</code>",
             1,
-        ),
-        mutate_sari=lambda html: humanize_report_html(
-            html, page_name="sari.html",
         ),
     )
     result = inspect_decision_html_parity(root, original)
