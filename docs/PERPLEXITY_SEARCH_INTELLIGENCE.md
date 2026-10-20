@@ -812,3 +812,7 @@ case-insensitive, permanecendo N/D para ausência de atribuição
 de mercado, dispositivo ou intenção, nem justifica adicionar queries
 à resposta do provedor por inferência. Nenhuma pesquisa é iniciada
 por esta regra de pré-validação.
+
+### Proveniência literal de URLs devolvidas (#304)
+
+URLs retornadas pela Search API não são reparadas por `strip()` ou `str()` antes de serem persistidas. Campos não textuais, controles, espaços nas bordas, credenciais embutidas, backslash e porta inválida convertem a resposta em `INVALID_RESPONSE`, sem inventar correspondência entre fonte e URL auditada. Uma resposta HTTP 200 poderá continuar faturável; a correção não simula cobrança zero. Consultas válidas preservam URLs originais e sua interpretação GEO permanece observacional, sem alegar citação em resposta generativa.

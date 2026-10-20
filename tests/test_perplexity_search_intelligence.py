@@ -497,3 +497,31 @@ def test_perplexity_query_identity_preserves_distinct_explicit_queries(tmp_path)
         workspace, "SELECT run_id FROM perplexity_search_runs "
         "WHERE run_id='" + run.run_id + "'",
     )) == 1
+
+
+@pytest.mark.parametrize("invalid_url", [
+    " https://example.org/a",
+    "https://example.org/a ",
+    "https://@example.org/a",
+    "https://user@example.org/a",
+    "https://exa\\mple.org/a",
+    "https://example.org:0/a",
+    "https://example.org:invalid/a",
+    "https://examp\nle.org/a",
+    42,
+])
+def test_304_provider_source_url_is_not_silently_repaired(tmp_path, invalid_url):
+    """A paid response may be invalid; never store a sanitized counterfeit URL."""
+    workspace = _workspace(tmp_path)
+    def response(*_args):
+        return PerplexityHttpResponse(200, {}, json.dumps({
+            "results": [{"url": invalid_url, "title": "provider result"}],
+        }).encode("utf-8"))
+    run = execute_perplexity_search(
+        workspace, audit_id=AUDIT_ID, query="legitimate query",
+        env={API_KEY_ENV: "TEST_ONLY_PERPLEXITY_KEY"}, transport=response,
+    )
+    assert run.status == "INVALID_RESPONSE"
+    assert run.sources == ()
+    assert run.native_usage[0].billable is True
+    assert _db_rows(workspace, "SELECT * FROM perplexity_search_sources") == []

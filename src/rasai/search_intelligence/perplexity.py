@@ -278,9 +278,17 @@ def _validate_search_type(search_type: str) -> str:
 
 
 def _source_from_payload(position: int, raw: Mapping[str, Any]) -> PerplexitySource:
-    url = str(raw.get("url") or "").strip()
+    # Preserve the provider's literal URL: trimming or coercing values may
+    # convert malformed source provenance into an apparent exact GEO match.
+    url = raw.get("url")
+    if (not isinstance(url, str) or not url or len(url) > 8192
+            or url != url.strip() or "\\" in url
+            or any(ord(ch) <= 32 or ord(ch) == 127 for ch in url)):
+        raise ValueError("Perplexity result contains an invalid source URL")
     parsed = urlsplit(url)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+    if (parsed.scheme not in {"http", "https"} or not parsed.hostname
+            or parsed.username is not None or parsed.password is not None
+            or parsed.port == 0):
         raise ValueError("Perplexity result contains an invalid source URL")
     metadata = {
         str(key): value
