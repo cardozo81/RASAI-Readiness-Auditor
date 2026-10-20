@@ -108,7 +108,7 @@ def inspect_claim_review_batch(
         root = manifest_file.parent.resolve()
         seen: set[str] = set()
         for row in manifest["claims"]:
-            if (not isinstance(row, dict) or set(row) not in {_FIELDS, _FIELDS_WITH_SNAPSHOT}
+            if (not isinstance(row, dict) or frozenset(row) not in {_FIELDS, _FIELDS_WITH_SNAPSHOT}
                     or not isinstance(row["claim_id"], str)
                     or not row["claim_id"].strip()
                     or len(row["claim_id"]) > 128
