@@ -138,3 +138,39 @@ permanecem obrigações externas do revisor. Uma URL inválida torna
 **somente aquela alegação** não verificada; não invalida decisões
 autenticadas de outras alegações no pacote. Nenhum score, AUD ou CAT-03
 é modificado.
+
+
+## Ligação física facultativa das alegações ao texto da AUD (#603)
+
+O comando `python -m rasai.claim_review_batch --manifest packet/manifest.json
+--audit-directory audits/AUD-... --format html` acrescenta uma **verificação
+offline de correspondência de texto literal na amostra física**. Com a opção,
+cada item do manifesto deve identificar um `snapshot_id` persistido na AUD:
+
+```json
+{"claim_id":"C-001","claim_file":"claim.txt","document_file":"conditions.txt",
+ "receipt_file":"receipt.json","product_scope":"produto-versao","snapshot_id":"SNP-EXEMPLO"}
+```
+
+A ligação exige diretório `AUD-...` idêntico ao rótulo do manifesto;
+`audit.db` COMPLETED/COMPLETE sem sidecars, leitura somente imutável,
+`snapshot_id` único em todo o banco e pertencente à AUD, e
+`main_content_ref` fisicamente existente dentro de `artifacts/`
+sem symlink. O texto da alegação deve ocorrer **literalmente** nos bytes UTF-8
+do conteúdo principal daquela captura. O consumidor mede SHA-256 dos
+bytes SQLite antes/depois e de cada artefato antes/depois da operação,
+com limites de leitura, sem alterar os objetos. Resultado por item
+`audit_binding.status=TEXT_PRESENT_IN_SNAPSHOT_MAIN_CONTENT` traz
+`snapshot_id/page_id/main_content_sha256`; os demais dão NOT_VERIFIED.
+Sem selo físico global, o lote inteiro retorna NOT_VERIFIABLE.
+Uma assinatura documental válida sobre outro texto não é promovida ao
+estado corroborado **daquela AUD** quando a ligação física falha.
+
+Sem `--audit-directory` o fluxo de recibos anterior permanece compatível,
+mas o ID da AUD no manifesto continua **um rótulo não autenticado**.
+A associação de conteúdo literal NÃO comprova sessão/browser, indexação,
+veracidade, vigência contratual, identidade do emissor ou conformidade SUSEP.
+O estado assinado continua condicionado a chave privada externa e revisor
+autorizado; nenhum segredo ou artefato é gravado no report-catalog e nenhuma
+regra BR-GEO/SARI é recalculada. A homologação contra fonte primária vigente
+permanece dependência externa da #603.

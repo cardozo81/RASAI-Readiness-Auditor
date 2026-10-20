@@ -18,12 +18,14 @@ from rasai.claim_review_import_cli import (
     _read_local, _unique_pairs, _nonstandard_number,
 )
 from rasai.claim_review_receipt import verify_claim_review_receipt
+from rasai.claim_aud_binding import bind_claim_texts
 
 _MAX_MANIFEST = 32_768
 _MAX_CLAIMS = 50
 _FIELDS = frozenset({
     "claim_id", "claim_file", "document_file", "receipt_file", "product_scope",
 })
+_FIELDS_WITH_SNAPSHOT = _FIELDS | {"snapshot_id"}
 
 
 def _member_path(root: Path, value: object) -> Path:
@@ -61,6 +63,7 @@ def inspect_claim_review_batch(
     *,
     trusted_key: bytes,
     trusted_reviewer_ids: frozenset[str],
+    audit_directory: Path | None = None,
 ) -> dict[str, Any]:
     """Bounded batch of independently authenticated individual source reviews."""
     result: dict[str, Any] = {
@@ -68,6 +71,8 @@ def inspect_claim_review_batch(
         "status": "NOT_VERIFIABLE",
         "reason": "MANIFEST_OR_TRUST_BOUNDARY_UNVERIFIABLE",
         "audit_id_operator_label_only": None,
+        "audit_binding_mode": "NOT_REQUESTED",
+        "audit_db_sha256": None,
         "claims_total": None,
         "claims": [],
         "provider_requests": 0,
@@ -103,7 +108,7 @@ def inspect_claim_review_batch(
         root = manifest_file.parent.resolve()
         seen: set[str] = set()
         for row in manifest["claims"]:
-            if (not isinstance(row, dict) or set(row) != _FIELDS
+            if (not isinstance(row, dict) or set(row) not in {_FIELDS, _FIELDS_WITH_SNAPSHOT}
                     or not isinstance(row["claim_id"], str)
                     or not row["claim_id"].strip()
                     or len(row["claim_id"]) > 128
@@ -115,9 +120,17 @@ def inspect_claim_review_batch(
         # Structurally verified batch; invalid/missing individual evidence
         # abstains locally, never promotes another claim through association.
         entries = []
+        observed_claims = []
         for row in manifest["claims"]:
             identity = row["claim_id"]
             fallback = _unverified(identity)
+            # Independent from receipt validity, capture literal claim bytes
+            # for optional same-AUD read-only binding at the end of the batch.
+            observed_claims.append({
+                "claim_id": identity,
+                "snapshot_id": row.get("snapshot_id"),
+                "claim_text": None,
+            })
             try:
                 claim = _read_local(
                     _member_path(root, row["claim_file"]), limit=_MAX_TEXT,
@@ -132,6 +145,7 @@ def inspect_claim_review_batch(
                     object_pairs_hook=_unique_pairs,
                     parse_constant=_nonstandard_number,
                 )
+                observed_claims[-1]["claim_text"] = claim
                 if (not claim or claim != claim.strip() or not isinstance(envelope, dict)
                         or set(envelope) != {"review", "mac"}
                         or not isinstance(envelope["review"], dict)
@@ -168,10 +182,41 @@ def inspect_claim_review_batch(
                 })
             except (OSError, ValueError, TypeError, UnicodeError, KeyError):
                 entries.append(fallback)
+        binding_mode = "NOT_REQUESTED"
+        aud_digest = None
+        if audit_directory is not None:
+            linked = bind_claim_texts(
+                audit_directory, manifest["audit_id"], observed_claims,
+            )
+            if linked["status"] != "OBSERVATIONAL_BINDING_CHECKED":
+                # With opt-in linkage explicitly required, a valid signed
+                # claim for some other site is not sufficient proof for
+                # this AUD. No ambiguous rows or statuses are promoted.
+                return {
+                    **result, "reason": "AUD_BINDING_NOT_VERIFIABLE",
+                    "audit_binding_mode": "NOT_VERIFIED",
+                }
+            binding_mode = "OBSERVATIONAL_BINDING_CHECKED"
+            aud_digest = linked["source_audit_db_sha256"]
+            for claim_entry in entries:
+                binding = linked["claims"].get(claim_entry["claim_id"])
+                claim_entry["audit_binding"] = binding
+                if (not isinstance(binding, Mapping)
+                        or binding.get("status")
+                        != "TEXT_PRESENT_IN_SNAPSHOT_MAIN_CONTENT"):
+                    # The receipt remains an independent documentary fact,
+                    # but it cannot be promoted as a review of this AUD.
+                    claim_id = claim_entry["claim_id"]
+                    claim_entry.clear()
+                    claim_entry.update(_unverified(claim_id))
+                    claim_entry["basis"] = "AUD_CLAIM_TEXT_BINDING_NOT_PROVEN"
+                    claim_entry["audit_binding"] = binding
         return {
             **result, "status": "DOCUMENTARY_REVIEW_BATCH_OBSERVED",
             "reason": None,
             "audit_id_operator_label_only": manifest["audit_id"],
+            "audit_binding_mode": binding_mode,
+            "audit_db_sha256": aud_digest,
             "claims_total": len(entries), "claims": entries,
         }
     except (OSError, ValueError, TypeError, UnicodeError):
@@ -184,6 +229,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--format", choices=("json", "html"), default="json")
+    parser.add_argument("--audit-directory", type=Path, default=None,
+                        help="Opt-in literal claim binding to a physical AUD (offline)")
     args = parser.parse_args(argv)
     try:
         trusted_key = bytes.fromhex(
@@ -199,6 +246,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     projected = inspect_claim_review_batch(
         args.manifest, trusted_key=trusted_key,
         trusted_reviewer_ids=reviewers,
+        audit_directory=args.audit_directory,
     )
     if args.format == "html":
         from rasai.claim_review_batch_html import render_claim_review_batch_html

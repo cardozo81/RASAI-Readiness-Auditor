@@ -53,16 +53,27 @@ def render_claim_review_batch_html(projection: Mapping[str, Any]) -> str:
                 + "; Recibo: " + e(claim.get("reviewer_receipt_id"))
                 if authenticated else "N/D - não existe fonte primária autenticada"
             )
+            binding = claim.get("audit_binding")
+            link = (
+                e(binding.get("status")) + "; SNP: "
+                + e(binding.get("snapshot_id"))
+                + "; SHA-256 texto: " + e(binding.get("main_content_sha256"))
+                if isinstance(binding, Mapping)
+                and projection.get("audit_binding_mode")
+                == "OBSERVATIONAL_BINDING_CHECKED"
+                else "N/D — vínculo com AUD física não solicitado"
+            )
             rows.append(
                 "<tr><td>" + e(claim.get("claim_id")) + "</td><td>"
                 + e(_STATES[state]) + "</td><td>"
-                + provenance + "</td></tr>"
+                + provenance + "</td><td>" + link + "</td></tr>"
             )
     if not admitted:
         rows = []
     body = (
         "<table><thead><tr><th>Identificador da alegação</th>"
         "<th>Verificação documental</th><th>Fonte e versão</th>"
+        "<th>Vínculo textual à captura AUD</th>"
         "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
         if admitted else
         "<p>N/D - manifesto, recibos ou conjunto de alegações não comprovados.</p>"
@@ -79,7 +90,14 @@ def render_claim_review_batch_html(projection: Mapping[str, Any]) -> str:
         "<p>AUD (identificador informado pelo operador, sem vínculo físico "
         "comprovado neste relatório): " +
         e(projection.get("audit_id_operator_label_only") if admitted else "N/D")
-        + "</p>" + body
+        + "</p>" + (
+            "<p>Vínculo físico consultivo: " +
+            e(projection.get("audit_binding_mode") if admitted else "NOT_VERIFIED")
+            + ". Hash do SQLite AUD: " +
+            e(projection.get("audit_db_sha256") if admitted else None)
+            + ". Correspondência literal não autentica o conteúdo, a fonte oficial "
+            "ou o momento da sessão de navegador.</p>"
+        ) + body
         + "<p>Atestado documental independente não equivale a conformidade "
         "regulatória ou jurídica. Contradição indicada por revisor não é "
         "infração verificada. Texto comercial não confirmado não é afirmação "
