@@ -746,6 +746,10 @@ def test_cat08_ymyl_block_explains_why_content_needs_change(tmp_path: Path) -> N
     assert "SC-P12 - Autoria e responsabilidade" in html
     assert "Mudança recomendada" not in html
     assert "Remediação necessária ainda sem ação individual" in html
+    assert "não validada contra documentação oficial vigente" in html
+    assert "data-claim-review-state='CLAIM_UNVERIFIED_EXTERNAL'" in html
+    assert "não significa que a alegação seja falsa" in html
+    assert "Nenhuma verificação externa foi executada pelo relatório" in html
     ai_execution_state.clear_current_ai_execution()
 
 

@@ -106,3 +106,20 @@ não certifica emissor/SUSEP, não atualiza score ou auditoria histórica.
 A extensão atende o fluxo operacional local de múltiplas alegações; **o
 aceite integral de #603 permanece dependente** de fonte primária oficial
 vigente autenticada e ligação auditável ao texto da captura real.
+
+## Transparência documental no CAT-08 (projeção #603)
+
+Na análise profunda, quando há **contexto YMYL ativo**, o bloco de
+interpretação separa evidências e sugestões editoriais da **confirmação de
+alegações comerciais**. O estado público informa explicitamente
+`CLAIM_UNVERIFIED_EXTERNAL` — **não validado contra documentação oficial
+vigente nesta projeção** — sem afirmar que a alegação é falsa ou que existe
+descumprimento contratual/regulatório. Em contexto não YMYL, o aviso não é
+inserido artificialmente.
+
+O aviso não aceita como prova links para condições gerais sem documento
+autenticado. Uma promoção independente continua exigindo versão, URL oficial,
+emissor, escopo do produto, vigência, SHA-256 e recibo de revisão autenticado
+com correspondência à alegação. A projeção CAT-08 **não importa
+automaticamente** os recibos do lote consultivo nem altera conteúdo de AUD,
+RuleExecution, score SARI, metodologia ou recomendações já persistidas.
