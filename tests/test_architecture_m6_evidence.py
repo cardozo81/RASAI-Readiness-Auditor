@@ -452,3 +452,18 @@ def test_m6_advisory_reader_refuses_active_wal_without_creating_sidecars(tmp_pat
     assert (root / "audit.db").read_bytes() == before
     sidecar.unlink()
     assert len(read_audit_architecture_observations(tmp_path, "AUD-WAL")) == 1
+
+
+def test_646_cross_page_snapshot_id_cannot_be_promoted_into_architecture(tmp_path):
+    """Identity duplicates outside the AUD join must also prevent promotion."""
+    folder = tmp_path / "AUD-SCOPE"
+    folder.mkdir()
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute("CREATE TABLE pages(page_id TEXT, audit_id TEXT)")
+        con.execute("CREATE TABLE page_snapshots(snapshot_id TEXT,page_id TEXT,device TEXT,requested_url TEXT,final_url TEXT,architecture_classification TEXT,raw_artifact_ref TEXT,rendered_artifact_ref TEXT)")
+        con.execute("INSERT INTO pages VALUES ('P1','AUD-SCOPE')")
+        con.execute("INSERT INTO page_snapshots VALUES (?,?,?,?,?,?,?,?)", ("S1","P1","MOBILE","https://example.org/a","https://example.org/a","CSR_SPA","artifacts/raw.html","artifacts/dom.html"))
+        con.execute("INSERT INTO page_snapshots VALUES (?,?,?,?,?,?,?,?)", ("S1","P-OTHER","DESKTOP","https://example.org/b","https://example.org/b","MIXED","artifacts/raw.html","artifacts/dom.html"))
+    before=(folder/"audit.db").read_bytes()
+    assert read_audit_architecture_observations(tmp_path, "AUD-SCOPE") == ()
+    assert (folder/"audit.db").read_bytes() == before

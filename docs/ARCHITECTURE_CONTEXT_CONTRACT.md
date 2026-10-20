@@ -243,3 +243,5 @@ pública configurada, remover metadados/assinatura não promove arquitetura.
 Ausência de evidência produz `UNKNOWN` consultivo, nunca herança
 operacional de perfil ou mudança de índice. Não existe novo coletor nem
 mudança em score, M23/M25 ou AUD persistida.
+
+A ponte M6 rejeita ainda `snapshot_id` fisicamente repetido em `page_snapshots`, mesmo quando a linha duplicada pertence a outra página sem JOIN com a AUD; IDs de evidência não são resolvidos selecionando arbitrariamente a primeira linha retornada.

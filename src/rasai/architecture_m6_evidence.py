@@ -239,7 +239,9 @@ def read_audit_architecture_observations(
                 f"""SELECT ps.snapshot_id, ps.page_id, ps.device,
                           ps.requested_url, ps.final_url, ps.architecture_classification,
                           ps.raw_artifact_ref, ps.rendered_artifact_ref,
-                          {metadata_column}
+                          {metadata_column},
+                          (SELECT COUNT(*) FROM page_snapshots ps2
+                           WHERE ps2.snapshot_id=ps.snapshot_id) AS identity_count
                    FROM page_snapshots ps JOIN pages p ON ps.page_id=p.page_id
                    WHERE p.audit_id=?
                    ORDER BY ps.snapshot_id LIMIT ?""",
@@ -256,7 +258,7 @@ def read_audit_architecture_observations(
     ambiguous = set()
     snapshot_identities = {}
     ambiguous_snapshots = set()
-    for snapshot_id, page_id, device, requested, final, architecture, raw, rendered, metadata in rows:
+    for snapshot_id, page_id, device, requested, final, architecture, raw, rendered, metadata, identity_count in rows:
         identity = (snapshot_id, page_id, device, requested, final)
         # A snapshot ID is a physical identity within one AUD, not a
         # reusable label for different pages, devices or target URLs.
@@ -266,7 +268,8 @@ def read_audit_architecture_observations(
         if identity in seen:
             ambiguous.add(identity)
         seen.add(identity)
-        if (not all(isinstance(item, str) and item.strip() for item in identity)
+        if (identity_count != 1
+                or not all(isinstance(item, str) and item.strip() for item in identity)
                 or identity in ambiguous or architecture not in CLASSES
                 or not _safe_artifact_reference(raw)
                 or not _safe_artifact_reference(rendered)):
