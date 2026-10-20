@@ -183,6 +183,8 @@ class BrowserIdentityRenderer(BrowserRenderer):
             browser_version=self._browser.version,
             device=device,
         )
+        if callable(getattr(self, "_rasai_optin_faq_observer", None)):
+            options = {**options, "service_workers": "block"}
         first = self._render_once(url=url, profile=profile, options=options, identity=identity)
         if first.succeeded:
             return first

@@ -103,3 +103,38 @@ aberta, instale o opt-in com consentimento por URL/alvo, utilize uma
 AUD temporária e comprove a ancoragem da captura no audit.db. Não
 habilitar navegação pública de Chromium sem isolamento de rede físico
 comprovado; o route abort da ação não contém WebRTC/egress nativo.
+
+## Consentimento operacional e publicação física (#652)
+
+O comando `audit` aceita **somente quando solicitado** os parâmetros
+`--experimental-faq-explicit-consent`,
+`--experimental-faq-requested-url`,
+`--experimental-faq-allowed-final-url`,
+`--experimental-faq-device` (DESKTOP ou MOBILE),
+`--experimental-faq-target-id`,
+`--experimental-faq-collector-id` e
+`--experimental-faq-trusted-key-file`, além dos argumentos
+regulares da auditoria. URL inicial/final e alvo devem ser autorizados
+literalmente; a chave privada HMAC local requer 32 a 128 bytes.
+
+A opção é consumida uma vez, na primeira URL/dispositivo elegível,
+com `snapshot_id` reservado **antes** da navegação no processo isolado.
+Após captura do DOM e do screenshot canônicos, o mesmo objeto de
+página recebe a observação FAQ. Se o DOM tiver mudado, o clique é
+recusado em vez de inventar identidade física. O contexto desabilita
+service workers, bloqueia novas requisições HTTP e entra em modo
+offline antes do gesto. Uma resposta após clique nunca vira prova de
+indexação ou correção de pontuação.
+
+O recibo privado com identidade de captura, timestamps e hashes é
+assinado pelo coletor da sessão. Só depois de a auditoria ser selada
+e a fonte física corresponder ao recibo, o JSON derivado é publicado
+em `.rasai-faq-sidecars/<audit-id>/`; o SQLite da AUD e os relatórios
+originais não são modificados. O arquivo é sensível porque pode conter
+HTML pós-interação e deve ter guarda e retenção apropriadas.
+
+A assinatura prova atribuição à chave **confiada**, mas não é uma
+certificação independente de browser por serviço externo, nem prova
+comportamento de crawler, nem isolamento WebRTC/egress em todos os
+protocolos. A homologação física do alvo real autorizado continua
+exigindo confirmação do operador.

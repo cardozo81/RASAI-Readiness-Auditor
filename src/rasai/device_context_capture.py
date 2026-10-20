@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import re
+import time
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -868,6 +869,7 @@ def _install_browser_capture() -> None:
             )
 
             stage = "NAVIGATION"
+            navigation_started_ns = time.monotonic_ns()
             response = page.goto(url, wait_until="domcontentloaded", timeout=self.navigation_timeout_ms)
             stage = "SETTLE"
             try:
@@ -955,9 +957,13 @@ def _install_browser_capture() -> None:
                             rendered_html.encode("utf-8")
                         ).hexdigest(),
                         requested_url=url, final_url=page.url,
-                        device=str(profile.device),
+                        device=profile.device.value,
+                        navigation_started_monotonic_ns=navigation_started_ns,
+                        load_ms=0.0,
                     )
                     if isinstance(observed, dict):
+                        if observed.get("_private_witness") is not None:
+                            self._rasai_private_faq_witness = observed["_private_witness"]
                         # Strict fixed projection: never accept raw user HTML.
                         experimental_receipt = {
                             "status": str(observed.get("status", "UNVERIFIED"))[:80],

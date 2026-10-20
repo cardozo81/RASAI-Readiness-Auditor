@@ -71,6 +71,9 @@ def inspect_existing_page_faq(
     try:
         context.route("**/*", abort_new_request)
         route_attached = True
+        # Opt-in action: offline browser + abort newly initiated HTTP traffic.
+        # This does not independently certify native WebRTC egress containment.
+        context.set_offline(True)
         before_utc = datetime.now(timezone.utc).isoformat()
         before = page.content()
         if len(before.encode("utf-8")) > _MAX_HTML_BYTES:

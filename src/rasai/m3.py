@@ -310,6 +310,20 @@ def execute_m3(
                     context_total=total_contexts,
                     additional_network_requests=0,
                 )
+                faq_snapshot_id = None
+                configure_faq = getattr(
+                    session_renderer, "set_experimental_faq_scope", None,
+                )
+                if callable(configure_faq):
+                    from rasai.m3_experimental_faq_runtime import claim_for_snapshot
+                    proposed = new_id("SNP")
+                    faq_scope = claim_for_snapshot(
+                        audit_id=page.audit_id, page_id=page_id,
+                        requested_url=url, device=device.value, snapshot_id=proposed,
+                    )
+                    if faq_scope is not None:
+                        configure_faq(faq_scope)
+                        faq_snapshot_id = proposed
                 render_started = time.monotonic()
                 try:
                     if isinstance(session_renderer, BrowserIdentityRenderer):
@@ -371,6 +385,8 @@ def execute_m3(
                     workspace=workspace,
                     audit_device_context=tuple(devices),
                     m14=m14,
+                    **({"snapshot_id": faq_snapshot_id}
+                       if faq_snapshot_id is not None else {}),
                 )
                 snapshot_id = snapshot.snapshot_id
                 per_device[device] = snapshot.snapshot_id

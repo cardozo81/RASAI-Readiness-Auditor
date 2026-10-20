@@ -142,14 +142,29 @@ def _worker(
                 if command != "render":
                     continue
                 try:
+                    private_scope = message.get("experimental_faq_scope")
+                    renderer._rasai_private_faq_witness = None
+                    if isinstance(private_scope, dict):
+                        from rasai.m3_experimental_faq_runtime import isolated_worker_faq_observer
+                        renderer._rasai_optin_faq_observer = isolated_worker_faq_observer(private_scope)
+                    else:
+                        renderer._rasai_optin_faq_observer = None
                     device = DeviceContext(str(message["device"]))
                     result = renderer.render(
                         str(message["url"]),
                         device,
                         preflight_navigation_trace=message.get("preflight_navigation_trace"),
                     )
-                    connection.send({"ok": True, "result": result})
+                    private_witness = renderer._rasai_private_faq_witness
+                    renderer._rasai_private_faq_witness = None
+                    renderer._rasai_optin_faq_observer = None
+                    connection.send({
+                        "ok": True, "result": result,
+                        "experimental_faq_witness": private_witness,
+                    })
                 except BaseException as exc:
+                    renderer._rasai_private_faq_witness = None
+                    renderer._rasai_optin_faq_observer = None
                     try:
                         connection.send(
                             {
@@ -176,6 +191,14 @@ class IsolatedBrowserIdentityRenderer(BrowserRenderer):
         self._process: mp.Process | None = None
         self._connection: Connection | None = None
         self.browser_channel = "isolated-worker"
+        self._experimental_faq_scope: dict[str, Any] | None = None
+
+    def set_experimental_faq_scope(self, policy: dict[str, Any]) -> None:
+        if self._experimental_faq_scope is not None:
+            raise ValueError("another FAQ gesture already pending")
+        if not isinstance(policy, dict) or len(policy.get("trusted_key", b"")) < 32:
+            raise ValueError("invalid trusted FAQ gesture policy")
+        self._experimental_faq_scope = policy
 
     def __enter__(self) -> "IsolatedBrowserIdentityRenderer":
         self._ensure_worker()
@@ -252,6 +275,8 @@ class IsolatedBrowserIdentityRenderer(BrowserRenderer):
         if connection is None or process is None or not process.is_alive():
             self._drop_worker()
             return _failure(url, device, "BROWSER_WORKER_UNAVAILABLE", seconds=self.wallclock_seconds)
+        private_scope = self._experimental_faq_scope
+        self._experimental_faq_scope = None
         try:
             connection.send(
                 {
@@ -259,6 +284,7 @@ class IsolatedBrowserIdentityRenderer(BrowserRenderer):
                     "url": url,
                     "device": device.value,
                     "preflight_navigation_trace": preflight_navigation_trace,
+                    "experimental_faq_scope": private_scope,
                 }
             )
         except Exception:
@@ -274,6 +300,14 @@ class IsolatedBrowserIdentityRenderer(BrowserRenderer):
             self._drop_worker()
             return _failure(url, device, "BROWSER_WORKER_EXITED", seconds=self.wallclock_seconds)
         if isinstance(response, dict) and response.get("ok") and isinstance(response.get("result"), BrowserRenderResult):
+            if isinstance(private_scope, dict):
+                from rasai.m3_experimental_faq_runtime import keep_private_witness
+                keep_private_witness(
+                    audit_id=private_scope["audit_id"],
+                    witness=response.get("experimental_faq_witness"),
+                    trusted_key=private_scope["trusted_key"],
+                    collector_id=private_scope["collector_id"],
+                )
             return response["result"]
         reason = "BROWSER_WORKER_RENDER_EXCEPTION"
         if isinstance(response, dict) and response.get("error_type"):

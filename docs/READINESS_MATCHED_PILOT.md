@@ -101,3 +101,26 @@ feito em M3 e a prontidão em M25 são **amostras distintas**, salvo
 prova independente em contrário. A disponibilidade do callback não
 instala uma coleta universal: sua injeção, orçamento, pareamento A/B
 físico e armazenamento consultivo separado ainda dependem do operador.
+
+## Opt-in no coletor de experiência e sidecar após o selo (#322)
+
+A entrada `audit` permite `--experimental-readiness-architecture=CSR_SPA`
+(com alternativas `HYDRATED`, `MIXED`, `STATIC_OR_SSR`, `UNKNOWN`)
+e `--experimental-readiness-window-ms=1200` opcional
+(intervalo de 100 a 3000 ms). O catálogo de experiência precisa estar
+habilitado normalmente; em modo estático ou de arquitetura incerta,
+a sondagem é dispensada em vez de inventar prontidão.
+
+O coletor reserva uma identidade `UXA-*` antes de cada medição opt-in,
+usa o mesmo contexto e relógio monotônico e grava a mesma identidade
+na tabela canônica de amostras. O resultado consultivo é mantido
+em memória até depois da selagem do pacote. Antes da publicação,
+o publicador confere a linha física
+`audit_id/sample_id/page_id/device` no SQLite somente leitura e
+materializa um sidecar independente via mecanismo existente.
+
+Os dados históricos, fórmulas, índices Apdex e métricas base são
+inalterados; falhas/timeout permanecem censurados. Não é um novo
+índice de experiência. Para homologação metodológica ainda é
+necessária medição A/B física de overhead, no mesmo perfil e URL
+autorizados, antes de disponibilização irrestrita.

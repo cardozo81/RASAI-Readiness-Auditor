@@ -655,27 +655,7 @@ class PlaywrightSyntheticUxGateway:
 
             # Metrics and error counts are frozen BEFORE the advisory hook.
             # The hook acts on this same live page; it cannot supply a score.
-            self.last_advisory_observation = None
-            if self.advisory_same_page_observer is not None:
-                try:
-                    if self._advisory_sample_scope is None:
-                        raise ValueError("sample scope absent")
-                    self.last_advisory_observation = self.advisory_same_page_observer(
-                        page=page, live_context=context, requested_url=url,
-                        final_url=page.url, device=device,
-                        navigation_started_monotonic_ns=started_ns,
-                        load_ms=load_boundary_ms,
-                        **self._advisory_sample_scope,
-                    )
-                except Exception:
-                    self.last_advisory_observation = {
-                        "status": "EXPERIMENTAL_OBSERVER_ERROR",
-                        "score_change_authorized": False,
-                    }
-                finally:
-                    self._advisory_sample_scope = None
-
-            return UxMeasurement(
+            frozen_measurement = UxMeasurement(
                 status=status,
                 user_action_duration_ms=user_action_ms,
                 navigation_duration_ms=navigation_duration_ms,
@@ -707,6 +687,28 @@ class PlaywrightSyntheticUxGateway:
                 cpu_method=cpu_method,
                 network_method=network_method,
             )
+
+            self.last_advisory_observation = None
+            if self.advisory_same_page_observer is not None:
+                try:
+                    if self._advisory_sample_scope is None:
+                        raise ValueError("sample scope absent")
+                    self.last_advisory_observation = self.advisory_same_page_observer(
+                        page=page, live_context=context, requested_url=url,
+                        final_url=page.url, device=device,
+                        navigation_started_monotonic_ns=started_ns,
+                        load_ms=load_boundary_ms,
+                        **self._advisory_sample_scope,
+                    )
+                except Exception:
+                    self.last_advisory_observation = {
+                        "status": "EXPERIMENTAL_OBSERVER_ERROR",
+                        "score_change_authorized": False,
+                    }
+                finally:
+                    self._advisory_sample_scope = None
+
+            return frozen_measurement
         except PlaywrightError as exc:
             return _invalid("MEASUREMENT_ERROR", exc, cpu_method, network_method)
         except Exception as exc:

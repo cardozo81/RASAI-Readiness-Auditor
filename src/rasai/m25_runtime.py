@@ -37,11 +37,25 @@ def consume_pending_config() -> ExperienceApdexConfig:
 
 def execute_pending_m25(*, audit_id: str, workspace: AuditWorkspace) -> M25ExecutionResult | None:
     config = consume_pending_config()
+    from rasai.m25_experimental_probe_runtime import (
+        consume_one_shot_readiness, experimental_gateway_factory,
+        forget_experimental_readiness,
+    )
+    policy = consume_one_shot_readiness()
     if not config.enabled:
+        forget_experimental_readiness(audit_id)
         return None
     try:
-        return execute_m25_experience(audit_id=audit_id, workspace=workspace, config=config)
+        kwargs = {}
+        if policy is not None:
+            kwargs["gateway_factory"] = lambda: experimental_gateway_factory(
+                session_mode=config.session_mode, policy=policy,
+            )
+        return execute_m25_experience(
+            audit_id=audit_id, workspace=workspace, config=config, **kwargs,
+        )
     except Exception as exc:
+        forget_experimental_readiness(audit_id)
         try_append_operational_event(
             workspace,
             "M25_UX_RUNTIME_FAILURE",

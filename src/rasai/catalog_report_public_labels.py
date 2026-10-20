@@ -6,6 +6,11 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    # Opt-in physical receipt/readiness fail-closed states.
+    "FAQ_EXPLICIT_SCOPE_MISMATCH": "URL final, solicitada ou dispositivo não corresponde ao consentimento",
+    "EXPERIMENTAL_SAME_PAGE_SCOPE_NOT_VERIFIED": "Contexto da página física experimental não confirmado",
+    "EXPERIMENTAL_PROVENANCE_NOT_VERIFIED": "Proveniência física da amostra não verificável",
+    "EXPERIMENTAL_PROBE_UNAVAILABLE": "Sondagem de conteúdo indisponível sem alterar os índices",
     # Joint FAQ/content-readiness: advisory witness never certifies AUD session.
     "EXPERIMENTAL_OBSERVER_ERROR": "Falha isolada na observação experimental, sem alteração das métricas homologadas",
     "CAPTURED_AUD_DOM_DOES_NOT_MATCH_LIVE_PAGE": "O conteúdo capturado não corresponde à página viva antes da interação",
