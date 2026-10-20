@@ -62,6 +62,28 @@ def read_faq_snapshot_scopes(
         }
         if not {"page_id", "audit_id"}.issubset(page_columns):
             return (), False, "MISSING_PAGES_SCHEMA"
+        # A duplicate snapshot outside the 12-row display limit can still
+        # collide with a capture in this AUD. A complete identity census is
+        # required before emitting any audit-level FAQ counts.
+        ambiguous = connection.execute(
+            "SELECT 1 FROM page_snapshots x "
+            "WHERE x.snapshot_id IN ("
+              "SELECT s.snapshot_id FROM page_snapshots s "
+              "JOIN pages p ON p.page_id=s.page_id WHERE p.audit_id=?) "
+            "GROUP BY x.snapshot_id HAVING COUNT(*) != 1 LIMIT 1",
+            (audit_id,),
+        ).fetchone()
+        if ambiguous:
+            return (), False, "AMBIGUOUS_SNAPSHOT_ID"
+        invalid = connection.execute(
+            "SELECT 1 FROM page_snapshots s "
+            "JOIN pages p ON p.page_id=s.page_id "
+            "WHERE p.audit_id=? AND "
+            "(s.snapshot_id IS NULL OR TRIM(s.snapshot_id)='') LIMIT 1",
+            (audit_id,),
+        ).fetchone()
+        if invalid:
+            return (), False, "AMBIGUOUS_SNAPSHOT_ID"
         optional = [
             "s." + name if name in columns else "NULL"
             for name in ("requested_url", "final_url", "device")

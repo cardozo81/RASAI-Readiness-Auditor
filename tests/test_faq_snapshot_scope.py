@@ -87,7 +87,7 @@ def test_601_legacy_schema_keeps_observation_but_scope_is_nd(tmp_path):
     assert "<code>SNAP</code>" in report
     assert "<code>PAGE</code>" in report
     assert "<td>N/D</td>" in report
-    assert "não comprova ausência editorial" in report.lower()
+    assert "não prova ausência editorial" in report.lower()
 
 
 def test_601_invalid_scope_metadata_never_becomes_verified_url(tmp_path):
@@ -128,3 +128,23 @@ def test_601_duplicate_beyond_display_limit_invalidates_whole_source(tmp_path):
     assert "Snapshot IDs ausentes ou duplicados: N/D" in faq_observation_html(
         db, "AUD-FAQ-SCOPE",
     )
+
+
+def test_601_duplicate_entirely_outside_display_limit_fails_closed(tmp_path):
+    db = _audit(tmp_path)
+    with sqlite3.connect(db) as con:
+        for number in range(2, 16):
+            con.execute(
+                "INSERT INTO page_snapshots VALUES (?,?,?,?,?,?)",
+                (f"SNP-{number:02}", "PAGE-1", "artifacts/rendered/missing.html",
+                 "https://site.test/faq", "https://site.test/faq", "mobile"),
+            )
+        # SNP-14 is not among the first 13 ordered display rows.
+        con.execute(
+            "INSERT INTO page_snapshots VALUES (?,?,?,?,?,?)",
+            ("SNP-14", "PAGE-1", "artifacts/rendered/missing.html",
+             "https://site.test/faq", "https://site.test/faq", "mobile"),
+        )
+    report = faq_observation_html(db, "AUD-FAQ-SCOPE")
+    assert "Snapshot IDs ausentes ou duplicados: N/D" in report
+    assert "Foram identificados" not in report
