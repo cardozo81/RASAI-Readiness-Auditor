@@ -17,6 +17,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("second_audit_id", help="second selected AUD-* marker")
     parser.add_argument("--audits-root", default="audits", help="directory containing AUD workspaces")
     parser.add_argument(
+        "--comparison-mode",
+        choices=("SAME_URL_LONGITUDINAL", "SAME_DOMAIN_COMPARATIVE"),
+        default="SAME_URL_LONGITUDINAL",
+        help="strict same-URL CONS-3 (default), or standalone same-host CDOM",
+    )
+    parser.add_argument(
+        "--additional-audit-id", action="append", default=[],
+        help="extra explicit source AUD for same-domain comparison (2..100)",
+    )
+    parser.add_argument(
+        "--verify-source-bytes", action="store_true",
+        help="required for same-domain comparison: bounded physical SHA-256",
+    )
+    parser.add_argument(
         "--selection-mode",
         choices=("ALL", "SUCCESS_ONLY", "MANUAL"),
         default="ALL",
@@ -49,6 +63,40 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("--ai-model/--ai-reasoning exigem --specialist-ai")
     if args.ai_timeout_seconds <= 0:
         raise SystemExit("--ai-timeout-seconds deve ser > 0")
+
+    if args.comparison_mode == "SAME_DOMAIN_COMPARATIVE":
+        # Never pass different URLs through the production CONS-3 selector,
+        # history generator, AI routing or an implicit index refresh.
+        if args.selection_mode != "ALL" or args.manual_audit_id:
+            raise SystemExit("SAME_DOMAIN_COMPARATIVE não aceita seleção longitudinal")
+        if args.specialist_ai or args.ai_provider.strip().lower() != "none" or any(
+            (args.ai_model, args.ai_reasoning)
+        ):
+            raise SystemExit("SAME_DOMAIN_COMPARATIVE não admite IA ou provedores")
+        if not args.verify_source_bytes:
+            raise SystemExit("SAME_DOMAIN_COMPARATIVE exige --verify-source-bytes")
+        import sqlite3
+        from rasai.consolidation.domain_comparative_package import (
+            materialize_same_domain_package,
+        )
+        try:
+            outcome = materialize_same_domain_package(
+                Path(args.audits_root),
+                (args.first_audit_id, args.second_audit_id, *args.additional_audit_id),
+                verify_source_bytes=True,
+            )
+        except (ValueError, OSError, sqlite3.DatabaseError) as exc:
+            raise SystemExit(f"Comparação não publicada: {exc}") from exc
+        print(f"CDOM: {outcome['package_id']}")
+        print(f"Relatório: {outcome['html_path']}")
+        print(f"Manifesto: {outcome['manifest_path']}")
+        print(f"Resultado: {outcome['status']}")
+        print("Comparação descritiva entre URLs: sem deltas de score, Apdex ou CWV.")
+        return 0
+    if args.additional_audit_id or args.verify_source_bytes:
+        raise SystemExit(
+            "--additional-audit-id/--verify-source-bytes exigem SAME_DOMAIN_COMPARATIVE"
+        )
 
     from rasai.consolidation.index import ConsolidationIndex
     from rasai.consolidation.selection import resolve_selection

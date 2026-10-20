@@ -1090,6 +1090,51 @@ def _generate(
             _open(result.report_dir)
 
 
+def _domain_comparative(root: Path) -> None:
+    """Create opt-in CDOM without touching the legacy CONS-3 time series."""
+    import sqlite3
+    from .domain_comparative_package import materialize_same_domain_package
+
+    _clear()
+    print(title_text("COMPARAÇÃO DE URLs DO MESMO DOMÍNIO") + "\n")
+    print("SAME_DOMAIN_COMPARATIVE: host/origem e dispositivo iguais, URLs diferentes.")
+    print("Sem scores comparativos, Apdex/CWV, série longitudinal, IA ou rede.")
+    print("Exige índice CONS existente e AUDs físicas completas e estáveis.")
+    print("SHA-256 dos arquivos audit.db, orçamento combinado de 512 MiB.\n")
+    first = input("Primeira AUD (AUD-*; ENTER cancela): ").strip()
+    if not first:
+        return
+    second = input("Segunda AUD (AUD-*; ENTER cancela): ").strip()
+    if not second:
+        return
+    extra = input("Outras AUDs separadas por vírgula (opcional): ").strip()
+    audit_ids = (first, second, *(part.strip() for part in extra.split(",") if part.strip()))
+    print("\nFontes: " + ", ".join(audit_ids))
+    if input("Criar pacote CDOM isolado? Digite SIM para autorizar: ").strip().upper() != "SIM":
+        print("Cancelado sem materializar pacote.")
+        _pause()
+        return
+    try:
+        result = materialize_same_domain_package(
+            root, audit_ids, verify_source_bytes=True,
+        )
+    except (ValueError, OSError, sqlite3.DatabaseError) as exc:
+        print("Comparação incompatível/indisponível: " + str(exc))
+        print("Confira índice CONS local, fontes AUD concluídas e URLs elegíveis.")
+        _pause()
+        return
+    print("\nPacote: " + str(result["package_id"]))
+    print("Relatório: " + str(result["html_path"]))
+    print("Manifesto: " + str(result["manifest_path"]))
+    print("Estado: " + str(result["status"]))
+    print("Não interpretar esta comparação como evolução da mesma página.")
+    if input("Abrir relatório no navegador? (S/N): ").strip().upper() == "S":
+        opened, message = _open(Path(result["html_path"]))
+        if not opened:
+            print("Não foi possível abrir automaticamente: " + message)
+    _pause()
+
+
 def run(
     audits_root: str | Path,
     *,
@@ -1106,6 +1151,7 @@ def run(
         print("RELATÓRIOS CONSOLIDADOS\n")
         print("1. Gerar novo consolidado")
         print("2. Histórico de consolidados")
+        print("3. Comparar URLs distintas do mesmo domínio (CDOM)")
         print("V. Voltar")
         raw = input("Escolha: ").strip().upper()
         if raw == "V":
@@ -1122,3 +1168,5 @@ def run(
             )
         elif raw == "2":
             _history(root)
+        elif raw == "3":
+            _domain_comparative(root)

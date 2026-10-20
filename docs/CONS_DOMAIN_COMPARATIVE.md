@@ -356,3 +356,57 @@ A fonte original da AUD e os motores homologados
 permanecem inalterados. Para autenticacao forte de
 conteudo, usar o contrato CDOM-v2 com hashes fisicos
 ja existente; a previa analitica nao atesta isso.
+
+## Integração operacional de modos mutuamente exclusivos (20/10/2026)
+
+A modalidade `SAME_URL_LONGITUDINAL` continua sendo a série temporal
+canônica e inalterada do CONS-3. A modalidade `SAME_DOMAIN_COMPARATIVE`
+é **opt-in**, gera apenas um pacote versionado CDOM independente
+(`consolidated-domain/CDOM-*/manifest.json` e `report.html`) e não
+promove URLs distintas a dois instantes da mesma página.
+
+### Console
+
+No menu **Relatórios Consolidados**, selecionar **3. Comparar URLs
+distintas do mesmo domínio**. Informar pelo menos duas AUDs e
+eventualmente IDs adicionais. A criação exige confirmação literal
+`SIM`; posteriormente, pode-se abrir o HTML sem reexecutar coleta.
+Se o índice analítico local ainda não existir, a operação informa o
+impedimento e não o recria automaticamente.
+
+### CLI
+
+```powershell
+rasai consolidate AUD-PRIMEIRA AUD-SEGUNDA --audits-root .\audits `
+  --comparison-mode SAME_DOMAIN_COMPARATIVE --verify-source-bytes
+```
+
+É possível repetir `--additional-audit-id AUD-TERCEIRA`, limitado
+a cem AUDs. O caminho exige `--verify-source-bytes` e recusa
+IA/provedor e seleção longitudinal de intermediárias (MANUAL ou
+SUCCESS_ONLY). O SHA-256 local tem orçamento combinado de 512 MiB e
+a verificação é refeita na fronteira de publicação. Nenhuma AUD é
+modificada; a saída é um novo pacote derivado idempotente e isolado.
+
+O comando anterior, sem `--comparison-mode`, mantém `CONS-3` estrito
+pela mesma URL e mesmo dispositivo; nunca converte automaticamente
+erros de compatibilidade em comparações por domínio.
+
+### Método aprovado para comparação descritiva
+
+O escopo SAME_DOMAIN exige exatamente o mesmo hostname, esquema,
+porta e dispositivo. Duas URLs (inclusive caminhos diferentes) são
+dois universos de página, não uma série. São exibidos separadamente
+IDs, URLs, UTC, fingerprint do universo e contexto da fonte, mas
+deltas de SARI/SCORE-GEO, Apdex M23/M25, PageSpeed/CrUX, FAQ e GEO
+são **N/D**, sem inferência causal, eficácia ou ganho de desempenho.
+Equivalência de registrable-domain, subdomínio ou cross-device não
+é aprovada. Não há consulta a IA, motor externo, recálculo de score,
+regeneração de CONS-3 ou mutação do índice analítico nesta rota.
+O SHA-256 do arquivo local não equivale a certificado de autoria
+da auditoria: ausência de ancoragem externa deve continuar explícita.
+
+A homologia física de AUDs reais permanece uma prova independente
+das fixtures. Os testes de modo operacional devem verificar a separação
+entre geradores, ausência de IA/index refresh, rejeição sem opt-in
+e continuidade da seleção longitudinal anterior.
