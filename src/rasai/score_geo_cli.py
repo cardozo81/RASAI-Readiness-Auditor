@@ -1,4 +1,4 @@
-"""CLI inspection for the current SCORE-GEO-004 scoring contract."""
+"""CLI inspection for the current SCORE-GEO-005 scoring contract."""
 from __future__ import annotations
 
 import argparse

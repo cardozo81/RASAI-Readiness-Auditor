@@ -1082,7 +1082,7 @@ falha funcional), o gate registra a quantidade e
 conforme suas políticas; o diagnóstico não grava defaults no INI nem
 ativa catálogos para forçar aprovação. Essa abstenção retorna exit 2,
 solicitando reconciliação operacional se o objetivo é homologar toda a
-matriz de inputs, sem confundir legado com erro de parser.
+matriz de inputs, sem confundir anterior com erro de parser.
 
 Os identificadores das variáveis ou valores faltantes não são
 serializados no bloco de aceite, apenas contagem e classificação.
