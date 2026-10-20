@@ -60,6 +60,15 @@ def _web_metric_rows(
 
     row = m._web_observation(database, audit_id, connection=connection)
     out: list[Sequence[Any]] = []
+    # CWV percentiles describe a field population, not the Lighthouse
+    # laboratory URL sample. Fail closed on missing/unknown scope.
+    field_scope = str(row.get("field_scope") or "").strip().upper()
+    if field_scope in {"ORIGIN", "ORIGIN_ONLY"}:
+        field_note = "CrUX de campo · ORIGIN (origem agregada; não é a URL específica)"
+    elif field_scope == "URL":
+        field_note = "CrUX de campo · URL (URL observada pela fonte)"
+    else:
+        field_note = "CrUX de campo · escopo não verificado (não atribuir à URL)"
     for field, label, unit in m._WEB_METRICS:
         if field not in row or row[field] is None:
             continue
@@ -71,9 +80,15 @@ def _web_metric_rows(
                 value = str(value)
         else:
             value = m._fmt_number(value, unit)
-        out.append((label, value, "Medição persistida"))
+        if field in {"lcp_p75_ms", "inp_p75_ms", "cls_p75"}:
+            evidence_scope = field_note
+        elif field.endswith("_score") or "_lab" in field:
+            evidence_scope = "Lighthouse · laboratório (execução pontual)"
+        else:
+            evidence_scope = "Medição persistida (população não especificada)"
+        out.append((label, value, evidence_scope))
     if row.get("cwv_assessment"):
-        out.append(("Core Web Vitals", _assessment_label(row.get("cwv_assessment")), "Dados de campo"))
+        out.append(("Core Web Vitals", _assessment_label(row.get("cwv_assessment")), field_note))
     return out
 
 

@@ -1449,3 +1449,44 @@ def test_600_serp_depth_is_local_readonly_and_rejects_duplicate_foreign_identity
     assert _overview_serp_depth(db, "AUD-MAIN") is None
     assert db.read_bytes() == conflicting
     assert before != conflicting
+
+
+
+@pytest.mark.parametrize(
+    ("field_scope", "expected_source"),
+    [
+        ("ORIGIN", "CrUX de campo · ORIGIN (origem agregada; não é a URL específica)"),
+        ("URL", "CrUX de campo · URL (URL observada pela fonte)"),
+        (None, "CrUX de campo · escopo não verificado (não atribuir à URL)"),
+    ],
+)
+def test_600_final_metric_rows_do_not_attribute_origin_cwv_to_url(
+    tmp_path: Path, field_scope: str | None, expected_source: str,
+) -> None:
+    """#600: persisted CrUX scope is visible on every field summary row."""
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE web_performance_observations("
+            "audit_id TEXT, field_source TEXT, field_scope TEXT, "
+            "performance_score REAL, lcp_lab_ms REAL, lcp_p75_ms REAL, "
+            "inp_p75_ms REAL, cls_p75 REAL, cwv_assessment TEXT)"
+        )
+        con.execute(
+            "INSERT INTO web_performance_observations VALUES (?,?,?,?,?,?,?,?,?)",
+            ("AUD-600", "CRUX_API", field_scope, 1.0, 25015.0,
+             4357.0, 415.0, 0.89, "FAIL"),
+        )
+    values = {str(label): (str(value), str(source))
+              for label, value, source in _web_metric_rows(db, "AUD-600")}
+    for label in ("LCP de campo (p75)", "INP de campo (p75)",
+                  "CLS de campo (p75)", "Core Web Vitals"):
+        assert values[label][1] == expected_source
+    assert values["Lighthouse · Desempenho"][0] == "1 / 100"
+    assert values["Lighthouse · Desempenho"][1] == (
+        "Lighthouse · laboratório (execução pontual)"
+    )
+    assert values["LCP de laboratório"][1] == (
+        "Lighthouse · laboratório (execução pontual)"
+    )
+    assert values["Core Web Vitals"][0] == "Não aprovado"

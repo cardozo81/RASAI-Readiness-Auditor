@@ -28,3 +28,15 @@ canônica permanecem distintos, sem recalcular SCORE-GEO-004.
 - Testes são offline; sem browser, rede, APIs pagas ou reprocessamento.
 - A #600 segue sujeita aos requisitos integrais de #601/#602 e aceite
   visual previsto no seu escopo.
+
+## Origem da população nos resumos web (#600)
+
+A tabela reduzida de métricas de Web Performance discrimina os percentis
+CrUX de campo da execução Lighthouse de laboratório. Quando o registro
+persistido informa `field_scope=ORIGIN`, exibe explicitamente que os
+percentis e o resultado CWV se referem à **origem agregada**, não à URL
+específica. Para `field_scope=URL`, identifica a URL observada pela
+fonte. Sem escopo verificável, usa **escopo não verificado** e não
+atribui indicadores à URL por inferência. A mesma tabela rotula scores e
+marcos lab como execução pontual. Não altera dados brutos, scores SARI,
+origens de amostragem, classificação CrUX nem coleta M21.
