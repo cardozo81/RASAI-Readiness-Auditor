@@ -428,7 +428,8 @@ def test_console_load_reports_unknown_ini_section_without_leaking_values(
     )
     monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS", raising=False)
     result = console_settings.load_console_config(SearchConsoleState(), ini)
-    assert any("unexpected_private_section" in note for note in result.warnings)
+    assert any(note.startswith("INI: seção não reconhecida") for note in result.warnings)
+    assert "unexpected_private_section" not in repr(result.warnings)
     assert "DO_NOT_DISCLOSE_523" not in repr(result.warnings)
     assert os.environ["RASAI_SERP_MAX_REQUESTS"] == "9"
 
@@ -561,3 +562,61 @@ def test_default_console_config_path_rejects_final_ini_symlink(tmp_path, monkeyp
             assert target.read_bytes() == before
         else:
             assert not target.exists()
+
+
+
+def test_523_unowned_nonsecret_ini_section_marks_dirty_without_disclosing_name(tmp_path):
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    source = tmp_path / "section.ini"
+    source.write_text(
+        "[sensitive-section-name-DO_NOT_PRINT]\n"
+        "general_value=SECRET_DO_NOT_PRINT\n"
+        "[console]\nmax_pages=4\n", encoding="utf-8",
+    )
+    initial = source.read_bytes()
+    state = SearchConsoleState()
+    result = console_settings.load_console_config(state, source)
+    assert state.max_pages == 4
+    assert state.config_dirty is True
+    assert any(note.startswith("INI: seção não reconhecida") for note in result.warnings)
+    assert "DO_NOT_PRINT" not in repr(result.warnings)
+    assert source.read_bytes() == initial
+
+
+def test_523_unknown_secret_key_name_never_appears_in_loader_warnings(tmp_path):
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    source = tmp_path / "bad-secret.ini"
+    source.write_text(
+        "[environment]\nANOTHER_API_KEY=DO_NOT_PRINT\n"
+        "[console]\nSOME_PASSWORD=DO_NOT_PRINT\n", encoding="utf-8",
+    )
+    initial = source.read_bytes()
+    state = SearchConsoleState()
+    result = console_settings.load_console_config(state, source)
+    assert state.config_dirty is True
+    assert any(note.startswith("environment: variável sensível") for note in result.warnings)
+    assert any(note.startswith("console: campo sensível") for note in result.warnings)
+    assert "DO_NOT_PRINT" not in repr(result.warnings)
+    assert "ANOTHER_API_KEY" not in repr(result.warnings)
+    assert "SOME_PASSWORD" not in repr(result.warnings)
+    assert source.read_bytes() == initial
+
+
+def test_523_ini_default_section_is_unrestored_and_not_clean(tmp_path):
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    source = tmp_path / "default.ini"
+    source.write_text(
+        "[DEFAULT]\nRASAI_SERP_MAX_REQUESTS=999\n"
+        "[console]\nmax_pages=4\n", encoding="utf-8",
+    )
+    initial = source.read_bytes()
+    state = SearchConsoleState()
+    result = console_settings.load_console_config(state, source)
+    assert state.max_pages == 4
+    assert state.config_dirty is True
+    assert any(note.startswith("DEFAULT:") for note in result.warnings)
+    assert "999" not in repr(result.warnings)
+    assert source.read_bytes() == initial

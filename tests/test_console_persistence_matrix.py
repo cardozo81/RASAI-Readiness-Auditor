@@ -293,6 +293,8 @@ def test_console_loader_does_not_apply_inherited_ini_default_values(tmp_path):
         assert os.environ["RASAI_WEB_PERFORMANCE"] == "true"
         assert state.apdex_experience_architecture == original_architecture
         assert state.apdex_experience_profile_mode == "CUSTOM"
+        assert state.config_dirty is True  # [DEFAULT] is not reusable by save.
+        assert any(note.startswith("DEFAULT:") for note in result.warnings)
     assert ini.read_bytes() == original
 
 

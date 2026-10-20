@@ -1292,3 +1292,21 @@ cobertura SERP/rascunho/horário e recusa secret-safe de entradas
 desconhecidas. A evidência de execução pertence ao registro do teste
 focal, não a esta descrição de contrato. Nenhum smoke Windows
 anteriormente aprovado deve ser repetido por rotina.
+
+
+### #523 — Equivalência entre load parcial, save e estado 'alterações não salvas'
+
+O leitor de INI mantém sua política de não aplicar entradas desconhecidas e
+valores de `[DEFAULT]`, mas **não pode rotular a configuração como integralmente
+salva** se o escritor subsequente recusaria reserializar a mesma fonte.
+A restauração agora marca `config_dirty` e emite aviso seguro quando existem
+seções não reconhecidas (mesmo sem campo com nome parecido com segredo) ou
+opções herdadas `[DEFAULT]`; o parser já não ativava tais valores. Segredos em
+nomes de seções/chaves desconhecidas são omitidos dos avisos. Chaves não
+secretas conhecidas e opções tipadas válidas continuam restauradas sem alteração.
+
+Regressões: presença de extensão inócua porém não persistível, seção com
+nome sensível, parâmetros em `[DEFAULT]`, campos secret-like desconhecidos,
+precedência física de campos válidos e preservação exata de bytes do INI.
+Nenhuma AUD, chamada externa, credencial nem motor M23/M25 é envolvido.
+Esta correção não muda a política de migração nem prova execução de provedor.

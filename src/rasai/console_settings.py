@@ -700,6 +700,7 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
         # Keep state and environment unchanged rather than abort console startup
         # or partially applying an invalid document. Do not echo source values.
         return ConfigLoadResult(source, False, (f"não foi possível ler {source}: {type(exc).__name__}",))
+    from rasai.console_config import is_secret
     if parser.has_section("environment"):
         allowed = set(_known_nonsecret_environment_names())
         # Validate all *applicable* GSC inputs before restoring any of them.
@@ -728,7 +729,12 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
         # placed in [environment] are operator environment assignments.
         for name, raw in parser._sections["environment"].items():
             if name not in allowed:
-                warnings.append(f"environment.{name}: variável não reconhecida ou não persistível")
+                if is_secret(name):
+                    warnings.append("environment: variável sensível não persistível")
+                else:
+                    warnings.append(
+                        f"environment.{name}: variável não reconhecida ou não persistível"
+                    )
                 continue
             if name == DYNATRACE_CONFIG_JSON_ENV:
                 try:
@@ -746,17 +752,16 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
                         os.environ[name] = gsc_candidate[name]
                 else:
                     os.environ[name] = raw.strip()
-    # Optional console adapters may own additional legitimate sections that
-    # are loaded after this base adapter. Do not warn about every such section:
-    # that incorrectly marks valid fresh-process round trips as broken.
-    # Warn only if an unowned section has an explicitly secret-like key.
-    from rasai.console_config import is_secret
+    # A section the loader does not own cannot be saved again by the
+    # conservative INI writer. Always surface a reconciliable discrepancy,
+    # even if its field names do not look secret. Never echo arbitrary section
+    # names; an untrusted INI name may itself carry private information.
     owned_sections = set(_state_values(state)) | {"environment"}
+    if parser.defaults():
+        warnings.append("DEFAULT: opções herdadas não persistíveis; conteúdo omitido")
     for section in parser.sections():
-        if section not in owned_sections and any(
-            is_secret(option) for option in parser._sections[section]
-        ):
-            warnings.append(f"{section}: campo sensível em seção não reconhecida")
+        if section not in owned_sections:
+            warnings.append("INI: seção não reconhecida ou não persistível; conteúdo omitido")
     for section, values in _state_values(state).items():
         if not parser.has_section(section):
             continue
@@ -764,7 +769,12 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
         # not be reported as successfully restored or silently dropped.
         for option in parser._sections[section]:
             if option not in values:
-                warnings.append(f"{section}.{option}: opção não reconhecida ou não persistível")
+                if is_secret(option):
+                    warnings.append(f"{section}: campo sensível não persistível")
+                else:
+                    warnings.append(
+                        f"{section}.{option}: opção não reconhecida ou não persistível"
+                    )
         for option in values:
             # has_option() inherits [DEFAULT], which must not overwrite
             # typed state without an explicit assignment in this section.
@@ -792,7 +802,9 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
         state.config_dirty = any(
             note.startswith(typed_prefixes)
             or note.startswith("environment.")
-            or note.endswith(": campo sensível em seção não reconhecida")
+            or note.startswith(("INI:", "DEFAULT:"))
+            or note.endswith(": campo sensível não persistível")
+            or note == "environment: variável sensível não persistível"
             or note == "Dynatrace JSON nao persistivel"
             for note in warnings
         )
