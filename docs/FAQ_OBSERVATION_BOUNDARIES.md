@@ -100,3 +100,11 @@ A integração é estritamente consultiva: nenhum score, BR-GEO-039/049,
 motor, AUD ou reporte anterior é modificado. Mudança normativa continua
 dependendo de ADR e aprovação explícita; resultado N/D permanece correto
 quando o vínculo físico for impossível.
+
+## Referência para decisão normativa segregada - #651
+
+A observação do DOM continua somente consultiva. A política de
+status, fatores e pesos de BR-GEO-039/049 depende da decisão formal
+na proposta [ADR_FAQ_NORMATIVE_SEMANTICS.md](ADR_FAQ_NORMATIVE_SEMANTICS.md).
+A referência não autoriza mudar SCORE-GEO-005 nem reprocessar
+AUDs anteriores e não elimina a prova física independente de #652.
