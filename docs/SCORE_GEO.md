@@ -30,7 +30,7 @@ O SCORE-GEO-005 interpreta BR-GEO-003/013/017 como NOT_APPLICABLE
 Não concede PASS, não estima sucesso em busca e não neutraliza
 conflitos, sitemap inválido nem bloqueios BR-GEO-018.
 
-O resultado M5 permanece prova original, com regra/versão própria.
+O resultado motor de regras deterministicas permanece prova original, com regra/versão própria.
 Pesos e agregação não mudam, mas a aplicabilidade altera denominador,
 cobertura e eventual readiness; scores da versão 004 não são comparáveis
 numericamente sem explicação metodológica. A política está registrada em

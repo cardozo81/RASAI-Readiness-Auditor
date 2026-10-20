@@ -461,7 +461,7 @@ A versão 006 permanece somente para leitura compatível de projeções
 previamente materializadas; o produtor publica 007.
 
 
-## Contrato consultivo 008 — coerência temporal e classes explícitas (19/10/2026)
+## Contrato consultivo 008  -  coerência temporal e classes explícitas (19/10/2026)
 
 O contrato `RASAI-GEO-PER-QUERY-304-ADVISORY-008` preserva a comparação
 individual e o renderer legado 005/006/007. Há um defeito de comparabilidade

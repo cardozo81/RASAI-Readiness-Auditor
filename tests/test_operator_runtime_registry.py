@@ -32,6 +32,11 @@ RUNTIME_INPUTS = {
     "RASAI_AI_TASK_PROFILES_FILE": "profiles-custom.toml",
     "RASAI_AI_TASK_PROFILES_SOURCE": "auto",
     "RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_ID": "synthetic-public-client-id",
+    "RASAI_GSC_ENABLED": "false",
+    "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL": "sc-domain:example.test",
+    "RASAI_GSC_SEARCH_ANALYTICS_DAYS": "14",
+    "RASAI_GSC_SEARCH_MAX_ROWS": "1000",
+    "RASAI_GSC_FINAL_DATA_LAG_DAYS": "2",
     "RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS": "51",
     "RASAI_IMPROVEMENT_DOMAINS": "TECHNICAL_HTML,CONTENT",
     "RASAI_IMPROVEMENT_INTELLIGENCE": "false",
@@ -181,6 +186,9 @@ def test_new_interpreter_can_read_saved_runtime_inputs(tmp_path: Path) -> None:
         "from pathlib import Path;"
         "from rasai.console_search_intelligence import SearchConsoleState;"
         "from rasai.console_settings import load_console_config;"
+        "from rasai.console_ui_refactor import _install_search_persistence;"
+        "from rasai.console_complete_persistence import install as install_complete_persistence;"
+        "_install_search_persistence();install_complete_persistence();"
         "p=Path(sys.argv[1]);s=SearchConsoleState();r=load_console_config(s,p);"
         "print(json.dumps({'warnings':len(r.warnings),"
         "'models':os.environ.get('RASAI_AI_MODELS_SOURCE'),"

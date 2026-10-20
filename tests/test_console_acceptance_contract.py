@@ -6,7 +6,7 @@ import json
 import os
 from unittest.mock import patch
 
-from rasai.console_acceptance_523 import (
+from rasai.console_acceptance_contract import (
     classify_console_acceptance,
     inspect_console_acceptance,
     _perplexity_draft,
@@ -118,7 +118,7 @@ def test_523_perplexity_draft_from_ini_never_inherits_billable_intent(tmp_path):
 def test_523_inventory_optin_has_nonzero_exit_only_for_real_gate_failure(
     tmp_path, monkeypatch, capsys,
 ):
-    from rasai import console_acceptance_523
+    from rasai import console_acceptance_contract
     file = tmp_path / "absent.ini"
     def stub(_path, prior):
         assert "environment_variables" in prior
@@ -126,14 +126,14 @@ def test_523_inventory_optin_has_nonzero_exit_only_for_real_gate_failure(
             "status": "CONFIGURATION_CONTRACT_FAILURE",
             "consumer_status": {"search": "CLI_ARGUMENTS_MISMATCH"},
         }
-    monkeypatch.setattr(console_acceptance_523, "inspect_console_acceptance", stub)
+    monkeypatch.setattr(console_acceptance_contract, "inspect_console_acceptance", stub)
     assert inventory_main(["--ini", str(file)]) == 0
     assert "acceptance_523" not in json.loads(capsys.readouterr().out)
     assert inventory_main(["--ini", str(file), "--acceptance-523"]) == 2
     body = json.loads(capsys.readouterr().out)
     assert body["acceptance_523"]["status"] == "CONFIGURATION_CONTRACT_FAILURE"
     monkeypatch.setattr(
-        console_acceptance_523, "inspect_console_acceptance",
+        console_acceptance_contract, "inspect_console_acceptance",
         lambda _path, prior: {"status": "OFFLINE_CONTRACTS_WITH_INTENTIONAL_ABSENCES"},
     )
     assert inventory_main(["--ini", str(file), "--acceptance-523"]) == 0
@@ -154,7 +154,7 @@ def test_523_outer_ini_generation_check_rejects_change_between_consumer_checks(
     tmp_path, monkeypatch,
 ):
     import rasai.console_typed_reconciliation as typed
-    from rasai import console_acceptance_523
+    from rasai import console_acceptance_contract
     source = tmp_path / "changed.ini"
     source.write_text("[console]\nconfig_version=1\n", encoding="utf-8")
     # The gate must abstain even when every mocked adapter claims success:
@@ -172,7 +172,7 @@ def test_523_outer_ini_generation_check_rejects_change_between_consumer_checks(
         "typed_ini_coverage": {"missing_non_derived_names": []},
     }
     monkeypatch.setattr(
-        console_acceptance_523, "_perplexity_draft",
+        console_acceptance_contract, "_perplexity_draft",
         lambda _: {"status": all_ok["perplexity"]},
     )
     report = inspect_console_acceptance(source, prior=previous)
@@ -185,12 +185,12 @@ def test_523_outer_ini_generation_check_rejects_change_between_consumer_checks(
 def test_523_legacy_missing_fields_are_incomplete_coverage_not_parser_defect(
     tmp_path, monkeypatch,
 ):
-    from rasai import console_acceptance_523
+    from rasai import console_acceptance_contract
     source = tmp_path / "legacy.ini"
     source.write_text("[console]\nconfig_version=1\n", encoding="utf-8")
     ok = _base()
     monkeypatch.setattr(
-        console_acceptance_523, "_perplexity_draft",
+        console_acceptance_contract, "_perplexity_draft",
         lambda _: {"status": ok["perplexity"]},
     )
     previous = {
@@ -211,8 +211,8 @@ def test_523_legacy_missing_fields_are_incomplete_coverage_not_parser_defect(
         "file_readable": True,
     }
     result = inspect_console_acceptance(source, prior=previous)
-    assert result["status"] == "OFFLINE_LEGACY_TYPED_COVERAGE_PARTIAL"
-    assert result["legacy_typed_fields_unavailable"] == 2
+    assert result["status"] == "OFFLINE_TYPED_COVERAGE_PARTIAL"
+    assert result["typed_fields_unavailable"] == 2
     assert result["source_generation_consistent"] is True
     assert result["failed_consumer_names"] == []
     assert result["issue_523_final_acceptance_proven"] is False
@@ -221,7 +221,7 @@ def test_523_legacy_missing_fields_are_incomplete_coverage_not_parser_defect(
 def test_523_acceptance_abstains_for_source_symlink_before_running_any_adapter(
     tmp_path, monkeypatch,
 ):
-    from rasai import console_acceptance_523
+    from rasai import console_acceptance_contract
     source = tmp_path / "a.ini"
     source.write_text("[console]\nconfig_version=1\n", encoding="utf-8")
     link = tmp_path / "link.ini"
@@ -230,7 +230,7 @@ def test_523_acceptance_abstains_for_source_symlink_before_running_any_adapter(
     except (OSError, NotImplementedError):
         return
     monkeypatch.setattr(
-        console_acceptance_523, "_perplexity_draft",
+        console_acceptance_contract, "_perplexity_draft",
         lambda _: (_ for _ in ()).throw(AssertionError("must not run")),
     )
     result = inspect_console_acceptance(link)
@@ -242,7 +242,7 @@ def test_523_acceptance_abstains_for_source_symlink_before_running_any_adapter(
 def test_523_unregistered_secret_ini_is_not_accepted_even_if_cached_adapters_pass(
     tmp_path, monkeypatch,
 ):
-    from rasai import console_acceptance_523
+    from rasai import console_acceptance_contract
     source = tmp_path / "private.ini"
     source.write_text(
         "[environment]\nPERPLEXITY_API_KEY = NEVER_SHOW_THIS_CREDENTIAL\n",
@@ -259,7 +259,7 @@ def test_523_unregistered_secret_ini_is_not_accepted_even_if_cached_adapters_pas
         "gsc_offline_consumer_preflight": {"status": statuses["gsc"]},
     }
     monkeypatch.setattr(
-        console_acceptance_523, "_perplexity_draft",
+        console_acceptance_contract, "_perplexity_draft",
         lambda _: {"status": statuses["perplexity"]},
     )
     before = source.read_bytes()
@@ -301,7 +301,7 @@ def test_523_full_saved_ini_acceptance_invokes_each_consumer_once_offline(
         report = inspect_console_acceptance(source, prior=meta)
         assert report["source_generation_consistent"] is True
         assert report["secret_ini_policy_violations_detected"] is False
-        assert report["legacy_typed_fields_unavailable"] == 0
+        assert report["typed_fields_unavailable"] == 0
         assert report["failed_consumer_names"] == []
         assert report["status"] == "OFFLINE_CONTRACTS_WITH_INTENTIONAL_ABSENCES"
         assert report["consumer_status"]["typed"] == "TYPED_ADAPTERS_INSPECTED"
@@ -349,7 +349,7 @@ def test_523_real_ini_without_target_is_valid_preparation_not_provider_block(
         assert observed["external_prerequisite_consumer_names"] == []
         assert observed["failed_consumer_names"] == []
         assert observed["source_generation_consistent"] is True
-        assert observed["legacy_typed_fields_unavailable"] == 0
+        assert observed["typed_fields_unavailable"] == 0
         assert observed["target_scope_execution_verified"] is False
         assert observed["issue_523_final_acceptance_proven"] is False
         assert observed["paid_external_use_authorized"] is False

@@ -14,7 +14,7 @@ def test_public_branding_contract() -> None:
     assert PRODUCT_DISPLAY_NAME == "RASAi - Search & AI Readiness Auditor"
     assert PUBLIC_INDEX_VERSION == "SARI-001"
     assert CANONICAL_READINESS_REPORT == "report-catalog/sari.html"
-    assert SCORING_VERSION == "SCORE-GEO-004"
+    assert SCORING_VERSION == "SCORE-GEO-005"
     assert CATALOG_REPORT_DIR == "report-catalog"
 
 

@@ -1,4 +1,4 @@
-# FAQ — limites de DOM, interação e representatividade (#601)
+# FAQ  -  limites de DOM, interação e representatividade (#601)
 
 ## Contrato observacional
 
@@ -24,7 +24,7 @@ de clique, sandbox de browser ou prova independente de segurança.
 
 Uma resposta vista somente após ação atestada não prova que o
 Googlebot a obtenha sem interação. A projeção não altera scorer,
-findings, M23/M25, auditoria ou requisições comerciais.
+findings, motor de Apdex de navegacao/motor de Apdex de experiencia, auditoria ou requisições comerciais.
 
 ## Regra de execução
 

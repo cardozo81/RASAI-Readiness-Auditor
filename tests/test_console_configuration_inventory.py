@@ -1044,6 +1044,7 @@ def test_rejected_environment_warning_reasons_are_non_disclosing():
         "unregistered_secret_pattern": 1,
         "unregistered_name": 1,
         "empty_name": 1,
+        "redacted_sensitive_environment": 0,
     }
     rendered = json.dumps(result)
     for forbidden in ("OPENAI_API_KEY", "LEGACY_PRIVATE_TOKEN", "RASAI_RETIRED_INPUT"):
@@ -1072,10 +1073,11 @@ def test_apdex_preflight_classifies_rejected_environment_without_read_write_leak
     assert result["load_warning_count"] == 3
     assert result["load_warning_categories"]["unknown_or_nonpersistible_environment"] == 3
     assert result["load_warning_environment_reasons"] == {
-        "registered_but_excluded": 1,
-        "unregistered_secret_pattern": 1,
+        "registered_but_excluded": 0,
+        "unregistered_secret_pattern": 0,
         "unregistered_name": 1,
         "empty_name": 0,
+        "redacted_sensitive_environment": 2,
     }
     assert sum(result["load_warning_environment_reasons"].values()) == 3
     assert result["external_requests"] == result["audit_writes"] == 0

@@ -2,12 +2,12 @@
 
 ## Escopo do contrato
 
-O número 0–100, a cobertura (percentual com fração canônica), a confiança
+O número 0 - 100, a cobertura (percentual com fração canônica), a confiança
 contratual e os critical readiness gates descrevem o universo de regras
 avaliado. Não são garantia de experiência real, cobertura de uma população
 estatística, ranking orgânico ou citação generativa.
 
-## Convergência não garantida — #600
+## Convergência não garantida  -  #600
 
 O aviso `data-sari-nonconvergence` é exibido nas superfícies SARI
 (executiva, visão de dispositivo e painel operacional). Mesmo quando o
@@ -22,7 +22,7 @@ canônica permanecem distintos, sem recalcular SCORE-GEO-004.
 
 ## Limites de aceite
 
-- Sem fonte externa da mesma AUD/scope, não inventar severidade de M21,
+- Sem fonte externa da mesma AUD/scope, não inventar severidade de medicoes de desempenho externas,
   CrUX, SERP, Apdex nem efeitos reais em buscas/IA.
 - O aviso não altera notas, gates, coortes, AUD, coletores ou resultados.
 - Testes são offline; sem browser, rede, APIs pagas ou reprocessamento.

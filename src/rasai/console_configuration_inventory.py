@@ -566,7 +566,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         selected = args.ini if args.ini is not None else canonical_console_config_path()
         report["typed_adapter_reconciliation"] = inspect_typed_configuration(selected)
     if args.acceptance_523:
-        from rasai.console_acceptance_523 import inspect_console_acceptance
+        from rasai.console_acceptance_contract import inspect_console_acceptance
         selected = args.ini if args.ini is not None else canonical_console_config_path()
         gate = inspect_console_acceptance(selected, prior=report)
         report["acceptance_523"] = gate

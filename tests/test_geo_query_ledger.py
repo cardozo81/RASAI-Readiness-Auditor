@@ -1677,7 +1677,7 @@ def test_304_multiquery_recurrence_is_only_observed_within_one_search_run(tmp_pa
     before = db.read_bytes()
     result = inspect_geo_per_query(folder)
     assert result["status"] == "DESCRIPTIVE_ONLY"
-    assert result["contract_version"].endswith("ADVISORY-007")
+    assert result["contract_version"].endswith("ADVISORY-008")
     recurrent = result["recurrence"]
     assert recurrent["status"] == "OBSERVED_WITHIN_ONE_RUN"
     assert recurrent["verified_queries"] == 2

@@ -271,7 +271,7 @@ def inspect_console_acceptance(
     }:
         classified = {
             **classified,
-            "status": "OFFLINE_LEGACY_TYPED_COVERAGE_PARTIAL",
+            "status": "OFFLINE_TYPED_COVERAGE_PARTIAL",
         }
     return {
         "contract": _CONTRACT,
@@ -279,13 +279,13 @@ def inspect_console_acceptance(
         "source_generation_consistent": consistent,
         "source_status": latest_status,
         "secret_ini_policy_violations_detected": secret_policy_violations > 0,
-        "legacy_typed_fields_unavailable": (
+        "typed_fields_unavailable": (
             len(coverage["missing_non_derived_names"])
             if isinstance(coverage, Mapping)
             and isinstance(coverage.get("missing_non_derived_names"), list)
             else None
         ),
-        "legacy_typed_coverage_complete": not partial,
+        "typed_coverage_complete": not partial,
         "consumer_status": statuses,
         "typed_invalid_field_count": int(results["typed"].get("invalid_typed_fields") or 0),
         "typed_unrecognized_field_groups": int(counts.get("UNRECOGNIZED_INPUT_COUNT") or 0),

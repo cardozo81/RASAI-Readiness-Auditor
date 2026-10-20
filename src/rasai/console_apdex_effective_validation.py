@@ -74,6 +74,8 @@ def _classify_load_warnings(warnings: tuple[str, ...] | list[str]) -> dict[str, 
     for warning in warnings:
         if warning.startswith("não foi possível ler "):
             category = "unreadable_ini"
+        elif warning == "environment: variável sensível não persistível":
+            category = "unknown_or_nonpersistible_environment"
         elif warning.startswith("environment.") and warning.endswith(
             ": variável não reconhecida ou não persistível"
         ):
@@ -106,10 +108,14 @@ def _classify_environment_warning_reasons(
         "unregistered_secret_pattern": 0,
         "unregistered_name": 0,
         "empty_name": 0,
+        "redacted_sensitive_environment": 0,
     }
     prefix = "environment."
     suffix = ": variável não reconhecida ou não persistível"
     for warning in warnings:
+        if warning == "environment: variável sensível não persistível":
+            reasons["redacted_sensitive_environment"] += 1
+            continue
         if not (warning.startswith(prefix) and warning.endswith(suffix)):
             continue
         name = warning[len(prefix):-len(suffix)]

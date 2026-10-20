@@ -145,7 +145,7 @@ prova de imutabilidade do arquivo de origem e abstenção com journaling
 pendente. Nada executa requisições externas.
 
 
-## Pacote de decisão comparativa offline — 19/10/2026
+## Pacote de decisão comparativa offline  -  19/10/2026
 
 O replay físico/paridade já implementado pode emitir uma **matriz comparativa
 não normativa** sem executar novamente coletores nem gravar AUDs:

@@ -47,21 +47,21 @@ Metadados limitados de redirecionamentos observados pela captura (quantidade, up
 ## Destino efetivo por snapshot no relatório consultivo (#646, 19/10/2026)
 
 O painel F3 somente leitura passou a separar explicitamente **URL
-solicitada** e **URL final observada** na mesma amostra M6. A projeção
+solicitada** e **URL final observada** na mesma amostra captura arquitetural. A projeção
 inclui `final_target_differs_from_requested`, informação textual de
 identidade, sem inferência automática de causa ou novo classificador.
 A divergência não significa, por si só, que houve redirect HTTP: pode
 resultar de normalização, navegação observada ou contexto do transporte.
 Também não comprova certificado, WAF, DOM final ou disponibilidade de
 crawler. Não mistura URLs entre dispositivos/snapshots, não executa
-nova navegação e não altera o resolver canônico nem os índices M23/M25.
+nova navegação e não altera o resolver canônico nem os índices motor de Apdex de navegacao/motor de Apdex de experiencia.
 
 Para proteção de credenciais de URL, a exibição de ambas as URLs no
 HTML apresenta apenas esquema, host, porta e caminho; remove userinfo,
 querystring e fragmento. O rastro físico permanece inalterado na AUD.
 Um `final_url` malformado é exibido como não verificável, nunca
 convertido em origem inventada. Fixtures de duas URLs com token de
-consulta, destino distinto, legado UNFORCED e bytes SQLite imutáveis
+consulta, destino distinto, anterior UNFORCED e bytes SQLite imutáveis
 cobrem a projeção. Aceite físico amplo do motor #646 continua sujeito
 aos gates separados do escopo original.
 

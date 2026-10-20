@@ -170,7 +170,7 @@ class ScoreGeo004ApplicabilityTests(unittest.TestCase):
             ),
         )
         overall = scoring.overall_by_device[DeviceContext.DESKTOP]
-        self.assertEqual(overall.scoring_version, "SCORE-GEO-004")
+        self.assertEqual(overall.scoring_version, "SCORE-GEO-005")
         self.assertEqual(overall.value, 100.0)
         self.assertEqual(overall.consolidation_status, ConsolidationStatus.CONSOLIDATED)
         self.assertIn("DIMENSION_NOT_APPLICABLE:STRUCTURED_DATA", overall.limitations)

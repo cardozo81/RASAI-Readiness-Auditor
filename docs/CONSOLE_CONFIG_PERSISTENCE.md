@@ -963,7 +963,7 @@ tinha como passar com um INI válido contendo essas chaves.
 
 O mesmo contrato canônico agora inclui os **cinco nomes** e usa
 diretamente os validadores de `standards_gsc_policy` para os limites
-0–31 dias de análise, 1–50.000 linhas e 0–30 dias de atraso.
+0 - 31 dias de análise, 1 - 50.000 linhas e 0 - 30 dias de atraso.
 O valor zero permanece válido onde definido, sem ser convertido em
 default positivo. A propriedade `sc-domain:` ou URL-prefix HTTP(S)
 é verificada estruturalmente e seu campo não aceita userinfo,
@@ -1019,7 +1019,7 @@ ativação parcial, restauração física intacta, e override de sessão
 preexistente, sem rede nem auditoria.
 
 
-## Gate único offline por issue #523 — abrangência + sem consentimento implícito
+## Gate único offline por issue #523  -  abrangência + sem consentimento implícito
 
 O inventário possui agora um modo consolidado **opt-in**, evitando
 repetir manualmente os cinco diagnósticos independentes:
@@ -1190,7 +1190,7 @@ Essa correção é metodológica no diagnóstico do save/load; não
 adiciona requisito artificial de configurar o alvo antes de salvar.
 
 
-### #523 — Gate dos snapshots de AUD reaproveitados e impossibilidade de reativar GSC inválido
+### #523  -  Gate dos snapshots de AUD reaproveitados e impossibilidade de reativar GSC inválido
 
 A trilha `audit_configuration_reuse_console._apply_settings` permitia
 aplicar integralmente a seção `[environment]` de uma AUD histórica
@@ -1268,7 +1268,7 @@ foram acrescentadas, sem repetir os smokes anteriores.
 
 
 
-### #523 — Caminho canônico INI e abrangência de campos desconhecidos
+### #523  -  Caminho canônico INI e abrangência de campos desconhecidos
 
 A resolução de `RASAI_CONSOLE_INI` agora normaliza somente o diretório-pai:
 o último componente preserva sua identidade física para os guards já
@@ -1294,7 +1294,7 @@ focal, não a esta descrição de contrato. Nenhum smoke Windows
 anteriormente aprovado deve ser repetido por rotina.
 
 
-### #523 — Equivalência entre load parcial, save e estado 'alterações não salvas'
+### #523  -  Equivalência entre load parcial, save e estado 'alterações não salvas'
 
 O leitor de INI mantém sua política de não aplicar entradas desconhecidas e
 valores de `[DEFAULT]`, mas **não pode rotular a configuração como integralmente
