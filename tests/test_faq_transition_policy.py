@@ -358,3 +358,45 @@ def test_601_nonfaq_jsonld_does_not_create_faq_answers():
     assert observed["status"] == "JSONLD_PARSED"
     assert observed["faqpage_entries"] == 0
     assert observed["answers_with_text"] == 0
+
+def test_601_truncated_jsonld_script_abstains_instead_of_reporting_zero():
+    from rasai.faq_observation import inspect_faq_jsonld
+    html = '<script type="application/ld+json">{"@type":"FAQPage"'
+    assert inspect_faq_jsonld(html)["status"] == "JSONLD_UNVERIFIABLE"
+
+
+def test_601_cat03_jsonld_without_accordion_is_reported_as_markup_only(tmp_path):
+    """Physical read-only projection must expose FAQPage, not fake a click."""
+    import sqlite3
+    from rasai.faq_observation import faq_observation_html
+
+    root = tmp_path / "AUD-FAQ-LD"
+    rendered = root / "artifacts" / "rendered"
+    rendered.mkdir(parents=True)
+    page = rendered / "page.html"
+    page.write_text(
+        '<main>Public content</main><script type="application/ld+json">'
+        '{"@type":"FAQPage","mainEntity":[{"@type":"Question",'
+        '"acceptedAnswer":{"@type":"Answer","text":"Text in metadata only"}}]}'
+        '</script>',
+        encoding="utf-8",
+    )
+    database = root / "audit.db"
+    with sqlite3.connect(database) as con:
+        con.executescript(
+            "CREATE TABLE pages(page_id TEXT, audit_id TEXT);"
+            "CREATE TABLE page_snapshots("
+            "snapshot_id TEXT, page_id TEXT, rendered_artifact_ref TEXT);"
+            "INSERT INTO pages VALUES ('P1','AUD-FAQ-LD');"
+            "INSERT INTO page_snapshots VALUES "
+            "('S1','P1','artifacts/rendered/page.html');"
+        )
+    old_db, old_html = database.read_bytes(), page.read_bytes()
+    report = faq_observation_html(database, "AUD-FAQ-LD")
+    assert "FAQ interativo — N/D" in report
+    assert "FAQPage JSON-LD" in report
+    assert "1 entrada(s) FAQPage" in report
+    assert "1 com texto acceptedAnswer na marcação" in report
+    assert "não comprova" in report
+    assert database.read_bytes() == old_db
+    assert page.read_bytes() == old_html

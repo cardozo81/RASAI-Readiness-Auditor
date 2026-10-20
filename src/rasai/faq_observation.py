@@ -221,7 +221,9 @@ def inspect_faq_jsonld(html: str) -> dict[str, Any]:
     try:
         parser.feed(html)
         parser.close()
-        if parser.overflow:
+        # A truncated JSON-LD script cannot be counted as "zero FAQPage".
+        # A source whose structured payload was never closed is inconclusive.
+        if parser.overflow or parser.active:
             return unavailable
         faqpages = questions = answers = 0
         for document in parser.documents:
