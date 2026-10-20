@@ -84,3 +84,20 @@ afirmar pronta a página por HTTP 200/load/networkidle, misturar
 tempos de browsers distintos ou modificar auditorias históricas.
 Fixtures positivas/negativas e CI Linux/Windows garantem apenas
 o contrato do avaliador e a separação de responsabilidades.
+
+## Vínculo de sample_id persistido com observação física
+
+Quando o runner M25 recebe um `advisory_same_page_observer` explícito,
+o orquestrador pré-aloca um `UXA-*` único **antes da medição**, entrega
+o mesmo identificador a `set_experimental_sample_scope` e grava
+exatamente esse ID na linha `synthetic_ux_apdex_samples`. O callback
+recebe também `audit_id`, `page_id` e `context_id`, além do relógio
+monotônico e da página viva. Com opt-in desabilitado, mantém-se o
+comportamento anterior de gerar `UXA-*` apenas na persistência.
+
+Essa vinculação evita **inventar** identidade M25 a partir de
+`page.url` ou capturas M3 tomadas em outra sessão. O testemunho FAQ
+feito em M3 e a prontidão em M25 são **amostras distintas**, salvo
+prova independente em contrário. A disponibilidade do callback não
+instala uma coleta universal: sua injeção, orçamento, pareamento A/B
+físico e armazenamento consultivo separado ainda dependem do operador.

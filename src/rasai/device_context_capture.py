@@ -941,8 +941,41 @@ def _install_browser_capture() -> None:
             stage = "LAZY_PROBE"
             lazy_probe = _same_session_lazy_probe(page, rendered_html)
 
+            # Noninstalled physical M3 handoff. Opt-in only by the trusted
+            # caller owning THIS renderer instance. The snapshot's accepted
+            # rendered HTML is already frozen; the callback must refuse
+            # a changed DOM rather than replacing the canonical source.
+            # Do not persist HTML or secrets in the regular browser metadata.
+            experimental_receipt = None
+            observer = getattr(self, "_rasai_optin_faq_observer", None)
+            if callable(observer):
+                try:
+                    observed = observer(
+                        page=page, captured_html_sha256=hashlib.sha256(
+                            rendered_html.encode("utf-8")
+                        ).hexdigest(),
+                        requested_url=url, final_url=page.url,
+                        device=str(profile.device),
+                    )
+                    if isinstance(observed, dict):
+                        # Strict fixed projection: never accept raw user HTML.
+                        experimental_receipt = {
+                            "status": str(observed.get("status", "UNVERIFIED"))[:80],
+                            "before_sha256": str(observed.get("before_sha256", ""))[:64],
+                            "after_sha256": str(observed.get("after_sha256", ""))[:64],
+                            "same_aud_sample_verified": False,
+                            "score_change_authorized": False,
+                        }
+                except Exception:
+                    experimental_receipt = {
+                        "status": "EXPERIMENTAL_OBSERVER_ERROR",
+                        "same_aud_sample_verified": False,
+                        "score_change_authorized": False,
+                    }
             stage = "METADATA"
             metadata = self._metadata(profile, settle_outcome=settle_outcome)
+            if experimental_receipt is not None:
+                metadata["experimental_faq_same_page_receipt"] = experimental_receipt
             metadata["profile"]["user_agent"] = identity.get("user_agent")
             metadata["profile"]["locale"] = identity.get("locale")
             metadata["browser_identity"] = {**identity, "channel": self.browser_channel}

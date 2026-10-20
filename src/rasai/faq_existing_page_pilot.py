@@ -20,6 +20,7 @@ from rasai.faq_transition_policy import (
 def inspect_existing_page_faq(
     page: Any, *, target_id: str, explicit_opt_in: bool = False,
     isolated_context_acknowledged: bool = False,
+    expected_before_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Click exactly one FAQ button in an isolated single-page browser context.
 
@@ -43,7 +44,12 @@ def inspect_existing_page_faq(
             or not isinstance(target_id, str)
             or not target_id or len(target_id) > 256
             or not _FAQ_CONTEXT.search(target_id)
-            or any(ord(char) < 32 for char in target_id)):
+            or any(ord(char) < 32 for char in target_id)
+            or (expected_before_sha256 is not None and (
+                not isinstance(expected_before_sha256, str)
+                or len(expected_before_sha256) != 64
+                or any(c not in "0123456789abcdef" for c in expected_before_sha256)
+            ))):
         return result
     try:
         context = page.context
@@ -69,6 +75,9 @@ def inspect_existing_page_faq(
         before = page.content()
         if len(before.encode("utf-8")) > _MAX_HTML_BYTES:
             return {**result, "reason": "DOM_EXCEEDS_LIMIT"}
+        if (expected_before_sha256 is not None and
+                sha256(before.encode("utf-8")).hexdigest() != expected_before_sha256):
+            return {**result, "reason": "CAPTURED_AUD_DOM_DOES_NOT_MATCH_LIVE_PAGE"}
         candidates = page.locator("button[aria-controls]")
         count = candidates.count()
         if count > 100:
