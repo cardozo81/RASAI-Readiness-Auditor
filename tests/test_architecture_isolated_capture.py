@@ -650,3 +650,50 @@ def test_cross_origin_asset_revalidation_refuses_dns_change_before_fetch(monkeyp
             _bundle_resources(url, root, raw)
         fetch.return_value.fetch.assert_not_called()
     assert calls == [asset, asset]
+
+def test_redirected_partial_raw_preserves_actual_tls_final_url(monkeypatch):
+    """#646: incomplete browser render must not misattribute redirected RAW."""
+    from hashlib import sha256
+    from rasai.architecture_isolated_capture import (
+        ArchitectureAssetFailure, ContentFetchStatus,
+    )
+    from rasai.architecture_probe import probe_architecture
+
+    requested, final = "http://example.org/", "https://example.org/"
+    raw = "<main>" + "Visible content after public TLS upgrade. " * 4 + "</main>"
+    document = SimpleNamespace(
+        status=ContentFetchStatus.OBSERVED, final_url=final, redirects=(final,),
+        http_status=200, body=raw.encode("utf-8"),
+        headers={"content-type": "text/html"},
+    )
+    monkeypatch.setattr("rasai.architecture_isolated_capture.inspect_local_image", lambda: DIGEST)
+    monkeypatch.setattr("rasai.architecture_isolated_capture.shutil.which", lambda _: "docker")
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_isolation", lambda **_: {})
+    monkeypatch.setattr("rasai.architecture_isolation_smoke.verify_browser_canary", lambda **_: None)
+    monkeypatch.setattr("rasai.architecture_isolated_capture._validate_public_url", lambda url, _: url)
+    with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch, patch(
+        "rasai.architecture_isolated_capture._bundle_resources",
+        side_effect=ArchitectureAssetFailure("OCI_ASSET_COUNT_LIMIT"),
+    ), patch("rasai.architecture_isolated_capture.subprocess.run") as docker_run:
+        fetch.return_value.fetch.return_value = document
+        captured = capture_isolated_public_architecture(requested, DeviceContext.MOBILE)
+    docker_run.assert_not_called()
+    assert captured.requested_url == requested
+    assert captured.final_url == final
+    assert captured.redirect_chain == (final,)
+    assert captured.origin is not None
+    assert captured.origin.raw_sha256 == sha256(raw.encode("utf-8")).hexdigest()
+    assert captured.origin.rendered_sha256 is None
+    assert captured.origin.transport == "PINNED_HTTP_STATIC"
+
+    with patch("rasai.architecture_probe._default_resolver") as resolver:
+        assessed = probe_architecture(
+            requested, DeviceContext.MOBILE, capture=lambda _url, _device: captured,
+        )
+    resolver.assert_not_called()
+    assert assessed.architecture.value == "UNKNOWN"
+    assert assessed.limitation == "OCI_ASSET_COUNT_LIMIT"
+    assert assessed.raw_available and not assessed.rendered_available
+    assert assessed.redirect_hops_reported == 1
+    assert assessed.protocol_transition == "HTTP_TO_HTTPS"
+    assert assessed.acquisition_transport == "PINNED_HTTP_STATIC"

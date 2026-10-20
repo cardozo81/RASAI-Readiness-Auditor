@@ -299,3 +299,13 @@ Smoke posterior de ambiente protegido: fixture SSR com conteúdo imediato, SPA c
 A etapa de estabilização consultiva observa agora **toda a janela máxima de 2.800 ms**, em vez de aceitar uma primeira sequência estável de 850 ms. Uma pintura de conteúdo aparentemente servidor pode ser substituída pelo JavaScript após 1.200-2.000 ms; o conjunto final de três observações materiais iguais deve pertencer à mesma página depois dessa atualização. Mudança próxima do prazo, loading persistente ou conteúdo insuficiente geram ISOLATED_CONTENT_NOT_STABLE, não uma classe estática fictícia. Este limite não promete que a SPA terminou depois do prazo. Skeleton oculto por CSS não bloqueia artificialmente a materialidade; elemento principal oculto não comprova conteúdo visível. Sem alteração do comportamento de navegação sintética/experiência sintética ou da duração de load.
 
 A prévia de arquitetura apresenta adicionalmente **contagem de redirecionamentos** e transição HTTP para HTTPS quando a aquisição explicitamente as reportou. O console não publica URL final integral nem parâmetros sensíveis e diferencia metadados da captura de certificado independente. O registro de origem é um digest local da coleta, não certificação externa. Não executar novo request, ignorar TLS ou classificar conteúdo quando a URL final não puder ser vinculada à cadeia permitida.
+
+## Proveniência RAW após redirecionamento e renderização inconclusiva (#646)
+
+Se o transporte HTTP pinado comprovar um redirecionamento público admissível,
+mas o bundle de recursos ou a renderização OCI falhar, o diagnóstico mantém a
+URL final, os saltos, a transição HTTP→HTTPS e o digest da captura RAW.
+A classificação permanece UNKNOWN, nunca inferindo DOM executado a partir de
+RAW. PINNED_HTTP_STATIC atesta somente a aquisição HTTP, não o Chromium,
+a indexabilidade ou a qualidade da experiência. Redirecionamentos não
+verificáveis continuam recusados; o gate de F3 não foi alterado.

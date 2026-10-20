@@ -55,3 +55,15 @@ def test_capture_requested_url_cannot_be_substituted():
     with pytest.raises(ValueError, match="identity"):
         probe_architecture(target, DeviceContext.MOBILE, capture=lambda _url, device:
             ProbeCaptures("https://other.example.org/", target, device, None, None, "BLOCKED"))
+
+def test_unrelated_final_url_still_refused_with_capture_digest():
+    """Capture-time hashes must not authorize unrelated redirect provenance."""
+    from rasai.architecture_probe import with_capture_origin
+    requested, unrelated = "https://example.org/", "https://other.example.net/"
+    captured = with_capture_origin(ProbeCaptures(
+        requested, unrelated, DeviceContext.MOBILE, "<main>raw</main>", None,
+        "OCI_WORKER_TIMEOUT", redirect_chain=(unrelated,),
+    ), transport="PINNED_HTTP_STATIC")
+    with pytest.raises(ValueError, match="final URL"):
+        probe_architecture(requested, DeviceContext.MOBILE,
+                           capture=lambda _url, _device: captured)

@@ -231,14 +231,21 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
     final_target = document.final_url
     redirect_chain = tuple(getattr(document, "redirects", ()))
     raw = document.body.decode("utf-8", errors="replace")
+    # A failed OCI stage cannot attribute redirected RAW to the initial URL.
+    # public_html_failure already validated this public redirect chain.
+    def partial_capture(reason: str) -> ProbeCaptures:
+        return with_capture_origin(ProbeCaptures(
+            target, final_target, device, raw, None, reason,
+            redirect_chain=redirect_chain,
+        ), transport="PINNED_HTTP_STATIC")
     # Distinguish unsafe/unavailable HTML resources from Chromium failures.
     # Preserve only bounded reason codes; never expose URLs, HTML or stderr.
     try:
         resources = _bundle_resources(final_target, document, raw)
     except ArchitectureAssetFailure as exc:
-        return ProbeCaptures(target, target, device, raw, None, exc.reason)
+        return partial_capture(exc.reason)
     except (ValueError, OSError):
-        return ProbeCaptures(target, target, device, raw, None, "OCI_ASSET_BUNDLE_REJECTED")
+        return partial_capture("OCI_ASSET_BUNDLE_REJECTED")
     try:
         payload = json.dumps({
             "url": final_target, "device": device.value.lower(), "resources": resources,
@@ -252,7 +259,7 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
             text=True, timeout=40, check=False,
         )
         if finished.returncode not in {0, 2} or len(finished.stdout) > 1_500_000:
-            return ProbeCaptures(target, target, device, raw, None, "OCI_WORKER_PROCESS_FAILED")
+            return partial_capture("OCI_WORKER_PROCESS_FAILED")
         result = json.loads(finished.stdout)
         if (not isinstance(result, dict)
                 or set(result) != {"rendered_html", "reason"}
@@ -276,11 +283,11 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
         }
         reason = result["reason"]
         if finished.returncode == 2 and reason in supported and result["rendered_html"] is None:
-            return ProbeCaptures(target, target, device, raw, None, reason)
-        return ProbeCaptures(target, target, device, raw, None, "ISOLATED_RENDER_INCONCLUSIVE")
+            return partial_capture(reason)
+        return partial_capture("ISOLATED_RENDER_INCONCLUSIVE")
     except subprocess.TimeoutExpired:
-        return ProbeCaptures(target, target, device, raw, None, "OCI_WORKER_TIMEOUT")
+        return partial_capture("OCI_WORKER_TIMEOUT")
     except (ValueError, json.JSONDecodeError):
-        return ProbeCaptures(target, target, device, raw, None, "OCI_WORKER_OUTPUT_INVALID")
+        return partial_capture("OCI_WORKER_OUTPUT_INVALID")
     except OSError:
-        return ProbeCaptures(target, target, device, raw, None, "OCI_WORKER_PROCESS_FAILED")
+        return partial_capture("OCI_WORKER_PROCESS_FAILED")
