@@ -367,3 +367,61 @@ def test_f2_rejects_embedded_binding_without_real_capture_digest(tmp_path):
              }})),
         )
     assert read_audit_architecture_observations(tmp_path, "AUD-NODIGEST") == ()
+
+def test_m6_reader_cannot_downgrade_corrupt_present_metadata_to_legacy(tmp_path):
+    """#646: corrupt JSON or non-object metadata cannot bypass capture binding."""
+    folder = tmp_path / "AUD-META"
+    folder.mkdir()
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript(
+            "CREATE TABLE pages(page_id TEXT, audit_id TEXT);"
+            "CREATE TABLE page_snapshots("
+            "snapshot_id TEXT,page_id TEXT,device TEXT,requested_url TEXT,"
+            "final_url TEXT,architecture_classification TEXT,"
+            "raw_artifact_ref TEXT,rendered_artifact_ref TEXT,"
+            "browser_metadata TEXT);"
+            "INSERT INTO pages VALUES ('P','AUD-META');"
+        )
+        con.execute(
+            "INSERT INTO page_snapshots VALUES (?,?,?,?,?,?,?,?,?)",
+            ("S","P","MOBILE","https://example.org/a","https://example.org/a",
+             "CSR_SPA","artifacts/raw.html","artifacts/rendered.html",'{"ok":true}'),
+        )
+    assert len(read_audit_architecture_observations(tmp_path, "AUD-META")) == 1
+    for untrusted in ('{"architecture_artifact_binding":', "[]", "null", "false", "42"):
+        with sqlite3.connect(db) as con:
+            con.execute("UPDATE page_snapshots SET browser_metadata=?", (untrusted,))
+        original = db.read_bytes()
+        assert read_audit_architecture_observations(tmp_path, "AUD-META") == ()
+        assert db.read_bytes() == original
+
+
+def test_m6_external_trust_anchor_cannot_be_bypassed_by_stripping_metadata(
+    tmp_path, monkeypatch,
+):
+    """#646: a public verify key requires signed M6 evidence, not unsigned fallback."""
+    from rasai.architecture_attestation import VERIFY_KEY
+
+    folder = tmp_path / "AUD-META-STRIP"
+    folder.mkdir()
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript(
+            "CREATE TABLE pages(page_id TEXT, audit_id TEXT);"
+            "CREATE TABLE page_snapshots("
+            "snapshot_id TEXT,page_id TEXT,device TEXT,requested_url TEXT,"
+            "final_url TEXT,architecture_classification TEXT,"
+            "raw_artifact_ref TEXT,rendered_artifact_ref TEXT,"
+            "browser_metadata TEXT);"
+            "INSERT INTO pages VALUES ('P','AUD-META-STRIP');"
+        )
+        con.execute(
+            "INSERT INTO page_snapshots VALUES (?,?,?,?,?,?,?,?,?)",
+            ("S","P","MOBILE","https://example.org/a","https://example.org/a",
+             "CSR_SPA","artifacts/raw.html","artifacts/rendered.html",None),
+        )
+    monkeypatch.delenv(VERIFY_KEY, raising=False)
+    assert len(read_audit_architecture_observations(tmp_path, "AUD-META-STRIP")) == 1
+    monkeypatch.setenv(VERIFY_KEY, "trusted-public-identity-is-configured")
+    assert read_audit_architecture_observations(tmp_path, "AUD-META-STRIP") == ()

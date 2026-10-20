@@ -248,17 +248,27 @@ def read_audit_architecture_observations(
         # advisory reuse if the persisted bytes no longer match. Legacy M6
         # records without this extension retain their historical read-only
         # behavior; never claim that they were independently attested.
-        try:
-            details = json.loads(metadata) if isinstance(metadata, str) else {}
-        except (ValueError, TypeError):
+        # A malformed *present* browser_metadata cannot be downgraded to
+        # "legacy with no binding". Otherwise replacing signed metadata with
+        # corrupt JSON would bypass the artifact digest and signature checks.
+        if metadata is None:
             details = {}
-        if isinstance(details, dict) and "architecture_artifact_binding" in details:
+        elif isinstance(metadata, str):
+            try:
+                details = json.loads(metadata)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(details, dict):
+                continue
+        else:
+            continue
+        if "architecture_artifact_binding" in details:
             if verify_artifact_binding(
                 root, normalized, raw, rendered,
                 details["architecture_artifact_binding"],
             ) != "VERIFIED_EMBEDDED_DIGEST":
                 continue
-        if isinstance(details, dict) and "architecture_attestation" in details:
+        if "architecture_attestation" in details:
             from rasai.architecture_attestation import verify_capture
             binding = details.get("architecture_artifact_binding")
             if not isinstance(binding, dict):
@@ -272,16 +282,12 @@ def read_audit_architecture_observations(
                 signed = "TRUST_ANCHOR_UNAVAILABLE"
             if signed != "ATTESTED_ED25519":
                 continue
-        # If an independent public trust anchor is configured, records with
-        # an embedded digest MUST also carry a valid independent signature.
-        # Otherwise removing a signature from SQLite would silently downgrade
-        # an authenticated capture to a merely self-consistent digest.
+        # With an explicit external trust anchor, ALL consumed snapshots
+        # require a valid signature; stripping the entire metadata object
+        # must not downgrade a signed capture to legacy/unsigned evidence.
         from rasai.architecture_attestation import VERIFY_KEY
         import os
-        if (os.environ.get(VERIFY_KEY)
-                and isinstance(details, dict)
-                and "architecture_artifact_binding" in details
-                and "architecture_attestation" not in details):
+        if os.environ.get(VERIFY_KEY) and "architecture_attestation" not in details:
             continue
         observations.append(ArchitectureObservation(
             architecture=architecture, requested_url=requested,
