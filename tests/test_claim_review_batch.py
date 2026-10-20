@@ -183,3 +183,24 @@ def test_603_batch_cli_outputs_json_and_html_without_aud_creation(tmp_path, monk
             assert text.startswith("<!doctype html>")
             assert "C-DISPUTED" in text
     assert not any(p.is_dir() for p in folder.iterdir())
+
+def test_603_invalid_primary_url_abstains_only_affected_signed_claim(tmp_path):
+    """One malformed but re-signed URL must not poison unrelated reviews."""
+    folder = _fixture(tmp_path)
+    receipt_path = folder / "valid.json"
+    envelope = json.loads(receipt_path.read_text(encoding="utf-8"))
+    envelope["review"]["source_url"] = "https://@official.example.test/conditions"
+    payload = json.dumps(
+        envelope["review"], ensure_ascii=False, sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    envelope["mac"] = hmac.new(KEY, payload, sha256).hexdigest()
+    receipt_path.write_text(json.dumps(envelope), encoding="utf-8")
+    result = inspect_claim_review_batch(
+        folder / "manifest.json",
+        trusted_key=KEY, trusted_reviewer_ids=REVIEWERS,
+    )
+    rows = {row["claim_id"]: row for row in result["claims"]}
+    assert rows["C-VALID"]["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    assert rows["C-DISPUTED"]["state"] == "CLAIM_CONTRADICTED_WITH_VERSIONED_SOURCE"
+    assert rows["C-VALID"]["source_version_verified"] is False

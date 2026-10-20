@@ -123,3 +123,18 @@ emissor, escopo do produto, vigência, SHA-256 e recibo de revisão autenticado
 com correspondência à alegação. A projeção CAT-08 **não importa
 automaticamente** os recibos do lote consultivo nem altera conteúdo de AUD,
 RuleExecution, score SARI, metodologia ou recomendações já persistidas.
+
+
+### Identidade HTTPS literal da fonte primária (#603)
+
+Um recibo HMAC válido só pode vincular a alegação a uma URL HTTPS
+estruturalmente íntegra: espaços nas extremidades, caracteres de controle
+(inclusive TAB/CR/LF descartados silenciosamente por `urlsplit`),
+credenciais `userinfo` inclusive vazias (`https://@host`) e
+porta inválida são recusados antes de uma classificação documental.
+O verificador não faz DNS nem interpreta o host como autoridade pública:
+a autenticação independente do emissor e a adequação regulatória
+permanecem obrigações externas do revisor. Uma URL inválida torna
+**somente aquela alegação** não verificada; não invalida decisões
+autenticadas de outras alegações no pacote. Nenhum score, AUD ou CAT-03
+é modificado.

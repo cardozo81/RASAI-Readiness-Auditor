@@ -112,3 +112,27 @@ def test_unverified_claim_mode_does_not_invent_observation_for_invalid_input():
         external_validation_required=False,
     )
     assert valid["state"] == "CLAIM_OBSERVED"
+
+def test_claim_source_url_must_be_exact_https_without_credentials_or_controls():
+    """#603: a signed receipt cannot launder a malformed URL via urlsplit."""
+    for source_url in (
+        " https://example.test/primary",
+        "https://example.test/primary ",
+        "https://examp\nle.test/primary",
+        "https://examp\tle.test/primary",
+        "https://@example.test/primary",
+        "https://user:@example.test/primary",
+        "https://example.test:unparseable/primary",
+        "http://example.test/primary",
+    ):
+        changed = {**_receipt(), "source_url": source_url}
+        assert _classify(changed)["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+        # MAC validity alone does not override a malformed physical URL.
+        authenticated = verify_claim_review_receipt(
+            CLAIM, product_scope="product-A", at_date=AS_OF,
+            primary_bytes=DOCUMENT,
+            receipt=changed, receipt_mac=_mac(changed),
+            trusted_key=KEY,
+            trusted_reviewer_ids=frozenset({"trusted-reviewer"}),
+        )
+        assert authenticated["state"] == "CLAIM_UNVERIFIED_EXTERNAL"

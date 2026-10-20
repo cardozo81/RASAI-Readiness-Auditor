@@ -58,10 +58,20 @@ def classify_claim(
         return fallback
     if not isinstance(review, Mapping):
         return fallback
+    # urlsplit silently discards embedded TAB/LF/CR and leading C0 spaces,
+    # which could turn a malformed claimed primary-source URL into HTTPS.
+    # Signed review bytes must identify the exact URL without such repairs.
+    source_url = review.get("source_url")
+    if (not isinstance(source_url, str) or not source_url
+            or source_url != source_url.strip()
+            or any(ord(char) < 32 or ord(char) == 127 for char in source_url)):
+        return fallback
     try:
-        target = urlsplit(str(review.get("source_url") or ""))
-        valid_url = target.scheme == "https" and bool(target.hostname) and not (
-            target.username or target.password
+        target = urlsplit(source_url)
+        valid_url = (
+            target.scheme == "https" and bool(target.hostname)
+            and target.username is None and target.password is None
+            and (target.port is None or 1 <= target.port <= 65535)
         )
         effective_from = date.fromisoformat(str(review.get("effective_from")))
         effective_until = date.fromisoformat(str(review.get("effective_until")))
