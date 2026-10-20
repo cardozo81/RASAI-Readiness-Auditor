@@ -293,3 +293,82 @@ def test_600_report_parity_requires_aud_snapshot_binding_and_sealed_origin(
     assert inspect_decision_html_parity(root, projection)["status"] == (
         "HTML_MATRIX_PARITY_VERIFIED"
     )
+
+
+def test_600_humanized_report_cells_match_physical_index_and_sari_without_losing_scope(
+    tmp_path, monkeypatch,
+):
+    """#600 physical diagnosis: public SARI / Mobile differs from raw MOBILE.
+
+    Actual report materialization calls humanize_report_html in _shell after
+    writing the decision matrix. The acceptance gate must compare against
+    the same visible vocabulary but reject a changed numeric/scope cell.
+    """
+    from rasai import catalog_report_site
+    from rasai.report_presentation import humanize_report_html
+    monkeypatch.setattr(
+        catalog_report_site, "verify_catalog_report_package",
+        lambda path: (True, ()),
+    )
+    projection = _projection()
+    root = _package(
+        tmp_path, projection,
+        mutate_index=lambda html: humanize_report_html(
+            html, page_name="index.html",
+        ),
+        mutate_sari=lambda html: humanize_report_html(
+            html, page_name="sari.html",
+        ),
+    )
+    index_html = (root / "report-catalog" / "index.html").read_text(
+        encoding="utf-8",
+    )
+    assert "SARI / Mobile" in index_html
+    assert "SARI / MOBILE" not in index_html
+    assert "<code>scores.OVERALL_READINESS</code>" in index_html
+    result = inspect_decision_html_parity(root, projection)
+    assert result["status"] == "HTML_MATRIX_PARITY_VERIFIED"
+    assert result["aud_source_snapshot_matches_report"] is True
+    assert result["index_matrix_rows"] == len(projection["rows"])
+    assert result["sari_matrix_rows"] == 2
+    assert result["audit_writes"] == result["external_requests"] == 0
+
+    # A true physical difference remains fatal, despite public humanization.
+    modified_projection = dict(projection)
+    modified_projection["rows"] = [dict(row) for row in projection["rows"]]
+    target = next(
+        row for row in modified_projection["rows"]
+        if row["indicator"] == "Lighthouse / desempenho"
+    )
+    target["observed"] = "99,0 / 100"
+    incorrect = inspect_decision_html_parity(root, modified_projection)
+    assert incorrect["status"] == "INDEX_HTML_MATRIX_MISMATCH"
+    assert incorrect["normative_acceptance"] is False
+
+
+def test_600_humanization_does_not_normalize_canonical_source_identifiers(
+    tmp_path, monkeypatch,
+):
+    from rasai import catalog_report_site
+    from rasai.report_presentation import humanize_report_html
+    monkeypatch.setattr(
+        catalog_report_site, "verify_catalog_report_package",
+        lambda path: (True, ()),
+    )
+    original = _projection()
+    root = _package(
+        tmp_path, original,
+        mutate_index=lambda html: humanize_report_html(
+            html, page_name="index.html",
+        ).replace(
+            "<code>scores.OVERALL_READINESS</code>",
+            "<code>scores.CONTENT_VALUE</code>",
+            1,
+        ),
+        mutate_sari=lambda html: humanize_report_html(
+            html, page_name="sari.html",
+        ),
+    )
+    result = inspect_decision_html_parity(root, original)
+    assert result["status"] == "INDEX_HTML_MATRIX_MISMATCH"
+    assert result["index_matrix_rows"] is None

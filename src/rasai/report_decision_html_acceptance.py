@@ -8,6 +8,7 @@ open a browser or claim regulatory/market/sample certification.
 from __future__ import annotations
 
 from hashlib import sha256
+from html import escape, unescape
 from html.parser import HTMLParser
 import json
 import os
@@ -150,6 +151,30 @@ def _expected(rows: list[dict[str, Any]], sari_only: bool) -> tuple[tuple[str, .
     )
 
 
+def _visible_expected(
+    rows: list[dict[str, Any]], *, sari_only: bool, page_name: str,
+) -> tuple[tuple[str, ...], ...]:
+    """Match the public HTML vocabulary without relaxing factual equality.
+
+    The canonical report shell humanizes visible text *after* the matrix
+    renderer emits its HTML. Keep source identifiers, wrapped in <code> by
+    that renderer, byte-exact; transform only escaped visible cells using the
+    very same read-only presentation function. Do not mutate the projection
+    or normalize factual values with case-insensitive comparison.
+    """
+    from rasai.report_presentation import humanize_report_html
+
+    return tuple(
+        tuple(
+            value if field == "source" else unescape(humanize_report_html(
+                escape(value, quote=True), page_name=page_name,
+            ))
+            for field, value in zip(_COLUMNS, row)
+        )
+        for row in _expected(rows, sari_only)
+    )
+
+
 def inspect_decision_html_parity(
     audit_directory: Path, projection: Mapping[str, Any],
 ) -> dict[str, Any]:
@@ -270,7 +295,9 @@ def inspect_decision_html_parity(
             parser = _DecisionTable(section)
             parser.feed(content.decode("utf-8"))
             parser.close()
-            expected = _expected(expected_rows, sari_only)
+            expected = _visible_expected(
+                expected_rows, sari_only=sari_only, page_name=name,
+            )
             if not parser.valid() or parser.rows != list(expected):
                 return {**base, "status": (
                     "SARI_HTML_MATRIX_MISMATCH" if sari_only
