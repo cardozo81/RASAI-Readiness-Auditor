@@ -511,3 +511,32 @@ Não são ranking, probabilidade de citação generativa, participação de
 mercado, tráfego, indexação ou equivalência de país/idioma/device/intent
 entre SERP e Perplexity. O contrato de coleta e o score não mudam;
 o acréscimo é compatível com o formato consultivo 008 existente.
+
+
+## Integração canônica de relatório — #304 / GEO por consulta
+
+O consumidor `src/rasai/geo_query_ledger_report.py` expõe em `geo.html`,
+na mesma seção de interpretação GEO da AUD, uma matriz limitada a 10 consultas
+com SERP escopo/horário, denominadores físicos SERP e Search API, URLs em comum,
+taxas descritivas e presença exata da URL auditada. A projeção chama o
+`inspect_geo_per_query` existente **somente sobre a AUD local correspondente**
+(`AUD-ID/audit.db`), preservando selo duplo SHA256 e regras de abstenção.
+Há também rótulos declarativos branded/non-branded, quando efetivamente
+presentes no contrato do ledger. O HTML escapa dados não confiáveis.
+
+Não altera a comparação histórica já apresentada em `geo.html`: a tabela
+adicional mostra uma população **observacional por consulta**, não prova
+equivalência de mercado/região/idioma/dispositivo/intenção entre provedores,
+citação generativa, frequência de consultas, score ou rank. Se o SQLite,
+identidade da AUD, per-result query ou amostra não estiver verificável,
+apresenta N/D explícito, sem zeros fabricados. A integração não cria
+atividade de rede, não persistente novos resultados, não muda schema nem
+reprocessa histórico. Em AUD física grande, o selo atual faz duas leituras
+locais completas do SQLite, exigência que deliberadamente prioriza
+integridade à inferência baseada em snapshot mutável.
+
+Regressões direcionadas: `tests/test_geo_query_ledger_report.py` cobrem
+renderização efetiva por `geo_body`, escape, denominadores, multi-query
+sem atribuição, AUD divergente e supressão de taxas com selo inválido.
+**Testes novos não executados neste ciclo pelo agente**; validar somente
+se o gate de conclusão deste lote exigir.
