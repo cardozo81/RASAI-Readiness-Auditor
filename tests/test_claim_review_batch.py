@@ -204,3 +204,12 @@ def test_603_invalid_primary_url_abstains_only_affected_signed_claim(tmp_path):
     assert rows["C-VALID"]["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
     assert rows["C-DISPUTED"]["state"] == "CLAIM_CONTRADICTED_WITH_VERSIONED_SOURCE"
     assert rows["C-VALID"]["source_version_verified"] is False
+
+
+def test_603_batch_rejects_silent_claim_whitespace_normalization(tmp_path):
+    folder = _fixture(tmp_path)
+    source = folder / "claim.txt"
+    source.write_text(source.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    result = inspect_claim_review_batch(folder / "manifest.json", trusted_key=KEY, trusted_reviewer_ids=REVIEWERS)
+    assert result["status"] == "DOCUMENTARY_REVIEW_BATCH_OBSERVED"
+    assert all(row["state"] == "CLAIM_UNVERIFIED_EXTERNAL" for row in result["claims"])

@@ -136,3 +136,12 @@ def test_claim_source_url_must_be_exact_https_without_credentials_or_controls():
             trusted_reviewer_ids=frozenset({"trusted-reviewer"}),
         )
         assert authenticated["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+
+
+def test_603_literal_claim_identity_is_required_for_documentary_promotion():
+    for raw in (" " + CLAIM, CLAIM + "\n", "\t" + CLAIM, 42):
+        assert classify_claim(raw, product_scope="product-A", at_date=AS_OF,
+                              primary_bytes=DOCUMENT, review=_receipt())["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+        assert verify_claim_review_receipt(raw, product_scope="product-A", at_date=AS_OF,
+                    primary_bytes=DOCUMENT, receipt=_receipt(), receipt_mac=_mac(_receipt()),
+                    trusted_key=KEY, trusted_reviewer_ids=frozenset({"trusted-reviewer"}))["state"] == "CLAIM_UNVERIFIED_EXTERNAL"

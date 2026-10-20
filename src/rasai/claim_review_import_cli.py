@@ -66,7 +66,7 @@ def inspect_local_claim_receipt(
     }
     try:
         raw_claim = _read_local(claim_file, limit=_MAX_TEXT)
-        claim = raw_claim.decode("utf-8").strip()
+        claim = raw_claim.decode("utf-8")
         document = _read_local(document_file, limit=_MAX_DOCUMENT)
         raw_receipt = _read_local(receipt_file, limit=_MAX_RECEIPT)
         loaded = json.loads(
@@ -75,7 +75,7 @@ def inspect_local_claim_receipt(
             parse_constant=_nonstandard_number,
         )
         if (
-            not claim or not isinstance(loaded, dict)
+            not claim or claim != claim.strip() or not isinstance(loaded, dict)
             or set(loaded) != {"review", "mac"}
             or not isinstance(loaded["review"], dict)
             or not isinstance(loaded["mac"], str)

@@ -121,7 +121,7 @@ def inspect_claim_review_batch(
             try:
                 claim = _read_local(
                     _member_path(root, row["claim_file"]), limit=_MAX_TEXT,
-                ).decode("utf-8").strip()
+                ).decode("utf-8")
                 source = _read_local(
                     _member_path(root, row["document_file"]), limit=_MAX_DOCUMENT,
                 )
@@ -132,7 +132,7 @@ def inspect_claim_review_batch(
                     object_pairs_hook=_unique_pairs,
                     parse_constant=_nonstandard_number,
                 )
-                if (not claim or not isinstance(envelope, dict)
+                if (not claim or claim != claim.strip() or not isinstance(envelope, dict)
                         or set(envelope) != {"review", "mac"}
                         or not isinstance(envelope["review"], dict)
                         or not isinstance(envelope["mac"], str)):

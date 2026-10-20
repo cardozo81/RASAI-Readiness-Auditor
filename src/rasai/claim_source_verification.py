@@ -42,10 +42,10 @@ def classify_claim(
         else "CLAIM_OBSERVED"
     )
     fallback = {"state": state, "basis": "NO_VERIFIED_PRIMARY_SOURCE"}
-    claim = str(claim_text or "").strip()
+    claim = claim_text if isinstance(claim_text, str) else ""
     # Datetime is a date subclass, but cannot be safely compared to parsed dates.
     # Invalid caller input must abstain rather than crash the report consumer.
-    if (not claim or not isinstance(product_scope, str)
+    if (not claim or claim != claim.strip() or not isinstance(product_scope, str)
             or not product_scope.strip() or product_scope != product_scope.strip()
             or type(at_date) is not date):
         # A missing/malformed claim is not an observed factual claim, even
@@ -94,7 +94,7 @@ def classify_claim(
         and reviewed_on <= at_date
         and (collected_on is None or collected_on <= reviewed_on)
         and str(review.get("product_scope") or "") == product_scope
-        and str(review.get("claim_text") or "").strip() == claim
+        and isinstance(review.get("claim_text"), str) and review["claim_text"] == claim
         and bool(str(review.get("document_version") or "").strip())
         and bool(str(review.get("issuer") or "").strip())
         and bool(str(review.get("reviewer_receipt_id") or "").strip())
