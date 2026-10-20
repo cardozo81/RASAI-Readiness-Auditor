@@ -56,3 +56,20 @@ posterior e os instantes UTC observados; não se trata de recibo assinado.
 Falha de inspeção *após* o clique declara `action_performed=true`, evitando
 afirmar que nenhuma ação ocorreu. A saída **não** atesta mesma amostra da AUD,
 visibilidade por crawler, conformidade ou permissão de alterar score.
+
+## Identidade física consultiva por captura (próximo macrolote #601)
+
+A projeção CAT-03 registra, quando **presentes no SQLite selado**, os
+atributos `snapshot_id / page_id / requested_url / final_url / device`
+da mesma AUD na tabela de proveniência FAQ. Campos não existentes em
+capturas legadas ou URLs/dispositivos inválidos continuam `N/D`.
+IDs de snapshot duplicados em qualquer página da base são recusados,
+inclusive se uma ocorrência não aparecer entre os 12 exibidos.
+Os valores são texto escapado, não hiperlinks executáveis.
+
+Isso permite selecionar **qual snapshot concreto** exigiria um recibo
+assinado de interação, mas **não** o produz, não atesta clique nem liga
+automaticamente os hashes de um navegador posterior à coleta M3. Não
+altera BR-GEO-039/049, nem permite recalcular scores já selados.
+A decisão de método e a autorização para obter recibo físico continuam
+gates separados. Essa projeção apenas lê SQLite e HTML locais.

@@ -307,34 +307,30 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
     try:
         with closing(sqlite3.connect(source.resolve().as_uri() + "?mode=ro", uri=True)) as connection:
             connection.execute("PRAGMA query_only=ON")
-            rows = connection.execute(
-                "SELECT s.snapshot_id,s.rendered_artifact_ref FROM page_snapshots s "
-                "JOIN pages p ON p.page_id=s.page_id "
-                "WHERE p.audit_id=? ORDER BY s.snapshot_id LIMIT ?",
-                (audit_id, _MAX_SNAPSHOTS + 1),
-            ).fetchall()
+            from rasai.faq_snapshot_scope import read_faq_snapshot_scopes
+            rows, incomplete, source_status = read_faq_snapshot_scopes(
+                connection, audit_id, limit=_MAX_SNAPSHOTS,
+            )
     except sqlite3.Error:
         return ""
-    incomplete = len(rows) > _MAX_SNAPSHOTS
-    rows = rows[:_MAX_SNAPSHOTS]
-    if not rows:
-        return ""
-    identities = [sid for sid, _ in rows]
-    if (any(not isinstance(sid, str) or not sid.strip()
-            for sid in identities)
-            or len(set(identities)) != len(identities)):
+    if source_status == "AMBIGUOUS_SNAPSHOT_ID":
         return (
             "<div class='subsection' data-contract='FAQ-OBSERVATION-601-001'>"
             "<h3>FAQ interativo — N/D</h3>"
             "<p>Snapshot IDs ausentes ou duplicados: N/D. "
             "Não inferir ausência editorial.</p></div>"
         )
+    if source_status != "OBSERVATIONAL_SCOPE_ONLY":
+        return ""
+    if not rows:
+        return ""
     unreadable = 0
     no_controls = 0
     observations: list[dict[str, int]] = []
     sources: list[tuple[str, dict[str, int]]] = []
     jsonld_sources: list[dict[str, Any]] = []
-    for snapshot_id, ref in rows:
+    for record in rows:
+        snapshot_id, ref = record.snapshot_id, record.artifact_ref
         try:
             rendered = _safe_rendered_file(root, ref)
             if rendered is None:
@@ -348,7 +344,7 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
             continue
         if counts["controls"]:
             observations.append(counts)
-            sources.append((snapshot_id, counts))
+            sources.append((record, counts))
         else:
             no_controls += 1
     coverage = (
@@ -404,7 +400,11 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
     expanded_without_text = sum(item["expanded_without_text"] for item in observations)
     expanded_unmounted = sum(item["expanded_unmounted"] for item in observations)
     provenance = "".join(
-        "<tr><td><code>" + escape(snapshot_id) + "</code></td>"
+        "<tr><td><code>" + escape(record.snapshot_id) + "</code></td>"
+        + "<td><code>" + escape(record.page_id) + "</code></td>"
+        + "<td>" + escape(record.device) + "</td>"
+        + "<td>" + escape(record.requested_url) + "</td>"
+        + "<td>" + escape(record.final_url) + "</td>"
         + f"<td>{counts['controls']}</td><td>{counts['ambiguous']}</td>"
         + f"<td>{counts['collapsed']}</td><td>{counts['unmounted']}</td>"
         + f"<td>{counts['mounted_with_text']}</td>"
@@ -412,7 +412,7 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
         + f"<td>{counts['expanded']}</td>"
         + f"<td>{counts['expanded_with_text']}</td>"
         + f"<td>{counts['expanded_unmounted']}</td></tr>"
-        for snapshot_id, counts in sources
+        for record, counts in sources
     )
     return (
         "<div class='subsection' data-contract='FAQ-OBSERVATION-601-001'>"
@@ -434,7 +434,9 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
         f"e {expanded_unmounted} sem painel montado. Estado expandido não "
         "comprova gesto de clique nem visibilidade a mecanismos de busca.</p>"
         "<details><summary>Proveniência por captura</summary>"
-        "<div class='table-wrap'><table><thead><tr><th>Snapshot ID</th><th>FAQ</th>"
+        "<div class='table-wrap'><table><thead><tr><th>Snapshot ID</th>"
+        "<th>Page ID</th><th>Dispositivo</th><th>URL solicitada</th>"
+        "<th>URL final</th><th>FAQ</th>"
         "<th>Ambíguos</th><th>Recolhidos</th><th>Painéis ausentes</th><th>Com texto DOM</th>"
         "<th>Sem texto DOM</th><th>Expandidos</th>"
         "<th>Expandidos com texto</th><th>Expandidos sem painel</th>"
@@ -444,6 +446,8 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
         "são classificados como ambíguos e não entram nas contagens de painéis. "
         "A existência de texto em painel recolhido significa somente que ele "
         "estava no DOM desta captura; não comprova que fosse visível, indexado ou correto. "
+        "Identidades de URL e dispositivo provêm somente do snapshot persistido; "
+        "N/D indica legado/identidade ausente ou inválida, nunca prova de URL. "
         "A auditoria não abriu esses controles nesta observação. "
         "Painel não materializado não prova ausência editorial de resposta. "
         "Painel disponível após clique também não comprova acesso sem interação "
