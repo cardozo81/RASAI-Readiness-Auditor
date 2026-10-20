@@ -6,6 +6,7 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    "APOS_CLIQUE_DECLARADO_SEM_HOMOLOGACAO": "Após clique declarado pelo coletor local; homologação física pendente",
     # Opt-in physical receipt/readiness fail-closed states.
     "FAQ_EXPLICIT_SCOPE_MISMATCH": "URL final, solicitada ou dispositivo não corresponde ao consentimento",
     "EXPERIMENTAL_SAME_PAGE_SCOPE_NOT_VERIFIED": "Contexto da página física experimental não confirmado",

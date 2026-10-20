@@ -438,6 +438,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif any(x == name or x.startswith(name + "=")
                  for x in effective[1:] for name in names):
             raise ValueError("FAQ gesture requires explicit consent")
+    if effective and effective[0] == "experimental-report":
+        # A read-only supplemental report never activates provider secrets,
+        # collector bootstraps or mutates an existing AUD.
+        from rasai.experimental_observation_report import main as experiment_main
+        return experiment_main(effective[1:])
     # A separate same-host CDOM comparison is not an AUD/CONS-3 operation.
     # Dispatch before activating persisted provider secrets or installing
     # the audit/IA runtime. Both argparse forms are accepted.

@@ -46,11 +46,15 @@ def configure_one_shot_faq(
     *, requested_url: str, allowed_final_url: str, device: str,
     target_id: str, collector_id: str, trusted_key_file: Path,
     explicit_operator_consent: bool = False,
+    operator_network_boundary_acknowledged: bool = False,
 ) -> None:
     global _pending
     from rasai.faq_observation import _FAQ_CONTEXT
     if explicit_operator_consent is not True:
         raise ValueError("operator must explicitly consent to one FAQ gesture")
+    if operator_network_boundary_acknowledged is not True:
+        raise ValueError("network containment must be separately acknowledged")
+    # Acknowledgment is an operator assertion, NOT proof of OS-level isolation.
     _url(requested_url)
     _url(allowed_final_url)
     if (
@@ -72,6 +76,8 @@ def configure_one_shot_faq(
         "requested_url": requested_url, "allowed_final_url": allowed_final_url,
         "device": device, "target_id": target_id, "collector_id": collector_id,
         "trusted_key": key,
+        "operator_network_boundary_acknowledged": True,
+        "network_containment_independently_verified": False,
     }
     with _LOCK:
         if _pending is not None:

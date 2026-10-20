@@ -41,6 +41,7 @@ def _policy(tmp_path, **updates):
         device="DESKTOP", target_id="faq-panel",
         collector_id="OFFLINE-COLLECTOR", trusted_key_file=key,
         explicit_operator_consent=True,
+        operator_network_boundary_acknowledged=True,
     )
     data.update(updates)
     return data
@@ -151,3 +152,44 @@ def test_physical_one_context_signed_sidecar_readonly(tmp_path, monkeypatch):
     assert (audit / "audit.db").read_bytes() == before_db
     assert artifact.read_bytes() == before.encode()
     assert faq.publish_faq_after_seal(audit_id=audit.name, aud_dir=audit)["eligible"] == 0
+
+
+def test_no_physical_gesture_without_separate_network_ack(tmp_path):
+    opts = _policy(tmp_path)
+    with pytest.raises(ValueError, match="network containment"):
+        faq.configure_one_shot_faq(**{
+            **opts, "operator_network_boundary_acknowledged": False,
+        })
+    assert faq.claim_for_snapshot(**_snapshot()) is None
+
+
+def test_webrtc_websocket_eventsource_are_denied_by_optional_init_script():
+    """Browser-only verification. OS-level egress remains separately gated."""
+    import os
+    from rasai.device_context_capture import _FAQ_EGRESS_INIT_SCRIPT
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            channel=os.environ.get("RASAI_322_CHROME_CHANNEL") or None,
+            headless=True,
+        )
+        try:
+            context = browser.new_context(service_workers="block")
+            context.add_init_script(_FAQ_EGRESS_INIT_SCRIPT)
+            context.route("**/*", lambda route: route.fulfill(
+                status=200, content_type="text/html",
+                body="<html><body>FAQ test</body></html>",
+            ))
+            page = context.new_page()
+            page.goto(_URL, wait_until="load")
+            types = page.evaluate("""() => ({
+                rtc: typeof RTCPeerConnection,
+                socket: typeof WebSocket,
+                eventSource: typeof EventSource
+            })""")
+            assert types == {
+                "rtc": "undefined", "socket": "undefined",
+                "eventSource": "undefined",
+            }
+            context.close()
+        finally:
+            browser.close()

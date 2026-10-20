@@ -807,6 +807,8 @@ def _install_browser_capture() -> None:
             assert self._browser is not None
             context = self._browser.new_context(**options)
             stage = "INIT_SCRIPT"
+            if callable(getattr(self, "_rasai_optin_faq_observer", None)):
+                context.add_init_script(_FAQ_EGRESS_INIT_SCRIPT)
             try:
                 context.add_init_script(_COOKIE_RUNTIME_INIT_SCRIPT)
             except Exception:
@@ -1126,6 +1128,8 @@ def _install_browser_capture() -> None:
     BrowserIdentityRenderer._render_once = render_once
     BrowserIdentityRenderer._rasai_context_scope_capture = True
 
+
+_FAQ_EGRESS_INIT_SCRIPT = "\n// Opt-in-only pre-navigation restriction: JS cannot create native\n// WebRTC data channels, WebSockets or EventSource during FAQ capture.\n// This is defense in depth, not a substitute for OS network isolation.\n(() => {\n  for (const name of ['RTCPeerConnection', 'webkitRTCPeerConnection',\n                      'WebSocket', 'EventSource']) {\n    try { Object.defineProperty(globalThis, name,\n      {value: undefined, writable: false, configurable: false}); }\n    catch (_) { /* fail-closed: runtime validates absence below */ }\n  }\n})();\n"
 
 def install() -> None:
     """Install device-scoped capture enrichment idempotently."""

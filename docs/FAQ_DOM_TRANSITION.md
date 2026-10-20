@@ -138,3 +138,26 @@ certificação independente de browser por serviço externo, nem prova
 comportamento de crawler, nem isolamento WebRTC/egress em todos os
 protocolos. A homologação física do alvo real autorizado continua
 exigindo confirmação do operador.
+
+## Gate de segurança adicional e relatório de leitura
+
+O opt-in CLI agora exige duas manifestações **independentes**:
+`--experimental-faq-explicit-consent` (gesto e alvo)
+**e** `--experimental-faq-network-boundary-ack`
+(declaração do operador de contenção de rede). Esta segunda
+opção é apenas um reconhecimento, **não uma medição técnica**
+de isolamento de rede. Sem uma delas, não há coleta FAQ
+interativa autorizada. O processo do navegador, exclusivamente
+neste modo opt-in, instala bloqueio de APIs WebRTC,
+WebSocket e EventSource antes do carregamento, além do
+offline e bloqueio de requisições HTTP antes do clique.
+Isto reduz vias de egress, mas não prova isolamento de
+todos os protocolos ou canais do sistema operacional.
+
+O suplemento de leitura `rasai.experimental_observation_report`
+mostra **sem interação**, **após clique declarado** ou
+**não verificado** sem renderizar o HTML pós-clique nem
+declarar autenticação independente da origem. Um digest
+íntegro não substitui revalidação de assinatura do coletor
+nem homologação humana em uma AUD real. A visualização
+permanece fora de `report-catalog` e da AUD original.

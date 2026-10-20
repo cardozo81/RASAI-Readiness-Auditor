@@ -8,6 +8,8 @@ on:
       - 'src/rasai/faq_existing_page_pilot.py'
       - 'src/rasai/m3_experimental_faq_runtime.py'
       - 'src/rasai/m25_experimental_probe_runtime.py'
+      - 'src/rasai/experimental_observation_report.py'
+      - 'tests/test_experimental_observation_report.py'
       - 'src/rasai/m3_render_deadline_runtime.py'
       - 'src/rasai/m3.py'
       - 'src/rasai/entrypoint.py'
@@ -32,6 +34,8 @@ on:
       - 'src/rasai/faq_existing_page_pilot.py'
       - 'src/rasai/m3_experimental_faq_runtime.py'
       - 'src/rasai/m25_experimental_probe_runtime.py'
+      - 'src/rasai/experimental_observation_report.py'
+      - 'tests/test_experimental_observation_report.py'
       - 'src/rasai/m3_render_deadline_runtime.py'
       - 'src/rasai/m3.py'
       - 'src/rasai/entrypoint.py'
@@ -77,6 +81,7 @@ jobs:
           tests/test_apdex_content_readiness.py
           tests/test_m25_advisory_sample_bridge.py
           tests/test_m25_experimental_probe_runtime.py
+          tests/test_experimental_observation_report.py
 
   physical-browser-pilot:
     runs-on: ubuntu-latest

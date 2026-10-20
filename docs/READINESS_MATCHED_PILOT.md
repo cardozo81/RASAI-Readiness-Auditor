@@ -124,3 +124,34 @@ inalterados; falhas/timeout permanecem censurados. Não é um novo
 índice de experiência. Para homologação metodológica ainda é
 necessária medição A/B física de overhead, no mesmo perfil e URL
 autorizados, antes de disponibilização irrestrita.
+
+## Apresentação consultiva separada do pacote homologado
+
+Um suplemento HTML estático e sem JavaScript apresenta os sidecars
+de prontidão materializada e censurada em seções de leitura
+`CAT-06` e `CAT-07`, mantendo a distinção explícita
+entre **Apdex de carregamento** e **prontidão de conteúdo**.
+Ele é gerado automaticamente, após o selo da AUD, quando há
+evidência experimental; também pode ser gerado novamente sem coleta:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai.experimental_observation_report --aud-dir .\audits\AUD-ID
+```
+
+O arquivo complementar é criado em
+`.rasai-experimental-reports/<AUD-ID>/<SHA256>.html`, fora
+do `report-catalog` selado. Os registros só entram na tabela
+quando o verificador do sidecar confirma o SHA-256 do próprio
+JSON, a fonte AUD e o manifesto. Arquivos inválidos são
+contabilizados como recusados, sem promover `TIMEOUT` a sucesso.
+O HTML usa escape de texto, CSP sem scripts ou rede, e
+publicação atômica sem sobrescrever um relatório existente.
+O CLI informa o caminho para abrir o suplemento.
+
+Este documento **não afirma** inserção automática de elementos
+dentro de `cat-06.html` / `cat-07.html`: fazê-lo após o selo
+invalidaria a integridade histórica. O suplemento é a
+apresentação adicional com seções rotuladas pelos catálogos,
+sem substituir o relatório original. O gate físico A/B de
+overhead e eventual decisão sobre integração ao pacote
+principal permanecem independentes.
