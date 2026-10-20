@@ -185,6 +185,23 @@ def _gate_detail(gates: dict[str, str]) -> str:
     return "; ".join(material)
 
 
+def _external_convergence_caveat() -> str:
+    """Explain the limits of SARI without inferring external measurements.
+
+    SARI scores cannot certify the independent M21/CrUX/SERP/Apdex cohorts.
+    This notice does not assert an unobserved performance or search failure.
+    """
+    return (
+        "<p class='notice warn' data-sari-nonconvergence='true'>"
+        "<strong>Convergência não garantida:</strong> a qualidade e confiança "
+        "do contrato SARI não comprovam desempenho Lighthouse, Core Web Vitals "
+        "em campo, Apdex representativo, posições orgânicas ou inclusão/citação "
+        "por mecanismos generativos. Evidências de laboratório, amostras, "
+        "ORIGIN versus URL e cobertura SERP precisam de leitura independente; "
+        "a ausência desses dados no SARI não os transforma em sucesso.</p>"
+    )
+
+
 def operational_readiness_panel(data: dict[str, Any]) -> str:
     scores = list(data.get("scores") or [])
     cards: list[str] = []
@@ -251,7 +268,8 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
         "readiness excelente quando a medição está parcial/não consolidada ou quando Discovery, Indexability ou Extraction "
         "estão BLOCKED/UNKNOWN.</p>"
         "<p class='notice'>Confiança e cobertura avaliam o contrato SARI, não representam intervalo estatístico, experiência real, desempenho de laboratório, posição SERP ou citação generativa. Métricas externas e dimensões de baixa cobertura devem ser analisadas separadamente.</p>"
-        "<div class='grid'>" + "".join(cards) + "</div>" + dimension_notice
+        _external_convergence_caveat()
+        + "<div class='grid'>" + "".join(cards) + "</div>" + dimension_notice
         + "<div class='notice'><strong>Integrações externas:</strong> erro de provider/API/coleta não é defeito do website e "
         "não gera penalidade artificial no SARI. Um finding técnico externo só participa do score quando existe uma BR-GEO "
         "equivalente, mapeamento explícito e evidência persistida sem dupla pontuação.</div>"
@@ -307,7 +325,7 @@ def _reporting_overall_card(reporting: Any, scores: list[Any], device: str) -> s
         f"<div><small>Confiança</small><strong>{escape(confidence)}</strong></div>"
         f"<div><small>Consolidação</small><strong>{escape(consolidation)}</strong></div>"
         f"<div><small>Readiness</small><strong>{escape(readiness)}</strong></div>"
-        "</div>" + qualifier + "</article>"
+        "</div>" + qualifier + _external_convergence_caveat() + "</article>"
     )
 
 
@@ -365,7 +383,7 @@ def _site_overall_card(report_site: Any, scores: list[Any], device: str) -> str:
         f"<div><small>Coverage</small><strong title='Canonical fraction: {coverage_raw}'>{escape(coverage)}</strong></div>"
         f"<div><small>Confidence</small><strong>{escape(confidence)}</strong></div>"
         f"<div><small>Consolidação</small><strong>{escape(consolidation)}</strong></div>"
-        "</div>" + detail + "</article>"
+        "</div>" + detail + _external_convergence_caveat() + "</article>"
     )
 
 

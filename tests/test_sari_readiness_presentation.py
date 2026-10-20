@@ -297,3 +297,37 @@ def test_ready_claim_without_any_persisted_gate_does_not_certify() -> None:
     row["limitations"] = json.dumps(["READINESS_STATUS:READY"])
     assert readiness_state(row)[0] == "UNKNOWN"
     assert public_readiness_condition(row)[0] == "neutral"
+
+
+def test_sari_convergence_warning_does_not_invent_external_measurements() -> None:
+    """#600: 86.5/HIGH with partial dimension is not proof of real-world UX."""
+    overall = _row(value=86.484962, status="ATTENTION", discovery_gate="WARNING")
+    overall["coverage"] = 0.974737
+    partial = dict(overall, dimension="CONTENT_VALUE", coverage=0.7,
+                   confidence="LOW", consolidation_status="PARTIAL")
+    html = operational_readiness_panel({"scores": [overall, partial]})
+    assert "Convergência não garantida" in html
+    assert "Lighthouse" in html and "ORIGIN versus URL" in html
+    assert "cobertura 70.0%" in html
+    assert "86.5/100" in html
+    assert "Lighthouse ruim observado" not in html
+
+
+def test_sari_convergence_warning_reaches_executive_and_device_cards() -> None:
+    """#600: notices also appear when rendering cards independently."""
+    from types import SimpleNamespace
+    from rasai.sari_readiness_presentation import _reporting_overall_card, _site_overall_card
+
+    row = _row(value=86.484962)
+    reporting = SimpleNamespace(PUBLIC_METHOD_VERSION="SARI", _STATUS_LABELS={})
+    site = SimpleNamespace(
+        _STATUS_LABELS={}, _device_label=lambda _: "Mobile",
+        _confidence_badge=lambda _: "<span>Confidence</span>",
+    )
+    executive = _reporting_overall_card(reporting, [row], "MOBILE")
+    device = _site_overall_card(site, [row], "MOBILE")
+    for card in (executive, device):
+        assert "Convergência não garantida" in card
+        assert "Lighthouse" in card
+        assert "Core Web Vitals" in card
+        assert "86.5" in card
