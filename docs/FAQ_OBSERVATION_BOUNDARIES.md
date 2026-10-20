@@ -83,7 +83,7 @@ coletor fornecidas por fora da AUD; (ii) exige identidade única do snapshot
 `audit_id/page_id/snapshot_id/URL solicitada/URL final/device` em SQLite
 imutável e estável; (iii) compara **os mesmos bytes UTF-8** do DOM anterior
 assinado com o arquivo `rendered_artifact_ref` persistido; (iv) recusa
-identidade duplicada, URL/dispositivo divergentes, snapshot legado sem
+identidade duplicada, URL/dispositivo divergentes, snapshot anterior sem
 campos, arquivo ausente, symlink e SQLite com WAL/SHM/journal.
 
 Resultado de sucesso: `SIGNED_RECEIPT_MATCHES_PERSISTED_AUD_DOM_BYTES`.

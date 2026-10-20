@@ -276,7 +276,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             consented_hostnames=args.consent_host,
             consent_purpose=args.consent_purpose,
             consented_operations=args.consent_operation,
-            consent_registry=args.consent_registry,
+            **({"consent_registry": args.consent_registry}
+              if args.consent_registry is not None else {}),
         )
     except ValueError as exc:
         parser.error(str(exc))
