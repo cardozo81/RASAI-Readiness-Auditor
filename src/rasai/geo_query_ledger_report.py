@@ -39,6 +39,45 @@ def _advisory_unavailable(reason: str) -> str:
     )
 
 
+
+def _source_host_roster(row: Mapping[str, Any], admissible: bool) -> str:
+    """Optional read-only expansion, never promoted without source integrity."""
+    roster = row.get("host_source_inventory") if admissible else None
+    if (not isinstance(roster, Mapping)
+            or roster.get("status") != "OBSERVED_RETURNED_HOSTNAMES_ONLY"
+            or type(roster.get("distinct_hostnames")) is not int
+            or not 0 < roster["distinct_hostnames"] <= 1000
+            or not isinstance(roster.get("entries"), list)
+            or not 0 < len(roster["entries"]) <= 12):
+        return ""
+    lines = []
+    for entry in roster["entries"]:
+        if not isinstance(entry, Mapping):
+            return ""
+        host = entry.get("hostname")
+        numbers = [_count(entry.get(key)) for key in (
+            "serp_distinct_urls", "external_distinct_urls", "common_distinct_urls",
+        )]
+        if (not isinstance(host, str) or not host or len(host) > 253
+                or "N/D" in numbers):
+            return ""
+        lines.append(
+            "<tr><td>" + _e(host, limit=253) + "</td><td>"
+            + "</td><td>".join(numbers) + "</td></tr>"
+        )
+    return (
+        "<details><summary>Hosts observados na consulta " + _e(row.get("query"))
+        + ": " + str(roster["distinct_hostnames"]) + " hostnames, "
+        + str(len(lines)) + " exibidos</summary><table><thead>"
+        "<tr><th>Hostname exato</th><th>URLs SERP</th>"
+        "<th>URLs Search API</th><th>URLs exatas comuns</th>"
+        "</tr></thead><tbody>" + "".join(lines) + "</tbody></table>"
+        "<p>Hostnames de fontes, não concorrentes comerciais comprovados "
+        "ou participação de mercado. Limite de exibição: 12 hostnames, "
+        "sem mudar denominadores das taxas.</p></details>"
+    )
+
+
 def geo_query_advisory_html(database: Path, audit_id: str) -> str:
     """Render descriptive per-query URL-set rates from a sealed local AUD.
 
@@ -78,6 +117,7 @@ def geo_query_advisory_html(database: Path, audit_id: str) -> str:
         "<th>Overlap SERP</th><th>Overlap Search API</th>"
         "<th>URL exata auditada</th><th>Limite</th></tr></thead><tbody>",
     ]
+    roster_details: list[str] = []
     for item in rows:
         if not isinstance(item, Mapping):
             return _advisory_unavailable("QUERY_ROW_UNVERIFIABLE")
@@ -134,7 +174,9 @@ def geo_query_advisory_html(database: Path, audit_id: str) -> str:
             scope_text, *nums, target, note,
         ]
         parts.append("<tr>" + "".join("<td>" + v + "</td>" for v in cells) + "</tr>")
+        roster_details.append(_source_host_roster(item, valid))
     parts.append("</tbody></table>")
+    parts.extend(roster_details)
     recurrence = projection.get("recurrence")
     if isinstance(recurrence, Mapping) and projection.get("status") == "DESCRIPTIVE_ONLY":
         state = recurrence.get("status")

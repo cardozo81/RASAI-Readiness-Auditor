@@ -105,3 +105,19 @@ def test_global_integrity_abstention_does_not_leak_poisoned_numbers(monkeypatch,
     html = geo_query_advisory_html(db, "AUD-REPORT304")
     assert "SOURCE_INTEGRITY_OR_CONTRACT_UNVERIFIED" in html
     assert "91.00%" not in html
+
+def test_canonical_geo_page_displays_attributed_source_hosts_not_competitor_claims(tmp_path):
+    db = _physical(tmp_path)
+    before = sha256(db.read_bytes()).hexdigest()
+    page = geo_body(db, "AUD-REPORT304")
+    assert "Hosts observados na consulta" in page
+    assert "exemplo.org" in page
+    assert "outro.org" in page
+    assert "não concorrentes comerciais comprovados" in page
+    assert sha256(db.read_bytes()).hexdigest() == before
+
+
+def test_canonical_geo_page_hides_hostname_roster_without_source_query(tmp_path):
+    db = _physical(tmp_path, per_source=False)
+    page = geo_body(db, "AUD-REPORT304")
+    assert "Hosts observados na consulta" not in page

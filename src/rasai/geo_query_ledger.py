@@ -158,6 +158,38 @@ def _host_overlap(serp_urls: set[str], external_urls: set[str]) -> dict[str, int
     }
 
 
+
+def _host_source_inventory(serp_urls: set[str], external_urls: set[str]) -> dict[str, Any]:
+    """Observed exact hostnames from two already verified per-query URL sets.
+
+    Hostnames are external sources, not validated commercial competitors.
+    URL denominators are complete; only the visible roster is capped.
+    """
+    serp = Counter(urlsplit(url).hostname for url in serp_urls)
+    external = Counter(urlsplit(url).hostname for url in external_urls)
+    ordered = sorted(
+        set(serp) | set(external),
+        key=lambda host: (-(serp[host] + external[host]), host),
+    )
+    return {
+        "status": "OBSERVED_RETURNED_HOSTNAMES_ONLY",
+        "distinct_hostnames": len(ordered),
+        "entries": [
+            {
+                "hostname": host,
+                "serp_distinct_urls": serp[host],
+                "external_distinct_urls": external[host],
+                "common_distinct_urls": sum(
+                    urlsplit(url).hostname == host for url in serp_urls & external_urls
+                ),
+            }
+            for host in ordered[:12]
+        ],
+        "display_limit": 12,
+        "truncated": len(ordered) > 12,
+    }
+
+
 def _query_recurrence(
     observations: Mapping[str, tuple[tuple[str, ...], set[str], set[str]]],
     *, expected_queries: int, target: str | None,
@@ -322,6 +354,7 @@ def _row(query: str, classification: str, reason: str) -> dict[str, Any]:
         "target_url_exact_in_perplexity": None,
         "target_url_overlap_status": "N/D",
         "host_overlap": None,
+        "host_source_inventory": None,
         "serp_target_host_group": None,
         "external_target_host_group": None,
         "serp_target_url_distribution": None,
@@ -727,6 +760,7 @@ def inspect_geo_per_query(
                     perplexity_overlap_rate=round(common / len(px_urls), 4),
                     jaccard_url_rate=round(common / union, 4),
                     host_overlap=_host_overlap(serp_urls, px_urls),
+                    host_source_inventory=_host_source_inventory(serp_urls, px_urls),
                 )
                 if target is not None:
                     in_serp = target in serp_urls

@@ -169,6 +169,43 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
             _table_row([escape(label, quote=True), host_value(key, formatter)])
             for label, key, formatter in host_metrics
         )
+
+        roster = entry.get("host_source_inventory") if row_admissible else None
+        roster_html = "<p>Hosts observados por consulta: N/D.</p>"
+        if (projection.get("contract_version") == "RASAI-GEO-PER-QUERY-304-ADVISORY-008"
+                and isinstance(roster, Mapping)
+                and roster.get("status") == "OBSERVED_RETURNED_HOSTNAMES_ONLY"
+                and type(roster.get("distinct_hostnames")) is int
+                and isinstance(roster.get("entries"), list)
+                and 0 < len(roster["entries"]) <= 12):
+            items = []
+            for member in roster["entries"]:
+                if not isinstance(member, Mapping):
+                    items = []
+                    break
+                numbers = [_count(member.get(field)) for field in (
+                    "serp_distinct_urls", "external_distinct_urls",
+                    "common_distinct_urls",
+                )]
+                host = member.get("hostname")
+                if (not isinstance(host, str) or not host or len(host) > 253
+                        or "N/D" in numbers):
+                    items = []
+                    break
+                items.append(_table_row([_safe(host), *numbers]))
+            if items:
+                roster_html = (
+                    "<details><summary>Hosts observados por consulta: "
+                    + str(roster["distinct_hostnames"]) + " hostnames exatos; "
+                    + str(len(items)) + " exibidos</summary><table>"
+                    "<thead><tr><th>Hostname</th><th>URLs SERP</th>"
+                    "<th>URLs Search API</th><th>URLs comuns</th>"
+                    "</tr></thead><tbody>" + "".join(items) + "</tbody></table>"
+                    "<p>Hostnames retornados, sem comprovar concorrência "
+                    "comercial, mercado, ranking ou citação generativa. "
+                    "Denominadores consideram todos os resultados, inclusive "
+                    "os hostnames além do limite de exibição.</p></details>"
+                )
         # Persisted host groups describe alternative URLs, not competitors.
         # A source integrity or row comparability failure must hide counts.
         group_rows = []
@@ -245,6 +282,7 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
             if row_admissible else "N/D",
             "</p></div></div>",
             "<h3>Interseção de hosts observados (sem inferir concorrência)</h3>",
+            roster_html,
             "<table>", host_metrics_html, "</table>",
             "<h3>Distribuição proporcional das URLs retornadas por fonte</h3>",
             "<table>", distribution_html, "</table>",

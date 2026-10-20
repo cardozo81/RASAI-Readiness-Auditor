@@ -540,3 +540,23 @@ renderização efetiva por `geo_body`, escape, denominadores, multi-query
 sem atribuição, AUD divergente e supressão de taxas com selo inválido.
 **Testes novos não executados neste ciclo pelo agente**; validar somente
 se o gate de conclusão deste lote exigir.
+
+
+## Hostnames das fontes físicas por consulta (#304)
+
+A projeção passou a expor quais **hostnames exatos** são efetivamente
+observados nos resultados SERP e Search API de cada consulta, não somente
+as contagens agregadas de hostnames. O inventário opcional
+host_source_inventory identifica hostname, URLs distintas por fonte e URLs
+exatamente comuns, preservando www distinto de apex, sem associação
+semântica a competidores de mercado. O algoritmo usa os conjuntos de URLs
+já canonizados e atribuídos fisicamente por query, relógio e scope SERP.
+
+Apenas 12 hostnames são exibidos por consulta, em ordem determinística
+de contagem agregada decrescente e hostname; o denominador e o total de
+hostnames continuam completos. O inventário é exibido como detalhe
+expansível tanto no relatório GEO canônico quanto no HTML consultivo.
+Amostras não atribuídas, sem selo SHA duplo ou de origem ambígua dão N/D
+sem promover resultados. Hostnames externos não comprovam concorrência
+comercial, ranking, share de mercado ou presença em respostas generativas.
+Sem nova coleta, alteração de SQLite/AUD, API, SARI/SCORE ou workflows.

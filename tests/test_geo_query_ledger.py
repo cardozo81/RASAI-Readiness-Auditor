@@ -1972,3 +1972,35 @@ def test_304_request_query_validation_matches_offline_ledger_identity():
     for bad in (("Brand", "brand"), ("A", ""), ("A", "A "), ("A", "b\nc")):
         with pytest.raises(ValueError):
             _validate_queries(bad)
+
+def test_304_hostname_roster_from_physically_attributed_per_query_sources(tmp_path):
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
+    folder = _audit(tmp_path, multi=False)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute("INSERT INTO serp_results VALUES (?,?,?)", (
+            "SERP-0", 45, "https://www.example.org/a",
+        ))
+    before = (folder / "audit.db").read_bytes()
+    projection = inspect_geo_per_query(folder)
+    row = projection["queries"][0]
+    roster = row["host_source_inventory"]
+    assert roster["status"] == "OBSERVED_RETURNED_HOSTNAMES_ONLY"
+    assert roster["distinct_hostnames"] == 5
+    hosts = {h["hostname"]: h for h in roster["entries"]}
+    assert hosts["example.org"]["common_distinct_urls"] == 1
+    assert hosts["www.example.org"]["serp_distinct_urls"] == 1
+    assert hosts["www.example.org"]["external_distinct_urls"] == 0
+    page = render_geo_query_ledger_html(projection)
+    assert "Hosts observados por consulta:" in page
+    assert "www.example.org" in page
+    assert (folder / "audit.db").read_bytes() == before
+
+
+def test_304_hostname_roster_abstains_when_multisearch_source_query_unknown(tmp_path):
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
+    folder = _audit(tmp_path, multi=True, source_query_column=False)
+    projection = inspect_geo_per_query(folder)
+    assert all(row["host_source_inventory"] is None for row in projection["queries"])
+    page = render_geo_query_ledger_html(projection)
+    assert "Hosts observados por consulta: N/D" in page
+
