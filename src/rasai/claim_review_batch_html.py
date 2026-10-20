@@ -87,8 +87,8 @@ def render_claim_review_batch_html(projection: Mapping[str, Any]) -> str:
         "td,th{border-bottom:1px solid #dbe4ee;padding:10px;text-align:left;"
         "vertical-align:top;overflow-wrap:anywhere}"
         "</style></head><body><h1>Revisão documental consultiva</h1>"
-        "<p>AUD (identificador informado pelo operador, sem vínculo físico "
-        "comprovado neste relatório): " +
+        "<p>AUD (identidade declarada no manifesto; vínculo literal verificável "
+        "por captura somente quando o modo físico foi solicitado e aprovado): " +
         e(projection.get("audit_id_operator_label_only") if admitted else "N/D")
         + "</p>" + (
             "<p>Vínculo físico consultivo: " +

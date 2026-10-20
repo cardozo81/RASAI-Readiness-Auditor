@@ -213,3 +213,150 @@ def test_603_batch_rejects_silent_claim_whitespace_normalization(tmp_path):
     result = inspect_claim_review_batch(folder / "manifest.json", trusted_key=KEY, trusted_reviewer_ids=REVIEWERS)
     assert result["status"] == "DOCUMENTARY_REVIEW_BATCH_OBSERVED"
     assert all(row["state"] == "CLAIM_UNVERIFIED_EXTERNAL" for row in result["claims"])
+
+def _aud_with_claim_snapshot(tmp_path, packet):
+    """Synthetic physical AUD, no provider or real-browser operation."""
+    import sqlite3
+    root = tmp_path / "AUD-OPERATOR-LABEL"
+    root.mkdir()
+    literal = (packet / "claim.txt").read_text(encoding="utf-8")
+    path = root / "artifacts" / "capture" / "main.txt"
+    path.parent.mkdir(parents=True)
+    path.write_text("Observed page copy: " + literal + ". End.", encoding="utf-8")
+    with sqlite3.connect(root / "audit.db") as con:
+        con.executescript("""
+            CREATE TABLE audits (
+                audit_id TEXT, status TEXT, completion_status TEXT
+            );
+            CREATE TABLE pages (page_id TEXT, audit_id TEXT);
+            CREATE TABLE page_snapshots (
+                snapshot_id TEXT, page_id TEXT, main_content_ref TEXT
+            );
+            INSERT INTO audits VALUES (
+                'AUD-OPERATOR-LABEL','COMPLETED','COMPLETE'
+            );
+            INSERT INTO pages VALUES ('PAGE-1','AUD-OPERATOR-LABEL');
+            INSERT INTO page_snapshots VALUES (
+                'SNP-SIGNED','PAGE-1','artifacts/capture/main.txt'
+            );
+        """)
+    manifest_file = packet / "manifest.json"
+    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    for claim in manifest["claims"]:
+        claim["snapshot_id"] = "SNP-SIGNED"
+    manifest_file.write_text(json.dumps(manifest), encoding="utf-8")
+    return root, path
+
+
+def test_603_optin_binding_preserves_trusted_reviews_and_physical_source(tmp_path):
+    folder = _fixture(tmp_path)
+    root, text = _aud_with_claim_snapshot(tmp_path, folder)
+    before_db = (root / "audit.db").read_bytes()
+    before_text = text.read_bytes()
+    before_manifest = (folder / "manifest.json").read_bytes()
+    result = inspect_claim_review_batch(
+        folder / "manifest.json", trusted_key=KEY,
+        trusted_reviewer_ids=REVIEWERS, audit_directory=root,
+    )
+    assert result["status"] == "DOCUMENTARY_REVIEW_BATCH_OBSERVED"
+    assert result["audit_binding_mode"] == "OBSERVATIONAL_BINDING_CHECKED"
+    assert result["audit_db_sha256"] == sha256(before_db).hexdigest()
+    rows = {row["claim_id"]: row for row in result["claims"]}
+    assert rows["C-VALID"]["state"] == "CLAIM_CORROBORATED"
+    assert rows["C-DISPUTED"]["state"] == "CLAIM_CONTRADICTED_WITH_VERSIONED_SOURCE"
+    assert rows["C-HTML<script>"]["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    assert all(
+        row["audit_binding"]["status"] == "TEXT_PRESENT_IN_SNAPSHOT_MAIN_CONTENT"
+        for row in rows.values()
+    )
+    assert rows["C-VALID"]["audit_binding"]["page_id"] == "PAGE-1"
+    assert rows["C-VALID"]["audit_binding"]["main_content_sha256"] == sha256(
+        before_text,
+    ).hexdigest()
+    page = render_claim_review_batch_html(result)
+    assert "Vínculo textual à captura AUD" in page
+    assert "OBSERVATIONAL_BINDING_CHECKED" in page
+    assert "C-HTML&lt;script&gt;" in page
+    assert "<script>" not in page
+    assert (root / "audit.db").read_bytes() == before_db
+    assert text.read_bytes() == before_text
+    assert (folder / "manifest.json").read_bytes() == before_manifest
+    assert result["provider_requests"] == result["audit_writes"] == 0
+
+
+def test_603_optin_missing_literal_abstains_without_false_aud_corroboration(tmp_path):
+    folder = _fixture(tmp_path)
+    root, text = _aud_with_claim_snapshot(tmp_path, folder)
+    text.write_text("Completely different actual page body.", encoding="utf-8")
+    out = inspect_claim_review_batch(
+        folder / "manifest.json", trusted_key=KEY,
+        trusted_reviewer_ids=REVIEWERS, audit_directory=root,
+    )
+    assert out["status"] == "DOCUMENTARY_REVIEW_BATCH_OBSERVED"
+    assert out["audit_binding_mode"] == "OBSERVATIONAL_BINDING_CHECKED"
+    assert all(row["state"] == "CLAIM_UNVERIFIED_EXTERNAL" for row in out["claims"])
+    assert all(row["basis"] == "AUD_CLAIM_TEXT_BINDING_NOT_PROVEN" for row in out["claims"])
+    assert all(row["audit_binding"]["status"] == "NOT_VERIFIED" for row in out["claims"])
+
+
+def test_603_optin_wrong_aud_or_ambiguous_snapshot_is_rejected(tmp_path):
+    import sqlite3
+    folder = _fixture(tmp_path)
+    root, _ = _aud_with_claim_snapshot(tmp_path, folder)
+    wrong = inspect_claim_review_batch(
+        folder / "manifest.json", trusted_key=KEY,
+        trusted_reviewer_ids=REVIEWERS, audit_directory=tmp_path / "AUD-OTHER",
+    )
+    assert wrong["status"] == "NOT_VERIFIABLE"
+    assert wrong["reason"] == "AUD_BINDING_NOT_VERIFIABLE"
+    with sqlite3.connect(root / "audit.db") as con:
+        con.execute("INSERT INTO pages VALUES ('P-OTHER','AUD-FOREIGN')")
+        con.execute(
+            "INSERT INTO page_snapshots VALUES (?,?,?)",
+            ("SNP-SIGNED", "P-OTHER", "artifacts/capture/main.txt"),
+        )
+    out = inspect_claim_review_batch(
+        folder / "manifest.json", trusted_key=KEY,
+        trusted_reviewer_ids=REVIEWERS, audit_directory=root,
+    )
+    assert out["status"] == "DOCUMENTARY_REVIEW_BATCH_OBSERVED"
+    assert all(row["state"] == "CLAIM_UNVERIFIED_EXTERNAL" for row in out["claims"])
+    assert all(row["audit_binding"]["status"] == "NOT_VERIFIED" for row in out["claims"])
+
+
+def test_603_optin_out_of_scope_artifact_and_sqlite_sidecar_are_rejected(tmp_path):
+    import sqlite3
+    folder = _fixture(tmp_path)
+    root, _ = _aud_with_claim_snapshot(tmp_path, folder)
+    with sqlite3.connect(root / "audit.db") as con:
+        con.execute(
+            "UPDATE page_snapshots SET main_content_ref='../foreign.txt'"
+        )
+    result = inspect_claim_review_batch(
+        folder / "manifest.json", trusted_key=KEY,
+        trusted_reviewer_ids=REVIEWERS, audit_directory=root,
+    )
+    assert result["status"] == "DOCUMENTARY_REVIEW_BATCH_OBSERVED"
+    assert all(row["state"] == "CLAIM_UNVERIFIED_EXTERNAL" for row in result["claims"])
+    (root / "audit.db-wal").write_bytes(b"pending")
+    rejected = inspect_claim_review_batch(
+        folder / "manifest.json", trusted_key=KEY,
+        trusted_reviewer_ids=REVIEWERS, audit_directory=root,
+    )
+    assert rejected["status"] == "NOT_VERIFIABLE"
+    assert rejected["claims"] == []
+
+
+def test_603_optin_cli_accepts_only_matching_aud_source(tmp_path, monkeypatch, capsys):
+    folder = _fixture(tmp_path)
+    root, _ = _aud_with_claim_snapshot(tmp_path, folder)
+    monkeypatch.setenv("RASAI_CLAIM_REVIEW_HMAC_KEY_HEX", KEY.hex())
+    monkeypatch.setenv("RASAI_CLAIM_REVIEWER_ALLOWLIST", "reviewer-1")
+    assert main([
+        "--manifest", str(folder / "manifest.json"),
+        "--audit-directory", str(root), "--format", "json",
+    ]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["audit_binding_mode"] == "OBSERVATIONAL_BINDING_CHECKED"
+    assert payload["claims"][0]["audit_binding"]["snapshot_id"] == "SNP-SIGNED"
+    assert list(root.glob("**/audit.db-*")) == []
