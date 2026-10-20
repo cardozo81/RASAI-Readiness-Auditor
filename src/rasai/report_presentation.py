@@ -161,6 +161,9 @@ _PUBLIC_LABELS: dict[str, str] = {
     "LCP": "LCP",
     "INP": "INP",
     "CLS": "CLS",
+    # #600: SARI is the public name of the readiness index, not an unknown
+    # machine enum. Preserve it in methodology <td>/<strong> cells and prose.
+    "SARI": "SARI",
     "NO_DATA": "Sem dados",
     "INCOMPLETE": "Incompleto",
     "PRELIMINARY": "Preliminar",

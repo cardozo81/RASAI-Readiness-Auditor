@@ -71,3 +71,18 @@ def test_deep_analysis_exchange_gets_stable_purpose_label() -> None:
     assert recorder.exchanges[-1].purpose == "AI_REQUEST"
     _mark_latest_as_improvement(recorder)
     assert recorder.exchanges[-1].purpose == "IMPROVEMENT_INTELLIGENCE"
+
+
+def test_600_methodology_shell_preserves_public_sari_label_in_evidence_table() -> None:
+    methodology = next(
+        page for page in CATALOG_REPORT_PAGES if page.filename == "methodology.html"
+    )
+    result = _shell(
+        methodology,
+        "AUD-SARI-PRESENTATION",
+        "<section><table><tbody><tr><td>SARI</td>"
+        "<td>Índice proprietário de prontidão.</td></tr></tbody></table></section>",
+    )
+    assert "<td>SARI</td>" in result
+    assert "<td>Condição técnica não catalogada</td>" not in result
+    assert "Índice proprietário de prontidão." in result
