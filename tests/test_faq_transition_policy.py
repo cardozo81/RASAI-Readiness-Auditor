@@ -317,3 +317,44 @@ def test_601_duplicate_snapshot_identity_cannot_produce_partial_faq_totals(tmp_p
     output = faq_observation_html(db, "AUD-DUP-FAQ")
     assert "Snapshot IDs ausentes ou duplicados: N/D" in output
     assert "Foram identificados" not in output
+
+def test_601_jsonld_faqpage_is_separate_from_initial_dom_and_click():
+    from rasai.faq_observation import inspect_faq_jsonld, inspect_faq_dom_states
+    html = (
+        '<main>Opening text</main><script type="application/ld+json">'
+        '{"@context":"https://schema.org","@type":"FAQPage","mainEntity":'
+        '[{"@type":"Question","name":"What?","acceptedAnswer":'
+        '{"@type":"Answer","text":"A documented answer."}},'
+        '{"@type":"Question","name":"How?"}]}</script>'
+    )
+    assert inspect_faq_dom_states(html)["controls"] == 0
+    assert inspect_faq_jsonld(html) == {
+        "status": "JSONLD_PARSED", "faqpage_entries": 1,
+        "question_entries": 2, "answers_with_text": 1,
+    }
+
+
+def test_601_jsonld_graph_duplicate_keys_and_invalid_json_abstain():
+    from rasai.faq_observation import inspect_faq_jsonld
+    valid_graph = (
+        '<script type="application/ld+json">'
+        '{"@graph":[{"@type":"FAQPage","mainEntity":'
+        '{"@type":"Question","acceptedAnswer":{"text":"Answer"}}}]}</script>'
+    )
+    assert inspect_faq_jsonld(valid_graph)["answers_with_text"] == 1
+    for broken in (
+        '<script type="application/ld+json">{"@type":"FAQPage","@type":"FAQPage"}</script>',
+        '<script type="application/ld+json">{"@type":"FAQPage",</script>',
+        '<script type="application/ld+json">{"@type":"FAQPage","a":NaN}</script>',
+    ):
+        assert inspect_faq_jsonld(broken)["status"] == "JSONLD_UNVERIFIABLE"
+
+
+def test_601_nonfaq_jsonld_does_not_create_faq_answers():
+    from rasai.faq_observation import inspect_faq_jsonld
+    observed = inspect_faq_jsonld(
+        '<script type="application/ld+json">{"@type":"Product","name":"A"}</script>'
+    )
+    assert observed["status"] == "JSONLD_PARSED"
+    assert observed["faqpage_entries"] == 0
+    assert observed["answers_with_text"] == 0

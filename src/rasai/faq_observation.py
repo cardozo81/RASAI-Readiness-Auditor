@@ -9,6 +9,7 @@ from __future__ import annotations
 from contextlib import closing
 from html import escape
 from html.parser import HTMLParser
+import json
 from pathlib import Path
 import re
 import sqlite3
@@ -146,6 +147,139 @@ def inspect_faq_html(html: str) -> dict[str, int]:
     )}
 
 
+
+# FAQPage JSON-LD is a distinct, non-interactive source of structured claims.
+# It is not proof that text is rendered, crawler-accessible or editorially true.
+_MAX_JSONLD_SCRIPTS = 16
+_MAX_JSONLD_CHARS = 128_000
+_MAX_JSONLD_ENTRIES = 200
+
+
+class _JsonLdInventory(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.documents: list[str] = []
+        self.active = False
+        self.fragments: list[str] = []
+        self.used = 0
+        self.overflow = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag != "script":
+            return
+        types = [value for name, value in attrs if name == "type"]
+        self.active = (
+            len(types) == 1 and isinstance(types[0], str)
+            and types[0].split(";", 1)[0].strip().lower() == "application/ld+json"
+        )
+        self.fragments = []
+
+    def handle_data(self, data: str) -> None:
+        if self.active:
+            self.used += len(data)
+            if self.used > _MAX_JSONLD_CHARS:
+                self.overflow = True
+            else:
+                self.fragments.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag != "script":
+            return
+        if self.active:
+            if len(self.documents) >= _MAX_JSONLD_SCRIPTS:
+                self.overflow = True
+            else:
+                self.documents.append("".join(self.fragments))
+        self.active = False
+        self.fragments = []
+
+
+def _unique_jsonld_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for name, value in pairs:
+        if name in result:
+            raise ValueError("duplicate JSON-LD key")
+        result[name] = value
+    return result
+
+
+def _reject_jsonld_constant(value: str) -> None:
+    raise ValueError("invalid JSON-LD numeric constant")
+
+
+def inspect_faq_jsonld(html: str) -> dict[str, Any]:
+    """Bounded markup inventory; no URL fetch, scoring or crawler assertion."""
+    unavailable = {
+        "status": "JSONLD_UNVERIFIABLE",
+        "faqpage_entries": None,
+        "question_entries": None,
+        "answers_with_text": None,
+    }
+    if not isinstance(html, str) or len(html.encode("utf-8")) > _MAX_HTML_BYTES:
+        return unavailable
+    parser = _JsonLdInventory()
+    try:
+        parser.feed(html)
+        parser.close()
+        if parser.overflow:
+            return unavailable
+        faqpages = questions = answers = 0
+        for document in parser.documents:
+            value = json.loads(
+                document, object_pairs_hook=_unique_jsonld_pairs,
+                parse_constant=_reject_jsonld_constant,
+            )
+            roots = value if isinstance(value, list) else [value]
+            nodes: list[Any] = []
+            for root in roots:
+                nodes.append(root)
+                if isinstance(root, dict) and "@graph" in root:
+                    graph = root["@graph"]
+                    if not isinstance(graph, list):
+                        return unavailable
+                    nodes.extend(graph)
+                if len(nodes) > _MAX_JSONLD_ENTRIES:
+                    return unavailable
+            for item in nodes:
+                if not isinstance(item, dict):
+                    continue
+                types = item.get("@type")
+                declared = types if isinstance(types, list) else [types]
+                if "FAQPage" not in declared:
+                    continue
+                faqpages += 1
+                members = item.get("mainEntity") or []
+                members = members if isinstance(members, list) else [members]
+                if len(members) > _MAX_JSONLD_ENTRIES:
+                    return unavailable
+                for question in members:
+                    if not isinstance(question, dict):
+                        continue
+                    type_ = question.get("@type")
+                    if type_ != "Question" and (
+                        not isinstance(type_, list) or "Question" not in type_
+                    ):
+                        continue
+                    questions += 1
+                    accepted = question.get("acceptedAnswer")
+                    candidates = accepted if isinstance(accepted, list) else [accepted]
+                    if any(
+                        isinstance(answer, dict)
+                        and isinstance(answer.get("text"), str)
+                        and bool(answer["text"].strip())
+                        for answer in candidates
+                    ):
+                        answers += 1
+        return {
+            "status": "JSONLD_PARSED",
+            "faqpage_entries": faqpages,
+            "question_entries": questions,
+            "answers_with_text": answers,
+        }
+    except (ValueError, TypeError, RecursionError, UnicodeError):
+        return unavailable
+
+
 def _safe_rendered_file(root: Path, ref: Any) -> Path | None:
     relative = str(ref or "").replace("\\", "/")
     if not relative.startswith("artifacts/rendered/"):
@@ -197,13 +331,16 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
     no_controls = 0
     observations: list[dict[str, int]] = []
     sources: list[tuple[str, dict[str, int]]] = []
+    jsonld_sources: list[dict[str, Any]] = []
     for snapshot_id, ref in rows:
         try:
             rendered = _safe_rendered_file(root, ref)
             if rendered is None:
                 unreadable += 1
                 continue
-            counts = inspect_faq_dom_states(rendered.read_text(encoding="utf-8"))
+            snapshot_html = rendered.read_text(encoding="utf-8")
+            counts = inspect_faq_dom_states(snapshot_html)
+            jsonld_sources.append(inspect_faq_jsonld(snapshot_html))
         except (OSError, UnicodeError, ValueError):
             unreadable += 1
             continue
@@ -220,10 +357,36 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
         + ("Há capturas adicionais fora do limite; cobertura parcial da AUD."
            if incomplete else "Observação limitada aos snapshots físicos.")
     )
+    structured_valid = all(
+        record["status"] == "JSONLD_PARSED" for record in jsonld_sources
+    )
+    structured_counts = (
+        (
+            sum(item["faqpage_entries"] for item in jsonld_sources),
+            sum(item["question_entries"] for item in jsonld_sources),
+            sum(item["answers_with_text"] for item in jsonld_sources),
+        )
+        if jsonld_sources and structured_valid else None
+    )
+    structured_notice = (
+        "<p data-contract='FAQ-JSONLD-601'>"
+        "<strong>FAQPage JSON-LD (marcação estruturada):</strong> "
+        + (
+            f"{structured_counts[0]} entrada(s) FAQPage; "
+            f"{structured_counts[1]} entrada(s) Question; "
+            f"{structured_counts[2]} com texto acceptedAnswer na marcação."
+            if structured_counts is not None else "N/D — marcação não verificável."
+        )
+        + " Esses números se referem exclusivamente às capturas legíveis "
+        "examinadas, não ao universo da AUD. Marcação JSON-LD não comprova "
+        "texto montado no DOM, resposta após clique, acesso pelo Googlebot, "
+        "indexação ou correção editorial.</p>"
+    )
     if not observations:
         return (
             "<div class='subsection' data-contract='FAQ-OBSERVATION-601-001'>"
             "<h3>FAQ interativo — N/D</h3><p>" + escape(coverage) + "</p>"
+            + structured_notice +
             "<p>FAQ não identificável nesta amostra; não comprova "
             "ausência editorial ou ausência de resposta após clique.</p></div>"
         )
@@ -253,6 +416,7 @@ def faq_observation_html(database: Any, audit_id: str) -> str:
         "<div class='subsection' data-contract='FAQ-OBSERVATION-601-001'>"
         "<h3>FAQ interativo — limite da captura</h3>"
         "<p><strong>Cobertura física:</strong> " + escape(coverage) + "</p>"
+        + structured_notice +
         "<p><strong>Capacidade sem interação:</strong> somente texto "
         "persistido no DOM inicial pode ser observado; nenhuma consulta "
         "a crawler foi realizada. <strong>Disponibilidade após clique:</strong> "

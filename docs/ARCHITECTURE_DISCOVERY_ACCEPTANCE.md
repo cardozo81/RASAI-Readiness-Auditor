@@ -309,3 +309,15 @@ A classificação permanece UNKNOWN, nunca inferindo DOM executado a partir de
 RAW. PINNED_HTTP_STATIC atesta somente a aquisição HTTP, não o Chromium,
 a indexabilidade ou a qualidade da experiência. Redirecionamentos não
 verificáveis continuam recusados; o gate de F3 não foi alterado.
+
+## #601 — FAQ JSON-LD como fonte independente do DOM
+
+O observador offline CAT-03 examina também scripts FAQPage em
+`application/ld+json` nos snapshots HTML já existentes, com orçamento
+estrito, parser JSON que recusa chaves duplicadas/NaN e contagem de entradas
+FAQPage/Question/acceptedAnswer sem exibir dados de terceiros. Esses números
+são inventário **da marcação**, não prova de DOM visível, abertura de
+acordeão, leitura pelo Googlebot, veracidade editorial ou elegibilidade a
+pontuação. A ausência de acordeões com JSON-LD presente continua N/D para
+**interação**; não se reescreve BR-GEO-039/049 nem AUD histórica. A captura
+permanece read-only, sem browser, clique ou chamadas externas.
