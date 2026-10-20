@@ -70,7 +70,7 @@ def test_censored_result_never_implies_ready(tmp_path):
             primary_content_ms=None, post_load_delta_ms=None,
         ),
     )
-    html = render_experimental_observation_report(root).read_text()
+    html = render_experimental_observation_report(root).read_text(encoding="utf-8")
     assert "TIMEOUT" in html
     assert "Não observada ou não aplicável" in html
     assert "N/D" in html
@@ -86,8 +86,8 @@ def test_no_sidecar_has_no_report_and_source_mutation_invalidates_evidence(tmp_p
     )
     # Immutable source link fails; renderer cannot display a valid readiness.
     result = render_experimental_observation_report(root)
-    assert "Recusados por integridade: 1" in result.read_text()
-    assert "Prontidão posterior ao load" not in result.read_text()
+    assert "Recusados por integridade: 1" in result.read_text(encoding="utf-8")
+    assert "Prontidão posterior ao load" not in result.read_text(encoding="utf-8")
 
 
 def test_faq_digest_only_never_renders_untrusted_html_or_claims_attestation(tmp_path):
@@ -107,7 +107,7 @@ def test_faq_digest_only_never_renders_untrusted_html_or_claims_attestation(tmp_
     }
     raw = (json.dumps(obj, sort_keys=True) + "\n").encode()
     (folder / (sha256(raw).hexdigest() + ".json")).write_bytes(raw)
-    html = render_experimental_observation_report(root).read_text()
+    html = render_experimental_observation_report(root).read_text(encoding="utf-8")
     assert "Após clique (recibo local, homologação pendente)" in html
     assert "independente" in html
     assert "&lt;img src=x onerror=alert(1)&gt;" in html
@@ -123,7 +123,7 @@ def test_tampered_or_symlinked_faq_and_readiness_rejected(tmp_path):
     folder = tmp_path / ".rasai-faq-sidecars" / root.name
     folder.mkdir(parents=True)
     (folder / ("0" * 64 + ".json")).write_text('{"fake":true}')
-    report = render_experimental_observation_report(root).read_text()
+    report = render_experimental_observation_report(root).read_text(encoding="utf-8")
     assert "Recibos FAQ não elegíveis: 1" in report
     swapped = tmp_path / "fake-folder"
     swapped.mkdir()
