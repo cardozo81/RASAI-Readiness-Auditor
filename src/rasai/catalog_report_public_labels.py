@@ -6,6 +6,12 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    # Joint FAQ/content-readiness: advisory witness never certifies AUD session.
+    "EXPERIMENTAL_OBSERVER_ERROR": "Falha isolada na observação experimental, sem alteração das métricas homologadas",
+    "CAPTURED_AUD_DOM_DOES_NOT_MATCH_LIVE_PAGE": "O conteúdo capturado não corresponde à página viva antes da interação",
+    "TRUSTED_COLLECTOR_WITNESS_NOT_AN_INDEPENDENT_M3_SESSION_ATTESTATION": "Recibo do coletor não equivale a um atestado independente de sessão da captura",
+    "LIVE_COLLECTOR_AND_AUD_DOM_LINKED_NOT_INDEPENDENTLY_ATTESTED": "Recibo da página viva vinculado aos bytes da auditoria; sessão original não atestada independentemente",
+    "SAME_SAMPLE_PHYSICAL_EVIDENCE_NOT_VERIFIED": "Evidência física da mesma amostra não verificada",
     # Evidence-bound FAQ/claim reader: user-facing labels preserve abstention.
     "AUD_SOURCE_OR_SCOPE_NOT_VERIFIED": "Origem física ou escopo da auditoria não comprovados",
     "SNAPSHOT_OR_LITERAL_TEXT_NOT_MATCHED": "Captura ou texto literal não correspondem à alegação",

@@ -153,7 +153,10 @@ def test_real_playwright_one_context_two_distinct_advisories_no_aud_mutation(tmp
 
 def test_absent_consent_and_frozen_dom_mismatch_never_click(tmp_path):
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True)
+        browser = pw.chromium.launch(
+            channel=os.environ.get("RASAI_322_CHROME_CHANNEL") or None,
+            headless=True,
+        )
         try:
             context = browser.new_context(service_workers="block")
             context.route("**/*", lambda route: route.fulfill(

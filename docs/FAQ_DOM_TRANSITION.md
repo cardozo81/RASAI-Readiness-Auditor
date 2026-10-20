@@ -74,13 +74,13 @@ escopo por AUD e bytes inalterados de banco e HTML.
 
 O adaptador `faq_existing_page_pilot.inspect_existing_page_faq` aceita
 `expected_before_sha256` para exigir que o HTML imediatamente antes
-do clique seja **byte a byte** o mesmo DOM já capturado pela M3.
+do clique seja **byte a byte** o mesmo DOM já capturado pela captura canônica.
 Quando a origem não coincide, recusa o clique com
 `CAPTURED_AUD_DOM_DOES_NOT_MATCH_LIVE_PAGE`. Isto impede reabrir uma
 URL em outro navegador e declarar a mesma amostra por similaridade.
 
 O capturador `device_context_capture` mantém um seam de callback
-`_rasai_optin_faq_observer` na **página M3 viva, depois da captura
+`_rasai_optin_faq_observer` na **página captura canônica viva, depois da captura
 canônica e antes do fechamento**; por padrão nenhum callback existe,
 nenhum clique ocorre e os relatórios históricos permanecem idênticos.
 A única projeção no metadata, quando injetada por um coletor confiável,
@@ -95,10 +95,10 @@ recibo HMAC do coletor autorizado e associação explícita de
 `audit_id/page_id/snapshot_id/sample_id/context_id/device`. O recibo
 não declara prova de crawler. A verificação cruzada de uma AUD selada
 continua no contrato `faq_aud_receipt_binding`; o recibo local **não
-atesta independentemente** que a captura foi a amostra M3 histórica.
+atesta independentemente** que a captura foi a amostra captura canônica histórica.
 
 O coletor principal não ativa esse fluxo automaticamente. Para a prova
-real será necessário um chamador controlado que mantenha a página M3
+real será necessário um chamador controlado que mantenha a página captura canônica
 aberta, instale o opt-in com consentimento por URL/alvo, utilize uma
 AUD temporária e comprove a ancoragem da captura no audit.db. Não
 habilitar navegação pública de Chromium sem isolamento de rede físico

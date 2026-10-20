@@ -317,7 +317,7 @@ class PlaywrightSyntheticUxGateway:
             or not all(isinstance(v, str) and bool(v.strip()) and len(v) <= 160
                        for v in (audit_id, page_id, sample_id, context_id))
         ):
-            raise ValueError("experimental physical M25 sample not configured")
+            raise ValueError("experimental physical sample not configured")
         self._advisory_sample_scope = {
             "audit_id": audit_id, "page_id": page_id,
             "sample_id": sample_id, "context_id": context_id,
