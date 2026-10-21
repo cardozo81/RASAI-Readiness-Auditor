@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 from contextlib import closing
 import json
+import os
 from pathlib import Path
 import sqlite3
 from typing import Any, Sequence
@@ -80,6 +81,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--verify-html", action="store_true",
         help="conferir matriz decisória renderizada em HTML e manifesto do relatório",
     )
+    parser.add_argument(
+        "--claim-review-manifest", type=Path, default=None,
+        help="Opt-in: resumo independente de recibos oficiais revisados, "
+             "vinculados literalmente a esta AUD e com data de coleta assinada",
+    )
     args = parser.parse_args(argv)
     projected = inspect_audit_decision_evidence(args.audit_directory)
     if args.verify_html:
@@ -90,12 +96,38 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.audit_directory, projected,
             ),
         }
+    if args.claim_review_manifest is not None:
+        from rasai.report_claim_review_advisory import inspect_documentary_claim_advisory
+        # Credentials remain exclusively in the trusted process environment,
+        # never in the AUD, packet, CLI arguments, JSON output or HTML.
+        raw_key = os.environ.get("RASAI_CLAIM_REVIEW_HMAC_KEY_HEX", "")
+        try:
+            trusted_key = bytes.fromhex(raw_key) if 0 < len(raw_key) <= 128 else b""
+        except ValueError:
+            trusted_key = b""
+        reviewers = frozenset(
+            name.strip() for name in
+            os.environ.get("RASAI_CLAIM_REVIEWER_ALLOWLIST", "").split(",")
+            if name.strip()
+        )
+        projected = {
+            **projected,
+            "documentary_claim_advisory": inspect_documentary_claim_advisory(
+                args.audit_directory, args.claim_review_manifest,
+                trusted_key=trusted_key, trusted_reviewer_ids=reviewers,
+            ),
+        }
     print(json.dumps(projected, ensure_ascii=False, sort_keys=True))
     return 0 if (
         projected.get("status") == "DESCRIPTIVE_ONLY"
         and (
             not args.verify_html
             or projected["html_semantic_gate"]["status"] == "HTML_MATRIX_PARITY_VERIFIED"
+        )
+        and (
+            args.claim_review_manifest is None
+            or projected["documentary_claim_advisory"]["status"]
+            == "AUD_BOUND_DOCUMENTARY_REVIEW_OBSERVED"
         )
     ) else 2
 

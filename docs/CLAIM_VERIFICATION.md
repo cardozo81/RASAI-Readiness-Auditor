@@ -219,3 +219,27 @@ qualquer consulta externa; a data de coleta continua exigida
 somente quando a politica `--require-collection-date` foi selecionada.
 A prova final contra fonte oficial requer recibo autenticado
 de revisor autorizado e permanece gate externo da issue #603.
+
+
+## Consumidor executivo opt-in sem promocao da fonte primaria
+
+O resumo independente em
+`rasai.report_decision_matrix_cli --claim-review-manifest <manifest.json>`
+usa o verificador ja existente de lote e a mesma AUD selada, exigindo
+`audit_binding_mode=OBSERVATIONAL_BINDING_CHECKED`,
+`document_collection_date_policy=REQUIRED`, SHA-256 fisico de
+`audit.db` consistente e recibos HMAC por alegacao. Nao ha atalho por
+flag `independent_source_authenticity_verified` diretamente aceita de
+website ou LLM: somente a cadeia autenticada de revisor e consumidor de
+arquivo local ja existente.
+
+O suplemento e um **resumo das alegacoes submetidas**, separado da
+matriz canonica de SARI/SEO/CrUX e do CAT-03. Um recibo assinado de
+contradicao produz somente a contagem de revisao documental contraditoria
+com ressalva expressa de que nao significa erro contratual provado,
+descumprimento de regra da SUSEP ou obrigacao juridica. Ausencia de
+fonte/recibo ou coleta datada permanece `CLAIM_UNVERIFIED_EXTERNAL`;
+sem prova de AUD ou confianca da chave a saida abstem `NOT_VERIFIABLE`
+e o comando retorna 2. Nenhum download, consulta paga, score, escrita ou
+nova auditoria ocorre; a prova externa de fonte vigente ainda precisa
+ser obtida e homologada sob autorizacao separada.

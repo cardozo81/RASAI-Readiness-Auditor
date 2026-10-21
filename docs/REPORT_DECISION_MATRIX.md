@@ -114,3 +114,41 @@ continua não significando OAuth/CrUX/browser ou aceite metodológico
 normativo. Fixtures físicas SQLite incluem source original, mutação
 pós-publicação, manifesto sem vínculo e WAL ativo. O custo do digest
 lógico só ocorre quando `--verify-html` é solicitado explicitamente.
+
+
+## Resumo opt-in de revisao documental vinculada a AUD (#603/#604)
+
+Quando existir **pacote documental externo ja obtido e atestado por revisor
+autorizado**, a CLI consultiva aceita:
+
+```bash
+python -m rasai.report_decision_matrix_cli /caminho/AUD-ID --claim-review-manifest /caminho/packet/manifest.json
+```
+
+A chave e os revisores confiaveis precisam ter origem no ambiente privado
+`RASAI_CLAIM_REVIEW_HMAC_KEY_HEX` e
+`RASAI_CLAIM_REVIEWER_ALLOWLIST`; nunca informar segredo no comando, AUD,
+manifesto, site auditado ou JSON de saida. Esta opcao exige automaticamente
+a data de coleta **assinada** no recibo, vinculo literal por
+`snapshot_id/page_id` na mesma AUD, HMAC de revisor autorizado, vigencia
+e versao da fonte. Sem prova, o suplemento
+`documentary_claim_advisory.status=NOT_VERIFIABLE`, retorno de processo
+**2**: nao se omite a falha quando o operador solicitou o gate.
+
+Com evidencias admissiveis, a chave aditiva
+`documentary_claim_advisory` traz contagens apenas das **alegacoes
+submetidas**: total, observadas no snapshot, nao comprovadas na AUD,
+corroboradas documentalmente, contraditas em revisao e sem verificacao
+documental. Nunca interpreta esse recorte como todas as alegacoes do site
+ou como certificacao de fonte oficial, autenticidade de seguradora,
+conformidade regulatoria ou falha juridica. NAO mostra claim literal,
+URL de fonte, identidade do revisor nem segredo.
+
+A matriz `rows` **nao muda**: `--verify-html` continua comparando apenas
+o relatorio canonico materializado com a AUD selada e o novo resultado
+fica fora desse bloco. Assim, pode-se usar as duas opcoes juntas sem
+reprojetar ou alterar `index.html`, `sari.html`, `audit.db`, hashes,
+score, SARI, M23/M25 ou consulta a provedores. Por default, o
+suplemento sequer e acessado; continua a ressalva de validacao externa
+na matriz original. Esta implementacao nao substitui a fonte primaria
+real e o aceite externo ainda pendentes da #603.

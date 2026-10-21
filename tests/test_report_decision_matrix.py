@@ -164,3 +164,70 @@ def test_604_cli_reads_only_sealed_existing_aud_and_never_creates_database(
     assert main([str(aud)]) == 2
     assert "NOT_VERIFIABLE" in capsys.readouterr().out
     assert source.read_bytes() == original
+
+
+def test_604_documentary_review_optin_keeps_html_parity_canonical(
+    tmp_path, monkeypatch, capsys,
+):
+    """The optional signed packet must never redefine sealed report HTML."""
+    from rasai import report_decision_matrix_cli as adapter
+    from rasai import report_decision_html_acceptance as html_adapter
+    from rasai import report_claim_review_advisory as claim_adapter
+    audit = tmp_path / "AUD-CROSS-604"
+    packet = tmp_path / "claims.json"
+    original = {"status": "DESCRIPTIVE_ONLY", "audit_id": "AUD-CROSS-604",
+                "contract": "RASAI-DECISION-EVIDENCE-604-001",
+                "rows": [{"indicator": "SARI", "observed": "N/D"}]}
+    seen = []
+
+    def verify_html(_directory, projection):
+        seen.append(dict(projection))
+        assert "documentary_claim_advisory" not in projection
+        return {"status": "HTML_MATRIX_PARITY_VERIFIED"}
+
+    monkeypatch.setattr(adapter, "inspect_audit_decision_evidence",
+                        lambda _directory: dict(original))
+    monkeypatch.setattr(html_adapter, "inspect_decision_html_parity", verify_html)
+    monkeypatch.setattr(
+        claim_adapter, "inspect_documentary_claim_advisory",
+        lambda *args, **kwargs: {
+            "status": "AUD_BOUND_DOCUMENTARY_REVIEW_OBSERVED",
+            "claims_reviewed_as_corroborated": 1,
+        },
+    )
+    monkeypatch.setenv("RASAI_CLAIM_REVIEW_HMAC_KEY_HEX", "ab" * 32)
+    monkeypatch.setenv("RASAI_CLAIM_REVIEWER_ALLOWLIST", "trusted")
+    assert adapter.main([
+        str(audit), "--verify-html", "--claim-review-manifest", str(packet),
+    ]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["rows"] == original["rows"]
+    assert payload["documentary_claim_advisory"]["claims_reviewed_as_corroborated"] == 1
+    assert payload["html_semantic_gate"]["status"] == "HTML_MATRIX_PARITY_VERIFIED"
+    assert len(seen) == 1
+    assert adapter.main([str(audit)]) == 0
+    assert "documentary_claim_advisory" not in json.loads(capsys.readouterr().out)
+
+
+def test_604_documentary_review_requested_but_unverified_exits_failure(
+    tmp_path, monkeypatch, capsys,
+):
+    from rasai import report_decision_matrix_cli as adapter
+    from rasai import report_claim_review_advisory as claim_adapter
+    monkeypatch.setattr(
+        adapter, "inspect_audit_decision_evidence",
+        lambda _dir: {"status": "DESCRIPTIVE_ONLY",
+                      "contract": "RASAI-DECISION-EVIDENCE-604-001",
+                      "rows": []},
+    )
+    monkeypatch.setattr(
+        claim_adapter, "inspect_documentary_claim_advisory",
+        lambda *args, **kwargs: {"status": "NOT_VERIFIABLE"},
+    )
+    assert adapter.main([
+        str(tmp_path / "AUD-NO-TRUST"),
+        "--claim-review-manifest", str(tmp_path / "bad.json"),
+    ]) == 2
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "DESCRIPTIVE_ONLY"
+    assert payload["documentary_claim_advisory"]["status"] == "NOT_VERIFIABLE"

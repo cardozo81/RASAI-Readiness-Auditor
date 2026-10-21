@@ -504,3 +504,98 @@ def test_603_without_aud_binding_never_claims_literal_aud_observation(tmp_path):
     page = render_claim_review_batch_html(result)
     assert "Observação física da alegação não solicitada" in page
     assert "Alegação observada literalmente na AUD" not in page
+
+
+def test_documentary_executive_advisory_is_strict_and_never_rewrites_aud(tmp_path):
+    from rasai.report_claim_review_advisory import inspect_documentary_claim_advisory
+    folder = _fixture(tmp_path)
+    root, artifact = _aud_with_claim_snapshot(tmp_path, folder)
+    original_db = (root / "audit.db").read_bytes()
+    original_artifact = artifact.read_bytes()
+    summary = inspect_documentary_claim_advisory(
+        root, folder / "manifest.json", trusted_key=KEY,
+        trusted_reviewer_ids=REVIEWERS,
+    )
+    assert summary["status"] == "AUD_BOUND_DOCUMENTARY_REVIEW_OBSERVED"
+    assert summary["population"] == "SUBMITTED_CLAIMS_ONLY"
+    assert summary["claims_submitted"] == 3
+    assert summary["claims_observed_in_aud"] == 3
+    assert summary["claims_reviewed_as_corroborated"] == 1
+    assert summary["claims_reviewed_as_contradicted"] == 1
+    assert summary["claims_without_documentary_verification"] == 1
+    assert summary["collection_date_policy"] == "REQUIRED"
+    assert summary["official_source_authenticated_by_this_tool"] is False
+    assert summary["legal_or_regulatory_conformity_certified"] is False
+    assert summary["provider_requests"] == summary["audit_writes"] == 0
+    assert "Life cover starts" not in str(summary)
+    assert "https://official.example.test" not in str(summary)
+    assert "reviewer-1" not in str(summary)
+    assert (root / "audit.db").read_bytes() == original_db
+    assert artifact.read_bytes() == original_artifact
+
+
+def test_documentary_executive_advisory_denies_missing_trust_and_unrelated_aud(tmp_path):
+    from rasai.report_claim_review_advisory import inspect_documentary_claim_advisory
+    folder = _fixture(tmp_path)
+    root, _artifact = _aud_with_claim_snapshot(tmp_path, folder)
+    manifest = folder / "manifest.json"
+    for key, reviewers in (
+        (b"", REVIEWERS), (KEY, frozenset({"unknown-reviewer"})),
+        (KEY, frozenset()),
+    ):
+        summary = inspect_documentary_claim_advisory(
+            root, manifest, trusted_key=key, trusted_reviewer_ids=reviewers,
+        )
+        if key == b"" or not reviewers:
+            assert summary["status"] == "NOT_VERIFIABLE"
+        else:
+            # Authorized reviewers are a per-claim check, not evidence
+            # the physical AUD or reviewer decision was authenticated.
+            assert summary["claims_reviewed_as_corroborated"] == 0
+            assert summary["claims_reviewed_as_contradicted"] == 0
+            assert summary["claims_without_documentary_verification"] == 3
+    different = tmp_path / "AUD-OTHER"
+    different.mkdir()
+    unrelated = inspect_documentary_claim_advisory(
+        different, manifest, trusted_key=KEY, trusted_reviewer_ids=REVIEWERS,
+    )
+    assert unrelated["status"] == "NOT_VERIFIABLE"
+    assert "claims_submitted" not in unrelated
+
+
+def test_documentary_executive_advisory_requires_signed_collection_date(tmp_path):
+    from rasai.report_claim_review_advisory import inspect_documentary_claim_advisory
+    folder = _fixture(tmp_path)
+    root, _artifact = _aud_with_claim_snapshot(tmp_path, folder)
+    signed = folder / "valid.json"
+    envelope = json.loads(signed.read_text(encoding="utf-8"))
+    envelope["review"].pop("collected_on")
+    encoded = json.dumps(
+        envelope["review"], ensure_ascii=False, sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    envelope["mac"] = hmac.new(KEY, encoded, sha256).hexdigest()
+    signed.write_text(json.dumps(envelope), encoding="utf-8")
+    summary = inspect_documentary_claim_advisory(
+        root, folder / "manifest.json",
+        trusted_key=KEY, trusted_reviewer_ids=REVIEWERS,
+    )
+    assert summary["status"] == "AUD_BOUND_DOCUMENTARY_REVIEW_OBSERVED"
+    assert summary["claims_observed_in_aud"] == 3
+    assert summary["claims_reviewed_as_corroborated"] == 0
+    assert summary["claims_reviewed_as_contradicted"] == 1
+    assert summary["claims_without_documentary_verification"] == 2
+    assert summary["legal_or_regulatory_conformity_certified"] is False
+
+
+def test_documentary_executive_advisory_abstains_on_changed_source(tmp_path):
+    from rasai.report_claim_review_advisory import inspect_documentary_claim_advisory
+    folder = _fixture(tmp_path)
+    root, _artifact = _aud_with_claim_snapshot(tmp_path, folder)
+    (root / "audit.db-wal").write_bytes(b"unsealed")
+    summary = inspect_documentary_claim_advisory(
+        root, folder / "manifest.json",
+        trusted_key=KEY, trusted_reviewer_ids=REVIEWERS,
+    )
+    assert summary["status"] == "NOT_VERIFIABLE"
+    assert "claims_reviewed_as_corroborated" not in summary
