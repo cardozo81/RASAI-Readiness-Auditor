@@ -96,7 +96,7 @@ def test_faq_inventory_refuses_untrusted_scope_and_oversize():
     assert flood["status"] == "NOT_VERIFIABLE"
     assert flood["reason"] == "CANDIDATE_LIMIT_EXCEEDED"
     assert flood["candidates"] == []
-    invalid_unicode = inspect("\\ud800")
+    invalid_unicode = inspect(chr(0xD800))
     assert invalid_unicode["status"] == "NOT_VERIFIABLE"
 
 
