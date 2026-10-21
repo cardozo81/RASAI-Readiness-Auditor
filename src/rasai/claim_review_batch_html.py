@@ -55,6 +55,17 @@ def render_claim_review_batch_html(projection: Mapping[str, Any]) -> str:
                       + e(claim.get("basis")))
             )
             binding = claim.get("audit_binding")
+            observation = claim.get("audit_observation_state")
+            if (projection.get("audit_binding_mode")
+                    == "OBSERVATIONAL_BINDING_CHECKED"
+                    and isinstance(binding, Mapping)):
+                observation_label = (
+                    "Alegação observada literalmente na AUD; validação externa independente"
+                    if observation == "CLAIM_OBSERVED"
+                    else "Alegação não comprovada no snapshot da AUD"
+                )
+            else:
+                observation_label = "Observação física da alegação não solicitada"
             link = (
                 e(binding.get("status")) + "; SNP: "
                 + e(binding.get("snapshot_id"))
@@ -67,14 +78,15 @@ def render_claim_review_batch_html(projection: Mapping[str, Any]) -> str:
             rows.append(
                 "<tr><td>" + e(claim.get("claim_id")) + "</td><td>"
                 + e(_STATES[state]) + "</td><td>"
+                + e(observation_label) + "</td><td>"
                 + provenance + "</td><td>" + link + "</td></tr>"
             )
     if not admitted:
         rows = []
     body = (
         "<table><thead><tr><th>Identificador da alegação</th>"
-        "<th>Verificação documental</th><th>Fonte e versão</th>"
-        "<th>Vínculo textual à captura AUD</th>"
+        "<th>Verificação documental</th><th>Observação da alegação</th>"
+        "<th>Fonte e versão</th><th>Vínculo textual à captura AUD</th>"
         "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
         if admitted else
         "<p>N/D - manifesto, recibos ou conjunto de alegações não comprovados.</p>"
@@ -101,6 +113,9 @@ def render_claim_review_batch_html(projection: Mapping[str, Any]) -> str:
             + ". Correspondência literal não autentica o conteúdo, a fonte oficial "
             "ou o momento da sessão de navegador.</p>"
         ) + body
+        + "<p>Presença literal na AUD e confirmação documental são eixos "
+        "independentes: documento ou recibo ausente não apaga a alegação "
+        "observada e não a promove a conteúdo verdadeiro.</p>"
         + "<p>Atestado documental independente não equivale a conformidade "
         "regulatória ou jurídica. Contradição indicada por revisor não é "
         "infração verificada. Texto comercial não confirmado não é afirmação "

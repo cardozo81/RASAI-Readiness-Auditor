@@ -196,3 +196,26 @@ quando a data for material. A escolha do modo e a atestação da fonte oficial
 são atos do operador/revisor autorizado, nunca inferidos da página auditada,
 da IA ou do nome do produto. Esta mudança não consulta SUSEP ou qualquer
 provedor e não altera CAT-03, AUD, scoring, SARI nem revisão normativa.
+
+
+## Separacao dos eixos de alegacao observada e revisao oficial
+
+O vinculo opcional `--audit-directory` separa dois estados independentes
+por `claim_id`: `audit_observation_state=CLAIM_OBSERVED` somente quando
+o texto literal foi confirmado em artefato de snapshot fisico unico da
+AUD; e `state` da revisao documental, que permanece
+`CLAIM_UNVERIFIED_EXTERNAL` quando a fonte oficial ou o recibo
+autenticado nao existe. A ausencia do arquivo do documento ou do recibo
+nao apaga a alegacao ja extraida do arquivo local nem constitui prova
+de que ela nao apareceu na pagina. Sem opt-in de vinculo a AUD, nenhum
+`CLAIM_OBSERVED` fisico e emitido.
+
+A apresentacao consultiva de lote mostra a observacao e a verificacao
+em colunas distintas. O caso de snapshot sem texto literal tem
+`audit_observation_state=NOT_VERIFIED` e qualquer resultado
+documental para aquela AUD e rebaixado para N/D. O resultado continua
+independente de CAT-03, calculos de score, M2/M3/M6, Apdex, SARI e
+qualquer consulta externa; a data de coleta continua exigida
+somente quando a politica `--require-collection-date` foi selecionada.
+A prova final contra fonte oficial requer recibo autenticado
+de revisor autorizado e permanece gate externo da issue #603.

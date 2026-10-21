@@ -430,3 +430,77 @@ def test_603_strict_policy_cli_and_single_receipt_respect_collection_provenance(
     assert result["document_collection_date_policy"] == "REQUIRED"
     assert result["claims"][0]["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
     assert result["claims"][1]["state"] == "CLAIM_CONTRADICTED_WITH_VERSIONED_SOURCE"
+
+
+def test_603_missing_primary_file_preserves_physically_observed_claim_without_corroboration(tmp_path):
+    """The absence of a primary document does not erase the AUD's own wording."""
+    folder = _fixture(tmp_path)
+    root, artifact = _aud_with_claim_snapshot(tmp_path, folder)
+    before_db = (root / "audit.db").read_bytes()
+    before_artifact = artifact.read_bytes()
+    (folder / "document.txt").unlink()
+    response = inspect_claim_review_batch(
+        folder / "manifest.json", trusted_key=KEY,
+        trusted_reviewer_ids=REVIEWERS, audit_directory=root,
+        require_collection_date=True,
+    )
+    assert response["status"] == "DOCUMENTARY_REVIEW_BATCH_OBSERVED"
+    assert response["audit_binding_mode"] == "OBSERVATIONAL_BINDING_CHECKED"
+    assert all(row["audit_observation_state"] == "CLAIM_OBSERVED"
+               for row in response["claims"])
+    assert all(row["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+               for row in response["claims"])
+    assert all(not row["source_version_verified"] for row in response["claims"])
+    text = render_claim_review_batch_html(response)
+    assert "Observação da alegação" in text
+    assert "Alegação observada literalmente na AUD" in text
+    assert "Não validado contra documentação oficial vigente" in text
+    assert "não apaga a alegação" in text
+    assert (root / "audit.db").read_bytes() == before_db
+    assert artifact.read_bytes() == before_artifact
+
+
+def test_603_missing_signed_receipt_is_not_a_false_absence_of_claim(tmp_path):
+    folder = _fixture(tmp_path)
+    root, _artifact = _aud_with_claim_snapshot(tmp_path, folder)
+    (folder / "valid.json").unlink()
+    result = inspect_claim_review_batch(
+        folder / "manifest.json", trusted_key=KEY,
+        trusted_reviewer_ids=REVIEWERS, audit_directory=root,
+    )
+    rows = {row["claim_id"]: row for row in result["claims"]}
+    assert rows["C-VALID"]["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    assert rows["C-VALID"]["audit_observation_state"] == "CLAIM_OBSERVED"
+    assert rows["C-DISPUTED"]["state"] == "CLAIM_CONTRADICTED_WITH_VERSIONED_SOURCE"
+    assert rows["C-DISPUTED"]["audit_observation_state"] == "CLAIM_OBSERVED"
+
+
+def test_603_unrelated_snapshot_never_claims_observation_or_documentary_verification(tmp_path):
+    folder = _fixture(tmp_path)
+    root, artifact = _aud_with_claim_snapshot(tmp_path, folder)
+    artifact.write_text("A wholly unrelated document, no product text.", encoding="utf-8")
+    result = inspect_claim_review_batch(
+        folder / "manifest.json", trusted_key=KEY,
+        trusted_reviewer_ids=REVIEWERS, audit_directory=root,
+    )
+    assert result["status"] == "DOCUMENTARY_REVIEW_BATCH_OBSERVED"
+    assert all(row["audit_observation_state"] == "NOT_VERIFIED"
+               for row in result["claims"])
+    assert all(row["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+               for row in result["claims"])
+    page = render_claim_review_batch_html(result)
+    assert "Alegação não comprovada no snapshot da AUD" in page
+    assert "Alegação observada literalmente na AUD" not in page
+
+
+def test_603_without_aud_binding_never_claims_literal_aud_observation(tmp_path):
+    folder = _fixture(tmp_path)
+    result = inspect_claim_review_batch(
+        folder / "manifest.json", trusted_key=KEY,
+        trusted_reviewer_ids=REVIEWERS,
+    )
+    assert result["audit_binding_mode"] == "NOT_REQUESTED"
+    assert all("audit_observation_state" not in row for row in result["claims"])
+    page = render_claim_review_batch_html(result)
+    assert "Observação física da alegação não solicitada" in page
+    assert "Alegação observada literalmente na AUD" not in page

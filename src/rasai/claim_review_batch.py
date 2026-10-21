@@ -139,6 +139,10 @@ def inspect_claim_review_batch(
                 claim = _read_local(
                     _member_path(root, row["claim_file"]), limit=_MAX_TEXT,
                 ).decode("utf-8")
+                # The literal claim belongs to the AUD-observation boundary.
+                # A missing independent primary document or signed receipt
+                # must NOT erase this already-read text before AUD binding.
+                observed_claims[-1]["claim_text"] = claim
                 source = _read_local(
                     _member_path(root, row["document_file"]), limit=_MAX_DOCUMENT,
                 )
@@ -149,7 +153,6 @@ def inspect_claim_review_batch(
                     object_pairs_hook=_unique_pairs,
                     parse_constant=_nonstandard_number,
                 )
-                observed_claims[-1]["claim_text"] = claim
                 if (not claim or claim != claim.strip() or not isinstance(envelope, dict)
                         or set(envelope) != {"review", "mac"}
                         or not isinstance(envelope["review"], dict)
@@ -206,6 +209,12 @@ def inspect_claim_review_batch(
             for claim_entry in entries:
                 binding = linked["claims"].get(claim_entry["claim_id"])
                 claim_entry["audit_binding"] = binding
+                claim_entry["audit_observation_state"] = (
+                    "CLAIM_OBSERVED" if isinstance(binding, Mapping)
+                    and binding.get("status")
+                    == "TEXT_PRESENT_IN_SNAPSHOT_MAIN_CONTENT"
+                    else "NOT_VERIFIED"
+                )
                 if (not isinstance(binding, Mapping)
                         or binding.get("status")
                         != "TEXT_PRESENT_IN_SNAPSHOT_MAIN_CONTENT"):
@@ -216,6 +225,7 @@ def inspect_claim_review_batch(
                     claim_entry.update(_unverified(claim_id))
                     claim_entry["basis"] = "AUD_CLAIM_TEXT_BINDING_NOT_PROVEN"
                     claim_entry["audit_binding"] = binding
+                    claim_entry["audit_observation_state"] = "NOT_VERIFIED"
         return {
             **result, "status": "DOCUMENTARY_REVIEW_BATCH_OBSERVED",
             "reason": None,
