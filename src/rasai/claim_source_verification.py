@@ -100,7 +100,12 @@ def classify_claim(
         valid_url
         and asserted_hash == sha256(primary_bytes).hexdigest()
         and effective_from <= at_date <= effective_until
-        and reviewed_on <= at_date
+        # Retrospective independent documentary review is valid: a reviewer
+        # may inspect today a source version that was effective at the AUD
+        # snapshot date. Never force false backdating of reviewer credentials.
+        # Applicability is bounded by effective_from/until at at_date; review
+        # and collection chronology is a separate, present-time assertion.
+        and reviewed_on <= date.today()
         and (collected_on is None or collected_on <= reviewed_on)
         and str(review.get("product_scope") or "") == product_scope
         and isinstance(review.get("claim_text"), str) and review["claim_text"] == claim

@@ -119,3 +119,28 @@ decisoes documentais autenticadas sao **eixos separados**;
 sem fonte valida ⇒ `CLAIM_UNVERIFIED_EXTERNAL`, nao falsidade.
 Nenhum codigo considera o recibo certificacao regulatoria.
 Reter evidencias primarias/parecer sob custodia apropriada.
+
+
+## 4. Revisao retrospectiva real (sem antedatar recibo)
+
+A data da AUD em `manifest.at_date` e o marco **historico** de
+aplicabilidade do documento (`effective_from <= at_date <= effective_until`).
+O revisor independente pode emitir a revisao **depois da AUD**, com
+`reviewed_on` real. Nunca usar uma data antiga ficticia so para obter
+PASS. `collected_on` tambem deve ser real, nao posterior a
+`reviewed_on`, e ambos devem acompanhar os fatos e a assinatura.
+O verificador rejeita `reviewed_on` no futuro, assim como documento
+fora da vigencia na data original da AUD. A revisao retrospectiva
+nao reescreve a captura, nao prova legalidade e nao declara que o
+revisor participou da auditoria historica.
+
+**Contrato de fonte primaria:** o verificador atual exige
+`document_file` com texto UTF-8 literal e tamanho ate 4 MiB para
+confirmar `matched_excerpt` nos bytes apresentados. Um PDF binario
+isolado NAO atende automaticamente esse contrato. Se o documento
+original for PDF, revisor e custodiante devem documentar a cadeia
+PDF oficial -> extracao/texto conferido, reter o PDF original, os
+respectivos hashes e a proveniencia da extracao em registro privado;
+nao declarar que hash de texto derivado autentica por si o PDF
+oficial. Nao assinar um recibo sobre bytes diferentes dos fornecidos
+para a verificacao. Ausencia de cadeia confiavel => N/D.

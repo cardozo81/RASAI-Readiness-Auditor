@@ -145,3 +145,43 @@ def test_603_literal_claim_identity_is_required_for_documentary_promotion():
         assert verify_claim_review_receipt(raw, product_scope="product-A", at_date=AS_OF,
                     primary_bytes=DOCUMENT, receipt=_receipt(), receipt_mac=_mac(_receipt()),
                     trusted_key=KEY, trusted_reviewer_ids=frozenset({"trusted-reviewer"}))["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+
+
+def test_retrospective_independent_review_preserves_asof_aud_applicability() -> None:
+    """A real reviewer may review after AUD without falsely backdating a receipt."""
+    from datetime import timedelta
+    current = date.today()
+    assert current > AS_OF, "fixture expects a historical AUD"
+    receipt = {
+        **_receipt(),
+        "reviewed_on": current.isoformat(),
+        "collected_on": current.isoformat(),
+    }
+    # Audit date is Oct 14. Valid 2026 conditions remain applicable at Oct 14,
+    # even when receipt and collection are produced later.
+    assert _classify(receipt)["state"] == "CLAIM_CORROBORATED"
+    signed = verify_claim_review_receipt(
+        CLAIM, product_scope="product-A", at_date=AS_OF,
+        primary_bytes=DOCUMENT, receipt=receipt, receipt_mac=_mac(receipt),
+        trusted_key=KEY, trusted_reviewer_ids=frozenset({"trusted-reviewer"}),
+        require_collection_date=True,
+    )
+    assert signed["state"] == "CLAIM_CORROBORATED"
+    assert _classify({
+        **receipt, "effective_until": "2026-10-13",
+    })["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    # A review date in the future is never accepted, even with a valid MAC.
+    future = {**receipt, "reviewed_on": (current + timedelta(days=1)).isoformat()}
+    assert _classify(future)["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    assert verify_claim_review_receipt(
+        CLAIM, product_scope="product-A", at_date=AS_OF,
+        primary_bytes=DOCUMENT, receipt=future, receipt_mac=_mac(future),
+        trusted_key=KEY, trusted_reviewer_ids=frozenset({"trusted-reviewer"}),
+        require_collection_date=True,
+    )["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+    # Signed collection after review invalidates chronology.
+    late_collection = {
+        **receipt, "reviewed_on": AS_OF.isoformat(),
+        "collected_on": current.isoformat(),
+    }
+    assert _classify(late_collection)["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
