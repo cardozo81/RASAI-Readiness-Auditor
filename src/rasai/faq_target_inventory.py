@@ -27,11 +27,16 @@ class _CandidateParser(HTMLParser):
         self.refs: list[str | None] = []
         self.summary_count = 0
         self.uncoupled_expanded_controls = 0
+        self.nonbutton_disclosures = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag == "summary":
             self.summary_count += 1
         if tag != "button":
+            if any(key == "aria-controls" for key, _ in attrs) or any(
+                key == "role" and value == "button" for key, value in attrs
+            ):
+                self.nonbutton_disclosures += 1
             return
         controls = [value for key, value in attrs if key == "aria-controls"]
         if not controls:
@@ -88,16 +93,20 @@ def inspect_faq_target_candidates(
         "provider_requests": 0,
         "audit_writes": 0,
     }
-    if (not isinstance(html, str) or not 0 < len(html.encode("utf-8")) <= _MAX_HTML_BYTES
-            or not _scope_url(requested_url) or not _scope_url(final_url)
+    if (not isinstance(html, str) or not _scope_url(requested_url)
+            or not _scope_url(final_url)
             or device not in {"DESKTOP", "MOBILE"}):
         return denied
     try:
+        encoded_html = html.encode("utf-8")
+        if not 0 < len(encoded_html) <= _MAX_HTML_BYTES:
+            return denied
         parser = _CandidateParser()
         parser.feed(html)
         if (len(parser.refs) > _MAX_CANDIDATES
                 or parser.summary_count > _MAX_CANDIDATES
-                or parser.uncoupled_expanded_controls > _MAX_CANDIDATES):
+                or parser.uncoupled_expanded_controls > _MAX_CANDIDATES
+                or parser.nonbutton_disclosures > _MAX_CANDIDATES):
             return {**denied, "reason": "CANDIDATE_LIMIT_EXCEEDED"}
         counts: dict[str, int] = {}
         for candidate in parser.refs:
@@ -139,10 +148,11 @@ def inspect_faq_target_candidates(
             "requested_url_sha256": sha256(requested_url.encode("utf-8")).hexdigest(),
             "final_url_sha256": sha256(final_url.encode("utf-8")).hexdigest(),
             "device": device,
-            "observed_dom_sha256": sha256(html.encode("utf-8")).hexdigest(),
+            "observed_dom_sha256": sha256(encoded_html).hexdigest(),
             "candidate_count": len(items),
             "candidates": items,
             "details_summary_controls_unsupported": parser.summary_count,
+            "nonbutton_disclosures_unsupported": parser.nonbutton_disclosures,
             "expanded_buttons_without_target_unsupported":
                 parser.uncoupled_expanded_controls,
             "review_required": True,

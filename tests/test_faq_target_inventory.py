@@ -51,6 +51,7 @@ def test_faq_inventory_flags_nonsemantic_ids_and_unsupported_structures():
     html = (
         '<section><button aria-controls="panel-4" aria-expanded="false">Q</button>'
         '<details><summary>Other Q</summary><p>Answer</p></details>'
+        '<div role="button" aria-controls="faq-other">Q</div>'
         '<button aria-expanded="false">Third Q</button></section>'
     )
     observed = inspect(html)
@@ -58,6 +59,7 @@ def test_faq_inventory_flags_nonsemantic_ids_and_unsupported_structures():
         "NONSEMANTIC_ID_REQUIRES_SEPARATE_ADAPTER_REVIEW"
     )
     assert observed["details_summary_controls_unsupported"] == 1
+    assert observed["nonbutton_disclosures_unsupported"] == 1
     assert observed["expanded_buttons_without_target_unsupported"] == 1
     assert observed["automatic_target_selection"] is False
 
@@ -87,11 +89,15 @@ def test_faq_inventory_refuses_untrusted_scope_and_oversize():
     assert inspect_faq_target_candidates(
         "<p>x</p>", requested_url=URL, final_url=URL, device="UNKNOWN",
     )["status"] == "NOT_VERIFIABLE"
-    flood = inspect(
-        '<button aria-controls="faq-%d" aria-expanded="false">Q</button>' % i
-        for i in range(0)
-    ) if False else None
-    assert flood is None
+    flood = inspect("".join(
+        f'<button aria-controls="faq-{i}" aria-expanded="false">Q</button>'
+        for i in range(101)
+    ))
+    assert flood["status"] == "NOT_VERIFIABLE"
+    assert flood["reason"] == "CANDIDATE_LIMIT_EXCEEDED"
+    assert flood["candidates"] == []
+    invalid_unicode = inspect("\\ud800")
+    assert invalid_unicode["status"] == "NOT_VERIFIABLE"
 
 
 def test_faq_inventory_cli_reads_local_html_without_network(tmp_path, capsys):

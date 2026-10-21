@@ -69,3 +69,8 @@ A mera descoberta de candidatos e o recibo HMAC nao provam
 Googlebot/indexacao nem isolamento fisico; fixtures Playwright
 sinteticas so cobrem contrato tecnico. A decisao de homologacao
 delegada depende de capturas fisicas verdadeiras e rastreaveis.
+
+Controles customizados `role=button` ou `aria-controls` fora de
+`<button>` entram em contador de estruturas nao suportadas, sem
+selecao automatica. HTML excessivo (>4 MB), mais de 100 controles,
+URLs invalidas e texto UTF-8 invalido falham fechados.
