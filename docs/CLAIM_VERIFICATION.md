@@ -243,3 +243,15 @@ sem prova de AUD ou confianca da chave a saida abstem `NOT_VERIFIABLE`
 e o comando retorna 2. Nenhum download, consulta paga, score, escrita ou
 nova auditoria ocorre; a prova externa de fonte vigente ainda precisa
 ser obtida e homologada sob autorizacao separada.
+
+
+## Encaminhamento estruturado ao responsavel independente
+
+O modelo operacional a encaminhar esta em
+`docs/CLAIM_REVIEW_HANDOFF.md`: manifesto por alegacao com
+AUD/snapshot/escopo, bytes reais da fonte primaria e recibo
+`review` + `mac`. O exemplo vem intencionalmente **nao
+assinado e nao verificavel**; a chave e a assinatura pertencem
+ao revisor autorizado independente, e o software apenas verifica.
+A entrega desse modelo nao fornece fonte externa oficial nem
+encerra a issue #603.

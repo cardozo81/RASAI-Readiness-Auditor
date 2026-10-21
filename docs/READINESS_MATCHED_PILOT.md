@@ -171,3 +171,15 @@ antigos não têm telemetria e mostram N/D. Os dados são declarados pelo
 produtor e **não** substituem 5 pares físicos controle/sonda, orçamento
 de overhead aprovado ou aceitação de mesma amostra. Não há consultas
 a provedores nem alteração do SQLite ou dos relatórios canônicos.
+
+
+## Aprovacao condicional de metodologia pelo operador (21/10/2026)
+
+Foi aprovada a **metodologia experimental** de pelo menos cinco
+pares fisicos controle/sonda A/B com coorte comparavel em URL,
+device, versao do browser, rede/CPU/perfil e clocks, sem reinterpretar
+M23/M25/Apdex. Essa decisao **nao aprova a campanha**: URL,
+ambiente contido e orçamento/SLO para overhead ainda devem
+ser definidos expressamente. `--budget-ms 30` continua
+apenas exemplo documentado. Nenhum pareamento ficcional ou
+reaproveitamento de fonte sem identidade deve virar PASS.

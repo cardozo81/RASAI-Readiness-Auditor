@@ -130,3 +130,18 @@ Chave de 32 a 128 bytes, fora da AUD, sem symlink. MAC incorreto,
 coletor divergente e DOM adulterado são recusados. A conferência é
 **local**, não prova isolamento físico de rede, sessão histórica de
 terceiros, Googlebot ou homologação humana. Não enviar segredo ao ticket.
+
+
+## Decisao formal de 21/10/2026 - escopo da campanha
+
+A metodologia experimental de **5 pares reais A/B** da #322 foi
+aprovada **condicionalmente**. Os parametros indispensaveis -
+ambiente de execucao, URLs e budget operacional - ainda nao foram
+aprovados: **nao iniciar campanha fisica agora**, nem assumir 30 ms
+do exemplo como teto sancionado. Nao alterar indices Apdex.
+
+Para #652, a estrutura e o seletor FAQ **variam por URL**. Nao
+reutilizar o alvo estatico entre paginas; primeiro inventariar
+passivamente os controles do DOM de cada URL autorizada conforme
+`docs/FAQ_TARGET_AUTHORIZATION.md`. O inventario **nao autoriza
+clique**; sem alvo e contencao aprovados a campanha nao comeca.

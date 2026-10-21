@@ -161,3 +161,20 @@ declarar autenticação independente da origem. Um digest
 íntegro não substitui revalidação de assinatura do coletor
 nem homologação humana em uma AUD real. A visualização
 permanece fora de `report-catalog` e da AUD original.
+
+
+## Seletor de FAQ por URL: descoberta nao e autorizacao
+
+O operador decidiu que nao existe seletor FAQ global. Para
+cada URL/captura, usar inventario passivo offline de candidatos
+`rasai.faq_target_inventory` conforme
+`docs/FAQ_TARGET_AUTHORIZATION.md`, sem clicar nem presumir que
+o primeiro botao da pagina e FAQ. `target_id` da politica real
+continua necessariamente explicito e vinculado a requested/final
+URL/device. O worker atual suporta somente
+`button[aria-controls]` com controle semantico FAQ elegivel;
+IDs opacos, `details/summary` e outros padroes devem ser
+classificados como **revisao/adaptador necessarios**, sem acao.
+Nova implementacao de gesto exige autorizacao separada e
+teste de seguranca. Nenhuma alteracao no CLI de clique ou
+consentimento foi feita nesta fase.
