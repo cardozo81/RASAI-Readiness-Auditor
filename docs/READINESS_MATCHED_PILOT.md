@@ -156,7 +156,7 @@ sem substituir o relatório original. O gate físico A/B de
 overhead e eventual decisão sobre integração ao pacote
 principal permanecem independentes.
 
-## Medição de custo ativo na amostra M25 real — entrega aditiva
+## Medição de custo ativo na amostra M25 real - entrega aditiva
 
 Sob opt-in existente, o callback M25 reutiliza o observador cronometrado
 `measure_existing_playwright_probe_cost`, sem criar navegador ou outra
