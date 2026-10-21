@@ -40,6 +40,8 @@ def inspect_consented_public_html(
     consented_operations: Sequence[str] = (),
     fetcher: PublicWebFetcher | None = None,
     consent_registry: Path | None = None,
+    offline_inline_js_replay: bool = False,
+    replay_device: str | None = None,
 ) -> dict[str, Any]:
     """Read robots first and return bounded HTML features, without persisting.
 
@@ -47,6 +49,10 @@ def inspect_consented_public_html(
     conservative policy is stricter than general-purpose crawler conventions.
     A no-redirect transport prevents fetching unapproved redirect destinations.
     """
+    if type(offline_inline_js_replay) is not bool:
+        raise ValueError("offline replay opt-in must be boolean")
+    if offline_inline_js_replay and replay_device not in {"desktop", "mobile"}:
+        raise ValueError("explicit replay device required for opt-in")
     if role not in {"CUSTOMER", "COMPETITOR_CANDIDATE"}:
         raise ValueError("invalid competitive content role")
     if not isinstance(query, str) or not query.strip() or len(query) > 1000:
@@ -227,8 +233,17 @@ def inspect_consented_public_html(
         if facts.word_count > 0 and facts.query_terms_in_body
         else "STATIC_HTML_WITHOUT_QUERY_BODY_EVIDENCE"
     )
+    replay = None
+    if offline_inline_js_replay:
+        # Only after approved robots and the original HTML GET: no new HTTP.
+        from rasai.geo_competitor_inline_render import inspect_inline_spa_replay
+        replay = inspect_inline_spa_replay(
+            normalized, fetched.body, device=replay_device,
+            response_headers=fetched.headers,
+        )
     return outcome(
         status, robots_fetch_status="ALLOWED",
+        **({"offline_js_advisory": replay} if replay is not None else {}),
         content_evidence_status=(
             "TRANSIENT_STATIC_HTML_FEATURES" if status == "STATIC_HTML_FEATURES_OBSERVED"
             else "NOT_COMPARABLE"
@@ -260,7 +275,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--consent-registry", type=Path,
                         help="optional local revocable grant ledger")
     parser.add_argument("--allow-public-html-requests", action="store_true")
+    parser.add_argument("--offline-inline-js-replay", action="store_true",
+                        help="opt-in OCI sem rede, somente JS inline do HTML obtido")
+    parser.add_argument("--replay-device", choices=("desktop", "mobile"))
     args = parser.parse_args(argv)
+    if args.offline_inline_js_replay and args.replay_device is None:
+        parser.error("--replay-device required for offline inline JS replay")
     if not args.allow_public_html_requests:
         parser.error("explicit --allow-public-html-requests is required")
     if (
@@ -276,6 +296,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             consented_hostnames=args.consent_host,
             consent_purpose=args.consent_purpose,
             consented_operations=args.consent_operation,
+            **({"offline_inline_js_replay": True,
+                "replay_device": args.replay_device} if args.offline_inline_js_replay else {}),
             **({"consent_registry": args.consent_registry}
               if args.consent_registry is not None else {}),
         )

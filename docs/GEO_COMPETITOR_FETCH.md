@@ -152,3 +152,53 @@ SPA hidratada, cookie/login e egress gerenciado continuam **não
 implementados**, logo nenhum resultado estático pode ser promovido
 a prova de conteúdo principal. Não executar URL externa sem autorização
 independente do proprietário.
+
+
+## Replay OCI opcional para JavaScript inline, sem rede adicional
+
+O inspetor de HTML consentido e o materializador COBS aceitam as flags
+--offline-inline-js-replay e --replay-device desktop|mobile. Permanecem
+obrigatorios hostname exato, finalidade, GET_ROBOTS_TXT, GET_STATIC_HTML
+e --allow-public-html-requests. O replay so recebe a resposta HTML
+previamente autorizada; nao autoriza downloads de JavaScript, CSS,
+imagens nem novas requisicoes HTTP. Scripts externos nao fornecidos,
+redirecionamentos, falta de materialidade e instabilidade geram N/D.
+
+O Chromium reutiliza o worker OCI arquitetural sem modificacao do
+seu contrato: imagem local identificada por digest, canarios de isolamento
+e browser, --network=none, sem mounts, sem privilegios, com CPU/memoria
+limitadas, root read-only e timeout. CSP original e preservada.
+Instalar Docker nao e requisito do fluxo HTTP estatico existente; sem
+imagem local o suplemento retorna OCI_IMAGE_NOT_AVAILABLE.
+
+O campo opcional capture.offline_js_advisory contem versao
+RASAI-COBS-NETWORKLESS-INLINE-REPLAY-1, hashes da resposta HTML
+original e do DOM isolado quando estabilizado, device, motivo de
+abstencao, additional_public_http_requests=0 e audit_writes=0.
+Mesmo INLINE_DOM_STABLE_IN_OCI significa apenas que o HTML coletado
+pode materializar DOM no replay offline com os recursos ja disponiveis.
+Nao comprova hidratacao live, conteudo editorial real, equivalencia
+a SERP por device/mercado/tempo, ranking, indexacao ou citacao gerativa.
+
+A comparacao COBS continua exclusivamente estatica e ignora este
+suplemento. primary_content_proven e content_comparison_eligible
+continuam false; nao se alteram AUD, SARI, SCORE-GEO, Apdex, IA,
+CONS ou relatórios selados. O aceite externo da issue permanece aberto.
+
+Exemplo do opt-in, a executar somente com autorizacao externa
+independente para os dois GET:
+
+    python -m rasai.geo_competitor_capture_bundle
+      --audit-dir .\audits\AUD-EXEMPLO
+      --serp-observation-id SERP-EXEMPLO
+      --candidate-url https://exemplo.org/pagina
+      --output-root .\evidencias-cobs
+      --consent-host exemplo.org
+      --consent-purpose GEO_COMPETITOR_STATIC_CONTENT_REVIEW
+      --consent-operation GET_ROBOTS_TXT
+      --consent-operation GET_STATIC_HTML
+      --allow-public-html-requests
+      --offline-inline-js-replay --replay-device desktop
+
+O exemplo representa parametros da mesma chamada, e nao comandos
+independentes por linha.

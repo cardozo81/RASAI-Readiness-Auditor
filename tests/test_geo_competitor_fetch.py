@@ -308,3 +308,63 @@ def test_native_cobs_capture_requires_purpose_operations_before_source_or_networ
     assert err.value.code == 2
     assert "explicit purpose and both GET operations" in capsys.readouterr().err
     assert not (tmp_path / "output").exists()
+
+
+def test_opt_in_replay_uses_original_authorized_html_no_extra_requests(monkeypatch):
+    from rasai import geo_competitor_inline_render as replay
+    observed = []
+
+    def fake_replay(url, html, *, device, response_headers):
+        observed.append((url, html, device, response_headers["content-type"]))
+        return {"status": "INLINE_DOM_STABLE_IN_OCI",
+                "live_primary_content_proven": False,
+                "additional_public_http_requests": 0}
+
+    monkeypatch.setattr(replay, "inspect_inline_spa_replay", fake_replay)
+    transport = _FakeTransport(b"User-agent: *\nAllow: /\n")
+    client = _client(transport)
+    result = inspect_consented_public_html(
+        "https://example.com/seguro-de-vida",
+        query="seguro de vida", role="CUSTOMER",
+        consented_hostnames=["example.com"], fetcher=client,
+        consent_purpose="AUD_CUSTOMER_STATIC_CONTENT_REVIEW",
+        consented_operations=("GET_ROBOTS_TXT", "GET_STATIC_HTML"),
+        offline_inline_js_replay=True, replay_device="mobile",
+    )
+    assert result["status"] == "STATIC_HTML_FEATURES_OBSERVED"
+    assert result["html_rendering"] == "STATIC_HTTP_ONLY_NO_JS"
+    assert result["primary_content_proven"] is False
+    assert result["offline_js_advisory"]["status"] == "INLINE_DOM_STABLE_IN_OCI"
+    assert result["provider_requests"] == 2
+    assert len(transport.urls) == 2
+    assert observed == [("https://example.com/seguro-de-vida", transport.html,
+                         "mobile", "text/html")]
+
+
+def test_no_replay_without_robots_or_explicit_device(monkeypatch):
+    from rasai import geo_competitor_inline_render as replay
+    monkeypatch.setattr(replay, "inspect_inline_spa_replay",
+                        lambda *a, **kw: pytest.fail("no unauthorized replay"))
+    transport = _FakeTransport(b"User-agent: *\nDisallow: /")
+    client = _client(transport)
+    kwargs = dict(
+        url="https://example.com/seguro-de-vida", query="seguro de vida",
+        role="CUSTOMER", consented_hostnames=["example.com"], fetcher=client,
+        consent_purpose="AUD_CUSTOMER_STATIC_CONTENT_REVIEW",
+        consented_operations=("GET_ROBOTS_TXT", "GET_STATIC_HTML"),
+        offline_inline_js_replay=True,
+    )
+    with pytest.raises(ValueError, match="device"):
+        inspect_consented_public_html(**kwargs)
+    assert client.requests_used == 0
+    assert inspect_consented_public_html(**kwargs, replay_device="desktop")["status"] == "ROBOTS_DISALLOWED"
+    assert len(transport.urls) == 1
+
+
+def test_cli_replay_requires_device_before_network(capsys):
+    with pytest.raises(SystemExit) as exc:
+        main(["--url", "https://example.com", "--query", "x",
+              "--role", "CUSTOMER", "--consent-host", "example.com",
+              "--offline-inline-js-replay", "--allow-public-html-requests"])
+    assert exc.value.code == 2
+    assert "--replay-device required" in capsys.readouterr().err
