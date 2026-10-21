@@ -603,6 +603,9 @@ def install(interactive_console: ModuleType) -> None:
     def configure_with_reuse(state: Any, choice: str) -> None:
         if choice == "Y":
             from rasai.architecture_choice import ArchitectureChoice
+            # Present the editor as its own console screen, not appended to HOME.
+            interactive_console.render_header(state)
+            print("INÍCIO > ARQUITETURA PARA ESTA AUDITORIA\n")
             print("Arquitetura da auditoria (opção consultiva; não modifica pontuação)")
             print("Seleção atual: " + describe_session_architecture_choice(state))
             print("1. Sem forçar arquitetura")
