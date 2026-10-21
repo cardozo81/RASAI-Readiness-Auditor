@@ -240,7 +240,7 @@ def decision_evidence_matrix_html(projection: Mapping[str, Any]) -> str:
         )
     return (
         "<div data-contract='DECISION-EVIDENCE-604-001'>"
-        "<p>Matriz de evidências da mesma AUD, sem consolidação numérica "
+        "<p>Evidências da mesma AUD, sem consolidação numérica "
         "entre metodologias. Valores N/D não equivalem a zero e estados "
         "operacionais não certificam amostras representativas.</p>"
         "<div class='table-wrap'><table><thead><tr>"
