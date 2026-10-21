@@ -368,3 +368,55 @@ def test_cli_replay_requires_device_before_network(capsys):
               "--offline-inline-js-replay", "--allow-public-html-requests"])
     assert exc.value.code == 2
     assert "--replay-device required" in capsys.readouterr().err
+
+
+def test_offline_bundle_is_loaded_before_any_dns_and_only_replayed_after_robots(tmp_path, monkeypatch):
+    import base64
+    from hashlib import sha256
+    from rasai.geo_competitor_offline_assets import CONTRACT
+    from rasai import geo_competitor_inline_render as replay
+
+    url = "https://example.com/seguro-de-vida"
+    js = b"document.querySelector('main').textContent='Seguros reais';"
+    payload = {
+        "contract_version": CONTRACT, "target_url": url,
+        "resources": [{
+            "url": "https://example.com/app.js",
+            "content_type": "application/javascript",
+            "body_b64": base64.b64encode(js).decode("ascii"),
+            "sha256": sha256(js).hexdigest(),
+        }],
+    }
+    bundle = tmp_path / "assets.json"
+    bundle.write_text(json.dumps(payload), encoding="utf-8")
+    observed = []
+
+    def fake_replay(target, html, *, device, response_headers,
+                    additional_resources, asset_bundle_sha256):
+        observed.append((target, html, device, additional_resources,
+                         asset_bundle_sha256))
+        return {"status": "INLINE_DOM_STABLE_IN_OCI",
+                "live_site_hydration_proven": False}
+    monkeypatch.setattr(replay, "inspect_inline_spa_replay", fake_replay)
+    dns = []
+    transport = _FakeTransport(b"User-agent: *\nAllow: /\n")
+    client = _client(transport, resolved=lambda host, port: dns.append(host) or ("1.1.1.1",))
+    kwargs = dict(
+        url=url, query="seguro", role="CUSTOMER",
+        consented_hostnames=("example.com",),
+        consent_purpose="AUD_CUSTOMER_STATIC_CONTENT_REVIEW",
+        consented_operations=("GET_ROBOTS_TXT", "GET_STATIC_HTML"),
+        fetcher=client, offline_inline_js_replay=True, replay_device="desktop",
+    )
+    broken = tmp_path / "broken.json"
+    broken.write_text('{"not":"valid"}', encoding="utf-8")
+    with pytest.raises(ValueError, match="bundle"):
+        inspect_consented_public_html(**kwargs, offline_resource_bundle=broken)
+    assert not dns and not transport.urls
+    result = inspect_consented_public_html(**kwargs, offline_resource_bundle=bundle)
+    assert result["status"] == "STATIC_HTML_FEATURES_OBSERVED"
+    assert result["offline_js_advisory"]["status"] == "INLINE_DOM_STABLE_IN_OCI"
+    assert result["provider_requests"] == 2
+    assert len(transport.urls) == 2 and observed[0][2] == "desktop"
+    assert observed[0][3][0]["sha256"] == sha256(js).hexdigest()
+    assert len(observed[0][4]) == 64

@@ -99,6 +99,7 @@ def capture_competitor_sidecar(
     consent_registry: Path | None = None,
     offline_inline_js_replay: bool = False,
     replay_device: str | None = None,
+    offline_resource_bundle: Path | None = None,
 ) -> dict[str, Any]:
     """Produce immutable offline-review evidence from authorized public HTML.
 
@@ -110,6 +111,8 @@ def capture_competitor_sidecar(
         raise ValueError("offline replay opt-in must be boolean")
     if offline_inline_js_replay and replay_device not in {"desktop", "mobile"}:
         raise ValueError("explicit replay device required for opt-in")
+    if offline_resource_bundle is not None and not offline_inline_js_replay:
+        raise ValueError("offline bundle requires isolated replay opt-in")
     if role not in {"CUSTOMER", "COMPETITOR_CANDIDATE"}:
         raise ValueError("explicit supported capture role required")
     audit_dir = Path(audit_dir)
@@ -250,7 +253,10 @@ def capture_competitor_sidecar(
         consented_operations=consented_operations,
         fetcher=fetcher,
         **({"offline_inline_js_replay": True,
-            "replay_device": replay_device} if offline_inline_js_replay else {}),
+            "replay_device": replay_device,
+            **({"offline_resource_bundle": offline_resource_bundle}
+               if offline_resource_bundle is not None else {})}
+           if offline_inline_js_replay else {}),
         **({"consent_registry": consent_registry} if consent_registry is not None else {}),
     )
     # This check MUST run even if robots/HTTP returned an unobserved
@@ -390,9 +396,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--offline-inline-js-replay", action="store_true",
                         help="OCI sem rede, somente JS inline da pagina estatica")
     parser.add_argument("--replay-device", choices=("desktop", "mobile"))
+    parser.add_argument("--offline-resource-bundle", type=Path,
+                        help="recursos locais ja obtidos; nunca nova coleta")
     args = parser.parse_args(argv)
     if args.offline_inline_js_replay and args.replay_device is None:
         parser.error("--replay-device required for offline inline JS replay")
+    if args.offline_resource_bundle is not None and not args.offline_inline_js_replay:
+        parser.error("--offline-resource-bundle requires replay opt-in")
     if not args.allow_public_html_requests:
         parser.error("explicit --allow-public-html-requests is required")
     expected_purpose = (
@@ -415,7 +425,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             consent_purpose=args.consent_purpose,
             consented_operations=args.consent_operation,
             **({"offline_inline_js_replay": True,
-                "replay_device": args.replay_device} if args.offline_inline_js_replay else {}),
+                "replay_device": args.replay_device,
+                **({"offline_resource_bundle": args.offline_resource_bundle}
+                   if args.offline_resource_bundle is not None else {})}
+               if args.offline_inline_js_replay else {}),
             **({"consent_registry": args.consent_registry}
               if args.consent_registry is not None else {}),
         )

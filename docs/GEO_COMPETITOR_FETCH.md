@@ -202,3 +202,54 @@ independente para os dois GET:
 
 O exemplo representa parametros da mesma chamada, e nao comandos
 independentes por linha.
+
+
+## Bundle de recursos JS/CSS ja existente, sem novas chamadas
+
+O replay OCI pode receber recursos locais que o operador **ja possua**
+e tenha direito de usar, com --offline-resource-bundle ARQUIVO.json
+em conjunto com --offline-inline-js-replay --replay-device desktop|mobile.
+Nao ha descoberta HTTP automatica, bypass de robots, obtencao de
+arquivos do site, acesso a CDN ou coleta de recursos por esta flag.
+O bundle e lido antes do primeiro DNS/HTTP; se invalido, falha fechada.
+
+Formato exato do arquivo local, criado fora dos pacotes AUD/CONS/RPR:
+
+    {
+      "contract_version": "RASAI-COBS-ISOLATED-ASSET-BUNDLE-1",
+      "target_url": "https://example.org/catalog",
+      "resources": [
+        {
+          "url": "https://example.org/scripts/app.js",
+          "content_type": "application/javascript",
+          "sha256": "<SHA256_HEXADECIMAL_64>",
+          "body_b64": "<BASE64_DOS_BYTES_JA_OBTIDOS>"
+        }
+      ]
+    }
+
+Preencher hashes e bytes reais, nao os placeholders. A URL do bundle
+deve ser a mesma URL canonica do HTML previamente consentido.
+Sao aceitos somente **recursos exatos e da mesma origem HTTP(S)**,
+sem credenciais, URL duplicada, redirects ou origem CDN externa.
+Maximo: 16 arquivos e 2 MiB agregados, bundle JSON ate 3,2 MB,
+apenas MIME permitido (JavaScript, CSS, JSON, imagens, fontes).
+Base64, SHA-256, duplicidade de chaves JSON, bytes/mtime e identidade
+do descritor local sao conferidos, com leitura read-only.
+Recurso ausente, bloqueado pela CSP ou requisitado dinamicamente por
+JavaScript continua N/D; nunca aprovar hidratacao total por inferencia.
+
+O hash do bundle e integridade **local**, nao assinatura de origem,
+autenticacao do provedor ou atestado de consentimento anterior.
+O suplemento nunca promove fonte nao autenticada:
+offline_asset_provenance_attested=false,
+live_site_hydration_proven=false,
+live_primary_content_proven=false e
+same_serp_device_or_population_proven=false.
+A comparacao COBS antiga segue estritamente estatica.
+
+A auditoria fisica em sites de terceiros, a equivalencia de locale,
+device, periodo/mercado, a consulta SERP original e a verificacao
+autorizada de recursos faltantes permanecem gates separados.
+A ausencia de recursos da SPA gera abstencao e **nao** autorizacao
+para adquiri-los por novos GETs.

@@ -42,6 +42,7 @@ def inspect_consented_public_html(
     consent_registry: Path | None = None,
     offline_inline_js_replay: bool = False,
     replay_device: str | None = None,
+    offline_resource_bundle: Path | None = None,
 ) -> dict[str, Any]:
     """Read robots first and return bounded HTML features, without persisting.
 
@@ -53,6 +54,17 @@ def inspect_consented_public_html(
         raise ValueError("offline replay opt-in must be boolean")
     if offline_inline_js_replay and replay_device not in {"desktop", "mobile"}:
         raise ValueError("explicit replay device required for opt-in")
+    if offline_resource_bundle is not None and not offline_inline_js_replay:
+        raise ValueError("offline bundle requires isolated replay opt-in")
+    # Validate local bytes BEFORE DNS/robots/HTTP. The bundle never grants
+    # additional HTTP requests and is not evidence of live source identity.
+    bundle_resources = ()
+    bundle_sha256 = None
+    if offline_resource_bundle is not None:
+        from rasai.geo_competitor_offline_assets import load_offline_asset_bundle
+        bundle_resources, bundle_sha256 = load_offline_asset_bundle(
+            offline_resource_bundle, target_url=url,
+        )
     if role not in {"CUSTOMER", "COMPETITOR_CANDIDATE"}:
         raise ValueError("invalid competitive content role")
     if not isinstance(query, str) or not query.strip() or len(query) > 1000:
@@ -240,6 +252,9 @@ def inspect_consented_public_html(
         replay = inspect_inline_spa_replay(
             normalized, fetched.body, device=replay_device,
             response_headers=fetched.headers,
+            **({"additional_resources": bundle_resources,
+                "asset_bundle_sha256": bundle_sha256}
+               if offline_resource_bundle is not None else {}),
         )
     return outcome(
         status, robots_fetch_status="ALLOWED",
@@ -278,9 +293,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--offline-inline-js-replay", action="store_true",
                         help="opt-in OCI sem rede, somente JS inline do HTML obtido")
     parser.add_argument("--replay-device", choices=("desktop", "mobile"))
+    parser.add_argument("--offline-resource-bundle", type=Path,
+                        help="bundle local sem rede, validado antes do primeiro GET")
     args = parser.parse_args(argv)
     if args.offline_inline_js_replay and args.replay_device is None:
         parser.error("--replay-device required for offline inline JS replay")
+    if args.offline_resource_bundle is not None and not args.offline_inline_js_replay:
+        parser.error("--offline-resource-bundle requires replay opt-in")
     if not args.allow_public_html_requests:
         parser.error("explicit --allow-public-html-requests is required")
     if (
@@ -297,7 +316,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             consent_purpose=args.consent_purpose,
             consented_operations=args.consent_operation,
             **({"offline_inline_js_replay": True,
-                "replay_device": args.replay_device} if args.offline_inline_js_replay else {}),
+                "replay_device": args.replay_device,
+                **({"offline_resource_bundle": args.offline_resource_bundle}
+                   if args.offline_resource_bundle is not None else {})}
+               if args.offline_inline_js_replay else {}),
             **({"consent_registry": args.consent_registry}
               if args.consent_registry is not None else {}),
         )

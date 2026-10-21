@@ -7,18 +7,20 @@ produce explicit inconclusive outcomes, not live-site attestation.
 from __future__ import annotations
 
 import base64
+import binascii
 from hashlib import sha256
 import json
 import re
 import shutil
 import subprocess
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 
 from rasai.architecture_isolated_capture import (
     inspect_local_image, sandbox_command,
 )
 from rasai.url_utils import normalize_url
+from rasai.geo_competitor_offline_assets import _origin, MAX_ASSETS, MAX_TOTAL_ASSET_BYTES
 
 _MAX_HTML_BYTES = 1_000_000
 _MAX_MANIFEST_BYTES = 4_500_000
@@ -39,13 +41,18 @@ _WORKER_REASONS = frozenset({
 
 def _outcome(status: str, *, source_sha256: str | None = None,
              device: str | None = None, rendered_sha256: str | None = None,
-             rendered_bytes: int | None = None) -> dict[str, Any]:
+             rendered_bytes: int | None = None,
+             bundle_sha256: str | None = None,
+             supplied_assets: int = 0) -> dict[str, Any]:
     return {
         "contract_version": "RASAI-COBS-NETWORKLESS-INLINE-REPLAY-1",
         "status": status, "source_html_sha256": source_sha256,
         "isolated_rendered_html_sha256": rendered_sha256,
         "isolated_rendered_html_bytes": rendered_bytes,
         "replay_device": device,
+        "offline_asset_bundle_sha256": bundle_sha256,
+        "offline_supplied_asset_count": supplied_assets,
+        "offline_asset_provenance_attested": False,
         "isolated_dom_materiality_observed": status == "INLINE_DOM_STABLE_IN_OCI",
         "live_site_hydration_proven": False,
         "live_primary_content_proven": False,
@@ -65,6 +72,8 @@ def _outcome(status: str, *, source_sha256: str | None = None,
 def inspect_inline_spa_replay(
     url: str, html: bytes, *, device: str,
     response_headers: Mapping[str, str] | None = None,
+    additional_resources: Sequence[Mapping[str, str]] = (),
+    asset_bundle_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Replay one already-obtained document in isolated OCI without network.
 
@@ -109,6 +118,47 @@ def inspect_inline_spa_replay(
         "text/html", "application/xhtml+xml"
     ):
         return _outcome("RESPONSE_POLICY_UNVERIFIABLE", source_sha256=source_sha, device=device)
+    # A local asset bundle is NOT source authenticated. A replay may use
+    # preexisting same-origin bytes but cannot fetch any missing resources.
+    resource_entries = []
+    if (isinstance(additional_resources, (str, bytes))
+            or not isinstance(additional_resources, (list, tuple))
+            or len(additional_resources) > MAX_ASSETS):
+        return _outcome("OFFLINE_ASSET_INPUT_UNVERIFIABLE", source_sha256=source_sha, device=device)
+    if additional_resources and (
+        not isinstance(asset_bundle_sha256, str)
+        or re.fullmatch(r"[0-9a-f]{64}", asset_bundle_sha256) is None
+    ):
+        return _outcome("OFFLINE_ASSET_INPUT_UNVERIFIABLE", source_sha256=source_sha, device=device)
+    seen = {url}
+    total = 0
+    for item in additional_resources:
+        if not isinstance(item, Mapping) or set(item) != {
+            "url", "content_type", "body_b64", "sha256",
+        }:
+            return _outcome("OFFLINE_ASSET_INPUT_UNVERIFIABLE", source_sha256=source_sha, device=device)
+        asset_url = item["url"]
+        content_type = item["content_type"]
+        encoded = item["body_b64"]
+        digest = item["sha256"]
+        try:
+            same_origin = _origin(asset_url) == _origin(url)
+            body = base64.b64decode(encoded, validate=True)
+        except (ValueError, TypeError, binascii.Error):
+            return _outcome("OFFLINE_ASSET_INPUT_UNVERIFIABLE", source_sha256=source_sha, device=device)
+        total += len(body)
+        if (not same_origin or asset_url in seen
+                or not isinstance(content_type, str) or len(content_type) > 120
+                or "\r" in content_type or "\n" in content_type
+                or not isinstance(digest, str) or sha256(body).hexdigest() != digest
+                or not body or total > MAX_TOTAL_ASSET_BYTES):
+            return _outcome("OFFLINE_ASSET_INPUT_UNVERIFIABLE", source_sha256=source_sha, device=device)
+        seen.add(asset_url)
+        resource_entries.append({
+            "url": asset_url, "body_b64": encoded,
+            "content_type": content_type, "status": 200,
+            "response_headers": {"content-type": content_type},
+        })
     # Preserve real CSP; never relax source policy to force a positive result.
     payload = json.dumps({
         "url": url, "device": device,
@@ -116,7 +166,7 @@ def inspect_inline_spa_replay(
             "url": url, "body_b64": base64.b64encode(html).decode("ascii"),
             "content_type": mime, "status": 200,
             "response_headers": lower_headers,
-        }],
+        }, *resource_entries],
     }, separators=(",", ":"), ensure_ascii=False)
     if len(payload.encode("utf-8")) > _MAX_MANIFEST_BYTES:
         return _outcome("INPUT_BUNDLE_LIMIT", source_sha256=source_sha, device=device)
@@ -156,6 +206,8 @@ def inspect_inline_spa_replay(
                         "INLINE_DOM_STABLE_IN_OCI", source_sha256=source_sha,
                         device=device, rendered_sha256=sha256(rendered).hexdigest(),
                         rendered_bytes=len(rendered),
+                        bundle_sha256=asset_bundle_sha256,
+                        supplied_assets=len(resource_entries),
                     )
             elif (finished.returncode == 2 and result["rendered_html"] is None
                   and result["reason"] in _WORKER_REASONS):
@@ -166,7 +218,9 @@ def inspect_inline_spa_replay(
         status = "OCI_WORKER_TIMEOUT"
     except (OSError, ValueError, TypeError, UnicodeError, json.JSONDecodeError):
         status = "OCI_OUTPUT_UNVERIFIABLE"
-    return _outcome(status, source_sha256=source_sha, device=device)
+    return _outcome(status, source_sha256=source_sha, device=device,
+                    bundle_sha256=asset_bundle_sha256,
+                    supplied_assets=len(resource_entries))
 
 
 __all__ = ["inspect_inline_spa_replay"]
