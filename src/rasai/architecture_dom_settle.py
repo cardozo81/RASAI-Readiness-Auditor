@@ -13,6 +13,8 @@ import time
 from typing import Any
 
 MAX_SETTLE_MS = 2800
+# Standalone, networkless menu-8 preview ONLY. Not used by canonical AUD captures.
+ISOLATED_PREVIEW_SETTLE_MS = 5200
 MIN_OBSERVE_MS = 850
 SAMPLE_INTERVAL_MS = 200
 STABLE_SAMPLES = 3
@@ -58,7 +60,9 @@ def _sample_fields(raw: Any) -> tuple[str, bool, bool] | None:
     return " ".join(text.split()), loading, main
 
 
-def wait_for_material_dom(page: Any, *, time_source=time.monotonic) -> DomSettleResult:
+def wait_for_material_dom(
+    page: Any, *, time_source=time.monotonic, isolated_preview: bool = False,
+) -> DomSettleResult:
     """Use the entire bounded same-page window, including late SPA mutations.
 
     A stable SSR-looking first paint may be replaced by client rendering after
@@ -66,7 +70,13 @@ def wait_for_material_dom(page: Any, *, time_source=time.monotonic) -> DomSettle
     STATIC_OR_SSR. We therefore make the decision from the *final* consecutive
     material samples, and never grant an early pass. All samples are from one
     already-isolated page and no new network is initiated by this function.
+    The 2.8s default is unchanged; the menu-8 OCI preview explicitly uses
+    a 5.2s bound to observe late client-side replacement even if first paint
+    looked stable. No network/RTT/load metric is sampled by this function.
     """
+    if type(isolated_preview) is not bool:
+        raise ValueError("isolated_preview must be boolean")
+    budget_ms = ISOLATED_PREVIEW_SETTLE_MS if isolated_preview else MAX_SETTLE_MS
     begin = time_source()
     previous: str | None = None
     stable = 0
@@ -75,20 +85,20 @@ def wait_for_material_dom(page: Any, *, time_source=time.monotonic) -> DomSettle
     saw_loading = False
     transitions = 0
     elapsed = 0.0
-    while (time_source() - begin) * 1000 <= MAX_SETTLE_MS:
+    while (time_source() - begin) * 1000 <= budget_ms:
         try:
             parsed = _sample_fields(page.evaluate(DOM_SAMPLE_JS))
         except (OSError, ValueError, TypeError, RuntimeError):
             return DomSettleResult(
                 False, "ISOLATED_CONTENT_NOT_ATTESTED", count, observed,
-                saw_loading, content_transitions=transitions,
-                observed_ms=int(elapsed),
+                saw_loading, bounded_ms=budget_ms,
+                content_transitions=transitions, observed_ms=int(elapsed),
             )
         if parsed is None:
             return DomSettleResult(
                 False, "ISOLATED_CONTENT_NOT_ATTESTED", count, observed,
-                saw_loading, content_transitions=transitions,
-                observed_ms=int(elapsed),
+                saw_loading, bounded_ms=budget_ms,
+                content_transitions=transitions, observed_ms=int(elapsed),
             )
         text, loading, has_main = parsed
         count += 1
@@ -104,14 +114,14 @@ def wait_for_material_dom(page: Any, *, time_source=time.monotonic) -> DomSettle
         else:
             stable, previous = 0, None
         elapsed = (time_source() - begin) * 1000
-        if elapsed + SAMPLE_INTERVAL_MS > MAX_SETTLE_MS:
+        if elapsed + SAMPLE_INTERVAL_MS > budget_ms:
             break
         page.wait_for_timeout(SAMPLE_INTERVAL_MS)
     successful = elapsed >= MIN_OBSERVE_MS and stable >= STABLE_SAMPLES
     return DomSettleResult(
         successful, None if successful else "ISOLATED_CONTENT_NOT_STABLE",
         count, observed, saw_loading,
-        content_transitions=transitions,
+        bounded_ms=budget_ms, content_transitions=transitions,
         observed_ms=int(elapsed),
     )
 

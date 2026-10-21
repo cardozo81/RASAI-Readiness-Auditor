@@ -321,3 +321,25 @@ acordeão, leitura pelo Googlebot, veracidade editorial ou elegibilidade a
 pontuação. A ausência de acordeões com JSON-LD presente continua N/D para
 **interação**; não se reescreve BR-GEO-039/049 nem AUD histórica. A captura
 permanece read-only, sem browser, clique ou chamadas externas.
+
+
+## Extensão de tempo exclusiva do diagnóstico arquitetural OCI
+
+Apenas o renderizador OCI usado na descoberta arquitetural independente
+(menu 8) agora observa por até **5.200 ms**, em lugar dos 2.800 ms
+anteriores, depois de `DOMContentLoaded`. O padrão original de 2.800 ms
+continua vigente para outros chamadores. A espera acompanha exclusivamente
+o DOM da mesma página, permitindo identificar conteúdo materializado
+tardiamente, inclusive substituição SPA após uma primeira pintura estática.
+Três amostras finais de conteúdo principal visível e estável ainda são
+necessárias. Conteúdo ausente, alterações nos instantes finais ou carregamento
+contínuo continuam UNKNOWN, não uma classificação artificial.
+
+**Invariantes:** o código de M2, M3, M6, a AUD, os timeouts HTTP/TLS,
+DNS, ping, RTT, métricas de latência/load, Apdex, SARI e scoring não foram
+alterados. Não há nova consulta HTTP, recaptura, retry, navegação nem
+permissão de saída de rede; o contêiner continua `--network=none`.
+A consulta de arquitetura isolada pode demorar até 2,4 segundos adicionais;
+isso não compõe nem modifica indicadores medidos da auditoria.
+O adaptador também preserva os códigos de abstenção de DOM não estável
+ou não verificável, em vez de substituí-los por limitação genérica.

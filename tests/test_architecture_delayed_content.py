@@ -5,7 +5,7 @@ from dataclasses import replace
 from unittest.mock import patch
 
 from rasai.architecture_dom_settle import (
-    MAX_SETTLE_MS, wait_for_material_dom, DOM_SAMPLE_JS,
+    MAX_SETTLE_MS, ISOLATED_PREVIEW_SETTLE_MS, wait_for_material_dom, DOM_SAMPLE_JS,
 )
 from rasai.architecture_raw_signals import inspect_raw_html_signals
 from rasai.architecture_discovery import assess_architecture
@@ -205,3 +205,67 @@ def test_646_redirect_transport_provenance_is_bounded_and_no_raw_urls_leak():
     assert "operator-secret" not in text
     assert "/private" not in text
     assert result.architecture.value == "UNKNOWN"
+
+
+def test_menu_preview_delayed_spa_does_not_change_default_dom_budget():
+    timeline = [
+        (0, _dom("", loading=True)),
+        (3400, _dom("The actual SPA content is rendered after the old budget.")),
+    ]
+    original = _TimedDomPage(timeline)
+    default = wait_for_material_dom(original, time_source=lambda: original.ms / 1000)
+    assert not default.stable and default.reason == "ISOLATED_CONTENT_NOT_STABLE"
+    assert default.bounded_ms == MAX_SETTLE_MS
+    assert original.ms <= MAX_SETTLE_MS
+
+    preview = _TimedDomPage(timeline)
+    result = wait_for_material_dom(
+        preview, time_source=lambda: preview.ms / 1000,
+        isolated_preview=True,
+    )
+    assert result.stable and result.reason is None
+    assert result.bounded_ms == ISOLATED_PREVIEW_SETTLE_MS
+    assert result.observed_ms >= 5000
+    assert preview.ms <= ISOLATED_PREVIEW_SETTLE_MS
+
+
+def test_menu_preview_detects_change_after_original_ssr_looking_window():
+    page = _TimedDomPage([
+        (0, _dom("Server-looking text is initially stable before hydration.")),
+        (3600, _dom("Client content replaces server text after the old deadline.")),
+    ])
+    result = wait_for_material_dom(
+        page, time_source=lambda: page.ms / 1000, isolated_preview=True,
+    )
+    assert result.stable and result.content_transitions == 1
+    assert result.observed_ms >= 5000
+
+
+def test_menu_preview_never_accepts_permanent_spinner_or_last_second_change():
+    spinner = _TimedDomPage([
+        (0, _dom("", loading=True)),
+        (3000, _dom("Still fetching content after four seconds", loading=True)),
+    ])
+    pending = wait_for_material_dom(
+        spinner, time_source=lambda: spinner.ms / 1000, isolated_preview=True,
+    )
+    assert not pending.stable and pending.reason == "ISOLATED_CONTENT_NOT_STABLE"
+    assert pending.bounded_ms == ISOLATED_PREVIEW_SETTLE_MS
+
+    changed = _TimedDomPage([
+        (0, _dom("Initial material from server visible in main content.")),
+        (5000, _dom("Late replacement too close to the final deadline.")),
+    ])
+    late = wait_for_material_dom(
+        changed, time_source=lambda: changed.ms / 1000, isolated_preview=True,
+    )
+    assert not late.stable and late.content_transitions == 1
+
+
+def test_menu_preview_rejects_incorrect_opt_in_type():
+    import pytest
+    page = _TimedDomPage([(0, _dom("Original content of the same page is visible."))])
+    with pytest.raises(ValueError, match="boolean"):
+        wait_for_material_dom(page, time_source=lambda: page.ms / 1000,
+                              isolated_preview=1)
+    assert page.ms == 0

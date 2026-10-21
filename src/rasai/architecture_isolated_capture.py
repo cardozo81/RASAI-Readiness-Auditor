@@ -280,6 +280,7 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
             "ISOLATED_BROWSER_UNAVAILABLE", "ISOLATED_MANIFEST_INVALID",
             "ISOLATED_NAVIGATION_NOT_ATTESTED", "ISOLATED_RENDER_LIMIT",
             "ISOLATED_RESOURCES_BLOCKED",
+            "ISOLATED_CONTENT_NOT_STABLE", "ISOLATED_CONTENT_NOT_ATTESTED",
         }
         reason = result["reason"]
         if finished.returncode == 2 and reason in supported and result["rendered_html"] is None:

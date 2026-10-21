@@ -116,7 +116,8 @@ def render_bundle(target: str, device: str, table: dict[str, tuple[bytes, str, i
                     # content or a delayed hydration update. Do not certify
                     # the first visible frame. A bounded same-page materiality
                     # window is cheaper and more targeted than networkidle.
-                    settle = wait_for_material_dom(page)
+                    # Standalone OCI architecture preview, never M2/M3/M6 audit.
+                    settle = wait_for_material_dom(page, isolated_preview=True)
                     if not settle.stable:
                         return {"rendered_html": None, "reason": settle.reason}
                     if normalize_url(page.url) != target:
