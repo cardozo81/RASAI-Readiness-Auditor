@@ -22,6 +22,7 @@ from rasai.apdex_content_readiness_observation import (
     PrimaryContentReadiness,
     STRICT_PROVENANCE_VERSION,
 )
+from rasai.readiness_probe_cost_pilot import PrimaryContentProbeCost, VERSION as PROBE_COST_VERSION
 
 SIDECAR_VERSION = "RASAI-PRIMARY-CONTENT-READINESS-SIDECAR-001"
 _MAX_AUD_SOURCE_BYTES = 256 * 1024 * 1024
@@ -150,18 +151,82 @@ def _valid(observation: PrimaryContentReadiness) -> dict:
     return row
 
 
-def _serialized(audit_id: str, db_sha: str, manifest_sha: str, row: dict) -> bytes:
+
+_PROBE_COST_FIELDS = (
+    "contract_version", "sample_id", "page_id", "device",
+    "number_of_dom_evaluations", "total_dom_evaluation_ms",
+    "maximum_dom_evaluation_ms", "elapsed_probe_wall_ms",
+    "measured_sleep_ms", "active_probe_wall_ms",
+    "evaluation_budget_ms", "local_evaluation_budget_met",
+    "integration_gate", "identity_proof", "source_page_reused",
+)
+
+
+def _cost_metadata(value: PrimaryContentProbeCost | dict, row: dict) -> dict:
+    """Validate bounded same-sample telemetry, never claim an A/B budget pass."""
+    if isinstance(value, PrimaryContentProbeCost):
+        if asdict(value.observation) != row:
+            raise ValueError("probe cost observation identity mismatch")
+        if value.provider_requests != 0 or value.audit_writes != 0 or value.apdex_changed is not False:
+            raise ValueError("probe cost cannot alter canonical audit")
+        value = {
+            "contract_version": value.contract_version,
+            "sample_id": value.observation.sample_id,
+            "page_id": value.observation.page_id,
+            "device": value.observation.device,
+            **{k: getattr(value, k) for k in _PROBE_COST_FIELDS[4:]},
+        }
+    if not isinstance(value, dict) or set(value) != set(_PROBE_COST_FIELDS):
+        raise ValueError("invalid probe cost schema")
+    if (
+        value["contract_version"] != PROBE_COST_VERSION
+        or any(value[k] != row[k] for k in ("sample_id", "page_id", "device"))
+        or value["identity_proof"] != "CALLER_DECLARED_NOT_ATTESTED_BY_M25"
+        or value["source_page_reused"] is not True
+        or value["integration_gate"] not in {
+            "NOT_APPLICABLE_OR_NO_DOM_EVALUATION",
+            "BLOCKED_BY_LOCAL_DOM_OVERHEAD",
+            "PILOT_ONLY_REQUIRES_MATCHED_BASELINE_AND_GATEWAY_IDENTITY",
+        }
+        or type(value["number_of_dom_evaluations"]) is not int
+        or not 0 <= value["number_of_dom_evaluations"] <= 50
+        or any(
+            type(value[k]) not in (int, float)
+            or not math.isfinite(value[k]) or not 0 <= value[k] <= 600000
+            for k in (
+                "total_dom_evaluation_ms", "maximum_dom_evaluation_ms",
+                "elapsed_probe_wall_ms", "measured_sleep_ms",
+                "active_probe_wall_ms", "evaluation_budget_ms",
+            )
+        )
+        or not 0 < value["evaluation_budget_ms"] <= 1000
+        or value["maximum_dom_evaluation_ms"] > value["total_dom_evaluation_ms"] + .01
+        or value["total_dom_evaluation_ms"] > value["elapsed_probe_wall_ms"] + .05
+        or value["active_probe_wall_ms"] > value["elapsed_probe_wall_ms"] + .05
+        or type(value["local_evaluation_budget_met"]) not in (bool, type(None))
+        or (value["local_evaluation_budget_met"] is None) != (
+            value["number_of_dom_evaluations"] == 0
+        )
+    ):
+        raise ValueError("unverifiable or unbounded probe cost")
+    return dict(value)
+
+
+def _serialized(audit_id: str, db_sha: str, manifest_sha: str, row: dict, cost: dict | None = None) -> bytes:
+    data = {
+        "contract_version": SIDECAR_VERSION,
+        "audit_id": audit_id,
+        "source_audit_db_sha256": db_sha,
+        "source_report_manifest_sha256": manifest_sha,
+        "advisory_only": True,
+        "measurement_provenance": "PRODUCER_DECLARED_SAME_SAMPLE",
+        "observation": row,
+    }
+    if cost is not None:
+        data["probe_cost"] = cost
     return (
         json.dumps(
-            {
-                "contract_version": SIDECAR_VERSION,
-                "audit_id": audit_id,
-                "source_audit_db_sha256": db_sha,
-                "source_report_manifest_sha256": manifest_sha,
-                "advisory_only": True,
-                "measurement_provenance": "PRODUCER_DECLARED_SAME_SAMPLE",
-                "observation": row,
-            },
+            data,
             sort_keys=True, separators=(",", ":"), ensure_ascii=False,
             allow_nan=False,
         ) + "\n"
@@ -174,6 +239,7 @@ def _root(aud_dir: Path, audit_id: str) -> Path:
 
 def write_readiness_sidecar(
     aud_dir: Path, observation: PrimaryContentReadiness,
+    *, probe_cost: PrimaryContentProbeCost | None = None,
 ) -> Path:
     """Persist one versioned, deduplicated digest-named immutable JSON record.
 
@@ -182,7 +248,8 @@ def write_readiness_sidecar(
     """
     audit_id, db_sha, manifest_sha = _original(Path(aud_dir))
     row = _valid(observation)
-    payload = _serialized(audit_id, db_sha, manifest_sha, row)
+    cost = _cost_metadata(probe_cost, row) if probe_cost is not None else None
+    payload = _serialized(audit_id, db_sha, manifest_sha, row, cost)
     digest = sha256(payload).hexdigest()
     folder = _root(Path(aud_dir), audit_id)
     if folder.parent.is_symlink() or folder.is_symlink():
@@ -259,7 +326,9 @@ def read_readiness_sidecar(aud_dir: Path, sidecar_path: Path) -> dict:
         obs = obj.get("observation")
         if not isinstance(obs, dict):
             raise ValueError("invalid sidecar observation")
-        _valid(PrimaryContentReadiness(**obs))
+        checked = _valid(PrimaryContentReadiness(**obs))
+        if "probe_cost" in obj:
+            _cost_metadata(obj["probe_cost"], checked)
     except (TypeError, KeyError, ValueError) as exc:
         raise ValueError("invalid sidecar encoding") from exc
     return obj

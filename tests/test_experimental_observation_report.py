@@ -219,3 +219,15 @@ def test_faq_trusted_mode_requires_exact_key_and_collector_pair(tmp_path):
         render_experimental_observation_report(
             root, faq_trusted_key=b"short", faq_collector_id="TEST-ISOLATED-COLLECTOR",
         )
+
+def test_supplement_shows_probe_active_wall_but_not_a_b_approval(tmp_path):
+    from tests.test_apdex_readiness_sidecar import cost_for
+    root = _aud_with_samples(tmp_path)
+    old = (root / "audit.db").read_bytes()
+    point = observed()
+    write_readiness_sidecar(root, point, probe_cost=cost_for(point))
+    html = render_experimental_observation_report(root).read_text(encoding="utf-8")
+    assert "Custo ativo da sonda" in html
+    assert "10.0 ms" in html
+    assert "não demonstra comparação A/B" in html
+    assert (root / "audit.db").read_bytes() == old

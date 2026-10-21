@@ -155,3 +155,19 @@ apresentação adicional com seções rotuladas pelos catálogos,
 sem substituir o relatório original. O gate físico A/B de
 overhead e eventual decisão sobre integração ao pacote
 principal permanecem independentes.
+
+## Medição de custo ativo na amostra M25 real — entrega aditiva
+
+Sob opt-in existente, o callback M25 reutiliza o observador cronometrado
+`measure_existing_playwright_probe_cost`, sem criar navegador ou outra
+navegação. A medição M25 normal é congelada **antes** dessa avaliação.
+A espera por estabilidade DOM é separada de CPU/avaliação ativa; o status
+da prontidão mantém o contrato anterior e a duração Apdex não é recalculada.
+
+Após a selagem, o sidecar de prontidão pode conter `probe_cost`
+limitado e vinculado ao mesmo `audit_id/sample_id/page_id/device`.
+O suplemento CAT-06/CAT-07 apresenta o custo ativo observado; sidecars
+antigos não têm telemetria e mostram N/D. Os dados são declarados pelo
+produtor e **não** substituem 5 pares físicos controle/sonda, orçamento
+de overhead aprovado ou aceitação de mesma amostra. Não há consultas
+a provedores nem alteração do SQLite ou dos relatórios canônicos.

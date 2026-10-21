@@ -21,6 +21,7 @@ _ALLOWED = frozenset({"CSR_SPA", "HYDRATED", "MIXED", "UNKNOWN", "STATIC_OR_SSR"
 _LOCK = Lock()
 _pending: tuple[str, int] | None = None
 _observations: dict[str, list[PrimaryContentReadiness]] = defaultdict(list)
+_costs: dict[str, dict[str, Any]] = defaultdict(dict)
 _MAX_OBSERVATIONS = 128
 
 
@@ -54,7 +55,7 @@ def clear_pending_readiness() -> None:
 
 def experimental_gateway_factory(*, session_mode: str, policy: tuple[str, int]):
     from rasai.m25_apdex_experience import PlaywrightSyntheticUxGateway
-    from rasai.playwright_primary_content_probe import observe_existing_playwright_page
+    from rasai.readiness_probe_cost_pilot import measure_existing_playwright_probe_cost
 
     architecture, window_ms = policy
     def record_on_live_page(
@@ -68,18 +69,20 @@ def experimental_gateway_factory(*, session_mode: str, policy: tuple[str, int]):
             if (page is None or page.context is not live_context
                     or page.url != final_url or len(live_context.pages) != 1):
                 return {"status": "EXPERIMENTAL_SAME_PAGE_SCOPE_NOT_VERIFIED"}
-            observed = observe_existing_playwright_page(
+            timed = measure_existing_playwright_probe_cost(
                 page=page, sample_id=sample_id, context_id=context_id,
                 page_id=page_id, device=device, architecture=architecture,
                 navigation_started_monotonic_ns=navigation_started_monotonic_ns,
                 load_ms=load_ms, enabled=True, window_ms=window_ms,
             )
+            observed = timed.observation
             if observed.method_version != STRICT_PROVENANCE_VERSION:
                 return {"status": "EXPERIMENTAL_PROVENANCE_NOT_VERIFIED"}
             with _LOCK:
                 rows = _observations[audit_id]
                 if len(rows) < _MAX_OBSERVATIONS:
                     rows.append(observed)
+                    _costs[audit_id][sample_id] = timed
             return observed
         except Exception:
             return {"status": "EXPERIMENTAL_PROBE_UNAVAILABLE"}
@@ -93,13 +96,15 @@ def forget_experimental_readiness(audit_id: str | None = None) -> None:
     with _LOCK:
         if audit_id is None:
             _observations.clear()
+            _costs.clear()
         else:
             _observations.pop(audit_id, None)
+            _costs.pop(audit_id, None)
 
 
-def _drain(audit_id: str) -> tuple[PrimaryContentReadiness, ...]:
+def _drain(audit_id: str) -> tuple[tuple[PrimaryContentReadiness, ...], dict[str, Any]]:
     with _LOCK:
-        return tuple(_observations.pop(audit_id, ()))
+        return tuple(_observations.pop(audit_id, ())), _costs.pop(audit_id, {})
 
 
 def publish_after_seal(*, audit_id: str, aud_dir: Path) -> dict[str, int]:
@@ -108,7 +113,7 @@ def publish_after_seal(*, audit_id: str, aud_dir: Path) -> dict[str, int]:
     A missing table/sample never becomes proof. Every failure is isolated;
     caller must not treat a sidecar error as permission to edit the AUD.
     """
-    observations = _drain(audit_id)
+    observations, costs = _drain(audit_id)
     result = {"eligible": len(observations), "published": 0, "rejected": 0}
     if not observations:
         return result
@@ -132,7 +137,10 @@ def publish_after_seal(*, audit_id: str, aud_dir: Path) -> dict[str, int]:
                     if count != 1 or row.method_version != STRICT_PROVENANCE_VERSION:
                         result["rejected"] += 1
                         continue
-                    write_readiness_sidecar(root, row)
+                    if row.sample_id in costs:
+                        write_readiness_sidecar(root, row, probe_cost=costs[row.sample_id])
+                    else:
+                        write_readiness_sidecar(root, row)
                     result["published"] += 1
                 except (ValueError, OSError, sqlite3.Error):
                     result["rejected"] += 1

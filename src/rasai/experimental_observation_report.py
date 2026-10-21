@@ -76,7 +76,7 @@ def _readiness(aud: Path) -> tuple[list[dict], int]:
             if matches != 1:
                 raise ValueError("readiness sidecar does not identify exactly one persisted sample")
             seen.add(sample_key)
-            valid.append(observation)
+            valid.append({**observation, "_probe_cost": evidence.get("probe_cost")})
         except (OSError, ValueError, KeyError, TypeError, sqlite3.Error):
             rejected += 1
     return valid, rejected
@@ -242,11 +242,17 @@ def _document(audit_id: str, records: list[dict], rejected: int,
             else "Prontidão observada sem atraso pós-load"
             if meaningful else "Não observada ou não aplicável; nenhum sucesso inferido"
         )
+        cost = item.get("_probe_cost")
+        active_ms = (
+            _ms(cost["active_probe_wall_ms"])
+            if isinstance(cost, dict) and cost["number_of_dom_evaluations"] > 0
+            else "N/D"
+        )
         rows.append((
             item["sample_id"], item["page_id"], item["device"],
             item["architecture"], state, _ms(item["load_ms"]),
             _ms(item["primary_content_ms"]) if meaningful else "N/D",
-            _ms(delta) if meaningful else "N/D", verdict,
+            _ms(delta) if meaningful else "N/D", active_ms, verdict,
         ))
     if faq:
         faq_rows = [(v["page_id"], v["snapshot_id"], v["device"],
@@ -282,13 +288,14 @@ small{color:#46596e}"""
         + _table(
             ("Amostra", "Página", "Dispositivo", "Arquitetura",
              "Estado consultivo", "Load", "Conteúdo principal",
-             "Atraso pós-load", "Interpretação"),
+             "Atraso pós-load", "Custo ativo da sonda", "Interpretação"),
             rows,
         ) + "</section>"
         "<section id='cat07'><h2>CAT-07 | Experiência sintética e evidência física</h2>"
         "<p>Somente observações cujo sidecar e fonte AUD foram verificados em leitura. "
         "A identidade de amostra foi atribuída ao coletor, sem equivalência com RUM; "
-        "observações censuradas permanecem N/D.</p>"
+        "observações censuradas permanecem N/D. Custo ativo da sonda é telemetria "
+         "declarada do callback, não demonstra comparação A/B nem aprova orçamento.</p>"
         "<p>Registros aceitos: <strong>" + str(len(records)) + "</strong>; "
         "recusados: " + str(rejected) + ".</p></section>"
         "<section id='faq'><h2>FAQ | Antes de interação, após clique e não verificado</h2>"
