@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import Counter
 from hashlib import sha256
+import hmac
 from html import escape
 import json
 import os
@@ -90,8 +91,11 @@ def _unique(pairs):
     return result
 
 
-def _faq(aud: Path) -> tuple[list[dict], int]:
-    """Hash check only; no untrusted receipt marked as externally attested."""
+def _faq(
+    aud: Path, *, trusted_key: bytes | None = None,
+    collector_id: str | None = None,
+) -> tuple[list[dict], int]:
+    """Hash alone is not collector authentication; trusted mode checks the AUD."""
     folder = aud.parent / ".rasai-faq-sidecars" / aud.name
     if folder.is_symlink() or folder.parent.is_symlink():
         raise ValueError("untrusted FAQ folder")
@@ -118,9 +122,20 @@ def _faq(aud: Path) -> tuple[list[dict], int]:
                 blob.decode("utf-8"), object_pairs_hook=_unique,
                 parse_constant=lambda _: (_ for _ in ()).throw(ValueError()),
             )
+            if not isinstance(obj, dict):
+                raise ValueError("invalid FAQ object")
             scope = obj["scope"]
+            receipt, signed = obj["receipt"], obj["signed_witness"]
             if (
-                not isinstance(scope, dict)
+                not isinstance(receipt, dict) or not isinstance(signed, dict)
+                or not isinstance(obj.get("later_html"), str)
+                or not all(
+                    isinstance(obj.get(name), str)
+                    and re.fullmatch(r"[0-9a-f]{64}", obj[name])
+                    for name in ("receipt_mac", "witness_mac")
+                )
+                or signed.get("scope") != scope
+                or not isinstance(scope, dict)
                 or scope.get("audit_id") != aud.name
                 or obj["contract_version"] != "RASAI-FAQ-SAME-SAMPLE-SIDECAR-001"
                 or obj.get("advisory_only") is not True
@@ -129,14 +144,71 @@ def _faq(aud: Path) -> tuple[list[dict], int]:
                 or obj.get("score_change_authorized") is not False
             ):
                 raise ValueError("FAQ evidence source or limits unverifiable")
+            authenticated = False
+            if trusted_key is not None:
+                from rasai.same_sample_observation import _seal
+                from rasai.faq_aud_receipt_binding import inspect_faq_receipt_aud_binding
+                if (
+                    receipt.get("collector_id") != collector_id
+                    or signed.get("collector_id") != collector_id
+                    or signed.get("receipt_sha256") != sha256(obj["receipt_mac"].encode()).hexdigest()
+                    or not hmac.compare_digest(_seal(receipt, trusted_key), obj["receipt_mac"])
+                    or not hmac.compare_digest(_seal(signed, trusted_key), obj["witness_mac"])
+                ):
+                    raise ValueError("FAQ local MAC not authenticated")
+                with sqlite3.connect(
+                    (aud / "audit.db").resolve().as_uri() + "?mode=ro&immutable=1",
+                    uri=True, timeout=1,
+                ) as db:
+                    db.execute("PRAGMA query_only=ON")
+                    source_rows = db.execute(
+                        "SELECT s.rendered_artifact_ref FROM page_snapshots s "
+                        "JOIN pages p ON p.page_id=s.page_id "
+                        "WHERE p.audit_id=? AND s.page_id=? AND s.snapshot_id=? LIMIT 2",
+                        (aud.name, scope["page_id"], scope["snapshot_id"]),
+                    ).fetchall()
+                if len(source_rows) != 1 or not isinstance(source_rows[0][0], str):
+                    raise ValueError("FAQ snapshot source not verifiable")
+                ref = source_rows[0][0]
+                if not ref.startswith("artifacts/rendered/"):
+                    raise ValueError("FAQ source not a canonical rendered artifact")
+                source = aud
+                for segment in ref.split("/"):
+                    if segment in {"", ".", ".."}:
+                        raise ValueError("unsafe FAQ rendered artifact")
+                    source = source / segment
+                    if source.is_symlink():
+                        raise ValueError("FAQ artifact symlink")
+                if (
+                    not source.is_file() or source.stat().st_size > _FAQ_LIMIT
+                    or not source.resolve().is_relative_to(aud.resolve())
+                ):
+                    raise ValueError("FAQ source artifact out of scope")
+                proof = inspect_faq_receipt_aud_binding(
+                    aud, audit_id=aud.name, page_id=scope["page_id"],
+                    snapshot_id=scope["snapshot_id"],
+                    requested_url=scope["requested_url"],
+                    final_url=scope["final_url"], device=scope["device"],
+                    before_html=source.read_bytes().decode("utf-8"),
+                    later_html=obj["later_html"], receipt=receipt,
+                    receipt_mac=obj["receipt_mac"], trusted_key=trusted_key,
+                    permitted_collector_ids=frozenset({collector_id}),
+                )
+                if proof.get("status") != "SIGNED_RECEIPT_MATCHES_PERSISTED_AUD_DOM_BYTES":
+                    raise ValueError("FAQ signature does not bind persisted DOM")
+                authenticated = True
             observed.append({
                 "page_id": scope.get("page_id", ""),
                 "snapshot_id": scope.get("snapshot_id", ""),
                 "device": scope.get("device", ""),
-                "status": "APOS_CLIQUE_DECLARADO_SEM_HOMOLOGACAO",
+                "status": (
+                    "Após clique (recibo autenticado localmente; homologação pendente)"
+                    if authenticated else
+                    "Não verificado (recibo presente, assinatura não conferida)"
+                ),
                 "file_sha256": sha256(blob).hexdigest(),
             })
-        except (OSError, UnicodeError, ValueError, TypeError, KeyError):
+        except (OSError, UnicodeError, ValueError, TypeError, KeyError, sqlite3.Error):
             rejected += 1
     return observed, rejected
 
@@ -178,7 +250,7 @@ def _document(audit_id: str, records: list[dict], rejected: int,
         ))
     if faq:
         faq_rows = [(v["page_id"], v["snapshot_id"], v["device"],
-                     "Após clique (recibo local, homologação pendente)",
+                     v["status"],
                      v["file_sha256"]) for v in faq]
     else:
         faq_rows = [("N/D", "N/D", "N/D",
@@ -221,7 +293,7 @@ small{color:#46596e}"""
         "recusados: " + str(rejected) + ".</p></section>"
         "<section id='faq'><h2>FAQ | Antes de interação, após clique e não verificado</h2>"
         "<p class='warning'>Recibos FAQ são de origem local, com arquivo íntegro por digest. "
-        "Sem chave e homologação física externa, esta visão não revalida assinatura nem mesma sessão "
+        "Sem chave, recibos são NÃO VERIFICADOS; com HMAC e DOM válidos, a prova ainda não certifica isolamento de rede nem sessão histórica "
         "por autoridade independente. Ausência de clique não prova ausência editorial.</p>"
         + _table(
             ("Página", "Snapshot", "Dispositivo", "Evidência", "Digest local"),
@@ -233,14 +305,25 @@ small{color:#46596e}"""
     return content.encode("utf-8")
 
 
-def render_experimental_observation_report(aud_dir: str | Path) -> Path | None:
-    """Produce one immutable hash-named supplemental HTML, never edit report-catalog."""
+def render_experimental_observation_report(
+    aud_dir: str | Path, *, faq_trusted_key: bytes | None = None,
+    faq_collector_id: str | None = None,
+) -> Path | None:
+    """Render immutable companion, optionally verifying a trusted local FAQ receipt."""
+    if (faq_trusted_key is None) != (faq_collector_id is None):
+        raise ValueError("FAQ key and collector ID must be specified together")
+    if faq_trusted_key is not None and (
+        type(faq_trusted_key) is not bytes or not 32 <= len(faq_trusted_key) <= 128
+        or not isinstance(faq_collector_id, str)
+        or not 1 <= len(faq_collector_id) <= 128
+    ):
+        raise ValueError("invalid FAQ trust configuration")
     aud = Path(aud_dir)
     verified_id, _, _ = _original(aud)
     if verified_id != aud.name:
         raise ValueError("AUD not sealed or physical identity changed")
     records, rejected = _readiness(aud)
-    faq, faq_rejected = _faq(aud)
+    faq, faq_rejected = _faq(aud, trusted_key=faq_trusted_key, collector_id=faq_collector_id)
     if not records and not rejected and not faq and not faq_rejected:
         return None
     payload = _document(aud.name, records, rejected, faq, faq_rejected)
@@ -276,9 +359,22 @@ def main(argv: list[str] | None = None) -> int:
         description="Relatório independente CAT-06/CAT-07/FAQ consultivo."
     )
     parser.add_argument("--aud-dir", type=Path, required=True)
+    parser.add_argument("--faq-trusted-key-file", type=Path)
+    parser.add_argument("--faq-collector-id")
     opts = parser.parse_args(argv)
+    if (opts.faq_trusted_key_file is None) != (opts.faq_collector_id is None):
+        parser.error("FAQ key file and collector ID required together")
     try:
-        path = render_experimental_observation_report(opts.aud_dir)
+        key = None
+        if opts.faq_trusted_key_file is not None:
+            source = opts.faq_trusted_key_file
+            if (source.is_symlink() or not source.is_file()
+                    or not 32 <= source.stat().st_size <= 128):
+                raise ValueError("invalid local FAQ key")
+            key = source.read_bytes()
+        path = render_experimental_observation_report(
+            opts.aud_dir, faq_trusted_key=key, faq_collector_id=opts.faq_collector_id,
+        )
     except (OSError, ValueError, TypeError) as exc:
         parser.error(f"fonte experimental não verificável: {type(exc).__name__}")
     if path is None:

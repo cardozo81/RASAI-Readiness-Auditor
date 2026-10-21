@@ -11,6 +11,8 @@ import pytest
 
 from rasai.apdex_readiness_sidecar import write_readiness_sidecar
 from rasai.experimental_observation_report import render_experimental_observation_report
+from rasai.same_sample_observation import _seal
+from tests.test_faq_aud_receipt_binding import _BEFORE, _AFTER, _KEY, _URL, _receipt
 from tests.test_apdex_readiness_sidecar import aud, observed
 
 
@@ -108,9 +110,10 @@ def test_faq_digest_only_never_renders_untrusted_html_or_claims_attestation(tmp_
     raw = (json.dumps(obj, sort_keys=True) + "\n").encode()
     (folder / (sha256(raw).hexdigest() + ".json")).write_bytes(raw)
     html = render_experimental_observation_report(root).read_text(encoding="utf-8")
-    assert "Após clique (recibo local, homologação pendente)" in html
+    assert "Após clique (recibo autenticado localmente" not in html
+    assert "Recibos FAQ não elegíveis: 1" in html
     assert "independente" in html
-    assert "&lt;img src=x onerror=alert(1)&gt;" in html
+    assert "&lt;img src=x onerror=alert(1)&gt;" not in html
     assert "<img src=x onerror" not in html
     assert "steal-secret()" not in html
     assert "<script>" not in html
@@ -146,3 +149,73 @@ def test_digest_valid_but_nonexistent_sample_is_rejected(tmp_path):
     assert "Recusados por integridade: 1" in html
     assert "Prontidão posterior ao load" not in html
     assert "Nenhuma prontidão experimental verificada" in html
+
+def test_signed_faq_only_claims_local_authentication_after_key_and_aud_match(tmp_path):
+    root = _aud_with_samples(tmp_path)
+    artifact = root / "artifacts/rendered/faq.html"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text(_BEFORE, encoding="utf-8")
+    with sqlite3.connect(root / "audit.db") as db:
+        db.executescript(
+            "CREATE TABLE pages(page_id TEXT,audit_id TEXT);"
+            "CREATE TABLE page_snapshots(snapshot_id TEXT,page_id TEXT,"
+            "rendered_artifact_ref TEXT,requested_url TEXT,final_url TEXT,device TEXT);"
+        )
+        db.execute("INSERT INTO pages VALUES (?,?)", ("PAGE-FAQ", root.name))
+        db.execute("INSERT INTO page_snapshots VALUES (?,?,?,?,?,?)",
+                   ("SNP-FAQ","PAGE-FAQ","artifacts/rendered/faq.html",
+                    _URL,_URL,"mobile"))
+    scope = dict(
+        audit_id=root.name, page_id="PAGE-FAQ", snapshot_id="SNP-FAQ",
+        sample_id="M3-SNP-FAQ", context_id="CTX-SNP-FAQ",
+        requested_url=_URL, final_url=_URL, device="MOBILE", architecture="UNKNOWN",
+    )
+    receipt, mac = _receipt()
+    signed = {
+        "contract_version": "RASAI-LIVE-SAME-PAGE-WITNESS-001",
+        "scope": scope, "collector_id": "TEST-ISOLATED-COLLECTOR",
+        "receipt_sha256": sha256(mac.encode()).hexdigest(),
+        "readiness": {}, "same_live_page_observed_by_collector": True,
+        "same_persisted_aud_session_independently_attested": False,
+        "crawler_discovery_verified": False, "score_change_authorized": False,
+    }
+    obj = {
+        "contract_version": "RASAI-FAQ-SAME-SAMPLE-SIDECAR-001",
+        "scope": scope, "receipt": receipt, "receipt_mac": mac,
+        "signed_witness": signed, "witness_mac": _seal(signed, _KEY),
+        "later_html": _AFTER, "verification": {}, "advisory_only": True,
+        "same_persisted_browser_session_independently_attested": False,
+        "crawler_discovery_verified": False, "score_change_authorized": False,
+    }
+    raw = (json.dumps(obj, sort_keys=True) + "\n").encode()
+    folder = tmp_path / ".rasai-faq-sidecars" / root.name
+    folder.mkdir(parents=True)
+    (folder / (sha256(raw).hexdigest() + ".json")).write_bytes(raw)
+    db_bytes = (root / "audit.db").read_bytes()
+    declared = render_experimental_observation_report(root).read_text(encoding="utf-8")
+    assert "Não verificado (recibo presente, assinatura não conferida)" in declared
+    verified = render_experimental_observation_report(
+        root, faq_trusted_key=_KEY, faq_collector_id="TEST-ISOLATED-COLLECTOR",
+    ).read_text(encoding="utf-8")
+    assert "Após clique (recibo autenticado localmente; homologação pendente)" in verified
+    assert (root / "audit.db").read_bytes() == db_bytes
+    wrong_key = render_experimental_observation_report(
+        root, faq_trusted_key=b"wrong-secret-for-offline-collector-2026-10-20",
+        faq_collector_id="TEST-ISOLATED-COLLECTOR",
+    ).read_text(encoding="utf-8")
+    assert "Recibos FAQ não elegíveis: 1" in wrong_key
+    artifact.write_text(_BEFORE + "<p>changed</p>", encoding="utf-8")
+    changed_dom = render_experimental_observation_report(
+        root, faq_trusted_key=_KEY, faq_collector_id="TEST-ISOLATED-COLLECTOR",
+    ).read_text(encoding="utf-8")
+    assert "Recibos FAQ não elegíveis: 1" in changed_dom
+
+
+def test_faq_trusted_mode_requires_exact_key_and_collector_pair(tmp_path):
+    root = _aud_with_samples(tmp_path)
+    with pytest.raises(ValueError, match="together"):
+        render_experimental_observation_report(root, faq_trusted_key=_KEY)
+    with pytest.raises(ValueError, match="trust configuration"):
+        render_experimental_observation_report(
+            root, faq_trusted_key=b"short", faq_collector_id="TEST-ISOLATED-COLLECTOR",
+        )

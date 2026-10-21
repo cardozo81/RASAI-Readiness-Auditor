@@ -112,3 +112,21 @@ Se algum critério falhar, documentar especificamente sua causa,
 repetir **somente** o cenário focal corrigido e avançar a outra issue
 independente. Não executar pytest completo, reinstalar ambiente
 ou repetir workflows já verdes por precaução.
+
+## Recibo FAQ autenticado localmente: uso opcional
+
+Sem chave autorizada, o suplemento exibe um sidecar íntegro apenas
+como **Não verificado**, sem promover o digest SHA a evidência autenticada.
+Após coleta autorizada, conferir ambos os MACs e o HTML persistido:
+
+```powershell
+& ".\\.venv\\Scripts\\python.exe" -m rasai.experimental_observation_report `
+  --aud-dir ".\\audits\\AUD-ID" `
+  --faq-trusted-key-file "C:\\CAMINHO_PRIVADO\\collector.key" `
+  --faq-collector-id "COLETOR-AUTORIZADO"
+```
+
+Chave de 32 a 128 bytes, fora da AUD, sem symlink. MAC incorreto,
+coletor divergente e DOM adulterado são recusados. A conferência é
+**local**, não prova isolamento físico de rede, sessão histórica de
+terceiros, Googlebot ou homologação humana. Não enviar segredo ao ticket.
