@@ -7,9 +7,12 @@ The authenticated packet is neither a canonical score nor a mutation of AUD.
 """
 from __future__ import annotations
 
+from hashlib import sha256
+import os
 from pathlib import Path
 from typing import Any
 
+from rasai.claim_aud_binding import _ref_file
 from rasai.claim_review_batch import inspect_claim_review_batch
 from rasai.geo_query_ledger import _audit_digest
 
@@ -18,6 +21,78 @@ _PROMOTED = frozenset({
     "CLAIM_CORROBORATED", "CLAIM_CONTRADICTED_WITH_VERSIONED_SOURCE",
 })
 _UNVERIFIED = "CLAIM_UNVERIFIED_EXTERNAL"
+
+
+def _material_sources_still_sealed(
+    audit_directory: Path, claims: list[dict[str, Any]], audit_db_sha: str,
+) -> bool:
+    """Revalidate physical source bytes *after* the documentary review.
+
+    The batch reader verified the main-content artifacts at one instant.
+    A concurrent replacement after that verification must not preserve an
+    executive claim of current AUD binding. This does not prove a remote
+    document's origin or an adversarially controlled host filesystem.
+    """
+    db = audit_directory / "audit.db"
+    journals = tuple(
+        Path(str(db) + suffix) for suffix in ("-wal", "-shm", "-journal")
+    )
+    if any(p.exists() for p in journals):
+        return False
+    checked: set[tuple[str, str]] = set()
+    for row in claims:
+        binding = row.get("audit_binding")
+        if (not isinstance(binding, dict)
+                or binding.get("status") != "TEXT_PRESENT_IN_SNAPSHOT_MAIN_CONTENT"):
+            continue
+        reference = binding.get("source_artifact_ref")
+        digest = binding.get("main_content_sha256")
+        if (not isinstance(reference, str) or not isinstance(digest, str)
+                or len(digest) != 64):
+            return False
+        item = (reference, digest)
+        if item in checked:
+            continue
+        path = _ref_file(audit_directory, reference)
+        if path is None:
+            return False
+        try:
+            before = path.stat()
+            if not 0 < before.st_size <= 2_000_000:
+                return False
+            checksum = sha256()
+            size = 0
+            with path.open("rb") as handle:
+                opened = os.fstat(handle.fileno())
+                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                    size += len(chunk)
+                    if size > 2_000_000:
+                        return False
+                    checksum.update(chunk)
+            after = path.stat()
+            # The identity comparison includes the opened descriptor, not
+            # only two inspections of a potentially replaced pathname.
+            fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+            if os.name != "nt":
+                fields += ("st_ctime_ns",)
+            if (size != before.st_size
+                    or any(
+                        getattr(candidate, field) != getattr(before, field)
+                        for candidate in (opened, after)
+                        for field in fields
+                    )
+                    or _ref_file(audit_directory, reference) != path
+                    or checksum.hexdigest() != digest):
+                return False
+        except (OSError, ValueError):
+            return False
+        checked.add(item)
+    if any(p.exists() for p in journals):
+        return False
+    latest_sha, _size = _audit_digest(db)
+    if any(p.exists() for p in journals):
+        return False
+    return latest_sha == audit_db_sha
 
 
 def inspect_documentary_claim_advisory(
@@ -101,6 +176,10 @@ def inspect_documentary_claim_advisory(
                 if row.get("source_version_verified") is not False:
                     return denied
                 counts["unverified"] += 1
+        if not _material_sources_still_sealed(
+            audit_directory, rows, source_sha,
+        ):
+            return denied
         return {
             "contract": CONTRACT,
             "status": "AUD_BOUND_DOCUMENTARY_REVIEW_OBSERVED",

@@ -152,3 +152,18 @@ score, SARI, M23/M25 ou consulta a provedores. Por default, o
 suplemento sequer e acessado; continua a ressalva de validacao externa
 na matriz original. Esta implementacao nao substitui a fonte primaria
 real e o aceite externo ainda pendentes da #603.
+
+
+### Segunda verificacao da fonte fisica apos o vinculo documental
+
+O consumidor executivo revalida os arquivos de conteudo literal da
+AUD **apos** o retorno do verificador de lote. Cada referencia a
+`artifacts/` deve continuar sem symlink, com identidade fisica e
+SHA-256 do conteudo consistentes com o snapshot ja conferido; o
+`audit.db` e reconferido, sem WAL/SHM/journal de escrita concorrente.
+Substituicao do artefato ou surgimento de journal **entre as duas
+etapas** invalida o resumo completo (`NOT_VERIFIABLE`, exit 2),
+em vez de publicar corroboração atribuida a uma captura divergente.
+A regra continua limitada a integridade local; nao e prova de
+origem oficial, veracidade regulatoria nem integridade de um sistema
+operacional comprometido.

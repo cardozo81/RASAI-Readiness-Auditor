@@ -599,3 +599,54 @@ def test_documentary_executive_advisory_abstains_on_changed_source(tmp_path):
     )
     assert summary["status"] == "NOT_VERIFIABLE"
     assert "claims_reviewed_as_corroborated" not in summary
+
+
+def test_documentary_advisory_rejects_artifact_replaced_after_batch_binding(
+    tmp_path, monkeypatch,
+):
+    """A successful initial binding must not attest bytes changed afterward."""
+    from rasai import report_claim_review_advisory as adapter
+    folder = _fixture(tmp_path)
+    root, artifact = _aud_with_claim_snapshot(tmp_path, folder)
+    real_batch = adapter.inspect_claim_review_batch
+
+    def replace_after_binding(*args, **kwargs):
+        result = real_batch(*args, **kwargs)
+        assert result["status"] == "DOCUMENTARY_REVIEW_BATCH_OBSERVED"
+        artifact.write_text("The original claim disappeared.", encoding="utf-8")
+        return result
+
+    monkeypatch.setattr(adapter, "inspect_claim_review_batch", replace_after_binding)
+    projected = adapter.inspect_documentary_claim_advisory(
+        root, folder / "manifest.json",
+        trusted_key=KEY, trusted_reviewer_ids=REVIEWERS,
+    )
+    assert projected["status"] == "NOT_VERIFIABLE"
+    assert "claims_reviewed_as_corroborated" not in projected
+    assert projected["audit_writes"] == projected["provider_requests"] == 0
+
+
+def test_documentary_advisory_rejects_wal_created_after_batch_binding(
+    tmp_path, monkeypatch,
+):
+    """A post-read SQLite WAL forbids treating a changing AUD as sealed."""
+    from rasai import report_claim_review_advisory as adapter
+    folder = _fixture(tmp_path)
+    root, _artifact = _aud_with_claim_snapshot(tmp_path, folder)
+    real_batch = adapter.inspect_claim_review_batch
+
+    def create_journal_after_binding(*args, **kwargs):
+        result = real_batch(*args, **kwargs)
+        assert result["status"] == "DOCUMENTARY_REVIEW_BATCH_OBSERVED"
+        (root / "audit.db-wal").write_bytes(b"concurrent-write")
+        return result
+
+    monkeypatch.setattr(
+        adapter, "inspect_claim_review_batch", create_journal_after_binding,
+    )
+    projected = adapter.inspect_documentary_claim_advisory(
+        root, folder / "manifest.json",
+        trusted_key=KEY, trusted_reviewer_ids=REVIEWERS,
+    )
+    assert projected["status"] == "NOT_VERIFIABLE"
+    assert "claims_observed_in_aud" not in projected
