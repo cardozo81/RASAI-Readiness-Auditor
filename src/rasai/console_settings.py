@@ -236,7 +236,16 @@ def _persisted_environment_values(state: Any) -> dict[str, str]:
 
 def _state_values(state: Any) -> dict[str, dict[str, str]]:
     """Return only persistable, non-secret settings."""
+    from rasai.audit_configuration_reuse_console import _ARCHITECTURE_SELECTION
+    from rasai.architecture_choice import ArchitectureChoice
+    choice = _ARCHITECTURE_SELECTION.get(id(state))
+    if choice is not None and not isinstance(choice, ArchitectureChoice):
+        raise ValueError("Invalid architecture preference")
     return {
+        "architecture_choice": {
+            "mode": choice.mode if choice is not None else "",
+            "declared_architecture": (choice.declared_architecture or "") if choice else "",
+        },
         "console": {
             "config_version": CONFIG_VERSION,
             "input_mode": "url",
@@ -788,6 +797,24 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
                 # The exception text of int/float parsers can contain the
                 # operator's literal INI value. Keep only schema coordinates.
                 warnings.append(f"{section}.{option}: valor inválido; conteúdo omitido")
+    # Restore architecture mode and declaration as one validated unit.
+    from rasai.audit_configuration_reuse_console import _ARCHITECTURE_SELECTION
+    if parser.has_section("architecture_choice"):
+        from rasai.architecture_choice import ArchitectureChoice
+        persisted = parser._sections["architecture_choice"]
+        try:
+            if set(persisted) != {"mode", "declared_architecture"}:
+                raise ValueError("invalid fields")
+            mode, declared = persisted["mode"], persisted["declared_architecture"]
+            if mode or declared:
+                choice = ArchitectureChoice(mode=mode, declared_architecture=declared or None)
+                _ARCHITECTURE_SELECTION[id(state)] = choice
+            else:
+                _ARCHITECTURE_SELECTION.pop(id(state), None)
+        except (ValueError, TypeError):
+            warnings.append("architecture_choice.mode: preferência inválida; sessão preservada")
+    else:
+        _ARCHITECTURE_SELECTION.pop(id(state), None)
     if not (os.environ.get(PRESENTATION_TIMEZONE_ENV) or "").strip():
         os.environ[PRESENTATION_TIMEZONE_ENV] = DEFAULT_PRESENTATION_TIMEZONE
     if hasattr(state, "config_path"):
