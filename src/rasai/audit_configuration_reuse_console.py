@@ -636,7 +636,8 @@ def install(interactive_console: ModuleType) -> None:
             _ARCHITECTURE_SELECTION[id(state)] = selection
             from rasai.console_session import mark_dirty
             mark_dirty(state)
-            state.error = "Preferência de arquitetura registrada para esta sessão; os índices não foram alterados."
+            state.error = ""
+            print("Preferência de arquitetura registrada para esta sessão; os índices não foram alterados.")
             return
         if choice == "L":
             _load_source(state, console_module=interactive_console)
