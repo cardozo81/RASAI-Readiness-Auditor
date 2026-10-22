@@ -285,6 +285,10 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
                 f"{faq_sidecar['published']} recibo(s) publicados; "
                 f"{faq_sidecar['rejected']} recusados."
             )
+            if faq_sidecar["rejected"]:
+                print("FAQ_REJECTION_CODES=" + ",".join(
+                    faq_sidecar.get("rejection_reasons", ["UNCLASSIFIED"])
+                ))
     except Exception:
         _LOGGER.exception("Experimental FAQ physical sidecar unavailable")
 
