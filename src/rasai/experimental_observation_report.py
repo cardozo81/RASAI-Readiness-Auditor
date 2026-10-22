@@ -326,7 +326,13 @@ def render_experimental_observation_report(
     ):
         raise ValueError("invalid FAQ trust configuration")
     aud = Path(aud_dir)
-    verified_id, _, _ = _original(aud)
+    # Companion FAQ evidence may originate from a sealed audit completed
+    # with limitations (e.g., private loopback target). Other consumers of
+    # _original still require COMPLETE. Reject incomplete/failed AUDs.
+    faq_folder = aud.parent / ".rasai-faq-sidecars" / aud.name
+    verified_id, _, _ = _original(
+        aud, allow_limited_completion=faq_folder.is_dir(),
+    )
     if verified_id != aud.name:
         raise ValueError("AUD not sealed or physical identity changed")
     records, rejected = _readiness(aud)

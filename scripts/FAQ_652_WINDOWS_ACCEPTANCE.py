@@ -217,7 +217,9 @@ def run() -> int:
                     projection = subprocess.run(
                         [sys.executable, "-m",
                          "rasai.experimental_observation_report",
-                         "--aud-dir", str(aud)],
+                         "--aud-dir", str(aud),
+                         "--faq-trusted-key-file", str(secret_path),
+                         "--faq-collector-id", "local-fixture-652"],
                         cwd=root, env=env, stdout=log,
                         stderr=subprocess.STDOUT, timeout=45, check=False,
                     )
