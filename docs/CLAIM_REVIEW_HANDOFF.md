@@ -301,7 +301,7 @@ Nenhum desses estados significa que uma fonte oficial/revisor já tenha
 sido autenticado pelo software.
 
 
-## 9. Finalizacao local pelo revisor autorizado — sem editar HMAC manualmente
+## 9. Finalizacao local pelo revisor autorizado - sem editar HMAC manualmente
 
 O utilitario `scripts/claim_review_reviewer_finalize.py` reduz etapas
 mecanicas de montagem: le `claim.txt`, `conditions.txt`,
