@@ -14,7 +14,7 @@ from rasai.apdex_readiness_review_html import content_readiness_review_html
 from rasai.apdex_readiness_review_cli import main
 
 
-def _fixture(tmp_path, monkeypatch, status="OBSERVED"):
+def _fixture(tmp_path, monkeypatch, status="OBSERVED", sample_rows=1):
     from rasai import catalog_report_site
     monkeypatch.setattr(
         catalog_report_site, "catalog_report_is_fresh",
@@ -31,6 +31,15 @@ def _fixture(tmp_path, monkeypatch, status="OBSERVED"):
         con.execute(
             "INSERT INTO audits VALUES('AUD-CONTENT-322','COMPLETED','COMPLETE')"
         )
+        con.execute(
+            "CREATE TABLE synthetic_ux_apdex_samples "
+            "(audit_id TEXT,sample_id TEXT,page_id TEXT,device TEXT)"
+        )
+        for _ in range(sample_rows):
+            con.execute(
+                "INSERT INTO synthetic_ux_apdex_samples VALUES(?,?,?,?)",
+                ("AUD-CONTENT-322", "M25<&>1", "PAGE-1", "MOBILE"),
+            )
     report = aud / "report-catalog"
     report.mkdir()
     (report / "manifest.json").write_bytes(b'{"contract":"TEST"}')
@@ -63,6 +72,7 @@ def test_322_observed_documentary_review_shows_separate_load_and_ready(tmp_path,
     assert review["status"] == "DOCUMENTARY_SIDECAR_OBSERVED"
     assert review["producer_declared_only"] is True
     assert review["physical_sample_attested"] is False
+    assert review["persisted_sample_link_verified"] is True
     assert review["apdex_recalculated"] is False
     assert review["observation"]["post_load_delta_ms"] == 190
     assert review["observation"]["load_ms"] == 200
@@ -70,6 +80,7 @@ def test_322_observed_documentary_review_shows_separate_load_and_ready(tmp_path,
     assert "200 ms" in html and "390 ms" in html and "190 ms" in html
     assert "M25&lt;&amp;&gt;1" in html
     assert "não modifica o Apdex homologado" in html
+    assert "Verificado na AUD selada" in html
     assert main(["--audit-directory", str(aud), "--sidecar", str(item)]) == 0
     printed = json.loads(capsys.readouterr().out)
     assert printed["status"] == "DOCUMENTARY_SIDECAR_OBSERVED"
@@ -110,3 +121,15 @@ def test_322_tampered_sidecar_and_wrong_aud_do_not_publish_claims(
     wrong.mkdir()
     assert inspect_content_readiness_review(wrong, item)["status"] == "NOT_VERIFIABLE"
     assert not (wrong / "audit.db").exists()
+
+
+def test_322_review_rejects_absent_or_ambiguous_persisted_sample(tmp_path, monkeypatch):
+    for count in (0, 2):
+        scope = tmp_path / str(count)
+        scope.mkdir()
+        aud, item = _fixture(scope, monkeypatch, sample_rows=count)
+        review = inspect_content_readiness_review(aud, item)
+        assert review["status"] == "NOT_VERIFIABLE"
+        assert review["persisted_sample_link_verified"] is False
+        assert review["physical_sample_attested"] is False
+        assert "N/D" in content_readiness_review_html(review)

@@ -8,6 +8,7 @@ was collected by the browser task named in its fields.
 from __future__ import annotations
 
 from pathlib import Path
+import sqlite3
 from typing import Any
 
 from rasai.apdex_readiness_sidecar import read_readiness_sidecar
@@ -26,6 +27,7 @@ def inspect_content_readiness_review(
         "provider_requests": 0, "audit_writes": 0,
         "apdex_writes": 0, "apdex_recalculated": False,
         "producer_declared_only": True, "physical_sample_attested": False,
+        "persisted_sample_link_verified": False,
         "observation": None,
     }
     try:
@@ -51,9 +53,26 @@ def inspect_content_readiness_review(
             "OBSERVED", "NOT_OBSERVED", "TIMEOUT", "NOT_APPLICABLE", "ERROR",
         }:
             return baseline
+        # A digest-matching sidecar is not enough: the measured sample
+        # must exist exactly once in the sealed, read-only source SQLite.
+        db_path = Path(aud_dir) / "audit.db"
+        with sqlite3.connect(
+            db_path.resolve().as_uri() + "?mode=ro&immutable=1",
+            uri=True, timeout=1,
+        ) as connection:
+            connection.execute("PRAGMA query_only=ON")
+            matching = connection.execute(
+                "SELECT COUNT(*) FROM synthetic_ux_apdex_samples "
+                "WHERE audit_id=? AND sample_id=? AND page_id=? AND device=?",
+                (aud_id, projection["sample_id"], projection["page_id"],
+                 projection["device"]),
+            ).fetchone()
+        if matching is None or matching[0] != 1:
+            return baseline
         return {
             **baseline,
             "status": "DOCUMENTARY_SIDECAR_OBSERVED",
+            "persisted_sample_link_verified": True,
             "audit_id": aud_id,
             "reason": None,
             "observation": projection,
@@ -63,11 +82,13 @@ def inspect_content_readiness_review(
             "method_note": (
                 "Tempos monotônicos declarados pelo produtor no mesmo "
                 "contexto não equivalem a prova externa de coleta física. "
-                "Sem auditoria independente do browser, não inferir delta "
+                "A identidade declarada coincide com um registro M25 "
+                "persistido na AUD selada. Sem auditoria independente do "
+                "browser, não inferir delta "
                 "de load de M23/M25 e não computar outro Apdex."
             ),
         }
-    except (OSError, ValueError, TypeError, KeyError):
+    except (OSError, ValueError, TypeError, KeyError, sqlite3.Error):
         return baseline
 
 

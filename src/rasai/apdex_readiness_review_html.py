@@ -38,6 +38,7 @@ def content_readiness_review_html(view: Mapping[str, Any]) -> str:
         and view.get("contract") == CONTRACT
         and view.get("status") == "DOCUMENTARY_SIDECAR_OBSERVED"
         and isinstance(view.get("observation"), dict)
+        and view.get("persisted_sample_link_verified") is True
         and view.get("physical_sample_attested") is False
         and view.get("apdex_recalculated") is False
     )
@@ -49,6 +50,7 @@ def content_readiness_review_html(view: Mapping[str, Any]) -> str:
         for label, value in (
             ("Alegação do registro", _STATUS[obs["status"]]),
             ("Amostra declarada", obs.get("sample_id")),
+            ("Vínculo com amostra persistida", "Verificado na AUD selada"),
             ("Contexto declarado", obs.get("context_id")),
             ("Página declarada", obs.get("page_id")),
             ("Dispositivo", obs.get("device")),

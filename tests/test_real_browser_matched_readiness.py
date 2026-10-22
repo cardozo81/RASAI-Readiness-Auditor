@@ -338,3 +338,124 @@ def test_real_m25_sqlite_persists_exact_same_page_probe_samples(tmp_path, monkey
         thread.join(timeout=2.0)
         forget_experimental_readiness("AUD-LOCAL-322-CONTROL")
         forget_experimental_readiness("AUD-LOCAL-322-PROBE")
+
+
+def test_real_chromium_sqlite_to_sealed_sidecar_and_consultative_report(
+    tmp_path, monkeypatch,
+):
+    """Physical same-page sample through M25 SQLite, real seal, sidecar, report.
+
+    Offline engineering provenance, not external representative-site acceptance.
+    """
+    import sqlite3
+    from rasai.persistence import AuditWorkspace
+    from rasai.catalog_report_site import (
+        materialize_catalog_report_site, catalog_report_is_fresh,
+    )
+    from rasai.m25_experimental_probe_runtime import publish_after_seal
+    from rasai.apdex_readiness_sidecar import read_readiness_sidecar
+    from rasai.apdex_readiness_review import inspect_content_readiness_review
+    from rasai.experimental_observation_report import render_experimental_observation_report
+    from tests.test_catalog_report_site import _workspace, AUDIT_ID
+
+    prepared, _ = _workspace(tmp_path)
+    workspace = AuditWorkspace(prepared.root)
+    forget_experimental_readiness(AUDIT_ID)
+    monkeypatch.setattr(m25, "_log_progress", lambda *args, **kwargs: None)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Spa)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    url = f"http://127.0.0.1:{server.server_port}/spa"
+    try:
+        with sqlite3.connect(workspace.database) as db:
+            db.executescript(
+                "CREATE TABLE pages(page_id TEXT PRIMARY KEY, "
+                "audit_id TEXT NOT NULL, normalized_url TEXT NOT NULL);"
+                "CREATE TABLE page_snapshots(snapshot_id TEXT PRIMARY KEY, "
+                "page_id TEXT NOT NULL, device TEXT NOT NULL, final_url TEXT);"
+            )
+            db.execute("INSERT INTO pages VALUES (?,?,?)", (PAGE, AUDIT_ID, url))
+            db.execute(
+                "INSERT INTO page_snapshots VALUES (?,?,?,?)",
+                ("SNP-REAL-CONTENT", PAGE, "DESKTOP", url),
+            )
+
+        def factory():
+            gateway = experimental_gateway_factory(
+                session_mode="cold", policy=("CSR_SPA", 2200),
+            )
+            gateway.executable_path = shutil.which("google-chrome") or shutil.which("chromium")
+            return gateway
+
+        config = m25.ExperienceApdexConfig(
+            enabled=True, target_samples_per_page=1,
+            max_attempts_per_page=1, max_pages=1,
+            device_mix=(("DESKTOP", 100.0),), session_mode="cold",
+            kpm="USER_ACTION_DURATION",
+            satisfied_threshold_seconds=2.0, frustrated_threshold_seconds=8.0,
+            settle_seconds=0.7, delay_seconds=0.0, concurrency=1,
+        )
+        result = m25.execute_m25_experience(
+            audit_id=AUDIT_ID, workspace=workspace, config=config,
+            gateway_factory=factory,
+        )
+        assert result.valid_samples == 1
+        with sqlite3.connect(workspace.database) as db:
+            row = db.execute(
+                "SELECT sample_id,page_id,device,final_url,load_event_end_ms "
+                "FROM synthetic_ux_apdex_samples WHERE audit_id=?",
+                (AUDIT_ID,),
+            ).fetchone()
+            assert row is not None and row[1:4] == (PAGE, "DESKTOP", url)
+            assert row[4] is not None
+            db.execute(
+                "UPDATE audits SET status='COMPLETED', completion_status='COMPLETE' "
+                "WHERE audit_id=?", (AUDIT_ID,),
+            )
+        manifest_page = materialize_catalog_report_site(
+            audit_id=AUDIT_ID, workspace=workspace,
+        )
+        assert manifest_page.is_file()
+        assert catalog_report_is_fresh(audit_id=AUDIT_ID, workspace=workspace)
+        db_before = workspace.database.read_bytes()
+        manifest = workspace.root / "report-catalog" / "manifest.json"
+        manifest_before = manifest.read_bytes()
+
+        published = publish_after_seal(audit_id=AUDIT_ID, aud_dir=workspace.root)
+        assert published == {"eligible": 1, "published": 1, "rejected": 0}
+        sidecars = list(
+            (workspace.root.parent / ".rasai-readiness-sidecars" / AUDIT_ID).glob("*.json")
+        )
+        assert len(sidecars) == 1
+        verified = read_readiness_sidecar(workspace.root, sidecars[0])
+        assert verified["observation"]["sample_id"] == row[0]
+        assert verified["observation"]["page_id"] == row[1]
+        assert verified["observation"]["device"] == row[2]
+        assert verified["observation"]["status"] == "OBSERVED"
+        assert verified["probe_cost"]["sample_id"] == row[0]
+        review = inspect_content_readiness_review(workspace.root, sidecars[0])
+        assert review["status"] == "DOCUMENTARY_SIDECAR_OBSERVED"
+        assert review["persisted_sample_link_verified"] is True
+        assert review["physical_sample_attested"] is False
+        report = render_experimental_observation_report(workspace.root)
+        assert report is not None
+        text_html = report.read_text(encoding="utf-8")
+        assert "CAT-06" in text_html and "CAT-07" in text_html
+        assert "Prontidão posterior ao load" in text_html
+        assert workspace.database.read_bytes() == db_before
+        assert manifest.read_bytes() == manifest_before
+        assert publish_after_seal(audit_id=AUDIT_ID, aud_dir=workspace.root) == {
+            "eligible": 0, "published": 0, "rejected": 0,
+        }
+        print("RASAI_POSTSEAL_CHROMIUM_SQLITE=" + json.dumps({
+            "status": "SAME_PERSISTED_SAMPLE_SIDECAR_VERIFIED",
+            "sample_rows": 1, "sidecars": len(sidecars),
+            "source_aud_unchanged": True,
+            "independent_browser_provenance_attested": False,
+            "external_provider_requests": 0,
+        }, sort_keys=True))
+    finally:
+        forget_experimental_readiness(AUDIT_ID)
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2.0)
