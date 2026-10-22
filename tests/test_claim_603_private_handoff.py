@@ -123,3 +123,70 @@ def test_603_naive_capture_date_cannot_create_handoff(tmp_path):
     assert code == 2
     assert result["status"] == "NOT_VERIFIABLE"
     assert list(secret_dir.iterdir()) == []
+
+
+def test_603_rerun_identical_private_draft_is_idempotent(tmp_path):
+    aud, source = _fixture(tmp_path)
+    secret_dir = tmp_path / "private"
+    secret_dir.mkdir()
+    code, first = _run("--audit-directory", aud, "--private-directory", secret_dir)
+    assert code == 0
+    assert first["status"] == "UNSIGNED_PRIVATE_DRAFT_PREPARED"
+    evidence_before = {p.name: p.read_bytes() for p in secret_dir.iterdir()}
+    db_before, capture_before = (aud / "audit.db").read_bytes(), source.read_bytes()
+    code, again = _run("--audit-directory", aud, "--private-directory", secret_dir)
+    assert code == 0
+    assert again["status"] == "UNSIGNED_PRIVATE_DRAFT_REUSED"
+    assert again["existing_files_reused"] == 3
+    assert again["draft_files_created"] == 0
+    assert {p.name: p.read_bytes() for p in secret_dir.iterdir()} == evidence_before
+    assert (aud / "audit.db").read_bytes() == db_before
+    assert source.read_bytes() == capture_before
+
+
+def test_603_resumes_partial_private_draft_without_rewriting_existing(tmp_path):
+    aud, _ = _fixture(tmp_path)
+    secret_dir = tmp_path / "private"
+    secret_dir.mkdir()
+    code, _ = _run("--audit-directory", aud, "--private-directory", secret_dir)
+    assert code == 0
+    manifest = (secret_dir / "manifest.template.json").read_bytes()
+    claim = (secret_dir / "claim.txt").read_bytes()
+    (secret_dir / "REVIEW_REQUIRED.txt").unlink()  # synthetic partial write
+    code, resumed = _run("--audit-directory", aud, "--private-directory", secret_dir)
+    assert code == 0
+    assert resumed["status"] == "UNSIGNED_PRIVATE_DRAFT_COMPLETED"
+    assert resumed["existing_files_reused"] == 2
+    assert resumed["draft_files_created"] == 1
+    assert (secret_dir / "manifest.template.json").read_bytes() == manifest
+    assert (secret_dir / "claim.txt").read_bytes() == claim
+    assert (secret_dir / "REVIEW_REQUIRED.txt").is_file()
+
+
+def test_603_edited_private_draft_is_preserved_without_partial_writes(tmp_path):
+    aud, _ = _fixture(tmp_path)
+    secret_dir = tmp_path / "private"
+    secret_dir.mkdir()
+    code, _ = _run("--audit-directory", aud, "--private-directory", secret_dir)
+    assert code == 0
+    (secret_dir / "claim.txt").write_text("Reviewer-edited content", encoding="utf-8")
+    (secret_dir / "REVIEW_REQUIRED.txt").unlink()  # synthetic missing component
+    code, denied = _run("--audit-directory", aud, "--private-directory", secret_dir)
+    assert code == 2
+    assert denied["status"] == "DRAFT_FILES_ALREADY_PRESENT_NO_OVERWRITE"
+    assert denied["existing_files_conflicting"] == 1
+    assert denied["draft_files_missing"] == 1
+    assert (secret_dir / "claim.txt").read_text() == "Reviewer-edited content"
+    assert not (secret_dir / "REVIEW_REQUIRED.txt").exists()
+
+
+def test_603_existing_real_manifest_is_preserved_without_guessing_validity(tmp_path):
+    aud, _ = _fixture(tmp_path)
+    secret_dir = tmp_path / "private"
+    secret_dir.mkdir()
+    (secret_dir / "manifest.json").write_text('{"not_verified":true}', encoding="utf-8")
+    code, denied = _run("--audit-directory", aud, "--private-directory", secret_dir)
+    assert code == 2
+    assert denied["status"] == "MANIFEST_PRESENT_USE_ACCEPTANCE_GATE"
+    assert not (secret_dir / "claim.txt").exists()
+    assert (secret_dir / "manifest.json").read_text() == '{"not_verified":true}'

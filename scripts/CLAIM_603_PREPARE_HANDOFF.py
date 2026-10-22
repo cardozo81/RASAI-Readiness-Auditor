@@ -79,14 +79,10 @@ def prepare_private_draft(audit_dir: Path, private_dir: Path) -> dict:
         if (real_target == repo_root or real_target.is_relative_to(repo_root)
                 or real_target == root.resolve() or real_target.is_relative_to(root.resolve())):
             return status
-        # The operator's handoff must be additive. Never overwrite existing
-        # evidence from the reviewer, previous attempts, or another purpose.
-        outputs = (
-            "manifest.template.json", "REVIEW_REQUIRED.txt",
-            "claim.txt",
-        )
-        if any((target / name).exists() or (target / name).is_symlink() for name in outputs):
-            return {**status, "status": "DRAFT_FILES_ALREADY_PRESENT_NO_OVERWRITE"}
+        # Never rewrite real reviewer material if the handoff has progressed
+        # beyond draft stage. Presence alone does not establish authenticity.
+        if (target / "manifest.json").exists() or (target / "manifest.json").is_symlink():
+            return {**status, "status": "MANIFEST_PRESENT_USE_ACCEPTANCE_GATE"}
         db = root / "audit.db"
         before, before_size = _audit_digest(db)
         with closing(sqlite3.connect(
@@ -163,9 +159,47 @@ def prepare_private_draft(audit_dir: Path, private_dir: Path) -> dict:
         ]
         if candidate is not None:
             planned.append(("claim.txt", candidate))
+        # Treat earlier private drafts as resumable only when their BYTES
+        # exactly equal the result derived from this same sealed AUD. Any
+        # divergent/edited file may be a reviewer's work; preserve it intact.
+        # Never fill missing slots when existing ones already conflict.
+        reused = 0
+        missing = []
+        conflicts = 0
+        for name, content in planned:
+            dest = target / name
+            if dest.is_symlink():
+                conflicts += 1
+                continue
+            if not dest.exists():
+                missing.append((name, content))
+                continue
+            if not dest.is_file():
+                conflicts += 1
+                continue
+            expected = content.encode("utf-8")
+            if (dest.stat().st_size > 16384
+                    or dest.read_bytes() != expected):
+                conflicts += 1
+            else:
+                reused += 1
+        # When no candidate can be extracted, a pre-existing claim.txt
+        # cannot be verified as literal; refuse to bless or modify it.
+        if candidate is None and (
+            (target / "claim.txt").exists() or (target / "claim.txt").is_symlink()
+        ):
+            conflicts += 1
+        if conflicts:
+            return {
+                **status,
+                "status": "DRAFT_FILES_ALREADY_PRESENT_NO_OVERWRITE",
+                "existing_files_reused": reused,
+                "existing_files_conflicting": conflicts,
+                "draft_files_missing": len(missing),
+            }
         created = []
         try:
-            for name, content in planned:
+            for name, content in missing:
                 dest = target / name
                 with dest.open("x", encoding="utf-8", newline="") as stream:
                     created.append(dest)
@@ -174,16 +208,24 @@ def prepare_private_draft(audit_dir: Path, private_dir: Path) -> dict:
             for dest in created:
                 dest.unlink(missing_ok=True)
             return status
+        outcome = (
+            "UNSIGNED_PRIVATE_DRAFT_PREPARED"
+            if candidate is not None else
+            "UNSIGNED_TEMPLATE_PREPARED_CLAIM_REVIEW_REQUIRED"
+        )
+        if reused and not created:
+            outcome = "UNSIGNED_PRIVATE_DRAFT_REUSED"
+        elif reused and created:
+            outcome = "UNSIGNED_PRIVATE_DRAFT_COMPLETED"
         return {
             **status,
-            "status": (
-                "UNSIGNED_PRIVATE_DRAFT_PREPARED"
-                if candidate is not None else "UNSIGNED_TEMPLATE_PREPARED_CLAIM_REVIEW_REQUIRED"
-            ),
+            "status": outcome,
             "snapshot_count": 1,
             "utc_capture_date": date_utc,
             "literal_claim_candidate_present": candidate is not None,
             "reviewer_signature_present": False,
+            "existing_files_reused": reused,
+            "draft_files_created": len(created),
         }
     except (OSError, sqlite3.Error, ValueError, TypeError, UnicodeError):
         return status

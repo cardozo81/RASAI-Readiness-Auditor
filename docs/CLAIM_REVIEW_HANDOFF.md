@@ -275,3 +275,27 @@ os arquivos faltantes, respeitando o contrato desta pagina.
 Sem isso `PRIVATE_MANIFEST_MISSING` e normal e
 nao autoriza fechamento da #603. Nao levar estes arquivos
 ao GitHub nem compartilhar claims/segredos no chat.
+
+
+## 8. Retomada segura de rascunho já existente
+
+Se o gerador encontrar `manifest.template.json`, `claim.txt` ou
+`REVIEW_REQUIRED.txt`, ele calcula novamente, em modo de leitura, o
+conteúdo esperado a partir da mesma AUD física e confronta seus bytes
+com os arquivos locais. Quando forem idênticos, devolve
+`UNSIGNED_PRIVATE_DRAFT_REUSED` sem escrever. Para rascunho
+parcialmente presente e com arquivos existentes idênticos, grava
+**somente os faltantes**, devolvendo
+`UNSIGNED_PRIVATE_DRAFT_COMPLETED`. Não sobrescreve materiais.
+
+Se houver divergência, devolve
+`DRAFT_FILES_ALREADY_PRESENT_NO_OVERWRITE` com contadores de
+arquivos reaproveitáveis, conflitantes e ausentes. Isso preserva
+possíveis revisões já feitas pelo responsável — **não apagar ou
+renomear arquivos privados automaticamente**.
+Se já existir `manifest.json`, devolve
+`MANIFEST_PRESENT_USE_ACCEPTANCE_GATE`; sua presença não atesta
+autenticidade e a validação deve ocorrer exclusivamente no gate.
+
+Nenhum desses estados significa que uma fonte oficial/revisor já tenha
+sido autenticado pelo software.
