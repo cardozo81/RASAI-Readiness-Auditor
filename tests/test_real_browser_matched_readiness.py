@@ -193,3 +193,142 @@ def test_five_physical_same_gateway_m25_ab_pairs(monkeypatch):
         server.shutdown()
         server.server_close()
         thread.join(timeout=2.0)
+
+def test_real_m25_sqlite_persists_exact_same_page_probe_samples(tmp_path, monkeypatch):
+    """Physical controlled audit confirms actual M25 SQLite sample linkage.
+
+    Uses two disposable AUDs (A and B), the same real Chromium version and
+    loopback SPA. Does not mutate any pre-existing sealed or production AUD.
+    """
+    from pathlib import Path
+    import sqlite3
+    from rasai.persistence import AuditWorkspace
+
+    monkeypatch.setattr(m25, "_log_progress", lambda *args, **kwargs: None)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Spa)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    url = f"http://127.0.0.1:{server.server_port}/spa"
+    browser_path = shutil.which("google-chrome") or shutil.which("chromium")
+    config = m25.ExperienceApdexConfig(
+        enabled=True, target_samples_per_page=5, max_attempts_per_page=5,
+        max_pages=1, device_mix=(("DESKTOP", 100.0),),
+        session_mode="cold", kpm="USER_ACTION_DURATION",
+        satisfied_threshold_seconds=2.0, frustrated_threshold_seconds=8.0,
+        settle_seconds=0.7, delay_seconds=0.0, concurrency=1,
+    )
+    observations = {}
+    try:
+        for arm in ("control", "probe"):
+            audit_id = "AUD-LOCAL-322-" + arm.upper()
+            # AuditWorkspace writes only beneath pytest's disposable tmp_path.
+            ws = AuditWorkspace.create(tmp_path / arm, audit_id)
+            with sqlite3.connect(ws.database) as con:
+                con.executescript(
+                    "CREATE TABLE audits(audit_id TEXT PRIMARY KEY);"
+                    "CREATE TABLE pages(page_id TEXT PRIMARY KEY,"
+                    "audit_id TEXT NOT NULL,normalized_url TEXT NOT NULL);"
+                    "CREATE TABLE page_snapshots(snapshot_id TEXT PRIMARY KEY,"
+                    "page_id TEXT NOT NULL,device TEXT NOT NULL,final_url TEXT);"
+                )
+                con.execute("INSERT INTO audits VALUES (?)", (audit_id,))
+                con.execute(
+                    "INSERT INTO pages VALUES (?,?,?)", (PAGE,audit_id,url),
+                )
+                con.execute(
+                    "INSERT INTO page_snapshots VALUES (?,?,?,?)",
+                    ("SNP-LOCAL-322",PAGE,"DESKTOP",url),
+                )
+            forget_experimental_readiness(audit_id)
+            if arm == "probe":
+                factory = lambda: experimental_gateway_factory(
+                    session_mode="cold", policy=("CSR_SPA",2200),
+                )
+            else:
+                factory = lambda: m25.PlaywrightSyntheticUxGateway(
+                    session_mode="cold", executable_path=browser_path,
+                )
+            # Own and close the browser through the *actual* M25 executor;
+            # sample rows are committed by M25Persistence, not emulated.
+            result = m25.execute_m25_experience(
+                audit_id=audit_id, workspace=ws, config=config,
+                gateway_factory=factory,
+            )
+            assert result.valid_samples == 5, (arm,result)
+            with sqlite3.connect(ws.database) as con:
+                rows = con.execute(
+                    "SELECT sample_id,page_id,device,run_index,status,"
+                    "user_action_duration_ms,load_event_end_ms,final_url "
+                    "FROM synthetic_ux_apdex_samples WHERE audit_id=? "
+                    "ORDER BY run_index", (audit_id,),
+                ).fetchall()
+            assert len(rows) == 5
+            assert len({x[0] for x in rows}) == 5
+            assert all(
+                x[1] == PAGE and x[2] == "DESKTOP"
+                and x[4] == "SUCCESS" and x[7] == url
+                and x[5] is not None and x[6] is not None
+                and abs(x[5]-x[6]) <= 50.0
+                for x in rows
+            )
+            observations[arm] = rows
+            if arm == "probe":
+                observed, costs = _drain(audit_id)
+                assert len(observed) == 5 and len(costs) == 5
+                assert {v.sample_id for v in observed} == {x[0] for x in rows}
+                assert all(v.status == "OBSERVED" for v in observed)
+                assert all(v.primary_content_ms is not None
+                           and v.post_load_delta_ms is not None
+                           and v.post_load_delta_ms >= 0 for v in observed)
+                assert set(costs) == {x[0] for x in rows}
+                observations["costs"] = costs
+        versions = m25.DESKTOP_STANDARD_PROFILE
+        pairs = []
+        for control, probe in zip(
+            observations["control"], observations["probe"]
+        ):
+            cost = observations["costs"][probe[0]]
+            pairs.append({
+                "page_id": PAGE, "device": "DESKTOP",
+                "architecture": "CSR_SPA",
+                "browser_version": "same-runner-chrome",
+                "network_profile": versions.network_profile_id,
+                "cpu_profile": versions.hardware_profile_id,
+                "context_profile": versions.profile_id,
+                "navigation_url": url,
+                "control": {
+                    "sample_id": control[0], "load_duration_ms": control[5],
+                },
+                "probe": {
+                    "sample_id": probe[0], "load_duration_ms": probe[5],
+                    "active_probe_wall_ms": cost.active_probe_wall_ms,
+                    "enabled": True,
+                    "identity_proof": cost.identity_proof,
+                    "source_page_reused": cost.source_page_reused,
+                },
+            })
+        report = assess_matched_readiness_pilot(
+            pairs, overhead_budget_ms=30.0, min_pairs=5,
+        )
+        assert report["status"] == "MATCHED_LOCAL_PILOT_ASSESSED"
+        assert report["pairs_accepted"] == 5
+        assert report["gateway_identity_attested"] is False
+        assert report["m25_production_activation_approved"] is False
+        assert report["m25_apdex_changed"] is False
+        print("RASAI_322_SQLITE_M25_PHYSICAL_BINDING=" + json.dumps({
+            "sqlite_control_samples": len(observations["control"]),
+            "sqlite_probe_samples": len(observations["probe"]),
+            "same_sample_probe_rows": 5,
+            "pair_status": report["status"],
+            "gateway_identity_attested": report["gateway_identity_attested"],
+            "m25_production_activation_approved":
+                report["m25_production_activation_approved"],
+            "historical_aud_writes": 0,
+            "external_requests": 0,
+        }, sort_keys=True))
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2.0)
+        forget_experimental_readiness("AUD-LOCAL-322-CONTROL")
+        forget_experimental_readiness("AUD-LOCAL-322-PROBE")
