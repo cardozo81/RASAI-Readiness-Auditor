@@ -169,6 +169,22 @@ def run() -> int:
             if report["receipt_verified"] and report["persistent_aud_dom_bound"]
             else "RECEIPT_BINDING_FAILED"
         )
+        if report["receipt_verified"] and report["persistent_aud_dom_bound"]:
+            try:
+                with (workspace / "audit.log").open("a", encoding="utf-8") as log:
+                    projection = subprocess.run(
+                        [sys.executable, "-m",
+                         "rasai.experimental_observation_report",
+                         "--aud-dir", str(aud)],
+                        cwd=root, env=env, stdout=log,
+                        stderr=subprocess.STDOUT, timeout=45, check=False,
+                    )
+                report["consultative_report_exit"] = projection.returncode
+            except subprocess.TimeoutExpired:
+                report["consultative_report_exit"] = "TIMEOUT"
+            if report["consultative_report_exit"] != 0:
+                report["status"] = "CONSULTATIVE_REPORT_FAILED"
+                return 3
         # Do not claim full #652 acceptance while the verifier explicitly
         # declines an independent same-session attestation.
         return 0 if report["receipt_verified"] and report["persistent_aud_dom_bound"] else 3
