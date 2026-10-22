@@ -370,14 +370,33 @@ def test_real_chromium_sqlite_to_sealed_sidecar_and_consultative_report(
         with sqlite3.connect(workspace.database) as db:
             db.executescript(
                 "CREATE TABLE pages(page_id TEXT PRIMARY KEY, "
-                "audit_id TEXT NOT NULL, normalized_url TEXT NOT NULL);"
-                "CREATE TABLE page_snapshots(snapshot_id TEXT PRIMARY KEY, "
-                "page_id TEXT NOT NULL, device TEXT NOT NULL, final_url TEXT);"
+                "audit_id TEXT NOT NULL, normalized_url TEXT NOT NULL, "
+                "discovered_url TEXT NOT NULL, discovery_sources TEXT NOT NULL, "
+                "depth INTEGER NOT NULL);"
+                "CREATE TABLE page_snapshots("
+                "snapshot_id TEXT PRIMARY KEY, page_id TEXT NOT NULL, "
+                "device TEXT NOT NULL, requested_url TEXT NOT NULL, "
+                "final_url TEXT, captured_at TEXT NOT NULL, http_status INTEGER, "
+                "content_type TEXT, title TEXT, description TEXT, "
+                "canonical TEXT, meta_robots TEXT, rendering_mode TEXT, "
+                "raw_artifact_ref TEXT, rendered_artifact_ref TEXT, "
+                "main_content_ref TEXT, structured_data_ref TEXT, "
+                "browser_metadata TEXT NOT NULL, "
+                "architecture_classification TEXT NOT NULL);"
             )
-            db.execute("INSERT INTO pages VALUES (?,?,?)", (PAGE, AUDIT_ID, url))
             db.execute(
-                "INSERT INTO page_snapshots VALUES (?,?,?,?)",
-                ("SNP-REAL-CONTENT", PAGE, "DESKTOP", url),
+                "INSERT INTO pages VALUES (?,?,?,?,?,?)",
+                (PAGE, AUDIT_ID, url, url, '["DIRECT_INPUT"]', 0),
+            )
+            db.execute(
+                "INSERT INTO page_snapshots("
+                "snapshot_id,page_id,device,requested_url,final_url,"
+                "captured_at,http_status,content_type,browser_metadata,"
+                "architecture_classification) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                ("SNP-REAL-CONTENT", PAGE, "DESKTOP", url, url,
+                 "2026-10-22T12:00:00+00:00", 200, "text/html",
+                 "{}", "CSR_SPA"),
             )
 
         def factory():
