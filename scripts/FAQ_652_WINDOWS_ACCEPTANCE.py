@@ -82,6 +82,8 @@ def run() -> int:
     secret_path = workspace / "collector.key"
     secret_path.write_bytes(os.urandom(32))
     # No other process should read the key; in particular, never put it in Git.
+    fixture_path = workspace / "fixture.html"
+    fixture_path.write_bytes(PAGE)
     server = ThreadingHTTPServer(("127.0.0.1", 0), Fixture)
     server.daemon_threads = True
     thread = Thread(target=server.serve_forever, daemon=True)
@@ -120,6 +122,8 @@ def run() -> int:
         env = dict(os.environ)
         env["PYTHONPATH"] = str(root / "src")
         env["RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE"] = str(browser_path)
+        env["RASAI_652_FIXTURE_URL"] = target
+        env["RASAI_652_FIXTURE_PATH"] = str(fixture_path)
         # Never activate or request provider calls / remote PageSpeed.
         args = [
             sys.executable, "-m", "rasai", "audit", target,
@@ -153,6 +157,21 @@ def run() -> int:
         report["aud_id"] = aud.name
         sidecars = audit_root / ".rasai-faq-sidecars" / aud.name
         receipts = list(sidecars.glob("*.json")) if sidecars.is_dir() else []
+        report["receipt_file_count"] = len(receipts)
+        report["receipt_folder_exists"] = sidecars.is_dir()
+        # Query only metadata; do not expose URLs, HTML or credentials.
+        try:
+            import sqlite3
+            db = aud / "audit.db"
+            if db.is_file():
+                with sqlite3.connect(db.resolve().as_uri() + "?mode=ro",
+                                     uri=True) as con:
+                    snapshot_rows = con.execute(
+                        "SELECT COUNT(*) FROM page_snapshots"
+                    ).fetchone()
+                    report["snapshot_count"] = int(snapshot_rows[0])
+        except (OSError, ValueError, sqlite3.Error):
+            report["snapshot_metadata_error"] = True
         if proc.returncode or len(receipts) != 1:
             report["status"] = "AUD_OR_RECEIPT_INCOMPLETE"
             return 3
