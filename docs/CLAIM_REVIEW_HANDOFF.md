@@ -232,3 +232,46 @@ Apenas `AUTHENTICATED_REVIEW_AND_AUD_LINK_VERIFIED` (exit 0)
 com o comprovante independente real permite solicitar o aceite final
 externo. O algoritmo verifica integridade e vínculo local; continua
 **não** certificando origem legal/regulatória em nome da SUSEP.
+
+
+## 7. Preparacao automatica do rascunho privado (22/10/2026)
+
+A criacao de uma pasta vazia em `C:\RASAI-PRIVADO\603` NAO
+cria `manifest.json`, fontes primarias ou recibos.
+A execucao anterior com `--manifest` em caminho inexistente retorna
+`PRIVATE_MANIFEST_MISSING` (em versoes anteriores:
+`PRIVATE_PACKET_NOT_READY`). Os dois manifestos genericos
+encontrados antes eram de outro contrato.
+
+Para evitar gerar manualmente metadados de captura e para reaproveitar
+a AUD ja homologada, o operador executa **uma unica preparacao local**:
+
+```powershell
+cd C:\IA-PROJETOS\github\RASAI-Readiness-Auditor
+git pull --ff-only
+& ".\.venv\Scripts\python.exe" ".\scripts\CLAIM_603_PREPARE_HANDOFF.py" `
+    --search-root "C:\IA-PROJETOS" `
+    --private-directory "C:\RASAI-PRIVADO\603"
+```
+
+O script le a AUD em SQLite `immutable=1`, verifica SHA-256
+do banco/artefato antes/depois, identifica snapshot unico e
+data UTC real, e grava **somente em pasta privada fora do Git**:
+`manifest.template.json`, `REVIEW_REQUIRED.txt` e, se
+houver texto literal apropriado no artefato observado, um
+`claim.txt` **candidato ainda nao revisado**. O algoritmo de
+selecao por termo nao autentica a interpretacao do texto.
+Nunca escreve em `audit.db`, arquivo selado ou no diretorio Git;
+nao sobrescreve arquivos existentes, nao faz HTTP, nao gera
+`conditions.txt`, `receipt.json` ou `manifest.json`.
+
+**Somente o revisor autorizado** pode conferir/corrigir a
+alegacao, preencher o escopo exato de produto, obter documento
+oficial autentico aplicavel a data historica, fundamentar a
+correspondencia e assinar um recibo real fora do RASAi.
+Ao concluir essa tarefa, o responsavel produz
+`manifest.json` real (nao o modelo template) e preenche
+os arquivos faltantes, respeitando o contrato desta pagina.
+Sem isso `PRIVATE_MANIFEST_MISSING` e normal e
+nao autoriza fechamento da #603. Nao levar estes arquivos
+ao GitHub nem compartilhar claims/segredos no chat.

@@ -119,6 +119,8 @@ def _unique_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 def _packet(path: Path, expected_audit: str) -> dict[str, Any]:
     fallback = {"packet_status": "PRIVATE_PACKET_NOT_READY", "packet_claims": 0}
     try:
+        if not path.is_symlink() and not path.exists():
+            return {"packet_status": "PRIVATE_MANIFEST_MISSING", "packet_claims": 0}
         if path.is_symlink() or not path.is_file() or not 0 < path.stat().st_size <= 32768:
             return fallback
         obj = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique_pairs)
@@ -192,7 +194,10 @@ def inspect(
     packet = _packet(manifest, audit_id)
     public.update(packet)
     if packet["packet_status"] != "PRIVATE_FILES_PRESENT_NOT_YET_AUTHENTICATED":
-        return {**public, "status": "PRIVATE_PACKET_NOT_READY"}
+        status = ("PRIVATE_MANIFEST_MISSING"
+                  if packet["packet_status"] == "PRIVATE_MANIFEST_MISSING"
+                  else "PRIVATE_PACKET_NOT_READY")
+        return {**public, "status": status}
 
     trusted_env = os.environ if env is None else env
     raw_key = trusted_env.get("RASAI_CLAIM_REVIEW_HMAC_KEY_HEX", "")

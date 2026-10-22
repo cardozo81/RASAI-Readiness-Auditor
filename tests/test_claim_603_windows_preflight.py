@@ -99,3 +99,12 @@ def test_packet_symlink_to_outside_is_refused(tmp_path):
         return
     status = gate.inspect(audit_directory=aud, search_root=None, manifest=packet, env={})
     assert status["status"] == "PRIVATE_PACKET_NOT_READY"
+
+
+def test_explicit_nonexistent_manifest_is_distinct_from_invalid_packet(tmp_path):
+    aud = _aud(tmp_path)
+    absent = tmp_path / "private" / "manifest.json"
+    result = gate.inspect(audit_directory=aud, search_root=None, manifest=absent, env={})
+    assert result["status"] == result["packet_status"] == "PRIVATE_MANIFEST_MISSING"
+    assert result["packet_claims"] == 0
+    assert not absent.exists()
