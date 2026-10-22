@@ -398,6 +398,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     # the optional M3 FAQ gesture inside the trusted isolated worker.
     if effective and effective[0] == "audit":
         consent_flag = "--experimental-faq-explicit-consent"
+        boundary_flag = "--experimental-faq-network-boundary-ack"
+        if effective.count(boundary_flag) > 1:
+            raise ValueError("FAQ network-boundary acknowledgment must appear exactly once")
+        network_acknowledged = boundary_flag in effective
+        if network_acknowledged:
+            effective.remove(boundary_flag)
         names = (
             "--experimental-faq-requested-url",
             "--experimental-faq-allowed-final-url",
@@ -409,6 +415,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if consent_flag in effective:
             if effective.count(consent_flag) != 1:
                 raise ValueError("FAQ gesture consent must appear exactly once")
+            if not network_acknowledged:
+                raise ValueError("FAQ gesture requires separate network-boundary acknowledgment")
             effective.remove(consent_flag)
             supplied = {}
             for name in names:
@@ -434,7 +442,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 collector_id=supplied[names[4]],
                 trusted_key_file=Path(supplied[names[5]]),
                 explicit_operator_consent=True,
+                operator_network_boundary_acknowledged=network_acknowledged,
             )
+        elif network_acknowledged:
+            raise ValueError("FAQ network-boundary acknowledgment requires explicit FAQ consent")
         elif any(x == name or x.startswith(name + "=")
                  for x in effective[1:] for name in names):
             raise ValueError("FAQ gesture requires explicit consent")
