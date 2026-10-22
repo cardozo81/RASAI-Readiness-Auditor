@@ -155,6 +155,29 @@ def run() -> int:
             return 3
         aud = candidates[0]
         report["aud_id"] = aud.name
+        # Read-only acceptance diagnostics; never infer completion from CLI exit 0.
+        try:
+            import sqlite3
+            db = aud / "audit.db"
+            if db.is_file():
+                with sqlite3.connect(db.resolve().as_uri() + "?mode=ro",
+                                     uri=True, timeout=2) as con:
+                    con.execute("PRAGMA query_only=ON")
+                    audit_state = con.execute(
+                        "SELECT status, completion_status FROM audits WHERE audit_id=?",
+                        (aud.name,)
+                    ).fetchone()
+                    if audit_state:
+                        report["aud_status"] = str(audit_state[0])
+                        report["aud_completion_status"] = str(audit_state[1])
+                    report["foreign_key_violation"] = (
+                        con.execute("PRAGMA foreign_key_check").fetchone() is not None
+                    )
+                    report["sqlite_quick_check"] = str(
+                        con.execute("PRAGMA quick_check").fetchone()[0]
+                    )
+        except (OSError, ValueError, sqlite3.Error):
+            report["aud_status_inspection_failed"] = True
         sidecars = audit_root / ".rasai-faq-sidecars" / aud.name
         receipts = list(sidecars.glob("*.json")) if sidecars.is_dir() else []
         report["receipt_file_count"] = len(receipts)
